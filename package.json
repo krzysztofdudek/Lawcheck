@@ -1,0 +1,12 @@
+{
+  "name": "lawcheck",
+  "version": "0.0.0",
+  "description": "Checks code against the architecture and rules you write, and tells a coding agent which line breaks which rule. Work in progress.",
+  "license": "MIT",
+  "author": "Krzysztof Dudek",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/krzysztofdudek/Lawcheck.git"
+  },
+  "files": ["README.md", "LICENSE"]
+}
