@@ -1,6 +1,6 @@
 {
   "name": "lawcheck",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Checks code against the architecture and rules you write, and tells a coding agent which line breaks which rule. Work in progress.",
   "license": "MIT",
   "author": "Krzysztof Dudek",
@@ -8,5 +8,27 @@
     "type": "git",
     "url": "git+https://github.com/krzysztofdudek/Lawcheck.git"
   },
-  "files": ["README.md", "LICENSE"]
+  "type": "module",
+  "bin": {
+    "lawcheck": "dist/cli.js"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "files": [
+    "README.md",
+    "LICENSE",
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p .",
+    "test": "npm run build && node --test \"tests/unit/*.test.ts\" \"tests/acceptance/*.test.ts\""
+  },
+  "dependencies": {
+    "yaml": "^2.9.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "typescript": "^7.0.2"
+  }
 }
