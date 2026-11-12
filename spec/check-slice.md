@@ -41,7 +41,7 @@ Out, each with what this slice does where the design has it:
 
 **Values.** The file is a YAML mapping. `rules` and `types` take a mapping, and so does each rule and each type. `paths` and a type's `rules` take a sequence of strings. `lawcheck`, `why`, `about`, `status` and `content` take a string, and `why` and `about` a non-empty one without a line break. Anything else is `law-invalid` and names the key: a null (a key left empty), a string where a sequence belongs, a number, an empty file. A key that is absent is fine where the table does not require it.
 
-Any other key is `law-invalid`; the message names the key, its rule or type, and the nearest known key within two edits. An id is kebab-case, `[a-z0-9]+(-[a-z0-9]+)*`. A type id is unique in the tree. A rule id equals no code of sections 5 and 6. A rule that no type lists never runs.
+Any other key is `law-invalid`; the message names the key, its rule or type, and the nearest known key within two edits. An id is kebab-case, `[a-z0-9]+(-[a-z0-9]+)*`. A type id is unique in the tree. A rule id equals no code of sections 5 and 6, nor `untyped-file`. A key that YAML reads as no string, such as `~`, `true` or `12`, is `law-invalid`; quoted, it is a string. A rule that no type lists never runs.
 
 **Patterns** match the whole path, case-sensitive on every system. A pattern is segments joined by `/`.
 
@@ -310,7 +310,7 @@ next: fix src/core/discount.ts:2
 | `usage` | section 4 | none |
 | `not-initialized` | no `.lawcheck/law.yaml` here or above | none |
 | `no-git` | git cannot be started, refuses the repository, or the root is outside a git work tree; the message carries the first line git printed | none |
-| `law-invalid` | the law does not parse or breaks section 2: a key, a value, an id, a pattern, an expression, a rule that a type lists and the law lacks; one line per problem | `.lawcheck/law.yaml:<line>` |
+| `law-invalid` | the law cannot be read, does not parse or breaks section 2: a key, a value, an id, a pattern, an expression, a rule that a type lists and the law lacks; one line per problem | `.lawcheck/law.yaml:<line>` |
 | `rule-missing-file`, `rule-file-without-entry` | section 2 | the rule's line in the law; the file |
 | `file-unreadable` | a file whose path matches a type cannot be read; one line per file | the file |
 | `type-overlap` | one line per file, naming both types | the file |

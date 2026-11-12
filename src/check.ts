@@ -79,7 +79,14 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
   const notGit = workTreeProblem(root);
   if (notGit !== null) return errors({ code: 'no-git', file: null, line: null, message: notGit });
 
-  const { law, problems } = parseLaw(decode(readFileSync(join(root, LAW))));
+  let source: Uint8Array;
+  try {
+    source = readFileSync(join(root, LAW));
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code ?? 'an error';
+    return errors({ code: 'law-invalid', file: LAW, line: 1, message: `the law cannot be read (${code})` });
+  }
+  const { law, problems } = parseLaw(decode(source));
   if (law === null) {
     return { errors: problems.map((p) => ({ code: 'law-invalid', file: LAW, line: p.line, message: p.message })) };
   }

@@ -70,3 +70,15 @@ test('a YAML error names its line', () => {
   assert.equal(found.length >= 1, true);
   assert.match(found[0]!.message, /does not parse/);
 });
+
+test('a key that YAML reads as no string is law-invalid', () => {
+  for (const key of ['~', 'true', '1e3', '12']) {
+    const found = problems(`lawcheck: 0.1.0\nrules:\n  ${key}:\n    why: x\n`);
+    assert.ok(found.some((p) => p.line === 3 && /is no string/.test(p.message)), `${key}: ${JSON.stringify(found)}`);
+  }
+  assert.deepEqual(problems('lawcheck: 0.1.0\nrules:\n  "12":\n    why: x\n'), []);
+});
+
+test('the code untyped-file is no rule id', () => {
+  assert.match(problems('lawcheck: 0.1.0\nrules:\n  untyped-file:\n    why: x\n')[0]!.message, /code of Lawcheck/);
+});

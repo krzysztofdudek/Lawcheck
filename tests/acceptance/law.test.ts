@@ -154,3 +154,18 @@ test('test 20: rule files', async () => {
     assert.equal(run.code, 0, run.stdout);
   });
 });
+
+test('section 6: a law that cannot be read is law-invalid', async () => {
+  if (process.getuid?.() === 0) return;
+  await withSample(async (s) => {
+    chmodSync(join(s, '.lawcheck/law.yaml'), 0o000);
+    try {
+      const run = await check(s);
+      assert.equal(run.code, 2);
+      assert.match(run.stdout, /^\.lawcheck\/law\.yaml:1 {2}error\[law-invalid\] {2}the law cannot be read \(EACCES\)$/m);
+      assert.match(run.stdout, /^next: fix \.lawcheck\/law\.yaml, then run lawcheck check$/m);
+    } finally {
+      chmodSync(join(s, '.lawcheck/law.yaml'), 0o644);
+    }
+  });
+});

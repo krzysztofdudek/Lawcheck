@@ -38,6 +38,7 @@ const VERSION = /^\d+\.\d+\.\d+$/;
 const TOP_KEYS = ['lawcheck', 'rules', 'types'];
 const RULE_KEYS = ['why', 'status'];
 const TYPE_KEYS = ['about', 'paths', 'content', 'rules', 'types'];
+const RESERVED = new Set([...CODES, 'untyped-file']);
 
 export function distance(a: string, b: string): number {
   const row = Array.from({ length: b.length + 1 }, (_, j) => j);
@@ -84,6 +85,7 @@ class Reader {
   private readonly rules = new Map<string, Rule>();
   private readonly byId = new Map<string, TypeDef>();
   private readonly listed: { owner: string; rule: string; line: number }[] = [];
+  private readonly reportedKeys = new Set<Pair>();
 
   constructor(
     private readonly doc: Document,
@@ -132,7 +134,7 @@ class Reader {
       const id = this.keyOf(pair);
       const line = this.lineOf(pair.key);
       if (!ID.test(id)) this.problem(line, `the rule id '${id}' is not kebab-case`);
-      else if (CODES.has(id)) this.problem(line, `the rule id '${id}' is a code of Lawcheck`);
+      else if (RESERVED.has(id)) this.problem(line, `the rule id '${id}' is a code of Lawcheck`);
       const value = this.resolve(pair.value);
       if (!this.mapping(value, line, `rule '${id}'`)) continue;
       let why: string | null = null;
@@ -230,7 +232,13 @@ class Reader {
 
   private keyOf(pair: Pair): string {
     const key = this.resolve(pair.key);
-    return isScalar(key) ? String(key.value) : String(key);
+    if (isScalar(key) && typeof key.value === 'string') return key.value;
+    const text = isScalar(key) ? (key.source ?? String(key.value)) : String(key);
+    if (!this.reportedKeys.has(pair)) {
+      this.reportedKeys.add(pair);
+      this.problem(this.lineOf(pair.key), `the key '${text}' is no string; write it in quotes`);
+    }
+    return text;
   }
 
   private lineOf(node: unknown): number {
