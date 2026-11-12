@@ -1,0 +1,45 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { plural, renderErrors, renderReport } from '../../dist/output.js';
+
+function finding(file: string, line: number | undefined, debt = false) {
+  const f: Record<string, unknown> = { code: 'r', rule: 'r', severity: debt ? 'warning' : 'error', debt, file, type: 't', message: 'm', why: 'w' };
+  if (line !== undefined) f.line = line;
+  return f as never;
+}
+
+test('a count of 1 takes the singular', () => {
+  assert.equal(plural(1, 'changed file'), '1 changed file');
+  assert.equal(plural(0, 'waiver'), '0 waivers');
+});
+
+test('a whole-file finding prints its file alone, and why follows the first finding of a code', () => {
+  const text = renderReport({ mode: 'change', base: 'main', changed: 2, findings: [finding('a.ts', undefined), finding('b.ts', 3)], debt: [], waivers: [] }, false);
+  assert.equal(text, ['lawcheck: FAIL  2 errors in 2 changed files (against main)', '', 'a.ts  error[r]  m', '  why:  w', 'b.ts:3  error[r]  m', '', 'next: fix a.ts', ''].join('\n'));
+});
+
+test('without a base the first line says every file counts as changed', () => {
+  const text = renderReport({ mode: 'change', base: null, changed: 1, findings: [], debt: [], waivers: [] }, false);
+  assert.equal(text, 'lawcheck: PASS  1 file (no base: every file counts as changed)\n');
+});
+
+test('one more finding takes the singular', () => {
+  const findings = Array.from({ length: 51 }, (_, i) => finding('a.ts', i + 1));
+  const text = renderReport({ mode: 'change', base: 'main', changed: 1, findings, debt: [], waivers: [] }, false);
+  assert.ok(text.includes('\n... 1 more finding (--json lists all)\n'));
+});
+
+test('a whole-file finding has no line in JSON, and a passing run has no next', () => {
+  const document = JSON.parse(renderReport({ mode: 'full', base: null, changed: 1, findings: [], debt: [finding('a.ts', undefined, true)], waivers: [] }, true));
+  assert.equal('line' in document.findings[0], false);
+  assert.deepEqual(document.scope, { mode: 'full', base: null, files: 1 });
+  assert.equal(document.next, null);
+  assert.equal(document.result, 'pass');
+});
+
+test('exit 2 prints a lawcheck-error/1 document with null places', () => {
+  const document = JSON.parse(renderErrors([{ code: 'usage', file: null, line: null, message: 'x' }], true));
+  assert.equal(document.schema, 'lawcheck-error/1');
+  assert.deepEqual(Object.keys(document.errors[0]), ['code', 'file', 'line', 'message', 'why']);
+  assert.equal(document.next.command, null);
+});

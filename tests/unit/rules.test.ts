@@ -1,0 +1,33 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { normalizeMessage, runAll, validate } from '../../dist/rules.js';
+
+const FILE = { path: 'src/a.ts', type: { id: 'source' }, rules: [], text: 'a\nb\n', lines: ['a', 'b'] } as never;
+
+test('a valid answer becomes findings with the call path', () => {
+  const result = validate('r', [{ message: 'x' }, { message: 'y\r\nz', line: 2, file: 'src/a.ts', column: 4 }], FILE);
+  assert.deepEqual(result, {
+    findings: [
+      { rule: 'r', file: 'src/a.ts', message: 'x' },
+      { rule: 'r', file: 'src/a.ts', message: 'y z', line: 2 },
+    ],
+  });
+});
+
+test('every broken answer is named', () => {
+  const broken = [{}, null, 'x', [null], [[]], [{ line: 1 }], [{ message: '' }], [{ message: 'x', file: 'b.ts' }], [{ message: 'x', line: 0 }], [{ message: 'x', line: 3 }], [{ message: 'x', line: 1.5 }], [{ message: 'x', line: NaN }], [{ message: 'x', line: '1' }]];
+  for (const value of broken) assert.ok('problem' in validate('r', value, FILE), JSON.stringify(value));
+});
+
+test('each line break in a message becomes one space', () => {
+  assert.equal(normalizeMessage('a\nb\r\nc\rd'), 'a b c d');
+});
+
+test('runAll keeps the order of its tasks under a limit', async () => {
+  const delays = [30, 5, 20, 1];
+  const results = await runAll(
+    delays.map((ms, index) => () => new Promise<number>((done) => setTimeout(() => done(index), ms))),
+    2,
+  );
+  assert.deepEqual(results, [0, 1, 2, 3]);
+});

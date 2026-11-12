@@ -1,0 +1,125 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { append, check, D, D_PATH, findingLines, withSample, write } from './helpers.ts';
+
+function withLine(at: number, line: string): string {
+  const lines = D.split('\n');
+  lines.splice(at - 1, 0, line);
+  return lines.join('\n');
+}
+
+const SUPPORT = '  // lawcheck-waive no-console -- support reads this line';
+
+test('test 31: a waiver on a line of its own covers the next line', async () => {
+  await withSample(async (s) => {
+    write(s, D_PATH, withLine(2, SUPPORT));
+    const run = await check(s);
+    assert.equal(run.stdout.split('\n')[0], 'lawcheck: PASS  1 warning in 1 changed file (against main), 2 waivers');
+    assert.deepEqual(findingLines(run.stdout), ['src/core/discount.ts:4  warning[no-todo]  TODO without an issue number']);
+    assert.equal(run.code, 0);
+  });
+});
+
+test('test 32: a waiver without a reason', async () => {
+  await withSample(async (s) => {
+    write(s, D_PATH, withLine(2, '  // lawcheck-waive no-console'));
+    const run = await check(s);
+    assert.equal(run.stdout.split('\n')[0], 'lawcheck: FAIL  2 errors, 1 warning in 1 changed file (against main), 1 waiver');
+    const found = findingLines(run.stdout);
+    assert.ok(found.some((line) => line.startsWith('src/core/discount.ts:2  error[waiver-without-reason]')), run.stdout);
+    assert.ok(found.some((line) => line.startsWith('src/core/discount.ts:3  error[no-console]')), run.stdout);
+    assert.equal(run.code, 1);
+  });
+});
+
+test('test 33: a waiver of an unknown rule', async () => {
+  const variants: [string, string][] = [
+    ['no-such', SUPPORT.replace('no-console', 'no-such')],
+    ['lawcheck-waive-file', SUPPORT.replace('lawcheck-waive', 'lawcheck-waive-file')],
+    ['cut after the marker', '  // lawcheck-waive'],
+  ];
+  for (const [name, line] of variants) {
+    await withSample(async (s) => {
+      write(s, D_PATH, withLine(2, line));
+      const run = await check(s);
+      const found = findingLines(run.stdout);
+      assert.ok(found.some((l) => l.startsWith('src/core/discount.ts:2  error[waiver-unknown-rule]')), `${name}: ${run.stdout}`);
+      assert.ok(found.some((l) => l.startsWith('src/core/discount.ts:3  error[no-console]')), `${name}: ${run.stdout}`);
+      assert.doesNotMatch(run.stdout, /waiver-without-reason/, name);
+      assert.equal(run.code, 1, name);
+    });
+  }
+});
+
+test('test 34: an unused waiver', async () => {
+  await withSample(async (s) => {
+    write(s, D_PATH, withLine(5, '  // lawcheck-waive no-console -- nothing here'));
+    const run = await check(s);
+    assert.equal(run.stdout.split('\n')[0], 'lawcheck: FAIL  1 error, 2 warnings in 1 changed file (against main), 2 waivers');
+    assert.ok(findingLines(run.stdout).some((line) => line.startsWith('src/core/discount.ts:5  warning[waiver-unused]')), run.stdout);
+  });
+});
+
+test('test 35: two waivers in comments of other languages', async () => {
+  const both = [
+    '<!-- lawcheck-waive no-console -- a demo of two waivers -->',
+    '/* lawcheck-waive no-todo -- tracked on the board */',
+    "console.log('x'); // TODO later",
+    '',
+  ].join('\n');
+  await withSample(async (s) => {
+    write(s, 'src/core/both.ts', both);
+    const run = await check(s);
+    assert.equal(run.stdout, 'lawcheck: PASS  1 changed file (against main), 2 waivers\n');
+    assert.equal(run.code, 0);
+    const json = JSON.parse((await check(s, '--base', 'main', '--json')).stdout);
+    assert.deepEqual(
+      json.waivers.map((w: { reason: string; waived: number }) => [w.reason, w.waived]),
+      [
+        ['a demo of two waivers', 1],
+        ['tracked on the board', 1],
+      ],
+    );
+  });
+});
+
+test('test 36: waivers outside the change count in the debt heading', async () => {
+  const edit = (s: string) => {
+    append(s, 'src/core/price.ts', '// end\n');
+    append(s, 'src/core/tax.ts', '// end\n');
+    append(s, 'tools/release.mjs', '// end\n');
+  };
+  await withSample(async (s) => {
+    edit(s);
+    const run = await check(s, '--full', '--base', 'main');
+    assert.equal(run.stdout.split('\n')[0], 'lawcheck: FAIL  1 error, 2 warnings in 3 changed files (against main)');
+    assert.ok(run.stdout.split('\n').includes('debt (outside this change): none'), run.stdout);
+    assert.equal(run.code, 1);
+  });
+  await withSample(
+    async (s) => {
+      edit(s);
+      const run = await check(s, '--full', '--base', 'main');
+      assert.equal(run.stdout.split('\n')[0], 'lawcheck: FAIL  1 error, 2 warnings in 3 changed files (against main)');
+      assert.ok(run.stdout.split('\n').includes('debt (outside this change): none, 1 waiver'), run.stdout);
+      assert.equal(run.code, 1);
+    },
+    { onMain: (s) => append(s, 'src/cli/main.ts', '// TODO later lawcheck-waive no-todo -- a demo\n') },
+  );
+});
+
+test('test 37: waiver findings outside the change are debt', async () => {
+  await withSample(
+    async (s) => {
+      const run = await check(s, '--full', '--base', 'main');
+      const lines = run.stdout.split('\n');
+      assert.equal(lines[0], 'lawcheck: PASS  nothing changed against main');
+      assert.ok(lines.includes('debt (outside this change): 5 findings in 3 files, 1 waiver'), run.stdout);
+      const found = findingLines(run.stdout);
+      assert.ok(found.some((line) => line.startsWith('src/core/tax.ts:3  warning[waiver-unknown-rule]')), run.stdout);
+      assert.ok(found.some((line) => line.startsWith('src/core/tax.ts:4  warning[waiver-unused]')), run.stdout);
+      assert.equal(run.code, 0);
+    },
+    { onMain: (s) => append(s, 'src/core/tax.ts', '// lawcheck-waive no-such -- x\n// lawcheck-waive no-todo -- nothing here\n') },
+  );
+});
