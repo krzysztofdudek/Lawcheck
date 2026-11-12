@@ -13,6 +13,9 @@ type Incoming =
 
 type Check = (input: { files: CallFile[]; repo: { filesOf(typeId: string): string[] } }) => unknown;
 
+const channel = process.send!.bind(process);
+process.send = undefined;
+
 let check: Check | null = null;
 let repo: { filesOf(typeId: string): string[] } | null = null;
 
@@ -23,9 +26,9 @@ function text(error: unknown): string {
 
 function send(message: unknown): void {
   try {
-    process.send!(message);
+    channel(message);
   } catch (error) {
-    process.send!({ kind: 'uncloneable', message: text(error) });
+    channel({ kind: 'uncloneable', message: text(error) });
   }
 }
 

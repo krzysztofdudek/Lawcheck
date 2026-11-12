@@ -216,3 +216,17 @@ test('section 3: a rule that spins ends with the tool, whatever ends the tool', 
     });
   }
 });
+
+test("section 3: a rule that writes to the runner's channel crashes as that rule", async () => {
+  const cases: [string, string][] = [
+    ['sends null', 'export function check() { process.send(null); return []; }\n'],
+    ['sends an answer of its own', ORIGINAL + "export function check(input) { process.send({ kind: 'result', value: [] }); return original(input); }\n"],
+  ];
+  for (const [name, source] of cases) {
+    await withRule(source, async (s) => {
+      const run = await check(s);
+      assertCrashes(run, name);
+      assert.doesNotMatch(run.stdout, /error\[internal\]/, name);
+    });
+  }
+});

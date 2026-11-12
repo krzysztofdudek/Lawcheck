@@ -131,7 +131,7 @@ export function runRule(run: RuleRun): Promise<RuleOutcome> {
         if (message.kind === 'uncloneable') {
           return end({ crash: `returns a value the channel cannot carry for ${file.path}: ${message.message}` });
         }
-        if (message.kind !== 'result') return end({ crash: `answers ${file.path} with something the runner does not send` });
+        if (message.kind !== 'result') return end({ crash: `writes to the runner's channel ${stage}` });
         const checked = validate(run.rule, message.value, file);
         if ('problem' in checked) return end({ crash: `returns ${checked.problem} for ${file.path}` });
         findings.push(...checked.findings);
@@ -141,10 +141,15 @@ export function runRule(run: RuleRun): Promise<RuleOutcome> {
 
     child.on('error', (error) => end(error));
     child.on('exit', () => end({ crash: `ends before answering ${stage}` }));
-    child.on('message', (message: Message) => waiting?.(message));
+    child.on('message', (message: unknown) => {
+      const known = typeof message === 'object' && message !== null && typeof (message as Message).kind === 'string';
+      if (waiting === null || !known) return end({ crash: `writes to the runner's channel ${stage}` });
+      waiting(message as Message);
+    });
     ask({ kind: 'load', file: run.ruleFile, filesOf: run.filesOf }, (message) => {
       if (message.kind === 'load-failed') return end({ crash: `fails to load: ${message.message}` });
       if (message.kind === 'uncloneable') return end({ crash: `fails to load: ${message.message}` });
+      if (message.kind !== 'loaded') return end({ crash: `writes to the runner's channel ${stage}` });
       callNext(0);
     });
   });

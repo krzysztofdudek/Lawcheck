@@ -170,7 +170,7 @@ The tool sends the type of every file and the path of the rule file. The runner 
 - starts a child process or a worker thread;
 - loads a native add-on or WASI.
 
-A rule that hangs or dies takes its own process with it and nothing else. `process.env` is empty in a rule.
+A rule that hangs or dies takes its own process with it and nothing else. `process.env` is empty in a rule. `process.send` is absent in a rule, so the channel to the tool carries only the runner's answers; a message the tool did not ask for ends the rule as `rule-crashed`.
 
 **What the runner does not stop.** It is no sandbox, and this slice has no flag that skips script rules. A rule can:
 
