@@ -170,6 +170,8 @@ The tool sends the type of every file and the path of the rule file. The runner 
 - starts a child process or a worker thread;
 - loads a native add-on or WASI.
 
+Node refuses each of these in every form. The rule is `rule-crashed` when the refusal reaches it as a thrown error or a rejected promise. A call with a callback, such as `fs.writeFile(path, data, callback)`, hands the refusal to the callback instead, and the rule goes on; the file is still not written.
+
 A rule that hangs or dies takes its own process with it and nothing else. `process.env` is empty in a rule. `process.send` is absent in a rule, so the channel to the tool carries only the runner's answers; a message the tool did not ask for ends the rule as `rule-crashed`.
 
 **What the runner does not stop.** It is no sandbox, and this slice has no flag that skips script rules. A rule can:
