@@ -18,3 +18,7 @@ test('empty output holds no path', () => {
 test('paths compare by UTF-16 code units', () => {
   assert.deepEqual(['b', 'B', 'a', 'ż', 'z'].sort(comparePaths), ['B', 'a', 'b', 'z', 'ż']);
 });
+
+test('a path that holds a line break is left out', () => {
+  assert.deepEqual(splitZ(Buffer.from('src/a\nb.ts\0src/c\rd.ts\0src/e.ts\0', 'utf8')), ['src/e.ts']);
+});

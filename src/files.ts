@@ -47,7 +47,8 @@ export function splitZ(output: Buffer): string[] {
     if (output[i] !== 0) continue;
     if (i > start) {
       try {
-        paths.push(strict.decode(output.subarray(start, i)));
+        const path = strict.decode(output.subarray(start, i));
+        if (!/[\r\n]/.test(path)) paths.push(path);
       } catch {
         // A path that is not valid UTF-8 is left out on purpose.
       }

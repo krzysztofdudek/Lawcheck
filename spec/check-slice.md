@@ -55,7 +55,7 @@ A pattern is `law-invalid` when it is empty or `!` alone, holds an empty segment
 
 A file matches a list when it matches one plain pattern and no exclusion; order means nothing.
 
-**The files** are the paths that `git ls-files -z --cached --others --exclude-standard` prints at the root (section 4 has every git command), each once, reduced to regular files that exist. The tool asks with `lstat`: a symlink is not a regular file, is in no count and has no type. A path whose bytes are not valid UTF-8 is left out the same way.
+**The files** are the paths that `git ls-files -z --cached --others --exclude-standard` prints at the root (section 4 has every git command), each once, reduced to regular files that exist. The tool asks with `lstat`: a symlink is not a regular file, is in no count and has no type. A path whose bytes are not valid UTF-8 is left out the same way, and so is a path that holds a line break, which would split a line of the text output.
 
 **The text** of a file is its bytes decoded as UTF-8, without a byte-order mark; an invalid sequence becomes U+FFFD. There is no size limit: the 30 seconds of section 3 bound what a large file costs. A file is binary when its first 8,000 bytes hold a NUL byte. A binary file has no type.
 
