@@ -22,6 +22,7 @@
   ],
   "scripts": {
     "build": "tsc -p .",
+    "prepack": "npm run build",
     "test": "npm run build && node --test \"tests/unit/*.test.ts\" \"tests/acceptance/*.test.ts\""
   },
   "dependencies": {
