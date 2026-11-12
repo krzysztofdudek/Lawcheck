@@ -78,3 +78,21 @@ test('a finding is credited to the waiver on its own line first, then to the nea
   assert.deepEqual(above.map((w) => w.waived), [0, 1]);
   assert.equal(waive(above, 'no-todo', 3), false);
 });
+
+test('a closing comment is cut off before the separator is looked for', () => {
+  const { waivers, problems } = parseWaivers(
+    [
+      'console.log(3); <!-- lawcheck-waive no-console -->',
+      'console.log(4); <!-- lawcheck-waive no-console -- -->',
+      'console.log(5); /* lawcheck-waive no-console */',
+      'console.log(6); <!-- lawcheck-waive no-console -- kept -->',
+    ],
+    RULES,
+  );
+  assert.deepEqual(problems.map((p) => [p.line, p.code]), [
+    [1, 'waiver-without-reason'],
+    [2, 'waiver-without-reason'],
+    [3, 'waiver-without-reason'],
+  ]);
+  assert.deepEqual(waivers.map((w) => [w.line, w.reason]), [[4, 'kept']]);
+});

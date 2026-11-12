@@ -25,15 +25,10 @@ function marked(text: string): Marked | null {
   return { index, alone: !/[\p{L}\p{N}]/u.test(text.slice(0, index)) };
 }
 
-function reasonOf(rest: string): string {
-  let reason = rest.trim();
-  for (const closing of ['*/', '-->']) {
-    if (reason.endsWith(closing)) {
-      reason = reason.slice(0, -closing.length).trim();
-      break;
-    }
-  }
-  return reason;
+function withoutClosing(rest: string): string {
+  const text = rest.trimEnd();
+  for (const closing of ['*/', '-->']) if (text.endsWith(closing)) return text.slice(0, -closing.length);
+  return text;
 }
 
 export function parseWaivers(lines: string[], rules: Set<string>): { waivers: Waiver[]; problems: WaiverProblem[] } {
@@ -56,9 +51,9 @@ export function parseWaivers(lines: string[], rules: Set<string>): { waivers: Wa
       problems.push({ code: 'waiver-unknown-rule', line, message: `the waiver names '${rule}', which is no rule of the law` });
       return;
     }
-    const rest = after.slice(id[0].length);
+    const rest = withoutClosing(after.slice(id[0].length));
     const dashes = rest.match(/^\s+--/u);
-    const reason = dashes === null ? '' : reasonOf(rest.slice(dashes[0].length));
+    const reason = dashes === null ? '' : rest.slice(dashes[0].length).trim();
     if (reason === '') {
       problems.push({ code: 'waiver-without-reason', line, message: `the waiver of '${rule}' gives no reason after --` });
       return;

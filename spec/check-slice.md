@@ -228,7 +228,7 @@ console.warn('no campaign'); // lawcheck-waive no-console -- the pricing team re
 - The form is `lawcheck-waive <rule id> -- <reason>`, anywhere in a line of a file that has a type. The tool reads lines, the `lines` of section 3, and parses no comments.
 - The marker is the first `lawcheck-waive` in the line. A second one on the line is text. After the marker come whitespace, the rule id (a run of characters that are not whitespace), whitespace, `--` and the reason.
 - With a letter or digit (`\p{L}` or `\p{N}`) before the marker on its line, the waiver covers that line. Otherwise the line stands alone, valid or not, and covers the next line that does not stand alone. At the end of the file it covers nothing.
-- The reason is the rest of the line after that `--`, trimmed. A closing `*/` or `-->` is cut off, and the rest trimmed again.
+- A closing `*/` or `-->` at the end of the line is cut off before the tool looks for the `--`, so `<!-- lawcheck-waive no-console -->` has no reason. The reason is the rest of the line after that `--`, trimmed.
 - A waiver drops every finding of its rule on the covered line, with nobody's approval. A whole-file finding cannot be waived.
 - A waiver with a known rule and a reason is counted, used or not: in the first line for the changed files, in the debt heading for the others. In JSON, `waivers` lists the waivers of the changed files without `--full`. With `--full` it lists those of every file that has a type, the ones outside the change with `debt` true.
 
