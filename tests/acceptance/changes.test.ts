@@ -1,7 +1,9 @@
 import { test } from 'node:test';
+import { chmodSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import { join } from 'node:path';
-import { append, check, D, D_PATH, findingLines, git, NOTHING_CHANGED, TEST3, TEST4, withSample, write } from './helpers.ts';
+import { execFileSync } from 'node:child_process';
+import { append, check, D, D_PATH, findingLines, git, lawcheck, NOTHING_CHANGED, read, TEST3, TEST4, withSample, write } from './helpers.ts';
 
 test('test 1: nothing changed', async () => {
   await withSample(async (s) => {
@@ -119,6 +121,15 @@ test('test 12: a path with letters outside ASCII', async () => {
     assert.deepEqual(findingLines(run.stdout), ['src/core/żółw.ts:1  error[no-console]  writes to the terminal with console.log']);
     assert.equal(run.code, 1);
   });
+  await withSample(
+    async (s) => {
+      append(s, 'src/core/zażółć gęślą.ts', '// end\n');
+      const run = await check(s);
+      assert.deepEqual(findingLines(run.stdout), ['src/core/zażółć gęślą.ts:1  error[no-console]  writes to the terminal with console.log']);
+      assert.equal(run.code, 1);
+    },
+    { onMain: (s) => write(s, 'src/core/zażółć gęślą.ts', 'console.log(1);\n') },
+  );
 });
 
 test('test 13: renames, deletions and staged edits', async () => {
@@ -155,4 +166,50 @@ test('test 14: the root below the top of the git tree', async () => {
     },
     { under: 'pkg', top: (repo) => write(repo, 'top.txt', 'top\n') },
   );
+});
+
+test('section 4: a change of the mode alone counts', async () => {
+  await withSample(async (s) => {
+    chmodSync(join(s, 'src/core/price.ts'), 0o755);
+    const run = await check(s);
+    assert.equal(run.stdout.split('\n')[0], 'lawcheck: FAIL  1 error in 1 changed file (against main)');
+    assert.equal(run.code, 1);
+  });
+});
+
+test('section 4: a file staged and then put back is not in the change', async () => {
+  await withSample(async (s) => {
+    const original = read(s, 'src/core/price.ts');
+    append(s, 'src/core/price.ts', '// end\n');
+    git(s, 'add', 'src/core/price.ts');
+    write(s, 'src/core/price.ts', original);
+    const run = await check(s);
+    assert.equal(run.stdout, NOTHING_CHANGED);
+    assert.equal(run.code, 0);
+  });
+});
+
+test('section 4: every git command runs with GIT_OPTIONAL_LOCKS=0, in the order of the table', async () => {
+  await withSample(async (s, dir) => {
+    const real = execFileSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).trim();
+    const bin = join(dir, 'bin');
+    const log = join(dir, 'git.log');
+    mkdirSync(bin);
+    writeFileSync(join(bin, 'git'), `#!/bin/sh\nprintf '%s %s\\n' "\${GIT_OPTIONAL_LOCKS-unset}" "$*" >> '${log}'\nexec '${real}' "$@"\n`, { mode: 0o755 });
+    write(s, D_PATH, D);
+    const run = await lawcheck(s, ['check', '--base', 'main'], { PATH: `${bin}:${process.env.PATH}` });
+    assert.equal(run.code, 1);
+    const lines = readFileSync(log, 'utf8').trim().split('\n');
+    assert.ok(lines.every((line) => line.startsWith('0 ')), lines.join('\n'));
+    const commands = lines.map((line) => line.slice(2).replace(/[0-9a-f]{40}/g, '<sha>'));
+    assert.deepEqual(commands, [
+      'rev-parse --is-inside-work-tree',
+      'ls-files -z --cached --others --exclude-standard',
+      'rev-parse --verify --quiet HEAD^{commit}',
+      'rev-parse --verify --quiet --end-of-options main^{commit}',
+      'merge-base HEAD <sha>',
+      'diff -z --name-only --no-renames --relative <sha> --',
+      'ls-files -z --others --exclude-standard',
+    ]);
+  });
 });

@@ -230,3 +230,28 @@ test("section 3: a rule that writes to the runner's channel crashes as that rule
     });
   }
 });
+
+test('section 3: what a rule prints goes to standard error', async () => {
+  await withRule(
+    ORIGINAL + "export function check(input) { console.log('out from the rule'); console.error('err from the rule'); return original(input); }\n",
+    async (s) => {
+      const run = await check(s, '--base', 'main', '--json');
+      assert.equal(JSON.parse(run.stdout).result, 'fail');
+      assert.doesNotMatch(run.stdout, /from the rule/);
+      assert.match(run.stderr, /out from the rule/);
+      assert.match(run.stderr, /err from the rule/);
+    },
+  );
+});
+
+test('section 3: the runner takes no flag the tool was started with', async () => {
+  await withRule('export function check() { return [{ message: JSON.stringify(process.execArgv) }]; }\n', async (s) => {
+    const run = await lawcheck(s, ['check', '--base', 'main'], {}, ['--no-warnings', '--max-old-space-size=256']);
+    const line = findingLines(run.stdout)[0] ?? '';
+    const flags = JSON.parse(line.slice(line.indexOf('  error[no-console]  ') + '  error[no-console]  '.length));
+    assert.equal(flags.length, 3, line);
+    assert.equal(flags[0], '--permission');
+    assert.equal(flags[1], `--allow-fs-read=${realpathSync(s)}`);
+    assert.match(flags[2], /^--allow-fs-read=\//);
+  });
+});

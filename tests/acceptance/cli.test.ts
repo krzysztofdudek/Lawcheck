@@ -101,7 +101,7 @@ test('test 41: JSON', async () => {
   await withSample(async (s) => {
     write(s, D_PATH, D);
     const run = await check(s, '--full', '--base', 'main', '--json');
-    assert.deepEqual(JSON.parse(run.stdout), {
+    const expected = {
       schema: 'lawcheck-check/0',
       result: 'fail',
       scope: { mode: 'full', base: 'main', files: 1 },
@@ -125,7 +125,9 @@ test('test 41: JSON', async () => {
         { file: 'src/core/discount.ts', line: 4, rule: 'no-console', debt: false, waived: 1, reason: 'the pricing team reads this warning until 2.0' },
       ],
       next: { command: null, text: 'fix src/core/discount.ts:2' },
-    });
+    };
+    assert.deepEqual(JSON.parse(run.stdout), expected);
+    assert.equal(JSON.stringify(JSON.parse(run.stdout)), JSON.stringify(expected), 'the keys keep the order of section 6');
     assert.ok(run.stdout.endsWith('}\n'));
     assert.equal(run.stdout, JSON.stringify(JSON.parse(run.stdout), null, 2) + '\n');
     assert.equal(run.code, 1);

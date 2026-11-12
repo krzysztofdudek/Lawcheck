@@ -138,10 +138,10 @@ export interface Run {
   ms: number;
 }
 
-export function lawcheck(cwd: string, args: string[], env: NodeJS.ProcessEnv = {}): Promise<Run> {
+export function lawcheck(cwd: string, args: string[], env: NodeJS.ProcessEnv = {}, nodeArgs: string[] = []): Promise<Run> {
   const started = Date.now();
   return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [CLI, ...args], { cwd, env: { ...GIT_ENV, ...env }, stdio: ['ignore', 'pipe', 'pipe'] });
+    const child = spawn(process.execPath, [...nodeArgs, CLI, ...args], { cwd, env: { ...GIT_ENV, ...env }, stdio: ['ignore', 'pipe', 'pipe'] });
     let stdout = '';
     let stderr = '';
     child.stdout.setEncoding('utf8').on('data', (chunk: string) => (stdout += chunk));
@@ -164,7 +164,7 @@ export const NO_TODO = readFileSync(join(SAMPLE, '.lawcheck/rules/no-todo.mjs'),
 export const LAW = readFileSync(join(SAMPLE, '.lawcheck/law.yaml'), 'utf8');
 
 export function findingLines(stdout: string): string[] {
-  return stdout.split('\n').filter((line) => /^\S+  (error|warning)\[[a-z0-9-]+\]  /.test(line));
+  return stdout.split('\n').filter((line) => /^\S.*?  (error|warning)\[[a-z0-9-]+\]  /.test(line));
 }
 
 export function lines(stdout: string): string[] {
