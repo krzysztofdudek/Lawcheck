@@ -441,6 +441,8 @@ S is the sample in a new git repository: one commit on `main` with the eight fil
 
 The unit tests carry two things no row above reaches. `tests/unit/cli.test.ts` hands the top-level handler a command that throws and sees exit 2 with `error[internal]`. `tests/unit/files.test.ts` hands the reader of git's output a path with an invalid UTF-8 byte and sees it left out.
 
+Besides these 45 tests, the tool was accepted against an external trial: a law of twelve script rules, run with `--full` on a real repository. The trial's fixture is kept outside this repository. The run ended with exit 0 and no error, and the twelve rules found 2, 22, 1, 2, 142, 1, 6, 6, 105, 41, 60 and 9 findings, as expected.
+
 ## 9. Repository layout
 
 TypeScript on Node 24, ES modules. One runtime dependency, `yaml`; for development `typescript` and `@types/node`. Test runner: Node's built-in `node --test`.
