@@ -45,6 +45,15 @@ test('test 38: the base', async () => {
     assert.equal(lone.code, 2);
     assert.match(lone.stdout, /^error\[base-unreachable\]/m);
   });
+  await withSample(async (s) => {
+    git(s, 'checkout', '-q', 'main');
+    append(s, 'src/core/price.ts', '// later\n');
+    git(s, 'commit', '-q', '-am', 'later');
+    git(s, 'checkout', '-q', 'work');
+    const moved = await check(s, '--base', 'main');
+    assert.equal(moved.stdout, NOTHING_CHANGED);
+    assert.equal(moved.code, 0);
+  });
 });
 
 test('test 39: no base', async () => {
