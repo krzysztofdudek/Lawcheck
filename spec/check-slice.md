@@ -389,7 +389,7 @@ next: pass --base with a branch or a commit that exists here
 
 ## 8. Acceptance tests
 
-S is the sample in a new git repository: one commit on `main` with the eight files, then a new branch `work`, no remote. Each test starts from a fresh S on `work` and runs `lawcheck check --base main` unless it names a command. "Add" makes a file and commits nothing. "One at a time" starts each case from a fresh S. D is `src/core/discount.ts` of section 6. Tests 21 to 28 add D and replace `check` in `no-console.mjs` with the function described; "crashes" means exit 2 with `.lawcheck/rules/no-console.mjs  error[rule-crashed]` and no finding line.
+S is the sample in a new git repository: one commit on `main` with the eight files, then a new branch `work`, no remote. Each test starts from a fresh S on `work` and runs `lawcheck check --base main` unless it names a command. "Add" makes a file and commits nothing. "One at a time" starts each case from a fresh S. D is `src/core/discount.ts` of section 6. Tests 21 to 28 add D and replace `check` in `no-console.mjs` with the function described. A test that replaces a rule file, as tests 21 to 30 do, makes the replacement a second commit on `main` before `work` is made, so the rule file is not in the change. "Crashes" means exit 2 with `.lawcheck/rules/no-console.mjs  error[rule-crashed]` and no finding line.
 
 | # | Do | See |
 |---|---|---|
