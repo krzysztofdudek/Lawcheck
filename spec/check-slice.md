@@ -161,7 +161,7 @@ export function check({ files }) {
 | `serialization` | `'advanced'` |
 | `stdio` | no standard input; what the rule prints, on either stream, goes to the tool's standard error |
 
-The tool sends the type of every file and the path of the rule file. The runner imports the rule file and answers. The tool then sends one call at a time, and the runner answers each with what `check` returned. After the last answer the tool kills the runner, and whatever the rule left running ends with it. The tool allows 30 seconds for the load and 30 seconds for each call; past that it kills the runner.
+The tool sends the type of every file and the path of the rule file. The runner imports the rule file and answers. The tool then sends one call at a time, and the runner answers each with what `check` returned. After the last answer the tool kills the runner, and whatever the rule left running ends with it. When the tool ends in any other way, a signal that kills it included, its runners end too: a small guard process that the tool starts kills those still alive. A signal that the tool can catch ends it as `internal`. The tool allows 30 seconds for the load and 30 seconds for each call; past that it kills the runner.
 
 **What the runner stops,** measured on Node 24.22.2. Node refuses the call with an error, and the rule is `rule-crashed`, when the rule:
 
@@ -461,6 +461,7 @@ src/
   waivers.ts
   rules.ts      starts the runners, keeps the 30 seconds, validates what returns
   runner.ts     the runner process: loads the rule, makes the calls
+  guard.ts      ends the runners that outlive the tool
   check.ts      the command
   output.ts     text and JSON
 tests/

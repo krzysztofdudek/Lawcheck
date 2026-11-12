@@ -91,5 +91,6 @@ if (isEntry()) {
   };
   process.on('uncaughtException', crash);
   process.on('unhandledRejection', crash);
+  for (const signal of ['SIGTERM', 'SIGINT', 'SIGHUP'] as const) process.on(signal, () => crash(new Error(`stopped by ${signal}`)));
   main(process.argv.slice(2), { cwd: process.cwd(), env: process.env }).then(finish, crash);
 }

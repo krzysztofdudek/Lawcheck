@@ -1,8 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync } from 'node:fs';
+import { spawn } from 'node:child_process';
+import { existsSync, readdirSync, readFileSync, realpathSync } from 'node:fs';
+import { setTimeout as sleep } from 'node:timers/promises';
 import { join } from 'node:path';
-import { append, check, D, D_PATH, findingLines, lawcheck, NO_CONSOLE, setRule, TEST4, withSample, write } from './helpers.ts';
+import { append, check, CLI, D, D_PATH, findingLines, GIT_ENV, lawcheck, NO_CONSOLE, setRule, TEST4, withSample, write } from './helpers.ts';
 
 const CRASH = '.lawcheck/rules/no-console.mjs  error[rule-crashed]';
 
@@ -171,4 +173,46 @@ test('test 30: lines and line breaks in messages', async () => {
     const run = await check(s);
     assert.deepEqual(findingLines(run.stdout), ['src/core/crlf.ts  error[no-console]  2 2 second line']);
   });
+});
+
+function runnersOf(root: string): number[] {
+  const pids: number[] = [];
+  for (const entry of readdirSync('/proc')) {
+    if (!/^\d+$/.test(entry)) continue;
+    try {
+      if (readFileSync(`/proc/${entry}/cmdline`, 'utf8').split('\0').includes(`--allow-fs-read=${root}`)) pids.push(Number(entry));
+    } catch {
+      // The process ended while the list was read.
+    }
+  }
+  return pids;
+}
+
+test('section 3: a rule that spins ends with the tool, whatever ends the tool', async () => {
+  for (const signal of ['SIGTERM', 'SIGKILL'] as const) {
+    await withRule('export function check() { while (true) {} }\n', async (s) => {
+      const root = realpathSync(s);
+      const tool = spawn(process.execPath, [CLI, 'check', '--base', 'main'], { cwd: s, env: GIT_ENV, stdio: 'ignore' });
+      const closed = new Promise<number | null>((done) => tool.on('close', (code) => done(code)));
+      let pids: number[] = [];
+      for (let i = 0; i < 100 && pids.length === 0; i++) {
+        await sleep(100);
+        pids = runnersOf(root);
+      }
+      assert.equal(pids.length, 1, `${signal}: the runner started`);
+      tool.kill(signal);
+      const code = await closed;
+      let left = pids;
+      for (let i = 0; i < 50 && left.length > 0; i++) {
+        await sleep(100);
+        left = runnersOf(root);
+      }
+      try {
+        assert.deepEqual(left, [], `${signal}: no runner outlives the tool`);
+      } finally {
+        for (const pid of left) process.kill(pid, 'SIGKILL');
+      }
+      if (signal === 'SIGTERM') assert.equal(code, 2);
+    });
+  }
 });

@@ -1,4 +1,5 @@
-import { fork } from 'node:child_process';
+import { fork, spawn } from 'node:child_process';
+import type { ChildProcess } from 'node:child_process';
 import { availableParallelism } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { dirname } from 'node:path';
@@ -8,6 +9,32 @@ import type { TypedFile } from './types.js';
 export const RUNNER = fileURLToPath(new URL('./runner.js', import.meta.url));
 export const PACKAGE_DIR = realpathSync(dirname(dirname(RUNNER)));
 export const TIMEOUT_MS = 30_000;
+const GUARD = fileURLToPath(new URL('./guard.js', import.meta.url));
+
+const live = new Set<ChildProcess>();
+let guard: ChildProcess | null = null;
+
+function watch(child: ChildProcess): void {
+  if (child.pid === undefined) return;
+  live.add(child);
+  if (guard === null) {
+    guard = spawn(process.execPath, [GUARD], { stdio: ['pipe', 'ignore', 'ignore'], detached: true });
+    guard.on('error', () => undefined);
+    guard.stdin!.on('error', () => undefined);
+    guard.unref();
+    (guard.stdin as unknown as { unref(): void }).unref();
+  }
+  guard.stdin!.write(`+${child.pid}\n`);
+}
+
+function release(child: ChildProcess): void {
+  if (live.delete(child)) guard?.stdin?.write(`-${child.pid}\n`);
+  child.kill('SIGKILL');
+}
+
+process.on('exit', () => {
+  for (const child of live) child.kill('SIGKILL');
+});
 
 export interface RawFinding {
   rule: string;
@@ -65,6 +92,7 @@ export function runRule(run: RuleRun): Promise<RuleOutcome> {
       serialization: 'advanced',
       stdio: ['ignore', 2, 2, 'ipc'],
     });
+    watch(child);
     let settled = false;
     let timer: NodeJS.Timeout | undefined;
     let waiting: ((message: Message) => void) | null = null;
@@ -75,7 +103,7 @@ export function runRule(run: RuleRun): Promise<RuleOutcome> {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
-      child.kill('SIGKILL');
+      release(child);
       if (outcome instanceof Error) reject(outcome);
       else resolve(outcome);
     };
