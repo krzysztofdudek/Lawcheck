@@ -410,4 +410,12 @@ Section 10 asks the owner for the exception before the first run. He was asked t
 
 Krzysztof, 2026-11-13 (translated from Polish): "OK" (in Polish: "Spoko").
 
-The trial ran once with the defaults, both arms at 30 runs at most, so at most 60 sessions.
+The trial ran once with the defaults, both arms at 30 runs at most: 55 sessions.
+
+## 65. The trial's errors
+
+The trial ran once, with Claude Code 2.1.322 and `claude-sonnet-5-5` at `medium`. The edit arm made 30 runs: 9 counted, all 9 fixed, 10 errors and 11 runs without a breach, so it fails for want of a tenth counted run. The stop arm made 25 runs: 10 counted, all 10 fixed, 5 errors, so it passes.
+
+Every error is the same case of step 4: a Bash call whose command holds `lawcheck` while the log holds no `agent` line. In those runs the hooks worked: 9 of the 10 edit errors and 2 of the 5 stop errors hold a breach from the arm's hook, followed by a passing check. The script keeps no transcript, so the commands cannot be read again. The likeliest reading is a command that reads `.lawcheck/` itself, such as `cat .lawcheck/rules/coded-errors.mjs` after a hook named the rule, which holds the word without running Lawcheck. The script applies step 4's words as they stand. No run was repeated: the error comes from the spec's rule, not from a fault of the script, and the 60 sessions the owner allowed leave no room for another arm.
+
+What would settle it: step 4 reading "a Bash call that runs `lawcheck` as a command" instead of "holds `lawcheck`", and the script keeping each error run's transcript. Both are the owner's to decide, as is a second trial.
