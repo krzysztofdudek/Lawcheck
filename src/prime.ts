@@ -146,9 +146,9 @@ export function primeText(law: Law, kinds: Kinds, budget = BUDGET): { text: stri
   let idsLine = ids.join(', ');
   if (!fits(render(0, idsLine))) {
     let kept = ids.length - 1;
-    const shortened = (k: number) => (k === 0 ? `${plural(ids.length, 'rule')}, none listed` : `${ids.slice(0, k).join(', ')}, and ${ids.length - k} more`);
+    const shortened = (k: number) => `${ids.slice(0, k).join(', ')}, and ${ids.length - k} more`;
     while (kept > 0 && !fits(render(0, shortened(kept)))) kept--;
-    idsLine = shortened(kept);
+    idsLine = kept === 0 ? '' : shortened(kept);
   }
   let count = 0;
   while (count < roots.length && fits(render(count + 1, idsLine))) count++;
