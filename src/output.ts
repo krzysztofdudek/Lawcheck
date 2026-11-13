@@ -5,6 +5,7 @@ export interface ErrorItem {
   file: string | null;
   line: number | null;
   message: string;
+  next?: string;
 }
 
 export interface Finding {
@@ -28,6 +29,17 @@ export interface WaiverEntry {
   reason: string;
 }
 
+export interface Reviews {
+  missing: number;
+  calls_made: number;
+  passes_recorded: number;
+}
+
+export interface Next {
+  command: string | null;
+  text: string;
+}
+
 export interface Report {
   mode: 'change' | 'full';
   base: string | null;
@@ -35,6 +47,8 @@ export interface Report {
   findings: Finding[];
   debt: Finding[];
   waivers: WaiverEntry[];
+  reviews?: Reviews;
+  next?: Next | null;
 }
 
 export const WHY: Record<string, string> = {
@@ -52,36 +66,53 @@ export const WHY: Record<string, string> = {
   'base-unreachable': 'without its base a change cannot be told from debt',
   'rule-crashed': 'a broken rule says nothing about the code',
   internal: 'a fault of Lawcheck says nothing about the code',
+  'not-reviewed': 'a reviewer rule says nothing about content it has not judged',
+  'too-large-to-review': 'the reviewer is never sent more than reviewer.max_chars characters',
+  'config-invalid': 'a misspelled setting changes the reviewer without a word',
+  'reviewer-not-configured': 'reviewer rules need a reviewer to judge them',
+  'too-many-reviews': 'reviewer.max_calls bounds what one run spends',
+  'reviewer-unreachable': "without the reviewer's answer a reviewer rule says nothing",
+  'reviewer-bad-answer': 'an answer that is no verdict cannot be recorded',
 };
 
 export const CODES = new Set([...Object.keys(WHY)]);
 
 export const USAGE = [
-  'usage: lawcheck check [--full] [--base <ref>] [--json]',
+  'usage: lawcheck check [--full] [--base <ref>] [--review [--again] [--max-calls <n>]] [--json]',
   '',
   'Checks the files of this change against .lawcheck/law.yaml.',
   '',
-  '  --full          also judge the files outside the change, as debt',
-  '  --base <ref>    the base of the change; else LAWCHECK_BASE, else origin/HEAD',
-  '  --json          print one JSON document',
+  '  --full           also judge the files outside the change, as debt',
+  '  --base <ref>     the base of the change; else LAWCHECK_BASE, else origin/HEAD',
+  '  --review         ask the reviewer for the reviews that have no verdict',
+  '  --again          with --review, ask again where a failure is cached',
+  '  --max-calls <n>  with --review, the most requests this run sends',
+  '  --json           print one JSON document',
   '',
   'Exit 0: no error. Exit 1: the code breaks the law. Exit 2: no conclusion.',
   '',
 ].join('\n');
 
 function nextFor(error: ErrorItem): string {
+  if (error.next !== undefined) return error.next;
   switch (error.code) {
     case 'usage':
-      return 'run lawcheck check, with --full, --base <ref> or --json as needed';
+      return 'run lawcheck check as its usage line says: lawcheck check --help';
     case 'not-initialized':
       return 'write .lawcheck/law.yaml at the root of the code to check, then run lawcheck check';
     case 'no-git':
       return 'run lawcheck check inside a git work tree, with git on the PATH';
     case 'law-invalid':
       return 'fix .lawcheck/law.yaml, then run lawcheck check';
+    case 'config-invalid':
+      return 'fix .lawcheck/config.yaml, then run lawcheck check';
     case 'rule-missing-file':
       return 'write the rule files the law names, or take their rules out of the law, then run lawcheck check';
     case 'rule-file-without-entry':
+      if (error.file?.endsWith('.md')) {
+        const base = error.file.slice(0, -'.md'.length);
+        return `keep one of ${base}.mjs and ${base}.md, then run lawcheck check`;
+      }
       return `add a rule for ${error.file} to the law, or move the file to .lawcheck/rules/lib/, then run lawcheck check`;
     case 'file-unreadable':
       return `make ${error.file} readable, then run lawcheck check`;
@@ -91,6 +122,9 @@ function nextFor(error: ErrorItem): string {
       return 'pass --base with a branch or a commit that exists here';
     case 'rule-crashed':
       return `fix ${error.file}, then run lawcheck check`;
+    case 'reviewer-unreachable':
+    case 'reviewer-bad-answer':
+      return 'run the same command again; what was answered is kept, so it asks only the rest';
     default:
       return 'run lawcheck check again, and report the error if it stays';
   }
@@ -152,12 +186,20 @@ export function firstError(report: Report): Finding | undefined {
   return report.findings.find((f) => f.severity === 'error');
 }
 
+export function fixNext(finding: Finding): string {
+  return `fix ${placeOf(finding.file, finding.line)}`;
+}
+
 export function renderReport(report: Report, json: boolean): string {
   const errors = report.findings.filter((f) => f.severity === 'error').length;
   const warnings = report.findings.length - errors;
   const failing = errors > 0;
   const blocking = firstError(report);
-  const next = blocking ? `fix ${placeOf(blocking.file, blocking.line)}` : null;
+  const nextOf: Next | null =
+    report.next !== undefined ? report.next : blocking ? { command: null, text: fixNext(blocking) } : null;
+  const next = nextOf === null ? null : nextOf.text;
+  const reviews = report.reviews ?? { missing: 0, calls_made: 0, passes_recorded: 0 };
+  const calls = reviews.calls_made === 0 ? '' : `, ${plural(reviews.calls_made, 'reviewer call')}`;
   const changeWaivers = report.waivers.filter((w) => !w.debt).length;
   const debtWaivers = report.waivers.length - changeWaivers;
 
@@ -184,7 +226,8 @@ export function renderReport(report: Report, json: boolean): string {
       summary: { errors, warnings, debt: report.debt.length, waivers: changeWaivers },
       findings: [...report.findings, ...report.debt].map(shape),
       waivers: report.waivers.map((w) => ({ file: w.file, line: w.line, rule: w.rule, debt: w.debt, waived: w.waived, reason: w.reason })),
-      next: next === null ? null : { command: null, text: next },
+      reviews: { missing: reviews.missing, calls_made: reviews.calls_made, passes_recorded: reviews.passes_recorded },
+      next: nextOf === null ? null : { command: nextOf.command, text: nextOf.text },
     };
     return JSON.stringify(document, null, 2) + '\n';
   }
@@ -192,7 +235,7 @@ export function renderReport(report: Report, json: boolean): string {
   const verdict = failing ? 'FAIL' : 'PASS';
   const lines: string[] = [];
   if (report.base !== null && report.changed === 0) {
-    lines.push(`lawcheck: ${verdict}  nothing changed against ${report.base}`);
+    lines.push(`lawcheck: ${verdict}  nothing changed against ${report.base}${calls}`);
   } else {
     const counts = [errors > 0 ? plural(errors, 'error') : '', warnings > 0 ? plural(warnings, 'warning') : '']
       .filter(Boolean)
@@ -201,7 +244,7 @@ export function renderReport(report: Report, json: boolean): string {
       report.base === null
         ? `${plural(report.changed, 'file')} (no base: every file counts as changed)`
         : `${plural(report.changed, 'changed file')} (against ${report.base})`;
-    lines.push(`lawcheck: ${verdict}  ${counts === '' ? '' : counts + ' in '}${scope}${waiverPart(changeWaivers)}`);
+    lines.push(`lawcheck: ${verdict}  ${counts === '' ? '' : counts + ' in '}${scope}${waiverPart(changeWaivers)}${calls}`);
   }
 
   const limit = 50;

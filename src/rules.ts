@@ -12,11 +12,10 @@ export const TIMEOUT_MS = 30_000;
 const GUARD = fileURLToPath(new URL('./guard.js', import.meta.url));
 
 const live = new Set<ChildProcess>();
+const liveGroups = new Set<number>();
 let guard: ChildProcess | null = null;
 
-function watch(child: ChildProcess): void {
-  if (child.pid === undefined) return;
-  live.add(child);
+function startGuard(): void {
   if (guard === null) {
     guard = spawn(process.execPath, [GUARD], { stdio: ['pipe', 'ignore', 'ignore'], detached: true });
     guard.on('error', () => undefined);
@@ -24,7 +23,33 @@ function watch(child: ChildProcess): void {
     guard.unref();
     (guard.stdin as unknown as { unref(): void }).unref();
   }
-  guard.stdin!.write(`+${child.pid}\n`);
+}
+
+function watch(child: ChildProcess): void {
+  if (child.pid === undefined) return;
+  live.add(child);
+  startGuard();
+  guard!.stdin!.write(`+${child.pid}\n`);
+}
+
+export function killGroup(pid: number, signal: NodeJS.Signals): boolean {
+  try {
+    process.kill(-pid, signal);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function watchGroup(pid: number): void {
+  liveGroups.add(pid);
+  startGuard();
+  guard!.stdin!.write(`+g${pid}\n`);
+}
+
+export function releaseGroup(pid: number): void {
+  killGroup(pid, 'SIGKILL');
+  if (liveGroups.delete(pid)) guard?.stdin?.write(`-g${pid}\n`);
 }
 
 function release(child: ChildProcess): void {
@@ -34,6 +59,7 @@ function release(child: ChildProcess): void {
 
 process.on('exit', () => {
   for (const child of live) child.kill('SIGKILL');
+  for (const pid of liveGroups) killGroup(pid, 'SIGKILL');
 });
 
 export interface RawFinding {
