@@ -41,11 +41,21 @@ function isDirectory(path: string): boolean {
   }
 }
 
-export function selectTargets(root: string, cwd: string, targets: string[], files: string[], binary: (path: string) => boolean): string[] {
+export function selectTargets(root: string, cwd: string, targets: string[], files: string[], binary: (path: string) => boolean, lenient = false): string[] {
   const chosen = new Set<string>();
   const here = relative(root, realpathSync(resolve(cwd)));
-  const none = (word: string, why: string) => usage(`the target '${word}' selects no file: ${why}`);
+  class None extends Error {}
+  const none = (word: string, why: string) => (lenient ? new None() : usage(`the target '${word}' selects no file: ${why}`));
   for (const word of targets) {
+    try {
+      select(word);
+    } catch (error) {
+      if (!(error instanceof None)) throw error;
+    }
+  }
+  return [...chosen].sort(comparePaths);
+
+  function select(word: string): void {
     if (isPattern(word) && !listedFile(root, cwd, word, files)) {
       const problem = patternProblem(word);
       if (problem !== null) throw usage(`the pattern '${word}' ${problem}`);
@@ -53,23 +63,22 @@ export function selectTargets(root: string, cwd: string, targets: string[], file
       const hits = files.filter((file) => matches(file) && !binary(file));
       if (hits.length === 0) throw none(word, 'matches no file');
       hits.forEach((file) => chosen.add(file));
-      continue;
+      return;
     }
     const path = fromCwd(root, cwd, word);
     if (files.includes(path)) {
       if (binary(path)) throw none(word, 'it is binary');
       chosen.add(path);
-      continue;
+      return;
     }
     if (path === '.' || isDirectory(join(root, path))) {
       const hits = files.filter((file) => (path === '.' || file.startsWith(`${path}/`)) && !binary(file));
       if (hits.length === 0) throw none(word, 'matches no file');
       hits.forEach((file) => chosen.add(file));
-      continue;
+      return;
     }
     throw none(word, 'git ignores it or it does not exist');
   }
-  return [...chosen].sort(comparePaths);
 }
 
 interface Found {
@@ -101,7 +110,7 @@ interface Outcome {
   maxChars: number;
 }
 
-function bytesOf(read: Read, path: string): Uint8Array {
+export function bytesOf(read: Read, path: string): Uint8Array {
   try {
     return read(path);
   } catch (error) {

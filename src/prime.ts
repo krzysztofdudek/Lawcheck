@@ -1,4 +1,8 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { documentOf, noWords, usageError } from './args.js';
+import { CONFIG, RUNNER_COMMANDS, runnerOf } from './config.js';
+import type { Runner } from './config.js';
 import type { Arguments, Result } from './args.js';
 import type { CheckContext } from './check.js';
 import type { Law, TypeDef } from './law.js';
@@ -133,13 +137,28 @@ function assemble(first: string, head: string, typeLines: string[], ruleLines: s
   return [first + head, ...typeLines, '', 'Rules', ...ruleLines, '', last, ''].join('\n');
 }
 
-export function primeText(law: Law, kinds: Kinds, budget = BUDGET): { text: string; step: number } {
+export function startPart(root: string): string {
+  let runner = 'global';
+  try {
+    runner = runnerOf(readFileSync(join(root, CONFIG), 'utf8'));
+  } catch {
+    return '';
+  }
+  return runner === 'global' || !Object.hasOwn(RUNNER_COMMANDS, runner) ? '' : ` Start it here as: ${RUNNER_COMMANDS[runner as Runner].words.join(' ')}`;
+}
+
+export function withStart(first: string, start: string): string {
+  const end = first.indexOf('\n');
+  return first.slice(0, end) + start + first.slice(end);
+}
+
+export function primeText(law: Law, kinds: Kinds, budget = BUDGET, start = ''): { text: string; step: number } {
   const head = '\n' + header(law);
   let mayUse = false;
   walk(law.types, (type) => {
     if (type.mayUse !== null) mayUse = true;
   });
-  const first = firstPart([...law.rules.keys()].some((id) => ruleKind(kinds, id) === 'reviewer'), mayUse);
+  const first = withStart(firstPart([...law.rules.keys()].some((id) => ruleKind(kinds, id) === 'reviewer'), mayUse), start);
   const onTypes = listed(law);
   const ids = [...law.rules.keys()];
   const fits = (text: string) => length(text) <= budget;
@@ -184,8 +203,8 @@ export async function prime(args: Arguments, context: CheckContext, json: boolea
   });
   if ('errors' in outcome) {
     if (json) return { code: 2, stdout: renderErrors(outcome.errors, true, 'prime') };
-    return { code: 2, stdout: FIRST_PART + '\n' + renderErrors(outcome.errors, false, 'prime', 20) };
+    return { code: 2, stdout: withStart(FIRST_PART, startPart(root)) + '\n' + renderErrors(outcome.errors, false, 'prime', 20) };
   }
-  const { text, step } = primeText(outcome.law, outcome.kinds);
+  const { text, step } = primeText(outcome.law, outcome.kinds, BUDGET, startPart(root));
   return answer(text, step);
 }

@@ -2,7 +2,7 @@ import { readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { isAlias, isMap, isScalar, isSeq, LineCounter, parseDocument } from 'yaml';
 import type { Document, Node as YamlNode, Pair, YAMLMap } from 'yaml';
-import { nearestKey } from './law.js';
+import { distance, nearestKey } from './law.js';
 import { decode } from './types.js';
 
 export const CONFIG = '.lawcheck/config.yaml';
@@ -11,7 +11,7 @@ export const PROVIDERS = ['openai-compatible', 'anthropic', 'claude-code'] as co
 export type ProviderName = (typeof PROVIDERS)[number];
 
 const LATER_PROVIDERS = ['openai', 'google', 'ollama', 'codex', 'gemini-cli', 'copilot-cli'];
-const TOP_KEYS = ['reviewer'];
+const TOP_KEYS = ['reviewer', 'runner'];
 const REVIEWER_KEYS = ['provider', 'model', 'timeout', 'temperature', 'max_chars', 'parallel', 'max_calls'];
 
 export interface ReviewerConfig {
@@ -23,6 +23,43 @@ export interface ReviewerConfig {
   parallel: number;
   maxCalls: number;
 }
+
+export const RUNNERS = ['global', 'npx', 'pnpm', 'yarn', 'bun'] as const;
+export type Runner = (typeof RUNNERS)[number];
+
+export const RUNNER_COMMANDS: Record<Runner, { words: string[]; install: string }> = {
+  global: { words: ['lawcheck'], install: 'npm i -g lawcheck' },
+  npx: { words: ['npx', '--no-install', 'lawcheck'], install: 'npm install' },
+  pnpm: { words: ['pnpm', 'exec', 'lawcheck'], install: 'pnpm install' },
+  yarn: { words: ['yarn', 'run', 'lawcheck'], install: 'yarn install' },
+  bun: { words: ['bun', 'x', '--no-install', 'lawcheck'], install: 'bun install' },
+};
+
+export function runnerLine(text: string): { value: string; line: number } | null {
+  const lines = text.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!.replace(/\r$/, '');
+    if (!line.startsWith('runner:')) continue;
+    const rest = line.slice('runner:'.length);
+    const comment = rest.search(/[ \t]#/);
+    return { value: (comment < 0 ? rest : rest.slice(0, comment)).replace(/^[ \t]+|[ \t]+$/g, ''), line: i + 1 };
+  }
+  return null;
+}
+
+export function runnerOf(text: string): string {
+  return runnerLine(text)?.value ?? 'global';
+}
+
+export function unknownRunner(value: string): string {
+  const scored = RUNNERS.map((name) => ({ name, d: distance(value, name) })).filter(({ d }) => d <= 2);
+  const best = Math.min(...scored.map(({ d }) => d));
+  const near = scored.filter(({ d }) => d === best).map(({ name }) => `'${name}'`);
+  const part = near.length === 0 ? '' : ` (did you mean ${near.slice(0, 2).join(' or ')}?)`;
+  return `the runner '${value}' is unknown${part}; it takes ${RUNNERS.join(', ').replace(/, (?=[^,]*$)/, ' or ')}`;
+}
+
+export const RUNNER_ONE_LINE = 'write runner on one line of its own at the top level, as runner: pnpm';
 
 export interface ConfigProblem {
   line: number;
@@ -70,7 +107,7 @@ export function parseConfig(text: string): { config: ReviewerConfig } | { proble
       })),
     };
   }
-  return new ConfigReader(doc, counter).read();
+  return new ConfigReader(doc, counter, text).read();
 }
 
 class ConfigReader {
@@ -79,6 +116,7 @@ class ConfigReader {
   constructor(
     private readonly doc: Document,
     private readonly counter: LineCounter,
+    private readonly text: string,
   ) {}
 
   read(): { config: ReviewerConfig } | { problems: ConfigProblem[] } {
@@ -97,6 +135,8 @@ class ConfigReader {
         const value = this.resolve(pair.value);
         if (!isMap(value)) this.problem(line, `'reviewer' takes a mapping, not ${describe(value)}`);
         else this.readReviewer(value, line, config);
+      } else if (key === 'runner') {
+        this.readRunner(this.resolve(pair.value), line);
       } else if (key === 'keys') {
         this.problem(line, NO_KEYS);
       } else {
@@ -104,6 +144,12 @@ class ConfigReader {
       }
     }
     return this.problems.length > 0 ? { problems: this.problems } : { config };
+  }
+
+  private readRunner(value: YamlNode | null, line: number): void {
+    const name = isScalar(value) && value.value !== null ? String(value.value) : '';
+    if (!(RUNNERS as readonly string[]).includes(name)) this.problem(line, unknownRunner(isScalar(value) ? (value.source ?? name) : name));
+    else if (runnerOf(this.text) !== name) this.problem(line, RUNNER_ONE_LINE);
   }
 
   private readReviewer(map: YAMLMap, reviewerLine: number, config: ReviewerConfig): void {

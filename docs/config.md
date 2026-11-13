@@ -8,7 +8,7 @@ reviewer:
   model: your-model-id
 ```
 
-The file is a mapping with one key, `reviewer`. An empty file, or one of comments only, sets nothing.
+The file is a mapping with two keys, `reviewer` and `runner`. An empty file, or one of comments only, sets nothing.
 
 ## Keys of reviewer
 
@@ -78,6 +78,28 @@ reviewer:
   provider: claude-code
   temperature: 0
 ```
+
+## runner
+
+How this repository starts Lawcheck. `prime` and the agent plugin start Lawcheck with the command it names:
+
+| `runner` | The command | Its install hint |
+|---|---|---|
+| `global` | `lawcheck` | `npm i -g lawcheck` |
+| `npx` | `npx --no-install lawcheck` | `npm install` |
+| `pnpm` | `pnpm exec lawcheck` | `pnpm install` |
+| `yarn` | `yarn run lawcheck` | `yarn install` |
+| `bun` | `bun x --no-install lawcheck` | `bun install` |
+
+The default is `global`.
+
+```yaml
+runner: pnpm  # pinned in package.json
+```
+
+The plugin reads the key without a YAML parser, so the key has one written form. The runner line is the first line that starts with `runner:` in its first column. Its value is the rest of the line after `runner:`, without a comment that follows a space or a tab, trimmed of spaces and tabs. Without a runner line the runner is `global`. A value outside the five is `config-invalid`, and so is a value this rule reads differently from YAML, such as `runner: "pnpm"`, or a key in flow style: write `runner: pnpm` on one line of its own at the top level.
+
+`.lawcheck/config.local.yaml` does not take `runner`; it is not read.
 
 ## Limits that keep a run bounded
 

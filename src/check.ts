@@ -14,6 +14,7 @@ import type { Ask } from './review.js';
 import { runAll, runRule } from './rules.js';
 import type { RawFinding } from './rules.js';
 import { filesOfTypes, isBinary } from './types.js';
+import { bytesOf, selectTargets } from './try.js';
 import { loadConfig, loadLaw, loadRuleFiles, locate, requireGit, RULES_DIR, LAW, stopped, theChange, touchesLaw, typeAll } from './setup.js';
 import type { Kinds, Read, ReviewerRule } from './setup.js';
 import { judgeUses, listInForce, notRead } from './uses.js';
@@ -31,6 +32,7 @@ export interface CheckOptions {
   review?: boolean;
   again?: boolean;
   maxCalls?: number | null;
+  paths?: string[];
 }
 
 export interface CheckContext {
@@ -48,8 +50,10 @@ export async function check(options: CheckOptions, context: CheckContext): Promi
     const law = loadLaw(root);
     const config = loadConfig(root);
     const { files, read, kinds } = loadRuleFiles(root, law, false);
+    const named = options.paths !== undefined && options.paths.length > 0;
+    const chosen = named ? selectTargets(root, context.cwd, options.paths!, files, (path) => isBinary(bytesOf(read, path)), true) : null;
     const typed = typeAll(root, law, files, read, kinds.unreadable);
-    return checkAt(root, options, context, { law, config, files, read, kinds, typed });
+    return checkAt(root, options, context, { law, config, files, read, kinds, typed, chosen });
   });
 }
 
@@ -60,11 +64,13 @@ interface Front {
   read: Read;
   kinds: Kinds;
   typed: TypedFile[];
+  chosen: string[] | null;
 }
 
 async function checkAt(root: string, options: CheckOptions, context: CheckContext, front: Front): Promise<CheckOutcome> {
-  const { law, config, files, read, kinds, typed } = front;
-  const { base, changed } = theChange(root, files, options.base, context.env);
+  const { law, config, files, read, kinds, typed, chosen } = front;
+  const named = chosen !== null;
+  const { base, changed } = named ? { base: null, changed: new Set(chosen) } : theChange(root, files, options.base, context.env);
   const lawChanged = base !== null && [...changed].some(touchesLaw);
 
   const run = options.full ? typed : typed.filter((file) => changed.has(file.path));
@@ -158,7 +164,7 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
     builtIn.push({ code: 'not-reviewed', rule: ask.rule, file: ask.file, message: `${ask.rule} has no verdict for this content` });
   }
 
-  const report = judge(law, run, raw, builtIn, uses, waiversOf, kinds.reviewers, changed, base, options.full);
+  const report = judge(law, run, raw, builtIn, uses, waiversOf, kinds.reviewers, changed, base, named ? 'paths' : options.full ? 'full' : 'change');
   report.reviews = {
     missing: [...report.findings, ...report.debt].filter((f) => f.code === 'not-reviewed').length,
     calls_made: callsMade,
@@ -266,7 +272,7 @@ function judge(
   reviewers: Map<string, ReviewerRule>,
   changed: Set<string>,
   base: string | null,
-  full: boolean,
+  mode: Report['mode'],
 ): Report {
   const byPath = new Map(run.map((file) => [file.path, file]));
   const change: Finding[] = [];
@@ -287,7 +293,7 @@ function judge(
   for (const item of builtIn) {
     const rule = law.rules.get(item.rule)!;
     const isDebt = !changed.has(item.file);
-    const severity = !isDebt && rule.status === 'enforced' ? 'error' : 'warning';
+    const severity = !isDebt && rule.status === 'enforced' && mode !== 'paths' ? 'error' : 'warning';
     place({ code: item.code, rule: rule.id, severity, debt: isDebt, file: item.file, type: byPath.get(item.file)!.type.id, message: item.message, why: WHY[item.code]! });
   }
 
@@ -327,7 +333,7 @@ function judge(
   }
 
   return {
-    mode: full ? 'full' : 'change',
+    mode,
     base,
     changed: changed.size,
     findings: sortFindings(change),

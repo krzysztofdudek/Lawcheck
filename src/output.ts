@@ -49,7 +49,7 @@ export interface Next {
 }
 
 export interface Report {
-  mode: 'change' | 'full';
+  mode: 'change' | 'full' | 'paths';
   base: string | null;
   changed: number;
   findings: Finding[];
@@ -260,14 +260,16 @@ export function renderReport(report: Report, json: boolean): string {
 
   const verdict = failing ? 'FAIL' : 'PASS';
   const lines: string[] = [];
-  if (report.base !== null && report.changed === 0) {
+  if (report.mode !== 'paths' && report.base !== null && report.changed === 0) {
     lines.push(`lawcheck: ${verdict}  nothing changed against ${report.base}${calls}`);
   } else {
     const counts = [errors > 0 ? plural(errors, 'error') : '', warnings > 0 ? plural(warnings, 'warning') : '']
       .filter(Boolean)
       .join(', ');
     const scope =
-      report.base === null
+      report.mode === 'paths'
+        ? plural(report.changed, 'named file')
+        : report.base === null
         ? `${plural(report.changed, 'file')} (no base: every file counts as changed)`
         : `${plural(report.changed, 'changed file')} (against ${report.base})`;
     lines.push(`lawcheck: ${verdict}  ${counts === '' ? '' : counts + ' in '}${scope}${waiverPart(changeWaivers)}${unresolvedPart(changeUnresolved)}${calls}`);

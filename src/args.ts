@@ -44,7 +44,7 @@ export const PROGRAM_USAGE = [
   'usage: lawcheck <command> [<arguments>] [--json]',
   '  init  starts a law in the current directory',
   '  prime  prints what a coding agent reads at the start of a session',
-  '  check  checks the files of this change against the law',
+  '  check  checks the files of this change, or the files named, against the law',
   '  explain  says why a file, a type or a rule has the law it has',
   '  try  runs one rule on chosen files and records nothing',
   '  docs  prints the reference, one topic at a time',
@@ -71,15 +71,17 @@ export const USAGE: Record<CommandName, string> = {
   ].join('\n'),
   check: [
     'usage: lawcheck check [--full] [--base <ref>] [--review [--again] [--max-calls <n>]] [--json]',
+    '       lawcheck check <path or pattern>... [--json]',
     '',
-    'Checks the files of this change against .lawcheck/law.yaml.',
+    'Checks the files of this change, or the files named, against .lawcheck/law.yaml.',
     '',
-    '  --full           also judge the files outside the change, as debt',
-    '  --base <ref>     the base of the change; else LAWCHECK_BASE, else origin/HEAD',
-    '  --review         ask the reviewer for the reviews that have no verdict',
-    '  --again          with --review, ask again where a failure is cached',
-    '  --max-calls <n>  with --review, the most requests this run sends',
-    '  --json           print one JSON document',
+    '  <path or pattern>  judge these files, changed or not, and no others',
+    '  --full             also judge the files outside the change, as debt',
+    '  --base <ref>       the base of the change; else LAWCHECK_BASE, else origin/HEAD',
+    '  --review           ask the reviewer for the reviews that have no verdict',
+    '  --again            with --review, ask again where a failure is cached',
+    '  --max-calls <n>    with --review, the most requests this run sends',
+    '  --json             print one JSON document',
     '',
     'Exit 0: no error. Exit 1: the code breaks the law. Exit 2: no conclusion.',
     '',
@@ -186,5 +188,5 @@ export function text(args: Arguments, flag: string): string | null {
 
 export function noWords(args: Arguments): string | null {
   const word = args.words[0];
-  return word === undefined ? null : `unexpected argument '${word}'; ${args.command} takes no ${args.command === 'check' ? 'paths' : 'arguments'}`;
+  return word === undefined ? null : `unexpected argument '${word}'; ${args.command} takes no arguments`;
 }

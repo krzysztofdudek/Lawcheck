@@ -168,7 +168,7 @@ test('test 42: not initialized, and no git', async () => {
 
 test('test 43: usage', async () => {
   await withSample(async (s) => {
-    const cases = [[], ['fix'], ['check', 'src'], ['check', '--base'], ['check', '--base=main'], ['check', '--full', '--full']];
+    const cases = [[], ['fix'], ['check', 'src', '--full'], ['check', '--base'], ['check', '--base=main'], ['check', '--full', '--full']];
     for (const args of cases) {
       const run = await lawcheck(s, args);
       assert.equal(run.code, 2, args.join(' '));
