@@ -297,7 +297,7 @@ test('test 64: the endpoint and the key come from the environment', async () => 
           const result = await run(r, null, ['--review', '--base', 'main', ...json], { LAWCHECK_REVIEWER_ENDPOINT: endpoint });
           const out = json.length > 0 ? JSON.parse(result.stdout).errors.map((e: { code: string; file: string | null }) => `${e.code} ${e.file}`) : result.stdout.split('\n');
           assert.ok(json.length > 0 ? out.includes('reviewer-unreachable null') : out.some((line: string) => line.startsWith('error[reviewer-unreachable]  ')), `${endpoint}: ${result.stdout}`);
-          assert.ok(!result.stdout.includes('s3cr3t'), result.stdout);
+          assert.ok(!(result.stdout + result.stderr).includes('s3cr3t'), result.stdout + result.stderr);
           assert.equal(result.code, 2);
         }
       });

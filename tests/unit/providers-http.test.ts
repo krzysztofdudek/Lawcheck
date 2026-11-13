@@ -72,3 +72,14 @@ test('no answer: at once for a dropped connection, never after a timeout', async
     assert.ok(Date.now() - started < 3000);
   });
 });
+
+test('post refuses, before any request, an address with a user or a password and a header a request cannot carry, and quotes neither', async () => {
+  for (const url of ['http://user:s3cr3t@127.0.0.1:9/v1/chat/completions', 'http://s3cr3t@127.0.0.1:9/v1', 'http://:s3cr3t@127.0.0.1:9/v1']) {
+    const failed = await post(url, {}, {}, 5);
+    assert.deepEqual(failed, { failure: 'the address of the reviewer holds a user or a password, so no request is sent', resend: false }, url);
+  }
+  for (const value of ['Bearer se\ncret-s3cr3t', 'Bearer se\rcret-s3cr3t', 'Bearer se\tcret-s3cr3t', 'Bearer słcr3t', 'Bearer s\u0001cr3t']) {
+    const failed = await post('http://127.0.0.1:9/v1', { authorization: value }, {}, 5);
+    assert.deepEqual(failed, { failure: 'a header of the request holds a character a header cannot carry, so no request is sent', resend: false }, JSON.stringify(value));
+  }
+});

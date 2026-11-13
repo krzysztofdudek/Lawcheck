@@ -20,6 +20,15 @@ function lineOf(message: unknown): string {
   return typeof message === 'string' ? (message.split(/\r?\n/)[0] ?? '') : '';
 }
 
+function hasCredentials(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.username !== '' || parsed.password !== '' || /^[^/?#]*\/\/[^/?#]*@/.test(url);
+  } catch {
+    return false;
+  }
+}
+
 export function cause(error: unknown): string {
   const err = error as { message?: unknown; cause?: { code?: unknown; message?: unknown } | null } | null;
   const code = err?.cause?.code;
@@ -31,6 +40,10 @@ export function cause(error: unknown): string {
 }
 
 export async function post(url: string, headers: Record<string, string>, body: unknown, timeoutSeconds: number): Promise<Posted> {
+  if (hasCredentials(url)) return { failure: 'the address of the reviewer holds a user or a password, so no request is sent', resend: false };
+  if (Object.values(headers).some((value) => /[^ -~]/.test(value))) {
+    return { failure: 'a header of the request holds a character a header cannot carry, so no request is sent', resend: false };
+  }
   const signal = AbortSignal.timeout(timeoutSeconds * 1000);
   let response: Response;
   let text: string;
