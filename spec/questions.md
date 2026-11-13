@@ -419,3 +419,9 @@ The trial ran once, with Claude Code 2.1.322 and `claude-sonnet-5-5` at `medium`
 All 15 errors are the same case of step 4: a Bash call whose command held `lawcheck` while the log held no `agent` line. In those runs the hooks worked: 9 of the 10 edit errors and 2 of the 5 stop errors hold a breach from the arm's hook, followed by a passing check. The errors are attributed to that rule, unconfirmed: the script then kept no transcript, and the likeliest reading is a command that only reads `.lawcheck/`, such as `cat .lawcheck/rules/coded-errors.mjs` after a hook named the rule, which holds the word without running Lawcheck. No run was repeated, and a valid rerun of the edit arm is the owner's to decide.
 
 Choice, after the trial: step 4 now takes a Bash call that runs `lawcheck` as a command, not one that only names it or `.lawcheck/`, and a run that ends as an error keeps its `transcript.jsonl` and `log.jsonl` in its folder, so the cause of an error can be read. Two recorded transcripts in `tests/agent/samples/` and the tests of `agent-result.test.ts` check both; the committed result keeps the first trial's verdicts as they were judged.
+
+## 66. The owner lifts the session limit
+
+Krzysztof, 2026-11-13 (translated from Polish): "Run as many as you want. You have no limit" (in Polish: "Rób ile chcesz. Nie masz ograniczenia"). The other conditions of entry 64 stay: the host, the subscription, a temporary repository per run, the allow list, 15 minutes per run, the plugin loaded per run only.
+
+Choice: both arms run again with the corrected harness of entry 65 and the defaults. The result file records one commit and one harness for both arms, and the stop arm's 5 errors were judged by the old rule, so keeping its first result beside a new edit arm would mix two harnesses in one file.
