@@ -181,6 +181,11 @@ test('test 136: the reviewer check', async () => {
       const fine = await doctor(r, ['--base', 'main', '--reviewer'], env);
       assert.match(line(fine.stdout, 'reviewer'), /^fail {2}reviewer {2}.*answered with no verdict: fine$/);
       assert.equal(fine.code, 2);
+      const verdict = '{"verdict": "fail", "findings": [{"line": null, "message": "m"}]}';
+      fake.respond = () => openai(verdict);
+      const failing = await doctor(r, ['--base', 'main', '--reviewer'], env);
+      assert.equal(line(failing.stdout, 'reviewer'), `fail  reviewer  1 reviewer rule; openai-compatible answered fail to a test call that asks for pass: ${verdict}`);
+      assert.equal(failing.code, 2);
     });
     await withR(
       async (r) => {

@@ -243,7 +243,8 @@ export async function runChecks(inputs: Inputs): Promise<Check[]> {
       if ('failure' in asked) return set('reviewer', 'fail', `${rules}; ${config.provider} did not answer a test call: ${asked.failure}`, next(`${again} --reviewer`));
       const checked = checkAnswer(asked.answer, 0);
       if ('problem' in checked || checked.verdict !== 'pass') {
-        return set('reviewer', 'fail', `${rules}; ${config.provider} answered with no verdict: ${[...asked.answer].slice(0, 200).join('')}`, next(`${again} --reviewer`));
+        const what = 'problem' in checked ? 'answered with no verdict' : 'answered fail to a test call that asks for pass';
+        return set('reviewer', 'fail', `${rules}; ${config.provider} ${what}: ${[...asked.answer].slice(0, 200).join('')}`, next(`${again} --reviewer`));
       }
       set('reviewer', 'ok', `${rules}; ${config.provider} answered a test call`);
     },

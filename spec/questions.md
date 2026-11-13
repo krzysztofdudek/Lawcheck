@@ -265,7 +265,7 @@ Choice: right after the type lines, before the blank line and `Rules`, which sat
 - The note of `readers` reads `<n> files are not read for uses: <k> <extension>, ..., so check warns uses-not-read`, slice three's wording without a type.
 - `law-change` lists three paths, then `, and <n> more`.
 - `reviewer` with a provider set and no reviewer rule is `ok` with `no reviewer rule, so no reviewer is needed`, unless `--reviewer` asks for the test call.
-- A test call answered with a valid `fail` is reported as `answered with no verdict`, since section 8 says anything but a pass is a fail and names no other message.
+- A test call answered with a valid `fail` is reported as `answered fail to a test call that asks for pass: <the answer's first 200 characters>`; an answer that is no verdict keeps section 8's `answered with no verdict`.
 - The fails of a test call, and `--reviewer` without a provider, end their `next:` with `lawcheck doctor --reviewer`.
 - `doctor`'s own `usage` errors print slice one's error output and `lawcheck-error/1`; only its report replaces them.
 
@@ -300,3 +300,10 @@ Choice: under `try` both read `run the same command again; try keeps no answer, 
 Slice one's `next:` for `internal` and any code without its own reads `run lawcheck check again, and report the error if it stays`, which section 2's rewrite does not reach.
 
 Choice: it names the command that ran, as `no-git` does (entry 34). `init` where `.lawcheck` is a regular file stays `internal`: no code of the spec fits a file in the way, and a new code is the owner's to add.
+
+## 48. Notes of the review left as they are
+
+- Note 9, a path behind a symbolic link to a directory is explained as one git ignores: section 6 has no row for it, and a new reason is the spec's to add.
+- Note 10, a file whose name holds `*`, `?` or `{` cannot be named to `try`: section 5 makes such a target a pattern, and reading a listed file as a path first is the spec's decision.
+- Note 12, `prime`'s first part keeps its lines on reviewer rules and `may_use` in a law that has neither: section 4 fixes the first part as the same 1,713 characters in every repository, and test 100 compares S, which has neither, byte for byte with those lines in it.
+- Note 13, two phrases of `commands-slice.md` speak of moving from another tool: the spec is the contract this slice was built against, and its wording is the director's to change.
