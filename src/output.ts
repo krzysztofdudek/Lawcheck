@@ -104,10 +104,10 @@ function nextFor(error: ErrorItem, command: string | null): string {
     return command === null ? 'run lawcheck as its usage line says: lawcheck --help' : `run lawcheck ${command} as its usage line says: lawcheck ${command} --help`;
   }
   if (error.code === 'no-git') return `run lawcheck ${command ?? 'check'} inside a git work tree, with git on the PATH`;
-  return forCommand(fixedNext(error), command ?? 'check');
+  return forCommand(fixedNext(error, command ?? 'check'), command ?? 'check');
 }
 
-function fixedNext(error: ErrorItem): string {
+function fixedNext(error: ErrorItem, command: string): string {
   switch (error.code) {
     case 'not-initialized':
       return 'write .lawcheck/law.yaml at the root of the code to check, then run lawcheck check';
@@ -131,7 +131,7 @@ function fixedNext(error: ErrorItem): string {
     case 'reviewer-bad-answer':
       return 'run the same command again; what was answered is kept, so it asks only the rest';
     default:
-      return 'run lawcheck check again, and report the error if it stays';
+      return `run lawcheck ${command} again, and report the error if it stays`;
   }
 }
 

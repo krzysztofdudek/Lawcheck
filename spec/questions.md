@@ -294,3 +294,9 @@ The pages may name no other tool, and the package is not published. The examples
 Slice two's `next:` for `reviewer-unreachable` and `reviewer-bad-answer` says that what was answered is kept, so the next run asks only the rest. `try` keeps nothing (decision 5), so that line would be false.
 
 Choice: under `try` both read `run the same command again; try keeps no answer, so it makes every call again`.
+
+## 47. The `next:` of `internal` outside `check`
+
+Slice one's `next:` for `internal` and any code without its own reads `run lawcheck check again, and report the error if it stays`, which section 2's rewrite does not reach.
+
+Choice: it names the command that ran, as `no-git` does (entry 34). `init` where `.lawcheck` is a regular file stays `internal`: no code of the spec fits a file in the way, and a new code is the owner's to add.

@@ -111,6 +111,17 @@ test('test 98: a kept .gitignore, a law below the top, and no git', async () => 
   });
 });
 
+test('init where .lawcheck is a file: internal, and its next line names init', async () => {
+  await inTemp(async (dir) => {
+    const repo = newRepository(dir, { '.lawcheck': 'x\n' });
+    const run = await lawcheck(repo, ['init']);
+    assert.match(run.stdout, /^error\[internal\]/m);
+    assert.match(run.stdout, /^next: run lawcheck init again, and report the error if it stays$/m);
+    assert.equal(run.code, 2);
+    assert.equal(readFileSync(join(repo, '.lawcheck'), 'utf8'), 'x\n');
+  });
+});
+
 test('test 99: JSON, usage, and already-initialized as a reserved rule id', async () => {
   await inTemp(async (dir) => {
     const repo = newRepository(dir);
