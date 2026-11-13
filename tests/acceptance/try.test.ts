@@ -247,6 +247,16 @@ test('test 125: what stops a reviewer rule before the first call', async () => {
       },
       { onMain: (r) => write(r, '.lawcheck/config.yaml', REVIEWER_CONFIG + '  max_chars: 2126\n') },
     );
+    await withR(
+      async (r) => {
+        write(r, F_PATH, F);
+        const both = await tryIn(r, ['clear-errors', F_PATH], env);
+        assert.match(both.stdout, /^src\/core\/refund\.ts {2}error\[too-large-to-review\]/m);
+        assert.doesNotMatch(both.stdout, /reviewer-not-configured/);
+        assert.equal(both.code, 2);
+      },
+      { onMain: (r) => write(r, '.lawcheck/config.yaml', 'reviewer:\n  max_chars: 100\n') },
+    );
     assert.equal(fake.requests.length, 0);
   });
   await withFake(

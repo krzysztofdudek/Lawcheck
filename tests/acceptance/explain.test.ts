@@ -129,6 +129,35 @@ test('test 110: the list in force and the reader', async () => {
   );
 });
 
+test('explain: the pattern that matched, a rule listed twice, and a file with no reader under a list', async () => {
+  const law = (text: string) =>
+    text
+      .replace('    paths: ["src/**/*.ts", "!src/**/*.d.ts"]\n    rules: [no-todo]\n', '    paths: ["src/**/*.ts", "src/**/*.md", "!src/**/*.d.ts"]\n    rules: [no-todo]\n    may_use: [source]\n')
+      .replace('        rules: [no-console]\n', '        rules: [no-console, no-todo]\n');
+  await withSample(
+    async (s) => {
+      write(s, 'src/core/notes.md', '# Notes\n');
+      await same(
+        s,
+        ['src/core/notes.md'],
+        [
+          'src/core/notes.md',
+          '  type:  library  (source > library)  Code the commands call.',
+          '  matched:  source by "src/**/*.md", library by "src/core/**"',
+          '  may use:  source  (from source)',
+          '  uses:  not read: Lawcheck has no reader for this file',
+          '  rules:',
+          '    no-todo  script  advisory  from source  A TODO without an issue number gets forgotten.',
+          '    no-console  script  enforced  from library  Only the command layer writes to the terminal.',
+          '  waivers:  none',
+          '',
+        ].join('\n'),
+      );
+    },
+    { onMain: (s) => write(s, '.lawcheck/law.yaml', law(read(s, '.lawcheck/law.yaml'))) },
+  );
+});
+
 test('test 111: the state of each review, and no request', async () => {
   await withFake(async (fake) => {
     await withR(async (r) => {
