@@ -88,3 +88,24 @@ test('test 88: one use from domain to app in each language', async () => {
     assert.equal(changed.code, 1);
   });
 });
+
+test('test 88, debt: every finding and unresolved use of L outside the change', async () => {
+  await inTemp(async (dir) => {
+    const l = makeL(dir);
+    git(l, 'checkout', '-q', '-b', 'work');
+    const run = await check(l, '--full', '--base', 'main');
+    const lines = run.stdout.split('\n');
+    assert.equal(lines[0], 'lawcheck: PASS  nothing changed against main');
+    assert.ok(lines.includes('debt (outside this change): 16 findings in 15 files, 12 unresolved uses'), run.stdout);
+    assert.deepEqual(findingLines(run.stdout), FINDINGS.map((line) => line.replace('  error[', '  warning[')));
+    assert.equal(run.code, 0);
+    const json = await check(l, '--full', '--base', 'main', '--json');
+    const document = JSON.parse(json.stdout);
+    assert.equal(document.summary.unresolved, 0);
+    assert.equal(document.summary.debt, 16);
+    assert.ok(document.findings.some((f: any) => f.code === 'uses-not-read' && f.debt === true), json.stdout);
+    assert.deepEqual(document.unresolved.map((u: any) => `${u.file}:${u.line}  ${u.answer}  ${u.what}`), UNRESOLVED);
+    assert.ok(document.unresolved.every((u: any) => u.debt === true), json.stdout);
+    assert.equal(json.code, 0);
+  });
+});
