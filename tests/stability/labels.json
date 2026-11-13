@@ -1,0 +1,146 @@
+[
+  {
+    "file": "src/handlers/get-user.ts",
+    "rule": "handlers-are-thin",
+    "label": "pass",
+    "borderline": false
+  },
+  {
+    "file": "src/handlers/create-order.ts",
+    "rule": "handlers-are-thin",
+    "label": "pass",
+    "borderline": false
+  },
+  {
+    "file": "src/handlers/order-total.ts",
+    "rule": "handlers-are-thin",
+    "label": "fail",
+    "borderline": false
+  },
+  {
+    "file": "src/handlers/delete-user.ts",
+    "rule": "handlers-are-thin",
+    "label": "fail",
+    "borderline": false
+  },
+  {
+    "file": "src/handlers/list-users.ts",
+    "rule": "handlers-are-thin",
+    "label": "pass",
+    "borderline": true
+  },
+  {
+    "file": "src/handlers/pay-invoice.ts",
+    "rule": "handlers-are-thin",
+    "label": "fail",
+    "borderline": true
+  },
+  {
+    "file": "src/services/invoices.ts",
+    "rule": "clear-errors",
+    "label": "pass",
+    "borderline": false
+  },
+  {
+    "file": "src/services/rates.ts",
+    "rule": "clear-errors",
+    "label": "pass",
+    "borderline": false
+  },
+  {
+    "file": "src/services/orders.ts",
+    "rule": "clear-errors",
+    "label": "fail",
+    "borderline": false
+  },
+  {
+    "file": "src/services/users.ts",
+    "rule": "clear-errors",
+    "label": "fail",
+    "borderline": false
+  },
+  {
+    "file": "src/services/currency.ts",
+    "rule": "clear-errors",
+    "label": "pass",
+    "borderline": true
+  },
+  {
+    "file": "src/services/payments.ts",
+    "rule": "clear-errors",
+    "label": "fail",
+    "borderline": true
+  },
+  {
+    "file": "src/domain/price.ts",
+    "rule": "pure-domain",
+    "label": "pass",
+    "borderline": false
+  },
+  {
+    "file": "src/domain/discount.ts",
+    "rule": "pure-domain",
+    "label": "pass",
+    "borderline": false
+  },
+  {
+    "file": "src/domain/due-date.ts",
+    "rule": "pure-domain",
+    "label": "fail",
+    "borderline": false
+  },
+  {
+    "file": "src/domain/token.ts",
+    "rule": "pure-domain",
+    "label": "fail",
+    "borderline": false
+  },
+  {
+    "file": "src/domain/format-amount.ts",
+    "rule": "pure-domain",
+    "label": "pass",
+    "borderline": true
+  },
+  {
+    "file": "src/domain/expiry.ts",
+    "rule": "pure-domain",
+    "label": "fail",
+    "borderline": true
+  },
+  {
+    "file": "src/util/retry.ts",
+    "rule": "comments-say-why",
+    "label": "pass",
+    "borderline": false
+  },
+  {
+    "file": "src/util/slug.ts",
+    "rule": "comments-say-why",
+    "label": "pass",
+    "borderline": false
+  },
+  {
+    "file": "src/util/sum.ts",
+    "rule": "comments-say-why",
+    "label": "fail",
+    "borderline": false
+  },
+  {
+    "file": "src/util/parse.ts",
+    "rule": "comments-say-why",
+    "label": "fail",
+    "borderline": false
+  },
+  {
+    "file": "src/util/timeout.ts",
+    "rule": "comments-say-why",
+    "label": "pass",
+    "borderline": true
+  },
+  {
+    "file": "src/util/cache.ts",
+    "rule": "comments-say-why",
+    "label": "fail",
+    "borderline": true
+  }
+]

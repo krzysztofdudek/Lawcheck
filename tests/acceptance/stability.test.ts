@@ -1,0 +1,112 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileLines, filePath, openai, withFake } from './fake-reviewer.ts';
+import type { Recorded } from './fake-reviewer.ts';
+import { GIT_ENV, inTemp, ROOT } from './helpers.ts';
+
+const SCRIPT = join(ROOT, 'tests', 'stability', 'run.ts');
+const LABELS = JSON.parse(readFileSync(join(ROOT, 'tests', 'stability', 'labels.json'), 'utf8')) as { file: string; rule: string; label: string; borderline: boolean }[];
+
+function stability(env: NodeJS.ProcessEnv): Promise<{ code: number | null; stdout: string; stderr: string }> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [SCRIPT], { cwd: ROOT, env: { ...GIT_ENV, ...env }, stdio: ['ignore', 'pipe', 'pipe'] });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.setEncoding('utf8').on('data', (chunk: string) => (stdout += chunk));
+    child.stderr.setEncoding('utf8').on('data', (chunk: string) => (stderr += chunk));
+    child.on('error', reject);
+    child.on('close', (code) => resolve({ code, stdout, stderr }));
+  });
+}
+
+function byLabel(fail: (request: Recorded, count: number) => 'pass' | 'fail' | 500, message = 'labelled fail') {
+  const counts = new Map<string, number>();
+  return (request: Recorded) => {
+    const file = filePath(request.prompt);
+    const count = (counts.get(file) ?? 0) + 1;
+    counts.set(file, count);
+    const verdict = fail(request, count);
+    if (verdict === 500) return { status: 500, body: '{}' };
+    assert.ok(fileLines(request.prompt).length > 0);
+    return openai(JSON.stringify(verdict === 'pass' ? { verdict: 'pass', findings: [] } : { verdict: 'fail', findings: [{ line: 1, message }] }));
+  };
+}
+
+const labelOf = (request: Recorded) => LABELS.find((label) => label.file === filePath(request.prompt))!.label as 'pass' | 'fail';
+
+test('test 76: the measurement against the fake', async () => {
+  await inTemp(async (dir) => {
+    const out = join(dir, 'result.json');
+    await withFake(
+      async (fake) => {
+        const result = await stability({ LAWCHECK_REVIEWER_ENDPOINT: fake.url, LAWCHECK_STABILITY_MODEL: 'test-model', LAWCHECK_BASE: 'main', LAWCHECK_STABILITY_OUT: out });
+        assert.equal(result.code, 0, result.stderr);
+        const text = readFileSync(out, 'utf8');
+        assert.ok(text.endsWith('}\n'));
+        assert.ok(!text.includes('127.0.0.1'));
+        const document = JSON.parse(text);
+        assert.equal(text, JSON.stringify(document, null, 2) + '\n');
+        assert.equal(document.schema, 'lawcheck-stability/1');
+        assert.match(document.date, /^\d{4}-\d{2}-\d{2}$/);
+        assert.equal(document.lawcheck, '0.1.0');
+        assert.equal(document.verdict_format, 'lawcheck-verdict/1');
+        assert.equal(document.provider, 'openai-compatible');
+        assert.equal(document.model, 'test-model');
+        assert.equal(document.temperature_sent, 0);
+        assert.equal(document.runs, 10);
+        assert.deepEqual(document.agreement, {
+          all: { pairs: 24, agreeing: 23, share: 0.958 },
+          clear: { pairs: 16, agreeing: 16, share: 1 },
+          borderline: { pairs: 8, agreeing: 7, share: 0.875 },
+        });
+        assert.deepEqual(document.pairwise_agreement, { all: 0.992, clear: 1, borderline: 0.975 });
+        assert.deepEqual(document.label_match, {
+          all: { verdicts: 240, matching: 239, share: 0.996 },
+          clear: { verdicts: 160, matching: 160, share: 1 },
+          borderline: { verdicts: 80, matching: 79, share: 0.988 },
+        });
+        assert.equal(document.attempts.length, 11);
+        const failed = document.attempts.filter((a: { exit: number }) => a.exit === 2);
+        assert.deepEqual(failed, [{ run: 2, attempt: 1, exit: 2, calls_made: null, errors: [{ code: 'reviewer-unreachable', file: 'src/domain/price.ts' }] }]);
+        assert.ok(document.attempts.filter((a: { exit: number }) => a.exit !== 2).every((a: { calls_made: number; errors: unknown[] }) => a.calls_made === 24 && a.errors.length === 0));
+        const timeout = document.pairs.find((p: { file: string }) => p.file === 'src/util/timeout.ts');
+        assert.deepEqual(timeout.verdicts, ['pass', 'pass', 'fail', 'pass', 'pass', 'pass', 'pass', 'pass', 'pass', 'pass']);
+        assert.deepEqual(timeout.messages[2], ['labelled fail']);
+        assert.deepEqual(
+          document.pairs.map((p: { file: string; rule: string; label: string; borderline: boolean }) => ({ file: p.file, rule: p.rule, label: p.label, borderline: p.borderline })),
+          LABELS,
+        );
+        const cache = document.pairs.find((p: { file: string }) => p.file === 'src/util/cache.ts');
+        assert.deepEqual(cache.messages, Array.from({ length: 10 }, () => ['labelled fail']));
+      },
+      byLabel((request, count) => {
+        const file = filePath(request.prompt);
+        if (file === 'src/util/timeout.ts' && count === 3) return 'fail';
+        if (file === 'src/domain/price.ts' && count === 2) return 500;
+        return labelOf(request);
+      }),
+    );
+  });
+});
+
+test('test 77: the measurement refuses to run, or to write a secret', async () => {
+  await inTemp(async (dir) => {
+    const out = join(dir, 'result.json');
+    await withFake(async (fake) => {
+      const noEndpoint = await stability({ LAWCHECK_STABILITY_MODEL: 'test-model', LAWCHECK_STABILITY_OUT: out });
+      assert.equal(noEndpoint.code, 2);
+      assert.match(noEndpoint.stderr, /LAWCHECK_REVIEWER_ENDPOINT/);
+      const noModel = await stability({ LAWCHECK_REVIEWER_ENDPOINT: fake.url, LAWCHECK_STABILITY_OUT: out });
+      assert.equal(noModel.code, 2);
+      assert.match(noModel.stderr, /LAWCHECK_STABILITY_MODEL/);
+      assert.equal(fake.requests.length, 0);
+      const secret = await stability({ LAWCHECK_REVIEWER_ENDPOINT: fake.url, LAWCHECK_STABILITY_MODEL: 'test-model', LAWCHECK_REVIEWER_KEY: 'k-secret', LAWCHECK_STABILITY_OUT: out });
+      assert.equal(secret.code, 2, secret.stderr);
+      assert.equal(fake.requests.length, 240);
+      assert.ok(!existsSync(out));
+    }, byLabel(() => 'fail', 'k-secret'));
+  });
+});

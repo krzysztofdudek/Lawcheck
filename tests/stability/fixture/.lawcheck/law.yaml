@@ -1,0 +1,25 @@
+lawcheck: 0.1.0
+
+rules:
+  handlers-are-thin:
+    why: A handler parses the request and calls one service; logic lives in services.
+  clear-errors:
+    why: An error a caller sees says what happened and what to do next.
+  pure-domain:
+    why: Domain code gives the same answer for the same input, so it can be tested without a world around it.
+  comments-say-why:
+    why: A comment that repeats the code goes stale and teaches nothing.
+
+types:
+  handler:
+    paths: ["src/handlers/**"]
+    rules: [handlers-are-thin]
+  service:
+    paths: ["src/services/**"]
+    rules: [clear-errors]
+  domain:
+    paths: ["src/domain/**"]
+    rules: [pure-domain]
+  util:
+    paths: ["src/util/**"]
+    rules: [comments-say-why]
