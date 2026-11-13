@@ -425,3 +425,9 @@ Choice, after the trial: step 4 now takes a Bash call that runs `lawcheck` as a 
 Krzysztof, 2026-11-13 (translated from Polish): "Run as many as you want. You have no limit" (in Polish: "Rób ile chcesz. Nie masz ograniczenia"). The other conditions of entry 64 stay: the host, the subscription, a temporary repository per run, the allow list, 15 minutes per run, the plugin loaded per run only.
 
 Choice: both arms run again with the corrected harness of entry 65 and the defaults. The result file records one commit and one harness for both arms, and the stop arm's 5 errors were judged by the old rule, so keeping its first result beside a new edit arm would mix two harnesses in one file.
+
+## 67. The second trial
+
+Both arms ran again with the corrected harness, Claude Code 2.1.322 and `claude-sonnet-5-5` at `medium`. The edit arm made 21 runs: 10 counted, all 10 fixed, 2 errors; it passes. The stop arm made 19 runs: 10 counted, all 10 fixed, 2 errors; it passes.
+
+The four errors are each a run whose kept transcript shows the agent's own `lawcheck` call refused by `--permission-mode dontAsk`: the agent wrapped it in a compound command, such as `(lawcheck check ./src/core/discount.js; node -e ...)` or `node -e ...; (lawcheck check src/core/discount.js 2>&1 | tail ...)`, which the allow list does not cover as a whole, so Lawcheck never ran and the log holds no `agent` line. In each the arm's hook had found the breach and a later check passed. These are errors of step 4 as written, not of the harness, and the transcripts were read and then removed with the run folders.
