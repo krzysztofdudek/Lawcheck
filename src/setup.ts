@@ -1,9 +1,9 @@
 import { readFileSync, realpathSync, statSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
-import { changedPaths, defaultBase, GitFailed, hasHead, listFiles, mergeBase, NoGit, resolveCommit, workTreeProblem } from './files.js';
+import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
+import { changedPaths, defaultBase, GitFailed, hasHead, listedPaths, listFiles, mergeBase, NoGit, resolveCommit, workTreeProblem } from './files.js';
 import { CONFIG, readConfig } from './config.js';
 import type { ReviewerConfig } from './config.js';
-import { parseLaw } from './law.js';
+import { nearestKey, parseLaw } from './law.js';
 import type { Law } from './law.js';
 import type { ErrorItem } from './output.js';
 import { decode, isBinary, typeFiles } from './types.js';
@@ -67,6 +67,21 @@ export function notInitialized(): ErrorItem {
   return { code: 'not-initialized', file: null, line: null, message: `no ${LAW} in this directory or any above it` };
 }
 
+export function usage(message: string): Stop {
+  return new Stop([{ code: 'usage', file: null, line: null, message }]);
+}
+
+export function nearPart(word: string, known: string[]): string {
+  const near = nearestKey(word, known);
+  return near === null ? '' : ` (did you mean '${near}'?)`;
+}
+
+export function fromCwd(root: string, cwd: string, word: string): string {
+  const path = relative(root, resolve(realpathSync(resolve(cwd)), word));
+  if (path === '..' || path.startsWith('../') || isAbsolute(path)) throw usage(`the path '${word}' lies outside the root of the law`);
+  return path === '' ? '.' : path;
+}
+
 export function locate(cwd: string): string {
   const root = findRoot(cwd);
   if (root === null) throw new Stop([notInitialized()]);
@@ -112,16 +127,18 @@ export function loadConfig(root: string): ReviewerConfig {
 }
 
 export interface RuleFiles {
+  listed: Set<string>;
   files: string[];
   read: Read;
   kinds: Kinds;
 }
 
 export function ruleFileErrors(root: string, law: Law): RuleFiles & { errors: ErrorItem[] } {
-  const files = listFiles(root);
+  const listed = listedPaths(root);
+  const files = listFiles(root, listed);
   const read = onceReader(root);
   const kinds = ruleKinds(law, files, read);
-  return { files, read, kinds, errors: kinds.errors.length > 0 ? kinds.errors : kinds.unreadable };
+  return { listed, files, read, kinds, errors: kinds.errors.length > 0 ? kinds.errors : kinds.unreadable };
 }
 
 export function loadRuleFiles(root: string, law: Law, withContext = true): RuleFiles {
