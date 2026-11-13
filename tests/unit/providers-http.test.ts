@@ -46,6 +46,14 @@ test('statuses, a body that is no JSON, a redirect and an error message', async 
   });
 });
 
+test('a request that cannot be sent names no part of its address', async () => {
+  const failed = await post('http://user:s3cr3t@127.0.0.1:9/v1/chat/completions', {}, {}, 5);
+  assert.ok('failure' in failed, JSON.stringify(failed));
+  assert.ok(!failed.failure.includes('s3cr3t') && !failed.failure.includes('127.0.0.1'), failed.failure);
+  const refused = await post('http://127.0.0.1:9/v1', {}, {}, 5);
+  assert.ok('failure' in refused && !refused.failure.includes('127.0.0.1'), JSON.stringify(refused));
+});
+
 test('no answer: at once for a dropped connection, never after a timeout', async () => {
   await serve((req) => {
     if (req.url === '/drop') req.socket.destroy();

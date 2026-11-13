@@ -17,8 +17,10 @@ function errorMessage(text: string): string | null {
 }
 
 function cause(error: unknown): string {
-  const err = error as { message?: string; cause?: { code?: string; message?: string } };
-  return err?.cause?.code ?? err?.cause?.message ?? err?.message ?? String(error);
+  const err = error as { name?: unknown; cause?: { code?: unknown } };
+  const code = err?.cause?.code;
+  if (typeof code === 'string' && /^[A-Z0-9_]+$/.test(code)) return code;
+  return typeof err?.name === 'string' ? err.name : 'an unknown error';
 }
 
 export async function post(url: string, headers: Record<string, string>, body: unknown, timeoutSeconds: number): Promise<Posted> {
@@ -39,7 +41,7 @@ export async function post(url: string, headers: Record<string, string>, body: u
     if (name === 'TimeoutError' || name === 'AbortError' || signal.aborted) {
       return { failure: `the reviewer gave no answer within ${timeoutSeconds} seconds`, resend: false };
     }
-    return { failure: `the connection to the reviewer gave no answer (${firstLine(cause(error), 200)})`, resend: 'at-once' };
+    return { failure: `the connection to the reviewer gave no answer (${cause(error)})`, resend: 'at-once' };
   }
   if (response.status < 200 || response.status > 299) {
     const status = `HTTP ${response.status}${response.statusText ? ` ${response.statusText}` : ''}`;

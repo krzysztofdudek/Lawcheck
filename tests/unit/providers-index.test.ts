@@ -10,6 +10,12 @@ test('the endpoint: http or https, trailing slashes removed, empty counts as abs
   assert.deepEqual(endpointOf({ LAWCHECK_REVIEWER_ENDPOINT: 'https://example.com//' }), { url: 'https://example.com' });
   assert.ok('problem' in endpointOf({ LAWCHECK_REVIEWER_ENDPOINT: 'not a url' })!);
   assert.ok('problem' in endpointOf({ LAWCHECK_REVIEWER_ENDPOINT: 'ftp://127.0.0.1/v1' })!);
+  const secret = endpointOf({ LAWCHECK_REVIEWER_ENDPOINT: 'http://user:s3cr3t@127.0.0.1:9/v1' })!;
+  assert.ok('problem' in secret && /user or a password/.test(secret.problem) && !secret.problem.includes('s3cr3t'));
+  assert.ok('problem' in endpointOf({ LAWCHECK_REVIEWER_ENDPOINT: 'http://user@127.0.0.1:9/v1' })!);
+  assert.ok('problem' in endpointOf({ LAWCHECK_REVIEWER_ENDPOINT: 'http://h/v1?x=1' })!);
+  assert.ok('problem' in endpointOf({ LAWCHECK_REVIEWER_ENDPOINT: 'http://h/v1#top' })!);
+  assert.ok('problem' in endpointOf({ LAWCHECK_REVIEWER_ENDPOINT: 'http://h/v1?' })!);
   assert.equal(variable({ A: '' }, 'A'), null);
   assert.equal(variable({ A: 'x' }, 'A'), 'x');
 });

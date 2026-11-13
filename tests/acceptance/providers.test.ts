@@ -258,12 +258,16 @@ test('test 63: no reviewer set', async () => {
 
 test('test 64: the endpoint and the key come from the environment', async () => {
   await withFake(async (fake) => {
-    for (const endpoint of [undefined, 'not a url', 'ftp://127.0.0.1/v1']) {
+    for (const endpoint of [undefined, 'not a url', 'ftp://127.0.0.1/v1', `http://user:s3cr3t@${fake.url.slice('http://'.length)}`]) {
       await withR(async (r) => {
         write(r, F_PATH, F);
-        const result = await run(r, null, ['--review', '--base', 'main'], { LAWCHECK_REVIEWER_ENDPOINT: endpoint });
-        assert.ok(result.stdout.split('\n').some((line) => line.startsWith('error[reviewer-unreachable]  ')), `${endpoint}: ${result.stdout}`);
-        assert.equal(result.code, 2);
+        for (const json of [[], ['--json']]) {
+          const result = await run(r, null, ['--review', '--base', 'main', ...json], { LAWCHECK_REVIEWER_ENDPOINT: endpoint });
+          const out = json.length > 0 ? JSON.parse(result.stdout).errors.map((e: { code: string; file: string | null }) => `${e.code} ${e.file}`) : result.stdout.split('\n');
+          assert.ok(json.length > 0 ? out.includes('reviewer-unreachable null') : out.some((line: string) => line.startsWith('error[reviewer-unreachable]  ')), `${endpoint}: ${result.stdout}`);
+          assert.ok(!result.stdout.includes('s3cr3t'), result.stdout);
+          assert.equal(result.code, 2);
+        }
       });
     }
     assert.equal(fake.requests.length, 0);

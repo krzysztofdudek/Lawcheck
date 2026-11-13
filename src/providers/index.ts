@@ -31,6 +31,12 @@ export function endpointOf(env: Env): { url: string } | { problem: string } | nu
   if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
     return { problem: 'LAWCHECK_REVIEWER_ENDPOINT is no http: or https: address' };
   }
+  if (parsed.username !== '' || parsed.password !== '') {
+    return { problem: 'LAWCHECK_REVIEWER_ENDPOINT holds a user or a password; the key goes in LAWCHECK_REVIEWER_KEY' };
+  }
+  if (parsed.search !== '' || parsed.hash !== '' || /[?#]/.test(value)) {
+    return { problem: 'LAWCHECK_REVIEWER_ENDPOINT holds a query or a fragment; it takes the base address alone' };
+  }
   return { url: value.replace(/\/+$/, '') };
 }
 
