@@ -7,31 +7,38 @@ import { findRoot, loadLaw, loadRuleFiles, requireGit, stopped } from './setup.j
 import type { Kinds } from './setup.js';
 import { listInForce } from './uses.js';
 
-export const FIRST_PART = [
-  "Lawcheck checks this repository's code against its law: the file types, the rules each type keeps, and which types may use which. The law is .lawcheck/law.yaml; rule files are in .lawcheck/rules/.",
-  "",
-  "How to work here",
-  "- Before you create a file, or first edit a file of a type new to you: lawcheck explain <path>",
-  "- After you change code: lawcheck check. If it says \"no base\", run lawcheck check --base <the branch you started from>.",
-  "- Exit 0: nothing blocks; warnings are advisory. Exit 1: the code breaks the law; fix the code. Exit 2: Lawcheck or the law is broken; fix what the error names, not the code.",
-  "- Never report work as done while lawcheck check exits 1.",
-  "- A failing run ends with a next line; do what it says. When it asks for something listed below as the user's, or a finding cannot be fixed in the code, ask the user.",
-  "- not-reviewed: fix every other finding first, then run lawcheck check --review",
-  "- A plain check judges only changed files. After you change the law or a rule file, run lawcheck check --full and tell the user how many findings it lists outside your change.",
-  "- Findings outside your change are debt. Leave them unless the user asks.",
-  "",
-  "Only on the user's word",
-  "- a waiver (lawcheck-waive <rule> -- <reason>; lawcheck docs waivers), or taking a rule off a type",
-  "- deleting a rule, or changing its status or its why",
-  "- widening may_use",
-  "- lawcheck check --review --again, or --max-calls above reviewer.max_calls",
-  "- any edit of .lawcheck/verdicts or of .lawcheck/config.yaml",
-  "",
-  "You may, unasked",
-  "- add a type for a new kind of file, or make a type finer",
-  "- write a rule the user asked for, and try it first: lawcheck try <rule> <files>; a reviewer rule pays one call per file, so add --dry-run first",
-  '',
-].join('\n');
+const PLAIN_PLAN = 'the file types and the rules each type keeps';
+const PLAN_WITH_USES = 'the file types, the rules each type keeps, and which types may use which';
+
+export function firstPart(reviewers: boolean, mayUse: boolean): string {
+  return [
+    `Lawcheck checks this repository's code against its law: ${mayUse ? PLAN_WITH_USES : PLAIN_PLAN}. The law is .lawcheck/law.yaml; rule files are in .lawcheck/rules/.`,
+    '',
+    'How to work here',
+    '- Before you create a file, or first edit a file of a type new to you: lawcheck explain <path>',
+    '- After you change code: lawcheck check. If it says "no base", run lawcheck check --base <the branch you started from>.',
+    '- Exit 0: nothing blocks; warnings are advisory. Exit 1: the code breaks the law; fix the code. Exit 2: Lawcheck or the law is broken; fix what the error names, not the code.',
+    '- Never report work as done while lawcheck check exits 1.',
+    "- A failing run ends with a next line; do what it says. When it asks for something listed below as the user's, or a finding cannot be fixed in the code, ask the user.",
+    ...(reviewers ? ['- not-reviewed: fix every other finding first, then run lawcheck check --review'] : []),
+    '- A plain check judges only changed files. After you change the law or a rule file, run lawcheck check --full and tell the user how many findings it lists outside your change.',
+    '- Findings outside your change are debt. Leave them unless the user asks.',
+    '',
+    "Only on the user's word",
+    '- a waiver comment: lawcheck-waive <rule> -- <reason> (lawcheck docs waivers), or taking a rule off a type',
+    '- deleting a rule, or changing its status or its why',
+    ...(mayUse ? ['- widening may_use'] : []),
+    ...(reviewers ? ['- lawcheck check --review --again, or --max-calls above reviewer.max_calls'] : []),
+    '- any edit of .lawcheck/verdicts or of .lawcheck/config.yaml',
+    '',
+    'You may, unasked',
+    '- add a type for a new kind of file, or make a type finer',
+    `- write a rule the user asked for, and try it first: lawcheck try <rule> <files>${reviewers ? '; a reviewer rule pays one call per file, so add --dry-run first' : ''}`,
+    '',
+  ].join('\n');
+}
+
+export const FIRST_PART = firstPart(true, true);
 
 export const NO_LAW = [
   'Lawcheck is installed, and this directory has no law (.lawcheck/law.yaml here or above).',
@@ -122,26 +129,31 @@ function header(law: Law): string {
   return `The law here: ${plural(count, 'type')}, ${plural(law.rules.size, 'rule')}`;
 }
 
-function assemble(head: string, typeLines: string[], ruleLines: string[], last: string): string {
-  return [FIRST_PART + head, ...typeLines, '', 'Rules', ...ruleLines, '', last, ''].join('\n');
+function assemble(first: string, head: string, typeLines: string[], ruleLines: string[], last: string): string {
+  return [first + head, ...typeLines, '', 'Rules', ...ruleLines, '', last, ''].join('\n');
 }
 
 export function primeText(law: Law, kinds: Kinds, budget = BUDGET): { text: string; step: number } {
   const head = '\n' + header(law);
+  let mayUse = false;
+  walk(law.types, (type) => {
+    if (type.mayUse !== null) mayUse = true;
+  });
+  const first = firstPart([...law.rules.keys()].some((id) => ruleKind(kinds, id) === 'reviewer'), mayUse);
   const onTypes = listed(law);
   const ids = [...law.rules.keys()];
   const fits = (text: string) => length(text) <= budget;
   for (const step of [1, 2, 3]) {
     const typeLines: string[] = [];
     walk(law.types, (type, depth) => typeLines.push(typeLine(type, depth, step)));
-    const text = assemble(head, typeLines, ids.map((id) => ruleLine(law, kinds, id, onTypes, step)), step === 1 ? MORE : SHORTENED);
+    const text = assemble(first, head, typeLines, ids.map((id) => ruleLine(law, kinds, id, onTypes, step)), step === 1 ? MORE : SHORTENED);
     if (fits(text)) return { text, step };
   }
   const roots = law.types.map(rootLine);
   const render = (count: number, idsLine: string) => {
     const lines = roots.slice(0, count);
     if (count < roots.length) lines.push(`... and ${roots.length - count} more root types`);
-    return assemble(head, lines, idsLine === '' ? [] : [idsLine], SHORTENED);
+    return assemble(first, head, lines, idsLine === '' ? [] : [idsLine], SHORTENED);
   };
   let idsLine = ids.join(', ');
   if (!fits(render(0, idsLine))) {

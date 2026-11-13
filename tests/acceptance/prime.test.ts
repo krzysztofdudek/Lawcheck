@@ -12,8 +12,21 @@ const block = (start: string): string[] => {
   return lines;
 };
 
-const PRIME_S = block("Lawcheck checks this repository's code against its law: the file types, the rules each type keeps, and which types may use which. The law is .lawcheck/law.yaml; rule files are in .lawcheck/rules/.").join('\n') + '\n';
-const FIRST_PART = PRIME_S.split('\n').slice(0, 22).join('\n') + '\n';
+const PRIME_S = block("Lawcheck checks this repository's code against its law: the file types and the rules each type keeps. The law is .lawcheck/law.yaml; rule files are in .lawcheck/rules/.").join('\n') + '\n';
+const FIRST_PART = PRIME_S.split('\n').slice(0, 19).join('\n') + '\n';
+
+function firstPart(reviewers: boolean, mayUse: boolean): string {
+  const lines = FIRST_PART.split('\n');
+  if (mayUse) lines[0] = lines[0]!.replace('the file types and the rules each type keeps', 'the file types, the rules each type keeps, and which types may use which');
+  if (reviewers) lines.splice(lines.indexOf('- A plain check judges only changed files. After you change the law or a rule file, run lawcheck check --full and tell the user how many findings it lists outside your change.'), 0, '- not-reviewed: fix every other finding first, then run lawcheck check --review');
+  const at = lines.indexOf('- deleting a rule, or changing its status or its why') + 1;
+  const extra = [...(mayUse ? ['- widening may_use'] : []), ...(reviewers ? ['- lawcheck check --review --again, or --max-calls above reviewer.max_calls'] : [])];
+  lines.splice(at, 0, ...extra);
+  if (reviewers) lines[lines.length - 2] += '; a reviewer rule pays one call per file, so add --dry-run first';
+  return lines.join('\n');
+}
+
+const FULL = firstPart(true, true);
 const R_PART = block('The law here: 4 types, 3 rules');
 const U_TYPES = block('source  src/**/*.ts, !src/**/*.d.ts  Everything that ships.  rules: no-todo  may use: library');
 const NO_LAW = 'Lawcheck is installed, and this directory has no law (.lawcheck/law.yaml here or above).\nRun lawcheck init only when the user asks for a law here.\n';
@@ -31,13 +44,15 @@ const TEST_17 = [
 const points = (text: string) => [...text].length;
 
 test('test 100: prime in S, its JSON, and from a subdirectory', async () => {
-  assert.equal(points(FIRST_PART), 1713);
+  assert.equal(points(FIRST_PART), 1455);
+  assert.equal(points(FULL), 1721);
+  assert.equal(FULL.split('\n').length, 23);
   await withSample(async (s) => {
     const run = await lawcheck(s, ['prime']);
     assert.equal(run.stdout, PRIME_S);
     assert.equal(run.code, 0);
     const json = await lawcheck(s, ['prime', '--json']);
-    assert.deepEqual(JSON.parse(json.stdout), { schema: 'lawcheck-prime/0', text: PRIME_S, step: 1, characters: 2178 });
+    assert.deepEqual(JSON.parse(json.stdout), { schema: 'lawcheck-prime/0', text: PRIME_S, step: 1, characters: 1920 });
     assert.equal(json.code, 0);
     const below = await lawcheck(join(s, 'src/core'), ['prime']);
     assert.equal(below.stdout, PRIME_S);
@@ -48,13 +63,13 @@ test('test 100: prime in S, its JSON, and from a subdirectory', async () => {
 test('test 101: prime in R and in U', async () => {
   await withR(async (r) => {
     const run = await lawcheck(r, ['prime']);
-    assert.equal(run.stdout, FIRST_PART + '\n' + R_PART.join('\n') + '\n\nMore: lawcheck docs\n');
+    assert.equal(run.stdout, firstPart(true, false) + '\n' + R_PART.join('\n') + '\n\nMore: lawcheck docs\n');
     assert.equal(run.code, 0);
   });
   await withU(async (u) => {
     const run = await lawcheck(u, ['prime']);
-    const lines = PRIME_S.split('\n');
-    lines.splice(24, 4, ...U_TYPES);
+    const lines = (firstPart(false, true) + PRIME_S.slice(FIRST_PART.length)).split('\n');
+    lines.splice(lines.indexOf('The law here: 4 types, 2 rules') + 1, 4, ...U_TYPES);
     assert.equal(run.stdout, lines.join('\n'));
     assert.equal(run.code, 0);
   });
@@ -78,7 +93,7 @@ test('test 103: a law that cannot be read', async () => {
   await withSample(
     async (s) => {
       const run = await lawcheck(s, ['prime']);
-      assert.equal(run.stdout, FIRST_PART + '\n' + TEST_17);
+      assert.equal(run.stdout, FULL + '\n' + TEST_17);
       assert.equal(run.code, 2);
       const json = await lawcheck(s, ['prime', '--json']);
       assert.equal(JSON.parse(json.stdout).schema, 'lawcheck-error/1');
@@ -89,8 +104,8 @@ test('test 103: a law that cannot be read', async () => {
   await withSample(
     async (s) => {
       const run = await lawcheck(s, ['prime']);
-      const after = run.stdout.slice(FIRST_PART.length + 1).split('\n');
-      assert.ok(run.stdout.startsWith(FIRST_PART + '\n'));
+      const after = run.stdout.slice(FULL.length + 1).split('\n');
+      assert.ok(run.stdout.startsWith(FULL + '\n'));
       assert.deepEqual(after.slice(0, 2), ['lawcheck: ERROR  25 errors', '']);
       assert.equal(after.filter((line) => /^\.lawcheck\/law\.yaml:\d+ {2}error\[law-invalid\]/.test(line)).length, 20);
       assert.equal(after.filter((line) => line.startsWith('  why:  ')).length, 1);

@@ -133,7 +133,7 @@ Run lawcheck init only when the user asks for a law here.
 **With a law**, its whole output for S, slice one's sample, exit 0:
 
 ```
-Lawcheck checks this repository's code against its law: the file types, the rules each type keeps, and which types may use which. The law is .lawcheck/law.yaml; rule files are in .lawcheck/rules/.
+Lawcheck checks this repository's code against its law: the file types and the rules each type keeps. The law is .lawcheck/law.yaml; rule files are in .lawcheck/rules/.
 
 How to work here
 - Before you create a file, or first edit a file of a type new to you: lawcheck explain <path>
@@ -141,20 +141,17 @@ How to work here
 - Exit 0: nothing blocks; warnings are advisory. Exit 1: the code breaks the law; fix the code. Exit 2: Lawcheck or the law is broken; fix what the error names, not the code.
 - Never report work as done while lawcheck check exits 1.
 - A failing run ends with a next line; do what it says. When it asks for something listed below as the user's, or a finding cannot be fixed in the code, ask the user.
-- not-reviewed: fix every other finding first, then run lawcheck check --review
 - A plain check judges only changed files. After you change the law or a rule file, run lawcheck check --full and tell the user how many findings it lists outside your change.
 - Findings outside your change are debt. Leave them unless the user asks.
 
 Only on the user's word
-- a waiver (lawcheck-waive <rule> -- <reason>; lawcheck docs waivers), or taking a rule off a type
+- a waiver comment: lawcheck-waive <rule> -- <reason> (lawcheck docs waivers), or taking a rule off a type
 - deleting a rule, or changing its status or its why
-- widening may_use
-- lawcheck check --review --again, or --max-calls above reviewer.max_calls
 - any edit of .lawcheck/verdicts or of .lawcheck/config.yaml
 
 You may, unasked
 - add a type for a new kind of file, or make a type finer
-- write a rule the user asked for, and try it first: lawcheck try <rule> <files>; a reviewer rule pays one call per file, so add --dry-run first
+- write a rule the user asked for, and try it first: lawcheck try <rule> <files>
 
 The law here: 4 types, 2 rules
 source  src/**/*.ts, !src/**/*.d.ts  Everything that ships.  rules: no-todo
@@ -169,7 +166,12 @@ no-todo  script  advisory  A TODO without an issue number gets forgotten.
 More: lawcheck docs
 ```
 
-**The first part** is its first 22 lines, up to `- write a rule ...`, and is the same in every repository: 1,713 characters with its last line end, never more than 1,800. A blank line follows it.
+**The first part** is its lines up to `- write a rule ...`, and a blank line follows it. It depends on two facts of the law and on nothing else, so an agent reads no line about a feature the law does not use:
+
+- When at least one rule is a reviewer rule, three parts are added: after `- A failing run ends with a next line; ...`, the line `- not-reviewed: fix every other finding first, then run lawcheck check --review`; after `- deleting a rule, or changing its status or its why` (and after `- widening may_use` when that is there), the line `- lawcheck check --review --again, or --max-calls above reviewer.max_calls`; and at the end of `- write a rule ...`, the words `; a reviewer rule pays one call per file, so add --dry-run first`.
+- When at least one type of the tree has `may_use`, two parts change: the first line's `the file types and the rules each type keeps` reads `the file types, the rules each type keeps, and which types may use which`, and after `- deleting a rule, or changing its status or its why` comes the line `- widening may_use`.
+
+Without either, as in S, it is 19 lines and 1,455 characters with its last line end; with both it is 22 lines and 1,721 characters, never more than 1,800. The waiver line names the waiver a comment, so it does not read as a command.
 
 **The law part** is generated from the law:
 
@@ -211,7 +213,7 @@ script  tools/**/*.{mjs,js}  content: ^#!  Executable helpers.  rules: no-todo  
 
 After steps 2 to 4 the last line is `shortened to fit; lawcheck explain --type <id> shows a type in full, lawcheck explain --rule <id> a rule`, in place of `More: lawcheck docs`.
 
-**A law that cannot be read.** `usage` prints its error alone. `no-git`, `law-invalid` and the rule-file rows print the first part, a blank line, then slice one's error output with at most 20 error lines (`why:` lines not counted) and, past them, `... and <n> more errors (lawcheck check lists all)`, and exit 2. Test 17's case prints the first part, a blank line and test 17's output, whose last line reads `next: fix .lawcheck/law.yaml, then run lawcheck prime again` (section 2).
+**A law that cannot be read.** `usage` prints its error alone. `no-git`, `law-invalid` and the rule-file rows print the first part with both facts (the law could not be read for them), a blank line, then slice one's error output with at most 20 error lines (`why:` lines not counted) and, past them, `... and <n> more errors (lawcheck check lists all)`, and exit 2. Test 17's case prints the first part, a blank line and test 17's output, whose last line reads `next: fix .lawcheck/law.yaml, then run lawcheck prime again` (section 2).
 
 **JSON.** `{ "schema": "lawcheck-prime/0", "text": <the whole text output>, "step": <1 to 4, or null without a law>, "characters": <its length in code points> }`. Exit 2 prints `lawcheck-error/1`.
 
@@ -605,10 +607,10 @@ The earlier slices' terms hold: S, R, U, D, E, F, F', the fake, the fake claude 
 | 97 | one at a time: `lawcheck init` twice in a new repository; `lawcheck init` in S; `lawcheck init` in S's `src/core`; `lawcheck init` at the top of a new repository whose commit holds `packages/api/.lawcheck/law.yaml` with section 3's text | `error[already-initialized]` at `.lawcheck/law.yaml`, exit 2, both files byte for byte as the first run wrote them; exit 2 with `already-initialized` and no `.lawcheck/.gitignore`; exit 2 with `already-initialized` at `../../.lawcheck/law.yaml` and no `src/core/.lawcheck`; exit 2 with `already-initialized` at `packages/api/.lawcheck/law.yaml` and no `.lawcheck` at the top |
 | 98 | one at a time: a new repository whose commit also holds `.lawcheck/.gitignore` with `x\n`, `init`; a new repository, `init` in a new folder `packages/api`; `init` in a `mktemp -d` folder outside git | `lawcheck: created .lawcheck/law.yaml; kept .lawcheck/.gitignore` and the file still `x\n`, exit 0; a second line `note: the law covers only the files below packages/api/` and the law at `packages/api/.lawcheck/law.yaml`, exit 0; `error[no-git]`, exit 2, no `.lawcheck` |
 | 99 | `init --json` in a new repository; `init x`; `init --full`; then in S a rule `already-initialized` with `why: x` and its file, `lawcheck check --base main` | `{ "schema": "lawcheck-init/0", "root": "", "created": [".lawcheck/law.yaml", ".lawcheck/.gitignore"], "kept": [], "next": { "command": null, "text": "describe your first file type in .lawcheck/law.yaml  (lawcheck docs first-law shows how)" } }`, exit 0; `usage`, exit 2, twice; `law-invalid`, exit 2 |
-| 100 | S: `lawcheck prime`; `lawcheck prime --json`; `lawcheck prime` in `src/core` | section 4's output, exit 0; `step` 1, `text` that output, `characters` 2178; section 4's output |
-| 101 | `prime` in R; in U | the first part, a blank line, R's law part of section 4, a blank line and `More: lawcheck docs`, exit 0; S's output with its four type lines replaced by U's of section 4, exit 0 |
+| 100 | S: `lawcheck prime`; `lawcheck prime --json`; `lawcheck prime` in `src/core` | section 4's output, exit 0; `step` 1, `text` that output, `characters` 1920; section 4's output |
+| 101 | `prime` in R; in U | the first part with the three reviewer parts, a blank line, R's law part of section 4, a blank line and `More: lawcheck docs`, exit 0; S's output with the two may_use parts and its four type lines replaced by U's of section 4, exit 0 |
 | 102 | `prime` in a new repository; in a `mktemp -d` folder outside git | section 4's two lines, exit 0, each |
-| 103 | S with test 17's `statuss`: `prime`; `prime --json`. S whose law also holds rules `x01` to `x25`, each `why: x` and `statuss: y`: `prime`. S whose `no-todo.mjs` throws at load: `prime` | the first part, a blank line and test 17's output with the last line `next: fix .lawcheck/law.yaml, then run lawcheck prime again`, exit 2; a `lawcheck-error/1` document, exit 2; the first part, a blank line, `lawcheck: ERROR  25 errors`, a blank line, 20 `error[law-invalid]` lines and their one `why:`, then `... and 5 more errors (lawcheck check lists all)`, a blank line and the `next:` line, exit 2; section 4's output, exit 0 |
+| 103 | S with test 17's `statuss`: `prime`; `prime --json`. S whose law also holds rules `x01` to `x25`, each `why: x` and `statuss: y`: `prime`. S whose `no-todo.mjs` throws at load: `prime` | the first part with both facts, a blank line and test 17's output with the last line `next: fix .lawcheck/law.yaml, then run lawcheck prime again`, exit 2; a `lawcheck-error/1` document, exit 2; the first part with both facts, a blank line, `lawcheck: ERROR  25 errors`, a blank line, 20 `error[law-invalid]` lines and their one `why:`, then `... and 5 more errors (lawcheck check lists all)`, a blank line and the `next:` line, exit 2; section 4's output, exit 0 |
 | 104 | four laws, each in a new repository with a script rule file `export function check() { return []; }` for every rule, `a` and `w` standing for 200 letters each: (a) root types `t01` to `t20`, each `paths: ["src/tNN/**"]`, `about: a`, `rules: [rNN]`, and rules `r01` to `r20` with `why: w`; (b) one root type `root`, `paths: ["src/**"]`, `about: Root.`, with subtypes `t01` to `t39`, each `paths: ["src/tNN/**"]`, `about: a`, and rules `r01` to `r73` with `why: w` on no type; (c) root types `t01` to `t40`, each `paths: ["src/tNN/**"]`, `about: a`, with three subtypes `tNNa`, `tNNb`, `tNNc` (`paths: ["src/tNN/a/**"]` and so on, `about: a`), and rules `r001` to `r150` with `why: w` on no type; (d) root types `t001` to `t300`, each `paths: ["src/tNNN/**"]`, `about: a`, and rules `r001` to `r300` with `why: w` on no type. `prime --json` in each | `step` 2, 3, 4, 4; `characters` at most 8,000 and equal to the text's length in code points; the text starts with the first part; its last line is `shortened to fit; lawcheck explain --type <id> shows a type in full, lawcheck explain --rule <id> a rule`; in (a) every rule line ends in `…` and every type line holds `…  rules: r`; in (b) no rule line holds `w`; in (c) the type lines hold `subtypes: 3` and no `rules:`; in (d) the law part's first line is `The law here: 300 types, 300 rules`, the line after `Rules` lists `r001` to `r300` whole, no line holds `subtypes:` or `rules:`, and a line `... and <n> more root types` comes before the blank line and the last line |
 | 105 | S: `explain src/core/price.ts`; `explain price.ts` in `src/core`; `explain tools/release.mjs`; `explain tools/build.mjs` | section 6's outputs, exit 0 each |
 | 106 | S: `explain README.md`; `explain src/core/api.d.ts`; `explain src/core/new.ts`; on `work` add `tools/plain.mjs` holding `console.log(1);`, `explain tools/plain.mjs` | `README.md` and `  type:  none: no type's paths match it, so no rule judges it`; `src/core/api.d.ts  (does not exist yet)` and the same `type:` line; `src/core/new.ts  (does not exist yet)` followed by the `type`, `matched`, `may use` and `rules` lines of section 6's first example and no `waivers` line; `  type:  none: it matches the paths of script but not their content, so no rule judges it`; exit 0 each |
@@ -648,7 +650,7 @@ The earlier slices' terms hold: S, R, U, D, E, F, F', the fake, the fake claude 
 | 140 | `lawcheck --help`; `lawcheck <command> --help` for each of the seven; `lawcheck`; `lawcheck fix`; `lawcheck init --help --json`; `lawcheck --version` | the first line `usage: lawcheck <command> [<arguments>] [--json]`, exit 0; each first line of section 2, exit 0; `usage`, exit 2, twice; a `lawcheck-error/1` document with `usage`, exit 2; `0.1.0`, exit 0 |
 | 141 | `npm test` | tests 1 to 140 pass, those section 10 amends as amended, offline |
 
-The unit tests carry the rest, one file per new source file: each command's argument reading; the walk of section 6 for a path that does not exist, at the root, below it, on types with and without `content`; each step of section 4's budget, the cut at 60 characters and the guard; the selection of `try`'s targets from paths, directories and patterns; each `doctor` check's states from hand-made inputs; and the first part of `prime` at 1,713 characters.
+The unit tests carry the rest, one file per new source file: each command's argument reading; the walk of section 6 for a path that does not exist, at the root, below it, on types with and without `content`; each step of section 4's budget, the cut at 60 characters and the guard; the selection of `try`'s targets from paths, directories and patterns; each `doctor` check's states from hand-made inputs; and the first part of `prime` at 1,455 and 1,721 characters.
 
 ## 12. Repository layout additions
 

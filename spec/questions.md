@@ -305,5 +305,5 @@ Choice: it names the command that ran, as `no-git` does (entry 34). `init` where
 
 - Note 9: ruled by the director; section 6 now has the reason `it lies behind a symbolic link, which has no type`, checked before `git ignores it`.
 - Note 10: ruled by the director; section 5 now reads a target that names a listed file as that file before it reads it as a pattern.
-- Note 12, `prime`'s first part keeps its lines on reviewer rules and `may_use` in a law that has neither: section 4 fixes the first part as the same 1,713 characters in every repository, and test 100 compares S, which has neither, byte for byte with those lines in it.
+- Note 12: ruled by the director; section 4's first part now leaves out its reviewer lines without a reviewer rule and its may_use parts without a list, and the waiver line names a comment. S's output is 1,920 characters.
 - Note 13, two phrases of `commands-slice.md` speak of moving from another tool: the spec is the contract this slice was built against, and its wording is the director's to change.

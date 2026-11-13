@@ -1,7 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { parseLaw } from '../../dist/law.js';
-import { cut, FIRST_PART, length, NO_LAW, primeText } from '../../dist/prime.js';
+import { cut, firstPart, length, NO_LAW, primeText } from '../../dist/prime.js';
+
+const FIRST_PART = firstPart(false, false);
 
 const W = 'w'.repeat(200);
 const A = 'a'.repeat(200);
@@ -31,11 +33,17 @@ function kinds(scripts: string[]) {
 }
 
 const law = parseLaw(LAW).law!;
-const part = (text: string) => text.slice(FIRST_PART.length + 1).split('\n');
+const part = (text: string) => text.slice(text.indexOf('\nThe law here: ') + 1).split('\n');
 
-test('the first part is 1,713 characters and ends with a line end', () => {
-  assert.equal(length(FIRST_PART), 1713);
-  assert.equal(FIRST_PART.split('\n').length, 23);
+test('the first part is 1,455 characters without reviewer rules or may_use, and 1,721 with both', () => {
+  assert.equal(length(FIRST_PART), 1455);
+  assert.equal(FIRST_PART.split('\n').length, 20);
+  assert.equal(length(firstPart(true, true)), 1721);
+  assert.equal(firstPart(true, true).split('\n').length, 23);
+  assert.ok(firstPart(true, false).includes('- not-reviewed: '));
+  assert.ok(!firstPart(true, false).includes('may use'));
+  assert.ok(firstPart(false, true).includes('- widening may_use\n'));
+  assert.ok(!firstPart(false, true).includes('review'));
   assert.ok(FIRST_PART.endsWith('\n'));
   assert.ok(NO_LAW.endsWith('\n'));
 });
