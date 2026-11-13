@@ -18,7 +18,8 @@
   "files": [
     "README.md",
     "LICENSE",
-    "dist"
+    "dist",
+    "docs"
   ],
   "scripts": {
     "build": "tsc -p . && node scripts/grammars.ts --offline",
