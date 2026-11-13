@@ -105,7 +105,7 @@ test('test 41: JSON', async () => {
       schema: 'lawcheck-check/0',
       result: 'fail',
       scope: { mode: 'full', base: 'main', files: 1 },
-      summary: { errors: 1, warnings: 1, debt: 3, waivers: 1 },
+      summary: { errors: 1, warnings: 1, debt: 3, waivers: 1, unresolved: 0 },
       findings: [
         {
           code: 'no-console', rule: 'no-console', severity: 'error', blocking: true, debt: false,
@@ -124,6 +124,7 @@ test('test 41: JSON', async () => {
       waivers: [
         { file: 'src/core/discount.ts', line: 4, rule: 'no-console', debt: false, waived: 1, reason: 'the pricing team reads this warning until 2.0' },
       ],
+      unresolved: [],
       reviews: { missing: 0, calls_made: 0, passes_recorded: 0 },
       next: { command: null, text: 'fix src/core/discount.ts:2' },
     };

@@ -31,7 +31,7 @@ test('an unknown key names the nearest known key within two edits', () => {
 });
 
 test('the keys this slice leaves out are unknown keys', () => {
-  for (const key of ['required: [x]', 'ignored: [x]', 'may_use: [command]']) {
+  for (const key of ['required: [x]', 'ignored: [x]']) {
     const found = problems(SAMPLE.replace('    about: Executable helpers.\n', `    about: Executable helpers.\n    ${key}\n`));
     assert.equal(found.length, 1, key);
     assert.match(found[0]!.message, /^unknown key/);
@@ -98,6 +98,34 @@ test('context is a sequence of paths, each with its line', () => {
 
 test('the codes of the reviewer slice are no rule ids', () => {
   for (const id of ['not-reviewed', 'too-large-to-review', 'config-invalid', 'reviewer-not-configured', 'too-many-reviews', 'reviewer-unreachable', 'reviewer-bad-answer']) {
+    assert.match(problems(`lawcheck: 0.1.0\nrules:\n  ${id}:\n    why: x\n`)[0]!.message, /code of Lawcheck/, id);
+  }
+});
+
+test('may_use: ids of types anywhere in the law, each once', () => {
+  const text = 'lawcheck: 0.1.0\ntypes:\n  a:\n    paths: [x]\n    may_use: [b, a, b]\n  c:\n    paths: [y]\n    may_use: []\n    types:\n      b:\n        paths: [z]\n';
+  const { law, problems: found } = parseLaw(text);
+  assert.deepEqual(found, []);
+  assert.deepEqual(law!.byId.get('a')!.mayUse, ['b', 'a']);
+  assert.deepEqual(law!.byId.get('c')!.mayUse, []);
+  assert.equal(law!.byId.get('b')!.mayUse, null);
+  assert.equal(law!.byId.get('b')!.line, 10);
+});
+
+test('may_use values that are law-invalid, at the item or at the key', () => {
+  const at = (value: string) => problems(`lawcheck: 0.1.0\ntypes:\n  a:\n    paths: [x]\n    may_use: ${value}\n`);
+  assert.deepEqual(at('[nope]').map((p) => p.line), [5]);
+  assert.match(at('[nope]')[0]!.message, /'may_use' of type 'a' names 'nope', which is no type of the law/);
+  for (const value of ['', 'a', '1', '{ a: 1 }', '~']) assert.deepEqual(at(value).map((p) => p.line), [5], value);
+  for (const value of ['[1]', '[a, ~]', '[[a]]', '[{ a: 1 }]']) assert.equal(at(value).length, 1, value);
+  const multi = problems('lawcheck: 0.1.0\ntypes:\n  a:\n    paths: [x]\n    may_use:\n      - a\n      - 1\n      - nope\n');
+  assert.deepEqual(multi.map((p) => p.line), [7]);
+  const unknown = problems('lawcheck: 0.1.0\ntypes:\n  a:\n    paths: [x]\n    may_use:\n      - a\n      - nope\n');
+  assert.deepEqual(unknown.map((p) => p.line), [7]);
+});
+
+test('the codes of the dependency slice are reserved', () => {
+  for (const id of ['forbidden-use', 'uses-not-read', 'parser-failed']) {
     assert.match(problems(`lawcheck: 0.1.0\nrules:\n  ${id}:\n    why: x\n`)[0]!.message, /code of Lawcheck/, id);
   }
 });

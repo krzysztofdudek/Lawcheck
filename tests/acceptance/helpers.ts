@@ -1,5 +1,5 @@
 import { spawn, execFileSync } from 'node:child_process';
-import { appendFileSync, cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { appendFileSync, cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -305,3 +305,61 @@ export function run(cwd: string, fake: { url: string } | null, args: string[], e
   return lawcheck(cwd, ['check', ...args], { ...(fake ? { LAWCHECK_REVIEWER_ENDPOINT: fake.url } : {}), ...env });
 }
 
+
+export const USES_SAMPLE = join(ROOT, 'tests', 'uses-sample');
+export const LANGUAGES_SAMPLE = join(ROOT, 'tests', 'languages-sample');
+export const U_LAW = readFileSync(join(USES_SAMPLE, '.lawcheck/law.yaml'), 'utf8');
+
+export const E_PATH = 'src/core/report.ts';
+
+export const E = ["import { price } from './price.js';", "import '../cli/main.js';", 'export const report = (): number => price(1);', ''].join('\n');
+
+export function makeU(dir: string, options: SampleOptions = {}): string {
+  return makeSample(dir, {
+    ...options,
+    top: (repo) => {
+      cpSync(USES_SAMPLE, repo, { recursive: true });
+      options.top?.(repo);
+    },
+  });
+}
+
+export async function withU<T>(body: (u: string, dir: string) => Promise<T> | T, options: SampleOptions = {}): Promise<T> {
+  return inTemp((dir) => body(makeU(dir, options), dir));
+}
+
+export interface Copy {
+  dir: string;
+  cli: string;
+  remove(): void;
+}
+
+export function makeCopy(): Copy {
+  const dir = mkdtempSync(join(tmpdir(), 'lawcheck-copy-'));
+  cpSync(join(ROOT, 'package.json'), join(dir, 'package.json'));
+  cpSync(join(ROOT, 'dist'), join(dir, 'dist'), { recursive: true });
+  symlinkSync(join(ROOT, 'node_modules'), join(dir, 'node_modules'));
+  return { dir, cli: join(dir, 'dist', 'cli.js'), remove: () => rmSync(dir, { recursive: true, force: true }) };
+}
+
+export async function withCopy<T>(body: (copy: Copy) => Promise<T> | T): Promise<T> {
+  const copy = makeCopy();
+  try {
+    return await body(copy);
+  } finally {
+    copy.remove();
+  }
+}
+
+export function lawcheckAt(cli: string, cwd: string, args: string[], env: NodeJS.ProcessEnv = {}): Promise<Run> {
+  const started = Date.now();
+  return new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [cli, ...args], { cwd, env: { ...GIT_ENV, ...env }, stdio: ['ignore', 'pipe', 'pipe'] });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.setEncoding('utf8').on('data', (chunk: string) => (stdout += chunk));
+    child.stderr.setEncoding('utf8').on('data', (chunk: string) => (stderr += chunk));
+    child.on('error', reject);
+    child.on('close', (code) => resolve({ code, stdout, stderr, ms: Date.now() - started }));
+  });
+}

@@ -287,7 +287,7 @@ test('test 75: JSON', async () => {
         schema: 'lawcheck-check/0',
         result: 'fail',
         scope: { mode: 'change', base: 'main', files: 1 },
-        summary: { errors: 1, warnings: 0, debt: 0, waivers: 1 },
+        summary: { errors: 1, warnings: 0, debt: 0, waivers: 1, unresolved: 0 },
         findings: [
           {
             code: 'not-reviewed', rule: 'clear-errors', severity: 'error', blocking: true, debt: false,
@@ -299,6 +299,7 @@ test('test 75: JSON', async () => {
         waivers: [
           { file: 'src/core/refund.ts', line: 3, rule: 'clear-errors', debt: false, waived: 0, reason: 'the payment provider matches this exact text' },
         ],
+        unresolved: [],
         reviews: { missing: 1, calls_made: 0, passes_recorded: 0 },
         next: { command: 'lawcheck check --review --base main', text: 'lawcheck check --review --base main  (1 reviewer call)' },
       };

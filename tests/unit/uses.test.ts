@@ -1,0 +1,156 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { parseLaw } from '../../dist/law.js';
+import { allows, extensionOf, judgeUses, listInForce, notRead, notReadMessage } from '../../dist/uses.js';
+
+const LAW = `lawcheck: 0.1.0
+types:
+  source:
+    paths: ["src/**"]
+    may_use: [library, library]
+    types:
+      library:
+        paths: ["src/core/**"]
+      command:
+        paths: ["src/cli/**"]
+        may_use: [command, library]
+      closed:
+        paths: ["src/closed/**"]
+        may_use: []
+  free:
+    paths: ["free/**"]
+    types:
+      inner:
+        paths: ["free/inner/**"]
+`;
+
+function types() {
+  const { law, problems } = parseLaw(LAW);
+  assert.deepEqual(problems, []);
+  return law!.byId;
+}
+
+test('the list in force: its own, its nearest ancestor, or none', () => {
+  const byId = types();
+  const own = listInForce(byId.get('command')!)!;
+  assert.deepEqual(own.list, ['command', 'library']);
+  assert.equal(own.from.id, 'command');
+  const taken = listInForce(byId.get('library')!)!;
+  assert.deepEqual(taken.list, ['library']);
+  assert.equal(taken.from.id, 'source');
+  assert.deepEqual(listInForce(byId.get('closed')!)!.list, []);
+  assert.equal(listInForce(byId.get('free')!), null);
+  assert.equal(listInForce(byId.get('inner')!), null);
+});
+
+test('naming a type allows its subtypes, never its parent', () => {
+  const byId = types();
+  assert.equal(allows(['source'], byId.get('library')!), true);
+  assert.equal(allows(['library'], byId.get('source')!), false);
+  assert.equal(allows(['library'], byId.get('library')!), true);
+  assert.equal(allows([], byId.get('library')!), false);
+});
+
+test('each answer of section 3.5', () => {
+  const byId = types();
+  const library = byId.get('library')!;
+  const targets: Record<string, any> = {
+    'src/core/a.ts': { kind: 'typed', type: library },
+    'src/cli/b.ts': { kind: 'typed', type: byId.get('command')! },
+    'lib/c.ts': { kind: 'untyped' },
+    'src/core/d.png': { kind: 'binary' },
+  };
+  const judged = judgeUses(
+    'src/core/x.ts',
+    library,
+    [
+      { line: 1, answer: { kind: 'file', file: 'src/core/x.ts' } },
+      { line: 2, answer: { kind: 'file', file: 'src/core/a.ts' } },
+      { line: 3, answer: { kind: 'file', file: 'src/cli/b.ts' } },
+      { line: 4, answer: { kind: 'file', file: 'lib/c.ts' } },
+      { line: 5, answer: { kind: 'file', file: 'src/core/d.png' } },
+      { line: 6, answer: { kind: 'ambiguous', what: 'A.B' } },
+      { line: 7, answer: { kind: 'none', what: 'lodash' } },
+    ],
+    (file) => targets[file],
+  );
+  assert.deepEqual(judged.forbidden, [
+    { file: 'src/core/x.ts', line: 3, message: 'library may not use command (src/cli/b.ts); it takes may_use [library] from source' },
+    { file: 'src/core/x.ts', line: 4, message: 'library may not use lib/c.ts, which has no type; it takes may_use [library] from source' },
+  ]);
+  assert.deepEqual(judged.unresolved, [
+    { file: 'src/core/x.ts', line: 6, what: 'A.B', answer: 'ambiguous' },
+    { file: 'src/core/x.ts', line: 7, what: 'lodash', answer: 'none' },
+  ]);
+});
+
+test('the messages with a list of its own, and an empty one', () => {
+  const byId = types();
+  const target = (): any => ({ kind: 'untyped' });
+  const own = judgeUses('src/cli/x.ts', byId.get('command')!, [{ line: 1, answer: { kind: 'file', file: 'a.ts' } }], target);
+  assert.equal(own.forbidden[0]!.message, 'command may not use a.ts, which has no type; its may_use is [command, library]');
+  const closed = judgeUses('src/closed/x.ts', byId.get('closed')!, [{ line: 1, answer: { kind: 'file', file: 'src/closed/y.ts' } }], () => ({ kind: 'typed', type: byId.get('closed')! }));
+  assert.equal(closed.forbidden[0]!.message, 'closed may not use closed (src/closed/y.ts); its may_use is []');
+});
+
+test('one forbidden-use per line and target file', () => {
+  const byId = types();
+  const command = byId.get('command')!;
+  const judged = judgeUses(
+    'src/core/x.ts',
+    byId.get('library')!,
+    [
+      { line: 1, answer: { kind: 'file', file: 'src/cli/a.ts' } },
+      { line: 1, answer: { kind: 'file', file: 'src/cli/a.ts' } },
+      { line: 1, answer: { kind: 'file', file: 'src/cli/b.ts' } },
+      { line: 2, answer: { kind: 'file', file: 'src/cli/a.ts' } },
+    ],
+    () => ({ kind: 'typed', type: command }),
+  );
+  assert.deepEqual(judged.forbidden.map((f) => `${f.line} ${f.message.match(/\((.*)\)/)![1]}`), ['1 src/cli/a.ts', '1 src/cli/b.ts', '2 src/cli/a.ts']);
+});
+
+test('a type with no list in force judges nothing and counts nothing', () => {
+  const byId = types();
+  const judged = judgeUses('free/x.ts', byId.get('free')!, [{ line: 1, answer: { kind: 'none', what: 'x' } }, { line: 2, answer: { kind: 'file', file: 'y' } }], () => ({ kind: 'untyped' }));
+  assert.deepEqual(judged, { forbidden: [], unresolved: [] });
+});
+
+test('the extension of a file name', () => {
+  assert.equal(extensionOf('ts/domain/schema.json'), '.json');
+  assert.equal(extensionOf('a/b.tar.gz'), '.gz');
+  assert.equal(extensionOf('a/.gitignore'), 'no extension');
+  assert.equal(extensionOf('Makefile'), 'no extension');
+  assert.equal(extensionOf('a.d/Makefile'), 'no extension');
+  assert.equal(extensionOf('a/.env.local'), '.local');
+  assert.equal(extensionOf('a/b.'), '.');
+});
+
+test('the uses-not-read message, its extensions sorted with their counts', () => {
+  assert.equal(notReadMessage('domain', ['ts/domain/schema.json']), '1 file of type domain is not read for uses: 1 .json');
+  assert.equal(
+    notReadMessage('web', ['a/x.css', 'a/Makefile', 'a/y.css', 'a/z.scss', 'a/.npmrc']),
+    '5 files of type web are not read for uses: 2 .css, 1 .scss, 2 no extension',
+  );
+});
+
+test('uses-not-read is one finding per type, split between change and debt', () => {
+  const byId = types();
+  const library = byId.get('library')!;
+  const command = byId.get('command')!;
+  const found = notRead([
+    { path: 'src/core/a.css', type: library, debt: false },
+    { path: 'src/core/b.css', type: library, debt: true },
+    { path: 'src/core/c.yaml', type: library, debt: false },
+    { path: 'src/cli/d.json', type: command, debt: true },
+  ]);
+  assert.deepEqual(
+    found.map((f) => [f.type.id, f.debt, f.message]),
+    [
+      ['library', false, '2 files of type library are not read for uses: 1 .css, 1 .yaml'],
+      ['library', true, '1 file of type library is not read for uses: 1 .css'],
+      ['command', true, '1 file of type command is not read for uses: 1 .json'],
+    ],
+  );
+  assert.deepEqual(notRead([]), []);
+});

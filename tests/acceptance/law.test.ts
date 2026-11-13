@@ -82,7 +82,7 @@ test('test 18: each break of the law is law-invalid', async () => {
     return text.slice(0, at) + to + text.slice(at + '    rules: [no-todo]'.length);
   };
   const cases: [string, string][] = [
-    ['may_use on library', replaceOnce(LAW, '        rules: [no-console]\n', '        rules: [no-console]\n        may_use: [command]\n')],
+    ['may_use: [nope] on library', replaceOnce(LAW, '        rules: [no-console]\n', '        rules: [no-console]\n        may_use: [nope]\n')],
     ['rules: [no-such] on script', lastScriptRules(LAW, '    rules: [no-such]')],
     ['a second type library', LAW + '  library:\n    paths: ["lib/**"]\n'],
     ['a second type library in one mapping', replaceOnce(LAW, '      command:\n', '      library:\n        paths: ["lib/**"]\n      command:\n')],
@@ -111,7 +111,7 @@ test('test 18: each break of the law is law-invalid', async () => {
 test('test 19: two problems, two lines', async () => {
   await withSample(async (s) => {
     let text = replaceOnce(LAW, 'status: advisory', 'statuss: advisory');
-    text = replaceOnce(text, '        rules: [no-console]\n', '        rules: [no-console]\n        may_use: [command]\n');
+    text = replaceOnce(text, '        rules: [no-console]\n', '        rules: [no-console]\n        may_use: [nope]\n');
     law(s, text);
     const run = await check(s);
     assert.equal(run.stdout.split('\n')[0], 'lawcheck: ERROR  2 errors');

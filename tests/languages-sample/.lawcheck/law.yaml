@@ -1,0 +1,9 @@
+lawcheck: 0.1.0
+
+types:
+  domain:
+    paths: ["**/domain/**"]
+    may_use: [domain]
+  app:
+    paths: ["**/app/**"]
+    may_use: [app, domain]

@@ -52,7 +52,7 @@ test('the reviewer calls end the first line, in both forms, and reviews stand be
     'lawcheck: PASS  nothing changed against main, 2 reviewer calls\n\ndebt (outside this change): none\n',
   );
   const document = JSON.parse(renderReport({ mode: 'change', base: 'main', changed: 1, findings: [finding('a.ts', 1)], debt: [], waivers: [], reviews, next: { command: 'c', text: 'c  (1 reviewer call)' } }, true));
-  assert.deepEqual(Object.keys(document), ['schema', 'result', 'scope', 'summary', 'findings', 'waivers', 'reviews', 'next']);
+  assert.deepEqual(Object.keys(document), ['schema', 'result', 'scope', 'summary', 'findings', 'waivers', 'unresolved', 'reviews', 'next']);
   assert.deepEqual(document.next, { command: 'c', text: 'c  (1 reviewer call)' });
 });
 

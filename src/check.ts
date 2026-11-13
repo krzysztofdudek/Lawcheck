@@ -17,15 +17,19 @@ import type { ReviewerConfig } from './config.js';
 import { parseLaw } from './law.js';
 import type { Law } from './law.js';
 import { fixNext, plural, sortFindings, WHY } from './output.js';
-import type { ErrorItem, Finding, Next, Report, WaiverEntry } from './output.js';
+import type { ErrorItem, Finding, Next, Report, Unresolved, WaiverEntry } from './output.js';
 import { buildPrompt, cleanMessage, FRAME, size } from './prompt.js';
 import type { AnswerFinding } from './prompt.js';
 import { createProvider } from './providers/index.js';
+import { readerOf, readUses, siblingsOf, Unreadable } from './readers.js';
+import type { ScriptView } from './readers.js';
 import { call, preflight } from './review.js';
 import type { Ask } from './review.js';
 import { runAll, runRule } from './rules.js';
 import type { RawFinding } from './rules.js';
 import { decode, filesOfTypes, isBinary, typeFiles } from './types.js';
+import { judgeUses, listInForce, notRead } from './uses.js';
+import type { Forbidden, NotRead, Target } from './uses.js';
 import type { TypedFile } from './types.js';
 import { readFailure, readVerdicts, reviewKey, VERDICTS, VerdictWriter } from './verdicts.js';
 import { parseWaivers, waive } from './waivers.js';
@@ -185,7 +189,10 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
   }
   if (crashes.length > 0) return { errors: crashes };
 
-  const ruleIds = new Set(law.rules.keys());
+  const uses = await readTheUses(root, files, read, typed, run, changed);
+  if ('errors' in uses) return { errors: uses.errors };
+
+  const ruleIds = new Set([...law.rules.keys(), 'forbidden-use']);
   const waiversOf = new Map(run.map((file) => [file.path, parseWaivers(file.lines, ruleIds)]));
   const review = `lawcheck check --review${options.base === null ? '' : ` --base ${options.base}`}`;
   const cap = options.maxCalls ?? config.maxCalls;
@@ -254,7 +261,7 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
     builtIn.push({ code: 'not-reviewed', rule: ask.rule, file: ask.file, message: `${ask.rule} has no verdict for this content` });
   }
 
-  const report = judge(law, run, raw, builtIn, waiversOf, kinds.reviewers, changed, base, options.full);
+  const report = judge(law, run, raw, builtIn, uses, waiversOf, kinds.reviewers, changed, base, options.full);
   report.reviews = {
     missing: [...report.findings, ...report.debt].filter((f) => f.code === 'not-reviewed').length,
     calls_made: callsMade,
@@ -262,6 +269,68 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
   };
   report.next = nextOf(report, config, cap, review);
   return { report };
+}
+
+interface UsesRead {
+  forbidden: Forbidden[];
+  notRead: NotRead[];
+  unresolved: Unresolved[];
+}
+
+async function readTheUses(
+  root: string,
+  files: string[],
+  read: Read,
+  typed: TypedFile[],
+  run: TypedFile[],
+  changed: Set<string>,
+): Promise<UsesRead | { errors: ErrorItem[] }> {
+  const out: UsesRead = { forbidden: [], notRead: [], unresolved: [] };
+  const siblings = siblingsOf(files);
+  const toRead: { path: string; view: ScriptView | null }[] = [];
+  const unread: { path: string; type: TypedFile['type']; debt: boolean }[] = [];
+  for (const file of run) {
+    if (listInForce(file.type) === null) continue;
+    const reader = readerOf(file.path, file.text, siblings);
+    if (reader.reader) toRead.push({ path: file.path, view: reader.view });
+    else unread.push({ path: file.path, type: file.type, debt: !changed.has(file.path) });
+  }
+  out.notRead = notRead(unread);
+  if (toRead.length === 0) return out;
+
+  const known = new Set(files);
+  const typedByPath = new Map(typed.map((file) => [file.path, file]));
+  const bytes = (path: string) => {
+    try {
+      return read(path);
+    } catch (error) {
+      throw new Unreadable(path, (error as NodeJS.ErrnoException).code ?? 'an error');
+    }
+  };
+  const ownerOf = (path: string) => {
+    const file = typedByPath.get(path);
+    if (file !== undefined) return file.type.id;
+    if (!known.has(path)) return undefined;
+    return isBinary(bytes(path)) ? '#binary' : '#untyped';
+  };
+  const outcome = await readUses({ root, files, bytes, ownerOf, read: toRead });
+  if ('error' in outcome) return { errors: [outcome.error] };
+
+  const targetOf = (path: string): Target => {
+    const file = typedByPath.get(path);
+    if (file !== undefined) return { kind: 'typed', type: file.type };
+    return ownerOf(path) === '#binary' ? { kind: 'binary' } : { kind: 'untyped' };
+  };
+  for (const file of run) {
+    const found = outcome.uses.get(file.path);
+    if (found === undefined) continue;
+    const judged = judgeUses(file.path, file.type, found, targetOf);
+    out.forbidden.push(...judged.forbidden);
+    const debt = !changed.has(file.path);
+    for (const item of judged.unresolved) out.unresolved.push({ ...item, debt });
+  }
+  out.unresolved.sort((a, b) => comparePaths(a.file, b.file) || a.line - b.line || comparePaths(a.what, b.what));
+  return out;
 }
 
 function nextOf(report: Report, config: ReviewerConfig, cap: number, review: string): Next | null {
@@ -368,6 +437,7 @@ function judge(
   run: TypedFile[],
   raw: RawFinding[],
   builtIn: BuiltIn[],
+  uses: UsesRead,
   waiversOf: Map<string, { waivers: Waiver[]; problems: WaiverProblem[] }>,
   reviewers: Map<string, ReviewerRule>,
   changed: Set<string>,
@@ -397,6 +467,26 @@ function judge(
     place({ code: item.code, rule: rule.id, severity, debt: isDebt, file: item.file, type: byPath.get(item.file)!.type.id, message: item.message, why: WHY[item.code]! });
   }
 
+  for (const item of uses.forbidden) {
+    if (waive(waiversOf.get(item.file)!.waivers, 'forbidden-use', item.line)) continue;
+    const isDebt = !changed.has(item.file);
+    place({
+      code: 'forbidden-use',
+      rule: null,
+      severity: isDebt ? 'warning' : 'error',
+      debt: isDebt,
+      file: item.file,
+      line: item.line,
+      type: byPath.get(item.file)!.type.id,
+      message: item.message,
+      why: WHY['forbidden-use']!,
+    });
+  }
+
+  for (const item of uses.notRead) {
+    place({ code: 'uses-not-read', rule: null, severity: 'warning', debt: item.debt, file: LAW, line: item.type.line, type: item.type.id, message: item.message, why: WHY['uses-not-read']! });
+  }
+
   const waivers: WaiverEntry[] = [];
   for (const file of run) {
     const isDebt = !changed.has(file.path);
@@ -419,5 +509,6 @@ function judge(
     findings: sortFindings(change),
     debt: sortFindings(debt),
     waivers,
+    unresolved: uses.unresolved,
   };
 }

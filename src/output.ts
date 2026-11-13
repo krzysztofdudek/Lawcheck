@@ -35,6 +35,14 @@ export interface Reviews {
   passes_recorded: number;
 }
 
+export interface Unresolved {
+  file: string;
+  line: number;
+  what: string;
+  answer: 'ambiguous' | 'none';
+  debt: boolean;
+}
+
 export interface Next {
   command: string | null;
   text: string;
@@ -47,6 +55,7 @@ export interface Report {
   findings: Finding[];
   debt: Finding[];
   waivers: WaiverEntry[];
+  unresolved?: Unresolved[];
   reviews?: Reviews;
   next?: Next | null;
 }
@@ -73,6 +82,9 @@ export const WHY: Record<string, string> = {
   'too-many-reviews': 'reviewer.max_calls bounds what one run spends',
   'reviewer-unreachable': "without the reviewer's answer a reviewer rule says nothing",
   'reviewer-bad-answer': 'an answer that is no verdict cannot be recorded',
+  'forbidden-use': "a type's may_use names every type its files may use",
+  'uses-not-read': 'a restriction that cannot be checked is not shown as kept',
+  'parser-failed': 'a file whose uses were not read is not taken to use nothing',
 };
 
 export const CODES = new Set([...Object.keys(WHY)]);
@@ -178,6 +190,10 @@ function waiverPart(count: number): string {
   return count === 0 ? '' : `, ${plural(count, 'waiver')}`;
 }
 
+function unresolvedPart(count: number): string {
+  return count === 0 ? '' : `, ${plural(count, 'unresolved use')}`;
+}
+
 export function firstError(report: Report): Finding | undefined {
   return report.findings.find((f) => f.severity === 'error');
 }
@@ -198,6 +214,9 @@ export function renderReport(report: Report, json: boolean): string {
   const calls = reviews.calls_made === 0 ? '' : `, ${plural(reviews.calls_made, 'reviewer call')}`;
   const changeWaivers = report.waivers.filter((w) => !w.debt).length;
   const debtWaivers = report.waivers.length - changeWaivers;
+  const unresolved = report.unresolved ?? [];
+  const changeUnresolved = unresolved.filter((u) => !u.debt).length;
+  const debtUnresolved = unresolved.length - changeUnresolved;
 
   if (json) {
     const shape = (f: Finding) => {
@@ -219,9 +238,10 @@ export function renderReport(report: Report, json: boolean): string {
       schema: 'lawcheck-check/0',
       result: failing ? 'fail' : 'pass',
       scope: { mode: report.mode, base: report.base, files: report.changed },
-      summary: { errors, warnings, debt: report.debt.length, waivers: changeWaivers },
+      summary: { errors, warnings, debt: report.debt.length, waivers: changeWaivers, unresolved: changeUnresolved },
       findings: [...report.findings, ...report.debt].map(shape),
       waivers: report.waivers.map((w) => ({ file: w.file, line: w.line, rule: w.rule, debt: w.debt, waived: w.waived, reason: w.reason })),
+      unresolved: unresolved.map((u) => ({ file: u.file, line: u.line, what: u.what, answer: u.answer, debt: u.debt })),
       reviews: { missing: reviews.missing, calls_made: reviews.calls_made, passes_recorded: reviews.passes_recorded },
       next: nextOf === null ? null : { command: nextOf.command, text: nextOf.text },
     };
@@ -240,7 +260,7 @@ export function renderReport(report: Report, json: boolean): string {
       report.base === null
         ? `${plural(report.changed, 'file')} (no base: every file counts as changed)`
         : `${plural(report.changed, 'changed file')} (against ${report.base})`;
-    lines.push(`lawcheck: ${verdict}  ${counts === '' ? '' : counts + ' in '}${scope}${waiverPart(changeWaivers)}${calls}`);
+    lines.push(`lawcheck: ${verdict}  ${counts === '' ? '' : counts + ' in '}${scope}${waiverPart(changeWaivers)}${unresolvedPart(changeUnresolved)}${calls}`);
   }
 
   const limit = 50;
@@ -266,7 +286,7 @@ export function renderReport(report: Report, json: boolean): string {
     lines.push('');
     const files = new Set(report.debt.map((f) => f.file)).size;
     const heading = report.debt.length === 0 ? 'none' : `${plural(report.debt.length, 'finding')} in ${plural(files, 'file')}`;
-    lines.push(`debt (outside this change): ${heading}${waiverPart(debtWaivers)}`);
+    lines.push(`debt (outside this change): ${heading}${waiverPart(debtWaivers)}${unresolvedPart(debtUnresolved)}`);
     for (const finding of report.debt) if (printed < limit) print(finding);
     if (report.findings.length <= limit && total > limit) lines.push(more);
   }

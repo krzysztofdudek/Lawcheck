@@ -27,6 +27,8 @@ export interface TypeDef {
   rules: string[];
   types: TypeDef[];
   parent: TypeDef | null;
+  line: number;
+  mayUse: string[] | null;
 }
 
 export interface Law {
@@ -44,7 +46,7 @@ const ID = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const VERSION = /^\d+\.\d+\.\d+$/;
 const TOP_KEYS = ['lawcheck', 'rules', 'types'];
 const RULE_KEYS = ['why', 'status', 'context'];
-const TYPE_KEYS = ['about', 'paths', 'content', 'rules', 'types'];
+const TYPE_KEYS = ['about', 'paths', 'content', 'rules', 'types', 'may_use'];
 const RESERVED = new Set([...CODES, 'untyped-file']);
 
 export function distance(a: string, b: string): number {
@@ -92,6 +94,7 @@ class Reader {
   private readonly rules = new Map<string, Rule>();
   private readonly byId = new Map<string, TypeDef>();
   private readonly listed: { owner: string; rule: string; line: number }[] = [];
+  private readonly used: { owner: string; type: string; line: number }[] = [];
   private readonly reportedKeys = new Set<Pair>();
 
   constructor(
@@ -131,6 +134,9 @@ class Reader {
     if (!sawVersion) this.problem(1, "the law has no key 'lawcheck'");
     for (const { owner, rule, line } of this.listed) {
       if (!this.rules.has(rule)) this.problem(line, `type '${owner}' lists the rule '${rule}', which the law does not have`);
+    }
+    for (const { owner, type, line } of this.used) {
+      if (!this.byId.has(type)) this.problem(line, `'may_use' of type '${owner}' names '${type}', which is no type of the law`);
     }
     if (this.problems.length > 0) return { law: null, problems: this.problems };
     return { law: { rules: this.rules, types, byId: this.byId }, problems: [] };
@@ -180,7 +186,7 @@ class Reader {
       else if (this.byId.has(id)) this.problem(line, `the type id '${id}' appears twice in the law`);
       const value = this.resolve(pair.value);
       if (!this.mapping(value, line, `type '${id}'`)) continue;
-      const type: TypeDef = { id, paths: [], matches: () => false, content: null, rules: [], types: [], parent };
+      const type: TypeDef = { id, paths: [], matches: () => false, content: null, rules: [], types: [], parent, line, mayUse: null };
       if (!this.byId.has(id)) this.byId.set(id, type);
       let sawPaths = false;
       for (const field of (value as YAMLMap).items) {
@@ -223,6 +229,14 @@ class Reader {
           for (const { text, line: itemLine } of ids) {
             this.listed.push({ owner: id, rule: text, line: itemLine });
             if (!type.rules.includes(text)) type.rules.push(text);
+          }
+        } else if (key === 'may_use') {
+          const ids = this.strings(fieldValue, fieldLine, `'may_use' of type '${id}'`);
+          if (ids === null) continue;
+          type.mayUse = [];
+          for (const { text, line: itemLine } of ids) {
+            this.used.push({ owner: id, type: text, line: itemLine });
+            if (!type.mayUse.includes(text)) type.mayUse.push(text);
           }
         } else if (key === 'types') {
           if (this.mapping(fieldValue, fieldLine, `'types' of type '${id}'`)) type.types = this.readTypes(fieldValue as YAMLMap, type);
