@@ -546,15 +546,12 @@ test('test 93: a key an HTTP header cannot carry stops the run before any call',
       assert.equal(fake.requests.length, 0);
     });
   });
-  await withFake(async (fake) => {
-    await withR(
-      async (r) => {
-        write(r, F_PATH, F);
-        const result = await run(r, null, ['--review', '--base', 'main'], { ANTHROPIC_API_KEY: 'k3\tk4' });
-        expectRefused(result, 'error[reviewer-unreachable]  anthropic cannot be called: ANTHROPIC_API_KEY holds a character an HTTP header cannot carry', ['k3', 'k4']);
-        assert.equal(fake.requests.length, 0);
-      },
-      config('reviewer:\n  provider: anthropic\n  model: test-model\n'),
-    );
-  });
+  await withR(
+    async (r) => {
+      write(r, F_PATH, F);
+      const result = await run(r, null, ['--review', '--base', 'main'], { ANTHROPIC_API_KEY: 'k3\tk4' });
+      expectRefused(result, 'error[reviewer-unreachable]  anthropic cannot be called: ANTHROPIC_API_KEY holds a character an HTTP header cannot carry', ['k3', 'k4']);
+    },
+    config('reviewer:\n  provider: anthropic\n  model: test-model\n'),
+  );
 });

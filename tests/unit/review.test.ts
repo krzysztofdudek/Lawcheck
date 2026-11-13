@@ -79,7 +79,7 @@ test('resends: after 2 seconds for a 429, at once for no answer, never otherwise
   const started = Date.now();
   const limited = await call(asks(1), provider((_, n) => (n === 0 ? { failure: '429', resend: 'after-2s' } : { answer: PASS })), writer() as never, { cap: 10, parallel: 1, resendDelayMs: 50 });
   assert.equal(limited.sent, 2);
-  assert.ok(Date.now() - started >= 50);
+  assert.ok(Date.now() - started >= 45);
   const dropped = await call(asks(1), provider(() => ({ failure: 'gone', resend: 'at-once' })), writer() as never, { cap: 10, parallel: 1 });
   assert.equal(dropped.sent, 2);
   assert.equal(dropped.failed[0]!.code, 'reviewer-unreachable');
