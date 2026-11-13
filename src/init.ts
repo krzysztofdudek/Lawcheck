@@ -47,7 +47,7 @@ function already(place: string, below = false): Stop {
   ]);
 }
 
-function writeNew(path: string, content: string): boolean {
+export function writeNew(path: string, content: string): boolean {
   let fd: number;
   try {
     fd = openSync(path, 'wx');
