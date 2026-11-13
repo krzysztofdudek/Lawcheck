@@ -1,0 +1,1450 @@
+{
+  "schema": "lawcheck-stability/1",
+  "date": "2026-11-13",
+  "lawcheck": "0.1.0",
+  "verdict_format": "lawcheck-verdict/1",
+  "provider": "claude-code",
+  "model": "claude-sonnet-5-5",
+  "temperature_sent": null,
+  "note": "Run on the host, where claude is signed in, with Node v24.22.2 from the host and dist/ built in the dev container; claude 2.1.322, on the Claude Code subscription, at the program's own temperature.",
+  "runs": 10,
+  "agreement": {
+    "all": {
+      "pairs": 30,
+      "agreeing": 28,
+      "share": 0.933
+    },
+    "clear": {
+      "pairs": 22,
+      "agreeing": 22,
+      "share": 1
+    },
+    "borderline": {
+      "pairs": 8,
+      "agreeing": 6,
+      "share": 0.75
+    }
+  },
+  "pairwise_agreement": {
+    "all": 0.987,
+    "clear": 1,
+    "borderline": 0.95
+  },
+  "label_match": {
+    "all": {
+      "verdicts": 300,
+      "matching": 272,
+      "share": 0.907
+    },
+    "clear": {
+      "verdicts": 220,
+      "matching": 220,
+      "share": 1
+    },
+    "borderline": {
+      "verdicts": 80,
+      "matching": 52,
+      "share": 0.65
+    }
+  },
+  "baseline": {
+    "pairwise_agreement": {
+      "all": 1,
+      "clear": 1,
+      "borderline": 1
+    },
+    "label_match": {
+      "all": {
+        "verdicts": 30,
+        "matching": 19,
+        "share": 0.633
+      },
+      "clear": {
+        "verdicts": 22,
+        "matching": 16,
+        "share": 0.727
+      },
+      "borderline": {
+        "verdicts": 8,
+        "matching": 3,
+        "share": 0.375
+      }
+    }
+  },
+  "attempts": [
+    {
+      "run": 1,
+      "attempt": 1,
+      "exit": 1,
+      "calls_made": 30,
+      "errors": []
+    },
+    {
+      "run": 2,
+      "attempt": 1,
+      "exit": 1,
+      "calls_made": 30,
+      "errors": []
+    },
+    {
+      "run": 3,
+      "attempt": 1,
+      "exit": 1,
+      "calls_made": 30,
+      "errors": []
+    },
+    {
+      "run": 4,
+      "attempt": 1,
+      "exit": 1,
+      "calls_made": 30,
+      "errors": []
+    },
+    {
+      "run": 5,
+      "attempt": 1,
+      "exit": 1,
+      "calls_made": 30,
+      "errors": []
+    },
+    {
+      "run": 6,
+      "attempt": 1,
+      "exit": 1,
+      "calls_made": 30,
+      "errors": []
+    },
+    {
+      "run": 7,
+      "attempt": 1,
+      "exit": 1,
+      "calls_made": 30,
+      "errors": []
+    },
+    {
+      "run": 8,
+      "attempt": 1,
+      "exit": 1,
+      "calls_made": 30,
+      "errors": []
+    },
+    {
+      "run": 9,
+      "attempt": 1,
+      "exit": 1,
+      "calls_made": 30,
+      "errors": []
+    },
+    {
+      "run": 10,
+      "attempt": 1,
+      "exit": 1,
+      "calls_made": 30,
+      "errors": []
+    }
+  ],
+  "pairs": [
+    {
+      "file": "src/handlers/get-user.ts",
+      "rule": "handlers-are-thin",
+      "label": "pass",
+      "borderline": false,
+      "verdicts": [
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass"
+      ],
+      "messages": [
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        []
+      ],
+      "baseline": "pass"
+    },
+    {
+      "file": "src/handlers/create-order.ts",
+      "rule": "handlers-are-thin",
+      "label": "pass",
+      "borderline": false,
+      "verdicts": [
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass"
+      ],
+      "messages": [
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        []
+      ],
+      "baseline": "pass"
+    },
+    {
+      "file": "src/handlers/order-total.ts",
+      "rule": "handlers-are-thin",
+      "label": "fail",
+      "borderline": false,
+      "verdicts": [
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail"
+      ],
+      "messages": [
+        [
+          "The handler loops over the order's lines to compute the total, which is domain logic that belongs in a service."
+        ],
+        [
+          "The handler loops over the order's lines to compute the total, which is domain logic that belongs in a service."
+        ],
+        [
+          "The handler loops over the order's lines to compute the total, which is domain logic that belongs in a service."
+        ],
+        [
+          "The handler loops over the order's lines to compute the total, which is domain logic that belongs in a service."
+        ],
+        [
+          "The handler loops over the order's lines to compute the total, which is domain logic that belongs in a service."
+        ],
+        [
+          "The handler loops over the order's lines to compute the total, which is domain logic that belongs in a service."
+        ],
+        [
+          "The handler loops over the order's lines to compute the total, which is domain logic that belongs in a service."
+        ],
+        [
+          "The handler loops over the order's lines to compute the total, which is domain logic that belongs in a service."
+        ],
+        [
+          "The handler loops over the order's lines to compute the total, which is domain logic that belongs in a service."
+        ],
+        [
+          "The handler loops over the order's lines to compute the total, which is domain logic that belongs in a service."
+        ]
+      ],
+      "baseline": "fail"
+    },
+    {
+      "file": "src/handlers/delete-user.ts",
+      "rule": "handlers-are-thin",
+      "label": "fail",
+      "borderline": false,
+      "verdicts": [
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail"
+      ],
+      "messages": [
+        [
+          "The handler talks to the database directly with db.query instead of calling a service function."
+        ],
+        [
+          "The handler talks to the database directly with db.query instead of calling a service function."
+        ],
+        [
+          "The handler talks to the database directly with db.query instead of calling a service function."
+        ],
+        [
+          "The handler talks to the database directly with db.query instead of calling a service function."
+        ],
+        [
+          "The handler talks to the database directly with db.query instead of calling a service function."
+        ],
+        [
+          "The handler talks to the database directly with db.query instead of calling a service function."
+        ],
+        [
+          "The handler talks to the database directly with db.query instead of calling a service function."
+        ],
+        [
+          "The handler talks to the database directly with db.query instead of calling a service function."
+        ],
+        [
+          "The handler talks to the database directly with db.query instead of calling a service function."
+        ],
+        [
+          "The handler queries the database directly instead of calling a service function."
+        ]
+      ],
+      "baseline": "fail"
+    },
+    {
+      "file": "src/handlers/update-tags.ts",
+      "rule": "handlers-are-thin",
+      "label": "pass",
+      "borderline": false,
+      "verdicts": [
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass"
+      ],
+      "messages": [
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        []
+      ],
+      "baseline": "fail"
+    },
+    {
+      "file": "src/handlers/checkout.ts",
+      "rule": "handlers-are-thin",
+      "label": "fail",
+      "borderline": false,
+      "verdicts": [
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail"
+      ],
+      "messages": [
+        [
+          "The handler calls two service functions (carts.get on line 5 and orders.create on line 6) instead of one, so cart retrieval and order creation logic belongs in a single service function."
+        ],
+        [
+          "The handler calls two service functions (carts.get on line 5 and orders.create on line 6) instead of one; the first such call is on this line."
+        ],
+        [
+          "The handler calls a second service function (orders.create) after carts.get on line 5, so it calls more than one service function."
+        ],
+        [
+          "The handler calls two service functions (carts.get on line 5 and orders.create on line 6) instead of one."
+        ],
+        [
+          "The handler calls a second service function (orders.create) after carts.get on line 5, so it calls more than one service function."
+        ],
+        [
+          "The handler calls two service functions (carts.get and orders.create) instead of one; the orchestration of fetching the cart and creating the order belongs in a single service function."
+        ],
+        [
+          "The handler calls two service functions (carts.get and orders.create) instead of one, so the orchestration belongs in a single service function."
+        ],
+        [
+          "The handler calls two service functions (carts.get and orders.create) instead of one, so the orchestration belongs in a single service function."
+        ],
+        [
+          "The handler calls two service functions (carts.get on line 5 and orders.create on line 6) instead of one, so cart-to-order orchestration lives in the handler rather than a single service."
+        ],
+        [
+          "The handler calls a service function (carts.get) and then a second one (orders.create) on line 6, so it calls more than one service function instead of delegating to one."
+        ]
+      ],
+      "baseline": "pass"
+    },
+    {
+      "file": "src/handlers/search-users.ts",
+      "rule": "handlers-are-thin",
+      "label": "pass",
+      "borderline": true,
+      "verdicts": [
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass"
+      ],
+      "messages": [
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        []
+      ],
+      "baseline": "pass"
+    },
+    {
+      "file": "src/handlers/get-order.ts",
+      "rule": "handlers-are-thin",
+      "label": "fail",
+      "borderline": true,
+      "verdicts": [
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail"
+      ],
+      "messages": [
+        [
+          "The handler decides a business condition (whether the order was cancelled) and picks a 410 response from it, instead of leaving that decision to the service."
+        ],
+        [
+          "The handler decides a business condition (whether the order's status is 'cancelled') and picks the 410 response from it instead of leaving that logic to the service."
+        ],
+        [
+          "The handler decides a business condition by checking whether the order's status is 'cancelled' and choosing a 410 response, which belongs in the service."
+        ],
+        [
+          "The handler decides a business condition (whether the order's status is 'cancelled') instead of leaving that decision to the service."
+        ],
+        [
+          "The handler decides a business condition by checking whether the order's status is 'cancelled' and returning 410, which belongs in the service."
+        ],
+        [
+          "The handler decides a business condition (whether the order's status is 'cancelled') instead of leaving that decision to the service."
+        ],
+        [
+          "The handler decides a business condition (whether the order's status is 'cancelled') and picks a 410 response from it instead of leaving that decision to the service."
+        ],
+        [
+          "The handler decides a business condition by checking whether the order's status is 'cancelled' and choosing a 410 response, which belongs in the service."
+        ],
+        [
+          "The handler decides a business condition by checking whether the order status is 'cancelled' and returning 410, which belongs in the service."
+        ],
+        [
+          "The handler decides a business condition (whether the order's status is 'cancelled') and picks a 410 response from it, instead of building the response from what the service returned."
+        ]
+      ],
+      "baseline": "pass"
+    },
+    {
+      "file": "src/services/invoices.ts",
+      "rule": "clear-errors",
+      "label": "pass",
+      "borderline": false,
+      "verdicts": [
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass"
+      ],
+      "messages": [
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        []
+      ],
+      "baseline": "pass"
+    },
+    {
+      "file": "src/services/rates.ts",
+      "rule": "clear-errors",
+      "label": "pass",
+      "borderline": false,
+      "verdicts": [
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass"
+      ],
+      "messages": [
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        []
+      ],
+      "baseline": "pass"
+    },
+    {
+      "file": "src/services/orders.ts",
+      "rule": "clear-errors",
+      "label": "fail",
+      "borderline": false,
+      "verdicts": [
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail"
+      ],
+      "messages": [
+        [
+          "The thrown error 'failed' says neither what failed (the order could not be saved) nor what the caller can do next (e.g. retry or check the order)."
+        ],
+        [
+          "The thrown error 'failed' says neither what failed (the order could not be saved) nor what the caller can do next (e.g. check the order and retry)."
+        ],
+        [
+          "The thrown error 'failed' does not say what failed (the order could not be saved) nor what the caller can do next (e.g. check the order and retry)."
+        ],
+        [
+          "The thrown error 'failed' does not say what failed (the order was not saved) and gives the caller no next step such as retrying or checking the order data."
+        ],
+        [
+          "The thrown error 'failed' does not say what failed (the order was not saved) and gives the caller no next step such as retrying or checking the order data."
+        ],
+        [
+          "The thrown error 'failed' does not say what failed (the order could not be saved) and gives the caller no next step such as retrying or checking the order."
+        ],
+        [
+          "The thrown error 'failed' does not say what failed (the order could not be saved) and gives the caller no next step such as retrying or checking the order data."
+        ],
+        [
+          "The thrown error 'failed' says neither what failed (the order could not be saved) nor what the caller can do next (e.g. retry or check the order data)."
+        ],
+        [
+          "The thrown error 'failed' says neither what failed (the order was not saved) nor what the caller can do next (e.g. check the order and retry)."
+        ],
+        [
+          "The thrown error 'failed' says neither what failed (the order could not be saved) nor what the caller can do next (e.g., retry or check the order data)."
+        ]
+      ],
+      "baseline": "fail"
+    },
+    {
+      "file": "src/services/users.ts",
+      "rule": "clear-errors",
+      "label": "fail",
+      "borderline": false,
+      "verdicts": [
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail"
+      ],
+      "messages": [
+        [
+          "The returned error 'Invalid input' says neither what was wrong (the email lacks an '@') nor what the caller can do next (provide a valid email address)."
+        ],
+        [
+          "The returned error 'Invalid input' does not say what was wrong (the email lacks an '@') nor what the caller can do next (provide a valid email address)."
+        ],
+        [
+          "The returned error 'Invalid input' does not say what was wrong (the email lacks an '@') or what the caller should do to fix it."
+        ],
+        [
+          "The returned error 'Invalid input' does not say what was wrong (the email lacks an '@') nor tell the caller how to fix it (provide a valid email address)."
+        ],
+        [
+          "The returned error 'Invalid input' does not say what was wrong (the email lacks '@') nor what the caller should do to fix it."
+        ],
+        [
+          "The returned error 'Invalid input' does not say what was wrong (the email lacks an '@') or what the caller should do to fix it."
+        ],
+        [
+          "The returned error 'Invalid input' does not say what was wrong (the email lacks an '@') nor what the caller can do next (provide a valid email address)."
+        ],
+        [
+          "The returned error 'Invalid input' does not say what was wrong (the email lacks an '@') nor what the caller can do next (provide a valid email address)."
+        ],
+        [
+          "The returned error 'Invalid input' does not say what was wrong (the email lacks an '@') nor what the caller can do next (provide a valid email address)."
+        ],
+        [
+          "The returned error 'Invalid input' does not say what was wrong (the email lacks an '@') or tell the caller how to fix it (provide a valid email address)."
+        ]
+      ],
+      "baseline": "fail"
+    },
+    {
+      "file": "src/services/sessions.ts",
+      "rule": "clear-errors",
+      "label": "pass",
+      "borderline": false,
+      "verdicts": [
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass"
+      ],
+      "messages": [
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        []
+      ],
+      "baseline": "fail"
+    },
+    {
+      "file": "src/services/amounts.ts",
+      "rule": "clear-errors",
+      "label": "pass",
+      "borderline": true,
+      "verdicts": [
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "pass",
+        "fail",
+        "fail",
+        "fail"
+      ],
+      "messages": [
+        [
+          "The error says what happened ('amount must be greater than zero') but not the received value or what the caller can do next, such as passing a positive amount."
+        ],
+        [
+          "The error says what happened (amount must be greater than zero) but does not tell the caller what to do next, such as passing a positive amount, and it omits the received value."
+        ],
+        [
+          "The error says what happened (amount must be greater than zero) but does not tell the caller what to do next, such as passing a positive amount, and it does not include the offending value."
+        ],
+        [
+          "The error says what happened (amount must be greater than zero) but does not tell the caller what to do next, such as passing a positive amount, and it omits the received value."
+        ],
+        [
+          "The error says what happened (amount must be greater than zero) but does not tell the caller what to do next, such as passing a positive amount, and it does not include the offending value."
+        ],
+        [
+          "The error says what happened (amount must be greater than zero) but does not tell the caller what to do next, such as supplying a positive amount, and it omits the received value."
+        ],
+        [],
+        [
+          "The error says what happened (amount must be greater than zero) but does not say what the caller can do next, such as passing a positive amount, and it does not include the received value."
+        ],
+        [
+          "The error says what happened (amount must be greater than zero) but does not tell the caller what to do next, such as passing a positive amount, and does not include the offending value."
+        ],
+        [
+          "The error says what happened (amount must be greater than zero) but does not state the value received or tell the caller what to do next, such as passing a positive amount."
+        ]
+      ],
+      "baseline": "fail"
+    },
+    {
+      "file": "src/services/exports.ts",
+      "rule": "clear-errors",
+      "label": "fail",
+      "borderline": true,
+      "verdicts": [
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail"
+      ],
+      "messages": [
+        [
+          "The error says what happened (report larger than 10 MB) but gives the caller no next step, such as reducing the report size or splitting the export."
+        ],
+        [
+          "The error says what happened (report larger than 10 MB) but does not tell the caller what to do next, such as reducing the report size or splitting it."
+        ],
+        [
+          "The error says what happened (report larger than 10 MB) but gives the caller no next step, such as reducing the report size or splitting it."
+        ],
+        [
+          "The error says what happened (report larger than 10 MB) but does not tell the caller what to do next, such as reducing the report size or splitting it."
+        ],
+        [
+          "The error says what happened (report larger than 10 MB) but does not tell the caller what to do next, such as reducing the report size below 10 MB and retrying."
+        ],
+        [
+          "The error says what happened (report larger than 10 MB) but gives the caller no next step, such as reducing the report size or splitting it."
+        ],
+        [
+          "The error says what happened (report larger than 10 MB) but does not tell the caller what to do next, such as reducing the report size or splitting it."
+        ],
+        [
+          "The error says what happened (report larger than 10 MB) but does not tell the caller what to do next, such as reducing the report size or splitting it below 10 MB."
+        ],
+        [
+          "The error says what happened (report larger than 10 MB) but gives the caller no next step, such as reducing the report size or splitting it."
+        ],
+        [
+          "The error says what happened (report larger than 10 MB) but does not tell the caller what to do next, such as reducing the report size or splitting it."
+        ]
+      ],
+      "baseline": "fail"
+    },
+    {
+      "file": "src/domain/price.ts",
+      "rule": "pure-domain",
+      "label": "pass",
+      "borderline": false,
+      "verdicts": [
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass"
+      ],
+      "messages": [
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        []
+      ],
+      "baseline": "pass"
+    },
+    {
+      "file": "src/domain/discount.ts",
+      "rule": "pure-domain",
+      "label": "pass",
+      "borderline": false,
+      "verdicts": [
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass"
+      ],
+      "messages": [
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        []
+      ],
+      "baseline": "pass"
+    },
+    {
+      "file": "src/domain/due-date.ts",
+      "rule": "pure-domain",
+      "label": "fail",
+      "borderline": false,
+      "verdicts": [
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail"
+      ],
+      "messages": [
+        [
+          "Reads the system clock via `new Date()` instead of receiving the current time as an argument."
+        ],
+        [
+          "Reads the system clock via `new Date()` instead of receiving the current date as an argument."
+        ],
+        [
+          "Reads the clock via `new Date()` instead of receiving the current time as an argument."
+        ],
+        [
+          "`new Date()` reads the current clock inside domain code instead of receiving the current time as an argument."
+        ],
+        [
+          "Reads the system clock via `new Date()` instead of receiving the current time as an argument."
+        ],
+        [
+          "`new Date()` reads the current clock inside domain code instead of receiving the time as an argument."
+        ],
+        [
+          "Reads the system clock via `new Date()` instead of receiving the current date as an argument."
+        ],
+        [
+          "`new Date()` reads the current clock inside domain code instead of receiving the date as an argument."
+        ],
+        [
+          "`new Date()` reads the system clock instead of receiving the current time as an argument."
+        ],
+        [
+          "Reads the clock via `new Date()` inside domain code instead of receiving the current time as an argument."
+        ]
+      ],
+      "baseline": "fail"
+    },
+    {
+      "file": "src/domain/token.ts",
+      "rule": "pure-domain",
+      "label": "fail",
+      "borderline": false,
+      "verdicts": [
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail"
+      ],
+      "messages": [
+        [
+          "Calls Math.random(), reading random numbers inside domain code instead of receiving the random value as an argument."
+        ],
+        [
+          "Calls Math.random(), reading random numbers inside domain code instead of receiving the random value as an argument."
+        ],
+        [
+          "Calls Math.random(), reading a random number inside domain code instead of receiving the random value as an argument."
+        ],
+        [
+          "Calls Math.random(), reading a random number inside domain code instead of receiving it as an argument."
+        ],
+        [
+          "Calls Math.random(), reading a random number inside domain code instead of receiving the random value as an argument."
+        ],
+        [
+          "Calls Math.random() to produce a random value inside domain code instead of receiving it as an argument, making the result nondeterministic."
+        ],
+        [
+          "Calls Math.random(), reading random numbers inside domain code instead of receiving the random value as an argument."
+        ],
+        [
+          "Calls Math.random(), reading random numbers inside domain code instead of receiving the random value as an argument."
+        ],
+        [
+          "Calls Math.random(), reading random numbers inside domain code instead of receiving the random value as an argument."
+        ],
+        [
+          "Calls Math.random() to generate a random value inside domain code instead of receiving it as an argument, making the output non-deterministic."
+        ]
+      ],
+      "baseline": "fail"
+    },
+    {
+      "file": "src/domain/vat.ts",
+      "rule": "pure-domain",
+      "label": "fail",
+      "borderline": false,
+      "verdicts": [
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail"
+      ],
+      "messages": [
+        [
+          "The function reads the VAT rate from the environment (process.env.VAT_RATE) instead of receiving it as an argument."
+        ],
+        [
+          "Reads the environment (process.env.VAT_RATE) inside domain code instead of receiving the VAT rate as an argument."
+        ],
+        [
+          "Reads the environment (process.env.VAT_RATE) inside domain code instead of receiving the VAT rate as an argument."
+        ],
+        [
+          "Reads the environment (process.env.VAT_RATE) inside domain code instead of receiving the VAT rate as an argument."
+        ],
+        [
+          "Reads the environment (process.env.VAT_RATE) inside domain code instead of receiving the VAT rate as an argument."
+        ],
+        [
+          "Reads the environment (process.env.VAT_RATE) inside domain code instead of receiving the VAT rate as an argument."
+        ],
+        [
+          "Reads the environment (process.env.VAT_RATE) inside domain code instead of receiving the VAT rate as an argument."
+        ],
+        [
+          "Reads the environment (process.env.VAT_RATE) inside domain code instead of receiving the VAT rate as an argument."
+        ],
+        [
+          "Reads the environment (process.env.VAT_RATE) inside domain code instead of receiving the VAT rate as an argument."
+        ],
+        [
+          "Reads the environment (process.env.VAT_RATE) inside domain code instead of receiving the VAT rate as an argument."
+        ]
+      ],
+      "baseline": "pass"
+    },
+    {
+      "file": "src/domain/ledger.ts",
+      "rule": "pure-domain",
+      "label": "pass",
+      "borderline": true,
+      "verdicts": [
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "pass",
+        "fail"
+      ],
+      "messages": [
+        [
+          "`ledger.push(entry)` mutates the caller's array in place, which is a write outside the function; build and return a new array instead."
+        ],
+        [
+          "`post` writes to its `ledger` argument with `push`, mutating the caller's array in place instead of returning a new one, so it writes somewhere."
+        ],
+        [
+          "`ledger.push(entry)` mutates the caller's argument in place, which is a write outside the function's own result, so repeated calls with the same input do not give the same answer."
+        ],
+        [
+          "`ledger.push(entry)` writes into the caller's array instead of returning a new one, so the function writes outside itself."
+        ],
+        [
+          "`ledger.push(entry)` writes to the caller's array in place, so the function mutates its argument instead of returning a new ledger."
+        ],
+        [
+          "ledger.push mutates the caller's array in place, which is a write outside the function; the result then depends on earlier calls rather than on the arguments alone, so a copy should be returned instead."
+        ],
+        [
+          "`ledger.push(entry)` mutates the caller's `ledger` argument in place, which is a write outside the function's return value."
+        ],
+        [
+          "ledger.push(entry) mutates the caller's ledger argument in place, which is a write outside the function instead of computing and returning a new array."
+        ],
+        [],
+        [
+          "`ledger.push(entry)` mutates the caller's array in place, which is a write outside the function; it should return a new array (e.g. `[...ledger, entry]`) so the function only computes from its arguments."
+        ]
+      ],
+      "baseline": "pass"
+    },
+    {
+      "file": "src/domain/opening-hours.ts",
+      "rule": "pure-domain",
+      "label": "fail",
+      "borderline": true,
+      "verdicts": [
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail"
+      ],
+      "messages": [
+        [
+          "Reads the host's ambient time zone from the environment via Intl.DateTimeFormat().resolvedOptions().timeZone instead of receiving it as an argument.",
+          "Formats using the module-level `zone` read from the environment, so the result depends on the host's time zone rather than on the arguments alone."
+        ],
+        [
+          "Reads the system's default time zone from the environment via Intl.DateTimeFormat().resolvedOptions() instead of receiving it as an argument."
+        ],
+        [
+          "Reads the host environment's time zone via Intl.DateTimeFormat().resolvedOptions().timeZone instead of receiving it as an argument."
+        ],
+        [
+          "Reads the environment's system time zone via Intl.DateTimeFormat().resolvedOptions().timeZone at module load instead of receiving it as an argument."
+        ],
+        [
+          "Reads the host environment's time zone via Intl.DateTimeFormat().resolvedOptions().timeZone instead of receiving it as an argument.",
+          "Uses the module-level `zone`, which is derived from the environment, so the result depends on the host time zone rather than on the arguments alone."
+        ],
+        [
+          "Reads the environment's default time zone via Intl.DateTimeFormat().resolvedOptions(), so the result depends on the host rather than on the arguments.",
+          "Formats using the module-level `zone` read from the environment, so isOpen gives different answers for the same input on different hosts; the time zone should be passed as an argument."
+        ],
+        [
+          "Reads the host's environment-dependent default time zone via Intl.DateTimeFormat().resolvedOptions().timeZone instead of receiving it as an argument.",
+          "Formats using the module-level `zone` read from the environment, so the result depends on the host time zone rather than only on the arguments."
+        ],
+        [
+          "Reads the host's environment-dependent default time zone via Intl.DateTimeFormat().resolvedOptions().timeZone instead of receiving it as an argument, making results vary by machine.",
+          "Formats using the module-level `zone` read from the environment, so the same `at` input yields different answers depending on the host time zone."
+        ],
+        [
+          "Reads the environment's system time zone via Intl.DateTimeFormat().resolvedOptions().timeZone at module load instead of receiving it as an argument."
+        ],
+        [
+          "Reads the host's ambient time zone from the environment (Intl default resolvedOptions) instead of receiving it as an argument.",
+          "Depends on the module-level `zone` read from the environment, so the result varies with the host's time zone rather than being decided from the arguments alone."
+        ]
+      ],
+      "baseline": "pass"
+    },
+    {
+      "file": "src/util/retry.ts",
+      "rule": "comments-say-why",
+      "label": "pass",
+      "borderline": false,
+      "verdicts": [
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass"
+      ],
+      "messages": [
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        []
+      ],
+      "baseline": "pass"
+    },
+    {
+      "file": "src/util/slug.ts",
+      "rule": "comments-say-why",
+      "label": "pass",
+      "borderline": false,
+      "verdicts": [
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass"
+      ],
+      "messages": [
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        []
+      ],
+      "baseline": "pass"
+    },
+    {
+      "file": "src/util/sum.ts",
+      "rule": "comments-say-why",
+      "label": "fail",
+      "borderline": false,
+      "verdicts": [
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail"
+      ],
+      "messages": [
+        [
+          "The comment \"add a and b\" only restates what the `return a + b` line below it does and gives no reason, constraint, or origin."
+        ],
+        [
+          "The comment 'add a and b' only restates what the `return a + b` line directly below it does."
+        ],
+        [
+          "The comment 'add a and b' only restates what the return statement below it does."
+        ],
+        [
+          "The comment \"add a and b\" only restates what the `return a + b` line directly below it does, giving no reason, constraint, or origin."
+        ],
+        [
+          "The comment 'add a and b' only restates what the `return a + b` line directly below it does."
+        ],
+        [
+          "The comment \"add a and b\" only restates what the `return a + b` line below it does and gives no reason."
+        ],
+        [
+          "The comment 'add a and b' only restates what the following return statement does and gives no reason, constraint, or origin."
+        ],
+        [
+          "The comment 'add a and b' only restates what the `return a + b` line below it does."
+        ],
+        [
+          "The comment \"add a and b\" only restates what the `return a + b` line below it does and gives no reason, constraint, or origin."
+        ],
+        [
+          "The comment 'add a and b' only restates what the return statement below it does."
+        ]
+      ],
+      "baseline": "fail"
+    },
+    {
+      "file": "src/util/parse.ts",
+      "rule": "comments-say-why",
+      "label": "fail",
+      "borderline": false,
+      "verdicts": [
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail"
+      ],
+      "messages": [
+        [
+          "Comment 'split the text into lines' only restates what the split('\\n') call below it does.",
+          "Comment 'drop the empty ones' only restates what the filter on the line below it does."
+        ],
+        [
+          "Comment 'split the text into lines' only restates what the split('\\n') call on the next line does.",
+          "Comment 'drop the empty ones' only restates what the filter on the next line does."
+        ],
+        [
+          "Comment 'split the text into lines' only restates what the text.split('\\n') line below it does.",
+          "Comment 'drop the empty ones' only restates what the filter call on the next line does."
+        ],
+        [
+          "Comment 'split the text into lines' only restates what the split call on the next line does.",
+          "Comment 'drop the empty ones' only restates what the filter on the next line does."
+        ],
+        [
+          "The comment 'split the text into lines' only restates what the text.split('\\n') call on the next line does.",
+          "The comment 'drop the empty ones' only restates what the filter on the next line does."
+        ],
+        [
+          "The comment 'split the text into lines' only restates what the split('\\n') call on the next line does.",
+          "The comment 'drop the empty ones' only restates what the filter on the next line does and gives no reason."
+        ],
+        [
+          "The comment 'split the text into lines' only restates what the text.split('\\n') call below it does.",
+          "The comment 'drop the empty ones' only restates what the filter on the return line does."
+        ],
+        [
+          "The comment 'split the text into lines' only restates what the split('\\n') call on the next line does.",
+          "The comment 'drop the empty ones' only restates what the filter with trim() !== '' on the next line does."
+        ],
+        [
+          "Comment 'split the text into lines' only restates what the text.split('\\n') line below does.",
+          "Comment 'drop the empty ones' only restates what the filter on the line below does."
+        ],
+        [
+          "Comment 'split the text into lines' only restates the `text.split('\\n')` call below it.",
+          "Comment 'drop the empty ones' only restates the `filter` on blank lines in the code below it."
+        ]
+      ],
+      "baseline": "fail"
+    },
+    {
+      "file": "src/util/round.ts",
+      "rule": "comments-say-why",
+      "label": "pass",
+      "borderline": false,
+      "verdicts": [
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass"
+      ],
+      "messages": [
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        []
+      ],
+      "baseline": "fail"
+    },
+    {
+      "file": "src/util/increment.ts",
+      "rule": "comments-say-why",
+      "label": "fail",
+      "borderline": false,
+      "verdicts": [
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail"
+      ],
+      "messages": [
+        [
+          "The comment 'Add one to the count.' only restates what `count + 1` does and gives no reason, constraint, or origin."
+        ],
+        [
+          "The comment 'Add one to the count.' only restates what `return count + 1` does and gives no reason, constraint, or origin."
+        ],
+        [
+          "The comment 'Add one to the count.' only restates what `count + 1` does and gives no reason, constraint, or origin."
+        ],
+        [
+          "The comment 'Add one to the count.' only restates what `count + 1` does and gives no reason, constraint, or trap."
+        ],
+        [
+          "The comment 'Add one to the count.' only restates what `count + 1` does and gives no reason, constraint, or origin."
+        ],
+        [
+          "The comment 'Add one to the count.' only restates what `count + 1` does and gives no reason, constraint, or origin."
+        ],
+        [
+          "The comment 'Add one to the count.' only restates what `count + 1` does and gives no reason, constraint, or origin."
+        ],
+        [
+          "The comment 'Add one to the count.' only restates what `count + 1` does and gives no reason, constraint, or origin."
+        ],
+        [
+          "The comment 'Add one to the count.' only restates what `count + 1` does and gives no reason, constraint, or origin."
+        ],
+        [
+          "The comment 'Add one to the count.' only restates what the `count + 1` on the next line does, giving no reason, constraint, or origin."
+        ]
+      ],
+      "baseline": "pass"
+    },
+    {
+      "file": "src/util/handle.ts",
+      "rule": "comments-say-why",
+      "label": "pass",
+      "borderline": true,
+      "verdicts": [
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail"
+      ],
+      "messages": [
+        [
+          "The comment only restates what the regex on the next line matches (lowercase letters, digits, dashes, length 3 to 30) and gives no reason or outside constraint."
+        ],
+        [
+          "The comment only restates what the regex /^[a-z0-9-]{3,30}$/ on the next line already says (allowed characters and length) without giving any reason or outside constraint."
+        ],
+        [
+          "The comment only restates what the regex /^[a-z0-9-]{3,30}$/ on the next line already says (lowercase letters, digits, dashes, length 3 to 30) without giving any reason for the constraint."
+        ],
+        [
+          "The comment only restates what the regex on line 2 already says (lowercase letters, digits, dashes, length 3 to 30) and gives no reason or outside constraint."
+        ],
+        [
+          "The comment only restates what the regex on line 2 already says (lowercase letters, digits, dashes, length 3 to 30) without giving any reason or outside constraint."
+        ],
+        [
+          "The comment only restates what the regex on line 2 already says (lowercase letters, digits, dashes, length 3 to 30) without giving any reason for the constraint."
+        ],
+        [
+          "The comment only restates what the regex on the next line matches (lowercase letters, digits, dashes, length 3 to 30) without giving any reason for the constraint."
+        ],
+        [
+          "The comment only restates the regex on the next line (lowercase letters, digits, dashes, length 3 to 30) and gives no reason, outside constraint, or origin for the rule."
+        ],
+        [
+          "The comment only restates what the regex on line 2 already says (lowercase letters, digits, dashes, length 3 to 30) without giving any reason or outside constraint."
+        ],
+        [
+          "The comment only restates what the regex on line 2 already says (lowercase letters, digits, dashes, length 3 to 30) without giving any reason or outside constraint."
+        ]
+      ],
+      "baseline": "fail"
+    },
+    {
+      "file": "src/util/clamp.ts",
+      "rule": "comments-say-why",
+      "label": "fail",
+      "borderline": true,
+      "verdicts": [
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail"
+      ],
+      "messages": [
+        [
+          "The doc comment only restates what the function does (limits value to the min–max range), which the name and body already show, and gives no reason, constraint, or trap."
+        ],
+        [
+          "The doc comment only restates what clamp does (limits value to the min–max range) without giving any reason, constraint, or trap."
+        ],
+        [
+          "The doc comment only restates what the function name and its Math.min/Math.max body already show (limiting value to the min–max range) and gives no reason, constraint, or trap."
+        ],
+        [
+          "The doc comment only restates what the clamp function's code does (limits value to the min–max range) and gives no reason, constraint, or trap."
+        ],
+        [
+          "The doc comment only restates what the clamp function and its name already show (limits value to min..max) and gives no reason, constraint, or trap."
+        ],
+        [
+          "The doc comment only restates what the function body does (limits value to the min–max range) and gives no constraint, trap, or origin."
+        ],
+        [
+          "The doc comment only restates what the function name and the Math.min/Math.max code already show (limiting a value to the min–max range) and gives no reason, constraint, or trap."
+        ],
+        [
+          "The doc comment only restates what the function body does (limits value to the min–max range) and gives no constraint, trap, or origin."
+        ],
+        [
+          "The doc comment only restates what the function body does (limits a value to the min–max range) and gives no constraint, trap, or origin."
+        ],
+        [
+          "The doc comment only restates what the clamp function does (limits value to min..max) and gives no constraint, trap, or origin."
+        ]
+      ],
+      "baseline": "pass"
+    }
+  ]
+}
