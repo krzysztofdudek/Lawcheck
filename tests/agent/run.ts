@@ -67,8 +67,8 @@ function gitIn(cwd: string, args: string[], env: NodeJS.ProcessEnv = {}): string
   return result.stdout;
 }
 
-export function breachOf(log: LogLine[]): boolean {
-  return log.some((line) => line.exit === 1 && line.errors.some((error) => error.startsWith(`${TARGET}:`) && error.includes('error[coded-errors]')));
+export function breachOf(log: LogLine[], arm: string): boolean {
+  return log.some((line) => ARM_EVENTS[arm]!.includes(line.caller) && line.exit === 1 && line.errors.some((error) => error.startsWith(`${TARGET}:`) && error.includes('error[coded-errors]')));
 }
 
 export function makeRepository(folder: string): string {
@@ -306,7 +306,7 @@ async function oneRun(arm: string, number: number, options: Options, pathDirs: s
     else if (lines.some((line) => line.caller !== 'agent' && !ARM_EVENTS[arm]!.includes(line.caller))) error = "a log line whose caller is not agent and not one of the arm's events";
     else if (transcript.bashCommands.some((command) => command.includes('lawcheck')) && !lines.some((line) => line.caller === 'agent')) error = 'a Bash call that holds lawcheck while the log holds no agent line';
     else if (Object.values(files).some((text) => text !== null && [...text].length > LARGEST_FILE)) error = 'a final file of more than 50,000 characters';
-    const breach = breachOf(lines);
+    const breach = breachOf(lines, arm);
     const counts = error === null && breach;
     const checks = counts ? checksIn(work) : null;
     const reply = typeof transcript.result?.result === 'string' ? transcript.result.result : '';

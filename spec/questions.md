@@ -387,3 +387,9 @@ Choice: the commits counted run from the merge base of the two heads to the new 
 ## 61. Four behaviours without a test that fails when they break
 
 The review's finding 4 broke each of these and saw no test fail. Each now has one, and each fails with that break back in: test 159 checks the log's `check ./notes/a.ipynb`; test 161 hands a second, different exit-2 output and then holds it back; a test of section 5 has a fake `lawcheck` print a pass and leave a child holding its output, and expects nothing within 5 seconds and the child gone; tests 166 and 167 send a stop with another `prompt_id` after three hand-backs and expect a hand-back.
+
+## 62. A breach found by the agent's own call
+
+The review's finding 6: step 5 took a breach from any caller, so a run where the agent found `.lawcheck/` and ran `lawcheck` itself counted without the arm's hook doing anything.
+
+Choice: a breach is a line of the arm's own events; the agent's lines stay in `log` as they are. Section 10 says this now, and a test of `agent-result.test.ts` checks it.

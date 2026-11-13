@@ -7,6 +7,18 @@ import { ARM_EVENTS, breachOf, checksIn, isFixed, makeRepository, ROOT } from '.
 import type { RunEntry } from '../agent/run.ts';
 import { inTemp } from './helpers.ts';
 
+const LINE = 'src/core/discount.js:3  error[coded-errors]  throws Error; core code throws ShopError with a code';
+
+test('section 10, step 5: only a line of the arm\'s own hook is a breach', () => {
+  const line = (caller: string, exit = 1) => ({ caller, args: ['check', './src/core/discount.js'], exit, errors: exit === 1 ? [LINE] : [] });
+  assert.equal(breachOf([line('agent')], 'edit'), false);
+  assert.equal(breachOf([line('agent')], 'stop'), false);
+  assert.equal(breachOf([line('edit')], 'edit'), true);
+  assert.equal(breachOf([line('stop')], 'stop'), true);
+  assert.equal(breachOf([line('stop')], 'edit'), false);
+  assert.equal(breachOf([line('edit', 0)], 'edit'), false);
+});
+
 const RESULT = join(ROOT, 'tests', 'agent', 'result.json');
 const ENTRY_KEYS = ['run', 'error', 'breach', 'fixed', 'checks', 'log', 'files', 'seconds', 'reply'];
 const CHECK_KEYS = ['clean', 'law_untouched', 'no_waiver', 'intent'];
@@ -27,7 +39,7 @@ test('test 181: the committed result of the trial', async () => {
       const where = `${arm} run ${entry.run}`;
       assert.deepEqual(Object.keys(entry), ENTRY_KEYS, where);
       assert.equal(entry.run, i + 1, where);
-      assert.equal(entry.breach, breachOf(entry.log), where);
+      assert.equal(entry.breach, breachOf(entry.log, arm), where);
       for (const line of entry.log) assert.ok(line.caller === 'agent' || ARM_EVENTS[arm]!.includes(line.caller), `${where}: ${line.caller}`);
       for (const place of ['/tmp', homedir(), '/home/']) assert.ok(!entry.reply.includes(place), `${where}: ${entry.reply}`);
       if (entry.error !== null || !entry.breach) {
