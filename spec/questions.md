@@ -202,3 +202,87 @@ Test 94 is `npm test` itself, as test 79 was (entry 21), so no test inside it ca
 - Note 8, a change that retypes a target or changes only the law judges no using file until that file is edited: section 3.2 states this and leaves widening the run to the owner.
 - Note 9, a Java name of the same package written `Outer.Inner` is not followed (three uses in gson): a gap of the Runes reader that section 7 does not list; by the owner's ruling it goes to Runes and is not worked around here.
 - Note 11, section 4's sentence on `from m import name` holds for relative imports only, and two of gson's 1,740 own-package keys are `LinkedTreeMap` member types: the spec's prose is the owner's to correct, and no expected line changes.
+
+# Questions found while building the commands slice
+
+Each entry names the place in `commands-slice.md`, what is unclear or wrong, and what the build does.
+
+## 33. The `next:` of `usage` when no command was recognised
+
+Section 2 gives `run lawcheck <command> as its usage line says: lawcheck <command> --help`, "or `lawcheck --help` when no command was recognised", without saying whether the second replaces the whole text or only its command.
+
+Choice: the sentence keeps its form without a command: `run lawcheck as its usage line says: lawcheck --help`.
+
+## 34. The `next:` of `no-git` outside `check`
+
+Section 2 replaces only a `next:` that holds `then run lawcheck check`. `no-git`'s reads `run lawcheck check inside a git work tree, with git on the PATH`, so `init` and `explain` would tell the user to run `check`. Section 8 gives `doctor`'s git check `run lawcheck doctor inside a git work tree, with git on the PATH`.
+
+Choice: `no-git` names the command that ran, in every command, as `doctor`'s row does.
+
+## 35. The program's usage
+
+Section 2 fixes the first line of `lawcheck --help` and says "one line per command", not what each holds.
+
+Choice: eight lines and a line end: the first line, then `  <command>  <what it does>` for the seven, in section 2's order.
+
+## 36. A file whose path matches only a subtype
+
+Section 6 orders the reasons of a file with no type, and "no type's paths match" comes before "binary". A file whose path matches a subtype's `paths` and no root type's is not typed by slice one either, and no row names it.
+
+Choice: "no type's paths match it" is decided at the root level, as slice one's walk decides it, and such a file is not read, so it cannot be `file-unreadable` under `explain`.
+
+## 37. How several type ids are joined
+
+The reasons `it matches the paths of <ids> ...`, `it matches <a> and <b> at one level` and the `then:` text `any file here matches <ids>` do not say how three or more ids are joined.
+
+Choice: `a`, `a and b`, `a, b and c`, everywhere in `explain`.
+
+## 38. Where a context file that cannot be read stops `explain`, `try` and `prime`
+
+`check` reports a context file it cannot read with the typing row, as slice two does. Section 2 puts "`file-unreadable` of a rule file" in the rule-file row, and `prime` types no file, so it would never report it.
+
+Choice: in the three new commands a context file that cannot be read stops the run at the rule-file row; `check` is unchanged.
+
+## 39. Step 4 of `prime`'s budget: where `... and <n> more root types` stands
+
+Section 4 says the type lines are added "followed by" that line, and test 104 says it "comes before the blank line and the last line".
+
+Choice: right after the type lines, before the blank line and `Rules`, which satisfies both. When even the rule line with one id and `, and <n> more` does not fit, the rule line is left out; this guard cannot be reached at 8,000 characters, whose fixed part is about 1,900.
+
+## 40. `try` arguments the spec leaves open
+
+- `--times 0` is `usage`, since `--times` takes at least 1; it is refused with the other argument checks.
+- A directory that holds no selectable file is `usage` with `matches no file`.
+- A pattern that starts with `!` selects no file, so it is `usage` with `matches no file`.
+- A reviewer rule's `too-large-to-review` under `try` is an exit-2 error at the file; its `next:` says to try the rule on a smaller file and that raising `reviewer.max_chars` is the user's decision.
+- With `--times` above 1, a passing answer still prints its `answer <k> of <t>: pass` line.
+- A dry run's JSON has one item per file and attempt, as section 5's table says for every run.
+
+## 41. `doctor` messages the table leaves open
+
+- `types` fails as `law` does: `<place>  <message>`, then `; and <n> more` when there are more.
+- `readers` with lists in force and no file of the run read: `uses are read in 0 files; the 13 grammars load`.
+- The note of `readers` reads `<n> files are not read for uses: <k> <extension>, ..., so check warns uses-not-read`, slice three's wording without a type.
+- `law-change` lists three paths, then `, and <n> more`.
+- `reviewer` with a provider set and no reviewer rule is `ok` with `no reviewer rule, so no reviewer is needed`, unless `--reviewer` asks for the test call.
+- A test call answered with a valid `fail` is reported as `answered with no verdict`, since section 8 says anything but a pass is a fail and names no other message.
+- The fails of a test call, and `--reviewer` without a provider, end their `next:` with `lawcheck doctor --reviewer`.
+- `doctor`'s own `usage` errors print slice one's error output and `lawcheck-error/1`; only its report replaces them.
+
+## 42. The Kind of `too-large-to-review` in `docs codes`
+
+The code is a finding of `check` and an exit-2 error of `try`, and the table takes one Kind per row.
+
+Choice: `finding`, with `try`'s case said in its When cell.
+
+## 43. Test 88 compares `scope` too
+
+Section 10 lists the documents of tests 41, 75, 82 and 88 as gaining `"law_changed": false`. Test 88's file holds two comparisons of `scope`, the first in `tests/acceptance/languages.test.ts`; both gained the key, as did the unit test of `tests/unit/output.test.ts`.
+
+## 44. Test 141
+
+Test 141 is `npm test` itself, as tests 79 and 94 were, so no test inside it can carry it.
+
+## 45. Model names and the install in the pages
+
+The pages may name no other tool, and the package is not published. The examples of `config` and `providers` write `your-model-id` for a model, and `ci` runs Lawcheck as a dev dependency of the project with `npx`, not from a global install.
