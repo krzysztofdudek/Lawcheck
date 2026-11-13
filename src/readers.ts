@@ -309,3 +309,23 @@ async function readAll(input: ReadInput, runes: Runes): Promise<Map<string, Use[
   }
   return out;
 }
+
+export const LANGUAGES = ['typescript', 'tsx', 'javascript', 'python', 'go', 'rust', 'java', 'kotlin', 'csharp', 'c', 'cpp', 'php', 'ruby'];
+
+export async function loadGrammars(grammarDir: string = GRAMMARS, runes: Runes = RUNES): Promise<ErrorItem | null> {
+  const host = runes.createHost(grammarDir);
+  for (const language of LANGUAGES) {
+    try {
+      await host.getParser(primaryExtensionForLanguage(language) ?? '');
+    } catch (error) {
+      return {
+        code: 'parser-failed',
+        file: null,
+        line: null,
+        message: `the grammar of ${language} cannot be loaded: ${firstLine(error)}`,
+        next: 'reinstall Lawcheck; a grammar it ships cannot be loaded',
+      };
+    }
+  }
+  return null;
+}
