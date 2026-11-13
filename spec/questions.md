@@ -403,3 +403,11 @@ Choice: a breach is a line of the arm's own events; the agent's lines stay in `l
 - Finding 9, the stop arm's state files stay under `~/.claude`: fixed; each run removes its session's file, and section 10, step 8, says so.
 - Finding 10, one `told` covers every kind of notice: not changed, since section 5 fixes the state's shape with one boolean; a flag per kind is a change of that shape.
 - Finding 11, `claude plugin validate plugin` warns `ICON_MISSING`: not changed, since the fix is a binary image in the public repository and the result line is still `Validation passed`.
+
+## 64. The owner's word on the trial
+
+Section 10 asks the owner for the exception before the first run. He was asked to let the trial run on the host, outside the dev container, through the Claude Code subscription: each run in its own temporary repository, removed after; the agent limited to reading and writing files and calling `lawcheck`, `node`, `git`, `ls` and `cat`; at most 15 minutes per run; the plugin loaded only for the run; at most 60 sessions in all.
+
+Krzysztof, 2026-11-13 (translated from Polish): "OK" (in Polish: "Spoko").
+
+The trial ran once with the defaults, both arms at 30 runs at most, so at most 60 sessions.
