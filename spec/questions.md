@@ -173,7 +173,7 @@ Choice: `<language>` is the language's id in every row (`typescript`, `csharp`, 
 
 Section 8 has `<what>` fall back to the first line of the error's own message. For an address that holds a user and a password, `fetch` throws `Request cannot be constructed from a URL that includes credentials: <the address>`, so the message would print the password. Slice two's unit test handed `post` such an address and asserted that the password stays out of the failure.
 
-Choice: `post` follows section 8. The tool never sends such a request, because `LAWCHECK_REVIEWER_ENDPOINT` with a user or a password is refused before the first call, and the unit test of that refusal stays. The unit test of `post` now checks that a refused port names `bad port`.
+Choice: `post` follows section 8 for every error of `fetch`, and refuses before `fetch`, with a fixed message that quotes neither, an address with a user or a password and a header value outside space to `~`. So no caller can print a secret through it, besides `endpointOf` and `ready()` refusing both before the first call. Slice two's unit test is back for both cases.
 
 ## 28. A use with no candidate
 
@@ -196,3 +196,9 @@ Choice: `src/readers.ts` takes the Runes calls it makes as one object, the real 
 ## 31. Tests 94 and 95
 
 Test 94 is `npm test` itself, as test 79 was (entry 21), so no test inside it can carry it. Test 95 is `npm run real`, which needs the network and stays outside `npm test` by design.
+
+## 32. Notes of the review left as they are
+
+- Note 8, a change that retypes a target or changes only the law judges no using file until that file is edited: section 3.2 states this and leaves widening the run to the owner.
+- Note 9, a Java name of the same package written `Outer.Inner` is not followed (three uses in gson): a gap of the Runes reader that section 7 does not list; by the owner's ruling it goes to Runes and is not worked around here.
+- Note 11, section 4's sentence on `from m import name` holds for relative imports only, and two of gson's 1,740 own-package keys are `LinkedTreeMap` member types: the spec's prose is the owner's to correct, and no expected line changes.
