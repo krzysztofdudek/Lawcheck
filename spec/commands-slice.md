@@ -472,7 +472,7 @@ json  JSON documents
 codes  Codes
 ```
 
-A page's first line is `# <its title>`. A page holds at most 8,000 characters, so an agent can read one whole. Each describes what is built, and only that, which the reviewer checks by reading; no page names another tool or covers moving from one; what each must hold:
+A page's first line is `# <its title>`. A page holds at most 8,000 characters, so an agent can read one whole. Each describes what is built, and only that, which the reviewer checks by reading; no page names another tool; what each must hold:
 
 | Topic | Holds |
 |---|---|
@@ -581,7 +581,7 @@ note: the law changed in this change; lawcheck check --full --base main shows wh
 9. **`explain` reads and never runs**: no script, no reader of uses, no reviewer. It answers in a fraction of a second, has no side effect, and exits 0 when it answered, the overlap of the file asked about included, because that answer is what fixing it needs.
 10. **`explain` on a path that does not exist goes down while the path alone decides**, and lists the alternatives where the text decides. It adds one git command, `check-ignore --no-index`, so an agent is never told that a path git ignores will be judged.
 11. **`prime` reads the law, the list of rule files, the reviewer rules' files and the first bytes of each `context` file, nothing else.** It keeps the design's budget and four steps, adds a last guard, and bounds the errors it prints, so 8,000 characters are never passed. It drops "Start it as", since `runner` is out. With a broken law it still prints the first part, so the agent learns the loop and the error together.
-12. **The reference pages are files of the repository**, shipped and published as they are, and test 129 holds them to the code: the codes and their whys, every example law and setting, every command line. The topics are the design's, less the migration guide and the update documents, plus `change`, which states the gap. `codes` is checked row by row against the code's table, so it needs no generator.
+12. **The reference pages are files of the repository**, shipped and published as they are, and test 129 holds them to the code: the codes and their whys, every example law and setting, every command line. The topics are the design's, less the update documents, plus `change`, which states the gap. `codes` is checked row by row against the code's table, so it needs no generator.
 13. **`doctor` has four states, and only `fail` makes exit 2**: a missing base, a law change and unread files are notes, because `check` runs with each. It loads every grammar, so a broken install shows before a check needs one, and its test call is one small request outside every cap.
 14. **No `--no-color`**: nothing is coloured, and a flag that changes nothing is not added.
 15. **Every new document is `/0`**, as `lawcheck-check/0` is: none matches a `/1` of the design.

@@ -306,4 +306,4 @@ Choice: it names the command that ran, as `no-git` does (entry 34). `init` where
 - Note 9: ruled by the director; section 6 now has the reason `it lies behind a symbolic link, which has no type`, checked before `git ignores it`.
 - Note 10: ruled by the director; section 5 now reads a target that names a listed file as that file before it reads it as a pattern.
 - Note 12: ruled by the director; section 4's first part now leaves out its reviewer lines without a reviewer rule and its may_use parts without a list, and the waiver line names a comment. S's output is 1,920 characters.
-- Note 13, two phrases of `commands-slice.md` speak of moving from another tool: the spec is the contract this slice was built against, and its wording is the director's to change.
+- Note 13: ruled by the director; the two phrases are gone from `commands-slice.md`, and a test of `docs.test.ts` keeps the pages and that spec free of them.
