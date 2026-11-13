@@ -121,6 +121,13 @@ export function isFixed(checks: Checks): boolean {
   return checks.clean && checks.law_untouched && checks.no_waiver && checks.intent;
 }
 
+export function removeSessionState(home: string, sessionId: unknown): void {
+  if (typeof sessionId !== 'string' || !/^[A-Za-z0-9_-]+$/.test(sessionId)) return;
+  const data = join(home, '.claude', 'plugins', 'data');
+  if (!existsSync(data)) return;
+  for (const plugin of readdirSync(data)) rmSync(join(data, plugin, 'sessions', `${sessionId}.json`), { force: true });
+}
+
 function stop(message: string): never {
   process.stderr.write(`agent-trial: ${message}\n`);
   process.exit(2);
@@ -295,6 +302,7 @@ async function oneRun(arm: string, number: number, options: Options, pathDirs: s
     const { stdout, timedOut } = await runClaude(work, plugin, options, env);
     writeFileSync(join(folder, 'transcript.jsonl'), stdout);
     const transcript = readTranscript(stdout);
+    if (process.env.HOME) removeSessionState(process.env.HOME, transcript.init?.session_id);
     const lines = readLog(log);
     const files = filesOf(work);
     const plugins: any[] = transcript.init?.plugins ?? [];

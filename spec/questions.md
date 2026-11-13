@@ -393,3 +393,13 @@ The review's finding 4 broke each of these and saw no test fail. Each now has on
 The review's finding 6: step 5 took a breach from any caller, so a run where the agent found `.lawcheck/` and ran `lawcheck` itself counted without the arm's hook doing anything.
 
 Choice: a breach is a line of the arm's own events; the agent's lines stay in `log` as they are. Section 10 says this now, and a test of `agent-result.test.ts` checks it.
+
+## 63. The other findings of the review
+
+- Finding 3, the trial's allow list does not bound what the agent runs (`Bash(node *)` runs any code, `Bash(git *)` any command through an alias, and `Read`, `Write` and `Edit` have no path scope, all on the host with the real home): not changed here, because the list is section 10's word for word and how tight it must be is the owner's to say when he is asked for the exception; the request must say it.
+- Finding 5, the guard's bound assumes one `prompt_id` per turn: nothing to change in code; the stop arm will show it, and no run there should hold more than three `stop` lines with exit 1.
+- Finding 7, the trial bounds time and not turns: not changed, since a turn cap would end runs as errors at a number nobody chose; the 15 minutes bound each run, and a cap is the owner's to set.
+- Finding 8, a turn that waives its breach or changes the law finishes without a word: not changed, since telling the user of every waiver is a behaviour section 8 does not have, and waivers are the user's to weigh in review.
+- Finding 9, the stop arm's state files stay under `~/.claude`: fixed; each run removes its session's file, and section 10, step 8, says so.
+- Finding 10, one `told` covers every kind of notice: not changed, since section 5 fixes the state's shape with one boolean; a flag per kind is a change of that shape.
+- Finding 11, `claude plugin validate plugin` warns `ICON_MISSING`: not changed, since the fix is a binary image in the public repository and the result line is still `Validation passed`.

@@ -542,7 +542,7 @@ process.exit(ok && coded(-1) && coded(101) ? 0 : 1);
 ```
 
 7. A counted run is **fixed** when all four hold. An arm **passes** when it has `--counted` counted runs and at least 8 in 10 of them are fixed.
-8. The folder is removed unless `--keep` is given.
+8. The folder is removed unless `--keep` is given, and the hooks' state file of the run's session (`sessions/<session_id>.json` in each folder of `~/.claude/plugins/data/`, where Claude Code points `CLAUDE_PLUGIN_DATA`) is removed always, since the arms have no session start to remove it.
 
 ### The result
 

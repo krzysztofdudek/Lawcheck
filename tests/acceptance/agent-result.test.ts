@@ -1,9 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { ARM_EVENTS, breachOf, checksIn, isFixed, makeRepository, ROOT } from '../agent/run.ts';
+import { ARM_EVENTS, breachOf, checksIn, isFixed, makeRepository, removeSessionState, ROOT } from '../agent/run.ts';
 import type { RunEntry } from '../agent/run.ts';
 import { inTemp } from './helpers.ts';
 
@@ -17,6 +17,19 @@ test('section 10, step 5: only a line of the arm\'s own hook is a breach', () =>
   assert.equal(breachOf([line('stop')], 'stop'), true);
   assert.equal(breachOf([line('stop')], 'edit'), false);
   assert.equal(breachOf([line('edit', 0)], 'edit'), false);
+});
+
+test('section 10: a run removes the state file its session left in the plugin data, and nothing else', async () => {
+  await inTemp((home) => {
+    const sessions = join(home, '.claude', 'plugins', 'data', 'lawcheck-inline', 'sessions');
+    mkdirSync(sessions, { recursive: true });
+    for (const name of ['run-1.json', 'other.json']) writeFileSync(join(sessions, name), '{}\n');
+    removeSessionState(home, '../other');
+    removeSessionState(home, undefined);
+    removeSessionState(home, 'run-1');
+    assert.equal(existsSync(join(sessions, 'run-1.json')), false);
+    assert.equal(existsSync(join(sessions, 'other.json')), true);
+  });
 });
 
 const RESULT = join(ROOT, 'tests', 'agent', 'result.json');
