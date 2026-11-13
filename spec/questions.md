@@ -58,11 +58,15 @@ Test 66 sets `max_chars: 100000` and adds `src/core/big.ts` with 7,000 lines of 
 
 Choice: the test keeps the 7,000 lines and sets `max_chars: 120000`. The prompt stays larger than a pipe buffer, and the fake `claude` exits before it reads it.
 
+Settled: test 66 in the spec now says `max_chars: 120000`.
+
 ## 10. Resends near the cap
 
 Section 7 says a run sends at most `max_calls` requests, and that a request goes again while the count sent is below the cap. With a cap of 3 and three reviews, a resend in the first review would leave the third review's first request above the cap.
 
 Choice: a request goes again only while the requests sent plus the first requests of the reviews not yet started stay below the cap. After the first error no new review starts, so that reserve drops to zero. The run never sends more than the cap.
+
+Settled: section 7 of the spec now says this.
 
 ## 11. How many times one review may resend
 
