@@ -472,8 +472,30 @@ test('test 67: claude-code past its timeout, and the tool killed', async () => {
       const killedAt = Date.now();
       assert.ok(await waitFor(() => !alive(seen.pid) && !alive(seen.child!), 5000), 'both are gone');
       assert.ok(Date.now() - killedAt <= 5000);
+      assert.ok(await waitFor(() => !existsSync(seen.cwd), 5000), `${seen.cwd} is left`);
     } finally {
       child.kill('SIGKILL');
     }
   }, config(CLAUDE_CONFIG));
+  for (const signal of ['SIGTERM', 'SIGINT'] as const) {
+    await withR(async (r, dir) => {
+      write(r, F_PATH, F);
+      const child = spawn(process.execPath, [CLI, 'check', '--review', '--base', 'main'], {
+        cwd: r,
+        env: { ...GIT_ENV, ...claudeEnv(dir, 'sleep') },
+        stdio: 'ignore',
+      });
+      try {
+        assert.ok(await waitFor(() => existsSync(join(dir, 'record.json')), 20_000), 'the fake claude started');
+        const seen = record(dir);
+        const ended = new Promise<number | null>((done) => child.on('exit', (code) => done(code)));
+        child.kill(signal);
+        assert.equal(await ended, 2, signal);
+        assert.ok(await waitFor(() => !alive(seen.pid) && !alive(seen.child!), 5000), `${signal}: both are gone`);
+        assert.ok(!existsSync(seen.cwd), `${signal}: ${seen.cwd} is left`);
+      } finally {
+        child.kill('SIGKILL');
+      }
+    }, config(CLAUDE_CONFIG));
+  }
 });

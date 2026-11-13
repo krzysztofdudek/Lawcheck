@@ -1,9 +1,9 @@
 import { spawn } from 'node:child_process';
-import { accessSync, constants, mkdtempSync, rmSync, statSync } from 'node:fs';
+import { accessSync, constants, mkdtempSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
 import type { ReviewerConfig } from '../config.js';
-import { killGroup, releaseGroup, watchGroup } from '../rules.js';
+import { killGroup, releaseFolder, releaseGroup, watchFolder, watchGroup } from '../rules.js';
 import type { Asked, Env, Provider } from './index.js';
 
 const KILL_AFTER_MS = 5000;
@@ -82,6 +82,7 @@ export function claudeCode(config: ReviewerConfig, env: Env): Provider {
 function run(binary: string, args: string[], prompt: string, env: Env, timeoutMs: number): Promise<Asked> {
   return new Promise((resolve) => {
     const dir = mkdtempSync(join(tmpdir(), 'lawcheck-claude-'));
+    watchFolder(dir);
     let stdout = '';
     let stderr = '';
     let settled = false;
@@ -107,7 +108,7 @@ function run(binary: string, args: string[], prompt: string, env: Env, timeoutMs
       if (pid !== undefined) releaseGroup(pid);
       child.stdout.destroy();
       child.stderr.destroy();
-      rmSync(dir, { recursive: true, force: true });
+      releaseFolder(dir);
       if (spawnError !== null) resolve({ failure: `claude cannot be started: ${spawnError}`, resend: false });
       else if (timedOut) resolve({ failure: `claude gave no answer within ${timeoutMs / 1000} seconds`, resend: false });
       else resolve(readOutput(exited?.code ?? null, exited?.signal ?? null, stdout, stderr));

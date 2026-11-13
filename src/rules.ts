@@ -3,7 +3,7 @@ import type { ChildProcess } from 'node:child_process';
 import { availableParallelism } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { dirname } from 'node:path';
-import { realpathSync } from 'node:fs';
+import { realpathSync, rmSync } from 'node:fs';
 import type { TypedFile } from './types.js';
 
 export const RUNNER = fileURLToPath(new URL('./runner.js', import.meta.url));
@@ -13,6 +13,7 @@ const GUARD = fileURLToPath(new URL('./guard.js', import.meta.url));
 
 const live = new Set<ChildProcess>();
 const liveGroups = new Set<number>();
+const liveFolders = new Set<string>();
 let guard: ChildProcess | null = null;
 
 function startGuard(): void {
@@ -47,6 +48,18 @@ export function watchGroup(pid: number): void {
   guard!.stdin!.write(`+g${pid}\n`);
 }
 
+export function watchFolder(path: string): void {
+  if (/[\r\n]/.test(path)) return;
+  liveFolders.add(path);
+  startGuard();
+  guard!.stdin!.write(`+d${path}\n`);
+}
+
+export function releaseFolder(path: string): void {
+  rmSync(path, { recursive: true, force: true });
+  if (liveFolders.delete(path)) guard?.stdin?.write(`-d${path}\n`);
+}
+
 export function releaseGroup(pid: number): void {
   killGroup(pid, 'SIGKILL');
   if (liveGroups.delete(pid)) guard?.stdin?.write(`-g${pid}\n`);
@@ -60,6 +73,7 @@ function release(child: ChildProcess): void {
 process.on('exit', () => {
   for (const child of live) child.kill('SIGKILL');
   for (const pid of liveGroups) killGroup(pid, 'SIGKILL');
+  for (const path of liveFolders) rmSync(path, { recursive: true, force: true });
 });
 
 export interface RawFinding {
