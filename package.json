@@ -21,16 +21,30 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc -p .",
+    "build": "tsc -p . && node scripts/grammars.ts --offline",
+    "grammars": "node scripts/grammars.ts",
     "prepack": "npm run build",
+    "real": "npm run build && node tests/real/run.ts",
     "stability": "npm run build && node tests/stability/run.ts",
     "test": "npm run build && node --test \"tests/unit/*.test.ts\" \"tests/acceptance/*.test.ts\""
   },
   "dependencies": {
+    "@chrisdudek/runes": "https://codeload.github.com/krzysztofdudek/Runes/tar.gz/b326704fa54185afb9a898c699b4b91e6f498e32",
+    "web-tree-sitter": "0.27.0",
     "yaml": "^2.9.1"
   },
   "devDependencies": {
     "@types/node": "^24.19.2",
+    "tree-sitter-cli": "0.27.0",
+    "tree-sitter-go": "0.25.0",
+    "tree-sitter-javascript": "0.25.0",
+    "tree-sitter-python": "0.25.0",
     "typescript": "^7.0.2"
+  },
+  "allowScripts": {
+    "tree-sitter-cli@0.27.0": true,
+    "tree-sitter-go": false,
+    "tree-sitter-javascript": false,
+    "tree-sitter-python": false
   }
 }

@@ -1,5 +1,5 @@
 {
   "name": "Lawcheck",
   "image": "mcr.microsoft.com/devcontainers/javascript-node:24",
-  "postCreateCommand": "npm ci"
+  "postCreateCommand": "npm ci && npm run grammars"
 }
