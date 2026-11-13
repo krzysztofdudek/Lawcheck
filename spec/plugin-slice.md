@@ -190,7 +190,7 @@ The scripts are plain JavaScript modules for Node 24, as the package's `engines`
 }
 ```
 
-The two options are the design's switches. Claude Code shows them in `/config` and exports them to hook processes as `CLAUDE_PLUGIN_OPTION_CHECK_AFTER_EDIT` and `CLAUDE_PLUGIN_OPTION_CHECK_BEFORE_STOP`. The documentation does not say how a boolean is written there, so a switch is off when the variable, trimmed and in lower case, is `false`, `0`, `no` or `off`, and on otherwise, absent included.
+The two options are the design's switches. Claude Code shows them under `/plugin configure lawcheck@lawcheck-marketplace` and exports them to hook processes as `CLAUDE_PLUGIN_OPTION_CHECK_AFTER_EDIT` and `CLAUDE_PLUGIN_OPTION_CHECK_BEFORE_STOP`. The documentation does not say how a boolean is written there, so a switch is off when the variable, trimmed and in lower case, is `false`, `0`, `no` or `off`, and on otherwise, absent included.
 
 ### 4.4 `plugin/hooks/hooks.json`
 
@@ -389,7 +389,7 @@ claude plugin marketplace add krzysztofdudek/Lawcheck
 claude plugin install lawcheck@lawcheck-marketplace
 ```
 
-The hooks run Lawcheck and the repository's rule scripts after edits and before the agent finishes, so use the plugin where you would run the repository's tests. Both checks can be switched off in `/config`.
+The hooks run Lawcheck and the repository's rule scripts after edits and before the agent finishes, so use the plugin where you would run the repository's tests. Both checks can be switched off with `/plugin configure lawcheck@lawcheck-marketplace`.
 
 With any other agent, paste this sentence into its instructions file:
 
