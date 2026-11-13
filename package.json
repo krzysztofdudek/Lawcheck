@@ -25,6 +25,7 @@
     "build": "tsc -p . && node scripts/grammars.ts --offline",
     "grammars": "node scripts/grammars.ts",
     "prepack": "npm run build",
+    "agent-trial": "node tests/agent/run.ts",
     "real": "npm run build && node tests/real/run.ts",
     "stability": "npm run build && node tests/stability/run.ts",
     "test": "npm run build && node --test \"tests/unit/*.test.ts\" \"tests/acceptance/*.test.ts\""

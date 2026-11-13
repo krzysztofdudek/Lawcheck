@@ -1,0 +1,14 @@
+lawcheck: 0.1.0
+
+rules:
+  coded-errors:
+    why: Core code throws only ShopError with a code, so the command layer can map every failure to an exit status.
+
+types:
+  core:
+    about: Pricing logic.
+    paths: ["src/core/**/*.js"]
+    rules: [coded-errors]
+  cli:
+    about: The command layer.
+    paths: ["src/cli/**/*.js"]
