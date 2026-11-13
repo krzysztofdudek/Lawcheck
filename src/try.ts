@@ -210,7 +210,8 @@ export async function tryRule(args: Arguments, context: CheckContext, json: bool
     }
     const answered = await call(asks, provider!, NO_RECORD, { cap, parallel: config.parallel });
     if (answered.failed.length > 0) {
-      throw new Stop(answered.failed.map((f) => ({ code: f.code, file: f.ask.file, line: null, message: f.message })));
+      const next = 'run the same command again; try keeps no answer, so it makes every call again';
+      throw new Stop(answered.failed.map((f) => ({ code: f.code, file: f.ask.file, line: null, message: f.message, next })));
     }
     result.calls = answered.sent;
     for (const { ask, findings, answer } of answered.answered) {

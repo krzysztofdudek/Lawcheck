@@ -286,3 +286,11 @@ Test 141 is `npm test` itself, as tests 79 and 94 were, so no test inside it can
 ## 45. Model names and the install in the pages
 
 The pages may name no other tool, and the package is not published. The examples of `config` and `providers` write `your-model-id` for a model, and `ci` runs Lawcheck as a dev dependency of the project with `npx`, not from a global install.
+
+# Questions found in the review of the commands slice
+
+## 46. The `next:` of a failed reviewer call under `try`
+
+Slice two's `next:` for `reviewer-unreachable` and `reviewer-bad-answer` says that what was answered is kept, so the next run asks only the rest. `try` keeps nothing (decision 5), so that line would be false.
+
+Choice: under `try` both read `run the same command again; try keeps no answer, so it makes every call again`.
