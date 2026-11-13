@@ -192,6 +192,13 @@ test('test 85: untyped, binary, ignored and outside targets, and what is not rea
     ]);
     assert.equal(json.code, 1);
   });
+  await withU(async (u) => {
+    write(u, 'packages/ui/package.json', '{ "name": "@sample/ui", "main": "dist/index.js" }\n');
+    write(u, 'src/core/view.ts', "import { button } from '@sample/ui';\nexport const view = button;\n");
+    const run = await check(u);
+    assert.equal(run.stdout, 'lawcheck: PASS  2 changed files (against main), 1 unresolved use\n');
+    assert.equal(run.code, 0);
+  });
 });
 
 test('test 86: a waiver of forbidden-use, unused, and of a code that cannot be waived', async () => {
