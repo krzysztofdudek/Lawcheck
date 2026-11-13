@@ -307,3 +307,65 @@ Choice: it names the command that ran, as `no-git` does (entry 34). `init` where
 - Note 10: ruled by the director; section 5 now reads a target that names a listed file as that file before it reads it as a pattern.
 - Note 12: ruled by the director; section 4's first part now leaves out its reviewer lines without a reviewer rule and its may_use parts without a list, and the waiver line names a comment. S's output is 1,920 characters.
 - Note 13: ruled by the director; the two phrases are gone from `commands-slice.md`, and a test of `docs.test.ts` keeps the pages and that spec free of them.
+
+# Questions found while building the plugin slice
+
+Each entry names the place in `plugin-slice.md`, what is unclear or wrong, and what the build does.
+
+## 49. A pattern that does not parse under `check <paths>`
+
+Section 2 lists the targets that add nothing: a file that does not exist, an ignored file, a binary file, an empty directory and a pattern that matches nothing. It does not name a pattern that does not parse, such as one with an unclosed `{`.
+
+Choice: such a pattern stays `usage`, as under `try`, since it is no target that selects no file but a target that cannot be read.
+
+## 50. Three runner names at the same distance
+
+Section 3 gives `<near>` for one nearest name and for two at the same distance. Three or more cannot be reached by any value within two edits of the five names that the tests use, but the rule does not exclude them.
+
+Choice: the first two of the nearest names, in the order of the five. A value that is no plain scalar is quoted as its YAML source, or as nothing.
+
+## 51. The runner line in `prime`'s error output
+
+Section 3 says the first line of the output gains ` Start it here as: <cmd>`. When the law cannot be read, `prime` prints its first part and then the errors, and its first line is the same first line.
+
+Choice: that first line gains the part too, so an agent told how to start Lawcheck is told in both outputs.
+
+## 52. Test 161 and an edit without a state file
+
+Section 8, step 5, hands an exit-2 output "only when the SHA-256 of the output differs from the state's `last_error`", and "without a state file it is handed every time". Test 161 runs two edits with no prompt before them, so no state file exists, and expects the second to print nothing.
+
+Choice: the hook after an edit writes `last_error` into the session's state file, creating the file when the session has none, with `open` false and every other field at its starting value. "Without a state file" is read as a session that cannot have one: a `session_id` with a character outside the allowed set, or a data folder another user owns. A file created this way does not count at a stop, since its `open` is false.
+
+## 53. Test 169: a file the agent committed in the turn
+
+Section 8, step 4, compares each candidate's blob at the prompt with its blob at the stop. In test 169's third case D is written before the prompt, so the prompt's snapshot holds its blob as an untracked file, and the agent commits it in the turn, so the stop's snapshot finds the same blob in the new HEAD. The two blobs are equal and D would not count, while the test expects a hand-back on D, and decision 4 says that "a file ... the agent committed counts".
+
+Choice: the paths of the turn's own commits (the ancestor and committer-time rule of step 4) count as changed without the blob comparison; the comparison decides every other candidate. A touch, a stash and its pop, and a rewrite to the same bytes still change nothing, and a pull, a rebase or a checkout still adds no commit.
+
+## 54. The reason for an old `lawcheck`
+
+Section 5's table gives `this lawcheck does not take check <paths>; update it` when `check` exits 2 and every line that holds `error[` holds `error[usage]`. Read literally, an exit 2 with no such line at all would match too. Test 175's fake prints `lawcheck: ERROR  1 error` and `error[usage]  x`, which also has the form of an answer.
+
+Choice: the row needs at least one line that holds `error[`, and it is decided before the answer rule, so test 175's output is not run with that reason.
+
+## 55. Where `told` lives when the turn's state does not count
+
+Section 8 sends a notice when `told` is false and then sets it. A notice can come from a stop whose state does not count, or from a session that never had a prompt.
+
+Choice: `told` is read from and written to the session's state file whatever its `root` and `open`, and the file is created for it when absent, as in entry 52.
+
+## 56. The exit code after a signal
+
+Section 5 says the hook kills the group of a call in progress on `SIGTERM`, `SIGINT` or `SIGHUP` and exits, without a code.
+
+Choice: exit 0 with nothing printed: the hook was stopped, it did not fail, and Claude Code has already given up on its output.
+
+## 57. The trial's PATH on a host whose `git` is a wrapper
+
+Section 10, step 3, puts the directories of `node`, `git` and `claude` on the agent's PATH. On the trial's host the first `git` is a wrapper script that runs the next `git` on the PATH, so with its own directory alone every git call fails.
+
+Choice: the PATH holds the directory of every `git` found on the PATH, in order, after `node`'s and before `claude`'s, so the wrapper finds the program it wraps.
+
+## 58. Acceptance tests not automated inside `npm test`
+
+Tests 153 and 180 are the reviewer's, run on the host and read by hand, as section 12 says. Test 182 runs the trial on the host and is the reviewer's. Test 183 is `npm test` itself, as tests 79, 94 and 141 were, so no test inside it can carry it. Test 181 reads `tests/agent/result.json`, so it fails until the trial has run once.
