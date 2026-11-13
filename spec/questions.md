@@ -304,6 +304,6 @@ Choice: it names the command that ran, as `no-git` does (entry 34). `init` where
 ## 48. Notes of the review left as they are
 
 - Note 9: ruled by the director; section 6 now has the reason `it lies behind a symbolic link, which has no type`, checked before `git ignores it`.
-- Note 10, a file whose name holds `*`, `?` or `{` cannot be named to `try`: section 5 makes such a target a pattern, and reading a listed file as a path first is the spec's decision.
+- Note 10: ruled by the director; section 5 now reads a target that names a listed file as that file before it reads it as a pattern.
 - Note 12, `prime`'s first part keeps its lines on reviewer rules and `may_use` in a law that has neither: section 4 fixes the first part as the same 1,713 characters in every repository, and test 100 compares S, which has neither, byte for byte with those lines in it.
 - Note 13, two phrases of `commands-slice.md` speak of moving from another tool: the spec is the contract this slice was built against, and its wording is the director's to change.

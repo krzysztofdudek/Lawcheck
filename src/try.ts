@@ -25,6 +25,14 @@ function isPattern(word: string): boolean {
   return /[*?{]/.test(word);
 }
 
+function listedFile(root: string, cwd: string, word: string, files: string[]): boolean {
+  try {
+    return files.includes(fromCwd(root, cwd, word));
+  } catch {
+    return false;
+  }
+}
+
 function isDirectory(path: string): boolean {
   try {
     return statSync(path).isDirectory();
@@ -38,7 +46,7 @@ export function selectTargets(root: string, cwd: string, targets: string[], file
   const here = relative(root, realpathSync(resolve(cwd)));
   const none = (word: string, why: string) => usage(`the target '${word}' selects no file: ${why}`);
   for (const word of targets) {
-    if (isPattern(word)) {
+    if (isPattern(word) && !listedFile(root, cwd, word, files)) {
       const problem = patternProblem(word);
       if (problem !== null) throw usage(`the pattern '${word}' ${problem}`);
       const matches = compileList([here === '' ? word : `${here}/${word}`]);
@@ -128,7 +136,7 @@ export async function tryRule(args: Arguments, context: CheckContext, json: bool
     if (kind === 'reviewer') {
       if (targets.length === 0) throw usage(`a reviewer rule is tried on the files you name, one call each: lawcheck try ${id} <file>...`);
       for (const word of targets) {
-        if (isPattern(word)) throw usage(`a reviewer rule takes files one by one, and '${word}' is a pattern`);
+        if (isPattern(word) && !listedFile(root, context.cwd, word, files)) throw usage(`a reviewer rule takes files one by one, and '${word}' is a pattern`);
         const path = fromCwd(root, context.cwd, word);
         if (!files.includes(path) && (path === '.' || isDirectory(join(root, path)))) throw usage(`a reviewer rule takes files one by one, and '${word}' is a directory`);
       }

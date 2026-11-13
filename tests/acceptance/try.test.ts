@@ -67,6 +67,24 @@ test('test 117: directories, patterns and their union', async () => {
   });
 });
 
+test('a target that names a file git lists is that file, before it is a pattern', async () => {
+  await withSample(async (s) => {
+    write(s, 'src/core/{w}.ts', "console.log('w');\n");
+    const script = await tryIn(s, ['no-console', 'src/core/{w}.ts']);
+    assert.equal(script.stdout.split('\n')[0], 'lawcheck: try no-console (script rule, enforced)  1 finding in 1 of 1 file');
+    assert.equal(script.code, 1);
+  });
+  await withFake(async (fake) => {
+    await withR(async (r) => {
+      write(r, 'src/core/{w}.ts', F);
+      const reviewed = await tryIn(r, ['clear-errors', 'src/core/{w}.ts'], { LAWCHECK_REVIEWER_ENDPOINT: fake.url });
+      assert.equal(reviewed.stdout.split('\n')[0], 'lawcheck: try clear-errors (reviewer rule, enforced)  1 finding in 1 of 1 file, 1 waived, 1 reviewer call');
+      assert.equal(reviewed.code, 1);
+      assert.equal(fake.requests.length, 1);
+    });
+  });
+});
+
 test('test 118: a reviewer rule takes files alone', async () => {
   await withFake(async (fake) => {
     await withR(async (r) => {
