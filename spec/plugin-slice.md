@@ -138,6 +138,7 @@ The repository root holds the marketplace, and `plugin/` holds the plugin. Nothi
 ```
 .claude-plugin/marketplace.json
 plugin/.claude-plugin/plugin.json
+plugin/LICENSE
 plugin/hooks/hooks.json
 plugin/hooks/lawcheck-hook.mjs
 plugin/hooks/<other modules>.mjs

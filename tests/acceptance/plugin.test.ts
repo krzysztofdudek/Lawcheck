@@ -253,7 +253,7 @@ test('test 152: the files of the plugin', () => {
   assert.deepEqual(JSON.parse(readFileSync(join(PLUGIN, 'hooks', 'hooks.json'), 'utf8')), JSON.parse(specBlock('### 4.4 `plugin/hooks/hooks.json`')));
   const files = walk(PLUGIN).sort();
   const modules = files.filter((file) => file.endsWith('.mjs'));
-  assert.deepEqual(files.filter((file) => !file.endsWith('.mjs')), ['.claude-plugin/plugin.json', 'hooks/hooks.json']);
+  assert.deepEqual(files.filter((file) => !file.endsWith('.mjs')), ['.claude-plugin/plugin.json', 'LICENSE', 'hooks/hooks.json']);
   assert.ok(modules.includes('hooks/lawcheck-hook.mjs'));
   for (const file of modules) {
     assert.equal(dirname(file), 'hooks', file);
