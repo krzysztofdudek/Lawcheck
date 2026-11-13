@@ -56,7 +56,7 @@ test('test 88: one use from domain to app in each language', async () => {
     const l = makeL(dir);
     const run = await lawcheck(l, ['check', '--json']);
     const document = JSON.parse(run.stdout);
-    assert.deepEqual(document.scope, { mode: 'change', base: null, files: 36 });
+    assert.deepEqual(document.scope, { mode: 'change', base: null, files: 36, law_changed: false });
     assert.deepEqual(document.summary, { errors: 15, warnings: 1, debt: 0, waivers: 0, unresolved: 12 });
     assert.deepEqual(
       document.findings.map((f: any) => `${place(f)}  ${f.severity}[${f.code}]  ${f.message}`),

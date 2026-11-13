@@ -58,6 +58,8 @@ export interface Report {
   unresolved?: Unresolved[];
   reviews?: Reviews;
   next?: Next | null;
+  lawChanged?: boolean;
+  note?: string | null;
 }
 
 export const WHY: Record<string, string> = {
@@ -85,35 +87,30 @@ export const WHY: Record<string, string> = {
   'forbidden-use': "a type's may_use names every type its files may use",
   'uses-not-read': 'a restriction that cannot be checked is not shown as kept',
   'parser-failed': 'a file whose uses were not read is not taken to use nothing',
+  'already-initialized': 'a second law would split one repository\'s rules between two files',
 };
 
 export const CODES = new Set([...Object.keys(WHY)]);
 
-export const USAGE = [
-  'usage: lawcheck check [--full] [--base <ref>] [--review [--again] [--max-calls <n>]] [--json]',
-  '',
-  'Checks the files of this change against .lawcheck/law.yaml.',
-  '',
-  '  --full           also judge the files outside the change, as debt',
-  '  --base <ref>     the base of the change; else LAWCHECK_BASE, else origin/HEAD',
-  '  --review         ask the reviewer for the reviews that have no verdict',
-  '  --again          with --review, ask again where a failure is cached',
-  '  --max-calls <n>  with --review, the most requests this run sends',
-  '  --json           print one JSON document',
-  '',
-  'Exit 0: no error. Exit 1: the code breaks the law. Exit 2: no conclusion.',
-  '',
-].join('\n');
+export function forCommand(text: string, command: string): string {
+  if (command === 'check') return text;
+  const at = text.indexOf('then run lawcheck check');
+  return at < 0 ? text : `${text.slice(0, at)}then run lawcheck ${command} again`;
+}
 
-function nextFor(error: ErrorItem): string {
-  if (error.next !== undefined) return error.next;
+function nextFor(error: ErrorItem, command: string | null): string {
+  if (error.next !== undefined) return forCommand(error.next, command ?? 'check');
+  if (error.code === 'usage') {
+    return command === null ? 'run lawcheck as its usage line says: lawcheck --help' : `run lawcheck ${command} as its usage line says: lawcheck ${command} --help`;
+  }
+  if (error.code === 'no-git') return `run lawcheck ${command ?? 'check'} inside a git work tree, with git on the PATH`;
+  return forCommand(fixedNext(error), command ?? 'check');
+}
+
+function fixedNext(error: ErrorItem): string {
   switch (error.code) {
-    case 'usage':
-      return 'run lawcheck check as its usage line says: lawcheck check --help';
     case 'not-initialized':
       return 'write .lawcheck/law.yaml at the root of the code to check, then run lawcheck check';
-    case 'no-git':
-      return 'run lawcheck check inside a git work tree, with git on the PATH';
     case 'law-invalid':
       return 'fix .lawcheck/law.yaml, then run lawcheck check';
     case 'config-invalid':
@@ -156,14 +153,36 @@ export function sortFindings(findings: Finding[]): Finding[] {
   return [...findings].sort((a, b) => compare(a.file, b.file) || (a.line ?? 0) - (b.line ?? 0) || compare(a.code, b.code));
 }
 
-function placeOf(file: string | null, line: number | null | undefined): string | null {
+export function placeOf(file: string | null, line: number | null | undefined): string | null {
   if (file === null) return null;
   return line === null || line === undefined ? file : `${file}:${line}`;
 }
 
-export function renderErrors(input: ErrorItem[], json: boolean): string {
+export function nextOfErrors(input: ErrorItem[], command: string | null = 'check'): string {
+  return nextFor(sortErrors(input)[0]!, command);
+}
+
+export function errorLines(errors: ErrorItem[], limit = Infinity): string[] {
+  const lines: string[] = [];
+  const seen = new Set<string>();
+  let printed = 0;
+  for (const error of errors) {
+    if (printed === limit) break;
+    printed++;
+    const place = placeOf(error.file, error.line);
+    lines.push(`${place === null ? '' : place + '  '}error[${error.code}]  ${error.message}`);
+    if (!seen.has(error.code)) {
+      seen.add(error.code);
+      lines.push(`  why:  ${WHY[error.code] ?? ''}`);
+    }
+  }
+  if (errors.length > printed) lines.push(`... and ${plural(errors.length - printed, 'more error')} (lawcheck check lists all)`);
+  return lines;
+}
+
+export function renderErrors(input: ErrorItem[], json: boolean, command: string | null = 'check', limit = Infinity): string {
   const errors = sortErrors(input);
-  const next = nextFor(errors[0]!);
+  const next = nextFor(errors[0]!, command);
   if (json) {
     const document = {
       schema: 'lawcheck-error/1',
@@ -172,16 +191,7 @@ export function renderErrors(input: ErrorItem[], json: boolean): string {
     };
     return JSON.stringify(document, null, 2) + '\n';
   }
-  const lines = [`lawcheck: ERROR  ${plural(errors.length, 'error')}`, ''];
-  const seen = new Set<string>();
-  for (const error of errors) {
-    const place = placeOf(error.file, error.line);
-    lines.push(`${place === null ? '' : place + '  '}error[${error.code}]  ${error.message}`);
-    if (!seen.has(error.code)) {
-      seen.add(error.code);
-      lines.push(`  why:  ${WHY[error.code] ?? ''}`);
-    }
-  }
+  const lines = [`lawcheck: ERROR  ${plural(errors.length, 'error')}`, '', ...errorLines(errors, limit)];
   lines.push('', `next: ${next}`);
   return lines.join('\n') + '\n';
 }
@@ -237,7 +247,7 @@ export function renderReport(report: Report, json: boolean): string {
     const document = {
       schema: 'lawcheck-check/0',
       result: failing ? 'fail' : 'pass',
-      scope: { mode: report.mode, base: report.base, files: report.changed },
+      scope: { mode: report.mode, base: report.base, files: report.changed, law_changed: report.lawChanged ?? false },
       summary: { errors, warnings, debt: report.debt.length, waivers: changeWaivers, unresolved: changeUnresolved },
       findings: [...report.findings, ...report.debt].map(shape),
       waivers: report.waivers.map((w) => ({ file: w.file, line: w.line, rule: w.rule, debt: w.debt, waived: w.waived, reason: w.reason })),
@@ -262,6 +272,7 @@ export function renderReport(report: Report, json: boolean): string {
         : `${plural(report.changed, 'changed file')} (against ${report.base})`;
     lines.push(`lawcheck: ${verdict}  ${counts === '' ? '' : counts + ' in '}${scope}${waiverPart(changeWaivers)}${unresolvedPart(changeUnresolved)}${calls}`);
   }
+  if (report.note) lines.push(report.note);
 
   const limit = 50;
   const total = report.findings.length + report.debt.length;

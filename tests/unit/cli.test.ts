@@ -31,9 +31,9 @@ test('arguments', () => {
 
 test('version and help exit 0', async () => {
   assert.deepEqual(await main(['--version'], context), { code: 0, stdout: '0.1.0\n' });
-  for (const argv of [['--help'], ['check', '--help']]) {
-    const result = await main(argv, context);
+  for (const [argv, first] of [[['--help'], 'usage: lawcheck <command> [<arguments>] [--json]'], [['check', '--help'], 'usage: lawcheck check [--full] [--base <ref>] [--review [--again] [--max-calls <n>]] [--json]']] as const) {
+    const result = await main([...argv], context);
     assert.equal(result.code, 0);
-    assert.equal(result.stdout.split('\n')[0], 'usage: lawcheck check [--full] [--base <ref>] [--review [--again] [--max-calls <n>]] [--json]');
+    assert.equal(result.stdout.split('\n')[0], first);
   }
 });

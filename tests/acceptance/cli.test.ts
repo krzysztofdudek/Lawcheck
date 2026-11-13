@@ -104,7 +104,7 @@ test('test 41: JSON', async () => {
     const expected = {
       schema: 'lawcheck-check/0',
       result: 'fail',
-      scope: { mode: 'full', base: 'main', files: 1 },
+      scope: { mode: 'full', base: 'main', files: 1, law_changed: false },
       summary: { errors: 1, warnings: 1, debt: 3, waivers: 1, unresolved: 0 },
       findings: [
         {
@@ -173,6 +173,7 @@ test('test 43: usage', async () => {
       const run = await lawcheck(s, args);
       assert.equal(run.code, 2, args.join(' '));
       assert.match(run.stdout, /^error\[usage\]/m, args.join(' '));
+      if (args.length < 2) assert.match(run.stdout, /init, prime, check, explain, try, docs, doctor/, args.join(' '));
     }
     const jsonCases = [['check', '--base', '--json'], ['check', '--json', '--bogus'], ['check', '--bogus', '--json']];
     for (const args of jsonCases) {
@@ -192,9 +193,9 @@ test('test 44: version and help', async () => {
     const version = await lawcheck(dir, ['--version']);
     assert.equal(version.stdout, '0.1.0\n');
     assert.equal(version.code, 0);
-    for (const args of [['--help'], ['check', '--help']]) {
-      const run = await lawcheck(dir, args);
-      assert.equal(run.stdout.split('\n')[0], 'usage: lawcheck check [--full] [--base <ref>] [--review [--again] [--max-calls <n>]] [--json]');
+    for (const [args, first] of [[['--help'], 'usage: lawcheck <command> [<arguments>] [--json]'], [['check', '--help'], 'usage: lawcheck check [--full] [--base <ref>] [--review [--again] [--max-calls <n>]] [--json]']] as const) {
+      const run = await lawcheck(dir, [...args]);
+      assert.equal(run.stdout.split('\n')[0], first);
       assert.equal(run.code, 0);
     }
   });

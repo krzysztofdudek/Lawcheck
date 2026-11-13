@@ -66,12 +66,9 @@ export function workTreeProblem(root: string): string | null {
   return `git does not see a work tree here: ${firstPrinted(result)}`;
 }
 
-export function listFiles(root: string): string[] {
-  const args = ['ls-files', '-z', '--cached', '--others', '--exclude-standard'];
-  const result = git(root, args);
-  if (result.status !== 0) throw failed(args, result);
+export function listFiles(root: string, listed: Set<string> = listedPaths(root)): string[] {
   const files: string[] = [];
-  for (const path of new Set(splitZ(result.stdout))) {
+  for (const path of listed) {
     try {
       if (lstatSync(join(root, path)).isFile()) files.push(path);
     } catch (error) {
@@ -123,4 +120,26 @@ export function changedPaths(root: string, base: string): string[] {
   const others = git(root, othersArgs);
   if (others.status !== 0) throw failed(othersArgs, others);
   return [...splitZ(diff.stdout), ...splitZ(others.stdout)];
+}
+
+export function showPrefix(dir: string): string {
+  const args = ['rev-parse', '--show-prefix'];
+  const result = git(dir, args);
+  if (result.status !== 0) throw failed(args, result);
+  return loose.decode(result.stdout).replace(/\r?\n$/, '');
+}
+
+export function ignoresPath(root: string, path: string): boolean {
+  const args = ['check-ignore', '-q', '--no-index', '--', path];
+  const result = git(root, args);
+  if (result.status === 0) return true;
+  if (result.status === 1) return false;
+  throw failed(args, result);
+}
+
+export function listedPaths(root: string): Set<string> {
+  const args = ['ls-files', '-z', '--cached', '--others', '--exclude-standard'];
+  const result = git(root, args);
+  if (result.status !== 0) throw failed(args, result);
+  return new Set(splitZ(result.stdout));
 }

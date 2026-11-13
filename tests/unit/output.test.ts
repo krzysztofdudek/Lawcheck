@@ -32,7 +32,7 @@ test('one more finding takes the singular', () => {
 test('a whole-file finding has no line in JSON, and a passing run has no next', () => {
   const document = JSON.parse(renderReport({ mode: 'full', base: null, changed: 1, findings: [], debt: [finding('a.ts', undefined, true)], waivers: [] }, true));
   assert.equal('line' in document.findings[0], false);
-  assert.deepEqual(document.scope, { mode: 'full', base: null, files: 1 });
+  assert.deepEqual(document.scope, { mode: 'full', base: null, files: 1, law_changed: false });
   assert.equal(document.next, null);
   assert.equal(document.result, 'pass');
 });

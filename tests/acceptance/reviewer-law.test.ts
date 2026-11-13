@@ -270,9 +270,9 @@ test('test 74: the new flags', async () => {
       assert.equal(result.code, 2, args.join(' '));
       assert.match(result.stdout, /^error\[usage\]/m, args.join(' '));
     }
-    for (const args of [['--help'], ['check', '--help']]) {
-      const result = await lawcheck(r, args);
-      assert.equal(result.stdout.split('\n')[0], 'usage: lawcheck check [--full] [--base <ref>] [--review [--again] [--max-calls <n>]] [--json]');
+    for (const [args, first] of [[['--help'], 'usage: lawcheck <command> [<arguments>] [--json]'], [['check', '--help'], 'usage: lawcheck check [--full] [--base <ref>] [--review [--again] [--max-calls <n>]] [--json]']] as const) {
+      const result = await lawcheck(r, [...args]);
+      assert.equal(result.stdout.split('\n')[0], first);
       assert.equal(result.code, 0);
     }
   });
@@ -286,7 +286,7 @@ test('test 75: JSON', async () => {
       const expected = {
         schema: 'lawcheck-check/0',
         result: 'fail',
-        scope: { mode: 'change', base: 'main', files: 1 },
+        scope: { mode: 'change', base: 'main', files: 1, law_changed: false },
         summary: { errors: 1, warnings: 0, debt: 0, waivers: 1, unresolved: 0 },
         findings: [
           {

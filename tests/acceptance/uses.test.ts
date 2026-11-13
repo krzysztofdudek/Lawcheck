@@ -26,7 +26,7 @@ const TEST81 = ['lawcheck: FAIL  1 error in 1 changed file (against main)', '', 
 const TEST82 = {
   schema: 'lawcheck-check/0',
   result: 'fail',
-  scope: { mode: 'change', base: 'main', files: 1 },
+  scope: { mode: 'change', base: 'main', files: 1, law_changed: false },
   summary: { errors: 1, warnings: 0, debt: 0, waivers: 0, unresolved: 0 },
   findings: [
     {

@@ -21,9 +21,11 @@ export interface Rule {
 
 export interface TypeDef {
   id: string;
+  about: string | null;
   paths: string[];
   matches: (path: string) => boolean;
   content: RegExp | null;
+  expression: string | null;
   rules: string[];
   types: TypeDef[];
   parent: TypeDef | null;
@@ -186,7 +188,7 @@ class Reader {
       else if (this.byId.has(id)) this.problem(line, `the type id '${id}' appears twice in the law`);
       const value = this.resolve(pair.value);
       if (!this.mapping(value, line, `type '${id}'`)) continue;
-      const type: TypeDef = { id, paths: [], matches: () => false, content: null, rules: [], types: [], parent, line, mayUse: null };
+      const type: TypeDef = { id, about: null, paths: [], matches: () => false, content: null, expression: null, rules: [], types: [], parent, line, mayUse: null };
       if (!this.byId.has(id)) this.byId.set(id, type);
       let sawPaths = false;
       for (const field of (value as YAMLMap).items) {
@@ -194,7 +196,7 @@ class Reader {
         const fieldLine = this.lineOf(field.key);
         const fieldValue = this.resolve(field.value);
         if (key === 'about') {
-          this.line(fieldValue, fieldLine, `'about' of type '${id}'`);
+          type.about = this.line(fieldValue, fieldLine, `'about' of type '${id}'`);
         } else if (key === 'paths') {
           sawPaths = true;
           const patterns = this.strings(fieldValue, fieldLine, `'paths' of type '${id}'`);
@@ -220,6 +222,7 @@ class Reader {
           if (text === null) continue;
           try {
             type.content = new RegExp(text, 'm');
+            type.expression = text;
           } catch (error) {
             this.problem(fieldLine, `'content' of type '${id}' is no valid expression: ${firstLine(error)}`);
           }
