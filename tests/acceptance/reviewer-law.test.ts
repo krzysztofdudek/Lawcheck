@@ -128,6 +128,10 @@ test('test 69: the kind of a rule and its context', async () => {
           const errors = errorsOf(result.stdout);
           assert.equal(errors.length, expected.length, `${name}: ${result.stdout}`);
           expected.forEach((prefix, index) => assert.ok(errors[index]!.startsWith(prefix), `${name}: ${errors[index]}`));
+          if (name === 'both files') {
+            assert.ok(result.stdout.endsWith('\nnext: keep one of .lawcheck/rules/clear-errors.mjs and .lawcheck/rules/clear-errors.md, then run lawcheck check\n'), result.stdout);
+          }
+          if (name === 'a stray .md') assert.ok(!result.stdout.includes('keep one of'), result.stdout);
         },
         { onMain: change },
       ),

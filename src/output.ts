@@ -109,10 +109,6 @@ function nextFor(error: ErrorItem): string {
     case 'rule-missing-file':
       return 'write the rule files the law names, or take their rules out of the law, then run lawcheck check';
     case 'rule-file-without-entry':
-      if (error.file?.endsWith('.md')) {
-        const base = error.file.slice(0, -'.md'.length);
-        return `keep one of ${base}.mjs and ${base}.md, then run lawcheck check`;
-      }
       return `add a rule for ${error.file} to the law, or move the file to .lawcheck/rules/lib/, then run lawcheck check`;
     case 'file-unreadable':
       return `make ${error.file} readable, then run lawcheck check`;

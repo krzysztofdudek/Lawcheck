@@ -308,7 +308,13 @@ function ruleKinds(law: Law, files: string[], read: Read): Kinds {
       continue;
     }
     if (hasScript && hasProse) {
-      out.errors.push({ code: 'rule-file-without-entry', file: prose, line: null, message: `the rule '${rule.id}' already has its script ${script}` });
+      out.errors.push({
+        code: 'rule-file-without-entry',
+        file: prose,
+        line: null,
+        message: `the rule '${rule.id}' already has its script ${script}`,
+        next: `keep one of ${script} and ${prose}, then run lawcheck check`,
+      });
       continue;
     }
     if (hasScript) {
