@@ -4,7 +4,7 @@ import { spawn, execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { anthropic, defaultAnswer, openai, startFake, withFake, writeFakeClaude } from './fake-reviewer.ts';
-import { append, CLI, F, F_PATH, findingLines, GIT_ENV, PROMPT_F, read, REVIEWER_CONFIG, run, SECOND, withR, write } from './helpers.ts';
+import { append, CLI, F, F_PATH, findingLines, GIT_ENV, PROMPT_F, read, REVIEWER_CONFIG, REVIEWER_LAW, run, SECOND, withR, write } from './helpers.ts';
 
 const UNREACHABLE = 'src/core/refund.ts  error[reviewer-unreachable]  ';
 
@@ -122,6 +122,26 @@ test('test 59: the first error starts no new review, and what was answered is ke
     },
     (request) => (request.index === 0 ? openai('{"verdict":"pass","findings":[]}') : { status: 500, body: '' }),
   );
+  await withFake(async (fake) => {
+    await withR(
+      async (r) => {
+        write(r, F_PATH, F);
+        const result = await run(r, fake, ['--review', '--base', 'main']);
+        assert.equal(result.code, 1, result.stdout);
+        assert.deepEqual(
+          fake.requests.map((request) => request.prompt.match(/\n<why>\n([^\n]+)\n/)![1]),
+          ['A rule that sorts before clear-errors.', 'An error a caller sees says what happened and what to do next.'],
+        );
+      },
+      {
+        onMain: (r) => {
+          write(r, '.lawcheck/config.yaml', REVIEWER_CONFIG + '  parallel: 1\n');
+          write(r, '.lawcheck/law.yaml', REVIEWER_LAW.replace('\ntypes:\n', '  a-rule:\n    why: A rule that sorts before clear-errors.\n\ntypes:\n').replace('rules: [no-console, clear-errors]', 'rules: [no-console, clear-errors, a-rule]'));
+          write(r, '.lawcheck/rules/a-rule.md', 'Report nothing.\n');
+        },
+      },
+    );
+  });
 });
 
 test('test 60: at most reviewer.parallel requests are in flight', async () => {
