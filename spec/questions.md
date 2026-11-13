@@ -158,3 +158,41 @@ The review described its four regular expressions in words. The script writes th
 ## 25. Where the claude-code measurement ran
 
 `claude` is signed in on the host and not in the dev container, so the claude-code measurement ran on the host with Node from the host and `dist/` built in the container. The script cannot see this itself, so it takes `LAWCHECK_STABILITY_NOTE` and copies it into the result.
+
+# Questions found while building the dependency slice
+
+Each entry names the place in `dependency-slice.md`, what is unclear or wrong, and what the build does.
+
+## 26. `<language>` in the messages of `parser-failed`
+
+Section 3.3 writes `the grammar of <language>` and `the <language> reader`, and test 90 expects `the grammar of typescript`. It does not say whether the reader rows take the language's id or its display name, while the C# project row writes `C#`.
+
+Choice: `<language>` is the language's id in every row (`typescript`, `csharp`, `cpp`), as test 90 shows. The C# project row keeps its fixed text.
+
+## 27. A request to an address with a user and a password
+
+Section 8 has `<what>` fall back to the first line of the error's own message. For an address that holds a user and a password, `fetch` throws `Request cannot be constructed from a URL that includes credentials: <the address>`, so the message would print the password. Slice two's unit test handed `post` such an address and asserted that the password stays out of the failure.
+
+Choice: `post` follows section 8. The tool never sends such a request, because `LAWCHECK_REVIEWER_ENDPOINT` with a user or a password is refused before the first call, and the unit test of that refusal stays. The unit test of `post` now checks that a refused port names `bad port`.
+
+## 28. A use with no candidate
+
+Section 3.3, step 8, takes `what` of an unresolved use from its first candidate. A use Runes reports without any candidate would have none.
+
+Choice: such a use is an unresolved use with the answer `none` and an empty `what`. Neither L nor the two repositories of section 11 has one.
+
+## 29. The form of `scripts/grammar-licenses.txt`
+
+Section 6 says what the file holds for each grammar, not how it is laid out.
+
+Choice: one block per grammar, in the order of the 13 ids: a line `<language>: <grammar file>`, the repository and the commit from Runes' manifest, then the licence file of that repository at that commit, word for word, its copyright line included. TSX shares TypeScript's repository and licence and has a block of its own. The unit test finds a block for every `.wasm` in `dist/grammars/` by its file name.
+
+## 30. How the unit tests reach the failures of section 3.3
+
+The real readers do not fail on request, and section 10 asks for a unit test of each failure row.
+
+Choice: `src/readers.ts` takes the Runes calls it makes as one object, the real one by default. The unit tests hand it a stand-in whose grammar load, extraction, C# project reading or classification throws, and check the error, its place and that no later file is parsed or classified. The real readers are covered by tests 81 to 91 and by section 11.
+
+## 31. Tests 94 and 95
+
+Test 94 is `npm test` itself, as test 79 was (entry 21), so no test inside it can carry it. Test 95 is `npm run real`, which needs the network and stays outside `npm test` by design.
