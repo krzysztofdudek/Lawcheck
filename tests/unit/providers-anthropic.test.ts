@@ -16,6 +16,25 @@ test('a key goes only where it was given', () => {
   assert.match(anthropic(config, { LAWCHECK_REVIEWER_ENDPOINT: 'gopher://h', LAWCHECK_REVIEWER_KEY: 'l' }).ready()!, /http/);
 });
 
+test('without an endpoint, ANTHROPIC_API_KEY goes to api.anthropic.com before LAWCHECK_REVIEWER_KEY', async () => {
+  const original = globalThis.fetch;
+  const seen: { url: string; key: string | null }[] = [];
+  globalThis.fetch = (async (url: string, init: { headers: Record<string, string> }) => {
+    seen.push({ url: String(url), key: init.headers['x-api-key'] ?? null });
+    return new Response(JSON.stringify({ content: [{ type: 'text', text: 'ok' }] }), { status: 200 });
+  }) as typeof fetch;
+  try {
+    assert.deepEqual(await anthropic(config, { ANTHROPIC_API_KEY: 'a', LAWCHECK_REVIEWER_KEY: 'l' }).ask('p'), { answer: 'ok' });
+    await anthropic(config, { LAWCHECK_REVIEWER_KEY: 'l' }).ask('p');
+    assert.deepEqual(seen, [
+      { url: 'https://api.anthropic.com/v1/messages', key: 'a' },
+      { url: 'https://api.anthropic.com/v1/messages', key: 'l' },
+    ]);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
 test('the request, and the text items joined', async () => {
   const seen: { url?: string; headers?: Record<string, unknown>; body?: string }[] = [];
   const server = createServer((req, res) => {

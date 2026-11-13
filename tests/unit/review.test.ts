@@ -99,6 +99,14 @@ test('the cap counts every request and keeps room for the reviews not yet starte
   assert.deepEqual(roomy.failed, []);
 });
 
+test('a resend after a 429 or a dropped connection stays within the cap', async () => {
+  for (const resend of ['after-2s', 'at-once'] as const) {
+    const result = await call(asks(1), provider(() => ({ failure: 'no', resend })), writer() as never, { cap: 1, parallel: 1, resendDelayMs: 1 });
+    assert.equal(result.sent, 1, resend);
+    assert.equal(result.failed[0]!.code, 'reviewer-unreachable', resend);
+  }
+});
+
 test('the first error starts no new review; one in flight finishes and is recorded', async () => {
   const w = writer();
   const p = provider(async (prompt) => {

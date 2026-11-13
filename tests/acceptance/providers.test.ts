@@ -207,6 +207,18 @@ test('test 61: the cap on calls', async () => {
     },
     () => openai('fine'),
   );
+  await withFake(
+    async (fake) => {
+      await withR(async (r) => {
+        write(r, F_PATH, F);
+        const result = await run(r, fake, ['--review', '--max-calls', '1', '--base', 'main']);
+        assert.equal(result.code, 2);
+        assert.ok(errorLine(result.stdout, UNREACHABLE)?.includes('429'), result.stdout);
+        assert.equal(fake.requests.length, 1);
+      });
+    },
+    () => ({ status: 429, body: '{}' }),
+  );
 });
 
 test('test 62: a prompt larger than reviewer.max_chars is never sent', async () => {

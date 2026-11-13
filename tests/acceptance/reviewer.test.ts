@@ -60,7 +60,13 @@ test('test 47: --review asks once, keeps the failure, and the next plain run rea
       assert.equal(request.json.messages[0].content, PROMPT_F);
       assert.equal(request.headers.authorization, undefined);
       assert.equal(request.headers['content-type'], 'application/json');
-      assert.ok(existsSync(join(r, `.lawcheck/.local/failures/${KEY_F}.json`)));
+      assert.deepEqual(JSON.parse(read(r, `.lawcheck/.local/failures/${KEY_F}.json`)), {
+        rule: 'clear-errors',
+        findings: [
+          { line: 2, message: FAILED_MESSAGE },
+          { line: 4, message: FAILED_MESSAGE },
+        ],
+      });
       assert.equal(read(r, '.lawcheck/.local/.gitignore'), '*\n');
       assert.equal(git(r, 'status', '--porcelain'), '?? src/core/refund.ts\n');
       const plain = await run(r, fake, ['--base', 'main']);
@@ -119,6 +125,8 @@ test('test 50: --full lists the missing reviews of the debt', async () => {
       const result = await run(r, fake, ['--full', '--base', 'main']);
       assert.equal(result.stdout, THIRD);
       assert.equal(result.code, 1);
+      const json = await run(r, fake, ['--full', '--base', 'main', '--json']);
+      assert.deepEqual(JSON.parse(json.stdout).reviews, { missing: 3, calls_made: 0, passes_recorded: 0 });
       assert.equal(fake.requests.length, 0);
     });
   });
