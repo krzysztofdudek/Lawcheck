@@ -363,3 +363,16 @@ export function lawcheckAt(cli: string, cwd: string, args: string[], env: NodeJS
     child.on('close', (code) => resolve({ code, stdout, stderr, ms: Date.now() - started }));
   });
 }
+
+export function newRepository(dir: string, files: Record<string, string> = {}): string {
+  const repo = join(dir, 'repo');
+  mkdirSync(repo, { recursive: true });
+  git(repo, 'init', '-q', '-b', 'main');
+  write(repo, 'README.md', '# Repo\n');
+  for (const [path, content] of Object.entries(files)) write(repo, path, content);
+  git(repo, 'add', '-A');
+  git(repo, 'commit', '-q', '-m', 'first');
+  return repo;
+}
+
+export const PRICING = (law: string) => law.replace('        paths: ["src/cli/**"]\n', '        paths: ["src/cli/**"]\n      pricing:\n        paths: ["src/core/p*.ts"]\n');
