@@ -6,6 +6,7 @@
   "provider": "openai-compatible",
   "model": "claude-sonnet-5-5",
   "temperature_sent": 0,
+  "note": "This run measured the OpenAI-compatible interface of a gateway that drops temperature, so it holds at the gateway's default temperature. It used the earlier fixture of 24 files, whose borderline files the rule text settled, and four regular expressions match its 240 verdicts. The note was added by hand after the run; everything else is as the script wrote it.",
   "runs": 10,
   "agreement": {
     "all": {

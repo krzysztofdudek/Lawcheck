@@ -143,3 +143,18 @@ Test 78 is the reviewer's reading of the committed result. `tests/acceptance/sta
 Section 9 says an endpoint that drops `temperature` measures its own default. The endpoint used for `tests/stability/result.json` drops `temperature` and `top_p`. The result has no field for this, and `temperature_sent: 0` records only what the tool sent.
 
 Choice: the result keeps the shape of section 9, and this entry records that the measured temperature is the endpoint's default.
+## 23. Review notes not fixed
+
+The review of this slice left seven notes. Notes 7, 12 and 13 are fixed, and note 9 led to the new fixture of section 9. These three stay as they are:
+
+- Note 8, "each file is read once" has no test: a test would have to change a file inside a window of milliseconds between two reads, and the run reads each file into one shared map, which the review's probe 7 confirmed.
+- Note 10, the model is not part of the verdict key: section 5 and test 70 say so on purpose, so a change of model keeps every pass, and changing that is the owner's design decision.
+- Note 11, the answer reader's time grows with the square of the brace count: section 4 defines the spans by every `{`, 40,000 braces cost about 1.3 seconds, and a bound on the answer's length would be a rule the spec does not have.
+
+## 24. The baseline's patterns
+
+The review described its four regular expressions in words. The script writes them out in `tests/stability/baseline.ts`, as the table of section 9 lists them. On the earlier fixture these patterns give the same 240 of 240 the review reported.
+
+## 25. Where the claude-code measurement ran
+
+`claude` is signed in on the host and not in the dev container, so the claude-code measurement ran on the host with Node from the host and `dist/` built in the container. The script cannot see this itself, so it takes `LAWCHECK_STABILITY_NOTE` and copies it into the result.

@@ -24,16 +24,32 @@
     "borderline": false
   },
   {
-    "file": "src/handlers/list-users.ts",
+    "file": "src/handlers/update-tags.ts",
     "rule": "handlers-are-thin",
     "label": "pass",
-    "borderline": true
+    "borderline": false
   },
   {
-    "file": "src/handlers/pay-invoice.ts",
+    "file": "src/handlers/checkout.ts",
     "rule": "handlers-are-thin",
     "label": "fail",
-    "borderline": true
+    "borderline": false
+  },
+  {
+    "file": "src/handlers/search-users.ts",
+    "rule": "handlers-are-thin",
+    "label": "pass",
+    "borderline": true,
+    "why": "capping `limit` at 100 can be read as checking the request or as a business limit decided in the handler",
+    "reading": "bounding a paging parameter is part of checking the request"
+  },
+  {
+    "file": "src/handlers/get-order.ts",
+    "rule": "handlers-are-thin",
+    "label": "fail",
+    "borderline": true,
+    "why": "answering 410 for a cancelled order can be read as building the response from what the service returned or as deciding a business condition",
+    "reading": "deciding that a cancelled order is gone is a business condition"
   },
   {
     "file": "src/services/invoices.ts",
@@ -60,16 +76,26 @@
     "borderline": false
   },
   {
-    "file": "src/services/currency.ts",
+    "file": "src/services/sessions.ts",
     "rule": "clear-errors",
     "label": "pass",
-    "borderline": true
+    "borderline": false
   },
   {
-    "file": "src/services/payments.ts",
+    "file": "src/services/amounts.ts",
+    "rule": "clear-errors",
+    "label": "pass",
+    "borderline": true,
+    "why": "`amount must be greater than zero` states a requirement, which can be read as saying both what happened and what to do, or neither",
+    "reading": "the requirement names the fault and the fix"
+  },
+  {
+    "file": "src/services/exports.ts",
     "rule": "clear-errors",
     "label": "fail",
-    "borderline": true
+    "borderline": true,
+    "why": "the message says what happened and why, and the next step, a smaller report, is only implied",
+    "reading": "the rule asks the message to say the next step"
   },
   {
     "file": "src/domain/price.ts",
@@ -96,16 +122,26 @@
     "borderline": false
   },
   {
-    "file": "src/domain/format-amount.ts",
-    "rule": "pure-domain",
-    "label": "pass",
-    "borderline": true
-  },
-  {
-    "file": "src/domain/expiry.ts",
+    "file": "src/domain/vat.ts",
     "rule": "pure-domain",
     "label": "fail",
-    "borderline": true
+    "borderline": false
+  },
+  {
+    "file": "src/domain/ledger.ts",
+    "rule": "pure-domain",
+    "label": "pass",
+    "borderline": true,
+    "why": "changing an argument in place can be read as writing somewhere or as computing from the arguments alone",
+    "reading": "\"writes nowhere\" means nothing outside the program"
+  },
+  {
+    "file": "src/domain/opening-hours.ts",
+    "rule": "pure-domain",
+    "label": "fail",
+    "borderline": true,
+    "why": "the machine's time zone is part of its environment, yet no variable, file or clock is read",
+    "reading": "the machine's time zone is the environment"
   },
   {
     "file": "src/util/retry.ts",
@@ -132,15 +168,31 @@
     "borderline": false
   },
   {
-    "file": "src/util/timeout.ts",
+    "file": "src/util/round.ts",
     "rule": "comments-say-why",
     "label": "pass",
-    "borderline": true
+    "borderline": false
   },
   {
-    "file": "src/util/cache.ts",
+    "file": "src/util/increment.ts",
     "rule": "comments-say-why",
     "label": "fail",
-    "borderline": true
+    "borderline": false
+  },
+  {
+    "file": "src/util/handle.ts",
+    "rule": "comments-say-why",
+    "label": "pass",
+    "borderline": true,
+    "why": "the comment says in words what the expression says in symbols",
+    "reading": "spelling out a dense expression adds what a reader cannot see at a glance"
+  },
+  {
+    "file": "src/util/clamp.ts",
+    "rule": "comments-say-why",
+    "label": "fail",
+    "borderline": true,
+    "why": "a doc comment for callers restates what the function does, and interface documentation can be read as outside the rule",
+    "reading": "\"never restates\" covers doc comments"
   }
 ]

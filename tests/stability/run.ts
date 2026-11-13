@@ -3,6 +3,7 @@ import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:f
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { baselineVerdict } from './baseline.ts';
 
 const RUNS = 10;
 const ATTEMPTS = 3;
@@ -45,11 +46,16 @@ function present(name: string): string | null {
   return value === undefined || value === '' ? null : value;
 }
 
-const endpoint = present('LAWCHECK_REVIEWER_ENDPOINT');
+const provider = present('LAWCHECK_STABILITY_PROVIDER') ?? 'openai-compatible';
+if (provider !== 'openai-compatible' && provider !== 'claude-code') stop(2, 'LAWCHECK_STABILITY_PROVIDER takes openai-compatible or claude-code');
+const endpoint = provider === 'openai-compatible' ? present('LAWCHECK_REVIEWER_ENDPOINT') : null;
 const model = present('LAWCHECK_STABILITY_MODEL');
 const key = present('LAWCHECK_REVIEWER_KEY');
-const missing = [endpoint === null ? 'LAWCHECK_REVIEWER_ENDPOINT' : null, model === null ? 'LAWCHECK_STABILITY_MODEL' : null].filter(Boolean);
-if (missing.length > 0) stop(2, `set ${missing.join(' and ')}`);
+if (provider === 'openai-compatible') {
+  const missing = [endpoint === null ? 'LAWCHECK_REVIEWER_ENDPOINT' : null, model === null ? 'LAWCHECK_STABILITY_MODEL' : null].filter(Boolean);
+  if (missing.length > 0) stop(2, `set ${missing.join(' and ')}`);
+}
+const note = present('LAWCHECK_STABILITY_NOTE');
 const out = present('LAWCHECK_STABILITY_OUT') ?? DEFAULT_OUT;
 
 const GIT_ENV: NodeJS.ProcessEnv = {
@@ -71,7 +77,7 @@ function attempt(): { exit: number | null; document: any } {
   const dir = mkdtempSync(join(tmpdir(), 'lawcheck-stability-'));
   try {
     cpSync(FIXTURE, dir, { recursive: true });
-    writeFileSync(join(dir, '.lawcheck', 'config.yaml'), `reviewer:\n  provider: openai-compatible\n  model: ${JSON.stringify(model)}\n`);
+    writeFileSync(join(dir, '.lawcheck', 'config.yaml'), `reviewer:\n  provider: ${provider}\n${model === null ? '' : `  model: ${JSON.stringify(model)}\n`}`);
     git(dir, ['init', '-q', '-b', 'main']);
     git(dir, ['add', '-A']);
     git(dir, ['commit', '-q', '-m', 'fixture']);
@@ -160,21 +166,40 @@ const labelMatch = (indexes: number[]) => {
   return { verdicts: all, matching, share: share(matching / all) };
 };
 
+const baseline = labels.map((label) => baselineVerdict(label.rule, readFileSync(join(FIXTURE, label.file), 'utf8')));
+const baselineMatch = (indexes: number[]) => {
+  const matching = indexes.filter((index) => baseline[index] === labels[index]!.label).length;
+  return { verdicts: indexes.length, matching, share: share(matching / indexes.length) };
+};
+
 const manifest = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')) as { version: string };
 const result = {
   schema: 'lawcheck-stability/1',
   date: new Date().toISOString().slice(0, 10),
   lawcheck: manifest.version,
   verdict_format: 'lawcheck-verdict/1',
-  provider: 'openai-compatible',
+  provider,
   model,
-  temperature_sent: 0,
+  temperature_sent: provider === 'claude-code' ? null : 0,
+  note,
   runs: RUNS,
   agreement: { all: agreement(groups.all), clear: agreement(groups.clear), borderline: agreement(groups.borderline) },
   pairwise_agreement: { all: pairwise(groups.all), clear: pairwise(groups.clear), borderline: pairwise(groups.borderline) },
   label_match: { all: labelMatch(groups.all), clear: labelMatch(groups.clear), borderline: labelMatch(groups.borderline) },
+  baseline: {
+    pairwise_agreement: { all: 1, clear: 1, borderline: 1 },
+    label_match: { all: baselineMatch(groups.all), clear: baselineMatch(groups.clear), borderline: baselineMatch(groups.borderline) },
+  },
   attempts,
-  pairs: labels.map((label, index) => ({ ...label, verdicts: verdicts[index], messages: messages[index] })),
+  pairs: labels.map((label, index) => ({
+    file: label.file,
+    rule: label.rule,
+    label: label.label,
+    borderline: label.borderline,
+    verdicts: verdicts[index],
+    messages: messages[index],
+    baseline: baseline[index],
+  })),
 };
 
 function strings(value: unknown, found: string[] = []): string[] {
@@ -184,10 +209,14 @@ function strings(value: unknown, found: string[] = []): string[] {
   return found;
 }
 
-const leaks = strings(result).filter((text) => (key !== null && text === key) || text.includes(endpoint!) || text.includes('://'));
+const leaks = strings(result).filter((text) => (key !== null && text.includes(key)) || (endpoint !== null && text.includes(endpoint)) || text.includes('://'));
 if (leaks.length > 0) stop(2, `the result would hold the key, the endpoint or an address in ${leaks.length} strings; nothing is written`);
 
 writeFileSync(out, JSON.stringify(result, null, 2) + '\n');
 const line = (name: string, group: 'all' | 'clear' | 'borderline') =>
   `${name}: pairwise agreement ${result.pairwise_agreement[group]}, agreement ${result.agreement[group].agreeing}/${result.agreement[group].pairs} (${result.agreement[group].share}), label match ${result.label_match[group].matching}/${result.label_match[group].verdicts} (${result.label_match[group].share})`;
-process.stdout.write([line('all', 'all'), line('clear', 'clear'), line('borderline', 'borderline')].join('\n') + '\n');
+const baselineLine = (group: 'all' | 'clear' | 'borderline') =>
+  `baseline ${group}: label match ${result.baseline.label_match[group].matching}/${result.baseline.label_match[group].verdicts} (${result.baseline.label_match[group].share})`;
+process.stdout.write(
+  [line('all', 'all'), line('clear', 'clear'), line('borderline', 'borderline'), baselineLine('all'), baselineLine('clear'), baselineLine('borderline')].join('\n') + '\n',
+);

@@ -474,15 +474,26 @@ The fixed whys: `config-invalid` `a misspelled setting changes the reviewer with
 
 **The numbers.** `pairwise_agreement` answers the question in its own words: the chance that two runs picked at random give one file the same verdict. Its expected value does not depend on how many runs there are. `agreement`, the share of pairs whose runs all gave the same verdict, falls as the runs grow, so it is read with `runs` beside it. `label_match` shows whether the verdicts are right at all.
 
-**N = 10.** Ten runs give 45 pairs of runs per file and 160 verdicts on the 16 clear pairs, twice the evidence of five, for 240 calls made once. A file that flips one time in ten shows it in 65% of ten-run measurements, against 41% with five.
+**N = 10.** Ten runs give 45 pairs of runs per file and 220 verdicts on the 22 clear pairs, twice the evidence of five, for 300 calls made once. A file that flips one time in ten shows it in 65% of ten-run measurements, against 41% with five.
 
 **The line.** When `pairwise_agreement.clear` is below 0.95, which is a clear verdict flipping about one time in forty, decision 16 (one answer, no votes) goes back to the owner. The slice does not fail for it: the number is the answer the owner asked for. `label_match.clear` below 0.9 fails the slice, because then the prompt or the reading of the answer is broken.
 
-**The scope of the number.** It speaks for that endpoint and model at the temperature the endpoint really uses: an endpoint that drops `temperature` measures its own default. It says nothing about `claude-code`, which runs at the program's own temperature.
+**The baseline.** The script also judges each file with four regular expressions, one per rule, and reports their `label_match` beside the model's. They never change their answer, so their agreement is 1 by construction. What the model adds is the gap in `label_match`: on the clear files the baseline is wrong on the six traps, and on the borderline files it is right where a keyword happens to fall on the label's side.
+
+| Rule | The baseline reports a fail when |
+|---|---|
+| `handlers-are-thin` | a line holds `for (`, `db.` or a run of four or more digits |
+| `clear-errors` | a string inside `Error(` or after `error:` holds no `;` |
+| `pure-domain` | a line holds `new Date()` or `Math.random` |
+| `comments-say-why` | a line is a `//` comment whose first word starts in lowercase |
+
+**The scope of the number.** It speaks for that provider and model. Through an endpoint it holds at the temperature the endpoint really uses: an endpoint that drops `temperature` measures its own default. Through `claude-code` it holds at the program's own temperature.
 
 ### The fixture
 
-`tests/stability/fixture/` is a repository without its config, written exactly as below. Each file binds one rule, so 24 pairs: 12 labelled pass and 12 fail, 8 of them borderline on purpose, where the label is the intended reading. `tests/stability/labels.json` holds `[{ "file", "rule", "label", "borderline" }]` for the 24 files. Every file ends with a line end. The fixture does not change after the first real run; a changed fixture needs a new result.
+`tests/stability/fixture/` is a repository without its config, written exactly as below. Each file binds one rule, so 30 pairs: 15 labelled pass and 15 fail. Twenty-two are clear, and six of those are keyword traps: files the regular-expression baseline below judges wrong. Eight are borderline: a careful reader could go either way under the rule's wording, and the label is one stated reading. `tests/stability/labels.json` holds `[{ "file", "rule", "label", "borderline" }]` for the 30 files, and `why` and `reading` for the borderline ones. Every file ends with a line end. The fixture does not change after the first real run; a changed fixture needs a new result.
+
+An earlier fixture of 24 files, whose borderline files the rule text settled, gave a result that four regular expressions match exactly. It is kept as `tests/stability/result-gateway.json`.
 
 `.lawcheck/law.yaml`:
 
@@ -596,26 +607,54 @@ export async function deleteUser(req: { params: { id: string } }) {
 }
 ```
 
-`src/handlers/list-users.ts`, pass, borderline:
+`src/handlers/update-tags.ts`, pass, keyword trap:
+
+```ts
+import { tags } from '../services/tags';
+
+export async function updateTags(req: { params: { id: string }; body: { tags?: unknown } }) {
+  if (!Array.isArray(req.body.tags)) return { status: 400, body: 'tags must be a list' };
+  for (const tag of req.body.tags) {
+    if (typeof tag !== 'string') return { status: 400, body: 'every tag must be a string' };
+  }
+  return { status: 200, body: await tags.replace(req.params.id, req.body.tags) };
+}
+```
+
+`src/handlers/checkout.ts`, fail, keyword trap:
+
+```ts
+import { carts } from '../services/carts';
+import { orders } from '../services/orders';
+
+export async function checkout(req: { params: { cartId: string } }) {
+  const cart = await carts.get(req.params.cartId);
+  const order = await orders.create({ items: cart.items });
+  return { status: 201, body: order };
+}
+```
+
+`src/handlers/search-users.ts`, pass, borderline:
 
 ```ts
 import { users } from '../services/users';
 
-export async function listUsers() {
-  const all = await users.list();
-  return { status: 200, body: all.map((user) => ({ id: user.id, name: user.name })) };
+export async function searchUsers(req: { query: { q?: string; limit?: string } }) {
+  if (!req.query.q) return { status: 400, body: 'q is required' };
+  const limit = Math.min(Number(req.query.limit ?? '20'), 100);
+  return { status: 200, body: await users.search(req.query.q, limit) };
 }
 ```
 
-`src/handlers/pay-invoice.ts`, fail, borderline:
+`src/handlers/get-order.ts`, fail, borderline:
 
 ```ts
-import { invoices } from '../services/invoices';
+import { orders } from '../services/orders';
 
-export async function payInvoice(req: { params: { id: string }; body: { amount: unknown } }) {
-  if (typeof req.body.amount !== 'number') return { status: 400, body: 'amount must be a number' };
-  if (req.body.amount > 10000) return { status: 403, body: 'payments above 10000 need approval' };
-  return { status: 200, body: await invoices.pay(req.params.id, req.body.amount) };
+export async function getOrder(req: { params: { id: string } }) {
+  const order = await orders.get(req.params.id);
+  if (order.status === 'cancelled') return { status: 410, body: 'the order was cancelled' };
+  return { status: 200, body: order };
 }
 ```
 
@@ -662,30 +701,35 @@ export async function register(email: string) {
 }
 ```
 
-`src/services/currency.ts`, pass, borderline:
+`src/services/sessions.ts`, pass, keyword trap:
 
 ```ts
 import { db } from '../db';
 
-export async function rateFor(code: string, day: string): Promise<number> {
-  const rate = await db.rates.find(code, day);
-  if (rate === undefined) throw new Error(`No exchange rate for ${code} on ${day}; rates are published at 16:00 CET.`);
-  return rate;
+export async function resume(token: string) {
+  const session = await db.sessions.find(token);
+  if (session === undefined) throw new Error('The session has expired. Sign in again to continue.');
+  return session;
 }
 ```
 
-`src/services/payments.ts`, fail, borderline:
+`src/services/amounts.ts`, pass, borderline:
 
 ```ts
-import { gateway } from '../gateway';
+export function checkAmount(amount: number): number {
+  if (amount <= 0) throw new RangeError('amount must be greater than zero');
+  return amount;
+}
+```
 
-export async function charge(card: string, amount: number) {
-  try {
-    return await gateway.charge(card, amount);
-  } catch (err) {
-    console.error('gateway timeout', err);
-    throw new Error('The payment gateway did not answer.');
-  }
+`src/services/exports.ts`, fail, borderline:
+
+```ts
+import { storage } from '../storage';
+
+export async function exportReport(id: string, bytes: Uint8Array) {
+  if (bytes.length > 10_000_000) throw new Error('The export failed: the report is larger than 10 MB.');
+  return storage.put(`reports/${id}`, bytes);
 }
 ```
 
@@ -729,21 +773,36 @@ export function token(prefix: string): string {
 }
 ```
 
-`src/domain/format-amount.ts`, pass, borderline:
+`src/domain/vat.ts`, fail, keyword trap:
 
 ```ts
-const pln = new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN' });
-
-export function formatAmount(amount: number): string {
-  return pln.format(amount);
+export function vat(net: number): number {
+  return net * Number(process.env.VAT_RATE);
 }
 ```
 
-`src/domain/expiry.ts`, fail, borderline:
+`src/domain/ledger.ts`, pass, borderline:
 
 ```ts
-export function isExpired(start: Date, days: number, now: Date = new Date()): boolean {
-  return now.getTime() - start.getTime() > days * 24 * 60 * 60 * 1000;
+export interface Entry {
+  account: string;
+  amount: number;
+}
+
+export function post(ledger: Entry[], entry: Entry): Entry[] {
+  ledger.push(entry);
+  return ledger;
+}
+```
+
+`src/domain/opening-hours.ts`, fail, borderline:
+
+```ts
+const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+export function isOpen(at: Date): boolean {
+  const hour = Number(new Intl.DateTimeFormat('en-GB', { hour: 'numeric', hourCycle: 'h23', timeZone: zone }).format(at));
+  return hour >= 9 && hour < 17;
 }
 ```
 
@@ -788,33 +847,65 @@ export function parse(text: string): string[] {
 }
 ```
 
-`src/util/timeout.ts`, pass, borderline:
+`src/util/round.ts`, pass, keyword trap:
 
 ```ts
-export const TIMEOUT = 30_000; // milliseconds
-```
-
-`src/util/cache.ts`, fail, borderline:
-
-```ts
-const MAX_ENTRIES = 1000;
-const cache = new Map<string, string>();
-
-export function remember(key: string, value: string): void {
-  // empty the cache once it is full
-  if (cache.size >= MAX_ENTRIES) cache.clear();
-  cache.set(key, value);
+export function roundCents(amount: number): number {
+  // the payment provider rejects amounts with more than two decimals
+  return Math.round(amount * 100) / 100;
 }
 ```
+
+`src/util/increment.ts`, fail, keyword trap:
+
+```ts
+export function increment(count: number): number {
+  // Add one to the count.
+  return count + 1;
+}
+```
+
+`src/util/handle.ts`, pass, borderline:
+
+```ts
+// lowercase letters, digits and dashes, 3 to 30 characters
+const HANDLE = /^[a-z0-9-]{3,30}$/;
+
+export function isHandle(text: string): boolean {
+  return HANDLE.test(text);
+}
+```
+
+`src/util/clamp.ts`, fail, borderline:
+
+```ts
+/** Returns value limited to the range from min to max. */
+export function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}
+```
+
+The borderline files, why a careful reader could go either way under the rule's wording, and the reading each label takes. `labels.json` holds the same two sentences as `why` and `reading`:
+
+| File | Why it is borderline | The label's reading |
+|---|---|---|
+| `src/handlers/search-users.ts` | capping `limit` at 100 can be read as checking the request or as a business limit decided in the handler | pass: bounding a paging parameter is part of checking the request |
+| `src/handlers/get-order.ts` | answering 410 for a cancelled order can be read as building the response from what the service returned or as deciding a business condition | fail: deciding that a cancelled order is gone is a business condition |
+| `src/services/amounts.ts` | `amount must be greater than zero` states a requirement, which can be read as saying both what happened and what to do, or neither | pass: the requirement names the fault and the fix |
+| `src/services/exports.ts` | the message says what happened and why, and the next step, a smaller report, is only implied | fail: the rule asks the message to say the next step |
+| `src/domain/ledger.ts` | changing an argument in place can be read as writing somewhere or as computing from the arguments alone | pass: "writes nowhere" means nothing outside the program |
+| `src/domain/opening-hours.ts` | the machine's time zone is part of its environment, yet no variable, file or clock is read | fail: the machine's time zone is the environment |
+| `src/util/handle.ts` | the comment says in words what the expression says in symbols | pass: spelling out a dense expression adds what a reader cannot see at a glance |
+| `src/util/clamp.ts` | a doc comment for callers restates what the function does, and interface documentation can be read as outside the rule | fail: "never restates" covers doc comments |
 
 ### The script
 
 `tests/stability/run.ts`, run by `npm run stability`, which builds first. It is not part of `npm test`.
 
-1. It needs `LAWCHECK_REVIEWER_ENDPOINT` and `LAWCHECK_STABILITY_MODEL`, and passes `LAWCHECK_REVIEWER_KEY` on when set. Without the first two it says which is missing, exits 2 and writes nothing. `LAWCHECK_STABILITY_OUT` names another file to write instead of `tests/stability/result.json`.
-2. For each of the 10 runs, up to 3 attempts. An attempt copies the fixture into a new `mktemp -d` folder, writes `.lawcheck/config.yaml` with `provider: openai-compatible` and the model as a quoted string, makes a git repository with one commit on `main` (the fixed identity of the acceptance tests, no remote), runs `node dist/cli.js check --review --json` there with the script's environment minus `LAWCHECK_BASE`, and removes the folder. With no base every file counts as changed, so every pair is asked.
-3. Exit 0 or 1: a pair's verdict is `fail` when a finding has its file and the rule as `code`, and that finding's message is kept; otherwise `pass`. The attempt counts only when `reviews.passes_recorded` plus the failing pairs is 24, no finding is `not-reviewed` or `too-large-to-review`, and every finding's file and rule are in the labels; otherwise the script exits 2, since the fixture or the tool is broken. Exit 2 whose errors are all `reviewer-unreachable` or `reviewer-bad-answer`: the attempt failed, and the run is tried again. Any other exit 2: the script exits 2. A run whose three attempts failed stops the script with exit 1 and nothing written.
-4. It writes the result with `JSON.stringify(result, null, 2)` and a line end, and prints the shares. Before writing it checks that no string of the result equals the key or contains the endpoint or `://`; otherwise it exits 2 and writes nothing.
+1. `LAWCHECK_STABILITY_PROVIDER` is `openai-compatible`, the default, or `claude-code`. `openai-compatible` needs `LAWCHECK_REVIEWER_ENDPOINT` and `LAWCHECK_STABILITY_MODEL`, and passes `LAWCHECK_REVIEWER_KEY` on when set; without the first two the script says which is missing, exits 2 and writes nothing. `claude-code` needs neither, and takes `LAWCHECK_STABILITY_MODEL` when set. `LAWCHECK_STABILITY_OUT` names another file to write instead of `tests/stability/result.json`. `LAWCHECK_STABILITY_NOTE`, when set, is copied into the result as `note`, for what the run cannot see itself, such as where it ran.
+2. For each of the 10 runs, up to 3 attempts. An attempt copies the fixture into a new `mktemp -d` folder, writes `.lawcheck/config.yaml` with the provider and, when set, the model as a quoted string, makes a git repository with one commit on `main` (the fixed identity of the acceptance tests, no remote), runs `node dist/cli.js check --review --json` there with the script's environment minus `LAWCHECK_BASE`, and removes the folder. With no base every file counts as changed, so every pair is asked.
+3. Exit 0 or 1: a pair's verdict is `fail` when a finding has its file and the rule as `code`, and that finding's message is kept; otherwise `pass`. The attempt counts only when `reviews.passes_recorded` plus the failing pairs is 30, no finding is `not-reviewed` or `too-large-to-review`, and every finding's file and rule are in the labels; otherwise the script exits 2, since the fixture or the tool is broken. Exit 2 whose errors are all `reviewer-unreachable` or `reviewer-bad-answer`: the attempt failed, and the run is tried again. Any other exit 2: the script exits 2. A run whose three attempts failed stops the script with exit 1 and nothing written.
+4. It writes the result with `JSON.stringify(result, null, 2)` and a line end, and prints the shares. Before writing it checks that no string of the result contains the key, the endpoint or `://`; otherwise it exits 2 and writes nothing.
 
 The result:
 
@@ -825,33 +916,42 @@ The result:
   "lawcheck": "0.1.0",
   "verdict_format": "lawcheck-verdict/1",
   "provider": "openai-compatible",
-  "model": "<LAWCHECK_STABILITY_MODEL>",
+  "model": "<LAWCHECK_STABILITY_MODEL, or null>",
   "temperature_sent": 0,
+  "note": "<LAWCHECK_STABILITY_NOTE, or null>",
   "runs": 10,
   "agreement": {
-    "all": { "pairs": 24, "agreeing": 0, "share": 0 },
-    "clear": { "pairs": 16, "agreeing": 0, "share": 0 },
+    "all": { "pairs": 30, "agreeing": 0, "share": 0 },
+    "clear": { "pairs": 22, "agreeing": 0, "share": 0 },
     "borderline": { "pairs": 8, "agreeing": 0, "share": 0 }
   },
   "pairwise_agreement": { "all": 0, "clear": 0, "borderline": 0 },
   "label_match": {
-    "all": { "verdicts": 240, "matching": 0, "share": 0 },
-    "clear": { "verdicts": 160, "matching": 0, "share": 0 },
+    "all": { "verdicts": 300, "matching": 0, "share": 0 },
+    "clear": { "verdicts": 220, "matching": 0, "share": 0 },
     "borderline": { "verdicts": 80, "matching": 0, "share": 0 }
   },
+  "baseline": {
+    "pairwise_agreement": { "all": 1, "clear": 1, "borderline": 1 },
+    "label_match": {
+      "all": { "verdicts": 30, "matching": 19, "share": 0.633 },
+      "clear": { "verdicts": 22, "matching": 16, "share": 0.727 },
+      "borderline": { "verdicts": 8, "matching": 3, "share": 0.375 }
+    }
+  },
   "attempts": [
-    { "run": 1, "attempt": 1, "exit": 1, "calls_made": 24, "errors": [] },
+    { "run": 1, "attempt": 1, "exit": 1, "calls_made": 30, "errors": [] },
     { "run": 2, "attempt": 1, "exit": 2, "calls_made": null, "errors": [{ "code": "reviewer-unreachable", "file": "src/domain/price.ts" }] }
   ],
   "pairs": [
     { "file": "src/handlers/get-user.ts", "rule": "handlers-are-thin", "label": "pass", "borderline": false,
       "verdicts": ["pass", "pass", "pass", "pass", "pass", "pass", "pass", "pass", "pass", "pass"],
-      "messages": [[], [], [], [], [], [], [], [], [], []] }
+      "messages": [[], [], [], [], [], [], [], [], [], []], "baseline": "pass" }
   ]
 }
 ```
 
-`agreeing` counts the pairs whose 10 verdicts are equal. `pairwise_agreement` is the mean, over the pairs of its group, of the share of the 45 pairs of runs that gave the same verdict. `matching` counts the verdicts equal to the label. A share is `Math.round(x * 1000) / 1000`. `attempts` holds every attempt in order; `calls_made` comes from the document of an attempt that ended with 0 or 1, and is null after exit 2. `messages` holds, per run, the messages of that run's failing findings for the pair.
+`agreeing` counts the pairs whose 10 verdicts are equal. `pairwise_agreement` is the mean, over the pairs of its group, of the share of the 45 pairs of runs that gave the same verdict. `matching` counts the verdicts equal to the label. A share is `Math.round(x * 1000) / 1000`. `attempts` holds every attempt in order; `calls_made` comes from the document of an attempt that ended with 0 or 1, and is null after exit 2. `messages` holds, per run, the messages of that run's failing findings for the pair, and `baseline` the baseline's verdict. `temperature_sent` is null for `claude-code`, which takes none.
 
 ## 10. Decisions taken here
 
@@ -921,9 +1021,9 @@ Slice one's terms hold. R is S with the four files of section 2 in its first com
 | 73 | add F with `check` of `no-console.mjs` throwing; `--review`. Then F alone with `--review --base nope` | exit 2 with `rule-crashed`, no request; exit 2 with `base-unreachable`, no request |
 | 74 | `check --again`; `check --max-calls 3`; `check --review --max-calls`; `check --review --max-calls -1`; `check --review --max-calls x`; `check --review --max-calls=3`; `check --review --review`; `check --review --again --again`; `check --review --max-calls 1 --max-calls 2`. Then `lawcheck --help` and `lawcheck check --help` | exit 2 with `usage` each; then the first line of section 8's usage, exit 0 |
 | 75 | add F; a plain run with `--json`; then `--review --json` | the document of section 8, exit 1; then one finding (`clear-errors`, `rule` `clear-errors`, line 2, error), `waivers[0].waived` 1, `reviews` `{ "missing": 0, "calls_made": 1, "passes_recorded": 0 }`, `next` `{ "command": null, "text": "fix src/core/refund.ts:2" }` |
-| 76 | run `node tests/stability/run.ts` with the fake as endpoint, `LAWCHECK_STABILITY_MODEL=test-model`, `LAWCHECK_BASE=main` and `LAWCHECK_STABILITY_OUT` in a temporary folder. The fake answers each file by its label, a fail with one finding at line 1 and message `labelled fail`; it answers `fail` to the third request for `src/util/timeout.ts` and HTTP 500 to the second for `src/domain/price.ts` | exit 0; `agreement` 23/24 (0.958), clear 16/16 (1), borderline 7/8 (0.875); `pairwise_agreement` all 0.992, clear 1, borderline 0.975; `label_match` 239/240 (0.996), clear 160/160 (1), borderline 79/80 (0.988); `attempts` holds 11 entries, the one with exit 2 being run 2, attempt 1, with errors `[{ "code": "reviewer-unreachable", "file": "src/domain/price.ts" }]`, every other with `calls_made` 24; `timeout.ts`'s verdicts are `pass`, `pass`, `fail` and seven `pass`; no `127.0.0.1` in the file |
-| 77 | run the script without `LAWCHECK_REVIEWER_ENDPOINT`; without `LAWCHECK_STABILITY_MODEL`; with `LAWCHECK_REVIEWER_KEY=k-secret` and the fake failing every file with the message `k-secret` | exit 2 each, and the file `LAWCHECK_STABILITY_OUT` names does not exist |
-| 78 | the reviewer reads the committed `tests/stability/result.json`, written by one `npm run stability` against a real model before handover, and the fixture against section 9 | the fixture is section 9's, byte for byte; `model` names a real model, not `test-model`; 24 pairs of 10 verdicts each; every count and share follows from the pairs; `label_match.clear.share` is at least 0.9; no `://` in the file. When `pairwise_agreement.clear` is below 0.95, the review names decision 16 for the owner |
+| 76 | run `node tests/stability/run.ts` with the fake as endpoint, `LAWCHECK_STABILITY_MODEL=test-model`, `LAWCHECK_BASE=main` and `LAWCHECK_STABILITY_OUT` in a temporary folder. The fake answers each file by its label, a fail with one finding at line 1 and message `labelled fail`; it answers `fail` to the third request for `src/util/handle.ts` and HTTP 500 to the second for `src/domain/price.ts`. Then, with `LAWCHECK_STABILITY_PROVIDER=claude-code`, the model and a note, against the fake claude | exit 0; `agreement` 29/30 (0.967), clear 22/22 (1), borderline 7/8 (0.875); `pairwise_agreement` all 0.993, clear 1, borderline 0.975; `label_match` 299/300 (0.997), clear 220/220 (1), borderline 79/80 (0.988); `baseline.label_match` 19/30 (0.633), clear 16/22 (0.727), borderline 3/8 (0.375); `attempts` holds 11 entries, the one with exit 2 being run 2, attempt 1, with errors `[{ "code": "reviewer-unreachable", "file": "src/domain/price.ts" }]`, every other with `calls_made` 30; `handle.ts`'s verdicts are `pass`, `pass`, `fail` and seven `pass`; no `127.0.0.1` in the file. Then exit 0, `provider` `claude-code`, `temperature_sent` null, the model and the note as given |
+| 77 | run the script without `LAWCHECK_REVIEWER_ENDPOINT`; without `LAWCHECK_STABILITY_MODEL`; with `LAWCHECK_REVIEWER_KEY=k-secret` and the fake failing every file with the message `k-secret`; the same with the message `it quotes k-secret` | exit 2 each, and the file `LAWCHECK_STABILITY_OUT` names does not exist |
+| 78 | the reviewer reads the committed `tests/stability/result.json`, written by one `npm run stability` against a real model before handover, and the fixture against section 9 | the fixture is section 9's, byte for byte; `model` names a real model or is null for the program's default, not `test-model`; 30 pairs of 10 verdicts each, as `labels.json` and the headings of section 9 list them; every count and share follows from the pairs; `label_match.clear.share` is at least 0.9; no `://` in the file. When `pairwise_agreement.clear` is below 0.95, the review names decision 16 for the owner |
 | 79 | `npm test` | tests 1 to 45 pass, test 41 and test 44 as section 10 amends them, and tests 46 to 77 pass, offline |
 
 The unit tests carry the rest: one file per new source file, among them the key of every example of section 5, the reading of each answer form of section 4, and each `config-invalid` message.
