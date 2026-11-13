@@ -4,7 +4,17 @@ import type { ErrorItem } from './output.js';
 import { checkAnswer } from './prompt.js';
 import type { AnswerFinding } from './prompt.js';
 import type { Provider } from './providers/index.js';
-import type { VerdictWriter } from './verdicts.js';
+export interface Recorder {
+  pass(key: string, rule: string): Promise<void>;
+  failure(key: string, rule: string, findings: AnswerFinding[]): Promise<void>;
+  done(): Promise<unknown>;
+}
+
+export const NO_RECORD: Recorder = {
+  pass: async () => undefined,
+  failure: async () => undefined,
+  done: async () => undefined,
+};
 
 export interface Ask {
   file: string;
@@ -18,6 +28,7 @@ export interface Ask {
 export interface Answered {
   ask: Ask;
   findings: AnswerFinding[];
+  answer: string;
 }
 
 export interface Failed {
@@ -77,7 +88,7 @@ export function remaining(findings: AnswerFinding[], waived: Set<number>): Answe
   return findings.filter((finding) => finding.line === null || !waived.has(finding.line));
 }
 
-export async function call(asks: Ask[], provider: Provider, writer: VerdictWriter, options: CallOptions): Promise<Calls> {
+export async function call<A extends Ask>(asks: A[], provider: Provider, writer: Recorder, options: CallOptions): Promise<Calls> {
   const answered: Answered[] = [];
   const failed: Failed[] = [];
   const delay = options.resendDelayMs ?? 2000;
@@ -100,7 +111,7 @@ export async function call(asks: Ask[], provider: Provider, writer: VerdictWrite
     return asked;
   };
 
-  const review = async (ask: Ask): Promise<void> => {
+  const review = async (ask: A): Promise<void> => {
     let firstProblem: string | null = null;
     for (;;) {
       const asked = await request(ask.prompt);
@@ -125,7 +136,7 @@ export async function call(asks: Ask[], provider: Provider, writer: VerdictWrite
       }
       if (remaining(checked.findings, ask.waived).length === 0) await writer.pass(ask.key, ask.rule);
       else await writer.failure(ask.key, ask.rule, checked.findings);
-      answered.push({ ask, findings: checked.findings });
+      answered.push({ ask, findings: checked.findings, answer: asked.answer });
       return;
     }
   };

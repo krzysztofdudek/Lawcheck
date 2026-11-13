@@ -4,7 +4,14 @@ import { availableParallelism } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { dirname } from 'node:path';
 import { realpathSync, rmSync } from 'node:fs';
-import type { TypedFile } from './types.js';
+import type { TypeDef } from './law.js';
+
+export interface RuleFile {
+  path: string;
+  type: TypeDef | null;
+  text: string;
+  lines: string[];
+}
 
 export const RUNNER = fileURLToPath(new URL('./runner.js', import.meta.url));
 export const PACKAGE_DIR = realpathSync(dirname(dirname(RUNNER)));
@@ -95,7 +102,7 @@ export function normalizeMessage(message: string): string {
   return message.replace(/\r\n|[\n\r]/g, ' ');
 }
 
-export function validate(rule: string, value: unknown, file: TypedFile): { findings: RawFinding[] } | { problem: string } {
+export function validate(rule: string, value: unknown, file: RuleFile): { findings: RawFinding[] } | { problem: string } {
   if (!Array.isArray(value)) return { problem: 'no list' };
   const findings: RawFinding[] = [];
   for (const item of value as unknown[]) {
@@ -117,7 +124,7 @@ export interface RuleRun {
   root: string;
   rule: string;
   ruleFile: string;
-  files: TypedFile[];
+  files: RuleFile[];
   filesOf: Map<string, string[]>;
   timeoutMs?: number;
 }
@@ -165,7 +172,7 @@ export function runRule(run: RuleRun): Promise<RuleOutcome> {
         return;
       }
       stage = `on ${file.path}`;
-      const payload = { path: file.path, type: file.type.id, text: file.text, lines: file.lines };
+      const payload = { path: file.path, type: file.type?.id ?? null, text: file.text, lines: file.lines };
       ask({ kind: 'call', file: payload }, (message) => {
         if (message.kind === 'threw') return end({ crash: `throws on ${file.path}: ${message.message}` });
         if (message.kind === 'uncloneable') {
