@@ -16,11 +16,18 @@ function errorMessage(text: string): string | null {
   }
 }
 
-function cause(error: unknown): string {
-  const err = error as { name?: unknown; cause?: { code?: unknown } };
+function lineOf(message: unknown): string {
+  return typeof message === 'string' ? (message.split(/\r?\n/)[0] ?? '') : '';
+}
+
+export function cause(error: unknown): string {
+  const err = error as { message?: unknown; cause?: { code?: unknown; message?: unknown } | null } | null;
   const code = err?.cause?.code;
-  if (typeof code === 'string' && /^[A-Z0-9_]+$/.test(code)) return code;
-  return typeof err?.name === 'string' ? err.name : 'an unknown error';
+  const first =
+    typeof code === 'string' && /^[A-Z0-9_]+$/.test(code)
+      ? code
+      : (err?.cause !== undefined && err?.cause !== null && lineOf(err.cause.message)) || lineOf(err?.message) || 'an unknown error';
+  return first.slice(0, 200);
 }
 
 export async function post(url: string, headers: Record<string, string>, body: unknown, timeoutSeconds: number): Promise<Posted> {

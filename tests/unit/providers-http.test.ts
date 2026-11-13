@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { post } from '../../dist/providers/http.js';
+import { cause, post } from '../../dist/providers/http.js';
 
 async function serve(handler: Parameters<typeof createServer>[1], body: (url: string) => Promise<void>) {
   const server = createServer(handler);
@@ -46,12 +46,18 @@ test('statuses, a body that is no JSON, a redirect and an error message', async 
   });
 });
 
-test('a request that cannot be sent names no part of its address', async () => {
-  const failed = await post('http://user:s3cr3t@127.0.0.1:9/v1/chat/completions', {}, {}, 5);
-  assert.ok('failure' in failed, JSON.stringify(failed));
-  assert.ok(!failed.failure.includes('s3cr3t') && !failed.failure.includes('127.0.0.1'), failed.failure);
-  const refused = await post('http://127.0.0.1:9/v1', {}, {}, 5);
-  assert.ok('failure' in refused && !refused.failure.includes('127.0.0.1'), JSON.stringify(refused));
+test('a request that cannot be sent names the cause of its failure', async () => {
+  assert.deepEqual(await post('http://127.0.0.1:9/v1', {}, {}, 5), { failure: 'the connection to the reviewer gave no answer (bad port)', resend: 'at-once' });
+});
+
+test('what a connection that gave no answer names', () => {
+  assert.equal(cause(Object.assign(new TypeError('fetch failed'), { cause: Object.assign(new Error('connect ECONNREFUSED 127.0.0.1:1'), { code: 'ECONNREFUSED' }) })), 'ECONNREFUSED');
+  assert.equal(cause(Object.assign(new TypeError('fetch failed'), { cause: Object.assign(new Error('bad port\nmore'), { code: 'bad-port' }) })), 'bad port');
+  assert.equal(cause(Object.assign(new TypeError('fetch failed'), { cause: new Error('') })), 'fetch failed');
+  assert.equal(cause(new TypeError('the socket closed\nmore')), 'the socket closed');
+  assert.equal(cause(new TypeError('')), 'an unknown error');
+  assert.equal(cause(Object.assign(new TypeError(''), { cause: {} })), 'an unknown error');
+  assert.equal(cause(new Error('x'.repeat(300))), 'x'.repeat(200));
 });
 
 test('no answer: at once for a dropped connection, never after a timeout', async () => {

@@ -1,6 +1,6 @@
 import type { ReviewerConfig } from '../config.js';
 import { post } from './http.js';
-import { endpointOf, variable } from './index.js';
+import { endpointOf, headerProblem, variable } from './index.js';
 import type { Env, Provider } from './index.js';
 
 export function openaiCompatible(config: ReviewerConfig, env: Env): Provider {
@@ -10,7 +10,7 @@ export function openaiCompatible(config: ReviewerConfig, env: Env): Provider {
     ready() {
       if (endpoint === null) return 'openai-compatible needs the address of its endpoint in LAWCHECK_REVIEWER_ENDPOINT';
       if ('problem' in endpoint) return endpoint.problem;
-      return null;
+      return headerProblem('LAWCHECK_REVIEWER_KEY', key);
     },
     async ask(prompt) {
       if (endpoint === null || 'problem' in endpoint) return { failure: 'LAWCHECK_REVIEWER_ENDPOINT holds no valid address', resend: false };

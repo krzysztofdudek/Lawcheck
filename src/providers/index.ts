@@ -19,6 +19,10 @@ export function variable(env: Env, name: string): string | null {
   return value === undefined || value === '' ? null : value;
 }
 
+export function headerProblem(name: string, value: string | null): string | null {
+  return value !== null && /[^!-~]/.test(value) ? `${name} holds a character an HTTP header cannot carry` : null;
+}
+
 export function endpointOf(env: Env): { url: string } | { problem: string } | null {
   const value = variable(env, 'LAWCHECK_REVIEWER_ENDPOINT');
   if (value === null) return null;

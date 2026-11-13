@@ -1,14 +1,14 @@
 import type { ReviewerConfig } from '../config.js';
 import { post } from './http.js';
-import { endpointOf, variable } from './index.js';
+import { endpointOf, headerProblem, variable } from './index.js';
 import type { Env, Provider } from './index.js';
 
 const OWN_ENDPOINT = 'https://api.anthropic.com/v1';
 
 export function anthropic(config: ReviewerConfig, env: Env): Provider {
   const endpoint = endpointOf(env);
-  const key =
-    endpoint === null ? (variable(env, 'ANTHROPIC_API_KEY') ?? variable(env, 'LAWCHECK_REVIEWER_KEY')) : variable(env, 'LAWCHECK_REVIEWER_KEY');
+  const keyName = endpoint === null && variable(env, 'ANTHROPIC_API_KEY') !== null ? 'ANTHROPIC_API_KEY' : 'LAWCHECK_REVIEWER_KEY';
+  const key = variable(env, keyName);
   return {
     ready() {
       if (endpoint !== null && 'problem' in endpoint) return endpoint.problem;
@@ -17,7 +17,7 @@ export function anthropic(config: ReviewerConfig, env: Env): Provider {
           ? 'anthropic needs a key in ANTHROPIC_API_KEY or LAWCHECK_REVIEWER_KEY'
           : 'with LAWCHECK_REVIEWER_ENDPOINT set, anthropic sends LAWCHECK_REVIEWER_KEY alone, and it is not set';
       }
-      return null;
+      return headerProblem(keyName, key);
     },
     async ask(prompt) {
       if ((endpoint !== null && 'problem' in endpoint) || key === null) return { failure: 'anthropic has no valid endpoint and key', resend: false };

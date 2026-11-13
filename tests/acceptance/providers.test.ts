@@ -519,3 +519,42 @@ test('test 67: claude-code past its timeout, and the tool killed', async () => {
     }, config(CLAUDE_CONFIG));
   }
 });
+
+test('test 92: a connection that gave no answer names its cause', async () => {
+  await withR(async (r) => {
+    write(r, F_PATH, F);
+    const result = await run(r, null, ['--review', '--base', 'main'], { LAWCHECK_REVIEWER_ENDPOINT: 'http://127.0.0.1:9/v1' });
+    const errors = result.stdout.split('\n').filter((line) => /(^|  )error\[[a-z0-9-]+\]  /.test(line));
+    assert.deepEqual(errors, ['src/core/refund.ts  error[reviewer-unreachable]  clear-errors: the connection to the reviewer gave no answer (bad port)']);
+    assert.doesNotMatch(result.stdout + result.stderr, /TypeError/);
+    assert.equal(result.code, 2);
+  });
+});
+
+test('test 93: a key an HTTP header cannot carry stops the run before any call', async () => {
+  const expectRefused = (result: { stdout: string; stderr: string; code: number | null }, line: string, secrets: string[]) => {
+    const errors = result.stdout.split('\n').filter((text) => /(^|  )error\[[a-z0-9-]+\]  /.test(text));
+    assert.deepEqual(errors, [line], result.stdout);
+    for (const secret of secrets) assert.ok(!(result.stdout + result.stderr).includes(secret), secret);
+    assert.equal(result.code, 2);
+  };
+  await withFake(async (fake) => {
+    await withR(async (r) => {
+      write(r, F_PATH, F);
+      const result = await run(r, fake, ['--review', '--base', 'main'], { LAWCHECK_REVIEWER_KEY: 'k1\nk2' });
+      expectRefused(result, 'error[reviewer-unreachable]  openai-compatible cannot be called: LAWCHECK_REVIEWER_KEY holds a character an HTTP header cannot carry', ['k1', 'k2']);
+      assert.equal(fake.requests.length, 0);
+    });
+  });
+  await withFake(async (fake) => {
+    await withR(
+      async (r) => {
+        write(r, F_PATH, F);
+        const result = await run(r, null, ['--review', '--base', 'main'], { ANTHROPIC_API_KEY: 'k3\tk4' });
+        expectRefused(result, 'error[reviewer-unreachable]  anthropic cannot be called: ANTHROPIC_API_KEY holds a character an HTTP header cannot carry', ['k3', 'k4']);
+        assert.equal(fake.requests.length, 0);
+      },
+      config('reviewer:\n  provider: anthropic\n  model: test-model\n'),
+    );
+  });
+});
