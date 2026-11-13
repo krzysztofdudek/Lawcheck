@@ -1,0 +1,1093 @@
+{
+  "schema": "lawcheck-stability/1",
+  "date": "2026-11-13",
+  "lawcheck": "0.1.0",
+  "verdict_format": "lawcheck-verdict/1",
+  "provider": "openai-compatible",
+  "model": "claude-sonnet-5-5",
+  "temperature_sent": 0,
+  "runs": 10,
+  "agreement": {
+    "all": {
+      "pairs": 24,
+      "agreeing": 24,
+      "share": 1
+    },
+    "clear": {
+      "pairs": 16,
+      "agreeing": 16,
+      "share": 1
+    },
+    "borderline": {
+      "pairs": 8,
+      "agreeing": 8,
+      "share": 1
+    }
+  },
+  "pairwise_agreement": {
+    "all": 1,
+    "clear": 1,
+    "borderline": 1
+  },
+  "label_match": {
+    "all": {
+      "verdicts": 240,
+      "matching": 240,
+      "share": 1
+    },
+    "clear": {
+      "verdicts": 160,
+      "matching": 160,
+      "share": 1
+    },
+    "borderline": {
+      "verdicts": 80,
+      "matching": 80,
+      "share": 1
+    }
+  },
+  "attempts": [
+    {
+      "run": 1,
+      "attempt": 1,
+      "exit": 1,
+      "calls_made": 24,
+      "errors": []
+    },
+    {
+      "run": 2,
+      "attempt": 1,
+      "exit": 1,
+      "calls_made": 24,
+      "errors": []
+    },
+    {
+      "run": 3,
+      "attempt": 1,
+      "exit": 1,
+      "calls_made": 24,
+      "errors": []
+    },
+    {
+      "run": 4,
+      "attempt": 1,
+      "exit": 1,
+      "calls_made": 24,
+      "errors": []
+    },
+    {
+      "run": 5,
+      "attempt": 1,
+      "exit": 1,
+      "calls_made": 24,
+      "errors": []
+    },
+    {
+      "run": 6,
+      "attempt": 1,
+      "exit": 1,
+      "calls_made": 24,
+      "errors": []
+    },
+    {
+      "run": 7,
+      "attempt": 1,
+      "exit": 1,
+      "calls_made": 24,
+      "errors": []
+    },
+    {
+      "run": 8,
+      "attempt": 1,
+      "exit": 1,
+      "calls_made": 24,
+      "errors": []
+    },
+    {
+      "run": 9,
+      "attempt": 1,
+      "exit": 1,
+      "calls_made": 24,
+      "errors": []
+    },
+    {
+      "run": 10,
+      "attempt": 1,
+      "exit": 1,
+      "calls_made": 24,
+      "errors": []
+    }
+  ],
+  "pairs": [
+    {
+      "file": "src/handlers/get-user.ts",
+      "rule": "handlers-are-thin",
+      "label": "pass",
+      "borderline": false,
+      "verdicts": [
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass"
+      ],
+      "messages": [
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        []
+      ]
+    },
+    {
+      "file": "src/handlers/create-order.ts",
+      "rule": "handlers-are-thin",
+      "label": "pass",
+      "borderline": false,
+      "verdicts": [
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass"
+      ],
+      "messages": [
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        []
+      ]
+    },
+    {
+      "file": "src/handlers/order-total.ts",
+      "rule": "handlers-are-thin",
+      "label": "fail",
+      "borderline": false,
+      "verdicts": [
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail"
+      ],
+      "messages": [
+        [
+          "The handler loops over the order's lines to compute the total, which is domain logic that belongs in a service."
+        ],
+        [
+          "The handler loops over the order's lines to compute the total, which is domain logic that belongs in a service."
+        ],
+        [
+          "The handler loops over the order's lines to compute the total, which is domain logic that belongs in a service function."
+        ],
+        [
+          "The handler loops over the order's lines to compute the total, which is domain logic that belongs in a service."
+        ],
+        [
+          "The handler loops over the order's lines to compute the total, which is domain logic that belongs in a service."
+        ],
+        [
+          "The handler loops over the order's lines to compute the total, which is domain logic that belongs in a service, rather than building the response from what one service call returned."
+        ],
+        [
+          "The handler loops over the order's lines to compute the total, which is domain logic that belongs in a service function."
+        ],
+        [
+          "The handler loops over the order's lines to compute the total, which is domain logic that belongs in a service function."
+        ],
+        [
+          "The handler loops over the order's lines to compute the total, which is domain logic that belongs in a service function."
+        ],
+        [
+          "The handler loops over the order's lines to compute the total, which is domain logic that belongs in a service."
+        ]
+      ]
+    },
+    {
+      "file": "src/handlers/delete-user.ts",
+      "rule": "handlers-are-thin",
+      "label": "fail",
+      "borderline": false,
+      "verdicts": [
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail"
+      ],
+      "messages": [
+        [
+          "The handler queries the database directly instead of calling a service function."
+        ],
+        [
+          "The handler talks to the database directly with db.query instead of calling one service function."
+        ],
+        [
+          "The handler queries the database directly instead of calling a service function."
+        ],
+        [
+          "The handler queries the database directly instead of calling a service function."
+        ],
+        [
+          "The handler talks to the database directly with db.query instead of calling one service function."
+        ],
+        [
+          "The handler queries the database directly instead of calling a service function."
+        ],
+        [
+          "The handler queries the database directly instead of calling a service function."
+        ],
+        [
+          "The handler queries the database directly instead of calling a service function."
+        ],
+        [
+          "The handler queries the database directly instead of calling a service function."
+        ],
+        [
+          "The handler talks to the database directly with db.query instead of calling a single service function."
+        ]
+      ]
+    },
+    {
+      "file": "src/handlers/list-users.ts",
+      "rule": "handlers-are-thin",
+      "label": "pass",
+      "borderline": true,
+      "verdicts": [
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass"
+      ],
+      "messages": [
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        []
+      ]
+    },
+    {
+      "file": "src/handlers/pay-invoice.ts",
+      "rule": "handlers-are-thin",
+      "label": "fail",
+      "borderline": true,
+      "verdicts": [
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail"
+      ],
+      "messages": [
+        [
+          "The handler decides a business condition (payments above 10000 need approval) instead of leaving that logic to the service."
+        ],
+        [
+          "The handler decides a business condition (payments above 10000 need approval) instead of leaving that logic to the service."
+        ],
+        [
+          "The handler decides a business condition (payments above 10000 need approval) instead of leaving that logic to the service."
+        ],
+        [
+          "The handler decides a business condition (payments above 10000 need approval) instead of leaving that decision to the service."
+        ],
+        [
+          "The handler decides a business condition (payments above 10000 need approval) instead of leaving that logic to the service."
+        ],
+        [
+          "The handler decides a business condition (payments above 10000 need approval) instead of leaving that logic to the service."
+        ],
+        [
+          "The handler decides a business condition (payments above 10000 need approval) instead of leaving that logic to the service."
+        ],
+        [
+          "The handler decides a business condition (payments above 10000 need approval) instead of leaving that logic to the service."
+        ],
+        [
+          "The handler decides a business condition (payments above 10000 need approval) instead of leaving that logic to the service."
+        ],
+        [
+          "The handler decides a business condition (payments above 10000 need approval) instead of leaving that logic to the service."
+        ]
+      ]
+    },
+    {
+      "file": "src/services/invoices.ts",
+      "rule": "clear-errors",
+      "label": "pass",
+      "borderline": false,
+      "verdicts": [
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass"
+      ],
+      "messages": [
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        []
+      ]
+    },
+    {
+      "file": "src/services/rates.ts",
+      "rule": "clear-errors",
+      "label": "pass",
+      "borderline": false,
+      "verdicts": [
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass"
+      ],
+      "messages": [
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        []
+      ]
+    },
+    {
+      "file": "src/services/orders.ts",
+      "rule": "clear-errors",
+      "label": "fail",
+      "borderline": false,
+      "verdicts": [
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail"
+      ],
+      "messages": [
+        [
+          "The thrown error 'failed' does not say what failed (the order could not be saved) and gives the caller no next step, such as retrying or checking the order."
+        ],
+        [
+          "The thrown error 'failed' does not say what failed (the order could not be saved) and gives the caller no next step such as retrying or checking the order."
+        ],
+        [
+          "The thrown error 'failed' does not say what happened (the order could not be saved) and gives the caller no next step such as retrying or checking the order."
+        ],
+        [
+          "The thrown error 'failed' does not say what happened (the order could not be saved) and gives the caller no next step such as retrying or checking the order data."
+        ],
+        [
+          "The thrown error 'failed' does not say what happened (the order could not be saved) and gives the caller no next step such as retrying or checking the order."
+        ],
+        [
+          "The thrown error 'failed' does not say what happened (the order could not be saved) and gives the caller no next step, such as retrying or checking the order."
+        ],
+        [
+          "Thrown error 'failed' does not say what failed (the order could not be saved) and gives the caller no next step such as retrying or checking the order."
+        ],
+        [
+          "Thrown error 'failed' does not say what failed (the order could not be saved) and gives the caller no next step such as retrying or checking the order data."
+        ],
+        [
+          "The thrown error 'failed' does not say what failed (the order could not be saved) and gives the caller no next step such as retrying or checking the order."
+        ],
+        [
+          "The thrown error 'failed' does not say what failed (the order could not be saved) and gives the caller no next step such as retrying or checking the order."
+        ]
+      ]
+    },
+    {
+      "file": "src/services/users.ts",
+      "rule": "clear-errors",
+      "label": "fail",
+      "borderline": false,
+      "verdicts": [
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail"
+      ],
+      "messages": [
+        [
+          "The returned error 'Invalid input' does not say what was wrong (the email lacks '@') and gives the caller no next step, such as providing a valid email address."
+        ],
+        [
+          "The returned error 'Invalid input' does not say what was wrong (the email lacks an '@') and gives the caller no next step, such as supplying a valid email address."
+        ],
+        [
+          "The returned error 'Invalid input' does not say what was wrong (the email lacks '@') and gives the caller no next step, such as providing a valid email address."
+        ],
+        [
+          "The returned error 'Invalid input' does not say what was wrong (the email lacks '@') and gives the caller no next step, such as providing a valid email address."
+        ],
+        [
+          "The returned error 'Invalid input' does not say what was wrong (the email lacks an '@') and gives the caller no next step, such as supplying a valid email address."
+        ],
+        [
+          "The returned error 'Invalid input' does not say what was wrong (the email lacks an '@') and gives the caller no next step, such as supplying a valid email address."
+        ],
+        [
+          "The returned error 'Invalid input' does not say what was wrong (the email lacks an '@') and gives the caller no next step, such as supplying a valid email address."
+        ],
+        [
+          "The returned error 'Invalid input' does not say what was wrong (the email lacks an '@') and gives the caller no next step, such as supplying a valid email address."
+        ],
+        [
+          "The returned error 'Invalid input' does not say what was wrong (the email lacks '@') and gives the caller no next step, such as providing a valid email address."
+        ],
+        [
+          "The returned error 'Invalid input' does not say what was wrong (the email lacks an '@') and gives no next step, such as providing a valid email address."
+        ]
+      ]
+    },
+    {
+      "file": "src/services/currency.ts",
+      "rule": "clear-errors",
+      "label": "pass",
+      "borderline": true,
+      "verdicts": [
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass"
+      ],
+      "messages": [
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        []
+      ]
+    },
+    {
+      "file": "src/services/payments.ts",
+      "rule": "clear-errors",
+      "label": "fail",
+      "borderline": true,
+      "verdicts": [
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail"
+      ],
+      "messages": [
+        [
+          "The thrown error says what happened (the gateway did not answer) but gives the caller no next step, such as retrying later or contacting support."
+        ],
+        [
+          "The thrown error says what happened (the gateway did not answer) but gives the caller no next step, such as retrying later or contacting support."
+        ],
+        [
+          "The thrown error says what happened (the gateway did not answer) but gives the caller no next step, such as retrying later or contacting support."
+        ],
+        [
+          "The thrown error says what happened (the gateway did not answer) but gives the caller no next step, such as retrying later or contacting support."
+        ],
+        [
+          "The thrown error says what happened (the gateway did not answer) but gives the caller no next step, such as retrying later or contacting support."
+        ],
+        [
+          "The thrown error says what happened (the gateway did not answer) but gives the caller no next step, such as retrying later or contacting support."
+        ],
+        [
+          "The thrown error says what happened (the gateway did not answer) but gives the caller no next step, such as retrying later or contacting support."
+        ],
+        [
+          "The thrown error says what happened (the gateway did not answer) but gives the caller no next step, such as retrying later or contacting support."
+        ],
+        [
+          "The thrown error says what happened (the gateway did not answer) but gives the caller no next step, such as retrying later or contacting support."
+        ],
+        [
+          "The thrown error says what happened (the gateway did not answer) but gives the caller no next step, such as retrying later or contacting support."
+        ]
+      ]
+    },
+    {
+      "file": "src/domain/price.ts",
+      "rule": "pure-domain",
+      "label": "pass",
+      "borderline": false,
+      "verdicts": [
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass"
+      ],
+      "messages": [
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        []
+      ]
+    },
+    {
+      "file": "src/domain/discount.ts",
+      "rule": "pure-domain",
+      "label": "pass",
+      "borderline": false,
+      "verdicts": [
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass"
+      ],
+      "messages": [
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        []
+      ]
+    },
+    {
+      "file": "src/domain/due-date.ts",
+      "rule": "pure-domain",
+      "label": "fail",
+      "borderline": false,
+      "verdicts": [
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail"
+      ],
+      "messages": [
+        [
+          "`new Date()` reads the current clock inside domain code instead of receiving the date as an argument."
+        ],
+        [
+          "`new Date()` reads the current time from the clock instead of receiving it as an argument, so the result is not determined by the arguments alone."
+        ],
+        [
+          "`new Date()` reads the current time from the clock instead of receiving it as an argument, so the result differs between calls with the same input."
+        ],
+        [
+          "`new Date()` reads the current clock inside domain code instead of receiving the date as an argument, so the result changes between calls."
+        ],
+        [
+          "`new Date()` reads the current clock inside domain code instead of receiving the date as an argument."
+        ],
+        [
+          "`new Date()` with no arguments reads the current clock inside domain code; the current time should be passed in as an argument."
+        ],
+        [
+          "`new Date()` reads the current clock inside domain code instead of receiving the current time as an argument."
+        ],
+        [
+          "`new Date()` reads the current time from the clock instead of receiving it as an argument, so the result differs for the same input."
+        ],
+        [
+          "`new Date()` reads the current time from the clock instead of taking it as an argument, so `dueDate` is not deterministic."
+        ],
+        [
+          "`new Date()` with no arguments reads the current clock, so the result depends on when it runs rather than on the function's arguments; the current time should be passed in as an argument."
+        ]
+      ]
+    },
+    {
+      "file": "src/domain/token.ts",
+      "rule": "pure-domain",
+      "label": "fail",
+      "borderline": false,
+      "verdicts": [
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail"
+      ],
+      "messages": [
+        [
+          "Calls Math.random() to read a random number inside domain code, so the same prefix gives different results; the random value should be passed in as an argument."
+        ],
+        [
+          "Calls Math.random() to read random numbers inside domain code, so the same prefix gives different results instead of computing from its arguments alone."
+        ],
+        [
+          "Calls Math.random() to read a random number inside domain code, so the same input does not always give the same result."
+        ],
+        [
+          "Calls Math.random() to read a random number inside domain code, so the same input does not give the same output."
+        ],
+        [
+          "Calls Math.random() to read a random number inside domain code instead of receiving it as an argument."
+        ],
+        [
+          "Calls Math.random() to read a random number inside domain code instead of receiving it as an argument, so the function is not deterministic."
+        ],
+        [
+          "Calls Math.random() to read a random number inside domain code, so the same input does not always give the same result."
+        ],
+        [
+          "Calls Math.random() to read random numbers inside domain code, so the same input does not always give the same output."
+        ],
+        [
+          "Calls Math.random() to read a random number inside domain code, so the same prefix gives a different result each time."
+        ],
+        [
+          "Calls Math.random() to read a random number inside domain code, so the same input does not give the same output; pass the randomness in as an argument."
+        ]
+      ]
+    },
+    {
+      "file": "src/domain/format-amount.ts",
+      "rule": "pure-domain",
+      "label": "pass",
+      "borderline": true,
+      "verdicts": [
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass"
+      ],
+      "messages": [
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        []
+      ]
+    },
+    {
+      "file": "src/domain/expiry.ts",
+      "rule": "pure-domain",
+      "label": "fail",
+      "borderline": true,
+      "verdicts": [
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail"
+      ],
+      "messages": [
+        [
+          "The default `now: Date = new Date()` reads the system clock whenever the caller omits `now`, so the result is no longer decided by the arguments alone."
+        ],
+        [
+          "The default value `now: Date = new Date()` reads the system clock when the caller omits `now`, so the result is not decided from the arguments alone."
+        ],
+        [
+          "The default `now: Date = new Date()` reads the system clock whenever the caller omits `now`, so the result is no longer determined by the arguments alone."
+        ],
+        [
+          "The default `now: Date = new Date()` reads the system clock when no argument is passed, so the result is not decided from the arguments alone."
+        ],
+        [
+          "The default value `new Date()` for `now` reads the system clock when the argument is omitted, so the function can give different answers for the same input."
+        ],
+        [
+          "The default value `now: Date = new Date()` reads the system clock whenever the caller omits `now`, so the result is not decided from the arguments alone."
+        ],
+        [
+          "The default parameter `now: Date = new Date()` reads the system clock whenever the caller omits `now`, so the result is no longer decided from the arguments alone."
+        ],
+        [
+          "The default parameter `now: Date = new Date()` reads the system clock when the caller omits `now`, so the function can return different answers for the same arguments."
+        ],
+        [
+          "The default parameter `now: Date = new Date()` reads the system clock whenever the caller omits `now`, so the result is no longer decided from the arguments alone."
+        ],
+        [
+          "The default value `new Date()` for `now` reads the system clock whenever the caller omits the argument, so the result is no longer decided from the arguments alone."
+        ]
+      ]
+    },
+    {
+      "file": "src/util/retry.ts",
+      "rule": "comments-say-why",
+      "label": "pass",
+      "borderline": false,
+      "verdicts": [
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass"
+      ],
+      "messages": [
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        []
+      ]
+    },
+    {
+      "file": "src/util/slug.ts",
+      "rule": "comments-say-why",
+      "label": "pass",
+      "borderline": false,
+      "verdicts": [
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass"
+      ],
+      "messages": [
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        []
+      ]
+    },
+    {
+      "file": "src/util/sum.ts",
+      "rule": "comments-say-why",
+      "label": "fail",
+      "borderline": false,
+      "verdicts": [
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail"
+      ],
+      "messages": [
+        [
+          "The comment \"add a and b\" only restates what the return statement below it does and gives no reason, constraint or trap."
+        ],
+        [
+          "The comment 'add a and b' only restates what the return statement below it does and gives no reason."
+        ],
+        [
+          "The comment \"add a and b\" only restates what the return statement below it does and gives no reason, constraint, or trap."
+        ],
+        [
+          "The comment \"add a and b\" only restates what the return statement below it does and gives no reason, constraint, or trap."
+        ],
+        [
+          "The comment \"add a and b\" only restates what the return statement below it does and gives no reason, constraint or trap."
+        ],
+        [
+          "The comment \"add a and b\" only restates what the return statement below it does and gives no reason, constraint, or trap."
+        ],
+        [
+          "The comment \"add a and b\" only restates what the return statement below it does and gives no reason, constraint, or trap."
+        ],
+        [
+          "The comment \"add a and b\" only restates what the return statement below it does and gives no reason, constraint, or trap."
+        ],
+        [
+          "The comment \"add a and b\" only restates what the return statement below it does and gives no reason, constraint, or trap."
+        ],
+        [
+          "The comment \"add a and b\" only restates what the return statement below it does and gives no reason, constraint, or trap."
+        ]
+      ]
+    },
+    {
+      "file": "src/util/parse.ts",
+      "rule": "comments-say-why",
+      "label": "fail",
+      "borderline": false,
+      "verdicts": [
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail"
+      ],
+      "messages": [
+        [
+          "Comment 'split the text into lines' only restates what the split call on the next line does.",
+          "Comment 'drop the empty ones' only restates the filter on the next line and gives no reason."
+        ],
+        [
+          "Comment 'split the text into lines' only restates what the split call on the next line does.",
+          "Comment 'drop the empty ones' only restates the filter on the next line and gives no reason."
+        ],
+        [
+          "Comment 'split the text into lines' only restates what the split call on the next line does.",
+          "Comment 'drop the empty ones' only restates the filter that follows and gives no reason for it."
+        ],
+        [
+          "Comment 'split the text into lines' only restates what the split call on the next line does.",
+          "Comment 'drop the empty ones' only restates the filter on the next line and gives no reason."
+        ],
+        [
+          "Comment 'split the text into lines' only restates what the split call on the next line does.",
+          "Comment 'drop the empty ones' only restates the filter on the following line without giving any reason."
+        ],
+        [
+          "Comment 'split the text into lines' only restates what the split('\\n') call below it does.",
+          "Comment 'drop the empty ones' only restates the filter on the next line and gives no reason."
+        ],
+        [
+          "Comment 'split the text into lines' only restates what the split('\\n') call below does.",
+          "Comment 'drop the empty ones' only restates the filter on the line below and gives no reason or constraint."
+        ],
+        [
+          "Comment 'split the text into lines' only restates what the split call below it does.",
+          "Comment 'drop the empty ones' only restates the filter on the line below it."
+        ],
+        [
+          "Comment 'split the text into lines' only restates what the split('\\n') call below it does.",
+          "Comment 'drop the empty ones' only restates the filter on the next line and gives no reason."
+        ],
+        [
+          "Comment 'split the text into lines' only restates what the split call below it does.",
+          "Comment 'drop the empty ones' only restates the filter on the next line and gives no reason."
+        ]
+      ]
+    },
+    {
+      "file": "src/util/timeout.ts",
+      "rule": "comments-say-why",
+      "label": "pass",
+      "borderline": true,
+      "verdicts": [
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass"
+      ],
+      "messages": [
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        []
+      ]
+    },
+    {
+      "file": "src/util/cache.ts",
+      "rule": "comments-say-why",
+      "label": "fail",
+      "borderline": true,
+      "verdicts": [
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail"
+      ],
+      "messages": [
+        [
+          "The comment only restates what the next line does (clear the cache when size reaches the max) and gives no reason, constraint, or trap."
+        ],
+        [
+          "The comment only restates what the next line does (clear the cache when size reaches the max) and gives no reason, constraint, or trap."
+        ],
+        [
+          "The comment only restates what the next line does (clears the cache when it is full) and gives no reason, constraint, or trap behind it."
+        ],
+        [
+          "The comment only restates what the next line does (clears the cache when it reaches MAX_ENTRIES) and gives no reason, constraint, or trap."
+        ],
+        [
+          "The comment only restates what the next line does (clears the cache when it is full) and gives no reason, such as why the whole cache is cleared or why the limit is 1000."
+        ],
+        [
+          "The comment only restates what the next line does (clearing the cache when it reaches the maximum size) and gives no reason, such as why clearing everything is acceptable or where the limit comes from."
+        ],
+        [
+          "The comment only restates what the next line does (clears the cache when it reaches the maximum size) and gives no reason, constraint or trap."
+        ],
+        [
+          "The comment only restates what the next line does (clears the cache when it reaches MAX_ENTRIES) and gives no reason, constraint, or trap."
+        ],
+        [
+          "The comment only restates what the next line does (clears the cache when it reaches the maximum size) and gives no reason, constraint or trap."
+        ],
+        [
+          "The comment only restates that the cache is cleared when it is full, which the code on line 6 already shows, and gives no reason such as why clearing is chosen or where the limit comes from."
+        ]
+      ]
+    }
+  ]
+}
