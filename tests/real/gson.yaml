@@ -1,0 +1,38 @@
+lawcheck: 0.1.0
+
+types:
+  library:
+    about: The code of the gson artifact.
+    paths: ["gson/src/main/java/com/google/gson/**/*.java"]
+    may_use: [library]
+    types:
+      api:
+        about: The public classes users call.
+        paths: ["gson/src/main/java/com/google/gson/*.java"]
+        types:
+          tree:
+            about: The tree of JSON values, which knows nothing of binding.
+            paths: ["gson/src/main/java/com/google/gson/Json{Element,Array,Object,Primitive,Null}.java"]
+            may_use: [tree, stream, internal]
+      annotations:
+        about: Annotations users put on their own classes.
+        paths: ["gson/src/main/java/com/google/gson/annotations/**"]
+        may_use: [annotations]
+      stream:
+        about: The streaming reader and writer, usable without the rest of gson.
+        paths: ["gson/src/main/java/com/google/gson/stream/**"]
+        may_use: [stream]
+      reflect:
+        about: Type tokens.
+        paths: ["gson/src/main/java/com/google/gson/reflect/**"]
+        may_use: [reflect, internal]
+      internal:
+        about: Implementation details behind the public classes.
+        paths: ["gson/src/main/java/com/google/gson/internal/**"]
+  extensions:
+    about: Separate artifacts built on the public classes only.
+    paths: ["extras/src/main/java/**/*.java", "proto/src/main/java/**/*.java", "metrics/src/main/java/**/*.java"]
+    may_use: [extensions, api, annotations, reflect, stream]
+  tests:
+    about: Tests of every artifact.
+    paths: ["*/src/test/java/**/*.java"]

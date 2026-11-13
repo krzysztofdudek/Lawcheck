@@ -1,0 +1,20 @@
+gson/src/main/java/com/google/gson/Gson.java:24  warning[forbidden-use]  api may not use gson/src/main/java-templates/com/google/gson/internal/GsonBuildConfig.java, which has no type; it takes may_use [library] from library
+gson/src/main/java/com/google/gson/JsonElement.java:427  warning[forbidden-use]  tree may not use api (gson/src/main/java/com/google/gson/Strictness.java); its may_use is [tree, stream, internal]
+gson/src/main/java/com/google/gson/annotations/JsonAdapter.java:19  warning[forbidden-use]  annotations may not use api (gson/src/main/java/com/google/gson/Gson.java); its may_use is [annotations]
+gson/src/main/java/com/google/gson/annotations/JsonAdapter.java:20  warning[forbidden-use]  annotations may not use api (gson/src/main/java/com/google/gson/GsonBuilder.java); its may_use is [annotations]
+gson/src/main/java/com/google/gson/annotations/JsonAdapter.java:21  warning[forbidden-use]  annotations may not use api (gson/src/main/java/com/google/gson/InstanceCreator.java); its may_use is [annotations]
+gson/src/main/java/com/google/gson/annotations/JsonAdapter.java:22  warning[forbidden-use]  annotations may not use api (gson/src/main/java/com/google/gson/JsonDeserializer.java); its may_use is [annotations]
+gson/src/main/java/com/google/gson/annotations/JsonAdapter.java:23  warning[forbidden-use]  annotations may not use api (gson/src/main/java/com/google/gson/JsonSerializer.java); its may_use is [annotations]
+gson/src/main/java/com/google/gson/annotations/JsonAdapter.java:24  warning[forbidden-use]  annotations may not use api (gson/src/main/java/com/google/gson/TypeAdapter.java); its may_use is [annotations]
+gson/src/main/java/com/google/gson/annotations/JsonAdapter.java:25  warning[forbidden-use]  annotations may not use api (gson/src/main/java/com/google/gson/TypeAdapterFactory.java); its may_use is [annotations]
+gson/src/main/java/com/google/gson/annotations/Since.java:19  warning[forbidden-use]  annotations may not use api (gson/src/main/java/com/google/gson/GsonBuilder.java); its may_use is [annotations]
+gson/src/main/java/com/google/gson/annotations/Until.java:19  warning[forbidden-use]  annotations may not use api (gson/src/main/java/com/google/gson/GsonBuilder.java); its may_use is [annotations]
+gson/src/main/java/com/google/gson/internal/reflect/ReflectionHelper.java:20  warning[forbidden-use]  internal may not use gson/src/main/java-templates/com/google/gson/internal/GsonBuildConfig.java, which has no type; it takes may_use [library] from library
+gson/src/main/java/com/google/gson/stream/JsonReader.java:20  warning[forbidden-use]  stream may not use api (gson/src/main/java/com/google/gson/Strictness.java); its may_use is [stream]
+gson/src/main/java/com/google/gson/stream/JsonReader.java:21  warning[forbidden-use]  stream may not use internal (gson/src/main/java/com/google/gson/internal/JsonReaderInternalAccess.java); its may_use is [stream]
+gson/src/main/java/com/google/gson/stream/JsonReader.java:22  warning[forbidden-use]  stream may not use internal (gson/src/main/java/com/google/gson/internal/TroubleshootingGuide.java); its may_use is [stream]
+gson/src/main/java/com/google/gson/stream/JsonReader.java:23  warning[forbidden-use]  stream may not use internal (gson/src/main/java/com/google/gson/internal/bind/JsonTreeReader.java); its may_use is [stream]
+gson/src/main/java/com/google/gson/stream/JsonWriter.java:28  warning[forbidden-use]  stream may not use api (gson/src/main/java/com/google/gson/FormattingStyle.java); its may_use is [stream]
+gson/src/main/java/com/google/gson/stream/JsonWriter.java:29  warning[forbidden-use]  stream may not use api (gson/src/main/java/com/google/gson/Strictness.java); its may_use is [stream]
+gson/src/main/java/com/google/gson/stream/MalformedJsonException.java:19  warning[forbidden-use]  stream may not use api (gson/src/main/java/com/google/gson/Strictness.java); its may_use is [stream]
+unresolved: 2567 (0 ambiguous)

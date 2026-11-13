@@ -1,0 +1,46 @@
+lawcheck: 0.1.0
+
+types:
+  tests:
+    about: Tests beside the code they test.
+    paths: ["src/**/*.test.{ts,tsx}"]
+  source:
+    about: The code of the hono package.
+    paths: ["src/**", "!src/**/*.test.{ts,tsx}"]
+    types:
+      core:
+        about: The application, the context, the request and the types every part shares.
+        paths: ["src/*.ts", "src/request/**"]
+        may_use: [core, utils, router]
+      utils:
+        about: Small functions that know nothing of the framework.
+        paths: ["src/utils/**"]
+        may_use: [utils]
+      router:
+        about: Routers behind one interface.
+        paths: ["src/router/**"]
+        may_use: [router, core, utils]
+      middleware:
+        about: Middleware, each on the public core and helpers.
+        paths: ["src/middleware/**"]
+        may_use: [middleware, core, utils, helper]
+      helper:
+        paths: ["src/helper/**"]
+      adapter:
+        paths: ["src/adapter/**"]
+      jsx:
+        paths: ["src/jsx/**"]
+      client:
+        paths: ["src/client/**"]
+      validator:
+        paths: ["src/validator/**"]
+      preset:
+        paths: ["src/preset/**"]
+  vercel:
+    about: The Vercel adapter package, built on the hono package of this workspace.
+    paths: ["adapters/vercel/src/**"]
+    may_use: [vercel, source]
+  measures:
+    about: Type-check measurements of the client.
+    paths: ["perf-measures/type-check/*.ts"]
+    may_use: [measures]

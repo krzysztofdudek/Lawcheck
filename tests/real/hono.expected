@@ -1,0 +1,21 @@
+.lawcheck/law.yaml:23  warning[uses-not-read]  1 file of type middleware is not read for uses: 1 .json
+perf-measures/type-check/client.ts:1  warning[forbidden-use]  measures may not use client (src/client/index.ts); its may_use is [measures]
+src/hono-base.ts:10  warning[forbidden-use]  core may not use helper (src/helper/route/index.ts); its may_use is [core, utils, router]
+src/index.ts:48  warning[forbidden-use]  core may not use client (src/client/index.ts); its may_use is [core, utils, router]
+src/middleware/combine/index.ts:9  warning[forbidden-use]  middleware may not use router (src/router/trie-router/index.ts); its may_use is [middleware, core, utils, helper]
+src/middleware/jsx-renderer/index.ts:9  warning[forbidden-use]  middleware may not use jsx (src/jsx/index.ts); its may_use is [middleware, core, utils, helper]
+src/middleware/jsx-renderer/index.ts:10  warning[forbidden-use]  middleware may not use jsx (src/jsx/index.ts); its may_use is [middleware, core, utils, helper]
+src/middleware/jsx-renderer/index.ts:11  warning[forbidden-use]  middleware may not use jsx (src/jsx/streaming.ts); its may_use is [middleware, core, utils, helper]
+src/middleware/method-not-allowed/index.ts:10  warning[forbidden-use]  middleware may not use router (src/router/trie-router/index.ts); its may_use is [middleware, core, utils, helper]
+src/utils/body.ts:6  warning[forbidden-use]  utils may not use core (src/request.ts); its may_use is [utils]
+src/utils/ipaddr.ts:6  warning[forbidden-use]  utils may not use helper (src/helper/conninfo/index.ts); its may_use is [utils]
+src/utils/jwt/jws.ts:7  warning[forbidden-use]  utils may not use helper (src/helper/adapter/index.ts); its may_use is [utils]
+src/utils/mount.ts:1  warning[forbidden-use]  utils may not use core (src/context.ts); its may_use is [utils]
+src/utils/mount.ts:2  warning[forbidden-use]  utils may not use core (src/http-exception.ts); its may_use is [utils]
+src/utils/mount.ts:3  warning[forbidden-use]  utils may not use core (src/request/constants.ts); its may_use is [utils]
+unresolved: 5 (0 ambiguous)
+adapters/vercel/src/conninfo.test.ts:1  none  hono
+adapters/vercel/src/conninfo.ts:1  none  hono/conninfo
+adapters/vercel/src/handler.test.ts:1  none  hono
+adapters/vercel/src/handler.ts:2  none  hono
+perf-measures/type-check/client.ts:2  none  ./generated/app
