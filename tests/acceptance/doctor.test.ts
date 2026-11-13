@@ -83,6 +83,8 @@ test('test 133: a change of the law, in doctor and in check', async () => {
     assert.equal(checked.code, 0);
     const json = await lawcheck(s, ['check', '--base', 'main', '--json']);
     assert.deepEqual(JSON.parse(json.stdout).scope, { mode: 'change', base: 'main', files: 1, law_changed: true });
+    const fullJson = await lawcheck(s, ['check', '--full', '--base', 'main', '--json']);
+    assert.deepEqual(JSON.parse(fullJson.stdout).scope, { mode: 'full', base: 'main', files: 1, law_changed: true });
     const full = await lawcheck(s, ['check', '--full', '--base', 'main']);
     assert.ok(!full.stdout.includes('note:'));
     assert.equal(full.code, 0);
