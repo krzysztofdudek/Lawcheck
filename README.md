@@ -11,7 +11,7 @@ claude plugin marketplace add krzysztofdudek/Lawcheck
 claude plugin install lawcheck@lawcheck-marketplace
 ```
 
-The hooks run Lawcheck and the repository's rule scripts after edits and before the agent finishes, so use the plugin where you would run the repository's tests. Both checks can be switched off in `/config`.
+The hooks run Lawcheck and the repository's rule scripts after edits and before the agent finishes, so use the plugin where you would run the repository's tests. Both checks can be switched off with `/plugin configure lawcheck@lawcheck-marketplace`.
 
 With any other agent, paste this sentence into its instructions file:
 
