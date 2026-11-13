@@ -124,6 +124,7 @@ test('test 41: JSON', async () => {
       waivers: [
         { file: 'src/core/discount.ts', line: 4, rule: 'no-console', debt: false, waived: 1, reason: 'the pricing team reads this warning until 2.0' },
       ],
+      reviews: { missing: 0, calls_made: 0, passes_recorded: 0 },
       next: { command: null, text: 'fix src/core/discount.ts:2' },
     };
     assert.deepEqual(JSON.parse(run.stdout), expected);
@@ -139,6 +140,7 @@ test('test 41: JSON', async () => {
     assert.equal(document.result, 'pass');
     assert.deepEqual(document.findings, []);
     assert.equal(document.next, null);
+    assert.deepEqual(document.reviews, { missing: 0, calls_made: 0, passes_recorded: 0 });
     assert.equal(run.code, 0);
   });
 });
@@ -191,7 +193,7 @@ test('test 44: version and help', async () => {
     assert.equal(version.code, 0);
     for (const args of [['--help'], ['check', '--help']]) {
       const run = await lawcheck(dir, args);
-      assert.equal(run.stdout.split('\n')[0], 'usage: lawcheck check [--full] [--base <ref>] [--json]');
+      assert.equal(run.stdout.split('\n')[0], 'usage: lawcheck check [--full] [--base <ref>] [--review [--again] [--max-calls <n>]] [--json]');
       assert.equal(run.code, 0);
     }
   });

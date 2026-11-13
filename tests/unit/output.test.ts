@@ -43,3 +43,21 @@ test('exit 2 prints a lawcheck-error/1 document with null places', () => {
   assert.deepEqual(Object.keys(document.errors[0]), ['code', 'file', 'line', 'message', 'why']);
   assert.equal(document.next.command, null);
 });
+
+test('the reviewer calls end the first line, in both forms, and reviews stand before next in JSON', () => {
+  const reviews = { missing: 0, calls_made: 1, passes_recorded: 1 };
+  assert.equal(renderReport({ mode: 'change', base: 'main', changed: 1, findings: [], debt: [], waivers: [], reviews, next: null }, false), 'lawcheck: PASS  1 changed file (against main), 1 reviewer call\n');
+  assert.equal(
+    renderReport({ mode: 'full', base: 'main', changed: 0, findings: [], debt: [], waivers: [], reviews: { ...reviews, calls_made: 2 }, next: null }, false),
+    'lawcheck: PASS  nothing changed against main, 2 reviewer calls\n\ndebt (outside this change): none\n',
+  );
+  const document = JSON.parse(renderReport({ mode: 'change', base: 'main', changed: 1, findings: [finding('a.ts', 1)], debt: [], waivers: [], reviews, next: { command: 'c', text: 'c  (1 reviewer call)' } }, true));
+  assert.deepEqual(Object.keys(document), ['schema', 'result', 'scope', 'summary', 'findings', 'waivers', 'reviews', 'next']);
+  assert.deepEqual(document.next, { command: 'c', text: 'c  (1 reviewer call)' });
+});
+
+test('an error may carry its own next', () => {
+  const text = renderErrors([{ code: 'too-many-reviews', file: null, line: null, message: 'm', next: 'ask first' }], false);
+  assert.ok(text.endsWith('\nnext: ask first\n'));
+  assert.ok(text.includes('  why:  reviewer.max_calls bounds what one run spends\n'));
+});

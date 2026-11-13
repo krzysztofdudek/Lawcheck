@@ -1,0 +1,3 @@
+reviewer:
+  provider: openai-compatible
+  model: test-model

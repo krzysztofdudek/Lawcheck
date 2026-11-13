@@ -82,3 +82,22 @@ test('a key that YAML reads as no string is law-invalid', () => {
 test('the code untyped-file is no rule id', () => {
   assert.match(problems('lawcheck: 0.1.0\nrules:\n  untyped-file:\n    why: x\n')[0]!.message, /code of Lawcheck/);
 });
+
+test('context is a sequence of paths, each with its line', () => {
+  const { law } = parseLaw('lawcheck: 0.1.0\nrules:\n  a:\n    why: x\n    context:\n      - docs/one.md\n      - "docs/two.md"\n');
+  assert.deepEqual(law!.rules.get('a')!.context, [{ path: 'docs/one.md', line: 6 }, { path: 'docs/two.md', line: 7 }]);
+  assert.equal(law!.rules.get('a')!.contextLine, 5);
+  assert.equal(parseLaw('lawcheck: 0.1.0\nrules:\n  a:\n    why: x\n').law!.rules.get('a')!.context, null);
+  for (const value of ['"docs/a.md"', '[1]', '[docs/a.md, 2]', '', '{ a: b }']) {
+    const found = problems(`lawcheck: 0.1.0\nrules:\n  a:\n    why: x\n    context: ${value}\n`);
+    assert.equal(found.length, 1, value);
+    assert.equal(found[0]!.line, 5, value);
+    assert.match(found[0]!.message, /'context' of rule 'a' takes a sequence of paths/, value);
+  }
+});
+
+test('the codes of the reviewer slice are no rule ids', () => {
+  for (const id of ['not-reviewed', 'too-large-to-review', 'config-invalid', 'reviewer-not-configured', 'too-many-reviews', 'reviewer-unreachable', 'reviewer-bad-answer']) {
+    assert.match(problems(`lawcheck: 0.1.0\nrules:\n  ${id}:\n    why: x\n`)[0]!.message, /code of Lawcheck/, id);
+  }
+});

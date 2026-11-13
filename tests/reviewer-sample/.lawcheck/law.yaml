@@ -1,0 +1,30 @@
+lawcheck: 0.1.0
+
+rules:
+  no-console:
+    why: Only the command layer writes to the terminal.
+  no-todo:
+    why: A TODO without an issue number gets forgotten.
+    status: advisory
+  clear-errors:
+    why: An error a caller sees says what happened and what to do next.
+    context: ["docs/errors.md"]
+
+types:
+  source:
+    about: Everything that ships.
+    paths: ["src/**/*.ts", "!src/**/*.d.ts"]
+    rules: [no-todo]
+    types:
+      library:
+        about: Code the commands call.
+        paths: ["src/core/**"]
+        rules: [no-console, clear-errors]
+      command:
+        about: The command layer.
+        paths: ["src/cli/**"]
+  script:
+    about: Executable helpers.
+    paths: ["tools/**/*.{mjs,js}"]
+    content: "^#!"
+    rules: [no-todo]

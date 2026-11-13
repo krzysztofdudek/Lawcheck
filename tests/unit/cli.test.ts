@@ -19,9 +19,12 @@ test('a command that throws ends in exit 2 with internal', async () => {
 });
 
 test('arguments', () => {
-  assert.deepEqual(parseArguments(['check']), { options: { full: false, base: null } });
-  assert.deepEqual(parseArguments(['check', '--json', '--base', 'main', '--full']), { options: { full: true, base: 'main' } });
-  for (const argv of [[], ['fix'], ['check', 'src'], ['check', '--base'], ['check', '--base', '-x'], ['check', '--base=main'], ['check', '--full', '--full'], ['check', '--json', '--json'], ['check', '--base', 'a', '--base', 'b'], ['check', '--strict'], ['check', '--staged'], ['check', '--no-scripts']]) {
+  const plain = { full: false, base: null, review: false, again: false, maxCalls: null };
+  assert.deepEqual(parseArguments(['check']), { options: plain });
+  assert.deepEqual(parseArguments(['check', '--json', '--base', 'main', '--full']), { options: { ...plain, full: true, base: 'main' } });
+  assert.deepEqual(parseArguments(['check', '--max-calls', '0', '--again', '--review']), { options: { ...plain, review: true, again: true, maxCalls: 0 } });
+  assert.deepEqual(parseArguments(['check', '--review', '--max-calls', '007']), { options: { ...plain, review: true, maxCalls: 7 } });
+  for (const argv of [[], ['fix'], ['check', 'src'], ['check', '--base'], ['check', '--base', '-x'], ['check', '--base=main'], ['check', '--full', '--full'], ['check', '--json', '--json'], ['check', '--base', 'a', '--base', 'b'], ['check', '--strict'], ['check', '--staged'], ['check', '--no-scripts'], ['check', '--dry-run'], ['check', '--review', '--max-calls', '1.5'], ['check', '--review', '--max-calls', ''], ['check', '--max-calls', '1']]) {
     assert.ok('problem' in parseArguments(argv), argv.join(' '));
   }
 });
@@ -31,6 +34,6 @@ test('version and help exit 0', async () => {
   for (const argv of [['--help'], ['check', '--help']]) {
     const result = await main(argv, context);
     assert.equal(result.code, 0);
-    assert.equal(result.stdout.split('\n')[0], 'usage: lawcheck check [--full] [--base <ref>] [--json]');
+    assert.equal(result.stdout.split('\n')[0], 'usage: lawcheck check [--full] [--base <ref>] [--review [--again] [--max-calls <n>]] [--json]');
   }
 });
