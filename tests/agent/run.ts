@@ -203,13 +203,43 @@ function points(text: string, max: number): string {
   return [...text].slice(0, max).join('');
 }
 
-interface Transcript {
+const CALLS_LAWCHECK = /(?:^|[;&|(`\n{]|\$\()\s*(?:(?:[A-Za-z_][A-Za-z0-9_]*=\S*|command|exec|env|time|nohup)\s+)*(?:\S*\/)?lawcheck(?=$|[\s;&|)`}])/;
+
+export function runsLawcheck(command: string): boolean {
+  return CALLS_LAWCHECK.test(command);
+}
+
+export function errorOf(arm: string, transcript: Transcript, lines: LogLine[], files: Record<string, string | null>, timedOut: boolean): string | null {
+  const plugins: any[] = transcript.init?.plugins ?? [];
+  const servers: any[] = transcript.init?.mcp_servers ?? [];
+  if (timedOut) return 'the 15 minutes';
+  if (transcript.init === null || !plugins.some((p) => p?.name === 'lawcheck') || servers.length > 0) return 'an init event that lists no plugin named lawcheck, or an MCP server';
+  if (transcript.result === null || transcript.result.is_error === true) return 'a result event that is missing or has is_error true';
+  if (lines.some((line) => line.caller !== 'agent' && !ARM_EVENTS[arm]!.includes(line.caller))) return "a log line whose caller is not agent and not one of the arm's events";
+  if (transcript.bashCommands.some(runsLawcheck) && !lines.some((line) => line.caller === 'agent')) return 'a Bash call that runs lawcheck while the log holds no agent line';
+  if (Object.values(files).some((text) => text !== null && [...text].length > LARGEST_FILE)) return 'a final file of more than 50,000 characters';
+  return null;
+}
+
+export function settleFolder(folder: string, error: string | null, keep: boolean): string | null {
+  if (keep) return folder;
+  if (error === null) {
+    rmSync(folder, { recursive: true, force: true });
+    return null;
+  }
+  for (const entry of readdirSync(folder)) {
+    if (entry !== 'transcript.jsonl' && entry !== 'log.jsonl') rmSync(join(folder, entry), { recursive: true, force: true });
+  }
+  return folder;
+}
+
+export interface Transcript {
   init: any | null;
   result: any | null;
   bashCommands: string[];
 }
 
-function readTranscript(text: string): Transcript {
+export function readTranscript(text: string): Transcript {
   const out: Transcript = { init: null, result: null, bashCommands: [] };
   for (const line of text.split('\n')) {
     if (line.trim() === '') continue;
@@ -281,6 +311,7 @@ function replacePaths(text: string, paths: string[]): string {
 async function oneRun(arm: string, number: number, options: Options, pathDirs: string[]): Promise<{ entry: RunEntry; model: string | null }> {
   const begin = Date.now();
   const folder = mkdtempSync(join(tmpdir(), 'lawcheck-trial-'));
+  let error: string | null = null;
   try {
     const work = makeRepository(folder);
     const bin = join(folder, 'bin');
@@ -305,15 +336,7 @@ async function oneRun(arm: string, number: number, options: Options, pathDirs: s
     if (process.env.HOME) removeSessionState(process.env.HOME, transcript.init?.session_id);
     const lines = readLog(log);
     const files = filesOf(work);
-    const plugins: any[] = transcript.init?.plugins ?? [];
-    const servers: any[] = transcript.init?.mcp_servers ?? [];
-    let error: string | null = null;
-    if (timedOut) error = 'the 15 minutes';
-    else if (transcript.init === null || !plugins.some((p) => p?.name === 'lawcheck') || servers.length > 0) error = 'an init event that lists no plugin named lawcheck, or an MCP server';
-    else if (transcript.result === null || transcript.result.is_error === true) error = 'a result event that is missing or has is_error true';
-    else if (lines.some((line) => line.caller !== 'agent' && !ARM_EVENTS[arm]!.includes(line.caller))) error = "a log line whose caller is not agent and not one of the arm's events";
-    else if (transcript.bashCommands.some((command) => command.includes('lawcheck')) && !lines.some((line) => line.caller === 'agent')) error = 'a Bash call that holds lawcheck while the log holds no agent line';
-    else if (Object.values(files).some((text) => text !== null && [...text].length > LARGEST_FILE)) error = 'a final file of more than 50,000 characters';
+    error = errorOf(arm, transcript, lines, files, timedOut);
     const breach = breachOf(lines, arm);
     const counts = error === null && breach;
     const checks = counts ? checksIn(work) : null;
@@ -338,8 +361,8 @@ async function oneRun(arm: string, number: number, options: Options, pathDirs: s
     };
     return { entry, model: typeof transcript.init?.model === 'string' ? transcript.init.model : null };
   } finally {
-    if (!options.keep) rmSync(folder, { recursive: true, force: true });
-    else process.stdout.write(`kept ${folder}\n`);
+    const kept = settleFolder(folder, error, options.keep);
+    if (kept !== null) process.stdout.write(`kept ${kept}\n`);
   }
 }
 

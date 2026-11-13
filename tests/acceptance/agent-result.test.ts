@@ -1,9 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { ARM_EVENTS, breachOf, checksIn, isFixed, makeRepository, removeSessionState, ROOT } from '../agent/run.ts';
+import { ARM_EVENTS, breachOf, checksIn, errorOf, isFixed, makeRepository, readTranscript, removeSessionState, ROOT, runsLawcheck, settleFolder } from '../agent/run.ts';
 import type { RunEntry } from '../agent/run.ts';
 import { inTemp } from './helpers.ts';
 
@@ -29,6 +29,50 @@ test('section 10: a run removes the state file its session left in the plugin da
     removeSessionState(home, 'run-1');
     assert.equal(existsSync(join(sessions, 'run-1.json')), false);
     assert.equal(existsSync(join(sessions, 'other.json')), true);
+  });
+});
+
+const SAMPLES = join(ROOT, 'tests', 'agent', 'samples');
+const sample = (name: string) => readTranscript(readFileSync(join(SAMPLES, name), 'utf8'));
+const hookLines = [
+  { caller: 'edit', args: ['check', './src/core/discount.js'], exit: 1, errors: [LINE] },
+  { caller: 'edit', args: ['check', './src/core/discount.js'], exit: 0, errors: [] },
+];
+
+test('section 10, step 4: only a Bash call that runs lawcheck needs a call of the agent in the log', () => {
+  for (const command of ['lawcheck check ./x.js', 'cd work && lawcheck check x', 'lawcheck check x 2>&1 | tail -5', 'node -e 1; lawcheck prime', 'FOO=1 lawcheck check x', './bin/lawcheck check', '$(lawcheck prime)', 'echo ok || lawcheck']) {
+    assert.equal(runsLawcheck(command), true, command);
+  }
+  for (const command of ['cat .lawcheck/law.yaml', 'ls .lawcheck', 'ls -la .lawcheck/rules && cat .lawcheck/rules/coded-errors.mjs', 'grep -r lawcheck src', 'echo lawcheck', 'cat lawcheck.md', 'git diff -- .lawcheck', 'node lawcheck-hook.mjs']) {
+    assert.equal(runsLawcheck(command), false, command);
+  }
+  const reads = sample('reads-the-law.jsonl');
+  assert.equal(reads.bashCommands.length, 4);
+  assert.equal(errorOf('edit', reads, hookLines, {}, false), null);
+  const runs = sample('runs-lawcheck.jsonl');
+  assert.equal(errorOf('edit', runs, hookLines, {}, false), 'a Bash call that runs lawcheck while the log holds no agent line');
+  const withAgent = [...hookLines, { caller: 'agent', args: ['check', 'src/core/discount.js'], exit: 0, errors: [] }];
+  assert.equal(errorOf('edit', runs, withAgent, {}, false), null);
+});
+
+test('section 10, step 8: a run that is an error keeps its transcript and log, and nothing else', async () => {
+  await inTemp((dir) => {
+    const make = (name: string) => {
+      const folder = join(dir, name);
+      mkdirSync(join(folder, 'work', 'src'), { recursive: true });
+      mkdirSync(join(folder, 'origin.git'));
+      for (const file of ['transcript.jsonl', 'log.jsonl']) writeFileSync(join(folder, file), '{}\n');
+      return folder;
+    };
+    const failed = make('failed');
+    assert.equal(settleFolder(failed, 'the 15 minutes', false), failed);
+    assert.deepEqual(readdirSync(failed).sort(), ['log.jsonl', 'transcript.jsonl']);
+    const counted = make('counted');
+    assert.equal(settleFolder(counted, null, false), null);
+    assert.equal(existsSync(counted), false);
+    const kept = make('kept');
+    assert.equal(settleFolder(kept, null, true), kept);
+    assert.deepEqual(readdirSync(kept).sort(), ['log.jsonl', 'origin.git', 'transcript.jsonl', 'work']);
   });
 });
 
