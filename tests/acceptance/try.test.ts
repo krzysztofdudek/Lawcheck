@@ -151,13 +151,16 @@ test('test 122: usage', async () => {
       assert.match(result.stdout, /^error\[usage\]/m, args.join(' '));
       assert.equal(result.code, 2, args.join(' '));
       if (args[0] === 'no-consol') assert.match(result.stdout, /'no-console'/);
+      if (args[1] === 'nope.ts') assert.match(result.stdout, /git ignores it or it does not exist/);
+      if (args[1] === 'src/**/*.zzz') assert.match(result.stdout, /matches no file/);
     }
     write(s, '.gitignore', 'src/core/gen.ts\n');
     write(s, 'src/core/gen.ts', 'console.log(1);\n');
     write(s, 'src/core/blob.ts', Buffer.from([0x78, 0x00]));
-    for (const args of [['no-console', 'src/core/gen.ts'], ['no-console', 'src/core/blob.ts']]) {
-      const result = await tryIn(s, args);
+    for (const [args, why] of [[['no-console', 'src/core/gen.ts'], /git ignores it or it does not exist/], [['no-console', 'src/core/blob.ts'], /it is binary/]] as const) {
+      const result = await tryIn(s, [...args]);
       assert.match(result.stdout, /^error\[usage\]/m, args.join(' '));
+      assert.match(result.stdout, why, args.join(' '));
       assert.equal(result.code, 2, args.join(' '));
     }
   });
@@ -213,6 +216,11 @@ test('test 124: a pass that try paid for is not recorded', async () => {
       const checked = await lawcheck(r, ['check', '--base', 'main']);
       assert.match(checked.stdout, /^src\/core\/refund\.ts {2}error\[not-reviewed\]/m);
       assert.equal(checked.code, 1);
+      await lawcheck(r, ['check', '--review', '--base', 'main'], { LAWCHECK_REVIEWER_ENDPOINT: fake.url });
+      assert.equal(fake.requests.length, 2);
+      const again = await tryIn(r, ['clear-errors', F_PATH], { LAWCHECK_REVIEWER_ENDPOINT: fake.url });
+      assert.equal(again.stdout, tried.stdout);
+      assert.equal(fake.requests.length, 3);
     });
   });
 });
