@@ -22,21 +22,27 @@ export function version(): string {
 export function parseArguments(argv: string[]): { options: CheckOptions } | { problem: string } {
   if (argv.length === 0) return { problem: 'no command; the one command is check' };
   if (argv[0] !== 'check') return { problem: `unknown command '${argv[0]}'; the one command is check` };
-  let full = false;
-  let json = false;
+  const seen = new Set<string>();
   let base: string | null = null;
-  let sawBase = false;
+  let maxCalls: number | null = null;
   for (let i = 1; i < argv.length; i++) {
     const word = argv[i]!;
-    if (word === '--full' || word === '--json') {
-      if ((word === '--full' && full) || (word === '--json' && json)) return { problem: `the flag ${word} is given twice` };
-      if (word === '--full') full = true;
-      else json = true;
+    if (['--full', '--json', '--review', '--again'].includes(word)) {
+      if (seen.has(word)) return { problem: `the flag ${word} is given twice` };
+      seen.add(word);
+    } else if (word === '--max-calls') {
+      if (seen.has(word)) return { problem: 'the flag --max-calls is given twice' };
+      const value = argv[i + 1];
+      if (value === undefined || value.startsWith('-')) return { problem: 'the flag --max-calls takes a number' };
+      if (!/^[0-9]+$/.test(value)) return { problem: `the flag --max-calls takes a number of digits, not '${value}'` };
+      seen.add(word);
+      maxCalls = Number(value);
+      i++;
     } else if (word === '--base') {
-      if (sawBase) return { problem: 'the flag --base is given twice' };
+      if (seen.has(word)) return { problem: 'the flag --base is given twice' };
       const value = argv[i + 1];
       if (value === undefined || value.startsWith('-')) return { problem: 'the flag --base takes a ref' };
-      sawBase = true;
+      seen.add(word);
       base = value;
       i++;
     } else if (word.startsWith('-')) {
@@ -45,7 +51,10 @@ export function parseArguments(argv: string[]): { options: CheckOptions } | { pr
       return { problem: `unexpected argument '${word}'; check takes no paths` };
     }
   }
-  return { options: { full, base } };
+  const review = seen.has('--review');
+  if (!review && seen.has('--again')) return { problem: 'the flag --again works only with --review' };
+  if (!review && seen.has('--max-calls')) return { problem: 'the flag --max-calls works only with --review' };
+  return { options: { full: seen.has('--full'), base, review, again: seen.has('--again'), maxCalls } };
 }
 
 function internal(error: unknown): ErrorItem {
@@ -92,5 +101,6 @@ if (isEntry()) {
   process.on('uncaughtException', crash);
   process.on('unhandledRejection', crash);
   for (const signal of ['SIGTERM', 'SIGINT', 'SIGHUP'] as const) process.on(signal, () => crash(new Error(`stopped by ${signal}`)));
-  main(process.argv.slice(2), { cwd: process.cwd(), env: process.env }).then(finish, crash);
+  const warn = (line: string) => process.stderr.write(line + '\n');
+  main(process.argv.slice(2), { cwd: process.cwd(), env: process.env, warn }).then(finish, crash);
 }

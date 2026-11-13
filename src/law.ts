@@ -5,11 +5,18 @@ import { CODES } from './output.js';
 
 export type Status = 'enforced' | 'advisory';
 
+export interface ContextItem {
+  path: string;
+  line: number;
+}
+
 export interface Rule {
   id: string;
   why: string;
   status: Status;
   line: number;
+  context: ContextItem[] | null;
+  contextLine: number | null;
 }
 
 export interface TypeDef {
@@ -36,7 +43,7 @@ export interface LawProblem {
 const ID = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const VERSION = /^\d+\.\d+\.\d+$/;
 const TOP_KEYS = ['lawcheck', 'rules', 'types'];
-const RULE_KEYS = ['why', 'status'];
+const RULE_KEYS = ['why', 'status', 'context'];
 const TYPE_KEYS = ['about', 'paths', 'content', 'rules', 'types'];
 const RESERVED = new Set([...CODES, 'untyped-file']);
 
@@ -139,6 +146,8 @@ class Reader {
       if (!this.mapping(value, line, `rule '${id}'`)) continue;
       let why: string | null = null;
       let status: Status = 'enforced';
+      let context: ContextItem[] | null = null;
+      let contextLine: number | null = null;
       for (const field of (value as YAMLMap).items) {
         const key = this.keyOf(field);
         const fieldLine = this.lineOf(field.key);
@@ -150,12 +159,15 @@ class Reader {
           const text = this.string(fieldValue, fieldLine, `'status' of rule '${id}'`);
           if (text === 'enforced' || text === 'advisory') status = text;
           else if (text !== null) this.problem(fieldLine, `'status' of rule '${id}' is '${text}'; it takes 'enforced' or 'advisory'`);
+        } else if (key === 'context') {
+          contextLine = fieldLine;
+          context = this.paths(fieldValue, fieldLine, `'context' of rule '${id}'`);
         } else {
           this.unknown(key, RULE_KEYS, fieldLine, `in rule '${id}'`);
         }
       }
       if (!(value as YAMLMap).items.some((field) => this.keyOf(field) === 'why')) this.problem(line, `rule '${id}' has no 'why'`);
-      this.rules.set(id, { id, why: why ?? '', status, line });
+      this.rules.set(id, { id, why: why ?? '', status, line, context, contextLine });
     }
   }
 
@@ -279,6 +291,15 @@ class Reader {
       return null;
     }
     return text;
+  }
+
+  private paths(value: YamlNode | null, line: number, what: string): ContextItem[] | null {
+    const items = isSeq(value) ? value.items.map((item) => this.resolve(item)) : null;
+    if (items === null || items.some((node) => !(isScalar(node) && typeof node.value === 'string'))) {
+      this.problem(line, `${what} takes a sequence of paths, not ${isSeq(value) ? 'a sequence with an item that is no string' : describe(value)}`);
+      return null;
+    }
+    return items.map((node) => ({ path: (node as { value: string }).value, line: this.lineOf(node) }));
   }
 
   private strings(value: YamlNode | null, line: number, what: string): { text: string; line: number }[] | null {
