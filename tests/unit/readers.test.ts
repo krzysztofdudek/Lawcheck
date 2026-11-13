@@ -146,6 +146,9 @@ test('files are parsed once, in path order, and the name-binding groups read eve
   assert.deepEqual(record.parsed, ['a/K.kt', 'b/A.java', 'c/x.ts']);
   assert.deepEqual(record.declared, ['a/K.kt', 'b/A.java']);
   assert.deepEqual(record.loaded, ['.kt', '.java', '.ts']);
+  const others = fake({});
+  await readUses(input({ 'a.py': '', 'b.php': '<?php', 'c.go': '', 'd.ts': '', 'e.c': '', 'f.cpp': '', 'g.js': '' }, ['a.py', 'b.php', 'c.go', 'd.ts', 'e.c', 'f.cpp', 'g.js']), others.runes);
+  assert.deepEqual(others.record.declared, []);
 });
 
 test('a grammar that cannot be loaded stops the run without a place, and no file after it is read', async () => {
