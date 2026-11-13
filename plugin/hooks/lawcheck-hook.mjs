@@ -9,6 +9,7 @@ import { cutPoints, Deadline, findRoot, firstLine, killCurrent, runLawcheck, run
 const DEADLINES = { 'session-start': 25, prompt: 15, edit: 25, stop: 145 };
 const PATH_TOOLS = { Write: 'file_path', Edit: 'file_path', NotebookEdit: 'notebook_path' };
 const MOST_FILES = 1000;
+const WRITERS = ['subagent', 'teammate', 'workflow'];
 
 function readInput() {
   return new Promise((done, fail) => {
@@ -149,7 +150,10 @@ async function stop(input, deadline) {
   if (root === null) return null;
   const runner = runnerAt(root);
   if ('bad' in runner) return null;
-  if (Array.isArray(input.background_tasks) && input.background_tasks.some((task) => task?.status === 'running')) return null;
+  const writing = (Array.isArray(input.background_tasks) ? input.background_tasks : []).find((task) => task?.status === 'running' && WRITERS.includes(task?.type));
+  if (writing !== undefined) {
+    return { systemMessage: `lawcheck: the check before the agent finished waits for the background task ${writing.id} (${writing.type}), which may still be writing files; it runs at the first stop after that task ends.` };
+  }
 
   const file = stateFile(input.session_id);
   const saved = readState(file);

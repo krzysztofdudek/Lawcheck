@@ -724,16 +724,27 @@ test('test 175: a check that does not run is told once per session', async () =>
   });
 });
 
-test('test 176: a background task keeps the turn open', async () => {
+test('test 176: a background agent keeps the turn open and says so; a background shell does not', async () => {
   await withBench(async (bench, dir) => {
     const s = makeSample(dir);
     const session = new Session(bench, s);
     await session.prompt();
     write(s, D_PATH, D);
-    nothing(await session.stop({ background_tasks: [{ id: 't1', type: 'subagent', status: 'running' }] }));
+    json(await session.stop({ background_tasks: [{ id: 't1', type: 'subagent', status: 'running' }] }), {
+      systemMessage: 'lawcheck: the check before the agent finished waits for the background task t1 (subagent), which may still be writing files; it runs at the first stop after that task ends.',
+    });
     assert.deepEqual(bench.checks(), []);
     assert.equal(bench.state().open, true);
     json(await session.stop({ background_tasks: [] }), handBack(`${stopHeader()}\n\n${D_OUTPUT}`));
+  });
+  await withBench(async (bench, dir) => {
+    const s = makeSample(dir);
+    const session = new Session(bench, s);
+    await session.prompt();
+    write(s, D_PATH, D);
+    const tasks = [{ id: 'b1', type: 'shell', status: 'running', description: 'npm run dev' }, { id: 'm1', type: 'monitor', status: 'running' }, { id: 't2', type: 'subagent', status: 'completed' }];
+    json(await session.stop({ background_tasks: tasks }), handBack(`${stopHeader()}\n\n${D_OUTPUT}`));
+    assert.deepEqual(bench.checks(), [['check', `./${D_PATH}`]]);
   });
 });
 

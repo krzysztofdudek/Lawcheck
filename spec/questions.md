@@ -369,3 +369,11 @@ Choice: the PATH holds the directory of every `git` found on the PATH, in order,
 ## 58. Acceptance tests not automated inside `npm test`
 
 Tests 153 and 180 are the reviewer's, run on the host and read by hand, as section 12 says. Test 182 runs the trial on the host and is the reviewer's. Test 183 is `npm test` itself, as tests 79, 94 and 141 were, so no test inside it can carry it. Test 181 reads `tests/agent/result.json`, so it fails until the trial has run once.
+
+# Questions found in the review of the plugin slice
+
+## 59. A running background task and the check before finishing
+
+The review's finding 1: section 8, step 2, skipped the check for any running background task, so a dev server or a watcher kept in the background turned the check off for the whole session, and nobody was told.
+
+Choice: by the director's ruling, the stop hook never falls silent. Only a running `subagent`, `teammate` or `workflow`, which may still write files, holds the check back, and that stop sends a notice every time naming the task; the turn stays open, so the stop after the task ends checks it. Any other running task, a `shell` or a `monitor` included, is checked as usual. A Stop hook has no output that reaches the agent without continuing its turn, so the notice goes to the user. Section 8 and test 176 say this now.
