@@ -59,6 +59,9 @@ test('test 107: ignored, symbolic links and binary files', async () => {
     await same(s, ['src/core/gen2.ts'], 'src/core/gen2.ts  (does not exist yet)\n  type:  none: git ignores this path, so Lawcheck would never see it\n');
     symlinkSync('price.ts', join(s, 'src/core/link.ts'));
     await same(s, ['src/core/link.ts'], 'src/core/link.ts\n  type:  none: it is a symbolic link, which has no type\n');
+    symlinkSync('core', join(s, 'src/coresym'));
+    await same(s, ['src/coresym/price.ts'], 'src/coresym/price.ts\n  type:  none: it lies behind a symbolic link, which has no type\n');
+    await same(s, ['src/coresym/new.ts'], 'src/coresym/new.ts  (does not exist yet)\n  type:  none: it lies behind a symbolic link, which has no type\n');
     write(s, 'src/core/blob.ts', Buffer.from([0x78, 0x00]));
     await same(s, ['src/core/blob.ts'], 'src/core/blob.ts\n  type:  none: it is binary, which has no type\n');
   });

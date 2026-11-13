@@ -323,6 +323,7 @@ The path names a file that exists, or one that does not exist yet. Only that fil
 
 | Case | Reason |
 |---|---|
+| a directory on its path is a symbolic link | `it lies behind a symbolic link, which has no type` |
 | git ignores it | `git ignores it, so Lawcheck never sees it` |
 | a symbolic link | `it is a symbolic link, which has no type` |
 | `.lawcheck/verdicts` | `Lawcheck writes this file, and it has no type` |
@@ -331,7 +332,7 @@ The path names a file that exists, or one that does not exist yet. Only that fil
 | root types' paths match and their content does not | `it matches the paths of <ids> but not their content, so no rule judges it` |
 | two types of one level match | `it matches <a> and <b> at one level (type-overlap); check stops with exit 2 until a ! pattern in one of them leaves it out` |
 
-**A file that does not exist yet** is typed from its path. A path that `git check-ignore -q --no-index -- <path>` reports (exit 0) is `none: git ignores this path, so Lawcheck would never see it`. This and `init`'s `git rev-parse --show-prefix` are the two git commands this slice adds. Otherwise the tool walks the tree: at each level it takes the types whose paths match; when that is one type without `content`, it goes down into it; otherwise it stops, and `then:` says what the text decides:
+**A file that does not exist yet** is typed from its path. A path with a symbolic link among its directories is `none: it lies behind a symbolic link, which has no type`. A path that `git check-ignore -q --no-index -- <path>` reports (exit 0) is `none: git ignores this path, so Lawcheck would never see it`. This and `init`'s `git rev-parse --show-prefix` are the two git commands this slice adds. Otherwise the tool walks the tree: at each level it takes the types whose paths match; when that is one type without `content`, it goes down into it; otherwise it stops, and `then:` says what the text decides:
 
 - only types with `content`: `<id> if its text matches "<expression>"` for each, joined by `; `, ending `; otherwise <the deepest type so far, or none>`;
 - one type without `content` beside them: `a type-overlap of <that type> and <id> if its text matches "<expression>"` for each, ending `; otherwise <that type>`;

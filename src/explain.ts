@@ -123,7 +123,22 @@ function reviewState(ctx: Ctx, path: string, text: string, waivers: ReturnType<t
   };
 }
 
+const BEHIND = 'it lies behind a symbolic link, which has no type';
+
+function behindLink(root: string, path: string): boolean {
+  const parts = path.split('/');
+  for (let i = 1; i < parts.length; i++) {
+    try {
+      if (lstatSync(join(root, ...parts.slice(0, i))).isSymbolicLink()) return true;
+    } catch {
+      return false;
+    }
+  }
+  return false;
+}
+
 function existing(ctx: Ctx, path: string, symlink: boolean): FileAnswer {
+  if (behindLink(ctx.root, path)) return untyped(path, true, BEHIND);
   if (!ctx.listed.has(path)) return untyped(path, true, 'git ignores it, so Lawcheck never sees it');
   if (symlink) return untyped(path, true, 'it is a symbolic link, which has no type');
   if (path === VERDICTS) return untyped(path, true, 'Lawcheck writes this file, and it has no type');
@@ -200,6 +215,7 @@ export function walkPath(types: TypeDef[], path: string): { chain: TypeDef[]; st
 }
 
 function absent(ctx: Ctx, path: string): FileAnswer {
+  if (behindLink(ctx.root, path)) return untyped(path, false, BEHIND);
   if (ignoresPath(ctx.root, path)) return untyped(path, false, 'git ignores this path, so Lawcheck would never see it');
   const { chain, stop } = walkPath(ctx.law.types, path);
   const deepest = chain[chain.length - 1] ?? null;
