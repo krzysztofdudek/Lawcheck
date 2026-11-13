@@ -89,13 +89,20 @@ function tree(root, head, deadline) {
 
 function committedInTurn(root, before, after, started, deadline) {
   if (before.head === null || after.head === null || before.head === after.head) return [];
-  if (git(root, ['merge-base', '--is-ancestor', before.head, after.head], deadline).status !== 0) return [];
-  const times = run(root, ['log', '--no-merges', '--format=%ct', `${before.head}..${after.head}`], deadline)
+  const fork = git(root, ['merge-base', before.head, after.head], deadline);
+  if (fork.status !== 0) return [];
+  const base = fork.stdout.toString('utf8').trim();
+  const commits = run(root, ['log', '--no-merges', '--format=%H %ct', `${base}..${after.head}`], deadline)
     .toString('utf8')
     .split('\n')
-    .filter((line) => line !== '');
-  if (!times.every((time) => Number(time) >= started)) return [];
-  return splitZ(run(root, ['diff', '-z', '--name-only', '--no-renames', '--relative', before.head, after.head, '--'], deadline));
+    .filter((line) => line !== '')
+    .map((line) => line.split(' '))
+    .filter(([, time]) => Number(time) >= started);
+  const paths = [];
+  for (const [commit] of commits) {
+    paths.push(...splitZ(run(root, ['diff-tree', '--no-commit-id', '-r', '-z', '--name-only', '--no-renames', '--relative', commit, '--'], deadline)));
+  }
+  return paths;
 }
 
 export function turnPaths(root, before, after, started, deadline) {

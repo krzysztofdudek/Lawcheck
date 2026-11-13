@@ -614,6 +614,30 @@ test('test 169: what counts as changed in the turn', async () => {
     handedOn(bench, await session.stop(), D_PATH);
   });
   await fresh(async (bench, s, session) => {
+    append(s, 'README.md', 'More.\n');
+    git(s, 'commit', '-q', '-am', 'readme');
+    write(s, D_PATH, D);
+    await session.prompt();
+    git(s, 'add', D_PATH);
+    git(s, 'commit', '-q', '--amend', '-m', 'readme and discount');
+    const run = await session.stop();
+    assert.equal(run.json?.hookSpecificOutput?.hookEventName, 'Stop', run.stdout);
+    assert.deepEqual(bench.checks(), [['check', './README.md', `./${D_PATH}`]]);
+  });
+  await fresh(async (bench, s, session) => {
+    git(s, 'checkout', '-q', '-b', 'older', 'main');
+    append(s, 'src/core/price.ts', 'console.log(2);\n');
+    const hourBack = `${Math.floor(Date.now() / 1000) - 3600} +0000`;
+    execFileSync('git', ['commit', '-q', '-am', 'older'], { cwd: s, env: { ...GIT_ENV, GIT_COMMITTER_DATE: hourBack, GIT_AUTHOR_DATE: hourBack } });
+    git(s, 'checkout', '-q', 'work');
+    write(s, D_PATH, D);
+    await session.prompt();
+    git(s, 'add', D_PATH);
+    git(s, 'commit', '-q', '-m', 'discount');
+    git(s, 'merge', '-q', '--no-edit', '--no-ff', 'older');
+    handedOn(bench, await session.stop(), D_PATH);
+  });
+  await fresh(async (bench, s, session) => {
     await session.prompt();
     rmSync(join(s, 'src/core/tax.ts'));
     nothing(await session.stop(), 'deleted');

@@ -377,3 +377,9 @@ Tests 153 and 180 are the reviewer's, run on the host and read by hand, as secti
 The review's finding 1: section 8, step 2, skipped the check for any running background task, so a dev server or a watcher kept in the background turned the check off for the whole session, and nobody was told.
 
 Choice: by the director's ruling, the stop hook never falls silent. Only a running `subagent`, `teammate` or `workflow`, which may still write files, holds the check back, and that stop sends a notice every time naming the task; the turn stays open, so the stop after the task ends checks it. Any other running task, a `shell` or a `monitor` included, is checked as usual. A Stop hook has no output that reaches the agent without continuing its turn, so the notice goes to the user. Section 8 and test 176 say this now.
+
+## 60. A commit amended in the turn, or followed by a merge
+
+The review's finding 2: step 4 counted the turn's commits only when the old `head` was an ancestor of the new one and every commit between them was the turn's, so an amended commit, or a merge of older commits after the turn's own, dropped the turn's changes from the check.
+
+Choice: the commits counted run from the merge base of the two heads to the new `head`, merges left out, each kept when its committer time is at or after `started`, and the paths each commit changes count as changed. An amended commit counts with all its paths, those it held before the turn included. Section 8 and test 169 say this now.
