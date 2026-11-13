@@ -395,6 +395,7 @@ test('test 159: an edit that breaks the law, by Write, by Edit, from another dir
     assert.deepEqual(bench.log(), Array.from({ length: 3 }, () => ({ args: ['check', `./${D_PATH}`], cwd: s })));
     write(s, 'notes/a.ipynb', '{"cells": []}\n');
     nothing(await session.edit('notes/a.ipynb', 'NotebookEdit'), 'notebook');
+    assert.deepEqual(bench.log().at(-1), { args: ['check', './notes/a.ipynb'], cwd: s });
   });
 });
 
@@ -431,6 +432,11 @@ test('test 161: a broken law reaches the agent once', async () => {
     json(await session.edit('.lawcheck/law.yaml'), edited(`${editErrorHeader('.lawcheck/law.yaml')}\n\n${TEST17_CHECK}`));
     append(s, 'src/cli/main.ts', '// end\n');
     nothing(await session.edit('src/cli/main.ts'), 'the same output');
+    write(s, '.lawcheck/law.yaml', LAW.replace('why: Only the command layer', 'whyy: Only the command layer'));
+    const other = await session.edit('.lawcheck/law.yaml');
+    assert.ok(other.json?.hookSpecificOutput?.additionalContext.startsWith(`${editErrorHeader('.lawcheck/law.yaml')}\n\nlawcheck: ERROR  `), other.stdout);
+    assert.match(other.json.hookSpecificOutput.additionalContext, /whyy/);
+    nothing(await session.edit('.lawcheck/law.yaml'), 'the second output again');
   });
 });
 
@@ -486,6 +492,19 @@ test('test 163: the deadline, and a hook that is stopped', async () => {
     assert.ok(stopped.ms < 10000, String(stopped.ms));
     await new Promise((resolve) => setTimeout(resolve, 500));
     gone();
+  });
+});
+
+test('section 5: the call ends 2 seconds after Lawcheck exits while a child holds its output', async () => {
+  await withBench(async (bench, dir) => {
+    const s = makeSample(dir);
+    write(s, D_PATH, D);
+    const pid = join(dir, 'child');
+    bench.shell('lawcheck', `${SLEEP} 60 &\necho $! > ${JSON.stringify(pid)}\nprintf 'lawcheck: PASS  1 named file\\n'\nexit 0`);
+    const run = await new Session(bench, s).edit(D_PATH);
+    nothing(run);
+    assert.ok(run.ms < 5000, String(run.ms));
+    assert.ok(!alive(Number(readFileSync(pid, 'utf8').trim())));
   });
 });
 
@@ -565,6 +584,14 @@ test('test 166 and 167: the hand-back, and the guard', async () => {
     append(s, D_PATH, 'console.log(1);\n');
     const again = await session.stop();
     assert.equal(again.json?.hookSpecificOutput?.hookEventName, 'Stop', again.stdout);
+    for (let i = 0; i < 2; i++) {
+      append(s, D_PATH, 'console.log(1);\n');
+      assert.equal((await session.stop()).json?.hookSpecificOutput?.hookEventName, 'Stop');
+    }
+    assert.equal(bench.state().blocks, 3);
+    const otherPrompt = await session.run('stop', { prompt_id: 'p-other', stop_hook_active: false, background_tasks: [] });
+    assert.equal(otherPrompt.json?.hookSpecificOutput?.hookEventName, 'Stop', otherPrompt.stdout);
+    assert.equal(bench.state().blocks, 1);
   });
 });
 

@@ -383,3 +383,7 @@ Choice: by the director's ruling, the stop hook never falls silent. Only a runni
 The review's finding 2: step 4 counted the turn's commits only when the old `head` was an ancestor of the new one and every commit between them was the turn's, so an amended commit, or a merge of older commits after the turn's own, dropped the turn's changes from the check.
 
 Choice: the commits counted run from the merge base of the two heads to the new `head`, merges left out, each kept when its committer time is at or after `started`, and the paths each commit changes count as changed. An amended commit counts with all its paths, those it held before the turn included. Section 8 and test 169 say this now.
+
+## 61. Four behaviours without a test that fails when they break
+
+The review's finding 4 broke each of these and saw no test fail. Each now has one, and each fails with that break back in: test 159 checks the log's `check ./notes/a.ipynb`; test 161 hands a second, different exit-2 output and then holds it back; a test of section 5 has a fake `lawcheck` print a pass and leave a child holding its output, and expects nothing within 5 seconds and the child gone; tests 166 and 167 send a stop with another `prompt_id` after three hand-backs and expect a hand-back.
