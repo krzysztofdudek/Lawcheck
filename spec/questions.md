@@ -632,6 +632,42 @@ The tarball's `README.md` still says `Work in progress: there is nothing to inst
 Open, the owner's, on the day of publishing: the final README and description, and whether to strip `scripts` and `devDependencies` from the published `package.json`.
 >>>>>>> df92d27 (Entries 80 to 88 of the questions: nine choices the stress round left open, two of them taken by the build; entry 79 states the section-only ratchet)
 
+## 89. The key a reviewer server echoes
+
+The owner's ruling of 2026-11-15, on the stress finding S3-2: a server's error message that holds the key it rejected was printed in full (`reviewer-slice.md`, section 6; `post()` in `src/providers/http.ts`). The owner chose option A. Lawcheck replaces the one exact key it sent with `[key]` wherever it prints or writes it, in text and JSON output, in the message of an error, in the verdicts file, in the failure cache and in a temporary file, and it masks nothing else.
+
+Choice: the owner's. The tool knows the key it sent, so it replaces that string, and text it does not own stays as it came. Entry 93 states one limit of this rule.
+
+## 90. All nine providers before the alpha
+
+The owner's ruling of 2026-11-15. `reviewer-slice.md`, section 6, knows three providers. The alpha ships nine: those three and six more, each with an offline fake in the tests and, for each program that can be run on a machine, a live check.
+
+Choice: the owner's. The six are built by their own package and land before the alpha candidate is declared.
+
+## 91. Windows blocks the alpha
+
+The owner's ruling of 2026-11-15. A red run of the suite on Windows blocks the alpha exactly as a red run on Linux or on macOS does. The suite leaves a test out on Windows only for a reason of the platform that the list of platform skips holds, and a test that returns early or skips without a listed reason does not count as run.
+
+Choice: the owner's. Three systems are one gate.
+
+## 92. A tracked link that leaves the work tree
+
+The build's decision, taken in the security package. A script rule reads files inside the root. A committed symbolic link can lead out of the root, and a link to `/proc` or to a file in the home directory would let a rule read what the sandbox is there to keep from it.
+
+Choice: a committed link may reach outside the root while its target stays inside the git work tree, and a tracked link whose target leaves the work tree stops script rules with `link-outside-root`. The check covers names with a line break, submodules and a sibling folder whose name starts like the root's. The refusal is a promise of `check-slice.md`, section 3, and the owner's record for it is listed with the other changes of that package.
+
+## 93. A key shorter than 8 characters is not replaced
+
+The build's decision, taken in the security package, as a reading of entry 89. A key of one to seven characters is a dummy, a test value or an empty-looking placeholder, and replacing every place where it appears garbled Lawcheck's own output: paths, words and numbers that contain it (the finding R-20).
+
+Choice: only a key of 8 characters or more is replaced by `[key]`. A shorter key is no secret worth the damage to the output. The limit is stated in the docs of the providers and the ledger holds it as a limit.
+
+## 94. Each program keeps only its own vendor's key variables
+
+The build's decision, taken in the providers package. A provider that starts a program (the `claude`, `codex` or `copilot` programs and the like) hands it an environment. Passing every key variable of the caller would give a program another vendor's key.
+
+Choice: the environment of each program holds only the key variables of its own vendor, and none of another provider's. A test with a canary key for each vendor checks that none reaches a program of another.
+
 ## 110. A key that the endpoint echoes
 
 Finding S3-2 asks that a key an endpoint echoes in its error message appear in no output. Section 6 prints the first line of the endpoint's `error.message` as it came, and the design's providers chapter keeps a provider's error text as it came, with no redaction.
