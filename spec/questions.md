@@ -465,3 +465,11 @@ Choice: not done. It would make a finding of an answer the readers did not resol
 - `what` reads as a nested reading no file declares (`Shop.App.Service+Clock`, `java.util.AbstractSet+Entry`): not changed, since `classifyUse` returns neither the written name nor the deciding candidate, and deriving either in Lawcheck would be its own reading; giving the written name is a request to Runes.
 - The commit subjects of the move have no `<area>: ` prefix: not changed, since rewording would rewrite the branch for no change in content.
 - The suite at the first commit of the move alone was not run by the review: it was run before that commit was made, 349 of 349.
+
+## 75. A key that the endpoint echoes
+
+Finding S3-2 asks that a key an endpoint echoes in its error message appear in no output. Section 6 prints the first line of the endpoint's `error.message` as it came, and the design's providers chapter keeps a provider's error text as it came, with no redaction.
+
+Open: whether Lawcheck replaces its own key in what it prints, which S3-2 asks for. Test 188, the key canary, checks what Lawcheck itself does with a key: no output, file, temporary file or request other than its own header holds it. It gives the fake no reply that echoes the key.
+
+The owner's ruling of 2026-11-15, `klucz-zastapiony`: option A. The label is the one of the choice put to him, not his wording. Lawcheck replaces the one exact key it sent with `[key]` wherever it prints or writes it: the text output, the JSON documents, `doctor`, the failure cache and the verdicts file. It masks nothing else and looks for nothing that only looks like a key. For an HTTP provider the key is the one in its request header. `claude-code` sends no key of its own and hands the program every variable, so for it the values of `LAWCHECK_REVIEWER_KEY` and `ANTHROPIC_API_KEY` that the program gets are the keys replaced. `reviewer-slice.md`, section 6, says so, and the key canary of invariant `I-secret-1` covers replies that echo the key in every shape and programs that print it.
