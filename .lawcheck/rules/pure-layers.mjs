@@ -5,8 +5,8 @@ const AMBIENT = [
   [/(?<![\w$.])globalThis(?![\w$])/, 'reads globalThis'],
   [/(?<![\w$.])console(?![\w$])/, 'uses console'],
   [/(?<![\w$.])fetch\s*\(/, 'calls fetch'],
-  [/(?<![\w$.])Date\s*\.\s*now\s*\(|(?<![\w$.])new\s+Date\s*\(/, 'reads the clock'],
-  [/(?<![\w$.])Math\s*\.\s*random\s*\(/, 'draws a random number'],
+  [/(?<![\w$.])Date\s*\.\s*now(?![\w$])|(?<![\w$.])new\s+Date\s*\(\s*\)|(?<![\w$.])(?<!new\s+)Date\s*\(|\}\s*=\s*Date(?![\w$])|(?<![\w$.])performance(?![\w$])/, 'reads the clock'],
+  [/(?<![\w$.])Math\s*\.\s*random\s*\(|(?<![\w$])(?:randomUUID|getRandomValues|randomBytes|randomInt|randomFill|randomFillSync)\s*\(/, 'draws a random number'],
   [/(?<![\w$.])set(?:Timeout|Interval|Immediate)\s*\(/, 'starts a timer'],
 ];
 
