@@ -466,6 +466,7 @@ Choice: not done. It would make a finding of an answer the readers did not resol
 - The commit subjects of the move have no `<area>: ` prefix: not changed, since rewording would rewrite the branch for no change in content.
 - The suite at the first commit of the move alone was not run by the review: it was run before that commit was made, 349 of 349.
 
+<<<<<<< HEAD
 # Questions found while adding the six providers
 
 ## 100. The owner's ruling of 2026-11-15: all nine providers before the alpha
@@ -523,6 +524,53 @@ The fixes of a review set three numbers: 4 MiB for a reviewer's reply or output,
 The primer gives the agent the loop and says that the law and the reviewer are the user's to set. Five `next:` lines told the agent to do it: four `set reviewer.provider and reviewer.model in .lawcheck/config.yaml, then run <review>`, under `check`, `try` and `doctor`, and `rule-missing-file`'s `write the rule files the law names, or take their rules out of the law, then run lawcheck check`.
 
 Choice, after the design's review of the tool in use: each starts `ask the user to`, as section 8 of `spec/reviewer-slice.md` and test 63 now give it; `rule-missing-file` reads `ask the user to write the rule files the law names or to take their rules out of the law, then run lawcheck check`.
+=======
+# Rulings of 2026-11-15 for the test suite
+
+The suite is built in packages up to the gate of the first alpha: the contract, hostile inputs, security, limits and environments green on Linux, Windows and macOS. These entries are the anchors that later changes to the suite and to this spec cite. Each is a ruling of 2026-11-15; entry 76 is the owner's, the others are the build's, taken as the option named in each title.
+
+## 73. T-2 A: the environments Lawcheck supports
+
+Lawcheck supports Node 24 and newer. It supports npm, pnpm, Yarn 1 and Yarn 4 with `nodeLinker: node-modules`, and Bun only beside Node. It refuses everything else in the first line of its output, with the reason: Node 20 and 22, Yarn Plug'n'Play, Bun without Node. Tests guard the refusal. A refused environment never blames a rule file.
+
+Choice: the narrow promise, said loudly. A wider promise (Node 22, Yarn Plug'n'Play, Bun alone) would put more code in the way rules start and more cells in the install matrix for good.
+
+## 74. T-3 A: a table of limits instead of "no size limit"
+
+The spec gets a table of limits: the largest file read as text, the largest count of findings, the largest reviewer answer parsed, the wall time of a whole run, and whatever else a fix needs. The builders measure the numbers. Beyond a limit the tool prints a named error with the path, never `internal`. The sentence "There is no size limit" in `check-slice.md`, section 2, is replaced by a sentence that points to the table.
+
+Choice: limits that are named and measured over limits that are not there. Reading every file as a stream would be a large rewrite for text files over 512 MB, which almost nobody has.
+
+## 75. T-4 A: when the tests with a live model run
+
+Tests with a live model run when the files they guard change (the prompt, the providers, the plugin), and before every release. A release does not go out when the last result is older than those files. They run through `claude` on the host, on the owner's subscription, never with an API key.
+
+Choice: run when the guarded files change and before a release. A weekly run would show when a new model version starts judging differently, at the price of a full run every week.
+
+## 76. T-7 A: who may weaken the suite
+
+The owner's ruling. An ordinary weakening of the suite, such as a changed expected file or a removed test, needs an approval record that names a fresh reviewer agent and points to a change in the spec or to a Runes version. Four things need the owner's approval record, and nothing else stands in for it: removing or softening a promise in the spec, changing the suite guard itself, changing the CI files, and lowering a threshold. Who may approve each kind is configuration, not code. GitHub branch protection is not switched on by the build.
+
+Choice: the owner's. Approval by every weakening waiting for him would stop work when he is away, and approval by a reviewer alone would let agents move the anchor together without anyone seeing it.
+
+## 77. Docs may name Runes
+
+`commands-slice.md`, section 7, said that no page names another tool. The readers of Lawcheck come from Runes, and a user who meets a limit of a reader needs its name to look it up. The sentence now allows Runes and no other tool. A test reads every docs page and fails on a tool named outside one allowed list.
+
+Choice: name the library the readers come from, and only that. The pages stay free of any other tool.
+
+## 78. A change that touches the law is said plainly, and the CI recipe catches it
+
+In the open mode a pull request can change the law that judges it: a rule left out of a type's list, a rule script rewritten to return nothing, a waiver added on the violating line. A check of such a change passes while the only sign is a `note:` line. The tool therefore says plainly when a change touches the law, in the check's output and in the JSON, and `docs/ci.md` gives a recipe that catches it: judge the pull request against the law of its base, or make the law's folder need a review. The wording of the notice and the recipe are written by the package that fixes the docs and the notice.
+
+Choice: say it, and give the recipe, rather than leave the law as an unremarked part of every change.
+
+## 79. A row of the acceptance tables with no test, and a test with no source
+
+Every row of an acceptance table has a test that carries its number, and every test names its source: a row, an invariant id, a finding id or a section of a spec. The rows no test can carry are listed in `tests/contract/manual-rows.md` with the reason and who runs them, and the rail `tests/contract/spec-map.test.ts` accepts only those. Entry 58 names three of them. The others are the rows that stand for `npm test` itself (79, 94, 141, 183) and the run against the network (95).
+
+Choice: one list, read by the rail, over a sentence in a spec that nobody checks.
+>>>>>>> d60604a (Rulings of 2026-11-15 for the test suite: the environments, the limits, the live tests, who may weaken the suite, Runes in the docs, a change of the law)
 
 ## 110. A key that the endpoint echoes
 
