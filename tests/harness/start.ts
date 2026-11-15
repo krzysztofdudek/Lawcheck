@@ -250,9 +250,9 @@ function placed(env: NodeJS.ProcessEnv, own: NodeJS.ProcessEnv, home: string, te
     for (const name of names) out[name] = value;
   };
   set(['TMPDIR', 'TMP', 'TEMP'], temp);
-  set(['HOME'], home);
-  // Windows keeps the state of its own programs under USERPROFILE and APPDATA (PowerShell, which the guard starts, among them), so there they stay the machine's.
-  if (!WINDOWS) set(['USERPROFILE'], home);
+  set(['HOME', 'USERPROFILE'], home);
+  // Windows programs keep their caches under LOCALAPPDATA (the guard's PowerShell writes its startup data there), so it stays the machine's; APPDATA, where a program keeps what it was told, moves into the home.
+  if (WINDOWS) set(['APPDATA'], join(home, 'AppData', 'Roaming'));
   set(['XDG_CONFIG_HOME'], join(home, '.config'));
   set(['XDG_CACHE_HOME'], join(home, '.cache'));
   set(['XDG_DATA_HOME'], join(home, '.local', 'share'));
