@@ -24,7 +24,7 @@ test('package: the tarball holds the licence, the readme, the built tool, its do
   }
   assert.equal(paths.filter((path) => path.startsWith('docs/')).length, 12);
   assert.equal(paths.filter((path) => /^dist\/grammars\/tree-sitter-.*\.wasm$/.test(path)).length, 13);
-  const stray = paths.filter((path) => !/^(LICENSE|README\.md|package\.json|docs\/[a-z-]+\.md|dist\/[a-z-]+\.js|dist\/providers\/[a-z-]+\.js|dist\/grammars\/(LICENSES\.txt|tree-sitter-[a-z_]+\.wasm))$/.test(path));
+  const stray = paths.filter((path) => !/^(LICENSE|README\.md|package\.json|docs\/[a-z-]+\.md|dist\/[a-z-]+\.js|dist\/bin\.cjs|dist\/providers\/[a-z-]+\.js|dist\/grammars\/(LICENSES\.txt|tree-sitter-[a-z_]+\.wasm))$/.test(path));
   assert.deepEqual(stray, []);
 });
 
