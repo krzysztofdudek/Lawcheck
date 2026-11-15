@@ -37,7 +37,10 @@ test('the working folder and the folder aside are gone when the call ends, befor
   try {
     const bin = writeFakeProgram(join(dir, 'bin'), 'gemini');
     const record = join(dir, 'record.json');
-    const env = { ...process.env, PATH: `${bin}${delimiter}${process.env.PATH ?? ''}`, FAKE_GEMINI_RECORD: record };
+    // Windows spells the key Path, and a second PATH beside it would be the one never read.
+    const env: NodeJS.ProcessEnv = Object.fromEntries(Object.entries(process.env).filter(([key]) => key.toUpperCase() !== 'PATH'));
+    env.PATH = `${bin}${delimiter}${process.env.PATH ?? process.env.Path ?? ''}`;
+    env.FAKE_GEMINI_RECORD = record;
     const asked = await geminiCli({ ...DEFAULT_CONFIG, provider: 'gemini-cli', timeout: 300, parallel: 1, temperature: null }, env).ask('a prompt');
     assert.ok('answer' in asked, JSON.stringify(asked));
     const seen = JSON.parse(readFileSync(record, 'utf8')) as { args: string[]; cwd: string; stdin: string };

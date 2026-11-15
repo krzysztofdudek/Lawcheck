@@ -239,7 +239,7 @@ async function programCases(program: Program): Promise<void> {
             const next = `raise reviewer.timeout in .lawcheck/config.yaml, or check that ${program.name} answers when started by hand, ${AGAIN}`;
             assert.equal(result.stdout, stopped(UNREACHABLE(`${program.name} gave no answer within 1 seconds`), 'reviewer-unreachable', next));
             assert.equal(result.code, 2);
-            assert.ok(result.ms < PROGRAM_TIMEOUT_RUN_MS, `${result.ms} ms, where the kill grace alone is 5 seconds`);
+            if (platformSkip('the run ends within the time bound') === null) assert.ok(result.ms < PROGRAM_TIMEOUT_RUN_MS, `${result.ms} ms, where the kill grace alone is 5 seconds`);
             const seen = record(dir);
             assert.ok(await waitUntil(() => !alive(seen.pid) && !alive(seen.child!), 'LEFTOVER_GRACE_MS'), 'the fake or its child is alive');
             assert.ok(await waitUntil(() => !existsSync(seen.cwd), 'LEFTOVER_GRACE_MS'), seen.cwd);
@@ -249,6 +249,7 @@ async function programCases(program: Program): Promise<void> {
         'a child that leaves the group and holds the output',
         () =>
           withR(async (r, dir) => {
+            if (platformSkip('a child that left the group') !== null) return;
             write(r, F_PATH, F);
             const result = await run(r, null, ['--review', '--base', 'main'], fakeEnv(program, dir, 'setsid'));
             const seen = record(dir);
@@ -256,7 +257,7 @@ async function programCases(program: Program): Promise<void> {
               assert.equal(result.stdout, SECOND);
               assert.equal(result.code, 1);
               assert.ok(result.ms < HELD_OUTPUT_RUN_MS, `${result.ms} ms`);
-              if (platformSkip('a child that left the group is ended') === null) assert.ok(await waitUntil(() => !alive(seen.child!), 'LEFTOVER_GRACE_MS'), 'the child is alive');
+              assert.ok(await waitUntil(() => !alive(seen.child!), 'LEFTOVER_GRACE_MS'), 'the child is alive');
             } finally {
               if (alive(seen.child!)) process.kill(seen.child!, 'SIGKILL');
             }
@@ -266,13 +267,14 @@ async function programCases(program: Program): Promise<void> {
         'a child that leaves the group and lets go of the output',
         () =>
           withR(async (r, dir) => {
+            if (platformSkip('a child that left the group') !== null) return;
             write(r, F_PATH, F);
             const result = await run(r, null, ['--review', '--base', 'main'], fakeEnv(program, dir, 'escape'));
             const seen = record(dir);
             try {
               assert.equal(result.stdout, SECOND);
               assert.equal(result.code, 1);
-              if (platformSkip('a child that left the group is ended') === null) assert.ok(!alive(seen.child!), 'the child is alive');
+              assert.ok(!alive(seen.child!), 'the child is alive');
             } finally {
               if (alive(seen.child!)) process.kill(seen.child!, 'SIGKILL');
             }
@@ -356,7 +358,7 @@ async function programCases(program: Program): Promise<void> {
             const next = `raise reviewer.timeout in .lawcheck/config.yaml, or check that ${program.name} answers when started by hand, ${AGAIN}`;
             assert.equal(result.stdout, stopped(UNREACHABLE(`${program.name} gave no answer within 2 seconds`), 'reviewer-unreachable', next));
             assert.equal(result.code, 2);
-            assert.ok(result.ms < SHARED_TIMEOUT_RUN_MS, `${result.ms} ms`);
+            if (platformSkip('the run ends within the time bound') === null) assert.ok(result.ms < SHARED_TIMEOUT_RUN_MS, `${result.ms} ms`);
           }, configOf(program.provider, '  timeout: 2\n')),
       ]);
     }

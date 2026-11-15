@@ -7,7 +7,7 @@ import type { Recorded } from './fake-reviewer.ts';
 import { GIT_ENV, inTemp, pathWith, ROOT } from './helpers.ts';
 import type { Expect, Run } from './helpers.ts';
 import { startProgram } from '../harness/tool.ts';
-import { STABILITY_RUNS } from '../numbers.ts';
+import { STABILITY_PROVIDER_RUNS, STABILITY_RUNS } from '../numbers.ts';
 import type { System } from '../numbers.ts';
 
 const SCRIPT = join(ROOT, 'tests', 'stability', 'run.ts');
@@ -151,7 +151,7 @@ test('test 77: the measurement refuses to run, and its result holds the key only
 });
 
 test('test 410: the measurement through ollama, codex and copilot-cli', async () => {
-  const runs = STABILITY_RUNS[process.platform as System];
+  const runs = STABILITY_PROVIDER_RUNS;
   await inTemp(async (dir) => {
     await withFake(
       async (fake) => {

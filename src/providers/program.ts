@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import type { ChildProcessWithoutNullStreams } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { existsSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -105,8 +106,9 @@ export function programProvider(program: Program, env: Env, timeoutSeconds: numb
 
 export const CALL_VARIABLE = 'LAWCHECK_REVIEW_CALL';
 
-// A process that left the program's group is found by the variable it inherited; only Linux lets one read another process's environment.
+// A process that left the program's group is found by the variable it inherited; Windows lets no process read another's environment.
 function marked(call: string): number[] {
+  if (process.platform === 'darwin') return markedOnMac(`${CALL_VARIABLE}=${call}`);
   if (!existsSync('/proc/self/environ')) return [];
   const mark = `${CALL_VARIABLE}=${call}\0`;
   const found: number[] = [];
@@ -128,6 +130,22 @@ function timedOut(name: string, timeoutSeconds: number): Asked {
     resend: false,
     fix: `raise reviewer.timeout in .lawcheck/config.yaml, or check that ${name} answers when started by hand`,
   };
+}
+
+// macOS has no /proc; its ps shows a process's environment after its command with -E, and -ww keeps the line whole.
+function markedOnMac(mark: string): number[] {
+  let listed: string;
+  try {
+    listed = execFileSync('ps', ['-A', '-E', '-ww', '-o', 'pid=,command='], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'ignore'] });
+  } catch (error) {
+    listed = String((error as { stdout?: unknown }).stdout ?? '');
+  }
+  const found: number[] = [];
+  for (const line of listed.split('\n')) {
+    const pid = Number.parseInt(line, 10);
+    if (Number.isInteger(pid) && pid !== process.pid && (line.includes(`${mark} `) || line.endsWith(mark))) found.push(pid);
+  }
+  return found;
 }
 
 function folderFailure(name: string, error: unknown): Asked {

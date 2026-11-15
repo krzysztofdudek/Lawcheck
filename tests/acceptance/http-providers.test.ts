@@ -299,8 +299,8 @@ const CASES: Case[] = [
   },
 ];
 
-for (const http of HTTP) {
-  test(`test 403: what ${http.provider} answers`, async () => {
+async function answers(http: Http): Promise<void> {
+  {
     await Promise.all(
       CASES.map((one) =>
         withFake(
@@ -331,8 +331,12 @@ for (const http of HTTP) {
       assert.equal(result.stdout, failedWith(`nothing answers at ${base}: the connection was refused (ECONNREFUSED)`, `start the reviewer at ${base}, or set LAWCHECK_REVIEWER_ENDPOINT to the address where it runs`), http.provider);
       assert.equal(result.code, 2);
     }, configOf(http.provider));
-  });
+  }
 }
+
+test('test 403: what openai answers', () => answers(HTTP[0]!));
+test('test 403: what google answers', () => answers(HTTP[1]!));
+test('test 403: what ollama answers', () => answers(HTTP[2]!));
 
 function filesUnder(dir: string): string[] {
   const found: string[] = [];
