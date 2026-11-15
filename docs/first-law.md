@@ -14,7 +14,7 @@ It writes `.lawcheck/law.yaml` and `.lawcheck/.gitignore`, and nothing else. The
 
 ## Describe one type
 
-A type says which files are of one kind. Give it `paths` and an `about`:
+A type says which files are of one kind. Give it `paths` and an `about`. A type matches only the files git lists, so a folder that `.gitignore` names, `node_modules/` or a build folder, is never judged; one that git does not ignore would be:
 
 ```yaml
 lawcheck: 0.1.0
@@ -48,8 +48,15 @@ types:
     paths: ["src/**/*.ts"]
 ```
 
-The file is `.lawcheck/rules/no-console.mjs`. It exports `check`, which gets one file at a time and returns findings:
+The file is `.lawcheck/rules/no-console.mjs`. `init` makes no `rules/` folder, so create it first:
 
+```text
+$ mkdir -p .lawcheck/rules
+```
+
+The file exports `check`, which gets one file at a time and returns findings:
+
+<!-- example: first-law-rule -->
 ```js
 export function check({ files }) {
   const findings = [];
@@ -63,7 +70,7 @@ export function check({ files }) {
 }
 ```
 
-`lawcheck docs script-rules` has the whole contract.
+The rule reads lines as text and parses no comments, so it also finds `console.log` inside a comment or a string, such as a code example in a doc comment. A rule that must not do that removes comments from the text first. `lawcheck docs script-rules` has the whole contract.
 
 ## Try it before a type lists it
 
@@ -84,6 +91,7 @@ $ lawcheck try no-console 'src/**/*.ts'
 
 Add the rule to the type:
 
+<!-- example: first-law-law -->
 ```yaml
 lawcheck: 0.1.0
 

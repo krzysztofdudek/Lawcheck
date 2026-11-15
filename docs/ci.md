@@ -99,7 +99,7 @@ $ lawcheck check --base origin/main --json
 
 Exit 1 fails the job on an error in the change. Exit 2 fails it on a broken law or setup; its output names what to fix. `--json` prints one document for a tool to read (`lawcheck docs json`). Warnings appear only in the log, and debt only with `--full`. Run `lawcheck doctor` on a developer's machine, not in the job: it asks for the reviewer's settings, which a job needs none of.
 
-A file a reviewer rule binds that has no verdict is `not-reviewed`, an error. Run `lawcheck check --review` where a reviewer is set up, before you push, and commit `.lawcheck/verdicts`. A job shows a reviewer's findings only where `--review` ran; elsewhere it shows `not-reviewed`.
+A file a reviewer rule binds that has no verdict is `not-reviewed`, an error. Run `lawcheck check --review` where a reviewer is set up, before you push, and commit `.lawcheck/verdicts`. A contributor with no reviewer leaves that to a maintainer, who runs it on the branch. A job shows a reviewer's findings only where `--review` ran; elsewhere it shows `not-reviewed`.
 
 ## A change to the law
 
