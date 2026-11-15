@@ -1,6 +1,6 @@
 import { relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { SLOWEST_SHOWN } from '../numbers.ts';
+import { SLOWEST_SHOWN, slowBudget, TEST_BUDGET_MS } from '../numbers.ts';
 import { INVARIANTS } from './invariants.ts';
 import { promiseOf, testIds } from './promises.ts';
 
@@ -121,6 +121,11 @@ export default async function* reporter(source: AsyncIterable<{ type: string; da
   if (times.length > 0) {
     lines.push('', 'slowest');
     for (const t of times.slice(0, SLOWEST_SHOWN)) lines.push(`${String(Math.round(t.ms)).padStart(8)} ms  ${t.name.slice(0, 90)}  ${where(t.file)}`);
+    const unlisted = times.filter((t) => t.ms > TEST_BUDGET_MS / 5 && slowBudget(`${where(t.file)} > ${t.name}`) === null);
+    if (unlisted.length > 0) {
+      lines.push('', `past a fifth of TEST_BUDGET_MS with no entry in SLOW_TESTS for ${process.platform}`);
+      for (const t of unlisted) lines.push(`${String(Math.round(t.ms)).padStart(8)} ms  ${where(t.file)} > ${t.name}`);
+    }
   }
   for (const f of failed) lines.push('', ...block(f, seeds));
   yield lines.join('\n') + '\n';
