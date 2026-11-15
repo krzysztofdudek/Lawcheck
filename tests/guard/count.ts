@@ -24,7 +24,7 @@ export function fewerThanDeclared(root: string, files: string[], results: Result
   try {
     const value = readConstants(readFileSync(join(root, config.platformReasons.file), 'utf8')).get(config.platformReasons.export);
     if (value?.kind === 'list') value.items.forEach((r) => reasons.add(r));
-    if (value?.kind === 'records') value.items.forEach((r) => { if (r.reason) reasons.add(r.reason); });
+    if (value?.kind === 'records') value.items.forEach((r) => { if (typeof r.reason === 'string') reasons.add(r.reason); });
   } catch {
     reasons.clear();
   }

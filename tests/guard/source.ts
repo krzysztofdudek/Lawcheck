@@ -180,6 +180,7 @@ export type TestCall = {
   dynamic: boolean;
   line: number;
   body: string;
+  top: { id: string; dynamic: boolean };
 };
 
 export type Source = { tests: TestCall[]; markers: Marker[]; assertions: Assertion[] };
@@ -259,6 +260,7 @@ export function readSource(text: string, skipCalls: readonly string[] = ['platfo
   const tests: TestCall[] = [];
   const markers: Marker[] = [];
   const assertions: Assertion[] = [];
+  const open_: Array<{ id: string; dynamic: boolean; end: number }> = [];
   for (let k = 0; k < tokens.length; k++) {
     const t = tokens[k]!;
     if (t.type !== 'name') continue;
@@ -317,12 +319,15 @@ export function readSource(text: string, skipCalls: readonly string[] = ['platfo
     if (!first || (first.type !== 'string' && first.type !== 'template')) continue;
     const close = matching(tokens, m);
     const args = splitArgs(tokens, m, close);
+    while (open_.length > 0 && open_[open_.length - 1]!.end < k) open_.pop();
+    const self = { id: first.value, dynamic: first.type === 'template' && first.dynamic };
     tests.push({
-      id: first.value,
-      dynamic: first.type === 'template' && first.dynamic,
+      ...self,
       line: t.line,
       body: text.slice(t.start, tokens[close]!.end),
+      top: open_.length > 0 ? { id: open_[0]!.id, dynamic: open_[0]!.dynamic } : self,
     });
+    open_.push({ ...self, end: close });
     if (modifier) {
       const rest = args.slice(1).map(([a, b]) => textOf(text, tokens, a, b)).filter((s) => !s.startsWith('(') && !s.startsWith('async') && !s.startsWith('function')).join(', ');
       markers.push({ kind: modifier as Marker['kind'], line: t.line, text: `${t.value}.${modifier}(${JSON.stringify(first.value)})${rest ? ` ${rest}` : ''}`, strings: [] });

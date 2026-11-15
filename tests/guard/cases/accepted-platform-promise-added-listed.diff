@@ -1,0 +1,29 @@
+diff --git a/tests/harness/promises.ts b/tests/harness/promises.ts
+index 6f4d25a..493dc91 100644
+--- a/tests/harness/promises.ts
++++ b/tests/harness/promises.ts
+@@ -1,4 +1,5 @@
+ export const PLATFORM_PROMISES: Record<string, { systems: string[]; behaviour: string }> = {
+   'test 1': { systems: ['win32'], behaviour: 'a path with backslashes' },
+   'I-frame-1': { systems: ['win32'], behaviour: 'CRLF line endings' },
++  'test 2': { systems: ['win32'], behaviour: 'the passing run prints a path' },
+ };
+diff --git a/tests/harness/sets.ts b/tests/harness/sets.ts
+index 976f337..e7a9b25 100644
+--- a/tests/harness/sets.ts
++++ b/tests/harness/sets.ts
+@@ -1,4 +1,5 @@
+ export const PLATFORM_TESTS: PlatformTest[] = [
+   { file: 'tests/acceptance/cli.test.ts', test: 'test 1: nothing changed', systems: ['win32', 'darwin'], reason: 'paths' },
+   { file: 'tests/acceptance/cli.test.ts', test: 'I-frame-1: no text of a file starts a prompt line', systems: ['win32'], reason: 'line endings' },
++  { file: 'tests/acceptance/cli.test.ts', test: 'test 2: the passing run', systems: ['win32'], reason: 'a path' },
+ ];
+diff --git a/tests/weakenings.md b/tests/weakenings.md
+index 5357732..c577cb0 100644
+--- a/tests/weakenings.md
++++ b/tests/weakenings.md
+@@ -3,3 +3,4 @@
+ | Date | What | Kind | Reason | Anchor | Approved by |
+ |---|---|---|---|---|---|
+ | 2026-11-01 | tests/real/hono.expected | expected-changed | Runes 1.1.0 reads the router | Runes 1.1.0 | reviewer old-agent |
++| 2026-11-15 | tests/harness/** | harness-changed | test 2 behaves differently on Windows | tests/harness/sets.ts | reviewer fresh-agent-7 |

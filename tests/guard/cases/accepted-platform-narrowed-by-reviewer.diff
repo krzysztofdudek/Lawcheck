@@ -1,0 +1,20 @@
+diff --git a/tests/harness/sets.ts b/tests/harness/sets.ts
+index 976f337..65ea5b8 100644
+--- a/tests/harness/sets.ts
++++ b/tests/harness/sets.ts
+@@ -1,4 +1,4 @@
+ export const PLATFORM_TESTS: PlatformTest[] = [
+-  { file: 'tests/acceptance/cli.test.ts', test: 'test 1: nothing changed', systems: ['win32', 'darwin'], reason: 'paths' },
++  { file: 'tests/acceptance/cli.test.ts', test: 'test 1: nothing changed', systems: ['win32'], reason: 'paths' },
+   { file: 'tests/acceptance/cli.test.ts', test: 'I-frame-1: no text of a file starts a prompt line', systems: ['win32'], reason: 'line endings' },
+ ];
+diff --git a/tests/weakenings.md b/tests/weakenings.md
+index 5357732..c5f234c 100644
+--- a/tests/weakenings.md
++++ b/tests/weakenings.md
+@@ -3,3 +3,5 @@
+ | Date | What | Kind | Reason | Anchor | Approved by |
+ |---|---|---|---|---|---|
+ | 2026-11-01 | tests/real/hono.expected | expected-changed | Runes 1.1.0 reads the router | Runes 1.1.0 | reviewer old-agent |
++| 2026-11-15 | tests/acceptance/cli.test.ts > test 1: nothing changed on darwin | platform-narrowed | test 1 says nothing on macOS that Linux does not | tests/harness/sets.ts | reviewer fresh-agent-7 |
++| 2026-11-15 | tests/harness/sets.ts | harness-changed | test 1 runs per push on Windows and Linux | tests/harness/sets.ts | reviewer fresh-agent-7 |

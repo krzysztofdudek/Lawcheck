@@ -87,6 +87,9 @@
     ],
     "law-changed": [
       "reviewer"
+    ],
+    "platform-narrowed": [
+      "reviewer"
     ]
   },
   "stronger": "stronger",
@@ -118,5 +121,15 @@
   ],
   "shrinkOnly": [
     "SLOW_TESTS"
-  ]
+  ],
+  "selection": {
+    "tests": {
+      "file": "tests/harness/sets.ts",
+      "export": "PLATFORM_TESTS"
+    },
+    "promises": {
+      "file": "tests/harness/promises.ts",
+      "export": "PLATFORM_PROMISES"
+    }
+  }
 }

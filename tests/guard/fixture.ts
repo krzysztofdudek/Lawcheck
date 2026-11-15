@@ -89,6 +89,20 @@ export const BASE: { [path: string]: string } = {
     '}',
     '',
   ].join('\n'),
+  'tests/harness/sets.ts': [
+    "export const PLATFORM_TESTS: PlatformTest[] = [",
+    "  { file: 'tests/acceptance/cli.test.ts', test: 'test 1: nothing changed', systems: ['win32', 'darwin'], reason: 'paths' },",
+    "  { file: 'tests/acceptance/cli.test.ts', test: 'I-frame-1: no text of a file starts a prompt line', systems: ['win32'], reason: 'line endings' },",
+    '];',
+    '',
+  ].join('\n'),
+  'tests/harness/promises.ts': [
+    'export const PLATFORM_PROMISES: Record<string, { systems: string[]; behaviour: string }> = {',
+    "  'test 1': { systems: ['win32'], behaviour: 'a path with backslashes' },",
+    "  'I-frame-1': { systems: ['win32'], behaviour: 'CRLF line endings' },",
+    '};',
+    '',
+  ].join('\n'),
   'tests/harness/schemas/check.json': '{ "type": "object", "required": ["schema"] }\n',
   'tests/acceptance/cli.test.ts': [
     "import { test } from 'node:test';",

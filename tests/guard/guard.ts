@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { changes, git, resolve, Tree, type Change } from './git.ts';
 import { matchesAny, globToRegExp } from './glob.ts';
 import { acceptanceRows, fencedBlocks, invariantRows, ledgerRows, ledgerTable, readWeakenings, RECORD_HEADER, rulings, type Record, type Row } from './markdown.ts';
-import { readSource, tokenize, type Marker } from './source.ts';
+import { namePattern, readSource, tokenize, type Marker } from './source.ts';
 import { readConstants, type Value } from './constants.ts';
 
 export type Config = {
@@ -18,6 +18,7 @@ export type Config = {
   runes: string;
   platformReasons: { file: string; export: string; call: string };
   shrinkOnly: string[];
+  selection: { tests: { file: string; export: string }; promises: { file: string; export: string } };
   paths: { guard: string[]; ci: string[]; harness: string[]; expected: string[]; law: string[] };
   roles: { [role: string]: string };
   approvers: { [kind: string]: string[] };
@@ -47,11 +48,12 @@ export const RECORD_KINDS = [
   'finding-weakened',
   'ratchet-grew',
   'law-changed',
+  'platform-narrowed',
 ] as const;
 
 export type RecordKind = (typeof RECORD_KINDS)[number];
 
-export type NeverKind = 'only-added' | 'todo-added' | 'skip-unlisted' | 'number-unclassified' | 'number-unreadable' | 'weakenings-rewritten' | 'record-invalid' | 'sabotage-guard-kept' | 'list-unreadable';
+export type NeverKind = 'only-added' | 'todo-added' | 'skip-unlisted' | 'number-unclassified' | 'number-unreadable' | 'weakenings-rewritten' | 'record-invalid' | 'sabotage-guard-kept' | 'list-unreadable' | 'platform-unlisted';
 
 const PATH_KINDS = new Set<string>(['expected-changed', 'harness-changed', 'guard-changed', 'ci-changed', 'law-changed']);
 const OWNER_LIKE = new Set<string>(['promise-changed', 'guard-changed', 'ci-changed', 'threshold-lowered']);
@@ -200,8 +202,8 @@ function platformReasons(tree: Tree, config: Config): { reasons: Set<string>; pa
   if (value.kind === 'list') value.items.forEach((s) => out.reasons.add(s));
   if (value.kind === 'records') {
     for (const entry of value.items) {
-      if (entry.reason) out.reasons.add(entry.reason);
-      if (entry.part) out.parts.add(entry.part);
+      if (typeof entry.reason === 'string') out.reasons.add(entry.reason);
+      if (typeof entry.part === 'string') out.parts.add(entry.part);
     }
   }
   return out;
@@ -210,7 +212,7 @@ function platformReasons(tree: Tree, config: Config): { reasons: Set<string>; pa
 function anchorHint(kind: string): string {
   if (kind === 'test-removed') return "the acceptance row ('row <n>'), invariant ('I-...') or ledger row ('S<r>-<n>') that the test's name names, removed or reworded in this change; or 'ruling <n>' of spec/questions.md; or 'Runes <version>' that this change moves to";
   if (kind === 'sabotage-removed') return "the entry's promise, removed in this change together with the code the entry breaks";
-  if (OWNER_LIKE.has(kind) || kind === 'harness-changed' || kind === 'law-changed') return "anything this change really holds: a path it changes, 'row <n>' or 'I-...' it changes, 'ruling <n>', or 'Runes <version>' it moves to";
+  if (OWNER_LIKE.has(kind) || kind === 'harness-changed' || kind === 'law-changed' || kind === 'platform-narrowed') return "anything this change really holds: a path it changes, 'row <n>' or 'I-...' it changes, 'ruling <n>', or 'Runes <version>' it moves to";
   return "'row <n>' or 'I-...' that this change adds, rewords or removes; or 'ruling <n>' of spec/questions.md; or 'Runes <version>' that this change moves to";
 }
 
@@ -439,6 +441,51 @@ export function judge(repo: string, baseRev: string, headRev: string, config: Co
     }
   }
 
+  const platformTests = (tree: Tree): Array<{ file: string; test: string; systems: string[] }> | null => {
+    const value = readConstants(tree.read(config.selection.tests.file) ?? '').get(config.selection.tests.export);
+    if (!value) return null;
+    if (value.kind !== 'records') return [];
+    return value.items.map((e) => ({ file: String(e.file ?? ''), test: String(e.test ?? ''), systems: Array.isArray(e.systems) ? e.systems : [] }));
+  };
+  const platformPromises = (tree: Tree): Map<string, string[]> => {
+    const out = new Map<string, string[]>();
+    const prefix = `${config.selection.promises.export}.`;
+    for (const [key, value] of readConstants(tree.read(config.selection.promises.file) ?? '')) {
+      if (!key.startsWith(prefix) || !key.endsWith('.systems') || value.kind !== 'list') continue;
+      out.set(key.slice(prefix.length, -'.systems'.length), value.items);
+    }
+    return out;
+  };
+  const testsBefore = platformTests(before);
+  const testsAfter = platformTests(after);
+  const selectionFile = config.selection.tests.file;
+  const triples = (list: Array<{ file: string; test: string; systems: string[] }> | null): Set<string> => new Set((list ?? []).flatMap((e) => e.systems.map((s) => `${e.file} > ${e.test} on ${s}`)));
+  const tripleAfter = triples(testsAfter);
+  for (const t of triples(testsBefore)) if (!tripleAfter.has(t)) add({ kind: 'platform-narrowed', subject: t, where: selectionFile, detail: `${t.split(' on ').pop()} no longer runs this test per push: it moves to Linux only` });
+  const promisesBefore = platformPromises(before);
+  const promisesAfter = platformPromises(after);
+  for (const [id, systems] of promisesBefore) for (const s of systems) if (!(promisesAfter.get(id) ?? []).includes(s)) add({ kind: 'platform-narrowed', subject: `promise ${id} on ${s}`, where: config.selection.promises.file, detail: `${id} is no longer a promise that behaves differently on ${s}` });
+  if (testsAfter !== null) {
+    const promises = new Map<string, Set<string>>();
+    for (const map of [promisesBefore, promisesAfter]) for (const [id, systems] of map) promises.set(id, new Set([...(promises.get(id) ?? []), ...systems]));
+    const carries = (name: string, id: string): boolean => {
+      const row = /^tests? (\d+)$/.exec(id);
+      if (row) return namedIn(name).has(`row ${row[1]}`);
+      return new RegExp(`(^|[^\\w-])${id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}([^\\w-]|$)`).test(name);
+    };
+    for (const [file, src] of afterSources) {
+      for (const t of src.tests) {
+        for (const [id, systems] of promises) {
+          if (!carries(t.id, id)) continue;
+          for (const system of systems) {
+            const listed = testsAfter.some((e) => e.file === file && e.systems.includes(system) && (e.test === t.top.id || (t.top.dynamic && namePattern(t.top.id, true).test(e.test))));
+            if (!listed) add({ kind: 'platform-unlisted', subject: `${file} > ${t.top.id} on ${system}`, where: `${file}:${t.line}`, detail: `"${t.id}" carries ${id}, which behaves differently on ${system}, and ${config.selection.tests.export} in ${selectionFile} does not run its test there per push` });
+          }
+        }
+      }
+    }
+  }
+
   const ledgerBefore = before.read(config.weakenings);
   const ledgerAfter = after.read(config.weakenings) ?? '';
   const ledger = readWeakenings(ledgerAfter);
@@ -651,7 +698,7 @@ function validate(record: Record, ctx: AnchorContext): string[] {
   parts.forEach((p, i) => { if (!anchors[i]) why.push(`'${p}' is not an anchor (row <n>, I-..., S<r>-<n>, ruling <n>, Runes <version>, or a path)`); });
   for (const a of anchors) if (a) { const p = anchorProblem(a, ctx); if (p) why.push(p); }
   const types = anchors.filter((a): a is Anchor => a !== null).map((a) => a.type);
-  const permitted = OWNER_LIKE.has(record.kind) || record.kind === 'harness-changed' || record.kind === 'law-changed' ? ['row', 'invariant', 'ledger', 'ruling', 'runes', 'path'] : record.kind === 'test-removed' ? ['row', 'invariant', 'ledger', 'ruling', 'runes'] : record.kind === 'sabotage-removed' ? ['row', 'invariant', 'ledger'] : ['row', 'invariant', 'ruling', 'runes'];
+  const permitted = OWNER_LIKE.has(record.kind) || record.kind === 'harness-changed' || record.kind === 'law-changed' || record.kind === 'platform-narrowed' ? ['row', 'invariant', 'ledger', 'ruling', 'runes', 'path'] : record.kind === 'test-removed' ? ['row', 'invariant', 'ledger', 'ruling', 'runes'] : record.kind === 'sabotage-removed' ? ['row', 'invariant', 'ledger'] : ['row', 'invariant', 'ruling', 'runes'];
   if (types.length > 0 && !types.some((t) => permitted.includes(t))) why.push(`${record.kind} needs an anchor of another kind: ${anchorHint(record.kind)}`);
   return why;
 }

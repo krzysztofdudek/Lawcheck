@@ -3,7 +3,7 @@ import { tokenize, type Token } from './source.ts';
 export type Value =
   | { kind: 'number'; value: number }
   | { kind: 'list'; items: string[] }
-  | { kind: 'records'; items: Array<{ [key: string]: string }> }
+  | { kind: 'records'; items: Array<{ [key: string]: string | string[] }> }
   | { kind: 'text'; value: string }
   | { kind: 'unreadable'; text: string };
 
@@ -80,7 +80,7 @@ function value(text: string, tokens: Token[], at: number): { value: Tree; next: 
   if (t.type === 'string' || (t.type === 'template' && !t.dynamic)) return end(at + 1, { kind: 'text', value: t.value });
   if (isPunct(t, '[')) {
     const items: string[] = [];
-    const records: Array<{ [key: string]: string }> = [];
+    const records: Array<{ [key: string]: string | string[] }> = [];
     let k = at + 1;
     let readable = true;
     while (k < tokens.length && !isPunct(tokens[k], ']')) {
@@ -89,11 +89,12 @@ function value(text: string, tokens: Token[], at: number): { value: Tree; next: 
       if (isPunct(item, ',')) { k++; continue; }
       if (isPunct(item, '{')) {
         const child = value(text, tokens, k);
-        const record: { [key: string]: string } = {};
+        const record: { [key: string]: string | string[] } = {};
         if (child.value.kind === 'object') {
           for (const [key, leaf] of child.value.entries) {
             if (leaf.kind === 'text') record[key] = leaf.value;
             else if (leaf.kind === 'number') record[key] = String(leaf.value);
+            else if (leaf.kind === 'list') record[key] = leaf.items;
             else readable = false;
           }
         } else readable = false;
