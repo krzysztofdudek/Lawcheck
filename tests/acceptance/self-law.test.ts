@@ -62,7 +62,7 @@ async function blocking(repo: string): Promise<{ report: Report; found: string[]
   return { report, found };
 }
 
-test('question XX: the committed tree has no finding of an enforced rule and none of a built-in code, and only the waivers and the unresolved use listed here', async () => {
+test('question 160: the committed tree has no finding of an enforced rule and none of a built-in code, and only the waivers and the unresolved use listed here', async () => {
   await inTemp(async (dir) => {
     const repo = cloneOfHead(dir);
     const { report, found } = await blocking(repo);
@@ -72,7 +72,7 @@ test('question XX: the committed tree has no finding of an enforced rule and non
   });
 });
 
-test('question XX: the files of src that the law leaves without a type are only those of the first day, so the list only shrinks', async () => {
+test('question 160: the files of src that the law leaves without a type are only those of the first day, so the list only shrinks', async () => {
   await inTemp(async (dir) => {
     const repo = cloneOfHead(dir);
     assert.deepEqual(exempted(repo).filter((name) => !UNSORTED.has(name)), []);
@@ -83,7 +83,7 @@ test('question XX: the files of src that the law leaves without a type are only 
   });
 });
 
-test('question XX: a committed break of each script rule and a forbidden use are found by the same check', async () => {
+test('question 160: a committed break of each script rule and a forbidden use are found by the same check', async () => {
   await inTemp(async (dir) => {
     const repo = cloneOfHead(dir);
     write(repo, 'src/core/break.ts', ["import { readFileSync } from 'node:fs';", "import { step } from '../steps/break.js';", 'export const now = (): number => Date.now() + step() + readFileSync.length;', ''].join('\n'));
