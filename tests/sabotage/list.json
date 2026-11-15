@@ -11,8 +11,8 @@
     "id": "pass-nothing-changed",
     "promise": "row 1",
     "file": "src/output.ts",
-    "find": "nothing changed against ${report.base}",
-    "replace": "nothing changed since ${report.base}",
+    "find": "nothing changed against ${shown(report.base)}",
+    "replace": "nothing changed since ${shown(report.base)}",
     "killedBy": "test 1: nothing changed"
   },
   {
@@ -22,5 +22,13 @@
     "find": "problems.push({ code: 'waiver-without-reason', line,",
     "replace": "problems.push({ code: 'waiver-unknown-rule', line,",
     "killedBy": "test 32: a waiver without a reason"
+  },
+  {
+    "id": "link-segment",
+    "promise": "I-runner-1",
+    "file": "src/rules.ts",
+    "find": "path.startsWith(folder.endsWith(sep) ? folder : folder + sep)",
+    "replace": "path.startsWith(folder)",
+    "killedBy": "I-runner-1: a link whose target only shares the beginning of the root path is outside it"
   }
 ]

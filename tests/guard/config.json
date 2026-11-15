@@ -39,6 +39,9 @@
       "tests/harness/schemas/**",
       "tests/**/attacks/**",
       "tests/stability/labels.json"
+    ],
+    "law": [
+      ".lawcheck/**"
     ]
   },
   "roles": {
@@ -80,6 +83,9 @@
       "reviewer"
     ],
     "ratchet-grew": [
+      "reviewer"
+    ],
+    "law-changed": [
       "reviewer"
     ]
   },

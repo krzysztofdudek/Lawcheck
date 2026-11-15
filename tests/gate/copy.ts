@@ -2,6 +2,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 const SHARED = ['node_modules', '.grammars'];
 const LEFT_OUT = new Set(['.git', 'dist', ...SHARED]);
@@ -70,7 +71,8 @@ export function build(dir: string): { ok: boolean; output: string } {
 }
 
 export function runTests(dir: string, file: string, patterns: RegExp[]): { tap: string; status: number | null } {
-  const args = ['--test', '--test-reporter=tap', ...patterns.map((p) => `--test-name-pattern=${p.source}`), file];
+  const harness = join(dir, 'tests', 'harness', 'tool.ts');
+  const args = ['--test', ...(existsSync(harness) ? [`--import=${pathToFileURL(harness).href}`] : []), '--test-reporter=tap', ...patterns.map((p) => `--test-name-pattern=${p.source}`), file];
   const env = { ...process.env };
   delete env.NODE_TEST_CONTEXT;
   const run = spawnSync(process.execPath, args, { cwd: dir, env, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 });

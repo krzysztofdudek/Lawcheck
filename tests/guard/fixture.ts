@@ -121,6 +121,7 @@ export const BASE: { [path: string]: string } = {
   'tests/guard/check.ts': 'export const GUARD = true;\n',
   'tests/guard/config.json': '{ "ratchets": [] }\n',
   'tests/run.ts': 'export {};\n',
+  '.lawcheck/law.yaml': 'lawcheck: 1.0.0\nrules: {}\n',
   'tests/contract/pending.json': '[\n  { "id": "rule-crashed", "finding": "S2-2" }\n]\n',
   '.github/workflows/ci.yml': 'name: CI\non: [push]\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm test\n',
   'tests/weakenings.md': [

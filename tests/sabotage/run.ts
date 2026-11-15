@@ -30,7 +30,7 @@ export function readEntries(text: string): Entry[] {
 function findTest(dir: string, id: string): string | null {
   for (const file of globSync('tests/**/*.test.ts', { cwd: dir }).sort()) {
     const path = file.replace(/\\/g, '/');
-    if (readSource(readFileSync(join(dir, path), 'utf8')).tests.some((t) => t.id === id)) return path;
+    if (readSource(readFileSync(join(dir, path), 'utf8')).tests.some((t) => t.id === id || (t.dynamic && namePattern(t.id, true).test(id)))) return path;
   }
   return null;
 }

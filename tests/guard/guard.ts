@@ -17,7 +17,7 @@ export type Config = {
   runes: string;
   platformReasons: { file: string; export: string; call: string };
   shrinkOnly: string[];
-  paths: { guard: string[]; ci: string[]; harness: string[]; expected: string[] };
+  paths: { guard: string[]; ci: string[]; harness: string[]; expected: string[]; law: string[] };
   roles: { [role: string]: string };
   approvers: { [kind: string]: string[] };
   stronger: string;
@@ -45,13 +45,14 @@ export const RECORD_KINDS = [
   'threshold-lowered',
   'finding-weakened',
   'ratchet-grew',
+  'law-changed',
 ] as const;
 
 export type RecordKind = (typeof RECORD_KINDS)[number];
 
 export type NeverKind = 'only-added' | 'todo-added' | 'skip-unlisted' | 'number-unclassified' | 'number-unreadable' | 'weakenings-rewritten' | 'record-invalid' | 'sabotage-guard-kept' | 'list-unreadable';
 
-const PATH_KINDS = new Set<string>(['expected-changed', 'harness-changed', 'guard-changed', 'ci-changed']);
+const PATH_KINDS = new Set<string>(['expected-changed', 'harness-changed', 'guard-changed', 'ci-changed', 'law-changed']);
 const OWNER_LIKE = new Set<string>(['promise-changed', 'guard-changed', 'ci-changed', 'threshold-lowered']);
 
 export type Weakening = {
@@ -205,7 +206,7 @@ function platformReasons(tree: Tree, config: Config): { reasons: Set<string>; pa
 function anchorHint(kind: string): string {
   if (kind === 'test-removed') return "the acceptance row ('row <n>'), invariant ('I-...') or ledger row ('S<r>-<n>') that the test's name names, removed or reworded in this change; or 'ruling <n>' of spec/questions.md; or 'Runes <version>' that this change moves to";
   if (kind === 'sabotage-removed') return "the entry's promise, removed in this change together with the code the entry breaks";
-  if (OWNER_LIKE.has(kind) || kind === 'harness-changed') return "anything this change really holds: a path it changes, 'row <n>' or 'I-...' it changes, 'ruling <n>', or 'Runes <version>' it moves to";
+  if (OWNER_LIKE.has(kind) || kind === 'harness-changed' || kind === 'law-changed') return "anything this change really holds: a path it changes, 'row <n>' or 'I-...' it changes, 'ruling <n>', or 'Runes <version>' it moves to";
   return "'row <n>' or 'I-...' that this change adds, rewords or removes; or 'ruling <n>' of spec/questions.md; or 'Runes <version>' that this change moves to";
 }
 
@@ -281,6 +282,7 @@ export function judge(repo: string, baseRev: string, headRev: string, config: Co
     if (paths.some((p) => matchesAny(p, config.paths.guard))) add({ kind: 'guard-changed', subject: change.path, where: label, detail: `${verb}: a file of the suite guard` });
     if (paths.some((p) => matchesAny(p, config.paths.ci))) add({ kind: 'ci-changed', subject: change.path, where: label, detail: `${verb}: a CI file` });
     if (paths.some((p) => matchesAny(p, config.paths.harness) && !matchesAny(p, config.paths.expected))) add({ kind: 'harness-changed', subject: change.path, where: label, detail: `${verb}: the harness, the reporter or the runner` });
+    if (paths.some((p) => matchesAny(p, config.paths.law))) add({ kind: 'law-changed', subject: change.path, where: label, detail: `${verb}: the repository's own law` });
     if (change.status !== 'A' && matchesAny(change.from, config.paths.expected)) add({ kind: 'expected-changed', subject: change.from, where: label, detail: `${verb}: an expected file` });
   }
 
@@ -545,7 +547,7 @@ function validate(record: Record, ctx: AnchorContext): string[] {
   parts.forEach((p, i) => { if (!anchors[i]) why.push(`'${p}' is not an anchor (row <n>, I-..., S<r>-<n>, ruling <n>, Runes <version>, or a path)`); });
   for (const a of anchors) if (a) { const p = anchorProblem(a, ctx); if (p) why.push(p); }
   const types = anchors.filter((a): a is Anchor => a !== null).map((a) => a.type);
-  const permitted = OWNER_LIKE.has(record.kind) || record.kind === 'harness-changed' ? ['row', 'invariant', 'ledger', 'ruling', 'runes', 'path'] : record.kind === 'test-removed' ? ['row', 'invariant', 'ledger', 'ruling', 'runes'] : record.kind === 'sabotage-removed' ? ['row', 'invariant', 'ledger'] : ['row', 'invariant', 'ruling', 'runes'];
+  const permitted = OWNER_LIKE.has(record.kind) || record.kind === 'harness-changed' || record.kind === 'law-changed' ? ['row', 'invariant', 'ledger', 'ruling', 'runes', 'path'] : record.kind === 'test-removed' ? ['row', 'invariant', 'ledger', 'ruling', 'runes'] : record.kind === 'sabotage-removed' ? ['row', 'invariant', 'ledger'] : ['row', 'invariant', 'ruling', 'runes'];
   if (types.length > 0 && !types.some((t) => permitted.includes(t))) why.push(`${record.kind} needs an anchor of another kind: ${anchorHint(record.kind)}`);
   return why;
 }

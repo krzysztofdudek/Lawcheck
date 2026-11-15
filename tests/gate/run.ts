@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve as resolvePath } from 'node:path';
 import { git, resolve } from '../guard/git.ts';
 import { tempDir } from './copy.ts';
@@ -27,10 +27,8 @@ function guardFromBase(repo: string, base: string, head: string): { code: number
 function commitSet(repo: string): { code: number; command: string } {
   const env = { ...process.env };
   delete env.NODE_TEST_CONTEXT;
-  const runner = existsSync(join(repo, 'tests', 'run.ts'));
-  const [cmd, args] = runner ? [process.execPath, ['tests/run.ts', 'commit']] : ['npm', ['test']];
-  const run = spawnSync(cmd, args as string[], { cwd: repo, env, stdio: 'inherit', shell: !runner && process.platform === 'win32' });
-  return { code: run.status ?? 2, command: runner ? 'node tests/run.ts commit' : 'npm test' };
+  const run = spawnSync('npm', ['test'], { cwd: repo, env, stdio: 'inherit', shell: process.platform === 'win32' });
+  return { code: run.status ?? 2, command: 'npm test' };
 }
 
 if (import.meta.main) {
