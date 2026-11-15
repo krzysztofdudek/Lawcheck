@@ -1,6 +1,8 @@
 name: Nightly
 
 on:
+  push:
+    branches: [ci-layout]
   schedule:
     - cron: '17 2 * * *'
   workflow_call:
