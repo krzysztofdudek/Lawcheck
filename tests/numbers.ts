@@ -120,7 +120,7 @@ export const SLOW_TESTS: Record<string, Slow> = {
   'tests/limits/sizes.test.ts > test 254: a law may hold 10,000 rules, 1,000 types and 1 MiB, and past each it is file-too-large': { fixed: 0, measured: { darwin: 6_233, linux: 4_085, win32: 23_560 } },
   'tests/limits/reviews.test.ts > S3-6: test 243: a second run right after any run prints the same': { fixed: 0, measured: { darwin: 7_475, linux: 4_188, win32: 12_489 } },
   'tests/limits/reviews.test.ts > S3-6: test 243: a plain check right after a passing review passes, with a type whose paths cover .lawcheck/': { fixed: 0, measured: { win32: 4_079 } },
-  'tests/limits/sizes.test.ts > test 263: a file whose uses are read may hold 512 KiB, even of the costliest text, and a config 1 MiB': { fixed: 0, measured: { darwin: 8_054, linux: 5_116, win32: 11_260 } },
+  'tests/limits/sizes.test.ts > test 263: a file whose uses are read may hold 512 KiB, even of the costliest text, past it its uses are not read and the run goes on, and a config may hold 1 MiB': { fixed: 0, measured: { darwin: 8_054, linux: 5_116, win32: 11_260 } },
   'tests/limits/writes.test.ts > S1-6: S5-13: S8-8: test 240: every command writing to an output opened only for reading ends with exit 2': { fixed: 0, measured: { win32: 8_675 } },
   'tests/limits/findings.test.ts > S2-1: test 235: 125,000 and 200,000 findings from one rule give the full report and exit 1': { fixed: 0, measured: { darwin: 5_663, linux: 4_143, win32: 8_518 } },
   'tests/limits/findings.test.ts > S2-1: test 236: 200,001 and 1,000,000 findings from one rule, and 300,000 over three files, are too-many-findings': { fixed: 0, measured: { win32: 7_853 } },

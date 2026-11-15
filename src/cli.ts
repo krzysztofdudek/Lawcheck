@@ -9,7 +9,8 @@ import { isMainThread, MessageChannel, Worker } from 'node:worker_threads';
 const GIT_OUTPUT_BYTES = 1 << 30;
 import { COMMANDS } from './args.js';
 import { hiddenJson, hide, useKeys } from './keys.js';
-import { MEMORY_BYTES, MEMORY_CHECK_MS, mib, STEP_MS } from './limits.js';
+import { totalmem } from 'node:os';
+import { MEMORY_CHECK_MS, memoryBound, mib, STEP_MEMORY_BYTES, STEP_MS } from './limits.js';
 import { renderErrors, safeJson, safeText } from './output.js';
 import type { ErrorItem } from './output.js';
 import { lastStep, progressBuffer } from './progress.js';
@@ -111,11 +112,24 @@ export function start(): void {
   }, 1000);
   watch.unref();
   // A reader of uses can grow by megabytes a millisecond and cannot be stopped from within, so the memory of the whole process is read from here, often, and the run ends before the system ends it.
+  const bound = memoryBound(process.constrainedMemory?.() ?? 0, totalmem());
+  let stepAt = -1;
+  let stepRss = 0;
   const memory = setInterval(() => {
-    if (writing || process.memoryUsage.rss() <= MEMORY_BYTES) return;
-    clearInterval(memory);
+    if (writing) return;
+    const rss = process.memoryUsage.rss();
     const last = lastStep(progress);
-    fail({ code: 'memory-too-large', file: last.file, line: null, message: `the run passed the ${mib(MEMORY_BYTES)} of memory it may hold while ${last.what}` });
+    if (last.at !== stepAt) {
+      stepAt = last.at;
+      stepRss = rss;
+    }
+    const stepGrew = last.file !== null && rss - stepRss > STEP_MEMORY_BYTES;
+    if (rss <= bound && !stepGrew) return;
+    clearInterval(memory);
+    const message = stepGrew
+      ? `the run grew by more than the ${mib(STEP_MEMORY_BYTES)} of memory one file may add while ${last.what}`
+      : `the run passed the ${mib(bound)} of memory it may hold while ${last.what}`;
+    fail({ code: 'memory-too-large', file: last.file, line: null, message });
   }, MEMORY_CHECK_MS);
   memory.unref();
   worker.on('message', (message: FromWork) => {

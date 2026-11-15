@@ -18,8 +18,16 @@ export const USES_FILE_BYTES = 512 * 1024;
 export const LAW_RULES = 10_000;
 export const LAW_TYPES = 1_000;
 export const STEP_MS = 30_000;
-export const MEMORY_BYTES = 768 * MiB;
+export const MEMORY_BYTES = 1536 * MiB;
+export const MEMORY_SHARE = 0.85;
+export const STEP_MEMORY_BYTES = 384 * MiB;
 export const MEMORY_CHECK_MS = 5;
+
+// The most memory a run may hold: MEMORY_BYTES, or less where the system grants the process less, as a container does.
+export function memoryBound(granted: number, total: number): number {
+  const room = granted > 0 && granted < total ? granted : total;
+  return Math.min(MEMORY_BYTES, Math.floor((room * MEMORY_SHARE) / MiB) * MiB);
+}
 
 // A character is a code point, as a reader counts one, so a pair of UTF-16 code units counts once.
 export function points(text: string): number {

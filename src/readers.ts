@@ -227,7 +227,7 @@ async function readAll(input: ReadInput, runes: Runes, skipped: { path: string; 
   const csharp = new Map<string, CsharpExtract>();
 
   for (const parse of [...parses.values()].sort((a, b) => comparePaths(a.path, b.path))) {
-    step(`reading the uses of ${parse.path}`, parse.path);
+    step(`reading the uses of ${parse.path}`);
     const { language, parsePath, content } = parse.view;
     // A file past the limit is not parsed: one whose uses the run judges is named as not read, and one read only for what it declares stays out, so a use of it shows as unresolved.
     const size = Buffer.byteLength(content, 'utf8');
@@ -253,6 +253,8 @@ async function readAll(input: ReadInput, runes: Runes, skipped: { path: string; 
       loaded.add(language);
     }
     const override = getLanguageForExtension(extname(parsePath)) === language ? undefined : language;
+    // The step names its file only from here, so the memory it may add counts from the parse and not from the grammar loaded before it.
+    step(`reading the uses of ${parse.path}`, parse.path);
     try {
       await host.withParsedFile(
         parsePath,

@@ -30,7 +30,7 @@ Every code Lawcheck prints. A finding is a line of `check`'s report and comes wi
 | `too-many-reviews` | exit 2 | a run needs more reviewer calls than its cap | reviewer.max_calls bounds what one run spends |
 | `reviewer-unreachable` | exit 2 | the reviewer cannot be called, or a request fails | without the reviewer's answer a reviewer rule says nothing |
 | `reviewer-bad-answer` | exit 2 | the reviewer's answer is no verdict twice | an answer that is no verdict cannot be recorded |
-| `memory-too-large` | exit 2 | the tool passes 768 MiB of memory | a run past its memory would be ended by the system |
+| `memory-too-large` | exit 2 | the run passes its memory | a run past its memory would be ended by the system |
 | `step-too-slow` | exit 2 | one step of a run, such as typing one file, takes more than 30 seconds | a step that never ends gives no answer, so one step of a run has a limit of time |
 | `stopped` | exit 2 | SIGINT, SIGTERM or SIGHUP ended the run | a run stopped before its end says nothing about the code |
 | `internal` | exit 2 | any other failure, a fault of Lawcheck included | a fault of Lawcheck says nothing about the code |

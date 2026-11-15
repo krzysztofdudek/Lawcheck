@@ -226,7 +226,7 @@ test('test 273: a file whose uses take more memory than a run may hold ends the 
         [
           'lawcheck: ERROR  1 error',
           '',
-          'src/core/big.ts  error[memory-too-large]  the run passed the 768 MiB of memory it may hold while reading the uses of src/core/big.ts',
+          'src/core/big.ts  error[memory-too-large]  the run grew by more than the 384 MiB of memory one file may add while reading the uses of src/core/big.ts',
           '  why:  a run past its memory would be ended by the system',
           '',
           'next: leave src/core/big.ts out of the types whose may_use is in force, then run lawcheck check again',

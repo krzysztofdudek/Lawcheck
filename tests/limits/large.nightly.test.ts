@@ -284,7 +284,7 @@ test('test 274: in 1 GB, 64 KiB of `a<a,` under may_use ends as memory-too-large
     async (s) => {
       write(s, 'src/core/big.ts', 'a<a,'.repeat(16 * 1024));
       const result = await run(s, ['check', '--base', 'main'], { budget: 'LIMITS_RUN_MS' });
-      assert.deepEqual(errorLines(result.stdout), ['src/core/big.ts  error[memory-too-large]  the run passed the 768 MiB of memory it may hold while reading the uses of src/core/big.ts']);
+      assert.deepEqual(errorLines(result.stdout), ['src/core/big.ts  error[memory-too-large]  the run grew by more than the 384 MiB of memory one file may add while reading the uses of src/core/big.ts']);
       assert.equal(result.signal, null);
       assert.equal(result.code, 2);
     },
