@@ -42,7 +42,7 @@ Each run counts them, in the first line for the changed files and in the debt he
 |---|---|---|
 | `none` | `unfollowed` | the use names a place of the repository that holds no file: a file the build writes and git ignores, an alias or a workspace package whose entry is build output the repository does not hold, a name of the repository's own package that no file declares |
 | `none` | `unowned` | the use binds a file of the repository that no type maps; `candidates` names it |
-| `none` | none | the readers give no reason: every miss in C, C++ and Ruby, system headers and gems included |
+| `none` | none | the readers give no reason: every miss in C, C++ and Ruby, system headers and gems included, and a `#include` that needs `-I` when `compile_commands.json` is not in git |
 | `ambiguous` | none | the use could name several files of different types, or of a type and no type; `candidates` lists them. It is not judged, even when the list forbids every one |
 
 What the readers tell as outside, by language: TypeScript and JavaScript, an installed package or a Node built-in; Python, a module whose top-level name no root of the repository holds; Go, an import path no module of the repository holds; Rust, a path from a crate the repository does not hold (`std`, a registry dependency); PHP, a class under no prefix of the repository's Composer maps; Java and Kotlin, a name in a package the repository declares nothing in, a `java.lang` name and a Kotlin default import (`String`, `List`), and a simple name an on-demand import of such a package can give (`List` under `import java.util.*;`); C#, a name only a namespace from elsewhere can give (`System.Text`). C, C++ and Ruby tell nothing.
@@ -57,6 +57,18 @@ What the readers tell as outside, by language: TypeScript and JavaScript, an ins
 - C#: a member inherited from a base class outside the repository (`ControllerBase.User`) lets a type of the repository with that name take the use; a chain of `is not` tests of dotted types gives no use.
 - Rust `[patch]`: the patched crate's version is not compared with the dependency's requirement, a workspace's `exclude` and `package.workspace` are not read, and a GitHub URL is matched as written.
 - Rust: paths inside a macro invocation and `include!` are not read; a library rooted at the package root whose `lib.rs` holds only an inline module with a `#[path]` module gives no use for the `mod` lines of the loaded file.
+
+## Forms the readers miss
+
+These are limits of the readers, used as they are. A use they miss is neither judged nor counted, so a check can pass where the same use, written another way, fails.
+
+- TypeScript and JavaScript: an alias that only a bundler defines (Vite or webpack `resolve.alias`, Babel `module-resolver`) is read as an installed package; put it in `tsconfig.json` `paths` too. `import.meta.glob`, `require.context` and `vi.mock` are not read.
+- Python: a package under a folder that only configuration names, such as `lib/` with `where = ["lib"]` in `pyproject.toml`, is no root. Its absolute imports of itself (`from pkg.data.d import x`) are read as outside; its relative imports are read.
+- Rust: a `mod` with `#[path]` gave no use where tried. A path to a path-dependency crate written in code with no `use` (`datacrate::dc()`) is not read; `use datacrate::dc;` is.
+- Go: a module wired to a sibling only by `replace` in `go.mod` is outside; use a `go.work`.
+- Vue: a `<script>` block inside an HTML comment is read as code; `<script src="...">` is not read.
+- Java: a fully qualified name is read in a field type, and not in a call, an annotation or `Class.forName`.
+- The count of unresolved uses depends on the import style: Python's `from .m import Name` is counted and `from app.m import Name` is not.
 
 ## uses-not-read
 
