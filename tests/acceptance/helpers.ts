@@ -1,5 +1,5 @@
 import { spawn, execFileSync } from 'node:child_process';
-import { appendFileSync, cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { appendFileSync, cpSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -75,7 +75,7 @@ export interface Temp {
 }
 
 export function temp(): Temp {
-  const dir = mkdtempSync(join(tmpdir(), 'lawcheck-test-'));
+  const dir = realpathSync(mkdtempSync(join(tmpdir(), 'lawcheck-test-')));
   return { dir, remove: () => rmSync(dir, { recursive: true, force: true }) };
 }
 
