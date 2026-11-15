@@ -466,24 +466,38 @@ Choice: not done. It would make a finding of an answer the readers did not resol
 - The commit subjects of the move have no `<area>: ` prefix: not changed, since rewording would rewrite the branch for no change in content.
 - The suite at the first commit of the move alone was not run by the review: it was run before that commit was made, 349 of 349.
 
-## 110. A key that the endpoint echoes
+# Questions found while adding the six providers
+
+## 73. The owner's ruling of 2026-11-15: all nine providers before the alpha
+
+The owner ruled on 2026-11-15 that all nine reviewer providers of the design are a condition of the first alpha. The reviewer slice had built three and refused the other six as `config-invalid`.
+
+Choice: `openai`, `google`, `ollama`, `codex`, `gemini-cli` and `copilot-cli` are built on the contract of section 6 of `spec/reviewer-slice.md`, sharing its HTTP request and its program call, with tests 184 to 194. Test 68 now refuses `provider: gemini`, an unknown name, where it refused `provider: codex`.
+
+## 74. `codex` and `copilot` read the user's own configuration
+
+`claude-code` runs with `--setting-sources ""` and an empty MCP configuration, and its route to another endpoint comes from the environment. For `codex` the route to another endpoint is a model provider in `~/.codex/config.toml`; for `copilot` the sign-in can sit in its own folder under `~/.copilot` when no keychain holds it. `codex exec --ignore-user-config` and an empty `COPILOT_HOME` would leave out the MCP servers those files name, and with them every endpoint but the vendor's own. On codex 0.169.0, `--ignore-user-config` sent the call to the vendor's service even with `OPENAI_BASE_URL` set, and `-c mcp_servers={}` did not stop a server the file names from starting.
+
+Open: which the owner wants. Built: the user's configuration is read and the MCP servers it names start, as decision 22 of the slice and `docs/providers.md` say. The other option is to leave it out and review through the vendor's service alone.
+
+## 75. A key that the endpoint echoes
 
 Finding S3-2 asks that a key an endpoint echoes in its error message appear in no output. Section 6 prints the first line of the endpoint's `error.message` as it came, and the design's providers chapter keeps a provider's error text as it came, with no redaction.
 
-The question: whether Lawcheck replaces its own key in what it prints, which S3-2 asks for.
+Open: whether Lawcheck replaces its own key in what it prints, which S3-2 asks for. Test 188, the key canary, checks what Lawcheck itself does with a key: no output, file, temporary file or request other than its own header holds it. It gives the fake no reply that echoes the key.
 
-The owner's ruling of 2026-11-15, `klucz-zastapiony`: option A. The label is the one of the choice put to him, not his wording. Lawcheck replaces the one exact key it sent with `[key]` wherever it prints or writes it, and masks nothing else.
+## 76. `openai` and a model that takes only its own temperature
 
-The build's reading of the ruling, not the owner's. `claude-code` sends no key of its own and hands the program every variable, so the keys it hands on are the values of `LAWCHECK_REVIEWER_KEY` and `ANTHROPIC_API_KEY`, and those are replaced in what the program prints. "The exact key" is read as the key in any spelling JSON allows, each character as itself, as a `\u` escape or as its short escape, since an answer is JSON and a model or a proxy may write it so. The replacement is made after the answer is read, before any cut to a length, and in the strings of a JSON document but not in the names of its keys. "Wherever it prints or writes it" is read as the text that comes from outside Lawcheck, in all output and the failure cache: a rule's message, a file name, an argument, a config value; never Lawcheck's own words, codes, schema names, ids, line numbers or JSON key names, which a short key would otherwise garble. The keys are the values of `LAWCHECK_REVIEWER_KEY` and `ANTHROPIC_API_KEY`, whichever provider is in force. A key shorter than 8 characters is not replaced: a dummy key for a local endpoint is no secret, and replacing it would garble paths and messages that hold it. A prefix of the key, the key in another case, a percent-encoded copy and any other key-shaped value are printed as they came. `reviewer-slice.md`, section 6, says so, and the tests of invariant `I-secret-1` check both sides.
+Some of OpenAI's models refuse a `temperature` other than their default and answer HTTP 400. Lawcheck always sends one, 0 by default, so such a model ends every review with `reviewer-unreachable` and the vendor's message.
 
-## 120. A path in another case on a file system that ignores case
+Choice: kept as section 6 says. Leaving `temperature` out for some models would be a list of model names, which goes stale. `openai` was not called live.
 
-On macOS and Windows, `lawcheck explain SRC/core/price.ts` opens `src/core/price.ts`, while git lists the file only as `src/core/price.ts`. The tool typed the spelling it was given, found no type and answered `none`, which is false for the file `check` judges. A decision of the build, not of the owner. It follows the test design, layer 5: `explain SRC/core/price.ts` on a file system that ignores case.
+## 77. `copilot-cli` without a model
 
-Choice: when git does not list the path, the path exists, and it is the same file as exactly one path git lists that is equal to it but for case, `explain` answers for that path, under the name git lists. Elsewhere nothing changes: on Linux `SRC/core/price.ts` is a file that does not exist yet. `commands-slice.md`, section 6, says so, and test 202 of `spec/environments.md` holds it.
+The design left open whether `copilot` answers without `--model`. With its own bring-your-own-key variables, `COPILOT_MODEL` among them, it did (`spec/release-readiness.md`). With a GitHub sign-in it was not run.
 
-## 121. A rule that imports a package hoisted above the root
+Choice: `model` is optional for `copilot-cli`, as for the other programs.
 
-In a monorepo with the law in one package, the dependencies usually sit in a `node_modules` above the root, which the runner does not let a rule read, and the rule ended with Node's sentence about a flag the user cannot pass (stress finding S2-2). The finding left two ways open: let the runner read the `node_modules` folders above the root, or refuse in words that name the real limit. A decision of the build.
+## 78. The numbers of the new tests
 
-Choice: refuse, and say so. The runner keeps its promise that a rule reads nothing outside the root and Lawcheck's folder (`check-slice.md`, section 3), the message names what the rule read and where, and the script rules page says what a rule can import. Letting the runner read the folders above the root would widen what every rule can read, which is the owner's to decide; it stays open for him.
+The rows of the six providers are tests 184 to 194 in section 11 of `spec/reviewer-slice.md`, the next numbers after the plugin slice's 183.

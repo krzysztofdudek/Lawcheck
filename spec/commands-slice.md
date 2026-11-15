@@ -499,7 +499,7 @@ A page's first line is `# <its title>`. A page holds at most 8,000 characters, s
 | `reviewer-rules` | the rule file; what the reviewer receives and must answer; verdicts, what re-opens one and what does not; the failure cache; `--review`, `--again`, `--max-calls`; `try --times` and `--dry-run` |
 | `waivers` | the form, what it covers, the reason, `forbidden-use`, the three waiver codes, how waivers are counted |
 | `config` | every key of `.lawcheck/config.yaml` with its default and bounds, and what is refused there |
-| `providers` | the three providers, the variables, where a key goes, what leaves the machine, `doctor --reviewer` |
+| `providers` | the nine providers, the variables, where a key goes, what leaves the machine, `doctor --reviewer` |
 | `languages` | the languages whose uses are read, by extension; the languages that read declarations of other files; unresolved uses; `uses-not-read` |
 | `ci` | a CI job with history deep enough for the merge base and `--base`; a git pre-commit hook; that no key is needed; that a check runs the repository's script rules, so it runs only where the tests would |
 | `json` | every schema the tool prints, with its keys |

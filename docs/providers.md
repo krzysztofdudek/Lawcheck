@@ -1,51 +1,59 @@
 # Reviewers and keys
 
-A reviewer rule needs a reviewer: a provider and, for two of them, a model in `.lawcheck/config.yaml`. Keys and addresses come from the environment, never from a file.
+A reviewer rule needs a reviewer: a provider in `.lawcheck/config.yaml`, and a model for the five that Lawcheck calls over HTTP. Keys and addresses come from the environment, never from a file.
 
-## The three providers
+## The nine providers
 
-**openai-compatible** sends `POST <endpoint>/chat/completions` to any server that speaks that API, with `response_format` set to a JSON object. It needs `LAWCHECK_REVIEWER_ENDPOINT` and a model.
+| Provider | Calls | `model` | Address by default | Key |
+|---|---|---|---|---|
+| `anthropic` | `POST <address>/messages` | required | `https://api.anthropic.com/v1` | `ANTHROPIC_API_KEY` or `LAWCHECK_REVIEWER_KEY` |
+| `openai` | `POST <address>/chat/completions` | required | `https://api.openai.com/v1` | `OPENAI_API_KEY` or `LAWCHECK_REVIEWER_KEY` |
+| `google` | `POST <address>/models/<model>:generateContent` | required | `https://generativelanguage.googleapis.com/v1beta` | `GOOGLE_API_KEY` or `LAWCHECK_REVIEWER_KEY` |
+| `openai-compatible` | `POST <address>/chat/completions` | required | none, `LAWCHECK_REVIEWER_ENDPOINT` is required | `LAWCHECK_REVIEWER_KEY`, when the server wants one |
+| `ollama` | `POST <address>/api/chat` | required | `http://localhost:11434` | none |
+| `claude-code` | the `claude` program | optional | | the program's own sign-in |
+| `codex` | the `codex` program | optional | | the program's own sign-in |
+| `gemini-cli` | the `gemini` program | optional | | the program's own sign-in |
+| `copilot-cli` | the `copilot` program | optional | | the program's own sign-in |
 
 ```yaml
 reviewer:
-  provider: openai-compatible
+  provider: openai
   model: your-model-id
 ```
 
-**anthropic** sends `POST <endpoint>/messages`, by default to `https://api.anthropic.com/v1`. It needs a model and a key.
-
 ```yaml
 reviewer:
-  provider: anthropic
-  model: your-model-id
+  provider: codex
 ```
 
-**claude-code** starts the `claude` program found on `PATH`, with no tools, no slash commands, no MCP servers and no saved session, in a new empty folder. The prompt goes to its standard input. The model is optional.
+## Over HTTP
 
-```yaml
-reviewer:
-  provider: claude-code
-```
+`LAWCHECK_REVIEWER_ENDPOINT` replaces the address of all five. Each request carries the prompt as one user message and the temperature.
 
-## The variables
+- `openai` and `openai-compatible` ask for a JSON object with `response_format`, and read the first choice's message. `openai-compatible` sends `authorization: Bearer <key>` only when a key is set.
+- `anthropic` sends `x-api-key` and `anthropic-version: 2023-06-01`, asks for at most 8192 tokens, and joins the text items of `content`.
+- `google` sends the key in `x-goog-api-key`, never in the address, asks for `application/json`, and joins the text parts of the first candidate.
+- `ollama` sends `stream: false`, `format: json` and the temperature in `options`, and reads `message.content`. It sends no key.
 
-| Variable | Read by | Meaning |
-|---|---|---|
-| `LAWCHECK_REVIEWER_ENDPOINT` | `openai-compatible` (required), `anthropic` (optional) | the base address, `http:` or `https:`, without a user, a password, a query or a fragment |
-| `LAWCHECK_REVIEWER_KEY` | `openai-compatible`, `anthropic` | the key for the endpoint in force |
-| `ANTHROPIC_API_KEY` | `anthropic` | the key for `https://api.anthropic.com/v1` and no other address |
+## The programs
 
-An empty variable counts as absent. `openai-compatible` sends `authorization: Bearer <key>` only when a key is set.
+Lawcheck finds the program on `PATH` and starts it with no shell, in a new empty folder that it removes afterwards. The prompt goes to its standard input. It passes `--model` only when `model` is set; without it the program runs its own default. An exit other than 0 is a failure, with the last line of standard error as its message.
+
+- `claude-code` runs `claude --print --output-format json` with no tools, no slash commands, no settings files, no MCP servers and no saved session.
+- `codex` runs `codex exec` in a read-only sandbox, with no saved session and no rules files, and with its shell, image, sub-agent, goal, hook, plugin, app and web search tools off. It reads your `~/.codex/config.toml`, so it calls the model provider set there, and the MCP servers that file names still start.
+- `gemini-cli` runs `gemini` with text output, in plan mode, with no extensions, no MCP server and a policy that denies every tool, written to a second temporary folder.
+- `copilot-cli` runs `copilot --silent` with no questions, no custom instructions, no built-in MCP servers and no shell, file writes, addresses or memory. It reads its own configuration under `~/.copilot`, so the MCP servers named there start and each call stays in its session history. A `copilot` inside the folder of the VS Code Copilot extension is passed over: it only offers to install the CLI.
 
 ## Where a key goes
 
 A key goes only to the address it was given for:
 
-- with `LAWCHECK_REVIEWER_ENDPOINT` set, `anthropic` sends `LAWCHECK_REVIEWER_KEY` alone;
-- without it, `anthropic` sends `ANTHROPIC_API_KEY`, else `LAWCHECK_REVIEWER_KEY`, to `https://api.anthropic.com/v1`;
-- `openai-compatible` never reads `OPENAI_API_KEY`.
+- with `LAWCHECK_REVIEWER_ENDPOINT` set, `anthropic`, `openai` and `google` send `LAWCHECK_REVIEWER_KEY` alone;
+- without it, each sends its own variable, else `LAWCHECK_REVIEWER_KEY`, to its own address;
+- `openai-compatible` never reads `OPENAI_API_KEY`, and `ollama` reads no key.
 
-Requests follow no redirect, so no key reaches the address a redirect names. A key in `.lawcheck/config.yaml` is `config-invalid`.
+An empty variable counts as absent. Requests follow no redirect, so no key reaches the address a redirect names. A key in `.lawcheck/config.yaml` is `config-invalid`.
 
 ## What leaves the machine
 
@@ -53,8 +61,8 @@ Without `--review`, and outside `lawcheck try` on a reviewer rule and `lawcheck 
 
 With them, each call sends one prompt: a fixed frame, the rule's `why` and text, the text of each context file the law names for the rule, the path and text of one judged file, and its waived line numbers. With it go the model name, the parameters and the key in its header. No other file, no git data and no other variable.
 
-- `openai-compatible` and `anthropic` send it to the endpoint in force.
-- `claude-code` hands it to the `claude` program. That program adds its own system prompt with details of the machine, may load the user's own instruction files, and sends everything where its own configuration points. It gets every variable of Lawcheck's environment.
+- The five HTTP providers send it to the address in force.
+- The four programs get it on standard input. Each adds its own system prompt, may load your own instruction files, and sends everything where its own configuration points. Each gets every variable of Lawcheck's environment.
 
 Bounds: `check` sends a file that has a type and a reviewer rule binding it, and `try` a file you named. A context file is one the law names and git lists. A prompt holds at most `reviewer.max_chars` characters, and a run sends at most `reviewer.max_calls` requests.
 
