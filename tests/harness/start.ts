@@ -447,9 +447,9 @@ function launch(start: Start, expect: Expect): Running {
       }
       const leftTemp = await waitEmpty(own.temp, Date.now() + (killed ? KILLED_GRACE_MS : LEFTOVER_GRACE_MS));
       if (leftTemp.length > 0) problems.push(['harness-8', `the run left ${leftTemp.slice(0, 10).join(', ')} in its temporary directory`]);
-      const leftHome = [...tree(own.home).keys()].filter((path) => !path.endsWith('/'));
-      const emptyHome = readdirSync(own.home).length === 0;
-      if (!emptyHome) problems.push(['harness-8', `the run wrote ${(leftHome.length > 0 ? leftHome : readdirSync(own.home)).slice(0, 10).join(', ')} in its home folder`]);
+      // Windows makes the folders of a profile (AppData\\Local\\Microsoft\\...) for a program that asks where one is, PowerShell among them; there only a file in the home counts.
+      const written = [...tree(own.home).keys()].filter((path) => !WINDOWS || !path.endsWith('/'));
+      if (written.length > 0) problems.push(['harness-8', `the run wrote ${written.slice(0, 10).join(', ')} in its home folder`]);
       rmSync(own.dir, { recursive: true, force: true, maxRetries: 10 });
       runFolders.delete(own.dir);
       problems.push(...close(scope));
