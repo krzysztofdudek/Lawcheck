@@ -23,6 +23,25 @@ for (const name of Object.keys(process.env)) delete process.env[name];
 
 let check: Check | null = null;
 let repo: { filesOf(typeId: string): string[] } | null = null;
+let calling: string | null = null;
+let background: { message: string; after: string | null } | null = null;
+
+// A rejection nobody handles, or a throw from a timer, would end the runner at a moment that depends on how many files it judges; it is kept and answered in place of the next answer, naming the call it came after.
+function failed(error: unknown): void {
+  background ??= { message: text(error), after: calling };
+}
+process.on('unhandledRejection', failed);
+process.on('uncaughtException', failed);
+
+function settled(): Promise<void> {
+  return new Promise((resolve) => setImmediate(resolve));
+}
+
+function sendBackground(): boolean {
+  if (background === null) return false;
+  send({ kind: 'background', message: background.message, after: background.after });
+  return true;
+}
 
 // Node's refusal names a flag of the runner's own command line, which the user cannot pass; the permission and the path it carries say what the rule did.
 function refused(error: unknown): string | null {
@@ -77,6 +96,8 @@ async function load(file: string, filesOf: Map<string, string[]>): Promise<void>
     send({ kind: 'load-failed', message: text(error) });
     return;
   }
+  await settled();
+  if (sendBackground()) return;
   if (typeof module.check !== 'function') {
     send({ kind: 'load-failed', message: 'the module exports no function check' });
     return;
@@ -86,6 +107,8 @@ async function load(file: string, filesOf: Map<string, string[]>): Promise<void>
 }
 
 async function call(file: CallFile): Promise<void> {
+  if (sendBackground()) return;
+  calling = file.path;
   let value: unknown;
   try {
     value = await check!({ files: [file], repo: repo! });
@@ -93,6 +116,8 @@ async function call(file: CallFile): Promise<void> {
     send({ kind: 'threw', message: text(error) });
     return;
   }
+  await settled();
+  if (sendBackground()) return;
   send({ kind: 'result', value });
 }
 
