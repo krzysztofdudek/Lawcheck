@@ -152,10 +152,22 @@ test('test 258: a signal while git runs ends the run as stopped within two secon
   }
 });
 
-test('test 270: the watch of a step starts with the command, so a worker slow to start is not a step past its limit', async () => {
-  const { lastStep, progressBuffer } = await import('../../dist/progress.js');
-  const before = Date.now();
-  const last = lastStep(progressBuffer());
-  assert.ok(last.at >= before && last.at <= Date.now(), String(last.at));
-  assert.equal(last.what, 'starting the command');
+// The hook holds the worker two seconds before its first module, as a starved processor does; the step watch must count from the start of the command, not from the worker's first beat.
+const SLOW_WORKER = [
+  "import { registerHooks } from 'node:module';",
+  "import { threadId } from 'node:worker_threads';",
+  'let held = false;',
+  "registerHooks({ load(url, context, next) { if (threadId !== 0 && !held) { held = true; Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 2000); } return next(url, context); } });",
+  '',
+].join('\n');
+
+test('test 270: a worker slow to start is no step past its limit, since the watch starts with the command', async () => {
+  await withSample(async (s, dir) => {
+    const hook = join(dir, 'slow.mjs');
+    writeFileSync(hook, SLOW_WORKER);
+    const result = await run(s, ['check', '--base', 'main'], { node: ['--import', pathToFileURL(hook).href] });
+    assert.equal(result.stdout, 'lawcheck: PASS  nothing changed against main\n');
+    assert.equal(result.stderr, '');
+    assert.equal(result.code, 0);
+  });
 });
