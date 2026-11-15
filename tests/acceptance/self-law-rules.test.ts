@@ -107,6 +107,8 @@ test('ruling dogfood-fable, pure-layers: process, globalThis, console, fetch, th
       ['export const k = (date: Date) => date.getTime();'],
       ["export const l = 'process.env and Date.now() in a string';"],
       ['// console.log() in a comment'],
+      ['export const t = () => `at ${Date.now()}`;', `reads the clock${core}`],
+      ['export const u = (n: number) => `process and Date.now() in the text of ${n} and ${`${n}`}`;'],
     ],
     'src/output/probe.ts': [["export const m = () => console.log('x');", 'uses console; an output module takes what it needs as an argument']],
   });
@@ -127,6 +129,7 @@ test('ruling dogfood-fable, programs-own-the-process: the process members of a p
       ['export const j = () => [process.platform, process.pid, process.execPath, process.versions.node];'],
       ['export const k = (options) => options.process.env;'],
       ["export const l = 'process.env in a string';"],
+      ['export const m = () => `home ${process.env.HOME}`;', 'uses process.env outside the programs; take it from the context the program passes'],
     ],
     'src/runner.ts': [["process.stdout.write('a program may');"], ["console.log('a program may');"]],
   });

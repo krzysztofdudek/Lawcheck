@@ -1,22 +1,39 @@
-// A line without its string literals and its line comment. A template literal or a block comment that runs over several lines is read as code.
+// A template literal or a block comment that runs over several lines is read as code on its later lines.
 export function bare(line) {
   let out = '';
-  let quote = null;
-  for (let i = 0; i < line.length; i++) {
-    const c = line[i];
-    if (quote !== null) {
-      if (c === '\\') i++;
-      else if (c === quote) quote = null;
-      continue;
+  const code = (from, inner) => {
+    let depth = 0;
+    for (let i = from; i < line.length; i++) {
+      const c = line[i];
+      if (inner && c === '{') depth++;
+      if (inner && c === '}' && depth-- === 0) return i + 1;
+      if (c === "'" || c === '"') {
+        out += ' ';
+        for (i++; i < line.length && line[i] !== c; i++) if (line[i] === '\\') i++;
+        continue;
+      }
+      if (c === '`') {
+        out += ' ';
+        i = template(i + 1) - 1;
+        continue;
+      }
+      if (c === '/' && line[i + 1] === '/') return line.length;
+      out += c;
     }
-    if (c === "'" || c === '"' || c === '`') {
-      quote = c;
-      out += ' ';
-      continue;
+    return line.length;
+  };
+  const template = (from) => {
+    for (let i = from; i < line.length; i++) {
+      if (line[i] === '\\') i++;
+      else if (line[i] === '`') return i + 1;
+      else if (line[i] === '$' && line[i + 1] === '{') {
+        out += ' ';
+        i = code(i + 2, true) - 1;
+      }
     }
-    if (c === '/' && line[i + 1] === '/') break;
-    out += c;
-  }
+    return line.length;
+  };
+  code(0, false);
   return out;
 }
 
