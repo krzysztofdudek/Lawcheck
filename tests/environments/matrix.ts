@@ -19,6 +19,7 @@ export const INSTALL_CELLS: Cell[] = [
     { image, manager: 'pnpm', expect: 'pass' },
     { image, manager: 'yarn1', expect: 'pass' },
     { image, manager: 'yarn4', expect: 'pass' },
+    { image, manager: 'yarn4-pnpm', expect: 'pass' },
     { image, manager: 'yarn4-pnp', expect: 'refuse', cause: "Plug'n'Play" },
     { image, manager: 'bun', expect: 'pass' },
   ]),

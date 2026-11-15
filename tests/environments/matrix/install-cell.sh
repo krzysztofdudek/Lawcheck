@@ -1,6 +1,6 @@
 #!/bin/sh
 # One cell of the install matrix (spec/environments.md, test 206), run as root in a clean official image with /cell mounted read-only: /cell/lawcheck.tgz, /cell/sample and this script.
-# Usage: install-cell.sh <npm|pnpm|yarn1|yarn4|yarn4-pnp|bun> <pass|refuse> [<words the refusal names>]
+# Usage: install-cell.sh <npm|pnpm|yarn1|yarn4|yarn4-pnpm|yarn4-pnp|bun> <pass|refuse> [<words the refusal names>]
 set -u
 CELL=$1
 EXPECT=$2
@@ -30,7 +30,7 @@ printf '{"name":"cell","version":"1.0.0","private":true}\n' > package.json
 case $CELL in
   npm) runner=npx; cmd='npx --no-install lawcheck'; json=$cmd ;;
   pnpm) runner=pnpm; cmd='pnpm exec lawcheck'; json=$cmd ;;
-  yarn1 | yarn4 | yarn4-pnp) runner=yarn; cmd='yarn run lawcheck'; json='yarn --silent run lawcheck' ;;
+  yarn1 | yarn4 | yarn4-pnpm | yarn4-pnp) runner=yarn; cmd='yarn run lawcheck'; json='yarn --silent run lawcheck' ;;
   bun) runner=bun; cmd='bun x --no-install lawcheck'; json=$cmd ;;
   *) couldnot "unknown cell $CELL" ;;
 esac
@@ -47,12 +47,13 @@ case $CELL in
   yarn1)
     command -v yarn > /dev/null 2>&1 || quiet npm install --global --no-audit --no-fund yarn || couldnot "npm install yarn"
     quiet yarn add --dev file:/cell/lawcheck.tgz || couldnot "yarn add" ;;
-  yarn4 | yarn4-pnp)
+  yarn4 | yarn4-pnpm | yarn4-pnp)
     command -v yarn > /dev/null 2>&1 || quiet npm install --global --no-audit --no-fund yarn || couldnot "npm install yarn"
     quiet yarn set version stable || couldnot "yarn set version stable"
     if [ "$CELL" = yarn4 ]; then printf 'nodeLinker: node-modules\n' >> .yarnrc.yml; fi
-    # Yarn 4 holds back a package published less than a day ago, and this cell installs the dependencies Lawcheck pins, whatever their age.
-    printf 'npmMinimalAgeGate: 0\n' >> .yarnrc.yml
+    if [ "$CELL" = yarn4-pnpm ]; then printf 'nodeLinker: pnpm\n' >> .yarnrc.yml; fi
+    # Yarn 4 holds back a package published less than a day ago; docs/config.md gives this line for the first day after a release of Lawcheck or Runes.
+    printf 'npmPreapprovedPackages: [lawcheck, "@chrisdudek/runes"]\n' >> .yarnrc.yml
     : > yarn.lock
     quiet yarn add --dev lawcheck@file:/cell/lawcheck.tgz || couldnot "yarn add" ;;
   bun)
