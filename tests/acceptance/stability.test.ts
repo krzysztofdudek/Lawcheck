@@ -5,7 +5,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileLines, filePath, openai, withFake, writeFakeClaude } from './fake-reviewer.ts';
 import type { Recorded } from './fake-reviewer.ts';
-import { GIT_ENV, inTemp, ROOT } from './helpers.ts';
+import { GIT_ENV, inTemp, pathWith, ROOT } from './helpers.ts';
 
 const SCRIPT = join(ROOT, 'tests', 'stability', 'run.ts');
 const LABELS = JSON.parse(readFileSync(join(ROOT, 'tests', 'stability', 'labels.json'), 'utf8')) as { file: string; rule: string; label: string; borderline: boolean }[];
@@ -108,7 +108,7 @@ test('test 76: the measurement through claude-code', async () => {
     const out = join(dir, 'result.json');
     const bin = writeFakeClaude(join(dir, 'bin'));
     const result = await stability({
-      PATH: `${bin}:${GIT_ENV.PATH ?? ''}`,
+      PATH: pathWith(bin),
       FAKE_CLAUDE_RECORD: join(dir, 'record.json'),
       LAWCHECK_STABILITY_PROVIDER: 'claude-code',
       LAWCHECK_STABILITY_MODEL: 'test-model',

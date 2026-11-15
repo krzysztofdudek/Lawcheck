@@ -211,5 +211,7 @@ export function writeFakeClaude(dir: string): string {
   const path = join(dir, 'claude');
   writeFileSync(path, FAKE_CLAUDE);
   chmodSync(path, 0o755);
+  // npm installs claude on Windows as a .cmd file of this shape.
+  if (process.platform === 'win32') writeFileSync(`${path}.cmd`, `@"${process.execPath}" "${path}" %*\r\n`);
   return dir;
 }

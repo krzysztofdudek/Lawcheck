@@ -1,15 +1,20 @@
 import { spawn, execFileSync } from 'node:child_process';
-import { appendFileSync, cpSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { appendFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { delimiter, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const ROOT = fileURLToPath(new URL('../..', import.meta.url));
 export const CLI = join(ROOT, 'dist', 'cli.js');
 export const SAMPLE = join(ROOT, 'tests', 'sample');
 
+// A copy of process.env keeps the spelling Path on Windows; one PATH key lets a test put its own folders first.
+const OWN_ENV: NodeJS.ProcessEnv = { ...process.env };
+for (const key of Object.keys(OWN_ENV)) if (key !== 'PATH' && key.toUpperCase() === 'PATH') delete OWN_ENV[key];
+OWN_ENV.PATH = process.env.PATH;
+
 export const GIT_ENV: NodeJS.ProcessEnv = {
-  ...process.env,
+  ...OWN_ENV,
   GIT_AUTHOR_NAME: 'Test',
   GIT_AUTHOR_EMAIL: 'test@example.com',
   GIT_COMMITTER_NAME: 'Test',
@@ -64,6 +69,36 @@ export const TEST4 = [
 ].join('\n');
 
 export const NOTHING_CHANGED = 'lawcheck: PASS  nothing changed against main\n';
+
+// /proc tells a zombie from a live process; elsewhere the system is asked whether the process exists.
+export function alive(pid: number): boolean {
+  if (existsSync('/proc/self/stat')) {
+    try {
+      const stat = readFileSync(`/proc/${pid}/stat`, 'utf8');
+      return stat.slice(stat.lastIndexOf(')') + 2)[0] !== 'Z';
+    } catch {
+      return false;
+    }
+  }
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function pathWith(...dirs: string[]): string {
+  return [...dirs, GIT_ENV.PATH ?? ''].join(delimiter);
+}
+
+export function programDir(program: string): string {
+  const found =
+    process.platform === 'win32'
+      ? execFileSync('where.exe', [program], { encoding: 'utf8' }).split(/\r?\n/)[0]!
+      : execFileSync('sh', ['-c', `command -v ${program}`], { encoding: 'utf8' });
+  return dirname(found.trim());
+}
 
 export function git(cwd: string, ...args: string[]): string {
   return execFileSync('git', args, { cwd, env: GIT_ENV, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });

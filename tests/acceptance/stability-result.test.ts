@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { join, relative, sep } from 'node:path';
 import { ROOT } from './helpers.ts';
 
 const FIXTURE = join(ROOT, 'tests', 'stability', 'fixture');
@@ -27,7 +27,7 @@ function specFixture(): Map<string, string> {
 
 function walk(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) =>
-    entry.isDirectory() ? walk(join(dir, entry.name)) : [relative(FIXTURE, join(dir, entry.name))],
+    entry.isDirectory() ? walk(join(dir, entry.name)) : [relative(FIXTURE, join(dir, entry.name)).split(sep).join('/')],
   );
 }
 

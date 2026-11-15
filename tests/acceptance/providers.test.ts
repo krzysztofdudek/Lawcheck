@@ -1,10 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawn, execFileSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { existsSync, readFileSync, rmSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 import { anthropic, defaultAnswer, openai, startFake, withFake, writeFakeClaude } from './fake-reviewer.ts';
-import { append, CLI, F, F_PATH, findingLines, GIT_ENV, PROMPT_F, read, REVIEWER_CONFIG, REVIEWER_LAW, run, SECOND, withR, write } from './helpers.ts';
+import { alive, append, CLI, F, F_PATH, findingLines, GIT_ENV, pathWith, programDir, PROMPT_F, read, REVIEWER_CONFIG, REVIEWER_LAW, run, SECOND, withR, write } from './helpers.ts';
 
 const UNREACHABLE = 'src/core/refund.ts  error[reviewer-unreachable]  ';
 
@@ -387,7 +387,7 @@ const CLAUDE_ARGS = ['--print', '--output-format', 'json', '--model', 'test-mode
 
 function claudeEnv(dir: string, mode: string, extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
   const bin = writeFakeClaude(join(dir, 'bin'));
-  return { PATH: `${bin}:${GIT_ENV.PATH ?? ''}`, FAKE_CLAUDE_MODE: mode, FAKE_CLAUDE_RECORD: join(dir, 'record.json'), ...extra };
+  return { PATH: pathWith(bin), FAKE_CLAUDE_MODE: mode, FAKE_CLAUDE_RECORD: join(dir, 'record.json'), ...extra };
 }
 
 function record(dir: string) {
@@ -439,8 +439,8 @@ test('test 66: claude-code', async () => {
     assert.ok(errorLine(result.stdout, 'src/core/big.ts  error[reviewer-unreachable]  ')?.includes('expired'), result.stdout);
     assert.ok(!result.stdout.includes('error[internal]'), result.stdout);
   }, config(CLAUDE_CONFIG + '  max_chars: 120000\n'));
-  const gitDir = dirname(execFileSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).trim());
-  if (existsSync(join(gitDir, 'claude'))) return;
+  const gitDir = programDir('git');
+  if (existsSync(join(gitDir, 'claude')) || existsSync(join(gitDir, 'claude.cmd')) || existsSync(join(gitDir, 'claude.exe'))) return;
   await withR(async (r) => {
     write(r, F_PATH, F);
     const result = await run(r, null, ['--review', '--base', 'main'], { PATH: gitDir });
@@ -448,15 +448,6 @@ test('test 66: claude-code', async () => {
     assert.equal(result.code, 2);
   }, config(CLAUDE_CONFIG));
 });
-
-function alive(pid: number): boolean {
-  try {
-    const stat = readFileSync(`/proc/${pid}/stat`, 'utf8');
-    return stat.slice(stat.lastIndexOf(')') + 2)[0] !== 'Z';
-  } catch {
-    return false;
-  }
-}
 
 async function waitFor(condition: () => boolean, ms: number): Promise<boolean> {
   const until = Date.now() + ms;
@@ -475,8 +466,8 @@ test('test 67: claude-code past its timeout, and the tool killed', async () => {
     assert.ok(errorLine(result.stdout, UNREACHABLE), result.stdout);
     assert.ok(result.ms < 15_000, `${result.ms} ms`);
     const seen = record(dir);
-    assert.ok(!alive(seen.pid), 'the fake claude is alive');
-    assert.ok(!alive(seen.child!), 'its child is alive');
+    assert.ok(await waitFor(() => !alive(seen.pid), 2000), 'the fake claude is alive');
+    assert.ok(await waitFor(() => !alive(seen.child!), 2000), 'its child is alive');
   }, config(CLAUDE_CONFIG + '  timeout: 1\n'));
   await withR(async (r, dir) => {
     write(r, F_PATH, F);
@@ -510,7 +501,9 @@ test('test 67: claude-code past its timeout, and the tool killed', async () => {
         const seen = record(dir);
         const ended = new Promise<number | null>((done) => child.on('exit', (code) => done(code)));
         child.kill(signal);
-        assert.equal(await ended, 2, signal);
+        const code = await ended;
+        // On Windows every signal ends a process at once, so the tool cannot answer it with its own exit code.
+        if (process.platform !== 'win32') assert.equal(code, 2, signal);
         assert.ok(await waitFor(() => !alive(seen.pid) && !alive(seen.child!), 5000), `${signal}: both are gone`);
         assert.ok(!existsSync(seen.cwd), `${signal}: ${seen.cwd} is left`);
       } finally {

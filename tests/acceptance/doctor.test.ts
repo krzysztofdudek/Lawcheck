@@ -4,7 +4,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { withFake, openai } from './fake-reviewer.ts';
 import { writeFakeClaude } from './fake-reviewer.ts';
-import { append, git, inTemp, lawcheck, lawcheckAt, newRepository, PRICING, read, withCopy, withR, withSample, withU, write } from './helpers.ts';
+import { append, git, inTemp, lawcheck, lawcheckAt, newRepository, pathWith, PRICING, read, withCopy, withR, withSample, withU, write } from './helpers.ts';
 
 const spec = readFileSync(new URL('../../spec/commands-slice.md', import.meta.url), 'utf8').split('\n');
 const block = (start: string): string[] => {
@@ -201,7 +201,7 @@ test('test 136: the reviewer check', async () => {
     const record = join(bin, 'record.json');
     await withR(
       async (r) => {
-        const result = await doctor(r, ['--base', 'main'], { PATH: `${bin}:${process.env.PATH}`, FAKE_CLAUDE_RECORD: record });
+        const result = await doctor(r, ['--base', 'main'], { PATH: pathWith(bin), FAKE_CLAUDE_RECORD: record });
         assert.equal(line(result.stdout, 'reviewer'), 'ok  reviewer  1 reviewer rule; claude-code can be called (lawcheck doctor --reviewer makes one call)');
         assert.equal(result.code, 0);
         assert.throws(() => readFileSync(record));
