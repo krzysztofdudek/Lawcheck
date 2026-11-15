@@ -122,6 +122,6 @@ Each Yarn 4 cell lists `lawcheck` and `@chrisdudek/runes` in `npmPreapprovedPack
 
 | Id | Promise | Test |
 |---|---|---|
-| I-env-1 | Every command but `--version`, `--help`, `<command> --help` and `docs` refuses Node below 24, Bun as the runtime, Lawcheck served from a Plug'n'Play archive and Node's permission model with the first line of section 3, exit 2 and nothing on standard error, and `doctor` starts with the same line (section 3). | tests/environments/refusal.test.ts |
+| I-env-1 | Every command but `--version`, `--help`, `<command> --help` and `docs` refuses Node below 24, Bun as the runtime and Lawcheck served from a Plug'n'Play archive with the first line of section 3, exit 2 and nothing on standard error, and `doctor` starts with the same line; under Node's permission model every command refuses the same way when Node is given the entry by its own path, and the installed link of Linux and macOS is the limit section 3 states (section 3). | tests/environments/refusal.test.ts |
 | I-shape-1 | The rows of section 4 give the output of the check slice byte for byte in every repository shape, from the root and from a directory below it (section 4). | tests/environments/shapes.test.ts |
 | I-shape-2 | The hooks give the plugin slice's outputs for a breach after an edit, a breach before finishing, a broken law, a clean turn and the session start in every repository shape (section 4). | tests/environments/hook-shapes.test.ts |
