@@ -6,6 +6,7 @@ import type { CheckContext } from './check.js';
 import { comparePaths, trackedLinks, workTreeTop } from './files.js';
 import { compileList, patternProblem } from './glob.js';
 import { CODES, plural, shown } from './output.js';
+import { takesWaivers } from './law.js';
 import type { ErrorItem } from './output.js';
 import { ruleKind } from './prime.js';
 import { buildPrompt, cleanMessage, size } from './prompt.js';
@@ -165,7 +166,7 @@ export async function tryRule(args: Arguments, context: CheckContext, json: bool
       const text = decode(bytesOf(read, path));
       return { path, type: typeOf.get(path) ?? null, text, lines: splitLines(text) };
     });
-    const waiversOf = new Map(ruleFiles.map((file) => [file.path, parseWaivers(file.lines, ruleIds).waivers]));
+    const waiversOf = new Map(ruleFiles.map((file) => [file.path, takesWaivers(file.type) ? parseWaivers(file.lines, ruleIds).waivers : []]));
     const result: Outcome = { rule: id, kind, status: rule.status, why: rule.why, files: chosen, times: times ?? 1, dryRun, runs: [], calls: 0, maxChars: config.maxChars };
 
     if (kind === 'script') {

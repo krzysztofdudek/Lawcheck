@@ -18,6 +18,7 @@ The law is `.lawcheck/law.yaml`. Lawcheck finds it by walking up from the curren
 | type | `rules` | no | rule ids |
 | type | `may_use` | no | type ids whose files this type's files may use |
 | type | `types` | no | subtypes, of the same shape |
+| type | `waivers` | no | `false` makes a waiver marker in the type's files plain text; a subtype takes its parent's value |
 
 `why` and `about` take a non-empty string without a line break. A null, a string where a list belongs, a number or an empty file is `law-invalid`. Any other key is `law-invalid`, and the message names the nearest known key.
 

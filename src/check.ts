@@ -3,6 +3,7 @@ import { comparePaths, trackedLinks, workTreeTop } from './files.js';
 import { hide } from './keys.js';
 import type { ReviewerConfig } from './config.js';
 import type { Law } from './law.js';
+import { takesWaivers } from './law.js';
 import { fixNext, plural, sortFindings, WHY } from './output.js';
 import type { ErrorItem, Finding, Next, Report, Unresolved, WaiverEntry } from './output.js';
 import { buildPrompt, cleanMessage, FRAME, size } from './prompt.js';
@@ -111,7 +112,7 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
   if ('errors' in uses) return { errors: uses.errors };
 
   const ruleIds = new Set([...law.rules.keys(), 'forbidden-use']);
-  const waiversOf = new Map(run.map((file) => [file.path, parseWaivers(file.lines, ruleIds)]));
+  const waiversOf = new Map(run.map((file) => [file.path, takesWaivers(file.type) ? parseWaivers(file.lines, ruleIds) : { waivers: [], problems: [] }]));
   const review = `lawcheck check --review${options.base === null ? '' : ` --base ${hide(options.base)}`}`;
   const cap = options.maxCalls ?? config.maxCalls;
 

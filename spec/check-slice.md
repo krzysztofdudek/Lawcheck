@@ -44,6 +44,7 @@ The law may be read through a symbolic link, of the file or of `.lawcheck/`. A l
 | type | `content` | no | A JavaScript regular expression, flag `m`. The file belongs only when its text matches |
 | type | `rules` | no | Rule ids |
 | type | `types` | no | Subtypes, same shape |
+| type | `waivers` | no | `true` or `false`. With `false` the type's files hold no waivers: a waiver marker in them is text (section 5). A type without the key takes its parent's value; a root type without it reads waivers |
 
 **Values.** The file is a YAML mapping. `rules` and `types` take a mapping, and so does each rule and each type. `paths` and a type's `rules` take a sequence of strings. `lawcheck`, `why`, `about`, `status` and `content` take a string, and `why` and `about` a non-empty one without a line break. Anything else is `law-invalid` and names the key: a null (a key left empty), a string where a sequence belongs, a number, an empty file. A key that is absent is fine where the table does not require it.
 
@@ -266,6 +267,7 @@ console.warn('no campaign'); // lawcheck-waive no-console -- the pricing team re
 |---|---|---|
 | `waiver-unknown-rule` | whitespace and a rule id of the law do not follow the marker: the id is missing, is no rule, or the word goes on, as in `lawcheck-waive-file` | error |
 | `waiver-without-reason` | the rule is known, and no `--` follows it or nothing follows the `--` | error |
+- A file whose type has `waivers: false` (section 2) holds no waivers: the tool does not look for the marker in it, so a page or a test that writes about waivers can have a type. Its findings are never waived.
 | `waiver-unused` | a counted waiver dropped nothing | warning |
 
 A line gets one of the first two at most, and those waive nothing. All three sit on the waiver's line and cannot be waived. Outside the change they are debt, so warnings.

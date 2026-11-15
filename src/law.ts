@@ -31,6 +31,7 @@ export interface TypeDef {
   parent: TypeDef | null;
   line: number;
   mayUse: string[] | null;
+  waivers: boolean | null;
 }
 
 export interface Law {
@@ -48,7 +49,7 @@ const ID = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const VERSION = /^\d+\.\d+\.\d+$/;
 const TOP_KEYS = ['lawcheck', 'rules', 'types'];
 const RULE_KEYS = ['why', 'status', 'context'];
-const TYPE_KEYS = ['about', 'paths', 'content', 'rules', 'types', 'may_use'];
+const TYPE_KEYS = ['about', 'paths', 'content', 'rules', 'types', 'may_use', 'waivers'];
 const RESERVED = new Set([...CODES, 'untyped-file']);
 
 export function distance(a: string, b: string): number {
@@ -188,7 +189,7 @@ class Reader {
       else if (this.byId.has(id)) this.problem(line, `the type id '${id}' appears twice in the law`);
       const value = this.resolve(pair.value);
       if (!this.mapping(value, line, `type '${id}'`)) continue;
-      const type: TypeDef = { id, about: null, paths: [], matches: () => false, content: null, expression: null, rules: [], types: [], parent, line, mayUse: null };
+      const type: TypeDef = { id, about: null, paths: [], matches: () => false, content: null, expression: null, rules: [], types: [], parent, line, mayUse: null, waivers: null };
       if (!this.byId.has(id)) this.byId.set(id, type);
       let sawPaths = false;
       for (const field of (value as YAMLMap).items) {
@@ -241,6 +242,9 @@ class Reader {
             this.used.push({ owner: id, type: text, line: itemLine });
             if (!type.mayUse.includes(text)) type.mayUse.push(text);
           }
+        } else if (key === 'waivers') {
+          if (isScalar(fieldValue) && typeof fieldValue.value === 'boolean') type.waivers = fieldValue.value;
+          else this.problem(fieldLine, `'waivers' of type '${id}' takes true or false, not ${describe(fieldValue)}`);
         } else if (key === 'types') {
           if (this.mapping(fieldValue, fieldLine, `'types' of type '${id}'`)) type.types = this.readTypes(fieldValue as YAMLMap, type);
         } else {
@@ -351,6 +355,12 @@ function describe(value: YamlNode | null): string {
     if (typeof v === 'boolean') return 'a boolean';
   }
   return 'another kind of value';
+}
+
+// A type without the key takes its parent's value, and a root type without it reads waivers.
+export function takesWaivers(type: TypeDef | null): boolean {
+  for (let at = type; at !== null; at = at.parent) if (at.waivers !== null) return at.waivers;
+  return true;
 }
 
 export function firstLine(error: unknown): string {

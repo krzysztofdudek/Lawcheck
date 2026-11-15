@@ -6,6 +6,7 @@ import type { CheckContext } from './check.js';
 import type { ReviewerConfig } from './config.js';
 import { ignoresPath } from './files.js';
 import { compilePattern } from './glob.js';
+import { takesWaivers } from './law.js';
 import type { Law, TypeDef } from './law.js';
 import { plural, shown } from './output.js';
 import { mayUsePart, ruleKind, walk } from './prime.js';
@@ -171,7 +172,7 @@ function existing(ctx: Ctx, path: string, symlink: boolean): FileAnswer {
   }
   const type = chain[chain.length - 1]!;
   const ruleIds = new Set([...ctx.law.rules.keys(), 'forbidden-use']);
-  const { waivers } = parseWaivers(splitLines(text), ruleIds);
+  const { waivers } = takesWaivers(type) ? parseWaivers(splitLines(text), ruleIds) : { waivers: [] };
   return {
     path,
     exists: true,
@@ -348,6 +349,7 @@ function typeAnswer(ctx: Ctx, id: string, json: boolean): string {
   lines.push(`  files:  ${files.length}`);
   list(lines, files);
   return lines.join('\n') + '\n';
+  if (!takesWaivers(type)) lines.push('  waivers:  not read; a waiver marker in its files is text');
 }
 
 function ruleAnswer(ctx: Ctx, id: string, json: boolean): string {
