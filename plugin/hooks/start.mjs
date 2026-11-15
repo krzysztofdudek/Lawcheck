@@ -47,6 +47,16 @@ export function points(text) {
   return [...text].length;
 }
 
+export const LINE_LIMIT = 2000;
+
+export function cutLine(line) {
+  if (line.length <= LINE_LIMIT) return line;
+  let end = LINE_LIMIT - 40;
+  const last = line.charCodeAt(end - 1);
+  if (last >= 0xd800 && last <= 0xdbff) end--;
+  return `${line.slice(0, end)}... (${line.length - end} more characters)`;
+}
+
 export function cutPoints(text, max) {
   return [...text].slice(0, max).join('');
 }
