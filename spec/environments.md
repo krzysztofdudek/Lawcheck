@@ -100,7 +100,7 @@ Both need the network and run in Docker from official images, each container mou
 
 Each Yarn 4 cell lists `lawcheck` and `@chrisdudek/runes` in `npmPreapprovedPackages`, the line `docs/config.md` gives for the first day after a release. A refused cell compares the whole first line of `doctor`, `check` and `try` with section 3's, built from the version of Node or Bun in the image and the name of Yarn's archive. An npm cell also installs the tarball globally and starts the link with `NODE_OPTIONS=--permission`, and sees the limit of section 3.
 
-**The git matrix.** The check slice's acceptance tests, the tests whose names carry rows 1 to 45, run with the git of `ubuntu:22.04` (2.34), `debian:12` (2.39), `ubuntu:24.04` (2.43) and `debian:sid` (the newest a Debian image carries), on the Node 24 of the machine that starts them, as a user other than root.
+**The git matrix.** The check slice's acceptance tests, the tests whose names carry rows 1 to 45, and the security tests of `tests/security`, which read git's answers as closely, run with the git of `ubuntu:22.04` (2.34), `debian:12` (2.39), `ubuntu:24.04` (2.43) and `debian:sid` (the newest a Debian image carries), on the Node 24 of the machine that starts them, as a user other than root.
 
 ## 8. Acceptance tests
 
