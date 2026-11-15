@@ -1,6 +1,8 @@
 name: Weekly
 
 on:
+  push:
+    branches: [ci-layout]
   schedule:
     - cron: '41 3 * * 0'
   workflow_dispatch:
