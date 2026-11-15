@@ -229,7 +229,8 @@ test('S2-2: a rule that writes a file is refused in words that name what it did'
     const s = makeSample(dir, { onMain: (repo) => setRule(repo, 'no-console', "import { writeFileSync } from 'node:fs';\nexport function check() { writeFileSync('out.txt', 'x'); return []; }\n") });
     write(s, D_PATH, D);
     const run = await lawcheck(s, BASE);
-    assert.ok(run.stdout.includes(`.lawcheck/rules/no-console.mjs  error[rule-crashed]  throws on src/core/discount.ts: writes out.txt, and a rule may write no file\n`), run.stdout);
+    // Node names the path as the rule gave it, and on Windows as a whole path with the \\?\ prefix.
+    assert.match(run.stdout, /^\.lawcheck\/rules\/no-console\.mjs  error\[rule-crashed\]  throws on src\/core\/discount\.ts: writes (\\\\\?\\\S+\\)?out\.txt, and a rule may write no file$/m);
     assert.doesNotMatch(run.stdout, /--allow-fs/);
     assert.equal(run.code, 2);
   });

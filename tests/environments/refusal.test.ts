@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import { execFileSync } from 'node:child_process';
 import assert from 'node:assert/strict';
-import { chmodSync, cpSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, cpSync, mkdirSync, readFileSync, realpathSync, symlinkSync, writeFileSync } from 'node:fs';
 import { delimiter, join } from 'node:path';
 import { D, D_PATH, GIT_ENV, inTemp, TEST4, lawcheck, lawcheckAt, makeSample, ROOT, withCopy, write } from '../acceptance/helpers.ts';
 import type { Run } from '../acceptance/helpers.ts';
@@ -164,7 +164,7 @@ test('test 201: a runner Node cannot start with its flags is runner-failed, with
 
 test('test 201: a runner file that cannot be read is runner-failed, naming the file', { skip: WINDOWS || AS_ROOT ? 'a file mode cannot make a file unreadable for root, nor on Windows' : false }, async () => {
   await withCopy(async (copy) => {
-    const runner = join(copy.dir, 'dist', 'runner.js');
+    const runner = realpathSync(join(copy.dir, 'dist', 'runner.js'));
     chmodSync(runner, 0o000);
     try {
       await inTemp(async (dir) => {
