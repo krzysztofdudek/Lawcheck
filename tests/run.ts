@@ -1,27 +1,14 @@
 import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
-import { join, relative, sep } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { COMMIT_TARGET_MS, LOOP_TARGET_MS, SEED, SLOW_TESTS, TEST_BUDGET_MS } from './numbers.ts';
 import type { Speed } from './numbers.ts';
+import { COMMIT_GROUPS, groupDirs, NIGHTLY_GROUPS, ROOT, setFiles, TESTS } from './harness/sets.ts';
 
-const ROOT = fileURLToPath(new URL('..', import.meta.url));
-const TESTS = join(ROOT, 'tests');
-const REPORTER = join(TESTS, 'harness', 'reporter.ts');
+const REPORTER = pathToFileURL(join(TESTS, 'harness', 'reporter.ts')).href;
 const HARNESS = pathToFileURL(join(TESTS, 'harness', 'tool.ts')).href;
 const USAGE = 'usage: node tests/run.ts <loop|commit|nightly> [--group <name>] [--repeat <n>] [<test id or source file>...]';
-
-const COMMIT_GROUPS: Record<string, string[]> = {
-  core: ['unit', 'acceptance', 'contract', 'guard'],
-  inputs: ['properties', 'security', 'limits'],
-  environments: ['environments'],
-};
-const NIGHTLY_GROUPS: Record<string, string[]> = {
-  properties: ['properties'],
-  security: ['security'],
-  limits: ['limits'],
-  environments: ['environments'],
-};
 
 function fail(message: string): never {
   process.stderr.write(`${message}\n${USAGE}\n`);
@@ -33,29 +20,10 @@ function couldNotRun(missing: string): never {
   process.exit(1);
 }
 
-function walk(dir: string): string[] {
-  if (!existsSync(dir)) return [];
-  const out: string[] = [];
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    const path = join(dir, entry.name);
-    if (entry.isDirectory()) out.push(...walk(path));
-    else if (entry.isFile() && entry.name.endsWith('.test.ts')) out.push(path);
-  }
-  return out;
-}
-
-const rel = (path: string) => relative(ROOT, path).split(sep).join('/');
-
 function testFiles(speed: 'commit' | 'nightly', group: string | null): string[] {
-  const groups = speed === 'nightly' ? NIGHTLY_GROUPS : COMMIT_GROUPS;
-  if (group !== null && groups[group] === undefined) fail(`no group ${group} in the ${speed} set; the groups are ${Object.keys(groups).join(', ')}`);
-  const dirs = group === null ? [...new Set(Object.values(groups).flat())] : groups[group]!;
-  const nightly = (path: string) => path.endsWith('.nightly.test.ts');
-  return dirs
-    .flatMap((dir) => walk(join(TESTS, dir)))
-    .filter((path) => (speed === 'nightly' ? nightly(path) : !nightly(path)))
-    .map(rel)
-    .sort();
+  const dirs = groupDirs(speed, group);
+  if (dirs === null) fail(`no group ${group} in the ${speed} set; the groups are ${Object.keys(speed === 'nightly' ? NIGHTLY_GROUPS : COMMIT_GROUPS).join(', ')}`);
+  return setFiles(speed, dirs);
 }
 
 interface Parsed {
@@ -144,7 +112,11 @@ function plan(parsed: Parsed): Plan {
       continue;
     }
     const path = target.split('\\').join('/').replace(/^\.\//, '');
-    if (path.endsWith('.test.ts')) {
+    if (path.startsWith('tests/') && existsSync(join(ROOT, path)) && statSync(join(ROOT, path)).isDirectory()) {
+      const inside = sets.filter((file) => file.startsWith(`${path.replace(/\/$/, '')}/`));
+      if (inside.length === 0) fail(`no test file of this set is under ${path}`);
+      for (const file of inside) files.add(file);
+    } else if (path.endsWith('.test.ts')) {
       if (!existsSync(join(ROOT, path))) fail(`no test file ${path}`);
       files.add(path);
     } else if (path.startsWith('src/') && mapped(path) !== undefined) {
