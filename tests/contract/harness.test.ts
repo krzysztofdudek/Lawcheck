@@ -242,7 +242,7 @@ test('harness-8: a run may change nothing outside its repository: not its tempor
   await inTemp(async (dir) => {
     const repo = repository(dir);
     assert.match((await expectBroken('harness-8', () => tool(dir, "writeFileSync(join(process.env.TMPDIR, 'lawcheck-left'), 'x');"))).message, /left lawcheck-left/);
-    assert.match((await expectBroken('harness-8', () => tool(dir, "mkdirSync(join(process.env.HOME, '.config'), { recursive: true });"))).message, /in its home folder/);
+    assert.match((await expectBroken('harness-8', () => tool(dir, "mkdirSync(join(process.env.HOME, '.config'), { recursive: true }); writeFileSync(join(process.env.HOME, '.config', 'x'), 'x');"))).message, /\.config\/x in its home folder/);
     assert.match((await expectBroken('harness-8', () => tool(dir, "writeFileSync('../beside.txt', 'x');", ['check'], {}, repo))).message, /beside\.txt/);
     fakeWrites(dir, ['record.json']);
     assert.equal((await tool(dir, "writeFileSync('../record.json', 'x');", ['check'], {}, repo)).code, 0);
