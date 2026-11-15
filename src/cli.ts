@@ -21,7 +21,7 @@ function internal(error: unknown): ErrorItem {
   return { code: 'internal', file: null, line: null, message: text.split(/\r?\n/)[0] || 'an unknown failure' };
 }
 
-type FromWork = { kind: 'warn'; line: string } | { kind: 'done'; code: number; stdout: Uint8Array };
+type FromWork = { kind: 'warn'; line: string } | { kind: 'stderr'; text: string } | { kind: 'done'; code: number; stdout: Uint8Array };
 
 // The command runs in a worker, so a signal is answered while the command is busy in code that never yields, such as a regular expression.
 export function start(): void {
@@ -134,6 +134,7 @@ export function start(): void {
   memory.unref();
   worker.on('message', (message: FromWork) => {
     if (message.kind === 'warn') process.stderr.write(safeText(message.line) + '\n');
+    else if (message.kind === 'stderr') process.stderr.write(message.text);
     else writeOut(message.stdout, message.code);
   });
   worker.on('error', (error) => fail(internal(error)));
