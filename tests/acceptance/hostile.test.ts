@@ -133,3 +133,25 @@ test('S1-9: no note when no type reaches into the other repository', async () =>
   });
 });
 
+test('S1-14: an edit of a file marked assume-unchanged or skip-worktree is in the change', async () => {
+  for (const flag of ['--assume-unchanged', '--skip-worktree']) {
+    await withSample(async (s) => {
+      git(s, 'update-index', flag, 'src/core/tax.ts');
+      append(s, 'src/core/tax.ts', BREACH);
+      const run = await check(s);
+      assert.equal(run.code, 1, flag);
+      assert.deepEqual(run.stdout.split('\n')[0], 'lawcheck: FAIL  1 error, 1 warning in 1 changed file (against main)', flag);
+      assert.ok(run.stdout.includes(finding('src/core/tax.ts:3')), flag);
+      assert.equal(git(s, 'ls-files', '-v', 'src/core/tax.ts')[0], flag === '--assume-unchanged' ? 'h' : 'S');
+    });
+  }
+});
+
+test('S1-14: a marked file with no edit stays out of the change', async () => {
+  await withSample(async (s) => {
+    git(s, 'update-index', '--assume-unchanged', 'src/core/tax.ts');
+    const run = await check(s);
+    assert.deepEqual([run.code, run.stdout], [0, 'lawcheck: PASS  nothing changed against main\n']);
+  });
+});
+

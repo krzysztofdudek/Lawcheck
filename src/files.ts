@@ -221,7 +221,45 @@ export function changedPaths(root: string, base: string): string[] {
   const othersArgs = ['ls-files', '-z', '--others', '--exclude-standard'];
   const others = git(root, othersArgs);
   if (others.status !== 0) throw failed(othersArgs, others);
-  return [...splitZ(diff.stdout), ...splitZ(others.stdout)];
+  return [...splitZ(diff.stdout), ...splitZ(others.stdout), ...hiddenEdits(root, base)];
+}
+
+// git's diff trusts the index for a file marked assume-unchanged or skip-worktree (a sparse checkout sets the second), so an edit of one on disk is found by its content (stress finding S1-14).
+function hiddenEdits(root: string, base: string): string[] {
+  const listArgs = ['ls-files', '-v', '-z'];
+  const listed = git(root, listArgs);
+  if (listed.status !== 0) throw failed(listArgs, listed);
+  const marked: Buffer[] = [];
+  let start = 0;
+  const out = listed.stdout;
+  for (let i = 0; i < out.length; i++) {
+    if (out[i] !== 0) continue;
+    const tag = out[start]!;
+    if (i - start > 2 && ((tag >= 0x61 && tag <= 0x7a) || tag === 0x53)) {
+      const bytes = out.subarray(start + 2, i);
+      try {
+        if (lstatSync(onDisk(root, nameOf(bytes))).isFile()) marked.push(bytes);
+      } catch {
+        // A marked file that is gone is the index's business; git's diff shows a deletion only when the index changed.
+      }
+    }
+    start = i + 1;
+  }
+  if (marked.length === 0) return [];
+  const hashArgs = ['hash-object', '--stdin-paths'];
+  const plain = marked.filter((bytes) => !bytes.includes(0x0a) && !bytes.includes(0x0d));
+  const hashed = git(root, hashArgs, Buffer.concat(plain.flatMap((bytes) => [bytes, Buffer.from('\n')])));
+  if (hashed.status !== 0) throw failed(hashArgs, hashed);
+  const ids = hashed.stdout.toString('utf8').split('\n');
+  const treeArgs = ['ls-tree', '-r', '-z', base];
+  const tree = git(root, treeArgs);
+  if (tree.status !== 0) throw failed(treeArgs, tree);
+  const inBase = new Map<string, string>();
+  for (const entry of splitZ(tree.stdout)) {
+    const tab = entry.indexOf('\t');
+    inBase.set(entry.slice(tab + 1), entry.slice(0, tab).split(' ')[2]!);
+  }
+  return plain.map((bytes) => nameOf(bytes)).filter((name, i) => inBase.get(name) !== ids[i]);
 }
 
 export function showPrefix(dir: string): string {
