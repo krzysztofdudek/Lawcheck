@@ -9,6 +9,8 @@ import type { ErrorItem } from './output.js';
 import { decode, isBinary, typeFiles } from './types.js';
 import type { TypedFile } from './types.js';
 import { VERDICTS } from './verdicts.js';
+import { keyEnvironment } from './keys.js';
+import { createProvider } from './providers/index.js';
 
 export const LAW = '.lawcheck/law.yaml';
 export const RULES_DIR = '.lawcheck/rules/';
@@ -157,6 +159,7 @@ export function configErrors(root: string): { config: ReviewerConfig } | { error
     if (linked(root, CONFIG)) return { errors: [{ code: 'config-invalid', file: CONFIG, line: null, message: LINKED(CONFIG) }] };
     return { errors: configured.problems.map((p) => ({ code: 'config-invalid', file: CONFIG, line: p.line, message: p.message })) };
   }
+  if (configured.config.provider !== null) createProvider(configured.config, keyEnvironment());
   return { config: configured.config };
 }
 

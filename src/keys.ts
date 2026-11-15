@@ -25,13 +25,19 @@ export function hidden(text: string, keys: string[]): string {
   return text.replace(new RegExp(['\\[key\\]', ...list.map(spellings)].join('|'), 'g'), KEY_SHOWN);
 }
 
-// The variables a provider reads a key from; their values are hidden in all output, whichever provider is in force.
-export const KEY_VARIABLES = ['LAWCHECK_REVIEWER_KEY', 'ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'GOOGLE_API_KEY'];
+// The environment key goes to whichever HTTP provider is configured, so it is hidden in every run; the configured provider adds the keys it would send or pass on once the config is read.
+export const KEY_VARIABLES = ['LAWCHECK_REVIEWER_KEY'];
 
 let known: string[] = [];
+let environment: Record<string, string | undefined> = {};
 
 export function useKeys(env: Record<string, string | undefined>): void {
+  environment = env;
   known = KEY_VARIABLES.map((name) => env[name] ?? '').filter((key) => key !== '');
+}
+
+export function keyEnvironment(): Record<string, string | undefined> {
+  return environment;
 }
 
 export function addKeys(keys: string[]): void {

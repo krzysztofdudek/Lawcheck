@@ -81,7 +81,7 @@ With them, each call sends one prompt: a fixed frame, the rule's `why` and text,
 
 Bounds: `check` sends a file that has a type and a reviewer rule binding it, and `try` a file you named. A context file is one the law names and git lists. A prompt holds at most `reviewer.max_chars` characters, and a run sends at most `reviewer.max_calls` requests.
 
-Lawcheck writes your key as `[key]` wherever it shows text from outside it: a reply or a program sending the key back, a rule message, a file name, `--base`, a config value. Its own words and codes stay. The keys are the values of `LAWCHECK_REVIEWER_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` and `GOOGLE_API_KEY`, whichever provider is set, and a program's sign-in keys. A key shorter than 8 characters is no secret and stays. Only the exact key is replaced; a prefix, a percent-encoded copy or another key-shaped value stays as it came.
+Lawcheck writes your key as `[key]` wherever it shows text from outside it: a reply or a program sending the key back, a rule message, a file name, `--base`, a config value. Its own words and codes stay. The keys are the value of `LAWCHECK_REVIEWER_KEY`, always, and the keys the configured provider would send or pass on; another provider's variables stay as they came. A key shorter than 8 characters is no secret and stays. Only the exact key is replaced; a prefix, a percent-encoded copy or another key-shaped value stays as it came.
 
 What stays: `.lawcheck/verdicts` holds keys and rule ids. A line there proves that someone wrote it, not that a model gave the verdict. The failure cache keeps the reviewer's messages on this machine.
 
