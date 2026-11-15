@@ -60,17 +60,19 @@ export const BASE: { [path: string]: string } = {
   'tests/findings.md': [
     '# Findings',
     '',
-    '| Id | Class | State | Test |',
-    '|---|---|---|---|',
-    '| S1-1 | hostile input | open | |',
-    '| S3-1 | security | open | S3-1: a lone CR does not start a prompt line |',
+    '| Id | Severity | Class | State | Test |',
+    '|---|---|---|---|---|',
+    '| S1-1 | should be fixed before | hostile input | open | |',
+    '| S2-1 | after the release | limit | closed | |',
+    '| S3-1 | blocks the release | security | open | S3-1: a lone CR does not start a prompt line |',
     '',
   ].join('\n'),
   'tests/numbers.ts': [
     'export const SEED = 20261115;',
     'export const PROPERTY_CASES = 100;',
     'export const BUDGET = { cli: 20_000, hook: 5000 } as const;',
-    "export const SLOW_TESTS = ['test 24: a rule that spins'];",
+    "export const SPEED = ((): string => process.env.LAWCHECK_SPEED ?? 'commit')();",
+    "export const stronger = { SEED: 'higher', PROPERTY_CASES: 'higher', BUDGET: 'lower' } as const;",
     '',
   ].join('\n'),
   'tests/acceptance/helpers.ts': [
@@ -112,8 +114,9 @@ export const BASE: { [path: string]: string } = {
   'src/output.ts': 'export function lines(all: string[]): string[] {\n  const limit = 50;\n  return all.slice(0, limit);\n}\n',
   'src/types.ts': "export function split(text: string): string[] {\n  return text.split(/\\r\\n|\\r|\\n/);\n}\n",
   'tests/guard/check.ts': 'export const GUARD = true;\n',
-  'tests/guard/config.json': '{ "directions": {} }\n',
+  'tests/guard/config.json': '{ "ratchets": [] }\n',
   'tests/run.ts': 'export {};\n',
+  'tests/contract/pending.json': '[\n  { "id": "rule-crashed", "finding": "S2-2" }\n]\n',
   '.github/workflows/ci.yml': 'name: CI\non: [push]\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm test\n',
   'tests/weakenings.md': [
     '# Weakenings of the suite',
@@ -125,15 +128,10 @@ export const BASE: { [path: string]: string } = {
   ].join('\n'),
 };
 
-export const DIRECTIONS: Config['directions'] = {
-  SEED: 'fixed',
-  PROPERTY_CASES: 'higher',
-  'BUDGET.*': 'lower',
-  SLOW_TESTS: 'fewer',
-};
+export const RATCHET = 'tests/contract/pending.json';
 
 export function fixtureConfig(): Config {
-  return { ...loadConfig(), directions: { ...DIRECTIONS } };
+  return { ...loadConfig(), ratchets: [RATCHET] };
 }
 
 export const GIT_ENV: NodeJS.ProcessEnv = {

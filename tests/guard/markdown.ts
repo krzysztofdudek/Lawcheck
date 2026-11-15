@@ -128,3 +128,24 @@ export function readWeakenings(text: string, firstLine = 1): Ledger {
   });
   return out;
 }
+
+export type LedgerEntry = { id: string; line: number; cells: Map<string, string> };
+
+export function ledgerTable(text: string): Map<string, LedgerEntry> {
+  const out = new Map<string, LedgerEntry>();
+  let header: string[] | null = null;
+  text.split('\n').forEach((line, index) => {
+    const row = cells(line);
+    if (!row) { header = null; return; }
+    if (!header) {
+      const names = row.map((c) => plain(c).toLowerCase());
+      if (names.includes('id')) header = names;
+      return;
+    }
+    if (isRule(row)) return;
+    const named = new Map(header.map((name, i) => [name, plain(row[i] ?? '')] as [string, string]));
+    const id = named.get('id');
+    if (id) out.set(id, { id, line: index + 1, cells: named });
+  });
+  return out;
+}

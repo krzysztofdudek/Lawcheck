@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { applyCase, BASE, baseRepo, DIRECTIONS, fixtureConfig, GIT_ENV, sh } from './fixture.ts';
+import { applyCase, BASE, baseRepo, fixtureConfig, GIT_ENV, RATCHET, sh } from './fixture.ts';
 import { judge, render, type Report } from './guard.ts';
 
 const HERE = fileURLToPath(new URL('.', import.meta.url));
@@ -34,7 +34,12 @@ const EXPECT: { [name: string]: Expect } = {
   'refused-threshold-no-record': { refused: ['threshold-lowered'] },
   'refused-threshold-seed-changed': { refused: ['threshold-lowered'] },
   'refused-threshold-removed': { refused: ['threshold-lowered'] },
-  'refused-threshold-list-grows': { refused: ['threshold-lowered'] },
+  'refused-threshold-direction-turned': { refused: ['threshold-lowered'] },
+  'refused-number-unreadable': { refused: ['number-unreadable'] },
+  'refused-finding-removed': { refused: ['finding-weakened'] },
+  'refused-finding-severity-lowered': { refused: ['finding-weakened'] },
+  'refused-finding-reopened': { refused: ['finding-weakened'] },
+  'refused-ratchet-grew': { refused: ['ratchet-grew'] },
   'refused-number-unclassified': { refused: ['number-unclassified'] },
   'refused-weakenings-old-row-edited': { refused: ['weakenings-rewritten', 'record-invalid'] },
   'refused-weakenings-old-row-removed': { refused: ['weakenings-rewritten'] },
@@ -58,6 +63,11 @@ const EXPECT: { [name: string]: Expect } = {
   'accepted-ci-by-owner': { cleared: ['ci-changed', 'ci-changed'] },
   'accepted-threshold-by-owner': { cleared: ['threshold-lowered'] },
   'accepted-threshold-stronger': { cleared: [] },
+  'accepted-new-number-with-direction': { cleared: [] },
+  'accepted-finding-state-changed': { cleared: [] },
+  'accepted-finding-removed-ruling': { cleared: ['finding-weakened'] },
+  'accepted-ratchet-shrinks': { cleared: [] },
+  'accepted-ratchet-grew-ruling': { cleared: ['ratchet-grew'] },
   'accepted-skip-platform': { cleared: [] },
   'accepted-sabotage-removed': { cleared: ['promise-changed', 'sabotage-removed'] },
   'accepted-harness-by-reviewer': { cleared: ['harness-changed'] },
@@ -144,13 +154,11 @@ test('suite guard (T-7 A): who may approve each kind is configuration', () => {
   }
 });
 
-test('suite guard (T-7 A): a number the configuration does not classify fails even when nothing else changed', () => {
-  const repo = baseRepo();
+test('suite guard (T-7 A): a number with no direction in tests/numbers.ts fails even when nothing else changed', () => {
+  const repo = baseRepo({ ...BASE, 'tests/numbers.ts': BASE['tests/numbers.ts']!.replace("SEED: 'higher', ", '') });
   try {
     applyCase(repo, join(CASES, 'accepted-new-test.diff'));
-    const config = fixtureConfig();
-    delete config.directions.SEED;
-    const report = judge(repo.dir, 'main', 'work', config, '2026-11-15');
+    const report = judge(repo.dir, 'main', 'work', fixtureConfig(), '2026-11-15');
     assert.deepEqual(report.findings.map((f) => [f.kind, f.subject, f.cleared]), [['number-unclassified', 'SEED', false]]);
   } finally {
     repo.done();
@@ -163,7 +171,7 @@ function guardRepo(headGuardPatch: (text: string) => string): { dir: string; don
     if (!file.endsWith('.ts') || file.endsWith('.test.ts')) continue;
     own[`tests/guard/${file}`] = readFileSync(join(HERE, file), 'utf8');
   }
-  own['tests/guard/config.json'] = `${JSON.stringify({ ...JSON.parse(readFileSync(join(HERE, 'config.json'), 'utf8')), directions: DIRECTIONS }, null, 2)}\n`;
+  own['tests/guard/config.json'] = `${JSON.stringify({ ...JSON.parse(readFileSync(join(HERE, 'config.json'), 'utf8')), ratchets: [RATCHET] }, null, 2)}\n`;
   const files = { ...BASE, ...own };
   delete files['tests/guard/check.ts'];
   const repo = baseRepo(files);

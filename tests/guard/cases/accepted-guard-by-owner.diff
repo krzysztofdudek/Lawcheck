@@ -6,11 +6,11 @@ index f955977..74e5c52 100644
 -export const GUARD = true;
 +export const GUARD = false;
 diff --git a/tests/guard/config.json b/tests/guard/config.json
-index e8d0c6c..9bfeb3b 100644
+index a0557ca..9bfeb3b 100644
 --- a/tests/guard/config.json
 +++ b/tests/guard/config.json
 @@ -1 +1 @@
--{ "directions": {} }
+-{ "ratchets": [] }
 +{ "directions": { "PROPERTY_CASES": "higher" } }
 diff --git a/tests/weakenings.md b/tests/weakenings.md
 index 5357732..0347cdc 100644

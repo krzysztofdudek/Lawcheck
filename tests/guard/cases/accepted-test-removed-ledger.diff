@@ -11,15 +11,15 @@ index 301d8e4..5b3fbdc 100644
 -  assert.equal(2, 2);
 -});
 diff --git a/tests/findings.md b/tests/findings.md
-index aa781bc..ff5da3d 100644
+index 4d9cacf..7e5bdf7 100644
 --- a/tests/findings.md
 +++ b/tests/findings.md
-@@ -3,4 +3,4 @@
- | Id | Class | State | Test |
- |---|---|---|---|
- | S1-1 | hostile input | open | |
--| S3-1 | security | open | S3-1: a lone CR does not start a prompt line |
-+| S3-1 | security | withdrawn: not a defect | |
+@@ -4,4 +4,4 @@
+ |---|---|---|---|---|
+ | S1-1 | should be fixed before | hostile input | open | |
+ | S2-1 | after the release | limit | closed | |
+-| S3-1 | blocks the release | security | open | S3-1: a lone CR does not start a prompt line |
++| S3-1 | blocks the release | security | question | |
 diff --git a/tests/weakenings.md b/tests/weakenings.md
 index 5357732..f183707 100644
 --- a/tests/weakenings.md

@@ -1,0 +1,11 @@
+diff --git a/tests/numbers.ts b/tests/numbers.ts
+index e8dc37d..3ca8c9b 100644
+--- a/tests/numbers.ts
++++ b/tests/numbers.ts
+@@ -2,4 +2,5 @@ export const SEED = 20261115;
+ export const PROPERTY_CASES = 100;
+ export const BUDGET = { cli: 20_000, hook: 5000 } as const;
+ export const SPEED = ((): string => process.env.LAWCHECK_SPEED ?? 'commit')();
+-export const stronger = { SEED: 'higher', PROPERTY_CASES: 'higher', BUDGET: 'lower' } as const;
++export const stronger = { SEED: 'higher', PROPERTY_CASES: 'higher', BUDGET: 'lower', NEW_FLOOR: 'higher' } as const;
++export const NEW_FLOOR = 3;

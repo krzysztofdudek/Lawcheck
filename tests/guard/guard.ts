@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { changes, git, resolve, Tree, type Change } from './git.ts';
 import { matchesAny, globToRegExp } from './glob.ts';
-import { acceptanceRows, fencedBlocks, invariantRows, ledgerRows, readWeakenings, RECORD_HEADER, rulings, type Record, type Row } from './markdown.ts';
+import { acceptanceRows, fencedBlocks, invariantRows, ledgerRows, ledgerTable, readWeakenings, RECORD_HEADER, rulings, type Record, type Row } from './markdown.ts';
 import { readSource, type Marker } from './source.ts';
 import { readConstants, type Value } from './constants.ts';
 
@@ -19,10 +19,13 @@ export type Config = {
   paths: { guard: string[]; ci: string[]; harness: string[]; expected: string[] };
   roles: { [role: string]: string };
   approvers: { [kind: string]: string[] };
-  directions: { [key: string]: Direction };
+  stronger: string;
+  ratchets: string[];
+  severities: string[];
+  closedStates: string[];
 };
 
-export type Direction = 'higher' | 'lower' | 'fixed' | 'fewer';
+export type Direction = 'higher' | 'lower';
 
 export function loadConfig(path = new URL('./config.json', import.meta.url)): Config {
   return JSON.parse(readFileSync(path, 'utf8')) as Config;
@@ -39,6 +42,8 @@ export const RECORD_KINDS = [
   'guard-changed',
   'ci-changed',
   'threshold-lowered',
+  'finding-weakened',
+  'ratchet-grew',
 ] as const;
 
 export type RecordKind = (typeof RECORD_KINDS)[number];
@@ -136,12 +141,25 @@ function namedIn(id: string): Set<string> {
   return out;
 }
 
-function direction(config: Config, key: string): Direction | null {
-  if (key in config.directions) return config.directions[key]!;
-  for (const [pattern, dir] of Object.entries(config.directions)) {
-    if (pattern.includes('*') && globToRegExp(pattern, '.').test(key)) return dir;
+function numbers(text: string | null, config: Config): { values: Map<string, Value>; direction: (key: string) => Direction | null } {
+  const all = readConstants(text ?? '');
+  const values = new Map<string, Value>();
+  const directions = new Map<string, Direction>();
+  const prefix = `${config.stronger}.`;
+  for (const [key, value] of all) {
+    if (key === config.stronger) continue;
+    if (!key.startsWith(prefix)) { values.set(key, value); continue; }
+    if (value.kind === 'text' && (value.value === 'higher' || value.value === 'lower')) directions.set(key.slice(prefix.length), value.value);
   }
-  return null;
+  const direction = (key: string): Direction | null => {
+    const parts = key.split('.');
+    for (let n = parts.length; n > 0; n--) {
+      const hit = directions.get(parts.slice(0, n).join('.'));
+      if (hit) return hit;
+    }
+    return null;
+  };
+  return { values, direction };
 }
 
 function describeValue(v: Value | undefined): string {
@@ -304,26 +322,28 @@ export function judge(repo: string, baseRev: string, headRev: string, config: Co
   blockChanges(specFiles(before, config).filter((f) => changedPaths.has(f)), 'promise-changed');
   blockChanges([...before.list()].filter((p) => matchesAny(p, config.docs) && changedPaths.has(p)).sort(), 'docs-example-changed');
 
-  const numbersBefore = readConstants(before.read(config.numbers) ?? '');
+  const numbersBefore = numbers(before.read(config.numbers), config);
   const numbersText = after.read(config.numbers);
-  const numbersAfter = readConstants(numbersText ?? '');
-  for (const [key, value] of numbersAfter) {
-    const where = config.numbers;
-    if (value.kind === 'unreadable') { add({ kind: 'number-unreadable', subject: key, where, detail: `not a plain constant the guard can compare: ${value.text}` }); continue; }
-    if (!direction(config, key)) add({ kind: 'number-unclassified', subject: key, where, detail: `the guard's configuration gives no direction for ${key}; add it to "directions" in tests/guard/config.json (higher, lower, fixed or fewer)` });
+  const numbersAfter = numbers(numbersText, config);
+  const where = config.numbers;
+  for (const [key, value] of numbersAfter.values) {
+    const dir = numbersAfter.direction(key);
+    if (value.kind === 'unreadable') {
+      if (dir || /^[\d\s_.+\-*/()eE]+$/.test(value.text)) add({ kind: 'number-unreadable', subject: key, where, detail: `not a plain number the guard can compare: ${value.text}` });
+      continue;
+    }
+    if (value.kind === 'number' && !dir) add({ kind: 'number-unclassified', subject: key, where, detail: `${config.numbers} gives ${key} no direction: add it to ${config.stronger} as 'higher' or 'lower' (which way is stronger)` });
   }
-  for (const [key, old] of numbersBefore) {
-    const now = numbersAfter.get(key);
-    const dir = direction(config, key);
-    if (old.kind === 'unreadable') continue;
-    if (!now) { add({ kind: 'threshold-lowered', subject: key, where: config.numbers, detail: `removed (was ${describeValue(old)})` }); continue; }
-    if (now.kind === 'unreadable' || !dir) continue;
-    let weaker = false;
-    if (now.kind !== old.kind) weaker = true;
-    else if (old.kind === 'number' && now.kind === 'number') weaker = dir === 'higher' ? now.value < old.value : dir === 'lower' ? now.value > old.value : now.value !== old.value;
-    else if (old.kind === 'list' && now.kind === 'list') weaker = dir === 'fewer' ? now.items.some((i) => !old.items.includes(i)) : JSON.stringify(now.items) !== JSON.stringify(old.items);
-    else if (old.kind === 'text' && now.kind === 'text') weaker = now.value !== old.value;
-    if (weaker) add({ kind: 'threshold-lowered', subject: key, where: config.numbers, detail: `${describeValue(old)} -> ${describeValue(now)} (${dir === 'higher' ? 'higher is stronger' : dir === 'lower' ? 'lower is stronger' : dir === 'fewer' ? 'fewer entries is stronger' : 'any change is weaker'})` });
+  for (const [key, old] of numbersBefore.values) {
+    if (old.kind !== 'number') continue;
+    const now = numbersAfter.values.get(key);
+    const was = numbersBefore.direction(key);
+    const dir = was ?? numbersAfter.direction(key);
+    if (!now) { add({ kind: 'threshold-lowered', subject: key, where, detail: `removed (was ${describeValue(old)})` }); continue; }
+    if (now.kind !== 'number') { add({ kind: 'threshold-lowered', subject: key, where, detail: `no longer a plain number: ${describeValue(old)} -> ${describeValue(now)}` }); continue; }
+    const turned = was && numbersAfter.direction(key) && numbersAfter.direction(key) !== was;
+    if (turned) add({ kind: 'threshold-lowered', subject: key, where, detail: `its direction changed: ${was} -> ${numbersAfter.direction(key)} is stronger` });
+    else if (dir && (dir === 'higher' ? now.value < old.value : now.value > old.value)) add({ kind: 'threshold-lowered', subject: key, where, detail: `${old.value} -> ${now.value} (${dir} is stronger)` });
   }
 
   const listBefore = readList(before.read(config.sabotage));
@@ -346,6 +366,40 @@ export function judge(repo: string, baseRev: string, headRev: string, config: Co
       } else {
         add({ kind: 'sabotage-removed', subject: entry.id, where: config.sabotage, detail: `removed with the code it breaks and its promise ${entry.promise}`, promise: entry.promise });
       }
+    }
+  }
+
+  const findingsBefore = ledgerTable(before.read(config.ledger) ?? '');
+  const findingsAfter = ledgerTable(after.read(config.ledger) ?? '');
+  const rank = (severity: string | undefined): number => config.severities.indexOf((severity ?? '').trim().toLowerCase());
+  for (const [id, was] of findingsBefore) {
+    const now = findingsAfter.get(id);
+    const at = `${config.ledger}:${was.line}`;
+    if (!now) { add({ kind: 'finding-weakened', subject: id, where: at, detail: `the row of ${id} is removed, or its id changed` }); continue; }
+    const s0 = was.cells.get('severity');
+    const s1 = now.cells.get('severity');
+    if (rank(s0) >= 0 && rank(s1) < rank(s0)) add({ kind: 'finding-weakened', subject: id, where: `${config.ledger}:${now.line}`, detail: `its severity is lowered: ${s0} -> ${s1 || 'none'}` });
+    const st0 = (was.cells.get('state') ?? '').toLowerCase();
+    const st1 = (now.cells.get('state') ?? '').toLowerCase();
+    if (config.closedStates.includes(st0) && st1 !== st0) add({ kind: 'finding-weakened', subject: id, where: `${config.ledger}:${now.line}`, detail: `a closed finding is reopened as ${st1 || 'nothing'}` });
+  }
+
+  for (const file of config.ratchets) {
+    const old = before.read(file);
+    if (old === null) continue;
+    const parse = (text: string | null): unknown[] | null => {
+      try { const v = JSON.parse(text ?? 'null') as unknown; return Array.isArray(v) ? v : null; } catch { return null; }
+    };
+    const was = parse(old);
+    const now = parse(after.read(file));
+    if (!was || !now) { if (!now) add({ kind: 'list-unreadable', subject: file, where: file, detail: `${file} may only shrink, and it is not a JSON array here` }); continue; }
+    const left = count(was, (e) => JSON.stringify(e));
+    for (const entry of now) {
+      const key = JSON.stringify(entry);
+      const n = left.get(key) ?? 0;
+      if (n > 0) { left.set(key, n - 1); continue; }
+      const id = typeof (entry as { id?: unknown })?.id === 'string' ? (entry as { id: string }).id : key;
+      add({ kind: 'ratchet-grew', subject: `${file}: ${id}`, where: file, detail: `an entry is added to a list that may only shrink: ${key}` });
     }
   }
 

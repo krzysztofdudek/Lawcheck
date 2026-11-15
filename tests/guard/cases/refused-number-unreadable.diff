@@ -1,0 +1,9 @@
+diff --git a/tests/numbers.ts b/tests/numbers.ts
+index e8dc37d..4ad9835 100644
+--- a/tests/numbers.ts
++++ b/tests/numbers.ts
+@@ -3,3 +3,4 @@ export const PROPERTY_CASES = 100;
+ export const BUDGET = { cli: 20_000, hook: 5000 } as const;
+ export const SPEED = ((): string => process.env.LAWCHECK_SPEED ?? 'commit')();
+ export const stronger = { SEED: 'higher', PROPERTY_CASES: 'higher', BUDGET: 'lower' } as const;
++export const LIMIT = 20 * 1000;

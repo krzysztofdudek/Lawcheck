@@ -1,9 +1,9 @@
 diff --git a/tests/guard/config.json b/tests/guard/config.json
-index e8d0c6c..28ad13c 100644
+index a0557ca..28ad13c 100644
 --- a/tests/guard/config.json
 +++ b/tests/guard/config.json
 @@ -1 +1 @@
--{ "directions": {} }
+-{ "ratchets": [] }
 +{ "directions": { "PROPERTY_CASES": "lower" } }
 diff --git a/tests/weakenings.md b/tests/weakenings.md
 index 5357732..c1b57ec 100644

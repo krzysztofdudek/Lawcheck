@@ -1,18 +1,38 @@
 {
   "weakenings": "tests/weakenings.md",
-  "tests": ["tests/**/*.test.ts"],
-  "specs": ["spec/*.md"],
+  "tests": [
+    "tests/**/*.test.ts"
+  ],
+  "specs": [
+    "spec/*.md"
+  ],
   "rulings": "spec/questions.md",
-  "docs": ["docs/**/*.md", "README.md"],
+  "docs": [
+    "docs/**/*.md",
+    "README.md"
+  ],
   "ledger": "tests/findings.md",
   "numbers": "tests/numbers.ts",
   "sabotage": "tests/sabotage/list.json",
   "runes": "@chrisdudek/runes",
-  "platformReasons": { "file": "tests/acceptance/helpers.ts", "export": "PLATFORM_SKIPS" },
+  "platformReasons": {
+    "file": "tests/acceptance/helpers.ts",
+    "export": "PLATFORM_SKIPS"
+  },
   "paths": {
-    "guard": ["tests/guard/**"],
-    "ci": [".github/workflows/**"],
-    "harness": ["tests/run.ts", "tests/harness/**", "tests/reporter.ts", "tests/reporter/**", "tests/acceptance/helpers.ts"],
+    "guard": [
+      "tests/guard/**"
+    ],
+    "ci": [
+      ".github/workflows/**"
+    ],
+    "harness": [
+      "tests/run.ts",
+      "tests/harness/**",
+      "tests/reporter.ts",
+      "tests/reporter/**",
+      "tests/acceptance/helpers.ts"
+    ],
     "expected": [
       "tests/**/*.expected",
       "tests/**/expected/**",
@@ -28,16 +48,51 @@
     "reviewer": "^reviewer\\s+\\S"
   },
   "approvers": {
-    "test-removed": ["reviewer"],
-    "expected-changed": ["reviewer"],
-    "docs-example-changed": ["reviewer"],
-    "sabotage-changed": ["reviewer"],
-    "sabotage-removed": ["reviewer"],
-    "harness-changed": ["reviewer"],
-    "promise-changed": ["owner"],
-    "guard-changed": ["owner"],
-    "ci-changed": ["owner"],
-    "threshold-lowered": ["owner"]
+    "test-removed": [
+      "reviewer"
+    ],
+    "expected-changed": [
+      "reviewer"
+    ],
+    "docs-example-changed": [
+      "reviewer"
+    ],
+    "sabotage-changed": [
+      "reviewer"
+    ],
+    "sabotage-removed": [
+      "reviewer"
+    ],
+    "harness-changed": [
+      "reviewer"
+    ],
+    "promise-changed": [
+      "owner"
+    ],
+    "guard-changed": [
+      "owner"
+    ],
+    "ci-changed": [
+      "owner"
+    ],
+    "threshold-lowered": [
+      "owner"
+    ],
+    "finding-weakened": [
+      "reviewer"
+    ],
+    "ratchet-grew": [
+      "reviewer"
+    ]
   },
-  "directions": {}
+  "stronger": "stronger",
+  "ratchets": [],
+  "severities": [
+    "after the release",
+    "should be fixed before",
+    "blocks the release"
+  ],
+  "closedStates": [
+    "closed"
+  ]
 }
