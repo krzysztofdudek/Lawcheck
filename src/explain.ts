@@ -343,6 +343,7 @@ function typeAnswer(ctx: Ctx, id: string, json: boolean): string {
       may_use: mayUseJson(type),
       rules: rules.map(({ review: _review, ...rest }) => rest),
       subtypes: type.types.map((t) => t.id),
+      waivers: takesWaivers(type),
       files,
     });
   }

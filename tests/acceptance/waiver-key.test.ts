@@ -38,6 +38,10 @@ test('T6: waivers takes true or false, and a subtype takes its parent\'s value',
     assert.ok(off.stdout.split('\n').includes(finding('src/core/w.ts:1')), off.stdout);
     const explained = await lawcheck(s, ['explain', '--type', 'library']);
     assert.ok(explained.stdout.includes('  waivers:  not read; a waiver marker in its files is text\n'), explained.stdout);
+    const asJson = JSON.parse((await lawcheck(s, ['explain', '--type', 'library', '--json'])).stdout);
+    assert.equal(asJson.waivers, false);
+    const script = JSON.parse((await lawcheck(s, ['explain', '--type', 'script', '--json'])).stdout);
+    assert.equal(script.waivers, true);
   });
 });
 

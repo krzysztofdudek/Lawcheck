@@ -433,7 +433,7 @@ type source  (source)  Everything that ships.
     src/core/tax.ts
 ```
 
-A `content:  <expression>` line follows `paths` when the type has one; `subtypes` names the direct subtypes, or `none`; `files` holds the files of the type and its subtypes.
+A `content:  <expression>` line follows `paths` when the type has one; the line `  waivers:  not read; a waiver marker in its files is text` follows the rules when the type's files hold no waivers; `subtypes` names the direct subtypes, or `none`; `files` holds the files of the type and its subtypes.
 
 `lawcheck explain --rule no-todo` in S:
 
@@ -460,7 +460,7 @@ For a reviewer rule a `context:  <paths joined by ", ">` line follows `file` whe
 |---|---|
 | `file` | `path`, `exists`, `type` (id or null), `chain` (ids from the root), `about`, `none` (the reason, or null), `matched` (`{ "type", "pattern", "content" }`), `not_matched` (`{ "type", "content" }`, the `not <subtype>` parts), `then` (the text after `then:` or `depends on its text:`, or null), `may_use` (`{ "types", "from" }` or null), `uses` (`{ "read", "language" }` or null), `rules` (`{ "id", "kind", "status", "why", "from", "review" }`, `review` one of `reviewed`, `failed`, `too-large`, `not-reviewed`, or null), `waivers` (`{ "line", "rule", "reason" }`, `[]` for a file that does not exist) |
 | `directory` | `path` (with its trailing `/`), `files`, `types` (`{ "type", "files" }`, `type` null for no type) |
-| `type` | `id`, `chain`, `about`, `paths`, `content`, `may_use` and `rules` shaped as for a file, `rules` without `review`, `subtypes`, `files` (every one) |
+| `type` | `id`, `chain`, `about`, `paths`, `content`, `may_use` and `rules` shaped as for a file, `rules` without `review`, `subtypes`, `waivers` (false when the type's files hold no waivers, slice one's section 2), `files` (every one) |
 | `rule` | `id`, `kind`, `status`, `why`, `file`, `context` (paths or null), `types`, `files` (every one), `reviewed` (a count, or null for a script rule) |
 
 A file with no type, an overlap included, has `type`, `about`, `then`, `may_use` and `uses` null and `chain`, `matched`, `not_matched`, `rules` and `waivers` empty. A path that does not exist yet whose type depends on its text at the root level has `type` and `none` null and its alternatives in `then`. Absent parts are null, never left out.
