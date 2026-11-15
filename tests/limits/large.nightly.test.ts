@@ -183,33 +183,6 @@ test('test 252: kill -9 at a random moment of 50 reviews leaves a verdicts file 
   );
 });
 
-// The fake answers on every tenth of a second, so the answers of both runs arrive together and their writes of the verdicts file meet.
-test('test 253: two reviews at once leave a verdicts file that holds the passes of both', async () => {
-  let release: () => void = () => undefined;
-  const first = new Promise<void>((done) => (release = done));
-  await withFake(
-    async (fake) => {
-      await withR(async (r) => {
-        passingFiles(r, 40);
-        const env = { LAWCHECK_REVIEWER_ENDPOINT: fake.url };
-        const a = run(r, ['check', '--review', '--base', 'main'], { env, budgetMs: 120_000 });
-        await first;
-        passingFiles(r, 40, 40);
-        const b = run(r, ['check', '--review', '--base', 'main'], { env, budgetMs: 120_000 });
-        const [ra, rb] = await Promise.all([a, b]);
-        assert.equal(ra.code, 0, ra.stdout);
-        assert.equal(rb.code, 0, rb.stdout);
-        assert.equal(verdictLines(r).length, 80);
-      });
-    },
-    async (request) => {
-      release();
-      await new Promise((done) => setTimeout(done, 100 - (Date.now() % 100)));
-      return openai(defaultAnswer(request.prompt));
-    },
-  );
-});
-
 const STEP_NEXT = "next: make the step named faster, such as a type's content pattern that backtracks, then run lawcheck check again";
 const stepTooSlow = (what: string) =>
   ['lawcheck: ERROR  1 error', '', `error[step-too-slow]  one step of the run took more than 30 seconds without an end: ${what}`, '  why:  a step that never ends gives no answer, so one step of a run has a limit of time', '', STEP_NEXT, ''].join('\n');

@@ -1,9 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { defaultAnswer, openai, withFake } from '../acceptance/fake-reviewer.ts';
-import { D, D_PATH, F, F_PATH, F_PRIME, REVIEWER_LAW, withR, withSample, write } from '../acceptance/helpers.ts';
+import { D, D_PATH, F, F_PATH, F_PRIME, KEY_F_PRIME, REVIEWER_LAW, withR, withSample, write } from '../acceptance/helpers.ts';
 import { errorLines, MiB, run, sparse, textHead } from './support.ts';
 
 const REVIEW = ['check', '--review', '--base', 'main'];
@@ -201,4 +201,32 @@ test('test 271: a review whose passes would push .lawcheck/verdicts past 16 MiB 
       });
     });
   }
+});
+
+// The test is the other run: it holds the lock while it reads the verdicts file and writes it back with a line of its own, as a run does. Holding it, it gives the review three seconds to write; with the lock the review waits, without it the review writes in between and the test's write loses that line.
+test('test 253: two runs that write the verdicts file at once keep the lines of both', async () => {
+  await withFake(async (fake) => {
+    await withR(async (r) => {
+      write(r, F_PATH, F_PRIME);
+      const local = join(r, '.lawcheck/.local');
+      const lock = join(local, 'verdicts.lock');
+      const verdicts = join(r, '.lawcheck/verdicts');
+      mkdirSync(lock, { recursive: true });
+      writeFileSync(join(local, '.gitignore'), '*\n');
+      writeFileSync(join(lock, 'pid'), String(process.pid));
+      const before = existsSync(verdicts) ? readFileSync(verdicts, 'utf8') : '';
+      const review = run(r, REVIEW, { env: { LAWCHECK_REVIEWER_ENDPOINT: fake.url }, budgetMs: 30_000 });
+      let ended = false;
+      void review.then(() => (ended = true));
+      const deadline = Date.now() + 3000;
+      while (!ended && Date.now() < deadline) await new Promise((done) => setTimeout(done, 20));
+      const other = `${'0'.repeat(32)} clear-errors\n`;
+      writeFileSync(verdicts, before + other);
+      rmSync(lock, { recursive: true, force: true });
+      const result = await review;
+      assert.equal(result.code, 0, result.stdout);
+      assert.equal(fake.requests.length, 1);
+      assert.deepEqual(readFileSync(verdicts, 'utf8').split('\n').filter(Boolean).sort(), [other.trim(), `${KEY_F_PRIME} clear-errors`].sort());
+    });
+  });
 });
