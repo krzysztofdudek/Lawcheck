@@ -76,4 +76,8 @@ jobs:
           if [ -f tests/guard/from-base.ts ]; then
             exec node tests/guard/from-base.ts --base "$base" --head "$head"
           fi
-          echo "suite guard: PASS  the base $(git rev-parse --short "$base") has no suite guard yet: nothing judges this change"
+          if [ -e tests/guard ] || [ -e tests/weakenings.md ]; then
+            echo "suite guard: could not run  the base $(git rev-parse --short "$base") holds tests/guard or tests/weakenings.md but no tests/guard/from-base.ts"
+            exit 1
+          fi
+          echo "suite guard: not judged  the base $(git rev-parse --short "$base") has no suite guard yet"
