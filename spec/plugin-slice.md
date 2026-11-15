@@ -351,7 +351,7 @@ Runs on `Stop`. A stop "lets the agent finish" when it hands nothing back; such 
 9. Exit 1: the guard decides, with the header `Lawcheck: the files that changed in this turn break the law of this repository. Fix the code, then finish; if a fix needs the user's word, tell the user what blocks you and finish. <cmd> check on those files printed:`.
 10. Exit 2, and a path of the turn lies under `.lawcheck/`: the guard decides, with the header `Lawcheck could not check the files that changed in this turn, and the turn changed files under .lawcheck/. Fix what the error names, then finish; if that needs the user's word, tell the user and finish. <cmd> check on those files printed:`.
 11. Exit 2 otherwise: the law, a rule or Lawcheck broke without the turn touching them, which is the user's to fix. A notice, `lawcheck: lawcheck check could not judge the files that changed in this turn; <cmd> check shows why.`; the agent finishes.
-12. Not run: a notice, `lawcheck: the check before the agent finished did not run: <reason>.`; the agent finishes.
+12. Not run: a notice, `lawcheck: the check before the agent finished did not run: <reason>.`; the agent finishes. A snapshot that git cannot take in step 4 is not run too, with the reason `git could not list the files of this turn, because <what failed>`, such as `git cannot be started (ENOENT)` or `git hash-object exited with 128: <git's first line>`. `hash-object --stdin-paths` gets each path whole, joined to the root, since git reads the paths from the top of the work tree.
 
 A notice is `{ "systemMessage": <text> }` when `told` is false, which it then becomes, and nothing otherwise, so the user reads each kind of trouble once per session.
 
@@ -374,7 +374,7 @@ So a turn is handed back at most three times, never twice for the same output, a
 | a huge change | one file is checked | above 1,000 files, one message |
 | the law or a rule broken | once per distinct output | handed back when the turn touched `.lawcheck/`, else a notice |
 | a file of another repository edited | its own root and runner | only the session's root counts |
-| git missing | `no-git`, handed once | no snapshot, so nothing runs |
+| git missing, or git cannot list the turn's files | `no-git`, handed once | a notice whose reason says that git could not list the files of the turn, and why |
 | the user's editor, or another session, writes in the checkout during the turn | not seen | its files count as the turn's |
 
 ## 9. Every agent

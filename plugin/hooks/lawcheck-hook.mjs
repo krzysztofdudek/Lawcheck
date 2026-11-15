@@ -84,7 +84,7 @@ async function prompt(input, deadline) {
     state.files = old.files;
   } else {
     const shot = snapshot(root, deadline);
-    if (shot === null) {
+    if ('problem' in shot) {
       deleteState(file);
       return null;
     }
@@ -170,9 +170,12 @@ async function stop(input, deadline) {
   };
 
   const now = snapshot(root, deadline);
-  if (now === null) return finish(null);
-  const paths = turnPaths(root, state === null ? null : { head: state.head, files: state.files }, now, state?.started ?? 0, deadline);
-  if (paths === null || paths.length === 0) return finish(null);
+  const paths = 'problem' in now ? now : turnPaths(root, state === null ? null : { head: state.head, files: state.files }, now, state?.started ?? 0, deadline);
+  if ('problem' in paths) {
+    finish(null);
+    return notice(file, root, input, `lawcheck: the check before the agent finished did not run: git could not list the files of this turn, because ${paths.problem}.`);
+  }
+  if (paths.length === 0) return finish(null);
   if (paths.length > MOST_FILES) {
     return finish({ systemMessage: `lawcheck: ${paths.length} files changed in this turn, more than the ${MOST_FILES} the check before finishing takes, so it did not run; ${runner.cmd} check shows the result.` });
   }

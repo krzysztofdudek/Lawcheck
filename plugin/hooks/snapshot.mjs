@@ -9,9 +9,9 @@ let gitProgram;
 
 function git(root, args, deadline, input) {
   const left = deadline.left();
-  if (left === 0) throw new NoSnapshot('the deadline');
+  if (left === 0) throw new NoSnapshot('the deadline passed before git could list the files');
   gitProgram ??= findProgram('git', { ...Object.fromEntries(Object.entries(process.env).filter(([name]) => name.toUpperCase() !== 'PATHEXT')), PATHEXT: '.EXE' });
-  if (gitProgram === null) throw new NoSnapshot('git');
+  if (gitProgram === null) throw new NoSnapshot('git cannot be started (it is not on the PATH)');
   const result = spawnSync(gitProgram, args, {
     cwd: root,
     env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' },
@@ -21,12 +21,20 @@ function git(root, args, deadline, input) {
     killSignal: 'SIGKILL',
     stdio: [input === undefined ? 'ignore' : 'pipe', 'pipe', 'pipe'],
   });
-  if (result.error || result.status === null) throw new NoSnapshot(`git ${args[0]}`);
+  if (result.error) throw new NoSnapshot(`git cannot be started (${result.error.code ?? firstOf(result.error.message)})`);
+  if (result.status === null) throw new NoSnapshot(`git ${args[0]} was stopped`);
   return result;
 }
 
+function firstOf(text) {
+  return String(text).split(/\r?\n/).find((line) => line.trim() !== '') ?? '';
+}
+
 function ok(result, args) {
-  if (result.status !== 0) throw new NoSnapshot(`git ${args[0]} exited with ${result.status}`);
+  if (result.status !== 0) {
+    const said = firstOf(result.stderr.toString('utf8'));
+    throw new NoSnapshot(`git ${args[0]} exited with ${result.status}${said === '' ? '' : `: ${said}`}`);
+  }
   return result.stdout;
 }
 
@@ -50,7 +58,7 @@ function headOf(root, deadline) {
   const result = git(root, ['rev-parse', '--verify', '--quiet', 'HEAD^{commit}'], deadline);
   if (result.status === 0) return result.stdout.toString('utf8').trim();
   if (result.status === 1) return null;
-  throw new NoSnapshot('git rev-parse');
+  throw new NoSnapshot(`git rev-parse exited with ${result.status}${firstOf(result.stderr.toString('utf8')) === '' ? '' : `: ${firstOf(result.stderr.toString('utf8'))}`}`);
 }
 
 export function snapshot(root, deadline) {
@@ -70,14 +78,15 @@ export function snapshot(root, deadline) {
       if (!/[\r\n]/.test(path) && isRegular(root, path)) hashed.push(path);
     }
     if (hashed.length > 0) {
-      const ids = run(root, ['hash-object', '--stdin-paths'], deadline, hashed.join('\n') + '\n').toString('utf8').split('\n');
+      // git reads these paths from the top of the work tree, not from the folder it runs in, so a root below the top needs them whole.
+      const ids = run(root, ['hash-object', '--stdin-paths'], deadline, hashed.map((path) => join(root, path)).join('\n') + '\n').toString('utf8').split('\n');
       hashed.forEach((path, i) => {
         if (ids[i]) files[path] = ids[i];
       });
     }
     return { head, files };
   } catch (error) {
-    if (error instanceof NoSnapshot) return null;
+    if (error instanceof NoSnapshot) return { problem: error.message };
     throw error;
   }
 }
@@ -129,7 +138,7 @@ export function turnPaths(root, before, after, started, deadline) {
     }
     return [...changed].filter((path) => isRegular(root, path)).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
   } catch (error) {
-    if (error instanceof NoSnapshot) return null;
+    if (error instanceof NoSnapshot) return { problem: error.message };
     throw error;
   }
 }

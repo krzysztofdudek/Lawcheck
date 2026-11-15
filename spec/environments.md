@@ -46,6 +46,20 @@ npm and pnpm install Lawcheck on an older Node with a warning about the `engines
 
 **The runner that cannot start.** A refusal covers what Lawcheck can see before it starts a runner. A runner of script rules that Node still cannot start is `runner-failed`, never `rule-crashed` (check slice, section 3).
 
+## 4. Repository shapes
+
+Every commit runs fifteen rows of the check slice's acceptance table (1 to 6, 12, 13, 20, 22, 28, 29, 31, 38 and 41) and the hook scenarios of the plugin slice in each of these shapes, each started from the root and from `src/core` below it:
+
+- the law at the top of the work tree;
+- the law in `pkg/` of a monorepo, with a `node_modules` above it at the top and a file outside the root changed;
+- a linked worktree (`git worktree add`);
+- a root path that holds a space and a letter outside ASCII;
+- a root reached through a symbolic link (a junction on Windows).
+
+Each row gives the output the check slice gives, byte for byte, in every shape and from both directories (invariant `I-shape-1`). The hooks report a breach written in the turn, after an edit and before finishing, give the primer at the session start, hand back a law broken in the turn under its header, and let a clean turn finish (invariant `I-shape-2`). A check before finishing whose snapshot git cannot take sends the notice of the plugin slice, section 8, step 12, with the reason `git could not list the files of this turn, because <what git said>`.
+
+A rule in the monorepo shape that imports a package from the `node_modules` above the root does not load, and its message is `reads <path> outside the root and Lawcheck's folder, and a rule may read nothing else` (check slice, section 3); the same rule loads the same package from a `node_modules` below the root.
+
 ## 5. CI shapes
 
 Built with `file://` remotes on every commit:
@@ -71,3 +85,5 @@ Built with `file://` remotes on every commit:
 | Id | Promise | Test |
 |---|---|---|
 | I-env-1 | Every command but `--version`, `--help`, `<command> --help` and `docs` refuses Node below 24, Bun as the runtime and Yarn's Plug'n'Play with the first line of section 3, exit 2 and nothing on standard error, and `doctor` prints what `check` prints (section 3). | tests/environments/refusal.test.ts |
+| I-shape-1 | The rows of section 4 give the output of the check slice byte for byte in every repository shape, from the root and from a directory below it (section 4). | tests/environments/shapes.test.ts |
+| I-shape-2 | The hooks give the plugin slice's outputs for a breach after an edit, a breach before finishing, a broken law, a clean turn and the session start in every repository shape (section 4). | tests/environments/hook-shapes.test.ts |
