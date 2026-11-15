@@ -18,6 +18,8 @@ test('suite guard (T-7 A): test ids are the names of test, it and describe calls
     'test(`test 2: a template`, () => {});',
     "if (/x/.test('y')) {}",
     "test('test 3: \\'quoted\\' and \\u00e9', () => {});",
+    "const q = (p: string) => `'${p.replace(/'/g, `'\\\\''`)}'`;",
+    "test('test 4: after a regex with a quote inside a template', () => {});",
   ].join('\n'));
   assert.deepEqual(src.tests.map((t) => [t.id, t.dynamic, t.line]), [
     ['test 1: plain', false, 6],
@@ -27,6 +29,7 @@ test('suite guard (T-7 A): test ids are the names of test, it and describe calls
     ['test ${…}: generated', true, 8],
     ['test 2: a template', false, 9],
     ["test 3: 'quoted' and é", false, 11],
+    ['test 4: after a regex with a quote inside a template', false, 13],
   ]);
   assert.deepEqual(src.markers, []);
 });

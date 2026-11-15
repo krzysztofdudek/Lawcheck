@@ -120,11 +120,29 @@ function readTemplate(text: string, from: number): { end: number; value: string;
   return { end: j, value, dynamic };
 }
 
+function skipRegex(text: string, from: number): number {
+  let j = from + 1;
+  let inClass = false;
+  while (j < text.length && text[j] !== '\n') {
+    if (text[j] === '\\') { j += 2; continue; }
+    if (text[j] === '[') inClass = true;
+    else if (text[j] === ']') inClass = false;
+    else if (text[j] === '/' && !inClass) break;
+    j++;
+  }
+  j++;
+  while (j < text.length && /[a-z]/i.test(text[j]!)) j++;
+  return j;
+}
+
 function skipExpression(text: string, from: number): number {
   let depth = 1;
   let j = from;
+  let last = '(';
   while (j < text.length) {
     const c = text[j]!;
+    if (c === '/' && text[j + 1] !== '/' && text[j + 1] !== '*' && /[(,=:[!&|?{};+\-*%<>~^]/.test(last)) { j = skipRegex(text, j); last = 'x'; continue; }
+    if (!/\s/.test(c)) last = c;
     if (c === '"' || c === "'") { j = readQuoted(text, j).end; continue; }
     if (c === '`') { j = readTemplate(text, j + 1).end; continue; }
     if (c === '/' && text[j + 1] === '/') { while (j < text.length && text[j] !== '\n') j++; continue; }
