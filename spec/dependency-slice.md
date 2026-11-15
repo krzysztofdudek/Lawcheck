@@ -115,7 +115,7 @@ A text file of the run with a list in force and no reader counts toward `uses-no
 
 ### 3.3 The readers
 
-Lawcheck depends on Runes (section 6) and composes these of its exports, from `@chrisdudek/runes/relations`, `/ast` and `/grammars`. Runes' catalogue runner, `test/relations/reference-case-runner.mjs` at the pinned commit, composes the same calls and is the reference for each argument.
+Lawcheck depends on Runes (section 6) and composes these of its exports, from `@chrisdudek/runes/relations`, `/ast` and `/grammars`. Runes' catalogue runner, `test/relations/reference-case-runner.mjs` in its repository at tag `v1.1.0`, composes the same calls and is the reference for each argument.
 
 1. **The files the readers see** are the files of slice one's section 2, as `listedFileView(<their paths>, read)`. `read(path)` returns the file's text as slice one decodes it, from the run's one read of the file (slice two, section 4). A file git ignores, a symlink and a submodule do not exist for the readers. A file that the readers ask for, or whose bytes the owner of step 2 needs, and that the tool cannot read is `file-unreadable` at that file, exit 2.
 2. **The owner of a file**, which the resolver counts targets by: for a file of section 2, its type's id when it has a type, else `#binary` when it is binary, else `#untyped`; for any other path, none. No type id can equal the last two.
@@ -429,30 +429,31 @@ ts/domain/order.ts:2  none  lodash
 
 ## 6. The readers and the grammars
 
-What was found, on 2026-11-13:
+What was found, on 2026-11-13, and on 2026-11-15 for 1.1.0:
 
 | Question | Answer |
 |---|---|
-| Published | on npm as `@chrisdudek/runes`, one version: 1.0.0 of 2026-09-29 |
+| Published | on npm as `@chrisdudek/runes`: 1.0.0 of 2026-09-29 and 1.1.0 of 2026-11-15, the second from tag `v1.1.0` at commit `1f3476b` |
 | Licence | MIT, by the author of Lawcheck, as Lawcheck |
 | Its own dependencies | none at run time; `web-tree-sitter` 0.27.0 as an optional peer, which the consumer installs and hands in |
 | What it exports | six subpaths; this slice uses `relations` (the readers, the symbol table, the resolver, the file view), `ast` (the parser host) and `grammars` (the language table, the grammar pins, `buildGrammars`) |
 | The grammars | not in the package: Runes ships their pins, patches and a recipe, `buildGrammars`, which checks every file against its sha256. The 13 grammars of the twelve languages come 3 from npm packages, 2 from GitHub releases and 8 from source, built with `tree-sitter-cli` 0.27.0 |
-| Size | 1.0.0: 144 files, 839 KB unpacked. The 13 grammars: 23.8 MB of WebAssembly, 2 MB compressed |
+| Size | 1.0.0: 144 files, 839 KB unpacked; 1.1.0: 162 files, 1.6 MB unpacked. The 13 grammars: 23.8 MB of WebAssembly, 2 MB compressed |
 | 1.0.0 against this slice | it lacks `listedFileView` (resolution against a list of files instead of the disk), `buildCsharpReachability`, Java and Kotlin names of the same package, and the reader fixes since; its catalogue had 460 cases |
-| What this slice needs | Runes' branch `release/1.1.0` at commit `b326704fa54185afb9a898c699b4b91e6f498e32`, on GitHub and not on npm, whose `package.json` still says 1.0.1; its catalogue holds 961 cases in `reference/relations/` |
+| What this slice needs | 1.1.0. Its grammar pins, patches and `web-tree-sitter` peer are those of the commit this slice was first built on, `b326704` of its branch `release/1.1.0`, so the grammars Lawcheck builds are the same bytes |
+| The grammars in 1.1.0 | still not in the package: it ships `grammars/manifest.json`, its schema and the patches, no WebAssembly, so Lawcheck keeps building and shipping them |
 
-**Lawcheck depends on the GitHub archive of that commit**, as an ordinary dependency, and on the runtime Runes is built for:
+**Lawcheck depends on Runes 1.1.0 from npm, exactly**, and on the runtime Runes is built for:
 
 ```json
 "dependencies": {
-  "@chrisdudek/runes": "https://codeload.github.com/krzysztofdudek/Runes/tar.gz/b326704fa54185afb9a898c699b4b91e6f498e32",
+  "@chrisdudek/runes": "1.1.0",
   "web-tree-sitter": "0.27.0",
   "yaml": "^2.9.1"
 }
 ```
 
-`package-lock.json` locks the archive with its integrity, `sha512-K5mGDIP7B571X5r4kj63rzQa7KbZQfl9dbjD+BrhlS+UrwpZThfw6ETTREJb8nMW+xO1H6OjxVCRzSQiA1TDTA==` (measured with `npm install` in the dev container), so `npm ci` installs the same bytes everywhere: 26 MB, the whole Runes repository with its catalogue and tests. The commit is untagged (section 7). When Runes 1.1.0 is on npm, the dependency becomes that version; the grammar and runtime pins move with it if Runes moves them. Lawcheck is not published while it points at an archive.
+`package-lock.json` resolves it from `https://registry.npmjs.org/@chrisdudek/runes/-/runes-1.1.0.tgz` with its integrity, `sha512-GyurlsUC2fGVhYadsY2c9AgbrP3Gz0DfvLs3E9G8nuj9qs/DCIh8o2+sYGbUEDTcJcLaQR0evoKi0o7YJa2zDw==` (written by `npm install --save-exact @chrisdudek/runes@1.1.0` in the dev container). A later Runes is taken knowingly, by changing this version: its readers may answer differently, and section 11's numbers move with them.
 
 **The grammars are built at Lawcheck's build and ship in its package.** `scripts/grammars.ts` calls `buildGrammars({ outDir: 'dist/grammars', only, resolveFrom: <the repository root>, cacheDir: '<the repository root>/.grammars', offline })` with `only` the 13 ids `typescript`, `tsx`, `javascript`, `python`, `go`, `rust`, `java`, `kotlin`, `csharp`, `c`, `cpp`, `php`, `ruby`, and `offline` true when it is given `--offline`; it then copies `scripts/grammar-licenses.txt` to `dist/grammars/LICENSES.txt`. On a failure it prints the error and exits 1. Development dependencies, at the exact versions the manifest pins: `tree-sitter-cli` 0.27.0, `tree-sitter-javascript` 0.25.0, `tree-sitter-python` 0.25.0, `tree-sitter-go` 0.25.0.
 
@@ -469,12 +470,11 @@ A first `npm run grammars` needs the network: measured, 74 s, and `tree-sitter-c
 
 ## 7. The readers' known limits
 
-The readers are used as they are; what they lack is Runes' to change. Four gaps shape this slice:
+The readers are used as they are; what they lack is Runes' to change. Three gaps shape this slice:
 
 1. **No answer tells outside from not followed.** Runes answers nothing both for an outside package and for a file of the repository it could not follow: generated code, an alias set only in a bundler's config, a workspace package whose entry is build output, a package of the Go module, the project's own Python package on a path set by configuration. Both are unresolved uses (section 4), and neither can be a `forbidden-use`.
 2. **An ambiguous answer names no files.** So a use whose every candidate the list forbids is not reported, and a package whose files have more than one type is split: Runes answers nothing for a Go import of it, and `ambiguous` for a Java or Kotlin star import of it and for a C# partial type spread across types. One untyped or differently typed file in a Go package turns every use of that package into an unresolved use.
 3. **A trailing slash in a tsconfig.** A `rootDir`, `outDir` or `declarationDir` written with a trailing `/` stops the mapping from a package's build output back to its source. hono's `tsconfig.build.json` writes them so; four of its uses are unresolved for this alone (section 11).
-4. **No release to pin.** The readers come from an untagged commit of a branch that has been rewritten before; a rewrite makes `npm ci` fail until the pin moves.
 
 Known defects at the pinned commit: a `package.json` `imports` target is resolved with an extension Node does not add, which can give a use that is not there; `types@<range>` export conditions are read as for TypeScript 6.0.3 whatever the project uses; a dotted C# type in an `is` chain joined by `||` gives no use; in a Kotlin file with syntax errors an annotation can be split from its function; a Rust module file named `lib.rs` or `main.rs` that is no crate root places a `#[path]` module of an inline module wrongly, which gives a use that is not there; the C# reader of this commit is slower than 1.0.0's (17 s against 11 s on one large repository).
 
@@ -509,7 +509,7 @@ A message can quote a header. `fetch` refuses a header value with a line break a
 
 ## 9. Decisions taken here
 
-1. **Runes is taken from the GitHub archive of its release commit.** The published 1.0.0 resolves against the disk: build output, `node_modules` or a generated file present on one machine and not another would decide where an import lands, and the same commit would answer differently. The file view of 1.1.0 lets the readers see exactly the files of slice one's section 2. The archive URL stands in `package.json`, so `npm install` works as `npm ci` does; a version the registry lacks would break it. Vendoring would bring Runes' sources and their comments into Lawcheck's repository; rewriting the readers would throw away 961 cases.
+1. **Runes is taken from npm at exactly 1.1.0.** The published 1.0.0 resolves against the disk: build output, `node_modules` or a generated file present on one machine and not another would decide where an import lands, and the same commit would answer differently. The file view of 1.1.0 lets the readers see exactly the files of slice one's section 2. Until 1.1.0 was published, Lawcheck took the GitHub archive of its release commit `b326704`; the exact version replaces it, since a range would let an install pick readers that answer differently. Vendoring would bring Runes' sources and their comments into Lawcheck's repository; rewriting the readers would throw away 961 cases.
 2. **The grammars ship in the package, with their licences, built from Runes' recipe.** Fetching them at run time would open a connection without `--review`, which slice two promises never happens. The cache in `.grammars/` keeps `npm test` offline after one online build.
 3. **The resolver counts targets by type.** `may_use` asks which type a use reaches, so a name declared in several files of one type (a C# partial class, Kotlin overloads) is one target. Counting by file would make those ambiguous; counting by directory would tie the answer to a layout the law does not describe.
 4. **What Runes does not resolve is counted, the same in every language.** The readers are used as they are, and what they lack is Runes' to add (the owner's ruling). Lawcheck therefore never judges a use by the shape of its specifier: a use Runes resolves to one file is judged, any other is an unresolved use. When Runes learns to tell outside from not followed, or to name an ambiguous answer's files, the count shrinks and section 11's numbers change knowingly.

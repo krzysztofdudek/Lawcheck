@@ -41,7 +41,7 @@
     "test": "npm run build && node --test \"tests/unit/*.test.ts\" \"tests/acceptance/*.test.ts\""
   },
   "dependencies": {
-    "@chrisdudek/runes": "https://codeload.github.com/krzysztofdudek/Runes/tar.gz/b326704fa54185afb9a898c699b4b91e6f498e32",
+    "@chrisdudek/runes": "1.1.0",
     "web-tree-sitter": "0.27.0",
     "yaml": "^2.9.1"
   },
