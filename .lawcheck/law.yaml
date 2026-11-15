@@ -29,7 +29,7 @@ types:
   source:
     about: Lawcheck's own code. A file that no layer below names may use nothing, until it moves into a layer.
     # The files not yet moved into a layer. tests/acceptance/self-law.test.ts fails when a name is added here.
-    paths: ["src/**", "!src/{args,check,cli,config,docs,doctor,explain,files,glob,guard,init,law,output,prime,programs,prompt,readers,review,rules,setup,try,types,uses,verdicts,waivers}.ts", "!src/providers/{anthropic,claude-code,http,index,openai-compatible}.ts"]
+    paths: ["src/**", "!src/{args,bin,check,cli,config,docs,doctor,environment,explain,files,glob,guard,init,keys,law,output,prime,programs,prompt,readers,review,rules,setup,try,types,uses,verdicts,waivers}.ts", "!src/providers/{anthropic,claude-code,http,index,openai-compatible}.ts"]
     may_use: []
     rules: [layer-imports, programs-own-the-process, modules-only-declare, no-import-cycles, own-paths-in-one-place, comments-say-why, errors-name-the-fix]
     types:

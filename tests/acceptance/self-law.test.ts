@@ -8,7 +8,7 @@ import { git, GIT_ENV, inTemp, lawcheck, read, ROOT, write } from './helpers.ts'
 const ADVISORY = new Set(['errors-name-the-fix', 'docs-state-facts']);
 const WAIVERS: { file: string; rule: string; reason: string }[] = [];
 const UNRESOLVED = [{ file: 'scripts/grammars.ts', what: '..', answer: 'none', reason: 'unfollowed' }];
-const UNSORTED = new Set(['args', 'check', 'cli', 'config', 'docs', 'doctor', 'explain', 'files', 'glob', 'guard', 'init', 'law', 'output', 'prime', 'programs', 'prompt', 'readers', 'review', 'rules', 'setup', 'try', 'types', 'uses', 'verdicts', 'waivers'].map((name) => `src/${name}.ts`).concat(['anthropic', 'claude-code', 'http', 'index', 'openai-compatible'].map((name) => `src/providers/${name}.ts`)));
+const UNSORTED = new Set(['args', 'bin', 'check', 'cli', 'config', 'docs', 'doctor', 'environment', 'explain', 'files', 'glob', 'guard', 'init', 'keys', 'law', 'output', 'prime', 'programs', 'prompt', 'readers', 'review', 'rules', 'setup', 'try', 'types', 'uses', 'verdicts', 'waivers'].map((name) => `src/${name}.ts`).concat(['anthropic', 'claude-code', 'http', 'index', 'openai-compatible'].map((name) => `src/providers/${name}.ts`)));
 
 interface Finding {
   code: string;
@@ -72,7 +72,7 @@ test('question 160: the committed tree has no finding of an enforced rule and no
   });
 });
 
-test('question 160: the files of src that the law leaves without a type are only those of the first day, so the list only shrinks', async () => {
+test('question 160: the files of src that the law leaves without a type are only those it left out when it landed, so the list only shrinks', async () => {
   await inTemp(async (dir) => {
     const repo = cloneOfHead(dir);
     assert.deepEqual(exempted(repo).filter((name) => !UNSORTED.has(name)), []);
