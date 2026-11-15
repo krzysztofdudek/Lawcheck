@@ -3,8 +3,10 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { FRAME } from '../../dist/prompt.js';
+import { example } from '../harness/examples.ts';
 import { readFailure, readVerdicts, reviewKey, verdictLines, VerdictWriter } from '../../dist/verdicts.js';
+
+const FRAME = example('reviewer-frame');
 
 const R = new URL('../reviewer-sample/', import.meta.url);
 const S = new URL('../sample/', import.meta.url);
