@@ -629,6 +629,12 @@ The script prints one line per run and a summary per arm, and writes:
 | 182 | on the host: `npm run agent-trial -- --arm stop --counted 2 --max-runs 6 --out <a temporary file>` | finishes, prints a line per run and the summary, writes a file that test 181's derivations accept (run by the reviewer; the counts are not compared) |
 | 183 | `npm test` | tests 1 to 141 as section 11 amends them, and 142 to 181 but 153 and 180, pass, offline |
 
+### Invariants
+
+| Id | Promise | Test |
+|---|---|---|
+| I-hook-1 | Any standard input to any hook, JSON or not, a `session_id` of any length and a `config.yaml` with a byte-order mark included, gives exit 0 with nothing or one document of section 4.4, or exit 1 with one line `lawcheck plugin: <reason>` on standard error, never a stack trace (section 4). | tests/properties/arguments.test.ts |
+
 ## 13. Decisions taken here
 
 1. **No MCP server** (section 4.5).

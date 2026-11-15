@@ -13,7 +13,7 @@ const piece = fc.oneof(
   { weight: 6, arbitrary: fc.constantFrom(...'abcXYZ019._- ').map((c) => Buffer.from(c)) },
   {
     weight: 2,
-    arbitrary: fc.constantFrom('\n', '\r', '\t', '\x1b[2K', '\x07', '‮', ' ', '‏', '::', '::error::', '##vso[', '*', '\\', '\\n', '\\x41', 'ż', '€', '😀').map((c) => Buffer.from(c)),
+    arbitrary: fc.constantFrom('\n', '\r', '\t', '\x1b[2K', '\x07', '\u202e', '\u2028', '\u200f', '::', '::error::', '##vso[', '*', '\\', '\\n', '\\x41', 'ż', '€', '😀').map((c) => Buffer.from(c)),
   },
   { weight: 1, arbitrary: fc.integer({ min: 0x80, max: 0xff }).map((b) => Buffer.from([b])) },
 );

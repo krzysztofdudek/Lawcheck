@@ -500,7 +500,7 @@ Besides these 45 tests, the tool was accepted against an external trial: a law o
 
 ### Invariants
 
-Promises that hold for every input, each tied by its id to a property or a test of the security suite.
+Promises that hold for every input, each tied by its id to a test of the security suite or to a property under `tests/properties/` and the examples beside it.
 
 | Id | Promise | Test |
 |---|---|---|
@@ -510,6 +510,13 @@ Promises that hold for every input, each tied by its id to a property or a test 
 | I-start-1 | No program Lawcheck or its hooks start, nor any program those start by a bare name, is taken from the repository through a relative or empty `PATH` entry or, on Windows, the current folder (section 2). | tests/security/start.test.ts |
 | I-git-2 | Every git command a run sends is one git 2.34, the oldest git Lawcheck runs with, accepts; the link guard reads each submodule in its own folder (sections 2 and 4). | tests/security/old-git.test.ts |
 | I-secret-2 | An error about a law or a config read through a symbolic link quotes none of the file (section 2). | tests/security/linked.test.ts |
+| I-files-1 | Every path that `git ls-files -z` lists at the root and a type's pattern matches is judged, or named as left out with its reason, whatever bytes its name holds; its name in the output maps back to the bytes on disk, and `explain` gives the true reason for it (section 2). | tests/properties/names.test.ts |
+| I-glob-1 | A pattern compiles or gets a named problem, matches as the reading of section 2 does, and costs time linear in the path (section 2). | tests/properties/glob.test.ts |
+| I-lines-1 | For any text of a file, every line separator, NUL, a byte-order mark and waiver markers included, every finding's line lies inside the file's `lines`, a type with `waivers: false` waives nothing, and the text and JSON forms of a report agree (sections 2, 3 and 5). | tests/properties/contents.test.ts |
+| I-law-1 | Any text as `law.yaml` gives `law-invalid` at a line of the file, or a law that `explain` prints back (section 2). | tests/properties/law.test.ts |
+| I-rules-1 | Any value a rule returns, throws or rejects with, at once or in the background, gives findings or a `rule-crashed` that names its cause, and the result for a file is the same whether it is judged alone or with others (section 3). | tests/properties/rules.test.ts |
+| I-git-2 | A check changes nothing in git; the findings of a change equal those of `--full` for the changed files; the output is the same from any directory below the root and on a second run, whatever state the repository is in (section 4). | tests/properties/git-states.test.ts |
+| I-args-1 | Any arguments give `usage` or a run, never `internal` (section 4). | tests/properties/arguments.test.ts |
 
 ## 9. Repository layout
 

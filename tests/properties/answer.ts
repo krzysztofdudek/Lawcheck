@@ -59,7 +59,7 @@ function reference(answer: string): Record<string, unknown> | null {
 const PASS = '{"verdict": "pass", "findings": []}';
 const FAIL = '{"verdict": "fail", "findings": [{"line": 1, "message": "m"}]}';
 const piece = fc.oneof(
-  { weight: 3, arbitrary: fc.constantFrom('{', '}', '"', '\\', ':', ',', '[', ']', ' ', '\n', 'x', '```', '```json', '"verdict"', '"a"', '1', 'true', 'null', '\u0000', '\u001b', ' ') },
+  { weight: 3, arbitrary: fc.constantFrom('{', '}', '"', '\\', ':', ',', '[', ']', ' ', '\n', 'x', '```', '```json', '"verdict"', '"a"', '1', 'true', 'null', '\u0000', '\u001b', '\u2028') },
   { weight: 2, arbitrary: fc.constantFrom(PASS, FAIL, '{"verdict": "maybe"}', '{"a": {"verdict": "pass"}}', '{"\\u0076erdict": "pass"}', '{"verdict": "pass", "findings": [}') },
   { weight: 1, arbitrary: fc.json() },
   { weight: 1, arbitrary: fc.string({ maxLength: 8 }) },
@@ -67,7 +67,7 @@ const piece = fc.oneof(
 const answer = fc.array(piece, { maxLength: 24 }).map((parts) => parts.join(''));
 
 export function answerProperties(speed: Speed): void {
-  test('S3-3: the answer read is the one the reading of section 4 takes, on small input', () => {
+  test('I-answer-1, S3-3: the answer read is the one the reading of section 4 takes, on small input', () => {
     pure(
       speed,
       answer,
@@ -83,7 +83,7 @@ export function answerProperties(speed: Speed): void {
     );
   });
 
-  test('S3-3: any answer is a verdict or a named bad answer, in linear time, with lines in or out of range', () => {
+  test('I-answer-1, S3-3: any answer is a verdict or a named bad answer, in linear time, with lines in or out of range', () => {
     const big = fc.tuple(fc.constantFrom('{', '{"a":', '[', '"', '{"verdict":', '\\', 'x'), fc.integer({ min: 1, max: 200_000 }), fc.constantFrom('', PASS, FAIL, '}')).map(([unit, n, tail]) => unit.repeat(n) + tail);
     const outOfRange = fc.tuple(fc.integer({ min: -3, max: 12 }), fc.oneof(fc.constant(null), fc.constant('2'), fc.constant(1.5))).map(([line, odd]) => `{"verdict": "fail", "findings": [{"line": ${JSON.stringify(line % 3 === 0 ? odd : line)}, "message": "m"}]}`);
     pure(
@@ -110,7 +110,7 @@ export function answerProperties(speed: Speed): void {
   });
 
   // Question 82 is open: two objects that disagree are read today as the last one, and the owner may make them a fail or a bad answer. Only what holds under every option is asserted: two that agree give their verdict, and two that disagree give no crash.
-  test('S3-4: two verdict objects that agree give their verdict, and two that disagree give a verdict or a bad answer', () => {
+  test('I-answer-1, S3-4: two verdict objects that agree give their verdict, and two that disagree give a verdict or a bad answer', () => {
     const prose = fc.constantFrom('', 'Verdict: ', ' I would have answered ', '\n\nIf the file kept the rule: ');
     pure(
       speed,
