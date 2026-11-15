@@ -1,7 +1,7 @@
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { StringDecoder } from 'node:string_decoder';
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, symlinkSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -283,6 +283,20 @@ function killTree(pid: number): void {
   }
 }
 
+function running(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+  } catch {
+    return false;
+  }
+  try {
+    const stat = readFileSync(`/proc/${pid}/stat`, 'utf8');
+    return stat.slice(stat.lastIndexOf(')') + 2)[0] !== 'Z';
+  } catch {
+    return true;
+  }
+}
+
 const CATCHABLE: NodeJS.Signals[] = ['SIGTERM', 'SIGINT', 'SIGHUP'];
 
 function launch(start: Start, expect: Expect): Running {
@@ -337,9 +351,17 @@ function launch(start: Start, expect: Expect): Running {
   });
   child.stdin.on('error', () => {});
   child.stdin.end(start.stdin ?? '');
-  const timer = setTimeout(() => {
+  // The timer can fire late, after the run has ended, when the harness was busy with other runs; only a run still alive then has overrun.
+  let closed = false;
+  const overrun = () => {
     overran = true;
     killTree(pid);
+    child.stdout.destroy();
+    child.stderr.destroy();
+  };
+  const timer = setTimeout(() => {
+    if (running(pid)) overrun();
+    else setTimeout(() => !closed && overrun(), KILLED_GRACE_MS).unref();
   }, budget);
   observer?.started();
   const ended = new Promise<Run>((resolve, reject) => {
@@ -349,6 +371,7 @@ function launch(start: Start, expect: Expect): Running {
       reject(error);
     });
     child.on('close', (code, signal) => {
+      closed = true;
       finish(code, signal).catch((error: unknown) => {
         const broken = new Error(`harness: finishing the run failed: ${error instanceof Error ? (error.stack ?? error.message) : String(error)}`);
         observer?.failed(broken);

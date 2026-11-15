@@ -25,13 +25,14 @@ export function gitTop(cwd: string): string | null {
   }
 }
 
+// A file is known by its size, its time of change and its mode, which every write moves; reading every file on each snapshot cost seconds on Windows.
 function digest(path: string): string {
   try {
     const stat = lstatSync(path);
     if (stat.isSymbolicLink()) return `link ${readlinkSync(path)}`;
     if (stat.isDirectory()) return 'directory';
     if (!stat.isFile()) return 'other';
-    return createHash('sha1').update(readFileSync(path)).digest('hex');
+    return `${stat.size} ${stat.mtimeMs} ${stat.mode}`;
   } catch {
     return 'absent';
   }
@@ -51,7 +52,7 @@ function gitDirs(top: string): string[] {
 
 const GIT_SKIP = new Set(['objects', 'logs', 'worktrees']);
 
-// Everything in .git but its objects and its logs: HEAD, the refs, packed-refs, the index, config, config.worktree, hooks, info, shallow, description, ORIG_HEAD. The index is compared byte for byte, since every git command of the tool runs with GIT_OPTIONAL_LOCKS=0 (spec/check-slice.md, section 4) and so never rewrites it.
+// Everything in .git but its objects and its logs: HEAD, the refs, packed-refs, the index, config, config.worktree, hooks, info, shallow, description, ORIG_HEAD. The index is compared by its bytes: git may write it again with the same content.
 function gitFolder(dir: string): Map<string, string> {
   const out = new Map<string, string>();
   const walk = (at: string) => {
@@ -75,7 +76,7 @@ function gitFolder(dir: string): Map<string, string> {
       if (stat.isDirectory()) {
         out.set(rel + '/', 'directory');
         walk(path);
-      } else out.set(rel, digest(path));
+      } else out.set(rel, rel === 'index' ? createHash('sha1').update(readFileSync(path)).digest('hex') : digest(path));
     }
   };
   walk(dir);

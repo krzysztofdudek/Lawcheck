@@ -38,12 +38,12 @@ export const STOPPED_HOOK_ENDS_MS = 10_000;
 export const SLOW_TESTS: Record<string, number> = {
   'tests/acceptance/rules.test.ts > test 24: a rule that hangs is stopped': 60_000,
   'tests/acceptance/plugin.test.ts > test 163: the deadline, and a hook that is stopped': 300_000,
-  // Measured on CI: 48 s on Windows, 22 s on macOS, 5 s on Linux; one check per counted run of the committed trial, and Windows starts a process slowly.
-  'tests/acceptance/agent-result.test.ts > test 181: the committed result of the trial': 100_000,
-  // Measured on CI: 31 s on Windows (28 s before the harness), 19 s on macOS; four runs of the stability script, each starting the tool for 30 reviews.
-  'tests/acceptance/stability.test.ts > test 77: the measurement refuses to run, or to write a secret': 60_000,
-  // Measured on CI: 25 s on macOS and on Windows, 6 s on Linux; 300 calls of the fake claude, each a process of its own.
-  'tests/acceptance/stability.test.ts > test 76: the measurement through claude-code': 60_000,
+  // Measured on CI: 53 s on Windows (39 s before the harness), 20 s on macOS, 5 s on Linux; one check per counted run of the committed trial, and Windows starts a process slowly.
+  'tests/acceptance/agent-result.test.ts > test 181: the committed result of the trial': 120_000,
+  // Measured on CI: 36 s on Windows (28 s before the harness), 20 s on macOS; four runs of the stability script, each starting the tool for 30 reviews.
+  'tests/acceptance/stability.test.ts > test 77: the measurement refuses to run, or to write a secret': 90_000,
+  // Measured on CI: 83 s on Windows before the harness, 20 s on macOS, 6 s on Linux; 300 calls of the fake claude, each a cmd.exe and a node on Windows.
+  'tests/acceptance/stability.test.ts > test 76: the measurement through claude-code': 200_000,
 };
 
 export const SLOWEST_SHOWN = 10;
