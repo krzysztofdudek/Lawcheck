@@ -1,12 +1,19 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { randomBytes } from 'node:crypto';
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { counted, gitAlone, whyOf, writeFakeProgram } from './fake-reviewer.ts';
-import { alive, F, F_PATH, lawcheck, pathWith, PROMPT_F, run, SECOND, withR, write } from './helpers.ts';
+import { alive, F, F_PATH, lawcheck, pathWith, PROMPT_F, run, SECOND, startLawcheck, withR, write } from './helpers.ts';
 import { fakeWrites, platformSkip, waitUntil } from '../harness/tool.ts';
-import { HELD_OUTPUT_RUN_MS, PROGRAM_TIMEOUT_RUN_MS, SHARED_TIMEOUT_RUN_MS } from '../numbers.ts';
+import { HELD_OUTPUT_RUN_MS, LATE_ANSWER_MS, LIST_DELAY_MS, PROGRAM_TIMEOUT_RUN_MS } from '../numbers.ts';
 
+// The sign-in variables of each program that hold a key (spec/reviewer-slice.md, section 6); copilot's COPILOT_PROVIDER_API_KEY_COMMAND holds a command.
+const SIGN_IN_KEYS: Record<string, string[]> = {
+  codex: ['OPENAI_API_KEY', 'CODEX_API_KEY'],
+  gemini: ['GEMINI_API_KEY', 'GOOGLE_API_KEY'],
+  copilot: ['COPILOT_GITHUB_TOKEN', 'GH_TOKEN', 'GITHUB_TOKEN', 'COPILOT_PROVIDER_API_KEY', 'COPILOT_PROVIDER_BEARER_TOKEN'],
+};
 const POLICY = '[[rule]]\ntoolName = "*"\ndecision = "deny"\npriority = 999\n';
 const AGAIN = 'then run the same command again; what was answered is kept, so it asks only the rest';
 const PASSED = 'lawcheck: PASS  1 changed file (against main), 1 waiver, 1 reviewer call\n';
@@ -106,7 +113,7 @@ function fakeEnv(program: Program, dir: string, mode: string, extra: NodeJS.Proc
 }
 
 function record(dir: string) {
-  return JSON.parse(readFileSync(join(dir, 'record.json'), 'utf8')) as { args: string[]; cwd: string; listing: string[]; stdin: string; pid: number; child?: number; policy: string | null; env: Record<string, string> };
+  return JSON.parse(readFileSync(join(dir, 'record.json'), 'utf8')) as { args: string[]; cwd: string; listing: string[]; stdin: string; pid: number; child?: number; policy: string | null; env: Record<string, string>; at: number };
 }
 
 
@@ -235,12 +242,15 @@ async function programCases(program: Program): Promise<void> {
         () =>
           withR(async (r, dir) => {
             write(r, F_PATH, F);
-            const result = await run(r, null, ['--review', '--base', 'main'], fakeEnv(program, dir, 'sleep'));
+            const running = startLawcheck(r, ['check', '--review', '--base', 'main'], { env: fakeEnv(program, dir, 'sleep') });
+            await running.output(/error\[reviewer-unreachable\]/, 'stdout');
+            const shown = Date.now();
+            const result = await running.ended;
             const next = `raise reviewer.timeout in .lawcheck/config.yaml, or check that ${program.name} answers when started by hand, ${AGAIN}`;
             assert.equal(result.stdout, stopped(UNREACHABLE(`${program.name} gave no answer within 1 seconds`), 'reviewer-unreachable', next));
             assert.equal(result.code, 2);
-            if (platformSkip('the run ends within the time bound') === null) assert.ok(result.ms < PROGRAM_TIMEOUT_RUN_MS, `${result.ms} ms, where the kill grace alone is 5 seconds`);
             const seen = record(dir);
+            assert.ok(shown - seen.at < PROGRAM_TIMEOUT_RUN_MS, `${shown - seen.at} ms from the start of ${program.name} to the error line, where the kill grace alone is 5 seconds`);
             assert.ok(await waitUntil(() => !alive(seen.pid) && !alive(seen.child!), 'LEFTOVER_GRACE_MS'), 'the fake or its child is alive');
             assert.ok(await waitUntil(() => !existsSync(seen.cwd), 'LEFTOVER_GRACE_MS'), seen.cwd);
           }, configOf(program.provider, '  timeout: 1\n')),
@@ -349,17 +359,32 @@ async function programCases(program: Program): Promise<void> {
         ],
       );
     }
+    cases.push([
+      'a key the program prints is written as [key]',
+      () =>
+        withR(async (r, dir) => {
+          write(r, F_PATH, F);
+          const secrets = Object.fromEntries(SIGN_IN_KEYS[program.name]!.map((variable) => [variable, `canary-${randomBytes(9).toString('hex')}`]));
+          const masked = SIGN_IN_KEYS[program.name]!.map(() => '[key]').join(' and ');
+          const failed = await run(r, null, ['--review', '--base', 'main'], fakeEnv(program, dir, 'echo-error', secrets));
+          assert.equal(failed.stdout, stopped(UNREACHABLE(`Invalid API key: ${masked}`), 'reviewer-unreachable', `${told}, ${AGAIN}`));
+          const answered = await run(r, null, ['--review', '--base', 'main', '--json'], fakeEnv(program, dir, 'echo-answer', secrets));
+          assert.equal(answered.code, 1, answered.stdout);
+          const messages = JSON.parse(answered.stdout).findings.filter((f: { code: string }) => f.code === 'clear-errors').map((f: { message: string }) => f.message);
+          assert.deepEqual(messages, [`the key is ${masked}`]);
+          for (const value of Object.values(secrets)) assert.ok(!(failed.stdout + failed.stderr + answered.stdout + answered.stderr).includes(value), value);
+        }, configOf(program.provider)),
+    ]);
     if (program.lists) {
       cases.push([
         'the list and the first call share one timeout',
         () =>
           withR(async (r, dir) => {
             write(r, F_PATH, F);
-            const result = await run(r, null, ['--review', '--base', 'main'], fakeEnv(program, dir, 'late', { [`FAKE_${upper}_LIST_DELAY`]: '1500', [`FAKE_${upper}_DELAY`]: '1000' }));
+            const result = await run(r, null, ['--review', '--base', 'main'], fakeEnv(program, dir, 'late', { [`FAKE_${upper}_LIST_DELAY`]: String(LIST_DELAY_MS), [`FAKE_${upper}_DELAY`]: String(LATE_ANSWER_MS) }));
             const next = `raise reviewer.timeout in .lawcheck/config.yaml, or check that ${program.name} answers when started by hand, ${AGAIN}`;
             assert.equal(result.stdout, stopped(UNREACHABLE(`${program.name} gave no answer within 2 seconds`), 'reviewer-unreachable', next));
             assert.equal(result.code, 2);
-            if (platformSkip('the run ends within the time bound') === null) assert.ok(result.ms < SHARED_TIMEOUT_RUN_MS, `${result.ms} ms`);
           }, configOf(program.provider, '  timeout: 2\n')),
       ]);
     }

@@ -13,7 +13,6 @@ const UNREADABLE_ROOT = 'chmod cannot make a file unreadable for root';
 const SIGNALS = 'every signal ends a process on Windows at once, so the tool cannot answer it with its own exit code';
 
 const ESCAPED = 'Windows lets no process read the environment of another, which is how the tool finds a child that left the program\'s group (spec/reviewer-slice.md, section 6), and such a child keeps the folder of the test from being removed';
-const SLOW_ENDS = 'the tool on Windows ends a program\'s tree with taskkill and PowerShell when it exits, which take seconds a call on a busy machine, so the time of the whole run says nothing of when the call ended';
 
 export const HARNESS = 'tests/harness';
 
@@ -34,11 +33,8 @@ export const PLATFORM_SKIPS: PlatformSkip[] = [
   { file: 'tests/acceptance/plugin.test.ts', test: 'section 5: the call ends 2 seconds after Lawcheck exits while a child holds its output', part: 'the child left behind is ended', platform: 'win32', reason: 'Windows has no process groups: a child left by a program that has ended cannot be reached through it' },
   { file: 'tests/acceptance/providers.test.ts', test: 'test 67: claude-code past its timeout, and the tool killed', part: 'exit 2 after SIGTERM and SIGINT', platform: 'win32', reason: SIGNALS },
   { file: 'tests/acceptance/program-providers.test.ts', test: 'test 406: codex', part: 'a child that left the group', platform: 'win32', reason: ESCAPED },
-  { file: 'tests/acceptance/program-providers.test.ts', test: 'test 406: codex', part: 'the run ends within the time bound', platform: 'win32', reason: SLOW_ENDS },
   { file: 'tests/acceptance/program-providers.test.ts', test: 'test 407: gemini-cli', part: 'a child that left the group', platform: 'win32', reason: ESCAPED },
-  { file: 'tests/acceptance/program-providers.test.ts', test: 'test 407: gemini-cli', part: 'the run ends within the time bound', platform: 'win32', reason: SLOW_ENDS },
   { file: 'tests/acceptance/program-providers.test.ts', test: 'test 408: copilot-cli', part: 'a child that left the group', platform: 'win32', reason: ESCAPED },
-  { file: 'tests/acceptance/program-providers.test.ts', test: 'test 408: copilot-cli', part: 'the run ends within the time bound', platform: 'win32', reason: SLOW_ENDS },
   { file: 'tests/acceptance/rules.test.ts', test: 'section 3: a rule that spins ends with the tool, whatever ends the tool', part: 'exit 2 after SIGTERM', platform: 'win32', reason: SIGNALS },
   { file: 'tests/unit/providers-claude-code.test.ts', test: 'claude is looked up on PATH', part: 'a claude that is not executable', platform: 'win32', reason: 'Windows has no executable bit; a .cmd file is always a program' },
   { file: 'tests/unit/programs.test.ts', test: 'a program is found on PATH, and on Windows by the endings of PATHEXT', part: 'the lookup with the rules of Linux', platform: 'win32', reason: 'a folder on Windows holds a drive colon, which a PATH split with the rules of Linux cuts in two' },

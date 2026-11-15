@@ -20,7 +20,7 @@ function files(dir: string, out: string[] = []): string[] {
   return out;
 }
 
-// The owner's ruling klucz-zastapiony: the key appears nowhere Lawcheck prints or writes, not even its first characters cut off at a limit.
+// The owner's ruling of question 89 (spec/questions.md): the key appears nowhere Lawcheck prints or writes, not even its first characters cut off at a limit.
 function assertHidden(runs: Run[], root: string, planted: string[] = []): void {
   for (const run of runs) {
     for (const key of [KEY, OTHER]) {

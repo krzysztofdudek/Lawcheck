@@ -7,7 +7,7 @@ import { anthropic, defaultAnswer, google, ollama, openai, startFake, whyOf, wit
 import type { Fake, Recorded, Reply } from './fake-reviewer.ts';
 import { F, F_PATH, lawcheck, pathWith, PROMPT_F, run, SECOND, withR, write } from './helpers.ts';
 import { fakeWrites, testFolder } from '../harness/tool.ts';
-import { HTTP_TIMEOUT_RUN_MS, RESEND_TIMEOUT_RUN_MS, RESEND_WAIT_MS } from '../numbers.ts';
+import { HTTP_TIMEOUT_RUN_MS, RESEND_LEFT_BOUND_MS, RESEND_REPLY_DELAY_MS, RESEND_WAIT_MS } from '../numbers.ts';
 
 const UNREACHABLE = 'src/core/refund.ts  error[reviewer-unreachable]  ';
 const AGAIN = 'then run the same command again; what was answered is kept, so it asks only the rest';
@@ -495,26 +495,27 @@ test('test 405: a key under a provider name goes to that provider alone', async 
 });
 
 test('test 411: the timeout bounds a request and its resend', async () => {
-  for (const [name, reply] of [['429', { status: 429, body: '{}', delayMs: 2500 }], ['a dropped connection', { close: true }]] as const) {
+  for (const [name, reply] of [['429', { status: 429, body: '{}', delayMs: RESEND_REPLY_DELAY_MS }], ['a dropped connection', { close: true }]] as const) {
     await withFake(
       async (fake) => {
         await withR(async (r) => {
           write(r, F_PATH, F);
           const result = await run(r, fake, ['--review', '--base', 'main']);
           assert.equal(result.code, 2, `${name}: ${result.stdout}`);
-          assert.ok(result.ms < RESEND_TIMEOUT_RUN_MS, `${name}: ${result.ms} ms for a timeout of 3 seconds`);
           if (name === '429') {
             assert.equal(result.stdout, failedWith('HTTP 429 Too Many Requests', "wait until the provider's rate limit allows another call"));
             assert.equal(fake.requests.length, 1);
           } else {
             assert.equal(result.stdout, failedWith('the reviewer gave no answer within 3 seconds', `raise reviewer.timeout in .lawcheck/config.yaml, or check that the reviewer at ${fake.url} works`));
             assert.equal(fake.requests.length, 2);
+            const resend = fake.requests[1]!;
+            assert.ok(resend.end - resend.start < RESEND_LEFT_BOUND_MS, `the resend lasted ${resend.end - resend.start} ms with 0.5 seconds left`);
           }
         }, configOf('openai-compatible', '  timeout: 3\n'));
       },
       name === '429' ? () => reply : async (request) => {
         if (request.index === 0) {
-          await new Promise((done) => setTimeout(done, 2500));
+          await new Promise((done) => setTimeout(done, RESEND_REPLY_DELAY_MS));
           return { close: true };
         }
         return { hang: true };

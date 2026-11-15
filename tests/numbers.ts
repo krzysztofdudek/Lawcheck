@@ -37,12 +37,16 @@ export const STOPPED_HOOK_ENDS_MS = 10_000;
 
 // spec/reviewer-slice.md, section 6: a call ends at reviewer.timeout without waiting for the kill grace or a second full timeout. Tests 406 to 408 run with a timeout of 1 second, the shared list and call with one of 2, test 411 with one of 3; a timeout of 1 second of an HTTP provider in test 403, and a program that ended while a child holds its output, ended 2 seconds later.
 export const PROGRAM_TIMEOUT_RUN_MS = 5_000;
-export const SHARED_TIMEOUT_RUN_MS = 6_000;
-export const RESEND_TIMEOUT_RUN_MS = 5_000;
 export const HTTP_TIMEOUT_RUN_MS = 10_000;
 export const HELD_OUTPUT_RUN_MS = 10_000;
 // spec/reviewer-slice.md, section 6: the resend after a 429 waits 2 seconds.
 export const RESEND_WAIT_MS = 2_000;
+// Test 411: the fake answers after 2.5 seconds of a timeout of 3, so the resend has 0.5 seconds left; the bound adds 1 second, twenty times the tens of milliseconds a request takes to be cut off, and stays well below the full 3 seconds a resend had before.
+export const RESEND_REPLY_DELAY_MS = 2_500;
+export const RESEND_LEFT_BOUND_MS = 1_500;
+// The case of tests 406 and 408 where the list of MCP servers takes 1.5 seconds and the answer 1 second more, past a timeout of 2.
+export const LIST_DELAY_MS = 1_500;
+export const LATE_ANSWER_MS = 1_000;
 
 // Rule 7 of section 16 of the test design: a time budget is at least 20 times the measured time.
 export const SLOW_MARGIN = 20;
@@ -270,8 +274,10 @@ export const stronger: Record<string, 'higher' | 'lower' | 'fixed'> = {
   LIVE_FAIL_SHARE: 'higher',
   LIVE_RUN_BUDGET_MS: 'lower',
   PROGRAM_TIMEOUT_RUN_MS: 'lower',
-  SHARED_TIMEOUT_RUN_MS: 'lower',
-  RESEND_TIMEOUT_RUN_MS: 'lower',
+  RESEND_REPLY_DELAY_MS: 'fixed',
+  RESEND_LEFT_BOUND_MS: 'lower',
+  LIST_DELAY_MS: 'fixed',
+  LATE_ANSWER_MS: 'fixed',
   HTTP_TIMEOUT_RUN_MS: 'lower',
   HELD_OUTPUT_RUN_MS: 'lower',
   RESEND_WAIT_MS: 'fixed',

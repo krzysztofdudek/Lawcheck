@@ -108,7 +108,7 @@ for (const mode of ['answer', 'raw', 'error', 'boom', 'expired']) {
   });
 }
 
-// The owner's ruling klucz-zastapiony (spec/questions.md): the key Lawcheck sent is written as [key] wherever a reply shows it.
+// The owner's ruling of question 89 (spec/questions.md): the key Lawcheck sent is written as [key] wherever a reply shows it.
 const ECHOES: Record<string, { openai: Shape; anthropic: Shape; shown: string | null }> = {
   '401 that names the key': {
     openai: () => ({ status: 401, body: JSON.stringify({ error: { message: `Incorrect API key provided: ${KEY}.` } }) }),
