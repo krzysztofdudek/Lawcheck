@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { append, check, LAW, lawcheck, read, setRule, withSample, write } from './helpers.ts';
+import { append, check, LAW, lawcheck, read, setRule, withR, withSample, write } from './helpers.ts';
 
 const GENERIC = 'note: the law changed in this change; lawcheck check --full --base main shows what it finds in the rest of the code';
 const PREFIX = 'note: this change edits the law that judges it: ';
@@ -122,4 +122,42 @@ test('test 315: S7-3, a name in the law folder holding a format character is tol
     const json = JSON.parse((await check(s, '--base', 'main', '--json')).stdout);
     assert.deepEqual(json.scope.law_changes, ['adds .lawcheck/rules/lib/a\\u202eb\\u200fc.mjs']);
   });
+});
+
+test('test 316: S7-3, a change of the why, the context or the about is named, and a note with no change of meaning says so', async () => {
+  await withSample(async (s) => {
+    edit(s, 'why: Only the command layer writes to the terminal.', 'why: Nothing writes to the terminal.');
+    edit(s, 'about: Code the commands call.', 'about: Code the commands use.');
+    const run = await check(s);
+    assert.equal(run.stdout.split('\n')[2], `${PREFIX}changes the why of the rule no-console; changes the about of the type library`);
+    assert.equal(run.code, 0);
+  });
+  await withR(async (r) => {
+    edit(r, 'context: ["docs/errors.md"]', 'context: ["docs/errors.md", "docs/more.md"]');
+    write(r, 'docs/more.md', '# More\n');
+    const run = await check(r);
+    assert.ok(run.stdout.split('\n').includes(`${PREFIX}changes the context of the rule clear-errors`), run.stdout);
+  });
+});
+
+test('test 317: S7-3, a waiver the change adds is named in the line, and one the base already had is not', async () => {
+  await withSample(async (s) => {
+    append(s, '.lawcheck/law.yaml', '# a note\n');
+    write(s, 'src/core/shipping.ts', "console.log('x'); // lawcheck-waive no-console -- a legacy call\n");
+    const run = await check(s);
+    assert.equal(run.stdout.split('\n')[0], 'lawcheck: PASS  2 changed files (against main), 1 waiver');
+    assert.equal(run.stdout.split('\n')[2], `${PREFIX}edits .lawcheck/law.yaml without changing a rule or a type; adds a waiver of no-console in src/core/shipping.ts`);
+    assert.equal(run.code, 0);
+    const json = JSON.parse((await check(s, '--base', 'main', '--json')).stdout);
+    assert.deepEqual(json.scope.law_changes, ['edits .lawcheck/law.yaml without changing a rule or a type', 'adds a waiver of no-console in src/core/shipping.ts']);
+  });
+  await withSample(
+    async (s) => {
+      append(s, '.lawcheck/law.yaml', '# a note\n');
+      append(s, 'src/core/shipping.ts', '// more\n');
+      const run = await check(s);
+      assert.ok(!run.stdout.includes('adds a waiver'), 'a waiver that was already there is no addition');
+    },
+    { onMain: (s) => write(s, 'src/core/shipping.ts', "console.log('x'); // lawcheck-waive no-console -- a legacy call\n") },
+  );
 });

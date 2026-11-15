@@ -5,23 +5,17 @@ import { git, mergeBase, resolveCommit, splitZ } from './files.js';
 import { parseLaw } from './law.js';
 import type { Law, TypeDef } from './law.js';
 import { LAW, RULES_DIR } from './setup.js';
+import { decode, isBinary, splitLines } from './types.js';
+import { MARKER, parseWaivers } from './waivers.js';
 
 export const LINE_ITEMS = 5;
 
-function blobAt(root: string, commit: string, path: string): Buffer | null {
-  const result = git(root, ['show', `${commit}:./${path}`]);
-  return result.status === 0 ? result.stdout : null;
-}
-
-function treeAt(root: string, commit: string): Map<string, string> {
-  const result = git(root, ['ls-tree', '-r', '-z', commit, '--', RULES_DIR.slice(0, -1)]);
+function parseEntries(output: Buffer): Map<string, string> {
   const found = new Map<string, string>();
-  if (result.status !== 0) return found;
   let start = 0;
-  const text = result.stdout;
-  for (let i = 0; i < text.length; i++) {
-    if (text[i] !== 0) continue;
-    const entry = text.subarray(start, i);
+  for (let i = 0; i < output.length; i++) {
+    if (output[i] !== 0) continue;
+    const entry = output.subarray(start, i);
     start = i + 1;
     const tab = entry.indexOf(9);
     if (tab < 0) continue;
@@ -32,15 +26,27 @@ function treeAt(root: string, commit: string): Map<string, string> {
   return found;
 }
 
+function blobAt(root: string, commit: string, path: string): Buffer | null {
+  const listed = git(root, ['--literal-pathspecs', 'ls-tree', '-z', commit, '--', path]);
+  const id = listed.status === 0 ? parseEntries(listed.stdout).get(path) : undefined;
+  return id === undefined ? null : blobById(root, id);
+}
+
+function treeAt(root: string, commit: string): Map<string, string> {
+  const result = git(root, ['ls-tree', '-r', '-z', commit, '--', RULES_DIR.slice(0, -1)]);
+  return result.status === 0 ? parseEntries(result.stdout) : new Map();
+}
+
 function blobById(root: string, id: string): Buffer | null {
   const result = git(root, ['cat-file', 'blob', id]);
   return result.status === 0 ? result.stdout : null;
 }
 
-const UNSAFE = /[\p{Cc}\p{Cf}\u2028\u2029]/gu;
+const UNSAFE = /[\\\p{Cc}\p{Cf}\u2028\u2029]/gu;
 
 export function named(path: string): string {
   return path.replace(UNSAFE, (c) => {
+    if (c === '\\') return '\\\\';
     const code = c.codePointAt(0)!;
     if (code === 0x200c || code === 0x200d) return c;
     return code > 0xffff ? `\\u{${code.toString(16)}}` : `\\u${code.toString(16).padStart(4, '0')}`;
@@ -81,6 +87,13 @@ function ofLaw(before: Law, after: Law): string[] {
     const now = after.rules.get(id)!;
     if (old !== undefined && old.status !== now.status) items.push(`makes the rule ${id} ${now.status}`);
   }
+  for (const id of sorted(after.rules.keys())) {
+    const old = before.rules.get(id);
+    const now = after.rules.get(id)!;
+    if (old === undefined) continue;
+    if (old.why !== now.why) items.push(`changes the why of the rule ${id}`);
+    if (!same(old.context?.map((c) => c.path), now.context?.map((c) => c.path))) items.push(`changes the context of the rule ${id}`);
+  }
   for (const id of sorted(is.keys())) {
     const old = was.get(id);
     const now = is.get(id)!;
@@ -90,6 +103,7 @@ function ofLaw(before: Law, after: Law): string[] {
     if (!same(old.paths, now.paths)) items.push(`changes the paths of the type ${id}`);
     if (old.content?.source !== now.content?.source) items.push(`changes the content of the type ${id}`);
     if (!same(old.mayUse, now.mayUse)) items.push(`changes may_use of the type ${id}`);
+    if (old.about !== now.about) items.push(`changes the about of the type ${id}`);
   }
   return items;
 }
@@ -110,11 +124,11 @@ export function lawChanges(root: string, base: string, files: string[], changed:
   const items: string[] = [];
   const lawBefore = blobAt(root, fork, LAW);
   const lawAfter = fileNow(root, LAW);
+  const lawsBefore = lawBefore === null ? null : lawOf(lawBefore);
+  const lawsAfter = lawAfter === null ? null : lawOf(lawAfter);
   if (lawBefore !== null && lawAfter !== null && !lawBefore.equals(lawAfter)) {
-    const before = lawOf(lawBefore);
-    const after = lawOf(lawAfter);
-    const told = before !== null && after !== null ? ofLaw(before, after) : [];
-    items.push(...(told.length > 0 ? told : [before !== null && after !== null ? `edits ${LAW} without changing a rule or a type` : `changes ${LAW}`]));
+    const told = lawsBefore !== null && lawsAfter !== null ? ofLaw(lawsBefore, lawsAfter) : [];
+    items.push(...(told.length > 0 ? told : [lawsBefore !== null && lawsAfter !== null ? `edits ${LAW} without changing a rule or a type` : `changes ${LAW}`]));
   } else {
     const item = ofFile(LAW, lawBefore, lawAfter);
     if (item !== null) items.push(item);
@@ -130,6 +144,34 @@ export function lawChanges(root: string, base: string, files: string[], changed:
   }
   const config = ofFile(CONFIG, blobAt(root, fork, CONFIG), fileNow(root, CONFIG));
   if (config !== null) items.push(config);
+  items.push(...waiversAdded(root, fork, changed, new Set([...(lawsBefore?.rules.keys() ?? []), ...(lawsAfter?.rules.keys() ?? [])])));
+  return items;
+}
+
+function waiversOf(bytes: Buffer | null, rules: Set<string>): Map<string, number> {
+  const counts = new Map<string, number>();
+  if (bytes === null || isBinary(bytes)) return counts;
+  for (const waiver of parseWaivers(splitLines(decode(bytes)), rules).waivers) {
+    const key = `${waiver.rule}\u0000${waiver.reason}`;
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return counts;
+}
+
+function waiversAdded(root: string, fork: string, changed: Set<string>, rules: Set<string>): string[] {
+  const items: string[] = [];
+  for (const path of [...changed].sort()) {
+    if (path.startsWith(RULES_DIR)) continue;
+    const now = fileNow(root, path);
+    if (now === null || !now.includes(MARKER)) continue;
+    const before = waiversOf(blobAt(root, fork, path), rules);
+    const seen = new Map<string, number>();
+    for (const [key, count] of waiversOf(now, rules)) {
+      const added = count - (before.get(key) ?? 0);
+      if (added > 0) seen.set(key.split('\u0000')[0]!, (seen.get(key.split('\u0000')[0]!) ?? 0) + added);
+    }
+    for (const rule of [...seen.keys()].sort()) items.push(`adds a waiver of ${rule} in ${named(path)}`);
+  }
   return items;
 }
 

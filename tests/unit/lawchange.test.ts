@@ -14,3 +14,8 @@ test('S7-3: the line holds five items and counts the rest', () => {
   assert.equal(lawChangeLine(items.slice(0, 5)), 'note: this change edits the law that judges it: a; b; c; d; e');
   assert.equal(lawChangeLine(items), 'note: this change edits the law that judges it: a; b; c; d; e; and 2 more');
 });
+
+test('S7-3: a literal backslash in a name is escaped, so a name never reads as an escape of its own', () => {
+  assert.equal(named('a\\u001b'), 'a\\\\u001b');
+  assert.equal(named('a\\\\b'), 'a\\\\\\\\b');
+});
