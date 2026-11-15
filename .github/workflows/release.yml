@@ -1,6 +1,7 @@
 name: Release
 
 # Publishes lawcheck when a vX.Y.Z tag is pushed. Nothing else publishes: no job here creates tags, and the owner pushes the tag.
+# npm trusted publishing is configured on npmjs.com for this repository and this workflow file, release.yml, with no environment: the file keeps that name, and the publish job keeps id-token: write and no environment.
 on:
   push:
     tags: ['v*']
@@ -16,14 +17,19 @@ jobs:
   nightly:
     uses: ./.github/workflows/nightly.yml
 
-  publish:
+  # Everything that runs code of the repository or of its dependencies happens here, with a read-only token and no id-token, so no install script can mint the publishing token.
+  pack:
+    name: pack
     needs: [verify, nightly]
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      id-token: write
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      disttag: ${{ steps.version.outputs.disttag }}
+      published: ${{ steps.npm-check.outputs.published }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - name: Version and tag agree
         id: version
         env:
@@ -70,11 +76,12 @@ jobs:
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
+          mkdir -p "${RUNNER_TEMP}/release"
           awk -v want="## [${VERSION}]" '
             /^## \[/ { if (found) exit; found = (index($0, want) == 1); next }
             found { print }
-          ' CHANGELOG.md | sed '/./,$!d' > "${RUNNER_TEMP}/release-notes.md"
-          if [ ! -s "${RUNNER_TEMP}/release-notes.md" ]; then
+          ' CHANGELOG.md | sed '/./,$!d' > "${RUNNER_TEMP}/release/notes.md"
+          if [ ! -s "${RUNNER_TEMP}/release/notes.md" ]; then
             echo "::error::CHANGELOG.md has no section for ${VERSION}. Add '## [${VERSION}] - <date>' before releasing."
             exit 1
           fi
@@ -83,27 +90,70 @@ jobs:
             printf '```\n'
             printf 'npm install --global lawcheck@%s\n' "${VERSION}"
             printf '```\n'
-          } >> "${RUNNER_TEMP}/release-notes.md"
+          } >> "${RUNNER_TEMP}/release/notes.md"
       - uses: actions/setup-node@v7
         if: steps.npm-check.outputs.published == 'false'
+        with:
+          node-version: 24
+      - run: npm ci
+        if: steps.npm-check.outputs.published == 'false'
+      # prepack fetches the grammars, checks each against its pinned sha256 and builds dist/.
+      - name: Pack the tarball
+        if: steps.npm-check.outputs.published == 'false'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          npm pack --pack-destination "${RUNNER_TEMP}/release"
+          test -s "${RUNNER_TEMP}/release/lawcheck-${VERSION}.tgz"
+      - uses: actions/upload-artifact@v7
+        if: steps.npm-check.outputs.published == 'false'
+        with:
+          name: release
+          path: ${{ runner.temp }}/release
+          if-no-files-found: error
+          retention-days: 5
+
+  # Publishes the packed tarball and runs nothing of the repository: no checkout, no install, and --ignore-scripts. The OIDC token this job can mint is the only publishing credential.
+  publish:
+    name: publish
+    needs: pack
+    if: needs.pack.outputs.published == 'false'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: release
+          path: release
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           registry-url: 'https://registry.npmjs.org'
       # OIDC trusted publishing needs npm >= 11.5.1. Pinned, so a new npm release cannot change how a tag publishes.
       - name: Use OIDC-capable npm
-        if: steps.npm-check.outputs.published == 'false'
-        run: npm install -g npm@11.6.2
-      - run: npm ci
-        if: steps.npm-check.outputs.published == 'false'
-      # No NODE_AUTH_TOKEN: authentication is npm trusted publishing over OIDC (id-token: write above), configured on npmjs.com for this repository and this workflow file. prepack fetches the grammars, checks each against its pinned sha256 and builds dist/.
+        run: npm install --global --ignore-scripts npm@11.6.2
+      # No NODE_AUTH_TOKEN: authentication is npm trusted publishing over OIDC (id-token: write above).
       - name: Publish to npm
-        if: steps.npm-check.outputs.published == 'false'
         env:
-          DISTTAG: ${{ steps.version.outputs.disttag }}
-        run: npm publish --provenance --access public --tag "${DISTTAG}"
+          VERSION: ${{ needs.pack.outputs.version }}
+          DISTTAG: ${{ needs.pack.outputs.disttag }}
+        run: npm publish "release/lawcheck-${VERSION}.tgz" --ignore-scripts --provenance --access public --tag "${DISTTAG}"
+
+  github-release:
+    name: GitHub release
+    needs: [pack, publish]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: release
+          path: release
       - uses: softprops/action-gh-release@v3
-        if: steps.npm-check.outputs.published == 'false'
         with:
           tag_name: ${{ github.ref_name }}
-          body_path: ${{ runner.temp }}/release-notes.md
-          prerelease: ${{ contains(steps.version.outputs.version, '-') }}
+          body_path: release/notes.md
+          prerelease: ${{ contains(needs.pack.outputs.version, '-') }}
