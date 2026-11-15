@@ -147,8 +147,10 @@ export function runRule(run: RuleRun): Promise<RuleOutcome> {
       settled = true;
       clearTimeout(timer);
       release(child);
-      if (outcome instanceof Error) reject(outcome);
-      else resolve(outcome);
+      const settle = () => (outcome instanceof Error ? reject(outcome) : resolve(outcome));
+      // Windows refuses to remove the root while the killed runner, which works in it, is still ending.
+      if (child.pid === undefined || child.exitCode !== null || child.signalCode !== null) settle();
+      else child.once('exit', settle);
     };
     const ask = (request: unknown, onAnswer: (message: Message) => void) => {
       timer = setTimeout(() => end({ crash: `passes ${timeoutMs / 1000} seconds ${stage}` }), timeoutMs);
