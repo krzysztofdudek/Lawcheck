@@ -9,7 +9,7 @@ import { isMainThread, MessageChannel, Worker } from 'node:worker_threads';
 const GIT_OUTPUT_BYTES = 1 << 30;
 import { COMMANDS } from './args.js';
 import { hiddenJson, hide, useKeys } from './keys.js';
-import { STEP_MS } from './limits.js';
+import { MEMORY_BYTES, MEMORY_CHECK_MS, mib, STEP_MS } from './limits.js';
 import { renderErrors, safeJson, safeText } from './output.js';
 import type { ErrorItem } from './output.js';
 import { lastStep, progressBuffer } from './progress.js';
@@ -110,6 +110,14 @@ export function start(): void {
     fail({ code: 'step-too-slow', file: null, line: null, message: `one step of the run took more than ${STEP_MS / 1000} seconds without an end: ${last.what}` });
   }, 1000);
   watch.unref();
+  // A reader of uses can grow by megabytes a millisecond and cannot be stopped from within, so the memory of the whole process is read from here, often, and the run ends before the system ends it.
+  const memory = setInterval(() => {
+    if (writing || process.memoryUsage.rss() <= MEMORY_BYTES) return;
+    clearInterval(memory);
+    const last = lastStep(progress);
+    fail({ code: 'memory-too-large', file: last.file, line: null, message: `the run passed the ${mib(MEMORY_BYTES)} of memory it may hold while ${last.what}` });
+  }, MEMORY_CHECK_MS);
+  memory.unref();
   worker.on('message', (message: FromWork) => {
     if (message.kind === 'warn') process.stderr.write(safeText(message.line) + '\n');
     else writeOut(message.stdout, message.code);

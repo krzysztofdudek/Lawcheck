@@ -18,6 +18,8 @@ export const USES_FILE_BYTES = 512 * 1024;
 export const LAW_RULES = 10_000;
 export const LAW_TYPES = 1_000;
 export const STEP_MS = 30_000;
+export const MEMORY_BYTES = 768 * MiB;
+export const MEMORY_CHECK_MS = 5;
 
 // A character is a code point, as a reader counts one, so a pair of UTF-16 code units counts once.
 export function points(text: string): number {

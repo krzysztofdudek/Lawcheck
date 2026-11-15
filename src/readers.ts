@@ -226,7 +226,7 @@ async function readAll(input: ReadInput, runes: Runes): Promise<Map<string, Use[
   const csharp = new Map<string, CsharpExtract>();
 
   for (const parse of [...parses.values()].sort((a, b) => comparePaths(a.path, b.path))) {
-    step(`reading the uses of ${parse.path}`);
+    step(`reading the uses of ${parse.path}`, parse.path);
     const { language, parsePath, content } = parse.view;
     const size = Buffer.byteLength(content, 'utf8');
     if (size > USES_FILE_BYTES) {

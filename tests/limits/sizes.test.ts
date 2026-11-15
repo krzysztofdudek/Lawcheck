@@ -208,3 +208,29 @@ test('test 263: a file whose uses are read may hold 512 KiB, even of the costlie
     assert.doesNotMatch(prime.stdout, /Start it here/);
   });
 });
+
+const MAY_USE = (s: string) => writeFileSync(join(s, '.lawcheck/law.yaml'), readFileSync(join(s, '.lawcheck/law.yaml'), 'utf8').replace('        rules: [no-console]', '        rules: [no-console]\n        may_use: [library]'));
+
+// 64 KiB of `a<a,`: the syntax tree of TypeScript grows by the square of such a file, past a gigabyte, inside Runes, where nothing can stop it.
+test('test 273: a file whose uses take more memory than a run may hold ends the run as memory-too-large at that file', async () => {
+  await withSample(
+    async (s) => {
+      write(s, 'src/core/big.ts', 'a<a,'.repeat(16 * 1024));
+      const result = await run(s, ['check', '--base', 'main'], { budget: 'LIMITS_RUN_MS' });
+      assert.equal(
+        result.stdout,
+        [
+          'lawcheck: ERROR  1 error',
+          '',
+          'src/core/big.ts  error[memory-too-large]  the run passed the 768 MiB of memory it may hold while reading the uses of src/core/big.ts',
+          '  why:  a run past its memory would be ended by the system without a word',
+          '',
+          'next: leave src/core/big.ts out of the types whose may_use is in force, then run lawcheck check again',
+          '',
+        ].join('\n'),
+      );
+      assert.equal(result.code, 2);
+    },
+    { onMain: MAY_USE },
+  );
+});

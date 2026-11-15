@@ -278,3 +278,16 @@ test('test 269: explain of a file whose content pattern backtracks names its typ
     { onMain: (s) => writeFileSync(join(s, '.lawcheck/law.yaml'), `${readFileSync(join(s, '.lawcheck/law.yaml'), 'utf8')}  slow:\n    paths: ["slow/**"]\n    content: "^(a|a)+$"\n`) },
   );
 });
+
+test('test 274: in 1 GB, 64 KiB of `a<a,` under may_use ends as memory-too-large, before the system ends the run', async () => {
+  await withSample(
+    async (s) => {
+      write(s, 'src/core/big.ts', 'a<a,'.repeat(16 * 1024));
+      const result = await run(s, ['check', '--base', 'main'], { budget: 'LIMITS_RUN_MS' });
+      assert.deepEqual(errorLines(result.stdout), ['src/core/big.ts  error[memory-too-large]  the run passed the 768 MiB of memory it may hold while reading the uses of src/core/big.ts']);
+      assert.equal(result.signal, null);
+      assert.equal(result.code, 2);
+    },
+    { onMain: (s) => writeFileSync(join(s, '.lawcheck/law.yaml'), readFileSync(join(s, '.lawcheck/law.yaml'), 'utf8').replace('        rules: [no-console]', '        rules: [no-console]\n        may_use: [library]')) },
+  );
+});

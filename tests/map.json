@@ -177,7 +177,8 @@
     "tests/unit/programs.test.ts"
   ],
   "src/progress.ts": [
-    "tests/limits/signals.test.ts"
+    "tests/limits/signals.test.ts",
+    "tests/limits/sizes.test.ts"
   ],
   "src/prompt.ts": [
     "tests/acceptance/reviewer.test.ts",
