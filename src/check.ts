@@ -305,7 +305,7 @@ interface UsesRead {
   forbidden: Forbidden[];
   notRead: NotRead[];
   unresolved: Unresolved[];
-  tooLarge: { file: string; message: string }[];
+  tooLarge: { file: string; message: string; type: string }[];
 }
 
 async function readTheUses(
@@ -346,8 +346,10 @@ async function readTheUses(
   };
   const outcome = await readUses({ root, files, bytes, ownerOf, read: toRead });
   if ('error' in outcome) return { errors: [outcome.error] };
-  for (const { path, bytes } of outcome.skipped) {
-    out.tooLarge.push({ file: path, message: `its uses are not read: the file holds ${count(bytes)} bytes, more than the ${mib(USES_FILE_BYTES)} a file whose uses are read may hold` });
+  for (const { path, bytes, uses } of outcome.skipped) {
+    const size = `the file holds ${count(bytes)} bytes, more than the ${mib(USES_FILE_BYTES)} a file whose uses are read may hold`;
+    const message = uses ? `its uses are not read: ${size}` : `the uses of it are not judged: it is read for what it declares, and ${size}`;
+    out.tooLarge.push({ file: path, message, type: typedByPath.get(path)?.type.id ?? '' });
   }
 
   const targetOf = (path: string): Target => {
@@ -442,7 +444,8 @@ function judge(
 
   for (const item of uses.tooLarge) {
     const isDebt = !changed.has(item.file);
-    place({ code: 'uses-not-read', rule: null, severity: isDebt ? 'warning' : 'error', debt: isDebt, file: item.file, type: byPath.get(item.file)!.type.id, message: item.message, why: WHY['uses-not-read']! });
+    if (isDebt && mode !== 'full') continue;
+    place({ code: 'uses-not-read', rule: null, severity: isDebt ? 'warning' : 'error', debt: isDebt, file: item.file, type: item.type, message: item.message, why: WHY['uses-not-read']! });
   }
 
   for (const item of uses.notRead) {

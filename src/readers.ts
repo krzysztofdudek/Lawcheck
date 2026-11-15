@@ -154,7 +154,14 @@ export interface ReadInput {
   grammarDir?: string;
 }
 
-export type ReadOutcome = { uses: Map<string, Use[]>; skipped: { path: string; bytes: number }[] } | { error: ErrorItem };
+export type ReadOutcome = { uses: Map<string, Use[]>; skipped: Skipped[] } | { error: ErrorItem };
+
+// A file past the limit of a file whose uses are read: one the run judges (uses), or one read only for what it declares.
+export interface Skipped {
+  path: string;
+  bytes: number;
+  uses: boolean;
+}
 
 class Stop extends Error {
   constructor(readonly item: ErrorItem) {
@@ -175,7 +182,7 @@ function readerFailure(language: string, path: string, error: unknown): Stop {
 
 export async function readUses(input: ReadInput, runes: Runes = RUNES): Promise<ReadOutcome> {
   try {
-    const skipped: { path: string; bytes: number }[] = [];
+    const skipped: Skipped[] = [];
     return { uses: await readAll(input, runes, skipped), skipped };
   } catch (error) {
     if (error instanceof Stop) return { error: error.item };
@@ -191,7 +198,7 @@ interface Parse {
   uses: boolean;
 }
 
-async function readAll(input: ReadInput, runes: Runes, skipped: { path: string; bytes: number }[]): Promise<Map<string, Use[]>> {
+async function readAll(input: ReadInput, runes: Runes, skipped: Skipped[]): Promise<Map<string, Use[]>> {
   const out = new Map<string, Use[]>();
   const parses = new Map<string, Parse>();
   for (const { path, view } of input.read) {
@@ -229,13 +236,11 @@ async function readAll(input: ReadInput, runes: Runes, skipped: { path: string; 
   for (const parse of [...parses.values()].sort((a, b) => comparePaths(a.path, b.path))) {
     step(`reading the uses of ${parse.path}`);
     const { language, parsePath, content } = parse.view;
-    // A file past the limit is not parsed: one whose uses the run judges is named as not read, and one read only for what it declares stays out, so a use of it shows as unresolved.
+    // A file past the limit is not parsed, and the run names it: one whose uses it judges, as not read; one read only for what it declares, as a file whose uses by others are not judged.
     const size = Buffer.byteLength(content, 'utf8');
     if (size > USES_FILE_BYTES) {
-      if (parse.uses) {
-        skipped.push({ path: parse.path, bytes: size });
-        out.delete(parse.path);
-      }
+      skipped.push({ path: parse.path, bytes: size, uses: parse.uses });
+      if (parse.uses) out.delete(parse.path);
       continue;
     }
     if (!loaded.has(language)) {

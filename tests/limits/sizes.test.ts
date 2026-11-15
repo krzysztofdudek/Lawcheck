@@ -239,7 +239,7 @@ test('test 273: a file whose uses take more memory than a run may hold ends the 
   );
 });
 
-test('test 275: a file past the uses limit outside the change is debt, and one read only for what it declares is left out', async () => {
+test('test 275: a file past the uses limit outside the change is debt, and one read only for what it declares is named, since the uses of it are not judged', async () => {
   const big = 'src/core/big.ts';
   await withSample(
     async (s) => {
@@ -254,15 +254,21 @@ test('test 275: a file past the uses limit outside the change is debt, and one r
       },
     },
   );
-  await withSample(
-    async (s) => {
-      write(s, 'gen/src/main/java/gen/Generated.java', `package gen;\npublic class Generated {\n${'  int a = 1;\n'.repeat(Math.ceil(614_479 / 13))}}\n`);
-      write(s, 'app/src/main/java/app/App.java', 'package app;\nimport gen.Generated;\npublic class App { Generated g; }\n');
-      const result = await run(s, ['check', '--base', 'main'], { budget: 'LIMITS_RUN_MS' });
-      assert.equal(result.stdout, 'lawcheck: PASS  2 changed files (against main)\n');
-      assert.deepEqual(errorLines(result.stdout), []);
-      assert.equal(result.code, 0);
-    },
-    { onMain: (s) => writeFileSync(join(s, '.lawcheck/law.yaml'), `${readFileSync(join(s, '.lawcheck/law.yaml'), 'utf8')}  java:\n    paths: ["app/**/*.java"]\n    may_use: [java]\n`) },
-  );
+  const generated = (pad: number) => `package gen;\npublic class Generated {\n${'  int a = 1;\n'.repeat(pad)}}\n`;
+  const javaLaw = (s: string) => writeFileSync(join(s, '.lawcheck/law.yaml'), `${readFileSync(join(s, '.lawcheck/law.yaml'), 'utf8')}  java:\n    paths: ["app/**/*.java"]\n    may_use: [java]\n`);
+  for (const [lines, expected] of [
+    [1, ['app/src/main/java/app/App.java:2  error[forbidden-use]  java may not use gen/src/main/java/gen/Generated.java, which has no type; its may_use is [java]']],
+    [Math.ceil(614_479 / 13), ['gen/src/main/java/gen/Generated.java  error[uses-not-read]  the uses of it are not judged: it is read for what it declares, and the file holds 614,524 bytes, more than the 512 KiB a file whose uses are read may hold']],
+  ] as const) {
+    await withSample(
+      async (s) => {
+        write(s, 'gen/src/main/java/gen/Generated.java', generated(lines));
+        write(s, 'app/src/main/java/app/App.java', 'package app;\nimport gen.Generated;\npublic class App { Generated g; }\n');
+        const result = await run(s, ['check', '--base', 'main'], { budget: 'LIMITS_RUN_MS' });
+        assert.deepEqual(errorLines(result.stdout), expected, String(lines));
+        assert.equal(result.code, 1, String(lines));
+      },
+      { onMain: javaLaw },
+    );
+  }
 });
