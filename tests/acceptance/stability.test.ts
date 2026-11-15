@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { fileLines, filePath, openai, withFake, writeFakeClaude } from './fake-reviewer.ts';
+import { fileLines, filePath, ollama, openai, withFake, writeFakeClaude, writeFakeProgram } from './fake-reviewer.ts';
 import type { Recorded } from './fake-reviewer.ts';
 import { GIT_ENV, inTemp, pathWith, ROOT } from './helpers.ts';
 import type { Expect, Run } from './helpers.ts';
@@ -147,5 +147,51 @@ test('test 77: the measurement refuses to run, and its result holds the key only
       assert.ok(!readFileSync(out, 'utf8').includes('k-secret'));
       assert.ok(readFileSync(out, 'utf8').includes('it quotes [key]'));
     }, byLabel(() => 'fail', 'it quotes k-secret'));
+  });
+});
+
+test('test 194: the measurement through ollama, codex and copilot-cli', async () => {
+  await inTemp(async (dir) => {
+    await withFake(
+      async (fake) => {
+        const out = join(dir, 'ollama.json');
+        const result = await stability({ LAWCHECK_STABILITY_PROVIDER: 'ollama', LAWCHECK_REVIEWER_ENDPOINT: fake.base, LAWCHECK_STABILITY_MODEL: 'test-model', LAWCHECK_STABILITY_OUT: out });
+        assert.equal(result.code, 0, result.stderr);
+        const document = JSON.parse(readFileSync(out, 'utf8'));
+        assert.equal(document.provider, 'ollama');
+        assert.equal(document.model, 'test-model');
+        assert.equal(document.temperature_sent, 0);
+        assert.deepEqual(document.label_match.all, { verdicts: 300, matching: 300, share: 1 });
+        assert.equal(fake.requests.length, 300);
+        assert.ok(fake.requests.every((request) => request.path === '/api/chat'));
+        assert.ok(!readFileSync(out, 'utf8').includes('127.0.0.1'));
+        const noModel = await stability({ LAWCHECK_STABILITY_PROVIDER: 'ollama', LAWCHECK_STABILITY_OUT: join(dir, 'none.json') });
+        assert.equal(noModel.code, 2);
+        assert.match(noModel.stderr, /^stability: set LAWCHECK_STABILITY_MODEL\n$/);
+        assert.ok(!existsSync(join(dir, 'none.json')));
+      },
+      (request) => {
+        const label = labelOf(request);
+        return ollama(JSON.stringify(label === 'pass' ? { verdict: 'pass', findings: [] } : { verdict: 'fail', findings: [{ line: 1, message: 'labelled fail' }] }));
+      },
+    );
+    for (const [provider, name] of [['codex', 'codex'], ['copilot-cli', 'copilot']] as const) {
+      const out = join(dir, `${provider}.json`);
+      const bin = writeFakeProgram(join(dir, `bin-${name}`), name);
+      const upper = name.toUpperCase();
+      const result = await stability({ PATH: pathWith(bin), [`FAKE_${upper}_RECORD`]: join(dir, `${name}.record.json`), LAWCHECK_STABILITY_PROVIDER: provider, LAWCHECK_STABILITY_OUT: out });
+      assert.equal(result.code, 0, `${provider}: ${result.stderr}`);
+      const document = JSON.parse(readFileSync(out, 'utf8'));
+      assert.equal(document.provider, provider);
+      assert.equal(document.model, null);
+      assert.equal(document.temperature_sent, null);
+      assert.ok(document.attempts.every((a: { calls_made: number }) => a.calls_made === 30), provider);
+      const args = JSON.parse(readFileSync(join(dir, `${name}.record.json`), 'utf8')).args as string[];
+      assert.ok(!args.includes('--model'), `${provider}: ${args.join(' ')}`);
+    }
+    const refused = await stability({ LAWCHECK_STABILITY_PROVIDER: 'gemini-cli', LAWCHECK_STABILITY_OUT: join(dir, 'none.json') });
+    assert.equal(refused.code, 2);
+    assert.equal(refused.stderr, 'stability: LAWCHECK_STABILITY_PROVIDER takes openai-compatible, ollama, claude-code, codex or copilot-cli\n');
+    assert.ok(!existsSync(join(dir, 'none.json')));
   });
 });
