@@ -512,6 +512,8 @@ The build's decision. Every row of an acceptance table has a test that carries i
 
 The rows no test can carry are listed in `tests/contract/manual-rows.md`, each with its reason and the person or step that runs it, and the rail accepts only those. Entry 58 names three of them. The others are the rows that stand for `npm test` itself (79, 94, 141, 183) and the run against the network (95). A test that is skipped, only a todo, inside a skipped group, commented out or inside a string covers no row, and a test call whose name the rail cannot read as a literal, or as a template that leads with its source, fails the rail. The rail finds test files where the runner finds them (`tests/harness/sets.ts`).
 
+The skips and the assertions are held the same way. A skip is a reason of the platform in the list of `tests/harness/skips.ts`; a skip with no whole-test entry for the system it runs on fails the run, and so does a test marked todo. A test or a part of a harness invariant that the list skips on Linux, macOS and Windows alike, in one part or in several, fails the rail. A test that makes no assertion fails the run, since the harness counts the calls of `node:assert` while a test runs, and the rail refuses the assertions that cannot fail and an assertion in a hook or in a timer callback.
+
 The rail also holds at run time. When the runner runs a whole set, a row, an invariant or a closed finding that a test of that set carries is covered only if a test that carries it ran and passed in that run; a test that is skipped or failed covers nothing, and an id that only tests left whole by a listed platform skip carry is no failure of the run on that system. The runner takes `--shuffle[=<seed>]`, which runs the tests of each file in an order the seed decides and prints the seed, so a test that leans on another's leftovers fails.
 
 The same rail reads `tests/findings.md`: ids are unique, severity, layer, package and state come from fixed sets, a `closed` row names a test that exists and leads its name with the id, and a `question` row points to its entry here.
@@ -586,7 +588,7 @@ Choice: the owner's. The six land before the alpha candidate is declared.
 
 ## 91. Windows blocks the alpha
 
-The owner's ruling of 2026-11-15. A red run of the suite on Windows blocks the alpha exactly as a red run on Linux or on macOS does. The suite leaves a test out on Windows only for a reason of the platform that the list of platform skips holds. A test that makes no assertion fails the run, since the harness counts the calls of `node:assert`, and a skip that has no entry in that list for the system it runs on fails the run. A test or a part of a harness invariant that the list skips on Linux, macOS and Windows alike fails the rail.
+The owner's ruling of 2026-11-15. A red run of the suite on Windows blocks the alpha exactly as a red run on Linux or on macOS does: everything works on the three systems before the tag.
 
 Choice: the owner's. Three systems are one gate.
 

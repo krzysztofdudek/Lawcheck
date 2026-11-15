@@ -90,7 +90,7 @@ test('reviewer-slice §6: resends: after 2 seconds for a 429, at once for no ans
   assert.equal(final.failed[0]!.fix, 'wait');
 });
 
-test('reviewer-slice §6: a resend fits in the timeout of the first request, and gets only the time left', async () => {
+test('test 411: a resend fits in the timeout of the first request, and gets only the time left', async () => {
   const seen: (number | undefined)[] = [];
   const slow = (resend: 'after-2s' | 'at-once', ms: number) => ({
     ready: () => null,

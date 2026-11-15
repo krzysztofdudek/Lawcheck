@@ -15,13 +15,13 @@ function stubFetch(reply: unknown) {
   return { seen, restore: () => (globalThis.fetch = original) };
 }
 
-test('reviewer-slice §6: ready needs no key, and refuses an invalid endpoint', () => {
+test('test 402: ready needs no key, and refuses an invalid endpoint', () => {
   assert.equal(ollama(config, {}).ready(), null);
   assert.equal(ollama(config, { LAWCHECK_REVIEWER_ENDPOINT: 'http://h:11434' }).ready(), null);
   assert.equal(ollama(config, { LAWCHECK_REVIEWER_ENDPOINT: 'ftp://h' }).ready(), 'LAWCHECK_REVIEWER_ENDPOINT is no http: or https: address');
 });
 
-test('reviewer-slice §6: the request goes to localhost:11434 by default, and carries no key', async () => {
+test('test 402: the request goes to localhost:11434 by default, and carries no key', async () => {
   const stub = stubFetch({ model: 'm', message: { role: 'assistant', content: 'the answer' }, done: true });
   try {
     const keys = { LAWCHECK_REVIEWER_KEY: 'l', OPENAI_API_KEY: 'o', ANTHROPIC_API_KEY: 'a', GOOGLE_API_KEY: 'g' };
@@ -35,7 +35,7 @@ test('reviewer-slice §6: the request goes to localhost:11434 by default, and ca
   }
 });
 
-test('reviewer-slice §6: an answer that is absent or no string is empty', async () => {
+test('test 402: an answer that is absent or no string is empty', async () => {
   for (const reply of [{}, { message: {} }, { message: { content: 1 } }]) {
     const stub = stubFetch(reply);
     try {

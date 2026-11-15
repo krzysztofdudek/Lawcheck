@@ -10,12 +10,12 @@ import { writeFakeProgram } from '../acceptance/fake-reviewer.ts';
 
 const ended = (code: number | null, signal: string | null, stdout: string, stderr: string) => ({ code, signal, stdout, stderr });
 
-test('reviewer-slice §6: the last non-empty line', () => {
+test('test 406: the last non-empty line', () => {
   assert.equal(lastLine('a\r\nb\r\n\r\n  \n'), 'b');
   assert.equal(lastLine('\n \n'), null);
 });
 
-test('reviewer-slice §6: a failure: the first reason given, else the last line of standard error, of standard output, then the exit', () => {
+test('test 406: a failure: the first reason given, else the last line of standard error, of standard output, then the exit', () => {
   assert.deepEqual(failure('p', ended(1, null, 'out', 'err'), 'given'), { failure: 'given', resend: false, fix: 'do what p says, such as signing in or naming a model it has' });
   assert.deepEqual(failure('p', ended(1, null, 'out\n', 'one\ntwo\n')), { failure: 'two', resend: false, fix: 'do what p says, such as signing in or naming a model it has' });
   assert.deepEqual(failure('p', ended(1, null, 'first\nlast\n', '')), { failure: 'last', resend: false, fix: 'do what p says, such as signing in or naming a model it has' });
@@ -24,7 +24,7 @@ test('reviewer-slice §6: a failure: the first reason given, else the last line 
   assert.equal((failure('p', ended(1, null, '', 'x'.repeat(400))) as { failure: string }).failure.length, 300);
 });
 
-test('reviewer-slice §6: plain output: standard output is the answer after exit 0', () => {
+test('test 406: plain output: standard output is the answer after exit 0', () => {
   const read = plainOutput('p');
   assert.deepEqual(read(ended(0, null, 'the answer\n', 'progress\n')), { answer: 'the answer\n' });
   assert.deepEqual(read(ended(0, null, '', '')), { answer: '' });
@@ -32,7 +32,7 @@ test('reviewer-slice §6: plain output: standard output is the answer after exit
   assert.deepEqual(read(ended(null, 'SIGTERM', '', '')), { failure: 'p was ended by SIGTERM', resend: false, fix: 'do what p says, such as signing in or naming a model it has' });
 });
 
-test('reviewer-slice §6: the working folder and the folder aside are gone when the call ends, before the tool does', async () => {
+test('test 406: the working folder and the folder aside are gone when the call ends, before the tool does', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'lawcheck-program-'));
   try {
     const bin = writeFakeProgram(join(dir, 'bin'), 'gemini');

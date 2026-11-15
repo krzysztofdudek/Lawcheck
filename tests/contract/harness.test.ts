@@ -399,7 +399,7 @@ test('question 95: harness: a start of Lawcheck that does not come from the harn
   });
 });
 
-test('harness: a start of Lawcheck through a shell line that does not come from the harness fails the test', () => {
+test('question 95: harness: a start of Lawcheck through a shell line that does not come from the harness fails the test', () => {
   const cp = childProcess as unknown as Record<string, (...args: unknown[]) => unknown>;
   const calls: [string, unknown[]][] = [
     ['spawnSync', ['sh', ['-c', 'lawcheck --version']]],
@@ -418,7 +418,7 @@ test('harness: a start of Lawcheck through a shell line that does not come from 
   ] as [string, unknown[]][]) assert.doesNotThrow(() => cp[name]!(...args), `${name} ${JSON.stringify(args)}`);
 });
 
-test('harness: a start through a shell checks its run as every start of the tool is checked', async () => {
+test('question 95: harness: a start through a shell checks its run as every start of the tool is checked', async () => {
   await inTemp(async (dir) => {
     const bin = join(dir, 'bin');
     mkdirSync(bin);
