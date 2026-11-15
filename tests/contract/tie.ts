@@ -12,7 +12,8 @@ function closedOf(input: Inputs): Set<string> {
 
 function carried(name: string, closed: Set<string>): string[] {
   const source = sourcesOf(name);
-  return [...source.rows.map((n) => `test ${n}`), ...source.invariants, ...source.harness, ...source.findings.filter((id) => closed.has(id))];
+  const lead = /^(S\d+-\d+|U-\d+|R-\d+|T[1-8])(?![\w-])/.exec(name)?.[1];
+  return [...source.rows.map((n) => `test ${n}`), ...source.invariants, ...source.harness, ...(lead !== undefined && closed.has(lead) ? [lead] : [])];
 }
 
 // What a name of a test that ran cites must exist: a template name holds its ids after the run, which the static scan cannot read.

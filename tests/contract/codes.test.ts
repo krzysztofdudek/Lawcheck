@@ -654,6 +654,7 @@ async function reproduce(spec: Case, dir: string, fake: Fake): Promise<string[]>
     else further = await go(argv, ready.follow?.env ?? {}, false, ready.follow?.cwd);
     const expected = ready.leads ?? ready.argv[0];
     if (argv[0] !== expected && !(expected === '--help' && argv[0] === '--help')) say(`the line "${next}" names lawcheck ${argv[0]}, and the spec leads this case to ${expected}`);
+    if (argv.includes('--help') && spec.code !== 'usage') say(`the line "${next}" sends the user to ${argv.join(' ')}, which only the next line of usage may do`);
     const gets = leadsTo(argv, further) === null;
     const stuck = pending !== undefined && pending.command === text;
     if (stuck) matched = true;
@@ -729,7 +730,7 @@ test('check-slice §6: file-unreadable, in text and in JSON, and its next line g
   assert.deepEqual(await runCases([UNREADABLE]), []);
 });
 
-test('check-slice §6: every command a next line names is read with its flags and arguments, and an unknown one fails', async () => {
+test('R-56: every command a next line names is read with its flags and arguments, and an unknown one fails', async () => {
   const ran = ['check', '--base', 'main'];
   assert.deepEqual(commandsNamed('fix .lawcheck/law.yaml, then run lawcheck check', ran), { commands: [['check']] });
   assert.deepEqual(commandsNamed('run lawcheck check as its usage line says: lawcheck check --help', ['check', '--nope']), { commands: [['check'], ['check', '--help']] });
@@ -758,7 +759,7 @@ test('check-slice §6: every command a next line names is read with its flags an
   }
 });
 
-test('check-slice §6: every pending next line names its case, code, exact command and a finding of the ledger that is not closed', () => {
+test('R-55: every pending next line names its case, code, exact command and a finding of the ledger that is not closed', () => {
   const rows = ledgerRows(readFileSync(new URL('../findings.md', import.meta.url), 'utf8'));
   for (const pending of PENDING) {
     assert.deepEqual(Object.keys(pending).sort(), ['case', 'code', 'command', 'finding']);

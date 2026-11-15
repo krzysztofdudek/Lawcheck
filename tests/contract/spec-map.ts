@@ -105,7 +105,7 @@ export function rowsOf(file: TextFile): { rows: Row[]; problems: string[] } {
         else if (!/^I-[a-z]+-\d+$/.test(firsts[i]!)) problems.push(`${file.path}: a row of the table "${head}" at line ${table.start} starts with "${firsts[i]}", which is neither a plain integer nor an invariant id`);
       });
       if (integers > 0 && integers < firsts.length && firsts.some((c) => /^I-[a-z]+-\d+$/.test(c))) problems.push(`${file.path}: the table "${head}" at line ${table.start} mixes numbered rows and invariant ids`);
-    } else if (firsts.length >= 2 && integers === firsts.length) {
+    } else if (firsts.length >= 1 && integers === firsts.length) {
       problems.push(`${file.path}: the table at line ${table.start} looks like an acceptance table under the header "${head}"; its header starts with # or its first column holds no numbers`);
     } else if (integers > 0 && integers < firsts.length) {
       problems.push(`${file.path}: the first column of the table at line ${table.start} mixes numbers and other text`);
@@ -304,6 +304,60 @@ export function stringsOf(text: string): string[] {
   return [...blank(text).literals.values()].map((l) => l.value);
 }
 
+function matching(body: string, open: number, up: string, down: string): number {
+  let depth = 0;
+  for (let i = open; i < body.length; i++) {
+    if (body[i] === up) depth++;
+    else if (body[i] === down && --depth === 0) return i;
+  }
+  return body.length;
+}
+
+function argumentsAt(body: string, text: string, open: number): string[] {
+  const close = matching(body, open, '(', ')');
+  const out: string[] = [];
+  let depth = 0;
+  let from = open + 1;
+  for (let i = open + 1; i < close; i++) {
+    const c = body[i];
+    if (c === '(' || c === '[' || c === '{') depth++;
+    else if (c === ')' || c === ']' || c === '}') depth--;
+    else if (c === ',' && depth === 0) {
+      out.push(text.slice(from, i).trim());
+      from = i + 1;
+    }
+  }
+  out.push(text.slice(from, close).trim());
+  return out;
+}
+
+// The assertions that cannot fail: one on a literal that is true, the same expression on both sides of an equality, one that a catch swallows.
+function unfailing(body: string, text: string, from: number, to: number, where: string, problems: string[]): void {
+  const inside = body.slice(from, to);
+  const call = /(?<![\w$.])assert(?:\.(?:ok|strict\.ok))?\s*\(/g;
+  for (let m = call.exec(inside); m !== null; m = call.exec(inside)) {
+    const open = from + m.index + m[0].length - 1;
+    const first = argumentsAt(body, text, open)[0] ?? '';
+    if (/^(true|!0|[1-9]\d*|'[^']*'|"[^"]*"|`[^`$]*`)$/.test(first)) problems.push(`${where}: an assertion on the literal ${first}, which cannot fail`);
+  }
+  const equal = /(?<![\w$.])assert\.(?:strict\.)?(?:equal|strictEqual|deepEqual|deepStrictEqual)\s*\(/g;
+  for (let m = equal.exec(inside); m !== null; m = equal.exec(inside)) {
+    const open = from + m.index + m[0].length - 1;
+    const [a, b] = argumentsAt(body, text, open);
+    if (a !== undefined && a !== '' && a === b) problems.push(`${where}: an assertion with ${a} on both sides, which cannot fail`);
+  }
+  const attempt = /\btry\s*\{/g;
+  for (let m = attempt.exec(inside); m !== null; m = attempt.exec(inside)) {
+    const open = from + m.index + m[0].length - 1;
+    const end = matching(body, open, '{', '}');
+    if (!/\bassert\b/.test(body.slice(open, end))) continue;
+    const after = /^\s*catch\s*(?:\([^)]*\))?\s*\{/.exec(body.slice(end + 1));
+    if (after === null) continue;
+    const catchOpen = end + 1 + after[0].length - 1;
+    if (!/\bthrow\b/.test(body.slice(catchOpen, matching(body, catchOpen, '{', '}')))) problems.push(`${where}: an assertion inside a try whose catch does not throw, so it cannot fail the test`);
+  }
+}
+
 export function scanTests(file: string, text: string): Scanned {
   const result: Scanned = { tests: [], skipped: [], problems: [] };
   const { code, literals } = blank(text);
@@ -385,6 +439,7 @@ export function scanTests(file: string, text: string): Scanned {
     const arrow = region.indexOf('=>');
     const plain = region.search(/function\b[^{]*\{/);
     let inner: string | null = null;
+    let innerAt = 0;
     if (arrow >= 0 && (plain < 0 || arrow < plain)) {
       let b = arrow + 2;
       while (/\s/.test(region[b] ?? '')) b++;
@@ -396,6 +451,7 @@ export function scanTests(file: string, text: string): Scanned {
           else if (region[e] === '}' && --depth === 0) break;
         }
         inner = region.slice(b + 1, e);
+        innerAt = literal.end + b + 1;
       }
     } else if (plain >= 0) {
       const b = region.indexOf('{', plain);
@@ -406,7 +462,9 @@ export function scanTests(file: string, text: string): Scanned {
         else if (region[e] === '}' && --depth === 0) break;
       }
       inner = region.slice(b + 1, e);
+      innerAt = literal.end + b + 1;
     }
+    if (inner !== null && !skipped && callee !== 'describe') unfailing(body, text, innerAt, innerAt + inner.length, where, result.problems);
     if (!skipped && callee !== 'describe' && inner !== null && /^(?:return\s*;?)*$/.test(inner.replace(/\s+/g, ' ').trim())) {
       result.problems.push(`${where}: the test "${literal.dynamic ? literal.prefix : literal.value}" asserts nothing: its body is empty or only returns`);
     }
@@ -418,6 +476,16 @@ export function scanTests(file: string, text: string): Scanned {
     const inside = hidden_.some((d) => f.index > d.index && f.index < d.end);
     if (f.skipped || inside) result.skipped.push(`${file}: ${f.name}`);
     else result.tests.push({ file, name: f.name });
+  }
+  const hook = /(?<![\w$.])(beforeEach|afterEach|before|after)\s*\(/g;
+  for (let m = hook.exec(body); m !== null; m = hook.exec(body)) {
+    const open = m.index + m[0].length - 1;
+    if (/\b(assert|expectBroken)\b/.test(body.slice(open, matching(body, open, '(', ')')))) result.problems.push(`${file}:${lineOf(text, m.index)}: an assertion in ${m[1]}() counts for no test`);
+  }
+  const timer = /(?<![\w$])(setTimeout|setInterval|setImmediate|queueMicrotask|nextTick)\s*\(/g;
+  for (let m = timer.exec(body); m !== null; m = timer.exec(body)) {
+    const open = m.index + m[0].length - 1;
+    if (/\b(assert|expectBroken)\b/.test(body.slice(open, matching(body, open, '(', ')')))) result.problems.push(`${file}:${lineOf(text, m.index)}: an assertion in the callback of ${m[1]}() may run after its test has ended`);
   }
   const alias = /(?<![\w$.])=\s*(test|it|describe)\s*[;,\n)]/g;
   for (let m = alias.exec(body); m !== null; m = alias.exec(body)) result.problems.push(`${file}:${lineOf(text, m.index)}: ${m[1]} is assigned to another name, so calls through it cannot be read`);
@@ -490,9 +558,10 @@ export const STRESS_FINDINGS: Record<number, number> = { 1: 15, 2: 8, 3: 9, 4: 1
 
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-export const carries = (name: string, id: string): boolean => new RegExp(`(?<![\\w-])${escape(id)}(?![\\w-])`).test(name);
+// A test carries a finding when the finding's id is its own source, at the start of its name: a mention after another source ties nothing.
+export const carries = (name: string, id: string): boolean => new RegExp(`^${escape(id)}(?![\\w-])`).test(name);
 
-export function ledgerProblems(ledger: string, tests: TestName[], questions: Set<number>, files: Set<string> = new Set(), stress: Record<number, number> = {}): string[] {
+export function ledgerProblems(ledger: string, tests: TestName[], questions: Set<number>, files: Map<string, string> = new Map(), stress: Record<number, number> = {}): string[] {
   const problems: string[] = [];
   const seen = new Set<string>();
   const rows = ledgerRows(ledger);
@@ -527,8 +596,11 @@ export function ledgerProblems(ledger: string, tests: TestName[], questions: Set
       else if (!tests.some((t) => t.file === named[1] && t.name.includes(named[2]!) && carries(t.name, row.id))) problems.push(`${at}: no test of ${named[1]} holds "${named[2]}" in its name and carries ${row.id} as a whole id`);
     }
     if (row.state === 'limit') {
-      const stated = /\b((?:spec|docs)\/[\w./-]+\.md)\b/.exec(row.generalised);
-      if (stated === null || !files.has(stated[1]!)) problems.push(`${at}: a limit row says where the limit is stated, as "stated in spec/<file>.md" or "docs/<file>.md", in the column generalised by`);
+      const stated = /\bstated in ((?:spec|docs)\/[\w./-]+\.md): "([^"]+)"/.exec(row.generalised);
+      const squash = (t: string) => t.replace(/\s+/g, ' ');
+      if (stated === null) problems.push(`${at}: a limit row says where the limit is stated, as stated in spec/<file>.md: "<words of the limit>", in the column generalised by`);
+      else if (!files.has(stated[1]!)) problems.push(`${at}: the file ${stated[1]} that states the limit does not exist`);
+      else if (!squash(files.get(stated[1]!)!).includes(squash(stated[2]!))) problems.push(`${at}: ${stated[1]} does not hold the words "${stated[2]}" of the limit`);
     }
   }
   return problems;
@@ -590,7 +662,7 @@ export function problemsOf(input: Inputs): string[] {
     names.add(`${t.file}\n${t.name}`);
   }
   const questions = questionNumbers(input.questions);
-  problems.push(...ledgerProblems(input.ledger, tests, questions, new Set([...input.specs, ...input.docs].map((f) => f.path)), input.stress));
+  problems.push(...ledgerProblems(input.ledger, tests, questions, new Map([...input.specs, ...input.docs].map((f) => [f.path, f.text])), input.stress));
   const findings = new Set(ledgerRows(input.ledger).map((r) => r.id));
   const headings = new Map(input.specs.filter((s) => s.path.startsWith('spec/')).map((s) => [s.path.slice('spec/'.length, -'.md'.length), headingsOf(s.text)]));
 
