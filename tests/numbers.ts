@@ -48,6 +48,12 @@ export const SLOW_TESTS: Record<string, number> = {
   'tests/acceptance/plugin.test.ts > test 158: every runner starts the same Lawcheck with its own words': 60_000,
   // Measured on CI: up to 20.5 s on Windows (10 s before the harness), 6 s on macOS; a hook run per step of eight scenarios, each with its own commits.
   'tests/acceptance/plugin.test.ts > test 169: what counts as changed in the turn': 60_000,
+  // Measured on CI on Windows, where every process starts slowly and a test's time varies by half from run to run: test 56 up to 20.7 s (12.3 s before the harness; it waits 2 s per resend), test 67 18.2 s (17.4 s before; it waits on the tool's 1-second timeout and 5-second kill), test 76 against the fake 16.4 s (14.7 s before; 300 requests), test 149 15.7 s (12.8 s before) and test 68 15.4 s (11.4 s before; eleven configs, a run each).
+  'tests/acceptance/reviewer.test.ts > test 56: a bad answer is asked once more, then fails the run': 60_000,
+  'tests/acceptance/providers.test.ts > test 67: claude-code past its timeout, and the tool killed': 60_000,
+  'tests/acceptance/stability.test.ts > test 76: the measurement against the fake': 60_000,
+  'tests/acceptance/paths.test.ts > test 149: the runner key in the config': 60_000,
+  'tests/acceptance/reviewer-law.test.ts > test 68: config-invalid': 60_000,
 };
 
 export const SLOWEST_SHOWN = 10;
