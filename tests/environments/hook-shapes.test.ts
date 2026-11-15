@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { D, D_PATH, inTemp, LAW, write } from '../acceptance/helpers.ts';
-import { binWithLawcheck, hookEnv, NODE_DIR, runHook, SHAPES, WINDOWS } from './shapes.ts';
+import { binWithLawcheck, hookEnv, NODE_DIR, runHook, SHAPES, STARTS, WINDOWS } from './shapes.ts';
 import type { Placed, Shape } from './shapes.ts';
 
 const where = (program: string) =>
@@ -37,16 +37,18 @@ interface Bench {
 async function inEveryShape(body: (bench: Bench, shape: Shape) => Promise<void>): Promise<string[]> {
   const problems: string[] = [];
   for (const shape of SHAPES) {
-    await inTemp(async (dir) => {
-      const placed = shape.make(dir, {});
-      const env = hookEnv(dir, [binWithLawcheck(dir), GIT_DIR, NODE_DIR]);
-      const input = (fields: Record<string, unknown> = {}) => ({ session_id: 's1', prompt_id: 'p1', cwd: placed.root, ...fields });
-      try {
-        await body({ placed, env, input }, shape);
-      } catch (error) {
-        problems.push(`${shape.name}: ${(error as Error).message}`);
-      }
-    });
+    for (const start of STARTS) {
+      await inTemp(async (dir) => {
+        const placed = shape.make(dir, {});
+        const env = hookEnv(dir, [binWithLawcheck(dir), GIT_DIR, NODE_DIR]);
+        const input = (fields: Record<string, unknown> = {}) => ({ session_id: 's1', prompt_id: 'p1', cwd: start.cwd(placed), ...fields });
+        try {
+          await body({ placed, env, input }, shape);
+        } catch (error) {
+          problems.push(`${shape.name}, ${start.name}: ${(error as Error).message}`);
+        }
+      });
+    }
   }
   return problems;
 }
