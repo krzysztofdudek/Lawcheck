@@ -21,6 +21,7 @@ import { firstLine } from './law.js';
 import type { ErrorItem } from './output.js';
 import { decode, isBinary } from './types.js';
 import { step } from './progress.js';
+import { count, mib, USES_FILE_BYTES } from './limits.js';
 
 export type Reason = 'unfollowed' | 'unowned';
 
@@ -227,6 +228,16 @@ async function readAll(input: ReadInput, runes: Runes): Promise<Map<string, Use[
   for (const parse of [...parses.values()].sort((a, b) => comparePaths(a.path, b.path))) {
     step(`reading the uses of ${parse.path}`);
     const { language, parsePath, content } = parse.view;
+    const size = Buffer.byteLength(content, 'utf8');
+    if (size > USES_FILE_BYTES) {
+      throw new Unreadable(parse.path, {
+        code: 'file-too-large',
+        file: parse.path,
+        line: null,
+        message: `the file holds ${count(size)} bytes, more than the ${mib(USES_FILE_BYTES)} a file whose uses are read may hold`,
+        next: `leave ${parse.path} out of the types whose may_use is in force, or make it smaller than ${mib(USES_FILE_BYTES)}, then run lawcheck check`,
+      });
+    }
     if (!loaded.has(language)) {
       try {
         await host.getParser(primaryExtensionForLanguage(language) ?? '');

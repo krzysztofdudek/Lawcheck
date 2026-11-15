@@ -2,6 +2,8 @@ import { spawn, spawnSync } from 'node:child_process';
 import { accessSync, constants, readFileSync, realpathSync, statSync } from 'node:fs';
 import { dirname, isAbsolute, join, normalize, resolve } from 'node:path';
 
+const CONFIG_BYTES = 1024 * 1024;
+
 export const RUNNERS = {
   global: { words: ['lawcheck'], install: 'npm i -g lawcheck@alpha' },
   npx: { words: ['npx', '--no-install', 'lawcheck'], install: 'npm install' },
@@ -36,7 +38,10 @@ export function runnerValue(text) {
 export function runnerAt(root) {
   let value = 'global';
   try {
-    value = runnerValue(readFileSync(join(root, '.lawcheck', 'config.yaml'), 'utf8'));
+    const path = join(root, '.lawcheck', 'config.yaml');
+    const stat = statSync(path);
+    // A config past the tool's limit of 1 MiB is refused by Lawcheck itself; the hook reads none of it.
+    if (stat.isFile() && stat.size <= CONFIG_BYTES) value = runnerValue(readFileSync(path, 'utf8'));
   } catch {}
   if (!Object.hasOwn(RUNNERS, value)) return { bad: value };
   const runner = RUNNERS[value];

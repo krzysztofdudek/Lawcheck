@@ -4,7 +4,7 @@ import { isAlias, isMap, isScalar, isSeq, LineCounter, parseDocument } from 'yam
 import type { Document, Node as YamlNode, Pair, YAMLMap } from 'yaml';
 import { distance, nearestKey, parseUnique } from './law.js';
 import { decode } from './types.js';
-import { readFailure, readWhole } from './limits.js';
+import { CONFIG_BYTES, readFailure, readWhole } from './limits.js';
 
 export const CONFIG = '.lawcheck/config.yaml';
 
@@ -81,6 +81,12 @@ export const DEFAULT_CONFIG: ReviewerConfig = {
 
 const NO_KEYS = "a key never goes into a committed file; set LAWCHECK_REVIEWER_KEY, or the provider's own ANTHROPIC_API_KEY, OPENAI_API_KEY or GOOGLE_API_KEY, in the environment";
 
+export class ConfigTooLarge extends Error {
+  constructor(readonly bytes: number) {
+    super(`${CONFIG} holds ${bytes} bytes`);
+  }
+}
+
 export function readConfig(root: string): { config: ReviewerConfig } | { problems: ConfigProblem[] } {
   const path = join(root, CONFIG);
   try {
@@ -90,13 +96,14 @@ export function readConfig(root: string): { config: ReviewerConfig } | { problem
     if (code === 'ENOENT' || code === 'ENOTDIR') return { config: { ...DEFAULT_CONFIG } };
     return { problems: [{ line: 1, message: `${CONFIG} cannot be read (${code ?? 'an error'})` }] };
   }
-  let text: string;
+  let bytes: Uint8Array;
   try {
-    text = decode(readWhole(path, CONFIG));
+    bytes = readWhole(path, CONFIG);
   } catch (error) {
     return { problems: [{ line: 1, message: `${CONFIG} cannot be read (${readFailure(error)})` }] };
   }
-  return parseConfig(text);
+  if (bytes.length > CONFIG_BYTES) throw new ConfigTooLarge(bytes.length);
+  return parseConfig(decode(bytes));
 }
 
 export function parseConfig(text: string): { config: ReviewerConfig } | { problems: ConfigProblem[] } {

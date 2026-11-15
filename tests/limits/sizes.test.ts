@@ -1,4 +1,6 @@
 import { test } from 'node:test';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import assert from 'node:assert/strict';
 import { D, D_PATH, git, inTemp, TEST4, withSample, write } from '../acceptance/helpers.ts';
 import { errorLines, MiB, run, sparse, textHead } from './support.ts';
@@ -158,5 +160,36 @@ test('test 262: a text file may hold 1,048,576 lines, and one more line is file-
     const beyond = await run(s, ['check', '--base', 'main']);
     assert.deepEqual(errorLines(beyond.stdout), [`${lines}  error[file-too-large]  the file holds 1,048,577 lines, more than the 1,048,576 a file read as text may hold`]);
     assert.equal(beyond.code, 2);
+  });
+});
+
+test('test 263: a file whose uses are read may hold 4 MiB, and a config 1 MiB', async () => {
+  await withSample(
+    async (s) => {
+      const big = 'src/core/big.ts';
+      const line = 'export const x = 1 + 2;\n';
+      write(s, big, line.repeat(Math.floor((4 * MiB) / line.length)));
+      const at = await run(s, ['check', '--base', 'main'], { budgetMs: 120_000 });
+      assert.equal(at.code, 0, at.stdout);
+      write(s, big, line.repeat(Math.floor((4 * MiB) / line.length) + 1));
+      const beyond = await run(s, ['check', '--base', 'main'], { budgetMs: 120_000 });
+      assert.deepEqual(errorLines(beyond.stdout), [`${big}  error[file-too-large]  the file holds 4,194,312 bytes, more than the 4 MiB a file whose uses are read may hold`]);
+      assert.equal(beyond.code, 2);
+    },
+    { onMain: (s) => writeFileSync(join(s, '.lawcheck/law.yaml'), readFileSync(join(s, '.lawcheck/law.yaml'), 'utf8').replace('        rules: [no-console]', '        rules: [no-console]\n        may_use: [library]')) },
+  );
+  await withSample(async (s) => {
+    write(s, '.lawcheck/config.yaml', `reviewer:\n  provider: claude-code\n${'#'.repeat(MiB)}\n`);
+    const message = 'the file holds 1,048,611 bytes, more than the 1 MiB the config may hold';
+    const checked = await run(s, ['check', '--base', 'main']);
+    assert.deepEqual(errorLines(checked.stdout), [`.lawcheck/config.yaml  error[file-too-large]  ${message}`]);
+    assert.ok(checked.stdout.endsWith('\nnext: make .lawcheck/config.yaml smaller than 1 MiB, then run lawcheck check\n'), checked.stdout);
+    assert.equal(checked.code, 2);
+    const doctor = await run(s, ['doctor']);
+    assert.ok(doctor.stdout.split('\n').includes(`fail  config  .lawcheck/config.yaml  ${message}`), doctor.stdout);
+    assert.equal(doctor.code, 2);
+    const prime = await run(s, ['prime']);
+    assert.equal(prime.code, 0);
+    assert.doesNotMatch(prime.stdout, /Start it here/);
   });
 });

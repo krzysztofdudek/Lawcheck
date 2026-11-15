@@ -1,7 +1,7 @@
 import { realpathSync, statSync } from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { changedPaths, defaultBase, GitFailed, gitNext, hasHead, fetchesEveryBranch, isShallow, listedPaths, listFiles, mergeBase, NoGit, remoteNames, resolveCommit, workTreeProblem } from './files.js';
-import { CONFIG, readConfig } from './config.js';
+import { CONFIG, ConfigTooLarge, readConfig } from './config.js';
 import { canonicalName, onDisk } from './names.js';
 import type { ReviewerConfig } from './config.js';
 import { nearestKey, parseLaw } from './law.js';
@@ -12,9 +12,9 @@ import type { TypedFile } from './types.js';
 import { ATTRIBUTES, Unwritable, VERDICTS, VerdictsUnreadable } from './verdicts.js';
 import { keyEnvironment } from './keys.js';
 import { createProvider } from './providers/index.js';
-import { count, LAW_BYTES, mib, readBounded, readError, readFailure, readWhole, RUN_TEXT_BYTES, TextTooLarge } from './limits.js';
 
 export const WRITTEN = new Set([VERDICTS, ATTRIBUTES]);
+import { CONFIG_BYTES, count, LAW_BYTES, mib, readBounded, readError, readFailure, readWhole, RUN_TEXT_BYTES, TextTooLarge } from './limits.js';
 
 export const LAW = '.lawcheck/law.yaml';
 export const RULES_DIR = '.lawcheck/rules/';
@@ -172,7 +172,14 @@ export function loadLaw(root: string): Law {
 }
 
 export function configErrors(root: string): { config: ReviewerConfig } | { errors: ErrorItem[] } {
-  const configured = readConfig(root);
+  let configured: ReturnType<typeof readConfig>;
+  try {
+    configured = readConfig(root);
+  } catch (error) {
+    if (!(error instanceof ConfigTooLarge)) throw error;
+    const message = `the file holds ${count(error.bytes)} bytes, more than the ${mib(CONFIG_BYTES)} the config may hold`;
+    return { errors: [{ code: 'file-too-large', file: CONFIG, line: null, message, next: `make ${CONFIG} smaller than ${mib(CONFIG_BYTES)}, then run lawcheck check` }] };
+  }
   if ('problems' in configured) {
     if (linked(root, CONFIG)) return { errors: [{ code: 'config-invalid', file: CONFIG, line: null, message: LINKED(CONFIG) }] };
     return { errors: configured.problems.map((p) => ({ code: 'config-invalid', file: CONFIG, line: p.line, message: p.message })) };
