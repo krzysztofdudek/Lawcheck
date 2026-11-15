@@ -159,3 +159,11 @@ test('test 258: a signal while git runs ends the run as stopped within two secon
     });
   }
 });
+
+test('test 270: the watch of a step starts with the command, so a worker slow to start is not a step past its limit', async () => {
+  const { lastStep, progressBuffer } = await import('../../dist/progress.js');
+  const before = Date.now();
+  const last = lastStep(progressBuffer());
+  assert.ok(last.at >= before && last.at <= Date.now(), String(last.at));
+  assert.equal(last.what, 'starting the command');
+});

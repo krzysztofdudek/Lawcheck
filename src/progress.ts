@@ -6,8 +6,12 @@ let where: Uint8Array | null = null;
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
+// The main thread starts the watch when it starts the worker, which on a starved processor may take seconds to run its first line.
 export function progressBuffer(): SharedArrayBuffer {
-  return new SharedArrayBuffer(8 + 8 + WHERE_BYTES);
+  const buffer = new SharedArrayBuffer(8 + 8 + WHERE_BYTES);
+  new Float64Array(buffer, 0, 1)[0] = Date.now();
+  new Int32Array(buffer, 8, 1)[0] = encoder.encodeInto('starting the command', new Uint8Array(buffer, 16, WHERE_BYTES)).written;
+  return buffer;
 }
 
 function views(buffer: SharedArrayBuffer): void {
