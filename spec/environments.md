@@ -44,11 +44,14 @@ The next line names the command that ran, as every next line does (`then run law
 
 npm and pnpm install Lawcheck on an older Node with a warning about the `engines` range, and Yarn 1 and npm with `engine-strict` refuse it. The refusal above is what a user meets after an install that only warned.
 
+**The runner that cannot start.** A refusal covers what Lawcheck can see before it starts a runner. A runner of script rules that Node still cannot start is `runner-failed`, never `rule-crashed` (check slice, section 3).
+
 ## 8. Acceptance tests
 
 | # | Do | See |
 |---|---|---|
 | 200 | S with D added, and on `PATH` a git that prints `git version 2.33.8` for `--version` and hands every other call to the real git: `check --base main`, `check ./src/core/discount.ts`, `try no-console src/core/discount.ts`, `doctor`, `explain src/core/price.ts`, `prime` and `init`, each also with `--json`; then `--version`, `--help`, `check --help`, `docs` and `docs config`. Then the same git printing `git version 2.34.1`: `check --base main` | section 3's refusal with `git 2.33.8 is older than 2.34, the oldest git Lawcheck runs with`, exit 2, nothing on standard error, each document `lawcheck-error/1` with `unsupported-environment`; the last five exit 0; then test 4's output, exit 1 |
+| 201 | a copy of Lawcheck whose runner starts with the Node flag `--no-such-flag`: `check --base main` and `try no-console src/core/discount.ts` in S with D added. A copy whose `dist/runner.js` cannot be read: `check --base main` (skipped as root and on Windows). An untouched copy: `check --base main` | `lawcheck: ERROR  1 error`, one `error[runner-failed]  the runner of script rules did not start: ` ending with Node's `bad option: --no-such-flag`, then with `EACCES: permission denied, open '<the runner>'`; its why; the next line `reinstall Lawcheck, then run lawcheck check` (`try again` for `try`); no `rule-crashed` and no rule file; exit 2. Then test 4's first line, exit 1 |
 
 ### Invariants
 

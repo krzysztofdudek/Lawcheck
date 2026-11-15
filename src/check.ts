@@ -98,6 +98,7 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
   const crashes: ErrorItem[] = [];
   const raw: RawFinding[] = [];
   for (const { rule, outcome } of outcomes) {
+    if ('broken' in outcome) return { errors: [{ code: 'runner-failed', file: null, line: null, message: outcome.broken }] };
     if ('crash' in outcome) crashes.push({ code: 'rule-crashed', file: `${RULES_DIR}${rule}.mjs`, line: null, message: outcome.crash });
     else raw.push(...outcome.findings);
   }

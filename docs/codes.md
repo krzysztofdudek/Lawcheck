@@ -18,6 +18,7 @@ Every code Lawcheck prints. A finding is a line of `check`'s report and comes wi
 | `base-unreachable` | exit 2 | the base names no commit, or shares no history with `HEAD` | without its base a change cannot be told from debt |
 | `link-outside-root` | exit 2 | a script rule is to run, and a link git tracks under the root or in a submodule leads outside the git work tree and Lawcheck's folder | a script rule reads nothing outside the work tree, and a link that leads out of it would let it |
 | `path-unsupported` | exit 2 | a script rule is to run, and the path of the root or of Lawcheck holds a `*` or, outside Windows, a backslash, where the runner cannot keep the rule inside the root | a script rule reads nothing outside the root and Lawcheck's folder, and the runner can keep that only on such a path |
+| `runner-failed` | exit 2 | the process that runs script rules ends before it starts, and the message gives the line Node printed | a runner that does not start says nothing about the rules |
 | `rule-crashed` | exit 2 | a script rule does not load, throws, returns no list of findings, or passes 30 seconds | a broken rule says nothing about the code |
 | `parser-failed` | exit 2 | a grammar cannot be loaded, or a reader fails on a file | a file whose uses were not read is not taken to use nothing |
 | `reviewer-not-configured` | exit 2 | reviews are to be asked and no provider is set | reviewer rules need a reviewer to judge them |

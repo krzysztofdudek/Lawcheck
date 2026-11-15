@@ -72,6 +72,8 @@ A rule is `rule-crashed`, exit 2, at its file when it:
 
 The message names the judged file, or the load. One run names each broken rule once.
 
+A runner that Node cannot start at all is `runner-failed` instead, with Node's own line in the message, and no rule is blamed. Reinstalling Lawcheck is the fix.
+
 ## Trying a rule
 
 ```text

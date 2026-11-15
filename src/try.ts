@@ -176,6 +176,7 @@ export async function tryRule(args: Arguments, context: CheckContext, json: bool
         throw new Stop(out.map((link) => ({ code: 'link-outside-root', file: link.path, line: null, message: `the link leads to ${link.target}, outside the git work tree and Lawcheck's folder, and a script rule could read through it` })));
       }
       const ran = await runRule({ root, rule: id, ruleFile: join(root, `${RULES_DIR}${id}.mjs`), files: ruleFiles, filesOf: filesOfTypes(typed, law) });
+      if ('broken' in ran) throw new Stop([{ code: 'runner-failed', file: null, line: null, message: ran.broken }]);
       if ('crash' in ran) throw new Stop([{ code: 'rule-crashed', file: `${RULES_DIR}${id}.mjs`, line: null, message: ran.crash }]);
       for (const file of ruleFiles) {
         const run: Run = { file: file.path, attempt: 1, verdict: null, findings: [], waived: 0, answer: null, prompt_chars: null };

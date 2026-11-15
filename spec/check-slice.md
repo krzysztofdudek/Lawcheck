@@ -167,6 +167,8 @@ export function check({ files }) {
 | `serialization` | `'advanced'` |
 | `stdio` | no standard input; what the rule prints, on either stream, goes to the tool's standard error a line at a time, with the escapes of section 6 for text the tool does not own |
 
+The runner first tells the tool that it started. A runner that ends before that is `runner-failed`, without a place and never at a rule file: Node could not start it, as with a flag it does not know or a runner file it cannot read. The tool then starts the runner once more, without a channel, which a sound runner ends at once, and the message is `the runner of script rules did not start: <line>`, `<line>` being the first line of what Node printed that starts with an error's name or `node: `, else its first line, else `it ended with <code> before it started`. One `runner-failed` stands for every rule of the run. The next line is `reinstall Lawcheck, then run lawcheck check`.
+
 The tool sends the type of every file and the path of the rule file. The runner imports the rule file and answers. The tool then sends one call at a time, and the runner answers each with what `check` returned. After the last answer the tool kills the runner, and whatever the rule left running ends with it. When the tool ends in any other way, a signal that kills it included, its runners end too: a small guard process that the tool starts kills those still alive. A signal that the tool can catch ends it as `internal`. The tool allows 30 seconds for the load and 30 seconds for each call; past that it kills the runner.
 
 **What the runner stops,** measured on Node 24.22.2. Node refuses the call with an error, and the rule is `rule-crashed`, when the rule:
@@ -337,6 +339,7 @@ next: fix src/core/discount.ts:2
 | `base-unreachable` | section 4 | none |
 | `path-unsupported` | section 3: a script rule is to run and the runner cannot keep it inside the root | none |
 | `link-outside-root` | section 3: a script rule is to run and a link git tracks leads outside the git work tree and Lawcheck's folder | the link |
+| `runner-failed` | section 3: the runner of script rules ends before it starts | none |
 | `rule-crashed` | section 3 | the rule file |
 | `internal` | any other failure, a bug of Lawcheck included; the message is the first line of the error | none |
 

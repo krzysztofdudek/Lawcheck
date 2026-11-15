@@ -13,7 +13,9 @@ type Incoming =
 
 type Check = (input: { files: CallFile[]; repo: { filesOf(typeId: string): string[] } }) => unknown;
 
-const channel = process.send!.bind(process);
+// Started without a channel, the runner only shows that Node can start it: the tool does this to learn why a runner did not start.
+if (process.send === undefined) process.exit(0);
+const channel = process.send.bind(process);
 process.send = undefined;
 
 // macOS adds __CF_USER_TEXT_ENCODING to every process it starts, even one started with an empty environment.
@@ -73,3 +75,5 @@ process.on('message', (message: Incoming) => {
   if (message.kind === 'load') void load(message.file, message.filesOf);
   else void call(message.file);
 });
+
+channel({ kind: 'ready' });

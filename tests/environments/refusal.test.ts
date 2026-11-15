@@ -138,3 +138,50 @@ test('test 200: control, git 2.34.1 is not refused', { skip: WINDOWS ? 'git is s
     assert.equal(run.code, 1);
   });
 });
+
+function runnerFailed(run: Run, said: RegExp, command: string): void {
+  const lines = run.stdout.split('\n');
+  assert.equal(lines[0], 'lawcheck: ERROR  1 error');
+  assert.match(lines[2]!, /^error\[runner-failed\]  the runner of script rules did not start: /);
+  assert.match(lines[2]!, said);
+  assert.equal(lines[3], '  why:  a runner that does not start says nothing about the rules');
+  assert.equal(lines[5], `next: reinstall Lawcheck, then run lawcheck ${command === 'check' ? 'check' : `${command} again`}`);
+  assert.doesNotMatch(run.stdout, /rule-crashed|\.lawcheck\/rules\//);
+  assert.equal(run.code, 2);
+}
+
+test('test 201: a runner Node cannot start with its flags is runner-failed, with Node\'s words, and never rule-crashed on a rule file', async () => {
+  await withCopy(async (copy) => {
+    const rules = join(copy.dir, 'dist', 'rules.js');
+    writeFileSync(rules, readFileSync(rules, 'utf8').replace("'--permission', ", "'--permission', '--no-such-flag', "));
+    await inTemp(async (dir) => {
+      const s = sampleWithD(dir);
+      runnerFailed(await lawcheckAt(copy.cli, s, ['check', '--base', 'main']), /bad option: --no-such-flag$/, 'check');
+      runnerFailed(await lawcheckAt(copy.cli, s, ['try', 'no-console', 'src/core/discount.ts']), /bad option: --no-such-flag$/, 'try');
+    });
+  });
+});
+
+test('test 201: a runner file that cannot be read is runner-failed, naming the file', { skip: WINDOWS || AS_ROOT ? 'a file mode cannot make a file unreadable for root, nor on Windows' : false }, async () => {
+  await withCopy(async (copy) => {
+    const runner = join(copy.dir, 'dist', 'runner.js');
+    chmodSync(runner, 0o000);
+    try {
+      await inTemp(async (dir) => {
+        runnerFailed(await lawcheckAt(copy.cli, sampleWithD(dir), ['check', '--base', 'main']), new RegExp(`EACCES: permission denied, open '${runner.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}'$`), 'check');
+      });
+    } finally {
+      chmodSync(runner, 0o644);
+    }
+  });
+});
+
+test('test 201: control, the same copy with a sound runner judges the rules', async () => {
+  await withCopy(async (copy) => {
+    await inTemp(async (dir) => {
+      const run = await lawcheckAt(copy.cli, sampleWithD(dir), ['check', '--base', 'main']);
+      assert.match(run.stdout, /^lawcheck: FAIL  1 error, 1 warning in 1 changed file \(against main\), 1 waiver\n/);
+      assert.equal(run.code, 1);
+    });
+  });
+});
