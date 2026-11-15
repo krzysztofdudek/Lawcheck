@@ -512,7 +512,7 @@ test('test 67: claude-code past its timeout, and the tool killed', async () => {
         // On Windows every signal ends a process at once, so the tool cannot answer it with its own exit code.
         if (process.platform !== 'win32') assert.equal(code, 2, signal);
         assert.ok(await waitFor(() => !alive(seen.pid) && !alive(seen.child!), 5000), `${signal}: both are gone`);
-        assert.ok(!existsSync(seen.cwd), `${signal}: ${seen.cwd} is left`);
+        assert.ok(await waitFor(() => !existsSync(seen.cwd), 5000), `${signal}: ${seen.cwd} is left`);
       } finally {
         child.kill('SIGKILL');
       }

@@ -79,7 +79,9 @@ test('killTree ends a program and the programs it started', async () => {
 test('killTree with orphans ends the programs left by a program that has already ended', async () => {
   await inDir(async (dir) => {
     const script = join(dir, 'leave.mjs');
-    writeFileSync(script, "import { spawn } from 'node:child_process';\nconst c = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore' });\nc.unref();\nprocess.stdout.write(String(c.pid) + '\\n');\n");
+    // Node on Windows ends the programs it started undetached when it exits; cmd.exe does not, which a detached child stands in for here.
+    const detached = process.platform === 'win32';
+    writeFileSync(script, `import { spawn } from 'node:child_process';\nconst c = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore', detached: ${detached} });\nc.unref();\nprocess.stdout.write(String(c.pid) + '\\n');\n`);
     const parent = startProgram(process.execPath, [script], { cwd: dir, detached: true, stdio: ['ignore', 'pipe', 'ignore'] });
     let out = '';
     parent.stdout!.setEncoding('utf8').on('data', (chunk: string) => (out += chunk));
