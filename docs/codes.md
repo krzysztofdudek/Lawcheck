@@ -5,6 +5,7 @@ Every code Lawcheck prints. A finding is a line of `check`'s report and comes wi
 | Code | Kind | When | Why |
 |---|---|---|---|
 | `usage` | exit 2 | the arguments break the command's usage line | the tool does only what its usage line says |
+| `unsupported-environment` | exit 2 | Lawcheck runs where it is not supported: Node older than 24, Bun without Node, Yarn's Plug'n'Play, or git older than 2.34; the first line names the cause | Lawcheck answers only where its rules and readers are known to run |
 | `not-initialized` | exit 2 | no `.lawcheck/law.yaml` here or above | without a law there is nothing to check the code against |
 | `already-initialized` | exit 2 | `init` finds a law here, above or below | a second law would split one repository's rules between two files |
 | `no-git` | exit 2 | git cannot be started, or the root is outside a git work tree | the files and the change come from git |

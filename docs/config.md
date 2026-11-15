@@ -99,6 +99,8 @@ A runner other than `global` starts a program the repository chooses. The packag
 runner: pnpm  # pinned in package.json
 ```
 
+Lawcheck runs on Node 24 or later, with npm, pnpm, Yarn 1, Yarn 4 with `nodeLinker: node-modules`, or Bun beside Node, and with git 2.34 or later. Anywhere else every command but `--version`, `--help` and `docs` refuses, and its first line names the cause: Bun with no Node, where `bun x` starts Lawcheck on Bun itself; a Node older than 24, which npm and pnpm install on with only a warning; Yarn's Plug'n'Play, whose archives the runner of script rules cannot open; an older git.
+
 The plugin reads the key without a YAML parser, so the key has one written form. The runner line is the first line that starts with `runner:` in its first column. Its value is the rest of the line after `runner:`, without a comment that follows a space or a tab, trimmed of spaces and tabs. Without a runner line the runner is `global`. A value outside the five is `config-invalid`, and so is a value this rule reads differently from YAML, such as `runner: "pnpm"`, or a key in flow style: write `runner: pnpm` on one line of its own at the top level.
 
 `.lawcheck/config.local.yaml` does not take `runner`; it is not read.

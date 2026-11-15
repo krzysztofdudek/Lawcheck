@@ -70,6 +70,7 @@ export const WHY: Record<string, string> = {
   'waiver-without-reason': 'a waiver without a reason cannot be weighed later',
   'waiver-unused': 'a waiver that drops nothing would hide the next finding on its line',
   usage: 'the tool does only what its usage line says',
+  'unsupported-environment': 'Lawcheck answers only where its rules and readers are known to run',
   'not-initialized': 'without a law there is nothing to check the code against',
   'no-git': 'the files and the change come from git',
   'law-invalid': 'a misspelled key changes the law without a word',
@@ -252,7 +253,8 @@ export function renderErrors(input: ErrorItem[], json: boolean, command: string 
     };
     return JSON.stringify(document, null, 2) + '\n';
   }
-  const lines = [`lawcheck: ERROR  ${plural(errors.length, 'error')}`, '', ...errorLines(errors, limit)];
+  const refused = errors.find((e) => e.code === 'unsupported-environment');
+  const lines = [`lawcheck: ERROR  ${refused === undefined ? plural(errors.length, 'error') : shown(refused.message)}`, '', ...errorLines(errors, limit)];
   lines.push('', `next: ${plain(next)}`);
   return lines.join('\n') + '\n';
 }

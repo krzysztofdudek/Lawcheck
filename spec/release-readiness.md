@@ -53,7 +53,7 @@ Remove the line "Work in progress: there is nothing to install yet." and put thi
 ```
 ## Install
 
-Lawcheck needs Node 24 or later and git.
+Lawcheck needs Node 24 or later and git 2.34 or later.
 
     npm install --global lawcheck
 

@@ -6,7 +6,7 @@ You write your repository's architecture and rules. Lawcheck checks the code aga
 
 This is an alpha for early testing.
 
-Lawcheck needs Node 24 or later and git.
+Lawcheck needs Node 24 or later and git 2.34 or later.
 
     npm install --global lawcheck@alpha
 

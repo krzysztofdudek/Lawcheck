@@ -206,6 +206,7 @@ A rule file is code of the repository and runs with the user's rights, as the re
 | For | Command | Reading |
 |---|---|---|
 | the filters | `git config -z --name-only --get-regexp ^filter\.`, once for each folder git runs in, before the first other command | each `filter.<name>.clean`, `smudge` and `process` it names is set to nothing for the commands below (section 2); another exit than 0: none |
+| the version | `git --version` | older than 2.34: `unsupported-environment` (`spec/environments.md`, section 3); git does not start or prints no version: the next row decides |
 | the work tree | `git rev-parse --is-inside-work-tree` | git does not start, exits with another code than 0, or prints another word than `true`: `no-git` |
 | the files | `git ls-files -z --cached --others --exclude-standard` | section 2 |
 | HEAD | `git rev-parse --verify --quiet HEAD^{commit}` | exit 1: no commit yet |
@@ -321,11 +322,12 @@ tools/release.mjs:2  warning[no-todo]  TODO without an issue number
 next: fix src/core/discount.ts:2
 ```
 
-**Exit 2.** The tool goes down this table, stops at the first row with errors and prints all of them in the same grammar under `lawcheck: ERROR  <n> errors`. Its `next:` is one instruction that can succeed. `internal` can come at any step and ends the run at once.
+**Exit 2.** The tool goes down this table, stops at the first row with errors and prints all of them in the same grammar under `lawcheck: ERROR  <n> errors`; an `unsupported-environment` error is always alone, and its message stands in that first line in place of the count. Its `next:` is one instruction that can succeed. `internal` can come at any step and ends the run at once.
 
 | Code | When | Place |
 |---|---|---|
 | `usage` | section 4 | none |
+| `unsupported-environment` | `spec/environments.md`, section 3: the Node, the runtime, the install or the git is one Lawcheck does not support | none |
 | `not-initialized` | no `.lawcheck/law.yaml` here or above | none |
 | `no-git` | git cannot be started, refuses the repository, or the root is outside a git work tree; the message carries the first line git printed | none |
 | `law-invalid` | the law cannot be read, does not parse or breaks section 2: a key, a value, an id, a pattern, an expression, a rule that a type lists and the law lacks; one line per problem | `.lawcheck/law.yaml:<line>` |

@@ -18,6 +18,7 @@ import { explain } from './explain.js';
 import { tryRule } from './try.js';
 import { docs } from './docs.js';
 import { doctor } from './doctor.js';
+import { environmentRefusal, gitNow, runtimeNow } from './environment.js';
 import type { ErrorItem } from './output.js';
 
 
@@ -82,6 +83,10 @@ async function run(argv: string[], context: CheckContext, command: Command): Pro
     const read = readArguments(argv);
     if ('problem' in read) return usageError(read.problem, json, read.command);
     const args = read.arguments;
+    if (args.command !== 'docs') {
+      const refused = environmentRefusal(context.runtime ?? runtimeNow(), () => gitNow(context.cwd));
+      if (refused !== null) return { code: 2, stdout: renderErrors([refused], json, args.command) };
+    }
     if (args.command !== 'check') return await HANDLERS[args.command](args, context, json);
     const parsed = checkOptions(args);
     if ('problem' in parsed) return usageError(parsed.problem, json, 'check');

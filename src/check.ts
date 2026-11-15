@@ -21,6 +21,7 @@ import type { Kinds, Read, ReviewerRule } from './setup.js';
 import { judgeUses, listInForce, notRead } from './uses.js';
 import type { Forbidden, NotRead, Target } from './uses.js';
 import type { TypedFile } from './types.js';
+import type { Runtime } from './environment.js';
 import { readFailure, readVerdicts, reviewKey, VerdictWriter } from './verdicts.js';
 import { parseWaivers, waive } from './waivers.js';
 import type { Waiver, WaiverProblem } from './waivers.js';
@@ -40,6 +41,7 @@ export interface CheckContext {
   cwd: string;
   env: NodeJS.ProcessEnv;
   warn?: (line: string) => void;
+  runtime?: Runtime;
 }
 
 export type CheckOutcome = { errors: ErrorItem[] } | { report: Report };
