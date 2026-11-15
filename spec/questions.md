@@ -468,52 +468,52 @@ Choice: not done. It would make a finding of an answer the readers did not resol
 
 # Questions found while adding the six providers
 
-## 73. The owner's ruling of 2026-11-15: all nine providers before the alpha
+## 100. The owner's ruling of 2026-11-15: all nine providers before the alpha
 
 The owner ruled on 2026-11-15 that all nine reviewer providers of the design are a condition of the first alpha. The reviewer slice had built three and refused the other six as `config-invalid`.
 
-Choice: `openai`, `google`, `ollama`, `codex`, `gemini-cli` and `copilot-cli` are built on the contract of section 6 of `spec/reviewer-slice.md`, sharing its HTTP request and its program call, with tests 184 to 194. Test 68 now refuses `provider: gemini`, an unknown name, where it refused `provider: codex`.
+Choice: `openai`, `google`, `ollama`, `codex`, `gemini-cli` and `copilot-cli` are built on the contract of section 6 of `spec/reviewer-slice.md`, sharing its HTTP request and its program call, with tests 400 to 413. Test 68 now refuses `provider: gemini`, an unknown name, where it refused `provider: codex`.
 
-## 74. `codex` and `copilot` read the user's own configuration
+## 101. `codex` and `copilot` read the user's own configuration
 
 `claude-code` runs with `--setting-sources ""` and an empty MCP configuration, and its route to another endpoint comes from the environment. For `codex` the route to another endpoint is a model provider in `~/.codex/config.toml`; for `copilot` the sign-in can sit in its own folder under `~/.copilot` when no keychain holds it. `codex exec --ignore-user-config` and an empty `COPILOT_HOME` would leave out the MCP servers those files name, and with them every endpoint but the vendor's own. On codex 0.169.0, `--ignore-user-config` sent the call to the vendor's service even with `OPENAI_BASE_URL` set, and `-c mcp_servers={}` did not stop a server the file names from starting.
 
 Choice, after a review: the configuration is read, and each server it names is switched off for the call by name, from `codex mcp list --json` and `copilot mcp list --json`, with `-c mcp_servers.<name>.enabled=false` and `--disable-mcp-server <name>`. A local fake of the vendors' APIs that recorded the offered tools, and a server that left a mark when it started, showed on codex 0.169.0 and Copilot CLI 1.0.111: no server starts; `copilot` with `--available-tools=lawcheck-offers-no-tool` offers no tool (with `--deny-tool` it still offered 21); `codex` offers one, `request_user_input`, which no switch removes. A `codex` server whose name holds a dot cannot be switched off, because `-c` splits its key at every dot, quotes included, so such a name stops the call with a message that names it. Decision 22 of the slice.
 
-## 75. A key that the endpoint echoes
+## 102. A key that the endpoint echoes
 
 Finding S3-2 asks that a key an endpoint echoes in its error message appear in no output. Section 6 prints the first line of the endpoint's `error.message` as it came, and the design's providers chapter keeps a provider's error text as it came, with no redaction.
 
-Open: whether Lawcheck replaces its own key in what it prints, which S3-2 asks for. Test 188, the key canary, checks what Lawcheck itself does with a key: no output, file, temporary file or request other than its own header holds it. It gives the fake no reply that echoes the key.
+Open: whether Lawcheck replaces its own key in what it prints, which S3-2 asks for. Test 404, the key canary, checks what Lawcheck itself does with a key: no output, file, temporary file or request other than its own header holds it. It gives the fake no reply that echoes the key.
 
-## 76. `openai` and a model that takes only its own temperature
+## 103. `openai` and a model that takes only its own temperature
 
 Some of OpenAI's models refuse a `temperature` other than their default and answer HTTP 400. Lawcheck always sends one, 0 by default, so such a model ends every review with `reviewer-unreachable` and the vendor's message.
 
 Choice: kept as section 6 says. Leaving `temperature` out for some models would be a list of model names, which goes stale. `openai` was not called live.
 
-## 77. `copilot-cli` without a model
+## 104. `copilot-cli` without a model
 
 The design left open whether `copilot` answers without `--model`. With its own bring-your-own-key variables, `COPILOT_MODEL` among them, it did (`spec/release-readiness.md`). With a GitHub sign-in it was not run.
 
 Choice: `model` is optional for `copilot-cli`, as for the other programs.
 
-## 78. The numbers of the new tests
+## 105. The numbers of the new tests
 
-The rows of the six providers are tests 184 to 194 in section 11 of `spec/reviewer-slice.md`, the next numbers after the plugin slice's 183.
+The rows of the six providers are tests 400 to 413 in section 11 of `spec/reviewer-slice.md`, numbers above every other slice's, so that no row of another package's branch takes them.
 
-## 79. The `next:` of a reviewer that cannot be called
+## 106. The `next:` of a reviewer that cannot be called
 
 Entry 18 gave `make <provider> reachable as the error says, then run <review>`, entry 41 the same under `doctor`, and a failed review `run the same command again`. A newcomer could not tell from them which key, address, program or model to change.
 
 Choice, after a review: every failure carries a fix, the table in section 6 of `spec/reviewer-slice.md` holds them, and `next:` starts with it. A connection that gave no answer is a sentence that names the address, in place of `the connection to the reviewer gave no answer (<cause>)`; test 92 changes with it.
 
-## 80. The variables a program gets
+## 107. The variables a program gets
 
 `claude-code` passed every variable of Lawcheck's environment to `claude`, and the six new providers did the same, so `LAWCHECK_REVIEWER_KEY` and the vendors' keys reached `codex`, `gemini` and `copilot` and the MCP servers they start. A first fix took every key variable away from every program, which cut off a `claude` signed in only through `ANTHROPIC_API_KEY`.
 
-Choice, the build's, under the design's rule that a key goes only where it was given: each program gets the sign-in variables its own vendor documents and no other's, and none gets `LAWCHECK_REVIEWER_ENDPOINT` or `LAWCHECK_REVIEWER_KEY`. Section 6 of `spec/reviewer-slice.md` lists them, decision 25 of the slice records it, and tests 188 and 189 hold it per program.
+Choice, the build's, under the design's rule that a key goes only where it was given: each program gets the sign-in variables its own vendor documents and no other's, and none gets `LAWCHECK_REVIEWER_ENDPOINT` or `LAWCHECK_REVIEWER_KEY`. Section 6 of `spec/reviewer-slice.md` lists them, decision 25 of the slice records it, and tests 404 and 405 hold it per program.
 
-## 81. Numbers that belong to the table of limits
+## 108. Numbers that belong to the table of limits
 
 The fixes of a review set three numbers: 4 MiB for a reviewer's reply or output, 64 KiB of a program's standard error kept for its last line, and 256 characters for `reviewer.model`. Section 6 of `spec/reviewer-slice.md` states them as rows of its own table of limits, and the table of limits for the whole tool, when it exists, takes them over.

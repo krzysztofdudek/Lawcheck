@@ -150,19 +150,20 @@ test('test 77: the measurement refuses to run, and its result holds the key only
   });
 });
 
-test('test 194: the measurement through ollama, codex and copilot-cli', async () => {
+test('test 410: the measurement through ollama, codex and copilot-cli', async () => {
+  const runs = STABILITY_RUNS[process.platform as System];
   await inTemp(async (dir) => {
     await withFake(
       async (fake) => {
         const out = join(dir, 'ollama.json');
-        const result = await stability({ LAWCHECK_STABILITY_PROVIDER: 'ollama', LAWCHECK_REVIEWER_ENDPOINT: fake.base, LAWCHECK_STABILITY_MODEL: 'test-model', LAWCHECK_STABILITY_OUT: out });
+        const result = await stability({ LAWCHECK_STABILITY_PROVIDER: 'ollama', LAWCHECK_REVIEWER_ENDPOINT: fake.base, LAWCHECK_STABILITY_MODEL: 'test-model', LAWCHECK_STABILITY_OUT: out, LAWCHECK_STABILITY_RUNS: String(runs) });
         assert.equal(result.code, 0, result.stderr);
         const document = JSON.parse(readFileSync(out, 'utf8'));
         assert.equal(document.provider, 'ollama');
         assert.equal(document.model, 'test-model');
         assert.equal(document.temperature_sent, 0);
-        assert.deepEqual(document.label_match.all, { verdicts: 300, matching: 300, share: 1 });
-        assert.equal(fake.requests.length, 300);
+        assert.deepEqual(document.label_match.all, { verdicts: 30 * runs, matching: 30 * runs, share: 1 });
+        assert.equal(fake.requests.length, 30 * runs);
         assert.ok(fake.requests.every((request) => request.path === '/api/chat'));
         assert.ok(!readFileSync(out, 'utf8').includes('127.0.0.1'));
         const noModel = await stability({ LAWCHECK_STABILITY_PROVIDER: 'ollama', LAWCHECK_STABILITY_OUT: join(dir, 'none.json') });
@@ -179,7 +180,7 @@ test('test 194: the measurement through ollama, codex and copilot-cli', async ()
       const out = join(dir, `${provider}.json`);
       const bin = writeFakeProgram(join(dir, `bin-${name}`), name);
       const upper = name.toUpperCase();
-      const result = await stability({ PATH: pathWith(bin), [`FAKE_${upper}_RECORD`]: join(dir, `${name}.record.json`), LAWCHECK_STABILITY_PROVIDER: provider, LAWCHECK_STABILITY_OUT: out });
+      const result = await stability({ PATH: pathWith(bin), [`FAKE_${upper}_RECORD`]: join(dir, `${name}.record.json`), LAWCHECK_STABILITY_PROVIDER: provider, LAWCHECK_STABILITY_OUT: out, LAWCHECK_STABILITY_RUNS: String(runs) });
       assert.equal(result.code, 0, `${provider}: ${result.stderr}`);
       const document = JSON.parse(readFileSync(out, 'utf8'));
       assert.equal(document.provider, provider);

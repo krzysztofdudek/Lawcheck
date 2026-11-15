@@ -4,6 +4,8 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'n
 import { join } from 'node:path';
 import { counted, gitAlone, whyOf, writeFakeProgram } from './fake-reviewer.ts';
 import { alive, F, F_PATH, lawcheck, pathWith, PROMPT_F, run, SECOND, withR, write } from './helpers.ts';
+import { fakeWrites, platformSkip, waitUntil } from '../harness/tool.ts';
+import { HELD_OUTPUT_RUN_MS, PROGRAM_TIMEOUT_RUN_MS, SHARED_TIMEOUT_RUN_MS } from '../numbers.ts';
 
 const POLICY = '[[rule]]\ntoolName = "*"\ndecision = "deny"\npriority = 999\n';
 const AGAIN = 'then run the same command again; what was answered is kept, so it asks only the rest';
@@ -92,6 +94,7 @@ const UNREACHABLE = (message: string) => `src/core/refund.ts  error[reviewer-unr
 function fakeEnv(program: Program, dir: string, mode: string, extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
   const bin = writeFakeProgram(join(dir, 'bin'), program.name);
   const upper = program.name.toUpperCase();
+  fakeWrites(dir, ['record.json', 'asked.txt', 'listed.txt']);
   return {
     PATH: pathWith(bin),
     [`FAKE_${upper}_MODE`]: mode,
@@ -106,14 +109,6 @@ function record(dir: string) {
   return JSON.parse(readFileSync(join(dir, 'record.json'), 'utf8')) as { args: string[]; cwd: string; listing: string[]; stdin: string; pid: number; child?: number; policy: string | null; env: Record<string, string> };
 }
 
-async function waitFor(condition: () => boolean, ms: number): Promise<boolean> {
-  const until = Date.now() + ms;
-  while (Date.now() < until) {
-    if (condition()) return true;
-    await new Promise((done) => setTimeout(done, 50));
-  }
-  return condition();
-}
 
 function named(program: Program, what: string, body: () => Promise<void>): Promise<void> {
   return body().catch((error: Error) => {
@@ -126,8 +121,8 @@ function binaryOf(dir: string, program: Program): string {
   return join(dir, 'bin', program.name + (process.platform === 'win32' ? '.cmd' : ''));
 }
 
-for (const [number, program] of [[190, PROGRAMS[0]!], [191, PROGRAMS[1]!], [192, PROGRAMS[2]!]] as const) {
-  test(`test ${number}: ${program.provider}`, async () => {
+async function programCases(program: Program): Promise<void> {
+  {
     const upper = program.name.toUpperCase();
     const answerKey = `FAKE_${upper}_ANSWER`;
     const called = `lawcheck: 1 reviewer call to ${program.provider}\n`;
@@ -244,10 +239,10 @@ for (const [number, program] of [[190, PROGRAMS[0]!], [191, PROGRAMS[1]!], [192,
             const next = `raise reviewer.timeout in .lawcheck/config.yaml, or check that ${program.name} answers when started by hand, ${AGAIN}`;
             assert.equal(result.stdout, stopped(UNREACHABLE(`${program.name} gave no answer within 1 seconds`), 'reviewer-unreachable', next));
             assert.equal(result.code, 2);
-            assert.ok(result.ms < 5000, `${result.ms} ms, where the kill grace alone is 5 seconds`);
+            assert.ok(result.ms < PROGRAM_TIMEOUT_RUN_MS, `${result.ms} ms, where the kill grace alone is 5 seconds`);
             const seen = record(dir);
-            assert.ok(await waitFor(() => !alive(seen.pid) && !alive(seen.child!), 2000), 'the fake or its child is alive');
-            assert.ok(await waitFor(() => !existsSync(seen.cwd), 2000), seen.cwd);
+            assert.ok(await waitUntil(() => !alive(seen.pid) && !alive(seen.child!), 'LEFTOVER_GRACE_MS'), 'the fake or its child is alive');
+            assert.ok(await waitUntil(() => !existsSync(seen.cwd), 'LEFTOVER_GRACE_MS'), seen.cwd);
           }, configOf(program.provider, '  timeout: 1\n')),
       ],
       [
@@ -260,9 +255,8 @@ for (const [number, program] of [[190, PROGRAMS[0]!], [191, PROGRAMS[1]!], [192,
             try {
               assert.equal(result.stdout, SECOND);
               assert.equal(result.code, 1);
-              assert.ok(result.ms < 10_000, `${result.ms} ms`);
-              // Only Linux lists which processes hold a pipe (spec/reviewer-slice.md, section 6).
-              if (process.platform === 'linux') assert.ok(await waitFor(() => !alive(seen.child!), 2000), 'the child is alive');
+              assert.ok(result.ms < HELD_OUTPUT_RUN_MS, `${result.ms} ms`);
+              if (platformSkip('a child that left the group is ended') === null) assert.ok(await waitUntil(() => !alive(seen.child!), 'LEFTOVER_GRACE_MS'), 'the child is alive');
             } finally {
               if (alive(seen.child!)) process.kill(seen.child!, 'SIGKILL');
             }
@@ -278,8 +272,7 @@ for (const [number, program] of [[190, PROGRAMS[0]!], [191, PROGRAMS[1]!], [192,
             try {
               assert.equal(result.stdout, SECOND);
               assert.equal(result.code, 1);
-              // Only Linux lets the tool read another process's environment (spec/reviewer-slice.md, section 6).
-              if (process.platform === 'linux') assert.ok(!alive(seen.child!), 'the child is alive');
+              if (platformSkip('a child that left the group is ended') === null) assert.ok(!alive(seen.child!), 'the child is alive');
             } finally {
               if (alive(seen.child!)) process.kill(seen.child!, 'SIGKILL');
             }
@@ -363,7 +356,7 @@ for (const [number, program] of [[190, PROGRAMS[0]!], [191, PROGRAMS[1]!], [192,
             const next = `raise reviewer.timeout in .lawcheck/config.yaml, or check that ${program.name} answers when started by hand, ${AGAIN}`;
             assert.equal(result.stdout, stopped(UNREACHABLE(`${program.name} gave no answer within 2 seconds`), 'reviewer-unreachable', next));
             assert.equal(result.code, 2);
-            assert.ok(result.ms < 6000, `${result.ms} ms`);
+            assert.ok(result.ms < SHARED_TIMEOUT_RUN_MS, `${result.ms} ms`);
           }, configOf(program.provider, '  timeout: 2\n')),
       ]);
     }
@@ -381,10 +374,14 @@ for (const [number, program] of [[190, PROGRAMS[0]!], [191, PROGRAMS[1]!], [192,
       ]);
     }
     await Promise.all(cases.map(([what, body]) => named(program, what, body)));
-  });
+  }
 }
 
-test('test 193: a copilot inside the folder of the VS Code extension is passed over', async () => {
+test('test 406: codex', () => programCases(PROGRAMS[0]!));
+test('test 407: gemini-cli', () => programCases(PROGRAMS[1]!));
+test('test 408: copilot-cli', () => programCases(PROGRAMS[2]!));
+
+test('test 409: a copilot inside the folder of the VS Code extension is passed over', async () => {
   await withR(async (r, dir) => {
     write(r, F_PATH, F);
     const stub = join(dir, 'Code', 'User', 'globalStorage', 'github.copilot-chat', 'copilotCli');

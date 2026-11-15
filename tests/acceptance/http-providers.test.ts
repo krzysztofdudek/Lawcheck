@@ -1,12 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
-import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { anthropic, defaultAnswer, google, ollama, openai, startFake, whyOf, withFake, writeFakeProgram } from './fake-reviewer.ts';
 import type { Fake, Recorded, Reply } from './fake-reviewer.ts';
 import { F, F_PATH, lawcheck, pathWith, PROMPT_F, run, SECOND, withR, write } from './helpers.ts';
+import { fakeWrites, testFolder } from '../harness/tool.ts';
+import { HTTP_TIMEOUT_RUN_MS, RESEND_TIMEOUT_RUN_MS, RESEND_WAIT_MS } from '../numbers.ts';
 
 const UNREACHABLE = 'src/core/refund.ts  error[reviewer-unreachable]  ';
 const AGAIN = 'then run the same command again; what was answered is kept, so it asks only the rest';
@@ -74,7 +75,7 @@ function speaking(http: Http, answer: (request: Recorded) => Reply) {
   return (request: Recorded) => (request.path === http.path ? answer(request) : { status: 404, body: '' });
 }
 
-test('test 184: openai', async () => {
+test('test 400: openai', async () => {
   const http = HTTP[0]!;
   await withFake(async (fake) => {
     await withR(async (r) => {
@@ -105,7 +106,7 @@ test('test 184: openai', async () => {
   }, speaking(http, (request) => openai(defaultAnswer(request.prompt))));
 });
 
-test('test 185: google', async () => {
+test('test 401: google', async () => {
   const http = HTTP[1]!;
   await withFake(async (fake) => {
     await withR(async (r) => {
@@ -142,7 +143,7 @@ function googleSplit(request: Recorded): Reply {
   return google(answer.slice(0, cut), answer.slice(cut));
 }
 
-test('test 186: ollama', async () => {
+test('test 402: ollama', async () => {
   const http = HTTP[2]!;
   await withFake(async (fake) => {
     await withR(async (r) => {
@@ -244,7 +245,7 @@ const CASES: Case[] = [
       assert.equal(result.stdout, SECOND.replace('1 reviewer call', '2 reviewer calls'));
       assert.equal(result.code, 1);
       assert.equal(fake.requests.length, 2);
-      assert.ok(fake.requests[1]!.start - fake.requests[0]!.start >= 2000);
+      assert.ok(fake.requests[1]!.start - fake.requests[0]!.start >= RESEND_WAIT_MS);
     },
   },
   {
@@ -292,14 +293,14 @@ const CASES: Case[] = [
     extra: '  timeout: 1\n',
     expect: (result, fake, http) => {
       assert.equal(result.stdout, failedWith('the reviewer gave no answer within 1 seconds', `raise reviewer.timeout in .lawcheck/config.yaml, or check that the reviewer at ${baseOf(http, fake)} works`));
-      assert.ok(result.ms < 10_000, `${result.ms} ms`);
+      assert.ok(result.ms < HTTP_TIMEOUT_RUN_MS, `${result.ms} ms`);
       assert.equal(fake.requests.length, 1);
     },
   },
 ];
 
-test('test 187: what openai, google and ollama answer', async () => {
-  for (const http of HTTP) {
+for (const http of HTTP) {
+  test(`test 403: what ${http.provider} answers`, async () => {
     await Promise.all(
       CASES.map((one) =>
         withFake(
@@ -330,8 +331,8 @@ test('test 187: what openai, google and ollama answer', async () => {
       assert.equal(result.stdout, failedWith(`nothing answers at ${base}: the connection was refused (ECONNREFUSED)`, `start the reviewer at ${base}, or set LAWCHECK_REVIEWER_ENDPOINT to the address where it runs`), http.provider);
       assert.equal(result.code, 2);
     }, configOf(http.provider));
-  }
-});
+  });
+}
 
 function filesUnder(dir: string): string[] {
   const found: string[] = [];
@@ -369,7 +370,7 @@ function leftNothing(where: string, texts: string[], files: string[], secrets: s
   }
 }
 
-test('test 188: the key canary', async () => {
+test('test 404: the key canary', async () => {
   for (const keyed of KEYED) {
     const canary = `canary-${randomBytes(12).toString('hex')}`;
     const own = `own-${randomBytes(12).toString('hex')}`;
@@ -385,7 +386,8 @@ test('test 188: the key canary', async () => {
     await withFake(async (fake) => {
       await withR(async (r) => {
         write(r, F_PATH, F);
-        const tmp = mkdtempSync(join(tmpdir(), 'lawcheck-canary-'));
+        const folder = testFolder('lawcheck-canary-');
+        const tmp = folder.dir;
         try {
           const env: NodeJS.ProcessEnv = {
             LAWCHECK_REVIEWER_ENDPOINT: keyed.provider === 'ollama' ? fake.base : fake.url,
@@ -414,7 +416,7 @@ test('test 188: the key canary', async () => {
             }
           }
         } finally {
-          rmSync(tmp, { recursive: true, force: true });
+          folder.remove();
         }
       }, configOf(keyed.provider, '  parallel: 1\n'));
     }, replies);
@@ -422,10 +424,12 @@ test('test 188: the key canary', async () => {
   for (const [provider, name] of PROGRAM_PROVIDERS) {
     await withR(async (r, dir) => {
       write(r, F_PATH, F);
-      const tmp = mkdtempSync(join(tmpdir(), 'lawcheck-canary-'));
+      const folder = testFolder('lawcheck-canary-');
+      const tmp = folder.dir;
       try {
         const secrets = Object.fromEntries([...LAWCHECK_VARIABLES, ...Object.values(SIGN_IN).flat()].map((variable) => [variable, `canary-${randomBytes(12).toString('hex')}`]));
         const upper = name.toUpperCase();
+        fakeWrites(dir, ['record.json']);
         const env: NodeJS.ProcessEnv = { ...secrets, PATH: pathWith(writeFakeProgram(join(dir, 'bin'), name)), [`FAKE_${upper}_RECORD`]: join(dir, 'record.json'), TMPDIR: tmp, TMP: tmp, TEMP: tmp };
         const outputs: string[] = [];
         for (const args of [['check', '--review', '--base', 'main'], ['doctor', '--base', 'main', '--reviewer']]) {
@@ -440,13 +444,13 @@ test('test 188: the key canary', async () => {
         leftNothing(provider, [JSON.stringify(seen.env)], [], foreign);
         leftNothing(provider, outputs, [...filesUnder(r).filter((path) => !path.startsWith(join(r, '.git'))), ...filesUnder(tmp)], Object.values(secrets));
       } finally {
-        rmSync(tmp, { recursive: true, force: true });
+        folder.remove();
       }
     }, configOf(provider));
   }
 });
 
-test('test 189: a key under a provider name goes to that provider alone', async () => {
+test('test 405: a key under a provider name goes to that provider alone', async () => {
   const second = await startFake();
   try {
     for (const provider of ['openai', 'google']) {
@@ -476,6 +480,7 @@ test('test 189: a key under a provider name goes to that provider alone', async 
       write(r, F_PATH, F);
       const keys = { LAWCHECK_REVIEWER_KEY: 'k1', LAWCHECK_REVIEWER_ENDPOINT: 'http://127.0.0.1:1/v1', ANTHROPIC_API_KEY: 'k3', OPENAI_API_KEY: 'k2', GOOGLE_API_KEY: 'k4', GEMINI_API_KEY: 'k5', GH_TOKEN: 'k6' };
       const upper = name.toUpperCase();
+      fakeWrites(dir, ['record.json']);
       const result = await run(r, null, ['--review', '--base', 'main'], { ...keys, PATH: pathWith(writeFakeProgram(join(dir, 'bin'), name)), [`FAKE_${upper}_RECORD`]: join(dir, 'record.json') });
       assert.equal(result.stdout, SECOND, provider);
       const seen = JSON.parse(readFileSync(join(dir, 'record.json'), 'utf8')) as { env: Record<string, string> };
@@ -485,7 +490,7 @@ test('test 189: a key under a provider name goes to that provider alone', async 
   }
 });
 
-test('test 195: the timeout bounds a request and its resend', async () => {
+test('test 411: the timeout bounds a request and its resend', async () => {
   for (const [name, reply] of [['429', { status: 429, body: '{}', delayMs: 2500 }], ['a dropped connection', { close: true }]] as const) {
     await withFake(
       async (fake) => {
@@ -493,7 +498,7 @@ test('test 195: the timeout bounds a request and its resend', async () => {
           write(r, F_PATH, F);
           const result = await run(r, fake, ['--review', '--base', 'main']);
           assert.equal(result.code, 2, `${name}: ${result.stdout}`);
-          assert.ok(result.ms < 5000, `${name}: ${result.ms} ms for a timeout of 3 seconds`);
+          assert.ok(result.ms < RESEND_TIMEOUT_RUN_MS, `${name}: ${result.ms} ms for a timeout of 3 seconds`);
           if (name === '429') {
             assert.equal(result.stdout, failedWith('HTTP 429 Too Many Requests', "wait until the provider's rate limit allows another call"));
             assert.equal(fake.requests.length, 1);
@@ -514,7 +519,7 @@ test('test 195: the timeout bounds a request and its resend', async () => {
   }
 });
 
-test('test 196: doctor asks the Ollama server whether it is there, and names its address', async () => {
+test('test 412: doctor asks the Ollama server whether it is there, and names its address', async () => {
   await withFake(
     async (fake) => {
       await withR(async (r) => {
@@ -547,7 +552,7 @@ test('test 196: doctor asks the Ollama server whether it is there, and names its
   }, configOf('ollama'));
 });
 
-test('test 197: the next line of a reviewer that cannot be called names the fix', async () => {
+test('test 413: the next line of a reviewer that cannot be called names the fix', async () => {
   const review = 'then run lawcheck check --review --base main';
   const cases: [string, NodeJS.ProcessEnv, string, string][] = [
     ['anthropic', {}, 'anthropic cannot be called: anthropic needs a key in ANTHROPIC_API_KEY or LAWCHECK_REVIEWER_KEY', `set ANTHROPIC_API_KEY to your anthropic key, ${review}`],

@@ -35,6 +35,15 @@ export const HOOK_STOP_DEADLINE_MS = 150_000;
 export const HOOK_SIGTERM_AFTER_MS = 2_000;
 export const STOPPED_HOOK_ENDS_MS = 10_000;
 
+// spec/reviewer-slice.md, section 6: a call ends at reviewer.timeout without waiting for the kill grace or a second full timeout. Tests 406 to 408 run with a timeout of 1 second, the shared list and call with one of 2, test 411 with one of 3; a timeout of 1 second of an HTTP provider in test 403, and a program that ended while a child holds its output, ended 2 seconds later.
+export const PROGRAM_TIMEOUT_RUN_MS = 5_000;
+export const SHARED_TIMEOUT_RUN_MS = 6_000;
+export const RESEND_TIMEOUT_RUN_MS = 5_000;
+export const HTTP_TIMEOUT_RUN_MS = 10_000;
+export const HELD_OUTPUT_RUN_MS = 10_000;
+// spec/reviewer-slice.md, section 6: the resend after a 429 waits 2 seconds.
+export const RESEND_WAIT_MS = 2_000;
+
 // Rule 7 of section 16 of the test design: a time budget is at least 20 times the measured time.
 export const SLOW_MARGIN = 20;
 
@@ -121,6 +130,14 @@ export const SLOW_TESTS: Record<string, Slow> = {
   'tests/acceptance/try.test.ts > test 125: what stops a reviewer rule before the first call': { fixed: 0, measured: { win32: 6_932 } },
   // A run of the tool per case.
   'tests/acceptance/uses.test.ts > test 87: may_use values and reserved ids are law-invalid': { fixed: 0, measured: { win32: 8_493 } },
+  // A run of the tool per provider and per program, four runs each. Measured in the dev container; CI's times replace it.
+  'tests/acceptance/http-providers.test.ts > test 404: the key canary': { fixed: 0, measured: { linux: 4_124 } },
+  // A run of the tool per case, among them a timeout of 1 second and a list held 1.5 seconds. Measured in the dev container; CI's times replace it.
+  'tests/acceptance/program-providers.test.ts > test 406: codex': { fixed: 0, measured: { linux: 4_089 } },
+  // A 429 after 2.5 seconds, then a dropped connection after 2.5 seconds and a resend held to the 0.5 seconds left of a timeout of 3 (spec/reviewer-slice.md, test 411). Measured in the dev container; CI's times replace it.
+  'tests/acceptance/http-providers.test.ts > test 411: the timeout bounds a request and its resend': { fixed: 5_500, measured: { linux: 5_769 } },
+  // STABILITY_RUNS runs of 30 calls through the fake Ollama, the fake codex and the fake copilot, each call of a program a process. Measured in the dev container; CI's times replace it.
+  'tests/acceptance/stability.test.ts > test 410: the measurement through ollama, codex and copilot-cli': { fixed: 0, measured: { linux: 12_580 } },
   // Two leftovers, each looked for during LEFTOVER_GRACE_MS.
   // A run of the tool per case.
   "tests/security/output-sources.test.ts > I-out-1: a reviewer message cannot forge a line, in the run that asked and from the cache afterwards": { fixed: 0, measured: { win32: 4_545 } },
@@ -236,11 +253,12 @@ export const stronger: Record<string, 'higher' | 'lower' | 'fixed'> = {
   SLOW_MARGIN: 'lower',
   STABILITY_RUNS: 'higher',
   SLOWEST_SHOWN: 'higher',
-  REACH_SHARE: 'higher',
-  LIVE_TIMES: 'higher',
-  LIVE_SAME_SHARE: 'higher',
-  LIVE_FAIL_SHARE: 'higher',
-  LIVE_RUN_BUDGET_MS: 'lower',
+  PROGRAM_TIMEOUT_RUN_MS: 'lower',
+  SHARED_TIMEOUT_RUN_MS: 'lower',
+  RESEND_TIMEOUT_RUN_MS: 'lower',
+  HTTP_TIMEOUT_RUN_MS: 'lower',
+  HELD_OUTPUT_RUN_MS: 'lower',
+  RESEND_WAIT_MS: 'fixed',
 };
 
 export function budgetNamed(key: string): number {

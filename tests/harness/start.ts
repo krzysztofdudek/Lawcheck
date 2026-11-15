@@ -136,7 +136,7 @@ function contractWrites(start: Start, top: string): (string | RegExp)[] {
 }
 
 // spec/reviewer-slice.md, section 6: before its calls the tool writes one line to standard error with the number of calls and the provider; spec/questions.md, question 18, fixes its words.
-const CALLS_LINE = /^(lawcheck: \d+ reviewer calls? to (openai-compatible|anthropic|claude-code)\n)?$/;
+const CALLS_LINE = /^(lawcheck: \d+ reviewer calls? to (anthropic|openai|google|openai-compatible|ollama|claude-code|codex|gemini-cli|copilot-cli)\n)?$/;
 
 function contractStderr(start: Start): RegExp | null {
   if (start.kind !== 'cli') return null;
