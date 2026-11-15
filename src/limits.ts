@@ -88,6 +88,7 @@ export function readBounded(full: string | Buffer, path: string, headOnly = true
   const fd = openSync(full, OPEN);
   try {
     const stat = fstatSync(fd);
+    if (stat.isDirectory()) throw Object.assign(new Error('EISDIR: illegal operation on a directory, read'), { code: 'EISDIR' });
     if (!stat.isFile()) throw new NotRegular(path);
     const size = stat.size;
     let got = 0;
