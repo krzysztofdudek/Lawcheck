@@ -6,7 +6,7 @@ import { SECTION_ONLY_TESTS } from './ratchets.ts';
 const REPO = new URL('../../', import.meta.url);
 
 const table = (head: string, rows: string[]) => ['', `| ${head} |`, '|---|---|---|', ...rows, ''].join('\n');
-const code = (...lines: string[]) => [`import { test } from 'node:test';`, ...lines, ''].join('\n');
+const code = (...lines: string[]) => [`import { test, describe } from 'node:test';`, ...lines, ''].join('\n');
 
 const LEDGER = [
   '| id | severity | class | defect and reproduction | layer | package | Runes cause | test | generalised by | state |',
@@ -47,11 +47,11 @@ test('question 79: every row of every acceptance table has a test, every test a 
   assert.deepEqual(problemsOf(loadInputs(REPO, SECTION_ONLY_TESTS)), []);
 });
 
-test('question 79 control: a consistent small map has no problem', () => {
+test('question 79: control, a consistent small map has no problem', () => {
   assert.deepEqual(problemsOf(inputs()), []);
 });
 
-test('question 79 control: a row without a test, a test number without a row, and a number used twice are named', () => {
+test('question 79: control, a row without a test, a test number without a row, and a number used twice are named', () => {
   const noTest = problemsOf(inputs(withTests("test('test 1: a', () => {});", "test('I-out-1: i', () => {});")));
   assert.ok(noTest.includes('row 2 of spec/one-slice.md has no test'), noTest.join('\n'));
   const stray = problemsOf(inputs(withTests(...all, "test('test 9: nothing', () => {});")));
@@ -60,7 +60,7 @@ test('question 79 control: a row without a test, a test number without a row, an
   assert.ok(twice.includes('row 2 is used twice (again in spec/two-slice.md)'), twice.join('\n'));
 });
 
-test('question 79 control: a test that does not run covers nothing', () => {
+test('question 79: control, a test that does not run covers nothing', () => {
   const skipped = [
     "test.skip('test 2: skipped', () => {});",
     "test('test 2: skipped by option', { skip: true }, () => {});",
@@ -70,6 +70,10 @@ test('question 79 control: a test that does not run covers nothing', () => {
     "/* test('test 2: in a block comment', () => {}); */",
     "const s = \"test('test 2: in a string', () => {})\";",
     'const t = `test(\'test 2: in a template\', () => {})`;',
+    "describe.skip('group', () => { test('test 2: in a skipped group', () => {}); });",
+    "describe('group', { skip: true }, () => { test('test 2: in a group skipped by option', () => {}); });",
+    "describe('group', { todo: true }, () => { test('test 2: in a todo group', () => {}); });",
+    "const options = { skip: true }; test('test 2: options in a variable', options, () => {});",
   ];
   for (const line of skipped) {
     const problems = problemsOf(inputs({ ...withTests("test('test 1: a', () => {});", "test('I-out-1: i', () => {});", line), sectionOnly: 0 }));
@@ -79,7 +83,7 @@ test('question 79 control: a test that does not run covers nothing', () => {
   assert.deepEqual(live, []);
 });
 
-test('question 79 control: a test call the rail cannot read, and a test in a place the runner does not run, are named', () => {
+test('question 79: control, a test call the rail cannot read, and a test in a place the runner does not run, are named', () => {
   const unreadable: [string, string][] = [
     ["test({ name: 'test 2: x' }, () => {});", 'is not a literal string'],
     ["const name = 'test 2: x'; test(name, () => {});", 'is not a literal string'],
@@ -100,20 +104,32 @@ test('question 79 control: a test call the rail cannot read, and a test in a pla
   assert.deepEqual(scanTests('tests/unit/a.test.ts', code("import { describe, it } from 'node:test';", "describe('S1-1: group', () => { it('S1-1: inner', async (t) => { await t.test('S1-1: sub', () => {}); }); });")).tests.map((t) => t.name), ['S1-1: inner', 'S1-1: sub']);
 });
 
-test('question 79 control: a name leads with its source, and every source it cites exists', () => {
-  const junk = problemsOf(inputs(withTests(...all, "test('test 1 and test 9999: a', () => {});", "test('a hang, S1-1', () => {});", "test('S1-1: a hang and S9-9', () => {});", "test('test 1: and one-slice §9', () => {});", "test('test 1: and question 6', () => {});", "test('test 1: and I-out-2', () => {});")));
-  for (const part of ['test 9999', 'a hang, S1-1" does not lead with its source', 'finding S9-9', 'one-slice §9', 'question 6', 'invariant I-out-2']) assert.ok(junk.some((p) => p.includes(part)), `${part}\n${junk.join('\n')}`);
+test('question 79: control, a name leads with its source and a colon, and every source it cites exists', () => {
+  const junk = problemsOf(inputs(withTests(...all, "test('test 1: and test 9999 and one-slice §9', () => {});", "test('a hang, S1-1', () => {});", "test('S1-1: a hang and S9-9', () => {});", "test('test 1: and question 6', () => {});", "test('test 1: and I-out-2', () => {});", "test('test 9999: a stray row', () => {});")));
+  for (const part of ['a hang, S1-1" does not lead', 'finding S9-9', 'one-slice §9', 'question 6', 'invariant I-out-2', 'names test 9999, which is in no spec table']) assert.ok(junk.some((p) => p.includes(part)), `${part}\n${junk.join('\n')}`);
   const none = problemsOf(inputs(withTests(...all, "test('something that works', () => {});")));
   assert.ok(none.some((p) => p.includes('names no source')), none.join('\n'));
   const lone = problemsOf(inputs(withTests("test('test 1: a', () => {});", "test('tests 2: c', () => {});")));
   assert.ok(lone.some((p) => p.includes('invariant I-out-1 of spec/one-slice.md has no test')), lone.join('\n'));
+  for (const name of ['test 600 files are read in parallel', 'test 2 and a row', 'tests 1 and 2 are covered', 'S1-1 is a hang', 'I-out-1 holds', 'one-slice §1 says so', 'question 5 answers it']) {
+    const problems = problemsOf(inputs(withTests(...all, `test('${name}', () => {});`)));
+    assert.ok(problems.some((p) => p.includes(`"${name}" does not lead with its source`) || p.includes(`"${name}" names no source`)), `${name}\n${problems.join('\n')}`);
+  }
+  const noted = problemsOf(inputs({ ...withTests("test('test 1: a', () => {});", "test('I-out-1: i', () => {});", "test('test 600 files are read in parallel', () => {});"), sectionOnly: 0 }));
+  assert.ok(noted.includes('row 2 of spec/one-slice.md has no test'), noted.join('\n'));
 });
 
-test('question 79 control: the tables are read strictly, and code fences hide nothing and add nothing', () => {
+test('question 79: control, the tables are read strictly, and code fences hide nothing and add nothing', () => {
   const read = (text: string) => rowsOf({ path: 'spec/x.md', text });
   assert.ok(read(table('# | Do | See', ['| 1 | a | b |', '| 2a | c | d |'])).problems.some((p) => p.includes('"2a"')));
   assert.ok(read(table('# | Do | See', ['| 1 | a | b |', '| `2` | c | d |'])).problems.length > 0);
-  assert.ok(read(table('No | Do | See', ['| 1 | a | b |', '| 2 | c | d |'])).problems.some((p) => p.includes('looks like an acceptance table')));
+  assert.ok(read(table('Step | Do | See', ['| 1 | a | b |', '| 2 | c | d |'])).problems.some((p) => p.includes('looks like an acceptance table')));
+  for (const head of ['ID', 'No', 'Nr', 'Row', 'id']) {
+    assert.deepEqual(read(table(`${head} | Do | See`, ['| 7 | a | b |'])).rows.map((r) => r.number), [7], head);
+    assert.ok(read(table(`${head} | Do | See`, ['| 7 | a | b |', '| seven | c | d |'])).problems.length > 0, head);
+    assert.ok(read(table(`${head} | Do | See`, ['| seven | a | b |'])).problems.length > 0, head);
+  }
+  assert.ok(read(table('Step | Do | See', ['| 1 | a | b |', '| 2a | c | d |'])).problems.some((p) => p.includes('mixes numbers and other text')));
   assert.deepEqual(read(['```', '| # | Do | See |', '|---|---|---|', '| 7 | a | b |', '```'].join('\n')), { rows: [], problems: [] });
   const bad = invariantsOf({ path: 'spec/x.md', text: table('Id | Promise | Test', ['| I-frame-1 | p | f.ts |', '| I-Frame-2 | p | f.ts |', '| I-3 | p | f.ts |']) });
   assert.deepEqual(bad.invariants.map((i) => i.id), ['I-frame-1']);
@@ -124,7 +140,7 @@ test('question 79 control: the tables are read strictly, and code fences hide no
   assert.ok(fenced.some((p) => p.includes('one-slice §7')), fenced.join('\n'));
 });
 
-test('question 79 control: a row run by hand needs a spec row, a reason, an owner, and no test', () => {
+test('question 79: control, a row run by hand needs a spec row, a reason, an owner, and no test', () => {
   const ok = problemsOf(inputs({ manual: table('# | Why no test carries it | Who runs it', ['| 2 | by hand on the host | the reviewer |']), ...withTests("test('test 1: a', () => {});", "test('I-out-1: i', () => {});"), sectionOnly: 0 }));
   assert.deepEqual(ok, []);
   const stale = problemsOf(inputs({ manual: table('# | Why no test carries it | Who runs it', ['| 1 | by hand on the host | the reviewer |']) }));
@@ -135,12 +151,12 @@ test('question 79 control: a row run by hand needs a spec row, a reason, an owne
   assert.ok(bare.some((p) => p.includes('without a reason')) && bare.some((p) => p.includes('without an owner')), bare.join('\n'));
 });
 
-test('question 79 control: the count of tests that cite only a section may only fall', () => {
+test('question 79: control, the count of tests that cite only a section may only fall', () => {
   assert.ok(problemsOf(inputs({ sectionOnly: 1 })).some((p) => p.includes('the ratchet allows 1')));
   assert.ok(problemsOf(inputs({ sectionOnly: 3 })).some((p) => p.includes('lower SECTION_ONLY_TESTS')));
 });
 
-test('question 79 control: the ledger has unique well-formed ids and fixed sets, a closed row names a real test, and a question row points to its entry', () => {
+test('question 79: control, the ledger has unique well-formed ids and fixed sets, a closed row names a real test, and a question row points to its entry', () => {
   const run = (rows: string[], tests: { file: string; name: string }[] = []) => ledgerProblems([LEDGER.split('\n').slice(0, 2).join('\n'), ...rows].join('\n'), tests, new Set([5]));
   const row = (id: string, sev: string, layer: string, pkg: string, runes: string, test: string, state: string) => `| ${id} | ${sev} | c | a defect | ${layer} | ${pkg} | ${runes} | ${test} |  | ${state} |`;
   const good = row('S1-1', 'after the release', '2', 'D', 'no', '', 'open');
@@ -161,5 +177,5 @@ test('question 79 control: the ledger has unique well-formed ids and fixed sets,
 });
 
 test('question 79: the parsers read sources from names', () => {
-  assert.deepEqual(sourcesOf('tests 3, 4 and 5 and I-a-1, S2-3, check-slice §3.5, question 7'), { rows: [3, 4, 5], invariants: ['I-a-1'], findings: ['S2-3'], sections: [['check-slice', '3.5']], questions: [7] });
+  assert.deepEqual(sourcesOf('tests 3, 4 and 5: and I-a-1, S2-3, check-slice §3.5, question 7'), { rows: [3, 4, 5], invariants: ['I-a-1'], findings: ['S2-3'], sections: [['check-slice', '3.5']], questions: [7] });
 });

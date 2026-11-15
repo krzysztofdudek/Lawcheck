@@ -82,19 +82,25 @@ export function tablesOf(text: string): Table[] {
   return tables;
 }
 
+const NUMBER_HEADERS = new Set(['#', 'id', 'no', 'nr', 'row']);
+
 export function rowsOf(file: TextFile): { rows: Row[]; problems: string[] } {
   const rows: Row[] = [];
   const problems: string[] = [];
   for (const table of tablesOf(file.text)) {
     const head = rawFirstCell(table.header);
     const firsts = table.rows.map(rawFirstCell);
-    if (head === '#') {
-      table.rows.forEach((row, i) => {
+    const integers = firsts.filter((c) => /^\d+$/.test(c)).length;
+    if (NUMBER_HEADERS.has(head.toLowerCase())) {
+      table.rows.forEach((_, i) => {
         if (/^\d+$/.test(firsts[i]!)) rows.push({ number: Number(firsts[i]), spec: file.path });
-        else problems.push(`${file.path}: a row of the acceptance table at line ${table.start} starts with "${firsts[i]}", which is not a plain integer`);
+        else if (!/^I-[a-z]+-\d+$/.test(firsts[i]!)) problems.push(`${file.path}: a row of the table "${head}" at line ${table.start} starts with "${firsts[i]}", which is neither a plain integer nor an invariant id`);
       });
-    } else if (firsts.length >= 2 && firsts.every((c) => /^\d+$/.test(c))) {
+      if (integers > 0 && integers < firsts.length && firsts.some((c) => /^I-[a-z]+-\d+$/.test(c))) problems.push(`${file.path}: the table "${head}" at line ${table.start} mixes numbered rows and invariant ids`);
+    } else if (firsts.length >= 2 && integers === firsts.length) {
       problems.push(`${file.path}: the table at line ${table.start} looks like an acceptance table under the header "${head}"; its header starts with # or its first column holds no numbers`);
+    } else if (integers > 0 && integers < firsts.length) {
+      problems.push(`${file.path}: the first column of the table at line ${table.start} mixes numbers and other text`);
     }
   }
   return { rows, problems };
@@ -271,14 +277,20 @@ function blank(text: string): { code: string; literals: Map<number, Literal> } {
   return { code: code.join(''), literals };
 }
 
-const LEAD = '(?:tests? \\d+|I-[a-z]+-\\d+|S\\d+-\\d+|U-\\d+|R-\\d+|[a-z][a-z/-]* §[\\w.]+|question \\d+)';
+const LEAD = new RegExp(
+  '^(?:(tests? \\d+(?:(?:,\\s*|\\s+and\\s+|,\\s+and\\s+)\\d+)*)|(I-[a-z]+-\\d+)|(S\\d+-\\d+|U-\\d+|R-\\d+)|([a-z][a-z/-]* §[\\w.]+)|(question \\d+)):',
+);
 
 export function leadsWithSource(name: string): boolean {
-  return new RegExp(`^${LEAD}`).test(name);
+  return LEAD.test(name);
 }
 
 function lineOf(text: string, index: number): number {
   return text.slice(0, index).split('\n').length;
+}
+
+export function stringsOf(text: string): string[] {
+  return [...blank(text).literals.values()].map((l) => l.value);
 }
 
 export function scanTests(file: string, text: string): Scanned {
@@ -309,11 +321,18 @@ export function scanTests(file: string, text: string): Scanned {
   const body = hidden.join('');
 
   const call = /(?<![\w$.])(test|it|describe|suite)(?:\s*\.\s*(\w+))?\s*\(|(?<![\w$.])t\s*\.\s*test\s*\(/g;
+  const found: { index: number; end: number; name: string; skipped: boolean; describe: boolean }[] = [];
   for (let m = call.exec(body); m !== null; m = call.exec(body)) {
     const where = `${file}:${lineOf(text, m.index)}`;
     const callee = m[1] ?? 't.test';
     const member = m[2];
-    let j = m.index + m[0].length;
+    const open = m.index + m[0].length - 1;
+    let close = open;
+    for (let depth = 0; close < body.length; close++) {
+      if (body[close] === '(') depth++;
+      else if (body[close] === ')' && --depth === 0) break;
+    }
+    let j = open + 1;
     while (/\s/.test(text[j] ?? '')) j++;
     const literal = literals.get(j);
     if (callee === 'suite') {
@@ -328,17 +347,13 @@ export function scanTests(file: string, text: string): Scanned {
       result.problems.push(`${where}: ${callee}.only is not allowed`);
       continue;
     }
-    if (member === 'skip' || member === 'todo') {
-      result.skipped.push(`${file}: ${literal.value}`);
-      continue;
-    }
-    if (member !== undefined) {
+    if (member !== undefined && member !== 'skip' && member !== 'todo') {
       result.problems.push(`${where}: ${callee}.${member}() is not read`);
       continue;
     }
+    let skipped = member === 'skip' || member === 'todo';
     let k = literal.end;
     while (/\s/.test(body[k] ?? '')) k++;
-    let skipped = false;
     if (body[k] === ',') {
       let o = k + 1;
       while (/\s/.test(body[o] ?? '')) o++;
@@ -350,11 +365,19 @@ export function scanTests(file: string, text: string): Scanned {
           else if (body[e] === '}' && --depth === 0) break;
         }
         if (/\b(skip|todo|only)\b(?!\s*:\s*false\b)/.test(body.slice(o, e + 1))) skipped = true;
+      } else if (!/^(?:async\b|function\b|\(|[\w$]+\s*=>)/.test(body.slice(o, o + 40))) {
+        result.problems.push(`${where}: the second argument of this ${callee}() call is neither an options object nor a function written there, so the rail cannot see a skip`);
+        skipped = true;
       }
     }
-    if (callee === 'describe') continue;
-    if (skipped) result.skipped.push(`${file}: ${literal.value}`);
-    else result.tests.push({ file, name: literal.value });
+    found.push({ index: m.index, end: close, name: literal.value, skipped, describe: callee === 'describe' });
+  }
+  const hidden_ = found.filter((f) => f.describe && f.skipped);
+  for (const f of found) {
+    if (f.describe) continue;
+    const inside = hidden_.some((d) => f.index > d.index && f.index < d.end);
+    if (f.skipped || inside) result.skipped.push(`${file}: ${f.name}`);
+    else result.tests.push({ file, name: f.name });
   }
   const alias = /(?<![\w$.])=\s*(test|it|describe)\s*[;,\n)]/g;
   for (let m = alias.exec(body); m !== null; m = alias.exec(body)) result.problems.push(`${file}:${lineOf(text, m.index)}: ${m[1]} is assigned to another name, so calls through it cannot be read`);
@@ -403,7 +426,6 @@ export function loadInputs(repo: URL, sectionOnly: number): Inputs {
 }
 
 const SOURCE = {
-  rows: /\btests? (\d+(?:(?:,\s*|\s+and\s+|,\s+and\s+)\d+)*)/g,
   invariant: /\bI-[a-z]+-\d+\b/g,
   finding: /\b(?:S\d+-\d+|U-\d+|R-\d+)\b/g,
   section: /\b([a-z][a-z/-]*) §([\w.]+)/g,
@@ -411,8 +433,9 @@ const SOURCE = {
 };
 
 export function sourcesOf(name: string): { rows: number[]; invariants: string[]; findings: string[]; sections: [string, string][]; questions: number[] } {
+  const lead = /^tests? (\d+(?:(?:,\s*|\s+and\s+|,\s+and\s+)\d+)*):/.exec(name);
   return {
-    rows: [...name.matchAll(SOURCE.rows)].flatMap((m) => m[1]!.match(/\d+/g)!.map(Number)),
+    rows: lead === null ? [] : lead[1]!.match(/\d+/g)!.map(Number),
     invariants: name.match(SOURCE.invariant) ?? [],
     findings: name.match(SOURCE.finding) ?? [],
     sections: [...name.matchAll(SOURCE.section)].map((m) => [m[1]!, m[2]!]),
