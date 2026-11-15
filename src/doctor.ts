@@ -267,11 +267,11 @@ export async function runChecks(inputs: Inputs): Promise<Check[]> {
       }
       if (!inputs.reviewer) return set('reviewer', 'ok', `${rules}; ${config.provider} can be called${at} (lawcheck doctor --reviewer makes one call)`);
       const asked = await provider.ask(TEST_PROMPT);
-      if ('failure' in asked) return set('reviewer', 'fail', `${rules}; ${config.provider} did not answer a test call: ${asked.failure}`, next(`${asked.fix}, then run lawcheck doctor --reviewer`));
+      if ('failure' in asked) return set('reviewer', 'fail', `${rules}; ${config.provider} did not answer a test call: ${hide(asked.failure)}`, next(`${asked.fix}, then run lawcheck doctor --reviewer`));
       const checked = checkAnswer(asked.answer, 0);
       if ('problem' in checked || checked.verdict !== 'pass') {
         const what = 'problem' in checked ? 'answered with no verdict' : 'answered fail to a test call that asks for pass';
-        return set('reviewer', 'fail', `${rules}; ${config.provider} ${what}: ${[...asked.answer].slice(0, 200).join('')}`, next(`check reviewer.model in .lawcheck/config.yaml, or try another model, then run lawcheck doctor --reviewer`));
+        return set('reviewer', 'fail', `${rules}; ${config.provider} ${what}: ${[...hide(asked.answer)].slice(0, 200).join('')}`, next(`check reviewer.model in .lawcheck/config.yaml, or try another model, then run lawcheck doctor --reviewer`));
       }
       set('reviewer', 'ok', `${rules}; ${config.provider} answered a test call`);
     },

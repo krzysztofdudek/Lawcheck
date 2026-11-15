@@ -19,7 +19,7 @@ function errorMessage(text: string): string | null {
   try {
     const body = JSON.parse(text) as { error?: { message?: unknown } | string };
     const message = typeof body?.error === 'string' ? body.error : body?.error?.message;
-    return typeof message === 'string' && message.trim() !== '' ? firstLine(message, 200) : null;
+    return typeof message === 'string' && message.trim() !== '' ? firstLine(hide(message), 200) : null;
   } catch {
     return null;
   }

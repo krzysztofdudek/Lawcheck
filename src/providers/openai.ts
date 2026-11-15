@@ -9,6 +9,7 @@ export function openai(config: ReviewerConfig, env: Env): Provider {
   const owned = ownKey(env, 'openai', OWN_ENDPOINT, 'OPENAI_API_KEY');
   const { problem, keyed } = owned;
   return {
+    keys: owned.key === null ? [] : [owned.key],
     ready: () => problem,
     fix: () => owned.fix,
     async ask(prompt, seconds) {

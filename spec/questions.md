@@ -484,7 +484,7 @@ Choice, after a review: the configuration is read, and each server it names is s
 
 Finding S3-2 asks that a key an endpoint echoes in its error message appear in no output. Section 6 prints the first line of the endpoint's `error.message` as it came, and the design's providers chapter keeps a provider's error text as it came, with no redaction.
 
-Open: whether Lawcheck replaces its own key in what it prints, which S3-2 asks for. Test 404, the key canary, checks what Lawcheck itself does with a key: no output, file, temporary file or request other than its own header holds it. It gives the fake no reply that echoes the key.
+Answered by the owner's ruling `klucz-zastapiony`, entry 110. With all nine providers the keys replaced are the ones each provider sends or hands on: the key of `anthropic`, `openai`, `google` and `openai-compatible` as entry 110 reads it, and of a program the values of its own sign-in variables, which section 6 of `spec/reviewer-slice.md` lists; `OPENAI_API_KEY` and `GOOGLE_API_KEY` join `LAWCHECK_REVIEWER_KEY` and `ANTHROPIC_API_KEY` among the variables whose values are replaced in all output. Test 404 checks what Lawcheck itself does with a key, and the tests of `I-secret-1` check the replacement.
 
 ## 103. `openai` and a model that takes only its own temperature
 
@@ -523,3 +523,25 @@ The fixes of a review set three numbers: 4 MiB for a reviewer's reply or output,
 The primer gives the agent the loop and says that the law and the reviewer are the user's to set. Five `next:` lines told the agent to do it: four `set reviewer.provider and reviewer.model in .lawcheck/config.yaml, then run <review>`, under `check`, `try` and `doctor`, and `rule-missing-file`'s `write the rule files the law names, or take their rules out of the law, then run lawcheck check`.
 
 Choice, after the design's review of the tool in use: each starts `ask the user to`, as section 8 of `spec/reviewer-slice.md` and test 63 now give it; `rule-missing-file` reads `ask the user to write the rule files the law names or to take their rules out of the law, then run lawcheck check`.
+
+## 110. A key that the endpoint echoes
+
+Finding S3-2 asks that a key an endpoint echoes in its error message appear in no output. Section 6 prints the first line of the endpoint's `error.message` as it came, and the design's providers chapter keeps a provider's error text as it came, with no redaction.
+
+The question: whether Lawcheck replaces its own key in what it prints, which S3-2 asks for.
+
+The owner's ruling of 2026-11-15, `klucz-zastapiony`: option A. The label is the one of the choice put to him, not his wording. Lawcheck replaces the one exact key it sent with `[key]` wherever it prints or writes it, and masks nothing else.
+
+The build's reading of the ruling, not the owner's. `claude-code` sends no key of its own and hands the program every variable, so the keys it hands on are the values of `LAWCHECK_REVIEWER_KEY` and `ANTHROPIC_API_KEY`, and those are replaced in what the program prints. "The exact key" is read as the key in any spelling JSON allows, each character as itself, as a `\u` escape or as its short escape, since an answer is JSON and a model or a proxy may write it so. The replacement is made after the answer is read, before any cut to a length, and in the strings of a JSON document but not in the names of its keys. "Wherever it prints or writes it" is read as the text that comes from outside Lawcheck, in all output and the failure cache: a rule's message, a file name, an argument, a config value; never Lawcheck's own words, codes, schema names, ids, line numbers or JSON key names, which a short key would otherwise garble. The keys are the values of `LAWCHECK_REVIEWER_KEY` and `ANTHROPIC_API_KEY`, whichever provider is in force. A key shorter than 8 characters is not replaced: a dummy key for a local endpoint is no secret, and replacing it would garble paths and messages that hold it. A prefix of the key, the key in another case, a percent-encoded copy and any other key-shaped value are printed as they came. `reviewer-slice.md`, section 6, says so, and the tests of invariant `I-secret-1` check both sides.
+
+## 120. A path in another case on a file system that ignores case
+
+On macOS and Windows, `lawcheck explain SRC/core/price.ts` opens `src/core/price.ts`, while git lists the file only as `src/core/price.ts`. The tool typed the spelling it was given, found no type and answered `none`, which is false for the file `check` judges. A decision of the build, not of the owner. It follows the test design, layer 5: `explain SRC/core/price.ts` on a file system that ignores case.
+
+Choice: when git does not list the path, the path exists, and it is the same file as exactly one path git lists that is equal to it but for case, `explain` answers for that path, under the name git lists. Elsewhere nothing changes: on Linux `SRC/core/price.ts` is a file that does not exist yet. `commands-slice.md`, section 6, says so, and test 202 of `spec/environments.md` holds it.
+
+## 121. A rule that imports a package hoisted above the root
+
+In a monorepo with the law in one package, the dependencies usually sit in a `node_modules` above the root, which the runner does not let a rule read, and the rule ended with Node's sentence about a flag the user cannot pass (stress finding S2-2). The finding left two ways open: let the runner read the `node_modules` folders above the root, or refuse in words that name the real limit. A decision of the build.
+
+Choice: refuse, and say so. The runner keeps its promise that a rule reads nothing outside the root and Lawcheck's folder (`check-slice.md`, section 3), the message names what the rule read and where, and the script rules page says what a rule can import. Letting the runner read the folders above the root would widen what every rule can read, which is the owner's to decide; it stays open for him.

@@ -234,7 +234,8 @@ process.stdin.on('end', () => {
     else process.stderr.write('starting\\nNot logged in\\n');
     process.exit(1);
   }
-  const keys = [process.env.LAWCHECK_REVIEWER_KEY, process.env.ANTHROPIC_API_KEY].join(' and ');
+  // A program gets its own sign-in variables and never LAWCHECK_REVIEWER_KEY (spec/reviewer-slice.md, decision 25), so the fake echoes two of claude's.
+  const keys = [process.env.ANTHROPIC_AUTH_TOKEN, process.env.ANTHROPIC_API_KEY].join(' and ');
   if (mode === 'echo-error') {
     process.stdout.write(JSON.stringify({ type: 'result', is_error: true, result: 'Invalid API key: ' + keys }));
     process.exit(1);

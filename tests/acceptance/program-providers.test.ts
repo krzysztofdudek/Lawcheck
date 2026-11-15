@@ -286,11 +286,12 @@ async function programCases(program: Program): Promise<void> {
           withR(async (r, dir) => {
             write(r, F_PATH, F);
             const missing = join(dir, 'missing');
-            const result = await run(r, null, ['--review', '--base', 'main'], fakeEnv(program, dir, 'answer', { TMPDIR: missing, TMP: missing, TEMP: missing }));
+            // try reads no change of git, which check copies an index for in the temporary directory before any review.
+            const result = await lawcheck(r, ['try', 'clear-errors', F_PATH], fakeEnv(program, dir, 'answer', { TMPDIR: missing, TMP: missing, TEMP: missing }));
             const message = `a folder for ${program.name} cannot be made in ${missing} (ENOENT)`;
             const first = program.lists ? `${program.name} could not list its MCP servers: ${message}` : message;
             const fix = 'set TMPDIR (TEMP on Windows) to a folder that exists and can be written';
-            assert.equal(result.stdout, stopped(UNREACHABLE(first), 'reviewer-unreachable', `${fix}, ${AGAIN}`));
+            assert.equal(result.stdout, stopped(UNREACHABLE(first), 'reviewer-unreachable', `${fix}, then run the same command again; try keeps no answer, so it makes every call again`));
             assert.equal(result.code, 2);
           }, configOf(program.provider)),
       ],

@@ -52,7 +52,7 @@ test('test 57: what the HTTP reviewer answers', async () => {
         assert.equal(result.code, 2);
         const line = errorLine(result.stdout, UNREACHABLE);
         assert.ok(line?.includes('401') && line.includes('bad key'), result.stdout);
-        assert.ok(result.stdout.includes('\nnext: check the reviewer key in the environment, then run the same command again'), result.stdout);
+        assert.ok(result.stdout.includes('\nnext: check the key in LAWCHECK_REVIEWER_KEY, then run the same command again'), result.stdout);
         assert.equal(fake.requests.length, 1);
       });
     },

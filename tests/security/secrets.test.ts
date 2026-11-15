@@ -165,7 +165,7 @@ for (const mode of ['echo-error', 'echo-stderr', 'echo-answer']) {
       mkdirSync(temp);
       write(r, '.lawcheck/config.yaml', 'reviewer:\n  provider: claude-code\n');
       write(r, F_PATH, F);
-      const env = { PATH: pathWith(writeFakeClaude(join(dir, 'bin'))), FAKE_CLAUDE_MODE: mode, LAWCHECK_REVIEWER_KEY: KEY, ANTHROPIC_API_KEY: OTHER_KEY, TMPDIR: temp, TEMP: temp, TMP: temp };
+      const env = { PATH: pathWith(writeFakeClaude(join(dir, 'bin'))), FAKE_CLAUDE_MODE: mode, ANTHROPIC_AUTH_TOKEN: KEY, ANTHROPIC_API_KEY: OTHER_KEY, TMPDIR: temp, TEMP: temp, TMP: temp };
       const runs: Run[] = [];
       for (const args of COMMANDS) runs.push(await lawcheck(r, args, env));
       for (const secret of [KEY, OTHER_KEY]) {

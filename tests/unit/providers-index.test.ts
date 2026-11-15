@@ -32,10 +32,11 @@ test('the provider is chosen by name, and none without one', () => {
 test('a key under a provider name goes only to its own address', () => {
   const own = 'https://own.example/v1';
   const keyed = (env: Record<string, string>) => ownKey(env, 'p', own, 'OWN_KEY');
-  assert.deepEqual(keyed({ OWN_KEY: 'a', LAWCHECK_REVIEWER_KEY: 'l' }), { problem: null, fix: 'set OWN_KEY to the key alone, with no space or line break', keyName: 'OWN_KEY', base: own, keyed: { url: own, key: 'a' } });
+  assert.deepEqual(keyed({ OWN_KEY: 'a', LAWCHECK_REVIEWER_KEY: 'l' }), { key: 'a', problem: null, fix: 'set OWN_KEY to the key alone, with no space or line break', keyName: 'OWN_KEY', base: own, keyed: { url: own, key: 'a' } });
   assert.deepEqual(keyed({ LAWCHECK_REVIEWER_KEY: 'l' }).keyed, { url: own, key: 'l' });
-  assert.deepEqual(keyed({}), { problem: 'p needs a key in OWN_KEY or LAWCHECK_REVIEWER_KEY', fix: 'set OWN_KEY to your p key', keyName: 'LAWCHECK_REVIEWER_KEY', base: own, keyed: null });
+  assert.deepEqual(keyed({}), { key: null, problem: 'p needs a key in OWN_KEY or LAWCHECK_REVIEWER_KEY', fix: 'set OWN_KEY to your p key', keyName: 'LAWCHECK_REVIEWER_KEY', base: own, keyed: null });
   assert.deepEqual(keyed({ LAWCHECK_REVIEWER_ENDPOINT: 'http://h/v1/', OWN_KEY: 'a' }), {
+    key: null,
     problem: 'with LAWCHECK_REVIEWER_ENDPOINT set, p sends LAWCHECK_REVIEWER_KEY alone, and it is not set',
     fix: 'set LAWCHECK_REVIEWER_KEY to the key for http://h/v1, or unset LAWCHECK_REVIEWER_ENDPOINT to call https://own.example/v1 with OWN_KEY',
     keyName: 'LAWCHECK_REVIEWER_KEY',

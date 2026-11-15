@@ -96,7 +96,7 @@ const CORE: Scenario[] = [
       errors(
         ".lawcheck/law.yaml:6  error[rule-missing-file]  the rule 'no-todo' has neither .lawcheck/rules/no-todo.mjs nor .lawcheck/rules/no-todo.md",
         'a rule without its file would never be checked',
-        'write the rule files the law names, or take their rules out of the law, then run lawcheck check',
+        'ask the user to write the rule files the law names or to take their rules out of the law, then run lawcheck check',
       ),
     ),
   },

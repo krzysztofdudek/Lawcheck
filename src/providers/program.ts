@@ -7,7 +7,9 @@ import { join } from 'node:path';
 import { killGroup, releaseFolder, releaseGroup, watchFolder, watchGroup } from '../rules.js';
 import { findProgram, startProgram } from '../programs.js';
 import { MAX_REPLY_BYTES } from './http.js';
+import { variable } from './index.js';
 import type { Asked, Env, Provider } from './index.js';
+import { hide } from '../keys.js';
 
 const KILL_AFTER_MS = 5000;
 const CLOSE_GRACE_MS = 2000;
@@ -53,7 +55,7 @@ export function failure(name: string, ended: Ended, first: string | null = null)
     lastLine(ended.stderr) ??
     lastLine(ended.stdout) ??
     (ended.signal === null ? `${name} exited with ${ended.code}` : `${name} was ended by ${ended.signal}`);
-  return { failure: reason.slice(0, FAILURE_LENGTH), resend: false, fix: `do what ${name} says, such as signing in or naming a model it has` };
+  return { failure: [...hide(reason)].slice(0, FAILURE_LENGTH).join(''), resend: false, fix: `do what ${name} says, such as signing in or naming a model it has` };
 }
 
 export function plainOutput(name: string): (ended: Ended) => Asked {
@@ -78,6 +80,7 @@ export function programProvider(program: Program, env: Env, timeoutSeconds: numb
   let binary: string | null = null;
   let prepared: Promise<Prepared> | null = null;
   return {
+    keys: ['LAWCHECK_REVIEWER_KEY', ...(SIGN_IN_VARIABLES[program.name] ?? [])].map((name) => variable(env, name)).filter((key): key is string => key !== null),
     ready() {
       binary = find(env);
       return binary === null ? missing : null;

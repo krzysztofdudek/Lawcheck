@@ -10,6 +10,7 @@ export function ollama(config: ReviewerConfig, env: Env): Provider {
   const endpoint = endpointOf(env);
   const base = endpoint !== null && 'url' in endpoint ? endpoint.url : OWN_ENDPOINT;
   return {
+    keys: [],
     ready() {
       return endpoint !== null && 'problem' in endpoint ? endpoint.problem : null;
     },

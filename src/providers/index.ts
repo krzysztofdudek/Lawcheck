@@ -67,6 +67,7 @@ export interface Keyed {
 }
 
 export interface Owned {
+  key: string | null;
   problem: string | null;
   fix: string;
   keyName: string;
@@ -78,12 +79,13 @@ export function ownKey(env: Env, provider: string, ownUrl: string, ownVariable: 
   const endpoint = endpointOf(env);
   const base = endpoint !== null && 'url' in endpoint ? endpoint.url : ownUrl;
   const keyName = endpoint === null && variable(env, ownVariable) !== null ? ownVariable : 'LAWCHECK_REVIEWER_KEY';
-  if (endpoint !== null && 'problem' in endpoint) return { problem: endpoint.problem, fix: ENDPOINT_FIX, keyName, base, keyed: null };
+  if (endpoint !== null && 'problem' in endpoint) return { key: variable(env, keyName), problem: endpoint.problem, fix: ENDPOINT_FIX, keyName, base, keyed: null };
   const key = variable(env, keyName);
   if (key === null) {
     return endpoint === null
-      ? { problem: `${provider} needs a key in ${ownVariable} or LAWCHECK_REVIEWER_KEY`, fix: `set ${ownVariable} to your ${provider} key`, keyName, base, keyed: null }
+      ? { key: null, problem: `${provider} needs a key in ${ownVariable} or LAWCHECK_REVIEWER_KEY`, fix: `set ${ownVariable} to your ${provider} key`, keyName, base, keyed: null }
       : {
+          key: null,
           problem: `with LAWCHECK_REVIEWER_ENDPOINT set, ${provider} sends LAWCHECK_REVIEWER_KEY alone, and it is not set`,
           fix: `set LAWCHECK_REVIEWER_KEY to the key for ${base}, or unset LAWCHECK_REVIEWER_ENDPOINT to call ${ownUrl} with ${ownVariable}`,
           keyName,
@@ -92,10 +94,12 @@ export function ownKey(env: Env, provider: string, ownUrl: string, ownVariable: 
         };
   }
   const problem = headerProblem(keyName, key);
-  return { problem, fix: keyFix(keyName), keyName, base, keyed: problem === null ? { url: base, key } : null };
+  return { key, problem, fix: keyFix(keyName), keyName, base, keyed: problem === null ? { url: base, key } : null };
 }
 
-export function createProvider(config: ReviewerConfig, env: Env): Provider | null {
+export { hidden, KEY_SHOWN } from '../keys.js';
+
+function created(config: ReviewerConfig, env: Env): Provider | null {
   switch (config.provider) {
     case 'openai-compatible':
       return openaiCompatible(config, env);

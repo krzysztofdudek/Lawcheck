@@ -44,6 +44,13 @@
     "tests/acceptance/doctor.test.ts",
     "tests/acceptance/http-providers.test.ts",
     "tests/acceptance/program-providers.test.ts",
+    "tests/environments/ci-shapes.test.ts",
+    "tests/environments/git-faults.test.ts",
+    "tests/environments/refusal.test.ts",
+    "tests/unit/doctor.test.ts"
+  ],
+  "src/environment.ts": [
+    "tests/environments/refusal.test.ts",
     "tests/unit/doctor.test.ts"
   ],
   "src/explain.ts": [

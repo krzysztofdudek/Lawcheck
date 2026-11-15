@@ -125,7 +125,7 @@ export async function call<A extends Ask>(asks: A[], provider: Provider, writer:
       const asked = await request(ask.prompt);
       if ('failure' in asked) {
         stopped = true;
-        failed.push({ ask, code: 'reviewer-unreachable', message: `${ask.rule}: ${asked.failure}`, fix: asked.fix });
+        failed.push({ ask, code: 'reviewer-unreachable', message: `${ask.rule}: ${hide(asked.failure)}`, fix: asked.fix });
         return;
       }
       const checked = checkAnswer(asked.answer, ask.lineCount);

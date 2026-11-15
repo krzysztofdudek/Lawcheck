@@ -30,11 +30,11 @@ function provider(answers: (prompt: string, n: number) => Answer | Promise<Answe
 }
 
 test('the checks before the first call', () => {
-  const ready = { ready: () => null, fix: () => 'set X', ask: async () => ({ answer: '' }) };
+  const ready = { keys: [], ready: () => null, fix: () => 'set X', ask: async () => ({ answer: '' }) };
   const config = { ...DEFAULT_CONFIG, provider: 'openai-compatible' as const };
   assert.deepEqual(preflight(ready, config, 3, 3, 'lawcheck check --review'), []);
   assert.deepEqual(preflight(null, DEFAULT_CONFIG, 1, 2, 'lawcheck check --review').map((e) => e.code), ['reviewer-not-configured', 'too-many-reviews']);
-  const notReady = { ready: () => 'no address', fix: () => 'set LAWCHECK_REVIEWER_ENDPOINT', ask: async () => ({ answer: '' }) };
+  const notReady = { keys: [], ready: () => 'no address', fix: () => 'set LAWCHECK_REVIEWER_ENDPOINT', ask: async () => ({ answer: '' }) };
   const errors = preflight(notReady, config, 5, 1, 'lawcheck check --review --base main');
   assert.deepEqual(errors.map((e) => [e.code, e.file, e.line]), [['reviewer-unreachable', null, null]]);
   assert.equal(errors[0]!.message, 'openai-compatible cannot be called: no address');
