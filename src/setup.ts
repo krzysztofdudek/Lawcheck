@@ -1,5 +1,5 @@
 import { readFileSync, realpathSync, statSync } from 'node:fs';
-import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { changedPaths, defaultBase, GitFailed, hasHead, listedPaths, listFiles, mergeBase, NoGit, resolveCommit, workTreeProblem } from './files.js';
 import { CONFIG, readConfig } from './config.js';
 import type { ReviewerConfig } from './config.js';
@@ -76,8 +76,12 @@ export function nearPart(word: string, known: string[]): string {
   return near === null ? '' : ` (did you mean '${near}'?)`;
 }
 
+export function repoPath(root: string, path: string): string {
+  return relative(root, path).split(sep).join('/');
+}
+
 export function fromCwd(root: string, cwd: string, word: string): string {
-  const path = relative(root, resolve(realpathSync(resolve(cwd)), word));
+  const path = repoPath(root, resolve(realpathSync(resolve(cwd)), word));
   if (path === '..' || path.startsWith('../') || isAbsolute(path)) throw usage(`the path '${word}' lies outside the root of the law`);
   return path === '' ? '.' : path;
 }

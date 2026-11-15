@@ -1,5 +1,5 @@
 import { realpathSync, statSync } from 'node:fs';
-import { join, relative, resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import { documentOf, errorResult, number, usageError } from './args.js';
 import type { Arguments, Result } from './args.js';
 import type { CheckContext } from './check.js';
@@ -14,7 +14,7 @@ import { call, NO_RECORD, preflight, remaining } from './review.js';
 import type { Ask } from './review.js';
 import { runRule } from './rules.js';
 import type { RuleFile } from './rules.js';
-import { fromCwd, loadConfig, loadLaw, loadRuleFiles, locate, nearPart, requireGit, RULES_DIR, stopped, Stop, typeAll, usage } from './setup.js';
+import { fromCwd, loadConfig, loadLaw, loadRuleFiles, locate, nearPart, repoPath, requireGit, RULES_DIR, stopped, Stop, typeAll, usage } from './setup.js';
 import type { Read } from './setup.js';
 import { decode, filesOfTypes, isBinary, splitLines } from './types.js';
 import { parseWaivers, waive } from './waivers.js';
@@ -43,7 +43,7 @@ function isDirectory(path: string): boolean {
 
 export function selectTargets(root: string, cwd: string, targets: string[], files: string[], binary: (path: string) => boolean, lenient = false): string[] {
   const chosen = new Set<string>();
-  const here = relative(root, realpathSync(resolve(cwd)));
+  const here = repoPath(root, realpathSync(resolve(cwd)));
   class None extends Error {}
   const none = (word: string, why: string) => (lenient ? new None() : usage(`the target '${word}' selects no file: ${why}`));
   for (const word of targets) {
