@@ -171,12 +171,10 @@ function escaped(c: string): string {
   return NAMED[c] ?? (code < 0x80 ? `\\x${code.toString(16).padStart(2, '0')}` : units(c));
 }
 
-// Text that comes from outside Lawcheck: the key written as [key], then the escapes, so it stays on its line.
 export function shown(text: string): string {
   return hide(text).replace(/\n/g, escaped).replace(FORBIDDEN, escaped);
 }
 
-// A line Lawcheck composed around outside parts that were already shown: the escapes alone.
 export function plain(text: string): string {
   return text.replace(/\n/g, escaped).replace(FORBIDDEN, escaped);
 }
