@@ -47,7 +47,7 @@ test('test 76: the measurement against the fake', async () => {
         assert.equal(document.schema, 'lawcheck-stability/1');
         assert.match(document.date, /^\d{4}-\d{2}-\d{2}$/);
         assert.equal(document.lawcheck, '0.1.0-alpha.1');
-        assert.equal(document.verdict_format, 'lawcheck-verdict/1');
+        assert.equal(document.verdict_format, 'lawcheck-verdict/2');
         assert.equal(document.provider, 'openai-compatible');
         assert.equal(document.model, 'test-model');
         assert.equal(document.temperature_sent, 0);

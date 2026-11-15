@@ -175,10 +175,10 @@ export const F_PRIME = F.replace(
   "  if (!paid) throw new Error('The order is not paid yet; take the payment before a refund.');",
 );
 
-export const KEY_F = '028d0c1eb1d0c7e8d19fe76964e47afd';
-export const KEY_F_PRIME = '9c52387cbdad9b20880e131cef5a750f';
-export const KEY_PRICE = '60f0a1a7ad3b74bcd40957cc8de73d1b';
-export const KEY_TAX = '81170bb8a9c478c33ae0edfdd56cad64';
+export const KEY_F = 'bec7eb69fcc74507cad562d7d51f13eb';
+export const KEY_F_PRIME = '416ae89429881606bc1ead8e5e1f0e8b';
+export const KEY_PRICE = '04359891722bcd49bac46a26fbb25f2a';
+export const KEY_TAX = '3a171a910b49c962ed47f9b9795cfc97';
 
 export const REVIEWER_LAW = readFileSync(join(REVIEWER_SAMPLE, '.lawcheck/law.yaml'), 'utf8');
 export const REVIEWER_CONFIG = readFileSync(join(REVIEWER_SAMPLE, '.lawcheck/config.yaml'), 'utf8');

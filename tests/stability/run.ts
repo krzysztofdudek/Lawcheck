@@ -178,7 +178,7 @@ const result = {
   schema: 'lawcheck-stability/1',
   date: new Date().toISOString().slice(0, 10),
   lawcheck: manifest.version,
-  verdict_format: 'lawcheck-verdict/1',
+  verdict_format: 'lawcheck-verdict/2',
   provider,
   model,
   temperature_sent: provider === 'claude-code' ? null : 0,

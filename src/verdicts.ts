@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { checkFindings } from './prompt.js';
 import type { AnswerFinding } from './prompt.js';
 
-export const VERDICT_FORMAT = 'lawcheck-verdict/1';
+export const VERDICT_FORMAT = 'lawcheck-verdict/2';
 export const VERDICTS = '.lawcheck/verdicts';
 export const ATTRIBUTES = '.lawcheck/.gitattributes';
 export const LOCAL = '.lawcheck/.local';

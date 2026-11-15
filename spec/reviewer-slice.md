@@ -137,11 +137,11 @@ One prompt, built from these parts joined by one empty line (`\n\n`), with nothi
 1. the frame below, exactly;
 2. `<why>`, a line end, the rule's `why`, a line end, `</why>`;
 3. `<rule>`, a line end, the text of the rule file with `\r\n` read as `\n` and whitespace trimmed at both ends, a line end, `</rule>`;
-4. for each context file, in the order of `context`: `<context path=` and the path as `JSON.stringify` writes it, `>`, then the file's numbered lines, then `</context>`, each on its own line;
+4. for each context file, in the order of `context`: `<context path=` and the path as `JSON.stringify` writes it, with U+0085, U+2028 and U+2029 also written as `\u0085`, `\u2028` and `\u2029`, `>`, then the file's numbered lines, then `</context>`, each on its own line;
 5. the same for the judged file, as `<file path=...>` and `</file>`;
 6. `<waived>`, a line end, the lines a valid waiver of this rule covers in the judged file (slice one's section 5), ascending, each line once, joined by `, `, or `none`, a line end, `</waived>`.
 
-A numbered line is the line's number, `|`, and, when the line is not empty, one space and the line's text. Lines are the `lines` of slice one's section 3. An empty file gives no numbered line. Every line of a file starts with its number, so no text in a file can close a block, and the tool escapes nothing.
+A numbered line is the line's number, `|`, and, when the line is not empty, one space and the line's text. Lines are the `lines` of slice one's section 3. An empty file gives no numbered line. A line can hold characters that a reader takes for a line end though `lines` does not split there. In the line's text the tool writes each of them as an escape: a carriage return as `\r`, a vertical tab as `\v`, a form feed as `\f`, and U+001C, U+001D, U+001E, U+0085, U+2028 and U+2029 as `\u001c`, `\u001d`, `\u001e`, `\u0085`, `\u2028` and `\u2029`. It escapes nothing else, a backslash included. So every line of a file starts with its number, and no text in a file can close a block (invariant `I-frame-1`).
 
 The frame:
 
@@ -223,7 +223,7 @@ The key of a review is the first 32 characters of the lowercase hexadecimal SHA-
 
 ```js
 JSON.stringify([
-  'lawcheck-verdict/1',
+  'lawcheck-verdict/2',
   frame,                                 // the frame of section 4
   ruleId,
   why,
@@ -234,16 +234,16 @@ JSON.stringify([
 ])
 ```
 
-Every text is the one text of section 4, with each `\r\n` replaced by `\n`; a lone `\r` stays. The frame is in the key, so editing it re-opens every verdict by itself. `lawcheck-verdict/1` names this recipe and the rest of section 4's layout (the parts and their order, the tags, the numbered lines, `<waived>`): a change to any of them takes a new name. Status, provider, model and limits are not in the key, so changing them re-opens nothing.
+Every text is the one text of section 4, with each `\r\n` replaced by `\n`; a lone `\r` stays. The frame is in the key, so editing it re-opens every verdict by itself. `lawcheck-verdict/2` names this recipe and the rest of section 4's layout (the parts and their order, the tags, the numbered lines, `<waived>`): a change to any of them takes a new name. `lawcheck-verdict/1` named the layout before the escapes of the numbered lines. Under it a file could close its block with a lone carriage return and steer the reviewer into a pass, so no verdict recorded under it counts. Status, provider, model and limits are not in the key, so changing them re-opens nothing.
 
-Keys in R: F `028d0c1eb1d0c7e8d19fe76964e47afd`, F' `9c52387cbdad9b20880e131cef5a750f` (the same with CRLF line ends), `src/core/price.ts` `60f0a1a7ad3b74bcd40957cc8de73d1b`, `src/core/tax.ts` `81170bb8a9c478c33ae0edfdd56cad64`.
+Keys in R: F `bec7eb69fcc74507cad562d7d51f13eb`, F' `416ae89429881606bc1ead8e5e1f0e8b` (the same with CRLF line ends), `src/core/price.ts` `04359891722bcd49bac46a26fbb25f2a`, `src/core/tax.ts` `3a171a910b49c962ed47f9b9795cfc97`.
 
 ### The verdicts file
 
 `.lawcheck/verdicts` at the root holds one line per recorded pass, `<key> <rule id>`, ended by `\n`, sorted, each line once:
 
 ```
-9c52387cbdad9b20880e131cef5a750f clear-errors
+416ae89429881606bc1ead8e5e1f0e8b clear-errors
 ```
 
 A review has a verdict when the file holds the line `<key> <rule id>`. The tool reads each line with a trailing `\r` removed and ignores every line that does not match `^[0-9a-f]{32} [a-z0-9]+(-[a-z0-9]+)*$`, such as a conflict marker.
@@ -920,7 +920,7 @@ The result:
   "schema": "lawcheck-stability/1",
   "date": "<YYYY-MM-DD>",
   "lawcheck": "0.1.0",
-  "verdict_format": "lawcheck-verdict/1",
+  "verdict_format": "lawcheck-verdict/2",
   "provider": "openai-compatible",
   "model": "<LAWCHECK_STABILITY_MODEL, or null>",
   "temperature_sent": 0,
@@ -963,8 +963,8 @@ The result:
 
 1. **The address and the key come from the environment; the committed config names only the provider, the model and the limits.** The task asked for a base URL from the environment, and it closes the design's risk in 5.3 by construction: a committed file can never point someone's key at an address it chose, and no address enters a repository. The design's `reviewer.endpoint`, `keys`, `config.local.yaml` and the machine's file wait for a later slice.
 2. **A provider's own key goes only to its own address** (design 5.3), and no request follows a redirect, since `fetch` carries `x-api-key` across origins. `LAWCHECK_REVIEWER_KEY` goes to the endpoint in force, because whoever sets the variable also sets the endpoint.
-3. **The prompt holds nothing the key does not cover.** The file's type is left out, since a law change can retype a file without changing it. The frame's text is in the key, and the rest of the layout is named by `lawcheck-verdict/1`. An input that can move a judgment but cannot re-open it would keep a pass nobody gave for the new input.
-4. **Line numbers instead of escaping.** Every file line starts with its number, so file text cannot close a block, and the reviewer quotes code as written.
+3. **The prompt holds nothing the key does not cover.** The file's type is left out, since a law change can retype a file without changing it. The frame's text is in the key, and the rest of the layout is named by `lawcheck-verdict/2`. An input that can move a judgment but cannot re-open it would keep a pass nobody gave for the new input.
+4. **Line numbers instead of escaping.** Every file line starts with its number, so file text cannot close a block, and the reviewer quotes code as written. The one exception is a character a reader takes for a line end inside a line: it is written as an escape, since the number alone does not hold when a model breaks the line there (stress finding S3-1).
 5. **The key is the SHA-256 of a JSON array.** The encoding cannot run two fields together, and every engine writes it the same way. Only `\r\n` is read as `\n`, matching `lines`.
 6. **A waiver of a reviewer rule is given to the reviewer, and its findings are dropped;** a fail with nothing left is a pass, and such a waiver is never `waiver-unused`.
 7. **Failures go to `.lawcheck/.local/failures/`, a folder that ignores itself.** The design has `init` write `.lawcheck/.gitignore`; this slice has no `init`, and a file the tool adds there would show up in the change.
@@ -998,13 +998,13 @@ Slice one's terms hold. R is S with the four files of section 2 in its first com
 | # | Do | See |
 |---|---|---|
 | 46 | add F; run without the variable `LAWCHECK_REVIEWER_ENDPOINT`, then with it | each time the first output of section 8, exit 1, no request |
-| 47 | add F; `lawcheck check --review --base main`. Then `lawcheck check --base main` | the second output of section 8, exit 1, one request whose body has exactly the keys `model` (`test-model`), `messages`, `temperature` (0) and `response_format` (`{"type":"json_object"}`), whose `messages[0].content` equals section 4's prompt byte for byte, and which has no `authorization` header; `.lawcheck/.local/failures/028d0c1eb1d0c7e8d19fe76964e47afd.json` exists; `.lawcheck/.local/.gitignore` holds `*\n`; `git status --porcelain` prints only `?? src/core/refund.ts`. Then the same output without `, 1 reviewer call`, exit 1, no new request |
-| 48 | add F'; `--review`. Then a plain run | `lawcheck: PASS  1 changed file (against main), 1 waiver, 1 reviewer call`, exit 0; `.lawcheck/verdicts` is `9c52387cbdad9b20880e131cef5a750f clear-errors\n` and `.lawcheck/.gitattributes` is `verdicts merge=union\n`. Then `lawcheck: PASS  3 changed files (against main), 1 waiver`, no request |
+| 47 | add F; `lawcheck check --review --base main`. Then `lawcheck check --base main` | the second output of section 8, exit 1, one request whose body has exactly the keys `model` (`test-model`), `messages`, `temperature` (0) and `response_format` (`{"type":"json_object"}`), whose `messages[0].content` equals section 4's prompt byte for byte, and which has no `authorization` header; `.lawcheck/.local/failures/bec7eb69fcc74507cad562d7d51f13eb.json` exists; `.lawcheck/.local/.gitignore` holds `*\n`; `git status --porcelain` prints only `?? src/core/refund.ts`. Then the same output without `, 1 reviewer call`, exit 1, no new request |
+| 48 | add F'; `--review`. Then a plain run | `lawcheck: PASS  1 changed file (against main), 1 waiver, 1 reviewer call`, exit 0; `.lawcheck/verdicts` is `416ae89429881606bc1ead8e5e1f0e8b clear-errors\n` and `.lawcheck/.gitattributes` is `verdicts merge=union\n`. Then `lawcheck: PASS  3 changed files (against main), 1 waiver`, no request |
 | 49 | after test 48, commit everything on `work`; clone the repository; in the clone, with no reviewer variable set, `lawcheck check --base origin/main`; then rewrite `src/core/refund.ts` with CRLF line ends; then append `// end` to it | `lawcheck: PASS  3 changed files (against origin/main), 1 waiver`, exit 0; the same, exit 0; `src/core/refund.ts  error[not-reviewed]`, exit 1 |
 | 50 | add F; `lawcheck check --full --base main` | the third output of section 8, exit 1, no request |
-| 51 | add F; `lawcheck check --full --review --base main --json` | three requests, for `price.ts`, `refund.ts` and `tax.ts`; one finding in the change (`clear-errors`, line 2, error), three in debt (no `not-reviewed`); `reviews` is `{ "missing": 0, "calls_made": 3, "passes_recorded": 2 }`; `.lawcheck/verdicts` holds `60f0a1a7ad3b74bcd40957cc8de73d1b clear-errors` then `81170bb8a9c478c33ae0edfdd56cad64 clear-errors`; exit 1 |
+| 51 | add F; `lawcheck check --full --review --base main --json` | three requests, for `price.ts`, `refund.ts` and `tax.ts`; one finding in the change (`clear-errors`, line 2, error), three in debt (no `not-reviewed`); `reviews` is `{ "missing": 0, "calls_made": 3, "passes_recorded": 2 }`; `.lawcheck/verdicts` holds `04359891722bcd49bac46a26fbb25f2a clear-errors` then `3a171a910b49c962ed47f9b9795cfc97 clear-errors`; exit 1 |
 | 52 | `status: advisory` on `clear-errors`; add F; a plain run, then `--review` | `lawcheck: PASS  1 warning in 1 changed file (against main), 1 waiver` with `warning[not-reviewed]`, exit 0; then `src/core/refund.ts:2  warning[clear-errors]`, exit 0 |
-| 53 | add F; `--review` twice, then `--review --again` with the fake answering `{"verdict":"pass","findings":[]}` | the second run sends no request; the third sends one, exits 0, removes the cache file and adds `028d0c1eb1d0c7e8d19fe76964e47afd clear-errors` to `.lawcheck/verdicts` |
+| 53 | add F; `--review` twice, then `--review --again` with the fake answering `{"verdict":"pass","findings":[]}` | the second run sends no request; the third sends one, exits 0, removes the cache file and adds `bec7eb69fcc74507cad562d7d51f13eb clear-errors` to `.lawcheck/verdicts` |
 | 54 | one at a time: add F with line 3 cut after `clear-errors`, run `--review`; add `src/core/ok.ts` holding `// lawcheck-waive clear-errors -- a demo` and `export const ok = 1;`, run `--review --json` | `lawcheck: FAIL  3 errors in 1 changed file (against main), 1 reviewer call` with `:2  error[clear-errors]`, `:3  error[waiver-without-reason]`, `:4  error[clear-errors]`, and the prompt's last block is `<waived>\nnone\n</waived>`; then exit 0, the prompt's last block holds `2`, `summary.waivers` 1, no `waiver-unused` |
 | 55 | add F; one at a time the fake answers its default answer inside a ` ```json ` fence; after a sentence of prose; followed by a sentence of prose; followed by `{"note": 1}`; with message `"a\nb"` for line 2; with a finding for line 2 and one without `line`; with one whose `line` is `null` | each exit 1 and one request; the findings as given, `a b` for the fifth, and `src/core/refund.ts  error[clear-errors]` for each finding about the whole file |
 | 56 | add F; one at a time the fake answers `fine`; `[]`; `{"verdict":"pass","findings":[{"line":2,"message":"x"}]}`; `{"verdict":"fail","findings":[]}`; `{"verdict":"PASS","findings":[]}`; a finding at line 0; at line 6; at line `"2"`; with message `"  "`. Then: `fine`, then the default answer | each: exit 2, `src/core/refund.ts  error[reviewer-bad-answer]` with a message starting `clear-errors`, two requests, no `.lawcheck/verdicts`, no cache file. Then exit 1 as test 47 with `, 2 reviewer calls` |

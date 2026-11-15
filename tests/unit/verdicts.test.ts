@@ -30,11 +30,11 @@ function key(filePath: string, fileText: string, ruleText = RULE_TEXT): string {
 }
 
 test('the keys of section 5', () => {
-  assert.equal(key('src/core/refund.ts', F), '028d0c1eb1d0c7e8d19fe76964e47afd');
-  assert.equal(key('src/core/refund.ts', F2), '9c52387cbdad9b20880e131cef5a750f');
-  assert.equal(key('src/core/refund.ts', F2.replace(/\n/g, '\r\n')), '9c52387cbdad9b20880e131cef5a750f');
-  assert.equal(key('src/core/price.ts', readFileSync(new URL('src/core/price.ts', S), 'utf8')), '60f0a1a7ad3b74bcd40957cc8de73d1b');
-  assert.equal(key('src/core/tax.ts', readFileSync(new URL('src/core/tax.ts', S), 'utf8')), '81170bb8a9c478c33ae0edfdd56cad64');
+  assert.equal(key('src/core/refund.ts', F), 'bec7eb69fcc74507cad562d7d51f13eb');
+  assert.equal(key('src/core/refund.ts', F2), '416ae89429881606bc1ead8e5e1f0e8b');
+  assert.equal(key('src/core/refund.ts', F2.replace(/\n/g, '\r\n')), '416ae89429881606bc1ead8e5e1f0e8b');
+  assert.equal(key('src/core/price.ts', readFileSync(new URL('src/core/price.ts', S), 'utf8')), '04359891722bcd49bac46a26fbb25f2a');
+  assert.equal(key('src/core/tax.ts', readFileSync(new URL('src/core/tax.ts', S), 'utf8')), '3a171a910b49c962ed47f9b9795cfc97');
 });
 
 test('a lone carriage return stays in the key, and every part moves it', () => {
@@ -46,8 +46,8 @@ test('a lone carriage return stays in the key, and every part moves it', () => {
 });
 
 test('the verdicts file is read line by line, with CR removed and every other line ignored', () => {
-  assert.deepEqual(verdictLines('60f0a1a7ad3b74bcd40957cc8de73d1b clear-errors\r\ngarbage\r\n<<<<<<< HEAD\r\n0123 x\n'), ['60f0a1a7ad3b74bcd40957cc8de73d1b clear-errors']);
-  assert.deepEqual(verdictLines('60F0A1A7AD3B74BCD40957CC8DE73D1B clear-errors\n60f0a1a7ad3b74bcd40957cc8de73d1b Clear\n'), []);
+  assert.deepEqual(verdictLines('04359891722bcd49bac46a26fbb25f2a clear-errors\r\ngarbage\r\n<<<<<<< HEAD\r\n0123 x\n'), ['04359891722bcd49bac46a26fbb25f2a clear-errors']);
+  assert.deepEqual(verdictLines('04359891722BCD49BAC46A26FBB25F2A clear-errors\n04359891722bcd49bac46a26fbb25f2a Clear\n'), []);
 });
 
 function withRoot(body: (root: string) => Promise<void> | void) {

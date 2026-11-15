@@ -117,7 +117,7 @@ test('test 59: the first error starts no new review, and what was answered is ke
             fake.requests.map((request) => request.prompt.match(/\n<file path="([^"]+)">/)![1]),
             ['src/core/price.ts', 'src/core/refund.ts'],
           );
-          assert.equal(read(r, '.lawcheck/verdicts'), '60f0a1a7ad3b74bcd40957cc8de73d1b clear-errors\n');
+          assert.equal(read(r, '.lawcheck/verdicts'), '04359891722bcd49bac46a26fbb25f2a clear-errors\n');
         },
         config(REVIEWER_CONFIG + '  parallel: 1\n'),
       );
