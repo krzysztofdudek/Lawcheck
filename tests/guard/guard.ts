@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { changes, git, resolve, Tree, type Change } from './git.ts';
 import { matchesAny, globToRegExp } from './glob.ts';
@@ -58,6 +59,7 @@ const OWNER_LIKE = new Set<string>(['promise-changed', 'guard-changed', 'ci-chan
 export type Weakening = {
   kind: RecordKind | NeverKind;
   subject: string;
+  state?: string;
   where: string;
   detail: string;
   testId?: string;
@@ -70,6 +72,7 @@ export type Finding = Weakening & {
   why: string[];
   needs?: string;
   needsBase?: boolean;
+  approves?: string;
   anchors?: string;
 };
 
@@ -457,8 +460,22 @@ export function judge(repo: string, baseRev: string, headRev: string, config: Co
   for (const bad of ledger.malformed) if (isNew(bad.line, bad.raw)) add({ kind: 'record-invalid', subject: bad.raw.trim(), where: `${config.weakenings}:${bad.line}`, detail: `not a record: ${bad.why}` });
   const added = ledger.records.filter((r) => isNew(r.line, r.raw));
 
-  const context: AnchorContext = { before: snapBefore, after: snapAfter, diff, config };
   const ownWord = (kind: string): boolean => (config.approvers[kind] ?? []).includes('owner') && !(config.approvers[kind] ?? []).some((r) => r !== 'owner');
+  const stateOf = (w: Weakening): string => {
+    if (w.kind === 'threshold-lowered') return `${describeValue(numbersAfter.values.get(w.subject))} ${numbersAfter.direction(w.subject) ?? 'no direction'}`;
+    if (w.kind === 'promise-changed') {
+      const row = snapAfter.rows.get(w.subject) ?? snapAfter.invariants.get(w.subject);
+      if (w.subject.startsWith('row ') || w.subject.startsWith('I-')) return row ? row.join('\n') : 'removed';
+      const file = w.subject.split(' ')[0]!;
+      return after.blob(file) ?? 'deleted';
+    }
+    const script = /^package\.json#scripts\.(.+)$/.exec(w.subject);
+    if (script) return JSON.stringify(sAfter?.[script[1]!] ?? null);
+    return after.blob(w.subject) ?? 'deleted';
+  };
+  for (const w of weakenings) if (ownWord(w.kind)) w.state = stateOf(w);
+  const approvalOf = (kind: string, what: string): string => approvalHash(weakenings.filter((w) => w.kind === kind && whatMatches(what, w.subject, kind)));
+  const context: AnchorContext = { before: snapBefore, after: snapAfter, diff, config };
   const recordState = added.map((record) => ({
     record,
     matched: false,
@@ -473,7 +490,15 @@ export function judge(repo: string, baseRev: string, headRev: string, config: Co
     const fits = (r: { record: Record }): boolean => r.record.kind === w.kind && whatMatches(r.record.what, w.subject, w.kind);
     const matching = [...onBase.filter(fits), ...recordState.filter(fits)];
     for (const r of matching) r.matched = true;
-    const extra = (r: { record: Record }): string[] => fitsWeakening(r.record, w);
+    const extra = (r: { record: Record }): string[] => {
+      const why = fitsWeakening(r.record, w);
+      if (!ownWord(w.kind) || !('fromBase' in r)) return why;
+      const approved = r.record.anchor.split(/\s*;\s*/).map(parseAnchor).find((a) => a?.type === 'approves')?.key;
+      const now = approvalOf(r.record.kind, r.record.what);
+      if (!approved) return [...why, `it names no change it approves; for this change the anchor holds 'approves ${now}'`];
+      if (approved !== now) return [...why, `it approves the change ${approved}, and this change is ${now}: an owner's record covers only the change it was made for`];
+      return why;
+    };
     const good = matching.find((r) => r.why.length === 0 && extra(r).length === 0);
     if (good) return { ...w, cleared: true, record: good.record, why: [] };
     const roles = config.approvers[w.kind] ?? [];
@@ -483,8 +508,9 @@ export function judge(repo: string, baseRev: string, headRev: string, config: Co
       ...w,
       cleared: false,
       why,
-      needs: `| ${today} | ${w.subject.replace(/\|/g, '\\|')} | ${w.kind} | <why the suite may get weaker here> | <anchor> | ${roles.map((r) => (r === 'reviewer' ? 'reviewer <the fresh reviewer agent>' : r)).join(' or ') || '<nobody may approve this kind>'} |`,
+      needs: `| ${today} | ${w.subject.replace(/\|/g, '\\|')} | ${w.kind} | <why the suite may get weaker here> | <anchor>${ownWord(w.kind) ? `; approves ${approvalOf(w.kind, w.subject)}` : ''} | ${roles.map((r) => (r === 'reviewer' ? 'reviewer <the fresh reviewer agent>' : r)).join(' or ') || '<nobody may approve this kind>'} |`,
       needsBase: ownWord(w.kind),
+      approves: ownWord(w.kind) ? approvalOf(w.kind, w.subject) : undefined,
       anchors: anchorHint(w.kind),
     };
   });
@@ -545,7 +571,7 @@ function isPlatformSkip(marker: Marker, reasons: { reasons: Set<string> }, confi
   return id !== undefined && new RegExp(`\\b(?:const|let)\\s+${id.replace(/\$/g, '\\$')}\\s*=\\s*${call}\\(`).test(text);
 }
 
-function whatMatches(what: string, subject: string, kind: string): boolean {
+export function whatMatches(what: string, subject: string, kind: string): boolean {
   if (what === subject) return true;
   if (PATH_KINDS.has(kind) || kind === 'ci-changed') return globToRegExp(what).test(subject);
   return false;
@@ -562,7 +588,12 @@ function findRowFile(tree: Tree, config: Config, key: string): string {
 
 type AnchorContext = { before: Snapshot; after: Snapshot; diff: Change[]; config: Config };
 
-type Anchor = { type: 'row' | 'invariant' | 'ledger' | 'ruling' | 'runes' | 'path'; key: string; raw: string };
+type Anchor = { type: 'row' | 'invariant' | 'ledger' | 'ruling' | 'runes' | 'path' | 'approves'; key: string; raw: string };
+
+export function approvalHash(items: Array<{ kind: string; subject: string; state?: string }>): string {
+  const lines = items.map((w) => `${w.kind}\t${w.subject}\t${w.state ?? ''}`).sort();
+  return createHash('sha256').update(lines.join('\n')).digest('hex').slice(0, 16);
+}
 
 export function parseAnchor(raw: string): Anchor | null {
   const text = raw.trim().replace(/^`|`$/g, '');
@@ -572,6 +603,8 @@ export function parseAnchor(raw: string): Anchor | null {
   if (/^S\d+-\d+$/.test(text)) return { type: 'ledger', key: text, raw: text };
   m = /^ruling\s+(\d+)$/i.exec(text);
   if (m) return { type: 'ruling', key: m[1]!, raw: text };
+  m = /^approves\s+([0-9a-f]{16})$/.exec(text);
+  if (m) return { type: 'approves', key: m[1]!, raw: text };
   m = /^runes\s+v?(\d+\.\d+\.\d+(?:-[\w.]+)?)$/i.exec(text);
   if (m) return { type: 'runes', key: m[1]!, raw: text };
   if (/^[\w.@*-]+(?:\/[\w.@*{},-]+)*(?:#[\w.*-]+)?$/.test(text) && (text.includes('/') || text.includes('.'))) return { type: 'path', key: text.split('#')[0]!, raw: text };
@@ -584,6 +617,7 @@ function existed(snap: Snapshot, key: string): boolean {
 
 function anchorProblem(anchor: Anchor, ctx: AnchorContext): string | null {
   const { before, after } = ctx;
+  if (anchor.type === 'approves') return null;
   if (anchor.type === 'row' || anchor.type === 'invariant' || anchor.type === 'ledger') {
     const pick = (s: Snapshot): Map<string, string[]> => (anchor.type === 'row' ? s.rows : anchor.type === 'invariant' ? s.invariants : s.ledger);
     const a = pick(before).get(anchor.key);
@@ -677,7 +711,7 @@ export function render(report: Report): string {
     if (group.length === 1) out.push(`REFUSED  ${f.kind}  ${f.subject}`, `where    ${f.where}`, `what     ${f.detail}`);
     else out.push(`REFUSED  ${f.kind}  ${group.length} paths under ${commonDir(group.map((g) => g.subject))}`, `where    ${listed(group.map((g) => g.where))}`, `what     ${[...new Set(group.map((g) => g.detail))].join('; ')}`);
     for (const why of f.why) if (why !== f.detail) out.push(`why      ${why}`);
-    const needs = group.length === 1 ? f.needs : f.needs?.replace(` ${f.subject.replace(/\|/g, '\\|')} `, ` ${commonDir(group.map((g) => g.subject))}/** `);
+    const needs = group.length === 1 ? f.needs : f.needs?.replace(` ${f.subject.replace(/\|/g, '\\|')} `, ` ${commonDir(group.map((g) => g.subject))}/** `).replace(/approves [0-9a-f]{16}/, `approves ${approvalHash(group)}`);
     if (needs) out.push(f.needsBase ? 'needs    the owner\'s row in tests/weakenings.md on the base, landed there first in a change of its own:' : 'needs    a row added to tests/weakenings.md in this change:', `         ${needs}`, `anchor   ${f.anchors}`);
     else out.push('needs    nothing passes it: undo it');
     out.push('');

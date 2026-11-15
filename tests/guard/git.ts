@@ -46,6 +46,10 @@ export class Tree {
     return this.list().has(path);
   }
 
+  blob(path: string): string | null {
+    return this.has(path) ? git(this.repo, ['rev-parse', `${this.rev}:${path}`]).trim() : null;
+  }
+
   read(path: string): string | null {
     if (this.cache.has(path)) return this.cache.get(path)!;
     const text = this.has(path) ? git(this.repo, ['cat-file', 'blob', `${this.rev}:${path}`]) : null;

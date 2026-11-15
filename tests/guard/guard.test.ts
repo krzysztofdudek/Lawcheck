@@ -5,7 +5,7 @@ import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { applyCase, BASE, baseRepo, fixtureConfig, GIT_ENV, RATCHET, sh } from './fixture.ts';
-import { judge, render, type Report } from './guard.ts';
+import { approvalHash, judge, render, type Report } from './guard.ts';
 
 const HERE = fileURLToPath(new URL('.', import.meta.url));
 const CASES = join(HERE, 'cases');
@@ -161,6 +161,34 @@ test('suite guard (T-7 A): a record of an owner kind that the branch brings is r
   }
 });
 
+test('suite guard (T-7 A): an owner\'s row on the base covers only the change it approves, so a later change of the same paths is refused', () => {
+  const base = caseBase('accepted-guard-by-owner');
+  const approved = /approves ([0-9a-f]{16})/.exec(base['tests/weakenings.md']!)![1]!;
+  const reused = baseRepo(base);
+  try {
+    writeFileSync(join(reused.dir, 'tests/guard/check.ts'), 'export const GUARD = 2;\n');
+    writeFileSync(join(reused.dir, 'tests/guard/config.json'), '{ "ratchets": ["another"] }\n');
+    sh(reused.dir, ['commit', '-q', '-a', '-m', 'another change of the guard']);
+    const report = judge(reused.dir, 'main', 'work', fixtureConfig(), '2026-11-15');
+    const finding = report.findings.find((f) => f.kind === 'guard-changed')!;
+    assert.equal(finding.cleared, false);
+    assert.equal(finding.why.length, 1, finding.why.join('\n'));
+    assert.match(finding.why[0]!, new RegExp(`^the record at the base's tests/weakenings\\.md:6: it approves the change ${approved}, and this change is [0-9a-f]{16}: an owner's record covers only the change it was made for$`));
+    assert.ok(render(report).includes(`| tests/guard/** | guard-changed | <why the suite may get weaker here> | <anchor>; approves ${approvalHash(report.findings.filter((f) => f.kind === 'guard-changed'))} | owner |`), render(report));
+  } finally {
+    reused.done();
+  }
+  const unbound = baseRepo({ ...base, 'tests/weakenings.md': base['tests/weakenings.md']!.replace(/; approves [0-9a-f]{16}/, '') });
+  try {
+    applyCase(unbound, join(CASES, 'accepted-guard-by-owner.diff'));
+    const finding = judge(unbound.dir, 'main', 'work', fixtureConfig(), '2026-11-15').findings.find((f) => f.kind === 'guard-changed')!;
+    assert.equal(finding.cleared, false);
+    assert.deepEqual(finding.why, [`the record at the base's tests/weakenings.md:6: it names no change it approves; for this change the anchor holds 'approves ${approved}'`]);
+  } finally {
+    unbound.done();
+  }
+});
+
 test('suite guard (T-7 A): a record of an owner kind on the base that a reviewer approved does not count', () => {
   const rows = '| 2026-11-15 | tests/guard/** | guard-changed | simpler | tests/guard/check.ts | reviewer fresh-agent-7 |\n';
   const repo = baseRepo({ ...BASE, 'tests/weakenings.md': BASE['tests/weakenings.md'] + rows });
@@ -172,7 +200,7 @@ test('suite guard (T-7 A): a record of an owner kind on the base that a reviewer
     const report = judge(repo.dir, 'main', 'work', fixtureConfig(), '2026-11-15');
     const finding = report.findings.find((f) => f.kind === 'guard-changed')!;
     assert.equal(finding.cleared, false);
-    assert.deepEqual(finding.why, ["the record at the base's tests/weakenings.md:6: guard-changed needs the approval of owner, and reviewer approved it"]);
+    assert.deepEqual(finding.why.slice(0, 1), ["the record at the base's tests/weakenings.md:6: guard-changed needs the approval of owner, and reviewer approved it"]);
   } finally {
     repo.done();
   }
