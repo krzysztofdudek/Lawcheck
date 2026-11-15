@@ -12,7 +12,7 @@ import { readerOf, readUses, siblingsOf, Unreadable } from './readers.js';
 import type { ScriptView } from './readers.js';
 import { call, preflight } from './review.js';
 import type { Ask } from './review.js';
-import { linksOut, runAll, runnerProblem, runRule } from './rules.js';
+import { crashNext, linksOut, runAll, runnerProblem, runRule } from './rules.js';
 import type { RawFinding } from './rules.js';
 import { filesOfTypes, isBinary } from './types.js';
 import { bytesOf, selectTargets } from './try.js';
@@ -77,7 +77,7 @@ function linkError(link: { path: string; target: string }): ErrorItem {
 async function checkAt(root: string, options: CheckOptions, context: CheckContext, front: Front): Promise<CheckOutcome> {
   const { law, config, files, read, kinds, typed, chosen } = front;
   const named = chosen !== null;
-  const { base, changed } = named ? { base: null, changed: new Set(chosen) } : theChange(root, files, options.base, context.env);
+  const { base, changed } = named ? { base: null, changed: new Set(chosen) } : theChange(root, files, options.base, context.env, options.full);
   const lawChanged = base !== null && [...changed].some(touchesLaw);
 
   const run = options.full ? typed : typed.filter((file) => changed.has(file.path));
@@ -99,7 +99,10 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
   const raw: RawFinding[] = [];
   for (const { rule, outcome } of outcomes) {
     if ('broken' in outcome) return { errors: [{ code: 'runner-failed', file: null, line: null, message: outcome.broken }] };
-    if ('crash' in outcome) crashes.push({ code: 'rule-crashed', file: `${RULES_DIR}${rule}.mjs`, line: null, message: outcome.crash });
+    if ('crash' in outcome) {
+      const next = crashNext(outcome.crash);
+      crashes.push({ code: 'rule-crashed', file: `${RULES_DIR}${rule}.mjs`, line: null, message: outcome.crash, ...(next === undefined ? {} : { next }) });
+    }
     else raw.push(...outcome.findings);
   }
   if (crashes.length > 0) return { errors: crashes };

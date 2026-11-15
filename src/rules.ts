@@ -262,7 +262,7 @@ export function runRule(run: RuleRun): Promise<RuleOutcome> {
         callNext(0);
       });
 
-    child.on('error', (error) => end(error));
+    child.on('error', (error) => end(started ? error : { broken: `the runner of script rules did not start: ${error.message}` }));
     child.on('exit', (code, signal) => {
       if (settled) return;
       if (started) return end({ crash: `ends before answering ${stage}` });
@@ -280,6 +280,12 @@ export function runRule(run: RuleRun): Promise<RuleOutcome> {
     });
     timer = setTimeout(() => end({ crash: `passes ${timeoutMs / 1000} seconds ${stage}` }), timeoutMs);
   });
+}
+
+// A rule whose load read a package in a node_modules outside the root needs that package installed below the root, not a change of its file.
+export function crashNext(crash: string): string | undefined {
+  const found = /^fails to load: reads .*?[\\/]node_modules[\\/]((?:@[^\\/\s]+[\\/])?[^\\/\s]+)/.exec(crash);
+  return found === null ? undefined : `install ${found[1]!.replace(/\\/g, '/')} in a node_modules below the root, then run lawcheck check`;
 }
 
 export async function runAll<T>(tasks: (() => Promise<T>)[], limit = availableParallelism()): Promise<T[]> {

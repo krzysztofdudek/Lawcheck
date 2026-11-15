@@ -34,7 +34,18 @@ function follow(next: string, cwd: string): void {
   execFileSync(words[0]!, words.slice(1), { cwd, env: GIT_ENV, stdio: 'ignore' });
 }
 
-test('S7-6: a depth-1 clone of a branch with no base fails every file outside CI, as the spec says, and refuses in CI with the fix (question 87)', async () => {
+const FETCH_ALL = 'fetch-depth: 0 in actions/checkout, GIT_DEPTH: 0 in GitLab CI, fetchDepth: 0 in Azure Pipelines';
+const NO_BASE_IN_CI = [
+  'lawcheck: ERROR  1 error',
+  '',
+  'error[base-unreachable]  no base in this CI job: no --base, no LAWCHECK_BASE and no origin/HEAD, and a plain check without one would count every file as changed',
+  '  why:  without its base a change cannot be told from debt',
+  '',
+  `next: pass --base origin/<the branch the change goes into> or set LAWCHECK_BASE, with the history fetched (${FETCH_ALL}); or judge every file with lawcheck check --full`,
+  '',
+].join('\n');
+
+test('S7-6: a depth-1 clone of a branch with no base fails every file outside CI, as the spec says, and a plain check refuses in CI with the ways out (question 87)', async () => {
   await inTemp(async (dir) => {
     git(dir, 'clone', '-q', '--depth', '1', '--branch', 'work', origin(dir), 'clone');
     const clone = join(dir, 'clone');
@@ -42,21 +53,42 @@ test('S7-6: a depth-1 clone of a branch with no base fails every file outside CI
     assert.equal(plain.stdout.split('\n')[0], 'lawcheck: FAIL  2 errors, 3 warnings in 9 files (no base: every file counts as changed), 1 waiver');
     assert.equal(plain.code, 1);
     const job = await lawcheck(clone, ['check'], CI);
-    assert.equal(job.stdout, [
-      'lawcheck: ERROR  1 error',
-      '',
-      'error[base-unreachable]  no base in this CI job: no --base, no LAWCHECK_BASE and no origin/HEAD, and a check without one would count every file as changed',
-      '  why:  without its base a change cannot be told from debt',
-      '',
-      'next: pass --base origin/<the branch the change goes into>, or set LAWCHECK_BASE, with the history fetched (fetch-depth: 0 in actions/checkout), then run lawcheck check',
-      '',
-    ].join('\n'));
+    assert.equal(job.stdout, NO_BASE_IN_CI);
+    assert.equal(job.stderr, '');
     assert.equal(job.code, 2);
-    for (const off of ['', '0', 'false', 'FALSE']) assert.equal((await lawcheck(clone, ['check'], { CI: off })).code, 1, `CI=${off}`);
     const json = JSON.parse((await lawcheck(clone, ['check', '--json'], CI)).stdout);
     assert.equal(json.schema, 'lawcheck-error/1');
     assert.equal(json.errors[0].code, 'base-unreachable');
+    assert.deepEqual(json.next, { command: 'lawcheck check --full', text: NO_BASE_IN_CI.split('\n')[5]!.slice('next: '.length) });
     assert.equal((await lawcheck(clone, ['check', './src/core/discount.ts'], CI)).code, 1, 'named files need no base');
+  });
+});
+
+test('S7-6: --full needs no base, so it judges every file in CI as it does elsewhere', async () => {
+  await inTemp(async (dir) => {
+    git(dir, 'clone', '-q', '--depth', '1', '--branch', 'work', origin(dir), 'clone');
+    const clone = join(dir, 'clone');
+    const job = await lawcheck(clone, ['check', '--full'], CI);
+    const outside = await lawcheck(clone, ['check', '--full']);
+    assert.equal(job.stdout, outside.stdout);
+    assert.equal(job.stdout.split('\n')[0], 'lawcheck: FAIL  2 errors, 3 warnings in 9 files (no base: every file counts as changed), 1 waiver');
+    assert.equal(job.code, 1);
+  });
+});
+
+test('S7-6: the variables of CI services count as CI, and CI set to an off word does not', async () => {
+  await inTemp(async (dir) => {
+    git(dir, 'clone', '-q', '--depth', '1', '--branch', 'work', origin(dir), 'clone');
+    const clone = join(dir, 'clone');
+    for (const env of [{ CI: '1' }, { CI: 'yes' }, { GITHUB_ACTIONS: 'true' }, { GITLAB_CI: 'true' }, { TF_BUILD: 'True' }, { JENKINS_URL: 'http://ci.example/' }, { BUILDKITE: 'true' }, { CIRCLECI: 'true' }]) {
+      const run = await lawcheck(clone, ['check'], env);
+      assert.equal(run.stdout, NO_BASE_IN_CI, JSON.stringify(env));
+    }
+    for (const env of [{ CI: '' }, { CI: '0' }, { CI: 'false' }, { CI: 'FALSE' }, { CI: 'no' }, { CI: 'off' }, { CI: 'off', GITHUB_ACTIONS: 'true' }, {}]) {
+      const run = await lawcheck(clone, ['check'], env);
+      assert.equal(run.code, 1, JSON.stringify(env));
+      assert.match(run.stdout, /^lawcheck: FAIL  .*\(no base: every file counts as changed\)/, JSON.stringify(env));
+    }
   });
 });
 
@@ -64,7 +96,7 @@ test('S7-6: doctor agrees with check in a CI job with no base', async () => {
   await inTemp(async (dir) => {
     git(dir, 'clone', '-q', '--depth', '1', '--branch', 'work', origin(dir), 'clone');
     const run = await lawcheck(join(dir, 'clone'), ['doctor'], CI);
-    assert.ok(run.stdout.includes('\nfail  base  no base in this CI job: no --base, no LAWCHECK_BASE and no origin/HEAD'), run.stdout);
+    assert.ok(run.stdout.includes('\nfail  base  no base in this CI job: no --base, no LAWCHECK_BASE and no origin/HEAD, and a plain check without one would count every file as changed\n'), run.stdout);
     assert.equal(run.code, 2);
   });
 });
@@ -75,8 +107,9 @@ test('S7-5: a depth-1 clone given its base names the shallow clone and the fetch
     const clone = join(dir, 'clone');
     const run = await lawcheck(clone, ['check', '--base', 'origin/main'], CI);
     assert.equal(errorLine(run.stdout), "error[base-unreachable]  the base 'origin/main' names no commit here, and this clone is shallow");
-    assert.equal(nextLine(run.stdout), 'fetch the history: git fetch --unshallow origin +refs/heads/main:refs/remotes/origin/main (fetch-depth: 0 in actions/checkout), then run lawcheck check');
+    assert.equal(nextLine(run.stdout), `fetch the history: git fetch --unshallow origin +refs/heads/main:refs/remotes/origin/main (${FETCH_ALL}), then run lawcheck check`);
     assert.equal(run.code, 2);
+    assert.equal(JSON.parse((await lawcheck(clone, ['check', '--base', 'origin/main', '--json'], CI)).stdout).next.command, 'git fetch --unshallow origin +refs/heads/main:refs/remotes/origin/main');
     follow(nextLine(run.stdout), clone);
     const again = await lawcheck(clone, ['check', '--base', 'origin/main'], CI);
     assert.equal(again.stdout, AGAINST_ORIGIN);
@@ -92,6 +125,19 @@ test('S7-5: the same clone with the base fetched at depth 1 names the shallow cl
     const run = await lawcheck(clone, ['check', '--base', 'origin/main']);
     assert.equal(errorLine(run.stdout), "error[base-unreachable]  the base 'origin/main' shares no history with HEAD in this clone, which is shallow");
     assert.match(nextLine(run.stdout), /^fetch the history: git fetch --unshallow origin \+refs\/heads\/main:refs\/remotes\/origin\/main /);
+    follow(nextLine(run.stdout), clone);
+    assert.equal((await lawcheck(clone, ['check', '--base', 'origin/main'])).stdout, AGAINST_ORIGIN);
+  });
+});
+
+test('S7-5: a single-branch clone whose history was fetched whole, with no base branch, names the fetch of that branch, and the fetch gives the right result', async () => {
+  await inTemp(async (dir) => {
+    git(dir, 'clone', '-q', '--depth', '1', '--branch', 'work', origin(dir), 'clone');
+    const clone = join(dir, 'clone');
+    git(clone, 'fetch', '-q', '--unshallow');
+    const run = await lawcheck(clone, ['check', '--base', 'origin/main']);
+    assert.equal(errorLine(run.stdout), "error[base-unreachable]  the base 'origin/main' names no commit here; this clone did not fetch that branch");
+    assert.equal(nextLine(run.stdout), `fetch the branch: git fetch origin +refs/heads/main:refs/remotes/origin/main (${FETCH_ALL}), then run lawcheck check`);
     follow(nextLine(run.stdout), clone);
     assert.equal((await lawcheck(clone, ['check', '--base', 'origin/main'])).stdout, AGAINST_ORIGIN);
   });

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { copySample, D, D_PATH, git, GIT_ENV, inTemp, lawcheck, makeSample, TEST4, write } from '../acceptance/helpers.ts';
 
@@ -12,30 +12,36 @@ function nextLine(stdout: string): string {
 // git's own switch makes it treat every repository as owned by another user, the case a CI container meets; the nightly ownership test meets it with a real other user.
 const OTHER_OWNER = { GIT_TEST_ASSUME_DIFFERENT_OWNER: '1' };
 
-function commandIn(next: string): string[] {
-  const found = /: (git config --global --add safe\.directory (?:'[^']*'|\S+)),/.exec(next);
-  assert.ok(found !== null, next);
-  const words = found[1]!.split(' ');
-  const path = words.slice(5).join(' ');
-  return [...words.slice(1, 5), path.startsWith("'") ? path.slice(1, -1).replace(/'\\''/g, "'") : path];
+// spec/check-slice.md, section 6: the path in single quotes for a POSIX shell when it holds a character outside letters, digits and @%+=:,./\\-.
+function shellQuoted(path: string): string {
+  return /^[\w@%+=:,./\\-]+$/.test(path) ? path : `'${path.replace(/'/g, `'\\''`)}'`;
 }
 
-test("S7-15: a repository owned by another user gives no-git with git's safe.directory command, and that command lets check through", async () => {
-  await inTemp(async (dir) => {
-    const s = makeSample(dir);
-    write(s, D_PATH, D);
-    const config = join(dir, 'gitconfig');
-    writeFileSync(config, '');
-    const env = { ...OTHER_OWNER, GIT_CONFIG_GLOBAL: config };
-    const run = await lawcheck(s, ['check', '--base', 'main'], env);
-    assert.match(run.stdout.split('\n')[2]!, /^error\[no-git\]  git does not see a work tree here: fatal: detected dubious ownership in repository at '/);
-    assert.match(nextLine(run.stdout), /^let git trust the repository: git config --global --add safe\.directory .+, then run lawcheck check$/);
-    assert.equal(run.code, 2);
-    execFileSync('git', commandIn(nextLine(run.stdout)), { cwd: dir, env: { ...GIT_ENV, ...env } });
-    const again = await lawcheck(s, ['check', '--base', 'main'], env);
-    assert.equal(again.stdout, TEST4);
-    assert.equal(again.code, 1);
-  });
+const SHELL: [string, string[]] = process.platform === 'win32' ? [join(process.env.ProgramFiles ?? 'C:\\Program Files', 'Git', 'bin', 'bash.exe'), ['-c']] : ['sh', ['-c']];
+
+test("S7-15: a repository owned by another user gives no-git with git's safe.directory command, quoted for a POSIX shell, and that command run there lets check through", async () => {
+  for (const folder of ['plain', 'my repo żółw', "it's here"]) {
+    await inTemp(async (dir) => {
+      mkdirSync(join(dir, folder));
+      const s = makeSample(join(dir, folder));
+      write(s, D_PATH, D);
+      const config = join(dir, 'gitconfig');
+      writeFileSync(config, '');
+      const env = { ...OTHER_OWNER, GIT_CONFIG_GLOBAL: config };
+      const run = await lawcheck(s, ['check', '--base', 'main'], env);
+      const said = /^error\[no-git\]  git does not see a work tree here: fatal: detected dubious ownership in repository at '(.*)'$/m.exec(run.stdout);
+      assert.ok(said !== null, run.stdout);
+      const command = `git config --global --add safe.directory ${shellQuoted(said[1]!)}`;
+      assert.equal(nextLine(run.stdout), `let git trust the repository: ${command}, then run lawcheck check`, folder);
+      assert.equal(run.code, 2);
+      const json = JSON.parse((await lawcheck(s, ['check', '--base', 'main', '--json'], env)).stdout);
+      assert.equal(json.next.command, command);
+      execFileSync(SHELL[0], [...SHELL[1], command], { cwd: dir, env: { ...GIT_ENV, ...env } });
+      const again = await lawcheck(s, ['check', '--base', 'main'], env);
+      assert.equal(again.stdout, TEST4, folder);
+      assert.equal(again.code, 1);
+    });
+  }
 });
 
 test('S8-7: doctor and init in a repository owned by another user name the same command, worded for themselves', async () => {

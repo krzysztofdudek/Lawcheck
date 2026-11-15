@@ -12,7 +12,7 @@ import { buildPrompt, cleanMessage, size } from './prompt.js';
 import { createProvider } from './providers/index.js';
 import { call, NO_RECORD, preflight, remaining } from './review.js';
 import type { Ask } from './review.js';
-import { linksOut, runnerProblem, runRule } from './rules.js';
+import { crashNext, linksOut, runnerProblem, runRule } from './rules.js';
 import type { RuleFile } from './rules.js';
 import { fromCwd, loadConfig, loadLaw, loadRuleFiles, locate, nearPart, repoPath, requireGit, RULES_DIR, stopped, Stop, typeAll, usage } from './setup.js';
 import type { Read } from './setup.js';
@@ -177,7 +177,10 @@ export async function tryRule(args: Arguments, context: CheckContext, json: bool
       }
       const ran = await runRule({ root, rule: id, ruleFile: join(root, `${RULES_DIR}${id}.mjs`), files: ruleFiles, filesOf: filesOfTypes(typed, law) });
       if ('broken' in ran) throw new Stop([{ code: 'runner-failed', file: null, line: null, message: ran.broken }]);
-      if ('crash' in ran) throw new Stop([{ code: 'rule-crashed', file: `${RULES_DIR}${id}.mjs`, line: null, message: ran.crash }]);
+      if ('crash' in ran) {
+        const next = crashNext(ran.crash);
+        throw new Stop([{ code: 'rule-crashed', file: `${RULES_DIR}${id}.mjs`, line: null, message: ran.crash, ...(next === undefined ? {} : { next }) }]);
+      }
       for (const file of ruleFiles) {
         const run: Run = { file: file.path, attempt: 1, verdict: null, findings: [], waived: 0, answer: null, prompt_chars: null };
         for (const item of ran.findings.filter((f) => f.file === file.path)) {

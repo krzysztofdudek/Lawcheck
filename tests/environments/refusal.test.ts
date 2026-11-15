@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import { execFileSync } from 'node:child_process';
 import assert from 'node:assert/strict';
-import { chmodSync, cpSync, mkdirSync, readFileSync, realpathSync, symlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, cpSync, existsSync, mkdirSync, readFileSync, realpathSync, symlinkSync, writeFileSync } from 'node:fs';
 import { delimiter, join } from 'node:path';
 import { D, D_PATH, GIT_ENV, inTemp, TEST4, lawcheck, lawcheckAt, makeSample, ROOT, withCopy, write } from '../acceptance/helpers.ts';
 import type { Run } from '../acceptance/helpers.ts';
@@ -26,26 +26,41 @@ const COMMANDS: [string, string[]][] = [
   ['check', ['check', '--base', 'main']],
   ['check', ['check', './src/core/discount.ts']],
   ['try', ['try', 'no-console', 'src/core/discount.ts']],
-  ['doctor', ['doctor']],
   ['explain', ['explain', 'src/core/price.ts']],
   ['prime', ['prime']],
   ['init', ['init']],
 ];
 
-async function refusedEverywhere(s: string, message: string, next: string, nodeArgs: string[], env: NodeJS.ProcessEnv = {}): Promise<void> {
+type Go = (argv: string[]) => Promise<Run>;
+
+// Every command refuses alike; doctor leads with the same line and still runs its nine rows, the row named failing with the refusal.
+async function refusedEverywhere(go: Go, message: string, next: string, row: 'node' | 'git'): Promise<void> {
   for (const [command, argv] of COMMANDS) {
-    const run = await lawcheck(s, argv, env, nodeArgs);
+    const run = await go(argv);
     assert.equal(run.stdout, refusal(message, next, command), argv.join(' '));
     assert.equal(run.stderr, '', argv.join(' '));
     assert.equal(run.code, 2, argv.join(' '));
-    const json = await lawcheck(s, [...argv, '--json'], env, nodeArgs);
+    const json = await go([...argv, '--json']);
     const document = JSON.parse(json.stdout);
     assert.equal(document.schema, 'lawcheck-error/1');
     assert.deepEqual(document.errors.map((e: { code: string; message: string }) => [e.code, e.message]), [['unsupported-environment', message]]);
     assert.equal(json.code, 2);
   }
+  const doctor = await go(['doctor']);
+  const lines = doctor.stdout.split('\n');
+  assert.equal(lines[0], `lawcheck: ERROR  ${message}`);
+  assert.equal(lines.filter((line) => /^(ok|note|fail|skip)  [a-z-]+  /.test(line)).length, 9, doctor.stdout);
+  const at = lines.indexOf(`fail  ${row}  ${message}`);
+  assert.ok(at > 0, doctor.stdout);
+  assert.equal(lines[at + 1], `  next: ${next.replace('then run lawcheck check', 'then run lawcheck doctor again')}`);
+  assert.equal(doctor.stderr, '');
+  assert.equal(doctor.code, 2);
+  const report = JSON.parse((await go(['doctor', '--json'])).stdout);
+  assert.equal(report.schema, 'lawcheck-doctor/0');
+  assert.equal(report.result, 'fail');
+  assert.deepEqual(report.checks.find((c: { id: string }) => c.id === row).state, 'fail');
   for (const argv of [['--version'], ['--help'], ['check', '--help'], ['docs'], ['docs', 'config']]) {
-    const run = await lawcheck(s, argv, env, nodeArgs);
+    const run = await go(argv);
     assert.equal(run.code, 0, argv.join(' '));
     assert.doesNotMatch(run.stdout, /unsupported-environment/);
   }
@@ -57,17 +72,18 @@ function sampleWithD(dir: string): string {
   return s;
 }
 
+const NO_NODE_NEXT = 'install Node 24 or later beside Bun, so that bun x starts Lawcheck on Node, then run lawcheck check';
+
 const POSED: [string, string[], string, string][] = [
   ['Node 20', posing('node', '20.20.2'), 'Node 20.20.2 is older than 24, the oldest Node Lawcheck runs on', 'install Node 24 or later, then run lawcheck check'],
   ['Node 22', posing('node', '22.23.5'), 'Node 22.23.5 is older than 24, the oldest Node Lawcheck runs on', 'install Node 24 or later, then run lawcheck check'],
-  ['Bun', posing('bun', '1.4.0'), 'this run is on Bun 1.4.0, and Lawcheck runs on Node 24 or later', 'install Node 24 or later beside Bun, so that bun x starts Lawcheck on Node, then run lawcheck check'],
-  ["Yarn's Plug'n'Play", posing('pnp', '3'), "Lawcheck is installed by Yarn Plug'n'Play, inside an archive that the runner of script rules cannot open", 'set nodeLinker: node-modules in .yarnrc.yml and run yarn install, then run lawcheck check'],
+  ['Bun', posing('bun', '1.4.0'), 'this run is on Bun 1.4.0, and Lawcheck runs on Node 24 or later; no node is on the PATH', NO_NODE_NEXT],
 ];
 
-test('I-env-1: every command but --version, --help and docs refuses an unsupported runtime in its first line, naming it, and doctor says what check says', async () => {
+test('I-env-1: every command but --version, --help and docs refuses an unsupported runtime in its first line, naming it, and doctor leads with the same line', async () => {
   await inTemp(async (dir) => {
     const s = sampleWithD(dir);
-    for (const [, nodeArgs, message, next] of POSED) await refusedEverywhere(s, message, next, nodeArgs);
+    for (const [, nodeArgs, message, next] of POSED) await refusedEverywhere((argv) => lawcheck(s, argv, {}, nodeArgs), message, next, 'node');
   });
 });
 
@@ -75,15 +91,14 @@ test('I-env-1: control, posed as Node 24 the same commands answer', async () => 
   await inTemp(async (dir) => {
     const s = sampleWithD(dir);
     const run = await lawcheck(s, ['check', '--base', 'main'], {}, posing('node', '24.0.0'));
-    assert.match(run.stdout, /^lawcheck: FAIL  1 error, 1 warning in 1 changed file \(against main\), 1 waiver\n/);
+    assert.equal(run.stdout, TEST4);
     assert.equal(run.code, 1);
   });
 });
 
-async function refusesCheck(which: string): Promise<void> {
-  const [, nodeArgs, message, next] = POSED.find(([name]) => name === which)!;
+async function refusesCheck(nodeArgs: string[], message: string, next: string, env: NodeJS.ProcessEnv = {}): Promise<void> {
   await inTemp(async (dir) => {
-    const run = await lawcheck(sampleWithD(dir), ['check', '--base', 'main'], {}, nodeArgs);
+    const run = await lawcheck(sampleWithD(dir), ['check', '--base', 'main'], env, nodeArgs);
     assert.equal(run.stdout, refusal(message, next, 'check'));
     assert.doesNotMatch(run.stdout, /rule-crashed|\.lawcheck\/rules\//);
     assert.equal(run.stderr, '');
@@ -91,24 +106,78 @@ async function refusesCheck(which: string): Promise<void> {
   });
 }
 
-test('S2-3: on Node 20 a check with a script rule to run names the Node version in its first line and blames no rule file', () => refusesCheck('Node 20'));
+test('S2-3: on Node 20 a check with a script rule to run names the Node version in its first line and blames no rule file', () => refusesCheck(POSED[0]![1], POSED[0]![2], POSED[0]![3]));
 
-test('S8-2: on Bun a check with a script rule to run names Bun in its first line and blames no rule file', () => refusesCheck('Bun'));
+test('S8-2: on Bun with no node on the PATH a check names Bun in its first line, and says to install Node beside it', () => refusesCheck(POSED[2]![1], POSED[2]![2], POSED[2]![3]));
 
-test("S8-1: under Yarn's Plug'n'Play a check with a script rule to run names it in its first line and blames no rule file", () => refusesCheck("Yarn's Plug'n'Play"));
+test('S8-2: on Bun with a node first on the PATH, as bun --bun runs it, the refusal names that node and says to start Lawcheck without --bun', async () => {
+  await inTemp(async (dir) => {
+    const bin = join(dir, 'other-node');
+    mkdirSync(bin);
+    const node = join(bin, WINDOWS ? 'node.cmd' : 'node');
+    writeFileSync(node, WINDOWS ? '@exit /b 0\r\n' : '#!/bin/sh\nexit 0\n');
+    chmodSync(node, 0o755);
+    await refusesCheck(
+      posing('bun', '1.4.0'),
+      `this run is on Bun 1.4.0, and Lawcheck runs on Node 24 or later; the node first on the PATH is ${node}`,
+      `start Lawcheck without --bun, as bun x --no-install lawcheck, so that it runs on ${node}, then run lawcheck check`,
+      { PATH: [bin, GIT_ENV.PATH].join(delimiter) },
+    );
+  });
+});
 
-test("S8-1: a Lawcheck whose folder lies inside a .zip path, as Plug'n'Play keeps it, is refused the same way", async () => {
+// A copy of Lawcheck kept as Yarn keeps a package in its cache, in a folder whose name ends in .zip.
+function zippedCopy(dir: string, folder: string): string {
+  const zipped = join(dir, 'cache', folder, 'node_modules', 'lawcheck');
+  mkdirSync(zipped, { recursive: true });
+  cpSync(join(ROOT, 'package.json'), join(zipped, 'package.json'));
+  cpSync(join(ROOT, 'dist'), join(zipped, 'dist'), { recursive: true });
+  cpSync(join(ROOT, 'docs'), join(zipped, 'docs'), { recursive: true });
+  symlinkSync(join(ROOT, 'node_modules'), join(zipped, 'node_modules'), WINDOWS ? 'junction' : 'dir');
+  return join(zipped, 'dist', 'cli.js');
+}
+
+// NODE_OPTIONS reads double quotes as quoting, so this preload is written with single ones.
+const PNP_ENV = { NODE_OPTIONS: "--import=data:text/javascript,Object.defineProperty(process.versions,'pnp',{value:'3',enumerable:true})" };
+const PNP = "Yarn Plug'n'Play is not supported: Lawcheck is served from the archive lawcheck-npm-0.1.0-4f9d.zip, which the runner of script rules cannot open";
+const PNP_NEXT = 'set nodeLinker: node-modules in .yarnrc.yml and run yarn install, then run lawcheck check';
+
+test("S8-1: a Lawcheck served from a Plug'n'Play archive refuses every command in its first line, and blames no rule file", async () => {
   await inTemp(async (dir) => {
     const s = sampleWithD(dir);
-    const zipped = join(dir, 'cache', 'lawcheck-npm-0.1.0.zip', 'node_modules', 'lawcheck');
-    mkdirSync(zipped, { recursive: true });
-    cpSync(join(ROOT, 'package.json'), join(zipped, 'package.json'));
-    cpSync(join(ROOT, 'dist'), join(zipped, 'dist'), { recursive: true });
-    symlinkSync(join(ROOT, 'node_modules'), join(zipped, 'node_modules'), WINDOWS ? 'junction' : 'dir');
-    const [, , message, next] = POSED.find(([name]) => name === "Yarn's Plug'n'Play")!;
-    const run = await lawcheckAt(join(zipped, 'dist', 'cli.js'), s, ['check', '--base', 'main']);
-    assert.equal(run.stdout, refusal(message, next, 'check'));
-    assert.equal(run.code, 2);
+    const cli = zippedCopy(dir, 'lawcheck-npm-0.1.0-4f9d.zip');
+    await refusedEverywhere((argv) => lawcheckAt(cli, s, argv, PNP_ENV), PNP, PNP_NEXT, 'node');
+  });
+});
+
+test("S8-1: control, a Lawcheck installed outside Plug'n'Play and started from a project that uses it judges the rules", async () => {
+  await inTemp(async (dir) => {
+    const run = await lawcheck(sampleWithD(dir), ['check', '--base', 'main'], PNP_ENV);
+    assert.equal(run.stdout, TEST4);
+    assert.equal(run.code, 1);
+  });
+});
+
+test("S8-1: control, a Lawcheck in a folder whose name ends in .zip, with no Plug'n'Play, judges the rules", async () => {
+  await inTemp(async (dir) => {
+    const s = sampleWithD(dir);
+    const run = await lawcheckAt(zippedCopy(dir, 'backup.zip'), s, ['check', '--base', 'main']);
+    assert.equal(run.stdout, TEST4);
+    assert.equal(run.code, 1);
+  });
+});
+
+test('I-env-1: Node started with --permission in NODE_OPTIONS gets the refusal from the installed entry, and no stack trace', async () => {
+  await inTemp(async (dir) => {
+    const s = sampleWithD(dir);
+    for (const [command, argv] of [...COMMANDS, ['doctor', ['doctor']] as [string, string[]], ['check', ['--version']] as [string, string[]]]) {
+      const run = await lawcheckAt(join(ROOT, 'dist', 'bin.js'), s, argv, { NODE_OPTIONS: '--permission' });
+      assert.equal(run.stdout, refusal('Node runs with --permission, set in NODE_OPTIONS, and under it Lawcheck cannot read its own files', 'start Lawcheck with NODE_OPTIONS free of --permission, then run lawcheck check', command), argv.join(' '));
+      assert.equal(run.stderr, '', argv.join(' '));
+      assert.equal(run.code, 2);
+    }
+    const plain = await lawcheckAt(join(ROOT, 'dist', 'bin.js'), s, ['check', '--base', 'main']);
+    assert.equal(plain.stdout, TEST4, 'control: the entry without --permission runs the check');
   });
 });
 
@@ -126,7 +195,7 @@ test('test 200: below git 2.34 every command but --version, --help and docs refu
   await inTemp(async (dir) => {
     const s = sampleWithD(dir);
     const env = { PATH: [gitReporting(dir, '2.33.8'), GIT_ENV.PATH].join(delimiter) };
-    await refusedEverywhere(s, 'git 2.33.8 is older than 2.34, the oldest git Lawcheck runs with', 'install git 2.34 or later, then run lawcheck check', [], env);
+    await refusedEverywhere((argv) => lawcheck(s, argv, env), 'git 2.33.8 is older than 2.34, the oldest git Lawcheck runs with', 'install git 2.34 or later, then run lawcheck check', 'git');
   });
 });
 
@@ -162,6 +231,17 @@ test('test 201: a runner Node cannot start with its flags is runner-failed, with
   });
 });
 
+test('test 201: a runner whose process cannot be started, as with EAGAIN, is runner-failed with the system\'s words', async () => {
+  await withCopy(async (copy) => {
+    const rules = join(copy.dir, 'dist', 'rules.js');
+    const missing = join(copy.dir, 'no-node');
+    writeFileSync(rules, readFileSync(rules, 'utf8').replace("serialization: 'advanced',", `serialization: 'advanced', execPath: ${JSON.stringify(missing)},`));
+    await inTemp(async (dir) => {
+      runnerFailed(await lawcheckAt(copy.cli, sampleWithD(dir), ['check', '--base', 'main']), /spawn .*no-node ENOENT$/, 'check');
+    });
+  });
+});
+
 test('test 201: a runner file that cannot be read is runner-failed, naming the file', { skip: WINDOWS || AS_ROOT ? 'a file mode cannot make a file unreadable for root, nor on Windows' : false }, async () => {
   await withCopy(async (copy) => {
     const runner = realpathSync(join(copy.dir, 'dist', 'runner.js'));
@@ -180,8 +260,25 @@ test('test 201: control, the same copy with a sound runner judges the rules', as
   await withCopy(async (copy) => {
     await inTemp(async (dir) => {
       const run = await lawcheckAt(copy.cli, sampleWithD(dir), ['check', '--base', 'main']);
-      assert.match(run.stdout, /^lawcheck: FAIL  1 error, 1 warning in 1 changed file \(against main\), 1 waiver\n/);
+      assert.equal(run.stdout, TEST4);
       assert.equal(run.code, 1);
     });
+  });
+});
+
+test('test 210: doctor fails its config row when the runner the config names has no program on the PATH, and names it when it has', async () => {
+  await inTemp(async (dir) => {
+    const s = sampleWithD(dir);
+    write(s, '.lawcheck/config.yaml', 'runner: pnpm\n');
+    const bin = join(dir, 'pnpm-bin');
+    mkdirSync(bin);
+    const missing = await lawcheck(s, ['doctor'], { PATH: GIT_ENV.PATH!.split(delimiter).filter((d) => !existsSync(join(d, WINDOWS ? 'pnpm.cmd' : 'pnpm'))).join(delimiter) });
+    assert.match(missing.stdout, /^fail  config  \.lawcheck\/config\.yaml: runner pnpm, and pnpm is not on the PATH\n  next: install pnpm, or set runner to the way this repository starts Lawcheck, then run lawcheck doctor again$/m);
+    assert.equal(missing.code, 2);
+    const pnpm = join(bin, WINDOWS ? 'pnpm.cmd' : 'pnpm');
+    writeFileSync(pnpm, WINDOWS ? '@exit /b 0\r\n' : '#!/bin/sh\nexit 0\n');
+    chmodSync(pnpm, 0o755);
+    const found = await lawcheck(s, ['doctor'], { PATH: [bin, GIT_ENV.PATH].join(delimiter) });
+    assert.match(found.stdout, new RegExp(`^ok  config  \\.lawcheck/config\\.yaml: no reviewer set; runner pnpm, pnpm at ${pnpm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'm'));
   });
 });

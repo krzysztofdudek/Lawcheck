@@ -120,12 +120,15 @@ function repositoryAbove(dir: string): string | null {
   }
 }
 
-// What git's own sentence asks of the user, where the plain next line of no-git would send them to the work tree they are in.
-export function gitNext(dir: string, problem: string): string | undefined {
-  const dubious = /dubious ownership in repository at '([^']*)'/.exec(problem);
-  if (dubious !== null) return `let git trust the repository: git config --global --add safe.directory ${quoted(dubious[1]!)}, then run lawcheck check`;
+// What git's own sentence asks of the user, where the plain next line of no-git would send them to the work tree they are in. The command is written for a POSIX shell, as docs/ci.md says.
+export function gitNext(dir: string, problem: string): { next: string; command?: string } | undefined {
+  const dubious = /dubious ownership in repository at '(.*)'\s*$/.exec(problem);
+  if (dubious !== null) {
+    const command = `git config --global --add safe.directory ${quoted(dubious[1]!)}`;
+    return { next: `let git trust the repository: ${command}, then run lawcheck check`, command };
+  }
   const repository = /not a git repository/.test(problem) ? repositoryAbove(dir) : null;
-  if (repository !== null) return `repair the repository at ${repository}, so that git status works there, then run lawcheck check`;
+  if (repository !== null) return { next: `repair the repository at ${repository}, so that git status works there, then run lawcheck check`, command: 'git status' };
   return undefined;
 }
 
@@ -170,6 +173,12 @@ export function resolveCommit(root: string, base: string): string | null {
 export function remoteNames(root: string): string[] {
   const result = git(root, ['remote']);
   return result.status === 0 ? loose.decode(result.stdout).split(/\r?\n/).filter((name) => name !== '') : [];
+}
+
+// A clone made with --single-branch or --depth fetches one branch; its fetch lines name no refs/heads/*.
+export function fetchesEveryBranch(root: string, remote: string): boolean {
+  const result = git(root, ['config', '--get-all', `remote.${remote}.fetch`]);
+  return result.status !== 0 || loose.decode(result.stdout).split(/\r?\n/).some((line) => line.includes('refs/heads/*'));
 }
 
 export function isShallow(root: string): boolean {

@@ -83,7 +83,7 @@ async function run(argv: string[], context: CheckContext, command: Command): Pro
     const read = readArguments(argv);
     if ('problem' in read) return usageError(read.problem, json, read.command);
     const args = read.arguments;
-    if (args.command !== 'docs') {
+    if (args.command !== 'docs' && args.command !== 'doctor') {
       const refused = environmentRefusal(context.runtime ?? runtimeNow(), () => gitNow(context.cwd));
       if (refused !== null) return { code: 2, stdout: renderErrors([refused], json, args.command) };
     }
@@ -111,7 +111,7 @@ function isEntry(): boolean {
   }
 }
 
-if (isEntry()) {
+export function start(): void {
   absolutePath(process.env);
   if (process.platform === 'win32') process.env[NO_CURRENT_FOLDER] = '1';
   const json = process.argv.slice(2).includes('--json');
@@ -125,3 +125,5 @@ if (isEntry()) {
   const warn = (line: string) => process.stderr.write(safeText(line) + '\n');
   main(process.argv.slice(2), { cwd: process.cwd(), env: process.env, warn }).then(finish, crash);
 }
+
+if (isEntry()) start();

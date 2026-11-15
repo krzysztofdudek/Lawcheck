@@ -26,8 +26,8 @@ test('node below 24 fails, and the rest still runs', async () => {
   await sample(async (dir) => {
     const checks = await runChecks({ cwd: dir, env: {}, base: 'main', reviewer: false, nodeVersion: '22.1.0' });
     assert.equal(checks[0]!.state, 'fail');
-    assert.equal(checks[0]!.message, 'Node 22.1.0; Lawcheck needs 24 or later');
-    assert.deepEqual(checks[0]!.next, { command: null, text: 'install Node 24 or later' });
+    assert.equal(checks[0]!.message, 'Node 22.1.0 is older than 24, the oldest Node Lawcheck runs on');
+    assert.deepEqual(checks[0]!.next, { command: 'lawcheck doctor', text: 'install Node 24 or later, then run lawcheck doctor again' });
     assert.equal(states(checks).law, 'ok');
   });
 });

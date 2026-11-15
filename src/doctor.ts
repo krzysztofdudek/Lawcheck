@@ -1,13 +1,16 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
+import { environmentRefusal, gitNow, gitRefusal, runtimeNow, runtimeRefusal } from './environment.js';
+import type { Runtime } from './environment.js';
+import { findProgram } from './programs.js';
 import { join } from 'node:path';
 import { documentOf, noWords, text as flagText, usageError } from './args.js';
 import type { Arguments, Result } from './args.js';
 import type { CheckContext } from './check.js';
-import { CONFIG } from './config.js';
+import { CONFIG, runnerLine } from './config.js';
 import type { ReviewerConfig } from './config.js';
 import { gitNext, listFiles, NoGit, showPrefix, workTreeProblem } from './files.js';
 import type { Law } from './law.js';
-import { forCommand, nextOfErrors, placeOf, plural, shown, sortErrors } from './output.js';
+import { commandIn, forCommand, nextOfErrors, placeOf, plural, shown, sortErrors } from './output.js';
 import type { ErrorItem } from './output.js';
 import { walk } from './prime.js';
 import { checkAnswer } from './prompt.js';
@@ -15,7 +18,7 @@ import { createProvider } from './providers/index.js';
 import { hide } from './keys.js';
 import type { Env, Provider } from './providers/index.js';
 import { LANGUAGES, loadGrammars, readerOf, siblingsOf } from './readers.js';
-import { configErrors, findRoot, lawErrors, onceReader, ruleFileErrors, Stop, theChange, touchesLaw, typingErrors } from './setup.js';
+import { belowPart, configErrors, findRoot, lawsBelow, lawErrors, onceReader, ruleFileErrors, Stop, theChange, touchesLaw, typingErrors } from './setup.js';
 import type { Change, Kinds, Read } from './setup.js';
 import type { TypedFile } from './types.js';
 import { extensionOf, listInForce } from './uses.js';
@@ -50,18 +53,15 @@ const WAITS: Record<string, string[]> = {
   reviewer: ['law', 'config'],
 };
 
-const COMMANDS = ['lawcheck init', 'lawcheck docs languages'];
-
-function next(text: string): Next {
-  const command = COMMANDS.find((known) => text === known || text.startsWith(`${known}  (`)) ?? (text.startsWith('lawcheck check --full') ? text.split('  (')[0]! : null);
-  return { command, text };
+function next(text: string, given?: string): Next {
+  return { command: commandIn(text, given), text };
 }
 
 function firstOf(errors: ErrorItem[]): { message: string; next: Next } {
   const first = sortErrors(errors)[0]!;
   const place = placeOf(first.file, first.line);
   const more = errors.length > 1 ? `; and ${errors.length - 1} more` : '';
-  return { message: `${place === null ? '' : `${place}  `}${first.message}${more}`, next: next(nextOfErrors(errors, 'doctor')) };
+  return { message: `${place === null ? '' : `${place}  `}${first.message}${more}`, next: next(nextOfErrors(errors, 'doctor'), first.command) };
 }
 
 export interface Inputs {
@@ -71,7 +71,12 @@ export interface Inputs {
   reviewer: boolean;
   nodeVersion?: string;
   grammarDir?: string;
+  runtime?: Runtime;
+  gitText?: () => string | null;
 }
+
+// The program each runner starts first; its install line is the plugin's (spec/plugin-slice.md, section 3).
+const RUNNER_PROGRAMS: Record<string, string> = { global: 'lawcheck', npx: 'npx', pnpm: 'pnpm', yarn: 'yarn', bun: 'bun' };
 
 interface Found {
   root: string | null;
@@ -94,12 +99,16 @@ export async function runChecks(inputs: Inputs): Promise<Check[]> {
 
   const steps: Record<string, () => Promise<void> | void> = {
     node: () => {
-      const version = inputs.nodeVersion ?? process.versions.node;
-      const major = Number(version.split('.')[0]);
-      set('node', major >= 24 ? 'ok' : 'fail', `Node ${version}; Lawcheck needs 24 or later`, major >= 24 ? null : next('install Node 24 or later'));
+      const runtime = { ...(inputs.runtime ?? runtimeNow()), ...(inputs.nodeVersion === undefined ? {} : { node: inputs.nodeVersion }) };
+      const refused = runtimeRefusal(runtime);
+      if (refused !== null) return set('node', 'fail', refused.message, next(forCommand(refused.next!, 'doctor')));
+      set('node', 'ok', `Node ${runtime.node}; Lawcheck needs 24 or later`);
     },
     git: () => {
       const dir = found.root ?? inputs.cwd;
+      const version = (inputs.gitText ?? (() => gitNow(dir)))();
+      const old = version === null ? null : gitRefusal(version);
+      if (old !== null) return set('git', 'fail', old.message, next(forCommand(old.next!, 'doctor')));
       let problem: string | null;
       try {
         problem = workTreeProblem(dir);
@@ -109,7 +118,7 @@ export async function runChecks(inputs: Inputs): Promise<Check[]> {
       }
       if (problem !== null) {
         const fix = gitNext(dir, problem);
-        return set('git', 'fail', problem, next(fix === undefined ? 'run lawcheck doctor inside a git work tree, with git on the PATH' : forCommand(fix, 'doctor')));
+        return set('git', 'fail', problem, fix === undefined ? next('run lawcheck doctor inside a git work tree, with git on the PATH') : next(forCommand(fix.next, 'doctor'), fix.command));
       }
       if (found.root === null) return set('git', 'ok', 'a git work tree');
       const prefix = showPrefix(found.root);
@@ -117,6 +126,8 @@ export async function runChecks(inputs: Inputs): Promise<Check[]> {
     },
     law: () => {
       if (found.root === null) {
+        const below = lawsBelow(inputs.cwd);
+        if (below.length > 0) return set('law', 'fail', `no .lawcheck/law.yaml in this directory or any above it${belowPart(below)}`, next(`cd ${below[0]}, where a law is, then run lawcheck doctor again`));
         return set('law', 'fail', 'no .lawcheck/law.yaml in this directory or any above it', next('lawcheck init  (only when the user wants a law here)'));
       }
       const read = lawErrors(found.root);
@@ -148,8 +159,15 @@ export async function runChecks(inputs: Inputs): Promise<Check[]> {
       found.config = read.config;
       const configured = read.config;
       if (!existsSync(join(found.root!, CONFIG))) return set('config', 'ok', 'no .lawcheck/config.yaml; every setting has its default');
-      if (configured.provider === null) return set('config', 'ok', '.lawcheck/config.yaml: no reviewer set');
-      set('config', 'ok', `.lawcheck/config.yaml: reviewer ${configured.provider}${configured.model === null ? '' : `, model ${configured.model}`}`);
+      const named = runnerLine(readFileSync(join(found.root!, CONFIG), 'utf8'))?.value;
+      const program = named === undefined ? undefined : RUNNER_PROGRAMS[named];
+      const at = program === undefined ? null : findProgram(program, inputs.env);
+      if (program !== undefined && at === null) {
+        return set('config', 'fail', `.lawcheck/config.yaml: runner ${named}, and ${program} is not on the PATH`, next(`install ${program}, or set runner to the way this repository starts Lawcheck, then run lawcheck doctor again`));
+      }
+      const runner = program === undefined ? '' : `; runner ${named}, ${program} at ${at}`;
+      if (configured.provider === null) return set('config', 'ok', `.lawcheck/config.yaml: no reviewer set${runner}`);
+      set('config', 'ok', `.lawcheck/config.yaml: reviewer ${configured.provider}${configured.model === null ? '' : `, model ${configured.model}`}${runner}`);
     },
     types: () => {
       const { typed, errors } = typingErrors(found.root!, found.law!, found.files, found.read ?? onceReader(found.root!));
@@ -265,12 +283,12 @@ export async function runChecks(inputs: Inputs): Promise<Check[]> {
   return IDS.map((id) => checks.get(id)!);
 }
 
-export function doctorText(checks: Check[]): string {
+export function doctorText(checks: Check[], refused: string | null = null): string {
   const problems = checks.filter((c) => c.state === 'fail').length;
   const notes = checks.filter((c) => c.state === 'note').length;
   const notePart = notes === 0 ? '' : `, ${plural(notes, 'note')}`;
   const first = problems === 0 ? `lawcheck: PASS  ${plural(checks.length, 'check')}${notePart}` : `lawcheck: FAIL  ${plural(checks.length, 'check')}, ${plural(problems, 'problem')}${notePart}`;
-  const lines = [first, ''];
+  const lines = [refused === null ? first : `lawcheck: ERROR  ${refused}`, ''];
   for (const check of checks) {
     lines.push(`${check.state}  ${check.id}  ${shown(check.message)}`);
     if ((check.state === 'note' || check.state === 'fail') && check.next !== null) lines.push(`  next: ${shown(check.next.text)}`);
@@ -281,8 +299,11 @@ export function doctorText(checks: Check[]): string {
 export async function doctor(args: Arguments, context: CheckContext, json: boolean): Promise<Result> {
   const extra = noWords(args);
   if (extra !== null) return usageError(extra, json, 'doctor');
-  const checks = await runChecks({ cwd: context.cwd, env: context.env, base: flagText(args, '--base'), reviewer: args.flags.has('--reviewer') });
+  const runtime = context.runtime ?? runtimeNow();
+  const checks = await runChecks({ cwd: context.cwd, env: context.env, base: flagText(args, '--base'), reviewer: args.flags.has('--reviewer'), runtime });
   const failed = checks.some((check) => check.state === 'fail');
-  const stdout = json ? documentOf({ schema: 'lawcheck-doctor/0', result: failed ? 'fail' : 'pass', checks }) : doctorText(checks);
+  // A refused environment leads the output, as it leads every other command's; the rows below still say what else holds.
+  const refused = environmentRefusal(runtime, () => gitNow(context.cwd));
+  const stdout = json ? documentOf({ schema: 'lawcheck-doctor/0', result: failed ? 'fail' : 'pass', checks }) : doctorText(checks, refused?.message ?? null);
   return { code: failed ? 2 : 0, stdout };
 }

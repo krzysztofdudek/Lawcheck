@@ -7,6 +7,7 @@ export interface ErrorItem {
   line: number | null;
   message: string;
   next?: string;
+  command?: string;
 }
 
 export interface Finding {
@@ -223,6 +224,14 @@ export function placeOf(file: string | null, line: number | null | undefined): s
   return line === null || line === undefined ? file : `${file}:${line}`;
 }
 
+// The command a next line asks to run first: one its error names, else a Lawcheck command the line starts with, ends with or gives after a colon.
+export function commandIn(text: string, given?: string): string | null {
+  if (given !== undefined) return given;
+  if (text.startsWith('lawcheck ')) return text.split('  (')[0]!;
+  const after = /then run (lawcheck [a-z]+)(?: again)?$/.exec(text) ?? /: (lawcheck [^,;()]+)$/.exec(text);
+  return after === null ? null : after[1]!.trim();
+}
+
 export function nextOfErrors(input: ErrorItem[], command: string | null = 'check'): string {
   return nextFor(sortErrors(input)[0]!, command);
 }
@@ -252,7 +261,7 @@ export function renderErrors(input: ErrorItem[], json: boolean, command: string 
     const document = {
       schema: 'lawcheck-error/1',
       errors: errors.map((e) => ({ code: e.code, file: e.file, line: e.line, message: e.message, why: WHY[e.code] ?? '' })),
-      next: { command: null, text: next },
+      next: { command: commandIn(next, errors[0]!.command), text: next },
     };
     return JSON.stringify(document, null, 2) + '\n';
   }

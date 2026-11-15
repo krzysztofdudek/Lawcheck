@@ -1,5 +1,7 @@
+import { realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { git } from './files.js';
+import { findProgram } from './programs.js';
 import type { ErrorItem } from './output.js';
 
 export const OLDEST_NODE = 24;
@@ -10,11 +12,23 @@ export interface Runtime {
   bun: string | undefined;
   pnp: string | undefined;
   packageDir: string;
+  // The node first on PATH, unless it is the program this run is on, as Bun's own stand-in for node is.
+  nodeOnPath: string | null;
+}
+
+function otherNode(): string | null {
+  const found = findProgram('node', process.env);
+  if (found === null) return null;
+  try {
+    return realpathSync(found) === realpathSync(process.execPath) ? null : found;
+  } catch {
+    return found;
+  }
 }
 
 export function runtimeNow(): Runtime {
   const versions = process.versions as Record<string, string | undefined>;
-  return { node: process.versions.node, bun: versions.bun, pnp: versions.pnp, packageDir: fileURLToPath(new URL('..', import.meta.url)) };
+  return { node: process.versions.node, bun: versions.bun, pnp: versions.pnp, packageDir: fileURLToPath(new URL('..', import.meta.url)), nodeOnPath: versions.bun === undefined ? null : otherNode() };
 }
 
 function refusal(message: string, next: string): ErrorItem {
@@ -23,8 +37,14 @@ function refusal(message: string, next: string): ErrorItem {
 
 export function runtimeRefusal(runtime: Runtime): ErrorItem | null {
   if (runtime.bun !== undefined) {
+    if (runtime.nodeOnPath !== null) {
+      return refusal(
+        `this run is on Bun ${runtime.bun}, and Lawcheck runs on Node ${OLDEST_NODE} or later; the node first on the PATH is ${runtime.nodeOnPath}`,
+        `start Lawcheck without --bun, as bun x --no-install lawcheck, so that it runs on ${runtime.nodeOnPath}, then run lawcheck check`,
+      );
+    }
     return refusal(
-      `this run is on Bun ${runtime.bun}, and Lawcheck runs on Node ${OLDEST_NODE} or later`,
+      `this run is on Bun ${runtime.bun}, and Lawcheck runs on Node ${OLDEST_NODE} or later; no node is on the PATH`,
       `install Node ${OLDEST_NODE} or later beside Bun, so that bun x starts Lawcheck on Node, then run lawcheck check`,
     );
   }
@@ -32,10 +52,10 @@ export function runtimeRefusal(runtime: Runtime): ErrorItem | null {
   if (!(major >= OLDEST_NODE)) {
     return refusal(`Node ${runtime.node} is older than ${OLDEST_NODE}, the oldest Node Lawcheck runs on`, `install Node ${OLDEST_NODE} or later, then run lawcheck check`);
   }
-  // Yarn's Plug'n'Play keeps packages inside zip archives that only its own loader can open, and a runner of script rules starts with no loader.
-  if (runtime.pnp !== undefined || /\.zip[\\/]/i.test(runtime.packageDir)) {
+  // Yarn's Plug'n'Play keeps packages inside zip archives that only its own loader can open, and a runner of script rules starts with no loader. A Lawcheck installed elsewhere and started from a project that uses Plug'n'Play runs from its own folder and works.
+  if (runtime.pnp !== undefined && /\.zip[\\/]/i.test(runtime.packageDir)) {
     return refusal(
-      `Lawcheck is installed by Yarn Plug'n'Play, inside an archive that the runner of script rules cannot open`,
+      `Yarn Plug'n'Play is not supported: Lawcheck is served from the archive ${runtime.packageDir.split(/[\\/]/).find((part) => /\.zip$/i.test(part))}, which the runner of script rules cannot open`,
       'set nodeLinker: node-modules in .yarnrc.yml and run yarn install, then run lawcheck check',
     );
   }
