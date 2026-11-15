@@ -57,6 +57,21 @@ export function walk(dir: string, keep: (name: string) => boolean): string[] {
 
 export const nightly = (path: string) => path.endsWith('.nightly.test.ts');
 
+// Test files that a per-push run on Windows and macOS leaves out, each with the reason it says nothing there that Linux does not: the code it exercises behaves the same on every system. The nightly runs every file on every system. A file here moves only with a fresh reviewer's record (tests/weakenings.md), and never one that tests/map.json ties to a module of PLATFORM_SENSITIVE.
+export const LINUX_ONLY: { file: string; reason: string }[] = [];
+
+// Modules of src/ whose behaviour depends on the system: paths, processes, signals, line endings, case and locking of the file system, consoles, the install. A test file that tests/map.json ties to one of them runs per push on every system.
+export const PLATFORM_SENSITIVE: string[] = [];
+
+export type System = 'linux' | 'win32' | 'darwin';
+
+export function perPushFiles(system: System): string[] {
+  const all = setFiles('commit', groupDirs('commit', null)!);
+  if (system === 'linux') return all;
+  const left = new Set(LINUX_ONLY.map((entry) => entry.file));
+  return all.filter((file) => !left.has(file));
+}
+
 export function testNamedFiles(root = ROOT): string[] {
   const out: string[] = [];
   const visit = (dir: string): void => {

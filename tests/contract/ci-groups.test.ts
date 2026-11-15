@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { parse } from 'yaml';
 import { COMMIT_GROUPS, NIGHTLY_GROUPS, ROOT } from '../harness/sets.ts';
 
-type Job = { strategy?: { matrix?: { group?: string[]; include?: { group?: string }[] } }; steps?: { run?: string }[] };
+type Job = { strategy?: { matrix?: { group?: string[]; include?: Record<string, unknown>[] } }; steps?: { run?: string }[]; needs?: string | string[]; name?: string; if?: string };
 type Workflow = { jobs: Record<string, Job> };
 
 const WORKFLOWS = join(ROOT, '.github', 'workflows');
@@ -22,11 +22,9 @@ function named(workflow: Workflow): string[] {
 }
 
 function commitProblems(ci: Workflow, groups: string[]): string[] {
-  const matrix = ci.jobs.commit?.strategy?.matrix;
-  const listed = matrix?.group ?? [];
   const problems: string[] = [];
-  for (const entry of matrix?.include ?? []) if (entry.group !== undefined && !listed.includes(entry.group)) problems.push(`ci.yml: the matrix includes group ${entry.group}, which it does not list`);
-  const run = [...listed, ...named(ci)];
+  const whole = Object.values(ci.jobs).some((job) => (job.steps ?? []).some((step) => /npm run test:shard\b|npm test(?!\S)(?![^\n]*--group)/.test(step.run ?? '')));
+  const run = whole ? [...groups, ...named(ci)] : named(ci);
   for (const group of groups) if (!run.includes(group)) problems.push(`ci.yml: no job runs commit group ${group}`);
   for (const group of new Set(run)) if (!groups.includes(group)) problems.push(`ci.yml: group ${group} is not a commit group of tests/harness/sets.ts`);
   return problems;
@@ -56,8 +54,9 @@ test('the nightly and weekly workflows run every nightly group of tests/harness/
 });
 
 test('a group added to tests/harness/sets.ts and to no workflow is named, in each set (control)', () => {
-  assert.deepEqual(commitProblems(read('ci.yml'), [...Object.keys(COMMIT_GROUPS), 'planted']), ['ci.yml: no job runs commit group planted']);
+  const named = { jobs: { a: { steps: [{ run: 'npm test -- --group core' }] } } };
+  assert.deepEqual(commitProblems(named, ['core', 'planted']), ['ci.yml: no job runs commit group planted']);
   const workflows = later();
   assert.deepEqual(nightlyProblems({ 'nightly.yml': workflows.nightly, 'weekly.yml': workflows.weekly }, [...Object.keys(NIGHTLY_GROUPS), 'planted']), ['nightly group planted runs in no workflow, not in exactly one job']);
-  assert.deepEqual(commitProblems(read('ci.yml'), Object.keys(COMMIT_GROUPS).filter((g) => g !== 'core')), ['ci.yml: group core is not a commit group of tests/harness/sets.ts']);
+  assert.deepEqual(commitProblems(named, ['inputs']), ['ci.yml: no job runs commit group inputs', 'ci.yml: group core is not a commit group of tests/harness/sets.ts']);
 });
