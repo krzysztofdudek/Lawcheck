@@ -9,9 +9,13 @@ import { redOnBase, renderRed } from './red-on-base.ts';
 
 const USAGE = 'usage: npm run gate -- [--repo <dir>] [--base <rev>] [--head <rev>] [--modules <dir with node_modules>]';
 
-function guardFromBase(repo: string, base: string, head: string): { code: number; text: string } {
+function guardFromBase(repo: string, base: string, head: string): { code: number; text: string; judged?: boolean } {
   const files = git(repo, ['ls-tree', '-r', '-z', '--name-only', base, '--', 'tests/guard']).split('\0').filter(Boolean);
-  if (!files.includes('tests/guard/from-base.ts')) return { code: 0, text: `suite guard: PASS  the base ${base.slice(0, 7)} has no suite guard yet: nothing judges this change\n` };
+  if (!files.includes('tests/guard/from-base.ts')) {
+    const ledger = git(repo, ['ls-tree', '--name-only', base, '--', 'tests/weakenings.md']).trim();
+    if (files.length > 0 || ledger) return { code: 1, text: `suite guard: could not run  the base ${base.slice(0, 7)} holds ${files.length > 0 ? 'tests/guard' : 'tests/weakenings.md'} but no tests/guard/from-base.ts\n` };
+    return { code: 0, text: `suite guard: not judged  the base ${base.slice(0, 7)} has no suite guard yet\n`, judged: false };
+  }
   const tmp = tempDir('gate-guard');
   try {
     for (const file of files) {
@@ -79,7 +83,7 @@ if (process.argv[1] !== undefined && resolveMain(process.argv[1]) === import.met
   if (status) out.push(`note: the working tree has changes that are not committed; the guard, red on base and the pack read commit ${head.slice(0, 7)}, the commit set ran on the working tree`, '');
   const red0 = red.rows.filter((r) => r.verdict === 'red' || r.verdict === 'file did not load').length;
   const verdicts = [
-    `suite guard ${guard.code === 0 ? 'passed' : guard.code === 1 ? 'refused weakenings' : 'could not run'}`,
+    `suite guard ${guard.judged === false ? 'not judged: no guard on the base yet' : guard.code === 0 ? 'passed' : guard.code === 1 ? 'refused weakenings or could not run' : 'could not run'}`,
     `commit set (${tests.command}) ${tests.code === 0 ? 'passed' : 'failed'}`,
     `${red0} of ${red.rows.length} new or changed tests red on the base`,
   ];

@@ -209,17 +209,20 @@ test('suite guard (T-7 A): the judge is the guard of the base, so a branch that 
   }
 });
 
-test('suite guard (T-7 A): with no guard on the base, the entry point says so and passes', () => {
-  const repo = baseRepo();
+test('suite guard (T-7 A): with no guard on the base, the entry point says not judged and passes', () => {
+  const files = { ...BASE };
+  for (const path of Object.keys(files)) if (path.startsWith('tests/guard/') || path === 'tests/weakenings.md') delete files[path];
+  const repo = baseRepo(files);
   try {
-    applyCase(repo, join(CASES, 'refused-expected-no-record.diff'));
+    writeFileSync(join(repo.dir, 'tests/real/hono.expected'), 'src/index.ts  ok\n');
+    sh(repo.dir, ['commit', '-q', '-a', '-m', 'a weakening']);
     const run = spawnSync(process.execPath, [join(HERE, 'from-base.ts'), '--repo', repo.dir, '--base', 'main', '--head', 'work'], { env: GIT_ENV, encoding: 'utf8' });
     assert.equal(run.stderr, '');
     assert.equal(run.status, 0);
-    assert.match(run.stdout, /^suite guard: PASS {2}the base [0-9a-f]{7} has no suite guard yet: nothing judges this change\n$/);
+    assert.match(run.stdout, /^suite guard: not judged {2}the base [0-9a-f]{7} has no suite guard yet\n$/);
     const zero = spawnSync(process.execPath, [join(HERE, 'from-base.ts'), '--repo', repo.dir, '--base', '0000000000000000000000000000000000000000', '--head', 'work'], { env: GIT_ENV, encoding: 'utf8' });
     assert.equal(zero.status, 0);
-    assert.equal(zero.stdout, 'suite guard: PASS  no base commit (0000000000000000000000000000000000000000): nothing judges this push\n');
+    assert.equal(zero.stdout, 'suite guard: not judged  no base commit (0000000000000000000000000000000000000000)\n');
   } finally {
     repo.done();
   }
@@ -239,3 +242,18 @@ test('suite guard (T-7 A): the command exits 2 with a reason when it cannot judg
     repo.done();
   }
 });
+test('suite guard (T-7 A): a base that holds the guard\'s files but not its entry point fails as could not run', () => {
+  for (const keep of ['tests/guard/check.ts', 'tests/weakenings.md']) {
+    const files = { ...BASE };
+    for (const path of Object.keys(files)) if ((path.startsWith('tests/guard/') || path === 'tests/weakenings.md') && path !== keep) delete files[path];
+    const repo = baseRepo(files);
+    try {
+      const run = spawnSync(process.execPath, [join(HERE, 'from-base.ts'), '--repo', repo.dir, '--base', 'main', '--head', 'work'], { env: GIT_ENV, encoding: 'utf8' });
+      assert.equal(run.status, 1, keep);
+      assert.match(run.stdout, new RegExp(`^suite guard: could not run {2}the base [0-9a-f]{7} holds ${keep === 'tests/weakenings.md' ? 'tests/weakenings\\.md' : 'tests/guard'} but no tests/guard/cli\\.ts\\n$`), keep);
+    } finally {
+      repo.done();
+    }
+  }
+});
+
