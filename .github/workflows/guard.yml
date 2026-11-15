@@ -4,7 +4,7 @@ name: Suite guard
 on:
   pull_request_target:
   push:
-    branches: [main, ci-layout]
+    branches: [main]
   workflow_dispatch:
     inputs:
       base:
