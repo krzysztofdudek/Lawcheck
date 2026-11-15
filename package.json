@@ -40,7 +40,8 @@
     "stability": "npm run build && node tests/stability/run.ts",
     "test": "npm run build && node tests/run.ts commit",
     "t": "node tests/run.ts loop",
-    "nightly": "npm run build && node tests/run.ts nightly"
+    "nightly": "npm run build && node tests/run.ts nightly",
+    "gate": "node tests/gate/run.ts"
   },
   "dependencies": {
     "@chrisdudek/runes": "1.1.0",
