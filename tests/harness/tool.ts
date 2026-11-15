@@ -41,7 +41,7 @@ export function namesTool(words: unknown[]): string | null {
   for (const word of words) {
     if (typeof word !== 'string') continue;
     const text = slash(word);
-    if (TOOL_PATHS.includes(text) || /(^|[\s"'/])dist\/cli\.js(["'\s]|$)/.test(text) || /lawcheck-hook\.mjs(["'\s]|$)/.test(text) || /^(.*\/)?lawcheck(\.cmd|\.exe)?$/.test(text)) return word;
+    if (TOOL_PATHS.includes(text) || /(^|[\s"'/])dist\/(cli\.js|bin\.cjs)(["'\s]|$)/.test(text) || /lawcheck-hook\.mjs(["'\s]|$)/.test(text) || /^(.*\/)?lawcheck(\.cmd|\.exe)?$/.test(text)) return word;
   }
   return null;
 }
@@ -50,7 +50,7 @@ const SHELLS = /^(sh|bash|dash|zsh|ksh|cmd|powershell|pwsh)(\.exe)?$/i;
 
 // A command line a shell reads: Lawcheck is named where lawcheck stands as a word of it, alone or ending a path, or where it names the built tool or a hook.
 export function namesToolInLine(line: string): boolean {
-  return /(^|[\s;&|("'`\/\\])lawcheck(\.cmd|\.exe|\.ps1)?($|[\s;&|)"'`])/.test(line) || /dist[\/\\]cli\.js|lawcheck-hook\.mjs/.test(line);
+  return /(^|[\s;&|("'`\/\\])lawcheck(\.cmd|\.exe|\.ps1)?($|[\s;&|)"'`])/.test(line) || /dist[\/\\](cli\.js|bin\.cjs)|lawcheck-hook\.mjs/.test(line);
 }
 
 // The strings of a start that a shell reads: the line of exec and execSync, and the words given to a shell program or under shell: true.

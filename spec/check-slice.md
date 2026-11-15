@@ -507,7 +507,7 @@ TypeScript on Node 24, ES modules. One runtime dependency, `yaml`; for developme
 
 ```
 .devcontainer/devcontainer.json   image mcr.microsoft.com/devcontainers/javascript-node:24; postCreateCommand: npm ci
-package.json                      "type": "module", bin lawcheck -> dist/bin.js, engines node >=24, version 0.1.0
+package.json                      "type": "module", bin lawcheck -> dist/bin.cjs, engines node >=24, version 0.1.0
 tsconfig.json                     src/ -> dist/
 spec/check-slice.md
 src/

@@ -181,12 +181,12 @@ test('I-env-1: Node with --permission in NODE_OPTIONS, given the entry by its ow
   await inTemp(async (dir) => {
     const s = sampleWithD(dir);
     for (const [command, argv] of [...COMMANDS, ['doctor', ['doctor']] as [string, string[]], ['check', ['--version']] as [string, string[]]]) {
-      const run = await lawcheckAt(join(ROOT, 'dist', 'bin.js'), s, argv, { NODE_OPTIONS: '--permission' });
+      const run = await lawcheckAt(join(ROOT, 'dist', 'bin.cjs'), s, argv, { NODE_OPTIONS: '--permission' });
       assert.equal(run.stdout, refusal('Node runs with --permission, set in NODE_OPTIONS, and under it Lawcheck cannot read its own files', 'start Lawcheck with NODE_OPTIONS free of --permission, then run lawcheck check', command), argv.join(' '));
       assert.equal(run.stderr, '', argv.join(' '));
       assert.equal(run.code, 2);
     }
-    const plain = await lawcheckAt(join(ROOT, 'dist', 'bin.js'), s, ['check', '--base', 'main']);
+    const plain = await lawcheckAt(join(ROOT, 'dist', 'bin.cjs'), s, ['check', '--base', 'main']);
     assert.equal(plain.stdout, TEST4, 'control: the entry without --permission runs the check');
   });
 });
