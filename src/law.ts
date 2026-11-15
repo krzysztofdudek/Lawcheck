@@ -45,6 +45,7 @@ export interface Law {
 export interface LawProblem {
   line: number;
   message: string;
+  tooLarge?: boolean;
 }
 
 const ID = /^[a-z0-9]+(-[a-z0-9]+)*$/;
@@ -162,7 +163,7 @@ class Reader {
         if (!this.mapping(value, line, "'rules'")) continue;
         const count = (value as YAMLMap).items.length;
         if (count > LAW_RULES) {
-          this.problem(line, `the law holds ${count.toLocaleString('en-US')} rules, more than the ${LAW_RULES.toLocaleString('en-US')} a law may hold`);
+          this.problems.push({ line, message: `the law holds ${count.toLocaleString('en-US')} rules, more than the ${LAW_RULES.toLocaleString('en-US')} a law may hold`, tooLarge: true });
           return { law: null, problems: this.problems };
         }
         this.readRules(value as YAMLMap);
@@ -170,7 +171,7 @@ class Reader {
         if (!this.mapping(value, line, "'types'")) continue;
         const count = typeCount(value as YAMLMap);
         if (count > LAW_TYPES) {
-          this.problem(line, `the law holds ${count.toLocaleString('en-US')} types, more than the ${LAW_TYPES.toLocaleString('en-US')} a law may hold`);
+          this.problems.push({ line, message: `the law holds ${count.toLocaleString('en-US')} types, more than the ${LAW_TYPES.toLocaleString('en-US')} a law may hold`, tooLarge: true });
           return { law: null, problems: this.problems };
         }
         types = this.readTypes(value as YAMLMap, null);

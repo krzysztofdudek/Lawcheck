@@ -137,6 +137,10 @@ export function noGit(dir: string, problem: string): ErrorItem {
   return { code: 'no-git', file: null, line: null, message: problem, ...(fix === undefined ? {} : fix) };
 }
 
+function lawTooLarge(line: number, message: string): ErrorItem {
+  return { code: 'file-too-large', file: LAW, line, message, next: `make ${LAW} hold less than its limits (1 MiB, 10,000 rules and 1,000 types), then run lawcheck check` };
+}
+
 export function lawErrors(root: string): { law: Law } | { errors: ErrorItem[] } {
   let source: Uint8Array;
   try {
@@ -145,12 +149,12 @@ export function lawErrors(root: string): { law: Law } | { errors: ErrorItem[] } 
     return { errors: [{ code: 'law-invalid', file: LAW, line: 1, message: `the law cannot be read (${readFailure(error)})` }] };
   }
   if (source.length > LAW_BYTES) {
-    return { errors: [{ code: 'law-invalid', file: LAW, line: 1, message: `the law holds ${count(source.length)} bytes, more than the ${mib(LAW_BYTES)} a law may hold` }] };
+    return { errors: [lawTooLarge(1, `the law holds ${count(source.length)} bytes, more than the ${mib(LAW_BYTES)} a law may hold`)] };
   }
   const { law, problems } = parseLaw(decode(source));
   if (law === null) {
     if (linked(root, LAW)) return { errors: [{ code: 'law-invalid', file: LAW, line: null, message: LINKED(LAW) }] };
-    return { errors: problems.map((p) => ({ code: 'law-invalid', file: LAW, line: p.line, message: p.message })) };
+    return { errors: problems.map((p) => (p.tooLarge ? lawTooLarge(p.line, p.message) : { code: 'law-invalid', file: LAW, line: p.line, message: p.message })) };
   }
   return { law };
 }
