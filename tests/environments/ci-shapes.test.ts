@@ -59,7 +59,7 @@ test('S7-6: a depth-1 clone of a branch with no base fails every file outside CI
     const json = JSON.parse((await lawcheck(clone, ['check', '--json'], CI)).stdout);
     assert.equal(json.schema, 'lawcheck-error/1');
     assert.equal(json.errors[0].code, 'base-unreachable');
-    assert.deepEqual(json.next, { command: 'lawcheck check --full', text: NO_BASE_IN_CI.split('\n')[5]!.slice('next: '.length) });
+    assert.deepEqual(json.next, { command: null, text: NO_BASE_IN_CI.split('\n')[5]!.slice('next: '.length) });
     assert.equal((await lawcheck(clone, ['check', './src/core/discount.ts'], CI)).code, 1, 'named files need no base');
   });
 });

@@ -101,7 +101,7 @@ runner: pnpm  # pinned in package.json
 
 Yarn 1 prints its own lines before and after the output of `yarn run`. To read `--json`, start Lawcheck with `yarn --silent run lawcheck`, which prints the document alone.
 
-Lawcheck runs on Node 24 or later, with npm, pnpm, Yarn 1, Yarn 4 with `nodeLinker: node-modules` or `nodeLinker: pnpm`, or Bun beside Node, and with git 2.34 or later. Anywhere else every command but `--version`, `--help` and `docs` refuses, and its first line names the cause: Bun as the runtime, as on a machine with no Node or with `bun --bun`; a Node older than 24, which npm and pnpm install on with only a warning; Yarn Plug'n'Play, which is not supported, since the runner of script rules cannot open its archives; an older git; `--permission` in `NODE_OPTIONS`.
+Lawcheck runs on Node 24 or later, with npm, pnpm, Yarn 1, Yarn 4 with `nodeLinker: node-modules`, or Bun beside Node (Yarn 4 with `nodeLinker: pnpm` works, and is not promised), and with git 2.34 or later. Anywhere else every command but `--version`, `--help` and `docs` refuses, and its first line names the cause: Bun as the runtime, as on a machine with no Node or with `bun --bun`; a Node older than 24, which npm and pnpm install on with only a warning; Yarn Plug'n'Play, which is not supported, since the runner of script rules cannot open its archives; an older git; `--permission` in `NODE_OPTIONS`.
 
 Yarn 4 holds back a package published less than a day ago. In the first day after a release of Lawcheck or of Runes, the library its readers come from, `yarn add` ends with `YN0016` and the word `quarantined`. This line in `.yarnrc.yml` lets the install through:
 

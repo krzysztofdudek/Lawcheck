@@ -260,7 +260,7 @@ test('S5-5: at the top of a monorepo whose law lives in pkg/, not-initialized na
       ),
     );
     assert.equal(run.code, 2);
-    assert.deepEqual(JSON.parse((await lawcheck(top, [...BASE, '--json'])).stdout).next, { command: 'lawcheck check', text: 'cd pkg, where a law is, then run lawcheck check' });
+    assert.deepEqual(JSON.parse((await lawcheck(top, [...BASE, '--json'])).stdout).next, { command: null, text: 'cd pkg, where a law is, then run lawcheck check' });
     const doctor = await lawcheck(top, ['doctor']);
     assert.match(doctor.stdout, /^fail  law  no \.lawcheck\/law\.yaml in this directory or any above it; the laws below it are in pkg\n  next: cd pkg, where a law is, then run lawcheck doctor again$/m);
     const further = await lawcheck(join(top, 'pkg'), BASE);

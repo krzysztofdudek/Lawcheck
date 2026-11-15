@@ -234,7 +234,6 @@ export function theChange(root: string, files: string[], option: string | null, 
       throw unreachable(
         'no base in this CI job: no --base, no LAWCHECK_BASE and no origin/HEAD, and a plain check without one would count every file as changed',
         `pass --base origin/<the branch the change goes into> or set LAWCHECK_BASE, with the history fetched (${FETCH_ALL}); or judge every file with lawcheck check --full`,
-        'lawcheck check --full',
       );
     }
     return { base, from, changed: new Set(files) };

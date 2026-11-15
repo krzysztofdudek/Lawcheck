@@ -1,6 +1,6 @@
 #!/bin/sh
 # One cell of the install matrix (spec/environments.md, test 206), run as root in a clean official image with /cell mounted read-only: /cell/lawcheck.tgz, /cell/sample and this script.
-# Usage: install-cell.sh <npm|pnpm|yarn1|yarn4|yarn4-pnpm|yarn4-pnp|bun> <pass|refuse> [<words the refusal names>]
+# Usage: install-cell.sh <npm|pnpm|yarn1|yarn4|yarn4-pnpm|yarn4-pnp|bun> <pass|refuse> [<node|bun|pnp: the refusal it expects>]
 set -u
 CELL=$1
 EXPECT=$2
@@ -88,13 +88,21 @@ if [ "$EXPECT" = pass ]; then
   if [ $plain_code -eq 1 ]; then ok "$cmd check exits 1"; else bad "$cmd check exit $plain_code"; fi
   if [ $try_code -eq 1 ] && printf '%s\n' "$try" | grep -q '^src/core/one.ts:1  error\[no-console\]  writes to the terminal with console.log$'; then ok "try finds it"; else bad "try exit $try_code: $try"; fi
   if [ $parsed_code -eq 0 ] && [ "$parsed" = "lawcheck-check/0 fail no-console" ]; then ok "check --json through $json parses"; else bad "check --json through $json: $parsed; the output was: $document"; fi
+  if [ "$CELL" = npm ]; then
+    # spec/environments.md, section 3, a limit: Node with --permission dies resolving the link a package manager installs, before Lawcheck's entry runs.
+    quiet npm install --global --no-audit --no-fund /cell/lawcheck.tgz || couldnot "npm install --global"
+    out=$(NODE_OPTIONS=--permission lawcheck --version 2> /tmp/cell-permission.log); code=$?
+    if [ $code -eq 1 ] && [ -z "$out" ] && grep -q '^Error \[ERR_ACCESS_DENIED\]: Access to this API has been restricted' /tmp/cell-permission.log && grep -q "resource: '.*/lawcheck/dist/bin.js'" /tmp/cell-permission.log; then ok "the installed link under --permission ends in Node's ERR_ACCESS_DENIED, exit 1, as the spec states"; else bad "the installed link under --permission: exit $code, $out $(cat /tmp/cell-permission.log)"; fi
+  fi
 else
+  case $CAUSE in
+    node) expected="lawcheck: ERROR  Node $(node --version | sed 's/^v//') is older than 24, the oldest Node Lawcheck runs on" ;;
+    bun) expected="lawcheck: ERROR  this run is on Bun $(bun --version), and Lawcheck runs on Node 24 or later; no node is on the PATH" ;;
+    pnp) expected="lawcheck: ERROR  Yarn Plug'n'Play is not supported: Lawcheck is served from the archive $(basename "$(find / -name 'lawcheck-*.zip' 2> /dev/null | head -n 1)"), which the runner of script rules cannot open" ;;
+    *) couldnot "unknown refusal $CAUSE" ;;
+  esac
   for out in "$doctor" "$check" "$try"; do
-    line=$(first "$out")
-    case "$line" in
-      "lawcheck: ERROR  "*"$CAUSE"*) ;;
-      *) bad "the first line does not name $CAUSE: $out" ;;
-    esac
+    if [ "$(first "$out")" != "$expected" ]; then bad "the first line is not '$expected': $out"; fi
     case "$out" in *rule-crashed* | *'.lawcheck/rules/'*) bad "a rule file is blamed: $out" ;; esac
   done
   if [ "$(first "$doctor")" = "$(first "$check")" ] && [ "$(first "$try")" = "$(first "$check")" ]; then ok "doctor, check and try refuse alike: $(first "$check")"; else bad "doctor, check and try differ"; fi

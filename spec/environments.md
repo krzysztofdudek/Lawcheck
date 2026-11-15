@@ -14,14 +14,14 @@ Out: the network. A test that needs it says so in its name and runs only in the 
 |---|---|---|
 | Node | 24 and newer | 20, 22 and every version below 24 |
 | the runtime | Node | Bun as the runtime; Bun beside Node is supported, since `bun x` then starts Lawcheck on Node through its first line |
-| the install | npm, pnpm, Yarn 1, Yarn 4 with `nodeLinker: node-modules` or `nodeLinker: pnpm`, Bun beside Node; a Lawcheck installed in any of these ways and started from a project that uses Plug'n'Play | Yarn's Plug'n'Play serving Lawcheck itself from a zip archive, which the runner of script rules cannot open |
+| the install | npm, pnpm, Yarn 1, Yarn 4 with `nodeLinker: node-modules`, Bun beside Node; a Lawcheck installed in any of these ways and started from a project that uses Plug'n'Play. Yarn 4 with `nodeLinker: pnpm` works and is not promised: T-2 A does not list it, and its nightly cell only shows that it works today | Yarn's Plug'n'Play serving Lawcheck itself from a zip archive, which the runner of script rules cannot open |
 | git | 2.34 and newer, the git of `ubuntu:22.04`; the nightly git matrix runs the check slice's tests on it | every version below 2.34 |
 | the system | Linux, macOS and Windows | |
 | Node's permission model | | `--permission` set for Lawcheck itself, as through `NODE_OPTIONS` |
 
 ## 3. The refusal
 
-The installed entry, `dist/bin.js`, imports none of Lawcheck's modules before it looks at `process.permission`. When Node runs with its permission model, which lets the entry load and refuses every module it imports, every command, `--version` included, gets the refusal below with the message `Node runs with --permission, set in NODE_OPTIONS, and under it Lawcheck cannot read its own files` and the next line `start Lawcheck with NODE_OPTIONS free of --permission, then run lawcheck check`, never Node's stack trace.
+The installed entry, `dist/bin.js`, imports none of Lawcheck's modules before it looks at `process.permission`. When Node runs with its permission model, which lets the entry load and refuses every module it imports, every command, `--version` included, gets the refusal below with the message `Node runs with --permission, set in NODE_OPTIONS, and under it Lawcheck cannot read its own files` and the next line `start Lawcheck with NODE_OPTIONS free of --permission, then run lawcheck check`. That holds when Node is given the entry's own path, as the shims of npm, pnpm and Yarn on Windows give it. A limit: on Linux and macOS a package manager installs `lawcheck` as a symbolic link to the entry, and Node with `--permission` cannot resolve that link, so it ends before the entry runs, with exit 1, nothing on standard output and its own `Error [ERR_ACCESS_DENIED]` and stack trace on standard error, naming `…/lawcheck/dist/bin.js`. The npm cells of the install matrix show it.
 
 Otherwise every command but `lawcheck --version`, `lawcheck --help`, `lawcheck <command> --help` and `docs` first looks at where it runs, in this order, and stops at the first that fails:
 
@@ -98,7 +98,7 @@ Both need the network and run in Docker from official images, each container mou
 | `node:20` | refused | | | | | | |
 | `node:22` | refused | | | | | | |
 
-Each Yarn 4 cell lists `lawcheck` and `@chrisdudek/runes` in `npmPreapprovedPackages`, the line `docs/config.md` gives for the first day after a release.
+Each Yarn 4 cell lists `lawcheck` and `@chrisdudek/runes` in `npmPreapprovedPackages`, the line `docs/config.md` gives for the first day after a release. The `pnpm` linker's cells show what works today and are no promise (section 2). A refused cell compares the whole first line of `doctor`, `check` and `try` with section 3's, built from the version of Node or Bun in the image and the name of Yarn's archive. An npm cell also installs the tarball globally and starts the link with `NODE_OPTIONS=--permission`, and sees the limit of section 3.
 
 **The git matrix.** The check slice's acceptance tests, the tests whose names carry rows 1 to 45, run with the git of `ubuntu:22.04` (2.34), `debian:12` (2.39), `ubuntu:24.04` (2.43) and `debian:sid` (the newest a Debian image carries), on the Node 24 of the machine that starts them, as a user other than root.
 

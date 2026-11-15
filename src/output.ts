@@ -224,11 +224,11 @@ export function placeOf(file: string | null, line: number | null | undefined): s
   return line === null || line === undefined ? file : `${file}:${line}`;
 }
 
-// The command a next line asks to run first: one its error names, else a Lawcheck command the line starts with, ends with or gives after a colon.
+// The command a next line asks to run first, or null when its first step is no command, such as installing Node or passing a base: one its error names, else a line that is a Lawcheck command, or one whose only step is the command after its colon.
 export function commandIn(text: string, given?: string): string | null {
   if (given !== undefined) return given;
   if (text.startsWith('lawcheck ')) return text.split('  (')[0]!;
-  const after = /then run (lawcheck [a-z]+)(?: again)?$/.exec(text) ?? /: (lawcheck [^,;()]+)$/.exec(text);
+  const after = /^run lawcheck [a-z]* ?as its usage line says: (lawcheck [^,;()]+)$/.exec(text);
   return after === null ? null : after[1]!.trim();
 }
 

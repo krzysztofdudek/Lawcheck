@@ -12,7 +12,7 @@ export interface Cell {
   cause?: string;
 }
 
-// spec/environments.md, section 7: which cells pass and which are refused, and the words each refusal names.
+// spec/environments.md, section 7: which cells pass and which are refused, and which refusal of section 3 each gives.
 export const INSTALL_CELLS: Cell[] = [
   ...['node:24', 'node:24-alpine'].flatMap((image): Cell[] => [
     { image, manager: 'npm', expect: 'pass' },
@@ -20,12 +20,12 @@ export const INSTALL_CELLS: Cell[] = [
     { image, manager: 'yarn1', expect: 'pass' },
     { image, manager: 'yarn4', expect: 'pass' },
     { image, manager: 'yarn4-pnpm', expect: 'pass' },
-    { image, manager: 'yarn4-pnp', expect: 'refuse', cause: "Plug'n'Play" },
+    { image, manager: 'yarn4-pnp', expect: 'refuse', cause: 'pnp' },
     { image, manager: 'bun', expect: 'pass' },
   ]),
-  { image: 'oven/bun', manager: 'bun', expect: 'refuse', cause: 'this run is on Bun' },
-  { image: 'node:20', manager: 'npm', expect: 'refuse', cause: 'Node 20.' },
-  { image: 'node:22', manager: 'npm', expect: 'refuse', cause: 'Node 22.' },
+  { image: 'oven/bun', manager: 'bun', expect: 'refuse', cause: 'bun' },
+  { image: 'node:20', manager: 'npm', expect: 'refuse', cause: 'node' },
+  { image: 'node:22', manager: 'npm', expect: 'refuse', cause: 'node' },
 ];
 
 export const GIT_IMAGES = ['ubuntu:22.04', 'debian:12', 'ubuntu:24.04', 'debian:sid'];

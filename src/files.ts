@@ -128,7 +128,7 @@ export function gitNext(dir: string, problem: string): { next: string; command?:
     return { next: `let git trust the repository: ${command}, then run lawcheck check`, command };
   }
   const repository = /not a git repository/.test(problem) ? repositoryAbove(dir) : null;
-  if (repository !== null) return { next: `repair the repository at ${repository}, so that git status works there, then run lawcheck check`, command: 'git status' };
+  if (repository !== null) return { next: `repair the repository at ${repository}, so that git status works there, then run lawcheck check` };
   return undefined;
 }
 

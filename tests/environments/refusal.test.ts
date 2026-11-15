@@ -44,6 +44,7 @@ async function refusedEverywhere(go: Go, message: string, next: string, row: 'no
     const document = JSON.parse(json.stdout);
     assert.equal(document.schema, 'lawcheck-error/1');
     assert.deepEqual(document.errors.map((e: { code: string; message: string }) => [e.code, e.message]), [['unsupported-environment', message]]);
+    assert.equal(document.next.command, null, 'the first step of a refusal is no command');
     assert.equal(json.code, 2);
   }
   const doctor = await go(['doctor']);
@@ -126,6 +127,15 @@ test('S8-2: on Bun with a node first on the PATH, as bun --bun runs it, the refu
   });
 });
 
+test("S8-2: on Bun with a link to the program of this run first on the PATH, as Bun's own node fallback is, no node counts as found", async () => {
+  await inTemp(async (dir) => {
+    const bin = join(dir, 'fallback');
+    mkdirSync(bin);
+    symlinkSync(process.execPath, join(bin, WINDOWS ? 'node.exe' : 'node'), 'file');
+    await refusesCheck(posing('bun', '1.4.0'), POSED[2]![2], POSED[2]![3], { PATH: [bin, GIT_ENV.PATH].join(delimiter) });
+  });
+});
+
 // A copy of Lawcheck kept as Yarn keeps a package in its cache, in a folder whose name ends in .zip.
 function zippedCopy(dir: string, folder: string): string {
   const zipped = join(dir, 'cache', folder, 'node_modules', 'lawcheck');
@@ -167,7 +177,7 @@ test("S8-1: control, a Lawcheck in a folder whose name ends in .zip, with no Plu
   });
 });
 
-test('I-env-1: Node started with --permission in NODE_OPTIONS gets the refusal from the installed entry, and no stack trace', async () => {
+test('I-env-1: Node with --permission in NODE_OPTIONS, given the entry by its own path as the Windows shims give it, gets the refusal and no stack trace', async () => {
   await inTemp(async (dir) => {
     const s = sampleWithD(dir);
     for (const [command, argv] of [...COMMANDS, ['doctor', ['doctor']] as [string, string[]], ['check', ['--version']] as [string, string[]]]) {
