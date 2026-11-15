@@ -201,9 +201,19 @@ function onIndexCopy<T>(root: string, read: (env: NodeJS.ProcessEnv) => T): T {
   if (found.status !== 0) throw failed(pathArgs, found);
   const resolved = resolve(root, loose.decode(found.stdout).replace(/\r?\n$/, ''));
   if (!existsSync(resolved)) return read({});
-  const folder = mkdtempSync(join(tmpdir(), 'lawcheck-index-'));
+  let folder: string;
   try {
-    copyFileSync(resolved, join(folder, 'index'));
+    folder = mkdtempSync(join(tmpdir(), 'lawcheck-index-'));
+  } catch {
+    // Without a temporary folder the diff reads the index itself: the change is the same, and git may write the index again with fresh times.
+    return read({});
+  }
+  try {
+    try {
+      copyFileSync(resolved, join(folder, 'index'));
+    } catch {
+      return read({});
+    }
     return read({ GIT_INDEX_FILE: join(folder, 'index') });
   } finally {
     rmSync(folder, { recursive: true, force: true });
