@@ -1,5 +1,6 @@
 import { spawnSync } from 'node:child_process';
 import { lstatSync } from 'node:fs';
+import { devNull } from 'node:os';
 import { join } from 'node:path';
 
 export class NoGit extends Error {}
@@ -15,10 +16,41 @@ interface GitResult {
 const strict = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true });
 const loose = new TextDecoder('utf-8', { ignoreBOM: true });
 
+const filters = new Map<string, string[]>();
+
+function filterKeys(cwd: string): string[] {
+  let keys = filters.get(cwd);
+  if (keys === undefined) {
+    const listed = spawnSync('git', ['config', '-z', '--name-only', '--get-regexp', '^filter\\.'], { cwd, maxBuffer: 1 << 24, stdio: ['ignore', 'pipe', 'ignore'] });
+    keys = listed.status === 0 ? listed.stdout.toString('utf8').split('\0').filter((key) => /^filter\..+\.(clean|smudge|process)$/.test(key)) : [];
+    filters.set(cwd, keys);
+  }
+  return keys;
+}
+
+// A repository's config and attributes can name programs that git starts while it only reads; these settings start none of them.
+function startsNothing(cwd: string): NodeJS.ProcessEnv {
+  const settings: [string, string][] = [
+    ['core.fsmonitor', ''],
+    ['core.hooksPath', devNull],
+    ['diff.external', ''],
+  ];
+  for (const key of filterKeys(cwd)) settings.push([key, ''], [`${key.slice(0, key.lastIndexOf('.'))}.required`, 'false']);
+  const env: NodeJS.ProcessEnv = { ...process.env, GIT_OPTIONAL_LOCKS: '0' };
+  const given = Number(env.GIT_CONFIG_COUNT);
+  const start = Number.isInteger(given) && given > 0 ? given : 0;
+  settings.forEach(([key, value], index) => {
+    env[`GIT_CONFIG_KEY_${start + index}`] = key;
+    env[`GIT_CONFIG_VALUE_${start + index}`] = value;
+  });
+  env.GIT_CONFIG_COUNT = String(start + settings.length);
+  return env;
+}
+
 export function git(root: string, args: string[]): GitResult {
   const result = spawnSync('git', args, {
     cwd: root,
-    env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' },
+    env: startsNothing(root),
     maxBuffer: 1 << 30,
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -113,7 +145,7 @@ export function mergeBase(root: string, commit: string): string | null {
 }
 
 export function changedPaths(root: string, base: string): string[] {
-  const diffArgs = ['diff', '-z', '--name-only', '--no-renames', '--relative', base, '--'];
+  const diffArgs = ['diff', '--no-ext-diff', '--no-textconv', '-z', '--name-only', '--no-renames', '--relative', base, '--'];
   const diff = git(root, diffArgs);
   if (diff.status !== 0) throw failed(diffArgs, diff);
   const othersArgs = ['ls-files', '-z', '--others', '--exclude-standard'];
