@@ -35,8 +35,6 @@ export function start(): void {
   const gitFlag = new Int32Array(new SharedArrayBuffer(4));
   const exit = (code: number) => {
     for (const child of gits) child.kill('SIGKILL');
-    Atomics.store(gitFlag, 0, 1);
-    Atomics.notify(gitFlag, 0);
     process.exit(code);
   };
   const writeOut = (bytes: Uint8Array | string, code: number) => {
