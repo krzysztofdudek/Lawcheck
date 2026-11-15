@@ -16,12 +16,14 @@ export const NIGHTLY_GROUPS: Record<string, string[]> = {
   security: ['security'],
   limits: ['limits'],
   environments: ['environments'],
+  docs: ['docs'],
+  sabotage: ['sabotage'],
 };
 
 // The groups that have no test file yet, by set; a group not named here that finds none fails, and a contract test fails when one named here holds tests.
 export const EMPTY_GROUPS: Record<'commit' | 'nightly', string[]> = {
   commit: [],
-  nightly: ['properties', 'security', 'limits'],
+  nightly: ['properties', 'security', 'limits', 'docs', 'sabotage'],
 };
 
 // Folders under tests/ that hold repositories, inputs and recorded results for the tests, never tests of their own.
