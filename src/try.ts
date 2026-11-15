@@ -5,7 +5,7 @@ import type { Arguments, Result } from './args.js';
 import type { CheckContext } from './check.js';
 import { comparePaths, trackedLinks, workTreeTop } from './files.js';
 import { compileList, patternProblem } from './glob.js';
-import { CODES, placeOf, plural, shown } from './output.js';
+import { CODES, plural, shown } from './output.js';
 import type { ErrorItem } from './output.js';
 import { ruleKind } from './prime.js';
 import { buildPrompt, cleanMessage, size } from './prompt.js';
@@ -318,7 +318,7 @@ export function tryText(outcome: Outcome): string {
       return;
     }
     printed++;
-    lines.push(`${shown(placeOf(run.file, found.line)!)}  ${found.severity}[${outcome.rule}]  ${shown(found.message)}`);
+    lines.push(`${shown(run.file)}${found.line === null || found.line === undefined ? '' : `:${found.line}`}  ${found.severity}[${outcome.rule}]  ${shown(found.message)}`);
     if (!why) {
       why = true;
       lines.push(`  why:  ${outcome.why}`);

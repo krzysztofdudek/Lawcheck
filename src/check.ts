@@ -1,5 +1,6 @@
 import { join } from 'node:path';
 import { comparePaths, trackedLinks, workTreeTop } from './files.js';
+import { hide } from './keys.js';
 import type { ReviewerConfig } from './config.js';
 import type { Law } from './law.js';
 import { fixNext, plural, sortFindings, WHY } from './output.js';
@@ -105,7 +106,7 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
 
   const ruleIds = new Set([...law.rules.keys(), 'forbidden-use']);
   const waiversOf = new Map(run.map((file) => [file.path, parseWaivers(file.lines, ruleIds)]));
-  const review = `lawcheck check --review${options.base === null ? '' : ` --base ${options.base}`}`;
+  const review = `lawcheck check --review${options.base === null ? '' : ` --base ${hide(options.base)}`}`;
   const cap = options.maxCalls ?? config.maxCalls;
 
   const verdicts = readVerdicts(root);

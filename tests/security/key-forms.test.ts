@@ -13,7 +13,8 @@ function escapedEverywhere(text: string): string {
   return `"${[...text].map((c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`).join('')}"`;
 }
 
-const KEYS = ['e', '2', 'x', 'pass', 'k"e\\y', 'sk-canary-61f0c2d9'];
+// Keys of at least 8 characters, the shortest that is replaced: a word of the answer's JSON, a quote and a backslash, digits that a line number holds, a key-shaped one.
+const KEYS = ['findings', 'k"e\\y-1x', '12345678', 'sk-canary-61f0c2d9'];
 
 function failing(message: string, escaped: boolean): string {
   const text = escaped ? escapedEverywhere(message) : JSON.stringify(message);
@@ -32,12 +33,13 @@ for (const key of KEYS) {
             const run = await lawcheck(r, ['check', '--review', '--base', 'main', '--json'], env);
             assert.equal(run.code, 1, run.stdout);
             const document = JSON.parse(run.stdout);
-            assert.deepEqual(document.findings.filter((f: { code: string }) => f.code === masked('clear-errors', key)).map((f: { message: string }) => f.message), [masked(message, key)]);
+            assert.deepEqual(document.findings.filter((f: { code: string }) => f.code === 'clear-errors').map((f: { message: string }) => f.message), [masked(message, key)]);
             const tried = await lawcheck(r, ['try', 'clear-errors', F_PATH, '--json'], env);
             assert.equal(tried.code, 1, tried.stdout);
             const run0 = JSON.parse(tried.stdout).runs[0];
             assert.equal(run0.findings[0].message, masked(message, key));
-            if (key.length > 4) {
+            // findings is also a name in the document, which is Lawcheck's own and stays.
+            if (key !== 'findings') {
               for (const out of [run.stdout, tried.stdout]) {
                 assert.ok(!out.includes(key) && !out.includes(JSON.stringify(key).slice(1, -1)) && !out.includes(escapedEverywhere(key).slice(1, -1)), out);
               }
@@ -55,7 +57,7 @@ test('S3-2: a key that is a word of the JSON answer leaves the answer readable: 
     async (fake) => {
       await withR(async (r) => {
         write(r, F_PATH, F);
-        const run = await lawcheck(r, ['check', '--review', '--base', 'main'], { LAWCHECK_REVIEWER_ENDPOINT: fake.url, LAWCHECK_REVIEWER_KEY: 'pass' });
+        const run = await lawcheck(r, ['check', '--review', '--base', 'main'], { LAWCHECK_REVIEWER_ENDPOINT: fake.url, LAWCHECK_REVIEWER_KEY: 'findings' });
         assert.equal(run.code, 0, run.stdout);
       });
     },
@@ -63,7 +65,7 @@ test('S3-2: a key that is a word of the JSON answer leaves the answer readable: 
   );
 });
 
-for (const key of ['e', 'k"e\\y']) {
+for (const key of ['findings', 'k"e\\y-1x']) {
   test(`S3-2: claude-code with the key ${JSON.stringify(key)} in its environment: the answer is read, and the key is replaced in its message (I-secret-1)`, async () => {
     await withR(async (r, dir) => {
       write(r, '.lawcheck/config.yaml', 'reviewer:\n  provider: claude-code\n');
@@ -71,7 +73,7 @@ for (const key of ['e', 'k"e\\y']) {
       const env = { PATH: pathWith(writeFakeClaude(`${dir}/bin`)), FAKE_CLAUDE_MODE: 'echo-answer', LAWCHECK_REVIEWER_KEY: key, ANTHROPIC_API_KEY: 'zz-other-key-9a1b' };
       const run = await lawcheck(r, ['check', '--review', '--base', 'main', '--json'], env);
       assert.equal(run.code, 1, run.stdout);
-      const messages = JSON.parse(run.stdout).findings.filter((f: { code: string }) => f.code === masked('clear-errors', key)).map((f: { message: string }) => f.message);
+      const messages = JSON.parse(run.stdout).findings.filter((f: { code: string }) => f.code === 'clear-errors').map((f: { message: string }) => f.message);
       const once = `the key is ${key} and zz-other-key-9a1b`.split('zz-other-key-9a1b').join('\u0000').split(key).join('[key]').split('\u0000').join('[key]');
       assert.deepEqual(messages, [once]);
     });

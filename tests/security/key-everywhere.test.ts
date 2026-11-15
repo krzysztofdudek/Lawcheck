@@ -112,3 +112,43 @@ test('S3-2: a key that straddles the 300-character cut of a claude-code message 
   });
 });
 
+
+test("S3-2: a key that is a word of Lawcheck's own output leaves that output as it is; only the text from outside shows [key] (I-secret-1)", async () => {
+  await inTemp(async (dir) => {
+    const s = makeSample(dir);
+    setRule(s, 'no-console', "export function check() { return [{ line: 1, message: 'lawcheck saw it' }]; }\n");
+    write(s, 'src/core/discount.ts', 'export const d = 1;\n');
+    const env = { LAWCHECK_REVIEWER_KEY: 'lawcheck' };
+    const text = await lawcheck(s, ['check', '--base', 'main'], env);
+    assert.match(text.stdout, /^lawcheck: FAIL  1 error in \d+ changed files \(against main\)\n/, text.stdout);
+    assert.ok(text.stdout.includes('src/core/discount.ts:1  error[no-console]  [key] saw it'), text.stdout);
+    const json = await lawcheck(s, ['check', '--base', 'main', '--json'], env);
+    const document = JSON.parse(json.stdout);
+    assert.equal(document.schema, 'lawcheck-check/0');
+    assert.equal(document.findings.find((f: { code: string }) => f.code === 'no-console').message, '[key] saw it');
+  });
+});
+
+for (const [key, replaced] of [['seven77', false], ['eight888', true]] as const) {
+  test(`S3-2: a key of ${key.length} characters is ${replaced ? '' : 'not '}replaced; a key shorter than 8 is no secret (I-secret-1)`, async () => {
+    await inTemp(async (dir) => {
+      const s = makeSample(dir);
+      setRule(s, 'no-console', `export function check() { return [{ line: 1, message: 'quotes ${key}' }]; }\n`);
+      write(s, 'src/core/discount.ts', 'export const d = 1;\n');
+      const run = await lawcheck(s, ['check', '--base', 'main'], { LAWCHECK_REVIEWER_KEY: key });
+      assert.ok(run.stdout.includes(`error[no-console]  quotes ${replaced ? '[key]' : key}`), run.stdout);
+    });
+  });
+}
+
+test("S3-2: a one-character key changes nothing in a plain check's output (I-secret-1)", async () => {
+  await inTemp(async (dir) => {
+    const s = makeSample(dir);
+    write(s, 'src/core/discount.ts', "console.log('e');\n");
+    const plain = await lawcheck(s, ['check', '--base', 'main', '--json']);
+    for (const key of ['e', '1']) {
+      const keyed = await lawcheck(s, ['check', '--base', 'main', '--json'], { LAWCHECK_REVIEWER_KEY: key });
+      assert.equal(keyed.stdout, plain.stdout, key);
+    }
+  });
+});

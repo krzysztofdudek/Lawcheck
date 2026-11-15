@@ -52,19 +52,23 @@ const HANDLERS: Record<Exclude<CommandName, 'check'>, Handler> = { init, prime, 
 export async function main(argv: string[], context: CheckContext, command: Command = check): Promise<Result> {
   useKeys(context.env);
   const result = await run(argv, context, command);
-  return { ...result, stdout: argv.includes('--json') ? safeJson(hiddenJson(result.stdout)) : safeText(hide(result.stdout)) };
+  return { ...result, stdout: argv.includes('--json') ? safeJson(hiddenJson(result.stdout)) : safeText(result.stdout) };
 }
 
-// Every string of the document, a value and not a key of an object, with the key written as [key]; the layout is the one every document has.
+// The fields of a document that hold text from outside Lawcheck; its own fields, such as schema, code, the ids and the counts, stay as they are.
+const OUTSIDE_FIELDS = new Set(['file', 'files', 'message', 'base', 'path', 'paths', 'reason', 'what', 'candidates', 'answer', 'text', 'about', 'pattern', 'content', 'why', 'model']);
+
+// The key written as [key] in the strings of the outside fields; the layout is the one every document has.
 function hiddenJson(text: string): string {
   let document: unknown;
   try {
     document = JSON.parse(text);
   } catch {
-    return hide(text);
+    return text;
   }
+  const masked = (value: unknown): unknown => (typeof value === 'string' ? hide(value) : Array.isArray(value) ? value.map(masked) : value);
   const walk = (value: unknown): unknown =>
-    typeof value === 'string' ? hide(value) : Array.isArray(value) ? value.map(walk) : value !== null && typeof value === 'object' ? Object.fromEntries(Object.entries(value).map(([name, item]) => [name, walk(item)])) : value;
+    Array.isArray(value) ? value.map(walk) : value !== null && typeof value === 'object' ? Object.fromEntries(Object.entries(value).map(([name, item]) => [name, OUTSIDE_FIELDS.has(name) ? masked(item) : walk(item)])) : value;
   return JSON.stringify(walk(document), null, 2) + '\n';
 }
 
@@ -108,11 +112,11 @@ if (isEntry()) {
   const json = process.argv.slice(2).includes('--json');
   const crash = (error: unknown) => {
     const text = renderErrors([internal(error)], json);
-    process.stdout.write(json ? safeJson(hiddenJson(text)) : safeText(hide(text)), () => process.exit(2));
+    process.stdout.write(json ? safeJson(hiddenJson(text)) : safeText(text), () => process.exit(2));
   };
   process.on('uncaughtException', crash);
   process.on('unhandledRejection', crash);
   for (const signal of ['SIGTERM', 'SIGINT', 'SIGHUP'] as const) process.on(signal, () => crash(new Error(`stopped by ${signal}`)));
-  const warn = (line: string) => process.stderr.write(safeText(hide(line)) + '\n');
+  const warn = (line: string) => process.stderr.write(safeText(line) + '\n');
   main(process.argv.slice(2), { cwd: process.cwd(), env: process.env, warn }).then(finish, crash);
 }

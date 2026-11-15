@@ -1,3 +1,4 @@
+import { hide } from './keys.js';
 export type Severity = 'error' | 'warning';
 
 export interface ErrorItem {
@@ -102,7 +103,8 @@ export function forCommand(text: string, command: string): string {
   return at < 0 ? text : `${text.slice(0, at)}then run lawcheck ${command} again`;
 }
 
-function nextFor(error: ErrorItem, command: string | null): string {
+function nextFor(raw: ErrorItem, command: string | null): string {
+  const error = raw.file === null ? raw : { ...raw, file: hide(raw.file) };
   if (error.next !== undefined) return forCommand(error.next, command ?? 'check');
   if (error.code === 'usage') {
     return command === null ? 'run lawcheck as its usage line says: lawcheck --help' : `run lawcheck ${command} as its usage line says: lawcheck ${command} --help`;
@@ -164,8 +166,18 @@ function escaped(c: string): string {
   return NAMED[c] ?? (code < 0x80 ? `\\x${code.toString(16).padStart(2, '0')}` : units(c));
 }
 
+// Text that comes from outside Lawcheck: the key written as [key], then the escapes, so it stays on its line.
 export function shown(text: string): string {
+  return hide(text).replace(/\n/g, escaped).replace(FORBIDDEN, escaped);
+}
+
+// A line Lawcheck composed around outside parts that were already shown: the escapes alone.
+export function plain(text: string): string {
   return text.replace(/\n/g, escaped).replace(FORBIDDEN, escaped);
+}
+
+function shownPlace(file: string, line: number | null | undefined): string {
+  return line === null || line === undefined ? shown(file) : `${shown(file)}:${line}`;
 }
 
 export function safeText(output: string): string {
@@ -219,7 +231,7 @@ export function errorLines(errors: ErrorItem[], limit = Infinity): string[] {
     if (printed === limit) break;
     printed++;
     const place = placeOf(error.file, error.line);
-    lines.push(`${place === null ? '' : shown(place) + '  '}error[${error.code}]  ${shown(error.message)}`);
+    lines.push(`${place === null ? '' : shownPlace(error.file!, error.line) + '  '}error[${error.code}]  ${shown(error.message)}`);
     if (!seen.has(error.code)) {
       seen.add(error.code);
       lines.push(`  why:  ${WHY[error.code] ?? ''}`);
@@ -241,7 +253,7 @@ export function renderErrors(input: ErrorItem[], json: boolean, command: string 
     return JSON.stringify(document, null, 2) + '\n';
   }
   const lines = [`lawcheck: ERROR  ${plural(errors.length, 'error')}`, '', ...errorLines(errors, limit)];
-  lines.push('', `next: ${shown(next)}`);
+  lines.push('', `next: ${plain(next)}`);
   return lines.join('\n') + '\n';
 }
 
@@ -258,7 +270,7 @@ export function firstError(report: Report): Finding | undefined {
 }
 
 export function fixNext(finding: Finding): string {
-  return `fix ${placeOf(finding.file, finding.line)}`;
+  return `fix ${placeOf(hide(finding.file), finding.line)}`;
 }
 
 export function renderReport(report: Report, json: boolean): string {
@@ -331,7 +343,7 @@ export function renderReport(report: Report, json: boolean): string {
   const seen = new Set<string>();
   let printed = 0;
   const print = (finding: Finding) => {
-    lines.push(`${shown(placeOf(finding.file, finding.line)!)}  ${finding.severity}[${finding.code}]  ${shown(finding.message)}`);
+    lines.push(`${shownPlace(finding.file, finding.line)}  ${finding.severity}[${finding.code}]  ${shown(finding.message)}`);
     printed++;
     if (!seen.has(finding.code)) {
       seen.add(finding.code);
@@ -352,6 +364,6 @@ export function renderReport(report: Report, json: boolean): string {
     for (const finding of report.debt) if (printed < limit) print(finding);
     if (report.findings.length <= limit && total > limit) lines.push(more);
   }
-  if (next !== null) lines.push('', `next: ${shown(next)}`);
+  if (next !== null) lines.push('', `next: ${plain(next)}`);
   return lines.join('\n') + '\n';
 }

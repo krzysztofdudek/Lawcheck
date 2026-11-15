@@ -15,8 +15,11 @@ function spellings(key: string): string {
   return parts.join('');
 }
 
+// The build's reading of the ruling: a key shorter than this is no secret, such as a dummy key for a local endpoint, and replacing it would garble names that hold it.
+export const SHORTEST = 8;
+
 export function hidden(text: string, keys: string[]): string {
-  const list = [...new Set(keys)].filter((key) => key !== '').sort((a, b) => b.length - a.length);
+  const list = [...new Set(keys)].filter((key) => [...key].length >= SHORTEST).sort((a, b) => b.length - a.length);
   if (list.length === 0) return text;
   // [key] itself is matched first, so a text that passes here twice stays as it was.
   return text.replace(new RegExp(['\\[key\\]', ...list.map(spellings)].join('|'), 'g'), KEY_SHOWN);
