@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { copyFileSync, cpSync, mkdirSync, writeFileSync } from 'node:fs';
+import { chmodSync, copyFileSync, cpSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { D, D_PATH, inTemp, makeSample, ROOT, TEST4, write } from '../acceptance/helpers.ts';
 
@@ -28,6 +28,8 @@ test('S7-15: in a container whose user does not own the checkout, check names th
     copyFileSync(join(ROOT, 'package.json'), join(dir, 'pkg', 'package.json'));
     for (const entry of ['dist', 'node_modules']) cpSync(join(ROOT, entry), join(dir, 'pkg', entry), { recursive: true, verbatimSymlinks: true });
     writeFileSync(join(dir, 'job.sh'), SCRIPT + '\n');
+    // mkdtemp makes a folder only its owner may enter, and the other user must read it.
+    chmodSync(dir, 0o755);
     const run = spawnSync('docker', ['run', '--rm', '--user', OTHER_USER, '-v', `${dir}:/cell:ro`, 'node:24', 'sh', '/cell/job.sh'], { encoding: 'utf8', maxBuffer: 1 << 26 });
     assert.equal(run.error, undefined, 'could not run: docker');
     const [first, again] = run.stdout.split(/^=== again\n/m);

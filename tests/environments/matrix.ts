@@ -54,6 +54,8 @@ export function installFolder(dir: string): void {
 
 // The folder a git cell mounts: this Node, the checkout with dist and node_modules, and the cell script.
 export function gitFolder(dir: string): void {
+  // The cell runs the tests as a user other than root, who must enter the folder mkdtemp made for its owner alone.
+  chmodSync(dir, 0o755);
   mkdirSync(join(dir, 'node'));
   copyFileSync(process.execPath, join(dir, 'node', 'node'));
   chmodSync(join(dir, 'node', 'node'), 0o755);
