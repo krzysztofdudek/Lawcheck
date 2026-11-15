@@ -47,6 +47,19 @@ test('S1-2: a file whose name holds a line break, a carriage return or an invali
   });
 });
 
+test('S1-2: an untracked src/core/a<LF>b.ts holding console.log is in the change and fails the check', async (t) => {
+  const skip = platformSkip('the whole test');
+  if (skip !== null) return t.skip(skip);
+  await withSample(async (s) => {
+    writeBytes(s, Buffer.from('src/core/a\nb.ts'), "console.log('x');\n");
+    const run = await check(s);
+    assert.deepEqual(
+      { code: run.code, stdout: run.stdout },
+      { code: 1, stdout: ['lawcheck: FAIL  1 error in 1 changed file (against main)', '', finding('src/core/a\\nb.ts:1'), NO_CONSOLE_WHY, '', 'next: fix src/core/a\\nb.ts:1', ''].join('\n') },
+    );
+  });
+});
+
 test('S1-2: a name given on the command line in its escaped form selects that file, and a raw backslash selects the same file as its escape', async (t) => {
   const skip = platformSkip('the whole test');
   if (skip !== null) return t.skip(skip);

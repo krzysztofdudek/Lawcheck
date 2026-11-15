@@ -17,6 +17,7 @@ const ESCAPED = 'Windows lets no process read the environment of another, which 
 export const HARNESS = 'tests/harness';
 
 export const PLATFORM_SKIPS: PlatformSkip[] = [
+  { file: 'tests/acceptance/hostile.test.ts', test: 'S1-2: an untracked src/core/a<LF>b.ts holding console.log is in the change and fails the check', part: 'the whole test', platform: 'win32', reason: 'Windows refuses a line break in a file name' },
   { file: 'tests/acceptance/hostile.test.ts', test: 'S1-2: a file whose name holds a line break, a carriage return or an invalid byte is judged, its name escaped', part: 'the whole test', platform: 'win32', reason: 'Windows refuses these characters in a file name' },
   { file: 'tests/acceptance/hostile.test.ts', test: 'S1-2: a name given on the command line in its escaped form selects that file, and a raw backslash selects the same file as its escape', part: 'the whole test', platform: 'win32', reason: 'Windows refuses these characters in a file name' },
   { file: 'tests/acceptance/hostile.test.ts', test: 'S5-9: explain gives a file whose name holds a line break its type, on one line', part: 'the whole test', platform: 'win32', reason: 'Windows refuses a line break in a file name' },
