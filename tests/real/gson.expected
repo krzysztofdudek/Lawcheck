@@ -18,3 +18,15 @@ gson/src/main/java/com/google/gson/stream/JsonWriter.java:28  warning[forbidden-
 gson/src/main/java/com/google/gson/stream/JsonWriter.java:29  warning[forbidden-use]  stream may not use api (gson/src/main/java/com/google/gson/Strictness.java); its may_use is [stream]
 gson/src/main/java/com/google/gson/stream/MalformedJsonException.java:19  warning[forbidden-use]  stream may not use api (gson/src/main/java/com/google/gson/Strictness.java); its may_use is [stream]
 unresolved: 12 (0 ambiguous, 12 unfollowed, 0 unowned, 0 without a reason)
+gson/src/main/java/com/google/gson/internal/LinkedTreeMap.java:220  none unfollowed  java.util.AbstractMap+Entry
+gson/src/main/java/com/google/gson/internal/LinkedTreeMap.java:442  none unfollowed  java.util.AbstractMap+Entry
+gson/src/main/java/com/google/gson/internal/LinkedTreeMap.java:459  none unfollowed  java.util.AbstractMap+Entry
+gson/src/main/java/com/google/gson/internal/LinkedTreeMap.java:511  none unfollowed  com.google.gson.internal.Entry+Entry
+gson/src/main/java/com/google/gson/internal/LinkedTreeMap.java:512  none unfollowed  com.google.gson.internal.Entry+Entry
+gson/src/main/java/com/google/gson/internal/LinkedTreeMap.java:590  none unfollowed  java.util.AbstractMap+Entry
+gson/src/main/java/com/google/gson/internal/LinkedTreeMap.java:597  none unfollowed  java.util.AbstractSet+Entry
+gson/src/main/java/com/google/gson/internal/LinkedTreeMap.java:598  none unfollowed  java.util.AbstractSet+Entry
+gson/src/main/java/com/google/gson/internal/LinkedTreeMap.java:600  none unfollowed  java.util.AbstractSet+Entry
+gson/src/main/java/com/google/gson/internal/LinkedTreeMap.java:608  none unfollowed  java.util.AbstractSet+Entry
+gson/src/main/java/com/google/gson/internal/LinkedTreeMap.java:613  none unfollowed  java.util.AbstractSet+Entry
+gson/src/main/java/com/google/gson/internal/LinkedTreeMap.java:617  none unfollowed  java.util.AbstractSet+Entry

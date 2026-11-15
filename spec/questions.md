@@ -459,3 +459,9 @@ Choice: `candidates` carries both: the ambiguous use's files, and the one file o
 With the candidates named, Lawcheck could report such a use as `forbidden-use`.
 
 Choice: not done. It would make a finding of an answer the readers did not resolve, which decision 4 rules out, and the task asked only to list the candidates. The owner may decide otherwise; the candidates in JSON show such uses.
+
+## 72. Notes of the review of the move left as they are
+
+- `what` reads as a nested reading no file declares (`Shop.App.Service+Clock`, `java.util.AbstractSet+Entry`): not changed, since `classifyUse` returns neither the written name nor the deciding candidate, and deriving either in Lawcheck would be its own reading; giving the written name is a request to Runes.
+- The commit subjects of the move have no `<area>: ` prefix: not changed, since rewording would rewrite the branch for no change in content.
+- The suite at the first commit of the move alone was not run by the review: it was run before that commit was made, 349 of 349.

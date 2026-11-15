@@ -10,7 +10,7 @@ const HERE = join(ROOT, 'tests', 'real');
 
 const REPOSITORIES = [
   { id: 'hono', url: 'https://github.com/honojs/hono.git', commit: 'f6fbaf0299c48eea9e656e03e2ffe7ac755e8823', listUnresolved: true },
-  { id: 'gson', url: 'https://github.com/google/gson.git', commit: 'a961b0fe088f8558d00cc1b56e506a3656907a91', listUnresolved: false },
+  { id: 'gson', url: 'https://github.com/google/gson.git', commit: 'a961b0fe088f8558d00cc1b56e506a3656907a91', listUnresolved: true },
 ];
 
 class FetchFailed extends Error {}

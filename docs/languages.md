@@ -45,15 +45,17 @@ Each run counts them, in the first line for the changed files and in the debt he
 | `none` | none | the readers give no reason: every miss in C, C++ and Ruby, system headers and gems included |
 | `ambiguous` | none | the use could name several files of different types, or of a type and no type; `candidates` lists them. It is not judged, even when the list forbids every one |
 
-What the readers tell as outside, by language: TypeScript and JavaScript, an installed package or a Node built-in; Python, a module whose top-level name no root of the repository holds; Go, an import path no module of the repository holds; Rust, a path from a crate the repository does not hold (`std`, a registry dependency); PHP, a class under no prefix of the repository's Composer maps; Java and Kotlin, a name in a package the repository declares nothing in, a `java.lang` name and a Kotlin default import (`String`, `List`); C#, a name only a namespace from elsewhere can give (`System.Text`). C, C++ and Ruby tell nothing.
+What the readers tell as outside, by language: TypeScript and JavaScript, an installed package or a Node built-in; Python, a module whose top-level name no root of the repository holds; Go, an import path no module of the repository holds; Rust, a path from a crate the repository does not hold (`std`, a registry dependency); PHP, a class under no prefix of the repository's Composer maps; Java and Kotlin, a name in a package the repository declares nothing in, a `java.lang` name and a Kotlin default import (`String`, `List`), and a simple name an on-demand import of such a package can give (`List` under `import java.util.*;`); C#, a name only a namespace from elsewhere can give (`System.Text`). C, C++ and Ruby tell nothing.
 
 ## Known limits
 
 - A Java, Kotlin or C# name that a library also declares into a package or namespace of the repository counts as the repository's, so it is `unfollowed`; so is a Java member type inherited from a supertype outside the repository (`Entry` of a class that extends `java.util.AbstractMap`).
 - In Python and PHP, a use several roots or projects could hold is `unfollowed` with no candidates.
+- Java and Kotlin: a type an annotation processor generates into the file's own package (`AutoValue_Use`, `DaggerAppComponent`) counts as outside when a star import of a library could give its simple name, so a use of that generated code is dropped without a count; without such a star import it is `unfollowed`.
 - A Go import of a package whose files have more than one type is `ambiguous` with the package's files.
 - TypeScript: a package's `types@<range>` export keys are read as TypeScript 7.0.2 reads them, whatever TypeScript the project uses.
 - C#: a member inherited from a base class outside the repository (`ControllerBase.User`) lets a type of the repository with that name take the use; a chain of `is not` tests of dotted types gives no use.
+- Rust `[patch]`: the patched crate's version is not compared with the dependency's requirement, a workspace's `exclude` and `package.workspace` are not read, and a GitHub URL is matched as written.
 - Rust: paths inside a macro invocation and `include!` are not read; a library rooted at the package root whose `lib.rs` holds only an inline module with a `#[path]` module gives no use for the `mod` lines of the loaded file.
 
 ## uses-not-read
