@@ -25,7 +25,11 @@ process.stdin.on('data', (chunk: string) => {
     else set.delete(pid);
   }
 });
-process.stdin.on('close', () => {
+let ended = false;
+
+function endAll(): void {
+  if (ended) return;
+  ended = true;
   for (const pid of pids) {
     try {
       process.kill(pid, 'SIGKILL');
@@ -35,4 +39,19 @@ process.stdin.on('close', () => {
   }
   for (const pid of groups) killTree(pid, 'SIGKILL');
   for (const folder of folders) rmSync(folder, { recursive: true, force: true, maxRetries: 10 });
-});
+  process.exit(0);
+}
+
+process.stdin.on('close', endAll);
+
+// On Windows the guard's input did not close when the tool was killed while claude ran, so the guard also watches the tool itself.
+if (process.platform === 'win32') {
+  const tool = process.ppid;
+  setInterval(() => {
+    try {
+      process.kill(tool, 0);
+    } catch {
+      endAll();
+    }
+  }, 250);
+}
