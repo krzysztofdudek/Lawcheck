@@ -94,6 +94,8 @@ function referenceBytes(name: string): Buffer {
 function refused(name: Buffer): string | null {
   const text = name.toString('latin1');
   if (process.platform === 'win32' && (/[\x00-\x1f\\*"<>|?:]/.test(text) || / $|\.$/.test(text) || !valid(name))) return 'Windows refuses it';
+  // git for Windows keeps the old limit of 260 characters a path unless core.longpaths is set, and the test's folder takes about a hundred of them.
+  if (process.platform === 'win32' && name.length > 120) return 'Windows takes a path of at most 260 characters';
   if (process.platform === 'darwin' && !valid(name)) return 'macOS refuses a name that is not valid UTF-8';
   if (name.toString('latin1').split('/').some((part) => part === '' || part === '.' || part === '..' || Buffer.byteLength(part, 'latin1') > 255)) return 'no file system takes this segment';
   return null;
@@ -132,7 +134,7 @@ export function namesProperties(speed: Speed): void {
     const names = fc.uniqueArray(allowed, { minLength: 1, maxLength: 4, selector: (b) => b.toString('hex') }).filter(prefixes);
     const windows = process.platform === 'win32';
     const classes: Record<string, (list: Buffer[]) => boolean> = windows
-      ? { 'a bidi mark or a line separator': (list) => list.some((b) => /\u202e|\u2028|\u200f/.test(b.toString('utf8'))), 'a character outside ASCII': (list) => list.some((b) => b.some((x) => x >= 0x80)), 'a segment over 200 bytes': (list) => list.some((b) => b.toString('latin1').split('/').some((p) => p.length > 200)) }
+      ? { 'a bidi mark or a line separator': (list) => list.some((b) => /\u202e|\u2028|\u200f/.test(b.toString('utf8'))), 'a character outside ASCII': (list) => list.some((b) => b.some((x) => x >= 0x80)) }
       : { 'a control character': (list) => list.some(control), 'a backslash': (list) => list.some((b) => b.includes(0x5c)), 'a segment over 200 bytes': (list) => list.some((b) => b.toString('latin1').split('/').some((p) => p.length > 200)), ...(process.platform === 'linux' ? { 'an invalid multi-byte sequence': (list: Buffer[]) => list.some(multiByte) } : {}) };
     await tool(speed, names, { classes }, async (list) => {
       const t = temp();

@@ -72,6 +72,20 @@ export interface Slow {
 
 // The tests that pass a fifth of TEST_BUDGET_MS on some system in CI, by the test file and the whole test name: inside the default such a test keeps less than SLOW_MARGIN over its time. On each system listed the budget is the tool's fixed waits plus SLOW_MARGIN times the rest of the longest time measured there, rounded up to 5 s; the reporter names every test of a run that passes a fifth with no entry. On Windows every process starts slowly and a test's time varies by half or more from run to run.
 export const SLOW_TESTS: Record<string, Slow> = {
+  // Measured on CI run 43762617467: 25 sequences of git commands, each followed by seven runs of the tool.
+  'tests/properties/git-states.ts > I-git-2: in any state a sequence of git commands leaves, a check changes nothing in git, its change gives what --full gives for those files, and it prints the same from below the root and twice': { fixed: 0, measured: { darwin: 82_146, linux: 36_500, win32: 181_565 } },
+  // Measured on CI run 43762617467: 25 sample repositories with generated names, three runs of the tool each.
+  'tests/properties/names.ts > I-files-1: every file a type matches is judged, whatever bytes its name holds, and its JSON path maps back to the file on disk': { fixed: 0, measured: { darwin: 30_513, linux: 19_171, win32: 26_435 } },
+  // Measured on CI run 43762617467: 25 rules, each judged alone and with a second file.
+  'tests/properties/rules.ts > I-rules-1, S2-4, S2-6: any value a rule returns, throws or rejects with gives findings or a rule-crashed naming its cause, and file A is judged the same alone or with B': { fixed: 0, measured: { darwin: 25_976, linux: 14_762, win32: 63_019 } },
+  // Measured on CI run 43762617467: 25 sample repositories, a check in text and in JSON each.
+  'tests/properties/contents.ts > I-lines-1: for any text of a judged file, every finding lies inside it, and the text and JSON forms agree': { fixed: 0, measured: { darwin: 24_953, linux: 12_949, win32: 50_437 } },
+  // Measured on CI run 43762617467: 25 laws, each printed back type by type and rule by rule.
+  'tests/properties/law.ts > I-law-1: an accepted law is printed back by explain, every type and every rule whole': { fixed: 0, measured: { darwin: 19_307, linux: 11_645, win32: 61_019 } },
+  // Measured on CI run 43762617467: 25 hook runs, and two session starts for each config with a byte-order mark.
+  'tests/properties/arguments.ts > I-hook-1, S6-6, S6-8: any input to a hook gives exit 0 with nothing or one hook document, or the defined notice, never a stack trace': { fixed: 0, measured: { darwin: 9_955, linux: 5_762, win32: 13_367 } },
+  // Measured on CI run 43762617467: 25 runs of the tool.
+  'tests/properties/arguments.ts > I-args-1: tokens of the tool and junk give usage or a run, never internal, and change nothing in git': { fixed: 0, measured: { darwin: 7_875, win32: 9_010 } },
   // A check per counted run of the committed trial.
   'tests/acceptance/agent-result.test.ts > test 181: the committed result of the trial': { fixed: 0, measured: { darwin: 20_939, linux: 10_314, win32: 53_052 } },
   // A run of the tool per case.
