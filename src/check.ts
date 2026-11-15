@@ -122,9 +122,29 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
 
   const uses = await readTheUses(root, files, read, typed, run, changed);
   if ('errors' in uses) return { errors: uses.errors };
+  const byFile = new Map<string, { count: number; chars: number }>();
+  const tally = (path: string, text: string) => {
+    const own = byFile.get(path) ?? { count: 0, chars: 0 };
+    byFile.set(path, { count: own.count + 1, chars: own.chars + text.length });
+  };
+  for (const item of uses.forbidden) tally(item.file, item.message);
+  for (const item of uses.unresolved) tally(item.file, item.what);
+  for (const item of uses.notRead) tally(LAW, item.message);
+  for (const path of [...byFile.keys()].sort(comparePaths)) {
+    const own = byFile.get(path)!;
+    if (budget.addAt(own.count, own.chars)) return { errors: [tooManyAt(path, budget)] };
+  }
 
   const ruleIds = new Set([...law.rules.keys(), 'forbidden-use']);
-  const waiversOf = new Map(run.map((file) => [file.path, takesWaivers(file.type) ? parseWaivers(file.lines, ruleIds) : { waivers: [], problems: [] }]));
+  const waiversOf = new Map<string, ReturnType<typeof parseWaivers>>();
+  for (const file of run) {
+    const parsed = takesWaivers(file.type) ? parseWaivers(file.lines, ruleIds) : { waivers: [], problems: [] };
+    waiversOf.set(file.path, parsed);
+    let chars = 0;
+    for (const problem of parsed.problems) chars += problem.message.length;
+    for (const waiver of parsed.waivers) chars += waiver.reason.length;
+    if (budget.addAt(parsed.problems.length + parsed.waivers.length, chars)) return { errors: [tooManyAt(file.path, budget)] };
+  }
   const review = `lawcheck check --review${options.base === null ? '' : ` --base ${hide(options.base)}`}`;
   const cap = options.maxCalls ?? config.maxCalls;
 
@@ -149,6 +169,9 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
       if (!options.again) {
         const cached = readFailure(root, key, rule, lineCount);
         if (cached !== null) {
+          let chars = 0;
+          for (const finding of cached) chars += finding.message.length;
+          if (budget.addAt(cached.length, chars)) return { errors: [tooManyAt(file.path, budget)] };
           reviewerRaw(file.path, rule, cached);
           continue;
         }
@@ -193,13 +216,20 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
         errors: result.failed.map((f) => ({ code: f.code, file: f.ask.file, line: null, message: f.message, ...(f.fix === undefined ? {} : { next: `${f.fix}, then ${again}` }) })),
       };
     }
-    for (const answered of result.answered) reviewerRaw(answered.ask.file, answered.ask.rule, answered.findings);
+    for (const answered of result.answered) {
+      let chars = 0;
+      for (const finding of answered.findings) chars += finding.message.length;
+      if (budget.addAt(answered.findings.length, chars)) return { errors: [tooManyAt(answered.ask.file, budget)] };
+      reviewerRaw(answered.ask.file, answered.ask.rule, answered.findings);
+    }
     callsMade = result.sent;
     passesRecorded = writer.added;
     missing = [];
   }
   for (const ask of missing) {
-    builtIn.push({ code: 'not-reviewed', rule: ask.rule, file: ask.file, message: `${ask.rule} has no verdict for this content` });
+    const message = `${ask.rule} has no verdict for this content`;
+    if (budget.addAt(1, message.length)) return { errors: [tooManyAt(ask.file, budget)] };
+    builtIn.push({ code: 'not-reviewed', rule: ask.rule, file: ask.file, message });
   }
 
   step('judging the findings');
@@ -258,6 +288,16 @@ export function tooManyFindings(budget: FindingBudget): ErrorItem[] {
     items.push({ code: 'too-many-findings', file: `${RULES_DIR}${rule}.mjs`, line: null, message: `returns ${count(own.count)} findings with ${count(own.chars)} characters of message in this run; ${all}` });
   }
   return items;
+}
+
+function tooManyAt(path: string, budget: FindingBudget): ErrorItem {
+  return {
+    code: 'too-many-findings',
+    file: path,
+    line: null,
+    message: `brings the findings of this run to ${count(budget.total)} with ${count(budget.chars)} characters of message, more than the ${count(RUN_FINDINGS)} findings with ${count(RUN_MESSAGE_CHARS)} characters one run may hold`,
+    next: `narrow the types whose files bring so many findings, then run lawcheck check`,
+  };
 }
 
 interface UsesRead {

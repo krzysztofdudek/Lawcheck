@@ -187,6 +187,13 @@ export class FindingBudget {
   passed(): boolean {
     return this.total > RUN_FINDINGS || this.chars > RUN_MESSAGE_CHARS;
   }
+
+  // Findings that are not a rule's, such as a waiver's or a use's, count with the file they are about.
+  addAt(count: number, chars: number): boolean {
+    this.total += count;
+    this.chars += chars;
+    return this.passed();
+  }
 }
 
 interface Message {

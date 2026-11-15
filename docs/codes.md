@@ -23,7 +23,7 @@ Every code Lawcheck prints. A finding is a line of `check`'s report and comes wi
 | `path-unsupported` | exit 2 | a script rule is to run, and the path of the root or of Lawcheck holds a `*` or, outside Windows, a backslash, where the runner cannot keep the rule inside the root | a script rule reads nothing outside the root and Lawcheck's folder, and the runner can keep that only on such a path |
 | `runner-failed` | exit 2 | the process that runs script rules ends before it starts, and the message gives the line Node printed | a runner that does not start says nothing about the rules |
 | `rule-crashed` | exit 2 | a script rule does not load, throws, returns no list of findings, returns a message over 4,096 characters, or passes 30 seconds | a broken rule says nothing about the code |
-| `too-many-findings` | exit 2 | the script rules of a run return more than 200,000 findings, or more than 16,777,216 characters of message, together | a run holds every finding in memory, so the rules may return only so many |
+| `too-many-findings` | exit 2 | the findings of a run, its rules', its waivers', its uses' and its reviewer's together, pass 200,000, or 16,777,216 characters of message | a run holds every finding in memory, so the rules may return only so many |
 | `rules-too-slow` | exit 2 | the script rules of a run take more than 600 seconds together | a run that never ends gives no answer, so the script rules of a run share one limit of time |
 | `parser-failed` | exit 2 | a grammar cannot be loaded, or a reader fails on a file | a file whose uses were not read is not taken to use nothing |
 | `reviewer-not-configured` | exit 2 | reviews are to be asked and no provider is set | reviewer rules need a reviewer to judge them |

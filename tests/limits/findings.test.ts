@@ -119,3 +119,19 @@ test('test 256: 60,000 findings with a line cost time in proportion to their cou
     { onMain: (s) => setRule(s, 'no-console', lined) },
   );
 });
+
+test('test 264: waivers count toward the findings of a run: 200,000 waivers that name no rule are reported, and one more is too-many-findings', async () => {
+  await withSample(async (s) => {
+    write(s, 'src/core/waivers.ts', '// lawcheck-waive q\n'.repeat(200_000));
+    const at = await run(s, ['check', '--base', 'main', '--json'], { budgetMs: 120_000 });
+    const document = JSON.parse(at.stdout);
+    assert.equal(document.findings.length, 200_000);
+    assert.equal(document.findings[0].code, 'waiver-unknown-rule');
+    assert.equal(at.code, 1);
+    write(s, 'src/core/waivers.ts', '// lawcheck-waive q\n'.repeat(200_001));
+    const beyond = await run(s, ['check', '--base', 'main'], { budgetMs: 120_000 });
+    // Each message is "the waiver names 'q', which is no rule of the law", 49 characters.
+    assert.deepEqual(errorLines(beyond.stdout), ['src/core/waivers.ts  error[too-many-findings]  brings the findings of this run to 200,001 with 9,800,049 characters of message, more than the 200,000 findings with 16,777,216 characters one run may hold']);
+    assert.equal(beyond.code, 2);
+  });
+});
