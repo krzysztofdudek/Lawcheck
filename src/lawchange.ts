@@ -39,7 +39,7 @@ function blobById(root: string, id: string): Buffer | null {
 
 const UNSAFE = /[\p{Cc}\p{Cf}\u2028\u2029]/gu;
 
-function named(path: string): string {
+export function named(path: string): string {
   return path.replace(UNSAFE, (c) => {
     const code = c.codePointAt(0)!;
     if (code === 0x200c || code === 0x200d) return c;
