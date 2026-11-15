@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { LEFT_RUNNING_EXTRA_MS } from '../properties/numbers.ts';
-import { check, setRule, withSample, write } from './helpers.ts';
+import { LEFT_RUNNING_EXTRA_MS, NOTHING_LEFT_EXTRA_MS } from '../properties/numbers.ts';
+import { append, check, git, setRule, withSample, write } from './helpers.ts';
 
 const BREACH = 'console.log(1)\n';
 const finding = (place: string) => `${place}  error[no-console]  writes to the terminal with console.log`;
@@ -82,4 +82,19 @@ test('S2-6: a rule that leaves an interval of ten minutes judges 200 files withi
     });
   }
   assert.ok(times[1]! - times[0]! <= LEFT_RUNNING_EXTRA_MS, `${times[1]} ms against ${times[0]} ms`);
+});
+
+test('S2-6: a rule that leaves nothing running adds no wait: one file judged by it takes the time of a run that starts no rule, plus starting the runner', async () => {
+  await withSample(async (s) => {
+    setRule(s, 'no-console', "export function check({ files }) { return files.flatMap((file) => file.lines.flatMap((text, i) => (text.includes('console.log') ? [{ line: i + 1, message: 'writes to the terminal with console.log' }] : []))); }\n");
+    git(s, 'add', '-A');
+    git(s, 'commit', '-q', '-m', 'rule');
+    append(s, 'README.md', 'more\n');
+    const none = await check(s, '--base', 'HEAD');
+    assert.equal(none.code, 0, none.stdout);
+    write(s, 'src/core/a.ts', BREACH);
+    const one = await check(s, '--base', 'HEAD');
+    assert.equal(one.code, 1, one.stdout);
+    assert.ok(one.ms - none.ms <= NOTHING_LEFT_EXTRA_MS, `${one.ms} ms with the rule against ${none.ms} ms without`);
+  });
 });

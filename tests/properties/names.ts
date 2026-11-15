@@ -13,7 +13,7 @@ const piece = fc.oneof(
   { weight: 6, arbitrary: fc.constantFrom(...'abcXYZ019._- ').map((c) => Buffer.from(c)) },
   {
     weight: 2,
-    arbitrary: fc.constantFrom('\n', '\r', '\t', '\x1b[2K', '\x07', '\u202e', '\u2028', '\u200f', '::', '::error::', '##vso[', '*', '\\', '\\n', '\\x41', 'ż', '€', '😀').map((c) => Buffer.from(c)),
+    arbitrary: fc.constantFrom('\n', '\r', '\t', '\x1b[2K', '\x07', '\u202e', '\u2028', '\u200f', '::', '::error::', '##vso[', '*', '\\', '\\n', '\\x41', 'ż', '€', '😀', '\ufeff').map((c) => Buffer.from(c)),
   },
   { weight: 1, arbitrary: fc.integer({ min: 0x80, max: 0xff }).map((b) => Buffer.from([b])) },
   { weight: 2, arbitrary: fc.oneof(
@@ -32,7 +32,7 @@ const segment = fc.oneof(
 const bytes = fc.array(segment, { minLength: 1, maxLength: 3 }).map((parts) => Buffer.concat(parts.flatMap((part, i) => (i === 0 ? [part] : [Buffer.from('/'), part]))));
 const source = bytes.map((b) => Buffer.concat([b, Buffer.from('.ts')]));
 
-const strict = new TextDecoder('utf-8', { fatal: true });
+const strict = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true });
 const valid = (b: Buffer) => {
   try {
     strict.decode(b);
@@ -104,7 +104,7 @@ export function namesProperties(speed: Speed): void {
     pure(
       speed,
       bytes,
-      { classes: { 'a control character': control, 'invalid UTF-8': (b) => !valid(b), 'an invalid multi-byte sequence': multiByte, 'a backslash': (b) => b.includes(0x5c) } },
+      { classes: { 'a control character': control, 'invalid UTF-8': (b) => !valid(b), 'an invalid multi-byte sequence': multiByte, 'a backslash': (b) => b.includes(0x5c), 'a byte-order mark': (b) => b.includes(Buffer.from('\ufeff')) }, least: { 'a byte-order mark': 0.05 } },
       (b) => {
         const name = nameOf(b);
         assert.equal(name, referenceName(b));

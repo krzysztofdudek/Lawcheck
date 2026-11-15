@@ -19,6 +19,9 @@ export const LAW_PARSE_BUDGET_MS = 1_500;
 // What a rule that leaves an interval running may add to a run of 200 files: the one wait of 2 seconds after its last call (spec/check-slice.md, section 3), and 2 seconds for the noise of two runs.
 export const LEFT_RUNNING_EXTRA_MS = 4_000;
 
+// What starting the runners of a rule that leaves nothing adds to a run of one file: measured at 16 ms in the dev container; a runner that waited its full 2 seconds after the last call would pass it.
+export const NOTHING_LEFT_EXTRA_MS = 1_000;
+
 // One pure call on generated input, for the base oracle of no run over its budget.
 export const PURE_CALL_BUDGET_MS = 1_000;
 
