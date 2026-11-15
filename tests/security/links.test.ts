@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, symlinkSync, writeFileSync } from 'node:fs';
+import { lstatSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { check, findingLines, git, inTemp, makeSample, setRule } from '../acceptance/helpers.ts';
 
@@ -111,6 +111,12 @@ test('I-runner-1: a tracked link inside a submodule that leads outside the root 
     const s = makeSample(dir);
     git(s, '-c', 'protocol.file.allow=always', 'submodule', 'add', '-q', sub.split('\\').join('/'), 'libs/sub');
     git(s, 'commit', '-q', '-m', 'a submodule');
+    // git for Windows checks a link out as a plain file unless links are switched on; a clone that has them gets a real link.
+    const checkedOut = join(s, 'libs', 'sub', 'out');
+    if (!lstatSync(checkedOut).isSymbolicLink()) {
+      rmSync(checkedOut, { recursive: true, force: true });
+      symlinkSync(join(dir, 'beside'), checkedOut, 'dir');
+    }
     writeFileSync(join(s, 'src/core/discount.ts'), 'export const d = 1;\n');
     const run = await check(s);
     assert.equal(run.code, 2, run.stdout);
