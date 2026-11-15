@@ -16,7 +16,7 @@ export function check({ files }) {
     file.lines.forEach((text, index) => {
       const code = bare(text);
       for (const [pattern, what] of AMBIENT) {
-        if (pattern.test(code)) findings.push({ line: index + 1, message: `${what}; a ${file.type} module takes what it needs as an argument` });
+        if (pattern.test(code)) findings.push({ line: index + 1, message: `${what}; ${/^[aeiou]/.test(file.type) ? 'an' : 'a'} ${file.type} module takes what it needs as an argument` });
       }
     });
   }
