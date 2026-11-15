@@ -168,7 +168,9 @@ test('test 14: the root below the top of the git tree', async () => {
   );
 });
 
-test('section 4: a change of the mode alone counts', async () => {
+test('section 4: a change of the mode alone counts', async (t) => {
+  // Windows keeps no executable bit, and git there does not track one (core.fileMode is false).
+  if (process.platform === 'win32') return t.skip('no file mode on Windows');
   await withSample(async (s) => {
     chmodSync(join(s, 'src/core/price.ts'), 0o755);
     const run = await check(s);
@@ -189,7 +191,9 @@ test('section 4: a file staged and then put back is not in the change', async ()
   });
 });
 
-test('section 4: every git command runs with GIT_OPTIONAL_LOCKS=0, in the order of the table', async () => {
+test('section 4: every git command runs with GIT_OPTIONAL_LOCKS=0, in the order of the table', async (t) => {
+  // Node starts git on Windows only as an .exe or .com file, so a script cannot stand in for it there.
+  if (process.platform === 'win32') return t.skip('a script cannot stand in for git on Windows');
   await withSample(async (s, dir) => {
     const real = execFileSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).trim();
     const bin = join(dir, 'bin');

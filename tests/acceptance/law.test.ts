@@ -21,7 +21,8 @@ test('test 15: a symlink and a binary file have no type; an unreadable file stop
     assert.equal(run.stdout, 'lawcheck: PASS  1 changed file (against main)\n');
     assert.equal(run.code, 0);
   });
-  if (process.getuid?.() === 0) return;
+  // chmod cannot make a file unreadable for root, nor on Windows, where it sets only the read-only flag.
+  if (process.getuid?.() === 0 || process.platform === 'win32') return;
   await withSample(async (s) => {
     chmodSync(join(s, 'src/core/price.ts'), 0o000);
     try {
@@ -156,7 +157,8 @@ test('test 20: rule files', async () => {
 });
 
 test('section 6: a law that cannot be read is law-invalid', async () => {
-  if (process.getuid?.() === 0) return;
+  // chmod cannot make a file unreadable for root, nor on Windows, where it sets only the read-only flag.
+  if (process.getuid?.() === 0 || process.platform === 'win32') return;
   await withSample(async (s) => {
     chmodSync(join(s, '.lawcheck/law.yaml'), 0o000);
     try {
