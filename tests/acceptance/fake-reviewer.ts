@@ -194,6 +194,19 @@ process.stdin.on('end', () => {
     process.stdout.write(JSON.stringify({ type: 'result', is_error: true, result: 'Not logged in' }));
     process.exit(1);
   }
+  const keys = [process.env.LAWCHECK_REVIEWER_KEY, process.env.ANTHROPIC_API_KEY].join(' and ');
+  if (mode === 'echo-error') {
+    process.stdout.write(JSON.stringify({ type: 'result', is_error: true, result: 'Invalid API key: ' + keys }));
+    process.exit(1);
+  }
+  if (mode === 'echo-stderr') {
+    process.stderr.write('rejected ' + keys + '\\n');
+    process.exit(3);
+  }
+  if (mode === 'echo-answer') {
+    process.stdout.write(JSON.stringify({ type: 'result', is_error: false, result: JSON.stringify({ verdict: 'fail', findings: [{ line: 1, message: 'the key is ' + keys }] }) }) + '\\n');
+    return;
+  }
   if (mode === 'boom') {
     process.stderr.write('boom\\n');
     process.exit(3);

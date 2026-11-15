@@ -44,7 +44,35 @@ export function endpointOf(env: Env): { url: string } | { problem: string } | nu
   return { url: value.replace(/\/+$/, '') };
 }
 
-export function createProvider(config: ReviewerConfig, env: Env): Provider | null {
+export const KEY_SHOWN = '[key]';
+
+// The keys a provider hands on: the one in its request header, or, for a program, every key variable the program gets.
+function keysOf(config: ReviewerConfig, env: Env): string[] {
+  const names =
+    config.provider === 'anthropic'
+      ? [endpointOf(env) === null && variable(env, 'ANTHROPIC_API_KEY') !== null ? 'ANTHROPIC_API_KEY' : 'LAWCHECK_REVIEWER_KEY']
+      : config.provider === 'claude-code'
+        ? ['LAWCHECK_REVIEWER_KEY', 'ANTHROPIC_API_KEY']
+        : ['LAWCHECK_REVIEWER_KEY'];
+  return names.map((name) => variable(env, name)).filter((key): key is string => key !== null).sort((a, b) => b.length - a.length);
+}
+
+export function hidden(text: string, keys: string[]): string {
+  return keys.reduce((out, key) => out.split(key).join(KEY_SHOWN), text);
+}
+
+function masked(provider: Provider, keys: string[]): Provider {
+  if (keys.length === 0) return provider;
+  return {
+    ready: () => provider.ready(),
+    async ask(prompt) {
+      const asked = await provider.ask(prompt);
+      return 'answer' in asked ? { answer: hidden(asked.answer, keys) } : { ...asked, failure: hidden(asked.failure, keys) };
+    },
+  };
+}
+
+function created(config: ReviewerConfig, env: Env): Provider | null {
   switch (config.provider) {
     case 'openai-compatible':
       return openaiCompatible(config, env);
@@ -55,4 +83,9 @@ export function createProvider(config: ReviewerConfig, env: Env): Provider | nul
     default:
       return null;
   }
+}
+
+export function createProvider(config: ReviewerConfig, env: Env): Provider | null {
+  const provider = created(config, env);
+  return provider === null ? null : masked(provider, keysOf(config, env));
 }
