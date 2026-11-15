@@ -185,6 +185,7 @@ const mode = process.env.FAKE_${upper}_MODE || 'answer';
 const args = process.argv.slice(2);
 if (args[0] === 'mcp' && args[1] === 'list' && args[2] === '--json') {
   if (process.env.FAKE_${upper}_LISTED) require('node:fs').appendFileSync(process.env.FAKE_${upper}_LISTED, 'listed\\n');
+  if (process.env.FAKE_${upper}_LIST_DELAY) require('node:child_process').execFileSync(process.execPath, ['-e', 'setTimeout(() => {}, ' + Number(process.env.FAKE_${upper}_LIST_DELAY) + ')']);
   if (mode === 'list-fails') {
     process.stderr.write('no config\\n');
     process.exit(2);
@@ -270,6 +271,17 @@ process.stdin.on('end', () => {
   }
   if (mode === 'huge') {
     process.stdout.write('x'.repeat(4 * 1024 * 1024 + 1));
+    return;
+  }
+  if (mode === 'escape') {
+    const child = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 60000);'], { detached: true, stdio: 'ignore' });
+    child.unref();
+    record({ child: child.pid });
+    process.stdout.write(answer + '\\n');
+    process.exit(0);
+  }
+  if (mode === 'late') {
+    setTimeout(() => process.stdout.write(answer + '\\n'), Number(process.env.FAKE_${upper}_DELAY));
     return;
   }
   if (mode === 'setsid') {

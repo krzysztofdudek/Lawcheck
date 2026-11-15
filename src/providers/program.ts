@@ -85,18 +85,20 @@ export function programProvider(program: Program, env: Env, timeoutSeconds: numb
     async ask(prompt, seconds) {
       const found = binary ?? find(env);
       if (found === null) return { failure: missing, resend: false, fix };
-      const limitMs = Math.min(timeoutSeconds, seconds ?? timeoutSeconds) * 1000;
+      const deadline = Date.now() + Math.min(timeoutSeconds, seconds ?? timeoutSeconds) * 1000;
       let extra: string[] = [];
       if (program.prepare !== undefined) {
         const listFix = `run ${program.name} mcp list --json and fix what it says`;
         const read = (ended: Ended): Asked => (ended.code === 0 ? { answer: ended.stdout } : { ...failure(program.name, ended), fix: listFix });
-        const list = (args: string[]) => run({ ...program, args: () => args, read }, found, [], '', own, limitMs, timeoutSeconds);
+        const list = (args: string[]) => run({ ...program, args: () => args, read }, found, [], '', own, deadline - Date.now(), timeoutSeconds);
         prepared ??= program.prepare(list);
         const done = await prepared;
         if ('failure' in done) return done;
         extra = done.args;
       }
-      return run(program, found, extra, prompt, own, limitMs, timeoutSeconds);
+      const left = deadline - Date.now();
+      if (left <= 0) return timedOut(program.name, timeoutSeconds);
+      return run(program, found, extra, prompt, own, left, timeoutSeconds);
     },
   };
 }
@@ -118,6 +120,14 @@ function marked(call: string): number[] {
     }
   }
   return found;
+}
+
+function timedOut(name: string, timeoutSeconds: number): Asked {
+  return {
+    failure: `${name} gave no answer within ${timeoutSeconds} seconds`,
+    resend: false,
+    fix: `raise reviewer.timeout in .lawcheck/config.yaml, or check that ${name} answers when started by hand`,
+  };
 }
 
 function folderFailure(name: string, error: unknown): Asked {
@@ -177,13 +187,11 @@ function run(program: Program, binary: string, extra: string[], prompt: string, 
       clearTimeout(timer);
       clearTimeout(killTimer);
       clearTimeout(graceTimer);
-      if (!closed) {
-        for (const holder of marked(call)) {
-          try {
-            process.kill(holder, 'SIGKILL');
-          } catch {
-            continue;
-          }
+      for (const escaped of marked(call)) {
+        try {
+          process.kill(escaped, 'SIGKILL');
+        } catch {
+          continue;
         }
       }
       if (pid !== undefined) releaseGroup(pid);
@@ -215,11 +223,7 @@ function run(program: Program, binary: string, extra: string[], prompt: string, 
 
     const timer = setTimeout(() => {
       if (exited !== null) return finish();
-      settle({
-        failure: `${program.name} gave no answer within ${timeoutSeconds} seconds`,
-        resend: false,
-        fix: `raise reviewer.timeout in .lawcheck/config.yaml, or check that ${program.name} answers when started by hand`,
-      });
+      settle(timedOut(program.name, timeoutSeconds));
       if (pid !== undefined) killGroup(pid, 'SIGTERM');
       killTimer = setTimeout(() => {
         if (pid !== undefined) killGroup(pid, 'SIGKILL');

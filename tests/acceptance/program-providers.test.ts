@@ -269,6 +269,23 @@ for (const [number, program] of [[190, PROGRAMS[0]!], [191, PROGRAMS[1]!], [192,
           }, configOf(program.provider)),
       ],
       [
+        'a child that leaves the group and lets go of the output',
+        () =>
+          withR(async (r, dir) => {
+            write(r, F_PATH, F);
+            const result = await run(r, null, ['--review', '--base', 'main'], fakeEnv(program, dir, 'escape'));
+            const seen = record(dir);
+            try {
+              assert.equal(result.stdout, SECOND);
+              assert.equal(result.code, 1);
+              // Only Linux lets the tool read another process's environment (spec/reviewer-slice.md, section 6).
+              if (process.platform === 'linux') assert.ok(!alive(seen.child!), 'the child is alive');
+            } finally {
+              if (alive(seen.child!)) process.kill(seen.child!, 'SIGKILL');
+            }
+          }, configOf(program.provider)),
+      ],
+      [
         'no temporary folder',
         () =>
           withR(async (r, dir) => {
@@ -335,6 +352,20 @@ for (const [number, program] of [[190, PROGRAMS[0]!], [191, PROGRAMS[1]!], [192,
             }, configOf(program.provider)),
         ],
       );
+    }
+    if (program.lists) {
+      cases.push([
+        'the list and the first call share one timeout',
+        () =>
+          withR(async (r, dir) => {
+            write(r, F_PATH, F);
+            const result = await run(r, null, ['--review', '--base', 'main'], fakeEnv(program, dir, 'late', { [`FAKE_${upper}_LIST_DELAY`]: '1500', [`FAKE_${upper}_DELAY`]: '1000' }));
+            const next = `raise reviewer.timeout in .lawcheck/config.yaml, or check that ${program.name} answers when started by hand, ${AGAIN}`;
+            assert.equal(result.stdout, stopped(UNREACHABLE(`${program.name} gave no answer within 2 seconds`), 'reviewer-unreachable', next));
+            assert.equal(result.code, 2);
+            assert.ok(result.ms < 6000, `${result.ms} ms`);
+          }, configOf(program.provider, '  timeout: 2\n')),
+      ]);
     }
     if (program.name === 'codex') {
       cases.push([
