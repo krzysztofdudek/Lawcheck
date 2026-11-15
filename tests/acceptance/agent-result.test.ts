@@ -106,7 +106,7 @@ test('test 181: the committed result of the trial', async () => {
       }
       counted++;
       assert.deepEqual(Object.keys(entry.checks!), CHECK_KEYS, where);
-      const again = await inTemp((dir) => {
+      const again = await inTemp(async (dir) => {
         const work = makeRepository(dir);
         for (const [path, text] of Object.entries(entry.files)) {
           const full = join(work, path);
@@ -116,7 +116,7 @@ test('test 181: the committed result of the trial', async () => {
             writeFileSync(full, text);
           }
         }
-        return checksIn(work);
+        return await checksIn(work);
       });
       assert.deepEqual(again, entry.checks, where);
       assert.equal(entry.fixed, isFixed(again), where);

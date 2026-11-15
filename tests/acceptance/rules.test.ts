@@ -1,8 +1,7 @@
 import { test } from 'node:test';
-import { platformSkip } from '../harness/tool.ts';
+import { platformSkip, waitUntil } from '../harness/tool.ts';
 import assert from 'node:assert/strict';
 import { existsSync, realpathSync } from 'node:fs';
-import { setTimeout as sleep } from 'node:timers/promises';
 import { isAbsolute, join } from 'node:path';
 import { append, check, D, D_PATH, findingLines, lawcheck, NO_CONSOLE, setRule, startLawcheck, TEST4, withSample, write } from './helpers.ts';
 
@@ -185,26 +184,15 @@ function alive(pid: number): boolean {
 }
 
 test('section 3: a rule that spins ends with the tool, whatever ends the tool', async () => {
-  const spin = "export function check() { console.error('runner ' + process.pid); return new Promise(() => setTimeout(() => { while (true) {} }, 100)); }\n";
+  const spin = "export function check() { console.error('runner ' + process.pid); return new Promise(() => setTimeout(() => { console.error('spinning'); while (true) {} }, 100)); }\n";
   for (const signal of ['SIGTERM', 'SIGKILL'] as const) {
     await withRule(spin, async (s) => {
-      // Section 3: a signal that the tool can catch ends it as internal.
-      const tool = startLawcheck(s, ['check', '--base', 'main'], { stderr: /^runner \d+\n$/, internal: signal === 'SIGTERM' });
-      let pid: number | null = null;
-      for (let i = 0; i < 100 && pid === null; i++) {
-        await sleep(100);
-        const found = /^runner (\d+)$/m.exec(tool.stderr());
-        if (found !== null) pid = Number(found[1]);
-      }
-      assert.ok(pid !== null, `${signal}: the runner started`);
-      await sleep(300);
+      const tool = startLawcheck(s, ['check', '--base', 'main'], { stderr: /^runner \d+\nspinning\n$/ });
+      const pid = Number((await tool.output(/^runner (\d+)\nspinning\n/m))[1]);
+      assert.ok(pid > 0, `${signal}: the runner started`);
       tool.kill(signal);
       const { code } = await tool.ended;
-      let left = alive(pid);
-      for (let i = 0; i < 50 && left; i++) {
-        await sleep(100);
-        left = alive(pid);
-      }
+      const left = !(await waitUntil(() => !alive(pid), 'KILLED_GRACE_MS'));
       try {
         assert.equal(left, false, `${signal}: no runner outlives the tool`);
       } finally {

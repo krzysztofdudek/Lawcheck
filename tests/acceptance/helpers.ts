@@ -1,9 +1,8 @@
 import { execFileSync } from 'node:child_process';
-import { appendFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { appendFileSync, cpSync, existsSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
 import { delimiter, dirname, join } from 'node:path';
 import { example, exampleText } from '../harness/examples.ts';
-import { CLI, ROOT, startTool } from '../harness/tool.ts';
+import { CLI, ROOT, startTool, testFolder } from '../harness/tool.ts';
 import type { Expect, Run, Running, ToolOptions } from '../harness/tool.ts';
 
 export { CLI, ROOT } from '../harness/tool.ts';
@@ -79,8 +78,7 @@ export interface Temp {
 }
 
 export function temp(): Temp {
-  const dir = realpathSync(mkdtempSync(join(tmpdir(), 'lawcheck-test-')));
-  return { dir, remove: () => rmSync(dir, { recursive: true, force: true }) };
+  return testFolder();
 }
 
 export async function inTemp<T>(body: (dir: string) => Promise<T> | T): Promise<T> {
@@ -243,11 +241,11 @@ export interface Copy {
 }
 
 export function makeCopy(): Copy {
-  const dir = mkdtempSync(join(tmpdir(), 'lawcheck-copy-'));
+  const { dir, remove } = testFolder('lawcheck-copy-');
   cpSync(join(ROOT, 'package.json'), join(dir, 'package.json'));
   cpSync(join(ROOT, 'dist'), join(dir, 'dist'), { recursive: true });
-  symlinkSync(join(ROOT, 'node_modules'), join(dir, 'node_modules'));
-  return { dir, cli: join(dir, 'dist', 'cli.js'), remove: () => rmSync(dir, { recursive: true, force: true }) };
+  symlinkSync(join(ROOT, 'node_modules'), join(dir, 'node_modules'), process.platform === 'win32' ? 'junction' : 'dir');
+  return { dir, cli: join(dir, 'dist', 'cli.js'), remove };
 }
 
 export async function withCopy<T>(body: (copy: Copy) => Promise<T> | T): Promise<T> {

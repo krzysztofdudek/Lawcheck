@@ -96,6 +96,33 @@ const EXIT: Record<string, (document: any) => number[]> = {
   'lawcheck-docs/0': () => [0],
 };
 
+const count = (items: any[], keep: (item: any) => boolean) => items.filter(keep).length;
+
+function differ(pairs: [string, number, number][]): string | null {
+  const wrong = pairs.filter(([, said, counted]) => said !== counted).map(([name, said, counted]) => `${name} is ${said}, the lists hold ${counted}`);
+  return wrong.length === 0 ? null : wrong.join('; ');
+}
+
+// spec/check-slice.md, section 6, and docs/json.md say what each count counts.
+const COUNTS: Record<string, (document: any) => string | null> = {
+  'lawcheck-check/0': (d) =>
+    differ([
+      ['summary.errors', d.summary.errors, count(d.findings, (f) => !f.debt && f.severity === 'error')],
+      ['summary.warnings', d.summary.warnings, count(d.findings, (f) => !f.debt && f.severity === 'warning')],
+      ['summary.debt', d.summary.debt, count(d.findings, (f) => f.debt)],
+      ['summary.waivers', d.summary.waivers, count(d.waivers, (w) => !w.debt)],
+      ['summary.unresolved', d.summary.unresolved, count(d.unresolved, (u) => !u.debt)],
+    ]),
+  'lawcheck-try/0': (d) =>
+    differ([
+      ['summary.findings', d.summary.findings, d.runs.reduce((n: number, r: any) => n + r.findings.length, 0)],
+      ['summary.files_with_findings', d.summary.files_with_findings, new Set(d.runs.filter((r: any) => r.findings.length > 0).map((r: any) => r.file)).size],
+      ['summary.waived', d.summary.waived, d.runs.reduce((n: number, r: any) => n + r.waived, 0)],
+      ['files', d.files, new Set(d.runs.map((r: any) => r.file)).size],
+    ]),
+  'lawcheck-explain/0': (d) => (d.subject === 'directory' ? differ([['files', d.files, d.types.reduce((n: number, t: any) => n + t.files, 0)]]) : null),
+};
+
 export function jsonProblem(stdout: string, code: number | null): { problem: string | null; document: unknown } {
   if (!stdout.endsWith('\n')) return { problem: 'standard output does not end with a line end', document: undefined };
   let document: unknown;
@@ -115,7 +142,10 @@ export function jsonProblem(stdout: string, code: number | null): { problem: str
     const errors = (validate.errors ?? []).slice(0, 5).map((e) => `${e.instancePath || '/'} ${e.message ?? ''}`.trim());
     return { problem: `the document breaks ${schema}: ${errors.join('; ')}`, document };
   }
+  const counts = COUNTS[schema]?.(document);
+  if (counts) return { problem: `${schema}: ${counts}`, document };
   const exits = EXIT[schema]?.(document) ?? [];
   if (!exits.includes(code ?? -1)) return { problem: `${schema} with exit ${code}; the document means exit ${exits.join(' or ')}`, document };
+  if (stdout !== JSON.stringify(document, null, 2) + '\n') return { problem: 'standard output is not exactly JSON.stringify(document, null, 2) and a line end, as docs/json.md and spec/check-slice.md, section 6, say', document };
   return { problem: null, document };
 }

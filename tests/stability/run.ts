@@ -4,11 +4,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { baselineVerdict } from './baseline.ts';
+import { startTool } from '../harness/start.ts';
 
 const RUNS = 10;
 const ATTEMPTS = 3;
 const ROOT = fileURLToPath(new URL('../..', import.meta.url));
-const CLI = join(ROOT, 'dist', 'cli.js');
 const FIXTURE = join(ROOT, 'tests', 'stability', 'fixture');
 const DEFAULT_OUT = join(ROOT, 'tests', 'stability', 'result.json');
 const REVIEWER_ERRORS = new Set(['reviewer-unreachable', 'reviewer-bad-answer']);
@@ -73,7 +73,7 @@ function git(cwd: string, args: string[]): void {
   if (result.status !== 0) throw new Error(`git ${args[0]} failed: ${String(result.stderr).trim()}`);
 }
 
-function attempt(): { exit: number | null; document: any } {
+async function attempt(): Promise<{ exit: number | null; document: any }> {
   const dir = mkdtempSync(join(tmpdir(), 'lawcheck-stability-'));
   try {
     cpSync(FIXTURE, dir, { recursive: true });
@@ -83,14 +83,14 @@ function attempt(): { exit: number | null; document: any } {
     git(dir, ['commit', '-q', '-m', 'fixture']);
     const env = { ...process.env };
     delete env.LAWCHECK_BASE;
-    const result = spawnSync(process.execPath, [CLI, 'check', '--review', '--json'], { cwd: dir, env, encoding: 'utf8', maxBuffer: 1 << 28 });
+    const result = await startTool(dir, ['check', '--review', '--json'], env, { budget: 'STABILITY_RUN_BUDGET_MS' }).ended;
     let document: any = null;
     try {
       document = JSON.parse(result.stdout);
     } catch {
       document = null;
     }
-    return { exit: result.status, document };
+    return { exit: result.code, document };
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -106,7 +106,7 @@ for (let run = 1; run <= RUNS; run++) {
   for (let number = 1; number <= ATTEMPTS && !done; number++) {
     let outcome: { exit: number | null; document: any };
     try {
-      outcome = attempt();
+      outcome = await attempt();
     } catch (error) {
       stop(2, `run ${run}: ${error instanceof Error ? error.message : String(error)}`);
     }

@@ -1,5 +1,5 @@
 import { test } from 'node:test';
-import { platformSkip } from '../harness/tool.ts';
+import { fakeWrites, platformSkip } from '../harness/tool.ts';
 import { chmodSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import { join } from 'node:path';
@@ -199,6 +199,7 @@ test('section 4: every git command runs with GIT_OPTIONAL_LOCKS=0, in the order 
     const real = execFileSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).trim();
     const bin = join(dir, 'bin');
     const log = join(dir, 'git.log');
+    fakeWrites(dir, ['git.log']);
     mkdirSync(bin);
     writeFileSync(join(bin, 'git'), `#!/bin/sh\nprintf '%s %s\\n' "\${GIT_OPTIONAL_LOCKS-unset}" "$*" >> '${log}'\nexec '${real}' "$@"\n`, { mode: 0o755 });
     write(s, D_PATH, D);
