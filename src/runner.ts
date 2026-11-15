@@ -16,6 +16,9 @@ type Check = (input: { files: CallFile[]; repo: { filesOf(typeId: string): strin
 const channel = process.send!.bind(process);
 process.send = undefined;
 
+// macOS adds __CF_USER_TEXT_ENCODING to every process it starts, even one started with an empty environment.
+for (const name of Object.keys(process.env)) delete process.env[name];
+
 let check: Check | null = null;
 let repo: { filesOf(typeId: string): string[] } | null = null;
 
