@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { compileList, compilePattern, patternProblem } from '../../dist/glob.js';
+import { MATCH_BUDGET_MS } from '../properties/numbers.ts';
 
 const matches = (pattern: string, path: string) => compilePattern(pattern).test(path);
 
@@ -52,4 +53,14 @@ test('invalid patterns', () => {
   for (const pattern of ['src/**', '**', '!src/**/*.d.ts', 'a/{b,c}.ts', '.lawcheck/x', 'a,b']) {
     assert.equal(patternProblem(pattern), null, pattern);
   }
+});
+
+test('S1-1: src/**/*a*a*a*a*a*a*b.ts against a name of 240 a ends within the budget, and matches what it should', () => {
+  const pattern = compilePattern('src/**/*a*a*a*a*a*a*b.ts');
+  const started = performance.now();
+  assert.equal(pattern.test(`src/core/${'a'.repeat(240)}.ts`), false);
+  assert.ok(performance.now() - started <= MATCH_BUDGET_MS, `the match took ${Math.round(performance.now() - started)} ms`);
+  assert.equal(pattern.test(`src/core/${'a'.repeat(6)}b.ts`), true);
+  assert.equal(pattern.test(`src/${'a'.repeat(240)}b.ts`), true);
+  assert.equal(pattern.test(`src/core/${'a'.repeat(5)}b.ts`), false);
 });
