@@ -2,7 +2,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { COMMIT_TARGET_MS, LOOP_TARGET_MS, SEED, SLOW_TESTS, TEST_BUDGET_MS } from './numbers.ts';
+import { COMMIT_TARGET_MS, LOOP_TARGET_MS, SEED, SLOW_TESTS, slowBudget, TEST_BUDGET_MS } from './numbers.ts';
 import type { Speed } from './numbers.ts';
 import { COMMIT_GROUPS, EMPTY_GROUPS, groupDirs, NIGHTLY_GROUPS, ROOT, setFiles, TESTS } from './harness/sets.ts';
 
@@ -169,7 +169,7 @@ function main(): void {
   }
   const seed = process.env.LAWCHECK_SEED ?? String(SEED);
   process.stdout.write(`${what}: ${files.length} test files, seed ${seed}${parsed.repeat > 1 ? `, ${parsed.repeat} times` : ''}\n`);
-  const slowest = Math.max(TEST_BUDGET_MS, ...Object.values(SLOW_TESTS).flatMap((budgets) => Object.values(budgets)));
+  const slowest = Math.max(TEST_BUDGET_MS, ...Object.keys(SLOW_TESTS).map((key) => slowBudget(key) ?? 0));
   const args = [
     '--test',
     `--import=${HARNESS}`,

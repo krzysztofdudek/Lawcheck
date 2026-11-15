@@ -6,7 +6,8 @@ import { fileURLToPath } from 'node:url';
 import { baselineVerdict } from './baseline.ts';
 import { startTool } from '../harness/start.ts';
 
-const RUNS = 10;
+// spec/reviewer-slice.md, section 9: N = 10. The tests may ask for fewer, at least two, where starting a reviewer program is slow.
+const RUNS = /^([2-9]|10)$/.test(process.env.LAWCHECK_STABILITY_RUNS ?? '') ? Number(process.env.LAWCHECK_STABILITY_RUNS) : 10;
 const ATTEMPTS = 3;
 const ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const FIXTURE = join(ROOT, 'tests', 'stability', 'fixture');

@@ -7,6 +7,8 @@ import type { Recorded } from './fake-reviewer.ts';
 import { GIT_ENV, inTemp, pathWith, ROOT } from './helpers.ts';
 import type { Expect, Run } from './helpers.ts';
 import { startProgram } from '../harness/tool.ts';
+import { STABILITY_RUNS } from '../numbers.ts';
+import type { System } from '../numbers.ts';
 
 const SCRIPT = join(ROOT, 'tests', 'stability', 'run.ts');
 const LABELS = JSON.parse(readFileSync(join(ROOT, 'tests', 'stability', 'labels.json'), 'utf8')) as { file: string; rule: string; label: string; borderline: boolean }[];
@@ -107,6 +109,7 @@ test('test 76: the measurement through claude-code', async () => {
       LAWCHECK_STABILITY_MODEL: 'test-model',
       LAWCHECK_STABILITY_NOTE: 'run on the host',
       LAWCHECK_STABILITY_OUT: out,
+      LAWCHECK_STABILITY_RUNS: String(STABILITY_RUNS[process.platform as System]),
     });
     assert.equal(result.code, 0, result.stderr);
     const document = JSON.parse(readFileSync(out, 'utf8'));
