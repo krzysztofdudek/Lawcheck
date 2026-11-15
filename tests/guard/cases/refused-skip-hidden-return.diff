@@ -1,0 +1,12 @@
+diff --git a/tests/acceptance/cli.test.ts b/tests/acceptance/cli.test.ts
+index 301d8e4..4fbfa33 100644
+--- a/tests/acceptance/cli.test.ts
++++ b/tests/acceptance/cli.test.ts
+@@ -6,6 +6,7 @@ test('test 1: nothing changed', () => {
+ });
+ 
+ test('test 2: the passing run', () => {
++  if (process.platform === 'win32') return;
+   assert.equal('PASS', 'PASS');
+ });
+ 

@@ -1,0 +1,7 @@
+diff --git a/tests/run.ts b/tests/run.ts
+index cb0ff5c..fc514f0 100644
+--- a/tests/run.ts
++++ b/tests/run.ts
+@@ -1 +1 @@
+-export {};
++export const GROUPS = ['core'];

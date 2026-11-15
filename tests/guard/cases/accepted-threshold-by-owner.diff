@@ -1,0 +1,19 @@
+diff --git a/tests/numbers.ts b/tests/numbers.ts
+index 8ee2474..843e7e4 100644
+--- a/tests/numbers.ts
++++ b/tests/numbers.ts
+@@ -1,4 +1,4 @@
+ export const SEED = 20261115;
+-export const PROPERTY_CASES = 100;
++export const PROPERTY_CASES = 50;
+ export const BUDGET = { cli: 20_000, hook: 5000 } as const;
+ export const SLOW_TESTS = ['test 24: a rule that spins'];
+diff --git a/tests/weakenings.md b/tests/weakenings.md
+index 5357732..70c83ad 100644
+--- a/tests/weakenings.md
++++ b/tests/weakenings.md
+@@ -3,3 +3,4 @@
+ | Date | What | Kind | Reason | Anchor | Approved by |
+ |---|---|---|---|---|---|
+ | 2026-11-01 | tests/real/hono.expected | expected-changed | Runes 1.1.0 reads the router | Runes 1.1.0 | reviewer old-agent |
++| 2026-11-15 | PROPERTY_CASES | threshold-lowered | ruling 1 halves the cases | ruling 1 | owner |

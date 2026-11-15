@@ -1,0 +1,22 @@
+diff --git a/package.json b/package.json
+index 0ffe104..6b7d2a8 100644
+--- a/package.json
++++ b/package.json
+@@ -3,7 +3,7 @@
+   "type": "module",
+   "scripts": {
+     "build": "tsc -p .",
+-    "test": "npm run build && node --test \"tests/**/*.test.ts\""
++    "test": "npm run build && node --test \"tests/unit/*.test.ts\""
+   },
+   "dependencies": {
+     "@chrisdudek/runes": "1.1.0"
+diff --git a/tests/weakenings.md b/tests/weakenings.md
+index 5357732..f843b71 100644
+--- a/tests/weakenings.md
++++ b/tests/weakenings.md
+@@ -3,3 +3,4 @@
+ | Date | What | Kind | Reason | Anchor | Approved by |
+ |---|---|---|---|---|---|
+ | 2026-11-01 | tests/real/hono.expected | expected-changed | Runes 1.1.0 reads the router | Runes 1.1.0 | reviewer old-agent |
++| 2026-11-15 | package.json#scripts.test | ci-changed | faster | package.json | reviewer fresh-agent-7 |

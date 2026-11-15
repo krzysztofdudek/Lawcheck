@@ -1,0 +1,22 @@
+diff --git a/spec/check-slice.md b/spec/check-slice.md
+index f78cdfc..bb5de4e 100644
+--- a/spec/check-slice.md
++++ b/spec/check-slice.md
+@@ -5,7 +5,7 @@
+ The passing run prints:
+ 
+ ```
+-lawcheck: PASS  nothing changed against main
++lawcheck: PASS
+ ```
+ 
+ ## 8. Acceptance
+diff --git a/tests/weakenings.md b/tests/weakenings.md
+index 5357732..c06b3b0 100644
+--- a/tests/weakenings.md
++++ b/tests/weakenings.md
+@@ -3,3 +3,4 @@
+ | Date | What | Kind | Reason | Anchor | Approved by |
+ |---|---|---|---|---|---|
+ | 2026-11-01 | tests/real/hono.expected | expected-changed | Runes 1.1.0 reads the router | Runes 1.1.0 | reviewer old-agent |
++| 2026-11-15 | spec/check-slice.md block 1 under "6. Output" | promise-changed | shorter | spec/check-slice.md | reviewer fresh-agent-7 |

@@ -1,0 +1,22 @@
+diff --git a/spec/check-slice.md b/spec/check-slice.md
+index f78cdfc..a88bffc 100644
+--- a/spec/check-slice.md
++++ b/spec/check-slice.md
+@@ -12,7 +12,7 @@ lawcheck: PASS  nothing changed against main
+ 
+ | # | Do | See |
+ |---|---|---|
+-| 1 | nothing | `lawcheck: PASS  nothing changed against main`, exit 0 |
++| 1 | nothing | `lawcheck: PASS  nothing changed against main`, exit 0, and no `next:` |
+ | 2 | the passing run of section 6 | its output, exit 0 |
+ | 3 | add 60 findings | 50 finding lines, then `... 10 more findings` |
+ 
+diff --git a/tests/weakenings.md b/tests/weakenings.md
+index 5357732..283b745 100644
+--- a/tests/weakenings.md
++++ b/tests/weakenings.md
+@@ -3,3 +3,4 @@
+ | Date | What | Kind | Reason | Anchor | Approved by |
+ |---|---|---|---|---|---|
+ | 2026-11-01 | tests/real/hono.expected | expected-changed | Runes 1.1.0 reads the router | Runes 1.1.0 | reviewer old-agent |
++| 2026-11-15 | row 1 | promise-changed | the row also names the missing next line | row 1 | owner |

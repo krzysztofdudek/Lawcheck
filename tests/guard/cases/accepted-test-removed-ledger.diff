@@ -1,0 +1,31 @@
+diff --git a/tests/acceptance/cli.test.ts b/tests/acceptance/cli.test.ts
+index 301d8e4..5b3fbdc 100644
+--- a/tests/acceptance/cli.test.ts
++++ b/tests/acceptance/cli.test.ts
+@@ -13,7 +13,3 @@ test('I-frame-1: no text of a file starts a prompt line', () => {
+   assert.ok(true);
+ });
+ 
+-test('S3-1: a lone CR does not start a prompt line', (t) => {
+-  if (process.platform === 'win32') return t.skip('no file mode on Windows');
+-  assert.equal(2, 2);
+-});
+diff --git a/tests/findings.md b/tests/findings.md
+index aa781bc..ff5da3d 100644
+--- a/tests/findings.md
++++ b/tests/findings.md
+@@ -3,4 +3,4 @@
+ | Id | Class | State | Test |
+ |---|---|---|---|
+ | S1-1 | hostile input | open | |
+-| S3-1 | security | open | S3-1: a lone CR does not start a prompt line |
++| S3-1 | security | withdrawn: not a defect | |
+diff --git a/tests/weakenings.md b/tests/weakenings.md
+index 5357732..f183707 100644
+--- a/tests/weakenings.md
++++ b/tests/weakenings.md
+@@ -3,3 +3,4 @@
+ | Date | What | Kind | Reason | Anchor | Approved by |
+ |---|---|---|---|---|---|
+ | 2026-11-01 | tests/real/hono.expected | expected-changed | Runes 1.1.0 reads the router | Runes 1.1.0 | reviewer old-agent |
++| 2026-11-15 | S3-1: a lone CR does not start a prompt line | test-removed | the finding was withdrawn | S3-1 | reviewer fresh-agent-7 |

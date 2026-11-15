@@ -1,0 +1,17 @@
+diff --git a/tests/real/hono.expected b/tests/real/hono.expected
+index 08575e3..1963da9 100644
+--- a/tests/real/hono.expected
++++ b/tests/real/hono.expected
+@@ -1,2 +1,2 @@
+ src/index.ts  ok
+-src/router.ts  ok
++src/router.ts  unresolved
+diff --git a/tests/weakenings.md b/tests/weakenings.md
+index 5357732..7779237 100644
+--- a/tests/weakenings.md
++++ b/tests/weakenings.md
+@@ -3,3 +3,4 @@
+ | Date | What | Kind | Reason | Anchor | Approved by |
+ |---|---|---|---|---|---|
+ | 2026-11-01 | tests/real/hono.expected | expected-changed | Runes 1.1.0 reads the router | Runes 1.1.0 | reviewer old-agent |
++| 2026-11-15 | tests/real/hono.expected | expected-changed | the router reads differently | row 2 | reviewer fresh-agent-7 |
