@@ -66,6 +66,8 @@ function parse(argv: string[]): Parsed {
     else targets.push(arg);
   }
   if (speed === 'loop' && group !== null) fail('--group belongs to the commit and nightly sets');
+  const ordered = process.env.LAWCHECK_ORDER_SEED;
+  if (shuffle === null && ordered !== undefined && /^\d+$/.test(ordered)) shuffle = ordered;
   if (shard !== null && (speed !== 'commit' || group !== null || targets.length > 0 || repeat > 1)) fail('--shard splits the whole commit set, with no group, target or --repeat');
   return { speed, group, repeat, shuffle, targets, shard };
 }
@@ -196,7 +198,7 @@ function main(): void {
   }
   const seed = process.env.LAWCHECK_SEED ?? String(SEED);
   process.stdout.write(`${what}: ${files.length} test files, seed ${seed}${parsed.repeat > 1 ? `, ${parsed.repeat} times` : ''}\n`);
-  if (parsed.shuffle !== null) process.stdout.write(`shuffle seed ${parsed.shuffle}: rerun with --shuffle=${parsed.shuffle}\n`);
+  if (parsed.shuffle !== null) process.stdout.write(`order seed ${parsed.shuffle}: rerun with --shuffle=${parsed.shuffle}\n`);
   // The large limits share one container of 1 GB, so their files run one at a time; Node takes this flag only on its command line, never from NODE_OPTIONS.
   const serial = files.some((file) => SERIAL_DIRS.some((dir) => file.startsWith(`tests/${dir}/`)) && file.endsWith('.nightly.test.ts'));
   const slowest = Math.max(TEST_BUDGET_MS, ...Object.keys(SLOW_TESTS).map((key) => slowBudget(key) ?? 0));

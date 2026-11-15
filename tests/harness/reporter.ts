@@ -114,7 +114,7 @@ export async function judgeRun(source: AsyncIterable<{ type: string; data: any }
       continue;
     }
     if (event.type === 'test:pass' && data.skip === undefined && data.todo === undefined && data.file) passed.push({ file: where(data.file), name: data.name });
-    if (data.skip !== undefined && data.file && !PLATFORM_SKIPS.some((e) => e.file === where(data.file) && e.test === data.name && here(e.platform))) unlistedSkips.push(`${where(data.file)} > ${data.name}`);
+    if ((data.skip !== undefined || data.todo !== undefined) && data.file && !PLATFORM_SKIPS.some((e) => e.file === where(data.file) && e.test === data.name && e.part === 'the whole test' && here(e.platform))) unlistedSkips.push(`${where(data.file)} > ${data.name}`);
     if (data.nesting !== 0) continue;
     if (data.file) files.add(data.file);
     const fileItself = data.file !== undefined && (data.name === data.file || data.name === where(data.file));
@@ -154,7 +154,7 @@ export async function judgeRun(source: AsyncIterable<{ type: string; data: any }
   let red = false;
   if (unlistedSkips.length > 0) {
     red = true;
-    lines.push('', 'RED      a test was skipped with no entry in PLATFORM_SKIPS for this system', 'promise  spec/questions.md, entry 91: a skip is a platform reason in the list of tests/harness/skips.ts', ...unlistedSkips.map((u) => `got      ${u}`));
+    lines.push('', 'RED      a test was skipped or marked todo with no whole-test entry in PLATFORM_SKIPS for this system', 'promise  spec/questions.md, entry 91: a skip is a platform reason in the list of tests/harness/skips.ts', ...unlistedSkips.map((u) => `got      ${u}`));
   }
   if (process.env.LAWCHECK_TIE === '1') {
     const speed = process.env.LAWCHECK_SPEED === 'nightly' ? 'nightly' : 'commit';

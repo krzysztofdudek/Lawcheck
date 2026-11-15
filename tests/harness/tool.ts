@@ -24,7 +24,7 @@ interface TestState {
   budget: number;
   runs: number;
   compared: number;
-  asserted: number;
+  asserted: { n: number };
   skipped: boolean;
   pending: Set<Promise<unknown>>;
   failures: { error: Error; consumed: boolean }[];
@@ -95,7 +95,7 @@ function guardStarts(): void {
   syncBuiltinESMExports();
 }
 
-// Every function of node:assert counts the assertion it makes for the test that is running.
+// Every function of node:assert counts the assertion it makes for the test that is running. A hook that asserts, and an assertion in a timer callback, which may run after its test, are refused by the rail.
 function countAssertions(): void {
   const targets = [assertModule, assertModule.strict] as unknown as Record<string, unknown>[];
   for (const target of targets) {
@@ -103,7 +103,7 @@ function countAssertions(): void {
       const original = target[key];
       if (typeof original !== 'function' || ['AssertionError', 'CallTracker', 'Assert', 'strict'].includes(key)) continue;
       target[key] = function counted(this: unknown, ...args: unknown[]) {
-        if (current !== null) current.asserted++;
+        if (current !== null) current.asserted.n++;
         return (original as (...a: unknown[]) => unknown).apply(this, args);
       };
     }
@@ -140,7 +140,7 @@ if (!registry[REGISTERED]) {
       budget: slowBudget(`${file} > ${t.name}`) ?? TEST_BUDGET_MS,
       runs: 0,
       compared: 0,
-      asserted: 0,
+      asserted: { n: 0 },
       skipped: false,
       pending: new Set(),
       failures: [],
@@ -158,7 +158,7 @@ if (!registry[REGISTERED]) {
     if (open !== undefined) throw open.error;
     const problems: string[] = [];
     if (state.runs > 0 && state.compared === 0) problems.push(`harness-count: the test started the tool ${state.runs} times and read none of its outputs`);
-    else if (state.asserted === 0 && !state.skipped) problems.push('harness-count: the test made no assertion');
+    else if (state.asserted.n === 0 && !state.skipped) problems.push('harness-count: the test made no assertion');
     const changed = treeChanges(state.root, tree(ROOT_DIR));
     if (changed.length > 0) problems.push(`harness-8: the test changed the Lawcheck checkout: ${changed.slice(0, 10).join(', ')}`);
     const took = Date.now() - state.started;
@@ -219,7 +219,7 @@ export async function expectBroken(invariant: string, body: () => Promise<unknow
     if (error instanceof Broken && error.invariant === invariant) {
       if (current !== null) {
         current.compared++;
-        current.asserted++;
+        current.asserted.n++;
       }
       for (const failure of current?.failures ?? []) if (failure.error === error) failure.consumed = true;
       return error;

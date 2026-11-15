@@ -27,5 +27,5 @@ export const test = Object.assign(function shuffledTest(...args) {
   return Promise.resolve();
 }, real.test);
 
-export const it = test;
+export const it = real.it;
 export default test;
