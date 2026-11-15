@@ -1,3 +1,4 @@
+import { resolve as resolveMain } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -39,7 +40,7 @@ export function runFromBase(repo: string, baseRev: string, headRev: string, json
   }
 }
 
-if (import.meta.main) {
+if (process.argv[1] !== undefined && resolveMain(process.argv[1]) === import.meta.filename) {
   const args = parse(process.argv.slice(2));
   if (typeof args === 'string') {
     process.stderr.write(`suite guard: ${args}\nusage: node tests/guard/from-base.ts [--repo <dir>] [--base <rev>] [--head <rev>] [--json]\n`);
