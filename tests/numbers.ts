@@ -147,7 +147,7 @@ export const SLOW_TESTS: Record<string, Slow> = {
   'tests/acceptance/program-providers.test.ts > test 407: gemini-cli': { fixed: 0, measured: { linux: 5_194, darwin: 12_728, win32: 63_443 } },
   'tests/acceptance/program-providers.test.ts > test 408: copilot-cli': { fixed: 0, measured: { linux: 6_455, darwin: 12_112, win32: 86_831 } },
   // STABILITY_PROVIDER_RUNS runs of 30 calls through each fake, a process per call of a program.
-  'tests/acceptance/stability.test.ts > test 410: the measurement through ollama, codex and copilot-cli': { fixed: 0, measured: { win32: 29_358 } },
+  'tests/acceptance/stability.test.ts > test 410: the measurement through ollama, codex and copilot-cli': { fixed: 0, measured: { linux: 6_606, darwin: 26_998, win32: 52_639 } },
   // A 429 after 2.5 seconds, then a dropped connection after 2.5 seconds and a resend held to the 0.5 seconds left of a timeout of 3 (spec/reviewer-slice.md, test 411).
   'tests/acceptance/http-providers.test.ts > test 411: the timeout bounds a request and its resend': { fixed: 5_500, measured: { linux: 5_769, darwin: 6_875, win32: 7_131 } },
   // Two leftovers, each looked for during LEFTOVER_GRACE_MS.
