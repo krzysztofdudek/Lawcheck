@@ -6,7 +6,7 @@ import { stringify } from 'yaml';
 import { readConfig } from '../../dist/config.js';
 import { parseLaw } from '../../dist/law.js';
 import { lawcheck, makeSample, temp, write } from '../acceptance/helpers.ts';
-import { PURE_CALL_BUDGET_MS } from './numbers.ts';
+import { LAW_PARSE_BUDGET_MS, PURE_CALL_BUDGET_MS } from './numbers.ts';
 import { pure, tool, within } from './support.ts';
 import type { Speed } from './support.ts';
 
@@ -37,7 +37,7 @@ const yamlText = fc.oneof(
   { weight: 3, arbitrary: nearValid.map((law) => stringify(law)) },
   { weight: 1, arbitrary: value.map((v) => stringify(v)) },
   { weight: 1, arbitrary: fc.tuple(fc.integer({ min: 100, max: 20_000 }), fc.constantFrom('[', '{', '- ', 'a: ')).map(([n, unit]) => (unit === 'a: ' ? `lawcheck: 0.1.0\ntypes: ${'{a: '.repeat(n)}` : unit.repeat(n))) },
-  { weight: 1, arbitrary: fc.string({ unit: fc.constantFrom('a', ':', ' ', '\n', '-', '[', ']', '{', '}', '"', "'", '#', '&a', '*a', '!!', '\t', '﻿', '\u0000', '%'), maxLength: 60 }) },
+  { weight: 1, arbitrary: fc.string({ unit: fc.constantFrom('a', ':', ' ', '\n', '-', '[', ']', '{', '}', '"', "'", '#', '&a', '*a', '!!', '\t', '\ufeff', '\u0000', '%'), maxLength: 60 }) },
 );
 
 function lineCount(text: string): number {
@@ -51,7 +51,7 @@ export function lawProperties(speed: Speed): void {
       yamlText,
       { classes: { 'an accepted law': (t) => parseLaw(t).law !== null, 'a refused law': (t) => parseLaw(t).law === null, 'nested 100 deep or more': (t) => t.length >= 100 && /^(\[|\{|- |lawcheck: 0\.1\.0\ntypes: \{)/.test(t) }, least: { 'an accepted law': 0.05, 'nested 100 deep or more': 0.05 } },
       (t) => {
-        const { law, problems } = within(PURE_CALL_BUDGET_MS, 'parseLaw', () => parseLaw(t));
+        const { law, problems } = within(LAW_PARSE_BUDGET_MS, 'parseLaw', () => parseLaw(t));
         if (law === null) {
           assert.ok(problems.length > 0);
           for (const p of problems) {
@@ -63,29 +63,48 @@ export function lawProperties(speed: Speed): void {
     );
   });
 
-  test('I-law-1: an accepted law is printed back by explain, type by type', async () => {
+  test('I-law-1: an accepted law is printed back by explain, every type and every rule whole', async () => {
+    const accepted = nearValid.filter((law) => parseLaw(stringify(law)).law !== null);
     await tool(
       speed,
-      nearValid.map((law) => stringify(law)).filter((t) => parseLaw(t).law !== null),
-      { classes: { 'a law with subtypes': (t) => parseLaw(t).law!.types.some((type: { types: unknown[] }) => type.types.length > 0) }, least: { 'a law with subtypes': 0.05 } },
-      async (t) => {
+      accepted,
+      { classes: { 'a law with subtypes': (law) => Object.values(law.types ?? {}).some((type: any) => type?.types && Object.keys(type.types).length > 0), 'a law with waivers or may_use set': (law) => Object.values(law.types ?? {}).some((type: any) => type?.waivers !== undefined || type?.may_use !== undefined) }, least: { 'a law with subtypes': 0.05, 'a law with waivers or may_use set': 0.05 } },
+      async (law) => {
         const dir = temp();
         try {
           const s = makeSample(dir.dir);
-          write(s, '.lawcheck/law.yaml', t);
+          write(s, '.lawcheck/law.yaml', stringify(law));
           rmSync(`${s}/.lawcheck/rules/no-todo.mjs`);
-          for (const id of parseLaw(t).law!.rules.keys()) if (id !== 'no-console') write(s, `.lawcheck/rules/${id}.mjs`, 'export function check() { return []; }\n');
-          const law = parseLaw(t).law!;
-          for (const [id, type] of law.byId as Map<string, { paths: string[] }>) {
-            const run = await lawcheck(s, ['explain', '--type', id, '--json']);
+          for (const id of Object.keys(law.rules ?? {})) if (id !== 'no-console') write(s, `.lawcheck/rules/${id}.mjs`, 'export function check() { return []; }\n');
+          const walk = (types: Record<string, any>, chain: string[], waivers: boolean, mayUse: { list: string[]; from: string } | null): void[] =>
+            Object.entries(types ?? {}).flatMap(([id, type]) => {
+              const own = type.waivers ?? waivers;
+              const list = type.may_use === undefined ? mayUse : { list: [...new Set<string>(type.may_use)], from: id };
+              expected.push({ id, chain: [...chain, id], about: type.about ?? null, paths: type.paths, content: type.content ?? null, subtypes: Object.keys(type.types ?? {}), waivers: own, may_use: list === null ? null : { types: list.list, from: list.from === id ? null : list.from }, rules: [...new Set<string>(type.rules ?? [])] });
+              return walk(type.types, [...chain, id], own, list);
+            });
+          const expected: any[] = [];
+          walk(law.types, [], true, null);
+          for (const want of expected) {
+            const run = await lawcheck(s, ['explain', '--type', want.id, '--json']);
             if (run.code === 2) {
               const errors = JSON.parse(run.stdout).errors as { code: string }[];
-              assert.ok(errors.every((e) => ['rule-missing-file', 'rule-file-without-entry', 'type-overlap', 'file-unreadable'].includes(e.code)), run.stdout);
+              assert.ok(errors.every((e) => e.code === 'type-overlap'), run.stdout);
               continue;
             }
             assert.equal(run.code, 0, run.stdout);
-            const document = JSON.parse(run.stdout);
-            assert.deepEqual([document.id, document.paths], [id, type.paths]);
+            const got = JSON.parse(run.stdout);
+            const ownRules = got.rules.filter((r: { from: string }) => r.from === want.id).map((r: { id: string }) => r.id);
+            assert.deepEqual(
+              { id: got.id, chain: got.chain, about: got.about, paths: got.paths, content: got.content, subtypes: got.subtypes, waivers: got.waivers, may_use: got.may_use, rules: ownRules },
+              want,
+            );
+          }
+          for (const [id, rule] of Object.entries(law.rules ?? {}) as [string, any][]) {
+            const run = await lawcheck(s, ['explain', '--rule', id, '--json']);
+            if (run.code === 2) continue;
+            const got = JSON.parse(run.stdout);
+            assert.deepEqual({ why: got.why, status: got.status }, { why: rule.why, status: rule.status ?? 'enforced' });
           }
         } finally {
           dir.remove();
@@ -93,6 +112,7 @@ export function lawProperties(speed: Speed): void {
       },
     );
   });
+
 
   test('I-law-1: any text as config.yaml is a config or config-invalid at a line of the file', () => {
     const config = fc.oneof(yamlText, fc.dictionary(fc.constantFrom('reviewer', 'runner', 'provider', 'model', 'max_calls', 'timeout'), value).map((v) => stringify(v)));

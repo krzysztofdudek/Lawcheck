@@ -85,10 +85,19 @@ export function argumentsProperties(speed: Speed): void {
       );
       await tool(
         speed,
-        fc.tuple(fc.constantFrom(...EVENTS), input),
-        { classes: { 'an object': ([, i]) => i.startsWith('{"'), 'no JSON object': ([, i]) => !i.startsWith('{"'), 'a session id of 5,000 characters to a hook that keeps state': ([event, i]) => event !== 'session-start' && i.includes('x'.repeat(5000)) } },
-        async ([event, i]) => {
+        fc.tuple(fc.constantFrom(...EVENTS), input, fc.constantFrom('', 'runner: global\n', '\ufeffrunner: global\n', 'runner: bogus\n', '\ufeffrunner: bogus\n', '\ufeffrunner: global  # pinned\r\n')),
+        { classes: { 'a config with a byte-order mark': ([, , config]) => config.startsWith('\ufeff'), 'an object': ([, i]) => i.startsWith('{"'), 'no JSON object': ([, i]) => !i.startsWith('{"'), 'a session id of 5,000 characters to a hook that keeps state': ([event, i]) => event !== 'session-start' && i.includes('x'.repeat(5000)) } },
+        async ([event, i, config]) => {
+          write(s, '.lawcheck/config.yaml', config);
           const run = await runHook(event, i, env);
+          if (config.startsWith('\ufeff')) {
+            const start = JSON.stringify({ session_id: 's1', cwd: s, hook_event_name: 'SessionStart', source: 'startup' });
+            const marked = await runHook('session-start', start, env);
+            write(s, '.lawcheck/config.yaml', config.slice(1));
+            const plain = await runHook('session-start', start, env);
+            assert.deepEqual([marked.code, marked.stdout], [plain.code, plain.stdout], 'S6-8: a byte-order mark changes what the hook reads');
+            write(s, '.lawcheck/config.yaml', config);
+          }
           assert.doesNotMatch(run.stderr, /\n\s+at /, `a stack trace: ${run.stderr}`);
           if (run.code === 1) {
             assert.match(run.stderr, /^lawcheck plugin: [^\n]+\n$/, run.stderr);

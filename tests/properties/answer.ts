@@ -109,17 +109,18 @@ export function answerProperties(speed: Speed): void {
     );
   });
 
-  // Question 82 is open: two objects that disagree are read today as the last one, and the owner may make them a fail or a bad answer. Only what holds under every option is asserted: two that agree give their verdict, and two that disagree give no crash.
-  test('I-answer-1, S3-4: two verdict objects that agree give their verdict, and two that disagree give a verdict or a bad answer', () => {
+  // Question 82 is open: a fail followed by a pass reads today as the last one, and the owner may make it a fail or a bad answer, so that order is asserted in no way. A pass followed by a fail reads as the fail under every option: today the last one wins, option A makes a disagreement a fail, and option B a bad answer.
+  test('I-answer-1, S3-4: two verdict objects that agree give their verdict, and a pass followed by a fail is never read as a pass', () => {
     const prose = fc.constantFrom('', 'Verdict: ', ' I would have answered ', '\n\nIf the file kept the rule: ');
+    const orders = fc.constantFrom<[string, string]>([PASS, PASS], [FAIL, FAIL], [PASS, FAIL]);
     pure(
       speed,
-      fc.tuple(fc.constantFrom(PASS, FAIL), fc.constantFrom(PASS, FAIL), prose, prose),
-      { classes: { agree: ([a, b]) => a === b, disagree: ([a, b]) => a !== b } },
-      ([first, second, before, between]) => {
+      fc.tuple(orders, prose, prose),
+      { classes: { agree: ([[a, b]]) => a === b, 'a pass then a fail': ([[a, b]]) => a === PASS && b === FAIL } },
+      ([[first, second], before, between]) => {
         const checked = checkAnswer(`${before}${first}${between}${second}`, 3);
-        if (first === second) assert.equal('verdict' in checked ? checked.verdict : null, first === PASS ? 'pass' : 'fail');
-        else assert.ok('verdict' in checked || 'problem' in checked);
+        if (first === second) assert.deepEqual(checked, first === PASS ? { verdict: 'pass', findings: [] } : { verdict: 'fail', findings: [{ line: 1, message: 'm' }] });
+        else assert.ok('problem' in checked || (checked.verdict === 'fail' && checked.findings.length === 1), JSON.stringify(checked));
       },
     );
   });

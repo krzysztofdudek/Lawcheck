@@ -13,6 +13,9 @@ export const PATTERN_RUN_BUDGET_MS = 8_000;
 // takeAnswer on one megabyte of `{` and on 50,000 nested objects (design test 6, stress finding S3-3); measured below 30 ms.
 export const ANSWER_BUDGET_MS = 1_000;
 
+// parseLaw on the generator's deepest text, 20,000 levels of brackets; measured at 57 ms in the dev container.
+export const LAW_PARSE_BUDGET_MS = 1_500;
+
 // One pure call on generated input, for the base oracle of no run over its budget.
 export const PURE_CALL_BUDGET_MS = 1_000;
 
