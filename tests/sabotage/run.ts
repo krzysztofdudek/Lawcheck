@@ -51,7 +51,7 @@ export function sabotage(root: string, entries: Entry[], log: (line: string) => 
     const clean = build(tmp.dir);
     if (!clean.ok) throw new Error(`the unbroken copy does not build:\n${clean.output.trimEnd().split('\n').slice(-20).join('\n')}`);
     const outcomes: Outcome[] = [];
-    const baseline = new Map<string, string>();
+    const baseline = new Map<string, Verdict>();
     for (const entry of entries) {
       const fail = (detail: string): void => { outcomes.push({ entry, result: 'error', detail }); log(`error     ${entry.id}: ${detail}`); };
       const testFile = findTest(tmp.dir, entry.killedBy);

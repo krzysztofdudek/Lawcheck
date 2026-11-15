@@ -216,7 +216,7 @@ function textOf(text: string, tokens: Token[], from: number, to: number): string
   return text.slice(tokens[from]!.start, tokens[to - 1]!.end).replace(/\s+/g, ' ').trim();
 }
 
-function optionKeys(text: string, tokens: Token[], from: number, to: number): Marker[] {
+function optionKeys(text: string, tokens: Token[], from: number): Marker[] {
   const out: Marker[] = [];
   if (tokens[from]?.type !== 'punct' || tokens[from]!.value !== '{') return out;
   const close = matching(tokens, from);
@@ -233,7 +233,6 @@ function optionKeys(text: string, tokens: Token[], from: number, to: number): Ma
     if (value === 'false' || value === 'undefined' || value === "''" || value === '""') continue;
     out.push({ kind: key.value as Marker['kind'], line: key.line, text: value, strings: stringsIn(tokens, a + 2, b) });
   }
-  void to;
   return out;
 }
 
@@ -305,7 +304,7 @@ export function readSource(text: string): Source {
       const rest = args.slice(1).map(([a, b]) => textOf(text, tokens, a, b)).filter((s) => !s.startsWith('(') && !s.startsWith('async') && !s.startsWith('function')).join(', ');
       markers.push({ kind: modifier as Marker['kind'], line: t.line, text: `${t.value}.${modifier}(${JSON.stringify(first.value)})${rest ? ` ${rest}` : ''}`, strings: [] });
     }
-    for (const [a, b] of args.slice(1)) markers.push(...optionKeys(text, tokens, a, b));
+    for (const [a] of args.slice(1)) markers.push(...optionKeys(text, tokens, a));
   }
   return { tests, markers, assertions };
 }

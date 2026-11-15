@@ -352,7 +352,7 @@ export function judge(repo: string, baseRev: string, headRev: string, config: Co
   const ledgerBefore = before.read(config.weakenings);
   const ledgerAfter = after.read(config.weakenings) ?? '';
   const ledger = readWeakenings(ledgerAfter);
-  let isNew = (line: number, raw: string): boolean => { void line; void raw; return true; };
+  let isNew: (line: number, raw: string) => boolean = () => true;
   if (ledgerBefore !== null) {
     const kept = ledgerBefore.replace(/\n+$/, '');
     if (ledgerAfter.startsWith(kept)) {
@@ -377,7 +377,7 @@ export function judge(repo: string, baseRev: string, headRev: string, config: Co
     if (!(RECORD_KINDS as readonly string[]).includes(w.kind)) return { ...w, cleared: false, why: [w.detail] };
     const matching = recordState.filter((r) => r.record.kind === w.kind && whatMatches(r.record.what, w.subject, w.kind));
     for (const r of matching) r.matched = true;
-    const extra = (r: (typeof recordState)[number]): string[] => fitsWeakening(r.record, w, context);
+    const extra = (r: (typeof recordState)[number]): string[] => fitsWeakening(r.record, w);
     const good = matching.find((r) => r.why.length === 0 && extra(r).length === 0);
     if (good) return { ...w, cleared: true, record: good.record, why: [] };
     const roles = config.approvers[w.kind] ?? [];
@@ -488,7 +488,7 @@ function validate(record: Record, ctx: AnchorContext): string[] {
   return why;
 }
 
-function fitsWeakening(record: Record, w: Weakening, ctx: AnchorContext): string[] {
+function fitsWeakening(record: Record, w: Weakening): string[] {
   const anchors = record.anchor.split(/\s*;\s*/).map(parseAnchor).filter((a): a is Anchor => a !== null);
   if (w.kind === 'test-removed' && w.testId !== undefined) {
     const named = namedIn(w.testId);
@@ -498,7 +498,6 @@ function fitsWeakening(record: Record, w: Weakening, ctx: AnchorContext): string
   if (w.kind === 'sabotage-removed' && w.promise && !anchors.some((a) => a.key === w.promise)) {
     return [`the entry's promise is ${w.promise}, and the record anchors ${anchors.map((a) => a.raw).join('; ') || 'nothing'}`];
   }
-  void ctx;
   return [];
 }
 
