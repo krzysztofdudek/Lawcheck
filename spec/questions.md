@@ -482,3 +482,8 @@ On macOS and Windows, `lawcheck explain SRC/core/price.ts` opens `src/core/price
 
 Choice: when git does not list the path, the path exists, and it is the same file as exactly one path git lists that is equal to it but for case, `explain` answers for that path, under the name git lists. Elsewhere nothing changes: on Linux `SRC/core/price.ts` is a file that does not exist yet. `commands-slice.md`, section 6, says so, and test 202 of `spec/environments.md` holds it.
 
+## 90. A rule that imports a package hoisted above the root
+
+In a monorepo with the law in one package, the dependencies usually sit in a `node_modules` above the root, which the runner does not let a rule read, and the rule ended with Node's sentence about a flag the user cannot pass (stress finding S2-2). The finding left two ways open: let the runner read the `node_modules` folders above the root, or refuse in words that name the real limit. A decision of the build.
+
+Choice: refuse, and say so. The runner keeps its promise that a rule reads nothing outside the root and Lawcheck's folder (`check-slice.md`, section 3), the message names what the rule read and where, and the script rules page says what a rule can import. Letting the runner read the folders above the root would widen what every rule can read, which is the owner's to decide; it stays open for him.
