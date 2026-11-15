@@ -1,0 +1,114 @@
+lawcheck: 0.1.0
+
+rules:
+  layer-imports:
+    why: Each layer reaches the outside through the modules its row names, so disk, git, processes and the network each have one door.
+  pure-layers:
+    why: core and output decide from their arguments alone, so one input gives one answer on every machine and at every hour.
+  programs-own-the-process:
+    why: Only the programs read the arguments and the environment, print and exit, so --json prints one document and a key goes only where it is passed.
+  modules-only-declare:
+    why: Importing a module runs nothing and keeps nothing, so a test may import any module in any order.
+  no-import-cycles:
+    why: Two modules that import each other's values load in an order nobody chose.
+  own-paths-in-one-place:
+    why: A path computed from import.meta.url changes when its file moves, so one module computes every path into Lawcheck's own folder.
+  comments-say-why:
+    why: A comment that repeats the code goes stale without a word; one that gives an outside constraint, a trap or a source cannot be read off the code.
+  next-keeps-the-users-word:
+    why: An agent does what a next line says, so no text hands it a step that is the user's to take.
+  errors-name-the-fix:
+    why: An agent acts on the text Lawcheck prints, so each message names the thing, the fact and the next step.
+    status: advisory
+    context: ["docs/codes.md"]
+  docs-state-facts:
+    why: A page of lawcheck docs says what this version does; a promise, praise or a hedge there is read as a fact.
+    status: advisory
+
+types:
+  source:
+    about: Lawcheck's own code. A file that no layer below names may use nothing, until it moves into a layer.
+    # The names after ! are the files that are not in a layer yet. No type has them, so nothing judges them. The list only gets shorter.
+    paths: ["src/**", "!src/{args,check,cli,config,docs,doctor,explain,files,glob,guard,init,law,output,prime,programs,prompt,readers,review,rules,setup,try,types,uses,verdicts,waivers}.ts", "!src/providers/**"]
+    may_use: []
+    rules: [layer-imports, programs-own-the-process, modules-only-declare, no-import-cycles, own-paths-in-one-place, comments-say-why, errors-name-the-fix]
+    types:
+      cli:
+        about: The tool as a program. It reads the arguments and the environment, runs one command, prints its result and exits.
+        paths: ["src/cli.ts"]
+        may_use: [commands, steps, output, core]
+      rule-runner:
+        about: The program that loads one script rule and answers the tool's calls. It runs under Node's permission model and imports nothing of Lawcheck.
+        paths: ["src/runner.ts"]
+        may_use: []
+      guard:
+        about: The program that ends the runners, process groups and folders that outlive the tool.
+        paths: ["src/guard.ts"]
+        may_use: [processes]
+      core:
+        about: What Lawcheck decides from data alone. No disk, no git, no process, no network, no clock.
+        paths: ["src/core/**"]
+        may_use: [core]
+        rules: [pure-layers]
+      output:
+        about: Everything that becomes standard output, as text and as JSON. It takes data and returns a string.
+        paths: ["src/output/**"]
+        may_use: [output, core]
+        rules: [pure-layers, next-keeps-the-users-word]
+      adapters:
+        about: One module per thing outside the process. Each is the only door to it.
+        paths: ["src/adapters/**"]
+        may_use: [adapters, core]
+        types:
+          own-files:
+            about: The one module that knows where Lawcheck's own files are, its programs and its manifest included.
+            paths: ["src/adapters/package.ts"]
+            may_use: [rule-runner, guard, manifest, core]
+          processes:
+            about: Starts, finds and ends other programs, and keeps the record of what must not outlive the tool.
+            paths: ["src/adapters/processes.ts"]
+          providers:
+            about: One module per reviewer provider, and the choice between them. A provider gets a prompt and returns an answer.
+            paths: ["src/adapters/providers/**"]
+            may_use: [providers, processes, core]
+      steps:
+        about: The steps of a run that commands share. Each joins core with the adapters it needs.
+        paths: ["src/steps/**"]
+        may_use: [steps, adapters, core]
+        rules: [next-keeps-the-users-word]
+      commands:
+        about: One file per command. A command takes arguments and a context and returns an exit code and text. No command imports another.
+        paths: ["src/commands/**"]
+        may_use: [steps, output, core]
+        rules: [next-keeps-the-users-word]
+
+  plugin:
+    about: The Claude Code plugin's hooks. They start Lawcheck as a program and share no code with it.
+    paths: ["plugin/hooks/*.mjs"]
+    may_use: [plugin]
+    rules: [layer-imports, comments-say-why, next-keeps-the-users-word, errors-name-the-fix]
+    types:
+      plugin-entry:
+        about: The hook as a program. Claude Code starts it once per event.
+        paths: ["plugin/hooks/lawcheck-hook.mjs"]
+
+  build-scripts:
+    about: The scripts of the build. Each is a program of its own.
+    paths: ["scripts/*.ts"]
+    may_use: []
+    rules: [layer-imports, comments-say-why]
+
+  law-rules:
+    about: The script rules of this law and the code they share.
+    paths: [".lawcheck/rules/**/*.mjs"]
+    may_use: [law-rules]
+    rules: [layer-imports, comments-say-why]
+
+  docs:
+    about: The pages lawcheck docs prints. docs/waivers.md is left out, because Lawcheck reads a quoted waiver marker as a waiver.
+    paths: ["docs/*.md", "!docs/waivers.md"]
+    rules: [docs-state-facts]
+
+  manifest:
+    about: The package manifest. src/adapters/package.ts reads the version from it.
+    paths: ["package.json"]
