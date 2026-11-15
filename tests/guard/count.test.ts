@@ -11,8 +11,8 @@ const COUNT = fileURLToPath(new URL('./count.ts', import.meta.url));
 test('suite guard (T-7 A): a run with fewer tests than the sources declare fails, minus the skips with a platform reason', () => {
   const root = mkdtempSync(join(tmpdir(), 'lawcheck-count-'));
   try {
-    mkdirSync(join(root, 'tests', 'acceptance'), { recursive: true });
-    writeFileSync(join(root, 'tests', 'acceptance', 'helpers.ts'), "export const PLATFORM_SKIPS = { win: 'no file mode on Windows' } as const;\n");
+    mkdirSync(join(root, 'tests', 'harness'), { recursive: true });
+    writeFileSync(join(root, 'tests', 'harness', 'skips.ts'), "export const PLATFORM_SKIPS = [{ test: 'test 2', part: 'the whole test', platform: 'linux', reason: 'no file mode on Windows' }];\n");
     writeFileSync(join(root, 'tests', 'a.test.ts'), [
       "import { test } from 'node:test';",
       "test('test 1: runs', () => {});",

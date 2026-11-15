@@ -1,0 +1,7 @@
+diff --git a/tests/harness/schemas/check.json b/tests/harness/schemas/check.json
+index 8d2acbf..bba55dc 100644
+--- a/tests/harness/schemas/check.json
++++ b/tests/harness/schemas/check.json
+@@ -1 +1 @@
+-{ "type": "object", "required": ["schema"] }
++{ "type": "object" }

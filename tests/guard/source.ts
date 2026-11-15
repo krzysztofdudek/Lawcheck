@@ -155,7 +155,7 @@ function unescapeChar(text: string, at: number): string {
   return next;
 }
 
-export type Marker = { kind: 'only' | 'skip' | 'todo'; line: number; text: string; strings: string[] };
+export type Marker = { kind: 'only' | 'skip' | 'todo' | 'platform'; line: number; text: string; strings: string[] };
 
 export type TestCall = {
   id: string;
@@ -236,7 +236,7 @@ function optionKeys(text: string, tokens: Token[], from: number): Marker[] {
   return out;
 }
 
-export function readSource(text: string): Source {
+export function readSource(text: string, skipCalls: readonly string[] = ['platformSkip']): Source {
   const tokens = tokenize(text);
   const tests: TestCall[] = [];
   const markers: Marker[] = [];
@@ -265,6 +265,11 @@ export function readSource(text: string): Source {
       const args = textOf(text, tokens, k + 2, close);
       if (t.value === 'runOnly') { if (args !== 'false') markers.push({ kind: 'only', line: t.line, text: `runOnly(${args})`, strings: [] }); continue; }
       markers.push({ kind: t.value as 'skip' | 'todo', line: t.line, text: args, strings: stringsIn(tokens, k + 2, close) });
+      continue;
+    }
+    if (skipCalls.includes(t.value) && !afterDot && tokens[k + 1]?.type === 'punct' && tokens[k + 1]!.value === '(') {
+      const close = matching(tokens, k + 1);
+      markers.push({ kind: 'platform', line: t.line, text: `${t.value}(${textOf(text, tokens, k + 2, close)})`, strings: stringsIn(tokens, k + 2, close) });
       continue;
     }
     if (t.value === 'if' && !afterDot && tokens[k + 1]?.type === 'punct' && tokens[k + 1]!.value === '(') {

@@ -50,6 +50,10 @@ const EXPECT: { [name: string]: Expect } = {
   'refused-skip-option-unlisted': { refused: ['skip-unlisted'] },
   'refused-skip-hidden-return': { refused: ['skip-unlisted'] },
   'refused-skip-modifier': { refused: ['skip-unlisted'] },
+  'refused-platform-part-unlisted': { refused: ['skip-unlisted'] },
+  'refused-slow-test-added': { refused: ['ratchet-grew'] },
+  'refused-slow-test-budget-raised': { refused: ['threshold-lowered'] },
+  'refused-schema-no-record': { refused: ['expected-changed'] },
   'refused-sabotage-removed-guard-kept': { refused: ['sabotage-guard-kept', 'record-invalid'] },
   'refused-sabotage-changed': { refused: ['sabotage-changed'] },
   'refused-harness-no-record': { refused: ['harness-changed'] },
@@ -67,6 +71,8 @@ const EXPECT: { [name: string]: Expect } = {
   'accepted-finding-state-changed': { cleared: [] },
   'accepted-finding-removed-ruling': { cleared: ['finding-weakened'] },
   'accepted-ratchet-shrinks': { cleared: [] },
+  'accepted-slow-test-removed': { cleared: [] },
+  'accepted-slow-test-added-ruling': { cleared: ['ratchet-grew'] },
   'accepted-ratchet-grew-ruling': { cleared: ['ratchet-grew'] },
   'accepted-skip-platform': { cleared: [] },
   'accepted-sabotage-removed': { cleared: ['promise-changed', 'sabotage-removed'] },
@@ -155,7 +161,7 @@ test('suite guard (T-7 A): who may approve each kind is configuration', () => {
 });
 
 test('suite guard (T-7 A): a number with no direction in tests/numbers.ts fails even when nothing else changed', () => {
-  const repo = baseRepo({ ...BASE, 'tests/numbers.ts': BASE['tests/numbers.ts']!.replace("SEED: 'higher', ", '') });
+  const repo = baseRepo({ ...BASE, 'tests/numbers.ts': BASE['tests/numbers.ts']!.replace("SEED: 'fixed', ", '') });
   try {
     applyCase(repo, join(CASES, 'accepted-new-test.diff'));
     const report = judge(repo.dir, 'main', 'work', fixtureConfig(), '2026-11-15');

@@ -3,6 +3,7 @@ import { tokenize, type Token } from './source.ts';
 export type Value =
   | { kind: 'number'; value: number }
   | { kind: 'list'; items: string[] }
+  | { kind: 'records'; items: Array<{ [key: string]: string }> }
   | { kind: 'text'; value: string }
   | { kind: 'unreadable'; text: string };
 
@@ -79,15 +80,32 @@ function value(text: string, tokens: Token[], at: number): { value: Tree; next: 
   if (t.type === 'string' || (t.type === 'template' && !t.dynamic)) return end(at + 1, { kind: 'text', value: t.value });
   if (isPunct(t, '[')) {
     const items: string[] = [];
+    const records: Array<{ [key: string]: string }> = [];
     let k = at + 1;
     let readable = true;
     while (k < tokens.length && !isPunct(tokens[k], ']')) {
       const item = tokens[k]!;
-      if (item.type === 'string' || (item.type === 'template' && !item.dynamic)) items.push(item.value);
-      else if (!isPunct(item, ',')) readable = false;
+      if (item.type === 'string' || (item.type === 'template' && !item.dynamic)) { items.push(item.value); k++; continue; }
+      if (isPunct(item, ',')) { k++; continue; }
+      if (isPunct(item, '{')) {
+        const child = value(text, tokens, k);
+        const record: { [key: string]: string } = {};
+        if (child.value.kind === 'object') {
+          for (const [key, leaf] of child.value.entries) {
+            if (leaf.kind === 'text') record[key] = leaf.value;
+            else if (leaf.kind === 'number') record[key] = String(leaf.value);
+            else readable = false;
+          }
+        } else readable = false;
+        records.push(record);
+        k = child.next;
+        continue;
+      }
+      readable = false;
       k++;
     }
-    if (!readable) return end(k + 1, { kind: 'unreadable', text: text.slice(t.start, tokens[k]?.end ?? text.length) });
+    if (!readable || (items.length > 0 && records.length > 0)) return end(k + 1, { kind: 'unreadable', text: text.slice(t.start, tokens[k]?.end ?? text.length) });
+    if (records.length > 0) return end(k + 1, { kind: 'records', items: records });
     return end(k + 1, { kind: 'list', items });
   }
   if (isPunct(t, '{')) {

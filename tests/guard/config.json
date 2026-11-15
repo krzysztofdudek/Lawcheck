@@ -16,8 +16,9 @@
   "sabotage": "tests/sabotage/list.json",
   "runes": "@chrisdudek/runes",
   "platformReasons": {
-    "file": "tests/acceptance/helpers.ts",
-    "export": "PLATFORM_SKIPS"
+    "file": "tests/harness/skips.ts",
+    "export": "PLATFORM_SKIPS",
+    "call": "platformSkip"
   },
   "paths": {
     "guard": [
@@ -27,18 +28,15 @@
       ".github/workflows/**"
     ],
     "harness": [
-      "tests/run.ts",
       "tests/harness/**",
-      "tests/reporter.ts",
-      "tests/reporter/**",
-      "tests/acceptance/helpers.ts"
+      "tests/run.ts"
     ],
     "expected": [
       "tests/**/*.expected",
       "tests/**/expected/**",
       "tests/**/recordings/**",
       "tests/**/*.schema.json",
-      "tests/schemas/**",
+      "tests/harness/schemas/**",
       "tests/**/attacks/**",
       "tests/stability/labels.json"
     ]
@@ -94,5 +92,8 @@
   ],
   "closedStates": [
     "closed"
+  ],
+  "shrinkOnly": [
+    "SLOW_TESTS"
   ]
 }

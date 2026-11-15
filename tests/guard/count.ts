@@ -21,11 +21,9 @@ export type Missing = { id: string; file: string; why: string };
 export function fewerThanDeclared(root: string, files: string[], results: Result[], config: Config = loadConfig()): Missing[] {
   const reasons = new Set<string>();
   try {
-    for (const [key, value] of readConstants(readFileSync(join(root, config.platformReasons.file), 'utf8'))) {
-      if (key !== config.platformReasons.export && !key.startsWith(`${config.platformReasons.export}.`)) continue;
-      if (value.kind === 'text') reasons.add(value.value);
-      if (value.kind === 'list') value.items.forEach((r) => reasons.add(r));
-    }
+    const value = readConstants(readFileSync(join(root, config.platformReasons.file), 'utf8')).get(config.platformReasons.export);
+    if (value?.kind === 'list') value.items.forEach((r) => reasons.add(r));
+    if (value?.kind === 'records') value.items.forEach((r) => { if (r.reason) reasons.add(r.reason); });
   } catch {
     reasons.clear();
   }

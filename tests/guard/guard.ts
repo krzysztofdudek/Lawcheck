@@ -15,7 +15,8 @@ export type Config = {
   numbers: string;
   sabotage: string;
   runes: string;
-  platformReasons: { file: string; export: string };
+  platformReasons: { file: string; export: string; call: string };
+  shrinkOnly: string[];
   paths: { guard: string[]; ci: string[]; harness: string[]; expected: string[] };
   roles: { [role: string]: string };
   approvers: { [kind: string]: string[] };
@@ -25,7 +26,7 @@ export type Config = {
   closedStates: string[];
 };
 
-export type Direction = 'higher' | 'lower';
+export type Direction = 'higher' | 'lower' | 'fixed';
 
 export function loadConfig(path = new URL('./config.json', import.meta.url)): Config {
   return JSON.parse(readFileSync(path, 'utf8')) as Config;
@@ -149,7 +150,7 @@ function numbers(text: string | null, config: Config): { values: Map<string, Val
   for (const [key, value] of all) {
     if (key === config.stronger) continue;
     if (!key.startsWith(prefix)) { values.set(key, value); continue; }
-    if (value.kind === 'text' && (value.value === 'higher' || value.value === 'lower')) directions.set(key.slice(prefix.length), value.value);
+    if (value.kind === 'text' && (value.value === 'higher' || value.value === 'lower' || value.value === 'fixed')) directions.set(key.slice(prefix.length), value.value);
   }
   const direction = (key: string): Direction | null => {
     const parts = key.split('.');
@@ -167,6 +168,7 @@ function describeValue(v: Value | undefined): string {
   if (v.kind === 'number') return String(v.value);
   if (v.kind === 'list') return `[${v.items.map((s) => JSON.stringify(s)).join(', ')}]`;
   if (v.kind === 'text') return JSON.stringify(v.value);
+  if (v.kind === 'records') return JSON.stringify(v.items);
   return v.text;
 }
 
@@ -183,18 +185,18 @@ function readList(text: string | null): Entry[] | null {
   }
 }
 
-function platformReasons(tree: Tree, config: Config): { reasons: Set<string>; keys: Set<string>; found: boolean } {
+function platformReasons(tree: Tree, config: Config): { reasons: Set<string>; parts: Set<string>; found: boolean } {
   const text = tree.read(config.platformReasons.file);
-  const out = { reasons: new Set<string>(), keys: new Set<string>(), found: false };
+  const out = { reasons: new Set<string>(), parts: new Set<string>(), found: false };
   if (text === null) return out;
-  const values = readConstants(text);
-  for (const [key, value] of values) {
-    if (key !== config.platformReasons.export && !key.startsWith(`${config.platformReasons.export}.`)) continue;
-    out.found = true;
-    if (value.kind === 'list') value.items.forEach((s) => out.reasons.add(s));
-    if (value.kind === 'text') {
-      out.reasons.add(value.value);
-      out.keys.add(key.slice(config.platformReasons.export.length + 1));
+  const value = readConstants(text).get(config.platformReasons.export);
+  if (!value) return out;
+  out.found = true;
+  if (value.kind === 'list') value.items.forEach((s) => out.reasons.add(s));
+  if (value.kind === 'records') {
+    for (const entry of value.items) {
+      if (entry.reason) out.reasons.add(entry.reason);
+      if (entry.part) out.parts.add(entry.part);
     }
   }
   return out;
@@ -223,7 +225,7 @@ export function judge(repo: string, baseRev: string, headRev: string, config: Co
   const add = (w: Weakening): void => { weakenings.push(w); };
 
   const testFiles = (tree: Tree): string[] => [...tree.list()].filter((p) => matchesAny(p, config.tests)).sort();
-  const sources = (tree: Tree): Map<string, ReturnType<typeof readSource>> => new Map(testFiles(tree).map((f) => [f, readSource(tree.read(f) ?? '')]));
+  const sources = (tree: Tree): Map<string, ReturnType<typeof readSource>> => new Map(testFiles(tree).map((f) => [f, readSource(tree.read(f) ?? '', [config.platformReasons.call])]));
   const beforeSources = sources(before);
   const afterSources = sources(after);
 
@@ -254,13 +256,18 @@ export function judge(repo: string, baseRev: string, headRev: string, config: Co
       const where = `${file}:${marker.line}`;
       if (marker.kind === 'only') add({ kind: 'only-added', subject: marker.text, where, detail: 'only never passes: it hides every other test of the file' });
       else if (marker.kind === 'todo') add({ kind: 'todo-added', subject: marker.text, where, detail: 'todo never passes: a todo test counts as green while it fails' });
-      else if (!isPlatformSkip(marker, reasons, config)) {
+      else if (marker.kind === 'platform') {
+        const part = marker.strings[0];
+        if (part === undefined || !reasons.parts.has(part)) {
+          add({ kind: 'skip-unlisted', subject: marker.text, where, detail: `${part === undefined ? 'the part is not a plain string' : `the part ${JSON.stringify(part)} has no entry`} in ${config.platformReasons.export} of ${config.platformReasons.file} on the base; an entry there comes first, in a change of its own` });
+        }
+      } else if (!isPlatformSkip(marker, reasons, config, after.read(file) ?? '')) {
         add({
           kind: 'skip-unlisted',
           subject: marker.text,
           where,
           detail: reasons.found
-            ? `a skip passes only with a platform reason of ${config.platformReasons.export} in ${config.platformReasons.file} on the base: ${[...reasons.reasons].map((r) => JSON.stringify(r)).join(', ') || 'the list is empty'}`
+            ? `a skip passes only with a reason from ${config.platformReasons.call}(<part>), whose part has an entry in ${config.platformReasons.export} of ${config.platformReasons.file} on the base`
             : `a skip passes only with a platform reason of the harness's list, and the base has no ${config.platformReasons.export} in ${config.platformReasons.file}`,
         });
       }
@@ -273,7 +280,7 @@ export function judge(repo: string, baseRev: string, headRev: string, config: Co
     const verb = { A: 'added', M: 'changed', D: 'deleted', R: 'renamed', T: 'changed in type' }[change.status];
     if (paths.some((p) => matchesAny(p, config.paths.guard))) add({ kind: 'guard-changed', subject: change.path, where: label, detail: `${verb}: a file of the suite guard` });
     if (paths.some((p) => matchesAny(p, config.paths.ci))) add({ kind: 'ci-changed', subject: change.path, where: label, detail: `${verb}: a CI file` });
-    if (paths.some((p) => matchesAny(p, config.paths.harness))) add({ kind: 'harness-changed', subject: change.path, where: label, detail: `${verb}: the harness, the reporter or the runner` });
+    if (paths.some((p) => matchesAny(p, config.paths.harness) && !matchesAny(p, config.paths.expected))) add({ kind: 'harness-changed', subject: change.path, where: label, detail: `${verb}: the harness, the reporter or the runner` });
     if (change.status !== 'A' && matchesAny(change.from, config.paths.expected)) add({ kind: 'expected-changed', subject: change.from, where: label, detail: `${verb}: an expected file` });
   }
 
@@ -326,24 +333,26 @@ export function judge(repo: string, baseRev: string, headRev: string, config: Co
   const numbersText = after.read(config.numbers);
   const numbersAfter = numbers(numbersText, config);
   const where = config.numbers;
+  const shrinkOnly = (key: string): string | undefined => config.shrinkOnly.find((name) => key.startsWith(`${name}.`));
   for (const [key, value] of numbersAfter.values) {
     const dir = numbersAfter.direction(key);
     if (value.kind === 'unreadable') {
       if (dir || /^[\d\s_.+\-*/()eE]+$/.test(value.text)) add({ kind: 'number-unreadable', subject: key, where, detail: `not a plain number the guard can compare: ${value.text}` });
       continue;
     }
-    if (value.kind === 'number' && !dir) add({ kind: 'number-unclassified', subject: key, where, detail: `${config.numbers} gives ${key} no direction: add it to ${config.stronger} as 'higher' or 'lower' (which way is stronger)` });
+    if (value.kind === 'number' && !dir) add({ kind: 'number-unclassified', subject: key, where, detail: `${config.numbers} gives ${key} no direction: add it to ${config.stronger} as 'higher', 'lower' or 'fixed'` });
+    if (shrinkOnly(key) && !numbersBefore.values.has(key) && numbersBefore.values.size > 0) add({ kind: 'ratchet-grew', subject: `${config.numbers}: ${key}`, where, detail: `an entry is added to ${shrinkOnly(key)}, a list that may only shrink` });
   }
   for (const [key, old] of numbersBefore.values) {
     if (old.kind !== 'number') continue;
     const now = numbersAfter.values.get(key);
     const was = numbersBefore.direction(key);
     const dir = was ?? numbersAfter.direction(key);
-    if (!now) { add({ kind: 'threshold-lowered', subject: key, where, detail: `removed (was ${describeValue(old)})` }); continue; }
+    if (!now) { if (!shrinkOnly(key)) add({ kind: 'threshold-lowered', subject: key, where, detail: `removed (was ${describeValue(old)})` }); continue; }
     if (now.kind !== 'number') { add({ kind: 'threshold-lowered', subject: key, where, detail: `no longer a plain number: ${describeValue(old)} -> ${describeValue(now)}` }); continue; }
     const turned = was && numbersAfter.direction(key) && numbersAfter.direction(key) !== was;
     if (turned) add({ kind: 'threshold-lowered', subject: key, where, detail: `its direction changed: ${was} -> ${numbersAfter.direction(key)} is stronger` });
-    else if (dir && (dir === 'higher' ? now.value < old.value : now.value > old.value)) add({ kind: 'threshold-lowered', subject: key, where, detail: `${old.value} -> ${now.value} (${dir} is stronger)` });
+    else if (dir && (dir === 'fixed' ? now.value !== old.value : dir === 'higher' ? now.value < old.value : now.value > old.value)) add({ kind: 'threshold-lowered', subject: key, where, detail: `${old.value} -> ${now.value} (${dir === 'fixed' ? 'a fixed value' : `${dir} is stronger`})` });
   }
 
   const listBefore = readList(before.read(config.sabotage));
@@ -456,13 +465,12 @@ export function judge(repo: string, baseRev: string, headRev: string, config: Co
   return { base, mergeBase, head, findings, records, notes, passed: findings.every((f) => f.cleared) };
 }
 
-function isPlatformSkip(marker: Marker, reasons: { reasons: Set<string>; keys: Set<string> }, config: Config): boolean {
+function isPlatformSkip(marker: Marker, reasons: { reasons: Set<string> }, config: Config, text: string): boolean {
   if (marker.strings.some((s) => reasons.reasons.has(s))) return true;
-  const name = config.platformReasons.export;
-  for (const key of reasons.keys) {
-    if (marker.text.includes(`${name}.${key}`) || marker.text.includes(`${name}['${key}']`) || marker.text.includes(`${name}["${key}"]`)) return true;
-  }
-  return false;
+  const call = config.platformReasons.call;
+  if (marker.text.includes(`${call}(`)) return true;
+  const id = /^[A-Za-z_$][\w$]*$/.exec(marker.text.trim())?.[0];
+  return id !== undefined && new RegExp(`\\b(?:const|let)\\s+${id.replace(/\$/g, '\\$')}\\s*=\\s*${call}\\(`).test(text);
 }
 
 function whatMatches(what: string, subject: string, kind: string): boolean {

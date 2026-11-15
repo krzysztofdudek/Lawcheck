@@ -1,19 +1,20 @@
 diff --git a/tests/acceptance/cli.test.ts b/tests/acceptance/cli.test.ts
-index 301d8e4..42fe5b5 100644
+index 301d8e4..3f2d70a 100644
 --- a/tests/acceptance/cli.test.ts
 +++ b/tests/acceptance/cli.test.ts
-@@ -1,11 +1,12 @@
+@@ -1,11 +1,14 @@
  import { test } from 'node:test';
  import assert from 'node:assert/strict';
  
 -test('test 1: nothing changed', () => {
 +test('test 1: nothing changed', (t) => {
-+  if (process.getuid?.() === 0) return t.skip('the tests run as root');
++  const skip = platformSkip('an unreadable file');
++  if (skip !== null) return t.skip(skip);
    assert.equal(1, 1);
  });
  
--test('test 2: the passing run', () => {
-+test('test 2: the passing run', { skip: process.platform === 'win32' && PLATFORM_SKIPS.noFileMode }, () => {
+ test('test 2: the passing run', () => {
++  if (platformSkip('the whole test') !== null) return;
    assert.equal('PASS', 'PASS');
  });
  

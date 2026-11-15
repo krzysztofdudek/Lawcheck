@@ -1,8 +1,8 @@
 diff --git a/spec/check-slice.md b/spec/check-slice.md
-index f78cdfc..44d31d5 100644
+index 0218fbb..cdd04e4 100644
 --- a/spec/check-slice.md
 +++ b/spec/check-slice.md
-@@ -21,4 +21,3 @@ lawcheck: PASS  nothing changed against main
+@@ -22,4 +22,3 @@ lawcheck: PASS  nothing changed against main
  | Id | Promise | Test |
  |---|---|---|
  | I-frame-1 | No text of a judged file starts a line of the prompt without its line number. | tests/acceptance/cli.test.ts |

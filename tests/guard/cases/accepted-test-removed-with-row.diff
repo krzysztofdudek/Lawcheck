@@ -1,8 +1,8 @@
 diff --git a/spec/check-slice.md b/spec/check-slice.md
-index f78cdfc..74835ff 100644
+index 0218fbb..3ecf825 100644
 --- a/spec/check-slice.md
 +++ b/spec/check-slice.md
-@@ -13,7 +13,6 @@ lawcheck: PASS  nothing changed against main
+@@ -14,7 +14,6 @@ lawcheck: PASS  nothing changed against main
  | # | Do | See |
  |---|---|---|
  | 1 | nothing | `lawcheck: PASS  nothing changed against main`, exit 0 |
