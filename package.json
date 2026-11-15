@@ -39,6 +39,7 @@
     "real": "npm run build && node tests/real/run.ts",
     "stability": "npm run build && node tests/stability/run.ts",
     "test": "npm run build && node tests/run.ts commit",
+    "test:shard": "node tests/run.ts commit --shard",
     "t": "node tests/run.ts loop",
     "nightly": "npm run build && node tests/run.ts nightly"
   },
