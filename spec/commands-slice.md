@@ -341,6 +341,8 @@ The path names a file that exists, or one that does not exist yet. Only that fil
 | root types' paths match and their content does not | `it matches the paths of <ids> but not their content, so no rule judges it` |
 | two types of one level match | `it matches <a> and <b> at one level (type-overlap); check stops with exit 2 until a ! pattern in one of them leaves it out` |
 
+**A path in another case.** On a file system that ignores case, a path that git does not list, that exists, and that is the same file as exactly one path git lists, equal to it but for case, is answered as that path, under the name git lists (`spec/environments.md`, section 6).
+
 **A file that does not exist yet** is typed from its path. A path with a symbolic link among its directories is `none: it lies behind a symbolic link, which has no type`. A path that `git check-ignore -q --no-index -- <path>` reports (exit 0) is `none: git ignores this path, so Lawcheck would never see it`. This and `init`'s `git rev-parse --show-prefix` are the two git commands this slice adds. Otherwise the tool walks the tree: at each level it takes the types whose paths match; when that is one type without `content`, it goes down into it; otherwise it stops, and `then:` says what the text decides:
 
 - only types with `content`: `<id> if its text matches "<expression>"` for each, joined by `; `, ending `; otherwise <the deepest type so far, or none>`;

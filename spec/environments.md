@@ -71,12 +71,25 @@ Built with `file://` remotes on every commit:
 - a cache folder inside the project, untracked and not ignored: its files count as changed and a type whose paths reach it judges them, until the job lists the folder in `.git/info/exclude`, as `docs/ci.md` says;
 - a repository git sees as owned by another user: `no-git` with git's `safe.directory` command, and that command lets the check through. Every commit tests it with git's switch `GIT_TEST_ASSUME_DIFFERENT_OWNER`, and the nightly set with a real other user in a container.
 
+## 6. Operating systems
+
+Linux, macOS and Windows run every commit on Node 24, and Linux also on the newest Node. Some cases hold only where the system has them:
+
+- On a file system that ignores case, a path that names a file git lists under another case, such as `SRC/core/price.ts` for `src/core/price.ts`, is explained as the file git lists: `explain` answers for `src/core/price.ts`, under that name. Elsewhere `SRC/core/price.ts` is a file that does not exist yet.
+- Names written in NFC and in NFD are judged, and each finding names the file as git lists it; with `core.precomposeunicode`, git on macOS lists both in NFC.
+- A checkout with `core.autocrlf=true` holds CRLF, and the reviewer gets the same prompt, keyed the same, as the LF checkout (reviewer slice, section 3).
+- On Windows the installed tool starts by its bare name from PowerShell, `cmd` and Git Bash; on Linux and macOS from `sh`.
+
 ## 8. Acceptance tests
 
 | # | Do | See |
 |---|---|---|
 | 200 | S with D added, and on `PATH` a git that prints `git version 2.33.8` for `--version` and hands every other call to the real git: `check --base main`, `check ./src/core/discount.ts`, `try no-console src/core/discount.ts`, `doctor`, `explain src/core/price.ts`, `prime` and `init`, each also with `--json`; then `--version`, `--help`, `check --help`, `docs` and `docs config`. Then the same git printing `git version 2.34.1`: `check --base main` | section 3's refusal with `git 2.33.8 is older than 2.34, the oldest git Lawcheck runs with`, exit 2, nothing on standard error, each document `lawcheck-error/1` with `unsupported-environment`; the last five exit 0; then test 4's output, exit 1 |
 | 201 | a copy of Lawcheck whose runner starts with the Node flag `--no-such-flag`: `check --base main` and `try no-console src/core/discount.ts` in S with D added. A copy whose `dist/runner.js` cannot be read: `check --base main` (skipped as root and on Windows). An untouched copy: `check --base main` | `lawcheck: ERROR  1 error`, one `error[runner-failed]  the runner of script rules did not start: ` ending with Node's `bad option: --no-such-flag`, then with `EACCES: permission denied, open '<the runner>'`; its why; the next line `reinstall Lawcheck, then run lawcheck check` (`try again` for `try`); no `rule-crashed` and no rule file; exit 2. Then test 4's first line, exit 1 |
+| 202 | S on a file system that ignores case: `explain SRC/core/price.ts`, then `explain src/core/price.ts`. On one that tells case apart: `explain SRC/core/price.ts` | the block of the commands slice, section 6, for `src/core/price.ts`, twice, exit 0; then a first line `SRC/core/price.ts  (does not exist yet)`, exit 0 |
+| 203 | S with `src/core/café.ts` written in NFC and `src/core/año.ts` written in NFD, each holding `console.log(1);` | one `error[no-console]` finding at line 1 of each, each placed at the name `git ls-files` prints; `--json` the same names |
+| 204 | R with F committed on `work`, cloned with `-c core.autocrlf=true`: `check --review --base origin/main` against the fake reviewer | the checkout of F holds CRLF; one request, whose prompt is `PROMPT_F` of the reviewer slice; the failure cache holds the one file `<key of F>.json`; exit 1 |
+| 205 | the tarball of `npm pack --ignore-scripts`, unpacked, with its dependencies from the checkout, installed with `npm install --global --prefix <folder> --offline`: from each shell of the system, with that folder's bin on `PATH`, `lawcheck --version` and, in S with D added, `lawcheck check --base main` | the version of `package.json`, exit 0; test 4's output, exit 1; from PowerShell, `cmd` and Git Bash on Windows, from `sh` elsewhere |
 | 208 | S with D committed on `work`; on `main` a merge of `work` kept as `refs/pull/1/merge`, then `main` reset; a clone fetches that ref and checks it out detached: `check --base origin/main` | test 4's output with `(against origin/main)`, exit 1 |
 | 209 | a clone of that origin: `check --base origin/`; `check --base 0000000000000000000000000000000000000000`; `check --base origin/main` | the two messages of the check slice, section 4, for an empty branch name and the commit of zeros, exit 2, the second with its next line; then test 4's output with `(against origin/main)` |
 
