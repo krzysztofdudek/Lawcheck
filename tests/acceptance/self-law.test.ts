@@ -8,7 +8,7 @@ import { git, GIT_ENV, inTemp, lawcheck, read, ROOT, write } from './helpers.ts'
 const ADVISORY = new Set(['errors-name-the-fix', 'docs-state-facts']);
 const WAIVERS: { file: string; rule: string; reason: string }[] = [];
 const UNRESOLVED = [{ file: 'scripts/grammars.ts', what: '..', answer: 'none', reason: 'unfollowed' }];
-const UNSORTED = new Set(['args', 'check', 'cli', 'config', 'docs', 'doctor', 'explain', 'files', 'glob', 'guard', 'init', 'law', 'output', 'prime', 'programs', 'prompt', 'readers', 'review', 'rules', 'setup', 'try', 'types', 'uses', 'verdicts', 'waivers'].map((name) => `src/${name}.ts`).concat('src/providers/**'));
+const UNSORTED = new Set(['args', 'check', 'cli', 'config', 'docs', 'doctor', 'explain', 'files', 'glob', 'guard', 'init', 'law', 'output', 'prime', 'programs', 'prompt', 'readers', 'review', 'rules', 'setup', 'try', 'types', 'uses', 'verdicts', 'waivers'].map((name) => `src/${name}.ts`).concat(['anthropic', 'claude-code', 'http', 'index', 'openai-compatible'].map((name) => `src/providers/${name}.ts`)));
 
 interface Finding {
   code: string;
@@ -43,8 +43,8 @@ function exempted(repo: string): string[] {
   return law.types.source.paths
     .filter((pattern) => pattern.startsWith('!'))
     .flatMap((pattern) => {
-      const list = /^!src\/\{([^}]*)\}\.ts$/.exec(pattern);
-      return list === null ? [pattern.slice(1)] : list[1]!.split(',').map((name) => `src/${name}.ts`);
+      const list = /^!((?:[\w-]+\/)+)\{([^}]*)\}\.ts$/.exec(pattern);
+      return list === null ? [pattern.slice(1)] : list[2]!.split(',').map((name) => `${list[1]}${name}.ts`);
     });
 }
 
@@ -78,8 +78,8 @@ test('question XX: the files of src that the law leaves without a type are only 
     assert.deepEqual(exempted(repo).filter((name) => !UNSORTED.has(name)), []);
     const law = read(repo, '.lawcheck/law.yaml');
     assert.ok(law.includes('"!src/{args,'));
-    write(repo, '.lawcheck/law.yaml', law.replace('"!src/{args,', '"!src/{args,law-set,').replace('"!src/providers/**"', '"!src/providers/**", "!src/steps/**"'));
-    assert.deepEqual(exempted(repo).filter((name) => !UNSORTED.has(name)), ['src/law-set.ts', 'src/steps/**']);
+    write(repo, '.lawcheck/law.yaml', law.replace('"!src/{args,', '"!src/{args,law-set,').replace('{anthropic,', '{anthropic,sneak,').replace('openai-compatible}.ts"', 'openai-compatible}.ts", "!src/steps/**"'));
+    assert.deepEqual(exempted(repo).filter((name) => !UNSORTED.has(name)), ['src/law-set.ts', 'src/providers/sneak.ts', 'src/steps/**']);
   });
 });
 
