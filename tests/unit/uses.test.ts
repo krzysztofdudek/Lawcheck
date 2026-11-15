@@ -69,8 +69,10 @@ test('each answer of section 3.5', () => {
       { line: 3, answer: { kind: 'file', file: 'src/cli/b.ts' } },
       { line: 4, answer: { kind: 'file', file: 'lib/c.ts' } },
       { line: 5, answer: { kind: 'file', file: 'src/core/d.png' } },
-      { line: 6, answer: { kind: 'ambiguous', what: 'A.B' } },
-      { line: 7, answer: { kind: 'none', what: 'lodash' } },
+      { line: 6, answer: { kind: 'ambiguous', what: 'A.B', candidates: ['src/a/B.ts', 'src/b/B.ts'] } },
+      { line: 7, answer: { kind: 'none', what: './gen', reason: 'unfollowed', candidates: [] } },
+      { line: 8, answer: { kind: 'outside' } },
+      { line: 9, answer: { kind: 'none', what: 'config.h', reason: null, candidates: [] } },
     ],
     (file) => targets[file],
   );
@@ -79,8 +81,9 @@ test('each answer of section 3.5', () => {
     { file: 'src/core/x.ts', line: 4, message: 'library may not use lib/c.ts, which has no type; it takes may_use [library] from source' },
   ]);
   assert.deepEqual(judged.unresolved, [
-    { file: 'src/core/x.ts', line: 6, what: 'A.B', answer: 'ambiguous' },
-    { file: 'src/core/x.ts', line: 7, what: 'lodash', answer: 'none' },
+    { file: 'src/core/x.ts', line: 6, what: 'A.B', answer: 'ambiguous', reason: null, candidates: ['src/a/B.ts', 'src/b/B.ts'] },
+    { file: 'src/core/x.ts', line: 7, what: './gen', answer: 'none', reason: 'unfollowed', candidates: [] },
+    { file: 'src/core/x.ts', line: 9, what: 'config.h', answer: 'none', reason: null, candidates: [] },
   ]);
 });
 
@@ -112,7 +115,7 @@ test('one forbidden-use per line and target file', () => {
 
 test('a type with no list in force judges nothing and counts nothing', () => {
   const byId = types();
-  const judged = judgeUses('free/x.ts', byId.get('free')!, [{ line: 1, answer: { kind: 'none', what: 'x' } }, { line: 2, answer: { kind: 'file', file: 'y' } }], () => ({ kind: 'untyped' }));
+  const judged = judgeUses('free/x.ts', byId.get('free')!, [{ line: 1, answer: { kind: 'none', what: 'x', reason: null, candidates: [] } }, { line: 2, answer: { kind: 'file', file: 'y' } }], () => ({ kind: 'untyped' }));
   assert.deepEqual(judged, { forbidden: [], unresolved: [] });
 });
 

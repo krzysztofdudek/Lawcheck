@@ -48,8 +48,8 @@ test('section 3.5: targets are counted by type, so a partial class spread over o
         ['cs/domain/Order.cs:5  error[forbidden-use]  domain may not use app (cs/app/Clock.A.cs); its may_use is [domain]'],
       );
       assert.deepEqual(
-        document.unresolved.filter((u: any) => u.file === 'cs/domain/Order.cs').map((u: any) => `${u.line}  ${u.answer}  ${u.what}`),
-        ['5  ambiguous  Shop.App.Ledger'],
+        document.unresolved.filter((u: any) => u.file === 'cs/domain/Order.cs').map((u: any) => `${u.line}  ${u.answer}  ${u.what}  [${u.candidates.join(', ')}]`),
+        ['5  ambiguous  Shop.Domain.Order+Ledger  [cs/app/Ledger.cs, cs/infra/Ledger.cs]'],
       );
       assert.equal(run.code, 1);
     },

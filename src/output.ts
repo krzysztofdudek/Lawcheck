@@ -40,6 +40,8 @@ export interface Unresolved {
   line: number;
   what: string;
   answer: 'ambiguous' | 'none';
+  reason: 'unfollowed' | 'unowned' | null;
+  candidates: string[];
   debt: boolean;
 }
 
@@ -251,7 +253,7 @@ export function renderReport(report: Report, json: boolean): string {
       summary: { errors, warnings, debt: report.debt.length, waivers: changeWaivers, unresolved: changeUnresolved },
       findings: [...report.findings, ...report.debt].map(shape),
       waivers: report.waivers.map((w) => ({ file: w.file, line: w.line, rule: w.rule, debt: w.debt, waived: w.waived, reason: w.reason })),
-      unresolved: unresolved.map((u) => ({ file: u.file, line: u.line, what: u.what, answer: u.answer, debt: u.debt })),
+      unresolved: unresolved.map((u) => ({ file: u.file, line: u.line, what: u.what, answer: u.answer, reason: u.reason, candidates: u.candidates, debt: u.debt })),
       reviews: { missing: reviews.missing, calls_made: reviews.calls_made, passes_recorded: reviews.passes_recorded },
       next: nextOf === null ? null : { command: nextOf.command, text: nextOf.text },
     };

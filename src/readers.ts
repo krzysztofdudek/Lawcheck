@@ -15,13 +15,19 @@ import {
   sfcScriptView,
   SymbolTable,
 } from '@chrisdudek/runes/relations';
-import type { CsharpExtract, DetectedDep, FileView, ParsedFile, TargetHint } from '@chrisdudek/runes/relations';
+import type { Classification, CsharpExtract, DetectedDep, FileView, ParsedFile, TargetHint } from '@chrisdudek/runes/relations';
 import { comparePaths } from './files.js';
 import { firstLine } from './law.js';
 import type { ErrorItem } from './output.js';
 import { decode, isBinary } from './types.js';
 
-export type Answer = { kind: 'file'; file: string } | { kind: 'ambiguous'; what: string } | { kind: 'none'; what: string };
+export type Reason = 'unfollowed' | 'unowned';
+
+export type Answer =
+  | { kind: 'file'; file: string }
+  | { kind: 'outside' }
+  | { kind: 'ambiguous'; what: string; candidates: string[] }
+  | { kind: 'none'; what: string; reason: Reason | null; candidates: string[] };
 
 export interface Use {
   line: number;
@@ -115,6 +121,22 @@ export function readerOf(path: string, text: string, siblings: (path: string) =>
 
 export function what(hint: TargetHint): string {
   return hint.kind === 'path' ? hint.specifier : hint.symbolKey;
+}
+
+export function answerOf(classified: Classification, candidates: readonly TargetHint[]): Answer {
+  if (classified.kind === 'resolved') return { kind: 'file', file: classified.resolvedFile };
+  const first = candidates[0] === undefined ? '' : what(candidates[0]);
+  if (classified.kind === 'ambiguous') return { kind: 'ambiguous', what: first, candidates: [...(classified.candidates ?? [])] };
+  switch (classified.reason) {
+    case 'outside':
+      return { kind: 'outside' };
+    case 'unowned':
+      return { kind: 'none', what: first, reason: 'unowned', candidates: classified.resolvedFile === undefined ? [] : [classified.resolvedFile] };
+    case 'unfollowed':
+      return { kind: 'none', what: first, reason: 'unfollowed', candidates: [] };
+    default:
+      return { kind: 'none', what: first, reason: null, candidates: [] };
+  }
 }
 
 export interface ReadInput {
@@ -288,23 +310,13 @@ async function readAll(input: ReadInput, runes: Runes): Promise<Map<string, Use[
     if (parse === undefined) continue;
     const uses = out.get(path)!;
     for (const use of detected.get(path) ?? []) {
-      let answer: Answer | null = null;
+      let classified: Classification;
       try {
-        for (const candidate of use.candidates) {
-          const classified = resolver.classify(candidate, path, parse.view.language);
-          if (classified.kind === 'resolved') {
-            answer = { kind: 'file', file: classified.resolvedFile };
-            break;
-          }
-          if (classified.kind === 'ambiguous') {
-            answer = { kind: 'ambiguous', what: what(candidate) };
-            break;
-          }
-        }
+        classified = resolver.classifyUse(use.candidates, path, parse.view.language);
       } catch (error) {
         throw readerFailure(parse.view.language, path, error);
       }
-      uses.push({ line: use.line, answer: answer ?? { kind: 'none', what: use.candidates[0] === undefined ? '' : what(use.candidates[0]) } });
+      uses.push({ line: use.line, answer: answerOf(classified, use.candidates) });
     }
   }
   return out;

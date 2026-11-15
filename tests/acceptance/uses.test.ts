@@ -174,7 +174,7 @@ test('test 85: untyped, binary, ignored and outside targets, and what is not rea
   await withU(async (u) => {
     addX(u);
     const run = await check(u);
-    assert.equal(run.stdout.split('\n')[0], 'lawcheck: FAIL  3 errors in 7 changed files (against main), 3 unresolved uses');
+    assert.equal(run.stdout.split('\n')[0], 'lawcheck: FAIL  3 errors in 7 changed files (against main), 2 unresolved uses');
     assert.deepEqual(findingLines(run.stdout), [
       'src/core/extra.ts:4  error[forbidden-use]  library may not use lib/helper.ts, which has no type; it takes may_use [library] from source',
       'src/core/extra.ts:6  error[forbidden-use]  library may not use command (src/cli/main.ts); it takes may_use [library] from source',
@@ -184,11 +184,10 @@ test('test 85: untyped, binary, ignored and outside targets, and what is not rea
     assert.equal(run.code, 1);
     const json = await check(u, '--base', 'main', '--json');
     const document = JSON.parse(json.stdout);
-    assert.equal(document.summary.unresolved, 3);
+    assert.equal(document.summary.unresolved, 2);
     assert.deepEqual(document.unresolved, [
-      { file: 'src/core/extra.ts', line: 2, what: 'lodash', answer: 'none', debt: false },
-      { file: 'src/core/extra.ts', line: 3, what: './generated/client.js', answer: 'none', debt: false },
-      { file: 'src/core/view.ts', line: 1, what: '@sample/ui', answer: 'none', debt: false },
+      { file: 'src/core/extra.ts', line: 3, what: './generated/client.js', answer: 'none', reason: 'unfollowed', candidates: [], debt: false },
+      { file: 'src/core/view.ts', line: 1, what: '@sample/ui', answer: 'none', reason: 'unfollowed', candidates: [], debt: false },
     ]);
     assert.equal(json.code, 1);
   });

@@ -13,7 +13,7 @@ From `check`, exit 0 or 1.
 | `summary` | `{ "errors", "warnings", "debt", "waivers", "unresolved" }`, counted over the change; `debt` counts the debt findings |
 | `findings` | every finding, the change before the debt: `{ "code", "rule", "severity", "blocking", "debt", "file", "line", "type", "message", "why" }`, `rule` null for a built-in code, `line` absent for a whole-file finding |
 | `waivers` | `{ "file", "line", "rule", "debt", "waived", "reason" }` |
-| `unresolved` | `{ "file", "line", "what", "answer", "debt" }`, `answer` being `ambiguous` or `none` |
+| `unresolved` | `{ "file", "line", "what", "answer", "reason", "candidates", "debt" }`: `what` the name or path of the use as the reader first reads it; `answer` `ambiguous` or `none`; `reason` `unfollowed` or `unowned` for `none` when the readers give one, else null; `candidates` the files an `ambiguous` use could name, or for `unowned` the one file it binds, else empty |
 | `reviews` | `{ "missing", "calls_made", "passes_recorded" }` |
 | `next` | `{ "command", "text" }`, or null when the run passes |
 

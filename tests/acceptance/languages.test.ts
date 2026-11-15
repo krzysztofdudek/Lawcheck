@@ -26,17 +26,19 @@ const FINDINGS = [
 const UNRESOLVED = [
   "c/domain/order.c:2  none  config.h",
   "c/domain/order.c:3  none  <stdio.h>",
-  "cs/app/Service.cs:3  ambiguous  Shop.App.Clock",
-  "java/src/main/java/com/acme/domain/Order.java:4  none  com.acme.app.ServiceProto",
-  "py/shop/domain/order.py:2  none  .rules.limit",
-  "py/shop/domain/order.py:3  none  .gen_pb2",
-  "py/shop/domain/order.py:3  none  .gen_pb2.OrderProto",
-  "py/shop/domain/order.py:4  none  json",
+  "cs/app/Service.cs:3  ambiguous  Shop.App.Service+Clock  [cs/app/Clock.cs, cs/legacy/Clock.cs]",
+  "java/src/main/java/com/acme/domain/Order.java:4  none unfollowed  com.acme.app.ServiceProto",
+  "py/shop/domain/order.py:2  none unfollowed  .rules.limit",
+  "py/shop/domain/order.py:3  none unfollowed  .gen_pb2",
+  "py/shop/domain/order.py:3  none unfollowed  .gen_pb2.OrderProto",
   "ruby/domain/order.rb:2  none  ../gen/schema",
-  "rust/src/domain/mod.rs:2  none  crate::gen::Table",
-  "rust/src/domain/mod.rs:3  none  serde::Serialize",
-  "ts/domain/order.ts:2  none  lodash",
+  "rust/src/domain/mod.rs:2  none unfollowed  crate::gen::Table",
 ];
+
+function unresolvedLine(u: any): string {
+  const answer = u.reason === null ? u.answer : `${u.answer} ${u.reason}`;
+  return `${u.file}:${u.line}  ${answer}  ${u.what}${u.candidates.length === 0 ? '' : `  [${u.candidates.join(', ')}]`}`;
+}
 
 function makeL(dir: string): string {
   const repo = join(dir, 'l');
@@ -57,21 +59,21 @@ test('test 88: one use from domain to app in each language', async () => {
     const run = await lawcheck(l, ['check', '--json']);
     const document = JSON.parse(run.stdout);
     assert.deepEqual(document.scope, { mode: 'change', base: null, files: 36, law_changed: false });
-    assert.deepEqual(document.summary, { errors: 15, warnings: 1, debt: 0, waivers: 0, unresolved: 12 });
+    assert.deepEqual(document.summary, { errors: 15, warnings: 1, debt: 0, waivers: 0, unresolved: 9 });
     assert.deepEqual(
       document.findings.map((f: any) => `${place(f)}  ${f.severity}[${f.code}]  ${f.message}`),
       FINDINGS,
     );
     assert.ok(document.findings.every((f: any) => f.rule === null && f.debt === false), run.stdout);
     assert.deepEqual(
-      document.unresolved.map((u: any) => `${u.file}:${u.line}  ${u.answer}  ${u.what}`),
+      document.unresolved.map(unresolvedLine),
       UNRESOLVED,
     );
     assert.ok(document.unresolved.every((u: any) => u.debt === false), run.stdout);
     assert.equal(run.code, 1);
 
     const text = await lawcheck(l, ['check']);
-    assert.equal(text.stdout.split('\n')[0], 'lawcheck: FAIL  15 errors, 1 warning in 36 files (no base: every file counts as changed), 12 unresolved uses');
+    assert.equal(text.stdout.split('\n')[0], 'lawcheck: FAIL  15 errors, 1 warning in 36 files (no base: every file counts as changed), 9 unresolved uses');
     assert.deepEqual(findingLines(text.stdout), FINDINGS);
 
     git(l, 'checkout', '-q', '-b', 'work');
@@ -96,7 +98,7 @@ test('test 88, debt: every finding and unresolved use of L outside the change', 
     const run = await check(l, '--full', '--base', 'main');
     const lines = run.stdout.split('\n');
     assert.equal(lines[0], 'lawcheck: PASS  nothing changed against main');
-    assert.ok(lines.includes('debt (outside this change): 16 findings in 15 files, 12 unresolved uses'), run.stdout);
+    assert.ok(lines.includes('debt (outside this change): 16 findings in 15 files, 9 unresolved uses'), run.stdout);
     assert.deepEqual(findingLines(run.stdout), FINDINGS.map((line) => line.replace('  error[', '  warning[')));
     assert.equal(run.code, 0);
     const json = await check(l, '--full', '--base', 'main', '--json');
@@ -104,7 +106,7 @@ test('test 88, debt: every finding and unresolved use of L outside the change', 
     assert.equal(document.summary.unresolved, 0);
     assert.equal(document.summary.debt, 16);
     assert.ok(document.findings.some((f: any) => f.code === 'uses-not-read' && f.debt === true), json.stdout);
-    assert.deepEqual(document.unresolved.map((u: any) => `${u.file}:${u.line}  ${u.answer}  ${u.what}`), UNRESOLVED);
+    assert.deepEqual(document.unresolved.map(unresolvedLine), UNRESOLVED);
     assert.ok(document.unresolved.every((u: any) => u.debt === true), json.stdout);
     assert.equal(json.code, 0);
   });

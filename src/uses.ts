@@ -49,8 +49,10 @@ export function judgeUses(path: string, type: TypeDef, uses: Use[], targetOf: (f
   if (inForce === null) return out;
   const seen = new Set<string>();
   for (const { line, answer } of uses) {
+    if (answer.kind === 'outside') continue;
     if (answer.kind !== 'file') {
-      out.unresolved.push({ file: path, line, what: answer.what, answer: answer.kind });
+      const reason = answer.kind === 'none' ? answer.reason : null;
+      out.unresolved.push({ file: path, line, what: answer.what, answer: answer.kind, reason, candidates: answer.candidates });
       continue;
     }
     if (answer.file === path) continue;

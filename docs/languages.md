@@ -34,9 +34,27 @@ The other languages resolve by path, through files such as `tsconfig.json`, `pac
 
 ## Unresolved uses
 
-A use the readers do not resolve to exactly one file is unresolved: they answer that it is ambiguous, or they find no file. Lawcheck never guesses from the name what it meant. An unresolved use is neither allowed nor forbidden: it is never a finding and never changes the exit code.
+A use the readers do not resolve to exactly one file is unresolved, unless they say it leaves the repository: a use of the standard library or of an installed package is not counted at all. Lawcheck never guesses from the name what a use meant; whether a use is outside, unfollowed or ambiguous is the readers' answer. An unresolved use is neither allowed nor forbidden: it is never a finding and never changes the exit code.
 
-Each run counts them, in the first line for the changed files and in the debt heading for the others, and `--json` lists each one with the readers' answer. Most of them are outside packages: the standard library and dependencies. A file the build writes and git ignores does not exist for the readers, so a use of it is unresolved too.
+Each run counts them, in the first line for the changed files and in the debt heading for the others, and `--json` lists each one (`lawcheck docs json`) with the readers' answer:
+
+| Answer | Reason | What it means |
+|---|---|---|
+| `none` | `unfollowed` | the use names a place of the repository that holds no file: a file the build writes and git ignores, an alias or a workspace package whose entry is build output the repository does not hold, a name of the repository's own package that no file declares |
+| `none` | `unowned` | the use binds a file of the repository that no type maps; `candidates` names it |
+| `none` | none | the readers give no reason: every miss in C, C++ and Ruby, system headers and gems included |
+| `ambiguous` | none | the use could name several files of different types, or of a type and no type; `candidates` lists them. It is not judged, even when the list forbids every one |
+
+What the readers tell as outside, by language: TypeScript and JavaScript, an installed package or a Node built-in; Python, a module whose top-level name no root of the repository holds; Go, an import path no module of the repository holds; Rust, a path from a crate the repository does not hold (`std`, a registry dependency); PHP, a class under no prefix of the repository's Composer maps; Java and Kotlin, a name in a package the repository declares nothing in, a `java.lang` name and a Kotlin default import (`String`, `List`); C#, a name only a namespace from elsewhere can give (`System.Text`). C, C++ and Ruby tell nothing.
+
+## Known limits
+
+- A Java, Kotlin or C# name that a library also declares into a package or namespace of the repository counts as the repository's, so it is `unfollowed`; so is a Java member type inherited from a supertype outside the repository (`Entry` of a class that extends `java.util.AbstractMap`).
+- In Python and PHP, a use several roots or projects could hold is `unfollowed` with no candidates.
+- A Go import of a package whose files have more than one type is `ambiguous` with the package's files.
+- TypeScript: a package's `types@<range>` export keys are read as TypeScript 7.0.2 reads them, whatever TypeScript the project uses.
+- C#: a member inherited from a base class outside the repository (`ControllerBase.User`) lets a type of the repository with that name take the use; a chain of `is not` tests of dotted types gives no use.
+- Rust: paths inside a macro invocation and `include!` are not read; a library rooted at the package root whose `lib.rs` holds only an inline module with a `#[path]` module gives no use for the `mod` lines of the loaded file.
 
 ## uses-not-read
 

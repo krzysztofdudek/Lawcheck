@@ -431,3 +431,31 @@ Choice: both arms run again with the corrected harness of entry 65 and the defau
 Both arms ran again with the corrected harness, Claude Code 2.1.322 and `claude-sonnet-5-5` at `medium`. The edit arm made 21 runs: 10 counted, all 10 fixed, 2 errors; it passes. The stop arm made 19 runs: 10 counted, all 10 fixed, 2 errors; it passes.
 
 The four errors are each a run whose kept transcript shows the agent's own `lawcheck` call refused by `--permission-mode dontAsk`: the agent wrapped it in a compound command, such as `(lawcheck check ./src/core/discount.js; node -e ...)` or `node -e ...; (lawcheck check src/core/discount.js 2>&1 | tail ...)`, which the allow list does not cover as a whole, so Lawcheck never ran and the log holds no `agent` line. In each the arm's hook had found the breach and a later check passed. These are errors of step 4 as written, not of the harness, and the transcripts were read and then removed with the run folders.
+
+# Questions found while moving to Runes 1.1.0
+
+`spec/dependency-slice.md` counted every use the readers did not resolve to one file alike, because Runes 1.0.0 and the commit Lawcheck took before 1.1.0 could not tell a use that leaves the repository from one they could not follow. Runes 1.1.0 can, through `TargetResolver.classifyUse`. The move to 1.1.0 uses that answer within one rule of its brief: no language-specific guessing in Lawcheck, only what the readers answer.
+
+## 68. What counts as unresolved
+
+The readers now answer `outside`, `unfollowed`, `unowned` or no reason for a use that binds no file, and name the files of an ambiguous one.
+
+Choice: a use the readers answer `outside` is not unresolved and is not counted or listed. `unfollowed`, `unowned`, no reason, and a reason Lawcheck does not know (Runes says a later 1.x may add values and asks that an unknown one be read as none) stay unresolved, with the reason in JSON. Recorded as decision 18 of the dependency slice. On the pinned repositories, hono falls from 5 to 1 and gson from 2,567 to 12 (section 11 of the slice gives each reason).
+
+## 69. `what` once the readers answer for the whole use
+
+`what` named the candidate that ended the walk for an ambiguous use. `classifyUse` walks the candidates itself and does not say which one ended it.
+
+Choice: `what` is the use's first candidate for every unresolved use, and an ambiguous use lists its files in `candidates`. Walking the candidates again in Lawcheck only to name one would repeat the readers' walk beside theirs. Recorded as decision 19. In L the C# use's `what` becomes `Shop.App.Service+Clock`, the reader's first reading of `Clock`; entry 28 holds as it was.
+
+## 70. What `candidates` holds for `unowned`
+
+`unowned` comes with the file the use binds, which no owner maps. An `ambiguous` use comes with the files it could name.
+
+Choice: `candidates` carries both: the ambiguous use's files, and the one file of an `unowned` use. It is empty otherwise. Every file the readers see in a Lawcheck run has an owner (a type, `#binary` or `#untyped`), so `unowned` is not expected to appear; it is kept because it is Runes' answer, and the unit test covers it.
+
+## 71. An ambiguous use whose every candidate the list forbids
+
+With the candidates named, Lawcheck could report such a use as `forbidden-use`.
+
+Choice: not done. It would make a finding of an answer the readers did not resolve, which decision 4 rules out, and the task asked only to list the candidates. The owner may decide otherwise; the candidates in JSON show such uses.

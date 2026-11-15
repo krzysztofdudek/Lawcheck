@@ -5,11 +5,14 @@ import { fileURLToPath } from 'node:url';
 import { GRAMMARS, readerOf, readUses, RUNES, siblingsOf, Unreadable } from '../../dist/readers.js';
 
 type Hint = { kind: 'path'; specifier: string } | { kind: 'symbol'; symbolKey: string };
-type Kind = { kind: 'resolved'; owner: string; resolvedFile: string } | { kind: 'ambiguous' } | { kind: 'absent' };
+type Kind =
+  | { kind: 'resolved'; owner: string; resolvedFile: string }
+  | { kind: 'ambiguous'; candidates?: string[] }
+  | { kind: 'absent'; reason?: string; resolvedFile?: string };
 
 interface FakeOptions {
   uses?: Record<string, { line: number; candidates: Hint[] }[]>;
-  classify?: (hint: Hint, from: string) => Kind;
+  classifyUse?: (candidates: Hint[], from: string) => Kind;
   failGrammar?: string;
   failUses?: string;
   failDeclarations?: string;
@@ -59,10 +62,10 @@ function fake(options: FakeOptions) {
     },
     buildCsharpReachability: () => ({}),
     makeResolver: () => ({
-      classify: (hint: Hint, from: string) => {
+      classifyUse: (candidates: Hint[], from: string) => {
         if (from === options.failClassify) throw new Error('classify broke');
-        record.classified.push(`${from} ${hint.kind === 'path' ? hint.specifier : hint.symbolKey}`);
-        return options.classify ? options.classify(hint, from) : { kind: 'absent' };
+        record.classified.push(`${from} ${candidates.map((hint) => (hint.kind === 'path' ? hint.specifier : hint.symbolKey)).join(' ')}`);
+        return options.classifyUse ? options.classifyUse(candidates, from) : { kind: 'absent' };
       },
     }),
     makeResolvePathToFile: () => () => undefined,
@@ -105,29 +108,48 @@ test('which files have a reader', () => {
   assert.equal((readerOf('g/h.h', '', siblings) as any).view.language, 'c');
 });
 
-test('what: the candidate that ended the walk for ambiguous, the first for none, the file for resolved', async () => {
+test("a use's answer is Runes' answer for all its candidates, with its reason or candidates, and what is the first candidate", async () => {
+  const use = (line: number, ...keys: string[]) => ({ line, candidates: keys.map((specifier) => ({ kind: 'path', specifier }) as Hint) });
   const uses = {
     'a.ts': [
-      { line: 1, candidates: [{ kind: 'path', specifier: 'first' }, { kind: 'path', specifier: 'second' }] },
-      { line: 2, candidates: [{ kind: 'path', specifier: 'gone' }, { kind: 'path', specifier: 'two' }, { kind: 'path', specifier: 'after' }] },
-      { line: 3, candidates: [{ kind: 'symbol', symbolKey: 'Gone' }, { kind: 'symbol', symbolKey: 'Here' }, { kind: 'symbol', symbolKey: 'Two' }] },
-    ] as { line: number; candidates: Hint[] }[],
+      use(1, 'resolved', 'later'),
+      use(2, 'ambiguous', 'later'),
+      use(3, 'ambiguous-unnamed'),
+      use(4, 'outside', 'later'),
+      use(5, 'unfollowed'),
+      use(6, 'unowned'),
+      use(7, 'unknown-reason'),
+      use(8, 'no-reason'),
+    ],
+    'b.ts': [{ line: 1, candidates: [] as Hint[] }],
   };
-  const classify = (hint: Hint): Kind => {
-    const key = hint.kind === 'path' ? hint.specifier : hint.symbolKey;
-    if (key === 'two' || key === 'Two') return { kind: 'ambiguous' };
-    if (key === 'Here') return { kind: 'resolved', owner: 'o', resolvedFile: 'b.ts' };
+  const classifyUse = (candidates: Hint[]): Kind => {
+    const first = candidates[0];
+    const key = first === undefined ? '' : first.kind === 'path' ? first.specifier : first.symbolKey;
+    if (key === 'resolved') return { kind: 'resolved', owner: 'o', resolvedFile: 'b.ts' };
+    if (key === 'ambiguous') return { kind: 'ambiguous', candidates: ['x/one.ts', 'y/two.ts'] };
+    if (key === 'ambiguous-unnamed') return { kind: 'ambiguous' };
+    if (key === 'outside') return { kind: 'absent', reason: 'outside' };
+    if (key === 'unfollowed') return { kind: 'absent', reason: 'unfollowed' };
+    if (key === 'unowned') return { kind: 'absent', reason: 'unowned', resolvedFile: 'gen/out.ts' };
+    if (key === 'unknown-reason') return { kind: 'absent', reason: 'elsewhere' };
     return { kind: 'absent' };
   };
-  const { runes, record } = fake({ uses, classify });
-  const outcome = await readUses(input({ 'a.ts': '', 'b.ts': '' }, ['a.ts']), runes);
+  const { runes, record } = fake({ uses, classifyUse });
+  const outcome = await readUses(input({ 'a.ts': '', 'b.ts': '' }, ['a.ts', 'b.ts']), runes);
   assert.ok('uses' in outcome);
   assert.deepEqual(outcome.uses.get('a.ts'), [
-    { line: 1, answer: { kind: 'none', what: 'first' } },
-    { line: 2, answer: { kind: 'ambiguous', what: 'two' } },
-    { line: 3, answer: { kind: 'file', file: 'b.ts' } },
+    { line: 1, answer: { kind: 'file', file: 'b.ts' } },
+    { line: 2, answer: { kind: 'ambiguous', what: 'ambiguous', candidates: ['x/one.ts', 'y/two.ts'] } },
+    { line: 3, answer: { kind: 'ambiguous', what: 'ambiguous-unnamed', candidates: [] } },
+    { line: 4, answer: { kind: 'outside' } },
+    { line: 5, answer: { kind: 'none', what: 'unfollowed', reason: 'unfollowed', candidates: [] } },
+    { line: 6, answer: { kind: 'none', what: 'unowned', reason: 'unowned', candidates: ['gen/out.ts'] } },
+    { line: 7, answer: { kind: 'none', what: 'unknown-reason', reason: null, candidates: [] } },
+    { line: 8, answer: { kind: 'none', what: 'no-reason', reason: null, candidates: [] } },
   ]);
-  assert.ok(!record.classified.includes('a.ts after') && !record.classified.includes('a.ts Two'), record.classified.join(', '));
+  assert.deepEqual(outcome.uses.get('b.ts'), [{ line: 1, answer: { kind: 'none', what: '', reason: null, candidates: [] } }]);
+  assert.deepEqual(record.classified.slice(0, 2), ['a.ts resolved later', 'a.ts ambiguous later']);
 });
 
 test('a run that reads no use loads no grammar and parses nothing', async () => {
