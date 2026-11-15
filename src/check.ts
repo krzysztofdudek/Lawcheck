@@ -265,7 +265,7 @@ function nextOf(report: Report, config: ReviewerConfig, cap: number, review: str
   if (other !== undefined) return { command: null, text: fixNext(other) };
   const count = report.findings.filter((f) => f.code === 'not-reviewed').length;
   if (config.provider === null) {
-    return { command: null, text: `set reviewer.provider and reviewer.model in .lawcheck/config.yaml, then run ${review}` };
+    return { command: null, text: `ask the user to set reviewer.provider and reviewer.model in .lawcheck/config.yaml, then run ${review}` };
   }
   if (count > cap) {
     return { command: null, text: `${count} reviewer calls are needed and reviewer.max_calls is ${cap}; raising the limit is the user's decision` };

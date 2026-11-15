@@ -42,7 +42,7 @@ test('the checks before the first call', () => {
   const many = preflight(ready, config, 2, 3, 'x')[0]!;
   assert.match(many.message, /\b3\b.*\b2\b/);
   assert.match(many.next!, /the user's decision/);
-  assert.equal(preflight(null, DEFAULT_CONFIG, 9, 1, 'lawcheck check --review --base main')[0]!.next, 'set reviewer.provider and reviewer.model in .lawcheck/config.yaml, then run lawcheck check --review --base main');
+  assert.equal(preflight(null, DEFAULT_CONFIG, 9, 1, 'lawcheck check --review --base main')[0]!.next, 'ask the user to set reviewer.provider and reviewer.model in .lawcheck/config.yaml, then run lawcheck check --review --base main');
 });
 
 test('waived lines drop findings; a whole-file finding stays', () => {

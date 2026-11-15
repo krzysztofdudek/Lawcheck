@@ -250,10 +250,10 @@ export async function runChecks(inputs: Inputs): Promise<Check[]> {
       const rules = plural(count, 'reviewer rule');
       if (config.provider === null) {
         if (inputs.reviewer) {
-          return set('reviewer', 'fail', 'no reviewer is set, so --reviewer has nothing to call', next('set reviewer.provider and reviewer.model in .lawcheck/config.yaml, then run lawcheck doctor --reviewer'));
+          return set('reviewer', 'fail', 'no reviewer is set, so --reviewer has nothing to call', next('ask the user to set reviewer.provider and reviewer.model in .lawcheck/config.yaml, then run lawcheck doctor --reviewer'));
         }
         if (count === 0) return set('reviewer', 'ok', 'no reviewer rule, so no reviewer is needed');
-        return set('reviewer', 'fail', `${rules} and no reviewer set, so their files stay not-reviewed`, next('set reviewer.provider and reviewer.model in .lawcheck/config.yaml, then run lawcheck doctor'));
+        return set('reviewer', 'fail', `${rules} and no reviewer set, so their files stay not-reviewed`, next('ask the user to set reviewer.provider and reviewer.model in .lawcheck/config.yaml, then run lawcheck doctor'));
       }
       if (count === 0 && !inputs.reviewer) return set('reviewer', 'ok', 'no reviewer rule, so no reviewer is needed');
       const provider: Provider = createProvider(config, inputs.env)!;

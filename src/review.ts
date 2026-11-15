@@ -60,7 +60,7 @@ export function preflight(provider: Provider | null, config: ReviewerConfig, cap
       file: null,
       line: null,
       message: 'no reviewer.provider is set in .lawcheck/config.yaml',
-      next: `set reviewer.provider and reviewer.model in .lawcheck/config.yaml, then run ${review}`,
+      next: `ask the user to set reviewer.provider and reviewer.model in .lawcheck/config.yaml, then run ${review}`,
     });
   }
   if (count > cap) {

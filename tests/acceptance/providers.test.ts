@@ -276,7 +276,7 @@ test('test 63: no reviewer set', async () => {
     await withR(async (r) => {
       write(r, F_PATH, F);
       const plain = await run(r, fake, ['--base', 'main']);
-      assert.ok(plain.stdout.endsWith('\nnext: set reviewer.provider and reviewer.model in .lawcheck/config.yaml, then run lawcheck check --review --base main\n'), plain.stdout);
+      assert.ok(plain.stdout.endsWith('\nnext: ask the user to set reviewer.provider and reviewer.model in .lawcheck/config.yaml, then run lawcheck check --review --base main\n'), plain.stdout);
       assert.equal(plain.code, 1);
       const reviewed = await run(r, fake, ['--review', '--base', 'main']);
       assert.ok(reviewed.stdout.split('\n').some((line) => line.startsWith('error[reviewer-not-configured]  ')), reviewed.stdout);

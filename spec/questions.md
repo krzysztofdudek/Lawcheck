@@ -517,3 +517,9 @@ Choice, the build's, under the design's rule that a key goes only where it was g
 ## 108. Numbers that belong to the table of limits
 
 The fixes of a review set three numbers: 4 MiB for a reviewer's reply or output, 64 KiB of a program's standard error kept for its last line, and 256 characters for `reviewer.model`. Section 6 of `spec/reviewer-slice.md` states them as rows of its own table of limits, and the table of limits for the whole tool, when it exists, takes them over.
+
+## 109. A `next:` that is the user's step
+
+The primer gives the agent the loop and says that the law and the reviewer are the user's to set. Five `next:` lines told the agent to do it: four `set reviewer.provider and reviewer.model in .lawcheck/config.yaml, then run <review>`, under `check`, `try` and `doctor`, and `rule-missing-file`'s `write the rule files the law names, or take their rules out of the law, then run lawcheck check`.
+
+Choice, after the design's review of the tool in use: each starts `ask the user to`, as section 8 of `spec/reviewer-slice.md` and test 63 now give it; `rule-missing-file` reads `ask the user to write the rule files the law names or to take their rules out of the law, then run lawcheck check`.
