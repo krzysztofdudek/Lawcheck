@@ -8,6 +8,8 @@ const windows = process.platform === 'win32';
 // On Windows a program left by one that has ended can be found only through the list of processes, and PowerShell takes seconds to start on a busy machine. While a group is registered, one PowerShell keeps that list fresh, so the guard ends the tree at once from the last list.
 let watcher: ChildProcess | null = null;
 let table = '';
+let listed = false;
+let onListed: (() => void) | null = null;
 
 function watch(): void {
   if (!windows || watcher !== null) return;
@@ -21,6 +23,8 @@ function watch(): void {
     const start = partial.lastIndexOf('\n--', end - 1);
     table = partial.slice(start < 0 ? 0 : start + 3, end);
     partial = partial.slice(end + 3);
+    listed = true;
+    onListed?.();
   });
 }
 const groups = new Set<number>();
@@ -68,10 +72,19 @@ function endAll(): void {
       }
     }
   }
-  watcher?.kill();
   for (const pid of groups) killTree(pid, 'SIGKILL', true);
   for (const folder of folders) rmSync(folder, { recursive: true, force: true, maxRetries: 10 });
-  process.exit(0);
+  // PowerShell writes test files to the temporary directory while it starts and removes them once started, so the watcher is ended only after its first list, or after 10 seconds.
+  const done = () => {
+    watcher?.kill();
+    process.exit(0);
+  };
+  if (watcher === null || listed || watcher.exitCode !== null) done();
+  else {
+    onListed = done;
+    watcher.on('exit', done);
+    setTimeout(done, 10_000);
+  }
 }
 
 process.stdin.on('close', endAll);
