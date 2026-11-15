@@ -28,7 +28,7 @@ rules:
 types:
   source:
     about: Lawcheck's own code. A file that no layer below names may use nothing, until it moves into a layer.
-    # The names after ! are the files that are not in a layer yet. No type has them, so nothing judges them. The list only gets shorter.
+    # The files not yet moved into a layer. tests/acceptance/self-law.test.ts fails when a name is added here.
     paths: ["src/**", "!src/{args,check,cli,config,docs,doctor,explain,files,glob,guard,init,law,output,prime,programs,prompt,readers,review,rules,setup,try,types,uses,verdicts,waivers}.ts", "!src/providers/**"]
     may_use: []
     rules: [layer-imports, programs-own-the-process, modules-only-declare, no-import-cycles, own-paths-in-one-place, comments-say-why, errors-name-the-fix]
