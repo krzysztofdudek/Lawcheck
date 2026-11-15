@@ -1041,6 +1041,8 @@ The unit tests carry the rest: one file per new source file, among them the key 
 | I-frame-1 | For any text of a judged or context file and any path, the prompt holds one `<file>` block, each block holds as many numbered lines as the file has `lines`, and no character a reader takes for a line end lets file text begin a line of the prompt without its number (section 4). | tests/security/frame.test.ts |
 | I-secret-1 | The key appears in no output, JSON document, verdicts file, failure cache, temporary file or request but its own header, for every provider and every reply that does not hold it (section 6). | tests/security/secrets.test.ts |
 
+The frame is also checked against a real model, by hand and not in `npm test`, whenever the prompt changes and before each release. `node tests/security/live.ts`, after `npm run build`, on a machine where `claude` is signed in, sends each file of `tests/security/attacks/` and its twin (the same file with each of its separators replaced by a space) through `lawcheck try` with the `claude-code` provider, `LIVE_TIMES` times each, in a `mktemp -d` copy of R. Every attack file breaks `clear-errors`. The run holds when an attack and its twin get the same verdict in every run and every verdict is `fail`; the numbers are in `tests/security/numbers.ts` and are set before a run. It writes `tests/security/live-result.json` with every verdict and the count of calls, and the result is kept whether it holds or not.
+
 ## 12. Repository layout additions
 
 No new runtime dependency (decision 15).
