@@ -129,3 +129,16 @@ test('the codes of the dependency slice are reserved', () => {
     assert.match(problems(`lawcheck: 0.1.0\nrules:\n  ${id}:\n    why: x\n`)[0]!.message, /code of Lawcheck/, id);
   }
 });
+
+test('I-law-1: a type that holds itself through an alias is law-invalid at its line', () => {
+  const { law, problems } = parseLaw('lawcheck: 0.1.0\ntypes:\n  t: &t\n    paths: ["**"]\n    types:\n      u: *t\n');
+  assert.equal(law, null);
+  assert.deepEqual(problems, [{ line: 6, message: "type 'u' is, through an alias, a type that holds it" }]);
+});
+
+test('I-law-1: a deeper cycle through two aliases is law-invalid too', () => {
+  const { law, problems } = parseLaw('lawcheck: 0.1.0\ntypes:\n  a: &a\n    paths: ["a/**"]\n    types:\n      b: &b\n        paths: ["a/b/**"]\n        types:\n          c: *a\n');
+  assert.equal(law, null);
+  assert.equal(problems.length, 1);
+  assert.match(problems[0]!.message, /^type 'c' is, through an alias, a type that holds it$/);
+});

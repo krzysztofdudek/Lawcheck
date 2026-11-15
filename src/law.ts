@@ -99,6 +99,7 @@ class Reader {
   private readonly listed: { owner: string; rule: string; line: number }[] = [];
   private readonly used: { owner: string; type: string; line: number }[] = [];
   private readonly reportedKeys = new Set<Pair>();
+  private readonly open = new Set<unknown>();
 
   constructor(
     private readonly doc: Document,
@@ -189,6 +190,10 @@ class Reader {
       else if (this.byId.has(id)) this.problem(line, `the type id '${id}' appears twice in the law`);
       const value = this.resolve(pair.value);
       if (!this.mapping(value, line, `type '${id}'`)) continue;
+      if (this.open.has(value)) {
+        this.problem(line, `type '${id}' is, through an alias, a type that holds it`);
+        continue;
+      }
       const type: TypeDef = { id, about: null, paths: [], matches: () => false, content: null, expression: null, rules: [], types: [], parent, line, mayUse: null, waivers: null };
       if (!this.byId.has(id)) this.byId.set(id, type);
       let sawPaths = false;
@@ -246,7 +251,11 @@ class Reader {
           if (isScalar(fieldValue) && typeof fieldValue.value === 'boolean') type.waivers = fieldValue.value;
           else this.problem(fieldLine, `'waivers' of type '${id}' takes true or false, not ${describe(fieldValue)}`);
         } else if (key === 'types') {
-          if (this.mapping(fieldValue, fieldLine, `'types' of type '${id}'`)) type.types = this.readTypes(fieldValue as YAMLMap, type);
+          if (this.mapping(fieldValue, fieldLine, `'types' of type '${id}'`)) {
+            this.open.add(value);
+            type.types = this.readTypes(fieldValue as YAMLMap, type);
+            this.open.delete(value);
+          }
         } else {
           this.unknown(key, TYPE_KEYS, fieldLine, `in type '${id}'`);
         }
