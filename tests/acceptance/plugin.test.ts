@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { appendFileSync, chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { delimiter, dirname, join, relative, sep } from 'node:path';
 import { withFake } from './fake-reviewer.ts';
@@ -678,16 +679,20 @@ test('S6-4: an edit of a file with a backslash in its name checks that file', { 
   });
 });
 
-test('S6-6: a session_id of 5,000 characters has no state file, and the hooks go on', async () => {
+test('S6-6: a session_id of 5,000 characters keeps its state under its hash, and the hooks go on', async () => {
   await withBench(async (bench, dir) => {
     const s = makeSample(dir);
-    const session = new Session(bench, s, 'x'.repeat(5000));
+    const id = 'x'.repeat(5000);
+    const session = new Session(bench, s, id);
     nothing(await session.prompt(), 'prompt');
+    const file = `${createHash('sha256').update(id).digest('hex')}.long.json`;
+    assert.deepEqual(bench.sessions(), [file]);
+    assert.equal(JSON.parse(readFileSync(join(bench.data, 'sessions', file), 'utf8')).open, true);
     write(s, D_PATH, D);
     json(await session.stop(), handBack(`${stopHeader()}\n\n${D_OUTPUT}`), 'stop');
-    assert.deepEqual(bench.sessions(), []);
+    json(await session.stop(), released(), 'the same output again is let go, so the state was read');
     nothing(await new Session(bench, s, 'y'.repeat(128)).prompt(), 'an id of 128 characters');
-    assert.deepEqual(bench.sessions(), [`${'y'.repeat(128)}.json`]);
+    assert.deepEqual(bench.sessions(), [file, `${'y'.repeat(128)}.json`].sort());
   });
 });
 
@@ -695,7 +700,7 @@ test('S6-8: a byte-order mark before the runner line, and the hook and the tool 
   await withBench(async (bench, dir) => {
     const s = makeSample(dir);
     bench.runner('npx', 2);
-    write(s, '.lawcheck/config.yaml', '﻿runner: npx\n');
+    write(s, '.lawcheck/config.yaml', '\ufeffrunner: npx\n');
     write(s, D_PATH, D);
     json(await new Session(bench, s).edit(D_PATH), edited(`${editHeader(D_PATH, 'npx --no-install lawcheck')}\n\n${D_OUTPUT}`));
     assert.deepEqual(bench.runners().map((r) => r.runner), ['npx']);

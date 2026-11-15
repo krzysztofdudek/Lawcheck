@@ -19,6 +19,7 @@ export function check({ files }) {
 One object with `files` and `repo`.
 
 - `files` holds one file per call: `path` (from the root), `type` (its type id), `text` and `lines`. Under `lawcheck try`, a file with no type has `type` null.
+- `path` is the file's path as Lawcheck prints it: a backslash, a line feed, a carriage return and a byte that is not UTF-8 are written `\\`, `\n`, `\r` and `\xHH`, so read the file through `text`, not through `path`.
 - `lines` is the text split at `\n` and `\r\n`. A final line end adds no empty line, so an empty file has no lines.
 - `repo.filesOf(typeId)` returns at once the sorted paths of every file of that type and its subtypes. It throws on an unknown id.
 

@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { lstatSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -34,13 +34,15 @@ function sessionsDir() {
   }
 }
 
-// The state file's temporary name adds about 30 characters to the id, and most file systems take names of 255 bytes.
+// The state file's temporary name adds about 30 characters to the id, and most file systems take names of 255 bytes; a longer id is kept under its hash, with a dot no id holds.
 const LONGEST_ID = 128;
 
 export function stateFile(sessionId) {
-  if (typeof sessionId !== 'string' || sessionId.length > LONGEST_ID || !/^[A-Za-z0-9_-]+$/.test(sessionId)) return null;
+  if (typeof sessionId !== 'string' || !/^[A-Za-z0-9_-]+$/.test(sessionId)) return null;
   const dir = sessionsDir();
-  return dir === null ? null : join(dir, `${sessionId}.json`);
+  if (dir === null) return null;
+  const name = sessionId.length > LONGEST_ID ? `${createHash('sha256').update(sessionId).digest('hex')}.long` : sessionId;
+  return join(dir, `${name}.json`);
 }
 
 export function readState(file) {
