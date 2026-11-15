@@ -56,9 +56,10 @@ export function tieProblems(input: Inputs, files: string[], ran: Ran[], excused:
   }
   for (const id of closed) {
     const row = ledgerRows(input.ledger).find((r) => r.id === id)!;
-    const named = /^(tests\/[^\s:]+): /.exec(row.test);
-    if (named !== null && files.includes(named[1]!) && !ran.some((r) => carries(r.name, id)) && !excused.some((e) => e.file === named[1] && carries(e.name, id))) {
-      problems.push(`the closed row ${id} names its test in ${named[1]} and no test that carries ${id} ran and passed in this run`);
+    const named = /^(tests\/[^\s:]+): (.+)$/.exec(row.test);
+    const holds = (t: Ran) => t.file === named![1] && t.name.includes(named![2]!) && carries(t.name, id);
+    if (named !== null && files.includes(named[1]!) && !ran.some(holds) && !excused.some(holds)) {
+      problems.push(`the closed row ${id} names its test as "${named[2]}" in ${named[1]}, and no test with that in its name ran and passed in this run`);
     }
   }
   return [...problems, ...namesProblems(input, ran)];

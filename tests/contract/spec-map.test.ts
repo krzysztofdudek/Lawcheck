@@ -253,6 +253,9 @@ test('question 79: control, a closed finding is tied to a test that ran, and wha
   const base = inputs({ ledger, tests: [{ path: files[0]!, text: code("test('S1-1: a hang', () => { assert.ok(1); });", "test('S1-10: another', () => { assert.ok(1); });", "test('tests 1 and 2: c', () => { assert.ok(1); });", "test('I-out-1: i', () => { assert.ok(1); });") }] });
   const ran = (...names: string[]) => names.map((name) => ({ file: files[0]!, name }));
   assert.deepEqual(tieProblems(base, files, ran('S1-1: a hang', 'tests 1 and 2: c', 'I-out-1: i')), []);
+  const other = inputs({ ...base, ledger: ledger.replace('tests/unit/a.test.ts: S1-1 |', 'tests/unit/a.test.ts: S1-1: a hang |'), tests: [{ path: files[0]!, text: code("test('S1-1: a hang', () => { assert.ok(1); });", "test('S1-1: a sibling', () => { assert.ok(1); });", "test('tests 1 and 2: c', () => { assert.ok(1); });", "test('I-out-1: i', () => { assert.ok(1); });") }] });
+  const sibling = tieProblems(other, files, ran('S1-1: a sibling', 'tests 1 and 2: c', 'I-out-1: i'));
+  assert.ok(sibling.some((p) => p.startsWith('the closed row S1-1 names its test as "S1-1: a hang"')), sibling.join('\n'));
   const skipped = tieProblems(base, files, ran('tests 1 and 2: c', 'I-out-1: i', 'S1-10: another'));
   assert.ok(skipped.some((p) => p.startsWith('S1-1 is carried by a test of this run')), skipped.join('\n'));
   assert.ok(skipped.some((p) => p.startsWith('the closed row S1-1 names its test')), skipped.join('\n'));
