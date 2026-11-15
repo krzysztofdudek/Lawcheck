@@ -10,11 +10,27 @@ const GIT_OUTPUT_BYTES = 1 << 30;
 import { COMMANDS } from './args.js';
 import { hiddenJson, hide, useKeys } from './keys.js';
 import { totalmem } from 'node:os';
-import { MEMORY_CHECK_MS, memoryBound, mib, STEP_MEMORY_BYTES, STEP_MS } from './limits.js';
+import { availableNow, MEMORY_CHECK_MS, MEMORY_RESERVE_BYTES, memoryCase, mib, runBound, STEP_MEMORY_BYTES, STEP_MS } from './limits.js';
+import type { MemoryCase } from './limits.js';
 import { renderErrors, safeJson, safeText } from './output.js';
 import type { ErrorItem } from './output.js';
 import { lastStep, progressBuffer } from './progress.js';
 import { absolutePath, NO_CURRENT_FOLDER } from './programs.js';
+
+// Each case names a step the user can take: a file whose uses are read leaves the types with may_use; a file read only for what it declares leaves the files git lists; a run or a machine short of memory gets more of it.
+function memoryError(found: Exclude<MemoryCase, null>, what: string, file: string | null, command: string): ErrorItem {
+  const again = `then run lawcheck ${command} again`;
+  if (found === 'file' && file !== null && what.startsWith('reading what')) {
+    return { code: 'memory-too-large', file, line: null, message: `the run grew by more than the ${mib(STEP_MEMORY_BYTES)} of memory one file may add while ${what}`, next: `keep ${file} out of the files git lists here (git rm --cached, and a line in .gitignore), since Lawcheck reads it for what it declares, ${again}` };
+  }
+  if (found === 'file' && file !== null) {
+    return { code: 'memory-too-large', file, line: null, message: `the run grew by more than the ${mib(STEP_MEMORY_BYTES)} of memory one file may add while ${what}`, next: `leave ${file} out of the types whose may_use is in force, ${again}` };
+  }
+  if (found === 'run') {
+    return { code: 'memory-too-large', file: null, line: null, message: `the run passed the ${mib(runBound(totalmem()))} of memory it may hold while ${what}`, next: `narrow the types whose may_use is in force in .lawcheck/law.yaml, or run Lawcheck where it may hold more memory, ${again}` };
+  }
+  return { code: 'memory-too-large', file: null, line: null, message: `the system had less than ${mib(MEMORY_RESERVE_BYTES)} of memory left while ${what}`, next: `free memory on this machine, or run Lawcheck where it has more, ${again}` };
+}
 
 function internal(error: unknown): ErrorItem {
   const text = error instanceof Error ? error.message : String(error);
@@ -112,7 +128,7 @@ export function start(): void {
   }, 1000);
   watch.unref();
   // A reader of uses can grow by megabytes a millisecond and cannot be stopped from within, so the memory of the whole process is read from here, often, and the run ends before the system ends it.
-  const bound = memoryBound(process.constrainedMemory?.() ?? 0, totalmem());
+  const total = totalmem();
   let stepAt = -1;
   let stepRss = 0;
   const memory = setInterval(() => {
@@ -123,13 +139,10 @@ export function start(): void {
       stepAt = last.at;
       stepRss = rss;
     }
-    const stepGrew = last.file !== null && rss - stepRss > STEP_MEMORY_BYTES;
-    if (rss <= bound && !stepGrew) return;
+    const found = memoryCase({ rss, stepGrowth: last.file === null ? null : rss - stepRss, available: availableNow(), total });
+    if (found === null) return;
     clearInterval(memory);
-    const message = stepGrew
-      ? `the run grew by more than the ${mib(STEP_MEMORY_BYTES)} of memory one file may add while ${last.what}`
-      : `the run passed the ${mib(bound)} of memory it may hold while ${last.what}`;
-    fail({ code: 'memory-too-large', file: last.file, line: null, message });
+    fail(memoryError(found, last.what, last.file, named ?? 'check'));
   }, MEMORY_CHECK_MS);
   memory.unref();
   worker.on('message', (message: FromWork) => {

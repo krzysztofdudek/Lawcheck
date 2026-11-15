@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { chmodSync, closeSync, cpSync, existsSync, mkdirSync, openSync, readFileSync, rmSync, statSync, truncateSync, writeFileSync, writeSync } from 'node:fs';
+import { fork } from 'node:child_process';
 import { availableParallelism } from 'node:os';
 import { join } from 'node:path';
 import { defaultAnswer, openai, withFake } from '../acceptance/fake-reviewer.ts';
@@ -290,4 +291,24 @@ test('test 274: in 1 GB, 64 KiB of `a<a,` under may_use ends as memory-too-large
     },
     { onMain: (s) => writeFileSync(join(s, '.lawcheck/law.yaml'), readFileSync(join(s, '.lawcheck/law.yaml'), 'utf8').replace('        rules: [no-console]', '        rules: [no-console]\n        may_use: [library]')) },
   );
+});
+
+// A process beside the run holds 450 MB of the container's 1 GB, with the test runner's own memory,, so the run reaches the end of the system's memory before its own bounds.
+test('test 278: in 1 GB with 450 MB held by another process, 64 KiB of `a<a,` ends as memory-too-large, not killed', async () => {
+  const holder = fork(join(ROOT, 'tests', 'limits', 'hold-memory.mjs'), ['450'], { stdio: ['ignore', 'ignore', 'ignore', 'ipc'] });
+  try {
+    await new Promise<void>((done) => holder.once('message', () => done()));
+    await withSample(
+      async (s) => {
+        write(s, 'src/core/big.ts', 'a<a,'.repeat(16 * 1024));
+        const result = await run(s, ['check', '--base', 'main'], { budget: 'LIMITS_RUN_MS' });
+        assert.deepEqual(errorLines(result.stdout), ['error[memory-too-large]  the system had less than 128 MiB of memory left while reading the uses of src/core/big.ts']);
+        assert.equal(result.signal, null);
+        assert.equal(result.code, 2);
+      },
+      { onMain: (s) => writeFileSync(join(s, '.lawcheck/law.yaml'), readFileSync(join(s, '.lawcheck/law.yaml'), 'utf8').replace('        rules: [no-console]', '        rules: [no-console]\n        may_use: [library]')) },
+    );
+  } finally {
+    holder.kill('SIGKILL');
+  }
 });

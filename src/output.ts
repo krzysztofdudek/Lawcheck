@@ -152,8 +152,6 @@ function fixedNext(error: ErrorItem, command: string): string {
       return `make ${error.file ?? 'the place named'} writable, then run lawcheck ${command} again`;
     case 'stopped':
       return `run lawcheck ${command} again and let it end`;
-    case 'memory-too-large':
-      return error.file === null ? `make the step named take less memory, then run lawcheck ${command} again` : `leave ${error.file} out of the types whose may_use is in force, then run lawcheck ${command} again`;
     case 'step-too-slow':
       return `make the step named faster, such as a type's content pattern that backtracks, then run lawcheck ${command} again`;
     case 'type-overlap':

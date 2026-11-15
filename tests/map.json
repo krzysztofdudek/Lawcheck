@@ -56,6 +56,7 @@
     "tests/acceptance/package.test.ts",
     "tests/acceptance/paths.test.ts",
     "tests/environments/refusal.test.ts",
+    "tests/limits/memory.test.ts",
     "tests/limits/signals.test.ts",
     "tests/limits/writes.test.ts",
     "tests/unit/cli.test.ts"
@@ -140,6 +141,7 @@
   "src/limits.ts": [
     "tests/limits/findings.test.ts",
     "tests/limits/internals.test.ts",
+    "tests/limits/memory.test.ts",
     "tests/limits/reviews.test.ts",
     "tests/limits/sizes.test.ts"
   ],

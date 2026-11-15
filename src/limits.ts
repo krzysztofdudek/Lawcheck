@@ -21,12 +21,33 @@ export const STEP_MS = 30_000;
 export const MEMORY_BYTES = 1536 * MiB;
 export const MEMORY_SHARE = 0.85;
 export const STEP_MEMORY_BYTES = 384 * MiB;
+export const MEMORY_RESERVE_BYTES = 128 * MiB;
 export const MEMORY_CHECK_MS = 5;
 
-// The most memory a run may hold: MEMORY_BYTES, or less where the system grants the process less, as a container does.
-export function memoryBound(granted: number, total: number): number {
-  const room = granted > 0 && granted < total ? granted : total;
-  return Math.min(MEMORY_BYTES, Math.floor((room * MEMORY_SHARE) / MiB) * MiB);
+// The most memory a run may hold: MEMORY_BYTES, or less on a smaller machine.
+export function runBound(total: number): number {
+  return Math.min(MEMORY_BYTES, Math.floor((total * MEMORY_SHARE) / MiB) * MiB);
+}
+
+// The memory the system can still give: on Linux the kernel's estimate, or a container's limit less what its processes use; on Windows the physical memory that is free or on standby. macOS counts only the pages free this moment, which it keeps few, so there it gives no number.
+export function availableNow(platform: NodeJS.Platform = process.platform): number | null {
+  return platform === 'darwin' ? null : process.availableMemory();
+}
+
+export interface MemoryRead {
+  rss: number;
+  stepGrowth: number | null;
+  available: number | null;
+  total: number;
+}
+
+export type MemoryCase = 'file' | 'run' | 'system' | null;
+
+export function memoryCase(read: MemoryRead): MemoryCase {
+  if (read.stepGrowth !== null && read.stepGrowth > STEP_MEMORY_BYTES) return 'file';
+  if (read.rss > runBound(read.total)) return 'run';
+  if (read.available !== null && read.available < MEMORY_RESERVE_BYTES) return 'system';
+  return null;
 }
 
 // A character is a code point, as a reader counts one, so a pair of UTF-16 code units counts once.
