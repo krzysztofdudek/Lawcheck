@@ -68,6 +68,7 @@ interface Ready {
   exact?: string[];
   report?: 'doctor';
   hint?: string;
+  leads?: string;
   inProcess?: boolean;
   follow?: Follow;
 }
@@ -122,7 +123,7 @@ function reviewer(id: string, code: string, argv: string[], arrange: (r: string,
 
 const CASES: Case[] = [
   { id: 'usage, check', code: 'usage', setup: (dir) => ({ cwd: makeSample(dir), argv: ['check', '--nope'], exit: 2 }) },
-  { id: 'usage, no command', code: 'usage', setup: (dir) => ({ cwd: makeSample(dir), argv: ['--nope'], exit: 2 }) },
+  { id: 'usage, no command', code: 'usage', setup: (dir) => ({ cwd: makeSample(dir), argv: ['--nope'], exit: 2, leads: '--help' }) },
   {
     id: 'not-initialized, check',
     code: 'not-initialized',
@@ -147,20 +148,20 @@ const CASES: Case[] = [
       return { cwd: repo, argv: ['try', 'no-console', 'README.md'], follow: { fix: () => installLaw(repo) } };
     },
   },
-  { id: 'not-initialized, doctor', code: 'not-initialized', setup: (dir) => ({ cwd: lawIn(dir), argv: ['doctor'], report: 'doctor' }) },
+  { id: 'not-initialized, doctor', code: 'not-initialized', setup: (dir) => ({ cwd: lawIn(dir), argv: ['doctor'], report: 'doctor', leads: 'init' }) },
   {
     id: 'not-initialized, doctor, law.yaml is a directory',
     code: 'not-initialized',
     setup: (dir) => {
       const repo = lawIn(dir);
       mkdirSync(join(repo, '.lawcheck/law.yaml'), { recursive: true });
-      return { cwd: repo, argv: ['doctor'], report: 'doctor' };
+      return { cwd: repo, argv: ['doctor'], report: 'doctor', leads: 'init' };
     },
   },
   {
     id: 'already-initialized',
     code: 'already-initialized',
-    setup: (dir) => ({ cwd: makeSample(dir), argv: ['init'] }),
+    setup: (dir) => ({ cwd: makeSample(dir), argv: ['init'], leads: 'doctor' }),
   },
   {
     id: 'no-git, check',
@@ -437,7 +438,7 @@ const CASES: Case[] = [
       const u = makeU(dir);
       write(u, '.lawcheck/law.yaml', U_LAW.replace('"src/**/*.ts", ', '"src/**/*.ts", "src/**/*.json", '));
       write(u, 'src/core/data.json', '{}\n');
-      return { cwd: u, argv: ['doctor', '--base', 'main'], report: 'doctor' };
+      return { cwd: u, argv: ['doctor', '--base', 'main'], report: 'doctor', leads: 'docs' };
     },
   },
   {
@@ -446,7 +447,7 @@ const CASES: Case[] = [
     setup: (dir) => {
       const s = makeSample(dir);
       write(s, '.lawcheck/law.yaml', LAW + '# a comment\n');
-      return { cwd: s, argv: ['doctor', '--base', 'main'], report: 'doctor' };
+      return { cwd: s, argv: ['doctor', '--base', 'main'], report: 'doctor', leads: 'check' };
     },
   },
 ];
@@ -543,6 +544,18 @@ function supplied(ran: string[], supply: string[]): string[] {
   return out;
 }
 
+// What a command that a next line names leads to, as the grammar of the specs gives it: a check or a doctor answers with PASS or FAIL, init creates, docs prints a page, --help prints usage.
+export function leadsTo(argv: string[], run: { code: number | null; stdout: string }): string | null {
+  const first = run.stdout.split('\n')[0]!;
+  const [command] = argv;
+  if (argv.includes('--help') || command === '--help') return run.code === 0 && first.startsWith('usage: lawcheck') ? null : `no usage on standard output, exit ${run.code}`;
+  if (command === 'check' || command === 'doctor') return (run.code === 0 || run.code === 1) && /^lawcheck: (PASS|FAIL)  /.test(first) ? null : `no PASS or FAIL line, exit ${run.code}: ${first}`;
+  if (command === 'init') return run.code === 0 && /^lawcheck: created /m.test(run.stdout) ? null : `init created nothing, exit ${run.code}: ${first}`;
+  if (command === 'docs') return run.code === 0 && /^(# |lawcheck docs: )/.test(first) ? null : `no page, exit ${run.code}: ${first}`;
+  if (command === 'explain' || command === 'try') return (run.code === 0 || run.code === 1) && !/^error\[/m.test(run.stdout) ? null : `an error, exit ${run.code}: ${first}`;
+  return `no rule for what ${command} leads to`;
+}
+
 async function reproduce(spec: Case, dir: string, fake: Fake): Promise<string[]> {
   const problems: string[] = [];
   const say = (message: string) => problems.push(`${spec.id}: ${message}`);
@@ -604,6 +617,14 @@ async function reproduce(spec: Case, dir: string, fake: Fake): Promise<string[]>
     return problems;
   }
   const next = nextLine(out);
+  if (ready.report !== 'doctor') {
+    const wanted = doc.kind === 'exit 2' || ready.exit === 1;
+    if (wanted && next === null) say('the output has no next: line');
+    const jsonNext = document.next as { command: string | null; text: string } | null | undefined;
+    if (next !== null && (jsonNext === null || jsonNext === undefined || jsonNext.text !== next)) say(`the JSON next is ${JSON.stringify(jsonNext)} and the text next is "${next}"`);
+    if (next === null && jsonNext !== null && jsonNext !== undefined && jsonNext.text !== undefined && wanted) say(`the JSON has a next and the text has none`);
+    if (jsonNext !== null && jsonNext !== undefined && jsonNext.command !== null && jsonNext.command !== undefined && !(next ?? '').includes(jsonNext.command)) say(`the JSON next.command "${jsonNext.command}" is not in the text next "${next}"`);
+  }
   const named: Named = next === null ? null : commandsNamed(next, ready.argv);
   if (named !== null && 'problem' in named) {
     say(named.problem);
@@ -631,10 +652,12 @@ async function reproduce(spec: Case, dir: string, fake: Fake): Promise<string[]>
     let further: { code: number | null; stdout: string };
     if (ready.inProcess === true) further = await main(argv, { cwd: ready.cwd, env: { ...GIT_ENV } });
     else further = await go(argv, ready.follow?.env ?? {}, false, ready.follow?.cwd);
-    const gets = further.code !== 2 && !further.stdout.includes('error[usage]');
+    const expected = ready.leads ?? ready.argv[0];
+    if (argv[0] !== expected && !(expected === '--help' && argv[0] === '--help')) say(`the line "${next}" names lawcheck ${argv[0]}, and the spec leads this case to ${expected}`);
+    const gets = leadsTo(argv, further) === null;
     const stuck = pending !== undefined && pending.command === text;
     if (stuck) matched = true;
-    if (!stuck && !gets) say(`"${next}" does not get further: ${text} ends\n${further.stdout}`);
+    if (!stuck && !gets) say(`"${next}" does not get further: ${text}: ${leadsTo(argv, further)}\n${further.stdout}`);
     if (stuck && gets) say(`pending as ${pending.finding} and now gets further: ${text}; take it out of the list`);
   }
   if (!matched) say(`the pending entry names "${pending!.command}", which the next line "${next}" does not name`);
@@ -742,6 +765,7 @@ test('check-slice §6: every pending next line names its case, code, exact comma
     const row = rows.find((r) => r.id === pending.finding);
     assert.ok(row !== undefined, `${pending.finding} is not in tests/findings.md`);
     assert.notEqual(row.state, 'closed', pending.finding);
+    assert.ok(row.test.includes(pending.case), `${pending.finding} names its test as "${row.test}", which does not hold the case "${pending.case}"`);
     assert.ok(CASES.some((c) => c.id === pending.case && c.code === pending.code), `${pending.case} with the code ${pending.code}`);
   }
   assert.equal(new Set(PENDING.map((p) => p.case)).size, PENDING.length);
