@@ -1,39 +1,13 @@
 import { test } from 'node:test';
+import { example } from '../harness/examples.ts';
 import assert from 'node:assert/strict';
 import { cpSync } from 'node:fs';
 import { join } from 'node:path';
 import { append, check, findingLines, git, inTemp, LANGUAGES_SAMPLE, lawcheck } from './helpers.ts';
 
-const FINDINGS = [
-  ".lawcheck/law.yaml:4  warning[uses-not-read]  1 file of type domain is not read for uses: 1 .json",
-  "c/domain/order.c:1  error[forbidden-use]  domain may not use app (c/app/service.h); its may_use is [domain]",
-  "cpp/domain/order.cpp:1  error[forbidden-use]  domain may not use app (cpp/app/service.hpp); its may_use is [domain]",
-  "cs/domain/Order.cs:5  error[forbidden-use]  domain may not use app (cs/app/Service.cs); its may_use is [domain]",
-  "go/domain/order.go:3  error[forbidden-use]  domain may not use app (go/app/service.go); its may_use is [domain]",
-  "java/src/main/java/com/acme/domain/Order.java:3  error[forbidden-use]  domain may not use app (java/src/main/java/com/acme/app/Service.java); its may_use is [domain]",
-  "js/domain/total.js:1  error[forbidden-use]  domain may not use app (js/app/tax.js); its may_use is [domain]",
-  "kotlin/src/main/kotlin/com/acme/k/domain/Order.kt:3  error[forbidden-use]  domain may not use app (kotlin/src/main/kotlin/com/acme/k/app/Service.kt); its may_use is [domain]",
-  "php/src/domain/Order.php:4  error[forbidden-use]  domain may not use app (php/src/app/Service.php); its may_use is [domain]",
-  "py/shop/domain/order.py:1  error[forbidden-use]  domain may not use app (py/shop/app/service.py); its may_use is [domain]",
-  "ruby/domain/order.rb:1  error[forbidden-use]  domain may not use app (ruby/app/service.rb); its may_use is [domain]",
-  "ruby/domain/order.rb:6  error[forbidden-use]  domain may not use app (ruby/app/service.rb); its may_use is [domain]",
-  "rust/src/domain/mod.rs:1  error[forbidden-use]  domain may not use app (rust/src/app/mod.rs); its may_use is [domain]",
-  "ts/domain/order.ts:1  error[forbidden-use]  domain may not use app (ts/app/service.ts); its may_use is [domain]",
-  "ts/domain/widget.tsx:1  error[forbidden-use]  domain may not use app (ts/app/service.ts); its may_use is [domain]",
-  "vue/domain/Card.vue:3  error[forbidden-use]  domain may not use app (ts/app/service.ts); its may_use is [domain]",
-];
+const FINDINGS = example('dependency-l-findings').split('\n');
 
-const UNRESOLVED = [
-  "c/domain/order.c:2  none  config.h",
-  "c/domain/order.c:3  none  <stdio.h>",
-  "cs/app/Service.cs:3  ambiguous  Shop.App.Service+Clock  [cs/app/Clock.cs, cs/legacy/Clock.cs]",
-  "java/src/main/java/com/acme/domain/Order.java:4  none unfollowed  com.acme.app.ServiceProto",
-  "py/shop/domain/order.py:2  none unfollowed  .rules.limit",
-  "py/shop/domain/order.py:3  none unfollowed  .gen_pb2",
-  "py/shop/domain/order.py:3  none unfollowed  .gen_pb2.OrderProto",
-  "ruby/domain/order.rb:2  none  ../gen/schema",
-  "rust/src/domain/mod.rs:2  none unfollowed  crate::gen::Table",
-];
+const UNRESOLVED = example('dependency-l-unresolved').split('\n');
 
 function unresolvedLine(u: any): string {
   const answer = u.reason === null ? u.answer : `${u.answer} ${u.reason}`;

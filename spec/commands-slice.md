@@ -79,6 +79,7 @@ None of them resolves a base, reads a verdict it does not report, or writes a fi
 
 `.lawcheck/law.yaml`, with `0.1.0` standing for the `MAJOR.MINOR.PATCH` part of the package version:
 
+<!-- example: init-law -->
 ```yaml
 lawcheck: 0.1.0
 
@@ -101,6 +102,7 @@ lawcheck: 0.1.0
 
 `.lawcheck/.gitignore`:
 
+<!-- example: init-gitignore -->
 ```
 .local/
 config.local.yaml
@@ -108,6 +110,7 @@ config.local.yaml
 
 **Output.** Exit 0:
 
+<!-- example: init-output -->
 ```
 lawcheck: created .lawcheck/law.yaml and .lawcheck/.gitignore
 
@@ -249,6 +252,7 @@ With `--times` above 1 the counts are `<a> answers for <n> files: <x> fail, <y> 
 
 **Examples.** In S, `lawcheck try no-console` exits 1:
 
+<!-- example: try-script -->
 ```
 lawcheck: try no-console (script rule, enforced)  1 finding in 1 of 2 files
 
@@ -258,6 +262,7 @@ src/core/price.ts:2  error[no-console]  writes to the terminal with console.log
 
 In R with F added and the fake reviewer of slice two, `lawcheck try clear-errors src/core/refund.ts` exits 1. The fake fails lines 2 and 4, and the waiver on line 3 drops line 4:
 
+<!-- example: try-reviewer -->
 ```
 lawcheck: try clear-errors (reviewer rule, enforced)  1 finding in 1 of 1 file, 1 waived, 1 reviewer call
 
@@ -267,6 +272,7 @@ src/core/refund.ts:2  error[clear-errors]  the message says neither what happene
 
 The same with `--times 2` exits 1:
 
+<!-- example: try-times -->
 ```
 lawcheck: try clear-errors (reviewer rule, enforced)  2 answers for 1 file: 2 fail, 0 pass, 2 waived, 2 reviewer calls
 
@@ -279,6 +285,7 @@ src/core/refund.ts:2  error[clear-errors]  the message says neither what happene
 
 The same with `--dry-run --times 3` exits 0:
 
+<!-- example: try-dry-run -->
 ```
 lawcheck: try clear-errors (reviewer rule, enforced)  dry run: 3 reviewer calls, none made
 
@@ -344,6 +351,7 @@ When the stop is at the root level, there is no type yet: the `type:` line is `d
 
 **Examples.** In S, `lawcheck explain src/core/price.ts`, and the same as `lawcheck explain price.ts` in `src/core`:
 
+<!-- example: explain-price -->
 ```
 src/core/price.ts
   type:  library  (source > library)  Code the commands call.
@@ -357,6 +365,7 @@ src/core/price.ts
 
 `lawcheck explain tools/release.mjs`:
 
+<!-- example: explain-release -->
 ```
 tools/release.mjs
   type:  script  (script)  Executable helpers.
@@ -369,6 +378,7 @@ tools/release.mjs
 
 `lawcheck explain tools/build.mjs`, a file that does not exist:
 
+<!-- example: explain-build -->
 ```
 tools/build.mjs  (does not exist yet)
   type:  depends on its text: script if its text matches "^#!"; otherwise none
@@ -376,6 +386,7 @@ tools/build.mjs  (does not exist yet)
 
 In R with F added, `lawcheck explain src/core/refund.ts`:
 
+<!-- example: explain-refund -->
 ```
 src/core/refund.ts
   type:  library  (source > library)  Code the commands call.
@@ -395,6 +406,7 @@ In U, `lawcheck explain src/core/price.ts` prints `  may use:  library  (from so
 
 Every file of slice one's section 2 below it is typed; slice one's `file-unreadable` and `type-overlap` stop the run with exit 2. The first line is the directory with a trailing `/` (`./` for the root) and its file count; then one line per type that is the type of at least one of them, in the law's depth-first order, and `no type` last, each with its count. In S, `lawcheck explain src`:
 
+<!-- example: explain-src -->
 ```
 src/  3 files
   library  2 files
@@ -405,6 +417,7 @@ src/  3 files
 
 Both type every file, as a directory does. `lawcheck explain --type source` in S:
 
+<!-- example: explain-type-source -->
 ```
 type source  (source)  Everything that ships.
   paths:  src/**/*.ts, !src/**/*.d.ts
@@ -422,6 +435,7 @@ A `content:  <expression>` line follows `paths` when the type has one; `subtypes
 
 `lawcheck explain --rule no-todo` in S:
 
+<!-- example: explain-rule-no-todo -->
 ```
 rule no-todo  script  advisory
   why:  A TODO without an issue number gets forgotten.

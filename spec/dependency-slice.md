@@ -394,6 +394,7 @@ import { charge } from "../../ts/app/service";
 
 In a new git repository holding L in one commit on `main`, with no remote, `lawcheck check` judges every file. Measured with the throwaway script of section 3.4, its first line is `lawcheck: FAIL  15 errors, 1 warning in 36 files (no base: every file counts as changed), 9 unresolved uses`, and its findings are exactly these 16:
 
+<!-- example: dependency-l-findings -->
 ```
 .lawcheck/law.yaml:4  warning[uses-not-read]  1 file of type domain is not read for uses: 1 .json
 c/domain/order.c:1  error[forbidden-use]  domain may not use app (c/app/service.h); its may_use is [domain]
@@ -415,6 +416,7 @@ vue/domain/Card.vue:3  error[forbidden-use]  domain may not use app (ts/app/serv
 
 Its 9 unresolved uses, as `<file>:<line>  <answer>[ <reason>]  <what>[  [<candidates>]]`:
 
+<!-- example: dependency-l-unresolved -->
 ```
 c/domain/order.c:2  none  config.h
 c/domain/order.c:3  none  <stdio.h>
