@@ -1,4 +1,5 @@
 import { rmSync } from 'node:fs';
+import { killTree } from './programs.js';
 
 const pids = new Set<number>();
 const groups = new Set<number>();
@@ -32,12 +33,6 @@ process.stdin.on('close', () => {
       // The runner has already ended.
     }
   }
-  for (const pid of groups) {
-    try {
-      process.kill(-pid, 'SIGKILL');
-    } catch {
-      // The group has already ended.
-    }
-  }
+  for (const pid of groups) killTree(pid, 'SIGKILL');
   for (const folder of folders) rmSync(folder, { recursive: true, force: true });
 });

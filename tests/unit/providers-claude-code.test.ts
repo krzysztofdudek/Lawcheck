@@ -4,7 +4,7 @@ import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DEFAULT_CONFIG } from '../../dist/config.js';
-import { claudeArguments, claudeCode, findOnPath, readOutput } from '../../dist/providers/claude-code.js';
+import { claudeArguments, claudeCode, readOutput } from '../../dist/providers/claude-code.js';
 
 test('the arguments, with --model only when a model is set', () => {
   const tail = ['--tools', '', '--disable-slash-commands', '--setting-sources', '', '--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}', '--no-session-persistence'];
@@ -27,12 +27,14 @@ test('the output: the envelope, raw text, and the failures', () => {
 test('claude is looked up on PATH', () => {
   const dir = mkdtempSync(join(tmpdir(), 'lawcheck-path-'));
   try {
-    writeFileSync(join(dir, 'claude'), '#!/bin/sh\n');
-    assert.equal(findOnPath('claude', `/nonexistent:${dir}`), null);
-    chmodSync(join(dir, 'claude'), 0o755);
-    assert.equal(findOnPath('claude', `/nonexistent::${dir}`), join(dir, 'claude'));
+    const name = process.platform === 'win32' ? 'claude.cmd' : 'claude';
+    writeFileSync(join(dir, name), '#!/bin/sh\n');
+    if (process.platform !== 'win32') {
+      assert.match(claudeCode({ ...DEFAULT_CONFIG, provider: 'claude-code' }, { PATH: dir }).ready()!, /not on PATH/);
+      chmodSync(join(dir, name), 0o755);
+    }
     assert.equal(claudeCode({ ...DEFAULT_CONFIG, provider: 'claude-code' }, { PATH: dir }).ready(), null);
-    assert.match(claudeCode({ ...DEFAULT_CONFIG, provider: 'claude-code' }, { PATH: '/nonexistent' }).ready()!, /not on PATH/);
+    assert.match(claudeCode({ ...DEFAULT_CONFIG, provider: 'claude-code' }, { PATH: join(dir, 'nonexistent') }).ready()!, /not on PATH/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

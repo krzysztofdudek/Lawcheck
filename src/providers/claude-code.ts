@@ -1,9 +1,10 @@
-import { spawn } from 'node:child_process';
-import { accessSync, constants, mkdtempSync, statSync } from 'node:fs';
+import type { ChildProcessWithoutNullStreams } from 'node:child_process';
+import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { delimiter, join } from 'node:path';
+import { join } from 'node:path';
 import type { ReviewerConfig } from '../config.js';
 import { killGroup, releaseFolder, releaseGroup, watchFolder, watchGroup } from '../rules.js';
+import { findProgram, startProgram } from '../programs.js';
 import type { Asked, Env, Provider } from './index.js';
 
 const KILL_AFTER_MS = 5000;
@@ -25,21 +26,6 @@ export function claudeArguments(model: string | null): string[] {
     '{"mcpServers":{}}',
     '--no-session-persistence',
   ];
-}
-
-export function findOnPath(name: string, path: string | undefined): string | null {
-  for (const dir of (path ?? '').split(delimiter)) {
-    if (dir === '') continue;
-    const candidate = join(dir, name);
-    try {
-      if (!statSync(candidate).isFile()) continue;
-      accessSync(candidate, constants.X_OK);
-      return candidate;
-    } catch {
-      continue;
-    }
-  }
-  return null;
 }
 
 function lastLine(text: string): string | null {
@@ -68,11 +54,11 @@ export function claudeCode(config: ReviewerConfig, env: Env): Provider {
   let program: string | null = null;
   return {
     ready() {
-      program = findOnPath('claude', env.PATH);
+      program = findProgram('claude', env);
       return program === null ? 'the program claude is not on PATH' : null;
     },
     ask(prompt) {
-      const binary = program ?? findOnPath('claude', env.PATH);
+      const binary = program ?? findProgram('claude', env);
       if (binary === null) return Promise.resolve({ failure: 'the program claude is not on PATH', resend: false });
       return run(binary, claudeArguments(config.model), prompt, env, config.timeout * 1000);
     },
@@ -95,7 +81,7 @@ function run(binary: string, args: string[], prompt: string, env: Env, timeoutMs
     let killTimer: NodeJS.Timeout | undefined;
     let graceTimer: NodeJS.Timeout | undefined;
 
-    const child = spawn(binary, args, { cwd: dir, env, detached: true, stdio: ['pipe', 'pipe', 'pipe'] });
+    const child = startProgram(binary, args, { cwd: dir, env, detached: true, stdio: ['pipe', 'pipe', 'pipe'] }) as ChildProcessWithoutNullStreams;
     const pid = child.pid;
     if (pid !== undefined) watchGroup(pid);
 

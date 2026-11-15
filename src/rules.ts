@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname } from 'node:path';
 import { realpathSync, rmSync } from 'node:fs';
 import type { TypeDef } from './law.js';
+import { killTree } from './programs.js';
 
 export interface RuleFile {
   path: string;
@@ -41,12 +42,7 @@ function watch(child: ChildProcess): void {
 }
 
 export function killGroup(pid: number, signal: NodeJS.Signals): boolean {
-  try {
-    process.kill(-pid, signal);
-    return true;
-  } catch {
-    return false;
-  }
+  return killTree(pid, signal);
 }
 
 export function watchGroup(pid: number): void {
