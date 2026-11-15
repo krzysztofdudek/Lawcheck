@@ -59,7 +59,7 @@ export function watchFolder(path: string): void {
 }
 
 export function releaseFolder(path: string): void {
-  rmSync(path, { recursive: true, force: true });
+  rmSync(path, { recursive: true, force: true, maxRetries: 10 });
   if (liveFolders.delete(path)) guard?.stdin?.write(`-d${path}\n`);
 }
 
@@ -76,7 +76,7 @@ function release(child: ChildProcess): void {
 process.on('exit', () => {
   for (const child of live) child.kill('SIGKILL');
   for (const pid of liveGroups) killGroup(pid, 'SIGKILL');
-  for (const path of liveFolders) rmSync(path, { recursive: true, force: true });
+  for (const path of liveFolders) rmSync(path, { recursive: true, force: true, maxRetries: 10 });
 });
 
 export interface RawFinding {

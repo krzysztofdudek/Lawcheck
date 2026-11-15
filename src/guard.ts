@@ -34,5 +34,5 @@ process.stdin.on('close', () => {
     }
   }
   for (const pid of groups) killTree(pid, 'SIGKILL');
-  for (const folder of folders) rmSync(folder, { recursive: true, force: true });
+  for (const folder of folders) rmSync(folder, { recursive: true, force: true, maxRetries: 10 });
 });
