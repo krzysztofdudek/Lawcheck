@@ -27,6 +27,19 @@ reviewer:
   provider: codex
 ```
 
+An Ollama server on another machine, with a model it has pulled:
+
+```yaml
+reviewer:
+  provider: ollama
+  model: your-model-id
+```
+
+```text
+$ export LAWCHECK_REVIEWER_ENDPOINT=http://gpu-box:11434
+$ lawcheck doctor --reviewer
+```
+
 ## Over HTTP
 
 `LAWCHECK_REVIEWER_ENDPOINT` replaces the address of all five. Each request carries the prompt as one user message and the temperature.
@@ -38,12 +51,12 @@ reviewer:
 
 ## The programs
 
-Lawcheck finds the program on `PATH` and starts it with no shell, in a new empty folder that it removes afterwards. The prompt goes to its standard input. It passes `--model` only when `model` is set; without it the program runs its own default. An exit other than 0 is a failure, with the last line of standard error as its message.
+Lawcheck finds the program on `PATH` and starts it with no shell, in a new empty folder that it removes afterwards. The prompt goes to its standard input. It passes `--model` only when `model` is set; without it the program runs its own default. An exit other than 0 is a failure, with the last line of standard error as its message. The program gets your environment without `LAWCHECK_REVIEWER_ENDPOINT`, `LAWCHECK_REVIEWER_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` and `GOOGLE_API_KEY`, so it signs in its own way.
 
 - `claude-code` runs `claude --print --output-format json` with no tools, no slash commands, no settings files, no MCP servers and no saved session.
-- `codex` runs `codex exec` in a read-only sandbox, with no saved session and no rules files, and with its shell, image, sub-agent, goal, hook, plugin, app and web search tools off. It reads your `~/.codex/config.toml`, so it calls the model provider set there, and the MCP servers that file names still start.
+- `codex` runs `codex exec` in a read-only sandbox, with no saved session and no rules files, and with its shell, image, sub-agent, goal, hook, plugin, app and web search tools off. It reads your `~/.codex/config.toml`, so it calls the model provider set there. Lawcheck asks `codex mcp list --json` once a run and switches off each MCP server for the call. A server whose name holds a dot cannot be switched off that way, so Lawcheck refuses to call codex while one is on.
 - `gemini-cli` runs `gemini` with text output, in plan mode, with no extensions, no MCP server and a policy that denies every tool, written to a second temporary folder.
-- `copilot-cli` runs `copilot --silent` with no questions, no custom instructions, no built-in MCP servers and no shell, file writes, addresses or memory. It reads its own configuration under `~/.copilot`, so the MCP servers named there start and each call stays in its session history. A `copilot` inside the folder of the VS Code Copilot extension is passed over: it only offers to install the CLI.
+- `copilot-cli` runs `copilot --silent` with no questions, no custom instructions, no tools, no MCP server and no access to the temporary folder. It reads its own configuration under `~/.copilot`, where its sign-in may live; Lawcheck asks `copilot mcp list --json` once a run and switches off each server it names. Each call stays in its session history. A `copilot` inside the folder of the VS Code Copilot extension is passed over: it only offers to install the CLI.
 
 ## Where a key goes
 
@@ -54,6 +67,8 @@ A key goes only to the address it was given for:
 - `openai-compatible` never reads `OPENAI_API_KEY`, and `ollama` reads no key.
 
 An empty variable counts as absent. Requests follow no redirect, so no key reaches the address a redirect names. A key in `.lawcheck/config.yaml` is `config-invalid`.
+
+A verdict is recorded for the content and the rule alone, not for the provider or the model. A new provider keeps every verdict the old one gave, so `lawcheck doctor --reviewer` is how you check a new setup.
 
 ## What leaves the machine
 
@@ -87,4 +102,4 @@ $ lawcheck doctor
 $ lawcheck doctor --reviewer
 ```
 
-`doctor` says whether the provider can be called, without calling it. `--reviewer` sends one small test request, outside every cap, and says whether it answered with a verdict.
+`doctor` says whether the provider can be called, without asking it for a review; for `ollama` it asks the server for its version and names the address it reached. `--reviewer` sends one small test request, outside every cap, and says whether it answered with a verdict. Each failure ends with a `next:` line that names what to set or start.

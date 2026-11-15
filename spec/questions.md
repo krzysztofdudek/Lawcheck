@@ -478,7 +478,7 @@ Choice: `openai`, `google`, `ollama`, `codex`, `gemini-cli` and `copilot-cli` ar
 
 `claude-code` runs with `--setting-sources ""` and an empty MCP configuration, and its route to another endpoint comes from the environment. For `codex` the route to another endpoint is a model provider in `~/.codex/config.toml`; for `copilot` the sign-in can sit in its own folder under `~/.copilot` when no keychain holds it. `codex exec --ignore-user-config` and an empty `COPILOT_HOME` would leave out the MCP servers those files name, and with them every endpoint but the vendor's own. On codex 0.169.0, `--ignore-user-config` sent the call to the vendor's service even with `OPENAI_BASE_URL` set, and `-c mcp_servers={}` did not stop a server the file names from starting.
 
-Open: which the owner wants. Built: the user's configuration is read and the MCP servers it names start, as decision 22 of the slice and `docs/providers.md` say. The other option is to leave it out and review through the vendor's service alone.
+Choice, after a review: the configuration is read, and each server it names is switched off for the call by name, from `codex mcp list --json` and `copilot mcp list --json`, with `-c mcp_servers.<name>.enabled=false` and `--disable-mcp-server <name>`. A local fake of the vendors' APIs that recorded the offered tools, and a server that left a mark when it started, showed on codex 0.169.0 and Copilot CLI 1.0.111: no server starts; `copilot` with `--available-tools=lawcheck-offers-no-tool` offers no tool (with `--deny-tool` it still offered 21); `codex` offers one, `request_user_input`, which no switch removes. A `codex` server whose name holds a dot cannot be switched off, because `-c` splits its key at every dot, quotes included, so such a name stops the call with a message that names it. Decision 22 of the slice.
 
 ## 75. A key that the endpoint echoes
 
@@ -501,3 +501,19 @@ Choice: `model` is optional for `copilot-cli`, as for the other programs.
 ## 78. The numbers of the new tests
 
 The rows of the six providers are tests 184 to 194 in section 11 of `spec/reviewer-slice.md`, the next numbers after the plugin slice's 183.
+
+## 79. The `next:` of a reviewer that cannot be called
+
+Entry 18 gave `make <provider> reachable as the error says, then run <review>`, entry 41 the same under `doctor`, and a failed review `run the same command again`. A newcomer could not tell from them which key, address, program or model to change.
+
+Choice, after a review: every failure carries a fix, the table in section 6 of `spec/reviewer-slice.md` holds them, and `next:` starts with it. A connection that gave no answer is a sentence that names the address, in place of `the connection to the reviewer gave no answer (<cause>)`; test 92 changes with it.
+
+## 80. The variables a program gets
+
+`claude-code` passed every variable of Lawcheck's environment to `claude`, and the six new providers did the same, so `LAWCHECK_REVIEWER_KEY` and the vendors' keys reached `codex`, `gemini` and `copilot` and the MCP servers they start.
+
+Choice, after a review: the four programs get the environment without `LAWCHECK_REVIEWER_ENDPOINT`, `LAWCHECK_REVIEWER_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` and `GOOGLE_API_KEY`. What it costs: a `claude` signed in only through `ANTHROPIC_API_KEY`, or a `gemini` signed in only through `GOOGLE_API_KEY`, no longer answers under Lawcheck; it needs its own sign-in, or `anthropic` or `google` as the provider. Decision 25 of the slice.
+
+## 81. Numbers that belong to the table of limits
+
+The fixes of a review set three numbers: 4 MiB for a reviewer's reply or output, 64 KiB of a program's standard error kept for its last line, and 256 characters for `reviewer.model`. They live in `src/providers/http.ts`, `src/providers/program.ts` and `src/config.ts` until the table of limits exists, which should take them.

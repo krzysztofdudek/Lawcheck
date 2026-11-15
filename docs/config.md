@@ -15,7 +15,7 @@ The file is a mapping with two keys, `reviewer` and `runner`. An empty file, or 
 | Key | Value | Default |
 |---|---|---|
 | `provider` | `anthropic`, `openai`, `google`, `openai-compatible`, `ollama`, `claude-code`, `codex`, `gemini-cli` or `copilot-cli` (`lawcheck docs providers`) | none: no reviewer |
-| `model` | a non-empty string without a line break | required for the five HTTP providers; none for `claude-code`, `codex`, `gemini-cli` and `copilot-cli`, which then run their own default |
+| `model` | a non-empty string of at most 256 characters with no control character | required for the five HTTP providers; none for `claude-code`, `codex`, `gemini-cli` and `copilot-cli`, which then run their own default |
 | `timeout` | an integer of seconds, from 1 to 86400 | 60; 300 for `ollama` and the four programs |
 | `temperature` | a number, at least 0 | 0; the four programs take none |
 | `max_chars` | an integer, at least 1: the largest prompt sent, in characters | 50000 |
