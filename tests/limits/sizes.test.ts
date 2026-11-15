@@ -57,7 +57,7 @@ test('test 232: a text file of exactly 16 MiB is judged, and one byte more is fi
   await withSample(async (s) => {
     const edge = 'src/core/edge.ts';
     sparse(s, edge, textHead('console.log(1);\n'), 16 * MiB);
-    const at = await run(s, ['check', '--base', 'main'], { budgetMs: 60_000 });
+    const at = await run(s, ['check', '--base', 'main'], { budget: 'LIMITS_RUN_MS' });
     assert.deepEqual(errorLines(at.stdout), [`${edge}:1  error[no-console]  writes to the terminal with console.log`]);
     assert.equal(at.stderr, '');
     assert.equal(at.code, 1);
@@ -76,18 +76,18 @@ test('test 233: the files of a run may hold 128 MiB of text together, and the fi
     git(repo, 'add', '-A');
     git(repo, 'commit', '-q', '-m', 'law');
     for (let i = 1; i <= 8; i++) sparse(repo, `big/t${i}.ts`, textHead(''), 16 * MiB);
-    const at = await run(repo, ['check', '--base', 'main'], { budgetMs: 120_000 });
+    const at = await run(repo, ['check', '--base', 'main'], { budget: 'LIMITS_RUN_MS' });
     assert.equal(at.stdout, 'lawcheck: PASS  8 changed files (against main)\n');
     assert.equal(at.code, 0);
     write(repo, 'big/z.ts', 'x');
-    const beyond = await run(repo, ['check', '--base', 'main'], { budgetMs: 120_000 });
+    const beyond = await run(repo, ['check', '--base', 'main'], { budget: 'LIMITS_RUN_MS' });
     assert.equal(
       beyond.stdout,
       [
         'lawcheck: ERROR  1 error',
         '',
         'big/z.ts  error[text-too-large]  the text of the files read in this run reaches 134,217,729 bytes with this file, more than the 128 MiB one run may read',
-        '  why:  a run holds the text it reads in memory, so all of it together may hold only so much',
+        '  why:  a run holds the text it reads in memory, so all of it may hold only so much',
         '',
         'next: narrow the paths of the types in .lawcheck/law.yaml, so that the files they match hold at most 128 MiB of text, then run lawcheck check',
         '',
@@ -127,7 +127,7 @@ async function withLaw(law: string, rules: number, body: (repo: string) => Promi
 
 test('test 254: a law may hold 10,000 rules, 1,000 types and 1 MiB, and past each it is file-too-large', async () => {
   await withLaw(lawOf(10_000, 1_000), 10_000, async (repo) => {
-    const at = await run(repo, ['check'], { budgetMs: 120_000 });
+    const at = await run(repo, ['check'], { budget: 'LIMITS_RUN_MS' });
     assert.equal(at.stdout, 'lawcheck: PASS  10001 files (no base: every file counts as changed)\n');
     assert.equal(at.code, 0);
   });
@@ -138,7 +138,7 @@ test('test 254: a law may hold 10,000 rules, 1,000 types and 1 MiB, and past eac
   ];
   for (const [law, rules, line] of cases) {
     await withLaw(law, rules, async (repo) => {
-      const beyond = await run(repo, ['check'], { budgetMs: 120_000 });
+      const beyond = await run(repo, ['check'], { budget: 'LIMITS_RUN_MS' });
       assert.deepEqual(errorLines(beyond.stdout), [line]);
       assert.equal(beyond.code, 2);
     });
@@ -168,7 +168,7 @@ test('test 262: a text file may hold 1,048,576 lines, and one more line is file-
   await withSample(async (s) => {
     const lines = 'src/core/lines.ts';
     write(s, lines, `console.log(1);\n${'\n'.repeat(1_048_575)}`);
-    const at = await run(s, ['check', '--base', 'main'], { budgetMs: 60_000 });
+    const at = await run(s, ['check', '--base', 'main'], { budget: 'LIMITS_RUN_MS' });
     assert.deepEqual(errorLines(at.stdout), [`${lines}:1  error[no-console]  writes to the terminal with console.log`]);
     assert.equal(at.code, 1);
     write(s, lines, `console.log(1);\n${'\n'.repeat(1_048_576)}`);
@@ -184,10 +184,10 @@ test('test 263: a file whose uses are read may hold 512 KiB, even of the costlie
     async (s) => {
       const big = 'src/core/big.ts';
       write(s, big, "'".repeat(512 * 1024));
-      const at = await run(s, ['check', '--base', 'main'], { budgetMs: 120_000 });
+      const at = await run(s, ['check', '--base', 'main'], { budget: 'LIMITS_RUN_MS' });
       assert.equal(at.code, 0, at.stdout);
       write(s, big, "'".repeat(512 * 1024 + 1));
-      const beyond = await run(s, ['check', '--base', 'main'], { budgetMs: 120_000 });
+      const beyond = await run(s, ['check', '--base', 'main'], { budget: 'LIMITS_RUN_MS' });
       assert.deepEqual(errorLines(beyond.stdout), [`${big}  error[file-too-large]  the file holds 524,289 bytes, more than the 512 KiB a file whose uses are read may hold`]);
       assert.equal(beyond.code, 2);
     },

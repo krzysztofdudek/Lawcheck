@@ -12,6 +12,9 @@ export const COMMIT_GROUPS: Record<string, string[]> = {
   gate: ['gate'],
 };
 
+// The folders whose nightly files run one at a time.
+export const SERIAL_DIRS = ['limits'];
+
 export const NIGHTLY_GROUPS: Record<string, string[]> = {
   properties: ['properties'],
   security: ['security'],
@@ -29,7 +32,7 @@ export const NIGHTLY_GROUPS: Record<string, string[]> = {
 // The groups that have no test file yet, by set; a group not named here that finds none fails, and a contract test fails when one named here holds tests.
 export const EMPTY_GROUPS: Record<'commit' | 'nightly', string[]> = {
   commit: ['gate'],
-  nightly: ['security', 'limits', 'docs', 'sabotage', 'corpus', 'coverage', 'live', 'mutants'],
+  nightly: ['security', 'docs', 'sabotage', 'corpus', 'coverage', 'live', 'mutants'],
 };
 
 // Folders under tests/ that hold repositories, inputs and recorded results for the tests, never tests of their own.

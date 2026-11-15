@@ -1,39 +1,24 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import type { ChildProcess } from 'node:child_process';
 import { chmodSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { join } from 'node:path';
-import { alive, CLI, F, F_PATH, GIT_ENV, LAW, pathWith, programDir, setRule, withR, withSample, write } from '../acceptance/helpers.ts';
+import { alive, F, F_PATH, LAW, pathWith, programDir, setRule, startLawcheck, withR, withSample, write } from '../acceptance/helpers.ts';
+import { platformSkip } from '../harness/tool.ts';
+import type { Expect, Running } from '../harness/tool.ts';
+import { LIMITS_STOPPED_MS } from '../numbers.ts';
+import { run } from './support.ts';
 
 const SIGNALS = ['SIGINT', 'SIGTERM', 'SIGHUP'] as const;
-const WINDOWS = 'every signal ends a process on Windows at once, so the tool cannot answer it with its own exit code';
-const skip = process.platform === 'win32' ? WINDOWS : false;
-
-const STOPPED_WITHIN_MS = 2000;
 
 function stoppedBy(signal: string): string {
   return ['lawcheck: ERROR  1 error', '', `error[stopped]  stopped by ${signal}`, '  why:  a run stopped before its end says nothing about the code', '', 'next: run lawcheck check again and let it end', ''].join('\n');
 }
 
-interface Started {
-  child: ChildProcess;
-  stdout(): string;
-  stderr(): string;
-  closed: Promise<number | null>;
-}
-
-function start(cwd: string, args: string[], env: NodeJS.ProcessEnv = {}): Started {
-  const child = spawn(process.execPath, [CLI, ...args], { cwd, env: { ...GIT_ENV, ...env }, stdio: ['ignore', 'pipe', 'pipe'] });
-  let out = '';
-  let err = '';
-  child.stdout!.setEncoding('utf8').on('data', (chunk: string) => (out += chunk));
-  child.stderr!.setEncoding('utf8').on('data', (chunk: string) => (err += chunk));
-  const closed = new Promise<number | null>((done) => child.on('close', (code) => done(code)));
-  return { child, stdout: () => out, stderr: () => err, closed };
+function start(cwd: string, args: string[], env: NodeJS.ProcessEnv = {}, expect: Expect = {}): Running {
+  return startLawcheck(cwd, args, { ...expect, env });
 }
 
 async function until(condition: () => boolean, what: string, ms = 30_000): Promise<void> {
@@ -44,21 +29,23 @@ async function until(condition: () => boolean, what: string, ms = 30_000): Promi
   }
 }
 
-async function stop(run: Started, signal: (typeof SIGNALS)[number]): Promise<void> {
+async function stop(running: Running, signal: (typeof SIGNALS)[number]): Promise<void> {
   const sent = Date.now();
-  run.child.kill(signal);
-  const code = await run.closed;
+  running.kill(signal);
+  const result = await running.ended;
   const ms = Date.now() - sent;
   process.stdout.write(`# ${signal}: the run ended ${ms} ms after the signal\n`);
-  assert.equal(run.stdout(), stoppedBy(signal), signal);
-  assert.equal(code, 2, signal);
-  assert.ok(ms <= STOPPED_WITHIN_MS, `${signal}: ${ms} ms`);
+  assert.equal(result.stdout, stoppedBy(signal), signal);
+  assert.equal(result.code, 2, signal);
+  assert.ok(ms <= LIMITS_STOPPED_MS, `${signal}: ${ms} ms`);
 }
 
 // The content pattern backtracks exponentially on a line of a's that ends in another character, so typing the file never ends by itself.
 const HEAVY_LAW = `${LAW}  slow:\n    paths: ["slow/**"]\n    content: "^(a|a)+$"\n`;
 
-test('S1-1: test 239: a signal while files are typed against a heavy pattern ends the run as stopped', { skip }, async () => {
+test('S1-1: test 239: a signal while files are typed against a heavy pattern ends the run as stopped', async (t) => {
+  const skipped = platformSkip('the whole test');
+  if (skipped !== null) return t.skip(skipped);
   for (const signal of SIGNALS) {
     await withSample(
       async (s, dir) => {
@@ -67,25 +54,26 @@ test('S1-1: test 239: a signal while files are typed against a heavy pattern end
         write(dir, 'bin/git', `#!/bin/sh\ncase "$*" in *"ls-files -z --cached"*) : > "${mark}";; esac\nexec "${join(programDir('git'), 'git')}" "$@"\n`);
         chmodSync(join(fakeGit, 'git'), 0o755);
         write(s, 'slow/a.ts', `${'a'.repeat(80)}!\n`);
-        const run = start(s, ['check', '--base', 'main'], { PATH: pathWith(fakeGit) });
+        const running = start(s, ['check', '--base', 'main'], { PATH: pathWith(fakeGit) }, { outside: ['listed'] });
         await until(() => existsSync(mark), 'the files to be listed');
-        await stop(run, signal);
+        await stop(running, signal);
       },
       { onMain: (s) => writeFileSync(join(s, '.lawcheck/law.yaml'), HEAVY_LAW) },
     );
   }
 });
 
-test('S1-1: test 239: a signal while a rule spins ends the run as stopped, and the runner with it', { skip }, async () => {
+test('S1-1: test 239: a signal while a rule spins ends the run as stopped, and the runner with it', async (t) => {
+  const skipped = platformSkip('the whole test');
+  if (skipped !== null) return t.skip(skipped);
   const spin = "export function check() { console.error('runner ' + process.pid); while (true) {} }\n";
   for (const signal of SIGNALS) {
     await withSample(
       async (s) => {
         write(s, 'src/core/discount.ts', 'export const d = 1;\n');
-        const run = start(s, ['check', '--base', 'main']);
-        await until(() => /^runner \d+$/m.test(run.stderr()), 'the runner to start');
-        const pid = Number(/^runner (\d+)$/m.exec(run.stderr())![1]);
-        await stop(run, signal);
+        const running = start(s, ['check', '--base', 'main'], {}, { stderr: /^runner \d+\n$/ });
+        const pid = Number((await running.output(/^runner (\d+)$/m, 'stderr'))[1]);
+        await stop(running, signal);
         await until(() => !alive(pid), `runner ${pid} to end`, 5000);
       },
       { onMain: (s) => setRule(s, 'no-console', spin) },
@@ -94,7 +82,9 @@ test('S1-1: test 239: a signal while a rule spins ends the run as stopped, and t
 });
 
 // The fake sends the first half of an answer of one megabyte and holds the rest, so the signal always comes while the answer is read.
-test('S3-3: test 239: a signal while a one-megabyte answer is read ends the run as stopped', { skip }, async () => {
+test('S3-3: test 239: a signal while a one-megabyte answer is read ends the run as stopped', async (t) => {
+  const skipped = platformSkip('the whole test');
+  if (skipped !== null) return t.skip(skipped);
   const body = JSON.stringify({ choices: [{ message: { role: 'assistant', content: `${'{'.repeat(1_000_000)}{"verdict":"pass","findings":[]}` } }] });
   for (const signal of SIGNALS) {
     let halfSent = false;
@@ -112,9 +102,9 @@ test('S3-3: test 239: a signal while a one-megabyte answer is read ends the run 
       await withR(async (r) => {
         write(r, F_PATH, F);
         const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}/v1`;
-        const run = start(r, ['check', '--review', '--base', 'main'], { LAWCHECK_REVIEWER_ENDPOINT: url });
+        const running = start(r, ['check', '--review', '--base', 'main'], { LAWCHECK_REVIEWER_ENDPOINT: url }, { stderr: /^lawcheck: 1 reviewer call to openai-compatible\n$/ });
         await until(() => halfSent, 'half of the answer to be sent');
-        await stop(run, signal);
+        await stop(running, signal);
       });
     } finally {
       for (const socket of sockets) socket.destroy();
@@ -138,23 +128,25 @@ test('test 257: the main thread loads only what answers a signal, and the comman
     const loads = join(dir, 'loads.txt');
     writeFileSync(hook, LOAD_HOOK);
     writeFileSync(loads, '');
-    const child = spawn(process.execPath, ['--import', pathToFileURL(hook).href, CLI, 'check', '--base', 'main'], { cwd: s, env: { ...GIT_ENV, LAWCHECK_TEST_LOADS: loads }, stdio: 'ignore' });
-    const code = await new Promise<number | null>((done) => child.on('close', (c) => done(c)));
-    assert.equal(code, 0);
+    const result = await run(s, ['check', '--base', 'main'], { env: { LAWCHECK_TEST_LOADS: loads }, node: ['--import', pathToFileURL(hook).href], outside: ['loads.txt'] });
+    assert.equal(result.stdout, 'lawcheck: PASS  nothing changed against main\n');
+    assert.equal(result.code, 0);
     assert.deepEqual([...new Set(readFileSync(loads, 'utf8').split('\n').filter(Boolean))].sort(), ['args.js', 'cli.js', 'keys.js', 'limits.js', 'output.js', 'programs.js', 'progress.js']);
   });
 });
 
-test('test 258: a signal while git runs ends the run as stopped within two seconds, and git with it', { skip }, async () => {
+test('test 258: a signal while git runs ends the run as stopped within two seconds, and git with it', async (t) => {
+  const skipped = platformSkip('the whole test');
+  if (skipped !== null) return t.skip(skipped);
   for (const signal of SIGNALS) {
     await withSample(async (s, dir) => {
       const pidFile = join(dir, 'git.pid');
       write(dir, 'bin/git', `#!/bin/sh\ncase "$*" in *"ls-files -z --cached"*) echo $$ > "${pidFile}"; exec sleep 30;; esac\nexec "${join(programDir('git'), 'git')}" "$@"\n`);
       chmodSync(join(dir, 'bin', 'git'), 0o755);
-      const run = start(s, ['check', '--base', 'main'], { PATH: pathWith(join(dir, 'bin')) });
+      const running = start(s, ['check', '--base', 'main'], { PATH: pathWith(join(dir, 'bin')) }, { outside: ['git.pid'] });
       await until(() => existsSync(pidFile) && readFileSync(pidFile, 'utf8').endsWith('\n'), 'git to start');
       const pid = Number(readFileSync(pidFile, 'utf8'));
-      await stop(run, signal);
+      await stop(running, signal);
       await until(() => !alive(pid), `git ${pid} to end`, 2000);
     });
   }

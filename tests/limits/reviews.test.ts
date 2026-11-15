@@ -48,7 +48,7 @@ test('S3-8: test 242: a write that fails after the calls is file-unwritable, not
     await withFake(
       async (fake) => {
         write(r, F_PATH, F);
-        const result = await run(r, REVIEW, { env: { LAWCHECK_REVIEWER_ENDPOINT: fake.url } });
+        const result = await run(r, REVIEW, { env: { LAWCHECK_REVIEWER_ENDPOINT: fake.url }, writes: [/^\.lawcheck\/\.local(\/|$)/] });
         assert.equal(result.stdout, unwritable('.lawcheck/.local', 'cannot be written (EEXIST), so the answers of the reviewer calls this run made are lost'));
         assert.equal(result.stderr, 'lawcheck: 1 reviewer call to openai-compatible\n');
         assert.equal(result.code, 2);
@@ -135,7 +135,7 @@ test('test 261: a lock left by a run that ended, whose pid now names a live proc
       writeFileSync(join(lock, 'pid'), String(process.pid));
       const old = new Date(Date.now() - 60_000);
       utimesSync(lock, old, old);
-      const result = await run(r, REVIEW, { env: { LAWCHECK_REVIEWER_ENDPOINT: fake.url }, budgetMs: 30_000 });
+      const result = await run(r, REVIEW, { env: { LAWCHECK_REVIEWER_ENDPOINT: fake.url }, budget: 'LIMITS_RUN_MS', writes: [/^\.lawcheck\/\.local(\/|$)/] });
       assert.equal(result.stdout, 'lawcheck: PASS  1 changed file (against main), 1 waiver, 1 reviewer call\n');
       assert.equal(result.code, 0);
       assert.ok(result.ms < 5_000, String(result.ms));
@@ -215,7 +215,7 @@ test('test 253: two runs that write the verdicts file at once keep the lines of 
       writeFileSync(join(local, '.gitignore'), '*\n');
       writeFileSync(join(lock, 'pid'), String(process.pid));
       const before = existsSync(verdicts) ? readFileSync(verdicts, 'utf8') : '';
-      const review = run(r, REVIEW, { env: { LAWCHECK_REVIEWER_ENDPOINT: fake.url }, budgetMs: 30_000 });
+      const review = run(r, REVIEW, { env: { LAWCHECK_REVIEWER_ENDPOINT: fake.url }, budget: 'LIMITS_RUN_MS', writes: [/^\.lawcheck\/\.local(\/|$)/] });
       let ended = false;
       void review.then(() => (ended = true));
       const deadline = Date.now() + 3000;

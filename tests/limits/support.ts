@@ -3,41 +3,44 @@ import type { StdioOptions } from 'node:child_process';
 import { closeSync, ftruncateSync, mkdirSync, openSync, writeSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { CLI, GIT_ENV } from '../acceptance/helpers.ts';
+import { startTool } from '../harness/tool.ts';
+import type { Expect, Run } from '../harness/tool.ts';
+import * as NUMBERS from '../numbers.ts';
 
 export const MiB = 1024 * 1024;
 
-export interface Ran {
+export interface RunOptions extends Expect {
+  env?: NodeJS.ProcessEnv;
+  node?: string[];
+}
+
+// Through the harness, so every run is checked whole; the time a run took is printed and never asserted, so a slow system shows as a number and not as a red.
+export async function run(cwd: string, args: string[], options: RunOptions = {}): Promise<Run> {
+  const result = await startTool(cwd, args, GIT_ENV, options).ended;
+  if (options.budget !== undefined) process.stdout.write(`# ${args.join(' ')}: ${result.ms} ms of a budget of ${(NUMBERS as Record<string, unknown>)[options.budget]} ms\n`);
+  return result;
+}
+
+export interface Own {
   code: number | null;
   signal: NodeJS.Signals | null;
   stdout: string;
   stderr: string;
-  ms: number;
 }
 
-export interface RunOptions {
-  env?: NodeJS.ProcessEnv;
-  stdout?: 'pipe' | number | 'ignore';
-  budgetMs?: number;
-}
+// A start the harness cannot make: a standard output that is a file descriptor of the test, or one a shell closes. It starts the package's bin, as a user's shell does.
+export const BIN = join(dirname(CLI), 'bin.js');
 
-// The run is killed at its budget, and the time it took is printed and never asserted, so a slow system shows as a number and not as a red.
-export function run(cwd: string, args: string[], options: RunOptions = {}): Promise<Ran> {
-  const started = Date.now();
-  const stdio: StdioOptions = ['ignore', options.stdout ?? 'pipe', 'pipe'];
+export function ownStart(cwd: string, args: string[], stdout: StdioOptions[number], redirect: string | null = null): Promise<Own> {
+  const [program, words] = redirect === null ? [process.execPath, [BIN, ...args]] : ['/bin/sh', ['-c', `exec "$0" "$@" ${redirect}`, process.execPath, BIN, ...args]];
   return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [CLI, ...args], { cwd, env: { ...GIT_ENV, ...options.env }, stdio });
-    let stdout = '';
-    let stderr = '';
-    child.stdout?.setEncoding('utf8').on('data', (chunk: string) => (stdout += chunk));
-    child.stderr!.setEncoding('utf8').on('data', (chunk: string) => (stderr += chunk));
-    const timer = options.budgetMs === undefined ? undefined : setTimeout(() => child.kill('SIGKILL'), options.budgetMs);
+    const child = spawn(program, words, { cwd, env: GIT_ENV, stdio: ['ignore', stdout, 'pipe'] });
+    let out = '';
+    let err = '';
+    child.stdout?.setEncoding('utf8').on('data', (chunk: string) => (out += chunk));
+    child.stderr!.setEncoding('utf8').on('data', (chunk: string) => (err += chunk));
     child.on('error', reject);
-    child.on('close', (code, signal) => {
-      clearTimeout(timer);
-      const ms = Date.now() - started;
-      if (options.budgetMs !== undefined) process.stdout.write(`# ${args.join(' ')}: ${ms} ms of a budget of ${options.budgetMs} ms\n`);
-      resolve({ code, signal, stdout, stderr, ms });
-    });
+    child.on('close', (code, signal) => resolve({ code, signal, stdout: out, stderr: err }));
   });
 }
 

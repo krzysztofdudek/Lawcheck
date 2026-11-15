@@ -1,15 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
 import { chmodSync, closeSync, cpSync, existsSync, mkdirSync, openSync, readFileSync, rmSync, statSync, truncateSync, writeFileSync, writeSync } from 'node:fs';
 import { availableParallelism } from 'node:os';
 import { join } from 'node:path';
 import { defaultAnswer, openai, withFake } from '../acceptance/fake-reviewer.ts';
-import { alive, CLI, D, D_PATH, F_PRIME, git, GIT_ENV, inTemp, pathWith, programDir, ROOT, setRule, withR, withSample, write } from '../acceptance/helpers.ts';
+import { alive, D, D_PATH, F_PRIME, git, inTemp, pathWith, programDir, ROOT, setRule, startLawcheck, withR, withSample, write } from '../acceptance/helpers.ts';
+import { SEED } from '../numbers.ts';
 import { errorLines, MiB, run } from './support.ts';
 
 // These run nightly, on Linux, in a container of 1 GB of memory and 2 CPUs; spec/check-slice.md, section 10, holds the numbers.
-const SEED = Number(process.env.LAWCHECK_SEED ?? 20261115);
 
 function random(seed: number): () => number {
   let state = seed >>> 0;
@@ -47,7 +46,7 @@ test('test 248: 150,000 files: every one is typed and judged, and the one that b
     }
     write(s, 'src/core/d7/f7.ts', 'console.log(7);\n');
     for (const args of [['check', '--base', 'main'], ['check', '--base', 'main', '--full']]) {
-      const result = await run(s, args, { budgetMs: 300_000 });
+      const result = await run(s, args, { budget: 'LIMITS_LARGE_RUN_MS' });
       assert.equal(result.stdout.split('\n')[0], 'lawcheck: FAIL  1 error in 150000 changed files (against main)', args.join(' '));
       assert.deepEqual(errorLines(result.stdout), ['src/core/d7/f7.ts:1  error[no-console]  writes to the terminal with console.log'], args.join(' '));
       assert.equal(result.code, 1, args.join(' '));
@@ -63,7 +62,7 @@ test('test 249: 4 GiB of text across files stops at the file that passes 128 MiB
     git(repo, 'add', '-A');
     git(repo, 'commit', '-q', '-m', 'law');
     for (let i = 1; i <= 256; i++) realText(repo, `big/t${String(i).padStart(3, '0')}.ts`, 16 * MiB);
-    const result = await run(repo, ['check', '--base', 'main'], { budgetMs: 300_000 });
+    const result = await run(repo, ['check', '--base', 'main'], { budget: 'LIMITS_LARGE_RUN_MS' });
     assert.deepEqual(errorLines(result.stdout), ['big/t009.ts  error[text-too-large]  the text of the files read in this run reaches 150,994,944 bytes with this file, more than the 128 MiB one run may read']);
     assert.equal(result.code, 2);
   });
@@ -74,11 +73,11 @@ test('S1-4: S5-2: test 250: a text file of 600 MB written whole is file-too-larg
     realText(s, 'src/core/huge.ts', 600_000_000);
     const line = 'src/core/huge.ts  error[file-too-large]  the file holds 600,000,000 bytes, more than the 16 MiB a file read as text may hold';
     for (const args of [['check', '--base', 'main', '--full'], ['explain', 'src/core/huge.ts'], ['try', 'no-todo', 'src/core/tax.ts']]) {
-      const result = await run(s, args, { budgetMs: 120_000 });
+      const result = await run(s, args, { budget: 'LIMITS_RUN_MS' });
       assert.deepEqual(errorLines(result.stdout), [line], args.join(' '));
       assert.equal(result.code, 2, args.join(' '));
     }
-    const doctor = await run(s, ['doctor'], { budgetMs: 120_000 });
+    const doctor = await run(s, ['doctor'], { budget: 'LIMITS_RUN_MS' });
     assert.ok(doctor.stdout.includes('fail  types  src/core/huge.ts  the file holds 600,000,000 bytes'), doctor.stdout);
     assert.equal(doctor.code, 2);
   });
@@ -90,7 +89,7 @@ test('S2-5: test 251: 30 rules that hang end as rule-crashed, each after its 30 
     async (s) => {
       write(s, D_PATH, D);
       const bound = Math.min(Math.ceil(ids.length / availableParallelism()) * 30_000, 600_000) + 60_000;
-      const result = await run(s, ['check', '--base', 'main'], { budgetMs: bound });
+      const result = await run(s, ['check', '--base', 'main'], { budget: 'LIMITS_RULES_RUN_MS' });
       assert.deepEqual(errorLines(result.stdout), ids.map((id) => `.lawcheck/rules/${id}.mjs  error[rule-crashed]  passes 30 seconds on src/core/discount.ts`));
       assert.equal(result.code, 2);
     },
@@ -112,7 +111,7 @@ test('S2-5: test 251: rules that take 29 seconds a file are stopped when the scr
   await withSample(
     async (s) => {
       for (let i = 1; i <= 25; i++) write(s, `src/core/f${String(i).padStart(2, '0')}.ts`, 'export const f = 1;\n');
-      const result = await run(s, ['check', '--base', 'main'], { budgetMs: 700_000 });
+      const result = await run(s, ['check', '--base', 'main'], { budget: 'LIMITS_RULES_RUN_MS' });
       const cores = availableParallelism();
       const lines = errorLines(result.stdout);
       assert.equal(lines.length, ids.length, result.stdout);
@@ -152,23 +151,27 @@ function passingFiles(r: string, count: number, from = 0): void {
 }
 
 test('test 252: kill -9 at a random moment of 50 reviews leaves a verdicts file that parses, and the next run passes', async () => {
-  const next = random(SEED);
-  process.stdout.write(`# seed ${SEED}\n`);
+  const seed = Number(process.env.LAWCHECK_SEED ?? SEED);
+  const next = random(seed);
+  process.stdout.write(`# seed ${seed}\n`);
   await withFake(
     async (fake) => {
       await withR(async (r) => {
         passingFiles(r, 12);
-        const env = { ...GIT_ENV, LAWCHECK_REVIEWER_ENDPOINT: fake.url };
         for (let i = 0; i < 50; i++) {
           passingFiles(r, 1, 12 + i);
-          const child = spawn(process.execPath, [CLI, 'check', '--review', '--base', 'main'], { cwd: r, env, stdio: 'ignore' });
-          const closed = new Promise<void>((done) => child.on('close', () => done()));
+          const running = startLawcheck(r, ['check', '--review', '--base', 'main'], {
+            env: { LAWCHECK_REVIEWER_ENDPOINT: fake.url },
+            stderr: /^(lawcheck: \d+ reviewer calls? to openai-compatible\n)?$/,
+            writes: [/^\.lawcheck\//],
+          });
           const delay = Math.floor(next() * 1500);
-          setTimeout(() => child.kill('SIGKILL'), delay);
-          await closed;
+          const timer = setTimeout(() => running.kill('SIGKILL'), delay);
+          await running.ended;
+          clearTimeout(timer);
           verdictLines(r);
         }
-        const after = await run(r, ['check', '--review', '--base', 'main'], { env: { LAWCHECK_REVIEWER_ENDPOINT: fake.url }, budgetMs: 120_000 });
+        const after = await run(r, ['check', '--review', '--base', 'main'], { env: { LAWCHECK_REVIEWER_ENDPOINT: fake.url }, budget: 'LIMITS_RUN_MS' });
         assert.match(after.stdout, /^lawcheck: PASS  6[34] changed files \(against main\), 62 waivers(, \d+ reviewer calls?)?\n$/);
         assert.equal(after.code, 0);
         assert.equal(verdictLines(r).length, 62);
@@ -191,7 +194,7 @@ test('S1-1: test 255: a step that never ends, typing against a content pattern t
   await withSample(
     async (s) => {
       write(s, 'slow/a.ts', `${'a'.repeat(80)}!\n`);
-      const result = await run(s, ['check', '--base', 'main'], { budgetMs: 120_000 });
+      const result = await run(s, ['check', '--base', 'main'], { budget: 'LIMITS_RUN_MS' });
       assert.equal(result.stdout, stepTooSlow('typing slow/a.ts'));
       assert.equal(result.code, 2);
       assert.ok(result.ms >= 30_000 && result.ms < 40_000, String(result.ms));
@@ -205,7 +208,7 @@ test('test 259: a git that never answers ends as step-too-slow after 30 seconds,
     const pidFile = join(dir, 'git.pid');
     write(dir, 'bin/git', `#!/bin/sh\ncase "$*" in *"ls-files -z --cached"*) echo $$ > "${pidFile}"; exec sleep 600;; esac\nexec "${join(programDir('git'), 'git')}" "$@"\n`);
     chmodSync(join(dir, 'bin', 'git'), 0o755);
-    const result = await run(s, ['check', '--base', 'main'], { env: { PATH: pathWith(join(dir, 'bin')) }, budgetMs: 120_000 });
+    const result = await run(s, ['check', '--base', 'main'], { env: { PATH: pathWith(join(dir, 'bin')) }, budget: 'LIMITS_RUN_MS' });
     assert.equal(result.stdout, stepTooSlow('running git ls-files -z --cached --others --exclude-standard'));
     assert.equal(result.code, 2);
     assert.ok(result.ms >= 30_000 && result.ms < 40_000, String(result.ms));
@@ -244,7 +247,7 @@ test('S3-8: test 265: a review on a disk with one free page is file-unwritable, 
     git(r, 'checkout', '-q', '-b', 'work');
     write(r, 'src/core/refund.ts', 'export function refund(paid: boolean): void {\n  return;\n}\n');
     fill(1);
-    const result = await run(r, ['check', '--review', '--base', 'main'], { env: { LAWCHECK_REVIEWER_ENDPOINT: fake.url }, budgetMs: 60_000 });
+    const result = await run(r, ['check', '--review', '--base', 'main'], { env: { LAWCHECK_REVIEWER_ENDPOINT: fake.url }, budget: 'LIMITS_RUN_MS' });
     assert.match(errorLines(result.stdout).join('\n'), /^\S+  error\[file-unwritable\]  cannot be written \(ENOSPC\)/);
     assert.doesNotMatch(result.stdout, /internal/);
     assert.equal(result.code, 2);
@@ -255,7 +258,7 @@ test('S3-8: test 265: a review on a disk with one free page is file-unwritable, 
   mkdirSync(fresh);
   git(fresh, 'init', '-q', '-b', 'main');
   fill(0);
-  const init = await run(fresh, ['init'], { budgetMs: 60_000 });
+  const init = await run(fresh, ['init'], { budget: 'LIMITS_RUN_MS' });
   assert.match(errorLines(init.stdout).join('\n'), /error\[file-unwritable\]  cannot be written \(ENOSPC\)/);
   assert.equal(init.code, 2);
   rmSync(join(FULL_DISK!, 'filler'), { force: true });
@@ -266,7 +269,7 @@ test('test 269: explain of a file whose content pattern backtracks names its typ
   await withSample(
     async (s) => {
       write(s, 'slow/a.ts', `${'a'.repeat(80)}!\n`);
-      const result = await run(s, ['explain', 'slow/a.ts'], { budgetMs: 120_000 });
+      const result = await run(s, ['explain', 'slow/a.ts'], { budget: 'LIMITS_RUN_MS' });
       assert.equal(result.stdout, stepTooSlow('typing slow/a.ts').replace('then run lawcheck check again', 'then run lawcheck explain again'));
       assert.equal(result.code, 2);
     },

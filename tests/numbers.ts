@@ -63,6 +63,12 @@ export const LIST_DELAY_MS = 2_000;
 export const LATE_ANSWER_MS = 3_000;
 
 // Rule 7 of section 16 of the test design: a time budget is at least 20 times the measured time.
+// The runs of the limits tests, tests/limits: a run at a limit of spec/check-slice.md, section 10; a nightly run of the large inputs; a nightly run that waits for the 600 seconds the script rules of a run may take; and the two seconds a run has to answer a signal.
+export const LIMITS_RUN_MS = 120_000;
+export const LIMITS_LARGE_RUN_MS = 300_000;
+export const LIMITS_RULES_RUN_MS = 700_000;
+export const LIMITS_STOPPED_MS = 2_000;
+
 export const SLOW_MARGIN = 20;
 
 export type System = 'linux' | 'darwin' | 'win32';
@@ -110,6 +116,15 @@ export const SLOW_TESTS: Record<string, Slow> = {
   "tests/properties/git-states.nightly.test.ts > I-git-2: in any state a sequence of git commands leaves, a check changes nothing in git, its change gives what --full gives for those files, and it prints the same from below the root and twice": { fixed: 120_000, measured: { darwin: 126_570, linux: 125_000, win32: 138_482 } },
   "tests/properties/arguments.nightly.test.ts > I-args-1: tokens of the tool and junk give usage or a run, never internal, and change nothing in git": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 125_000 } },
   "tests/properties/arguments.nightly.test.ts > I-hook-1, S6-6, S6-8: any input to a hook gives exit 0 with nothing or one hook document, or the defined notice, never a stack trace": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 125_000 } },
+  // The nightly limits, measured in the container of 1 GB and 2 CPUs on Linux; the fixed parts are the tool's limits the tests wait on: 30 rules that each pass 30 seconds, 15 at a time; the 600 seconds of the script rules of a run; the 30 seconds of a step.
+  'tests/limits/large.nightly.test.ts > test 248: 150,000 files: every one is typed and judged, and the one that breaks a rule is found': { fixed: 0, measured: { linux: 17_662 } },
+  'tests/limits/large.nightly.test.ts > test 249: 4 GiB of text across files stops at the file that passes 128 MiB, as text-too-large': { fixed: 0, measured: { linux: 6_119 } },
+  'tests/limits/large.nightly.test.ts > S2-5: test 251: 30 rules that hang end as rule-crashed, each after its 30 seconds, within the time of the run': { fixed: 450_000, measured: { linux: 450_462 } },
+  'tests/limits/large.nightly.test.ts > S2-5: test 251: rules that take 29 seconds a file are stopped when the script rules of the run pass 600 seconds': { fixed: 600_000, measured: { linux: 600_156 } },
+  'tests/limits/large.nightly.test.ts > test 252: kill -9 at a random moment of 50 reviews leaves a verdicts file that parses, and the next run passes': { fixed: 0, measured: { linux: 8_030 } },
+  'tests/limits/large.nightly.test.ts > S1-1: test 255: a step that never ends, typing against a content pattern that backtracks, ends as step-too-slow after 30 seconds': { fixed: 30_000, measured: { linux: 30_237 } },
+  'tests/limits/large.nightly.test.ts > test 259: a git that never answers ends as step-too-slow after 30 seconds, and git with it': { fixed: 30_000, measured: { linux: 30_193 } },
+  'tests/limits/large.nightly.test.ts > test 269: explain of a file whose content pattern backtracks names its typing as the step past its limit': { fixed: 30_000, measured: { linux: 30_185 } },
   // A check per counted run of the committed trial.
   'tests/acceptance/agent-result.test.ts > test 181: the committed result of the trial': { fixed: 0, measured: { darwin: 20_939, linux: 10_314, win32: 53_052 } },
   // A run of the tool per case.
@@ -324,6 +339,10 @@ export const TOOL_RUN_BUDGET_MS = 20_000;
 
 // Which way each number makes the suite stronger, read by the suite guard; a seed is neither, so any change of it is a change to review.
 export const stronger: Record<string, 'higher' | 'lower' | 'fixed'> = {
+  LIMITS_RUN_MS: 'lower',
+  LIMITS_LARGE_RUN_MS: 'lower',
+  LIMITS_RULES_RUN_MS: 'lower',
+  LIMITS_STOPPED_MS: 'lower',
   SEED: 'fixed',
   CASES_PURE: 'higher',
   CASES_TOOL: 'higher',

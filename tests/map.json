@@ -1,4 +1,7 @@
 {
+  "plugin/hooks/fit.mjs": [
+    "tests/limits/hook-fit.test.ts"
+  ],
   "plugin/hooks/lawcheck-hook.mjs": [
     "tests/acceptance/plugin.test.ts",
     "tests/environments/hook-shapes.test.ts"
@@ -14,6 +17,8 @@
   ],
   "plugin/hooks/start.mjs": [
     "tests/acceptance/plugin.test.ts",
+    "tests/limits/hook-fit.test.ts",
+    "tests/limits/sizes.test.ts",
     "tests/properties/arguments.test.ts"
   ],
   "plugin/hooks/state.mjs": [
@@ -39,6 +44,9 @@
     "tests/acceptance/rules.test.ts",
     "tests/acceptance/targets.test.ts",
     "tests/acceptance/waiver-key.test.ts",
+    "tests/limits/findings.test.ts",
+    "tests/limits/reviews.test.ts",
+    "tests/limits/sizes.test.ts",
     "tests/properties/contents.test.ts",
     "tests/properties/git-states.test.ts",
     "tests/unit/check.test.ts"
@@ -48,12 +56,15 @@
     "tests/acceptance/package.test.ts",
     "tests/acceptance/paths.test.ts",
     "tests/environments/refusal.test.ts",
+    "tests/limits/signals.test.ts",
+    "tests/limits/writes.test.ts",
     "tests/unit/cli.test.ts"
   ],
   "src/config.ts": [
     "tests/acceptance/http-providers.test.ts",
     "tests/acceptance/paths.test.ts",
     "tests/acceptance/reviewer-law.test.ts",
+    "tests/limits/sizes.test.ts",
     "tests/properties/law.test.ts",
     "tests/unit/config.test.ts"
   ],
@@ -79,6 +90,8 @@
     "tests/acceptance/hostile.test.ts",
     "tests/acceptance/waiver-key.test.ts",
     "tests/environments/systems.test.ts",
+    "tests/limits/internals.test.ts",
+    "tests/limits/sizes.test.ts",
     "tests/properties/law.test.ts",
     "tests/unit/explain.test.ts"
   ],
@@ -88,6 +101,8 @@
     "tests/acceptance/paths.test.ts",
     "tests/environments/ci-shapes.test.ts",
     "tests/environments/git-faults.test.ts",
+    "tests/limits/internals.test.ts",
+    "tests/limits/signals.test.ts",
     "tests/properties/git-states.test.ts",
     "tests/properties/names.test.ts",
     "tests/unit/files.test.ts"
@@ -106,6 +121,7 @@
   ],
   "src/init.ts": [
     "tests/acceptance/init.test.ts",
+    "tests/limits/internals.test.ts",
     "tests/unit/init.test.ts"
   ],
   "src/keys.ts": [
@@ -121,10 +137,23 @@
     "tests/properties/law.test.ts",
     "tests/unit/law.test.ts"
   ],
+  "src/limits.ts": [
+    "tests/limits/findings.test.ts",
+    "tests/limits/internals.test.ts",
+    "tests/limits/reviews.test.ts",
+    "tests/limits/sizes.test.ts"
+  ],
+  "src/main.ts": [
+    "tests/acceptance/cli.test.ts",
+    "tests/limits/signals.test.ts",
+    "tests/unit/cli.test.ts"
+  ],
   "src/names.ts": [
     "tests/acceptance/hostile.test.ts",
+    "tests/limits/sizes.test.ts",
     "tests/properties/names.test.ts",
     "tests/unit/files.test.ts",
+    "tests/unit/law.test.ts",
     "tests/unit/names.test.ts"
   ],
   "src/output.ts": [
@@ -133,16 +162,22 @@
     "tests/acceptance/waivers.test.ts",
     "tests/environments/ci-shapes.test.ts",
     "tests/environments/refusal.test.ts",
+    "tests/limits/sizes.test.ts",
+    "tests/limits/writes.test.ts",
     "tests/unit/output.test.ts"
   ],
   "src/prime.ts": [
     "tests/acceptance/prime.test.ts",
+    "tests/limits/sizes.test.ts",
     "tests/unit/prime.test.ts"
   ],
   "src/programs.ts": [
     "tests/acceptance/providers.test.ts",
     "tests/acceptance/rules.test.ts",
     "tests/unit/programs.test.ts"
+  ],
+  "src/progress.ts": [
+    "tests/limits/signals.test.ts"
   ],
   "src/prompt.ts": [
     "tests/acceptance/reviewer.test.ts",
@@ -210,6 +245,7 @@
   "src/readers.ts": [
     "tests/acceptance/languages.test.ts",
     "tests/acceptance/uses.test.ts",
+    "tests/limits/sizes.test.ts",
     "tests/unit/readers.test.ts"
   ],
   "src/review.ts": [
@@ -223,6 +259,8 @@
     "tests/acceptance/rules.test.ts",
     "tests/environments/refusal.test.ts",
     "tests/environments/shapes.test.ts",
+    "tests/limits/findings.test.ts",
+    "tests/limits/rules-time.test.ts",
     "tests/properties/rules.test.ts",
     "tests/unit/rules.test.ts",
     "tests/unit/runner.test.ts"
@@ -232,6 +270,7 @@
     "tests/acceptance/rules.test.ts",
     "tests/environments/refusal.test.ts",
     "tests/environments/shapes.test.ts",
+    "tests/limits/findings.test.ts",
     "tests/properties/rules.test.ts",
     "tests/unit/runner.test.ts"
   ],
@@ -242,16 +281,22 @@
     "tests/environments/ci-shapes.test.ts",
     "tests/environments/git-faults.test.ts",
     "tests/environments/shapes.test.ts",
+    "tests/limits/internals.test.ts",
+    "tests/limits/reviews.test.ts",
+    "tests/limits/sizes.test.ts",
     "tests/unit/setup.test.ts"
   ],
   "src/try.ts": [
     "tests/acceptance/hostile.test.ts",
     "tests/acceptance/try.test.ts",
+    "tests/limits/findings.test.ts",
+    "tests/limits/sizes.test.ts",
     "tests/unit/try.test.ts"
   ],
   "src/types.ts": [
     "tests/acceptance/changes.test.ts",
     "tests/acceptance/paths.test.ts",
+    "tests/limits/sizes.test.ts",
     "tests/properties/contents.test.ts",
     "tests/unit/types.test.ts"
   ],
@@ -262,6 +307,7 @@
   ],
   "src/verdicts.ts": [
     "tests/acceptance/reviewer.test.ts",
+    "tests/limits/reviews.test.ts",
     "tests/unit/verdicts.test.ts"
   ],
   "src/waivers.ts": [
@@ -269,5 +315,8 @@
     "tests/acceptance/waivers.test.ts",
     "tests/properties/contents.test.ts",
     "tests/unit/waivers.test.ts"
+  ],
+  "src/work.ts": [
+    "tests/limits/signals.test.ts"
   ]
 }
