@@ -174,7 +174,7 @@ The tool sends the type of every file and the path of the rule file. The runner 
 - starts a child process or a worker thread;
 - loads a native add-on or WASI.
 
-Node refuses each of these in every form. The rule is `rule-crashed` when the refusal reaches it as a thrown error or a rejected promise. A call with a callback, such as `fs.writeFile(path, data, callback)`, hands the refusal to the callback instead, and the rule goes on; the file is still not written.
+Node refuses each of these in every form, at every path of the root (invariant `I-runner-1`). Node reads a `*` in a granted path as a wildcard over everything after it, and cannot load a module from a path that holds a backslash where `/` is the separator. So when the root or Lawcheck's folder holds a `*`, or such a backslash, the tool starts no runner and the run ends with `path-unsupported`, without a place, naming the path. The rule is `rule-crashed` when the refusal reaches it as a thrown error or a rejected promise. A call with a callback, such as `fs.writeFile(path, data, callback)`, hands the refusal to the callback instead, and the rule goes on; the file is still not written.
 
 A rule that hangs or dies takes its own process with it and nothing else. `process.env` is empty in a rule. `process.send` is absent in a rule, so the channel to the tool carries only the runner's answers; a message the tool did not ask for ends the rule as `rule-crashed`.
 
@@ -329,6 +329,7 @@ next: fix src/core/discount.ts:2
 | `file-unreadable` | a file whose path matches a type cannot be read; one line per file | the file |
 | `type-overlap` | one line per file, naming both types | the file |
 | `base-unreachable` | section 4 | none |
+| `path-unsupported` | section 3: a script rule is to run and the runner cannot keep it inside the root | none |
 | `rule-crashed` | section 3 | the rule file |
 | `internal` | any other failure, a bug of Lawcheck included; the message is the first line of the error | none |
 

@@ -11,7 +11,7 @@ import { readerOf, readUses, siblingsOf, Unreadable } from './readers.js';
 import type { ScriptView } from './readers.js';
 import { call, preflight } from './review.js';
 import type { Ask } from './review.js';
-import { runAll, runRule } from './rules.js';
+import { runAll, runnerProblem, runRule } from './rules.js';
 import type { RawFinding } from './rules.js';
 import { filesOfTypes, isBinary } from './types.js';
 import { bytesOf, selectTargets } from './try.js';
@@ -83,6 +83,8 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
       rule,
       outcome: await runRule({ root, rule, ruleFile: join(root, `${RULES_DIR}${rule}.mjs`), files: bound, filesOf }),
     }));
+  const unsupported = tasks.length === 0 ? null : runnerProblem(root);
+  if (unsupported !== null) return { errors: [{ code: 'path-unsupported', file: null, line: null, message: unsupported }] };
   const outcomes = await runAll(tasks);
   const crashes: ErrorItem[] = [];
   const raw: RawFinding[] = [];

@@ -12,7 +12,7 @@ import { buildPrompt, cleanMessage, size } from './prompt.js';
 import { createProvider } from './providers/index.js';
 import { call, NO_RECORD, preflight, remaining } from './review.js';
 import type { Ask } from './review.js';
-import { runRule } from './rules.js';
+import { runnerProblem, runRule } from './rules.js';
 import type { RuleFile } from './rules.js';
 import { fromCwd, loadConfig, loadLaw, loadRuleFiles, locate, nearPart, repoPath, requireGit, RULES_DIR, stopped, Stop, typeAll, usage } from './setup.js';
 import type { Read } from './setup.js';
@@ -169,6 +169,8 @@ export async function tryRule(args: Arguments, context: CheckContext, json: bool
     const result: Outcome = { rule: id, kind, status: rule.status, why: rule.why, files: chosen, times: times ?? 1, dryRun, runs: [], calls: 0, maxChars: config.maxChars };
 
     if (kind === 'script') {
+      const unsupported = runnerProblem(root);
+      if (unsupported !== null) throw new Stop([{ code: 'path-unsupported', file: null, line: null, message: unsupported }]);
       const ran = await runRule({ root, rule: id, ruleFile: join(root, `${RULES_DIR}${id}.mjs`), files: ruleFiles, filesOf: filesOfTypes(typed, law) });
       if ('crash' in ran) throw new Stop([{ code: 'rule-crashed', file: `${RULES_DIR}${id}.mjs`, line: null, message: ran.crash }]);
       for (const file of ruleFiles) {

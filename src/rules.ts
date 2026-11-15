@@ -2,7 +2,7 @@ import { fork, spawn } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
 import { availableParallelism } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { dirname } from 'node:path';
+import { dirname, sep } from 'node:path';
 import { realpathSync, rmSync } from 'node:fs';
 import type { TypeDef } from './law.js';
 import { killTree } from './programs.js';
@@ -78,6 +78,15 @@ process.on('exit', () => {
   for (const pid of liveGroups) killGroup(pid, 'SIGKILL');
   for (const path of liveFolders) rmSync(path, { recursive: true, force: true, maxRetries: 10 });
 });
+
+// Node's permission model reads a * in --allow-fs-read as a wildcard over everything after it, and refuses to import a module whose file URL holds an encoded backslash.
+export function runnerProblem(root: string): string | null {
+  for (const [what, path] of [['the root', root], ["Lawcheck's folder", PACKAGE_DIR]] as const) {
+    if (path.includes('*')) return `${what} ${path} holds a *, which the runner of script rules reads as a wildcard, so a rule could read the folders beside it`;
+    if (sep === '/' && path.includes('\\')) return `${what} ${path} holds a backslash, and the runner of script rules cannot load a rule from such a path`;
+  }
+  return null;
+}
 
 export interface RawFinding {
   rule: string;

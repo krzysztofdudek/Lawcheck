@@ -78,6 +78,7 @@ export const WHY: Record<string, string> = {
   'type-overlap': 'a file has one type, so the rules that bind it are never in doubt',
   'base-unreachable': 'without its base a change cannot be told from debt',
   'rule-crashed': 'a broken rule says nothing about the code',
+  'path-unsupported': 'a script rule reads nothing outside the root and Lawcheck\'s folder, and the runner can keep that only on such a path',
   internal: 'a fault of Lawcheck says nothing about the code',
   'not-reviewed': 'a reviewer rule says nothing about content it has not judged',
   'too-large-to-review': 'the reviewer is never sent more than reviewer.max_chars characters',
@@ -129,6 +130,8 @@ function fixedNext(error: ErrorItem, command: string): string {
       return 'pass --base with a branch or a commit that exists here';
     case 'rule-crashed':
       return `fix ${error.file}, then run lawcheck check`;
+    case 'path-unsupported':
+      return 'move the repository, or Lawcheck, to a path without a * or a backslash, then run lawcheck check';
     case 'reviewer-unreachable':
     case 'reviewer-bad-answer':
       return 'run the same command again; what was answered is kept, so it asks only the rest';
