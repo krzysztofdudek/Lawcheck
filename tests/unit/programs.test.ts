@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { chmodSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createdIn, descendantsIn, findProgram, killTree, startProgram } from '../../dist/programs.js';
+import { createdIn, descendantsIn, findProgram, killTree, startProgram, stillListed } from '../../dist/programs.js';
 
 function inDir(body: (dir: string) => void | Promise<void>): Promise<void> {
   const dir = realpathSync(mkdtempSync(join(tmpdir(), 'lawcheck-programs-')));
@@ -115,4 +115,13 @@ test('the descendants of a process are read from the list of processes, its own 
 test('the time each process was made is read from the list of processes', () => {
   const table = ['10 1 638900000000000001', '11 10 638900000000000002', 'junk', '12 11', ''].join('\r\n');
   assert.deepEqual([...createdIn(table)], [[10, '638900000000000001'], [11, '638900000000000002']]);
+});
+
+test('R-34: the guard kills from its list only a process whose id and time of making a later list still shows', () => {
+  const before = ['100 1 500', '101 100 501', '102 101 502', '103 100 503', '200 1 600', ''].join('\r\n');
+  const reused = ['101 7 901', '102 101 502', '103 100 503', '200 1 600', ''].join('\r\n');
+  assert.deepEqual(stillListed(before, reused, [100]).sort((a, b) => a - b), [102, 103]);
+  assert.deepEqual(stillListed(before, before, [100]).sort((a, b) => a - b), [100, 101, 102, 103]);
+  assert.deepEqual(stillListed(before, '', [100]), []);
+  assert.deepEqual(stillListed(before, reused, [200]), [200]);
 });

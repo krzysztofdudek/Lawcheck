@@ -94,6 +94,14 @@ export function createdIn(table: string): Map<number, string> {
   return out;
 }
 
+// Windows gives an ended process's id to a new one soon, so of the groups' trees in an earlier list only the processes that a later list shows with the same id and the same time of making may be killed.
+export function stillListed(before: string, after: string, roots: number[]): number[] {
+  const known = createdIn(before);
+  const now = createdIn(after);
+  const listed = [...new Set(roots.flatMap((pid) => [pid, ...descendantsIn(before, pid)]))];
+  return listed.filter((pid) => known.has(pid) && now.get(pid) === known.get(pid));
+}
+
 // The lines of PROCESS_TABLE read as the descendants of root.
 export function descendantsIn(table: string, root: number): number[] {
   const children = new Map<number, number[]>();

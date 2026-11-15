@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
 import { rmSync } from 'node:fs';
-import { createdIn, descendantsIn, killTree, powershell, PROCESS_TABLE } from './programs.js';
+import { killTree, powershell, PROCESS_TABLE, stillListed } from './programs.js';
 
 const pids = new Set<number>();
 const windows = process.platform === 'win32';
@@ -95,14 +95,11 @@ function nextList(ms: number): Promise<string | null> {
 }
 
 async function endWatched(): Promise<void> {
-  const known = createdIn(table);
-  const listedBefore = [...groups].flatMap((pid) => [pid, ...descendantsIn(table, pid)]).filter((pid) => known.has(pid));
-  if (listedBefore.length === 0) return;
+  const before = table;
+  if (stillListed(before, before, [...groups]).length === 0) return;
   const fresh = await nextList(3000);
   if (fresh === null) return;
-  const now = createdIn(fresh);
-  for (const pid of listedBefore) {
-    if (now.get(pid) !== known.get(pid)) continue;
+  for (const pid of stillListed(before, fresh, [...groups])) {
     try {
       process.kill(pid, 'SIGKILL');
     } catch {
