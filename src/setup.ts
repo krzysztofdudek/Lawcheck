@@ -326,7 +326,7 @@ export async function stopped<T>(body: () => Promise<T> | T): Promise<T | { erro
     return await body();
   } catch (error) {
     if (error instanceof Stop) return { errors: error.errors };
-    if (error instanceof Unwritable) return { errors: [{ code: 'file-unwritable', file: error.path, line: null, message: `cannot be written (${error.cause})` }] };
+    if (error instanceof Unwritable) return { errors: [{ code: 'file-unwritable', file: error.path, line: null, message: `cannot be written (${error.cause})`, ...(error.next === null ? {} : { next: error.next }) }] };
     if (error instanceof VerdictsUnreadable) {
       const next = error.cause.startsWith('it holds more') ? `remove the lines of ${VERDICTS} that no review of this law needs, then run lawcheck check` : undefined;
       return { errors: [{ code: 'file-unreadable', file: VERDICTS, line: null, message: `the file cannot be read (${error.cause})`, ...(next === undefined ? {} : { next }) }] };

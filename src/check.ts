@@ -201,14 +201,14 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
     const blocked = preflight(provider, config, cap, asks.length, review);
     if (blocked.length > 0) return { errors: blocked };
     const writer = new VerdictWriter(root);
-    writer.ready();
+    writer.ready(asks.map((ask) => ask.rule));
     context.warn?.(`lawcheck: ${plural(asks.length, 'reviewer call')} to ${config.provider}`);
     let result: Awaited<ReturnType<typeof call>>;
     try {
       result = await call(asks, provider!, writer, { cap, parallel: config.parallel, timeoutSeconds: config.timeout });
     } catch (error) {
       if (!(error instanceof Unwritable)) throw error;
-      return { errors: [{ code: 'file-unwritable', file: error.path, line: null, message: `cannot be written (${error.cause}), so the answers of the reviewer calls this run made are lost` }] };
+      return { errors: [{ code: 'file-unwritable', file: error.path, line: null, message: `cannot be written (${error.cause}), so the answers of the reviewer calls this run made are lost`, ...(error.next === null ? {} : { next: error.next }) }] };
     }
     if (result.failed.length > 0) {
       const again = 'run the same command again; what was answered is kept, so it asks only the rest';

@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { existsSync, mkdirSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { readFailure as failureOfRead, readWhole } from './limits.js';
+import { FILE_TEXT_BYTES, mib, readFailure as failureOfRead, readWhole } from './limits.js';
 import { checkFindings } from './prompt.js';
 import { hide } from './keys.js';
 import type { AnswerFinding } from './prompt.js';
@@ -71,9 +71,16 @@ export class Unwritable extends Error {
   constructor(
     readonly path: string,
     readonly cause: string,
+    readonly next: string | null = null,
   ) {
     super(`${path} cannot be written (${cause})`);
   }
+}
+
+const FULL_NEXT = `remove the lines of ${VERDICTS} that no review of this law needs, then run lawcheck check again`;
+
+function tooFull(): Unwritable {
+  return new Unwritable(VERDICTS, `with the passes of this run it would hold more than ${mib(FILE_TEXT_BYTES)}, the most a run reads of it`, FULL_NEXT);
 }
 
 function writing<T>(path: string, work: () => T): T {
@@ -205,7 +212,16 @@ export class VerdictWriter {
   constructor(private readonly root: string) {}
 
   // Every place a review writes is tried before the first call, so a run that cannot record an answer pays for none.
-  ready(): void {
+  // A verdicts file past the limit of a text file could be written but never read again, so the passes this run may add are counted before its first call.
+  ready(rules: string[] = []): void {
+    let size = 0;
+    try {
+      size = statSync(join(this.root, VERDICTS)).size;
+    } catch {
+      size = 0;
+    }
+    for (const rule of rules) size += 32 + 1 + rule.length + 1;
+    if (size > FILE_TEXT_BYTES) throw tooFull();
     const local = ensureLocal(this.root);
     removeLeftovers(local);
     const probe = join(local, `probe-${process.pid}-${randomBytes(6).toString('hex')}`);
@@ -229,6 +245,9 @@ export class VerdictWriter {
         if (!lines.has(line)) this.added++;
         lines.add(line);
         const sorted = [...lines].sort();
+        let bytes = 0;
+        for (const entry of sorted) bytes += Buffer.byteLength(entry) + 1;
+        if (bytes > FILE_TEXT_BYTES) throw tooFull();
         const temporary = join(local, `verdicts-${process.pid}-${randomBytes(6).toString('hex')}`);
         writing(LOCAL, () => writeFileSync(temporary, sorted.map((entry) => entry + '\n').join('')));
         writing(VERDICTS, () => renameSync(temporary, path));

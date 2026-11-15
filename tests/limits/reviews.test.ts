@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { defaultAnswer, openai, withFake } from '../acceptance/fake-reviewer.ts';
 import { D, D_PATH, F, F_PATH, F_PRIME, REVIEWER_LAW, withR, withSample, write } from '../acceptance/helpers.ts';
@@ -164,4 +164,41 @@ test('test 267: a reviewer rule whose file is binary is law-invalid, as a binary
     assert.deepEqual(errorLines(result.stdout), [".lawcheck/law.yaml:9  error[law-invalid]  the file .lawcheck/rules/clear-errors.md of the rule 'clear-errors' is binary"]);
     assert.equal(result.code, 2);
   });
+});
+
+test('test 271: a review whose passes would push .lawcheck/verdicts past 16 MiB is refused before its first call', async () => {
+  const filler = (bytes: number) => {
+    const line = 'x'.repeat(63) + '\n';
+    return line.repeat(Math.floor(bytes / line.length)) + 'y'.repeat((bytes % line.length) - 1) + '\n';
+  };
+  for (const [room, refused] of [[60, true], [200, false]] as const) {
+    await withFake(async (fake) => {
+      await withR(async (r) => {
+        write(r, F_PATH, F_PRIME);
+        write(r, 'src/core/refund2.ts', F_PRIME.replace('function refund', 'function refund2'));
+        write(r, '.lawcheck/verdicts', filler(16 * MiB - room));
+        const result = await run(r, REVIEW, { env: { LAWCHECK_REVIEWER_ENDPOINT: fake.url } });
+        if (refused) {
+          assert.equal(
+            result.stdout,
+            [
+              'lawcheck: ERROR  1 error',
+              '',
+              '.lawcheck/verdicts  error[file-unwritable]  cannot be written (with the passes of this run it would hold more than 16 MiB, the most a run reads of it)',
+              '  why:  what Lawcheck cannot write is lost, so the run cannot say it is done',
+              '',
+              'next: remove the lines of .lawcheck/verdicts that no review of this law needs, then run lawcheck check again',
+              '',
+            ].join('\n'),
+          );
+          assert.equal(result.code, 2);
+          assert.equal(fake.requests.length, 0);
+        } else {
+          assert.equal(result.code, 0, result.stdout);
+          assert.equal(fake.requests.length, 2);
+          assert.ok(statSync(join(r, '.lawcheck/verdicts')).size <= 16 * MiB);
+        }
+      });
+    });
+  }
 });
