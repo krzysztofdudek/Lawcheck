@@ -1,0 +1,90 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # The grammars are built once, on Linux, and handed to the other jobs. A grammar built from source on Windows has other bytes than its pinned sha256, so Runes refuses that build there; the other jobs read this cache offline, so a missing grammar fails instead of starting a source build.
+  grammars:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - uses: actions/cache@v6
+        with:
+          path: .grammars
+          key: grammars-${{ hashFiles('package-lock.json') }}
+      - name: Grammars
+        run: npm run grammars
+      - uses: actions/upload-artifact@v4
+        with:
+          name: grammar-cache
+          path: .grammars
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1
+
+  test:
+    needs: grammars
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          name: grammar-cache
+          path: .grammars
+      - name: Build and test
+        run: npm test
+
+  # Lawcheck on two public repositories pinned at full commits (tests/real), held to the committed expected results. Each repository is fetched by its commit alone.
+  real:
+    needs: grammars
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          name: grammar-cache
+          path: .grammars
+      - name: Two real repositories
+        run: npm run real
+
+  # Pinned, so a new Claude Code release cannot change what passes here. The validation needs no sign-in.
+  plugin:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Claude Code
+        run: npm install --global @anthropic-ai/claude-code@2.1.322
+      - name: Marketplace manifest
+        run: claude plugin validate .
+      - name: Plugin manifest
+        run: claude plugin validate ./plugin
