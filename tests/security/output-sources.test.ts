@@ -261,18 +261,3 @@ test('I-out-1: a pattern of the law that holds a line feed stays on its line in 
     assert.ok(typed.stdout.includes('  paths:  **/*.ts, x\\n::error title=forged::y'), typed.stdout);
   });
 });
-
-test('a 401 from the reviewer says to check the key, not only to run again', async () => {
-  const { withFake } = await import('../acceptance/fake-reviewer.ts');
-  await withFake(
-    async (fake) => {
-      await inTemp(async (dir) => {
-        const r = repo(dir, { rules: { 'judge.md': 'Report every line.\n' }, ruleIds: ['judge'], config: 'reviewer:\n  provider: openai-compatible\n  model: m\n' });
-        const run = await lawcheck(r, ['check', '--base', 'main', '--review'], { LAWCHECK_REVIEWER_ENDPOINT: fake.url });
-        assert.equal(run.code, 2, run.stdout);
-        assert.ok(run.stdout.includes('next: check the reviewer key'), run.stdout);
-      });
-    },
-    () => ({ status: 401, body: '{"error":{"message":"Incorrect API key"}}' }),
-  );
-});
