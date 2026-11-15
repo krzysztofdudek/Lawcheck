@@ -6,7 +6,7 @@ You write your repository's architecture and rules. Lawcheck checks the code aga
 
 This is an alpha for early testing.
 
-Lawcheck needs Node 24 or later and git 2.34 or later. It installs with npm, pnpm, Yarn 1, Yarn 4 with `nodeLinker: node-modules`, and Bun beside Node. Yarn 4 with `nodeLinker: pnpm` works, and is not promised. Yarn Plug'n'Play is not supported, and neither is Bun without Node.
+Lawcheck needs Node 24 or later and git 2.34 or later. It installs with npm, pnpm, Yarn 1, Yarn 4 with `nodeLinker: node-modules` or `nodeLinker: pnpm`, and Bun beside Node. Yarn Plug'n'Play is not supported, and neither is Bun without Node.
 
     npm install --global lawcheck@alpha
 
