@@ -1,6 +1,19 @@
 # Lawcheck
 
-Lawcheck checks code against the architecture and the rules you write for it, and tells a coding agent which line breaks which rule.
+You write your repository's architecture and rules. Lawcheck checks the code against them and tells your coding agent which line breaks which rule.
+
+## Install
+
+Lawcheck needs Node 24 or later and git.
+
+    npm install --global lawcheck
+
+Then, at the root of a git repository:
+
+    lawcheck init
+    lawcheck docs first-law
+
+To keep Lawcheck in a project instead, run `npm install --save-dev lawcheck`, set `runner` in `.lawcheck/config.yaml` (`lawcheck docs config`), and start it with `npx lawcheck`.
 
 ## Coding agents
 
@@ -20,5 +33,3 @@ Run `lawcheck prime` at the start of every session and follow it.
 ```
 
 That agent then checks only when it follows the primer: nothing checks a file after an edit or holds the turn while the law is broken. A project that starts Lawcheck through its package manager names it as `runner` in `.lawcheck/config.yaml` (`lawcheck docs config`), and the sentence then uses that command, such as `pnpm exec lawcheck prime`.
-
-Work in progress: there is nothing to install yet.

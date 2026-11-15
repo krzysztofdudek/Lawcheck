@@ -1,7 +1,7 @@
 {
   "name": "lawcheck",
   "version": "0.1.0",
-  "description": "Checks code against the architecture and rules you write, and tells a coding agent which line breaks which rule. Work in progress.",
+  "description": "You write the architecture and the rules. Lawcheck tells your coding agent which line breaks which rule.",
   "license": "MIT",
   "author": "Krzysztof Dudek",
   "repository": {
