@@ -180,7 +180,7 @@ function alive(pid: number): boolean {
   }
 }
 
-test('section 3: a rule that spins ends with the tool, whatever ends the tool', async () => {
+test('check-slice §3: a rule that spins ends with the tool, whatever ends the tool', async () => {
   const spin = "export function check() { console.error('runner ' + process.pid); return new Promise(() => setTimeout(() => { console.error('spinning'); while (true) {} }, 100)); }\n";
   for (const signal of ['SIGTERM', 'SIGKILL'] as const) {
     await withRule(spin, async (s) => {
@@ -200,7 +200,7 @@ test('section 3: a rule that spins ends with the tool, whatever ends the tool', 
   }
 });
 
-test("section 3: a rule that writes to the runner's channel crashes as that rule", async () => {
+test("check-slice §3: a rule that writes to the runner's channel crashes as that rule", async () => {
   const cases: [string, string][] = [
     ['sends null', 'export function check() { process.send(null); return []; }\n'],
     ['sends an answer of its own', ORIGINAL + "export function check(input) { process.send({ kind: 'result', value: [] }); return original(input); }\n"],
@@ -214,7 +214,7 @@ test("section 3: a rule that writes to the runner's channel crashes as that rule
   }
 });
 
-test('section 3: what a rule prints goes to standard error', async () => {
+test('check-slice §3: what a rule prints goes to standard error', async () => {
   await withRule(
     ORIGINAL + "export function check(input) { console.log('out from the rule'); console.error('err from the rule'); return original(input); }\n",
     async (s) => {
@@ -227,7 +227,7 @@ test('section 3: what a rule prints goes to standard error', async () => {
   );
 });
 
-test('section 3: the runner takes no flag the tool was started with', async () => {
+test('check-slice §3: the runner takes no flag the tool was started with', async () => {
   await withRule('export function check() { return [{ message: JSON.stringify(process.execArgv) }]; }\n', async (s) => {
     const run = await lawcheck(s, ['check', '--base', 'main'], {}, ['--no-warnings', '--max-old-space-size=256']);
     const line = findingLines(run.stdout)[0] ?? '';

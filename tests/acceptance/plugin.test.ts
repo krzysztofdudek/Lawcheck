@@ -343,7 +343,7 @@ test('section 5: the test entry of the hooks refuses a deadline as long as the s
   });
 });
 
-test('section 5: the call ends 2 seconds after Lawcheck exits while a child holds its output', async () => {
+test('plugin-slice §5: the call ends 2 seconds after Lawcheck exits while a child holds its output', async () => {
   await withBench(async (bench, dir) => {
     const s = makeSample(dir);
     write(s, D_PATH, D);

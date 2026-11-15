@@ -9,7 +9,7 @@ import { inTemp } from './helpers.ts';
 
 const LINE = 'src/core/discount.js:3  error[coded-errors]  throws Error; core code throws ShopError with a code';
 
-test('section 10, step 5: only a line of the arm\'s own hook is a breach', () => {
+test('plugin-slice §10, step 5: only a line of the arm\'s own hook is a breach', () => {
   const line = (caller: string, exit = 1) => ({ caller, args: ['check', './src/core/discount.js'], exit, errors: exit === 1 ? [LINE] : [] });
   assert.equal(breachOf([line('agent')], 'edit'), false);
   assert.equal(breachOf([line('agent')], 'stop'), false);
@@ -19,7 +19,7 @@ test('section 10, step 5: only a line of the arm\'s own hook is a breach', () =>
   assert.equal(breachOf([line('edit', 0)], 'edit'), false);
 });
 
-test('section 10: a run removes the state file its session left in the plugin data, and nothing else', async () => {
+test('plugin-slice §10: a run removes the state file its session left in the plugin data, and nothing else', async () => {
   await inTemp((home) => {
     const sessions = join(home, '.claude', 'plugins', 'data', 'lawcheck-inline', 'sessions');
     mkdirSync(sessions, { recursive: true });
@@ -39,7 +39,7 @@ const hookLines = [
   { caller: 'edit', args: ['check', './src/core/discount.js'], exit: 0, errors: [] },
 ];
 
-test('section 10, step 4: only a Bash call that runs lawcheck needs a call of the agent in the log', () => {
+test('plugin-slice §10, step 4: only a Bash call that runs lawcheck needs a call of the agent in the log', () => {
   for (const command of ['lawcheck check ./x.js', 'cd work && lawcheck check x', 'lawcheck check x 2>&1 | tail -5', 'node -e 1; lawcheck prime', 'FOO=1 lawcheck check x', './bin/lawcheck check', '$(lawcheck prime)', 'echo ok || lawcheck']) {
     assert.equal(runsLawcheck(command), true, command);
   }
@@ -55,7 +55,7 @@ test('section 10, step 4: only a Bash call that runs lawcheck needs a call of th
   assert.equal(errorOf('edit', runs, withAgent, {}, false), null);
 });
 
-test('section 10, step 8: a run that is an error keeps its transcript and log, and nothing else', async () => {
+test('plugin-slice §10, step 8: a run that is an error keeps its transcript and log, and nothing else', async () => {
   await inTemp((dir) => {
     const make = (name: string) => {
       const folder = join(dir, name);

@@ -30,7 +30,7 @@ async function inRepo(files: Record<string, string>, body: (repo: string) => Pro
   });
 }
 
-test('section 3.5: targets are counted by type, so a partial class spread over one type binds its first file, and over two types is ambiguous', async () => {
+test('dependency-slice §3.5: targets are counted by type, so a partial class spread over one type binds its first file, and over two types is ambiguous', async () => {
   await inRepo(
     {
       'cs/app/Clock.A.cs': 'namespace Shop.App;\n\npublic partial class Clock {}\n',
@@ -56,7 +56,7 @@ test('section 3.5: targets are counted by type, so a partial class spread over o
   );
 });
 
-test('section 3.1: a name of the same package written without an import is a use', async () => {
+test('dependency-slice §3.1: a name of the same package written without an import is a use', async () => {
   await inRepo(
     {
       'java/src/main/java/com/acme/domain/Order.java': 'package com.acme;\n\npublic class Order {\n  Service s;\n}\n',

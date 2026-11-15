@@ -30,7 +30,7 @@ function types() {
   return law!.byId;
 }
 
-test('the list in force: its own, its nearest ancestor, or none', () => {
+test('dependency-slice §3.5: the list in force: its own, its nearest ancestor, or none', () => {
   const byId = types();
   const own = listInForce(byId.get('command')!)!;
   assert.deepEqual(own.list, ['command', 'library']);
@@ -43,7 +43,7 @@ test('the list in force: its own, its nearest ancestor, or none', () => {
   assert.equal(listInForce(byId.get('inner')!), null);
 });
 
-test('naming a type allows its subtypes, never its parent', () => {
+test('dependency-slice §3.5: naming a type allows its subtypes, never its parent', () => {
   const byId = types();
   assert.equal(allows(['source'], byId.get('library')!), true);
   assert.equal(allows(['library'], byId.get('source')!), false);
@@ -51,7 +51,7 @@ test('naming a type allows its subtypes, never its parent', () => {
   assert.equal(allows([], byId.get('library')!), false);
 });
 
-test('each answer of section 3.5', () => {
+test('dependency-slice §3.5: each answer of section 3.5', () => {
   const byId = types();
   const library = byId.get('library')!;
   const targets: Record<string, any> = {
@@ -87,7 +87,7 @@ test('each answer of section 3.5', () => {
   ]);
 });
 
-test('the messages with a list of its own, and an empty one', () => {
+test('dependency-slice §5: the messages with a list of its own, and an empty one', () => {
   const byId = types();
   const target = (): any => ({ kind: 'untyped' });
   const own = judgeUses('src/cli/x.ts', byId.get('command')!, [{ line: 1, answer: { kind: 'file', file: 'a.ts' } }], target);
@@ -96,7 +96,7 @@ test('the messages with a list of its own, and an empty one', () => {
   assert.equal(closed.forbidden[0]!.message, 'closed may not use closed (src/closed/y.ts); its may_use is []');
 });
 
-test('one forbidden-use per line and target file', () => {
+test('dependency-slice §5: one forbidden-use per line and target file', () => {
   const byId = types();
   const command = byId.get('command')!;
   const judged = judgeUses(
@@ -113,13 +113,13 @@ test('one forbidden-use per line and target file', () => {
   assert.deepEqual(judged.forbidden.map((f) => `${f.line} ${f.message.match(/\((.*)\)/)![1]}`), ['1 src/cli/a.ts', '1 src/cli/b.ts', '2 src/cli/a.ts']);
 });
 
-test('a type with no list in force judges nothing and counts nothing', () => {
+test('dependency-slice §5: a type with no list in force judges nothing and counts nothing', () => {
   const byId = types();
   const judged = judgeUses('free/x.ts', byId.get('free')!, [{ line: 1, answer: { kind: 'none', what: 'x', reason: null, candidates: [] } }, { line: 2, answer: { kind: 'file', file: 'y' } }], () => ({ kind: 'untyped' }));
   assert.deepEqual(judged, { forbidden: [], unresolved: [] });
 });
 
-test('the extension of a file name', () => {
+test('dependency-slice §3.2: the extension of a file name', () => {
   assert.equal(extensionOf('ts/domain/schema.json'), '.json');
   assert.equal(extensionOf('a/b.tar.gz'), '.gz');
   assert.equal(extensionOf('a/.gitignore'), 'no extension');
@@ -129,7 +129,7 @@ test('the extension of a file name', () => {
   assert.equal(extensionOf('a/b.'), '.');
 });
 
-test('the uses-not-read message, its extensions sorted with their counts', () => {
+test('dependency-slice §5: the uses-not-read message, its extensions sorted with their counts', () => {
   assert.equal(notReadMessage('domain', ['ts/domain/schema.json']), '1 file of type domain is not read for uses: 1 .json');
   assert.equal(
     notReadMessage('web', ['a/x.css', 'a/Makefile', 'a/y.css', 'a/z.scss', 'a/.npmrc']),
@@ -137,7 +137,7 @@ test('the uses-not-read message, its extensions sorted with their counts', () =>
   );
 });
 
-test('uses-not-read is one finding per type, split between change and debt', () => {
+test('dependency-slice §5: uses-not-read is one finding per type, split between change and debt', () => {
   const byId = types();
   const library = byId.get('library')!;
   const command = byId.get('command')!;

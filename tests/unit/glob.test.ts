@@ -5,7 +5,7 @@ import { MATCH_BUDGET_MS } from '../numbers.ts';
 
 const matches = (pattern: string, path: string) => compilePattern(pattern).test(path);
 
-test('** before the last segment matches any number of directories, none included', () => {
+test('check-slice §2: ** before the last segment matches any number of directories, none included', () => {
   assert.ok(matches('a/**/b.ts', 'a/b.ts'));
   assert.ok(matches('a/**/b.ts', 'a/x/y/b.ts'));
   assert.ok(!matches('a/**/b.ts', 'ab.ts'));
@@ -13,14 +13,14 @@ test('** before the last segment matches any number of directories, none include
   assert.ok(matches('**/b.ts', 'x/b.ts'));
 });
 
-test('** as the last segment matches every file below, and not the directory', () => {
+test('check-slice §2: ** as the last segment matches every file below, and not the directory', () => {
   assert.ok(matches('src/core/**', 'src/core/a.ts'));
   assert.ok(matches('src/core/**', 'src/core/x/a.ts'));
   assert.ok(!matches('src/core/**', 'src/core'));
   assert.ok(!matches('src/core/**', 'src/corex/a.ts'));
 });
 
-test('* and ? stay within a segment; a leading dot is a character like any other', () => {
+test('check-slice §2: * and ? stay within a segment; a leading dot is a character like any other', () => {
   assert.ok(matches('src/*.ts', 'src/.ts'));
   assert.ok(matches('src/*.ts', 'src/.hidden.ts'));
   assert.ok(!matches('src/*.ts', 'src/a/b.ts'));
@@ -29,7 +29,7 @@ test('* and ? stay within a segment; a leading dot is a character like any other
   assert.ok(!matches('src/?.ts', 'src/ab.ts'));
 });
 
-test('braces, literals and case', () => {
+test('check-slice §2: braces, literals and case', () => {
   assert.ok(matches('tools/**/*.{mjs,js}', 'tools/a.js'));
   assert.ok(matches('tools/**/*.{mjs,js}', 'tools/x/a.mjs'));
   assert.ok(!matches('tools/**/*.{mjs,js}', 'tools/a.cjs'));
@@ -39,14 +39,14 @@ test('braces, literals and case', () => {
   assert.ok(!matches('src/a.ts', 'SRC/a.ts'));
 });
 
-test('a list matches one plain pattern and no exclusion, in any order', () => {
+test('check-slice §2: a list matches one plain pattern and no exclusion, in any order', () => {
   const list = compileList(['!src/**/*.d.ts', 'src/**/*.ts']);
   assert.ok(list('src/a.ts'));
   assert.ok(!list('src/a.d.ts'));
   assert.ok(!list('lib/a.ts'));
 });
 
-test('invalid patterns', () => {
+test('check-slice §2: invalid patterns', () => {
   for (const pattern of ['', '!', '/src', 'src/', 'a//b', './a', 'a/../b', 'src/**core/*.ts', '***', 'a/{b,{c}}', 'a/{b', 'a/b}', 'a/{b/c}', 'a/{}', 'a/{b,}', 'a/{,b}']) {
     assert.notEqual(patternProblem(pattern), null, pattern);
   }

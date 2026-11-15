@@ -4,7 +4,7 @@ import { main, parseArguments, readerGone } from '../../dist/cli.js';
 
 const context = { cwd: '/', env: {} };
 
-test('a command that throws ends in exit 2 with internal', async () => {
+test('check-slice §6: a command that throws ends in exit 2 with internal', async () => {
   const result = await main(['check'], context, async () => {
     throw new Error('the handler broke\nsecond line');
   });
@@ -18,7 +18,7 @@ test('a command that throws ends in exit 2 with internal', async () => {
   assert.equal(JSON.parse(json.stdout).errors[0].code, 'internal');
 });
 
-test('arguments', () => {
+test('check-slice §4: arguments', () => {
   const plain = { full: false, base: null, review: false, again: false, maxCalls: null, paths: [] };
   assert.deepEqual(parseArguments(['check']), { options: plain });
   assert.deepEqual(parseArguments(['check', '--json', '--base', 'main', '--full']), { options: { ...plain, full: true, base: 'main' } });
@@ -29,7 +29,7 @@ test('arguments', () => {
   }
 });
 
-test('version and help exit 0', async () => {
+test('commands-slice §2: version and help exit 0', async () => {
   assert.deepEqual(await main(['--version'], context), { code: 0, stdout: '0.1.0-alpha.1\n' });
   for (const [argv, first] of [[['--help'], 'usage: lawcheck <command> [<arguments>] [--json]'], [['check', '--help'], 'usage: lawcheck check [--full] [--base <ref>] [--review [--again] [--max-calls <n>]] [--json]']] as const) {
     const result = await main([...argv], context);

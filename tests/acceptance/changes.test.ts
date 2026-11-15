@@ -169,7 +169,7 @@ test('test 14: the root below the top of the git tree', async () => {
   );
 });
 
-test('section 4: a change of the mode alone counts', async (t) => {
+test('check-slice §4: a change of the mode alone counts', async (t) => {
   const skip = platformSkip('the whole test');
   if (skip !== null) return t.skip(skip);
   await withSample(async (s) => {
@@ -180,7 +180,7 @@ test('section 4: a change of the mode alone counts', async (t) => {
   });
 });
 
-test('section 4: a file staged and then put back is not in the change', async () => {
+test('check-slice §4: a file staged and then put back is not in the change', async () => {
   await withSample(async (s) => {
     const original = read(s, 'src/core/price.ts');
     append(s, 'src/core/price.ts', '// end\n');
@@ -192,7 +192,7 @@ test('section 4: a file staged and then put back is not in the change', async ()
   });
 });
 
-test('section 4: every git command runs with GIT_OPTIONAL_LOCKS=0, in the order of the table', async (t) => {
+test('check-slice §4: every git command runs with GIT_OPTIONAL_LOCKS=0, in the order of the table', async (t) => {
   const skip = platformSkip('the whole test');
   if (skip !== null) return t.skip(skip);
   await withSample(async (s, dir) => {

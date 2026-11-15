@@ -12,11 +12,11 @@ test('S1-2: a path with an invalid UTF-8 byte is kept, the byte written as \\x a
   assert.deepEqual(splitZ(output), ['src/a.ts', 'src/\\xff.ts', 'src/żółw.ts', 'src/with space\t.ts', 'a\\xc3', 'b\\xed\\xa0\\x80', 'c€\\xf0\\x9f']);
 });
 
-test('empty output holds no path', () => {
+test('check-slice §4: empty output holds no path', () => {
   assert.deepEqual(splitZ(Buffer.alloc(0)), []);
 });
 
-test('paths compare by UTF-16 code units', () => {
+test('check-slice §4: paths compare by UTF-16 code units', () => {
   assert.deepEqual(['b', 'B', 'a', 'ż', 'z'].sort(comparePaths), ['B', 'a', 'b', 'z', 'ż']);
 });
 

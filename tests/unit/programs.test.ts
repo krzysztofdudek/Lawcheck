@@ -27,7 +27,7 @@ function argvProgram(dir: string): string {
   return join(dir, 'argv');
 }
 
-test('a program is found on PATH, and on Windows by the endings of PATHEXT', async () => {
+test('reviewer-slice §6: a program is found on PATH, and on Windows by the endings of PATHEXT', async () => {
   await inDir((dir) => {
     executable(join(dir, 'tool'), '#!/bin/sh\n');
     if (platformSkip('the lookup with the rules of Linux') === null) {
@@ -41,7 +41,7 @@ test('a program is found on PATH, and on Windows by the endings of PATHEXT', asy
   });
 });
 
-test('every argument and the output pass through a program started as the callers start it, a .cmd file on Windows too', async () => {
+test('reviewer-slice §6: every argument and the output pass through a program started as the callers start it, a .cmd file on Windows too', async () => {
   await inDir(async (dir) => {
     argvProgram(dir);
     const program = findProgram('argv', { PATH: dir, PATHEXT: '.CMD' })!;
@@ -55,7 +55,7 @@ test('every argument and the output pass through a program started as the caller
   });
 });
 
-test('killTree ends a program and the programs it started', async () => {
+test('reviewer-slice §6: killTree ends a program and the programs it started', async () => {
   await inDir(async (dir) => {
     const script = join(dir, 'parent.mjs');
     writeFileSync(script, "import { spawn } from 'node:child_process';\nconst c = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore' });\nprocess.stdout.write(String(c.pid) + '\\n');\nsetInterval(() => {}, 1000);\n");

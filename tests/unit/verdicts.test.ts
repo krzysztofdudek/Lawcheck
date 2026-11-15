@@ -29,7 +29,7 @@ function key(filePath: string, fileText: string, ruleText = RULE_TEXT): string {
   return reviewKey({ frame: FRAME, ruleId: 'clear-errors', why: WHY, ruleText, context: [{ path: 'docs/errors.md', text: ERRORS }], filePath, fileText });
 }
 
-test('the keys of section 5', () => {
+test('reviewer-slice §5: the keys of section 5', () => {
   assert.equal(key('src/core/refund.ts', F), 'bec7eb69fcc74507cad562d7d51f13eb');
   assert.equal(key('src/core/refund.ts', F2), '416ae89429881606bc1ead8e5e1f0e8b');
   assert.equal(key('src/core/refund.ts', F2.replace(/\n/g, '\r\n')), '416ae89429881606bc1ead8e5e1f0e8b');
@@ -37,7 +37,7 @@ test('the keys of section 5', () => {
   assert.equal(key('src/core/tax.ts', readFileSync(new URL('src/core/tax.ts', S), 'utf8')), '3a171a910b49c962ed47f9b9795cfc97');
 });
 
-test('a lone carriage return stays in the key, and every part moves it', () => {
+test('reviewer-slice §5: a lone carriage return stays in the key, and every part moves it', () => {
   const base = key('src/core/refund.ts', F);
   assert.notEqual(key('src/core/refund.ts', F.replace('\n', '\r')), base);
   assert.notEqual(key('src/core/other.ts', F), base);
@@ -45,7 +45,7 @@ test('a lone carriage return stays in the key, and every part moves it', () => {
   assert.equal(key('src/core/refund.ts', F, RULE_TEXT.replace(/\n/g, '\r\n')), base);
 });
 
-test('the verdicts file is read line by line, with CR removed and every other line ignored', () => {
+test('reviewer-slice §5: the verdicts file is read line by line, with CR removed and every other line ignored', () => {
   assert.deepEqual(verdictLines('04359891722bcd49bac46a26fbb25f2a clear-errors\r\ngarbage\r\n<<<<<<< HEAD\r\n0123 x\n'), ['04359891722bcd49bac46a26fbb25f2a clear-errors']);
   assert.deepEqual(verdictLines('04359891722BCD49BAC46A26FBB25F2A clear-errors\n04359891722bcd49bac46a26fbb25f2a Clear\n'), []);
 });
@@ -56,7 +56,7 @@ function withRoot(body: (root: string) => Promise<void> | void) {
   return Promise.resolve(body(root)).finally(() => rmSync(root, { recursive: true, force: true }));
 }
 
-test('a recorded pass sorts, drops lines that do not match, writes the attributes once and removes the cache file', async () => {
+test('reviewer-slice §5: a recorded pass sorts, drops lines that do not match, writes the attributes once and removes the cache file', async () => {
   await withRoot(async (root) => {
     writeFileSync(join(root, '.lawcheck/verdicts'), 'garbage\r\nffffffffffffffffffffffffffffffff z\r\n');
     writeFileSync(join(root, '.lawcheck/.gitattributes'), '* text=auto');
@@ -77,7 +77,7 @@ test('a recorded pass sorts, drops lines that do not match, writes the attribute
   });
 });
 
-test('a cache file that does not parse, names another rule or fails the check is ignored', async () => {
+test('reviewer-slice §5: a cache file that does not parse, names another rule or fails the check is ignored', async () => {
   await withRoot(async (root) => {
     const dir = join(root, '.lawcheck/.local/failures');
     mkdirSync(dir, { recursive: true });

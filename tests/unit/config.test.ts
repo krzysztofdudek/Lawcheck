@@ -12,12 +12,12 @@ function problems(text: string) {
   return 'problems' in parsed ? parsed.problems : [];
 }
 
-test('an empty file, or one of comments, sets nothing', () => {
+test('reviewer-slice §6: an empty file, or one of comments, sets nothing', () => {
   assert.deepEqual(parseConfig(''), { config: DEFAULT_CONFIG });
   assert.deepEqual(parseConfig('# nothing yet\n\n# still nothing\n'), { config: DEFAULT_CONFIG });
 });
 
-test('the defaults and every key', () => {
+test('reviewer-slice §6: the defaults and every key', () => {
   assert.deepEqual(parseConfig(BASE), { config: { ...DEFAULT_CONFIG, provider: 'openai-compatible', model: 'test-model' } });
   assert.deepEqual(parseConfig('reviewer:\n  provider: claude-code\n'), {
     config: { ...DEFAULT_CONFIG, provider: 'claude-code', timeout: 300, parallel: 1, temperature: null },
@@ -39,7 +39,7 @@ test('the defaults and every key', () => {
   assert.deepEqual(parseConfig('reviewer:\n  max_calls: 3\n'), { config: { ...DEFAULT_CONFIG, maxCalls: 3 } });
 });
 
-test('each config-invalid message', () => {
+test('reviewer-slice §6: each config-invalid message', () => {
   const cases: [string, number, RegExp][] = [
     [BASE.replace('openai-compatible', 'gemini'), 2, /^the provider 'gemini' is unknown; this version has anthropic, openai, google, openai-compatible, ollama, claude-code, codex, gemini-cli, copilot-cli$/],
     [BASE.replace('openai-compatible', 'codx'), 2, /^the provider 'codx' is unknown \(did you mean 'codex'\?\)/],
@@ -90,7 +90,7 @@ test('each config-invalid message', () => {
   }
 });
 
-test('the file is read from the disk at the root, when it exists', () => {
+test('reviewer-slice §6: the file is read from the disk at the root, when it exists', () => {
   const root = mkdtempSync(join(tmpdir(), 'lawcheck-config-'));
   try {
     assert.deepEqual(readConfig(root), { config: DEFAULT_CONFIG });

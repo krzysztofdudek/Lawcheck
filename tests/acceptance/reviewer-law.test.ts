@@ -326,7 +326,7 @@ test('test 75: JSON', async () => {
   });
 });
 
-test('the line on standard error before the first call', async () => {
+test('reviewer-slice §8: the line on standard error before the first call', async () => {
   await withFake(async (fake) => {
     await withR(async (r) => {
       write(r, F_PATH, F);

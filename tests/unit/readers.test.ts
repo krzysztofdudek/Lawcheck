@@ -95,7 +95,7 @@ function input(files: Record<string, string>, read: string[], extra: Partial<Par
   };
 }
 
-test('which files have a reader', () => {
+test('dependency-slice §3.2: which files have a reader', () => {
   const siblings = siblingsOf(['a/x.ts', 'a/y.json', 'b/c.vue', 'b/d.svelte', 'c/e.h', 'c/f.cpp', 'g/h.h']);
   assert.deepEqual(readerOf('a/x.ts', 'x', siblings), { reader: true, view: { language: 'typescript', parsePath: 'a/x.ts', content: 'x' } });
   assert.deepEqual(readerOf('a/y.json', '{}', siblings), { reader: false });
@@ -108,7 +108,7 @@ test('which files have a reader', () => {
   assert.equal((readerOf('g/h.h', '', siblings) as any).view.language, 'c');
 });
 
-test("a use's answer is Runes' answer for all its candidates, with its reason or candidates, and what is the first candidate", async () => {
+test("dependency-slice §3.5: a use's answer is Runes' answer for all its candidates, with its reason or candidates, and what is the first candidate", async () => {
   const use = (line: number, ...keys: string[]) => ({ line, candidates: keys.map((specifier) => ({ kind: 'path', specifier }) as Hint) });
   const uses = {
     'a.ts': [
@@ -152,7 +152,7 @@ test("a use's answer is Runes' answer for all its candidates, with its reason or
   assert.deepEqual(record.classified.slice(0, 2), ['a.ts resolved later', 'a.ts ambiguous later']);
 });
 
-test('a run that reads no use loads no grammar and parses nothing', async () => {
+test('dependency-slice §3.3: a run that reads no use loads no grammar and parses nothing', async () => {
   const { runes, record } = fake({});
   const outcome = await readUses(input({ 'a.vue': '<template></template>' }, ['a.vue']), runes);
   assert.ok('uses' in outcome);
@@ -160,7 +160,7 @@ test('a run that reads no use loads no grammar and parses nothing', async () => 
   assert.deepEqual(record, { loaded: [], parsed: [], declared: [], classified: [], project: 0 });
 });
 
-test('files are parsed once, in path order, and the name-binding groups read every declaration', async () => {
+test('dependency-slice §3.3: files are parsed once, in path order, and the name-binding groups read every declaration', async () => {
   const files = { 'b/A.java': 'class A {}', 'a/K.kt': 'class K', 'c/x.ts': '', 'd/blob.java': 'x\u0000', 'e/R.rb': '', 'f/G.go': '' };
   const { runes, record } = fake({});
   const outcome = await readUses(input(files, ['b/A.java', 'c/x.ts']), runes);
@@ -173,7 +173,7 @@ test('files are parsed once, in path order, and the name-binding groups read eve
   assert.deepEqual(others.record.declared, []);
 });
 
-test('a grammar that cannot be loaded stops the run without a place, and no file after it is read', async () => {
+test('dependency-slice §6: a grammar that cannot be loaded stops the run without a place, and no file after it is read', async () => {
   const { runes, record } = fake({ failGrammar: '.ts' });
   const outcome = await readUses(input({ 'a.py': '', 'b.ts': '', 'c.py': '' }, ['a.py', 'b.ts', 'c.py']), runes);
   assert.deepEqual(outcome, {
@@ -189,7 +189,7 @@ test('a grammar that cannot be loaded stops the run without a place, and no file
   assert.deepEqual(record.classified, []);
 });
 
-test('a reader that fails on a file stops the run at that file, and no file after it is read', async () => {
+test('dependency-slice §3.3: a reader that fails on a file stops the run at that file, and no file after it is read', async () => {
   for (const options of [{ failUses: 'b.py' }, { failDeclarations: 'b.java' }]) {
     const files = { 'a.py': '', 'b.py': '', 'c.py': '', 'b.java': '', 'd.java': '' };
     const { runes, record } = fake(options);
@@ -206,7 +206,7 @@ test('a reader that fails on a file stops the run at that file, and no file afte
   }
 });
 
-test('classifying a use that fails stops the run at its file', async () => {
+test('dependency-slice §3.3: classifying a use that fails stops the run at its file', async () => {
   const uses = { 'b.ts': [{ line: 1, candidates: [{ kind: 'path', specifier: 'x' }] as Hint[] }], 'c.ts': [{ line: 1, candidates: [{ kind: 'path', specifier: 'y' }] as Hint[] }] };
   const { runes, record } = fake({ uses, failClassify: 'b.ts' });
   const outcome = await readUses(input({ 'b.ts': '', 'c.ts': '' }, ['b.ts', 'c.ts']), runes);
@@ -216,7 +216,7 @@ test('classifying a use that fails stops the run at its file', async () => {
   assert.deepEqual(record.classified, []);
 });
 
-test('the C# project reader fails without a place; assembling a file fails at the file', async () => {
+test('dependency-slice §3.3: the C# project reader fails without a place; assembling a file fails at the file', async () => {
   const files = { 'a/A.cs': '', 'b/B.cs': '', 'c/x.ts': '' };
   const project = fake({ failProject: true });
   const failed = await readUses(input(files, Object.keys(files)), project.runes);
@@ -237,14 +237,14 @@ test('the C# project reader fails without a place; assembling a file fails at th
   assert.equal(atFile.error.message, 'the csharp reader fails on this file: assembly broke');
 });
 
-test('a file the readers cannot read is file-unreadable at that file', async () => {
+test('dependency-slice §3.3: a file the readers cannot read is file-unreadable at that file', async () => {
   const { runes } = fake({});
   const base = input({ 'a.java': '' }, ['a.java']);
   const outcome = await readUses({ ...base, files: [...base.files, 'z.java'] }, runes);
   assert.deepEqual(outcome, { error: { code: 'file-unreadable', file: 'z.java', line: null, message: 'the file cannot be read (ENOENT)' } });
 });
 
-test('a notice in dist/grammars/LICENSES.txt for every grammar beside it', () => {
+test('dependency-slice §6: a notice in dist/grammars/LICENSES.txt for every grammar beside it', () => {
   const dir = GRAMMARS;
   const notices = readFileSync(`${dir}/LICENSES.txt`, 'utf8');
   const grammars = readdirSync(dir).filter((name) => name.endsWith('.wasm'));

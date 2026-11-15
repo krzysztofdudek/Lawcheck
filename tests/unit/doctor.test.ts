@@ -22,7 +22,7 @@ function sample(body: (dir: string) => Promise<void>): Promise<void> {
 
 const states = (checks: { id: string; state: string }[]) => Object.fromEntries(checks.map((c) => [c.id, c.state]));
 
-test('node below 24 fails, and the rest still runs', async () => {
+test('commands-slice §8: node below 24 fails, and the rest still runs', async () => {
   await sample(async (dir) => {
     const checks = await runChecks({ cwd: dir, env: {}, base: 'main', reviewer: false, nodeVersion: '22.1.0' });
     assert.equal(checks[0]!.state, 'fail');
@@ -32,14 +32,14 @@ test('node below 24 fails, and the rest still runs', async () => {
   });
 });
 
-test('LAWCHECK_BASE is named as the base source', async () => {
+test('commands-slice §8: LAWCHECK_BASE is named as the base source', async () => {
   await sample(async (dir) => {
     const checks = await runChecks({ cwd: dir, env: { LAWCHECK_BASE: 'main' }, base: null, reviewer: false });
     assert.equal(checks.find((c) => c.id === 'base')!.message, 'main, from LAWCHECK_BASE; the change holds 0 files');
   });
 });
 
-test('a grammar that does not load fails readers', async () => {
+test('commands-slice §8: a grammar that does not load fails readers', async () => {
   await sample(async (dir) => {
     const checks = await runChecks({ cwd: dir, env: {}, base: 'main', reviewer: false, grammarDir: join(dir, 'nowhere') });
     const readers = checks.find((c) => c.id === 'readers')!;
@@ -48,7 +48,7 @@ test('a grammar that does not load fails readers', async () => {
   });
 });
 
-test('a skipped check names the first check it waits for', async () => {
+test('commands-slice §8: a skipped check names the first check it waits for', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'lawcheck-doctor-'));
   try {
     const checks = await runChecks({ cwd: dir, env: {}, base: null, reviewer: false });
@@ -61,7 +61,7 @@ test('a skipped check names the first check it waits for', async () => {
   }
 });
 
-test('the first line counts problems and notes, and each note and fail has its next line', () => {
+test('commands-slice §8: the first line counts problems and notes, and each note and fail has its next line', () => {
   const text = doctorText([
     { id: 'a', state: 'ok', message: 'm', next: null },
     { id: 'b', state: 'note', message: 'n', next: { command: null, text: 'do n' } },

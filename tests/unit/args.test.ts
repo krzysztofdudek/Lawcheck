@@ -9,7 +9,7 @@ const ok = (argv: string[]) => {
 };
 const bad = (argv: string[]) => assert.ok('problem' in readArguments(argv), argv.join(' '));
 
-test('no command and an unknown command name the seven commands', () => {
+test('commands-slice §2: no command and an unknown command name the seven commands', () => {
   for (const argv of [[], ['fix'], ['--json']]) {
     const read = readArguments(argv);
     assert.ok('problem' in read);
@@ -18,7 +18,7 @@ test('no command and an unknown command name the seven commands', () => {
   }
 });
 
-test('each command reads its own flags', () => {
+test('commands-slice §2: each command reads its own flags', () => {
   assert.deepEqual([...ok(['init', '--json']).flags], [['--json', true]]);
   assert.deepEqual(ok(['prime']).words, []);
   const explain = ok(['explain', '--type', 'source', '--json']);
@@ -33,7 +33,7 @@ test('each command reads its own flags', () => {
   assert.equal(doctor.flags.get('--reviewer'), true);
 });
 
-test('flags another command owns, twice, without a value, or with =, are refused', () => {
+test('commands-slice §2: flags another command owns, twice, without a value, or with =, are refused', () => {
   for (const argv of [
     ['init', '--full'],
     ['prime', '--base', 'main'],
@@ -54,7 +54,7 @@ test('flags another command owns, twice, without a value, or with =, are refused
   }
 });
 
-test('every command has a usage whose first line names it, and the program lists them', () => {
+test('commands-slice §2: every command has a usage whose first line names it, and the program lists them', () => {
   for (const command of COMMANDS) assert.match(USAGE[command].split('\n')[0]!, new RegExp(`^usage: lawcheck ${command} `));
   const lines = PROGRAM_USAGE.split('\n');
   assert.equal(lines[0], 'usage: lawcheck <command> [<arguments>] [--json]');
