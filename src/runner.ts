@@ -9,7 +9,8 @@ interface CallFile {
 
 type Incoming =
   | { kind: 'load'; file: string; filesOf: Map<string, string[]> }
-  | { kind: 'call'; file: CallFile };
+  | { kind: 'call'; file: CallFile }
+  | { kind: 'finish' };
 
 type Check = (input: { files: CallFile[]; repo: { filesOf(typeId: string): string[] } }) => unknown;
 
@@ -23,17 +24,19 @@ for (const name of Object.keys(process.env)) delete process.env[name];
 
 let check: Check | null = null;
 let repo: { filesOf(typeId: string): string[] } | null = null;
-let calling: string | null = null;
-let background: { message: string; after: string | null } | null = null;
+let loaded = false;
+let reported = false;
 
-// A rejection nobody handles, or a throw from a timer, would end the runner at a moment that depends on how many files it judges; it is kept and answered in place of the next answer, naming the call it came after.
+// A rejection nobody handles, or a throw from a timer, would end the runner at a moment that depends on how many files it judges; it is reported the moment it comes, as a failure of the rule and of no file, so the result is the same alone or with other files.
 function failed(error: unknown): void {
-  background ??= { message: text(error), after: calling };
+  if (reported) return;
+  reported = true;
+  send({ kind: 'background', message: text(error), load: !loaded });
 }
 process.on('unhandledRejection', failed);
 process.on('uncaughtException', failed);
 
-// How long the runner waits, after the load and after each call, for the timers and other work the rule left behind; spec/check-slice.md, section 3.
+// How long the runner waits once, after the last call, for the timers and other work the rule left behind; spec/check-slice.md, section 3.
 const SETTLE_MS = 2_000;
 
 function counts(): Map<string, number> {
@@ -50,16 +53,15 @@ function leftBehind(): boolean {
   return false;
 }
 
-async function settled(): Promise<void> {
-  const until = Date.now() + SETTLE_MS;
-  await new Promise((resolve) => setImmediate(resolve));
-  while (background === null && Date.now() < until && leftBehind()) await new Promise((resolve) => setTimeout(resolve, 5));
+function turn(): Promise<void> {
+  return new Promise((resolve) => setImmediate(resolve));
 }
 
-function sendBackground(): boolean {
-  if (background === null) return false;
-  send({ kind: 'background', message: background.message, after: background.after });
-  return true;
+async function finish(): Promise<void> {
+  const until = Date.now() + SETTLE_MS;
+  await turn();
+  while (!reported && Date.now() < until && leftBehind()) await new Promise((resolve) => setTimeout(resolve, 5));
+  if (!reported) send({ kind: 'finished' });
 }
 
 // Node's refusal names a flag of the runner's own command line, which the user cannot pass; the permission and the path it carries say what the rule did.
@@ -115,8 +117,9 @@ async function load(file: string, filesOf: Map<string, string[]>): Promise<void>
     send({ kind: 'load-failed', message: text(error) });
     return;
   }
-  await settled();
-  if (sendBackground()) return;
+  await turn();
+  loaded = true;
+  if (reported) return;
   if (typeof module.check !== 'function') {
     send({ kind: 'load-failed', message: 'the module exports no function check' });
     return;
@@ -126,8 +129,6 @@ async function load(file: string, filesOf: Map<string, string[]>): Promise<void>
 }
 
 async function call(file: CallFile): Promise<void> {
-  if (sendBackground()) return;
-  calling = file.path;
   let value: unknown;
   try {
     value = await check!({ files: [file], repo: repo! });
@@ -135,14 +136,15 @@ async function call(file: CallFile): Promise<void> {
     send({ kind: 'threw', message: text(error) });
     return;
   }
-  await settled();
-  if (sendBackground()) return;
+  await turn();
+  if (reported) return;
   send({ kind: 'result', value });
 }
 
 process.on('message', (message: Incoming) => {
   own ??= counts();
   if (message.kind === 'load') void load(message.file, message.filesOf);
+  else if (message.kind === 'finish') void finish();
   else void call(message.file);
 });
 

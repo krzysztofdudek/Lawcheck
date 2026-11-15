@@ -173,12 +173,11 @@ interface Message {
   kind: string;
   message?: string;
   value?: unknown;
-  after?: string | null;
+  load?: boolean;
 }
 
 function backgroundCrash(message: Message): RuleOutcome {
-  const where = typeof message.after === 'string' ? `after its call on ${message.after}` : 'in its load';
-  return { crash: `fails in the background ${where}: ${message.message}` };
+  return { crash: `fails in the background${message.load === true ? ' in its load' : ''}: ${message.message}` };
 }
 
 export function normalizeMessage(message: string): string {
@@ -279,14 +278,17 @@ export function runRule(run: RuleRun): Promise<RuleOutcome> {
     const callNext = (index: number) => {
       const file = run.files[index];
       if (file === undefined) {
-        end({ findings });
+        stage = 'after its last call';
+        ask({ kind: 'finish' }, (message) => {
+          if (message.kind === 'finished') return end({ findings });
+          return end({ crash: `writes to the runner's channel ${stage}` });
+        });
         return;
       }
       stage = `on ${file.path}`;
       const payload = { path: file.path, type: file.type?.id ?? null, text: file.text, lines: file.lines };
       ask({ kind: 'call', file: payload }, (message) => {
         if (message.kind === 'threw') return end({ crash: `throws on ${file.path}: ${message.message}` });
-        if (message.kind === 'background') return end(backgroundCrash(message));
         if (message.kind === 'uncloneable') {
           return end({ crash: `returns a value the channel cannot carry for ${file.path}: ${message.message}` });
         }
@@ -301,7 +303,6 @@ export function runRule(run: RuleRun): Promise<RuleOutcome> {
     const load = () =>
       ask({ kind: 'load', file: run.ruleFile, filesOf: run.filesOf }, (message) => {
         if (message.kind === 'load-failed') return end({ crash: `fails to load: ${message.message}` });
-        if (message.kind === 'background') return end(backgroundCrash(message));
         if (message.kind === 'uncloneable') return end({ crash: `fails to load: ${message.message}` });
         if (message.kind !== 'loaded') return end({ crash: `writes to the runner's channel ${stage}` });
         callNext(0);
@@ -320,6 +321,7 @@ export function runRule(run: RuleRun): Promise<RuleOutcome> {
         clearTimeout(timer);
         return load();
       }
+      if (known && (message as Message).kind === 'background') return end(backgroundCrash(message as Message));
       if (waiting === null || !known) return end({ crash: `writes to the runner's channel ${stage}` });
       waiting(message as Message);
     });

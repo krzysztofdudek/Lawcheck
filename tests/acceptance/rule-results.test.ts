@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { LEFT_RUNNING_EXTRA_MS } from '../properties/numbers.ts';
 import { check, setRule, withSample, write } from './helpers.ts';
 
 const BREACH = 'console.log(1)\n';
@@ -36,10 +37,10 @@ test('S2-4: a line in an empty file names the empty file', async () => {
 });
 
 const background: [string, string, string][] = [
-  ['a rejection in a call', "export function check({ files }) { Promise.reject(new Error('lost')); return []; }\n", 'fails in the background after its call on src/core/a.ts: lost'],
-  ['a rejection of an async call left behind', "export async function check({ files }) { void (async () => { await null; throw new Error('late'); })(); return []; }\n", 'fails in the background after its call on src/core/a.ts: late'],
-  ['a throw from a timer 40 ms later', "export function check() { setTimeout(() => { throw new Error('late'); }, 40); return []; }\n", 'fails in the background after its call on src/core/a.ts: late'],
-  ['a rejection after a timer and several turns', "export function check() { setTimeout(() => { void (async () => { for (let i = 0; i < 5; i++) await new Promise((r) => setImmediate(r)); throw new Error('later'); })(); }, 10); return []; }\n", 'fails in the background after its call on src/core/a.ts: later'],
+  ['a rejection in a call', "export function check({ files }) { Promise.reject(new Error('lost')); return []; }\n", 'fails in the background: lost'],
+  ['a rejection of an async call left behind', "export async function check({ files }) { void (async () => { await null; throw new Error('late'); })(); return []; }\n", 'fails in the background: late'],
+  ['a throw from a timer 40 ms later', "export function check() { setTimeout(() => { throw new Error('late'); }, 40); return []; }\n", 'fails in the background: late'],
+  ['a rejection after a timer and several turns', "export function check() { setTimeout(() => { void (async () => { for (let i = 0; i < 5; i++) await new Promise((r) => setImmediate(r)); throw new Error('later'); })(); }, 10); return []; }\n", 'fails in the background: later'],
   ['a rejection at the top of the module', "Promise.reject(new Error('floating'));\nexport function check() { return []; }\n", 'fails in the background in its load: floating'],
 ];
 
@@ -67,13 +68,18 @@ test('S2-6: a rule that settles its own promises is judged as before (control)',
 });
 
 
-test('S2-6: a rule that leaves a timer of a minute running is judged, within the wait the runner gives it (control)', async () => {
-  await withSample(async (s) => {
-    setRule(s, 'no-console', "export function check({ files }) { setTimeout(() => {}, 60000); return files.flatMap((file) => file.lines.flatMap((text, i) => (text.includes('console.log') ? [{ line: i + 1, message: 'writes to the terminal with console.log' }] : []))); }\n");
-    write(s, 'src/core/a.ts', BREACH);
-    const run = await check(s);
-    assert.equal(run.code, 1);
-    assert.ok(run.stdout.split('\n').includes(finding('src/core/a.ts:1')), run.stdout);
-    assert.ok(run.ms < 15_000, `${run.ms} ms`);
-  });
+test('S2-6: a rule that leaves an interval of ten minutes judges 200 files within the time of a rule that leaves nothing, plus one wait of 2 seconds', { timeout: 120_000 }, async () => {
+  const judge = "files.flatMap((file) => file.lines.flatMap((text, i) => (text.includes('console.log') ? [{ line: i + 1, message: 'writes to the terminal with console.log' }] : [])))";
+  const times: number[] = [];
+  for (const left of ['', 'setInterval(() => {}, 600000); ']) {
+    await withSample(async (s) => {
+      setRule(s, 'no-console', `export function check({ files }) { ${left}return ${judge}; }\n`);
+      for (let i = 0; i < 200; i++) write(s, `src/core/f${i}.ts`, i === 7 ? BREACH : 'export const x = 1;\n');
+      const run = await check(s);
+      assert.equal(run.code, 1, run.stdout);
+      assert.ok(run.stdout.split('\n').includes(finding('src/core/f7.ts:1')), run.stdout);
+      times.push(run.ms);
+    });
+  }
+  assert.ok(times[1]! - times[0]! <= LEFT_RUNNING_EXTRA_MS, `${times[1]} ms against ${times[0]} ms`);
 });

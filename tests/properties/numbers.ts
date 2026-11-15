@@ -16,6 +16,9 @@ export const ANSWER_BUDGET_MS = 1_000;
 // parseLaw on the generator's deepest text, 20,000 levels of brackets; measured at 57 ms in the dev container.
 export const LAW_PARSE_BUDGET_MS = 1_500;
 
+// What a rule that leaves an interval running may add to a run of 200 files: the one wait of 2 seconds after its last call (spec/check-slice.md, section 3), and 2 seconds for the noise of two runs.
+export const LEFT_RUNNING_EXTRA_MS = 4_000;
+
 // One pure call on generated input, for the base oracle of no run over its budget.
 export const PURE_CALL_BUDGET_MS = 1_000;
 
