@@ -156,7 +156,7 @@ export function mergeBase(root: string, commit: string): string | null {
 }
 
 export function changedPaths(root: string, base: string): string[] {
-  const diffArgs = ['diff', '--no-ext-diff', '--no-textconv', '-z', '--name-only', '--no-renames', '--relative', base, '--'];
+  const diffArgs = ['diff', '--no-ext-diff', '--no-textconv', '--ignore-submodules=all', '-z', '--name-only', '--no-renames', '--relative', base, '--'];
   const diff = git(root, diffArgs);
   if (diff.status !== 0) throw failed(diffArgs, diff);
   const othersArgs = ['ls-files', '-z', '--others', '--exclude-standard'];

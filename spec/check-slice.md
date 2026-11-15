@@ -26,7 +26,7 @@ Out, each with what this slice does where the design has it:
 
 `.lawcheck/law.yaml`, found by walking up from the current directory. The nearest directory that holds `.lawcheck/law.yaml` is the root, taken as its real path (`realpathSync`). Git and the rules run there, and every path is relative to it, with forward slashes. The root may lie below the top of the git work tree. A run then sees the files below the root alone.
 
-Git runs at the root with settings that start no program the repository's config or attributes name: no `core.fsmonitor` program, no hook, no external diff, no `textconv`, and no `clean`, `smudge` or `process` filter (invariant `I-git-1`). A file whose content git takes through a filter, such as a file of Git LFS, is compared as its bytes on disk whenever git has to read it again, so a file whose time no longer matches the index can count as changed.
+Git runs at the root with settings that start no program the repository's config or attributes name: no `core.fsmonitor` program, no hook, no external diff, no `textconv`, and no `clean`, `smudge` or `process` filter (invariant `I-git-1`). The change does not look into a submodule, whose own config would name its own programs; its files are not judged in any case. Settings the caller passes to git itself, such as `GIT_CONFIG_PARAMETERS` or `git -c` in an alias, are the caller's choice, not the repository's, and are outside this promise. A file whose content git takes through a filter, such as a file of Git LFS, is compared as its bytes on disk whenever git has to read it again, so a file whose time no longer matches the index can count as changed.
 
 Every program Lawcheck starts, git and a reviewer program included, it looks up on `PATH` with relative and empty entries left out, and it hands `PATH` on without them, since such an entry names the folder a program starts in, the repository. On Windows it also sets `NoDefaultCurrentDirectoryInExePath` to `1` for itself and every program it starts, so `cmd.exe` does not look in the current folder before `PATH`. No program of the repository runs in place of the one named (invariant `I-start-1`).
 
@@ -212,7 +212,7 @@ A rule file is code of the repository and runs with the user's rights, as the re
 | the default base | `git symbolic-ref --quiet --short refs/remotes/origin/HEAD` | run when neither `--base` nor `LAWCHECK_BASE` names a base; exit 1: no base |
 | the base | `git rev-parse --verify --quiet --end-of-options <base>^{commit}` | another exit than 0: `base-unreachable` |
 | the merge base | `git merge-base HEAD <the base's commit>` | exit 1: `base-unreachable` |
-| the change | `git diff --no-ext-diff --no-textconv -z --name-only --no-renames --relative <merge base> --`, then `git ls-files -z --others --exclude-standard` | below |
+| the change | `git diff --no-ext-diff --no-textconv --ignore-submodules=all -z --name-only --no-renames --relative <merge base> --`, then `git ls-files -z --others --exclude-standard` | below |
 | the links | `git ls-files -z --stage`, when a script rule is to run | the entries of mode `120000` are the links git tracks (section 3) |
 
 Any other failure of a git command is `internal`. With `-z` git ends each path with a NUL byte and quotes nothing, so a name with a letter outside ASCII, a space or a tab arrives as it is. `ls-files` at the root and `diff --relative` both print paths relative to the root and leave out everything outside it. The tool compares the paths of the two as equal strings, wherever the root lies in the git tree.

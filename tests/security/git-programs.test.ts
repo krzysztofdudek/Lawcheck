@@ -119,3 +119,32 @@ test('S5-14: the fixture arms git: the same reads through git itself start the p
     for (const name of ['fsmonitor', 'clean', 'process']) assert.ok(started.includes(name), started.join(', '));
   });
 });
+
+test('S5-14: a submodule whose own config names a filter starts nothing during check, explain and doctor (I-git-1)', async () => {
+  await inTemp(async (dir) => {
+    const markers = join(dir, 'markers');
+    mkdirSync(markers, { recursive: true });
+    const sub = join(dir, 'sub');
+    mkdirSync(sub);
+    git(sub, 'init', '-q', '-b', 'main');
+    writeFileSync(join(sub, 'a.ts'), 'export const a = 1;\n');
+    writeFileSync(join(sub, '.gitattributes'), '*.ts filter=mark\n');
+    git(sub, 'add', '-A');
+    git(sub, 'commit', '-q', '-m', 'sub');
+    const s = makeSample(dir);
+    git(s, '-c', 'protocol.file.allow=always', 'submodule', 'add', '-q', slashed(sub), 'libs/sub');
+    git(s, 'commit', '-q', '-m', 'a submodule');
+    const inner = join(s, 'libs', 'sub');
+    mkdirSync(join(dir, 'scripts-sub'));
+    git(inner, 'config', 'filter.mark.clean', marker(join(dir, 'scripts-sub'), markers, 'submodule-clean'));
+    writeFileSync(join(inner, 'a.ts'), 'export const a = 2;\n');
+    stale(inner, markers);
+    writeFileSync(join(s, 'src/core/discount.ts'), "console.log('d');\n");
+    for (const args of [['check', '--base', 'main'], ['explain', 'libs/sub/a.ts'], ['doctor']]) {
+      await lawcheck(s, args);
+      assert.deepEqual(readdirSync(markers), [], args.join(' '));
+    }
+    git(inner, 'status', '--porcelain');
+    assert.deepEqual(readdirSync(markers), ['submodule-clean'], 'the control: git itself runs the filter of the submodule');
+  });
+});
