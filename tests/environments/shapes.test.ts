@@ -158,15 +158,15 @@ const CORE: Scenario[] = [
 
 const inShape = async (index: number) => assert.deepEqual(await inShapes(CORE, [SHAPES[index]!]), []);
 
-test("I-shape-1: the core rows of check give the spec's output with the law at the top, from the root and from below it", () => inShape(0));
+test('I-shape-1: the core rows of check give the output the spec gives with the law at the top, from the root and from below it', () => inShape(0));
 
-test("I-shape-1: the core rows of check give the spec's output with the law in pkg/ of a monorepo, node_modules hoisted above it", () => inShape(1));
+test('I-shape-1: the core rows of check give the output the spec gives with the law in pkg/ of a monorepo, node_modules hoisted above it', () => inShape(1));
 
-test("I-shape-1: the core rows of check give the spec's output in a linked worktree, from the root and from below it", () => inShape(2));
+test('I-shape-1: the core rows of check give the output the spec gives in a linked worktree, from the root and from below it', () => inShape(2));
 
-test("I-shape-1: the core rows of check give the spec's output at a root path with a space and a non-ASCII letter", () => inShape(3));
+test('I-shape-1: the core rows of check give the output the spec gives at a root path with a space and a non-ASCII letter', () => inShape(3));
 
-test("I-shape-1: the core rows of check give the spec's output at a root reached through a symbolic link", () => inShape(4));
+test('I-shape-1: the core rows of check give the output the spec gives at a root reached through a symbolic link', () => inShape(4));
 
 const IMPORTS_HOISTED = `import { hoisted } from '${HOISTED}';\nexport function check() { return [{ message: hoisted }]; }\n`;
 const OUTSIDE = "outside the root and Lawcheck's folder, and a rule may read nothing else";

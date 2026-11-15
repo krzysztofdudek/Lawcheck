@@ -143,6 +143,40 @@ export const SLOW_TESTS: Record<string, Slow> = {
   // A run of the tool per case.
   "tests/security/linked.test.ts > S5-15: a .lawcheck/law.yaml linked to a one-line secret shows none of it (I-secret-2)": { fixed: 0, measured: { darwin: 7_780, linux: 6_706, win32: 21_982 } },
   'tests/contract/harness.test.ts > harness-6: a process the run leaves alive fails it, however quickly it left': { fixed: 4_000, measured: { darwin: 4_553, linux: 4_458 } },
+  // A run of the tool per case.
+  'tests/environments/ci-shapes.test.ts > S7-6: the variables of CI services count as CI, and CI set to an off word does not': { fixed: 0, measured: { darwin: 4_672, win32: 6_940 } },
+  // A run of the tool per case.
+  'tests/environments/git-faults.test.ts > S7-15: a repository owned by another user gives no-git with the safe.directory command of git, quoted for a POSIX shell, and that command run there lets check through': { fixed: 0, measured: { win32: 4_688 } },
+  // The hooks, run in five repository shapes and from two directories each.
+  'tests/environments/hook-shapes.test.ts > I-shape-2: a law broken in the turn is handed back under its header in every repository shape': { fixed: 0, measured: { darwin: 5_793, win32: 15_323 } },
+  // The hooks, run in five repository shapes and from two directories each.
+  'tests/environments/hook-shapes.test.ts > I-shape-2: control, a clean change lets the agent finish in every repository shape': { fixed: 0, measured: { darwin: 6_362, win32: 16_679 } },
+  // The hooks, run in five repository shapes and from two directories each.
+  'tests/environments/hook-shapes.test.ts > I-shape-2: the hook after an edit hands back a breach in every repository shape': { fixed: 0, measured: { darwin: 4_598, win32: 12_876 } },
+  // The hooks, run in five repository shapes and from two directories each.
+  'tests/environments/hook-shapes.test.ts > I-shape-2: the session start gives the primer in every repository shape': { fixed: 0, measured: { darwin: 4_244, win32: 12_435 } },
+  // The hooks, run in five repository shapes and from two directories each.
+  'tests/environments/hook-shapes.test.ts > S6-1: a check before finishing that cannot take its snapshot says so': { fixed: 0, measured: { win32: 8_923 } },
+  // The hooks, run in five repository shapes and from two directories each.
+  'tests/environments/hook-shapes.test.ts > S6-1: the check before finishing hands back a breach written in the turn, in every repository shape': { fixed: 0, measured: { darwin: 5_963, win32: 16_780 } },
+  // A run of the tool per case.
+  'tests/environments/refusal.test.ts > I-env-1: every command but --version, --help and docs refuses an unsupported runtime in its first line, naming it, and doctor leads with the same line': { fixed: 0, measured: { darwin: 8_921, linux: 6_249, win32: 13_184 } },
+  // A run of the tool per case.
+  'tests/environments/refusal.test.ts > S8-1: a Lawcheck served from an archive of Yarn PnP refuses every command in its first line, and blames no rule file': { fixed: 0, measured: { win32: 4_917 } },
+  // A run of the tool per row, in a fresh sample, from two directories.
+  'tests/environments/shapes.test.ts > I-shape-1: the core rows of check give the output the spec gives at a root path with a space and a non-ASCII letter': { fixed: 0, measured: { darwin: 11_139, linux: 5_134, win32: 26_169 } },
+  // A run of the tool per row, in a fresh sample, from two directories.
+  'tests/environments/shapes.test.ts > I-shape-1: the core rows of check give the output the spec gives at a root reached through a symbolic link': { fixed: 0, measured: { darwin: 10_818, linux: 5_067, win32: 27_432 } },
+  // A run of the tool per row, in a fresh sample, from two directories.
+  'tests/environments/shapes.test.ts > I-shape-1: the core rows of check give the output the spec gives in a linked worktree, from the root and from below it': { fixed: 0, measured: { darwin: 13_459, linux: 6_022, win32: 34_119 } },
+  // A run of the tool per row, in a fresh sample, from two directories.
+  'tests/environments/shapes.test.ts > I-shape-1: the core rows of check give the output the spec gives with the law at the top, from the root and from below it': { fixed: 0, measured: { darwin: 10_812, linux: 5_431, win32: 35_917 } },
+  // A run of the tool per row, in a fresh sample, from two directories.
+  'tests/environments/shapes.test.ts > I-shape-1: the core rows of check give the output the spec gives with the law in pkg/ of a monorepo, node_modules hoisted above it': { fixed: 0, measured: { darwin: 14_186, linux: 5_435, win32: 30_518 } },
+  // A run of the tool per case.
+  'tests/environments/shapes.test.ts > S2-2: control, the same rule loads the same package from a node_modules below the root': { fixed: 0, measured: { win32: 9_298 } },
+  // The packing, an install and a run from each shell of the system.
+  'tests/environments/systems.test.ts > test 205: the packed tarball, installed globally without the network, starts from every shell of the system and checks the sample': { fixed: 0, measured: { darwin: 4_359, win32: 9_364 } },
   // The nightly containers of spec/environments.md, section 7: image pulls and package installs over the network take the time, not the tool, so each budget is a bound for its cells on Linux, given as fixed time, and no multiple of a measurement.
   'tests/environments/install.nightly.test.ts > test 206: the install matrix, each package manager on node:24 and node:24-alpine, passes or refuses as the spec says (network)': { fixed: 1_800_000, measured: { linux: 1_800_000 } },
   'tests/environments/install.nightly.test.ts > S8-2: on oven/bun, Bun with no Node, the installed Lawcheck refuses in its first line, and doctor agrees with check (network)': { fixed: 300_000, measured: { linux: 300_000 } },

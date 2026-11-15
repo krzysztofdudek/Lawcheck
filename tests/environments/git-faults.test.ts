@@ -19,7 +19,7 @@ function shellQuoted(path: string): string {
 
 const SHELL: [string, string[]] = process.platform === 'win32' ? [join(process.env.ProgramFiles ?? 'C:\\Program Files', 'Git', 'bin', 'bash.exe'), ['-c']] : ['sh', ['-c']];
 
-test("S7-15: a repository owned by another user gives no-git with git's safe.directory command, quoted for a POSIX shell, and that command run there lets check through", async () => {
+test('S7-15: a repository owned by another user gives no-git with the safe.directory command of git, quoted for a POSIX shell, and that command run there lets check through', async () => {
   for (const folder of ['plain', 'my repo żółw', "it's here"]) {
     await inTemp(async (dir) => {
       mkdirSync(join(dir, folder));

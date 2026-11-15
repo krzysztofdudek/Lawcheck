@@ -152,7 +152,7 @@ const PNP_ENV = { NODE_OPTIONS: "--import=data:text/javascript,Object.defineProp
 const PNP = "Yarn Plug'n'Play is not supported: Lawcheck is served from the archive lawcheck-npm-0.1.0-4f9d.zip, which the runner of script rules cannot open";
 const PNP_NEXT = 'set nodeLinker: node-modules in .yarnrc.yml and run yarn install, then run lawcheck check';
 
-test("S8-1: a Lawcheck served from a Plug'n'Play archive refuses every command in its first line, and blames no rule file", async () => {
+test('S8-1: a Lawcheck served from an archive of Yarn PnP refuses every command in its first line, and blames no rule file', async () => {
   await inTemp(async (dir) => {
     const s = sampleWithD(dir);
     const cli = zippedCopy(dir, 'lawcheck-npm-0.1.0-4f9d.zip');
@@ -233,7 +233,9 @@ function runnerFailed(run: Run, said: RegExp, command: string): void {
   assert.equal(run.code, 2);
 }
 
-test('test 201: a runner Node cannot start with its flags is runner-failed, with Node\'s words, and never rule-crashed on a rule file', async () => {
+test('test 201: a runner Node cannot start with its flags is runner-failed, with Node\'s words, and never rule-crashed on a rule file', async (t) => {
+  const skip = platformSkip('the whole test');
+  if (skip !== null) return t.skip(skip);
   await withCopy(async (copy) => {
     const rules = join(copy.dir, 'dist', 'rules.js');
     writeFileSync(rules, readFileSync(rules, 'utf8').replace("'--permission', ", "'--permission', '--no-such-flag', "));

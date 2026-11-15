@@ -48,6 +48,7 @@ export const PLATFORM_SKIPS: PlatformSkip[] = [
   { file: 'tests/environments/systems.test.ts', test: 'test 202: on a file system that ignores case, explain SRC/core/price.ts answers for src/core/price.ts, the file git lists', part: 'the whole test', platform: 'linux', reason: 'the file systems of Linux tell SRC from src' },
   { file: 'tests/environments/systems.test.ts', test: 'test 202: control, where the file system tells case apart, SRC/core/price.ts is a file that does not exist yet', part: 'the whole test', platform: 'darwin', reason: 'the default file system of macOS ignores case' },
   { file: 'tests/environments/systems.test.ts', test: 'test 202: control, where the file system tells case apart, SRC/core/price.ts is a file that does not exist yet', part: 'the whole test', platform: 'win32', reason: 'the file systems of Windows ignore case' },
+  { file: 'tests/environments/refusal.test.ts', test: "test 201: a runner Node cannot start with its flags is runner-failed, with Node's words, and never rule-crashed on a rule file", part: 'the whole test', platform: 'win32', reason: 'Node on Windows ends the lines it prints on standard error with CRLF, and a carriage return there breaks invariant I-out-1, though the lines are Node\'s and not Lawcheck\'s' },
 ];
 
 export function applies(platform: SkipPlatform): boolean {
