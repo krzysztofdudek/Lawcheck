@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { defaultAnswer, openai, withFake } from '../acceptance/fake-reviewer.ts';
 import { alive, D, D_PATH, F_PRIME, git, inTemp, pathWith, programDir, ROOT, setRule, startLawcheck, withR, withSample, write } from '../acceptance/helpers.ts';
 import { SEED } from '../numbers.ts';
+import { testFolder } from '../harness/tool.ts';
 import { errorLines, MiB, run } from './support.ts';
 
 // These run nightly, on Linux, in a container of 1 GB of memory and 2 CPUs; spec/check-slice.md, section 10, holds the numbers.
@@ -208,7 +209,7 @@ test('test 259: a git that never answers ends as step-too-slow after 30 seconds,
     const pidFile = join(dir, 'git.pid');
     write(dir, 'bin/git', `#!/bin/sh\ncase "$*" in *"ls-files -z --cached"*) echo $$ > "${pidFile}"; exec sleep 600;; esac\nexec "${join(programDir('git'), 'git')}" "$@"\n`);
     chmodSync(join(dir, 'bin', 'git'), 0o755);
-    const result = await run(s, ['check', '--base', 'main'], { env: { PATH: pathWith(join(dir, 'bin')) }, budget: 'LIMITS_RUN_MS' });
+    const result = await run(s, ['check', '--base', 'main'], { env: { PATH: pathWith(join(dir, 'bin')) }, budget: 'LIMITS_RUN_MS', outside: ['git.pid'] });
     assert.equal(result.stdout, stepTooSlow('running git ls-files -z --cached --others --exclude-standard'));
     assert.equal(result.code, 2);
     assert.ok(result.ms >= 30_000 && result.ms < 40_000, String(result.ms));
@@ -221,8 +222,9 @@ const FULL_DISK = process.env.LAWCHECK_FULL_DISK;
 
 test('S3-8: test 265: a review on a disk with one free page is file-unwritable, and init there too, never internal', async () => {
   assert.ok(FULL_DISK !== undefined && existsSync(FULL_DISK), 'could not run: LAWCHECK_FULL_DISK names no folder; the nightly job mounts one');
+  const folder = testFolder('lawcheck-test-', FULL_DISK!);
+  const filler = join(folder.dir, 'filler');
   const fill = (pages: number) => {
-    const filler = join(FULL_DISK!, 'filler');
     rmSync(filler, { force: true });
     const fd = openSync(filler, 'w');
     const block = Buffer.alloc(4096);
@@ -235,34 +237,34 @@ test('S3-8: test 265: a review on a disk with one free page is file-unwritable, 
     }
     truncateSync(filler, Math.max(0, statSync(filler).size - pages * 4096));
   };
-  const r = join(FULL_DISK!, 'r');
-  rmSync(r, { recursive: true, force: true });
-  await withFake(async (fake) => {
-    mkdirSync(r);
-    git(r, 'init', '-q', '-b', 'main');
-    cpSync(join(ROOT, 'tests', 'sample'), r, { recursive: true });
-    cpSync(join(ROOT, 'tests', 'reviewer-sample'), r, { recursive: true });
-    git(r, 'add', '-A');
-    git(r, 'commit', '-q', '-m', 'sample');
-    git(r, 'checkout', '-q', '-b', 'work');
-    write(r, 'src/core/refund.ts', 'export function refund(paid: boolean): void {\n  return;\n}\n');
-    fill(1);
-    const result = await run(r, ['check', '--review', '--base', 'main'], { env: { LAWCHECK_REVIEWER_ENDPOINT: fake.url }, budget: 'LIMITS_RUN_MS' });
-    assert.match(errorLines(result.stdout).join('\n'), /^\S+  error\[file-unwritable\]  cannot be written \(ENOSPC\)/);
-    assert.doesNotMatch(result.stdout, /internal/);
-    assert.equal(result.code, 2);
-  });
-  rmSync(r, { recursive: true, force: true });
-  const fresh = join(FULL_DISK!, 'n');
-  rmSync(fresh, { recursive: true, force: true });
-  mkdirSync(fresh);
-  git(fresh, 'init', '-q', '-b', 'main');
-  fill(0);
-  const init = await run(fresh, ['init'], { budget: 'LIMITS_RUN_MS' });
-  assert.match(errorLines(init.stdout).join('\n'), /error\[file-unwritable\]  cannot be written \(ENOSPC\)/);
-  assert.equal(init.code, 2);
-  rmSync(join(FULL_DISK!, 'filler'), { force: true });
-  rmSync(fresh, { recursive: true, force: true });
+  try {
+    const r = join(folder.dir, 'r');
+    await withFake(async (fake) => {
+      mkdirSync(r);
+      git(r, 'init', '-q', '-b', 'main');
+      cpSync(join(ROOT, 'tests', 'sample'), r, { recursive: true });
+      cpSync(join(ROOT, 'tests', 'reviewer-sample'), r, { recursive: true });
+      git(r, 'add', '-A');
+      git(r, 'commit', '-q', '-m', 'sample');
+      git(r, 'checkout', '-q', '-b', 'work');
+      write(r, 'src/core/refund.ts', 'export function refund(paid: boolean): void {\n  return;\n}\n');
+      fill(1);
+      const result = await run(r, ['check', '--review', '--base', 'main'], { env: { LAWCHECK_REVIEWER_ENDPOINT: fake.url }, budget: 'LIMITS_RUN_MS', stderr: /^(lawcheck: 1 reviewer call to openai-compatible\n)?$/, writes: [/^\.lawcheck\//] });
+      assert.match(errorLines(result.stdout).join('\n'), /^\S+  error\[file-unwritable\]  cannot be written \(ENOSPC\)/);
+      assert.equal(result.code, 2);
+    });
+    rmSync(r, { recursive: true, force: true });
+    const fresh = join(folder.dir, 'n');
+    mkdirSync(fresh);
+    git(fresh, 'init', '-q', '-b', 'main');
+    fill(0);
+    const init = await run(fresh, ['init'], { budget: 'LIMITS_RUN_MS' });
+    assert.match(errorLines(init.stdout).join('\n'), /error\[file-unwritable\]  cannot be written \(ENOSPC\)/);
+    assert.equal(init.code, 2);
+  } finally {
+    rmSync(filler, { force: true });
+    folder.remove();
+  }
 });
 
 test('test 269: explain of a file whose content pattern backtracks names its typing as the step past its limit', async () => {
