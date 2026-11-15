@@ -183,7 +183,7 @@ A rule that hangs or dies takes its own process with it and nothing else. `proce
 **What the runner does not stop.** It is no sandbox, and this slice has no flag that skips script rules. A rule can:
 
 - read every file under the root, `.git/` and files git ignores, such as `.env`, included;
-- read any file the user can read, through a symlink that lies under the root;
+- read any file the user can read, through a link under the root that git does not track, or a tracked link that leads elsewhere inside the git work tree; a tracked link that leads outside the work tree stops the run before any rule starts (above);
 - open network connections: `fetch`, `node:net` and `node:http` work under `--permission` on Node 24;
 - write a file wherever the user can, through `node:sqlite`;
 - signal the user's processes with `process.kill`;
