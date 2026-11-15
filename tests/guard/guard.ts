@@ -502,17 +502,50 @@ function fitsWeakening(record: Record, w: Weakening, ctx: AnchorContext): string
   return [];
 }
 
+function listed(items: string[]): string {
+  return items.length <= 4 ? items.join(', ') : `${items.slice(0, 3).join(', ')} and ${items.length - 3} more`;
+}
+
+function commonDir(paths: string[]): string {
+  const parts = paths.map((p) => p.split('/').slice(0, -1));
+  const first = parts[0] ?? [];
+  let n = 0;
+  while (n < first.length && parts.every((p) => p[n] === first[n])) n++;
+  return first.slice(0, n).join('/') || '.';
+}
+
+function groupRefused(refused: Finding[]): Finding[][] {
+  const groups = new Map<string, Finding[]>();
+  const out: Finding[][] = [];
+  for (const f of refused) {
+    if (!PATH_KINDS.has(f.kind)) { out.push([f]); continue; }
+    const key = `${f.kind}\0${f.why.join('\0')}`;
+    const group = groups.get(key);
+    if (group) group.push(f);
+    else { const g = [f]; groups.set(key, g); out.push(g); }
+  }
+  return out;
+}
+
 export function render(report: Report): string {
   const short = (s: string): string => s.slice(0, 7);
   const refused = report.findings.filter((f) => !f.cleared);
   const cleared = report.findings.filter((f) => f.cleared);
   const out: string[] = [];
   const range = `${short(report.mergeBase)}..${short(report.head)}, judged by the guard of ${short(report.base)}`;
-  for (const f of cleared) out.push(`weaker   ${f.kind}  ${f.subject}`, `record   ${f.record!.raw.trim()}`, '');
-  for (const f of refused) {
-    out.push(`REFUSED  ${f.kind}  ${f.subject}`, `where    ${f.where}`, `what     ${f.detail}`);
+  const byRecord = new Map<string, Finding[]>();
+  for (const f of cleared) byRecord.set(f.record!.raw, [...(byRecord.get(f.record!.raw) ?? []), f]);
+  for (const [raw, list] of byRecord) {
+    const first = list[0]!;
+    out.push(`weaker   ${first.kind}  ${list.length === 1 ? first.subject : `${list.length} paths: ${listed(list.map((f) => f.subject))}`}`, `record   ${raw.trim()}`, '');
+  }
+  for (const group of groupRefused(refused)) {
+    const f = group[0]!;
+    if (group.length === 1) out.push(`REFUSED  ${f.kind}  ${f.subject}`, `where    ${f.where}`, `what     ${f.detail}`);
+    else out.push(`REFUSED  ${f.kind}  ${group.length} paths under ${commonDir(group.map((g) => g.subject))}`, `where    ${listed(group.map((g) => g.where))}`, `what     ${[...new Set(group.map((g) => g.detail))].join('; ')}`);
     for (const why of f.why) if (why !== f.detail) out.push(`why      ${why}`);
-    if (f.needs) out.push(`needs    a row added to tests/weakenings.md in this change:`, `         ${f.needs}`, `anchor   ${f.anchors}`);
+    const needs = group.length === 1 ? f.needs : f.needs?.replace(` ${f.subject.replace(/\|/g, '\\|')} `, ` ${commonDir(group.map((g) => g.subject))}/** `);
+    if (needs) out.push(`needs    a row added to tests/weakenings.md in this change:`, `         ${needs}`, `anchor   ${f.anchors}`);
     else out.push('needs    nothing passes it: undo it');
     out.push('');
   }
