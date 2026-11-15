@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
 import fc from 'fast-check';
 import { checkAnswer, takeAnswer } from '../../dist/prompt.js';
 import { PURE_CALL_BUDGET_MS } from '../numbers.ts';
@@ -66,7 +65,12 @@ const piece = fc.oneof(
 );
 const answer = fc.array(piece, { maxLength: 24 }).map((parts) => parts.join(''));
 
-export function answerProperties(speed: Speed): void {
+// Each property by its name, for tests/properties/answer.test.ts and answer.nightly.test.ts to register with its name written out.
+export function answerProperties(speed: Speed): Record<string, () => unknown> {
+  const out: Record<string, () => unknown> = {};
+  const test = (name: string, body: () => unknown) => {
+    out[name] = body;
+  };
   test('I-answer-1, S3-3: the answer read is the one the reading of section 4 takes, on small input', () => {
     pure(
       speed,
@@ -124,4 +128,5 @@ export function answerProperties(speed: Speed): void {
       },
     );
   });
+  return out;
 }

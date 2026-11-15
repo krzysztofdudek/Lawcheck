@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
 import fc from 'fast-check';
 import { check, makeSample, setRule, temp, write } from '../acceptance/helpers.ts';
 import { tool } from './support.ts';
@@ -50,7 +49,12 @@ async function outcome(source: string, files: string[]): Promise<{ code: number 
   }
 }
 
-export function rulesProperties(speed: Speed): void {
+// Each property by its name, for tests/properties/rules.test.ts and rules.nightly.test.ts to register with its name written out.
+export function rulesProperties(speed: Speed): Record<string, () => unknown> {
+  const out: Record<string, () => unknown> = {};
+  const test = (name: string, body: () => unknown) => {
+    out[name] = body;
+  };
   test('I-rules-1, S2-4, S2-6: any value a rule returns, throws or rejects with gives findings or a rule-crashed naming its cause, and file A is judged the same alone or with B', async () => {
     await tool(
       speed,
@@ -80,4 +84,5 @@ export function rulesProperties(speed: Speed): void {
       },
     );
   });
+  return out;
 }

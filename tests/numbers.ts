@@ -72,20 +72,40 @@ export interface Slow {
 
 // The tests that pass a fifth of TEST_BUDGET_MS on some system in CI, by the test file and the whole test name: inside the default such a test keeps less than SLOW_MARGIN over its time. On each system listed the budget is the tool's fixed waits plus SLOW_MARGIN times the rest of the longest time measured there, rounded up to 5 s; the reporter names every test of a run that passes a fifth with no entry. On Windows every process starts slowly and a test's time varies by half or more from run to run.
 export const SLOW_TESTS: Record<string, Slow> = {
-  // Measured on CI run 43762617467: 25 sequences of git commands, each followed by seven runs of the tool.
-  'tests/properties/git-states.ts > I-git-2: in any state a sequence of git commands leaves, a check changes nothing in git, its change gives what --full gives for those files, and it prints the same from below the root and twice': { fixed: 0, measured: { darwin: 82_146, linux: 36_500, win32: 181_565 } },
-  // Measured on CI run 43762617467: 25 sample repositories with generated names, three runs of the tool each.
-  'tests/properties/names.ts > I-files-1: every file a type matches is judged, whatever bytes its name holds, and its JSON path maps back to the file on disk': { fixed: 0, measured: { darwin: 30_513, linux: 19_171, win32: 26_435 } },
-  // Measured on CI run 43762617467: 25 rules, each judged alone and with a second file.
-  'tests/properties/rules.ts > I-rules-1, S2-4, S2-6: any value a rule returns, throws or rejects with gives findings or a rule-crashed naming its cause, and file A is judged the same alone or with B': { fixed: 0, measured: { darwin: 25_976, linux: 14_762, win32: 63_019 } },
-  // Measured on CI run 43762617467: 25 sample repositories, a check in text and in JSON each.
-  'tests/properties/contents.ts > I-lines-1: for any text of a judged file, every finding lies inside it, and the text and JSON forms agree': { fixed: 0, measured: { darwin: 24_953, linux: 12_949, win32: 50_437 } },
-  // Measured on CI run 43762617467: 25 laws, each printed back type by type and rule by rule.
-  'tests/properties/law.ts > I-law-1: an accepted law is printed back by explain, every type and every rule whole': { fixed: 0, measured: { darwin: 19_307, linux: 11_645, win32: 61_019 } },
-  // Measured on CI run 43762617467: 25 hook runs, and two session starts for each config with a byte-order mark.
-  'tests/properties/arguments.ts > I-hook-1, S6-6, S6-8: any input to a hook gives exit 0 with nothing or one hook document, or the defined notice, never a stack trace': { fixed: 0, measured: { darwin: 9_955, linux: 5_762, win32: 13_367 } },
-  // Measured on CI run 43762617467: 25 runs of the tool.
-  'tests/properties/arguments.ts > I-args-1: tokens of the tool and junk give usage or a run, never internal, and change nothing in git': { fixed: 0, measured: { darwin: 7_875, win32: 9_010 } },
+  // Measured on CI runs 43762617467 and 43764121085: 25 runs of the tool or of a hook.
+  "tests/properties/arguments.test.ts > I-args-1: tokens of the tool and junk give usage or a run, never internal, and change nothing in git": { fixed: 0, measured: { darwin: 7_875, linux: 5_085, win32: 9_010 } },
+  // Measured on CI runs 43762617467 and 43764121085: 25 runs of the tool or of a hook.
+  "tests/properties/arguments.test.ts > I-hook-1, S6-6, S6-8: any input to a hook gives exit 0 with nothing or one hook document, or the defined notice, never a stack trace": { fixed: 0, measured: { darwin: 9_955, linux: 5_762, win32: 13_367 } },
+  // Measured on CI runs 43762617467 and 43764121085: 25 sample repositories, a check in text and in JSON each.
+  "tests/properties/contents.test.ts > I-lines-1: for any text of a judged file, every finding lies inside it, and the text and JSON forms agree": { fixed: 0, measured: { darwin: 24_953, linux: 12_949, win32: 66_110 } },
+  // Measured on CI runs 43762617467 and 43764121085: 25 sequences of git commands, each followed by seven runs of the tool.
+  "tests/properties/git-states.test.ts > I-git-2: in any state a sequence of git commands leaves, a check changes nothing in git, its change gives what --full gives for those files, and it prints the same from below the root and twice": { fixed: 0, measured: { darwin: 82_146, linux: 56_267, win32: 231_038 } },
+  // Measured on CI runs 43762617467 and 43764121085: 25 laws, each printed back type by type and rule by rule.
+  "tests/properties/law.test.ts > I-law-1: an accepted law is printed back by explain, every type and every rule whole": { fixed: 0, measured: { darwin: 19_307, linux: 20_115, win32: 69_905 } },
+  // Measured on CI runs 43762617467 and 43764121085: 25 sample repositories with generated names, three runs of the tool each.
+  "tests/properties/names.test.ts > I-files-1: every file a type matches is judged, whatever bytes its name holds, and its JSON path maps back to the file on disk": { fixed: 0, measured: { darwin: 30_513, linux: 32_388, win32: 84_470 } },
+  // Measured on CI runs 43762617467 and 43764121085: 25 rules, each judged alone and with a second file.
+  "tests/properties/rules.test.ts > I-rules-1, S2-4, S2-6: any value a rule returns, throws or rejects with gives findings or a rule-crashed naming its cause, and file A is judged the same alone or with B": { fixed: 0, measured: { darwin: 25_976, linux: 22_921, win32: 75_556 } },
+  // The nightly run of a property searches for NIGHTLY_MS, a fixed wait, then ends the case it is in: up to two cases of the commit run's time, at least 5 s.
+  "tests/properties/glob.nightly.test.ts > I-glob-1, S1-1: a pattern matches as the reference matcher does, on small input": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 125_000 } },
+  "tests/properties/glob.nightly.test.ts > I-glob-1, S1-1: a list with exclusions matches as the reference does": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 125_000 } },
+  "tests/properties/glob.nightly.test.ts > I-glob-1, S1-1: any text is a pattern that compiles or one with a named problem": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 125_000 } },
+  "tests/properties/glob.nightly.test.ts > I-glob-1, S1-1: a match costs time linear in the name, for any pattern and a name of up to 4,096 bytes": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 125_000 } },
+  "tests/properties/answer.nightly.test.ts > I-answer-1, S3-3: the answer read is the one the reading of section 4 takes, on small input": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 125_000 } },
+  "tests/properties/answer.nightly.test.ts > I-answer-1, S3-3: any answer is a verdict or a named bad answer, in linear time, with lines in or out of range": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 125_000 } },
+  "tests/properties/answer.nightly.test.ts > I-answer-1, S3-4: two verdict objects that agree give their verdict, and a pass followed by a fail is never read as a pass": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 125_000 } },
+  "tests/properties/names.nightly.test.ts > I-files-1: a name maps back to its bytes, holds no line break, and the hooks write it the same way": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 125_000 } },
+  "tests/properties/names.nightly.test.ts > I-files-1: every file a type matches is judged, whatever bytes its name holds, and its JSON path maps back to the file on disk": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 126_756 } },
+  "tests/properties/contents.nightly.test.ts > I-lines-1: lines split as section 3 says, and every waiver sits on a line of the file and covers one": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 125_000 } },
+  "tests/properties/contents.nightly.test.ts > I-lines-1: a file is binary exactly when its first 8,000 bytes hold a NUL": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 125_000 } },
+  "tests/properties/contents.nightly.test.ts > I-lines-1: for any text of a judged file, every finding lies inside it, and the text and JSON forms agree": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 125_288 } },
+  "tests/properties/law.nightly.test.ts > I-law-1: any text as law.yaml is a law or law-invalid at a line of the file": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 125_000 } },
+  "tests/properties/law.nightly.test.ts > I-law-1: an accepted law is printed back by explain, every type and every rule whole": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 125_592 } },
+  "tests/properties/law.nightly.test.ts > I-law-1: any text as config.yaml is a config or config-invalid at a line of the file": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 125_000 } },
+  "tests/properties/rules.nightly.test.ts > I-rules-1, S2-4, S2-6: any value a rule returns, throws or rejects with gives findings or a rule-crashed naming its cause, and file A is judged the same alone or with B": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 126_044 } },
+  "tests/properties/git-states.nightly.test.ts > I-git-2: in any state a sequence of git commands leaves, a check changes nothing in git, its change gives what --full gives for those files, and it prints the same from below the root and twice": { fixed: 120_000, measured: { darwin: 126_570, linux: 125_000, win32: 138_482 } },
+  "tests/properties/arguments.nightly.test.ts > I-args-1: tokens of the tool and junk give usage or a run, never internal, and change nothing in git": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 125_000 } },
+  "tests/properties/arguments.nightly.test.ts > I-hook-1, S6-6, S6-8: any input to a hook gives exit 0 with nothing or one hook document, or the defined notice, never a stack trace": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 125_000 } },
   // A check per counted run of the committed trial.
   'tests/acceptance/agent-result.test.ts > test 181: the committed result of the trial': { fixed: 0, measured: { darwin: 20_939, linux: 10_314, win32: 53_052 } },
   // A run of the tool per case.

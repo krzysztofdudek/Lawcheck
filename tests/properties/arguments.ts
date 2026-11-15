@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { chmodSync, mkdirSync, writeFileSync } from 'node:fs';
 import { delimiter, dirname, join } from 'node:path';
-import { test } from 'node:test';
 import fc from 'fast-check';
 import { D, D_PATH, GIT_ENV, lawcheck, makeSample, ROOT, temp, write } from '../acceptance/helpers.ts';
 import { installedLawcheck } from '../harness/fakes.ts';
@@ -26,7 +25,12 @@ function runHook(event: string, input: string, env: NodeJS.ProcessEnv): Promise<
   return startHook(event, input, env, { stderr: /^(lawcheck plugin: [^\n]+\n)?$/ }).ended;
 }
 
-export function argumentsProperties(speed: Speed): void {
+// Each property by its name, for tests/properties/arguments.test.ts and arguments.nightly.test.ts to register with its name written out.
+export function argumentsProperties(speed: Speed): Record<string, () => unknown> {
+  const out: Record<string, () => unknown> = {};
+  const test = (name: string, body: () => unknown) => {
+    out[name] = body;
+  };
   test('I-args-1: tokens of the tool and junk give usage or a run, never internal, and change nothing in git', async () => {
     const dir = temp();
     try {
@@ -108,4 +112,5 @@ export function argumentsProperties(speed: Speed): void {
       dir.remove();
     }
   });
+  return out;
 }

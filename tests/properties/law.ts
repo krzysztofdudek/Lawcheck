@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import { rmSync } from 'node:fs';
-import { test } from 'node:test';
 import fc from 'fast-check';
 import { stringify } from 'yaml';
 import { readConfig } from '../../dist/config.js';
@@ -44,7 +43,12 @@ function lineCount(text: string): number {
   return text.split('\n').length;
 }
 
-export function lawProperties(speed: Speed): void {
+// Each property by its name, for tests/properties/law.test.ts and law.nightly.test.ts to register with its name written out.
+export function lawProperties(speed: Speed): Record<string, () => unknown> {
+  const out: Record<string, () => unknown> = {};
+  const test = (name: string, body: () => unknown) => {
+    out[name] = body;
+  };
   test('I-law-1: any text as law.yaml is a law or law-invalid at a line of the file', () => {
     pure(
       speed,
@@ -121,6 +125,7 @@ export function lawProperties(speed: Speed): void {
       assert.ok(outcome === 'refused' || outcome === 'accepted');
     });
   });
+  return out;
 }
 
 function configOutcome(text: string): 'accepted' | 'refused' {

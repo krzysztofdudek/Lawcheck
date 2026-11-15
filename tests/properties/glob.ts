@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
 import fc from 'fast-check';
 import { compileList, compilePattern, patternProblem } from '../../dist/glob.js';
 import { PURE_CALL_BUDGET_MS } from '../numbers.ts';
@@ -48,7 +47,12 @@ const pattern = fc.array(segment, { minLength: 1, maxLength: 4 }).map((s) => s.j
 const name = fc.array(fc.array(fc.constantFrom('a', 'b', '.', 'ż', 'x'), { minLength: 1, maxLength: 8 }).map((c) => c.join('')), { minLength: 1, maxLength: 5 }).map((s) => s.join('/'));
 const stars = (p: string) => p.split('/').some((s) => s !== '**' && (s.match(/\*/g)?.length ?? 0) >= 2);
 
-export function globProperties(speed: Speed): void {
+// Each property by its name, for tests/properties/glob.test.ts and glob.nightly.test.ts to register with its name written out.
+export function globProperties(speed: Speed): Record<string, () => unknown> {
+  const out: Record<string, () => unknown> = {};
+  const test = (name: string, body: () => unknown) => {
+    out[name] = body;
+  };
   test('I-glob-1, S1-1: a pattern matches as the reference matcher does, on small input', () => {
     const pair = fc.tuple(pattern, name, fc.boolean()).map(([p, n, near]) => {
       if (!near) return { p, n };
@@ -116,4 +120,5 @@ export function globProperties(speed: Speed): void {
       },
     );
   });
+  return out;
 }

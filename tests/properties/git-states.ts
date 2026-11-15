@@ -3,7 +3,6 @@ import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, lstatSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { test } from 'node:test';
 import fc from 'fast-check';
 import { append, check, git, GIT_ENV, lawcheck, makeSample, temp, write } from '../acceptance/helpers.ts';
 import { tool } from './support.ts';
@@ -136,7 +135,12 @@ function truthChanged(repo: string): Set<string> {
 
 const key = (f: { file: string; line?: number; code: string; message: string }) => `${f.file}:${f.line ?? ''} ${f.code} ${f.message}`;
 
-export function gitStatesProperties(speed: Speed): void {
+// Each property by its name, for tests/properties/git-states.test.ts and git-states.nightly.test.ts to register with its name written out.
+export function gitStatesProperties(speed: Speed): Record<string, () => unknown> {
+  const out: Record<string, () => unknown> = {};
+  const test = (name: string, body: () => unknown) => {
+    out[name] = body;
+  };
   test('I-git-2: in any state a sequence of git commands leaves, a check changes nothing in git, its change gives what --full gives for those files, and it prints the same from below the root and twice', async () => {
     await tool(
       speed,
@@ -190,4 +194,5 @@ export function gitStatesProperties(speed: Speed): void {
       },
     );
   });
+  return out;
 }

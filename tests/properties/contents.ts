@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { test } from 'node:test';
 import fc from 'fast-check';
 import { isBinary, splitLines } from '../../dist/types.js';
 import { parseWaivers } from '../../dist/waivers.js';
@@ -39,7 +38,12 @@ function utf16(t: string): Buffer {
   return Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from(t, 'utf16le')]);
 }
 
-export function contentsProperties(speed: Speed): void {
+// Each property by its name, for tests/properties/contents.test.ts and contents.nightly.test.ts to register with its name written out.
+export function contentsProperties(speed: Speed): Record<string, () => unknown> {
+  const out: Record<string, () => unknown> = {};
+  const test = (name: string, body: () => unknown) => {
+    out[name] = body;
+  };
   test('I-lines-1: lines split as section 3 says, and every waiver sits on a line of the file and covers one', () => {
     pure(
       speed,
@@ -104,4 +108,5 @@ export function contentsProperties(speed: Speed): void {
       },
     );
   });
+  return out;
 }

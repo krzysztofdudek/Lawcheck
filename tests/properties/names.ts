@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
-import { test } from 'node:test';
 import fc from 'fast-check';
 import { bytesOfName, canonicalName, nameOf } from '../../dist/names.js';
 import * as hooks from '../../plugin/hooks/names.mjs';
@@ -101,7 +100,12 @@ function refused(name: Buffer): string | null {
   return null;
 }
 
-export function namesProperties(speed: Speed): void {
+// Each property by its name, for tests/properties/names.test.ts and names.nightly.test.ts to register with its name written out.
+export function namesProperties(speed: Speed): Record<string, () => unknown> {
+  const out: Record<string, () => unknown> = {};
+  const test = (name: string, body: () => unknown) => {
+    out[name] = body;
+  };
   test('I-files-1: a name maps back to its bytes, holds no line break, and the hooks write it the same way', () => {
     pure(
       speed,
@@ -170,4 +174,5 @@ export function namesProperties(speed: Speed): void {
     });
     process.stdout.write(`I-files-1: ${filtered} generated names left out on ${process.platform}, which its file system refuses\n`);
   });
+  return out;
 }
