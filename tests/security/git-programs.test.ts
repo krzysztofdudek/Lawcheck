@@ -115,6 +115,12 @@ test('S5-14: the fixture arms git: the same reads through git itself start the p
     } catch {
       // As above.
     }
+    // Whether diff hashes a file again, and so runs its clean filter, depends on git's version and on time; hash-object always does.
+    try {
+      git(s, 'hash-object', 'src/core/price.ts');
+    } catch {
+      // As above.
+    }
     const started = readdirSync(markers);
     for (const name of ['fsmonitor', 'clean', 'process']) assert.ok(started.includes(name), started.join(', '));
   });
