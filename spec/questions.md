@@ -554,14 +554,21 @@ Choice: Yarn 4 with `nodeLinker: pnpm` is supported and promised, listed with th
 
 What already holds, said in the same place. Plug'n'Play is refused when Lawcheck's own files are served from a Plug'n'Play archive: `process.versions.pnp` is set and Lawcheck's folder lies below a folder whose name ends in `.zip`. A Lawcheck installed outside an archive, globally or by another package manager, runs inside a Plug'n'Play project. Its script rules run in a process without Yarn's loader, so they import `node:` built-ins and files below the root, such as `.lawcheck/rules/lib/`, and not the project's packages, which Plug'n'Play keeps in its archives or resolves through its own map, an unplugged package included.
 
-## 95. A reader that closes standard output early
+## 130. A reader that closes standard output early
 
 `spec/check-slice.md`, section 6, now ends a run with exit 2 when standard output cannot be written. A reader that closes the pipe before the end, as `lawcheck check | head -1` does, gives the same failure, `EPIPE`, though nothing went wrong that the reader did not choose. With `set -o pipefail`, the default of a GitHub Actions `bash` step, exit 2 there would fail the step.
 
 Choice: `EPIPE` ends the run with its own code and prints nothing. Every other failed write ends with exit 2 and the line on standard error.
 
-## 96. A closed standard output
+## 131. A closed standard output
 
 The design asked that a run whose standard output is closed (`>&-`) end with a code other than 0. Node opens `/dev/null`, read and write, in place of a closed descriptor before any code of the tool runs, and a program that starts Lawcheck with its output ignored hands it the same descriptor, so the two cannot be told apart. Treating it as closed would fail every caller that wants only the exit code.
 
 Choice: a closed standard output is the same as `> /dev/null`, stated as a limit in section 10 of `spec/check-slice.md`, and test 240 pins it. A failed write is tested on `/dev/full` on Linux and on an output opened for reading alone on every system.
+
+## 132. A signal while Node itself starts
+
+`spec/check-slice.md`, section 3, promises that SIGINT, SIGTERM and SIGHUP end a run with exit 2 and `stopped`. Node installs no handler of Lawcheck's until its first module runs, and before that a signal ends the process by the signal. The entry now loads only the modules that answer a signal, so the window is Node's own start: in the dev container SIGTERM sent 0 to 10 milliseconds after the start ended the process by the signal in every trial, at 12 and 14 milliseconds in some, and from 16 milliseconds in none.
+
+Choice: the window is stated as a limit in section 10 of `spec/check-slice.md`, and test 257 checks that the main thread loads nothing more than the answer needs.
+
