@@ -24,7 +24,32 @@ for (const name of Object.keys(process.env)) delete process.env[name];
 let check: Check | null = null;
 let repo: { filesOf(typeId: string): string[] } | null = null;
 
+// Node's refusal names a flag of the runner's own command line, which the user cannot pass; the permission and the path it carries say what the rule did.
+function refused(error: unknown): string | null {
+  const { code, permission, resource } = (error ?? {}) as { code?: unknown; permission?: unknown; resource?: unknown };
+  if (code !== 'ERR_ACCESS_DENIED') return null;
+  const path = typeof resource === 'string' && resource !== '' ? resource : null;
+  switch (permission) {
+    case 'FileSystemRead':
+      return `reads ${path ?? 'a path'} outside the root and Lawcheck's folder, and a rule may read nothing else`;
+    case 'FileSystemWrite':
+      return `writes ${path ?? 'a file'}, and a rule may write no file`;
+    case 'ChildProcess':
+      return 'starts a program, and a rule may start none';
+    case 'WorkerThreads':
+      return 'starts a worker thread, and a rule may start none';
+    case 'Addon':
+      return 'loads a native add-on, and a rule may load none';
+    case 'WASI':
+      return 'starts WASI, and a rule may not';
+    default:
+      return `does what the runner does not allow (${String(permission)})`;
+  }
+}
+
 function text(error: unknown): string {
+  const named = refused(error);
+  if (named !== null) return named;
   const message = error instanceof Error ? error.message : String(error);
   return message.split(/\r?\n/)[0] ?? '';
 }

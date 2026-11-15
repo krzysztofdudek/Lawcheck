@@ -158,3 +158,79 @@ test("I-shape-1: the core rows of check give the spec's output in a linked workt
 test("I-shape-1: the core rows of check give the spec's output at a root path with a space and a non-ASCII letter", () => inShape(3));
 
 test("I-shape-1: the core rows of check give the spec's output at a root reached through a symbolic link", () => inShape(4));
+
+const IMPORTS_HOISTED = `import { hoisted } from '${HOISTED}';\nexport function check() { return [{ message: hoisted }]; }\n`;
+const OUTSIDE = "outside the root and Lawcheck's folder, and a rule may read nothing else";
+
+test('S2-2: a rule that imports a package from a node_modules above the root is refused in words that name the limit, never a flag', async () => {
+  const [inPackage] = SHAPES.filter((shape) => shape.name.includes('pkg/'));
+  const problems = await inShapes(
+    [
+      {
+        name: 'S2-2',
+        args: BASE,
+        options: { onMain: (s) => setRule(s, 'no-console', IMPORTS_HOISTED) },
+        arrange: (p) => write(p.root, D_PATH, D),
+        expect: (run) => {
+          const crash = run.stdout.split('\n').find((line) => line.includes('error[rule-crashed]')) ?? '';
+          assert.ok(crash.startsWith('.lawcheck/rules/no-console.mjs  error[rule-crashed]  fails to load: reads '), crash);
+          assert.ok(crash.includes(`node_modules`) && crash.endsWith(OUTSIDE), crash);
+          assert.doesNotMatch(run.stdout, /--allow-fs|Use --/);
+          assert.match(run.stdout, /^next: fix \.lawcheck\/rules\/no-console\.mjs, then run lawcheck check$/m);
+          assert.equal(run.code, 2);
+        },
+      },
+    ],
+    [inPackage!],
+  );
+  assert.deepEqual(problems, []);
+});
+
+test('S2-2: control, the same rule loads the same package from a node_modules below the root', async () => {
+  const problems = await inShapes(
+    [
+      {
+        name: 'S2-2 control',
+        args: BASE,
+        options: { onMain: (s) => setRule(s, 'no-console', IMPORTS_HOISTED) },
+        arrange: (p) => write(p.root, D_PATH, D),
+        expect: (run) => {
+          assert.deepEqual(findingLines(run.stdout), [
+            'src/core/discount.ts  error[no-console]  from a hoisted package',
+            'src/core/discount.ts:3  warning[no-todo]  TODO without an issue number',
+            "src/core/discount.ts:4  warning[waiver-unused]  the waiver of 'no-console' drops no finding",
+          ]);
+          assert.equal(run.code, 1);
+        },
+      },
+    ],
+    SHAPES.filter((shape) => !shape.name.includes('pkg/')),
+  );
+  assert.deepEqual(problems, []);
+});
+
+test('S2-2: a node_modules at the root that links to a folder outside it is refused in the same words', { skip: WINDOWS ? 'a junction on Windows is resolved before Node checks the path' : false }, async () => {
+  await inTemp(async (dir) => {
+    const s = makeSample(dir, { onMain: (repo) => setRule(repo, 'no-console', IMPORTS_HOISTED) });
+    write(dir, `elsewhere/node_modules/${HOISTED}/package.json`, JSON.stringify({ name: HOISTED, type: 'module', main: 'index.js' }) + '\n');
+    write(dir, `elsewhere/node_modules/${HOISTED}/index.js`, "export const hoisted = 'from a hoisted package';\n");
+    symlinkSync(join(dir, 'elsewhere', 'node_modules'), join(s, 'node_modules'), 'dir');
+    write(s, D_PATH, D);
+    const run = await lawcheck(s, BASE);
+    const crash = run.stdout.split('\n').find((line) => line.includes('error[rule-crashed]')) ?? '';
+    assert.ok(crash.startsWith(`.lawcheck/rules/no-console.mjs  error[rule-crashed]  fails to load: reads ${join(dir, 'elsewhere', 'node_modules')}`), crash);
+    assert.ok(crash.endsWith(OUTSIDE), crash);
+    assert.equal(run.code, 2);
+  });
+});
+
+test('S2-2: a rule that writes a file is refused in words that name what it did', async () => {
+  await inTemp(async (dir) => {
+    const s = makeSample(dir, { onMain: (repo) => setRule(repo, 'no-console', "import { writeFileSync } from 'node:fs';\nexport function check() { writeFileSync('out.txt', 'x'); return []; }\n") });
+    write(s, D_PATH, D);
+    const run = await lawcheck(s, BASE);
+    assert.ok(run.stdout.includes(`.lawcheck/rules/no-console.mjs  error[rule-crashed]  throws on src/core/discount.ts: writes out.txt, and a rule may write no file\n`), run.stdout);
+    assert.doesNotMatch(run.stdout, /--allow-fs/);
+    assert.equal(run.code, 2);
+  });
+});
