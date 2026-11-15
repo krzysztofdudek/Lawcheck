@@ -10,6 +10,7 @@ import { takesWaivers } from './law.js';
 import type { Law, TypeDef } from './law.js';
 import { plural, shown } from './output.js';
 import { readError } from './limits.js';
+import { step } from './progress.js';
 import { mayUsePart, ruleKind, walk } from './prime.js';
 import { buildPrompt, FRAME, size } from './prompt.js';
 import { readerOf, siblingsOf } from './readers.js';
@@ -147,6 +148,7 @@ function existing(ctx: Ctx, path: string, symlink: boolean): FileAnswer {
   if (symlink) return untyped(path, true, 'it is a symbolic link, which has no type');
   if (WRITTEN.has(path)) return untyped(path, true, 'Lawcheck writes this file, and it has no type');
   if (!ctx.law.types.some((type) => type.matches(path))) return untyped(path, true, "no type's paths match it, so no rule judges it");
+  step(`typing ${path}`);
   let bytes: Uint8Array;
   try {
     bytes = ctx.read(path);

@@ -288,3 +288,15 @@ test('S3-8: test 265: a review on a disk with one free page is file-unwritable, 
   rmSync(join(FULL_DISK!, 'filler'), { force: true });
   rmSync(fresh, { recursive: true, force: true });
 });
+
+test('test 269: explain of a file whose content pattern backtracks names its typing as the step past its limit', async () => {
+  await withSample(
+    async (s) => {
+      write(s, 'slow/a.ts', `${'a'.repeat(80)}!\n`);
+      const result = await run(s, ['explain', 'slow/a.ts'], { budgetMs: 120_000 });
+      assert.equal(result.stdout, stepTooSlow('typing slow/a.ts').replace('then run lawcheck check again', 'then run lawcheck explain again'));
+      assert.equal(result.code, 2);
+    },
+    { onMain: (s) => writeFileSync(join(s, '.lawcheck/law.yaml'), `${readFileSync(join(s, '.lawcheck/law.yaml'), 'utf8')}  slow:\n    paths: ["slow/**"]\n    content: "^(a|a)+$"\n`) },
+  );
+});
