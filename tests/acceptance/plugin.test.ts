@@ -1,11 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { execFileSync, spawn } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { appendFileSync, chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { delimiter, dirname, join, relative, sep } from 'node:path';
 import { withFake } from './fake-reviewer.ts';
 import { alive, append, CLI, D, D_PATH, F, F_PATH, git, GIT_ENV, inTemp, LAW, lawcheck, makeR, makeSample, newRepository, ROOT, write } from './helpers.ts';
+import type { Expect, Run, Running } from './helpers.ts';
+import { example } from '../harness/examples.ts';
+import { startHook, startProgram } from '../harness/tool.ts';
 
 const PLUGIN = join(ROOT, 'plugin');
 const HOOK = join(PLUGIN, 'hooks', 'lawcheck-hook.mjs');
@@ -29,14 +32,7 @@ const D_OUTPUT = [
   '',
   'next: fix src/core/discount.ts:2',
 ].join('\n');
-const TEST17_CHECK = [
-  'lawcheck: ERROR  1 error',
-  '',
-  ".lawcheck/law.yaml:8  error[law-invalid]  unknown key 'statuss' in rule 'no-todo' (did you mean 'status'?)",
-  '  why:  a misspelled key changes the law without a word',
-  '',
-  'next: fix .lawcheck/law.yaml, then run lawcheck check',
-].join('\n');
+const TEST17_CHECK = example('check-law-invalid');
 
 const editHeader = (rel: string, cmd = 'lawcheck') => `Lawcheck: after this edit, ${rel} breaks the law of this repository. ${cmd} check ./${rel} printed:`;
 const editErrorHeader = (rel: string, cmd = 'lawcheck') => `Lawcheck could not check ${rel} after this edit. ${cmd} check ./${rel} printed:`;
@@ -51,14 +47,7 @@ const started = (text: string) => ({ hookSpecificOutput: { hookEventName: 'Sessi
 
 const EVENT_NAMES: Record<string, string> = { 'session-start': 'SessionStart', prompt: 'UserPromptSubmit', edit: 'PostToolUse', stop: 'Stop' };
 
-interface HookRun {
-  code: number | null;
-  signal: NodeJS.Signals | null;
-  stdout: string;
-  stderr: string;
-  json: any;
-  ms: number;
-}
+type HookRun = Run;
 
 interface LogLine {
   args: string[];
@@ -141,25 +130,10 @@ class Bench {
   }
 }
 
-function hook(bench: Bench, event: string, input: string, env: NodeJS.ProcessEnv = {}, onStart?: (pid: number) => void): Promise<HookRun> {
-  const begin = Date.now();
-  return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [HOOK, event], { env: bench.env(env), stdio: ['pipe', 'pipe', 'pipe'] });
-    let stdout = '';
-    let stderr = '';
-    child.stdout.setEncoding('utf8').on('data', (chunk: string) => (stdout += chunk));
-    child.stderr.setEncoding('utf8').on('data', (chunk: string) => (stderr += chunk));
-    child.on('error', reject);
-    child.on('close', (code, signal) => {
-      let json: any = null;
-      try {
-        json = stdout === '' ? null : JSON.parse(stdout);
-      } catch {}
-      resolve({ code, signal, stdout, stderr, json, ms: Date.now() - begin });
-    });
-    child.stdin.end(input);
-    if (child.pid !== undefined) onStart?.(child.pid);
-  });
+function hook(bench: Bench, event: string, input: string, env: NodeJS.ProcessEnv = {}, onStart?: (running: Running) => void, expect: Expect = {}): Promise<HookRun> {
+  const running = startHook(event, input, bench.env(env), { ...expect, hook: HOOK });
+  onStart?.(running);
+  return running.ended;
 }
 
 class Session {
@@ -489,8 +463,8 @@ test('test 163: the deadline, and a hook that is stopped', async () => {
     await gone();
     // On Windows every signal ends a process at once, so a stopped hook cannot end what it started.
     if (WINDOWS) return;
-    const stopped = await hook(bench, 'edit', session.input('edit', { tool_name: 'Write', tool_input: { file_path: join(s, D_PATH) } }), {}, (pid) => {
-      setTimeout(() => process.kill(pid, 'SIGTERM'), 2000);
+    const stopped = await hook(bench, 'edit', session.input('edit', { tool_name: 'Write', tool_input: { file_path: join(s, D_PATH) } }), {}, (running) => {
+      setTimeout(() => running.kill('SIGTERM'), 2000);
     });
     assert.ok(stopped.ms < 10000, String(stopped.ms));
     await new Promise((resolve) => setTimeout(resolve, 500));
@@ -828,7 +802,7 @@ test('test 177: no hook asks the reviewer', async () => {
 test('test 178: a failure of the hook itself', async () => {
   await withBench(async (bench, dir) => {
     for (const [event, input] of [['stop', 'not json'], ['nope', JSON.stringify({ session_id: 's1', cwd: dir, hook_event_name: 'Stop' })]] as const) {
-      const run = await hook(bench, event, input);
+      const run = await hook(bench, event, input, {}, undefined, { stderr: /^lawcheck plugin: / });
       assert.equal(run.stdout, '', event);
       assert.match(run.stderr, /^lawcheck plugin: /, event);
       assert.equal(run.code, 1, event);
@@ -840,18 +814,11 @@ test('test 179: the trial refuses to start without claude', async () => {
   await inTemp(async (dir) => {
     const empty = join(dir, 'tmp');
     mkdirSync(empty);
-    const result = await new Promise<{ code: number | null; out: string }>((resolve, reject) => {
-      const child = spawn(process.execPath, [join(ROOT, 'tests', 'agent', 'run.ts')], {
-        cwd: ROOT,
-        env: { PATH: [GIT_DIR, NODE_DIR].join(delimiter), ...SYSTEM_ENV, TMPDIR: empty, TEMP: empty, TMP: empty, HOME: dir },
-        stdio: ['ignore', 'pipe', 'pipe'],
-      });
-      let out = '';
-      child.stdout.setEncoding('utf8').on('data', (chunk: string) => (out += chunk));
-      child.stderr.setEncoding('utf8').on('data', (chunk: string) => (out += chunk));
-      child.on('error', reject);
-      child.on('close', (code) => resolve({ code, out }));
-    });
+    const run = await startProgram(join(ROOT, 'tests', 'agent', 'run.ts'), [], ROOT, {}, {
+      env: { PATH: [GIT_DIR, NODE_DIR].join(delimiter), ...SYSTEM_ENV, TMPDIR: empty, TEMP: empty, TMP: empty, HOME: dir },
+      stderr: /claude/,
+    }).ended;
+    const result = { code: run.code, out: run.stdout + run.stderr };
     assert.equal(result.code, 2, result.out);
     assert.equal(result.out.trim().split('\n').length, 1, result.out);
     assert.match(result.out, /claude/);

@@ -114,7 +114,8 @@ test('test 98: a kept .gitignore, a law below the top, and no git', async () => 
 test('init where .lawcheck is a file: internal, and its next line names init', async () => {
   await inTemp(async (dir) => {
     const repo = newRepository(dir, { '.lawcheck': 'x\n' });
-    const run = await lawcheck(repo, ['init']);
+    // Today's behaviour, finding S5-4 of the stress round: internal where a named error belongs.
+    const run = await lawcheck(repo, ['init'], {}, [], { internal: true });
     assert.match(run.stdout, /^error\[internal\]/m);
     assert.match(run.stdout, /^next: run lawcheck init again, and report the error if it stays$/m);
     assert.equal(run.code, 2);

@@ -1,10 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawn, spawnSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { anthropic, defaultAnswer, openai, startFake, withFake, writeFakeClaude } from './fake-reviewer.ts';
-import { alive, append, CLI, F, F_PATH, findingLines, GIT_ENV, pathWith, programDir, PROMPT_F, read, REVIEWER_CONFIG, REVIEWER_LAW, run, SECOND, withR, write } from './helpers.ts';
+import { alive, append, F, F_PATH, findingLines, pathWith, programDir, PROMPT_F, read, REVIEWER_CONFIG, REVIEWER_LAW, run, SECOND, startLawcheck, withR, write } from './helpers.ts';
 
 const UNREACHABLE = 'src/core/refund.ts  error[reviewer-unreachable]  ';
 
@@ -478,11 +478,7 @@ test('test 67: claude-code past its timeout, and the tool killed', async () => {
   }, config(CLAUDE_CONFIG + '  timeout: 1\n'));
   await withR(async (r, dir) => {
     write(r, F_PATH, F);
-    const child = spawn(process.execPath, [CLI, 'check', '--review', '--base', 'main'], {
-      cwd: r,
-      env: { ...GIT_ENV, ...claudeEnv(dir, 'sleep') },
-      stdio: 'ignore',
-    });
+    const child = startLawcheck(r, ['check', '--review', '--base', 'main'], { env: claudeEnv(dir, 'sleep') });
     try {
       assert.ok(await waitFor(() => existsSync(join(dir, 'record.json')), 20_000), 'the fake claude started');
       const seen = record(dir);
@@ -491,6 +487,7 @@ test('test 67: claude-code past its timeout, and the tool killed', async () => {
       assert.ok(await waitFor(() => !alive(seen.pid) && !alive(seen.child!), 5000), `both are gone: ${survivors(seen)}`);
       assert.ok(Date.now() - killedAt <= 5000);
       assert.ok(await waitFor(() => !existsSync(seen.cwd), 5000), `${seen.cwd} is left`);
+      assert.equal((await child.ended).signal, 'SIGKILL');
     } finally {
       child.kill('SIGKILL');
     }
@@ -498,17 +495,13 @@ test('test 67: claude-code past its timeout, and the tool killed', async () => {
   for (const signal of ['SIGTERM', 'SIGINT'] as const) {
     await withR(async (r, dir) => {
       write(r, F_PATH, F);
-      const child = spawn(process.execPath, [CLI, 'check', '--review', '--base', 'main'], {
-        cwd: r,
-        env: { ...GIT_ENV, ...claudeEnv(dir, 'sleep') },
-        stdio: 'ignore',
-      });
+      // Slice one, section 3: a signal that the tool can catch ends it as internal.
+      const child = startLawcheck(r, ['check', '--review', '--base', 'main'], { env: claudeEnv(dir, 'sleep'), internal: true });
       try {
         assert.ok(await waitFor(() => existsSync(join(dir, 'record.json')), 20_000), 'the fake claude started');
         const seen = record(dir);
-        const ended = new Promise<number | null>((done) => child.on('exit', (code) => done(code)));
         child.kill(signal);
-        const code = await ended;
+        const { code } = await child.ended;
         // On Windows every signal ends a process at once, so the tool cannot answer it with its own exit code.
         if (process.platform !== 'win32') assert.equal(code, 2, signal);
         assert.ok(await waitFor(() => !alive(seen.pid) && !alive(seen.child!), 5000), `${signal}: both are gone`);
