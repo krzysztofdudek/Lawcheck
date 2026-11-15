@@ -10,8 +10,8 @@ import { skipReason } from './skips.ts';
 import { CLI, gate, HOOK, observe, ROOT_DIR } from './start.ts';
 import { real, tree, treeChanges } from './state.ts';
 
-export { CLI, CouldNotRun, HOOK, ROOT, startHook, startProgram, startTool, unpackTarball } from './start.ts';
-export type { Expect, Run, Running, ToolOptions } from './start.ts';
+export { CLI, CouldNotRun, HOOK, ROOT, startHook, startProgram, startShell, startTool, unpackTarball } from './start.ts';
+export type { Expect, Run, Running, Shell, ToolOptions } from './start.ts';
 export { PLATFORM_SKIPS } from './skips.ts';
 export type { PlatformSkip } from './skips.ts';
 
@@ -46,6 +46,23 @@ export function namesTool(words: unknown[]): string | null {
   return null;
 }
 
+const SHELLS = /^(sh|bash|dash|zsh|ksh|cmd|powershell|pwsh)(\.exe)?$/i;
+
+// A command line a shell reads: Lawcheck is named where lawcheck stands as a word of it, alone or ending a path, or where it names the built tool or a hook.
+export function namesToolInLine(line: string): boolean {
+  return /(^|[\s;&|("'`\/\\])lawcheck(\.cmd|\.exe|\.ps1)?($|[\s;&|)"'`])/.test(line) || /dist[\/\\]cli\.js|lawcheck-hook\.mjs/.test(line);
+}
+
+// The strings of a start that a shell reads: the line of exec and execSync, and the words given to a shell program or under shell: true.
+function shellLines(name: string, args: unknown[]): string[] {
+  if (name === 'exec' || name === 'execSync') return typeof args[0] === 'string' ? [args[0]] : [];
+  const program = typeof args[0] === 'string' ? args[0].split(/[\\/]/).pop()! : '';
+  const words = Array.isArray(args[1]) ? args[1].filter((word): word is string => typeof word === 'string') : [];
+  const options = (Array.isArray(args[1]) ? args[2] : args[1]) as { shell?: unknown } | undefined;
+  if (SHELLS.test(program) || (options !== null && typeof options === 'object' && options.shell !== undefined && options.shell !== false)) return [typeof args[0] === 'string' ? args[0] : '', ...words];
+  return [];
+}
+
 function guardStarts(): void {
   const require = createRequire(import.meta.url);
   const cp = require('node:child_process') as Record<string, (...args: unknown[]) => unknown>;
@@ -53,7 +70,7 @@ function guardStarts(): void {
     const original = cp[name]!;
     cp[name] = function guarded(this: unknown, ...args: unknown[]) {
       if (gate.open === 0) {
-        const named = namesTool([args[0], ...(Array.isArray(args[1]) ? args[1] : [])]);
+        const named = namesTool([args[0], ...(Array.isArray(args[1]) ? args[1] : [])]) ?? shellLines(name, args).find(namesToolInLine) ?? null;
         if (named !== null) throw new Error(`harness: a test started Lawcheck by hand (${named}); start it with startTool, startHook or unpackTarball of tests/harness/tool.ts, which check every run`);
       }
       return original.apply(this, args);

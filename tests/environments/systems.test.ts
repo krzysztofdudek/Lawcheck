@@ -1,7 +1,8 @@
 import { test } from 'node:test';
-import { platformSkip } from '../harness/tool.ts';
+import { platformSkip, startShell } from '../harness/tool.ts';
+import type { Shell } from '../harness/tool.ts';
 import assert from 'node:assert/strict';
-import { execFileSync, spawnSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { cpSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { delimiter, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -86,13 +87,7 @@ test('test 204: a checkout with core.autocrlf=true sends the reviewer the prompt
 });
 
 // Each shell starts the installed lawcheck by its bare name from PATH, as a user types it.
-const SHELLS: [string, (line: string) => [string, string[]]][] = WINDOWS
-  ? [
-      ['PowerShell', (line) => ['powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', line]]],
-      ['cmd', (line) => [process.env.ComSpec ?? 'cmd.exe', ['/d', '/c', line]]],
-      ['Git Bash', (line) => [join(process.env.ProgramFiles ?? 'C:\\Program Files', 'Git', 'bin', 'bash.exe'), ['-c', line]]],
-    ]
-  : [['sh', (line) => ['sh', ['-c', line]]]];
+const SHELLS: Shell[] = WINDOWS ? ['PowerShell', 'cmd', 'Git Bash'] : ['sh'];
 
 test('test 205: the packed tarball, installed globally without the network, starts from every shell of the system and checks the sample', async () => {
   await inTemp(async (dir) => {
@@ -113,15 +108,15 @@ test('test 205: the packed tarball, installed globally without the network, star
     const s = makeSample(dir);
     write(s, D_PATH, D);
     const version = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')).version;
-    for (const [name, shell] of SHELLS) {
+    for (const shell of SHELLS) {
       for (const [line, code, stdout] of [
         ['lawcheck --version', 0, `${version}\n`],
         ['lawcheck check --base main', 1, TEST4],
       ] as const) {
-        const [program, args] = shell(line);
-        const run = spawnSync(program, args, { cwd: s, env: { ...GIT_ENV, PATH: [bin, GIT_ENV.PATH].join(delimiter) }, encoding: 'utf8', windowsVerbatimArguments: name === 'cmd' });
-        assert.equal(run.stdout.replace(/\r\n/g, '\n'), stdout, `${name}: ${line}\n${run.stderr}`);
-        assert.equal(run.status, code, `${name}: ${line}`);
+        const run = await startShell(shell, line, s, GIT_ENV, { env: { PATH: [bin, GIT_ENV.PATH].join(delimiter) } }).ended;
+        assert.equal(run.stdout, stdout, `${shell}: ${line}`);
+        assert.equal(run.stderr, '', `${shell}: ${line}`);
+        assert.equal(run.code, code, `${shell}: ${line}`);
       }
     }
   });

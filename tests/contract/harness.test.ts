@@ -10,9 +10,9 @@ import { skipReason } from '../harness/skips.ts';
 import * as childProcess from 'node:child_process';
 import { rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { CLI, CouldNotRun, expectBroken, fakeWrites, HOOK, PLATFORM_SKIPS, platformSkip, ROOT, startHook, startProgram, startTool, testFolder, unpackTarball } from '../harness/tool.ts';
+import { CLI, CouldNotRun, expectBroken, fakeWrites, HOOK, PLATFORM_SKIPS, platformSkip, ROOT, startHook, startProgram, startShell, startTool, testFolder, unpackTarball } from '../harness/tool.ts';
 import { promiseOf } from '../harness/promises.ts';
-import type { Expect } from '../harness/tool.ts';
+import type { Expect, Shell } from '../harness/tool.ts';
 
 const WINDOWS = process.platform === 'win32';
 const ENV: NodeJS.ProcessEnv = {
@@ -396,6 +396,51 @@ test('harness: a start of Lawcheck that does not come from the harness fails the
     for (const [name, args] of calls) assert.throws(() => cp[name]!(...args), /a test started Lawcheck by hand/, `${name} ${JSON.stringify(args)}`);
     const run = childProcess.spawnSync;
     assert.equal(run(process.execPath, ['-e', 'process.exit(0)']).status, 0);
+  });
+});
+
+test('harness: a start of Lawcheck through a shell line that does not come from the harness fails the test', () => {
+  const cp = childProcess as unknown as Record<string, (...args: unknown[]) => unknown>;
+  const calls: [string, unknown[]][] = [
+    ['spawnSync', ['sh', ['-c', 'lawcheck --version']]],
+    ['execFileSync', ['/bin/bash', ['-c', 'cd repo && lawcheck check --base main']]],
+    ['spawn', ['powershell.exe', ['-NoProfile', '-Command', '& lawcheck check']]],
+    ['spawnSync', ['C:\\Windows\\System32\\cmd.exe', ['/d', '/c', 'lawcheck.cmd check']]],
+    ['execSync', ['PATH=bin:$PATH lawcheck check']],
+    ['execSync', ['node ./node_modules/.bin/lawcheck check']],
+    ['spawnSync', ['npx', ['--no-install', 'lawcheck', 'check'], { shell: true }]],
+    ['execFileSync', ['sh', ['-c', 'node dist/cli.js check']]],
+  ];
+  for (const [name, args] of calls) assert.throws(() => cp[name]!(...args), /a test started Lawcheck by hand/, `${name} ${JSON.stringify(args)}`);
+  for (const [name, args] of [
+    ['spawnSync', ['sh', ['-c', 'echo lawcheck-test-1 lawchecks']]],
+    ['spawnSync', ['git', ['-c', 'x.y=lawcheck check', '--version']]],
+  ] as [string, unknown[]][]) assert.doesNotThrow(() => cp[name]!(...args), `${name} ${JSON.stringify(args)}`);
+});
+
+test('harness: a start through a shell checks its run as every start of the tool is checked', async () => {
+  await inTemp(async (dir) => {
+    const bin = join(dir, 'bin');
+    mkdirSync(bin);
+    const shim = (body: string) => {
+      const script = fake(dir, body);
+      writeFileSync(join(bin, 'lawcheck'), `#!/bin/sh\nexec "${process.execPath}" "${script}" "$@"\n`, { mode: 0o755 });
+      writeFileSync(join(bin, 'lawcheck.cmd'), `@"${process.execPath}" "${script}" %*\r\n`);
+    };
+    const shell: Shell = WINDOWS ? 'cmd' : 'sh';
+    const env = { PATH: `${bin}${WINDOWS ? ';' : ':'}${ENV.PATH}` };
+    shim("process.stdout.write('lawcheck: PASS  1 named file\\n');");
+    const run = await startShell(shell, 'lawcheck check ./a.txt', dir, ENV, { env }).ended;
+    assert.equal(run.stdout, 'lawcheck: PASS  1 named file\n');
+    assert.equal(run.code, 0);
+    shim("process.stdout.write('lawcheck: PASS\\x1b[2K\\n');");
+    const forged = await expectBroken('harness-2', () => startShell(shell, 'lawcheck check', dir, ENV, { env }).ended);
+    assert.match(forged.message, /U\+001B/);
+    shim("process.stderr.write('noise\\n');");
+    await expectBroken('harness-4', () => startShell(shell, 'lawcheck check', dir, ENV, { env }).ended);
+    shim("process.exit(3);");
+    await expectBroken('harness-1', () => startShell(shell, 'lawcheck check', dir, ENV, { env }).ended);
+    assert.throws(() => startShell(shell, 'echo lawcheck', dir, ENV, { env }), /a shell line starts lawcheck by its name/);
   });
 });
 

@@ -59,6 +59,8 @@ type Kind = 'cli' | 'hook' | 'program';
 
 interface Start {
   kind: Kind;
+  // A shell that starts the installed lawcheck by its name; without one, Node runs argv.
+  shell?: { program: string; verbatim: boolean };
   argv: string[];
   cwd: string;
   env: NodeJS.ProcessEnv;
@@ -295,7 +297,7 @@ function running(pid: number): boolean {
 const CATCHABLE: NodeJS.Signals[] = ['SIGTERM', 'SIGINT', 'SIGHUP'];
 
 function launch(start: Start, expect: Expect): Running {
-  if (start.kind === 'cli') {
+  if (start.kind === 'cli' && start.shell === undefined) {
     const cli = start.argv[start.argv.length - start.args.length - 1]!;
     if (!existsSync(cli)) throw new CouldNotRun(`${cli} is missing; run npm run build`);
   }
@@ -308,7 +310,7 @@ function launch(start: Start, expect: Expect): Running {
   gate.open++;
   let child;
   try {
-    child = spawn(process.execPath, start.argv, { cwd: start.cwd, env, stdio: ['pipe', 'pipe', 'pipe'], detached: !WINDOWS });
+    child = spawn(start.shell?.program ?? process.execPath, start.argv, { cwd: start.cwd, env, stdio: ['pipe', 'pipe', 'pipe'], detached: !WINDOWS, windowsVerbatimArguments: start.shell?.verbatim ?? false });
   } finally {
     gate.open--;
   }
@@ -379,6 +381,11 @@ function launch(start: Start, expect: Expect): Running {
       tracker.stop();
       stdout += live.stdout.end();
       stderr += live.stderr.end();
+      // PowerShell writes the lines of a program it runs with CRLF; the tool wrote LF, and only those bytes are its output.
+      if (start.shell !== undefined && WINDOWS) {
+        stdout = stdout.replace(/\r\n/g, '\n');
+        stderr = stderr.replace(/\r\n/g, '\n');
+      }
       for (const w of waiting.splice(0)) w.done(Object.assign([''], { index: -1, input: '' }) as RegExpExecArray);
       const problems: [string, string][] = [];
       const killed = sent !== null || overran;
@@ -501,6 +508,24 @@ export function startProgram(script: string, args: string[], cwd: string, base: 
   if (TOOL_FILES.some((file) => inside(path, file)) || /[\\/]dist[\\/]/.test(path) || path.endsWith('.tgz')) throw new Error(`harness: ${script} is Lawcheck itself; start it with startTool or startHook`);
   const own = options.env ?? {};
   return launch({ kind: 'program', argv: [path, ...args], cwd, env: { ...base, ...own }, own, args: [path, ...args] }, options);
+}
+
+export type Shell = 'sh' | 'PowerShell' | 'cmd' | 'Git Bash';
+
+function shellOf(shell: Shell, line: string): { program: string; argv: string[]; verbatim: boolean } {
+  if (shell === 'sh') return { program: 'sh', argv: ['-c', line], verbatim: false };
+  if (shell === 'Git Bash') return { program: join(process.env.ProgramFiles ?? 'C:\\Program Files', 'Git', 'bin', 'bash.exe'), argv: ['-c', line], verbatim: false };
+  if (shell === 'PowerShell') return { program: 'powershell.exe', argv: ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', line], verbatim: false };
+  return { program: process.env.ComSpec ?? 'cmd.exe', argv: ['/d', '/c', line], verbatim: true };
+}
+
+// The installed lawcheck started by its bare name from a shell, as a user types the line, with every check of a run of the tool.
+export function startShell(shell: Shell, line: string, cwd: string, base: NodeJS.ProcessEnv, options: Expect & { env?: NodeJS.ProcessEnv } = {}): Running {
+  const words = line.split(' ');
+  if (words[0] !== 'lawcheck') throw new Error(`harness: a shell line starts lawcheck by its name, and "${line}" does not`);
+  const { program, argv, verbatim } = shellOf(shell, line);
+  const own = options.env ?? {};
+  return launch({ kind: 'cli', shell: { program, verbatim }, argv, cwd, env: { ...base, ...own }, own, args: words.slice(1) }, options);
 }
 
 // npm on Windows is a .cmd file, which execFile cannot start; under npm, npm_execpath names npm's own script, which Node starts everywhere.
