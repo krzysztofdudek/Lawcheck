@@ -150,7 +150,7 @@ function locked<T>(local: string, work: () => T): T {
     }
   }
   try {
-    writeFileSync(join(lock, 'pid'), String(process.pid));
+    writing(`${LOCAL}/verdicts.lock`, () => writeFileSync(join(lock, 'pid'), String(process.pid)));
     return work();
   } finally {
     rmSync(lock, { recursive: true, force: true });

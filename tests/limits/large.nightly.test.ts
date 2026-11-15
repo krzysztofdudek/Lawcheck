@@ -1,11 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { chmodSync, closeSync, existsSync, mkdirSync, openSync, readFileSync, writeFileSync, writeSync } from 'node:fs';
+import { chmodSync, closeSync, cpSync, existsSync, mkdirSync, openSync, readFileSync, rmSync, statSync, truncateSync, writeFileSync, writeSync } from 'node:fs';
 import { availableParallelism } from 'node:os';
 import { join } from 'node:path';
 import { defaultAnswer, openai, withFake } from '../acceptance/fake-reviewer.ts';
-import { alive, CLI, D, D_PATH, F_PRIME, git, GIT_ENV, inTemp, pathWith, programDir, setRule, withR, withSample, write } from '../acceptance/helpers.ts';
+import { alive, CLI, D, D_PATH, F_PRIME, git, GIT_ENV, inTemp, pathWith, programDir, ROOT, setRule, withR, withSample, write } from '../acceptance/helpers.ts';
 import { errorLines, MiB, run } from './support.ts';
 
 // These run nightly, on Linux, in a container of 1 GB of memory and 2 CPUs; spec/check-slice.md, section 10, holds the numbers.
@@ -238,4 +238,53 @@ test('test 259: a git that never answers ends as step-too-slow after 60 seconds,
     assert.ok(result.ms >= 60_000 && result.ms < 70_000, String(result.ms));
     assert.equal(alive(Number(readFileSync(pidFile, 'utf8'))), false);
   });
+});
+
+// The nightly job mounts a small file system of its own here, `--tmpfs /full:size=8m,mode=1777`, so a test can fill it.
+const FULL_DISK = process.env.LAWCHECK_FULL_DISK;
+
+test('S3-8: test 265: a review on a disk with one free page is file-unwritable, and init there too, never internal', async () => {
+  assert.ok(FULL_DISK !== undefined && existsSync(FULL_DISK), 'could not run: LAWCHECK_FULL_DISK names no folder; the nightly job mounts one');
+  const fill = (pages: number) => {
+    const filler = join(FULL_DISK!, 'filler');
+    rmSync(filler, { force: true });
+    const fd = openSync(filler, 'w');
+    const block = Buffer.alloc(4096);
+    try {
+      for (;;) writeSync(fd, block);
+    } catch {
+      // The disk is full.
+    } finally {
+      closeSync(fd);
+    }
+    truncateSync(filler, Math.max(0, statSync(filler).size - pages * 4096));
+  };
+  const r = join(FULL_DISK!, 'r');
+  rmSync(r, { recursive: true, force: true });
+  await withFake(async (fake) => {
+    mkdirSync(r);
+    git(r, 'init', '-q', '-b', 'main');
+    cpSync(join(ROOT, 'tests', 'sample'), r, { recursive: true });
+    cpSync(join(ROOT, 'tests', 'reviewer-sample'), r, { recursive: true });
+    git(r, 'add', '-A');
+    git(r, 'commit', '-q', '-m', 'sample');
+    git(r, 'checkout', '-q', '-b', 'work');
+    write(r, 'src/core/refund.ts', 'export function refund(paid: boolean): void {\n  return;\n}\n');
+    fill(1);
+    const result = await run(r, ['check', '--review', '--base', 'main'], { env: { LAWCHECK_REVIEWER_ENDPOINT: fake.url }, budgetMs: 60_000 });
+    assert.match(errorLines(result.stdout).join('\n'), /^\S+  error\[file-unwritable\]  cannot be written \(ENOSPC\)/);
+    assert.doesNotMatch(result.stdout, /internal/);
+    assert.equal(result.code, 2);
+  });
+  rmSync(r, { recursive: true, force: true });
+  const fresh = join(FULL_DISK!, 'n');
+  rmSync(fresh, { recursive: true, force: true });
+  mkdirSync(fresh);
+  git(fresh, 'init', '-q', '-b', 'main');
+  fill(0);
+  const init = await run(fresh, ['init'], { budgetMs: 60_000 });
+  assert.match(errorLines(init.stdout).join('\n'), /error\[file-unwritable\]  cannot be written \(ENOSPC\)/);
+  assert.equal(init.code, 2);
+  rmSync(join(FULL_DISK!, 'filler'), { force: true });
+  rmSync(fresh, { recursive: true, force: true });
 });
