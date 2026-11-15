@@ -57,6 +57,12 @@
     "tests/acceptance/init.test.ts",
     "tests/unit/init.test.ts"
   ],
+  "src/keys.ts": [
+    "tests/acceptance/stability.test.ts",
+    "tests/security/key-everywhere.test.ts",
+    "tests/security/key-forms.test.ts",
+    "tests/security/secrets.test.ts"
+  ],
   "src/law.ts": [
     "tests/acceptance/law.test.ts",
     "tests/acceptance/reviewer-law.test.ts",

@@ -18,18 +18,20 @@ async function shows(s: string): Promise<string[]> {
   return shown;
 }
 
-for (const file of ['config.yaml', 'law.yaml']) {
-  test(`S5-15: a .lawcheck/${file} linked to a one-line secret shows none of it (I-secret-2)`, async () => {
-    await withSample(async (s, dir) => {
-      for (const secret of SECRETS) {
-        writeFileSync(join(dir, 'secret.txt'), secret + '\n');
-        rmSync(join(s, '.lawcheck', file), { force: true });
-        symlinkSync(join(dir, 'secret.txt'), join(s, '.lawcheck', file));
-        assert.deepEqual(await shows(s), [], secret);
-      }
-    });
+async function linkedFile(file: string): Promise<void> {
+  await withSample(async (s, dir) => {
+    for (const secret of SECRETS) {
+      writeFileSync(join(dir, 'secret.txt'), secret + '\n');
+      rmSync(join(s, '.lawcheck', file), { force: true });
+      symlinkSync(join(dir, 'secret.txt'), join(s, '.lawcheck', file));
+      assert.deepEqual(await shows(s), [], secret);
+    }
   });
 }
+
+test('S5-15: a .lawcheck/config.yaml linked to a one-line secret shows none of it (I-secret-2)', () => linkedFile('config.yaml'));
+
+test('S5-15: a .lawcheck/law.yaml linked to a one-line secret shows none of it (I-secret-2)', () => linkedFile('law.yaml'));
 
 test('S5-15: a .lawcheck folder linked to a folder whose law holds a secret shows none of it (I-secret-2)', async () => {
   await withSample(async (s, dir) => {

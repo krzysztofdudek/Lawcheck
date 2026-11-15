@@ -174,7 +174,7 @@ test('I-out-1: a base ref cannot forge a line, and its error stays one line', as
   });
 });
 
-test("I-out-1: a type's about text and a rule id cannot forge a line of prime, explain or check", async () => {
+test('I-out-1: the about text of a type and a rule id cannot forge a line of prime, explain or check', async () => {
   await inTemp(async (dir) => {
     const r = repo(dir, { about: NO_BREAK });
     for (const args of [['prime'], ['explain', 'a.ts']]) {
@@ -234,7 +234,7 @@ test("I-out-1: what a script rule prints on its own streams reaches the tool's s
     const printed = `console.log(${JSON.stringify('::error title=forged::x')}); console.error(${JSON.stringify(`${NO_BREAK}\r##[group]g`)}); process.stdout.write('no line end ##vso[task.complete]');`;
     const r = repo(dir, { rules: { shout: `export function check() { ${printed} return [{ line: 1, message: "named" }]; }\n` } });
     for (const args of [['check', '--base', 'main'], ['try', 'shout', 'a.ts']]) {
-      const run = await lawcheck(r, args);
+      const run = await lawcheck(r, args, {}, [], { stderr: /forged/ });
       assert.equal(run.code, 1, run.stdout + run.stderr);
       assert.equal(outputProblem(run.stderr), null, run.stderr);
       assert.ok(run.stderr.includes('\\x3a:error title=forged::x'), run.stderr);

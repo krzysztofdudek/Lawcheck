@@ -1,10 +1,13 @@
 import { test } from 'node:test';
+import { platformSkip } from '../harness/tool.ts';
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, sep } from 'node:path';
 import fc from 'fast-check';
 import { check, findingLines, inTemp, makeSample, setRule } from '../acceptance/helpers.ts';
-import { CASES_TOOL, REACH_SHARE, SEED } from './numbers.ts';
+import { cases, REACH_SHARE, seed } from '../numbers.ts';
+
+const RUNS = cases('tool');
 
 const SECRET = 'SECRET-beside-the-root';
 
@@ -63,7 +66,9 @@ function assertConfined(result: { root: string; code: number | null; stdout: str
   assert.ok(found.includes('own # Sample'), result.stdout);
 }
 
-test('S8-4: a root whose path ends in * lets no rule read the folders beside it', { skip: process.platform === 'win32' ? 'Windows refuses * in a file name' : false }, async () => {
+test('S8-4: a root whose path ends in * lets no rule read the folders beside it', async (t) => {
+  const skip = platformSkip('the whole test');
+  if (skip !== null) return t.skip(skip);
   await inTemp(async (dir) => {
     const result = await judged(join(dir, 'zone*'));
     assertConfined(result);
@@ -71,7 +76,9 @@ test('S8-4: a root whose path ends in * lets no rule read the folders beside it'
   });
 });
 
-test('S2-8: a root whose path holds a backslash is refused by name, not blamed on the rule', { skip: process.platform === 'win32' ? 'a backslash is the separator on Windows' : false }, async () => {
+test('S2-8: a root whose path holds a backslash is refused by name, not blamed on the rule', async (t) => {
+  const skip = platformSkip('the whole test');
+  if (skip !== null) return t.skip(skip);
   await inTemp(async (dir) => {
     const result = await judged(join(dir, 'back\\slash'));
     assertConfined(result);
@@ -99,12 +106,12 @@ test('I-runner-1: a rule reads nothing outside the root and the package at a roo
         if (/[^\x00-\x7f]/.test(name)) reach['non-ASCII']!++;
         assertConfined(await judged(join(dir, String(index++), name.trim() === '' ? `${name}x` : name)));
       }),
-      { seed: SEED, numRuns: CASES_TOOL },
+      { seed: seed(), numRuns: RUNS },
     );
   });
-  if (filtered > 0) process.stdout.write(`# ${filtered} of ${CASES_TOOL} root names left out on ${process.platform}\n`);
+  if (filtered > 0) process.stdout.write(`# ${filtered} of ${RUNS} root names left out on ${process.platform}\n`);
   for (const [kind, count] of Object.entries(reach)) {
     if (REFUSED.test(kind)) continue;
-    assert.ok(count >= CASES_TOOL * REACH_SHARE, `${kind}: ${count} of ${CASES_TOOL} cases`);
+    assert.ok(count >= RUNS * REACH_SHARE, `${kind}: ${count} of ${RUNS} cases`);
   }
 });

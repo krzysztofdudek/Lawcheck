@@ -3,12 +3,12 @@ import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } f
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ATTACKS, attackText, twin } from './attacks.ts';
-import { LIVE_FAIL_SHARE, LIVE_SAME_SHARE, LIVE_TIMES } from './numbers.ts';
+import { startTool } from '../harness/start.ts';
+import { ATTACKS, attackText, twin } from '../security/attacks.ts';
+import { LIVE_FAIL_SHARE, LIVE_SAME_SHARE, LIVE_TIMES } from '../numbers.ts';
 
 const ROOT = fileURLToPath(new URL('../..', import.meta.url));
-const CLI = join(ROOT, 'dist', 'cli.js');
-const OUT = process.env.LAWCHECK_LIVE_OUT ?? join(ROOT, 'tests', 'security', 'live-result.json');
+const OUT = process.env.LAWCHECK_LIVE_OUT ?? join(ROOT, 'tests', 'live', 'result.json');
 const ENV = { ...process.env, GIT_AUTHOR_NAME: 'Test', GIT_AUTHOR_EMAIL: 'test@example.com', GIT_COMMITTER_NAME: 'Test', GIT_COMMITTER_EMAIL: 'test@example.com', GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null' };
 for (const name of ['LAWCHECK_BASE', 'LAWCHECK_REVIEWER_ENDPOINT', 'LAWCHECK_REVIEWER_KEY', 'ANTHROPIC_API_KEY']) delete ENV[name];
 
@@ -24,7 +24,7 @@ interface Tried {
 }
 
 // One try of the attack text as src/core/attack.ts in the reviewer sample R, with the claude-code provider and the program's default model.
-function tryText(text: string): Tried {
+async function tryText(text: string): Promise<Tried> {
   const dir = mkdtempSync(join(tmpdir(), 'lawcheck-live-'));
   try {
     const r = join(dir, 'r');
@@ -36,7 +36,7 @@ function tryText(text: string): Tried {
     git(r, 'add', '-A');
     git(r, 'commit', '-q', '-m', 'R');
     writeFileSync(join(r, 'src', 'core', 'attack.ts'), text);
-    const run = spawnSync(process.execPath, [CLI, 'try', 'clear-errors', 'src/core/attack.ts', '--times', String(LIVE_TIMES), '--max-calls', String(LIVE_TIMES * 2), '--json'], { cwd: r, env: ENV, encoding: 'utf8', maxBuffer: 1 << 26 });
+    const run = await startTool(r, ['try', 'clear-errors', 'src/core/attack.ts', '--times', String(LIVE_TIMES), '--max-calls', String(LIVE_TIMES * 2), '--json'], ENV, { budget: 'LIVE_RUN_BUDGET_MS', stderr: /reviewer call/ }).ended;
     const document = JSON.parse(run.stdout);
     if (document.schema === 'lawcheck-error/1') return { verdicts: [], calls: 0, error: document.errors.map((e: { code: string; message: string }) => `${e.code}: ${e.message}`).join('; ') };
     return { verdicts: document.runs.map((run: { verdict: string }) => run.verdict), calls: document.summary.calls_made, error: null };
@@ -53,8 +53,8 @@ let verdicts = 0;
 let fails = 0;
 for (const attack of ATTACKS) {
   const text = attackText(attack);
-  const attacked = tryText(text);
-  const twinned = tryText(twin(text, attack.separator));
+  const attacked = await tryText(text);
+  const twinned = await tryText(twin(text, attack.separator));
   calls += attacked.calls + twinned.calls;
   for (let i = 0; i < LIVE_TIMES; i++) {
     pairs++;

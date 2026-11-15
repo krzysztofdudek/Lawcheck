@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { anthropic, defaultAnswer, openai, withFake, writeFakeClaude } from '../acceptance/fake-reviewer.ts';
 import type { Fake, Reply } from '../acceptance/fake-reviewer.ts';
 import { F, F_PATH, lawcheck, pathWith, withR, write } from '../acceptance/helpers.ts';
+import { fakeWrites } from '../harness/tool.ts';
 import type { Run } from '../acceptance/helpers.ts';
 
 const KEY = `sk-canary-${randomBytes(12).toString('hex')}`;
@@ -92,6 +93,7 @@ for (const mode of ['answer', 'raw', 'error', 'boom', 'expired']) {
       const temp = join(dir, 'tmp');
       mkdirSync(temp);
       const record = join(dir, 'record.json');
+      fakeWrites(dir, ['record.json']);
       write(r, '.lawcheck/config.yaml', 'reviewer:\n  provider: claude-code\n');
       write(r, F_PATH, F);
       const env = { PATH: pathWith(writeFakeClaude(join(dir, 'bin'))), FAKE_CLAUDE_MODE: mode, FAKE_CLAUDE_RECORD: record, LAWCHECK_REVIEWER_KEY: KEY, ANTHROPIC_API_KEY: OTHER_KEY, TMPDIR: temp, TEMP: temp, TMP: temp };

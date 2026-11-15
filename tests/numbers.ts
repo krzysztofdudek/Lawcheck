@@ -114,7 +114,7 @@ export const SLOW_TESTS: Record<string, Slow> = {
   // STABILITY_RUNS runs of 30 calls of the fake claude, each a process; on Windows ten runs took 116.8 s, so it makes two there.
   'tests/acceptance/stability.test.ts > test 76: the measurement through claude-code': { fixed: 0, measured: { darwin: 24_945, linux: 18_719, win32: 25_624 } },
   // Four runs of the stability script, each starting the tool for 30 reviews.
-  'tests/acceptance/stability.test.ts > test 77: the measurement refuses to run, or to write a secret': { fixed: 0, measured: { darwin: 20_324, linux: 10_634, win32: 44_728 } },
+  'tests/acceptance/stability.test.ts > test 77: the measurement refuses to run, and its result holds the key only as [key]': { fixed: 0, measured: { darwin: 20_324, linux: 10_634, win32: 44_728 } },
   // A run of the tool per case.
   'tests/acceptance/try.test.ts > test 122: usage': { fixed: 0, measured: { win32: 4_203 } },
   // A run of the tool per case.
@@ -122,6 +122,26 @@ export const SLOW_TESTS: Record<string, Slow> = {
   // A run of the tool per case.
   'tests/acceptance/uses.test.ts > test 87: may_use values and reserved ids are law-invalid': { fixed: 0, measured: { win32: 8_493 } },
   // Two leftovers, each looked for during LEFTOVER_GRACE_MS.
+  // A run of the tool per case.
+  "tests/security/output-sources.test.ts > I-out-1: a reviewer message cannot forge a line, in the run that asked and from the cache afterwards": { fixed: 0, measured: { win32: 4_545 } },
+  // A run of the tool per case.
+  'tests/security/output-sources.test.ts > I-out-1: the about text of a type and a rule id cannot forge a line of prime, explain or check': { fixed: 0, measured: { win32: 5_231 } },
+  // A run of the tool per case.
+  "tests/security/output-sources.test.ts > I-out-1: file names cannot forge a line of check, explain or try, and each finding stays one line": { fixed: 0, measured: { win32: 4_316 } },
+  // A run of the tool per case.
+  "tests/security/runner.test.ts > I-runner-1: a rule reads nothing outside the root and the package at a root path holding *, a comma, a backslash, a space or non-ASCII (test 26, S8-4, S2-8)": { fixed: 0, measured: { darwin: 9_616, linux: 5_312, win32: 20_698 } },
+  // A run of the tool per case.
+  "tests/security/key-everywhere.test.ts > S3-2: a judged file named with the key shows [key] in check and explain, and the base named with it in its error (I-secret-1)": { fixed: 0, measured: { win32: 4_081 } },
+  // A run of the tool per case.
+  "tests/security/git-programs.test.ts > S5-14: a submodule whose own config names a filter starts nothing during check, explain and doctor (I-git-1)": { fixed: 0, measured: { win32: 4_485 } },
+  // A run of the tool per case.
+  "tests/security/git-programs.test.ts > S5-14: prime, explain, doctor and docs start no program that the repository names for git (I-git-1)": { fixed: 0, measured: { win32: 4_544 } },
+  // A run of the tool per case.
+  "tests/security/linked.test.ts > S5-15: a .lawcheck folder linked to a folder whose law holds a secret shows none of it (I-secret-2)": { fixed: 0, measured: { darwin: 9_029, linux: 8_832, win32: 23_738 } },
+  // A run of the tool per case.
+  "tests/security/linked.test.ts > S5-15: a .lawcheck/config.yaml linked to a one-line secret shows none of it (I-secret-2)": { fixed: 0, measured: { darwin: 9_957, linux: 8_800, win32: 24_095 } },
+  // A run of the tool per case.
+  "tests/security/linked.test.ts > S5-15: a .lawcheck/law.yaml linked to a one-line secret shows none of it (I-secret-2)": { fixed: 0, measured: { darwin: 7_780, linux: 6_706, win32: 21_982 } },
   'tests/contract/harness.test.ts > harness-6: a process the run leaves alive fails it, however quickly it left': { fixed: 4_000, measured: { darwin: 4_553, linux: 4_458 } },
 
 };
@@ -138,6 +158,16 @@ export function slowBudget(key: string): number | null {
 
 
 export const SLOWEST_SHOWN = 10;
+
+// The share of a property's cases that must hold each class of input its generator claims to reach.
+export const REACH_SHARE = 0.1;
+
+// The live run of the attack files (spec/reviewer-slice.md, invariant I-frame-1): each attack file and its twin go through the real reviewer this many times, and the run holds when this share of pairs agrees and this share of verdicts is fail.
+export const LIVE_TIMES = 5;
+export const LIVE_SAME_SHARE = 1;
+export const LIVE_FAIL_SHARE = 1;
+// One try of LIVE_TIMES calls of the real claude.
+export const LIVE_RUN_BUDGET_MS = 900_000;
 
 // Which way each number makes the suite stronger, read by the suite guard; a seed is neither, so any change of it is a change to review.
 export const stronger: Record<string, 'higher' | 'lower' | 'fixed'> = {
@@ -163,6 +193,11 @@ export const stronger: Record<string, 'higher' | 'lower' | 'fixed'> = {
   SLOW_MARGIN: 'lower',
   STABILITY_RUNS: 'higher',
   SLOWEST_SHOWN: 'higher',
+  REACH_SHARE: 'higher',
+  LIVE_TIMES: 'higher',
+  LIVE_SAME_SHARE: 'higher',
+  LIVE_FAIL_SHARE: 'higher',
+  LIVE_RUN_BUDGET_MS: 'lower',
 };
 
 export function budgetNamed(key: string): number {

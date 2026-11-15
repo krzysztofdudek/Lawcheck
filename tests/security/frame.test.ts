@@ -5,7 +5,9 @@ import fc from 'fast-check';
 import { buildPrompt } from '../../dist/prompt.js';
 import { splitLines } from '../../dist/types.js';
 import { ATTACKS, attackText } from './attacks.ts';
-import { CASES_PURE, REACH_SHARE, SEED } from './numbers.ts';
+import { cases, REACH_SHARE, seed } from '../numbers.ts';
+
+const RUNS = cases('pure');
 
 const SPEC = readFileSync(new URL('../../spec/reviewer-slice.md', import.meta.url), 'utf8');
 const FRAME_START = SPEC.indexOf('```text\n', SPEC.indexOf('The frame:')) + '```text\n'.length;
@@ -154,9 +156,9 @@ test('I-frame-1: for any file text and path, an independent parser of the prompt
       const files = [...context.map((c) => ({ tag: 'context' as const, ...c })), { tag: 'file' as const, path: filePath, text: fileText }];
       assertFramed(prompt(filePath, fileText, context), files);
     }),
-    { seed: SEED, numRuns: CASES_PURE },
+    { seed: seed(), numRuns: RUNS },
   );
-  for (const [kind, count] of Object.entries(reach)) assert.ok(count >= CASES_PURE * REACH_SHARE, `${kind}: ${count} of ${CASES_PURE} cases`);
+  for (const [kind, count] of Object.entries(reach)) assert.ok(count >= RUNS * REACH_SHARE, `${kind}: ${count} of ${RUNS} cases`);
 });
 
 for (const attack of ATTACKS) {

@@ -2,7 +2,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fc from 'fast-check';
 import { main } from '../../dist/cli.js';
-import { CASES_PURE, REACH_SHARE, SEED } from './numbers.ts';
+import { cases, REACH_SHARE, seed } from '../numbers.ts';
+
+const RUNS = cases('pure');
 import { expectedField, expectedLine, jsonProblem, outputProblem } from './oracle.ts';
 
 const CONTROLS = ['\x00', '\x07', '\b', '\t', '\n', '\r', '\x1b', '\x1b[2K', '\x1b[1A', '\x1b]8;;http://x\x07', '\x7f', '\x85', '\x9b'];
@@ -50,9 +52,9 @@ test('I-out-1: no file name, message or base forges a line or puts a forbidden c
       assert.equal(document.findings[0].message, message);
       assert.equal(document.scope.base, base);
     }),
-    { seed: SEED, numRuns: CASES_PURE },
+    { seed: seed(), numRuns: RUNS },
   );
-  for (const [kind, count] of Object.entries(reach)) assert.ok(count >= CASES_PURE * REACH_SHARE, `${kind}: ${count} of ${CASES_PURE} cases`);
+  for (const [kind, count] of Object.entries(reach)) assert.ok(count >= RUNS * REACH_SHARE, `${kind}: ${count} of ${RUNS} cases`);
 });
 
 test('I-out-1: an error message the tool did not write stays on one line of text output', async () => {
@@ -66,7 +68,7 @@ test('I-out-1: an error message the tool did not write stays on one line of text
       assert.equal(jsonProblem(json.stdout), null);
       assert.equal(JSON.parse(json.stdout).errors[0].message, message);
     }),
-    { seed: SEED, numRuns: CASES_PURE },
+    { seed: seed(), numRuns: RUNS },
   );
 });
 

@@ -1,13 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawn, spawnSync, execFileSync } from 'node:child_process';
+import { spawnSync, execFileSync } from 'node:child_process';
 import { chmodSync, existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { delimiter, dirname, join } from 'node:path';
 import { writeFakeClaude } from '../acceptance/fake-reviewer.ts';
 import { CLI, F, F_PATH, git, inTemp, lawcheck, makeR, makeSample, ROOT, write } from '../acceptance/helpers.ts';
+import { fakeWrites, platformSkip, startHook } from '../harness/tool.ts';
 
 const WINDOWS = process.platform === 'win32';
-const HOOK = join(ROOT, 'plugin', 'hooks', 'lawcheck-hook.mjs');
 const NODE_DIR = dirname(process.execPath);
 const GIT_DIR = dirname(execFileSync(WINDOWS ? 'where.exe' : 'sh', WINDOWS ? ['git'] : ['-c', 'command -v git'], { encoding: 'utf8' }).split(/\r?\n/)[0]!.trim());
 const SYSTEM_ENV: NodeJS.ProcessEnv = WINDOWS ? { SystemRoot: process.env.SystemRoot, ComSpec: process.env.ComSpec, PATHEXT: process.env.PATHEXT } : {};
@@ -38,15 +38,12 @@ function globalLawcheck(dir: string): string {
   return bin;
 }
 
-function hook(cwd: string, data: string, env: NodeJS.ProcessEnv): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [HOOK, 'session-start'], { env: { ...SYSTEM_ENV, CLAUDE_PLUGIN_ROOT: join(ROOT, 'plugin'), CLAUDE_PLUGIN_DATA: data, ...env }, stdio: ['pipe', 'pipe', 'pipe'] });
-    let stdout = '';
-    child.stdout.setEncoding('utf8').on('data', (chunk: string) => (stdout += chunk));
-    child.on('error', reject);
-    child.on('close', () => resolve(stdout));
-    child.stdin.end(JSON.stringify({ session_id: 's1', cwd, hook_event_name: 'SessionStart', source: 'startup' }));
-  });
+async function hook(cwd: string, data: string, env: NodeJS.ProcessEnv): Promise<string> {
+  // The plugin keeps its state under CLAUDE_PLUGIN_DATA.
+  fakeWrites(dirname(data), ['data/']);
+  const input = JSON.stringify({ session_id: 's1', cwd, hook_event_name: 'SessionStart', source: 'startup' });
+  const run = await startHook('session-start', input, { ...SYSTEM_ENV, CLAUDE_PLUGIN_ROOT: join(ROOT, 'plugin'), CLAUDE_PLUGIN_DATA: data, ...env }).ended;
+  return run.stdout;
 }
 
 // A relative entry of PATH, and an empty one, name the folder a program is started in: the root of the repository.
@@ -80,13 +77,25 @@ test('I-start-1: under runner npx and pnpm the hooks start no program of the rep
       const s = makeSample(dir);
       write(s, '.lawcheck/config.yaml', `runner: ${runner}\n`);
       plantPrograms(s, markers);
-      await hook(s, join(dir, 'data'), { PATH: [...RELATIVE, GIT_DIR, NODE_DIR].join(delimiter) });
+      // A stand-in of the package manager on an absolute entry, so the hook has the real name to find and no real package manager runs.
+      const runners = join(dir, 'runners');
+      mkdirSync(runners, { recursive: true });
+      const standIn = join(runners, runner);
+      if (WINDOWS) writeFileSync(`${standIn}.cmd`, '@exit /b 1\r\n');
+      else {
+        writeFileSync(standIn, '#!/bin/sh\nexit 1\n');
+        chmodSync(standIn, 0o755);
+      }
+      const started = await hook(s, join(dir, 'data'), { PATH: [...RELATIVE, runners, GIT_DIR, NODE_DIR].join(delimiter) });
+      assert.ok(started.includes('.lawcheck/law.yaml'), started);
       assert.deepEqual(readdirSync(markers), [], runner);
     });
   }
 });
 
-test('I-start-1: on Windows a node.cmd at the root does not run when the hooks start a global Lawcheck whose shim calls node', { skip: WINDOWS ? false : 'cmd.exe looks in the current folder only on Windows' }, async () => {
+test('I-start-1: on Windows a node.cmd at the root does not run when the hooks start a global Lawcheck whose shim calls node', async (t) => {
+  const skip = platformSkip('the whole test');
+  if (skip !== null) return t.skip(skip);
   await inTemp(async (dir) => {
     const markers = join(dir, 'markers');
     const s = makeSample(dir);
@@ -94,7 +103,10 @@ test('I-start-1: on Windows a node.cmd at the root does not run when the hooks s
     const bin = globalLawcheck(dir);
     const path = [bin, GIT_DIR, NODE_DIR].join(delimiter);
     const plain = Object.fromEntries(Object.entries(process.env).filter(([name]) => name.toUpperCase() !== 'PATH' && name !== 'NoDefaultCurrentDirectoryInExePath'));
-    spawnSync(process.env.ComSpec ?? 'cmd.exe', ['/d', '/s', '/c', `"${join(bin, 'lawcheck.cmd')} --version"`], { cwd: s, env: { ...plain, PATH: path }, windowsVerbatimArguments: true, stdio: 'ignore' });
+    // A shim of the same shape as the global lawcheck.cmd, calling a bare node, so the control starts no Lawcheck.
+    const probe = join(dir, 'probe.cmd');
+    writeFileSync(probe, '@node -e ""\r\n');
+    spawnSync(process.env.ComSpec ?? 'cmd.exe', ['/d', '/s', '/c', `"${probe}"`], { cwd: s, env: { ...plain, PATH: path }, windowsVerbatimArguments: true, stdio: 'ignore' });
     assert.ok(existsSync(join(markers, 'node')), 'the control: cmd.exe without the setting runs the node.cmd of the repository');
     rmSync(join(markers, 'node'));
     const started = await hook(s, join(dir, 'data'), { PATH: path });

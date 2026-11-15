@@ -1,4 +1,5 @@
 import { test } from 'node:test';
+import { platformSkip } from '../harness/tool.ts';
 import assert from 'node:assert/strict';
 import { lstatSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -77,14 +78,18 @@ async function refusedWith(s: string, name: string | Buffer, target: string): Pr
   assert.match(run.stdout, /error\[link-outside-root\] {2}the link leads to /, run.stdout);
 }
 
-test('I-runner-1: a tracked link whose name holds a line break is not dropped from the guard', { skip: process.platform === 'win32' ? 'Windows refuses a line break in a name' : false }, async () => {
+test('I-runner-1: a tracked link whose name holds a line break is not dropped from the guard', async (t) => {
+  const skip = platformSkip('the whole test');
+  if (skip !== null) return t.skip(skip);
   await inTemp(async (dir) => {
     mkdirSync(join(dir, 'beside'));
     await refusedWith(makeSample(dir), 'out\nlink', join(dir, 'beside'));
   });
 });
 
-test('I-runner-1: a tracked link whose name is not valid UTF-8 is not dropped from the guard', { skip: process.platform === 'linux' ? false : 'only Linux takes a name that is not valid UTF-8' }, async () => {
+test('I-runner-1: a tracked link whose name is not valid UTF-8 is not dropped from the guard', async (t) => {
+  const skip = platformSkip('the whole test');
+  if (skip !== null) return t.skip(skip);
   await inTemp(async (dir) => {
     mkdirSync(join(dir, 'beside'));
     await refusedWith(makeSample(dir), Buffer.from([0x6f, 0x75, 0x74, 0xff]), join(dir, 'beside'));

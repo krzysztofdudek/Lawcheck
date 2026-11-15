@@ -76,7 +76,7 @@ test("S3-2: what a script rule prints holding the key reaches standard error as 
     const s = makeSample(dir);
     setRule(s, 'no-console', "export function check({ files }) { console.error('saw ' + files[0].lines[0]); return []; }\n");
     write(s, 'src/core/discount.ts', `const key = '${KEY}';\n`);
-    const run = await lawcheck(s, ['check', '--base', 'main'], ENV);
+    const run = await lawcheck(s, ['check', '--base', 'main'], ENV, [], { stderr: /^saw const key = '\[key\]';\n$/ });
     assertHidden([run], s);
     assert.ok(run.stderr.includes("saw const key = '[key]';"), run.stderr);
   });
