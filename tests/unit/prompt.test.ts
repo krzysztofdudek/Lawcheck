@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { example, exampleText } from '../harness/examples.ts';
 import { buildPrompt, checkAnswer, cleanMessage, FRAME, numbered, size, takeAnswer } from '../../dist/prompt.js';
-import { ANSWER_BUDGET_MS } from '../properties/numbers.ts';
+import { ANSWER_BUDGET_MS } from '../numbers.ts';
 
 const R = new URL('../reviewer-sample/', import.meta.url);
 

@@ -1,17 +1,19 @@
 import assert from 'node:assert/strict';
 import { appendFileSync } from 'node:fs';
 import fc from 'fast-check';
-import { CASES_PURE, CASES_TOOL, LEAST_SHARE, NIGHTLY_MS, SEED } from './numbers.ts';
+import { cases, NIGHTLY_MS, REACH_SHARE, SEED, seed as commitSeed } from '../numbers.ts';
 
 export interface Speed {
   nightly: boolean;
   seed: number;
 }
 
-export const COMMIT: Speed = { nightly: false, seed: SEED };
+export const COMMIT: Speed = { nightly: false, seed: commitSeed() };
 
 export function nightly(): Speed {
-  const seed = Number(process.env.LAWCHECK_SEED ?? (Date.now() ^ Math.floor(Math.random() * 0x7fffffff)) >>> 0);
+  // tests/run.ts hands every run the commit seed; a nightly run takes a new one unless it is given another to replay.
+  const given = process.env.LAWCHECK_SEED;
+  const seed = given !== undefined && /^\d+$/.test(given) && Number(given) !== SEED ? Number(given) : (Date.now() ^ Math.floor(Math.random() * 0x7fffffff)) >>> 0;
   const line = `nightly properties: seed ${seed} (rerun with LAWCHECK_SEED=${seed})`;
   process.stdout.write(`${line}\n`);
   if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${line}\n\n`);
@@ -26,7 +28,7 @@ export interface Claim<T> {
 }
 
 function parameters(speed: Speed, tool: boolean): fc.Parameters<unknown> {
-  const numRuns = tool ? CASES_TOOL : CASES_PURE;
+  const numRuns = cases(tool ? 'tool' : 'pure');
   if (!speed.nightly) return { seed: speed.seed, numRuns };
   return { seed: speed.seed, numRuns: Number.MAX_SAFE_INTEGER, interruptAfterTimeLimit: NIGHTLY_MS, markInterruptAsFailure: false };
 }
@@ -41,7 +43,7 @@ function counter<T>(claim: Claim<T>) {
     },
     reached() {
       for (const name of Object.keys(claim.classes)) {
-        const share = claim.least?.[name] ?? LEAST_SHARE;
+        const share = claim.least?.[name] ?? REACH_SHARE;
         assert.ok(counts[name]! >= Math.ceil(share * total), `the generator reached the class '${name}' in ${counts[name]} of ${total} cases, below the share ${share} it claims`);
       }
       return { counts, total };

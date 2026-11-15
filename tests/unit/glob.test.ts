@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { compileList, compilePattern, patternProblem } from '../../dist/glob.js';
-import { MATCH_BUDGET_MS } from '../properties/numbers.ts';
+import { MATCH_BUDGET_MS } from '../numbers.ts';
 
 const matches = (pattern: string, path: string) => compilePattern(pattern).test(path);
 

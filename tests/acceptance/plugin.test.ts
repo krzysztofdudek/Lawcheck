@@ -668,7 +668,9 @@ const BACKSLASH_OUTPUT = [
 ].join('\n');
 const BACKSLASH_LAW = LAW.replace('paths: ["src/**/*.ts", "!src/**/*.d.ts"]', 'paths: ["src/**/*.{ts,js}", "!src/**/*.d.ts"]');
 
-test('S6-4: an edit of a file with a backslash in its name checks that file', { skip: WINDOWS && 'a backslash separates directories on Windows' }, async () => {
+test('S6-4: an edit of a file with a backslash in its name checks that file', async (t) => {
+  const skip = platformSkip('the whole test');
+  if (skip !== null) return t.skip(skip);
   await withBench(async (bench, dir) => {
     const s = makeSample(dir);
     write(s, '.lawcheck/law.yaml', BACKSLASH_LAW);
@@ -711,7 +713,9 @@ test('S6-8: a byte-order mark before the runner line, and the hook and the tool 
   });
 });
 
-test('S6-10: the check before finishing sees a file whose name holds a line break', { skip: WINDOWS && 'Windows refuses a line break in a file name' }, async () => {
+test('S6-10: the check before finishing sees a file whose name holds a line break', async (t) => {
+  const skip = platformSkip('the whole test');
+  if (skip !== null) return t.skip(skip);
   await withBench(async (bench, dir) => {
     const s = makeSample(dir);
     const session = new Session(bench, s);
@@ -725,7 +729,9 @@ test('S6-10: the check before finishing sees a file whose name holds a line brea
   });
 });
 
-test('S6-10: a file whose name starts with a double quote does not stop the check before finishing from seeing the rest', { skip: WINDOWS && 'Windows refuses a double quote in a file name' }, async () => {
+test('S6-10: a file whose name starts with a double quote does not stop the check before finishing from seeing the rest', async (t) => {
+  const skip = platformSkip('the whole test');
+  if (skip !== null) return t.skip(skip);
   await withBench(async (bench, dir) => {
     const s = makeSample(dir);
     const session = new Session(bench, s);

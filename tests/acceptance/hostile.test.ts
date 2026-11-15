@@ -2,11 +2,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { PATTERN_RUN_BUDGET_MS } from '../properties/numbers.ts';
+import { PATTERN_RUN_BUDGET_MS } from '../numbers.ts';
+import { platformSkip } from '../harness/tool.ts';
 import { append, check, git, LAW, lawcheck, withSample, withU, write } from './helpers.ts';
 
-const WINDOWS = process.platform === 'win32';
-const LINUX = process.platform === 'linux';
 const BREACH = 'console.log(1)\n';
 const NO_CONSOLE_WHY = '  why:  Only the command layer writes to the terminal.';
 const finding = (place: string) => `${place}  error[no-console]  writes to the terminal with console.log`;
@@ -15,13 +14,16 @@ function writeBytes(repo: string, name: Buffer, content: string): void {
   writeFileSync(Buffer.concat([Buffer.from(`${repo}/`), name]), content);
 }
 
-test('S1-2: a file whose name holds a line break, a carriage return or an invalid byte is judged, its name escaped', { skip: WINDOWS && 'Windows refuses these characters in a file name' }, async () => {
+test('S1-2: a file whose name holds a line break, a carriage return or an invalid byte is judged, its name escaped', async (t) => {
+  const skip = platformSkip('the whole test');
+  if (skip !== null) return t.skip(skip);
   await withSample(async (s) => {
     const names = [Buffer.from('src/core/new\nline.ts'), Buffer.from('src/core/cr\rx.ts')];
-    if (LINUX) names.push(Buffer.concat([Buffer.from('src/core/bad'), Buffer.from([0xff]), Buffer.from('.ts')]));
+    const invalid = platformSkip('a name that is not valid UTF-8') === null;
+    if (invalid) names.push(Buffer.concat([Buffer.from('src/core/bad'), Buffer.from([0xff]), Buffer.from('.ts')]));
     for (const name of names) writeBytes(s, name, BREACH);
     const text = await check(s);
-    const places = [...(LINUX ? ['src/core/bad\\xff.ts:1'] : []), 'src/core/cr\\rx.ts:1', 'src/core/new\\nline.ts:1'];
+    const places = [...(invalid ? ['src/core/bad\\xff.ts:1'] : []), 'src/core/cr\\rx.ts:1', 'src/core/new\\nline.ts:1'];
     assert.deepEqual(
       { code: text.code, stdout: text.stdout, stderr: text.stderr },
       {
@@ -45,7 +47,9 @@ test('S1-2: a file whose name holds a line break, a carriage return or an invali
   });
 });
 
-test('S1-2: a name given on the command line in its escaped form selects that file, and a raw backslash selects the same file as its escape', { skip: WINDOWS && 'Windows refuses these characters in a file name' }, async () => {
+test('S1-2: a name given on the command line in its escaped form selects that file, and a raw backslash selects the same file as its escape', async (t) => {
+  const skip = platformSkip('the whole test');
+  if (skip !== null) return t.skip(skip);
   await withSample(async (s) => {
     writeBytes(s, Buffer.from('src/core/new\nline.ts'), BREACH);
     writeBytes(s, Buffer.from('src/core/back\\slash.ts'), BREACH);
@@ -58,7 +62,9 @@ test('S1-2: a name given on the command line in its escaped form selects that fi
   });
 });
 
-test('S5-9: explain gives a file whose name holds a line break its type, on one line', { skip: WINDOWS && 'Windows refuses a line break in a file name' }, async () => {
+test('S5-9: explain gives a file whose name holds a line break its type, on one line', async (t) => {
+  const skip = platformSkip('the whole test');
+  if (skip !== null) return t.skip(skip);
   await withSample(async (s) => {
     writeBytes(s, Buffer.from('src/core/new\nline.ts'), BREACH);
     const run = await lawcheck(s, ['explain', 'src/core/new\\nline.ts']);
@@ -211,10 +217,12 @@ const QUOTED: [string, Buffer][] = [
   ['a name that starts with a double quote', Buffer.from('"q.ts')],
   ['a name in double quotes', Buffer.from('"x.ts"')],
 ];
-if (!WINDOWS) QUOTED.push(['a name with a line feed', Buffer.from('src/core/n\nl.ts')], ['a name with a carriage return', Buffer.from('src/core/c\rr.ts')]);
+QUOTED.push(['a name with a line feed', Buffer.from('src/core/n\nl.ts')], ['a name with a carriage return', Buffer.from('src/core/c\rr.ts')]);
 
 for (const [what, name] of QUOTED) {
-  test(`S1-14: ${what}, marked assume-unchanged and edited, is in the change, and its twin without quotes is not`, { skip: WINDOWS && name.includes(0x22) && 'Windows refuses a double quote in a file name' }, async () => {
+  test(`S1-14: ${what}, marked assume-unchanged and edited, is in the change, and its twin without quotes is not`, async (t) => {
+    const skip = platformSkip('the whole test');
+    if (skip !== null) return t.skip(skip);
     await withSample(async (s) => {
       write(s, '.lawcheck/law.yaml', `${LAW}  quoted:\n    paths: ['"*']\n    rules: [no-console]\n`);
       writeBytes(s, name, 'export const x = 1;\n');

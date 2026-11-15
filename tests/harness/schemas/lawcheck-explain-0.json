@@ -87,7 +87,7 @@
     {
       "properties": { "subject": { "const": "type" } },
       "additionalProperties": false,
-      "required": ["schema", "subject", "id", "chain", "about", "paths", "content", "may_use", "rules", "subtypes", "files"],
+      "required": ["schema", "subject", "id", "chain", "about", "paths", "content", "may_use", "rules", "subtypes", "waivers", "files"],
       "properties": {
         "schema": true,
         "subject": true,
@@ -99,7 +99,8 @@
         "may_use": { "$ref": "#/definitions/mayUse" },
         "rules": { "type": "array", "items": { "$ref": "#/definitions/typeRule" } },
         "subtypes": { "$ref": "#/definitions/ids" },
-        "files": { "type": "integer", "minimum": 0 }
+        "waivers": { "type": "boolean" },
+        "files": { "type": "array", "items": { "type": "string" } }
       }
     },
     {
@@ -114,9 +115,9 @@
         "status": { "enum": ["enforced", "advisory"] },
         "why": { "type": "string" },
         "file": { "type": ["string", "null"] },
-        "context": { "type": "array", "items": { "type": "string" } },
+        "context": { "anyOf": [{ "type": "array", "items": { "type": "string" } }, { "type": "null" }] },
         "types": { "$ref": "#/definitions/ids" },
-        "files": { "type": "integer", "minimum": 0 },
+        "files": { "type": "array", "items": { "type": "string" } },
         "reviewed": { "anyOf": [{ "type": "integer", "minimum": 0 }, { "type": "null" }] }
       }
     }

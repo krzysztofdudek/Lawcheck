@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict';
-import { execFileSync, spawn } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { chmodSync, mkdirSync, writeFileSync } from 'node:fs';
 import { delimiter, dirname, join } from 'node:path';
 import { test } from 'node:test';
 import fc from 'fast-check';
-import { CLI, D, D_PATH, GIT_ENV, lawcheck, makeSample, ROOT, temp, write } from '../acceptance/helpers.ts';
+import { D, D_PATH, GIT_ENV, lawcheck, makeSample, ROOT, temp, write } from '../acceptance/helpers.ts';
+import { installedLawcheck } from '../harness/fakes.ts';
+import { fakeWrites, startHook } from '../harness/tool.ts';
 import { tool } from './support.ts';
 import type { Speed } from './support.ts';
 
@@ -18,21 +20,10 @@ function state(repo: string): string {
   return execFileSync('git', ['status', '--porcelain=v2', '-z', '--untracked-files=all'], { cwd: repo, env: GIT_ENV, encoding: 'latin1' }) + execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repo, env: GIT_ENV, encoding: 'utf8' });
 }
 
-const HOOK = join(ROOT, 'plugin', 'hooks', 'lawcheck-hook.mjs');
 const EVENTS = ['session-start', 'prompt', 'edit', 'stop'];
 
 function runHook(event: string, input: string, env: NodeJS.ProcessEnv): Promise<{ code: number | null; stdout: string; stderr: string }> {
-  return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [HOOK, event], { env, stdio: ['pipe', 'pipe', 'pipe'] });
-    let stdout = '';
-    let stderr = '';
-    child.stdout.setEncoding('utf8').on('data', (c: string) => (stdout += c));
-    child.stderr.setEncoding('utf8').on('data', (c: string) => (stderr += c));
-    child.on('error', reject);
-    child.on('close', (code) => resolve({ code, stdout, stderr }));
-    child.stdin.on('error', () => undefined);
-    child.stdin.end(input);
-  });
+  return startHook(event, input, env, { stderr: /^(lawcheck plugin: [^\n]+\n)?$/ }).ended;
 }
 
 export function argumentsProperties(speed: Speed): void {
@@ -72,7 +63,8 @@ export function argumentsProperties(speed: Speed): void {
       const bin = join(dir.dir, 'bin');
       mkdirSync(bin);
       const shim = join(bin, 'lawcheck');
-      writeFileSync(shim, `#!${process.execPath}\nimport { spawnSync } from 'node:child_process';\nconst r = spawnSync(process.execPath, [${JSON.stringify(CLI)}, ...process.argv.slice(2)], { stdio: ['ignore', 'inherit', 'inherit'] });\nprocess.exit(r.status ?? 2);\n`);
+      fakeWrites(dir.dir, ['data/', 'lawcheck.log']);
+      writeFileSync(shim, [`#!${process.execPath}`, "import { appendFileSync } from 'node:fs';", "import { spawnSync } from 'node:child_process';", ...installedLawcheck(join(dir.dir, 'lawcheck.log')), ''].join('\n'));
       chmodSync(shim, 0o755);
       if (process.platform === 'win32') writeFileSync(`${shim}.cmd`, `@"${process.execPath}" "${shim}" %*\r\n`);
       const git = dirname(execFileSync(process.platform === 'win32' ? 'where.exe' : 'sh', process.platform === 'win32' ? ['git'] : ['-c', 'command -v git'], { encoding: 'utf8' }).split(/\r?\n/)[0]!.trim());

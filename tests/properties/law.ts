@@ -6,7 +6,7 @@ import { stringify } from 'yaml';
 import { readConfig } from '../../dist/config.js';
 import { parseLaw } from '../../dist/law.js';
 import { lawcheck, makeSample, temp, write } from '../acceptance/helpers.ts';
-import { LAW_PARSE_BUDGET_MS, PURE_CALL_BUDGET_MS } from './numbers.ts';
+import { LAW_PARSE_BUDGET_MS, PURE_CALL_BUDGET_MS } from '../numbers.ts';
 import { pure, tool, within } from './support.ts';
 import type { Speed } from './support.ts';
 

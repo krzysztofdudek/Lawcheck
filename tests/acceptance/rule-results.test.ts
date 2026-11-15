@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { LEFT_RUNNING_EXTRA_MS, NOTHING_LEFT_EXTRA_MS } from '../properties/numbers.ts';
+import { LEFT_RUNNING_EXTRA_MS, NOTHING_LEFT_EXTRA_MS } from '../numbers.ts';
 import { append, check, git, setRule, withSample, write } from './helpers.ts';
 
 const BREACH = 'console.log(1)\n';

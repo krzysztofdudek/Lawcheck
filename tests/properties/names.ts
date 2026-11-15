@@ -5,7 +5,7 @@ import fc from 'fast-check';
 import { bytesOfName, canonicalName, nameOf } from '../../dist/names.js';
 import * as hooks from '../../plugin/hooks/names.mjs';
 import { check, lawcheck, makeSample, temp } from '../acceptance/helpers.ts';
-import { TOOL_RUN_BUDGET_MS } from './numbers.ts';
+import { TOOL_RUN_BUDGET_MS } from '../numbers.ts';
 import { pure, tool } from './support.ts';
 import type { Speed } from './support.ts';
 

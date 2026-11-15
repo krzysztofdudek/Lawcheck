@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import fc from 'fast-check';
 import { checkAnswer, takeAnswer } from '../../dist/prompt.js';
-import { PURE_CALL_BUDGET_MS } from './numbers.ts';
+import { PURE_CALL_BUDGET_MS } from '../numbers.ts';
 import { pure, within } from './support.ts';
 import type { Speed } from './support.ts';
 

@@ -6,7 +6,7 @@ import fc from 'fast-check';
 import { isBinary, splitLines } from '../../dist/types.js';
 import { parseWaivers } from '../../dist/waivers.js';
 import { check, LAW, makeSample, makeU, temp, U_LAW, write } from '../acceptance/helpers.ts';
-import { PURE_CALL_BUDGET_MS } from './numbers.ts';
+import { PURE_CALL_BUDGET_MS } from '../numbers.ts';
 import { pure, tool, within } from './support.ts';
 import type { Speed } from './support.ts';
 
