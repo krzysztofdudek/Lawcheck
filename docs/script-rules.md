@@ -73,7 +73,7 @@ A rule is `rule-crashed`, exit 2, at its file when it:
 - returns anything but a list of findings as above, or a value the channel cannot carry, such as a function;
 - passes 30 seconds in its load or in one call;
 - ends its process before answering, or sends a message nobody asked for;
-- leaves a promise rejected with no handler, or a timer that throws: the message names the call it came after, or the load.
+- leaves a promise rejected with no handler, or a timer that throws: the message names the call it came after, or the load. After each call Lawcheck waits up to 2 seconds for what the rule left running, so a rule that leaves a timer costs that time.
 
 The message names the judged file, or the load. One run names each broken rule once.
 

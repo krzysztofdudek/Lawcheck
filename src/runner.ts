@@ -33,8 +33,27 @@ function failed(error: unknown): void {
 process.on('unhandledRejection', failed);
 process.on('uncaughtException', failed);
 
-function settled(): Promise<void> {
-  return new Promise((resolve) => setImmediate(resolve));
+// How long the runner waits, after the load and after each call, for the timers and other work the rule left behind; spec/check-slice.md, section 3.
+const SETTLE_MS = 2_000;
+
+function counts(): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const kind of process.getActiveResourcesInfo()) out.set(kind, (out.get(kind) ?? 0) + 1);
+  return out;
+}
+
+// The runner's own channel is open only once the first message arrives, so what it holds itself is counted then.
+let own: Map<string, number> | null = null;
+
+function leftBehind(): boolean {
+  for (const [kind, count] of counts()) if (count > (own?.get(kind) ?? 0)) return true;
+  return false;
+}
+
+async function settled(): Promise<void> {
+  const until = Date.now() + SETTLE_MS;
+  await new Promise((resolve) => setImmediate(resolve));
+  while (background === null && Date.now() < until && leftBehind()) await new Promise((resolve) => setTimeout(resolve, 5));
 }
 
 function sendBackground(): boolean {
@@ -122,6 +141,7 @@ async function call(file: CallFile): Promise<void> {
 }
 
 process.on('message', (message: Incoming) => {
+  own ??= counts();
   if (message.kind === 'load') void load(message.file, message.filesOf);
   else void call(message.file);
 });

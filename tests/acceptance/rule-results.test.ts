@@ -10,6 +10,7 @@ const lineCases: [string, string, string][] = [
   ["the string '2'", "[{ message: 'x', line: '2' }]", 'returns a finding whose line is the string "2", not an integer for src/core/x.ts'],
   ['the bigint 2n', "[{ message: 'x', line: 2n }]", 'returns a finding whose line is the bigint 2n, not an integer for src/core/x.ts'],
   ['1.5', "[{ message: 'x', line: 1.5 }]", 'returns a finding whose line is the number 1.5, not an integer for src/core/x.ts'],
+  ['1e400, which is Infinity', "[{ message: 'x', line: 1e400 }]", 'returns a finding whose line is the number Infinity, not an integer for src/core/x.ts'],
   ['7 in a file of 2 lines', "[{ message: 'x', line: 7 }]", 'returns a finding at line 7, outside lines 1 to 2 for src/core/x.ts'],
 ];
 
@@ -37,6 +38,8 @@ test('S2-4: a line in an empty file names the empty file', async () => {
 const background: [string, string, string][] = [
   ['a rejection in a call', "export function check({ files }) { Promise.reject(new Error('lost')); return []; }\n", 'fails in the background after its call on src/core/a.ts: lost'],
   ['a rejection of an async call left behind', "export async function check({ files }) { void (async () => { await null; throw new Error('late'); })(); return []; }\n", 'fails in the background after its call on src/core/a.ts: late'],
+  ['a throw from a timer 40 ms later', "export function check() { setTimeout(() => { throw new Error('late'); }, 40); return []; }\n", 'fails in the background after its call on src/core/a.ts: late'],
+  ['a rejection after a timer and several turns', "export function check() { setTimeout(() => { void (async () => { for (let i = 0; i < 5; i++) await new Promise((r) => setImmediate(r)); throw new Error('later'); })(); }, 10); return []; }\n", 'fails in the background after its call on src/core/a.ts: later'],
   ['a rejection at the top of the module', "Promise.reject(new Error('floating'));\nexport function check() { return []; }\n", 'fails in the background in its load: floating'],
 ];
 
@@ -63,3 +66,14 @@ test('S2-6: a rule that settles its own promises is judged as before (control)',
   });
 });
 
+
+test('S2-6: a rule that leaves a timer of a minute running is judged, within the wait the runner gives it (control)', async () => {
+  await withSample(async (s) => {
+    setRule(s, 'no-console', "export function check({ files }) { setTimeout(() => {}, 60000); return files.flatMap((file) => file.lines.flatMap((text, i) => (text.includes('console.log') ? [{ line: i + 1, message: 'writes to the terminal with console.log' }] : []))); }\n");
+    write(s, 'src/core/a.ts', BREACH);
+    const run = await check(s);
+    assert.equal(run.code, 1);
+    assert.ok(run.stdout.split('\n').includes(finding('src/core/a.ts:1')), run.stdout);
+    assert.ok(run.ms < 15_000, `${run.ms} ms`);
+  });
+});
