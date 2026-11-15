@@ -61,6 +61,47 @@ jobs:
       - name: The commit set, three times
         run: npm test -- --repeat 3
 
+  # The commit set in an order shuffled by a new seed, so a test that leans on another's leftovers fails. The runner takes the seed as LAWCHECK_ORDER_SEED and prints 'order seed <n>'; until tests/run.ts reads it, this job says declared empty.
+  shuffle:
+    name: nightly commit set in shuffled order
+    needs: grammars
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v8
+        with:
+          name: nightly-grammar-cache
+          path: .grammars
+      - run: npm run build
+      - name: A new order seed
+        id: seed
+        run: |
+          seed=$(od -An -N4 -tu4 /dev/urandom | tr -d ' ')
+          echo "seed=$seed" >> "$GITHUB_OUTPUT"
+          echo "order seed $seed"
+          echo "The commit set ran in the order of seed \`$seed\`; rerun with LAWCHECK_ORDER_SEED=$seed npm test" >> "$GITHUB_STEP_SUMMARY"
+      - name: The commit set in shuffled order, with the network closed
+        env:
+          LAWCHECK_ORDER_SEED: ${{ steps.seed.outputs.seed }}
+        run: |
+          set -o pipefail
+          if ! grep -q LAWCHECK_ORDER_SEED tests/run.ts; then
+            echo "nightly commit set in shuffled order: declared empty  tests/run.ts does not read LAWCHECK_ORDER_SEED yet"
+            exit 0
+          fi
+          sudo unshare --net -- sh -c 'ip link set lo up && u=$1 g=$2 && shift 2 && exec setpriv --reuid="$u" --regid="$g" --clear-groups env -i "$@"' \
+              sh "$(id -u)" "$(id -g)" PATH="$PATH" HOME="$HOME" USER="$(id -un)" LOGNAME="$(id -un)" LAWCHECK_ORDER_SEED="$LAWCHECK_ORDER_SEED" \
+              npm test | tee "$RUNNER_TEMP/shuffle.log"
+          if ! grep -qx "order seed $LAWCHECK_ORDER_SEED" "$RUNNER_TEMP/shuffle.log"; then
+            echo "::error::tests/run.ts reads LAWCHECK_ORDER_SEED but did not print 'order seed $LAWCHECK_ORDER_SEED'"
+            exit 1
+          fi
+
   properties:
     name: nightly properties
     needs: grammars
