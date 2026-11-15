@@ -323,7 +323,10 @@ export async function stopped<T>(body: () => Promise<T> | T): Promise<T | { erro
   } catch (error) {
     if (error instanceof Stop) return { errors: error.errors };
     if (error instanceof Unwritable) return { errors: [{ code: 'file-unwritable', file: error.path, line: null, message: `cannot be written (${error.cause})` }] };
-    if (error instanceof VerdictsUnreadable) return { errors: [{ code: 'file-unreadable', file: VERDICTS, line: null, message: `the file cannot be read (${error.cause})` }] };
+    if (error instanceof VerdictsUnreadable) {
+      const next = error.cause.startsWith('it holds more') ? `remove the lines of ${VERDICTS} that no review of this law needs, then run lawcheck check` : undefined;
+      return { errors: [{ code: 'file-unreadable', file: VERDICTS, line: null, message: `the file cannot be read (${error.cause})`, ...(next === undefined ? {} : { next }) }] };
+    }
     if (error instanceof NoGit) return { errors: [{ code: 'no-git', file: null, line: null, message: error.message }] };
     if (error instanceof GitFailed) throw new Internal(error.message);
     throw error;

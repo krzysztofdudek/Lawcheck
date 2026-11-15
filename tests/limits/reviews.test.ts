@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, rmSync, utimesSync, writeFileSync } from 'node:f
 import { join } from 'node:path';
 import { defaultAnswer, openai, withFake } from '../acceptance/fake-reviewer.ts';
 import { D, D_PATH, F, F_PATH, F_PRIME, REVIEWER_LAW, withR, withSample, write } from '../acceptance/helpers.ts';
-import { run } from './support.ts';
+import { MiB, run, sparse, textHead } from './support.ts';
 
 const REVIEW = ['check', '--review', '--base', 'main'];
 
@@ -141,5 +141,18 @@ test('test 261: a lock left by a run that ended, whose pid now names a live proc
       assert.ok(result.ms < 5_000, String(result.ms));
       assert.equal(existsSync(lock), false);
     });
+  });
+});
+
+test('test 266: a verdicts file over 16 MiB is file-unreadable, not read whole', async () => {
+  await withR(async (r) => {
+    write(r, F_PATH, F);
+    sparse(r, '.lawcheck/verdicts', textHead(''), 16 * MiB + 1);
+    const result = await run(r, ['check', '--base', 'main']);
+    assert.equal(
+      result.stdout,
+      ['lawcheck: ERROR  1 error', '', '.lawcheck/verdicts  error[file-unreadable]  the file cannot be read (it holds more than 16 MiB)', '  why:  a file that cannot be read cannot be typed or judged', '', 'next: remove the lines of .lawcheck/verdicts that no review of this law needs, then run lawcheck check', ''].join('\n'),
+    );
+    assert.equal(result.code, 2);
   });
 });

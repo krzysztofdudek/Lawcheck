@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { readFailure as failureOfRead, readWhole } from './limits.js';
 import { checkFindings } from './prompt.js';
@@ -123,7 +123,7 @@ function staleLock(lock: string): boolean {
     return false;
   }
   try {
-    const owner = Number(readFileSync(join(lock, 'pid'), 'utf8'));
+    const owner = Number(readText(join(lock, 'pid')));
     if (Number.isInteger(owner) && owner > 0) return ended(owner);
   } catch {
     // The owner has made the folder and not yet written its pid, or has just removed it.
