@@ -118,6 +118,8 @@ for (const submodule of [true, false]) {
       assert.deepEqual([explained.code, explained.stdout], [0, `libs/sub/a.ts\n  type:  none: it lies in libs/sub, ${kind}, which Lawcheck does not look into\n`]);
       const absent = await lawcheck(s, ['explain', 'libs/sub/b.ts']);
       assert.deepEqual([absent.code, absent.stdout], [0, `libs/sub/b.ts  (does not exist yet)\n  type:  none: it lies in libs/sub, ${kind}, which Lawcheck does not look into\n`]);
+      const named = await lawcheck(s, ['check', 'libs/sub/a.ts']);
+      assert.deepEqual([named.code, named.stdout], [0, `lawcheck: PASS  0 named files\nnote: libs/sub/a.ts lies in libs/sub, ${kind}, which Lawcheck does not look into\n`]);
       const tried = await lawcheck(s, ['try', 'no-console', 'libs/sub/a.ts']);
       assert.equal(tried.code, 2);
       assert.match(tried.stdout, new RegExp(`error\\[usage\\]  the target 'libs/sub/a\\.ts' selects no file: it lies in libs/sub, ${kind}, which Lawcheck does not look into`));

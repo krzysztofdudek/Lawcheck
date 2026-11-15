@@ -296,7 +296,7 @@ export function checkFindings(findings: unknown, lineCount: number): AnswerFindi
     const { line, message } = item;
     if (typeof message !== 'string' || message.trim() === '') return { problem: 'a finding has no message' };
     if (line !== undefined && line !== null && !(Number.isInteger(line) && (line as number) >= 1 && (line as number) <= lineCount)) {
-      return { problem: `a finding is at line ${JSON.stringify(line)}, outside lines 1 to ${lineCount}` };
+      return { problem: `a finding is at line ${typeof line === 'number' ? String(line) : JSON.stringify(line)}, outside lines 1 to ${lineCount}` };
     }
     out.push({ line: line === undefined || line === null ? null : (line as number), message });
   }

@@ -117,3 +117,7 @@ test('S3-3: one megabyte of { with no verdict is a bad answer, within the budget
   assert.deepEqual(value, { problem: 'the answer holds no JSON object with a verdict' });
   assert.ok(ms <= ANSWER_BUDGET_MS, `took ${Math.round(ms)} ms`);
 });
+
+test('S3-3: a reviewer line of 1e400 is named as Infinity, not as null', () => {
+  assert.deepEqual(checkAnswer('{"verdict": "fail", "findings": [{"line": 1e400, "message": "m"}]}', 3), { problem: 'a finding is at line Infinity, outside lines 1 to 3' });
+});

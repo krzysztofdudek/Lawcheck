@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { comparePaths, nestedRepositories, trackedLinks, workTreeTop } from './files.js';
+import { comparePaths, nestedReason, nestedRepositories, repositoryHolding, trackedLinks, workTreeTop } from './files.js';
 import { compilePattern } from './glob.js';
 import { hide } from './keys.js';
 import type { ReviewerConfig } from './config.js';
@@ -18,7 +18,7 @@ import { crashNext, linksOut, runAll, runnerProblem, runRule } from './rules.js'
 import type { RawFinding } from './rules.js';
 import { filesOfTypes, isBinary } from './types.js';
 import { bytesOf, selectTargets } from './try.js';
-import { loadConfig, loadLaw, loadRuleFiles, locate, requireGit, RULES_DIR, LAW, stopped, theChange, touchesLaw, typeAll } from './setup.js';
+import { fromCwd, loadConfig, loadLaw, loadRuleFiles, locate, requireGit, RULES_DIR, LAW, stopped, theChange, touchesLaw, typeAll } from './setup.js';
 import type { Kinds, Read, ReviewerRule } from './setup.js';
 import { judgeUses, listInForce, notRead } from './uses.js';
 import type { Forbidden, NotRead, Target } from './uses.js';
@@ -58,13 +58,15 @@ export async function check(options: CheckOptions, context: CheckContext): Promi
     const named = options.paths !== undefined && options.paths.length > 0;
     const chosen = named ? selectTargets(root, context.cwd, options.paths!, files, (path) => isBinary(bytesOf(read, path)), true) : null;
     const typed = typeAll(root, law, files, read, kinds.unreadable);
-    return checkAt(root, options, context, { law, config, listed, files, read, kinds, typed, chosen });
+    const elsewhere = named ? inOtherRepositories(root, context.cwd, options.paths!, chosen!, listed) : [];
+    return checkAt(root, options, context, { law, config, listed, files, read, kinds, typed, chosen, elsewhere });
   });
 }
 
 interface Front {
   law: Law;
   listed: Set<string>;
+  elsewhere: string[];
   config: ReviewerConfig;
   files: string[];
   read: Read;
@@ -201,8 +203,25 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
     const unseen = unseenRepositories(root, front.listed, law);
     if (unseen !== null) notes.push(unseen);
   }
+  notes.push(...front.elsewhere);
   report.note = notes.length === 0 ? null : notes.join('\n');
   return { report };
+}
+
+// A named path below a submodule or a repository of its own selects nothing, and the note says why rather than a bare count of 0.
+function inOtherRepositories(root: string, cwd: string, words: string[], chosen: string[], listed: Set<string>): string[] {
+  const notes: string[] = [];
+  for (const word of words) {
+    let path: string;
+    try {
+      path = fromCwd(root, cwd, word);
+    } catch {
+      continue;
+    }
+    const nested = repositoryHolding(root, path, listed);
+    if (nested !== null && !chosen.includes(path)) notes.push(`note: ${path} ${nestedReason(nested).replace(/^it /, '')}`);
+  }
+  return notes;
 }
 
 // A type whose paths reach into a submodule or a repository of its own judges none of its files, and saying so is the one sign of it (stress finding S1-9).
