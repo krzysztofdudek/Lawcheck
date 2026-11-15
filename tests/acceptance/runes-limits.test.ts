@@ -70,11 +70,13 @@ const PY_FILES = (root: string, where: string) => ({
 });
 
 test('S4-2: a Python package under a root that only configuration names has its absolute self-imports dropped and not counted; the same package at a root the readers search is judged on every form', async () => {
-  assert.ok(page.includes('is no root. Its absolute imports of itself (`from pkg.data.d import x`) are read as outside'));
+  assert.ok(page.includes('has its absolute imports of itself (`from pkg.data.d import x`) read as outside'));
   assert.ok(spec.includes('**A Python root that only configuration names is no root** (S4-2)'));
   const lib = await judged(PY_FILES('lib/', '[tool.setuptools.packages.find]\nwhere = ["lib"]\n'));
   assert.deepEqual(lib.findings, ['lib/pkg/ui/a.py:2'], 'only the relative import is judged');
-  assert.deepEqual(lib.unresolved, ['lib/pkg/ui/a.py:2 none ..data.d.x']);
+  assert.deepEqual(lib.unresolved, ['lib/pkg/ui/a.py:2 none ..data.d.x'], 'one line, two uses: the module is judged and the name is counted');
+  assert.ok(page.includes('A line can hold two uses: `from ..data.d import x` uses the module `d`, judged, and the name `x`, counted as unresolved when it is no module'));
+  assert.ok(spec.includes('one line can hold a judged use and a counted one'));
   const control = await judged(PY_FILES('', ''));
   assert.deepEqual(control.findings, ['pkg/ui/a.py:1', 'pkg/ui/a.py:2', 'pkg/ui/a.py:3']);
 });
@@ -104,7 +106,7 @@ test('S4-3: a Rust mod with #[path] and a path-dependency crate written in code 
 });
 
 test('S4-6: a script block inside an HTML comment of a Vue file is read as code, and a script with src is neither read nor counted', async () => {
-  assert.ok(page.includes('a `<script>` block inside an HTML comment is read as code; `<script src="...">` is not read'));
+  assert.ok(page.includes('a `<script>` in an HTML comment is read as code; `<script src>` is not read'));
   const found = await judged({
     '.lawcheck/law.yaml': law(['ui', ['ui/**'], ['ui']], ['data', ['data/**'], null]),
     'data/d.ts': 'export const d = 1;\n',
@@ -117,7 +119,7 @@ test('S4-6: a script block inside an HTML comment of a Vue file is read as code,
 });
 
 test('S4-7: the count of unresolved uses depends on the import style of Python', async () => {
-  assert.ok(page.includes("Python's `from .m import Name` is counted and `from app.m import Name` is not"));
+  assert.ok(page.includes("`from .m import Name` is counted and `from app.m import Name` is not"));
   const found = await judged({
     '.lawcheck/law.yaml': law(['app', ['app/**'], ['app']]),
     'app/__init__.py': '',
@@ -129,7 +131,7 @@ test('S4-7: the count of unresolved uses depends on the import style of Python',
 });
 
 test('S4-8: a Go module wired to a sibling only by replace is outside, so its use is neither judged nor counted', async () => {
-  assert.ok(page.includes('a module wired to a sibling only by `replace` in `go.mod` is outside; use a `go.work`'));
+  assert.ok(page.includes('a sibling module wired only by `replace` in `go.mod` is outside; use a `go.work`'));
   const files = (extra: Record<string, string>) => ({
     '.lawcheck/law.yaml': law(['ui', ['ui/**/*.go'], ['ui']], ['data', ['data/**/*.go'], null]),
     'ui/go.mod': 'module example.com/ui\n\ngo 1.22\n\nrequire example.com/data v0.0.0\n\nreplace example.com/data => ../data\n',
@@ -164,5 +166,18 @@ test('S4-11: the dependency spec lists declare module as read, and a fully quali
   });
   assert.deepEqual(found.findings, ['ui/src/main/java/com/acme/ui/Field.java:2']);
   assert.ok(page.includes('a fully qualified name is read in a field type, and not in a call, an annotation or `Class.forName`'));
-  assert.ok(page.includes('a file of any size with syntax errors has no bound on its time'), 'S4-10');
+  assert.ok(page.includes('a file of any size with syntax errors has no bound'), 'S4-10');
+});
+
+test('S4-10: a large Java file with syntax errors is parsed on every run and bounded by nothing: the run passes, with no error and no named limit', async () => {
+  assert.ok(page.includes('a file of any size with syntax errors has no bound'));
+  assert.ok(spec.includes('a large file with syntax errors has no bound (S4-10)'));
+  const line = '  int x = ((( ;;; } } class class 12 @@ \n';
+  let text = 'package com.acme.ui;\npublic class Big {\n';
+  while (text.length < 400_000) text += line;
+  const found = await judged({
+    '.lawcheck/law.yaml': law(['ui', ['ui/**'], ['ui']]),
+    'ui/src/main/java/com/acme/ui/Big.java': text + '}\n',
+  });
+  assert.deepEqual(found, { result: 'pass', findings: [], unresolved: [] });
 });

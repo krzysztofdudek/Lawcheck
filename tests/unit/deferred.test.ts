@@ -25,12 +25,12 @@ test('deferred-1: every row of the ledger says what, where it is mentioned in a 
   }
 });
 
-test('deferred-1: the ledger lists what the assessment names and nothing that is built', () => {
+test('deferred-1: the ledger lists what the assessment names, and holds no row about reviewer providers', () => {
   const plain = deferred.replaceAll('`', '');
   for (const what of ['required', '--staged', '--strict', '--no-scripts', 'lawcheck-waive-start', 'config.local.yaml', 'LAWCHECK_BASE', 'Codex, Copilot, Cursor', 'group', 'lawcheck-check/1']) {
     assert.ok(plain.includes(what), what);
   }
-  assert.ok(!/gemini|ollama|copilot-cli/i.test(deferred.replace('Codex, Copilot, Cursor', '')), 'the six providers are built');
+  assert.ok(!/gemini|ollama|copilot-cli/i.test(deferred.replace('Codex, Copilot, Cursor', '')), 'providers are tracked with their own package, not here');
 });
 
 test('deferred-1: the ledger names no other tool of the author and no layer above this one', () => {
