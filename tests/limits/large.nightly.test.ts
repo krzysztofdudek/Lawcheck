@@ -214,6 +214,19 @@ const STEP_NEXT = "next: make the step named faster, such as a type's content pa
 const stepTooSlow = (what: string) =>
   ['lawcheck: ERROR  1 error', '', `error[step-too-slow]  one step of the run took more than 60 seconds without an end: ${what}`, '  why:  a step that never ends gives no answer, so one step of a run has a limit of time', '', STEP_NEXT, ''].join('\n');
 
+test('S1-1: test 255: a step that never ends, typing against a content pattern that backtracks, ends as step-too-slow after 60 seconds', async () => {
+  await withSample(
+    async (s) => {
+      write(s, 'slow/a.ts', `${'a'.repeat(40)}!\n`);
+      const result = await run(s, ['check', '--base', 'main'], { budgetMs: 120_000 });
+      assert.equal(result.stdout, stepTooSlow('typing slow/a.ts'));
+      assert.equal(result.code, 2);
+      assert.ok(result.ms >= 60_000 && result.ms < 70_000, String(result.ms));
+    },
+    { onMain: (s) => writeFileSync(join(s, '.lawcheck/law.yaml'), `${readFileSync(join(s, '.lawcheck/law.yaml'), 'utf8')}  slow:\n    paths: ["slow/**"]\n    content: "^(a|a)+$"\n`) },
+  );
+});
+
 test('test 259: a git that never answers ends as step-too-slow after 60 seconds, and git with it', async () => {
   await withSample(async (s, dir) => {
     const pidFile = join(dir, 'git.pid');
