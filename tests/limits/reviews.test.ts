@@ -230,3 +230,51 @@ test('test 253: two runs that write the verdicts file at once keep the lines of 
     });
   });
 });
+
+// As in test 253 the test is a second run holding the lock; it adds three passes, so the review's own pass would take the file past 16 MiB at the moment it writes.
+test('test 272: a pass that would take the verdicts file past 16 MiB when it is written is refused, even after the check before the calls', async () => {
+  await withFake(async (fake) => {
+    await withR(async (r) => {
+      write(r, F_PATH, F_PRIME);
+      const local = join(r, '.lawcheck/.local');
+      const lock = join(local, 'verdicts.lock');
+      const verdicts = join(r, '.lawcheck/verdicts');
+      // Passes the tool keeps, each a line of 46 bytes, and a last one whose rule id brings the file to 16 MiB less 150 bytes.
+      const size = 16 * MiB - 150;
+      const count = Math.floor(size / 46) - 1;
+      const lines: string[] = [];
+      for (let i = 0; i < count; i++) lines.push(`${i.toString(16).padStart(32, '0')} clear-errors\n`);
+      const rest = size - count * 46;
+      lines.push(`${'f'.repeat(32)} ${'r'.repeat(rest - 34)}\n`);
+      const filler = lines.join('');
+      assert.equal(Buffer.byteLength(filler), size);
+      writeFileSync(verdicts, filler);
+      mkdirSync(lock, { recursive: true });
+      writeFileSync(join(local, '.gitignore'), '*\n');
+      writeFileSync(join(lock, 'pid'), String(process.pid));
+      const review = run(r, REVIEW, { env: { LAWCHECK_REVIEWER_ENDPOINT: fake.url }, budget: 'LIMITS_RUN_MS', writes: [/^\.lawcheck\/\.local(\/|$)/, '.lawcheck/verdicts'] });
+      let ended = false;
+      void review.then(() => (ended = true));
+      const deadline = Date.now() + 3000;
+      while (!ended && Date.now() < deadline) await new Promise((done) => setTimeout(done, 20));
+      writeFileSync(verdicts, filler + ['1', '2', '3'].map((d) => `${d.repeat(32)} clear-errors\n`).join(''));
+      rmSync(lock, { recursive: true, force: true });
+      const result = await review;
+      assert.equal(
+        result.stdout,
+        [
+          'lawcheck: ERROR  1 error',
+          '',
+          '.lawcheck/verdicts  error[file-unwritable]  cannot be written (with the passes of this run it would hold more than 16 MiB, the most a run reads of it), so the answers of the reviewer calls this run made are lost',
+          '  why:  what Lawcheck cannot write is lost, so the run cannot say it is done',
+          '',
+          'next: delete .lawcheck/verdicts, then run lawcheck check --review --full: it asks the reviewer again for every file of this law, and the file then holds only those passes',
+          '',
+        ].join('\n'),
+      );
+      assert.equal(result.code, 2);
+      assert.equal(fake.requests.length, 1);
+      assert.ok(statSync(verdicts).size <= 16 * MiB);
+    });
+  });
+});
