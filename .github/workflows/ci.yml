@@ -107,6 +107,28 @@ jobs:
           sudo unshare --net -- sh -c 'ip link set lo up && u=$1 g=$2 && shift 2 && exec setpriv --reuid="$u" --regid="$g" --clear-groups env -i "$@"' \
             sh "$(id -u)" "$(id -g)" PATH="$PATH" HOME="$HOME" USER="$(id -un)" LOGNAME="$(id -un)" npm test
 
+  # Red on base and the mutants of the changed lines, at the gate: tests/gate is declared empty in tests/harness/sets.ts until they land, and the full history is there for the merge base.
+  gate:
+    name: gate (ubuntu-latest, Node 24)
+    needs: grammars
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v8
+        with:
+          name: grammar-cache
+          path: .grammars
+      - name: Red on base and mutants at the gate
+        run: npm test -- --group gate
+
   # Lawcheck on two public repositories pinned at full commits (tests/real), held to the committed expected results. Each repository is fetched by its commit alone.
   real:
     name: real repositories
