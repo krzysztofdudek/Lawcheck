@@ -11,12 +11,15 @@
     "tests/acceptance/changes.test.ts",
     "tests/acceptance/cli.test.ts",
     "tests/acceptance/paths.test.ts",
+    "tests/acceptance/reviewer-law.test.ts",
+    "tests/acceptance/rules.test.ts",
     "tests/acceptance/targets.test.ts",
     "tests/unit/check.test.ts"
   ],
   "src/cli.ts": [
     "tests/acceptance/cli.test.ts",
     "tests/acceptance/package.test.ts",
+    "tests/acceptance/paths.test.ts",
     "tests/unit/cli.test.ts"
   ],
   "src/config.ts": [
@@ -62,6 +65,7 @@
   "src/output.ts": [
     "tests/acceptance/cli.test.ts",
     "tests/acceptance/docs.test.ts",
+    "tests/acceptance/waivers.test.ts",
     "tests/unit/output.test.ts"
   ],
   "src/prime.ts": [
