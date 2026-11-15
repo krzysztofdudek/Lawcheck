@@ -30,5 +30,13 @@
     "find": "path.startsWith(folder.endsWith(sep) ? folder : folder + sep)",
     "replace": "path.startsWith(folder)",
     "killedBy": "I-runner-1: a link whose target only shares the beginning of the root path is outside it"
+  },
+  {
+    "id": "safe-directory-quoted",
+    "promise": "S7-15",
+    "file": "src/files.ts",
+    "find": "return /^[\\w@%+=:,./\\\\-]+$/.test(path) ? path : `'${path.replace(/'/g, `'\\\\''`)}'`;",
+    "replace": "return path;",
+    "killedBy": "S7-15: a repository owned by another user gives no-git with the safe.directory command of git, quoted for a POSIX shell, and that command run there lets check through"
   }
 ]

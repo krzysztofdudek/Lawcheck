@@ -1,0 +1,10 @@
+diff --git a/tests/acceptance/self-law.test.ts b/tests/acceptance/self-law.test.ts
+index f3eb63e..7610430 100644
+--- a/tests/acceptance/self-law.test.ts
++++ b/tests/acceptance/self-law.test.ts
+@@ -1,4 +1,4 @@
+ import { test } from 'node:test';
+-const WAIVERS: { file: string; rule: string; reason: string }[] = [{ file: 'src/a.ts', rule: 'no-console', reason: 'the command layer' }];
++const WAIVERS: { file: string; rule: string; reason: string }[] = [{ file: 'src/a.ts', rule: 'no-console', reason: 'the command layer' }, { file: 'src/b.ts', rule: 'no-todo', reason: 'later' }];
+ const UNSORTED = new Set(['args', 'check'].map((name) => `src/${name}.ts`));
+ test('question 1: the tree has only the waivers listed here', () => {});

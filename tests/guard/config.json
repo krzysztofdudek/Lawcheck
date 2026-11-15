@@ -90,7 +90,17 @@
     ]
   },
   "stronger": "stronger",
-  "ratchets": [],
+  "ratchets": [
+    {
+      "file": "tests/acceptance/self-law.test.ts",
+      "lists": [
+        "ADVISORY",
+        "WAIVERS",
+        "UNRESOLVED",
+        "UNSORTED"
+      ]
+    }
+  ],
   "severities": [
     "after the release",
     "should be fixed before",

@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { changes, git, resolve, Tree, type Change } from './git.ts';
 import { matchesAny, globToRegExp } from './glob.ts';
 import { acceptanceRows, fencedBlocks, invariantRows, ledgerRows, ledgerTable, readWeakenings, RECORD_HEADER, rulings, type Record, type Row } from './markdown.ts';
-import { readSource, type Marker } from './source.ts';
+import { readSource, tokenize, type Marker } from './source.ts';
 import { readConstants, type Value } from './constants.ts';
 
 export type Config = {
@@ -21,7 +21,7 @@ export type Config = {
   roles: { [role: string]: string };
   approvers: { [kind: string]: string[] };
   stronger: string;
-  ratchets: string[];
+  ratchets: Array<string | { file: string; lists: string[] }>;
   severities: string[];
   closedStates: string[];
 };
@@ -395,7 +395,26 @@ export function judge(repo: string, baseRev: string, headRev: string, config: Co
     if (config.closedStates.includes(st0) && st1 !== st0) add({ kind: 'finding-weakened', subject: id, where: `${config.ledger}:${now.line}`, detail: `a closed finding is reopened as ${st1 || 'nothing'}` });
   }
 
-  for (const file of config.ratchets) {
+  for (const ratchet of config.ratchets) {
+    if (typeof ratchet !== 'string') {
+      const old = before.read(ratchet.file);
+      if (old === null) continue;
+      const text = after.read(ratchet.file) ?? '';
+      for (const name of ratchet.lists) {
+        const was = listEntries(old, name);
+        if (was === null) continue;
+        const now = listEntries(text, name);
+        if (now === null) { add({ kind: 'list-unreadable', subject: `${ratchet.file} ${name}`, where: ratchet.file, detail: `${name} may only shrink, and ${ratchet.file} no longer declares it` }); continue; }
+        const left = count(was, (e) => e);
+        for (const entry of now) {
+          const n = left.get(entry) ?? 0;
+          if (n > 0) { left.set(entry, n - 1); continue; }
+          add({ kind: 'ratchet-grew', subject: `${ratchet.file} ${name}: ${entry}`, where: ratchet.file, detail: `${name} may only shrink, and this change adds ${JSON.stringify(entry)}` });
+        }
+      }
+      continue;
+    }
+    const file = ratchet;
     const old = before.read(file);
     if (old === null) continue;
     const parse = (text: string | null): unknown[] | null => {
@@ -465,6 +484,29 @@ export function judge(repo: string, baseRev: string, headRev: string, config: Co
   if (!reasons.found) notes.push(`the base has no ${config.platformReasons.export} in ${config.platformReasons.file}, so no new skip can pass`);
   if (numbersText === null) notes.push(`${config.numbers} does not exist on the head; no number was compared`);
   return { base, mergeBase, head, findings, records, notes, passed: findings.every((f) => f.cleared) };
+}
+
+function listEntries(text: string, name: string): string[] | null {
+  const tokens = tokenize(text);
+  for (let k = 0; k + 2 < tokens.length; k++) {
+    const t = tokens[k]!;
+    const declared = t.type === 'name' && ['const', 'let', 'var'].includes(t.value) && tokens[k + 1]?.type === 'name' && tokens[k + 1]!.value === name;
+    if (!declared) continue;
+    let m = k + 2;
+    while (m < tokens.length && !(tokens[m]!.type === 'punct' && tokens[m]!.value === '=')) m++;
+    const out: string[] = [];
+    let depth = 0;
+    for (let j = m + 1; j < tokens.length; j++) {
+      const tok = tokens[j]!;
+      if (tok.type === 'punct' && '([{'.includes(tok.value)) depth++;
+      else if (tok.type === 'punct' && ')]}'.includes(tok.value)) depth--;
+      else if (depth === 0 && tok.type === 'punct' && tok.value === ';') break;
+      if (depth === 0 && tok.type === 'name' && ['const', 'let', 'var', 'export', 'function', 'test'].includes(tok.value)) break;
+      if (tok.type === 'string' || tok.type === 'template') out.push(tok.value);
+    }
+    return out;
+  }
+  return null;
 }
 
 function isPlatformSkip(marker: Marker, reasons: { reasons: Set<string> }, config: Config, text: string): boolean {

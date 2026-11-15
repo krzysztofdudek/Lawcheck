@@ -122,6 +122,13 @@ export const BASE: { [path: string]: string } = {
   'tests/guard/config.json': '{ "ratchets": [] }\n',
   'tests/run.ts': 'export {};\n',
   '.lawcheck/law.yaml': 'lawcheck: 1.0.0\nrules: {}\n',
+  'tests/acceptance/self-law.test.ts': [
+    "import { test } from 'node:test';",
+    "const WAIVERS: { file: string; rule: string; reason: string }[] = [{ file: 'src/a.ts', rule: 'no-console', reason: 'the command layer' }];",
+    "const UNSORTED = new Set(['args', 'check'].map((name) => `src/${name}.ts`));",
+    "test('question 1: the tree has only the waivers listed here', () => {});",
+    '',
+  ].join('\n'),
   'tests/contract/pending.json': '[\n  { "id": "rule-crashed", "finding": "S2-2" }\n]\n',
   '.github/workflows/ci.yml': 'name: CI\non: [push]\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm test\n',
   'tests/weakenings.md': [
@@ -137,7 +144,7 @@ export const BASE: { [path: string]: string } = {
 export const RATCHET = 'tests/contract/pending.json';
 
 export function fixtureConfig(): Config {
-  return { ...loadConfig(), ratchets: [RATCHET] };
+  return { ...loadConfig(), ratchets: [RATCHET, { file: 'tests/acceptance/self-law.test.ts', lists: ['WAIVERS', 'UNSORTED'] }] };
 }
 
 export const GIT_ENV: NodeJS.ProcessEnv = {
