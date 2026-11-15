@@ -15,11 +15,9 @@ test('S6-7: test 246: a hook text holds at most 9,000 UTF-16 code units, and a l
   assert.deepEqual(first.split('\n'), [HEADER, '', cutTo(long)]);
 });
 
-test('S6-7: test 246: a text counted in UTF-16 code units stays within the limit when its characters lie outside the first plane', () => {
-  const wide = '\u{1F600}'.repeat(1500);
-  const lines = Array.from({ length: 10 }, () => wide);
-  const text: string = fit(HEADER, ['lawcheck: FAIL  10 errors in 1 named file', ...lines, 'next: fix a.ts:1']);
+test('S6-7: test 246: a cut that would split a character outside the first plane keeps the pair whole', () => {
+  const wide = `x${'\u{1F600}'.repeat(1500)}`;
+  const text: string = fit(HEADER, ['lawcheck: FAIL  1 error in 1 named file', wide, 'next: fix a.ts:1']);
   assert.ok(text.length <= 9000, String(text.length));
-  assert.ok(!/[\uD800-\uDBFF]$/.test(text.split('\n').find((line) => line.endsWith('more characters)'))?.split('...')[0] ?? ''));
-  assert.equal(text.split('\n').at(-1), 'next: fix a.ts:1');
+  assert.deepEqual(text.split('\n'), [HEADER, '', 'lawcheck: FAIL  1 error in 1 named file', `${wide.slice(0, 1959)}... (${wide.length - 1959} more characters)`, 'next: fix a.ts:1']);
 });

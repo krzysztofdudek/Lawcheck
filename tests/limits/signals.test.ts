@@ -1,11 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
+import { createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import type { ChildProcess } from 'node:child_process';
 import { chmodSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { join } from 'node:path';
-import { openai, withFake } from '../acceptance/fake-reviewer.ts';
 import { alive, CLI, F, F_PATH, GIT_ENV, LAW, pathWith, programDir, setRule, withR, withSample, write } from '../acceptance/helpers.ts';
 
 const SIGNALS = ['SIGINT', 'SIGTERM', 'SIGHUP'] as const;
@@ -92,25 +93,33 @@ test('S1-1: test 239: a signal while a rule spins ends the run as stopped, and t
   }
 });
 
+// The fake sends the first half of an answer of one megabyte and holds the rest, so the signal always comes while the answer is read.
 test('S3-3: test 239: a signal while a one-megabyte answer is read ends the run as stopped', { skip }, async () => {
-  const answer = `${'{'.repeat(1_000_000)}{"verdict":"pass","findings":[]}`;
+  const body = JSON.stringify({ choices: [{ message: { role: 'assistant', content: `${'{'.repeat(1_000_000)}{"verdict":"pass","findings":[]}` } }] });
   for (const signal of SIGNALS) {
-    await withFake(
-      async (fake) => {
-        await withR(async (r) => {
-          write(r, F_PATH, F);
-          const run = start(r, ['check', '--review', '--base', 'main'], { LAWCHECK_REVIEWER_ENDPOINT: fake.url });
-          await until(() => (fake.requests[0]?.end ?? 0) > 0 || run.child.exitCode !== null, 'the answer to be sent');
-          if (run.child.exitCode !== null) {
-            process.stdout.write(`# ${signal}: the answer was read before a signal could be sent\n`);
-            assert.doesNotMatch(run.stdout(), /error\[internal\]/);
-            return;
-          }
-          await stop(run, signal);
-        });
-      },
-      () => openai(answer),
-    );
+    let halfSent = false;
+    const sockets = new Set<import('node:net').Socket>();
+    const server = createServer((req, res) => {
+      req.resume();
+      req.on('end', () => {
+        res.writeHead(200, { 'content-type': 'application/json', 'content-length': String(Buffer.byteLength(body)) });
+        res.write(body.slice(0, body.length / 2), () => (halfSent = true));
+      });
+    });
+    server.on('connection', (socket) => sockets.add(socket));
+    await new Promise<void>((done) => server.listen(0, '127.0.0.1', () => done()));
+    try {
+      await withR(async (r) => {
+        write(r, F_PATH, F);
+        const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}/v1`;
+        const run = start(r, ['check', '--review', '--base', 'main'], { LAWCHECK_REVIEWER_ENDPOINT: url });
+        await until(() => halfSent, 'half of the answer to be sent');
+        await stop(run, signal);
+      });
+    } finally {
+      for (const socket of sockets) socket.destroy();
+      await new Promise<void>((done) => server.close(() => done()));
+    }
   }
 });
 
