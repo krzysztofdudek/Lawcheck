@@ -53,10 +53,18 @@ function readTable(table: string): Map<number, Proc> {
   return out;
 }
 
-function listPs(mark: string | null): Map<number, Proc> {
+// Only a process that started while the run lasted can carry its mark, so ps is asked for the environments of those alone.
+function listPs(mark: string | null, since = 0): Map<number, Proc> {
   const out = readTable(execFileSync('ps', PS_TABLE, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }));
   if (mark === null) return out;
-  const environments = execFileSync('ps', ['-A', '-E', '-ww', '-o', 'pid=,command='], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+  const young = [...out.values()].filter((p) => p.pid !== process.pid && Date.parse(p.start) >= since - 1000).map((p) => p.pid);
+  if (young.length === 0) return out;
+  let environments = '';
+  try {
+    environments = execFileSync('ps', ['-E', '-ww', '-o', 'pid=,command=', '-p', young.join(',')], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+  } catch (error) {
+    environments = String((error as { stdout?: unknown }).stdout ?? '');
+  }
   for (const line of environments.split('\n')) {
     if (!line.includes(`${MARK}=${mark}`)) continue;
     const pid = Number(/^\s*(\d+)/.exec(line)?.[1]);
@@ -66,8 +74,8 @@ function listPs(mark: string | null): Map<number, Proc> {
   return out;
 }
 
-function list(mark: string | null): Map<number, Proc> {
-  return PROC ? listProc(mark) : listPs(mark);
+function list(mark: string | null, since = 0): Map<number, Proc> {
+  return PROC ? listProc(mark) : listPs(mark, since);
 }
 
 // While the run lasts the tracker samples without reading environments, and on macOS without blocking: the mark is read once, after the run.
@@ -97,6 +105,7 @@ export class Tracker {
   private readonly folders: string[];
   private timer: NodeJS.Timeout | null = null;
   readonly tracks: boolean;
+  private readonly began = Date.now();
 
   constructor(pid: number, mark: string, folders: string[], tracks: boolean) {
     this.mark = mark;
@@ -105,7 +114,7 @@ export class Tracker {
     if (!this.tracks) return;
     this.seen.set(pid, '');
     this.take(list(null));
-    this.timer = setInterval(() => this.sample(), PROC ? 50 : 250);
+    this.timer = setInterval(() => this.sample(), PROC ? 50 : 500);
     this.timer.unref();
   }
 
@@ -139,7 +148,7 @@ export class Tracker {
 
   alive(byFolder = true): number[] {
     if (!this.tracks) return [];
-    const procs = list(this.mark);
+    const procs = list(this.mark, this.began);
     const left: number[] = [];
     for (const p of procs.values()) {
       if (p.zombie || p.pid === process.pid) continue;

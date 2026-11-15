@@ -34,10 +34,16 @@ export const HOOK_STOP_DEADLINE_MS = 150_000;
 export const HOOK_SIGTERM_AFTER_MS = 2_000;
 export const STOPPED_HOOK_ENDS_MS = 10_000;
 
-// Each of these waits on one of the tool's fixed limits: the 30 seconds a rule may run (spec/check-slice.md, section 3) and the hook deadlines of 25 and 145 seconds (spec/plugin-slice.md, section 4). A key is the test file and the whole test name.
+// The tests past TEST_BUDGET_MS, each with its reason. Tests 24 and 163 wait on the tool's fixed limits: the 30 seconds a rule may run (spec/check-slice.md, section 3) and the hook deadlines of 25 and 145 seconds (spec/plugin-slice.md, section 4). A key is the test file and the whole test name.
 export const SLOW_TESTS: Record<string, number> = {
   'tests/acceptance/rules.test.ts > test 24: a rule that hangs is stopped': 60_000,
   'tests/acceptance/plugin.test.ts > test 163: the deadline, and a hook that is stopped': 300_000,
+  // Measured on CI: 48 s on Windows, 22 s on macOS, 5 s on Linux; one check per counted run of the committed trial, and Windows starts a process slowly.
+  'tests/acceptance/agent-result.test.ts > test 181: the committed result of the trial': 100_000,
+  // Measured on CI: 31 s on Windows (28 s before the harness), 19 s on macOS; four runs of the stability script, each starting the tool for 30 reviews.
+  'tests/acceptance/stability.test.ts > test 77: the measurement refuses to run, or to write a secret': 60_000,
+  // Measured on CI: 25 s on macOS and on Windows, 6 s on Linux; 300 calls of the fake claude, each a process of its own.
+  'tests/acceptance/stability.test.ts > test 76: the measurement through claude-code': 60_000,
 };
 
 export const SLOWEST_SHOWN = 10;

@@ -219,7 +219,7 @@ test('harness-7: a change of git state fails the run, except the files its comma
     git('reset', '-q', '--hard', 'HEAD~1');
     assert.match((await expectBroken('harness-7', () => tool(dir, "execFileSync('git', ['branch', 'other']);", ['check'], {}, repo))).message, /\.git\/refs\/heads\/other/);
     git('branch', '-D', 'other');
-    assert.match((await expectBroken('harness-7', () => tool(dir, "writeFileSync('b.txt', 'b\\n'); execFileSync('git', ['add', 'b.txt']);", ['check'], { writes: ['b.txt'] }, repo))).message, /the index/);
+    assert.match((await expectBroken('harness-7', () => tool(dir, "writeFileSync('b.txt', 'b\\n'); execFileSync('git', ['add', 'b.txt']);", ['check'], { writes: ['b.txt'] }, repo))).message, /\.git\/index/);
     git('rm', '-q', '--cached', 'b.txt');
     git('clean', '-fdxq');
     assert.match((await expectBroken('harness-7', () => tool(dir, "writeFileSync('.git/hooks/pre-commit', 'exit 0\\n');", ['check'], {}, repo))).message, /\.git\/hooks/);

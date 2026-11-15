@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, lstatSync, readdirSync, readFileSync, readlinkSync, realpathSync, statSync } from 'node:fs';
-import { isAbsolute, join, relative, sep } from 'node:path';
+import { dirname, isAbsolute, join, relative, sep } from 'node:path';
 
 const ENV: NodeJS.ProcessEnv = { ...process.env, GIT_OPTIONAL_LOCKS: '0', GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null' };
 for (const name of Object.keys(ENV)) if (name.startsWith('GIT_') && !['GIT_OPTIONAL_LOCKS', 'GIT_CONFIG_NOSYSTEM', 'GIT_CONFIG_GLOBAL'].includes(name)) delete ENV[name];
@@ -17,9 +17,12 @@ function git(cwd: string, args: string[]): string | null {
   }
 }
 
+// The top of the work tree is the nearest folder at or above cwd that holds .git, found without starting git.
 export function gitTop(cwd: string): string | null {
-  const out = git(cwd, ['rev-parse', '--show-toplevel']);
-  return out === null ? null : real(out.trim());
+  for (let dir = real(cwd); ; dir = dirname(dir)) {
+    if (existsSync(join(dir, '.git'))) return dir;
+    if (dirname(dir) === dir) return null;
+  }
 }
 
 function digest(path: string): string {
@@ -46,9 +49,9 @@ function gitDirs(top: string): string[] {
   return common === null ? [own] : [own, isAbsolute(common) ? common : join(own, common)];
 }
 
-const GIT_SKIP = new Set(['objects', 'logs', 'index', 'worktrees']);
+const GIT_SKIP = new Set(['objects', 'logs', 'worktrees']);
 
-// Everything in .git but its objects, its logs and the index, which is compared on its own: HEAD, the refs, packed-refs, config, config.worktree, hooks, info, shallow, description, ORIG_HEAD.
+// Everything in .git but its objects and its logs: HEAD, the refs, packed-refs, the index, config, config.worktree, hooks, info, shallow, description, ORIG_HEAD. The index is compared byte for byte, since every git command of the tool runs with GIT_OPTIONAL_LOCKS=0 (spec/check-slice.md, section 4) and so never rewrites it.
 function gitFolder(dir: string): Map<string, string> {
   const out = new Map<string, string>();
   const walk = (at: string) => {
@@ -81,7 +84,6 @@ function gitFolder(dir: string): Map<string, string> {
 
 export interface GitState {
   top: string;
-  index: string;
   git: Map<string, string>;
   // null when git cannot read the work tree, as in a test that breaks the repository on purpose.
   entries: Map<string, string> | null;
@@ -98,18 +100,16 @@ export function gitState(top: string): GitState {
       entries.set(path, `${item.slice(0, 2)} ${digest(join(top, path))}`);
     }
   }
-  const index = git(top, ['ls-files', '-s', '-z']) ?? 'unreadable';
   const folder = new Map<string, string>();
   gitDirs(top).forEach((dir, k) => {
     for (const [path, value] of gitFolder(dir)) folder.set(`${k === 0 ? '.git' : '.git common'}/${path}`, value);
   });
-  return { top, index, git: folder, entries };
+  return { top, git: folder, entries };
 }
 
 export function gitChanges(before: GitState, after: GitState): { parts: string[]; paths: string[] } {
   const parts: string[] = [];
   if (before.entries !== null && after.entries === null) parts.push('the work tree, which git can no longer read');
-  if (before.index !== after.index) parts.push('the index');
   parts.push(...changes(before.git, after.git));
   return { parts, paths: before.entries !== null && after.entries !== null ? changes(before.entries, after.entries) : [] };
 }
