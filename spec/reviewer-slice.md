@@ -137,11 +137,11 @@ One prompt, built from these parts joined by one empty line (`\n\n`), with nothi
 1. the frame below, exactly;
 2. `<why>`, a line end, the rule's `why`, a line end, `</why>`;
 3. `<rule>`, a line end, the text of the rule file with `\r\n` read as `\n` and whitespace trimmed at both ends, a line end, `</rule>`;
-4. for each context file, in the order of `context`: `<context path=` and the path as `JSON.stringify` writes it, `>`, then the file's numbered lines, then `</context>`, each on its own line;
+4. for each context file, in the order of `context`: `<context path=` and the path as `JSON.stringify` writes it, with U+0085, U+2028 and U+2029 also written as `\u0085`, `\u2028` and `\u2029`, `>`, then the file's numbered lines, then `</context>`, each on its own line;
 5. the same for the judged file, as `<file path=...>` and `</file>`;
 6. `<waived>`, a line end, the lines a valid waiver of this rule covers in the judged file (slice one's section 5), ascending, each line once, joined by `, `, or `none`, a line end, `</waived>`.
 
-A numbered line is the line's number, `|`, and, when the line is not empty, one space and the line's text. Lines are the `lines` of slice one's section 3. An empty file gives no numbered line. Every line of a file starts with its number, so no text in a file can close a block, and the tool escapes nothing.
+A numbered line is the line's number, `|`, and, when the line is not empty, one space and the line's text. Lines are the `lines` of slice one's section 3. An empty file gives no numbered line. A line can hold characters that a reader takes for a line end though `lines` does not split there. In the line's text the tool writes each of them as an escape: a carriage return as `\r`, a vertical tab as `\v`, a form feed as `\f`, and U+001C, U+001D, U+001E, U+0085, U+2028 and U+2029 as `\u001c`, `\u001d`, `\u001e`, `\u0085`, `\u2028` and `\u2029`. It escapes nothing else, a backslash included. So every line of a file starts with its number, and no text in a file can close a block (invariant `I-frame-1`).
 
 The frame:
 
@@ -223,7 +223,7 @@ The key of a review is the first 32 characters of the lowercase hexadecimal SHA-
 
 ```js
 JSON.stringify([
-  'lawcheck-verdict/1',
+  'lawcheck-verdict/2',
   frame,                                 // the frame of section 4
   ruleId,
   why,
@@ -234,16 +234,16 @@ JSON.stringify([
 ])
 ```
 
-Every text is the one text of section 4, with each `\r\n` replaced by `\n`; a lone `\r` stays. The frame is in the key, so editing it re-opens every verdict by itself. `lawcheck-verdict/1` names this recipe and the rest of section 4's layout (the parts and their order, the tags, the numbered lines, `<waived>`): a change to any of them takes a new name. Status, provider, model and limits are not in the key, so changing them re-opens nothing.
+Every text is the one text of section 4, with each `\r\n` replaced by `\n`; a lone `\r` stays. The frame is in the key, so editing it re-opens every verdict by itself. `lawcheck-verdict/2` names this recipe and the rest of section 4's layout (the parts and their order, the tags, the numbered lines, `<waived>`): a change to any of them takes a new name. `lawcheck-verdict/1` named the layout before the escapes of the numbered lines. Under it a file could close its block with a lone carriage return and steer the reviewer into a pass, so no verdict recorded under it counts. Status, provider, model and limits are not in the key, so changing them re-opens nothing.
 
-Keys in R: F `028d0c1eb1d0c7e8d19fe76964e47afd`, F' `9c52387cbdad9b20880e131cef5a750f` (the same with CRLF line ends), `src/core/price.ts` `60f0a1a7ad3b74bcd40957cc8de73d1b`, `src/core/tax.ts` `81170bb8a9c478c33ae0edfdd56cad64`.
+Keys in R: F `bec7eb69fcc74507cad562d7d51f13eb`, F' `416ae89429881606bc1ead8e5e1f0e8b` (the same with CRLF line ends), `src/core/price.ts` `04359891722bcd49bac46a26fbb25f2a`, `src/core/tax.ts` `3a171a910b49c962ed47f9b9795cfc97`.
 
 ### The verdicts file
 
 `.lawcheck/verdicts` at the root holds one line per recorded pass, `<key> <rule id>`, ended by `\n`, sorted, each line once:
 
 ```
-9c52387cbdad9b20880e131cef5a750f clear-errors
+416ae89429881606bc1ead8e5e1f0e8b clear-errors
 ```
 
 A review has a verdict when the file holds the line `<key> <rule id>`. The tool reads each line with a trailing `\r` removed and ignores every line that does not match `^[0-9a-f]{32} [a-z0-9]+(-[a-z0-9]+)*$`, such as a conflict marker.
@@ -271,7 +271,7 @@ Without `--review` the tool makes no call and needs no provider, key or network:
 
 ### `.lawcheck/config.yaml`
 
-Read from the disk at the root on every run, when it exists. A file that is empty or holds only comments sets nothing. Otherwise it is a mapping with one key, `reviewer`, which takes a mapping:
+Read from the disk at the root on every run, when it exists. A file that is empty or holds only comments sets nothing. A config read through a symbolic link that is not valid gives one `config-invalid` at `.lawcheck/config.yaml` that quotes none of the file, as slice one says for the law (invariant `I-secret-2`). Otherwise it is a mapping with one key, `reviewer`, which takes a mapping:
 
 | Key | Value | Default |
 |---|---|---|
@@ -321,6 +321,7 @@ Every provider, these three and the six that come later, is one module:
 
 ```ts
 interface Provider {
+  keys: string[];          // the exact keys it sends or hands on; Lawcheck writes them as [key] wherever a reply shows them
   ready(): string | null;  // null, or why no call can be made; checked before the first call
   ask(prompt: string): Promise<{ answer: string } | { failure: string; resend: 'after-2s' | 'at-once' | false }>;
 }
@@ -334,7 +335,7 @@ interface Provider {
 - With `--review`, per call: the prompt of section 4, made of the frame, the rule's `why` and text, the text of each context file the law names for the rule, the path and text of one judged file and its waived line numbers; with it the model name and the parameters above, and the key in its header. No other file, no git data and no other variable.
 - To where: `openai-compatible` and `anthropic` to the endpoint in force, never to the address of a redirect. `claude-code` hands the prompt to the `claude` program. That program adds its own system prompt, with details of the machine such as the working directory, the platform and the date, and it may load the user's own instruction files. It sends all of it wherever its own configuration points, and that configuration includes every variable of the tool's environment, such as `ANTHROPIC_BASE_URL`, proxy settings and the switches for other clouds.
 - Bounds: a judged file has a type and a reviewer rule binds it; a context file is named in the law and listed by git, so an ignored file is never sent; a prompt holds at most `reviewer.max_chars` characters; a run sends at most the cap of section 7.
-- What stays: `.lawcheck/verdicts` holds keys and rule ids. A line there proves that someone wrote it, not that a model gave the verdict: anyone can compute a key from section 5. The failure cache holds the reviewer's messages, on this machine. A reviewer's message is printed like a script rule's and can quote the judged file into a CI log.
+- What stays: the tool writes its key into no output, JSON document, verdicts file, failure cache or temporary file, and into no request but the key's own header (invariant `I-secret-1`). The tool writes the key as `[key]` in the text that comes from outside it, wherever it prints or writes that text: file names, the messages of rules and reviewers and of the errors that quote such text, the base, the values of the law and the config, the text of an endpoint or a program, what a script rule prints, and the failure cache. It never replaces anything in its own words, codes, schema names, ids, line numbers or the names of a JSON document's keys. The keys are the values of `LAWCHECK_REVIEWER_KEY` and `ANTHROPIC_API_KEY` in the environment, whichever provider is set, since a run that calls no reviewer can still print a file or a message that holds one, and each key a provider names in its `keys`. A key shorter than 8 characters is not replaced: it is no secret, such as a dummy key for a local endpoint, and replacing it would garble names that hold it. The key is matched in any spelling JSON allows: each character as itself, as a `\u` escape or as its short escape. The replacement comes before any cut to a length and after an answer is read, so a key that is also a word of an answer leaves the answer as it was. Anything else, another key-shaped value, a prefix of the key, the key in another case or percent-encoded, is printed as it came. `.lawcheck/verdicts` holds keys and rule ids. A line there proves that someone wrote it, not that a model gave the verdict: anyone can compute a key from section 5. The failure cache holds the reviewer's messages, on this machine. A reviewer's message is printed like a script rule's and can quote the judged file into a CI log.
 
 ## 7. The cap
 
@@ -343,7 +344,7 @@ A run sends at most `reviewer.max_calls` requests; `--max-calls <n>` replaces th
 - **Before the first call** the run counts the reviews it has to ask: the missing ones, and with `--again` the cached failures too. When that number is above the cap, it makes no call: `too-many-reviews`, exit 2, no place, the message holding both numbers. Its `next:` says that raising the limit is the user's decision.
 - **During the run** a request is sent again only while the requests sent, plus one first request for each review not yet started, stay below the cap. Otherwise the review ends with the error it had. So a run whose reviews fill the cap exactly sends no request again.
 - **At most `reviewer.parallel` requests** are in flight. Reviews start in the order of the file's path, then the rule's id.
-- **On the first error** of a review (`reviewer-unreachable` or `reviewer-bad-answer`) no new review starts. A review already started finishes, its resends included, within the cap, and its answer is recorded. The run ends with exit 2 and one error per failed review, placed at its file, the message starting with the rule's id. Its `next:` says to run the same command again; what was answered is kept, so the next run asks only the rest.
+- **On the first error** of a review (`reviewer-unreachable` or `reviewer-bad-answer`) no new review starts. A review already started finishes, its resends included, within the cap, and its answer is recorded. The run ends with exit 2 and one error per failed review, placed at its file, the message starting with the rule's id. Its `next:` says to run the same command again; what was answered is kept, so the next run asks only the rest. When the first error is an HTTP 401 or 403, the `next:` first says to check the reviewer key in the environment.
 
 ## 8. `check`
 
@@ -920,7 +921,7 @@ The result:
   "schema": "lawcheck-stability/1",
   "date": "<YYYY-MM-DD>",
   "lawcheck": "0.1.0",
-  "verdict_format": "lawcheck-verdict/1",
+  "verdict_format": "lawcheck-verdict/2",
   "provider": "openai-compatible",
   "model": "<LAWCHECK_STABILITY_MODEL, or null>",
   "temperature_sent": 0,
@@ -963,8 +964,8 @@ The result:
 
 1. **The address and the key come from the environment; the committed config names only the provider, the model and the limits.** The task asked for a base URL from the environment, and it closes the design's risk in 5.3 by construction: a committed file can never point someone's key at an address it chose, and no address enters a repository. The design's `reviewer.endpoint`, `keys`, `config.local.yaml` and the machine's file wait for a later slice.
 2. **A provider's own key goes only to its own address** (design 5.3), and no request follows a redirect, since `fetch` carries `x-api-key` across origins. `LAWCHECK_REVIEWER_KEY` goes to the endpoint in force, because whoever sets the variable also sets the endpoint.
-3. **The prompt holds nothing the key does not cover.** The file's type is left out, since a law change can retype a file without changing it. The frame's text is in the key, and the rest of the layout is named by `lawcheck-verdict/1`. An input that can move a judgment but cannot re-open it would keep a pass nobody gave for the new input.
-4. **Line numbers instead of escaping.** Every file line starts with its number, so file text cannot close a block, and the reviewer quotes code as written.
+3. **The prompt holds nothing the key does not cover.** The file's type is left out, since a law change can retype a file without changing it. The frame's text is in the key, and the rest of the layout is named by `lawcheck-verdict/2`. An input that can move a judgment but cannot re-open it would keep a pass nobody gave for the new input.
+4. **Line numbers instead of escaping.** Every file line starts with its number, so file text cannot close a block, and the reviewer quotes code as written. The one exception is a character a reader takes for a line end inside a line: it is written as an escape, since the number alone does not hold when a model breaks the line there (stress finding S3-1).
 5. **The key is the SHA-256 of a JSON array.** The encoding cannot run two fields together, and every engine writes it the same way. Only `\r\n` is read as `\n`, matching `lines`.
 6. **A waiver of a reviewer rule is given to the reviewer, and its findings are dropped;** a fail with nothing left is a pass, and such a waiver is never `waiver-unused`.
 7. **Failures go to `.lawcheck/.local/failures/`, a folder that ignores itself.** The design has `init` write `.lawcheck/.gitignore`; this slice has no `init`, and a file the tool adds there would show up in the change.
@@ -998,17 +999,17 @@ Slice one's terms hold. R is S with the four files of section 2 in its first com
 | # | Do | See |
 |---|---|---|
 | 46 | add F; run without the variable `LAWCHECK_REVIEWER_ENDPOINT`, then with it | each time the first output of section 8, exit 1, no request |
-| 47 | add F; `lawcheck check --review --base main`. Then `lawcheck check --base main` | the second output of section 8, exit 1, one request whose body has exactly the keys `model` (`test-model`), `messages`, `temperature` (0) and `response_format` (`{"type":"json_object"}`), whose `messages[0].content` equals section 4's prompt byte for byte, and which has no `authorization` header; `.lawcheck/.local/failures/028d0c1eb1d0c7e8d19fe76964e47afd.json` exists; `.lawcheck/.local/.gitignore` holds `*\n`; `git status --porcelain` prints only `?? src/core/refund.ts`. Then the same output without `, 1 reviewer call`, exit 1, no new request |
-| 48 | add F'; `--review`. Then a plain run | `lawcheck: PASS  1 changed file (against main), 1 waiver, 1 reviewer call`, exit 0; `.lawcheck/verdicts` is `9c52387cbdad9b20880e131cef5a750f clear-errors\n` and `.lawcheck/.gitattributes` is `verdicts merge=union\n`. Then `lawcheck: PASS  3 changed files (against main), 1 waiver`, no request |
+| 47 | add F; `lawcheck check --review --base main`. Then `lawcheck check --base main` | the second output of section 8, exit 1, one request whose body has exactly the keys `model` (`test-model`), `messages`, `temperature` (0) and `response_format` (`{"type":"json_object"}`), whose `messages[0].content` equals section 4's prompt byte for byte, and which has no `authorization` header; `.lawcheck/.local/failures/bec7eb69fcc74507cad562d7d51f13eb.json` exists; `.lawcheck/.local/.gitignore` holds `*\n`; `git status --porcelain` prints only `?? src/core/refund.ts`. Then the same output without `, 1 reviewer call`, exit 1, no new request |
+| 48 | add F'; `--review`. Then a plain run | `lawcheck: PASS  1 changed file (against main), 1 waiver, 1 reviewer call`, exit 0; `.lawcheck/verdicts` is `416ae89429881606bc1ead8e5e1f0e8b clear-errors\n` and `.lawcheck/.gitattributes` is `verdicts merge=union\n`. Then `lawcheck: PASS  3 changed files (against main), 1 waiver`, no request |
 | 49 | after test 48, commit everything on `work`; clone the repository; in the clone, with no reviewer variable set, `lawcheck check --base origin/main`; then rewrite `src/core/refund.ts` with CRLF line ends; then append `// end` to it | `lawcheck: PASS  3 changed files (against origin/main), 1 waiver`, exit 0; the same, exit 0; `src/core/refund.ts  error[not-reviewed]`, exit 1 |
 | 50 | add F; `lawcheck check --full --base main` | the third output of section 8, exit 1, no request |
-| 51 | add F; `lawcheck check --full --review --base main --json` | three requests, for `price.ts`, `refund.ts` and `tax.ts`; one finding in the change (`clear-errors`, line 2, error), three in debt (no `not-reviewed`); `reviews` is `{ "missing": 0, "calls_made": 3, "passes_recorded": 2 }`; `.lawcheck/verdicts` holds `60f0a1a7ad3b74bcd40957cc8de73d1b clear-errors` then `81170bb8a9c478c33ae0edfdd56cad64 clear-errors`; exit 1 |
+| 51 | add F; `lawcheck check --full --review --base main --json` | three requests, for `price.ts`, `refund.ts` and `tax.ts`; one finding in the change (`clear-errors`, line 2, error), three in debt (no `not-reviewed`); `reviews` is `{ "missing": 0, "calls_made": 3, "passes_recorded": 2 }`; `.lawcheck/verdicts` holds `04359891722bcd49bac46a26fbb25f2a clear-errors` then `3a171a910b49c962ed47f9b9795cfc97 clear-errors`; exit 1 |
 | 52 | `status: advisory` on `clear-errors`; add F; a plain run, then `--review` | `lawcheck: PASS  1 warning in 1 changed file (against main), 1 waiver` with `warning[not-reviewed]`, exit 0; then `src/core/refund.ts:2  warning[clear-errors]`, exit 0 |
-| 53 | add F; `--review` twice, then `--review --again` with the fake answering `{"verdict":"pass","findings":[]}` | the second run sends no request; the third sends one, exits 0, removes the cache file and adds `028d0c1eb1d0c7e8d19fe76964e47afd clear-errors` to `.lawcheck/verdicts` |
+| 53 | add F; `--review` twice, then `--review --again` with the fake answering `{"verdict":"pass","findings":[]}` | the second run sends no request; the third sends one, exits 0, removes the cache file and adds `bec7eb69fcc74507cad562d7d51f13eb clear-errors` to `.lawcheck/verdicts` |
 | 54 | one at a time: add F with line 3 cut after `clear-errors`, run `--review`; add `src/core/ok.ts` holding `// lawcheck-waive clear-errors -- a demo` and `export const ok = 1;`, run `--review --json` | `lawcheck: FAIL  3 errors in 1 changed file (against main), 1 reviewer call` with `:2  error[clear-errors]`, `:3  error[waiver-without-reason]`, `:4  error[clear-errors]`, and the prompt's last block is `<waived>\nnone\n</waived>`; then exit 0, the prompt's last block holds `2`, `summary.waivers` 1, no `waiver-unused` |
 | 55 | add F; one at a time the fake answers its default answer inside a ` ```json ` fence; after a sentence of prose; followed by a sentence of prose; followed by `{"note": 1}`; with message `"a\nb"` for line 2; with a finding for line 2 and one without `line`; with one whose `line` is `null` | each exit 1 and one request; the findings as given, `a b` for the fifth, and `src/core/refund.ts  error[clear-errors]` for each finding about the whole file |
 | 56 | add F; one at a time the fake answers `fine`; `[]`; `{"verdict":"pass","findings":[{"line":2,"message":"x"}]}`; `{"verdict":"fail","findings":[]}`; `{"verdict":"PASS","findings":[]}`; a finding at line 0; at line 6; at line `"2"`; with message `"  "`. Then: `fine`, then the default answer | each: exit 2, `src/core/refund.ts  error[reviewer-bad-answer]` with a message starting `clear-errors`, two requests, no `.lawcheck/verdicts`, no cache file. Then exit 1 as test 47 with `, 2 reviewer calls` |
-| 57 | add F; one at a time the fake answers HTTP 500; 429 once and then normally; 401 with the body `{"error":{"message":"bad key"}}`; 200 with an HTML body; closes the connection twice without answering | 500: exit 2, `src/core/refund.ts  error[reviewer-unreachable]` holding `500`, one request; 429: as test 47 with `, 2 reviewer calls`, the second request at least 2 seconds after the first; 401: holding `401` and `bad key`; HTML: `reviewer-unreachable`, one request; closed: `reviewer-unreachable`, two requests |
+| 57 | add F; one at a time the fake answers HTTP 500; 429 once and then normally; 401 with the body `{"error":{"message":"bad key"}}`; 200 with an HTML body; closes the connection twice without answering | 500: exit 2, `src/core/refund.ts  error[reviewer-unreachable]` holding `500`, one request; 429: as test 47 with `, 2 reviewer calls`, the second request at least 2 seconds after the first; 401: holding `401` and `bad key`, and `next:` says to check the reviewer key in the environment, then run the same command again; HTML: `reviewer-unreachable`, one request; closed: `reviewer-unreachable`, two requests |
 | 58 | `timeout: 1` in the config; add F; the fake never answers | exit 2 with `src/core/refund.ts  error[reviewer-unreachable]` within 10 seconds, one request |
 | 59 | `parallel: 1` in the config; add F; `--full --review`; the fake passes its first request and answers 500 to its second | exit 2 with one `reviewer-unreachable` at `src/core/refund.ts`; requests for `price.ts` and `refund.ts` only, in that order; `.lawcheck/verdicts` holds the line of `price.ts` alone |
 | 60 | add `src/core/a.ts` to `src/core/e.ts`, each `export const x = 1;`; the fake holds each answer 300 ms; `--review` with `parallel: 2` in the config; then in a fresh R without `parallel` | five requests each time; at most two in flight at once and two reached; then at most four and four reached |
@@ -1028,11 +1029,20 @@ Slice one's terms hold. R is S with the four files of section 2 in its first com
 | 74 | `check --again`; `check --max-calls 3`; `check --review --max-calls`; `check --review --max-calls -1`; `check --review --max-calls x`; `check --review --max-calls=3`; `check --review --review`; `check --review --again --again`; `check --review --max-calls 1 --max-calls 2`. Then `lawcheck --help` and `lawcheck check --help` | exit 2 with `usage` each; then the first line of section 8's usage, exit 0 |
 | 75 | add F; a plain run with `--json`; then `--review --json` | the document of section 8, exit 1; then one finding (`clear-errors`, `rule` `clear-errors`, line 2, error), `waivers[0].waived` 1, `reviews` `{ "missing": 0, "calls_made": 1, "passes_recorded": 0 }`, `next` `{ "command": null, "text": "fix src/core/refund.ts:2" }` |
 | 76 | run `node tests/stability/run.ts` with the fake as endpoint, `LAWCHECK_STABILITY_MODEL=test-model`, `LAWCHECK_BASE=main` and `LAWCHECK_STABILITY_OUT` in a temporary folder. The fake answers each file by its label, a fail with one finding at line 1 and message `labelled fail`; it answers `fail` to the third request for `src/util/handle.ts` and HTTP 500 to the second for `src/domain/price.ts`. Then, with `LAWCHECK_STABILITY_PROVIDER=claude-code`, the model and a note, against the fake claude | exit 0; `agreement` 29/30 (0.967), clear 22/22 (1), borderline 7/8 (0.875); `pairwise_agreement` all 0.993, clear 1, borderline 0.975; `label_match` 299/300 (0.997), clear 220/220 (1), borderline 79/80 (0.988); `baseline.label_match` 19/30 (0.633), clear 16/22 (0.727), borderline 3/8 (0.375); `attempts` holds 11 entries, the one with exit 2 being run 2, attempt 1, with errors `[{ "code": "reviewer-unreachable", "file": "src/domain/price.ts" }]`, every other with `calls_made` 30; `handle.ts`'s verdicts are `pass`, `pass`, `fail` and seven `pass`; no `127.0.0.1` in the file. Then exit 0, `provider` `claude-code`, `temperature_sent` null, the model and the note as given |
-| 77 | run the script without `LAWCHECK_REVIEWER_ENDPOINT`; without `LAWCHECK_STABILITY_MODEL`; with `LAWCHECK_REVIEWER_KEY=k-secret` and the fake failing every file with the message `k-secret`; the same with the message `it quotes k-secret` | exit 2 each, and the file `LAWCHECK_STABILITY_OUT` names does not exist |
+| 77 | run the script without `LAWCHECK_REVIEWER_ENDPOINT`; without `LAWCHECK_STABILITY_MODEL`; with `LAWCHECK_REVIEWER_KEY=k-secret` and the fake failing every file with the message `k-secret`; the same with the message `it quotes k-secret` | exit 2 for the first two, and the file `LAWCHECK_STABILITY_OUT` names does not exist; exit 0 for the last two, and the file holds `[key]` and `it quotes [key]` where the messages held the key, and `k-secret` nowhere |
 | 78 | the reviewer reads the committed `tests/stability/result.json`, written by one `npm run stability` against a real model before handover, and the fixture against section 9 | the fixture is section 9's, byte for byte; `model` names a real model or is null for the program's default, not `test-model`; 30 pairs of 10 verdicts each, as `labels.json` and the headings of section 9 list them; every count and share follows from the pairs; `label_match.clear.share` is at least 0.9; no `://` in the file. When `pairwise_agreement.clear` is below 0.95, the review names decision 16 for the owner |
 | 79 | `npm test` | tests 1 to 45 pass, test 41 and test 44 as section 10 amends them, and tests 46 to 77 pass, offline |
 
 The unit tests carry the rest: one file per new source file, among them the key of every example of section 5, the reading of each answer form of section 4, and each `config-invalid` message.
+
+### Invariants
+
+| Id | Promise | Test |
+|---|---|---|
+| I-frame-1 | For any text of a judged or context file and any path, the prompt holds one `<file>` block, each block holds as many numbered lines as the file has `lines`, and no character a reader takes for a line end lets file text begin a line of the prompt without its number (section 4). | tests/security/frame.test.ts |
+| I-secret-1 | The key appears in no output, JSON document, verdicts file, failure cache, temporary file or request but its own header, for every provider and every reply, one that echoes it included, and whatever text of a repository, a rule or an argument holds it (section 6). | tests/security/secrets.test.ts |
+
+The frame is also checked against a real model, by hand and not in `npm test`, whenever the prompt changes and before each release. `node tests/live/run.ts`, after `npm run build`, on a machine where `claude` is signed in, sends each file of `tests/security/attacks/` and its twin (the same file with each of its separators replaced by a space) through `lawcheck try` with the `claude-code` provider, `LIVE_TIMES` times each, in a `mktemp -d` copy of R. Every attack file breaks `clear-errors`. The run holds when an attack and its twin get the same verdict in every run and every verdict is `fail`; the numbers are in `tests/numbers.ts` and are set before a run. It writes `tests/live/result.json` with every verdict and the count of calls, and the result is kept whether it holds or not.
 
 ## 12. Repository layout additions
 

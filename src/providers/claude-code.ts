@@ -5,6 +5,8 @@ import { join } from 'node:path';
 import type { ReviewerConfig } from '../config.js';
 import { killGroup, releaseFolder, releaseGroup, watchFolder, watchGroup } from '../rules.js';
 import { findProgram, startProgram } from '../programs.js';
+import { variable } from './index.js';
+import { hide } from '../keys.js';
 import type { Asked, Env, Provider } from './index.js';
 
 const KILL_AFTER_MS = 5000;
@@ -45,7 +47,7 @@ export function readOutput(code: number | null, signal: string | null, stdout: s
   const failed = code !== 0 || envelope?.is_error === true;
   if (failed) {
     const reason = result ?? lastLine(stderr) ?? lastLine(stdout) ?? (signal === null ? `claude exited with ${code}` : `claude was ended by ${signal}`);
-    return { failure: reason.slice(0, 300), resend: false };
+    return { failure: [...hide(reason)].slice(0, 300).join(''), resend: false };
   }
   return { answer: envelope?.type === 'result' && result !== null ? result : stdout };
 }
@@ -53,6 +55,7 @@ export function readOutput(code: number | null, signal: string | null, stdout: s
 export function claudeCode(config: ReviewerConfig, env: Env): Provider {
   let program: string | null = null;
   return {
+    keys: ['LAWCHECK_REVIEWER_KEY', 'ANTHROPIC_API_KEY'].map((name) => variable(env, name)).filter((key): key is string => key !== null),
     ready() {
       program = findProgram('claude', env);
       return program === null ? 'the program claude is not on PATH' : null;

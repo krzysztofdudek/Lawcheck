@@ -33,6 +33,13 @@ export const PLATFORM_SKIPS: PlatformSkip[] = [
   { file: 'tests/acceptance/rules.test.ts', test: 'section 3: a rule that spins ends with the tool, whatever ends the tool', part: 'exit 2 after SIGTERM', platform: 'win32', reason: SIGNALS },
   { file: 'tests/unit/providers-claude-code.test.ts', test: 'claude is looked up on PATH', part: 'a claude that is not executable', platform: 'win32', reason: 'Windows has no executable bit; a .cmd file is always a program' },
   { file: 'tests/unit/programs.test.ts', test: 'a program is found on PATH, and on Windows by the endings of PATHEXT', part: 'the lookup with the rules of Linux', platform: 'win32', reason: 'a folder on Windows holds a drive colon, which a PATH split with the rules of Linux cuts in two' },
+  { file: 'tests/security/links.test.ts', test: 'I-runner-1: a tracked link whose name holds a line break is not dropped from the guard', part: 'the whole test', platform: 'win32', reason: 'Windows refuses a line break in a file name' },
+  { file: 'tests/security/links.test.ts', test: 'I-runner-1: a tracked link whose name is not valid UTF-8 is not dropped from the guard', part: 'the whole test', platform: 'win32', reason: 'Windows takes a file name only as valid UTF-16' },
+  { file: 'tests/security/links.test.ts', test: 'I-runner-1: a tracked link whose name is not valid UTF-8 is not dropped from the guard', part: 'the whole test', platform: 'darwin', reason: 'the file system of macOS refuses a name that is not valid UTF-8' },
+  { file: 'tests/security/start.test.ts', test: 'I-start-1: on Windows a node.cmd at the root does not run when the hooks start a global Lawcheck whose shim calls node', part: 'the whole test', platform: 'linux', reason: 'cmd.exe and its search of the current folder exist only on Windows' },
+  { file: 'tests/security/start.test.ts', test: 'I-start-1: on Windows a node.cmd at the root does not run when the hooks start a global Lawcheck whose shim calls node', part: 'the whole test', platform: 'darwin', reason: 'cmd.exe and its search of the current folder exist only on Windows' },
+  { file: 'tests/security/runner.test.ts', test: 'S8-4: a root whose path ends in * lets no rule read the folders beside it', part: 'the whole test', platform: 'win32', reason: 'Windows refuses * in a file name' },
+  { file: 'tests/security/runner.test.ts', test: 'S2-8: a root whose path holds a backslash is refused by name, not blamed on the rule', part: 'the whole test', platform: 'win32', reason: 'a backslash is the separator on Windows' },
 ];
 
 export function applies(platform: SkipPlatform): boolean {

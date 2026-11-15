@@ -10,6 +10,7 @@ export function anthropic(config: ReviewerConfig, env: Env): Provider {
   const keyName = endpoint === null && variable(env, 'ANTHROPIC_API_KEY') !== null ? 'ANTHROPIC_API_KEY' : 'LAWCHECK_REVIEWER_KEY';
   const key = variable(env, keyName);
   return {
+    keys: key === null ? [] : [key],
     ready() {
       if (endpoint !== null && 'problem' in endpoint) return endpoint.problem;
       if (key === null) {

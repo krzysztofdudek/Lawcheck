@@ -7,6 +7,7 @@ export function openaiCompatible(config: ReviewerConfig, env: Env): Provider {
   const endpoint = endpointOf(env);
   const key = variable(env, 'LAWCHECK_REVIEWER_KEY');
   return {
+    keys: key === null ? [] : [key],
     ready() {
       if (endpoint === null) return 'openai-compatible needs the address of its endpoint in LAWCHECK_REVIEWER_ENDPOINT';
       if ('problem' in endpoint) return endpoint.problem;

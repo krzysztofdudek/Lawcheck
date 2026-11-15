@@ -24,12 +24,22 @@ export interface PromptInput {
   waived: number[];
 }
 
+// What a reader may take for the end of a line though the tool does not: the line ends of JavaScript and Unicode, and those of Python's str.splitlines.
+const BREAKING = /[\r\v\f\x1c-\x1e\x85\u2028\u2029]/g;
+const NAMED: Record<string, string> = { '\r': '\\r', '\v': '\\v', '\f': '\\f' };
+
+function code(c: string): string {
+  return `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`;
+}
+
 export function numbered(text: string): string[] {
-  return splitLines(text).map((line, index) => (line === '' ? `${index + 1}|` : `${index + 1}| ${line}`));
+  return splitLines(text).map((line, index) =>
+    line === '' ? `${index + 1}|` : `${index + 1}| ${line.replace(BREAKING, (c) => NAMED[c] ?? code(c))}`,
+  );
 }
 
 function block(tag: string, path: string, text: string): string {
-  return [`<${tag} path=${JSON.stringify(path)}>`, ...numbered(text), `</${tag}>`].join('\n');
+  return [`<${tag} path=${JSON.stringify(path).replace(BREAKING, code)}>`, ...numbered(text), `</${tag}>`].join('\n');
 }
 
 export function buildPrompt(input: PromptInput): string {

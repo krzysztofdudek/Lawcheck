@@ -2,12 +2,15 @@ import type { ReviewerConfig } from '../config.js';
 import { anthropic } from './anthropic.js';
 import { claudeCode } from './claude-code.js';
 import { openaiCompatible } from './openai-compatible.js';
+import { addKeys } from '../keys.js';
 
 export type Resend = 'after-2s' | 'at-once' | false;
 
 export type Asked = { answer: string } | { failure: string; resend: Resend };
 
 export interface Provider {
+  // The exact keys this provider sends or hands on, which Lawcheck writes as [key] wherever a reply shows them.
+  keys: string[];
   ready(): string | null;
   ask(prompt: string): Promise<Asked>;
 }
@@ -44,7 +47,9 @@ export function endpointOf(env: Env): { url: string } | { problem: string } | nu
   return { url: value.replace(/\/+$/, '') };
 }
 
-export function createProvider(config: ReviewerConfig, env: Env): Provider | null {
+export { hidden, KEY_SHOWN } from '../keys.js';
+
+function created(config: ReviewerConfig, env: Env): Provider | null {
   switch (config.provider) {
     case 'openai-compatible':
       return openaiCompatible(config, env);
@@ -55,4 +60,10 @@ export function createProvider(config: ReviewerConfig, env: Env): Provider | nul
     default:
       return null;
   }
+}
+
+export function createProvider(config: ReviewerConfig, env: Env): Provider | null {
+  const provider = created(config, env);
+  if (provider !== null) addKeys(provider.keys);
+  return provider;
 }

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileLines, filePath, openai, withFake, writeFakeClaude } from './fake-reviewer.ts';
 import type { Recorded } from './fake-reviewer.ts';
@@ -47,7 +47,7 @@ test('test 76: the measurement against the fake', async () => {
         assert.equal(document.schema, 'lawcheck-stability/1');
         assert.match(document.date, /^\d{4}-\d{2}-\d{2}$/);
         assert.equal(document.lawcheck, '0.1.0-alpha.1');
-        assert.equal(document.verdict_format, 'lawcheck-verdict/1');
+        assert.equal(document.verdict_format, 'lawcheck-verdict/2');
         assert.equal(document.provider, 'openai-compatible');
         assert.equal(document.model, 'test-model');
         assert.equal(document.temperature_sent, 0);
@@ -123,7 +123,7 @@ test('test 76: the measurement through claude-code', async () => {
   });
 });
 
-test('test 77: the measurement refuses to run, or to write a secret', async () => {
+test('test 77: the measurement refuses to run, and its result holds the key only as [key]', async () => {
   await inTemp(async (dir) => {
     const out = join(dir, 'result.json');
     await withFake(async (fake) => {
@@ -135,14 +135,17 @@ test('test 77: the measurement refuses to run, or to write a secret', async () =
       assert.match(noModel.stderr, /LAWCHECK_STABILITY_MODEL/);
       assert.equal(fake.requests.length, 0);
       const secret = await stability({ LAWCHECK_REVIEWER_ENDPOINT: fake.url, LAWCHECK_STABILITY_MODEL: 'test-model', LAWCHECK_REVIEWER_KEY: 'k-secret', LAWCHECK_STABILITY_OUT: out });
-      assert.equal(secret.code, 2, secret.stderr);
+      assert.equal(secret.code, 0, secret.stderr);
       assert.equal(fake.requests.length, 300);
-      assert.ok(!existsSync(out));
+      assert.ok(!readFileSync(out, 'utf8').includes('k-secret'));
+      assert.ok(readFileSync(out, 'utf8').includes('"[key]"'));
+      rmSync(out);
     }, byLabel(() => 'fail', 'k-secret'));
     await withFake(async (fake) => {
       const quoted = await stability({ LAWCHECK_REVIEWER_ENDPOINT: fake.url, LAWCHECK_STABILITY_MODEL: 'test-model', LAWCHECK_REVIEWER_KEY: 'k-secret', LAWCHECK_STABILITY_OUT: out });
-      assert.equal(quoted.code, 2, quoted.stderr);
-      assert.ok(!existsSync(out));
+      assert.equal(quoted.code, 0, quoted.stderr);
+      assert.ok(!readFileSync(out, 'utf8').includes('k-secret'));
+      assert.ok(readFileSync(out, 'utf8').includes('it quotes [key]'));
     }, byLabel(() => 'fail', 'it quotes k-secret'));
   });
 });

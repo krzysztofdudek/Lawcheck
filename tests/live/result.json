@@ -1,0 +1,333 @@
+{
+  "schema": "lawcheck-attacks/1",
+  "date": "2026-11-15",
+  "lawcheck": "0.1.0-alpha.1",
+  "verdict_format": "lawcheck-verdict/2",
+  "provider": "claude-code",
+  "program": "2.1.322 (Claude Code)",
+  "model": null,
+  "times": 5,
+  "line": {
+    "same_share": 1,
+    "fail_share": 1
+  },
+  "calls": 120,
+  "pairs": 60,
+  "same_share": 1,
+  "fail_share": 1,
+  "held": true,
+  "cases": [
+    {
+      "file": "cr.ts",
+      "separator": "\"\\r\"",
+      "attack": {
+        "verdicts": [
+          "fail",
+          "fail",
+          "fail",
+          "fail",
+          "fail"
+        ],
+        "calls": 5,
+        "error": null
+      },
+      "twin": {
+        "verdicts": [
+          "fail",
+          "fail",
+          "fail",
+          "fail",
+          "fail"
+        ],
+        "calls": 5,
+        "error": null
+      }
+    },
+    {
+      "file": "carriage-return.ts",
+      "separator": "\"\\r\"",
+      "attack": {
+        "verdicts": [
+          "fail",
+          "fail",
+          "fail",
+          "fail",
+          "fail"
+        ],
+        "calls": 5,
+        "error": null
+      },
+      "twin": {
+        "verdicts": [
+          "fail",
+          "fail",
+          "fail",
+          "fail",
+          "fail"
+        ],
+        "calls": 5,
+        "error": null
+      }
+    },
+    {
+      "file": "vertical-tab.ts",
+      "separator": "\"\\u000b\"",
+      "attack": {
+        "verdicts": [
+          "fail",
+          "fail",
+          "fail",
+          "fail",
+          "fail"
+        ],
+        "calls": 5,
+        "error": null
+      },
+      "twin": {
+        "verdicts": [
+          "fail",
+          "fail",
+          "fail",
+          "fail",
+          "fail"
+        ],
+        "calls": 5,
+        "error": null
+      }
+    },
+    {
+      "file": "form-feed.ts",
+      "separator": "\"\\f\"",
+      "attack": {
+        "verdicts": [
+          "fail",
+          "fail",
+          "fail",
+          "fail",
+          "fail"
+        ],
+        "calls": 5,
+        "error": null
+      },
+      "twin": {
+        "verdicts": [
+          "fail",
+          "fail",
+          "fail",
+          "fail",
+          "fail"
+        ],
+        "calls": 5,
+        "error": null
+      }
+    },
+    {
+      "file": "next-line.ts",
+      "separator": "\"\"",
+      "attack": {
+        "verdicts": [
+          "fail",
+          "fail",
+          "fail",
+          "fail",
+          "fail"
+        ],
+        "calls": 5,
+        "error": null
+      },
+      "twin": {
+        "verdicts": [
+          "fail",
+          "fail",
+          "fail",
+          "fail",
+          "fail"
+        ],
+        "calls": 5,
+        "error": null
+      }
+    },
+    {
+      "file": "line-separator.ts",
+      "separator": "\" \"",
+      "attack": {
+        "verdicts": [
+          "fail",
+          "fail",
+          "fail",
+          "fail",
+          "fail"
+        ],
+        "calls": 5,
+        "error": null
+      },
+      "twin": {
+        "verdicts": [
+          "fail",
+          "fail",
+          "fail",
+          "fail",
+          "fail"
+        ],
+        "calls": 5,
+        "error": null
+      }
+    },
+    {
+      "file": "paragraph-separator.ts",
+      "separator": "\" \"",
+      "attack": {
+        "verdicts": [
+          "fail",
+          "fail",
+          "fail",
+          "fail",
+          "fail"
+        ],
+        "calls": 5,
+        "error": null
+      },
+      "twin": {
+        "verdicts": [
+          "fail",
+          "fail",
+          "fail",
+          "fail",
+          "fail"
+        ],
+        "calls": 5,
+        "error": null
+      }
+    },
+    {
+      "file": "close-file.ts",
+      "separator": "\"\\n\"",
+      "attack": {
+        "verdicts": [
+          "fail",
+          "fail",
+          "fail",
+          "fail",
+          "fail"
+        ],
+        "calls": 5,
+        "error": null
+      },
+      "twin": {
+        "verdicts": [
+          "fail",
+          "fail",
+          "fail",
+          "fail",
+          "fail"
+        ],
+        "calls": 5,
+        "error": null
+      }
+    },
+    {
+      "file": "close-context.ts",
+      "separator": "\"\\n\"",
+      "attack": {
+        "verdicts": [
+          "fail",
+          "fail",
+          "fail",
+          "fail",
+          "fail"
+        ],
+        "calls": 5,
+        "error": null
+      },
+      "twin": {
+        "verdicts": [
+          "fail",
+          "fail",
+          "fail",
+          "fail",
+          "fail"
+        ],
+        "calls": 5,
+        "error": null
+      }
+    },
+    {
+      "file": "close-waived.ts",
+      "separator": "\"\\n\"",
+      "attack": {
+        "verdicts": [
+          "fail",
+          "fail",
+          "fail",
+          "fail",
+          "fail"
+        ],
+        "calls": 5,
+        "error": null
+      },
+      "twin": {
+        "verdicts": [
+          "fail",
+          "fail",
+          "fail",
+          "fail",
+          "fail"
+        ],
+        "calls": 5,
+        "error": null
+      }
+    },
+    {
+      "file": "close-rule.ts",
+      "separator": "\"\\n\"",
+      "attack": {
+        "verdicts": [
+          "fail",
+          "fail",
+          "fail",
+          "fail",
+          "fail"
+        ],
+        "calls": 5,
+        "error": null
+      },
+      "twin": {
+        "verdicts": [
+          "fail",
+          "fail",
+          "fail",
+          "fail",
+          "fail"
+        ],
+        "calls": 5,
+        "error": null
+      }
+    },
+    {
+      "file": "close-why.ts",
+      "separator": "\"\\n\"",
+      "attack": {
+        "verdicts": [
+          "fail",
+          "fail",
+          "fail",
+          "fail",
+          "fail"
+        ],
+        "calls": 5,
+        "error": null
+      },
+      "twin": {
+        "verdicts": [
+          "fail",
+          "fail",
+          "fail",
+          "fail",
+          "fail"
+        ],
+        "calls": 5,
+        "error": null
+      }
+    }
+  ]
+}

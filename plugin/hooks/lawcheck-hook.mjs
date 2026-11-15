@@ -4,7 +4,10 @@ import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:pat
 import { fit } from './fit.mjs';
 import { snapshot, turnPaths } from './snapshot.mjs';
 import { blank, deleteState, readState, removeOld, stateFile, writeState } from './state.mjs';
-import { cutPoints, Deadline, findRoot, firstLine, killCurrent, runLawcheck, runnerAt } from './start.mjs';
+import { absolutePath, cutPoints, Deadline, findRoot, firstLine, killCurrent, NO_CURRENT_FOLDER, runLawcheck, runnerAt } from './start.mjs';
+
+absolutePath(process.env);
+if (process.platform === 'win32') process.env[NO_CURRENT_FOLDER] = '1';
 
 const DEADLINES = { 'session-start': 25, prompt: 15, edit: 25, stop: 145 };
 const PATH_TOOLS = { Write: 'file_path', Edit: 'file_path', NotebookEdit: 'notebook_path' };

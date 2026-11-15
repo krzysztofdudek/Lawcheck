@@ -1,5 +1,6 @@
 import { join } from 'node:path';
-import { comparePaths } from './files.js';
+import { comparePaths, trackedLinks, workTreeTop } from './files.js';
+import { hide } from './keys.js';
 import type { ReviewerConfig } from './config.js';
 import type { Law } from './law.js';
 import { fixNext, plural, sortFindings, WHY } from './output.js';
@@ -11,7 +12,7 @@ import { readerOf, readUses, siblingsOf, Unreadable } from './readers.js';
 import type { ScriptView } from './readers.js';
 import { call, preflight } from './review.js';
 import type { Ask } from './review.js';
-import { runAll, runRule } from './rules.js';
+import { linksOut, runAll, runnerProblem, runRule } from './rules.js';
 import type { RawFinding } from './rules.js';
 import { filesOfTypes, isBinary } from './types.js';
 import { bytesOf, selectTargets } from './try.js';
@@ -67,6 +68,10 @@ interface Front {
   chosen: string[] | null;
 }
 
+function linkError(link: { path: string; target: string }): ErrorItem {
+  return { code: 'link-outside-root', file: link.path, line: null, message: `the link leads to ${link.target}, outside the git work tree and Lawcheck's folder, and a script rule could read through it` };
+}
+
 async function checkAt(root: string, options: CheckOptions, context: CheckContext, front: Front): Promise<CheckOutcome> {
   const { law, config, files, read, kinds, typed, chosen } = front;
   const named = chosen !== null;
@@ -83,6 +88,10 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
       rule,
       outcome: await runRule({ root, rule, ruleFile: join(root, `${RULES_DIR}${rule}.mjs`), files: bound, filesOf }),
     }));
+  const unsupported = tasks.length === 0 ? null : runnerProblem(root);
+  if (unsupported !== null) return { errors: [{ code: 'path-unsupported', file: null, line: null, message: unsupported }] };
+  const out = tasks.length === 0 ? [] : linksOut(root, workTreeTop(root), trackedLinks(root));
+  if (out.length > 0) return { errors: out.map(linkError) };
   const outcomes = await runAll(tasks);
   const crashes: ErrorItem[] = [];
   const raw: RawFinding[] = [];
@@ -97,7 +106,7 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
 
   const ruleIds = new Set([...law.rules.keys(), 'forbidden-use']);
   const waiversOf = new Map(run.map((file) => [file.path, parseWaivers(file.lines, ruleIds)]));
-  const review = `lawcheck check --review${options.base === null ? '' : ` --base ${options.base}`}`;
+  const review = `lawcheck check --review${options.base === null ? '' : ` --base ${hide(options.base)}`}`;
   const cap = options.maxCalls ?? config.maxCalls;
 
   const verdicts = readVerdicts(root);

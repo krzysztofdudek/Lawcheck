@@ -6,7 +6,7 @@ import type { Runner } from './config.js';
 import type { Arguments, Result } from './args.js';
 import type { CheckContext } from './check.js';
 import type { Law, TypeDef } from './law.js';
-import { plural, renderErrors } from './output.js';
+import { plural, renderErrors, shown } from './output.js';
 import { findRoot, loadLaw, loadRuleFiles, requireGit, stopped } from './setup.js';
 import type { Kinds } from './setup.js';
 import { listInForce } from './uses.js';
@@ -87,10 +87,10 @@ function typeLine(type: TypeDef, depth: number, step: number): string {
   const short = step >= 3 && depth > 0;
   const parts = [type.id];
   if (!short) {
-    parts.push(type.paths.join(', '));
-    if (type.expression !== null) parts.push(`content: ${type.expression}`);
+    parts.push(shown(type.paths.join(', ')));
+    if (type.expression !== null) parts.push(`content: ${shown(type.expression)}`);
   }
-  if (type.about !== null) parts.push(step >= 2 ? cut(type.about) : type.about);
+  if (type.about !== null) parts.push(shown(step >= 2 ? cut(type.about) : type.about));
   if (type.rules.length > 0) parts.push(`rules: ${type.rules.join(', ')}`);
   const mayUse = mayUsePart(type);
   if (mayUse !== null) parts.push(`may use: ${mayUse}`);
@@ -115,7 +115,7 @@ function ruleLine(law: Law, kinds: Kinds, id: string, onTypes: Set<string>, step
 function rootLine(type: TypeDef): string {
   const parts = [type.id, type.paths.join(', ')];
   if (type.expression !== null) parts.push(`content: ${type.expression}`);
-  if (type.about !== null) parts.push(cut(type.about));
+  if (type.about !== null) parts.push(shown(cut(type.about)));
   let subtypes = 0;
   const rules = new Set(type.rules);
   walk(type.types, (sub) => {

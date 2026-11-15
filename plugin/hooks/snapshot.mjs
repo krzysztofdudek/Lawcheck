@@ -1,13 +1,18 @@
 import { spawnSync } from 'node:child_process';
 import { lstatSync } from 'node:fs';
 import { join } from 'node:path';
+import { findProgram } from './start.mjs';
 
 class NoSnapshot extends Error {}
+
+let gitProgram;
 
 function git(root, args, deadline, input) {
   const left = deadline.left();
   if (left === 0) throw new NoSnapshot('the deadline');
-  const result = spawnSync('git', args, {
+  gitProgram ??= findProgram('git', { ...Object.fromEntries(Object.entries(process.env).filter(([name]) => name.toUpperCase() !== 'PATHEXT')), PATHEXT: '.EXE' });
+  if (gitProgram === null) throw new NoSnapshot('git');
+  const result = spawnSync(gitProgram, args, {
     cwd: root,
     env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' },
     input,

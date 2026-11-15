@@ -465,3 +465,13 @@ Choice: not done. It would make a finding of an answer the readers did not resol
 - `what` reads as a nested reading no file declares (`Shop.App.Service+Clock`, `java.util.AbstractSet+Entry`): not changed, since `classifyUse` returns neither the written name nor the deciding candidate, and deriving either in Lawcheck would be its own reading; giving the written name is a request to Runes.
 - The commit subjects of the move have no `<area>: ` prefix: not changed, since rewording would rewrite the branch for no change in content.
 - The suite at the first commit of the move alone was not run by the review: it was run before that commit was made, 349 of 349.
+
+## 110. A key that the endpoint echoes
+
+Finding S3-2 asks that a key an endpoint echoes in its error message appear in no output. Section 6 prints the first line of the endpoint's `error.message` as it came, and the design's providers chapter keeps a provider's error text as it came, with no redaction.
+
+The question: whether Lawcheck replaces its own key in what it prints, which S3-2 asks for.
+
+The owner's ruling of 2026-11-15, `klucz-zastapiony`: option A. The label is the one of the choice put to him, not his wording. Lawcheck replaces the one exact key it sent with `[key]` wherever it prints or writes it, and masks nothing else.
+
+The build's reading of the ruling, not the owner's. `claude-code` sends no key of its own and hands the program every variable, so the keys it hands on are the values of `LAWCHECK_REVIEWER_KEY` and `ANTHROPIC_API_KEY`, and those are replaced in what the program prints. "The exact key" is read as the key in any spelling JSON allows, each character as itself, as a `\u` escape or as its short escape, since an answer is JSON and a model or a proxy may write it so. The replacement is made after the answer is read, before any cut to a length, and in the strings of a JSON document but not in the names of its keys. "Wherever it prints or writes it" is read as the text that comes from outside Lawcheck, in all output and the failure cache: a rule's message, a file name, an argument, a config value; never Lawcheck's own words, codes, schema names, ids, line numbers or JSON key names, which a short key would otherwise garble. The keys are the values of `LAWCHECK_REVIEWER_KEY` and `ANTHROPIC_API_KEY`, whichever provider is in force. A key shorter than 8 characters is not replaced: a dummy key for a local endpoint is no secret, and replacing it would garble paths and messages that hold it. A prefix of the key, the key in another case, a percent-encoded copy and any other key-shaped value are printed as they came. `reviewer-slice.md`, section 6, says so, and the tests of invariant `I-secret-1` check both sides.

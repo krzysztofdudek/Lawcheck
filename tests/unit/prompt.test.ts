@@ -32,7 +32,7 @@ test('the prompt for F is section 4 exactly, and holds 2,127 characters', () => 
 
 test('numbered lines, the empty file, CRLF, a path that needs quoting and waived lines', () => {
   assert.deepEqual(numbered(''), []);
-  assert.deepEqual(numbered('a\r\n\r\nb\rc\n'), ['1| a', '2|', '3| b\rc']);
+  assert.deepEqual(numbered('a\r\n\r\nb\rc\n'), ['1| a', '2|', '3| b\\rc']);
   const prompt = buildPrompt({ why: 'w', ruleText: '\r\n  rule\r\ntext \n\n', context: [], filePath: 'a "b".ts', fileText: '', waived: [2, 7] });
   assert.ok(prompt.endsWith('<rule>\nrule\ntext\n</rule>\n\n<file path="a \\"b\\".ts">\n</file>\n\n<waived>\n2, 7\n</waived>'), prompt);
   assert.ok(promptOfF(F, []).endsWith('<waived>\nnone\n</waived>'));

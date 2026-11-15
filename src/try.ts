@@ -3,16 +3,16 @@ import { join, resolve } from 'node:path';
 import { documentOf, errorResult, number, usageError } from './args.js';
 import type { Arguments, Result } from './args.js';
 import type { CheckContext } from './check.js';
-import { comparePaths } from './files.js';
+import { comparePaths, trackedLinks, workTreeTop } from './files.js';
 import { compileList, patternProblem } from './glob.js';
-import { CODES, placeOf, plural } from './output.js';
+import { CODES, plural, shown } from './output.js';
 import type { ErrorItem } from './output.js';
 import { ruleKind } from './prime.js';
 import { buildPrompt, cleanMessage, size } from './prompt.js';
 import { createProvider } from './providers/index.js';
 import { call, NO_RECORD, preflight, remaining } from './review.js';
 import type { Ask } from './review.js';
-import { runRule } from './rules.js';
+import { linksOut, runnerProblem, runRule } from './rules.js';
 import type { RuleFile } from './rules.js';
 import { fromCwd, loadConfig, loadLaw, loadRuleFiles, locate, nearPart, repoPath, requireGit, RULES_DIR, stopped, Stop, typeAll, usage } from './setup.js';
 import type { Read } from './setup.js';
@@ -169,6 +169,12 @@ export async function tryRule(args: Arguments, context: CheckContext, json: bool
     const result: Outcome = { rule: id, kind, status: rule.status, why: rule.why, files: chosen, times: times ?? 1, dryRun, runs: [], calls: 0, maxChars: config.maxChars };
 
     if (kind === 'script') {
+      const unsupported = runnerProblem(root);
+      if (unsupported !== null) throw new Stop([{ code: 'path-unsupported', file: null, line: null, message: unsupported }]);
+      const out = linksOut(root, workTreeTop(root), trackedLinks(root));
+      if (out.length > 0) {
+        throw new Stop(out.map((link) => ({ code: 'link-outside-root', file: link.path, line: null, message: `the link leads to ${link.target}, outside the git work tree and Lawcheck's folder, and a script rule could read through it` })));
+      }
       const ran = await runRule({ root, rule: id, ruleFile: join(root, `${RULES_DIR}${id}.mjs`), files: ruleFiles, filesOf: filesOfTypes(typed, law) });
       if ('crash' in ran) throw new Stop([{ code: 'rule-crashed', file: `${RULES_DIR}${id}.mjs`, line: null, message: ran.crash }]);
       for (const file of ruleFiles) {
@@ -297,8 +303,8 @@ export function tryText(outcome: Outcome): string {
       const chars = run.prompt_chars!;
       lines.push(
         chars > outcome.maxChars
-          ? `${run.file}  too large: a prompt of ${chars} characters; reviewer.max_chars is ${outcome.maxChars}`
-          : `${run.file}  ${plural(outcome.times, 'call')}, a prompt of ${chars} characters`,
+          ? `${shown(run.file)}  too large: a prompt of ${chars} characters; reviewer.max_chars is ${outcome.maxChars}`
+          : `${shown(run.file)}  ${plural(outcome.times, 'call')}, a prompt of ${chars} characters`,
       );
     }
     return lines.join('\n') + '\n';
@@ -312,7 +318,7 @@ export function tryText(outcome: Outcome): string {
       return;
     }
     printed++;
-    lines.push(`${placeOf(run.file, found.line)}  ${found.severity}[${outcome.rule}]  ${found.message}`);
+    lines.push(`${shown(run.file)}${found.line === null || found.line === undefined ? '' : `:${found.line}`}  ${found.severity}[${outcome.rule}]  ${shown(found.message)}`);
     if (!why) {
       why = true;
       lines.push(`  why:  ${outcome.why}`);
@@ -321,7 +327,7 @@ export function tryText(outcome: Outcome): string {
   if (outcome.times > 1) {
     lines.push('');
     for (const run of outcome.runs) {
-      if (!cutOff) lines.push(`${run.file}  answer ${run.attempt} of ${outcome.times}: ${run.verdict}`);
+      if (!cutOff) lines.push(`${shown(run.file)}  answer ${run.attempt} of ${outcome.times}: ${run.verdict}`);
       for (const found of run.findings) print(run, found);
     }
   } else if (findings > 0) {

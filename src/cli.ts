@@ -4,13 +4,15 @@ import { pathToFileURL } from 'node:url';
 import { check } from './check.js';
 import type { CheckContext, CheckOptions, CheckOutcome } from './check.js';
 import { firstLine } from './law.js';
-import { renderErrors, renderReport } from './output.js';
+import { renderErrors, renderReport, safeJson, safeText } from './output.js';
+import { hide, useKeys } from './keys.js';
 import { COMMANDS, number, PROGRAM_USAGE, readArguments, text, usageError, USAGE, version } from './args.js';
 import type { Arguments, CommandName, Result } from './args.js';
 
 export { version };
 export type { Result };
 import { init } from './init.js';
+import { absolutePath, NO_CURRENT_FOLDER } from './programs.js';
 import { prime } from './prime.js';
 import { explain } from './explain.js';
 import { tryRule } from './try.js';
@@ -48,6 +50,29 @@ export type Handler = (args: Arguments, context: CheckContext, json: boolean) =>
 const HANDLERS: Record<Exclude<CommandName, 'check'>, Handler> = { init, prime, explain, try: tryRule, docs, doctor };
 
 export async function main(argv: string[], context: CheckContext, command: Command = check): Promise<Result> {
+  useKeys(context.env);
+  const result = await run(argv, context, command);
+  return { ...result, stdout: argv.includes('--json') ? safeJson(hiddenJson(result.stdout)) : safeText(result.stdout) };
+}
+
+// The fields of a document that hold text from outside Lawcheck; its own fields, such as schema, code, the ids and the counts, stay as they are.
+const OUTSIDE_FIELDS = new Set(['file', 'files', 'message', 'base', 'path', 'paths', 'reason', 'what', 'candidates', 'answer', 'text', 'about', 'pattern', 'content', 'why', 'model']);
+
+// The key written as [key] in the strings of the outside fields; the layout is the one every document has.
+function hiddenJson(text: string): string {
+  let document: unknown;
+  try {
+    document = JSON.parse(text);
+  } catch {
+    return text;
+  }
+  const masked = (value: unknown): unknown => (typeof value === 'string' ? hide(value) : Array.isArray(value) ? value.map(masked) : value);
+  const walk = (value: unknown): unknown =>
+    Array.isArray(value) ? value.map(walk) : value !== null && typeof value === 'object' ? Object.fromEntries(Object.entries(value).map(([name, item]) => [name, OUTSIDE_FIELDS.has(name) ? masked(item) : walk(item)])) : value;
+  return JSON.stringify(walk(document), null, 2) + '\n';
+}
+
+async function run(argv: string[], context: CheckContext, command: Command): Promise<Result> {
   const json = argv.includes('--json');
   const named = (COMMANDS as readonly string[]).includes(argv[0] ?? '') ? argv[0]! : null;
   try {
@@ -82,13 +107,16 @@ function isEntry(): boolean {
 }
 
 if (isEntry()) {
+  absolutePath(process.env);
+  if (process.platform === 'win32') process.env[NO_CURRENT_FOLDER] = '1';
   const json = process.argv.slice(2).includes('--json');
   const crash = (error: unknown) => {
-    process.stdout.write(renderErrors([internal(error)], json), () => process.exit(2));
+    const text = renderErrors([internal(error)], json);
+    process.stdout.write(json ? safeJson(hiddenJson(text)) : safeText(text), () => process.exit(2));
   };
   process.on('uncaughtException', crash);
   process.on('unhandledRejection', crash);
   for (const signal of ['SIGTERM', 'SIGINT', 'SIGHUP'] as const) process.on(signal, () => crash(new Error(`stopped by ${signal}`)));
-  const warn = (line: string) => process.stderr.write(line + '\n');
+  const warn = (line: string) => process.stderr.write(safeText(line) + '\n');
   main(process.argv.slice(2), { cwd: process.cwd(), env: process.env, warn }).then(finish, crash);
 }

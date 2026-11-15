@@ -2,10 +2,13 @@ import { fork, spawn } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
 import { availableParallelism } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { dirname } from 'node:path';
+import { dirname, sep } from 'node:path';
 import { realpathSync, rmSync } from 'node:fs';
 import type { TypeDef } from './law.js';
 import { killTree } from './programs.js';
+import { safeText } from './output.js';
+import { hide } from './keys.js';
+import type { Readable } from 'node:stream';
 
 export interface RuleFile {
   path: string;
@@ -79,6 +82,58 @@ process.on('exit', () => {
   for (const path of liveFolders) rmSync(path, { recursive: true, force: true, maxRetries: 10 });
 });
 
+// Node's permission model reads a * in --allow-fs-read as a wildcard over everything after it, and refuses to import a module whose file URL holds an encoded backslash.
+export function runnerProblem(root: string): string | null {
+  for (const [what, path] of [['the root', root], ["Lawcheck's folder", PACKAGE_DIR]] as const) {
+    if (path.includes('*')) return `${what} ${path} holds a *, which the runner of script rules reads as a wildcard, so a rule could read the folders beside it`;
+    if (sep === '/' && path.includes('\\')) return `${what} ${path} holds a backslash, and the runner of script rules cannot load a rule from such a path`;
+  }
+  return null;
+}
+
+// Node's permission model follows a link, so a tracked link that leads out of the work tree would let a rule read where it leads.
+export function linksOut(root: string, top: string, links: { name: string; bytes: Buffer }[]): { path: string; target: string }[] {
+  const inside = (path: string, folder: string) => path === folder || path.startsWith(folder.endsWith(sep) ? folder : folder + sep);
+  const native = (path: string) => {
+    try {
+      return realpathSync.native(path);
+    } catch {
+      return path;
+    }
+  };
+  const tree = native(top);
+  const own = native(PACKAGE_DIR);
+  const out: { path: string; target: string }[] = [];
+  for (const link of links) {
+    let target: string;
+    try {
+      // The native call takes the name as bytes; the other one decodes it first and loses a name that is not UTF-8.
+      target = realpathSync.native(Buffer.concat([Buffer.from(root + sep), link.bytes]));
+    } catch {
+      continue;
+    }
+    if (!inside(target, tree) && !inside(target, own)) out.push({ path: link.name, target });
+  }
+  return out;
+}
+
+// What a rule prints goes to the tool's standard error a line at a time, through the escapes of every text output.
+function relay(stream: Readable | null): void {
+  if (stream === null) return;
+  let pending = '';
+  stream.setEncoding('utf8');
+  stream.on('data', (chunk: string) => {
+    pending += chunk;
+    const end = pending.lastIndexOf('\n');
+    if (end < 0) return;
+    process.stderr.write(safeText(hide(pending.slice(0, end))) + '\n');
+    pending = pending.slice(end + 1);
+  });
+  stream.on('end', () => {
+    if (pending !== '') process.stderr.write(safeText(hide(pending)) + '\n');
+  });
+}
+
 export interface RawFinding {
   rule: string;
   file: string;
@@ -133,8 +188,10 @@ export function runRule(run: RuleRun): Promise<RuleOutcome> {
       env: {},
       cwd: run.root,
       serialization: 'advanced',
-      stdio: ['ignore', 2, 2, 'ipc'],
+      stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
     });
+    relay(child.stdout);
+    relay(child.stderr);
     watch(child);
     let settled = false;
     let timer: NodeJS.Timeout | undefined;

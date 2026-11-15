@@ -1,3 +1,4 @@
+import { hide } from './keys.js';
 export type Severity = 'error' | 'warning';
 
 export interface ErrorItem {
@@ -78,6 +79,8 @@ export const WHY: Record<string, string> = {
   'type-overlap': 'a file has one type, so the rules that bind it are never in doubt',
   'base-unreachable': 'without its base a change cannot be told from debt',
   'rule-crashed': 'a broken rule says nothing about the code',
+  'link-outside-root': 'a script rule reads nothing outside the work tree, and a link that leads out of it would let it',
+  'path-unsupported': 'a script rule reads nothing outside the root and Lawcheck\'s folder, and the runner can keep that only on such a path',
   internal: 'a fault of Lawcheck says nothing about the code',
   'not-reviewed': 'a reviewer rule says nothing about content it has not judged',
   'too-large-to-review': 'the reviewer is never sent more than reviewer.max_chars characters',
@@ -100,7 +103,8 @@ export function forCommand(text: string, command: string): string {
   return at < 0 ? text : `${text.slice(0, at)}then run lawcheck ${command} again`;
 }
 
-function nextFor(error: ErrorItem, command: string | null): string {
+function nextFor(raw: ErrorItem, command: string | null): string {
+  const error = raw.file === null ? raw : { ...raw, file: hide(raw.file) };
   if (error.next !== undefined) return forCommand(error.next, command ?? 'check');
   if (error.code === 'usage') {
     return command === null ? 'run lawcheck as its usage line says: lawcheck --help' : `run lawcheck ${command} as its usage line says: lawcheck ${command} --help`;
@@ -129,12 +133,67 @@ function fixedNext(error: ErrorItem, command: string): string {
       return 'pass --base with a branch or a commit that exists here';
     case 'rule-crashed':
       return `fix ${error.file}, then run lawcheck check`;
+    case 'link-outside-root':
+      return `remove the link ${error.file}, or let it lead inside the work tree, then run lawcheck check`;
+    case 'path-unsupported':
+      return 'move the repository, or Lawcheck itself, to a path with no * or backslash, then run lawcheck check; Lawcheck grants a rule read access to its own folder for the readers it ships, so that path must be as plain as the root';
     case 'reviewer-unreachable':
+      if (/\bHTTP 40[13]\b/.test(error.message)) {
+        return 'check the reviewer key in the environment, then run the same command again; what was answered is kept, so it asks only the rest';
+      }
+      return 'run the same command again; what was answered is kept, so it asks only the rest';
     case 'reviewer-bad-answer':
       return 'run the same command again; what was answered is kept, so it asks only the rest';
     default:
       return `run lawcheck ${command} again, and report the error if it stays`;
   }
+}
+
+// spec/check-slice.md, section 6: no text output holds these, and no JSON document holds them raw. Format characters (Unicode category Cf) all count but the joiners U+200C and U+200D, which scripts and emoji sequences need.
+const FORBIDDEN = /[\x00-\x09\x0b-\x1f\x7f-\x9f\u2028\u2029]|(?![\u200c\u200d])\p{Cf}/gu;
+const RAW_IN_JSON = /[\x7f-\x9f\u2028\u2029]|(?![\u200c\u200d])\p{Cf}/gu;
+// A line that starts like a command of GitHub Actions or Azure Pipelines; GitHub reads a command after leading white space, and Azure reads ##vso[ anywhere in a line.
+const FORGED = /^(\s*)(::|##\[)/;
+const AZURE = /##vso\[/g;
+const NAMED: Record<string, string> = { '\n': '\\n', '\r': '\\r', '\t': '\\t' };
+
+function units(c: string): string {
+  return [...Array(c.length).keys()].map((i) => `\\u${c.charCodeAt(i).toString(16).padStart(4, '0')}`).join('');
+}
+
+function escaped(c: string): string {
+  const code = c.charCodeAt(0);
+  return NAMED[c] ?? (code < 0x80 ? `\\x${code.toString(16).padStart(2, '0')}` : units(c));
+}
+
+// Text that comes from outside Lawcheck: the key written as [key], then the escapes, so it stays on its line.
+export function shown(text: string): string {
+  return hide(text).replace(/\n/g, escaped).replace(FORBIDDEN, escaped);
+}
+
+// A line Lawcheck composed around outside parts that were already shown: the escapes alone.
+export function plain(text: string): string {
+  return text.replace(/\n/g, escaped).replace(FORBIDDEN, escaped);
+}
+
+function shownPlace(file: string, line: number | null | undefined): string {
+  return line === null || line === undefined ? shown(file) : `${shown(file)}:${line}`;
+}
+
+export function safeText(output: string): string {
+  return output
+    .split('\n')
+    .map((line) =>
+      line
+        .replace(FORBIDDEN, escaped)
+        .replace(AZURE, '\\x23#vso[')
+        .replace(FORGED, (_, space: string, start: string) => space + escaped(start[0]!) + start.slice(1)),
+    )
+    .join('\n');
+}
+
+export function safeJson(output: string): string {
+  return output.replace(RAW_IN_JSON, units);
 }
 
 export function plural(count: number, word: string): string {
@@ -172,7 +231,7 @@ export function errorLines(errors: ErrorItem[], limit = Infinity): string[] {
     if (printed === limit) break;
     printed++;
     const place = placeOf(error.file, error.line);
-    lines.push(`${place === null ? '' : place + '  '}error[${error.code}]  ${error.message}`);
+    lines.push(`${place === null ? '' : shownPlace(error.file!, error.line) + '  '}error[${error.code}]  ${shown(error.message)}`);
     if (!seen.has(error.code)) {
       seen.add(error.code);
       lines.push(`  why:  ${WHY[error.code] ?? ''}`);
@@ -194,7 +253,7 @@ export function renderErrors(input: ErrorItem[], json: boolean, command: string 
     return JSON.stringify(document, null, 2) + '\n';
   }
   const lines = [`lawcheck: ERROR  ${plural(errors.length, 'error')}`, '', ...errorLines(errors, limit)];
-  lines.push('', `next: ${next}`);
+  lines.push('', `next: ${plain(next)}`);
   return lines.join('\n') + '\n';
 }
 
@@ -211,7 +270,7 @@ export function firstError(report: Report): Finding | undefined {
 }
 
 export function fixNext(finding: Finding): string {
-  return `fix ${placeOf(finding.file, finding.line)}`;
+  return `fix ${placeOf(hide(finding.file), finding.line)}`;
 }
 
 export function renderReport(report: Report, json: boolean): string {
@@ -263,7 +322,7 @@ export function renderReport(report: Report, json: boolean): string {
   const verdict = failing ? 'FAIL' : 'PASS';
   const lines: string[] = [];
   if (report.mode !== 'paths' && report.base !== null && report.changed === 0) {
-    lines.push(`lawcheck: ${verdict}  nothing changed against ${report.base}${calls}`);
+    lines.push(`lawcheck: ${verdict}  nothing changed against ${shown(report.base)}${calls}`);
   } else {
     const counts = [errors > 0 ? plural(errors, 'error') : '', warnings > 0 ? plural(warnings, 'warning') : '']
       .filter(Boolean)
@@ -273,7 +332,7 @@ export function renderReport(report: Report, json: boolean): string {
         ? plural(report.changed, 'named file')
         : report.base === null
         ? `${plural(report.changed, 'file')} (no base: every file counts as changed)`
-        : `${plural(report.changed, 'changed file')} (against ${report.base})`;
+        : `${plural(report.changed, 'changed file')} (against ${shown(report.base)})`;
     lines.push(`lawcheck: ${verdict}  ${counts === '' ? '' : counts + ' in '}${scope}${waiverPart(changeWaivers)}${unresolvedPart(changeUnresolved)}${calls}`);
   }
   if (report.note) lines.push(report.note);
@@ -284,7 +343,7 @@ export function renderReport(report: Report, json: boolean): string {
   const seen = new Set<string>();
   let printed = 0;
   const print = (finding: Finding) => {
-    lines.push(`${placeOf(finding.file, finding.line)}  ${finding.severity}[${finding.code}]  ${finding.message}`);
+    lines.push(`${shownPlace(finding.file, finding.line)}  ${finding.severity}[${finding.code}]  ${shown(finding.message)}`);
     printed++;
     if (!seen.has(finding.code)) {
       seen.add(finding.code);
@@ -305,6 +364,6 @@ export function renderReport(report: Report, json: boolean): string {
     for (const finding of report.debt) if (printed < limit) print(finding);
     if (report.findings.length <= limit && total > limit) lines.push(more);
   }
-  if (next !== null) lines.push('', `next: ${next}`);
+  if (next !== null) lines.push('', `next: ${plain(next)}`);
   return lines.join('\n') + '\n';
 }

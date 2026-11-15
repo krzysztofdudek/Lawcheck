@@ -209,13 +209,17 @@ test('section 4: every git command runs with GIT_OPTIONAL_LOCKS=0, in the order 
     assert.ok(lines.every((line) => line.startsWith('0 ')), lines.join('\n'));
     const commands = lines.map((line) => line.slice(2).replace(/[0-9a-f]{40}/g, '<sha>'));
     assert.deepEqual(commands, [
+      'config -z --name-only --get-regexp ^filter\\.',
       'rev-parse --is-inside-work-tree',
       'ls-files -z --cached --others --exclude-standard',
       'rev-parse --verify --quiet HEAD^{commit}',
       'rev-parse --verify --quiet --end-of-options main^{commit}',
       'merge-base HEAD <sha>',
-      'diff -z --name-only --no-renames --relative <sha> --',
+      'rev-parse --git-path index',
+      'diff --no-ext-diff --no-textconv --ignore-submodules=all -z --name-only --no-renames --relative <sha> --',
       'ls-files -z --others --exclude-standard',
+      'rev-parse --show-toplevel',
+      'ls-files -z --stage --recurse-submodules',
     ]);
   });
 });

@@ -52,7 +52,7 @@ The runner stops these, and the rule is `rule-crashed` when the refusal reaches 
 The runner is no sandbox. A rule can still:
 
 - read every file under the root, `.git/` and ignored files such as `.env` included;
-- read any file the user can, through a symbolic link under the root;
+- read any file the user can, through a symbolic link under the root that git does not track, or a tracked one that leads elsewhere in the git work tree. A tracked link that leads outside the work tree stops the run with `link-outside-root` before any rule starts;
 - open network connections;
 - write a file through `node:sqlite`;
 - signal the user's processes;

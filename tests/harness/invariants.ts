@@ -21,7 +21,6 @@ export const KNOWN_LIMITS: string[] = [
   'Node on Windows cannot read the environment of another process, and a list of processes with their parents comes only from PowerShell, which takes seconds a call on a busy machine, so there the harness does not look for a process left alive; PLATFORM_SKIPS names it.',
   'On Windows LOCALAPPDATA stays the machine\'s, since Windows programs keep their caches there (the guard\'s PowerShell among them); a write under it is not seen. In the home, Windows makes the folders of a profile for a program that asks for one, so there an empty folder does not count, only a file.',
   'The harness walks no node_modules folder, in the repository or beside it, since a node_modules there is a link to the checkout\'s; a write inside one is not seen.',
-  'Raw characters inside the strings of a --json document, and the bidirectional marks U+200E, U+200F and U+061C, are left to the security tests.',
 ];
 
 export class Broken extends Error {
@@ -33,8 +32,12 @@ export class Broken extends Error {
   }
 }
 
-const FORBIDDEN = new RegExp('[\\u0000-\\u0009\\u000b-\\u001f\\u007f-\\u009f\\u2028\\u2029\\u202a-\\u202e\\u2066-\\u2069]', 'u');
-const FORGED = /^(::|##\[|##vso\[)/;
+// spec/check-slice.md, section 6, invariant I-out-1: the control characters but the line feed, the two separators, and every format character (category Cf) but the joiners U+200C and U+200D.
+const FORBIDDEN = /[\u0000-\u0009\u000b-\u001f\u007f-\u009f\u2028\u2029]|(?![\u200c\u200d])\p{Cf}/u;
+// What a JSON document may hold only as a \u escape: the same set less the control characters, which JSON.stringify already escapes.
+const RAW_IN_JSON = /[\u007f-\u009f\u2028\u2029]|(?![\u200c\u200d])\p{Cf}/gu;
+// GitHub reads a command after leading white space, and Azure reads ##vso[ anywhere in a line.
+const FORGED = /^\s*(::|##\[)|##vso\[/u;
 
 const shown = (text: string) => JSON.stringify(text.length > 120 ? text.slice(0, 120) + '...' : text);
 
@@ -47,7 +50,7 @@ export function outputProblem(text: string): string | null {
       const code = bad[0].codePointAt(0)!.toString(16).toUpperCase().padStart(4, '0');
       return `line ${i + 1} holds U+${code}: ${shown(line)}`;
     }
-    if (FORGED.test(line)) return `line ${i + 1} starts like a CI command: ${shown(line)}`;
+    if (FORGED.test(line)) return `line ${i + 1} reads as a CI command: ${shown(line)}`;
   }
   return null;
 }
@@ -156,6 +159,9 @@ export function jsonProblem(stdout: string, code: number | null): { problem: str
   if (counts) return { problem: `${schema}: ${counts}`, document };
   const exits = EXIT[schema]?.(document) ?? [];
   if (!exits.includes(code ?? -1)) return { problem: `${schema} with exit ${code}; the document means exit ${exits.join(' or ')}`, document };
-  if (stdout !== JSON.stringify(document, null, 2) + '\n') return { problem: 'standard output is not exactly JSON.stringify(document, null, 2) and a line end, as docs/json.md and spec/check-slice.md, section 6, say', document };
+  const units = (c: string) => [...Array(c.length).keys()].map((i) => `\\u${c.charCodeAt(i).toString(16).padStart(4, '0')}`).join('');
+  if (stdout !== JSON.stringify(document, null, 2).replace(RAW_IN_JSON, units) + '\n') {
+    return { problem: 'standard output is not exactly JSON.stringify(document, null, 2) with the characters of I-out-1 as \\u escapes, and a line end, as docs/json.md and spec/check-slice.md, section 6, say', document };
+  }
   return { problem: null, document };
 }

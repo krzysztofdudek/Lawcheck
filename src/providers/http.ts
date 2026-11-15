@@ -1,4 +1,5 @@
 import type { Resend } from './index.js';
+import { hide } from '../keys.js';
 
 export type Posted = { body: unknown } | { failure: string; resend: Resend };
 
@@ -10,7 +11,7 @@ function errorMessage(text: string): string | null {
   try {
     const body = JSON.parse(text) as { error?: { message?: unknown } };
     const message = body?.error?.message;
-    return typeof message === 'string' && message.trim() !== '' ? firstLine(message, 200) : null;
+    return typeof message === 'string' && message.trim() !== '' ? firstLine(hide(message), 200) : null;
   } catch {
     return null;
   }

@@ -1,7 +1,7 @@
 import { spawn, spawnSync } from 'node:child_process';
 import type { ChildProcess, SpawnOptions } from 'node:child_process';
 import { accessSync, constants, statSync } from 'node:fs';
-import { join, normalize } from 'node:path';
+import { join, normalize, posix, win32 } from 'node:path';
 
 export type Env = Record<string, string | undefined>;
 
@@ -13,14 +13,22 @@ export function variableOf(env: Env, name: string, platform: NodeJS.Platform = p
   return key === undefined ? undefined : env[key];
 }
 
+// An absolute PATH entry, with the surrounding double quotes cmd.exe allows removed; a relative or empty entry is not one.
+export function absoluteEntry(dir: string, windows: boolean): string | null {
+  const bare = windows && dir.length >= 2 && dir.startsWith('"') && dir.endsWith('"') ? dir.slice(1, -1) : dir;
+  return bare !== '' && (windows ? win32 : posix).isAbsolute(bare) ? bare : null;
+}
+
 export function findProgram(name: string, env: Env, platform: NodeJS.Platform = process.platform): string | null {
   const windows = platform === 'win32';
   // On Windows a package manager installs a program as name.cmd beside a POSIX script called name, which Windows cannot start.
   const endings = windows ? (variableOf(env, 'PATHEXT', platform) ?? '.COM;.EXE;.BAT;.CMD').split(';').filter((ending) => ending !== '') : [''];
   for (const dir of (variableOf(env, 'PATH', platform) ?? '').split(windows ? ';' : ':')) {
-    if (dir === '') continue;
+    // A relative or empty entry names the folder the program starts in, which is the repository.
+    const base = absoluteEntry(dir, windows);
+    if (base === null) continue;
     for (const ending of endings) {
-      const candidate = join(dir, name + ending.toLowerCase());
+      const candidate = join(base, name + ending.toLowerCase());
       try {
         if (!statSync(candidate).isFile()) continue;
         accessSync(candidate, constants.X_OK);
@@ -48,10 +56,23 @@ function systemProgram(name: string): string {
   return join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', name);
 }
 
+// Every program Lawcheck starts inherits PATH without its relative and empty entries, which name the folder the program starts in: the repository.
+export function absolutePath(env: Env, platform: NodeJS.Platform = process.platform): void {
+  const windows = platform === 'win32';
+  const separator = windows ? ';' : ':';
+  for (const name of Object.keys(env)) {
+    if (name !== 'PATH' && !(windows && name.toUpperCase() === 'PATH')) continue;
+    env[name] = (env[name] ?? '').split(separator).filter((dir) => absoluteEntry(dir, windows) !== null).join(separator);
+  }
+}
+
+// cmd.exe looks for a program in its current folder before PATH unless this variable is set (Microsoft's NeedCurrentDirectoryForExePathW).
+export const NO_CURRENT_FOLDER = 'NoDefaultCurrentDirectoryInExePath';
+
 export function startProgram(program: string, args: string[], options: SpawnOptions): ChildProcess {
   if (process.platform !== 'win32') return spawn(program, args, options);
   // A detached process on Windows has no console, and the programs it starts get a console of their own instead of its pipes; killTree ends the tree without a group.
-  const windows = { ...options, detached: false, windowsHide: true };
+  const windows = { ...options, env: { ...(options.env ?? process.env), [NO_CURRENT_FOLDER]: '1' }, detached: false, windowsHide: true };
   if (!/\.(cmd|bat)$/i.test(program)) return spawn(program, args, windows);
   const shell = variableOf(options.env ?? process.env, 'COMSPEC') ?? systemProgram('cmd.exe');
   return spawn(shell, ['/d', '/s', '/c', cmdLine(program, args)], { ...windows, windowsVerbatimArguments: true });

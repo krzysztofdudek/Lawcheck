@@ -93,6 +93,8 @@ How this repository starts Lawcheck. `prime` and the agent plugin start Lawcheck
 
 The default is `global`.
 
+A runner other than `global` starts a program the repository chooses. The package manager reads the repository's own files: yarn runs the file that `yarnPath` in `.yarnrc.yml` names, or `yarn-path` in the `.yarnrc` of Yarn 1, and `npx`, `pnpm exec` and `bun x` run the repository's `node_modules/.bin/lawcheck`, which can be any program. `global` runs the `lawcheck` on your `PATH`. Lawcheck itself never takes a program from the repository: it leaves relative and empty entries out of `PATH`, and on Windows it keeps `cmd.exe` from looking in the current folder first. The plugin starts the runner in every session, and the script rules are the repository's code as well, so use the plugin only in a repository whose tests you would run.
+
 ```yaml
 runner: pnpm  # pinned in package.json
 ```
@@ -100,6 +102,8 @@ runner: pnpm  # pinned in package.json
 The plugin reads the key without a YAML parser, so the key has one written form. The runner line is the first line that starts with `runner:` in its first column. Its value is the rest of the line after `runner:`, without a comment that follows a space or a tab, trimmed of spaces and tabs. Without a runner line the runner is `global`. A value outside the five is `config-invalid`, and so is a value this rule reads differently from YAML, such as `runner: "pnpm"`, or a key in flow style: write `runner: pnpm` on one line of its own at the top level.
 
 `.lawcheck/config.local.yaml` does not take `runner`; it is not read.
+
+`.lawcheck/config.yaml` and `.lawcheck/law.yaml` are read through a symbolic link. When a file read that way is not valid, the error says what is wrong and shows none of the file, since a link can lead to a file outside the repository, such as a token.
 
 ## Limits that keep a run bounded
 

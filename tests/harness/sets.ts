@@ -20,7 +20,7 @@ export const NIGHTLY_GROUPS: Record<string, string[]> = {
 
 // The groups that have no test file yet, by set; a group not named here that finds none fails, and a contract test fails when one named here holds tests.
 export const EMPTY_GROUPS: Record<'commit' | 'nightly', string[]> = {
-  commit: ['inputs', 'environments'],
+  commit: ['environments'],
   nightly: ['properties', 'security', 'limits', 'environments'],
 };
 

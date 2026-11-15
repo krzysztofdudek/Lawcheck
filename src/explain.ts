@@ -7,7 +7,7 @@ import type { ReviewerConfig } from './config.js';
 import { ignoresPath } from './files.js';
 import { compilePattern } from './glob.js';
 import type { Law, TypeDef } from './law.js';
-import { plural } from './output.js';
+import { plural, shown } from './output.js';
 import { mayUsePart, ruleKind, walk } from './prime.js';
 import { buildPrompt, FRAME, size } from './prompt.js';
 import { readerOf, siblingsOf } from './readers.js';
@@ -256,15 +256,15 @@ function ruleLines(rules: RuleItem[]): string[] {
 }
 
 export function fileText(answer: FileAnswer): string {
-  const lines = [answer.exists ? answer.path : `${answer.path}  (does not exist yet)`];
+  const lines = [answer.exists ? shown(answer.path) : `${shown(answer.path)}  (does not exist yet)`];
   const type = answer.type;
   if (type === null) {
     lines.push(answer.none !== null ? `  type:  none: ${answer.none}` : `  type:  depends on its text: ${answer.then}`);
     return lines.join('\n') + '\n';
   }
-  lines.push(`  type:  ${type.id}  (${answer.chain.map((t) => t.id).join(' > ')})${type.about === null ? '' : `  ${type.about}`}`);
-  const matched = answer.matched.map((m) => `${m.type} by "${m.pattern}"${m.content === null ? '' : ` and content "${m.content}"`}`);
-  const not = answer.notMatched.map((n) => `not ${n.type}: content "${n.content}" does not match`);
+  lines.push(`  type:  ${type.id}  (${answer.chain.map((t) => t.id).join(' > ')})${type.about === null ? '' : `  ${shown(type.about)}`}`);
+  const matched = answer.matched.map((m) => `${m.type} by "${shown(m.pattern)}"${m.content === null ? '' : ` and content "${shown(m.content)}"`}`);
+  const not = answer.notMatched.map((n) => `not ${n.type}: content "${shown(n.content)}" does not match`);
   lines.push(`  matched:  ${[...matched, ...not].join(', ')}`);
   if (answer.then !== null) lines.push(`  then:  ${answer.then}`);
   lines.push(mayUseLine(type));
@@ -272,7 +272,7 @@ export function fileText(answer: FileAnswer): string {
   lines.push(...ruleLines(answer.rules));
   if (answer.exists) {
     if (answer.waivers.length === 0) lines.push('  waivers:  none');
-    else lines.push('  waivers:', ...answer.waivers.map((w) => `    ${answer.path}:${w.line}  ${w.rule}  ${w.reason}`));
+    else lines.push('  waivers:', ...answer.waivers.map((w) => `    ${shown(answer.path)}:${w.line}  ${w.rule}  ${shown(w.reason)}`));
   }
   return lines.join('\n') + '\n';
 }
@@ -316,7 +316,7 @@ function directory(ctx: Ctx, path: string, json: boolean): string {
   if (below.length > typed.length) types.push({ type: null, files: below.length - typed.length });
   const label = path === '.' ? './' : `${path}/`;
   if (json) return documentOf({ schema: 'lawcheck-explain/0', subject: 'directory', path: label, files: below.length, types });
-  const lines = [`${label}  ${plural(below.length, 'file')}`, ...types.map((t) => `  ${t.type ?? 'no type'}  ${plural(t.files, 'file')}`)];
+  const lines = [`${shown(label)}  ${plural(below.length, 'file')}`, ...types.map((t) => `  ${t.type ?? 'no type'}  ${plural(t.files, 'file')}`)];
   return lines.join('\n') + '\n';
 }
 
@@ -341,8 +341,8 @@ function typeAnswer(ctx: Ctx, id: string, json: boolean): string {
       files,
     });
   }
-  const lines = [`type ${id}  (${chain.map((t) => t.id).join(' > ')})${type.about === null ? '' : `  ${type.about}`}`, `  paths:  ${type.paths.join(', ')}`];
-  if (type.expression !== null) lines.push(`  content:  ${type.expression}`);
+  const lines = [`type ${id}  (${chain.map((t) => t.id).join(' > ')})${type.about === null ? '' : `  ${shown(type.about)}`}`, `  paths:  ${shown(type.paths.join(', '))}`];
+  if (type.expression !== null) lines.push(`  content:  ${shown(type.expression)}`);
   lines.push(mayUseLine(type), ...ruleLines(rules));
   lines.push(`  subtypes:  ${type.types.length === 0 ? 'none' : type.types.map((t) => t.id).join(', ')}`);
   lines.push(`  files:  ${files.length}`);
