@@ -394,6 +394,7 @@ export function judge(repo: string, baseRev: string, headRev: string, config: Co
     const st0 = (was.cells.get('state') ?? '').toLowerCase();
     const st1 = (now.cells.get('state') ?? '').toLowerCase();
     if (config.closedStates.includes(st0) && st1 !== st0) add({ kind: 'finding-weakened', subject: id, where: `${config.ledger}:${now.line}`, detail: `a closed finding is reopened as ${st1 || 'nothing'}` });
+    else if (st0 === 'open' && st1 !== st0 && !config.closedStates.includes(st1)) add({ kind: 'finding-weakened', subject: id, where: `${config.ledger}:${now.line}`, detail: `an open finding becomes ${st1 || 'nothing'} without being closed` });
   }
 
   for (const ratchet of config.ratchets) {
@@ -429,7 +430,8 @@ export function judge(repo: string, baseRev: string, headRev: string, config: Co
       const key = JSON.stringify(entry);
       const n = left.get(key) ?? 0;
       if (n > 0) { left.set(key, n - 1); continue; }
-      const id = typeof (entry as { id?: unknown })?.id === 'string' ? (entry as { id: string }).id : key;
+      const named = entry as { id?: unknown; case?: unknown };
+      const id = typeof named?.id === 'string' ? named.id : typeof named?.case === 'string' ? named.case : key;
       add({ kind: 'ratchet-grew', subject: `${file}: ${id}`, where: file, detail: `an entry is added to a list that may only shrink: ${key}` });
     }
   }
@@ -514,6 +516,20 @@ function listEntries(text: string, name: string): string[] | null {
       else if (tok.type === 'punct' && ')]}'.includes(tok.value)) depth--;
       else if (depth === 0 && tok.type === 'punct' && tok.value === ';') break;
       if (depth === 0 && tok.type === 'name' && ['const', 'let', 'var', 'export', 'function', 'test'].includes(tok.value)) break;
+      const prev = tokens[j - 1];
+      if (tok.type === 'punct' && tok.value === '{' && prev?.type === 'punct' && (prev.value === '[' || prev.value === ',')) {
+        let inner = 1;
+        let e = j + 1;
+        while (e < tokens.length && inner > 0) {
+          if (tokens[e]!.type === 'punct' && '([{'.includes(tokens[e]!.value)) inner++;
+          else if (tokens[e]!.type === 'punct' && ')]}'.includes(tokens[e]!.value)) inner--;
+          e++;
+        }
+        out.push(text.slice(tok.start, tokens[e - 1]!.end).replace(/\s+/g, ' '));
+        depth--;
+        j = e - 1;
+        continue;
+      }
       if (tok.type === 'string' || tok.type === 'template') out.push(tok.value);
     }
     return out;

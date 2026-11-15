@@ -91,6 +91,13 @@
   },
   "stronger": "stronger",
   "ratchets": [
+    "tests/contract/pending-next.json",
+    {
+      "file": "tests/harness/skips.ts",
+      "lists": [
+        "PLATFORM_SKIPS"
+      ]
+    },
     {
       "file": "tests/acceptance/self-law.test.ts",
       "lists": [

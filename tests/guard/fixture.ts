@@ -73,8 +73,9 @@ export const BASE: { [path: string]: string } = {
     'export const PROPERTY_CASES = 100;',
     'export const BUDGET = { cli: 20_000, hook: 5000 } as const;',
     "export const SLOW_TESTS: Record<string, number> = { 'test 24': 60_000 };",
+    'export const SECTION_ONLY_TESTS = 218;',
     "export const SPEED = ((): string => process.env.LAWCHECK_SPEED ?? 'commit')();",
-    "export const stronger: Record<string, 'higher' | 'lower' | 'fixed'> = { SEED: 'fixed', PROPERTY_CASES: 'higher', BUDGET: 'lower', SLOW_TESTS: 'lower' };",
+    "export const stronger: Record<string, 'higher' | 'lower' | 'fixed'> = { SEED: 'fixed', PROPERTY_CASES: 'higher', BUDGET: 'lower', SLOW_TESTS: 'lower', SECTION_ONLY_TESTS: 'lower' };",
     '',
   ].join('\n'),
   'tests/harness/skips.ts': [
@@ -144,7 +145,7 @@ export const BASE: { [path: string]: string } = {
 export const RATCHET = 'tests/contract/pending.json';
 
 export function fixtureConfig(): Config {
-  return { ...loadConfig(), ratchets: [RATCHET, { file: 'tests/acceptance/self-law.test.ts', lists: ['WAIVERS', 'UNSORTED'] }] };
+  return { ...loadConfig(), ratchets: [RATCHET, { file: 'tests/harness/skips.ts', lists: ['PLATFORM_SKIPS'] }, { file: 'tests/acceptance/self-law.test.ts', lists: ['WAIVERS', 'UNSORTED'] }] };
 }
 
 export const GIT_ENV: NodeJS.ProcessEnv = {
