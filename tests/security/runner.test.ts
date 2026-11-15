@@ -80,7 +80,8 @@ test('S2-8: a root whose path holds a backslash is refused by name, not blamed o
 });
 
 const PIECES = ['a', 'b', '-', '*', ',', '\\', ' ', 'é', 'ż', '日本'];
-const REFUSED = process.platform === 'win32' ? /[*\\]/ : /$^/;
+// Windows refuses * and the backslash in a name, and a name that ends in a space or a dot.
+const REFUSED = process.platform === 'win32' ? /[*\\]|[ .]$/ : /$^/;
 
 test('I-runner-1: a rule reads nothing outside the root and the package at a root path holding *, a comma, a backslash, a space or non-ASCII (test 26, S8-4, S2-8)', async () => {
   const reach: Record<string, number> = { '*': 0, ',': 0, '\\': 0, ' ': 0, 'non-ASCII': 0 };

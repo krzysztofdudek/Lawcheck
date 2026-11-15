@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawn, execFileSync } from 'node:child_process';
-import { chmodSync, existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
+import { spawn, spawnSync, execFileSync } from 'node:child_process';
+import { chmodSync, existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { delimiter, dirname, join } from 'node:path';
 import { writeFakeClaude } from '../acceptance/fake-reviewer.ts';
 import { CLI, F, F_PATH, git, inTemp, lawcheck, makeR, makeSample, ROOT, write } from '../acceptance/helpers.ts';
@@ -91,7 +91,13 @@ test('I-start-1: on Windows a node.cmd at the root does not run when the hooks s
     const markers = join(dir, 'markers');
     const s = makeSample(dir);
     plantPrograms(s, markers);
-    const started = await hook(s, join(dir, 'data'), { PATH: [globalLawcheck(dir), GIT_DIR, NODE_DIR].join(delimiter) });
+    const bin = globalLawcheck(dir);
+    const path = [bin, GIT_DIR, NODE_DIR].join(delimiter);
+    const plain = Object.fromEntries(Object.entries(process.env).filter(([name]) => name.toUpperCase() !== 'PATH' && name !== 'NoDefaultCurrentDirectoryInExePath'));
+    spawnSync(process.env.ComSpec ?? 'cmd.exe', ['/d', '/s', '/c', `"${join(bin, 'lawcheck.cmd')} --version"`], { cwd: s, env: { ...plain, PATH: path }, windowsVerbatimArguments: true, stdio: 'ignore' });
+    assert.ok(existsSync(join(markers, 'node')), 'the control: cmd.exe without the setting runs the node.cmd of the repository');
+    rmSync(join(markers, 'node'));
+    const started = await hook(s, join(dir, 'data'), { PATH: path });
     assert.ok(started.includes('.lawcheck/law.yaml'), started);
     assert.deepEqual(readdirSync(markers), []);
     assert.equal(existsSync(join(markers, 'node')), false);

@@ -6,11 +6,14 @@ import { append, git, inTemp, lawcheck, makeSample } from '../acceptance/helpers
 
 const HOOKS = ['pre-commit', 'post-index-change', 'reference-transaction', 'post-checkout', 'fsmonitor-watchman', 'pre-auto-gc', 'post-rewrite'];
 
+// git for Windows runs these programs through its sh, which reads a backslash as an escape, so each path is given with forward slashes.
+const slashed = (path: string) => path.split('\\').join('/');
+
 function marker(dir: string, markers: string, name: string, body = 'cat'): string {
   const path = join(dir, `${name}.sh`);
-  writeFileSync(path, `#!/bin/sh\ntouch "${markers}/${name}"\n${body}\n`);
+  writeFileSync(path, `#!/bin/sh\n: > "${slashed(markers)}/${name}"\n${body}\n`);
   chmodSync(path, 0o755);
-  return path;
+  return slashed(path);
 }
 
 // Every way a repository's own git config and attributes name a program that git starts while it reads.
@@ -23,7 +26,7 @@ function arm(repo: string, dir: string): string {
   mkdirSync(hooks, { recursive: true });
   for (const hook of HOOKS) marker(hooks, markers, hook, 'exit 0');
   git(repo, 'config', 'core.fsmonitor', marker(scripts, markers, 'fsmonitor', 'exit 1'));
-  git(repo, 'config', 'core.hooksPath', hooks);
+  git(repo, 'config', 'core.hooksPath', slashed(hooks));
   git(repo, 'config', 'diff.external', marker(scripts, markers, 'external'));
   git(repo, 'config', 'diff.conv.textconv', marker(scripts, markers, 'textconv'));
   git(repo, 'config', 'filter.clean-it.clean', marker(scripts, markers, 'clean'));
