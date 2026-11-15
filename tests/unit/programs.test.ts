@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { chmodSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { findProgram, killTree, startProgram } from '../../dist/programs.js';
+import { descendantsIn, findProgram, killTree, startProgram } from '../../dist/programs.js';
 
 function inDir(body: (dir: string) => void | Promise<void>): Promise<void> {
   const dir = realpathSync(mkdtempSync(join(tmpdir(), 'lawcheck-programs-')));
@@ -102,4 +102,12 @@ test('killTree with orphans ends the programs left by a program that has already
     if (alive) process.kill(orphan, 'SIGKILL');
     assert.equal(alive, false);
   });
+});
+
+test('the descendants of a process are read from the list of processes, its own id never among them', () => {
+  const table = ['10 1', '11 10', '12 11', '13 10', '20 1', '21 20', '30 30', ''].join('\r\n');
+  assert.deepEqual(descendantsIn(table, 10).sort((a, b) => a - b), [11, 12, 13]);
+  assert.deepEqual(descendantsIn(table, 20), [21]);
+  assert.deepEqual(descendantsIn(table, 30), []);
+  assert.deepEqual(descendantsIn('', 10), []);
 });

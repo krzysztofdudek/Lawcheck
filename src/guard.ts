@@ -1,7 +1,28 @@
+import { spawn } from 'node:child_process';
+import type { ChildProcess } from 'node:child_process';
 import { rmSync } from 'node:fs';
-import { killTree } from './programs.js';
+import { descendantsIn, killTree, powershell, PROCESS_TABLE } from './programs.js';
 
 const pids = new Set<number>();
+const windows = process.platform === 'win32';
+// On Windows a program left by one that has ended can be found only through the list of processes, and PowerShell takes seconds to start on a busy machine. While a group is registered, one PowerShell keeps that list fresh, so the guard ends the tree at once from the last list.
+let watcher: ChildProcess | null = null;
+let table = '';
+
+function watch(): void {
+  if (!windows || watcher !== null) return;
+  watcher = spawn(powershell(), ['-NoProfile', '-NonInteractive', '-Command', `while ($true) { ${PROCESS_TABLE}; '--'; Start-Sleep -Milliseconds 250 }`], { stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true });
+  watcher.on('error', () => undefined);
+  let partial = '';
+  watcher.stdout!.setEncoding('utf8').on('data', (chunk: string) => {
+    partial += chunk;
+    const end = partial.lastIndexOf('\n--');
+    if (end < 0) return;
+    const start = partial.lastIndexOf('\n--', end - 1);
+    table = partial.slice(start < 0 ? 0 : start + 3, end);
+    partial = partial.slice(end + 3);
+  });
+}
 const groups = new Set<number>();
 const folders = new Set<string>();
 let pending = '';
@@ -23,6 +44,7 @@ process.stdin.on('data', (chunk: string) => {
     const set = group ? groups : pids;
     if (adding) set.add(pid);
     else set.delete(pid);
+    if (group && adding) watch();
   }
 });
 let ended = false;
@@ -37,6 +59,16 @@ function endAll(): void {
       // The runner has already ended.
     }
   }
+  for (const pid of groups) {
+    for (const child of [pid, ...descendantsIn(table, pid)]) {
+      try {
+        process.kill(child, 'SIGKILL');
+      } catch {
+        // The process has already ended.
+      }
+    }
+  }
+  watcher?.kill();
   for (const pid of groups) killTree(pid, 'SIGKILL', true);
   for (const folder of folders) rmSync(folder, { recursive: true, force: true, maxRetries: 10 });
   process.exit(0);
