@@ -13,6 +13,7 @@ permissions:
 jobs:
   # The grammars are built once, on Linux, and handed to the other jobs. A grammar built from source on Windows has other bytes than its pinned sha256, so Runes refuses that build there; the other jobs read this cache offline, so a missing grammar fails instead of starting a source build.
   grammars:
+    name: grammars
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -35,13 +36,40 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  test:
+  commit:
+    name: commit ${{ matrix.group }} (${{ matrix.os }}, Node ${{ matrix.node }})
     needs: grammars
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
+        node: ['24']
+        group: [core, inputs, environments]
+        include:
+          - { os: ubuntu-latest, node: latest, group: core }
+          - { os: ubuntu-latest, node: latest, group: inputs }
+          - { os: ubuntu-latest, node: latest, group: environments }
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          name: grammar-cache
+          path: .grammars
+      - run: npm run build
+      - name: The commit set, group ${{ matrix.group }}
+        run: node tests/run.ts commit --group ${{ matrix.group }}
+
+  # The same commit set in a network namespace that holds only a loopback device, so a test that reaches the network outside the suites named for it fails here.
+  offline:
+    name: commit offline (ubuntu-latest, Node 24)
+    needs: grammars
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -53,11 +81,63 @@ jobs:
         with:
           name: grammar-cache
           path: .grammars
-      - name: Build and test
-        run: npm test
+      - run: npm run build
+      - name: The commit set with the network closed
+        run: |
+          sudo unshare --net -- sh -c 'ip link set lo up && exec setpriv --reuid="$1" --regid="$2" --init-groups env PATH="$3" HOME="$4" node tests/run.ts commit' \
+            sh "$(id -u)" "$(id -g)" "$PATH" "$HOME"
+
+  # A branch cannot edit its own judge: this job checks out the base, takes the guard from there and reads the head as data, running none of its code. On a pull request the base is the target branch; on a push to main it is the commit main stood on before; otherwise main.
+  guard:
+    name: suite guard
+    runs-on: ubuntu-latest
+    steps:
+      - name: The base and the head
+        id: range
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          BEFORE: ${{ github.event.before }}
+          DEFAULT: ${{ github.event.repository.default_branch }}
+          SHA: ${{ github.sha }}
+        run: |
+          if [ "$EVENT" = pull_request ]; then
+            base="$PR_BASE"; head="$PR_HEAD"
+          elif [ "$EVENT" = push ] && [ -n "$(printf '%s' "$BEFORE" | tr -d 0)" ]; then
+            base="$BEFORE"; head="$SHA"
+          else
+            base="origin/${DEFAULT:-main}"; head="$SHA"
+          fi
+          echo "base=$base" >> "$GITHUB_OUTPUT"
+          echo "head=$head" >> "$GITHUB_OUTPUT"
+          echo "base $base, head $head"
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          ref: ${{ startsWith(steps.range.outputs.base, 'origin/') && github.event.repository.default_branch || steps.range.outputs.base }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: The head, as data
+        env:
+          HEAD_SHA: ${{ steps.range.outputs.head }}
+        run: git fetch --no-tags origin "$HEAD_SHA"
+      - name: The guard of the base
+        env:
+          BASE: ${{ steps.range.outputs.base }}
+          HEAD_SHA: ${{ steps.range.outputs.head }}
+        run: |
+          if [ -f tests/guard/from-base.ts ]; then
+            node tests/guard/from-base.ts --base "$BASE" --head "$HEAD_SHA"
+          else
+            echo "suite guard: PASS  the base $(git rev-parse --short "$BASE") has no suite guard yet: nothing judges this change"
+          fi
 
   # Lawcheck on two public repositories pinned at full commits (tests/real), held to the committed expected results. Each repository is fetched by its commit alone.
   real:
+    name: real repositories
     needs: grammars
     runs-on: ubuntu-latest
     steps:
@@ -76,6 +156,7 @@ jobs:
 
   # Pinned, so a new Claude Code release cannot change what passes here. The validation needs no sign-in.
   plugin:
+    name: plugin
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -88,3 +169,11 @@ jobs:
         run: claude plugin validate .
       - name: Plugin manifest
         run: claude plugin validate ./plugin
+
+  workflows:
+    name: workflows
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: actionlint
+        run: docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.7 -color

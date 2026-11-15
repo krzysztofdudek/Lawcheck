@@ -9,11 +9,15 @@ permissions:
   contents: read
 
 jobs:
+  # The commit set and the nightly set at the tagged commit; a red job in either stops the publish.
   verify:
     uses: ./.github/workflows/ci.yml
 
+  nightly:
+    uses: ./.github/workflows/nightly.yml
+
   publish:
-    needs: verify
+    needs: [verify, nightly]
     runs-on: ubuntu-latest
     permissions:
       contents: write

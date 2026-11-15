@@ -1,0 +1,189 @@
+name: Nightly
+
+on:
+  schedule:
+    - cron: '17 2 * * *'
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  grammars:
+    name: grammars
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - uses: actions/cache@v6
+        with:
+          path: .grammars
+          key: grammars-${{ hashFiles('package-lock.json') }}
+      - name: Grammars
+        run: npm run grammars
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nightly-grammar-cache
+          path: .grammars
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1
+
+  # Three runs of the commit set on one commit: a test with mixed results is a flake, and a flake stops the release until it is fixed.
+  repeat:
+    name: nightly commit set three times
+    needs: grammars
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          name: nightly-grammar-cache
+          path: .grammars
+      - run: npm run build
+      - name: The commit set, three times
+        run: node tests/run.ts commit --repeat 3
+
+  properties:
+    name: nightly properties
+    needs: grammars
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          name: nightly-grammar-cache
+          path: .grammars
+      - run: npm run build
+      - name: A new seed
+        id: seed
+        run: |
+          seed=$(od -An -N4 -tu4 /dev/urandom | tr -d ' ')
+          echo "seed=$seed" >> "$GITHUB_OUTPUT"
+          echo "Properties ran with seed \`$seed\`; rerun with LAWCHECK_SEED=$seed node tests/run.ts nightly --group properties" >> "$GITHUB_STEP_SUMMARY"
+      - name: The properties
+        env:
+          LAWCHECK_SEED: ${{ steps.seed.outputs.seed }}
+        run: node tests/run.ts nightly --group properties
+
+  security:
+    name: nightly security
+    needs: grammars
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          name: nightly-grammar-cache
+          path: .grammars
+      - run: npm run build
+      - run: node tests/run.ts nightly --group security
+
+  # The large limits under 1 GB of memory and no swap, two processors, a full disk of 8 MB at /full and no network. The install and the build run before, on the runner, because the container has no network.
+  limits:
+    name: nightly limits
+    needs: grammars
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          name: nightly-grammar-cache
+          path: .grammars
+      - run: npm run build
+      - name: About 6 GB free in the container's /tmp
+        run: |
+          free=$(docker run --rm node:24 df -k --output=avail /tmp | tail -1 | tr -d ' ')
+          echo "the container's /tmp has $((free / 1024 / 1024)) GB free"
+          if [ "$free" -lt 6000000 ]; then
+            echo "::error::the container's /tmp has $free kB free; the limits need about 6 GB"
+            exit 1
+          fi
+      - name: The limits in a container of 1 GB
+        timeout-minutes: 45
+        run: |
+          docker run --rm --network none -m 1g --memory-swap 1g --cpus 2 \
+            --tmpfs /full:size=8m,mode=1777 -e LAWCHECK_FULL_DISK=/full \
+            --user "$(id -u):$(id -g)" -e HOME=/tmp \
+            -v "$PWD:/w" -w /w node:24 node tests/run.ts nightly --group limits
+
+  # The install, git and ownership matrices start official images with Docker, and fetch packages, so this job has the network.
+  environments:
+    name: nightly environments
+    needs: grammars
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          name: nightly-grammar-cache
+          path: .grammars
+      - run: npm run build
+      - run: node tests/run.ts nightly --group environments
+
+  docs:
+    name: nightly docs recipes
+    needs: grammars
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          name: nightly-grammar-cache
+          path: .grammars
+      - run: npm run build
+      - run: node tests/run.ts nightly --group docs
+
+  sabotage:
+    name: nightly sabotage list
+    needs: grammars
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          name: nightly-grammar-cache
+          path: .grammars
+      - run: npm run build
+      - run: node tests/run.ts nightly --group sabotage
