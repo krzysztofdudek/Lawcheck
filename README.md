@@ -26,7 +26,7 @@ claude plugin marketplace add krzysztofdudek/Lawcheck
 claude plugin install lawcheck@lawcheck-marketplace
 ```
 
-The hooks run Lawcheck and the repository's rule scripts after edits and before the agent finishes, so use the plugin where you would run the repository's tests. Both checks can be switched off with `/plugin configure lawcheck@lawcheck-marketplace`.
+The hooks run Lawcheck and the repository's rule scripts after edits and before the agent finishes, so use the plugin where you would run the repository's tests. With a `runner` other than `global`, the package manager also reads the repository's own files, such as `yarnPath` in `.yarnrc.yml` or a committed `node_modules/.bin/lawcheck`, and starts the program they name. Both checks can be switched off with `/plugin configure lawcheck@lawcheck-marketplace`.
 
 With any other agent, paste this sentence into its instructions file:
 

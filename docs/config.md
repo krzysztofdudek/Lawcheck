@@ -93,6 +93,8 @@ How this repository starts Lawcheck. `prime` and the agent plugin start Lawcheck
 
 The default is `global`.
 
+A runner other than `global` starts a program the repository chooses. The package manager reads the repository's own files: yarn runs the file that `yarnPath` in `.yarnrc.yml` names, or `yarn-path` in the `.yarnrc` of Yarn 1, and `npx`, `pnpm exec` and `bun x` run the repository's `node_modules/.bin/lawcheck`, which can be any program. `global` runs the `lawcheck` on your `PATH`. Lawcheck itself never takes a program from the repository: it leaves relative and empty entries out of `PATH`, and on Windows it keeps `cmd.exe` from looking in the current folder first. The plugin starts the runner in every session, and the script rules are the repository's code as well, so use the plugin only in a repository whose tests you would run.
+
 ```yaml
 runner: pnpm  # pinned in package.json
 ```
