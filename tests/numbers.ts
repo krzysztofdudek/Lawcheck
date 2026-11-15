@@ -58,8 +58,8 @@ export const SLOW_TESTS: Record<string, Slow> = {
   'tests/acceptance/agent-result.test.ts > test 181: the committed result of the trial': { fixed: 0, measured: { linux: 10_314, darwin: 20_602, win32: 53_052 } },
   // Four runs of the stability script, each starting the tool for 30 reviews.
   'tests/acceptance/stability.test.ts > test 77: the measurement refuses to run, or to write a secret': { fixed: 0, measured: { linux: 10_634, darwin: 20_324, win32: 44_728 } },
-  // STABILITY_RUNS runs of 30 calls of the fake claude, each a process; on Windows ten runs took 116.8 s, and two are measured here.
-  'tests/acceptance/stability.test.ts > test 76: the measurement through claude-code': { fixed: 0, measured: { linux: 18_719, darwin: 20_439, win32: 25_000 } },
+  // STABILITY_RUNS runs of 30 calls of the fake claude, each a process; on Windows ten runs took 116.8 s and two took 13.5 s (CI run 43741999136).
+  'tests/acceptance/stability.test.ts > test 76: the measurement through claude-code': { fixed: 0, measured: { linux: 18_719, darwin: 20_439, win32: 13_530 } },
   // 300 requests to the fake reviewer.
   'tests/acceptance/stability.test.ts > test 76: the measurement against the fake': { fixed: 0, measured: { linux: 6_267, darwin: 5_463, win32: 16_603 } },
   // Four runners through four hooks each.
