@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "lawcheck-error/1, from docs/json.md and spec/check-slice.md, section 6",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "errors", "next"],
+  "properties": {
+    "schema": { "const": "lawcheck-error/1" },
+    "errors": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "file", "line", "message", "why"],
+        "properties": {
+          "code": { "type": "string", "minLength": 1 },
+          "file": { "type": ["string", "null"] },
+          "line": { "anyOf": [{ "type": "integer", "minimum": 1 }, { "type": "null" }] },
+          "message": { "type": "string" },
+          "why": { "type": "string" }
+        }
+      }
+    },
+    "next": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["command", "text"],
+      "properties": { "command": { "type": ["string", "null"] }, "text": { "type": "string", "minLength": 1 } }
+    }
+  }
+}

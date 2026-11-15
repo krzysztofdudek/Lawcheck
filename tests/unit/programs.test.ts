@@ -1,9 +1,10 @@
 import { test } from 'node:test';
+import { platformSkip } from '../harness/tool.ts';
 import assert from 'node:assert/strict';
 import { chmodSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { findProgram, killTree, startProgram } from '../../dist/programs.js';
+import { createdIn, descendantsIn, findProgram, killTree, startProgram } from '../../dist/programs.js';
 
 function inDir(body: (dir: string) => void | Promise<void>): Promise<void> {
   const dir = realpathSync(mkdtempSync(join(tmpdir(), 'lawcheck-programs-')));
@@ -29,7 +30,7 @@ function argvProgram(dir: string): string {
 test('a program is found on PATH, and on Windows by the endings of PATHEXT', async () => {
   await inDir((dir) => {
     executable(join(dir, 'tool'), '#!/bin/sh\n');
-    if (process.platform !== 'win32') {
+    if (platformSkip('the lookup with the rules of Linux') === null) {
       assert.equal(findProgram('tool', { PATH: ['/nonexistent', '', dir].join(':') }, 'linux'), join(dir, 'tool'));
       assert.equal(findProgram('none', { PATH: dir }, 'linux'), null);
     }
@@ -101,4 +102,17 @@ test('killTree with orphans ends the programs left by a program that has already
     if (alive) process.kill(orphan, 'SIGKILL');
     assert.equal(alive, false);
   });
+});
+
+test('the descendants of a process are read from the list of processes, its own id never among them', () => {
+  const table = ['10 1 5', '11 10 6', '12 11 7', '13 10 8', '20 1 9', '21 20 10', '30 30 11', ''].join('\r\n');
+  assert.deepEqual(descendantsIn(table, 10).sort((a, b) => a - b), [11, 12, 13]);
+  assert.deepEqual(descendantsIn(table, 20), [21]);
+  assert.deepEqual(descendantsIn(table, 30), []);
+  assert.deepEqual(descendantsIn('', 10), []);
+});
+
+test('the time each process was made is read from the list of processes', () => {
+  const table = ['10 1 638900000000000001', '11 10 638900000000000002', 'junk', '12 11', ''].join('\r\n');
+  assert.deepEqual([...createdIn(table)], [[10, '638900000000000001'], [11, '638900000000000002']]);
 });

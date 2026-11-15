@@ -1,0 +1,65 @@
+export type SkipPlatform = 'win32' | 'darwin' | 'linux' | 'root';
+
+export interface PlatformSkip {
+  file: string;
+  test: string;
+  part: string;
+  platform: SkipPlatform;
+  reason: string;
+}
+
+const UNREADABLE_WINDOWS = 'chmod on Windows sets only the read-only flag, so a file cannot be made unreadable';
+const UNREADABLE_ROOT = 'chmod cannot make a file unreadable for root';
+const SIGNALS = 'every signal ends a process on Windows at once, so the tool cannot answer it with its own exit code';
+
+export const HARNESS = 'tests/harness';
+
+export const PLATFORM_SKIPS: PlatformSkip[] = [
+  { file: HARNESS, test: 'every run', part: 'no process of the run is left alive', platform: 'win32', reason: 'Node on Windows cannot read the environment of another process, so no process can be told by the run\'s mark, and a list of processes with their parents comes only from PowerShell, which takes seconds a call on a busy machine' },
+  { file: HARNESS, test: 'every run', part: 'a signal the test sent ends the run as the spec says', platform: 'win32', reason: SIGNALS },
+  { file: 'tests/contract/harness.test.ts', test: 'harness-1: an exit code outside 0, 1 and 2, or a death by signal, fails the run', part: 'a death by a signal nobody sent', platform: 'win32', reason: 'a process on Windows that kills itself ends with an exit code, never by a signal' },
+  { file: 'tests/contract/harness.test.ts', test: 'harness-1: a signal the test sends ends the run as the spec says, and SIGKILL alone may end it by the signal', part: 'the answer to a caught signal', platform: 'win32', reason: SIGNALS },
+  { file: 'tests/contract/harness.test.ts', test: 'harness-1: a hook the test stops exits 0 and prints nothing, as question 56 says', part: 'the answer of a stopped hook', platform: 'win32', reason: SIGNALS },
+  { file: 'tests/contract/harness.test.ts', test: 'harness-6: a process the run leaves alive fails it, however quickly it left', part: 'a process left alive', platform: 'win32', reason: 'Node on Windows cannot read the environment of another process, so no process can be told by the run\'s mark, and a list of processes with their parents comes only from PowerShell, which takes seconds a call on a busy machine' },
+  { file: 'tests/acceptance/law.test.ts', test: 'test 15: a symlink and a binary file have no type; an unreadable file stops the run', part: 'an unreadable file', platform: 'win32', reason: UNREADABLE_WINDOWS },
+  { file: 'tests/acceptance/law.test.ts', test: 'test 15: a symlink and a binary file have no type; an unreadable file stops the run', part: 'an unreadable file', platform: 'root', reason: UNREADABLE_ROOT },
+  { file: 'tests/acceptance/law.test.ts', test: 'section 6: a law that cannot be read is law-invalid', part: 'the whole test', platform: 'win32', reason: UNREADABLE_WINDOWS },
+  { file: 'tests/acceptance/law.test.ts', test: 'section 6: a law that cannot be read is law-invalid', part: 'the whole test', platform: 'root', reason: UNREADABLE_ROOT },
+  { file: 'tests/acceptance/changes.test.ts', test: 'section 4: a change of the mode alone counts', part: 'the whole test', platform: 'win32', reason: 'Windows keeps no executable bit, and git there does not track one (core.fileMode is false)' },
+  { file: 'tests/acceptance/changes.test.ts', test: 'section 4: every git command runs with GIT_OPTIONAL_LOCKS=0, in the order of the table', part: 'the whole test', platform: 'win32', reason: 'Node starts git on Windows only as an .exe or .com file, so a script cannot stand in for it' },
+  { file: 'tests/acceptance/plugin.test.ts', test: 'test 163: the deadline, and a hook that is stopped', part: 'a hook stopped by SIGTERM', platform: 'win32', reason: 'every signal ends a process on Windows at once, so a stopped hook cannot end what it started' },
+  { file: 'tests/acceptance/plugin.test.ts', test: 'section 5: the call ends 2 seconds after Lawcheck exits while a child holds its output', part: 'the child left behind is ended', platform: 'win32', reason: 'Windows has no process groups: a child left by a program that has ended cannot be reached through it' },
+  { file: 'tests/acceptance/providers.test.ts', test: 'test 67: claude-code past its timeout, and the tool killed', part: 'exit 2 after SIGTERM and SIGINT', platform: 'win32', reason: SIGNALS },
+  { file: 'tests/acceptance/rules.test.ts', test: 'section 3: a rule that spins ends with the tool, whatever ends the tool', part: 'exit 2 after SIGTERM', platform: 'win32', reason: SIGNALS },
+  { file: 'tests/unit/providers-claude-code.test.ts', test: 'claude is looked up on PATH', part: 'a claude that is not executable', platform: 'win32', reason: 'Windows has no executable bit; a .cmd file is always a program' },
+  { file: 'tests/unit/programs.test.ts', test: 'a program is found on PATH, and on Windows by the endings of PATHEXT', part: 'the lookup with the rules of Linux', platform: 'win32', reason: 'a folder on Windows holds a drive colon, which a PATH split with the rules of Linux cuts in two' },
+];
+
+export function applies(platform: SkipPlatform): boolean {
+  if (platform === 'root') return process.getuid?.() === 0;
+  return process.platform === platform;
+}
+
+const printed = new Set<PlatformSkip>();
+
+function say(entry: PlatformSkip): void {
+  if (printed.has(entry)) return;
+  printed.add(entry);
+  process.stdout.write(`skip ${entry.file} > ${entry.test}: ${entry.part} on ${entry.platform}: ${entry.reason}\n`);
+}
+
+export function skipReason(file: string, name: string, part: string): string | null {
+  const listed = PLATFORM_SKIPS.filter((entry) => entry.file === file && entry.test === name && entry.part === part);
+  if (listed.length === 0) throw new Error(`harness: "${part}" of ${file} > "${name}" is skipped without an entry in PLATFORM_SKIPS (tests/harness/skips.ts)`);
+  const hit = listed.find((entry) => applies(entry.platform));
+  if (hit === undefined) return null;
+  say(hit);
+  return hit.reason;
+}
+
+export function harnessSkip(part: string): boolean {
+  const hit = PLATFORM_SKIPS.find((entry) => entry.file === HARNESS && entry.part === part && applies(entry.platform));
+  if (hit === undefined) return false;
+  say(hit);
+  return true;
+}

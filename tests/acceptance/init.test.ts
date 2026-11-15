@@ -1,4 +1,5 @@
 import { test } from 'node:test';
+import { exampleText } from '../harness/examples.ts';
 import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -6,34 +7,10 @@ import { git, inTemp, lawcheck, makeSample, newRepository, write } from './helpe
 
 const VERSION = (JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8')) as { version: string }).version.match(/^\d+\.\d+\.\d+/)![0];
 
-const LAW_TEXT = [
-  `lawcheck: ${VERSION}`,
-  '',
-  '# The law of this repository: the types of its files, and the rules each type keeps.',
-  '# lawcheck docs first-law shows how to write them. A small example:',
-  '#',
-  '# rules:',
-  '#   no-console:',
-  '#     why: Only the command layer writes to the terminal.',
-  '#',
-  '# types:',
-  '#   source:',
-  '#     about: Everything that ships.',
-  '#     paths: ["src/**/*.ts"]',
-  '#     rules: [no-console]',
-  '#',
-  '# Each rule has one file: .lawcheck/rules/no-console.mjs for a script,',
-  '# or .lawcheck/rules/no-console.md for the reviewer.',
-  '',
-].join('\n');
+// The block writes 0.1.0 for the MAJOR.MINOR.PATCH part of the package version.
+const LAW_TEXT = exampleText('init-law').replace(/^lawcheck: 0\.1\.0\n/, `lawcheck: ${VERSION}\n`);
 
-const CREATED = [
-  'lawcheck: created .lawcheck/law.yaml and .lawcheck/.gitignore',
-  '',
-  'Nothing is checked yet: the law has no types.',
-  'next: describe your first file type in .lawcheck/law.yaml  (lawcheck docs first-law shows how)',
-  '',
-].join('\n');
+const CREATED = exampleText('init-output');
 
 test('test 96: init in a new repository writes the two files and nothing else', async () => {
   await inTemp(async (dir) => {
@@ -44,7 +21,7 @@ test('test 96: init in a new repository writes the two files and nothing else', 
     assert.equal(run.code, 0);
     assert.deepEqual(readdirSync(join(repo, '.lawcheck')).sort(), ['.gitignore', 'law.yaml']);
     assert.equal(readFileSync(join(repo, '.lawcheck/law.yaml'), 'utf8'), LAW_TEXT);
-    assert.equal(readFileSync(join(repo, '.lawcheck/.gitignore'), 'utf8'), '.local/\nconfig.local.yaml\n');
+    assert.equal(readFileSync(join(repo, '.lawcheck/.gitignore'), 'utf8'), exampleText('init-gitignore'));
     assert.equal(git(repo, 'status', '--porcelain'), '?? .lawcheck/\n');
     assert.equal(git(repo, 'config', '--list', '--local'), before);
     const checked = await lawcheck(repo, ['check']);
@@ -114,7 +91,8 @@ test('test 98: a kept .gitignore, a law below the top, and no git', async () => 
 test('init where .lawcheck is a file: internal, and its next line names init', async () => {
   await inTemp(async (dir) => {
     const repo = newRepository(dir, { '.lawcheck': 'x\n' });
-    const run = await lawcheck(repo, ['init']);
+    // Today's behaviour, finding S5-4 of the stress round: internal where a named error belongs.
+    const run = await lawcheck(repo, ['init'], {}, [], { internal: true });
     assert.match(run.stdout, /^error\[internal\]/m);
     assert.match(run.stdout, /^next: run lawcheck init again, and report the error if it stays$/m);
     assert.equal(run.code, 2);

@@ -57,14 +57,26 @@ export function startProgram(program: string, args: string[], options: SpawnOpti
   return spawn(shell, ['/d', '/s', '/c', cmdLine(program, args)], { ...windows, windowsVerbatimArguments: true });
 }
 
-function descendants(root: number): number[] {
-  const listed = spawnSync(
-    systemProgram('WindowsPowerShell\\v1.0\\powershell.exe'),
-    ['-NoProfile', '-NonInteractive', '-Command', 'Get-CimInstance Win32_Process | ForEach-Object { "$($_.ProcessId) $($_.ParentProcessId)" }'],
-    { encoding: 'utf8', windowsHide: true },
-  );
+export const PROCESS_TABLE = 'Get-CimInstance Win32_Process | ForEach-Object { "$($_.ProcessId) $($_.ParentProcessId) $($_.CreationDate.Ticks)" }';
+
+export function powershell(): string {
+  return systemProgram('WindowsPowerShell\\v1.0\\powershell.exe');
+}
+
+// The lines of PROCESS_TABLE, each a process id, its parent's and the time it was made, read as the time each process was made.
+export function createdIn(table: string): Map<number, string> {
+  const out = new Map<number, string>();
+  for (const line of table.split(/\r?\n/)) {
+    const [pid, , created] = line.trim().split(' ');
+    if (pid !== undefined && /^\d+$/.test(pid) && created !== undefined && created !== '') out.set(Number(pid), created);
+  }
+  return out;
+}
+
+// The lines of PROCESS_TABLE read as the descendants of root.
+export function descendantsIn(table: string, root: number): number[] {
   const children = new Map<number, number[]>();
-  for (const line of (listed.stdout ?? '').split(/\r?\n/)) {
+  for (const line of table.split(/\r?\n/)) {
     const [child, parent] = line.trim().split(' ').map(Number);
     if (!Number.isInteger(child) || !Number.isInteger(parent) || child === parent) continue;
     children.set(parent!, [...(children.get(parent!) ?? []), child!]);
@@ -79,6 +91,11 @@ function descendants(root: number): number[] {
     }
   }
   return found;
+}
+
+function descendants(root: number): number[] {
+  const listed = spawnSync(powershell(), ['-NoProfile', '-NonInteractive', '-Command', PROCESS_TABLE], { encoding: 'utf8', windowsHide: true });
+  return descendantsIn(listed.stdout ?? '', root);
 }
 
 // orphans: on Windows the root of a tree can end before its children, and taskkill /T cannot find a tree whose root is gone, so the children are found by their parent's pid.

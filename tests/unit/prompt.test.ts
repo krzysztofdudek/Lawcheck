@@ -1,48 +1,16 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { example, exampleText } from '../harness/examples.ts';
 import { buildPrompt, checkAnswer, cleanMessage, FRAME, numbered, size, takeAnswer } from '../../dist/prompt.js';
 
 const R = new URL('../reviewer-sample/', import.meta.url);
 
-const F = [
-  'export function refund(paid: boolean): void {',
-  "  if (!paid) throw new Error('failed');",
-  '  // lawcheck-waive clear-errors -- the payment provider matches this exact text',
-  "  throw new Error('failed');",
-  '}',
-  '',
-].join('\n');
+const F = exampleText('reviewer-f');
 
-export const PROMPT_TAIL = [
-  '<why>',
-  'An error a caller sees says what happened and what to do next.',
-  '</why>',
-  '',
-  '<rule>',
-  'Every error message a caller can see says what happened and what the caller can do next. The wording follows the catalogue in docs/errors.md.',
-  '',
-  'Report each thrown error or returned error message that leaves one of the two out. A message logged for developers is not such a message.',
-  '</rule>',
-  '',
-  '<context path="docs/errors.md">',
-  '1| # Error messages',
-  '2|',
-  '3| Say what happened, then what to do: "The invoice 42 is already paid; issue a refund instead."',
-  '</context>',
-  '',
-  '<file path="src/core/refund.ts">',
-  '1| export function refund(paid: boolean): void {',
-  "2|   if (!paid) throw new Error('failed');",
-  '3|   // lawcheck-waive clear-errors -- the payment provider matches this exact text',
-  "4|   throw new Error('failed');",
-  '5| }',
-  '</file>',
-  '',
-  '<waived>',
-  '4',
-  '</waived>',
-].join('\n');
+const SPEC_FRAME = example('reviewer-frame');
+
+export const PROMPT_TAIL = example('reviewer-prompt-f');
 
 function promptOfF(fileText = F, waived = [4]): string {
   return buildPrompt({
@@ -57,10 +25,9 @@ function promptOfF(fileText = F, waived = [4]): string {
 
 test('the prompt for F is section 4 exactly, and holds 2,127 characters', () => {
   const prompt = promptOfF();
-  assert.equal(prompt, FRAME + '\n\n' + PROMPT_TAIL);
+  assert.equal(FRAME, SPEC_FRAME);
+  assert.equal(prompt, SPEC_FRAME + '\n\n' + PROMPT_TAIL);
   assert.equal(size(prompt), 2127);
-  assert.ok(FRAME.startsWith('You judge whether one file keeps one rule'));
-  assert.ok(FRAME.endsWith('"message": "what breaks the rule on this line, in one sentence"}]}'));
 });
 
 test('numbered lines, the empty file, CRLF, a path that needs quoting and waived lines', () => {

@@ -1,25 +1,20 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileLines, filePath, openai, withFake, writeFakeClaude } from './fake-reviewer.ts';
 import type { Recorded } from './fake-reviewer.ts';
 import { GIT_ENV, inTemp, pathWith, ROOT } from './helpers.ts';
+import type { Expect, Run } from './helpers.ts';
+import { startProgram } from '../harness/tool.ts';
+import { STABILITY_RUNS } from '../numbers.ts';
+import type { System } from '../numbers.ts';
 
 const SCRIPT = join(ROOT, 'tests', 'stability', 'run.ts');
 const LABELS = JSON.parse(readFileSync(join(ROOT, 'tests', 'stability', 'labels.json'), 'utf8')) as { file: string; rule: string; label: string; borderline: boolean }[];
 
-function stability(env: NodeJS.ProcessEnv): Promise<{ code: number | null; stdout: string; stderr: string }> {
-  return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [SCRIPT], { cwd: ROOT, env: { ...GIT_ENV, ...env }, stdio: ['ignore', 'pipe', 'pipe'] });
-    let stdout = '';
-    let stderr = '';
-    child.stdout.setEncoding('utf8').on('data', (chunk: string) => (stdout += chunk));
-    child.stderr.setEncoding('utf8').on('data', (chunk: string) => (stderr += chunk));
-    child.on('error', reject);
-    child.on('close', (code) => resolve({ code, stdout, stderr }));
-  });
+function stability(env: NodeJS.ProcessEnv, expect: Expect = {}): Promise<Run> {
+  return startProgram(SCRIPT, [], ROOT, GIT_ENV, { ...expect, env }).ended;
 }
 
 function byLabel(fail: (request: Recorded, count: number) => 'pass' | 'fail' | 500, message = 'labelled fail') {
@@ -114,6 +109,7 @@ test('test 76: the measurement through claude-code', async () => {
       LAWCHECK_STABILITY_MODEL: 'test-model',
       LAWCHECK_STABILITY_NOTE: 'run on the host',
       LAWCHECK_STABILITY_OUT: out,
+      LAWCHECK_STABILITY_RUNS: String(STABILITY_RUNS[process.platform as System]),
     });
     assert.equal(result.code, 0, result.stderr);
     const document = JSON.parse(readFileSync(out, 'utf8'));

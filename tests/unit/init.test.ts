@@ -1,4 +1,5 @@
 import { test } from 'node:test';
+import { exampleText } from '../harness/examples.ts';
 import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -19,7 +20,7 @@ test('the version line takes MAJOR.MINOR.PATCH of the package version', () => {
 });
 
 test('the .gitignore keeps the local folder and the local settings out of git', () => {
-  assert.equal(GITIGNORE, '.local/\nconfig.local.yaml\n');
+  assert.equal(GITIGNORE, exampleText('init-gitignore'));
 });
 
 test('a file that exists is never written over', () => {

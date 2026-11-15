@@ -1,0 +1,163 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "lawcheck-explain/0, from docs/json.md and spec/commands-slice.md, section 6",
+  "type": "object",
+  "required": ["schema", "subject"],
+  "properties": {
+    "schema": { "const": "lawcheck-explain/0" },
+    "subject": { "enum": ["file", "directory", "type", "rule"] }
+  },
+  "oneOf": [
+    {
+      "properties": { "subject": { "const": "file" } },
+      "additionalProperties": false,
+      "required": ["schema", "subject", "path", "exists", "type", "chain", "about", "none", "matched", "not_matched", "then", "may_use", "uses", "rules", "waivers"],
+      "properties": {
+        "schema": true,
+        "subject": true,
+        "path": { "type": "string", "minLength": 1 },
+        "exists": { "type": "boolean" },
+        "type": { "type": ["string", "null"] },
+        "chain": { "$ref": "#/definitions/ids" },
+        "about": { "type": ["string", "null"] },
+        "none": { "type": ["string", "null"] },
+        "matched": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["type", "pattern", "content"],
+            "properties": { "type": { "type": "string" }, "pattern": { "type": "string" }, "content": { "type": ["string", "null"] } }
+          }
+        },
+        "not_matched": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["type", "content"],
+            "properties": { "type": { "type": "string" }, "content": { "type": "string" } }
+          }
+        },
+        "then": { "type": ["string", "null"] },
+        "may_use": { "$ref": "#/definitions/mayUse" },
+        "uses": {
+          "anyOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["read", "language"],
+              "properties": { "read": { "type": "boolean" }, "language": { "type": ["string", "null"] } }
+            }
+          ]
+        },
+        "rules": { "type": "array", "items": { "$ref": "#/definitions/rule" } },
+        "waivers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["line", "rule", "reason"],
+            "properties": { "line": { "type": "integer", "minimum": 1 }, "rule": { "type": "string" }, "reason": { "type": "string" } }
+          }
+        }
+      }
+    },
+    {
+      "properties": { "subject": { "const": "directory" } },
+      "additionalProperties": false,
+      "required": ["schema", "subject", "path", "files", "types"],
+      "properties": {
+        "schema": true,
+        "subject": true,
+        "path": { "type": "string", "pattern": "/$" },
+        "files": { "type": "integer", "minimum": 0 },
+        "types": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["type", "files"],
+            "properties": { "type": { "type": ["string", "null"] }, "files": { "type": "integer", "minimum": 0 } }
+          }
+        }
+      }
+    },
+    {
+      "properties": { "subject": { "const": "type" } },
+      "additionalProperties": false,
+      "required": ["schema", "subject", "id", "chain", "about", "paths", "content", "may_use", "rules", "subtypes", "files"],
+      "properties": {
+        "schema": true,
+        "subject": true,
+        "id": { "type": "string", "minLength": 1 },
+        "chain": { "$ref": "#/definitions/ids" },
+        "about": { "type": ["string", "null"] },
+        "paths": { "type": "array", "items": { "type": "string" } },
+        "content": { "type": ["string", "null"] },
+        "may_use": { "$ref": "#/definitions/mayUse" },
+        "rules": { "type": "array", "items": { "$ref": "#/definitions/typeRule" } },
+        "subtypes": { "$ref": "#/definitions/ids" },
+        "files": { "type": "integer", "minimum": 0 }
+      }
+    },
+    {
+      "properties": { "subject": { "const": "rule" } },
+      "additionalProperties": false,
+      "required": ["schema", "subject", "id", "kind", "status", "why", "file", "context", "types", "files", "reviewed"],
+      "properties": {
+        "schema": true,
+        "subject": true,
+        "id": { "type": "string", "minLength": 1 },
+        "kind": { "enum": ["script", "reviewer"] },
+        "status": { "enum": ["enforced", "advisory"] },
+        "why": { "type": "string" },
+        "file": { "type": ["string", "null"] },
+        "context": { "type": "array", "items": { "type": "string" } },
+        "types": { "$ref": "#/definitions/ids" },
+        "files": { "type": "integer", "minimum": 0 },
+        "reviewed": { "anyOf": [{ "type": "integer", "minimum": 0 }, { "type": "null" }] }
+      }
+    }
+  ],
+  "definitions": {
+    "ids": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "mayUse": {
+      "anyOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["types", "from"],
+          "properties": { "types": { "type": "array", "items": { "type": "string" } }, "from": { "type": ["string", "null"] } }
+        }
+      ]
+    },
+    "typeRule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "status", "why", "from"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "kind": { "enum": ["script", "reviewer"] },
+        "status": { "enum": ["enforced", "advisory"] },
+        "why": { "type": "string" },
+        "from": { "type": "string" }
+      }
+    },
+    "rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "status", "why", "from", "review"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "kind": { "enum": ["script", "reviewer"] },
+        "status": { "enum": ["enforced", "advisory"] },
+        "why": { "type": "string" },
+        "from": { "type": "string" },
+        "review": { "enum": ["reviewed", "failed", "too-large", "not-reviewed", null] }
+      }
+    }
+  }
+}

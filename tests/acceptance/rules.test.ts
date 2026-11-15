@@ -1,10 +1,9 @@
 import { test } from 'node:test';
+import { platformSkip, waitUntil } from '../harness/tool.ts';
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
 import { existsSync, realpathSync } from 'node:fs';
-import { setTimeout as sleep } from 'node:timers/promises';
 import { isAbsolute, join } from 'node:path';
-import { append, check, CLI, D, D_PATH, findingLines, GIT_ENV, lawcheck, NO_CONSOLE, setRule, TEST4, withSample, write } from './helpers.ts';
+import { append, check, D, D_PATH, findingLines, lawcheck, NO_CONSOLE, setRule, startLawcheck, TEST4, withSample, write } from './helpers.ts';
 
 const CRASH = '.lawcheck/rules/no-console.mjs  error[rule-crashed]';
 
@@ -185,35 +184,21 @@ function alive(pid: number): boolean {
 }
 
 test('section 3: a rule that spins ends with the tool, whatever ends the tool', async () => {
-  const spin = "export function check() { console.error('runner ' + process.pid); return new Promise(() => setTimeout(() => { while (true) {} }, 100)); }\n";
+  const spin = "export function check() { console.error('runner ' + process.pid); return new Promise(() => setTimeout(() => { console.error('spinning'); while (true) {} }, 100)); }\n";
   for (const signal of ['SIGTERM', 'SIGKILL'] as const) {
     await withRule(spin, async (s) => {
-      const tool = spawn(process.execPath, [CLI, 'check', '--base', 'main'], { cwd: s, env: GIT_ENV, stdio: ['ignore', 'ignore', 'pipe'] });
-      let stderr = '';
-      tool.stderr.setEncoding('utf8').on('data', (chunk: string) => (stderr += chunk));
-      const closed = new Promise<number | null>((done) => tool.on('close', (code) => done(code)));
-      let pid: number | null = null;
-      for (let i = 0; i < 100 && pid === null; i++) {
-        await sleep(100);
-        const found = /^runner (\d+)$/m.exec(stderr);
-        if (found !== null) pid = Number(found[1]);
-      }
-      assert.ok(pid !== null, `${signal}: the runner started`);
-      await sleep(300);
+      const tool = startLawcheck(s, ['check', '--base', 'main'], { stderr: /^runner \d+\nspinning\n$/ });
+      const pid = Number((await tool.output(/^runner (\d+)\nspinning\n/m))[1]);
+      assert.ok(pid > 0, `${signal}: the runner started`);
       tool.kill(signal);
-      const code = await closed;
-      let left = alive(pid);
-      for (let i = 0; i < 50 && left; i++) {
-        await sleep(100);
-        left = alive(pid);
-      }
+      const { code } = await tool.ended;
+      const left = !(await waitUntil(() => !alive(pid), 'KILLED_GRACE_MS'));
       try {
         assert.equal(left, false, `${signal}: no runner outlives the tool`);
       } finally {
         if (left) process.kill(pid, 'SIGKILL');
       }
-      // On Windows every signal ends a process at once, so the tool cannot answer SIGTERM with its own exit code.
-      if (signal === 'SIGTERM' && process.platform !== 'win32') assert.equal(code, 2);
+      if (signal === 'SIGTERM' && platformSkip('exit 2 after SIGTERM') === null) assert.equal(code, 2);
     });
   }
 });
@@ -236,7 +221,7 @@ test('section 3: what a rule prints goes to standard error', async () => {
   await withRule(
     ORIGINAL + "export function check(input) { console.log('out from the rule'); console.error('err from the rule'); return original(input); }\n",
     async (s) => {
-      const run = await check(s, '--base', 'main', '--json');
+      const run = await lawcheck(s, ['check', '--base', 'main', '--json'], {}, [], { stderr: 'out from the rule\nerr from the rule\n' });
       assert.equal(JSON.parse(run.stdout).result, 'fail');
       assert.doesNotMatch(run.stdout, /from the rule/);
       assert.match(run.stderr, /out from the rule/);

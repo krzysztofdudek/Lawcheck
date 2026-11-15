@@ -1,0 +1,138 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "lawcheck-try/0, from docs/json.md and spec/commands-slice.md, section 5",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "rule",
+    "files",
+    "summary",
+    "runs",
+    "next"
+  ],
+  "properties": {
+    "schema": {
+      "const": "lawcheck-try/0"
+    },
+    "rule": {
+      "type": "string",
+      "minLength": 1
+    },
+    "files": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "findings",
+        "files_with_findings",
+        "waived",
+        "calls_made"
+      ],
+      "properties": {
+        "findings": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "files_with_findings": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "waived": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "calls_made": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "runs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "file",
+          "attempt",
+          "verdict",
+          "findings",
+          "waived",
+          "answer",
+          "prompt_chars"
+        ],
+        "properties": {
+          "file": {
+            "type": "string",
+            "minLength": 1
+          },
+          "attempt": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "verdict": {
+            "enum": [
+              "pass",
+              "fail",
+              null
+            ]
+          },
+          "findings": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "message",
+                "severity"
+              ],
+              "properties": {
+                "line": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "message": {
+                  "type": "string"
+                },
+                "severity": {
+                  "enum": [
+                    "error",
+                    "warning"
+                  ]
+                }
+              }
+            }
+          },
+          "waived": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "answer": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "prompt_chars": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "next": {
+      "type": "null"
+    }
+  }
+}

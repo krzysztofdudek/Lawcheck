@@ -1,4 +1,5 @@
 import { test } from 'node:test';
+import { fakeWrites, platformSkip } from '../harness/tool.ts';
 import { chmodSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import { join } from 'node:path';
@@ -169,8 +170,8 @@ test('test 14: the root below the top of the git tree', async () => {
 });
 
 test('section 4: a change of the mode alone counts', async (t) => {
-  // Windows keeps no executable bit, and git there does not track one (core.fileMode is false).
-  if (process.platform === 'win32') return t.skip('no file mode on Windows');
+  const skip = platformSkip('the whole test');
+  if (skip !== null) return t.skip(skip);
   await withSample(async (s) => {
     chmodSync(join(s, 'src/core/price.ts'), 0o755);
     const run = await check(s);
@@ -192,12 +193,13 @@ test('section 4: a file staged and then put back is not in the change', async ()
 });
 
 test('section 4: every git command runs with GIT_OPTIONAL_LOCKS=0, in the order of the table', async (t) => {
-  // Node starts git on Windows only as an .exe or .com file, so a script cannot stand in for it there.
-  if (process.platform === 'win32') return t.skip('a script cannot stand in for git on Windows');
+  const skip = platformSkip('the whole test');
+  if (skip !== null) return t.skip(skip);
   await withSample(async (s, dir) => {
     const real = execFileSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).trim();
     const bin = join(dir, 'bin');
     const log = join(dir, 'git.log');
+    fakeWrites(dir, ['git.log']);
     mkdirSync(bin);
     writeFileSync(join(bin, 'git'), `#!/bin/sh\nprintf '%s %s\\n' "\${GIT_OPTIONAL_LOCKS-unset}" "$*" >> '${log}'\nexec '${real}' "$@"\n`, { mode: 0o755 });
     write(s, D_PATH, D);

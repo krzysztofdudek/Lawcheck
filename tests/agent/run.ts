@@ -3,11 +3,12 @@ import { accessSync, constants, cpSync, existsSync, mkdirSync, mkdtempSync, read
 import { tmpdir } from 'node:os';
 import { delimiter, dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { startTool } from '../harness/start.ts';
 
 export const ROOT = fileURLToPath(new URL('../..', import.meta.url));
 export const CLI = join(ROOT, 'dist', 'cli.js');
 export const FIXTURE = join(ROOT, 'tests', 'agent', 'fixture');
-const SHIM = join(ROOT, 'tests', 'agent', 'shim.mjs');
+const SHIM = join(ROOT, 'tests', 'harness', 'agent-shim.mjs');
 const TASK = join(ROOT, 'tests', 'agent', 'task.md');
 const PLUGIN = join(ROOT, 'plugin');
 const LIMIT_MS = 15 * 60 * 1000;
@@ -103,17 +104,17 @@ export function filesOf(work: string): Record<string, string | null> {
   return files;
 }
 
-export function checksIn(work: string, nodePath = process.execPath): Checks {
+export async function checksIn(work: string): Promise<Checks> {
   const env = { ...process.env, ...GIT_IDENTITY };
   delete env.LAWCHECK_BASE;
-  const clean = spawnSync(nodePath, [CLI, 'check', '--json'], { cwd: work, env, encoding: 'utf8', maxBuffer: 1 << 30 }).status === 0;
+  const clean = (await startTool(work, ['check', '--json'], env).ended).code === 0;
   const changed = changedFiles(work);
   const lawUntouched = !changed.some((path) => path.startsWith('.lawcheck/'));
   const noWaiver = !changed.some((path) => {
     const full = join(work, path);
     return existsSync(full) && statSync(full).isFile() && readFileSync(full, 'utf8').includes('lawcheck-waive');
   });
-  const intent = spawnSync(nodePath, ['--input-type=module', '-e', INTENT], { cwd: work, env, timeout: 10000, killSignal: 'SIGKILL', stdio: 'ignore' }).status === 0;
+  const intent = spawnSync(process.execPath, ['--input-type=module', '-e', INTENT], { cwd: work, env, timeout: 10000, killSignal: 'SIGKILL', stdio: 'ignore' }).status === 0;
   return { clean, law_untouched: lawUntouched, no_waiver: noWaiver, intent };
 }
 
@@ -339,7 +340,7 @@ async function oneRun(arm: string, number: number, options: Options, pathDirs: s
     error = errorOf(arm, transcript, lines, files, timedOut);
     const breach = breachOf(lines, arm);
     const counts = error === null && breach;
-    const checks = counts ? checksIn(work) : null;
+    const checks = counts ? await checksIn(work) : null;
     const reply = typeof transcript.result?.result === 'string' ? transcript.result.result : '';
     const real = (path: string) => {
       try {

@@ -1,25 +1,18 @@
 import { test } from 'node:test';
+import { exampleText } from '../harness/examples.ts';
 import assert from 'node:assert/strict';
-import { readFileSync, symlinkSync } from 'node:fs';
+import { symlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { withFake } from './fake-reviewer.ts';
 import { F, F_PATH, F_PRIME, lawcheck, PRICING, read, REVIEWER_CONFIG, run, setRule, withR, withSample, withU, write } from './helpers.ts';
 
-const spec = readFileSync(new URL('../../spec/commands-slice.md', import.meta.url), 'utf8').split('\n');
-const block = (start: string): string => {
-  const at = spec.indexOf(start);
-  const lines: string[] = [];
-  for (let i = at; spec[i] !== '```'; i++) lines.push(spec[i]!);
-  return lines.join('\n') + '\n';
-};
-
-const PRICE = block('src/core/price.ts');
-const RELEASE = block('tools/release.mjs');
-const BUILD = block('tools/build.mjs  (does not exist yet)');
-const REFUND = block('src/core/refund.ts');
-const SRC = block('src/  3 files');
-const TYPE_SOURCE = block('type source  (source)  Everything that ships.');
-const RULE_NO_TODO = block('rule no-todo  script  advisory');
+const PRICE = exampleText('explain-price');
+const RELEASE = exampleText('explain-release');
+const BUILD = exampleText('explain-build');
+const REFUND = exampleText('explain-refund');
+const SRC = exampleText('explain-src');
+const TYPE_SOURCE = exampleText('explain-type-source');
+const RULE_NO_TODO = exampleText('explain-rule-no-todo');
 
 async function explain(cwd: string, ...args: string[]) {
   return lawcheck(cwd, ['explain', ...args]);

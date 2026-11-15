@@ -1,11 +1,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { execFileSync, spawn } from 'node:child_process';
-import { appendFileSync, chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { execFileSync } from 'node:child_process';
+import { appendFileSync, chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { delimiter, dirname, join, relative, sep } from 'node:path';
 import { withFake } from './fake-reviewer.ts';
-import { alive, append, CLI, D, D_PATH, F, F_PATH, git, GIT_ENV, inTemp, LAW, lawcheck, makeR, makeSample, newRepository, ROOT, write } from './helpers.ts';
+import { alive, append, D, D_PATH, F, F_PATH, git, GIT_ENV, inTemp, LAW, lawcheck, makeR, makeSample, newRepository, ROOT, write } from './helpers.ts';
+import type { Expect, Run, Running } from './helpers.ts';
+import { example } from '../harness/examples.ts';
+import { fakeWrites, platformSkip, startHook, startProgram, testFolder } from '../harness/tool.ts';
+import { HOOK_EDIT_DEADLINE_MS, HOOK_SIGTERM_AFTER_MS, HOOK_STOP_DEADLINE_MS, STOPPED_HOOK_ENDS_MS } from '../numbers.ts';
+import { installedLawcheck, packageRunner } from '../harness/fakes.ts';
 
 const PLUGIN = join(ROOT, 'plugin');
 const HOOK = join(PLUGIN, 'hooks', 'lawcheck-hook.mjs');
@@ -29,14 +33,7 @@ const D_OUTPUT = [
   '',
   'next: fix src/core/discount.ts:2',
 ].join('\n');
-const TEST17_CHECK = [
-  'lawcheck: ERROR  1 error',
-  '',
-  ".lawcheck/law.yaml:8  error[law-invalid]  unknown key 'statuss' in rule 'no-todo' (did you mean 'status'?)",
-  '  why:  a misspelled key changes the law without a word',
-  '',
-  'next: fix .lawcheck/law.yaml, then run lawcheck check',
-].join('\n');
+const TEST17_CHECK = example('check-law-invalid');
 
 const editHeader = (rel: string, cmd = 'lawcheck') => `Lawcheck: after this edit, ${rel} breaks the law of this repository. ${cmd} check ./${rel} printed:`;
 const editErrorHeader = (rel: string, cmd = 'lawcheck') => `Lawcheck could not check ${rel} after this edit. ${cmd} check ./${rel} printed:`;
@@ -51,14 +48,7 @@ const started = (text: string) => ({ hookSpecificOutput: { hookEventName: 'Sessi
 
 const EVENT_NAMES: Record<string, string> = { 'session-start': 'SessionStart', prompt: 'UserPromptSubmit', edit: 'PostToolUse', stop: 'Stop' };
 
-interface HookRun {
-  code: number | null;
-  signal: NodeJS.Signals | null;
-  stdout: string;
-  stderr: string;
-  json: any;
-  ms: number;
-}
+type HookRun = Run;
 
 interface LogLine {
   args: string[];
@@ -71,19 +61,16 @@ class Bench {
   readonly logFile: string;
   readonly runnerLog: string;
   readonly dir: string;
-
   constructor(dir: string) {
     this.dir = dir;
+    // The plugin writes its state under CLAUDE_PLUGIN_DATA, and the stand-ins of lawcheck and of the runners log their calls beside it.
+    fakeWrites(dir, ['data/', 'lawcheck.log', 'runner.log']);
     this.bin = join(dir, 'bin');
     this.data = join(dir, 'data');
     this.logFile = join(dir, 'lawcheck.log');
     this.runnerLog = join(dir, 'runner.log');
     mkdirSync(this.bin, { recursive: true });
-    this.script('lawcheck', [
-      `appendFileSync(${JSON.stringify(this.logFile)}, JSON.stringify({ args: process.argv.slice(2), cwd: process.cwd() }) + '\\n');`,
-      `const r = spawnSync(process.execPath, [${JSON.stringify(CLI)}, ...process.argv.slice(2)], { stdio: ['ignore', 'inherit', 'inherit'] });`,
-      'process.exit(r.status ?? 2);',
-    ]);
+    this.script('lawcheck', installedLawcheck(this.logFile));
   }
 
   script(name: string, body: string[]): void {
@@ -100,14 +87,7 @@ class Bench {
   }
 
   runner(name: string, skip: number, yarn = false): void {
-    this.script(name, [
-      `appendFileSync(${JSON.stringify(this.runnerLog)}, JSON.stringify({ runner: ${JSON.stringify(name)}, args: process.argv.slice(2) }) + '\\n');`,
-      ...(yarn ? ["process.stdout.write('yarn run v1.22.22\\n$ /x/node_modules/.bin/lawcheck\\n');"] : []),
-      `const r = spawnSync(process.execPath, [${JSON.stringify(join(this.bin, 'lawcheck'))}, ...process.argv.slice(${2 + skip})], { stdio: ['ignore', 'pipe', 'inherit'] });`,
-      'process.stdout.write(r.stdout);',
-      ...(yarn ? ["process.stdout.write('Done in 0.10s.\\n');"] : []),
-      'process.exit(r.status ?? 2);',
-    ]);
+    this.script(name, packageRunner(this.runnerLog, name, skip, join(this.bin, 'lawcheck'), yarn));
   }
 
   log(): LogLine[] {
@@ -141,25 +121,10 @@ class Bench {
   }
 }
 
-function hook(bench: Bench, event: string, input: string, env: NodeJS.ProcessEnv = {}, onStart?: (pid: number) => void): Promise<HookRun> {
-  const begin = Date.now();
-  return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [HOOK, event], { env: bench.env(env), stdio: ['pipe', 'pipe', 'pipe'] });
-    let stdout = '';
-    let stderr = '';
-    child.stdout.setEncoding('utf8').on('data', (chunk: string) => (stdout += chunk));
-    child.stderr.setEncoding('utf8').on('data', (chunk: string) => (stderr += chunk));
-    child.on('error', reject);
-    child.on('close', (code, signal) => {
-      let json: any = null;
-      try {
-        json = stdout === '' ? null : JSON.parse(stdout);
-      } catch {}
-      resolve({ code, signal, stdout, stderr, json, ms: Date.now() - begin });
-    });
-    child.stdin.end(input);
-    if (child.pid !== undefined) onStart?.(child.pid);
-  });
+function hook(bench: Bench, event: string, input: string, env: NodeJS.ProcessEnv = {}, onStart?: (running: Running) => void, expect: Expect = {}): Promise<HookRun> {
+  const running = startHook(event, input, bench.env(env), { ...expect, hook: HOOK });
+  onStart?.(running);
+  return running.ended;
 }
 
 class Session {
@@ -292,11 +257,11 @@ test('test 155: without a law, and the old state files', async () => {
     }
     const repo = newRepository(dir);
     json(await new Session(bench, repo).start(), started(NO_ROOT), 'a repository without a law');
-    const outside = mkdtempSync(join(tmpdir(), 'lawcheck-outside-'));
+    const outside = testFolder('lawcheck-outside-');
     try {
-      json(await new Session(bench, outside).start(), started(NO_ROOT), 'outside git');
+      json(await new Session(bench, outside.dir).start(), started(NO_ROOT), 'outside git');
     } finally {
-      rmSync(outside, { recursive: true, force: true });
+      outside.remove();
     }
     assert.deepEqual(bench.log(), []);
     assert.deepEqual(bench.sessions(), ['young.json']);
@@ -465,6 +430,7 @@ test('test 163: the deadline, and a hook that is stopped', async () => {
     const s = makeSample(dir);
     write(s, D_PATH, D);
     const pids = join(dir, 'pids');
+    fakeWrites(dir, ['pids']);
     bench.script('lawcheck', [
       "const c = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 300000)'], { stdio: 'ignore' });",
       `writeFileSync(${JSON.stringify(pids)}, process.pid + ' ' + c.pid);`,
@@ -477,23 +443,23 @@ test('test 163: the deadline, and a hook that is stopped', async () => {
     };
     const session = new Session(bench, s);
     const edit = await session.edit(D_PATH);
-    assert.ok(edit.ms < 30000, String(edit.ms));
+    assert.ok(edit.ms < HOOK_EDIT_DEADLINE_MS, String(edit.ms));
     json(edit, edited(`Lawcheck: lawcheck check ./${D_PATH} did not finish within 25 seconds and was stopped.`));
     await gone();
     rmSync(join(s, D_PATH));
     await session.prompt();
     write(s, D_PATH, D);
     const stop = await session.stop();
-    assert.ok(stop.ms < 150000, String(stop.ms));
+    assert.ok(stop.ms < HOOK_STOP_DEADLINE_MS, String(stop.ms));
     json(stop, { systemMessage: 'lawcheck: the check before the agent finished did not run: it did not finish within 145 seconds.' });
     await gone();
-    // On Windows every signal ends a process at once, so a stopped hook cannot end what it started.
-    if (WINDOWS) return;
-    const stopped = await hook(bench, 'edit', session.input('edit', { tool_name: 'Write', tool_input: { file_path: join(s, D_PATH) } }), {}, (pid) => {
-      setTimeout(() => process.kill(pid, 'SIGTERM'), 2000);
+    if (platformSkip('a hook stopped by SIGTERM') !== null) return;
+    const stopped = await hook(bench, 'edit', session.input('edit', { tool_name: 'Write', tool_input: { file_path: join(s, D_PATH) } }), {}, (running) => {
+      setTimeout(() => running.kill('SIGTERM'), HOOK_SIGTERM_AFTER_MS);
     });
-    assert.ok(stopped.ms < 10000, String(stopped.ms));
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    assert.equal(stopped.code, 0);
+    assert.equal(stopped.stdout, '');
+    assert.ok(stopped.ms < HOOK_SIGTERM_AFTER_MS + STOPPED_HOOK_ENDS_MS, String(stopped.ms));
     await gone();
   });
 });
@@ -503,6 +469,7 @@ test('section 5: the call ends 2 seconds after Lawcheck exits while a child hold
     const s = makeSample(dir);
     write(s, D_PATH, D);
     const pid = join(dir, 'child');
+    fakeWrites(dir, ['child']);
     bench.script('lawcheck', [
       "const c = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 60000)'], { stdio: ['ignore', 'inherit', 'inherit'] });",
       `writeFileSync(${JSON.stringify(pid)}, String(c.pid));`,
@@ -512,8 +479,7 @@ test('section 5: the call ends 2 seconds after Lawcheck exits while a child hold
     const run = await new Session(bench, s).edit(D_PATH);
     nothing(run);
     assert.ok(run.ms < 5000, String(run.ms));
-    // Windows has no process groups: a child left behind by a program that has ended can no longer be reached through it.
-    if (!WINDOWS) assert.ok(await ended(Number(readFileSync(pid, 'utf8').trim())));
+    if (platformSkip('the child left behind is ended') === null) assert.ok(await ended(Number(readFileSync(pid, 'utf8').trim())));
   });
 });
 
@@ -828,7 +794,7 @@ test('test 177: no hook asks the reviewer', async () => {
 test('test 178: a failure of the hook itself', async () => {
   await withBench(async (bench, dir) => {
     for (const [event, input] of [['stop', 'not json'], ['nope', JSON.stringify({ session_id: 's1', cwd: dir, hook_event_name: 'Stop' })]] as const) {
-      const run = await hook(bench, event, input);
+      const run = await hook(bench, event, input, {}, undefined, { stderr: /^lawcheck plugin: [^\n]+\n$/ });
       assert.equal(run.stdout, '', event);
       assert.match(run.stderr, /^lawcheck plugin: /, event);
       assert.equal(run.code, 1, event);
@@ -840,18 +806,11 @@ test('test 179: the trial refuses to start without claude', async () => {
   await inTemp(async (dir) => {
     const empty = join(dir, 'tmp');
     mkdirSync(empty);
-    const result = await new Promise<{ code: number | null; out: string }>((resolve, reject) => {
-      const child = spawn(process.execPath, [join(ROOT, 'tests', 'agent', 'run.ts')], {
-        cwd: ROOT,
-        env: { PATH: [GIT_DIR, NODE_DIR].join(delimiter), ...SYSTEM_ENV, TMPDIR: empty, TEMP: empty, TMP: empty, HOME: dir },
-        stdio: ['ignore', 'pipe', 'pipe'],
-      });
-      let out = '';
-      child.stdout.setEncoding('utf8').on('data', (chunk: string) => (out += chunk));
-      child.stderr.setEncoding('utf8').on('data', (chunk: string) => (out += chunk));
-      child.on('error', reject);
-      child.on('close', (code) => resolve({ code, out }));
-    });
+    const run = await startProgram(join(ROOT, 'tests', 'agent', 'run.ts'), [], ROOT, {}, {
+      env: { PATH: [GIT_DIR, NODE_DIR].join(delimiter), ...SYSTEM_ENV, TMPDIR: empty, TEMP: empty, TMP: empty, HOME: dir },
+      stderr: /claude/,
+    }).ended;
+    const result = { code: run.code, out: run.stdout + run.stderr };
     assert.equal(result.code, 2, result.out);
     assert.equal(result.out.trim().split('\n').length, 1, result.out);
     assert.match(result.out, /claude/);

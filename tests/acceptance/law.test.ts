@@ -1,4 +1,5 @@
 import { test } from 'node:test';
+import { platformSkip } from '../harness/tool.ts';
 import assert from 'node:assert/strict';
 import { chmodSync, symlinkSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
@@ -21,8 +22,7 @@ test('test 15: a symlink and a binary file have no type; an unreadable file stop
     assert.equal(run.stdout, 'lawcheck: PASS  1 changed file (against main)\n');
     assert.equal(run.code, 0);
   });
-  // chmod cannot make a file unreadable for root, nor on Windows, where it sets only the read-only flag.
-  if (process.getuid?.() === 0 || process.platform === 'win32') return;
+  if (platformSkip('an unreadable file') !== null) return;
   await withSample(async (s) => {
     chmodSync(join(s, 'src/core/price.ts'), 0o000);
     try {
@@ -156,9 +156,9 @@ test('test 20: rule files', async () => {
   });
 });
 
-test('section 6: a law that cannot be read is law-invalid', async () => {
-  // chmod cannot make a file unreadable for root, nor on Windows, where it sets only the read-only flag.
-  if (process.getuid?.() === 0 || process.platform === 'win32') return;
+test('section 6: a law that cannot be read is law-invalid', async (t) => {
+  const skip = platformSkip('the whole test');
+  if (skip !== null) return t.skip(skip);
   await withSample(async (s) => {
     chmodSync(join(s, '.lawcheck/law.yaml'), 0o000);
     try {

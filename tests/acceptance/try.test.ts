@@ -1,28 +1,18 @@
 import { test } from 'node:test';
+import { exampleText } from '../harness/examples.ts';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { defaultAnswer, FAILED_MESSAGE, withFake } from './fake-reviewer.ts';
 import { D, D_PATH, F, F_PATH, F_PRIME, git, lawcheck, LAW, PROMPT_F, REVIEWER_CONFIG, setRule, withR, withSample, write } from './helpers.ts';
 
-const WHY_CLEAR = '  why:  An error a caller sees says what happened and what to do next.';
-const FAIL_LINE = `src/core/refund.ts:2  error[clear-errors]  ${FAILED_MESSAGE}`;
 
 const tryIn = (cwd: string, args: string[], env: NodeJS.ProcessEnv = {}) => lawcheck(cwd, ['try', ...args], env);
 
 test('test 116: a script rule on the files it binds, on a file, and on a file it does not bind', async () => {
   await withSample(async (s) => {
     const bound = await tryIn(s, ['no-console']);
-    assert.equal(
-      bound.stdout,
-      [
-        'lawcheck: try no-console (script rule, enforced)  1 finding in 1 of 2 files',
-        '',
-        'src/core/price.ts:2  error[no-console]  writes to the terminal with console.log',
-        '  why:  Only the command layer writes to the terminal.',
-        '',
-      ].join('\n'),
-    );
+    assert.equal(bound.stdout, exampleText('try-script'));
     assert.equal(bound.code, 1);
     const main = await tryIn(s, ['no-console', 'src/cli/main.ts']);
     assert.equal(
@@ -190,10 +180,7 @@ test('test 123: a reviewer rule is asked with check prompt, records nothing, and
       write(r, F_PATH, F);
       const env = { LAWCHECK_REVIEWER_ENDPOINT: fake.url };
       const once = await tryIn(r, ['clear-errors', F_PATH], env);
-      assert.equal(
-        once.stdout,
-        ['lawcheck: try clear-errors (reviewer rule, enforced)  1 finding in 1 of 1 file, 1 waived, 1 reviewer call', '', FAIL_LINE, WHY_CLEAR, ''].join('\n'),
-      );
+      assert.equal(once.stdout, exampleText('try-reviewer'));
       assert.equal(once.code, 1);
       assert.equal(fake.requests.length, 1);
       assert.equal(fake.requests[0]!.json.messages[0].content, PROMPT_F);
@@ -201,23 +188,11 @@ test('test 123: a reviewer rule is asked with check prompt, records nothing, and
       assert.equal(existsSync(join(r, '.lawcheck/verdicts')), false);
       assert.equal(existsSync(join(r, '.lawcheck/.local')), false);
       const twice = await tryIn(r, ['clear-errors', F_PATH, '--times', '2'], env);
-      assert.equal(
-        twice.stdout,
-        [
-          'lawcheck: try clear-errors (reviewer rule, enforced)  2 answers for 1 file: 2 fail, 0 pass, 2 waived, 2 reviewer calls',
-          '',
-          'src/core/refund.ts  answer 1 of 2: fail',
-          FAIL_LINE,
-          WHY_CLEAR,
-          'src/core/refund.ts  answer 2 of 2: fail',
-          FAIL_LINE,
-          '',
-        ].join('\n'),
-      );
+      assert.equal(twice.stdout, exampleText('try-times'));
       assert.equal(twice.code, 1);
       assert.equal(fake.requests.length, 3);
       const dry = await tryIn(r, ['clear-errors', F_PATH, '--dry-run', '--times', '3'], env);
-      assert.equal(dry.stdout, ['lawcheck: try clear-errors (reviewer rule, enforced)  dry run: 3 reviewer calls, none made', '', 'src/core/refund.ts  3 calls, a prompt of 2127 characters', ''].join('\n'));
+      assert.equal(dry.stdout, exampleText('try-dry-run'));
       assert.equal(dry.code, 0);
       assert.equal(fake.requests.length, 3);
     });

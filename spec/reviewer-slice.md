@@ -109,6 +109,7 @@ reviewer:
 
 F is `src/core/refund.ts`:
 
+<!-- example: reviewer-f -->
 ```ts
 export function refund(paid: boolean): void {
   if (!paid) throw new Error('failed');
@@ -144,6 +145,7 @@ A numbered line is the line's number, `|`, and, when the line is not empty, one 
 
 The frame:
 
+<!-- example: reviewer-frame -->
 ```text
 You judge whether one file keeps one rule of a repository's law.
 
@@ -161,6 +163,7 @@ When it breaks the rule:
 
 The prompt for F under `clear-errors` is the frame, an empty line, and then:
 
+<!-- example: reviewer-prompt-f -->
 ```text
 <why>
 An error a caller sees says what happened and what to do next.
@@ -386,6 +389,7 @@ In JSON, `next.command` is `<review>` in the third case and null everywhere else
 
 Under R on branch `work`, with F added and the fake reviewer of section 11, `lawcheck check --base main` exits 1:
 
+<!-- example: reviewer-first -->
 ```
 lawcheck: FAIL  1 error in 1 changed file (against main), 1 waiver
 
@@ -397,6 +401,7 @@ next: lawcheck check --review --base main  (1 reviewer call)
 
 `lawcheck check --review --base main` exits 1. The fake fails lines 2 and 4, and the waiver on line 3 drops line 4:
 
+<!-- example: reviewer-second -->
 ```
 lawcheck: FAIL  1 error in 1 changed file (against main), 1 waiver, 1 reviewer call
 
@@ -408,6 +413,7 @@ next: fix src/core/refund.ts:2
 
 `lawcheck check --full --base main` with F, before any review, exits 1:
 
+<!-- example: reviewer-third -->
 ```
 lawcheck: FAIL  1 error in 1 changed file (against main), 1 waiver
 

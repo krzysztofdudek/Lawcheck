@@ -3,9 +3,9 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { startTool } from '../harness/start.ts';
 
 const ROOT = fileURLToPath(new URL('../..', import.meta.url));
-const CLI = join(ROOT, 'dist', 'cli.js');
 const HERE = join(ROOT, 'tests', 'real');
 
 const REPOSITORIES = [
@@ -30,7 +30,7 @@ function unresolvedLine(u: { file: string; line: number; answer: string; reason:
   return `${u.file}:${u.line}  ${answer}  ${u.what}${u.candidates.length === 0 ? '' : `  [${u.candidates.join(', ')}]`}`;
 }
 
-function measure(repository: (typeof REPOSITORIES)[number]): { lines: string[]; problems: string[] } {
+async function measure(repository: (typeof REPOSITORIES)[number]): Promise<{ lines: string[]; problems: string[] }> {
   const dir = mkdtempSync(join(tmpdir(), `lawcheck-real-${repository.id}-`));
   try {
     git(dir, ['init', '-q']);
@@ -42,9 +42,9 @@ function measure(repository: (typeof REPOSITORIES)[number]): { lines: string[]; 
     mkdirSync(join(dir, '.lawcheck'));
     writeFileSync(join(dir, '.lawcheck', 'law.yaml'), readFileSync(join(HERE, `${repository.id}.yaml`)));
     git(dir, ['add', '.lawcheck/law.yaml']);
-    const run = spawnSync(process.execPath, [CLI, 'check', '--full', '--base', 'HEAD', '--json'], { cwd: dir, encoding: 'utf8', maxBuffer: 1 << 30 });
+    const run = await startTool(dir, ['check', '--full', '--base', 'HEAD', '--json'], process.env, { budget: 'REAL_RUN_BUDGET_MS' }).ended;
     const problems: string[] = [];
-    if (run.status !== 0) problems.push(`lawcheck exited with ${run.status}`);
+    if (run.code !== 0) problems.push(`lawcheck exited with ${run.code}`);
     let document: any;
     try {
       document = JSON.parse(run.stdout);
@@ -85,7 +85,7 @@ for (const repository of REPOSITORIES) {
   const started = Date.now();
   let result: { lines: string[]; problems: string[] };
   try {
-    result = measure(repository);
+    result = await measure(repository);
   } catch (error) {
     if (error instanceof FetchFailed) {
       process.stdout.write(`${repository.id}: cannot be fetched: ${error.message}\n`);
