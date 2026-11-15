@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PATTERN_RUN_BUDGET_MS } from '../properties/numbers.ts';
-import { append, check, git, LAW, lawcheck, withSample, write } from './helpers.ts';
+import { append, check, git, LAW, lawcheck, withSample, withU, write } from './helpers.ts';
 
 const WINDOWS = process.platform === 'win32';
 const LINUX = process.platform === 'linux';
@@ -155,3 +155,34 @@ test('S1-14: a marked file with no edit stays out of the change', async () => {
   });
 });
 
+
+test('S4-9: in a file with lone CR line ends a use is on line 1, since a lone \\r stays in its line, and that line is inside the file', async () => {
+  await withU(async (u) => {
+    write(u, 'src/core/g.ts', "export const a = 1;\rexport const b = 2;\rimport '../cli/main.js';\r");
+    const run = await check(u, '--base', 'main', '--json');
+    const uses = JSON.parse(run.stdout).findings.filter((f: { code: string }) => f.code === 'forbidden-use');
+    assert.deepEqual(uses.map((f: { file: string; line: number }) => [f.file, f.line]), [['src/core/g.ts', 1]]);
+  });
+});
+
+test('S4-9: a file in UTF-16 holds NUL bytes, so it is binary and has no type, as section 2 says', async () => {
+  await withSample(async (s) => {
+    write(s, 'src/core/wide.ts', Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from("console.log('x');\n", 'utf16le')]));
+    const run = await check(s);
+    assert.deepEqual([run.code, run.stdout], [0, 'lawcheck: PASS  1 changed file (against main)\n']);
+    const explained = await lawcheck(s, ['explain', 'src/core/wide.ts']);
+    assert.equal(explained.stdout, 'src/core/wide.ts\n  type:  none: it is binary, which has no type\n');
+  });
+});
+
+test('S5-10: a number past 9007199254740991 is usage, and an empty path names no file', async () => {
+  await withSample(async (s) => {
+    const big = await lawcheck(s, ['try', 'no-console', 'src', '--times', '99999999999999999999']);
+    assert.equal(big.code, 2);
+    assert.equal(big.stdout.split('\n')[2], "error[usage]  the flag --times takes a number up to 9007199254740991, not '99999999999999999999'");
+    for (const args of [['try', 'no-console', ''], ['explain', '']]) {
+      const empty = await lawcheck(s, args);
+      assert.deepEqual([empty.code, empty.stdout.split('\n')[2]], [2, 'error[usage]  an empty path names no file'], JSON.stringify(args));
+    }
+  });
+});

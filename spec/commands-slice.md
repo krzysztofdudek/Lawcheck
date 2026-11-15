@@ -34,7 +34,7 @@ usage: lawcheck docs [<topic>] [--json]
 usage: lawcheck doctor [--base <ref>] [--reviewer] [--json]
 ```
 
-Slice one's rules for flags hold for every command: a flag given twice, an unknown flag, a flag that takes a value given last or before a word that starts with `-`, and the form `--flag=<value>` are `usage`; `--json` anywhere selects JSON, for a `usage` error too. A value of `--times` or `--max-calls` is digits alone. The `next:` of `usage` is `run lawcheck <command> as its usage line says: lawcheck <command> --help`, or `lawcheck --help` when no command was recognised.
+Slice one's rules for flags hold for every command: a flag given twice, an unknown flag, a flag that takes a value given last or before a word that starts with `-`, and the form `--flag=<value>` are `usage`; `--json` anywhere selects JSON, for a `usage` error too. A value of `--times` or `--max-calls` is digits alone, at most 9007199254740991, the largest whole number JavaScript holds exactly. The `next:` of `usage` is `run lawcheck <command> as its usage line says: lawcheck <command> --help`, or `lawcheck --help` when no command was recognised.
 
 **Paths a person types** are relative to the current directory. A path that resolves outside the root is `usage`. Paths the tool prints are relative to the root, with forward slashes, as before.
 
