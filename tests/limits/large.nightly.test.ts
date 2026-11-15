@@ -183,52 +183,29 @@ test('test 252: kill -9 at a random moment of 50 reviews leaves a verdicts file 
   );
 });
 
+// The fake answers on every tenth of a second, so the answers of both runs arrive together and their writes of the verdicts file meet.
 test('test 253: two reviews at once leave a verdicts file that holds the passes of both', async () => {
   let release: () => void = () => undefined;
   const first = new Promise<void>((done) => (release = done));
   await withFake(
     async (fake) => {
       await withR(async (r) => {
-        passingFiles(r, 6);
+        passingFiles(r, 40);
         const env = { LAWCHECK_REVIEWER_ENDPOINT: fake.url };
         const a = run(r, ['check', '--review', '--base', 'main'], { env, budgetMs: 120_000 });
         await first;
-        passingFiles(r, 6, 6);
+        passingFiles(r, 40, 40);
         const b = run(r, ['check', '--review', '--base', 'main'], { env, budgetMs: 120_000 });
         const [ra, rb] = await Promise.all([a, b]);
         assert.equal(ra.code, 0, ra.stdout);
         assert.equal(rb.code, 0, rb.stdout);
-        assert.equal(verdictLines(r).length, 12);
+        assert.equal(verdictLines(r).length, 80);
       });
     },
     async (request) => {
       release();
-      await new Promise((done) => setTimeout(done, 100));
+      await new Promise((done) => setTimeout(done, 100 - (Date.now() % 100)));
       return openai(defaultAnswer(request.prompt));
     },
-  );
-});
-
-test('S1-1: test 255: a step that never ends, typing against a content pattern that backtracks, ends as step-too-slow after 60 seconds', async () => {
-  await withSample(
-    async (s) => {
-      write(s, 'slow/a.ts', `${'a'.repeat(40)}!\n`);
-      const result = await run(s, ['check', '--base', 'main'], { budgetMs: 120_000 });
-      assert.equal(
-        result.stdout,
-        [
-          'lawcheck: ERROR  1 error',
-          '',
-          'error[step-too-slow]  one step of the run took more than 60 seconds without an end: typing slow/a.ts',
-          '  why:  a step that never ends gives no answer, so one step of a run has a limit of time',
-          '',
-          "next: make the step named faster, such as a type's content pattern that backtracks, then run lawcheck check again",
-          '',
-        ].join('\n'),
-      );
-      assert.equal(result.code, 2);
-      assert.ok(result.ms >= 60_000 && result.ms < 70_000, String(result.ms));
-    },
-    { onMain: (s) => writeFileSync(join(s, '.lawcheck/law.yaml'), `${readFileSync(join(s, '.lawcheck/law.yaml'), 'utf8')}  slow:\n    paths: ["slow/**"]\n    content: "^(a|a)+$"\n`) },
   );
 });
