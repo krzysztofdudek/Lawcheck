@@ -80,6 +80,22 @@ Linux, macOS and Windows run every commit on Node 24, and Linux also on the newe
 - A checkout with `core.autocrlf=true` holds CRLF, and the reviewer gets the same prompt, keyed the same, as the LF checkout (reviewer slice, section 3).
 - On Windows the installed tool starts by its bare name from PowerShell, `cmd` and Git Bash; on Linux and macOS from `sh`.
 
+## 7. The nightly matrices
+
+Both need the network and run in Docker from official images, each container mounting only one `mktemp -d` folder, read-only.
+
+**The install matrix.** The packed tarball, the sample and the cell script `tests/environments/matrix/install-cell.sh`. Each cell installs the tarball by its package manager, then runs `--version`, `doctor`, `check --base main` on the sample with one added file that breaks `no-console` once, `try no-console` on that file, and `check --base main --json` through the runner command of `docs/config.md`, piped to a JSON parser. A supported cell prints the version, a passing `doctor`, exactly that one finding and a `lawcheck-check/0` document. A refused cell prints the version, and `doctor`, `check` and `try` refuse with the same first line, naming the cause, exit 2, no rule file blamed, and a `lawcheck-error/1` document.
+
+| Image | npm | pnpm | Yarn 1 | Yarn 4, `node-modules` | Yarn 4, Plug'n'Play | Bun |
+|---|---|---|---|---|---|---|
+| `node:24` | pass | pass | pass | pass | refused | pass |
+| `node:24-alpine` | pass | pass | pass | pass | refused | pass |
+| `oven/bun` | | | | | | refused |
+| `node:20` | refused | | | | | |
+| `node:22` | refused | | | | | |
+
+**The git matrix.** The check slice's acceptance tests, the tests whose names carry rows 1 to 45, run with the git of `ubuntu:22.04` (2.34), `debian:12` (2.39), `ubuntu:24.04` (2.43) and `debian:sid` (the newest a Debian image carries), on the Node 24 of the machine that starts them, as a user other than root.
+
 ## 8. Acceptance tests
 
 | # | Do | See |
@@ -90,6 +106,8 @@ Linux, macOS and Windows run every commit on Node 24, and Linux also on the newe
 | 203 | S with `src/core/café.ts` written in NFC and `src/core/año.ts` written in NFD, each holding `console.log(1);` | one `error[no-console]` finding at line 1 of each, each placed at the name `git ls-files` prints; `--json` the same names |
 | 204 | R with F committed on `work`, cloned with `-c core.autocrlf=true`: `check --review --base origin/main` against the fake reviewer | the checkout of F holds CRLF; one request, whose prompt is `PROMPT_F` of the reviewer slice; the failure cache holds the one file `<key of F>.json`; exit 1 |
 | 205 | the tarball of `npm pack --ignore-scripts`, unpacked, with its dependencies from the checkout, installed with `npm install --global --prefix <folder> --offline`: from each shell of the system, with that folder's bin on `PATH`, `lawcheck --version` and, in S with D added, `lawcheck check --base main` | the version of `package.json`, exit 0; test 4's output, exit 1; from PowerShell, `cmd` and Git Bash on Windows, from `sh` elsewhere |
+| 206 | nightly: the install matrix of section 7 (network) | each cell as section 7's table says |
+| 207 | nightly: the git matrix of section 7 (network) | every test passes on each git, and none is refused |
 | 208 | S with D committed on `work`; on `main` a merge of `work` kept as `refs/pull/1/merge`, then `main` reset; a clone fetches that ref and checks it out detached: `check --base origin/main` | test 4's output with `(against origin/main)`, exit 1 |
 | 209 | a clone of that origin: `check --base origin/`; `check --base 0000000000000000000000000000000000000000`; `check --base origin/main` | the two messages of the check slice, section 4, for an empty branch name and the commit of zeros, exit 2, the second with its next line; then test 4's output with `(against origin/main)` |
 
