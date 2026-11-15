@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { delimiter, dirname, join } from 'node:path';
 import { DEFAULT_CONFIG } from '../../dist/config.js';
 import { geminiCli } from '../../dist/providers/gemini-cli.js';
-import { failure, HIDDEN_VARIABLES, lastLine, plainOutput, programEnv } from '../../dist/providers/program.js';
+import { failure, LAWCHECK_VARIABLES, lastLine, plainOutput, programEnv, SIGN_IN_VARIABLES } from '../../dist/providers/program.js';
 import { writeFakeProgram } from '../acceptance/fake-reviewer.ts';
 
 const ended = (code: number | null, signal: string | null, stdout: string, stderr: string) => ({ code, signal, stdout, stderr });
@@ -49,10 +49,14 @@ test('the working folder and the folder aside are gone when the call ends, befor
   }
 });
 
-test('a program gets the environment without the variables of Lawcheck that hold an address or a key', () => {
-  const env = { PATH: '/bin', HOME: '/h', LAWCHECK_REVIEWER_ENDPOINT: 'e', LAWCHECK_REVIEWER_KEY: 'k', ANTHROPIC_API_KEY: 'a', OPENAI_API_KEY: 'o', GOOGLE_API_KEY: 'g', COPILOT_MODEL: 'm' };
-  assert.deepEqual(programEnv(env, 'linux'), { PATH: '/bin', HOME: '/h', COPILOT_MODEL: 'm' });
-  assert.deepEqual(programEnv({ Path: 'C:\\', openai_api_key: 'o', Lawcheck_Reviewer_Key: 'k' }, 'win32'), { Path: 'C:\\' });
-  assert.deepEqual(programEnv({ openai_api_key: 'o' }, 'linux'), { openai_api_key: 'o' });
-  assert.deepEqual(HIDDEN_VARIABLES, ['LAWCHECK_REVIEWER_ENDPOINT', 'LAWCHECK_REVIEWER_KEY', 'ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'GOOGLE_API_KEY']);
+test("a program gets its own sign-in variables, and neither Lawcheck's nor another program's", () => {
+  const own = { claude: ['ANTHROPIC_API_KEY', 'ANTHROPIC_AUTH_TOKEN', 'CLAUDE_CODE_OAUTH_TOKEN'], codex: ['OPENAI_API_KEY', 'CODEX_API_KEY'], gemini: ['GEMINI_API_KEY', 'GOOGLE_API_KEY'], copilot: ['COPILOT_GITHUB_TOKEN', 'GH_TOKEN', 'GITHUB_TOKEN', 'COPILOT_PROVIDER_API_KEY', 'COPILOT_PROVIDER_API_KEY_COMMAND', 'COPILOT_PROVIDER_BEARER_TOKEN'] };
+  assert.deepEqual(SIGN_IN_VARIABLES, own);
+  const every = Object.fromEntries([...LAWCHECK_VARIABLES, ...Object.values(own).flat()].map((name) => [name, 'v']));
+  for (const [program, variables] of Object.entries(own)) {
+    assert.deepEqual(Object.keys(programEnv({ PATH: '/bin', COPILOT_MODEL: 'm', ...every }, program, 'linux')).sort(), ['COPILOT_MODEL', 'PATH', ...variables].sort(), program);
+  }
+  assert.deepEqual(LAWCHECK_VARIABLES, ['LAWCHECK_REVIEWER_ENDPOINT', 'LAWCHECK_REVIEWER_KEY']);
+  assert.deepEqual(programEnv({ Path: 'C:\\', openai_api_key: 'o', Lawcheck_Reviewer_Key: 'k', anthropic_api_key: 'a' }, 'claude', 'win32'), { Path: 'C:\\', anthropic_api_key: 'a' });
+  assert.deepEqual(programEnv({ openai_api_key: 'o' }, 'claude', 'linux'), { openai_api_key: 'o' });
 });

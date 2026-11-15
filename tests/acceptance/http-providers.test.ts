@@ -352,6 +352,14 @@ const KEYED: { provider: string; own: string | null; header: (request: Recorded)
 ];
 
 const VENDOR_KEYS = ['ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'GOOGLE_API_KEY'];
+const LAWCHECK_VARIABLES = ['LAWCHECK_REVIEWER_ENDPOINT', 'LAWCHECK_REVIEWER_KEY'];
+const SIGN_IN: Record<string, string[]> = {
+  claude: ['ANTHROPIC_API_KEY', 'ANTHROPIC_AUTH_TOKEN', 'CLAUDE_CODE_OAUTH_TOKEN'],
+  codex: ['OPENAI_API_KEY', 'CODEX_API_KEY'],
+  gemini: ['GEMINI_API_KEY', 'GOOGLE_API_KEY'],
+  copilot: ['COPILOT_GITHUB_TOKEN', 'GH_TOKEN', 'GITHUB_TOKEN', 'COPILOT_PROVIDER_API_KEY', 'COPILOT_PROVIDER_API_KEY_COMMAND', 'COPILOT_PROVIDER_BEARER_TOKEN'],
+};
+const PROGRAM_PROVIDERS = [['claude-code', 'claude'], ['codex', 'codex'], ['gemini-cli', 'gemini'], ['copilot-cli', 'copilot']] as const;
 
 function leftNothing(where: string, texts: string[], files: string[], secrets: string[]) {
   for (const text of texts) for (const secret of secrets) assert.ok(!text.includes(secret), `${where}: ${text.slice(0, 500)}`);
@@ -411,12 +419,12 @@ test('test 188: the key canary', async () => {
       }, configOf(keyed.provider, '  parallel: 1\n'));
     }, replies);
   }
-  for (const [provider, name] of [['claude-code', 'claude'], ['codex', 'codex'], ['gemini-cli', 'gemini'], ['copilot-cli', 'copilot']] as const) {
+  for (const [provider, name] of PROGRAM_PROVIDERS) {
     await withR(async (r, dir) => {
       write(r, F_PATH, F);
       const tmp = mkdtempSync(join(tmpdir(), 'lawcheck-canary-'));
       try {
-        const secrets = Object.fromEntries(['LAWCHECK_REVIEWER_ENDPOINT', 'LAWCHECK_REVIEWER_KEY', ...VENDOR_KEYS].map((variable) => [variable, `canary-${randomBytes(12).toString('hex')}`]));
+        const secrets = Object.fromEntries([...LAWCHECK_VARIABLES, ...Object.values(SIGN_IN).flat()].map((variable) => [variable, `canary-${randomBytes(12).toString('hex')}`]));
         const upper = name.toUpperCase();
         const env: NodeJS.ProcessEnv = { ...secrets, PATH: pathWith(writeFakeProgram(join(dir, 'bin'), name)), [`FAKE_${upper}_RECORD`]: join(dir, 'record.json'), TMPDIR: tmp, TMP: tmp, TEMP: tmp };
         const outputs: string[] = [];
@@ -425,8 +433,12 @@ test('test 188: the key canary', async () => {
           outputs.push(result.stdout, result.stderr);
         }
         const seen = JSON.parse(readFileSync(join(dir, 'record.json'), 'utf8')) as { env: Record<string, string> };
-        for (const variable of Object.keys(secrets)) assert.ok(!Object.keys(seen.env).some((key) => key.toUpperCase() === variable), `${provider} got ${variable}`);
-        leftNothing(provider, [...outputs, JSON.stringify(seen.env)], [...filesUnder(r).filter((path) => !path.startsWith(join(r, '.git'))), ...filesUnder(tmp)], Object.values(secrets));
+        const got = Object.keys(seen.env).filter((key) => key in secrets).sort();
+        assert.deepEqual(got, [...SIGN_IN[name]].sort(), `${provider} got ${got.join(', ')}`);
+        for (const variable of SIGN_IN[name]) assert.equal(seen.env[variable], secrets[variable], `${provider}: ${variable}`);
+        const foreign = Object.entries(secrets).filter(([variable]) => !SIGN_IN[name].includes(variable)).map(([, value]) => value);
+        leftNothing(provider, [JSON.stringify(seen.env)], [], foreign);
+        leftNothing(provider, outputs, [...filesUnder(r).filter((path) => !path.startsWith(join(r, '.git'))), ...filesUnder(tmp)], Object.values(secrets));
       } finally {
         rmSync(tmp, { recursive: true, force: true });
       }
@@ -458,6 +470,18 @@ test('test 189: a key under a provider name goes to that provider alone', async 
     }
   } finally {
     await second.close();
+  }
+  for (const [provider, name] of PROGRAM_PROVIDERS) {
+    await withR(async (r, dir) => {
+      write(r, F_PATH, F);
+      const keys = { LAWCHECK_REVIEWER_KEY: 'k1', LAWCHECK_REVIEWER_ENDPOINT: 'http://127.0.0.1:1/v1', ANTHROPIC_API_KEY: 'k3', OPENAI_API_KEY: 'k2', GOOGLE_API_KEY: 'k4', GEMINI_API_KEY: 'k5', GH_TOKEN: 'k6' };
+      const upper = name.toUpperCase();
+      const result = await run(r, null, ['--review', '--base', 'main'], { ...keys, PATH: pathWith(writeFakeProgram(join(dir, 'bin'), name)), [`FAKE_${upper}_RECORD`]: join(dir, 'record.json') });
+      assert.equal(result.stdout, SECOND, provider);
+      const seen = JSON.parse(readFileSync(join(dir, 'record.json'), 'utf8')) as { env: Record<string, string> };
+      const arrived = Object.entries(keys).filter(([variable]) => variable in seen.env).map(([variable]) => variable).sort();
+      assert.deepEqual(arrived, Object.keys(keys).filter((variable) => SIGN_IN[name].includes(variable)).sort(), provider);
+    }, configOf(provider));
   }
 });
 

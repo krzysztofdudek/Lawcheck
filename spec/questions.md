@@ -510,10 +510,10 @@ Choice, after a review: every failure carries a fix, the table in section 6 of `
 
 ## 80. The variables a program gets
 
-`claude-code` passed every variable of Lawcheck's environment to `claude`, and the six new providers did the same, so `LAWCHECK_REVIEWER_KEY` and the vendors' keys reached `codex`, `gemini` and `copilot` and the MCP servers they start.
+`claude-code` passed every variable of Lawcheck's environment to `claude`, and the six new providers did the same, so `LAWCHECK_REVIEWER_KEY` and the vendors' keys reached `codex`, `gemini` and `copilot` and the MCP servers they start. A first fix took every key variable away from every program, which cut off a `claude` signed in only through `ANTHROPIC_API_KEY`.
 
-Choice, after a review: the four programs get the environment without `LAWCHECK_REVIEWER_ENDPOINT`, `LAWCHECK_REVIEWER_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` and `GOOGLE_API_KEY`. What it costs: a `claude` signed in only through `ANTHROPIC_API_KEY`, or a `gemini` signed in only through `GOOGLE_API_KEY`, no longer answers under Lawcheck; it needs its own sign-in, or `anthropic` or `google` as the provider. Decision 25 of the slice.
+Choice, the build's, under the design's rule that a key goes only where it was given: each program gets the sign-in variables its own vendor documents and no other's, and none gets `LAWCHECK_REVIEWER_ENDPOINT` or `LAWCHECK_REVIEWER_KEY`. Section 6 of `spec/reviewer-slice.md` lists them, decision 25 of the slice records it, and tests 188 and 189 hold it per program.
 
 ## 81. Numbers that belong to the table of limits
 
-The fixes of a review set three numbers: 4 MiB for a reviewer's reply or output, 64 KiB of a program's standard error kept for its last line, and 256 characters for `reviewer.model`. They live in `src/providers/http.ts`, `src/providers/program.ts` and `src/config.ts` until the table of limits exists, which should take them.
+The fixes of a review set three numbers: 4 MiB for a reviewer's reply or output, 64 KiB of a program's standard error kept for its last line, and 256 characters for `reviewer.model`. Section 6 of `spec/reviewer-slice.md` states them as rows of its own table of limits, and the table of limits for the whole tool, when it exists, takes them over.

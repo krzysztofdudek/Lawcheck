@@ -13,7 +13,15 @@ const CLOSE_GRACE_MS = 2000;
 const FAILURE_LENGTH = 300;
 const STDERR_KEPT = 64 * 1024;
 
-export const HIDDEN_VARIABLES = ['LAWCHECK_REVIEWER_ENDPOINT', 'LAWCHECK_REVIEWER_KEY', 'ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'GOOGLE_API_KEY'];
+export const LAWCHECK_VARIABLES = ['LAWCHECK_REVIEWER_ENDPOINT', 'LAWCHECK_REVIEWER_KEY'];
+
+// The variables each program documents for its own sign-in; a program gets its own and no other's.
+export const SIGN_IN_VARIABLES: Record<string, string[]> = {
+  claude: ['ANTHROPIC_API_KEY', 'ANTHROPIC_AUTH_TOKEN', 'CLAUDE_CODE_OAUTH_TOKEN'],
+  codex: ['OPENAI_API_KEY', 'CODEX_API_KEY'],
+  gemini: ['GEMINI_API_KEY', 'GOOGLE_API_KEY'],
+  copilot: ['COPILOT_GITHUB_TOKEN', 'GH_TOKEN', 'GITHUB_TOKEN', 'COPILOT_PROVIDER_API_KEY', 'COPILOT_PROVIDER_API_KEY_COMMAND', 'COPILOT_PROVIDER_BEARER_TOKEN'],
+};
 
 export interface Ended {
   code: number | null;
@@ -51,8 +59,13 @@ export function plainOutput(name: string): (ended: Ended) => Asked {
   return (ended) => (ended.code === 0 ? { answer: ended.stdout } : failure(name, ended));
 }
 
-export function programEnv(env: Env, platform: NodeJS.Platform = process.platform): Env {
-  const hidden = (key: string) => HIDDEN_VARIABLES.includes(platform === 'win32' ? key.toUpperCase() : key);
+export function hiddenFrom(program: string): string[] {
+  return [...LAWCHECK_VARIABLES, ...Object.entries(SIGN_IN_VARIABLES).flatMap(([name, variables]) => (name === program ? [] : variables))];
+}
+
+export function programEnv(env: Env, program: string, platform: NodeJS.Platform = process.platform): Env {
+  const hiddenNames = hiddenFrom(program);
+  const hidden = (key: string) => hiddenNames.includes(platform === 'win32' ? key.toUpperCase() : key);
   return Object.fromEntries(Object.entries(env).filter(([key]) => !hidden(key)));
 }
 
@@ -60,7 +73,7 @@ export function programProvider(program: Program, env: Env, timeoutSeconds: numb
   const find = program.find ?? ((e: Env) => findProgram(program.name, e));
   const missing = `the program ${program.name} is not on PATH`;
   const fix = `install ${program.name}, or put the folder that holds it on PATH`;
-  const own = programEnv(env);
+  const own = programEnv(env, program.name);
   let binary: string | null = null;
   let prepared: Promise<Prepared> | null = null;
   return {
