@@ -38,7 +38,9 @@
     "agent-trial": "node tests/agent/run.ts",
     "real": "npm run build && node tests/real/run.ts",
     "stability": "npm run build && node tests/stability/run.ts",
-    "test": "npm run build && node --test \"tests/unit/*.test.ts\" \"tests/acceptance/*.test.ts\""
+    "test": "npm run build && node tests/run.ts commit",
+    "t": "node tests/run.ts loop",
+    "nightly": "npm run build && node tests/run.ts nightly"
   },
   "dependencies": {
     "@chrisdudek/runes": "1.1.0",

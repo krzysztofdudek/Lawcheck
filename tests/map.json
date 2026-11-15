@@ -1,0 +1,147 @@
+{
+  "plugin/hooks/lawcheck-hook.mjs": [
+    "tests/acceptance/plugin.test.ts"
+  ],
+  "src/args.ts": [
+    "tests/acceptance/cli.test.ts",
+    "tests/acceptance/docs.test.ts",
+    "tests/unit/args.test.ts"
+  ],
+  "src/check.ts": [
+    "tests/acceptance/changes.test.ts",
+    "tests/acceptance/cli.test.ts",
+    "tests/acceptance/paths.test.ts",
+    "tests/acceptance/targets.test.ts",
+    "tests/unit/check.test.ts"
+  ],
+  "src/cli.ts": [
+    "tests/acceptance/cli.test.ts",
+    "tests/acceptance/package.test.ts",
+    "tests/unit/cli.test.ts"
+  ],
+  "src/config.ts": [
+    "tests/acceptance/paths.test.ts",
+    "tests/acceptance/reviewer-law.test.ts",
+    "tests/unit/config.test.ts"
+  ],
+  "src/docs.ts": [
+    "tests/acceptance/docs.test.ts",
+    "tests/unit/docs.test.ts"
+  ],
+  "src/doctor.ts": [
+    "tests/acceptance/doctor.test.ts",
+    "tests/unit/doctor.test.ts"
+  ],
+  "src/explain.ts": [
+    "tests/acceptance/explain.test.ts",
+    "tests/unit/explain.test.ts"
+  ],
+  "src/files.ts": [
+    "tests/acceptance/changes.test.ts",
+    "tests/acceptance/paths.test.ts",
+    "tests/unit/files.test.ts"
+  ],
+  "src/glob.ts": [
+    "tests/acceptance/law.test.ts",
+    "tests/acceptance/paths.test.ts",
+    "tests/unit/glob.test.ts"
+  ],
+  "src/guard.ts": [
+    "tests/acceptance/providers.test.ts",
+    "tests/acceptance/rules.test.ts"
+  ],
+  "src/init.ts": [
+    "tests/acceptance/init.test.ts",
+    "tests/unit/init.test.ts"
+  ],
+  "src/law.ts": [
+    "tests/acceptance/law.test.ts",
+    "tests/acceptance/reviewer-law.test.ts",
+    "tests/unit/law.test.ts"
+  ],
+  "src/output.ts": [
+    "tests/acceptance/cli.test.ts",
+    "tests/acceptance/docs.test.ts",
+    "tests/unit/output.test.ts"
+  ],
+  "src/prime.ts": [
+    "tests/acceptance/prime.test.ts",
+    "tests/unit/prime.test.ts"
+  ],
+  "src/programs.ts": [
+    "tests/acceptance/providers.test.ts",
+    "tests/acceptance/rules.test.ts",
+    "tests/unit/programs.test.ts"
+  ],
+  "src/prompt.ts": [
+    "tests/acceptance/reviewer.test.ts",
+    "tests/unit/prompt.test.ts"
+  ],
+  "src/providers/anthropic.ts": [
+    "tests/acceptance/providers.test.ts",
+    "tests/unit/providers-anthropic.test.ts"
+  ],
+  "src/providers/claude-code.ts": [
+    "tests/acceptance/providers.test.ts",
+    "tests/unit/providers-claude-code.test.ts"
+  ],
+  "src/providers/http.ts": [
+    "tests/acceptance/providers.test.ts",
+    "tests/unit/providers-http.test.ts"
+  ],
+  "src/providers/index.ts": [
+    "tests/acceptance/providers.test.ts",
+    "tests/unit/providers-index.test.ts"
+  ],
+  "src/providers/openai-compatible.ts": [
+    "tests/acceptance/providers.test.ts",
+    "tests/acceptance/reviewer.test.ts",
+    "tests/unit/providers-openai-compatible.test.ts"
+  ],
+  "src/readers.ts": [
+    "tests/acceptance/languages.test.ts",
+    "tests/acceptance/uses.test.ts",
+    "tests/unit/readers.test.ts"
+  ],
+  "src/review.ts": [
+    "tests/acceptance/providers.test.ts",
+    "tests/acceptance/reviewer.test.ts",
+    "tests/unit/review.test.ts"
+  ],
+  "src/rules.ts": [
+    "tests/acceptance/rules.test.ts",
+    "tests/unit/rules.test.ts",
+    "tests/unit/runner.test.ts"
+  ],
+  "src/runner.ts": [
+    "tests/acceptance/rules.test.ts",
+    "tests/unit/runner.test.ts"
+  ],
+  "src/setup.ts": [
+    "tests/acceptance/cli.test.ts",
+    "tests/acceptance/targets.test.ts",
+    "tests/unit/setup.test.ts"
+  ],
+  "src/try.ts": [
+    "tests/acceptance/try.test.ts",
+    "tests/unit/try.test.ts"
+  ],
+  "src/types.ts": [
+    "tests/acceptance/changes.test.ts",
+    "tests/acceptance/paths.test.ts",
+    "tests/unit/types.test.ts"
+  ],
+  "src/uses.ts": [
+    "tests/acceptance/languages.test.ts",
+    "tests/acceptance/uses.test.ts",
+    "tests/unit/uses.test.ts"
+  ],
+  "src/verdicts.ts": [
+    "tests/acceptance/reviewer.test.ts",
+    "tests/unit/verdicts.test.ts"
+  ],
+  "src/waivers.ts": [
+    "tests/acceptance/waivers.test.ts",
+    "tests/unit/waivers.test.ts"
+  ]
+}
