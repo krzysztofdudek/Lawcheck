@@ -72,7 +72,8 @@
   ],
   "src/guard.ts": [
     "tests/acceptance/providers.test.ts",
-    "tests/acceptance/rules.test.ts"
+    "tests/acceptance/rules.test.ts",
+    "tests/unit/programs.test.ts"
   ],
   "src/init.ts": [
     "tests/acceptance/init.test.ts",
