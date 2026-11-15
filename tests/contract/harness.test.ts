@@ -363,20 +363,23 @@ test('harness-1: a hook the test stops exits 0 and prints nothing, as question 5
   });
 });
 
-test('harness: a start of Lawcheck that does not come from the harness fails the test, however it is spelt', async () => {
+test('harness: a start of Lawcheck that does not come from the harness fails the test, through every function of child_process and however it is spelt', async () => {
   await inTemp(async (dir) => {
-    const run = childProcess.spawnSync;
-    const words: [string, string[]][] = [
-      [process.execPath, [CLI, '--version']],
-      [process.execPath, [CLI.split('\\').join('/'), 'check']],
-      [process.execPath, [join(dir, 'copy', 'dist', 'cli.js')]],
-      [process.execPath, [HOOK, 'stop']],
-      ['lawcheck', ['check']],
-      [join(dir, 'bin', 'lawcheck.cmd'), ['check']],
+    const cp = childProcess as unknown as Record<string, (...args: unknown[]) => unknown>;
+    const calls: [string, unknown[]][] = [
+      ['spawn', [process.execPath, [CLI, '--version']]],
+      ['spawnSync', [process.execPath, [CLI.split('\\').join('/'), 'check']]],
+      ['execFile', [process.execPath, [join(dir, 'copy', 'dist', 'cli.js')]]],
+      ['execFileSync', [process.execPath, [HOOK, 'stop']]],
+      ['exec', [`node ${join('dist', 'cli.js')} check`]],
+      ['execSync', [`"${process.execPath}" "${CLI}" check`]],
+      ['fork', [CLI, ['check']]],
+      ['spawnSync', ['lawcheck', ['check']]],
+      ['execFileSync', [join(dir, 'bin', 'lawcheck.cmd'), ['check']]],
     ];
-    for (const [command, args] of words) assert.throws(() => run(command, args), /a test started Lawcheck by hand/, `${command} ${args.join(' ')}`);
-    const shell = childProcess.execSync;
-    assert.throws(() => shell(`node ${join('dist', 'cli.js')} check`), /a test started Lawcheck by hand/);
+    for (const name of ['spawn', 'spawnSync', 'execFile', 'execFileSync', 'exec', 'execSync', 'fork']) assert.ok(calls.some(([called]) => called === name), name);
+    for (const [name, args] of calls) assert.throws(() => cp[name]!(...args), /a test started Lawcheck by hand/, `${name} ${JSON.stringify(args)}`);
+    const run = childProcess.spawnSync;
     assert.equal(run(process.execPath, ['-e', 'process.exit(0)']).status, 0);
   });
 });

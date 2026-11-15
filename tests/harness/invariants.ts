@@ -18,7 +18,7 @@ export const INVARIANTS: Record<string, string> = {
 export const KNOWN_LIMITS: string[] = [
   "A rule's runner starts with an empty environment, so a detached child of a rule, or any child started with env: {}, carries no mark; it is found only while it lives below the tool at a sample, by its process group, or on Linux by a working folder inside the run's folders.",
   'Reading stdout, stderr, code, signal or json of a run counts as comparing it, whether or not the test asserts on what it read.',
-  'Windows lists no process tree and shows no environment of another process, so there the harness cannot see a process left alive; PLATFORM_SKIPS names it.',
+  'Node on Windows cannot read the environment of another process, and a list of processes with their parents comes only from PowerShell, which takes seconds a call on a busy machine, so there the harness does not look for a process left alive; PLATFORM_SKIPS names it.',
   'On Windows LOCALAPPDATA stays the machine\'s, since Windows programs keep their caches there (the guard\'s PowerShell among them); a write under it is not seen. In the home, Windows makes the folders of a profile for a program that asks for one, so there an empty folder does not count, only a file.',
   'The harness walks no node_modules folder, in the repository or beside it, since a node_modules there is a link to the checkout\'s; a write inside one is not seen.',
   'Raw characters inside the strings of a --json document, and the bidirectional marks U+200E, U+200F and U+061C, are left to the security tests.',
