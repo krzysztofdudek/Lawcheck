@@ -1,7 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import { copyFileSync, existsSync, lstatSync, mkdtempSync, rmSync } from 'node:fs';
 import { devNull, tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join, resolve, sep } from 'node:path';
 import { findProgram } from './programs.js';
 
 export class NoGit extends Error {}
@@ -240,22 +240,32 @@ export interface TrackedLink {
   bytes: Buffer;
 }
 
-// Every link git tracks under the root and in its submodules, by its bytes: a name with a line break or bytes that are not UTF-8 is a link like any other.
+// Every link git tracks under the root and in its checked-out submodules, by its bytes: a name with a line break or bytes that are not UTF-8 is a link like any other. Each submodule is listed in its own folder, since git 2.34 refuses --recurse-submodules with --stage.
 export function trackedLinks(root: string): TrackedLink[] {
-  const args = ['ls-files', '-z', '--stage', '--recurse-submodules'];
-  const result = git(root, args);
-  if (result.status !== 0) throw failed(args, result);
   const links: TrackedLink[] = [];
-  let start = 0;
-  for (let i = 0; i < result.stdout.length; i++) {
-    if (result.stdout[i] !== 0) continue;
-    const entry = result.stdout.subarray(start, i);
-    start = i + 1;
-    const tab = entry.indexOf(9);
-    if (tab < 0 || !entry.subarray(0, 7).equals(Buffer.from('120000 '))) continue;
-    const bytes = Buffer.from(entry.subarray(tab + 1));
-    links.push({ name: loose.decode(bytes), bytes });
-  }
+  const list = (dir: Buffer, prefix: Buffer) => {
+    const args = ['ls-files', '-z', '--stage'];
+    const result = git(dir.toString('utf8'), args);
+    if (result.status !== 0) throw failed(args, result);
+    let start = 0;
+    for (let i = 0; i < result.stdout.length; i++) {
+      if (result.stdout[i] !== 0) continue;
+      const entry = result.stdout.subarray(start, i);
+      start = i + 1;
+      const tab = entry.indexOf(9);
+      if (tab < 0) continue;
+      const path = Buffer.from(entry.subarray(tab + 1));
+      const mode = entry.subarray(0, 7).toString('latin1');
+      if (mode === '120000 ') {
+        const bytes = Buffer.concat([prefix, path]);
+        links.push({ name: loose.decode(bytes), bytes });
+      } else if (mode === '160000 ') {
+        const sub = Buffer.concat([dir, Buffer.from(sep), path]);
+        if (existsSync(Buffer.concat([sub, Buffer.from(sep + '.git')]))) list(sub, Buffer.concat([prefix, path, Buffer.from('/')]));
+      }
+    }
+  };
+  list(Buffer.from(root), Buffer.alloc(0));
   return links;
 }
 

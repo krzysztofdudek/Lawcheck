@@ -233,7 +233,7 @@ Otherwise the message is `the base '<base>' names no commit here` or `the base '
 | the merge base | `git merge-base HEAD <the base's commit>` | exit 1: `base-unreachable` |
 | why the base cannot be reached | `git rev-parse --is-shallow-repository`, `git remote`, and `git config --get-all remote.<remote>.fetch`, only when the base cannot be reached | the table below |
 | the change | `git rev-parse --git-path index`, then `git diff --no-ext-diff --no-textconv --ignore-submodules=all -z --name-only --no-renames --relative <merge base> --`, then `git ls-files -z --others --exclude-standard` | below |
-| the links | `git rev-parse --show-toplevel`, then `git ls-files -z --stage --recurse-submodules`, when a script rule is to run | the top of the work tree, and the entries of mode `120000`, the links git tracks under the root and in its submodules (section 3) |
+| the links | `git rev-parse --show-toplevel`, then `git ls-files -z --stage` at the root and again in each checked-out submodule it lists (an entry of mode `160000`), when a script rule is to run | the top of the work tree, and the entries of mode `120000`, the links git tracks under the root and in its submodules (section 3); git 2.34 refuses `--recurse-submodules` with `--stage`, so each submodule is asked in its own folder |
 
 Any other failure of a git command is `internal`. With `-z` git ends each path with a NUL byte and quotes nothing, so a name with a letter outside ASCII, a space or a tab arrives as it is. `ls-files` at the root and `diff --relative` both print paths relative to the root and leave out everything outside it. The tool compares the paths of the two as equal strings, wherever the root lies in the git tree.
 
