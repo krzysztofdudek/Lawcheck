@@ -5,9 +5,9 @@ import type { Arguments, Result } from './args.js';
 import type { CheckContext } from './check.js';
 import { CONFIG } from './config.js';
 import type { ReviewerConfig } from './config.js';
-import { listFiles, NoGit, showPrefix, workTreeProblem } from './files.js';
+import { gitNext, listFiles, NoGit, showPrefix, workTreeProblem } from './files.js';
 import type { Law } from './law.js';
-import { nextOfErrors, placeOf, plural, shown, sortErrors } from './output.js';
+import { forCommand, nextOfErrors, placeOf, plural, shown, sortErrors } from './output.js';
 import type { ErrorItem } from './output.js';
 import { walk } from './prime.js';
 import { checkAnswer } from './prompt.js';
@@ -107,7 +107,10 @@ export async function runChecks(inputs: Inputs): Promise<Check[]> {
         if (!(error instanceof NoGit)) throw error;
         problem = error.message;
       }
-      if (problem !== null) return set('git', 'fail', problem, next('run lawcheck doctor inside a git work tree, with git on the PATH'));
+      if (problem !== null) {
+        const fix = gitNext(dir, problem);
+        return set('git', 'fail', problem, next(fix === undefined ? 'run lawcheck doctor inside a git work tree, with git on the PATH' : forCommand(fix, 'doctor')));
+      }
       if (found.root === null) return set('git', 'ok', 'a git work tree');
       const prefix = showPrefix(found.root);
       set('git', 'ok', `a git work tree, and the law's root is ${prefix === '' ? 'its top' : `${prefix} below its top`}`);

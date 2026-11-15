@@ -1,7 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import { copyFileSync, existsSync, lstatSync, mkdtempSync, rmSync } from 'node:fs';
 import { devNull, tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { findProgram } from './programs.js';
 
 export class NoGit extends Error {}
@@ -109,6 +109,26 @@ export function workTreeProblem(root: string): string | null {
   return `git does not see a work tree here: ${firstPrinted(result)}`;
 }
 
+function quoted(path: string): string {
+  return /^[\w@%+=:,./\\-]+$/.test(path) ? path : `'${path.replace(/'/g, `'\\''`)}'`;
+}
+
+function repositoryAbove(dir: string): string | null {
+  for (let at = resolve(dir); ; at = dirname(at)) {
+    if (existsSync(join(at, '.git'))) return at;
+    if (dirname(at) === at) return null;
+  }
+}
+
+// What git's own sentence asks of the user, where the plain next line of no-git would send them to the work tree they are in.
+export function gitNext(dir: string, problem: string): string | undefined {
+  const dubious = /dubious ownership in repository at '([^']*)'/.exec(problem);
+  if (dubious !== null) return `let git trust the repository: git config --global --add safe.directory ${quoted(dubious[1]!)}, then run lawcheck check`;
+  const repository = /not a git repository/.test(problem) ? repositoryAbove(dir) : null;
+  if (repository !== null) return `repair the repository at ${repository}, so that git status works there, then run lawcheck check`;
+  return undefined;
+}
+
 export function listFiles(root: string, listed: Set<string> = listedPaths(root)): string[] {
   const files: string[] = [];
   for (const path of listed) {
@@ -145,6 +165,16 @@ export function defaultBase(root: string): string | null {
 export function resolveCommit(root: string, base: string): string | null {
   const result = git(root, ['rev-parse', '--verify', '--quiet', '--end-of-options', `${base}^{commit}`]);
   return result.status === 0 ? loose.decode(result.stdout).trim() : null;
+}
+
+export function remoteNames(root: string): string[] {
+  const result = git(root, ['remote']);
+  return result.status === 0 ? loose.decode(result.stdout).split(/\r?\n/).filter((name) => name !== '') : [];
+}
+
+export function isShallow(root: string): boolean {
+  const result = git(root, ['rev-parse', '--is-shallow-repository']);
+  return result.status === 0 && loose.decode(result.stdout).trim() === 'true';
 }
 
 export function mergeBase(root: string, commit: string): string | null {

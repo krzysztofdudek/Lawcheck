@@ -184,7 +184,6 @@ A rule imports what it can read: `node:` built-ins, files below the root such as
 
 When Node refuses, the message names what the rule did, never a flag of the runner's command line, which the user cannot pass: `reads <path> outside the root and Lawcheck's folder, and a rule may read nothing else`; `writes <path>, and a rule may write no file`; `starts a program, and a rule may start none`; `starts a worker thread, and a rule may start none`; `loads a native add-on, and a rule may load none`; `starts WASI, and a rule may not`. `<path>` is the path Node names.
 
-
 A rule that hangs or dies takes its own process with it and nothing else. `process.env` is empty in a rule. `process.send` is absent in a rule, so the channel to the tool carries only the runner's answers; a message the tool did not ask for ends the rule as `rule-crashed`.
 
 **What the runner does not stop.** It is no sandbox, and this slice has no flag that skips script rules. A rule can:
@@ -206,7 +205,18 @@ A rule file is code of the repository and runs with the user's rights, as the re
 
 **Arguments.** `lawcheck --version` prints `0.1.0`, the package version. `lawcheck --help` and `lawcheck check --help` print the usage, whose first line is `usage: lawcheck check [--full] [--base <ref>] [--json]`. All three exit 0. Anything else outside the line above is `usage`: no argument at all, another command, a word after `check` that is no flag, an unknown flag, a flag given twice, `--base` as the last argument or before an argument that starts with `-`, and the form `--base=<ref>`. `--json` anywhere among the arguments selects JSON, for a `usage` error too.
 
-**The base** is the first of `--base`, the variable `LAWCHECK_BASE` when it is not empty, and `origin/HEAD` where the clone has it, printed as its target (`origin/main`). A base that resolves to no commit or shares no history with HEAD is `base-unreachable`. With no base, every file counts as changed. In a repository with no commit yet, a base is `base-unreachable`, and without one every file counts as changed.
+**The base** is the first of `--base`, the variable `LAWCHECK_BASE` when it is not empty, and `origin/HEAD` where the clone has it, printed as its target (`origin/main`). A base that resolves to no commit or shares no history with HEAD is `base-unreachable`. With no base, every file counts as changed, except in a CI job: where the variable `CI` is set and is not empty, `0` or `false`, a check with no base, `--full` included, is `base-unreachable` with the message `no base in this CI job: no --base, no LAWCHECK_BASE and no origin/HEAD, and a check without one would count every file as changed` and the next line `pass --base origin/<the branch the change goes into>, or set LAWCHECK_BASE, with the history fetched (fetch-depth: 0 in actions/checkout), then run lawcheck check` (question 87). `check <paths>` needs no base and is not affected. In a repository with no commit yet, a base is `base-unreachable`, and without one every file counts as changed.
+
+`base-unreachable` says why, in the cases a CI job meets most:
+
+| The case | The message | The next line |
+|---|---|---|
+| the clone is shallow (`git rev-parse --is-shallow-repository` prints `true`) | the base names no commit here, `and this clone is shallow`; or it shares no history with HEAD `in this clone, which is shallow` | `fetch the history: <fetch> (fetch-depth: 0 in actions/checkout), then run lawcheck check`, where `<fetch>` is `git fetch --unshallow <remote> +refs/heads/<branch>:refs/remotes/<remote>/<branch>` for a base `<remote>/<branch>` of a remote that `git remote` lists, else `git fetch --unshallow` |
+| the base is forty or sixty-four zeros, the "before" of a push that made a branch | `the base '<base>' is git's commit of zeros, which a push of a new branch names as the commit before it` | `pass --base with the branch the new one was made from, such as origin/main, then run lawcheck check` |
+| the base ends in `/`, as `origin/${{ github.base_ref }}` reads on a push | `the base '<base>' names no commit here: the branch name after the last / is empty, as when the variable that should hold it is empty` | the plain one below |
+| the base came from `origin/HEAD` | `the base '<base>', which origin/HEAD names, names no commit here`, or `shares no history with HEAD` | `pass --base with a branch or a commit that exists here, or point origin/HEAD at one with git remote set-head origin --auto` |
+
+Otherwise the message is `the base '<base>' names no commit here` or `the base '<base>' shares no history with HEAD`, and the next line `pass --base with a branch or a commit that exists here`.
 
 **Git.** Every git command runs at the root, with the tool's environment and `GIT_OPTIONAL_LOCKS=0`, and the tool reads its output as bytes. These are all of them, in order:
 
@@ -336,7 +346,7 @@ next: fix src/core/discount.ts:2
 | `usage` | section 4 | none |
 | `unsupported-environment` | `spec/environments.md`, section 3: the Node, the runtime, the install or the git is one Lawcheck does not support | none |
 | `not-initialized` | no `.lawcheck/law.yaml` here or above | none |
-| `no-git` | git cannot be started, refuses the repository, or the root is outside a git work tree; the message carries the first line git printed | none |
+| `no-git` | git cannot be started, refuses the repository, or the root is outside a git work tree; the message carries the first line git printed. When git refuses a repository owned by another user (`detected dubious ownership in repository at '<path>'`), the next line is `let git trust the repository: git config --global --add safe.directory <path>, then run lawcheck check`, with `<path>` in single quotes when it holds a character outside letters, digits and `@%+=:,./\-`. When git says `not a git repository` and the root or a folder above it holds `.git`, it is `repair the repository at <that folder>, so that git status works there, then run lawcheck check`. Otherwise `run lawcheck check inside a git work tree, with git on the PATH` | none |
 | `law-invalid` | the law cannot be read, does not parse or breaks section 2: a key, a value, an id, a pattern, an expression, a rule that a type lists and the law lacks; one line per problem | `.lawcheck/law.yaml:<line>` |
 | `rule-missing-file`, `rule-file-without-entry` | section 2 | the rule's line in the law; the file |
 | `file-unreadable` | a file whose path matches a type cannot be read; one line per file | the file |

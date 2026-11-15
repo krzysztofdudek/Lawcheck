@@ -24,6 +24,8 @@ export const GIT_ENV: NodeJS.ProcessEnv = {
   GIT_CONFIG_GLOBAL: '/dev/null',
 };
 delete GIT_ENV.LAWCHECK_BASE;
+// CI services set CI, and a check with no base refuses to run there (spec/check-slice.md, section 4); a test that wants CI sets it.
+delete GIT_ENV.CI;
 for (const name of ['LAWCHECK_REVIEWER_ENDPOINT', 'LAWCHECK_REVIEWER_KEY', 'ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'LAWCHECK_STABILITY_MODEL', 'LAWCHECK_STABILITY_OUT', 'LAWCHECK_STABILITY_RUNS']) {
   delete GIT_ENV[name];
 }

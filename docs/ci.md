@@ -23,7 +23,17 @@ jobs:
       - run: npx lawcheck check --base origin/${{ github.base_ref }}
 ```
 
-A shallow clone (`fetch-depth: 1`) has no merge base, and the run ends with `base-unreachable`. Without `--base`, Lawcheck takes `LAWCHECK_BASE`, then `origin/HEAD`; a CI checkout often has neither, and then every file counts as changed.
+Always name the base in CI. Without `--base`, Lawcheck takes `LAWCHECK_BASE`, then `origin/HEAD`, and a CI checkout often has neither. When the variable `CI` is set, as CI services set it, a check that finds no base ends with `base-unreachable` and says so, instead of judging every file as changed.
+
+A shallow clone (`fetch-depth: 1`) has no merge base, and the run ends with `base-unreachable`. Its message says that the clone is shallow, and its next line gives the `git fetch --unshallow` that brings the history.
+
+Every file git lists counts, untracked ones included, unless git ignores it. A cache folder inside the project, such as `.npm/` for a GitLab cache, then counts as changed code. Add the folder to `.gitignore`, or to `.git/info/exclude` in the job:
+
+```sh
+echo .npm/ >> .git/info/exclude
+```
+
+A job whose checkout belongs to another user than the one it runs as, as in a container, makes git refuse the repository. The check ends with `no-git`, and its next line gives the command that tells git to trust the folder, `git config --global --add safe.directory <path>`.
 
 The same job as commands:
 

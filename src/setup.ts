@@ -1,6 +1,6 @@
 import { readFileSync, realpathSync, statSync } from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
-import { changedPaths, defaultBase, GitFailed, hasHead, listedPaths, listFiles, mergeBase, NoGit, resolveCommit, workTreeProblem } from './files.js';
+import { changedPaths, defaultBase, GitFailed, gitNext, hasHead, isShallow, listedPaths, listFiles, mergeBase, NoGit, remoteNames, resolveCommit, workTreeProblem } from './files.js';
 import { CONFIG, readConfig } from './config.js';
 import type { ReviewerConfig } from './config.js';
 import { nearestKey, parseLaw } from './law.js';
@@ -94,7 +94,12 @@ export function locate(cwd: string): string {
 
 export function requireGit(root: string): void {
   const problem = workTreeProblem(root);
-  if (problem !== null) throw new Stop([{ code: 'no-git', file: null, line: null, message: problem }]);
+  if (problem !== null) throw new Stop([noGit(root, problem)]);
+}
+
+export function noGit(dir: string, problem: string): ErrorItem {
+  const next = gitNext(dir, problem);
+  return { code: 'no-git', file: null, line: null, message: problem, ...(next === undefined ? {} : { next }) };
 }
 
 export function lawErrors(root: string): { law: Law } | { errors: ErrorItem[] } {
@@ -205,15 +210,49 @@ export function theChange(root: string, files: string[], option: string | null, 
     base = defaultBase(root);
     if (base !== null) from = 'origin/HEAD';
   }
-  if (base === null) return { base, from, changed: new Set(files) };
-  const unreachable = (message: string) => new Stop([{ code: 'base-unreachable', file: null, line: null, message }]);
+  const unreachable = (message: string, next?: string) => new Stop([{ code: 'base-unreachable', file: null, line: null, message, ...(next === undefined ? {} : { next }) }]);
+  if (base === null) {
+    if (inCI(env)) {
+      throw unreachable(
+        'no base in this CI job: no --base, no LAWCHECK_BASE and no origin/HEAD, and a check without one would count every file as changed',
+        'pass --base origin/<the branch the change goes into>, or set LAWCHECK_BASE, with the history fetched (fetch-depth: 0 in actions/checkout), then run lawcheck check',
+      );
+    }
+    return { base, from, changed: new Set(files) };
+  }
+  const taken = from === 'origin/HEAD' ? ', which origin/HEAD names,' : '';
+  const fromHead = from === 'origin/HEAD' ? 'pass --base with a branch or a commit that exists here, or point origin/HEAD at one with git remote set-head origin --auto' : undefined;
   if (!head) throw unreachable(`the repository has no commit yet, so the base '${base}' cannot be reached`);
   const commit = resolveCommit(root, base);
-  if (commit === null) throw unreachable(`the base '${base}' names no commit here`);
+  if (commit === null) {
+    if (/^0{40}(0{24})?$/.test(base)) {
+      throw unreachable(`the base '${base}' is git's commit of zeros, which a push of a new branch names as the commit before it`, 'pass --base with the branch the new one was made from, such as origin/main, then run lawcheck check');
+    }
+    if (base.endsWith('/')) {
+      throw unreachable(`the base '${base}' names no commit here: the branch name after the last / is empty, as when the variable that should hold it is empty`, 'pass --base with a branch or a commit that exists here');
+    }
+    if (isShallow(root)) throw unreachable(`the base '${base}'${taken} names no commit here, and this clone is shallow`, unshallow(root, base));
+    throw unreachable(`the base '${base}'${taken} names no commit here`, fromHead);
+  }
   const fork = mergeBase(root, commit);
-  if (fork === null) throw unreachable(`the base '${base}' shares no history with HEAD`);
+  if (fork === null) {
+    if (isShallow(root)) throw unreachable(`the base '${base}'${taken} shares no history with HEAD in this clone, which is shallow`, unshallow(root, base));
+    throw unreachable(`the base '${base}'${taken} shares no history with HEAD`, fromHead);
+  }
   const known = new Set(files);
   return { base, from, changed: new Set(changedPaths(root, fork).filter((path) => known.has(path))) };
+}
+
+export function inCI(env: NodeJS.ProcessEnv): boolean {
+  const value = (env.CI ?? '').trim().toLowerCase();
+  return value !== '' && value !== '0' && value !== 'false';
+}
+
+function unshallow(root: string, base: string): string {
+  const remote = remoteNames(root).find((name) => base.startsWith(`${name}/`) && base.length > name.length + 1);
+  const branch = remote === undefined ? '' : base.slice(remote.length + 1);
+  const fetch = remote === undefined || /\s/.test(branch) ? 'git fetch --unshallow' : `git fetch --unshallow ${remote} +refs/heads/${branch}:refs/remotes/${remote}/${branch}`;
+  return `fetch the history: ${fetch} (fetch-depth: 0 in actions/checkout), then run lawcheck check`;
 }
 
 export function touchesLaw(path: string): boolean {

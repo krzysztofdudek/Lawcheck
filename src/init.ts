@@ -5,7 +5,7 @@ import type { Arguments, Result } from './args.js';
 import type { CheckContext } from './check.js';
 import { listFiles, showPrefix, workTreeProblem } from './files.js';
 import { findRoot, LAW, stopped } from './setup.js';
-import { Stop } from './setup.js';
+import { noGit, Stop } from './setup.js';
 
 export function lawText(packageVersion: string): string {
   const release = packageVersion.match(/^\d+\.\d+\.\d+/)?.[0] ?? packageVersion;
@@ -69,7 +69,7 @@ export async function init(args: Arguments, context: CheckContext, json: boolean
   const cwd = realpathSync(resolve(context.cwd));
   const outcome = await stopped(() => {
     const problem = workTreeProblem(cwd);
-    if (problem !== null) throw new Stop([{ code: 'no-git', file: null, line: null, message: problem }]);
+    if (problem !== null) throw new Stop([noGit(cwd, problem)]);
     const root = findRoot(cwd);
     if (root !== null) throw already(relative(cwd, join(root, LAW)).split('\\').join('/'));
     const below = listFiles(cwd).find((path) => path === LAW || path.endsWith(`/${LAW}`));

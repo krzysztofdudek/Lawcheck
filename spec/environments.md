@@ -46,12 +46,25 @@ npm and pnpm install Lawcheck on an older Node with a warning about the `engines
 
 **The runner that cannot start.** A refusal covers what Lawcheck can see before it starts a runner. A runner of script rules that Node still cannot start is `runner-failed`, never `rule-crashed` (check slice, section 3).
 
+## 5. CI shapes
+
+Built with `file://` remotes on every commit:
+
+- a depth-1 clone of a branch: with no base, every file counts as changed outside CI, and in CI the check refuses with the next line of the check slice, section 4 (question 87);
+- the same clone given `--base origin/main`, and the same with the base fetched at depth 1: `base-unreachable` names the shallow clone and the fetch that brings the history, and that fetch, run as written, gives the right result;
+- a detached merge ref of a pull request, checked against its base: the change of the pull request;
+- a push whose base ref is empty (`--base origin/`) and a push of a new branch, whose "before" is the commit of zeros: each message names the case;
+- a cache folder inside the project, untracked and not ignored: its files count as changed and a type whose paths reach it judges them, until the job lists the folder in `.git/info/exclude`, as `docs/ci.md` says;
+- a repository git sees as owned by another user: `no-git` with git's `safe.directory` command, and that command lets the check through. Every commit tests it with git's switch `GIT_TEST_ASSUME_DIFFERENT_OWNER`, and the nightly set with a real other user in a container.
+
 ## 8. Acceptance tests
 
 | # | Do | See |
 |---|---|---|
 | 200 | S with D added, and on `PATH` a git that prints `git version 2.33.8` for `--version` and hands every other call to the real git: `check --base main`, `check ./src/core/discount.ts`, `try no-console src/core/discount.ts`, `doctor`, `explain src/core/price.ts`, `prime` and `init`, each also with `--json`; then `--version`, `--help`, `check --help`, `docs` and `docs config`. Then the same git printing `git version 2.34.1`: `check --base main` | section 3's refusal with `git 2.33.8 is older than 2.34, the oldest git Lawcheck runs with`, exit 2, nothing on standard error, each document `lawcheck-error/1` with `unsupported-environment`; the last five exit 0; then test 4's output, exit 1 |
 | 201 | a copy of Lawcheck whose runner starts with the Node flag `--no-such-flag`: `check --base main` and `try no-console src/core/discount.ts` in S with D added. A copy whose `dist/runner.js` cannot be read: `check --base main` (skipped as root and on Windows). An untouched copy: `check --base main` | `lawcheck: ERROR  1 error`, one `error[runner-failed]  the runner of script rules did not start: ` ending with Node's `bad option: --no-such-flag`, then with `EACCES: permission denied, open '<the runner>'`; its why; the next line `reinstall Lawcheck, then run lawcheck check` (`try again` for `try`); no `rule-crashed` and no rule file; exit 2. Then test 4's first line, exit 1 |
+| 208 | S with D committed on `work`; on `main` a merge of `work` kept as `refs/pull/1/merge`, then `main` reset; a clone fetches that ref and checks it out detached: `check --base origin/main` | test 4's output with `(against origin/main)`, exit 1 |
+| 209 | a clone of that origin: `check --base origin/`; `check --base 0000000000000000000000000000000000000000`; `check --base origin/main` | the two messages of the check slice, section 4, for an empty branch name and the commit of zeros, exit 2, the second with its next line; then test 4's output with `(against origin/main)` |
 
 ### Invariants
 
