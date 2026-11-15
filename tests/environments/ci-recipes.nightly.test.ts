@@ -6,11 +6,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { example } from '../harness/examples.ts';
+import { RECIPE_PNPM } from '../numbers.ts';
 import { KINDS } from './ci-cell.ts';
 
 const ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const ACTIONLINT = 'rhysd/actionlint:1.7.7';
-const PNPM = 'pnpm@12.21.0';
+const PNPM = `pnpm@${RECIPE_PNPM}`;
 
 const PULL_REQUESTS = [
   'pull request, a clean change',
@@ -58,14 +59,15 @@ function cellFolder(dir: string): void {
   const repo = join(dir, 'repo');
   mkdirSync(join(repo, 'tests', 'harness'), { recursive: true });
   for (const entry of ['package.json', 'docs', 'spec']) cpSync(join(ROOT, entry), join(repo, entry), { recursive: true });
-  for (const entry of ['tests/sample', 'tests/docs', 'tests/harness/examples.ts']) cpSync(join(ROOT, entry), join(repo, entry), { recursive: true });
+  mkdirSync(join(repo, 'tests', 'environments'), { recursive: true });
+  for (const entry of ['tests/sample', 'tests/harness/examples.ts', 'tests/environments/ci-cell.ts', 'tests/environments/ci-cell-main.ts', 'tests/environments/ci-scenarios.ts']) cpSync(join(ROOT, entry), join(repo, entry), { recursive: true });
   mkdirSync(join(repo, 'node_modules'));
   cpSync(join(ROOT, 'node_modules', 'yaml'), join(repo, 'node_modules', 'yaml'), { recursive: true });
   cpSync(join(dir, tarball), join(dir, 'lawcheck.tgz'));
 }
 
 function cell(dir: string, kind: string): { code: number | null; lines: string[]; output: string } {
-  const script = `command -v pnpm > /dev/null 2>&1 || npm install --global --no-audit --no-fund ${PNPM} > /dev/null 2>&1 || { echo 'cell: could not run: npm install pnpm'; exit 3; }; cd /cell/repo && node tests/docs/ci-cell-main.ts ${kind} /cell/lawcheck.tgz`;
+  const script = `command -v pnpm > /dev/null 2>&1 || npm install --global --no-audit --no-fund ${PNPM} > /dev/null 2>&1 || { echo 'cell: could not run: npm install pnpm'; exit 3; }; cd /cell/repo && node tests/environments/ci-cell-main.ts ${kind} /cell/lawcheck.tgz`;
   const run = spawnSync('docker', ['run', '--rm', '-v', `${dir}:/cell:ro`, 'node:24', 'sh', '-c', script], { encoding: 'utf8', maxBuffer: 1 << 26 });
   if (run.error) throw new Error(`could not run: docker (${run.error.message})`);
   const output = `${run.stdout}${run.stderr}`;

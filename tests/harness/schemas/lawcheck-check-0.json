@@ -15,7 +15,8 @@
         "mode": { "enum": ["change", "full", "paths"] },
         "base": { "type": ["string", "null"] },
         "files": { "$ref": "#/definitions/count" },
-        "law_changed": { "type": "boolean" }
+        "law_changed": { "type": "boolean" },
+        "law_changes": { "type": "array", "items": { "type": "string", "minLength": 1 }, "minItems": 1 }
       }
     },
     "summary": {

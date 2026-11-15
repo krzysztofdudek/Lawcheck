@@ -174,7 +174,21 @@ function prScenarios(cell: Cell): Outcome[] {
       (steps, _o, problems) => {
         const result = last(steps);
         same(result.code, 2, 'the exit code', problems);
-        if (!result.stdout.includes('error[base-unreachable]')) problems.push(`no base-unreachable in ${result.stdout}`);
+        same(
+          result.stdout,
+          [
+            'lawcheck: ERROR  1 error',
+            '',
+            "error[base-unreachable]  the base 'origin/main' names no commit here, and this clone is shallow",
+            '  why:  without its base a change cannot be told from debt',
+            '',
+            'next: fetch the history: git fetch --unshallow origin +refs/heads/main:refs/remotes/origin/main (fetch-depth: 0 in actions/checkout, GIT_DEPTH: 0 in GitLab CI, fetchDepth: 0 in Azure Pipelines), then run lawcheck check',
+            '',
+          ].join('\n'),
+          'the message the page and spec/check-slice.md give for a shallow clone',
+          problems,
+        );
+        same(result.stderr, '', 'the standard error', problems);
       },
       1,
     ),

@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { UNPARSABLE_JAVA_CHARS } from '../numbers.ts';
 import { inTemp, lawcheck, newRepository } from './helpers.ts';
 
 const page = readFileSync(new URL('../../docs/languages.md', import.meta.url), 'utf8');
@@ -174,7 +175,7 @@ test('S4-10: a large Java file with syntax errors is parsed on every run and bou
   assert.ok(spec.includes('a large file with syntax errors has no bound (S4-10)'));
   const line = '  int x = ((( ;;; } } class class 12 @@ \n';
   let text = 'package com.acme.ui;\npublic class Big {\n';
-  while (text.length < 400_000) text += line;
+  while (text.length < UNPARSABLE_JAVA_CHARS) text += line;
   const found = await judged({
     '.lawcheck/law.yaml': law(['ui', ['ui/**'], ['ui']]),
     'ui/src/main/java/com/acme/ui/Big.java': text + '}\n',

@@ -34,6 +34,7 @@
     "tests/acceptance/changes.test.ts",
     "tests/acceptance/cli.test.ts",
     "tests/acceptance/hostile.test.ts",
+    "tests/acceptance/law-change.test.ts",
     "tests/acceptance/paths.test.ts",
     "tests/acceptance/reviewer-law.test.ts",
     "tests/acceptance/rules.test.ts",
@@ -58,7 +59,10 @@
     "tests/unit/config.test.ts"
   ],
   "src/docs.ts": [
+    "tests/acceptance/ci-docs.test.ts",
     "tests/acceptance/docs.test.ts",
+    "tests/acceptance/first-law-docs.test.ts",
+    "tests/unit/deferred.test.ts",
     "tests/unit/docs.test.ts"
   ],
   "src/doctor.ts": [
@@ -105,6 +109,7 @@
     "tests/unit/programs.test.ts"
   ],
   "src/init.ts": [
+    "tests/acceptance/first-law-docs.test.ts",
     "tests/acceptance/init.test.ts",
     "tests/unit/init.test.ts"
   ],
@@ -121,6 +126,10 @@
     "tests/properties/law.test.ts",
     "tests/unit/law.test.ts"
   ],
+  "src/lawchange.ts": [
+    "tests/acceptance/law-change.test.ts",
+    "tests/unit/lawchange.test.ts"
+  ],
   "src/names.ts": [
     "tests/acceptance/hostile.test.ts",
     "tests/properties/names.test.ts",
@@ -130,6 +139,7 @@
   "src/output.ts": [
     "tests/acceptance/cli.test.ts",
     "tests/acceptance/docs.test.ts",
+    "tests/acceptance/law-change.test.ts",
     "tests/acceptance/waivers.test.ts",
     "tests/environments/ci-shapes.test.ts",
     "tests/environments/refusal.test.ts",
@@ -209,6 +219,7 @@
   ],
   "src/readers.ts": [
     "tests/acceptance/languages.test.ts",
+    "tests/acceptance/runes-limits.test.ts",
     "tests/acceptance/uses.test.ts",
     "tests/unit/readers.test.ts"
   ],
@@ -238,6 +249,7 @@
   "src/setup.ts": [
     "tests/acceptance/cli.test.ts",
     "tests/acceptance/hostile.test.ts",
+    "tests/acceptance/law-change.test.ts",
     "tests/acceptance/targets.test.ts",
     "tests/environments/ci-shapes.test.ts",
     "tests/environments/git-faults.test.ts",
@@ -257,6 +269,7 @@
   ],
   "src/uses.ts": [
     "tests/acceptance/languages.test.ts",
+    "tests/acceptance/runes-limits.test.ts",
     "tests/acceptance/uses.test.ts",
     "tests/unit/uses.test.ts"
   ],
