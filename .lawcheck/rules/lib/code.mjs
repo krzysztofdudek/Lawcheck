@@ -37,8 +37,8 @@ export function bare(line) {
   return out;
 }
 
-const FROM = /(?:^|\n)[ \t]*(import|export)\s+(type\s+)?(?:[^'";]*?\sfrom\s*)?['"]([^'"\n]+)['"]/g;
-const CALLED = /\b(?:import|require)\s*\(\s*['"]([^'"\n]+)['"]\s*\)/g;
+const FROM = /(?:^\uFEFF?|[\n;])[ \t]*(import|export)(?=[\s{*'"])\s*(type(?=[\s{*])\s*)?(?:[^'";]*?(?<=[\s}*])from\s*)?['"]([^'"\n]+)['"]/g;
+const CALLED = /\b(?:import|require)\s*\(\s*(['"`])([^'"`$\n]+)\1\s*\)/g;
 
 export function importsOf(text) {
   const found = [];
@@ -48,7 +48,7 @@ export function importsOf(text) {
     found.push({ line: lineAt(at), module: match[3], typeOnly: match[2] !== undefined });
   }
   for (const match of text.matchAll(CALLED)) {
-    found.push({ line: lineAt(match.index), module: match[1], typeOnly: false });
+    found.push({ line: lineAt(match.index), module: match[2], typeOnly: false });
   }
   return found;
 }
