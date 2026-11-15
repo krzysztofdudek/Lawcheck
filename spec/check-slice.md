@@ -532,7 +532,8 @@ package.json                      "type": "module", bin lawcheck -> dist/bin.cjs
 tsconfig.json                     src/ -> dist/
 spec/check-slice.md
 src/
-  cli.ts        arguments, exit codes, the handler that turns every other failure into internal; it starts the command in a worker and answers the signals
+  cli.ts        the entry: it answers the signals and the watch of each step, starts the command in a worker and writes its result
+  main.ts       arguments, exit codes, the handler that turns every other failure into internal
   work.ts       the worker that runs the command
   limits.ts     the numbers of section 10, and the reading of a file within them
   law.ts        reads and validates law.yaml
@@ -578,7 +579,7 @@ The numbers were measured on Node 24.22.3 in the dev container (14 cores, 29 GB)
 
 **The wall time of a whole run** is the sum of what the rows bound: git, reading and typing take time in proportion to the files and their text, at most 128 MiB of it; the script rules at most 600 seconds; the reviews at most what their row allows. Nothing else in a run waits.
 
-**What the tool cannot tell.** A standard output that is closed when the tool starts (`lawcheck check >&-`) cannot be told from one sent to `/dev/null`: Node opens `/dev/null` in its place, read and write, before any of Lawcheck's code runs, and a program that starts Lawcheck with its output ignored hands it the same thing. Such a run ends as it would with `> /dev/null`. On Windows, SIGINT, SIGTERM and SIGHUP end a process at once, so the tool cannot answer them with `stopped`.
+**What the tool cannot tell.** A standard output that is closed when the tool starts (`lawcheck check >&-`) cannot be told from one sent to `/dev/null`: Node opens `/dev/null` in its place, read and write, before any of Lawcheck's code runs, and a program that starts Lawcheck with its output ignored hands it the same thing. Such a run ends as it would with `> /dev/null`. On Windows, SIGINT, SIGTERM and SIGHUP end a process at once, so the tool cannot answer them with `stopped`. Elsewhere a signal in the first moments of a run, while Node itself starts and before any of Lawcheck's code runs, ends the process by the signal: SIGTERM sent 0 to 10 milliseconds after the start did so in every trial in the dev container, at 12 and 14 milliseconds in some, and from 16 milliseconds in none. The main thread loads only the modules that answer a signal, so the window is Node's own start.
 
 | # | Do | See |
 |---|---|---|
@@ -609,3 +610,4 @@ The numbers were measured on Node 24.22.3 in the dev container (14 cores, 29 GB)
 | 254 | a repository whose law holds 10,000 rules, each with its file and listed on no type, and 1,000 types; then 10,001 rules; 1,001 types; a law of 1,048,577 bytes; a law of 1,048,576 bytes | `lawcheck: PASS  10001 files (no base: every file counts as changed)`, exit 0; then exit 2 with `.lawcheck/law.yaml:2  error[law-invalid]  the law holds 10,001 rules, more than the 10,000 a law may hold`, then `.lawcheck/law.yaml:5  error[law-invalid]  the law holds 1,001 types, more than the 1,000 a law may hold`, then `.lawcheck/law.yaml:1  error[law-invalid]  the law holds 1,048,577 bytes, more than the 1 MiB a law may hold`; then exit 0 |
 | 255 | nightly: a type with `content: "^(a\|a)+$"` and a file of forty `a` and `!` under its paths | after 60 seconds and before 70, exit 2 with `error[step-too-slow]  one step of the run took more than 60 seconds without an end: typing slow/a.ts` |
 | 256 | `check` of `no-console.mjs` returns 60,000 findings, each with a line, for a new file of 100,001 lines; `--json` | the JSON lists 60,000 findings, exit 1, within 30 seconds |
+| 257 | `check` in S with a hook that lists the modules the main thread loads | exactly `args.js`, `cli.js`, `keys.js`, `limits.js`, `output.js`, `programs.js` and `progress.js`, and `bin.js` when started through it; the command loads in the worker |

@@ -47,3 +47,20 @@ export function addKeys(keys: string[]): void {
 export function hide(text: string): string {
   return hidden(text, known);
 }
+
+// The fields of a document that hold text from outside Lawcheck; its own fields, such as schema, code, the ids and the counts, stay as they are.
+const OUTSIDE_FIELDS = new Set(['file', 'files', 'message', 'base', 'path', 'paths', 'reason', 'what', 'candidates', 'answer', 'text', 'about', 'pattern', 'content', 'why', 'model']);
+
+// The key written as [key] in the strings of the outside fields; the layout is the one every document has.
+export function hiddenJson(text: string): string {
+  let document: unknown;
+  try {
+    document = JSON.parse(text);
+  } catch {
+    return text;
+  }
+  const masked = (value: unknown): unknown => (typeof value === 'string' ? hide(value) : Array.isArray(value) ? value.map(masked) : value);
+  const walk = (value: unknown): unknown =>
+    Array.isArray(value) ? value.map(walk) : value !== null && typeof value === 'object' ? Object.fromEntries(Object.entries(value).map(([name, item]) => [name, OUTSIDE_FIELDS.has(name) ? masked(item) : walk(item)])) : value;
+  return JSON.stringify(walk(document), null, 2) + '\n';
+}

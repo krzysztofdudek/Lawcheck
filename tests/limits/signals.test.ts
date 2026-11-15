@@ -2,7 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
-import { chmodSync, existsSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
 import { join } from 'node:path';
 import { openai, withFake } from '../acceptance/fake-reviewer.ts';
 import { alive, CLI, F, F_PATH, GIT_ENV, LAW, pathWith, programDir, setRule, withR, withSample, write } from '../acceptance/helpers.ts';
@@ -111,4 +112,26 @@ test('S3-3: test 239: a signal while a one-megabyte answer is read ends the run 
       () => openai(answer),
     );
   }
+});
+
+// A signal is answered from the moment the entry module runs, so the main thread loads only the modules the answer needs; the rest load in the worker.
+const LOAD_HOOK = [
+  "import { registerHooks } from 'node:module';",
+  "import { threadId } from 'node:worker_threads';",
+  "import { appendFileSync } from 'node:fs';",
+  "registerHooks({ load(url, context, next) { if (threadId === 0 && url.startsWith('file:')) appendFileSync(process.env.LAWCHECK_TEST_LOADS, url.split('/').pop() + '\\n'); return next(url, context); } });",
+  '',
+].join('\n');
+
+test('test 257: the main thread loads only what answers a signal, and the command loads in the worker', async () => {
+  await withSample(async (s, dir) => {
+    const hook = join(dir, 'hook.mjs');
+    const loads = join(dir, 'loads.txt');
+    writeFileSync(hook, LOAD_HOOK);
+    writeFileSync(loads, '');
+    const child = spawn(process.execPath, ['--import', pathToFileURL(hook).href, CLI, 'check', '--base', 'main'], { cwd: s, env: { ...GIT_ENV, LAWCHECK_TEST_LOADS: loads }, stdio: 'ignore' });
+    const code = await new Promise<number | null>((done) => child.on('close', (c) => done(c)));
+    assert.equal(code, 0);
+    assert.deepEqual([...new Set(readFileSync(loads, 'utf8').split('\n').filter(Boolean))].sort(), ['args.js', 'cli.js', 'keys.js', 'limits.js', 'output.js', 'programs.js', 'progress.js']);
+  });
 });

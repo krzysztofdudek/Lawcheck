@@ -1,114 +1,19 @@
 #!/usr/bin/env node
 import { realpathSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { isMainThread, Worker } from 'node:worker_threads';
-import { lastStep, progressBuffer, step } from './progress.js';
+import { COMMANDS } from './args.js';
+import { hiddenJson, hide, useKeys } from './keys.js';
 import { STEP_MS } from './limits.js';
-import { pathToFileURL } from 'node:url';
-import { check } from './check.js';
-import type { CheckContext, CheckOptions, CheckOutcome } from './check.js';
-import { firstLine } from './law.js';
-import { renderErrors, renderReport, safeJson, safeText } from './output.js';
-import { hide, useKeys } from './keys.js';
-import { COMMANDS, number, PROGRAM_USAGE, readArguments, text, usageError, USAGE, version } from './args.js';
-import type { Arguments, CommandName, Result } from './args.js';
-
-export { version };
-export type { Result };
-import { init } from './init.js';
-import { absolutePath, NO_CURRENT_FOLDER } from './programs.js';
-import { prime } from './prime.js';
-import { explain } from './explain.js';
-import { tryRule } from './try.js';
-import { docs } from './docs.js';
-import { doctor } from './doctor.js';
-import { environmentRefusal, gitNow, runtimeNow } from './environment.js';
+import { renderErrors, safeJson, safeText } from './output.js';
 import type { ErrorItem } from './output.js';
-
-
-export type Command = (options: CheckOptions, context: CheckContext) => Promise<CheckOutcome>;
-
-
-export function parseArguments(argv: string[]): { options: CheckOptions } | { problem: string } {
-  const read = readArguments(argv);
-  if ('problem' in read) return { problem: read.problem };
-  if (read.arguments.command !== 'check') return { problem: `the command '${read.arguments.command}' is not check` };
-  return checkOptions(read.arguments);
-}
-
-function checkOptions(args: Arguments): { options: CheckOptions } | { problem: string } {
-  const review = args.flags.has('--review');
-  if (args.words.length > 0 && ['--full', '--base', '--review', '--again', '--max-calls'].some((flag) => args.flags.has(flag))) {
-    return { problem: 'paths go with --json alone' };
-  }
-  if (!review && args.flags.has('--again')) return { problem: 'the flag --again works only with --review' };
-  if (!review && args.flags.has('--max-calls')) return { problem: 'the flag --max-calls works only with --review' };
-  return { options: { full: args.flags.has('--full'), base: text(args, '--base'), review, again: args.flags.has('--again'), maxCalls: number(args, '--max-calls'), paths: args.words } };
-}
+import { lastStep, progressBuffer } from './progress.js';
+import { absolutePath, NO_CURRENT_FOLDER } from './programs.js';
 
 function internal(error: unknown): ErrorItem {
-  return { code: 'internal', file: null, line: null, message: firstLine(error) || 'an unknown failure' };
-}
-
-export type Handler = (args: Arguments, context: CheckContext, json: boolean) => Promise<Result>;
-
-const HANDLERS: Record<Exclude<CommandName, 'check'>, Handler> = { init, prime, explain, try: tryRule, docs, doctor };
-
-export async function main(argv: string[], context: CheckContext, command: Command = check): Promise<Result> {
-  useKeys(context.env);
-  const result = await run(argv, context, command);
-  return { ...result, stdout: argv.includes('--json') ? safeJson(hiddenJson(result.stdout)) : safeText(result.stdout) };
-}
-
-// The fields of a document that hold text from outside Lawcheck; its own fields, such as schema, code, the ids and the counts, stay as they are.
-const OUTSIDE_FIELDS = new Set(['file', 'files', 'message', 'base', 'path', 'paths', 'reason', 'what', 'candidates', 'answer', 'text', 'about', 'pattern', 'content', 'why', 'model']);
-
-// The key written as [key] in the strings of the outside fields; the layout is the one every document has.
-function hiddenJson(text: string): string {
-  let document: unknown;
-  try {
-    document = JSON.parse(text);
-  } catch {
-    return text;
-  }
-  const masked = (value: unknown): unknown => (typeof value === 'string' ? hide(value) : Array.isArray(value) ? value.map(masked) : value);
-  const walk = (value: unknown): unknown =>
-    Array.isArray(value) ? value.map(walk) : value !== null && typeof value === 'object' ? Object.fromEntries(Object.entries(value).map(([name, item]) => [name, OUTSIDE_FIELDS.has(name) ? masked(item) : walk(item)])) : value;
-  return JSON.stringify(walk(document), null, 2) + '\n';
-}
-
-async function run(argv: string[], context: CheckContext, command: Command): Promise<Result> {
-  const json = argv.includes('--json');
-  const named = (COMMANDS as readonly string[]).includes(argv[0] ?? '') ? argv[0]! : null;
-  try {
-    if (argv.length === 1 && argv[0] === '--version') return { code: 0, stdout: version() + '\n' };
-    if (argv.length === 1 && argv[0] === '--help') return { code: 0, stdout: PROGRAM_USAGE };
-    if (argv.length === 2 && named !== null && argv[1] === '--help') return { code: 0, stdout: USAGE[named as CommandName] };
-    const read = readArguments(argv);
-    if ('problem' in read) return usageError(read.problem, json, read.command);
-    const args = read.arguments;
-    if (args.command !== 'docs' && args.command !== 'doctor') {
-      const refused = environmentRefusal(context.runtime ?? runtimeNow(), () => gitNow(context.cwd));
-      if (refused !== null) return { code: 2, stdout: renderErrors([refused], json, args.command) };
-    }
-    if (args.command !== 'check') return await HANDLERS[args.command](args, context, json);
-    const parsed = checkOptions(args);
-    if ('problem' in parsed) return usageError(parsed.problem, json, 'check');
-    const outcome = await command(parsed.options, context);
-    if ('errors' in outcome) return { code: 2, stdout: renderErrors(outcome.errors, json) };
-    step('writing the report');
-    const text = renderReport(outcome.report, json);
-    return { code: outcome.report.findings.some((f) => f.severity === 'error') ? 1 : 0, stdout: text };
-  } catch (error) {
-    return { code: 2, stdout: renderErrors([internal(error)], json, named) };
-  }
-}
-
-function isEntry(): boolean {
-  try {
-    return isMainThread && process.argv[1] !== undefined && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href;
-  } catch {
-    return false;
-  }
+  const text = error instanceof Error ? error.message : String(error);
+  return { code: 'internal', file: null, line: null, message: text.split(/\r?\n/)[0] || 'an unknown failure' };
 }
 
 type FromWork = { kind: 'warn'; line: string } | { kind: 'done'; code: number; stdout: Uint8Array };
@@ -162,4 +67,22 @@ export function start(): void {
   });
 }
 
-if (isEntry()) start();
+
+function started(): string | null {
+  try {
+    return process.argv[1] === undefined ? null : realpathSync(process.argv[1]);
+  } catch {
+    return null;
+  }
+}
+
+// The command and its modules load in the worker alone, so the handlers of the signals are in place before them; started as dist/cli.js or through dist/bin.js, this module loads no more, and a test that imports the command loads it here.
+const here = fileURLToPath(import.meta.url);
+const first = started();
+const launched = isMainThread && (first === here || first === join(dirname(here), 'bin.js'));
+if (launched && first === here) start();
+const command: typeof import('./main.js') | null = launched ? null : await import('./main.js');
+export const main = command?.main as typeof import('./main.js').main;
+export const parseArguments = command?.parseArguments as typeof import('./main.js').parseArguments;
+export const version = command?.version as typeof import('./main.js').version;
+export type { Command, Handler, Result } from './main.js';

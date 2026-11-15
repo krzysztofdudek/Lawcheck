@@ -1,5 +1,5 @@
 import { parentPort, workerData } from 'node:worker_threads';
-import { main } from './cli.js';
+import { main } from './main.js';
 import { alive, attach, step } from './progress.js';
 
 const { argv, cwd, progress } = workerData as { argv: string[]; cwd: string; progress: SharedArrayBuffer };
