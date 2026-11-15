@@ -6,6 +6,7 @@ import { promiseOf, testIds } from './promises.ts';
 import { loadInputs } from '../contract/spec-map.ts';
 import { tieProblems } from '../contract/tie.ts';
 import { COMMIT_GROUPS, NIGHTLY_GROUPS, setFiles } from './sets.ts';
+import { applies, HARNESS, PLATFORM_SKIPS } from './skips.ts';
 
 const ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const CLOSING = 'if the promise changed, change the spec row first; the guard then accepts a new expectation';
@@ -91,7 +92,8 @@ export async function judgeRun(source: AsyncIterable<{ type: string; data: any }
   const files = new Set<string>();
   const seeds = new Map<string, string>();
   const skips: string[] = [];
-  const wholeSkips = new Map<string, { file: string; name: string }>();
+  const unlistedSkips: string[] = [];
+  const here = (platform: Parameters<typeof applies>[0]): boolean => (platform === 'root' ? applies(platform) : platform === options.system);
   const passed: { file: string; name: string }[] = [];
   const counts = { passed: 0, failed: 0, skipped: 0, todo: 0 };
   for await (const event of source) {
@@ -101,7 +103,6 @@ export async function judgeRun(source: AsyncIterable<{ type: string; data: any }
       const seen = /^seed (-?\d+)$/m.exec(message);
       if (seen !== null && data.file) seeds.set(data.file, seen[1]!);
       for (const m of message.matchAll(/^skip (.*)$/gm)) skips.push(`${m[1]}  ${where(data.file)}`);
-      for (const m of message.matchAll(/^skip (\S+) > (.*): the whole test on \w+: /gm)) wholeSkips.set(`${m[1]} > ${m[2]}`, { file: m[1]!, name: m[2]! });
       continue;
     }
     if (event.type !== 'test:pass' && event.type !== 'test:fail') continue;
@@ -113,6 +114,7 @@ export async function judgeRun(source: AsyncIterable<{ type: string; data: any }
       continue;
     }
     if (event.type === 'test:pass' && data.skip === undefined && data.todo === undefined && data.file) passed.push({ file: where(data.file), name: data.name });
+    if (data.skip !== undefined && data.file && !PLATFORM_SKIPS.some((e) => e.file === where(data.file) && e.test === data.name && here(e.platform))) unlistedSkips.push(`${where(data.file)} > ${data.name}`);
     if (data.nesting !== 0) continue;
     if (data.file) files.add(data.file);
     const fileItself = data.file !== undefined && (data.name === data.file || data.name === where(data.file));
@@ -149,18 +151,23 @@ export async function judgeRun(source: AsyncIterable<{ type: string; data: any }
     }
   }
   for (const f of failed) lines.push('', ...block(f, seeds));
-  let untied = false;
+  let red = false;
+  if (unlistedSkips.length > 0) {
+    red = true;
+    lines.push('', 'RED      a test was skipped with no entry in PLATFORM_SKIPS for this system', 'promise  spec/questions.md, entry 91: a skip is a platform reason in the list of tests/harness/skips.ts', ...unlistedSkips.map((u) => `got      ${u}`));
+  }
   if (process.env.LAWCHECK_TIE === '1') {
     const speed = process.env.LAWCHECK_SPEED === 'nightly' ? 'nightly' : 'commit';
     const dirs = [...new Set(Object.values(speed === 'nightly' ? NIGHTLY_GROUPS : COMMIT_GROUPS).flat())];
-    const ran = passed.filter((p) => !wholeSkips.has(`${p.file} > ${p.name}`));
-    const problems = tieProblems(loadInputs(new URL('../../', import.meta.url), 0), setFiles(speed, dirs), ran, [...wholeSkips.values()]);
+    const excused = PLATFORM_SKIPS.filter((e) => e.part === 'the whole test' && e.file !== HARNESS && here(e.platform)).map((e) => ({ file: e.file, name: e.test }));
+    const ran = passed.filter((p) => !excused.some((e) => e.file === p.file && e.name === p.name));
+    const problems = tieProblems(loadInputs(new URL('../../', import.meta.url), 0), setFiles(speed, dirs), ran, excused);
     if (problems.length > 0) {
-      untied = true;
+      red = true;
       lines.push('', 'RED      the run-time tie of question 79', 'promise  spec/questions.md, entry 79: a row or an invariant is covered only by a test that ran and passed in this run', ...problems.slice(0, 20).map((p) => `got      ${p}`), 'if the promise changed, change the spec row first; the guard then accepts a new expectation');
     }
   }
-  return { text: lines.join('\n') + '\n', red: counts.failed > 0 || untied };
+  return { text: lines.join('\n') + '\n', red: counts.failed > 0 || red };
 }
 
 export default async function* reporter(source: AsyncIterable<{ type: string; data: any }>): AsyncGenerator<string> {
