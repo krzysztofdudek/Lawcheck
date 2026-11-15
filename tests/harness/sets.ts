@@ -36,6 +36,10 @@ export const FIXTURES = ['tests/sample', 'tests/reviewer-sample', 'tests/uses-sa
 
 export const TEST_FILE = /\.(test|spec)\.[cm]?[jt]sx?$/;
 
+// What discovery leaves out when it looks for test files anywhere in the checkout: what npm, the build and git make, and the files that are named like a test and are none. Every other file named like a test must be in a set of the runner.
+export const NOT_SEARCHED = ['node_modules', '.git', 'dist', '.grammars'];
+export const NOT_TESTS: string[] = [];
+
 const rel = (path: string) => relative(ROOT, path).split(sep).join('/');
 
 export function walk(dir: string, keep: (name: string) => boolean): string[] {
@@ -52,6 +56,20 @@ export function walk(dir: string, keep: (name: string) => boolean): string[] {
 }
 
 export const nightly = (path: string) => path.endsWith('.nightly.test.ts');
+
+export function testNamedFiles(root = ROOT): string[] {
+  const out: string[] = [];
+  const visit = (dir: string): void => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (NOT_SEARCHED.includes(entry.name)) continue;
+      const path = join(dir, entry.name);
+      if (entry.isDirectory()) visit(path);
+      else if (entry.isFile() && TEST_FILE.test(entry.name) && !NOT_TESTS.includes(relative(root, path).split(sep).join('/'))) out.push(relative(root, path).split(sep).join('/'));
+    }
+  };
+  visit(root);
+  return out.sort();
+}
 
 export function setFiles(speed: 'commit' | 'nightly', dirs: string[]): string[] {
   return dirs
