@@ -1,12 +1,11 @@
 # Release readiness of the first publish
 
-Checked on 2026-11-13 in the dev container, on the branch `release-ready`, for version 0.1.0. Nothing was published, tagged or pushed. Each item is one of three states: ready (true as it stands), fixed here (it was not true, and a commit of this branch made it true, with the check named), or blocked (it needs a decision or an event outside this repository).
+Checked on 2026-11-13 in the dev container, on the branch `release-ready`, for version 0.1.0, and again on 2026-11-15 on the branch `runes-1-1-0`, after Lawcheck moved to Runes 1.1.0 from npm. Nothing was published, tagged or pushed. Each item is one of three states: ready (true as it stands), fixed here (it was not true, and a commit of this branch made it true, with the check named), or blocked (it needs a decision or an event outside this repository).
 
 ## Blocked
 
 | Item | What blocks it |
 |---|---|
-| The Runes dependency | `package.json` points at the GitHub archive of Runes commit `b326704`, an unreleased commit of its branch `release/1.1.0`; that commit's own `package.json` still says 1.0.1, and npm has only 1.0.0. The readers of 1.0.0 resolve imports against the files on the disk, so the same commit answers differently on two machines; Lawcheck needs the file view of 1.1.0 (`spec/dependency-slice.md`, section 7). Publishing requires Runes 1.1.0 on npm. Then the dependency becomes `@chrisdudek/runes` at that version, `npm install` rewrites `package-lock.json`, and the build, the suite, the packed tarball and the installed `lawcheck check` below are run again. If Runes moves a grammar pin with 1.1.0, `npm run grammars` rebuilds the grammars and `scripts/grammar-licenses.txt` is compared with the new `grammars/manifest.json`. A package that points at an archive installs, but each user would download the whole Runes repository (26 MB) from GitHub, and the install would break the day the archive goes. |
 | The plugin install line against GitHub | `claude plugin marketplace add krzysztofdudek/Lawcheck` reads the default branch of the public repository. It was proved here against this checkout (below), and the GitHub form can be proved only after this branch is on `main` there. That push is the owner's. |
 | The decision to publish | The README line "Work in progress: there is nothing to install yet." and the word "Work in progress." in the `description` of `package.json` stay until the owner decides. Text for the day is below. |
 
@@ -14,6 +13,7 @@ Checked on 2026-11-13 in the dev container, on the branch `release-ready`, for v
 
 | Item | State | Evidence |
 |---|---|---|
+| The Runes dependency | fixed here | No longer blocked: `package.json` depends on `@chrisdudek/runes` exactly 1.1.0, and `package-lock.json` resolves it from registry.npmjs.org with its integrity, in place of the GitHub archive of the unreleased commit `b326704`. 1.1.0 moves no grammar pin, patch or runtime peer against that commit, so the 13 grammars and `scripts/grammar-licenses.txt` stay as they are; the package still ships no grammars, so Lawcheck keeps building and shipping them. On 2026-11-15, in a dev container removed and created again (`npm ci`, grammars built): `npm test` gave tests 349, pass 349, fail 0, 288 s; `npm run real` matched both repositories with the numbers of 1.1.0 (`spec/dependency-slice.md`, section 11); `npm pack` gave 59 files, 2.1 MB (24.5 MB unpacked); in an empty folder `npm install <tarball>` (0 vulnerabilities), `lawcheck --version` printed `0.1.0`, and `lawcheck check` on a small repository of three TypeScript files and a two-type law gave its `forbidden-use`, `1 unresolved use` (a missing generated file, `unfollowed`; `node:fs` and `lodash` leave the repository and are not counted) and exit 1. |
 | Name `lawcheck` on npm | ready | `npm view lawcheck` shows the name held by the owner's account, version 0.0.0 from 2026-11-12, same repository and description. 0.1.0 is above it. |
 | Version number | ready | 0.1.0 in `package.json`, `package-lock.json` and `plugin/.claude-plugin/plugin.json`. Whether 0.1.0 is the number of the first public release is the owner's. |
 | Tarball contents | fixed here | `npm pack` held 72 files with the 13 `*.node-types.json` files, which `lawcheck doctor` and a `may_use` check do not read (run with the files deleted from an installed copy). The `files` list now leaves them out: 59 files, 2,134,245 bytes (2.1 MB; 24.5 MB unpacked). It holds `LICENSE`, `README.md`, `package.json`, `dist/*.js`, `dist/providers/*.js`, `docs/*.md` (12 pages), 13 `dist/grammars/*.wasm` and `dist/grammars/LICENSES.txt`. No test, spec, fixture, trial, script, plugin or TypeScript source. Proved by `tests/acceptance/package.test.ts`, which lists the tarball and fails on any other path. |
@@ -22,7 +22,7 @@ Checked on 2026-11-13 in the dev container, on the branch `release-ready`, for v
 | `bin` from the tarball | ready | In a clean folder in the container: `npm init -y`, `npm install <tarball>` (4 packages, 0 vulnerabilities), `npx lawcheck --version` printed `0.1.0`, `npx lawcheck docs law` printed the page. On a small repository (two TypeScript files, one script rule): `init`, `explain`, `try`, `check --full --base main`, `check` and `doctor` ran with the output and exit codes the docs give. |
 | Node engine range | ready | `engines.node` is `>=24`, the same as `lawcheck doctor` ("Lawcheck needs 24 or later"), the dev container (Node 24), the plugin's hooks and `docs/ci.md`. Runes asks for 22 or later, which 24 satisfies. |
 | The suite | ready | `npm test` in a container removed and created again (`npm ci`, grammars built, then build and tests): tests 349, pass 349, fail 0, 290 s. It found one failure on the way, test 152, which pins the files of `plugin/`; it now expects `plugin/LICENSE`, and `spec/plugin-slice.md` section 4.1 lists the file. |
-| Dependencies | ready, except Runes above | `web-tree-sitter` 0.27.0, which is also the version Runes asks for as an optional peer, and `yaml` ^2.9.1. `npm audit --omit=dev` found 0 vulnerabilities. The grammar tools are development dependencies and not in the tarball. |
+| Dependencies | ready | `@chrisdudek/runes` 1.1.0 from npm, `web-tree-sitter` 0.27.0, which is also the version Runes 1.1.0 asks for as an optional peer, and `yaml` ^2.9.1. `npm audit --omit=dev` found 0 vulnerabilities. The grammar tools are development dependencies and not in the tarball. |
 | Package metadata | fixed here | `homepage`, `bugs` and `keywords` were missing and are added. `license`, `author`, `repository`, `bin` and `type` were present. |
 | Licence and copyright | ready | `LICENSE` is MIT, "Copyright (c) 2026 Krzysztof Dudek", matching `license` and `author` of `package.json` and `plugin.json`. The grammars' licences are in the tarball. |
 
@@ -69,8 +69,7 @@ In `package.json`, drop "Work in progress." from `description`. The plugin's `de
 
 ## Steps for the day, in order
 
-1. Runes 1.1.0 is on npm; the dependency, the lock file and the grammar notices follow it (blocked item above).
-2. Push `main`, so that the plugin lines work against GitHub, and run them once from a throwaway Claude Code configuration folder.
-3. Replace the README line and the `description`, and change the GitHub repository description, which still says "Work in progress". Draft for the owner: "Checks code against the architecture and rules you write, and tells a coding agent which line breaks which rule." The owner makes that change.
-4. From a clean clone: `npm ci`, `npm test`, `npm pack`, install the tarball in a clean folder and run `npx lawcheck --version` and a check on a small repository, as above.
-5. Publish, and tag the commit. Both are the owner's.
+1. Push `main`, so that the plugin lines work against GitHub, and run them once from a throwaway Claude Code configuration folder.
+2. Replace the README line and the `description`, and change the GitHub repository description, which still says "Work in progress". Draft for the owner: "Checks code against the architecture and rules you write, and tells a coding agent which line breaks which rule." The owner makes that change.
+3. From a clean clone: `npm ci`, `npm test`, `npm pack`, install the tarball in a clean folder and run `npx lawcheck --version` and a check on a small repository, as above.
+4. Publish, and tag the commit. Both are the owner's.
