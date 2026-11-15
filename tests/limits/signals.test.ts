@@ -66,7 +66,7 @@ test('S1-1: test 239: a signal while files are typed against a heavy pattern end
         const fakeGit = join(dir, 'bin');
         write(dir, 'bin/git', `#!/bin/sh\ncase "$*" in *"ls-files -z --cached"*) : > "${mark}";; esac\nexec "${join(programDir('git'), 'git')}" "$@"\n`);
         chmodSync(join(fakeGit, 'git'), 0o755);
-        write(s, 'slow/a.ts', `${'a'.repeat(40)}!\n`);
+        write(s, 'slow/a.ts', `${'a'.repeat(80)}!\n`);
         const run = start(s, ['check', '--base', 'main'], { PATH: pathWith(fakeGit) });
         await until(() => existsSync(mark), 'the files to be listed');
         await stop(run, signal);
