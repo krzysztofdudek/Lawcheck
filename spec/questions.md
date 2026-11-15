@@ -466,7 +466,7 @@ Choice: not done. It would make a finding of an answer the readers did not resol
 - The commit subjects of the move have no `<area>: ` prefix: not changed, since rewording would rewrite the branch for no change in content.
 - The suite at the first commit of the move alone was not run by the review: it was run before that commit was made, 349 of 349.
 
-## 75. A key that the endpoint echoes
+## 110. A key that the endpoint echoes
 
 Finding S3-2 asks that a key an endpoint echoes in its error message appear in no output. Section 6 prints the first line of the endpoint's `error.message` as it came, and the design's providers chapter keeps a provider's error text as it came, with no redaction.
 
