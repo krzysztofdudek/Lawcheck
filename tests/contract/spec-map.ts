@@ -31,6 +31,7 @@ export interface Inputs {
   ledger: string;
   sectionOnly: number;
   harness: string[];
+  stress: Record<number, number>;
 }
 
 export function cells(line: string): string[] {
@@ -70,7 +71,9 @@ export function outsideFences(text: string): { line: string; number: number }[] 
 export function tablesOf(text: string): Table[] {
   const tables: Table[] = [];
   let open: Table | null = null;
-  for (const { line, number } of outsideFences(text)) {
+  for (const found of outsideFences(text)) {
+    const { number } = found;
+    const line = found.line.trimStart();
     if (!line.startsWith('|')) {
       open = null;
     } else if (open === null) {
@@ -90,6 +93,10 @@ export function rowsOf(file: TextFile): { rows: Row[]; problems: string[] } {
   const problems: string[] = [];
   for (const table of tablesOf(file.text)) {
     const head = rawFirstCell(table.header);
+    if (/^\d+$/.test(head) || /^I-/.test(head)) {
+      problems.push(`${file.path}: the row "${head}" at line ${table.start} stands in a table with no header: a blank line before it splits its table`);
+      continue;
+    }
     const firsts = table.rows.map(rawFirstCell);
     const integers = firsts.filter((c) => /^\d+$/.test(c)).length;
     if (NUMBER_HEADERS.has(head.toLowerCase())) {
@@ -111,6 +118,7 @@ export function invariantsOf(file: TextFile): { invariants: Invariant[]; problem
   const invariants: Invariant[] = [];
   const problems: string[] = [];
   for (const table of tablesOf(file.text)) {
+    if (firstCell(table.header).startsWith('I-')) problems.push(`${file.path}: the invariant "${firstCell(table.header)}" at line ${table.start} stands in a table with no header: a blank line before it splits its table`);
     for (const row of table.rows) {
       const cell = firstCell(row);
       if (!cell.startsWith('I-')) continue;
@@ -145,12 +153,11 @@ export interface LedgerRow {
 
 export function ledgerRows(ledger: string): LedgerRow[] {
   const out: LedgerRow[] = [];
-  for (const table of tablesOf(ledger)) {
-    if (firstCell(table.header) !== 'id') continue;
-    for (const row of table.rows) {
-      const c = cells(row);
-      out.push({ id: c[0]!, severity: c[1] ?? '', class: c[2] ?? '', defect: c[3] ?? '', layer: c[4] ?? '', package: c[5] ?? '', runes: c[6] ?? '', test: c[7] ?? '', generalised: c[8] ?? '', state: c[9] ?? '' });
-    }
+  for (const { line } of outsideFences(ledger)) {
+    const trimmed = line.trimStart();
+    if (!trimmed.startsWith('|') || /^\|[\s:|-]+\|$/.test(trimmed) || firstCell(trimmed) === 'id') continue;
+    const c = cells(trimmed);
+    out.push({ id: c[0]!, severity: c[1] ?? '', class: c[2] ?? '', defect: c[3] ?? '', layer: c[4] ?? '', package: c[5] ?? '', runes: c[6] ?? '', test: c[7] ?? '', generalised: c[8] ?? '', state: c[9] ?? '' });
   }
   return out;
 }
@@ -374,6 +381,35 @@ export function scanTests(file: string, text: string): Scanned {
         skipped = true;
       }
     }
+    const region = body.slice(literal.end, close);
+    const arrow = region.indexOf('=>');
+    const plain = region.search(/function\b[^{]*\{/);
+    let inner: string | null = null;
+    if (arrow >= 0 && (plain < 0 || arrow < plain)) {
+      let b = arrow + 2;
+      while (/\s/.test(region[b] ?? '')) b++;
+      if (region[b] === '{') {
+        let depth = 0;
+        let e = b;
+        for (; e < region.length; e++) {
+          if (region[e] === '{') depth++;
+          else if (region[e] === '}' && --depth === 0) break;
+        }
+        inner = region.slice(b + 1, e);
+      }
+    } else if (plain >= 0) {
+      const b = region.indexOf('{', plain);
+      let depth = 0;
+      let e = b;
+      for (; e < region.length; e++) {
+        if (region[e] === '{') depth++;
+        else if (region[e] === '}' && --depth === 0) break;
+      }
+      inner = region.slice(b + 1, e);
+    }
+    if (!skipped && callee !== 'describe' && inner !== null && /^(?:return\s*;?)*$/.test(inner.replace(/\s+/g, ' ').trim())) {
+      result.problems.push(`${where}: the test "${literal.dynamic ? literal.prefix : literal.value}" asserts nothing: its body is empty or only returns`);
+    }
     found.push({ index: m.index, end: close, name: literal.dynamic ? literal.prefix : literal.value, skipped, describe: callee === 'describe' });
   }
   const hidden_ = found.filter((f) => f.describe && f.skipped);
@@ -417,6 +453,7 @@ export function loadInputs(repo: URL, sectionOnly: number): Inputs {
     ledger: readFileSync(new URL('findings.md', testsDir), 'utf8'),
     sectionOnly,
     harness: Object.keys(INVARIANTS),
+    stress: STRESS_FINDINGS,
   };
 }
 
@@ -448,11 +485,22 @@ export const SEVERITIES = ['blocks the release', 'should be fixed before', 'afte
 export const PACKAGES = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'P', 'after alpha'];
 export const STATES = ['open', 'limit', 'runes-limit', 'closed'];
 
-export function ledgerProblems(ledger: string, tests: TestName[], questions: Set<number>): string[] {
+// The findings of the stress reports 1 to 8, as each report numbers them: no row of these may go.
+export const STRESS_FINDINGS: Record<number, number> = { 1: 15, 2: 8, 3: 9, 4: 11, 5: 16, 6: 10, 7: 16, 8: 8 };
+
+const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+export const carries = (name: string, id: string): boolean => new RegExp(`(?<![\\w-])${escape(id)}(?![\\w-])`).test(name);
+
+export function ledgerProblems(ledger: string, tests: TestName[], questions: Set<number>, files: Set<string> = new Set(), stress: Record<number, number> = {}): string[] {
   const problems: string[] = [];
   const seen = new Set<string>();
   const rows = ledgerRows(ledger);
   if (rows.length === 0) problems.push('the ledger holds no rows');
+  if (!tablesOf(ledger).some((t) => firstCell(t.header) === 'id')) problems.push('the ledger has no table headed id');
+  for (const [report, count] of Object.entries(stress)) {
+    for (let n = 1; n <= count; n++) if (!rows.some((r) => r.id === `S${report}-${n}`)) problems.push(`the finding S${report}-${n} of the stress reports has no row in the ledger`);
+  }
   for (const row of rows) {
     const at = `ledger ${row.id}`;
     if (!/^(S[1-8]-\d+|U-\d+|R-\d+|T[1-8])$/.test(row.id)) problems.push(`${at}: the id is not S<report>-<n>, U-<n>, R-<n> or T<n>`);
@@ -473,10 +521,14 @@ export function ledgerProblems(ledger: string, tests: TestName[], questions: Set
     for (const m of `${row.defect} ${row.test} ${row.generalised}`.matchAll(/\bquestion (\d+)\b/g)) {
       if (!questions.has(Number(m[1]))) problems.push(`${at}: names question ${m[1]}, which is not in spec/questions.md`);
     }
-    if (row.state === 'closed') {
+    if (row.state === 'closed' || row.state === 'limit') {
       const named = /^(tests\/[^\s:]+): (.+)$/.exec(row.test);
-      if (named === null) problems.push(`${at}: a closed row names its test as "<file>: <id>"`);
-      else if (!tests.some((t) => t.file === named[1] && t.name.startsWith(row.id) && t.name.includes(named[2]!))) problems.push(`${at}: the test "${named[2]}" in ${named[1]} does not exist or does not lead its name with ${row.id}`);
+      if (named === null) problems.push(`${at}: a ${row.state} row names its test as "<file>: <fragment>"`);
+      else if (!tests.some((t) => t.file === named[1] && t.name.includes(named[2]!) && carries(t.name, row.id))) problems.push(`${at}: no test of ${named[1]} holds "${named[2]}" in its name and carries ${row.id} as a whole id`);
+    }
+    if (row.state === 'limit') {
+      const stated = /\b((?:spec|docs)\/[\w./-]+\.md)\b/.exec(row.generalised);
+      if (stated === null || !files.has(stated[1]!)) problems.push(`${at}: a limit row says where the limit is stated, as "stated in spec/<file>.md" or "docs/<file>.md", in the column generalised by`);
     }
   }
   return problems;
@@ -532,8 +584,13 @@ export function problemsOf(input: Inputs): string[] {
     tests.push(...scanned.tests);
     problems.push(...scanned.problems);
   }
+  const names = new Set<string>();
+  for (const t of tests) {
+    if (names.has(`${t.file}\n${t.name}`)) problems.push(`${t.file}: the name "${t.name}" is used by two tests of one file`);
+    names.add(`${t.file}\n${t.name}`);
+  }
   const questions = questionNumbers(input.questions);
-  problems.push(...ledgerProblems(input.ledger, tests, questions));
+  problems.push(...ledgerProblems(input.ledger, tests, questions, new Set([...input.specs, ...input.docs].map((f) => f.path)), input.stress));
   const findings = new Set(ledgerRows(input.ledger).map((r) => r.id));
   const headings = new Map(input.specs.filter((s) => s.path.startsWith('spec/')).map((s) => [s.path.slice('spec/'.length, -'.md'.length), headingsOf(s.text)]));
 
