@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { openai, withFake } from '../acceptance/fake-reviewer.ts';
 import { git, inTemp, lawcheck, write } from '../acceptance/helpers.ts';
@@ -241,5 +241,23 @@ test("I-out-1: what a script rule prints on its own streams reaches the tool's s
       assert.ok(run.stderr.includes(SHOWN), run.stderr);
       assert.ok(run.stderr.includes('no line end \\x23#vso[task.complete]'), run.stderr);
     }
+  });
+});
+
+test('I-out-1: a pattern of the law that holds a line feed stays on its line in prime and explain', async () => {
+  await inTemp(async (dir) => {
+    const r = repo(dir);
+    const law = readFileSync(join(r, '.lawcheck', 'law.yaml'), 'utf8').replace('    paths: ["**/*.ts"]', '    paths: ["**/*.ts", "x\\n::error title=forged::y"]');
+    writeFileSync(join(r, '.lawcheck', 'law.yaml'), law);
+    const primed = await lawcheck(r, ['prime']);
+    assert.equal(primed.code, 0, primed.stdout);
+    clean(primed);
+    assert.ok(primed.stdout.split('\n').some((line) => line.includes('**/*.ts, x\\n::error title=forged::y')), primed.stdout);
+    const explained = await lawcheck(r, ['explain', 'a.ts']);
+    clean(explained);
+    assert.ok(!explained.stdout.split('\n').some((line) => line.startsWith('\\x3a:error')), explained.stdout);
+    const typed = await lawcheck(r, ['explain', '--type', 'all']);
+    clean(typed);
+    assert.ok(typed.stdout.includes('  paths:  **/*.ts, x\\n::error title=forged::y'), typed.stdout);
   });
 });
