@@ -117,7 +117,6 @@ export function linksOut(root: string, top: string, links: { name: string; bytes
   return out;
 }
 
-// What a rule prints goes to the tool's standard error a line at a time, through the escapes of every text output.
 function relay(stream: Readable | null): void {
   if (stream === null) return;
   let pending = '';
