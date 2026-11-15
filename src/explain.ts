@@ -1,5 +1,5 @@
 import { lstatSync } from 'node:fs';
-import { onDisk } from './names.js';
+import { bytesOfName, onDisk } from './names.js';
 import { documentOf, errorResult, text as flagText, usageError } from './args.js';
 import type { Arguments, Result } from './args.js';
 import type { CheckContext } from './check.js';
@@ -433,7 +433,12 @@ export async function explain(args: Arguments, context: CheckContext, json: bool
     const ctx: Ctx = { root, law, config, listed, files, read, kinds };
     if (typeId !== null) return typeAnswer(ctx, typeId, json);
     if (ruleId !== null) return ruleAnswer(ctx, ruleId, json);
-    const path = spelledAsListed(root, fromCwd(root, context.cwd, args.words[0]!), listed);
+    const given = fromCwd(root, context.cwd, args.words[0]!);
+    // A name over 255 bytes or a path over 4,095 can exist on no system Lawcheck runs on, though Windows answers that such a file is missing. An escaped name is measured by the bytes it stands for.
+    if (given.split('/').some((part) => bytesOfName(part).length > 255) || Buffer.byteLength(onDisk(root, given)) > 4095) {
+      throw usage(`the path '${args.words[0]!}' cannot exist here: it is longer than this system allows for a name or a path`);
+    }
+    const path = spelledAsListed(root, given, listed);
     if (path === '.') return directory(ctx, path, json);
     let stat: ReturnType<typeof lstatSync> | null = null;
     try {
