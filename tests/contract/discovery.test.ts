@@ -1,15 +1,35 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { join } from 'node:path';
-import { COMMIT_GROUPS, EMPTY_GROUPS, groupDirs, NIGHTLY_GROUPS, setFiles, TEST_FILE, TESTS, walk } from '../harness/sets.ts';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
+import { COMMIT_GROUPS, EMPTY_GROUPS, groupDirs, NIGHTLY_GROUPS, setFiles, TEST_FILE, testNamedFiles, TESTS, walk } from '../harness/sets.ts';
 
-test('every test file under tests/ is in exactly one set of the runner', () => {
-  const found = walk(TESTS, (name) => TEST_FILE.test(name));
+function outsideTheSets(found: string[]): string[] {
   const commit = new Set(setFiles('commit', groupDirs('commit', null)!));
   const nightly = new Set(setFiles('nightly', groupDirs('nightly', null)!));
-  const wrong = found.filter((path) => Number(commit.has(path)) + Number(nightly.has(path)) !== 1);
-  assert.deepEqual(wrong, []);
-  assert.ok(found.length > 0);
+  return found.filter((path) => Number(commit.has(path)) + Number(nightly.has(path)) !== 1);
+}
+
+test('every file of the checkout named like a test is in exactly one set of the runner', () => {
+  const found = testNamedFiles();
+  assert.deepEqual(outsideTheSets(found), []);
+  assert.ok(found.includes('tests/contract/discovery.test.ts'));
+});
+
+test('a test file planted outside tests/, in a fixture folder, or with another extension is found and caught (control)', () => {
+  const planted = ['src/a.test.ts', 'scripts/a.test.ts', 'tests/security/attacks/a.test.ts', 'tests/sample/a.test.ts', 'tests/agent/a.test.ts', 'tests/unit/a.spec.ts', 'tests/unit/a.test.mjs'];
+  const root = mkdtempSync(join(tmpdir(), 'lawcheck-discovery-'));
+  try {
+    for (const path of [...planted, 'node_modules/x/a.test.ts', 'dist/a.test.js', 'src/a.ts']) {
+      mkdirSync(dirname(join(root, path)), { recursive: true });
+      writeFileSync(join(root, path), '');
+    }
+    assert.deepEqual(testNamedFiles(root), [...planted].sort());
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+  assert.deepEqual(outsideTheSets(planted), planted);
 });
 
 test('each group of a set names directories that the set walks, and the nightly set only its own directories', () => {
