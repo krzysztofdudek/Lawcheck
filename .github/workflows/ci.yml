@@ -67,7 +67,7 @@ jobs:
       - name: The commit set, group ${{ matrix.group }}
         run: npm test -- --group ${{ matrix.group }}
 
-  # The same commit set in a network namespace that holds only a loopback device, so a test that reaches the network outside the suites named for it fails here.
+  # The same commit set in a network namespace that holds only a loopback device, as the runner's user with no supplementary group (so not the docker group, whose socket reaches the network), so a test that reaches the network outside the suites named for it fails here.
   offline:
     name: commit offline (ubuntu-latest, Node 24)
     needs: grammars
@@ -85,8 +85,8 @@ jobs:
           path: .grammars
       - name: The commit set with the network closed
         run: |
-          sudo unshare --net -- sh -c 'ip link set lo up && exec setpriv --reuid="$1" --regid="$2" --init-groups env PATH="$3" HOME="$4" npm test' \
-            sh "$(id -u)" "$(id -g)" "$PATH" "$HOME"
+          sudo unshare --net -- sh -c 'ip link set lo up && u=$1 g=$2 && shift 2 && exec setpriv --reuid="$u" --regid="$g" --clear-groups env -i "$@"' \
+            sh "$(id -u)" "$(id -g)" PATH="$PATH" HOME="$HOME" USER="$(id -un)" LOGNAME="$(id -un)" npm test
 
   # Lawcheck on two public repositories pinned at full commits (tests/real), held to the committed expected results. Each repository is fetched by its commit alone.
   real:
