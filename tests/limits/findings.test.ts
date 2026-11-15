@@ -135,3 +135,23 @@ test('test 264: waivers count toward the findings of a run: 200,000 waivers that
     assert.equal(beyond.code, 2);
   });
 });
+
+test('test 268: a message of 4,096 characters outside the first plane is a finding, and one more character crashes the rule', async () => {
+  const wide = (count: number) => `export function check() { return [{ message: '\\u{1F600}'.repeat(${count}) }]; }\n`;
+  for (const [count, expected] of [[4096, null], [4097, `${RULE}  error[rule-crashed]  returns a message of 4,097 characters for src/core/many.ts, and a message holds at most 4,096`]] as const) {
+    await withSample(
+      async (s) => {
+        write(s, 'src/core/many.ts', 'export const a = 1;\n');
+        const result = await run(s, ['check', '--base', 'main']);
+        if (expected === null) {
+          assert.deepEqual(errorLines(result.stdout), [`src/core/many.ts  error[no-console]  ${'\u{1F600}'.repeat(4096)}`]);
+          assert.equal(result.code, 1);
+        } else {
+          assert.deepEqual(errorLines(result.stdout), [expected]);
+          assert.equal(result.code, 2);
+        }
+      },
+      { onMain: (s) => setRule(s, 'no-console', wide(count)) },
+    );
+  }
+});

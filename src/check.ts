@@ -26,7 +26,7 @@ import type { TypedFile } from './types.js';
 import type { Runtime } from './environment.js';
 import { readFailure, readVerdicts, reviewKey, Unwritable, VerdictWriter } from './verdicts.js';
 import { parseWaivers, waive } from './waivers.js';
-import { count, readError, RUN_FINDINGS, RUN_MESSAGE_CHARS } from './limits.js';
+import { count, points, readError, RUN_FINDINGS, RUN_MESSAGE_CHARS } from './limits.js';
 import { step } from './progress.js';
 import type { Waiver, WaiverProblem } from './waivers.js';
 
@@ -125,7 +125,7 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
   const byFile = new Map<string, { count: number; chars: number }>();
   const tally = (path: string, text: string) => {
     const own = byFile.get(path) ?? { count: 0, chars: 0 };
-    byFile.set(path, { count: own.count + 1, chars: own.chars + text.length });
+    byFile.set(path, { count: own.count + 1, chars: own.chars + points(text) });
   };
   for (const item of uses.forbidden) tally(item.file, item.message);
   for (const item of uses.unresolved) tally(item.file, item.what);
@@ -141,8 +141,8 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
     const parsed = takesWaivers(file.type) ? parseWaivers(file.lines, ruleIds) : { waivers: [], problems: [] };
     waiversOf.set(file.path, parsed);
     let chars = 0;
-    for (const problem of parsed.problems) chars += problem.message.length;
-    for (const waiver of parsed.waivers) chars += waiver.reason.length;
+    for (const problem of parsed.problems) chars += points(problem.message);
+    for (const waiver of parsed.waivers) chars += points(waiver.reason);
     if (budget.addAt(parsed.problems.length + parsed.waivers.length, chars)) return { errors: [tooManyAt(file.path, budget)] };
   }
   const review = `lawcheck check --review${options.base === null ? '' : ` --base ${hide(options.base)}`}`;
@@ -170,7 +170,7 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
         const cached = readFailure(root, key, rule, lineCount);
         if (cached !== null) {
           let chars = 0;
-          for (const finding of cached) chars += finding.message.length;
+          for (const finding of cached) chars += points(finding.message);
           if (budget.addAt(cached.length, chars)) return { errors: [tooManyAt(file.path, budget)] };
           reviewerRaw(file.path, rule, cached);
           continue;
@@ -218,7 +218,7 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
     }
     for (const answered of result.answered) {
       let chars = 0;
-      for (const finding of answered.findings) chars += finding.message.length;
+      for (const finding of answered.findings) chars += points(finding.message);
       if (budget.addAt(answered.findings.length, chars)) return { errors: [tooManyAt(answered.ask.file, budget)] };
       reviewerRaw(answered.ask.file, answered.ask.rule, answered.findings);
     }
@@ -228,7 +228,7 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
   }
   for (const ask of missing) {
     const message = `${ask.rule} has no verdict for this content`;
-    if (budget.addAt(1, message.length)) return { errors: [tooManyAt(ask.file, budget)] };
+    if (budget.addAt(1, points(message))) return { errors: [tooManyAt(ask.file, budget)] };
     builtIn.push({ code: 'not-reviewed', rule: ask.rule, file: ask.file, message });
   }
 

@@ -19,6 +19,19 @@ export const LAW_RULES = 10_000;
 export const LAW_TYPES = 1_000;
 export const STEP_MS = 60_000;
 
+// A character is a code point, as a reader counts one, so a pair of UTF-16 code units counts once.
+export function points(text: string): number {
+  let count = text.length;
+  for (let i = 1; i < text.length; i++) {
+    const low = text.charCodeAt(i);
+    if (low >= 0xdc00 && low <= 0xdfff) {
+      const high = text.charCodeAt(i - 1);
+      if (high >= 0xd800 && high <= 0xdbff) count--;
+    }
+  }
+  return count;
+}
+
 export function mib(bytes: number): string {
   return `${bytes / MiB} MiB`;
 }

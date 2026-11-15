@@ -9,7 +9,7 @@ import { killTree } from './programs.js';
 import { safeText } from './output.js';
 import { hide } from './keys.js';
 import type { Readable } from 'node:stream';
-import { count, MESSAGE_CHARS, RULES_RUN_MS, RUN_FINDINGS, RUN_MESSAGE_CHARS } from './limits.js';
+import { count, MESSAGE_CHARS, points, RULES_RUN_MS, RUN_FINDINGS, RUN_MESSAGE_CHARS } from './limits.js';
 
 export interface RuleFile {
   path: string;
@@ -174,7 +174,7 @@ export class FindingBudget {
     let taken: { count: number; chars: number };
     if (Array.isArray(findings)) {
       let chars = 0;
-      for (const finding of findings) chars += finding.message.length;
+      for (const finding of findings) chars += points(finding.message);
       taken = { count: findings.length, chars };
     } else taken = findings;
     this.total += taken.count;

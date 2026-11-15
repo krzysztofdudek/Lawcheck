@@ -1,5 +1,5 @@
 import { pathToFileURL } from 'node:url';
-import { MESSAGE_CHARS, RUN_FINDINGS, RUN_MESSAGE_CHARS } from './limits.js';
+import { MESSAGE_CHARS, points, RUN_FINDINGS, RUN_MESSAGE_CHARS } from './limits.js';
 
 interface CallFile {
   path: string;
@@ -136,8 +136,9 @@ function oversized(value: unknown): { kind: string; count: number; chars?: numbe
   for (const item of value as unknown[]) {
     const message = typeof item === 'object' && item !== null ? (item as { message?: unknown }).message : undefined;
     if (typeof message !== 'string') continue;
-    if (message.length > MESSAGE_CHARS) return { kind: 'too-long', count: message.length };
-    chars += message.length;
+    const length = points(message);
+    if (length > MESSAGE_CHARS) return { kind: 'too-long', count: length };
+    chars += length;
   }
   if (value.length > RUN_FINDINGS || chars > RUN_MESSAGE_CHARS) return { kind: 'too-many', count: value.length, chars };
   return null;
