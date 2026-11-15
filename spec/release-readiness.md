@@ -37,6 +37,20 @@ Checked on 2026-11-13 in the dev container, on the branch `release-ready`, for v
 | Licence in the installed folder | fixed here | Claude Code installs only `plugin/`, which had no licence file. `plugin/LICENSE` is a copy of `LICENSE`. Both validations pass with it. |
 | Hooks need the command | ready, with a text for the README | The hooks start `lawcheck` (the default runner `global`) or the runner named in `.lawcheck/config.yaml`. The plugin does not install the tool, so the README must say how to install it. See below. |
 
+## Reviewer providers
+
+Checked on 2026-11-15 on the branch `providers`, after the six providers were added (`spec/questions.md`, entry 73). Every call to a real model is counted here; no address or key entered a file.
+
+| Provider | State | Evidence |
+|---|---|---|
+| `ollama` | ready, with a limit | Ollama 0.40.16 on another machine of the owner's network, its address given in `LAWCHECK_REVIEWER_ENDPOINT` at run time, model `gemma4:12b-mlx`, from the dev container: 7 calls. `doctor --reviewer` answered its test call twice, in 7 and 2 seconds. `check --review` on R with F gave `src/core/refund.ts:2  error[clear-errors]`, exit 1, in 14 seconds. Two other `check --review` calls, one on F and one on a file that keeps the rule, ended as `reviewer-unreachable` at the 300 seconds of `reviewer.timeout`, with no verdict recorded. Two streamed calls of the same requests by hand showed why: on F the model answered a fail at line 2 in 882 tokens, and on the other file its thinking ran past 42,000 characters in 150 seconds without an answer. The timeout ended the call as section 6 says; a model that keeps thinking is the model's limit. |
+| `codex` | ready | codex-cli 0.169.0 in a container, its `config.toml` naming a model provider that speaks the Responses API, `model: claude-haiku-5-5`: 4 calls. Through Lawcheck, `doctor --reviewer` answered its test call and `check --review` on R with F gave the finding at line 2, exit 1, each in 2 seconds. Before them, two calls of `codex exec` by hand chose the arguments: with `--ignore-user-config` the call went to the vendor's own service and was refused with 401, and with the configuration read it answered (`spec/questions.md`, entry 74). Every `--disable` switch of section 6 was accepted. |
+| `copilot-cli` | ready | Copilot CLI 1.0.111 in the same container, in its bring-your-own-key mode, `claude-haiku-5-5`: 4 calls. One by hand showed that it reads the prompt on standard input and runs without `--model` when `COPILOT_MODEL` is set. Through Lawcheck with `model` set, `doctor --reviewer` answered and `check --review` on F gave the finding at line 2, exit 1; without `model`, `check --review` on a file that keeps the rule recorded a pass, exit 0. Each took 2 seconds. With a GitHub sign-in it was not run. |
+| `openai` | not exercised live | No key on the machines of this check. Tests 184, 187, 188 and 189 run it against a local fake of OpenAI's documented chat completions. |
+| `google` | not exercised live | No key on the machines of this check. Tests 185, 187, 188 and 189 run it against a local fake of Google's documented `generateContent`. |
+| `gemini-cli` | not exercised live | No `gemini` program or sign-in on the machines of this check. Test 191 runs a fake of the documented headless mode; its arguments come from Gemini CLI 0.61.0 and none was run against a real `gemini`. |
+| The measurement | not run for the new providers | `npm run stability` now takes `ollama`, `codex` and `copilot-cli` (test 194). Section 9 of `spec/reviewer-slice.md` fixes 10 runs of 30 calls per provider and no smaller run, so it was not run with them here; the next full measurement can include them. |
+
 ## Documents
 
 | Item | State | Evidence |
