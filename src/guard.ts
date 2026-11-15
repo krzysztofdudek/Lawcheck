@@ -49,8 +49,35 @@ process.stdin.on('data', (chunk: string) => {
     if (adding) set.add(pid);
     else set.delete(pid);
     if (group && adding) watch();
+    if (group && !adding && groups.size === 0) stopWatching();
   }
 });
+// PowerShell writes test files to the temporary directory while it starts and removes them once started, so the watcher is ended only after its first list, or after 10 seconds.
+function stopWatching(then: () => void = () => undefined): void {
+  const current = watcher;
+  if (current === null || listed || current.exitCode !== null) {
+    current?.kill();
+    watcher = null;
+    listed = false;
+    then();
+    return;
+  }
+  let done = false;
+  const end = () => {
+    if (done) return;
+    done = true;
+    current.kill();
+    if (watcher === current) {
+      watcher = null;
+      listed = false;
+    }
+    then();
+  };
+  onListed = end;
+  current.on('exit', end);
+  setTimeout(end, 10_000).unref();
+}
+
 let ended = false;
 
 function endAll(): void {
@@ -74,17 +101,7 @@ function endAll(): void {
   }
   for (const pid of groups) killTree(pid, 'SIGKILL', true);
   for (const folder of folders) rmSync(folder, { recursive: true, force: true, maxRetries: 10 });
-  // PowerShell writes test files to the temporary directory while it starts and removes them once started, so the watcher is ended only after its first list, or after 10 seconds.
-  const done = () => {
-    watcher?.kill();
-    process.exit(0);
-  };
-  if (watcher === null || listed || watcher.exitCode !== null) done();
-  else {
-    onListed = done;
-    watcher.on('exit', done);
-    setTimeout(done, 10_000);
-  }
+  stopWatching(() => process.exit(0));
 }
 
 process.stdin.on('close', endAll);
