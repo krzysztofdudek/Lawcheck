@@ -276,6 +276,7 @@ lawcheck: PASS  1 changed file (against main)
 
 **A failing run.** Instead, add `src/core/discount.ts`:
 
+<!-- example: check-d -->
 ```ts
 export function discount(net: number): number {
   console.log('discount', net);
@@ -287,6 +288,7 @@ export function discount(net: number): number {
 
 `lawcheck check --full --base main` exits 1:
 
+<!-- example: check-failing-run -->
 ```
 lawcheck: FAIL  1 error, 1 warning in 1 changed file (against main), 1 waiver
 
@@ -320,6 +322,7 @@ next: fix src/core/discount.ts:2
 
 With `statuss: advisory` in the sample's `no-todo`:
 
+<!-- example: check-law-invalid -->
 ```
 lawcheck: ERROR  1 error
 

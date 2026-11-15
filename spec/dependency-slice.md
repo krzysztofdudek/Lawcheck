@@ -86,6 +86,7 @@ types:
 
 In S, `src/cli/main.ts` imports `../core/price.js`: command uses library, which its list allows. E is `src/core/report.ts`:
 
+<!-- example: dependency-e -->
 ```ts
 import { price } from './price.js';
 import '../cli/main.js';
