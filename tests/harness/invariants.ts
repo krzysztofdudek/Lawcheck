@@ -11,13 +11,14 @@ export const INVARIANTS: Record<string, string> = {
   'harness-6': 'The run ends inside the test\'s time budget, and afterwards no process of the run is alive.',
   'harness-7': 'git status, HEAD and the index are the same before and after, unless the command writes by contract (init, check --review), and then only the files the contract names change.',
   'harness-8': 'The test\'s temporary folder is the only place that changed.',
-  'harness-count': 'A test that starts the tool compares at least one of its outputs.',
+  'harness-count': 'A test makes at least one assertion, and a test that starts the tool compares at least one of its outputs.',
 };
 
 // What the harness does not close, in one place.
 export const KNOWN_LIMITS: string[] = [
   "A rule's runner starts with an empty environment, so a detached child of a rule, or any child started with env: {}, carries no mark; it is found only while it lives below the tool at a sample, by its process group, or on Linux by a working folder inside the run's folders.",
-  'Reading stdout, stderr, code, signal or json of a run counts as comparing it, whether or not the test asserts on what it read.',
+  'Reading stdout, stderr, code, signal or json of a run counts as comparing it, whether or not the test asserts on what it read; the assertion that the test makes at all is counted apart. A test counts as asserting when it calls a function of node:assert or expectBroken; a bare call of assert(value) is not counted, and a test that returns before its first assertion on a platform it names in PLATFORM_SKIPS is not asked for one.',
+  'A test that passes a fifth of TEST_BUDGET_MS with no entry in SLOW_TESTS is only listed by the reporter, never failed: a failure there would turn timing noise into false reds, and the full budget already fails a test that is slow.',
   'Node on Windows cannot read the environment of another process, and a list of processes with their parents comes only from PowerShell, which takes seconds a call on a busy machine, so there the harness does not look for a process left alive; PLATFORM_SKIPS names it.',
   'On Windows LOCALAPPDATA stays the machine\'s, since Windows programs keep their caches there (the guard\'s PowerShell among them); a write under it is not seen. In the home, Windows makes the folders of a profile for a program that asks for one, so there an empty folder does not count, only a file.',
   'The harness walks no node_modules folder, in the repository or beside it, since a node_modules there is a link to the checkout\'s; a write inside one is not seen.',
