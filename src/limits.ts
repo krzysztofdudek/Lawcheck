@@ -14,7 +14,7 @@ export const MESSAGE_CHARS = 4096;
 export const RULES_RUN_MS = 600_000;
 export const LAW_BYTES = 1 * MiB;
 export const CONFIG_BYTES = 1 * MiB;
-export const USES_FILE_BYTES = 4 * MiB;
+export const USES_FILE_BYTES = 512 * 1024;
 export const LAW_RULES = 10_000;
 export const LAW_TYPES = 1_000;
 export const STEP_MS = 30_000;
@@ -33,7 +33,7 @@ export function points(text: string): number {
 }
 
 export function mib(bytes: number): string {
-  return `${bytes / MiB} MiB`;
+  return bytes < MiB ? `${bytes / 1024} KiB` : `${bytes / MiB} MiB`;
 }
 
 export function count(value: number): string {
