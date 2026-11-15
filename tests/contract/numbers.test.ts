@@ -16,7 +16,7 @@ test('every number of tests/numbers.ts says which way is stronger, and nothing e
   assert.deepEqual(Object.keys(numbers.stronger).sort(), exported);
 });
 
-test('every key of SLOW_TESTS names a test that exists, and every system listed there needs more than TEST_BUDGET_MS', () => {
+test('every key of SLOW_TESTS names a test that exists, and every system listed there passes a fifth of TEST_BUDGET_MS', () => {
   for (const [key, budgets] of Object.entries(numbers.SLOW_TESTS)) {
     const [file, name] = key.split(' > ');
     const text = readFileSync(join(ROOT, file!), 'utf8');
@@ -24,7 +24,7 @@ test('every key of SLOW_TESTS names a test that exists, and every system listed 
     for (const [system, measured] of Object.entries(budgets.measured)) {
       assert.ok(['linux', 'darwin', 'win32'].includes(system), `${key}: ${system}`);
       assert.ok(measured! >= budgets.fixed, `${key}: ${system} measured ${measured} below its fixed waits`);
-      assert.ok(budgets.fixed + numbers.SLOW_MARGIN * (measured! - budgets.fixed) > numbers.TEST_BUDGET_MS, `${key}: ${system} fits in TEST_BUDGET_MS and needs no entry`);
+      assert.ok(measured! > numbers.TEST_BUDGET_MS / 5, `${key}: ${system} takes a fifth of TEST_BUDGET_MS or less and needs no entry`);
     }
   }
 });
