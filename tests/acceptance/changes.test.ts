@@ -217,6 +217,7 @@ test('section 4: every git command runs with GIT_OPTIONAL_LOCKS=0, in the order 
       'merge-base HEAD <sha>',
       'diff --no-ext-diff --no-textconv -z --name-only --no-renames --relative <sha> --',
       'ls-files -z --others --exclude-standard',
+      'ls-files -z --stage',
     ]);
   });
 });

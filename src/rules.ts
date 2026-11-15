@@ -4,6 +4,7 @@ import { availableParallelism } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { dirname, sep } from 'node:path';
 import { realpathSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
 import type { TypeDef } from './law.js';
 import { killTree } from './programs.js';
 
@@ -86,6 +87,22 @@ export function runnerProblem(root: string): string | null {
     if (sep === '/' && path.includes('\\')) return `${what} ${path} holds a backslash, and the runner of script rules cannot load a rule from such a path`;
   }
   return null;
+}
+
+// Node's permission model follows a link, so a tracked link that leads out of the root would let a rule read where it leads.
+export function linksOut(root: string, links: string[]): { path: string; target: string }[] {
+  const inside = (path: string, folder: string) => path === folder || path.startsWith(folder + sep);
+  const out: { path: string; target: string }[] = [];
+  for (const path of links) {
+    let target: string;
+    try {
+      target = realpathSync(join(root, path));
+    } catch {
+      continue;
+    }
+    if (!inside(target, root) && !inside(target, PACKAGE_DIR)) out.push({ path, target });
+  }
+  return out;
 }
 
 export interface RawFinding {

@@ -180,6 +180,18 @@ export function ignoresPath(root: string, path: string): boolean {
   throw failed(args, result);
 }
 
+export function trackedLinks(root: string): string[] {
+  const args = ['ls-files', '-z', '--stage'];
+  const result = git(root, args);
+  if (result.status !== 0) throw failed(args, result);
+  const links: string[] = [];
+  for (const entry of splitZ(result.stdout)) {
+    const tab = entry.indexOf('\t');
+    if (entry.startsWith('120000 ') && tab >= 0) links.push(entry.slice(tab + 1));
+  }
+  return links;
+}
+
 export function listedPaths(root: string): Set<string> {
   const args = ['ls-files', '-z', '--cached', '--others', '--exclude-standard'];
   const result = git(root, args);

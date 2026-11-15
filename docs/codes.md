@@ -15,6 +15,7 @@ Every code Lawcheck prints. A finding is a line of `check`'s report and comes wi
 | `file-unreadable` | exit 2 | a file that must be read cannot be | a file that cannot be read cannot be typed or judged |
 | `type-overlap` | exit 2 | two types of one level match one file | a file has one type, so the rules that bind it are never in doubt |
 | `base-unreachable` | exit 2 | the base names no commit, or shares no history with `HEAD` | without its base a change cannot be told from debt |
+| `link-outside-root` | exit 2 | a script rule is to run, and a link git tracks under the root leads outside it and Lawcheck's folder | a script rule reads nothing outside the root, and a link that leads out of it would let it |
 | `path-unsupported` | exit 2 | a script rule is to run, and the path of the root or of Lawcheck holds a `*` or, outside Windows, a backslash, where the runner cannot keep the rule inside the root | a script rule reads nothing outside the root and Lawcheck's folder, and the runner can keep that only on such a path |
 | `rule-crashed` | exit 2 | a script rule does not load, throws, returns no list of findings, or passes 30 seconds | a broken rule says nothing about the code |
 | `parser-failed` | exit 2 | a grammar cannot be loaded, or a reader fails on a file | a file whose uses were not read is not taken to use nothing |

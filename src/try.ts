@@ -3,7 +3,7 @@ import { join, resolve } from 'node:path';
 import { documentOf, errorResult, number, usageError } from './args.js';
 import type { Arguments, Result } from './args.js';
 import type { CheckContext } from './check.js';
-import { comparePaths } from './files.js';
+import { comparePaths, trackedLinks } from './files.js';
 import { compileList, patternProblem } from './glob.js';
 import { CODES, placeOf, plural, shown } from './output.js';
 import type { ErrorItem } from './output.js';
@@ -12,7 +12,7 @@ import { buildPrompt, cleanMessage, size } from './prompt.js';
 import { createProvider } from './providers/index.js';
 import { call, NO_RECORD, preflight, remaining } from './review.js';
 import type { Ask } from './review.js';
-import { runnerProblem, runRule } from './rules.js';
+import { linksOut, runnerProblem, runRule } from './rules.js';
 import type { RuleFile } from './rules.js';
 import { fromCwd, loadConfig, loadLaw, loadRuleFiles, locate, nearPart, repoPath, requireGit, RULES_DIR, stopped, Stop, typeAll, usage } from './setup.js';
 import type { Read } from './setup.js';
@@ -171,6 +171,10 @@ export async function tryRule(args: Arguments, context: CheckContext, json: bool
     if (kind === 'script') {
       const unsupported = runnerProblem(root);
       if (unsupported !== null) throw new Stop([{ code: 'path-unsupported', file: null, line: null, message: unsupported }]);
+      const out = linksOut(root, trackedLinks(root));
+      if (out.length > 0) {
+        throw new Stop(out.map((link) => ({ code: 'link-outside-root', file: link.path, line: null, message: `the link leads to ${link.target}, outside the root and Lawcheck's folder, and a script rule could read through it` })));
+      }
       const ran = await runRule({ root, rule: id, ruleFile: join(root, `${RULES_DIR}${id}.mjs`), files: ruleFiles, filesOf: filesOfTypes(typed, law) });
       if ('crash' in ran) throw new Stop([{ code: 'rule-crashed', file: `${RULES_DIR}${id}.mjs`, line: null, message: ran.crash }]);
       for (const file of ruleFiles) {

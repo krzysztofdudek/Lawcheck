@@ -176,7 +176,7 @@ The tool sends the type of every file and the path of the rule file. The runner 
 - starts a child process or a worker thread;
 - loads a native add-on or WASI.
 
-Node refuses each of these in every form, at every path of the root (invariant `I-runner-1`). Node reads a `*` in a granted path as a wildcard over everything after it, and cannot load a module from a path that holds a backslash where `/` is the separator. So when the root or Lawcheck's folder holds a `*`, or such a backslash, the tool starts no runner and the run ends with `path-unsupported`, without a place, naming the path. The rule is `rule-crashed` when the refusal reaches it as a thrown error or a rejected promise. A call with a callback, such as `fs.writeFile(path, data, callback)`, hands the refusal to the callback instead, and the rule goes on; the file is still not written.
+Node refuses each of these in every form, at every path of the root (invariant `I-runner-1`). Node reads a `*` in a granted path as a wildcard over everything after it, and cannot load a module from a path that holds a backslash where `/` is the separator. So when the root or Lawcheck's folder holds a `*`, or such a backslash, the tool starts no runner and the run ends with `path-unsupported`, without a place, naming the path. Node also follows a link, so a link under the root that leads elsewhere lets a rule read there. Before it starts a runner the tool resolves every link git tracks under the root, and a link that leads outside the root and Lawcheck's folder ends the run with `link-outside-root`, placed at the link, naming where it leads. A link git does not track is the local user's own and is not looked at, and git carries no hard link, so a clone holds none that the repository chose. The rule is `rule-crashed` when the refusal reaches it as a thrown error or a rejected promise. A call with a callback, such as `fs.writeFile(path, data, callback)`, hands the refusal to the callback instead, and the rule goes on; the file is still not written.
 
 A rule that hangs or dies takes its own process with it and nothing else. `process.env` is empty in a rule. `process.send` is absent in a rule, so the channel to the tool carries only the runner's answers; a message the tool did not ask for ends the rule as `rule-crashed`.
 
@@ -213,6 +213,7 @@ A rule file is code of the repository and runs with the user's rights, as the re
 | the base | `git rev-parse --verify --quiet --end-of-options <base>^{commit}` | another exit than 0: `base-unreachable` |
 | the merge base | `git merge-base HEAD <the base's commit>` | exit 1: `base-unreachable` |
 | the change | `git diff --no-ext-diff --no-textconv -z --name-only --no-renames --relative <merge base> --`, then `git ls-files -z --others --exclude-standard` | below |
+| the links | `git ls-files -z --stage`, when a script rule is to run | the entries of mode `120000` are the links git tracks (section 3) |
 
 Any other failure of a git command is `internal`. With `-z` git ends each path with a NUL byte and quotes nothing, so a name with a letter outside ASCII, a space or a tab arrives as it is. `ls-files` at the root and `diff --relative` both print paths relative to the root and leave out everything outside it. The tool compares the paths of the two as equal strings, wherever the root lies in the git tree.
 
@@ -333,6 +334,7 @@ next: fix src/core/discount.ts:2
 | `type-overlap` | one line per file, naming both types | the file |
 | `base-unreachable` | section 4 | none |
 | `path-unsupported` | section 3: a script rule is to run and the runner cannot keep it inside the root | none |
+| `link-outside-root` | section 3: a script rule is to run and a link git tracks leads outside the root and Lawcheck's folder | the link |
 | `rule-crashed` | section 3 | the rule file |
 | `internal` | any other failure, a bug of Lawcheck included; the message is the first line of the error | none |
 
@@ -471,7 +473,7 @@ Promises that hold for every input, each tied by its id to a property or a test 
 | Id | Promise | Test |
 |---|---|---|
 | I-out-1 | No text output of any command holds a character below U+0020 other than the line feed, U+007F, U+0080 to U+009F, U+2028, U+2029, U+202A to U+202E or U+2066 to U+2069; no line starts, after white space, with `::` or `##[`, and none holds `##vso[`; one finding or error is one line. No JSON document holds U+007F to U+009F or the others of that list raw (section 6). | tests/security/output.test.ts |
-| I-runner-1 | A script rule reads nothing outside the root and Lawcheck's folder, at every path of the root; where the runner cannot keep that, no rule runs (section 3). | tests/security/runner.test.ts |
+| I-runner-1 | A script rule reads nothing outside the root and Lawcheck's folder, at every path of the root and through no link git tracks; where the runner cannot keep that, no rule runs (section 3). | tests/security/runner.test.ts |
 | I-git-1 | No command starts a program that the repository's git config or attributes name: a `core.fsmonitor` program, a hook, an external diff, a `textconv`, a `clean`, `smudge` or `process` filter (section 2). | tests/security/git-programs.test.ts |
 | I-start-1 | No program Lawcheck or its hooks start, nor any program those start by a bare name, is taken from the repository through a relative or empty `PATH` entry or, on Windows, the current folder (section 2). | tests/security/start.test.ts |
 | I-secret-2 | An error about a law or a config read through a symbolic link quotes none of the file (section 2). | tests/security/linked.test.ts |
