@@ -28,6 +28,8 @@ Out, each with what this slice does where the design has it:
 
 Git runs at the root with settings that start no program the repository's config or attributes name: no `core.fsmonitor` program, no hook, no external diff, no `textconv`, and no `clean`, `smudge` or `process` filter (invariant `I-git-1`). A file whose content git takes through a filter, such as a file of Git LFS, is compared as its bytes on disk whenever git has to read it again, so a file whose time no longer matches the index can count as changed.
 
+The law may be read through a symbolic link, of the file or of `.lawcheck/`. A law read that way that is not valid gives one `law-invalid` at `.lawcheck/law.yaml`, whose message says so and quotes none of the file, since a link can lead to a file outside the repository, such as a token (invariant `I-secret-2`).
+
 | In | Key | Required | Meaning |
 |---|---|---|---|
 | top | `lawcheck` | yes | `MAJOR.MINOR.PATCH`. Only its form is checked |

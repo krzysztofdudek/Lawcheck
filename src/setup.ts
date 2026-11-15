@@ -106,8 +106,21 @@ export function lawErrors(root: string): { law: Law } | { errors: ErrorItem[] } 
     return { errors: [{ code: 'law-invalid', file: LAW, line: 1, message: `the law cannot be read (${code})` }] };
   }
   const { law, problems } = parseLaw(decode(source));
-  if (law === null) return { errors: problems.map((p) => ({ code: 'law-invalid', file: LAW, line: p.line, message: p.message })) };
+  if (law === null) {
+    if (linked(root, LAW)) return { errors: [{ code: 'law-invalid', file: LAW, line: null, message: LINKED(LAW) }] };
+    return { errors: problems.map((p) => ({ code: 'law-invalid', file: LAW, line: p.line, message: p.message })) };
+  }
   return { law };
+}
+
+export const LINKED = (file: string) => `${file} is read through a symbolic link and is not valid; the message of a linked file shows none of its text`;
+
+export function linked(root: string, file: string): boolean {
+  try {
+    return realpathSync(join(root, file)) !== join(root, file);
+  } catch {
+    return false;
+  }
 }
 
 export function loadLaw(root: string): Law {
@@ -119,6 +132,7 @@ export function loadLaw(root: string): Law {
 export function configErrors(root: string): { config: ReviewerConfig } | { errors: ErrorItem[] } {
   const configured = readConfig(root);
   if ('problems' in configured) {
+    if (linked(root, CONFIG)) return { errors: [{ code: 'config-invalid', file: CONFIG, line: null, message: LINKED(CONFIG) }] };
     return { errors: configured.problems.map((p) => ({ code: 'config-invalid', file: CONFIG, line: p.line, message: p.message })) };
   }
   return { config: configured.config };

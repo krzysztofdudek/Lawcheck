@@ -271,7 +271,7 @@ Without `--review` the tool makes no call and needs no provider, key or network:
 
 ### `.lawcheck/config.yaml`
 
-Read from the disk at the root on every run, when it exists. A file that is empty or holds only comments sets nothing. Otherwise it is a mapping with one key, `reviewer`, which takes a mapping:
+Read from the disk at the root on every run, when it exists. A file that is empty or holds only comments sets nothing. A config read through a symbolic link that is not valid gives one `config-invalid` at `.lawcheck/config.yaml` that quotes none of the file, as slice one says for the law (invariant `I-secret-2`). Otherwise it is a mapping with one key, `reviewer`, which takes a mapping:
 
 | Key | Value | Default |
 |---|---|---|
