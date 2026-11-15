@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { example, exampleText } from '../harness/examples.ts';
 import { buildPrompt, checkAnswer, cleanMessage, FRAME, numbered, size, takeAnswer } from '../../dist/prompt.js';
+import { ANSWER_BUDGET_MS } from '../properties/numbers.ts';
 
 const R = new URL('../reviewer-sample/', import.meta.url);
 
@@ -90,4 +91,29 @@ test('every bad answer is named', () => {
 
 test('a message keeps one space per line break and is trimmed', () => {
   assert.equal(cleanMessage(' a\nb\r\nc\rd  '), 'a b c d');
+});
+
+function timed<T>(body: () => T): { value: T; ms: number } {
+  const started = performance.now();
+  const value = body();
+  return { value, ms: performance.now() - started };
+}
+
+test('S3-3: an answer of one megabyte of { before the verdict is read within the budget', () => {
+  const { value, ms } = timed(() => takeAnswer('{'.repeat(1 << 20) + '{"verdict":"pass","findings":[]}'));
+  assert.deepEqual(value, { verdict: 'pass', findings: [] });
+  assert.ok(ms <= ANSWER_BUDGET_MS, `took ${Math.round(ms)} ms`);
+});
+
+test('S3-3: an answer of 50,000 nested objects around the verdict is read within the budget', () => {
+  const depth = 50_000;
+  const { value, ms } = timed(() => takeAnswer('{"a":'.repeat(depth) + '{"verdict":"fail","findings":[{"line":1,"message":"m"}]}' + '}'.repeat(depth)));
+  assert.deepEqual(value, { verdict: 'fail', findings: [{ line: 1, message: 'm' }] });
+  assert.ok(ms <= ANSWER_BUDGET_MS, `took ${Math.round(ms)} ms`);
+});
+
+test('S3-3: one megabyte of { with no verdict is a bad answer, within the budget', () => {
+  const { value, ms } = timed(() => checkAnswer('{'.repeat(1 << 20), 3));
+  assert.deepEqual(value, { problem: 'the answer holds no JSON object with a verdict' });
+  assert.ok(ms <= ANSWER_BUDGET_MS, `took ${Math.round(ms)} ms`);
 });
