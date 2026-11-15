@@ -35,11 +35,15 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  # Three runs of the commit set on one commit: a test with mixed results is a flake, and a flake stops the release until it is fixed.
+  # Three runs of the commit set on one commit, on each system: a test with mixed results is a flake, and a flake stops the release until it is fixed.
   repeat:
-    name: nightly commit set three times
+    name: nightly commit set three times (${{ matrix.os }})
     needs: grammars
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
