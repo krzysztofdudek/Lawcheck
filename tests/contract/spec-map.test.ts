@@ -192,6 +192,9 @@ test('question 79: control, a row or an invariant is covered only by a test that
   assert.ok(missing[0]!.startsWith('test 2 is carried by a test of this run and none of them ran and passed'), missing[0]);
   assert.equal(tieProblems(base, files, []).length, 3);
   assert.deepEqual(tieProblems(base, ['tests/unit/other.test.ts'], []), []);
+  const left = [{ file: files[0]!, name: 'tests 2: c' }];
+  assert.deepEqual(tieProblems(base, files, [{ file: files[0]!, name: 'test 1: a' }, { file: files[0]!, name: 'I-out-1: i' }], left), []);
+  assert.equal(tieProblems(base, files, [{ file: files[0]!, name: 'test 1: a' }, { file: files[0]!, name: 'I-out-1: i' }], [{ file: files[0]!, name: 'test 1: a' }]).length, 1);
 });
 
 test('question 79: control, a harness invariant needs a test that leads with its id, and a test may lead with no other', () => {

@@ -138,6 +138,16 @@ export const SLOW_TESTS: Record<string, Slow> = {
   // A check per counted run of the committed trial.
   'tests/acceptance/agent-result.test.ts > test 181: the committed result of the trial': { fixed: 0, measured: { darwin: 20_939, linux: 10_314, win32: 53_052 } },
   // A run of the tool per case.
+  'tests/contract/codes.test.ts > check-slice §6: usage, not-initialized, already-initialized, no-git and unsupported-environment, in text and in JSON, and the commands their next lines name': { fixed: 0, measured: { linux: 4_153, darwin: 8_162, win32: 14_285 } },
+  // A run of the tool per case.
+  'tests/contract/codes.test.ts > check-slice §6: law-invalid, config-invalid, rule-missing-file, rule-file-without-entry and type-overlap, in text and in JSON, and the commands their next lines name': { fixed: 0, measured: { darwin: 7_818, win32: 17_627 } },
+  // A run of the tool per case.
+  'tests/contract/codes.test.ts > check-slice §6: base-unreachable, rule-crashed, parser-failed, internal, link-outside-root, path-unsupported and runner-failed, in text and in JSON, and the commands their next lines name': { fixed: 0, measured: { linux: 4_574, darwin: 9_850, win32: 22_279 } },
+  // A run of the tool per case.
+  'tests/contract/codes.test.ts > check-slice §6: the reviewer codes, in text and in JSON, and the commands their next lines name': { fixed: 0, measured: { linux: 4_958, darwin: 7_325, win32: 22_535 } },
+  // A run of the tool per case.
+  'tests/contract/codes.test.ts > check-slice §6: the findings, with their exit codes and the exact text the spec fixes, and the notes of doctor': { fixed: 0, measured: { darwin: 4_710, win32: 15_407 } },
+  // A run of the tool per case.
   'tests/acceptance/cli.test.ts > test 38: the base': { fixed: 0, measured: { win32: 4_385 } },
   // A run of the tool per case.
   'tests/acceptance/doctor.test.ts > test 133: a change of the law, in doctor and in check': { fixed: 0, measured: { win32: 7_727 } },

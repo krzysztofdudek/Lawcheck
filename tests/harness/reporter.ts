@@ -91,7 +91,7 @@ export async function judgeRun(source: AsyncIterable<{ type: string; data: any }
   const files = new Set<string>();
   const seeds = new Map<string, string>();
   const skips: string[] = [];
-  const wholeSkips = new Set<string>();
+  const wholeSkips = new Map<string, { file: string; name: string }>();
   const passed: { file: string; name: string }[] = [];
   const counts = { passed: 0, failed: 0, skipped: 0, todo: 0 };
   for await (const event of source) {
@@ -101,7 +101,7 @@ export async function judgeRun(source: AsyncIterable<{ type: string; data: any }
       const seen = /^seed (-?\d+)$/m.exec(message);
       if (seen !== null && data.file) seeds.set(data.file, seen[1]!);
       for (const m of message.matchAll(/^skip (.*)$/gm)) skips.push(`${m[1]}  ${where(data.file)}`);
-      for (const m of message.matchAll(/^skip (\S+) > (.*): the whole test on \w+: /gm)) wholeSkips.add(`${m[1]} > ${m[2]}`);
+      for (const m of message.matchAll(/^skip (\S+) > (.*): the whole test on \w+: /gm)) wholeSkips.set(`${m[1]} > ${m[2]}`, { file: m[1]!, name: m[2]! });
       continue;
     }
     if (event.type !== 'test:pass' && event.type !== 'test:fail') continue;
@@ -154,7 +154,7 @@ export async function judgeRun(source: AsyncIterable<{ type: string; data: any }
     const speed = process.env.LAWCHECK_SPEED === 'nightly' ? 'nightly' : 'commit';
     const dirs = [...new Set(Object.values(speed === 'nightly' ? NIGHTLY_GROUPS : COMMIT_GROUPS).flat())];
     const ran = passed.filter((p) => !wholeSkips.has(`${p.file} > ${p.name}`));
-    const problems = tieProblems(loadInputs(new URL('../../', import.meta.url), 0), setFiles(speed, dirs), ran);
+    const problems = tieProblems(loadInputs(new URL('../../', import.meta.url), 0), setFiles(speed, dirs), ran, [...wholeSkips.values()]);
     if (problems.length > 0) {
       untied = true;
       lines.push('', 'RED      the run-time tie of question 79', 'promise  spec/questions.md, entry 79: a row or an invariant is covered only by a test that ran and passed in this run', ...problems.slice(0, 20).map((p) => `got      ${p}`), 'if the promise changed, change the spec row first; the guard then accepts a new expectation');
