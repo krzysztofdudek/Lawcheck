@@ -93,7 +93,7 @@ test('I-start-1: under runner npx and pnpm the hooks start no program of the rep
   }
 });
 
-test('I-start-1: on Windows a node.cmd at the root does not run when the hooks start a global Lawcheck whose shim calls node', async (t) => {
+test('I-start-1: R-8, on Windows a node.cmd at the root does not run when the hooks start a global Lawcheck whose shim calls node', async (t) => {
   const skip = platformSkip('the whole test');
   if (skip !== null) return t.skip(skip);
   await inTemp(async (dir) => {

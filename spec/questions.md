@@ -512,7 +512,7 @@ The build's decision. Every row of an acceptance table has a test that carries i
 
 The rows no test can carry are listed in `tests/contract/manual-rows.md`, each with its reason and the person or step that runs it, and the rail accepts only those. Entry 58 names three of them. The others are the rows that stand for `npm test` itself (79, 94, 141, 183) and the run against the network (95). A test that is skipped, only a todo, inside a skipped group, commented out or inside a string covers no row, and a test call whose name the rail cannot read as a literal, or as a template that leads with its source, fails the rail. The rail finds test files where the runner finds them (`tests/harness/sets.ts`).
 
-The rail also holds at run time. When the runner runs a whole set, a row or an invariant that a test of that set carries is covered only if a test that carries it ran and passed in that run; a test skipped, failed or left by a platform skip of the whole test covers nothing.
+The rail also holds at run time. When the runner runs a whole set, a row, an invariant or a closed finding that a test of that set carries is covered only if a test that carries it ran and passed in that run; a test that is skipped or failed covers nothing, and an id that only tests left whole by a listed platform skip carry is no failure of the run on that system. The runner takes `--shuffle[=<seed>]`, which runs the tests of each file in an order the seed decides and prints the seed, so a test that leans on another's leftovers fails.
 
 The same rail reads `tests/findings.md`: ids are unique, severity, layer, package and state come from fixed sets, a `closed` row names a test that exists and leads its name with the id, and a `question` row points to its entry here.
 
@@ -574,19 +574,19 @@ Open, the owner's, on the day of publishing: the final README and description, a
 
 ## 89. The key a reviewer server echoes
 
-The owner's ruling of 2026-11-15, on the stress finding S3-2: a server's error message that holds the key it rejected was printed in full (`reviewer-slice.md`, section 6; `post()` in `src/providers/http.ts`). The owner chose option A. Lawcheck replaces the one exact key it sent with `[key]` wherever it prints or writes it, in text and JSON output, in the message of an error, in the verdicts file, in the failure cache and in a temporary file, and it masks nothing else.
+The owner's ruling of 2026-11-15, on the stress finding S3-2: a server's error message that holds the key it rejected was printed in full (`reviewer-slice.md`, section 6; `post()` in `src/providers/http.ts`). The owner chose option A. Lawcheck replaces the one exact key it sent with `[key]` wherever it prints or writes it, in text and JSON output, in the message of an error, in the verdicts file, in the failure cache and in a temporary file, and it masks nothing else and scans for nothing key-shaped.
 
-Choice: the owner's. The tool knows the key it sent, so it replaces that string, and text it does not own stays as it came. Entry 93 states one limit of this rule.
+Choice: the owner's. The tool knows the key it sent, so it replaces that string, and text it does not own stays as it came.
 
 ## 90. All nine providers before the alpha
 
-The owner's ruling of 2026-11-15. `reviewer-slice.md`, section 6, knows three providers. The alpha ships nine: those three and six more, each with an offline fake in the tests and, for each program that can be run on a machine, a live check.
+The owner's ruling of 2026-11-15. `reviewer-slice.md`, section 6, knows three providers. The alpha ships nine: those three and six more.
 
-Choice: the owner's. The six are built by their own package and land before the alpha candidate is declared.
+Choice: the owner's. The six land before the alpha candidate is declared.
 
 ## 91. Windows blocks the alpha
 
-The owner's ruling of 2026-11-15. A red run of the suite on Windows blocks the alpha exactly as a red run on Linux or on macOS does. The suite leaves a test out on Windows only for a reason of the platform that the list of platform skips holds, and a test that returns early or skips without a listed reason does not count as run.
+The owner's ruling of 2026-11-15. A red run of the suite on Windows blocks the alpha exactly as a red run on Linux or on macOS does. The suite leaves a test out on Windows only for a reason of the platform that the list of platform skips holds. A test that makes no assertion fails the run, since the harness counts the calls of `node:assert`, and a skip that has no entry in that list for the system it runs on fails the run. A test or a part of a harness invariant that the list skips on Linux, macOS and Windows alike fails the rail.
 
 Choice: the owner's. Three systems are one gate.
 

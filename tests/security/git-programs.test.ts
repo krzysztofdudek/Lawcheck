@@ -83,7 +83,7 @@ test('S5-14: init starts no program that the repository names for git (I-git-1)'
   });
 });
 
-test('S5-14: check and try start no program that the repository names for git, and still see the change (I-git-1)', async () => {
+test('S5-14: R-22, check and try start no program that the repository names for git, and still see the change (I-git-1)', async () => {
   await inTemp(async (dir) => {
     const s = makeSample(dir);
     writeFileSync(join(s, 'src/core/discount.ts'), "export const d = 1;\nconsole.log('d');\n");
@@ -99,7 +99,7 @@ test('S5-14: check and try start no program that the repository names for git, a
   });
 });
 
-test('S5-14: the fixture arms git: the same reads through git itself start the programs', async () => {
+test('S5-14: R-21, the fixture arms git: the same reads through git itself start the programs', async () => {
   await inTemp(async (dir) => {
     const s = makeSample(dir);
     append(s, 'src/core/price.ts', '// edited\n');

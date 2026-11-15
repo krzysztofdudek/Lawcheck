@@ -81,7 +81,7 @@ const POSED: [string, string[], string, string][] = [
   ['Bun', posing('bun', '1.4.0'), 'this run is on Bun 1.4.0, and Lawcheck runs on Node 24 or later; no node is on the PATH', NO_NODE_NEXT],
 ];
 
-test('I-env-1: every command but --version, --help and docs refuses an unsupported runtime in its first line, naming it, and doctor leads with the same line', async () => {
+test('I-env-1: R-18, every command but --version, --help and docs refuses an unsupported runtime in its first line, naming it, and doctor leads with the same line', async () => {
   await inTemp(async (dir) => {
     const s = sampleWithD(dir);
     for (const [, nodeArgs, message, next] of POSED) await refusedEverywhere((argv) => lawcheck(s, argv, {}, nodeArgs), message, next, 'node');
@@ -168,7 +168,7 @@ test("S8-1: control, a Lawcheck installed outside Plug'n'Play and started from a
   });
 });
 
-test("S8-1: control, a Lawcheck in a folder whose name ends in .zip, with no Plug'n'Play, judges the rules", async () => {
+test("S8-1: R-30, control, a Lawcheck in a folder whose name ends in .zip, with no Plug'n'Play, judges the rules", async () => {
   await inTemp(async (dir) => {
     const s = sampleWithD(dir);
     const run = await lawcheckAt(zippedCopy(dir, 'backup.zip'), s, ['check', '--base', 'main']);
@@ -183,7 +183,7 @@ const ENTRY_UNREADABLE = (() => {
   return major === 24 && minor! < 2;
 })();
 
-test('I-env-1: Node with --permission in NODE_OPTIONS, given the entry by its own path as the Windows shims give it, gets the refusal and no stack trace', async () => {
+test('I-env-1: R-32, Node with --permission in NODE_OPTIONS, given the entry by its own path as the Windows shims give it, gets the refusal and no stack trace', async () => {
   await inTemp(async (dir) => {
     const s = sampleWithD(dir);
     const entry = join(ROOT, 'dist', 'bin.cjs');
@@ -260,7 +260,7 @@ test('test 201: a runner Node cannot start with its flags is runner-failed, with
   });
 });
 
-test('test 201: a runner whose process cannot be started, as with EAGAIN, is runner-failed with the system\'s words', async () => {
+test('test 201: R-31, a runner whose process cannot be started, as with EAGAIN, is runner-failed with the system\'s words', async () => {
   await withCopy(async (copy) => {
     const rules = join(copy.dir, 'dist', 'rules.js');
     const missing = join(copy.dir, 'no-node');
