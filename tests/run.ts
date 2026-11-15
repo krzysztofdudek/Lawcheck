@@ -169,7 +169,7 @@ function main(): void {
   }
   const seed = process.env.LAWCHECK_SEED ?? String(SEED);
   process.stdout.write(`${what}: ${files.length} test files, seed ${seed}${parsed.repeat > 1 ? `, ${parsed.repeat} times` : ''}\n`);
-  const slowest = Math.max(TEST_BUDGET_MS, ...Object.values(SLOW_TESTS));
+  const slowest = Math.max(TEST_BUDGET_MS, ...Object.values(SLOW_TESTS).flatMap((budgets) => Object.values(budgets)));
   const args = [
     '--test',
     `--import=${HARNESS}`,

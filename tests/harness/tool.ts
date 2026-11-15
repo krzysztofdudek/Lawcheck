@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach } from 'node:test';
-import { budgetNamed, SLOW_TESTS, TEST_BUDGET_MS } from '../numbers.ts';
+import { budgetNamed, slowBudget, TEST_BUDGET_MS } from '../numbers.ts';
 import { Broken } from './invariants.ts';
 import { skipReason } from './skips.ts';
 import { CLI, gate, HOOK, observe, ROOT_DIR } from './start.ts';
@@ -86,7 +86,7 @@ if (!registry[REGISTERED]) {
       file,
       name: t.name,
       started: Date.now(),
-      budget: SLOW_TESTS[`${file} > ${t.name}`] ?? TEST_BUDGET_MS,
+      budget: slowBudget(`${file} > ${t.name}`) ?? TEST_BUDGET_MS,
       runs: 0,
       compared: 0,
       pending: new Set(),
