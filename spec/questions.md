@@ -466,7 +466,53 @@ Choice: not done. It would make a finding of an answer the readers did not resol
 - The commit subjects of the move have no `<area>: ` prefix: not changed, since rewording would rewrite the branch for no change in content.
 - The suite at the first commit of the move alone was not run by the review: it was run before that commit was made, 349 of 349.
 
+# Rulings of 2026-11-15 for the test suite
+
+The suite is built in packages up to the gate of the first alpha: the contract, hostile inputs, security, limits and environments green on Linux, Windows and macOS. These entries are the anchors that later changes to the suite and to this spec cite. Each is a ruling of 2026-11-15; entry 76 is the owner's, the others are the build's, taken as the option named in each title.
+
+## 73. T-2 A: the environments Lawcheck supports
+
+Lawcheck supports Node 24 and newer. It supports npm, pnpm, Yarn 1 and Yarn 4 with `nodeLinker: node-modules`, and Bun only beside Node. It refuses everything else in the first line of its output, with the reason: Node 20 and 22, Yarn Plug'n'Play, Bun without Node. Tests guard the refusal. A refused environment never blames a rule file.
+
+Choice: the narrow promise, said loudly. A wider promise (Node 22, Yarn Plug'n'Play, Bun alone) would put more code in the way rules start and more cells in the install matrix for good.
+
+## 74. T-3 A: a table of limits instead of "no size limit"
+
+The spec gets a table of limits: the largest file read as text, the largest count of findings, the largest reviewer answer parsed, the wall time of a whole run, and whatever else a fix needs. The builders measure the numbers. Beyond a limit the tool prints a named error with the path, never `internal`. The sentence "There is no size limit" in `check-slice.md`, section 2, is replaced by a sentence that points to the table.
+
+Choice: limits that are named and measured over limits that are not there. Reading every file as a stream would be a large rewrite for text files over 512 MB, which almost nobody has.
+
+## 75. T-4 A: when the tests with a live model run
+
+Tests with a live model run when the files they guard change (the prompt, the providers, the plugin), and before every release. A release does not go out when the last result is older than those files. They run through `claude` on the host, on the owner's subscription, never with an API key.
+
+Choice: run when the guarded files change and before a release. A weekly run would show when a new model version starts judging differently, at the price of a full run every week.
+
+## 76. T-7 A: who may weaken the suite
+
+The owner's ruling. An ordinary weakening of the suite, such as a changed expected file or a removed test, needs an approval record that names a fresh reviewer agent and points to a change in the spec or to a Runes version. Four things need the owner's approval record, and nothing else stands in for it: removing or softening a promise in the spec, changing the suite guard itself, changing the CI files, and lowering a threshold. Who may approve each kind is configuration, not code. GitHub branch protection is not switched on by the build.
+
+Choice: the owner's. Approval by every weakening waiting for him would stop work when he is away, and approval by a reviewer alone would let agents move the anchor together without anyone seeing it.
+
+## 77. Docs may name Runes
+
+`commands-slice.md`, section 7, said that no page names another tool. The readers of Lawcheck come from Runes, and a user who meets a limit of a reader needs its name to look it up. The sentence now allows Runes and no other tool. A test reads every docs page and fails on a tool named outside one allowed list.
+
+Choice: name the library the readers come from, and only that. The pages stay free of any other tool.
+
+## 78. A change that touches the law is said plainly, and the CI recipe catches it
+
+In the open mode a pull request can change the law that judges it: a rule left out of a type's list, a rule script rewritten to return nothing, a waiver added on the violating line. A check of such a change passes while the only sign is a `note:` line. The tool therefore says plainly when a change touches the law, in the check's output and in the JSON, and `docs/ci.md` gives a recipe that catches it: judge the pull request against the law of its base, or make the law's folder need a review. The wording of the notice and the recipe are written by the package that fixes the docs and the notice.
+
+Choice: say it, and give the recipe, rather than leave the law as an unremarked part of every change.
+
+## 79. A row of the acceptance tables with no test, and a test with no source
+
+The build's decision. Every row of an acceptance table has a test that carries its number, and every test leads its name with its source: a row (`test 12`), an invariant id (`I-frame-1`), a finding id (`S3-1`), a section of a spec (`check-slice §4`) or a question of this file (`question 79`). A test that cites a section or a question and no row, invariant or finding is allowed, because the unit tests of the modules check parts of several rows. Their number is held in `SECTION_ONLY_TESTS` in `tests/contract/ratchets.ts` and may only fall: the rail fails when it is above the constant, and when it is below, so that a lower number is written down. A new test names a row, an invariant id or a finding id.
+
 <<<<<<< HEAD
+Choice: one list, read by the rail, over a sentence in a spec that nobody checks.
+
 # Questions found while adding the six providers
 
 ## 100. The owner's ruling of 2026-11-15: all nine providers before the alpha
@@ -525,52 +571,66 @@ The primer gives the agent the loop and says that the law and the reviewer are t
 
 Choice, after the design's review of the tool in use: each starts `ask the user to`, as section 8 of `spec/reviewer-slice.md` and test 63 now give it; `rule-missing-file` reads `ask the user to write the rule files the law names or to take their rules out of the law, then run lawcheck check`.
 =======
-# Rulings of 2026-11-15 for the test suite
+The rows no test can carry are listed in `tests/contract/manual-rows.md`, each with its reason and the person or step that runs it, and the rail accepts only those. Entry 58 names three of them. The others are the rows that stand for `npm test` itself (79, 94, 141, 183) and the run against the network (95). A test that is skipped, only a todo, commented out or inside a string covers no row, and a test call whose name the rail cannot read as a literal fails the rail.
 
-The suite is built in packages up to the gate of the first alpha: the contract, hostile inputs, security, limits and environments green on Linux, Windows and macOS. These entries are the anchors that later changes to the suite and to this spec cite. Each is a ruling of 2026-11-15; entry 76 is the owner's, the others are the build's, taken as the option named in each title.
+The same rail reads `tests/findings.md`: ids are unique, severity, layer, package and state come from fixed sets, a `closed` row names a test that exists and leads its name with the id, and a `question` row points to its entry here.
 
-## 73. T-2 A: the environments Lawcheck supports
+Choice: one list and one count, read by the rail, over a sentence in a spec that nobody checks.
 
-Lawcheck supports Node 24 and newer. It supports npm, pnpm, Yarn 1 and Yarn 4 with `nodeLinker: node-modules`, and Bun only beside Node. It refuses everything else in the first line of its output, with the reason: Node 20 and 22, Yarn Plug'n'Play, Bun without Node. Tests guard the refusal. A refused environment never blames a rule file.
+## 80. A file whose name holds a line break, a lone carriage return or invalid UTF-8
 
-Choice: the narrow promise, said loudly. A wider promise (Node 22, Yarn Plug'n'Play, Bun alone) would put more code in the way rules start and more cells in the install matrix for good.
+`check-slice.md`, section 2, leaves such a file out of the list, because its name would split a line of the text output. The file is never judged, nothing says so, and a pull request can put code past every rule through it (stress finding S1-2). A decision of the build, not of the owner: the invariant `I-files-1` of the test design says every path that git lists and a type matches is judged or named as left out with its reason.
 
-## 74. T-3 A: a table of limits instead of "no size limit"
+Choice: the file is judged. The place of a finding prints the name with each line break, carriage return, invalid byte and backslash escaped (`\n`, `\r`, `\xHH`, `\\`), in text and in JSON alike, so one finding stays one line and the place maps back to the bytes on disk. `explain` and `try` take the escaped form. Package D writes the grammar into `check-slice.md`, section 2, with its tests, and the sentence that leaves such names out goes.
 
-The spec gets a table of limits: the largest file read as text, the largest count of findings, the largest reviewer answer parsed, the wall time of a whole run, and whatever else a fix needs. The builders measure the numbers. Beyond a limit the tool prints a named error with the path, never `internal`. The sentence "There is no size limit" in `check-slice.md`, section 2, is replaced by a sentence that points to the table.
+## 81. A rule's `line` that is `null`, a string or a bigint
 
-Choice: limits that are named and measured over limits that are not there. Reading every file as a stream would be a large rewrite for text files over 512 MB, which almost nobody has.
+`docs/script-rules.md` says `line` is optional, an integer from 1 to the number of lines. A rule that returns `line: null` ends the run as `rule-crashed` with a message about a range (`src/rules.ts`, `src/prompt.ts`); `line: '2'` prints `at line 2, outside lines 1 to 6` though 2 is in range (stress finding S2-4).
 
-## 75. T-4 A: when the tests with a live model run
+Open. The owner decides one thing: is `null` the way to say "no line" (the finding then counts as a whole-file finding), or stays refused? Option A: accept `null` as no line, and word the refusal of every other bad value by its cause ("a line is an integer"). Cost: a rule that returns `null` by habit is read as whole-file. Option B: keep `null` refused, document it, and word the message by cause. Cost: the next author of a rule meets the same crash.
 
-Tests with a live model run when the files they guard change (the prompt, the providers, the plugin), and before every release. A release does not go out when the last result is older than those files. They run through `claude` on the host, on the owner's subscription, never with an API key.
+## 82. A reviewer answer with two verdict objects
 
-Choice: run when the guarded files change and before a release. A weekly run would show when a new model version starts judging differently, at the price of a full run every week.
+`reviewer-slice.md`, section 4, takes the last verdict object of an answer. A reviewer that reports a steering attempt and quotes what the file asked for, after its own JSON, turns a fail into a pass (stress finding S3-4; `lastSpan` in `src/prompt.ts`).
 
-## 76. T-7 A: who may weaken the suite
+Open. Option A: when two verdict objects disagree, the answer is a fail. Cost: a model that quotes a pass in a sentence makes a file fail; the user sees a finding that was not there. Option B: two objects that disagree are a bad answer and the review is asked once more, as for any bad answer. Cost: one more call in that case. Option C: keep the rule as it is and document it. Cost: a file can steer the model into a quoted pass.
 
-The owner's ruling. An ordinary weakening of the suite, such as a changed expected file or a removed test, needs an approval record that names a fresh reviewer agent and points to a change in the spec or to a Runes version. Four things need the owner's approval record, and nothing else stands in for it: removing or softening a promise in the spec, changing the suite guard itself, changing the CI files, and lowering a threshold. Who may approve each kind is configuration, not code. GitHub branch protection is not switched on by the build.
+## 83. A run that fails after it sent reviewer requests
 
-Choice: the owner's. Approval by every weakening waiting for him would stop work when he is away, and approval by a reviewer alone would let agents move the anchor together without anyone seeing it.
+A run that ends with exit 2 after calls (a bad answer, a 500) prints `lawcheck: ERROR  1 error`, and `lawcheck-error/1` has no `calls_made`; the pass and fail forms carry `, N reviewer calls` (stress finding S3-9). The spec fixes the first line of the two check forms only.
 
-## 77. Docs may name Runes
+Open. Option A: the first line of an error run with calls ends `, N reviewer calls`, and the JSON error document gains `calls_made` (`lawcheck-error/2`). Cost: a new schema version. Option B: leave it; the line before the run says how many calls were planned. Cost: the user cannot see what a failed run cost.
 
-`commands-slice.md`, section 7, said that no page names another tool. The readers of Lawcheck come from Runes, and a user who meets a limit of a reader needs its name to look it up. The sentence now allows Runes and no other tool. A test reads every docs page and fails on a tool named outside one allowed list.
+## 84. The hooks and a turn that changes the law, a rule or a waiver
 
-Choice: name the library the readers come from, and only that. The pages stay free of any other tool.
+`plugin-slice.md`, section 8: the hooks send the agent back while the files that changed in its turn break the law. An agent that rewrites a rule script, leaves a rule out of a type's list or adds a waiver on the violating line ends the turn with nothing said, and the plain check passes with a `note:` that the paths form leaves out (stress finding S6-2). The spec's own trial measures `law_untouched` and `no_waiver` for this reason.
 
-## 78. A change that touches the law is said plainly, and the CI recipe catches it
+Open. Option A: the hook before finishing adds a notice when the turn touched `.lawcheck/` or added a waiver, and sends it to the user, not the agent. Cost: one more kind of notice, and state to hold it once. Option B: say it in the README only. Cost: the guard has a hole its own measure counts.
 
-In the open mode a pull request can change the law that judges it: a rule left out of a type's list, a rule script rewritten to return nothing, a waiver added on the violating line. A check of such a change passes while the only sign is a `note:` line. The tool therefore says plainly when a change touches the law, in the check's output and in the JSON, and `docs/ci.md` gives a recipe that catches it: judge the pull request against the law of its base, or make the law's folder need a review. The wording of the notice and the recipe are written by the package that fixes the docs and the notice.
+## 85. A law error shown once is never shown again in the session
 
-Choice: say it, and give the recipe, rather than leave the law as an unremarked part of every change.
+`plugin-slice.md`, section 8, "After an edit", step 5, shows a law error only when its hash differs from the state's `last_error`. A law broken, fixed and broken again with the same text is not shown the second time (stress finding S6-3), though the purpose of the rule is that a law the user is still editing reaches the agent once.
 
-## 79. A row of the acceptance tables with no test, and a test with no source
+Open. Option A: a pass clears `last_error`, so the same error shown again after a fix is shown again. Cost: a change to step 5 and its test 161. Option B: keep the letter of the step. Cost: the agent is not told of a law it broke the second time.
 
-Every row of an acceptance table has a test that carries its number, and every test names its source: a row, an invariant id, a finding id or a section of a spec. The rows no test can carry are listed in `tests/contract/manual-rows.md` with the reason and who runs them, and the rail `tests/contract/spec-map.test.ts` accepts only those. Entry 58 names three of them. The others are the rows that stand for `npm test` itself (79, 94, 141, 183) and the run against the network (95).
+## 86. A reviewer rule and no reviewer
 
-Choice: one list, read by the rail, over a sentence in a spec that nobody checks.
->>>>>>> d60604a (Rulings of 2026-11-15 for the test suite: the environments, the limits, the live tests, who may weaken the suite, Runes in the docs, a change of the law)
+A repository with a reviewer rule and no `.lawcheck/config.yaml` reviewer: every hook is silent, because a warning never prints, the agent finishes green, and the plain check and CI fail with `not-reviewed` (stress finding S6-5). `prime` does not say that no reviewer is set; `doctor` does.
+
+Open. Option A: `prime` says so when a reviewer rule exists and no reviewer is set, so the agent hears it at the start of the session. Cost: a line in `prime`'s output and its length budget. Option B: the same line from the hook at session start. Cost: the hook reads the law, which it does not now. Option C: leave it to `doctor`.
+
+## 87. No base in CI
+
+With no `--base`, no `LAWCHECK_BASE` and no `origin/HEAD`, a plain `check` judges every file as changed and fails the whole repository with exit 1 (stress finding S7-6). In a CI job that is a forgotten base, and the failure reads as bad code. A decision of the build, taken from the CI shapes of the test design.
+
+Choice: when the variable `CI` is set and is not empty, `0` or `false`, a `check` that finds no base ends as `base-unreachable` (exit 2) with the message that no base was found in this job, and the next line says to pass `--base origin/<target branch>` or set `LAWCHECK_BASE`, and to fetch the history (`fetch-depth: 0` in `actions/checkout`). Outside CI the behaviour stays as `check-slice.md`, section 4, says. `docs/ci.md` says to always pass the base. Package G writes the change into the spec and tests it in the CI shapes.
+
+## 88. The README and the package description on the day of publishing
+
+The tarball's `README.md` still says `Work in progress: there is nothing to install yet`, the `description` of `package.json` ends `Work in progress.`, the README never says that git is required, and the published `package.json` carries `scripts` (`prepack`), `devDependencies` and `allowScripts` (stress finding S8-6). `release-readiness.md` lists the first as blocked.
+
+Open, the owner's, on the day of publishing: the final README and description, and whether to strip `scripts` and `devDependencies` from the published `package.json`.
+>>>>>>> df92d27 (Entries 80 to 88 of the questions: nine choices the stress round left open, two of them taken by the build; entry 79 states the section-only ratchet)
 
 ## 110. A key that the endpoint echoes
 
