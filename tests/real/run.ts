@@ -25,6 +25,11 @@ function place(finding: { file: string; line?: number }): string {
   return finding.line === undefined ? finding.file : `${finding.file}:${finding.line}`;
 }
 
+function unresolvedLine(u: { file: string; line: number; answer: string; reason: string | null; what: string; candidates: string[] }): string {
+  const answer = u.reason === null ? u.answer : `${u.answer} ${u.reason}`;
+  return `${u.file}:${u.line}  ${answer}  ${u.what}${u.candidates.length === 0 ? '' : `  [${u.candidates.join(', ')}]`}`;
+}
+
 function measure(repository: (typeof REPOSITORIES)[number]): { lines: string[]; problems: string[] } {
   const dir = mkdtempSync(join(tmpdir(), `lawcheck-real-${repository.id}-`));
   try {
@@ -52,9 +57,13 @@ function measure(repository: (typeof REPOSITORIES)[number]): { lines: string[]; 
     const changeUnresolved = document.unresolved.filter((u: any) => !u.debt);
     if (changeUnresolved.length > 0) problems.push(`the change holds ${changeUnresolved.length} unresolved uses`);
     const lines = document.findings.filter((f: any) => f.debt).map((f: any) => `${place(f)}  ${f.severity}[${f.code}]  ${f.message}`);
-    const ambiguous = document.unresolved.filter((u: any) => u.answer === 'ambiguous').length;
-    lines.push(`unresolved: ${document.unresolved.length} (${ambiguous} ambiguous)`);
-    if (repository.listUnresolved) for (const u of document.unresolved) lines.push(`${u.file}:${u.line}  ${u.answer}  ${u.what}`);
+    const count = (keep: (u: any) => boolean) => document.unresolved.filter(keep).length;
+    const ambiguous = count((u) => u.answer === 'ambiguous');
+    const unfollowed = count((u) => u.reason === 'unfollowed');
+    const unowned = count((u) => u.reason === 'unowned');
+    const noReason = count((u) => u.answer === 'none' && u.reason === null);
+    lines.push(`unresolved: ${document.unresolved.length} (${ambiguous} ambiguous, ${unfollowed} unfollowed, ${unowned} unowned, ${noReason} without a reason)`);
+    if (repository.listUnresolved) for (const u of document.unresolved) lines.push(unresolvedLine(u));
     return { lines, problems };
   } finally {
     rmSync(dir, { recursive: true, force: true });

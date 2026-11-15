@@ -13,9 +13,5 @@ src/utils/jwt/jws.ts:7  warning[forbidden-use]  utils may not use helper (src/he
 src/utils/mount.ts:1  warning[forbidden-use]  utils may not use core (src/context.ts); its may_use is [utils]
 src/utils/mount.ts:2  warning[forbidden-use]  utils may not use core (src/http-exception.ts); its may_use is [utils]
 src/utils/mount.ts:3  warning[forbidden-use]  utils may not use core (src/request/constants.ts); its may_use is [utils]
-unresolved: 5 (0 ambiguous)
-adapters/vercel/src/conninfo.test.ts:1  none  hono
-adapters/vercel/src/conninfo.ts:1  none  hono/conninfo
-adapters/vercel/src/handler.test.ts:1  none  hono
-adapters/vercel/src/handler.ts:2  none  hono
-perf-measures/type-check/client.ts:2  none  ./generated/app
+unresolved: 1 (0 ambiguous, 1 unfollowed, 0 unowned, 0 without a reason)
+perf-measures/type-check/client.ts:2  none unfollowed  ./generated/app

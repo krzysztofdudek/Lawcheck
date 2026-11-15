@@ -528,7 +528,7 @@ A message can quote a header. `fetch` refuses a header value with a line break a
 15. **The JSON document gains `unresolved` and `summary.unresolved` and keeps its name**: both are additions, nothing changes meaning. The fields `reason` and `candidates` of each unresolved use are additions too (decision 19).
 16. **The reviewer error shows the cause, and a key that a header cannot carry stops the run before any call** (section 8): printing every error's message would otherwise print part of a key. It stays in this slice because the brief puts it here.
 17. **The real-repository test pins two repositories that are not in Runes' own corpus of 33**, so it measures the readers on code they were not tuned on, and its numbers are the behaviour of the Runes version Lawcheck depends on.
-18. **A use Runes answers `outside` is not counted; `unfollowed`, `unowned` and a missing reason stay unresolved.** Taken on 2026-11-15 when Lawcheck moved to Runes 1.1.0. A use that leaves the repository cannot reach a type of the law, so counting it only hid the uses that matter: in gson, most of the 2,567 uses it counted were `java.lang` names and imports of `java.*`, `javax.*` and libraries. A use Runes could not follow may still reach a type, so it stays visible with its reason. Lawcheck adds no reasoning of its own: a reason it does not know, and a language Runes gives no reason in, count as no reason, so a later Runes can only make the count more precise, never silently drop a use it did not call outside.
+18. **A use Runes answers `outside` is not counted; `unfollowed`, `unowned` and a missing reason stay unresolved.** Taken on 2026-11-15 when Lawcheck moved to Runes 1.1.0. A use that leaves the repository cannot reach a type of the law, so counting it only hid the uses that matter: in gson, 2,555 of the 2,567 uses it counted leave the repository. A use Runes could not follow may still reach a type, so it stays visible with its reason. Lawcheck adds no reasoning of its own: a reason it does not know, and a language Runes gives no reason in, count as no reason, so a later Runes can only make the count more precise, never silently drop a use it did not call outside.
 19. **`what` is the use's first candidate, and `ambiguous` lists its candidates.** `classifyUse` answers for the whole use and does not say which candidate ended the walk, which `what` named before 1.1.0. The first candidate is the name as the reader read it first, and the files of `candidates` say more than which reading was ambiguous. A use whose candidates the list all forbids is still not a finding (section 7).
 
 **What changes in slices one and two:**
@@ -578,9 +578,9 @@ The unit tests carry the rest, one file per new source file: the list in force f
 
 ## 11. The real-repository test
 
-`tests/real/run.ts`, run by `npm run real`, which builds first. It is not part of `npm test`. For each repository below, in a new `mktemp -d` folder: `git init`, `git remote add origin <url>`, `git fetch --depth 1 --no-tags origin <commit>`, `git checkout <commit>`, and a check that `HEAD` is that commit; then it writes `tests/real/<id>.yaml` as `.lawcheck/law.yaml`, runs `git add .lawcheck/law.yaml` and `node dist/cli.js check --full --base HEAD --json` there, and removes the folder. A run matches when it exits 0, its change holds no finding and no unresolved use, and `tests/real/<id>.expected` equals, line by line: each debt finding as `<place>  warning[<code>]  <message>`; then `unresolved: <n> (<a> ambiguous)`; then, for hono alone, each unresolved use as `<file>:<line>  <answer>  <what>`. The script prints each repository's result and time, and exits 0 when both match, 1 when one does not, 2 when a fetch fails.
+`tests/real/run.ts`, run by `npm run real`, which builds first. It is not part of `npm test`. For each repository below, in a new `mktemp -d` folder: `git init`, `git remote add origin <url>`, `git fetch --depth 1 --no-tags origin <commit>`, `git checkout <commit>`, and a check that `HEAD` is that commit; then it writes `tests/real/<id>.yaml` as `.lawcheck/law.yaml`, runs `git add .lawcheck/law.yaml` and `node dist/cli.js check --full --base HEAD --json` there, and removes the folder. A run matches when it exits 0, its change holds no finding and no unresolved use, and `tests/real/<id>.expected` equals, line by line: each debt finding as `<place>  warning[<code>]  <message>`; then `unresolved: <n> (<a> ambiguous, <f> unfollowed, <o> unowned, <r> without a reason)`; then, for hono alone, each unresolved use as `<file>:<line>  <answer>[ <reason>]  <what>[  [<candidates>]]`. The script prints each repository's result and time, and exits 0 when both match, 1 when one does not, 2 when a fetch fails.
 
-The expected lines below were measured on 2026-11-13 with the throwaway script of section 3.4, which makes the calls of section 3.3 and applies sections 3.5, 4 and 5. They are today's behaviour of the pinned commit: a fix of section 7's gaps changes them, and the change is made to the expected files knowingly. Neither repository is the author's own, and neither is among the 33 of Runes' corpus.
+The expected lines below were measured on 2026-11-13 with the throwaway script of section 3.4, which makes the calls of section 3.3 and applies sections 3.5, 4 and 5, and measured again on 2026-11-15 with `npm run real` when Lawcheck moved to Runes 1.1.0. They are the behaviour of that Runes version: a change of the readers changes them, and the change is made to the expected files knowingly, with the reason for each changed number below. Neither repository is the author's own, and neither is among the 33 of Runes' corpus.
 
 ### hono: TypeScript
 
@@ -637,7 +637,9 @@ types:
     may_use: [measures]
 ```
 
-The debt heading is `debt (outside this change): 15 findings in 11 files, 5 unresolved uses`. `tests/real/hono.expected`: 14 `forbidden-use`, 1 `uses-not-read`, and 5 unresolved uses: the adapter's four imports of `hono`, unresolved for the trailing slash of section 7 (with it fixed they bind `src/index.ts` and `src/helper/conninfo/index.ts`, which `[vercel, source]` allows, and the count becomes 1), and one generated file git ignores. `src/index.ts:48` is a type-only re-export.
+The debt heading is `debt (outside this change): 15 findings in 11 files, 1 unresolved use`. `tests/real/hono.expected`: 14 `forbidden-use`, 1 `uses-not-read`, and 1 unresolved use, a generated file git ignores, `unfollowed`. `src/index.ts:48` is a type-only re-export.
+
+What changed with Runes 1.1.0: unresolved uses 5 → 1, because the reader now maps build output back to source through a tsconfig `outDir` written with a trailing slash, so the vercel adapter's four imports of `hono` bind `src/index.ts` and `src/helper/conninfo/index.ts`, which `[vercel, source]` allows (a reader fix; no new finding). The findings are unchanged: 14 `forbidden-use` and 1 `uses-not-read`.
 
 ```
 .lawcheck/law.yaml:23  warning[uses-not-read]  1 file of type middleware is not read for uses: 1 .json
@@ -655,12 +657,8 @@ src/utils/jwt/jws.ts:7  warning[forbidden-use]  utils may not use helper (src/he
 src/utils/mount.ts:1  warning[forbidden-use]  utils may not use core (src/context.ts); its may_use is [utils]
 src/utils/mount.ts:2  warning[forbidden-use]  utils may not use core (src/http-exception.ts); its may_use is [utils]
 src/utils/mount.ts:3  warning[forbidden-use]  utils may not use core (src/request/constants.ts); its may_use is [utils]
-unresolved: 5 (0 ambiguous)
-adapters/vercel/src/conninfo.test.ts:1  none  hono
-adapters/vercel/src/conninfo.ts:1  none  hono/conninfo
-adapters/vercel/src/handler.test.ts:1  none  hono
-adapters/vercel/src/handler.ts:2  none  hono
-perf-measures/type-check/client.ts:2  none  ./generated/app
+unresolved: 1 (0 ambiguous, 1 unfollowed, 0 unowned, 0 without a reason)
+perf-measures/type-check/client.ts:2  none unfollowed  ./generated/app
 ```
 
 ### gson: Java
@@ -710,7 +708,9 @@ types:
     paths: ["*/src/test/java/**/*.java"]
 ```
 
-The debt heading is `debt (outside this change): 19 findings in 9 files, 2567 unresolved uses`. `tests/real/gson.expected`: 19 `forbidden-use` and the count. `JsonElement.java:427` names `Strictness`, a class of its own package, without an import. The two uses of `GsonBuildConfig.java` reach a template the build fills in, committed under `java-templates/` outside every type. The extensions keep their list. Of the 2,567 unresolved uses, none ambiguous, 1,740 are `java.lang` names offered as names of the file's own package, 744 are imports of `java.*` and `javax.*`, and the rest are imports of libraries; when Runes tells outside from not followed, this count falls.
+The debt heading is `debt (outside this change): 19 findings in 9 files, 12 unresolved uses`. `tests/real/gson.expected`: 19 `forbidden-use` and the count. `JsonElement.java:427` names `Strictness`, a class of its own package, without an import. The two uses of `GsonBuildConfig.java` reach a template the build fills in, committed under `java-templates/` outside every type. The extensions keep their list. The 12 unresolved uses, all `unfollowed`, none ambiguous, are each `Entry` in `gson/src/main/java/com/google/gson/internal/LinkedTreeMap.java`: the member type `Map.Entry`, which its classes inherit from `java.util.AbstractMap` and `java.util.AbstractSet`; Runes reads a member type inherited from a supertype outside the repository as a place of the repository it could not follow (section 7).
+
+What changed with Runes 1.1.0: unresolved uses 2,567 → 12, because the reader now answers `outside` for the other 2,555 (of the 2,567 counted before, 1,740 were `java.lang` names offered as names of the file's own package, 744 imports of `java.*` and `javax.*`, and the rest imports of libraries), and Lawcheck no longer counts a use that leaves the repository (decision 18; a new outside classification, no reader fix). The findings are unchanged: 19 `forbidden-use`.
 
 ```
 gson/src/main/java/com/google/gson/Gson.java:24  warning[forbidden-use]  api may not use gson/src/main/java-templates/com/google/gson/internal/GsonBuildConfig.java, which has no type; it takes may_use [library] from library
@@ -732,7 +732,7 @@ gson/src/main/java/com/google/gson/stream/JsonReader.java:23  warning[forbidden-
 gson/src/main/java/com/google/gson/stream/JsonWriter.java:28  warning[forbidden-use]  stream may not use api (gson/src/main/java/com/google/gson/FormattingStyle.java); its may_use is [stream]
 gson/src/main/java/com/google/gson/stream/JsonWriter.java:29  warning[forbidden-use]  stream may not use api (gson/src/main/java/com/google/gson/Strictness.java); its may_use is [stream]
 gson/src/main/java/com/google/gson/stream/MalformedJsonException.java:19  warning[forbidden-use]  stream may not use api (gson/src/main/java/com/google/gson/Strictness.java); its may_use is [stream]
-unresolved: 2567 (0 ambiguous)
+unresolved: 12 (0 ambiguous, 12 unfollowed, 0 unowned, 0 without a reason)
 ```
 
 ## 12. Repository layout additions
