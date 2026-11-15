@@ -9,14 +9,15 @@ import { compilePattern } from './glob.js';
 import { takesWaivers } from './law.js';
 import type { Law, TypeDef } from './law.js';
 import { plural, shown } from './output.js';
+import { readError } from './limits.js';
 import { mayUsePart, ruleKind, walk } from './prime.js';
 import { buildPrompt, FRAME, size } from './prompt.js';
 import { readerOf, siblingsOf } from './readers.js';
-import { loadConfig, loadLaw, loadRuleFiles, locate, fromCwd, nearPart, requireGit, RULES_DIR, stopped, typeAll, typingErrors, Stop, usage } from './setup.js';
+import { loadConfig, loadLaw, loadRuleFiles, locate, fromCwd, nearPart, requireGit, RULES_DIR, stopped, typeAll, typingErrors, Stop, usage, WRITTEN } from './setup.js';
 import type { Kinds, Read } from './setup.js';
 import { decode, filesOfTypes, isBinary, splitLines } from './types.js';
 import { listInForce } from './uses.js';
-import { readFailure, readVerdicts, reviewKey, VERDICTS } from './verdicts.js';
+import { readFailure, readVerdicts, reviewKey } from './verdicts.js';
 import { parseWaivers } from './waivers.js';
 
 type Review = 'reviewed' | 'failed' | 'too-large' | 'not-reviewed';
@@ -144,14 +145,13 @@ function existing(ctx: Ctx, path: string, symlink: boolean): FileAnswer {
   if (nested !== null) return untyped(path, true, nestedReason(nested));
   if (!ctx.listed.has(path)) return untyped(path, true, 'git ignores it, so Lawcheck never sees it');
   if (symlink) return untyped(path, true, 'it is a symbolic link, which has no type');
-  if (path === VERDICTS) return untyped(path, true, 'Lawcheck writes this file, and it has no type');
+  if (WRITTEN.has(path)) return untyped(path, true, 'Lawcheck writes this file, and it has no type');
   if (!ctx.law.types.some((type) => type.matches(path))) return untyped(path, true, "no type's paths match it, so no rule judges it");
   let bytes: Uint8Array;
   try {
     bytes = ctx.read(path);
   } catch (error) {
-    const code = (error as NodeJS.ErrnoException).code ?? 'an error';
-    throw new Stop([{ code: 'file-unreadable', file: path, line: null, message: `the file cannot be read (${code})` }]);
+    throw new Stop([readError(path, error)]);
   }
   if (isBinary(bytes)) return untyped(path, true, 'it is binary, which has no type');
   const text = decode(bytes);
@@ -438,7 +438,8 @@ export async function explain(args: Arguments, context: CheckContext, json: bool
       stat = lstatSync(onDisk(root, path));
     } catch (error) {
       const code = (error as NodeJS.ErrnoException).code;
-      if (code !== 'ENOENT' && code !== 'ENOTDIR' && code !== 'ENAMETOOLONG') throw error;
+      if (code === 'ENAMETOOLONG') throw usage(`the path '${args.words[0]!}' cannot exist here: it is longer than this system allows for a name or a path`);
+      if (code !== 'ENOENT' && code !== 'ENOTDIR') throw error;
     }
     if (stat !== null && stat.isDirectory()) return directory(ctx, path, json);
     const answer = stat === null ? absent(ctx, path) : existing(ctx, path, stat.isSymbolicLink());

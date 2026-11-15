@@ -2,6 +2,7 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import type { ReviewerConfig } from './config.js';
 import type { ErrorItem } from './output.js';
 import { checkAnswer } from './prompt.js';
+import { step } from './progress.js';
 import type { AnswerFinding } from './prompt.js';
 import { hide } from './keys.js';
 import type { Provider } from './providers/index.js';
@@ -128,6 +129,7 @@ export async function call<A extends Ask>(asks: A[], provider: Provider, writer:
         failed.push({ ask, code: 'reviewer-unreachable', message: `${ask.rule}: ${hide(asked.failure)}`, fix: asked.fix });
         return;
       }
+      step(`reading the answer of ${ask.rule} for ${ask.file}`);
       const checked = checkAnswer(asked.answer, ask.lineCount);
       if ('problem' in checked) {
         if (firstProblem === null && mayResend()) {

@@ -9,6 +9,7 @@ import { killTree } from './programs.js';
 import { safeText } from './output.js';
 import { hide } from './keys.js';
 import type { Readable } from 'node:stream';
+import { count, MESSAGE_CHARS, RULES_RUN_MS, RUN_FINDINGS, RUN_MESSAGE_CHARS } from './limits.js';
 
 export interface RuleFile {
   path: string;
@@ -151,13 +152,50 @@ export interface RawFinding {
   message: string;
 }
 
-export type RuleOutcome = { findings: RawFinding[] } | { crash: string } | { broken: string };
+export type RuleOutcome = { findings: RawFinding[] } | { crash: string } | { broken: string } | { slow: string };
+
+export function rulesDeadline(): { signal: AbortSignal; clear(): void } {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), RULES_RUN_MS);
+  return { signal: controller.signal, clear: () => clearTimeout(timer) };
+}
+
+export function slowMessage(where: string): string {
+  return `had ${where} when the script rules of this run passed the ${RULES_RUN_MS / 1000} seconds they may take together`;
+}
+
+// The findings the rules of one run return, kept up to the limit and counted past it, so a run that passes it names every rule with its full count.
+export class FindingBudget {
+  total = 0;
+  chars = 0;
+  readonly byRule = new Map<string, { count: number; chars: number }>();
+
+  take(rule: string, into: RawFinding[], findings: RawFinding[] | { count: number; chars: number }): void {
+    let taken: { count: number; chars: number };
+    if (Array.isArray(findings)) {
+      let chars = 0;
+      for (const finding of findings) chars += finding.message.length;
+      taken = { count: findings.length, chars };
+    } else taken = findings;
+    this.total += taken.count;
+    this.chars += taken.chars;
+    const own = this.byRule.get(rule) ?? { count: 0, chars: 0 };
+    this.byRule.set(rule, { count: own.count + taken.count, chars: own.chars + taken.chars });
+    if (Array.isArray(findings) && !this.passed()) for (const finding of findings) into.push(finding);
+  }
+
+  passed(): boolean {
+    return this.total > RUN_FINDINGS || this.chars > RUN_MESSAGE_CHARS;
+  }
+}
 
 interface Message {
   kind: string;
   message?: string;
   value?: unknown;
   load?: boolean;
+  count?: number;
+  chars?: number;
 }
 
 function backgroundCrash(message: Message): RuleOutcome {
@@ -204,6 +242,8 @@ export interface RuleRun {
   files: RuleFile[];
   filesOf: Map<string, string[]>;
   timeoutMs?: number;
+  budget?: FindingBudget;
+  signal?: AbortSignal;
 }
 
 function runnerArgs(root: string): string[] {
@@ -220,6 +260,7 @@ function whyNotStarted(root: string, ended: string): string {
 
 export function runRule(run: RuleRun): Promise<RuleOutcome> {
   const timeoutMs = run.timeoutMs ?? LIMITS.ruleMs;
+  const budget = run.budget ?? new FindingBudget();
   return new Promise((resolve, reject) => {
     const child = fork(RUNNER, [], {
       execArgv: runnerArgs(run.root),
@@ -242,6 +283,7 @@ export function runRule(run: RuleRun): Promise<RuleOutcome> {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
+      run.signal?.removeEventListener('abort', stop);
       release(child);
       const settle = () => (outcome instanceof Error ? reject(outcome) : resolve(outcome));
       // Windows refuses to remove the root while the killed runner, which works in it, is still ending.
@@ -276,10 +318,17 @@ export function runRule(run: RuleRun): Promise<RuleOutcome> {
         if (message.kind === 'uncloneable') {
           return end({ crash: `returns a value the channel cannot carry for ${file.path}: ${message.message}` });
         }
+        if (message.kind === 'too-many') {
+          budget.take(run.rule, findings, { count: message.count!, chars: message.chars ?? 0 });
+          return callNext(index + 1);
+        }
+        if (message.kind === 'too-long') {
+          return end({ crash: `returns a message of ${count(message.count!)} characters for ${file.path}, and a message holds at most ${count(MESSAGE_CHARS)}` });
+        }
         if (message.kind !== 'result') return end({ crash: `writes to the runner's channel ${stage}` });
         const checked = validate(run.rule, message.value, file);
         if ('problem' in checked) return end({ crash: `returns ${checked.problem} for ${file.path}` });
-        findings.push(...checked.findings);
+        budget.take(run.rule, findings, checked.findings);
         callNext(index + 1);
       });
     };
@@ -292,6 +341,9 @@ export function runRule(run: RuleRun): Promise<RuleOutcome> {
         callNext(0);
       });
 
+    const stop = () => end({ slow: slowMessage(`not finished ${stage}`) });
+    run.signal?.addEventListener('abort', stop, { once: true });
+    if (run.signal?.aborted) stop();
     child.on('error', (error) => end(started ? error : { broken: `the runner of script rules did not start: ${error.message}` }));
     child.on('exit', (code, signal) => {
       if (settled) return;

@@ -20,6 +20,7 @@ import { comparePaths } from './files.js';
 import { firstLine } from './law.js';
 import type { ErrorItem } from './output.js';
 import { decode, isBinary } from './types.js';
+import { step } from './progress.js';
 
 export type Reason = 'unfollowed' | 'unowned';
 
@@ -78,16 +79,20 @@ export const RUNES: Runes = {
 };
 
 export class Unreadable extends Error {
+  readonly item: ErrorItem;
+
   constructor(
     readonly path: string,
-    readonly code: string,
+    cause: string | ErrorItem,
   ) {
-    super(`${path} cannot be read (${code})`);
+    const item = typeof cause === 'string' ? { code: 'file-unreadable', file: path, line: null, message: `the file cannot be read (${cause})` } : cause;
+    super(`${path}: ${item.message}`);
+    this.item = item;
   }
 }
 
 export function unreadableError(error: Unreadable): ErrorItem {
-  return { code: 'file-unreadable', file: error.path, line: null, message: `the file cannot be read (${error.code})` };
+  return error.item;
 }
 
 const SFC = new Set(['.vue', '.svelte']);
@@ -220,6 +225,7 @@ async function readAll(input: ReadInput, runes: Runes): Promise<Map<string, Use[
   const csharp = new Map<string, CsharpExtract>();
 
   for (const parse of [...parses.values()].sort((a, b) => comparePaths(a.path, b.path))) {
+    step(`reading the uses of ${parse.path}`);
     const { language, parsePath, content } = parse.view;
     if (!loaded.has(language)) {
       try {

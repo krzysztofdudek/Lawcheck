@@ -1,0 +1,148 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { D, D_PATH, git, inTemp, TEST4, withSample, write } from '../acceptance/helpers.ts';
+import { errorLines, MiB, run, sparse, textHead } from './support.ts';
+
+const HUGE = 'src/core/huge.ts';
+const TOO_LARGE_600 = `${HUGE}  error[file-too-large]  the file holds 600,000,000 bytes, more than the 16 MiB a file read as text may hold`;
+const WHY_FILE = '  why:  a run holds every file it reads as text in memory, so one file may hold only so much';
+const nextFile = (path: string, command: string) =>
+  `next: leave ${path} out of the types with a pattern that starts with ! in .lawcheck/law.yaml, or make it smaller than 16 MiB, then run lawcheck ${command}`;
+
+test('S1-3: test 230: a file of 2.6 GB of zero bytes has no type, and the run judges the rest', async () => {
+  await withSample(async (s) => {
+    sparse(s, 'src/core/big.ts', '', 2_600_000_000);
+    write(s, D_PATH, D);
+    const result = await run(s, ['check', '--base', 'main']);
+    assert.equal(result.stdout, TEST4.replace('in 1 changed file (against main)', 'in 2 changed files (against main)'));
+    assert.equal(result.stderr, '');
+    assert.equal(result.code, 1);
+  });
+});
+
+test('S1-4: S5-2: test 231: a text file of 600 MB is file-too-large with its path, in check, doctor, explain and try', async () => {
+  await withSample(async (s) => {
+    sparse(s, HUGE, textHead(''), 600_000_000);
+    const ended = (command: string) => ['lawcheck: ERROR  1 error', '', TOO_LARGE_600, WHY_FILE, '', nextFile(HUGE, command), ''].join('\n');
+    const cases: [string[], string][] = [
+      [['check', '--base', 'main'], 'check'],
+      [['explain', HUGE], 'explain again'],
+      [['explain', 'src'], 'explain again'],
+      [['try', 'no-todo', 'src/core/tax.ts'], 'try again'],
+    ];
+    for (const [args, command] of cases) {
+      const result = await run(s, args);
+      assert.equal(result.stdout, ended(command), args.join(' '));
+      assert.equal(result.stderr, '', args.join(' '));
+      assert.equal(result.code, 2, args.join(' '));
+    }
+    const json = await run(s, ['check', '--base', 'main', '--json']);
+    assert.deepEqual(JSON.parse(json.stdout), {
+      schema: 'lawcheck-error/1',
+      errors: [{ code: 'file-too-large', file: HUGE, line: null, message: 'the file holds 600,000,000 bytes, more than the 16 MiB a file read as text may hold', why: WHY_FILE.slice('  why:  '.length) }],
+      next: { command: null, text: nextFile(HUGE, 'check').slice('next: '.length) },
+    });
+    assert.equal(json.code, 2);
+    const doctor = await run(s, ['doctor']);
+    assert.ok(doctor.stdout.split('\n').includes(`fail  types  ${HUGE}  the file holds 600,000,000 bytes, more than the 16 MiB a file read as text may hold`), doctor.stdout);
+    assert.ok(doctor.stdout.split('\n').includes(`  ${nextFile(HUGE, 'doctor again')}`), doctor.stdout);
+    assert.doesNotMatch(doctor.stdout, /internal/);
+    assert.equal(doctor.code, 2);
+  });
+});
+
+test('test 232: a text file of exactly 16 MiB is judged, and one byte more is file-too-large', async () => {
+  await withSample(async (s) => {
+    const edge = 'src/core/edge.ts';
+    sparse(s, edge, textHead('console.log(1);\n'), 16 * MiB);
+    const at = await run(s, ['check', '--base', 'main'], { budgetMs: 60_000 });
+    assert.deepEqual(errorLines(at.stdout), [`${edge}:1  error[no-console]  writes to the terminal with console.log`]);
+    assert.equal(at.stderr, '');
+    assert.equal(at.code, 1);
+    sparse(s, edge, textHead('console.log(1);\n'), 16 * MiB + 1);
+    const beyond = await run(s, ['check', '--base', 'main']);
+    assert.deepEqual(errorLines(beyond.stdout), [`${edge}  error[file-too-large]  the file holds 16,777,217 bytes, more than the 16 MiB a file read as text may hold`]);
+    assert.equal(beyond.code, 2);
+  });
+});
+
+test('test 233: the files of a run may hold 128 MiB of text together, and the file that passes it is text-too-large', async () => {
+  await inTemp(async (dir) => {
+    const repo = `${dir}/r`;
+    write(repo, '.lawcheck/law.yaml', 'lawcheck: 0.1.0\ntypes:\n  big:\n    paths: ["big/**"]\n');
+    git(repo, 'init', '-q', '-b', 'main');
+    git(repo, 'add', '-A');
+    git(repo, 'commit', '-q', '-m', 'law');
+    for (let i = 1; i <= 8; i++) sparse(repo, `big/t${i}.ts`, textHead(''), 16 * MiB);
+    const at = await run(repo, ['check', '--base', 'main'], { budgetMs: 120_000 });
+    assert.equal(at.stdout, 'lawcheck: PASS  8 changed files (against main)\n');
+    assert.equal(at.code, 0);
+    write(repo, 'big/z.ts', 'x');
+    const beyond = await run(repo, ['check', '--base', 'main'], { budgetMs: 120_000 });
+    assert.equal(
+      beyond.stdout,
+      [
+        'lawcheck: ERROR  1 error',
+        '',
+        'big/z.ts  error[text-too-large]  the text of the files read in this run reaches 134,217,729 bytes with this file, more than the 128 MiB one run may read',
+        '  why:  a run holds the text it reads in memory, so all of it together may hold only so much',
+        '',
+        'next: narrow the paths of the types in .lawcheck/law.yaml, so that the files they match hold at most 128 MiB of text, then run lawcheck check',
+        '',
+      ].join('\n'),
+    );
+    assert.equal(beyond.code, 2);
+  });
+});
+
+test('test 234: a law over 16 MiB is law-invalid, not internal', async () => {
+  await withSample(async (s) => {
+    sparse(s, '.lawcheck/law.yaml', textHead('lawcheck: 0.1.0\n# '), 16 * MiB + 1);
+    const result = await run(s, ['check', '--base', 'main']);
+    assert.deepEqual(errorLines(result.stdout), ['.lawcheck/law.yaml:1  error[law-invalid]  the law cannot be read (it holds more than 16 MiB)']);
+    assert.equal(result.code, 2);
+  });
+});
+
+function lawOf(rules: number, types: number, padTo = 0): string {
+  let law = 'lawcheck: 0.1.0\nrules:\n';
+  for (let i = 0; i < rules; i++) law += `  r${i}:\n    why: w\n`;
+  law += 'types:\n';
+  for (let i = 0; i < types; i++) law += `  t${i}:\n    paths: ["t${i}/**"]\n`;
+  if (padTo > law.length) law += `#${'x'.repeat(padTo - law.length - 2)}\n`;
+  return law;
+}
+
+async function withLaw(law: string, rules: number, body: (repo: string) => Promise<void>): Promise<void> {
+  await inTemp(async (dir) => {
+    const repo = `${dir}/r`;
+    write(repo, '.lawcheck/law.yaml', law);
+    for (let i = 0; i < rules; i++) write(repo, `.lawcheck/rules/r${i}.mjs`, 'export function check() { return []; }\n');
+    git(repo, 'init', '-q', '-b', 'main');
+    await body(repo);
+  });
+}
+
+test('test 254: a law may hold 10,000 rules, 1,000 types and 1 MiB, and past each it is law-invalid', async () => {
+  await withLaw(lawOf(10_000, 1_000), 10_000, async (repo) => {
+    const at = await run(repo, ['check'], { budgetMs: 120_000 });
+    assert.equal(at.stdout, 'lawcheck: PASS  10001 files (no base: every file counts as changed)\n');
+    assert.equal(at.code, 0);
+  });
+  const cases: [string, number, string][] = [
+    [lawOf(10_001, 1), 10_001, '.lawcheck/law.yaml:2  error[law-invalid]  the law holds 10,001 rules, more than the 10,000 a law may hold'],
+    [lawOf(1, 1_001), 1, '.lawcheck/law.yaml:5  error[law-invalid]  the law holds 1,001 types, more than the 1,000 a law may hold'],
+    [lawOf(1, 1, MiB + 1), 1, '.lawcheck/law.yaml:1  error[law-invalid]  the law holds 1,048,577 bytes, more than the 1 MiB a law may hold'],
+  ];
+  for (const [law, rules, line] of cases) {
+    await withLaw(law, rules, async (repo) => {
+      const beyond = await run(repo, ['check'], { budgetMs: 120_000 });
+      assert.deepEqual(errorLines(beyond.stdout), [line]);
+      assert.equal(beyond.code, 2);
+    });
+  }
+  await withLaw(lawOf(1, 1, MiB), 1, async (repo) => {
+    const at = await run(repo, ['check']);
+    assert.equal(at.code, 0, at.stdout);
+  });
+});

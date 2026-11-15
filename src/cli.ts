@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 import { realpathSync } from 'node:fs';
+import { isMainThread, Worker } from 'node:worker_threads';
+import { lastStep, progressBuffer, step } from './progress.js';
+import { STEP_MS } from './limits.js';
 import { pathToFileURL } from 'node:url';
 import { check } from './check.js';
 import type { CheckContext, CheckOptions, CheckOutcome } from './check.js';
@@ -92,6 +95,7 @@ async function run(argv: string[], context: CheckContext, command: Command): Pro
     if ('problem' in parsed) return usageError(parsed.problem, json, 'check');
     const outcome = await command(parsed.options, context);
     if ('errors' in outcome) return { code: 2, stdout: renderErrors(outcome.errors, json) };
+    step('writing the report');
     const text = renderReport(outcome.report, json);
     return { code: outcome.report.findings.some((f) => f.severity === 'error') ? 1 : 0, stdout: text };
   } catch (error) {
@@ -99,31 +103,63 @@ async function run(argv: string[], context: CheckContext, command: Command): Pro
   }
 }
 
-function finish(result: Result): void {
-  process.stdout.write(result.stdout, () => process.exit(result.code));
-}
-
 function isEntry(): boolean {
   try {
-    return process.argv[1] !== undefined && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href;
+    return isMainThread && process.argv[1] !== undefined && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href;
   } catch {
     return false;
   }
 }
 
+type FromWork = { kind: 'warn'; line: string } | { kind: 'done'; code: number; stdout: Uint8Array };
+
+// The command runs in a worker, so a signal is answered while the command is busy in code that never yields, such as a regular expression.
 export function start(): void {
   absolutePath(process.env);
   if (process.platform === 'win32') process.env[NO_CURRENT_FOLDER] = '1';
-  const json = process.argv.slice(2).includes('--json');
-  const crash = (error: unknown) => {
-    const text = renderErrors([internal(error)], json);
-    process.stdout.write(json ? safeJson(hiddenJson(text)) : safeText(text), () => process.exit(2));
+  useKeys(process.env);
+  const argv = process.argv.slice(2);
+  const json = argv.includes('--json');
+  const named = (COMMANDS as readonly string[]).includes(argv[0] ?? '') ? argv[0]! : null;
+  let writing = false;
+  const exit = (code: number) => process.exit(code);
+  const writeOut = (bytes: Uint8Array | string, code: number) => {
+    writing = true;
+    process.stdout.on('error', () => undefined);
+    process.stdout.write(bytes, (error) => {
+      if (!error || (error as NodeJS.ErrnoException).code === 'EPIPE') return exit(code);
+      const cause = (error as NodeJS.ErrnoException).code ?? 'an error';
+      process.stderr.write(`error[file-unwritable]  standard output cannot be written (${cause}), so the result is lost\n`, () => exit(2));
+    });
   };
-  process.on('uncaughtException', crash);
-  process.on('unhandledRejection', crash);
-  for (const signal of ['SIGTERM', 'SIGINT', 'SIGHUP'] as const) process.on(signal, () => crash(new Error(`stopped by ${signal}`)));
-  const warn = (line: string) => process.stderr.write(safeText(line) + '\n');
-  main(process.argv.slice(2), { cwd: process.cwd(), env: process.env, warn }).then(finish, crash);
+  const fail = (item: ErrorItem) => {
+    if (writing) {
+      process.stderr.write(safeText(`error[${item.code}]  ${hide(item.message)}\n`), () => exit(2));
+      return;
+    }
+    const text = renderErrors([item], json, named);
+    writeOut(json ? safeJson(hiddenJson(text)) : safeText(text), 2);
+  };
+  for (const signal of ['SIGTERM', 'SIGINT', 'SIGHUP'] as const) {
+    process.on(signal, () => fail({ code: 'stopped', file: null, line: null, message: `stopped by ${signal}` }));
+  }
+  const progress = progressBuffer();
+  const worker = new Worker(new URL('./work.js', import.meta.url), { workerData: { argv, cwd: process.cwd(), progress }, stdout: false, stderr: false });
+  const watch = setInterval(() => {
+    const last = lastStep(progress);
+    if (writing || Date.now() - last.at <= STEP_MS) return;
+    clearInterval(watch);
+    fail({ code: 'step-too-slow', file: null, line: null, message: `one step of the run took more than ${STEP_MS / 1000} seconds without an end: ${last.what}` });
+  }, 1000);
+  watch.unref();
+  worker.on('message', (message: FromWork) => {
+    if (message.kind === 'warn') process.stderr.write(safeText(message.line) + '\n');
+    else writeOut(message.stdout, message.code);
+  });
+  worker.on('error', (error) => fail(internal(error)));
+  worker.on('exit', () => {
+    if (!writing) fail(internal(new Error('the command ended without a result')));
+  });
 }
 
 if (isEntry()) start();

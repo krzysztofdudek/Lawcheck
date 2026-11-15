@@ -133,7 +133,9 @@ export function listFiles(root: string, listed: Set<string> = listedPaths(root))
       if (lstatSync(onDisk(root, path)).isFile()) files.push(path);
     } catch (error) {
       const code = (error as NodeJS.ErrnoException).code;
-      if (code !== 'ENOENT' && code !== 'ENOTDIR') throw error;
+      // A path git lists below a folder that cannot be searched may be a file; reading it later names it as unreadable when a type takes it.
+      if (code === 'EACCES' || code === 'EPERM') files.push(path);
+      else if (code !== 'ENOENT' && code !== 'ENOTDIR') throw error;
     }
   }
   return files.sort(comparePaths);

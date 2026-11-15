@@ -1,9 +1,10 @@
-import { readFileSync, statSync } from 'node:fs';
+import { statSync } from 'node:fs';
 import { join } from 'node:path';
 import { isAlias, isMap, isScalar, isSeq, LineCounter, parseDocument } from 'yaml';
 import type { Document, Node as YamlNode, Pair, YAMLMap } from 'yaml';
-import { distance, nearestKey } from './law.js';
+import { distance, nearestKey, parseUnique } from './law.js';
 import { decode } from './types.js';
+import { readFailure, readWhole } from './limits.js';
 
 export const CONFIG = '.lawcheck/config.yaml';
 
@@ -91,20 +92,20 @@ export function readConfig(root: string): { config: ReviewerConfig } | { problem
   }
   let text: string;
   try {
-    text = decode(readFileSync(path));
+    text = decode(readWhole(path, CONFIG));
   } catch (error) {
-    return { problems: [{ line: 1, message: `${CONFIG} cannot be read (${(error as NodeJS.ErrnoException).code ?? 'an error'})` }] };
+    return { problems: [{ line: 1, message: `${CONFIG} cannot be read (${readFailure(error)})` }] };
   }
   return parseConfig(text);
 }
 
 export function parseConfig(text: string): { config: ReviewerConfig } | { problems: ConfigProblem[] } {
   const counter = new LineCounter();
-  const doc = parseDocument(text, { lineCounter: counter, prettyErrors: false, uniqueKeys: true });
-  if (doc.errors.length > 0) {
+  const { doc, errors } = parseUnique(text, counter);
+  if (errors.length > 0) {
     return {
-      problems: doc.errors.map((error) => ({
-        line: counter.linePos(error.pos[0]).line,
+      problems: errors.map((error) => ({
+        line: counter.linePos(error.pos).line,
         message: `the config does not parse: ${error.message.split('\n')[0]}`,
       })),
     };

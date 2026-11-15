@@ -1,4 +1,4 @@
-import { closeSync, mkdirSync, openSync, realpathSync, writeSync } from 'node:fs';
+import { closeSync, lstatSync, mkdirSync, openSync, realpathSync, statSync, writeSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { documentOf, errorResult, noWords, usageError, version } from './args.js';
 import type { Arguments, Result } from './args.js';
@@ -47,6 +47,21 @@ function already(place: string, below = false): Stop {
   ]);
 }
 
+function notAFolder(path: string): string | null {
+  let link: boolean;
+  try {
+    link = lstatSync(path).isSymbolicLink();
+  } catch {
+    return null;
+  }
+  try {
+    if (statSync(path).isDirectory()) return null;
+  } catch {
+    return 'it is a symbolic link to a place that does not exist, so the folder .lawcheck cannot be made';
+  }
+  return link ? 'it is a symbolic link to a file, so the folder .lawcheck cannot be made' : 'it is a file, so the folder .lawcheck cannot be made';
+}
+
 export function writeNew(path: string, content: string): boolean {
   let fd: number;
   try {
@@ -75,6 +90,10 @@ export async function init(args: Arguments, context: CheckContext, json: boolean
     const below = listFiles(cwd).find((path) => path === LAW || path.endsWith(`/${LAW}`));
     if (below !== undefined) throw already(below, true);
     const prefix = showPrefix(cwd);
+    const obstacle = notAFolder(join(cwd, '.lawcheck'));
+    if (obstacle !== null) {
+      throw new Stop([{ code: 'file-unwritable', file: '.lawcheck', line: null, message: obstacle, next: 'move .lawcheck out of the way, then run lawcheck init again' }]);
+    }
     mkdirSync(join(cwd, '.lawcheck'), { recursive: true });
     if (!writeNew(join(cwd, LAW), lawText(version()))) throw already(LAW);
     const created = [LAW];

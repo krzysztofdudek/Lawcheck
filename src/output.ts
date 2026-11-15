@@ -1,4 +1,6 @@
 import { hide } from './keys.js';
+import { FILE_TEXT_BYTES, mib, RUN_TEXT_BYTES } from './limits.js';
+
 export type Severity = 'error' | 'warning';
 
 export interface ErrorItem {
@@ -96,6 +98,13 @@ export const WHY: Record<string, string> = {
   'uses-not-read': 'a restriction that cannot be checked is not shown as kept',
   'parser-failed': 'a file whose uses were not read is not taken to use nothing',
   'already-initialized': 'a second law would split one repository\'s rules between two files',
+  'file-too-large': 'a run holds every file it reads as text in memory, so one file may hold only so much',
+  'text-too-large': 'a run holds the text it reads in memory, so all of it together may hold only so much',
+  'too-many-findings': 'a run holds every finding in memory, so the rules may return only so many',
+  'rules-too-slow': 'a run that never ends gives no answer, so the script rules of a run share one limit of time',
+  'file-unwritable': 'what Lawcheck cannot write is lost, so the run cannot say it is done',
+  stopped: 'a run stopped before its end says nothing about the code',
+  'step-too-slow': 'a step that never ends gives no answer, so one step of a run has a limit of time',
 };
 
 export const CODES = new Set([...Object.keys(WHY)]);
@@ -130,6 +139,20 @@ function fixedNext(error: ErrorItem, command: string): string {
       return `add a rule for ${error.file} to the law, or move the file to .lawcheck/rules/lib/, then run lawcheck check`;
     case 'file-unreadable':
       return `make ${error.file} readable, then run lawcheck check`;
+    case 'file-too-large':
+      return `leave ${error.file} out of the types with a pattern that starts with ! in .lawcheck/law.yaml, or make it smaller than ${mib(FILE_TEXT_BYTES)}, then run lawcheck check`;
+    case 'text-too-large':
+      return `narrow the paths of the types in .lawcheck/law.yaml, so that the files they match hold at most ${mib(RUN_TEXT_BYTES)} of text, then run lawcheck check`;
+    case 'too-many-findings':
+      return `make the rules return fewer findings, or narrow the types that list them, then run lawcheck check`;
+    case 'rules-too-slow':
+      return `make the slow rules faster, or narrow the types that list them, then run lawcheck check`;
+    case 'file-unwritable':
+      return `make ${error.file ?? 'the place named'} writable, then run lawcheck ${command} again`;
+    case 'stopped':
+      return `run lawcheck ${command} again and let it end`;
+    case 'step-too-slow':
+      return `make the step named faster, such as a type's content pattern that backtracks, then run lawcheck ${command} again`;
     case 'type-overlap':
       return 'narrow the paths or content of the types that overlap in .lawcheck/law.yaml, then run lawcheck check';
     case 'base-unreachable':

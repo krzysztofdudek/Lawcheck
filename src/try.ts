@@ -14,10 +14,13 @@ import { buildPrompt, cleanMessage, size } from './prompt.js';
 import { createProvider } from './providers/index.js';
 import { call, NO_RECORD, preflight, remaining } from './review.js';
 import type { Ask } from './review.js';
-import { crashNext, linksOut, runnerProblem, runRule } from './rules.js';
+import { crashNext, FindingBudget, linksOut, rulesDeadline, runnerProblem, runRule } from './rules.js';
+import type { RawFinding } from './rules.js';
+import { tooManyFindings } from './check.js';
 import type { RuleFile } from './rules.js';
 import { fromCwd, loadConfig, loadLaw, loadRuleFiles, locate, nearPart, repoPath, requireGit, RULES_DIR, stopped, Stop, typeAll, usage } from './setup.js';
 import type { Read } from './setup.js';
+import { readError } from './limits.js';
 import { decode, filesOfTypes, isBinary, splitLines } from './types.js';
 import { parseWaivers, waive } from './waivers.js';
 
@@ -117,8 +120,7 @@ export function bytesOf(read: Read, path: string): Uint8Array {
   try {
     return read(path);
   } catch (error) {
-    const code = (error as NodeJS.ErrnoException).code ?? 'an error';
-    throw new Stop([{ code: 'file-unreadable', file: path, line: null, message: `the file cannot be read (${code})` }]);
+    throw new Stop([readError(path, error)]);
   }
 }
 
@@ -178,15 +180,26 @@ export async function tryRule(args: Arguments, context: CheckContext, json: bool
       if (out.length > 0) {
         throw new Stop(out.map((link) => ({ code: 'link-outside-root', file: link.path, line: null, message: `the link leads to ${link.target}, outside the git work tree and Lawcheck's folder, and a script rule could read through it` })));
       }
-      const ran = await runRule({ root, rule: id, ruleFile: join(root, `${RULES_DIR}${id}.mjs`), files: ruleFiles, filesOf: filesOfTypes(typed, law) });
+      const budget = new FindingBudget();
+      const deadline = rulesDeadline();
+      const ran = await runRule({ root, rule: id, ruleFile: join(root, `${RULES_DIR}${id}.mjs`), files: ruleFiles, filesOf: filesOfTypes(typed, law), budget, signal: deadline.signal });
+      deadline.clear();
       if ('broken' in ran) throw new Stop([{ code: 'runner-failed', file: null, line: null, message: ran.broken }]);
       if ('crash' in ran) {
         const next = crashNext(ran.crash);
         throw new Stop([{ code: 'rule-crashed', file: `${RULES_DIR}${id}.mjs`, line: null, message: ran.crash, ...(next === undefined ? {} : { next }) }]);
       }
+      if ('slow' in ran) throw new Stop([{ code: 'rules-too-slow', file: `${RULES_DIR}${id}.mjs`, line: null, message: ran.slow }]);
+      if (budget.passed()) throw new Stop(tooManyFindings(budget));
+      const byFile = new Map<string, RawFinding[]>();
+      for (const item of ran.findings) {
+        const list = byFile.get(item.file);
+        if (list === undefined) byFile.set(item.file, [item]);
+        else list.push(item);
+      }
       for (const file of ruleFiles) {
         const run: Run = { file: file.path, attempt: 1, verdict: null, findings: [], waived: 0, answer: null, prompt_chars: null };
-        for (const item of ran.findings.filter((f) => f.file === file.path)) {
+        for (const item of byFile.get(file.path) ?? []) {
           if (item.line !== undefined && waive(waiversOf.get(file.path)!, id, item.line)) {
             run.waived++;
             continue;

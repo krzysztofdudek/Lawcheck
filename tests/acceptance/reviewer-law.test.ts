@@ -210,16 +210,17 @@ test('test 71: two branches merge their verdicts', async () => {
   });
 });
 
-test('test 72: .lawcheck/verdicts has no type', async () => {
+test('test 72: .lawcheck/verdicts and .lawcheck/.gitattributes have no type', async () => {
   await withFake(async (fake) => {
     await withR(
       async (r) => {
-        const typed = git(r, 'ls-files', '.lawcheck').split('\n').filter(Boolean).sort();
+        const typed = git(r, 'ls-files', '.lawcheck').split('\n').filter((path) => path !== '' && path !== '.lawcheck/.gitattributes').sort();
         const first = await run(r, fake, ['--full', '--review', '--base', 'main']);
         assert.equal(first.code, 0, first.stdout);
         const asked = fake.requests.map((request) => request.prompt.match(/\n<file path="([^"]+)">/)![1]!);
         assert.deepEqual(asked.filter((path) => path.startsWith('.lawcheck/')).sort(), typed);
         assert.ok(!asked.includes('.lawcheck/verdicts'));
+        assert.ok(!asked.includes('.lawcheck/.gitattributes'));
         const count = fake.requests.length;
         const second = await run(r, fake, ['--full', '--review', '--base', 'main']);
         assert.equal(second.code, 0, second.stdout);

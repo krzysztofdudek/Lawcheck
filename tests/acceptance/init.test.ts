@@ -88,13 +88,22 @@ test('test 98: a kept .gitignore, a law below the top, and no git', async () => 
   });
 });
 
-test('init where .lawcheck is a file: internal, and its next line names init', async () => {
+test('S5-4: test 241: init where .lawcheck is a file names it', async () => {
+  const obstacle = (what: string) =>
+    [
+      'lawcheck: ERROR  1 error',
+      '',
+      `.lawcheck  error[file-unwritable]  it is ${what}, so the folder .lawcheck cannot be made`,
+      '  why:  what Lawcheck cannot write is lost, so the run cannot say it is done',
+      '',
+      'next: move .lawcheck out of the way, then run lawcheck init again',
+      '',
+    ].join('\n');
   await inTemp(async (dir) => {
     const repo = newRepository(dir, { '.lawcheck': 'x\n' });
-    // Today's behaviour, finding S5-4 of the stress round: internal where a named error belongs.
-    const run = await lawcheck(repo, ['init'], {}, [], { internal: true });
-    assert.match(run.stdout, /^error\[internal\]/m);
-    assert.match(run.stdout, /^next: run lawcheck init again, and report the error if it stays$/m);
+    const run = await lawcheck(repo, ['init']);
+    assert.equal(run.stdout, obstacle('a file'));
+    assert.equal(run.stderr, '');
     assert.equal(run.code, 2);
     assert.equal(readFileSync(join(repo, '.lawcheck'), 'utf8'), 'x\n');
   });

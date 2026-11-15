@@ -1,0 +1,118 @@
+import { closeSync, fstatSync, openSync, readSync } from 'node:fs';
+import type { ErrorItem } from './output.js';
+
+const MiB = 1024 * 1024;
+
+// The numbers of the table of limits in spec/check-slice.md, section 10, each measured as that section says.
+export const HEAD_BYTES = 8000;
+export const FILE_TEXT_BYTES = 16 * MiB;
+export const RUN_TEXT_BYTES = 128 * MiB;
+export const RUN_FINDINGS = 200_000;
+export const RUN_MESSAGE_CHARS = 16 * MiB;
+export const MESSAGE_CHARS = 4096;
+export const RULES_RUN_MS = 600_000;
+export const LAW_BYTES = 1 * MiB;
+export const LAW_RULES = 10_000;
+export const LAW_TYPES = 1_000;
+export const STEP_MS = 60_000;
+
+export function mib(bytes: number): string {
+  return `${bytes / MiB} MiB`;
+}
+
+export function count(value: number): string {
+  return value.toLocaleString('en-US');
+}
+
+export class FileTooLarge extends Error {
+  constructor(
+    readonly path: string,
+    readonly bytes: number,
+  ) {
+    super(`${path} holds ${count(bytes)} bytes, more than the ${mib(FILE_TEXT_BYTES)} a file read as text may hold`);
+  }
+}
+
+export class TextTooLarge extends Error {
+  constructor(
+    readonly path: string,
+    readonly bytes: number,
+  ) {
+    super(`the text read in this run reaches ${count(bytes)} bytes at ${path}, more than the ${mib(RUN_TEXT_BYTES)} one run may read`);
+  }
+}
+
+export function tooLargeError(error: FileTooLarge | TextTooLarge): ErrorItem {
+  if (error instanceof FileTooLarge) {
+    return {
+      code: 'file-too-large',
+      file: error.path,
+      line: null,
+      message: `the file holds ${count(error.bytes)} bytes, more than the ${mib(FILE_TEXT_BYTES)} a file read as text may hold`,
+    };
+  }
+  return {
+    code: 'text-too-large',
+    file: error.path,
+    line: null,
+    message: `the text of the files read in this run reaches ${count(error.bytes)} bytes with this file, more than the ${mib(RUN_TEXT_BYTES)} one run may read`,
+  };
+}
+
+export function readError(path: string, error: unknown): ErrorItem {
+  if (error instanceof FileTooLarge || error instanceof TextTooLarge) return tooLargeError(error);
+  const code = (error as NodeJS.ErrnoException).code ?? 'an error';
+  return { code: 'file-unreadable', file: path, line: null, message: `the file cannot be read (${code})` };
+}
+
+export interface Bounded {
+  bytes: Uint8Array;
+  binary: boolean;
+}
+
+const head = Buffer.allocUnsafe(HEAD_BYTES);
+
+// A binary file is known by its first 8,000 bytes, so only they are read, and only up to the NUL is kept; a text file is read whole, up to its limit.
+export function readBounded(full: string | Buffer, path: string, headOnly = true): Bounded {
+  const limit = FILE_TEXT_BYTES;
+  const fd = openSync(full, 'r');
+  try {
+    const size = fstatSync(fd).size;
+    let got = 0;
+    while (got < HEAD_BYTES) {
+      const n = readSync(fd, head, got, HEAD_BYTES - got, null);
+      if (n === 0) break;
+      got += n;
+    }
+    const nul = head.subarray(0, got).indexOf(0);
+    if (headOnly && nul >= 0) return { bytes: Buffer.from(head.subarray(0, nul + 1)), binary: true };
+    if (got < HEAD_BYTES) return { bytes: Buffer.from(head.subarray(0, got)), binary: false };
+    if (size > limit) throw new FileTooLarge(path, size);
+    let buffer = Buffer.allocUnsafe(Math.min(Math.max(size, HEAD_BYTES), limit) + 1);
+    head.copy(buffer, 0, 0, got);
+    for (;;) {
+      if (got === buffer.length) {
+        if (got > limit) throw new FileTooLarge(path, got);
+        const grown = Buffer.allocUnsafe(Math.min(buffer.length * 2, limit + 1));
+        buffer.copy(grown, 0, 0, got);
+        buffer = grown;
+      }
+      const n = readSync(fd, buffer, got, buffer.length - got, null);
+      if (n === 0) break;
+      got += n;
+      if (got > limit) throw new FileTooLarge(path, got);
+    }
+    return { bytes: buffer.subarray(0, got), binary: false };
+  } finally {
+    closeSync(fd);
+  }
+}
+
+export function readWhole(full: string | Buffer, path: string): Uint8Array {
+  return readBounded(full, path, false).bytes;
+}
+
+export function readFailure(error: unknown): string {
+  if (error instanceof FileTooLarge) return `it holds more than ${mib(FILE_TEXT_BYTES)}`;
+  return (error as NodeJS.ErrnoException).code ?? 'an error';
+}

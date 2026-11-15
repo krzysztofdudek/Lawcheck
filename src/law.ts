@@ -1,5 +1,7 @@
-import { isAlias, isMap, isScalar, isSeq, LineCounter, parseDocument } from 'yaml';
+import { isAlias, isMap, isScalar, isSeq, LineCounter, parseDocument, visit } from 'yaml';
 import type { Document, Node as YamlNode, Pair, YAMLMap } from 'yaml';
+import { LAW_RULES, LAW_TYPES } from './limits.js';
+import { step } from './progress.js';
 import { compileList, patternProblem } from './glob.js';
 import { CODES } from './output.js';
 
@@ -79,18 +81,47 @@ export function nearestKey(key: string, known: string[]): string | null {
   return best;
 }
 
+// The YAML library finds a repeated key by comparing it with every key before it, which takes minutes for a law of 200,000 rules; a set finds the same keys in one pass.
+export function parseUnique(text: string, counter: LineCounter): { doc: Document; errors: { pos: number; message: string }[] } {
+  const doc = parseDocument(text, { lineCounter: counter, prettyErrors: false, uniqueKeys: false });
+  const errors = doc.errors.map((error) => ({ pos: error.pos[0], message: error.message }));
+  visit(doc, {
+    Map(_, map) {
+      const seen = new Set<unknown>();
+      for (const pair of map.items) {
+        if (!isScalar(pair.key)) continue;
+        if (seen.has(pair.key.value)) errors.push({ pos: pair.key.range?.[0] ?? 0, message: 'Map keys must be unique' });
+        seen.add(pair.key.value);
+      }
+    },
+  });
+  errors.sort((a, b) => a.pos - b.pos);
+  return { doc, errors };
+}
+
 export function parseLaw(text: string): { law: Law | null; problems: LawProblem[] } {
+  step('reading the law');
   const counter = new LineCounter();
-  const doc = parseDocument(text, { lineCounter: counter, prettyErrors: false, uniqueKeys: true });
+  const { doc, errors } = parseUnique(text, counter);
   const problems: LawProblem[] = [];
-  if (doc.errors.length > 0) {
-    for (const error of doc.errors) {
-      const line = counter.linePos(error.pos[0]).line;
+  if (errors.length > 0) {
+    for (const error of errors) {
+      const line = counter.linePos(error.pos).line;
       problems.push({ line, message: `the law does not parse: ${error.message.split('\n')[0]}` });
     }
     return { law: null, problems };
   }
   return new Reader(doc, counter, problems).read();
+}
+
+function typeCount(types: YAMLMap): number {
+  let count = 0;
+  for (const pair of types.items) {
+    count++;
+    const below = isMap(pair.value) ? pair.value.get('types', true) : undefined;
+    if (isMap(below)) count += typeCount(below);
+  }
+  return count;
 }
 
 class Reader {
@@ -128,9 +159,21 @@ class Reader {
         const version = this.string(value, line, "'lawcheck'");
         if (version !== null && !VERSION.test(version)) this.problem(line, `'lawcheck' is '${version}'; it takes MAJOR.MINOR.PATCH`);
       } else if (key === 'rules') {
-        if (this.mapping(value, line, "'rules'")) this.readRules(value as YAMLMap);
+        if (!this.mapping(value, line, "'rules'")) continue;
+        const count = (value as YAMLMap).items.length;
+        if (count > LAW_RULES) {
+          this.problem(line, `the law holds ${count.toLocaleString('en-US')} rules, more than the ${LAW_RULES.toLocaleString('en-US')} a law may hold`);
+          return { law: null, problems: this.problems };
+        }
+        this.readRules(value as YAMLMap);
       } else if (key === 'types') {
-        if (this.mapping(value, line, "'types'")) types = this.readTypes(value as YAMLMap, null);
+        if (!this.mapping(value, line, "'types'")) continue;
+        const count = typeCount(value as YAMLMap);
+        if (count > LAW_TYPES) {
+          this.problem(line, `the law holds ${count.toLocaleString('en-US')} types, more than the ${LAW_TYPES.toLocaleString('en-US')} a law may hold`);
+          return { law: null, problems: this.problems };
+        }
+        types = this.readTypes(value as YAMLMap, null);
       } else {
         this.unknown(key, TOP_KEYS, line, 'at the top of the law');
       }
