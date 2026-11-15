@@ -1,4 +1,4 @@
-import { closeSync, fstatSync, openSync, readSync } from 'node:fs';
+import { closeSync, constants, fstatSync, openSync, readSync } from 'node:fs';
 import type { ErrorItem } from './output.js';
 
 const MiB = 1024 * 1024;
@@ -59,7 +59,14 @@ export function tooLargeError(error: FileTooLarge | TextTooLarge): ErrorItem {
   };
 }
 
+export class NotRegular extends Error {
+  constructor(readonly path: string) {
+    super(`${path} is no regular file`);
+  }
+}
+
 export function readError(path: string, error: unknown): ErrorItem {
+  if (error instanceof NotRegular) return { code: 'file-unreadable', file: path, line: null, message: 'the file cannot be read (it is no regular file)' };
   if (error instanceof FileTooLarge || error instanceof TextTooLarge) return tooLargeError(error);
   const code = (error as NodeJS.ErrnoException).code ?? 'an error';
   return { code: 'file-unreadable', file: path, line: null, message: `the file cannot be read (${code})` };
@@ -72,12 +79,17 @@ export interface Bounded {
 
 const head = Buffer.allocUnsafe(HEAD_BYTES);
 
+// A named pipe or a device opened for reading waits for a writer, and the thread waiting in that call cannot be ended; opened without waiting, it is refused by its kind.
+const OPEN = process.platform === 'win32' ? constants.O_RDONLY : constants.O_RDONLY | constants.O_NONBLOCK;
+
 // A binary file is known by its first 8,000 bytes, so only they are read, and only up to the NUL is kept; a text file is read whole, up to its limit.
 export function readBounded(full: string | Buffer, path: string, headOnly = true): Bounded {
   const limit = FILE_TEXT_BYTES;
-  const fd = openSync(full, 'r');
+  const fd = openSync(full, OPEN);
   try {
-    const size = fstatSync(fd).size;
+    const stat = fstatSync(fd);
+    if (!stat.isFile()) throw new NotRegular(path);
+    const size = stat.size;
     let got = 0;
     while (got < HEAD_BYTES) {
       const n = readSync(fd, head, got, HEAD_BYTES - got, null);
@@ -114,5 +126,6 @@ export function readWhole(full: string | Buffer, path: string): Uint8Array {
 
 export function readFailure(error: unknown): string {
   if (error instanceof FileTooLarge) return `it holds more than ${mib(FILE_TEXT_BYTES)}`;
+  if (error instanceof NotRegular) return 'it is no regular file';
   return (error as NodeJS.ErrnoException).code ?? 'an error';
 }

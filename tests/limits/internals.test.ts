@@ -1,9 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { chmodSync, existsSync, symlinkSync } from 'node:fs';
 import { join } from 'node:path';
-import { inTemp, newRepository, withSample } from '../acceptance/helpers.ts';
-import { run } from './support.ts';
+import { withFake } from '../acceptance/fake-reviewer.ts';
+import { F, F_PATH, inTemp, newRepository, withR, withSample, write } from '../acceptance/helpers.ts';
+import { errorLines, run } from './support.ts';
 
 const UNREADABLE = process.platform === 'win32' ? 'chmod on Windows sets only the read-only flag, so a folder cannot be made unreadable' : process.getuid?.() === 0 ? 'chmod cannot make a folder unreadable for root' : false;
 
@@ -75,5 +77,31 @@ test('S5-4: test 241: init where .lawcheck is a symbolic link to nothing names i
     );
     assert.equal(result.code, 2);
     assert.equal(existsSync(join(dir, 'nowhere')), false);
+  });
+});
+
+const FIFO = process.platform === 'win32' ? 'Windows has no named pipe in the file system' : false;
+
+test('test 260: a named pipe is no regular file: explain names it, and as .lawcheck/verdicts it is file-unreadable, with no call', { skip: FIFO }, async () => {
+  await withSample(async (s) => {
+    execFileSync('mkfifo', [join(s, 'src/core/pipe.ts')]);
+    const explained = await run(s, ['explain', 'src/core/pipe.ts'], { budgetMs: 10_000 });
+    assert.equal(explained.stdout, 'src/core/pipe.ts\n  type:  none: it is no regular file, which has no type\n');
+    assert.equal(explained.code, 0);
+    const checked = await run(s, ['check', '--base', 'main'], { budgetMs: 10_000 });
+    assert.equal(checked.stdout, 'lawcheck: PASS  nothing changed against main\n');
+    assert.equal(checked.code, 0);
+  });
+  await withFake(async (fake) => {
+    await withR(async (r) => {
+      write(r, F_PATH, F);
+      execFileSync('mkfifo', [join(r, '.lawcheck/verdicts')]);
+      for (const args of [['check', '--base', 'main'], ['check', '--review', '--base', 'main']]) {
+        const result = await run(r, args, { env: { LAWCHECK_REVIEWER_ENDPOINT: fake.url }, budgetMs: 10_000 });
+        assert.deepEqual(errorLines(result.stdout), ['.lawcheck/verdicts  error[file-unreadable]  the file cannot be read (it is no regular file)'], args.join(' '));
+        assert.equal(result.code, 2, args.join(' '));
+      }
+      assert.equal(fake.requests.length, 0);
+    });
   });
 });

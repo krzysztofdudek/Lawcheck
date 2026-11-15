@@ -442,6 +442,10 @@ export async function explain(args: Arguments, context: CheckContext, json: bool
       if (code !== 'ENOENT' && code !== 'ENOTDIR') throw error;
     }
     if (stat !== null && stat.isDirectory()) return directory(ctx, path, json);
+    if (stat !== null && !stat.isFile() && !stat.isSymbolicLink()) {
+      const answer = untyped(path, true, 'it is no regular file, which has no type');
+      return json ? documentOf(fileJson(answer)) : fileText(answer);
+    }
     const answer = stat === null ? absent(ctx, path) : existing(ctx, path, stat.isSymbolicLink());
     return json ? documentOf(fileJson(answer)) : fileText(answer);
   });

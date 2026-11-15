@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { readFailure as failureOfRead, readWhole } from './limits.js';
 import { checkFindings } from './prompt.js';
 import { hide } from './keys.js';
 import type { AnswerFinding } from './prompt.js';
@@ -44,7 +45,7 @@ export function verdictLines(text: string): string[] {
 
 function readText(path: string): string | null {
   try {
-    return readFileSync(path, 'utf8');
+    return new TextDecoder('utf-8', { ignoreBOM: true }).decode(readWhole(path, path));
   } catch (error) {
     const code = (error as NodeJS.ErrnoException).code;
     if (code === 'ENOENT' || code === 'ENOTDIR') return null;
@@ -62,7 +63,7 @@ export function readVerdicts(root: string): Set<string> {
   try {
     return new Set(verdictLines(readText(join(root, VERDICTS)) ?? ''));
   } catch (error) {
-    throw new VerdictsUnreadable((error as NodeJS.ErrnoException).code ?? 'an error');
+    throw new VerdictsUnreadable(failureOfRead(error));
   }
 }
 
@@ -80,7 +81,7 @@ function writing<T>(path: string, work: () => T): T {
     return work();
   } catch (error) {
     if (error instanceof Unwritable) throw error;
-    throw new Unwritable(path, (error as NodeJS.ErrnoException).code ?? 'an error');
+    throw new Unwritable(path, failureOfRead(error));
   }
 }
 
