@@ -1,9 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { existsSync, readdirSync, readFileSync, realpathSync } from 'node:fs';
+import { existsSync, realpathSync } from 'node:fs';
 import { setTimeout as sleep } from 'node:timers/promises';
-import { join } from 'node:path';
+import { isAbsolute, join } from 'node:path';
 import { append, check, CLI, D, D_PATH, findingLines, GIT_ENV, lawcheck, NO_CONSOLE, setRule, TEST4, withSample, write } from './helpers.ts';
 
 const CRASH = '.lawcheck/rules/no-console.mjs  error[rule-crashed]';
@@ -175,44 +175,45 @@ test('test 30: lines and line breaks in messages', async () => {
   });
 });
 
-function runnersOf(root: string): number[] {
-  const pids: number[] = [];
-  for (const entry of readdirSync('/proc')) {
-    if (!/^\d+$/.test(entry)) continue;
-    try {
-      if (readFileSync(`/proc/${entry}/cmdline`, 'utf8').split('\0').includes(`--allow-fs-read=${root}`)) pids.push(Number(entry));
-    } catch {
-      // The process ended while the list was read.
-    }
+function alive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
   }
-  return pids;
 }
 
 test('section 3: a rule that spins ends with the tool, whatever ends the tool', async () => {
+  const spin = "export function check() { console.error('runner ' + process.pid); return new Promise(() => setTimeout(() => { while (true) {} }, 100)); }\n";
   for (const signal of ['SIGTERM', 'SIGKILL'] as const) {
-    await withRule('export function check() { while (true) {} }\n', async (s) => {
-      const root = realpathSync(s);
-      const tool = spawn(process.execPath, [CLI, 'check', '--base', 'main'], { cwd: s, env: GIT_ENV, stdio: 'ignore' });
+    await withRule(spin, async (s) => {
+      const tool = spawn(process.execPath, [CLI, 'check', '--base', 'main'], { cwd: s, env: GIT_ENV, stdio: ['ignore', 'ignore', 'pipe'] });
+      let stderr = '';
+      tool.stderr.setEncoding('utf8').on('data', (chunk: string) => (stderr += chunk));
       const closed = new Promise<number | null>((done) => tool.on('close', (code) => done(code)));
-      let pids: number[] = [];
-      for (let i = 0; i < 100 && pids.length === 0; i++) {
+      let pid: number | null = null;
+      for (let i = 0; i < 100 && pid === null; i++) {
         await sleep(100);
-        pids = runnersOf(root);
+        const found = /^runner (\d+)$/m.exec(stderr);
+        if (found !== null) pid = Number(found[1]);
       }
-      assert.equal(pids.length, 1, `${signal}: the runner started`);
+      assert.ok(pid !== null, `${signal}: the runner started`);
+      await sleep(300);
       tool.kill(signal);
       const code = await closed;
-      let left = pids;
-      for (let i = 0; i < 50 && left.length > 0; i++) {
+      let left = alive(pid);
+      for (let i = 0; i < 50 && left; i++) {
         await sleep(100);
-        left = runnersOf(root);
+        left = alive(pid);
       }
       try {
-        assert.deepEqual(left, [], `${signal}: no runner outlives the tool`);
+        assert.equal(left, false, `${signal}: no runner outlives the tool`);
       } finally {
-        for (const pid of left) process.kill(pid, 'SIGKILL');
+        if (left) process.kill(pid, 'SIGKILL');
       }
-      if (signal === 'SIGTERM') assert.equal(code, 2);
+      // On Windows every signal ends a process at once, so the tool cannot answer SIGTERM with its own exit code.
+      if (signal === 'SIGTERM' && process.platform !== 'win32') assert.equal(code, 2);
     });
   }
 });
@@ -252,6 +253,6 @@ test('section 3: the runner takes no flag the tool was started with', async () =
     assert.equal(flags.length, 3, line);
     assert.equal(flags[0], '--permission');
     assert.equal(flags[1], `--allow-fs-read=${realpathSync(s)}`);
-    assert.match(flags[2], /^--allow-fs-read=\//);
+    assert.ok(isAbsolute(flags[2].slice('--allow-fs-read='.length)), flags[2]);
   });
 });
