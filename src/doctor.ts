@@ -250,23 +250,28 @@ export async function runChecks(inputs: Inputs): Promise<Check[]> {
       const rules = plural(count, 'reviewer rule');
       if (config.provider === null) {
         if (inputs.reviewer) {
-          return set('reviewer', 'fail', 'no reviewer is set, so --reviewer has nothing to call', next('set reviewer.provider and reviewer.model in .lawcheck/config.yaml, then run lawcheck doctor --reviewer'));
+          return set('reviewer', 'fail', 'no reviewer is set, so --reviewer has nothing to call', next('ask the user to set reviewer.provider and reviewer.model in .lawcheck/config.yaml, then run lawcheck doctor --reviewer'));
         }
         if (count === 0) return set('reviewer', 'ok', 'no reviewer rule, so no reviewer is needed');
-        return set('reviewer', 'fail', `${rules} and no reviewer set, so their files stay not-reviewed`, next('set reviewer.provider and reviewer.model in .lawcheck/config.yaml, then run lawcheck doctor'));
+        return set('reviewer', 'fail', `${rules} and no reviewer set, so their files stay not-reviewed`, next('ask the user to set reviewer.provider and reviewer.model in .lawcheck/config.yaml, then run lawcheck doctor'));
       }
       if (count === 0 && !inputs.reviewer) return set('reviewer', 'ok', 'no reviewer rule, so no reviewer is needed');
       const provider: Provider = createProvider(config, inputs.env)!;
       const problem = provider.ready();
-      const again = `make ${config.provider} reachable as the message says, then run lawcheck doctor`;
-      if (problem !== null) return set('reviewer', 'fail', `${rules}; ${config.provider} cannot be called: ${problem}`, next(again));
-      if (!inputs.reviewer) return set('reviewer', 'ok', `${rules}; ${config.provider} can be called (lawcheck doctor --reviewer makes one call)`);
+      if (problem !== null) return set('reviewer', 'fail', `${rules}; ${config.provider} cannot be called: ${problem}`, next(`${provider.fix()}, then run lawcheck doctor`));
+      let at = '';
+      if (provider.probe !== undefined) {
+        const probed = await provider.probe();
+        if ('problem' in probed) return set('reviewer', 'fail', `${rules}; ${config.provider} cannot be called: ${probed.problem}`, next(`${probed.fix}, then run lawcheck doctor`));
+        at = ` at ${probed.at}`;
+      }
+      if (!inputs.reviewer) return set('reviewer', 'ok', `${rules}; ${config.provider} can be called${at} (lawcheck doctor --reviewer makes one call)`);
       const asked = await provider.ask(TEST_PROMPT);
-      if ('failure' in asked) return set('reviewer', 'fail', `${rules}; ${config.provider} did not answer a test call: ${hide(asked.failure)}`, next(`${again} --reviewer`));
+      if ('failure' in asked) return set('reviewer', 'fail', `${rules}; ${config.provider} did not answer a test call: ${hide(asked.failure)}`, next(`${asked.fix}, then run lawcheck doctor --reviewer`));
       const checked = checkAnswer(asked.answer, 0);
       if ('problem' in checked || checked.verdict !== 'pass') {
         const what = 'problem' in checked ? 'answered with no verdict' : 'answered fail to a test call that asks for pass';
-        return set('reviewer', 'fail', `${rules}; ${config.provider} ${what}: ${[...hide(asked.answer)].slice(0, 200).join('')}`, next(`${again} --reviewer`));
+        return set('reviewer', 'fail', `${rules}; ${config.provider} ${what}: ${[...hide(asked.answer)].slice(0, 200).join('')}`, next(`check reviewer.model in .lawcheck/config.yaml, or try another model, then run lawcheck doctor --reviewer`));
       }
       set('reviewer', 'ok', `${rules}; ${config.provider} answered a test call`);
     },

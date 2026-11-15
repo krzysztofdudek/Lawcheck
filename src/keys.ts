@@ -26,7 +26,7 @@ export function hidden(text: string, keys: string[]): string {
 }
 
 // The variables a provider reads a key from; their values are hidden in all output, whichever provider is in force.
-export const KEY_VARIABLES = ['LAWCHECK_REVIEWER_KEY', 'ANTHROPIC_API_KEY'];
+export const KEY_VARIABLES = ['LAWCHECK_REVIEWER_KEY', 'ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'GOOGLE_API_KEY'];
 
 let known: string[] = [];
 

@@ -31,6 +31,7 @@
     "tests/unit/cli.test.ts"
   ],
   "src/config.ts": [
+    "tests/acceptance/http-providers.test.ts",
     "tests/acceptance/paths.test.ts",
     "tests/acceptance/reviewer-law.test.ts",
     "tests/unit/config.test.ts"
@@ -41,6 +42,8 @@
   ],
   "src/doctor.ts": [
     "tests/acceptance/doctor.test.ts",
+    "tests/acceptance/http-providers.test.ts",
+    "tests/acceptance/program-providers.test.ts",
     "tests/environments/ci-shapes.test.ts",
     "tests/environments/git-faults.test.ts",
     "tests/environments/refusal.test.ts",
@@ -108,25 +111,62 @@
     "tests/unit/prompt.test.ts"
   ],
   "src/providers/anthropic.ts": [
+    "tests/acceptance/http-providers.test.ts",
     "tests/acceptance/providers.test.ts",
     "tests/unit/providers-anthropic.test.ts"
   ],
   "src/providers/claude-code.ts": [
+    "tests/acceptance/http-providers.test.ts",
     "tests/acceptance/providers.test.ts",
     "tests/unit/providers-claude-code.test.ts"
   ],
+  "src/providers/codex.ts": [
+    "tests/acceptance/program-providers.test.ts",
+    "tests/acceptance/stability.test.ts",
+    "tests/unit/providers-codex.test.ts"
+  ],
+  "src/providers/copilot-cli.ts": [
+    "tests/acceptance/program-providers.test.ts",
+    "tests/acceptance/stability.test.ts",
+    "tests/unit/providers-copilot-cli.test.ts"
+  ],
+  "src/providers/gemini-cli.ts": [
+    "tests/acceptance/program-providers.test.ts",
+    "tests/unit/providers-gemini-cli.test.ts"
+  ],
+  "src/providers/google.ts": [
+    "tests/acceptance/http-providers.test.ts",
+    "tests/unit/providers-google.test.ts"
+  ],
   "src/providers/http.ts": [
+    "tests/acceptance/http-providers.test.ts",
     "tests/acceptance/providers.test.ts",
     "tests/unit/providers-http.test.ts"
   ],
   "src/providers/index.ts": [
+    "tests/acceptance/http-providers.test.ts",
     "tests/acceptance/providers.test.ts",
     "tests/unit/providers-index.test.ts"
   ],
+  "src/providers/ollama.ts": [
+    "tests/acceptance/http-providers.test.ts",
+    "tests/unit/providers-ollama.test.ts"
+  ],
   "src/providers/openai-compatible.ts": [
+    "tests/acceptance/http-providers.test.ts",
     "tests/acceptance/providers.test.ts",
     "tests/acceptance/reviewer.test.ts",
     "tests/unit/providers-openai-compatible.test.ts"
+  ],
+  "src/providers/openai.ts": [
+    "tests/acceptance/http-providers.test.ts",
+    "tests/unit/providers-openai.test.ts"
+  ],
+  "src/providers/program.ts": [
+    "tests/acceptance/http-providers.test.ts",
+    "tests/acceptance/program-providers.test.ts",
+    "tests/acceptance/providers.test.ts",
+    "tests/unit/providers-program.test.ts"
   ],
   "src/readers.ts": [
     "tests/acceptance/languages.test.ts",
@@ -134,6 +174,7 @@
     "tests/unit/readers.test.ts"
   ],
   "src/review.ts": [
+    "tests/acceptance/http-providers.test.ts",
     "tests/acceptance/providers.test.ts",
     "tests/acceptance/reviewer.test.ts",
     "tests/unit/review.test.ts"

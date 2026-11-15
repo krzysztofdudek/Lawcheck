@@ -17,10 +17,10 @@ test('the output: the envelope, raw text, and the failures', () => {
   assert.deepEqual(readOutput(0, null, '{"type":"result","is_error":false,"result":"A"}\n', ''), { answer: 'A' });
   assert.deepEqual(readOutput(0, null, 'plain answer', ''), { answer: 'plain answer' });
   assert.deepEqual(readOutput(0, null, '{"type":"other","result":"A"}', ''), { answer: '{"type":"other","result":"A"}' });
-  assert.deepEqual(readOutput(1, null, '{"type":"result","is_error":true,"result":"Not logged in"}', ''), { failure: 'Not logged in', resend: false });
-  assert.deepEqual(readOutput(0, null, '{"type":"result","is_error":true,"result":"limit"}', ''), { failure: 'limit', resend: false });
-  assert.deepEqual(readOutput(3, null, 'out\n', 'one\nboom\n\n'), { failure: 'boom', resend: false });
-  assert.deepEqual(readOutput(3, null, 'first\nlast\n', ''), { failure: 'last', resend: false });
+  assert.deepEqual(readOutput(1, null, '{"type":"result","is_error":true,"result":"Not logged in"}', ''), { failure: 'Not logged in', resend: false, fix: 'do what claude says, such as signing in or naming a model it has' });
+  assert.deepEqual(readOutput(0, null, '{"type":"result","is_error":true,"result":"limit"}', ''), { failure: 'limit', resend: false, fix: 'do what claude says, such as signing in or naming a model it has' });
+  assert.deepEqual(readOutput(3, null, 'out\n', 'one\nboom\n\n'), { failure: 'boom', resend: false, fix: 'do what claude says, such as signing in or naming a model it has' });
+  assert.deepEqual(readOutput(3, null, 'first\nlast\n', ''), { failure: 'last', resend: false, fix: 'do what claude says, such as signing in or naming a model it has' });
   assert.equal((readOutput(1, null, '', 'x'.repeat(400)) as { failure: string }).failure.length, 300);
   assert.ok('failure' in readOutput(null, 'SIGTERM', '', ''));
 });

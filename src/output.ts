@@ -125,7 +125,7 @@ function fixedNext(error: ErrorItem, command: string): string {
     case 'config-invalid':
       return 'fix .lawcheck/config.yaml, then run lawcheck check';
     case 'rule-missing-file':
-      return 'write the rule files the law names, or take their rules out of the law, then run lawcheck check';
+      return 'ask the user to write the rule files the law names or to take their rules out of the law, then run lawcheck check';
     case 'rule-file-without-entry':
       return `add a rule for ${error.file} to the law, or move the file to .lawcheck/rules/lib/, then run lawcheck check`;
     case 'file-unreadable':

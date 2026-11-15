@@ -14,12 +14,12 @@ The file is a mapping with two keys, `reviewer` and `runner`. An empty file, or 
 
 | Key | Value | Default |
 |---|---|---|
-| `provider` | `openai-compatible`, `anthropic` or `claude-code` | none: no reviewer |
-| `model` | a non-empty string without a line break | required for `openai-compatible` and `anthropic`; none for `claude-code`, which then runs its own default |
-| `timeout` | an integer of seconds, from 1 to 86400 | 60; 300 for `claude-code` |
-| `temperature` | a number, at least 0 | 0; `claude-code` takes none |
+| `provider` | `anthropic`, `openai`, `google`, `openai-compatible`, `ollama`, `claude-code`, `codex`, `gemini-cli` or `copilot-cli` (`lawcheck docs providers`) | none: no reviewer |
+| `model` | a non-empty string of at most 256 characters with no control character | required for the five HTTP providers; none for `claude-code`, `codex`, `gemini-cli` and `copilot-cli`, which then run their own default |
+| `timeout` | an integer of seconds, from 1 to 86400 | 60; 300 for `ollama` and the four programs |
+| `temperature` | a number, at least 0 | 0; the four programs take none |
 | `max_chars` | an integer, at least 1: the largest prompt sent, in characters | 50000 |
-| `parallel` | an integer, at least 1: requests in flight at once | 4; 1 for `claude-code` |
+| `parallel` | an integer, at least 1: requests in flight at once | 4; 1 for the four programs |
 | `max_calls` | an integer, at least 0: the most requests one run sends | 100 |
 
 Every key in one file:
@@ -46,7 +46,7 @@ reviewer:
 
 ## What is refused
 
-Any other key, or a value outside the table, is `config-invalid`, exit 2, at its line; the message names the nearest known key. Four cases have a message of their own.
+Any other key, or a value outside the table, is `config-invalid`, exit 2, at its line; the message names the nearest known key. Three cases have a message of their own.
 
 A key in the file. A key never goes into a committed file; it comes from the environment (`lawcheck docs providers`):
 
@@ -64,18 +64,11 @@ reviewer:
   endpoint: https://example.com/v1
 ```
 
-A provider that this version does not have, such as `openai`, `google`, `ollama`, `codex`, `gemini-cli` or `copilot-cli`:
+A temperature under one of the four programs, which runs at its own:
 
 ```text
 reviewer:
-  provider: ollama
-```
-
-A temperature under `claude-code`, which runs at its own:
-
-```text
-reviewer:
-  provider: claude-code
+  provider: codex
   temperature: 0
 ```
 

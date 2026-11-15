@@ -70,7 +70,7 @@ for (const key of ['findings', 'k"e\\y-1x']) {
     await withR(async (r, dir) => {
       write(r, '.lawcheck/config.yaml', 'reviewer:\n  provider: claude-code\n');
       write(r, F_PATH, F);
-      const env = { PATH: pathWith(writeFakeClaude(`${dir}/bin`)), FAKE_CLAUDE_MODE: 'echo-answer', LAWCHECK_REVIEWER_KEY: key, ANTHROPIC_API_KEY: 'zz-other-key-9a1b' };
+      const env = { PATH: pathWith(writeFakeClaude(`${dir}/bin`)), FAKE_CLAUDE_MODE: 'echo-answer', ANTHROPIC_AUTH_TOKEN: key, ANTHROPIC_API_KEY: 'zz-other-key-9a1b' };
       const run = await lawcheck(r, ['check', '--review', '--base', 'main', '--json'], env);
       assert.equal(run.code, 1, run.stdout);
       const messages = JSON.parse(run.stdout).findings.filter((f: { code: string }) => f.code === 'clear-errors').map((f: { message: string }) => f.message);

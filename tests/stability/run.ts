@@ -47,13 +47,16 @@ function present(name: string): string | null {
   return value === undefined || value === '' ? null : value;
 }
 
+const PROGRAMS = ['claude-code', 'codex', 'copilot-cli'];
 const provider = present('LAWCHECK_STABILITY_PROVIDER') ?? 'openai-compatible';
-if (provider !== 'openai-compatible' && provider !== 'claude-code') stop(2, 'LAWCHECK_STABILITY_PROVIDER takes openai-compatible or claude-code');
-const endpoint = provider === 'openai-compatible' ? present('LAWCHECK_REVIEWER_ENDPOINT') : null;
+if (provider !== 'openai-compatible' && provider !== 'ollama' && !PROGRAMS.includes(provider)) {
+  stop(2, 'LAWCHECK_STABILITY_PROVIDER takes openai-compatible, ollama, claude-code, codex or copilot-cli');
+}
+const endpoint = PROGRAMS.includes(provider) ? null : present('LAWCHECK_REVIEWER_ENDPOINT');
 const model = present('LAWCHECK_STABILITY_MODEL');
 const key = present('LAWCHECK_REVIEWER_KEY');
-if (provider === 'openai-compatible') {
-  const missing = [endpoint === null ? 'LAWCHECK_REVIEWER_ENDPOINT' : null, model === null ? 'LAWCHECK_STABILITY_MODEL' : null].filter(Boolean);
+if (!PROGRAMS.includes(provider)) {
+  const missing = [endpoint === null && provider === 'openai-compatible' ? 'LAWCHECK_REVIEWER_ENDPOINT' : null, model === null ? 'LAWCHECK_STABILITY_MODEL' : null].filter(Boolean);
   if (missing.length > 0) stop(2, `set ${missing.join(' and ')}`);
 }
 const note = present('LAWCHECK_STABILITY_NOTE');
@@ -181,7 +184,7 @@ const result = {
   verdict_format: 'lawcheck-verdict/2',
   provider,
   model,
-  temperature_sent: provider === 'claude-code' ? null : 0,
+  temperature_sent: PROGRAMS.includes(provider) ? null : 0,
   note,
   runs: RUNS,
   agreement: { all: agreement(groups.all), clear: agreement(groups.clear), borderline: agreement(groups.borderline) },

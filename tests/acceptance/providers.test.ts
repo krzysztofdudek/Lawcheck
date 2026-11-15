@@ -3,10 +3,10 @@ import { fakeWrites, platformSkip } from '../harness/tool.ts';
 import { CLAUDE_TIMEOUT_RUN_MS, FAKE_STARTED_MS, KILLED_GRACE_MS, LEFTOVER_GRACE_MS } from '../numbers.ts';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, rmSync, symlinkSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { anthropic, defaultAnswer, openai, startFake, withFake, writeFakeClaude } from './fake-reviewer.ts';
-import { alive, append, F, F_PATH, findingLines, pathWith, programDir, PROMPT_F, read, REVIEWER_CONFIG, REVIEWER_LAW, run, SECOND, startLawcheck, withR, write } from './helpers.ts';
+import { anthropic, defaultAnswer, gitAlone, openai, startFake, withFake, writeFakeClaude } from './fake-reviewer.ts';
+import { alive, append, F, F_PATH, findingLines, pathWith, PROMPT_F, read, REVIEWER_CONFIG, REVIEWER_LAW, run, SECOND, startLawcheck, withR, write } from './helpers.ts';
 
 const UNREACHABLE = 'src/core/refund.ts  error[reviewer-unreachable]  ';
 
@@ -52,7 +52,7 @@ test('test 57: what the HTTP reviewer answers', async () => {
         assert.equal(result.code, 2);
         const line = errorLine(result.stdout, UNREACHABLE);
         assert.ok(line?.includes('401') && line.includes('bad key'), result.stdout);
-        assert.ok(result.stdout.includes('\nnext: check the reviewer key in the environment, then run the same command again'), result.stdout);
+        assert.ok(result.stdout.includes('\nnext: check the key in LAWCHECK_REVIEWER_KEY, then run the same command again'), result.stdout);
         assert.equal(fake.requests.length, 1);
       });
     },
@@ -276,7 +276,7 @@ test('test 63: no reviewer set', async () => {
     await withR(async (r) => {
       write(r, F_PATH, F);
       const plain = await run(r, fake, ['--base', 'main']);
-      assert.ok(plain.stdout.endsWith('\nnext: set reviewer.provider and reviewer.model in .lawcheck/config.yaml, then run lawcheck check --review --base main\n'), plain.stdout);
+      assert.ok(plain.stdout.endsWith('\nnext: ask the user to set reviewer.provider and reviewer.model in .lawcheck/config.yaml, then run lawcheck check --review --base main\n'), plain.stdout);
       assert.equal(plain.code, 1);
       const reviewed = await run(r, fake, ['--review', '--base', 'main']);
       assert.ok(reviewed.stdout.split('\n').some((line) => line.startsWith('error[reviewer-not-configured]  ')), reviewed.stdout);
@@ -389,15 +389,6 @@ test('test 65: anthropic', async () => {
 const CLAUDE_ARGS = ['--print', '--output-format', 'json', '--model', 'test-model', '--tools', '', '--disable-slash-commands', '--setting-sources', '', '--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}', '--no-session-persistence'];
 
 // A folder holding git and nothing else, so that no claude installed beside git is found: a link to git where links work, and git's own folder on Windows, where git needs its folder and claude installs elsewhere.
-function gitAlone(dir: string): string {
-  const gitDir = programDir('git');
-  if (process.platform === 'win32') return gitDir;
-  const bin = join(dir, 'git-alone');
-  mkdirSync(bin);
-  symlinkSync(join(gitDir, 'git'), join(bin, 'git'));
-  return bin;
-}
-
 function claudeEnv(dir: string, mode: string, extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
   const bin = writeFakeClaude(join(dir, 'bin'));
   fakeWrites(dir, ['record.json']);
@@ -456,7 +447,7 @@ test('test 66: claude-code', async () => {
   await withR(async (r, dir) => {
     write(r, F_PATH, F);
     const result = await run(r, null, ['--review', '--base', 'main'], { PATH: gitAlone(dir) });
-    assert.ok(result.stdout.split('\n').some((line) => line.startsWith('error[reviewer-unreachable]  ')), result.stdout);
+    assert.ok(result.stdout.split('\n').includes('error[reviewer-unreachable]  claude-code cannot be called: the program claude is not on PATH'), result.stdout);
     assert.equal(result.code, 2);
   }, config(CLAUDE_CONFIG));
 });
@@ -529,7 +520,7 @@ test('test 92: a connection that gave no answer names its cause', async () => {
     write(r, F_PATH, F);
     const result = await run(r, null, ['--review', '--base', 'main'], { LAWCHECK_REVIEWER_ENDPOINT: 'http://127.0.0.1:9/v1' });
     const errors = result.stdout.split('\n').filter((line) => /(^|  )error\[[a-z0-9-]+\]  /.test(line));
-    assert.deepEqual(errors, ['src/core/refund.ts  error[reviewer-unreachable]  clear-errors: the connection to the reviewer gave no answer (bad port)']);
+    assert.deepEqual(errors, ['src/core/refund.ts  error[reviewer-unreachable]  clear-errors: http://127.0.0.1:9/v1 names a port that fetch refuses to call (bad port)']);
     assert.doesNotMatch(result.stdout + result.stderr, /TypeError/);
     assert.equal(result.code, 2);
   });

@@ -26,18 +26,28 @@ test('the defaults and every key', () => {
     parseConfig('reviewer:\n  provider: anthropic\n  model: m\n  timeout: 86400\n  temperature: 0.5\n  max_chars: 1\n  parallel: 9\n  max_calls: 0\n'),
     { config: { provider: 'anthropic', model: 'm', timeout: 86400, temperature: 0.5, maxChars: 1, parallel: 9, maxCalls: 0 } },
   );
+  for (const provider of ['codex', 'gemini-cli', 'copilot-cli'] as const) {
+    assert.deepEqual(parseConfig(`reviewer:\n  provider: ${provider}\n`), {
+      config: { ...DEFAULT_CONFIG, provider, timeout: 300, parallel: 1, temperature: null },
+    });
+  }
+  assert.deepEqual(parseConfig('reviewer:\n  provider: ollama\n  model: m\n'), { config: { ...DEFAULT_CONFIG, provider: 'ollama', model: 'm', timeout: 300 } });
+  assert.deepEqual(parseConfig(`reviewer:\n  provider: codex\n  model: ${'m'.repeat(256)}\n`), { config: { ...DEFAULT_CONFIG, provider: 'codex', model: 'm'.repeat(256), timeout: 300, parallel: 1, temperature: null } });
+  for (const provider of ['openai', 'google'] as const) {
+    assert.deepEqual(parseConfig(`reviewer:\n  provider: ${provider}\n  model: m\n`), { config: { ...DEFAULT_CONFIG, provider, model: 'm' } });
+  }
   assert.deepEqual(parseConfig('reviewer:\n  max_calls: 3\n'), { config: { ...DEFAULT_CONFIG, maxCalls: 3 } });
 });
 
 test('each config-invalid message', () => {
   const cases: [string, number, RegExp][] = [
-    [BASE.replace('openai-compatible', 'codex'), 2, /^the provider 'codex' is not in this version; it has openai-compatible, anthropic, claude-code$/],
-    [BASE.replace('openai-compatible', 'copilot-cli'), 2, /not in this version/],
+    [BASE.replace('openai-compatible', 'gemini'), 2, /^the provider 'gemini' is unknown; this version has anthropic, openai, google, openai-compatible, ollama, claude-code, codex, gemini-cli, copilot-cli$/],
+    [BASE.replace('openai-compatible', 'codx'), 2, /^the provider 'codx' is unknown \(did you mean 'codex'\?\)/],
     [BASE.replace('openai-compatible', 'claude-cod'), 2, /^the provider 'claude-cod' is unknown \(did you mean 'claude-code'\?\)/],
     [BASE.replace('openai-compatible', 'mistral'), 2, /^the provider 'mistral' is unknown; this version has/],
     [BASE.replace('openai-compatible', '12'), 2, /provider takes a string, not 12/],
     [BASE.replace('reviewer:', 'reviewr:'), 1, /^unknown key 'reviewr' at the top of the config \(did you mean 'reviewer'\?\)$/],
-    [BASE + 'keys: { anthropic: x }\n', 4, /^a key never goes into a committed file; set LAWCHECK_REVIEWER_KEY, or ANTHROPIC_API_KEY for anthropic, in the environment$/],
+    [BASE + 'keys: { anthropic: x }\n', 4, /^a key never goes into a committed file; set LAWCHECK_REVIEWER_KEY, or the provider's own ANTHROPIC_API_KEY, OPENAI_API_KEY or GOOGLE_API_KEY, in the environment$/],
     [BASE + '  keys: x\n', 4, /^a key never goes into a committed file/],
     [BASE + '  endpoint: http://localhost\n', 4, /^reviewer\.endpoint is not read: the address comes from the variable LAWCHECK_REVIEWER_ENDPOINT$/],
     [BASE + '  modle: x\n', 4, /^unknown key 'modle' in 'reviewer' \(did you mean 'model'\?\)$/],
@@ -55,8 +65,16 @@ test('each config-invalid message', () => {
     ['reviewer:\n  provider: claude-code\n  temperature: 0\n', 3, /takes no temperature/],
     ['reviewer:\n  provider: openai-compatible\n', 1, /^the provider 'openai-compatible' needs reviewer\.model$/],
     ['reviewer:\n  provider: anthropic\n', 1, /^the provider 'anthropic' needs reviewer\.model$/],
-    [BASE.replace('test-model', '""'), 3, /^reviewer\.model takes a non-empty string without a line break/],
-    [BASE.replace('test-model', '"a\\nb"'), 3, /without a line break/],
+    ['reviewer:\n  provider: openai\n', 1, /^the provider 'openai' needs reviewer\.model$/],
+    ['reviewer:\n  provider: google\n', 1, /^the provider 'google' needs reviewer\.model$/],
+    ['reviewer:\n  provider: ollama\n', 1, /^the provider 'ollama' needs reviewer\.model$/],
+    ['reviewer:\n  provider: codex\n  temperature: 0\n', 3, /^the provider codex takes no temperature: the codex program runs at its own$/],
+    ['reviewer:\n  provider: gemini-cli\n  temperature: 0\n', 3, /^the provider gemini-cli takes no temperature: the gemini program runs at its own$/],
+    ['reviewer:\n  provider: copilot-cli\n  temperature: 0\n', 3, /^the provider copilot-cli takes no temperature: the copilot program runs at its own$/],
+    [BASE.replace('test-model', '""'), 3, /^reviewer\.model takes a non-empty string of at most 256 characters with no control character, not the string ""$/],
+    [BASE.replace('test-model', '"a\\nb"'), 3, /with no control character, not the string "a\\nb"$/],
+    [BASE.replace('test-model', '"a\\u0000b"'), 3, /^reviewer\.model takes a non-empty string of at most 256 characters with no control character, not the string "a\\u0000b"$/],
+    [BASE.replace('test-model', 'm'.repeat(257)), 3, /^reviewer\.model takes a non-empty string of at most 256 characters with no control character, not a string of 257 characters$/],
     ['reviewer:\n', 1, /^'reviewer' takes a mapping, not nothing$/],
     ['reviewer: [1]\n', 1, /'reviewer' takes a mapping, not a sequence/],
     ['- reviewer\n', 1, /^the config takes a mapping, not a sequence$/],

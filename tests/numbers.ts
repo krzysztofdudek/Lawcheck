@@ -35,6 +35,15 @@ export const HOOK_STOP_DEADLINE_MS = 150_000;
 export const HOOK_SIGTERM_AFTER_MS = 2_000;
 export const STOPPED_HOOK_ENDS_MS = 10_000;
 
+// spec/reviewer-slice.md, section 6: a call ends at reviewer.timeout without waiting for the kill grace or a second full timeout. Tests 406 to 408 run with a timeout of 1 second, the shared list and call with one of 2, test 411 with one of 3; a timeout of 1 second of an HTTP provider in test 403, and a program that ended while a child holds its output, ended 2 seconds later.
+export const PROGRAM_TIMEOUT_RUN_MS = 5_000;
+export const SHARED_TIMEOUT_RUN_MS = 6_000;
+export const RESEND_TIMEOUT_RUN_MS = 5_000;
+export const HTTP_TIMEOUT_RUN_MS = 10_000;
+export const HELD_OUTPUT_RUN_MS = 10_000;
+// spec/reviewer-slice.md, section 6: the resend after a 429 waits 2 seconds.
+export const RESEND_WAIT_MS = 2_000;
+
 // Rule 7 of section 16 of the test design: a time budget is at least 20 times the measured time.
 export const SLOW_MARGIN = 20;
 
@@ -121,6 +130,22 @@ export const SLOW_TESTS: Record<string, Slow> = {
   'tests/acceptance/try.test.ts > test 125: what stops a reviewer rule before the first call': { fixed: 0, measured: { win32: 6_932 } },
   // A run of the tool per case.
   'tests/acceptance/uses.test.ts > test 87: may_use values and reserved ids are law-invalid': { fixed: 0, measured: { win32: 8_493 } },
+  // A run of the tool per case, and one 429 answered after 2 seconds (spec/reviewer-slice.md, section 6).
+  'tests/acceptance/http-providers.test.ts > test 403: what openai answers': { fixed: 2_000, measured: { linux: 5_508, darwin: 12_768, win32: 15_075 } },
+  'tests/acceptance/http-providers.test.ts > test 403: what google answers': { fixed: 2_000, measured: { linux: 5_682, darwin: 13_523, win32: 12_891 } },
+  'tests/acceptance/http-providers.test.ts > test 403: what ollama answers': { fixed: 2_000, measured: { linux: 6_514, darwin: 10_669, win32: 12_815 } },
+  // Four runs of the tool per HTTP provider and two per program.
+  'tests/acceptance/http-providers.test.ts > test 404: the key canary': { fixed: 0, measured: { darwin: 18_425, win32: 27_263 } },
+  // A run of the tool per provider and per program.
+  'tests/acceptance/http-providers.test.ts > test 405: a key under a provider name goes to that provider alone': { fixed: 0, measured: { darwin: 5_010, win32: 7_929 } },
+  // A run of the tool per case, each starting the fake program through cmd.exe on Windows.
+  'tests/acceptance/program-providers.test.ts > test 406: codex': { fixed: 0, measured: { darwin: 11_854, win32: 64_931 } },
+  'tests/acceptance/program-providers.test.ts > test 407: gemini-cli': { fixed: 0, measured: { linux: 5_194, darwin: 12_728, win32: 63_443 } },
+  'tests/acceptance/program-providers.test.ts > test 408: copilot-cli': { fixed: 0, measured: { linux: 6_455, darwin: 12_112, win32: 86_831 } },
+  // STABILITY_PROVIDER_RUNS runs of 30 calls through each fake, a process per call of a program.
+  'tests/acceptance/stability.test.ts > test 410: the measurement through ollama, codex and copilot-cli': { fixed: 0, measured: { win32: 29_358 } },
+  // A 429 after 2.5 seconds, then a dropped connection after 2.5 seconds and a resend held to the 0.5 seconds left of a timeout of 3 (spec/reviewer-slice.md, test 411).
+  'tests/acceptance/http-providers.test.ts > test 411: the timeout bounds a request and its resend': { fixed: 5_500, measured: { linux: 5_769, darwin: 6_875, win32: 7_131 } },
   // Two leftovers, each looked for during LEFTOVER_GRACE_MS.
   // A run of the tool per case.
   "tests/security/output-sources.test.ts > I-out-1: a reviewer message cannot forge a line, in the run that asked and from the cache afterwards": { fixed: 0, measured: { win32: 4_545 } },
@@ -189,6 +214,9 @@ export const SLOW_TESTS: Record<string, Slow> = {
 
 };
 
+// Test 410 proves that the script takes ollama, codex and copilot-cli, which two runs, the fewest it accepts, show.
+export const STABILITY_PROVIDER_RUNS = 2;
+
 // On Windows each call of the fake claude starts cmd.exe and node, so ten runs of 300 calls took 117 s there; two runs, the fewest that give a pair of runs to compare, prove the same promise of test 76.
 export const STABILITY_RUNS: Record<System, number> = { linux: 10, darwin: 10, win32: 2 };
 
@@ -241,6 +269,13 @@ export const stronger: Record<string, 'higher' | 'lower' | 'fixed'> = {
   LIVE_SAME_SHARE: 'higher',
   LIVE_FAIL_SHARE: 'higher',
   LIVE_RUN_BUDGET_MS: 'lower',
+  PROGRAM_TIMEOUT_RUN_MS: 'lower',
+  SHARED_TIMEOUT_RUN_MS: 'lower',
+  RESEND_TIMEOUT_RUN_MS: 'lower',
+  HTTP_TIMEOUT_RUN_MS: 'lower',
+  HELD_OUTPUT_RUN_MS: 'lower',
+  RESEND_WAIT_MS: 'fixed',
+  STABILITY_PROVIDER_RUNS: 'higher',
 };
 
 export function budgetNamed(key: string): number {
