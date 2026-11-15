@@ -10,7 +10,7 @@ import { skipReason } from '../harness/skips.ts';
 import * as childProcess from 'node:child_process';
 import { rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { CLI, CouldNotRun, expectBroken, fakeWrites, HOOK, PLATFORM_SKIPS, platformSkip, ROOT, startHook, startProgram, startShell, startTool, testFolder, unpackTarball } from '../harness/tool.ts';
+import { CLI, CouldNotRun, withoutTypeStrippingWarning, expectBroken, fakeWrites, HOOK, PLATFORM_SKIPS, platformSkip, ROOT, startHook, startProgram, startShell, startTool, testFolder, unpackTarball } from '../harness/tool.ts';
 import { promiseOf } from '../harness/promises.ts';
 import type { Expect, Shell } from '../harness/tool.ts';
 
@@ -306,7 +306,7 @@ function nodeTest(dir: string, name: string, body: string): { code: number | nul
   // node:test marks its own child processes with NODE_TEST_CONTEXT, and a test file run under that mark does not run tests of its own.
   delete env.NODE_TEST_CONTEXT;
   const result = spawnSync(process.execPath, ['--test', `--test-reporter=${reporter}`, '--test-reporter-destination=stdout', file], { cwd: dir, env, encoding: 'utf8' });
-  return { code: result.status, out: result.stdout + result.stderr };
+  return { code: result.status, out: result.stdout + withoutTypeStrippingWarning(result.stderr) };
 }
 
 test('harness-count: a test that starts the tool and reads none of its outputs fails', async () => {
@@ -484,4 +484,12 @@ test('harness-N: each harness invariant has its promise text for the reporter', 
     const promised = promiseOf(id);
     assert.ok(promised !== null && promised.text.length > 20, id);
   }
+});
+
+test('harness: the type stripping warning of Node 24.0 is taken out of the output of the suite\'s own programs, and nothing else', () => {
+  const warning = '(node:42) ExperimentalWarning: Type Stripping is an experimental feature and might change at any time\n(Use `node --trace-warnings ...` to show where the warning was created)\n';
+  assert.equal(withoutTypeStrippingWarning(`${warning}agent-trial: claude is not on the PATH\n`), 'agent-trial: claude is not on the PATH\n');
+  const other = '(node:42) ExperimentalWarning: The Fetch API is an experimental feature\n(Use `node --trace-warnings ...` to show where the warning was created)\n';
+  assert.equal(withoutTypeStrippingWarning(other), other);
+  assert.equal(withoutTypeStrippingWarning('a\n'), 'a\n');
 });
