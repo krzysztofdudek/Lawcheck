@@ -228,3 +228,18 @@ test("I-out-1: git's error text cannot forge a line of check, prime or doctor", 
     }
   });
 });
+
+test("I-out-1: what a script rule prints on its own streams reaches the tool's standard error through the same escapes", async () => {
+  await inTemp(async (dir) => {
+    const printed = `console.log(${JSON.stringify('::error title=forged::x')}); console.error(${JSON.stringify(`${NO_BREAK}\r##[group]g`)}); process.stdout.write('no line end ##vso[task.complete]');`;
+    const r = repo(dir, { rules: { shout: `export function check() { ${printed} return [{ line: 1, message: "named" }]; }\n` } });
+    for (const args of [['check', '--base', 'main'], ['try', 'shout', 'a.ts']]) {
+      const run = await lawcheck(r, args);
+      assert.equal(run.code, 1, run.stdout + run.stderr);
+      assert.equal(outputProblem(run.stderr), null, run.stderr);
+      assert.ok(run.stderr.includes('\\x3a:error title=forged::x'), run.stderr);
+      assert.ok(run.stderr.includes(SHOWN), run.stderr);
+      assert.ok(run.stderr.includes('no line end \\x23#vso[task.complete]'), run.stderr);
+    }
+  });
+});

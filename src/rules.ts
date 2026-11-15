@@ -7,6 +7,8 @@ import { realpathSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import type { TypeDef } from './law.js';
 import { killTree } from './programs.js';
+import { safeText } from './output.js';
+import type { Readable } from 'node:stream';
 
 export interface RuleFile {
   path: string;
@@ -105,6 +107,23 @@ export function linksOut(root: string, links: string[]): { path: string; target:
   return out;
 }
 
+// What a rule prints goes to the tool's standard error a line at a time, through the escapes of every text output.
+function relay(stream: Readable | null): void {
+  if (stream === null) return;
+  let pending = '';
+  stream.setEncoding('utf8');
+  stream.on('data', (chunk: string) => {
+    pending += chunk;
+    const end = pending.lastIndexOf('\n');
+    if (end < 0) return;
+    process.stderr.write(safeText(pending.slice(0, end)) + '\n');
+    pending = pending.slice(end + 1);
+  });
+  stream.on('end', () => {
+    if (pending !== '') process.stderr.write(safeText(pending) + '\n');
+  });
+}
+
 export interface RawFinding {
   rule: string;
   file: string;
@@ -159,8 +178,10 @@ export function runRule(run: RuleRun): Promise<RuleOutcome> {
       env: {},
       cwd: run.root,
       serialization: 'advanced',
-      stdio: ['ignore', 2, 2, 'ipc'],
+      stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
     });
+    relay(child.stdout);
+    relay(child.stderr);
     watch(child);
     let settled = false;
     let timer: NodeJS.Timeout | undefined;

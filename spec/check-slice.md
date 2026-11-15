@@ -165,7 +165,7 @@ export function check({ files }) {
 | `env` | `{}`. No variable of the caller reaches the rule, `NODE_OPTIONS` included |
 | `cwd` | the root |
 | `serialization` | `'advanced'` |
-| `stdio` | no standard input; what the rule prints, on either stream, goes to the tool's standard error |
+| `stdio` | no standard input; what the rule prints, on either stream, goes to the tool's standard error a line at a time, with the escapes of section 6 for text the tool does not own |
 
 The tool sends the type of every file and the path of the rule file. The runner imports the rule file and answers. The tool then sends one call at a time, and the runner answers each with what `check` returned. After the last answer the tool kills the runner, and whatever the rule left running ends with it. When the tool ends in any other way, a signal that kills it included, its runners end too: a small guard process that the tool starts kills those still alive. A signal that the tool can catch ends it as `internal`. The tool allows 30 seconds for the load and 30 seconds for each call; past that it kills the runner.
 
