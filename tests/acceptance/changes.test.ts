@@ -215,6 +215,7 @@ test('section 4: every git command runs with GIT_OPTIONAL_LOCKS=0, in the order 
       'rev-parse --verify --quiet HEAD^{commit}',
       'rev-parse --verify --quiet --end-of-options main^{commit}',
       'merge-base HEAD <sha>',
+      'rev-parse --git-path index',
       'diff --no-ext-diff --no-textconv --ignore-submodules=all -z --name-only --no-renames --relative <sha> --',
       'ls-files -z --others --exclude-standard',
       'rev-parse --show-toplevel',

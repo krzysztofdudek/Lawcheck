@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { chmodSync, mkdirSync, readdirSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { append, git, inTemp, lawcheck, makeSample } from '../acceptance/helpers.ts';
 
 const HOOKS = ['pre-commit', 'post-index-change', 'reference-transaction', 'post-checkout', 'fsmonitor-watchman', 'pre-auto-gc', 'post-rewrite'];
@@ -42,13 +42,7 @@ function arm(repo: string, dir: string): string {
 function stale(repo: string, markers: string): void {
   const past = new Date(Date.now() - 3600_000);
   for (const path of git(repo, 'ls-files').split('\n').filter(Boolean)) utimesSync(join(repo, path), past, past);
-  lockIndex(repo);
   clear(markers);
-}
-
-// git diff writes the index again when the times of its files no longer match, whatever GIT_OPTIONAL_LOCKS says, a defect outside these tests; a lock in place keeps the index as it was, and git still reads each file through its filters.
-function lockIndex(repo: string): void {
-  writeFileSync(resolve(repo, git(repo, 'rev-parse', '--git-path', 'index.lock').trim()), '');
 }
 
 function clear(markers: string): void {
@@ -145,7 +139,6 @@ test('S5-14: a submodule whose own config names a filter starts nothing during c
     git(inner, 'config', 'filter.mark.clean', marker(join(dir, 'scripts-sub'), markers, 'submodule-clean'));
     writeFileSync(join(inner, 'a.ts'), 'export const a = 2;\n');
     stale(inner, markers);
-    lockIndex(s);
     writeFileSync(join(s, 'src/core/discount.ts'), "console.log('d');\n");
     for (const args of [['check', '--base', 'main'], ['explain', 'libs/sub/a.ts'], ['doctor']]) {
       const run = await lawcheck(s, args);
@@ -154,5 +147,17 @@ test('S5-14: a submodule whose own config names a filter starts nothing during c
     }
     git(inner, 'status', '--porcelain');
     assert.deepEqual(readdirSync(markers), ['submodule-clean'], 'the control: git itself runs the filter of the submodule');
+  });
+});
+
+test('harness-7: check leaves the index as it was when the times of its files no longer match it', async () => {
+  await inTemp(async (dir) => {
+    const s = makeSample(dir);
+    writeFileSync(join(s, 'src/core/discount.ts'), "console.log('d');\n");
+    const past = new Date(Date.now() - 3600_000);
+    for (const path of git(s, 'ls-files').split('\n').filter(Boolean)) utimesSync(join(s, path), past, past);
+    const run = await lawcheck(s, ['check', '--base', 'main']);
+    assert.equal(run.code, 1, run.stdout);
+    assert.ok(run.stdout.includes('src/core/discount.ts:1  error[no-console]'), run.stdout);
   });
 });

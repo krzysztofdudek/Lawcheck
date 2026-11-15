@@ -1,7 +1,7 @@
 import { spawnSync } from 'node:child_process';
-import { lstatSync } from 'node:fs';
-import { devNull } from 'node:os';
-import { join } from 'node:path';
+import { copyFileSync, existsSync, lstatSync, mkdtempSync, rmSync } from 'node:fs';
+import { devNull, tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 import { findProgram } from './programs.js';
 
 export class NoGit extends Error {}
@@ -55,13 +55,13 @@ function startsNothing(program: string, cwd: string): NodeJS.ProcessEnv {
 
 let gitProgram: string | null | undefined;
 
-export function git(root: string, args: string[]): GitResult {
+export function git(root: string, args: string[], extra: NodeJS.ProcessEnv = {}): GitResult {
   // git by its path on PATH, so no relative entry and no current folder can put the repository's own git in its place; Windows starts git.exe alone.
   gitProgram ??= findProgram('git', { ...Object.fromEntries(Object.entries(process.env).filter(([name]) => name.toUpperCase() !== 'PATHEXT')), PATHEXT: '.EXE' });
   if (gitProgram === null) throw new NoGit('git cannot be started: it is not on the PATH');
   const result = spawnSync(gitProgram, args, {
     cwd: root,
-    env: startsNothing(gitProgram, root),
+    env: { ...startsNothing(gitProgram, root), ...extra },
     maxBuffer: 1 << 30,
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -155,9 +155,25 @@ export function mergeBase(root: string, commit: string): string | null {
   throw failed(args, result);
 }
 
+// git diff writes the index again when the times of its files no longer match it, whatever GIT_OPTIONAL_LOCKS says, so the change is read through a copy of the index.
+function onIndexCopy<T>(root: string, read: (env: NodeJS.ProcessEnv) => T): T {
+  const pathArgs = ['rev-parse', '--git-path', 'index'];
+  const found = git(root, pathArgs);
+  if (found.status !== 0) throw failed(pathArgs, found);
+  const resolved = resolve(root, loose.decode(found.stdout).replace(/\r?\n$/, ''));
+  if (!existsSync(resolved)) return read({});
+  const folder = mkdtempSync(join(tmpdir(), 'lawcheck-index-'));
+  try {
+    copyFileSync(resolved, join(folder, 'index'));
+    return read({ GIT_INDEX_FILE: join(folder, 'index') });
+  } finally {
+    rmSync(folder, { recursive: true, force: true });
+  }
+}
+
 export function changedPaths(root: string, base: string): string[] {
   const diffArgs = ['diff', '--no-ext-diff', '--no-textconv', '--ignore-submodules=all', '-z', '--name-only', '--no-renames', '--relative', base, '--'];
-  const diff = git(root, diffArgs);
+  const diff = onIndexCopy(root, (env) => git(root, diffArgs, env));
   if (diff.status !== 0) throw failed(diffArgs, diff);
   const othersArgs = ['ls-files', '-z', '--others', '--exclude-standard'];
   const others = git(root, othersArgs);
