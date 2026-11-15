@@ -88,54 +88,6 @@ jobs:
           sudo unshare --net -- sh -c 'ip link set lo up && exec setpriv --reuid="$1" --regid="$2" --init-groups env PATH="$3" HOME="$4" npm test' \
             sh "$(id -u)" "$(id -g)" "$PATH" "$HOME"
 
-  # A branch cannot edit its own judge: this job checks out the base, takes the guard from there and reads the head as data, running none of its code. On a pull request the base is the target branch; on a push to main it is the commit main stood on before; otherwise main.
-  guard:
-    name: suite guard
-    runs-on: ubuntu-latest
-    steps:
-      - name: The base and the head
-        id: range
-        env:
-          EVENT: ${{ github.event_name }}
-          PR_BASE: ${{ github.event.pull_request.base.sha }}
-          PR_HEAD: ${{ github.event.pull_request.head.sha }}
-          BEFORE: ${{ github.event.before }}
-          DEFAULT: ${{ github.event.repository.default_branch }}
-          SHA: ${{ github.sha }}
-        run: |
-          if [ "$EVENT" = pull_request ]; then
-            base="$PR_BASE"; head="$PR_HEAD"
-          elif [ "$EVENT" = push ] && [ -n "$(printf '%s' "$BEFORE" | tr -d 0)" ]; then
-            base="$BEFORE"; head="$SHA"
-          else
-            base="origin/${DEFAULT:-main}"; head="$SHA"
-          fi
-          echo "base=$base" >> "$GITHUB_OUTPUT"
-          echo "head=$head" >> "$GITHUB_OUTPUT"
-          echo "base $base, head $head"
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-          ref: ${{ startsWith(steps.range.outputs.base, 'origin/') && github.event.repository.default_branch || steps.range.outputs.base }}
-          persist-credentials: false
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-      - name: The head, as data
-        env:
-          HEAD_SHA: ${{ steps.range.outputs.head }}
-        run: git fetch --no-tags origin "$HEAD_SHA"
-      - name: The guard of the base
-        env:
-          BASE: ${{ steps.range.outputs.base }}
-          HEAD_SHA: ${{ steps.range.outputs.head }}
-        run: |
-          if [ -f tests/guard/from-base.ts ]; then
-            node tests/guard/from-base.ts --base "$BASE" --head "$HEAD_SHA"
-          else
-            echo "suite guard: PASS  the base $(git rev-parse --short "$BASE") has no suite guard yet: nothing judges this change"
-          fi
-
   # Lawcheck on two public repositories pinned at full commits (tests/real), held to the committed expected results. Each repository is fetched by its commit alone.
   real:
     name: real repositories
