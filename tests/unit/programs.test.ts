@@ -77,7 +77,7 @@ test('reviewer-slice §6: killTree ends a program and the programs it started', 
   });
 });
 
-test('killTree with orphans ends the programs left by a program that has already ended', async () => {
+test('reviewer-slice §6: killTree with orphans ends the programs left by a program that has already ended', async () => {
   await inDir(async (dir) => {
     const script = join(dir, 'leave.mjs');
     // Node on Windows ends the programs it started undetached when it exits; cmd.exe does not, which a detached child stands in for here.
