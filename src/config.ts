@@ -7,10 +7,10 @@ import { decode } from './types.js';
 
 export const CONFIG = '.lawcheck/config.yaml';
 
-export const PROVIDERS = ['openai-compatible', 'anthropic', 'claude-code'] as const;
+export const PROVIDERS = ['anthropic', 'openai', 'google', 'openai-compatible', 'ollama', 'claude-code', 'codex', 'gemini-cli', 'copilot-cli'] as const;
 export type ProviderName = (typeof PROVIDERS)[number];
 
-const LATER_PROVIDERS = ['openai', 'google', 'ollama', 'codex', 'gemini-cli', 'copilot-cli'];
+export const PROGRAM_PROVIDERS: Partial<Record<ProviderName, string>> = { 'claude-code': 'claude', codex: 'codex', 'gemini-cli': 'gemini', 'copilot-cli': 'copilot' };
 const TOP_KEYS = ['reviewer', 'runner'];
 const REVIEWER_KEYS = ['provider', 'model', 'timeout', 'temperature', 'max_chars', 'parallel', 'max_calls'];
 
@@ -76,7 +76,7 @@ export const DEFAULT_CONFIG: ReviewerConfig = {
   maxCalls: 100,
 };
 
-const NO_KEYS = 'a key never goes into a committed file; set LAWCHECK_REVIEWER_KEY, or ANTHROPIC_API_KEY for anthropic, in the environment';
+const NO_KEYS = "a key never goes into a committed file; set LAWCHECK_REVIEWER_KEY, or the provider's own ANTHROPIC_API_KEY, OPENAI_API_KEY or GOOGLE_API_KEY, in the environment";
 
 export function readConfig(root: string): { config: ReviewerConfig } | { problems: ConfigProblem[] } {
   const path = join(root, CONFIG);
@@ -169,9 +169,7 @@ class ConfigReader {
       const name = this.string(provider.value);
       if (name === null) this.problem(provider.line, `reviewer.provider takes a string, not ${describe(provider.value)}`);
       else if ((PROVIDERS as readonly string[]).includes(name)) config.provider = name as ProviderName;
-      else if (LATER_PROVIDERS.includes(name)) {
-        this.problem(provider.line, `the provider '${name}' is not in this version; it has ${PROVIDERS.join(', ')}`);
-      } else {
+      else {
         const near = nearestKey(name, [...PROVIDERS]);
         this.problem(provider.line, `the provider '${name}' is unknown${near === null ? '' : ` (did you mean '${near}'?)`}; this version has ${PROVIDERS.join(', ')}`);
       }
@@ -185,15 +183,17 @@ class ConfigReader {
       } else {
         config.model = text;
       }
-    } else if (config.provider === 'openai-compatible' || config.provider === 'anthropic') {
+    } else if (config.provider !== null && PROGRAM_PROVIDERS[config.provider] === undefined) {
       this.problem(reviewerLine, `the provider '${config.provider}' needs reviewer.model`);
     }
 
-    const isClaude = config.provider === 'claude-code';
-    if (isClaude) {
+    const program = config.provider === null ? undefined : PROGRAM_PROVIDERS[config.provider];
+    if (program !== undefined) {
       config.timeout = 300;
       config.parallel = 1;
       config.temperature = null;
+    } else if (config.provider === 'ollama') {
+      config.timeout = 300;
     }
     this.integer(seen.get('timeout'), 'timeout', 1, 86400, 'an integer of seconds from 1 to 86400', (n) => (config.timeout = n));
     this.integer(seen.get('max_chars'), 'max_chars', 1, Infinity, 'an integer of at least 1', (n) => (config.maxChars = n));
@@ -202,8 +202,8 @@ class ConfigReader {
 
     const temperature = seen.get('temperature');
     if (temperature !== undefined) {
-      if (isClaude) {
-        this.problem(temperature.line, 'the provider claude-code takes no temperature: the claude program runs at its own');
+      if (program !== undefined) {
+        this.problem(temperature.line, `the provider ${config.provider} takes no temperature: the ${program} program runs at its own`);
       } else {
         const value = this.number(temperature.value);
         if (value === null || value < 0) this.problem(temperature.line, `reviewer.temperature takes a number of at least 0, not ${describe(temperature.value)}`);

@@ -9,9 +9,9 @@ function firstLine(text: string, max: number): string {
 
 function errorMessage(text: string): string | null {
   try {
-    const body = JSON.parse(text) as { error?: { message?: unknown } };
-    const message = body?.error?.message;
-    return typeof message === 'string' && message.trim() !== '' ? firstLine(hide(message), 200) : null;
+    const body = JSON.parse(text) as { error?: { message?: unknown } | string };
+    const message = typeof body?.error === 'string' ? body.error : body?.error?.message;
+    return typeof message === 'string' && message.trim() !== '' ? firstLine(message, 200) : null;
   } catch {
     return null;
   }

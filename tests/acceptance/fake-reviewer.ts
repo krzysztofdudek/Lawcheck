@@ -21,7 +21,8 @@ export interface Recorded {
 export type Reply =
   | { status?: number; headers?: Record<string, string>; body: string; delayMs?: number }
   | { close: true }
-  | { hang: true };
+  | { hang: true }
+  | { cut: string };
 
 export type Responder = (request: Recorded, fake: Fake) => Reply | Promise<Reply>;
 
@@ -60,6 +61,7 @@ export function defaultAnswer(prompt: string): string {
   return JSON.stringify({ verdict: findings.length === 0 ? 'pass' : 'fail', findings });
 }
 
+// The reply shapes follow each vendor's documented API: OpenAI's chat completions (choices[].message.content), Anthropic's messages (content[] of type text), Google's generateContent (candidates[].content.parts[].text), Ollama's /api/chat with stream false (message.content).
 export function openai(answer: unknown): Reply {
   return { body: JSON.stringify({ choices: [{ message: { role: 'assistant', content: answer } }] }) };
 }
@@ -68,10 +70,18 @@ export function anthropic(...texts: string[]): Reply {
   return { body: JSON.stringify({ content: texts.map((text) => ({ type: 'text', text })) }) };
 }
 
+export function google(...texts: string[]): Reply {
+  return { body: JSON.stringify({ candidates: [{ content: { role: 'model', parts: texts.map((text) => ({ text })) }, finishReason: 'STOP' }] }) };
+}
+
+export function ollama(answer: unknown): Reply {
+  return { body: JSON.stringify({ model: 'test-model', created_at: '2026-11-15T00:00:00Z', message: { role: 'assistant', content: answer }, done: true, done_reason: 'stop' }) };
+}
+
 export const defaultResponder: Responder = (request) => openai(defaultAnswer(request.prompt));
 
 function promptOf(json: any): string {
-  const content = json?.messages?.[0]?.content;
+  const content = json?.messages?.[0]?.content ?? json?.contents?.[0]?.parts?.[0]?.text;
   return typeof content === 'string' ? content : '';
 }
 
@@ -125,6 +135,15 @@ export async function startFake(respond: Responder = defaultResponder): Promise<
         req.socket.destroy();
         return;
       }
+      if ('cut' in reply) {
+        res.writeHead(200, { 'content-type': 'application/json', 'content-length': String(Buffer.byteLength(reply.cut) * 2) });
+        res.write(reply.cut, () => {
+          inFlight--;
+          recorded.end = Date.now();
+          req.socket.destroy();
+        });
+        return;
+      }
       if (reply.delayMs) await new Promise((done) => setTimeout(done, reply.delayMs));
       res.writeHead(reply.status ?? 200, { 'content-type': 'application/json', ...reply.headers });
       res.end(reply.body, () => {
@@ -153,14 +172,21 @@ export async function withFake<T>(body: (fake: Fake) => Promise<T>, respond?: Re
   }
 }
 
-const FAKE_CLAUDE = `#!/usr/bin/env node
-const { readdirSync, writeFileSync } = require('node:fs');
+// The fake claude prints the envelope of `claude --print --output-format json`. The fake codex prints what `codex exec` prints on standard output, the final message alone, with its errors on standard error (codex-cli 0.169.0). The fake gemini follows the headless mode of the Gemini CLI with `--output-format text`: the reply alone on standard output, exit 1 for a failed call, 42 for a bad input, 53 for a turn limit (gemini-cli docs/cli/headless.md). The fake copilot follows `copilot --silent` with the prompt on standard input: the answer alone, a failure on standard error with exit 1 (Copilot CLI 1.0.111).
+function fakeScript(name: string): string {
+  const upper = name.toUpperCase();
+  return `#!/usr/bin/env node
+const { readdirSync, readFileSync, writeFileSync } = require('node:fs');
 const { spawn } = require('node:child_process');
-const mode = process.env.FAKE_CLAUDE_MODE || 'answer';
+const envelope = ${JSON.stringify(name === 'claude')};
+const mode = process.env.FAKE_${upper}_MODE || 'answer';
+const args = process.argv.slice(2);
 const record = (extra) => {
-  if (!process.env.FAKE_CLAUDE_RECORD) return;
-  writeFileSync(process.env.FAKE_CLAUDE_RECORD, JSON.stringify({
-    args: process.argv.slice(2), cwd: process.cwd(), listing: readdirSync(process.cwd()), stdin, pid: process.pid, ...extra,
+  if (!process.env.FAKE_${upper}_RECORD) return;
+  const policy = args.indexOf('--policy');
+  writeFileSync(process.env.FAKE_${upper}_RECORD, JSON.stringify({
+    args, cwd: process.cwd(), listing: readdirSync(process.cwd()), stdin, pid: process.pid,
+    policy: policy < 0 ? null : readFileSync(args[policy + 1], 'utf8'), ...extra,
   }));
 };
 let stdin = '';
@@ -182,7 +208,7 @@ process.stdin.on('end', () => {
     }
   }
   const findings = lines.filter((l) => l.text.includes("Error('failed')")).map((l) => ({ line: l.line, message: ${JSON.stringify(FAILED_MESSAGE)} }));
-  const answer = JSON.stringify({ verdict: findings.length === 0 ? 'pass' : 'fail', findings });
+  const answer = process.env.FAKE_${upper}_ANSWER ?? JSON.stringify({ verdict: findings.length === 0 ? 'pass' : 'fail', findings });
   if (mode === 'sleep') {
     const child = spawn(process.execPath, ['-e', "process.on('SIGTERM', () => {}); setTimeout(() => {}, 60000);"], { stdio: 'ignore' });
     record({ child: child.pid });
@@ -191,7 +217,8 @@ process.stdin.on('end', () => {
   }
   record({});
   if (mode === 'error') {
-    process.stdout.write(JSON.stringify({ type: 'result', is_error: true, result: 'Not logged in' }));
+    if (envelope) process.stdout.write(JSON.stringify({ type: 'result', is_error: true, result: 'Not logged in' }));
+    else process.stderr.write('starting\\nNot logged in\\n');
     process.exit(1);
   }
   const keys = [process.env.LAWCHECK_REVIEWER_KEY, process.env.ANTHROPIC_API_KEY].join(' and ');
@@ -211,20 +238,43 @@ process.stdin.on('end', () => {
     process.stderr.write('boom\\n');
     process.exit(3);
   }
-  if (mode === 'raw') {
+  if (mode.startsWith('exit-')) {
+    process.stderr.write('ended with ' + mode.slice(5) + '\\n');
+    process.exit(Number(mode.slice(5)));
+  }
+  if (mode === 'silent-exit') process.exit(1);
+  if (mode === 'killed') {
+    process.stdout.write(answer.slice(0, 10));
+    process.kill(process.pid, 'SIGKILL');
+    return;
+  }
+  if (mode === 'cut') {
+    process.stdout.write(answer.slice(0, Math.floor(answer.length / 2)));
+    return;
+  }
+  if (mode === 'huge') {
+    process.stdout.write('x'.repeat(20 * 1024 * 1024));
+    return;
+  }
+  if (mode === 'raw' || !envelope) {
     process.stdout.write(answer + '\\n');
     return;
   }
   process.stdout.write(JSON.stringify({ type: 'result', is_error: false, result: answer }) + '\\n');
 });
 `;
+}
 
-export function writeFakeClaude(dir: string): string {
+export function writeFakeProgram(dir: string, name: 'claude' | 'codex' | 'gemini' | 'copilot'): string {
   mkdirSync(dir, { recursive: true });
-  const path = join(dir, 'claude');
-  writeFileSync(path, FAKE_CLAUDE);
+  const path = join(dir, name);
+  writeFileSync(path, fakeScript(name));
   chmodSync(path, 0o755);
-  // npm installs claude on Windows as a .cmd file of this shape.
+  // npm installs these programs on Windows as .cmd files of this shape.
   if (process.platform === 'win32') writeFileSync(`${path}.cmd`, `@"${process.execPath}" "${path}" %*\r\n`);
   return dir;
+}
+
+export function writeFakeClaude(dir: string): string {
+  return writeFakeProgram(dir, 'claude');
 }

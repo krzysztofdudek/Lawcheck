@@ -33,7 +33,7 @@ function replaceOnce(text: string, from: string, to: string): string {
 
 test('test 68: config-invalid', async () => {
   const cases: [string, string, number, string | null][] = [
-    ['provider: codex', REVIEWER_CONFIG.replace('openai-compatible', 'codex'), 2, null],
+    ['provider: gemini', REVIEWER_CONFIG.replace('openai-compatible', 'gemini'), 2, 'gemini-cli'],
     ['provider: claude-cod', REVIEWER_CONFIG.replace('openai-compatible', 'claude-cod'), 2, 'claude-code'],
     ['reviewr:', REVIEWER_CONFIG.replace('reviewer:', 'reviewr:'), 1, 'reviewer'],
     ['keys at the top', REVIEWER_CONFIG + 'keys: { anthropic: x }\n', 4, null],
@@ -46,6 +46,8 @@ test('test 68: config-invalid', async () => {
     ['temperature: -1', REVIEWER_CONFIG + '  temperature: -1\n', 4, null],
     ['temperature under claude-code', 'reviewer:\n  provider: claude-code\n  temperature: 0.5\n', 3, null],
     ['no model', 'reviewer:\n  provider: openai-compatible\n', 1, null],
+    ['temperature under codex', 'reviewer:\n  provider: codex\n  temperature: 0\n', 3, null],
+    ['no model with ollama', 'reviewer:\n  provider: ollama\n', 1, null],
   ];
   await Promise.all(
     cases.map(([name, text, line, names]) =>

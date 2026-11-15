@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DEFAULT_CONFIG } from '../../dist/config.js';
-import { createProvider, endpointOf, variable } from '../../dist/providers/index.js';
+import { createProvider, endpointOf, ownKey, variable } from '../../dist/providers/index.js';
 
 test('the endpoint: http or https, trailing slashes removed, empty counts as absent', () => {
   assert.equal(endpointOf({}), null);
@@ -22,9 +22,23 @@ test('the endpoint: http or https, trailing slashes removed, empty counts as abs
 
 test('the provider is chosen by name, and none without one', () => {
   assert.equal(createProvider(DEFAULT_CONFIG, {}), null);
-  for (const name of ['openai-compatible', 'anthropic', 'claude-code'] as const) {
+  for (const name of ['anthropic', 'openai', 'google', 'openai-compatible', 'ollama', 'claude-code', 'codex', 'gemini-cli', 'copilot-cli'] as const) {
     const provider = createProvider({ ...DEFAULT_CONFIG, provider: name, model: 'm' }, {});
     assert.equal(typeof provider!.ready, 'function');
     assert.equal(typeof provider!.ask, 'function');
   }
+});
+
+test('a key under a provider name goes only to its own address', () => {
+  const own = 'https://own.example/v1';
+  assert.deepEqual(ownKey({ OWN_KEY: 'a', LAWCHECK_REVIEWER_KEY: 'l' }, 'p', own, 'OWN_KEY'), { problem: null, keyed: { url: own, key: 'a' } });
+  assert.deepEqual(ownKey({ LAWCHECK_REVIEWER_KEY: 'l' }, 'p', own, 'OWN_KEY'), { problem: null, keyed: { url: own, key: 'l' } });
+  assert.deepEqual(ownKey({}, 'p', own, 'OWN_KEY'), { problem: 'p needs a key in OWN_KEY or LAWCHECK_REVIEWER_KEY', keyed: null });
+  assert.deepEqual(ownKey({ LAWCHECK_REVIEWER_ENDPOINT: 'http://h/v1/', OWN_KEY: 'a' }, 'p', own, 'OWN_KEY'), {
+    problem: 'with LAWCHECK_REVIEWER_ENDPOINT set, p sends LAWCHECK_REVIEWER_KEY alone, and it is not set',
+    keyed: null,
+  });
+  assert.deepEqual(ownKey({ LAWCHECK_REVIEWER_ENDPOINT: 'http://h/v1/', OWN_KEY: 'a', LAWCHECK_REVIEWER_KEY: 'l' }, 'p', own, 'OWN_KEY'), { problem: null, keyed: { url: 'http://h/v1', key: 'l' } });
+  assert.deepEqual(ownKey({ LAWCHECK_REVIEWER_ENDPOINT: 'gopher://h', LAWCHECK_REVIEWER_KEY: 'l' }, 'p', own, 'OWN_KEY'), { problem: 'LAWCHECK_REVIEWER_ENDPOINT is no http: or https: address', keyed: null });
+  assert.deepEqual(ownKey({ OWN_KEY: 'a\nb' }, 'p', own, 'OWN_KEY'), { problem: 'OWN_KEY holds a character an HTTP header cannot carry', keyed: null });
 });

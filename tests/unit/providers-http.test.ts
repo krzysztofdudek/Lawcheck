@@ -31,6 +31,8 @@ test('statuses, a body that is no JSON, a redirect and an error message', async 
     if (req.url === '/429') return res.writeHead(429).end();
     if (req.url === '/401') return res.writeHead(401).end(JSON.stringify({ error: { message: 'bad key\nsecond line' } }));
     if (req.url === '/403') return res.writeHead(403).end(JSON.stringify({ error: { message: 'y'.repeat(300) } }));
+    if (req.url === '/404') return res.writeHead(404).end(JSON.stringify({ error: "model 'm' not found\nsecond line" }));
+    if (req.url === '/400') return res.writeHead(400).end(JSON.stringify({ error: '  ' }));
     if (req.url === '/307') return res.writeHead(307, { location: '/elsewhere' }).end();
     if (req.url === '/html') return res.end('<html></html>');
     res.writeHead(500).end('{}');
@@ -39,6 +41,8 @@ test('statuses, a body that is no JSON, a redirect and an error message', async 
     const denied = await post(`${url}/401`, {}, {}, 5);
     assert.ok('failure' in denied && denied.failure.startsWith('HTTP 401 Unauthorized: bad key') && !denied.failure.includes('second'));
     assert.deepEqual(await post(`${url}/403`, {}, {}, 5), { failure: `HTTP 403 Forbidden: ${'y'.repeat(200)}`, resend: false });
+    assert.deepEqual(await post(`${url}/404`, {}, {}, 5), { failure: "HTTP 404 Not Found: model 'm' not found", resend: false });
+    assert.deepEqual(await post(`${url}/400`, {}, {}, 5), { failure: 'HTTP 400 Bad Request', resend: false });
     assert.deepEqual(await post(`${url}/307`, {}, {}, 5), { failure: 'HTTP 307 Temporary Redirect', resend: false });
     assert.deepEqual(await post(`${url}/500`, {}, {}, 5), { failure: 'HTTP 500 Internal Server Error', resend: false });
     const html = await post(`${url}/html`, {}, {}, 5);
