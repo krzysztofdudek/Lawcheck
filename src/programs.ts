@@ -57,13 +57,23 @@ export function startProgram(program: string, args: string[], options: SpawnOpti
   return spawn(shell, ['/d', '/s', '/c', cmdLine(program, args)], { ...windows, windowsVerbatimArguments: true });
 }
 
-export const PROCESS_TABLE = 'Get-CimInstance Win32_Process | ForEach-Object { "$($_.ProcessId) $($_.ParentProcessId)" }';
+export const PROCESS_TABLE = 'Get-CimInstance Win32_Process | ForEach-Object { "$($_.ProcessId) $($_.ParentProcessId) $($_.CreationDate.Ticks)" }';
 
 export function powershell(): string {
   return systemProgram('WindowsPowerShell\\v1.0\\powershell.exe');
 }
 
-// The lines of PROCESS_TABLE, each a process id and its parent's, read as the descendants of root.
+// The lines of PROCESS_TABLE, each a process id, its parent's and the time it was made, read as the time each process was made.
+export function createdIn(table: string): Map<number, string> {
+  const out = new Map<number, string>();
+  for (const line of table.split(/\r?\n/)) {
+    const [pid, , created] = line.trim().split(' ');
+    if (pid !== undefined && /^\d+$/.test(pid) && created !== undefined && created !== '') out.set(Number(pid), created);
+  }
+  return out;
+}
+
+// The lines of PROCESS_TABLE read as the descendants of root.
 export function descendantsIn(table: string, root: number): number[] {
   const children = new Map<number, number[]>();
   for (const line of table.split(/\r?\n/)) {

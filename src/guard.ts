@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
 import { rmSync } from 'node:fs';
-import { descendantsIn, killTree, powershell, PROCESS_TABLE } from './programs.js';
+import { createdIn, descendantsIn, killTree, powershell, PROCESS_TABLE } from './programs.js';
 
 const pids = new Set<number>();
 const windows = process.platform === 'win32';
@@ -10,6 +10,7 @@ let watcher: ChildProcess | null = null;
 let table = '';
 let listed = false;
 let onListed: (() => void) | null = null;
+const waitingForList: (() => void)[] = [];
 
 function watch(): void {
   if (!windows || watcher !== null) return;
@@ -25,6 +26,7 @@ function watch(): void {
     partial = partial.slice(end + 3);
     listed = true;
     onListed?.();
+    for (const next of waitingForList.splice(0)) next();
   });
 }
 const groups = new Set<number>();
@@ -80,6 +82,35 @@ function stopWatching(then: () => void = () => undefined): void {
 
 let ended = false;
 
+// Windows gives an ended process's id to a new one soon, so a process is killed from the list only when a list made after the tool's end still shows that id made at the same time.
+function nextList(ms: number): Promise<string | null> {
+  if (watcher === null || watcher.exitCode !== null) return Promise.resolve(null);
+  return new Promise((done) => {
+    const timer = setTimeout(() => done(null), ms);
+    waitingForList.push(() => {
+      clearTimeout(timer);
+      done(table);
+    });
+  });
+}
+
+async function endWatched(): Promise<void> {
+  const known = createdIn(table);
+  const listedBefore = [...groups].flatMap((pid) => [pid, ...descendantsIn(table, pid)]).filter((pid) => known.has(pid));
+  if (listedBefore.length === 0) return;
+  const fresh = await nextList(3000);
+  if (fresh === null) return;
+  const now = createdIn(fresh);
+  for (const pid of listedBefore) {
+    if (now.get(pid) !== known.get(pid)) continue;
+    try {
+      process.kill(pid, 'SIGKILL');
+    } catch {
+      // The process has already ended.
+    }
+  }
+}
+
 function endAll(): void {
   if (ended) return;
   ended = true;
@@ -90,18 +121,11 @@ function endAll(): void {
       // The runner has already ended.
     }
   }
-  for (const pid of groups) {
-    for (const child of [pid, ...descendantsIn(table, pid)]) {
-      try {
-        process.kill(child, 'SIGKILL');
-      } catch {
-        // The process has already ended.
-      }
-    }
-  }
-  for (const pid of groups) killTree(pid, 'SIGKILL', true);
-  for (const folder of folders) rmSync(folder, { recursive: true, force: true, maxRetries: 10 });
-  stopWatching(() => process.exit(0));
+  void endWatched().then(() => {
+    for (const pid of groups) killTree(pid, 'SIGKILL', true);
+    for (const folder of folders) rmSync(folder, { recursive: true, force: true, maxRetries: 10 });
+    stopWatching(() => process.exit(0));
+  });
 }
 
 process.stdin.on('close', endAll);
