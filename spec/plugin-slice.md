@@ -91,7 +91,7 @@ The file takes a second top-level key:
 |---|---|---|
 | `runner` | `global`, `npx`, `pnpm`, `yarn` or `bun` | `global` |
 
-**The line rule.** The plugin reads the key without a YAML parser, so the key has one written form. Read the file as UTF-8, split it at `\n`, and remove a trailing `\r` from each line. The runner line is the first line that starts with `runner:` in its first column. Its value is the rest of the line after `runner:`, with everything from the first `#` that follows a space or a tab removed, then trimmed of spaces and tabs. Without a runner line the runner is `global`.
+**The line rule.** The plugin reads the key without a YAML parser, so the key has one written form. Read the file as UTF-8, drop a byte-order mark at its start, split it at `\n`, and remove a trailing `\r` from each line. The runner line is the first line that starts with `runner:` in its first column. Its value is the rest of the line after `runner:`, with everything from the first `#` that follows a space or a tab removed, then trimmed of spaces and tabs. Without a runner line the runner is `global`.
 
 **What the tool accepts.** The YAML value of `runner` is one of the five names, and the line rule reads the same name. Otherwise `config-invalid` at the key's line:
 
@@ -261,7 +261,7 @@ A runner exits 1 when it cannot find what it should start, so an exit code alone
 
 **Fitting.** Claude Code caps a hook's text at 10,000 characters and replaces anything longer with a file path and a 2,000-character preview it does not ask the agent to read. A text the hook hands over is a header, a blank line and Lawcheck's output without its final line end, at most 9,000 code points in all. When it would hold more, the hook keeps the header, the blank line and the output's first line; then the output's next lines in order while they fit; then `... <k> more lines not shown; run the command yourself to see them all`, with `k` the lines left out; and last the output's last line when it starts with `next: `. Lines are kept whole.
 
-**State** is one file per session, `<data>/sessions/<session_id>.json`. `<data>` is `CLAUDE_PLUGIN_DATA`, or without it `<os.tmpdir()>/lawcheck-plugin-<uid>`, which the hook creates with mode `0700` and refuses, as having no state, when another user owns it. The hook creates `<data>/sessions/`. A `session_id` with a character outside `A-Z`, `a-z`, `0-9`, `_` and `-` has no state file. The file is written to a temporary name in the same directory and renamed. It holds:
+**State** is one file per session, `<data>/sessions/<session_id>.json`. `<data>` is `CLAUDE_PLUGIN_DATA`, or without it `<os.tmpdir()>/lawcheck-plugin-<uid>`, which the hook creates with mode `0700` and refuses, as having no state, when another user owns it. The hook creates `<data>/sessions/`. A `session_id` with a character outside `A-Z`, `a-z`, `0-9`, `_` and `-`, or longer than 128 characters, has no state file, so no id can make a file name longer than a file system takes. The file is written to a temporary name in the same directory and renamed. It holds:
 
 ```json
 { "root": "<absolute>", "prompt_id": "<id or null>", "open": true, "started": 0, "head": "<commit or null>", "files": { "<path>": "<blob id or ->" }, "blocks": 0, "last": null, "last_error": null, "told": false }

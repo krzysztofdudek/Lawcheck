@@ -34,8 +34,11 @@ function sessionsDir() {
   }
 }
 
+// The state file's temporary name adds about 30 characters to the id, and most file systems take names of 255 bytes.
+const LONGEST_ID = 128;
+
 export function stateFile(sessionId) {
-  if (typeof sessionId !== 'string' || !/^[A-Za-z0-9_-]+$/.test(sessionId)) return null;
+  if (typeof sessionId !== 'string' || sessionId.length > LONGEST_ID || !/^[A-Za-z0-9_-]+$/.test(sessionId)) return null;
   const dir = sessionsDir();
   return dir === null ? null : join(dir, `${sessionId}.json`);
 }

@@ -655,3 +655,31 @@ test('test 179: the trial refuses to start without claude', async () => {
     assert.deepEqual(readdirSync(empty), []);
   });
 });
+
+test('S6-6: a session_id of 5,000 characters has no state file, and the hooks go on', async () => {
+  await withBench(async (bench, dir) => {
+    const s = makeSample(dir);
+    const session = new Session(bench, s, 'x'.repeat(5000));
+    nothing(await session.prompt(), 'prompt');
+    write(s, D_PATH, D);
+    json(await session.stop(), handBack(`${stopHeader()}\n\n${D_OUTPUT}`), 'stop');
+    assert.deepEqual(bench.sessions(), []);
+    nothing(await new Session(bench, s, 'y'.repeat(128)).prompt(), 'an id of 128 characters');
+    assert.deepEqual(bench.sessions(), [`${'y'.repeat(128)}.json`]);
+  });
+});
+
+test('S6-8: a byte-order mark before the runner line, and the hook and the tool read the same runner', async () => {
+  await withBench(async (bench, dir) => {
+    const s = makeSample(dir);
+    bench.runner('npx', 2);
+    write(s, '.lawcheck/config.yaml', '﻿runner: npx\n');
+    write(s, D_PATH, D);
+    json(await new Session(bench, s).edit(D_PATH), edited(`${editHeader(D_PATH, 'npx --no-install lawcheck')}\n\n${D_OUTPUT}`));
+    assert.deepEqual(bench.runners().map((r) => r.runner), ['npx']);
+    const prime = await lawcheck(s, ['prime']);
+    assert.ok(prime.stdout.split('\n')[0]!.endsWith(' Start it here as: npx --no-install lawcheck'), prime.stdout.split('\n')[0]);
+    const checked = await lawcheck(s, ['check', `./${D_PATH}`]);
+    assert.equal(checked.code, 1, checked.stdout);
+  });
+});
