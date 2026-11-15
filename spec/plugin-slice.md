@@ -105,7 +105,7 @@ The file takes a second top-level key:
 
 | `runner` | The command | Its install hint |
 |---|---|---|
-| `global` | `lawcheck` | `npm i -g lawcheck` |
+| `global` | `lawcheck` | `npm i -g lawcheck@alpha` |
 | `npx` | `npx --no-install lawcheck` | `npm install` |
 | `pnpm` | `pnpm exec lawcheck` | `pnpm install` |
 | `yarn` | `yarn run lawcheck` | `yarn install` |
@@ -598,7 +598,7 @@ The script prints one line per run and a summary per arm, and writes:
 | 153 | on the host: `claude plugin validate plugin`; `claude plugin validate .` | each prints `Validation passed` and not `with warnings` (run by the reviewer, outside `npm test`) |
 | 154 | S: `session-start` with each `source` of `startup`, `resume`, `clear`, `compact`, `fork`; then with `cwd` `src/core` | each `additionalContext` is `lawcheck prime`'s standard output in S without its final line end; the log: one `prime` per call, at the root; no state file |
 | 155 | `<data>/sessions/` holding files modified 8 and 6 days ago: `session-start` in a new git repository without a law; then in a `mktemp -d` folder outside git | section 6's two lines without a root, each; the log empty; the 8-day file deleted, the 6-day file kept |
-| 156 | S: `session-start` with no `lawcheck` on the PATH; with `runner: pnpm` and no `pnpm`; with a fake `lawcheck` that prints `boom` on standard error and exits 1 | the not-run lines with `lawcheck prime did not run: lawcheck was not found.` and `npm i -g lawcheck`; with `pnpm exec lawcheck prime did not run: pnpm was not found.` and `pnpm install`; with `: boom.` |
+| 156 | S: `session-start` with no `lawcheck` on the PATH; with `runner: pnpm` and no `pnpm`; with a fake `lawcheck` that prints `boom` on standard error and exits 1 | the not-run lines with `lawcheck prime did not run: lawcheck was not found.` and `npm i -g lawcheck@alpha`; with `pnpm exec lawcheck prime did not run: pnpm was not found.` and `pnpm install`; with `: boom.` |
 | 157 | S with test 17's broken law: `session-start` | `additionalContext` is `prime`'s standard output without its final line end, ending with test 17's error output |
 | 158 | fakes `npx`, `pnpm` and `bun` that log their arguments and run the `lawcheck` of this section's `bin` with the words after the runner's; a fake `yarn` that does the same and also prints `yarn run v1.22.22` and `$ /x/node_modules/.bin/lawcheck` before and `Done in 0.10s.` after. For each runner: `session-start`; `prompt`, write D, `stop`; `edit` for D. Then `runner: make` | each runner's calls start with section 3's words exactly; with each runner, the hooks' outputs equal those with `global` (tests 154, 166, 159), with `<cmd>` read as that runner's; with `make`, section 6's bad-runner lines, nothing from `edit` and `stop`, no fake started |
 | 159 | S on `work`, D written to `src/core/discount.ts`: `edit` with `Write` and `tool_input.file_path` the absolute path; with `Edit`; with `cwd` `/`; `NotebookEdit` with `tool_input.notebook_path` of a new `notes/a.ipynb` | the three: `additionalContext` = section 8's exit-1 header with `<rel>` `src/core/discount.ts`, a blank line, and test 145's first output without its final line end; the log: `check ./src/core/discount.ts` at the root; then nothing |

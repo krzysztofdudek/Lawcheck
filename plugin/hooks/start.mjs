@@ -3,7 +3,7 @@ import { accessSync, constants, readFileSync, realpathSync, statSync } from 'nod
 import { dirname, join, normalize, resolve } from 'node:path';
 
 export const RUNNERS = {
-  global: { words: ['lawcheck'], install: 'npm i -g lawcheck' },
+  global: { words: ['lawcheck'], install: 'npm i -g lawcheck@alpha' },
   npx: { words: ['npx', '--no-install', 'lawcheck'], install: 'npm install' },
   pnpm: { words: ['pnpm', 'exec', 'lawcheck'], install: 'pnpm install' },
   yarn: { words: ['yarn', 'run', 'lawcheck'], install: 'yarn install' },

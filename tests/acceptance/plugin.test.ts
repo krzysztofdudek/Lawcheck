@@ -309,12 +309,12 @@ test('test 156: prime that does not run', async () => {
   await withBench(async (bench, dir) => {
     const s = makeSample(dir);
     bench.remove('lawcheck');
-    json(await new Session(bench, s).start(), notRun('lawcheck', 'lawcheck was not found', 'npm i -g lawcheck'), 'no lawcheck');
+    json(await new Session(bench, s).start(), notRun('lawcheck', 'lawcheck was not found', 'npm i -g lawcheck@alpha'), 'no lawcheck');
     write(s, '.lawcheck/config.yaml', 'runner: pnpm\n');
     json(await new Session(bench, s).start(), notRun('pnpm exec lawcheck', 'pnpm was not found', 'pnpm install'), 'no pnpm');
     rmSync(join(s, '.lawcheck/config.yaml'));
     bench.script('lawcheck', ["process.stderr.write('boom\\n');", 'process.exitCode = 1;']);
-    json(await new Session(bench, s).start(), notRun('lawcheck', 'boom', 'npm i -g lawcheck'), 'boom');
+    json(await new Session(bench, s).start(), notRun('lawcheck', 'boom', 'npm i -g lawcheck@alpha'), 'boom');
   });
 });
 

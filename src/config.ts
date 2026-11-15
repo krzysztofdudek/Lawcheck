@@ -28,7 +28,7 @@ export const RUNNERS = ['global', 'npx', 'pnpm', 'yarn', 'bun'] as const;
 export type Runner = (typeof RUNNERS)[number];
 
 export const RUNNER_COMMANDS: Record<Runner, { words: string[]; install: string }> = {
-  global: { words: ['lawcheck'], install: 'npm i -g lawcheck' },
+  global: { words: ['lawcheck'], install: 'npm i -g lawcheck@alpha' },
   npx: { words: ['npx', '--no-install', 'lawcheck'], install: 'npm install' },
   pnpm: { words: ['pnpm', 'exec', 'lawcheck'], install: 'pnpm install' },
   yarn: { words: ['yarn', 'run', 'lawcheck'], install: 'yarn install' },

@@ -85,7 +85,7 @@ How this repository starts Lawcheck. `prime` and the agent plugin start Lawcheck
 
 | `runner` | The command | Its install hint |
 |---|---|---|
-| `global` | `lawcheck` | `npm i -g lawcheck` |
+| `global` | `lawcheck` | `npm i -g lawcheck@alpha` |
 | `npx` | `npx --no-install lawcheck` | `npm install` |
 | `pnpm` | `pnpm exec lawcheck` | `pnpm install` |
 | `yarn` | `yarn run lawcheck` | `yarn install` |
