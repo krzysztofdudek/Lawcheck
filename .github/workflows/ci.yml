@@ -52,11 +52,11 @@ jobs:
           - { os: ubuntu-latest, node: newest, group: environments }
     steps:
       - uses: actions/checkout@v7
-      # 'newest' is the newest released Node: the range '*' leaves prereleases out, which 'latest' does not.
+      # '24' is the newest 24.x and 'newest' the newest released Node: the range '*' leaves prereleases out, which 'latest' does not. check-latest asks for the newest even when the runner caches an older one.
       - uses: actions/setup-node@v7
         with:
           node-version: ${{ matrix.node == 'newest' && '*' || matrix.node }}
-          check-latest: ${{ matrix.node == 'newest' }}
+          check-latest: true
           cache: npm
       - run: npm ci
       - uses: actions/download-artifact@v8
@@ -66,6 +66,25 @@ jobs:
       # Through npm, so the tests that pack the tarball start npm by its own script on every system.
       - name: The commit set, group ${{ matrix.group }}
         run: npm test -- --group ${{ matrix.group }}
+
+  # The oldest Node the package accepts (engines: >=24), so a use of an API newer than 24.0.0 fails here.
+  floor:
+    name: commit floor (ubuntu-latest, Node 24.0.0)
+    needs: grammars
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.0.0
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v8
+        with:
+          name: grammar-cache
+          path: .grammars
+      - name: The commit set on Node 24.0.0
+        run: npm test
 
   # The same commit set in a network namespace that holds only a loopback device, as the runner's user with no supplementary group (so not the docker group, whose socket reaches the network), so a test that reaches the network outside the suites named for it fails here.
   offline:
