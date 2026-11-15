@@ -279,3 +279,13 @@ test('S5-5: control, a directory with no law anywhere keeps the next line that s
     assert.match(doctor.stdout, /^fail  law  no \.lawcheck\/law\.yaml in this directory or any above it\n  next: lawcheck init  \(only when the user wants a law here\)$/m);
   });
 });
+
+test('I-out-1: a line a rule prints with CRLF reaches standard error as that line, with no carriage return shown', async () => {
+  await inTemp(async (dir) => {
+    const s = makeSample(dir, { onMain: (repo) => setRule(repo, 'no-console', "export function check() { process.stderr.write('first\\r\\nsecond\\n'); process.stdout.write('third\\r\\n'); return []; }\n") });
+    write(s, D_PATH, D);
+    const run = await lawcheck(s, BASE, {}, [], { stderr: /^(first\nsecond\nthird\n|third\nfirst\nsecond\n)$/ });
+    assert.ok(run.stderr === 'first\nsecond\nthird\n' || run.stderr === 'third\nfirst\nsecond\n', JSON.stringify(run.stderr));
+    assert.equal(run.code, 0);
+  });
+});

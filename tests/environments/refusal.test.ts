@@ -233,9 +233,7 @@ function runnerFailed(run: Run, said: RegExp, command: string): void {
   assert.equal(run.code, 2);
 }
 
-test('test 201: a runner Node cannot start with its flags is runner-failed, with Node\'s words, and never rule-crashed on a rule file', async (t) => {
-  const skip = platformSkip('the whole test');
-  if (skip !== null) return t.skip(skip);
+test('test 201: a runner Node cannot start with its flags is runner-failed, with Node\'s words, and never rule-crashed on a rule file', async () => {
   await withCopy(async (copy) => {
     const rules = join(copy.dir, 'dist', 'rules.js');
     writeFileSync(rules, readFileSync(rules, 'utf8').replace("'--permission', ", "'--permission', '--no-such-flag', "));
