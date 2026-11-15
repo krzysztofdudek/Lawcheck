@@ -1,8 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { chmodSync, cpSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, cpSync, mkdirSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { openai, startFake, type Fake } from '../acceptance/fake-reviewer.ts';
+import { platformSkip } from '../harness/tool.ts';
 import {
   copySample,
   D,
@@ -46,12 +47,13 @@ const VALUE_FLAGS = new Set(['--base', '--max-calls', '--times', '--type', '--ru
 const TOPICS = readdirSync(new URL('../../docs/', import.meta.url)).map((f) => f.replace(/\.md$/, ''));
 const REVIEW = ['--review', '--base', 'main'];
 const CALL = 'lawcheck: 1 reviewer call to openai-compatible\n';
-const UNREADABLE_SKIP = process.platform === 'win32' || process.getuid?.() === 0 ? 'a file mode cannot make a file unreadable for root, nor on Windows' : undefined;
 
 interface Follow {
   fix?: () => void | Promise<void>;
+  git?: boolean;
   supply?: string[];
   env?: NodeJS.ProcessEnv;
+  cwd?: string;
 }
 
 interface Ready {
@@ -59,7 +61,8 @@ interface Ready {
   argv: string[];
   env?: NodeJS.ProcessEnv;
   cli?: string;
-  stderr?: string;
+  stderr?: string | RegExp;
+  node?: string[];
   exit?: number;
   first?: string;
   exact?: string[];
@@ -184,7 +187,7 @@ const CASES: Case[] = [
     setup: (dir) => {
       const s = makeSample(dir);
       writeFileSync(join(s, '.git/HEAD'), 'not a ref\n');
-      return { cwd: s, argv: CHECK };
+      return { cwd: s, argv: CHECK, follow: { fix: () => writeFileSync(join(s, '.git/HEAD'), 'ref: refs/heads/work\n') } };
     },
   },
   inS('law-invalid, check', 'law-invalid', CHECK, withLaw('lawcheck: 0.1.0\nrulez: {}\n')),
@@ -215,7 +218,7 @@ const CASES: Case[] = [
       git(dir, 'clone', '-q', '--depth', '1', '--branch', 'work', `file://${origin}`, 'clone');
       const clone = join(dir, 'clone');
       git(clone, 'fetch', '-q', '--depth', '1', 'origin', 'main');
-      return { cwd: clone, argv: ['check', '--base', 'origin/main'], follow: { supply: ['--base', 'origin/main'] } };
+      return { cwd: clone, argv: ['check', '--base', 'origin/main'], follow: { git: true } };
     },
   },
   {
@@ -363,6 +366,71 @@ const CASES: Case[] = [
     },
   },
   {
+    id: 'unsupported-environment, Node older than 24',
+    code: 'unsupported-environment',
+    setup: (dir) => {
+      const s = makeSample(dir);
+      write(s, D_PATH, D);
+      return {
+        cwd: s,
+        argv: CHECK,
+        node: ['--import', `data:text/javascript,Object.defineProperty(process.versions,"node",{value:"20.20.2",enumerable:true})`],
+        first: 'lawcheck: ERROR  Node 20.20.2 is older than 24, the oldest Node Lawcheck runs on',
+        follow: {},
+      };
+    },
+  },
+  {
+    id: 'link-outside-root',
+    code: 'link-outside-root',
+    setup: (dir) => {
+      const s = makeSample(dir);
+      const beside = join(dir, 'beside');
+      mkdirSync(beside, { recursive: true });
+      writeFileSync(join(beside, 'marker.txt'), 'outside\n');
+      symlinkSync(beside, join(s, 'outside'), 'dir');
+      git(s, 'add', 'outside');
+      git(s, 'commit', '-q', '-m', 'a link');
+      write(s, D_PATH, D);
+      return { cwd: s, argv: CHECK, follow: { fix: () => git(s, 'rm', '-q', '-f', 'outside') } };
+    },
+  },
+  {
+    id: 'path-unsupported',
+    code: 'path-unsupported',
+    setup: (dir) => {
+      const parent = join(dir, 'zone*');
+      mkdirSync(parent, { recursive: true });
+      const s = makeSample(parent);
+      write(s, D_PATH, D);
+      const plain = join(dir, 'plain');
+      return {
+        cwd: s,
+        argv: CHECK,
+        follow: {
+          cwd: plain,
+          fix: () => {
+            cpSync(s, plain, { recursive: true });
+          },
+        },
+      };
+    },
+  },
+  {
+    id: 'runner-failed',
+    code: 'runner-failed',
+    setup: (dir) => {
+      const copy = makeCopy();
+      CLEANUP.push(copy.remove);
+      const rules = join(copy.dir, 'dist', 'rules.js');
+      const sound = readFileSync(rules, 'utf8');
+      writeFileSync(rules, sound.replace("'--permission', ", "'--permission', '--no-such-flag', "));
+      const s = makeSample(dir);
+      write(s, D_PATH, D);
+      return { cwd: s, argv: CHECK, cli: copy.cli, stderr: /^(.*: bad option: --no-such-flag\n)+$/, follow: { fix: () => writeFileSync(rules, sound) } };
+    },
+  },
+  {
     id: 'doctor, the readers note names a page',
     code: null,
     setup: (dir) => {
@@ -480,8 +548,11 @@ async function reproduce(spec: Case, dir: string, fake: Fake): Promise<string[]>
   const say = (message: string) => problems.push(`${spec.id}: ${message}`);
   const ready = await spec.setup(dir, fake);
   const doc = documented().find((d) => d.code === spec.code) ?? { code: '', kind: 'doctor', why: '' };
-  const go = (argv: string[], env: NodeJS.ProcessEnv = {}) =>
-    ready.cli === undefined ? lawcheck(ready.cwd, argv, { ...(ready.env ?? {}), ...env }) : lawcheckAt(ready.cli, ready.cwd, argv, { ...(ready.env ?? {}), ...env });
+  const expecting = ready.stderr === undefined ? {} : { stderr: ready.stderr };
+  const go = (argv: string[], env: NodeJS.ProcessEnv = {}, first = false, cwd = ready.cwd) =>
+    ready.cli === undefined
+      ? lawcheck(cwd, argv, { ...(ready.env ?? {}), ...env }, first ? (ready.node ?? []) : [], first ? expecting : {})
+      : lawcheckAt(ready.cli, cwd, argv, { ...(ready.env ?? {}), ...env }, first ? expecting : {});
 
   let text: { code: number | null; stdout: string; stderr: string };
   let json: { code: number | null; stdout: string; stderr: string };
@@ -493,10 +564,9 @@ async function reproduce(spec: Case, dir: string, fake: Fake): Promise<string[]>
     text = { ...(await main(ready.argv, context, broken)), stderr: '' };
     json = { ...(await main([...ready.argv, '--json'], context, broken)), stderr: '' };
   } else {
-    text = await go(ready.argv);
-    json = await go([...ready.argv, '--json']);
+    text = await go(ready.argv, {}, true);
+    json = await go([...ready.argv, '--json'], {}, true);
   }
-  if (text.stderr !== (ready.stderr ?? '') || json.stderr !== (ready.stderr ?? '')) say(`standard error is ${JSON.stringify(text.stderr)}`);
   let document: any;
   try {
     document = JSON.parse(json.stdout);
@@ -510,7 +580,9 @@ async function reproduce(spec: Case, dir: string, fake: Fake): Promise<string[]>
   } else if (doc.kind === 'exit 2') {
     if (text.code !== 2 || json.code !== 2) say(`the exit codes are ${text.code} and ${json.code}, not 2`);
     const count = document.errors?.length ?? 0;
-    if (!out.startsWith(`lawcheck: ERROR  ${count} error${count === 1 ? '' : 's'}\n`) && !out.startsWith('error[usage]')) say(`the first line is not the error count of the JSON (${count})`);
+    if (ready.first !== undefined) {
+      if (out.split('\n')[0] !== ready.first) say(`the first line is "${out.split('\n')[0]}", not "${ready.first}"`);
+    } else if (!out.startsWith(`lawcheck: ERROR  ${count} error${count === 1 ? '' : 's'}\n`) && !out.startsWith('error[usage]')) say(`the first line is not the error count of the JSON (${count})`);
     if (!out.includes(`error[${spec.code}]`)) say(`no error[${spec.code}] line in text`);
     if (!out.includes(`  why:  ${doc.why}`)) say(`the why line of the codes page is missing`);
     if (document.schema !== 'lawcheck-error/1' || !document.errors.some((e: { code: string; why: string }) => e.code === spec.code && e.why === doc.why)) say(`the JSON has no ${spec.code} error with the why of the codes page`);
@@ -544,6 +616,11 @@ async function reproduce(spec: Case, dir: string, fake: Fake): Promise<string[]>
   }
   if (named.base === true && ready.follow?.supply === undefined) say(`the line asks for --base and the case supplies none`);
   await ready.follow?.fix?.();
+  if (ready.follow?.git === true) {
+    const said = /\bgit ((?:fetch|config)[^,(;]*)/.exec(next!);
+    if (said === null) say(`the case runs a git command the line names, and "${next}" names none`);
+    else git(ready.cwd, ...said[1]!.trim().split(/\s+/));
+  }
   const seen = new Set<string>();
   let matched = pending === undefined;
   for (const command of named.commands) {
@@ -553,7 +630,7 @@ async function reproduce(spec: Case, dir: string, fake: Fake): Promise<string[]>
     seen.add(text);
     let further: { code: number | null; stdout: string };
     if (ready.inProcess === true) further = await main(argv, { cwd: ready.cwd, env: { ...GIT_ENV } });
-    else further = await go(argv, ready.follow?.env ?? {});
+    else further = await go(argv, ready.follow?.env ?? {}, false, ready.follow?.cwd);
     const gets = further.code !== 2 && !further.stdout.includes('error[usage]');
     const stuck = pending !== undefined && pending.command === text;
     if (stuck) matched = true;
@@ -579,21 +656,52 @@ async function runCases(cases: Case[]): Promise<string[]> {
   return problems;
 }
 
-test('check-slice §6: the codes of the cases, of the tool and of the codes page are the same', () => {
+const GROUPS: Record<string, string[]> = {
+  front: ['usage', 'not-initialized', 'already-initialized', 'no-git', 'unsupported-environment'],
+  files: ['law-invalid', 'config-invalid', 'rule-missing-file', 'rule-file-without-entry', 'type-overlap'],
+  run: ['base-unreachable', 'rule-crashed', 'parser-failed', 'internal', 'link-outside-root', 'path-unsupported', 'runner-failed'],
+  reviewer: ['reviewer-not-configured', 'too-many-reviews', 'reviewer-unreachable', 'reviewer-bad-answer', 'not-reviewed', 'too-large-to-review'],
+  findings: ['forbidden-use', 'uses-not-read', 'waiver-', 'doctor,'],
+};
+
+const inGroup = (group: string): Case[] => CASES.filter((c) => GROUPS[group]!.some((prefix) => c.id.startsWith(prefix)));
+
+test('check-slice §6: the codes of the cases, of the tool and of the codes page are the same, and every case is in one group', () => {
   const rows = documented();
-  assert.equal(rows.length, 25);
+  assert.equal(rows.length, CODES.size);
   assert.deepEqual([...new Set([...CASES.map((c) => c.code), UNREADABLE.code].filter((c) => c !== null))].sort(), [...CODES].sort());
   assert.deepEqual(rows.map((r) => r.code).sort(), [...CODES].sort());
   for (const row of rows) assert.equal(row.why, WHY[row.code], row.code);
   assert.equal(new Set(CASES.map((c) => c.id)).size, CASES.length);
+  const placed = Object.keys(GROUPS).flatMap((g) => inGroup(g).map((c) => c.id));
+  assert.deepEqual([...placed].sort(), CASES.map((c) => c.id).sort());
 });
 
-test('check-slice §6: every code, in text and in JSON, and the command each next line names gets further', async () => {
-  assert.deepEqual(await runCases(CASES), []);
+test('check-slice §6: usage, not-initialized, already-initialized, no-git and unsupported-environment, in text and in JSON, and the commands their next lines name', async () => {
+  assert.deepEqual(await runCases(inGroup('front')), []);
+});
+
+test('check-slice §6: law-invalid, config-invalid, rule-missing-file, rule-file-without-entry and type-overlap, in text and in JSON, and the commands their next lines name', async () => {
+  assert.deepEqual(await runCases(inGroup('files')), []);
+});
+
+test('check-slice §6: base-unreachable, rule-crashed, parser-failed, internal, link-outside-root, path-unsupported and runner-failed, in text and in JSON, and the commands their next lines name', async (t) => {
+  const skip = platformSkip('path-unsupported');
+  assert.deepEqual(await runCases(inGroup('run').filter((c) => skip === null || c.id !== 'path-unsupported')), []);
+  if (skip !== null) t.diagnostic(skip);
+});
+
+test('check-slice §6: the reviewer codes, in text and in JSON, and the commands their next lines name', async () => {
+  assert.deepEqual(await runCases(inGroup('reviewer')), []);
+});
+
+test('check-slice §6: the findings, with their exit codes and the exact text the spec fixes, and the notes of doctor', async () => {
+  assert.deepEqual(await runCases(inGroup('findings')), []);
 });
 
 test('check-slice §6: file-unreadable, in text and in JSON, and its next line gets further', async (t) => {
-  if (UNREADABLE_SKIP !== undefined) return t.skip(UNREADABLE_SKIP);
+  const skip = platformSkip('the whole test');
+  if (skip !== null) return t.skip(skip);
   assert.deepEqual(await runCases([UNREADABLE]), []);
 });
 

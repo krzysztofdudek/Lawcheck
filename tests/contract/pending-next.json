@@ -1,6 +1,3 @@
 [
-  { "case": "not-initialized, doctor, law.yaml is a directory", "code": "not-initialized", "command": "lawcheck init", "finding": "S5-5" },
-  { "case": "base-unreachable, shallow clone, base fetched at depth 1 and passed", "code": "base-unreachable", "command": "lawcheck check --base origin/main", "finding": "S7-5" },
-  { "case": "rule-crashed, rule imports from above the root", "code": "rule-crashed", "command": "--allow-fs-read", "finding": "S2-2" },
-  { "case": "no-git, git cannot read the work tree", "code": "no-git", "command": "lawcheck check", "finding": "R-1" }
+  {"case": "not-initialized, doctor, law.yaml is a directory", "code": "not-initialized", "command": "lawcheck init", "finding": "S5-5"}
 ]
