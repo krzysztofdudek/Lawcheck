@@ -83,8 +83,8 @@ types:
         rules: [next-keeps-the-users-word]
 
   plugin:
-    about: The Claude Code plugin's hooks. They start Lawcheck as a program and share no code with it.
-    paths: ["plugin/hooks/*.mjs"]
+    about: The Claude Code plugin's code, in any folder of plugin. It starts Lawcheck as a program and shares no code with it.
+    paths: ["plugin/**/*.{mjs,js,cjs,ts}"]
     may_use: [plugin]
     rules: [layer-imports, comments-say-why, next-keeps-the-users-word, errors-name-the-fix]
     types:
@@ -93,10 +93,14 @@ types:
         paths: ["plugin/hooks/lawcheck-hook.mjs"]
 
   build-scripts:
-    about: The scripts of the build. Each is a program of its own.
-    paths: ["scripts/*.ts"]
+    about: The scripts of the build, in any folder of scripts. Each is a program of its own.
+    paths: ["scripts/**/*.{ts,mjs,js}"]
     may_use: []
     rules: [layer-imports, comments-say-why]
+
+  plugin-settings:
+    about: The plugin's manifest and its hook settings, which Claude Code reads.
+    paths: ["plugin/**/*.json"]
 
   law-rules:
     about: The script rules of this law and the code they share.
