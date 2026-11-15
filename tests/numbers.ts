@@ -46,6 +46,8 @@ export const SLOW_TESTS: Record<string, number> = {
   'tests/acceptance/stability.test.ts > test 76: the measurement through claude-code': 200_000,
   // Measured on CI: 20 to 24 s on Windows (15 s before the harness), 10 s on macOS; four runners, each through session-start, prompt, stop and edit, every hook starting cmd.exe, the runner and node on Windows.
   'tests/acceptance/plugin.test.ts > test 158: every runner starts the same Lawcheck with its own words': 60_000,
+  // Measured on CI: up to 20.5 s on Windows (10 s before the harness), 6 s on macOS; a hook run per step of eight scenarios, each with its own commits.
+  'tests/acceptance/plugin.test.ts > test 169: what counts as changed in the turn': 60_000,
 };
 
 export const SLOWEST_SHOWN = 10;

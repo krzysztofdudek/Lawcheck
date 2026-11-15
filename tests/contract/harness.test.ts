@@ -401,7 +401,7 @@ test('harness-7: an empty folder in the repository and every file of .git but it
   await inTemp(async (dir) => {
     const repo = repository(dir);
     const git = (...args: string[]) => execFileSync('git', args, { cwd: repo, env: ENV, stdio: 'ignore' });
-    assert.match((await expectBroken('harness-7', () => tool(dir, "mkdirSync('empty');", ['check'], {}, repo))).message, /folders empty\//);
+    assert.match((await expectBroken('harness-7', () => tool(dir, "mkdirSync('empty');", ['check'], {}, repo))).message, /changed empty\//);
     execFileSync(process.execPath, ['-e', "require('fs').rmdirSync('empty')"], { cwd: repo });
     const head = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repo, env: ENV, encoding: 'utf8' }).trim();
     for (const file of ['shallow', 'info/attributes', 'description', 'ORIG_HEAD', 'config.worktree', 'FETCH_HEAD']) {
@@ -410,7 +410,7 @@ test('harness-7: an empty folder in the repository and every file of .git but it
       execFileSync(process.execPath, ['-e', `require('fs').rmSync('.git/${file}', { force: true })`], { cwd: repo });
     }
     assert.equal((await tool(dir, "writeFileSync('.git/objects/stray', 'x');", ['check'], {}, repo)).code, 0);
-    assert.match((await expectBroken('harness-7', () => tool(dir, "writeFileSync('.git/HEAD', 'nonsense\\n');", ['check'], {}, repo))).message, /git can no longer read/);
+    assert.match((await expectBroken('harness-7', () => tool(dir, "writeFileSync('.git/HEAD', 'nonsense\\n');", ['check'], {}, repo))).message, /\.git\/HEAD/);
     writeFileSync(join(repo, '.git', 'HEAD'), 'ref: refs/heads/main\n');
     git('status');
   });

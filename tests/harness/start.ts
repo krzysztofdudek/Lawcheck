@@ -181,6 +181,7 @@ interface Scope {
 
 const scopes = new Map<string, Scope>();
 
+// Every run folder made in this process stays known: on Windows a program the guard started may still write in one after its run.
 const runFolders = new Set<string>();
 const notRunFolder = (root: string) => (name: string) => runFolders.has(join(root, name));
 
@@ -209,26 +210,20 @@ function close(scope: Scope): [string, string][] {
   if (scope.runs > 0) return [];
   scopes.delete((scope as Scope & { key?: string }).key!);
   const problems: [string, string][] = [];
-  const repoChanges: string[] = [];
   if (scope.top !== null && scope.git !== null) {
     const changes = gitChanges(scope.git, gitState(scope.top));
-    repoChanges.push(...changes.paths);
-    const unexpected = changes.paths.filter((path) => !allowed(path, scope.writes));
-    const parts = [...changes.parts, ...unexpected];
+    const files = changes.paths.filter((path) => !path.endsWith('/'));
+    const unexpected = files.filter((path) => !allowed(path, scope.writes));
+    const folders = changes.paths
+      .filter((path) => path.endsWith('/'))
+      .filter((dir) => !allowed(dir, scope.writes) && !files.some((file) => file.startsWith(dir) && allowed(file, scope.writes)));
+    const parts = [...changes.parts, ...unexpected, ...folders];
     if (parts.length > 0) problems.push(['harness-7', `the run changed ${parts.slice(0, 10).join(', ')} in ${scope.top}`]);
   }
   if (scope.folder !== null && scope.tree !== null) {
     const top = scope.top;
-    const inRepo = (path: string) => top !== null && inside(join(scope.folder!, path), top) && join(scope.folder!, path) !== top;
-    const repoPath = (path: string) => relative(top!, join(scope.folder!, path)).split(sep).join('/') + '/';
-    const changed = treeChanges(scope.tree, tree(scope.folder, notRunFolder(scope.folder)));
-    const outside = changed.filter((path) => !inRepo(path) && !(top !== null && join(scope.folder!, path) === top) && !allowed(path, scope.outside));
+    const outside = treeChanges(scope.tree, tree(scope.folder, notRunFolder(scope.folder))).filter((path) => (top === null || !inside(join(scope.folder!, path), top)) && !allowed(path, scope.outside));
     if (outside.length > 0) problems.push(['harness-8', `the run changed ${outside.slice(0, 10).join(', ')} in the test's folder ${scope.folder}, outside the repository`]);
-    const folders = changed
-      .filter((path) => path.endsWith('/') && inRepo(path))
-      .map(repoPath)
-      .filter((dir) => !allowed(dir, scope.writes) && !repoChanges.some((file) => file.startsWith(dir) && allowed(file, scope.writes)));
-    if (folders.length > 0) problems.push(['harness-7', `the run made or removed the folders ${folders.slice(0, 10).join(', ')} in ${top}, which git does not show`]);
   }
   return problems;
 }
@@ -451,7 +446,6 @@ function launch(start: Start, expect: Expect): Running {
       const written = [...tree(own.home).keys()].filter((path) => !WINDOWS || !path.endsWith('/'));
       if (written.length > 0) problems.push(['harness-8', `the run wrote ${written.slice(0, 10).join(', ')} in its home folder`]);
       rmSync(own.dir, { recursive: true, force: true, maxRetries: 10 });
-      runFolders.delete(own.dir);
       problems.push(...close(scope));
       const raw = { code, signal, stdout, stderr, json: start.kind === 'hook' ? (document ?? null) : document, ms };
       if (problems.length > 0) {

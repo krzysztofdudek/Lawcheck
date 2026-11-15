@@ -1,21 +1,9 @@
-import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, lstatSync, readdirSync, readFileSync, readlinkSync, realpathSync, statSync } from 'node:fs';
 import { dirname, isAbsolute, join, relative, sep } from 'node:path';
 
-const ENV: NodeJS.ProcessEnv = { ...process.env, GIT_OPTIONAL_LOCKS: '0', GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null' };
-for (const name of Object.keys(ENV)) if (name.startsWith('GIT_') && !['GIT_OPTIONAL_LOCKS', 'GIT_CONFIG_NOSYSTEM', 'GIT_CONFIG_GLOBAL'].includes(name)) delete ENV[name];
-
 // Windows spells a folder in its short 8.3 form (RUNNER~1) in one place and in full in another; the native call gives the full form everywhere.
 export const real = (path: string): string => realpathSync.native(path);
-
-function git(cwd: string, args: string[]): string | null {
-  try {
-    return execFileSync('git', args, { cwd, env: ENV, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], maxBuffer: 256 * 1024 * 1024, windowsHide: true });
-  } catch {
-    return null;
-  }
-}
 
 // The top of the work tree is the nearest folder at or above cwd that holds .git, found without starting git.
 export function gitTop(cwd: string): string | null {
@@ -86,33 +74,20 @@ function gitFolder(dir: string): Map<string, string> {
 export interface GitState {
   top: string;
   git: Map<string, string>;
-  // null when git cannot read the work tree, as in a test that breaks the repository on purpose.
-  entries: Map<string, string> | null;
+  entries: Map<string, string>;
 }
 
+// The work tree is walked, not asked of git: a walk sees ignored files and empty folders too, and starting git twice for every run cost seconds on Windows.
 export function gitState(top: string): GitState {
-  const status = git(top, ['status', '--porcelain=v1', '-z', '--untracked-files=all', '--ignored=traditional', '--no-renames']);
-  let entries: Map<string, string> | null = null;
-  if (status !== null) {
-    entries = new Map();
-    for (const item of status.split('\0')) {
-      if (item === '') continue;
-      const path = item.slice(3);
-      entries.set(path, `${item.slice(0, 2)} ${digest(join(top, path))}`);
-    }
-  }
   const folder = new Map<string, string>();
   gitDirs(top).forEach((dir, k) => {
     for (const [path, value] of gitFolder(dir)) folder.set(`${k === 0 ? '.git' : '.git common'}/${path}`, value);
   });
-  return { top, git: folder, entries };
+  return { top, git: folder, entries: tree(top) };
 }
 
 export function gitChanges(before: GitState, after: GitState): { parts: string[]; paths: string[] } {
-  const parts: string[] = [];
-  if (before.entries !== null && after.entries === null) parts.push('the work tree, which git can no longer read');
-  parts.push(...changes(before.git, after.git));
-  return { parts, paths: before.entries !== null && after.entries !== null ? changes(before.entries, after.entries) : [] };
+  return { parts: changes(before.git, after.git), paths: changes(before.entries, after.entries) };
 }
 
 function changes(before: Map<string, string>, after: Map<string, string>): string[] {
