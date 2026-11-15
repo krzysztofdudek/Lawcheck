@@ -19,10 +19,15 @@ const loose = new TextDecoder('utf-8', { ignoreBOM: true });
 
 const filters = new Map<string, string[]>();
 
-function filterKeys(cwd: string): string[] {
+function filterKeys(program: string, cwd: string): string[] {
   let keys = filters.get(cwd);
   if (keys === undefined) {
-    const listed = spawnSync('git', ['config', '-z', '--name-only', '--get-regexp', '^filter\\.'], { cwd, maxBuffer: 1 << 24, stdio: ['ignore', 'pipe', 'ignore'] });
+    const listed = spawnSync(program, ['config', '-z', '--name-only', '--get-regexp', '^filter\\.'], {
+      cwd,
+      env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' },
+      maxBuffer: 1 << 24,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
     keys = listed.status === 0 ? listed.stdout.toString('utf8').split('\0').filter((key) => /^filter\..+\.(clean|smudge|process)$/.test(key)) : [];
     filters.set(cwd, keys);
   }
@@ -30,13 +35,13 @@ function filterKeys(cwd: string): string[] {
 }
 
 // A repository's config and attributes can name programs that git starts while it only reads; these settings start none of them.
-function startsNothing(cwd: string): NodeJS.ProcessEnv {
+function startsNothing(program: string, cwd: string): NodeJS.ProcessEnv {
   const settings: [string, string][] = [
     ['core.fsmonitor', ''],
     ['core.hooksPath', devNull],
     ['diff.external', ''],
   ];
-  for (const key of filterKeys(cwd)) settings.push([key, ''], [`${key.slice(0, key.lastIndexOf('.'))}.required`, 'false']);
+  for (const key of filterKeys(program, cwd)) settings.push([key, ''], [`${key.slice(0, key.lastIndexOf('.'))}.required`, 'false']);
   const env: NodeJS.ProcessEnv = { ...process.env, GIT_OPTIONAL_LOCKS: '0' };
   const given = Number(env.GIT_CONFIG_COUNT);
   const start = Number.isInteger(given) && given > 0 ? given : 0;
@@ -56,7 +61,7 @@ export function git(root: string, args: string[]): GitResult {
   if (gitProgram === null) throw new NoGit('git cannot be started: it is not on the PATH');
   const result = spawnSync(gitProgram, args, {
     cwd: root,
-    env: startsNothing(root),
+    env: startsNothing(gitProgram, root),
     maxBuffer: 1 << 30,
     stdio: ['ignore', 'pipe', 'pipe'],
   });

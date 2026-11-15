@@ -205,13 +205,14 @@ A rule file is code of the repository and runs with the user's rights, as the re
 
 | For | Command | Reading |
 |---|---|---|
+| the filters | `git config -z --name-only --get-regexp ^filter\.`, once for each folder git runs in, before the first other command | each `filter.<name>.clean`, `smudge` and `process` it names is set to nothing for the commands below (section 2); another exit than 0: none |
 | the work tree | `git rev-parse --is-inside-work-tree` | git does not start, exits with another code than 0, or prints another word than `true`: `no-git` |
 | the files | `git ls-files -z --cached --others --exclude-standard` | section 2 |
 | HEAD | `git rev-parse --verify --quiet HEAD^{commit}` | exit 1: no commit yet |
 | the default base | `git symbolic-ref --quiet --short refs/remotes/origin/HEAD` | run when neither `--base` nor `LAWCHECK_BASE` names a base; exit 1: no base |
 | the base | `git rev-parse --verify --quiet --end-of-options <base>^{commit}` | another exit than 0: `base-unreachable` |
 | the merge base | `git merge-base HEAD <the base's commit>` | exit 1: `base-unreachable` |
-| the change | `git diff -z --name-only --no-renames --relative <merge base> --`, then `git ls-files -z --others --exclude-standard` | below |
+| the change | `git diff --no-ext-diff --no-textconv -z --name-only --no-renames --relative <merge base> --`, then `git ls-files -z --others --exclude-standard` | below |
 
 Any other failure of a git command is `internal`. With `-z` git ends each path with a NUL byte and quotes nothing, so a name with a letter outside ASCII, a space or a tab arrives as it is. `ls-files` at the root and `diff --relative` both print paths relative to the root and leave out everything outside it. The tool compares the paths of the two as equal strings, wherever the root lies in the git tree.
 
