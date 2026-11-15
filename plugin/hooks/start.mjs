@@ -84,7 +84,7 @@ function systemProgram(name) {
 export function absolutePath(env) {
   for (const name of Object.keys(env)) {
     if (name !== 'PATH' && !(WINDOWS && name.toUpperCase() === 'PATH')) continue;
-    env[name] = (env[name] ?? '').split(WINDOWS ? ';' : ':').filter((dir) => dir !== '' && isAbsolute(dir)).join(WINDOWS ? ';' : ':');
+    env[name] = (env[name] ?? '').split(WINDOWS ? ';' : ':').filter((dir) => absoluteEntry(dir) !== null).join(WINDOWS ? ';' : ':');
   }
 }
 
@@ -92,13 +92,20 @@ export function absolutePath(env) {
 export const NO_CURRENT_FOLDER = 'NoDefaultCurrentDirectoryInExePath';
 
 // On Windows a package manager installs a program as name.cmd beside a POSIX script called name, which Windows cannot start.
+// An absolute PATH entry, with the surrounding double quotes cmd.exe allows removed; a relative or empty entry is not one.
+export function absoluteEntry(dir) {
+  const bare = WINDOWS && dir.length >= 2 && dir.startsWith('"') && dir.endsWith('"') ? dir.slice(1, -1) : dir;
+  return bare !== '' && isAbsolute(bare) ? bare : null;
+}
+
 export function findProgram(name, env) {
   const endings = WINDOWS ? (variableOf(env, 'PATHEXT') ?? '.COM;.EXE;.BAT;.CMD').split(';').filter((ending) => ending !== '') : [''];
   for (const dir of (variableOf(env, 'PATH') ?? '').split(WINDOWS ? ';' : ':')) {
     // A relative or empty entry names the folder the program starts in, which is the repository.
-    if (dir === '' || !isAbsolute(dir)) continue;
+    const base = absoluteEntry(dir);
+    if (base === null) continue;
     for (const ending of endings) {
-      const candidate = join(dir, name + ending.toLowerCase());
+      const candidate = join(base, name + ending.toLowerCase());
       try {
         if (!statSync(candidate).isFile()) continue;
         accessSync(candidate, constants.X_OK);

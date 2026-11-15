@@ -13,15 +13,22 @@ export function variableOf(env: Env, name: string, platform: NodeJS.Platform = p
   return key === undefined ? undefined : env[key];
 }
 
+// An absolute PATH entry, with the surrounding double quotes cmd.exe allows removed; a relative or empty entry is not one.
+export function absoluteEntry(dir: string, windows: boolean): string | null {
+  const bare = windows && dir.length >= 2 && dir.startsWith('"') && dir.endsWith('"') ? dir.slice(1, -1) : dir;
+  return bare !== '' && (windows ? win32 : posix).isAbsolute(bare) ? bare : null;
+}
+
 export function findProgram(name: string, env: Env, platform: NodeJS.Platform = process.platform): string | null {
   const windows = platform === 'win32';
   // On Windows a package manager installs a program as name.cmd beside a POSIX script called name, which Windows cannot start.
   const endings = windows ? (variableOf(env, 'PATHEXT', platform) ?? '.COM;.EXE;.BAT;.CMD').split(';').filter((ending) => ending !== '') : [''];
   for (const dir of (variableOf(env, 'PATH', platform) ?? '').split(windows ? ';' : ':')) {
     // A relative or empty entry names the folder the program starts in, which is the repository.
-    if (dir === '' || !(windows ? win32 : posix).isAbsolute(dir)) continue;
+    const base = absoluteEntry(dir, windows);
+    if (base === null) continue;
     for (const ending of endings) {
-      const candidate = join(dir, name + ending.toLowerCase());
+      const candidate = join(base, name + ending.toLowerCase());
       try {
         if (!statSync(candidate).isFile()) continue;
         accessSync(candidate, constants.X_OK);
@@ -55,7 +62,7 @@ export function absolutePath(env: Env, platform: NodeJS.Platform = process.platf
   const separator = windows ? ';' : ':';
   for (const name of Object.keys(env)) {
     if (name !== 'PATH' && !(windows && name.toUpperCase() === 'PATH')) continue;
-    env[name] = (env[name] ?? '').split(separator).filter((dir) => dir !== '' && (windows ? win32 : posix).isAbsolute(dir)).join(separator);
+    env[name] = (env[name] ?? '').split(separator).filter((dir) => absoluteEntry(dir, windows) !== null).join(separator);
   }
 }
 
