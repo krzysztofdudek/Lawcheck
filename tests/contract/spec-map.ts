@@ -278,7 +278,7 @@ function blank(text: string): { code: string; literals: Map<number, Literal> } {
 }
 
 const LEAD = new RegExp(
-  '^(?:(tests? \\d+(?:(?:,\\s*|\\s+and\\s+|,\\s+and\\s+)\\d+)*)|(I-[a-z]+-\\d+)|(S\\d+-\\d+|U-\\d+|R-\\d+)|([a-z][a-z/-]* §[\\w.]+)|(question \\d+)):',
+  '^(?:(tests? \\d+(?:(?:,\\s*|\\s+and\\s+|,\\s+and\\s+)\\d+)*)|(I-[a-z]+-\\d+)|(S\\d+-\\d+|U-\\d+|R-\\d+|T[1-8])|([a-z][a-z/-]* §[\\w.]+)|(question \\d+)):',
 );
 
 export function leadsWithSource(name: string): boolean {
@@ -427,7 +427,7 @@ export function loadInputs(repo: URL, sectionOnly: number): Inputs {
 
 const SOURCE = {
   invariant: /\bI-[a-z]+-\d+\b/g,
-  finding: /\b(?:S\d+-\d+|U-\d+|R-\d+)\b/g,
+  finding: /\b(?:S\d+-\d+|U-\d+|R-\d+|T[1-8])\b/g,
   section: /\b([a-z][a-z/-]*) §([\w.]+)/g,
   question: /\bquestion (\d+)\b/g,
 };
@@ -448,8 +448,8 @@ export function questionNumbers(questions: string): Set<number> {
 }
 
 export const SEVERITIES = ['blocks the release', 'should be fixed before', 'after the release'];
-export const PACKAGES = ['C', 'D', 'E', 'F', 'G', 'H', 'after alpha'];
-export const STATES = ['open', 'runes-limit', 'closed'];
+export const PACKAGES = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'P', 'after alpha'];
+export const STATES = ['open', 'limit', 'runes-limit', 'closed'];
 
 export function ledgerProblems(ledger: string, tests: TestName[], questions: Set<number>): string[] {
   const problems: string[] = [];
@@ -458,13 +458,13 @@ export function ledgerProblems(ledger: string, tests: TestName[], questions: Set
   if (rows.length === 0) problems.push('the ledger holds no rows');
   for (const row of rows) {
     const at = `ledger ${row.id}`;
-    if (!/^(S[1-8]-\d+|U-\d+|R-\d+)$/.test(row.id)) problems.push(`${at}: the id is not S<report>-<n>, U-<n> or R-<n>`);
+    if (!/^(S[1-8]-\d+|U-\d+|R-\d+|T[1-8])$/.test(row.id)) problems.push(`${at}: the id is not S<report>-<n>, U-<n>, R-<n> or T<n>`);
     if (seen.has(row.id)) problems.push(`${at}: the id is used twice`);
     seen.add(row.id);
     if (!SEVERITIES.includes(row.severity)) problems.push(`${at}: severity "${row.severity}" is not one of ${SEVERITIES.join(', ')}`);
     if (!/^(-|\d(, \d)*)$/.test(row.layer)) problems.push(`${at}: layer "${row.layer}" is not - or layers 0 to 9`);
     if (!PACKAGES.includes(row.package)) problems.push(`${at}: package "${row.package}" is not one of ${PACKAGES.join(', ')}`);
-    if (row.severity !== 'after the release' && !['C', 'D', 'E', 'F', 'G', 'H'].includes(row.package)) problems.push(`${at}: a finding that blocks or should be fixed before needs a package from C to H`);
+    if (row.severity !== 'after the release' && row.package === 'after alpha') problems.push(`${at}: a finding that blocks or should be fixed before needs a package`);
     if (!['yes', 'no'].includes(row.runes)) problems.push(`${at}: Runes cause "${row.runes}" is not yes or no`);
     if (row.defect === '') problems.push(`${at}: the defect is empty`);
     const question = /^question (\d+)$/.exec(row.state);
