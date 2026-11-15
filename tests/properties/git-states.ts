@@ -137,7 +137,7 @@ export function gitStatesProperties(speed: Speed): void {
   test('I-git-2: in any state a sequence of git commands leaves, a check changes nothing in git, its change gives what --full gives for those files, and it prints the same from below the root and twice', async () => {
     await tool(
       speed,
-      fc.commands(commands, { maxCommands: 6 }),
+      fc.commands([...commands, commands[0]!, commands[commands.length - 1]!, commands[commands.length - 1]!], { maxCommands: 6 }),
       {
         classes: {
           'a commit or a merge': (cmds) => [...cmds].some((c) => /^(commit|merge|branch)/.test(String(c))),
@@ -150,7 +150,7 @@ export function gitStatesProperties(speed: Speed): void {
         const dir = temp();
         try {
           const repo = makeSample(dir.dir);
-          const model: Model = { files: [], branches: [], rebasing: false, worktree: false };
+          const model: Model = { files: ['src/core/price.ts', 'src/core/tax.ts', 'src/cli/main.ts', 'tools/release.mjs'], branches: [], rebasing: false, worktree: false };
           await fc.asyncModelRun(() => ({ model, real: { repo, dir: dir.dir } }), cmds);
           const before = gitState(repo);
           const change = await check(repo, '--base', 'main', '--json');
