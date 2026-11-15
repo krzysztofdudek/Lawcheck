@@ -24,6 +24,8 @@ const ONE_DOOR = {
   'node:child_process': 'src/adapters/processes.ts',
   'node:worker_threads': null,
   'node:cluster': null,
+  'node:process': null,
+  'node:console': null,
   '@chrisdudek/runes/': 'src/adapters/readers.ts',
   'web-tree-sitter': 'src/adapters/readers.ts',
 };

@@ -81,6 +81,9 @@ test('ruling dogfood-fable, layer-imports: an outside import a row does not hold
     'src/adapters/git.ts': [
       ["import { readFileSync } from 'node:fs';"],
       ["import { spawnSync } from 'node:child_process';", 'imports node:child_process; only src/adapters/processes.ts does, so go through it'],
+      ["import { env } from 'node:process';", 'imports node:process; no module of src does'],
+      ["import { Console } from 'node:console';", 'imports node:console; no module of src does'],
+      ["import cluster from 'node:cluster';", 'imports node:cluster; no module of src does'],
     ],
     'src/adapters/processes.ts': [["import { spawn } from 'node:child_process';"], ["import { join } from 'node:path';"]],
     'src/adapters/readers.ts': [["import { parseFile } from '@chrisdudek/runes/ast';"], ["import * as TreeSitter from 'web-tree-sitter';"]],
