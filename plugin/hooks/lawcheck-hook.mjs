@@ -1,7 +1,8 @@
 import { createHash } from 'node:crypto';
 import { realpathSync, statSync } from 'node:fs';
-import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fit } from './fit.mjs';
+import { nameOf } from './names.mjs';
 import { snapshot, turnPaths } from './snapshot.mjs';
 import { blank, deleteState, readState, removeOld, stateFile, writeState } from './state.mjs';
 import { absolutePath, cutPoints, Deadline, DEADLINES, findRoot, firstLine, killCurrent, NO_CURRENT_FOLDER, runLawcheck, runnerAt } from './start.mjs';
@@ -118,7 +119,7 @@ async function edit(input, deadline) {
   if (root === null) return null;
   const runner = runnerAt(root);
   if ('bad' in runner) return null;
-  const rel = relative(root, path).split('\\').join('/');
+  const rel = sep === '\\' ? relative(root, path).split('\\').join('/') : nameOf(Buffer.from(relative(root, path)));
   const command = `${runner.cmd} check ./${rel}`;
   const result = await runLawcheck(runner, ['check', `./${rel}`], root, deadline);
   const done = (text) => context('PostToolUse', text);

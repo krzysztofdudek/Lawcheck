@@ -2,6 +2,7 @@ import { readFileSync, realpathSync, statSync } from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { changedPaths, defaultBase, GitFailed, gitNext, hasHead, fetchesEveryBranch, isShallow, listedPaths, listFiles, mergeBase, NoGit, remoteNames, resolveCommit, workTreeProblem } from './files.js';
 import { CONFIG, readConfig } from './config.js';
+import { canonicalName, onDisk } from './names.js';
 import type { ReviewerConfig } from './config.js';
 import { nearestKey, parseLaw } from './law.js';
 import type { Law } from './law.js';
@@ -49,7 +50,7 @@ export function onceReader(root: string): Read {
     let entry = reads.get(path);
     if (entry === undefined) {
       try {
-        entry = readFileSync(join(root, path));
+        entry = readFileSync(onDisk(root, path));
       } catch (error) {
         entry = error as Error;
       }
@@ -100,9 +101,10 @@ export function repoPath(root: string, path: string): string {
 }
 
 export function fromCwd(root: string, cwd: string, word: string): string {
+  if (word === '') throw usage('an empty path names no file');
   const path = repoPath(root, resolve(realpathSync(resolve(cwd)), word));
   if (path === '..' || path.startsWith('../') || isAbsolute(path)) throw usage(`the path '${word}' lies outside the root of the law`);
-  return path === '' ? '.' : path;
+  return path === '' ? '.' : canonicalName(path);
 }
 
 export function locate(cwd: string): string {

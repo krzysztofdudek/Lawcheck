@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { onDisk } from './names.js';
 import type { Law, TypeDef } from './law.js';
 import type { ErrorItem } from './output.js';
 
@@ -41,7 +41,7 @@ export function typeFiles(
   root: string,
   paths: string[],
   law: Law,
-  read: (path: string) => Uint8Array = (path) => readFileSync(join(root, path)),
+  read: (path: string) => Uint8Array = (path) => readFileSync(onDisk(root, path)),
 ): { typed: TypedFile[]; unreadable: ErrorItem[]; overlaps: ErrorItem[] } {
   const typed: TypedFile[] = [];
   const unreadable: ErrorItem[] = [];

@@ -58,11 +58,17 @@ Any other key is `law-invalid`; the message names the key, its rule or type, and
 - Other characters are literal, and there is no escape.
 - A leading `!` excludes; the rest is a pattern.
 
+A match costs time linear in the length of the path, whatever stars, braces and `**` the pattern holds.
+
 A pattern is `law-invalid` when it is empty or `!` alone, holds an empty segment (a leading or trailing `/`, or `//`), holds a segment `.` or `..`, holds `**` beside other characters in one segment, or holds a brace that is nested, unclosed or unopened, or that holds a `/` or an empty alternative (`{}`, `{a,}`).
 
 A file matches a list when it matches one plain pattern and no exclusion; order means nothing.
 
-**The files** are the paths that `git ls-files -z --cached --others --exclude-standard` prints at the root (section 4 has every git command), each once, reduced to regular files that exist. The tool asks with `lstat`: a symlink is not a regular file, is in no count and has no type. A path whose bytes are not valid UTF-8 is left out the same way, and so is a path that holds a line break, which would split a line of the text output.
+**The files** are the paths that `git ls-files -z --cached --others --exclude-standard` prints at the root (section 4 has every git command), each once, reduced to regular files that exist. The tool asks with `lstat`: a symlink is not a regular file, is in no count and has no type. Every listed path that is a regular file is judged or named as left out with its reason, whatever bytes its name holds (invariant `I-files-1`).
+
+**Names.** A path is written in one form, in text and in JSON alike: its bytes read as UTF-8, with a backslash written as `\\`, a line feed as `\n`, a carriage return as `\r`, and each byte that is no part of valid UTF-8 as `\x` and two lowercase hexadecimal digits. So one finding stays one line, and its place maps back to the bytes on disk. Patterns are matched against the path in this form, and rules, `repo.filesOf` and the reviewer see it in this form. A path given on the command line is read in it too; `\t`, `\x` with two hexadecimal digits and `\u` with four stand for the tab, the byte and the character they name, as the text output writes them, and a backslash that starts none of these stands for itself. On Windows a backslash on the command line separates directories, and file names hold none of the escaped bytes.
+
+**Other repositories.** A submodule, and a repository of its own inside the work tree, are listed by git as their directory and none of their files, so no file in them is judged. When a root type's paths reach below such a directory, the line after the first line of a run that does not end with exit 2 is `note: the paths of a type reach into <dir> (a submodule), <dir> (a repository of its own); Lawcheck does not look into another repository, so no file there is judged`, naming at most three and then `and <n> more`. It changes no count and no exit code. `explain` and `try` give the reason `it lies in <dir>, a submodule, which Lawcheck does not look into` (or `a repository of its own`) for a path below one.
 
 **The text** of a file is its bytes decoded as UTF-8, without a byte-order mark; an invalid sequence becomes U+FFFD. There is no size limit: the 30 seconds of section 3 bound what a large file costs. A file is binary when its first 8,000 bytes hold a NUL byte. A binary file has no type.
 
@@ -152,7 +158,7 @@ export function check({ files }) {
 }
 ```
 
-**Input.** `check` receives one object with `files` and `repo`. `files` holds one file in this slice: `path`, `type` (its type id), `text` and `lines`. `lines` is the text split at `\n` and `\r\n`. A lone `\r` stays in its line, and a final line end adds no empty element, so an empty file has no lines. `repo.filesOf(typeId)` returns an array at once, with no promise: the paths of every file of that type and its subtypes, sorted. It throws on an unknown id. Sorting, here and in section 6, compares UTF-16 code units, as JavaScript's default sort does.
+**Input.** `check` receives one object with `files` and `repo`. `files` holds one file in this slice: `path` (in the form of section 2), `type` (its type id), `text` and `lines`. `lines` is the text split at `\n` and `\r\n`. A lone `\r` stays in its line, and a final line end adds no empty element, so an empty file has no lines. `repo.filesOf(typeId)` returns an array at once, with no promise: the paths of every file of that type and its subtypes, sorted. It throws on an unknown id. Sorting, here and in section 6, compares UTF-16 code units, as JavaScript's default sort does.
 
 **Calls.** The tool calls `check` once for each file the rule binds and the run looks at, in the order of the paths, one call at a time. A rule keeps nothing between calls. The default run hands it the changed files alone and a full run all of them, so a rule that remembers earlier files answers differently in the two. The tool does not enforce this.
 
@@ -259,6 +265,7 @@ console.warn('no campaign'); // lawcheck-waive no-console -- the pricing team re
 - The form is `lawcheck-waive <rule id> -- <reason>`, anywhere in a line of a file that has a type. The tool reads lines, the `lines` of section 3, and parses no comments.
 - The marker is the first `lawcheck-waive` in the line. A second one on the line is text. After the marker come whitespace, the rule id (a run of characters that are not whitespace), whitespace, `--` and the reason.
 - With a letter or digit (`\p{L}` or `\p{N}`) before the marker on its line, the waiver covers that line. Otherwise the line stands alone, valid or not, and covers the next line that does not stand alone. At the end of the file it covers nothing.
+- A file whose type has `waivers: false` (section 2) holds no waivers: the tool does not look for the marker in it, so a page or a test that writes about waivers can have a type. Its findings are never waived.
 - A closing `*/` or `-->` at the end of the line is cut off before the tool looks for the `--`, so `<!-- lawcheck-waive no-console -->` has no reason. The reason is the rest of the line after that `--`, trimmed.
 - A waiver drops every finding of its rule on the covered line, with nobody's approval. A whole-file finding cannot be waived.
 - A waiver with a known rule and a reason is counted, used or not: in the first line for the changed files, in the debt heading for the others. In JSON, `waivers` lists the waivers of the changed files without `--full`. With `--full` it lists those of every file that has a type, the ones outside the change with `debt` true.
@@ -267,7 +274,6 @@ console.warn('no campaign'); // lawcheck-waive no-console -- the pricing team re
 |---|---|---|
 | `waiver-unknown-rule` | whitespace and a rule id of the law do not follow the marker: the id is missing, is no rule, or the word goes on, as in `lawcheck-waive-file` | error |
 | `waiver-without-reason` | the rule is known, and no `--` follows it or nothing follows the `--` | error |
-- A file whose type has `waivers: false` (section 2) holds no waivers: the tool does not look for the marker in it, so a page or a test that writes about waivers can have a type. Its findings are never waived.
 | `waiver-unused` | a counted waiver dropped nothing | warning |
 
 A line gets one of the first two at most, and those waive nothing. All three sit on the waiver's line and cannot be waived. Outside the change they are debt, so warnings.
@@ -486,7 +492,7 @@ S is the sample in a new git repository: one commit on `main` with the eight fil
 | 44 | `lawcheck --version`; `lawcheck --help`; `lawcheck check --help` | `0.1.0`; twice a first line `usage: lawcheck check [--full] [--base <ref>] [--json]`; exit 0 each |
 | 45 | add `src/core/many.ts` holding 60 lines of `console.log(1);`; run without a flag, with `--json`, with `--full`. Then the same file with 49 lines and `--full` | 50 finding lines, then `... 10 more findings (--json lists all)`; 60 findings; 50 finding lines, `... 13 more findings (--json lists all)`, then `debt (outside this change): 3 findings in 3 files` with no finding line under it; then 49 lines of the change, the debt heading, `src/core/price.ts:2  warning[no-console]  writes to the terminal with console.log`, `... 2 more findings (--json lists all)` |
 
-The unit tests carry two things no row above reaches. `tests/unit/cli.test.ts` hands the top-level handler a command that throws and sees exit 2 with `error[internal]`. `tests/unit/files.test.ts` hands the reader of git's output a path with an invalid UTF-8 byte and sees it left out.
+The unit tests carry two things no row above reaches. `tests/unit/cli.test.ts` hands the top-level handler a command that throws and sees exit 2 with `error[internal]`. `tests/unit/files.test.ts` hands the reader of git's output paths with an invalid UTF-8 byte, a line feed, a carriage return and a backslash, and sees each kept in the form of section 2.
 
 Besides these 45 tests, the tool was accepted against an external trial: a law of twelve script rules, run with `--full` on a real repository. The trial's fixture is kept outside this repository. The run ended with exit 0 and no error, and the twelve rules found 2, 22, 1, 2, 142, 1, 6, 6, 105, 41, 60 and 9 findings, as expected.
 

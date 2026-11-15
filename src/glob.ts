@@ -135,6 +135,8 @@ function build(pattern: string): Automaton {
 
 export interface Pattern {
   test(path: string): boolean;
+  // Whether some path that starts with this prefix matches.
+  reaches(prefix: string): boolean;
 }
 
 // A pattern runs as an automaton over the path's code points, built into a deterministic one as paths need it, so a match costs time linear in the path whatever the pattern holds; a backtracking regular expression costs a power of the path's length for a segment like *a*a*a*b.
@@ -188,6 +190,20 @@ export function compilePattern(pattern: string): Pattern {
   };
   reset();
 
+  const leads = new Uint8Array(count);
+  const back: number[][] = Array.from({ length: count }, () => []);
+  for (let state = 0; state < count; state++) for (const next of nfa.outs[state]!) back[next]!.push(state);
+  const queue = nfa.kinds.flatMap((kind, state) => (kind === MATCH ? [state] : []));
+  for (const state of queue) leads[state] = 1;
+  while (queue.length > 0) {
+    for (const before of back[queue.pop()!]!) {
+      if (leads[before] === 0) {
+        leads[before] = 1;
+        queue.push(before);
+      }
+    }
+  }
+
   const move = (from: number, point: number, cls: number): number => {
     const seeds: number[] = [];
     for (const state of sets[from]!) {
@@ -203,18 +219,27 @@ export function compilePattern(pattern: string): Pattern {
     return to;
   };
 
+  const run = (path: string): number | null => {
+    if (sets.length > MOST_STATES) reset();
+    let at = 0;
+    for (const ch of path) {
+      const point = ch.codePointAt(0)!;
+      const cls = classes.get(point) ?? 0;
+      const known = moves[at]![cls]!;
+      at = known >= 0 ? known : move(at, point, cls);
+      if (sets[at]!.length === 0) return null;
+    }
+    return at;
+  };
+
   return {
     test(path: string): boolean {
-      if (sets.length > MOST_STATES) reset();
-      let at = 0;
-      for (const ch of path) {
-        const point = ch.codePointAt(0)!;
-        const cls = classes.get(point) ?? 0;
-        const known = moves[at]![cls]!;
-        at = known >= 0 ? known : move(at, point, cls);
-        if (sets[at]!.length === 0) return false;
-      }
-      return accepting[at]!;
+      const at = run(path);
+      return at !== null && accepting[at]!;
+    },
+    reaches(prefix: string): boolean {
+      const at = run(prefix);
+      return at !== null && sets[at]!.some((state) => leads[state] === 1);
     },
   };
 }

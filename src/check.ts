@@ -1,9 +1,10 @@
 import { join } from 'node:path';
-import { comparePaths, trackedLinks, workTreeTop } from './files.js';
+import { comparePaths, nestedRepositories, trackedLinks, workTreeTop } from './files.js';
+import { compilePattern } from './glob.js';
 import { hide } from './keys.js';
 import type { ReviewerConfig } from './config.js';
-import type { Law } from './law.js';
 import { takesWaivers } from './law.js';
+import type { Law } from './law.js';
 import { fixNext, plural, sortFindings, WHY } from './output.js';
 import type { ErrorItem, Finding, Next, Report, Unresolved, WaiverEntry } from './output.js';
 import { buildPrompt, cleanMessage, FRAME, size } from './prompt.js';
@@ -53,16 +54,17 @@ export async function check(options: CheckOptions, context: CheckContext): Promi
     requireGit(root);
     const law = loadLaw(root);
     const config = loadConfig(root);
-    const { files, read, kinds } = loadRuleFiles(root, law, false);
+    const { listed, files, read, kinds } = loadRuleFiles(root, law, false);
     const named = options.paths !== undefined && options.paths.length > 0;
     const chosen = named ? selectTargets(root, context.cwd, options.paths!, files, (path) => isBinary(bytesOf(read, path)), true) : null;
     const typed = typeAll(root, law, files, read, kinds.unreadable);
-    return checkAt(root, options, context, { law, config, files, read, kinds, typed, chosen });
+    return checkAt(root, options, context, { law, config, listed, files, read, kinds, typed, chosen });
   });
 }
 
 interface Front {
   law: Law;
+  listed: Set<string>;
   config: ReviewerConfig;
   files: string[];
   read: Read;
@@ -191,10 +193,26 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
   };
   report.next = nextOf(report, config, cap, review);
   report.lawChanged = lawChanged;
+  const notes: string[] = [];
   if (lawChanged && !options.full) {
-    report.note = `note: the law changed in this change; lawcheck check --full${options.base === null ? '' : ` --base ${options.base}`} shows what it finds in the rest of the code`;
+    notes.push(`note: the law changed in this change; lawcheck check --full${options.base === null ? '' : ` --base ${options.base}`} shows what it finds in the rest of the code`);
   }
+  if (!named) {
+    const unseen = unseenRepositories(root, front.listed, law);
+    if (unseen !== null) notes.push(unseen);
+  }
+  report.note = notes.length === 0 ? null : notes.join('\n');
   return { report };
+}
+
+// A type whose paths reach into a submodule or a repository of its own judges none of its files, and saying so is the one sign of it (stress finding S1-9).
+function unseenRepositories(root: string, listed: Set<string>, law: Law): string | null {
+  const plain = law.types.flatMap((type) => type.paths.filter((pattern) => !pattern.startsWith('!'))).map(compilePattern);
+  const reached = nestedRepositories(root, listed).filter(({ dir }) => plain.some((pattern) => pattern.reaches(`${dir}/`)));
+  if (reached.length === 0) return null;
+  const named = reached.slice(0, 3).map(({ dir, submodule }) => `${dir} (${submodule ? 'a submodule' : 'a repository of its own'})`);
+  const more = reached.length > 3 ? ` and ${reached.length - 3} more` : '';
+  return `note: the paths of a type reach into ${named.join(', ')}${more}; Lawcheck does not look into another repository, so no file there is judged`;
 }
 
 interface UsesRead {

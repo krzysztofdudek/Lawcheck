@@ -656,6 +656,28 @@ test('test 179: the trial refuses to start without claude', async () => {
   });
 });
 
+const BACKSLASH = 'src/core/back\\slash.js';
+const BACKSLASH_OUTPUT = [
+  'lawcheck: FAIL  1 error in 1 named file',
+  '',
+  "src/core/back\\\\slash.js:1  error[no-console]  writes to the terminal with console.log",
+  '  why:  Only the command layer writes to the terminal.',
+  '',
+  'next: fix src/core/back\\\\slash.js:1',
+].join('\n');
+const BACKSLASH_LAW = LAW.replace('paths: ["src/**/*.ts", "!src/**/*.d.ts"]', 'paths: ["src/**/*.{ts,js}", "!src/**/*.d.ts"]');
+
+test('S6-4: an edit of a file with a backslash in its name checks that file', { skip: WINDOWS && 'a backslash separates directories on Windows' }, async () => {
+  await withBench(async (bench, dir) => {
+    const s = makeSample(dir);
+    write(s, '.lawcheck/law.yaml', BACKSLASH_LAW);
+    writeFileSync(join(s, BACKSLASH), "console.log('x');\n");
+    const run = await new Session(bench, s).edit(BACKSLASH);
+    json(run, edited(`${editHeader('src/core/back\\\\slash.js')}\n\n${BACKSLASH_OUTPUT}`));
+    assert.deepEqual(bench.checks(), [['check', './src/core/back\\\\slash.js']]);
+  });
+});
+
 test('S6-6: a session_id of 5,000 characters has no state file, and the hooks go on', async () => {
   await withBench(async (bench, dir) => {
     const s = makeSample(dir);
@@ -681,5 +703,19 @@ test('S6-8: a byte-order mark before the runner line, and the hook and the tool 
     assert.ok(prime.stdout.split('\n')[0]!.endsWith(' Start it here as: npx --no-install lawcheck'), prime.stdout.split('\n')[0]);
     const checked = await lawcheck(s, ['check', `./${D_PATH}`]);
     assert.equal(checked.code, 1, checked.stdout);
+  });
+});
+
+test('S6-10: the check before finishing sees a file whose name holds a line break', { skip: WINDOWS && 'Windows refuses a line break in a file name' }, async () => {
+  await withBench(async (bench, dir) => {
+    const s = makeSample(dir);
+    const session = new Session(bench, s);
+    await session.prompt();
+    writeFileSync(join(s, 'src/core/new\nline.ts'), "console.log('x');\n");
+    const run = await session.stop();
+    assert.equal(run.code, 0, run.stderr);
+    assert.equal(run.json?.hookSpecificOutput?.hookEventName, 'Stop', run.stdout);
+    assert.deepEqual(bench.checks(), [['check', './src/core/new\\nline.ts']]);
+    assert.ok(run.json.hookSpecificOutput.additionalContext.includes("src/core/new\\nline.ts:1  error[no-console]  writes to the terminal with console.log"));
   });
 });

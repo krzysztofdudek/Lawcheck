@@ -1,6 +1,8 @@
 import { spawnSync } from 'node:child_process';
-import { lstatSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { lstatSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { bytesOfName, nameOf, onDisk } from './names.mjs';
 import { findProgram } from './start.mjs';
 
 class NoSnapshot extends Error {}
@@ -43,12 +45,19 @@ function run(root, args, deadline, input) {
 }
 
 function splitZ(buffer) {
-  return buffer.toString('utf8').split('\0').filter((path) => path !== '');
+  const paths = [];
+  let start = 0;
+  for (let i = 0; i < buffer.length; i++) {
+    if (buffer[i] !== 0) continue;
+    if (i > start) paths.push(nameOf(buffer.subarray(start, i)));
+    start = i + 1;
+  }
+  return paths;
 }
 
 export function isRegular(root, path) {
   try {
-    return lstatSync(join(root, path)).isFile();
+    return lstatSync(onDisk(root, path)).isFile();
   } catch {
     return false;
   }
@@ -73,15 +82,28 @@ export function snapshot(root, deadline) {
     const paths = [...new Set(listed)].filter((path) => !path.startsWith('.lawcheck/.local/'));
     const files = {};
     const hashed = [];
+    let format = null;
     for (const path of paths) {
       files[path] = '-';
-      if (!/[\r\n]/.test(path) && isRegular(root, path)) hashed.push(path);
+      if (!isRegular(root, path)) continue;
+      const bytes = bytesOfName(path);
+      if (!bytes.includes(0x0a) && !bytes.includes(0x0d)) {
+        hashed.push(bytes);
+        continue;
+      }
+      // git reads --stdin-paths one line at a time, so a name with a line break is hashed here, as git hashes a blob.
+      format ??= run(root, ['rev-parse', '--show-object-format'], deadline).toString('utf8').trim() === 'sha256' ? 'sha256' : 'sha1';
+      try {
+        const content = readFileSync(onDisk(root, path));
+        files[path] = createHash(format).update(`blob ${content.length}\0`).update(content).digest('hex');
+      } catch {}
     }
     if (hashed.length > 0) {
       // git reads these paths from the top of the work tree, not from the folder it runs in, so a root below the top needs them whole.
-      const ids = run(root, ['hash-object', '--stdin-paths'], deadline, hashed.map((path) => join(root, path)).join('\n') + '\n').toString('utf8').split('\n');
-      hashed.forEach((path, i) => {
-        if (ids[i]) files[path] = ids[i];
+      const input = Buffer.concat(hashed.flatMap((bytes) => [Buffer.from(join(root, '/')), bytes, Buffer.from('\n')]));
+      const ids = run(root, ['hash-object', '--stdin-paths'], deadline, input).toString('utf8').split('\n');
+      hashed.forEach((bytes, i) => {
+        if (ids[i]) files[nameOf(bytes)] = ids[i];
       });
     }
     return { head, files };
