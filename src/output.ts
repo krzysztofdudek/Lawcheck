@@ -63,6 +63,7 @@ export interface Report {
   reviews?: Reviews;
   next?: Next | null;
   lawChanged?: boolean;
+  lawChanges?: string[];
   note?: string | null;
 }
 
@@ -320,7 +321,13 @@ export function renderReport(report: Report, json: boolean): string {
     const document = {
       schema: 'lawcheck-check/0',
       result: failing ? 'fail' : 'pass',
-      scope: { mode: report.mode, base: report.base, files: report.changed, law_changed: report.lawChanged ?? false },
+      scope: {
+        mode: report.mode,
+        base: report.base,
+        files: report.changed,
+        law_changed: report.lawChanged ?? false,
+        ...(report.lawChanges !== undefined && report.lawChanges.length > 0 ? { law_changes: report.lawChanges } : {}),
+      },
       summary: { errors, warnings, debt: report.debt.length, waivers: changeWaivers, unresolved: changeUnresolved },
       findings: [...report.findings, ...report.debt].map(shape),
       waivers: report.waivers.map((w) => ({ file: w.file, line: w.line, rule: w.rule, debt: w.debt, waived: w.waived, reason: w.reason })),

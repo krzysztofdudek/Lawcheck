@@ -40,11 +40,14 @@ $ lawcheck check --full --base main
 
 A plain check judges only the files that differ from the base. Three kinds of change can alter a judgment without changing the file judged: a change of the law (`.lawcheck/law.yaml` or a rule file); a file whose new text moves it to another type, which changes the judgment of every file that uses it; and a file the language readers consult, such as `tsconfig.json`, `package.json`, `go.mod`, `Cargo.toml`, `composer.json` or a C# project file. Each passes a plain check, and the files it affects are judged the next time they change. This is deliberate: the default judges the change, and code nobody touched never turns a build red. To judge everything after such a change, run `lawcheck check --full`; what it finds outside the change is listed as debt and blocks nothing. When the change touches the law, `check` and `doctor` say so.
 
-The line `check` prints when the change touches the law:
+The lines `check` prints when the change touches the law (`.lawcheck/law.yaml`, `.lawcheck/config.yaml` or a file in `.lawcheck/rules/`), the first one only without `--full`:
 
 ```text
 note: the law changed in this change; lawcheck check --full --base main shows what it finds in the rest of the code
+note: this change edits the law that judges it: takes the rule no-console off the type library
 ```
+
+The second line says what the change does to the law that judges it. A pull request can change that law: take a rule off a type, or make a rule script return nothing, and the same pull request passes its own check. The line names what Lawcheck can tell by comparing with the base: types and rules added or removed, a rule made advisory or enforced, a rule taken off or put on a type, changed `paths`, `content` or `may_use`, and each file of `.lawcheck/rules/` and `.lawcheck/config.yaml` added, removed or changed. A rule script is named by its file, not by what it now does. It shows five items and counts the rest, and `--json` lists all of them in `scope.law_changes`. It never changes the exit code; `lawcheck docs ci` gives a job that fails such a pull request.
 
 `lawcheck doctor` reports the same in its `law-change` check. No line reports the other two kinds.
 

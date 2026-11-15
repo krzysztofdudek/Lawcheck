@@ -12,6 +12,7 @@ import type { AnswerFinding } from './prompt.js';
 import { createProvider } from './providers/index.js';
 import { readerOf, readUses, siblingsOf, Unreadable } from './readers.js';
 import type { ScriptView } from './readers.js';
+import { lawChangeLine, lawChanges } from './lawchange.js';
 import { call, preflight } from './review.js';
 import type { Ask } from './review.js';
 import { crashNext, linksOut, runAll, runnerProblem, runRule } from './rules.js';
@@ -196,8 +197,13 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
   report.next = nextOf(report, config, cap, review);
   report.lawChanged = lawChanged;
   const notes: string[] = [];
-  if (lawChanged && !options.full) {
-    notes.push(`note: the law changed in this change; lawcheck check --full${options.base === null ? '' : ` --base ${options.base}`} shows what it finds in the rest of the code`);
+  if (lawChanged) {
+    const told = lawChanges(root, base!, files);
+    if (!options.full) notes.push(`note: the law changed in this change; lawcheck check --full${options.base === null ? '' : ` --base ${options.base}`} shows what it finds in the rest of the code`);
+    if (told.length > 0) {
+      report.lawChanges = told;
+      notes.push(lawChangeLine(told));
+    }
   }
   if (!named) {
     const unseen = unseenRepositories(root, front.listed, law);
