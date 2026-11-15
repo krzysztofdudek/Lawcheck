@@ -1,4 +1,5 @@
 import { test } from 'node:test';
+import { platformSkip } from '../harness/tool.ts';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, rmSync } from 'node:fs';
@@ -502,8 +503,7 @@ test('test 67: claude-code past its timeout, and the tool killed', async () => {
         const seen = record(dir);
         child.kill(signal);
         const { code } = await child.ended;
-        // On Windows every signal ends a process at once, so the tool cannot answer it with its own exit code.
-        if (process.platform !== 'win32') assert.equal(code, 2, signal);
+        if (platformSkip('exit 2 after SIGTERM and SIGINT') === null) assert.equal(code, 2, signal);
         assert.ok(await waitFor(() => !alive(seen.pid) && !alive(seen.child!), 5000), `${signal}: both are gone`);
         assert.ok(await waitFor(() => !existsSync(seen.cwd), 5000), `${signal}: ${seen.cwd} is left`);
       } finally {

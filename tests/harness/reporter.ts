@@ -73,12 +73,15 @@ export default async function* reporter(source: AsyncIterable<{ type: string; da
   const times: { ms: number; name: string; file: string }[] = [];
   const files = new Set<string>();
   const seeds = new Map<string, string>();
+  const skips: string[] = [];
   const counts = { passed: 0, failed: 0, skipped: 0, todo: 0 };
   for await (const event of source) {
     const data = event.data ?? {};
     if (event.type === 'test:stdout' || event.type === 'test:stderr') {
-      const seen = /^seed (-?\d+)$/m.exec(String(data.message ?? ''));
+      const message = String(data.message ?? '');
+      const seen = /^seed (-?\d+)$/m.exec(message);
       if (seen !== null && data.file) seeds.set(data.file, seen[1]!);
+      for (const m of message.matchAll(/^skip (.*)$/gm)) skips.push(`${m[1]}  ${where(data.file)}`);
       continue;
     }
     if (event.type !== 'test:pass' && event.type !== 'test:fail') continue;
@@ -113,6 +116,7 @@ export default async function* reporter(source: AsyncIterable<{ type: string; da
   const target = Number(process.env.LAWCHECK_TARGET_MS);
   if (took !== null && target > 0 && took > target) lines.push(`past the target of ${target / 1000} s for this speed (tests/numbers.ts)`);
   for (const [file, seed] of seeds) lines.push(`seed ${seed}  ${where(file)}`);
+  for (const skip of skips) lines.push(`skipped ${skip}`);
   times.sort((a, b) => b.ms - a.ms);
   if (times.length > 0) {
     lines.push('', 'slowest');

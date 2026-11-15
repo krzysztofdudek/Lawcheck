@@ -8,7 +8,7 @@ import { withFake } from './fake-reviewer.ts';
 import { alive, append, CLI, D, D_PATH, F, F_PATH, git, GIT_ENV, inTemp, LAW, lawcheck, makeR, makeSample, newRepository, ROOT, write } from './helpers.ts';
 import type { Expect, Run, Running } from './helpers.ts';
 import { example } from '../harness/examples.ts';
-import { startHook, startProgram } from '../harness/tool.ts';
+import { platformSkip, startHook, startProgram } from '../harness/tool.ts';
 
 const PLUGIN = join(ROOT, 'plugin');
 const HOOK = join(PLUGIN, 'hooks', 'lawcheck-hook.mjs');
@@ -461,8 +461,7 @@ test('test 163: the deadline, and a hook that is stopped', async () => {
     assert.ok(stop.ms < 150000, String(stop.ms));
     json(stop, { systemMessage: 'lawcheck: the check before the agent finished did not run: it did not finish within 145 seconds.' });
     await gone();
-    // On Windows every signal ends a process at once, so a stopped hook cannot end what it started.
-    if (WINDOWS) return;
+    if (platformSkip('a hook stopped by SIGTERM') !== null) return;
     const stopped = await hook(bench, 'edit', session.input('edit', { tool_name: 'Write', tool_input: { file_path: join(s, D_PATH) } }), {}, (running) => {
       setTimeout(() => running.kill('SIGTERM'), 2000);
     });
@@ -486,8 +485,7 @@ test('section 5: the call ends 2 seconds after Lawcheck exits while a child hold
     const run = await new Session(bench, s).edit(D_PATH);
     nothing(run);
     assert.ok(run.ms < 5000, String(run.ms));
-    // Windows has no process groups: a child left behind by a program that has ended can no longer be reached through it.
-    if (!WINDOWS) assert.ok(await ended(Number(readFileSync(pid, 'utf8').trim())));
+    if (platformSkip('the child left behind is ended') === null) assert.ok(await ended(Number(readFileSync(pid, 'utf8').trim())));
   });
 });
 

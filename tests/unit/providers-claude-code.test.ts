@@ -1,4 +1,5 @@
 import { test } from 'node:test';
+import { platformSkip } from '../harness/tool.ts';
 import assert from 'node:assert/strict';
 import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -29,7 +30,7 @@ test('claude is looked up on PATH', () => {
   try {
     const name = process.platform === 'win32' ? 'claude.cmd' : 'claude';
     writeFileSync(join(dir, name), '#!/bin/sh\n');
-    if (process.platform !== 'win32') {
+    if (platformSkip('a claude that is not executable') === null) {
       assert.match(claudeCode({ ...DEFAULT_CONFIG, provider: 'claude-code' }, { PATH: dir }).ready()!, /not on PATH/);
       chmodSync(join(dir, name), 0o755);
     }

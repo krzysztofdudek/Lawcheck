@@ -4,12 +4,16 @@ import { tmpdir } from 'node:os';
 import { join, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach } from 'node:test';
-import { BUDGET, SLOW_TESTS } from '../numbers.ts';
+import { KILLED_GRACE_MS, LEFTOVER_GRACE_MS, RUN_BUDGET_MS, SLOW_TESTS, TEST_BUDGET_MS } from '../numbers.ts';
 import { Broken, hasInternal, jsonProblem, outputProblem, stringsOf } from './invariants.ts';
 import { killAll, Tracker } from './processes.ts';
 import { gitChanges, gitState, gitTop, treeChanges, treeState } from './state.ts';
 import type { GitState } from './state.ts';
 import { testIds } from './promises.ts';
+import { skipReason } from './skips.ts';
+
+export { PLATFORM_SKIPS } from './skips.ts';
+export type { PlatformSkip } from './skips.ts';
 
 const ROOT_DIR = realpathSync(fileURLToPath(new URL('../..', import.meta.url)));
 export const ROOT = ROOT_DIR + sep;
@@ -79,7 +83,7 @@ const active = new Map<string, number>();
 
 function budgetOf(name: string): number {
   for (const id of testIds(name)) if (SLOW_TESTS[id] !== undefined) return SLOW_TESTS[id]!;
-  return BUDGET.test;
+  return TEST_BUDGET_MS;
 }
 
 const REGISTERED = Symbol.for('lawcheck.harness');
@@ -104,6 +108,11 @@ if (!registry[REGISTERED]) {
     if (took > state.budget) problems.push(`harness-6: the test took ${took} ms, past its budget of ${state.budget} ms (tests/numbers.ts)`);
     if (problems.length > 0) throw new Broken(problems[0]!.slice(0, problems[0]!.indexOf(':')), problems.map((p) => p.slice(p.indexOf(':') + 2)).join('\n'));
   });
+}
+
+export function platformSkip(part: string): string | null {
+  if (current === null) throw new Error('harness: platformSkip is called outside a test');
+  return skipReason(current.name, part);
 }
 
 export async function expectBroken(invariant: string, body: () => Promise<unknown>): Promise<Broken> {
@@ -187,7 +196,7 @@ function launch(start: Start, expect: Expect): Running {
   const before: GitState | null = top === null ? null : gitState(top);
   const temp = start.ownTemp ? null : realpathSync(mkdtempSync(join(tmpdir(), 'lawcheck-run-')));
   const env: NodeJS.ProcessEnv = temp === null ? start.env : { ...start.env, TMPDIR: temp, TMP: temp, TEMP: temp };
-  const budget = expect.budget ?? state?.budget ?? BUDGET.run;
+  const budget = expect.budget ?? state?.budget ?? RUN_BUDGET_MS;
   const began = Date.now();
   const child = spawn(process.execPath, start.argv, { cwd: start.cwd, env, stdio: ['pipe', 'pipe', 'pipe'], detached: process.platform !== 'win32' });
   if (child.pid === undefined) throw new Error(`harness: ${start.argv.join(' ')} did not start`);
@@ -222,7 +231,7 @@ function launch(start: Start, expect: Expect): Running {
       const ms = Date.now() - began;
       tracker.stop();
       const problems: [string, string][] = [];
-      const grace = sent === 'SIGKILL' || overran ? BUDGET.killed : BUDGET.leftover;
+      const grace = sent === 'SIGKILL' || overran ? KILLED_GRACE_MS : LEFTOVER_GRACE_MS;
       let left = tracker.alive();
       const until = Date.now() + grace;
       while (left.length > 0 && Date.now() < until) {

@@ -6,7 +6,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { outputProblem } from '../harness/invariants.ts';
-import { CouldNotRun, expectBroken, ROOT, startTool } from '../harness/tool.ts';
+import { skipReason } from '../harness/skips.ts';
+import { CouldNotRun, expectBroken, PLATFORM_SKIPS, ROOT, startTool } from '../harness/tool.ts';
 import type { Expect } from '../harness/tool.ts';
 
 const ENV: NodeJS.ProcessEnv = { PATH: process.env.PATH, GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null', GIT_AUTHOR_NAME: 'T', GIT_AUTHOR_EMAIL: 't@example.com', GIT_COMMITTER_NAME: 'T', GIT_COMMITTER_EMAIL: 't@example.com' };
@@ -225,4 +226,14 @@ test('the reporter: one block per red test, last, with its promise, what was got
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test('a skip comes only from PLATFORM_SKIPS, with a platform and a reason', () => {
+  assert.throws(() => skipReason('test 1: a test', 'a part no entry names'), /without an entry in PLATFORM_SKIPS/);
+  for (const entry of PLATFORM_SKIPS) {
+    assert.ok(['win32', 'darwin', 'linux', 'root'].includes(entry.platform), JSON.stringify(entry));
+    assert.ok(entry.reason.length > 0 && entry.part.length > 0, JSON.stringify(entry));
+  }
+  const listed = PLATFORM_SKIPS.find((entry) => entry.platform === 'win32')!;
+  assert.equal(skipReason(`${listed.test}: any name`, listed.part), process.platform === 'win32' ? listed.reason : null);
 });

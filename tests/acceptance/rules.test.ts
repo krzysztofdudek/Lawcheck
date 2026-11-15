@@ -1,4 +1,5 @@
 import { test } from 'node:test';
+import { platformSkip } from '../harness/tool.ts';
 import assert from 'node:assert/strict';
 import { existsSync, realpathSync } from 'node:fs';
 import { setTimeout as sleep } from 'node:timers/promises';
@@ -209,8 +210,7 @@ test('section 3: a rule that spins ends with the tool, whatever ends the tool', 
       } finally {
         if (left) process.kill(pid, 'SIGKILL');
       }
-      // On Windows every signal ends a process at once, so the tool cannot answer SIGTERM with its own exit code.
-      if (signal === 'SIGTERM' && process.platform !== 'win32') assert.equal(code, 2);
+      if (signal === 'SIGTERM' && platformSkip('exit 2 after SIGTERM') === null) assert.equal(code, 2);
     });
   }
 });

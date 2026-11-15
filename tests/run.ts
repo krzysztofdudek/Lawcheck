@@ -2,7 +2,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { BUDGET, SEED, SLOW_TESTS } from './numbers.ts';
+import { COMMIT_TARGET_MS, LOOP_TARGET_MS, SEED, SLOW_TESTS, TEST_BUDGET_MS } from './numbers.ts';
 import type { Speed } from './numbers.ts';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
@@ -26,6 +26,11 @@ const NIGHTLY_GROUPS: Record<string, string[]> = {
 function fail(message: string): never {
   process.stderr.write(`${message}\n${USAGE}\n`);
   process.exit(2);
+}
+
+function couldNotRun(missing: string): never {
+  process.stdout.write(`could not run: ${missing}\n`);
+  process.exit(1);
 }
 
 function walk(dir: string): string[] {
@@ -89,7 +94,7 @@ function changedFiles(): string[] {
     const untracked = git(['ls-files', '--others', '--exclude-standard', '-z']).split('\0');
     return [...new Set([...tracked, ...untracked])].filter((path) => path !== '').sort();
   } catch (error) {
-    fail(`git cannot read this checkout, so the loop cannot tell what changed; name the files: npm run t -- src/<file>.ts\n${String((error as { stderr?: unknown }).stderr ?? error).trim()}`);
+    couldNotRun(`git cannot read this checkout, so the loop cannot tell what changed (${String((error as { stderr?: unknown }).stderr ?? error).trim()}); name the files instead: npm run t -- src/<file>.ts`);
   }
 }
 
@@ -171,10 +176,7 @@ function build(): void {
   process.stdout.write('build: src/ is newer than dist/\n');
   const npm = process.env.npm_execpath;
   const result = npm ? spawnSync(process.execPath, [npm, 'run', 'build'], { cwd: ROOT, stdio: 'inherit' }) : spawnSync('npm', ['run', 'build'], { cwd: ROOT, stdio: 'inherit', shell: process.platform === 'win32' });
-  if (result.status !== 0) {
-    process.stdout.write('could not run: the build failed\n');
-    process.exit(1);
-  }
+  if (result.status !== 0) couldNotRun('the build failed');
 }
 
 function main(): void {
@@ -190,17 +192,17 @@ function main(): void {
   }
   const seed = process.env.LAWCHECK_SEED ?? String(SEED);
   process.stdout.write(`${what}: ${files.length} test files, seed ${seed}${parsed.repeat > 1 ? `, ${parsed.repeat} times` : ''}\n`);
-  const slowest = Math.max(BUDGET.test, ...Object.values(SLOW_TESTS));
+  const slowest = Math.max(TEST_BUDGET_MS, ...Object.values(SLOW_TESTS));
   const args = [
     '--test',
     `--import=${HARNESS}`,
     `--test-reporter=${REPORTER}`,
     '--test-reporter-destination=stdout',
-    `--test-timeout=${slowest + BUDGET.test}`,
+    `--test-timeout=${slowest + TEST_BUDGET_MS}`,
     ...patterns.map((p) => `--test-name-pattern=${p}`),
     ...files,
   ];
-  const target = parsed.speed === 'loop' ? BUDGET.loop : parsed.speed === 'commit' && parsed.targets.length === 0 && parsed.group === null ? BUDGET.commit : null;
+  const target = parsed.speed === 'loop' ? LOOP_TARGET_MS : parsed.speed === 'commit' && parsed.targets.length === 0 && parsed.group === null ? COMMIT_TARGET_MS : null;
   const env = { ...process.env, LAWCHECK_SPEED: parsed.speed, LAWCHECK_SEED: seed, LAWCHECK_TARGET_MS: target === null ? '' : String(target) };
   let failed = false;
   for (let round = 1; round <= parsed.repeat; round++) {
