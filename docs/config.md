@@ -103,6 +103,8 @@ The plugin reads the key without a YAML parser, so the key has one written form.
 
 `.lawcheck/config.local.yaml` does not take `runner`; it is not read.
 
+`.lawcheck/config.yaml` and `.lawcheck/law.yaml` are read through a symbolic link. When a file read that way is not valid, the error says what is wrong and shows none of the file, since a link can lead to a file outside the repository, such as a token.
+
 ## Limits that keep a run bounded
 
 - `max_chars`: a file whose prompt is larger is never sent. `check` reports it as `too-large-to-review`.

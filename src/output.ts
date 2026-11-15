@@ -134,8 +134,12 @@ function fixedNext(error: ErrorItem, command: string): string {
     case 'link-outside-root':
       return `remove the link ${error.file}, or let it lead inside the root, then run lawcheck check`;
     case 'path-unsupported':
-      return 'move the repository, or Lawcheck, to a path without a * or a backslash, then run lawcheck check';
+      return 'move the repository, or Lawcheck itself, to a path with no * or backslash, then run lawcheck check; Lawcheck grants a rule read access to its own folder for the readers it ships, so that path must be as plain as the root';
     case 'reviewer-unreachable':
+      if (/\bHTTP 40[13]\b/.test(error.message)) {
+        return 'check the reviewer key in the environment, then run the same command again; what was answered is kept, so it asks only the rest';
+      }
+      return 'run the same command again; what was answered is kept, so it asks only the rest';
     case 'reviewer-bad-answer':
       return 'run the same command again; what was answered is kept, so it asks only the rest';
     default:

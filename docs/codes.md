@@ -33,3 +33,18 @@ Every code Lawcheck prints. A finding is a line of `check`'s report and comes wi
 | `waiver-unused` | finding | a counted waiver drops no finding | a waiver that drops nothing would hide the next finding on its line |
 
 A finding of a rule of the law carries the rule's id as its code, and the rule's own `why`. A rule id may not equal any code above.
+
+## Escapes in the output
+
+A file name, a rule or reviewer message, the base, the law's ids, `about` texts and patterns, config values, and the text that git, a reviewer endpoint or a reviewer program prints can hold any character. Lawcheck writes these characters as escapes, so one finding or error stays one line and a terminal or a CI log reads no control sequence:
+
+| Character | Written as |
+|---|---|
+| a line feed inside such text | `\n` |
+| a carriage return | `\r` |
+| a tab | `\t` |
+| any other character below U+0020, and U+007F | `\x` and two hexadecimal digits, such as `\x1b` |
+| U+0080 to U+009F, U+061C, U+200E, U+200F, U+2028, U+2029, U+202A to U+202E, U+2066 to U+2069 | `\u` and four hexadecimal digits, such as `\u202e` |
+| a line that a CI runner would read as a command of GitHub Actions or Azure Pipelines | its first character as `\x3a` or `\x23` |
+
+Nothing else is escaped, a backslash included. In `--json` a string keeps the text as it is, except that the characters of the last two rows are written as `\u` escapes, so the printed document holds none of them raw and a program that parses it gets the text unchanged. What a script rule prints on its own streams reaches standard error through the same escapes.
