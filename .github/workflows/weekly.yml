@@ -1,0 +1,56 @@
+name: Weekly
+
+on:
+  schedule:
+    - cron: '41 3 * * 0'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  grammars:
+    name: grammars
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - uses: actions/cache@v6
+        with:
+          path: .grammars
+          key: grammars-${{ hashFiles('package-lock.json') }}
+      - name: Grammars
+        run: npm run grammars
+      - uses: actions/upload-artifact@v7
+        with:
+          name: nightly-grammar-cache
+          path: .grammars
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1
+
+  # All mutants of each module against its floor in tests/numbers.ts.
+  mutants:
+    name: weekly mutants
+    needs: grammars
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v8
+        with:
+          name: nightly-grammar-cache
+          path: .grammars
+      - run: npm run build
+      - name: All mutants, with the network closed
+        run: |
+          sudo unshare --net -- sh -c 'ip link set lo up && u=$1 g=$2 && shift 2 && exec setpriv --reuid="$u" --regid="$g" --clear-groups env -i "$@"' \
+            sh "$(id -u)" "$(id -g)" PATH="$PATH" HOME="$HOME" USER="$(id -un)" LOGNAME="$(id -un)" node tests/run.ts nightly --group mutants

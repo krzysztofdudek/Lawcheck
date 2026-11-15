@@ -206,3 +206,66 @@ jobs:
         run: |
           sudo unshare --net -- sh -c 'ip link set lo up && u=$1 g=$2 && shift 2 && exec setpriv --reuid="$u" --regid="$g" --clear-groups env -i "$@"' \
             sh "$(id -u)" "$(id -g)" PATH="$PATH" HOME="$HOME" USER="$(id -un)" LOGNAME="$(id -un)" node tests/run.ts nightly --group sabotage
+
+  # The whole corpus of real repositories with planted uses; it fetches them, so it has the network.
+  corpus:
+    name: nightly corpus
+    needs: grammars
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v8
+        with:
+          name: nightly-grammar-cache
+          path: .grammars
+      - run: npm run build
+      - run: node tests/run.ts nightly --group corpus
+
+  # The lines of src/ that no test executed: a reading list for reviewers, not a threshold.
+  coverage:
+    name: nightly coverage list
+    needs: grammars
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v8
+        with:
+          name: nightly-grammar-cache
+          path: .grammars
+      - run: npm run build
+      - name: The coverage list, with the network closed
+        run: |
+          sudo unshare --net -- sh -c 'ip link set lo up && u=$1 g=$2 && shift 2 && exec setpriv --reuid="$u" --regid="$g" --clear-groups env -i "$@"' \
+            sh "$(id -u)" "$(id -g)" PATH="$PATH" HOME="$HOME" USER="$(id -un)" LOGNAME="$(id -un)" node tests/run.ts nightly --group coverage
+
+  # Every live result covers the paths it guards; the release runs this through the nightly set.
+  live:
+    name: nightly live results current
+    needs: grammars
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v8
+        with:
+          name: nightly-grammar-cache
+          path: .grammars
+      - run: npm run build
+      - name: The live results against their guarded paths, with the network closed
+        run: |
+          sudo unshare --net -- sh -c 'ip link set lo up && u=$1 g=$2 && shift 2 && exec setpriv --reuid="$u" --regid="$g" --clear-groups env -i "$@"' \
+            sh "$(id -u)" "$(id -g)" PATH="$PATH" HOME="$HOME" USER="$(id -un)" LOGNAME="$(id -un)" node tests/run.ts nightly --group live
