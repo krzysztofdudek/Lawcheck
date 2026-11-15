@@ -9,7 +9,7 @@ const FUNCTION = /^(?:async\s+)?(?:function\b|\([^)]*\)\s*(?::[^=]*)?=>|[\w$]+\s
 const EMPTY_STORE = /^new\s+(Set|Map|WeakMap|WeakSet)\s*(?:<[^(]*>)?\(\s*\)/;
 const EMPTY_LITERAL = /^(\{\s*\}|\[\s*\])\s*(?:as\s[^;]*)?;?\s*$/;
 const READS_AT_LOAD = /(?<![\w$])([\w$]+Sync)\s*\(/;
-const CREATES = /^(?:new\s+)?((?:create|make|start|open|register|init|spawn|connect)[A-Z\w$]*)\s*\(/;
+const CREATES = /^(?:new\s+)?((?:[\w$]+\s*\.\s*)*(?:create|make|start|open|register|init|spawn|connect)[\w$]*)\s*\(/;
 const STATIC = /^\s*static\s+(readonly\s+)?(#?[\w$]+)[^=(]*=(?![=>])\s*(.*)$/;
 const KEEP = '; pass the state in, or hold it in an object the caller creates';
 const AT_LOAD = 'when the module loads; make it a function';
@@ -22,7 +22,7 @@ function constant(name, value) {
   if (FUNCTION.test(value)) return null;
   if (/^await\b/.test(value)) return `computes ${name} with await ${AT_LOAD}`;
   if ((match = value.match(READS_AT_LOAD)) !== null) return `computes ${name} with ${match[1]} ${AT_LOAD}`;
-  if ((match = value.match(CREATES)) !== null) return `creates ${name} with ${match[1]} ${AT_LOAD}`;
+  if ((match = value.match(CREATES)) !== null) return `creates ${name} with ${match[1].replace(/\s+/g, '')} ${AT_LOAD}`;
   return null;
 }
 

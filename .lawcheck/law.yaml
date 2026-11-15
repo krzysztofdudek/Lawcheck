@@ -8,7 +8,7 @@ rules:
   programs-own-the-process:
     why: Only the programs read the arguments and the environment, print and exit, so --json prints one document and a key goes only where it is passed.
   modules-only-declare:
-    why: Importing a module runs nothing and keeps nothing, so a test may import any module in any order. The rule reads the lines that start in the first column, and static fields.
+    why: Loading a module runs and keeps nothing, so tests import it in any order. It sees first-column lines, static fields, and calls at load named create, make, start, open, register, init, spawn, connect.
   no-import-cycles:
     why: Two modules that import each other's values load in an order nobody chose.
   own-paths-in-one-place:
