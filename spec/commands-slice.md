@@ -487,7 +487,7 @@ json  JSON documents
 codes  Codes
 ```
 
-A page's first line is `# <its title>`. A page holds at most 8,000 characters, so an agent can read one whole. Each describes what is built, and only that, which the reviewer checks by reading; no page names another tool; what each must hold:
+A page's first line is `# <its title>`. A page holds at most 8,000 characters, so an agent can read one whole. Each describes what is built, and only that, which the reviewer checks by reading; no page names another tool but Runes, the library the readers come from (question 77); what each must hold:
 
 | Topic | Holds |
 |---|---|
