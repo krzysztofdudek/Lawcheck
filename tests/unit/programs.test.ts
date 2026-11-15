@@ -29,8 +29,10 @@ function argvProgram(dir: string): string {
 test('a program is found on PATH, and on Windows by the endings of PATHEXT', async () => {
   await inDir((dir) => {
     executable(join(dir, 'tool'), '#!/bin/sh\n');
-    assert.equal(findProgram('tool', { PATH: ['/nonexistent', '', dir].join(':') }, 'linux'), join(dir, 'tool'));
-    assert.equal(findProgram('none', { PATH: dir }, 'linux'), null);
+    if (process.platform !== 'win32') {
+      assert.equal(findProgram('tool', { PATH: ['/nonexistent', '', dir].join(':') }, 'linux'), join(dir, 'tool'));
+      assert.equal(findProgram('none', { PATH: dir }, 'linux'), null);
+    }
     assert.equal(findProgram('tool', { Path: dir, PATHEXT: '.EXE;.CMD' }, 'win32'), null);
     executable(join(dir, 'tool.cmd'), '@echo off\r\n');
     assert.equal(findProgram('tool', { Path: `C:\\nonexistent;${dir}`, PATHEXT: '.EXE;.CMD' }, 'win32'), join(dir, 'tool.cmd'));
@@ -38,12 +40,12 @@ test('a program is found on PATH, and on Windows by the endings of PATHEXT', asy
   });
 });
 
-test('every argument reaches the program as it was given, through a .cmd file on Windows too', async () => {
+test('every argument and the output pass through a program started as the callers start it, a .cmd file on Windows too', async () => {
   await inDir(async (dir) => {
     argvProgram(dir);
     const program = findProgram('argv', { PATH: dir, PATHEXT: '.CMD' })!;
     const args = ['', 'plain', 'two words', '{"mcpServers":{}}', 'a&b|c<d>e^f', '50% (%PATH%) !x!', 'back\\slash\\', 'quote"inside', './src/core/discount.ts'];
-    const child = startProgram(program, args, { cwd: dir, env: process.env, stdio: ['ignore', 'pipe', 'inherit'] });
+    const child = startProgram(program, args, { cwd: dir, env: process.env, detached: true, stdio: ['ignore', 'pipe', 'inherit'] });
     let out = '';
     child.stdout!.setEncoding('utf8').on('data', (chunk: string) => (out += chunk));
     const code = await new Promise<number | null>((done) => child.on('close', done));

@@ -49,11 +49,12 @@ function systemProgram(name: string): string {
 }
 
 export function startProgram(program: string, args: string[], options: SpawnOptions): ChildProcess {
-  if (process.platform === 'win32' && /\.(cmd|bat)$/i.test(program)) {
-    const shell = variableOf(options.env ?? process.env, 'COMSPEC') ?? systemProgram('cmd.exe');
-    return spawn(shell, ['/d', '/s', '/c', cmdLine(program, args)], { ...options, windowsVerbatimArguments: true, windowsHide: true });
-  }
-  return spawn(program, args, { ...options, windowsHide: true });
+  if (process.platform !== 'win32') return spawn(program, args, options);
+  // A detached process on Windows has no console, and the programs it starts get a console of their own instead of its pipes; killTree ends the tree without a group.
+  const windows = { ...options, detached: false, windowsHide: true };
+  if (!/\.(cmd|bat)$/i.test(program)) return spawn(program, args, windows);
+  const shell = variableOf(options.env ?? process.env, 'COMSPEC') ?? systemProgram('cmd.exe');
+  return spawn(shell, ['/d', '/s', '/c', cmdLine(program, args)], { ...windows, windowsVerbatimArguments: true });
 }
 
 export function killTree(pid: number, signal: NodeJS.Signals): boolean {

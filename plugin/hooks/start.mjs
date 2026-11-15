@@ -107,10 +107,12 @@ export function cmdArgument(arg) {
 function startWindows(words, options) {
   const program = findWindowsProgram(words[0], options.env);
   if (program === null) throw Object.assign(new Error(`spawn ${words[0]} ENOENT`), { code: 'ENOENT' });
-  if (!/\.(cmd|bat)$/i.test(program)) return spawn(program, words.slice(1), { ...options, windowsHide: true });
+  // A detached process on Windows has no console, and the programs it starts get a console of their own instead of its pipes; taskkill ends the tree without a group.
+  const windows = { ...options, detached: false, windowsHide: true };
+  if (!/\.(cmd|bat)$/i.test(program)) return spawn(program, words.slice(1), windows);
   const line = [normalize(program).replace(CMD_META, '^$1'), ...words.slice(1).map(cmdArgument)].join(' ');
   const shell = variableOf(options.env, 'COMSPEC') ?? systemProgram('cmd.exe');
-  return spawn(shell, ['/d', '/s', '/c', `"${line}"`], { ...options, windowsVerbatimArguments: true, windowsHide: true });
+  return spawn(shell, ['/d', '/s', '/c', `"${line}"`], { ...windows, windowsVerbatimArguments: true });
 }
 
 function killGroup(pid, signal) {
