@@ -29,6 +29,7 @@ Slice one's section 2 holds, with these additions.
 - Neither file: `rule-missing-file` at the rule's line in the law; the message names both paths.
 - Both files: `rule-file-without-entry` at `.lawcheck/rules/<id>.md`; the message says the rule already has its script. While both exist the rule has no kind, and its `context` is not checked. The `next:` is `keep one of .lawcheck/rules/<id>.mjs and .lawcheck/rules/<id>.md, then run lawcheck check`.
 - A `.md` file that holds only whitespace: `rule-missing-file` at the rule's line.
+- A binary `.md` file (a NUL byte in its first 8,000 bytes): `law-invalid` at the rule's line, `the file .lawcheck/rules/<id>.md of the rule '<id>' is binary`, as for a binary `context` file.
 - A `.md` file that is no rule's file and lies outside `.lawcheck/rules/lib/`: `rule-file-without-entry`, as for `.mjs`.
 
 **One key more on a rule:**

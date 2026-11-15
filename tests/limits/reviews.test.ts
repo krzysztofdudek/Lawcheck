@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, rmSync, utimesSync, writeFileSync } from 'node:f
 import { join } from 'node:path';
 import { defaultAnswer, openai, withFake } from '../acceptance/fake-reviewer.ts';
 import { D, D_PATH, F, F_PATH, F_PRIME, REVIEWER_LAW, withR, withSample, write } from '../acceptance/helpers.ts';
-import { MiB, run, sparse, textHead } from './support.ts';
+import { errorLines, MiB, run, sparse, textHead } from './support.ts';
 
 const REVIEW = ['check', '--review', '--base', 'main'];
 
@@ -153,6 +153,15 @@ test('test 266: a verdicts file over 16 MiB is file-unreadable, not read whole',
       result.stdout,
       ['lawcheck: ERROR  1 error', '', '.lawcheck/verdicts  error[file-unreadable]  the file cannot be read (it holds more than 16 MiB)', '  why:  a file that cannot be read cannot be typed or judged', '', 'next: remove the lines of .lawcheck/verdicts that no review of this law needs, then run lawcheck check', ''].join('\n'),
     );
+    assert.equal(result.code, 2);
+  });
+});
+
+test('test 267: a reviewer rule whose file is binary is law-invalid, as a binary context file is', async () => {
+  await withR(async (r) => {
+    write(r, '.lawcheck/rules/clear-errors.md', 'Errors say what to do.\n\0\n');
+    const result = await run(r, ['check', '--base', 'main']);
+    assert.deepEqual(errorLines(result.stdout), [".lawcheck/law.yaml:9  error[law-invalid]  the file .lawcheck/rules/clear-errors.md of the rule 'clear-errors' is binary"]);
     assert.equal(result.code, 2);
   });
 });

@@ -378,7 +378,9 @@ export function ruleKinds(law: Law, files: string[], read: Read): Kinds {
     }
     let text: string | null = null;
     try {
-      text = decode(read(prose));
+      const bytes = read(prose);
+      if (isBinary(bytes)) invalid(rule.line, `the file ${prose} of the rule '${rule.id}' is binary`);
+      else text = decode(bytes);
     } catch (error) {
       out.errors.push(unreadable(prose, error));
     }
