@@ -10,6 +10,36 @@ import { KINDS } from './ci-cell.ts';
 
 const ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const ACTIONLINT = 'rhysd/actionlint:1.7.7';
+const PNPM = 'pnpm@12.21.0';
+
+const PULL_REQUESTS = [
+  'pull request, a clean change',
+  'pull request, a breach fails the job',
+  'pull request, a breach and the rule taken off its type fails the second check, which says whose law it uses',
+  'pull request, a note in the law passes both checks',
+  'pull request, a pull request that adds a rule passes both checks',
+  'pull request, a waiver the change adds is named',
+  'pull request, a shallow checkout with no base is refused by name',
+];
+const PUSHES = [
+  'push to main, the commits since the one before',
+  'push to main, a force-push that removed the commit before is judged by its last commit',
+  'push to main, an all-zero before falls back to the parent',
+  'push to main, a direct push that takes a rule off its type and breaks it fails the second check',
+  'push to main, a root commit has no parent and is judged whole',
+  'push to main, a root commit with a breach fails',
+];
+const ONLY_NPM = [
+  'merge queue',
+  'the pre-commit hook refuses a breach and lets a clean commit through',
+  'the pre-commit hook judges the working tree and not the index',
+  'the pre-push hook refuses a push while the tree holds a breach, and a delete or a tag passes',
+  'pull request, a law below the top, a breach and the rule taken off its type fails the second check',
+];
+
+function expected(kind: string): string[] {
+  return [...PULL_REQUESTS, ...PUSHES, ...(kind === 'npm-lock' ? ONLY_NPM : [])].map((name) => `${kind}: ${name}`).sort();
+}
 
 function inFolder<T>(body: (dir: string) => T): T {
   const dir = mkdtempSync(join(tmpdir(), 'lawcheck-recipes-'));
@@ -35,7 +65,7 @@ function cellFolder(dir: string): void {
 }
 
 function cell(dir: string, kind: string): { code: number | null; lines: string[]; output: string } {
-  const script = `command -v pnpm > /dev/null 2>&1 || npm install --global --no-audit --no-fund pnpm > /dev/null 2>&1 || { echo 'cell: could not run: npm install pnpm'; exit 3; }; cd /cell/repo && node tests/docs/ci-cell-main.ts ${kind} /cell/lawcheck.tgz`;
+  const script = `command -v pnpm > /dev/null 2>&1 || npm install --global --no-audit --no-fund ${PNPM} > /dev/null 2>&1 || { echo 'cell: could not run: npm install pnpm'; exit 3; }; cd /cell/repo && node tests/docs/ci-cell-main.ts ${kind} /cell/lawcheck.tgz`;
   const run = spawnSync('docker', ['run', '--rm', '-v', `${dir}:/cell:ro`, 'node:24', 'sh', '-c', script], { encoding: 'utf8', maxBuffer: 1 << 26 });
   if (run.error) throw new Error(`could not run: docker (${run.error.message})`);
   const output = `${run.stdout}${run.stderr}`;
@@ -51,7 +81,7 @@ for (const kind of KINDS) {
       assert.deepEqual(failed, [], run.output);
       assert.ok(run.lines.includes('done'), run.output);
       assert.equal(run.code, 0, run.output);
-      assert.ok(run.lines.filter((line) => line.startsWith('ok ')).length >= 10, run.output);
+      assert.deepEqual(run.lines.filter((line) => line.startsWith('ok ')).map((line) => line.slice(3)).sort(), expected(kind), run.output);
     });
   });
 }

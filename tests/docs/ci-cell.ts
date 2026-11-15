@@ -75,6 +75,7 @@ export interface Cell {
   kind: Kind;
   template: string;
   count: number;
+  under: string;
 }
 
 function baseEnv(cell: { home: string }): NodeJS.ProcessEnv {
@@ -97,7 +98,7 @@ function manager(kind: Kind, cwd: string, env: NodeJS.ProcessEnv, script: string
   if (run.code !== 0) throw new Error(`${script} failed (${run.code}): ${run.stdout}${run.stderr}`);
 }
 
-export function makeCell(kind: Kind, tarball: string): Cell {
+export function makeCell(kind: Kind, tarball: string, under = ''): Cell {
   const dir = mkdtempSync(join(tmpdir(), 'lawcheck-ci-cell-'));
   const home = join(dir, 'home');
   mkdirSync(home);
@@ -107,7 +108,7 @@ export function makeCell(kind: Kind, tarball: string): Cell {
   const env = baseEnv({ home });
   const project = join(dir, 'p', 'template');
   mkdirSync(project, { recursive: true });
-  cpSync(SAMPLE, project, { recursive: true });
+  cpSync(SAMPLE, join(project, under), { recursive: true });
   writeFileSync(join(project, 'package.json'), '{"name":"proj","version":"1.0.0","private":true}\n');
   writeFileSync(join(project, '.gitignore'), 'node_modules/\n');
   const dep = '../../tgz/lawcheck.tgz';
@@ -125,7 +126,7 @@ export function makeCell(kind: Kind, tarball: string): Cell {
   const template = join(dir, 'template.git');
   git(project, env, 'clone', '-q', '--bare', project, template);
   const count = git(project, env, 'ls-files').split('\n').length;
-  return { dir, home, env, tarball: kept, kind, template, count };
+  return { dir, home, env, tarball: kept, kind, template, count, under };
 }
 
 export function removeCell(cell: Cell): void {
@@ -193,7 +194,7 @@ export interface Ran {
 }
 
 // Runs the `run:` steps of the workflow, in order and as written, in the checkout. The job's install step is swapped for the page's own line of a manager the page gives one for.
-export function runWorkflow(cell: Cell, at: Checkout, event: Event): Ran[] {
+export function runWorkflow(cell: Cell, at: Checkout, event: Event, workingDirectory = ''): Ran[] {
   const context: Record<string, string> = {
     'github.event_name': event.name,
     'github.base_ref': event.baseRef ?? '',
@@ -208,7 +209,7 @@ export function runWorkflow(cell: Cell, at: Checkout, event: Event): Ran[] {
     if (script.trim() === 'npm install' && cell.kind === 'yarn1') script = example('ci-install-yarn');
     const env: NodeJS.ProcessEnv = { ...cell.env };
     for (const [key, value] of Object.entries(step.env ?? {})) env[key] = expand(String(value), context);
-    const ran = bash(at.dir, expand(script, context), env);
+    const ran = bash(step.env === undefined ? at.dir : join(at.dir, workingDirectory), expand(script, context), env);
     out.push({ step: step.name ?? script.split('\n')[0]!, code: ran.code, stdout: ran.stdout, stderr: ran.stderr });
     if (ran.code !== 0) break;
   }

@@ -48,15 +48,17 @@ test('S7-4: the checkout keeps the history and not the token', () => {
   assert.equal(workflow.permissions.contents, 'read');
 });
 
-test('S7-3: the workflow checks a pull request again with the law of its base, and the page says who guards the law', () => {
+test('S7-3: the workflow checks again with the law of the base on every event and says so, and the page says what that does not hold', () => {
   const check = steps.find((step) => step.run?.includes('lawcheck check') === true)!;
-  assert.match(check.run!, /git cat-file -e "\$base:\.lawcheck\/law\.yaml"/, 'the second check only runs where the base has a law');
+  assert.match(check.run!, /git cat-file -e "\$base:\.\/\.lawcheck\/law\.yaml"/, 'a law below the top of the repository is found with ./');
   assert.match(check.run!, /git ls-tree -r -z --name-only "\$base" -- \.lawcheck\/law\.yaml \.lawcheck\/rules/);
-  assert.match(check.run!, /\[ "\$EVENT" != push \]/);
+  assert.match(check.run!, /rm -rf \.lawcheck\/rules/, 'a rule the pull request adds is not in the second check');
+  assert.ok(!check.run!.includes('!= push'), 'a direct push is checked twice as well');
+  assert.match(check.run!, /echo "Checking again with the law of \$base"/);
   assert.equal(starts.filter((line) => line.includes('check --base "$base"')).length, 2);
   assert.match(page, /## A change to the law/);
-  assert.match(page, /code owner/);
-  assert.match(page, /pull_request_target/);
+  for (const what of ['`.github/workflows/`', '`package.json`', 'the lockfile', 'every file a rule imports or reads', '`working-directory:', 'pull_request_target', 'force-push is judged by its last commit', "Keep a rule's helpers and settings under `.lawcheck/rules/`"]) assert.ok(page.includes(what), what);
+  assert.ok(!page.includes('has to pass both'), 'the page no longer says a pull request has to pass both laws');
 });
 
 test('S7-2, S7-11: the hooks of docs/ci.md start Lawcheck through npx, name a base that exists in a clone, and never ask the reviewer', () => {
@@ -68,6 +70,6 @@ test('S7-2, S7-11: the hooks of docs/ci.md start Lawcheck through npx, name a ba
     assert.ok(!/^exec lawcheck/m.test(text), `${id}: no lawcheck is on the PATH when it is a dev dependency`);
   }
   assert.ok(example('pre-push-hook').includes('while read -r local_ref local_sha remote_ref remote_sha'), 'a pre-push hook reads the refs git gives it');
-  assert.match(page, /core\.hooksPath/);
-  assert.match(page, /never passes `--review`/);
+  assert.ok(!example('pre-push-hook').includes('refs/heads/'), 'every ref but a tag is judged, HEAD included');
+  for (const what of ['core.hooksPath', 'never passes `--review`', 'never the index', '`--staged` is not built', 'spec/deferred.md', 'cannot catch a loosened law', '`origin/main`', 'not of the commits pushed']) assert.ok(page.includes(what), what);
 });
