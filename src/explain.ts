@@ -7,7 +7,7 @@ import type { ReviewerConfig } from './config.js';
 import { ignoresPath } from './files.js';
 import { compilePattern } from './glob.js';
 import type { Law, TypeDef } from './law.js';
-import { plural } from './output.js';
+import { plural, shown } from './output.js';
 import { mayUsePart, ruleKind, walk } from './prime.js';
 import { buildPrompt, FRAME, size } from './prompt.js';
 import { readerOf, siblingsOf } from './readers.js';
@@ -256,7 +256,7 @@ function ruleLines(rules: RuleItem[]): string[] {
 }
 
 export function fileText(answer: FileAnswer): string {
-  const lines = [answer.exists ? answer.path : `${answer.path}  (does not exist yet)`];
+  const lines = [answer.exists ? shown(answer.path) : `${shown(answer.path)}  (does not exist yet)`];
   const type = answer.type;
   if (type === null) {
     lines.push(answer.none !== null ? `  type:  none: ${answer.none}` : `  type:  depends on its text: ${answer.then}`);
@@ -272,7 +272,7 @@ export function fileText(answer: FileAnswer): string {
   lines.push(...ruleLines(answer.rules));
   if (answer.exists) {
     if (answer.waivers.length === 0) lines.push('  waivers:  none');
-    else lines.push('  waivers:', ...answer.waivers.map((w) => `    ${answer.path}:${w.line}  ${w.rule}  ${w.reason}`));
+    else lines.push('  waivers:', ...answer.waivers.map((w) => `    ${shown(answer.path)}:${w.line}  ${w.rule}  ${shown(w.reason)}`));
   }
   return lines.join('\n') + '\n';
 }
@@ -316,7 +316,7 @@ function directory(ctx: Ctx, path: string, json: boolean): string {
   if (below.length > typed.length) types.push({ type: null, files: below.length - typed.length });
   const label = path === '.' ? './' : `${path}/`;
   if (json) return documentOf({ schema: 'lawcheck-explain/0', subject: 'directory', path: label, files: below.length, types });
-  const lines = [`${label}  ${plural(below.length, 'file')}`, ...types.map((t) => `  ${t.type ?? 'no type'}  ${plural(t.files, 'file')}`)];
+  const lines = [`${shown(label)}  ${plural(below.length, 'file')}`, ...types.map((t) => `  ${t.type ?? 'no type'}  ${plural(t.files, 'file')}`)];
   return lines.join('\n') + '\n';
 }
 

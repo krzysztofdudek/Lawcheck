@@ -268,6 +268,14 @@ next: <text>
 - `next:` comes when the run fails. A blank line stands before the findings, the debt heading and `next:`.
 - At most 50 finding lines are printed, the change and the debt counted together and no `why:` line counted. Where the 51st would stand, one line ends the findings: `... <n> more findings (--json lists all)`, with `n` the findings of both blocks left unprinted. The debt heading still prints, with its full count, also when no debt line is left under it.
 
+**Text the tool does not own.** File names, the messages of rules and reviewers, the base, the ids and `about` texts of the law, the values of the config, and the text that git, a reviewer endpoint or a reviewer program prints can hold any character. In the text output of every command the tool writes these characters as escapes, so one finding or error stays one line and a terminal or a CI log reads no control sequence in it:
+
+- a line feed inside such text as `\n`, a carriage return as `\r`, a tab as `\t`;
+- every other character below U+0020, and U+007F, as `\x` and two lowercase hexadecimal digits;
+- U+0080 to U+009F, U+2028, U+2029, U+202A to U+202E and U+2066 to U+2069 as `\u` and four lowercase hexadecimal digits.
+
+A line that starts, after white space, with `::` (a command of GitHub Actions) or `##[` (one of Azure Pipelines) has that first `:` or `#` written as `\x3a` or `\x23`, and every `##vso[` in a line is written as `\x23#vso[`. The tool escapes nothing else, a backslash included. In `--json` a string holds the text as it is, line breaks of messages aside; the document writes U+007F to U+009F and the other characters of the last item as `\u` escapes, so the parsed data is the same and the printed document holds none of them raw (invariant `I-out-1`).
+
 **A passing run.** In the sample, on a branch `work` made from `main`, append `console.log('done');` to `src/cli/main.ts`. `lawcheck check --base main` exits 0:
 
 ```

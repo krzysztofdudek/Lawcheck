@@ -7,7 +7,7 @@ import { CONFIG } from './config.js';
 import type { ReviewerConfig } from './config.js';
 import { listFiles, NoGit, showPrefix, workTreeProblem } from './files.js';
 import type { Law } from './law.js';
-import { nextOfErrors, placeOf, plural, sortErrors } from './output.js';
+import { nextOfErrors, placeOf, plural, shown, sortErrors } from './output.js';
 import type { ErrorItem } from './output.js';
 import { walk } from './prime.js';
 import { checkAnswer } from './prompt.js';
@@ -268,8 +268,8 @@ export function doctorText(checks: Check[]): string {
   const first = problems === 0 ? `lawcheck: PASS  ${plural(checks.length, 'check')}${notePart}` : `lawcheck: FAIL  ${plural(checks.length, 'check')}, ${plural(problems, 'problem')}${notePart}`;
   const lines = [first, ''];
   for (const check of checks) {
-    lines.push(`${check.state}  ${check.id}  ${check.message}`);
-    if ((check.state === 'note' || check.state === 'fail') && check.next !== null) lines.push(`  next: ${check.next.text}`);
+    lines.push(`${check.state}  ${check.id}  ${shown(check.message)}`);
+    if ((check.state === 'note' || check.state === 'fail') && check.next !== null) lines.push(`  next: ${shown(check.next.text)}`);
   }
   return lines.join('\n') + '\n';
 }

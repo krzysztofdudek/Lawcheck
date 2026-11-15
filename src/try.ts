@@ -5,7 +5,7 @@ import type { Arguments, Result } from './args.js';
 import type { CheckContext } from './check.js';
 import { comparePaths } from './files.js';
 import { compileList, patternProblem } from './glob.js';
-import { CODES, placeOf, plural } from './output.js';
+import { CODES, placeOf, plural, shown } from './output.js';
 import type { ErrorItem } from './output.js';
 import { ruleKind } from './prime.js';
 import { buildPrompt, cleanMessage, size } from './prompt.js';
@@ -297,8 +297,8 @@ export function tryText(outcome: Outcome): string {
       const chars = run.prompt_chars!;
       lines.push(
         chars > outcome.maxChars
-          ? `${run.file}  too large: a prompt of ${chars} characters; reviewer.max_chars is ${outcome.maxChars}`
-          : `${run.file}  ${plural(outcome.times, 'call')}, a prompt of ${chars} characters`,
+          ? `${shown(run.file)}  too large: a prompt of ${chars} characters; reviewer.max_chars is ${outcome.maxChars}`
+          : `${shown(run.file)}  ${plural(outcome.times, 'call')}, a prompt of ${chars} characters`,
       );
     }
     return lines.join('\n') + '\n';
@@ -312,7 +312,7 @@ export function tryText(outcome: Outcome): string {
       return;
     }
     printed++;
-    lines.push(`${placeOf(run.file, found.line)}  ${found.severity}[${outcome.rule}]  ${found.message}`);
+    lines.push(`${shown(placeOf(run.file, found.line)!)}  ${found.severity}[${outcome.rule}]  ${shown(found.message)}`);
     if (!why) {
       why = true;
       lines.push(`  why:  ${outcome.why}`);
@@ -321,7 +321,7 @@ export function tryText(outcome: Outcome): string {
   if (outcome.times > 1) {
     lines.push('');
     for (const run of outcome.runs) {
-      if (!cutOff) lines.push(`${run.file}  answer ${run.attempt} of ${outcome.times}: ${run.verdict}`);
+      if (!cutOff) lines.push(`${shown(run.file)}  answer ${run.attempt} of ${outcome.times}: ${run.verdict}`);
       for (const found of run.findings) print(run, found);
     }
   } else if (findings > 0) {

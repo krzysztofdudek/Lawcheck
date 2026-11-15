@@ -137,6 +137,39 @@ function fixedNext(error: ErrorItem, command: string): string {
   }
 }
 
+// spec/check-slice.md, section 6: no text output holds these, and no JSON document holds them raw.
+const FORBIDDEN = /[\x00-\x09\x0b-\x1f\x7f-\x9f\u2028\u2029\u202a-\u202e\u2066-\u2069]/g;
+const RAW_IN_JSON = /[\x7f-\x9f\u2028\u2029\u202a-\u202e\u2066-\u2069]/g;
+// A line that starts like a command of GitHub Actions or Azure Pipelines; GitHub reads a command after leading white space, and Azure reads ##vso[ anywhere in a line.
+const FORGED = /^(\s*)(::|##\[)/;
+const AZURE = /##vso\[/g;
+const NAMED: Record<string, string> = { '\n': '\\n', '\r': '\\r', '\t': '\\t' };
+
+function escaped(c: string): string {
+  const code = c.charCodeAt(0);
+  return NAMED[c] ?? (code < 0x80 ? `\\x${code.toString(16).padStart(2, '0')}` : `\\u${code.toString(16).padStart(4, '0')}`);
+}
+
+export function shown(text: string): string {
+  return text.replace(/\n/g, escaped).replace(FORBIDDEN, escaped);
+}
+
+export function safeText(output: string): string {
+  return output
+    .split('\n')
+    .map((line) =>
+      line
+        .replace(FORBIDDEN, escaped)
+        .replace(AZURE, '\\x23#vso[')
+        .replace(FORGED, (_, space: string, start: string) => space + escaped(start[0]!) + start.slice(1)),
+    )
+    .join('\n');
+}
+
+export function safeJson(output: string): string {
+  return output.replace(RAW_IN_JSON, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`);
+}
+
 export function plural(count: number, word: string): string {
   return `${count} ${word}${count === 1 ? '' : 's'}`;
 }
@@ -172,7 +205,7 @@ export function errorLines(errors: ErrorItem[], limit = Infinity): string[] {
     if (printed === limit) break;
     printed++;
     const place = placeOf(error.file, error.line);
-    lines.push(`${place === null ? '' : place + '  '}error[${error.code}]  ${error.message}`);
+    lines.push(`${place === null ? '' : shown(place) + '  '}error[${error.code}]  ${shown(error.message)}`);
     if (!seen.has(error.code)) {
       seen.add(error.code);
       lines.push(`  why:  ${WHY[error.code] ?? ''}`);
@@ -194,7 +227,7 @@ export function renderErrors(input: ErrorItem[], json: boolean, command: string 
     return JSON.stringify(document, null, 2) + '\n';
   }
   const lines = [`lawcheck: ERROR  ${plural(errors.length, 'error')}`, '', ...errorLines(errors, limit)];
-  lines.push('', `next: ${next}`);
+  lines.push('', `next: ${shown(next)}`);
   return lines.join('\n') + '\n';
 }
 
@@ -263,7 +296,7 @@ export function renderReport(report: Report, json: boolean): string {
   const verdict = failing ? 'FAIL' : 'PASS';
   const lines: string[] = [];
   if (report.mode !== 'paths' && report.base !== null && report.changed === 0) {
-    lines.push(`lawcheck: ${verdict}  nothing changed against ${report.base}${calls}`);
+    lines.push(`lawcheck: ${verdict}  nothing changed against ${shown(report.base)}${calls}`);
   } else {
     const counts = [errors > 0 ? plural(errors, 'error') : '', warnings > 0 ? plural(warnings, 'warning') : '']
       .filter(Boolean)
@@ -273,7 +306,7 @@ export function renderReport(report: Report, json: boolean): string {
         ? plural(report.changed, 'named file')
         : report.base === null
         ? `${plural(report.changed, 'file')} (no base: every file counts as changed)`
-        : `${plural(report.changed, 'changed file')} (against ${report.base})`;
+        : `${plural(report.changed, 'changed file')} (against ${shown(report.base)})`;
     lines.push(`lawcheck: ${verdict}  ${counts === '' ? '' : counts + ' in '}${scope}${waiverPart(changeWaivers)}${unresolvedPart(changeUnresolved)}${calls}`);
   }
   if (report.note) lines.push(report.note);
@@ -284,7 +317,7 @@ export function renderReport(report: Report, json: boolean): string {
   const seen = new Set<string>();
   let printed = 0;
   const print = (finding: Finding) => {
-    lines.push(`${placeOf(finding.file, finding.line)}  ${finding.severity}[${finding.code}]  ${finding.message}`);
+    lines.push(`${shown(placeOf(finding.file, finding.line)!)}  ${finding.severity}[${finding.code}]  ${shown(finding.message)}`);
     printed++;
     if (!seen.has(finding.code)) {
       seen.add(finding.code);
@@ -305,6 +338,6 @@ export function renderReport(report: Report, json: boolean): string {
     for (const finding of report.debt) if (printed < limit) print(finding);
     if (report.findings.length <= limit && total > limit) lines.push(more);
   }
-  if (next !== null) lines.push('', `next: ${next}`);
+  if (next !== null) lines.push('', `next: ${shown(next)}`);
   return lines.join('\n') + '\n';
 }

@@ -4,7 +4,7 @@ import { pathToFileURL } from 'node:url';
 import { check } from './check.js';
 import type { CheckContext, CheckOptions, CheckOutcome } from './check.js';
 import { firstLine } from './law.js';
-import { renderErrors, renderReport } from './output.js';
+import { renderErrors, renderReport, safeJson, safeText } from './output.js';
 import { COMMANDS, number, PROGRAM_USAGE, readArguments, text, usageError, USAGE, version } from './args.js';
 import type { Arguments, CommandName, Result } from './args.js';
 
@@ -48,6 +48,11 @@ export type Handler = (args: Arguments, context: CheckContext, json: boolean) =>
 const HANDLERS: Record<Exclude<CommandName, 'check'>, Handler> = { init, prime, explain, try: tryRule, docs, doctor };
 
 export async function main(argv: string[], context: CheckContext, command: Command = check): Promise<Result> {
+  const result = await run(argv, context, command);
+  return { ...result, stdout: argv.includes('--json') ? safeJson(result.stdout) : safeText(result.stdout) };
+}
+
+async function run(argv: string[], context: CheckContext, command: Command): Promise<Result> {
   const json = argv.includes('--json');
   const named = (COMMANDS as readonly string[]).includes(argv[0] ?? '') ? argv[0]! : null;
   try {
@@ -84,11 +89,12 @@ function isEntry(): boolean {
 if (isEntry()) {
   const json = process.argv.slice(2).includes('--json');
   const crash = (error: unknown) => {
-    process.stdout.write(renderErrors([internal(error)], json), () => process.exit(2));
+    const text = renderErrors([internal(error)], json);
+    process.stdout.write(json ? safeJson(text) : safeText(text), () => process.exit(2));
   };
   process.on('uncaughtException', crash);
   process.on('unhandledRejection', crash);
   for (const signal of ['SIGTERM', 'SIGINT', 'SIGHUP'] as const) process.on(signal, () => crash(new Error(`stopped by ${signal}`)));
-  const warn = (line: string) => process.stderr.write(line + '\n');
+  const warn = (line: string) => process.stderr.write(safeText(line) + '\n');
   main(process.argv.slice(2), { cwd: process.cwd(), env: process.env, warn }).then(finish, crash);
 }
