@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { COMMIT_TARGET_MS, LOOP_TARGET_MS, SEED, SLOW_TESTS, TEST_BUDGET_MS } from './numbers.ts';
 import type { Speed } from './numbers.ts';
-import { COMMIT_GROUPS, groupDirs, NIGHTLY_GROUPS, ROOT, setFiles, TESTS } from './harness/sets.ts';
+import { COMMIT_GROUPS, EMPTY_GROUPS, groupDirs, NIGHTLY_GROUPS, ROOT, setFiles, TESTS } from './harness/sets.ts';
 
 const REPORTER = pathToFileURL(join(TESTS, 'harness', 'reporter.ts')).href;
 const HARNESS = pathToFileURL(join(TESTS, 'harness', 'tool.ts')).href;
@@ -159,7 +159,12 @@ function main(): void {
   for (const note of notes) process.stdout.write(`${note}\n`);
   const what = parsed.group === null ? `the ${parsed.speed} set` : `group ${parsed.group} of the ${parsed.speed} set`;
   if (files.length === 0) {
-    process.stdout.write(`${what}: no test files to run, 0 tests\n`);
+    const declared = parsed.speed !== 'loop' && parsed.targets.length === 0 && (parsed.group === null ? groupDirs(parsed.speed, null)!.length > 0 && Object.keys(parsed.speed === 'nightly' ? NIGHTLY_GROUPS : COMMIT_GROUPS).every((g) => EMPTY_GROUPS[parsed.speed as 'commit' | 'nightly'].includes(g)) : EMPTY_GROUPS[parsed.speed as 'commit' | 'nightly'].includes(parsed.group));
+    if (parsed.speed !== 'loop' && parsed.targets.length === 0 && !declared) {
+      process.stdout.write(`${what}: no test files, and tests/harness/sets.ts does not declare it empty\n`);
+      process.exit(1);
+    }
+    process.stdout.write(`${what}: no test files to run, 0 tests${declared ? ' (declared empty in tests/harness/sets.ts)' : ''}\n`);
     return;
   }
   const seed = process.env.LAWCHECK_SEED ?? String(SEED);
