@@ -558,36 +558,3 @@ test('test 93: a key an HTTP header cannot carry stops the run before any call',
     config('reviewer:\n  provider: anthropic\n  model: test-model\n'),
   );
 });
-
-test('diagnosis of test 67 on Windows: who is slow after the kill', async () => {
-  if (process.platform !== 'win32') return;
-  const say = (text: string) => process.stdout.write(`timing ${text}\n`);
-  const guardOf = (tool: number): number | null => {
-    const out = spawnSync('powershell.exe', ['-NoProfile', '-Command', `Get-CimInstance Win32_Process -Filter "ParentProcessId=${tool}" | ForEach-Object { "$($_.ProcessId) $($_.CommandLine)" }`], { encoding: 'utf8' }).stdout;
-    const line = out.split(/\r?\n/).find((l) => l.includes('guard.js'));
-    return line ? Number(line.trim().split(' ')[0]) : null;
-  };
-  for (const diag of [{}, { hide: true }, { profile: true }, { hide: true, profile: true }]) {
-    await withR(async (r, dir) => {
-      write(r, F_PATH, F);
-      const child = startLawcheck(r, ['check', '--review', '--base', 'main'], { env: claudeEnv(dir, 'sleep'), diag } as any);
-      await waitFor(() => existsSync(join(dir, 'record.json')), FAKE_STARTED_MS);
-      const seen = record(dir);
-      const guard = guardOf(child.pid);
-      const t0 = Date.now();
-      child.kill('SIGKILL');
-      const ended: Record<string, number | null> = { claude: null, child: null, guard: null, harness: null };
-      const harness = child.ended.then((run) => { void run.code; ended.harness = Date.now() - t0; }, () => (ended.harness = Date.now() - t0));
-      while (Date.now() - t0 < 15_000 && (ended.claude === null || ended.child === null || (guard !== null && ended.guard === null))) {
-        if (ended.claude === null && !alive(seen.pid)) ended.claude = Date.now() - t0;
-        if (ended.child === null && !alive(seen.child!)) ended.child = Date.now() - t0;
-        if (guard !== null && ended.guard === null && !alive(guard)) ended.guard = Date.now() - t0;
-        await new Promise((done) => setTimeout(done, 25));
-      }
-      await harness;
-      say(`${JSON.stringify(diag)}: guard ${guard} gone at ${ended.guard} ms, claude at ${ended.claude} ms, its child at ${ended.child} ms, the harness saw the end at ${ended.harness} ms`);
-      for (const pid of [seen.pid, seen.child!]) if (alive(pid)) process.kill(pid, 'SIGKILL');
-    }, config(CLAUDE_CONFIG));
-  }
-  assert.ok(true);
-});

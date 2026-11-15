@@ -82,7 +82,6 @@ export default async function* reporter(source: AsyncIterable<{ type: string; da
       const seen = /^seed (-?\d+)$/m.exec(message);
       if (seen !== null && data.file) seeds.set(data.file, seen[1]!);
       for (const m of message.matchAll(/^skip (.*)$/gm)) skips.push(`${m[1]}  ${where(data.file)}`);
-      for (const m of message.matchAll(/^timing (.*)$/gm)) skips.push(`timing ${m[1]}`);
       continue;
     }
     if (event.type !== 'test:pass' && event.type !== 'test:fail') continue;
@@ -117,7 +116,7 @@ export default async function* reporter(source: AsyncIterable<{ type: string; da
   const target = Number(process.env.LAWCHECK_TARGET_MS);
   if (took !== null && target > 0 && took > target) lines.push(`past the target of ${target / 1000} s for this speed (tests/numbers.ts)`);
   for (const [file, seed] of seeds) lines.push(`seed ${seed}  ${where(file)}`);
-  for (const skip of skips) lines.push(skip.startsWith('timing ') ? skip : `skipped ${skip}`);
+  for (const skip of skips) lines.push(`skipped ${skip}`);
   times.sort((a, b) => b.ms - a.ms);
   if (times.length > 0) {
     lines.push('', 'slowest');

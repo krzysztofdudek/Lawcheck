@@ -243,7 +243,7 @@ function runFolder(base: string | null): { dir: string; home: string; temp: stri
   return { dir, home, temp };
 }
 
-function placed(env: NodeJS.ProcessEnv, own: NodeJS.ProcessEnv, home: string, temp: string, profile = false): NodeJS.ProcessEnv {
+function placed(env: NodeJS.ProcessEnv, own: NodeJS.ProcessEnv, home: string, temp: string): NodeJS.ProcessEnv {
   const out = { ...env };
   const set = (names: string[], value: string) => {
     if (names.some((name) => name in own)) return;
@@ -252,11 +252,7 @@ function placed(env: NodeJS.ProcessEnv, own: NodeJS.ProcessEnv, home: string, te
   set(['TMPDIR', 'TMP', 'TEMP'], temp);
   set(['HOME'], home);
   // Windows keeps the state of its own programs under USERPROFILE and APPDATA (PowerShell, which the guard starts, among them), so there they stay the machine's.
-  if (!WINDOWS || profile) set(['USERPROFILE'], home);
-  if (WINDOWS && profile) {
-    set(['APPDATA'], join(home, 'AppData', 'Roaming'));
-    set(['LOCALAPPDATA'], join(home, 'AppData', 'Local'));
-  }
+  if (!WINDOWS) set(['USERPROFILE'], home);
   set(['XDG_CONFIG_HOME'], join(home, '.config'));
   set(['XDG_CACHE_HOME'], join(home, '.cache'));
   set(['XDG_DATA_HOME'], join(home, '.local', 'share'));
@@ -312,13 +308,12 @@ function launch(start: Start, expect: Expect): Running {
   const scope = open(start, expect);
   const own = runFolder(scope.folder);
   const mark = randomBytes(8).toString('hex');
-  const diag = (expect as { diag?: { hide?: boolean; profile?: boolean } }).diag ?? {};
-  const env = { ...placed(start.env, start.own, own.home, own.temp, diag.profile), [MARK]: mark };
+  const env = { ...placed(start.env, start.own, own.home, own.temp), [MARK]: mark };
   const began = Date.now();
   gate.open++;
   let child;
   try {
-    child = spawn(process.execPath, start.argv, { cwd: start.cwd, env, stdio: ['pipe', 'pipe', 'pipe'], detached: !WINDOWS, windowsHide: diag.hide === true });
+    child = spawn(process.execPath, start.argv, { cwd: start.cwd, env, stdio: ['pipe', 'pipe', 'pipe'], detached: !WINDOWS });
   } finally {
     gate.open--;
   }
