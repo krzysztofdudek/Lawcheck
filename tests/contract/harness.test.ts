@@ -128,8 +128,17 @@ const FORBIDDEN: [number, number][] = [
   [0x2028, 0x2029],
   [0x202a, 0x202e],
   [0x2066, 0x2069],
+  [0x200b, 0x200b],
+  [0x200e, 0x200f],
+  [0x2060, 0x2064],
+  [0x206a, 0x206f],
+  [0xfeff, 0xfeff],
+  [0xfff9, 0xfffb],
+  [0xe0001, 0xe0001],
+  [0xe0020, 0xe007f],
 ];
-const ALLOWED = [0x0a, 0x20, 0x7e, 0xa0, 0x2027, 0x202f, 0x2065, 0x206a];
+// The joiners U+200C and U+200D are format characters that scripts and emoji sequences need, so they are allowed.
+const ALLOWED = [0x0a, 0x20, 0x7e, 0xa0, 0x200c, 0x200d, 0x2027, 0x202f, 0x2065, 0x2070];
 
 test('harness-2: every forbidden code point fails the output, and its allowed neighbours do not', () => {
   const hex = (c: number) => `U+${c.toString(16).toUpperCase().padStart(4, '0')}`;
@@ -137,7 +146,13 @@ test('harness-2: every forbidden code point fails the output, and its allowed ne
     for (let c = first; c <= last; c++) assert.match(outputProblem(`lawcheck: PASS\na${String.fromCodePoint(c)}b\n`) ?? '', new RegExp(hex(c).replace('+', '\\+')), hex(c));
   }
   for (const c of ALLOWED) assert.equal(outputProblem(`lawcheck: PASS\na${String.fromCodePoint(c)}b\n`), null, hex(c));
-  for (const forged of ['::error file=a.ts::forged', '::warning::x', '##[error]forged', '##vso[task.complete result=Succeeded]']) assert.match(outputProblem(`lawcheck: PASS\n${forged}\n`) ?? '', /CI command/, forged);
+  // spec/check-slice.md, section 6: every format character (Unicode category Cf) but the two joiners.
+  for (let c = 0; c <= 0xffff; c++) {
+    if (c >= 0xd800 && c <= 0xdfff) continue;
+    const char = String.fromCodePoint(c);
+    if (/\p{Cf}/u.test(char) && c !== 0x200c && c !== 0x200d) assert.notEqual(outputProblem(`lawcheck: PASS\na${char}b\n`), null, hex(c));
+  }
+  for (const forged of ['::error file=a.ts::forged', '::warning::x', '##[error]forged', '##vso[task.complete result=Succeeded]', '  ::error::after spaces', 'a line with ##vso[task.complete] inside']) assert.match(outputProblem(`lawcheck: PASS\n${forged}\n`) ?? '', /CI command/, forged);
   assert.equal(outputProblem('lawcheck: PASS  1 changed file (against main)\n  why:  a reason: with :: inside\n #[x]\n'), null);
 });
 
