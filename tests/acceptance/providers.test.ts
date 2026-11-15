@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { anthropic, defaultAnswer, openai, startFake, withFake, writeFakeClaude } from './fake-reviewer.ts';
@@ -449,6 +449,13 @@ test('test 66: claude-code', async () => {
   }, config(CLAUDE_CONFIG));
 });
 
+function survivors(seen: { pid: number; child?: number }): string {
+  const left = `claude ${alive(seen.pid) ? 'alive' : 'gone'}, its child ${alive(seen.child!) ? 'alive' : 'gone'}`;
+  if (process.platform !== 'win32') return left;
+  const list = spawnSync('powershell.exe', ['-NoProfile', '-Command', "Get-CimInstance Win32_Process | Where-Object { $_.Name -in 'node.exe','cmd.exe','taskkill.exe' } | ForEach-Object { \"$($_.ProcessId) $($_.ParentProcessId) $($_.CommandLine)\" }"], { encoding: 'utf8' });
+  return `${left}\n${list.stdout}`;
+}
+
 async function waitFor(condition: () => boolean, ms: number): Promise<boolean> {
   const until = Date.now() + ms;
   while (Date.now() < until) {
@@ -481,7 +488,7 @@ test('test 67: claude-code past its timeout, and the tool killed', async () => {
       const seen = record(dir);
       child.kill('SIGKILL');
       const killedAt = Date.now();
-      assert.ok(await waitFor(() => !alive(seen.pid) && !alive(seen.child!), 5000), 'both are gone');
+      assert.ok(await waitFor(() => !alive(seen.pid) && !alive(seen.child!), 5000), `both are gone: ${survivors(seen)}`);
       assert.ok(Date.now() - killedAt <= 5000);
       assert.ok(await waitFor(() => !existsSync(seen.cwd), 5000), `${seen.cwd} is left`);
     } finally {
