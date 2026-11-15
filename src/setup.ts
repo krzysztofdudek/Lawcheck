@@ -9,7 +9,7 @@ import type { Law } from './law.js';
 import type { ErrorItem } from './output.js';
 import { decode, isBinary, typeFiles } from './types.js';
 import type { TypedFile } from './types.js';
-import { ATTRIBUTES, Unwritable, VERDICTS, VerdictsUnreadable } from './verdicts.js';
+import { ATTRIBUTES, FULL_NEXT, Unwritable, VERDICTS, VerdictsUnreadable } from './verdicts.js';
 import { keyEnvironment } from './keys.js';
 import { createProvider } from './providers/index.js';
 
@@ -328,7 +328,7 @@ export async function stopped<T>(body: () => Promise<T> | T): Promise<T | { erro
     if (error instanceof Stop) return { errors: error.errors };
     if (error instanceof Unwritable) return { errors: [{ code: 'file-unwritable', file: error.path, line: null, message: `cannot be written (${error.cause})`, ...(error.next === null ? {} : { next: error.next }) }] };
     if (error instanceof VerdictsUnreadable) {
-      const next = error.cause.startsWith('it holds more') ? `delete ${VERDICTS}, then run lawcheck check --review --full: it asks the reviewer again for every file of this law, and the file then holds only those passes` : undefined;
+      const next = error.cause.startsWith('it holds more') ? FULL_NEXT : undefined;
       return { errors: [{ code: 'file-unreadable', file: VERDICTS, line: null, message: `the file cannot be read (${error.cause})`, ...(next === undefined ? {} : { next }) }] };
     }
     if (error instanceof NoGit) return { errors: [{ code: 'no-git', file: null, line: null, message: error.message }] };

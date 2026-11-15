@@ -578,3 +578,9 @@ Section 10 of `check-slice.md` bounds a file whose uses are read at 512 KiB, and
 
 The coordinator's decision of the build, which goes on the owner's list: a file whose uses cannot be read within the limits does not stop the run. Its uses are reported as not read, `uses-not-read` at the file, with the reason: an error when the file is in the change, debt under `--full`. The run goes on and every other finding is shown. A file read only for what it declares is not read either; it gets the same finding at its path, since the uses of it by other files are not judged, an error in the change and debt under `--full` (a review found that leaving it out silently turned a `forbidden-use` into a pass). Where the process itself cannot go on, past the memory of a run, the run ends with `memory-too-large` at the file, never with `internal` or a silent kill. Tests 263, 273, 274 and 275 hold it.
 
+## 134. A verdicts file past its limit
+
+`.lawcheck/verdicts` may hold 16 MiB (`check-slice.md`, section 10). Past it, the tool advised deleting the file, which loses every pass paid for, those the current tree needs among them: on the reviewer sample with 122 reviewed files the next review needed 122 calls against a cap of 100. Two ways were open: say how many of the file's passes the current tree still needs, or have the writer drop the passes no current file needs.
+
+Choice: the first. The file is committed and merged with `merge=union`, so a pass this tree does not need may be one another branch needs; a pass the writer dropped here would be gone from that branch after the next merge, and paid for again. The error says how many passes the file holds, how many of them the reviews of this tree need and how many calls a review of every file of the law would take, all worked out without a call, and its `next:` asks the user how to make room, since a pass is a hash nobody can pick by hand.
+

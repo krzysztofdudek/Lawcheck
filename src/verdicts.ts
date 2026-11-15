@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { existsSync, mkdirSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { closeSync, existsSync, mkdirSync, openSync, readdirSync, readSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { FILE_TEXT_BYTES, mib, readFailure as failureOfRead, readWhole } from './limits.js';
 import { checkFindings } from './prompt.js';
@@ -77,10 +77,46 @@ export class Unwritable extends Error {
   }
 }
 
-const FULL_NEXT = `delete ${VERDICTS}, then run lawcheck check --review --full: it asks the reviewer again for every file of this law, and the file then holds only those passes`;
+// A pass is a hash of what it judged, so no step removes only the passes this tree does not need, and passes another branch needs come back through the union merge.
+export const FULL_NEXT = `ask the user how to make room in ${VERDICTS}: its passes are hashes, so none can be told apart by hand`;
+
+export class VerdictsFull extends Unwritable {}
+
+// The passes the file holds, and how many of them the reviews of this tree need, read in pieces whatever the file's size.
+export function countPasses(root: string, needed: Set<string>): { held: number; needed: number } {
+  let held = 0;
+  let used = 0;
+  let fd: number;
+  try {
+    fd = openSync(join(root, VERDICTS), 'r');
+  } catch {
+    return { held: 0, needed: 0 };
+  }
+  const chunk = Buffer.allocUnsafe(1 << 20);
+  let rest = '';
+  const take = (line: string) => {
+    const clean = line.endsWith('\r') ? line.slice(0, -1) : line;
+    if (!LINE.test(clean)) return;
+    held++;
+    if (needed.has(clean)) used++;
+  };
+  try {
+    for (;;) {
+      const n = readSync(fd, chunk, 0, chunk.length, null);
+      if (n === 0) break;
+      const lines = (rest + chunk.toString('utf8', 0, n)).split('\n');
+      rest = lines.pop()!;
+      for (const line of lines) take(line);
+    }
+    if (rest !== '') take(rest);
+  } finally {
+    closeSync(fd);
+  }
+  return { held, needed: used };
+}
 
 function tooFull(): Unwritable {
-  return new Unwritable(VERDICTS, `with the passes of this run it would hold more than ${mib(FILE_TEXT_BYTES)}, the most a run reads of it`, FULL_NEXT);
+  return new VerdictsFull(VERDICTS, `with the passes of this run it would hold more than ${mib(FILE_TEXT_BYTES)}, the most a run reads of it`, FULL_NEXT);
 }
 
 function writing<T>(path: string, work: () => T): T {

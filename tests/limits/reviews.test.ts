@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { defaultAnswer, openai, withFake } from '../acceptance/fake-reviewer.ts';
-import { D, D_PATH, F, F_PATH, F_PRIME, KEY_F_PRIME, REVIEWER_LAW, withR, withSample, write } from '../acceptance/helpers.ts';
+import { D, D_PATH, F, F_PATH, F_PRIME, KEY_F, KEY_F_PRIME, REVIEWER_LAW, withR, withSample, write } from '../acceptance/helpers.ts';
 import { errorLines, MiB, run, sparse, textHead } from './support.ts';
 
 const REVIEW = ['check', '--review', '--base', 'main'];
@@ -147,11 +147,11 @@ test('test 261: a lock left by a run that ended, whose pid now names a live proc
 test('test 266: a verdicts file over 16 MiB is file-unreadable, not read whole', async () => {
   await withR(async (r) => {
     write(r, F_PATH, F);
-    sparse(r, '.lawcheck/verdicts', textHead(''), 16 * MiB + 1);
+    sparse(r, '.lawcheck/verdicts', textHead(`${KEY_F} clear-errors\n`), 16 * MiB + 1);
     const result = await run(r, ['check', '--base', 'main']);
     assert.equal(
       result.stdout,
-      ['lawcheck: ERROR  1 error', '', '.lawcheck/verdicts  error[file-unreadable]  the file cannot be read (it holds more than 16 MiB)', '  why:  a file that cannot be read cannot be typed or judged', '', 'next: delete .lawcheck/verdicts, then run lawcheck check --review --full: it asks the reviewer again for every file of this law, and the file then holds only those passes', ''].join('\n'),
+      ['lawcheck: ERROR  1 error', '', '.lawcheck/verdicts  error[file-unreadable]  the file cannot be read (it holds more than 16 MiB); of its 1 pass the files of this tree need 1, and a review of every file of this law would take 3 reviewer calls', '  why:  a file that cannot be read cannot be typed or judged', '', "next: ask the user how to make room in .lawcheck/verdicts: its passes are hashes, so none can be told apart by hand", ''].join('\n'),
     );
     assert.equal(result.code, 2);
   });
@@ -184,10 +184,10 @@ test('test 271: a review whose passes would push .lawcheck/verdicts past 16 MiB 
             [
               'lawcheck: ERROR  1 error',
               '',
-              '.lawcheck/verdicts  error[file-unwritable]  cannot be written (with the passes of this run it would hold more than 16 MiB, the most a run reads of it)',
+              '.lawcheck/verdicts  error[file-unwritable]  cannot be written (with the passes of this run it would hold more than 16 MiB, the most a run reads of it); of its 0 passes the files of this tree need 0, and a review of every file of this law would take 4 reviewer calls',
               '  why:  what Lawcheck cannot write is lost, so the run cannot say it is done',
               '',
-              'next: delete .lawcheck/verdicts, then run lawcheck check --review --full: it asks the reviewer again for every file of this law, and the file then holds only those passes',
+              "next: ask the user how to make room in .lawcheck/verdicts: its passes are hashes, so none can be told apart by hand",
               '',
             ].join('\n'),
           );
@@ -265,10 +265,10 @@ test('test 272: a pass that would take the verdicts file past 16 MiB when it is 
         [
           'lawcheck: ERROR  1 error',
           '',
-          '.lawcheck/verdicts  error[file-unwritable]  cannot be written (with the passes of this run it would hold more than 16 MiB, the most a run reads of it), so the answers of the reviewer calls this run made are lost',
+          '.lawcheck/verdicts  error[file-unwritable]  cannot be written (with the passes of this run it would hold more than 16 MiB, the most a run reads of it), so the answers of the reviewer calls this run made are lost; of its 364,721 passes the files of this tree need 0, and a review of every file of this law would take 3 reviewer calls',
           '  why:  what Lawcheck cannot write is lost, so the run cannot say it is done',
           '',
-          'next: delete .lawcheck/verdicts, then run lawcheck check --review --full: it asks the reviewer again for every file of this law, and the file then holds only those passes',
+          "next: ask the user how to make room in .lawcheck/verdicts: its passes are hashes, so none can be told apart by hand",
           '',
         ].join('\n'),
       );

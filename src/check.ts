@@ -24,7 +24,7 @@ import { judgeUses, listInForce, notRead } from './uses.js';
 import type { Forbidden, NotRead, Target } from './uses.js';
 import type { TypedFile } from './types.js';
 import type { Runtime } from './environment.js';
-import { readFailure, readVerdicts, reviewKey, Unwritable, VerdictWriter } from './verdicts.js';
+import { countPasses, FULL_NEXT, readFailure, readVerdicts, reviewKey, Unwritable, VERDICTS, VerdictsFull, VerdictsUnreadable, VerdictWriter } from './verdicts.js';
 import { parseWaivers, waive } from './waivers.js';
 import { count, mib, points, readError, RUN_FINDINGS, RUN_MESSAGE_CHARS, USES_FILE_BYTES } from './limits.js';
 import { step } from './progress.js';
@@ -149,7 +149,14 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
   const review = `lawcheck check --review${options.base === null ? '' : ` --base ${hide(options.base)}`}`;
   const cap = options.maxCalls ?? config.maxCalls;
 
-  const verdicts = readVerdicts(root);
+  const roomOf = () => verdictRoom(root, law, typed, kinds);
+  let verdicts: Set<string>;
+  try {
+    verdicts = readVerdicts(root);
+  } catch (error) {
+    if (!(error instanceof VerdictsUnreadable) || !error.cause.startsWith('it holds more')) throw error;
+    return { errors: [{ code: 'file-unreadable', file: VERDICTS, line: null, message: `the file cannot be read (${error.cause}); ${roomOf()}`, next: FULL_NEXT }] };
+  }
   const asks: Ask[] = [];
   const builtIn: BuiltIn[] = [];
   const reviewerRaw = (file: string, rule: string, findings: AnswerFinding[]) => {
@@ -202,14 +209,20 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
     const blocked = preflight(provider, config, cap, asks.length, review);
     if (blocked.length > 0) return { errors: blocked };
     const writer = new VerdictWriter(root);
-    writer.ready(asks.map((ask) => ask.rule));
+    try {
+      writer.ready(asks.map((ask) => ask.rule));
+    } catch (error) {
+      if (!(error instanceof VerdictsFull)) throw error;
+      return { errors: [{ code: 'file-unwritable', file: VERDICTS, line: null, message: `cannot be written (${error.cause}); ${roomOf()}`, next: FULL_NEXT }] };
+    }
     context.warn?.(`lawcheck: ${plural(asks.length, 'reviewer call')} to ${config.provider}`);
     let result: Awaited<ReturnType<typeof call>>;
     try {
       result = await call(asks, provider!, writer, { cap, parallel: config.parallel, timeoutSeconds: config.timeout });
     } catch (error) {
       if (!(error instanceof Unwritable)) throw error;
-      return { errors: [{ code: 'file-unwritable', file: error.path, line: null, message: `cannot be written (${error.cause}), so the answers of the reviewer calls this run made are lost`, ...(error.next === null ? {} : { next: error.next }) }] };
+      const room = error instanceof VerdictsFull ? `; ${roomOf()}` : '';
+      return { errors: [{ code: 'file-unwritable', file: error.path, line: null, message: `cannot be written (${error.cause}), so the answers of the reviewer calls this run made are lost${room}`, ...(error.next === null ? {} : { next: error.next }) }] };
     }
     if (result.failed.length > 0) {
       const again = 'run the same command again; what was answered is kept, so it asks only the rest';
@@ -279,6 +292,21 @@ function unseenRepositories(root: string, listed: Set<string>, law: Law): string
   const named = reached.slice(0, 3).map(({ dir, submodule }) => `${dir} (${submodule ? 'a submodule' : 'a repository of its own'})`);
   const more = reached.length > 3 ? ` and ${reached.length - 3} more` : '';
   return `note: the paths of a type reach into ${named.join(', ')}${more}; Lawcheck does not look into another repository, so no file there is judged`;
+}
+
+// What the reviews of this tree need of a full verdicts file, worked out with no call: its passes, those the files of the tree need, and the calls a review of every file of the law would take.
+function verdictRoom(root: string, law: Law, typed: TypedFile[], kinds: Kinds): string {
+  const needed = new Set<string>();
+  for (const file of typed) {
+    for (const rule of file.rules) {
+      const reviewer = kinds.reviewers.get(rule);
+      if (reviewer === undefined) continue;
+      const why = law.rules.get(rule)!.why;
+      needed.add(`${reviewKey({ frame: FRAME, ruleId: rule, why, ruleText: reviewer.text, context: reviewer.context, filePath: file.path, fileText: file.text })} ${rule}`);
+    }
+  }
+  const counted = countPasses(root, needed);
+  return `of its ${count(counted.held)} ${counted.held === 1 ? 'pass' : 'passes'} the files of this tree need ${count(counted.needed)}, and a review of every file of this law would take ${plural(needed.size, 'reviewer call')}`;
 }
 
 export function tooManyFindings(budget: FindingBudget): ErrorItem[] {
