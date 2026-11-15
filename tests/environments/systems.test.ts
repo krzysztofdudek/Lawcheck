@@ -1,4 +1,5 @@
 import { test } from 'node:test';
+import { platformSkip } from '../harness/tool.ts';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { cpSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -24,8 +25,10 @@ function priceBlock(): string {
 }
 
 test('test 202: on a file system that ignores case, explain SRC/core/price.ts answers for src/core/price.ts, the file git lists', async (t) => {
+  const skip = platformSkip('the whole test');
+  if (skip !== null) return t.skip(skip);
   await inTemp(async (dir) => {
-    if (!ignoresCase(dir)) return t.skip('this file system tells SRC from src');
+    assert.ok(ignoresCase(dir), 'the file system of this system ignores case, as PLATFORM_SKIPS says');
     const s = makeSample(dir);
     const run = await lawcheck(s, ['explain', 'SRC/core/price.ts']);
     assert.equal(run.stdout, priceBlock());
@@ -36,8 +39,10 @@ test('test 202: on a file system that ignores case, explain SRC/core/price.ts an
 });
 
 test('test 202: control, where the file system tells case apart, SRC/core/price.ts is a file that does not exist yet', async (t) => {
+  const skip = platformSkip('the whole test');
+  if (skip !== null) return t.skip(skip);
   await inTemp(async (dir) => {
-    if (ignoresCase(dir)) return t.skip('this file system ignores case');
+    assert.ok(!ignoresCase(dir), 'the file system of this system tells case apart, as PLATFORM_SKIPS says');
     const run = await lawcheck(makeSample(dir), ['explain', 'SRC/core/price.ts']);
     assert.equal(run.stdout.split('\n')[0], 'SRC/core/price.ts  (does not exist yet)');
     assert.equal(run.code, 0);

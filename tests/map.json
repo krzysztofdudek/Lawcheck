@@ -1,11 +1,18 @@
 {
   "plugin/hooks/lawcheck-hook.mjs": [
-    "tests/acceptance/plugin.test.ts"
+    "tests/acceptance/plugin.test.ts",
+    "tests/environments/hook-shapes.test.ts"
+  ],
+  "plugin/hooks/snapshot.mjs": [
+    "tests/environments/hook-shapes.test.ts"
   ],
   "src/args.ts": [
     "tests/acceptance/cli.test.ts",
     "tests/acceptance/docs.test.ts",
     "tests/unit/args.test.ts"
+  ],
+  "src/bin.ts": [
+    "tests/environments/refusal.test.ts"
   ],
   "src/check.ts": [
     "tests/acceptance/changes.test.ts",
@@ -20,6 +27,7 @@
     "tests/acceptance/cli.test.ts",
     "tests/acceptance/package.test.ts",
     "tests/acceptance/paths.test.ts",
+    "tests/environments/refusal.test.ts",
     "tests/unit/cli.test.ts"
   ],
   "src/config.ts": [
@@ -33,15 +41,25 @@
   ],
   "src/doctor.ts": [
     "tests/acceptance/doctor.test.ts",
+    "tests/environments/ci-shapes.test.ts",
+    "tests/environments/git-faults.test.ts",
+    "tests/environments/refusal.test.ts",
+    "tests/unit/doctor.test.ts"
+  ],
+  "src/environment.ts": [
+    "tests/environments/refusal.test.ts",
     "tests/unit/doctor.test.ts"
   ],
   "src/explain.ts": [
     "tests/acceptance/explain.test.ts",
+    "tests/environments/systems.test.ts",
     "tests/unit/explain.test.ts"
   ],
   "src/files.ts": [
     "tests/acceptance/changes.test.ts",
     "tests/acceptance/paths.test.ts",
+    "tests/environments/ci-shapes.test.ts",
+    "tests/environments/git-faults.test.ts",
     "tests/unit/files.test.ts"
   ],
   "src/glob.ts": [
@@ -72,6 +90,8 @@
     "tests/acceptance/cli.test.ts",
     "tests/acceptance/docs.test.ts",
     "tests/acceptance/waivers.test.ts",
+    "tests/environments/ci-shapes.test.ts",
+    "tests/environments/refusal.test.ts",
     "tests/unit/output.test.ts"
   ],
   "src/prime.ts": [
@@ -120,16 +140,23 @@
   ],
   "src/rules.ts": [
     "tests/acceptance/rules.test.ts",
+    "tests/environments/refusal.test.ts",
+    "tests/environments/shapes.test.ts",
     "tests/unit/rules.test.ts",
     "tests/unit/runner.test.ts"
   ],
   "src/runner.ts": [
     "tests/acceptance/rules.test.ts",
+    "tests/environments/refusal.test.ts",
+    "tests/environments/shapes.test.ts",
     "tests/unit/runner.test.ts"
   ],
   "src/setup.ts": [
     "tests/acceptance/cli.test.ts",
     "tests/acceptance/targets.test.ts",
+    "tests/environments/ci-shapes.test.ts",
+    "tests/environments/git-faults.test.ts",
+    "tests/environments/shapes.test.ts",
     "tests/unit/setup.test.ts"
   ],
   "src/try.ts": [

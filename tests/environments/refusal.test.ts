@@ -1,4 +1,5 @@
 import { test } from 'node:test';
+import { platformSkip } from '../harness/tool.ts';
 import { execFileSync } from 'node:child_process';
 import assert from 'node:assert/strict';
 import { chmodSync, cpSync, existsSync, mkdirSync, readFileSync, realpathSync, symlinkSync, writeFileSync } from 'node:fs';
@@ -7,7 +8,6 @@ import { D, D_PATH, GIT_ENV, inTemp, TEST4, lawcheck, lawcheckAt, makeSample, RO
 import type { Run } from '../acceptance/helpers.ts';
 
 const WINDOWS = process.platform === 'win32';
-const AS_ROOT = process.getuid?.() === 0;
 
 // A preload that sets what Node, Bun and Yarn's Plug'n'Play set in process.versions, so the real Node 24 reports another runtime. The install matrix runs the real ones.
 function posing(name: string, value: string): string[] {
@@ -201,7 +201,9 @@ function gitReporting(dir: string, version: string): string {
   return bin;
 }
 
-test('test 200: below git 2.34 every command but --version, --help and docs refuses in its first line, naming the version', { skip: WINDOWS ? 'git is started as git.exe on Windows, so a script cannot stand in for it' : false }, async () => {
+test('test 200: below git 2.34 every command but --version, --help and docs refuses in its first line, naming the version', async (t) => {
+  const skip = platformSkip('the whole test');
+  if (skip !== null) return t.skip(skip);
   await inTemp(async (dir) => {
     const s = sampleWithD(dir);
     const env = { PATH: [gitReporting(dir, '2.33.8'), GIT_ENV.PATH].join(delimiter) };
@@ -209,7 +211,9 @@ test('test 200: below git 2.34 every command but --version, --help and docs refu
   });
 });
 
-test('test 200: control, git 2.34.1 is not refused', { skip: WINDOWS ? 'git is started as git.exe on Windows, so a script cannot stand in for it' : false }, async () => {
+test('test 200: control, git 2.34.1 is not refused', async (t) => {
+  const skip = platformSkip('the whole test');
+  if (skip !== null) return t.skip(skip);
   await inTemp(async (dir) => {
     const s = sampleWithD(dir);
     const run = await lawcheck(s, ['check', '--base', 'main'], { PATH: [gitReporting(dir, '2.34.1'), GIT_ENV.PATH].join(delimiter) });
@@ -235,8 +239,10 @@ test('test 201: a runner Node cannot start with its flags is runner-failed, with
     writeFileSync(rules, readFileSync(rules, 'utf8').replace("'--permission', ", "'--permission', '--no-such-flag', "));
     await inTemp(async (dir) => {
       const s = sampleWithD(dir);
-      runnerFailed(await lawcheckAt(copy.cli, s, ['check', '--base', 'main']), /bad option: --no-such-flag$/, 'check');
-      runnerFailed(await lawcheckAt(copy.cli, s, ['try', 'no-console', 'src/core/discount.ts']), /bad option: --no-such-flag$/, 'try');
+      // Node prints why it cannot start the runner on the tool's standard error, where the rule's own output goes.
+      const said = { stderr: /^(.*: bad option: --no-such-flag\n)+$/ };
+      runnerFailed(await lawcheckAt(copy.cli, s, ['check', '--base', 'main'], {}, said), /bad option: --no-such-flag$/, 'check');
+      runnerFailed(await lawcheckAt(copy.cli, s, ['try', 'no-console', 'src/core/discount.ts'], {}, said), /bad option: --no-such-flag$/, 'try');
     });
   });
 });
@@ -252,13 +258,15 @@ test('test 201: a runner whose process cannot be started, as with EAGAIN, is run
   });
 });
 
-test('test 201: a runner file that cannot be read is runner-failed, naming the file', { skip: WINDOWS || AS_ROOT ? 'a file mode cannot make a file unreadable for root, nor on Windows' : false }, async () => {
+test('test 201: a runner file that cannot be read is runner-failed, naming the file', async (t) => {
+  const skip = platformSkip('the whole test');
+  if (skip !== null) return t.skip(skip);
   await withCopy(async (copy) => {
     const runner = realpathSync(join(copy.dir, 'dist', 'runner.js'));
     chmodSync(runner, 0o000);
     try {
       await inTemp(async (dir) => {
-        runnerFailed(await lawcheckAt(copy.cli, sampleWithD(dir), ['check', '--base', 'main']), new RegExp(`EACCES: permission denied, open '${runner.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}'$`), 'check');
+        runnerFailed(await lawcheckAt(copy.cli, sampleWithD(dir), ['check', '--base', 'main'], {}, { stderr: /Error: EACCES: permission denied, open / }), new RegExp(`EACCES: permission denied, open '${runner.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}'$`), 'check');
       });
     } finally {
       chmodSync(runner, 0o644);

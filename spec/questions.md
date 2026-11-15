@@ -476,13 +476,13 @@ The owner's ruling of 2026-11-15, `klucz-zastapiony`: option A. The label is the
 
 The build's reading of the ruling, not the owner's. `claude-code` sends no key of its own and hands the program every variable, so the keys it hands on are the values of `LAWCHECK_REVIEWER_KEY` and `ANTHROPIC_API_KEY`, and those are replaced in what the program prints. "The exact key" is read as the key in any spelling JSON allows, each character as itself, as a `\u` escape or as its short escape, since an answer is JSON and a model or a proxy may write it so. The replacement is made after the answer is read, before any cut to a length, and in the strings of a JSON document but not in the names of its keys. "Wherever it prints or writes it" is read as the text that comes from outside Lawcheck, in all output and the failure cache: a rule's message, a file name, an argument, a config value; never Lawcheck's own words, codes, schema names, ids, line numbers or JSON key names, which a short key would otherwise garble. The keys are the values of `LAWCHECK_REVIEWER_KEY` and `ANTHROPIC_API_KEY`, whichever provider is in force. A key shorter than 8 characters is not replaced: a dummy key for a local endpoint is no secret, and replacing it would garble paths and messages that hold it. A prefix of the key, the key in another case, a percent-encoded copy and any other key-shaped value are printed as they came. `reviewer-slice.md`, section 6, says so, and the tests of invariant `I-secret-1` check both sides.
 
-## 89. A path in another case on a file system that ignores case
+## 120. A path in another case on a file system that ignores case
 
 On macOS and Windows, `lawcheck explain SRC/core/price.ts` opens `src/core/price.ts`, while git lists the file only as `src/core/price.ts`. The tool typed the spelling it was given, found no type and answered `none`, which is false for the file `check` judges. A decision of the build, not of the owner. It follows the test design, layer 5: `explain SRC/core/price.ts` on a file system that ignores case.
 
 Choice: when git does not list the path, the path exists, and it is the same file as exactly one path git lists that is equal to it but for case, `explain` answers for that path, under the name git lists. Elsewhere nothing changes: on Linux `SRC/core/price.ts` is a file that does not exist yet. `commands-slice.md`, section 6, says so, and test 202 of `spec/environments.md` holds it.
 
-## 90. A rule that imports a package hoisted above the root
+## 121. A rule that imports a package hoisted above the root
 
 In a monorepo with the law in one package, the dependencies usually sit in a `node_modules` above the root, which the runner does not let a rule read, and the rule ended with Node's sentence about a flag the user cannot pass (stress finding S2-2). The finding left two ways open: let the runner read the `node_modules` folders above the root, or refuse in words that name the real limit. A decision of the build.
 

@@ -1,7 +1,8 @@
-import { spawn } from 'node:child_process';
 import { chmodSync, mkdirSync, symlinkSync, writeFileSync } from 'node:fs';
 import { delimiter, dirname, join } from 'node:path';
-import { CLI, git, GIT_ENV, inTemp, lawcheck, makeSample, ROOT, write } from '../acceptance/helpers.ts';
+import { git, GIT_ENV, inTemp, lawcheck, makeSample, ROOT, write } from '../acceptance/helpers.ts';
+import { installedLawcheck } from '../harness/fakes.ts';
+import { startHook } from '../harness/tool.ts';
 import type { Run, SampleOptions } from '../acceptance/helpers.ts';
 
 export const WINDOWS = process.platform === 'win32';
@@ -144,41 +145,30 @@ export interface HookRun {
   json: unknown;
 }
 
-// A folder with a lawcheck command that starts the built tool, as a global install puts one on PATH.
+// A folder with a lawcheck command that starts the built tool, as a global install puts one on PATH; it logs each call to lawcheck.log in the test's folder.
 export function binWithLawcheck(dir: string): string {
   const bin = join(dir, 'bin');
   mkdirSync(bin, { recursive: true });
   const path = join(bin, 'lawcheck');
-  writeFileSync(path, [`#!${process.execPath}`, "import { spawnSync } from 'node:child_process';", `const r = spawnSync(process.execPath, [${JSON.stringify(CLI)}, ...process.argv.slice(2)], { stdio: ['ignore', 'inherit', 'inherit'] });`, 'process.exit(r.status ?? 2);', ''].join('\n'));
+  writeFileSync(path, [`#!${process.execPath}`, "import { appendFileSync } from 'node:fs';", "import { spawnSync } from 'node:child_process';", ...installedLawcheck(join(dir, 'lawcheck.log')), ''].join('\n'));
   chmodSync(path, 0o755);
   if (WINDOWS) writeFileSync(`${path}.cmd`, `@"${process.execPath}" "${path}" %*\r\n`);
   return bin;
 }
-
-export const HOOK = join(ROOT, 'plugin', 'hooks', 'lawcheck-hook.mjs');
 
 export function hookEnv(dir: string, path: string[]): NodeJS.ProcessEnv {
   const system: NodeJS.ProcessEnv = WINDOWS ? { SystemRoot: process.env.SystemRoot, ComSpec: process.env.ComSpec } : {};
   return { PATH: path.join(delimiter), ...system, CLAUDE_PLUGIN_ROOT: join(ROOT, 'plugin'), CLAUDE_PLUGIN_DATA: join(dir, 'data') };
 }
 
-export function runHook(event: string, input: Record<string, unknown>, env: NodeJS.ProcessEnv): Promise<HookRun> {
-  return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [HOOK, event], { env, stdio: ['pipe', 'pipe', 'pipe'] });
-    let stdout = '';
-    let stderr = '';
-    child.stdout.setEncoding('utf8').on('data', (chunk: string) => (stdout += chunk));
-    child.stderr.setEncoding('utf8').on('data', (chunk: string) => (stderr += chunk));
-    child.on('error', reject);
-    child.on('close', (code) => {
-      let json: unknown = null;
-      try {
-        json = stdout === '' ? null : JSON.parse(stdout);
-      } catch {}
-      resolve({ code, stdout, stderr, json });
-    });
-    child.stdin.end(JSON.stringify(input));
-  });
+export async function runHook(event: string, input: Record<string, unknown>, env: NodeJS.ProcessEnv): Promise<HookRun> {
+  // The hooks keep their state in CLAUDE_PLUGIN_DATA, the folder data/ of the test (hookEnv), and the lawcheck of binWithLawcheck logs its calls.
+  const run = await startHook(event, JSON.stringify(input), env, { outside: [/^data(\/.*)?$/, /^lawcheck\.log$/] }).ended;
+  let json: unknown = null;
+  try {
+    json = run.stdout === '' ? null : JSON.parse(run.stdout);
+  } catch {}
+  return { code: run.code, stdout: run.stdout, stderr: run.stderr, json };
 }
 
 export const NODE_DIR = dirname(process.execPath);

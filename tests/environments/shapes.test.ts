@@ -1,4 +1,5 @@
 import { test } from 'node:test';
+import { platformSkip } from '../harness/tool.ts';
 import assert from 'node:assert/strict';
 import { rmSync, symlinkSync } from 'node:fs';
 import { join } from 'node:path';
@@ -218,7 +219,9 @@ test('S2-2: control, the same rule loads the same package from a node_modules be
   assert.deepEqual(problems, []);
 });
 
-test('S2-2: a node_modules at the root that links to a folder outside it is refused in the same words', { skip: WINDOWS ? 'a junction on Windows is resolved before Node checks the path' : false }, async () => {
+test('S2-2: a node_modules at the root that links to a folder outside it is refused in the same words', async (t) => {
+  const skip = platformSkip('the whole test');
+  if (skip !== null) return t.skip(skip);
   await inTemp(async (dir) => {
     const s = makeSample(dir, { onMain: (repo) => setRule(repo, 'no-console', IMPORTS_HOISTED) });
     write(dir, `elsewhere/node_modules/${HOISTED}/package.json`, JSON.stringify({ name: HOISTED, type: 'module', main: 'index.js' }) + '\n');
