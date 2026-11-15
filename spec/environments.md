@@ -14,7 +14,7 @@ Out: the network. A test that needs it says so in its name and runs only in the 
 |---|---|---|
 | Node | 24 and newer | 20, 22 and every version below 24 |
 | the runtime | Node | Bun as the runtime; Bun beside Node is supported, since `bun x` then starts Lawcheck on Node through its first line |
-| the install | npm, pnpm, Yarn 1, Yarn 4 with `nodeLinker: node-modules`, Bun beside Node; a Lawcheck installed in any of these ways and started from a project that uses Plug'n'Play. Yarn 4 with `nodeLinker: pnpm` works and is not promised: T-2 A does not list it, and its nightly cell only shows that it works today | Yarn's Plug'n'Play serving Lawcheck itself from a zip archive, which the runner of script rules cannot open |
+| the install | npm, pnpm, Yarn 1, Yarn 4 with `nodeLinker: node-modules` or `nodeLinker: pnpm` (question 122), Bun beside Node; a Lawcheck installed in any of these ways and started from a project that uses Plug'n'Play, whose script rules then import only `node:` built-ins and files below the root | Yarn's Plug'n'Play serving Lawcheck itself from a zip archive, which the runner of script rules cannot open |
 | git | 2.34 and newer, the git of `ubuntu:22.04`; the nightly git matrix runs the check slice's tests on it | every version below 2.34 |
 | the system | Linux, macOS and Windows | |
 | Node's permission model | | `--permission` set for Lawcheck itself, as through `NODE_OPTIONS` |
@@ -98,7 +98,7 @@ Both need the network and run in Docker from official images, each container mou
 | `node:20` | refused | | | | | | |
 | `node:22` | refused | | | | | | |
 
-Each Yarn 4 cell lists `lawcheck` and `@chrisdudek/runes` in `npmPreapprovedPackages`, the line `docs/config.md` gives for the first day after a release. The `pnpm` linker's cells show what works today and are no promise (section 2). A refused cell compares the whole first line of `doctor`, `check` and `try` with section 3's, built from the version of Node or Bun in the image and the name of Yarn's archive. An npm cell also installs the tarball globally and starts the link with `NODE_OPTIONS=--permission`, and sees the limit of section 3.
+Each Yarn 4 cell lists `lawcheck` and `@chrisdudek/runes` in `npmPreapprovedPackages`, the line `docs/config.md` gives for the first day after a release. A refused cell compares the whole first line of `doctor`, `check` and `try` with section 3's, built from the version of Node or Bun in the image and the name of Yarn's archive. An npm cell also installs the tarball globally and starts the link with `NODE_OPTIONS=--permission`, and sees the limit of section 3.
 
 **The git matrix.** The check slice's acceptance tests, the tests whose names carry rows 1 to 45, run with the git of `ubuntu:22.04` (2.34), `debian:12` (2.39), `ubuntu:24.04` (2.43) and `debian:sid` (the newest a Debian image carries), on the Node 24 of the machine that starts them, as a user other than root.
 
@@ -122,6 +122,6 @@ Each Yarn 4 cell lists `lawcheck` and `@chrisdudek/runes` in `npmPreapprovedPack
 
 | Id | Promise | Test |
 |---|---|---|
-| I-env-1 | Every command but `--version`, `--help`, `<command> --help` and `docs` refuses Node below 24, Bun as the runtime, Lawcheck served from a Plug'n'Play archive and Node's permission model with the first line of section 3, exit 2 and nothing on standard error, and `doctor` starts with the same line (section 3). | tests/environments/refusal.test.ts |
+| I-env-1 | Every command but `--version`, `--help`, `<command> --help` and `docs` refuses Node below 24, Bun as the runtime and Lawcheck served from a Plug'n'Play archive with the first line of section 3, exit 2 and nothing on standard error, and `doctor` starts with the same line; under Node's permission model every command refuses the same way when Node is given the entry by its own path, and the installed link of Linux and macOS is the limit section 3 states (section 3). | tests/environments/refusal.test.ts |
 | I-shape-1 | The rows of section 4 give the output of the check slice byte for byte in every repository shape, from the root and from a directory below it (section 4). | tests/environments/shapes.test.ts |
 | I-shape-2 | The hooks give the plugin slice's outputs for a breach after an edit, a breach before finishing, a broken law, a clean turn and the session start in every repository shape (section 4). | tests/environments/hook-shapes.test.ts |

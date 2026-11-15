@@ -125,11 +125,12 @@ function relay(stream: Readable | null): void {
     pending += chunk;
     const end = pending.lastIndexOf('\n');
     if (end < 0) return;
-    process.stderr.write(safeText(hide(pending.slice(0, end))) + '\n');
+    // A line ends at LF or CRLF, as Windows ends the lines Node and many programs print; a lone CR inside a line stays text, and is escaped.
+    process.stderr.write(safeText(hide(pending.slice(0, end).split(/\r?\n/).join('\n').replace(/\r$/, ''))) + '\n');
     pending = pending.slice(end + 1);
   });
   stream.on('end', () => {
-    if (pending !== '') process.stderr.write(safeText(hide(pending)) + '\n');
+    if (pending !== '') process.stderr.write(safeText(hide(pending.replace(/\r$/, ''))) + '\n');
   });
 }
 

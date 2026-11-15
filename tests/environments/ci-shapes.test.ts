@@ -18,6 +18,14 @@ function origin(dir: string): string {
   return pathToFileURL(s).href;
 }
 
+// A depth-1 clone of work with no base: git 2.47 and newer record origin/HEAD even for a clone of one branch, and older git does not, so the test removes it.
+function noBaseClone(dir: string): string {
+  git(dir, 'clone', '-q', '--depth', '1', '--branch', 'work', origin(dir), 'clone');
+  const clone = join(dir, 'clone');
+  git(clone, 'update-ref', '--no-deref', '-d', 'refs/remotes/origin/HEAD');
+  return clone;
+}
+
 function nextLine(stdout: string): string {
   return stdout.split('\n').find((line) => line.startsWith('next: '))?.slice('next: '.length) ?? '';
 }
@@ -47,8 +55,7 @@ const NO_BASE_IN_CI = [
 
 test('S7-6: a depth-1 clone of a branch with no base fails every file outside CI, as the spec says, and a plain check refuses in CI with the ways out (question 87)', async () => {
   await inTemp(async (dir) => {
-    git(dir, 'clone', '-q', '--depth', '1', '--branch', 'work', origin(dir), 'clone');
-    const clone = join(dir, 'clone');
+    const clone = noBaseClone(dir);
     const plain = await lawcheck(clone, ['check']);
     assert.equal(plain.stdout.split('\n')[0], 'lawcheck: FAIL  2 errors, 3 warnings in 9 files (no base: every file counts as changed), 1 waiver');
     assert.equal(plain.code, 1);
@@ -66,8 +73,7 @@ test('S7-6: a depth-1 clone of a branch with no base fails every file outside CI
 
 test('S7-6: --full needs no base, so it judges every file in CI as it does elsewhere', async () => {
   await inTemp(async (dir) => {
-    git(dir, 'clone', '-q', '--depth', '1', '--branch', 'work', origin(dir), 'clone');
-    const clone = join(dir, 'clone');
+    const clone = noBaseClone(dir);
     const job = await lawcheck(clone, ['check', '--full'], CI);
     const outside = await lawcheck(clone, ['check', '--full']);
     assert.equal(job.stdout, outside.stdout);
@@ -78,8 +84,7 @@ test('S7-6: --full needs no base, so it judges every file in CI as it does elsew
 
 test('S7-6: the variables of CI services count as CI, and CI set to an off word does not', async () => {
   await inTemp(async (dir) => {
-    git(dir, 'clone', '-q', '--depth', '1', '--branch', 'work', origin(dir), 'clone');
-    const clone = join(dir, 'clone');
+    const clone = noBaseClone(dir);
     for (const env of [{ CI: '1' }, { CI: 'yes' }, { GITHUB_ACTIONS: 'true' }, { GITLAB_CI: 'true' }, { TF_BUILD: 'True' }, { JENKINS_URL: 'http://ci.example/' }, { BUILDKITE: 'true' }, { CIRCLECI: 'true' }]) {
       const run = await lawcheck(clone, ['check'], env);
       assert.equal(run.stdout, NO_BASE_IN_CI, JSON.stringify(env));
@@ -94,8 +99,7 @@ test('S7-6: the variables of CI services count as CI, and CI set to an off word 
 
 test('S7-6: doctor agrees with check in a CI job with no base', async () => {
   await inTemp(async (dir) => {
-    git(dir, 'clone', '-q', '--depth', '1', '--branch', 'work', origin(dir), 'clone');
-    const run = await lawcheck(join(dir, 'clone'), ['doctor'], CI);
+    const run = await lawcheck(noBaseClone(dir), ['doctor'], CI);
     assert.ok(run.stdout.includes('\nfail  base  no base in this CI job: no --base, no LAWCHECK_BASE and no origin/HEAD, and a plain check without one would count every file as changed\n'), run.stdout);
     assert.equal(run.code, 2);
   });

@@ -545,3 +545,11 @@ Choice: when git does not list the path, the path exists, and it is the same fil
 In a monorepo with the law in one package, the dependencies usually sit in a `node_modules` above the root, which the runner does not let a rule read, and the rule ended with Node's sentence about a flag the user cannot pass (stress finding S2-2). The finding left two ways open: let the runner read the `node_modules` folders above the root, or refuse in words that name the real limit. A decision of the build.
 
 Choice: refuse, and say so. The runner keeps its promise that a rule reads nothing outside the root and Lawcheck's folder (`check-slice.md`, section 3), the message names what the rule read and where, and the script rules page says what a rule can import. Letting the runner read the folders above the root would widen what every rule can read, which is the owner's to decide; it stays open for him.
+
+## 122. Yarn 4 with the pnpm linker, and a Lawcheck inside a Plug'n'Play project
+
+T-2 A, the lead session's technical ruling of question 73, names npm, pnpm, Yarn 1 and Yarn 4 with `nodeLinker: node-modules`. Yarn 4 with `nodeLinker: pnpm` works in the install matrix, and the environments spec said it works and is not promised, a third state the ruling does not have. A decision of the build, the coordinator's, which widens that technical ruling.
+
+Choice: Yarn 4 with `nodeLinker: pnpm` is supported and promised, listed with the others in the README, `docs/config.md` and `spec/environments.md`, section 2, and its cells of the nightly install matrix are the proof.
+
+What already holds, said in the same place. Plug'n'Play is refused when Lawcheck's own files are served from a Plug'n'Play archive: `process.versions.pnp` is set and Lawcheck's folder lies below a folder whose name ends in `.zip`. A Lawcheck installed outside an archive, globally or by another package manager, runs inside a Plug'n'Play project. Its script rules run in a process without Yarn's loader, so they import `node:` built-ins and files below the root, such as `.lawcheck/rules/lib/`, and not the project's packages, which Plug'n'Play keeps in its archives or resolves through its own map, an unplugged package included.
