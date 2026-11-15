@@ -32,7 +32,7 @@ for (const key of KEYS) {
             const run = await lawcheck(r, ['check', '--review', '--base', 'main', '--json'], env);
             assert.equal(run.code, 1, run.stdout);
             const document = JSON.parse(run.stdout);
-            assert.deepEqual(document.findings.filter((f: { code: string }) => f.code === 'clear-errors').map((f: { message: string }) => f.message), [masked(message, key)]);
+            assert.deepEqual(document.findings.filter((f: { code: string }) => f.code === masked('clear-errors', key)).map((f: { message: string }) => f.message), [masked(message, key)]);
             const tried = await lawcheck(r, ['try', 'clear-errors', F_PATH, '--json'], env);
             assert.equal(tried.code, 1, tried.stdout);
             const run0 = JSON.parse(tried.stdout).runs[0];
@@ -71,8 +71,9 @@ for (const key of ['e', 'k"e\\y']) {
       const env = { PATH: pathWith(writeFakeClaude(`${dir}/bin`)), FAKE_CLAUDE_MODE: 'echo-answer', LAWCHECK_REVIEWER_KEY: key, ANTHROPIC_API_KEY: 'zz-other-key-9a1b' };
       const run = await lawcheck(r, ['check', '--review', '--base', 'main', '--json'], env);
       assert.equal(run.code, 1, run.stdout);
-      const messages = JSON.parse(run.stdout).findings.filter((f: { code: string }) => f.code === 'clear-errors').map((f: { message: string }) => f.message);
-      assert.deepEqual(messages, [masked(masked(`the key is ${key} and zz-other-key-9a1b`, 'zz-other-key-9a1b'), key)]);
+      const messages = JSON.parse(run.stdout).findings.filter((f: { code: string }) => f.code === masked('clear-errors', key)).map((f: { message: string }) => f.message);
+      const once = `the key is ${key} and zz-other-key-9a1b`.split('zz-other-key-9a1b').join('\u0000').split(key).join('[key]').split('\u0000').join('[key]');
+      assert.deepEqual(messages, [once]);
     });
   });
 }

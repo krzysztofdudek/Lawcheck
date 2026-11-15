@@ -2,6 +2,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { checkFindings } from './prompt.js';
+import { hide } from './keys.js';
 import type { AnswerFinding } from './prompt.js';
 
 export const VERDICT_FORMAT = 'lawcheck-verdict/2';
@@ -116,7 +117,7 @@ export class VerdictWriter {
     return this.enqueue(() => {
       const local = ensureLocal(this.root);
       mkdirSync(join(local, 'failures'), { recursive: true });
-      writeFileSync(failurePath(this.root, key), JSON.stringify({ rule, findings }) + '\n');
+      writeFileSync(failurePath(this.root, key), JSON.stringify({ rule, findings: findings.map((finding) => ({ ...finding, message: hide(finding.message) })) }) + '\n');
     });
   }
 

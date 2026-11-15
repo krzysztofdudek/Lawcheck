@@ -8,6 +8,7 @@ import { join } from 'node:path';
 import type { TypeDef } from './law.js';
 import { killTree } from './programs.js';
 import { safeText } from './output.js';
+import { hide } from './keys.js';
 import type { Readable } from 'node:stream';
 
 export interface RuleFile {
@@ -116,11 +117,11 @@ function relay(stream: Readable | null): void {
     pending += chunk;
     const end = pending.lastIndexOf('\n');
     if (end < 0) return;
-    process.stderr.write(safeText(pending.slice(0, end)) + '\n');
+    process.stderr.write(safeText(hide(pending.slice(0, end))) + '\n');
     pending = pending.slice(end + 1);
   });
   stream.on('end', () => {
-    if (pending !== '') process.stderr.write(safeText(pending) + '\n');
+    if (pending !== '') process.stderr.write(safeText(hide(pending)) + '\n');
   });
 }
 

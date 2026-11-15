@@ -3,7 +3,7 @@ import type { ReviewerConfig } from './config.js';
 import type { ErrorItem } from './output.js';
 import { checkAnswer } from './prompt.js';
 import type { AnswerFinding } from './prompt.js';
-import { hidden } from './providers/index.js';
+import { hide } from './keys.js';
 import type { Provider } from './providers/index.js';
 export interface Recorder {
   pass(key: string, rule: string): Promise<void>;
@@ -93,7 +93,6 @@ export async function call<A extends Ask>(asks: A[], provider: Provider, writer:
   const answered: Answered[] = [];
   const failed: Failed[] = [];
   const delay = options.resendDelayMs ?? 2000;
-  const hide = (text: string) => hidden(text, provider.keys);
   let sent = 0;
   let started = 0;
   let stopped = false;

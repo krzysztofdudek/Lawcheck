@@ -11,7 +11,8 @@ import { nextOfErrors, placeOf, plural, shown, sortErrors } from './output.js';
 import type { ErrorItem } from './output.js';
 import { walk } from './prime.js';
 import { checkAnswer } from './prompt.js';
-import { createProvider, hidden } from './providers/index.js';
+import { createProvider } from './providers/index.js';
+import { hide } from './keys.js';
 import type { Env, Provider } from './providers/index.js';
 import { LANGUAGES, loadGrammars, readerOf, siblingsOf } from './readers.js';
 import { configErrors, findRoot, lawErrors, onceReader, ruleFileErrors, Stop, theChange, touchesLaw, typingErrors } from './setup.js';
@@ -240,11 +241,11 @@ export async function runChecks(inputs: Inputs): Promise<Check[]> {
       if (problem !== null) return set('reviewer', 'fail', `${rules}; ${config.provider} cannot be called: ${problem}`, next(again));
       if (!inputs.reviewer) return set('reviewer', 'ok', `${rules}; ${config.provider} can be called (lawcheck doctor --reviewer makes one call)`);
       const asked = await provider.ask(TEST_PROMPT);
-      if ('failure' in asked) return set('reviewer', 'fail', `${rules}; ${config.provider} did not answer a test call: ${hidden(asked.failure, provider.keys)}`, next(`${again} --reviewer`));
+      if ('failure' in asked) return set('reviewer', 'fail', `${rules}; ${config.provider} did not answer a test call: ${hide(asked.failure)}`, next(`${again} --reviewer`));
       const checked = checkAnswer(asked.answer, 0);
       if ('problem' in checked || checked.verdict !== 'pass') {
         const what = 'problem' in checked ? 'answered with no verdict' : 'answered fail to a test call that asks for pass';
-        return set('reviewer', 'fail', `${rules}; ${config.provider} ${what}: ${[...hidden(asked.answer, provider.keys)].slice(0, 200).join('')}`, next(`${again} --reviewer`));
+        return set('reviewer', 'fail', `${rules}; ${config.provider} ${what}: ${[...hide(asked.answer)].slice(0, 200).join('')}`, next(`${again} --reviewer`));
       }
       set('reviewer', 'ok', `${rules}; ${config.provider} answered a test call`);
     },

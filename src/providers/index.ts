@@ -2,6 +2,7 @@ import type { ReviewerConfig } from '../config.js';
 import { anthropic } from './anthropic.js';
 import { claudeCode } from './claude-code.js';
 import { openaiCompatible } from './openai-compatible.js';
+import { addKeys } from '../keys.js';
 
 export type Resend = 'after-2s' | 'at-once' | false;
 
@@ -46,27 +47,9 @@ export function endpointOf(env: Env): { url: string } | { problem: string } | nu
   return { url: value.replace(/\/+$/, '') };
 }
 
-export const KEY_SHOWN = '[key]';
+export { hidden, KEY_SHOWN } from '../keys.js';
 
-const NAMED_ESCAPES: Record<string, string> = { '"': '\\"', '\\': '\\\\', '/': '\\/', '\b': '\\b', '\f': '\\f', '\n': '\\n', '\r': '\\r', '\t': '\\t' };
-
-// The key in any spelling JSON allows: each character as it is, as a \u escape, or by its short escape.
-function spellings(key: string): RegExp {
-  const parts = [...key].map((c) => {
-    const units = [...Array(c.length).keys()]
-      .map((i) => `\\\\u${[...c.charCodeAt(i).toString(16).padStart(4, '0')].map((d) => (/[a-f]/.test(d) ? `[${d}${d.toUpperCase()}]` : d)).join('')}`)
-      .join('');
-    const named = NAMED_ESCAPES[c];
-    return `(?:${named === undefined ? '' : `${named.replace(/\\/g, '\\\\')}|`}${units}|${c.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')})`;
-  });
-  return new RegExp(parts.join(''), 'g');
-}
-
-export function hidden(text: string, keys: string[]): string {
-  return [...keys].sort((a, b) => b.length - a.length).reduce((out, key) => out.replace(spellings(key), KEY_SHOWN), text);
-}
-
-export function createProvider(config: ReviewerConfig, env: Env): Provider | null {
+function created(config: ReviewerConfig, env: Env): Provider | null {
   switch (config.provider) {
     case 'openai-compatible':
       return openaiCompatible(config, env);
@@ -77,4 +60,10 @@ export function createProvider(config: ReviewerConfig, env: Env): Provider | nul
     default:
       return null;
   }
+}
+
+export function createProvider(config: ReviewerConfig, env: Env): Provider | null {
+  const provider = created(config, env);
+  if (provider !== null) addKeys(provider.keys);
+  return provider;
 }
