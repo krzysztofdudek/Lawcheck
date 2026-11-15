@@ -280,7 +280,7 @@ next: <text>
 
 - a line feed inside such text as `\n`, a carriage return as `\r`, a tab as `\t`;
 - every other character below U+0020, and U+007F, as `\x` and two lowercase hexadecimal digits;
-- U+0080 to U+009F, U+2028, U+2029, U+202A to U+202E and U+2066 to U+2069 as `\u` and four lowercase hexadecimal digits.
+- U+0080 to U+009F, U+061C, U+200E, U+200F, U+2028, U+2029, U+202A to U+202E and U+2066 to U+2069 as `\u` and four lowercase hexadecimal digits.
 
 A line that starts, after white space, with `::` (a command of GitHub Actions) or `##[` (one of Azure Pipelines) has that first `:` or `#` written as `\x3a` or `\x23`, and every `##vso[` in a line is written as `\x23#vso[`. The tool escapes nothing else, a backslash included. In `--json` a string holds the text as it is, line breaks of messages aside; the document writes U+007F to U+009F and the other characters of the last item as `\u` escapes, so the parsed data is the same and the printed document holds none of them raw (invariant `I-out-1`).
 
@@ -472,7 +472,7 @@ Promises that hold for every input, each tied by its id to a property or a test 
 
 | Id | Promise | Test |
 |---|---|---|
-| I-out-1 | No text output of any command holds a character below U+0020 other than the line feed, U+007F, U+0080 to U+009F, U+2028, U+2029, U+202A to U+202E or U+2066 to U+2069; no line starts, after white space, with `::` or `##[`, and none holds `##vso[`; one finding or error is one line. No JSON document holds U+007F to U+009F or the others of that list raw (section 6). | tests/security/output.test.ts |
+| I-out-1 | No text output of any command holds a character below U+0020 other than the line feed, U+007F, U+0080 to U+009F, U+061C, U+200E, U+200F, U+2028, U+2029, U+202A to U+202E or U+2066 to U+2069; no line starts, after white space, with `::` or `##[`, and none holds `##vso[`; one finding or error is one line. No JSON document holds U+007F to U+009F or the others of that list raw (section 6). | tests/security/output.test.ts |
 | I-runner-1 | A script rule reads nothing outside the root and Lawcheck's folder, at every path of the root and through no link git tracks; where the runner cannot keep that, no rule runs (section 3). | tests/security/runner.test.ts |
 | I-git-1 | No command starts a program that the repository's git config or attributes name: a `core.fsmonitor` program, a hook, an external diff, a `textconv`, a `clean`, `smudge` or `process` filter (section 2). | tests/security/git-programs.test.ts |
 | I-start-1 | No program Lawcheck or its hooks start, nor any program those start by a bare name, is taken from the repository through a relative or empty `PATH` entry or, on Windows, the current folder (section 2). | tests/security/start.test.ts |

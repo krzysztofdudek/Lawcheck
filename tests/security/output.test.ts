@@ -6,7 +6,7 @@ import { CASES_PURE, REACH_SHARE, SEED } from './numbers.ts';
 import { expectedField, expectedLine, jsonProblem, outputProblem } from './oracle.ts';
 
 const CONTROLS = ['\x00', '\x07', '\b', '\t', '\n', '\r', '\x1b', '\x1b[2K', '\x1b[1A', '\x1b]8;;http://x\x07', '\x7f', '\x85', '\x9b'];
-const BIDI = ['\u2028', '\u2029', '\u202a', '\u202b', '\u202c', '\u202d', '\u202e', '\u2066', '\u2067', '\u2068', '\u2069'];
+const BIDI = ['\u061c', '\u200e', '\u200f', '\u2028', '\u2029', '\u202a', '\u202b', '\u202c', '\u202d', '\u202e', '\u2066', '\u2067', '\u2068', '\u2069'];
 const CI = ['::error title=x::y', '::stop-commands::t', '##[group]g', '##vso[task.setvariable variable=a]b', ' ::warning::w', '\u00a0::error::n', '\u3000##[error]e'];
 
 const piece = fc.oneof(

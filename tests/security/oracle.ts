@@ -1,5 +1,5 @@
 // spec/check-slice.md, section 6, invariant I-out-1: the characters no text output holds, and the lines a CI runner reads as a command.
-export const FORBIDDEN = /[\u0000-\u0009\u000b-\u001f\u007f-\u009f\u2028\u2029\u202a-\u202e\u2066-\u2069]/u;
+export const FORBIDDEN = /[\u0000-\u0009\u000b-\u001f\u007f-\u009f\u061c\u200e\u200f\u2028\u2029\u202a-\u202e\u2066-\u2069]/u;
 const FORBIDDEN_ALL = new RegExp(FORBIDDEN.source, 'gu');
 
 export function outputProblem(text: string): string | null {
@@ -12,7 +12,7 @@ export function outputProblem(text: string): string | null {
 }
 
 export function jsonProblem(text: string): string | null {
-  const raw = /[\u007f-\u009f\u2028\u2029\u202a-\u202e\u2066-\u2069]/u.exec(text);
+  const raw = /[\u007f-\u009f\u061c\u200e\u200f\u2028\u2029\u202a-\u202e\u2066-\u2069]/u.exec(text);
   return raw === null ? null : `the document holds U+${raw[0].codePointAt(0)!.toString(16)} raw`;
 }
 

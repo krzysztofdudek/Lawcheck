@@ -144,8 +144,8 @@ function fixedNext(error: ErrorItem, command: string): string {
 }
 
 // spec/check-slice.md, section 6: no text output holds these, and no JSON document holds them raw.
-const FORBIDDEN = /[\x00-\x09\x0b-\x1f\x7f-\x9f\u2028\u2029\u202a-\u202e\u2066-\u2069]/g;
-const RAW_IN_JSON = /[\x7f-\x9f\u2028\u2029\u202a-\u202e\u2066-\u2069]/g;
+const FORBIDDEN = /[\x00-\x09\x0b-\x1f\x7f-\x9f\u061c\u200e\u200f\u2028\u2029\u202a-\u202e\u2066-\u2069]/g;
+const RAW_IN_JSON = /[\x7f-\x9f\u061c\u200e\u200f\u2028\u2029\u202a-\u202e\u2066-\u2069]/g;
 // A line that starts like a command of GitHub Actions or Azure Pipelines; GitHub reads a command after leading white space, and Azure reads ##vso[ anywhere in a line.
 const FORGED = /^(\s*)(::|##\[)/;
 const AZURE = /##vso\[/g;
