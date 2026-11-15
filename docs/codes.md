@@ -14,7 +14,7 @@ Every code Lawcheck prints. A finding is a line of `check`'s report and comes wi
 | `rule-missing-file` | exit 2 | a rule has neither its `.mjs` nor its `.md` file | a rule without its file would never be checked |
 | `rule-file-without-entry` | exit 2 | a file in `.lawcheck/rules/` outside `lib/` is no rule of the law, or a rule has both files | a rule file that the law does not name never runs |
 | `file-unreadable` | exit 2 | a file that must be read cannot be | a file that cannot be read cannot be typed or judged |
-| `file-too-large` | exit 2 | a file that must be read as text holds more than 16 MiB | a run holds every file it reads as text in memory, so one file may hold only so much |
+| `file-too-large` | exit 2 | a file that must be read as text holds more than 16 MiB or 1,048,576 lines | a run holds every file it reads as text in memory, so one file may hold only so much |
 | `text-too-large` | exit 2 | the files a run reads as text hold more than 128 MiB together | a run holds the text it reads in memory, so all of it together may hold only so much |
 | `file-unwritable` | exit 2 | a file or folder the tool must write cannot be written, standard output included | what Lawcheck cannot write is lost, so the run cannot say it is done |
 | `type-overlap` | exit 2 | two types of one level match one file | a file has one type, so the rules that bind it are never in doubt |

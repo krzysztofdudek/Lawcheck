@@ -6,6 +6,7 @@ const MiB = 1024 * 1024;
 // The numbers of the table of limits in spec/check-slice.md, section 10, each measured as that section says.
 export const HEAD_BYTES = 8000;
 export const FILE_TEXT_BYTES = 16 * MiB;
+export const FILE_LINES = 1_048_576;
 export const RUN_TEXT_BYTES = 128 * MiB;
 export const RUN_FINDINGS = 200_000;
 export const RUN_MESSAGE_CHARS = 16 * MiB;
@@ -28,8 +29,9 @@ export class FileTooLarge extends Error {
   constructor(
     readonly path: string,
     readonly bytes: number,
+    readonly lines: number | null = null,
   ) {
-    super(`${path} holds ${count(bytes)} bytes, more than the ${mib(FILE_TEXT_BYTES)} a file read as text may hold`);
+    super(lines === null ? `${path} holds ${count(bytes)} bytes, more than the ${mib(FILE_TEXT_BYTES)} a file read as text may hold` : `${path} holds ${count(lines)} lines, more than the ${count(FILE_LINES)} a file read as text may hold`);
   }
 }
 
@@ -44,12 +46,8 @@ export class TextTooLarge extends Error {
 
 export function tooLargeError(error: FileTooLarge | TextTooLarge): ErrorItem {
   if (error instanceof FileTooLarge) {
-    return {
-      code: 'file-too-large',
-      file: error.path,
-      line: null,
-      message: `the file holds ${count(error.bytes)} bytes, more than the ${mib(FILE_TEXT_BYTES)} a file read as text may hold`,
-    };
+    const what = error.lines === null ? `${count(error.bytes)} bytes, more than the ${mib(FILE_TEXT_BYTES)}` : `${count(error.lines)} lines, more than the ${count(FILE_LINES)}`;
+    return { code: 'file-too-large', file: error.path, line: null, message: `the file holds ${what} a file read as text may hold` };
   }
   return {
     code: 'text-too-large',
@@ -114,10 +112,22 @@ export function readBounded(full: string | Buffer, path: string, headOnly = true
       got += n;
       if (got > limit) throw new FileTooLarge(path, got);
     }
-    return { bytes: buffer.subarray(0, got), binary: false };
+    const bytes = buffer.subarray(0, got);
+    // A run holds a line in memory at a cost of its own, so a file of short lines is bounded by their count as well as by its bytes.
+    if (headOnly) {
+      const lines = lineEnds(bytes);
+      if (lines > FILE_LINES) throw new FileTooLarge(path, got, lines);
+    }
+    return { bytes, binary: false };
   } finally {
     closeSync(fd);
   }
+}
+
+function lineEnds(bytes: Uint8Array): number {
+  let lines = 0;
+  for (let at = bytes.indexOf(10); at >= 0; at = bytes.indexOf(10, at + 1)) lines++;
+  return bytes.length > 0 && bytes[bytes.length - 1] !== 10 ? lines + 1 : lines;
 }
 
 export function readWhole(full: string | Buffer, path: string): Uint8Array {

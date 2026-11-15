@@ -146,3 +146,17 @@ test('test 254: a law may hold 10,000 rules, 1,000 types and 1 MiB, and past eac
     assert.equal(at.code, 0, at.stdout);
   });
 });
+
+test('test 262: a text file may hold 1,048,576 lines, and one more line is file-too-large', async () => {
+  await withSample(async (s) => {
+    const lines = 'src/core/lines.ts';
+    write(s, lines, `console.log(1);\n${'\n'.repeat(1_048_575)}`);
+    const at = await run(s, ['check', '--base', 'main'], { budgetMs: 60_000 });
+    assert.deepEqual(errorLines(at.stdout), [`${lines}:1  error[no-console]  writes to the terminal with console.log`]);
+    assert.equal(at.code, 1);
+    write(s, lines, `console.log(1);\n${'\n'.repeat(1_048_576)}`);
+    const beyond = await run(s, ['check', '--base', 'main']);
+    assert.deepEqual(errorLines(beyond.stdout), [`${lines}  error[file-too-large]  the file holds 1,048,577 lines, more than the 1,048,576 a file read as text may hold`]);
+    assert.equal(beyond.code, 2);
+  });
+});
