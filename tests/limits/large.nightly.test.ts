@@ -1,11 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { closeSync, existsSync, mkdirSync, openSync, readFileSync, writeFileSync, writeSync } from 'node:fs';
+import { chmodSync, closeSync, existsSync, mkdirSync, openSync, readFileSync, writeFileSync, writeSync } from 'node:fs';
 import { availableParallelism } from 'node:os';
 import { join } from 'node:path';
 import { defaultAnswer, openai, withFake } from '../acceptance/fake-reviewer.ts';
-import { CLI, D, D_PATH, F_PRIME, git, GIT_ENV, inTemp, setRule, withR, withSample, write } from '../acceptance/helpers.ts';
+import { alive, CLI, D, D_PATH, F_PRIME, git, GIT_ENV, inTemp, pathWith, programDir, setRule, withR, withSample, write } from '../acceptance/helpers.ts';
 import { errorLines, MiB, run } from './support.ts';
 
 // These run nightly, on Linux, in a container of 1 GB of memory and 2 CPUs; spec/check-slice.md, section 10, holds the numbers.
@@ -208,4 +208,21 @@ test('test 253: two reviews at once leave a verdicts file that holds the passes 
       return openai(defaultAnswer(request.prompt));
     },
   );
+});
+
+const STEP_NEXT = "next: make the step named faster, such as a type's content pattern that backtracks, then run lawcheck check again";
+const stepTooSlow = (what: string) =>
+  ['lawcheck: ERROR  1 error', '', `error[step-too-slow]  one step of the run took more than 60 seconds without an end: ${what}`, '  why:  a step that never ends gives no answer, so one step of a run has a limit of time', '', STEP_NEXT, ''].join('\n');
+
+test('test 259: a git that never answers ends as step-too-slow after 60 seconds, and git with it', async () => {
+  await withSample(async (s, dir) => {
+    const pidFile = join(dir, 'git.pid');
+    write(dir, 'bin/git', `#!/bin/sh\ncase "$*" in *"ls-files -z --cached"*) echo $$ > "${pidFile}"; exec sleep 600;; esac\nexec "${join(programDir('git'), 'git')}" "$@"\n`);
+    chmodSync(join(dir, 'bin', 'git'), 0o755);
+    const result = await run(s, ['check', '--base', 'main'], { env: { PATH: pathWith(join(dir, 'bin')) }, budgetMs: 120_000 });
+    assert.equal(result.stdout, stepTooSlow('running git ls-files -z --cached --others --exclude-standard'));
+    assert.equal(result.code, 2);
+    assert.ok(result.ms >= 60_000 && result.ms < 70_000, String(result.ms));
+    assert.equal(alive(Number(readFileSync(pidFile, 'utf8'))), false);
+  });
 });

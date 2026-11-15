@@ -135,3 +135,18 @@ test('test 257: the main thread loads only what answers a signal, and the comman
     assert.deepEqual([...new Set(readFileSync(loads, 'utf8').split('\n').filter(Boolean))].sort(), ['args.js', 'cli.js', 'keys.js', 'limits.js', 'output.js', 'programs.js', 'progress.js']);
   });
 });
+
+test('test 258: a signal while git runs ends the run as stopped within two seconds, and git with it', { skip }, async () => {
+  for (const signal of SIGNALS) {
+    await withSample(async (s, dir) => {
+      const pidFile = join(dir, 'git.pid');
+      write(dir, 'bin/git', `#!/bin/sh\ncase "$*" in *"ls-files -z --cached"*) echo $$ > "${pidFile}"; exec sleep 30;; esac\nexec "${join(programDir('git'), 'git')}" "$@"\n`);
+      chmodSync(join(dir, 'bin', 'git'), 0o755);
+      const run = start(s, ['check', '--base', 'main'], { PATH: pathWith(join(dir, 'bin')) });
+      await until(() => existsSync(pidFile) && readFileSync(pidFile, 'utf8').endsWith('\n'), 'git to start');
+      const pid = Number(readFileSync(pidFile, 'utf8'));
+      await stop(run, signal);
+      await until(() => !alive(pid), `git ${pid} to end`, 2000);
+    });
+  }
+});
