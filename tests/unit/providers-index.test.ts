@@ -29,7 +29,7 @@ test('reviewer-slice §6: the provider is chosen by name, and none without one',
   }
 });
 
-test('a key under a provider name goes only to its own address', () => {
+test('reviewer-slice §6: a key under a provider name goes only to its own address', () => {
   const own = 'https://own.example/v1';
   const keyed = (env: Record<string, string>) => ownKey(env, 'p', own, 'OWN_KEY');
   assert.deepEqual(keyed({ OWN_KEY: 'a', LAWCHECK_REVIEWER_KEY: 'l' }), { key: 'a', problem: null, fix: 'set OWN_KEY to the key alone, with no space or line break', keyName: 'OWN_KEY', base: own, keyed: { url: own, key: 'a' } });

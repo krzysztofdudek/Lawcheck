@@ -6,14 +6,14 @@ import { join } from 'node:path';
 import { DEFAULT_CONFIG } from '../../dist/config.js';
 import { copilotArguments, copilotCli, copilotServers, findCopilot } from '../../dist/providers/copilot-cli.js';
 
-test('the arguments: silent, no questions, no instructions, no MCP server, no tool, no temporary folder', () => {
+test('reviewer-slice §6: the arguments: silent, no questions, no instructions, no MCP server, no tool, no temporary folder', () => {
   const head = ['--silent', '--no-ask-user', '--no-custom-instructions', '--disable-builtin-mcps'];
   const tail = ['--available-tools=lawcheck-offers-no-tool', '--disallow-temp-dir', '--no-auto-update'];
   assert.deepEqual(copilotArguments('m'), [...head, ...tail, '--model', 'm']);
   assert.deepEqual(copilotArguments(null, ['a', 'b c']), [...head, '--disable-mcp-server', 'a', '--disable-mcp-server', 'b c', ...tail]);
 });
 
-test('the servers copilot would start, from copilot mcp list --json', () => {
+test('reviewer-slice §6: the servers copilot would start, from copilot mcp list --json', () => {
   assert.deepEqual(copilotServers('{"mcpServers":{"a":{"source":"user","enabled":true},"b c":{"source":"plugin"},"off":{"enabled":false}}}'), { args: ['a', 'b c'] });
   assert.deepEqual(copilotServers('{"mcpServers":{}}'), { args: [] });
   const fix = 'run copilot mcp list --json and fix what it says';
@@ -21,7 +21,7 @@ test('the servers copilot would start, from copilot mcp list --json', () => {
   assert.deepEqual(copilotServers('[]'), { failure: 'copilot mcp list --json printed no mcpServers', resend: false, fix });
 });
 
-test('a copilot in the folder of the VS Code extension is passed over', () => {
+test('reviewer-slice §6: a copilot in the folder of the VS Code extension is passed over', () => {
   const dir = mkdtempSync(join(tmpdir(), 'lawcheck-copilot-'));
   try {
     const stub = join(dir, 'globalStorage', 'github.copilot-chat', 'copilotCli');

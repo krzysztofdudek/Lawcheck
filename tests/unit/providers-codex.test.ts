@@ -2,14 +2,14 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { codexArguments, codexServers } from '../../dist/providers/codex.js';
 
-test('the arguments: codex exec with its tools off, the model only when set, and the prompt on standard input', () => {
+test('reviewer-slice §6: the arguments: codex exec with its tools off, the model only when set, and the prompt on standard input', () => {
   const head = ['exec', '--skip-git-repo-check', '--sandbox', 'read-only', '--ephemeral', '--ignore-rules', '--color', 'never'];
   const off = ['--disable', 'shell_tool', '--disable', 'view_image', '--disable', 'multi_agent', '--disable', 'goals', '--disable', 'hooks', '--disable', 'plugins', '--disable', 'apps', '-c', 'web_search=disabled'];
   assert.deepEqual(codexArguments('m'), [...head, ...off, '--model', 'm', '-']);
   assert.deepEqual(codexArguments(null), [...head, ...off, '-']);
 });
 
-test('the MCP servers codex would start are switched off by name, and a name codex cannot address stops the call', () => {
+test('reviewer-slice §6: the MCP servers codex would start are switched off by name, and a name codex cannot address stops the call', () => {
   const head = codexArguments(null).slice(0, -1);
   assert.deepEqual(codexArguments('m', ['a', 'b-c_1']), [...head, '-c', 'mcp_servers.a.enabled=false', '-c', 'mcp_servers.b-c_1.enabled=false', '--model', 'm', '-']);
   assert.deepEqual(codexServers('[{"name":"a","enabled":true},{"name":"off","enabled":false},{"name":"b-c_1"}]'), { args: ['a', 'b-c_1'] });
