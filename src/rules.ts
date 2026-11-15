@@ -25,7 +25,7 @@ let guard: ChildProcess | null = null;
 
 function startGuard(): void {
   if (guard === null) {
-    guard = spawn(process.execPath, [GUARD], { stdio: ['pipe', 'ignore', 'ignore'], detached: true });
+    guard = spawn(process.execPath, [GUARD], { cwd: dirname(GUARD), stdio: ['pipe', 'ignore', 'ignore'], detached: true });
     guard.on('error', () => undefined);
     guard.stdin!.on('error', () => undefined);
     guard.unref();
