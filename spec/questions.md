@@ -590,3 +590,11 @@ Choice: the first. The file is committed and merged with `merge=union`, so a pas
 Two packages of the build fixed stress finding S5-6, `explain` of a path with a segment over 255 bytes ending as `internal`, in two ways. The hostile inputs answered such a path as one that does not exist yet, with exit 0. The limits answered it as `usage`, `the path '<path>' cannot exist here: it is longer than this system allows for a name or a path`, with exit 2, and wrote that into test 245 of `check-slice.md`. Both cannot hold once the two are merged.
 
 Choice, a decision of the build and not an open question: test 245 stands, since the spec decides over a package's test. Such a path is `usage`, exit 2, and no file system Lawcheck runs on can hold it. The hostile test of S5-6 now expects test 245's answer, and adds that a segment written with escapes is measured by the bytes it stands for, so a name of 300 characters that stands for 200 bytes is still a file that does not exist yet.
+
+## 160. Lawcheck's repository keeps its own law
+
+No spec says whether Lawcheck's own repository runs under Lawcheck.
+
+Choice: it does, and `npm test` checks it. The law is the first-day form of the architecture the code moves to: layers as folders under `src/`, six script rules, and four reviewer rules answered by `claude-code`, whose passes are committed in `.lawcheck/verdicts`. The 30 files of `src/` that are not in a layer yet have no type, and that list only shrinks.
+
+`tests/acceptance/self-law.test.ts` clones `HEAD` and runs `check --full`. It fails on four things: any finding of an enforced rule or of a built-in code, a waiver or an unresolved use it does not list, and a file of `src/` left without a type that the first day did not leave out. Its control commits one break of each script rule and one forbidden use, and it expects exactly those findings. `tests/acceptance/self-law-rules.test.ts` runs each script rule through `lawcheck try` on one line for every form the rule claims, and on lines it must pass. Where git cannot see the repository, as in the dev container of a worktree, the self-check fails with "could not run".

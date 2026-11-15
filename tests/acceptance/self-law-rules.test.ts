@@ -50,7 +50,7 @@ async function judge(rule: string, probes: Record<string, Line[]>, others: Recor
   });
 }
 
-test('ruling dogfood-fable, layer-imports: an outside import a row does not hold, and a door taken by another file, are found; what a row holds passes', async () => {
+test('question XX, layer-imports: an outside import a row does not hold, and a door taken by another file, are found; what a row holds passes', async () => {
   const core = 'which core may not; it may import from outside: yaml, node:crypto';
   await judge('layer-imports', {
     'src/core/probe.ts': [
@@ -92,7 +92,7 @@ test('ruling dogfood-fable, layer-imports: an outside import a row does not hold
   });
 });
 
-test('ruling dogfood-fable, layer-imports: a type with no row is one finding about the whole file', async () => {
+test('question XX, layer-imports: a type with no row is one finding about the whole file', async () => {
   await inTemp(async (dir) => {
     const files = lawFiles();
     files['.lawcheck/law.yaml'] = files['.lawcheck/law.yaml']!.replace('    types:\n      cli:\n', '    types:\n      extra:\n        paths: ["src/extra/**"]\n      cli:\n');
@@ -102,7 +102,7 @@ test('ruling dogfood-fable, layer-imports: a type with no row is one finding abo
   });
 });
 
-test('ruling dogfood-fable, pure-layers: process, globalThis, console, fetch, the clock, randomness and timers in core and output are found; a property and text pass', async () => {
+test('question XX, pure-layers: process, globalThis, console, fetch, the clock, randomness and timers in core and output are found; a property and text pass', async () => {
   const core = '; a core module takes what it needs as an argument';
   await judge('pure-layers', {
     'src/core/probe.ts': [
@@ -140,7 +140,7 @@ test('ruling dogfood-fable, pure-layers: process, globalThis, console, fetch, th
   });
 });
 
-test('ruling dogfood-fable, programs-own-the-process: the process members of a program used outside the programs are found; the members an adapter needs pass', async () => {
+test('question XX, programs-own-the-process: the process members of a program used outside the programs are found; the members an adapter needs pass', async () => {
   await judge('programs-own-the-process', {
     'src/steps/probe.ts': [
       ['export const a = () => process.env.HOME;', 'uses process.env outside the programs; take it from the context the program passes'],
@@ -168,7 +168,7 @@ test('ruling dogfood-fable, programs-own-the-process: the process members of a p
   });
 });
 
-test('ruling dogfood-fable, modules-only-declare: a statement at load, a variable, an empty Set or Map and a Sync call at load are found; declarations pass', async () => {
+test('question XX, modules-only-declare: a statement at load, a variable, an empty Set or Map and a Sync call at load are found; declarations pass', async () => {
   await judge('modules-only-declare', {
     'src/steps/probe.ts': [
       ["import { readFileSync } from 'node:fs';"],
@@ -232,7 +232,7 @@ test('ruling dogfood-fable, modules-only-declare: a statement at load, a variabl
   });
 });
 
-test('ruling dogfood-fable, no-import-cycles: a circle of value imports is found on each file of it; a type-only import closes no circle', async () => {
+test('question XX, no-import-cycles: a circle of value imports is found on each file of it; a type-only import closes no circle', async () => {
   await judge('no-import-cycles', {
     'src/core/a.ts': [["import { b } from './b.js';", `imports src/core/b.ts, which imports this file back${CYCLE}`], ['export const a = () => b;']],
     'src/core/b.ts': [["import { a } from './a.js';", `imports src/core/a.ts, which imports this file back${CYCLE}`], ['export const b = () => a;']],
@@ -245,7 +245,7 @@ test('ruling dogfood-fable, no-import-cycles: a circle of value imports is found
   });
 });
 
-test('ruling dogfood-fable, own-paths-in-one-place: import.meta outside src/adapters/package.ts and src/cli.ts is found', async () => {
+test('question XX, own-paths-in-one-place: import.meta outside src/adapters/package.ts and src/cli.ts is found', async () => {
   const ask = "reads import.meta; src/adapters/package.ts computes every path into Lawcheck's own folder, so ask it";
   await judge('own-paths-in-one-place', {
     'src/steps/probe.ts': [

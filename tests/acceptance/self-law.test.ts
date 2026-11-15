@@ -2,10 +2,13 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
-import { git, GIT_ENV, inTemp, lawcheck, ROOT, write } from './helpers.ts';
+import { parse } from 'yaml';
+import { git, GIT_ENV, inTemp, lawcheck, read, ROOT, write } from './helpers.ts';
 
 const ADVISORY = new Set(['errors-name-the-fix', 'docs-state-facts']);
 const WAIVERS: { file: string; rule: string; reason: string }[] = [];
+const UNRESOLVED = [{ file: 'scripts/grammars.ts', what: '..', answer: 'none', reason: 'unfollowed' }];
+const UNSORTED = new Set(['args', 'check', 'cli', 'config', 'docs', 'doctor', 'explain', 'files', 'glob', 'guard', 'init', 'law', 'output', 'prime', 'programs', 'prompt', 'readers', 'review', 'rules', 'setup', 'try', 'types', 'uses', 'verdicts', 'waivers'].map((name) => `src/${name}.ts`).concat('src/providers/**'));
 
 interface Finding {
   code: string;
@@ -21,6 +24,7 @@ interface Report {
   scope: { mode: string };
   findings: Finding[];
   waivers: { file: string; rule: string; reason: string }[];
+  unresolved: { file: string; what: string; answer: string; reason: string | null }[];
 }
 
 function cloneOfHead(dir: string): string {
@@ -32,6 +36,16 @@ function cloneOfHead(dir: string): string {
   const repo = join(dir, 'lawcheck');
   git(dir, 'clone', '-q', '--no-hardlinks', ROOT, repo);
   return repo;
+}
+
+function exempted(repo: string): string[] {
+  const law = parse(read(repo, '.lawcheck/law.yaml')) as { types: { source: { paths: string[] } } };
+  return law.types.source.paths
+    .filter((pattern) => pattern.startsWith('!'))
+    .flatMap((pattern) => {
+      const list = /^!src\/\{([^}]*)\}\.ts$/.exec(pattern);
+      return list === null ? [pattern.slice(1)] : list[1]!.split(',').map((name) => `src/${name}.ts`);
+    });
 }
 
 async function blocking(repo: string): Promise<{ report: Report; found: string[] }> {
@@ -48,16 +62,28 @@ async function blocking(repo: string): Promise<{ report: Report; found: string[]
   return { report, found };
 }
 
-test('ruling dogfood-fable: the committed tree has no finding of an enforced rule and none of a built-in code, and only the waivers listed here', async () => {
+test('question XX: the committed tree has no finding of an enforced rule and none of a built-in code, and only the waivers and the unresolved use listed here', async () => {
   await inTemp(async (dir) => {
     const repo = cloneOfHead(dir);
     const { report, found } = await blocking(repo);
     assert.deepEqual(found, []);
     assert.deepEqual(report.waivers.map((w) => ({ file: w.file, rule: w.rule, reason: w.reason })), WAIVERS);
+    assert.deepEqual(report.unresolved.map((u) => ({ file: u.file, what: u.what, answer: u.answer, reason: u.reason })), UNRESOLVED);
   });
 });
 
-test('ruling dogfood-fable: a committed break of each script rule and a forbidden use are found by the same check', async () => {
+test('question XX: the files of src that the law leaves without a type are only those of the first day, so the list only shrinks', async () => {
+  await inTemp(async (dir) => {
+    const repo = cloneOfHead(dir);
+    assert.deepEqual(exempted(repo).filter((name) => !UNSORTED.has(name)), []);
+    const law = read(repo, '.lawcheck/law.yaml');
+    assert.ok(law.includes('"!src/{args,'));
+    write(repo, '.lawcheck/law.yaml', law.replace('"!src/{args,', '"!src/{args,law-set,').replace('"!src/providers/**"', '"!src/providers/**", "!src/steps/**"'));
+    assert.deepEqual(exempted(repo).filter((name) => !UNSORTED.has(name)), ['src/law-set.ts', 'src/steps/**']);
+  });
+});
+
+test('question XX: a committed break of each script rule and a forbidden use are found by the same check', async () => {
   await inTemp(async (dir) => {
     const repo = cloneOfHead(dir);
     write(repo, 'src/core/break.ts', ["import { readFileSync } from 'node:fs';", "import { step } from '../steps/break.js';", 'export const now = (): number => Date.now() + step() + readFileSync.length;', ''].join('\n'));
