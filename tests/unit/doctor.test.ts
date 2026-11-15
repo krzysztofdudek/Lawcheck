@@ -4,9 +4,10 @@ import { execFileSync } from 'node:child_process';
 import { cpSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { doctorText, runChecks } from '../../dist/doctor.js';
 
-const SAMPLE = new URL('../sample', import.meta.url).pathname;
+const SAMPLE = fileURLToPath(new URL('../sample', import.meta.url));
 const ENV = { GIT_AUTHOR_NAME: 'T', GIT_AUTHOR_EMAIL: 't@e', GIT_COMMITTER_NAME: 'T', GIT_COMMITTER_EMAIL: 't@e', GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null' };
 
 function sample(body: (dir: string) => Promise<void>): Promise<void> {
