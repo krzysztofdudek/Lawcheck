@@ -579,7 +579,7 @@ Choice: one list and one count, read by the rail, over a sentence in a spec that
 
 ## 80. A file whose name holds a line break, a lone carriage return or invalid UTF-8
 
-`check-slice.md`, section 2, leaves such a file out of the list, because its name would split a line of the text output. The file is never judged, nothing says so, and a pull request can put code past every rule through it (stress finding S1-2). A decision of the build, not of the owner: the invariant `I-files-1` of the test design says every path that git lists and a type matches is judged or named as left out with its reason.
+`check-slice.md`, section 2, leaves such a file out of the list, because its name would split a line of the text output. The file is never judged, nothing says so, and a pull request can put code past every rule through it (stress finding S1-2). A decision of the build, not of the owner. It follows the test design, layer 2, first row of its table: the invariant `I-files-1` says every path that git lists and a type matches is judged or named as left out with its reason, and the first of its twenty tests says that a breach in a file whose name holds a line break, a carriage return or invalid UTF-8 fails the run.
 
 Choice: the file is judged. The place of a finding prints the name with each line break, carriage return, invalid byte and backslash escaped (`\n`, `\r`, `\xHH`, `\\`), in text and in JSON alike, so one finding stays one line and the place maps back to the bytes on disk. `explain` and `try` take the escaped form. Package D writes the grammar into `check-slice.md`, section 2, with its tests, and the sentence that leaves such names out goes.
 
@@ -621,7 +621,7 @@ Open. Option A: `prime` says so when a reviewer rule exists and no reviewer is s
 
 ## 87. No base in CI
 
-With no `--base`, no `LAWCHECK_BASE` and no `origin/HEAD`, a plain `check` judges every file as changed and fails the whole repository with exit 1 (stress finding S7-6). In a CI job that is a forgotten base, and the failure reads as bad code. A decision of the build, taken from the CI shapes of the test design.
+With no `--base`, no `LAWCHECK_BASE` and no `origin/HEAD`, a plain `check` judges every file as changed and fails the whole repository with exit 1 (stress finding S7-6). In a CI job that is a forgotten base, and the failure reads as bad code. A decision of the build. It follows the test design, layer 5, CI shapes: a push with no base ref and a depth-1 clone each expect the right result or an error whose `next:` line holds the fix.
 
 Choice: when the variable `CI` is set and is not empty, `0` or `false`, a `check` that finds no base ends as `base-unreachable` (exit 2) with the message that no base was found in this job, and the next line says to pass `--base origin/<target branch>` or set `LAWCHECK_BASE`, and to fetch the history (`fetch-depth: 0` in `actions/checkout`). Outside CI the behaviour stays as `check-slice.md`, section 4, says. `docs/ci.md` says to always pass the base. Package G writes the change into the spec and tests it in the CI shapes.
 
