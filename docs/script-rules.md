@@ -27,7 +27,7 @@ One object with `files` and `repo`.
 A list of findings, or a promise of one. A finding has:
 
 - `message`, a non-empty string; a line break in it becomes a space;
-- `line`, optional, an integer from 1 to the number of lines; without it the finding is about the whole file;
+- `line`, optional, an integer from 1 to the number of lines; without it the finding is about the whole file. `null`, a string such as `'2'` and a bigint are refused, and the message names the value;
 - `file`, optional, and only the path of the call.
 
 Other fields are ignored.
@@ -72,7 +72,8 @@ A rule is `rule-crashed`, exit 2, at its file when it:
 - throws or rejects;
 - returns anything but a list of findings as above, or a value the channel cannot carry, such as a function;
 - passes 30 seconds in its load or in one call;
-- ends its process before answering, or sends a message nobody asked for.
+- ends its process before answering, or sends a message nobody asked for;
+- leaves a promise rejected with no handler, or a timer that throws: the message names the call it came after, or the load.
 
 The message names the judged file, or the load. One run names each broken rule once.
 
