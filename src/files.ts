@@ -2,6 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { lstatSync } from 'node:fs';
 import { devNull } from 'node:os';
 import { join } from 'node:path';
+import { findProgram } from './programs.js';
 
 export class NoGit extends Error {}
 
@@ -47,8 +48,13 @@ function startsNothing(cwd: string): NodeJS.ProcessEnv {
   return env;
 }
 
+let gitProgram: string | null | undefined;
+
 export function git(root: string, args: string[]): GitResult {
-  const result = spawnSync('git', args, {
+  // git by its path on PATH, so no relative entry and no current folder can put the repository's own git in its place; Windows starts git.exe alone.
+  gitProgram ??= findProgram('git', { ...Object.fromEntries(Object.entries(process.env).filter(([name]) => name.toUpperCase() !== 'PATHEXT')), PATHEXT: '.EXE' });
+  if (gitProgram === null) throw new NoGit('git cannot be started: it is not on the PATH');
+  const result = spawnSync(gitProgram, args, {
     cwd: root,
     env: startsNothing(root),
     maxBuffer: 1 << 30,

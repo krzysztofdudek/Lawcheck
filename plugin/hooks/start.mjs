@@ -1,6 +1,6 @@
 import { spawn, spawnSync } from 'node:child_process';
 import { accessSync, constants, readFileSync, realpathSync, statSync } from 'node:fs';
-import { dirname, join, normalize, resolve } from 'node:path';
+import { dirname, isAbsolute, join, normalize, resolve } from 'node:path';
 
 export const RUNNERS = {
   global: { words: ['lawcheck'], install: 'npm i -g lawcheck@alpha' },
@@ -80,11 +80,23 @@ function systemProgram(name) {
   return join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', name);
 }
 
+// Every program the hooks start inherits PATH without its relative and empty entries, which name the folder the program starts in: the repository.
+export function absolutePath(env) {
+  for (const name of Object.keys(env)) {
+    if (name !== 'PATH' && !(WINDOWS && name.toUpperCase() === 'PATH')) continue;
+    env[name] = (env[name] ?? '').split(WINDOWS ? ';' : ':').filter((dir) => dir !== '' && isAbsolute(dir)).join(WINDOWS ? ';' : ':');
+  }
+}
+
+// cmd.exe looks for a program in its current folder before PATH unless this variable is set (Microsoft's NeedCurrentDirectoryForExePathW).
+export const NO_CURRENT_FOLDER = 'NoDefaultCurrentDirectoryInExePath';
+
 // On Windows a package manager installs a program as name.cmd beside a POSIX script called name, which Windows cannot start.
-export function findWindowsProgram(name, env) {
-  const endings = (variableOf(env, 'PATHEXT') ?? '.COM;.EXE;.BAT;.CMD').split(';').filter((ending) => ending !== '');
-  for (const dir of (variableOf(env, 'PATH') ?? '').split(';')) {
-    if (dir === '') continue;
+export function findProgram(name, env) {
+  const endings = WINDOWS ? (variableOf(env, 'PATHEXT') ?? '.COM;.EXE;.BAT;.CMD').split(';').filter((ending) => ending !== '') : [''];
+  for (const dir of (variableOf(env, 'PATH') ?? '').split(WINDOWS ? ';' : ':')) {
+    // A relative or empty entry names the folder the program starts in, which is the repository.
+    if (dir === '' || !isAbsolute(dir)) continue;
     for (const ending of endings) {
       const candidate = join(dir, name + ending.toLowerCase());
       try {
@@ -105,14 +117,20 @@ export function cmdArgument(arg) {
 }
 
 function startWindows(words, options) {
-  const program = findWindowsProgram(words[0], options.env);
+  const program = findProgram(words[0], options.env);
   if (program === null) throw Object.assign(new Error(`spawn ${words[0]} ENOENT`), { code: 'ENOENT' });
   // A detached process on Windows has no console, and the programs it starts get a console of their own instead of its pipes; taskkill ends the tree without a group.
-  const windows = { ...options, detached: false, windowsHide: true };
+  const windows = { ...options, env: { ...options.env, [NO_CURRENT_FOLDER]: '1' }, detached: false, windowsHide: true };
   if (!/\.(cmd|bat)$/i.test(program)) return spawn(program, words.slice(1), windows);
   const line = [normalize(program).replace(CMD_META, '^$1'), ...words.slice(1).map(cmdArgument)].join(' ');
   const shell = variableOf(options.env, 'COMSPEC') ?? systemProgram('cmd.exe');
   return spawn(shell, ['/d', '/s', '/c', `"${line}"`], { ...windows, windowsVerbatimArguments: true });
+}
+
+function startPosix(words, options) {
+  const program = findProgram(words[0], options.env);
+  if (program === null) throw Object.assign(new Error(`spawn ${words[0]} ENOENT`), { code: 'ENOENT' });
+  return spawn(program, words.slice(1), options);
 }
 
 function killGroup(pid, signal) {
@@ -132,7 +150,7 @@ export function call(words, root, deadline) {
     let child;
     try {
       const options = { cwd: root, env: process.env, stdio: ['ignore', 'pipe', 'pipe'], detached: true };
-      child = WINDOWS ? startWindows(words, options) : spawn(words[0], words.slice(1), options);
+      child = WINDOWS ? startWindows(words, options) : startPosix(words, options);
     } catch (error) {
       done({ error, code: null, signal: null, stdout: '', stderr: '', timedOut: false });
       return;

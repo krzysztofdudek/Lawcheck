@@ -11,6 +11,7 @@ import type { Arguments, CommandName, Result } from './args.js';
 export { version };
 export type { Result };
 import { init } from './init.js';
+import { absolutePath, NO_CURRENT_FOLDER } from './programs.js';
 import { prime } from './prime.js';
 import { explain } from './explain.js';
 import { tryRule } from './try.js';
@@ -87,6 +88,8 @@ function isEntry(): boolean {
 }
 
 if (isEntry()) {
+  absolutePath(process.env);
+  if (process.platform === 'win32') process.env[NO_CURRENT_FOLDER] = '1';
   const json = process.argv.slice(2).includes('--json');
   const crash = (error: unknown) => {
     const text = renderErrors([internal(error)], json);

@@ -28,6 +28,8 @@ Out, each with what this slice does where the design has it:
 
 Git runs at the root with settings that start no program the repository's config or attributes name: no `core.fsmonitor` program, no hook, no external diff, no `textconv`, and no `clean`, `smudge` or `process` filter (invariant `I-git-1`). A file whose content git takes through a filter, such as a file of Git LFS, is compared as its bytes on disk whenever git has to read it again, so a file whose time no longer matches the index can count as changed.
 
+Every program Lawcheck starts, git and a reviewer program included, it looks up on `PATH` with relative and empty entries left out, and it hands `PATH` on without them, since such an entry names the folder a program starts in, the repository. On Windows it also sets `NoDefaultCurrentDirectoryInExePath` to `1` for itself and every program it starts, so `cmd.exe` does not look in the current folder before `PATH`. No program of the repository runs in place of the one named (invariant `I-start-1`).
+
 The law may be read through a symbolic link, of the file or of `.lawcheck/`. A law read that way that is not valid gives one `law-invalid` at `.lawcheck/law.yaml`, whose message says so and quotes none of the file, since a link can lead to a file outside the repository, such as a token (invariant `I-secret-2`).
 
 | In | Key | Required | Meaning |
@@ -470,6 +472,7 @@ Promises that hold for every input, each tied by its id to a property or a test 
 | I-out-1 | No text output of any command holds a character below U+0020 other than the line feed, U+007F, U+0080 to U+009F, U+2028, U+2029, U+202A to U+202E or U+2066 to U+2069; no line starts, after white space, with `::` or `##[`, and none holds `##vso[`; one finding or error is one line. No JSON document holds U+007F to U+009F or the others of that list raw (section 6). | tests/security/output.test.ts |
 | I-runner-1 | A script rule reads nothing outside the root and Lawcheck's folder, at every path of the root; where the runner cannot keep that, no rule runs (section 3). | tests/security/runner.test.ts |
 | I-git-1 | No command starts a program that the repository's git config or attributes name: a `core.fsmonitor` program, a hook, an external diff, a `textconv`, a `clean`, `smudge` or `process` filter (section 2). | tests/security/git-programs.test.ts |
+| I-start-1 | No program Lawcheck or its hooks start, nor any program those start by a bare name, is taken from the repository through a relative or empty `PATH` entry or, on Windows, the current folder (section 2). | tests/security/start.test.ts |
 | I-secret-2 | An error about a law or a config read through a symbolic link quotes none of the file (section 2). | tests/security/linked.test.ts |
 
 ## 9. Repository layout

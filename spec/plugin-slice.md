@@ -103,6 +103,8 @@ The file takes a second top-level key:
 
 ### The command it names
 
+The hooks look up the command's first word, and git, on `PATH` as slice one's section 2 says for every program Lawcheck starts, with relative and empty entries left out, and on Windows with `NoDefaultCurrentDirectoryInExePath` set (invariant `I-start-1`).
+
 | `runner` | The command | Its install hint |
 |---|---|---|
 | `global` | `lawcheck` | `npm i -g lawcheck@alpha` |
