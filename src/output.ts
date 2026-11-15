@@ -147,17 +147,21 @@ function fixedNext(error: ErrorItem, command: string): string {
   }
 }
 
-// spec/check-slice.md, section 6: no text output holds these, and no JSON document holds them raw.
-const FORBIDDEN = /[\x00-\x09\x0b-\x1f\x7f-\x9f\u061c\u200e\u200f\u2028\u2029\u202a-\u202e\u2066-\u2069]/g;
-const RAW_IN_JSON = /[\x7f-\x9f\u061c\u200e\u200f\u2028\u2029\u202a-\u202e\u2066-\u2069]/g;
+// spec/check-slice.md, section 6: no text output holds these, and no JSON document holds them raw. Format characters (Unicode category Cf) all count but the joiners U+200C and U+200D, which scripts and emoji sequences need.
+const FORBIDDEN = /[\x00-\x09\x0b-\x1f\x7f-\x9f\u2028\u2029]|(?![\u200c\u200d])\p{Cf}/gu;
+const RAW_IN_JSON = /[\x7f-\x9f\u2028\u2029]|(?![\u200c\u200d])\p{Cf}/gu;
 // A line that starts like a command of GitHub Actions or Azure Pipelines; GitHub reads a command after leading white space, and Azure reads ##vso[ anywhere in a line.
 const FORGED = /^(\s*)(::|##\[)/;
 const AZURE = /##vso\[/g;
 const NAMED: Record<string, string> = { '\n': '\\n', '\r': '\\r', '\t': '\\t' };
 
+function units(c: string): string {
+  return [...Array(c.length).keys()].map((i) => `\\u${c.charCodeAt(i).toString(16).padStart(4, '0')}`).join('');
+}
+
 function escaped(c: string): string {
   const code = c.charCodeAt(0);
-  return NAMED[c] ?? (code < 0x80 ? `\\x${code.toString(16).padStart(2, '0')}` : `\\u${code.toString(16).padStart(4, '0')}`);
+  return NAMED[c] ?? (code < 0x80 ? `\\x${code.toString(16).padStart(2, '0')}` : units(c));
 }
 
 export function shown(text: string): string {
@@ -177,7 +181,7 @@ export function safeText(output: string): string {
 }
 
 export function safeJson(output: string): string {
-  return output.replace(RAW_IN_JSON, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`);
+  return output.replace(RAW_IN_JSON, units);
 }
 
 export function plural(count: number, word: string): string {

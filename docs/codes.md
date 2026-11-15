@@ -44,7 +44,7 @@ A file name, a rule or reviewer message, the base, the law's ids, `about` texts 
 | a carriage return | `\r` |
 | a tab | `\t` |
 | any other character below U+0020, and U+007F | `\x` and two hexadecimal digits, such as `\x1b` |
-| U+0080 to U+009F, U+061C, U+200E, U+200F, U+2028, U+2029, U+202A to U+202E, U+2066 to U+2069 | `\u` and four hexadecimal digits, such as `\u202e` |
+| U+0080 to U+009F, U+2028, U+2029, and every format character of Unicode (category Cf, such as a zero-width space or a mark that changes the direction of text) except the joiners U+200C and U+200D | `\u` and four hexadecimal digits for each UTF-16 unit, such as `\u202e` |
 | a line that a CI runner would read as a command of GitHub Actions or Azure Pipelines | its first character as `\x3a` or `\x23` |
 
 Nothing else is escaped, a backslash included. In `--json` a string keeps the text as it is, except that the characters of the last two rows are written as `\u` escapes, so the printed document holds none of them raw and a program that parses it gets the text unchanged. What a script rule prints on its own streams reaches standard error through the same escapes.

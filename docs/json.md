@@ -2,7 +2,7 @@
 
 `--json` on any command prints one JSON document to standard output and nothing else. Every document has `schema` first. A document named `/0` may still change; `lawcheck-error/1` is stable.
 
-A string holds the text as it is, a file name or a message included. Control characters, U+2028, U+2029 and the marks that change the direction of text are written as `\u` escapes, so the document holds none of them raw when it is printed; a program that parses it gets the text unchanged. The text output writes the same characters as visible escapes, such as `\x1b` and `\u202e`.
+A string holds the text as it is, a file name or a message included. Control characters, U+2028, U+2029 and the format characters of Unicode, such as a zero-width space or a mark that changes the direction of text, except the joiners U+200C and U+200D, are written as `\u` escapes, so the document holds none of them raw when it is printed; a program that parses it gets the text unchanged. The text output writes the same characters as visible escapes, such as `\x1b` and `\u202e`.
 
 ## lawcheck-check/0
 

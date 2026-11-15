@@ -6,7 +6,7 @@ import { CASES_PURE, REACH_SHARE, SEED } from './numbers.ts';
 import { expectedField, expectedLine, jsonProblem, outputProblem } from './oracle.ts';
 
 const CONTROLS = ['\x00', '\x07', '\b', '\t', '\n', '\r', '\x1b', '\x1b[2K', '\x1b[1A', '\x1b]8;;http://x\x07', '\x7f', '\x85', '\x9b'];
-const BIDI = ['\u061c', '\u200e', '\u200f', '\u2028', '\u2029', '\u202a', '\u202b', '\u202c', '\u202d', '\u202e', '\u2066', '\u2067', '\u2068', '\u2069'];
+const BIDI = ['\u00ad', '\u180e', '\u200b', '\u2060', '\u206a', '\u206f', '\ufeff', '\ufff9', '\ufffb', '\u{e0001}', '\u{e007f}', '\u061c', '\u200e', '\u200f', '\u2028', '\u2029', '\u202a', '\u202b', '\u202c', '\u202d', '\u202e', '\u2066', '\u2067', '\u2068', '\u2069'];
 const CI = ['::error title=x::y', '::stop-commands::t', '##[group]g', '##vso[task.setvariable variable=a]b', ' ::warning::w', '\u00a0::error::n', '\u3000##[error]e'];
 
 const piece = fc.oneof(
@@ -68,4 +68,11 @@ test('I-out-1: an error message the tool did not write stays on one line of text
     }),
     { seed: SEED, numRuns: CASES_PURE },
   );
+});
+
+test('I-out-1: the joiners U+200C and U+200D, which scripts and emoji need, print as they are', async () => {
+  const message = 'k\u200cx \u{1f469}\u200d\u{1f4bb}';
+  const report = { mode: 'change' as const, base: 'main', changed: 1, findings: [finding('a.ts', message)], debt: [], waivers: [] };
+  const result = await main(['check', '--base', 'main'], context, async () => ({ report }));
+  assert.ok(result.stdout.includes(`a.ts:1  error[r]  ${message}`), result.stdout);
 });
