@@ -31,8 +31,16 @@ import {
 import { CODES, WHY } from '../../dist/output.js';
 import { main } from '../../dist/cli.js';
 import { ledgerRows } from './spec-map.ts';
-import { PENDING } from './pending-next.ts';
 
+
+interface Pending {
+  case: string;
+  code: string;
+  command: string;
+  finding: string;
+}
+
+const PENDING: Pending[] = JSON.parse(readFileSync(new URL('pending-next.json', import.meta.url), 'utf8'));
 const TOOL_COMMANDS = ['init', 'prime', 'check', 'explain', 'try', 'docs', 'doctor'];
 const VALUE_FLAGS = new Set(['--base', '--max-calls', '--times', '--type', '--rule']);
 const TOPICS = readdirSync(new URL('../../docs/', import.meta.url)).map((f) => f.replace(/\.md$/, ''));
@@ -237,7 +245,7 @@ const CASES: Case[] = [
       write(repo, 'node_modules/hoisted/package.json', '{"name":"hoisted","type":"module","main":"index.js"}\n');
       write(repo, 'pkg/' + D_PATH, D);
       setRule(join(repo, 'pkg'), 'no-console', "import hoisted from 'hoisted';\nexport function check() { return hoisted === 1 ? [] : []; }\n");
-      return { cwd: join(repo, 'pkg'), argv: CHECK, hint: '--allow-fs' };
+      return { cwd: join(repo, 'pkg'), argv: CHECK, hint: '--allow-fs-read' };
     },
   },
   {
@@ -413,33 +421,47 @@ function nextLine(stdout: string): string | null {
   return found.length === 0 ? null : found[found.length - 1]!.slice('next: '.length);
 }
 
-type Named = { argv: string[]; base?: true } | { problem: string } | null;
+type Named = { commands: string[][]; base?: true } | { problem: string } | null;
 
-export function commandNamed(line: string, ran: string[]): Named {
-  if (/\bthe same command\b/.test(line)) return { argv: ran };
+const PROSE = new Set(['as', 'inside', 'and', 'or', 'then', 'to', 'in', 'on', 'is', 'with', 'from', 'for']);
+const clean = (token: string): string => token.replace(/^[(),;:]+|[(),;:.]+$/g, '');
+
+export function commandsNamed(line: string, ran: string[]): Named {
+  const commands: string[][] = [];
+  if (/\bthe same command\b/.test(line)) commands.push(ran);
   const found = [...line.matchAll(/(?<![\w./-])lawcheck(?: (\S+))?/g)].filter((m) => m[1] !== undefined);
-  const last = found[found.length - 1];
-  if (last !== undefined) {
-    const word = last[1]!.replace(/[,;:]+$/, '');
+  for (let i = 0; i < found.length; i++) {
+    const m = found[i]!;
+    const word = clean(m[1]!);
+    if (PROSE.has(word)) continue;
     if (!word.startsWith('-') && !TOOL_COMMANDS.includes(word)) return { problem: `the line names the command "lawcheck ${word}", which is none of the seven` };
-    const tail = line.slice(last.index! + last[0].length).split(/\s{2,}|\(|[,;:]/)[0]!.trim().split(/\s+/).filter((t) => t !== '');
-    if (tail[0] === 'again') return word === ran[0] ? { argv: ran } : { problem: `the line says to run lawcheck ${word} again, after lawcheck ${ran[0]}` };
-    const argv = word.startsWith('-') ? [word] : [word];
-    for (let i = 0; i < tail.length; i++) {
-      const token = tail[i]!;
-      if (token.startsWith('-')) {
+    const end = i + 1 < found.length ? found[i + 1]!.index! : line.length;
+    const tokens = line.slice(m.index! + m[0].length, end).split(/\s+/).map(clean).filter((t) => t !== '');
+    const argv = [word];
+    let positional = true;
+    for (let k = 0; k < tokens.length; k++) {
+      const token = tokens[k]!;
+      if (token === 'again' && argv.length === 1) {
+        if (word !== ran[0]) return { problem: `the line says to run lawcheck ${word} again, after lawcheck ${ran[0]}` };
+        argv.splice(0, argv.length, ...ran);
+        break;
+      }
+      if (/^<.*>$/.test(token)) return { problem: `the line names a placeholder ${token}, which no one can run` };
+      if (/^-{1,2}[A-Za-z][\w-]*$/.test(token)) {
         argv.push(token);
+        positional = false;
         if (VALUE_FLAGS.has(token)) {
-          const value = tail[++i];
+          const value = tokens[++k];
           if (value === undefined || value.startsWith('-')) return { problem: `the flag ${token} in the line has no value` };
           argv.push(value);
         }
-      } else if (word === 'docs' && argv.length === 1 && TOPICS.includes(token)) argv.push(token);
-      else break;
+      } else if (positional && ((word === 'docs' && TOPICS.includes(token)) || /[/*]|\.[a-z]+$/.test(token))) argv.push(token);
+      else positional = false;
     }
-    return { argv };
+    commands.push(argv);
   }
-  if (/^pass --base\b/.test(line)) return { argv: ran, base: true };
+  if (commands.length > 0) return { commands };
+  if (/^pass --base\b/.test(line)) return { commands: [ran], base: true };
   return null;
 }
 
@@ -500,33 +522,45 @@ async function reproduce(spec: Case, dir: string, fake: Fake): Promise<string[]>
     if (ready.first !== undefined && out.split('\n')[0] !== ready.first) say(`the first line is "${out.split('\n')[0]}", not "${ready.first}"`);
     for (const line of ready.exact ?? []) if (!out.split('\n').some((l) => l.startsWith(line))) say(`the line "${line}" is not in the output:\n${out}`);
   }
+  const pending = PENDING.find((p) => p.case === spec.id);
+  if (pending !== undefined && pending.code !== spec.code) say(`the pending entry names the code ${pending.code}, the case is ${spec.code}`);
   if (ready.hint !== undefined) {
     const gone = !out.includes(ready.hint);
-    const pending = PENDING.find((p) => p.id === spec.id);
     if (pending === undefined && !gone) say(`the message holds ${ready.hint}`);
+    if (pending !== undefined && pending.command !== ready.hint) say(`the pending entry names "${pending.command}", the message names ${ready.hint}`);
     if (pending !== undefined && gone) say(`pending as ${pending.finding} and now free of ${ready.hint}: take it out of the list`);
     return problems;
   }
   const next = nextLine(out);
-  const named: Named = next === null ? null : commandNamed(next, ready.argv);
+  const named: Named = next === null ? null : commandsNamed(next, ready.argv);
   if (named !== null && 'problem' in named) {
     say(named.problem);
     return problems;
   }
   if (named === null) {
     if (ready.follow !== undefined && Object.keys(ready.follow).length > 0) say(`the case follows a command and the next line "${next}" names none`);
+    if (pending !== undefined) say(`the pending entry names "${pending.command}" and the next line names no command`);
     return problems;
   }
-  const pending = PENDING.find((p) => p.id === spec.id);
-  await ready.follow?.fix?.();
-  const argv = ready.follow?.supply !== undefined ? supplied(named.argv, ready.follow.supply) : named.argv;
   if (named.base === true && ready.follow?.supply === undefined) say(`the line asks for --base and the case supplies none`);
-  let further: { code: number | null; stdout: string };
-  if (ready.inProcess === true) further = await main(argv, { cwd: ready.cwd, env: { ...GIT_ENV } });
-  else further = await go(argv, ready.follow?.env ?? {});
-  const gets = further.code !== 2 && !further.stdout.includes('error[usage]');
-  if (pending === undefined && !gets) say(`"${next}" does not get further: lawcheck ${argv.join(' ')} ends\n${further.stdout}`);
-  if (pending !== undefined && gets) say(`pending as ${pending.finding} and now gets further: take it out of the list`);
+  await ready.follow?.fix?.();
+  const seen = new Set<string>();
+  let matched = pending === undefined;
+  for (const command of named.commands) {
+    const argv = ready.follow?.supply !== undefined ? supplied(command, ready.follow.supply) : command;
+    const text = `lawcheck ${argv.join(' ')}`;
+    if (seen.has(text)) continue;
+    seen.add(text);
+    let further: { code: number | null; stdout: string };
+    if (ready.inProcess === true) further = await main(argv, { cwd: ready.cwd, env: { ...GIT_ENV } });
+    else further = await go(argv, ready.follow?.env ?? {});
+    const gets = further.code !== 2 && !further.stdout.includes('error[usage]');
+    const stuck = pending !== undefined && pending.command === text;
+    if (stuck) matched = true;
+    if (!stuck && !gets) say(`"${next}" does not get further: ${text} ends\n${further.stdout}`);
+    if (stuck && gets) say(`pending as ${pending.finding} and now gets further: ${text}; take it out of the list`);
+  }
+  if (!matched) say(`the pending entry names "${pending!.command}", which the next line "${next}" does not name`);
   return problems;
 }
 
@@ -563,32 +597,43 @@ test('check-slice §6: file-unreadable, in text and in JSON, and its next line g
   assert.deepEqual(await runCases([UNREADABLE]), []);
 });
 
-test('check-slice §6: the next line of a case names a known command with known flags', async () => {
-  assert.deepEqual(commandNamed('fix .lawcheck/law.yaml, then run lawcheck check', ['check', '--base', 'main']), { argv: ['check'] });
-  assert.deepEqual(commandNamed('run lawcheck check as its usage line says: lawcheck check --help', ['check', '--nope']), { argv: ['check', '--help'] });
-  assert.deepEqual(commandNamed('lawcheck check --review --base main  (1 reviewer call)', ['check']), { argv: ['check', '--review', '--base', 'main'] });
-  assert.deepEqual(commandNamed('fix .lawcheck/law.yaml, then run lawcheck explain again', ['explain', 'x']), { argv: ['explain', 'x'] });
-  assert.deepEqual(commandNamed('run the same command again; what was answered is kept', ['check', '--review']), { argv: ['check', '--review'] });
-  assert.deepEqual(commandNamed('pass --base with a branch or a commit that exists here', ['check', '--base', 'nope']), { argv: ['check', '--base', 'nope'], base: true });
-  assert.deepEqual(commandNamed('lawcheck docs languages', ['doctor']), { argv: ['docs', 'languages'] });
-  assert.equal(commandNamed('fix src/core/discount.ts:2', ['check']), null);
-  assert.equal(commandNamed('reinstall Lawcheck; a grammar it ships cannot be loaded', ['check']), null);
-  assert.ok('problem' in (commandNamed('then run lawcheck frobnicate', ['check']) as object));
-  assert.ok('problem' in (commandNamed('then run lawcheck check --base', ['check']) as object));
-  const unknown = commandNamed('then run lawcheck check --nope', ['check']) as { argv: string[] };
-  assert.deepEqual(unknown.argv, ['check', '--nope']);
-  const run = await inTemp((dir) => lawcheck(makeSample(dir), unknown.argv));
-  assert.equal(run.code, 2);
-  assert.ok(run.stdout.includes('error[usage]'));
+test('check-slice §6: every command a next line names is read with its flags and arguments, and an unknown one fails', async () => {
+  const ran = ['check', '--base', 'main'];
+  assert.deepEqual(commandsNamed('fix .lawcheck/law.yaml, then run lawcheck check', ran), { commands: [['check']] });
+  assert.deepEqual(commandsNamed('run lawcheck check as its usage line says: lawcheck check --help', ['check', '--nope']), { commands: [['check'], ['check', '--help']] });
+  assert.deepEqual(commandsNamed('lawcheck check --review --base main  (1 reviewer call)', ['check']), { commands: [['check', '--review', '--base', 'main']] });
+  assert.deepEqual(commandsNamed('fix .lawcheck/law.yaml, then run lawcheck explain again', ['explain', 'x']), { commands: [['explain', 'x']] });
+  assert.deepEqual(commandsNamed('run the same command again; what was answered is kept', ran), { commands: [ran] });
+  assert.deepEqual(commandsNamed('pass --base with a branch or a commit that exists here', ran), { commands: [ran], base: true });
+  assert.deepEqual(commandsNamed('lawcheck docs languages', ['doctor']), { commands: [['docs', 'languages']] });
+  assert.deepEqual(commandsNamed('run lawcheck check (--full, --base main), or lawcheck explain src/core/price.ts, then lawcheck doctor', ran), {
+    commands: [['check', '--full', '--base', 'main'], ['explain', 'src/core/price.ts'], ['doctor']],
+  });
+  assert.deepEqual(commandsNamed('run lawcheck check, --full', ran), { commands: [['check', '--full']] });
+  assert.equal(commandsNamed('fix src/core/discount.ts:2', ran), null);
+  assert.equal(commandsNamed('reinstall Lawcheck; a grammar it ships cannot be loaded', ran), null);
+  assert.equal(commandsNamed('write .lawcheck/law.yaml, then run lawcheck-waive', ran), null);
+  for (const line of ['then run lawcheck frobnicate', 'run lawcheck check, then lawcheck frobnicate', 'then run lawcheck check --base', 'then run lawcheck explain <path>']) {
+    assert.ok('problem' in (commandsNamed(line, ran) as object), line);
+  }
+  for (const line of ['then run lawcheck check --nope', 'run lawcheck check (--nope)', 'run lawcheck check, then lawcheck init --nope']) {
+    const named = commandsNamed(line, ran) as { commands: string[][] };
+    const unknown = named.commands.find((c) => c.includes('--nope'))!;
+    assert.ok(unknown !== undefined, line);
+    const run = await inTemp((dir) => lawcheck(makeSample(dir), unknown));
+    assert.equal(run.code, 2, line);
+    assert.ok(run.stdout.includes('error[usage]'), line);
+  }
 });
 
-test('check-slice §6: every pending next line names a finding of the ledger that is not closed, and a case of this test', () => {
+test('check-slice §6: every pending next line names its case, code, exact command and a finding of the ledger that is not closed', () => {
   const rows = ledgerRows(readFileSync(new URL('../findings.md', import.meta.url), 'utf8'));
   for (const pending of PENDING) {
+    assert.deepEqual(Object.keys(pending).sort(), ['case', 'code', 'command', 'finding']);
     const row = rows.find((r) => r.id === pending.finding);
     assert.ok(row !== undefined, `${pending.finding} is not in tests/findings.md`);
     assert.notEqual(row.state, 'closed', pending.finding);
-    assert.ok(CASES.some((c) => c.id === pending.id), pending.id);
+    assert.ok(CASES.some((c) => c.id === pending.case && c.code === pending.code), `${pending.case} with the code ${pending.code}`);
   }
-  assert.equal(new Set(PENDING.map((p) => p.id)).size, PENDING.length);
+  assert.equal(new Set(PENDING.map((p) => p.case)).size, PENDING.length);
 });
