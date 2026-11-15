@@ -111,3 +111,16 @@ test('test 304: S7-3, a change of the config is a change of the law, and a chang
     assert.ok(!run.stdout.includes('note:'), 'with no base nothing is compared');
   });
 });
+
+test('test 315: S7-3, a name in the law folder holding control characters is told as escapes, in text and in JSON', async () => {
+  await withSample(async (s) => {
+    write(s, '.lawcheck/rules/lib/a\u001b[2Kb\u202ec.mjs', 'export const x = 1;\n');
+    const run = await check(s);
+    const line = `${PREFIX}adds .lawcheck/rules/lib/a\\u001b[2Kb\\u202ec.mjs`;
+    assert.equal(run.stdout.split('\n')[2], line);
+    assert.ok(!/[\u001b\u202e]/.test(run.stdout), 'no raw control character reaches the terminal');
+    assert.equal(run.code, 0);
+    const json = JSON.parse((await check(s, '--base', 'main', '--json')).stdout);
+    assert.deepEqual(json.scope.law_changes, ['adds .lawcheck/rules/lib/a\\u001b[2Kb\\u202ec.mjs']);
+  });
+});
