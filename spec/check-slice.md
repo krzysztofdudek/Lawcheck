@@ -498,6 +498,7 @@ Promises that hold for every input, each tied by its id to a property or a test 
 | I-runner-1 | A script rule reads nothing outside the root and Lawcheck's folder, at every path of the root, and through no link git tracks reaches anything outside the git work tree; where the runner cannot keep that, no rule runs (section 3). | tests/security/runner.test.ts |
 | I-git-1 | No command starts a program that the repository's git config or attributes name: a `core.fsmonitor` program, a hook, an external diff, a `textconv`, a `clean`, `smudge` or `process` filter (section 2). | tests/security/git-programs.test.ts |
 | I-start-1 | No program Lawcheck or its hooks start, nor any program those start by a bare name, is taken from the repository through a relative or empty `PATH` entry or, on Windows, the current folder (section 2). | tests/security/start.test.ts |
+| I-git-2 | Every git command a run sends is one git 2.34, the oldest git Lawcheck runs with, accepts; the link guard reads each submodule in its own folder (sections 2 and 4). | tests/security/old-git.test.ts |
 | I-secret-2 | An error about a law or a config read through a symbolic link quotes none of the file (section 2). | tests/security/linked.test.ts |
 
 ## 9. Repository layout
