@@ -43,7 +43,7 @@ export function writeTree(repo: string, files: Array<{ path: string; rev: string
 
 export function headWithBaseSrc(repo: string, head: string, base: string, dir: string): void {
   const files = [
-    ...listTree(repo, head).filter((p) => !p.startsWith('src/')).map((path) => ({ path, rev: head })),
+    ...listTree(repo, head).filter((p) => !p.startsWith('src/') && !LEFT_OUT.has(p.split('/')[0]!)).map((path) => ({ path, rev: head })),
     ...listTree(repo, base).filter((p) => p.startsWith('src/')).map((path) => ({ path, rev: base })),
   ];
   writeTree(repo, files, dir);
