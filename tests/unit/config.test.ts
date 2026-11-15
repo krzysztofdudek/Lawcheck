@@ -32,6 +32,7 @@ test('the defaults and every key', () => {
     });
   }
   assert.deepEqual(parseConfig('reviewer:\n  provider: ollama\n  model: m\n'), { config: { ...DEFAULT_CONFIG, provider: 'ollama', model: 'm', timeout: 300 } });
+  assert.deepEqual(parseConfig(`reviewer:\n  provider: codex\n  model: ${'m'.repeat(256)}\n`), { config: { ...DEFAULT_CONFIG, provider: 'codex', model: 'm'.repeat(256), timeout: 300, parallel: 1, temperature: null } });
   for (const provider of ['openai', 'google'] as const) {
     assert.deepEqual(parseConfig(`reviewer:\n  provider: ${provider}\n  model: m\n`), { config: { ...DEFAULT_CONFIG, provider, model: 'm' } });
   }
@@ -70,8 +71,10 @@ test('each config-invalid message', () => {
     ['reviewer:\n  provider: codex\n  temperature: 0\n', 3, /^the provider codex takes no temperature: the codex program runs at its own$/],
     ['reviewer:\n  provider: gemini-cli\n  temperature: 0\n', 3, /^the provider gemini-cli takes no temperature: the gemini program runs at its own$/],
     ['reviewer:\n  provider: copilot-cli\n  temperature: 0\n', 3, /^the provider copilot-cli takes no temperature: the copilot program runs at its own$/],
-    [BASE.replace('test-model', '""'), 3, /^reviewer\.model takes a non-empty string without a line break/],
-    [BASE.replace('test-model', '"a\\nb"'), 3, /without a line break/],
+    [BASE.replace('test-model', '""'), 3, /^reviewer\.model takes a non-empty string of at most 256 characters with no control character, not the string ""$/],
+    [BASE.replace('test-model', '"a\\nb"'), 3, /with no control character, not the string "a\\nb"$/],
+    [BASE.replace('test-model', '"a\\u0000b"'), 3, /^reviewer\.model takes a non-empty string of at most 256 characters with no control character, not the string "a\\u0000b"$/],
+    [BASE.replace('test-model', 'm'.repeat(257)), 3, /^reviewer\.model takes a non-empty string of at most 256 characters with no control character, not a string of 257 characters$/],
     ['reviewer:\n', 1, /^'reviewer' takes a mapping, not nothing$/],
     ['reviewer: [1]\n', 1, /'reviewer' takes a mapping, not a sequence/],
     ['- reviewer\n', 1, /^the config takes a mapping, not a sequence$/],

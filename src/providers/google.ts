@@ -8,17 +8,19 @@ const OWN_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta';
 type Part = { text?: unknown; thought?: unknown };
 
 export function google(config: ReviewerConfig, env: Env): Provider {
-  const { problem, keyed } = ownKey(env, 'google', OWN_ENDPOINT, 'GOOGLE_API_KEY');
+  const owned = ownKey(env, 'google', OWN_ENDPOINT, 'GOOGLE_API_KEY');
+  const { problem, keyed } = owned;
   return {
     ready: () => problem,
-    async ask(prompt) {
-      if (keyed === null) return { failure: 'google has no valid endpoint and key', resend: false };
+    fix: () => owned.fix,
+    async ask(prompt, seconds) {
+      if (keyed === null) return { failure: 'google has no valid endpoint and key', resend: false, fix: owned.fix };
       const body = {
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         generationConfig: { temperature: config.temperature, responseMimeType: 'application/json' },
       };
       const url = `${keyed.url}/models/${encodeURIComponent(config.model ?? '')}:generateContent`;
-      const posted = await post(url, { 'x-goog-api-key': keyed.key }, body, config.timeout);
+      const posted = await post(url, { 'x-goog-api-key': keyed.key }, body, config.timeout, { base: owned.base, keyName: owned.keyName, seconds });
       if ('failure' in posted) return posted;
       const parts = (posted.body as { candidates?: { content?: { parts?: unknown } }[] } | null)?.candidates?.[0]?.content?.parts;
       if (!Array.isArray(parts)) return { answer: '' };

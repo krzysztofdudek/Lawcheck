@@ -529,7 +529,7 @@ test('test 92: a connection that gave no answer names its cause', async () => {
     write(r, F_PATH, F);
     const result = await run(r, null, ['--review', '--base', 'main'], { LAWCHECK_REVIEWER_ENDPOINT: 'http://127.0.0.1:9/v1' });
     const errors = result.stdout.split('\n').filter((line) => /(^|  )error\[[a-z0-9-]+\]  /.test(line));
-    assert.deepEqual(errors, ['src/core/refund.ts  error[reviewer-unreachable]  clear-errors: the connection to the reviewer gave no answer (bad port)']);
+    assert.deepEqual(errors, ['src/core/refund.ts  error[reviewer-unreachable]  clear-errors: http://127.0.0.1:9/v1 names a port that fetch refuses to call (bad port)']);
     assert.doesNotMatch(result.stdout + result.stderr, /TypeError/);
     assert.equal(result.code, 2);
   });

@@ -11,6 +11,8 @@ export const PROVIDERS = ['anthropic', 'openai', 'google', 'openai-compatible', 
 export type ProviderName = (typeof PROVIDERS)[number];
 
 export const PROGRAM_PROVIDERS: Partial<Record<ProviderName, string>> = { 'claude-code': 'claude', codex: 'codex', 'gemini-cli': 'gemini', 'copilot-cli': 'copilot' };
+// A model name goes to a program as one argument; 256 characters is far above any real name and far below what a command line can carry.
+const MAX_MODEL = 256;
 const TOP_KEYS = ['reviewer', 'runner'];
 const REVIEWER_KEYS = ['provider', 'model', 'timeout', 'temperature', 'max_chars', 'parallel', 'max_calls'];
 
@@ -178,8 +180,9 @@ class ConfigReader {
     const model = seen.get('model');
     if (model !== undefined) {
       const text = this.string(model.value);
-      if (text === null || text.trim() === '' || /[\r\n]/.test(text)) {
-        this.problem(model.line, `reviewer.model takes a non-empty string without a line break, not ${describe(model.value)}`);
+      if (text === null || text.trim() === '' || text.length > MAX_MODEL || /[\u0000-\u001f\u007f]/.test(text)) {
+        const what = text !== null && text.length > MAX_MODEL ? `a string of ${text.length} characters` : describe(model.value);
+        this.problem(model.line, `reviewer.model takes a non-empty string of at most ${MAX_MODEL} characters with no control character, not ${what}`);
       } else {
         config.model = text;
       }

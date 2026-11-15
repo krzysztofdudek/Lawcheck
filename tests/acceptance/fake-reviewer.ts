@@ -1,8 +1,10 @@
 import { createServer } from 'node:http';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { chmodSync, mkdirSync, writeFileSync } from 'node:fs';
+import assert from 'node:assert/strict';
+import { chmodSync, existsSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { programDir } from './helpers.ts';
 
 export const FAILED_MESSAGE = 'the message says neither what happened nor what to do next';
 
@@ -181,11 +183,20 @@ const { spawn } = require('node:child_process');
 const envelope = ${JSON.stringify(name === 'claude')};
 const mode = process.env.FAKE_${upper}_MODE || 'answer';
 const args = process.argv.slice(2);
+if (args[0] === 'mcp' && args[1] === 'list' && args[2] === '--json') {
+  if (process.env.FAKE_${upper}_LISTED) require('node:fs').appendFileSync(process.env.FAKE_${upper}_LISTED, 'listed\\n');
+  if (mode === 'list-fails') {
+    process.stderr.write('no config\\n');
+    process.exit(2);
+  }
+  process.stdout.write(process.env.FAKE_${upper}_MCP ?? ${JSON.stringify(name === 'copilot' ? '{"mcpServers":{}}' : '[]')});
+  process.exit(0);
+}
 const record = (extra) => {
   if (!process.env.FAKE_${upper}_RECORD) return;
   const policy = args.indexOf('--policy');
   writeFileSync(process.env.FAKE_${upper}_RECORD, JSON.stringify({
-    args, cwd: process.cwd(), listing: readdirSync(process.cwd()), stdin, pid: process.pid,
+    args, cwd: process.cwd(), listing: readdirSync(process.cwd()), stdin, pid: process.pid, env: process.env,
     policy: policy < 0 ? null : readFileSync(args[policy + 1], 'utf8'), ...extra,
   }));
 };
@@ -197,6 +208,7 @@ if (mode === 'expired') {
 process.stdin.setEncoding('utf8');
 process.stdin.on('data', (chunk) => (stdin += chunk));
 process.stdin.on('end', () => {
+  if (process.env.FAKE_${upper}_ASKED) require('node:fs').appendFileSync(process.env.FAKE_${upper}_ASKED, 'asked\\n');
   const lines = [];
   const start = stdin.lastIndexOf('\\n<file path=');
   const end = stdin.lastIndexOf('\\n</file>');
@@ -252,9 +264,19 @@ process.stdin.on('end', () => {
     process.stdout.write(answer.slice(0, Math.floor(answer.length / 2)));
     return;
   }
-  if (mode === 'huge') {
-    process.stdout.write('x'.repeat(20 * 1024 * 1024));
+  if (mode === 'large') {
+    process.stdout.write('x'.repeat(3 * 1024 * 1024));
     return;
+  }
+  if (mode === 'huge') {
+    process.stdout.write('x'.repeat(4 * 1024 * 1024 + 1));
+    return;
+  }
+  if (mode === 'setsid') {
+    const child = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 60000);'], { detached: true, stdio: ['ignore', 'inherit', 'inherit'] });
+    record({ child: child.pid });
+    process.stdout.write(answer + '\\n');
+    process.exit(0);
   }
   if (mode === 'raw' || !envelope) {
     process.stdout.write(answer + '\\n');
@@ -277,4 +299,30 @@ export function writeFakeProgram(dir: string, name: 'claude' | 'codex' | 'gemini
 
 export function writeFakeClaude(dir: string): string {
   return writeFakeProgram(dir, 'claude');
+}
+
+export const PROGRAM_NAMES = ['claude', 'codex', 'gemini', 'copilot'];
+
+// A folder that holds git and nothing else; on Windows git's own folder, since a link to git.exe there finds no installation.
+export function gitAlone(dir: string): string {
+  const gitDir = programDir('git');
+  if (process.platform === 'win32') {
+    for (const name of PROGRAM_NAMES) for (const ending of ['', '.cmd', '.exe']) assert.ok(!existsSync(join(gitDir, name + ending)), `${gitDir} holds ${name}${ending}`);
+    return gitDir;
+  }
+  const alone = join(dir, 'git-alone');
+  mkdirSync(alone, { recursive: true });
+  symlinkSync(join(gitDir, 'git'), join(alone, 'git'));
+  return alone;
+}
+
+export function whyOf(code: string): string {
+  const page = readFileSync(new URL('../../docs/codes.md', import.meta.url), 'utf8');
+  const row = page.split('\n').find((line) => line.startsWith(`| \`${code}\` |`));
+  assert.ok(row, code);
+  return row!.split(' | ').at(-1)!.replace(/ \|$/, '');
+}
+
+export function counted(path: string): number {
+  return existsSync(path) ? readFileSync(path, 'utf8').split('\n').filter(Boolean).length : 0;
 }

@@ -266,7 +266,7 @@ test('test 125: what stops a reviewer rule before the first call', async () => {
         write(r, F_PATH, F);
         const result = await tryIn(r, ['clear-errors', F_PATH], { LAWCHECK_REVIEWER_ENDPOINT: fake.url });
         assert.match(result.stdout, /^src\/core\/refund\.ts {2}error\[reviewer-unreachable\] .*500/m);
-        assert.match(result.stdout, /^next: run the same command again; try keeps no answer, so it makes every call again$/m);
+        assert.ok(result.stdout.endsWith(`\nnext: wait until the reviewer at ${fake.url} works again, then run the same command again; try keeps no answer, so it makes every call again\n`), result.stdout);
         assert.equal(result.code, 2);
       });
     },

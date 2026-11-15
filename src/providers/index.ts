@@ -12,13 +12,21 @@ import { addKeys } from '../keys.js';
 
 export type Resend = 'after-2s' | 'at-once' | false;
 
-export type Asked = { answer: string } | { failure: string; resend: Resend };
+export type Asked = { answer: string } | { failure: string; resend: Resend; fix: string };
 
 export interface Provider {
   // The exact keys this provider sends or hands on, which Lawcheck writes as [key] wherever a reply shows them.
   keys: string[];
   ready(): string | null;
-  ask(prompt: string): Promise<Asked>;
+  fix(): string;
+  ask(prompt: string, seconds?: number): Promise<Asked>;
+  probe?(): Promise<{ problem: string; fix: string } | { at: string }>;
+}
+
+export const ENDPOINT_FIX = 'set LAWCHECK_REVIEWER_ENDPOINT to an http: or https: address with no user, password, query or fragment';
+
+export function keyFix(name: string): string {
+  return `set ${name} to the key alone, with no space or line break`;
 }
 
 export type Env = Record<string, string | undefined>;
@@ -58,20 +66,33 @@ export interface Keyed {
   key: string;
 }
 
-export function ownKey(env: Env, provider: string, ownUrl: string, ownVariable: string): { problem: string | null; keyed: Keyed | null } {
+export interface Owned {
+  problem: string | null;
+  fix: string;
+  keyName: string;
+  base: string;
+  keyed: Keyed | null;
+}
+
+export function ownKey(env: Env, provider: string, ownUrl: string, ownVariable: string): Owned {
   const endpoint = endpointOf(env);
-  if (endpoint !== null && 'problem' in endpoint) return { problem: endpoint.problem, keyed: null };
+  const base = endpoint !== null && 'url' in endpoint ? endpoint.url : ownUrl;
   const keyName = endpoint === null && variable(env, ownVariable) !== null ? ownVariable : 'LAWCHECK_REVIEWER_KEY';
+  if (endpoint !== null && 'problem' in endpoint) return { problem: endpoint.problem, fix: ENDPOINT_FIX, keyName, base, keyed: null };
   const key = variable(env, keyName);
   if (key === null) {
-    const problem =
-      endpoint === null
-        ? `${provider} needs a key in ${ownVariable} or LAWCHECK_REVIEWER_KEY`
-        : `with LAWCHECK_REVIEWER_ENDPOINT set, ${provider} sends LAWCHECK_REVIEWER_KEY alone, and it is not set`;
-    return { problem, keyed: null };
+    return endpoint === null
+      ? { problem: `${provider} needs a key in ${ownVariable} or LAWCHECK_REVIEWER_KEY`, fix: `set ${ownVariable} to your ${provider} key`, keyName, base, keyed: null }
+      : {
+          problem: `with LAWCHECK_REVIEWER_ENDPOINT set, ${provider} sends LAWCHECK_REVIEWER_KEY alone, and it is not set`,
+          fix: `set LAWCHECK_REVIEWER_KEY to the key for ${base}, or unset LAWCHECK_REVIEWER_ENDPOINT to call ${ownUrl} with ${ownVariable}`,
+          keyName,
+          base,
+          keyed: null,
+        };
   }
   const problem = headerProblem(keyName, key);
-  return { problem, keyed: problem === null ? { url: endpoint === null ? ownUrl : endpoint.url, key } : null };
+  return { problem, fix: keyFix(keyName), keyName, base, keyed: problem === null ? { url: base, key } : null };
 }
 
 export function createProvider(config: ReviewerConfig, env: Env): Provider | null {

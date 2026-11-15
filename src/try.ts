@@ -235,10 +235,10 @@ export async function tryRule(args: Arguments, context: CheckContext, json: bool
         meta.set(ask, { attempt, characters: item.characters });
       }
     }
-    const answered = await call(asks, provider!, NO_RECORD, { cap, parallel: config.parallel });
+    const answered = await call(asks, provider!, NO_RECORD, { cap, parallel: config.parallel, timeoutSeconds: config.timeout });
     if (answered.failed.length > 0) {
-      const next = 'run the same command again; try keeps no answer, so it makes every call again';
-      throw new Stop(answered.failed.map((f) => ({ code: f.code, file: f.ask.file, line: null, message: f.message, next })));
+      const again = 'run the same command again; try keeps no answer, so it makes every call again';
+      throw new Stop(answered.failed.map((f) => ({ code: f.code, file: f.ask.file, line: null, message: f.message, next: f.fix === undefined ? again : `${f.fix}, then ${again}` })));
     }
     result.calls = answered.sent;
     for (const { ask, findings, answer } of answered.answered) {

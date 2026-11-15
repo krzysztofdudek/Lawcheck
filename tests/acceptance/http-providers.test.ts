@@ -4,12 +4,23 @@ import { randomBytes } from 'node:crypto';
 import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { anthropic, defaultAnswer, google, ollama, openai, startFake, withFake } from './fake-reviewer.ts';
+import { anthropic, defaultAnswer, google, ollama, openai, startFake, whyOf, withFake, writeFakeProgram } from './fake-reviewer.ts';
 import type { Fake, Recorded, Reply } from './fake-reviewer.ts';
-import { F, F_PATH, lawcheck, PROMPT_F, run, SECOND, withR, write } from './helpers.ts';
+import { F, F_PATH, lawcheck, pathWith, PROMPT_F, run, SECOND, withR, write } from './helpers.ts';
 
 const UNREACHABLE = 'src/core/refund.ts  error[reviewer-unreachable]  ';
-const BAD_ANSWER = 'src/core/refund.ts  error[reviewer-bad-answer]  clear-errors';
+const AGAIN = 'then run the same command again; what was answered is kept, so it asks only the rest';
+const PASSED = 'lawcheck: PASS  1 changed file (against main), 1 waiver, 1 reviewer call\n';
+
+function stopped(error: string, code: 'reviewer-unreachable' | 'reviewer-bad-answer', next: string): string {
+  return `lawcheck: ERROR  1 error\n\n${error}\n  why:  ${whyOf(code)}\n\nnext: ${next}\n`;
+}
+
+const failedWith = (message: string, fix: string) => stopped(`${UNREACHABLE}clear-errors: ${message}`, 'reviewer-unreachable', `${fix}, ${AGAIN}`);
+
+function placeless(stdout: string, message: string, next: string): string {
+  return `lawcheck: ERROR  1 error\n\nerror[reviewer-unreachable]  ${message}\n  why:  ${whyOf('reviewer-unreachable')}\n\nnext: ${next}\n`;
+}
 
 interface Http {
   provider: 'openai' | 'google' | 'ollama';
@@ -55,7 +66,7 @@ function errorLine(stdout: string, prefix: string): string | undefined {
   return stdout.split('\n').find((line) => line.startsWith(prefix));
 }
 
-function placeless(stdout: string): boolean {
+function unready(stdout: string): boolean {
   return stdout.split('\n').some((line) => line.startsWith('error[reviewer-unreachable]  '));
 }
 
@@ -86,7 +97,7 @@ test('test 184: openai', async () => {
       await withR(async (r) => {
         write(r, F_PATH, F);
         const result = await run(r, fake, ['--review', '--base', 'main'], env);
-        assert.ok(placeless(result.stdout), result.stdout);
+        assert.ok(unready(result.stdout), result.stdout);
         assert.equal(result.code, 2);
       }, configOf('openai'));
     }
@@ -117,7 +128,7 @@ test('test 185: google', async () => {
       await withR(async (r) => {
         write(r, F_PATH, F);
         const result = await run(r, fake, ['--review', '--base', 'main'], env);
-        assert.ok(placeless(result.stdout), result.stdout);
+        assert.ok(unready(result.stdout), result.stdout);
         assert.equal(result.code, 2);
       }, configOf('google'));
     }
@@ -149,7 +160,7 @@ test('test 186: ollama', async () => {
     await withR(async (r) => {
       write(r, F_PATH, F);
       const result = await run(r, fake, ['--review', '--base', 'main'], { LAWCHECK_REVIEWER_ENDPOINT: 'ftp://127.0.0.1/' });
-      assert.ok(placeless(result.stdout), result.stdout);
+      assert.ok(unready(result.stdout), result.stdout);
       assert.equal(result.code, 2);
     }, configOf('ollama'));
     assert.equal(fake.requests.length, 1);
@@ -171,7 +182,19 @@ interface Case {
   name: string;
   respond: (http: Http) => (request: Recorded) => Reply;
   extra?: string;
-  expect: (result: { stdout: string; code: number | null; ms: number }, fake: Fake) => void;
+  expect: (result: { stdout: string; stderr: string; code: number | null; ms: number }, fake: Fake, http: Http) => void;
+}
+
+const baseOf = (http: Http, fake: Fake) => (http.provider === 'ollama' ? fake.base : fake.url);
+const keyFixOf = (http: Http, fake: Fake) =>
+  http.provider === 'ollama' ? `the server at ${fake.base} wants a key, which this provider never sends; reach it as openai-compatible with LAWCHECK_REVIEWER_KEY` : 'check the key in LAWCHECK_REVIEWER_KEY';
+
+function badTwice(result: { stdout: string; code: number | null }, fake: Fake) {
+  const line = result.stdout.split('\n')[2]!;
+  assert.ok(line.startsWith('src/core/refund.ts  error[reviewer-bad-answer]  clear-errors: the answer is no verdict twice ('), result.stdout.slice(0, 500));
+  assert.equal(result.stdout, stopped(line, 'reviewer-bad-answer', 'run the same command again; what was answered is kept, so it asks only the rest'));
+  assert.equal(result.code, 2);
+  assert.equal(fake.requests.length, 2);
 }
 
 const CASES: Case[] = [
@@ -179,7 +202,8 @@ const CASES: Case[] = [
     name: 'a pass',
     respond: (http) => () => http.reply('{"verdict":"pass","findings":[]}'),
     expect: (result, fake) => {
-      assert.equal(result.code, 0, result.stdout);
+      assert.equal(result.stdout, PASSED);
+      assert.equal(result.code, 0);
       assert.equal(fake.requests.length, 1);
     },
   },
@@ -192,28 +216,14 @@ const CASES: Case[] = [
       assert.equal(fake.requests.length, 1);
     },
   },
-  {
-    name: 'a malformed answer',
-    respond: (http) => () => http.reply('fine'),
-    expect: (result, fake) => {
-      assert.ok(errorLine(result.stdout, BAD_ANSWER), result.stdout);
-      assert.equal(result.code, 2);
-      assert.equal(fake.requests.length, 2);
-    },
-  },
-  {
-    name: 'a reply without the answer',
-    respond: (http) => () => ({ body: http.empty }),
-    expect: (result, fake) => {
-      assert.ok(errorLine(result.stdout, BAD_ANSWER), result.stdout);
-      assert.equal(fake.requests.length, 2);
-    },
-  },
+  { name: 'a malformed answer', respond: (http) => () => http.reply('fine'), expect: (result, fake) => badTwice(result, fake) },
+  { name: 'a reply without the answer', respond: (http) => () => ({ body: http.empty }), expect: (result, fake) => badTwice(result, fake) },
+  { name: 'an answer of 3 MiB', respond: (http) => () => http.reply('x'.repeat(3 * 1024 * 1024)), expect: (result, fake) => badTwice(result, fake) },
   {
     name: 'HTTP 500',
     respond: () => () => ({ status: 500, body: 'oops' }),
-    expect: (result, fake) => {
-      assert.ok(errorLine(result.stdout, UNREACHABLE)?.includes('HTTP 500'), result.stdout);
+    expect: (result, fake, http) => {
+      assert.equal(result.stdout, failedWith('HTTP 500 Internal Server Error', `wait until the reviewer at ${baseOf(http, fake)} works again`));
       assert.equal(result.code, 2);
       assert.equal(fake.requests.length, 1);
     },
@@ -221,8 +231,9 @@ const CASES: Case[] = [
   {
     name: 'HTTP 401 with the error of the vendor',
     respond: (http) => () => ({ status: 401, body: http.error }),
-    expect: (result, fake) => {
-      assert.ok(errorLine(result.stdout, UNREACHABLE)?.endsWith('HTTP 401 Unauthorized: bad key'), result.stdout);
+    expect: (result, fake, http) => {
+      assert.equal(result.stdout, failedWith('HTTP 401 Unauthorized: bad key', keyFixOf(http, fake)));
+      assert.equal(result.code, 2);
       assert.equal(fake.requests.length, 1);
     },
   },
@@ -231,6 +242,7 @@ const CASES: Case[] = [
     respond: (http) => (request) => (request.index === 0 ? { status: 429, body: '{}' } : http.reply(defaultAnswer(request.prompt))),
     expect: (result, fake) => {
       assert.equal(result.stdout, SECOND.replace('1 reviewer call', '2 reviewer calls'));
+      assert.equal(result.code, 1);
       assert.equal(fake.requests.length, 2);
       assert.ok(fake.requests[1]!.start - fake.requests[0]!.start >= 2000);
     },
@@ -239,50 +251,47 @@ const CASES: Case[] = [
     name: 'a redirect',
     respond: () => () => ({ status: 307, headers: { location: 'http://127.0.0.1:9/v1' }, body: '' }),
     expect: (result, fake) => {
-      assert.ok(errorLine(result.stdout, UNREACHABLE)?.includes('HTTP 307'), result.stdout);
+      assert.equal(result.stdout, failedWith('HTTP 307 Temporary Redirect', 'set LAWCHECK_REVIEWER_ENDPOINT to the address that answers without a redirect'));
       assert.equal(fake.requests.length, 1);
     },
   },
   {
     name: 'an HTML page',
     respond: () => () => ({ status: 200, headers: { 'content-type': 'text/html' }, body: '<html><body>Sign in</body></html>' }),
-    expect: (result, fake) => {
-      assert.ok(errorLine(result.stdout, UNREACHABLE)?.endsWith('HTTP 200, and the reply is no JSON'), result.stdout);
+    expect: (result, fake, http) => {
+      assert.equal(result.stdout, failedWith('HTTP 200, and the reply is no JSON', `check that ${baseOf(http, fake)} is the address of the provider's API`));
       assert.equal(fake.requests.length, 1);
     },
   },
+  ...(['a closed connection', 'a cut reply'] as const).map(
+    (name): Case => ({
+      name,
+      respond: (http) => (request) => (name === 'a closed connection' ? { close: true } : { cut: (http.reply(defaultAnswer(request.prompt)) as { body: string }).body.slice(0, 40) }),
+      expect: (result, fake, http) => {
+        const base = baseOf(http, fake);
+        const line = result.stdout.split('\n')[2]!;
+        assert.ok(line.startsWith(`${UNREACHABLE}clear-errors: the connection to ${base} ended before the reply did (`), result.stdout);
+        assert.equal(result.stdout, stopped(line, 'reviewer-unreachable', `start the reviewer at ${base}, or set LAWCHECK_REVIEWER_ENDPOINT to the address where it runs, ${AGAIN}`));
+        assert.equal(result.code, 2);
+        assert.equal(fake.requests.length, 2);
+      },
+    }),
+  ),
   {
-    name: 'a closed connection',
-    respond: () => () => ({ close: true }),
-    expect: (result, fake) => {
-      assert.ok(errorLine(result.stdout, UNREACHABLE)?.includes('the connection to the reviewer gave no answer'), result.stdout);
-      assert.equal(fake.requests.length, 2);
-    },
-  },
-  {
-    name: 'a cut reply',
-    respond: (http) => (request) => ({ cut: (http.reply(defaultAnswer(request.prompt)) as { body: string }).body.slice(0, 40) }),
-    expect: (result, fake) => {
-      assert.ok(errorLine(result.stdout, UNREACHABLE), result.stdout);
-      assert.ok(!result.stdout.includes('error[internal]'), result.stdout);
-      assert.equal(fake.requests.length, 2);
-    },
-  },
-  {
-    name: 'a huge body',
-    respond: (http) => () => http.reply('x'.repeat(20 * 1024 * 1024)),
-    expect: (result, fake) => {
-      assert.ok(errorLine(result.stdout, BAD_ANSWER), result.stdout.slice(0, 2000));
-      assert.ok(result.stdout.length < 10_000, `${result.stdout.length} characters`);
-      assert.equal(fake.requests.length, 2);
+    name: 'a reply over 4 MiB',
+    respond: (http) => () => http.reply('x'.repeat(4 * 1024 * 1024)),
+    expect: (result, fake, http) => {
+      assert.equal(result.stdout, failedWith('the reply holds more than 4 MiB, so it is not read', `check that ${baseOf(http, fake)} is the address of the provider's API`));
+      assert.equal(result.code, 2);
+      assert.equal(fake.requests.length, 1);
     },
   },
   {
     name: 'a timeout',
     respond: () => () => ({ hang: true }),
     extra: '  timeout: 1\n',
-    expect: (result, fake) => {
-      assert.ok(errorLine(result.stdout, UNREACHABLE)?.endsWith('the reviewer gave no answer within 1 seconds'), result.stdout);
+    expect: (result, fake, http) => {
+      assert.equal(result.stdout, failedWith('the reviewer gave no answer within 1 seconds', `raise reviewer.timeout in .lawcheck/config.yaml, or check that the reviewer at ${baseOf(http, fake)} works`));
       assert.ok(result.ms < 10_000, `${result.ms} ms`);
       assert.equal(fake.requests.length, 1);
     },
@@ -299,7 +308,8 @@ test('test 187: what openai, google and ollama answer', async () => {
               write(r, F_PATH, F);
               const result = await run(r, fake, ['--review', '--base', 'main'], http.env(fake));
               try {
-                one.expect(result, fake);
+                one.expect(result, fake, http);
+                assert.equal(result.stderr, `lawcheck: 1 reviewer call to ${http.provider}\n`);
               } catch (error) {
                 (error as Error).message = `${http.provider}, ${one.name}: ${(error as Error).message}`;
                 throw error;
@@ -311,6 +321,15 @@ test('test 187: what openai, google and ollama answer', async () => {
         ),
       ),
     );
+    const gone = await startFake();
+    const base = http.provider === 'ollama' ? gone.base : gone.url;
+    await gone.close();
+    await withR(async (r) => {
+      write(r, F_PATH, F);
+      const result = await run(r, null, ['--review', '--base', 'main'], { ...http.env(gone), LAWCHECK_REVIEWER_ENDPOINT: base });
+      assert.equal(result.stdout, failedWith(`nothing answers at ${base}: the connection was refused (ECONNREFUSED)`, `start the reviewer at ${base}, or set LAWCHECK_REVIEWER_ENDPOINT to the address where it runs`), http.provider);
+      assert.equal(result.code, 2);
+    }, configOf(http.provider));
   }
 });
 
@@ -332,10 +351,21 @@ const KEYED: { provider: string; own: string | null; header: (request: Recorded)
   { provider: 'ollama', own: null, header: () => undefined },
 ];
 
+const VENDOR_KEYS = ['ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'GOOGLE_API_KEY'];
+
+function leftNothing(where: string, texts: string[], files: string[], secrets: string[]) {
+  for (const text of texts) for (const secret of secrets) assert.ok(!text.includes(secret), `${where}: ${text.slice(0, 500)}`);
+  for (const file of files) {
+    const text = readFileSync(file, 'latin1');
+    for (const secret of secrets) assert.ok(!text.includes(secret), `${where}: ${file}`);
+  }
+}
+
 test('test 188: the key canary', async () => {
   for (const keyed of KEYED) {
     const canary = `canary-${randomBytes(12).toString('hex')}`;
     const own = `own-${randomBytes(12).toString('hex')}`;
+    const others = Object.fromEntries(VENDOR_KEYS.filter((name) => name !== keyed.own).map((name) => [name, `other-${randomBytes(12).toString('hex')}`]));
     const replies = (request: Recorded): Reply => {
       if (request.index === 1) return { status: 500, body: '{"error":{"message":"overloaded"}}' };
       const answer = defaultAnswer(request.prompt);
@@ -353,6 +383,7 @@ test('test 188: the key canary', async () => {
             LAWCHECK_REVIEWER_ENDPOINT: keyed.provider === 'ollama' ? fake.base : fake.url,
             LAWCHECK_REVIEWER_KEY: canary,
             ...(keyed.own === null ? {} : { [keyed.own]: own }),
+            ...others,
             TMPDIR: tmp,
             TMP: tmp,
             TEMP: tmp,
@@ -362,17 +393,12 @@ test('test 188: the key canary', async () => {
             const result = await lawcheck(r, args, env);
             outputs.push(result.stdout, result.stderr);
           }
-          for (const text of outputs) {
-            assert.ok(!text.includes(canary) && !text.includes(own), `${keyed.provider}: ${text}`);
-          }
-          for (const file of [...filesUnder(r).filter((path) => !path.startsWith(join(r, '.git'))), ...filesUnder(tmp)]) {
-            const text = readFileSync(file, 'latin1');
-            assert.ok(!text.includes(canary) && !text.includes(own), `${keyed.provider}: ${file}`);
-          }
+          const secrets = [canary, own, ...Object.values(others)];
+          leftNothing(keyed.provider, outputs, [...filesUnder(r).filter((path) => !path.startsWith(join(r, '.git'))), ...filesUnder(tmp)], secrets);
           assert.ok(fake.requests.length >= 3, `${keyed.provider}: ${fake.requests.length} requests`);
           for (const request of fake.requests) {
             const all = JSON.stringify(request.headers) + request.body + request.path;
-            assert.ok(!all.includes(own), `${keyed.provider}: the provider's own key travelled to the endpoint in force`);
+            for (const value of [own, ...Object.values(others)]) assert.ok(!all.includes(value), `${keyed.provider}: a key travelled where it was not given`);
             if (keyed.provider === 'ollama') assert.ok(!all.includes(canary), 'ollama sent a key');
             else {
               assert.ok(keyed.header(request)?.endsWith(canary), `${keyed.provider}: ${keyed.header(request)}`);
@@ -385,6 +411,27 @@ test('test 188: the key canary', async () => {
       }, configOf(keyed.provider, '  parallel: 1\n'));
     }, replies);
   }
+  for (const [provider, name] of [['claude-code', 'claude'], ['codex', 'codex'], ['gemini-cli', 'gemini'], ['copilot-cli', 'copilot']] as const) {
+    await withR(async (r, dir) => {
+      write(r, F_PATH, F);
+      const tmp = mkdtempSync(join(tmpdir(), 'lawcheck-canary-'));
+      try {
+        const secrets = Object.fromEntries(['LAWCHECK_REVIEWER_ENDPOINT', 'LAWCHECK_REVIEWER_KEY', ...VENDOR_KEYS].map((variable) => [variable, `canary-${randomBytes(12).toString('hex')}`]));
+        const upper = name.toUpperCase();
+        const env: NodeJS.ProcessEnv = { ...secrets, PATH: pathWith(writeFakeProgram(join(dir, 'bin'), name)), [`FAKE_${upper}_RECORD`]: join(dir, 'record.json'), TMPDIR: tmp, TMP: tmp, TEMP: tmp };
+        const outputs: string[] = [];
+        for (const args of [['check', '--review', '--base', 'main'], ['doctor', '--base', 'main', '--reviewer']]) {
+          const result = await lawcheck(r, args, env);
+          outputs.push(result.stdout, result.stderr);
+        }
+        const seen = JSON.parse(readFileSync(join(dir, 'record.json'), 'utf8')) as { env: Record<string, string> };
+        for (const variable of Object.keys(secrets)) assert.ok(!Object.keys(seen.env).some((key) => key.toUpperCase() === variable), `${provider} got ${variable}`);
+        leftNothing(provider, [...outputs, JSON.stringify(seen.env)], [...filesUnder(r).filter((path) => !path.startsWith(join(r, '.git'))), ...filesUnder(tmp)], Object.values(secrets));
+      } finally {
+        rmSync(tmp, { recursive: true, force: true });
+      }
+    }, configOf(provider));
+  }
 });
 
 test('test 189: a key under a provider name goes to that provider alone', async () => {
@@ -395,9 +442,15 @@ test('test 189: a key under a provider name goes to that provider alone', async 
         async (fake) => {
           await withR(async (r) => {
             write(r, F_PATH, F);
-            const result = await run(r, fake, ['--review', '--base', 'main'], { LAWCHECK_REVIEWER_KEY: 'k1' });
-            assert.ok(errorLine(result.stdout, UNREACHABLE)?.includes('HTTP 307'), result.stdout);
+            const keys = { LAWCHECK_REVIEWER_KEY: 'k1', ANTHROPIC_API_KEY: 'k3', OPENAI_API_KEY: 'k2', GOOGLE_API_KEY: 'k4' };
+            const result = await run(r, fake, ['--review', '--base', 'main'], keys);
+            assert.equal(result.stdout, failedWith('HTTP 307 Temporary Redirect', 'set LAWCHECK_REVIEWER_ENDPOINT to the address that answers without a redirect'));
+            assert.equal(result.code, 2);
             assert.equal(second.requests.length, 0);
+            assert.equal(fake.requests.length, 1);
+            const sent = JSON.stringify(fake.requests[0]!.headers) + fake.requests[0]!.body + fake.requests[0]!.path;
+            for (const key of ['k2', 'k3', 'k4']) assert.ok(!sent.includes(key), `${provider}: ${key}`);
+            assert.ok(sent.includes('k1'));
           }, configOf(provider));
         },
         () => ({ status: 307, headers: { location: `${second.url}/chat/completions` }, body: '' }),
@@ -406,4 +459,88 @@ test('test 189: a key under a provider name goes to that provider alone', async 
   } finally {
     await second.close();
   }
+});
+
+test('test 195: the timeout bounds a request and its resend', async () => {
+  for (const [name, reply] of [['429', { status: 429, body: '{}', delayMs: 2500 }], ['a dropped connection', { close: true }]] as const) {
+    await withFake(
+      async (fake) => {
+        await withR(async (r) => {
+          write(r, F_PATH, F);
+          const result = await run(r, fake, ['--review', '--base', 'main']);
+          assert.equal(result.code, 2, `${name}: ${result.stdout}`);
+          assert.ok(result.ms < 5000, `${name}: ${result.ms} ms for a timeout of 3 seconds`);
+          if (name === '429') {
+            assert.equal(result.stdout, failedWith('HTTP 429 Too Many Requests', "wait until the provider's rate limit allows another call"));
+            assert.equal(fake.requests.length, 1);
+          } else {
+            assert.equal(result.stdout, failedWith('the reviewer gave no answer within 3 seconds', `raise reviewer.timeout in .lawcheck/config.yaml, or check that the reviewer at ${fake.url} works`));
+            assert.equal(fake.requests.length, 2);
+          }
+        }, configOf('openai-compatible', '  timeout: 3\n'));
+      },
+      name === '429' ? () => reply : async (request) => {
+        if (request.index === 0) {
+          await new Promise((done) => setTimeout(done, 2500));
+          return { close: true };
+        }
+        return { hang: true };
+      },
+    );
+  }
+});
+
+test('test 196: doctor asks the Ollama server whether it is there, and names its address', async () => {
+  await withFake(
+    async (fake) => {
+      await withR(async (r) => {
+        const result = await lawcheck(r, ['doctor', '--base', 'main'], { LAWCHECK_REVIEWER_ENDPOINT: fake.base });
+        assert.ok(result.stdout.split('\n').includes(`ok  reviewer  1 reviewer rule; ollama can be called at ${fake.base} (lawcheck doctor --reviewer makes one call)`), result.stdout);
+        assert.equal(result.code, 0);
+        assert.deepEqual(fake.requests.map((request) => `${request.method} ${request.path}`), ['GET /api/version']);
+      }, configOf('ollama'));
+    },
+    (request) => (request.path === '/api/version' ? { body: '{"version":"0.40.16"}' } : { status: 404, body: '' }),
+  );
+  await withFake(
+    async (fake) => {
+      await withR(async (r) => {
+        const result = await lawcheck(r, ['doctor', '--base', 'main'], { LAWCHECK_REVIEWER_ENDPOINT: fake.base });
+        assert.ok(result.stdout.split('\n').includes(`fail  reviewer  1 reviewer rule; ollama cannot be called: ${fake.base}/api/version answered HTTP 404, so no Ollama server is there`), result.stdout);
+        assert.ok(result.stdout.split('\n').includes('  next: set LAWCHECK_REVIEWER_ENDPOINT to the address of the Ollama server, then run lawcheck doctor'), result.stdout);
+        assert.equal(result.code, 2);
+      }, configOf('ollama'));
+    },
+    () => ({ status: 404, body: '' }),
+  );
+  const gone = await startFake();
+  await gone.close();
+  await withR(async (r) => {
+    const result = await lawcheck(r, ['doctor', '--base', 'main'], { LAWCHECK_REVIEWER_ENDPOINT: gone.base });
+    assert.ok(result.stdout.split('\n').includes(`fail  reviewer  1 reviewer rule; ollama cannot be called: nothing answers at ${gone.base}: the connection was refused (ECONNREFUSED)`), result.stdout);
+    assert.ok(result.stdout.split('\n').includes(`  next: start the server at ${gone.base}, or set LAWCHECK_REVIEWER_ENDPOINT to the address where it runs, then run lawcheck doctor`), result.stdout);
+    assert.equal(result.code, 2);
+  }, configOf('ollama'));
+});
+
+test('test 197: the next line of a reviewer that cannot be called names the fix', async () => {
+  const review = 'then run lawcheck check --review --base main';
+  const cases: [string, NodeJS.ProcessEnv, string, string][] = [
+    ['anthropic', {}, 'anthropic cannot be called: anthropic needs a key in ANTHROPIC_API_KEY or LAWCHECK_REVIEWER_KEY', `set ANTHROPIC_API_KEY to your anthropic key, ${review}`],
+    ['openai', { LAWCHECK_REVIEWER_ENDPOINT: 'http://127.0.0.1:1/v1', OPENAI_API_KEY: 'k2' }, 'openai cannot be called: with LAWCHECK_REVIEWER_ENDPOINT set, openai sends LAWCHECK_REVIEWER_KEY alone, and it is not set', `set LAWCHECK_REVIEWER_KEY to the key for http://127.0.0.1:1/v1, or unset LAWCHECK_REVIEWER_ENDPOINT to call https://api.openai.com/v1 with OPENAI_API_KEY, ${review}`],
+    ['google', { GOOGLE_API_KEY: 'k\n4' }, 'google cannot be called: GOOGLE_API_KEY holds a character an HTTP header cannot carry', `set GOOGLE_API_KEY to the key alone, with no space or line break, ${review}`],
+    ['openai-compatible', {}, 'openai-compatible cannot be called: openai-compatible needs the address of its endpoint in LAWCHECK_REVIEWER_ENDPOINT', `set LAWCHECK_REVIEWER_ENDPOINT to the base address of the server, such as http://localhost:8000/v1, ${review}`],
+    ['ollama', { LAWCHECK_REVIEWER_ENDPOINT: 'ftp://h' }, 'ollama cannot be called: LAWCHECK_REVIEWER_ENDPOINT is no http: or https: address', `set LAWCHECK_REVIEWER_ENDPOINT to an http: or https: address with no user, password, query or fragment, ${review}`],
+  ];
+  await Promise.all(
+    cases.map(([provider, env, message, next]) =>
+      withR(async (r) => {
+        write(r, F_PATH, F);
+        const result = await run(r, null, ['--review', '--base', 'main'], env);
+        assert.equal(result.stdout, placeless(result.stdout, message, next), provider);
+        assert.equal(result.stderr, '');
+        assert.equal(result.code, 2);
+      }, configOf(provider, '  max_calls: 50\n')),
+    ),
+  );
 });

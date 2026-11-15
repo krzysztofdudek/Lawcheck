@@ -30,14 +30,15 @@ function provider(answers: (prompt: string, n: number) => Answer | Promise<Answe
 }
 
 test('the checks before the first call', () => {
-  const ready = { keys: [], ready: () => null, ask: async () => ({ answer: '' }) };
+  const ready = { ready: () => null, fix: () => 'set X', ask: async () => ({ answer: '' }) };
   const config = { ...DEFAULT_CONFIG, provider: 'openai-compatible' as const };
   assert.deepEqual(preflight(ready, config, 3, 3, 'lawcheck check --review'), []);
   assert.deepEqual(preflight(null, DEFAULT_CONFIG, 1, 2, 'lawcheck check --review').map((e) => e.code), ['reviewer-not-configured', 'too-many-reviews']);
-  const notReady = { keys: [], ready: () => 'no address', ask: async () => ({ answer: '' }) };
+  const notReady = { ready: () => 'no address', fix: () => 'set LAWCHECK_REVIEWER_ENDPOINT', ask: async () => ({ answer: '' }) };
   const errors = preflight(notReady, config, 5, 1, 'lawcheck check --review --base main');
   assert.deepEqual(errors.map((e) => [e.code, e.file, e.line]), [['reviewer-unreachable', null, null]]);
-  assert.match(errors[0]!.message, /no address/);
+  assert.equal(errors[0]!.message, 'openai-compatible cannot be called: no address');
+  assert.equal(errors[0]!.next, 'set LAWCHECK_REVIEWER_ENDPOINT, then run lawcheck check --review --base main');
   const many = preflight(ready, config, 2, 3, 'x')[0]!;
   assert.match(many.message, /\b3\b.*\b2\b/);
   assert.match(many.next!, /the user's decision/);
@@ -84,8 +85,29 @@ test('resends: after 2 seconds for a 429, at once for no answer, never otherwise
   assert.equal(dropped.sent, 2);
   assert.equal(dropped.failed[0]!.code, 'reviewer-unreachable');
   assert.equal(dropped.failed[0]!.message, 'r: gone');
-  const final = await call(asks(1), provider(() => ({ failure: 'HTTP 500', resend: false })), writer() as never, { cap: 10, parallel: 1 });
+  const final = await call(asks(1), provider(() => ({ failure: 'HTTP 500', resend: false, fix: 'wait' })), writer() as never, { cap: 10, parallel: 1 });
   assert.equal(final.sent, 1);
+  assert.equal(final.failed[0]!.fix, 'wait');
+});
+
+test('a resend fits in the timeout of the first request, and gets only the time left', async () => {
+  const seen: (number | undefined)[] = [];
+  const slow = (resend: 'after-2s' | 'at-once', ms: number) => ({
+    ready: () => null,
+    fix: () => '',
+    ask: async (_prompt: string, seconds?: number) => {
+      seen.push(seconds);
+      await new Promise((done) => setTimeout(done, ms));
+      return { failure: 'no', resend, fix: 'f' };
+    },
+  });
+  const late = await call(asks(1), slow('after-2s', 300) as never, writer() as never, { cap: 10, parallel: 1, timeoutSeconds: 1, resendDelayMs: 800 });
+  assert.equal(late.sent, 1);
+  seen.length = 0;
+  const reset = await call(asks(1), slow('at-once', 300) as never, writer() as never, { cap: 10, parallel: 1, timeoutSeconds: 1 });
+  assert.equal(reset.sent, 2);
+  assert.equal(seen[0], undefined);
+  assert.ok(seen[1]! > 0.5 && seen[1]! <= 0.71, String(seen[1]));
 });
 
 test('the cap counts every request and keeps room for the reviews not yet started', async () => {

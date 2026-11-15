@@ -48,6 +48,8 @@ test('test 68: config-invalid', async () => {
     ['no model', 'reviewer:\n  provider: openai-compatible\n', 1, null],
     ['temperature under codex', 'reviewer:\n  provider: codex\n  temperature: 0\n', 3, null],
     ['no model with ollama', 'reviewer:\n  provider: ollama\n', 1, null],
+    ['a model with NUL under codex', 'reviewer:\n  provider: codex\n  model: "a\\u0000b"\n', 3, null],
+    ['a model of 257 characters under copilot-cli', `reviewer:\n  provider: copilot-cli\n  model: ${'m'.repeat(257)}\n`, 3, null],
   ];
   await Promise.all(
     cases.map(([name, text, line, names]) =>

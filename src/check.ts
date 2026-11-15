@@ -166,9 +166,12 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
     if (blocked.length > 0) return { errors: blocked };
     context.warn?.(`lawcheck: ${plural(asks.length, 'reviewer call')} to ${config.provider}`);
     const writer = new VerdictWriter(root);
-    const result = await call(asks, provider!, writer, { cap, parallel: config.parallel });
+    const result = await call(asks, provider!, writer, { cap, parallel: config.parallel, timeoutSeconds: config.timeout });
     if (result.failed.length > 0) {
-      return { errors: result.failed.map((f) => ({ code: f.code, file: f.ask.file, line: null, message: f.message })) };
+      const again = 'run the same command again; what was answered is kept, so it asks only the rest';
+      return {
+        errors: result.failed.map((f) => ({ code: f.code, file: f.ask.file, line: null, message: f.message, ...(f.fix === undefined ? {} : { next: `${f.fix}, then ${again}` }) })),
+      };
     }
     for (const answered of result.answered) reviewerRaw(answered.ask.file, answered.ask.rule, answered.findings);
     callsMade = result.sent;

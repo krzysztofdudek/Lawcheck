@@ -1,14 +1,19 @@
 import type { ChildProcessWithoutNullStreams } from 'node:child_process';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { killGroup, releaseFolder, releaseGroup, watchFolder, watchGroup } from '../rules.js';
 import { findProgram, startProgram } from '../programs.js';
+import { MAX_REPLY_BYTES } from './http.js';
 import type { Asked, Env, Provider } from './index.js';
 
 const KILL_AFTER_MS = 5000;
 const CLOSE_GRACE_MS = 2000;
 const FAILURE_LENGTH = 300;
+const STDERR_KEPT = 64 * 1024;
+
+export const HIDDEN_VARIABLES = ['LAWCHECK_REVIEWER_ENDPOINT', 'LAWCHECK_REVIEWER_KEY', 'ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'GOOGLE_API_KEY'];
 
 export interface Ended {
   code: number | null;
@@ -17,12 +22,15 @@ export interface Ended {
   stderr: string;
 }
 
+export type Prepared = { args: string[] } | { failure: string; resend: false; fix: string };
+
 export interface Program {
   name: string;
-  args: (aside: string | null) => string[];
+  args: (aside: string | null, extra: string[]) => string[];
   read: (ended: Ended) => Asked;
   aside?: Record<string, string>;
   find?: (env: Env) => string | null;
+  prepare?: (list: (args: string[]) => Promise<Asked>) => Promise<Prepared>;
 }
 
 export function lastLine(text: string): string | null {
@@ -36,106 +44,207 @@ export function failure(name: string, ended: Ended, first: string | null = null)
     lastLine(ended.stderr) ??
     lastLine(ended.stdout) ??
     (ended.signal === null ? `${name} exited with ${ended.code}` : `${name} was ended by ${ended.signal}`);
-  return { failure: reason.slice(0, FAILURE_LENGTH), resend: false };
+  return { failure: reason.slice(0, FAILURE_LENGTH), resend: false, fix: `do what ${name} says, such as signing in or naming a model it has` };
 }
 
 export function plainOutput(name: string): (ended: Ended) => Asked {
   return (ended) => (ended.code === 0 ? { answer: ended.stdout } : failure(name, ended));
 }
 
+export function programEnv(env: Env, platform: NodeJS.Platform = process.platform): Env {
+  const hidden = (key: string) => HIDDEN_VARIABLES.includes(platform === 'win32' ? key.toUpperCase() : key);
+  return Object.fromEntries(Object.entries(env).filter(([key]) => !hidden(key)));
+}
+
 export function programProvider(program: Program, env: Env, timeoutSeconds: number): Provider {
   const find = program.find ?? ((e: Env) => findProgram(program.name, e));
   const missing = `the program ${program.name} is not on PATH`;
+  const fix = `install ${program.name}, or put the folder that holds it on PATH`;
+  const own = programEnv(env);
   let binary: string | null = null;
+  let prepared: Promise<Prepared> | null = null;
   return {
     ready() {
       binary = find(env);
       return binary === null ? missing : null;
     },
-    ask(prompt) {
+    fix: () => fix,
+    async ask(prompt, seconds) {
       const found = binary ?? find(env);
-      if (found === null) return Promise.resolve({ failure: missing, resend: false });
-      return run(program, found, prompt, env, timeoutSeconds * 1000);
+      if (found === null) return { failure: missing, resend: false, fix };
+      const limitMs = Math.min(timeoutSeconds, seconds ?? timeoutSeconds) * 1000;
+      let extra: string[] = [];
+      if (program.prepare !== undefined) {
+        const listFix = `run ${program.name} mcp list --json and fix what it says`;
+        const read = (ended: Ended): Asked => (ended.code === 0 ? { answer: ended.stdout } : { ...failure(program.name, ended), fix: listFix });
+        const list = (args: string[]) => run({ ...program, args: () => args, read }, found, [], '', own, limitMs, timeoutSeconds);
+        prepared ??= program.prepare(list);
+        const done = await prepared;
+        if ('failure' in done) return done;
+        extra = done.args;
+      }
+      return run(program, found, extra, prompt, own, limitMs, timeoutSeconds);
     },
   };
 }
 
-function run(program: Program, binary: string, prompt: string, env: Env, timeoutMs: number): Promise<Asked> {
+export const CALL_VARIABLE = 'LAWCHECK_REVIEW_CALL';
+
+// A process that left the program's group is found by the variable it inherited; only Linux lets one read another process's environment.
+function marked(call: string): number[] {
+  if (!existsSync('/proc/self/environ')) return [];
+  const mark = `${CALL_VARIABLE}=${call}\0`;
+  const found: number[] = [];
+  for (const entry of readdirSync('/proc')) {
+    const pid = Number(entry);
+    if (!Number.isInteger(pid) || pid === process.pid) continue;
+    try {
+      if (readFileSync(`/proc/${pid}/environ`, 'latin1').includes(mark)) found.push(pid);
+    } catch {
+      continue;
+    }
+  }
+  return found;
+}
+
+function folderFailure(name: string, error: unknown): Asked {
+  return {
+    failure: `a folder for ${name} cannot be made in ${tmpdir()} (${(error as NodeJS.ErrnoException).code ?? 'an error'})`,
+    resend: false,
+    fix: 'set TMPDIR (TEMP on Windows) to a folder that exists and can be written',
+  };
+}
+
+function run(program: Program, binary: string, extra: string[], prompt: string, env: Env, limitMs: number, timeoutSeconds: number): Promise<Asked> {
   return new Promise((resolve) => {
-    const dir = mkdtempSync(join(tmpdir(), `lawcheck-${program.name}-`));
+    let settled = false;
+    const settle = (asked: Asked) => {
+      if (settled) return;
+      settled = true;
+      resolve(asked);
+    };
+    let dir: string;
+    try {
+      dir = mkdtempSync(join(tmpdir(), `lawcheck-${program.name}-`));
+    } catch (error) {
+      return settle(folderFailure(program.name, error));
+    }
     watchFolder(dir);
     let aside: string | null = null;
     if (program.aside !== undefined) {
-      aside = mkdtempSync(join(tmpdir(), `lawcheck-${program.name}-aside-`));
-      watchFolder(aside);
-      for (const [name, text] of Object.entries(program.aside)) writeFileSync(join(aside, name), text);
+      try {
+        aside = mkdtempSync(join(tmpdir(), `lawcheck-${program.name}-aside-`));
+        watchFolder(aside);
+        for (const [name, text] of Object.entries(program.aside)) writeFileSync(join(aside, name), text);
+      } catch (error) {
+        releaseFolder(dir);
+        if (aside !== null) releaseFolder(aside);
+        return settle(folderFailure(program.name, error));
+      }
     }
-    let stdout = '';
+    const out: Buffer[] = [];
+    let outBytes = 0;
+    let tooLarge = false;
     let stderr = '';
-    let settled = false;
-    let timedOut = false;
-    let killed = false;
     let exited: { code: number | null; signal: string | null } | null = null;
     let closed = false;
+    let cleaned = false;
     let spawnError: string | null = null;
-    let timer: NodeJS.Timeout | undefined;
     let killTimer: NodeJS.Timeout | undefined;
     let graceTimer: NodeJS.Timeout | undefined;
 
-    const child = startProgram(binary, program.args(aside), { cwd: dir, env, detached: true, stdio: ['pipe', 'pipe', 'pipe'] }) as ChildProcessWithoutNullStreams;
+    const call = randomUUID();
+    const child = startProgram(binary, program.args(aside, extra), { cwd: dir, env: { ...env, [CALL_VARIABLE]: call }, detached: true, stdio: ['pipe', 'pipe', 'pipe'] }) as ChildProcessWithoutNullStreams;
     const pid = child.pid;
     if (pid !== undefined) watchGroup(pid);
 
-    const finish = () => {
-      if (settled) return;
-      settled = true;
+    const cleanup = () => {
+      if (cleaned) return;
+      cleaned = true;
       clearTimeout(timer);
       clearTimeout(killTimer);
       clearTimeout(graceTimer);
+      if (!closed) {
+        for (const holder of marked(call)) {
+          try {
+            process.kill(holder, 'SIGKILL');
+          } catch {
+            continue;
+          }
+        }
+      }
       if (pid !== undefined) releaseGroup(pid);
       child.stdout.destroy();
       child.stderr.destroy();
-      releaseFolder(dir);
-      if (aside !== null) releaseFolder(aside);
-      if (spawnError !== null) resolve({ failure: `${program.name} cannot be started: ${spawnError}`, resend: false });
-      else if (timedOut) resolve({ failure: `${program.name} gave no answer within ${timeoutMs / 1000} seconds`, resend: false });
-      else resolve(program.read({ code: exited?.code ?? null, signal: exited?.signal ?? null, stdout, stderr }));
+      for (const folder of aside === null ? [dir] : [dir, aside]) {
+        try {
+          releaseFolder(folder);
+        } catch {
+          // Windows keeps the working folder of a process that still runs; the guard removes it when the tool ends.
+        }
+      }
     };
-    const maybeFinish = () => {
-      if (settled || exited === null) return;
-      if (timedOut && !killed) return;
-      if (closed) return finish();
-      if (graceTimer === undefined) graceTimer = setTimeout(finish, CLOSE_GRACE_MS);
+    const outcome = (): Asked => {
+      if (spawnError !== null) return { failure: `${program.name} cannot be started: ${spawnError}`, resend: false, fix: `install ${program.name}, or put the folder that holds it on PATH` };
+      if (tooLarge) {
+        return {
+          failure: `${program.name} wrote more than ${MAX_REPLY_BYTES / 1024 / 1024} MiB on standard output, so its answer is not read`,
+          resend: false,
+          fix: `check that the program ${binary} is ${program.name}`,
+        };
+      }
+      return program.read({ code: exited?.code ?? null, signal: exited?.signal ?? null, stdout: Buffer.concat(out).toString('utf8'), stderr });
+    };
+    const finish = () => {
+      cleanup();
+      settle(outcome());
     };
 
-    child.stdout.setEncoding('utf8').on('data', (chunk: string) => (stdout += chunk));
-    child.stderr.setEncoding('utf8').on('data', (chunk: string) => (stderr += chunk));
+    const timer = setTimeout(() => {
+      if (exited !== null) return finish();
+      settle({
+        failure: `${program.name} gave no answer within ${timeoutSeconds} seconds`,
+        resend: false,
+        fix: `raise reviewer.timeout in .lawcheck/config.yaml, or check that ${program.name} answers when started by hand`,
+      });
+      if (pid !== undefined) killGroup(pid, 'SIGTERM');
+      killTimer = setTimeout(() => {
+        if (pid !== undefined) killGroup(pid, 'SIGKILL');
+        cleanup();
+      }, KILL_AFTER_MS);
+      killTimer.unref();
+    }, limitMs);
+
+    child.stdout.on('data', (chunk: Buffer) => {
+      if (tooLarge) return;
+      outBytes += chunk.byteLength;
+      if (outBytes > MAX_REPLY_BYTES) {
+        tooLarge = true;
+        out.length = 0;
+        if (pid !== undefined) killGroup(pid, 'SIGKILL');
+        return;
+      }
+      out.push(chunk);
+    });
+    child.stderr.setEncoding('utf8').on('data', (chunk: string) => (stderr = (stderr + chunk).slice(-STDERR_KEPT)));
     child.stdin.on('error', () => undefined);
     child.on('error', (error) => {
       spawnError = error.message;
       exited ??= { code: null, signal: null };
       closed = true;
-      maybeFinish();
+      finish();
     });
     child.on('exit', (code, signal) => {
       exited = { code, signal };
-      if (pid !== undefined && !timedOut) killGroup(pid, 'SIGKILL');
-      maybeFinish();
+      if (settled) return cleanup();
+      if (pid !== undefined) killGroup(pid, 'SIGKILL');
+      if (closed) return finish();
+      graceTimer ??= setTimeout(finish, CLOSE_GRACE_MS);
     });
     child.on('close', () => {
       closed = true;
-      maybeFinish();
+      if (exited !== null && !settled) finish();
     });
-
-    timer = setTimeout(() => {
-      timedOut = true;
-      if (pid !== undefined) killGroup(pid, 'SIGTERM');
-      killTimer = setTimeout(() => {
-        killed = true;
-        if (pid !== undefined) killGroup(pid, 'SIGKILL');
-        maybeFinish();
-      }, KILL_AFTER_MS);
-    }, timeoutMs);
 
     child.stdin.end(prompt);
   });

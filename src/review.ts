@@ -36,6 +36,7 @@ export interface Failed {
   ask: Ask;
   code: 'reviewer-unreachable' | 'reviewer-bad-answer';
   message: string;
+  fix?: string;
 }
 
 export interface Calls {
@@ -47,6 +48,7 @@ export interface Calls {
 export interface CallOptions {
   cap: number;
   parallel: number;
+  timeoutSeconds?: number;
   resendDelayMs?: number;
 }
 
@@ -78,7 +80,7 @@ export function preflight(provider: Provider | null, config: ReviewerConfig, cap
         file: null,
         line: null,
         message: `${config.provider} cannot be called: ${problem}`,
-        next: `make ${config.provider} reachable as the error says, then run ${review}`,
+        next: `${provider.fix()}, then run ${review}`,
       });
     }
   }
@@ -100,13 +102,18 @@ export async function call<A extends Ask>(asks: A[], provider: Provider, writer:
   const mayResend = () => sent + (stopped ? 0 : asks.length - started) < options.cap;
 
   const request = async (prompt: string) => {
+    const deadline = Date.now() + (options.timeoutSeconds ?? Infinity) * 1000;
     sent++;
     let asked = await provider.ask(prompt);
     if ('failure' in asked && asked.resend !== false && mayResend()) {
-      if (asked.resend === 'after-2s') await sleep(delay);
-      if (mayResend()) {
-        sent++;
-        asked = await provider.ask(prompt);
+      const wait = asked.resend === 'after-2s' ? delay : 0;
+      if (deadline - Date.now() - wait > 0) {
+        if (wait > 0) await sleep(wait);
+        const left = (deadline - Date.now()) / 1000;
+        if (left > 0 && mayResend()) {
+          sent++;
+          asked = await provider.ask(prompt, left);
+        }
       }
     }
     return asked;
@@ -118,7 +125,7 @@ export async function call<A extends Ask>(asks: A[], provider: Provider, writer:
       const asked = await request(ask.prompt);
       if ('failure' in asked) {
         stopped = true;
-        failed.push({ ask, code: 'reviewer-unreachable', message: `${ask.rule}: ${hide(asked.failure)}` });
+        failed.push({ ask, code: 'reviewer-unreachable', message: `${ask.rule}: ${asked.failure}`, fix: asked.fix });
         return;
       }
       const checked = checkAnswer(asked.answer, ask.lineCount);
