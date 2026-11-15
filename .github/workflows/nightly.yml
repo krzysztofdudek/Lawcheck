@@ -126,7 +126,12 @@ jobs:
       - run: npm run build
       - name: About 6 GB free in the container's /tmp
         run: |
+          set -o pipefail
           free=$(docker run --rm node:24 df -k --output=avail /tmp | tail -1 | tr -d ' ')
+          if [ -z "$free" ] || ! [ "$free" -eq "$free" ] 2>/dev/null; then
+            echo "::error::could not read the free space of the container's /tmp"
+            exit 1
+          fi
           echo "the container's /tmp has $((free / 1024 / 1024)) GB free"
           if [ "$free" -lt 6000000 ]; then
             echo "::error::the container's /tmp has $free kB free; the limits need about 6 GB"
