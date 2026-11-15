@@ -33,7 +33,7 @@ function cloneOfHead(dir: string): string {
   } catch {
     throw new Error('could not run: git cannot see the repository');
   }
-  const repo = join(dir, 'lawcheck');
+  const repo = join(dir, 'clone');
   git(dir, 'clone', '-q', '--no-hardlinks', ROOT, repo);
   return repo;
 }

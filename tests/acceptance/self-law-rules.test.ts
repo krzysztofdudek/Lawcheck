@@ -268,5 +268,8 @@ test('question 160, own-paths-in-one-place: import.meta outside src/adapters/pac
     ],
     'src/adapters/package.ts': [["export const manifest = () => new URL('../../package.json', import.meta.url);"]],
     'src/cli.ts': [['export const started = () => import.meta.url;']],
-  }, {}, (law) => law.replace('!src/{args,check,cli,', '!src/{args,check,'));
+  }, {}, (law) => {
+    assert.ok(law.includes(',check,cli,'), 'src/cli.ts is in the list of untyped files');
+    return law.replace(',check,cli,', ',check,');
+  });
 });
