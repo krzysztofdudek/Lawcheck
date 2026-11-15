@@ -1,4 +1,5 @@
 import { test } from 'node:test';
+import { platformSkip } from '../harness/tool.ts';
 import assert from 'node:assert/strict';
 import { chmodSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -29,7 +30,7 @@ function argvProgram(dir: string): string {
 test('a program is found on PATH, and on Windows by the endings of PATHEXT', async () => {
   await inDir((dir) => {
     executable(join(dir, 'tool'), '#!/bin/sh\n');
-    if (process.platform !== 'win32') {
+    if (platformSkip('the lookup with the rules of Linux') === null) {
       assert.equal(findProgram('tool', { PATH: ['/nonexistent', '', dir].join(':') }, 'linux'), join(dir, 'tool'));
       assert.equal(findProgram('none', { PATH: dir }, 'linux'), null);
     }

@@ -20,6 +20,7 @@ export const PLATFORM_SKIPS: PlatformSkip[] = [
   { test: 'section 5: the call ends 2 seconds after Lawcheck exits while a child holds its output', part: 'the child left behind is ended', platform: 'win32', reason: 'Windows has no process groups: a child left by a program that has ended cannot be reached through it' },
   { test: 'test 67', part: 'exit 2 after SIGTERM and SIGINT', platform: 'win32', reason: 'every signal ends a process on Windows at once, so the tool cannot answer it with its own exit code' },
   { test: 'section 3: a rule that spins ends with the tool, whatever ends the tool', part: 'exit 2 after SIGTERM', platform: 'win32', reason: 'every signal ends a process on Windows at once, so the tool cannot answer it with its own exit code' },
+  { test: 'a program is found on PATH, and on Windows by the endings of PATHEXT', part: 'the lookup with the rules of Linux', platform: 'win32', reason: 'a folder on Windows holds a drive colon, which a PATH split with the rules of Linux cuts in two' },
   { test: 'claude is looked up on PATH', part: 'a claude that is not executable', platform: 'win32', reason: 'Windows has no executable bit; a .cmd file is always a program' },
 ];
 
