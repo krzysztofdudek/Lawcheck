@@ -37,7 +37,7 @@ function endAll(): void {
       // The runner has already ended.
     }
   }
-  for (const pid of groups) killTree(pid, 'SIGKILL');
+  for (const pid of groups) killTree(pid, 'SIGKILL', true);
   for (const folder of folders) rmSync(folder, { recursive: true, force: true, maxRetries: 10 });
   process.exit(0);
 }

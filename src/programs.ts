@@ -57,9 +57,44 @@ export function startProgram(program: string, args: string[], options: SpawnOpti
   return spawn(shell, ['/d', '/s', '/c', cmdLine(program, args)], { ...windows, windowsVerbatimArguments: true });
 }
 
-export function killTree(pid: number, signal: NodeJS.Signals): boolean {
+function descendants(root: number): number[] {
+  const listed = spawnSync(
+    systemProgram('WindowsPowerShell\\v1.0\\powershell.exe'),
+    ['-NoProfile', '-NonInteractive', '-Command', 'Get-CimInstance Win32_Process | ForEach-Object { "$($_.ProcessId) $($_.ParentProcessId)" }'],
+    { encoding: 'utf8', windowsHide: true },
+  );
+  const children = new Map<number, number[]>();
+  for (const line of (listed.stdout ?? '').split(/\r?\n/)) {
+    const [child, parent] = line.trim().split(' ').map(Number);
+    if (!Number.isInteger(child) || !Number.isInteger(parent) || child === parent) continue;
+    children.set(parent!, [...(children.get(parent!) ?? []), child!]);
+  }
+  const found: number[] = [];
+  const queue = [root];
+  while (queue.length > 0) {
+    for (const child of children.get(queue.shift()!) ?? []) {
+      if (found.includes(child)) continue;
+      found.push(child);
+      queue.push(child);
+    }
+  }
+  return found;
+}
+
+// orphans: on Windows the root of a tree can end before its children, and taskkill /T cannot find a tree whose root is gone, so the children are found by their parent's pid.
+export function killTree(pid: number, signal: NodeJS.Signals, orphans = false): boolean {
   if (process.platform === 'win32') {
-    return spawnSync(systemProgram('taskkill.exe'), ['/pid', String(pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true }).status === 0;
+    const ended = spawnSync(systemProgram('taskkill.exe'), ['/pid', String(pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true }).status === 0;
+    if (ended || !orphans) return ended;
+    const left = descendants(pid);
+    for (const child of left) {
+      try {
+        process.kill(child, 'SIGKILL');
+      } catch {
+        // The process has already ended.
+      }
+    }
+    return left.length > 0;
   }
   try {
     process.kill(-pid, signal);

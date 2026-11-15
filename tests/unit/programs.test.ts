@@ -75,3 +75,28 @@ test('killTree ends a program and the programs it started', async () => {
     assert.equal(alive, false);
   });
 });
+
+test('killTree with orphans ends the programs left by a program that has already ended', async () => {
+  await inDir(async (dir) => {
+    const script = join(dir, 'leave.mjs');
+    writeFileSync(script, "import { spawn } from 'node:child_process';\nconst c = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore' });\nc.unref();\nprocess.stdout.write(String(c.pid) + '\\n');\n");
+    const parent = startProgram(process.execPath, [script], { cwd: dir, detached: true, stdio: ['ignore', 'pipe', 'ignore'] });
+    let out = '';
+    parent.stdout!.setEncoding('utf8').on('data', (chunk: string) => (out += chunk));
+    await new Promise((done) => parent.on('close', done));
+    const orphan = Number(out.trim());
+    process.kill(orphan, 0);
+    killTree(parent.pid!, 'SIGKILL', true);
+    let alive = true;
+    for (let i = 0; i < 50 && alive; i++) {
+      try {
+        process.kill(orphan, 0);
+        await new Promise((done) => setTimeout(done, 100));
+      } catch {
+        alive = false;
+      }
+    }
+    if (alive) process.kill(orphan, 'SIGKILL');
+    assert.equal(alive, false);
+  });
+});
