@@ -37,7 +37,7 @@ export function bare(line) {
   return out;
 }
 
-const FROM = /(?:^\uFEFF?|[\n;])[ \t]*(import|export)(?=[\s{*'"])\s*(type(?=[\s{*])\s*)?(?:[^'";]*?(?<=[\s}*])from\s*)?['"]([^'"\n]+)['"]/g;
+const FROM = /(?:^|[\n;])[ \t]*(import|export)(?=[\s{*'"])\s*(type(?=[\s{*])\s*)?(?:[^'";]*?(?<=[\s}*])from\s*)?['"]([^'"\n]+)['"]/g;
 const CALLED = /\b(?:import|require)\s*\(\s*(['"`])([^'"`$\n]+)\1\s*\)/g;
 
 export function importsOf(text) {
