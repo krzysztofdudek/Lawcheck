@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { defaultAnswer, openai, withFake } from '../acceptance/fake-reviewer.ts';
 import { D, D_PATH, F, F_PATH, F_PRIME, REVIEWER_LAW, withR, withSample, write } from '../acceptance/helpers.ts';
@@ -122,5 +122,24 @@ test('S3-6: test 243: a second run right after any run prints the same', async (
       assert.deepEqual({ stdout: second.stdout, stderr: second.stderr, code: second.code }, { stdout: first.stdout, stderr: first.stderr, code: first.code }, args.join(' '));
       assert.notEqual(first.code, null, args.join(' '));
     }
+  });
+});
+
+test('test 261: a lock left by a run that ended, whose pid now names a live process, is taken over before the first call', async () => {
+  await withFake(async (fake) => {
+    await withR(async (r) => {
+      write(r, F_PATH, F_PRIME);
+      const lock = join(r, '.lawcheck/.local/verdicts.lock');
+      mkdirSync(lock, { recursive: true });
+      writeFileSync(join(r, '.lawcheck/.local/.gitignore'), '*\n');
+      writeFileSync(join(lock, 'pid'), String(process.pid));
+      const old = new Date(Date.now() - 60_000);
+      utimesSync(lock, old, old);
+      const result = await run(r, REVIEW, { env: { LAWCHECK_REVIEWER_ENDPOINT: fake.url }, budgetMs: 30_000 });
+      assert.equal(result.stdout, 'lawcheck: PASS  1 changed file (against main), 1 waiver, 1 reviewer call\n');
+      assert.equal(result.code, 0);
+      assert.ok(result.ms < 5_000, String(result.ms));
+      assert.equal(existsSync(lock), false);
+    });
   });
 });

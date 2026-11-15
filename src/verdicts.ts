@@ -115,18 +115,20 @@ function ended(pid: number): boolean {
 const LOCK_WAIT_MS = 10_000;
 const pause = new Int32Array(new SharedArrayBuffer(4));
 
+// A run holds the lock for one write, so a lock older than the wait is stale even when its pid now names another live process.
 function staleLock(lock: string): boolean {
+  try {
+    if (Date.now() - statSync(lock).mtimeMs > LOCK_WAIT_MS) return true;
+  } catch {
+    return false;
+  }
   try {
     const owner = Number(readFileSync(join(lock, 'pid'), 'utf8'));
     if (Number.isInteger(owner) && owner > 0) return ended(owner);
   } catch {
     // The owner has made the folder and not yet written its pid, or has just removed it.
   }
-  try {
-    return Date.now() - statSync(lock).mtimeMs > LOCK_WAIT_MS;
-  } catch {
-    return false;
-  }
+  return false;
 }
 
 // Two runs at once each read the verdicts file, add their lines and replace it, so the replacing is done under a lock that a killed run leaves stale.
@@ -212,6 +214,7 @@ export class VerdictWriter {
       rmSync(probe);
     });
     writing(`${LOCAL}/failures`, () => mkdirSync(join(local, 'failures'), { recursive: true }));
+    locked(local, () => undefined);
     notDirectory(this.root, VERDICTS);
     notDirectory(this.root, ATTRIBUTES);
   }
