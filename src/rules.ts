@@ -218,6 +218,7 @@ function valueName(value: unknown): string {
 export function validate(rule: string, value: unknown, file: RuleFile): { findings: RawFinding[] } | { problem: string } {
   if (!Array.isArray(value)) return { problem: 'no list' };
   const findings: RawFinding[] = [];
+  const lineCount = file.lines.length;
   for (const item of value as unknown[]) {
     if (typeof item !== 'object' || item === null || Array.isArray(item)) return { problem: 'a finding that is no object' };
     const { message, file: path, line } = item as { message?: unknown; file?: unknown; line?: unknown };
@@ -225,8 +226,8 @@ export function validate(rule: string, value: unknown, file: RuleFile): { findin
     if (path !== undefined && path !== file.path) return { problem: `a finding about '${String(path)}'` };
     if (line !== undefined) {
       if (!Number.isInteger(line)) return { problem: `a finding whose line is ${valueName(line)}, not an integer` };
-      if (file.lines.length === 0) return { problem: `a finding at line ${line as number}, though the file has no lines,` };
-      if ((line as number) < 1 || (line as number) > file.lines.length) return { problem: `a finding at line ${line as number}, outside lines 1 to ${file.lines.length}` };
+      if (lineCount === 0) return { problem: `a finding at line ${line as number}, though the file has no lines,` };
+      if ((line as number) < 1 || (line as number) > lineCount) return { problem: `a finding at line ${line as number}, outside lines 1 to ${lineCount}` };
     }
     const finding: RawFinding = { rule, file: file.path, message: normalizeMessage(message) };
     if (line !== undefined) finding.line = line as number;

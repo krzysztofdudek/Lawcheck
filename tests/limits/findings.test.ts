@@ -104,3 +104,18 @@ test('S2-1: test 238: try counts the findings of its rule the same way', async (
     assert.equal(result.code, 2);
   });
 });
+
+test('test 256: 60,000 findings with a line cost time in proportion to their count', async () => {
+  const lined = COUNTED.replace('out.push({ message });', 'out.push({ message, line: 1 + (i % 100) });');
+  await withSample(
+    async (s) => {
+      write(s, 'src/core/many.ts', `// 60000 1\n${'export const a = 1;\n'.repeat(100_000)}`);
+      const result = await run(s, ['check', '--base', 'main', '--json'], { budgetMs: 30_000 });
+      const document = JSON.parse(result.stdout);
+      assert.equal(document.findings.length, 60_000);
+      assert.equal(document.findings[0].line, 1);
+      assert.equal(result.code, 1);
+    },
+    { onMain: (s) => setRule(s, 'no-console', lined) },
+  );
+});
