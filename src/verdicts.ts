@@ -77,7 +77,7 @@ export class Unwritable extends Error {
   }
 }
 
-const FULL_NEXT = `remove the lines of ${VERDICTS} that no review of this law needs, then run lawcheck check again`;
+const FULL_NEXT = `delete ${VERDICTS}, then run lawcheck check --review --full: it asks the reviewer again for every file of this law, and the file then holds only those passes`;
 
 function tooFull(): Unwritable {
   return new Unwritable(VERDICTS, `with the passes of this run it would hold more than ${mib(FILE_TEXT_BYTES)}, the most a run reads of it`, FULL_NEXT);

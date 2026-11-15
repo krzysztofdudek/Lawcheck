@@ -328,7 +328,7 @@ export async function stopped<T>(body: () => Promise<T> | T): Promise<T | { erro
     if (error instanceof Stop) return { errors: error.errors };
     if (error instanceof Unwritable) return { errors: [{ code: 'file-unwritable', file: error.path, line: null, message: `cannot be written (${error.cause})`, ...(error.next === null ? {} : { next: error.next }) }] };
     if (error instanceof VerdictsUnreadable) {
-      const next = error.cause.startsWith('it holds more') ? `remove the lines of ${VERDICTS} that no review of this law needs, then run lawcheck check` : undefined;
+      const next = error.cause.startsWith('it holds more') ? `delete ${VERDICTS}, then run lawcheck check --review --full: it asks the reviewer again for every file of this law, and the file then holds only those passes` : undefined;
       return { errors: [{ code: 'file-unreadable', file: VERDICTS, line: null, message: `the file cannot be read (${error.cause})`, ...(next === undefined ? {} : { next }) }] };
     }
     if (error instanceof NoGit) return { errors: [{ code: 'no-git', file: null, line: null, message: error.message }] };

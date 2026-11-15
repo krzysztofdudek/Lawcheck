@@ -151,7 +151,7 @@ test('test 266: a verdicts file over 16 MiB is file-unreadable, not read whole',
     const result = await run(r, ['check', '--base', 'main']);
     assert.equal(
       result.stdout,
-      ['lawcheck: ERROR  1 error', '', '.lawcheck/verdicts  error[file-unreadable]  the file cannot be read (it holds more than 16 MiB)', '  why:  a file that cannot be read cannot be typed or judged', '', 'next: remove the lines of .lawcheck/verdicts that no review of this law needs, then run lawcheck check', ''].join('\n'),
+      ['lawcheck: ERROR  1 error', '', '.lawcheck/verdicts  error[file-unreadable]  the file cannot be read (it holds more than 16 MiB)', '  why:  a file that cannot be read cannot be typed or judged', '', 'next: delete .lawcheck/verdicts, then run lawcheck check --review --full: it asks the reviewer again for every file of this law, and the file then holds only those passes', ''].join('\n'),
     );
     assert.equal(result.code, 2);
   });
@@ -187,7 +187,7 @@ test('test 271: a review whose passes would push .lawcheck/verdicts past 16 MiB 
               '.lawcheck/verdicts  error[file-unwritable]  cannot be written (with the passes of this run it would hold more than 16 MiB, the most a run reads of it)',
               '  why:  what Lawcheck cannot write is lost, so the run cannot say it is done',
               '',
-              'next: remove the lines of .lawcheck/verdicts that no review of this law needs, then run lawcheck check again',
+              'next: delete .lawcheck/verdicts, then run lawcheck check --review --full: it asks the reviewer again for every file of this law, and the file then holds only those passes',
               '',
             ].join('\n'),
           );
