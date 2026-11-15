@@ -58,7 +58,7 @@ const COMMANDS = [['check', '--review', '--base', 'main'], ['check', '--review',
 
 for (const provider of ['openai-compatible', 'anthropic'] as const) {
   for (const [shape, replies] of Object.entries(SHAPES)) {
-    test(`S3-2: the key of ${provider} appears in no output, file, temporary file or request but its own header, for a reply that is ${shape}`, async () => {
+    test(`S3-2: the key of ${provider} appears in no output, file, temporary file or request but its own header, for a reply that is ${shape} (I-secret-1)`, async () => {
       let index = 0;
       await withFake(
         async (fake) => {
@@ -87,7 +87,7 @@ for (const provider of ['openai-compatible', 'anthropic'] as const) {
 }
 
 for (const mode of ['answer', 'raw', 'error', 'boom', 'expired']) {
-  test(`S3-2: a key in the environment of claude-code appears in no output, file or temporary file, with claude in mode ${mode}`, async () => {
+  test(`S3-2: a key in the environment of claude-code appears in no output, file or temporary file, with claude in mode ${mode} (I-secret-1)`, async () => {
     await withR(async (r, dir) => {
       const temp = join(dir, 'tmp');
       mkdirSync(temp);

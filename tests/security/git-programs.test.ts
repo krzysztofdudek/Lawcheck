@@ -49,7 +49,7 @@ function clear(markers: string): void {
 
 const COMMANDS = [['prime'], ['explain', 'src/core/price.ts'], ['explain', 'src'], ['doctor'], ['doctor', '--json'], ['docs', 'law'], ['docs']];
 
-test('S5-14: prime, explain, doctor and docs start no program that the repository names for git', async () => {
+test('S5-14: prime, explain, doctor and docs start no program that the repository names for git (I-git-1)', async () => {
   await inTemp(async (dir) => {
     const s = makeSample(dir);
     append(s, 'src/core/price.ts', '// edited\n');
@@ -64,7 +64,7 @@ test('S5-14: prime, explain, doctor and docs start no program that the repositor
   });
 });
 
-test('S5-14: init starts no program that the repository names for git', async () => {
+test('S5-14: init starts no program that the repository names for git (I-git-1)', async () => {
   await inTemp(async (dir) => {
     const repo = join(dir, 'fresh');
     mkdirSync(join(repo, 'src'), { recursive: true });
@@ -80,7 +80,7 @@ test('S5-14: init starts no program that the repository names for git', async ()
   });
 });
 
-test('S5-14: check and try start no program that the repository names for git, and still see the change', async () => {
+test('S5-14: check and try start no program that the repository names for git, and still see the change (I-git-1)', async () => {
   await inTemp(async (dir) => {
     const s = makeSample(dir);
     writeFileSync(join(s, 'src/core/discount.ts'), "export const d = 1;\nconsole.log('d');\n");

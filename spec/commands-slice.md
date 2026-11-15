@@ -124,7 +124,7 @@ With `.lawcheck/.gitignore` already there, the first line is `lawcheck: created 
 
 ## 4. `prime`
 
-`lawcheck prime [--json]` prints what a coding agent reads at the start of a session: how to work with Lawcheck, then this repository's law in short. It runs no rule, reads no use, calls no reviewer, reads no config and types no file; its git commands are slice one's first two, the work tree and the file list, the second for the kind of each rule; it reads each reviewer rule's file and the first bytes of each `context` file, as the rule-file row of section 2 does. It never ends with 1.
+`lawcheck prime [--json]` prints what a coding agent reads at the start of a session: how to work with Lawcheck, then this repository's law in short. It runs no rule, reads no use, calls no reviewer, reads no config and types no file; its git commands are slice one's first two, the work tree and the file list, the second for the kind of each rule; it reads each reviewer rule's file and the first bytes of each `context` file, as the rule-file row of section 2 does. Like every command, it lets git start no program that the repository names (slice one, invariant `I-git-1`). It never ends with 1.
 
 **Without a law** (no `.lawcheck/law.yaml` here or above), inside git or not, it prints these two lines and exits 0:
 

@@ -334,7 +334,7 @@ interface Provider {
 - With `--review`, per call: the prompt of section 4, made of the frame, the rule's `why` and text, the text of each context file the law names for the rule, the path and text of one judged file and its waived line numbers; with it the model name and the parameters above, and the key in its header. No other file, no git data and no other variable.
 - To where: `openai-compatible` and `anthropic` to the endpoint in force, never to the address of a redirect. `claude-code` hands the prompt to the `claude` program. That program adds its own system prompt, with details of the machine such as the working directory, the platform and the date, and it may load the user's own instruction files. It sends all of it wherever its own configuration points, and that configuration includes every variable of the tool's environment, such as `ANTHROPIC_BASE_URL`, proxy settings and the switches for other clouds.
 - Bounds: a judged file has a type and a reviewer rule binds it; a context file is named in the law and listed by git, so an ignored file is never sent; a prompt holds at most `reviewer.max_chars` characters; a run sends at most the cap of section 7.
-- What stays: `.lawcheck/verdicts` holds keys and rule ids. A line there proves that someone wrote it, not that a model gave the verdict: anyone can compute a key from section 5. The failure cache holds the reviewer's messages, on this machine. A reviewer's message is printed like a script rule's and can quote the judged file into a CI log.
+- What stays: the tool writes its key into no output, JSON document, verdicts file, failure cache or temporary file, and into no request but the key's own header (invariant `I-secret-1`). A key that an endpoint or a program sends back in its own text is printed as it came. `.lawcheck/verdicts` holds keys and rule ids. A line there proves that someone wrote it, not that a model gave the verdict: anyone can compute a key from section 5. The failure cache holds the reviewer's messages, on this machine. A reviewer's message is printed like a script rule's and can quote the judged file into a CI log.
 
 ## 7. The cap
 
@@ -1033,6 +1033,13 @@ Slice one's terms hold. R is S with the four files of section 2 in its first com
 | 79 | `npm test` | tests 1 to 45 pass, test 41 and test 44 as section 10 amends them, and tests 46 to 77 pass, offline |
 
 The unit tests carry the rest: one file per new source file, among them the key of every example of section 5, the reading of each answer form of section 4, and each `config-invalid` message.
+
+### Invariants
+
+| Id | Promise | Test |
+|---|---|---|
+| I-frame-1 | For any text of a judged or context file and any path, the prompt holds one `<file>` block, each block holds as many numbered lines as the file has `lines`, and no character a reader takes for a line end lets file text begin a line of the prompt without its number (section 4). | tests/security/frame.test.ts |
+| I-secret-1 | The key appears in no output, JSON document, verdicts file, failure cache, temporary file or request but its own header, for every provider and every reply that does not hold it (section 6). | tests/security/secrets.test.ts |
 
 ## 12. Repository layout additions
 

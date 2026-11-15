@@ -461,6 +461,17 @@ The unit tests carry two things no row above reaches. `tests/unit/cli.test.ts` h
 
 Besides these 45 tests, the tool was accepted against an external trial: a law of twelve script rules, run with `--full` on a real repository. The trial's fixture is kept outside this repository. The run ended with exit 0 and no error, and the twelve rules found 2, 22, 1, 2, 142, 1, 6, 6, 105, 41, 60 and 9 findings, as expected.
 
+### Invariants
+
+Promises that hold for every input, each tied by its id to a property or a test of the security suite.
+
+| Id | Promise | Test |
+|---|---|---|
+| I-out-1 | No text output of any command holds a character below U+0020 other than the line feed, U+007F, U+0080 to U+009F, U+2028, U+2029, U+202A to U+202E or U+2066 to U+2069; no line starts, after white space, with `::` or `##[`, and none holds `##vso[`; one finding or error is one line. No JSON document holds U+007F to U+009F or the others of that list raw (section 6). | tests/security/output.test.ts |
+| I-runner-1 | A script rule reads nothing outside the root and Lawcheck's folder, at every path of the root; where the runner cannot keep that, no rule runs (section 3). | tests/security/runner.test.ts |
+| I-git-1 | No command starts a program that the repository's git config or attributes name: a `core.fsmonitor` program, a hook, an external diff, a `textconv`, a `clean`, `smudge` or `process` filter (section 2). | tests/security/git-programs.test.ts |
+| I-secret-2 | An error about a law or a config read through a symbolic link quotes none of the file (section 2). | tests/security/linked.test.ts |
+
 ## 9. Repository layout
 
 TypeScript on Node 24, ES modules. One runtime dependency, `yaml`; for development `typescript` and `@types/node`. Test runner: Node's built-in `node --test`.

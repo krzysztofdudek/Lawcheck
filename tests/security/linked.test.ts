@@ -19,7 +19,7 @@ async function shows(s: string): Promise<string[]> {
 }
 
 for (const file of ['config.yaml', 'law.yaml']) {
-  test(`S5-15: a .lawcheck/${file} linked to a one-line secret shows none of it`, async () => {
+  test(`S5-15: a .lawcheck/${file} linked to a one-line secret shows none of it (I-secret-2)`, async () => {
     await withSample(async (s, dir) => {
       for (const secret of SECRETS) {
         writeFileSync(join(dir, 'secret.txt'), secret + '\n');
@@ -31,7 +31,7 @@ for (const file of ['config.yaml', 'law.yaml']) {
   });
 }
 
-test('S5-15: a .lawcheck folder linked to a folder whose law holds a secret shows none of it', async () => {
+test('S5-15: a .lawcheck folder linked to a folder whose law holds a secret shows none of it (I-secret-2)', async () => {
   await withSample(async (s, dir) => {
     renameSync(join(s, '.lawcheck'), join(dir, 'outside'));
     symlinkSync(join(dir, 'outside'), join(s, '.lawcheck'));
