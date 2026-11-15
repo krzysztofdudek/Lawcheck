@@ -108,7 +108,7 @@ A run reads the uses of each file of the run (the changed files, or every file w
 - a `.vue` or `.svelte` file is read through its script block; without a script block it uses nothing;
 - any other file has a reader when `relationLanguageForPath` gives it a language and `extractorForLanguage` has an extractor for it: TypeScript, TSX, JavaScript, Python, Go, Rust, Java, Kotlin, C#, C, C++, PHP and Ruby.
 
-A text file of the run with a list in force and no reader counts toward `uses-not-read` (section 5).
+A text file of the run with a list in force and no reader counts toward `uses-not-read` (section 5). A file of the run past the limit of a file whose uses are read (`spec/check-slice.md`, section 10) is not read either: it is a `uses-not-read` of its own, at the file, an error in the change and debt outside it, and the run goes on. A file read only for what it declares that is past the limit is left out of the reading, so a use of it may show as unresolved.
 
 **Declarations.** Java, Kotlin, C#, Ruby and Rust bind a name through what other files declare. When the run reads the uses of a file of one of the groups {Java, Kotlin}, {C#}, {Ruby}, {Rust}, it also reads the declarations of every non-binary file of slice one's section 2 in that group, with a type or without. The other languages resolve by path and read no declarations. Files are parsed once per run, in path order, for their declarations, their uses or both.
 

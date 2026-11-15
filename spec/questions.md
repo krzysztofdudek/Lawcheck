@@ -572,3 +572,9 @@ Choice: a closed standard output is the same as `> /dev/null`, stated as a limit
 
 Choice: the window is stated as a limit in section 10 of `spec/check-slice.md`, and test 257 checks that the main thread loads nothing more than the answer needs.
 
+## 133. A file whose uses cannot be read within the limits
+
+Section 10 of `check-slice.md` bounds a file whose uses are read at 512 KiB, and before this entry a file past it stopped the whole run with `file-too-large`. A file read only for what it declares (Java, Kotlin, C#, Ruby, Rust), under no type, stopped it too, with a `next:` line nobody could follow.
+
+The coordinator's decision of the build, which goes on the owner's list: a file whose uses cannot be read within the limits does not stop the run. Its uses are reported as not read, `uses-not-read` at the file, with the reason: an error when the file is in the change, debt under `--full`. The run goes on and every other finding is shown. A file read only for what it declares is left out of the reading, so a use of it may show as unresolved. Where the process itself cannot go on, past the memory of a run, the run ends with `memory-too-large` at the file, never with `internal` or a silent kill. Tests 263, 273, 274 and 275 hold it.
+

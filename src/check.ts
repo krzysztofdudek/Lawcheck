@@ -26,7 +26,7 @@ import type { TypedFile } from './types.js';
 import type { Runtime } from './environment.js';
 import { readFailure, readVerdicts, reviewKey, Unwritable, VerdictWriter } from './verdicts.js';
 import { parseWaivers, waive } from './waivers.js';
-import { count, points, readError, RUN_FINDINGS, RUN_MESSAGE_CHARS } from './limits.js';
+import { count, mib, points, readError, RUN_FINDINGS, RUN_MESSAGE_CHARS, USES_FILE_BYTES } from './limits.js';
 import { step } from './progress.js';
 import type { Waiver, WaiverProblem } from './waivers.js';
 
@@ -130,6 +130,7 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
   for (const item of uses.forbidden) tally(item.file, item.message);
   for (const item of uses.unresolved) tally(item.file, item.what);
   for (const item of uses.notRead) tally(LAW, item.message);
+  for (const item of uses.tooLarge) tally(item.file, item.message);
   for (const path of [...byFile.keys()].sort(comparePaths)) {
     const own = byFile.get(path)!;
     if (budget.addAt(own.count, own.chars)) return { errors: [tooManyAt(path, budget)] };
@@ -304,6 +305,7 @@ interface UsesRead {
   forbidden: Forbidden[];
   notRead: NotRead[];
   unresolved: Unresolved[];
+  tooLarge: { file: string; message: string }[];
 }
 
 async function readTheUses(
@@ -314,7 +316,7 @@ async function readTheUses(
   run: TypedFile[],
   changed: Set<string>,
 ): Promise<UsesRead | { errors: ErrorItem[] }> {
-  const out: UsesRead = { forbidden: [], notRead: [], unresolved: [] };
+  const out: UsesRead = { forbidden: [], notRead: [], unresolved: [], tooLarge: [] };
   const siblings = siblingsOf(files);
   const toRead: { path: string; view: ScriptView | null }[] = [];
   const unread: { path: string; type: TypedFile['type']; debt: boolean }[] = [];
@@ -344,6 +346,9 @@ async function readTheUses(
   };
   const outcome = await readUses({ root, files, bytes, ownerOf, read: toRead });
   if ('error' in outcome) return { errors: [outcome.error] };
+  for (const { path, bytes } of outcome.skipped) {
+    out.tooLarge.push({ file: path, message: `its uses are not read: the file holds ${count(bytes)} bytes, more than the ${mib(USES_FILE_BYTES)} a file whose uses are read may hold` });
+  }
 
   const targetOf = (path: string): Target => {
     const file = typedByPath.get(path);
@@ -433,6 +438,11 @@ function judge(
       message: item.message,
       why: WHY['forbidden-use']!,
     });
+  }
+
+  for (const item of uses.tooLarge) {
+    const isDebt = !changed.has(item.file);
+    place({ code: 'uses-not-read', rule: null, severity: isDebt ? 'warning' : 'error', debt: isDebt, file: item.file, type: byPath.get(item.file)!.type.id, message: item.message, why: WHY['uses-not-read']! });
   }
 
   for (const item of uses.notRead) {

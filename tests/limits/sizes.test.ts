@@ -179,17 +179,21 @@ test('test 262: a text file may hold 1,048,576 lines, and one more line is file-
 });
 
 // A file of quotes is the costliest text measured for the reader of uses: every quote opens or closes a string.
-test('test 263: a file whose uses are read may hold 512 KiB, even of the costliest text, and a config 1 MiB', async () => {
+test('test 263: a file whose uses are read may hold 512 KiB, even of the costliest text, past it its uses are not read and the run goes on, and a config may hold 1 MiB', async () => {
   await withSample(
     async (s) => {
       const big = 'src/core/big.ts';
       write(s, big, "'".repeat(512 * 1024));
       const at = await run(s, ['check', '--base', 'main'], { budget: 'LIMITS_RUN_MS' });
       assert.equal(at.code, 0, at.stdout);
-      write(s, big, "'".repeat(512 * 1024 + 1));
+      write(s, big, `console.log(1);${"'".repeat(512 * 1024 - 15 + 1)}`);
       const beyond = await run(s, ['check', '--base', 'main'], { budget: 'LIMITS_RUN_MS' });
-      assert.deepEqual(errorLines(beyond.stdout), [`${big}  error[file-too-large]  the file holds 524,289 bytes, more than the 512 KiB a file whose uses are read may hold`]);
-      assert.equal(beyond.code, 2);
+      assert.deepEqual(errorLines(beyond.stdout), [
+        `${big}  error[uses-not-read]  its uses are not read: the file holds 524,289 bytes, more than the 512 KiB a file whose uses are read may hold`,
+        `${big}:1  error[no-console]  writes to the terminal with console.log`,
+      ]);
+      assert.equal(beyond.stdout.split('\n')[0], 'lawcheck: FAIL  2 errors in 1 changed file (against main)');
+      assert.equal(beyond.code, 1);
     },
     { onMain: (s) => writeFileSync(join(s, '.lawcheck/law.yaml'), readFileSync(join(s, '.lawcheck/law.yaml'), 'utf8').replace('        rules: [no-console]', '        rules: [no-console]\n        may_use: [library]')) },
   );
@@ -223,7 +227,7 @@ test('test 273: a file whose uses take more memory than a run may hold ends the 
           'lawcheck: ERROR  1 error',
           '',
           'src/core/big.ts  error[memory-too-large]  the run passed the 768 MiB of memory it may hold while reading the uses of src/core/big.ts',
-          '  why:  a run past its memory would be ended by the system without a word',
+          '  why:  a run past its memory would be ended by the system',
           '',
           'next: leave src/core/big.ts out of the types whose may_use is in force, then run lawcheck check again',
           '',
@@ -232,5 +236,33 @@ test('test 273: a file whose uses take more memory than a run may hold ends the 
       assert.equal(result.code, 2);
     },
     { onMain: MAY_USE },
+  );
+});
+
+test('test 275: a file past the uses limit outside the change is debt, and one read only for what it declares is left out', async () => {
+  const big = 'src/core/big.ts';
+  await withSample(
+    async (s) => {
+      const full = await run(s, ['check', '--base', 'main', '--full'], { budget: 'LIMITS_RUN_MS' });
+      assert.ok(full.stdout.split('\n').includes(`${big}  warning[uses-not-read]  its uses are not read: the file holds 524,289 bytes, more than the 512 KiB a file whose uses are read may hold`), full.stdout);
+      assert.equal(full.code, 0);
+    },
+    {
+      onMain: (s) => {
+        MAY_USE(s);
+        write(s, big, "'".repeat(512 * 1024 + 1));
+      },
+    },
+  );
+  await withSample(
+    async (s) => {
+      write(s, 'gen/src/main/java/gen/Generated.java', `package gen;\npublic class Generated {\n${'  int a = 1;\n'.repeat(Math.ceil(614_479 / 13))}}\n`);
+      write(s, 'app/src/main/java/app/App.java', 'package app;\nimport gen.Generated;\npublic class App { Generated g; }\n');
+      const result = await run(s, ['check', '--base', 'main'], { budget: 'LIMITS_RUN_MS' });
+      assert.equal(result.stdout, 'lawcheck: PASS  2 changed files (against main)\n');
+      assert.deepEqual(errorLines(result.stdout), []);
+      assert.equal(result.code, 0);
+    },
+    { onMain: (s) => writeFileSync(join(s, '.lawcheck/law.yaml'), `${readFileSync(join(s, '.lawcheck/law.yaml'), 'utf8')}  java:\n    paths: ["app/**/*.java"]\n    may_use: [java]\n`) },
   );
 });

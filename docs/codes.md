@@ -24,20 +24,20 @@ Every code Lawcheck prints. A finding is a line of `check`'s report and comes wi
 | `runner-failed` | exit 2 | the process that runs script rules ends before it starts, and the message gives the line Node printed | a runner that does not start says nothing about the rules |
 | `rule-crashed` | exit 2 | a script rule does not load, throws, returns no list of findings, returns a message over 4,096 characters, or passes 30 seconds | a broken rule says nothing about the code |
 | `too-many-findings` | exit 2 | a run's findings pass 200,000, or 16,777,216 characters of message | a run holds every finding in memory, so it may hold only so many |
-| `rules-too-slow` | exit 2 | the script rules of a run take more than 600 seconds together | a run that never ends gives no answer |
+| `rules-too-slow` | exit 2 | the script rules of a run take over 600 seconds | a run that never ends gives no answer |
 | `parser-failed` | exit 2 | a grammar cannot be loaded, or a reader fails on a file | a file whose uses were not read is not taken to use nothing |
 | `reviewer-not-configured` | exit 2 | reviews are to be asked and no provider is set | reviewer rules need a reviewer to judge them |
 | `too-many-reviews` | exit 2 | a run needs more reviewer calls than its cap | reviewer.max_calls bounds what one run spends |
 | `reviewer-unreachable` | exit 2 | the reviewer cannot be called, or a request fails | without the reviewer's answer a reviewer rule says nothing |
 | `reviewer-bad-answer` | exit 2 | the reviewer's answer is no verdict twice | an answer that is no verdict cannot be recorded |
-| `memory-too-large` | exit 2 | the tool passes 768 MiB of memory | a run past its memory would be ended by the system without a word |
+| `memory-too-large` | exit 2 | the tool passes 768 MiB of memory | a run past its memory would be ended by the system |
 | `step-too-slow` | exit 2 | one step of a run, such as typing one file, takes more than 30 seconds | a step that never ends gives no answer, so one step of a run has a limit of time |
 | `stopped` | exit 2 | SIGINT, SIGTERM or SIGHUP ended the run | a run stopped before its end says nothing about the code |
 | `internal` | exit 2 | any other failure, a fault of Lawcheck included | a fault of Lawcheck says nothing about the code |
 | `not-reviewed` | finding | a reviewer rule has no verdict for a file's content | a reviewer rule says nothing about content it has not judged |
 | `too-large-to-review` | finding | a prompt would exceed `reviewer.max_chars`; under `try` it ends the run with exit 2 | the reviewer is never sent more than reviewer.max_chars characters |
 | `forbidden-use` | finding | a file uses a file its `may_use` list does not allow | a type's may_use names every type its files may use |
-| `uses-not-read` | finding | files of a type with a list in force have no reader | a restriction that cannot be checked is not shown as kept |
+| `uses-not-read` | finding | a type with a list in force has no reader, or a file is over 512 KiB for its uses | a restriction that cannot be checked is not shown as kept |
 | `waiver-unknown-rule` | finding | a waiver names no rule of the law | a waiver that names no rule of the law waives nothing |
 | `waiver-without-reason` | finding | a waiver has no reason after `--` | a waiver without a reason cannot be weighed later |
 | `waiver-unused` | finding | a counted waiver drops no finding | a waiver that drops nothing would hide the next finding on its line |

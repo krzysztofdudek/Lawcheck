@@ -21,7 +21,7 @@ import { firstLine } from './law.js';
 import type { ErrorItem } from './output.js';
 import { decode, isBinary } from './types.js';
 import { step } from './progress.js';
-import { count, mib, USES_FILE_BYTES } from './limits.js';
+import { USES_FILE_BYTES } from './limits.js';
 
 export type Reason = 'unfollowed' | 'unowned';
 
@@ -154,7 +154,7 @@ export interface ReadInput {
   grammarDir?: string;
 }
 
-export type ReadOutcome = { uses: Map<string, Use[]> } | { error: ErrorItem };
+export type ReadOutcome = { uses: Map<string, Use[]>; skipped: { path: string; bytes: number }[] } | { error: ErrorItem };
 
 class Stop extends Error {
   constructor(readonly item: ErrorItem) {
@@ -175,7 +175,8 @@ function readerFailure(language: string, path: string, error: unknown): Stop {
 
 export async function readUses(input: ReadInput, runes: Runes = RUNES): Promise<ReadOutcome> {
   try {
-    return { uses: await readAll(input, runes) };
+    const skipped: { path: string; bytes: number }[] = [];
+    return { uses: await readAll(input, runes, skipped), skipped };
   } catch (error) {
     if (error instanceof Stop) return { error: error.item };
     if (error instanceof Unreadable) return { error: unreadableError(error) };
@@ -190,7 +191,7 @@ interface Parse {
   uses: boolean;
 }
 
-async function readAll(input: ReadInput, runes: Runes): Promise<Map<string, Use[]>> {
+async function readAll(input: ReadInput, runes: Runes, skipped: { path: string; bytes: number }[]): Promise<Map<string, Use[]>> {
   const out = new Map<string, Use[]>();
   const parses = new Map<string, Parse>();
   for (const { path, view } of input.read) {
@@ -228,15 +229,14 @@ async function readAll(input: ReadInput, runes: Runes): Promise<Map<string, Use[
   for (const parse of [...parses.values()].sort((a, b) => comparePaths(a.path, b.path))) {
     step(`reading the uses of ${parse.path}`, parse.path);
     const { language, parsePath, content } = parse.view;
+    // A file past the limit is not parsed: one whose uses the run judges is named as not read, and one read only for what it declares stays out, so a use of it shows as unresolved.
     const size = Buffer.byteLength(content, 'utf8');
     if (size > USES_FILE_BYTES) {
-      throw new Unreadable(parse.path, {
-        code: 'file-too-large',
-        file: parse.path,
-        line: null,
-        message: `the file holds ${count(size)} bytes, more than the ${mib(USES_FILE_BYTES)} a file whose uses are read may hold`,
-        next: `leave ${parse.path} out of the types whose may_use is in force, or make it smaller than ${mib(USES_FILE_BYTES)}, then run lawcheck check`,
-      });
+      if (parse.uses) {
+        skipped.push({ path: parse.path, bytes: size });
+        out.delete(parse.path);
+      }
+      continue;
     }
     if (!loaded.has(language)) {
       try {

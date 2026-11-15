@@ -104,7 +104,7 @@ export const WHY: Record<string, string> = {
   'rules-too-slow': 'a run that never ends gives no answer',
   'file-unwritable': 'what Lawcheck cannot write is lost, so the run cannot say it is done',
   stopped: 'a run stopped before its end says nothing about the code',
-  'memory-too-large': 'a run past its memory would be ended by the system without a word',
+  'memory-too-large': 'a run past its memory would be ended by the system',
   'step-too-slow': 'a step that never ends gives no answer, so one step of a run has a limit of time',
 };
 
