@@ -1,0 +1,114 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "lawcheck-check/0, from docs/json.md",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "result", "scope", "summary", "findings", "waivers", "unresolved", "reviews", "next"],
+  "properties": {
+    "schema": { "const": "lawcheck-check/0" },
+    "result": { "enum": ["pass", "fail"] },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "base", "files", "law_changed"],
+      "properties": {
+        "mode": { "enum": ["change", "full", "paths"] },
+        "base": { "type": ["string", "null"] },
+        "files": { "$ref": "#/definitions/count" },
+        "law_changed": { "type": "boolean" }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["errors", "warnings", "debt", "waivers", "unresolved"],
+      "properties": {
+        "errors": { "$ref": "#/definitions/count" },
+        "warnings": { "$ref": "#/definitions/count" },
+        "debt": { "$ref": "#/definitions/count" },
+        "waivers": { "$ref": "#/definitions/count" },
+        "unresolved": { "$ref": "#/definitions/count" }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "rule", "severity", "blocking", "debt", "file", "type", "message", "why"],
+        "properties": {
+          "code": { "$ref": "#/definitions/id" },
+          "rule": { "anyOf": [{ "$ref": "#/definitions/id" }, { "type": "null" }] },
+          "severity": { "enum": ["error", "warning"] },
+          "blocking": { "type": "boolean" },
+          "debt": { "type": "boolean" },
+          "file": { "$ref": "#/definitions/path" },
+          "line": { "$ref": "#/definitions/line" },
+          "type": { "type": "string" },
+          "message": { "type": "string" },
+          "why": { "type": "string" }
+        }
+      }
+    },
+    "waivers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["file", "line", "rule", "debt", "waived", "reason"],
+        "properties": {
+          "file": { "$ref": "#/definitions/path" },
+          "line": { "$ref": "#/definitions/line" },
+          "rule": { "$ref": "#/definitions/id" },
+          "debt": { "type": "boolean" },
+          "waived": { "$ref": "#/definitions/count" },
+          "reason": { "type": "string" }
+        }
+      }
+    },
+    "unresolved": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["file", "line", "what", "answer", "reason", "candidates", "debt"],
+        "properties": {
+          "file": { "$ref": "#/definitions/path" },
+          "line": { "$ref": "#/definitions/line" },
+          "what": { "type": "string" },
+          "answer": { "enum": ["ambiguous", "none"] },
+          "reason": { "enum": ["unfollowed", "unowned", null] },
+          "candidates": { "type": "array", "items": { "$ref": "#/definitions/path" } },
+          "debt": { "type": "boolean" }
+        }
+      }
+    },
+    "reviews": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["missing", "calls_made", "passes_recorded"],
+      "properties": {
+        "missing": { "$ref": "#/definitions/count" },
+        "calls_made": { "$ref": "#/definitions/count" },
+        "passes_recorded": { "$ref": "#/definitions/count" }
+      }
+    },
+    "next": { "anyOf": [{ "$ref": "#/definitions/next" }, { "type": "null" }] }
+  },
+  "allOf": [
+    { "if": { "properties": { "result": { "const": "pass" } } }, "then": { "properties": { "next": { "type": "null" } } } },
+    { "if": { "properties": { "result": { "const": "fail" } } }, "then": { "properties": { "next": { "$ref": "#/definitions/next" } } } }
+  ],
+  "definitions": {
+    "count": { "type": "integer", "minimum": 0 },
+    "line": { "type": "integer", "minimum": 1 },
+    "id": { "type": "string", "minLength": 1 },
+    "path": { "type": "string", "minLength": 1 },
+    "next": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["command", "text"],
+      "properties": { "command": { "type": ["string", "null"] }, "text": { "type": "string", "minLength": 1 } }
+    }
+  }
+}

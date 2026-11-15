@@ -47,6 +47,7 @@
   },
   "devDependencies": {
     "@types/node": "^24.19.2",
+    "ajv": "8.17.1",
     "tree-sitter-cli": "0.27.0",
     "tree-sitter-go": "0.25.0",
     "tree-sitter-javascript": "0.25.0",

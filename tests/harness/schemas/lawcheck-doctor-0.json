@@ -1,0 +1,47 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "lawcheck-doctor/0, from docs/json.md and spec/commands-slice.md",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "result", "checks"],
+  "properties": {
+    "schema": { "const": "lawcheck-doctor/0" },
+    "result": { "enum": ["pass", "fail"] },
+    "checks": {
+      "type": "array",
+      "minItems": 9,
+      "maxItems": 9,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "state", "message", "next"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "state": { "enum": ["ok", "note", "fail", "skip"] },
+          "message": { "type": "string" },
+          "next": {
+            "anyOf": [
+              { "type": "null" },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["command", "text"],
+                "properties": { "command": { "type": ["string", "null"] }, "text": { "type": "string", "minLength": 1 } }
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "result": { "const": "pass" } } },
+      "then": { "properties": { "checks": { "items": { "properties": { "state": { "not": { "const": "fail" } } } } } } }
+    },
+    {
+      "if": { "properties": { "result": { "const": "fail" } } },
+      "then": { "properties": { "checks": { "contains": { "properties": { "state": { "const": "fail" } } } } } }
+    }
+  ]
+}

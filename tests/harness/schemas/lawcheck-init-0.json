@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "lawcheck-init/0, from docs/json.md and spec/commands-slice.md, section 3",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "root", "created", "kept", "next"],
+  "properties": {
+    "schema": { "const": "lawcheck-init/0" },
+    "root": { "type": "string" },
+    "created": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "kept": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "next": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["command", "text"],
+      "properties": { "command": { "type": ["string", "null"] }, "text": { "type": "string", "minLength": 1 } }
+    }
+  }
+}
