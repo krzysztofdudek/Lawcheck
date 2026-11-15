@@ -44,6 +44,8 @@ export const SLOW_TESTS: Record<string, number> = {
   'tests/acceptance/stability.test.ts > test 77: the measurement refuses to run, or to write a secret': 90_000,
   // Measured on CI: 83 s on Windows before the harness, 20 s on macOS, 6 s on Linux; 300 calls of the fake claude, each a cmd.exe and a node on Windows.
   'tests/acceptance/stability.test.ts > test 76: the measurement through claude-code': 200_000,
+  // Measured on CI: 20 to 24 s on Windows (15 s before the harness), 10 s on macOS; four runners, each through session-start, prompt, stop and edit, every hook starting cmd.exe, the runner and node on Windows.
+  'tests/acceptance/plugin.test.ts > test 158: every runner starts the same Lawcheck with its own words': 60_000,
 };
 
 export const SLOWEST_SHOWN = 10;
