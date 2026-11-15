@@ -1,7 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import { copyFileSync, existsSync, lstatSync, mkdtempSync, rmSync } from 'node:fs';
 import { devNull, tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { findProgram } from './programs.js';
 
 export class NoGit extends Error {}
@@ -109,6 +109,29 @@ export function workTreeProblem(root: string): string | null {
   return `git does not see a work tree here: ${firstPrinted(result)}`;
 }
 
+function quoted(path: string): string {
+  return /^[\w@%+=:,./\\-]+$/.test(path) ? path : `'${path.replace(/'/g, `'\\''`)}'`;
+}
+
+function repositoryAbove(dir: string): string | null {
+  for (let at = resolve(dir); ; at = dirname(at)) {
+    if (existsSync(join(at, '.git'))) return at;
+    if (dirname(at) === at) return null;
+  }
+}
+
+// What git's own sentence asks of the user, where the plain next line of no-git would send them to the work tree they are in. The command is written for a POSIX shell, as docs/ci.md says.
+export function gitNext(dir: string, problem: string): { next: string; command?: string } | undefined {
+  const dubious = /dubious ownership in repository at '(.*)'\s*$/.exec(problem);
+  if (dubious !== null) {
+    const command = `git config --global --add safe.directory ${quoted(dubious[1]!)}`;
+    return { next: `let git trust the repository: ${command}, then run lawcheck check`, command };
+  }
+  const repository = /not a git repository/.test(problem) ? repositoryAbove(dir) : null;
+  if (repository !== null) return { next: `repair the repository at ${repository}, so that git status works there, then run lawcheck check` };
+  return undefined;
+}
+
 export function listFiles(root: string, listed: Set<string> = listedPaths(root)): string[] {
   const files: string[] = [];
   for (const path of listed) {
@@ -145,6 +168,22 @@ export function defaultBase(root: string): string | null {
 export function resolveCommit(root: string, base: string): string | null {
   const result = git(root, ['rev-parse', '--verify', '--quiet', '--end-of-options', `${base}^{commit}`]);
   return result.status === 0 ? loose.decode(result.stdout).trim() : null;
+}
+
+export function remoteNames(root: string): string[] {
+  const result = git(root, ['remote']);
+  return result.status === 0 ? loose.decode(result.stdout).split(/\r?\n/).filter((name) => name !== '') : [];
+}
+
+// A clone made with --single-branch or --depth fetches one branch; its fetch lines name no refs/heads/*.
+export function fetchesEveryBranch(root: string, remote: string): boolean {
+  const result = git(root, ['config', '--get-all', `remote.${remote}.fetch`]);
+  return result.status !== 0 || loose.decode(result.stdout).split(/\r?\n/).some((line) => line.includes('refs/heads/*'));
+}
+
+export function isShallow(root: string): boolean {
+  const result = git(root, ['rev-parse', '--is-shallow-repository']);
+  return result.status === 0 && loose.decode(result.stdout).trim() === 'true';
 }
 
 export function mergeBase(root: string, commit: string): string | null {

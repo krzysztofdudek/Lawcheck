@@ -49,6 +49,10 @@ The runner stops these, and the rule is `rule-crashed` when the refusal reaches 
 - starting a child process or a worker thread;
 - loading a native add-on or WASI.
 
+A rule imports `node:` built-ins, files below the root such as `.lawcheck/rules/lib/`, and packages installed in a `node_modules` below the root. A package hoisted to a `node_modules` above the root, as a monorepo with the law in one package does, or reached through a link that leads outside the root, cannot be read, so the rule does not load. Install what the rule needs below the root.
+
+When the runner stops a rule, the message says what the rule did, such as `reads <path> outside the root and Lawcheck's folder, and a rule may read nothing else` or `writes <path>, and a rule may write no file`.
+
 The runner is no sandbox. A rule can still:
 
 - read every file under the root, `.git/` and ignored files such as `.env` included;
@@ -71,6 +75,8 @@ A rule is `rule-crashed`, exit 2, at its file when it:
 - ends its process before answering, or sends a message nobody asked for.
 
 The message names the judged file, or the load. One run names each broken rule once.
+
+A runner that Node cannot start at all is `runner-failed` instead, with Node's own line in the message, and no rule is blamed. Reinstalling Lawcheck is the fix.
 
 ## Trying a rule
 

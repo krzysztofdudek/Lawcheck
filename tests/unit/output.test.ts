@@ -41,7 +41,8 @@ test('exit 2 prints a lawcheck-error/1 document with null places', () => {
   const document = JSON.parse(renderErrors([{ code: 'usage', file: null, line: null, message: 'x' }], true));
   assert.equal(document.schema, 'lawcheck-error/1');
   assert.deepEqual(Object.keys(document.errors[0]), ['code', 'file', 'line', 'message', 'why']);
-  assert.equal(document.next.command, null);
+  assert.equal(document.next.text, 'run lawcheck check as its usage line says: lawcheck check --help');
+  assert.equal(document.next.command, 'lawcheck check --help');
 });
 
 test('the reviewer calls end the first line, in both forms, and reviews stand before next in JSON', () => {

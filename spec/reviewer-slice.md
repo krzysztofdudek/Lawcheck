@@ -384,7 +384,7 @@ When the run fails, `next:` is `fix <place>` of the first error, in sort order, 
 - `N` above `reviewer.max_calls`: `<N> reviewer calls are needed and reviewer.max_calls is <m>; raising the limit is the user's decision`;
 - otherwise: `<review>  (<N> reviewer calls)`, one call in the singular.
 
-In JSON, `next.command` is `<review>` in the third case and null everywhere else, exit 2 included.
+In JSON, `next.command` is `<review>` in the third case, and elsewhere what the check slice, section 6, gives: the command the next line asks to run first, or null when it holds none.
 
 ### Examples
 

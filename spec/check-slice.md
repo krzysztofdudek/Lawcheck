@@ -167,6 +167,8 @@ export function check({ files }) {
 | `serialization` | `'advanced'` |
 | `stdio` | no standard input; what the rule prints, on either stream, goes to the tool's standard error a line at a time, with the escapes of section 6 for text the tool does not own |
 
+The runner first tells the tool that it started. A runner that ends before that, or whose process the system does not start (`EAGAIN`, `ENOENT`), is `runner-failed`, without a place and never at a rule file: Node could not start it, as with a flag it does not know or a runner file it cannot read; the message then carries the system's error. The tool then starts the runner once more, without a channel, which a sound runner ends at once, and the message is `the runner of script rules did not start: <line>`, `<line>` being the first line of what Node printed that starts with an error's name or `node: `, else its first line, else `it ended with <code> before it started`. One `runner-failed` stands for every rule of the run. The next line is `reinstall Lawcheck, then run lawcheck check`.
+
 The tool sends the type of every file and the path of the rule file. The runner imports the rule file and answers. The tool then sends one call at a time, and the runner answers each with what `check` returned. After the last answer the tool kills the runner, and whatever the rule left running ends with it. When the tool ends in any other way, a signal that kills it included, its runners end too: a small guard process that the tool starts kills those still alive. A signal that the tool can catch ends it as `internal`. The tool allows 30 seconds for the load and 30 seconds for each call; past that it kills the runner.
 
 **What the runner stops,** measured on Node 24.22.2. Node refuses the call with an error, and the rule is `rule-crashed`, when the rule:
@@ -177,6 +179,10 @@ The tool sends the type of every file and the path of the rule file. The runner 
 - loads a native add-on or WASI.
 
 Node refuses each of these in every form, at every path of the root (invariant `I-runner-1`). Node reads a `*` in a granted path as a wildcard over everything after it, and cannot load a module from a path that holds a backslash where `/` is the separator. So when the root or Lawcheck's folder holds a `*`, or such a backslash, the tool starts no runner and the run ends with `path-unsupported`, without a place, naming the path. Node also follows a link, so a link under the root that leads elsewhere lets a rule read there. The threat is content that comes from git, which a pull request can carry. Before it starts a runner the tool resolves every link git tracks under the root and in its submodules, by the bytes of its name, so a name with a line break or bytes that are not UTF-8 counts like any other. A link that leads outside the git work tree and Lawcheck's folder ends the run with `link-outside-root`, placed at the link, naming where it leads; a link that leads elsewhere inside the work tree, such as `pkg/LICENSE` to `../LICENSE` with the law in `pkg/`, is allowed. A target is inside a folder only when the folder is a whole leading part of its path, so `/x/s2` is not inside `/x/s`. Links git does not track, ignored ones included, are the local user's own and are outside this promise, and git carries no hard link, so a clone holds none that the repository chose. The rule is `rule-crashed` when the refusal reaches it as a thrown error or a rejected promise. A call with a callback, such as `fs.writeFile(path, data, callback)`, hands the refusal to the callback instead, and the rule goes on; the file is still not written.
+
+A rule imports what it can read: `node:` built-ins, files below the root such as `.lawcheck/rules/lib/`, and packages in a `node_modules` below the root. A package in a `node_modules` above the root, where a monorepo hoists it, or behind a link that leads outside the root, cannot be read, so such a rule does not load.
+
+When the load reads a package in a `node_modules` outside the root, the next line is `install <package> in a node_modules below the root, then run lawcheck check`. When Node refuses, the message names what the rule did, never a flag of the runner's command line, which the user cannot pass: `reads <path> outside the root and Lawcheck's folder, and a rule may read nothing else`; `writes <path>, and a rule may write no file`; `starts a program, and a rule may start none`; `starts a worker thread, and a rule may start none`; `loads a native add-on, and a rule may load none`; `starts WASI, and a rule may not`. `<path>` is the path Node names.
 
 A rule that hangs or dies takes its own process with it and nothing else. `process.env` is empty in a rule. `process.send` is absent in a rule, so the channel to the tool carries only the runner's answers; a message the tool did not ask for ends the rule as `rule-crashed`.
 
@@ -199,19 +205,33 @@ A rule file is code of the repository and runs with the user's rights, as the re
 
 **Arguments.** `lawcheck --version` prints `0.1.0`, the package version. `lawcheck --help` and `lawcheck check --help` print the usage, whose first line is `usage: lawcheck check [--full] [--base <ref>] [--json]`. All three exit 0. Anything else outside the line above is `usage`: no argument at all, another command, a word after `check` that is no flag, an unknown flag, a flag given twice, `--base` as the last argument or before an argument that starts with `-`, and the form `--base=<ref>`. `--json` anywhere among the arguments selects JSON, for a `usage` error too.
 
-**The base** is the first of `--base`, the variable `LAWCHECK_BASE` when it is not empty, and `origin/HEAD` where the clone has it, printed as its target (`origin/main`). A base that resolves to no commit or shares no history with HEAD is `base-unreachable`. With no base, every file counts as changed. In a repository with no commit yet, a base is `base-unreachable`, and without one every file counts as changed.
+**The base** is the first of `--base`, the variable `LAWCHECK_BASE` when it is not empty, and `origin/HEAD` where the clone has it, printed as its target (`origin/main`). A base that resolves to no commit or shares no history with HEAD is `base-unreachable`. With no base, every file counts as changed, except for a plain check in a CI job. A job is in CI when the variable `CI` is set and is not empty, `0`, `false`, `no` or `off`, any case; without `CI`, when one of `GITHUB_ACTIONS`, `GITLAB_CI`, `TF_BUILD`, `JENKINS_URL`, `BUILDKITE`, `CIRCLECI`, `TRAVIS`, `BITBUCKET_BUILD_NUMBER`, `TEAMCITY_VERSION`, `APPVEYOR`, `DRONE`, `CODEBUILD_BUILD_ID`, `BUILD_ID` or `WOODPECKER` is set to such a value. There a plain check with no base is `base-unreachable` with the message `no base in this CI job: no --base, no LAWCHECK_BASE and no origin/HEAD, and a plain check without one would count every file as changed` and the next line `pass --base origin/<the branch the change goes into> or set LAWCHECK_BASE, with the history fetched (<fetch>); or judge every file with lawcheck check --full`, `<fetch>` being `fetch-depth: 0 in actions/checkout, GIT_DEPTH: 0 in GitLab CI, fetchDepth: 0 in Azure Pipelines` (question 87). `--full` judges every file and needs no base, so it runs in CI as elsewhere, and so does `check <paths>`. In a repository with no commit yet, a base is `base-unreachable`, and without one every file counts as changed.
+
+`base-unreachable` says why, in the cases a CI job meets most:
+
+| The case | The message | The next line |
+|---|---|---|
+| the clone is shallow (`git rev-parse --is-shallow-repository` prints `true`) | the base names no commit here, `and this clone is shallow`; or it shares no history with HEAD `in this clone, which is shallow` | `fetch the history: <command> (<fetch>), then run lawcheck check`, where `<command>` is `git fetch --unshallow <remote> +refs/heads/<branch>:refs/remotes/<remote>/<branch>` for a base `<remote>/<branch>` of a remote that `git remote` lists, else `git fetch --unshallow` |
+| the clone is whole, the base is `<remote>/<branch>` of a remote whose fetch lines name no `refs/heads/*`, as a clone made with one branch has | `the base '<base>' names no commit here; this clone did not fetch that branch` | `fetch the branch: git fetch <remote> +refs/heads/<branch>:refs/remotes/<remote>/<branch> (<fetch>), then run lawcheck check` |
+| the base is forty or sixty-four zeros, the "before" of a push that made a branch | `the base '<base>' is git's commit of zeros, which a push of a new branch names as the commit before it` | `pass --base with the branch the new one was made from, such as origin/main, then run lawcheck check` |
+| the base ends in `/`, as `origin/${{ github.base_ref }}` reads on a push | `the base '<base>' names no commit here: the branch name after the last / is empty, as when the variable that should hold it is empty` | the plain one below |
+| the base came from `origin/HEAD` | `the base '<base>', which origin/HEAD names, names no commit here`, or `shares no history with HEAD` | `pass --base with a branch or a commit that exists here, or point origin/HEAD at one with git remote set-head origin --auto` |
+
+Otherwise the message is `the base '<base>' names no commit here` or `the base '<base>' shares no history with HEAD`, and the next line `pass --base with a branch or a commit that exists here`.
 
 **Git.** Every git command runs at the root, with the tool's environment and `GIT_OPTIONAL_LOCKS=0`, and the tool reads its output as bytes. These are all of them, in order:
 
 | For | Command | Reading |
 |---|---|---|
 | the filters | `git config -z --name-only --get-regexp ^filter\.`, once for each folder git runs in, before the first other command | each `filter.<name>.clean`, `smudge` and `process` it names is set to nothing for the commands below (section 2); another exit than 0: none |
+| the version | `git --version` | older than 2.34: `unsupported-environment` (`spec/environments.md`, section 3); git does not start or prints no version: the next row decides |
 | the work tree | `git rev-parse --is-inside-work-tree` | git does not start, exits with another code than 0, or prints another word than `true`: `no-git` |
 | the files | `git ls-files -z --cached --others --exclude-standard` | section 2 |
 | HEAD | `git rev-parse --verify --quiet HEAD^{commit}` | exit 1: no commit yet |
 | the default base | `git symbolic-ref --quiet --short refs/remotes/origin/HEAD` | run when neither `--base` nor `LAWCHECK_BASE` names a base; exit 1: no base |
 | the base | `git rev-parse --verify --quiet --end-of-options <base>^{commit}` | another exit than 0: `base-unreachable` |
 | the merge base | `git merge-base HEAD <the base's commit>` | exit 1: `base-unreachable` |
+| why the base cannot be reached | `git rev-parse --is-shallow-repository`, `git remote`, and `git config --get-all remote.<remote>.fetch`, only when the base cannot be reached | the table below |
 | the change | `git rev-parse --git-path index`, then `git diff --no-ext-diff --no-textconv --ignore-submodules=all -z --name-only --no-renames --relative <merge base> --`, then `git ls-files -z --others --exclude-standard` | below |
 | the links | `git rev-parse --show-toplevel`, then `git ls-files -z --stage --recurse-submodules`, when a script rule is to run | the top of the work tree, and the entries of mode `120000`, the links git tracks under the root and in its submodules (section 3) |
 
@@ -321,13 +341,14 @@ tools/release.mjs:2  warning[no-todo]  TODO without an issue number
 next: fix src/core/discount.ts:2
 ```
 
-**Exit 2.** The tool goes down this table, stops at the first row with errors and prints all of them in the same grammar under `lawcheck: ERROR  <n> errors`. Its `next:` is one instruction that can succeed. `internal` can come at any step and ends the run at once.
+**Exit 2.** The tool goes down this table, stops at the first row with errors and prints all of them in the same grammar under `lawcheck: ERROR  <n> errors`; an `unsupported-environment` error is always alone, and its message stands in that first line in place of the count. Its `next:` is one instruction that can succeed. `internal` can come at any step and ends the run at once.
 
 | Code | When | Place |
 |---|---|---|
 | `usage` | section 4 | none |
-| `not-initialized` | no `.lawcheck/law.yaml` here or above | none |
-| `no-git` | git cannot be started, refuses the repository, or the root is outside a git work tree; the message carries the first line git printed | none |
+| `unsupported-environment` | `spec/environments.md`, section 3: the Node, the runtime, the install or the git is one Lawcheck does not support | none |
+| `not-initialized` | no `.lawcheck/law.yaml` here or above. When git lists laws below the directory, as at the top of a monorepo, the message ends `; the laws below it are in <folders>`, at most three and `, and <n> more`, and the next line is `cd <the first>, where a law is, then run lawcheck check` | none |
+| `no-git` | git cannot be started, refuses the repository, or the root is outside a git work tree; the message carries the first line git printed. When git refuses a repository owned by another user (`detected dubious ownership in repository at '<path>'`), the next line is `let git trust the repository: git config --global --add safe.directory <path>, then run lawcheck check`, with `<path>` in single quotes when it holds a character outside letters, digits and `@%+=:,./\-`. When git says `not a git repository` and the root or a folder above it holds `.git`, it is `repair the repository at <that folder>, so that git status works there, then run lawcheck check`. Otherwise `run lawcheck check inside a git work tree, with git on the PATH` | none |
 | `law-invalid` | the law cannot be read, does not parse or breaks section 2: a key, a value, an id, a pattern, an expression, a rule that a type lists and the law lacks; one line per problem | `.lawcheck/law.yaml:<line>` |
 | `rule-missing-file`, `rule-file-without-entry` | section 2 | the rule's line in the law; the file |
 | `file-unreadable` | a file whose path matches a type cannot be read; one line per file | the file |
@@ -335,6 +356,7 @@ next: fix src/core/discount.ts:2
 | `base-unreachable` | section 4 | none |
 | `path-unsupported` | section 3: a script rule is to run and the runner cannot keep it inside the root | none |
 | `link-outside-root` | section 3: a script rule is to run and a link git tracks leads outside the git work tree and Lawcheck's folder | the link |
+| `runner-failed` | section 3: the runner of script rules ends before it starts | none |
 | `rule-crashed` | section 3 | the rule file |
 | `internal` | any other failure, a bug of Lawcheck included; the message is the first line of the error | none |
 
@@ -387,7 +409,7 @@ next: pass --base with a branch or a commit that exists here
 }
 ```
 
-`scope.mode` is `change` or `full`, `scope.base` null without a base, `scope.files` the count of changed files. `summary.errors` and `summary.warnings` count the findings of the change, `summary.debt` the debt findings, `summary.waivers` the waivers with `debt` false. `rule` is null for a code of section 5, and `line` absent for a whole-file finding. `findings` holds every finding, past 50 too, the change before the debt. `waived` is the number of findings the waiver dropped. `next` is null when the run passes, and `next.command` is null in every document of this slice. Exit 2 prints `{ "schema": "lawcheck-error/1", "errors": [{ "code", "file", "line", "message", "why" }], "next": { "command", "text" } }`, with `file` and `line` null where there is no place.
+`scope.mode` is `change` or `full`, `scope.base` null without a base, `scope.files` the count of changed files. `summary.errors` and `summary.warnings` count the findings of the change, `summary.debt` the debt findings, `summary.waivers` the waivers with `debt` false. `rule` is null for a code of section 5, and `line` absent for a whole-file finding. `findings` holds every finding, past 50 too, the change before the debt. `waived` is the number of findings the waiver dropped. `next` is null when the run passes. `next.command` is the command the next line asks to run first, and null whenever its first step is no command, such as installing Node, fixing a file or passing a base: a command an error names, such as git's `git config --global --add safe.directory <path>` or `git fetch …`; else a next line that is itself a `lawcheck` command; else the command after the colon of `run lawcheck <command> as its usage line says: <command>`. Exit 2 prints `{ "schema": "lawcheck-error/1", "errors": [{ "code", "file", "line", "message", "why" }], "next": { "command", "text" } }`, with `file` and `line` null where there is no place.
 
 ## 7. Decisions taken here
 
@@ -484,7 +506,7 @@ TypeScript on Node 24, ES modules. One runtime dependency, `yaml`; for developme
 
 ```
 .devcontainer/devcontainer.json   image mcr.microsoft.com/devcontainers/javascript-node:24; postCreateCommand: npm ci
-package.json                      "type": "module", bin lawcheck -> dist/cli.js, engines node >=24, version 0.1.0
+package.json                      "type": "module", bin lawcheck -> dist/bin.js, engines node >=24, version 0.1.0
 tsconfig.json                     src/ -> dist/
 spec/check-slice.md
 src/

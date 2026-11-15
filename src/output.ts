@@ -7,6 +7,7 @@ export interface ErrorItem {
   line: number | null;
   message: string;
   next?: string;
+  command?: string;
 }
 
 export interface Finding {
@@ -70,6 +71,7 @@ export const WHY: Record<string, string> = {
   'waiver-without-reason': 'a waiver without a reason cannot be weighed later',
   'waiver-unused': 'a waiver that drops nothing would hide the next finding on its line',
   usage: 'the tool does only what its usage line says',
+  'unsupported-environment': 'Lawcheck answers only where its rules and readers are known to run',
   'not-initialized': 'without a law there is nothing to check the code against',
   'no-git': 'the files and the change come from git',
   'law-invalid': 'a misspelled key changes the law without a word',
@@ -78,6 +80,7 @@ export const WHY: Record<string, string> = {
   'file-unreadable': 'a file that cannot be read cannot be typed or judged',
   'type-overlap': 'a file has one type, so the rules that bind it are never in doubt',
   'base-unreachable': 'without its base a change cannot be told from debt',
+  'runner-failed': 'a runner that does not start says nothing about the rules',
   'rule-crashed': 'a broken rule says nothing about the code',
   'link-outside-root': 'a script rule reads nothing outside the work tree, and a link that leads out of it would let it',
   'path-unsupported': 'a script rule reads nothing outside the root and Lawcheck\'s folder, and the runner can keep that only on such a path',
@@ -137,6 +140,8 @@ function fixedNext(error: ErrorItem, command: string): string {
       return `remove the link ${error.file}, or let it lead inside the work tree, then run lawcheck check`;
     case 'path-unsupported':
       return 'move the repository, or Lawcheck itself, to a path with no * or backslash, then run lawcheck check; Lawcheck grants a rule read access to its own folder for the readers it ships, so that path must be as plain as the root';
+    case 'runner-failed':
+      return 'reinstall Lawcheck, then run lawcheck check';
     case 'reviewer-unreachable':
       if (/\bHTTP 40[13]\b/.test(error.message)) {
         return 'check the reviewer key in the environment, then run the same command again; what was answered is kept, so it asks only the rest';
@@ -219,6 +224,14 @@ export function placeOf(file: string | null, line: number | null | undefined): s
   return line === null || line === undefined ? file : `${file}:${line}`;
 }
 
+// The command a next line asks to run first, or null when its first step is no command, such as installing Node or passing a base: one its error names, else a line that is a Lawcheck command, or one whose only step is the command after its colon.
+export function commandIn(text: string, given?: string): string | null {
+  if (given !== undefined) return given;
+  if (text.startsWith('lawcheck ')) return text.split('  (')[0]!;
+  const after = /^run lawcheck [a-z]* ?as its usage line says: (lawcheck [^,;()]+)$/.exec(text);
+  return after === null ? null : after[1]!.trim();
+}
+
 export function nextOfErrors(input: ErrorItem[], command: string | null = 'check'): string {
   return nextFor(sortErrors(input)[0]!, command);
 }
@@ -248,11 +261,12 @@ export function renderErrors(input: ErrorItem[], json: boolean, command: string 
     const document = {
       schema: 'lawcheck-error/1',
       errors: errors.map((e) => ({ code: e.code, file: e.file, line: e.line, message: e.message, why: WHY[e.code] ?? '' })),
-      next: { command: null, text: next },
+      next: { command: commandIn(next, errors[0]!.command), text: next },
     };
     return JSON.stringify(document, null, 2) + '\n';
   }
-  const lines = [`lawcheck: ERROR  ${plural(errors.length, 'error')}`, '', ...errorLines(errors, limit)];
+  const refused = errors.find((e) => e.code === 'unsupported-environment');
+  const lines = [`lawcheck: ERROR  ${refused === undefined ? plural(errors.length, 'error') : shown(refused.message)}`, '', ...errorLines(errors, limit)];
   lines.push('', `next: ${plain(next)}`);
   return lines.join('\n') + '\n';
 }

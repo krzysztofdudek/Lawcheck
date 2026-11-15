@@ -1,4 +1,4 @@
-import { fork, spawn } from 'node:child_process';
+import { fork, spawn, spawnSync } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
 import { availableParallelism } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -141,7 +141,7 @@ export interface RawFinding {
   message: string;
 }
 
-export type RuleOutcome = { findings: RawFinding[] } | { crash: string };
+export type RuleOutcome = { findings: RawFinding[] } | { crash: string } | { broken: string };
 
 interface Message {
   kind: string;
@@ -180,11 +180,23 @@ export interface RuleRun {
   timeoutMs?: number;
 }
 
+function runnerArgs(root: string): string[] {
+  return ['--permission', `--allow-fs-read=${root}`, `--allow-fs-read=${PACKAGE_DIR}`];
+}
+
+// The runner printed why it did not start on the tool's standard error; starting it once more without a channel, which a sound runner ends at once, gives that line to the message.
+function whyNotStarted(root: string, ended: string): string {
+  const probe = spawnSync(process.execPath, [...runnerArgs(root), RUNNER], { cwd: root, env: {}, encoding: 'utf8', stdio: ['ignore', 'ignore', 'pipe'], timeout: 10_000 });
+  const lines = (probe.stderr ?? '').split(/\r?\n/).map((line) => line.trim()).filter((line) => line !== '');
+  const said = lines.find((line) => /^(\w*Error\b|node: )/.test(line)) ?? lines[0];
+  return `the runner of script rules did not start: ${said ?? ended}`;
+}
+
 export function runRule(run: RuleRun): Promise<RuleOutcome> {
   const timeoutMs = run.timeoutMs ?? TIMEOUT_MS;
   return new Promise((resolve, reject) => {
     const child = fork(RUNNER, [], {
-      execArgv: ['--permission', `--allow-fs-read=${run.root}`, `--allow-fs-read=${PACKAGE_DIR}`],
+      execArgv: runnerArgs(run.root),
       env: {},
       cwd: run.root,
       serialization: 'advanced',
@@ -194,6 +206,7 @@ export function runRule(run: RuleRun): Promise<RuleOutcome> {
     relay(child.stderr);
     watch(child);
     let settled = false;
+    let started = false;
     let timer: NodeJS.Timeout | undefined;
     let waiting: ((message: Message) => void) | null = null;
     let stage = 'in its load';
@@ -241,20 +254,38 @@ export function runRule(run: RuleRun): Promise<RuleOutcome> {
       });
     };
 
-    child.on('error', (error) => end(error));
-    child.on('exit', () => end({ crash: `ends before answering ${stage}` }));
+    const load = () =>
+      ask({ kind: 'load', file: run.ruleFile, filesOf: run.filesOf }, (message) => {
+        if (message.kind === 'load-failed') return end({ crash: `fails to load: ${message.message}` });
+        if (message.kind === 'uncloneable') return end({ crash: `fails to load: ${message.message}` });
+        if (message.kind !== 'loaded') return end({ crash: `writes to the runner's channel ${stage}` });
+        callNext(0);
+      });
+
+    child.on('error', (error) => end(started ? error : { broken: `the runner of script rules did not start: ${error.message}` }));
+    child.on('exit', (code, signal) => {
+      if (settled) return;
+      if (started) return end({ crash: `ends before answering ${stage}` });
+      end({ broken: whyNotStarted(run.root, `it ended with ${code ?? signal} before it started`) });
+    });
     child.on('message', (message: unknown) => {
       const known = typeof message === 'object' && message !== null && typeof (message as Message).kind === 'string';
+      if (!started && known && (message as Message).kind === 'ready') {
+        started = true;
+        clearTimeout(timer);
+        return load();
+      }
       if (waiting === null || !known) return end({ crash: `writes to the runner's channel ${stage}` });
       waiting(message as Message);
     });
-    ask({ kind: 'load', file: run.ruleFile, filesOf: run.filesOf }, (message) => {
-      if (message.kind === 'load-failed') return end({ crash: `fails to load: ${message.message}` });
-      if (message.kind === 'uncloneable') return end({ crash: `fails to load: ${message.message}` });
-      if (message.kind !== 'loaded') return end({ crash: `writes to the runner's channel ${stage}` });
-      callNext(0);
-    });
+    timer = setTimeout(() => end({ crash: `passes ${timeoutMs / 1000} seconds ${stage}` }), timeoutMs);
   });
+}
+
+// A rule whose load read a package in a node_modules outside the root needs that package installed below the root, not a change of its file.
+export function crashNext(crash: string): string | undefined {
+  const found = /^fails to load: reads .*?[\\/]node_modules[\\/]((?:@[^\\/\s]+[\\/])?[^\\/\s]+)/.exec(crash);
+  return found === null ? undefined : `install ${found[1]!.replace(/\\/g, '/')} in a node_modules below the root, then run lawcheck check`;
 }
 
 export async function runAll<T>(tasks: (() => Promise<T>)[], limit = availableParallelism()): Promise<T[]> {

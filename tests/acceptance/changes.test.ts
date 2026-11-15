@@ -210,6 +210,7 @@ test('section 4: every git command runs with GIT_OPTIONAL_LOCKS=0, in the order 
     const commands = lines.map((line) => line.slice(2).replace(/[0-9a-f]{40}/g, '<sha>'));
     assert.deepEqual(commands, [
       'config -z --name-only --get-regexp ^filter\\.',
+      '--version',
       'rev-parse --is-inside-work-tree',
       'ls-files -z --cached --others --exclude-standard',
       'rev-parse --verify --quiet HEAD^{commit}',

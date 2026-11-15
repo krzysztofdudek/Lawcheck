@@ -19,7 +19,7 @@
   ],
   "type": "module",
   "bin": {
-    "lawcheck": "dist/cli.js"
+    "lawcheck": "dist/bin.js"
   },
   "engines": {
     "node": ">=24"

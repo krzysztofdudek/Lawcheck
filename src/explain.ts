@@ -386,6 +386,28 @@ function ruleAnswer(ctx: Ctx, id: string, json: boolean): string {
   return lines.join('\n') + '\n';
 }
 
+// A file system that ignores case finds SRC/core/price.ts at src/core/price.ts, which git lists under that spelling alone; the answer is about the file git lists.
+function spelledAsListed(root: string, path: string, listed: Set<string>): string {
+  if (listed.has(path)) return path;
+  let named: { dev: bigint; ino: bigint };
+  try {
+    named = lstatSync(join(root, path), { bigint: true });
+  } catch {
+    return path;
+  }
+  const lower = path.toLowerCase();
+  const same = [...listed].filter((other) => {
+    if (other.toLowerCase() !== lower) return false;
+    try {
+      const stat = lstatSync(join(root, other), { bigint: true });
+      return stat.dev === named.dev && stat.ino === named.ino;
+    } catch {
+      return false;
+    }
+  });
+  return same.length === 1 ? same[0]! : path;
+}
+
 export async function explain(args: Arguments, context: CheckContext, json: boolean): Promise<Result> {
   const typeId = flagText(args, '--type');
   const ruleId = flagText(args, '--rule');
@@ -402,7 +424,7 @@ export async function explain(args: Arguments, context: CheckContext, json: bool
     const ctx: Ctx = { root, law, config, listed, files, read, kinds };
     if (typeId !== null) return typeAnswer(ctx, typeId, json);
     if (ruleId !== null) return ruleAnswer(ctx, ruleId, json);
-    const path = fromCwd(root, context.cwd, args.words[0]!);
+    const path = spelledAsListed(root, fromCwd(root, context.cwd, args.words[0]!), listed);
     if (path === '.') return directory(ctx, path, json);
     let stat: ReturnType<typeof lstatSync> | null = null;
     try {
