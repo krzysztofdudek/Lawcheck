@@ -3,6 +3,9 @@ import { fileURLToPath } from 'node:url';
 import { SLOWEST_SHOWN, slowBudget, TEST_BUDGET_MS } from '../numbers.ts';
 import { INVARIANTS } from './invariants.ts';
 import { promiseOf, testIds } from './promises.ts';
+import { loadInputs } from '../contract/spec-map.ts';
+import { tieProblems } from '../contract/tie.ts';
+import { COMMIT_GROUPS, NIGHTLY_GROUPS, setFiles } from './sets.ts';
 
 const ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const CLOSING = 'if the promise changed, change the spec row first; the guard then accepts a new expectation';
@@ -88,6 +91,8 @@ export async function judgeRun(source: AsyncIterable<{ type: string; data: any }
   const files = new Set<string>();
   const seeds = new Map<string, string>();
   const skips: string[] = [];
+  const wholeSkips = new Set<string>();
+  const passed: { file: string; name: string }[] = [];
   const counts = { passed: 0, failed: 0, skipped: 0, todo: 0 };
   for await (const event of source) {
     const data = event.data ?? {};
@@ -96,6 +101,7 @@ export async function judgeRun(source: AsyncIterable<{ type: string; data: any }
       const seen = /^seed (-?\d+)$/m.exec(message);
       if (seen !== null && data.file) seeds.set(data.file, seen[1]!);
       for (const m of message.matchAll(/^skip (.*)$/gm)) skips.push(`${m[1]}  ${where(data.file)}`);
+      for (const m of message.matchAll(/^skip (\S+) > (.*): the whole test on \w+: /gm)) wholeSkips.add(`${m[1]} > ${m[2]}`);
       continue;
     }
     if (event.type !== 'test:pass' && event.type !== 'test:fail') continue;
@@ -106,6 +112,7 @@ export async function judgeRun(source: AsyncIterable<{ type: string; data: any }
       }
       continue;
     }
+    if (event.type === 'test:pass' && data.skip === undefined && data.todo === undefined && data.file) passed.push({ file: where(data.file), name: data.name });
     if (data.nesting !== 0) continue;
     if (data.file) files.add(data.file);
     const fileItself = data.file !== undefined && (data.name === data.file || data.name === where(data.file));
@@ -142,7 +149,18 @@ export async function judgeRun(source: AsyncIterable<{ type: string; data: any }
     }
   }
   for (const f of failed) lines.push('', ...block(f, seeds));
-  return { text: lines.join('\n') + '\n', red: counts.failed > 0 };
+  let untied = false;
+  if (process.env.LAWCHECK_TIE === '1') {
+    const speed = process.env.LAWCHECK_SPEED === 'nightly' ? 'nightly' : 'commit';
+    const dirs = [...new Set(Object.values(speed === 'nightly' ? NIGHTLY_GROUPS : COMMIT_GROUPS).flat())];
+    const ran = passed.filter((p) => !wholeSkips.has(`${p.file} > ${p.name}`));
+    const problems = tieProblems(loadInputs(new URL('../../', import.meta.url), 0), setFiles(speed, dirs), ran);
+    if (problems.length > 0) {
+      untied = true;
+      lines.push('', 'RED      the run-time tie of question 79', 'promise  spec/questions.md, entry 79: a row or an invariant is covered only by a test that ran and passed in this run', ...problems.slice(0, 20).map((p) => `got      ${p}`), 'if the promise changed, change the spec row first; the guard then accepts a new expectation');
+    }
+  }
+  return { text: lines.join('\n') + '\n', red: counts.failed > 0 || untied };
 }
 
 export default async function* reporter(source: AsyncIterable<{ type: string; data: any }>): AsyncGenerator<string> {

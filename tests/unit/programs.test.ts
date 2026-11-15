@@ -104,7 +104,7 @@ test('reviewer-slice §6: killTree with orphans ends the programs left by a prog
   });
 });
 
-test('the descendants of a process are read from the list of processes, its own id never among them', () => {
+test('reviewer-slice §6: the descendants of a process are read from the list of processes, its own id never among them', () => {
   const table = ['10 1 5', '11 10 6', '12 11 7', '13 10 8', '20 1 9', '21 20 10', '30 30 11', ''].join('\r\n');
   assert.deepEqual(descendantsIn(table, 10).sort((a, b) => a - b), [11, 12, 13]);
   assert.deepEqual(descendantsIn(table, 20), [21]);
@@ -112,7 +112,7 @@ test('the descendants of a process are read from the list of processes, its own 
   assert.deepEqual(descendantsIn('', 10), []);
 });
 
-test('the time each process was made is read from the list of processes', () => {
+test('R-34: the time each process was made is read from the list of processes', () => {
   const table = ['10 1 638900000000000001', '11 10 638900000000000002', 'junk', '12 11', ''].join('\r\n');
   assert.deepEqual([...createdIn(table)], [[10, '638900000000000001'], [11, '638900000000000002']]);
 });

@@ -156,7 +156,7 @@ test('S5-14: a submodule whose own config names a filter starts nothing during c
   });
 });
 
-test('harness-7: check leaves the index as it was when the times of its files no longer match it', async () => {
+test('R-46: harness-7, check leaves the index as it was when the times of its files no longer match it', async () => {
   await inTemp(async (dir) => {
     const s = makeSample(dir);
     writeFileSync(join(s, 'src/core/discount.ts'), "console.log('d');\n");

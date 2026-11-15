@@ -1,4 +1,6 @@
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { COMMIT_GROUPS, NIGHTLY_GROUPS, setFiles } from '../harness/sets.ts';
+import { INVARIANTS } from '../harness/invariants.ts';
 
 export interface Row {
   number: number;
@@ -28,9 +30,8 @@ export interface Inputs {
   manual: string;
   ledger: string;
   sectionOnly: number;
+  harness: string[];
 }
-
-export const TEST_DIRECTORIES = ['unit', 'acceptance', 'contract', 'properties', 'security', 'limits', 'environments', 'guard'];
 
 export function cells(line: string): string[] {
   return line
@@ -162,6 +163,7 @@ export interface Scanned {
 
 interface Literal {
   value: string;
+  prefix: string;
   dynamic: boolean;
   end: number;
 }
@@ -187,7 +189,7 @@ function blank(text: string): { code: string; literals: Map<number, Literal> } {
         i += 2;
       } else value += text[i++];
     }
-    literals.set(start, { value, dynamic: false, end: i + 1 });
+    literals.set(start, { value, prefix: value, dynamic: false, end: i + 1 });
     wipe(start, i + 1);
     return i + 1;
   };
@@ -195,6 +197,7 @@ function blank(text: string): { code: string; literals: Map<number, Literal> } {
   const template = (start: number): number => {
     let i = start + 1;
     let value = '';
+    let prefix: string | null = null;
     let dynamic = false;
     wipe(start, start + 1);
     while (i < n && text[i] !== '`') {
@@ -204,6 +207,7 @@ function blank(text: string): { code: string; literals: Map<number, Literal> } {
         i += 2;
       } else if (text[i] === '$' && text[i + 1] === '{') {
         dynamic = true;
+        prefix ??= value;
         wipe(i, i + 2);
         i = scan(i + 2, true);
         wipe(i - 1, i);
@@ -214,7 +218,7 @@ function blank(text: string): { code: string; literals: Map<number, Literal> } {
       }
     }
     wipe(i, i + 1);
-    literals.set(start, { value, dynamic, end: i + 1 });
+    literals.set(start, { value, prefix: prefix ?? value, dynamic, end: i + 1 });
     return i + 1;
   };
 
@@ -278,7 +282,7 @@ function blank(text: string): { code: string; literals: Map<number, Literal> } {
 }
 
 const LEAD = new RegExp(
-  '^(?:(tests? \\d+(?:(?:,\\s*|\\s+and\\s+|,\\s+and\\s+)\\d+)*)|(I-[a-z]+-\\d+)|(S\\d+-\\d+|U-\\d+|R-\\d+|T[1-8])|([a-z][a-z/-]* §[\\w.]+)|(question \\d+)):',
+  '^(?:(tests? \\d+(?:(?:,\\s*|\\s+and\\s+|,\\s+and\\s+)\\d+)*)|(I-[a-z]+-\\d+|harness-(?:\\d+|count))|(S\\d+-\\d+|U-\\d+|R-\\d+|T[1-8])|([a-z][a-z/-]* §[\\w.]+)|(question \\d+)):',
 );
 
 export function leadsWithSource(name: string): boolean {
@@ -339,8 +343,8 @@ export function scanTests(file: string, text: string): Scanned {
       result.problems.push(`${where}: suite() is not read; use describe`);
       continue;
     }
-    if (literal === undefined || literal.dynamic) {
-      result.problems.push(`${where}: the name of this ${callee}() call is not a literal string, so the rail cannot read it`);
+    if (literal === undefined || (literal.dynamic && !leadsWithSource(literal.prefix))) {
+      result.problems.push(`${where}: the name of this ${callee}() call is not a literal string, or a template whose literal start holds the source and its colon, so the rail cannot read it`);
       continue;
     }
     if (member === 'only') {
@@ -370,7 +374,7 @@ export function scanTests(file: string, text: string): Scanned {
         skipped = true;
       }
     }
-    found.push({ index: m.index, end: close, name: literal.value, skipped, describe: callee === 'describe' });
+    found.push({ index: m.index, end: close, name: literal.dynamic ? literal.prefix : literal.value, skipped, describe: callee === 'describe' });
   }
   const hidden_ = found.filter((f) => f.describe && f.skipped);
   for (const f of found) {
@@ -384,20 +388,10 @@ export function scanTests(file: string, text: string): Scanned {
   return result;
 }
 
-export function testFilesUnder(root: URL): TextFile[] {
-  const out: TextFile[] = [];
-  const walk = (dir: URL, prefix: string): void => {
-    for (const entry of readdirSync(dir, { withFileTypes: true })) {
-      if (entry.name === 'node_modules') continue;
-      if (entry.isDirectory()) walk(new URL(`${entry.name}/`, dir), `${prefix}${entry.name}/`);
-      else if (entry.name.endsWith('.test.ts')) out.push({ path: `${prefix}${entry.name}`, text: readFileSync(new URL(entry.name, dir), 'utf8') });
-    }
-  };
-  for (const name of TEST_DIRECTORIES) {
-    const dir = new URL(`${name}/`, root);
-    if (existsSync(dir) && statSync(dir).isDirectory()) walk(dir, `tests/${name}/`);
-  }
-  return out.sort((a, b) => (a.path < b.path ? -1 : 1));
+export function testFilesOfRunner(repo: URL): TextFile[] {
+  const dirs = [...new Set([...Object.values(COMMIT_GROUPS).flat(), ...Object.values(NIGHTLY_GROUPS).flat()])];
+  const paths = [...setFiles('commit', dirs), ...setFiles('nightly', dirs)];
+  return paths.map((path) => ({ path, text: readFileSync(new URL(path, repo), 'utf8') })).sort((a, b) => (a.path < b.path ? -1 : 1));
 }
 
 function markdownUnder(root: URL, prefix: string): TextFile[] {
@@ -418,25 +412,28 @@ export function loadInputs(repo: URL, sectionOnly: number): Inputs {
     specs: markdownUnder(new URL('spec/', repo), 'spec/'),
     docs: markdownUnder(new URL('docs/', repo), 'docs/'),
     questions: readFileSync(new URL('spec/questions.md', repo), 'utf8'),
-    tests: testFilesUnder(testsDir),
+    tests: testFilesOfRunner(repo),
     manual: readFileSync(new URL('contract/manual-rows.md', testsDir), 'utf8'),
     ledger: readFileSync(new URL('findings.md', testsDir), 'utf8'),
     sectionOnly,
+    harness: Object.keys(INVARIANTS),
   };
 }
 
 const SOURCE = {
   invariant: /\bI-[a-z]+-\d+\b/g,
+  harness: /(?<![\w-])harness-(?:\d+|count)(?![\w-])/g,
   finding: /\b(?:S\d+-\d+|U-\d+|R-\d+|T[1-8])\b/g,
   section: /\b([a-z][a-z/-]*) §([\w.]+)/g,
   question: /\bquestion (\d+)\b/g,
 };
 
-export function sourcesOf(name: string): { rows: number[]; invariants: string[]; findings: string[]; sections: [string, string][]; questions: number[] } {
+export function sourcesOf(name: string): { rows: number[]; invariants: string[]; harness: string[]; findings: string[]; sections: [string, string][]; questions: number[] } {
   const lead = /^tests? (\d+(?:(?:,\s*|\s+and\s+|,\s+and\s+)\d+)*):/.exec(name);
   return {
     rows: lead === null ? [] : lead[1]!.match(/\d+/g)!.map(Number),
     invariants: name.match(SOURCE.invariant) ?? [],
+    harness: name.match(SOURCE.harness) ?? [],
     findings: name.match(SOURCE.finding) ?? [],
     sections: [...name.matchAll(SOURCE.section)].map((m) => [m[1]!, m[2]!]),
     questions: [...name.matchAll(SOURCE.question)].map((m) => Number(m[1])),
@@ -559,6 +556,11 @@ export function problemsOf(input: Inputs): string[] {
       if (invariantIds.has(id)) known++, strong++;
       else problems.push(`${where} names invariant ${id}, which is in no spec table`);
     }
+    for (const id of source.harness) {
+      named.add(id);
+      if (input.harness.includes(id)) known++, strong++;
+      else problems.push(`${where} names ${id}, which is no invariant of tests/harness/invariants.ts`);
+    }
     for (const id of source.findings) {
       if (findings.has(id)) known++, strong++;
       else problems.push(`${where} names finding ${id}, which is not in tests/findings.md`);
@@ -582,7 +584,10 @@ export function problemsOf(input: Inputs): string[] {
   for (const invariant of invariants) {
     if (!named.has(invariant.id)) problems.push(`invariant ${invariant.id} of ${invariant.spec} has no test with its id in the name`);
   }
+  for (const id of input.harness) {
+    if (!named.has(id)) problems.push(`harness invariant ${id} has no test with its id in the name`);
+  }
   if (sectionOnly > input.sectionOnly) problems.push(`${sectionOnly} tests cite only a spec section or a question, and the ratchet allows ${input.sectionOnly}: a new test names a row, an invariant id or a finding id`);
-  if (sectionOnly < input.sectionOnly) problems.push(`${sectionOnly} tests cite only a spec section or a question, and the ratchet still says ${input.sectionOnly}: lower SECTION_ONLY_TESTS in tests/contract/ratchets.ts`);
+  if (sectionOnly < input.sectionOnly) problems.push(`${sectionOnly} tests cite only a spec section or a question, and the ratchet still says ${input.sectionOnly}: lower SECTION_ONLY_TESTS in tests/numbers.ts`);
   return problems;
 }

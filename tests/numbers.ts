@@ -317,6 +317,9 @@ export function slowBudget(key: string, system: System = process.platform as Sys
 }
 
 
+// The tests whose names cite only a spec section or a question (spec/questions.md, entry 79). The count may only fall: tests/contract/spec-map.test.ts fails when it is above this number, and when it is below, so that a lower count is written down here.
+export const SECTION_ONLY_TESTS = 218;
+
 export const SLOWEST_SHOWN = 10;
 
 // The share of a property's cases that must hold each class of input its generator claims to reach.
@@ -389,6 +392,7 @@ export const stronger: Record<string, 'higher' | 'lower' | 'fixed'> = {
   SLOW_MARGIN: 'lower',
   STABILITY_RUNS: 'higher',
   SLOWEST_SHOWN: 'higher',
+  SECTION_ONLY_TESTS: 'lower',
   REACH_SHARE: 'higher',
   LIVE_TIMES: 'higher',
   LIVE_SAME_SHARE: 'higher',

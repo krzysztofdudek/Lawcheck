@@ -81,7 +81,7 @@ function readMap(): Record<string, string[]> {
   return JSON.parse(readFileSync(join(TESTS, 'map.json'), 'utf8')) as Record<string, string[]>;
 }
 
-const ID = /^(tests? \d+|I-[a-z][a-z0-9]*-\d+|S\d+-\d+|U-\d+|R-\d+)$/;
+const ID = /^(tests? \d+|I-[a-z][a-z0-9]*-\d+|S\d+-\d+|U-\d+|R-\d+|T[1-8])$/;
 
 function escape(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -214,8 +214,8 @@ function main(): void {
   }
   args.push(...files);
   const target = parsed.speed === 'loop' ? LOOP_TARGET_MS : parsed.speed === 'commit' && parsed.targets.length === 0 && parsed.group === null && parsed.shard === null ? COMMIT_TARGET_MS : null;
-  const env: NodeJS.ProcessEnv = { ...process.env, LAWCHECK_SPEED: parsed.speed, LAWCHECK_SEED: seed, LAWCHECK_TARGET_MS: target === null ? '' : String(target) };
-  if (parsed.shard !== null) delete env.LAWCHECK_TIE;
+  const whole = parsed.speed !== 'loop' && parsed.targets.length === 0 && parsed.group === null && parsed.shard === null && patterns.length === 0;
+  const env: NodeJS.ProcessEnv = { ...process.env, LAWCHECK_SPEED: parsed.speed, LAWCHECK_SEED: seed, LAWCHECK_TARGET_MS: target === null ? '' : String(target), LAWCHECK_TIE: whole ? '1' : '' };
   let failed = false;
   for (let round = 1; round <= parsed.repeat; round++) {
     if (parsed.repeat > 1) process.stdout.write(`round ${round} of ${parsed.repeat}\n`);

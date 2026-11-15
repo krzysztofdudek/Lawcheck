@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { invariantsOf, ledgerProblems, loadInputs, problemsOf, rowsOf, scanTests, sourcesOf, type Inputs } from './spec-map.ts';
-import { SECTION_ONLY_TESTS } from './ratchets.ts';
+import { SECTION_ONLY_TESTS } from '../numbers.ts';
+import { tieProblems } from './tie.ts';
 
 const REPO = new URL('../../', import.meta.url);
 
@@ -36,6 +37,7 @@ function inputs(over: Partial<Inputs> = {}): Inputs {
     manual: table('# | Why no test carries it | Who runs it', []),
     ledger: LEDGER,
     sectionOnly: 2,
+    harness: [],
     ...over,
   };
 }
@@ -87,7 +89,8 @@ test('question 79: control, a test call the rail cannot read, and a test in a pl
   const unreadable: [string, string][] = [
     ["test({ name: 'test 2: x' }, () => {});", 'is not a literal string'],
     ["const name = 'test 2: x'; test(name, () => {});", 'is not a literal string'],
-    ['test(`test 2: ${1}`, () => {});', 'is not a literal string'],
+    ['test(`${1}: test 2`, () => {});', 'is not a literal string'],
+    ['test(`a name ${1}`, () => {});', 'is not a literal string'],
     ["suite('test 2: x', () => {});", 'suite() is not read'],
     ["test.only('test 2: x', () => {});", '.only is not allowed'],
     ['const check = test;', 'assigned to another name'],
@@ -177,5 +180,25 @@ test('question 79: control, the ledger has unique well-formed ids and fixed sets
 });
 
 test('question 79: the parsers read sources from names', () => {
-  assert.deepEqual(sourcesOf('tests 3, 4 and 5: and I-a-1, S2-3, check-slice §3.5, question 7'), { rows: [3, 4, 5], invariants: ['I-a-1'], findings: ['S2-3'], sections: [['check-slice', '3.5']], questions: [7] });
+  assert.deepEqual(sourcesOf('tests 3, 4 and 5: and I-a-1, harness-2, S2-3, check-slice §3.5, question 7'), { rows: [3, 4, 5], invariants: ['I-a-1'], harness: ['harness-2'], findings: ['S2-3'], sections: [['check-slice', '3.5']], questions: [7] });
+});
+
+test('question 79: control, a row or an invariant is covered only by a test that ran and passed in the run', () => {
+  const base = inputs({ tests: [{ path: 'tests/unit/a.test.ts', text: code("test('test 1: a', () => {});", "test('tests 2: c', () => {});", "test('I-out-1: i', () => {});") }] });
+  const files = ['tests/unit/a.test.ts'];
+  assert.deepEqual(tieProblems(base, files, [{ file: files[0]!, name: 'test 1: a' }, { file: files[0]!, name: 'tests 2: c' }, { file: files[0]!, name: 'I-out-1: i' }]), []);
+  const missing = tieProblems(base, files, [{ file: files[0]!, name: 'test 1: a' }, { file: files[0]!, name: 'I-out-1: i' }]);
+  assert.equal(missing.length, 1);
+  assert.ok(missing[0]!.startsWith('test 2 is carried by a test of this run and none of them ran and passed'), missing[0]);
+  assert.equal(tieProblems(base, files, []).length, 3);
+  assert.deepEqual(tieProblems(base, ['tests/unit/other.test.ts'], []), []);
+});
+
+test('question 79: control, a harness invariant needs a test that leads with its id, and a test may lead with no other', () => {
+  const lines = [...all, "test('harness-1: a run is checked', () => {});"];
+  assert.deepEqual(problemsOf({ ...inputs(withTests(...lines)), harness: ['harness-1'], sectionOnly: 0 }), []);
+  const unknown = problemsOf({ ...inputs(withTests(...lines, "test('harness-9: nothing', () => {});")), harness: ['harness-1'] });
+  assert.ok(unknown.some((p) => p.includes('harness-9, which is no invariant')), unknown.join('\n'));
+  const uncovered = problemsOf({ ...inputs(withTests(...all)), harness: ['harness-1'] });
+  assert.ok(uncovered.includes('harness invariant harness-1 has no test with its id in the name'), uncovered.join('\n'));
 });
