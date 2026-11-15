@@ -164,4 +164,5 @@ test('S4-11: the dependency spec lists declare module as read, and a fully quali
   });
   assert.deepEqual(found.findings, ['ui/src/main/java/com/acme/ui/Field.java:2']);
   assert.ok(page.includes('a fully qualified name is read in a field type, and not in a call, an annotation or `Class.forName`'));
+  assert.ok(page.includes('a file of any size with syntax errors has no bound on its time'), 'S4-10');
 });

@@ -6,11 +6,10 @@ The third working slice: who may use whom, by type, read from the code. It exten
 
 In: the law key `may_use` on a type; reading what each judged file uses with the language readers of Runes, as they are, for the twelve languages they read; judging each use Runes resolves to a file against the type's list; counting every use it does not resolve, except one that leaves the repository; the finding codes `forbidden-use` and `uses-not-read` and the exit-2 code `parser-failed` in `lawcheck check`; the grammars the package ships, with their licences; a measurement on two public repositories kept outside `npm test`; and the fix of a reviewer error message from slice two (section 8).
 
-Out, each with what this slice does where the design has it:
+Out: what the design has and no slice builds yet is listed in [`deferred.md`](deferred.md), with where it is mentioned and why it waits. What this slice does in its place:
 
 | Out | Here |
 |---|---|
-| everything the earlier slices leave out (other commands, the plugin, range and file waivers, `required`, `ignored`, `untyped-file`, settings files beyond slice two's) | as there |
 | `file.uses()`, `file.tree()` and `file.language` in a script rule | absent: a script rule receives what slice one gives it |
 | waivers counted only inside real comments of a parsed language | absent: waivers stay text (slice one, decision 12) |
 | telling an outside package from a use the readers could not follow | in, as Runes 1.1.0 answers it: a use that leaves the repository is not counted (section 4) |

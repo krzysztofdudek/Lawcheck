@@ -28,7 +28,7 @@ The readers come from Runes. A use they do not report is never a `forbidden-use`
 
 ## Languages that read other files' declarations
 
-Java, Kotlin, C#, Ruby and Rust bind a name through what other files declare. When a run reads the uses of one file of the groups {Java, Kotlin}, {C#}, {Ruby} or {Rust}, it also reads the declarations of every file of that group in the repository, with a type or without. Such a run costs more in a large repository.
+Java, Kotlin, C#, Ruby and Rust bind a name through what other files declare. When a run reads the uses of one file of the groups {Java, Kotlin}, {C#}, {Ruby} or {Rust}, it also reads the declarations of every file of that group in the repository, with a type or without. Such a run costs most in Java, and a file of any size with syntax errors has no bound on its time.
 
 The other languages resolve by path, through files such as `tsconfig.json`, `package.json`, `go.mod`, `Cargo.toml` and `composer.json`, and read no declarations.
 
@@ -60,7 +60,7 @@ What the readers tell as outside, by language: TypeScript and JavaScript, an ins
 
 ## Forms the readers miss
 
-These are limits of the readers, used as they are. A use they miss is neither judged nor counted, so a check can pass where the same use, written another way, fails.
+A use the readers miss is neither judged nor counted, so a check can pass where the same use, written another way, fails.
 
 - TypeScript and JavaScript: an alias that only a bundler defines (Vite or webpack `resolve.alias`, Babel `module-resolver`) is read as an installed package; put it in `tsconfig.json` `paths` too. `import.meta.glob`, `require.context` and `vi.mock` are not read.
 - Python: a package under a folder that only configuration names, such as `lib/` with `where = ["lib"]` in `pyproject.toml`, is no root. Its absolute imports of itself (`from pkg.data.d import x`) are read as outside; its relative imports are read.

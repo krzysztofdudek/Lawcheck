@@ -6,13 +6,11 @@ The fourth working slice: the six commands the design names beside `check`. It e
 
 In: `lawcheck init`, `prime`, `explain`, `try`, `docs` and `doctor`; one usage per command and a usage for the program; the reference pages `docs` prints; one line in `check` when its change touches the law (section 8).
 
-Out, each with what this slice does where the design has it:
+Out: what the design has and no slice builds yet is listed in [`deferred.md`](deferred.md), with where it is mentioned and why it waits. What this slice does in its place:
 
 | Out | Here |
 |---|---|
-| the agent plugin and its hooks, MCP, the `runner` setting | absent; `runner` stays `config-invalid` |
-| `check <paths>`, `--staged`, `--strict`, `--no-scripts`, `--rule` and `--type` on `check` | `usage`, as before |
-| `required`, `ignored`, `untyped-file`, range and file waivers | as the earlier slices |
+| `--staged`, `--strict`, `--no-scripts`, `--rule` and `--type` on `check` | `usage`, as before |
 | the version line's update documents: `law-needs-update`, `law-newer-than-cli`, the topics `update-<from>-to-<to>` | absent: no release has an update document yet |
 | `--no-color` | `usage`: nothing is coloured (slice one, decision 18) |
 | `try --type`, `try --all`, and `try` on a file outside the root | `usage`; a script rule without paths takes the files it binds (section 5), and `check --full` runs every rule (decision 4) |
