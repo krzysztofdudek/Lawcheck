@@ -1,4 +1,60 @@
 {
+  ".lawcheck/.gitattributes": [
+    "tests/acceptance/self-law.test.ts"
+  ],
+  ".lawcheck/.gitignore": [
+    "tests/acceptance/self-law.test.ts"
+  ],
+  ".lawcheck/config.yaml": [
+    "tests/acceptance/self-law.test.ts"
+  ],
+  ".lawcheck/law.yaml": [
+    "tests/acceptance/self-law.test.ts",
+    "tests/acceptance/self-law-rules.test.ts"
+  ],
+  ".lawcheck/rules/comments-say-why.md": [
+    "tests/acceptance/self-law.test.ts"
+  ],
+  ".lawcheck/rules/docs-state-facts.md": [
+    "tests/acceptance/self-law.test.ts"
+  ],
+  ".lawcheck/rules/errors-name-the-fix.md": [
+    "tests/acceptance/self-law.test.ts"
+  ],
+  ".lawcheck/rules/layer-imports.mjs": [
+    "tests/acceptance/self-law.test.ts",
+    "tests/acceptance/self-law-rules.test.ts"
+  ],
+  ".lawcheck/rules/lib/code.mjs": [
+    "tests/acceptance/self-law.test.ts",
+    "tests/acceptance/self-law-rules.test.ts"
+  ],
+  ".lawcheck/rules/modules-only-declare.mjs": [
+    "tests/acceptance/self-law.test.ts",
+    "tests/acceptance/self-law-rules.test.ts"
+  ],
+  ".lawcheck/rules/next-keeps-the-users-word.md": [
+    "tests/acceptance/self-law.test.ts"
+  ],
+  ".lawcheck/rules/no-import-cycles.mjs": [
+    "tests/acceptance/self-law.test.ts",
+    "tests/acceptance/self-law-rules.test.ts"
+  ],
+  ".lawcheck/rules/own-paths-in-one-place.mjs": [
+    "tests/acceptance/self-law.test.ts",
+    "tests/acceptance/self-law-rules.test.ts"
+  ],
+  ".lawcheck/rules/programs-own-the-process.mjs": [
+    "tests/acceptance/self-law.test.ts",
+    "tests/acceptance/self-law-rules.test.ts"
+  ],
+  ".lawcheck/rules/pure-layers.mjs": [
+    "tests/acceptance/self-law.test.ts",
+    "tests/acceptance/self-law-rules.test.ts"
+  ],
+  ".lawcheck/verdicts": [
+    "tests/acceptance/self-law.test.ts"
+  ],
   "plugin/hooks/fit.mjs": [
     "tests/limits/hook-fit.test.ts"
   ],
