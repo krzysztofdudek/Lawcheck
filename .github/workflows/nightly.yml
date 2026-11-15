@@ -54,7 +54,7 @@ jobs:
           path: .grammars
       - run: npm run build
       - name: The commit set, three times
-        run: node tests/run.ts commit --repeat 3
+        run: npm test -- --repeat 3
 
   properties:
     name: nightly properties
