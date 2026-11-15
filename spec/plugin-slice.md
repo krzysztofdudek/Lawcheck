@@ -271,7 +271,7 @@ A runner exits 1 when it cannot find what it should start, so an exit code alone
 
 1. `head`: `git rev-parse --verify --quiet HEAD^{commit}`, or null.
 2. The paths: with a HEAD, `git diff -z --name-only --no-renames --relative HEAD --` and `git ls-files -z --others --exclude-standard`; without one, `git ls-files -z --cached --others --exclude-standard`. Paths under `.lawcheck/.local/` are left out.
-3. Each path's blob id from one `git hash-object --stdin-paths`, or `-` when the path is no regular file.
+3. Each path's blob id from one `git hash-object --stdin-paths`, each path written in C quotes from the top of the work tree after `git rev-parse --show-prefix`, so a name with any byte and a root below the top are read right; or `-` when the path is no regular file. Paths are written as slice one's section 2 writes them.
 
 A snapshot that fails or passes the deadline is no snapshot.
 

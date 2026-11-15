@@ -1,8 +1,6 @@
 import { spawnSync } from 'node:child_process';
-import { createHash } from 'node:crypto';
-import { lstatSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { bytesOfName, nameOf, onDisk } from './names.mjs';
+import { lstatSync } from 'node:fs';
+import { bytesOfName, nameOf, onDisk, quotedLine } from './names.mjs';
 import { findProgram } from './start.mjs';
 
 class NoSnapshot extends Error {}
@@ -82,28 +80,16 @@ export function snapshot(root, deadline) {
     const paths = [...new Set(listed)].filter((path) => !path.startsWith('.lawcheck/.local/'));
     const files = {};
     const hashed = [];
-    let format = null;
     for (const path of paths) {
       files[path] = '-';
-      if (!isRegular(root, path)) continue;
-      const bytes = bytesOfName(path);
-      if (!bytes.includes(0x0a) && !bytes.includes(0x0d)) {
-        hashed.push(bytes);
-        continue;
-      }
-      // git reads --stdin-paths one line at a time, so a name with a line break is hashed here, as git hashes a blob.
-      format ??= run(root, ['rev-parse', '--show-object-format'], deadline).toString('utf8').trim() === 'sha256' ? 'sha256' : 'sha1';
-      try {
-        const content = readFileSync(onDisk(root, path));
-        files[path] = createHash(format).update(`blob ${content.length}\0`).update(content).digest('hex');
-      } catch {}
+      if (isRegular(root, path)) hashed.push(path);
     }
     if (hashed.length > 0) {
-      // git reads these paths from the top of the work tree, not from the folder it runs in, so a root below the top needs them whole.
-      const input = Buffer.concat(hashed.flatMap((bytes) => [Buffer.from(join(root, '/')), bytes, Buffer.from('\n')]));
+      const prefix = run(root, ['rev-parse', '--show-prefix'], deadline).toString('utf8').replace(/\r?\n$/, '');
+      const input = Buffer.concat(hashed.map((path) => quotedLine(prefix, bytesOfName(path))));
       const ids = run(root, ['hash-object', '--stdin-paths'], deadline, input).toString('utf8').split('\n');
-      hashed.forEach((bytes, i) => {
-        if (ids[i]) files[nameOf(bytes)] = ids[i];
+      hashed.forEach((path, i) => {
+        if (ids[i]) files[path] = ids[i];
       });
     }
     return { head, files };

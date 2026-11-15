@@ -186,3 +186,46 @@ test('S5-10: a number past 9007199254740991 is usage, and an empty path names no
     }
   });
 });
+
+for (const under of ['', 'pkg']) {
+  const where = under === '' ? 'at the top of the work tree' : 'below it, in pkg/';
+  test(`S1-14: with the law ${where}, a marked file with no edit passes and an edited one is in the change`, async () => {
+    await withSample(async (repo) => {
+      const s = under === '' ? repo : join(repo, under);
+      const at = (path: string) => (under === '' ? path : `${under}/${path}`);
+      git(repo, 'update-index', '--assume-unchanged', at('src/core/tax.ts'));
+      git(repo, 'update-index', '--skip-worktree', at('src/cli/main.ts'));
+      const clean = await check(s);
+      assert.deepEqual([clean.code, clean.stdout], [0, 'lawcheck: PASS  nothing changed against main\n']);
+      append(s, 'src/core/tax.ts', BREACH);
+      const edited = await check(s);
+      assert.equal(edited.code, 1, edited.stdout);
+      assert.equal(edited.stdout.split('\n')[0], 'lawcheck: FAIL  1 error, 1 warning in 1 changed file (against main)');
+    }, { under: under === '' ? undefined : under });
+  });
+}
+
+const QUOTED: [string, Buffer][] = [
+  ['a name that starts with a double quote', Buffer.from('"q.ts')],
+  ['a name in double quotes', Buffer.from('"x.ts"')],
+];
+if (!WINDOWS) QUOTED.push(['a name with a line feed', Buffer.from('src/core/n\nl.ts')], ['a name with a carriage return', Buffer.from('src/core/c\rr.ts')]);
+
+for (const [what, name] of QUOTED) {
+  test(`S1-14: ${what}, marked assume-unchanged and edited, is in the change, and its twin without quotes is not`, { skip: WINDOWS && name.includes(0x22) && 'Windows refuses a double quote in a file name' }, async () => {
+    await withSample(async (s) => {
+      write(s, '.lawcheck/law.yaml', `${LAW}  quoted:\n    paths: ['"*']\n    rules: [no-console]\n`);
+      writeBytes(s, name, 'export const x = 1;\n');
+      write(s, 'x.ts', 'export const x = 1;\n');
+      write(s, 'q.ts', 'export const x = 1;\n');
+      git(s, 'add', '-A');
+      git(s, 'commit', '-q', '-m', 'names');
+      git(s, 'update-index', '--assume-unchanged', '--', name.toString('utf8'));
+      writeBytes(s, name, BREACH);
+      const run = await check(s, '--base', 'HEAD', '--json');
+      assert.equal(run.code, 1, run.stdout);
+      const files = JSON.parse(run.stdout).findings.map((f: { file: string }) => f.file);
+      assert.deepEqual(files, [name.toString('utf8').replace(/\n/g, '\\n').replace(/\r/g, '\\r')]);
+    });
+  });
+}

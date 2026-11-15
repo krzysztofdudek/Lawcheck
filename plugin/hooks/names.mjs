@@ -79,3 +79,14 @@ export function onDisk(root, name) {
   if (sep === '\\' || !name.includes('\\')) return join(root, name);
   return Buffer.concat([Buffer.from(join(root, '/'), 'utf8'), bytesOfName(name)]);
 }
+
+export function quotedLine(prefix, bytes) {
+  const out = [0x22];
+  for (const byte of [...Buffer.from(prefix, 'utf8'), ...bytes]) {
+    if (byte === 0x22 || byte === 0x5c) out.push(0x5c, byte);
+    else if (byte < 0x20 || byte >= 0x7f) out.push(0x5c, ...Buffer.from(byte.toString(8).padStart(3, '0')));
+    else out.push(byte);
+  }
+  out.push(0x22, 0x0a);
+  return Buffer.from(out);
+}

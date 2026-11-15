@@ -719,3 +719,31 @@ test('S6-10: the check before finishing sees a file whose name holds a line brea
     assert.ok(run.json.hookSpecificOutput.additionalContext.includes("src/core/new\\nline.ts:1  error[no-console]  writes to the terminal with console.log"));
   });
 });
+
+test('S6-10: a file whose name starts with a double quote does not stop the check before finishing from seeing the rest', { skip: WINDOWS && 'Windows refuses a double quote in a file name' }, async () => {
+  await withBench(async (bench, dir) => {
+    const s = makeSample(dir);
+    const session = new Session(bench, s);
+    await session.prompt();
+    writeFileSync(join(s, '"q.ts'), 'export const q = 1;\n');
+    write(s, D_PATH, D);
+    const run = await session.stop();
+    assert.equal(run.code, 0, run.stderr);
+    assert.equal(run.json?.hookSpecificOutput?.hookEventName, 'Stop', run.stdout);
+    assert.deepEqual(bench.checks(), [['check', './"q.ts', `./${D_PATH}`]]);
+  });
+});
+
+test('S6-10: with the law below the top of the work tree, the check before finishing sees the turn\'s files', async () => {
+  await withBench(async (bench, dir) => {
+    const repo = makeSample(dir, { under: 'pkg' });
+    const s = join(repo, 'pkg');
+    const session = new Session(bench, s);
+    await session.prompt();
+    write(s, D_PATH, D);
+    const run = await session.stop();
+    assert.equal(run.code, 0, run.stderr);
+    assert.equal(run.json?.hookSpecificOutput?.hookEventName, 'Stop', run.stdout);
+    assert.deepEqual(bench.checks(), [['check', `./${D_PATH}`]]);
+  });
+});

@@ -98,7 +98,8 @@ const commands = [
     quiet(r.repo, 'commit', '-q', '-a', '-m', 'mine');
     quiet(r.repo, 'rebase', `other${m.branches.length}`);
     m.branches.push(`other${m.branches.length}`);
-    m.rebasing = existsSync(join(r.repo, '.git', 'rebase-merge')) || existsSync(join(r.repo, '.git', 'rebase-apply'));
+    const gitPath = (name: string) => execFileSync('git', ['rev-parse', '--path-format=absolute', '--git-path', name], { cwd: r.repo, env: GIT_ENV, encoding: 'utf8' }).trim();
+    m.rebasing = existsSync(gitPath('rebase-merge')) || existsSync(gitPath('rebase-apply'));
   })),
   fc.constant(new Command('worktree', (m) => free(m) && !m.worktree, (m, r) => {
     quiet(r.repo, 'worktree', 'add', '-q', join(r.dir, 'wt'), '-b', 'wt');
@@ -127,7 +128,9 @@ function truthChanged(repo: string): Set<string> {
   const inBase = new Map<string, string>();
   for (const entry of run(['ls-tree', '-r', '-z', fork]).split('\0').filter(Boolean)) inBase.set(entry.slice(entry.indexOf('\t') + 1), entry.split(' ')[2]!.split('\t')[0]!);
   const listed = run(['ls-files', '-z', '--cached', '--others', '--exclude-standard']).split('\0').filter((path) => path !== '' && existsSync(join(repo, path)) && !lstatSync(join(repo, path)).isDirectory());
-  const ids = listed.length === 0 ? [] : run(['hash-object', '--no-filters', '--stdin-paths'], listed.join('\n') + '\n').split('\n');
+  const prefix = run(['rev-parse', '--show-prefix']).trim();
+  const top = run(['rev-parse', '--show-toplevel']).trim();
+  const ids = listed.length === 0 ? [] : execFileSync('git', ['hash-object', '--no-filters', '--stdin-paths'], { cwd: top, env: GIT_ENV, input: listed.map((path) => prefix + path).join('\n') + '\n', encoding: 'utf8' }).split('\n');
   return new Set(listed.filter((path, i) => inBase.get(path) !== ids[i]));
 }
 
@@ -137,19 +140,21 @@ export function gitStatesProperties(speed: Speed): void {
   test('I-git-2: in any state a sequence of git commands leaves, a check changes nothing in git, its change gives what --full gives for those files, and it prints the same from below the root and twice', async () => {
     await tool(
       speed,
-      fc.commands([...commands, commands[0]!, commands[commands.length - 1]!, commands[commands.length - 1]!], { maxCommands: 6 }),
+      fc.tuple(fc.boolean(), fc.commands([...commands, commands[0]!, commands[commands.length - 1]!, commands[commands.length - 1]!], { maxCommands: 6 })),
       {
         classes: {
-          'a commit or a merge': (cmds) => [...cmds].some((c) => /^(commit|merge|branch)/.test(String(c))),
-          'a rename or a delete': (cmds) => [...cmds].some((c) => /^(rename|delete)/.test(String(c))),
-          'a rebase or a worktree': (cmds) => [...cmds].some((c) => /^(stopped rebase|worktree)/.test(String(c))),
-          'assume-unchanged': (cmds) => [...cmds].some((c) => /^assume/.test(String(c))),
+          'a commit or a merge': ([, cmds]) => [...cmds].some((c) => /^(commit|merge|branch)/.test(String(c))),
+          'a rename or a delete': ([, cmds]) => [...cmds].some((c) => /^(rename|delete)/.test(String(c))),
+          'a rebase or a worktree': ([, cmds]) => [...cmds].some((c) => /^(stopped rebase|worktree)/.test(String(c))),
+          'assume-unchanged': ([, cmds]) => [...cmds].some((c) => /^assume/.test(String(c))),
+          'the law below the top of the work tree': ([below]) => below,
         },
       },
-      async (cmds) => {
+      async ([below, cmds]) => {
         const dir = temp();
         try {
-          const repo = makeSample(dir.dir);
+          const top = makeSample(dir.dir, below ? { under: 'pkg' } : {});
+          const repo = below ? join(top, 'pkg') : top;
           const model: Model = { files: ['src/core/price.ts', 'src/core/tax.ts', 'src/cli/main.ts', 'tools/release.mjs'], branches: [], rebasing: false, worktree: false };
           await fc.asyncModelRun(() => ({ model, real: { repo, dir: dir.dir } }), cmds);
           const before = gitState(repo);
@@ -175,7 +180,7 @@ export function gitStatesProperties(speed: Speed): void {
           const again = await check(repo, '--base', 'main');
           assert.deepEqual([again.code, again.stdout], [text.code, text.stdout], 'a second run');
           if (model.worktree) {
-            const there = await lawcheck(join(dir.dir, 'wt'), ['check', '--base', 'main']);
+            const there = await lawcheck(join(dir.dir, 'wt', below ? 'pkg' : ''), ['check', '--base', 'main']);
             assert.ok(there.code === 0 || there.code === 1, there.stdout);
           }
           assert.equal(gitState(repo), before, 'the runs changed the git state');

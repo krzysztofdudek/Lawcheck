@@ -3,7 +3,7 @@ import { copyFileSync, existsSync, lstatSync, mkdtempSync, rmSync } from 'node:f
 import { devNull, tmpdir } from 'node:os';
 import { dirname, join, resolve, sep } from 'node:path';
 import { findProgram } from './programs.js';
-import { bytesOfName, nameOf, onDisk } from './names.js';
+import { bytesOfName, nameOf, onDisk, quotedLine } from './names.js';
 
 export class NoGit extends Error {}
 
@@ -247,8 +247,8 @@ function hiddenEdits(root: string, base: string): string[] {
   }
   if (marked.length === 0) return [];
   const hashArgs = ['hash-object', '--stdin-paths'];
-  const plain = marked.filter((bytes) => !bytes.includes(0x0a) && !bytes.includes(0x0d));
-  const hashed = git(root, hashArgs, Buffer.concat(plain.flatMap((bytes) => [bytes, Buffer.from('\n')])));
+  const prefix = showPrefix(root);
+  const hashed = git(root, hashArgs, {}, Buffer.concat(marked.map((bytes) => quotedLine(prefix, bytes))));
   if (hashed.status !== 0) throw failed(hashArgs, hashed);
   const ids = hashed.stdout.toString('utf8').split('\n');
   const treeArgs = ['ls-tree', '-r', '-z', base];
@@ -259,7 +259,7 @@ function hiddenEdits(root: string, base: string): string[] {
     const tab = entry.indexOf('\t');
     inBase.set(entry.slice(tab + 1), entry.slice(0, tab).split(' ')[2]!);
   }
-  return plain.map((bytes) => nameOf(bytes)).filter((name, i) => inBase.get(name) !== ids[i]);
+  return marked.map((bytes) => nameOf(bytes)).filter((name, i) => inBase.get(name) !== ids[i]);
 }
 
 export function showPrefix(dir: string): string {
