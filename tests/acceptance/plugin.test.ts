@@ -3,17 +3,18 @@ import assert from 'node:assert/strict';
 import { execFileSync, spawn } from 'node:child_process';
 import { appendFileSync, chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join, relative } from 'node:path';
+import { delimiter, dirname, join, relative, sep } from 'node:path';
 import { withFake } from './fake-reviewer.ts';
-import { append, CLI, D, D_PATH, F, F_PATH, git, GIT_ENV, inTemp, LAW, lawcheck, makeR, makeSample, newRepository, ROOT, write } from './helpers.ts';
+import { alive, append, CLI, D, D_PATH, F, F_PATH, git, GIT_ENV, inTemp, LAW, lawcheck, makeR, makeSample, newRepository, ROOT, write } from './helpers.ts';
 
 const PLUGIN = join(ROOT, 'plugin');
 const HOOK = join(PLUGIN, 'hooks', 'lawcheck-hook.mjs');
 const NODE_DIR = dirname(process.execPath);
-const where = (program: string) => execFileSync('sh', ['-c', `command -v ${program}`], { encoding: 'utf8' }).trim();
+const WINDOWS = process.platform === 'win32';
+const where = (program: string) =>
+  WINDOWS ? execFileSync('where.exe', [program], { encoding: 'utf8' }).split(/\r?\n/)[0]!.trim() : execFileSync('sh', ['-c', `command -v ${program}`], { encoding: 'utf8' }).trim();
 const GIT_DIR = dirname(where('git'));
-const SLEEP = where('sleep');
-const CAT = where('cat');
+const SYSTEM_ENV: NodeJS.ProcessEnv = WINDOWS ? { SystemRoot: process.env.SystemRoot, ComSpec: process.env.ComSpec } : {};
 const spec = readFileSync(join(ROOT, 'spec', 'plugin-slice.md'), 'utf8');
 const BROKEN_LAW = LAW.replace('status: advisory', 'statuss: advisory');
 
@@ -87,25 +88,22 @@ class Bench {
 
   script(name: string, body: string[]): void {
     const path = join(this.bin, name);
-    writeFileSync(path, [`#!${process.execPath}`, "import { appendFileSync, writeFileSync } from 'node:fs';", "import { spawnSync } from 'node:child_process';", ...body, ''].join('\n'));
+    writeFileSync(path, [`#!${process.execPath}`, "import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';", "import { spawn, spawnSync } from 'node:child_process';", ...body, ''].join('\n'));
     chmodSync(path, 0o755);
-  }
-
-  shell(name: string, body: string): void {
-    const path = join(this.bin, name);
-    writeFileSync(path, `#!/bin/sh\n${body}\n`);
-    chmodSync(path, 0o755);
+    // A package manager installs a program on Windows as a .cmd file of this shape.
+    if (WINDOWS) writeFileSync(`${path}.cmd`, `@"${process.execPath}" "${path}" %*\r\n`);
   }
 
   remove(name: string): void {
     rmSync(join(this.bin, name), { force: true });
+    rmSync(join(this.bin, `${name}.cmd`), { force: true });
   }
 
   runner(name: string, skip: number, yarn = false): void {
     this.script(name, [
       `appendFileSync(${JSON.stringify(this.runnerLog)}, JSON.stringify({ runner: ${JSON.stringify(name)}, args: process.argv.slice(2) }) + '\\n');`,
       ...(yarn ? ["process.stdout.write('yarn run v1.22.22\\n$ /x/node_modules/.bin/lawcheck\\n');"] : []),
-      `const r = spawnSync(${JSON.stringify(join(this.bin, 'lawcheck'))}, process.argv.slice(${2 + skip}), { stdio: ['ignore', 'pipe', 'inherit'] });`,
+      `const r = spawnSync(process.execPath, [${JSON.stringify(join(this.bin, 'lawcheck'))}, ...process.argv.slice(${2 + skip})], { stdio: ['ignore', 'pipe', 'inherit'] });`,
       'process.stdout.write(r.stdout);',
       ...(yarn ? ["process.stdout.write('Done in 0.10s.\\n');"] : []),
       'process.exit(r.status ?? 2);',
@@ -130,7 +128,7 @@ class Bench {
   }
 
   env(extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
-    return { PATH: [this.bin, GIT_DIR, NODE_DIR].join(':'), CLAUDE_PLUGIN_ROOT: PLUGIN, CLAUDE_PLUGIN_DATA: this.data, ...extra };
+    return { PATH: [this.bin, GIT_DIR, NODE_DIR].join(delimiter), ...SYSTEM_ENV, CLAUDE_PLUGIN_ROOT: PLUGIN, CLAUDE_PLUGIN_DATA: this.data, ...extra };
   }
 
   sessions(): string[] {
@@ -219,13 +217,12 @@ function json(run: HookRun, expected: unknown, what = ''): void {
   assert.deepEqual(run.json, expected, what);
 }
 
-function alive(pid: number): boolean {
-  try {
-    const stat = readFileSync(`/proc/${pid}/stat`, 'utf8');
-    return stat.slice(stat.lastIndexOf(')') + 2)[0] !== 'Z';
-  } catch {
-    return false;
+async function ended(...pids: number[]): Promise<boolean> {
+  for (let i = 0; i < 30; i++) {
+    if (!pids.some(alive)) return true;
+    await new Promise((resolve) => setTimeout(resolve, 100));
   }
+  return false;
 }
 
 function specBlock(after: string): string {
@@ -237,7 +234,7 @@ function specBlock(after: string): string {
 function walk(dir: string, base = dir): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
     const path = join(dir, entry.name);
-    return entry.isDirectory() ? walk(path, base) : [relative(base, path)];
+    return entry.isDirectory() ? walk(path, base) : [relative(base, path).split(sep).join('/')];
   });
 }
 
@@ -316,7 +313,7 @@ test('test 156: prime that does not run', async () => {
     write(s, '.lawcheck/config.yaml', 'runner: pnpm\n');
     json(await new Session(bench, s).start(), notRun('pnpm exec lawcheck', 'pnpm was not found', 'pnpm install'), 'no pnpm');
     rmSync(join(s, '.lawcheck/config.yaml'));
-    bench.shell('lawcheck', 'echo boom >&2\nexit 1');
+    bench.script('lawcheck', ["process.stderr.write('boom\\n');", 'process.exitCode = 1;']);
     json(await new Session(bench, s).start(), notRun('lawcheck', 'boom', 'npm i -g lawcheck'), 'boom');
   });
 });
@@ -468,30 +465,36 @@ test('test 163: the deadline, and a hook that is stopped', async () => {
     const s = makeSample(dir);
     write(s, D_PATH, D);
     const pids = join(dir, 'pids');
-    bench.shell('lawcheck', `${SLEEP} 300 &\necho "$$ $!" > ${JSON.stringify(pids)}\n${SLEEP} 300`);
-    const gone = () => {
+    bench.script('lawcheck', [
+      "const c = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 300000)'], { stdio: 'ignore' });",
+      `writeFileSync(${JSON.stringify(pids)}, process.pid + ' ' + c.pid);`,
+      'setTimeout(() => {}, 300000);',
+    ]);
+    const gone = async () => {
       const [a, b] = readFileSync(pids, 'utf8').trim().split(' ').map(Number);
-      assert.ok(!alive(a!) && !alive(b!), `${a} ${b}`);
+      assert.ok(await ended(a!, b!), `${a} ${b}`);
       rmSync(pids);
     };
     const session = new Session(bench, s);
     const edit = await session.edit(D_PATH);
     assert.ok(edit.ms < 30000, String(edit.ms));
     json(edit, edited(`Lawcheck: lawcheck check ./${D_PATH} did not finish within 25 seconds and was stopped.`));
-    gone();
+    await gone();
     rmSync(join(s, D_PATH));
     await session.prompt();
     write(s, D_PATH, D);
     const stop = await session.stop();
     assert.ok(stop.ms < 150000, String(stop.ms));
     json(stop, { systemMessage: 'lawcheck: the check before the agent finished did not run: it did not finish within 145 seconds.' });
-    gone();
+    await gone();
+    // On Windows every signal ends a process at once, so a stopped hook cannot end what it started.
+    if (WINDOWS) return;
     const stopped = await hook(bench, 'edit', session.input('edit', { tool_name: 'Write', tool_input: { file_path: join(s, D_PATH) } }), {}, (pid) => {
       setTimeout(() => process.kill(pid, 'SIGTERM'), 2000);
     });
     assert.ok(stopped.ms < 10000, String(stopped.ms));
     await new Promise((resolve) => setTimeout(resolve, 500));
-    gone();
+    await gone();
   });
 });
 
@@ -500,11 +503,17 @@ test('section 5: the call ends 2 seconds after Lawcheck exits while a child hold
     const s = makeSample(dir);
     write(s, D_PATH, D);
     const pid = join(dir, 'child');
-    bench.shell('lawcheck', `${SLEEP} 60 &\necho $! > ${JSON.stringify(pid)}\nprintf 'lawcheck: PASS  1 named file\\n'\nexit 0`);
+    bench.script('lawcheck', [
+      "const c = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 60000)'], { stdio: ['ignore', 'inherit', 'inherit'] });",
+      `writeFileSync(${JSON.stringify(pid)}, String(c.pid));`,
+      "process.stdout.write('lawcheck: PASS  1 named file\\n');",
+      'c.unref();',
+    ]);
     const run = await new Session(bench, s).edit(D_PATH);
     nothing(run);
     assert.ok(run.ms < 5000, String(run.ms));
-    assert.ok(!alive(Number(readFileSync(pid, 'utf8').trim())));
+    // Windows has no process groups: a child left behind by a program that has ended can no longer be reached through it.
+    if (!WINDOWS) assert.ok(await ended(Number(readFileSync(pid, 'utf8').trim())));
   });
 });
 
@@ -515,7 +524,7 @@ test('test 164: a long output is fitted', async () => {
     const body = Array.from({ length: 400 }, (_, i) => `${String(i + 1).padStart(3, '0')} ${'x'.repeat(56)}`);
     const printed = ['lawcheck: FAIL  400 errors in 1 named file', '', ...body, '', 'next: fix a.ts:1'];
     writeFileSync(join(dir, 'long.txt'), printed.join('\n') + '\n');
-    bench.shell('lawcheck', `${CAT} ${JSON.stringify(join(dir, 'long.txt'))}\nexit 1`);
+    bench.script('lawcheck', [`process.stdout.write(readFileSync(${JSON.stringify(join(dir, 'long.txt'))}));`, 'process.exitCode = 1;']);
     const run = await new Session(bench, s).edit(D_PATH);
     assert.equal(run.code, 0);
     const text: string = run.json.hookSpecificOutput.additionalContext;
@@ -766,7 +775,7 @@ test('test 175: a check that does not run is told once per session', async () =>
     await session.prompt();
     append(s, D_PATH, '// more\n');
     nothing(await session.stop(), 'told already');
-    bench.shell('lawcheck', "printf 'lawcheck: ERROR  1 error\\n\\nerror[usage]  x\\n'\nexit 2");
+    bench.script('lawcheck', ["process.stdout.write('lawcheck: ERROR  1 error\\n\\nerror[usage]  x\\n');", 'process.exitCode = 2;']);
     const other = new Session(bench, s, 's2');
     nothing(await other.edit(D_PATH), 'edit with an old lawcheck');
     await other.prompt();
@@ -834,7 +843,7 @@ test('test 179: the trial refuses to start without claude', async () => {
     const result = await new Promise<{ code: number | null; out: string }>((resolve, reject) => {
       const child = spawn(process.execPath, [join(ROOT, 'tests', 'agent', 'run.ts')], {
         cwd: ROOT,
-        env: { PATH: [GIT_DIR, NODE_DIR].join(':'), TMPDIR: empty, HOME: dir },
+        env: { PATH: [GIT_DIR, NODE_DIR].join(delimiter), ...SYSTEM_ENV, TMPDIR: empty, TEMP: empty, TMP: empty, HOME: dir },
         stdio: ['ignore', 'pipe', 'pipe'],
       });
       let out = '';

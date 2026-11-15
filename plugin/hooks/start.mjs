@@ -1,6 +1,6 @@
-import { spawn } from 'node:child_process';
-import { readFileSync, realpathSync, statSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { spawn, spawnSync } from 'node:child_process';
+import { accessSync, constants, readFileSync, realpathSync, statSync } from 'node:fs';
+import { dirname, join, normalize, resolve } from 'node:path';
 
 export const RUNNERS = {
   global: { words: ['lawcheck'], install: 'npm i -g lawcheck' },
@@ -68,7 +68,56 @@ export function killCurrent() {
   if (current !== null) killGroup(current, 'SIGKILL');
 }
 
+const WINDOWS = process.platform === 'win32';
+const CMD_META = /([()\][%!^"`<>&|;, *?])/g;
+
+function variableOf(env, name) {
+  const key = Object.keys(env).find((k) => k.toUpperCase() === name);
+  return key === undefined ? undefined : env[key];
+}
+
+function systemProgram(name) {
+  return join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', name);
+}
+
+// On Windows a package manager installs a program as name.cmd beside a POSIX script called name, which Windows cannot start.
+export function findWindowsProgram(name, env) {
+  const endings = (variableOf(env, 'PATHEXT') ?? '.COM;.EXE;.BAT;.CMD').split(';').filter((ending) => ending !== '');
+  for (const dir of (variableOf(env, 'PATH') ?? '').split(';')) {
+    if (dir === '') continue;
+    for (const ending of endings) {
+      const candidate = join(dir, name + ending.toLowerCase());
+      try {
+        if (!statSync(candidate).isFile()) continue;
+        accessSync(candidate, constants.X_OK);
+        return candidate;
+      } catch {}
+    }
+  }
+  return null;
+}
+
+// The quoting of cross-spawn: cmd.exe reads the line once, and the %* of a package manager's .cmd file reads it again.
+export function cmdArgument(arg) {
+  let quoted = arg.replace(/(?=(\\+?)?)\1"/g, '$1$1\\"');
+  quoted = quoted.replace(/(?=(\\+?)?)\1$/, '$1$1');
+  return `"${quoted}"`.replace(CMD_META, '^$1').replace(CMD_META, '^$1');
+}
+
+function startWindows(words, options) {
+  const program = findWindowsProgram(words[0], options.env);
+  if (program === null) throw Object.assign(new Error(`spawn ${words[0]} ENOENT`), { code: 'ENOENT' });
+  if (!/\.(cmd|bat)$/i.test(program)) return spawn(program, words.slice(1), { ...options, windowsHide: true });
+  const line = [normalize(program).replace(CMD_META, '^$1'), ...words.slice(1).map(cmdArgument)].join(' ');
+  const shell = variableOf(options.env, 'COMSPEC') ?? systemProgram('cmd.exe');
+  return spawn(shell, ['/d', '/s', '/c', `"${line}"`], { ...options, windowsVerbatimArguments: true, windowsHide: true });
+}
+
 function killGroup(pid, signal) {
+  if (WINDOWS) {
+    spawnSync(systemProgram('taskkill.exe'), ['/pid', String(pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true });
+    return;
+  }
   try {
     process.kill(-pid, signal);
   } catch {}
@@ -80,7 +129,8 @@ export function call(words, root, deadline) {
     const err = [];
     let child;
     try {
-      child = spawn(words[0], words.slice(1), { cwd: root, env: process.env, stdio: ['ignore', 'pipe', 'pipe'], detached: true });
+      const options = { cwd: root, env: process.env, stdio: ['ignore', 'pipe', 'pipe'], detached: true };
+      child = WINDOWS ? startWindows(words, options) : spawn(words[0], words.slice(1), options);
     } catch (error) {
       done({ error, code: null, signal: null, stdout: '', stderr: '', timedOut: false });
       return;
