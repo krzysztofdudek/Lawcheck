@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { INVARIANTS } from './invariants.ts';
 
 const ROOT = fileURLToPath(new URL('../..', import.meta.url));
 
@@ -8,7 +9,7 @@ export function testIds(name: string): string[] {
   const ids: string[] = [];
   const rows = /^tests? (\d+(?:(?:, | and )\d+)*)/.exec(name);
   if (rows !== null) for (const n of rows[1]!.split(/, | and /)) ids.push(`test ${n}`);
-  for (const m of name.matchAll(/(?<![\w-])(I-[a-z][a-z0-9]*-\d+|S\d+-\d+|U-\d+|R-\d+)(?![\w-])/g)) ids.push(m[1]!);
+  for (const m of name.matchAll(/(?<![\w-])(I-[a-z][a-z0-9]*-\d+|S\d+-\d+|U-\d+|R-\d+|harness-(?:\d+|count))(?![\w-])/g)) ids.push(m[1]!);
   return [...new Set(ids)];
 }
 
@@ -35,10 +36,11 @@ function sectionOf(lines: string[], at: number): string {
 
 function specs(): string[] {
   const dir = join(ROOT, 'spec');
-  return existsSync(dir) ? readdirSync(dir).filter((name) => name.endsWith('.md')).sort().map((name) => join('spec', name)) : [];
+  return existsSync(dir) ? readdirSync(dir).filter((name) => name.endsWith('.md')).sort().map((name) => `spec/${name}`) : [];
 }
 
 export function promiseOf(id: string): Promised | null {
+  if (id.startsWith('harness-')) return INVARIANTS[id] === undefined ? null : { id, where: 'tests/harness/invariants.ts', text: INVARIANTS[id]! };
   const row = /^test (\d+)$/.exec(id);
   const finding = /^(S\d+-\d+|U-\d+|R-\d+)$/.test(id);
   const files = finding ? ['tests/findings.md'] : specs();

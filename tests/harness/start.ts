@@ -1,6 +1,7 @@
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, realpathSync, rmSync, symlinkSync } from 'node:fs';
+import { StringDecoder } from 'node:string_decoder';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -8,10 +9,10 @@ import { budgetNamed, KILLED_GRACE_MS, LEFTOVER_GRACE_MS, RUN_BUDGET_MS } from '
 import { Broken, hasInternal, jsonProblem, outputProblem, stringsOf } from './invariants.ts';
 import { killAll, MARK, Tracker } from './processes.ts';
 import { harnessSkip } from './skips.ts';
-import { gitChanges, gitState, gitTop, tree, treeChanges } from './state.ts';
+import { gitChanges, gitState, gitTop, real, tree, treeChanges } from './state.ts';
 import type { GitState } from './state.ts';
 
-export const ROOT_DIR = realpathSync(fileURLToPath(new URL('../..', import.meta.url)));
+export const ROOT_DIR = real(fileURLToPath(new URL('../..', import.meta.url)));
 export const ROOT = ROOT_DIR + sep;
 export const CLI = join(ROOT_DIR, 'dist', 'cli.js');
 export const HOOK = join(ROOT_DIR, 'plugin', 'hooks', 'lawcheck-hook.mjs');
@@ -78,6 +79,9 @@ export interface Observer {
 
 let observer: Observer | null = null;
 
+// Open while the harness itself starts a run, so the guard of tests/harness/tool.ts lets that one start through.
+export const gate = { open: 0 };
+
 export function observe(next: Observer | null): void {
   observer = next;
 }
@@ -115,18 +119,18 @@ function prefixOf(dir: string, top: string): string {
   return rel === '' ? '' : `${rel}/`;
 }
 
-// The files each command writes by contract: init, spec/commands-slice.md, section 3; check --review, spec/reviewer-slice.md, section 5.
-function contractWrites(start: Start, top: string): RegExp[] {
+// The files and folders each command writes by contract: init, spec/commands-slice.md, section 3; check --review, spec/reviewer-slice.md, section 5.
+function contractWrites(start: Start, top: string): (string | RegExp)[] {
   if (start.kind !== 'cli') return [];
-  const cwd = realpathSync(start.cwd);
+  const cwd = real(start.cwd);
   const command = start.args[0];
   if (command === 'init') {
-    const p = escape(prefixOf(cwd, top));
-    return [new RegExp(`^${p}\\.lawcheck/(law\\.yaml|\\.gitignore)$`)];
+    const p = prefixOf(cwd, top);
+    return [new RegExp(`^${escape(p)}\\.lawcheck/(law\\.yaml|\\.gitignore)$`), `=${p}.lawcheck/`];
   }
   if (command === 'check' && start.args.includes('--review')) {
-    const p = escape(prefixOf(lawRoot(cwd, top), top));
-    return [new RegExp(`^${p}\\.lawcheck/(verdicts|\\.gitattributes|\\.local/\\.gitignore|\\.local/failures/[0-9a-f]{32}\\.json)$`)];
+    const p = prefixOf(lawRoot(cwd, top), top);
+    return [new RegExp(`^${escape(p)}\\.lawcheck/(verdicts|\\.gitattributes|\\.local/\\.gitignore|\\.local/failures/[0-9a-f]{32}\\.json)$`), `=${p}.lawcheck/.local/`, `=${p}.lawcheck/.local/failures/`];
   }
   return [];
 }
@@ -140,25 +144,29 @@ function contractStderr(start: Start): RegExp | null {
   return null;
 }
 
+// A rule is a path, a folder ending in / and everything in it, a pattern, or = and a folder that may appear itself, empty or not.
 function allowed(path: string, rules: (string | RegExp)[]): boolean {
-  return rules.some((rule) => (typeof rule === 'string' ? rule === path || (rule.endsWith('/') && path.startsWith(rule)) : rule.test(path)));
+  return rules.some((rule) => (typeof rule !== 'string' ? rule.test(path) : rule.startsWith('=') ? rule.slice(1) === path : rule === path || (rule.endsWith('/') && path.startsWith(rule))));
 }
 
 function inside(path: string, folder: string): boolean {
   return path === folder || path.startsWith(folder + sep);
 }
 
+// A hook works in the folder its input names, or, when that is no folder of the test (cwd "/"), beside its plugin data.
 function folderOf(start: Start, expect: Expect): string {
   if (expect.repo !== undefined) return expect.repo;
-  if (start.kind === 'hook' && start.stdin !== undefined) {
-    try {
-      const input = JSON.parse(start.stdin) as { cwd?: unknown };
-      if (typeof input.cwd === 'string' && existsSync(input.cwd)) return input.cwd;
-    } catch {
-      return start.cwd;
-    }
+  if (start.kind !== 'hook') return start.cwd;
+  const candidates: string[] = [];
+  try {
+    const input = JSON.parse(start.stdin ?? '') as { cwd?: unknown };
+    if (typeof input.cwd === 'string') candidates.push(input.cwd);
+  } catch {
+    candidates.push(start.cwd);
   }
-  return start.cwd;
+  if (start.env.CLAUDE_PLUGIN_DATA) candidates.push(dirname(start.env.CLAUDE_PLUGIN_DATA));
+  const existing = candidates.filter((path) => existsSync(path)).map(real);
+  return existing.find((path) => observer?.folders().some((f) => inside(path, f))) ?? existing[0] ?? start.cwd;
 }
 
 interface Scope {
@@ -173,17 +181,19 @@ interface Scope {
 
 const scopes = new Map<string, Scope>();
 
-const RUN_FOLDER = /^\.run-/;
+const runFolders = new Set<string>();
+const notRunFolder = (root: string) => (name: string) => runFolders.has(join(root, name));
 
 function open(start: Start, expect: Expect): Scope {
-  const where = realpathSync(folderOf(start, expect));
+  const where = real(folderOf(start, expect));
   const folder = observer?.folders().find((f) => inside(where, f)) ?? null;
+  if (observer !== null && folder === null && !inside(where, ROOT_DIR)) throw new Error(`harness: the run works in ${where}, which is no folder of this test; make its folder with testFolder() of tests/harness/tool.ts`);
   const found = gitTop(where);
-  const top = found === null || realpathSync(found) === ROOT_DIR ? null : realpathSync(found);
+  const top = found === null || found === ROOT_DIR ? null : found;
   const key = folder ?? top ?? `run ${randomBytes(4).toString('hex')}`;
   let scope = scopes.get(key);
   if (scope === undefined) {
-    scope = { folder, top, runs: 0, tree: folder === null ? null : tree(folder, (name) => RUN_FOLDER.test(name)), git: top === null ? null : gitState(top), writes: [], outside: [] };
+    scope = { folder, top, runs: 0, tree: folder === null ? null : tree(folder, notRunFolder(folder)), git: top === null ? null : gitState(top), writes: [], outside: [] };
     scopes.set(key, scope);
   }
   scope.runs++;
@@ -199,27 +209,33 @@ function close(scope: Scope): [string, string][] {
   if (scope.runs > 0) return [];
   scopes.delete((scope as Scope & { key?: string }).key!);
   const problems: [string, string][] = [];
+  const repoChanges: string[] = [];
   if (scope.top !== null && scope.git !== null) {
-    const after = gitState(scope.top);
-    if (after !== null) {
-      const changes = gitChanges(scope.git, after);
-      const unexpected = changes.paths.filter((path) => !allowed(path, scope.writes));
-      const parts = [...changes.parts, ...unexpected];
-      if (parts.length > 0) problems.push(['harness-7', `the run changed ${parts.slice(0, 10).join(', ')} in ${scope.top}`]);
-    }
+    const changes = gitChanges(scope.git, gitState(scope.top));
+    repoChanges.push(...changes.paths);
+    const unexpected = changes.paths.filter((path) => !allowed(path, scope.writes));
+    const parts = [...changes.parts, ...unexpected];
+    if (parts.length > 0) problems.push(['harness-7', `the run changed ${parts.slice(0, 10).join(', ')} in ${scope.top}`]);
   }
   if (scope.folder !== null && scope.tree !== null) {
-    const changed = treeChanges(scope.tree, tree(scope.folder, (name) => RUN_FOLDER.test(name)))
-      .filter((path) => scope.top === null || !inside(join(scope.folder!, path), scope.top))
-      .filter((path) => !path.endsWith('/') || !scope.top || !inside(scope.top, join(scope.folder!, path)))
-      .filter((path) => !allowed(path, scope.outside));
-    if (changed.length > 0) problems.push(['harness-8', `the run changed ${changed.slice(0, 10).join(', ')} in the test's folder ${scope.folder}, outside the repository`]);
+    const top = scope.top;
+    const inRepo = (path: string) => top !== null && inside(join(scope.folder!, path), top) && join(scope.folder!, path) !== top;
+    const repoPath = (path: string) => relative(top!, join(scope.folder!, path)).split(sep).join('/') + '/';
+    const changed = treeChanges(scope.tree, tree(scope.folder, notRunFolder(scope.folder)));
+    const outside = changed.filter((path) => !inRepo(path) && !(top !== null && join(scope.folder!, path) === top) && !allowed(path, scope.outside));
+    if (outside.length > 0) problems.push(['harness-8', `the run changed ${outside.slice(0, 10).join(', ')} in the test's folder ${scope.folder}, outside the repository`]);
+    const folders = changed
+      .filter((path) => path.endsWith('/') && inRepo(path))
+      .map(repoPath)
+      .filter((dir) => !allowed(dir, scope.writes) && !repoChanges.some((file) => file.startsWith(dir) && allowed(file, scope.writes)));
+    if (folders.length > 0) problems.push(['harness-7', `the run made or removed the folders ${folders.slice(0, 10).join(', ')} in ${top}, which git does not show`]);
   }
   return problems;
 }
 
 function runFolder(base: string | null): { dir: string; home: string; temp: string } {
-  const dir = realpathSync(mkdtempSync(base !== null ? join(base, '.run-') : join(tmpdir(), 'lawcheck-run-')));
+  const dir = real(mkdtempSync(base !== null ? join(base, '.run-') : join(tmpdir(), 'lawcheck-run-')));
+  runFolders.add(dir);
   const home = join(dir, 'home');
   const temp = join(dir, 'tmp');
   mkdirSync(home);
@@ -234,14 +250,12 @@ function placed(env: NodeJS.ProcessEnv, own: NodeJS.ProcessEnv, home: string, te
     for (const name of names) out[name] = value;
   };
   set(['TMPDIR', 'TMP', 'TEMP'], temp);
-  set(['HOME', 'USERPROFILE'], home);
+  set(['HOME'], home);
+  // Windows keeps the state of its own programs under USERPROFILE and APPDATA (PowerShell, which the guard starts, among them), so there they stay the machine's.
+  if (!WINDOWS) set(['USERPROFILE'], home);
   set(['XDG_CONFIG_HOME'], join(home, '.config'));
   set(['XDG_CACHE_HOME'], join(home, '.cache'));
   set(['XDG_DATA_HOME'], join(home, '.local', 'share'));
-  if (WINDOWS) {
-    set(['APPDATA'], join(home, 'AppData', 'Roaming'));
-    set(['LOCALAPPDATA'], join(home, 'AppData', 'Local'));
-  }
   return out;
 }
 
@@ -282,7 +296,13 @@ function launch(start: Start, expect: Expect): Running {
   const mark = randomBytes(8).toString('hex');
   const env = { ...placed(start.env, start.own, own.home, own.temp), [MARK]: mark };
   const began = Date.now();
-  const child = spawn(process.execPath, start.argv, { cwd: start.cwd, env, stdio: ['pipe', 'pipe', 'pipe'], detached: !WINDOWS, windowsHide: true });
+  gate.open++;
+  let child;
+  try {
+    child = spawn(process.execPath, start.argv, { cwd: start.cwd, env, stdio: ['pipe', 'pipe', 'pipe'], detached: !WINDOWS });
+  } finally {
+    gate.open--;
+  }
   if (child.pid === undefined) {
     close(scope);
     throw new Error(`harness: ${start.argv.join(' ')} did not start`);
@@ -291,6 +311,8 @@ function launch(start: Start, expect: Expect): Running {
   const tracker = new Tracker(pid, mark, [own.dir, ...(scope.folder ? [scope.folder] : []), ...(scope.top ? [scope.top] : [])], !harnessSkip('no process of the run is left alive'));
   let stdout = '';
   let stderr = '';
+  const bytes: { stdout: Buffer[]; stderr: Buffer[] } = { stdout: [], stderr: [] };
+  const live = { stdout: new StringDecoder('utf8'), stderr: new StringDecoder('utf8') };
   let sent: NodeJS.Signals | null = null;
   let overran = false;
   const waiting: { pattern: RegExp; where: 'stdout' | 'stderr'; done: (m: RegExpExecArray) => void }[] = [];
@@ -303,12 +325,14 @@ function launch(start: Start, expect: Expect): Running {
       }
     }
   };
-  child.stdout.setEncoding('utf8').on('data', (chunk: string) => {
-    stdout += chunk;
+  child.stdout.on('data', (chunk: Buffer) => {
+    bytes.stdout.push(chunk);
+    stdout += live.stdout.write(chunk);
     notify();
   });
-  child.stderr.setEncoding('utf8').on('data', (chunk: string) => {
-    stderr += chunk;
+  child.stderr.on('data', (chunk: Buffer) => {
+    bytes.stderr.push(chunk);
+    stderr += live.stderr.write(chunk);
     notify();
   });
   child.stdin.on('error', () => {});
@@ -335,6 +359,8 @@ function launch(start: Start, expect: Expect): Running {
       clearTimeout(timer);
       const ms = Date.now() - began;
       tracker.stop();
+      stdout += live.stdout.end();
+      stderr += live.stderr.end();
       for (const w of waiting.splice(0)) w.done(Object.assign([''], { index: -1, input: '' }) as RegExpExecArray);
       const problems: [string, string][] = [];
       const killed = sent !== null || overran;
@@ -372,6 +398,13 @@ function launch(start: Start, expect: Expect): Running {
         }
       }
       if (start.kind !== 'program') {
+        for (const where of ['stdout', 'stderr'] as const) {
+          try {
+            new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(bytes[where]));
+          } catch {
+            problems.push(['harness-2', `standard ${where === 'stdout' ? 'output' : 'error'} is not valid UTF-8`]);
+          }
+        }
         const texts: [string, string][] = [['standard error', stderr]];
         if (start.kind === 'cli' && document === undefined) texts.push(['standard output', stdout]);
         if (start.kind === 'hook' && document !== undefined) for (const text of stringsOf(document)) texts.push(['a string of the hook output', text]);
@@ -394,6 +427,7 @@ function launch(start: Start, expect: Expect): Running {
       const leftHome = readdirSync(own.home);
       if (leftHome.length > 0) problems.push(['harness-8', `the run wrote ${leftHome.slice(0, 10).join(', ')} in its home folder`]);
       rmSync(own.dir, { recursive: true, force: true, maxRetries: 10 });
+      runFolders.delete(own.dir);
       problems.push(...close(scope));
       const raw = { code, signal, stdout, stderr, json: start.kind === 'hook' ? (document ?? null) : document, ms };
       if (problems.length > 0) {
@@ -445,7 +479,7 @@ export function startHook(event: string, input: string, env: NodeJS.ProcessEnv, 
 const TOOL_FILES = [CLI, HOOK, join(ROOT_DIR, 'plugin', 'hooks')];
 
 export function startProgram(script: string, args: string[], cwd: string, base: NodeJS.ProcessEnv, options: Expect & { env?: NodeJS.ProcessEnv } = {}): Running {
-  const path = realpathSync(script);
+  const path = real(script);
   if (TOOL_FILES.some((file) => inside(path, file)) || /[\\/]dist[\\/]/.test(path) || path.endsWith('.tgz')) throw new Error(`harness: ${script} is Lawcheck itself; start it with startTool or startHook`);
   const own = options.env ?? {};
   return launch({ kind: 'program', argv: [path, ...args], cwd, env: { ...base, ...own }, own, args: [path, ...args] }, options);

@@ -1,12 +1,17 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
+import { existsSync as existsSyncOf } from 'node:fs';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { outputProblem } from '../harness/invariants.ts';
 import { skipReason } from '../harness/skips.ts';
-import { CLI, CouldNotRun, expectBroken, fakeWrites, HOOK, PLATFORM_SKIPS, platformSkip, ROOT, startProgram, startTool, testFolder, unpackTarball } from '../harness/tool.ts';
+import * as childProcess from 'node:child_process';
+import { rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { CLI, CouldNotRun, expectBroken, fakeWrites, HOOK, PLATFORM_SKIPS, platformSkip, ROOT, startHook, startProgram, startTool, testFolder, unpackTarball } from '../harness/tool.ts';
+import { promiseOf } from '../harness/promises.ts';
 import type { Expect } from '../harness/tool.ts';
 
 const WINDOWS = process.platform === 'win32';
@@ -210,9 +215,9 @@ test('harness-7: a change of git state fails the run, except the files its comma
     git('checkout', '-q', '--', 'a.txt');
     await expectBroken('harness-7', () => tool(dir, "writeFileSync('new.txt', 'n\\n');", ['check'], {}, repo));
     git('clean', '-fdxq');
-    assert.match((await expectBroken('harness-7', () => tool(dir, "execFileSync('git', ['commit', '-q', '--allow-empty', '-m', 'x']);", ['check'], {}, repo))).message, /HEAD/);
+    assert.match((await expectBroken('harness-7', () => tool(dir, "execFileSync('git', ['commit', '-q', '--allow-empty', '-m', 'x']);", ['check'], {}, repo))).message, /\.git\/refs\/heads\/main/);
     git('reset', '-q', '--hard', 'HEAD~1');
-    assert.match((await expectBroken('harness-7', () => tool(dir, "execFileSync('git', ['branch', 'other']);", ['check'], {}, repo))).message, /the refs/);
+    assert.match((await expectBroken('harness-7', () => tool(dir, "execFileSync('git', ['branch', 'other']);", ['check'], {}, repo))).message, /\.git\/refs\/heads\/other/);
     git('branch', '-D', 'other');
     assert.match((await expectBroken('harness-7', () => tool(dir, "writeFileSync('b.txt', 'b\\n'); execFileSync('git', ['add', 'b.txt']);", ['check'], { writes: ['b.txt'] }, repo))).message, /the index/);
     git('rm', '-q', '--cached', 'b.txt');
@@ -293,10 +298,11 @@ test('harness-count: a test that starts the tool and reads none of its outputs f
   await inTemp(async (dir) => {
     writeFileSync(join(dir, 'quiet.mjs'), '');
     const env = JSON.stringify(ENV);
-    const silent = nodeTest(dir, 'test 1: a test that compares nothing', `await startTool(${JSON.stringify(dir)}, ['check'], ${env}, { cli: ${JSON.stringify(join(dir, 'quiet.mjs'))} }).ended;`);
+    const own = `(await import(${JSON.stringify(pathToFileURL(join(ROOT, 'tests', 'harness', 'tool.ts')).href)})).testFolder('nested-', ${JSON.stringify(dir)}).dir`;
+    const silent = nodeTest(dir, 'test 1: a test that compares nothing', `await startTool(${own}, ['check'], ${env}, { cli: ${JSON.stringify(join(dir, 'quiet.mjs'))} }).ended;`);
     assert.equal(silent.code, 1, silent.out);
     assert.match(silent.out, /harness-count: the test started the tool 1 times and read none of its outputs/);
-    const compared = nodeTest(dir, 'test 1: a test that compares', `assert.equal((await startTool(${JSON.stringify(dir)}, ['check'], ${env}, { cli: ${JSON.stringify(join(dir, 'quiet.mjs'))} }).ended).code, 0);`);
+    const compared = nodeTest(dir, 'test 1: a test that compares', `assert.equal((await startTool(${own}, ['check'], ${env}, { cli: ${JSON.stringify(join(dir, 'quiet.mjs'))} }).ended).code, 0);`);
     assert.equal(compared.code, 0, compared.out);
   });
 });
@@ -332,4 +338,87 @@ test('a skip comes only from PLATFORM_SKIPS, keyed by file and whole test name, 
   const listed = PLATFORM_SKIPS.find((entry) => entry.platform === 'win32' && entry.file !== 'tests/harness')!;
   assert.equal(skipReason(listed.file, listed.test, listed.part), WINDOWS ? listed.reason : null);
   assert.throws(() => skipReason(listed.file, `${listed.test.split(':')[0]}: another test of the same id`, listed.part), /without an entry/);
+});
+
+
+test('harness-1: a hook the test stops exits 0 and prints nothing, as question 56 says', async () => {
+  if (platformSkip('the answer of a stopped hook') !== null) return;
+  await inTemp(async (dir) => {
+    const ready = "process.stdout.write(''); process.stderr.write(''); setInterval(() => {}, 1000); writeFileSync(join(process.env.CLAUDE_PLUGIN_DATA, 'ready'), '');";
+    const env = { ...ENV, CLAUDE_PLUGIN_DATA: join(dir, 'data') };
+    mkdirSync(join(dir, 'data'));
+    fakeWrites(dir, ['data/']);
+    const stopHook = async (body: string) => {
+      const running = startHook('edit', JSON.stringify({ cwd: dir }), env, { hook: fake(dir, body) });
+      await (await import('../harness/tool.ts')).waitUntil(() => existsSyncOf(join(dir, 'data', 'ready')), 'FAKE_STARTED_MS');
+      rmSync(join(dir, 'data', 'ready'));
+      running.kill('SIGTERM');
+      return running.ended;
+    };
+    assert.equal((await stopHook("process.on('SIGTERM', () => process.exit(0)); " + ready)).code, 0);
+    const prints = await expectBroken('harness-1', () => stopHook("process.on('SIGTERM', () => { process.stdout.write('{}'); process.exit(0); }); " + ready));
+    assert.match(prints.message, /question 56/);
+    const fails = await expectBroken('harness-1', () => stopHook("process.on('SIGTERM', () => process.exit(1)); " + ready));
+    assert.match(fails.message, /question 56/);
+  });
+});
+
+test('harness: a start of Lawcheck that does not come from the harness fails the test, however it is spelt', async () => {
+  await inTemp(async (dir) => {
+    const run = childProcess.spawnSync;
+    const words: [string, string[]][] = [
+      [process.execPath, [CLI, '--version']],
+      [process.execPath, [CLI.split('\\').join('/'), 'check']],
+      [process.execPath, [join(dir, 'copy', 'dist', 'cli.js')]],
+      [process.execPath, [HOOK, 'stop']],
+      ['lawcheck', ['check']],
+      [join(dir, 'bin', 'lawcheck.cmd'), ['check']],
+    ];
+    for (const [command, args] of words) assert.throws(() => run(command, args), /a test started Lawcheck by hand/, `${command} ${args.join(' ')}`);
+    const shell = childProcess.execSync;
+    assert.throws(() => shell(`node ${join('dist', 'cli.js')} check`), /a test started Lawcheck by hand/);
+    assert.equal(run(process.execPath, ['-e', 'process.exit(0)']).status, 0);
+  });
+});
+
+test('harness-2: output that is not valid UTF-8 fails the run', async () => {
+  await inTemp(async (dir) => {
+    const lone = await expectBroken('harness-2', () => tool(dir, "process.stdout.write(Buffer.from([0x61, 0x9b, 0x0a]));"));
+    assert.match(lone.message, /standard output is not valid UTF-8/);
+    await expectBroken('harness-2', () => tool(dir, "process.stderr.write(Buffer.from([0xc3]));", ['check'], { stderr: /./ }));
+    assert.equal((await tool(dir, "process.stdout.write(Buffer.from('żółw\\n'));")).stdout, 'żółw\n');
+  });
+});
+
+test('harness-8: the test folder is checked whole: a file named like a run folder, and a run in a folder that is no test folder', async () => {
+  await inTemp(async (dir) => {
+    assert.match((await expectBroken('harness-8', () => tool(dir, "writeFileSync('.run-evil', 'x');"))).message, /\.run-evil/);
+    assert.throws(() => start(dir, 'process.exit(0);', ['check'], {}, tmpdir()), /no folder of this test/);
+  });
+});
+
+test('harness-7: an empty folder in the repository and every file of .git but its objects, logs and index count', async () => {
+  await inTemp(async (dir) => {
+    const repo = repository(dir);
+    const git = (...args: string[]) => execFileSync('git', args, { cwd: repo, env: ENV, stdio: 'ignore' });
+    assert.match((await expectBroken('harness-7', () => tool(dir, "mkdirSync('empty');", ['check'], {}, repo))).message, /folders empty\//);
+    execFileSync(process.execPath, ['-e', "require('fs').rmdirSync('empty')"], { cwd: repo });
+    const head = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repo, env: ENV, encoding: 'utf8' }).trim();
+    for (const file of ['shallow', 'info/attributes', 'description', 'ORIG_HEAD', 'config.worktree', 'FETCH_HEAD']) {
+      const broken = await expectBroken('harness-7', () => tool(dir, `mkdirSync('.git/info', { recursive: true }); writeFileSync('.git/${file}', '${head}\\n');`, ['check'], {}, repo));
+      assert.ok(broken.message.includes(`.git/${file}`), broken.message);
+      execFileSync(process.execPath, ['-e', `require('fs').rmSync('.git/${file}', { force: true })`], { cwd: repo });
+    }
+    assert.equal((await tool(dir, "writeFileSync('.git/objects/stray', 'x');", ['check'], {}, repo)).code, 0);
+    assert.match((await expectBroken('harness-7', () => tool(dir, "writeFileSync('.git/HEAD', 'nonsense\\n');", ['check'], {}, repo))).message, /git can no longer read/);
+    writeFileSync(join(repo, '.git', 'HEAD'), 'ref: refs/heads/main\n');
+    git('status');
+  });
+});
+
+test('harness-N: each harness invariant has its promise text for the reporter', () => {
+  for (const id of ['harness-1', 'harness-2', 'harness-3', 'harness-4', 'harness-5', 'harness-6', 'harness-7', 'harness-8', 'harness-count']) {
+    const promised = promiseOf(id);
+    assert.ok(promised !== null && promised.text.length > 20, id);
+  }
 });

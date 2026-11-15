@@ -1,4 +1,4 @@
-import { execFileSync } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, readlinkSync } from 'node:fs';
 import { sep } from 'node:path';
 
@@ -16,19 +16,21 @@ export const MARK = 'LAWCHECK_HARNESS_RUN';
 const PROC = existsSync('/proc/self/stat');
 const PS = !PROC && process.platform !== 'win32';
 
-function listProc(mark: string): Map<number, Proc> {
+function listProc(mark: string | null): Map<number, Proc> {
   const out = new Map<number, Proc>();
-  const needle = Buffer.from(`${MARK}=${mark}\0`);
+  const needle = mark === null ? null : Buffer.from(`${MARK}=${mark}\0`);
   for (const name of readdirSync('/proc')) {
     if (!/^\d+$/.test(name)) continue;
     try {
       const stat = readFileSync(`/proc/${name}/stat`, 'utf8');
       const fields = stat.slice(stat.lastIndexOf(')') + 2).split(' ');
       let marked = false;
-      try {
-        marked = readFileSync(`/proc/${name}/environ`).includes(needle);
-      } catch {
-        marked = false;
+      if (needle !== null) {
+        try {
+          marked = readFileSync(`/proc/${name}/environ`).includes(needle);
+        } catch {
+          marked = false;
+        }
       }
       out.set(Number(name), { pid: Number(name), ppid: Number(fields[1]), group: Number(fields[2]), start: fields[19]!, zombie: fields[0] === 'Z', marked });
     } catch {
@@ -39,14 +41,21 @@ function listProc(mark: string): Map<number, Proc> {
 }
 
 // macOS has no /proc; its ps shows a process's environment after its command with -E, and -ww keeps the line whole.
-function listPs(mark: string): Map<number, Proc> {
+const PS_TABLE = ['-A', '-o', 'pid=,ppid=,pgid=,stat=,lstart='];
+
+function readTable(table: string): Map<number, Proc> {
   const out = new Map<number, Proc>();
-  const table = execFileSync('ps', ['-A', '-o', 'pid=,ppid=,pgid=,stat=,lstart='], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
   for (const line of table.split('\n')) {
     const m = /^\s*(\d+)\s+(\d+)\s+(\d+)\s+(\S+)\s+(.*)$/.exec(line);
     if (m === null) continue;
     out.set(Number(m[1]), { pid: Number(m[1]), ppid: Number(m[2]), group: Number(m[3]), start: m[5]!.trim(), zombie: m[4]!.startsWith('Z'), marked: false });
   }
+  return out;
+}
+
+function listPs(mark: string | null): Map<number, Proc> {
+  const out = readTable(execFileSync('ps', PS_TABLE, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }));
+  if (mark === null) return out;
   const environments = execFileSync('ps', ['-A', '-E', '-ww', '-o', 'pid=,command='], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
   for (const line of environments.split('\n')) {
     if (!line.includes(`${MARK}=${mark}`)) continue;
@@ -57,8 +66,19 @@ function listPs(mark: string): Map<number, Proc> {
   return out;
 }
 
-function list(mark: string): Map<number, Proc> {
+function list(mark: string | null): Map<number, Proc> {
   return PROC ? listProc(mark) : listPs(mark);
+}
+
+// While the run lasts the tracker samples without reading environments, and on macOS without blocking: the mark is read once, after the run.
+function sampleList(done: (procs: Map<number, Proc>) => void): void {
+  if (PROC) {
+    done(listProc(null));
+    return;
+  }
+  execFile('ps', PS_TABLE, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }, (error, table) => {
+    if (error === null) done(readTable(table));
+  });
 }
 
 function cwdOf(pid: number): string | null {
@@ -84,13 +104,16 @@ export class Tracker {
     this.tracks = tracks && (PROC || PS);
     if (!this.tracks) return;
     this.seen.set(pid, '');
-    this.sample();
-    this.timer = setInterval(() => this.sample(), PROC ? 50 : 200);
+    this.take(list(null));
+    this.timer = setInterval(() => this.sample(), PROC ? 50 : 250);
     this.timer.unref();
   }
 
   private sample(): void {
-    const procs = list(this.mark);
+    sampleList((procs) => this.take(procs));
+  }
+
+  private take(procs: Map<number, Proc>): void {
     for (const [pid, start] of this.seen) if (start === '' && procs.has(pid)) this.seen.set(pid, procs.get(pid)!.start);
     let grown = true;
     while (grown) {

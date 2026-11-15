@@ -14,6 +14,15 @@ export const INVARIANTS: Record<string, string> = {
   'harness-count': 'A test that starts the tool compares at least one of its outputs.',
 };
 
+// What the harness does not close, in one place.
+export const KNOWN_LIMITS: string[] = [
+  "A rule's runner starts with an empty environment, so a detached child of a rule, or any child started with env: {}, carries no mark; it is found only while it lives below the tool at a sample, by its process group, or on Linux by a working folder inside the run's folders.",
+  'Reading stdout, stderr, code, signal or json of a run counts as comparing it, whether or not the test asserts on what it read.',
+  'Windows lists no process tree and shows no environment of another process, so there the harness cannot see a process left alive; PLATFORM_SKIPS names it.',
+  'On Windows USERPROFILE and APPDATA stay the machine\'s, since Windows keeps the state of its own programs there; a write under them is not seen.',
+  'Raw characters inside the strings of a --json document, and the bidirectional marks U+200E, U+200F and U+061C, are left to the security tests.',
+];
+
 export class Broken extends Error {
   readonly invariant: string;
   constructor(invariant: string, detail: string) {

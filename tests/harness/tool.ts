@@ -1,4 +1,5 @@
-import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { createRequire, syncBuiltinESMExports } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -6,8 +7,8 @@ import { afterEach, beforeEach } from 'node:test';
 import { budgetNamed, SLOW_TESTS, TEST_BUDGET_MS } from '../numbers.ts';
 import { Broken } from './invariants.ts';
 import { skipReason } from './skips.ts';
-import { observe, ROOT_DIR } from './start.ts';
-import { tree, treeChanges } from './state.ts';
+import { CLI, gate, HOOK, observe, ROOT_DIR } from './start.ts';
+import { real, tree, treeChanges } from './state.ts';
 
 export { CLI, CouldNotRun, HOOK, ROOT, startHook, startProgram, startTool, unpackTarball } from './start.ts';
 export type { Expect, Run, Running, ToolOptions } from './start.ts';
@@ -32,10 +33,40 @@ let current: TestState | null = null;
 
 const fileOf = (path: string | undefined) => (path === undefined ? '' : relative(ROOT_DIR, path.startsWith('file:') ? fileURLToPath(path) : path).split(sep).join('/'));
 
+const slash = (text: string) => text.split('\\').join('/');
+const TOOL_PATHS = [slash(CLI), slash(HOOK)];
+
+// Whether a start names Lawcheck: the built tool, a hook, a copy's or the unpacked tarball's dist/cli.js, or a program called lawcheck.
+export function namesTool(words: unknown[]): string | null {
+  for (const word of words) {
+    if (typeof word !== 'string') continue;
+    const text = slash(word);
+    if (TOOL_PATHS.includes(text) || /(^|[\s"'/])dist\/cli\.js(["'\s]|$)/.test(text) || /lawcheck-hook\.mjs(["'\s]|$)/.test(text) || /^(.*\/)?lawcheck(\.cmd|\.exe)?$/.test(text)) return word;
+  }
+  return null;
+}
+
+function guardStarts(): void {
+  const require = createRequire(import.meta.url);
+  const cp = require('node:child_process') as Record<string, (...args: unknown[]) => unknown>;
+  for (const name of ['spawn', 'spawnSync', 'execFile', 'execFileSync', 'exec', 'execSync', 'fork']) {
+    const original = cp[name]!;
+    cp[name] = function guarded(this: unknown, ...args: unknown[]) {
+      if (gate.open === 0) {
+        const named = namesTool([args[0], ...(Array.isArray(args[1]) ? args[1] : [])]);
+        if (named !== null) throw new Error(`harness: a test started Lawcheck by hand (${named}); start it with startTool, startHook or unpackTarball of tests/harness/tool.ts, which check every run`);
+      }
+      return original.apply(this, args);
+    };
+  }
+  syncBuiltinESMExports();
+}
+
 const REGISTERED = Symbol.for('lawcheck.harness');
 const registry = globalThis as { [REGISTERED]?: boolean };
 if (!registry[REGISTERED]) {
   registry[REGISTERED] = true;
+  guardStarts();
   observe({
     budget: () => current?.budget ?? TEST_BUDGET_MS,
     folders: () => current?.folders ?? [],
@@ -83,8 +114,8 @@ if (!registry[REGISTERED]) {
 }
 
 // The test's own temporary folder: the harness puts each run's home and temporary directory in it and checks it whole after the run.
-export function testFolder(prefix = 'lawcheck-test-'): { dir: string; remove(): void } {
-  const dir = realpathSync(mkdtempSync(join(tmpdir(), prefix)));
+export function testFolder(prefix = 'lawcheck-test-', within: string = tmpdir()): { dir: string; remove(): void } {
+  const dir = real(mkdtempSync(join(within, prefix)));
   current?.folders.push(dir);
   return {
     dir,
@@ -98,10 +129,10 @@ export function testFolder(prefix = 'lawcheck-test-'): { dir: string; remove(): 
 // Files of a test's folder, outside the repository, that the test's own fakes write while a run lasts: a fake reviewer's record, a stand-in's log.
 export function fakeWrites(folder: string, paths: string[]): void {
   if (current === null) throw new Error('harness: fakeWrites is called outside a test');
-  const real = realpathSync(folder);
-  const home = current.folders.find((f) => real === f || real.startsWith(f + sep));
+  const path = real(folder);
+  const home = current.folders.find((f) => path === f || path.startsWith(f + sep));
   if (home === undefined) throw new Error(`harness: ${folder} is not inside a folder of this test (testFolder)`);
-  const prefix = relative(home, real).split(sep).join('/');
+  const prefix = relative(home, path).split(sep).join('/');
   current.fakes.set(home, [...(current.fakes.get(home) ?? []), ...paths.map((path) => (prefix === '' ? path : `${prefix}/${path}`))]);
 }
 
