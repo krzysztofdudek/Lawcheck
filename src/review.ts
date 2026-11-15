@@ -3,6 +3,7 @@ import type { ReviewerConfig } from './config.js';
 import type { ErrorItem } from './output.js';
 import { checkAnswer } from './prompt.js';
 import type { AnswerFinding } from './prompt.js';
+import { hidden } from './providers/index.js';
 import type { Provider } from './providers/index.js';
 export interface Recorder {
   pass(key: string, rule: string): Promise<void>;
@@ -92,6 +93,7 @@ export async function call<A extends Ask>(asks: A[], provider: Provider, writer:
   const answered: Answered[] = [];
   const failed: Failed[] = [];
   const delay = options.resendDelayMs ?? 2000;
+  const hide = (text: string) => hidden(text, provider.keys);
   let sent = 0;
   let started = 0;
   let stopped = false;
@@ -117,26 +119,27 @@ export async function call<A extends Ask>(asks: A[], provider: Provider, writer:
       const asked = await request(ask.prompt);
       if ('failure' in asked) {
         stopped = true;
-        failed.push({ ask, code: 'reviewer-unreachable', message: `${ask.rule}: ${asked.failure}` });
+        failed.push({ ask, code: 'reviewer-unreachable', message: `${ask.rule}: ${hide(asked.failure)}` });
         return;
       }
       const checked = checkAnswer(asked.answer, ask.lineCount);
       if ('problem' in checked) {
         if (firstProblem === null && mayResend()) {
-          firstProblem = checked.problem;
+          firstProblem = hide(checked.problem);
           continue;
         }
         stopped = true;
         const message =
           firstProblem === null
-            ? `${ask.rule}: the answer is no verdict (${checked.problem}), and the limit of calls leaves none to ask again`
-            : `${ask.rule}: the answer is no verdict twice (${firstProblem}; then ${checked.problem})`;
+            ? `${ask.rule}: the answer is no verdict (${hide(checked.problem)}), and the limit of calls leaves none to ask again`
+            : `${ask.rule}: the answer is no verdict twice (${firstProblem}; then ${hide(checked.problem)})`;
         failed.push({ ask, code: 'reviewer-bad-answer', message });
         return;
       }
-      if (remaining(checked.findings, ask.waived).length === 0) await writer.pass(ask.key, ask.rule);
-      else await writer.failure(ask.key, ask.rule, checked.findings);
-      answered.push({ ask, findings: checked.findings, answer: asked.answer });
+      const findings = checked.findings.map((finding) => ({ ...finding, message: hide(finding.message) }));
+      if (remaining(findings, ask.waived).length === 0) await writer.pass(ask.key, ask.rule);
+      else await writer.failure(ask.key, ask.rule, findings);
+      answered.push({ ask, findings, answer: hide(asked.answer) });
       return;
     }
   };

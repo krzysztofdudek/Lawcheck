@@ -8,6 +8,8 @@ export type Resend = 'after-2s' | 'at-once' | false;
 export type Asked = { answer: string } | { failure: string; resend: Resend };
 
 export interface Provider {
+  // The exact keys this provider sends or hands on, which Lawcheck writes as [key] wherever a reply shows them.
+  keys: string[];
   ready(): string | null;
   ask(prompt: string): Promise<Asked>;
 }
@@ -46,33 +48,25 @@ export function endpointOf(env: Env): { url: string } | { problem: string } | nu
 
 export const KEY_SHOWN = '[key]';
 
-// The keys a provider hands on: the one in its request header, or, for a program, every key variable the program gets.
-function keysOf(config: ReviewerConfig, env: Env): string[] {
-  const names =
-    config.provider === 'anthropic'
-      ? [endpointOf(env) === null && variable(env, 'ANTHROPIC_API_KEY') !== null ? 'ANTHROPIC_API_KEY' : 'LAWCHECK_REVIEWER_KEY']
-      : config.provider === 'claude-code'
-        ? ['LAWCHECK_REVIEWER_KEY', 'ANTHROPIC_API_KEY']
-        : ['LAWCHECK_REVIEWER_KEY'];
-  return names.map((name) => variable(env, name)).filter((key): key is string => key !== null).sort((a, b) => b.length - a.length);
+const NAMED_ESCAPES: Record<string, string> = { '"': '\\"', '\\': '\\\\', '/': '\\/', '\b': '\\b', '\f': '\\f', '\n': '\\n', '\r': '\\r', '\t': '\\t' };
+
+// The key in any spelling JSON allows: each character as it is, as a \u escape, or by its short escape.
+function spellings(key: string): RegExp {
+  const parts = [...key].map((c) => {
+    const units = [...Array(c.length).keys()]
+      .map((i) => `\\\\u${[...c.charCodeAt(i).toString(16).padStart(4, '0')].map((d) => (/[a-f]/.test(d) ? `[${d}${d.toUpperCase()}]` : d)).join('')}`)
+      .join('');
+    const named = NAMED_ESCAPES[c];
+    return `(?:${named === undefined ? '' : `${named.replace(/\\/g, '\\\\')}|`}${units}|${c.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')})`;
+  });
+  return new RegExp(parts.join(''), 'g');
 }
 
 export function hidden(text: string, keys: string[]): string {
-  return keys.reduce((out, key) => out.split(key).join(KEY_SHOWN), text);
+  return [...keys].sort((a, b) => b.length - a.length).reduce((out, key) => out.replace(spellings(key), KEY_SHOWN), text);
 }
 
-function masked(provider: Provider, keys: string[]): Provider {
-  if (keys.length === 0) return provider;
-  return {
-    ready: () => provider.ready(),
-    async ask(prompt) {
-      const asked = await provider.ask(prompt);
-      return 'answer' in asked ? { answer: hidden(asked.answer, keys) } : { ...asked, failure: hidden(asked.failure, keys) };
-    },
-  };
-}
-
-function created(config: ReviewerConfig, env: Env): Provider | null {
+export function createProvider(config: ReviewerConfig, env: Env): Provider | null {
   switch (config.provider) {
     case 'openai-compatible':
       return openaiCompatible(config, env);
@@ -83,9 +77,4 @@ function created(config: ReviewerConfig, env: Env): Provider | null {
     default:
       return null;
   }
-}
-
-export function createProvider(config: ReviewerConfig, env: Env): Provider | null {
-  const provider = created(config, env);
-  return provider === null ? null : masked(provider, keysOf(config, env));
 }

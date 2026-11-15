@@ -58,6 +58,8 @@ With them, each call sends one prompt: a fixed frame, the rule's `why` and text,
 
 Bounds: `check` sends a file that has a type and a reviewer rule binding it, and `try` a file you named. A context file is one the law names and git lists. A prompt holds at most `reviewer.max_chars` characters, and a run sends at most `reviewer.max_calls` requests.
 
+When an endpoint or the `claude` program sends a key back in its own text, such as an error that quotes the key it refused, Lawcheck writes that key as `[key]` in everything it prints and writes. Only the exact key is replaced: the key the provider sent, and for `claude-code` the values of `LAWCHECK_REVIEWER_KEY` and `ANTHROPIC_API_KEY`. A prefix of it, a percent-encoded copy or any other value that only looks like a key is printed as it came.
+
 What stays: `.lawcheck/verdicts` holds keys and rule ids. A line there proves that someone wrote it, not that a model gave the verdict. The failure cache keeps the reviewer's messages on this machine.
 
 ## Failures

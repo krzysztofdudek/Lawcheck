@@ -26,15 +26,15 @@ type Answer = { answer: string } | { failure: string; resend: 'after-2s' | 'at-o
 function provider(answers: (prompt: string, n: number) => Answer | Promise<Answer>) {
   let n = 0;
   const seen: string[] = [];
-  return { seen, ready: () => null, ask: async (prompt: string) => (seen.push(prompt), answers(prompt, n++)) };
+  return { seen, keys: [], ready: () => null, ask: async (prompt: string) => (seen.push(prompt), answers(prompt, n++)) };
 }
 
 test('the checks before the first call', () => {
-  const ready = { ready: () => null, ask: async () => ({ answer: '' }) };
+  const ready = { keys: [], ready: () => null, ask: async () => ({ answer: '' }) };
   const config = { ...DEFAULT_CONFIG, provider: 'openai-compatible' as const };
   assert.deepEqual(preflight(ready, config, 3, 3, 'lawcheck check --review'), []);
   assert.deepEqual(preflight(null, DEFAULT_CONFIG, 1, 2, 'lawcheck check --review').map((e) => e.code), ['reviewer-not-configured', 'too-many-reviews']);
-  const notReady = { ready: () => 'no address', ask: async () => ({ answer: '' }) };
+  const notReady = { keys: [], ready: () => 'no address', ask: async () => ({ answer: '' }) };
   const errors = preflight(notReady, config, 5, 1, 'lawcheck check --review --base main');
   assert.deepEqual(errors.map((e) => [e.code, e.file, e.line]), [['reviewer-unreachable', null, null]]);
   assert.match(errors[0]!.message, /no address/);
