@@ -9,7 +9,10 @@ interface Packed {
 }
 
 function packed(): string[] {
-  const out = execFileSync('npm', ['pack', '--dry-run', '--json', '--ignore-scripts'], { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+  // npm test sets npm_execpath to npm's own script; on Windows npm on PATH is a .cmd file, which execFile cannot start.
+  const npm = process.env.npm_execpath;
+  const [program, args] = npm === undefined ? ['npm', [] as string[]] : [process.execPath, [npm]];
+  const out = execFileSync(program, [...args, 'pack', '--dry-run', '--json', '--ignore-scripts'], { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
   return (JSON.parse(out) as Packed[])[0]!.files.map((file) => file.path);
 }
 
