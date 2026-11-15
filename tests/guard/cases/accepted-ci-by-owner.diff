@@ -22,13 +22,3 @@ index 0ffe104..9f40209 100644
      "test": "npm run build && node --test \"tests/**/*.test.ts\""
    },
    "dependencies": {
-diff --git a/tests/weakenings.md b/tests/weakenings.md
-index 5357732..21a494d 100644
---- a/tests/weakenings.md
-+++ b/tests/weakenings.md
-@@ -3,3 +3,5 @@
- | Date | What | Kind | Reason | Anchor | Approved by |
- |---|---|---|---|---|---|
- | 2026-11-01 | tests/real/hono.expected | expected-changed | Runes 1.1.0 reads the router | Runes 1.1.0 | reviewer old-agent |
-+| 2026-11-15 | .github/workflows/ci.yml | ci-changed | a pinned runner | .github/workflows/ci.yml | owner |
-+| 2026-11-15 | package.json#scripts.* | ci-changed | the gate command | package.json | owner |

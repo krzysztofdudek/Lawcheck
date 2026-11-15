@@ -12,12 +12,3 @@ index a0557ca..9bfeb3b 100644
 @@ -1 +1 @@
 -{ "ratchets": [] }
 +{ "directions": { "PROPERTY_CASES": "higher" } }
-diff --git a/tests/weakenings.md b/tests/weakenings.md
-index 5357732..0347cdc 100644
---- a/tests/weakenings.md
-+++ b/tests/weakenings.md
-@@ -3,3 +3,4 @@
- | Date | What | Kind | Reason | Anchor | Approved by |
- |---|---|---|---|---|---|
- | 2026-11-01 | tests/real/hono.expected | expected-changed | Runes 1.1.0 reads the router | Runes 1.1.0 | reviewer old-agent |
-+| 2026-11-15 | tests/guard/** | guard-changed | a direction for a new number | tests/guard/config.json | owner |

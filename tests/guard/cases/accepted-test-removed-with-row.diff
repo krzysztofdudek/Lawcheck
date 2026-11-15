@@ -26,12 +26,11 @@ index 301d8e4..e34cc5a 100644
    assert.ok(true);
  });
 diff --git a/tests/weakenings.md b/tests/weakenings.md
-index 5357732..4dbfd34 100644
+index 566a5d7..4dbfd34 100644
 --- a/tests/weakenings.md
 +++ b/tests/weakenings.md
-@@ -3,3 +3,5 @@
- | Date | What | Kind | Reason | Anchor | Approved by |
+@@ -4,3 +4,4 @@
  |---|---|---|---|---|---|
  | 2026-11-01 | tests/real/hono.expected | expected-changed | Runes 1.1.0 reads the router | Runes 1.1.0 | reviewer old-agent |
-+| 2026-11-15 | row 2 | promise-changed | test 1 holds the passing run | row 2 | owner |
+ | 2026-11-15 | row 2 | promise-changed | test 1 holds the passing run | row 2 | owner |
 +| 2026-11-15 | test 2: the passing run | test-removed | its row is gone | row 2 | reviewer fresh-agent-7 |

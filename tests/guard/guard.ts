@@ -69,6 +69,7 @@ export type Finding = Weakening & {
   record?: Record;
   why: string[];
   needs?: string;
+  needsBase?: boolean;
   anchors?: string;
 };
 
@@ -455,22 +456,33 @@ export function judge(repo: string, baseRev: string, headRev: string, config: Co
   const added = ledger.records.filter((r) => isNew(r.line, r.raw));
 
   const context: AnchorContext = { before: snapBefore, after: snapAfter, diff, config };
-  const recordState = added.map((record) => ({ record, matched: false, why: validate(record, context) }));
+  const ownWord = (kind: string): boolean => (config.approvers[kind] ?? []).includes('owner') && !(config.approvers[kind] ?? []).some((r) => r !== 'owner');
+  const recordState = added.map((record) => ({
+    record,
+    matched: false,
+    why: ownWord(record.kind) ? [`a record of ${record.kind} counts only when it is already on the base ${base.slice(0, 7)}: the owner's row lands there first, in a change of its own, and a branch never brings its own`] : validate(record, context),
+  }));
+  const onBase = readWeakenings(judgeTree.read(config.weakenings) ?? '').records
+    .filter((record) => ownWord(record.kind))
+    .map((record) => ({ record, matched: false, why: validate(record, context), fromBase: true }));
 
   const findings: Finding[] = weakenings.map((w) => {
     if (!(RECORD_KINDS as readonly string[]).includes(w.kind)) return { ...w, cleared: false, why: [w.detail] };
-    const matching = recordState.filter((r) => r.record.kind === w.kind && whatMatches(r.record.what, w.subject, w.kind));
+    const fits = (r: { record: Record }): boolean => r.record.kind === w.kind && whatMatches(r.record.what, w.subject, w.kind);
+    const matching = [...onBase.filter(fits), ...recordState.filter(fits)];
     for (const r of matching) r.matched = true;
-    const extra = (r: (typeof recordState)[number]): string[] => fitsWeakening(r.record, w);
+    const extra = (r: { record: Record }): string[] => fitsWeakening(r.record, w);
     const good = matching.find((r) => r.why.length === 0 && extra(r).length === 0);
     if (good) return { ...w, cleared: true, record: good.record, why: [] };
     const roles = config.approvers[w.kind] ?? [];
-    const why = matching.length === 0 ? ['no record of it in this change'] : matching.flatMap((r) => [...r.why, ...extra(r)].map((reason) => `the record at ${config.weakenings}:${r.record.line}: ${reason}`));
+    const place = (r: { record: Record }): string => `${'fromBase' in r ? `the base's ${config.weakenings}` : config.weakenings}:${r.record.line}`;
+    const why = matching.length === 0 ? [ownWord(w.kind) ? `no record of it on the base ${base.slice(0, 7)}` : 'no record of it in this change'] : matching.flatMap((r) => [...r.why, ...extra(r)].map((reason) => `the record at ${place(r)}: ${reason}`));
     return {
       ...w,
       cleared: false,
       why,
       needs: `| ${today} | ${w.subject.replace(/\|/g, '\\|')} | ${w.kind} | <why the suite may get weaker here> | <anchor> | ${roles.map((r) => (r === 'reviewer' ? 'reviewer <the fresh reviewer agent>' : r)).join(' or ') || '<nobody may approve this kind>'} |`,
+      needsBase: ownWord(w.kind),
       anchors: anchorHint(w.kind),
     };
   });
@@ -650,7 +662,7 @@ export function render(report: Report): string {
     else out.push(`REFUSED  ${f.kind}  ${group.length} paths under ${commonDir(group.map((g) => g.subject))}`, `where    ${listed(group.map((g) => g.where))}`, `what     ${[...new Set(group.map((g) => g.detail))].join('; ')}`);
     for (const why of f.why) if (why !== f.detail) out.push(`why      ${why}`);
     const needs = group.length === 1 ? f.needs : f.needs?.replace(` ${f.subject.replace(/\|/g, '\\|')} `, ` ${commonDir(group.map((g) => g.subject))}/** `);
-    if (needs) out.push(`needs    a row added to tests/weakenings.md in this change:`, `         ${needs}`, `anchor   ${f.anchors}`);
+    if (needs) out.push(f.needsBase ? 'needs    the owner\'s row in tests/weakenings.md on the base, landed there first in a change of its own:' : 'needs    a row added to tests/weakenings.md in this change:', `         ${needs}`, `anchor   ${f.anchors}`);
     else out.push('needs    nothing passes it: undo it');
     out.push('');
   }

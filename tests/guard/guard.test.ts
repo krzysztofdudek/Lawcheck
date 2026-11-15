@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { applyCase, BASE, baseRepo, fixtureConfig, GIT_ENV, RATCHET, sh } from './fixture.ts';
@@ -40,7 +40,8 @@ const EXPECT: { [name: string]: Expect } = {
   'refused-finding-severity-lowered': { refused: ['finding-weakened'] },
   'refused-finding-reopened': { refused: ['finding-weakened'] },
   'refused-ratchet-grew': { refused: ['ratchet-grew'] },
-  'refused-number-unclassified': { refused: ['number-unclassified'] },
+  'refused-number-unclassified': { refused: ['number-unclassified', 'record-invalid'] },
+  'refused-owner-row-from-branch': { refused: ['guard-changed'] },
   'refused-weakenings-old-row-edited': { refused: ['weakenings-rewritten', 'record-invalid'] },
   'refused-weakenings-old-row-removed': { refused: ['weakenings-rewritten'] },
   'refused-only-added': { refused: ['only-added'] },
@@ -87,8 +88,13 @@ const EXPECT: { [name: string]: Expect } = {
   'accepted-docs-example-ruling': { cleared: ['docs-example-changed'] },
 };
 
+function caseBase(name: string): { [path: string]: string } {
+  const rows = join(CASES, `${name}.base.md`);
+  return existsSync(rows) ? { ...BASE, 'tests/weakenings.md': BASE['tests/weakenings.md'] + readFileSync(rows, 'utf8') } : BASE;
+}
+
 function judgeCase(name: string): Report {
-  const repo = baseRepo();
+  const repo = baseRepo(caseBase(name));
   try {
     applyCase(repo, join(CASES, `${name}.diff`));
     return judge(repo.dir, 'main', 'work', fixtureConfig(), '2026-11-15');
@@ -99,6 +105,7 @@ function judgeCase(name: string): Report {
 
 test('suite guard (T-7 A): every case on disk has an expectation, and every expectation a case', () => {
   const onDisk = readdirSync(CASES).filter((f) => f.endsWith('.diff')).map((f) => f.slice(0, -5)).sort();
+  for (const rows of readdirSync(CASES).filter((f) => f.endsWith('.base.md'))) assert.ok(onDisk.includes(rows.slice(0, -8)), rows);
   assert.deepEqual(onDisk, Object.keys(EXPECT).sort());
   assert.ok(onDisk.filter((n) => n.startsWith('refused-')).length >= 30);
 });
@@ -139,10 +146,30 @@ test('suite guard (T-7 A): a refusal names the weakening, the record that would 
   ].join('\n'));
 });
 
-test('suite guard (T-7 A): an owner kind approved by a reviewer says who must approve it', () => {
-  const report = judgeCase('refused-guard-by-reviewer');
-  const finding = report.findings.find((f) => f.kind === 'guard-changed')!;
-  assert.deepEqual(finding.why, ['the record at tests/weakenings.md:6: guard-changed needs the approval of owner, and reviewer approved it']);
+test('suite guard (T-7 A): a record of an owner kind that the branch brings is refused, whoever it names', () => {
+  for (const name of ['refused-guard-by-reviewer', 'refused-owner-row-from-branch']) {
+    const report = judgeCase(name);
+    const finding = report.findings.find((f) => f.kind === 'guard-changed')!;
+    assert.deepEqual(finding.why, [`the record at tests/weakenings.md:6: a record of guard-changed counts only when it is already on the base ${report.base.slice(0, 7)}: the owner's row lands there first, in a change of its own, and a branch never brings its own`], name);
+    assert.ok(render(report).includes("needs    the owner's row in tests/weakenings.md on the base, landed there first in a change of its own:"), name);
+  }
+});
+
+test('suite guard (T-7 A): a record of an owner kind on the base that a reviewer approved does not count', () => {
+  const rows = '| 2026-11-15 | tests/guard/** | guard-changed | simpler | tests/guard/check.ts | reviewer fresh-agent-7 |\n';
+  const repo = baseRepo({ ...BASE, 'tests/weakenings.md': BASE['tests/weakenings.md'] + rows });
+  try {
+    applyCase(repo, join(CASES, 'refused-harness-no-record.diff'));
+    sh(repo.dir, ['checkout', '-q', 'HEAD~1', '--', '.']);
+    writeFileSync(join(repo.dir, 'tests/guard/check.ts'), 'export const GUARD = false;\n');
+    sh(repo.dir, ['commit', '-q', '-a', '-m', 'the guard changes']);
+    const report = judge(repo.dir, 'main', 'work', fixtureConfig(), '2026-11-15');
+    const finding = report.findings.find((f) => f.kind === 'guard-changed')!;
+    assert.equal(finding.cleared, false);
+    assert.deepEqual(finding.why, ["the record at the base's tests/weakenings.md:6: guard-changed needs the approval of owner, and reviewer approved it"]);
+  } finally {
+    repo.done();
+  }
 });
 
 test('suite guard (T-7 A): an anchor that does not exist, and one this change does not touch, are named as such', () => {
@@ -228,20 +255,6 @@ test('suite guard (T-7 A): with no guard on the base, the entry point says not j
   }
 });
 
-test('suite guard (T-7 A): the command exits 2 with a reason when it cannot judge', () => {
-  const repo = baseRepo();
-  try {
-    const run = spawnSync(process.execPath, [join(HERE, 'cli.ts'), '--repo', repo.dir, '--base', 'nope'], { env: GIT_ENV, encoding: 'utf8' });
-    assert.equal(run.status, 2);
-    assert.equal(run.stdout, '');
-    assert.equal(run.stderr, `suite guard: could not run: the base 'nope' is not a commit in ${repo.dir}\n`);
-    const usage = spawnSync(process.execPath, [join(HERE, 'cli.ts'), '--bogus'], { env: GIT_ENV, encoding: 'utf8' });
-    assert.equal(usage.status, 2);
-    assert.equal(usage.stderr, "suite guard: unknown argument '--bogus'\nusage: node tests/guard/cli.ts [--repo <dir>] [--base <rev>] [--head <rev>] [--json]\n");
-  } finally {
-    repo.done();
-  }
-});
 test('suite guard (T-7 A): a base that holds the guard\'s files but not its entry point fails as could not run', () => {
   for (const keep of ['tests/guard/check.ts', 'tests/weakenings.md']) {
     const files = { ...BASE };
@@ -257,3 +270,17 @@ test('suite guard (T-7 A): a base that holds the guard\'s files but not its entr
   }
 });
 
+test('suite guard (T-7 A): the command exits 2 with a reason when it cannot judge', () => {
+  const repo = baseRepo();
+  try {
+    const run = spawnSync(process.execPath, [join(HERE, 'cli.ts'), '--repo', repo.dir, '--base', 'nope'], { env: GIT_ENV, encoding: 'utf8' });
+    assert.equal(run.status, 2);
+    assert.equal(run.stdout, '');
+    assert.equal(run.stderr, `suite guard: could not run: the base 'nope' is not a commit in ${repo.dir}\n`);
+    const usage = spawnSync(process.execPath, [join(HERE, 'cli.ts'), '--bogus'], { env: GIT_ENV, encoding: 'utf8' });
+    assert.equal(usage.status, 2);
+    assert.equal(usage.stderr, "suite guard: unknown argument '--bogus'\nusage: node tests/guard/cli.ts [--repo <dir>] [--base <rev>] [--head <rev>] [--json]\n");
+  } finally {
+    repo.done();
+  }
+});

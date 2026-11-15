@@ -38,12 +38,11 @@ index e42f089..c1c30ce 100644
      "id": "frame-cr",
      "promise": "I-frame-1",
 diff --git a/tests/weakenings.md b/tests/weakenings.md
-index 5357732..e76d9b7 100644
+index ed9e00e..e76d9b7 100644
 --- a/tests/weakenings.md
 +++ b/tests/weakenings.md
-@@ -3,3 +3,5 @@
- | Date | What | Kind | Reason | Anchor | Approved by |
+@@ -4,3 +4,4 @@
  |---|---|---|---|---|---|
  | 2026-11-01 | tests/real/hono.expected | expected-changed | Runes 1.1.0 reads the router | Runes 1.1.0 | reviewer old-agent |
-+| 2026-11-15 | row 3 | promise-changed | every finding is printed | row 3 | owner |
+ | 2026-11-15 | row 3 | promise-changed | every finding is printed | row 3 | owner |
 +| 2026-11-15 | limit-50 | sabotage-removed | the limit and its row are gone | row 3 | reviewer fresh-agent-7 |
