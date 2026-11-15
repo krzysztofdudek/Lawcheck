@@ -1,6 +1,6 @@
 {
   "name": "lawcheck",
-  "version": "0.1.0",
+  "version": "0.1.0-alpha.1",
   "description": "Gives your coding agent the law of the repository at the start of every session, checks each file it edits, and sends it back, up to three times, while the files that changed in its turn break the law. The hooks run Lawcheck and the repository's rule scripts, so use it where you would run the repository's tests.",
   "author": { "name": "Krzysztof Dudek", "url": "https://github.com/krzysztofdudek" },
   "homepage": "https://github.com/krzysztofdudek/Lawcheck",

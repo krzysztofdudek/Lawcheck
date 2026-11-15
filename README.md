@@ -4,16 +4,18 @@ You write your repository's architecture and rules. Lawcheck checks the code aga
 
 ## Install
 
+This is an alpha for early testing.
+
 Lawcheck needs Node 24 or later and git.
 
-    npm install --global lawcheck
+    npm install --global lawcheck@alpha
 
 Then, at the root of a git repository:
 
     lawcheck init
     lawcheck docs first-law
 
-To keep Lawcheck in a project instead, run `npm install --save-dev lawcheck`, set `runner` in `.lawcheck/config.yaml` (`lawcheck docs config`), and start it with `npx lawcheck`.
+To keep Lawcheck in a project instead, run `npm install --save-dev lawcheck@alpha`, set `runner` in `.lawcheck/config.yaml` (`lawcheck docs config`), and start it with `npx lawcheck`.
 
 ## Coding agents
 

@@ -191,7 +191,7 @@ test('test 43: usage', async () => {
 test('test 44: version and help', async () => {
   await inTemp(async (dir) => {
     const version = await lawcheck(dir, ['--version']);
-    assert.equal(version.stdout, '0.1.0\n');
+    assert.equal(version.stdout, '0.1.0-alpha.1\n');
     assert.equal(version.code, 0);
     for (const [args, first] of [[['--help'], 'usage: lawcheck <command> [<arguments>] [--json]'], [['check', '--help'], 'usage: lawcheck check [--full] [--base <ref>] [--review [--again] [--max-calls <n>]] [--json]']] as const) {
       const run = await lawcheck(dir, [...args]);

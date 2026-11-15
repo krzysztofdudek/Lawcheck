@@ -1,6 +1,6 @@
 {
   "name": "lawcheck",
-  "version": "0.1.0",
+  "version": "0.1.0-alpha.1",
   "description": "You write the architecture and the rules. Lawcheck tells your coding agent which line breaks which rule.",
   "license": "MIT",
   "author": "Krzysztof Dudek",
