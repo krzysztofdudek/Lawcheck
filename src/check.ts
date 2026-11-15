@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { comparePaths, trackedLinks } from './files.js';
+import { comparePaths, trackedLinks, workTreeTop } from './files.js';
 import type { ReviewerConfig } from './config.js';
 import type { Law } from './law.js';
 import { fixNext, plural, sortFindings, WHY } from './output.js';
@@ -68,7 +68,7 @@ interface Front {
 }
 
 function linkError(link: { path: string; target: string }): ErrorItem {
-  return { code: 'link-outside-root', file: link.path, line: null, message: `the link leads to ${link.target}, outside the root and Lawcheck's folder, and a script rule could read through it` };
+  return { code: 'link-outside-root', file: link.path, line: null, message: `the link leads to ${link.target}, outside the git work tree and Lawcheck's folder, and a script rule could read through it` };
 }
 
 async function checkAt(root: string, options: CheckOptions, context: CheckContext, front: Front): Promise<CheckOutcome> {
@@ -89,7 +89,7 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
     }));
   const unsupported = tasks.length === 0 ? null : runnerProblem(root);
   if (unsupported !== null) return { errors: [{ code: 'path-unsupported', file: null, line: null, message: unsupported }] };
-  const out = tasks.length === 0 ? [] : linksOut(root, trackedLinks(root));
+  const out = tasks.length === 0 ? [] : linksOut(root, workTreeTop(root), trackedLinks(root));
   if (out.length > 0) return { errors: out.map(linkError) };
   const outcomes = await runAll(tasks);
   const crashes: ErrorItem[] = [];

@@ -3,7 +3,7 @@ import { join, resolve } from 'node:path';
 import { documentOf, errorResult, number, usageError } from './args.js';
 import type { Arguments, Result } from './args.js';
 import type { CheckContext } from './check.js';
-import { comparePaths, trackedLinks } from './files.js';
+import { comparePaths, trackedLinks, workTreeTop } from './files.js';
 import { compileList, patternProblem } from './glob.js';
 import { CODES, placeOf, plural, shown } from './output.js';
 import type { ErrorItem } from './output.js';
@@ -171,9 +171,9 @@ export async function tryRule(args: Arguments, context: CheckContext, json: bool
     if (kind === 'script') {
       const unsupported = runnerProblem(root);
       if (unsupported !== null) throw new Stop([{ code: 'path-unsupported', file: null, line: null, message: unsupported }]);
-      const out = linksOut(root, trackedLinks(root));
+      const out = linksOut(root, workTreeTop(root), trackedLinks(root));
       if (out.length > 0) {
-        throw new Stop(out.map((link) => ({ code: 'link-outside-root', file: link.path, line: null, message: `the link leads to ${link.target}, outside the root and Lawcheck's folder, and a script rule could read through it` })));
+        throw new Stop(out.map((link) => ({ code: 'link-outside-root', file: link.path, line: null, message: `the link leads to ${link.target}, outside the git work tree and Lawcheck's folder, and a script rule could read through it` })));
       }
       const ran = await runRule({ root, rule: id, ruleFile: join(root, `${RULES_DIR}${id}.mjs`), files: ruleFiles, filesOf: filesOfTypes(typed, law) });
       if ('crash' in ran) throw new Stop([{ code: 'rule-crashed', file: `${RULES_DIR}${id}.mjs`, line: null, message: ran.crash }]);

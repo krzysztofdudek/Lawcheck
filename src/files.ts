@@ -180,16 +180,35 @@ export function ignoresPath(root: string, path: string): boolean {
   throw failed(args, result);
 }
 
-export function trackedLinks(root: string): string[] {
-  const args = ['ls-files', '-z', '--stage'];
+export interface TrackedLink {
+  name: string;
+  bytes: Buffer;
+}
+
+// Every link git tracks under the root and in its submodules, by its bytes: a name with a line break or bytes that are not UTF-8 is a link like any other.
+export function trackedLinks(root: string): TrackedLink[] {
+  const args = ['ls-files', '-z', '--stage', '--recurse-submodules'];
   const result = git(root, args);
   if (result.status !== 0) throw failed(args, result);
-  const links: string[] = [];
-  for (const entry of splitZ(result.stdout)) {
-    const tab = entry.indexOf('\t');
-    if (entry.startsWith('120000 ') && tab >= 0) links.push(entry.slice(tab + 1));
+  const links: TrackedLink[] = [];
+  let start = 0;
+  for (let i = 0; i < result.stdout.length; i++) {
+    if (result.stdout[i] !== 0) continue;
+    const entry = result.stdout.subarray(start, i);
+    start = i + 1;
+    const tab = entry.indexOf(9);
+    if (tab < 0 || !entry.subarray(0, 7).equals(Buffer.from('120000 '))) continue;
+    const bytes = Buffer.from(entry.subarray(tab + 1));
+    links.push({ name: loose.decode(bytes), bytes });
   }
   return links;
+}
+
+export function workTreeTop(root: string): string {
+  const args = ['rev-parse', '--show-toplevel'];
+  const result = git(root, args);
+  if (result.status !== 0) throw failed(args, result);
+  return loose.decode(result.stdout).replace(/\r?\n$/, '');
 }
 
 export function listedPaths(root: string): Set<string> {

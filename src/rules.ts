@@ -4,7 +4,6 @@ import { availableParallelism } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { dirname, sep } from 'node:path';
 import { realpathSync, rmSync } from 'node:fs';
-import { join } from 'node:path';
 import type { TypeDef } from './law.js';
 import { killTree } from './programs.js';
 import { safeText } from './output.js';
@@ -92,18 +91,28 @@ export function runnerProblem(root: string): string | null {
   return null;
 }
 
-// Node's permission model follows a link, so a tracked link that leads out of the root would let a rule read where it leads.
-export function linksOut(root: string, links: string[]): { path: string; target: string }[] {
-  const inside = (path: string, folder: string) => path === folder || path.startsWith(folder + sep);
+// Node's permission model follows a link, so a tracked link that leads out of the work tree would let a rule read where it leads.
+export function linksOut(root: string, top: string, links: { name: string; bytes: Buffer }[]): { path: string; target: string }[] {
+  const inside = (path: string, folder: string) => path === folder || path.startsWith(folder.endsWith(sep) ? folder : folder + sep);
+  const native = (path: string) => {
+    try {
+      return realpathSync.native(path);
+    } catch {
+      return path;
+    }
+  };
+  const tree = native(top);
+  const own = native(PACKAGE_DIR);
   const out: { path: string; target: string }[] = [];
-  for (const path of links) {
+  for (const link of links) {
     let target: string;
     try {
-      target = realpathSync(join(root, path));
+      // The native call takes the name as bytes; the other one decodes it first and loses a name that is not UTF-8.
+      target = realpathSync.native(Buffer.concat([Buffer.from(root + sep), link.bytes]));
     } catch {
       continue;
     }
-    if (!inside(target, root) && !inside(target, PACKAGE_DIR)) out.push({ path, target });
+    if (!inside(target, tree) && !inside(target, own)) out.push({ path: link.name, target });
   }
   return out;
 }

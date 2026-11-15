@@ -78,7 +78,7 @@ export const WHY: Record<string, string> = {
   'type-overlap': 'a file has one type, so the rules that bind it are never in doubt',
   'base-unreachable': 'without its base a change cannot be told from debt',
   'rule-crashed': 'a broken rule says nothing about the code',
-  'link-outside-root': 'a script rule reads nothing outside the root, and a link that leads out of it would let it',
+  'link-outside-root': 'a script rule reads nothing outside the work tree, and a link that leads out of it would let it',
   'path-unsupported': 'a script rule reads nothing outside the root and Lawcheck\'s folder, and the runner can keep that only on such a path',
   internal: 'a fault of Lawcheck says nothing about the code',
   'not-reviewed': 'a reviewer rule says nothing about content it has not judged',
@@ -132,7 +132,7 @@ function fixedNext(error: ErrorItem, command: string): string {
     case 'rule-crashed':
       return `fix ${error.file}, then run lawcheck check`;
     case 'link-outside-root':
-      return `remove the link ${error.file}, or let it lead inside the root, then run lawcheck check`;
+      return `remove the link ${error.file}, or let it lead inside the work tree, then run lawcheck check`;
     case 'path-unsupported':
       return 'move the repository, or Lawcheck itself, to a path with no * or backslash, then run lawcheck check; Lawcheck grants a rule read access to its own folder for the readers it ships, so that path must be as plain as the root';
     case 'reviewer-unreachable':
