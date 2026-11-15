@@ -177,16 +177,29 @@ test("S8-1: control, a Lawcheck in a folder whose name ends in .zip, with no Plu
   });
 });
 
+// spec/environments.md, section 3: Node 24.0 and 24.1 under --permission refuse to read the entry file itself, so Node's own error is all the user sees there.
+const ENTRY_UNREADABLE = (() => {
+  const [major, minor] = process.versions.node.split('.').map(Number);
+  return major === 24 && minor! < 2;
+})();
+
 test('I-env-1: Node with --permission in NODE_OPTIONS, given the entry by its own path as the Windows shims give it, gets the refusal and no stack trace', async () => {
   await inTemp(async (dir) => {
     const s = sampleWithD(dir);
+    const entry = join(ROOT, 'dist', 'bin.cjs');
     for (const [command, argv] of [...COMMANDS, ['doctor', ['doctor']] as [string, string[]], ['check', ['--version']] as [string, string[]]]) {
-      const run = await lawcheckAt(join(ROOT, 'dist', 'bin.cjs'), s, argv, { NODE_OPTIONS: '--permission' });
+      if (ENTRY_UNREADABLE) {
+        const run = await lawcheckAt(entry, s, argv, { NODE_OPTIONS: '--permission' }, { stderr: /ERR_ACCESS_DENIED[\s\S]*resource: '.*bin\.cjs'/ });
+        assert.equal(run.stdout, '', argv.join(' '));
+        assert.equal(run.code, 1, argv.join(' '));
+        continue;
+      }
+      const run = await lawcheckAt(entry, s, argv, { NODE_OPTIONS: '--permission' });
       assert.equal(run.stdout, refusal('Node runs with --permission, set in NODE_OPTIONS, and under it Lawcheck cannot read its own files', 'start Lawcheck with NODE_OPTIONS free of --permission, then run lawcheck check', command), argv.join(' '));
       assert.equal(run.stderr, '', argv.join(' '));
       assert.equal(run.code, 2);
     }
-    const plain = await lawcheckAt(join(ROOT, 'dist', 'bin.cjs'), s, ['check', '--base', 'main']);
+    const plain = await lawcheckAt(entry, s, ['check', '--base', 'main']);
     assert.equal(plain.stdout, TEST4, 'control: the entry without --permission runs the check');
   });
 });
