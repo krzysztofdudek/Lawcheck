@@ -109,3 +109,13 @@ test('test 309: S7-12, the rule of the first-law page reads lines as text, so it
     assert.equal(found.code, 1);
   });
 });
+
+test('R-100: the page tells the note lines of the check of --full as many as its output block holds', () => {
+  const all = blocks();
+  const shown = all.find((b, i) => b.info === 'output' && all[i - 1]?.lines.includes('$ lawcheck check --full --base main'));
+  assert.ok(shown, 'the output block of the check of --full');
+  const notes = shown.lines.filter((l) => l.startsWith('note: ')).length;
+  assert.equal(notes, 1, 'the block holds one note line');
+  assert.ok(page.includes('and the note line says the change edits the law'), 'the sentence after the block names that one line');
+  assert.ok(!/\btwo note lines\b/.test(page), 'the page names no second note line');
+});
