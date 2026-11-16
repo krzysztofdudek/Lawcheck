@@ -94,3 +94,19 @@ test('a nightly that runs the whole commit set on Linux alone, behind a conditio
   delete gone.jobs.repeat;
   assert.deepEqual(wholeSetSystems(gone), []);
 });
+
+// What decides the bytes of .grammars: the pinned packages, the script that builds and checks them, and the licenses it copies.
+const GRAMMAR_INPUTS = ['package-lock.json', 'scripts/grammars.ts', 'scripts/grammar-licenses.txt'];
+
+function grammarKeys(workflows: Record<string, Workflow>): string[] {
+  const problems: string[] = [];
+  for (const [file, workflow] of Object.entries(workflows)) for (const [name, job] of Object.entries(workflow.jobs)) for (const step of (job.steps ?? []) as { uses?: string; with?: { path?: string; key?: string } }[]) {
+    if (!step.uses?.startsWith('actions/cache') || step.with?.path !== '.grammars') continue;
+    if (step.with.key !== `grammars-\${{ hashFiles(${GRAMMAR_INPUTS.map((f) => `'${f}'`).join(', ')}) }}`) problems.push(`${file} ${name}: the grammar cache is keyed by ${step.with.key}`);
+  }
+  return problems;
+}
+
+test('every grammar cache is keyed by every file that decides the bytes of .grammars', () => {
+  assert.deepEqual(grammarKeys({ 'ci.yml': read('ci.yml'), 'nightly.yml': read('nightly.yml'), 'weekly.yml': read('weekly.yml'), 'release.yml': read('release.yml') }), []);
+});
