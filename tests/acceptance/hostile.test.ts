@@ -90,7 +90,7 @@ test('S5-9: explain gives a file whose name holds a line break its type, on one 
   });
 });
 
-test('S5-6: explain of a path with a segment over 255 bytes is usage as test 245 says, and an escaped segment is measured by the bytes it stands for, never internal', async (t) => {
+test('S5-6: explain of a path with a segment over 255 bytes is usage as test 245 says, and an escaped segment is measured by the bytes it stands for, never internal', async () => {
   await withSample(async (s) => {
     const long = `src/core/${'a'.repeat(300)}.ts`;
     const run = await lawcheck(s, ['explain', long]);
@@ -99,11 +99,11 @@ test('S5-6: explain of a path with a segment over 255 bytes is usage as test 245
     const deep = await lawcheck(s, ['explain', longer, '--json']);
     assert.equal(deep.code, 2, deep.stdout);
     assert.equal(JSON.parse(deep.stdout).errors[0].code, 'usage');
-    const skip = platformSkip('an escaped segment');
-    if (skip !== null) return t.skip(skip);
-    const escaped = `src/core/${'a\\n'.repeat(100)}.ts`;
-    const short = await lawcheck(s, ['explain', escaped]);
-    assert.deepEqual([short.code, short.stderr, short.stdout.split('\n')[0]], [0, '', `${escaped}  (does not exist yet)`]);
+    if (platformSkip('an escaped segment') === null) {
+      const escaped = `src/core/${'a\\n'.repeat(100)}.ts`;
+      const short = await lawcheck(s, ['explain', escaped]);
+      assert.deepEqual([short.code, short.stderr, short.stdout.split('\n')[0]], [0, '', `${escaped}  (does not exist yet)`]);
+    }
   });
 });
 
