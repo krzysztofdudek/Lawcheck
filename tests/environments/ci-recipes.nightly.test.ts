@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import { before, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { chmodSync, cpSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
@@ -7,11 +7,12 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { example } from '../harness/examples.ts';
 import { RECIPE_PNPM } from '../numbers.ts';
-import { KINDS } from './ci-cell.ts';
+import type { Kind } from './ci-cell.ts';
 
 const ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const ACTIONLINT = 'rhysd/actionlint:1.7.7';
 const PNPM = `pnpm@${RECIPE_PNPM}`;
+const NODE_IMAGE = 'node:24';
 
 const PULL_REQUESTS = [
   'pull request, a clean change',
@@ -38,9 +39,17 @@ const ONLY_NPM = [
   'pull request, a law below the top, a breach and the rule taken off its type fails the second check',
 ];
 
-function expected(kind: string): string[] {
+function expected(kind: Kind): string[] {
   return [...PULL_REQUESTS, ...PUSHES, ...(kind === 'npm-lock' ? ONLY_NPM : [])].map((name) => `${kind}: ${name}`).sort();
 }
+
+before(() => {
+  for (const image of [NODE_IMAGE, ACTIONLINT]) {
+    const pulled = spawnSync('docker', ['pull', '--quiet', image], { encoding: 'utf8' });
+    if (pulled.error) throw new Error(`could not run: docker (${pulled.error.message})`);
+    if (pulled.status !== 0) throw new Error(`could not run: docker pull ${image} (${pulled.status}): ${pulled.stdout}${pulled.stderr}`);
+  }
+});
 
 function inFolder<T>(body: (dir: string) => T): T {
   const dir = mkdtempSync(join(tmpdir(), 'lawcheck-recipes-'));
@@ -66,27 +75,31 @@ function cellFolder(dir: string): void {
   cpSync(join(dir, tarball), join(dir, 'lawcheck.tgz'));
 }
 
-function cell(dir: string, kind: string): { code: number | null; lines: string[]; output: string } {
-  const script = `command -v pnpm > /dev/null 2>&1 || npm install --global --no-audit --no-fund ${PNPM} > /dev/null 2>&1 || { echo 'cell: could not run: npm install pnpm'; exit 3; }; cd /cell/repo && node tests/environments/ci-cell-main.ts ${kind} /cell/lawcheck.tgz`;
-  const run = spawnSync('docker', ['run', '--rm', '-v', `${dir}:/cell:ro`, 'node:24', 'sh', '-c', script], { encoding: 'utf8', maxBuffer: 1 << 26 });
+function cell(dir: string, kind: Kind): { code: number | null; lines: string[]; output: string } {
+  const pnpm = kind === 'pnpm' ? `command -v pnpm > /dev/null 2>&1 || npm install --global --no-audit --no-fund ${PNPM} > /dev/null 2>&1 || { echo 'cell: could not run: npm install pnpm'; exit 3; }; ` : '';
+  const script = `${pnpm}cd /cell/repo && node tests/environments/ci-cell-main.ts ${kind} /cell/lawcheck.tgz`;
+  const run = spawnSync('docker', ['run', '--rm', '-v', `${dir}:/cell:ro`, NODE_IMAGE, 'sh', '-c', script], { encoding: 'utf8', maxBuffer: 1 << 26 });
   if (run.error) throw new Error(`could not run: docker (${run.error.message})`);
   const output = `${run.stdout}${run.stderr}`;
   return { code: run.status, lines: run.stdout.split('\n').filter((line) => line.startsWith('cell: ')).map((line) => line.slice('cell: '.length)), output };
 }
 
-for (const kind of KINDS) {
-  test(`S7-1, S7-2, S7-3, S7-4 (design tests 15 and 16): the workflow and the hooks of docs/ci.md, run as written on ${kind}, as a pull request and as a push (network)`, () => {
-    inFolder((dir) => {
-      cellFolder(dir);
-      const run = cell(dir, kind);
-      const failed = run.lines.filter((line) => line.startsWith('fail') || line.startsWith('could not run') || line.startsWith('  '));
-      assert.deepEqual(failed, [], run.output);
-      assert.ok(run.lines.includes('done'), run.output);
-      assert.equal(run.code, 0, run.output);
-      assert.deepEqual(run.lines.filter((line) => line.startsWith('ok ')).map((line) => line.slice(3)).sort(), expected(kind), run.output);
-    });
+function recipe(kind: Kind): void {
+  inFolder((dir) => {
+    cellFolder(dir);
+    const run = cell(dir, kind);
+    const failed = run.lines.filter((line) => line.startsWith('fail') || line.startsWith('could not run') || line.startsWith('  '));
+    assert.deepEqual(failed, [], run.output);
+    assert.ok(run.lines.includes('done'), run.output);
+    assert.equal(run.code, 0, run.output);
+    assert.deepEqual(run.lines.filter((line) => line.startsWith('ok ')).map((line) => line.slice(3)).sort(), expected(kind), run.output);
   });
 }
+
+test('S7-1, S7-2, S7-3, S7-4 (design tests 15 and 16): the workflow and the hooks of docs/ci.md, run as written on npm-lock, as a pull request and as a push (network)', () => recipe('npm-lock'));
+test('S7-1, S7-2, S7-3, S7-4 (design tests 15 and 16): the workflow and the hooks of docs/ci.md, run as written on npm-nolock, as a pull request and as a push (network)', () => recipe('npm-nolock'));
+test('S7-1, S7-2, S7-3, S7-4 (design tests 15 and 16): the workflow and the hooks of docs/ci.md, run as written on pnpm, as a pull request and as a push (network)', () => recipe('pnpm'));
+test('S7-1, S7-2, S7-3, S7-4 (design tests 15 and 16): the workflow and the hooks of docs/ci.md, run as written on yarn1, as a pull request and as a push (network)', () => recipe('yarn1'));
 
 test('S7-4: actionlint accepts the workflow of docs/ci.md as it stands', () => {
   inFolder((dir) => {
