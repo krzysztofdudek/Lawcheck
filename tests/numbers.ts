@@ -328,7 +328,7 @@ export function slowBudget(key: string, system: System = process.platform as Sys
 
 
 // The tests whose names cite only a spec section or a question (spec/questions.md, entry 79). The rail checks the count against this number, above and below, so that a lower count is written down here. That the number may only fall is the suite guard's, read from the base through `stronger`; the rail alone stays green when the number is raised.
-export const SECTION_ONLY_TESTS = 214;
+export const SECTION_ONLY_TESTS = 198;
 
 export const SLOWEST_SHOWN = 10;
 

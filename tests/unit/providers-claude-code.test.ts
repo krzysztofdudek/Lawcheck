@@ -7,13 +7,13 @@ import { join } from 'node:path';
 import { DEFAULT_CONFIG } from '../../dist/config.js';
 import { claudeArguments, claudeCode, readOutput } from '../../dist/providers/claude-code.js';
 
-test('reviewer-slice §6: the arguments, with --model only when a model is set', () => {
+test('test 66: the arguments, with --model only when a model is set', () => {
   const tail = ['--tools', '', '--disable-slash-commands', '--setting-sources', '', '--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}', '--no-session-persistence'];
   assert.deepEqual(claudeArguments('m'), ['--print', '--output-format', 'json', '--model', 'm', ...tail]);
   assert.deepEqual(claudeArguments(null), ['--print', '--output-format', 'json', ...tail]);
 });
 
-test('reviewer-slice §6: the output: the envelope, raw text, and the failures', () => {
+test('test 66: the output: the envelope, raw text, and the failures', () => {
   assert.deepEqual(readOutput(0, null, '{"type":"result","is_error":false,"result":"A"}\n', ''), { answer: 'A' });
   assert.deepEqual(readOutput(0, null, 'plain answer', ''), { answer: 'plain answer' });
   assert.deepEqual(readOutput(0, null, '{"type":"other","result":"A"}', ''), { answer: '{"type":"other","result":"A"}' });

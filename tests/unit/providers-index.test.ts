@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { DEFAULT_CONFIG } from '../../dist/config.js';
 import { createProvider, endpointOf, ownKey, variable } from '../../dist/providers/index.js';
 
-test('reviewer-slice §6: the endpoint: http or https, trailing slashes removed, empty counts as absent', () => {
+test('test 64: the endpoint: http or https, trailing slashes removed, empty counts as absent', () => {
   assert.equal(endpointOf({}), null);
   assert.equal(endpointOf({ LAWCHECK_REVIEWER_ENDPOINT: '' }), null);
   assert.deepEqual(endpointOf({ LAWCHECK_REVIEWER_ENDPOINT: 'http://127.0.0.1:9/v1/' }), { url: 'http://127.0.0.1:9/v1' });

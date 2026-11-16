@@ -7,13 +7,13 @@ import { openaiCompatible } from '../../dist/providers/openai-compatible.js';
 
 const config = { ...DEFAULT_CONFIG, provider: 'openai-compatible' as const, model: 'm' };
 
-test('reviewer-slice §6: ready needs a valid endpoint, and no key', () => {
+test('test 64: ready needs a valid endpoint, and no key', () => {
   assert.match(openaiCompatible(config, {}).ready()!, /LAWCHECK_REVIEWER_ENDPOINT/);
   assert.match(openaiCompatible(config, { LAWCHECK_REVIEWER_ENDPOINT: 'x' }).ready()!, /no URL/);
   assert.equal(openaiCompatible(config, { LAWCHECK_REVIEWER_ENDPOINT: 'http://h/v1' }).ready(), null);
 });
 
-test('reviewer-slice §6: the request and the answer', async () => {
+test('tests 404, 64: the request and the answer', async () => {
   const seen: { url?: string; headers?: Record<string, unknown>; body?: string }[] = [];
   const replies = [
     JSON.stringify({ choices: [{ message: { content: 'the answer' } }] }),

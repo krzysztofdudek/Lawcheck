@@ -66,7 +66,7 @@ test('reviewer-slice §5: a fail whose findings are all waived is recorded as a 
   assert.deepEqual(w.log, [`pass ${'0'.padStart(32, '0')}`]);
 });
 
-test('reviewer-slice §4: a bad answer is asked once more; a second is reviewer-bad-answer', async () => {
+test('test 403: a bad answer is asked once more; a second is reviewer-bad-answer', async () => {
   const twice = await call(asks(1), provider(() => ({ answer: 'fine' })), writer() as never, { cap: 10, parallel: 1 });
   assert.equal(twice.sent, 2);
   assert.equal(twice.failed[0]!.code, 'reviewer-bad-answer');
@@ -76,7 +76,7 @@ test('reviewer-slice §4: a bad answer is asked once more; a second is reviewer-
   assert.deepEqual(recovered.failed, []);
 });
 
-test('reviewer-slice §6: resends: after 2 seconds for a 429, at once for no answer, never otherwise', async () => {
+test('test 403: resends: after 2 seconds for a 429, at once for no answer, never otherwise', async () => {
   const started = Date.now();
   const limited = await call(asks(1), provider((_, n) => (n === 0 ? { failure: '429', resend: 'after-2s' } : { answer: PASS })), writer() as never, { cap: 10, parallel: 1, resendDelayMs: 50 });
   assert.equal(limited.sent, 2);

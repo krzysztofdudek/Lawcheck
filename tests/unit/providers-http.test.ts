@@ -26,7 +26,7 @@ test('reviewer-slice §6: a 2xx JSON body is returned as it came', async () => {
   });
 });
 
-test('reviewer-slice §6: statuses, a body that is no JSON, a redirect and an error message', async () => {
+test('test 403: statuses, a body that is no JSON, a redirect and an error message', async () => {
   await serve((req, res) => {
     if (req.url === '/429') return res.writeHead(429).end();
     if (req.url === '/401') return res.writeHead(401).end(JSON.stringify({ error: { message: 'bad key\nsecond line' } }));
@@ -52,7 +52,7 @@ test('reviewer-slice §6: statuses, a body that is no JSON, a redirect and an er
   });
 });
 
-test('reviewer-slice §6: a request that cannot be sent names the cause of its failure', async () => {
+test('test 403: a request that cannot be sent names the cause of its failure', async () => {
   assert.deepEqual(await post('http://127.0.0.1:9/v1/chat/completions', {}, {}, 5, { base: 'http://127.0.0.1:9/v1' }), {
     failure: 'http://127.0.0.1:9/v1 names a port that fetch refuses to call (bad port)',
     resend: 'at-once',
@@ -60,7 +60,7 @@ test('reviewer-slice §6: a request that cannot be sent names the cause of its f
   });
 });
 
-test('reviewer-slice §6: each cause of no answer is a sentence that names the address', () => {
+test('test 403: each cause of no answer is a sentence that names the address', () => {
   assert.equal(noAnswer('ECONNREFUSED', 'http://h:1/v1'), 'nothing answers at http://h:1/v1: the connection was refused (ECONNREFUSED)');
   assert.equal(noAnswer('ENOTFOUND', 'http://h:1/v1'), 'the host of http://h:1/v1 is not found (ENOTFOUND)');
   assert.equal(noAnswer('EHOSTUNREACH', 'http://h:1/v1'), 'http://h:1/v1 cannot be reached from this machine (EHOSTUNREACH)');
@@ -68,7 +68,7 @@ test('reviewer-slice §6: each cause of no answer is a sentence that names the a
   assert.equal(noAnswer('EPROTO', 'http://h:1/v1'), 'the connection to http://h:1/v1 gave no answer (EPROTO)');
 });
 
-test('reviewer-slice §6: a reply over 4 MiB is not read', async () => {
+test('test 403: a reply over 4 MiB is not read', async () => {
   await serve((_req, res) => {
     res.end(JSON.stringify({ choices: [{ message: { content: 'x'.repeat(4 * 1024 * 1024) } }] }));
   }, async (url) => {
@@ -76,7 +76,7 @@ test('reviewer-slice §6: a reply over 4 MiB is not read', async () => {
   });
 });
 
-test('reviewer-slice §6: what a connection that gave no answer names', () => {
+test('test 403: what a connection that gave no answer names', () => {
   assert.equal(cause(Object.assign(new TypeError('fetch failed'), { cause: Object.assign(new Error('connect ECONNREFUSED 127.0.0.1:1'), { code: 'ECONNREFUSED' }) })), 'ECONNREFUSED');
   assert.equal(cause(Object.assign(new TypeError('fetch failed'), { cause: Object.assign(new Error('bad port\nmore'), { code: 'bad-port' }) })), 'bad port');
   assert.equal(cause(Object.assign(new TypeError('fetch failed'), { cause: new Error('') })), 'fetch failed');
@@ -86,7 +86,7 @@ test('reviewer-slice §6: what a connection that gave no answer names', () => {
   assert.equal(cause(new Error('x'.repeat(300))), 'x'.repeat(200));
 });
 
-test('reviewer-slice §6: no answer: at once for a dropped connection, never after a timeout', async () => {
+test('test 403: no answer: at once for a dropped connection, never after a timeout', async () => {
   await serve((req) => {
     if (req.url === '/drop') req.socket.destroy();
   }, async (url) => {

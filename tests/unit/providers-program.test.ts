@@ -52,7 +52,7 @@ test('test 406: the working folder and the folder aside are gone when the call e
   }
 });
 
-test("reviewer-slice §6: a program gets its own sign-in variables, and neither Lawcheck's nor another program's", () => {
+test("test 404: a program gets its own sign-in variables, and neither Lawcheck's nor another program's", () => {
   const own = { claude: ['ANTHROPIC_API_KEY', 'ANTHROPIC_AUTH_TOKEN', 'CLAUDE_CODE_OAUTH_TOKEN'], codex: ['OPENAI_API_KEY', 'CODEX_API_KEY'], gemini: ['GEMINI_API_KEY', 'GOOGLE_API_KEY'], copilot: ['COPILOT_GITHUB_TOKEN', 'GH_TOKEN', 'GITHUB_TOKEN', 'COPILOT_PROVIDER_API_KEY', 'COPILOT_PROVIDER_API_KEY_COMMAND', 'COPILOT_PROVIDER_BEARER_TOKEN'] };
   assert.deepEqual(SIGN_IN_VARIABLES, own);
   const every = Object.fromEntries([...LAWCHECK_VARIABLES, ...Object.values(own).flat()].map((name) => [name, 'v']));
