@@ -5,6 +5,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { withoutTypeStrippingWarning } from '../harness/warnings.ts';
 
 const COUNT = fileURLToPath(new URL('./count.ts', import.meta.url));
 
@@ -28,7 +29,7 @@ test('question 95: the suite guard, a run with fewer tests than the sources decl
     assert.equal(run.status, 0, run.stdout + run.stderr);
     writeFileSync(join(root, 'run.tap'), run.stdout);
     const count = spawnSync(process.execPath, [COUNT, '--tap', join(root, 'run.tap'), '--root', root, 'tests/*.test.ts'], { encoding: 'utf8' });
-    assert.equal(count.stderr, '');
+    assert.equal(withoutTypeStrippingWarning(count.stderr), '');
     assert.equal(count.status, 1);
     assert.equal(count.stdout, [
       'REFUSED  fewer-tests  test 3: unlisted skip',

@@ -5,6 +5,7 @@ import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { applyCase, BASE, baseRepo, fixtureConfig, GIT_ENV, RATCHET, sh } from './fixture.ts';
+import { withoutTypeStrippingWarning } from '../harness/warnings.ts';
 import { approvalHash, judge, render, type Report } from './guard.ts';
 
 const HERE = fileURLToPath(new URL('.', import.meta.url));
@@ -271,7 +272,7 @@ test('question 95: the suite guard, the judge is the guard of the base, so a bra
     assert.equal(head.status, 0, 'the branch\'s own guard lets itself pass');
     const run = spawnSync(process.execPath, [join(HERE, 'from-base.ts'), '--repo', repo.dir, '--base', 'main', '--head', 'work'], { env: GIT_ENV, encoding: 'utf8' });
     assert.equal(run.status, 1, run.stdout + run.stderr);
-    assert.equal(run.stderr, '');
+    assert.equal(withoutTypeStrippingWarning(run.stderr), '');
     assert.ok(run.stdout.includes('REFUSED  expected-changed  tests/real/hono.expected'), run.stdout);
     assert.ok(run.stdout.includes('REFUSED  guard-changed  tests/guard/guard.ts'), run.stdout);
     assert.match(run.stdout.trimEnd().split('\n').at(-1)!, /^suite guard: FAIL {2}2 weakenings without a valid record \(/);
@@ -288,7 +289,7 @@ test('question 95: the suite guard, with no guard on the base, the entry point s
     writeFileSync(join(repo.dir, 'tests/real/hono.expected'), 'src/index.ts  ok\n');
     sh(repo.dir, ['commit', '-q', '-a', '-m', 'a weakening']);
     const run = spawnSync(process.execPath, [join(HERE, 'from-base.ts'), '--repo', repo.dir, '--base', 'main', '--head', 'work'], { env: GIT_ENV, encoding: 'utf8' });
-    assert.equal(run.stderr, '');
+    assert.equal(withoutTypeStrippingWarning(run.stderr), '');
     assert.equal(run.status, 0);
     assert.match(run.stdout, /^suite guard: not judged {2}the base [0-9a-f]{7} has no suite guard yet\n$/);
     const zero = spawnSync(process.execPath, [join(HERE, 'from-base.ts'), '--repo', repo.dir, '--base', '0000000000000000000000000000000000000000', '--head', 'work'], { env: GIT_ENV, encoding: 'utf8' });
@@ -320,10 +321,10 @@ test('question 95: the suite guard, the command exits 2 with a reason when it ca
     const run = spawnSync(process.execPath, [join(HERE, 'cli.ts'), '--repo', repo.dir, '--base', 'nope'], { env: GIT_ENV, encoding: 'utf8' });
     assert.equal(run.status, 2);
     assert.equal(run.stdout, '');
-    assert.equal(run.stderr, `suite guard: could not run: the base 'nope' is not a commit in ${repo.dir}\n`);
+    assert.equal(withoutTypeStrippingWarning(run.stderr), `suite guard: could not run: the base 'nope' is not a commit in ${repo.dir}\n`);
     const usage = spawnSync(process.execPath, [join(HERE, 'cli.ts'), '--bogus'], { env: GIT_ENV, encoding: 'utf8' });
     assert.equal(usage.status, 2);
-    assert.equal(usage.stderr, "suite guard: unknown argument '--bogus'\nusage: node tests/guard/cli.ts [--repo <dir>] [--base <rev>] [--head <rev>] [--json]\n");
+    assert.equal(withoutTypeStrippingWarning(usage.stderr), "suite guard: unknown argument '--bogus'\nusage: node tests/guard/cli.ts [--repo <dir>] [--base <rev>] [--head <rev>] [--json]\n");
   } finally {
     repo.done();
   }

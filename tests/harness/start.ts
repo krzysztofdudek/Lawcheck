@@ -11,6 +11,8 @@ import { killAll, MARK, Tracker } from './processes.ts';
 import { harnessSkip } from './skips.ts';
 import { gitChanges, gitState, gitTop, real, tree, treeChanges } from './state.ts';
 import type { GitState } from './state.ts';
+import { withoutTypeStrippingWarning } from './warnings.ts';
+export { withoutTypeStrippingWarning };
 
 export const ROOT_DIR = real(fileURLToPath(new URL('../..', import.meta.url)));
 export const ROOT = ROOT_DIR + sep;
@@ -23,13 +25,6 @@ export const DEADLINES_VARIABLE = 'LAWCHECK_TEST_DEADLINES';
 export const TOOL_WITH_LIMITS = join(ROOT_DIR, 'tests', 'harness', 'tool-with-limits.mjs');
 export const LIMITS_VARIABLE = 'LAWCHECK_TEST_LIMITS';
 const WINDOWS = process.platform === 'win32';
-
-// Node 24.0 to 24.x before type stripping became stable warns once on standard error when it starts a .ts file. Only the suite's own .ts programs are started so; Lawcheck itself is JavaScript, so this one warning is taken out of their output alone, and every other line stays.
-const TYPE_STRIPPING_WARNING = /^\(node:\d+\) ExperimentalWarning: Type Stripping is an experimental feature and might change at any time\n\(Use `node --trace-warnings \.\.\.` to show where the warning was created\)\n/m;
-
-export function withoutTypeStrippingWarning(text: string): string {
-  return text.replace(TYPE_STRIPPING_WARNING, '');
-}
 
 export class CouldNotRun extends Error {
   constructor(missing: string) {
