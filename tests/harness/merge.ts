@@ -141,10 +141,10 @@ export function tied(system: System, files: string[]): boolean {
 }
 
 // One system's shards judged as one run: red when the shards are not one whole run, a test failed, or the reporter judges the merged events red, whatever made it so.
-export async function judgeShards(system: System, plan: Plan, shards: Shard[], files: string[], verdict: Judge = judgeRun): Promise<{ text: string; failed: boolean }> {
+export async function judgeShards(system: System, plan: Plan, shards: Shard[], files: string[], verdict: Judge = judgeRun, unread: string[] = []): Promise<{ text: string; failed: boolean }> {
   const ordered = [...shards].sort((a, b) => a.meta.shard - b.meta.shard);
   const selected = perPushTests(system, files) === null ? null : PLATFORM_TESTS.filter((t) => t.systems.includes(system as 'win32' | 'darwin') && files.includes(t.file)).map((t) => ({ file: t.file, test: t.test }));
-  const problems = mergeProblems(system, plan, ordered, files, selected);
+  const problems = [...unread, ...mergeProblems(system, plan, ordered, files, selected)];
   const events = ordered.flatMap((s) => s.events);
   const { wall, summed } = times(ordered);
   const lines = [`the commit set on ${system} in ${ordered.length} shards: ${ordered.map((s) => `${s.meta.shard}: ${s.meta.files.length} files in ${((s.meta.ended - s.meta.started) / 1000).toFixed(0)} s`).join(', ')}; ${(wall / 1000).toFixed(0)} s of wall time from the first shard's start to the last one's end, ${(summed / 1000).toFixed(0)} s summed over the shards`];
@@ -174,10 +174,9 @@ export function summary(system: string, shards: Shard[], failed: boolean): strin
 export async function judge(dir: string, system: System, out: { profile?: string; summary?: string } = {}): Promise<{ text: string; failed: boolean }> {
   const { shards, problems } = readShards(dir);
   if (out.profile !== undefined) writeFileSync(out.profile, `${JSON.stringify(profile(system, shards), null, 2)}\n`);
-  const judged = await judgeShards(system, readPlan(), shards, perPushFiles(system));
-  const result = problems.length === 0 ? judged : { text: `${judged.text}${problems.map((p) => `\nRED      the shards of this run are not one whole run\ngot      ${p}\n`).join('')}`, failed: true };
-  if (out.summary !== undefined) appendFileSync(out.summary, summary(system, shards, result.failed));
-  return result;
+  const judged = await judgeShards(system, readPlan(), shards, perPushFiles(system), judgeRun, problems);
+  if (out.summary !== undefined) appendFileSync(out.summary, summary(system, shards, judged.failed));
+  return judged;
 }
 
 if (process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
