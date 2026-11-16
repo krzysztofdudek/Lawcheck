@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { withFake } from './fake-reviewer.ts';
+import { FAILED_MESSAGE, withFake } from './fake-reviewer.ts';
 import {
   append,
   F,
@@ -10,6 +10,7 @@ import {
   F_PRIME,
   findingLines,
   git,
+  KEY_F_PRIME,
   KEY_PRICE,
   KEY_TAX,
   lawcheck,
@@ -172,6 +173,105 @@ test('test 70: what re-opens a verdict', async () => {
         assert.deepEqual(notReviewed(result.stdout), expected, `${name}: ${result.stdout}`);
         assert.equal(result.code, code, `${name}: ${result.stdout}`);
       }, withVerdicts),
+    ),
+  );
+});
+
+const NO_WAIVERS = replaceOnce(REVIEWER_LAW, '        rules: [no-console, clear-errors]\n', '        rules: [no-console, clear-errors]\n        waivers: false\n');
+const NOT_REVIEWED_F = 'src/core/refund.ts  error[not-reviewed]  clear-errors has no verdict for this content';
+const NOT_REVIEWED_NAMED = NOT_REVIEWED_F.replace('error[', 'warning[');
+const notReviewedOf = (stdout: string) => findingLines(stdout).filter((line) => line.includes('[not-reviewed]'));
+const reviewOfF = (stdout: string) => stdout.split('\n').find((line) => line.startsWith('    clear-errors  ')) ?? '';
+
+test('R-97: a pass recorded while the waiver counted is no pass once the type sets waivers: false, in check, check of a named file, explain and --review', async () => {
+  await withFake(async (fake) => {
+    await withR(
+      async (r) => {
+        write(r, F_PATH, F_PRIME);
+        const recorded = await run(r, fake, ['--review', '--base', 'main']);
+        assert.equal(recorded.code, 0, recorded.stdout);
+        assert.equal(read(r, '.lawcheck/verdicts'), `${KEY_PRICE} clear-errors\n${KEY_TAX} clear-errors\n${KEY_F_PRIME} clear-errors\n`);
+        git(r, 'add', '-A');
+        git(r, 'commit', '-q', '-m', 'reviewed');
+        write(r, '.lawcheck/law.yaml', NO_WAIVERS);
+        git(r, 'commit', '-q', '-am', 'no waivers');
+
+        const plain = await run(r, null, []);
+        assert.deepEqual(notReviewedOf(plain.stdout), [NOT_REVIEWED_F], plain.stdout);
+        assert.equal(plain.code, 1, plain.stdout);
+        const named = await run(r, null, [F_PATH]);
+        assert.equal(named.stdout.split('\n')[0], 'lawcheck: PASS  1 warning in 1 named file', named.stdout);
+        assert.deepEqual(findingLines(named.stdout), [NOT_REVIEWED_NAMED], named.stdout);
+        assert.equal(named.code, 0, named.stdout);
+        const full = await run(r, null, ['--full', '--base', 'main']);
+        assert.deepEqual(notReviewedOf(full.stdout), [NOT_REVIEWED_F], full.stdout);
+        assert.equal(full.code, 1, full.stdout);
+        const json = await run(r, null, ['--full', '--base', 'main', '--json']);
+        assert.deepEqual(JSON.parse(json.stdout).reviews, { missing: 1, calls_made: 0, passes_recorded: 0 });
+        assert.equal(json.code, 1, json.stdout);
+        const file = await lawcheck(r, ['explain', F_PATH]);
+        assert.match(reviewOfF(file.stdout), /^ {4}clear-errors {2}reviewer {2}enforced {2}from library {2}not reviewed {2}/, file.stdout);
+        assert.equal(file.code, 0, file.stdout);
+        const rule = await lawcheck(r, ['explain', '--rule', 'clear-errors']);
+        assert.ok(rule.stdout.split('\n').includes('  binds:  3 files; 2 have a verdict for their content'), rule.stdout);
+        assert.equal(rule.code, 0, rule.stdout);
+        assert.equal(fake.requests.length, 1);
+
+        const again = await run(r, fake, ['--review', '--base', 'main']);
+        assert.equal(fake.requests.length, 2);
+        assert.ok(fake.requests[1]!.prompt.endsWith('\n\n<waived>\nnone\n</waived>'), fake.requests[1]!.prompt);
+        assert.deepEqual(findingLines(again.stdout), [`src/core/refund.ts:4  error[clear-errors]  ${FAILED_MESSAGE}`], again.stdout);
+        assert.equal(again.code, 1, again.stdout);
+      },
+      { onMain: (r) => write(r, '.lawcheck/verdicts', `${KEY_PRICE} clear-errors\n${KEY_TAX} clear-errors\n`) },
+    );
+  });
+});
+
+test('R-97: the verdict line of F\' from section 5, written while its waiver counted, passes it under a type that reads waivers and not under one with waivers: false', async () => {
+  type Seen = [string[], string, string[], number];
+  const cases: [string, string, Seen[], string][] = [
+    [
+      'waivers counted',
+      REVIEWER_LAW,
+      [
+        [['--base', 'main'], 'lawcheck: PASS  1 changed file (against main), 1 waiver', [], 0],
+        [[F_PATH], 'lawcheck: PASS  1 named file, 1 waiver', [], 0],
+      ],
+      'reviewed',
+    ],
+    [
+      'waivers: false',
+      NO_WAIVERS,
+      [
+        [['--base', 'main'], 'lawcheck: FAIL  1 error in 1 changed file (against main)', [NOT_REVIEWED_F], 1],
+        [[F_PATH], 'lawcheck: PASS  1 warning in 1 named file', [NOT_REVIEWED_NAMED], 0],
+      ],
+      'not reviewed',
+    ],
+  ];
+  await Promise.all(
+    cases.map(([name, law, seen, state]) =>
+      withR(
+        async (r) => {
+          write(r, F_PATH, F_PRIME);
+          for (const [args, first, notReviewed, code] of seen) {
+            const result = await run(r, null, args);
+            assert.equal(result.stdout.split('\n')[0], first, `${name}: ${result.stdout}`);
+            assert.deepEqual(notReviewedOf(result.stdout), notReviewed, `${name}: ${result.stdout}`);
+            assert.equal(result.code, code, `${name}: ${result.stdout}`);
+          }
+          const file = await lawcheck(r, ['explain', F_PATH]);
+          assert.match(reviewOfF(file.stdout), new RegExp(`^ {4}clear-errors {2}reviewer {2}enforced {2}from library {2}${state} {2}`), `${name}: ${file.stdout}`);
+          assert.equal(file.code, 0, `${name}: ${file.stdout}`);
+        },
+        {
+          onMain: (r) => {
+            write(r, '.lawcheck/law.yaml', law);
+            write(r, '.lawcheck/verdicts', `${KEY_F_PRIME} clear-errors\n`);
+          },
+        },
+      ),
     ),
   );
 });

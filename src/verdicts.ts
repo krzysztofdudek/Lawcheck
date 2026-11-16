@@ -3,6 +3,8 @@ import { closeSync, existsSync, mkdirSync, openSync, readdirSync, readSync, rena
 import { join } from 'node:path';
 import { FILE_TEXT_BYTES, mib, readFailure as failureOfRead, readWhole } from './limits.js';
 import { checkFindings } from './prompt.js';
+import { splitLines } from './types.js';
+import { parseWaivers, waivedLines } from './waivers.js';
 import { hide } from './keys.js';
 import type { AnswerFinding } from './prompt.js';
 
@@ -21,12 +23,18 @@ export interface KeyInput {
   context: { path: string; text: string }[];
   filePath: string;
   fileText: string;
+  waived: number[];
 }
 
 const lf = (text: string) => text.replace(/\r\n/g, '\n');
 
+function sameLines(a: number[], b: number[]): boolean {
+  return a.length === b.length && a.every((line, index) => line === b[index]);
+}
+
+// The file's text fixes <waived> wherever the file's own waivers of the rule count, so there the key keeps its eight parts and every pass recorded before the ninth stays valid. A ninth part only when <waived> is not empty would give a type with waivers: false the key of the pass recorded while the waiver counted.
 export function reviewKey(input: KeyInput): string {
-  const material = JSON.stringify([
+  const parts: unknown[] = [
     VERDICT_FORMAT,
     lf(input.frame),
     input.ruleId,
@@ -35,8 +43,10 @@ export function reviewKey(input: KeyInput): string {
     input.context.map((item) => [item.path, lf(item.text)]),
     input.filePath,
     lf(input.fileText),
-  ]);
-  return createHash('sha256').update(material, 'utf8').digest('hex').slice(0, 32);
+  ];
+  const own = waivedLines(parseWaivers(splitLines(input.fileText), new Set([input.ruleId])).waivers, input.ruleId);
+  if (!sameLines(own, input.waived)) parts.push(input.waived);
+  return createHash('sha256').update(JSON.stringify(parts), 'utf8').digest('hex').slice(0, 32);
 }
 
 export function verdictLines(text: string): string[] {

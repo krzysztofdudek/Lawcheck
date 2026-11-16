@@ -73,6 +73,10 @@ export function parseWaivers(lines: string[], rules: Set<string>): { waivers: Wa
   return { waivers, problems };
 }
 
+export function waivedLines(waivers: Waiver[], rule: string): number[] {
+  return [...new Set(waivers.filter((w) => w.rule === rule && w.covers !== null).map((w) => w.covers!))].sort((a, b) => a - b);
+}
+
 export function waive(waivers: Waiver[], rule: string, line: number): boolean {
   const own = waivers.find((w) => w.rule === rule && w.covers === line && w.line === line);
   const above = waivers
