@@ -198,7 +198,7 @@ function main(): void {
   }
   const seed = process.env.LAWCHECK_SEED ?? String(SEED);
   process.stdout.write(`${what}: ${files.length} test files, seed ${seed}${parsed.repeat > 1 ? `, ${parsed.repeat} times` : ''}\n`);
-  if (parsed.shuffle !== null) process.stdout.write(`order seed ${parsed.shuffle}: rerun with --shuffle=${parsed.shuffle}\n`);
+  if (parsed.shuffle !== null) process.stdout.write(`order seed ${parsed.shuffle}\nrerun with --shuffle=${parsed.shuffle}\n`);
   // The large limits share one container of 1 GB, so their files run one at a time; Node takes this flag only on its command line, never from NODE_OPTIONS.
   const serial = files.some((file) => SERIAL_DIRS.some((dir) => file.startsWith(`tests/${dir}/`)) && file.endsWith('.nightly.test.ts'));
   const slowest = Math.max(TEST_BUDGET_MS, ...Object.keys(SLOW_TESTS).map((key) => slowBudget(key) ?? 0));

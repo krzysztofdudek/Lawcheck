@@ -58,3 +58,15 @@ test('R-49: a test of a file that asserts nothing fails the run, whether it is e
     folder.remove();
   }
 });
+
+test('R-57: the runner prints the order seed as the line "order seed <n>" alone, and the rerun hint on a line of its own', () => {
+  const env: NodeJS.ProcessEnv = { ...process.env, LAWCHECK_STARTED: '', LAWCHECK_SHUFFLE: '', LAWCHECK_TIE: '' };
+  delete env.NODE_TEST_CONTEXT;
+  delete env.LAWCHECK_ORDER_SEED;
+  const run = spawnSync(process.execPath, [join(ROOT, 'tests', 'run.ts'), 'commit', '--shuffle=7', 'tests/contract/starts.test.ts'], { cwd: ROOT, env, encoding: 'utf8' });
+  assert.equal(run.status, 0, run.stdout + run.stderr);
+  const lines = run.stdout.split('\n');
+  assert.ok(lines.includes('order seed 7'), lines.join('\n'));
+  assert.ok(lines.includes('rerun with --shuffle=7'), lines.join('\n'));
+  assert.equal(lines.indexOf('rerun with --shuffle=7'), lines.indexOf('order seed 7') + 1);
+});
