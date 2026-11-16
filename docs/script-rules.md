@@ -27,7 +27,7 @@ One object with `files` and `repo`.
 
 A list of findings, or a promise of one. A finding has:
 
-- `message`, a non-empty string; a line break in it becomes a space;
+- `message`, a non-empty string of at most 4,096 characters; a line break in it becomes a space;
 - `line`, optional, an integer from 1 to the number of lines; without it the finding is about the whole file. `null`, a string such as `'2'` and a bigint are refused, and the message names the value;
 - `file`, optional, and only the path of the call.
 
@@ -71,7 +71,7 @@ A rule is `rule-crashed`, exit 2, at its file when it:
 
 - does not load, or exports no function `check`;
 - throws or rejects;
-- returns anything but a list of findings as above, or a value the channel cannot carry, such as a function;
+- returns anything but a list of findings as above, a message over 4,096 characters included, or a value the channel cannot carry, such as a function;
 - passes 30 seconds in its load or in one call;
 - ends its process before answering, or sends a message nobody asked for;
 - leaves a promise rejected with no handler, or a timer that throws, while its process lives: the message names the load, or no file. After the last call Lawcheck waits once, at most 2 seconds, for what the rule left running.
