@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import plainAssert from 'node:assert';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync as existsSyncOf } from 'node:fs';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -308,6 +309,16 @@ function nodeTest(dir: string, name: string, body: string): { code: number | nul
   const result = spawnSync(process.execPath, ['--test', `--test-reporter=${reporter}`, '--test-reporter-destination=stdout', file], { cwd: dir, env, encoding: 'utf8' });
   return { code: result.status, out: result.stdout + withoutTypeStrippingWarning(result.stderr) };
 }
+
+test('R-90: harness-count, an assertion the harness counts keeps its meaning: match passes on a match and fails on none, through node:assert and node:assert/strict', () => {
+  const text = ['a', 'b', 'c'].join('');
+  for (const match of [assert.match, plainAssert.match, plainAssert.strict.match]) {
+    match(text, /b/);
+    assert.throws(() => match(text, /z/), /did not match/);
+  }
+  assert.doesNotMatch(text, /z/);
+  assert.throws(() => assert.doesNotMatch(text, /b/), /expected to not match/);
+});
 
 test('harness-count: a test that starts the tool and reads none of its outputs fails', async () => {
   await inTemp(async (dir) => {

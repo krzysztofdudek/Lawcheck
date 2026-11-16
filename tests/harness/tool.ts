@@ -97,6 +97,8 @@ function guardStarts(): void {
 
 // Every function of node:assert counts the assertion it makes for the test that is running. A hook that asserts, and an assertion in a timer callback, which may run after its test, are refused by the rail.
 function countAssertions(): void {
+  const plain = assertModule as unknown as Record<string, unknown>;
+  const plainMatch = plain.match;
   const targets = [assertModule, assertModule.strict] as unknown as Record<string, unknown>[];
   for (const target of targets) {
     for (const key of Object.keys(target)) {
@@ -104,7 +106,15 @@ function countAssertions(): void {
       if (typeof original !== 'function' || ['AssertionError', 'CallTracker', 'Assert', 'strict'].includes(key)) continue;
       target[key] = function counted(this: unknown, ...args: unknown[]) {
         if (current !== null) current.asserted.n++;
-        return (original as (...a: unknown[]) => unknown).apply(this, args);
+        if (key !== 'match') return (original as (...a: unknown[]) => unknown).apply(this, args);
+        // Node 24.0 tells match from doesNotMatch by comparing its own function with assert.match, so a wrapped assert.match turns every match into doesNotMatch while it runs.
+        const shown = plain.match;
+        plain.match = plainMatch;
+        try {
+          return (original as (...a: unknown[]) => unknown).apply(this, args);
+        } finally {
+          plain.match = shown;
+        }
       };
     }
   }
