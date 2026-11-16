@@ -48,18 +48,18 @@ The runner stops these, and the rule is `rule-crashed` when the refusal reaches 
 - writing, renaming or deleting a file, or making a directory, through `node:fs`;
 - reading through `node:fs` outside the root and Lawcheck's folder;
 - starting a child process or a worker thread;
-- loading a native add-on or WASI.
+- loading a native add-on or WASI;
+- importing `node:sqlite`, which Node's permission model does not confine, so a rule cannot open, attach or write a database through it. `process.getBuiltinModule('node:sqlite')` returns `undefined`.
 
 A rule imports `node:` built-ins, files below the root such as `.lawcheck/rules/lib/`, and packages installed in a `node_modules` below the root. A package hoisted to a `node_modules` above the root, as a monorepo with the law in one package does, or reached through a link that leads outside the root, cannot be read, so the rule does not load. Install what the rule needs below the root.
 
-When the runner stops a rule, the message says what the rule did, such as `reads <path> outside the root and Lawcheck's folder, and a rule may read nothing else` or `writes <path>, and a rule may write no file`.
+When the runner stops a rule, the message says what the rule did, such as `reads <path> outside the root and Lawcheck's folder, and a rule may read nothing else`, `writes <path>, and a rule may write no file` or `imports node:sqlite, and a rule may not`.
 
 The runner is no sandbox. A rule can still:
 
 - read every file under the root, `.git/` and ignored files such as `.env` included;
 - read any file the user can, through a symbolic link under the root that git does not track, or a tracked one that leads elsewhere in the git work tree. A tracked link that leads outside the work tree stops the run with `link-outside-root` before any rule starts;
 - open network connections;
-- write a file through `node:sqlite`;
 - signal the user's processes;
 - put what it read into its messages, which end up in the output and in a CI log.
 

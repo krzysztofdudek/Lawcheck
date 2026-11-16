@@ -166,7 +166,7 @@ export function check({ files }) {
 
 | Option | Value |
 |---|---|
-| `execArgv` | `--permission`, `--allow-fs-read=<root>`, `--allow-fs-read=<package>`, and no other flag, whatever the tool itself was started with. Both are real paths: the root, and the directory that holds Lawcheck's `package.json` |
+| `execArgv` | `--permission`, `--allow-fs-read=<root>`, `--allow-fs-read=<package>`, `--no-experimental-sqlite`, and no other flag, whatever the tool itself was started with. Both are real paths: the root, and the directory that holds Lawcheck's `package.json` |
 | `env` | `{}`. No variable of the caller reaches the rule, `NODE_OPTIONS` included |
 | `cwd` | the root |
 | `serialization` | `'advanced'` |
@@ -181,13 +181,16 @@ The tool sends the type of every file and the path of the rule file. The runner 
 - writes, renames or deletes a file, or makes a directory, through `node:fs`;
 - reads through `node:fs` a path outside the root and the package;
 - starts a child process or a worker thread;
-- loads a native add-on or WASI.
+- loads a native add-on or WASI;
+- imports `node:sqlite`, by a static or dynamic `import`, through `require`, or in a module the rule imports.
+
+Node's permission model does not confine `node:sqlite`: on Node 24.0.0, 24.22.3 and 26.13.1 under `--permission` it opens, attaches and writes a database at any path the user can reach. So the runner starts with `--no-experimental-sqlite`, which removes the module, and `process.getBuiltinModule('node:sqlite')` returns `undefined` in a rule.
 
 Node refuses each of these in every form, at every path of the root (invariant `I-runner-1`). Node reads a `*` in a granted path as a wildcard over everything after it, and cannot load a module from a path that holds a backslash where `/` is the separator. So when the root or Lawcheck's folder holds a `*`, or such a backslash, the tool starts no runner and the run ends with `path-unsupported`, without a place, naming the path. Node also follows a link, so a link under the root that leads elsewhere lets a rule read there. The threat is content that comes from git, which a pull request can carry. Before it starts a runner the tool resolves every link git tracks under the root and in its submodules, by the bytes of its name, so a name with a line break or bytes that are not UTF-8 counts like any other. A link that leads outside the git work tree and Lawcheck's folder ends the run with `link-outside-root`, placed at the link, naming where it leads; a link that leads elsewhere inside the work tree, such as `pkg/LICENSE` to `../LICENSE` with the law in `pkg/`, is allowed. A target is inside a folder only when the folder is a whole leading part of its path, so `/x/s2` is not inside `/x/s`. Links git does not track, ignored ones included, are the local user's own and are outside this promise, and git carries no hard link, so a clone holds none that the repository chose. The rule is `rule-crashed` when the refusal reaches it as a thrown error or a rejected promise. A call with a callback, such as `fs.writeFile(path, data, callback)`, hands the refusal to the callback instead, and the rule goes on; the file is still not written.
 
 A rule imports what it can read: `node:` built-ins, files below the root such as `.lawcheck/rules/lib/`, and packages in a `node_modules` below the root. A package in a `node_modules` above the root, where a monorepo hoists it, or behind a link that leads outside the root, cannot be read, so such a rule does not load.
 
-When the load reads a package in a `node_modules` outside the root, the next line is `install <package> in a node_modules below the root, then run lawcheck check`. When Node refuses, the message names what the rule did, never a flag of the runner's command line, which the user cannot pass: `reads <path> outside the root and Lawcheck's folder, and a rule may read nothing else`; `writes <path>, and a rule may write no file`; `starts a program, and a rule may start none`; `starts a worker thread, and a rule may start none`; `loads a native add-on, and a rule may load none`; `starts WASI, and a rule may not`. `<path>` is the path Node names.
+When the load reads a package in a `node_modules` outside the root, the next line is `install <package> in a node_modules below the root, then run lawcheck check`. When Node refuses, the message names what the rule did, never a flag of the runner's command line, which the user cannot pass: `reads <path> outside the root and Lawcheck's folder, and a rule may read nothing else`; `writes <path>, and a rule may write no file`; `starts a program, and a rule may start none`; `starts a worker thread, and a rule may start none`; `loads a native add-on, and a rule may load none`; `starts WASI, and a rule may not`; `imports node:sqlite, and a rule may not`. `<path>` is the path Node names.
 
 A rule that hangs or dies takes its own process with it and nothing else. `process.env` is empty in a rule. `process.send` is absent in a rule, so the channel to the tool carries only the runner's answers; a message the tool did not ask for ends the rule as `rule-crashed`.
 
@@ -196,7 +199,6 @@ A rule that hangs or dies takes its own process with it and nothing else. `proce
 - read every file under the root, `.git/` and files git ignores, such as `.env`, included;
 - read any file the user can read, through a link under the root that git does not track, or a tracked link that leads elsewhere inside the git work tree; a tracked link that leads outside the work tree stops the run before any rule starts (above);
 - open network connections: `fetch`, `node:net` and `node:http` work under `--permission` on Node 24;
-- write a file wherever the user can, through `node:sqlite`;
 - signal the user's processes with `process.kill`;
 - put what it read into its messages and its printed lines, which end in the output and in a CI log.
 

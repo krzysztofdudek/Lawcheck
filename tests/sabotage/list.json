@@ -32,6 +32,14 @@
     "killedBy": "I-runner-1: a link whose target only shares the beginning of the root path is outside it"
   },
   {
+    "id": "runner-sqlite",
+    "promise": "I-runner-1",
+    "file": "src/rules.ts",
+    "find": "`--allow-fs-read=${PACKAGE_DIR}`, '--no-experimental-sqlite']",
+    "replace": "`--allow-fs-read=${PACKAGE_DIR}`]",
+    "killedBy": "R-98: a rule reads no SQLite database outside the root and writes none through node:sqlite, by any route to the module"
+  },
+  {
     "id": "safe-directory-quoted",
     "promise": "S7-15",
     "file": "src/files.ts",

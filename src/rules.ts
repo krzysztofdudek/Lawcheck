@@ -254,8 +254,9 @@ export interface RuleRun {
   signal?: AbortSignal;
 }
 
+// Node's permission model does not reach node:sqlite (Node 24.0 to 26.13 at least), which opens, attaches and writes any database the user can, so the runner starts without it.
 function runnerArgs(root: string): string[] {
-  return ['--permission', `--allow-fs-read=${root}`, `--allow-fs-read=${PACKAGE_DIR}`];
+  return ['--permission', `--allow-fs-read=${root}`, `--allow-fs-read=${PACKAGE_DIR}`, '--no-experimental-sqlite'];
 }
 
 // The runner printed why it did not start on the tool's standard error; starting it once more without a channel, which a sound runner ends at once, gives that line to the message.
