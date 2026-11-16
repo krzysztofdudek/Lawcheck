@@ -1,9 +1,9 @@
 import { fork, spawn, spawnSync } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
-import { availableParallelism } from 'node:os';
+import { availableParallelism, tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { dirname, sep } from 'node:path';
-import { realpathSync, rmSync } from 'node:fs';
+import { existsSync, realpathSync, rmSync } from 'node:fs';
 import type { TypeDef } from './law.js';
 import { killTree } from './programs.js';
 import { safeText } from './output.js';
@@ -40,9 +40,9 @@ function startGuard(): void {
   }
 }
 
-// On Windows the guard finds what a program started only in PowerShell's list of processes, and PowerShell takes seconds to start on a busy machine; a program starts once that list runs, so the tool killed at any moment of a call leaves nothing the guard cannot find within seconds. A guard that cannot list says so too, and after 10 seconds the program starts anyway.
+// On Windows the guard finds what a program started only in PowerShell's list of processes, and PowerShell takes seconds to start on a busy machine; a program starts once that list runs, so the tool killed at any moment of a call leaves nothing the guard cannot find within seconds. A guard that cannot list says so too, and after 10 seconds the program starts anyway. PowerShell makes a missing temporary directory, and without one no program starts, as a call's folder is made there, so the list is then not waited for.
 export function guardListing(): Promise<void> {
-  if (process.platform !== 'win32') return Promise.resolve();
+  if (process.platform !== 'win32' || (listing === null && !existsSync(tmpdir()))) return Promise.resolve();
   listing ??= new Promise((done) => {
     startGuard();
     const ready = () => {
