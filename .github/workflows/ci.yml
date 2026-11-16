@@ -223,7 +223,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          started=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" --jq .run_started_at)
+          started=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" --jq .run_started_at) || started=
           echo "at=$started" >> "$GITHUB_OUTPUT"
       - name: The shards as one run
         run: node tests/harness/merge.ts shards --system ${{ matrix.system }} --run-started "${{ steps.started.outputs.at }}" --profile "${{ runner.temp }}/profile.json" --summary "$GITHUB_STEP_SUMMARY"
@@ -266,7 +266,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          started=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" --jq .run_started_at)
+          started=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" --jq .run_started_at) || started=
           echo "at=$started" >> "$GITHUB_OUTPUT"
       - name: The shards as one run
         run: node tests/harness/merge.ts shards --system ${{ matrix.system }} --run-started "${{ steps.started.outputs.at }}" --profile "${{ runner.temp }}/profile.json" --summary "$GITHUB_STEP_SUMMARY"
@@ -308,7 +308,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          started=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" --jq .run_started_at)
+          started=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" --jq .run_started_at) || started=
           echo "at=$started" >> "$GITHUB_OUTPUT"
       - name: The shards as one run
         run: node tests/harness/merge.ts shards --system ${{ matrix.system }} --run-started "${{ steps.started.outputs.at }}" --profile "${{ runner.temp }}/profile.json" --summary "$GITHUB_STEP_SUMMARY"

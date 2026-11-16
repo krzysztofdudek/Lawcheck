@@ -6,7 +6,7 @@ import { parse } from 'yaml';
 import { COMMIT_GROUPS, NIGHTLY_GROUPS, ROOT } from '../harness/sets.ts';
 import { continueOnErrorProblems } from '../harness/workflows.ts';
 
-type Job = { 'continue-on-error'?: unknown; strategy?: { matrix?: { group?: string[]; os?: string[]; include?: Record<string, unknown>[] } }; steps?: { name?: string; run?: string; if?: string; 'continue-on-error'?: unknown }[]; needs?: string | string[]; name?: string; if?: string; 'runs-on'?: string };
+type Job = { 'continue-on-error'?: unknown; strategy?: { matrix?: { group?: string[]; os?: string[]; include?: Record<string, unknown>[] } }; steps?: { name?: string; uses?: string; run?: string; if?: string; 'continue-on-error'?: unknown }[]; needs?: string | string[]; name?: string; if?: string; 'runs-on'?: string };
 type Workflow = { jobs: Record<string, Job> };
 
 const WORKFLOWS = join(ROOT, '.github', 'workflows');
@@ -112,14 +112,26 @@ test('every grammar cache is keyed by every file that decides the bytes of .gram
   assert.deepEqual(grammarKeys({ 'ci.yml': read('ci.yml'), 'nightly.yml': read('nightly.yml'), 'weekly.yml': read('weekly.yml'), 'release.yml': read('release.yml') }), []);
 });
 
-test('the nightly repeat job and its test step carry no continue-on-error, as a flake there must stop the release', () => {
-  assert.deepEqual(continueOnErrorProblems('nightly.yml', read('nightly.yml').jobs, ['repeat']), []);
+const WORKFLOW_FILES = ['ci.yml', 'nightly.yml', 'weekly.yml'];
+
+test('no job or step of ci.yml, nightly.yml or weekly.yml carries continue-on-error, as a red there must stop the required check and the release', () => {
+  for (const file of WORKFLOW_FILES) assert.deepEqual(continueOnErrorProblems(file, read(file).jobs), [], file);
 });
 
-test('continue-on-error on the nightly repeat job or its test step is refused, and a literal false is not (control)', () => {
-  const on = (edit: (workflow: Workflow) => void): string[] => { const workflow = read('nightly.yml'); edit(workflow); return continueOnErrorProblems('nightly.yml', workflow.jobs, ['repeat']); };
-  const reds = (what: string) => `nightly.yml: ${what} has continue-on-error, so GitHub reports its red as a success`;
-  assert.deepEqual(on((w) => { w.jobs.repeat!['continue-on-error'] = true; }), [reds('repeat')]);
-  assert.deepEqual(on((w) => { w.jobs.repeat!.steps!.find((s) => s.run === 'npm test -- --repeat 3')!['continue-on-error'] = true; }), [reds('step 6 of repeat (The commit set, three times)')]);
-  assert.deepEqual(on((w) => { w.jobs.repeat!['continue-on-error'] = false; }), []);
+test('continue-on-error on any job or step of ci.yml, nightly.yml or weekly.yml is refused, and a literal false is not (control)', () => {
+  const reds = (file: string, what: string) => `${file}: ${what} has continue-on-error, so GitHub reports its red as a success`;
+  for (const file of WORKFLOW_FILES) {
+    const on = (edit: (workflow: Workflow) => void): string[] => { const workflow = read(file); edit(workflow); return continueOnErrorProblems(file, workflow.jobs); };
+    const jobs = Object.entries(read(file).jobs);
+    assert.ok(jobs.length > 0, file);
+    for (const [name, job] of jobs) {
+      assert.deepEqual(on((w) => { w.jobs[name]!['continue-on-error'] = true; }), [reds(file, name)], `${file} ${name}`);
+      assert.deepEqual(on((w) => { w.jobs[name]!['continue-on-error'] = false; }), [], `${file} ${name} with false`);
+      (job.steps ?? []).forEach((step, i) => {
+        const what = `step ${i + 1} of ${name} (${step.name ?? step.uses ?? step.run ?? 'unnamed'})`;
+        assert.deepEqual(on((w) => { w.jobs[name]!.steps![i]!['continue-on-error'] = true; }), [reds(file, what)], `${file} ${what}`);
+        assert.deepEqual(on((w) => { w.jobs[name]!.steps![i]!['continue-on-error'] = '${{ matrix.node != \'24\' }}'; }), [reds(file, what)], `${file} ${what} with an expression`);
+      });
+    }
+  }
 });
