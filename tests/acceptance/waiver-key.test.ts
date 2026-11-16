@@ -11,7 +11,7 @@ test('T6: a type with waivers: false reads a waiver marker in its files as text'
     write(s, '.lawcheck/law.yaml', DOCS_LAW('    waivers: false\n'));
     write(s, 'docs/waivers.md', 'The form is `lawcheck-waive <rule id> -- <reason>`.\nA TODO line // lawcheck-waive no-todo -- quoted here\n');
     const run = await check(s);
-    assert.deepEqual([run.code, run.stdout], [0, 'lawcheck: PASS  1 warning in 2 changed files (against main)\nnote: the law changed in this change; lawcheck check --full --base main shows what it finds in the rest of the code\n\ndocs/waivers.md:2  warning[no-todo]  TODO without an issue number\n  why:  A TODO without an issue number gets forgotten.\n']);
+    assert.deepEqual([run.code, run.stdout], [0, 'lawcheck: PASS  1 warning in 2 changed files (against main)\nnote: the law changed in this change; lawcheck check --full --base main shows what it finds in the rest of the code\nnote: this change edits the law that judges it: adds the type docs\n\ndocs/waivers.md:2  warning[no-todo]  TODO without an issue number\n  why:  A TODO without an issue number gets forgotten.\n']);
   });
 });
 

@@ -117,7 +117,7 @@ function ofFile(path: string, before: Buffer | null, after: Buffer | null): stri
 }
 
 // What the change does to the law that judges it, read against the merge base of HEAD and the base. A file that cannot be told apart in words is named, so the list is never empty when the law changed.
-export function lawChanges(root: string, base: string, files: string[], changed: Set<string>): string[] {
+export function lawChanges(root: string, base: string, files: string[], changed: Set<string>, plain: Set<string>): string[] {
   const commit = resolveCommit(root, base);
   const fork = commit === null ? null : mergeBase(root, commit);
   if (fork === null) return [];
@@ -144,7 +144,7 @@ export function lawChanges(root: string, base: string, files: string[], changed:
   }
   const config = ofFile(CONFIG, blobAt(root, fork, CONFIG), fileNow(root, CONFIG));
   if (config !== null) items.push(config);
-  items.push(...waiversAdded(root, fork, changed, new Set([...(lawsBefore?.rules.keys() ?? []), ...(lawsAfter?.rules.keys() ?? [])])));
+  items.push(...waiversAdded(root, fork, changed, new Set([...(lawsBefore?.rules.keys() ?? []), ...(lawsAfter?.rules.keys() ?? [])]), plain));
   return items;
 }
 
@@ -158,10 +158,10 @@ function waiversOf(bytes: Buffer | null, rules: Set<string>): Map<string, number
   return counts;
 }
 
-function waiversAdded(root: string, fork: string, changed: Set<string>, rules: Set<string>): string[] {
+function waiversAdded(root: string, fork: string, changed: Set<string>, rules: Set<string>, plain: Set<string>): string[] {
   const items: string[] = [];
   for (const path of [...changed].sort()) {
-    if (path.startsWith(RULES_DIR)) continue;
+    if (path.startsWith(RULES_DIR) || plain.has(path)) continue;
     const now = fileNow(root, path);
     if (now === null || !now.includes(MARKER)) continue;
     const before = waiversOf(blobAt(root, fork, path), rules);

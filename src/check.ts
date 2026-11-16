@@ -198,7 +198,7 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
   report.lawChanged = lawChanged;
   const notes: string[] = [];
   if (lawChanged) {
-    const told = lawChanges(root, base!, files, changed);
+    const told = lawChanges(root, base!, files, changed, new Set(run.filter((file) => !takesWaivers(file.type)).map((file) => file.path)));
     if (!options.full) notes.push(`note: the law changed in this change; lawcheck check --full${options.base === null ? '' : ` --base ${options.base}`} shows what it finds in the rest of the code`);
     if (told.length > 0) {
       report.lawChanges = told;

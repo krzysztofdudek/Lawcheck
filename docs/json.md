@@ -44,7 +44,7 @@ From `explain`, with `subject` one of `file`, `directory`, `type` and `rule`. Ab
 |---|---|
 | `file` | `path`, `exists`, `type`, `chain`, `about`, `none`, `matched` (`{ "type", "pattern", "content" }`), `not_matched` (`{ "type", "content" }`), `then`, `may_use` (`{ "types", "from" }`), `uses` (`{ "read", "language" }`), `rules` (`{ "id", "kind", "status", "why", "from", "review" }`), `waivers` (`{ "line", "rule", "reason" }`) |
 | `directory` | `path` (with a trailing `/`), `files`, `types` (`{ "type", "files" }`, `type` null for no type) |
-| `type` | `id`, `chain`, `about`, `paths`, `content`, `may_use`, `rules` (without `review`), `subtypes`, `files` |
+| `type` | `id`, `chain`, `about`, `paths`, `content`, `may_use`, `rules` (without `review`), `subtypes`, `waivers` (false when the type's files hold no waivers), `files` |
 | `rule` | `id`, `kind`, `status`, `why`, `file`, `context`, `types`, `files`, `reviewed` (a count, or null for a script rule) |
 
 `review` is `reviewed`, `failed`, `too-large`, `not-reviewed`, or null for a script rule or a file that does not exist. A file with no type has `none`, the reason, and empty lists.
