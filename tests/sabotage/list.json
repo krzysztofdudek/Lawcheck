@@ -38,5 +38,13 @@
     "find": "return /^[\\w@%+=:,./\\\\-]+$/.test(path) ? path : `'${path.replace(/'/g, `'\\\\''`)}'`;",
     "replace": "return path;",
     "killedBy": "S7-15: a repository owned by another user gives no-git with the safe.directory command of git, quoted for a POSIX shell, and that command run there lets check through"
+  },
+  {
+    "id": "key-waived-lines",
+    "promise": "R-97",
+    "file": "src/verdicts.ts",
+    "find": "if (!sameLines(own, input.waived)) parts.push(input.waived);",
+    "replace": "if (input.waived.length > 0) parts.push(input.waived);",
+    "killedBy": "R-97: a pass recorded while the waiver counted is no pass once the type sets waivers: false, in check, check of a named file, explain and --review"
   }
 ]

@@ -19,7 +19,7 @@ import type { Kinds, Read } from './setup.js';
 import { decode, filesOfTypes, isBinary, splitLines } from './types.js';
 import { listInForce } from './uses.js';
 import { readFailure, readVerdicts, reviewKey } from './verdicts.js';
-import { parseWaivers } from './waivers.js';
+import { parseWaivers, waivedLines } from './waivers.js';
 
 type Review = 'reviewed' | 'failed' | 'too-large' | 'not-reviewed';
 
@@ -117,10 +117,10 @@ function reviewState(ctx: Ctx, path: string, text: string, waivers: ReturnType<t
   return (id) => {
     const reviewer = ctx.kinds.reviewers.get(id)!;
     const why = ctx.law.rules.get(id)!.why;
-    const key = reviewKey({ frame: FRAME, ruleId: id, why, ruleText: reviewer.text, context: reviewer.context, filePath: path, fileText: text });
+    const waived = waivedLines(waivers, id);
+    const key = reviewKey({ frame: FRAME, ruleId: id, why, ruleText: reviewer.text, context: reviewer.context, filePath: path, fileText: text, waived });
     if (verdicts.has(`${key} ${id}`)) return 'reviewed';
     if (readFailure(ctx.root, key, id, lineCount) !== null) return 'failed';
-    const waived = [...new Set(waivers.filter((w) => w.rule === id && w.covers !== null).map((w) => w.covers!))].sort((a, b) => a - b);
     const prompt = buildPrompt({ why, ruleText: reviewer.text, context: reviewer.context, filePath: path, fileText: text, waived });
     return size(prompt) > ctx.config.maxChars ? 'too-large' : 'not-reviewed';
   };
@@ -373,9 +373,11 @@ function ruleAnswer(ctx: Ctx, id: string, json: boolean): string {
   if (kind === 'reviewer') {
     const verdicts = readVerdicts(ctx.root);
     const reviewer = ctx.kinds.reviewers.get(id)!;
-    reviewed = bound.filter((file) =>
-      verdicts.has(`${reviewKey({ frame: FRAME, ruleId: id, why: rule.why, ruleText: reviewer.text, context: reviewer.context, filePath: file.path, fileText: file.text })} ${id}`),
-    ).length;
+    const ruleIds = new Set([...ctx.law.rules.keys(), 'forbidden-use']);
+    reviewed = bound.filter((file) => {
+      const waived = waivedLines(takesWaivers(file.type) ? parseWaivers(file.lines, ruleIds).waivers : [], id);
+      return verdicts.has(`${reviewKey({ frame: FRAME, ruleId: id, why: rule.why, ruleText: reviewer.text, context: reviewer.context, filePath: file.path, fileText: file.text, waived })} ${id}`);
+    }).length;
   }
   const file = `${RULES_DIR}${id}.${kind === 'script' ? 'mjs' : 'md'}`;
   const context = rule.context === null ? null : rule.context.map((item) => item.path);

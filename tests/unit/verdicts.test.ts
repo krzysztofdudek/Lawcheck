@@ -25,24 +25,32 @@ export const F = [
 
 const F2 = F.replace("  if (!paid) throw new Error('failed');", "  if (!paid) throw new Error('The order is not paid yet; take the payment before a refund.');");
 
-function key(filePath: string, fileText: string, ruleText = RULE_TEXT): string {
-  return reviewKey({ frame: FRAME, ruleId: 'clear-errors', why: WHY, ruleText, context: [{ path: 'docs/errors.md', text: ERRORS }], filePath, fileText });
+function key(filePath: string, fileText: string, waived: number[] = [], ruleText = RULE_TEXT): string {
+  return reviewKey({ frame: FRAME, ruleId: 'clear-errors', why: WHY, ruleText, context: [{ path: 'docs/errors.md', text: ERRORS }], filePath, fileText, waived });
 }
 
 test('reviewer-slice §5: the keys of section 5', () => {
-  assert.equal(key('src/core/refund.ts', F), 'bec7eb69fcc74507cad562d7d51f13eb');
-  assert.equal(key('src/core/refund.ts', F2), '416ae89429881606bc1ead8e5e1f0e8b');
-  assert.equal(key('src/core/refund.ts', F2.replace(/\n/g, '\r\n')), '416ae89429881606bc1ead8e5e1f0e8b');
+  assert.equal(key('src/core/refund.ts', F, [4]), 'bec7eb69fcc74507cad562d7d51f13eb');
+  assert.equal(key('src/core/refund.ts', F2, [4]), '416ae89429881606bc1ead8e5e1f0e8b');
+  assert.equal(key('src/core/refund.ts', F2.replace(/\n/g, '\r\n'), [4]), '416ae89429881606bc1ead8e5e1f0e8b');
   assert.equal(key('src/core/price.ts', readFileSync(new URL('src/core/price.ts', S), 'utf8')), '04359891722bcd49bac46a26fbb25f2a');
   assert.equal(key('src/core/tax.ts', readFileSync(new URL('src/core/tax.ts', S), 'utf8')), '3a171a910b49c962ed47f9b9795cfc97');
 });
 
+test('R-97: the key holds the waived lines wherever the file\'s own waivers of the rule do not fix them, as section 5 gives for a type with waivers: false', () => {
+  assert.equal(key('src/core/refund.ts', F, []), '6f51331b77067b387d491f4c17650a20');
+  assert.equal(key('src/core/refund.ts', F2, []), '83bb2e0c70b1c1e605fe3098479d4acc');
+  assert.equal(key('src/core/refund.ts', F2.replace(/\n/g, '\r\n'), []), '83bb2e0c70b1c1e605fe3098479d4acc');
+  assert.notEqual(key('src/core/refund.ts', F, [2]), key('src/core/refund.ts', F, []));
+  assert.notEqual(key('src/core/refund.ts', F, [2]), key('src/core/refund.ts', F, [4]));
+});
+
 test('reviewer-slice §5: a lone carriage return stays in the key, and every part moves it', () => {
-  const base = key('src/core/refund.ts', F);
-  assert.notEqual(key('src/core/refund.ts', F.replace('\n', '\r')), base);
-  assert.notEqual(key('src/core/other.ts', F), base);
-  assert.notEqual(key('src/core/refund.ts', F, RULE_TEXT + ' '), base);
-  assert.equal(key('src/core/refund.ts', F, RULE_TEXT.replace(/\n/g, '\r\n')), base);
+  const base = key('src/core/refund.ts', F, [4]);
+  assert.notEqual(key('src/core/refund.ts', F.replace('\n', '\r'), [4]), base);
+  assert.notEqual(key('src/core/other.ts', F, [4]), base);
+  assert.notEqual(key('src/core/refund.ts', F, [4], RULE_TEXT + ' '), base);
+  assert.equal(key('src/core/refund.ts', F, [4], RULE_TEXT.replace(/\n/g, '\r\n')), base);
 });
 
 test('reviewer-slice §5: the verdicts file is read line by line, with CR removed and every other line ignored', () => {

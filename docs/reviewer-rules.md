@@ -46,7 +46,7 @@ Findings on waived lines are dropped. A fail with no finding left counts as a pa
 
 A pass is recorded in `.lawcheck/verdicts`, one line per pass: a key and the rule id. Commit this file. A plain `lawcheck check` reads it and calls nobody, so CI needs no key.
 
-The key is a hash of the frame, the rule id, its `why`, the rule file's text, each context file's path and text, and the judged file's path and text. A change to any of these re-opens the review. The status, the provider, the model and the settings are not in the key, so changing them re-opens nothing. A waiver changes the file's text, so adding one re-opens the review.
+The key is a hash of the frame, the rule id, its `why`, the rule file's text, each context file's path and text, and the judged file's path and text. A change to any of these re-opens the review. The key also covers the waived lines the reviewer is told about. When the file holds a waiver of the rule and its type sets `waivers: false`, the reviewer judges the line the waiver would cover, and the key differs from the one the same text has where the waiver counts. So a pass recorded while the waiver counted no longer counts once the type sets `waivers: false`, or once a law change moves the file into such a type, and the review re-opens. The status, the provider, the model and the settings are not in the key, so changing them re-opens nothing. A waiver changes the file's text, so adding one re-opens the review.
 
 `.lawcheck/.gitattributes` gets `verdicts merge=union`, so two branches that add lines merge without a conflict.
 

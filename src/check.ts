@@ -26,7 +26,7 @@ import type { Forbidden, NotRead, Target } from './uses.js';
 import type { TypedFile } from './types.js';
 import type { Runtime } from './environment.js';
 import { countPasses, FULL_NEXT, readFailure, readVerdicts, reviewKey, Unwritable, VERDICTS, VerdictsFull, VerdictsUnreadable, VerdictWriter } from './verdicts.js';
-import { parseWaivers, waive } from './waivers.js';
+import { parseWaivers, waive, waivedLines } from './waivers.js';
 import { count, mib, points, readError, RUN_FINDINGS, RUN_MESSAGE_CHARS, USES_FILE_BYTES } from './limits.js';
 import { step } from './progress.js';
 import type { Waiver, WaiverProblem } from './waivers.js';
@@ -172,7 +172,8 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
     for (const rule of bound) {
       const reviewer = kinds.reviewers.get(rule)!;
       const why = law.rules.get(rule)!.why;
-      const key = reviewKey({ frame: FRAME, ruleId: rule, why, ruleText: reviewer.text, context: reviewer.context, filePath: file.path, fileText: file.text });
+      const waived = waivedLines(waiversOf.get(file.path)!.waivers, rule);
+      const key = reviewKey({ frame: FRAME, ruleId: rule, why, ruleText: reviewer.text, context: reviewer.context, filePath: file.path, fileText: file.text, waived });
       if (verdicts.has(`${key} ${rule}`)) continue;
       const lineCount = file.lines.length;
       if (!options.again) {
@@ -185,8 +186,6 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
           continue;
         }
       }
-      const covered = waiversOf.get(file.path)!.waivers.filter((w) => w.rule === rule && w.covers !== null).map((w) => w.covers!);
-      const waived = [...new Set(covered)].sort((a, b) => a - b);
       const prompt = buildPrompt({ why, ruleText: reviewer.text, context: reviewer.context, filePath: file.path, fileText: file.text, waived });
       const characters = size(prompt);
       if (characters > config.maxChars) {
@@ -303,12 +302,16 @@ function unseenRepositories(root: string, listed: Set<string>, law: Law): string
 // What the reviews of this tree need of a full verdicts file, worked out with no call: its passes, those the files of the tree need, and the calls a review of every file of the law would take.
 function verdictRoom(root: string, law: Law, typed: TypedFile[], kinds: Kinds): string {
   const needed = new Set<string>();
+  const ruleIds = new Set([...law.rules.keys(), 'forbidden-use']);
   for (const file of typed) {
+    let waivers: Waiver[] | null = null;
     for (const rule of file.rules) {
       const reviewer = kinds.reviewers.get(rule);
       if (reviewer === undefined) continue;
+      waivers ??= takesWaivers(file.type) ? parseWaivers(file.lines, ruleIds).waivers : [];
       const why = law.rules.get(rule)!.why;
-      needed.add(`${reviewKey({ frame: FRAME, ruleId: rule, why, ruleText: reviewer.text, context: reviewer.context, filePath: file.path, fileText: file.text })} ${rule}`);
+      const waived = waivedLines(waivers, rule);
+      needed.add(`${reviewKey({ frame: FRAME, ruleId: rule, why, ruleText: reviewer.text, context: reviewer.context, filePath: file.path, fileText: file.text, waived })} ${rule}`);
     }
   }
   const counted = countPasses(root, needed);
