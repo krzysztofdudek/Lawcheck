@@ -27,11 +27,13 @@ test('a plan that leaves a file out, names one twice, or names a file that is no
   assert.deepEqual(planProblems(changed(at, [...shards[at]!, 'tests/unit/none.test.ts'])).filter((p) => p.startsWith('linux:')), [`linux: shard ${at + 1} names tests/unit/none.test.ts, which is not a test file of the per-push set of linux`]);
 });
 
-type Step = { id?: string; name?: string; uses?: string; if?: string; env?: Record<string, string>; run?: string; with?: Record<string, unknown>; 'continue-on-error'?: unknown };
+type Step = { id?: string; shell?: string; 'working-directory'?: string; name?: string; uses?: string; if?: string; env?: Record<string, string>; run?: string; with?: Record<string, unknown>; 'continue-on-error'?: unknown };
 type CiJob = { 'continue-on-error'?: unknown; permissions?: Record<string, string>; needs?: string | string[]; if?: string; 'runs-on'?: string; outputs?: Record<string, string>; strategy?: { matrix?: { include?: unknown } }; steps?: Step[] };
 type Ci = { jobs: Record<string, CiJob> };
 const OS: Record<(typeof SYSTEMS)[number], RegExp> = { linux: /^ubuntu-/, win32: /^windows-/, darwin: /^macos-/ };
 const START_STEP = ['started=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" --jq .run_started_at) || started=', 'echo "at=$started" >> "$GITHUB_OUTPUT"'];
+const START_STEP_KEYS = ['env', 'id', 'name', 'run'];
+const isStartStep = (s: Step): boolean => s.id !== undefined && JSON.stringify(Object.keys(s).sort()) === JSON.stringify(START_STEP_KEYS) && s.name === 'The start of the run' && JSON.stringify(s.env) === JSON.stringify({ GH_TOKEN: '${{ github.token }}' }) && JSON.stringify(commandLines(s.run)) === JSON.stringify(START_STEP);
 const commandLines = (run: string | undefined): string[] => (run ?? '').split('\n').filter((line) => line.trim() !== '');
 const needsOf = (job: CiJob | undefined): string[] => [job?.needs ?? []].flat().sort();
 
@@ -72,7 +74,7 @@ function ciProblems(ci: Ci, plan: Plan): string[] {
     const merged = (merge.steps ?? []).find((s) => /^node tests\/harness\/merge\.ts shards --system \$\{\{ matrix\.system \}\}( |$)/.test(s.run ?? ''));
     const download = (merge.steps ?? []).find((s) => s.uses?.startsWith('actions/download-artifact@') && s.with?.pattern === 'shard-${{ matrix.os }}-${{ matrix.node }}-*' && s.with?.path === 'shards');
     if (merged === undefined || download === undefined) problems.push(`ci.yml: merge-${system} does not judge the shards of its run as one run of its system`);
-    const started = (merge.steps ?? []).find((s) => s.id !== undefined && s.env?.GH_TOKEN === '${{ github.token }}' && JSON.stringify(commandLines(s.run)) === JSON.stringify(START_STEP));
+    const started = (merge.steps ?? []).find(isStartStep);
     if (started === undefined || !(merged?.run ?? '').includes(`--run-started "\${{ steps.${started.id}.outputs.at }}"`)) problems.push(`ci.yml: merge-${system} does not time its run from the run's own start, run_started_at of the API, or lets a failed call fail the merge`);
     if (JSON.stringify(Object.entries(merge.permissions ?? {}).sort()) !== JSON.stringify([['actions', 'read'], ['contents', 'read']])) problems.push(`ci.yml: merge-${system} has permissions other than read of the contents and of the actions`);
   }
@@ -122,6 +124,9 @@ test('a ci.yml that drops the runs of a system, merges a system after another\'s
   for (const added of ['exit 1', 'false', 'test -n "$started"', 'echo "at=$started" >> "$GITHUB_OUTPUT" && exit 1']) {
     assert.deepEqual(changed((ci) => { const read = ci.jobs['merge-darwin']!.steps!.find((s) => s.id === 'started')!; read.run = `${read.run!.trimEnd()}\n${added}\n`; }), [unstarted('merge-darwin')], `${added} after the fallback`);
     assert.deepEqual(changed((ci) => { const read = ci.jobs['merge-win32']!.steps!.find((s) => s.id === 'started')!; const [call, write] = commandLines(read.run); read.run = `${call}\n${added}\n${write}\n`; }), [unstarted('merge-win32')], `${added} between the fallback and the write`);
+  }
+  for (const [key, value] of [['shell', "bash -c 'exit 1' {0}"], ['working-directory', 'nowhere'], ['if', 'false']] as const) {
+    assert.deepEqual(changed((ci) => { Object.assign(ci.jobs['merge-linux']!.steps!.find((s) => s.id === 'started')!, { [key]: value }); }), [unstarted('merge-linux')], `${key} on the run-start step`);
   }
   assert.deepEqual(changed((ci) => { ci.jobs['merge-linux']!.permissions = { contents: 'read', actions: 'read', checks: 'write' }; }), ['ci.yml: merge-linux has permissions other than read of the contents and of the actions']);
   assert.deepEqual(changed((ci) => { delete ci.jobs['merge-linux']!.permissions; }), ['ci.yml: merge-linux has permissions other than read of the contents and of the actions']);
