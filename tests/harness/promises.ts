@@ -5,6 +5,9 @@ import { INVARIANTS } from './invariants.ts';
 
 const ROOT = fileURLToPath(new URL('../..', import.meta.url));
 
+// The promises of the spec and of the harness that are about a behaviour of Windows or macOS, by the ids promiseOf resolves. A test whose name carries one runs per push on each system named here (PLATFORM_TESTS of tests/harness/sets.ts). The suite guard reads this object as plain data, so it stays literals.
+export const PLATFORM_PROMISES: Record<string, { systems: ('win32' | 'darwin')[]; behaviour: string }> = {};
+
 export function testIds(name: string): string[] {
   const ids: string[] = [];
   const rows = /^tests? (\d+(?:(?:, | and )\d+)*)/.exec(name);

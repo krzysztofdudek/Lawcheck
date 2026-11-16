@@ -83,3 +83,27 @@ export function groupDirs(speed: 'commit' | 'nightly', group: string | null): st
   if (group !== null) return groups[group] ?? null;
   return [...new Set(Object.values(groups).flat())];
 }
+
+export type System = 'linux' | 'win32' | 'darwin';
+
+export interface PlatformTest {
+  file: string;
+  test: string;
+  systems: ('win32' | 'darwin')[];
+  reason: string;
+}
+
+// Per push, Linux runs every test of the commit set, and Windows and macOS run only the tests listed here, each on the systems it names; the nightly runs every test on every system. A test is listed when what it checks behaves differently on that system, and its reason names that behaviour. `test` is the whole name of a top-level test, as in PLATFORM_SKIPS. The suite guard reads this list as plain data, so it stays literals.
+export const PLATFORM_TESTS: PlatformTest[] = [];
+
+export function perPushFiles(system: System, files: string[] = setFiles('commit', groupDirs('commit', null)!)): string[] {
+  if (system === 'linux') return files;
+  const holding = new Set(PLATFORM_TESTS.filter((entry) => entry.systems.includes(system)).map((entry) => entry.file));
+  return files.filter((file) => holding.has(file));
+}
+
+export function perPushTests(system: System, files: string[]): string[] | null {
+  if (system === 'linux') return null;
+  const named = new Set(files);
+  return PLATFORM_TESTS.filter((entry) => entry.systems.includes(system) && named.has(entry.file)).map((entry) => entry.test);
+}
