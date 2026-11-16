@@ -84,7 +84,6 @@ export function powershell(): string {
   return systemProgram('WindowsPowerShell\\v1.0\\powershell.exe');
 }
 
-// The lines of PROCESS_TABLE, each a process id, its parent's and the time it was made, read as the time each process was made.
 export function createdIn(table: string): Map<number, string> {
   const out = new Map<number, string>();
   for (const line of table.split(/\r?\n/)) {
@@ -102,7 +101,6 @@ export function stillListed(before: string, after: string, roots: number[]): num
   return listed.filter((pid) => known.has(pid) && now.get(pid) === known.get(pid));
 }
 
-// The lines of PROCESS_TABLE read as the descendants of root.
 export function descendantsIn(table: string, root: number): number[] {
   const children = new Map<number, number[]>();
   for (const line of table.split(/\r?\n/)) {

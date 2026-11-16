@@ -20,10 +20,10 @@ function files(dir: string, out: string[] = []): string[] {
   return out;
 }
 
-// The owner's ruling klucz-zastapiony: the key appears nowhere Lawcheck prints or writes, not even its first characters cut off at a limit.
-function assertHidden(runs: Run[], root: string, planted: string[] = []): void {
+// The owner's ruling of question 89 (spec/questions.md): the key appears nowhere Lawcheck prints or writes, not even its first characters cut off at a limit.
+function assertHidden(runs: Run[], root: string, planted: string[] = [], keys: string[] = [KEY, OTHER]): void {
   for (const run of runs) {
-    for (const key of [KEY, OTHER]) {
+    for (const key of keys) {
       assert.ok(!(run.stdout + run.stderr).includes(key.slice(0, 9)), `${key.slice(0, 9)} in: ${run.stdout}${run.stderr}`);
     }
   }
@@ -54,20 +54,26 @@ test('S3-2: a judged file named with the key shows [key] in check and explain, a
       await lawcheck(s, ['check', '--base', 'main', '--json'], ENV),
       await lawcheck(s, ['explain', `src/core/${KEY}.ts`], ENV),
       await lawcheck(s, ['check', '--base', KEY], ENV),
-      await lawcheck(s, ['check', '--base', OTHER, '--json'], ENV),
     ];
     assertHidden(runs, s);
     assert.ok(runs[0]!.stdout.includes('src/core/[key].ts:1  error[no-console]'), runs[0]!.stdout);
     assert.ok(runs[3]!.stdout.includes("the base '[key]'"), runs[3]!.stdout);
+    // With no provider configured, ANTHROPIC_API_KEY is the key of none Lawcheck would call, so it stays as it came (spec/reviewer-slice.md, section 6).
+    const other = await lawcheck(s, ['check', '--base', OTHER, '--json'], ENV);
+    assert.ok(JSON.parse(other.stdout).errors.some((e: { message: string }) => e.message.includes(`'${OTHER}'`)), other.stdout);
   });
 });
 
 test('S3-2: a config value that holds the key shows [key] in doctor (I-secret-1)', async () => {
   await withR(async (r) => {
-    write(r, '.lawcheck/config.yaml', `reviewer:\n  provider: openai-compatible\n  model: ${KEY}\n  timeout: ${JSON.stringify(OTHER)}\n`);
+    write(r, '.lawcheck/config.yaml', `reviewer:\n  provider: openai-compatible\n  model: test-model\n  timeout: ${JSON.stringify(KEY)}\n`);
     const runs = [await lawcheck(r, ['doctor'], ENV), await lawcheck(r, ['doctor', '--json'], ENV)];
-    assertHidden(runs, r, [join(r, '.lawcheck', 'config.yaml')]);
-    assert.ok(runs[0]!.stdout.includes('[key]'), runs[0]!.stdout);
+    assertHidden(runs, r, [join(r, '.lawcheck', 'config.yaml')], [KEY]);
+    assert.ok(runs[0]!.stdout.includes('not the string "[key]"'), runs[0]!.stdout);
+    // openai-compatible sends LAWCHECK_REVIEWER_KEY alone, so ANTHROPIC_API_KEY stays as it came.
+    write(r, '.lawcheck/config.yaml', `reviewer:\n  provider: openai-compatible\n  model: test-model\n  timeout: ${JSON.stringify(OTHER)}\n`);
+    const other = await lawcheck(r, ['doctor'], ENV);
+    assert.ok(other.stdout.includes(`not the string "${OTHER}"`), other.stdout);
   });
 });
 
@@ -150,5 +156,20 @@ test("S3-2: a one-character key changes nothing in a plain check's output (I-sec
       const keyed = await lawcheck(s, ['check', '--base', 'main', '--json'], { LAWCHECK_REVIEWER_KEY: key });
       assert.equal(keyed.stdout, plain.stdout, key);
     }
+  });
+});
+
+test("S3-2: under provider google, a file named with the value of OPENAI_API_KEY prints as it came, and one named with GOOGLE_API_KEY as [key] (I-secret-1)", async () => {
+  const google = 'AIzaGoogleKey0123456789abcdef';
+  const openai = 'sk-openai-0123456789abcdefABCD';
+  await withR(async (r) => {
+    write(r, '.lawcheck/config.yaml', 'reviewer:\n  provider: google\n  model: test-model\n');
+    write(r, `src/core/${google}.ts`, "console.log('g');\n");
+    write(r, `src/core/${openai}.ts`, "console.log('o');\n");
+    const run = await lawcheck(r, ['check', '--base', 'main'], { GOOGLE_API_KEY: google, OPENAI_API_KEY: openai });
+    const lines = run.stdout.split('\n');
+    assert.ok(lines.includes('src/core/[key].ts:1  error[no-console]  writes to the terminal with console.log'), run.stdout);
+    assert.ok(lines.includes(`src/core/${openai}.ts:1  error[no-console]  writes to the terminal with console.log`), run.stdout);
+    assert.ok(!run.stdout.includes(google), run.stdout);
   });
 });

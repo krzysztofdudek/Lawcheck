@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { openai, withFake, writeFakeClaude } from '../acceptance/fake-reviewer.ts';
 import { F, F_PATH, lawcheck, pathWith, withR, write } from '../acceptance/helpers.ts';
 
-// The owner's ruling klucz-zastapiony: every spelling of the one exact key in a reply's text is written as [key], and the reply is read as it came.
+// The owner's ruling of question 89 (spec/questions.md): every spelling of the one exact key in a reply's text is written as [key], and the reply is read as it came.
 function masked(text: string, key: string): string {
   return text.split(key).join('[key]');
 }
@@ -90,7 +90,7 @@ test('S3-2: each provider names as its key the one it sends: anthropic its own k
   assert.deepEqual(createProvider(config('anthropic'), { LAWCHECK_REVIEWER_KEY: 'sk-lawcheck' })!.keys, ['sk-lawcheck']);
   assert.deepEqual(createProvider(config('openai-compatible'), withEndpoint)!.keys, ['sk-lawcheck']);
   assert.deepEqual(createProvider(config('openai-compatible'), { LAWCHECK_REVIEWER_ENDPOINT: 'http://127.0.0.1:9' })!.keys, []);
-  assert.deepEqual(createProvider(config('claude-code'), own)!.keys, ['sk-lawcheck', 'sk-ant-own']);
+  assert.deepEqual(createProvider(config('claude-code'), own)!.keys, ['sk-ant-own']);
 });
 
 test('S3-2: nothing but the exact key is replaced: another key-shaped value, a prefix of the key and a percent-encoded copy print as they came (I-secret-1)', async () => {

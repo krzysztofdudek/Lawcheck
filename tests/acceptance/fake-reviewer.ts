@@ -130,7 +130,10 @@ export async function startFake(respond: Responder = defaultResponder): Promise<
       inFlight++;
       maxInFlight = Math.max(maxInFlight, inFlight);
       const reply = await fake.respond(recorded, fake);
-      if ('hang' in reply) return;
+      if ('hang' in reply) {
+        req.socket.on('close', () => (recorded.end = Date.now()));
+        return;
+      }
       if ('close' in reply) {
         inFlight--;
         recorded.end = Date.now();
@@ -175,6 +178,13 @@ export async function withFake<T>(body: (fake: Fake) => Promise<T>, respond?: Re
 }
 
 // The fake claude prints the envelope of `claude --print --output-format json`. The fake codex prints what `codex exec` prints on standard output, the final message alone, with its errors on standard error (codex-cli 0.169.0). The fake gemini follows the headless mode of the Gemini CLI with `--output-format text`: the reply alone on standard output, exit 1 for a failed call, 42 for a bad input, 53 for a turn limit (gemini-cli docs/cli/headless.md). The fake copilot follows `copilot --silent` with the prompt on standard input: the answer alone, a failure on standard error with exit 1 (Copilot CLI 1.0.111).
+const ECHOED: Record<string, string[]> = {
+  claude: ['ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_API_KEY'],
+  codex: ['OPENAI_API_KEY', 'CODEX_API_KEY'],
+  gemini: ['GEMINI_API_KEY', 'GOOGLE_API_KEY'],
+  copilot: ['COPILOT_GITHUB_TOKEN', 'GH_TOKEN', 'GITHUB_TOKEN', 'COPILOT_PROVIDER_API_KEY', 'COPILOT_PROVIDER_BEARER_TOKEN'],
+};
+
 function fakeScript(name: string): string {
   const upper = name.toUpperCase();
   return `#!/usr/bin/env node
@@ -193,11 +203,12 @@ if (args[0] === 'mcp' && args[1] === 'list' && args[2] === '--json') {
   process.stdout.write(process.env.FAKE_${upper}_MCP ?? ${JSON.stringify(name === 'copilot' ? '{"mcpServers":{}}' : '[]')});
   process.exit(0);
 }
+const at = Date.now();
 const record = (extra) => {
   if (!process.env.FAKE_${upper}_RECORD) return;
   const policy = args.indexOf('--policy');
   writeFileSync(process.env.FAKE_${upper}_RECORD, JSON.stringify({
-    args, cwd: process.cwd(), listing: readdirSync(process.cwd()), stdin, pid: process.pid, env: process.env,
+    args, cwd: process.cwd(), listing: readdirSync(process.cwd()), stdin, pid: process.pid, env: process.env, at,
     policy: policy < 0 ? null : readFileSync(args[policy + 1], 'utf8'), ...extra,
   }));
 };
@@ -234,10 +245,11 @@ process.stdin.on('end', () => {
     else process.stderr.write('starting\\nNot logged in\\n');
     process.exit(1);
   }
-  // A program gets its own sign-in variables and never LAWCHECK_REVIEWER_KEY (spec/reviewer-slice.md, decision 25), so the fake echoes two of claude's.
-  const keys = [process.env.ANTHROPIC_AUTH_TOKEN, process.env.ANTHROPIC_API_KEY].join(' and ');
+  // A program gets its own sign-in variables and never LAWCHECK_REVIEWER_KEY (spec/reviewer-slice.md, decision 25), so each fake echoes the keys among its own.
+  const keys = ${JSON.stringify(ECHOED[name] ?? [])}.map((variable) => process.env[variable]).filter((value, i) => envelope || value !== undefined).join(' and ');
   if (mode === 'echo-error') {
-    process.stdout.write(JSON.stringify({ type: 'result', is_error: true, result: 'Invalid API key: ' + keys }));
+    if (envelope) process.stdout.write(JSON.stringify({ type: 'result', is_error: true, result: 'Invalid API key: ' + keys }));
+    else process.stderr.write('Invalid API key: ' + keys + '\\n');
     process.exit(1);
   }
   if (mode === 'echo-stderr') {
@@ -245,7 +257,8 @@ process.stdin.on('end', () => {
     process.exit(3);
   }
   if (mode === 'echo-answer') {
-    process.stdout.write(JSON.stringify({ type: 'result', is_error: false, result: JSON.stringify({ verdict: 'fail', findings: [{ line: 1, message: 'the key is ' + keys }] }) }) + '\\n');
+    const echoed = JSON.stringify({ verdict: 'fail', findings: [{ line: 1, message: 'the key is ' + keys }] });
+    process.stdout.write((envelope ? JSON.stringify({ type: 'result', is_error: false, result: echoed }) : echoed) + '\\n');
     return;
   }
   if (mode === 'boom') {

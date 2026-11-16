@@ -18,6 +18,9 @@ const STDERR_KEPT = 64 * 1024;
 
 export const LAWCHECK_VARIABLES = ['LAWCHECK_REVIEWER_ENDPOINT', 'LAWCHECK_REVIEWER_KEY'];
 
+// A sign-in variable that holds a command which prints a key, not a key.
+const NOT_KEYS = ['COPILOT_PROVIDER_API_KEY_COMMAND'];
+
 // The variables each program documents for its own sign-in; a program gets its own and no other's.
 export const SIGN_IN_VARIABLES: Record<string, string[]> = {
   claude: ['ANTHROPIC_API_KEY', 'ANTHROPIC_AUTH_TOKEN', 'CLAUDE_CODE_OAUTH_TOKEN'],
@@ -80,7 +83,7 @@ export function programProvider(program: Program, env: Env, timeoutSeconds: numb
   let binary: string | null = null;
   let prepared: Promise<Prepared> | null = null;
   return {
-    keys: ['LAWCHECK_REVIEWER_KEY', ...(SIGN_IN_VARIABLES[program.name] ?? [])].map((name) => variable(env, name)).filter((key): key is string => key !== null),
+    keys: (SIGN_IN_VARIABLES[program.name] ?? []).filter((name) => !NOT_KEYS.includes(name)).map((name) => variable(env, name)).filter((key): key is string => key !== null),
     ready() {
       binary = find(env);
       return binary === null ? missing : null;
