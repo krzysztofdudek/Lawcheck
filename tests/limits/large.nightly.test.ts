@@ -49,7 +49,7 @@ test('test 248: 150,000 files: every one is typed and judged, and the one that b
     write(s, 'src/core/d7/f7.ts', 'console.log(7);\n');
     for (const args of [['check', '--base', 'main'], ['check', '--base', 'main', '--full']]) {
       const result = await run(s, args, { budget: 'LIMITS_LARGE_RUN_MS' });
-      assert.equal(result.stdout.split('\n')[0], 'lawcheck: FAIL  1 error in 150000 changed files (against main)', args.join(' '));
+      assert.equal(result.stdout.split('\n')[0], 'lawcheck: FAIL  1 error in 150000 changed files (against main)', `${args.join(' ')}\n${result.stdout}`);
       assert.deepEqual(errorLines(result.stdout), ['src/core/d7/f7.ts:1  error[no-console]  writes to the terminal with console.log'], args.join(' '));
       assert.equal(result.code, 1, args.join(' '));
     }
