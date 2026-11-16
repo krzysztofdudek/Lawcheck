@@ -61,19 +61,15 @@ jobs:
           - { os: ubuntu-latest, node: 'newest', system: linux, shard: 1, of: 3 }
           - { os: ubuntu-latest, node: 'newest', system: linux, shard: 2, of: 3 }
           - { os: ubuntu-latest, node: 'newest', system: linux, shard: 3, of: 3 }
-          - { os: windows-latest, node: '24', system: win32, shard: 1, of: 8 }
-          - { os: windows-latest, node: '24', system: win32, shard: 2, of: 8 }
-          - { os: windows-latest, node: '24', system: win32, shard: 3, of: 8 }
-          - { os: windows-latest, node: '24', system: win32, shard: 4, of: 8 }
-          - { os: windows-latest, node: '24', system: win32, shard: 5, of: 8 }
-          - { os: windows-latest, node: '24', system: win32, shard: 6, of: 8 }
-          - { os: windows-latest, node: '24', system: win32, shard: 7, of: 8 }
-          - { os: windows-latest, node: '24', system: win32, shard: 8, of: 8 }
-          - { os: macos-latest, node: '24', system: darwin, shard: 1, of: 5 }
-          - { os: macos-latest, node: '24', system: darwin, shard: 2, of: 5 }
-          - { os: macos-latest, node: '24', system: darwin, shard: 3, of: 5 }
-          - { os: macos-latest, node: '24', system: darwin, shard: 4, of: 5 }
-          - { os: macos-latest, node: '24', system: darwin, shard: 5, of: 5 }
+          - { os: windows-latest, node: '24', system: win32, shard: 1, of: 6 }
+          - { os: windows-latest, node: '24', system: win32, shard: 2, of: 6 }
+          - { os: windows-latest, node: '24', system: win32, shard: 3, of: 6 }
+          - { os: windows-latest, node: '24', system: win32, shard: 4, of: 6 }
+          - { os: windows-latest, node: '24', system: win32, shard: 5, of: 6 }
+          - { os: windows-latest, node: '24', system: win32, shard: 6, of: 6 }
+          - { os: macos-latest, node: '24', system: darwin, shard: 1, of: 3 }
+          - { os: macos-latest, node: '24', system: darwin, shard: 2, of: 3 }
+          - { os: macos-latest, node: '24', system: darwin, shard: 3, of: 3 }
     steps:
       - uses: actions/checkout@v7
         with:
@@ -147,7 +143,15 @@ jobs:
           path: shards
           merge-multiple: true
       - name: The shards as one run
-        run: node tests/harness/merge.ts shards
+        run: node tests/harness/merge.ts shards --profile "${{ runner.temp }}/profile.json"
+      # Every test's file and time on this system, for the shard plan (node tests/harness/shards.ts plan --measured) and for finding where the seconds go.
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: profile-${{ matrix.os }}-${{ matrix.node }}
+          path: ${{ runner.temp }}/profile.json
+          if-no-files-found: warn
+          retention-days: 30
 
   # Lawcheck on two public repositories pinned at full commits (tests/real), held to the committed expected results. Each repository is fetched by its commit alone.
   real:
