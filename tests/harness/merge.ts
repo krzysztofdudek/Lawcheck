@@ -5,7 +5,7 @@ import { COMMIT_TARGET_MS } from '../numbers.ts';
 import { perPushFiles, ROOT, type System } from './sets.ts';
 import { readPlan, type Plan } from './shards.ts';
 
-export interface Meta { system: string; node: string; shard: number; of: number; files: string[]; started: number; ended: number; status: number }
+export interface Meta { system: string; node: string; root?: string; shard: number; of: number; files: string[]; started: number; ended: number; status: number }
 export type Event = { type: string; data: { file?: string; name?: string; nesting?: number; skip?: unknown; todo?: unknown; details?: { type?: string; duration_ms?: number; error?: { failureType?: string } } } };
 export interface Shard { meta: Meta; events: Event[] }
 

@@ -213,7 +213,7 @@ function main(): void {
     if (result.status !== 0) failed = true;
   }
   if (recording !== null) {
-    const meta = { system: process.platform, node: process.version, shard: parsed.shard?.index ?? 1, of: parsed.shard?.count ?? 1, files, started: began, ended: Date.now(), status: failed ? 1 : 0 };
+    const meta = { system: process.platform, node: process.version, root: ROOT, shard: parsed.shard?.index ?? 1, of: parsed.shard?.count ?? 1, files, started: began, ended: Date.now(), status: failed ? 1 : 0 };
     writeFileSync(join(recording, `meta-${tag}.json`), `${JSON.stringify(meta, null, 2)}\n`);
   }
   process.exit(failed ? 1 : 0);

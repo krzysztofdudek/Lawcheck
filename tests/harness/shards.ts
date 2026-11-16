@@ -53,12 +53,20 @@ export function planProblems(plan: Plan, filesOf: (system: (typeof SYSTEMS)[numb
 export function measure(dir: string): Record<string, number> {
   const ms: Record<string, number> = {};
   for (const name of readdirSync(dir).filter((n) => n.startsWith('events-') && n.endsWith('.jsonl'))) {
+    const metaFile = join(dir, name.replace(/^events-/, 'meta-').replace(/\.jsonl$/, '.json'));
+    const root = existsSync(metaFile) ? (JSON.parse(readFileSync(metaFile, 'utf8')) as { root?: string }).root : undefined;
+    const inRepo = (file: string): string => {
+      const path = (file.startsWith('file:') ? fileURLToPath(file) : file).split('\\').join('/');
+      if (root !== undefined) return relative(root.split('\\').join('/'), path).split('\\').join('/');
+      const at = path.lastIndexOf('/tests/');
+      return at === -1 ? relative(ROOT, path).split('\\').join('/') : path.slice(at + 1);
+    };
     for (const line of readFileSync(join(dir, name), 'utf8').split('\n')) {
       if (!line) continue;
       const event = JSON.parse(line) as { type: string; data: { file?: string; name?: string; nesting?: number; details?: { duration_ms?: number } } };
       const data = event.data;
       if ((event.type !== 'test:pass' && event.type !== 'test:fail') || data.nesting !== 0 || !data.file) continue;
-      const file = relative(ROOT, data.file.startsWith('file:') ? fileURLToPath(data.file) : data.file).split('\\').join('/');
+      const file = inRepo(data.file);
       if (data.name === data.file || data.name === file) continue;
       ms[file] = (ms[file] ?? 0) + Math.round(data.details?.duration_ms ?? 0);
     }
