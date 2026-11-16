@@ -1,32 +1,12 @@
 import { test } from 'node:test';
-import { platformSkip, waitUntil } from '../harness/tool.ts';
+import { LIMITS_VARIABLE, platformSkip, waitUntil } from '../harness/tool.ts';
 import assert from 'node:assert/strict';
-import { existsSync, realpathSync } from 'node:fs';
+import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
-import { append, check, D, D_PATH, findingLines, lawcheck, NO_CONSOLE, setRule, startLawcheck, TEST4, withSample, write } from './helpers.ts';
-
-const CRASH = '.lawcheck/rules/no-console.mjs  error[rule-crashed]';
-
-function assertCrashes(run: { code: number | null; stdout: string }, name: string): void {
-  assert.equal(run.code, 2, `${name}: ${run.stdout}`);
-  assert.ok(run.stdout.split('\n').some((line) => line.startsWith(CRASH)), `${name}: ${run.stdout}`);
-  assert.deepEqual(findingLines(run.stdout).filter((line) => !line.includes('error[rule-crashed]')), [], name);
-}
-
-async function withRule(source: string, body: (s: string) => Promise<void>, rules: Record<string, string> = {}): Promise<void> {
-  await withRules({ 'no-console': source, ...rules }, async (s) => {
-    write(s, D_PATH, D);
-    await body(s);
-  });
-}
-
-async function withRules(rules: Record<string, string>, body: (s: string) => Promise<void>): Promise<void> {
-  await withSample(body, {
-    onMain: (s) => {
-      for (const [rule, source] of Object.entries(rules)) setRule(s, rule, source);
-    },
-  });
-}
+import { append, check, D, D_PATH, findingLines, lawcheck, NO_CONSOLE, ROOT, setRule, startLawcheck, TEST4, withSample, write } from './helpers.ts';
+import { assertCrashes, CRASH, hangScenario, withRule, withRules } from './rule-bench.ts';
+import { PAST_USER_SET_MS, TEST_RULE_MS, USER_SET_RULE_MS } from '../numbers.ts';
+import { LIMITS } from '../../dist/rules.js';
 
 const ORIGINAL = NO_CONSOLE.replace('export function check', 'function original');
 
@@ -87,18 +67,25 @@ test('test 23: a rule with no file to judge is not loaded', async () => {
 });
 
 test('test 24: a rule that hangs is stopped', async () => {
-  const cases: [string, string][] = [
-    ['in check', 'export function check() { while (true) {} }\n'],
-    ['at the top level', 'while (true) {}\nexport function check() { return []; }\n'],
-  ];
-  await Promise.all(
-    cases.map(([name, source]) =>
-      withRule(source, async (s) => {
-        const run = await check(s);
-        assertCrashes(run, name);
-        assert.ok(run.ms < 40_000, `${name} took ${run.ms} ms`);
-      }),
-    ),
+  await hangScenario(TEST_RULE_MS);
+});
+
+test('section 3: the tool allows a rule 30 seconds for its load and 30 for each call', () => {
+  const sentence = /The tool allows (\d+) seconds for the load and (\d+) seconds for each call/.exec(readFileSync(join(ROOT, 'spec', 'check-slice.md'), 'utf8'));
+  assert.ok(sentence, 'spec/check-slice.md, section 3, names the time a rule may take');
+  assert.equal(sentence[1], sentence[2]);
+  assert.deepEqual(LIMITS, { ruleMs: Number(sentence[1]) * 1000 });
+});
+
+test('section 3: the tool a user starts keeps its 30 seconds for a rule when the variable of the test entry is set', async () => {
+  await withRule(
+    ORIGINAL + `export async function check(input) {\n  await new Promise((done) => setTimeout(done, ${PAST_USER_SET_MS}));\n  return original(input);\n}\n`,
+    async (s) => {
+      const run = await lawcheck(s, ['check', '--base', 'main'], { [LIMITS_VARIABLE]: JSON.stringify({ ruleMs: USER_SET_RULE_MS }) });
+      assert.equal(run.stdout, TEST4);
+      assert.equal(run.code, 1);
+      assert.ok(run.ms >= PAST_USER_SET_MS, `the check ended after ${run.ms} ms, before the rule answered`);
+    },
   );
 });
 

@@ -1,8 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
+import { basename, join, relative } from 'node:path';
 import { ROOT } from './helpers.ts';
+import { DEADLINES_VARIABLE, HOOK_WITH_DEADLINES, LIMITS_VARIABLE, TOOL_WITH_LIMITS } from '../harness/tool.ts';
 
 interface Packed {
   files: { path: string }[];
@@ -33,4 +35,25 @@ test('package: every shipped grammar is named in the licence file', () => {
   for (const path of packed().filter((p) => p.endsWith('.wasm'))) {
     assert.ok(licences.includes(path.slice('dist/grammars/'.length)), `${path} has no licence text`);
   }
+});
+
+function pluginFiles(dir = join(ROOT, 'plugin')): string[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => (entry.isDirectory() ? pluginFiles(join(dir, entry.name)) : [relative(ROOT, join(dir, entry.name)).split('\\').join('/')]));
+}
+
+test('package: nothing the tarball or the plugin ships holds a test entry, names one or its variable, or changes the shipped limits and deadlines', () => {
+  const shipped = [...packed(), ...pluginFiles()];
+  assert.ok(shipped.includes('dist/rules.js') && shipped.includes('plugin/hooks/start.mjs'), shipped.join(', '));
+  const names = [basename(HOOK_WITH_DEADLINES), basename(TOOL_WITH_LIMITS), DEADLINES_VARIABLE, LIMITS_VARIABLE];
+  const writes = /\b(LIMITS|DEADLINES)\s*(\.\s*[\w$]+|\[[^\]]*\])\s*([-+*/]?=(?!=)|\+\+|--)|Object\.(assign|defineProperty|defineProperties|setPrototypeOf)\(\s*(LIMITS|DEADLINES)\b/;
+  const found: string[] = [];
+  for (const path of shipped) {
+    if (path.startsWith('tests/')) found.push(`${path} is a file of the tests`);
+    if (path.endsWith('.wasm')) continue;
+    const text = readFileSync(join(ROOT, path), 'utf8');
+    for (const name of names) if (text.includes(name)) found.push(`${path} names ${name}`);
+    const write = writes.exec(text);
+    if (write !== null) found.push(`${path} changes a shipped limit or deadline: ${write[0]}`);
+  }
+  assert.deepEqual(found, []);
 });

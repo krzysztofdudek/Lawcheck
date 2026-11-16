@@ -16,6 +16,12 @@ export const ROOT_DIR = real(fileURLToPath(new URL('../..', import.meta.url)));
 export const ROOT = ROOT_DIR + sep;
 export const CLI = join(ROOT_DIR, 'dist', 'cli.js');
 export const HOOK = join(ROOT_DIR, 'plugin', 'hooks', 'lawcheck-hook.mjs');
+// The hooks with shorter deadlines that a test sets: it sets them in the plugin's own table and then imports lawcheck-hook.mjs, which runs as it ships.
+export const HOOK_WITH_DEADLINES = join(ROOT_DIR, 'tests', 'harness', 'hook-with-deadlines.mjs');
+export const DEADLINES_VARIABLE = 'LAWCHECK_TEST_DEADLINES';
+// The built tool with shorter limits that a test sets: it sets them in the tool's own table and then imports dist/bin.cjs, which runs as it ships.
+export const TOOL_WITH_LIMITS = join(ROOT_DIR, 'tests', 'harness', 'tool-with-limits.mjs');
+export const LIMITS_VARIABLE = 'LAWCHECK_TEST_LIMITS';
 const WINDOWS = process.platform === 'win32';
 
 // Node 24.0 to 24.x before type stripping became stable warns once on standard error when it starts a .ts file. Only the suite's own .ts programs are started so; Lawcheck itself is JavaScript, so this one warning is taken out of their output alone, and every other line stays.
@@ -497,19 +503,33 @@ export interface ToolOptions extends Expect {
   node?: string[];
   cli?: string;
   stdin?: string;
+  // Limits of dist/rules.js, each shorter than the one the tool ships, for a test of what happens at a limit.
+  limits?: { ruleMs?: number };
 }
 
 export function startTool(cwd: string, args: string[], base: NodeJS.ProcessEnv, options: ToolOptions = {}): Running {
-  const cli = options.cli ?? CLI;
+  if (options.limits !== undefined && options.cli !== undefined) throw new Error('harness: a tool started with limits of the test is the built tool');
+  const cli = options.limits !== undefined ? TOOL_WITH_LIMITS : (options.cli ?? CLI);
   const own = options.env ?? {};
-  return launch({ kind: 'cli', argv: [...(options.node ?? []), cli, ...args], cwd, env: { ...base, ...own }, own, stdin: options.stdin, args }, options);
+  const env = { ...base, ...own, ...(options.limits === undefined ? {} : { [LIMITS_VARIABLE]: JSON.stringify(options.limits) }) };
+  return launch({ kind: 'cli', argv: [...(options.node ?? []), cli, ...args], cwd, env, own, stdin: options.stdin, args }, options);
 }
 
-export function startHook(event: string, input: string, env: NodeJS.ProcessEnv, options: Expect & { hook?: string; cwd?: string } = {}): Running {
-  return launch({ kind: 'hook', argv: [options.hook ?? HOOK, event], cwd: options.cwd ?? ROOT_DIR, env, own: env, stdin: input, args: [event] }, options);
+export interface HookOptions extends Expect {
+  hook?: string;
+  cwd?: string;
+  // Deadlines in seconds by event, each shorter than the one the plugin ships, for a test of what happens at a deadline.
+  deadlines?: Record<string, number>;
 }
 
-const TOOL_FILES = [CLI, HOOK, join(ROOT_DIR, 'plugin', 'hooks')];
+export function startHook(event: string, input: string, env: NodeJS.ProcessEnv, options: HookOptions = {}): Running {
+  if (options.deadlines !== undefined && options.hook !== undefined) throw new Error('harness: a hook started with deadlines of the test is the plugin\'s own hook');
+  const hook = options.deadlines === undefined ? (options.hook ?? HOOK) : HOOK_WITH_DEADLINES;
+  const all = options.deadlines === undefined ? env : { ...env, [DEADLINES_VARIABLE]: JSON.stringify(options.deadlines) };
+  return launch({ kind: 'hook', argv: [hook, event], cwd: options.cwd ?? ROOT_DIR, env: all, own: env, stdin: input, args: [event] }, options);
+}
+
+const TOOL_FILES = [CLI, HOOK, HOOK_WITH_DEADLINES, TOOL_WITH_LIMITS, join(ROOT_DIR, 'plugin', 'hooks')];
 
 export function startProgram(script: string, args: string[], cwd: string, base: NodeJS.ProcessEnv, options: Expect & { env?: NodeJS.ProcessEnv } = {}): Running {
   const path = real(script);
