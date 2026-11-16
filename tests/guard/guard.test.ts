@@ -42,7 +42,7 @@ const EXPECT: { [name: string]: Expect } = {
   'refused-finding-severity-lowered': { refused: ['finding-weakened'] },
   'refused-finding-reopened': { refused: ['finding-weakened'] },
   'refused-ratchet-grew': { refused: ['ratchet-grew'] },
-  'refused-number-unclassified': { refused: ['number-unclassified', 'record-invalid'] },
+  'refused-number-unclassified': { refused: ['number-unclassified'] },
   'refused-owner-row-from-branch': { refused: ['guard-changed'] },
   'refused-owner-row-alone-short': { refused: ['record-invalid'] },
   'refused-owner-row-alone-by-reviewer': { refused: ['record-invalid'] },
@@ -196,6 +196,13 @@ test('question 95: the suite guard, an owner\'s row lands alone first, and the c
   } finally {
     repo.done();
   }
+});
+
+test('question 95: the suite guard, an owner\'s row that lands alone is refused for what is wrong with the row itself', () => {
+  const detail = (name: string): string[] => judgeCase(name).findings.filter((f) => f.kind === 'record-invalid').flatMap((f) => [f.detail]);
+  assert.deepEqual(detail('refused-owner-row-alone-short'), ['not a record: it has 5 cells, the table has 6']);
+  assert.deepEqual(detail('refused-owner-row-alone-by-reviewer'), ['guard-changed needs the approval of owner, and reviewer approved it']);
+  assert.deepEqual(detail('refused-owner-row-alone-no-anchor'), ["'not an anchor at all' is not an anchor (row <n>, I-..., S<r>-<n>, ruling <n>, Runes <version>, or a path)"]);
 });
 
 test('question 95: the suite guard, an owner\'s row on the base covers only the change it approves, so a later change of the same paths is refused', () => {
