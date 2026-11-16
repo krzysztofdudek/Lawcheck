@@ -322,6 +322,26 @@ test('section 5: the hook a user runs keeps its shipped deadline for every event
   });
 });
 
+test('section 5: the test entry of the hooks refuses a deadline as long as the shipped one, and no program a hook starts sees its variable', async () => {
+  await withBench(async (bench, dir) => {
+    const s = makeSample(dir);
+    append(s, 'src/cli/main.ts', '// end\n');
+    const input = new Session(bench, s).input('edit', { tool_name: 'Write', tool_input: { file_path: join(s, 'src/cli/main.ts') }, tool_response: {} });
+    for (const [event, seconds] of Object.entries(DEADLINES)) {
+      const refused = await startHook(event, input, bench.env(), { deadlines: { [event]: seconds }, stderr: new RegExp(`${DEADLINES_VARIABLE} gives ${event} ${seconds} seconds, and a test deadline is shorter than the shipped ${seconds}`) }).ended;
+      assert.equal(refused.code, 1, event);
+      assert.equal(refused.stdout, '', event);
+    }
+    assert.deepEqual(bench.log(), []);
+    const seen = join(dir, 'seen');
+    fakeWrites(dir, ['seen']);
+    bench.script('lawcheck', [`appendFileSync(${JSON.stringify(seen)}, JSON.stringify(process.env[${JSON.stringify(DEADLINES_VARIABLE)}] ?? null) + '\\n');`, ...installedLawcheck(bench.logFile)]);
+    nothing(await startHook('edit', input, bench.env(), { deadlines: { edit: TEST_HOOK_DEADLINES.edit } }).ended);
+    assert.equal(readFileSync(seen, 'utf8'), 'null\n');
+    assert.equal(bench.checks().length, 1);
+  });
+});
+
 test('section 5: the call ends 2 seconds after Lawcheck exits while a child holds its output', async () => {
   await withBench(async (bench, dir) => {
     const s = makeSample(dir);
