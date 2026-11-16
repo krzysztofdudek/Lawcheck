@@ -8,7 +8,7 @@ import { errorLines, MiB, run } from './support.ts';
 
 const GiB = 1024 * MiB;
 
-test('test 276: the memory guard ends a run whose file grows by 384 MiB, a run past its bound, and one the system has no room left for, counting a cgroup\'s page cache as left', () => {
+test('test 276: the memory guard ends a run whose file grows by 384 MiB, a run past its bound, and one the system has no room left for, counting a cgroup\'s page cache and reclaimable slab as left', () => {
   const quiet = { rss: 200 * MiB, stepGrowth: 10 * MiB, available: 4 * GiB, total: 16 * GiB };
   assert.equal(memoryCase(quiet), null);
   assert.equal(memoryCase({ ...quiet, stepGrowth: 384 * MiB + 1 }), 'file');
@@ -26,6 +26,9 @@ test('test 276: the memory guard ends a run whose file grows by 384 MiB, a run p
   assert.equal(memoryCase({ ...quiet, available: withCache(40 * MiB, stat, 100 * MiB) }), 'system');
   assert.equal(withCache(40 * MiB, null, 16 * GiB), 40 * MiB);
   assert.equal(withCache(40 * MiB, 'file 1021313024\nshmem 1021313024\n', 16 * GiB), 40 * MiB);
+  const runner = ['anon 583008256', 'file 133169152', 'kernel 357564416', 'shmem 0', 'inactive_file 133169152', 'active_file 0', 'slab_reclaimable 338690048', 'slab_unreclaimable 2097152', 'slab 339738624', ''].join('\n');
+  assert.equal(withCache(0, runner, 14 * GiB), 450 * MiB);
+  assert.equal(memoryCase({ ...quiet, available: withCache(0, runner, 14 * GiB) }), null);
   assert.equal(availableNow('darwin'), null);
   assert.equal(typeof availableNow('linux'), 'number');
 });

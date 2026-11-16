@@ -39,13 +39,13 @@ export function availableNow(platform: NodeJS.Platform = process.platform): numb
   return withCache(left, cgroupStat(), freemem());
 }
 
-// A cgroup v2 counts its page cache as used, so right after a large write its limit less its use reads near nothing; the kernel takes those file pages back before it kills a process of the cgroup, so they count as left, as the kernel's own estimate of available memory counts the page cache, and never as more than that estimate. Shared memory and tmpfs are not on these lists.
+// A cgroup v2 counts its page cache as used, so right after a large write its limit less its use reads near nothing; where the kernel charges its own memory to the cgroup (most kernels; not one booted with cgroup.memory=nokmem), the dentries and inodes of every file the cgroup touched count as used too. The kernel takes both back before it kills a process of the cgroup, so they count as left, as the kernel's own estimate of available memory counts the page cache and the reclaimable slab, and never as more than that estimate. Shared memory and tmpfs are not on these lists.
 export function withCache(left: number, stat: string | null, free: number): number {
   if (stat === null) return left;
   let cache = 0;
   for (const line of stat.split('\n')) {
     const [key, value] = line.split(' ');
-    if (key === 'active_file' || key === 'inactive_file') cache += Number(value) || 0;
+    if (key === 'active_file' || key === 'inactive_file' || key === 'slab_reclaimable') cache += Number(value) || 0;
   }
   return cache === 0 ? left : Math.min(free, left + cache);
 }
