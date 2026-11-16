@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { applyCase, BASE, baseRepo, fixtureConfig, GIT_ENV, RATCHET, sh } from './fixture.ts';
@@ -277,6 +278,27 @@ test('question 95: the suite guard, the judge is the guard of the base, so a bra
     assert.ok(run.stdout.includes('REFUSED  guard-changed  tests/guard/guard.ts'), run.stdout);
     assert.match(run.stdout.trimEnd().split('\n').at(-1)!, /^suite guard: FAIL {2}2 weakenings without a valid record \(/);
   } finally {
+    repo.done();
+  }
+});
+
+test('question 95: the suite guard, the base\'s guard copied into a temporary folder behind a link, as macOS keeps it, still judges and refuses', () => {
+  const repo = guardRepo((text) => text.replace('passed: findings.every((f) => f.cleared)', 'passed: true'));
+  const outer = mkdtempSync(join(tmpdir(), 'lawcheck-guard-link-'));
+  try {
+    const real = join(outer, 'real');
+    const temp = join(outer, 'temp');
+    mkdirSync(real);
+    symlinkSync(real, temp, process.platform === 'win32' ? 'junction' : 'dir');
+    const run = spawnSync(process.execPath, [join(HERE, 'from-base.ts'), '--repo', repo.dir, '--base', 'main', '--head', 'work'], { env: { ...GIT_ENV, TMPDIR: temp, TEMP: temp, TMP: temp }, encoding: 'utf8' });
+    assert.equal(run.status, 1, run.stdout + run.stderr);
+    assert.equal(withoutTypeStrippingWarning(run.stderr), '');
+    assert.ok(run.stdout.includes('REFUSED  expected-changed  tests/real/hono.expected'), run.stdout);
+    assert.ok(run.stdout.includes('REFUSED  guard-changed  tests/guard/guard.ts'), run.stdout);
+    assert.match(run.stdout.trimEnd().split('\n').at(-1)!, /^suite guard: FAIL {2}2 weakenings without a valid record \(/);
+    assert.deepEqual(readdirSync(real), []);
+  } finally {
+    rmSync(outer, { recursive: true, force: true });
     repo.done();
   }
 });

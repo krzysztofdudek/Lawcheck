@@ -1,4 +1,4 @@
-import { resolve as resolveMain } from 'node:path';
+import { realpathSync as realMain } from 'node:fs';
 import { readFileSync, writeFileSync, globSync } from 'node:fs';
 import { join, resolve as resolvePath } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -101,7 +101,7 @@ export function renderSabotage(outcomes: Outcome[]): string {
   return `${lines.join('\n')}\n`;
 }
 
-if (process.argv[1] !== undefined && resolveMain(process.argv[1]) === import.meta.filename) {
+if (process.argv[1] !== undefined && realMain(process.argv[1]) === import.meta.filename) {
   const argv = process.argv.slice(2);
   let list = join(ROOT, 'tests', 'sabotage', 'list.json');
   let root = ROOT;

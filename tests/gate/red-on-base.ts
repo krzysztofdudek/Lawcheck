@@ -1,4 +1,4 @@
-import { resolve as resolveMain } from 'node:path';
+import { realpathSync as realMain } from 'node:fs';
 import { resolve as resolvePath } from 'node:path';
 import { git, resolve, Tree } from '../guard/git.ts';
 import { matchesAny } from '../guard/glob.ts';
@@ -79,7 +79,7 @@ export function renderRed(result: { mergeBase: string; head: string; rows: RedRo
   return `${lines.join('\n')}\n`;
 }
 
-if (process.argv[1] !== undefined && resolveMain(process.argv[1]) === import.meta.filename) {
+if (process.argv[1] !== undefined && realMain(process.argv[1]) === import.meta.filename) {
   const argv = process.argv.slice(2);
   const opts: { [k: string]: string } = { repo: process.cwd(), base: 'main', head: 'HEAD' };
   for (let i = 0; i < argv.length; i += 2) {

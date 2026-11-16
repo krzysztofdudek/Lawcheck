@@ -1,4 +1,4 @@
-import { resolve as resolveMain } from 'node:path';
+import { realpathSync as realMain } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve as resolvePath } from 'node:path';
@@ -36,7 +36,7 @@ function commitSet(repo: string): { code: number; command: string } {
   return { code: run.status ?? 2, command: 'npm test' };
 }
 
-if (process.argv[1] !== undefined && resolveMain(process.argv[1]) === import.meta.filename) {
+if (process.argv[1] !== undefined && realMain(process.argv[1]) === import.meta.filename) {
   const argv = process.argv.slice(2);
   const opts: { [k: string]: string } = { repo: process.cwd(), base: 'main', head: 'HEAD' };
   for (let i = 0; i < argv.length; i += 2) {

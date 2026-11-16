@@ -1,4 +1,4 @@
-import { resolve as resolveMain } from 'node:path';
+import { realpathSync as realMain } from 'node:fs';
 import { globSync, readFileSync } from 'node:fs';
 import { join, resolve as resolvePath } from 'node:path';
 import { readConstants } from './constants.ts';
@@ -41,7 +41,7 @@ export function fewerThanDeclared(root: string, files: string[], results: Result
   return missing;
 }
 
-if (process.argv[1] !== undefined && resolveMain(process.argv[1]) === import.meta.filename) {
+if (process.argv[1] !== undefined && realMain(process.argv[1]) === import.meta.filename) {
   const argv = process.argv.slice(2);
   let tap = '';
   let root = process.cwd();
