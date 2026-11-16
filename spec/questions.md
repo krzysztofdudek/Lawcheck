@@ -466,6 +466,166 @@ Choice: not done. It would make a finding of an answer the readers did not resol
 - The commit subjects of the move have no `<area>: ` prefix: not changed, since rewording would rewrite the branch for no change in content.
 - The suite at the first commit of the move alone was not run by the review: it was run before that commit was made, 349 of 349.
 
+# Rulings of 2026-11-15 for the test suite
+
+The suite is built in packages up to the gate of the first alpha: the contract, hostile inputs, security, limits and environments green on Linux, Windows and macOS. These entries are the anchors that later changes to the suite and to this spec cite. Each is a ruling of 2026-11-15; entry 76 is the owner's, the others are the build's, taken as the option named in each title.
+
+## 73. T-2 A: the environments Lawcheck supports
+
+Lawcheck supports Node 24 and newer. It supports npm, pnpm, Yarn 1 and Yarn 4 with `nodeLinker: node-modules`, and Bun only beside Node. It refuses everything else in the first line of its output, with the reason: Node 20 and 22, Yarn Plug'n'Play, Bun without Node. Tests guard the refusal. A refused environment never blames a rule file.
+
+Choice: the narrow promise, said loudly. A wider promise (Node 22, Yarn Plug'n'Play, Bun alone) would put more code in the way rules start and more cells in the install matrix for good.
+
+## 74. T-3 A: a table of limits instead of "no size limit"
+
+The spec gets a table of limits: the largest file read as text, the largest count of findings, the largest reviewer answer parsed, the wall time of a whole run, and whatever else a fix needs. The builders measure the numbers. Beyond a limit the tool prints a named error with the path, never `internal`. The sentence "There is no size limit" in `check-slice.md`, section 2, is replaced by a sentence that points to the table.
+
+Choice: limits that are named and measured over limits that are not there. Reading every file as a stream would be a large rewrite for text files over 512 MB, which almost nobody has.
+
+## 75. T-4 A: when the tests with a live model run
+
+Tests with a live model run when the files they guard change (the prompt, the providers, the plugin), and before every release. A release does not go out when the last result is older than those files. They run through `claude` on the host, on the owner's subscription, never with an API key.
+
+Choice: run when the guarded files change and before a release. A weekly run would show when a new model version starts judging differently, at the price of a full run every week.
+
+## 76. T-7 A: who may weaken the suite
+
+The owner's ruling. An ordinary weakening of the suite, such as a changed expected file or a removed test, needs an approval record that names a fresh reviewer agent and points to a change in the spec or to a Runes version. Four things need the owner's approval record, and nothing else stands in for it: removing or softening a promise in the spec, changing the suite guard itself, changing the CI files, and lowering a threshold. Who may approve each kind is configuration, not code. GitHub branch protection is not switched on by the build.
+
+Choice: the owner's. Approval by every weakening waiting for him would stop work when he is away, and approval by a reviewer alone would let agents move the anchor together without anyone seeing it.
+
+## 77. Docs may name Runes
+
+`commands-slice.md`, section 7, said that no page names another tool. The readers of Lawcheck come from Runes, and a user who meets a limit of a reader needs its name to look it up. The sentence now allows Runes and no other tool. A test reads every docs page and fails on a tool named outside one allowed list.
+
+Choice: name the library the readers come from, and only that. The pages stay free of any other tool.
+
+## 78. A change that touches the law is said plainly, and the CI recipe catches it
+
+In the open mode a pull request can change the law that judges it: a rule left out of a type's list, a rule script rewritten to return nothing, a waiver added on the violating line. A check of such a change passes while the only sign is a `note:` line. The tool therefore says plainly when a change touches the law, in the check's output and in the JSON, and `docs/ci.md` gives a recipe that catches it: judge the pull request against the law of its base, or make the law's folder need a review. The wording of the notice and the recipe are written by the package that fixes the docs and the notice.
+
+Choice: say it, and give the recipe, rather than leave the law as an unremarked part of every change.
+
+## 79. A row of the acceptance tables with no test, and a test with no source
+
+The build's decision. Every row of an acceptance table has a test that carries its number, and every invariant of a spec table (`I-<name>-<n>`) and of the harness (`harness-<n>`) has a test that carries its id. Every test leads its name with its source and a colon: a row (`test 12:` or `tests 3 and 4:`), an invariant id (`I-frame-1:`), a finding id (`S3-1:`, `R-2:` or `T6:`), a section of a spec (`check-slice §4:`) or a question of this file (`question 79:`). A name whose template leads with such a source is read by that lead. A test that cites a section or a question and no row, invariant or finding is allowed, because the unit tests of the modules check parts of several rows. Their number is `SECTION_ONLY_TESTS` in `tests/numbers.ts`, where it may only fall: the rail fails when the count is above it, and when it is below, so that a lower number is written down. A new test names a row, an invariant id or a finding id.
+
+The rows no test can carry are listed in `tests/contract/manual-rows.md`, each with its reason and the person or step that runs it, and the rail accepts only those. Entry 58 names three of them. The others are the rows that stand for `npm test` itself (79, 94, 141, 183) and the run against the network (95). A test that is skipped, only a todo, inside a skipped group, commented out or inside a string covers no row, and a test call whose name the rail cannot read as a literal, or as a template that leads with its source, fails the rail. The rail finds test files where the runner finds them (`tests/harness/sets.ts`).
+
+The skips and the assertions are held the same way. A skip is a reason of the platform in the list of `tests/harness/skips.ts`; a skip with no whole-test entry for the system it runs on fails the run, and so does a test marked todo. A test or a part of a harness invariant that the list skips on Linux, macOS and Windows alike, in one part or in several, fails the rail. A test that makes no assertion fails the run, since the harness counts the calls of `node:assert` while a test runs, and the rail refuses the assertions that cannot fail and an assertion in a hook or in a timer callback.
+
+The rail also holds at run time. When the runner runs a whole set, a row, an invariant or a closed finding that a test of that set carries is covered only if a test that carries it ran and passed in that run; a test that is skipped or failed covers nothing, and an id that only tests left whole by a listed platform skip carry is no failure of the run on that system. The runner takes `--shuffle[=<seed>]`, which runs the tests of each file in an order the seed decides and prints the seed, so a test that leans on another's leftovers fails.
+
+The same rail reads `tests/findings.md`: ids are unique, severity, layer, package and state come from fixed sets, a `closed` row names a test that exists and leads its name with the id, and a `question` row points to its entry here.
+
+Choice: one list and one count, read by the rail and by the run, over a sentence in a spec that nobody checks.
+
+## 80. A file whose name holds a line break, a lone carriage return or invalid UTF-8
+
+`check-slice.md`, section 2, leaves such a file out of the list, because its name would split a line of the text output. The file is never judged, nothing says so, and a pull request can put code past every rule through it (stress finding S1-2). A decision of the build, not of the owner. It follows the test design, layer 2, first row of its table: the invariant `I-files-1` says every path that git lists and a type matches is judged or named as left out with its reason, and the first of its twenty tests says that a breach in a file whose name holds a line break, a carriage return or invalid UTF-8 fails the run.
+
+Choice: the file is judged. The place of a finding prints the name with each line break, carriage return, invalid byte and backslash escaped (`\n`, `\r`, `\xHH`, `\\`), in text and in JSON alike, so one finding stays one line and the place maps back to the bytes on disk. `explain` and `try` take the escaped form. Package D writes the grammar into `check-slice.md`, section 2, with its tests, and the sentence that leaves such names out goes.
+
+## 81. A rule's `line` that is `null`, a string or a bigint
+
+`docs/script-rules.md` says `line` is optional, an integer from 1 to the number of lines. A rule that returns `line: null` ends the run as `rule-crashed` with a message about a range (`src/rules.ts`, `src/prompt.ts`); `line: '2'` prints `at line 2, outside lines 1 to 6` though 2 is in range (stress finding S2-4).
+
+Open. The owner decides one thing: is `null` the way to say "no line" (the finding then counts as a whole-file finding), or stays refused? Option A: accept `null` as no line, and word the refusal of every other bad value by its cause ("a line is an integer"). Cost: a rule that returns `null` by habit is read as whole-file. Option B: keep `null` refused, document it, and word the message by cause. Cost: the next author of a rule meets the same crash.
+
+## 82. A reviewer answer with two verdict objects
+
+`reviewer-slice.md`, section 4, takes the last verdict object of an answer. A reviewer that reports a steering attempt and quotes what the file asked for, after its own JSON, turns a fail into a pass (stress finding S3-4; `lastSpan` in `src/prompt.ts`).
+
+Open. Option A: when two verdict objects disagree, the answer is a fail. Cost: a model that quotes a pass in a sentence makes a file fail; the user sees a finding that was not there. Option B: two objects that disagree are a bad answer and the review is asked once more, as for any bad answer. Cost: one more call in that case. Option C: keep the rule as it is and document it. Cost: a file can steer the model into a quoted pass.
+
+## 83. A run that fails after it sent reviewer requests
+
+A run that ends with exit 2 after calls (a bad answer, a 500) prints `lawcheck: ERROR  1 error`, and `lawcheck-error/1` has no `calls_made`; the pass and fail forms carry `, N reviewer calls` (stress finding S3-9). The spec fixes the first line of the two check forms only.
+
+Open. Option A: the first line of an error run with calls ends `, N reviewer calls`, and the JSON error document gains `calls_made` (`lawcheck-error/2`). Cost: a new schema version. Option B: leave it; the line before the run says how many calls were planned. Cost: the user cannot see what a failed run cost.
+
+## 84. The hooks and a turn that changes the law, a rule or a waiver
+
+`plugin-slice.md`, section 8: the hooks send the agent back while the files that changed in its turn break the law. An agent that rewrites a rule script, leaves a rule out of a type's list or adds a waiver on the violating line ends the turn with nothing said, and the plain check passes with a `note:` that the paths form leaves out (stress finding S6-2). The spec's own trial measures `law_untouched` and `no_waiver` for this reason.
+
+Open. Option A: the hook before finishing adds a notice when the turn touched `.lawcheck/` or added a waiver, and sends it to the user, not the agent. Cost: one more kind of notice, and state to hold it once. Option B: say it in the README only. Cost: the guard has a hole its own measure counts.
+
+## 85. A law error shown once is never shown again in the session
+
+`plugin-slice.md`, section 8, "After an edit", step 5, shows a law error only when its hash differs from the state's `last_error`. A law broken, fixed and broken again with the same text is not shown the second time (stress finding S6-3), though the purpose of the rule is that a law the user is still editing reaches the agent once.
+
+Open. Option A: a pass clears `last_error`, so the same error shown again after a fix is shown again. Cost: a change to step 5 and its test 161. Option B: keep the letter of the step. Cost: the agent is not told of a law it broke the second time.
+
+## 86. A reviewer rule and no reviewer
+
+A repository with a reviewer rule and no `.lawcheck/config.yaml` reviewer: every hook is silent, because a warning never prints, the agent finishes green, and the plain check and CI fail with `not-reviewed` (stress finding S6-5). `prime` does not say that no reviewer is set; `doctor` does.
+
+Open. Option A: `prime` says so when a reviewer rule exists and no reviewer is set, so the agent hears it at the start of the session. Cost: a line in `prime`'s output and its length budget. Option B: the same line from the hook at session start. Cost: the hook reads the law, which it does not now. Option C: leave it to `doctor`.
+
+## 87. No base in CI
+
+With no `--base`, no `LAWCHECK_BASE` and no `origin/HEAD`, a plain `check` judges every file as changed and fails the whole repository with exit 1 (stress finding S7-6). In a CI job that is a forgotten base, and the failure reads as bad code. A decision of the build. It follows the test design, layer 5, CI shapes: a push with no base ref and a depth-1 clone each expect the right result or an error whose `next:` line holds the fix.
+
+Choice: a job is in CI when the variable `CI` is set and is not empty, `0`, `false`, `no` or `off`, any case; without `CI`, when the variable of a known CI service is set to such a value (`check-slice.md`, section 4, lists them). There a plain `check` that finds no base ends as `base-unreachable` (exit 2) with the message that no base was found in this CI job, and its next line names `--base origin/<the branch the change goes into>`, `LAWCHECK_BASE` with the history fetched, or `lawcheck check --full`. `--full` needs no base and `check <paths>` is not a change, so both run in CI as elsewhere. Outside CI the behaviour stays as the same section says. `docs/ci.md` says to always pass the base. Package G wrote the change into the spec and tests it in the CI shapes (`spec/environments.md`, section 5).
+
+## 88. The README and the package description on the day of publishing
+
+The tarball's `README.md` still says `Work in progress: there is nothing to install yet`, the `description` of `package.json` ends `Work in progress.`, the README never says that git is required, and the published `package.json` carries `scripts` (`prepack`), `devDependencies` and `allowScripts` (stress finding S8-6). `release-readiness.md` lists the first as blocked.
+
+Open, the owner's, on the day of publishing: the final README and description, and whether to strip `scripts` and `devDependencies` from the published `package.json`.
+
+## 89. The key a reviewer server echoes
+
+The owner's ruling of 2026-11-15, on the stress finding S3-2: a server's error message that holds the key it rejected was printed in full (`reviewer-slice.md`, section 6; `post()` in `src/providers/http.ts`). The owner chose option A. Lawcheck replaces the one exact key it sent with `[key]` wherever it prints or writes it, in text and JSON output, in the message of an error, in the verdicts file, in the failure cache and in a temporary file, and it masks nothing else and scans for nothing key-shaped.
+
+Choice: the owner's. The tool knows the key it sent, so it replaces that string, and text it does not own stays as it came.
+
+## 90. All nine providers before the alpha
+
+The owner's ruling of 2026-11-15. `reviewer-slice.md`, section 6, knows three providers. The alpha ships nine: those three and six more.
+
+Choice: the owner's. The six land before the alpha candidate is declared.
+
+## 91. Windows blocks the alpha
+
+The owner's ruling of 2026-11-15. A red run of the suite on Windows blocks the alpha exactly as a red run on Linux or on macOS does: everything works on the three systems before the tag.
+
+Choice: the owner's. Three systems are one gate.
+
+## 92. A tracked link that leaves the work tree
+
+The build's decision, taken in the security package. A script rule reads files inside the root. A committed symbolic link can lead out of the root, and a link to `/proc` or to a file in the home directory would let a rule read what the sandbox is there to keep from it.
+
+Choice: a committed link may reach outside the root while its target stays inside the git work tree, and a tracked link whose target leaves the work tree stops script rules with `link-outside-root`. The check covers names with a line break, submodules and a sibling folder whose name starts like the root's. The refusal is a promise of `check-slice.md`, section 3, and the owner's record for it is listed with the other changes of that package.
+
+## 93. A key shorter than 8 characters is not replaced
+
+The build's decision, taken in the security package, as a reading of entry 89. A key of one to seven characters is a dummy, a test value or an empty-looking placeholder, and replacing every place where it appears garbled Lawcheck's own output: paths, words and numbers that contain it (the finding R-20).
+
+Choice: only a key of 8 characters or more is replaced by `[key]`. A shorter key is no secret worth the damage to the output. The limit is stated in the docs of the providers and the ledger holds it as a limit.
+
+## 94. Each program keeps only its own vendor's key variables
+
+The build's decision, taken in the providers package. A provider that starts a program (the `claude`, `codex` or `copilot` programs and the like) hands it an environment. Passing every key variable of the caller would give a program another vendor's key.
+
+Choice: the environment of each program holds only the key variables of its own vendor, and none of another provider's. A test with a canary key for each vendor checks that none reaches a program of another.
+
+## 95. The suite's own machinery
+
+The build's decision. The harness, the runner, the numbers, the map from `src/` to tests and the discovery of test files are tests' own machinery, and no spec describes them. Their promises are the eight invariants of the harness (`harness-1` to `harness-8` and `harness-count`, in `tests/harness/invariants.ts`) and the rules of `tests/run.ts`, `tests/numbers.ts`, `tests/map.json` and `tests/harness/sets.ts`. A test of that machinery that checks none of the invariants cites this entry in its name.
+
+Choice: a named place for tests that no spec row can carry, so that every test still leads its name with a source that the rail checks.
+
+## 96. The rail over the whole suite
+
+The build's decision, taken when the ledger's rail first judged every test of the other packages. Three rules of entry 79 met the suite as it grew, and each is a choice the final reviewer of the group may undo.
+
+A test that carries a spec row may list finding ids right after the row: `test 240: S8-8, R-82, a write that fails`. A closed row of `tests/findings.md` may name such a test. Elsewhere a finding is tied only when it leads the name, so `I-out-1: S1-1, a hang` still ties nothing. Without this, the test of a fix that has its own row could never close the finding it fixes.
+
+A test that cites only entry 95 inside `tests/contract/`, or only entry 160 inside the tests of the repository's own law, is outside `SECTION_ONLY_TESTS`. No spec describes the suite's machinery or the repository's own law, so no row can ever carry those tests, and counting them would make every new test of the CI layout break the ratchet. The count falls from 198 to 178: the 21 tests of entry 95 that it counted leave it, and the other packages bring one more test that cites only a section than they take away.
+
+`rules-too-slow` and `step-too-slow` have no case in the codes test. Their limits are 600 and 30 seconds of run time, which no test entry of the tool shortens, so the codes test lists them with the nightly test that reaches each and the open ledger row R-89. A case for each comes when a test entry can shorten those limits.
+
 # Questions found while adding the six providers
 
 ## 100. The owner's ruling of 2026-11-15: all nine providers before the alpha
@@ -530,7 +690,7 @@ Finding S3-2 asks that a key an endpoint echoes in its error message appear in n
 
 The question: whether Lawcheck replaces its own key in what it prints, which S3-2 asks for.
 
-The owner's ruling of 2026-11-15, question 89: option A. The label is the one of the choice put to him, not his wording. Lawcheck replaces the one exact key it sent with `[key]` wherever it prints or writes it, and masks nothing else.
+The owner's ruling of 2026-11-15, held in short in entry 89: option A. The label is the one of the choice put to him, not his wording. Entry 93 holds the limit for a key under 8 characters, and entry 94 the key variables each program receives. Lawcheck replaces the one exact key it sent with `[key]` wherever it prints or writes it, and masks nothing else.
 
 The build's reading of the ruling, not the owner's. An HTTP provider's key is the configured or environment key it sends. A program sends no key of its own; it gets only the sign-in variables its vendor documents (`spec/reviewer-slice.md`, decision 25), and the keys it hands on are the values of those that hold a key, which section 6 of the slice lists. "The exact key" is read as the key in any spelling JSON allows, each character as itself, as a `\u` escape or as its short escape, since an answer is JSON and a model or a proxy may write it so. The replacement is made after the answer is read, before any cut to a length, and in the strings of a JSON document but not in the names of its keys. "Wherever it prints or writes it" is read as the text that comes from outside Lawcheck, in all output and the failure cache: a rule's message, a file name, an argument, a config value; never Lawcheck's own words, codes, schema names, ids, line numbers or JSON key names, which a short key would otherwise garble. The keys replaced are the value of `LAWCHECK_REVIEWER_KEY` in every run, since the ruling names the environment key and it goes to whichever HTTP provider is configured, and the keys the configured provider would send or pass on, from the moment the config is read, whether or not the run calls it. The variables of another provider are not replaced: under `google` the value of `OPENAI_API_KEY` prints as it came, since Lawcheck would send it nowhere. A key shorter than 8 characters is not replaced: a dummy key for a local endpoint is no secret, and replacing it would garble paths and messages that hold it. A prefix of the key, the key in another case, a percent-encoded copy and any other key-shaped value are printed as they came. `reviewer-slice.md`, section 6, says so, and the tests of invariant `I-secret-1` check both sides.
 

@@ -20,7 +20,7 @@ function unwritable(path: string, message: string): string {
   ].join('\n');
 }
 
-test('S3-8: test 242: a review whose .lawcheck/.local cannot be written fails before the first call', async () => {
+test('test 242: S3-8, a review whose .lawcheck/.local cannot be written fails before the first call', async () => {
   const cases: [string, (r: string) => void][] = [
     ['.lawcheck/.local', (r) => writeFileSync(join(r, '.lawcheck/.local'), '')],
     ['.lawcheck/.local/failures', (r) => {
@@ -43,7 +43,7 @@ test('S3-8: test 242: a review whose .lawcheck/.local cannot be written fails be
   }
 });
 
-test('S3-8: test 242: a write that fails after the calls is file-unwritable, not internal', async () => {
+test('test 242: S3-8, a write that fails after the calls is file-unwritable, not internal', async () => {
   await withR(async (r) => {
     await withFake(
       async (fake) => {
@@ -78,7 +78,7 @@ test('test 242: a folder named .lawcheck/verdicts is file-unreadable, not intern
 
 const LAW_DIR = `${REVIEWER_LAW}  law-files:\n    paths: [".lawcheck/**"]\n    rules: [clear-errors]\n`;
 
-test('S3-6: test 243: a plain check right after a passing review passes, with a type whose paths cover .lawcheck/', async () => {
+test('test 243: S3-6, a plain check right after a passing review passes, with a type whose paths cover .lawcheck/', async () => {
   await withFake(async (fake) => {
     await withR(
       async (r) => {
@@ -101,7 +101,7 @@ test('S3-6: test 243: a plain check right after a passing review passes, with a 
   });
 });
 
-test('S3-6: test 243: a second run right after any run prints the same', async () => {
+test('test 243: S3-6, a second run right after any run prints the same', async () => {
   const commands = [
     ['check', '--base', 'main'],
     ['check', '--base', 'main', '--full'],
@@ -253,7 +253,7 @@ async function heldAtLock(local: string, review: Promise<unknown>): Promise<void
 }
 
 // As in test 253 the test is a second run holding the lock; it adds three passes, so the review's own pass would take the file past 16 MiB at the moment it writes.
-test('test 272: a pass that would take the verdicts file past 16 MiB when it is written is refused, even after the check before the calls', async () => {
+test('test 272: R-84, a pass that would take the verdicts file past 16 MiB when it is written is refused, even after the check before the calls', async () => {
   await withFake(async (fake) => {
     await withR(async (r) => {
       write(r, F_PATH, F_PRIME);

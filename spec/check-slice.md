@@ -518,7 +518,7 @@ Promises that hold for every input, each tied by its id to a test of the securit
 | I-lines-1 | For any text of a file, every line separator, NUL, a byte-order mark and waiver markers included, every finding's line lies inside the file's `lines`, a type with `waivers: false` waives nothing, and the text and JSON forms of a report agree (sections 2, 3 and 5). | tests/properties/contents.test.ts |
 | I-law-1 | Any text as `law.yaml` gives `law-invalid` at a line of the file, or a law that `explain` prints back (section 2). | tests/properties/law.test.ts |
 | I-rules-1 | Any value a rule returns, throws or rejects with, at once or in the background, gives findings or a `rule-crashed` that names its cause, and the result for a file is the same whether it is judged alone or with others (section 3). | tests/properties/rules.test.ts |
-| I-git-2 | A check changes nothing in git; the findings of a change equal those of `--full` for the changed files; the output is the same from any directory below the root and on a second run, whatever state the repository is in (section 4). | tests/properties/git-states.test.ts |
+| I-git-3 | A check changes nothing in git; the findings of a change equal those of `--full` for the changed files; the output is the same from any directory below the root and on a second run, whatever state the repository is in (section 4). | tests/properties/git-states.test.ts |
 | I-args-1 | Any arguments give `usage` or a run, never `internal` (section 4). | tests/properties/arguments.test.ts |
 
 ## 9. Repository layout

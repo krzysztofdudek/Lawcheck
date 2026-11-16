@@ -18,7 +18,7 @@ export function handStarts(text: string): number[] {
   return lines;
 }
 
-test('only tests/harness/ starts Lawcheck, a hook or the tarball', () => {
+test('question 95: only tests/harness/ starts Lawcheck, a hook or the tarball', () => {
   const found: string[] = [];
   for (const path of walk(TESTS, (name) => /\.[cm]?[jt]s$/.test(name))) {
     if (path.startsWith('tests/harness/')) continue;
@@ -30,7 +30,7 @@ test('only tests/harness/ starts Lawcheck, a hook or the tarball', () => {
 // The samples spell each call with @ so that this file holds no start of its own.
 const sample = (text: string, call: string) => text.replace('@', call);
 
-test('the scan finds a start of the tool by hand', () => {
+test('question 95: the scan finds a start of the tool by hand', () => {
   assert.deepEqual(handStarts(sample("const c = @(process.execPath, [CLI, 'check'], { cwd });\n", 'spawn')), [1]);
   assert.deepEqual(handStarts(sample("x;\n@(process.execPath, [join(ROOT, 'dist', 'cli.js')]);\n", 'spawnSync')), [2]);
   assert.deepEqual(handStarts(sample("@(process.execPath, [HOOK, 'stop'], { input });\n", 'execFileSync')), [1]);
@@ -39,7 +39,7 @@ test('the scan finds a start of the tool by hand', () => {
   assert.deepEqual(handStarts(sample("@('git', ['status'], { cwd });\n", 'spawnSync')), []);
 });
 
-test('a test that starts the tool makes its folders with testFolder(), never with mkdtemp', () => {
+test('question 95: a test that starts the tool makes its folders with testFolder(), never with mkdtemp', () => {
   const found: string[] = [];
   const dirs = [...new Set(Object.values(COMMIT_GROUPS).flat())].filter((dir) => dir !== 'unit');
   for (const path of dirs.flatMap((dir) => walk(join(TESTS, dir), (name) => name.endsWith('.ts')))) {
@@ -52,7 +52,7 @@ test('a test that starts the tool makes its folders with testFolder(), never wit
   assert.deepEqual(found, []);
 });
 
-test('the harness knows both entries of the built tool, and each hand start it allows names a test of its file', () => {
+test('question 95: the harness knows both entries of the built tool, and each hand start it allows names a test of its file', () => {
   assert.notEqual(namesTool([join(ROOT, 'dist', 'bin.cjs')]), null);
   assert.notEqual(namesTool(['/elsewhere/dist/bin.cjs']), null);
   assert.ok(namesToolInLine('node dist/bin.cjs check'));

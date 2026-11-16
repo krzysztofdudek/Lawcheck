@@ -57,7 +57,7 @@ test('test 117: directories, patterns and their union', async () => {
   });
 });
 
-test('a target that names a file git lists is that file, before it is a pattern', async () => {
+test('commands-slice §5: a target that names a file git lists is that file, before it is a pattern', async () => {
   await withSample(async (s) => {
     write(s, 'src/core/{w}.ts', "console.log('w');\n");
     const script = await tryIn(s, ['no-console', 'src/core/{w}.ts']);

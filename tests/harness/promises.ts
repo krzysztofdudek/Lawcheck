@@ -48,7 +48,7 @@ export function testIds(name: string): string[] {
   const ids: string[] = [];
   const rows = /^tests? (\d+(?:(?:, | and )\d+)*)/.exec(name);
   if (rows !== null) for (const n of rows[1]!.split(/, | and /)) ids.push(`test ${n}`);
-  for (const m of name.matchAll(/(?<![\w-])(I-[a-z][a-z0-9]*-\d+|S\d+-\d+|U-\d+|R-\d+|harness-(?:\d+|count))(?![\w-])/g)) ids.push(m[1]!);
+  for (const m of name.matchAll(/(?<![\w-])(I-[a-z][a-z0-9]*-\d+|S\d+-\d+|U-\d+|R-\d+|T[1-8]|harness-(?:\d+|count))(?![\w-])/g)) ids.push(m[1]!);
   return [...new Set(ids)];
 }
 
@@ -81,7 +81,7 @@ function specs(): string[] {
 export function promiseOf(id: string): Promised | null {
   if (id.startsWith('harness-')) return INVARIANTS[id] === undefined ? null : { id, where: 'tests/harness/invariants.ts', text: INVARIANTS[id]! };
   const row = /^test (\d+)$/.exec(id);
-  const finding = /^(S\d+-\d+|U-\d+|R-\d+)$/.test(id);
+  const finding = /^(S\d+-\d+|U-\d+|R-\d+|T[1-8])$/.test(id);
   const files = finding ? ['tests/findings.md'] : specs();
   for (const file of files) {
     const path = join(ROOT, file);

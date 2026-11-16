@@ -122,7 +122,7 @@ test('test 130: usage', async () => {
   });
 });
 
-test('no page and no spec speaks of moving from another tool', () => {
+test('commands-slice §7: no page and no spec speaks of moving from another tool', () => {
   const texts = [...TOPICS.map(({ id }) => page(id)), readFileSync(new URL('../../spec/commands-slice.md', import.meta.url), 'utf8')];
   for (const text of texts) assert.doesNotMatch(text, /migrat|moving from|switch(ing)? from/i);
 });

@@ -23,7 +23,7 @@ async function withRule(source: string, body: (root: string, ruleFile: string) =
 
 const filesOf = new Map([['source', ['a.ts', 'b.ts']]]);
 
-test('the runner makes one call per file, in order, and passes repo.filesOf', async () => {
+test('check-slice §3: the runner makes one call per file, in order, and passes repo.filesOf', async () => {
   await withRule(
     "export function check({ files, repo }) { return [{ message: files.length + ' ' + files[0].path + ' ' + files[0].type + ' ' + repo.filesOf('source').join(',') }]; }\n",
     async (root, ruleFile) => {
@@ -38,28 +38,28 @@ test('the runner makes one call per file, in order, and passes repo.filesOf', as
   );
 });
 
-test('a call past the time limit crashes the rule', async () => {
+test('check-slice §3: a call past the time limit crashes the rule', async () => {
   await withRule('export function check() { while (true) {} }\n', async (root, ruleFile) => {
     const outcome = await runRule({ root, rule: 'r', ruleFile, files: [file('a.ts', ['x'])], filesOf, timeoutMs: 1000 });
     assert.deepEqual(outcome, { crash: 'passes 1 seconds on a.ts' });
   });
 });
 
-test('a load past the time limit crashes the rule', async () => {
+test('check-slice §3: a load past the time limit crashes the rule', async () => {
   await withRule('await new Promise(() => {});\nexport function check() { return []; }\n', async (root, ruleFile) => {
     const outcome = await runRule({ root, rule: 'r', ruleFile, files: [file('a.ts', ['x'])], filesOf, timeoutMs: 1000 });
     assert.deepEqual(outcome, { crash: 'passes 1 seconds in its load' });
   });
 });
 
-test('a module that does not load', async () => {
+test('check-slice §3: a module that does not load', async () => {
   await withRule("import './missing.mjs';\nexport function check() { return []; }\n", async (root, ruleFile) => {
     const outcome = await runRule({ root, rule: 'r', ruleFile, files: [file('a.ts', ['x'])], filesOf });
     assert.ok('crash' in outcome && outcome.crash.startsWith('fails to load: '), JSON.stringify(outcome));
   });
 });
 
-test('process.env is empty in a rule, and an unknown type throws', async () => {
+test('check-slice §3: process.env is empty in a rule, and an unknown type throws', async () => {
   await withRule(
     "export function check() { return [{ message: Object.keys(process.env).length + '' }]; }\n",
     async (root, ruleFile) => {
@@ -73,7 +73,7 @@ test('process.env is empty in a rule, and an unknown type throws', async () => {
   });
 });
 
-test('the time limit holds for the load and for each call, not for the rule as a whole', async () => {
+test('check-slice §3: the time limit holds for the load and for each call, not for the rule as a whole', async () => {
   await withRule(
     'const wait = () => new Promise((done) => setTimeout(done, 700));\nawait wait();\nexport async function check({ files }) { await wait(); return [{ message: files[0].path }]; }\n',
     async (root, ruleFile) => {

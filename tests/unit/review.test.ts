@@ -29,7 +29,7 @@ function provider(answers: (prompt: string, n: number) => Answer | Promise<Answe
   return { seen, keys: [], ready: () => null, ask: async (prompt: string) => (seen.push(prompt), answers(prompt, n++)) };
 }
 
-test('the checks before the first call', () => {
+test('reviewer-slice §8: the checks before the first call', () => {
   const ready = { keys: [], ready: () => null, fix: () => 'set X', ask: async () => ({ answer: '' }) };
   const config = { ...DEFAULT_CONFIG, provider: 'openai-compatible' as const };
   assert.deepEqual(preflight(ready, config, 3, 3, 'lawcheck check --review'), []);
@@ -45,11 +45,11 @@ test('the checks before the first call', () => {
   assert.equal(preflight(null, DEFAULT_CONFIG, 9, 1, 'lawcheck check --review --base main')[0]!.next, 'ask the user to set reviewer.provider and reviewer.model in .lawcheck/config.yaml, then run lawcheck check --review --base main');
 });
 
-test('waived lines drop findings; a whole-file finding stays', () => {
+test('reviewer-slice §4: waived lines drop findings; a whole-file finding stays', () => {
   assert.deepEqual(remaining([{ line: 2, message: 'a' }, { line: null, message: 'b' }, { line: 3, message: 'c' }], new Set([2])), [{ line: null, message: 'b' }, { line: 3, message: 'c' }]);
 });
 
-test('a pass and a fail are recorded as they arrive', async () => {
+test('reviewer-slice §5: a pass and a fail are recorded as they arrive', async () => {
   const w = writer();
   const p = provider((prompt) => ({ answer: prompt === 'p0' ? PASS : FAIL }));
   const result = await call(asks(2), p, w as never, { cap: 10, parallel: 1 });
@@ -58,7 +58,7 @@ test('a pass and a fail are recorded as they arrive', async () => {
   assert.deepEqual(result.failed, []);
 });
 
-test('a fail whose findings are all waived is recorded as a pass', async () => {
+test('reviewer-slice §5: a fail whose findings are all waived is recorded as a pass', async () => {
   const w = writer();
   const one = asks(1);
   one[0]!.waived = new Set([1]);
@@ -66,7 +66,7 @@ test('a fail whose findings are all waived is recorded as a pass', async () => {
   assert.deepEqual(w.log, [`pass ${'0'.padStart(32, '0')}`]);
 });
 
-test('a bad answer is asked once more; a second is reviewer-bad-answer', async () => {
+test('test 403: a bad answer is asked once more; a second is reviewer-bad-answer', async () => {
   const twice = await call(asks(1), provider(() => ({ answer: 'fine' })), writer() as never, { cap: 10, parallel: 1 });
   assert.equal(twice.sent, 2);
   assert.equal(twice.failed[0]!.code, 'reviewer-bad-answer');
@@ -76,7 +76,7 @@ test('a bad answer is asked once more; a second is reviewer-bad-answer', async (
   assert.deepEqual(recovered.failed, []);
 });
 
-test('resends: after 2 seconds for a 429, at once for no answer, never otherwise', async () => {
+test('test 403: resends: after 2 seconds for a 429, at once for no answer, never otherwise', async () => {
   const started = Date.now();
   const limited = await call(asks(1), provider((_, n) => (n === 0 ? { failure: '429', resend: 'after-2s' } : { answer: PASS })), writer() as never, { cap: 10, parallel: 1, resendDelayMs: 50 });
   assert.equal(limited.sent, 2);
@@ -90,7 +90,7 @@ test('resends: after 2 seconds for a 429, at once for no answer, never otherwise
   assert.equal(final.failed[0]!.fix, 'wait');
 });
 
-test('a resend fits in the timeout of the first request, and gets only the time left', async () => {
+test('test 411: a resend fits in the timeout of the first request, and gets only the time left', async () => {
   const seen: (number | undefined)[] = [];
   const slow = (resend: 'after-2s' | 'at-once', ms: number) => ({
     ready: () => null,
@@ -110,7 +110,7 @@ test('a resend fits in the timeout of the first request, and gets only the time 
   assert.ok(seen[1]! > 0.5 && seen[1]! <= 0.71, String(seen[1]));
 });
 
-test('the cap counts every request and keeps room for the reviews not yet started', async () => {
+test('reviewer-slice §7: the cap counts every request and keeps room for the reviews not yet started', async () => {
   const p = provider((_, n) => ({ answer: n === 0 ? 'fine' : PASS }));
   const result = await call(asks(3), p, writer() as never, { cap: 3, parallel: 1 });
   assert.equal(result.sent, 1);
@@ -121,7 +121,7 @@ test('the cap counts every request and keeps room for the reviews not yet starte
   assert.deepEqual(roomy.failed, []);
 });
 
-test('a resend after a 429 or a dropped connection stays within the cap', async () => {
+test('reviewer-slice §7: a resend after a 429 or a dropped connection stays within the cap', async () => {
   for (const resend of ['after-2s', 'at-once'] as const) {
     const result = await call(asks(1), provider(() => ({ failure: 'no', resend })), writer() as never, { cap: 1, parallel: 1, resendDelayMs: 1 });
     assert.equal(result.sent, 1, resend);
@@ -129,7 +129,7 @@ test('a resend after a 429 or a dropped connection stays within the cap', async 
   }
 });
 
-test('the first error starts no new review; one in flight finishes and is recorded', async () => {
+test('reviewer-slice §8: the first error starts no new review; one in flight finishes and is recorded', async () => {
   const w = writer();
   const p = provider(async (prompt) => {
     if (prompt === 'p0') return { failure: 'down', resend: false };
@@ -142,7 +142,7 @@ test('the first error starts no new review; one in flight finishes and is record
   assert.deepEqual(w.log, [`pass ${'1'.padStart(32, '0')}`]);
 });
 
-test('reviews start in order, at most parallel at a time', async () => {
+test('reviewer-slice §8: reviews start in order, at most parallel at a time', async () => {
   let inFlight = 0;
   let most = 0;
   const p = provider(async () => {

@@ -166,7 +166,7 @@ test('test 317: S7-3, a waiver the change adds is named in the line, and one the
   );
 });
 
-test('test 318: S7-3, a changed waivers key is named by the type that writes it, and the types that inherit its value are not', async () => {
+test('test 318: S7-3, R-75, a changed waivers key is named by the type that writes it, and the types that inherit its value are not', async () => {
   await withSample(async (s) => {
     edit(s, '        rules: [no-console]\n', '        rules: [no-console]\n        waivers: false\n');
     const run = await check(s);

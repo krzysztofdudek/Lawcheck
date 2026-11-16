@@ -141,7 +141,7 @@ export function gitStatesProperties(speed: Speed): Record<string, () => unknown>
   const test = (name: string, body: () => unknown) => {
     out[name] = body;
   };
-  test('I-git-2: in any state a sequence of git commands leaves, a check changes nothing in git, its change gives what --full gives for those files, and it prints the same from below the root and twice', async () => {
+  test('I-git-3: in any state a sequence of git commands leaves, a check changes nothing in git, its change gives what --full gives for those files, and it prints the same from below the root and twice', async () => {
     await tool(
       speed,
       fc.tuple(fc.boolean(), fc.commands([...commands, commands[0]!, commands[commands.length - 1]!, commands[commands.length - 1]!], { maxCommands: 6 })),

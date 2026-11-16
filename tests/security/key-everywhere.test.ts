@@ -136,7 +136,7 @@ test("S3-2: a key that is a word of Lawcheck's own output leaves that output as 
 });
 
 for (const [key, replaced] of [['seven77', false], ['eight888', true]] as const) {
-  test(`S3-2: a key of ${key.length} characters is ${replaced ? '' : 'not '}replaced; a key shorter than 8 is no secret (I-secret-1)`, async () => {
+  test(`R-20: S3-2, a key of ${key.length} characters is ${replaced ? '' : 'not '}replaced; a key shorter than 8 is no secret (I-secret-1)`, async () => {
     await inTemp(async (dir) => {
       const s = makeSample(dir);
       setRule(s, 'no-console', `export function check() { return [{ line: 1, message: 'quotes ${key}' }]; }\n`);

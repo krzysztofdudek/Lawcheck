@@ -55,7 +55,7 @@ export function rulesProperties(speed: Speed): Record<string, () => unknown> {
   const test = (name: string, body: () => unknown) => {
     out[name] = body;
   };
-  test('I-rules-1, S2-4, S2-6: any value a rule returns, throws or rejects with gives findings or a rule-crashed naming its cause, and file A is judged the same alone or with B', async () => {
+  test('I-rules-1: S2-4, S2-6, any value a rule returns, throws or rejects with gives findings or a rule-crashed naming its cause, and file A is judged the same alone or with B', async () => {
     await tool(
       speed,
       fc.tuple(how, returned),

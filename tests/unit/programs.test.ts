@@ -27,7 +27,7 @@ function argvProgram(dir: string): string {
   return join(dir, 'argv');
 }
 
-test('a program is found on PATH, and on Windows by the endings of PATHEXT', async () => {
+test('reviewer-slice §6: a program is found on PATH, and on Windows by the endings of PATHEXT', async () => {
   await inDir((dir) => {
     executable(join(dir, 'tool'), '#!/bin/sh\n');
     if (platformSkip('the lookup with the rules of Linux') === null) {
@@ -41,7 +41,7 @@ test('a program is found on PATH, and on Windows by the endings of PATHEXT', asy
   });
 });
 
-test('every argument and the output pass through a program started as the callers start it, a .cmd file on Windows too', async () => {
+test('reviewer-slice §6: every argument and the output pass through a program started as the callers start it, a .cmd file on Windows too', async () => {
   await inDir(async (dir) => {
     argvProgram(dir);
     const program = findProgram('argv', { PATH: dir, PATHEXT: '.CMD' })!;
@@ -55,7 +55,7 @@ test('every argument and the output pass through a program started as the caller
   });
 });
 
-test('killTree ends a program and the programs it started', async () => {
+test('reviewer-slice §6: killTree ends a program and the programs it started', async () => {
   await inDir(async (dir) => {
     const script = join(dir, 'parent.mjs');
     writeFileSync(script, "import { spawn } from 'node:child_process';\nconst c = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore' });\nprocess.stdout.write(String(c.pid) + '\\n');\nsetInterval(() => {}, 1000);\n");
@@ -77,7 +77,7 @@ test('killTree ends a program and the programs it started', async () => {
   });
 });
 
-test('killTree with orphans ends the programs left by a program that has already ended', async () => {
+test('reviewer-slice §6: killTree with orphans ends the programs left by a program that has already ended', async () => {
   await inDir(async (dir) => {
     const script = join(dir, 'leave.mjs');
     // Node on Windows ends the programs it started undetached when it exits; cmd.exe does not, which a detached child stands in for here.
@@ -104,7 +104,7 @@ test('killTree with orphans ends the programs left by a program that has already
   });
 });
 
-test('the descendants of a process are read from the list of processes, its own id never among them', () => {
+test('reviewer-slice §6: the descendants of a process are read from the list of processes, its own id never among them', () => {
   const table = ['10 1 5', '11 10 6', '12 11 7', '13 10 8', '20 1 9', '21 20 10', '30 30 11', ''].join('\r\n');
   assert.deepEqual(descendantsIn(table, 10).sort((a, b) => a - b), [11, 12, 13]);
   assert.deepEqual(descendantsIn(table, 20), [21]);
@@ -112,7 +112,7 @@ test('the descendants of a process are read from the list of processes, its own 
   assert.deepEqual(descendantsIn('', 10), []);
 });
 
-test('the time each process was made is read from the list of processes', () => {
+test('R-34: the time each process was made is read from the list of processes', () => {
   const table = ['10 1 638900000000000001', '11 10 638900000000000002', 'junk', '12 11', ''].join('\r\n');
   assert.deepEqual([...createdIn(table)], [[10, '638900000000000001'], [11, '638900000000000002']]);
 });

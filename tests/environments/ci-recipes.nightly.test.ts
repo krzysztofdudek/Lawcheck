@@ -75,7 +75,7 @@ function cell(dir: string, kind: string): { code: number | null; lines: string[]
 }
 
 for (const kind of KINDS) {
-  test(`S7-1, S7-2, S7-3, S7-4 (design tests 15 and 16): the workflow and the hooks of docs/ci.md, run as written on ${kind}, as a pull request and as a push (network)`, () => {
+  test(`tests 306 and 307: S7-1, S7-2, S7-3, S7-4, the workflow and the hooks of docs/ci.md (design tests 15 and 16), run as written on ${kind}, as a pull request and as a push (network)`, () => {
     inFolder((dir) => {
       cellFolder(dir);
       const run = cell(dir, kind);
@@ -88,7 +88,7 @@ for (const kind of KINDS) {
   });
 }
 
-test('S7-4: actionlint accepts the workflow of docs/ci.md as it stands', () => {
+test('test 308: S7-4, actionlint accepts the workflow of docs/ci.md as it stands', () => {
   inFolder((dir) => {
     mkdirSync(join(dir, '.github', 'workflows'), { recursive: true });
     writeFileSync(join(dir, '.github', 'workflows', 'lawcheck.yml'), example('ci-workflow') + '\n');

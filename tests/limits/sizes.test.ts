@@ -11,7 +11,7 @@ const WHY_FILE = '  why:  a run holds every file it reads as text in memory, so 
 const nextFile = (path: string, command: string) =>
   `next: leave ${path} out of the types with a pattern that starts with ! in .lawcheck/law.yaml, or make it smaller than 16 MiB, then run lawcheck ${command}`;
 
-test('S1-3: test 230: a file of 2.6 GB of zero bytes has no type, and the run judges the rest', async () => {
+test('test 230: S1-3, a file of 2.6 GB of zero bytes has no type, and the run judges the rest', async () => {
   await withSample(async (s) => {
     sparse(s, 'src/core/big.ts', '', 2_600_000_000);
     write(s, D_PATH, D);
@@ -22,7 +22,7 @@ test('S1-3: test 230: a file of 2.6 GB of zero bytes has no type, and the run ju
   });
 });
 
-test('S1-4: S5-2: test 231: a text file of 600 MB is file-too-large with its path, in check, doctor, explain and try', async () => {
+test('test 231: S1-4, S5-2, a text file of 600 MB is file-too-large with its path, in check, doctor, explain and try', async () => {
   await withSample(async (s) => {
     sparse(s, HUGE, textHead(''), 600_000_000);
     const ended = (command: string) => ['lawcheck: ERROR  1 error', '', TOO_LARGE_600, WHY_FILE, '', nextFile(HUGE, command), ''].join('\n');

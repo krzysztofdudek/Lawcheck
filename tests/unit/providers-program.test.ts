@@ -10,12 +10,12 @@ import { writeFakeProgram } from '../acceptance/fake-reviewer.ts';
 
 const ended = (code: number | null, signal: string | null, stdout: string, stderr: string) => ({ code, signal, stdout, stderr });
 
-test('the last non-empty line', () => {
+test('test 406: the last non-empty line', () => {
   assert.equal(lastLine('a\r\nb\r\n\r\n  \n'), 'b');
   assert.equal(lastLine('\n \n'), null);
 });
 
-test('a failure: the first reason given, else the last line of standard error, of standard output, then the exit', () => {
+test('test 406: a failure: the first reason given, else the last line of standard error, of standard output, then the exit', () => {
   assert.deepEqual(failure('p', ended(1, null, 'out', 'err'), 'given'), { failure: 'given', resend: false, fix: 'do what p says, such as signing in or naming a model it has' });
   assert.deepEqual(failure('p', ended(1, null, 'out\n', 'one\ntwo\n')), { failure: 'two', resend: false, fix: 'do what p says, such as signing in or naming a model it has' });
   assert.deepEqual(failure('p', ended(1, null, 'first\nlast\n', '')), { failure: 'last', resend: false, fix: 'do what p says, such as signing in or naming a model it has' });
@@ -24,7 +24,7 @@ test('a failure: the first reason given, else the last line of standard error, o
   assert.equal((failure('p', ended(1, null, '', 'x'.repeat(400))) as { failure: string }).failure.length, 300);
 });
 
-test('plain output: standard output is the answer after exit 0', () => {
+test('test 406: plain output: standard output is the answer after exit 0', () => {
   const read = plainOutput('p');
   assert.deepEqual(read(ended(0, null, 'the answer\n', 'progress\n')), { answer: 'the answer\n' });
   assert.deepEqual(read(ended(0, null, '', '')), { answer: '' });
@@ -32,7 +32,7 @@ test('plain output: standard output is the answer after exit 0', () => {
   assert.deepEqual(read(ended(null, 'SIGTERM', '', '')), { failure: 'p was ended by SIGTERM', resend: false, fix: 'do what p says, such as signing in or naming a model it has' });
 });
 
-test('the working folder and the folder aside are gone when the call ends, before the tool does', async () => {
+test('test 406: the working folder and the folder aside are gone when the call ends, before the tool does', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'lawcheck-program-'));
   try {
     const bin = writeFakeProgram(join(dir, 'bin'), 'gemini');
@@ -52,7 +52,7 @@ test('the working folder and the folder aside are gone when the call ends, befor
   }
 });
 
-test("a program gets its own sign-in variables, and neither Lawcheck's nor another program's", () => {
+test("test 404: a program gets its own sign-in variables, and neither Lawcheck's nor another program's", () => {
   const own = { claude: ['ANTHROPIC_API_KEY', 'ANTHROPIC_AUTH_TOKEN', 'CLAUDE_CODE_OAUTH_TOKEN'], codex: ['OPENAI_API_KEY', 'CODEX_API_KEY'], gemini: ['GEMINI_API_KEY', 'GOOGLE_API_KEY'], copilot: ['COPILOT_GITHUB_TOKEN', 'GH_TOKEN', 'GITHUB_TOKEN', 'COPILOT_PROVIDER_API_KEY', 'COPILOT_PROVIDER_API_KEY_COMMAND', 'COPILOT_PROVIDER_BEARER_TOKEN'] };
   assert.deepEqual(SIGN_IN_VARIABLES, own);
   const every = Object.fromEntries([...LAWCHECK_VARIABLES, ...Object.values(own).flat()].map((name) => [name, 'v']));

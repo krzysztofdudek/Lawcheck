@@ -4,7 +4,7 @@ import { parseWaivers, waive } from '../../dist/waivers.js';
 
 const RULES = new Set(['no-console', 'no-todo']);
 
-test('a waiver after code covers its own line; one on a line of its own covers the next line that does not stand alone', () => {
+test('check-slice §5: a waiver after code covers its own line; one on a line of its own covers the next line that does not stand alone', () => {
   const { waivers, problems } = parseWaivers(
     [
       'x(); // lawcheck-waive no-console -- own line',
@@ -27,17 +27,17 @@ test('a waiver after code covers its own line; one on a line of its own covers t
   );
 });
 
-test('the reason drops a closing comment and is trimmed', () => {
+test('check-slice §5: the reason drops a closing comment and is trimmed', () => {
   const { waivers } = parseWaivers(['<!-- lawcheck-waive no-console --   a demo  -->', 'x'], RULES);
   assert.equal(waivers[0]!.reason, 'a demo');
 });
 
-test('the first marker counts; a second one on the line is text', () => {
+test('check-slice §5: the first marker counts; a second one on the line is text', () => {
   const { waivers } = parseWaivers(['a // lawcheck-waive no-todo -- see lawcheck-waive no-console -- x'], RULES);
   assert.deepEqual(waivers.map((w) => [w.rule, w.reason]), [['no-todo', 'see lawcheck-waive no-console -- x']]);
 });
 
-test('problems', () => {
+test('check-slice §5: problems', () => {
   const { waivers, problems } = parseWaivers(
     [
       '// lawcheck-waive',
@@ -66,7 +66,7 @@ test('problems', () => {
   );
 });
 
-test('a finding is credited to the waiver on its own line first, then to the nearest one above', () => {
+test('check-slice §5: a finding is credited to the waiver on its own line first, then to the nearest one above', () => {
   const { waivers } = parseWaivers(
     ['// lawcheck-waive no-console -- far', '// lawcheck-waive no-console -- near', 'x(); // lawcheck-waive no-console -- own'],
     RULES,
@@ -79,7 +79,7 @@ test('a finding is credited to the waiver on its own line first, then to the nea
   assert.equal(waive(above, 'no-todo', 3), false);
 });
 
-test('a closing comment is cut off before the separator is looked for', () => {
+test('check-slice §5: a closing comment is cut off before the separator is looked for', () => {
   const { waivers, problems } = parseWaivers(
     [
       'console.log(3); <!-- lawcheck-waive no-console -->',

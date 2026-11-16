@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { DEFAULT_CONFIG } from '../../dist/config.js';
 import { createProvider, endpointOf, ownKey, variable } from '../../dist/providers/index.js';
 
-test('the endpoint: http or https, trailing slashes removed, empty counts as absent', () => {
+test('test 64: the endpoint: http or https, trailing slashes removed, empty counts as absent', () => {
   assert.equal(endpointOf({}), null);
   assert.equal(endpointOf({ LAWCHECK_REVIEWER_ENDPOINT: '' }), null);
   assert.deepEqual(endpointOf({ LAWCHECK_REVIEWER_ENDPOINT: 'http://127.0.0.1:9/v1/' }), { url: 'http://127.0.0.1:9/v1' });
@@ -20,7 +20,7 @@ test('the endpoint: http or https, trailing slashes removed, empty counts as abs
   assert.equal(variable({ A: 'x' }, 'A'), 'x');
 });
 
-test('the provider is chosen by name, and none without one', () => {
+test('reviewer-slice §6: the provider is chosen by name, and none without one', () => {
   assert.equal(createProvider(DEFAULT_CONFIG, {}), null);
   for (const name of ['anthropic', 'openai', 'google', 'openai-compatible', 'ollama', 'claude-code', 'codex', 'gemini-cli', 'copilot-cli'] as const) {
     const provider = createProvider({ ...DEFAULT_CONFIG, provider: name, model: 'm' }, {});
@@ -29,7 +29,7 @@ test('the provider is chosen by name, and none without one', () => {
   }
 });
 
-test('a key under a provider name goes only to its own address', () => {
+test('test 404: a key under a provider name goes only to its own address', () => {
   const own = 'https://own.example/v1';
   const keyed = (env: Record<string, string>) => ownKey(env, 'p', own, 'OWN_KEY');
   assert.deepEqual(keyed({ OWN_KEY: 'a', LAWCHECK_REVIEWER_KEY: 'l' }), { key: 'a', problem: null, fix: 'set OWN_KEY to the key alone, with no space or line break', keyName: 'OWN_KEY', base: own, keyed: { url: own, key: 'a' } });

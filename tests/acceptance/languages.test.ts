@@ -65,7 +65,7 @@ test('test 88: one use from domain to app in each language', async () => {
   });
 });
 
-test('test 88, debt: every finding and unresolved use of L outside the change', async () => {
+test('test 88: debt, every finding and unresolved use of L outside the change', async () => {
   await inTemp(async (dir) => {
     const l = makeL(dir);
     git(l, 'checkout', '-q', '-b', 'work');

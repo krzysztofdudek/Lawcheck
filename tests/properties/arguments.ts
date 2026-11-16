@@ -59,7 +59,7 @@ export function argumentsProperties(speed: Speed): Record<string, () => unknown>
     }
   });
 
-  test('I-hook-1, S6-6, S6-8: any input to a hook gives exit 0 with nothing or one hook document, or the defined notice, never a stack trace', async () => {
+  test('I-hook-1: S6-6, S6-8, any input to a hook gives exit 0 with nothing or one hook document, or the defined notice, never a stack trace', async () => {
     const dir = temp();
     try {
       const s = makeSample(dir.dir);

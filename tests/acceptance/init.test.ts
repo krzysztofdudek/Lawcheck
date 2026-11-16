@@ -88,7 +88,7 @@ test('test 98: a kept .gitignore, a law below the top, and no git', async () => 
   });
 });
 
-test('S5-4: test 241: init where .lawcheck is a file names it', async () => {
+test('test 241: S5-4, init where .lawcheck is a file names it', async () => {
   const obstacle = (what: string) =>
     [
       'lawcheck: ERROR  1 error',

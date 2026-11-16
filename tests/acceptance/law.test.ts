@@ -156,7 +156,7 @@ test('test 20: rule files', async () => {
   });
 });
 
-test('section 6: a law that cannot be read is law-invalid', async (t) => {
+test('check-slice §6: a law that cannot be read is law-invalid', async (t) => {
   const skip = platformSkip('the whole test');
   if (skip !== null) return t.skip(skip);
   await withSample(async (s) => {

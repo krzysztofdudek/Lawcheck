@@ -83,7 +83,7 @@ test('S5-14: init starts no program that the repository names for git (I-git-1)'
   });
 });
 
-test('S5-14: check and try start no program that the repository names for git, and still see the change (I-git-1)', async () => {
+test('R-22: S5-14, check and try start no program that the repository names for git, and still see the change (I-git-1)', async () => {
   await inTemp(async (dir) => {
     const s = makeSample(dir);
     writeFileSync(join(s, 'src/core/discount.ts'), "export const d = 1;\nconsole.log('d');\n");
@@ -99,7 +99,7 @@ test('S5-14: check and try start no program that the repository names for git, a
   });
 });
 
-test('S5-14: the fixture arms git: the same reads through git itself start the programs', async () => {
+test('R-21: S5-14, the fixture arms git: the same reads through git itself start the programs', async () => {
   await inTemp(async (dir) => {
     const s = makeSample(dir);
     append(s, 'src/core/price.ts', '// edited\n');
@@ -156,7 +156,7 @@ test('S5-14: a submodule whose own config names a filter starts nothing during c
   });
 });
 
-test('harness-7: check leaves the index as it was when the times of its files no longer match it', async () => {
+test('R-46: harness-7, check leaves the index as it was when the times of its files no longer match it', async () => {
   await inTemp(async (dir) => {
     const s = makeSample(dir);
     writeFileSync(join(s, 'src/core/discount.ts'), "console.log('d');\n");

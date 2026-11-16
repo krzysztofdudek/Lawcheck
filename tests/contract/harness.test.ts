@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import plainAssert from 'node:assert';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync as existsSyncOf } from 'node:fs';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -77,7 +78,7 @@ const PASS_DOC = {
 
 const ERROR_DOC = { schema: 'lawcheck-error/1', errors: [{ code: 'usage', file: null, line: null, message: 'm', why: 'w' }], next: { command: null, text: 't' } };
 
-test('harness: a run that keeps every invariant passes, and its outputs reach the test', async () => {
+test('question 95: harness: a run that keeps every invariant passes, and its outputs reach the test', async () => {
   await inTemp(async (dir) => {
     const repo = repository(dir);
     const run = await tool(dir, "process.stdout.write('lawcheck: PASS  nothing changed against main\\n');", ['check'], {}, repo);
@@ -264,7 +265,7 @@ test('harness-8: a run may change nothing outside its repository: not its tempor
   });
 });
 
-test('harness: two runs at once in one repository are checked together when the last ends', async () => {
+test('question 95: harness: two runs at once in one repository are checked together when the last ends', async () => {
   await inTemp(async (dir) => {
     const repo = repository(dir);
     const quiet = fake(dir, "setTimeout(() => process.stdout.write('lawcheck: PASS\\n'), 200);");
@@ -280,7 +281,7 @@ test('harness: two runs at once in one repository are checked together when the 
   });
 });
 
-test('harness: the packed tarball starts as the package bin, and nothing else starts Lawcheck as a program', async () => {
+test('question 95: harness: the packed tarball starts as the package bin, and nothing else starts Lawcheck as a program', async () => {
   await inTemp(async (dir) => {
     const cli = unpackTarball(dir);
     const version = (JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')) as { version: string }).version;
@@ -291,7 +292,7 @@ test('harness: the packed tarball starts as the package bin, and nothing else st
   });
 });
 
-test('harness: a missing build is "could not run", never a pass', async () => {
+test('question 95: harness: a missing build is "could not run", never a pass', async () => {
   await inTemp(async (dir) => {
     assert.throws(() => startTool(dir, ['check'], ENV, { cli: join(dir, 'missing.js') }), CouldNotRun);
   });
@@ -302,12 +303,22 @@ function nodeTest(dir: string, name: string, body: string): { code: number | nul
   const harness = pathToFileURL(join(ROOT, 'tests', 'harness', 'tool.ts')).href;
   writeFileSync(file, [`import { test } from 'node:test';`, `import assert from 'node:assert/strict';`, `import { startTool } from ${JSON.stringify(harness)};`, `test(${JSON.stringify(name)}, async () => {`, body, '});', ''].join('\n'));
   const reporter = pathToFileURL(join(ROOT, 'tests', 'harness', 'reporter.ts')).href;
-  const env: NodeJS.ProcessEnv = { ...process.env, LAWCHECK_STARTED: '' };
+  const env: NodeJS.ProcessEnv = { ...process.env, LAWCHECK_STARTED: '', LAWCHECK_TIE: '' };
   // node:test marks its own child processes with NODE_TEST_CONTEXT, and a test file run under that mark does not run tests of its own.
   delete env.NODE_TEST_CONTEXT;
   const result = spawnSync(process.execPath, ['--test', `--test-reporter=${reporter}`, '--test-reporter-destination=stdout', file], { cwd: dir, env, encoding: 'utf8' });
   return { code: result.status, out: result.stdout + withoutTypeStrippingWarning(result.stderr) };
 }
+
+test('R-90: harness-count, an assertion the harness counts keeps its meaning: match passes on a match and fails on none, through node:assert and node:assert/strict', () => {
+  const text = ['a', 'b', 'c'].join('');
+  for (const match of [assert.match, plainAssert.match, plainAssert.strict.match]) {
+    match(text, /b/);
+    assert.throws(() => match(text, /z/), /did not match/);
+  }
+  assert.doesNotMatch(text, /z/);
+  assert.throws(() => assert.doesNotMatch(text, /b/), /expected to not match/);
+});
 
 test('harness-count: a test that starts the tool and reads none of its outputs fails', async () => {
   await inTemp(async (dir) => {
@@ -322,7 +333,7 @@ test('harness-count: a test that starts the tool and reads none of its outputs f
   });
 });
 
-test('the reporter: one block per red test, last, with its promise, what was got and the rerun command', async () => {
+test('question 95: the reporter: one block per red test, last, with its promise, what was got and the rerun command', async () => {
   await inTemp(async (dir) => {
     const red = nodeTest(dir, 'test 3: the failing run', "assert.equal('lawcheck: PASS', 'lawcheck: FAIL', 'the first line');");
     assert.equal(red.code, 1);
@@ -344,7 +355,7 @@ test('the reporter: one block per red test, last, with its promise, what was got
   });
 });
 
-test('a skip comes only from PLATFORM_SKIPS, keyed by file and whole test name, with a platform and a reason', () => {
+test('question 95: a skip comes only from PLATFORM_SKIPS, keyed by file and whole test name, with a platform and a reason', () => {
   assert.throws(() => skipReason('tests/unit/a.test.ts', 'test 1: a test', 'a part no entry names'), /without an entry in PLATFORM_SKIPS/);
   for (const entry of PLATFORM_SKIPS) {
     assert.ok(['win32', 'darwin', 'linux', 'root'].includes(entry.platform), JSON.stringify(entry));
@@ -378,7 +389,7 @@ test('harness-1: a hook the test stops exits 0 and prints nothing, as question 5
   });
 });
 
-test('harness: a start of Lawcheck that does not come from the harness fails the test, through every function of child_process and however it is spelt', async () => {
+test('question 95: harness: a start of Lawcheck that does not come from the harness fails the test, through every function of child_process and however it is spelt', async () => {
   await inTemp(async (dir) => {
     const cp = childProcess as unknown as Record<string, (...args: unknown[]) => unknown>;
     const calls: [string, unknown[]][] = [
@@ -399,7 +410,7 @@ test('harness: a start of Lawcheck that does not come from the harness fails the
   });
 });
 
-test('harness: a start of Lawcheck through a shell line that does not come from the harness fails the test', () => {
+test('question 95: harness: a start of Lawcheck through a shell line that does not come from the harness fails the test', () => {
   const cp = childProcess as unknown as Record<string, (...args: unknown[]) => unknown>;
   const calls: [string, unknown[]][] = [
     ['spawnSync', ['sh', ['-c', 'lawcheck --version']]],
@@ -418,7 +429,7 @@ test('harness: a start of Lawcheck through a shell line that does not come from 
   ] as [string, unknown[]][]) assert.doesNotThrow(() => cp[name]!(...args), `${name} ${JSON.stringify(args)}`);
 });
 
-test('harness: a start through a shell checks its run as every start of the tool is checked', async () => {
+test('question 95: harness: a start through a shell checks its run as every start of the tool is checked', async () => {
   await inTemp(async (dir) => {
     const bin = join(dir, 'bin');
     mkdirSync(bin);
@@ -479,14 +490,14 @@ test('harness-7: an empty folder in the repository and every file of .git but it
   });
 });
 
-test('harness-N: each harness invariant has its promise text for the reporter', () => {
+test('question 95: harness-N, each harness invariant has its promise text for the reporter', () => {
   for (const id of ['harness-1', 'harness-2', 'harness-3', 'harness-4', 'harness-5', 'harness-6', 'harness-7', 'harness-8', 'harness-count']) {
     const promised = promiseOf(id);
     assert.ok(promised !== null && promised.text.length > 20, id);
   }
 });
 
-test('harness: the type stripping warning of Node 24.0 is taken out of the output of the suite\'s own programs, and nothing else', () => {
+test('question 95: harness: the type stripping warning of Node 24.0 is taken out of the output of the suite\'s own programs, and nothing else', () => {
   const warning = '(node:42) ExperimentalWarning: Type Stripping is an experimental feature and might change at any time\n(Use `node --trace-warnings ...` to show where the warning was created)\n';
   assert.equal(withoutTypeStrippingWarning(`${warning}agent-trial: claude is not on the PATH\n`), 'agent-trial: claude is not on the PATH\n');
   const other = '(node:42) ExperimentalWarning: The Fetch API is an experimental feature\n(Use `node --trace-warnings ...` to show where the warning was created)\n';

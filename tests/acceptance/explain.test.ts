@@ -125,7 +125,7 @@ test('test 110: the list in force and the reader', async () => {
   );
 });
 
-test('explain: the pattern that matched, a rule listed twice, and a file with no reader under a list', async () => {
+test('commands-slice §6: explain: the pattern that matched, a rule listed twice, and a file with no reader under a list', async () => {
   const law = (text: string) =>
     text
       .replace('    paths: ["src/**/*.ts", "!src/**/*.d.ts"]\n    rules: [no-todo]\n', '    paths: ["src/**/*.ts", "src/**/*.md", "!src/**/*.d.ts"]\n    rules: [no-todo]\n    may_use: [source]\n')

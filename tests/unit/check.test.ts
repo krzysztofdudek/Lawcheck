@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { check, findRoot } from '../../dist/check.js';
 
-test('the root is the nearest directory above that holds .lawcheck/law.yaml, as its real path', () => {
+test('check-slice §2: the root is the nearest directory above that holds .lawcheck/law.yaml, as its real path', () => {
   const dir = realpathSync(mkdtempSync(join(tmpdir(), 'lawcheck-root-')));
   try {
     mkdirSync(join(dir, 'outer/.lawcheck'), { recursive: true });
@@ -24,7 +24,7 @@ test('the root is the nearest directory above that holds .lawcheck/law.yaml, as 
   }
 });
 
-test('no law here or above is not-initialized', async () => {
+test('check-slice §2: no law here or above is not-initialized', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'lawcheck-none-'));
   try {
     const outcome = await check({ full: false, base: null }, { cwd: dir, env: {} });

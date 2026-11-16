@@ -40,7 +40,7 @@ function words(line: string): string[] {
 
 const EXIT: Record<string, number> = { init: 0, 'explain src/price.ts': 0, 'try no-console src/price.ts': 0, 'try no-console src/report.ts': 1, "try no-console src/**/*.ts": 1, 'check --full --base main': 0 };
 
-test('docs-5: the first-law page walked top to bottom in a new repository: every command it gives prints, byte for byte, the output the page shows after it', async () => {
+test('test 309: R-7, the first-law page walked top to bottom in a new repository: every command it gives prints, byte for byte, the output the page shows after it', async () => {
   assert.ok(page.includes('`init` makes no `rules/` folder'), 'the page says init makes no rules folder');
   await inTemp(async (dir) => {
     const repo = newRepository(dir, FILES(true));
@@ -72,7 +72,7 @@ test('docs-5: the first-law page walked top to bottom in a new repository: every
   });
 });
 
-test('docs-5: a folder git ignores is never judged, and the same folder not ignored is', async () => {
+test('test 309: S7-7, a folder git ignores is never judged, and the same folder not ignored is', async () => {
   assert.ok(page.includes('so a folder that `.gitignore` names, `node_modules/` or a build folder, is never judged; one that git does not ignore would be'));
   const law = (repo: string) => {
     write(repo, '.lawcheck/rules/no-console.mjs', example('first-law-rule') + '\n');
@@ -97,7 +97,7 @@ test('docs-5: a folder git ignores is never judged, and the same folder not igno
   });
 });
 
-test('docs-5, S7-12: the rule of the first-law page reads lines as text, so it finds console.log in a comment, as the page says', async () => {
+test('test 309: S7-12, the rule of the first-law page reads lines as text, so it finds console.log in a comment, as the page says', async () => {
   assert.ok(page.includes('parses no comments, so it also finds `console.log` inside a comment'));
   await inTemp(async (dir) => {
     const repo = newRepository(dir, { 'src/price.ts': "// console.log('an example in a comment');\nexport const price = 1;\n" });

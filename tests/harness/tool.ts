@@ -1,9 +1,10 @@
 import { spawn } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
-import { createRequire, syncBuiltinESMExports } from 'node:module';
+import { createRequire, register, syncBuiltinESMExports } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import assertModule from 'node:assert';
 import { afterEach, beforeEach } from 'node:test';
 import { budgetNamed, slowBudget, TEST_BUDGET_MS } from '../numbers.ts';
 import { Broken } from './invariants.ts';
@@ -23,6 +24,8 @@ interface TestState {
   budget: number;
   runs: number;
   compared: number;
+  asserted: { n: number };
+  skipped: boolean;
   pending: Set<Promise<unknown>>;
   failures: { error: Error; consumed: boolean }[];
   folders: string[];
@@ -66,10 +69,10 @@ function shellLines(name: string, args: unknown[]): string[] {
 
 // The tests that start Lawcheck by hand because the harness cannot give the run what they test: a standard output that is a file descriptor of the test, one a shell closes, or a pipe the test closes early. The list may only shrink.
 export const HAND_STARTS: { file: string; test: string }[] = [
-  { file: 'tests/limits/writes.test.ts', test: 'S1-6: S5-13: S8-8: test 240: every command writing to /dev/full ends with exit 2 and says the result is lost' },
-  { file: 'tests/limits/writes.test.ts', test: 'S1-6: S5-13: S8-8: test 240: every command writing to an output opened only for reading ends with exit 2' },
-  { file: 'tests/limits/writes.test.ts', test: 'S1-6: test 240: a closed standard output is the same as one sent to /dev/null' },
-  { file: 'tests/limits/writes.test.ts', test: 'S8-8: test 240: a reader that stops early ends the run with its own code and nothing on standard error' },
+  { file: 'tests/limits/writes.test.ts', test: 'test 240: S1-6, S5-13, S8-8, every command writing to /dev/full ends with exit 2 and says the result is lost' },
+  { file: 'tests/limits/writes.test.ts', test: 'test 240: S1-6, S5-13, S8-8, every command writing to an output opened only for reading ends with exit 2' },
+  { file: 'tests/limits/writes.test.ts', test: 'test 240: S1-6, a closed standard output is the same as one sent to /dev/null' },
+  { file: 'tests/limits/writes.test.ts', test: 'test 240: S8-8, a reader that stops early ends the run with its own code and nothing on standard error' },
 ];
 
 function handStartAllowed(): boolean {
@@ -92,11 +95,39 @@ function guardStarts(): void {
   syncBuiltinESMExports();
 }
 
+// Every function of node:assert counts the assertion it makes for the test that is running. A hook that asserts, and an assertion in a timer callback, which may run after its test, are refused by the rail.
+function countAssertions(): void {
+  const plain = assertModule as unknown as Record<string, unknown>;
+  const plainMatch = plain.match;
+  const targets = [assertModule, assertModule.strict] as unknown as Record<string, unknown>[];
+  for (const target of targets) {
+    for (const key of Object.keys(target)) {
+      const original = target[key];
+      if (typeof original !== 'function' || ['AssertionError', 'CallTracker', 'Assert', 'strict'].includes(key)) continue;
+      target[key] = function counted(this: unknown, ...args: unknown[]) {
+        if (current !== null) current.asserted.n++;
+        if (key !== 'match') return (original as (...a: unknown[]) => unknown).apply(this, args);
+        // Node 24.0 tells match from doesNotMatch by comparing its own function with assert.match, so a wrapped assert.match turns every match into doesNotMatch while it runs.
+        const shown = plain.match;
+        plain.match = plainMatch;
+        try {
+          return (original as (...a: unknown[]) => unknown).apply(this, args);
+        } finally {
+          plain.match = shown;
+        }
+      };
+    }
+  }
+  syncBuiltinESMExports();
+}
+
 const REGISTERED = Symbol.for('lawcheck.harness');
 const registry = globalThis as { [REGISTERED]?: boolean };
 if (!registry[REGISTERED]) {
   registry[REGISTERED] = true;
   guardStarts();
+  countAssertions();
+  if (process.env.LAWCHECK_SHUFFLE) register(new URL('./shuffle-hooks.mjs', import.meta.url), { data: { target: new URL('./shuffled-test.mjs', import.meta.url).href } });
   observe({
     budget: () => current?.budget ?? TEST_BUDGET_MS,
     folders: () => current?.folders ?? [],
@@ -119,6 +150,8 @@ if (!registry[REGISTERED]) {
       budget: slowBudget(`${file} > ${t.name}`) ?? TEST_BUDGET_MS,
       runs: 0,
       compared: 0,
+      asserted: { n: 0 },
+      skipped: false,
       pending: new Set(),
       failures: [],
       folders: [],
@@ -135,6 +168,7 @@ if (!registry[REGISTERED]) {
     if (open !== undefined) throw open.error;
     const problems: string[] = [];
     if (state.runs > 0 && state.compared === 0) problems.push(`harness-count: the test started the tool ${state.runs} times and read none of its outputs`);
+    else if (state.asserted.n === 0 && !state.skipped) problems.push('harness-count: the test made no assertion');
     const changed = treeChanges(state.root, tree(ROOT_DIR));
     if (changed.length > 0) problems.push(`harness-8: the test changed the Lawcheck checkout: ${changed.slice(0, 10).join(', ')}`);
     const took = Date.now() - state.started;
@@ -183,7 +217,9 @@ export function currentTest(): { file: string; name: string } {
 
 export function platformSkip(part: string): string | null {
   const { file, name } = currentTest();
-  return skipReason(file, name, part);
+  const reason = skipReason(file, name, part);
+  if (reason !== null && current !== null) current.skipped = true;
+  return reason;
 }
 
 export async function expectBroken(invariant: string, body: () => Promise<unknown>): Promise<Broken> {
@@ -191,7 +227,10 @@ export async function expectBroken(invariant: string, body: () => Promise<unknow
     await body();
   } catch (error) {
     if (error instanceof Broken && error.invariant === invariant) {
-      if (current !== null) current.compared++;
+      if (current !== null) {
+        current.compared++;
+        current.asserted.n++;
+      }
       for (const failure of current?.failures ?? []) if (failure.error === error) failure.consumed = true;
       return error;
     }

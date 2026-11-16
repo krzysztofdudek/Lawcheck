@@ -37,7 +37,7 @@ async function judged(files: Record<string, string>): Promise<Found> {
 
 const UI_DATA = law(['ui', ['src/ui/**'], ['ui']], ['data', ['src/data/**'], null]);
 
-test('S4-1: a use through an alias that only a bundler defines is read as an installed package, so it is dropped and not counted; the relative path of the same use fails', async () => {
+test('test 310: S4-1, a use through an alias that only a bundler defines is read as an installed package, so it is dropped and not counted; the relative path of the same use fails', async () => {
   assert.ok(page.includes('an alias that only a bundler defines'));
   assert.ok(page.includes('`import.meta.glob`, `require.context` and `vi.mock` are not read'));
   assert.ok(spec.includes('**An alias only a bundler defines is read as an installed package** (S4-1)'));
@@ -70,7 +70,7 @@ const PY_FILES = (root: string, where: string) => ({
   [`${root}pkg/ui/a.py`]: 'from pkg.data.d import x\nfrom ..data.d import x as y\nimport pkg.data.d\n',
 });
 
-test('S4-2: a Python package under a root that only configuration names has its absolute self-imports dropped and not counted; the same package at a root the readers search is judged on every form', async () => {
+test('test 311: S4-2, a Python package under a root that only configuration names has its absolute self-imports dropped and not counted; the same package at a root the readers search is judged on every form', async () => {
   assert.ok(page.includes('has its absolute imports of itself (`from pkg.data.d import x`) read as outside'));
   assert.ok(spec.includes('**A Python root that only configuration names is no root** (S4-2)'));
   const lib = await judged(PY_FILES('lib/', '[tool.setuptools.packages.find]\nwhere = ["lib"]\n'));
@@ -84,7 +84,7 @@ test('S4-2: a Python package under a root that only configuration names has its 
 
 const RUST_LAW = law(['ui', ['src/ui/**', 'src/lib.rs'], ['ui']], ['data', ['src/data/**', 'datacrate/**'], null]);
 
-test('S4-3: a Rust mod with #[path] and a path-dependency crate written in code with no use give no use, where a plain mod and a use are judged', async () => {
+test('test 312: S4-3, a Rust mod with #[path] and a path-dependency crate written in code with no use give no use, where a plain mod and a use are judged', async () => {
   assert.ok(page.includes('a `mod` with `#[path]` gave no use where tried'));
   assert.ok(spec.includes('**Rust `#[path]` and a crate written in code** (S4-3)'));
   assert.ok(!spec.includes('`mod` declarations with and without `#[path]`'), 'the spec no longer promises #[path]');
@@ -106,7 +106,7 @@ test('S4-3: a Rust mod with #[path] and a path-dependency crate written in code 
   assert.deepEqual(found.unresolved, []);
 });
 
-test('S4-6: a script block inside an HTML comment of a Vue file is read as code, and a script with src is neither read nor counted', async () => {
+test('test 313: S4-6, a script block inside an HTML comment of a Vue file is read as code, and a script with src is neither read nor counted', async () => {
   assert.ok(page.includes('a `<script>` in an HTML comment is read as code; `<script src>` is not read'));
   const found = await judged({
     '.lawcheck/law.yaml': law(['ui', ['ui/**'], ['ui']], ['data', ['data/**'], null]),
@@ -119,7 +119,7 @@ test('S4-6: a script block inside an HTML comment of a Vue file is read as code,
   assert.deepEqual(found.unresolved, []);
 });
 
-test('S4-7: the count of unresolved uses depends on the import style of Python', async () => {
+test('test 313: S4-7, the count of unresolved uses depends on the import style of Python', async () => {
   assert.ok(page.includes("`from .m import Name` is counted and `from app.m import Name` is not"));
   const found = await judged({
     '.lawcheck/law.yaml': law(['app', ['app/**'], ['app']]),
@@ -131,7 +131,7 @@ test('S4-7: the count of unresolved uses depends on the import style of Python',
   assert.deepEqual(found.unresolved, ['app/rel.py:1 none .m.Name']);
 });
 
-test('S4-8: a Go module wired to a sibling only by replace is outside, so its use is neither judged nor counted', async () => {
+test('test 313: S4-8, a Go module wired to a sibling only by replace is outside, so its use is neither judged nor counted', async () => {
   assert.ok(page.includes('a sibling module wired only by `replace` in `go.mod` is outside; use a `go.work`'));
   const files = (extra: Record<string, string>) => ({
     '.lawcheck/law.yaml': law(['ui', ['ui/**/*.go'], ['ui']], ['data', ['data/**/*.go'], null]),
@@ -147,7 +147,7 @@ test('S4-8: a Go module wired to a sibling only by replace is outside, so its us
   assert.deepEqual(workspace.findings, ['ui/main.go:3'], 'the control: with a go.work the same use is judged');
 });
 
-test('S4-11: the dependency spec lists declare module as read, and a fully qualified Java name as read in a field type only', async () => {
+test('test 313: S4-11, the dependency spec lists declare module as read, and a fully qualified Java name as read in a field type only', async () => {
   const typescript = await judged({
     '.lawcheck/law.yaml': law(['ui', ['ui/**'], ['ui']], ['data', ['data/**'], null]),
     'data/d.ts': 'export const d = 1;\n',
@@ -170,7 +170,7 @@ test('S4-11: the dependency spec lists declare module as read, and a fully quali
   assert.ok(page.includes('a file of any size with syntax errors has no bound'), 'S4-10');
 });
 
-test('S4-10: a large Java file with syntax errors is parsed on every run and bounded by nothing: the run passes, with no error and no named limit', async () => {
+test('test 313: S4-10, a large Java file with syntax errors is parsed on every run and bounded by nothing: the run passes, with no error and no named limit', async () => {
   assert.ok(page.includes('a file of any size with syntax errors has no bound'));
   assert.ok(spec.includes('a large file with syntax errors has no bound (S4-10)'));
   const line = '  int x = ((( ;;; } } class class 12 @@ \n';

@@ -12,7 +12,7 @@ import { readPlan } from './harness/shards.ts';
 const REPORTER = pathToFileURL(join(TESTS, 'harness', 'reporter.ts')).href;
 const HARNESS = pathToFileURL(join(TESTS, 'harness', 'tool.ts')).href;
 const RECORDER = pathToFileURL(join(TESTS, 'harness', 'record.ts')).href;
-const USAGE = 'usage: node tests/run.ts <loop|commit|nightly> [--group <name> | --shard <i>/<n>] [--repeat <n>] [<test id or source file>...]';
+const USAGE = 'usage: node tests/run.ts <loop|commit|nightly> [--group <name> | --shard <i>/<n>] [--repeat <n>] [--shuffle[=<seed>]] [<test id or source file>...]';
 
 function fail(message: string): never {
   process.stderr.write(`${message}\n${USAGE}\n`);
@@ -34,6 +34,7 @@ interface Parsed {
   speed: Speed;
   group: string | null;
   repeat: number;
+  shuffle: string | null;
   targets: string[];
   shard: { index: number; count: number } | null;
 }
@@ -44,6 +45,7 @@ function parse(argv: string[]): Parsed {
   let group: string | null = null;
   let repeat = 1;
   let shard: Parsed['shard'] = null;
+  let shuffle: string | null = null;
   const targets: string[] = [];
   for (let i = 0; i < rest.length; i++) {
     const arg = rest[i]!;
@@ -58,12 +60,16 @@ function parse(argv: string[]): Parsed {
       const m = /^([1-9]\d*)\/([1-9]\d*)$/.exec(rest[++i] ?? '');
       if (m === null || Number(m[1]) > Number(m[2])) fail('--shard takes <i>/<n>, with i from 1 to n');
       shard = { index: Number(m[1]), count: Number(m[2]) };
+    } else if (arg === '--shuffle' || /^--shuffle=\d+$/.test(arg)) {
+      shuffle = arg === '--shuffle' ? String(Math.floor(Math.random() * 2 ** 31)) : arg.slice('--shuffle='.length);
     } else if (arg.startsWith('--')) fail(`unknown option ${arg}`);
     else targets.push(arg);
   }
   if (speed === 'loop' && group !== null) fail('--group belongs to the commit and nightly sets');
+  const ordered = process.env.LAWCHECK_ORDER_SEED;
+  if (shuffle === null && ordered !== undefined && /^\d+$/.test(ordered)) shuffle = ordered;
   if (shard !== null && (speed !== 'commit' || group !== null || targets.length > 0 || repeat > 1)) fail('--shard splits the whole commit set, with no group, target or --repeat');
-  return { speed, group, repeat, targets, shard };
+  return { speed, group, repeat, shuffle, targets, shard };
 }
 
 function changedFiles(): string[] {
@@ -81,7 +87,7 @@ function readMap(): Record<string, string[]> {
   return JSON.parse(readFileSync(join(TESTS, 'map.json'), 'utf8')) as Record<string, string[]>;
 }
 
-const ID = /^(tests? \d+|I-[a-z][a-z0-9]*-\d+|S\d+-\d+|U-\d+|R-\d+)$/;
+const ID = /^(tests? \d+|I-[a-z][a-z0-9]*-\d+|S\d+-\d+|U-\d+|R-\d+|T[1-8])$/;
 
 function escape(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -192,6 +198,7 @@ function main(): void {
   }
   const seed = process.env.LAWCHECK_SEED ?? String(SEED);
   process.stdout.write(`${what}: ${files.length} test files, seed ${seed}${parsed.repeat > 1 ? `, ${parsed.repeat} times` : ''}\n`);
+  if (parsed.shuffle !== null) process.stdout.write(`order seed ${parsed.shuffle}\nrerun with --shuffle=${parsed.shuffle}\n`);
   // The large limits share one container of 1 GB, so their files run one at a time; Node takes this flag only on its command line, never from NODE_OPTIONS.
   const serial = files.some((file) => SERIAL_DIRS.some((dir) => file.startsWith(`tests/${dir}/`)) && file.endsWith('.nightly.test.ts'));
   const slowest = Math.max(TEST_BUDGET_MS, ...Object.keys(SLOW_TESTS).map((key) => slowBudget(key) ?? 0));
@@ -214,8 +221,8 @@ function main(): void {
   }
   args.push(...files);
   const target = parsed.speed === 'loop' ? LOOP_TARGET_MS : parsed.speed === 'commit' && parsed.targets.length === 0 && parsed.group === null && parsed.shard === null ? COMMIT_TARGET_MS : null;
-  const env: NodeJS.ProcessEnv = { ...process.env, LAWCHECK_SPEED: parsed.speed, LAWCHECK_SEED: seed, LAWCHECK_TARGET_MS: target === null ? '' : String(target) };
-  if (parsed.shard !== null) delete env.LAWCHECK_TIE;
+  const whole = parsed.speed !== 'loop' && parsed.targets.length === 0 && parsed.group === null && parsed.shard === null && patterns.length === 0;
+  const env: NodeJS.ProcessEnv = { ...process.env, LAWCHECK_SPEED: parsed.speed, LAWCHECK_SEED: seed, LAWCHECK_TARGET_MS: target === null ? '' : String(target), LAWCHECK_TIE: whole ? '1' : '', LAWCHECK_SHUFFLE: parsed.shuffle ?? '' };
   let failed = false;
   for (let round = 1; round <= parsed.repeat; round++) {
     if (parsed.repeat > 1) process.stdout.write(`round ${round} of ${parsed.repeat}\n`);

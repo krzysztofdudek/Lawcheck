@@ -35,7 +35,7 @@ function kinds(scripts: string[]) {
 const law = parseLaw(LAW).law!;
 const part = (text: string) => text.slice(text.indexOf('\nThe law here: ') + 1).split('\n');
 
-test('the first part is 1,455 characters without reviewer rules or may_use, and 1,721 with both', () => {
+test('commands-slice §4: the first part is 1,455 characters without reviewer rules or may_use, and 1,721 with both', () => {
   assert.equal(length(FIRST_PART), 1455);
   assert.equal(FIRST_PART.split('\n').length, 20);
   assert.equal(length(firstPart(true, true)), 1721);
@@ -48,13 +48,13 @@ test('the first part is 1,455 characters without reviewer rules or may_use, and 
   assert.ok(NO_LAW.endsWith('\n'));
 });
 
-test('a text longer than 60 characters is cut to 59 and an ellipsis, counted in code points', () => {
+test('commands-slice §4: a text longer than 60 characters is cut to 59 and an ellipsis, counted in code points', () => {
   assert.equal(cut('x'.repeat(60)), 'x'.repeat(60));
   assert.equal(cut('x'.repeat(61)), 'x'.repeat(59) + '…');
   assert.equal(cut('é'.repeat(61)), 'é'.repeat(59) + '…');
 });
 
-test('step 1 holds everything', () => {
+test('commands-slice §4: step 1 holds everything', () => {
   const { text, step } = primeText(law, kinds(['r1']), 100000);
   assert.equal(step, 1);
   assert.deepEqual(part(text), [
@@ -77,7 +77,7 @@ function budgetFor(step: number): number {
   throw new Error(`no budget gives step ${step - 1}`);
 }
 
-test('each step is taken when the one before it does not fit', () => {
+test('commands-slice §4: each step is taken when the one before it does not fit', () => {
   const two = primeText(law, kinds(['r1']), budgetFor(2));
   assert.equal(two.step, 2);
   assert.ok(part(two.text).includes(`root  src/**  content: ^x  ${'a'.repeat(59)}…  rules: r1`));
@@ -100,7 +100,7 @@ test('each step is taken when the one before it does not fit', () => {
   for (const result of [two, three, four]) assert.ok(length(result.text) <= budgetFor(result.step));
 });
 
-test('the guard: type lines while they fit, then the rule line cut to the ids that fit', () => {
+test('commands-slice §4: the guard: type lines while they fit, then the rule line cut to the ids that fit', () => {
   const k = kinds(['r1']);
   const full = length(primeText(law, k, budgetFor(4)).text);
   const fewer = primeText(law, k, full - 1);

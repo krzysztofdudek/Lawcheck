@@ -8,7 +8,7 @@ import { errorLines, MiB, run } from './support.ts';
 
 const GiB = 1024 * MiB;
 
-test('test 276: the memory guard ends a run whose file grows by 384 MiB, a run past its bound, and one the system has no room left for, counting a cgroup\'s page cache and reclaimable slab as left', () => {
+test('test 276: R-83, the memory guard ends a run whose file grows by 384 MiB, a run past its bound, and one the system has no room left for, counting a cgroup\'s page cache and reclaimable slab as left', () => {
   const quiet = { rss: 200 * MiB, stepGrowth: 10 * MiB, available: 4 * GiB, total: 16 * GiB };
   assert.equal(memoryCase(quiet), null);
   assert.equal(memoryCase({ ...quiet, stepGrowth: 384 * MiB + 1 }), 'file');

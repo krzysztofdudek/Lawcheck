@@ -15,14 +15,14 @@ function stubFetch(reply: unknown) {
   return { seen, restore: () => (globalThis.fetch = original) };
 }
 
-test('ready: a key, and only LAWCHECK_REVIEWER_KEY with an endpoint', () => {
+test('test 401: ready: a key, and only LAWCHECK_REVIEWER_KEY with an endpoint', () => {
   assert.equal(google(config, { GOOGLE_API_KEY: 'g' }).ready(), null);
   assert.equal(google(config, { LAWCHECK_REVIEWER_KEY: 'l' }).ready(), null);
   assert.equal(google(config, {}).ready(), 'google needs a key in GOOGLE_API_KEY or LAWCHECK_REVIEWER_KEY');
   assert.match(google(config, { LAWCHECK_REVIEWER_ENDPOINT: 'http://h/v1', GOOGLE_API_KEY: 'g' }).ready()!, /sends LAWCHECK_REVIEWER_KEY alone/);
 });
 
-test('the request: the model in the path, the key in x-goog-api-key and never in the address', async () => {
+test('test 401: the request: the model in the path, the key in x-goog-api-key and never in the address', async () => {
   const stub = stubFetch({ candidates: [{ content: { parts: [{ text: 'a' }, { text: 'thinking', thought: true }, { inlineData: {} }, { text: 'b' }] } }] });
   try {
     assert.deepEqual(await google({ ...config, model: 'gemini x/1' }, { GOOGLE_API_KEY: 'g', LAWCHECK_REVIEWER_KEY: 'l' }).ask('p'), { answer: 'ab' });
@@ -41,7 +41,7 @@ test('the request: the model in the path, the key in x-goog-api-key and never in
   }
 });
 
-test('a reply without parts is an empty answer', async () => {
+test('test 401: a reply without parts is an empty answer', async () => {
   for (const reply of [{}, { candidates: [] }, { candidates: [{ content: { parts: 'x' } }] }, { candidates: [{ finishReason: 'SAFETY' }] }]) {
     const stub = stubFetch(reply);
     try {

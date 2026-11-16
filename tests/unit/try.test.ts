@@ -22,7 +22,7 @@ function inRoot(body: (root: string) => void): void {
 const refused = (body: () => unknown, pattern: RegExp) =>
   assert.throws(body, (error: unknown) => error instanceof Stop && error.errors[0]!.code === 'usage' && pattern.test(error.errors[0]!.message));
 
-test('paths, directories and patterns select files once, in path order, binary ones left out', () => {
+test('commands-slice §5: paths, directories and patterns select files once, in path order, binary ones left out', () => {
   inRoot((root) => {
     assert.deepEqual(selectTargets(root, root, ['src/core/tax.ts', 'src/core'], FILES, binary), ['src/core/price.ts', 'src/core/tax.ts']);
     assert.deepEqual(selectTargets(root, root, ['.'], FILES, binary), ['README.md', 'src/cli/main.ts', 'src/core/price.ts', 'src/core/tax.ts']);
@@ -33,7 +33,7 @@ test('paths, directories and patterns select files once, in path order, binary o
   });
 });
 
-test('a target that selects nothing says why', () => {
+test('commands-slice §5: a target that selects nothing says why', () => {
   inRoot((root) => {
     refused(() => selectTargets(root, root, ['nope.ts'], FILES, binary), /git ignores it or it does not exist/);
     refused(() => selectTargets(root, root, ['src/core/blob.bin'], FILES, binary), /it is binary/);

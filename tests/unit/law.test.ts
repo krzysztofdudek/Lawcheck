@@ -9,7 +9,7 @@ function problems(text: string) {
   return parseLaw(text).problems;
 }
 
-test('the sample law reads', () => {
+test('check-slice §2: the sample law reads', () => {
   const { law, problems: found } = parseLaw(SAMPLE);
   assert.deepEqual(found, []);
   assert.ok(law);
@@ -22,7 +22,7 @@ test('the sample law reads', () => {
   assert.equal(law.byId.get('library')!.parent!.id, 'source');
 });
 
-test('an unknown key names the nearest known key within two edits', () => {
+test('check-slice §2: an unknown key names the nearest known key within two edits', () => {
   assert.deepEqual(problems(SAMPLE.replace('status: advisory', 'statuss: advisory')), [
     { line: 8, message: "unknown key 'statuss' in rule 'no-todo' (did you mean 'status'?)" },
   ]);
@@ -30,7 +30,7 @@ test('an unknown key names the nearest known key within two edits', () => {
   assert.equal(nearestKey('required', ['about', 'paths', 'content', 'rules', 'types']), null);
 });
 
-test('the keys this slice leaves out are unknown keys', () => {
+test('check-slice §2: the keys this slice leaves out are unknown keys', () => {
   for (const key of ['required: [x]', 'ignored: [x]']) {
     const found = problems(SAMPLE.replace('    about: Executable helpers.\n', `    about: Executable helpers.\n    ${key}\n`));
     assert.equal(found.length, 1, key);
@@ -38,7 +38,7 @@ test('the keys this slice leaves out are unknown keys', () => {
   }
 });
 
-test('values of the wrong kind', () => {
+test('check-slice §2: values of the wrong kind', () => {
   assert.equal(problems('').length, 1);
   assert.match(problems('lawcheck: 1.0\n')[0]!.message, /'lawcheck' takes a string, not a number/);
   assert.match(problems('lawcheck: "1.0"\n')[0]!.message, /MAJOR\.MINOR\.PATCH/);
@@ -50,7 +50,7 @@ test('values of the wrong kind', () => {
   assert.match(problems('lawcheck: 0.1.0\ntypes:\n  a:\n    paths: ["!x/**"]\n')[0]!.message, /no pattern without '!'/);
 });
 
-test('ids', () => {
+test('check-slice §2: ids', () => {
   assert.match(problems('lawcheck: 0.1.0\nrules:\n  style/no-tabs:\n    why: x\n')[0]!.message, /kebab-case/);
   assert.match(problems('lawcheck: 0.1.0\nrules:\n  internal:\n    why: x\n')[0]!.message, /code of Lawcheck/);
   assert.match(problems('lawcheck: 0.1.0\nrules:\n  waiver-unused:\n    why: x\n')[0]!.message, /code of Lawcheck/);
@@ -59,19 +59,19 @@ test('ids', () => {
   assert.equal(problems('lawcheck: 0.1.0\ntypes:\n  a:\n    paths: [x]\n  a:\n    paths: [y]\n').length, 1);
 });
 
-test('a rule that a type lists and the law lacks', () => {
+test('check-slice §2: a rule that a type lists and the law lacks', () => {
   assert.deepEqual(problems('lawcheck: 0.1.0\ntypes:\n  a:\n    paths: [x]\n    rules: [nope]\n'), [
     { line: 5, message: "type 'a' lists the rule 'nope', which the law does not have" },
   ]);
 });
 
-test('a YAML error names its line', () => {
+test('check-slice §2: a YAML error names its line', () => {
   const found = problems('lawcheck: 0.1.0\nrules: [\n');
   assert.equal(found.length >= 1, true);
   assert.match(found[0]!.message, /does not parse/);
 });
 
-test('a key that YAML reads as no string is law-invalid', () => {
+test('check-slice §2: a key that YAML reads as no string is law-invalid', () => {
   for (const key of ['~', 'true', '1e3', '12']) {
     const found = problems(`lawcheck: 0.1.0\nrules:\n  ${key}:\n    why: x\n`);
     assert.ok(found.some((p) => p.line === 3 && /is no string/.test(p.message)), `${key}: ${JSON.stringify(found)}`);
@@ -79,11 +79,11 @@ test('a key that YAML reads as no string is law-invalid', () => {
   assert.deepEqual(problems('lawcheck: 0.1.0\nrules:\n  "12":\n    why: x\n'), []);
 });
 
-test('the code untyped-file is no rule id', () => {
+test('check-slice §2: the code untyped-file is no rule id', () => {
   assert.match(problems('lawcheck: 0.1.0\nrules:\n  untyped-file:\n    why: x\n')[0]!.message, /code of Lawcheck/);
 });
 
-test('context is a sequence of paths, each with its line', () => {
+test('reviewer-slice §2: context is a sequence of paths, each with its line', () => {
   const { law } = parseLaw('lawcheck: 0.1.0\nrules:\n  a:\n    why: x\n    context:\n      - docs/one.md\n      - "docs/two.md"\n');
   assert.deepEqual(law!.rules.get('a')!.context, [{ path: 'docs/one.md', line: 6 }, { path: 'docs/two.md', line: 7 }]);
   assert.equal(law!.rules.get('a')!.contextLine, 5);
@@ -96,13 +96,13 @@ test('context is a sequence of paths, each with its line', () => {
   }
 });
 
-test('the codes of the reviewer slice are no rule ids', () => {
+test('reviewer-slice §2: the codes of the reviewer slice are no rule ids', () => {
   for (const id of ['not-reviewed', 'too-large-to-review', 'config-invalid', 'reviewer-not-configured', 'too-many-reviews', 'reviewer-unreachable', 'reviewer-bad-answer']) {
     assert.match(problems(`lawcheck: 0.1.0\nrules:\n  ${id}:\n    why: x\n`)[0]!.message, /code of Lawcheck/, id);
   }
 });
 
-test('may_use: ids of types anywhere in the law, each once', () => {
+test('dependency-slice §2: may_use: ids of types anywhere in the law, each once', () => {
   const text = 'lawcheck: 0.1.0\ntypes:\n  a:\n    paths: [x]\n    may_use: [b, a, b]\n  c:\n    paths: [y]\n    may_use: []\n    types:\n      b:\n        paths: [z]\n';
   const { law, problems: found } = parseLaw(text);
   assert.deepEqual(found, []);
@@ -112,7 +112,7 @@ test('may_use: ids of types anywhere in the law, each once', () => {
   assert.equal(law!.byId.get('b')!.line, 10);
 });
 
-test('may_use values that are law-invalid, at the item or at the key', () => {
+test('dependency-slice §2: may_use values that are law-invalid, at the item or at the key', () => {
   const at = (value: string) => problems(`lawcheck: 0.1.0\ntypes:\n  a:\n    paths: [x]\n    may_use: ${value}\n`);
   assert.deepEqual(at('[nope]').map((p) => p.line), [5]);
   assert.match(at('[nope]')[0]!.message, /'may_use' of type 'a' names 'nope', which is no type of the law/);
@@ -124,7 +124,7 @@ test('may_use values that are law-invalid, at the item or at the key', () => {
   assert.deepEqual(unknown.map((p) => p.line), [7]);
 });
 
-test('the codes of the dependency slice are reserved', () => {
+test('dependency-slice §2: the codes of the dependency slice are reserved', () => {
   for (const id of ['forbidden-use', 'uses-not-read', 'parser-failed']) {
     assert.match(problems(`lawcheck: 0.1.0\nrules:\n  ${id}:\n    why: x\n`)[0]!.message, /code of Lawcheck/, id);
   }

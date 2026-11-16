@@ -18,7 +18,7 @@ function packed(): string[] {
   return (JSON.parse(out) as Packed[])[0]!.files.map((file) => file.path);
 }
 
-test('package: the tarball holds the licence, the readme, the built tool, its docs and the grammars with their licences, and nothing else', () => {
+test('release-readiness §Package: package: the tarball holds the licence, the readme, the built tool, its docs and the grammars with their licences, and nothing else', () => {
   const paths = packed();
   const manifest = JSON.parse(readFileSync(`${ROOT}package.json`, 'utf8')) as { bin: Record<string, string> };
   for (const path of ['LICENSE', 'README.md', 'package.json', 'dist/cli.js', 'dist/grammars/LICENSES.txt', ...Object.values(manifest.bin)]) {
@@ -30,7 +30,7 @@ test('package: the tarball holds the licence, the readme, the built tool, its do
   assert.deepEqual(stray, []);
 });
 
-test('package: every shipped grammar is named in the licence file', () => {
+test('release-readiness §Package: package: every shipped grammar is named in the licence file', () => {
   const licences = readFileSync(`${ROOT}scripts/grammar-licenses.txt`, 'utf8');
   for (const path of packed().filter((p) => p.endsWith('.wasm'))) {
     assert.ok(licences.includes(path.slice('dist/grammars/'.length)), `${path} has no licence text`);
@@ -41,7 +41,7 @@ function pluginFiles(dir = join(ROOT, 'plugin')): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => (entry.isDirectory() ? pluginFiles(join(dir, entry.name)) : [relative(ROOT, join(dir, entry.name)).split('\\').join('/')]));
 }
 
-test('package: nothing the tarball or the plugin ships holds a test entry, names one or its variable, or changes the shipped limits and deadlines', () => {
+test('release-readiness §Package: package: nothing the tarball or the plugin ships holds a test entry, names one or its variable, or changes the shipped limits and deadlines', () => {
   const shipped = [...packed(), ...pluginFiles()];
   assert.ok(shipped.includes('dist/rules.js') && shipped.includes('plugin/hooks/start.mjs'), shipped.join(', '));
   const names = [basename(HOOK_WITH_DEADLINES), basename(TOOL_WITH_LIMITS), DEADLINES_VARIABLE, LIMITS_VARIABLE];

@@ -24,14 +24,14 @@ function promptOfF(fileText = F, waived = [4]): string {
   });
 }
 
-test('the prompt for F is section 4 exactly, and holds 2,127 characters', () => {
+test('reviewer-slice §4: the prompt for F is section 4 exactly, and holds 2,127 characters', () => {
   const prompt = promptOfF();
   assert.equal(FRAME, SPEC_FRAME);
   assert.equal(prompt, SPEC_FRAME + '\n\n' + PROMPT_TAIL);
   assert.equal(size(prompt), 2127);
 });
 
-test('numbered lines, the empty file, CRLF, a path that needs quoting and waived lines', () => {
+test('reviewer-slice §4: numbered lines, the empty file, CRLF, a path that needs quoting and waived lines', () => {
   assert.deepEqual(numbered(''), []);
   assert.deepEqual(numbered('a\r\n\r\nb\rc\n'), ['1| a', '2|', '3| b\\rc']);
   const prompt = buildPrompt({ why: 'w', ruleText: '\r\n  rule\r\ntext \n\n', context: [], filePath: 'a "b".ts', fileText: '', waived: [2, 7] });
@@ -39,14 +39,14 @@ test('numbered lines, the empty file, CRLF, a path that needs quoting and waived
   assert.ok(promptOfF(F, []).endsWith('<waived>\nnone\n</waived>'));
 });
 
-test('the size counts code points', () => {
+test('reviewer-slice §4: the size counts code points', () => {
   assert.equal(size('a😀b'), 3);
 });
 
 const PASS = '{"verdict": "pass", "findings": []}';
 const FAIL = '{"verdict": "fail", "findings": [{"line": 2, "message": "m"}]}';
 
-test('each form of answer is read', () => {
+test('reviewer-slice §4: each form of answer is read', () => {
   assert.deepEqual(checkAnswer(`  ${FAIL}\n`, 5), { verdict: 'fail', findings: [{ line: 2, message: 'm' }] });
   assert.deepEqual(checkAnswer('```json\n' + FAIL + '\n```', 5), { verdict: 'fail', findings: [{ line: 2, message: 'm' }] });
   assert.deepEqual(checkAnswer('Here:\n```\n' + PASS + '\n```\nDone.', 5), { verdict: 'pass', findings: [] });
@@ -62,12 +62,12 @@ test('each form of answer is read', () => {
   assert.deepEqual(checkAnswer('{"verdict": "fail", "findings": [{"message": "whole"}], "extra": 1}', 5), { verdict: 'fail', findings: [{ line: null, message: 'whole' }] });
 });
 
-test('the first candidate taken is checked, and nothing else is tried', () => {
+test('reviewer-slice §4: the first candidate taken is checked, and nothing else is tried', () => {
   assert.deepEqual(takeAnswer('```json\n{"verdict": "PASS"}\n```\n' + PASS), { verdict: 'PASS' });
   assert.ok('problem' in checkAnswer('```json\n{"verdict": "PASS"}\n```\n' + PASS, 5));
 });
 
-test('every bad answer is named', () => {
+test('reviewer-slice §4: every bad answer is named', () => {
   const bad = [
     'fine',
     '[]',
@@ -89,7 +89,7 @@ test('every bad answer is named', () => {
   for (const answer of bad) assert.ok('problem' in checkAnswer(answer, 5), answer);
 });
 
-test('a message keeps one space per line break and is trimmed', () => {
+test('reviewer-slice §4: a message keeps one space per line break and is trimmed', () => {
   assert.equal(cleanMessage(' a\nb\r\nc\rd  '), 'a b c d');
 });
 

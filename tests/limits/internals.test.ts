@@ -9,7 +9,7 @@ import { platformSkip } from '../harness/tool.ts';
 import { errorLines, run } from './support.ts';
 
 
-test('S1-7: test 244: a folder that cannot be read is file-unreadable for the typed files below it, and a law that cannot be read is law-invalid', async (t) => {
+test('test 244: S1-7, a folder that cannot be read is file-unreadable for the typed files below it, and a law that cannot be read is law-invalid', async (t) => {
   const skipped = platformSkip('the whole test');
   if (skipped !== null) return t.skip(skipped);
   await withSample(async (s) => {
@@ -38,7 +38,7 @@ test('S1-7: test 244: a folder that cannot be read is file-unreadable for the ty
   });
 });
 
-test('S5-6: test 245: explain on a path that cannot exist is usage, not internal', async () => {
+test('test 245: S5-6, explain on a path that cannot exist is usage, not internal', async () => {
   await withSample(async (s) => {
     for (const path of [`src/core/${'a'.repeat(300)}.ts`, Array.from({ length: 2500 }, () => 'd').join('/')]) {
       const result = await run(s, ['explain', path]);
@@ -60,7 +60,7 @@ test('S5-6: test 245: explain on a path that cannot exist is usage, not internal
   });
 });
 
-test('S5-4: test 241: init where .lawcheck is a symbolic link to nothing names it', async (t) => {
+test('test 241: S5-4, init where .lawcheck is a symbolic link to nothing names it', async (t) => {
   const skipped = platformSkip('the whole test');
   if (skipped !== null) return t.skip(skipped);
   await inTemp(async (dir) => {

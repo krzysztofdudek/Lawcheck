@@ -15,14 +15,14 @@ function stubFetch(reply: unknown, status = 200) {
   return { seen, restore: () => (globalThis.fetch = original) };
 }
 
-test('ready: a key, and only LAWCHECK_REVIEWER_KEY with an endpoint', () => {
+test('test 400: ready: a key, and only LAWCHECK_REVIEWER_KEY with an endpoint', () => {
   assert.equal(openai(config, { OPENAI_API_KEY: 'o' }).ready(), null);
   assert.equal(openai(config, { LAWCHECK_REVIEWER_KEY: 'l' }).ready(), null);
   assert.equal(openai(config, {}).ready(), 'openai needs a key in OPENAI_API_KEY or LAWCHECK_REVIEWER_KEY');
   assert.match(openai(config, { LAWCHECK_REVIEWER_ENDPOINT: 'http://h/v1', OPENAI_API_KEY: 'o' }).ready()!, /sends LAWCHECK_REVIEWER_KEY alone/);
 });
 
-test('without an endpoint, OPENAI_API_KEY goes to api.openai.com before LAWCHECK_REVIEWER_KEY, in the body of chat completions', async () => {
+test('test 400: without an endpoint, OPENAI_API_KEY goes to api.openai.com before LAWCHECK_REVIEWER_KEY, in the body of chat completions', async () => {
   const stub = stubFetch({ choices: [{ message: { role: 'assistant', content: 'the answer' } }] });
   try {
     assert.deepEqual(await openai({ ...config, temperature: 0.3 }, { OPENAI_API_KEY: 'o', LAWCHECK_REVIEWER_KEY: 'l' }).ask('p'), { answer: 'the answer' });
@@ -42,7 +42,7 @@ test('without an endpoint, OPENAI_API_KEY goes to api.openai.com before LAWCHECK
   }
 });
 
-test('an answer that is absent or no string is empty, and no call is made without a key', async () => {
+test('test 400: an answer that is absent or no string is empty, and no call is made without a key', async () => {
   const stub = stubFetch({ choices: [{ message: { content: 5 } }] });
   try {
     assert.deepEqual(await openai(config, { OPENAI_API_KEY: 'o' }).ask('p'), { answer: '' });

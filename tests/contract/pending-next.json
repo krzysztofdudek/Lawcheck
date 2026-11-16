@@ -1,0 +1,3 @@
+[
+  {"case": "not-initialized, doctor, law.yaml is a directory", "code": "not-initialized", "command": "lawcheck init", "finding": "S5-5"}
+]

@@ -70,7 +70,7 @@ test('test 24: a rule that hangs is stopped', async () => {
   await hangScenario(TEST_RULE_MS);
 });
 
-test('section 3: each call of a rule has the whole limit, so two calls that are each inside it pass however long they take together', async () => {
+test('R-85: each call of a rule has the whole limit, so two calls that are each inside it pass however long they take together', async () => {
   await withRule(ORIGINAL + `export async function check(input) {\n  await new Promise((done) => setTimeout(done, ${RULE_CALL_MS}));\n  return original(input);\n}\n`, async (s) => {
     write(s, 'src/core/second.ts', 'export const second = 1;\n');
     const run = await startLawcheck(s, ['check', '--base', 'main'], { limits: { ruleMs: TEST_RULE_MS } }).ended;
@@ -80,14 +80,14 @@ test('section 3: each call of a rule has the whole limit, so two calls that are 
   });
 });
 
-test('section 3: the tool allows a rule 30 seconds for its load and 30 for each call', () => {
+test('check-slice §3: the tool allows a rule 30 seconds for its load and 30 for each call', () => {
   const sentence = /The tool allows (\d+) seconds for the load and (\d+) seconds for each call/.exec(readFileSync(join(ROOT, 'spec', 'check-slice.md'), 'utf8'));
   assert.ok(sentence, 'spec/check-slice.md, section 3, names the time a rule may take');
   assert.equal(sentence[1], sentence[2]);
   assert.deepEqual(LIMITS, { ruleMs: Number(sentence[1]) * 1000 });
 });
 
-test('section 3: the tool a user starts keeps its 30 seconds for a rule when the variable of the test entry is set', async () => {
+test('R-87: the tool a user starts keeps its 30 seconds for a rule when the variable of the test entry is set', async () => {
   await withRule(
     ORIGINAL + `export async function check(input) {\n  await new Promise((done) => setTimeout(done, ${PAST_USER_SET_MS}));\n  return original(input);\n}\n`,
     async (s) => {
@@ -180,7 +180,7 @@ function alive(pid: number): boolean {
   }
 }
 
-test('section 3: a rule that spins ends with the tool, whatever ends the tool', async () => {
+test('check-slice §3: a rule that spins ends with the tool, whatever ends the tool', async () => {
   const spin = "export function check() { console.error('runner ' + process.pid); return new Promise(() => setTimeout(() => { console.error('spinning'); while (true) {} }, 100)); }\n";
   for (const signal of ['SIGTERM', 'SIGKILL'] as const) {
     await withRule(spin, async (s) => {
@@ -200,7 +200,7 @@ test('section 3: a rule that spins ends with the tool, whatever ends the tool', 
   }
 });
 
-test("section 3: a rule that writes to the runner's channel crashes as that rule", async () => {
+test("check-slice §3: a rule that writes to the runner's channel crashes as that rule", async () => {
   const cases: [string, string][] = [
     ['sends null', 'export function check() { process.send(null); return []; }\n'],
     ['sends an answer of its own', ORIGINAL + "export function check(input) { process.send({ kind: 'result', value: [] }); return original(input); }\n"],
@@ -214,7 +214,7 @@ test("section 3: a rule that writes to the runner's channel crashes as that rule
   }
 });
 
-test('section 3: what a rule prints goes to standard error', async () => {
+test('check-slice §3: what a rule prints goes to standard error', async () => {
   await withRule(
     ORIGINAL + "export function check(input) { console.log('out from the rule'); console.error('err from the rule'); return original(input); }\n",
     async (s) => {
@@ -227,7 +227,7 @@ test('section 3: what a rule prints goes to standard error', async () => {
   );
 });
 
-test('section 3: the runner takes no flag the tool was started with', async () => {
+test('check-slice §3: the runner takes no flag the tool was started with', async () => {
   await withRule('export function check() { return [{ message: JSON.stringify(process.execArgv) }]; }\n', async (s) => {
     const run = await lawcheck(s, ['check', '--base', 'main'], {}, ['--no-warnings', '--max-old-space-size=256']);
     const line = findingLines(run.stdout)[0] ?? '';

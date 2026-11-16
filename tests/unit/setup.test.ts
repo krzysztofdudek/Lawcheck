@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fromCwd, locate, nearPart, Stop, touchesLaw } from '../../dist/setup.js';
 
-test('a path typed from a directory below the root is made relative to the root, and one outside is usage', () => {
+test('commands-slice §2: a path typed from a directory below the root is made relative to the root, and one outside is usage', () => {
   const dir = realpathSync(mkdtempSync(join(tmpdir(), 'lawcheck-setup-')));
   try {
     mkdirSync(join(dir, 'src/core'), { recursive: true });
@@ -20,7 +20,7 @@ test('a path typed from a directory below the root is made relative to the root,
   }
 });
 
-test('locate stops with not-initialized without a law', () => {
+test('check-slice §2: locate stops with not-initialized without a law', () => {
   const dir = mkdtempSync(join(tmpdir(), 'lawcheck-setup-'));
   try {
     assert.throws(() => locate(dir), (error: unknown) => error instanceof Stop && error.errors[0]!.code === 'not-initialized');
@@ -32,7 +32,7 @@ test('locate stops with not-initialized without a law', () => {
   }
 });
 
-test('the law and the rule files are what a change of the law touches', () => {
+test('commands-slice §8: the law and the rule files are what a change of the law touches', () => {
   assert.ok(touchesLaw('.lawcheck/law.yaml'));
   assert.ok(touchesLaw('.lawcheck/rules/no-todo.mjs'));
   assert.ok(touchesLaw('.lawcheck/rules/lib/shared.mjs'));
@@ -41,7 +41,7 @@ test('the law and the rule files are what a change of the law touches', () => {
   assert.ok(!touchesLaw('src/.lawcheck/law.yaml'));
 });
 
-test('the nearest id within two edits', () => {
+test('check-slice §2: the nearest id within two edits', () => {
   assert.equal(nearPart('no-tod', ['no-todo', 'no-console']), " (did you mean 'no-todo'?)");
   assert.equal(nearPart('zzz', ['no-todo']), '');
 });

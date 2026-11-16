@@ -6,7 +6,7 @@ import { decode, filesOfTypes, isBinary, splitLines, typeFiles } from '../../dis
 
 const SAMPLE = readFileSync(new URL('../sample/.lawcheck/law.yaml', import.meta.url), 'utf8');
 
-test('lines split at \\n and \\r\\n; a lone \\r stays; a final line end adds nothing', () => {
+test('check-slice §2: lines split at \\n and \\r\\n; a lone \\r stays; a final line end adds nothing', () => {
   assert.deepEqual(splitLines(''), []);
   assert.deepEqual(splitLines('\n'), ['']);
   assert.deepEqual(splitLines('ab\r\ncd\r\n'), ['ab', 'cd']);
@@ -14,17 +14,17 @@ test('lines split at \\n and \\r\\n; a lone \\r stays; a final line end adds not
   assert.deepEqual(splitLines('a\n\n'), ['a', '']);
 });
 
-test('text drops a byte-order mark and replaces invalid bytes', () => {
+test('check-slice §2: text drops a byte-order mark and replaces invalid bytes', () => {
   assert.equal(decode(Buffer.from([0xef, 0xbb, 0xbf, 0x61])), 'a');
   assert.equal(decode(Buffer.from([0x61, 0xff])), 'a\ufffd');
 });
 
-test('a NUL byte in the first 8,000 bytes makes a file binary', () => {
+test('check-slice §2: a NUL byte in the first 8,000 bytes makes a file binary', () => {
   assert.equal(isBinary(Buffer.from('a\0b')), true);
   assert.equal(isBinary(Buffer.concat([Buffer.alloc(8000, 0x61), Buffer.from([0])])), false);
 });
 
-test('each file gets its deepest type, and the rules on the way down', () => {
+test('check-slice §2: each file gets its deepest type, and the rules on the way down', () => {
   const { law } = parseLaw(SAMPLE);
   const texts: Record<string, string> = {
     'src/core/a.ts': 'x\n',
@@ -59,7 +59,7 @@ test('each file gets its deepest type, and the rules on the way down', () => {
   assert.deepEqual(of.get('command'), ['src/cli/b.ts']);
 });
 
-test('overlaps and unreadable files', () => {
+test('check-slice §2: overlaps and unreadable files', () => {
   const { law } = parseLaw(SAMPLE + '  core:\n    paths: ["src/core/**"]\n');
   const { overlaps } = typeFiles('/nowhere', ['src/core/a.ts'], law!, () => Buffer.from('x\n'));
   assert.equal(overlaps.length, 1);

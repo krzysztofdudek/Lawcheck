@@ -7,7 +7,7 @@ import { anthropic } from '../../dist/providers/anthropic.js';
 
 const config = { ...DEFAULT_CONFIG, provider: 'anthropic' as const, model: 'm' };
 
-test('a key goes only where it was given', () => {
+test('tests 404, 65: a key goes only where it was given', () => {
   assert.equal(anthropic(config, { ANTHROPIC_API_KEY: 'a' }).ready(), null);
   assert.equal(anthropic(config, { LAWCHECK_REVIEWER_KEY: 'l' }).ready(), null);
   assert.match(anthropic(config, {}).ready()!, /key/);
@@ -16,7 +16,7 @@ test('a key goes only where it was given', () => {
   assert.match(anthropic(config, { LAWCHECK_REVIEWER_ENDPOINT: 'gopher://h', LAWCHECK_REVIEWER_KEY: 'l' }).ready()!, /http/);
 });
 
-test('without an endpoint, ANTHROPIC_API_KEY goes to api.anthropic.com before LAWCHECK_REVIEWER_KEY', async () => {
+test('reviewer-slice §6: without an endpoint, ANTHROPIC_API_KEY goes to api.anthropic.com before LAWCHECK_REVIEWER_KEY', async () => {
   const original = globalThis.fetch;
   const seen: { url: string; key: string | null }[] = [];
   globalThis.fetch = (async (url: string, init: { headers: Record<string, string> }) => {
@@ -35,7 +35,7 @@ test('without an endpoint, ANTHROPIC_API_KEY goes to api.anthropic.com before LA
   }
 });
 
-test('the request, and the text items joined', async () => {
+test('test 65: the request, and the text items joined', async () => {
   const seen: { url?: string; headers?: Record<string, unknown>; body?: string }[] = [];
   const server = createServer((req, res) => {
     let body = '';
