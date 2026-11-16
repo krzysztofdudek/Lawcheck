@@ -1,12 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parse } from 'yaml';
 import { failedTests, judge, judgeShards, mergeProblems, parseRunStarted, profile, readShards, summary, tied, type Event, type Shard } from '../harness/merge.ts';
 import { judgeRun } from '../harness/reporter.ts';
+import { startProgram, testFolder } from '../harness/tool.ts';
 import { continueOnErrorProblems } from '../harness/workflows.ts';
 import { groupDirs, perPushFiles, PLATFORM_TESTS, ROOT, setFiles } from '../harness/sets.ts';
 import { balance, matrix, measureShards, plannedWalls, planProblems, readPlan, repoPath, SYSTEMS, wallOf, type Plan, type Run } from '../harness/shards.ts';
@@ -32,6 +31,8 @@ type Step = { id?: string; name?: string; uses?: string; if?: string; env?: Reco
 type CiJob = { 'continue-on-error'?: unknown; permissions?: Record<string, string>; needs?: string | string[]; if?: string; 'runs-on'?: string; outputs?: Record<string, string>; strategy?: { matrix?: { include?: unknown } }; steps?: Step[] };
 type Ci = { jobs: Record<string, CiJob> };
 const OS: Record<(typeof SYSTEMS)[number], RegExp> = { linux: /^ubuntu-/, win32: /^windows-/, darwin: /^macos-/ };
+const START_STEP = ['started=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" --jq .run_started_at) || started=', 'echo "at=$started" >> "$GITHUB_OUTPUT"'];
+const commandLines = (run: string | undefined): string[] => (run ?? '').split('\n').filter((line) => line.trim() !== '');
 const needsOf = (job: CiJob | undefined): string[] => [job?.needs ?? []].flat().sort();
 
 // Each system runs per push in the shards of the plan and is merged on its own: the build prints the matrix from tests/harness/shards.json, one shard job per system reads it, the merge of a system waits for that system's shards only, and the one required check waits for every job.
@@ -71,7 +72,7 @@ function ciProblems(ci: Ci, plan: Plan): string[] {
     const merged = (merge.steps ?? []).find((s) => /^node tests\/harness\/merge\.ts shards --system \$\{\{ matrix\.system \}\}( |$)/.test(s.run ?? ''));
     const download = (merge.steps ?? []).find((s) => s.uses?.startsWith('actions/download-artifact@') && s.with?.pattern === 'shard-${{ matrix.os }}-${{ matrix.node }}-*' && s.with?.path === 'shards');
     if (merged === undefined || download === undefined) problems.push(`ci.yml: merge-${system} does not judge the shards of its run as one run of its system`);
-    const started = (merge.steps ?? []).find((s) => s.id !== undefined && s.env?.GH_TOKEN === '${{ github.token }}' && /^started=\$\(gh api "repos\/\$GITHUB_REPOSITORY\/actions\/runs\/\$GITHUB_RUN_ID" --jq \.run_started_at\) \|\| started=$/m.test(s.run ?? '') && /^echo "at=\$started" >> "\$GITHUB_OUTPUT"$/m.test(s.run ?? ''));
+    const started = (merge.steps ?? []).find((s) => s.id !== undefined && s.env?.GH_TOKEN === '${{ github.token }}' && JSON.stringify(commandLines(s.run)) === JSON.stringify(START_STEP));
     if (started === undefined || !(merged?.run ?? '').includes(`--run-started "\${{ steps.${started.id}.outputs.at }}"`)) problems.push(`ci.yml: merge-${system} does not time its run from the run's own start, run_started_at of the API, or lets a failed call fail the merge`);
     if (JSON.stringify(Object.entries(merge.permissions ?? {}).sort()) !== JSON.stringify([['actions', 'read'], ['contents', 'read']])) problems.push(`ci.yml: merge-${system} has permissions other than read of the contents and of the actions`);
   }
@@ -106,6 +107,7 @@ test('each of the three systems runs per push in the shards of tests/harness/sha
 test('a ci.yml that drops the runs of a system, merges a system after another\'s shards, writes the shards by hand, or leaves a job out of the required check is refused (control)', () => {
   const plan = readPlan();
   const changed = (edit: (ci: Ci) => void): string[] => { const ci = ciFile(); edit(ci); return ciProblems(ci, plan); };
+  const unstarted = (job: string) => `ci.yml: ${job} does not time its run from the run's own start, run_started_at of the API, or lets a failed call fail the merge`;
   const runsOf = (ci: Ci) => ci.jobs.build!.steps!.find((s) => s.id === 'matrix')!.env!;
   assert.deepEqual(changed((ci) => { const env = runsOf(ci); env.RUNS = JSON.stringify((JSON.parse(env.RUNS!) as Run[]).filter((run) => run.system !== 'win32')); }), ['ci.yml: no run of win32 per push', 'ci.yml: shards_win32 is empty', 'ci.yml: runs_win32 is empty']);
   assert.deepEqual(changed((ci) => { ci.jobs['merge-darwin']!.needs = ['build', 'shard-darwin', 'shard-win32']; }), ['ci.yml: merge-darwin waits for build, shard-darwin, shard-win32, not for the build and the shards of darwin alone']);
@@ -116,7 +118,11 @@ test('a ci.yml that drops the runs of a system, merges a system after another\'s
   assert.deepEqual(changed((ci) => { ci.jobs['shard-darwin']!.if = "github.event_name == 'push'"; }), ["ci.yml: shard-darwin runs only if github.event_name == 'push'"]);
   assert.deepEqual(changed((ci) => { const run = ci.jobs['merge-win32']!.steps!.find((s) => s.name === 'The shards as one run')!; run.run = run.run!.replace(/ --run-started "[^"]*"/, ''); }), ["ci.yml: merge-win32 does not time its run from the run's own start, run_started_at of the API, or lets a failed call fail the merge"]);
   assert.deepEqual(changed((ci) => { ci.jobs['merge-darwin']!.steps = ci.jobs['merge-darwin']!.steps!.filter((s) => s.id !== 'started'); }), ["ci.yml: merge-darwin does not time its run from the run's own start, run_started_at of the API, or lets a failed call fail the merge"]);
-  assert.deepEqual(changed((ci) => { const read = ci.jobs['merge-linux']!.steps!.find((s) => s.id === 'started')!; read.run = read.run!.replace(' || started=', ''); }), ["ci.yml: merge-linux does not time its run from the run's own start, run_started_at of the API, or lets a failed call fail the merge"]);
+  assert.deepEqual(changed((ci) => { const read = ci.jobs['merge-linux']!.steps!.find((s) => s.id === 'started')!; read.run = read.run!.replace(' || started=', ''); }), [unstarted('merge-linux')]);
+  for (const added of ['exit 1', 'false', 'test -n "$started"', 'echo "at=$started" >> "$GITHUB_OUTPUT" && exit 1']) {
+    assert.deepEqual(changed((ci) => { const read = ci.jobs['merge-darwin']!.steps!.find((s) => s.id === 'started')!; read.run = `${read.run!.trimEnd()}\n${added}\n`; }), [unstarted('merge-darwin')], `${added} after the fallback`);
+    assert.deepEqual(changed((ci) => { const read = ci.jobs['merge-win32']!.steps!.find((s) => s.id === 'started')!; const [call, write] = commandLines(read.run); read.run = `${call}\n${added}\n${write}\n`; }), [unstarted('merge-win32')], `${added} between the fallback and the write`);
+  }
   assert.deepEqual(changed((ci) => { ci.jobs['merge-linux']!.permissions = { contents: 'read', actions: 'read', checks: 'write' }; }), ['ci.yml: merge-linux has permissions other than read of the contents and of the actions']);
   assert.deepEqual(changed((ci) => { delete ci.jobs['merge-linux']!.permissions; }), ['ci.yml: merge-linux has permissions other than read of the contents and of the actions']);
 });
@@ -229,7 +235,7 @@ async function* replay(events: Event[]): AsyncGenerator<Event> {
 }
 
 function recorded(shards: { meta: Record<string, unknown>; events: Event[] }[]): string {
-  const dir = mkdtempSync(join(tmpdir(), 'lawcheck-merge-'));
+  const dir = testFolder('lawcheck-merge-').dir;
   for (const { meta, events } of shards) {
     writeFileSync(join(dir, `meta-${meta.shard}.json`), JSON.stringify(meta));
     writeFileSync(join(dir, `events-${meta.shard}.jsonl`), events.map((e) => JSON.stringify(e)).join('\n'));
@@ -314,7 +320,7 @@ test('the merge times a system as its wall time, from the first shard\'s start t
 test('the merge times a system from the start of the run to its own verdict, beside the shards\' wall time, in its text, its summary and its profile', async () => {
   const files = ['tests/unit/a.test.ts'];
   const dir = recorded([{ meta: { system: 'linux', node: 'v24', shard: 1, of: 1, files, started: 1_000_000, ended: 1_076_000, status: 0 }, events: [ok(files[0]!, 'test 1: a')] }]);
-  const out = mkdtempSync(join(tmpdir(), 'lawcheck-merge-out-'));
+  const out = testFolder('lawcheck-merge-out-').dir;
   try {
     const runStarted = parseRunStarted('2026-11-16T01:50:00Z')!;
     const judged = await judge(dir, 'linux', { profile: join(out, 'profile.json'), summary: join(out, 'summary.md'), runStarted, now: () => runStarted + 262_000 });
@@ -338,24 +344,24 @@ test('when the call that reads the start of the run fails, the merge says so and
   const meta = { system: 'linux', node: 'v24', shard: 1, of: 1, files, started: 1_000_000, ended: 1_076_000 };
   const green = recorded([{ meta: { ...meta, status: 0 }, events: [ok(files[0]!, 'test 1: a')] }]);
   const red = recorded([{ meta: { ...meta, status: 1 }, events: [{ type: 'test:fail', data: { file: join(ROOT, files[0]!), name: 'test 1: a', nesting: 0, details: { error: { failureType: 'testCodeFailure' } } } }] }]);
-  const out = mkdtempSync(join(tmpdir(), 'lawcheck-merge-out-'));
-  const merge = (dir: string, started: string | null) => spawnSync(process.execPath, ['tests/harness/merge.ts', dir, '--system', 'linux', '--profile', join(out, 'profile.json'), '--summary', join(out, 'summary.md'), ...(started === null ? [] : ['--run-started', started])], { cwd: ROOT, encoding: 'utf8' });
+  const out = testFolder('lawcheck-merge-out-').dir;
+  const merge = (dir: string, started: string | null) => startProgram(join(ROOT, 'tests', 'harness', 'merge.ts'), [dir, '--system', 'linux', '--profile', join(out, 'profile.json'), '--summary', join(out, 'summary.md'), ...(started === null ? [] : ['--run-started', started])], ROOT, {}).ended;
   try {
     for (const [name, dir] of [['a shard that ran fewer files than the plan has', green], ['a failed test', red]] as const) {
       writeFileSync(join(out, 'summary.md'), '');
-      const without = merge(dir, null);
-      assert.equal(without.status, 1, name);
+      const without = await merge(dir, null);
+      assert.equal(without.code, 1, name);
       writeFileSync(join(out, 'summary.md'), '');
-      const working = merge(dir, new Date(Date.now() - 262_000).toISOString().replace(/\.\d+Z$/, 'Z'));
-      assert.equal(working.status, without.status, `${name}, the call works: ${working.stderr}`);
+      const working = await merge(dir, new Date(Date.now() - 262_000).toISOString().replace(/\.\d+Z$/, 'Z'));
+      assert.equal(working.code, without.code, `${name}, the call works: ${working.stderr}`);
       assert.ok(working.stdout.startsWith(without.stdout), name);
       assert.match(working.stdout.slice(without.stdout.length), /^\d+ s from the start of the run to this verdict, against 76 s of wall time of the shards\n$/);
       assert.match(readFileSync(join(out, 'summary.md'), 'utf8'), /\d+ s from the start of the run to this verdict, the build, the setup and the merge included\.\n\n$/);
       assert.ok((JSON.parse(readFileSync(join(out, 'profile.json'), 'utf8')) as { run_ms: number }).run_ms > 200_000);
       for (const value of ['', 'null', 'gh: HTTP 502']) {
         writeFileSync(join(out, 'summary.md'), '');
-        const failing = merge(dir, value);
-        assert.equal(failing.status, without.status, `${name}, the call failed with ${JSON.stringify(value)}: ${failing.stderr}`);
+        const failing = await merge(dir, value);
+        assert.equal(failing.code, without.code, `${name}, the call failed with ${JSON.stringify(value)}: ${failing.stderr}`);
         assert.equal(failing.stderr, '');
         assert.equal(failing.stdout, `${without.stdout}${unreadable}\n`);
         assert.ok(readFileSync(join(out, 'summary.md'), 'utf8').endsWith(` ${unreadable}\n\n`));

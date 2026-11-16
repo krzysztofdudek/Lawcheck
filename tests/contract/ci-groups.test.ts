@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parse } from 'yaml';
 import { COMMIT_GROUPS, NIGHTLY_GROUPS, ROOT } from '../harness/sets.ts';
@@ -112,13 +112,14 @@ test('every grammar cache is keyed by every file that decides the bytes of .gram
   assert.deepEqual(grammarKeys({ 'ci.yml': read('ci.yml'), 'nightly.yml': read('nightly.yml'), 'weekly.yml': read('weekly.yml'), 'release.yml': read('release.yml') }), []);
 });
 
-const WORKFLOW_FILES = ['ci.yml', 'nightly.yml', 'weekly.yml'];
+const WORKFLOW_FILES = readdirSync(WORKFLOWS).filter((name) => /\.ya?ml$/.test(name)).sort();
 
-test('no job or step of ci.yml, nightly.yml or weekly.yml carries continue-on-error, as a red there must stop the required check and the release', () => {
+test('no job or step of any workflow file carries continue-on-error, as a red there must stop the required check and the release', () => {
+  assert.ok(WORKFLOW_FILES.length > 0);
   for (const file of WORKFLOW_FILES) assert.deepEqual(continueOnErrorProblems(file, read(file).jobs), [], file);
 });
 
-test('continue-on-error on any job or step of ci.yml, nightly.yml or weekly.yml is refused, and a literal false is not (control)', () => {
+test('continue-on-error on any job or step of any workflow file is refused, and a literal false is not (control)', () => {
   const reds = (file: string, what: string) => `${file}: ${what} has continue-on-error, so GitHub reports its red as a success`;
   for (const file of WORKFLOW_FILES) {
     const on = (edit: (workflow: Workflow) => void): string[] => { const workflow = read(file); edit(workflow); return continueOnErrorProblems(file, workflow.jobs); };
