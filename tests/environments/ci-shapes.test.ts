@@ -71,6 +71,16 @@ test('S7-6: a depth-1 clone of a branch with no base fails every file outside CI
   });
 });
 
+test('R-48: the clone of the no-base case has no origin/HEAD, whichever git made it, so the job is refused for its missing base', async () => {
+  await inTemp(async (dir) => {
+    const clone = noBaseClone(dir);
+    assert.throws(() => execFileSync('git', ['symbolic-ref', '--quiet', 'refs/remotes/origin/HEAD'], { cwd: clone, env: GIT_ENV, stdio: 'ignore' }));
+    const job = await lawcheck(clone, ['check'], CI);
+    assert.equal(job.stdout, NO_BASE_IN_CI);
+    assert.equal(job.code, 2);
+  });
+});
+
 test('S7-6: --full needs no base, so it judges every file in CI as it does elsewhere', async () => {
   await inTemp(async (dir) => {
     const clone = noBaseClone(dir);

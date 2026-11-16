@@ -43,7 +43,7 @@ async function stop(running: Running, signal: (typeof SIGNALS)[number]): Promise
 // The content pattern backtracks exponentially on a line of a's that ends in another character, so typing the file never ends by itself.
 const HEAVY_LAW = `${LAW}  slow:\n    paths: ["slow/**"]\n    content: "^(a|a)+$"\n`;
 
-test('test 239: S1-1, a signal while files are typed against a heavy pattern ends the run as stopped', async (t) => {
+test('test 239: S1-1, R-28, a signal while files are typed against a heavy pattern ends the run as stopped', async (t) => {
   const skipped = platformSkip('the whole test');
   if (skipped !== null) return t.skip(skipped);
   for (const signal of SIGNALS) {

@@ -47,7 +47,7 @@ test('S1-2: a file whose name holds a line break, a carriage return or an invali
   });
 });
 
-test('S1-2: an untracked src/core/a<LF>b.ts holding console.log is in the change and fails the check', async (t) => {
+test('R-37: an untracked src/core/a<LF>b.ts holding console.log is in the change and fails the check', async (t) => {
   const skip = platformSkip('the whole test');
   if (skip !== null) return t.skip(skip);
   await withSample(async (s) => {

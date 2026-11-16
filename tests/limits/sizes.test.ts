@@ -125,7 +125,7 @@ async function withLaw(law: string, rules: number, body: (repo: string) => Promi
   });
 }
 
-test('test 254: a law may hold 10,000 rules, 1,000 types and 1 MiB, and past each it is file-too-large', async () => {
+test('test 254: R-28, a law may hold 10,000 rules, 1,000 types and 1 MiB, and past each it is file-too-large', async () => {
   await withLaw(lawOf(10_000, 1_000), 10_000, async (repo) => {
     const at = await run(repo, ['check'], { budget: 'LIMITS_RUN_MS' });
     assert.equal(at.stdout, 'lawcheck: PASS  10001 files (no base: every file counts as changed)\n');
