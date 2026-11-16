@@ -35,7 +35,7 @@ export const HOOK_STOP_DEADLINE_MS = 150_000;
 export const HOOK_SIGTERM_AFTER_MS = 2_000;
 export const STOPPED_HOOK_ENDS_MS = 10_000;
 
-// spec/reviewer-slice.md, section 6: a call ends at reviewer.timeout without waiting for the kill grace or a second full timeout. Tests 406 to 408 run with a timeout of 1 second, the shared list and call with one of 2, test 411 with one of 3; a timeout of 1 second of an HTTP provider in test 403, and a program that ended while a child holds its output, ended 2 seconds later.
+// spec/reviewer-slice.md, section 6: a call ends at reviewer.timeout without waiting for the kill grace or a second full timeout. Tests 406 to 408 run with a timeout of 1 second, the shared list and call with one of SHARED_TIMEOUT_S, test 411 with one of 3; a timeout of 1 second of an HTTP provider in test 403, and a program that ended while a child holds its output, ended 2 seconds later.
 export const PROGRAM_TIMEOUT_RUN_MS = 5_000;
 export const HTTP_TIMEOUT_RUN_MS = 10_000;
 export const HELD_OUTPUT_RUN_MS = 10_000;
@@ -44,9 +44,10 @@ export const RESEND_WAIT_MS = 2_000;
 // Test 411: the fake answers after 2.5 seconds of a timeout of 3, so the resend has 0.5 seconds left; the bound adds 1 second, twenty times the tens of milliseconds a request takes to be cut off, and stays well below the full 3 seconds a resend had before.
 export const RESEND_REPLY_DELAY_MS = 2_500;
 export const RESEND_LEFT_BOUND_MS = 1_500;
-// The case of tests 406 and 408 where the list of MCP servers takes 1.5 seconds and the answer 1 second more, past a timeout of 2.
-export const LIST_DELAY_MS = 1_500;
-export const LATE_ANSWER_MS = 1_000;
+// The case of tests 406 and 408 where the list of MCP servers takes 2 seconds and the answer 3 seconds more, past a timeout of 4. Neither alone reaches the timeout, and the two together pass it by 1 second: the list keeps 2 seconds for the starts of the fake and of its sleeping child, which take over half a second on a Windows runner, and an answer that got a timeout of its own would still end in time by 1 second.
+export const SHARED_TIMEOUT_S = 4;
+export const LIST_DELAY_MS = 2_000;
+export const LATE_ANSWER_MS = 3_000;
 
 // Rule 7 of section 16 of the test design: a time budget is at least 20 times the measured time.
 export const SLOW_MARGIN = 20;
@@ -276,6 +277,7 @@ export const stronger: Record<string, 'higher' | 'lower' | 'fixed'> = {
   PROGRAM_TIMEOUT_RUN_MS: 'lower',
   RESEND_REPLY_DELAY_MS: 'fixed',
   RESEND_LEFT_BOUND_MS: 'lower',
+  SHARED_TIMEOUT_S: 'fixed',
   LIST_DELAY_MS: 'fixed',
   LATE_ANSWER_MS: 'fixed',
   HTTP_TIMEOUT_RUN_MS: 'lower',
