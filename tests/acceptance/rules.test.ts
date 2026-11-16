@@ -70,7 +70,7 @@ test('test 24: a rule that hangs is stopped', async () => {
   await hangScenario(TEST_RULE_MS);
 });
 
-test('test 24: the tool allows a rule 30 seconds for its load and 30 for each call', () => {
+test('section 3: the tool allows a rule 30 seconds for its load and 30 for each call', () => {
   const sentence = /The tool allows (\d+) seconds for the load and (\d+) seconds for each call/.exec(readFileSync(join(ROOT, 'spec', 'check-slice.md'), 'utf8'));
   assert.ok(sentence, 'spec/check-slice.md, section 3, names the time a rule may take');
   assert.equal(sentence[1], sentence[2]);

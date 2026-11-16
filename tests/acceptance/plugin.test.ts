@@ -279,9 +279,9 @@ test('test 163: the deadline, and a hook that is stopped', async () => {
   await deadlineScenario(TEST_HOOK_DEADLINES, 'started');
 });
 
-test('test 163: the plugin ships deadlines of 25 seconds for session-start and edit, 15 for prompt and 145 for stop, each its timeout in hooks.json less 5', () => {
+test('section 5: the plugin ships deadlines of 25 seconds for session-start and edit, 15 for prompt and 145 for stop, each its timeout in hooks.json less 5', () => {
   const sentence = /\*\*One deadline per hook\*\*, its `timeout` less (\d+) seconds: (\d+) seconds for `session-start` and `edit`, (\d+) for `prompt`, (\d+) for `stop`/.exec(spec);
-  assert.ok(sentence, 'spec/plugin-slice.md, section 4, names the deadlines');
+  assert.ok(sentence, 'spec/plugin-slice.md, section 5, names the deadlines');
   const [less, startAndEdit, prompt, stop] = sentence.slice(1).map(Number) as [number, number, number, number];
   assert.deepEqual(DEADLINES, { 'session-start': startAndEdit, prompt, edit: startAndEdit, stop });
   const hooks = JSON.parse(readFileSync(join(PLUGIN, 'hooks', 'hooks.json'), 'utf8')).hooks as Record<string, { hooks: { args: string[]; timeout: number }[] }[]>;
