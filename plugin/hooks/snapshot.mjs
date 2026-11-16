@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process';
 import { lstatSync } from 'node:fs';
-import { join } from 'node:path';
+import { bytesOfName, nameOf, onDisk, quotedLine } from './names.mjs';
 import { findProgram } from './start.mjs';
 
 class NoSnapshot extends Error {}
@@ -43,12 +43,19 @@ function run(root, args, deadline, input) {
 }
 
 function splitZ(buffer) {
-  return buffer.toString('utf8').split('\0').filter((path) => path !== '');
+  const paths = [];
+  let start = 0;
+  for (let i = 0; i < buffer.length; i++) {
+    if (buffer[i] !== 0) continue;
+    if (i > start) paths.push(nameOf(buffer.subarray(start, i)));
+    start = i + 1;
+  }
+  return paths;
 }
 
 export function isRegular(root, path) {
   try {
-    return lstatSync(join(root, path)).isFile();
+    return lstatSync(onDisk(root, path)).isFile();
   } catch {
     return false;
   }
@@ -75,11 +82,12 @@ export function snapshot(root, deadline) {
     const hashed = [];
     for (const path of paths) {
       files[path] = '-';
-      if (!/[\r\n]/.test(path) && isRegular(root, path)) hashed.push(path);
+      if (isRegular(root, path)) hashed.push(path);
     }
     if (hashed.length > 0) {
-      // git reads these paths from the top of the work tree, not from the folder it runs in, so a root below the top needs them whole.
-      const ids = run(root, ['hash-object', '--stdin-paths'], deadline, hashed.map((path) => join(root, path)).join('\n') + '\n').toString('utf8').split('\n');
+      const prefix = run(root, ['rev-parse', '--show-prefix'], deadline).toString('utf8').replace(/\r?\n$/, '');
+      const input = Buffer.concat(hashed.map((path) => quotedLine(prefix, bytesOfName(path))));
+      const ids = run(root, ['hash-object', '--stdin-paths'], deadline, input).toString('utf8').split('\n');
       hashed.forEach((path, i) => {
         if (ids[i]) files[path] = ids[i];
       });

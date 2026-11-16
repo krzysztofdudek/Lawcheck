@@ -19,6 +19,7 @@ export function check({ files }) {
 One object with `files` and `repo`.
 
 - `files` holds one file per call: `path` (from the root), `type` (its type id), `text` and `lines`. Under `lawcheck try`, a file with no type has `type` null.
+- `path` is the file's path as Lawcheck prints it: a backslash, a line feed, a carriage return and a byte that is not UTF-8 are written `\\`, `\n`, `\r` and `\xHH`, so read the file through `text`, not through `path`.
 - `lines` is the text split at `\n` and `\r\n`. A final line end adds no empty line, so an empty file has no lines.
 - `repo.filesOf(typeId)` returns at once the sorted paths of every file of that type and its subtypes. It throws on an unknown id.
 
@@ -27,7 +28,7 @@ One object with `files` and `repo`.
 A list of findings, or a promise of one. A finding has:
 
 - `message`, a non-empty string; a line break in it becomes a space;
-- `line`, optional, an integer from 1 to the number of lines; without it the finding is about the whole file;
+- `line`, optional, an integer from 1 to the number of lines; without it the finding is about the whole file. `null`, a string such as `'2'` and a bigint are refused, and the message names the value;
 - `file`, optional, and only the path of the call.
 
 Other fields are ignored.
@@ -72,7 +73,8 @@ A rule is `rule-crashed`, exit 2, at its file when it:
 - throws or rejects;
 - returns anything but a list of findings as above, or a value the channel cannot carry, such as a function;
 - passes 30 seconds in its load or in one call;
-- ends its process before answering, or sends a message nobody asked for.
+- ends its process before answering, or sends a message nobody asked for;
+- leaves a promise rejected with no handler, or a timer that throws, while its process lives: the message names the load, or no file. After the last call Lawcheck waits once, at most 2 seconds, for what the rule left running.
 
 The message names the judged file, or the load. One run names each broken rule once.
 

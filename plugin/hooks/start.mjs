@@ -23,7 +23,7 @@ export function findRoot(start) {
 }
 
 export function runnerValue(text) {
-  for (const raw of text.split('\n')) {
+  for (const raw of text.replace(/^\uFEFF/, '').split('\n')) {
     const line = raw.endsWith('\r') ? raw.slice(0, -1) : raw;
     if (!line.startsWith('runner:')) continue;
     const rest = line.slice('runner:'.length);

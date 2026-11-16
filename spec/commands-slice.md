@@ -34,7 +34,7 @@ usage: lawcheck docs [<topic>] [--json]
 usage: lawcheck doctor [--base <ref>] [--reviewer] [--json]
 ```
 
-Slice one's rules for flags hold for every command: a flag given twice, an unknown flag, a flag that takes a value given last or before a word that starts with `-`, and the form `--flag=<value>` are `usage`; `--json` anywhere selects JSON, for a `usage` error too. A value of `--times` or `--max-calls` is digits alone. The `next:` of `usage` is `run lawcheck <command> as its usage line says: lawcheck <command> --help`, or `lawcheck --help` when no command was recognised.
+Slice one's rules for flags hold for every command: a flag given twice, an unknown flag, a flag that takes a value given last or before a word that starts with `-`, and the form `--flag=<value>` are `usage`; `--json` anywhere selects JSON, for a `usage` error too. A value of `--times` or `--max-calls` is digits alone, at most 9007199254740991, the largest whole number JavaScript holds exactly. The `next:` of `usage` is `run lawcheck <command> as its usage line says: lawcheck <command> --help`, or `lawcheck --help` when no command was recognised.
 
 **Paths a person types** are relative to the current directory. A path that resolves outside the root is `usage`. Paths the tool prints are relative to the root, with forward slashes, as before.
 
@@ -226,7 +226,7 @@ After steps 2 to 4 the last line is `shortened to fit; lawcheck explain --type <
 
 **Arguments.** The first word that is no flag is the rule; every other such word is a target. The rule is a rule id of the law; anything else is `usage`, naming the nearest id within two edits, and a built-in code such as `forbidden-use` is `usage` saying that `lawcheck check` judges it. `--times <n>` (at least 1), `--dry-run` and `--max-calls <n>` go only with a reviewer rule, and `--max-calls` not with `--dry-run`; otherwise they are `usage`.
 
-**Targets.** A target that names a file of slice one's section 2, from the current directory, is that file. Any other target holding `*`, `?` or `{` is a pattern of slice one's syntax, checked as slice one checks a pattern of the law (`usage` when it breaks those rules), matched against paths from the root after the current directory's path from the root and `/` are put in front of it; it selects the files of slice one's section 2 that match it, binary ones left out. Any other target is a path: a file, which must be one of those files and not binary, or a directory, which selects those files below it at any depth, binary ones left out. A target that selects no file is `usage`, saying why (`git ignores it or it does not exist`, `it is binary`, `matches no file`). The chosen files are the union, each once, in path order.
+**Targets.** A target that names a file of slice one's section 2, from the current directory, is that file. Any other target holding `*`, `?` or `{` is a pattern of slice one's syntax, checked as slice one checks a pattern of the law (`usage` when it breaks those rules), matched against paths from the root after the current directory's path from the root and `/` are put in front of it; it selects the files of slice one's section 2 that match it, binary ones left out. Any other target is a path: a file, which must be one of those files and not binary, or a directory, which selects those files below it at any depth, binary ones left out. An empty target, and an empty path given to `explain`, is `usage` (`an empty path names no file`). A target that selects no file is `usage`, saying why (`git ignores it or it does not exist`, `it is binary`, `matches no file`). The chosen files are the union, each once, in path order.
 
 Without a target, a script rule takes every file it binds through its type; one that binds none is `usage`, asking for the files to try it on. A reviewer rule takes files alone: no target, a directory or a pattern is `usage`, so every file sent to the reviewer is one the person named.
 
@@ -433,7 +433,7 @@ type source  (source)  Everything that ships.
     src/core/tax.ts
 ```
 
-A `content:  <expression>` line follows `paths` when the type has one; `subtypes` names the direct subtypes, or `none`; `files` holds the files of the type and its subtypes.
+A `content:  <expression>` line follows `paths` when the type has one; the line `  waivers:  not read; a waiver marker in its files is text` follows the rules when the type's files hold no waivers; `subtypes` names the direct subtypes, or `none`; `files` holds the files of the type and its subtypes.
 
 `lawcheck explain --rule no-todo` in S:
 
@@ -460,7 +460,7 @@ For a reviewer rule a `context:  <paths joined by ", ">` line follows `file` whe
 |---|---|
 | `file` | `path`, `exists`, `type` (id or null), `chain` (ids from the root), `about`, `none` (the reason, or null), `matched` (`{ "type", "pattern", "content" }`), `not_matched` (`{ "type", "content" }`, the `not <subtype>` parts), `then` (the text after `then:` or `depends on its text:`, or null), `may_use` (`{ "types", "from" }` or null), `uses` (`{ "read", "language" }` or null), `rules` (`{ "id", "kind", "status", "why", "from", "review" }`, `review` one of `reviewed`, `failed`, `too-large`, `not-reviewed`, or null), `waivers` (`{ "line", "rule", "reason" }`, `[]` for a file that does not exist) |
 | `directory` | `path` (with its trailing `/`), `files`, `types` (`{ "type", "files" }`, `type` null for no type) |
-| `type` | `id`, `chain`, `about`, `paths`, `content`, `may_use` and `rules` shaped as for a file, `rules` without `review`, `subtypes`, `files` (every one) |
+| `type` | `id`, `chain`, `about`, `paths`, `content`, `may_use` and `rules` shaped as for a file, `rules` without `review`, `subtypes`, `waivers` (false when the type's files hold no waivers, slice one's section 2), `files` (every one) |
 | `rule` | `id`, `kind`, `status`, `why`, `file`, `context` (paths or null), `types`, `files` (every one), `reviewed` (a count, or null for a script rule) |
 
 A file with no type, an overlap included, has `type`, `about`, `then`, `may_use` and `uses` null and `chain`, `matched`, `not_matched`, `rules` and `waivers` empty. A path that does not exist yet whose type depends on its text at the root level has `type` and `none` null and its alternatives in `then`. Absent parts are null, never left out.

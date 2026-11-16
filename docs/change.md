@@ -24,6 +24,7 @@ Lawcheck takes the merge base of `HEAD` and the base, and the change is every fi
 - a deleted file is not;
 - a renamed file is changed under its new path;
 - a change of mode alone counts.
+- an edit of a file marked `assume-unchanged` or `skip-worktree` counts, though `git diff` does not show it.
 
 A rule judges the changed files it binds. The change counts per file: an error on a line you did not touch still fails the run.
 

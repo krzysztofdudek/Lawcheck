@@ -38,7 +38,7 @@ export const RUNNER_COMMANDS: Record<Runner, { words: string[]; install: string 
 };
 
 export function runnerLine(text: string): { value: string; line: number } | null {
-  const lines = text.split('\n');
+  const lines = text.replace(/^\uFEFF/, '').split('\n');
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!.replace(/\r$/, '');
     if (!line.startsWith('runner:')) continue;

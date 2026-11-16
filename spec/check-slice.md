@@ -44,6 +44,7 @@ The law may be read through a symbolic link, of the file or of `.lawcheck/`. A l
 | type | `content` | no | A JavaScript regular expression, flag `m`. The file belongs only when its text matches |
 | type | `rules` | no | Rule ids |
 | type | `types` | no | Subtypes, same shape |
+| type | `waivers` | no | `true` or `false`. With `false` the type's files hold no waivers: a waiver marker in them is text (section 5). A type without the key takes its parent's value; a root type without it reads waivers |
 
 **Values.** The file is a YAML mapping. `rules` and `types` take a mapping, and so does each rule and each type. `paths` and a type's `rules` take a sequence of strings. `lawcheck`, `why`, `about`, `status` and `content` take a string, and `why` and `about` a non-empty one without a line break. Anything else is `law-invalid` and names the key: a null (a key left empty), a string where a sequence belongs, a number, an empty file. A key that is absent is fine where the table does not require it.
 
@@ -57,11 +58,17 @@ Any other key is `law-invalid`; the message names the key, its rule or type, and
 - Other characters are literal, and there is no escape.
 - A leading `!` excludes; the rest is a pattern.
 
+A match costs time linear in the length of the path, whatever stars, braces and `**` the pattern holds.
+
 A pattern is `law-invalid` when it is empty or `!` alone, holds an empty segment (a leading or trailing `/`, or `//`), holds a segment `.` or `..`, holds `**` beside other characters in one segment, or holds a brace that is nested, unclosed or unopened, or that holds a `/` or an empty alternative (`{}`, `{a,}`).
 
 A file matches a list when it matches one plain pattern and no exclusion; order means nothing.
 
-**The files** are the paths that `git ls-files -z --cached --others --exclude-standard` prints at the root (section 4 has every git command), each once, reduced to regular files that exist. The tool asks with `lstat`: a symlink is not a regular file, is in no count and has no type. A path whose bytes are not valid UTF-8 is left out the same way, and so is a path that holds a line break, which would split a line of the text output.
+**The files** are the paths that `git ls-files -z --cached --others --exclude-standard` prints at the root (section 4 has every git command), each once, reduced to regular files that exist. The tool asks with `lstat`: a symlink is not a regular file, is in no count and has no type. Every listed path that is a regular file is judged or named as left out with its reason, whatever bytes its name holds (invariant `I-files-1`).
+
+**Names.** A path is written in one form, in text and in JSON alike: its bytes read as UTF-8, with a backslash written as `\\`, a line feed as `\n`, a carriage return as `\r`, and each byte that is no part of valid UTF-8 as `\x` and two lowercase hexadecimal digits. So one finding stays one line, and its place maps back to the bytes on disk. Patterns are matched against the path in this form, and rules, `repo.filesOf` and the reviewer see it in this form. A path given on the command line is read in it too; `\t`, `\x` with two hexadecimal digits and `\u` with four stand for the tab, the byte and the character they name, as the text output writes them, and a backslash that starts none of these stands for itself. An empty path on the command line is `usage`. On Windows a backslash on the command line separates directories, and file names hold none of the escaped bytes.
+
+**Other repositories.** A submodule, and a repository of its own inside the work tree, are listed by git as their directory and none of their files, so no file in them is judged. When a root type's paths reach below such a directory, the line after the first line of a run that does not end with exit 2 is `note: the paths of a type reach into <dir> (a submodule), <dir> (a repository of its own); Lawcheck does not look into another repository, so no file there is judged`, naming at most three and then `and <n> more`. It changes no count and no exit code. `explain` and `try` give the reason `it lies in <dir>, a submodule, which Lawcheck does not look into` (or `a repository of its own`) for a path below one, and a path below one named to `check` selects nothing and adds the line `note: <path> lies in <dir>, a submodule, which Lawcheck does not look into` after the first line.
 
 **The text** of a file is its bytes decoded as UTF-8, without a byte-order mark; an invalid sequence becomes U+FFFD. There is no size limit: the 30 seconds of section 3 bound what a large file costs. A file is binary when its first 8,000 bytes hold a NUL byte. A binary file has no type.
 
@@ -151,11 +158,11 @@ export function check({ files }) {
 }
 ```
 
-**Input.** `check` receives one object with `files` and `repo`. `files` holds one file in this slice: `path`, `type` (its type id), `text` and `lines`. `lines` is the text split at `\n` and `\r\n`. A lone `\r` stays in its line, and a final line end adds no empty element, so an empty file has no lines. `repo.filesOf(typeId)` returns an array at once, with no promise: the paths of every file of that type and its subtypes, sorted. It throws on an unknown id. Sorting, here and in section 6, compares UTF-16 code units, as JavaScript's default sort does.
+**Input.** `check` receives one object with `files` and `repo`. `files` holds one file in this slice: `path` (in the form of section 2), `type` (its type id), `text` and `lines`. `lines` is the text split at `\n` and `\r\n`. A lone `\r` stays in its line, and a final line end adds no empty element, so an empty file has no lines. `repo.filesOf(typeId)` returns an array at once, with no promise: the paths of every file of that type and its subtypes, sorted. It throws on an unknown id. Sorting, here and in section 6, compares UTF-16 code units, as JavaScript's default sort does.
 
 **Calls.** The tool calls `check` once for each file the rule binds and the run looks at, in the order of the paths, one call at a time. A rule keeps nothing between calls. The default run hands it the changed files alone and a full run all of them, so a rule that remembers earlier files answers differently in the two. The tool does not enforce this.
 
-**Output.** A list of findings, or a promise of one. A finding has `message` (a non-empty string; each line break in it becomes one space, in text and in JSON) and may have `file` (the path of the call, nothing else) and `line` (an integer from 1 to the length of `lines`). Without `line` it is about the whole file. Other fields are ignored. Equal findings are not merged. The tool checks every finding it receives. The channel carries values as a structured clone, so `NaN` arrives as `NaN` and fails the check.
+**Output.** A list of findings, or a promise of one. A finding has `message` (a non-empty string; each line break in it becomes one space, in text and in JSON) and may have `file` (the path of the call, nothing else) and `line` (an integer from 1 to the length of `lines`). A `line` that is no integer, `null`, a string or a bigint included, is named by its value and kind in the message of `rule-crashed`, and one outside the file by its number and the file's lines. Without `line` it is about the whole file. Other fields are ignored. Equal findings are not merged. The tool checks every finding it receives. The channel carries values as a structured clone, so `NaN` arrives as `NaN` and fails the check.
 
 **The runner.** A rule with at least one file to judge in the run gets one Node process for that run. A rule with none is not loaded. The tool starts the process with `child_process.fork` on its own runner file, with these options:
 
@@ -197,7 +204,7 @@ A rule that hangs or dies takes its own process with it and nothing else. `proce
 
 A rule file is code of the repository and runs with the user's rights, as the repository's tests and build scripts do. Run `lawcheck check` on a change only where you would run that change's tests.
 
-**A broken rule** is `rule-crashed`: the module does not load, exports no function `check`, throws or rejects, returns anything but the list above or a value the channel cannot carry (a function, for one), passes 30 seconds in its load or in one call, or its runner ends before answering. The tool stops that rule and runs the others, so one run names each broken rule once, with the rule file as the place and the judged file, or the load, in the message.
+**A broken rule** is `rule-crashed`: the module does not load, exports no function `check`, throws or rejects, returns anything but the list above or a value the channel cannot carry (a function, for one), passes 30 seconds in its load or in one call, its runner ends before answering, or it fails in the background: a promise rejects with no handler, or a timer throws. The runner reports such a failure the moment it comes, while the rule's process lives, as `fails in the background: <error>`, or `fails in the background in its load: <error>` when it comes before the load has answered; it names no file, since the call it follows depends on how many files the run judges, so the result is the same whether a file is judged alone or with others (invariant `I-rules-1`). After the last call the runner waits once, for at most 2 seconds, until the timers, promises and other work the rule left have run, and then the process ends; work that has not run by then never runs. The tool stops that rule and runs the others, so one run names each broken rule once, with the rule file as the place and the judged file, or the load, in the message.
 
 ## 4. `check`
 
@@ -233,6 +240,7 @@ Otherwise the message is `the base '<base>' names no commit here` or `the base '
 | the merge base | `git merge-base HEAD <the base's commit>` | exit 1: `base-unreachable` |
 | why the base cannot be reached | `git rev-parse --is-shallow-repository`, `git remote`, and `git config --get-all remote.<remote>.fetch`, only when the base cannot be reached | the table below |
 | the change | `git rev-parse --git-path index`, then `git diff --no-ext-diff --no-textconv --ignore-submodules=all -z --name-only --no-renames --relative <merge base> --`, then `git ls-files -z --others --exclude-standard` | below |
+| edits git's diff hides | `git ls-files -v -z`; for the files it tags with a lowercase letter (assume-unchanged) or `S` (skip-worktree), `git rev-parse --show-prefix`, `git hash-object --stdin-paths` with each path written in C quotes from the top of the work tree, so any byte and a root below the top are read right, and `git ls-tree -r -z <merge base>` | such a file whose content on disk differs from its blob in the merge base, or that the merge base lacks, is in the change |
 | the links | `git rev-parse --show-toplevel`, then `git ls-files -z --stage` at the root and again in each checked-out submodule it lists (an entry of mode `160000`), when a script rule is to run | the top of the work tree, and the entries of mode `120000`, the links git tracks under the root and in its submodules (section 3); git 2.34 refuses `--recurse-submodules` with `--stage`, so each submodule is asked in its own folder |
 
 Any other failure of a git command is `internal`. With `-z` git ends each path with a NUL byte and quotes nothing, so a name with a letter outside ASCII, a space or a tab arrives as it is. `ls-files` at the root and `diff --relative` both print paths relative to the root and leave out everything outside it. The tool compares the paths of the two as equal strings, wherever the root lies in the git tree.
@@ -241,6 +249,7 @@ Any other failure of a git command is `internal`. With `-z` git ends each path w
 
 - a file committed on this branch, staged, modified or untracked and not ignored is in the change;
 - a deleted file is not: git names it, and the files of section 2 do not hold it;
+- a file git marks assume-unchanged or skip-worktree is in the change when its content on disk differs from the merge base, though `git diff` trusts the index for it and does not name it;
 - a renamed or moved file is gone under its old path and changed under its new one, edited or not, because the new path may give it another type;
 - a change of the file's mode alone counts, as git reports it;
 - a file staged and then put back in the working tree to what the merge base holds is not in the change.
@@ -258,6 +267,7 @@ console.warn('no campaign'); // lawcheck-waive no-console -- the pricing team re
 - The form is `lawcheck-waive <rule id> -- <reason>`, anywhere in a line of a file that has a type. The tool reads lines, the `lines` of section 3, and parses no comments.
 - The marker is the first `lawcheck-waive` in the line. A second one on the line is text. After the marker come whitespace, the rule id (a run of characters that are not whitespace), whitespace, `--` and the reason.
 - With a letter or digit (`\p{L}` or `\p{N}`) before the marker on its line, the waiver covers that line. Otherwise the line stands alone, valid or not, and covers the next line that does not stand alone. At the end of the file it covers nothing.
+- A file whose type has `waivers: false` (section 2) holds no waivers: the tool does not look for the marker in it, so a page or a test that writes about waivers can have a type. Its findings are never waived.
 - A closing `*/` or `-->` at the end of the line is cut off before the tool looks for the `--`, so `<!-- lawcheck-waive no-console -->` has no reason. The reason is the rest of the line after that `--`, trimmed.
 - A waiver drops every finding of its rule on the covered line, with nobody's approval. A whole-file finding cannot be waived.
 - A waiver with a known rule and a reason is counted, used or not: in the first line for the changed files, in the debt heading for the others. In JSON, `waivers` lists the waivers of the changed files without `--full`. With `--full` it lists those of every file that has a type, the ones outside the change with `debt` true.
@@ -484,13 +494,13 @@ S is the sample in a new git repository: one commit on `main` with the eight fil
 | 44 | `lawcheck --version`; `lawcheck --help`; `lawcheck check --help` | `0.1.0`; twice a first line `usage: lawcheck check [--full] [--base <ref>] [--json]`; exit 0 each |
 | 45 | add `src/core/many.ts` holding 60 lines of `console.log(1);`; run without a flag, with `--json`, with `--full`. Then the same file with 49 lines and `--full` | 50 finding lines, then `... 10 more findings (--json lists all)`; 60 findings; 50 finding lines, `... 13 more findings (--json lists all)`, then `debt (outside this change): 3 findings in 3 files` with no finding line under it; then 49 lines of the change, the debt heading, `src/core/price.ts:2  warning[no-console]  writes to the terminal with console.log`, `... 2 more findings (--json lists all)` |
 
-The unit tests carry two things no row above reaches. `tests/unit/cli.test.ts` hands the top-level handler a command that throws and sees exit 2 with `error[internal]`. `tests/unit/files.test.ts` hands the reader of git's output a path with an invalid UTF-8 byte and sees it left out.
+The unit tests carry two things no row above reaches. `tests/unit/cli.test.ts` hands the top-level handler a command that throws and sees exit 2 with `error[internal]`. `tests/unit/files.test.ts` hands the reader of git's output paths with an invalid UTF-8 byte, a line feed, a carriage return and a backslash, and sees each kept in the form of section 2.
 
 Besides these 45 tests, the tool was accepted against an external trial: a law of twelve script rules, run with `--full` on a real repository. The trial's fixture is kept outside this repository. The run ended with exit 0 and no error, and the twelve rules found 2, 22, 1, 2, 142, 1, 6, 6, 105, 41, 60 and 9 findings, as expected.
 
 ### Invariants
 
-Promises that hold for every input, each tied by its id to a property or a test of the security suite.
+Promises that hold for every input, each tied by its id to a test of the security suite or to a property under `tests/properties/` and the examples beside it.
 
 | Id | Promise | Test |
 |---|---|---|
@@ -500,6 +510,13 @@ Promises that hold for every input, each tied by its id to a property or a test 
 | I-start-1 | No program Lawcheck or its hooks start, nor any program those start by a bare name, is taken from the repository through a relative or empty `PATH` entry or, on Windows, the current folder (section 2). | tests/security/start.test.ts |
 | I-git-2 | Every git command a run sends is one git 2.34, the oldest git Lawcheck runs with, accepts; the link guard reads each submodule in its own folder (sections 2 and 4). | tests/security/old-git.test.ts |
 | I-secret-2 | An error about a law or a config read through a symbolic link quotes none of the file (section 2). | tests/security/linked.test.ts |
+| I-files-1 | Every path that `git ls-files -z` lists at the root and a type's pattern matches is judged, or named as left out with its reason, whatever bytes its name holds; its name in the output maps back to the bytes on disk, and `explain` gives the true reason for it (section 2). | tests/properties/names.test.ts |
+| I-glob-1 | A pattern compiles or gets a named problem, matches as the reading of section 2 does, and costs time linear in the path (section 2). | tests/properties/glob.test.ts |
+| I-lines-1 | For any text of a file, every line separator, NUL, a byte-order mark and waiver markers included, every finding's line lies inside the file's `lines`, a type with `waivers: false` waives nothing, and the text and JSON forms of a report agree (sections 2, 3 and 5). | tests/properties/contents.test.ts |
+| I-law-1 | Any text as `law.yaml` gives `law-invalid` at a line of the file, or a law that `explain` prints back (section 2). | tests/properties/law.test.ts |
+| I-rules-1 | Any value a rule returns, throws or rejects with, at once or in the background, gives findings or a `rule-crashed` that names its cause, and the result for a file is the same whether it is judged alone or with others (section 3). | tests/properties/rules.test.ts |
+| I-git-2 | A check changes nothing in git; the findings of a change equal those of `--full` for the changed files; the output is the same from any directory below the root and on a second run, whatever state the repository is in (section 4). | tests/properties/git-states.test.ts |
+| I-args-1 | Any arguments give `usage` or a run, never `internal` (section 4). | tests/properties/arguments.test.ts |
 
 ## 9. Repository layout
 

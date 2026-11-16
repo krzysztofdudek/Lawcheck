@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { appendFileSync, chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { delimiter, dirname, join, relative, sep } from 'node:path';
 import { withFake } from './fake-reviewer.ts';
@@ -693,5 +694,107 @@ test('test 179: the trial refuses to start without claude', async () => {
     assert.equal(result.out.trim().split('\n').length, 1, result.out);
     assert.match(result.out, /claude/);
     assert.deepEqual(readdirSync(empty), []);
+  });
+});
+
+const BACKSLASH = 'src/core/back\\slash.js';
+const BACKSLASH_OUTPUT = [
+  'lawcheck: FAIL  1 error in 1 named file',
+  '',
+  "src/core/back\\\\slash.js:1  error[no-console]  writes to the terminal with console.log",
+  '  why:  Only the command layer writes to the terminal.',
+  '',
+  'next: fix src/core/back\\\\slash.js:1',
+].join('\n');
+const BACKSLASH_LAW = LAW.replace('paths: ["src/**/*.ts", "!src/**/*.d.ts"]', 'paths: ["src/**/*.{ts,js}", "!src/**/*.d.ts"]');
+
+test('S6-4: an edit of a file with a backslash in its name checks that file', async (t) => {
+  const skip = platformSkip('the whole test');
+  if (skip !== null) return t.skip(skip);
+  await withBench(async (bench, dir) => {
+    const s = makeSample(dir);
+    write(s, '.lawcheck/law.yaml', BACKSLASH_LAW);
+    writeFileSync(join(s, BACKSLASH), "console.log('x');\n");
+    const run = await new Session(bench, s).edit(BACKSLASH);
+    json(run, edited(`${editHeader('src/core/back\\\\slash.js')}\n\n${BACKSLASH_OUTPUT}`));
+    assert.deepEqual(bench.checks(), [['check', './src/core/back\\\\slash.js']]);
+  });
+});
+
+test('S6-6: a session_id of 5,000 characters keeps its state under its hash, and the hooks go on', async () => {
+  await withBench(async (bench, dir) => {
+    const s = makeSample(dir);
+    const id = 'x'.repeat(5000);
+    const session = new Session(bench, s, id);
+    nothing(await session.prompt(), 'prompt');
+    const file = `${createHash('sha256').update(id).digest('hex')}.long.json`;
+    assert.deepEqual(bench.sessions(), [file]);
+    assert.equal(JSON.parse(readFileSync(join(bench.data, 'sessions', file), 'utf8')).open, true);
+    write(s, D_PATH, D);
+    json(await session.stop(), handBack(`${stopHeader()}\n\n${D_OUTPUT}`), 'stop');
+    json(await session.stop(), released(), 'the same output again is let go, so the state was read');
+    nothing(await new Session(bench, s, 'y'.repeat(128)).prompt(), 'an id of 128 characters');
+    assert.deepEqual(bench.sessions(), [file, `${'y'.repeat(128)}.json`].sort());
+  });
+});
+
+test('S6-8: a byte-order mark before the runner line, and the hook and the tool read the same runner', async () => {
+  await withBench(async (bench, dir) => {
+    const s = makeSample(dir);
+    bench.runner('npx', 2);
+    write(s, '.lawcheck/config.yaml', '\ufeffrunner: npx\n');
+    write(s, D_PATH, D);
+    json(await new Session(bench, s).edit(D_PATH), edited(`${editHeader(D_PATH, 'npx --no-install lawcheck')}\n\n${D_OUTPUT}`));
+    assert.deepEqual(bench.runners().map((r) => r.runner), ['npx']);
+    const prime = await lawcheck(s, ['prime']);
+    assert.ok(prime.stdout.split('\n')[0]!.endsWith(' Start it here as: npx --no-install lawcheck'), prime.stdout.split('\n')[0]);
+    const checked = await lawcheck(s, ['check', `./${D_PATH}`]);
+    assert.equal(checked.code, 1, checked.stdout);
+  });
+});
+
+test('S6-10: the check before finishing sees a file whose name holds a line break', async (t) => {
+  const skip = platformSkip('the whole test');
+  if (skip !== null) return t.skip(skip);
+  await withBench(async (bench, dir) => {
+    const s = makeSample(dir);
+    const session = new Session(bench, s);
+    await session.prompt();
+    writeFileSync(join(s, 'src/core/new\nline.ts'), "console.log('x');\n");
+    const run = await session.stop();
+    assert.equal(run.code, 0, run.stderr);
+    assert.equal(run.json?.hookSpecificOutput?.hookEventName, 'Stop', run.stdout);
+    assert.deepEqual(bench.checks(), [['check', './src/core/new\\nline.ts']]);
+    assert.ok(run.json.hookSpecificOutput.additionalContext.includes("src/core/new\\nline.ts:1  error[no-console]  writes to the terminal with console.log"));
+  });
+});
+
+test('S6-10: a file whose name starts with a double quote does not stop the check before finishing from seeing the rest', async (t) => {
+  const skip = platformSkip('the whole test');
+  if (skip !== null) return t.skip(skip);
+  await withBench(async (bench, dir) => {
+    const s = makeSample(dir);
+    const session = new Session(bench, s);
+    await session.prompt();
+    writeFileSync(join(s, '"q.ts'), 'export const q = 1;\n');
+    write(s, D_PATH, D);
+    const run = await session.stop();
+    assert.equal(run.code, 0, run.stderr);
+    assert.equal(run.json?.hookSpecificOutput?.hookEventName, 'Stop', run.stdout);
+    assert.deepEqual(bench.checks(), [['check', './"q.ts', `./${D_PATH}`]]);
+  });
+});
+
+test('S6-10: with the law below the top of the work tree, the check before finishing sees the turn\'s files', async () => {
+  await withBench(async (bench, dir) => {
+    const repo = makeSample(dir, { under: 'pkg' });
+    const s = join(repo, 'pkg');
+    const session = new Session(bench, s);
+    await session.prompt();
+    write(s, D_PATH, D);
+    const run = await session.stop();
+    assert.equal(run.code, 0, run.stderr);
+    assert.equal(run.json?.hookSpecificOutput?.hookEventName, 'Stop', run.stdout);
+    assert.deepEqual(bench.checks(), [['check', `./${D_PATH}`]]);
   });
 });

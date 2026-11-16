@@ -76,6 +76,40 @@ export interface Slow {
 
 // The tests that pass a fifth of TEST_BUDGET_MS on some system in CI, by the test file and the whole test name: inside the default such a test keeps less than SLOW_MARGIN over its time. On each system listed the budget is the tool's fixed waits plus SLOW_MARGIN times the rest of the longest time measured there, rounded up to 5 s; the reporter names every test of a run that passes a fifth with no entry. On Windows every process starts slowly and a test's time varies by half or more from run to run.
 export const SLOW_TESTS: Record<string, Slow> = {
+  // Measured on CI runs 43762617467 and 43764121085: 25 runs of the tool or of a hook.
+  "tests/properties/arguments.test.ts > I-args-1: tokens of the tool and junk give usage or a run, never internal, and change nothing in git": { fixed: 0, measured: { darwin: 7_875, linux: 5_085, win32: 9_010 } },
+  // Measured on CI runs 43762617467 and 43764121085: 25 runs of the tool or of a hook.
+  "tests/properties/arguments.test.ts > I-hook-1, S6-6, S6-8: any input to a hook gives exit 0 with nothing or one hook document, or the defined notice, never a stack trace": { fixed: 0, measured: { darwin: 9_955, linux: 5_762, win32: 13_367 } },
+  // Measured on CI runs 43762617467 and 43764121085: 25 sample repositories, a check in text and in JSON each.
+  "tests/properties/contents.test.ts > I-lines-1: for any text of a judged file, every finding lies inside it, and the text and JSON forms agree": { fixed: 0, measured: { darwin: 24_953, linux: 12_949, win32: 66_110 } },
+  // Measured on CI runs 43762617467 and 43764121085: 25 sequences of git commands, each followed by seven runs of the tool.
+  "tests/properties/git-states.test.ts > I-git-2: in any state a sequence of git commands leaves, a check changes nothing in git, its change gives what --full gives for those files, and it prints the same from below the root and twice": { fixed: 0, measured: { darwin: 82_146, linux: 56_267, win32: 231_038 } },
+  // Measured on CI runs 43762617467 and 43764121085: 25 laws, each printed back type by type and rule by rule.
+  "tests/properties/law.test.ts > I-law-1: an accepted law is printed back by explain, every type and every rule whole": { fixed: 0, measured: { darwin: 19_307, linux: 20_115, win32: 69_905 } },
+  // Measured on CI runs 43762617467 and 43764121085: 25 sample repositories with generated names, three runs of the tool each.
+  "tests/properties/names.test.ts > I-files-1: every file a type matches is judged, whatever bytes its name holds, and its JSON path maps back to the file on disk": { fixed: 0, measured: { darwin: 30_513, linux: 32_388, win32: 84_470 } },
+  // Measured on CI runs 43762617467 and 43764121085: 25 rules, each judged alone and with a second file.
+  "tests/properties/rules.test.ts > I-rules-1, S2-4, S2-6: any value a rule returns, throws or rejects with gives findings or a rule-crashed naming its cause, and file A is judged the same alone or with B": { fixed: 0, measured: { darwin: 25_976, linux: 22_921, win32: 75_556 } },
+  // The nightly run of a property searches for NIGHTLY_MS, a fixed wait, then ends the case it is in: up to two cases of the commit run's time, at least 5 s.
+  "tests/properties/glob.nightly.test.ts > I-glob-1, S1-1: a pattern matches as the reference matcher does, on small input": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 125_000 } },
+  "tests/properties/glob.nightly.test.ts > I-glob-1, S1-1: a list with exclusions matches as the reference does": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 125_000 } },
+  "tests/properties/glob.nightly.test.ts > I-glob-1, S1-1: any text is a pattern that compiles or one with a named problem": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 125_000 } },
+  "tests/properties/glob.nightly.test.ts > I-glob-1, S1-1: a match costs time linear in the name, for any pattern and a name of up to 4,096 bytes": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 125_000 } },
+  "tests/properties/answer.nightly.test.ts > I-answer-1, S3-3: the answer read is the one the reading of section 4 takes, on small input": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 125_000 } },
+  "tests/properties/answer.nightly.test.ts > I-answer-1, S3-3: any answer is a verdict or a named bad answer, in linear time, with lines in or out of range": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 125_000 } },
+  "tests/properties/answer.nightly.test.ts > I-answer-1, S3-4: two verdict objects that agree give their verdict, and a pass followed by a fail is never read as a pass": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 125_000 } },
+  "tests/properties/names.nightly.test.ts > I-files-1: a name maps back to its bytes, holds no line break, and the hooks write it the same way": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 125_000 } },
+  "tests/properties/names.nightly.test.ts > I-files-1: every file a type matches is judged, whatever bytes its name holds, and its JSON path maps back to the file on disk": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 126_756 } },
+  "tests/properties/contents.nightly.test.ts > I-lines-1: lines split as section 3 says, and every waiver sits on a line of the file and covers one": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 125_000 } },
+  "tests/properties/contents.nightly.test.ts > I-lines-1: a file is binary exactly when its first 8,000 bytes hold a NUL": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 125_000 } },
+  "tests/properties/contents.nightly.test.ts > I-lines-1: for any text of a judged file, every finding lies inside it, and the text and JSON forms agree": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 125_288 } },
+  "tests/properties/law.nightly.test.ts > I-law-1: any text as law.yaml is a law or law-invalid at a line of the file": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 125_000 } },
+  "tests/properties/law.nightly.test.ts > I-law-1: an accepted law is printed back by explain, every type and every rule whole": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 125_592 } },
+  "tests/properties/law.nightly.test.ts > I-law-1: any text as config.yaml is a config or config-invalid at a line of the file": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 125_000 } },
+  "tests/properties/rules.nightly.test.ts > I-rules-1, S2-4, S2-6: any value a rule returns, throws or rejects with gives findings or a rule-crashed naming its cause, and file A is judged the same alone or with B": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 126_044 } },
+  "tests/properties/git-states.nightly.test.ts > I-git-2: in any state a sequence of git commands leaves, a check changes nothing in git, its change gives what --full gives for those files, and it prints the same from below the root and twice": { fixed: 120_000, measured: { darwin: 126_570, linux: 125_000, win32: 138_482 } },
+  "tests/properties/arguments.nightly.test.ts > I-args-1: tokens of the tool and junk give usage or a run, never internal, and change nothing in git": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 125_000 } },
+  "tests/properties/arguments.nightly.test.ts > I-hook-1, S6-6, S6-8: any input to a hook gives exit 0 with nothing or one hook document, or the defined notice, never a stack trace": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 125_000 } },
   // A check per counted run of the committed trial.
   'tests/acceptance/agent-result.test.ts > test 181: the committed result of the trial': { fixed: 0, measured: { darwin: 20_939, linux: 10_314, win32: 53_052 } },
   // A run of the tool per case.
@@ -270,6 +304,24 @@ export const LIVE_FAIL_SHARE = 1;
 // One try of LIVE_TIMES calls of the real claude.
 export const LIVE_RUN_BUDGET_MS = 900_000;
 
+// Layer 2, the properties of tests/properties: the nightly run of a property goes on with a new seed until this much time has passed.
+export const NIGHTLY_MS = 120_000;
+// A match of src/**/*a*a*a*a*a*a*b.ts against a name of 240 `a`, through the matcher and through check --full (design test 4, stress finding S1-1); measured below 2 ms and 400 ms.
+export const MATCH_BUDGET_MS = 100;
+export const PATTERN_RUN_BUDGET_MS = 8_000;
+// takeAnswer on one megabyte of `{` and on 50,000 nested objects (design test 6, stress finding S3-3); measured below 30 ms.
+export const ANSWER_BUDGET_MS = 1_000;
+// parseLaw on the generator's deepest text, 20,000 levels of brackets; measured at 57 ms in the dev container.
+export const LAW_PARSE_BUDGET_MS = 1_500;
+// What a rule that leaves an interval running may add to a run of 200 files: the one wait of 2 seconds after its last call (spec/check-slice.md, section 3), and 2 seconds for the noise of two runs.
+export const LEFT_RUNNING_EXTRA_MS = 4_000;
+// What starting the runners of a rule that leaves nothing adds to a run of one file: measured at 16 ms in the dev container; a runner that waited its full 2 seconds after the last call would pass it.
+export const NOTHING_LEFT_EXTRA_MS = 1_000;
+// One pure call on generated input, for the base oracle of no run over its budget; the slowest measured, glob on a name of 4,096 characters, takes under 14 ms.
+export const PURE_CALL_BUDGET_MS = 1_000;
+// One start of the tool on a generated case.
+export const TOOL_RUN_BUDGET_MS = 20_000;
+
 // Which way each number makes the suite stronger, read by the suite guard; a seed is neither, so any change of it is a change to review.
 export const stronger: Record<string, 'higher' | 'lower' | 'fixed'> = {
   SEED: 'fixed',
@@ -316,6 +368,15 @@ export const stronger: Record<string, 'higher' | 'lower' | 'fixed'> = {
   HELD_OUTPUT_RUN_MS: 'lower',
   RESEND_WAIT_MS: 'fixed',
   STABILITY_PROVIDER_RUNS: 'higher',
+  NIGHTLY_MS: 'higher',
+  MATCH_BUDGET_MS: 'lower',
+  PATTERN_RUN_BUDGET_MS: 'lower',
+  ANSWER_BUDGET_MS: 'lower',
+  LAW_PARSE_BUDGET_MS: 'lower',
+  LEFT_RUNNING_EXTRA_MS: 'lower',
+  NOTHING_LEFT_EXTRA_MS: 'lower',
+  PURE_CALL_BUDGET_MS: 'lower',
+  TOOL_RUN_BUDGET_MS: 'lower',
 };
 
 export function budgetNamed(key: string): number {

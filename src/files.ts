@@ -3,6 +3,7 @@ import { copyFileSync, existsSync, lstatSync, mkdtempSync, rmSync } from 'node:f
 import { devNull, tmpdir } from 'node:os';
 import { dirname, join, resolve, sep } from 'node:path';
 import { findProgram } from './programs.js';
+import { bytesOfName, nameOf, onDisk, quotedLine } from './names.js';
 
 export class NoGit extends Error {}
 
@@ -14,7 +15,6 @@ interface GitResult {
   stderr: Buffer;
 }
 
-const strict = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true });
 const loose = new TextDecoder('utf-8', { ignoreBOM: true });
 
 const filters = new Map<string, string[]>();
@@ -55,15 +55,16 @@ function startsNothing(program: string, cwd: string): NodeJS.ProcessEnv {
 
 let gitProgram: string | null | undefined;
 
-export function git(root: string, args: string[], extra: NodeJS.ProcessEnv = {}): GitResult {
+export function git(root: string, args: string[], extra: NodeJS.ProcessEnv = {}, input?: Buffer): GitResult {
   // git by its path on PATH, so no relative entry and no current folder can put the repository's own git in its place; Windows starts git.exe alone.
   gitProgram ??= findProgram('git', { ...Object.fromEntries(Object.entries(process.env).filter(([name]) => name.toUpperCase() !== 'PATHEXT')), PATHEXT: '.EXE' });
   if (gitProgram === null) throw new NoGit('git cannot be started: it is not on the PATH');
   const result = spawnSync(gitProgram, args, {
     cwd: root,
+    input,
     env: { ...startsNothing(gitProgram, root), ...extra },
     maxBuffer: 1 << 30,
-    stdio: ['ignore', 'pipe', 'pipe'],
+    stdio: [input === undefined ? 'ignore' : 'pipe', 'pipe', 'pipe'],
   });
   if (result.error) {
     const code = (result.error as NodeJS.ErrnoException).code;
@@ -88,14 +89,7 @@ export function splitZ(output: Buffer): string[] {
   let start = 0;
   for (let i = 0; i < output.length; i++) {
     if (output[i] !== 0) continue;
-    if (i > start) {
-      try {
-        const path = strict.decode(output.subarray(start, i));
-        if (!/[\r\n]/.test(path)) paths.push(path);
-      } catch {
-        // A path that is not valid UTF-8 is left out on purpose.
-      }
-    }
+    if (i > start) paths.push(nameOf(output.subarray(start, i)));
     start = i + 1;
   }
   return paths;
@@ -136,7 +130,7 @@ export function listFiles(root: string, listed: Set<string> = listedPaths(root))
   const files: string[] = [];
   for (const path of listed) {
     try {
-      if (lstatSync(join(root, path)).isFile()) files.push(path);
+      if (lstatSync(onDisk(root, path)).isFile()) files.push(path);
     } catch (error) {
       const code = (error as NodeJS.ErrnoException).code;
       if (code !== 'ENOENT' && code !== 'ENOTDIR') throw error;
@@ -227,7 +221,45 @@ export function changedPaths(root: string, base: string): string[] {
   const othersArgs = ['ls-files', '-z', '--others', '--exclude-standard'];
   const others = git(root, othersArgs);
   if (others.status !== 0) throw failed(othersArgs, others);
-  return [...splitZ(diff.stdout), ...splitZ(others.stdout)];
+  return [...splitZ(diff.stdout), ...splitZ(others.stdout), ...hiddenEdits(root, base)];
+}
+
+// git's diff trusts the index for a file marked assume-unchanged or skip-worktree (a sparse checkout sets the second), so an edit of one on disk is found by its content (stress finding S1-14).
+function hiddenEdits(root: string, base: string): string[] {
+  const listArgs = ['ls-files', '-v', '-z'];
+  const listed = git(root, listArgs);
+  if (listed.status !== 0) throw failed(listArgs, listed);
+  const marked: Buffer[] = [];
+  let start = 0;
+  const out = listed.stdout;
+  for (let i = 0; i < out.length; i++) {
+    if (out[i] !== 0) continue;
+    const tag = out[start]!;
+    if (i - start > 2 && ((tag >= 0x61 && tag <= 0x7a) || tag === 0x53)) {
+      const bytes = out.subarray(start + 2, i);
+      try {
+        if (lstatSync(onDisk(root, nameOf(bytes))).isFile()) marked.push(bytes);
+      } catch {
+        // A marked file that is gone is the index's business; git's diff shows a deletion only when the index changed.
+      }
+    }
+    start = i + 1;
+  }
+  if (marked.length === 0) return [];
+  const hashArgs = ['hash-object', '--stdin-paths'];
+  const prefix = showPrefix(root);
+  const hashed = git(root, hashArgs, {}, Buffer.concat(marked.map((bytes) => quotedLine(prefix, bytes))));
+  if (hashed.status !== 0) throw failed(hashArgs, hashed);
+  const ids = hashed.stdout.toString('utf8').split('\n');
+  const treeArgs = ['ls-tree', '-r', '-z', base];
+  const tree = git(root, treeArgs);
+  if (tree.status !== 0) throw failed(treeArgs, tree);
+  const inBase = new Map<string, string>();
+  for (const entry of splitZ(tree.stdout)) {
+    const tab = entry.indexOf('\t');
+    inBase.set(entry.slice(tab + 1), entry.slice(0, tab).split(' ')[2]!);
+  }
+  return marked.map((bytes) => nameOf(bytes)).filter((name, i) => inBase.get(name) !== ids[i]);
 }
 
 export function showPrefix(dir: string): string {
@@ -238,8 +270,8 @@ export function showPrefix(dir: string): string {
 }
 
 export function ignoresPath(root: string, path: string): boolean {
-  const args = ['check-ignore', '-q', '--no-index', '--', path];
-  const result = git(root, args);
+  const args = ['check-ignore', '-q', '--no-index', '--stdin', '-z'];
+  const result = git(root, args, {}, Buffer.concat([bytesOfName(path), Buffer.from([0])]));
   if (result.status === 0) return true;
   if (result.status === 1) return false;
   throw failed(args, result);
@@ -291,4 +323,49 @@ export function listedPaths(root: string): Set<string> {
   const result = git(root, args);
   if (result.status !== 0) throw failed(args, result);
   return new Set(splitZ(result.stdout));
+}
+
+export interface Nested {
+  dir: string;
+  submodule: boolean;
+}
+
+// A submodule is listed as its directory, and an untracked repository inside the work tree as its directory with a trailing slash; git lists no file of either.
+export function nestedRepositories(root: string, listed: Set<string>): Nested[] {
+  const out: Nested[] = [];
+  for (const path of listed) {
+    const dir = path.endsWith('/') ? path.slice(0, -1) : path;
+    try {
+      if (lstatSync(onDisk(root, dir)).isDirectory()) out.push({ dir, submodule: !path.endsWith('/') });
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code !== 'ENOENT' && code !== 'ENOTDIR' && code !== 'ENAMETOOLONG') throw error;
+    }
+  }
+  return out.sort((a, b) => comparePaths(a.dir, b.dir));
+}
+
+export function repositoryHolding(root: string, path: string, listed: Set<string>): Nested | null {
+  const parts = path.split('/');
+  for (let i = 1; i < parts.length; i++) {
+    const dir = parts.slice(0, i).join('/');
+    if (listed.has(dir) || listed.has(`${dir}/`)) {
+      try {
+        if (lstatSync(onDisk(root, dir)).isDirectory()) return { dir, submodule: listed.has(dir) };
+      } catch {
+        return null;
+      }
+    }
+    try {
+      lstatSync(onDisk(root, `${dir}/.git`));
+      return { dir, submodule: false };
+    } catch {
+      // No repository of its own at this level.
+    }
+  }
+  return null;
+}
+
+export function nestedReason(nested: Nested): string {
+  return `it lies in ${nested.dir}, ${nested.submodule ? 'a submodule' : 'a repository of its own'}, which Lawcheck does not look into`;
 }

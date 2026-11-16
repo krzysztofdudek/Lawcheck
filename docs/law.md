@@ -18,6 +18,7 @@ The law is `.lawcheck/law.yaml`. Lawcheck finds it by walking up from the curren
 | type | `rules` | no | rule ids |
 | type | `may_use` | no | type ids whose files this type's files may use |
 | type | `types` | no | subtypes, of the same shape |
+| type | `waivers` | no | `false` makes a waiver marker in the type's files plain text; a subtype takes its parent's value |
 
 `why` and `about` take a non-empty string without a line break. A null, a string where a list belongs, a number or an empty file is `law-invalid`. Any other key is `law-invalid`, and the message names the nearest known key.
 
@@ -70,7 +71,7 @@ An empty pattern, an empty segment, a segment `.` or `..`, `**` beside other cha
 
 ## How a file gets its type
 
-The files are the ones `git ls-files --cached --others --exclude-standard` lists at the root, regular files only. A symbolic link and a file git ignores have no type. A file whose first 8,000 bytes hold a NUL byte is binary and has no type.
+The files are the ones `git ls-files --cached --others --exclude-standard` lists at the root, regular files only. A symbolic link and a file git ignores have no type. A file whose name holds a line break, a carriage return, a backslash or bytes that are not UTF-8 is judged like any other, and its name is printed with `\n`, `\r`, `\\` and `\xHH` in their place; `explain` and `try` take it that way. Lawcheck does not look into a submodule or a repository of its own inside this one, and says so when a type's paths reach into one. A file whose first 8,000 bytes hold a NUL byte is binary and has no type.
 
 Lawcheck tests a file against the root types, `paths` first and then `content`, then against the subtypes of the one that matched, and so on down. The deepest match is the file's type. The rules of every type on the way down bind the file, each once. A file that no type matches is never judged.
 

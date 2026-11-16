@@ -157,10 +157,24 @@ interface Message {
   kind: string;
   message?: string;
   value?: unknown;
+  load?: boolean;
+}
+
+function backgroundCrash(message: Message): RuleOutcome {
+  return { crash: `fails in the background${message.load === true ? ' in its load' : ''}: ${message.message}` };
 }
 
 export function normalizeMessage(message: string): string {
   return message.replace(/\r\n|[\n\r]/g, ' ');
+}
+
+function valueName(value: unknown): string {
+  if (value === null) return 'null';
+  if (typeof value === 'string') return `the string ${JSON.stringify(value.length > 20 ? `${value.slice(0, 20)}…` : value)}`;
+  if (typeof value === 'bigint') return `the bigint ${value}n`;
+  if (typeof value === 'number') return `the number ${String(value)}`;
+  if (Array.isArray(value)) return 'a list';
+  return `a value of type ${typeof value}`;
 }
 
 export function validate(rule: string, value: unknown, file: RuleFile): { findings: RawFinding[] } | { problem: string } {
@@ -171,8 +185,10 @@ export function validate(rule: string, value: unknown, file: RuleFile): { findin
     const { message, file: path, line } = item as { message?: unknown; file?: unknown; line?: unknown };
     if (typeof message !== 'string' || message === '') return { problem: 'a finding without a message' };
     if (path !== undefined && path !== file.path) return { problem: `a finding about '${String(path)}'` };
-    if (line !== undefined && !(Number.isInteger(line) && (line as number) >= 1 && (line as number) <= file.lines.length)) {
-      return { problem: `a finding at line ${String(line)}, outside lines 1 to ${file.lines.length}` };
+    if (line !== undefined) {
+      if (!Number.isInteger(line)) return { problem: `a finding whose line is ${valueName(line)}, not an integer` };
+      if (file.lines.length === 0) return { problem: `a finding at line ${line as number}, though the file has no lines,` };
+      if ((line as number) < 1 || (line as number) > file.lines.length) return { problem: `a finding at line ${line as number}, outside lines 1 to ${file.lines.length}` };
     }
     const finding: RawFinding = { rule, file: file.path, message: normalizeMessage(message) };
     if (line !== undefined) finding.line = line as number;
@@ -246,7 +262,11 @@ export function runRule(run: RuleRun): Promise<RuleOutcome> {
     const callNext = (index: number) => {
       const file = run.files[index];
       if (file === undefined) {
-        end({ findings });
+        stage = 'after its last call';
+        ask({ kind: 'finish' }, (message) => {
+          if (message.kind === 'finished') return end({ findings });
+          return end({ crash: `writes to the runner's channel ${stage}` });
+        });
         return;
       }
       stage = `on ${file.path}`;
@@ -285,6 +305,7 @@ export function runRule(run: RuleRun): Promise<RuleOutcome> {
         clearTimeout(timer);
         return load();
       }
+      if (known && (message as Message).kind === 'background') return end(backgroundCrash(message as Message));
       if (waiting === null || !known) return end({ crash: `writes to the runner's channel ${stage}` });
       waiting(message as Message);
     });

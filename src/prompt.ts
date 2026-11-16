@@ -90,39 +90,191 @@ function fenced(answer: string): string | null {
   return answer.slice(start, close).trim();
 }
 
-function matchingBrace(text: string, start: number): number {
-  let depth = 0;
-  let inString = false;
-  for (let i = start; i < text.length; i++) {
-    const c = text[i];
-    if (inString) {
-      if (c === '\\') i++;
-      else if (c === '"') inString = false;
-    } else if (c === '"') {
-      inString = true;
-    } else if (c === '{') {
-      depth++;
-    } else if (c === '}') {
-      depth--;
-      if (depth === 0) return i;
-    }
-  }
-  return -1;
+const OPEN = 0x7b;
+const CLOSE = 0x7d;
+const QUOTE = 0x22;
+
+function isSpace(c: number): boolean {
+  return c === 0x20 || c === 0x09 || c === 0x0a || c === 0x0d;
 }
 
-function lastSpan(answer: string): Record<string, unknown> | null {
-  let best: Record<string, unknown> | null = null;
-  let bestEnd = -1;
-  for (let start = answer.indexOf('{'); start >= 0; start = answer.indexOf('{', start + 1)) {
-    const end = matchingBrace(answer, start);
-    if (end <= bestEnd) continue;
-    const object = parsed(answer.slice(start, end + 1));
-    if (object !== null) {
-      best = object;
-      bestEnd = end;
+function isDigit(c: number): boolean {
+  return c >= 0x30 && c <= 0x39;
+}
+
+function isHex(c: number): boolean {
+  return isDigit(c) || (c >= 0x41 && c <= 0x46) || (c >= 0x61 && c <= 0x66);
+}
+
+interface Span {
+  end: number;
+  verdict: boolean;
+}
+
+// What a JSON object that starts at a `{` turns out to be: a span that parses, or none.
+type Known = Span | null;
+
+class Spans {
+  private readonly known = new Map<number, Known>();
+
+  constructor(private readonly text: string) {}
+
+  at(start: number): Known {
+    if (!this.known.has(start)) this.read(start);
+    return this.known.get(start)!;
+  }
+
+  private string(i: number): number {
+    const text = this.text;
+    for (i++; i < text.length; i++) {
+      const c = text.charCodeAt(i);
+      if (c === QUOTE) return i + 1;
+      if (c < 0x20) return -1;
+      if (c === 0x5c) {
+        const e = text.charCodeAt(++i);
+        if (e === 0x75) {
+          for (let k = 1; k <= 4; k++) if (!isHex(text.charCodeAt(i + k))) return -1;
+          i += 4;
+        } else if (!'"\\/bfnrt'.includes(text[i] ?? '')) return -1;
+      }
+    }
+    return -1;
+  }
+
+  private number(i: number): number {
+    const text = this.text;
+    if (text.charCodeAt(i) === 0x2d) i++;
+    if (text.charCodeAt(i) === 0x30) i++;
+    else if (isDigit(text.charCodeAt(i))) while (isDigit(text.charCodeAt(i))) i++;
+    else return -1;
+    if (text.charCodeAt(i) === 0x2e) {
+      i++;
+      if (!isDigit(text.charCodeAt(i))) return -1;
+      while (isDigit(text.charCodeAt(i))) i++;
+    }
+    const e = text.charCodeAt(i);
+    if (e === 0x65 || e === 0x45) {
+      i++;
+      const sign = text.charCodeAt(i);
+      if (sign === 0x2b || sign === 0x2d) i++;
+      if (!isDigit(text.charCodeAt(i))) return -1;
+      while (isDigit(text.charCodeAt(i))) i++;
+    }
+    return i;
+  }
+
+  // One pass of a JSON reader with an explicit stack, from the `{` at start. Every object it closes and every object it was inside when it failed is remembered, so no later start reads that text again; a text is read at most once in each of the three states a reader can be in at a character (outside a string, inside one, after a backslash inside one), so the work is linear in the answer.
+  private read(start: number): void {
+    const text = this.text;
+    interface Frame {
+      start: number;
+      object: boolean;
+      expect: 'key' | 'colon' | 'value' | 'next';
+      first: boolean;
+      verdict: boolean;
+    }
+    const stack: Frame[] = [{ start, object: true, expect: 'key', first: true, verdict: false }];
+    let i = start + 1;
+    const fail = () => {
+      for (const frame of stack) if (frame.object) this.known.set(frame.start, null);
+    };
+    const valueDone = () => {
+      const top = stack[stack.length - 1]!;
+      top.expect = 'next';
+      top.first = false;
+    };
+    for (;;) {
+      while (i < text.length && isSpace(text.charCodeAt(i))) i++;
+      if (i >= text.length) return fail();
+      const c = text.charCodeAt(i);
+      const top = stack[stack.length - 1]!;
+      if (top.expect === 'key') {
+        if (c === CLOSE && top.object && top.first) {
+          i = this.close(stack, i);
+          if (stack.length === 0) return;
+          valueDone();
+          continue;
+        }
+        if (c !== QUOTE) return fail();
+        const end = this.string(i);
+        if (end < 0) return fail();
+        const key = text.slice(i, end);
+        if (key === '"verdict"' || (key.includes('\\') && JSON.parse(key) === 'verdict')) top.verdict = true;
+        i = end;
+        top.expect = 'colon';
+        continue;
+      }
+      if (top.expect === 'colon') {
+        if (c !== 0x3a) return fail();
+        i++;
+        top.expect = 'value';
+        continue;
+      }
+      if (top.expect === 'next') {
+        if (c === 0x2c) {
+          i++;
+          top.expect = top.object ? 'key' : 'value';
+          top.first = false;
+          continue;
+        }
+        if (c === (top.object ? CLOSE : 0x5d)) {
+          i = this.close(stack, i);
+          if (stack.length === 0) return;
+          valueDone();
+          continue;
+        }
+        return fail();
+      }
+      if (!top.object && top.first && c === 0x5d) {
+        i = this.close(stack, i);
+        if (stack.length === 0) return;
+        valueDone();
+        continue;
+      }
+      if (c === OPEN) {
+        const known = this.known.get(i);
+        if (known === null) return fail();
+        if (known !== undefined) {
+          i = known.end + 1;
+          valueDone();
+          continue;
+        }
+        stack.push({ start: i, object: true, expect: 'key', first: true, verdict: false });
+        i++;
+        continue;
+      }
+      if (c === 0x5b) {
+        stack.push({ start: i, object: false, expect: 'value', first: true, verdict: false });
+        i++;
+        continue;
+      }
+      let end = -1;
+      if (c === QUOTE) end = this.string(i);
+      else if (c === 0x2d || isDigit(c)) end = this.number(i);
+      else for (const word of ['true', 'false', 'null']) if (text.startsWith(word, i)) end = i + word.length;
+      if (end < 0) return fail();
+      i = end;
+      valueDone();
     }
   }
-  return best;
+
+  private close(stack: { start: number; object: boolean; verdict: boolean }[], i: number): number {
+    const frame = stack.pop()!;
+    if (frame.object) this.known.set(frame.start, { end: i, verdict: frame.verdict });
+    return i + 1;
+  }
+}
+
+// Section 4 of spec/reviewer-slice.md: among the spans that start with `{`, end at their matching `}`, parse, and are objects with the key verdict, the one that ends last. A span that parses as JSON ends at its matching brace, so reading each start as JSON finds the same spans.
+function lastSpan(answer: string): Record<string, unknown> | null {
+  const spans = new Spans(answer);
+  let best: { start: number; end: number } | null = null;
+  for (let start = answer.indexOf('{'); start >= 0; start = answer.indexOf('{', start + 1)) {
+    const span = spans.at(start);
+    if (span === null || !span.verdict) continue;
+    if (best === null || span.end > best.end) best = { start, end: span.end };
+  }
+  return best === null ? null : parsed(answer.slice(best.start, best.end + 1));
 }
 
 export function takeAnswer(answer: string): Record<string, unknown> | null {
@@ -144,7 +296,7 @@ export function checkFindings(findings: unknown, lineCount: number): AnswerFindi
     const { line, message } = item;
     if (typeof message !== 'string' || message.trim() === '') return { problem: 'a finding has no message' };
     if (line !== undefined && line !== null && !(Number.isInteger(line) && (line as number) >= 1 && (line as number) <= lineCount)) {
-      return { problem: `a finding is at line ${JSON.stringify(line)}, outside lines 1 to ${lineCount}` };
+      return { problem: `a finding is at line ${typeof line === 'number' ? String(line) : JSON.stringify(line)}, outside lines 1 to ${lineCount}` };
     }
     out.push({ line: line === undefined || line === null ? null : (line as number), message });
   }

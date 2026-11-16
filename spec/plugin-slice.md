@@ -91,7 +91,7 @@ The file takes a second top-level key:
 |---|---|---|
 | `runner` | `global`, `npx`, `pnpm`, `yarn` or `bun` | `global` |
 
-**The line rule.** The plugin reads the key without a YAML parser, so the key has one written form. Read the file as UTF-8, split it at `\n`, and remove a trailing `\r` from each line. The runner line is the first line that starts with `runner:` in its first column. Its value is the rest of the line after `runner:`, with everything from the first `#` that follows a space or a tab removed, then trimmed of spaces and tabs. Without a runner line the runner is `global`.
+**The line rule.** The plugin reads the key without a YAML parser, so the key has one written form. Read the file as UTF-8, drop a byte-order mark at its start, split it at `\n`, and remove a trailing `\r` from each line. The runner line is the first line that starts with `runner:` in its first column. Its value is the rest of the line after `runner:`, with everything from the first `#` that follows a space or a tab removed, then trimmed of spaces and tabs. Without a runner line the runner is `global`.
 
 **What the tool accepts.** The YAML value of `runner` is one of the five names, and the line rule reads the same name. Otherwise `config-invalid` at the key's line:
 
@@ -261,7 +261,7 @@ A runner exits 1 when it cannot find what it should start, so an exit code alone
 
 **Fitting.** Claude Code caps a hook's text at 10,000 characters and replaces anything longer with a file path and a 2,000-character preview it does not ask the agent to read. A text the hook hands over is a header, a blank line and Lawcheck's output without its final line end, at most 9,000 code points in all. When it would hold more, the hook keeps the header, the blank line and the output's first line; then the output's next lines in order while they fit; then `... <k> more lines not shown; run the command yourself to see them all`, with `k` the lines left out; and last the output's last line when it starts with `next: `. Lines are kept whole.
 
-**State** is one file per session, `<data>/sessions/<session_id>.json`. `<data>` is `CLAUDE_PLUGIN_DATA`, or without it `<os.tmpdir()>/lawcheck-plugin-<uid>`, which the hook creates with mode `0700` and refuses, as having no state, when another user owns it. The hook creates `<data>/sessions/`. A `session_id` with a character outside `A-Z`, `a-z`, `0-9`, `_` and `-` has no state file. The file is written to a temporary name in the same directory and renamed. It holds:
+**State** is one file per session, `<data>/sessions/<session_id>.json`. `<data>` is `CLAUDE_PLUGIN_DATA`, or without it `<os.tmpdir()>/lawcheck-plugin-<uid>`, which the hook creates with mode `0700` and refuses, as having no state, when another user owns it. The hook creates `<data>/sessions/`. A `session_id` with a character outside `A-Z`, `a-z`, `0-9`, `_` and `-` has no state file. One longer than 128 characters keeps its state in `<data>/sessions/<the SHA-256 of the id, in hexadecimal>.long.json`, so no id makes a file name longer than a file system takes, and no id of the allowed characters can name that file. The file is written to a temporary name in the same directory and renamed. It holds:
 
 ```json
 { "root": "<absolute>", "prompt_id": "<id or null>", "open": true, "started": 0, "head": "<commit or null>", "files": { "<path>": "<blob id or ->" }, "blocks": 0, "last": null, "last_error": null, "told": false }
@@ -271,7 +271,7 @@ A runner exits 1 when it cannot find what it should start, so an exit code alone
 
 1. `head`: `git rev-parse --verify --quiet HEAD^{commit}`, or null.
 2. The paths: with a HEAD, `git diff -z --name-only --no-renames --relative HEAD --` and `git ls-files -z --others --exclude-standard`; without one, `git ls-files -z --cached --others --exclude-standard`. Paths under `.lawcheck/.local/` are left out.
-3. Each path's blob id from one `git hash-object --stdin-paths`, or `-` when the path is no regular file.
+3. Each path's blob id from one `git hash-object --stdin-paths`, each path written in C quotes from the top of the work tree after `git rev-parse --show-prefix`, so a name with any byte and a root below the top are read right; or `-` when the path is no regular file. Paths are written as slice one's section 2 writes them.
 
 A snapshot that fails or passes the deadline is no snapshot.
 
@@ -628,6 +628,12 @@ The script prints one line per run and a summary per arm, and writes:
 | 181 | `tests/agent/result.json` | section 10's shape; for every run, `breach` follows from `log` by step 5; for every counted run, the fixture with `files` laid over it gives the same four `checks`, by step 6 run again; `fixed` follows; each arm has `counted` 10 and `fixed` at least 8; every log line's caller is `agent` or the arm's own event; no `reply` holds `/tmp` or the home directory |
 | 182 | on the host: `npm run agent-trial -- --arm stop --counted 2 --max-runs 6 --out <a temporary file>` | finishes, prints a line per run and the summary, writes a file that test 181's derivations accept (run by the reviewer; the counts are not compared) |
 | 183 | `npm test` | tests 1 to 141 as section 11 amends them, and 142 to 181 but 153 and 180, pass, offline |
+
+### Invariants
+
+| Id | Promise | Test |
+|---|---|---|
+| I-hook-1 | Any standard input to any hook, JSON or not, a `session_id` of any length and a `config.yaml` with a byte-order mark included, gives exit 0 with nothing or one document of section 4.4, or exit 1 with one line `lawcheck plugin: <reason>` on standard error, never a stack trace (section 4). | tests/properties/arguments.test.ts |
 
 ## 13. Decisions taken here
 

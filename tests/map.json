@@ -3,12 +3,28 @@
     "tests/acceptance/plugin.test.ts",
     "tests/environments/hook-shapes.test.ts"
   ],
+  "plugin/hooks/names.mjs": [
+    "tests/acceptance/plugin.test.ts",
+    "tests/properties/names.test.ts"
+  ],
   "plugin/hooks/snapshot.mjs": [
-    "tests/environments/hook-shapes.test.ts"
+    "tests/acceptance/plugin.test.ts",
+    "tests/environments/hook-shapes.test.ts",
+    "tests/properties/arguments.test.ts"
+  ],
+  "plugin/hooks/start.mjs": [
+    "tests/acceptance/plugin.test.ts",
+    "tests/properties/arguments.test.ts"
+  ],
+  "plugin/hooks/state.mjs": [
+    "tests/acceptance/plugin.test.ts",
+    "tests/properties/arguments.test.ts"
   ],
   "src/args.ts": [
     "tests/acceptance/cli.test.ts",
     "tests/acceptance/docs.test.ts",
+    "tests/acceptance/hostile.test.ts",
+    "tests/properties/arguments.test.ts",
     "tests/unit/args.test.ts"
   ],
   "src/bin.cts": [
@@ -17,10 +33,14 @@
   "src/check.ts": [
     "tests/acceptance/changes.test.ts",
     "tests/acceptance/cli.test.ts",
+    "tests/acceptance/hostile.test.ts",
     "tests/acceptance/paths.test.ts",
     "tests/acceptance/reviewer-law.test.ts",
     "tests/acceptance/rules.test.ts",
     "tests/acceptance/targets.test.ts",
+    "tests/acceptance/waiver-key.test.ts",
+    "tests/properties/contents.test.ts",
+    "tests/properties/git-states.test.ts",
     "tests/unit/check.test.ts"
   ],
   "src/cli.ts": [
@@ -34,6 +54,7 @@
     "tests/acceptance/http-providers.test.ts",
     "tests/acceptance/paths.test.ts",
     "tests/acceptance/reviewer-law.test.ts",
+    "tests/properties/law.test.ts",
     "tests/unit/config.test.ts"
   ],
   "src/docs.ts": [
@@ -55,19 +76,27 @@
   ],
   "src/explain.ts": [
     "tests/acceptance/explain.test.ts",
+    "tests/acceptance/hostile.test.ts",
+    "tests/acceptance/waiver-key.test.ts",
     "tests/environments/systems.test.ts",
+    "tests/properties/law.test.ts",
     "tests/unit/explain.test.ts"
   ],
   "src/files.ts": [
     "tests/acceptance/changes.test.ts",
+    "tests/acceptance/hostile.test.ts",
     "tests/acceptance/paths.test.ts",
     "tests/environments/ci-shapes.test.ts",
     "tests/environments/git-faults.test.ts",
+    "tests/properties/git-states.test.ts",
+    "tests/properties/names.test.ts",
     "tests/unit/files.test.ts"
   ],
   "src/glob.ts": [
+    "tests/acceptance/hostile.test.ts",
     "tests/acceptance/law.test.ts",
     "tests/acceptance/paths.test.ts",
+    "tests/properties/glob.test.ts",
     "tests/unit/glob.test.ts"
   ],
   "src/guard.ts": [
@@ -88,7 +117,15 @@
   "src/law.ts": [
     "tests/acceptance/law.test.ts",
     "tests/acceptance/reviewer-law.test.ts",
+    "tests/acceptance/waiver-key.test.ts",
+    "tests/properties/law.test.ts",
     "tests/unit/law.test.ts"
+  ],
+  "src/names.ts": [
+    "tests/acceptance/hostile.test.ts",
+    "tests/properties/names.test.ts",
+    "tests/unit/files.test.ts",
+    "tests/unit/names.test.ts"
   ],
   "src/output.ts": [
     "tests/acceptance/cli.test.ts",
@@ -109,6 +146,7 @@
   ],
   "src/prompt.ts": [
     "tests/acceptance/reviewer.test.ts",
+    "tests/properties/answer.test.ts",
     "tests/unit/prompt.test.ts"
   ],
   "src/providers/anthropic.ts": [
@@ -181,20 +219,25 @@
     "tests/unit/review.test.ts"
   ],
   "src/rules.ts": [
+    "tests/acceptance/rule-results.test.ts",
     "tests/acceptance/rules.test.ts",
     "tests/environments/refusal.test.ts",
     "tests/environments/shapes.test.ts",
+    "tests/properties/rules.test.ts",
     "tests/unit/rules.test.ts",
     "tests/unit/runner.test.ts"
   ],
   "src/runner.ts": [
+    "tests/acceptance/rule-results.test.ts",
     "tests/acceptance/rules.test.ts",
     "tests/environments/refusal.test.ts",
     "tests/environments/shapes.test.ts",
+    "tests/properties/rules.test.ts",
     "tests/unit/runner.test.ts"
   ],
   "src/setup.ts": [
     "tests/acceptance/cli.test.ts",
+    "tests/acceptance/hostile.test.ts",
     "tests/acceptance/targets.test.ts",
     "tests/environments/ci-shapes.test.ts",
     "tests/environments/git-faults.test.ts",
@@ -202,12 +245,14 @@
     "tests/unit/setup.test.ts"
   ],
   "src/try.ts": [
+    "tests/acceptance/hostile.test.ts",
     "tests/acceptance/try.test.ts",
     "tests/unit/try.test.ts"
   ],
   "src/types.ts": [
     "tests/acceptance/changes.test.ts",
     "tests/acceptance/paths.test.ts",
+    "tests/properties/contents.test.ts",
     "tests/unit/types.test.ts"
   ],
   "src/uses.ts": [
@@ -220,7 +265,9 @@
     "tests/unit/verdicts.test.ts"
   ],
   "src/waivers.ts": [
+    "tests/acceptance/waiver-key.test.ts",
     "tests/acceptance/waivers.test.ts",
+    "tests/properties/contents.test.ts",
     "tests/unit/waivers.test.ts"
   ]
 }

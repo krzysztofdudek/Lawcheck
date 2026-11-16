@@ -14,6 +14,7 @@ console.warn('no campaign'); // lawcheck-waive no-console -- the pricing team re
 - Whitespace, the rule id, whitespace, `--` and the reason follow the marker.
 - A closing `*/` or `-->` at the end of the line is cut off first, so `<!-- lawcheck-waive no-console -- reason -->` works.
 - The reason is the rest of the line after `--`, trimmed. It is required.
+- A file whose type sets `waivers: false` holds no waivers, so a page or a test that writes about waivers can have a type: the marker there is text.
 
 ## What it covers
 

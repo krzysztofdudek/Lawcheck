@@ -3,9 +3,11 @@ import { join, resolve } from 'node:path';
 import { documentOf, errorResult, number, usageError } from './args.js';
 import type { Arguments, Result } from './args.js';
 import type { CheckContext } from './check.js';
-import { comparePaths, trackedLinks, workTreeTop } from './files.js';
+import { comparePaths, nestedReason, repositoryHolding, trackedLinks, workTreeTop } from './files.js';
+import { onDisk } from './names.js';
 import { compileList, patternProblem } from './glob.js';
 import { CODES, plural, shown } from './output.js';
+import { takesWaivers } from './law.js';
 import type { ErrorItem } from './output.js';
 import { ruleKind } from './prime.js';
 import { buildPrompt, cleanMessage, size } from './prompt.js';
@@ -33,7 +35,7 @@ function listedFile(root: string, cwd: string, word: string, files: string[]): b
   }
 }
 
-function isDirectory(path: string): boolean {
+function isDirectory(path: string | Buffer): boolean {
   try {
     return statSync(path).isDirectory();
   } catch {
@@ -41,7 +43,7 @@ function isDirectory(path: string): boolean {
   }
 }
 
-export function selectTargets(root: string, cwd: string, targets: string[], files: string[], binary: (path: string) => boolean, lenient = false): string[] {
+export function selectTargets(root: string, cwd: string, targets: string[], files: string[], binary: (path: string) => boolean, lenient = false, listed: Set<string> = new Set()): string[] {
   const chosen = new Set<string>();
   const here = repoPath(root, realpathSync(resolve(cwd)));
   class None extends Error {}
@@ -71,13 +73,14 @@ export function selectTargets(root: string, cwd: string, targets: string[], file
       chosen.add(path);
       return;
     }
-    if (path === '.' || isDirectory(join(root, path))) {
+    if (path === '.' || isDirectory(onDisk(root, path))) {
       const hits = files.filter((file) => (path === '.' || file.startsWith(`${path}/`)) && !binary(file));
       if (hits.length === 0) throw none(word, 'matches no file');
       hits.forEach((file) => chosen.add(file));
       return;
     }
-    throw none(word, 'git ignores it or it does not exist');
+    const nested = repositoryHolding(root, path, listed);
+    throw none(word, nested === null ? 'git ignores it or it does not exist' : nestedReason(nested));
   }
 }
 
@@ -136,7 +139,7 @@ export async function tryRule(args: Arguments, context: CheckContext, json: bool
       throw usage(`the law has no rule '${id}'${nearPart(id, [...law.rules.keys()])}`);
     }
     const config = loadConfig(root);
-    const { files, read, kinds } = loadRuleFiles(root, law);
+    const { listed, files, read, kinds } = loadRuleFiles(root, law);
     const kind = ruleKind(kinds, id);
     if (kind === 'script' && (times !== null || dryRun || maxCalls !== null)) {
       throw usage(`--times, --dry-run and --max-calls go only with a reviewer rule, and ${id} is a script rule`);
@@ -147,11 +150,11 @@ export async function tryRule(args: Arguments, context: CheckContext, json: bool
       for (const word of targets) {
         if (isPattern(word) && !listedFile(root, context.cwd, word, files)) throw usage(`a reviewer rule takes files one by one, and '${word}' is a pattern`);
         const path = fromCwd(root, context.cwd, word);
-        if (!files.includes(path) && (path === '.' || isDirectory(join(root, path)))) throw usage(`a reviewer rule takes files one by one, and '${word}' is a directory`);
+        if (!files.includes(path) && (path === '.' || isDirectory(onDisk(root, path)))) throw usage(`a reviewer rule takes files one by one, and '${word}' is a directory`);
       }
     }
     const binary = (path: string) => isBinary(bytesOf(read, path));
-    let chosen = selectTargets(root, context.cwd, targets, files, binary);
+    let chosen = selectTargets(root, context.cwd, targets, files, binary, false, listed);
     const typed = typeAll(root, law, files, read);
     const typeOf = new Map(typed.map((file) => [file.path, file.type]));
     if (targets.length === 0) {
@@ -165,7 +168,7 @@ export async function tryRule(args: Arguments, context: CheckContext, json: bool
       const text = decode(bytesOf(read, path));
       return { path, type: typeOf.get(path) ?? null, text, lines: splitLines(text) };
     });
-    const waiversOf = new Map(ruleFiles.map((file) => [file.path, parseWaivers(file.lines, ruleIds).waivers]));
+    const waiversOf = new Map(ruleFiles.map((file) => [file.path, takesWaivers(file.type) ? parseWaivers(file.lines, ruleIds).waivers : []]));
     const result: Outcome = { rule: id, kind, status: rule.status, why: rule.why, files: chosen, times: times ?? 1, dryRun, runs: [], calls: 0, maxChars: config.maxChars };
 
     if (kind === 'script') {

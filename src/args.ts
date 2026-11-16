@@ -170,6 +170,7 @@ export function readArguments(argv: string[]): Read {
     const value = argv[i + 1];
     if (value === undefined || value.startsWith('-')) return fail(`the flag ${word} takes ${what(kind)}`);
     if (kind === 'digits' && !/^[0-9]+$/.test(value)) return fail(`the flag ${word} takes a number of digits, not '${value}'`);
+    if (kind === 'digits' && !Number.isSafeInteger(Number(value))) return fail(`the flag ${word} takes a number up to ${Number.MAX_SAFE_INTEGER}, not '${value}'`);
     flags.set(word, value);
     i++;
   }

@@ -1,11 +1,12 @@
 import { lstatSync } from 'node:fs';
-import { join } from 'node:path';
+import { onDisk } from './names.js';
 import { documentOf, errorResult, text as flagText, usageError } from './args.js';
 import type { Arguments, Result } from './args.js';
 import type { CheckContext } from './check.js';
 import type { ReviewerConfig } from './config.js';
-import { ignoresPath } from './files.js';
+import { ignoresPath, nestedReason, repositoryHolding } from './files.js';
 import { compilePattern } from './glob.js';
+import { takesWaivers } from './law.js';
 import type { Law, TypeDef } from './law.js';
 import { plural, shown } from './output.js';
 import { mayUsePart, ruleKind, walk } from './prime.js';
@@ -129,7 +130,7 @@ function behindLink(root: string, path: string): boolean {
   const parts = path.split('/');
   for (let i = 1; i < parts.length; i++) {
     try {
-      if (lstatSync(join(root, ...parts.slice(0, i))).isSymbolicLink()) return true;
+      if (lstatSync(onDisk(root, parts.slice(0, i).join('/'))).isSymbolicLink()) return true;
     } catch {
       return false;
     }
@@ -139,6 +140,8 @@ function behindLink(root: string, path: string): boolean {
 
 function existing(ctx: Ctx, path: string, symlink: boolean): FileAnswer {
   if (behindLink(ctx.root, path)) return untyped(path, true, BEHIND);
+  const nested = repositoryHolding(ctx.root, path, ctx.listed);
+  if (nested !== null) return untyped(path, true, nestedReason(nested));
   if (!ctx.listed.has(path)) return untyped(path, true, 'git ignores it, so Lawcheck never sees it');
   if (symlink) return untyped(path, true, 'it is a symbolic link, which has no type');
   if (path === VERDICTS) return untyped(path, true, 'Lawcheck writes this file, and it has no type');
@@ -171,7 +174,7 @@ function existing(ctx: Ctx, path: string, symlink: boolean): FileAnswer {
   }
   const type = chain[chain.length - 1]!;
   const ruleIds = new Set([...ctx.law.rules.keys(), 'forbidden-use']);
-  const { waivers } = parseWaivers(splitLines(text), ruleIds);
+  const { waivers } = takesWaivers(type) ? parseWaivers(splitLines(text), ruleIds) : { waivers: [] };
   return {
     path,
     exists: true,
@@ -216,6 +219,8 @@ export function walkPath(types: TypeDef[], path: string): { chain: TypeDef[]; st
 
 function absent(ctx: Ctx, path: string): FileAnswer {
   if (behindLink(ctx.root, path)) return untyped(path, false, BEHIND);
+  const nested = repositoryHolding(ctx.root, path, ctx.listed);
+  if (nested !== null) return untyped(path, false, nestedReason(nested));
   if (ignoresPath(ctx.root, path)) return untyped(path, false, 'git ignores this path, so Lawcheck would never see it');
   const { chain, stop } = walkPath(ctx.law.types, path);
   const deepest = chain[chain.length - 1] ?? null;
@@ -338,12 +343,14 @@ function typeAnswer(ctx: Ctx, id: string, json: boolean): string {
       may_use: mayUseJson(type),
       rules: rules.map(({ review: _review, ...rest }) => rest),
       subtypes: type.types.map((t) => t.id),
+      waivers: takesWaivers(type),
       files,
     });
   }
   const lines = [`type ${id}  (${chain.map((t) => t.id).join(' > ')})${type.about === null ? '' : `  ${shown(type.about)}`}`, `  paths:  ${shown(type.paths.join(', '))}`];
   if (type.expression !== null) lines.push(`  content:  ${shown(type.expression)}`);
   lines.push(mayUseLine(type), ...ruleLines(rules));
+  if (!takesWaivers(type)) lines.push('  waivers:  not read; a waiver marker in its files is text');
   lines.push(`  subtypes:  ${type.types.length === 0 ? 'none' : type.types.map((t) => t.id).join(', ')}`);
   lines.push(`  files:  ${files.length}`);
   list(lines, files);
@@ -391,7 +398,7 @@ function spelledAsListed(root: string, path: string, listed: Set<string>): strin
   if (listed.has(path)) return path;
   let named: { dev: bigint; ino: bigint };
   try {
-    named = lstatSync(join(root, path), { bigint: true });
+    named = lstatSync(onDisk(root, path), { bigint: true });
   } catch {
     return path;
   }
@@ -399,7 +406,7 @@ function spelledAsListed(root: string, path: string, listed: Set<string>): strin
   const same = [...listed].filter((other) => {
     if (other.toLowerCase() !== lower) return false;
     try {
-      const stat = lstatSync(join(root, other), { bigint: true });
+      const stat = lstatSync(onDisk(root, other), { bigint: true });
       return stat.dev === named.dev && stat.ino === named.ino;
     } catch {
       return false;
@@ -428,10 +435,10 @@ export async function explain(args: Arguments, context: CheckContext, json: bool
     if (path === '.') return directory(ctx, path, json);
     let stat: ReturnType<typeof lstatSync> | null = null;
     try {
-      stat = lstatSync(join(root, path));
+      stat = lstatSync(onDisk(root, path));
     } catch (error) {
       const code = (error as NodeJS.ErrnoException).code;
-      if (code !== 'ENOENT' && code !== 'ENOTDIR') throw error;
+      if (code !== 'ENOENT' && code !== 'ENOTDIR' && code !== 'ENAMETOOLONG') throw error;
     }
     if (stat !== null && stat.isDirectory()) return directory(ctx, path, json);
     const answer = stat === null ? absent(ctx, path) : existing(ctx, path, stat.isSymbolicLink());
