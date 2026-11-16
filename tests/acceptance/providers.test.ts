@@ -3,7 +3,8 @@ import { fakeWrites, platformSkip } from '../harness/tool.ts';
 import { CLAUDE_TIMEOUT_RUN_MS, FAKE_STARTED_MS, KILLED_GRACE_MS, LEFTOVER_GRACE_MS } from '../numbers.ts';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, rmSync } from 'node:fs';
+import { appendFileSync, existsSync, readFileSync, rmSync } from 'node:fs';
+import { cpus } from 'node:os';
 import { join } from 'node:path';
 import { anthropic, defaultAnswer, gitAlone, openai, startFake, withFake, writeFakeClaude } from './fake-reviewer.ts';
 import { alive, append, F, F_PATH, findingLines, pathWith, PROMPT_F, read, REVIEWER_CONFIG, REVIEWER_LAW, run, SECOND, startLawcheck, withR, write } from './helpers.ts';
@@ -468,6 +469,53 @@ async function waitFor(condition: () => boolean, ms: number): Promise<boolean> {
   return condition();
 }
 
+function cpuTimes(): { idle: number; total: number } {
+  let idle = 0;
+  let total = 0;
+  for (const cpu of cpus()) {
+    idle += cpu.times.idle;
+    total += cpu.times.idle + cpu.times.user + cpu.times.sys + cpu.times.irq + cpu.times.nice;
+  }
+  return { idle, total };
+}
+
+async function measuredKill(r: string, dir: string, signal: NodeJS.Signals, label: string): Promise<{ seen: ReturnType<typeof record>; child: ReturnType<typeof startLawcheck>; gone: boolean; ms: number }> {
+  const traced = join(dir, 'trace.txt');
+  fakeWrites(dir, ['trace.txt']);
+  const child = startLawcheck(r, ['check', '--review', '--base', 'main'], { env: claudeEnv(dir, 'sleep', { LAWCHECK_GUARD_TRACE: traced }), internal: signal !== 'SIGKILL' });
+  const startedAt = Date.now();
+  assert.ok(await waitFor(() => existsSync(join(dir, 'record.json')), FAKE_STARTED_MS), 'the fake claude started');
+  const seen = record(dir) as ReturnType<typeof record> & { at: number };
+  const before = cpuTimes();
+  child.kill(signal);
+  const killedAt = Date.now();
+  appendFileSync(traced, `${killedAt} test killed lawcheck ${child.pid} by ${signal}; fake ${seen.pid}, its child ${seen.child}; the fake started ${seen.at - startedAt} ms after lawcheck, the record read ${killedAt - seen.at} ms after\n`);
+  let fakeGone: number | null = null;
+  let childGone: number | null = null;
+  let last = killedAt;
+  let gap = 0;
+  let ticks = 0;
+  const gone = await waitFor(() => {
+    const now = Date.now();
+    gap = Math.max(gap, now - last);
+    last = now;
+    ticks++;
+    if (fakeGone === null && !alive(seen.pid)) fakeGone = now - killedAt;
+    if (childGone === null && !alive(seen.child!)) childGone = now - killedAt;
+    return fakeGone !== null && childGone !== null;
+  }, KILLED_GRACE_MS);
+  const ms = Date.now() - killedAt;
+  const after = cpuTimes();
+  const busy = 1 - (after.idle - before.idle) / Math.max(1, after.total - before.total);
+  await waitFor(() => existsSync(traced) && readFileSync(traced, 'utf8').includes('] exit'), 20_000);
+  const lines = readFileSync(traced, 'utf8').trim().split('\n').map((line) => {
+    const at = Number(line.slice(0, line.indexOf(' ')));
+    return `  ${String(at - killedAt).padStart(6)} ms  ${line.slice(line.indexOf(' ') + 1)}`;
+  });
+  process.stderr.write(`kill-timing ${label}: fake gone at ${fakeGone} ms, child gone at ${childGone} ms, checked at ${ms} ms, ${ticks} checks, longest gap ${gap} ms, cpus ${cpus().length} busy ${(busy * 100).toFixed(0)}%\n${lines.join('\n')}\n`);
+  return { seen, child, gone, ms };
+}
+
 test('test 67: claude-code past its timeout, and the tool killed', async () => {
   await withR(async (r, dir) => {
     write(r, F_PATH, F);
@@ -479,31 +527,28 @@ test('test 67: claude-code past its timeout, and the tool killed', async () => {
     assert.ok(await waitFor(() => !alive(seen.pid), LEFTOVER_GRACE_MS), 'the fake claude is alive');
     assert.ok(await waitFor(() => !alive(seen.child!), LEFTOVER_GRACE_MS), 'its child is alive');
   }, config(CLAUDE_CONFIG + '  timeout: 1\n'));
-  await withR(async (r, dir) => {
-    write(r, F_PATH, F);
-    const child = startLawcheck(r, ['check', '--review', '--base', 'main'], { env: claudeEnv(dir, 'sleep') });
-    try {
-      assert.ok(await waitFor(() => existsSync(join(dir, 'record.json')), FAKE_STARTED_MS), 'the fake claude started');
-      const seen = record(dir);
-      child.kill('SIGKILL');
-      const killedAt = Date.now();
-      assert.ok(await waitFor(() => !alive(seen.pid) && !alive(seen.child!), KILLED_GRACE_MS), `both are gone: ${survivors(seen)}`);
-      assert.ok(Date.now() - killedAt <= KILLED_GRACE_MS);
-      assert.ok(await waitFor(() => !existsSync(seen.cwd), KILLED_GRACE_MS), `${seen.cwd} is left`);
-      assert.equal((await child.ended).signal, 'SIGKILL');
-    } finally {
-      child.kill('SIGKILL');
-    }
-  }, config(CLAUDE_CONFIG));
+  const late: string[] = [];
+  for (let round = 1; round <= 6; round++) {
+    await withR(async (r, dir) => {
+      write(r, F_PATH, F);
+      const { seen, child, gone, ms } = await measuredKill(r, dir, 'SIGKILL', `SIGKILL round ${round}`);
+      try {
+        assert.ok(gone, `both are gone: ${survivors(seen)}`);
+        if (ms > KILLED_GRACE_MS) late.push(`round ${round}: ${ms} ms`);
+        assert.ok(await waitFor(() => !existsSync(seen.cwd), KILLED_GRACE_MS), `${seen.cwd} is left`);
+        assert.equal((await child.ended).signal, 'SIGKILL');
+      } finally {
+        child.kill('SIGKILL');
+      }
+    }, config(CLAUDE_CONFIG));
+  }
+  assert.deepEqual(late, []);
   for (const signal of ['SIGTERM', 'SIGINT'] as const) {
     await withR(async (r, dir) => {
       write(r, F_PATH, F);
       // Slice one, section 3: a signal that the tool can catch ends it as internal.
-      const child = startLawcheck(r, ['check', '--review', '--base', 'main'], { env: claudeEnv(dir, 'sleep'), internal: true });
+      const { seen, child } = await measuredKill(r, dir, signal, signal);
       try {
-        assert.ok(await waitFor(() => existsSync(join(dir, 'record.json')), FAKE_STARTED_MS), 'the fake claude started');
-        const seen = record(dir);
-        child.kill(signal);
         const { code } = await child.ended;
         if (platformSkip('exit 2 after SIGTERM and SIGINT') === null) assert.equal(code, 2, signal);
         assert.ok(await waitFor(() => !alive(seen.pid) && !alive(seen.child!), KILLED_GRACE_MS), `${signal}: both are gone`);
