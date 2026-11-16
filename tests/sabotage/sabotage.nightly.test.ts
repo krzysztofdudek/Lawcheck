@@ -25,7 +25,7 @@ function sabotage(entries: unknown[]): { status: number | null; stdout: string; 
 
 const limit = readEntries(readFileSync(LIST, 'utf8')).find((e) => e.id === 'limit-50')!;
 
-test('sabotage list (section 12): every break of the list turns its test red', () => {
+test('question 95: the sabotage list, every break of the list turns its test red', () => {
   const entries = readEntries(readFileSync(LIST, 'utf8'));
   const run = spawnSync(process.execPath, [RUN], { cwd: ROOT, encoding: 'utf8' });
   assert.equal(run.status, 0, run.stdout + run.stderr);
@@ -34,7 +34,7 @@ test('sabotage list (section 12): every break of the list turns its test red', (
   for (const e of entries) assert.ok(lines.includes(`| ${e.id} | ${e.promise} | ${e.file} | ${e.killedBy} | killed |`), run.stdout);
 });
 
-test('sabotage list (section 12): a break its test does not catch fails the run', () => {
+test('question 95: the sabotage list, a break its test does not catch fails the run', () => {
   const run = sabotage([{ ...limit, id: 'same-limit', replace: 'const limit = 50 ;' }]);
   assert.equal(run.status, 1, run.stdout + run.stderr);
   assert.equal(run.stdout, [
@@ -47,7 +47,7 @@ test('sabotage list (section 12): a break its test does not catch fails the run'
   ].join('\n'));
 });
 
-test('sabotage list (section 12): an entry that no longer applies, names no test, or breaks the build fails the run', () => {
+test('question 95: the sabotage list, an entry that no longer applies, names no test, or breaks the build fails the run', () => {
   const run = sabotage([
     { ...limit, id: 'gone', find: 'const limit = 5000;' },
     { ...limit, id: 'no-test', killedBy: 'test 999: nothing' },
@@ -61,7 +61,7 @@ test('sabotage list (section 12): an entry that no longer applies, names no test
   assert.ok(run.stdout.endsWith('sabotage: FAIL  3 of 3 breaks did not turn their test red: gone, no-test, no-build\n'), run.stdout);
 });
 
-test('sabotage list (section 12): a list with a missing field or a repeated id is refused before anything is built', () => {
+test('question 95: the sabotage list, a list with a missing field or a repeated id is refused before anything is built', () => {
   assert.throws(() => readEntries(JSON.stringify([{ ...limit, killedBy: '' }])), /^Error: entry 1 has no killedBy$/);
   assert.throws(() => readEntries(JSON.stringify([limit, limit])), /^Error: the id 'limit-50' is used twice$/);
   assert.throws(() => readEntries(JSON.stringify([{ ...limit, replace: limit.find }])), /^Error: entry 'limit-50' replaces its text with itself$/);

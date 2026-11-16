@@ -115,7 +115,7 @@ function judgeCase(name: string): Report {
   }
 }
 
-test('suite guard (T-7 A): every case on disk has an expectation, and every expectation a case', () => {
+test('question 95: the suite guard, every case on disk has an expectation, and every expectation a case', () => {
   const onDisk = readdirSync(CASES).filter((f) => f.endsWith('.diff')).map((f) => f.slice(0, -5)).sort();
   for (const rows of readdirSync(CASES).filter((f) => f.endsWith('.base.md'))) assert.ok(onDisk.includes(rows.slice(0, -8)), rows);
   assert.deepEqual(onDisk, Object.keys(EXPECT).sort());
@@ -123,7 +123,7 @@ test('suite guard (T-7 A): every case on disk has an expectation, and every expe
 });
 
 for (const [name, expect] of Object.entries(EXPECT)) {
-  test(`suite guard (T-7 A): ${name}`, () => {
+  test(`question 95: the suite guard, case ${name}`, () => {
     const report = judgeCase(name);
     const text = render(report);
     const refused = report.findings.filter((f) => !f.cleared).map((f) => f.kind).sort();
@@ -142,7 +142,7 @@ for (const [name, expect] of Object.entries(EXPECT)) {
   });
 }
 
-test('suite guard (T-7 A): a refusal names the weakening, the record that would pass it, and the anchors that count', () => {
+test('question 95: the suite guard, a refusal names the weakening, the record that would pass it, and the anchors that count', () => {
   const text = render(judgeCase('refused-test-removed'));
   assert.equal(text, [
     'REFUSED  test-removed  test 2: the passing run',
@@ -158,7 +158,7 @@ test('suite guard (T-7 A): a refusal names the weakening, the record that would 
   ].join('\n'));
 });
 
-test('suite guard (T-7 A): a record of an owner kind that the branch brings is refused, whoever it names', () => {
+test('question 95: the suite guard, a record of an owner kind that the branch brings is refused, whoever it names', () => {
   for (const name of ['refused-guard-by-reviewer', 'refused-owner-row-from-branch']) {
     const report = judgeCase(name);
     const finding = report.findings.find((f) => f.kind === 'guard-changed')!;
@@ -167,7 +167,7 @@ test('suite guard (T-7 A): a record of an owner kind that the branch brings is r
   }
 });
 
-test('suite guard (T-7 A): an owner\'s row on the base covers only the change it approves, so a later change of the same paths is refused', () => {
+test('question 95: the suite guard, an owner\'s row on the base covers only the change it approves, so a later change of the same paths is refused', () => {
   const base = caseBase('accepted-guard-by-owner');
   const approved = /approves ([0-9a-f]{16})/.exec(base['tests/weakenings.md']!)![1]!;
   const reused = baseRepo(base);
@@ -195,7 +195,7 @@ test('suite guard (T-7 A): an owner\'s row on the base covers only the change it
   }
 });
 
-test('suite guard (T-7 A): a record of an owner kind on the base that a reviewer approved does not count', () => {
+test('question 95: the suite guard, a record of an owner kind on the base that a reviewer approved does not count', () => {
   const rows = '| 2026-11-15 | tests/guard/** | guard-changed | simpler | tests/guard/check.ts | reviewer fresh-agent-7 |\n';
   const repo = baseRepo({ ...BASE, 'tests/weakenings.md': BASE['tests/weakenings.md'] + rows });
   try {
@@ -212,14 +212,14 @@ test('suite guard (T-7 A): a record of an owner kind on the base that a reviewer
   }
 });
 
-test('suite guard (T-7 A): an anchor that does not exist, and one this change does not touch, are named as such', () => {
+test('question 95: the suite guard, an anchor that does not exist, and one this change does not touch, are named as such', () => {
   const missing = judgeCase('refused-expected-anchor-missing').findings.find((f) => f.kind === 'expected-changed')!;
   assert.deepEqual(missing.why, ["the record at tests/weakenings.md:6: the anchor 'row 99' does not exist in the spec"]);
   const unchanged = judgeCase('refused-expected-anchor-unchanged').findings.find((f) => f.kind === 'expected-changed')!;
   assert.deepEqual(unchanged.why, ["the record at tests/weakenings.md:6: the anchor 'row 2' exists, but this change does not add, reword or remove it"]);
 });
 
-test('suite guard (T-7 A): who may approve each kind is configuration', () => {
+test('question 95: the suite guard, who may approve each kind is configuration', () => {
   const repo = baseRepo();
   try {
     applyCase(repo, join(CASES, 'refused-guard-by-reviewer.diff'));
@@ -232,7 +232,7 @@ test('suite guard (T-7 A): who may approve each kind is configuration', () => {
   }
 });
 
-test('suite guard (T-7 A): a number with no direction in tests/numbers.ts fails even when nothing else changed', () => {
+test('question 95: the suite guard, a number with no direction in tests/numbers.ts fails even when nothing else changed', () => {
   const repo = baseRepo({ ...BASE, 'tests/numbers.ts': BASE['tests/numbers.ts']!.replace("SEED: 'fixed', ", '') });
   try {
     applyCase(repo, join(CASES, 'accepted-new-test.diff'));
@@ -260,7 +260,7 @@ function guardRepo(headGuardPatch: (text: string) => string): { dir: string; don
   return { dir: repo.dir, done: repo.done };
 }
 
-test('suite guard (T-7 A): the judge is the guard of the base, so a branch that edits its own guard is still refused', () => {
+test('question 95: the suite guard, the judge is the guard of the base, so a branch that edits its own guard is still refused', () => {
   const repo = guardRepo((text) => text.replace('passed: findings.every((f) => f.cleared)', 'passed: true'));
   try {
     const head = spawnSync(process.execPath, ['tests/guard/cli.ts', '--base', 'main', '--head', 'work'], { cwd: repo.dir, env: GIT_ENV, encoding: 'utf8' });
@@ -276,7 +276,7 @@ test('suite guard (T-7 A): the judge is the guard of the base, so a branch that 
   }
 });
 
-test('suite guard (T-7 A): with no guard on the base, the entry point says not judged and passes', () => {
+test('question 95: the suite guard, with no guard on the base, the entry point says not judged and passes', () => {
   const files = { ...BASE };
   for (const path of Object.keys(files)) if (path.startsWith('tests/guard/') || path === 'tests/weakenings.md') delete files[path];
   const repo = baseRepo(files);
@@ -295,7 +295,7 @@ test('suite guard (T-7 A): with no guard on the base, the entry point says not j
   }
 });
 
-test('suite guard (T-7 A): a base that holds the guard\'s files but not its entry point fails as could not run', () => {
+test('question 95: the suite guard, a base that holds the guard\'s files but not its entry point fails as could not run', () => {
   for (const keep of ['tests/guard/check.ts', 'tests/weakenings.md']) {
     const files = { ...BASE };
     for (const path of Object.keys(files)) if ((path.startsWith('tests/guard/') || path === 'tests/weakenings.md') && path !== keep) delete files[path];
@@ -310,7 +310,7 @@ test('suite guard (T-7 A): a base that holds the guard\'s files but not its entr
   }
 });
 
-test('suite guard (T-7 A): the command exits 2 with a reason when it cannot judge', () => {
+test('question 95: the suite guard, the command exits 2 with a reason when it cannot judge', () => {
   const repo = baseRepo();
   try {
     const run = spawnSync(process.execPath, [join(HERE, 'cli.ts'), '--repo', repo.dir, '--base', 'nope'], { env: GIT_ENV, encoding: 'utf8' });

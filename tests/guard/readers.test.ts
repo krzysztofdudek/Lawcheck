@@ -5,7 +5,7 @@ import { readConstants } from './constants.ts';
 import { acceptanceRows, fencedBlocks, invariantRows, ledgerRows, readWeakenings, rulings } from './markdown.ts';
 import { parseAnchor } from './guard.ts';
 
-test('suite guard (T-7 A): test ids are the names of test, it and describe calls, and nothing a comment, a string or a regex holds', () => {
+test('question 95: the suite guard, test ids are the names of test, it and describe calls, and nothing a comment, a string or a regex holds', () => {
   const src = readSource([
     "// test.only('in a comment')",
     "/* it.skip('in a block comment') */",
@@ -34,7 +34,7 @@ test('suite guard (T-7 A): test ids are the names of test, it and describe calls
   assert.deepEqual(src.markers, []);
 });
 
-test('suite guard (T-7 A): only, skip and todo are found in each form node:test takes', () => {
+test('question 95: the suite guard, only, skip and todo are found in each form node:test takes', () => {
   const src = readSource([
     "test.only('a', () => {});",
     "it.skip('b', () => {});",
@@ -64,7 +64,7 @@ test('suite guard (T-7 A): only, skip and todo are found in each form node:test 
   ]);
 });
 
-test('suite guard (T-7 A): the numbers are read as data, and a value that is not a plain constant is named unreadable', () => {
+test('question 95: the suite guard, the numbers are read as data, and a value that is not a plain constant is named unreadable', () => {
   const values = readConstants([
     'export const SEED = 20261115;',
     'export const CASES: number = 1_000;',
@@ -87,7 +87,7 @@ test('suite guard (T-7 A): the numbers are read as data, and a value that is not
   });
 });
 
-test('suite guard (T-7 A): spec rows, invariants, ledger rows, rulings and example blocks are read from markdown', () => {
+test('question 95: the suite guard, spec rows, invariants, ledger rows, rulings and example blocks are read from markdown', () => {
   const spec = [
     '## 6. Output',
     '',
@@ -116,7 +116,7 @@ test('suite guard (T-7 A): spec rows, invariants, ledger rows, rulings and examp
   assert.deepEqual([...rulings('## 1. One\ntext\n## 12. Twelve\n### 13. not one')], ['1', '12']);
 });
 
-test('suite guard (T-7 A): a record of tests/weakenings.md has six cells and a date, and a malformed one is named', () => {
+test('question 95: the suite guard, a record of tests/weakenings.md has six cells and a date, and a malformed one is named', () => {
   const ledger = readWeakenings([
     '| Date | What | Kind | Reason | Anchor | Approved by |',
     '|---|---|---|---|---|---|',
@@ -129,7 +129,7 @@ test('suite guard (T-7 A): a record of tests/weakenings.md has six cells and a d
   assert.deepEqual(ledger.malformed.map((m) => [m.line, m.why]), [[4, 'its date is not YYYY-MM-DD'], [5, 'it has 5 cells, the table has 6'], [6, 'a cell is empty']]);
 });
 
-test('suite guard (T-7 A): an anchor is a row, an invariant, a finding, a ruling, a Runes version or a path', () => {
+test('question 95: the suite guard, an anchor is a row, an invariant, a finding, a ruling, a Runes version or a path', () => {
   assert.deepEqual(['row 21', 'test 21', 'I-frame-1', 'S3-1', 'ruling 73', 'Runes 1.2.0', 'runes v1.2.0-beta.1', 'tests/guard/**', 'package.json#scripts.test', 'because I said so'].map((a) => {
     const parsed = parseAnchor(a);
     return parsed && [parsed.type, parsed.key];

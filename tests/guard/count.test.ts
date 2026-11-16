@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 
 const COUNT = fileURLToPath(new URL('./count.ts', import.meta.url));
 
-test('suite guard (T-7 A): a run with fewer tests than the sources declare fails, minus the skips with a platform reason', () => {
+test('question 95: the suite guard, a run with fewer tests than the sources declare fails, minus the skips with a platform reason', () => {
   const root = mkdtempSync(join(tmpdir(), 'lawcheck-count-'));
   try {
     mkdirSync(join(root, 'tests', 'harness'), { recursive: true });

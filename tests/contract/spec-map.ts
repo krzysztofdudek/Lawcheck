@@ -572,7 +572,7 @@ export function questionNumbers(questions: string): Set<number> {
 }
 
 // Entries 95 and 160 of spec/questions.md say that no spec describes what their tests check, the suite's own machinery and the repository's own law, so no row can ever carry those tests: one that cites only its entry, in the files of that machinery, is outside the count of tests that cite only a section.
-export const NO_ROW_QUESTIONS: Record<number, RegExp> = { 95: /^tests\/contract\//, 160: /^tests\/acceptance\/self-law[\w-]*\.test\.ts$/ };
+export const NO_ROW_QUESTIONS: Record<number, RegExp> = { 95: /^tests\/(contract|guard|sabotage)\//, 160: /^tests\/acceptance\/self-law[\w-]*\.test\.ts$/ };
 
 export const SEVERITIES = ['blocks the release', 'should be fixed before', 'after the release'];
 export const PACKAGES = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'P', 'after alpha'];

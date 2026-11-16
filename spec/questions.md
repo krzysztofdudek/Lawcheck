@@ -612,7 +612,7 @@ Choice: the environment of each program holds only the key variables of its own 
 
 ## 95. The suite's own machinery
 
-The build's decision. The harness, the runner, the numbers, the map from `src/` to tests and the discovery of test files are tests' own machinery, and no spec describes them. Their promises are the eight invariants of the harness (`harness-1` to `harness-8` and `harness-count`, in `tests/harness/invariants.ts`) and the rules of `tests/run.ts`, `tests/numbers.ts`, `tests/map.json` and `tests/harness/sets.ts`. A test of that machinery that checks none of the invariants cites this entry in its name.
+The build's decision. The harness, the runner, the numbers, the map from `src/` to tests, the discovery of test files, the suite guard, the gate and the sabotage list are tests' own machinery, and no spec describes them. Their promises are the eight invariants of the harness (`harness-1` to `harness-8` and `harness-count`, in `tests/harness/invariants.ts`) and the rules of `tests/run.ts`, `tests/numbers.ts`, `tests/map.json` and `tests/harness/sets.ts`. A test of that machinery that checks none of the invariants cites this entry in its name.
 
 Choice: a named place for tests that no spec row can carry, so that every test still leads its name with a source that the rail checks.
 
@@ -622,7 +622,7 @@ The build's decision, taken when the ledger's rail first judged every test of th
 
 A test that carries a spec row may list finding ids right after the row: `test 240: S8-8, R-82, a write that fails`. A closed row of `tests/findings.md` may name such a test. Elsewhere a finding is tied only when it leads the name, so `I-out-1: S1-1, a hang` still ties nothing. Without this, the test of a fix that has its own row could never close the finding it fixes.
 
-A test that cites only entry 95 inside `tests/contract/`, or only entry 160 inside the tests of the repository's own law, is outside `SECTION_ONLY_TESTS`. No spec describes the suite's machinery or the repository's own law, so no row can ever carry those tests, and counting them would make every new test of the CI layout break the ratchet. The count falls from 198 to 178: the 21 tests of entry 95 that it counted leave it, and the other packages bring one more test that cites only a section than they take away.
+A test that cites only entry 95 inside `tests/contract/`, `tests/guard/` or `tests/sabotage/`, or only entry 160 inside the tests of the repository's own law, is outside `SECTION_ONLY_TESTS`. No spec describes the suite's machinery or the repository's own law, so no row can ever carry those tests, and counting them would make every new test of the CI layout break the ratchet. The count falls from 198 to 178: the 21 tests of entry 95 that it counted leave it, and the other packages bring one more test that cites only a section than they take away.
 
 `rules-too-slow` and `step-too-slow` have no case in the codes test. Their limits are 600 and 30 seconds of run time, which no test entry of the tool shortens, so the codes test lists them with the nightly test that reaches each and the open ledger row R-89. A case for each comes when a test entry can shorten those limits.
 
