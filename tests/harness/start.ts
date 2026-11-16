@@ -18,10 +18,10 @@ export const CLI = join(ROOT_DIR, 'dist', 'cli.js');
 export const HOOK = join(ROOT_DIR, 'plugin', 'hooks', 'lawcheck-hook.mjs');
 // The hooks with shorter deadlines that a test sets: it sets them in the plugin's own table and then imports lawcheck-hook.mjs, which runs as it ships.
 export const HOOK_WITH_DEADLINES = join(ROOT_DIR, 'tests', 'harness', 'hook-with-deadlines.mjs');
-const DEADLINES_VARIABLE = 'LAWCHECK_TEST_DEADLINES';
+export const DEADLINES_VARIABLE = 'LAWCHECK_TEST_DEADLINES';
 // The built tool with shorter limits that a test sets: it sets them in the tool's own table and then imports dist/bin.cjs, which runs as it ships.
 export const TOOL_WITH_LIMITS = join(ROOT_DIR, 'tests', 'harness', 'tool-with-limits.mjs');
-const LIMITS_VARIABLE = 'LAWCHECK_TEST_LIMITS';
+export const LIMITS_VARIABLE = 'LAWCHECK_TEST_LIMITS';
 const WINDOWS = process.platform === 'win32';
 
 // Node 24.0 to 24.x before type stripping became stable warns once on standard error when it starts a .ts file. Only the suite's own .ts programs are started so; Lawcheck itself is JavaScript, so this one warning is taken out of their output alone, and every other line stays.

@@ -10,7 +10,7 @@ import { skipReason } from './skips.ts';
 import { CLI, gate, HOOK, HOOK_WITH_DEADLINES, observe, ROOT_DIR, TOOL_WITH_LIMITS } from './start.ts';
 import { real, tree, treeChanges } from './state.ts';
 
-export { CLI, CouldNotRun, HOOK, ROOT, startHook, startProgram, startShell, startTool, unpackTarball, withoutTypeStrippingWarning } from './start.ts';
+export { CLI, CouldNotRun, DEADLINES_VARIABLE, HOOK, HOOK_WITH_DEADLINES, LIMITS_VARIABLE, ROOT, startHook, startProgram, startShell, startTool, TOOL_WITH_LIMITS, unpackTarball, withoutTypeStrippingWarning } from './start.ts';
 export type { Expect, HookOptions, Run, Running, Shell, ToolOptions } from './start.ts';
 export { PLATFORM_SKIPS } from './skips.ts';
 export type { PlatformSkip } from './skips.ts';

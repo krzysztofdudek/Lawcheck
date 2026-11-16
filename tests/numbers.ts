@@ -39,6 +39,10 @@ export const STOPPED_HOOK_ENDS_MS = 10_000;
 // spec/check-slice.md, test 24: a rule that hangs crashes within 40 seconds of a limit of 30, so within 10 seconds of its limit. The per-push run gives the tool a limit of 3 seconds in place of 30, which leaves the runner time to start on a busy Windows runner, so that the hang in check is stopped in its call and not in its load; the nightly runs the shipped one.
 export const RULE_PAST_LIMIT_MS = 10_000;
 export const TEST_RULE_MS = 3_000;
+// What the variables of the test entries would set if they reached the tool or the hook a user runs, and how long a rule and a stand-in lawcheck then take: past those, and far inside the shipped 30 and 25 seconds.
+export const USER_SET_RULE_MS = 1_000;
+export const USER_SET_EDIT_DEADLINE_S = 1;
+export const PAST_USER_SET_MS = 2_500;
 
 // spec/reviewer-slice.md, section 6: a call ends at reviewer.timeout without waiting for the kill grace or a second full timeout. Tests 406 to 408 run with a timeout of 1 second, the shared list and call with one of SHARED_TIMEOUT_S, test 411 with one of 3; a timeout of 1 second of an HTTP provider in test 403, and a program that ended while a child holds its output, ended 2 seconds later.
 export const PROGRAM_TIMEOUT_RUN_MS = 5_000;
@@ -269,6 +273,9 @@ export const stronger: Record<string, 'higher' | 'lower' | 'fixed'> = {
   HOOK_PAST_DEADLINE_MS: 'lower',
   RULE_PAST_LIMIT_MS: 'lower',
   TEST_RULE_MS: 'fixed',
+  USER_SET_RULE_MS: 'fixed',
+  USER_SET_EDIT_DEADLINE_S: 'fixed',
+  PAST_USER_SET_MS: 'fixed',
   TEST_HOOK_DEADLINES: 'fixed',
   HOOK_SIGTERM_AFTER_MS: 'fixed',
   STOPPED_HOOK_ENDS_MS: 'lower',

@@ -1,11 +1,11 @@
 import { test } from 'node:test';
-import { platformSkip, waitUntil } from '../harness/tool.ts';
+import { LIMITS_VARIABLE, platformSkip, waitUntil } from '../harness/tool.ts';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
 import { append, check, D, D_PATH, findingLines, lawcheck, NO_CONSOLE, ROOT, setRule, startLawcheck, TEST4, withSample, write } from './helpers.ts';
 import { assertCrashes, CRASH, hangScenario, withRule, withRules } from './rule-bench.ts';
-import { TEST_RULE_MS } from '../numbers.ts';
+import { PAST_USER_SET_MS, TEST_RULE_MS, USER_SET_RULE_MS } from '../numbers.ts';
 import { LIMITS } from '../../dist/rules.js';
 
 const ORIGINAL = NO_CONSOLE.replace('export function check', 'function original');
@@ -75,6 +75,18 @@ test('section 3: the tool allows a rule 30 seconds for its load and 30 for each 
   assert.ok(sentence, 'spec/check-slice.md, section 3, names the time a rule may take');
   assert.equal(sentence[1], sentence[2]);
   assert.deepEqual(LIMITS, { ruleMs: Number(sentence[1]) * 1000 });
+});
+
+test('section 3: the tool a user starts keeps its 30 seconds for a rule when the variable of the test entry is set', async () => {
+  await withRule(
+    ORIGINAL + `export async function check(input) {\n  await new Promise((done) => setTimeout(done, ${PAST_USER_SET_MS}));\n  return original(input);\n}\n`,
+    async (s) => {
+      const run = await lawcheck(s, ['check', '--base', 'main'], { [LIMITS_VARIABLE]: JSON.stringify({ ruleMs: USER_SET_RULE_MS }) });
+      assert.equal(run.stdout, TEST4);
+      assert.equal(run.code, 1);
+      assert.ok(run.ms >= PAST_USER_SET_MS, `the check ended after ${run.ms} ms, before the rule answered`);
+    },
+  );
 });
 
 test('test 25: an async rule', async () => {

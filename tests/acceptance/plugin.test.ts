@@ -7,8 +7,9 @@ import { withFake } from './fake-reviewer.ts';
 import { alive, append, D, D_PATH, F, F_PATH, git, GIT_ENV, inTemp, LAW, lawcheck, makeR, makeSample, newRepository, ROOT, write } from './helpers.ts';
 import type { Expect, Run, Running } from './helpers.ts';
 import { example } from '../harness/examples.ts';
-import { fakeWrites, platformSkip, startHook, startProgram, testFolder } from '../harness/tool.ts';
-import { TEST_HOOK_DEADLINES } from '../numbers.ts';
+import { DEADLINES_VARIABLE, fakeWrites, platformSkip, startHook, startProgram, testFolder } from '../harness/tool.ts';
+import { installedLawcheck } from '../harness/fakes.ts';
+import { PAST_USER_SET_MS, TEST_HOOK_DEADLINES, USER_SET_EDIT_DEADLINE_S } from '../numbers.ts';
 import { DEADLINES } from '../../plugin/hooks/start.mjs';
 import { Bench, deadlineScenario, edited, ended, GIT_DIR, hook, json, NODE_DIR, nothing, PLUGIN, Session, SYSTEM_ENV, withBench } from './plugin-bench.ts';
 import type { HookRun } from './plugin-bench.ts';
@@ -287,6 +288,18 @@ test('section 5: the plugin ships deadlines of 25 seconds for session-start and 
   const hooks = JSON.parse(readFileSync(join(PLUGIN, 'hooks', 'hooks.json'), 'utf8')).hooks as Record<string, { hooks: { args: string[]; timeout: number }[] }[]>;
   const timeouts = Object.fromEntries(Object.values(hooks).flatMap((groups) => groups.flatMap((group) => group.hooks.map((entry) => [entry.args.at(-1)!, entry.timeout - less]))));
   assert.deepEqual(timeouts, DEADLINES);
+});
+
+test('section 5: the hook a user runs keeps its deadline of 25 seconds for an edit when the variable of the test entry is set', async () => {
+  await withBench(async (bench, dir) => {
+    const s = makeSample(dir);
+    append(s, 'src/cli/main.ts', '// end\n');
+    bench.script('lawcheck', [`Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ${PAST_USER_SET_MS});`, ...installedLawcheck(bench.logFile)]);
+    const run = await new Session(bench, s, 's1', { [DEADLINES_VARIABLE]: JSON.stringify({ edit: USER_SET_EDIT_DEADLINE_S }) }).edit('src/cli/main.ts');
+    nothing(run);
+    assert.ok(run.ms >= PAST_USER_SET_MS, `the hook ended after ${run.ms} ms, before the stand-in lawcheck answered`);
+    assert.equal(bench.checks().length, 1);
+  });
 });
 
 test('section 5: the call ends 2 seconds after Lawcheck exits while a child holds its output', async () => {
