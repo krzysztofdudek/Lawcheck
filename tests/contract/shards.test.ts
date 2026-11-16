@@ -1,11 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { parse } from 'yaml';
-import { failedTests, mergeProblems, type Event, type Shard } from '../harness/merge.ts';
+import { failedTests, mergeProblems, readShards, type Event, type Shard } from '../harness/merge.ts';
+import { judgeRun } from '../harness/reporter.ts';
 import { groupDirs, perPushFiles, PLATFORM_TESTS, ROOT, setFiles } from '../harness/sets.ts';
-import { balance, planProblems, readPlan, SYSTEMS, type Plan } from '../harness/shards.ts';
+import { balance, planProblems, readPlan, repoPath, SYSTEMS, type Plan } from '../harness/shards.ts';
 
 type Entry = { os: string; node: string; system: string; shard?: number; of?: number };
 type Job = { needs?: string | string[]; if?: string; strategy?: { matrix?: { include?: Entry[] } } };
@@ -91,4 +93,44 @@ test('Linux runs the whole commit set per push, and Windows and macOS the files 
 test('balance spreads files by measured time, slowest first, and gives an unmeasured file the median', () => {
   assert.deepEqual(balance(['a', 'b', 'c', 'd'], { a: 90, b: 50, c: 40, d: 10 }, 2), [['a', 'd'], ['b', 'c']]);
   assert.deepEqual(balance(['a', 'b', 'x'], { a: 100, b: 10 }, 2), [['a', 'b'], ['x']]);
+});
+
+async function* replay(events: Event[]): AsyncGenerator<Event> {
+  for (const e of events) yield e;
+}
+
+function recorded(shards: { meta: Record<string, unknown>; events: Event[] }[]): string {
+  const dir = mkdtempSync(join(tmpdir(), 'lawcheck-merge-'));
+  for (const { meta, events } of shards) {
+    writeFileSync(join(dir, `meta-${meta.shard}.json`), JSON.stringify(meta));
+    writeFileSync(join(dir, `events-${meta.shard}.jsonl`), events.map((e) => JSON.stringify(e)).join('\n'));
+  }
+  return dir;
+}
+
+test('the merge reads a shard recorded on Windows against the root it recorded, from a checkout on another system', () => {
+  assert.equal(repoPath('D:\\a\\Lawcheck\\Lawcheck\\tests\\unit\\a.test.ts', 'D:\\a\\Lawcheck\\Lawcheck\\'), 'tests/unit/a.test.ts');
+  assert.equal(repoPath('file:///D:/a/Lawcheck/Lawcheck/tests/unit/a.test.ts', 'd:\\a\\Lawcheck\\Lawcheck'), 'tests/unit/a.test.ts');
+  assert.equal(repoPath('/Users/runner/work/Lawcheck/Lawcheck/tests/unit/a.test.ts', '/Users/runner/work/Lawcheck/Lawcheck/'), 'tests/unit/a.test.ts');
+  assert.equal(repoPath('/elsewhere/tests/unit/a.test.ts', '/Users/runner/work/Lawcheck/Lawcheck/'), '/elsewhere/tests/unit/a.test.ts');
+  const files = ['tests/unit/a.test.ts'];
+  const root = 'D:\\a\\Lawcheck\\Lawcheck\\';
+  const dir = recorded([{ meta: { system: 'win32', node: 'v24', root, shard: 1, of: 1, files, started: 0, ended: 1, status: 0 }, events: [{ type: 'test:pass', data: { file: `${root}tests\\unit\\a.test.ts`, name: 'test 1: a', nesting: 0, details: { duration_ms: 5 } } }] }]);
+  try {
+    const { shards, problems } = readShards(dir);
+    assert.deepEqual(problems, []);
+    const plan: Plan = { measured: {}, shards: { linux: [files], win32: [files], darwin: [files] } };
+    assert.deepEqual(mergeProblems('win32', plan, shards, files, [{ file: files[0]!, test: 'test 1: a' }]), []);
+    assert.equal(shards[0]!.events[0]!.data.file, join(ROOT, files[0]!));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('the reporter judges a run against the SLOW_TESTS of the system it ran on, not of the machine that reads it', async () => {
+  const key = 'tests/acceptance/cli.test.ts > test 38: the base';
+  const events: Event[] = [{ type: 'test:pass', data: { file: join(ROOT, 'tests/acceptance/cli.test.ts'), name: 'test 38: the base', nesting: 0, details: { duration_ms: 4_400 } } }];
+  const on = async (system: 'linux' | 'win32') => (await judgeRun(replay(events), { system, started: null, target: 0 })).text;
+  assert.doesNotMatch(await on('win32'), /no entry in SLOW_TESTS/);
+  assert.match(await on('linux'), new RegExp(`no entry in SLOW_TESTS for linux\\n +4400 ms  ${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
 });

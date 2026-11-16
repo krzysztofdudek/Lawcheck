@@ -224,9 +224,9 @@ export const STABILITY_PROVIDER_RUNS = 2;
 // On Windows each call of the fake claude starts cmd.exe and node, so ten runs of 300 calls took 117 s there; two runs, the fewest that give a pair of runs to compare, prove the same promise of test 76.
 export const STABILITY_RUNS: Record<System, number> = { linux: 10, darwin: 10, win32: 2 };
 
-export function slowBudget(key: string): number | null {
+export function slowBudget(key: string, system: System = process.platform as System): number | null {
   const slow = SLOW_TESTS[key];
-  const measured = slow?.measured[process.platform as System];
+  const measured = slow?.measured[system];
   if (slow === undefined || measured === undefined) return null;
   return Math.ceil((slow.fixed + SLOW_MARGIN * Math.max(0, measured - slow.fixed)) / 5_000) * 5_000;
 }

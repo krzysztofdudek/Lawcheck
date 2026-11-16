@@ -15,6 +15,19 @@ export function readPlan(path = PLAN): Plan {
   return JSON.parse(readFileSync(path, 'utf8')) as Plan;
 }
 
+const slashed = (path: string): string => path.split('\\').join('/');
+
+// A shard may have run on another system than the one reading its recording, so its root is compared as text, without case where it has a drive letter.
+export function repoPath(file: string, root: string | undefined): string {
+  const path = slashed(file.startsWith('file:') ? decodeURIComponent(new URL(file).pathname).replace(/^\/(?=[A-Za-z]:)/, '') : file);
+  if (root === undefined) {
+    const at = path.lastIndexOf('/tests/');
+    return at === -1 ? slashed(relative(ROOT, path)) : path.slice(at + 1);
+  }
+  const base = slashed(root).replace(/\/+$/, '');
+  const fold = /^[A-Za-z]:/.test(base) ? (text: string) => text.toLowerCase() : (text: string) => text;
+  return fold(path).startsWith(`${fold(base)}/`) ? path.slice(base.length + 1) : path;
+}
 
 // Longest processing time first: each file, slowest first, goes to the shard with the least measured time so far. A file with no measurement on that system counts as the median of the measured ones.
 export function balance(files: string[], ms: Record<string, number>, count: number): string[][] {
@@ -60,12 +73,7 @@ export function measureTests(dir: string): { files: Record<string, number>; test
   for (const name of readdirSync(dir).filter((n) => n.startsWith('events-') && n.endsWith('.jsonl'))) {
     const metaFile = join(dir, name.replace(/^events-/, 'meta-').replace(/\.jsonl$/, '.json'));
     const root = existsSync(metaFile) ? (JSON.parse(readFileSync(metaFile, 'utf8')) as { root?: string }).root : undefined;
-    const inRepo = (file: string): string => {
-      const path = (file.startsWith('file:') ? fileURLToPath(file) : file).split('\\').join('/');
-      if (root !== undefined) return relative(root.split('\\').join('/'), path).split('\\').join('/');
-      const at = path.lastIndexOf('/tests/');
-      return at === -1 ? relative(ROOT, path).split('\\').join('/') : path.slice(at + 1);
-    };
+    const inRepo = (file: string): string => repoPath(file, root);
     for (const line of readFileSync(join(dir, name), 'utf8').split('\n')) {
       if (!line) continue;
       const event = JSON.parse(line) as { type: string; data: { file?: string; name?: string; nesting?: number; details?: { duration_ms?: number } } };

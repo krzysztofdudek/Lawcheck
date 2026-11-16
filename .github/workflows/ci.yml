@@ -143,7 +143,7 @@ jobs:
           path: shards
           merge-multiple: true
       - name: The shards as one run
-        run: node tests/harness/merge.ts shards --profile "${{ runner.temp }}/profile.json"
+        run: node tests/harness/merge.ts shards --system ${{ matrix.system }} --profile "${{ runner.temp }}/profile.json"
       # Every test's file and time on this system, for the shard plan (node tests/harness/shards.ts plan --measured) and for finding where the seconds go.
       - uses: actions/upload-artifact@v7
         if: always()
