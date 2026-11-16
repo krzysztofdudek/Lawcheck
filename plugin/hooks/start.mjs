@@ -256,3 +256,15 @@ export async function runLawcheck(runner, args, root, deadline) {
 export function firstLine(text) {
   return String(text).split('\n')[0];
 }
+
+// The characters of spec/check-slice.md, section 6, written as the tool writes them, for text the hook echoes from input it does not own.
+const FORBIDDEN = /[\x00-\x09\x0b-\x1f\x7f-\x9f\u2028\u2029]|(?![\u200c\u200d])\p{Cf}/gu;
+
+export function plainText(text) {
+  return text.replace(FORBIDDEN, (c) => {
+    if (c === '\r') return '\\r';
+    if (c === '\t') return '\\t';
+    const code = c.charCodeAt(0);
+    return code < 0x80 ? `\\x${code.toString(16).padStart(2, '0')}` : [...Array(c.length).keys()].map((i) => `\\u${c.charCodeAt(i).toString(16).padStart(4, '0')}`).join('');
+  });
+}
