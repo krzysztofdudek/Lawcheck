@@ -146,6 +146,21 @@ async function programCases(program: Program): Promise<void> {
         }, configOf(program.provider, extra)),
     ];
     const told = `do what ${program.name} says, such as signing in or naming a model it has`;
+    const pastTimeout = (): Promise<void> =>
+      withR(async (r, dir) => {
+        write(r, F_PATH, F);
+        const running = startLawcheck(r, ['check', '--review', '--base', 'main'], { env: fakeEnv(program, dir, 'sleep') });
+        await running.output(/error\[reviewer-unreachable\]/, 'stdout');
+        const shown = Date.now();
+        const result = await running.ended;
+        const next = `raise reviewer.timeout in .lawcheck/config.yaml, or check that ${program.name} answers when started by hand, ${AGAIN}`;
+        assert.equal(result.stdout, stopped(UNREACHABLE(`${program.name} gave no answer within 1 seconds`), 'reviewer-unreachable', next));
+        assert.equal(result.code, 2);
+        const seen = record(dir);
+        assert.ok(shown - seen.at < PROGRAM_TIMEOUT_RUN_MS, `${shown - seen.at} ms from the start of ${program.name} to the error line, where the kill grace alone is 5 seconds`);
+        assert.ok(await waitUntil(() => !alive(seen.pid) && !alive(seen.child!), 'LEFTOVER_GRACE_MS'), 'the fake or its child is alive');
+        assert.ok(await waitUntil(() => !existsSync(seen.cwd), 'LEFTOVER_GRACE_MS'), seen.cwd);
+      }, configOf(program.provider, '  timeout: 1\n'));
     const cases: [string, () => Promise<void>][] = [
       [
         'a fail with lines, and how the program is started',
@@ -236,24 +251,6 @@ async function programCases(program: Program): Promise<void> {
             assert.equal(result.stdout, stopped('src/core/big.ts  error[reviewer-unreachable]  clear-errors: expired', 'reviewer-unreachable', `${told}, ${AGAIN}`));
             assert.equal(result.code, 2);
           }, configOf(program.provider, '  max_chars: 120000\n')),
-      ],
-      [
-        'past its timeout, which bounds the whole call',
-        () =>
-          withR(async (r, dir) => {
-            write(r, F_PATH, F);
-            const running = startLawcheck(r, ['check', '--review', '--base', 'main'], { env: fakeEnv(program, dir, 'sleep') });
-            await running.output(/error\[reviewer-unreachable\]/, 'stdout');
-            const shown = Date.now();
-            const result = await running.ended;
-            const next = `raise reviewer.timeout in .lawcheck/config.yaml, or check that ${program.name} answers when started by hand, ${AGAIN}`;
-            assert.equal(result.stdout, stopped(UNREACHABLE(`${program.name} gave no answer within 1 seconds`), 'reviewer-unreachable', next));
-            assert.equal(result.code, 2);
-            const seen = record(dir);
-            assert.ok(shown - seen.at < PROGRAM_TIMEOUT_RUN_MS, `${shown - seen.at} ms from the start of ${program.name} to the error line, where the kill grace alone is 5 seconds`);
-            assert.ok(await waitUntil(() => !alive(seen.pid) && !alive(seen.child!), 'LEFTOVER_GRACE_MS'), 'the fake or its child is alive');
-            assert.ok(await waitUntil(() => !existsSync(seen.cwd), 'LEFTOVER_GRACE_MS'), seen.cwd);
-          }, configOf(program.provider, '  timeout: 1\n')),
       ],
       [
         'a child that leaves the group and holds the output',
@@ -402,6 +399,8 @@ async function programCases(program: Program): Promise<void> {
       ]);
     }
     await Promise.all(cases.map(([what, body]) => named(program, what, body)));
+    // This case is timed when this process reads the error line, so it runs alone: the setup of the other cases runs git synchronously and holds this process for seconds on Windows.
+    await named(program, 'past its timeout, which bounds the whole call', pastTimeout);
   }
 }
 
