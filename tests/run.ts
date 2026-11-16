@@ -213,6 +213,7 @@ function main(): void {
   const target = parsed.speed === 'loop' ? LOOP_TARGET_MS : parsed.speed === 'commit' && parsed.targets.length === 0 && parsed.group === null && parsed.shard === null ? COMMIT_TARGET_MS : null;
   const env: NodeJS.ProcessEnv = { ...process.env, LAWCHECK_SPEED: parsed.speed, LAWCHECK_SEED: seed, LAWCHECK_TARGET_MS: target === null ? '' : String(target) };
   if (parsed.shard !== null) delete env.LAWCHECK_TIE;
+  if (recording !== null && process.platform === 'win32') env.LAWCHECK_GUARD_TRACE = join(recording, `guard-trace-${tag}.txt`);
   let failed = false;
   for (let round = 1; round <= parsed.repeat; round++) {
     if (parsed.repeat > 1) process.stdout.write(`round ${round} of ${parsed.repeat}\n`);
