@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { COMMIT_TARGET_MS } from '../numbers.ts';
@@ -91,13 +91,28 @@ async function* replay(events: Event[]): AsyncGenerator<Event> {
   for (const e of events) yield e;
 }
 
-export async function judge(dir: string, system = process.platform as System): Promise<{ text: string; failed: boolean }> {
+export function profile(system: string, shards: Shard[]): { system: string; node: string; files: Record<string, number>; tests: Record<string, { file: string; ms: number; shard: number }> } {
+  const files: Record<string, number> = {};
+  const tests: Record<string, { file: string; ms: number; shard: number }> = {};
+  for (const s of shards) for (const e of s.events) {
+    if ((e.type !== 'test:pass' && e.type !== 'test:fail') || e.data.nesting !== 0 || !e.data.file) continue;
+    const file = rel(e.data.file);
+    if (e.data.name === e.data.file || e.data.name === file) continue;
+    const ms = Math.round(e.data.details?.duration_ms ?? 0);
+    files[file] = (files[file] ?? 0) + ms;
+    tests[`${file} > ${e.data.name}`] = { file, ms, shard: s.meta.shard };
+  }
+  return { system, node: shards[0]?.meta.node ?? '', files, tests };
+}
+
+export async function judge(dir: string, system = process.platform as System, profileTo: string | null = null): Promise<{ text: string; failed: boolean }> {
   const { shards, problems: read } = readShards(dir);
   const ordered = [...shards].sort((a, b) => a.meta.shard - b.meta.shard);
   const files = perPushFiles(system);
   const selected = perPushTests(system, files) === null ? null : PLATFORM_TESTS.filter((t) => t.systems.includes(system as 'win32' | 'darwin') && files.includes(t.file)).map((t) => ({ file: t.file, test: t.test }));
   const problems = [...read, ...mergeProblems(system, readPlan(), ordered, files, selected)];
   const events = ordered.flatMap((s) => s.events);
+  if (profileTo !== null) writeFileSync(profileTo, `${JSON.stringify(profile(system, ordered), null, 2)}\n`);
   const spent = ordered.reduce((sum, s) => sum + (s.meta.ended - s.meta.started), 0);
   const wall = ordered.length === 0 ? 0 : Math.max(...ordered.map((s) => s.meta.ended)) - Math.min(...ordered.map((s) => s.meta.started));
   const lines = [`the commit set on ${system} in ${ordered.length} shards: ${ordered.map((s) => `${s.meta.shard}: ${s.meta.files.length} files in ${((s.meta.ended - s.meta.started) / 1000).toFixed(0)} s`).join(', ')}; ${(spent / 1000).toFixed(0)} s of tests, ${(wall / 1000).toFixed(0)} s from the first start to the last end`];
@@ -126,11 +141,12 @@ export async function judge(dir: string, system = process.platform as System): P
 
 if (process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const dir = process.argv[2];
-  if (dir === undefined || process.argv.length > 3) {
-    process.stderr.write('usage: node tests/harness/merge.ts <folder holding meta-<i>.json and events-<i>.jsonl of every shard>\n');
+  const out = process.argv[3] === '--profile' ? process.argv[4] : undefined;
+  if (dir === undefined || (process.argv.length > 3 && out === undefined) || process.argv.length > 5) {
+    process.stderr.write('usage: node tests/harness/merge.ts <folder holding meta-<i>.json and events-<i>.jsonl of every shard> [--profile <file>]\n');
     process.exit(2);
   }
-  const { text, failed } = await judge(resolve(dir));
+  const { text, failed } = await judge(resolve(dir), process.platform as System, out === undefined ? null : resolve(out));
   process.stdout.write(text);
   process.exit(failed ? 1 : 0);
 }

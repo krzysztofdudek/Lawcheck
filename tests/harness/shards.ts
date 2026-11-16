@@ -1,13 +1,13 @@
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { perPushFiles, ROOT } from './sets.ts';
+import { PLATFORM_TESTS, perPushFiles, perPushTests, ROOT } from './sets.ts';
 
 export const PLAN = join(ROOT, 'tests', 'harness', 'shards.json');
 export const SYSTEMS = ['linux', 'win32', 'darwin'] as const;
 
 export interface Plan {
-  measured: Record<string, { from: string; ms: Record<string, number> }>;
+  measured: Record<string, { from: string; ms: Record<string, number>; tests?: Record<string, number> }>;
   shards: Record<string, string[][]>;
 }
 
@@ -51,7 +51,12 @@ export function planProblems(plan: Plan, filesOf: (system: (typeof SYSTEMS)[numb
 
 // The measured time of a file is the sum of the durations node:test reports for its top-level tests, read from the recordings of one CI run (tests/harness/record.ts).
 export function measure(dir: string): Record<string, number> {
+  return measureTests(dir).files;
+}
+
+export function measureTests(dir: string): { files: Record<string, number>; tests: Record<string, number> } {
   const ms: Record<string, number> = {};
+  const tests: Record<string, number> = {};
   for (const name of readdirSync(dir).filter((n) => n.startsWith('events-') && n.endsWith('.jsonl'))) {
     const metaFile = join(dir, name.replace(/^events-/, 'meta-').replace(/\.jsonl$/, '.json'));
     const root = existsSync(metaFile) ? (JSON.parse(readFileSync(metaFile, 'utf8')) as { root?: string }).root : undefined;
@@ -68,10 +73,25 @@ export function measure(dir: string): Record<string, number> {
       if ((event.type !== 'test:pass' && event.type !== 'test:fail') || data.nesting !== 0 || !data.file) continue;
       const file = inRepo(data.file);
       if (data.name === data.file || data.name === file) continue;
-      ms[file] = (ms[file] ?? 0) + Math.round(data.details?.duration_ms ?? 0);
+      const took = Math.round(data.details?.duration_ms ?? 0);
+      ms[file] = (ms[file] ?? 0) + took;
+      tests[`${file} > ${data.name}`] = (tests[`${file} > ${data.name}`] ?? 0) + took;
     }
   }
-  return ms;
+  return { files: ms, tests };
+}
+
+// What a file costs in a system's shard: its selected tests on Windows and macOS, all of it on Linux.
+export function costs(system: (typeof SYSTEMS)[number], files: string[], measured: Plan['measured'][string] | undefined): Record<string, number> {
+  const out: Record<string, number> = {};
+  const selected = perPushTests(system, files);
+  for (const file of files) {
+    if (selected === null || measured?.tests === undefined) { if (measured?.ms[file] !== undefined) out[file] = measured.ms[file]!; continue; }
+    const names = PLATFORM_TESTS.filter((t) => t.file === file && t.systems.includes(system as 'win32' | 'darwin')).map((t) => t.test);
+    const known = names.map((n) => measured.tests![`${file} > ${n}`]).filter((n): n is number => n !== undefined);
+    if (known.length > 0) out[file] = known.reduce((a, b) => a + b, 0);
+  }
+  return out;
 }
 
 if (process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
@@ -86,16 +106,17 @@ if (process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(
     const [system, a, b] = value.split('=');
     if (!(SYSTEMS as readonly string[]).includes(system!)) { process.stderr.write(`unknown system ${system}; the systems are ${SYSTEMS.join(', ')}\n`); process.exit(2); }
     if (flag === '--count') counts[system!] = Number(a);
-    else if (flag === '--measured') plan.measured[system!] = { from: b ?? a!, ms: measure(resolve(a!)) };
+    else if (flag === '--measured') { const m = measureTests(resolve(a!)); plan.measured[system!] = { from: b ?? a!, ms: m.files, tests: m.tests }; }
     else { process.stderr.write(`${usage}\n`); process.exit(2); }
   }
   for (const system of SYSTEMS) {
     const count = counts[system] ?? plan.shards[system]?.length ?? 1;
-    plan.shards[system] = balance(perPushFiles(system), plan.measured[system]?.ms ?? {}, count);
+    const files = perPushFiles(system);
+    plan.shards[system] = balance(files, costs(system, files, plan.measured[system]), count);
   }
   writeFileSync(PLAN, `${JSON.stringify(plan, null, 2)}\n`);
   for (const system of SYSTEMS) {
-    const ms = plan.measured[system]?.ms ?? {};
+    const ms = costs(system, perPushFiles(system), plan.measured[system]);
     const totals = plan.shards[system]!.map((list) => list.reduce((sum, f) => sum + (ms[f] ?? 0), 0));
     process.stdout.write(`${system}: ${totals.length} shards, measured ${totals.map((t) => `${(t / 1000).toFixed(0)} s`).join(', ')}\n`);
   }
