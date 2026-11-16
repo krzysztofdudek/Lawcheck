@@ -11,7 +11,7 @@ import { DEADLINES_VARIABLE, fakeWrites, platformSkip, startHook, startProgram, 
 import { installedLawcheck } from '../harness/fakes.ts';
 import { PAST_USER_SET_MS, TEST_HOOK_DEADLINES, USER_SET_EDIT_DEADLINE_S } from '../numbers.ts';
 import { DEADLINES } from '../../plugin/hooks/start.mjs';
-import { Bench, deadlineScenario, edited, ended, GIT_DIR, hook, json, NODE_DIR, nothing, PLUGIN, Session, SYSTEM_ENV, withBench } from './plugin-bench.ts';
+import { Bench, deadlineScenario, edited, ended, GIT_DIR, hook, json, NODE_DIR, nothing, PLUGIN, Session, startAndPromptScenario, SYSTEM_ENV, withBench } from './plugin-bench.ts';
 import type { HookRun } from './plugin-bench.ts';
 
 const spec = readFileSync(join(ROOT, 'spec', 'plugin-slice.md'), 'utf8');
@@ -278,6 +278,10 @@ test('test 162: the two switches', async () => {
 
 test('test 163: the deadline, and a hook that is stopped', async () => {
   await deadlineScenario(TEST_HOOK_DEADLINES, 'started');
+});
+
+test('section 5: the session-start and prompt hooks each end at their own deadline', async () => {
+  await startAndPromptScenario(TEST_HOOK_DEADLINES);
 });
 
 test('section 5: the plugin ships deadlines of 25 seconds for session-start and edit, 15 for prompt and 145 for stop, each its timeout in hooks.json less 5', () => {

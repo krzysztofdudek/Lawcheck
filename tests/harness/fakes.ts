@@ -1,3 +1,5 @@
+import { chmodSync, copyFileSync, rmSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { CLI } from './start.ts';
 
 // The lines of a stand-in for an installed lawcheck: a program on the PATH that logs how it was called and runs the built tool. A hook starts it, and the harness checks that hook's run.
@@ -19,4 +21,39 @@ export function packageRunner(log: string, name: string, skip: number, lawcheck:
     ...(yarn ? ["process.stdout.write('Done in 0.10s.\\n');"] : []),
     'process.exit(r.status ?? 2);',
   ];
+}
+
+export interface FakeGit {
+  // Hang until it is killed, before it answers.
+  hang?: boolean;
+  // A file each call appends its words and the value of this variable to.
+  record?: { file: string; variable: string };
+}
+
+// A git on the PATH that a hook starts in place of the real one. The hooks start git only as git.exe on Windows, so a script cannot stand in for it: the stand-in is a copy of node named git, and NODE_OPTIONS makes every node load a preload that acts only in that copy, before node looks for a script, and then runs the real git with the same words. Node reads a first word that starts with - as its own option, so the stand-in serves only calls that start with a git command, as the hooks' snapshot does, and not the tool, which asks git --version. Returns the variables that the run's environment needs.
+export function fakeGit(bin: string, realGit: string, act: FakeGit): NodeJS.ProcessEnv {
+  const program = join(bin, process.platform === 'win32' ? 'git.exe' : 'git');
+  copyFileSync(process.execPath, program);
+  chmodSync(program, 0o755);
+  const preload = join(bin, 'fake-git.cjs');
+  writeFileSync(
+    preload,
+    [
+      "const { basename } = require('node:path');",
+      "if (/^git(\\.exe)?$/i.test(basename(process.execPath))) {",
+      "  const { appendFileSync } = require('node:fs');",
+      "  const { spawnSync } = require('node:child_process');",
+      '  const words = [basename(process.argv[1]), ...process.argv.slice(2)];',
+      ...(act.record === undefined ? [] : [`  appendFileSync(${JSON.stringify(act.record.file)}, JSON.stringify({ words, value: process.env[${JSON.stringify(act.record.variable)}] ?? null }) + '\\n');`]),
+      ...(act.hang === true ? ['  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0);'] : []),
+      `  process.exit(spawnSync(${JSON.stringify(realGit)}, words, { stdio: 'inherit' }).status ?? 2);`,
+      '}',
+      '',
+    ].join('\n'),
+  );
+  return { NODE_OPTIONS: `--require "${preload.split('\\').join('/')}"` };
+}
+
+export function removeFakeGit(bin: string): void {
+  for (const name of ['git', 'git.exe', 'fake-git.cjs']) rmSync(join(bin, name), { force: true });
 }
