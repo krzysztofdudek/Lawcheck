@@ -1,8 +1,6 @@
-import { spawn } from 'node:child_process';
-import type { StdioOptions } from 'node:child_process';
 import { closeSync, ftruncateSync, mkdirSync, openSync, writeSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { CLI, GIT_ENV } from '../acceptance/helpers.ts';
+import { GIT_ENV } from '../acceptance/helpers.ts';
 import { startTool } from '../harness/tool.ts';
 import type { Expect, Run } from '../harness/tool.ts';
 import * as NUMBERS from '../numbers.ts';
@@ -21,28 +19,6 @@ export async function run(cwd: string, args: string[], options: RunOptions = {})
   return result;
 }
 
-export interface Own {
-  code: number | null;
-  signal: NodeJS.Signals | null;
-  stdout: string;
-  stderr: string;
-}
-
-// A start the harness cannot make: a standard output that is a file descriptor of the test, or one a shell closes. It starts the package's bin, as a user's shell does.
-export const BIN = join(dirname(CLI), 'bin.js');
-
-export function ownStart(cwd: string, args: string[], stdout: StdioOptions[number], redirect: string | null = null): Promise<Own> {
-  const [program, words] = redirect === null ? [process.execPath, [BIN, ...args]] : ['/bin/sh', ['-c', `exec "$0" "$@" ${redirect}`, process.execPath, BIN, ...args]];
-  return new Promise((resolve, reject) => {
-    const child = spawn(program, words, { cwd, env: GIT_ENV, stdio: ['ignore', stdout, 'pipe'] });
-    let out = '';
-    let err = '';
-    child.stdout?.setEncoding('utf8').on('data', (chunk: string) => (out += chunk));
-    child.stderr!.setEncoding('utf8').on('data', (chunk: string) => (err += chunk));
-    child.on('error', reject);
-    child.on('close', (code, signal) => resolve({ code, signal, stdout: out, stderr: err }));
-  });
-}
 
 // The bytes after the head are a hole: the file system stores nothing for them and reads them as zero bytes.
 export function sparse(repo: string, path: string, head: string, size: number): void {

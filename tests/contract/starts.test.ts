@@ -3,9 +3,10 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { COMMIT_GROUPS, ROOT, TESTS, walk } from '../harness/sets.ts';
+import { HAND_STARTS, namesTool, namesToolInLine } from '../harness/tool.ts';
 
 const START = /\b(spawn|spawnSync|execFile|execFileSync|exec|execSync|fork)\s*\(/g;
-const TOOL = /\bCLI\b|\bHOOK\b|cli\.js|lawcheck-hook|\.tgz\b|'dist'/;
+const TOOL = /\bCLI\b|\bBIN\b|\bHOOK\b|cli\.js|bin\.cjs|lawcheck-hook|\.tgz\b|'dist'/;
 
 export function handStarts(text: string): number[] {
   const lines: number[] = [];
@@ -49,4 +50,14 @@ test('a test that starts the tool makes its folders with testFolder(), never wit
     });
   }
   assert.deepEqual(found, []);
+});
+
+test('the harness knows both entries of the built tool, and each hand start it allows names a test of its file', () => {
+  assert.notEqual(namesTool([join(ROOT, 'dist', 'bin.cjs')]), null);
+  assert.notEqual(namesTool(['/elsewhere/dist/bin.cjs']), null);
+  assert.ok(namesToolInLine('node dist/bin.cjs check'));
+  for (const entry of HAND_STARTS) {
+    const text = readFileSync(join(ROOT, entry.file), 'utf8');
+    assert.ok(text.includes(`test(${JSON.stringify(entry.test).replace(/^"|"$/g, "'")}`), `${entry.file} > ${entry.test}`);
+  }
 });

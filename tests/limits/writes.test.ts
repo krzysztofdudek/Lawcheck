@@ -1,11 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
 import { closeSync, openSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { append, D, D_PATH, GIT_ENV, inTemp, newRepository, setRule, withSample, write } from '../acceptance/helpers.ts';
-import { platformSkip } from '../harness/tool.ts';
-import { BIN, ownStart } from './support.ts';
+import { platformSkip, startByHand } from '../harness/tool.ts';
 
 const LOST = /^error\[file-unwritable\]  standard output cannot be written \(([A-Z]+)\), so the result is lost\n$/;
 
@@ -33,7 +31,7 @@ async function everyCommand(stdout: () => number, expectCode: (code: string) => 
     for (const args of COMMANDS) {
       const fd = stdout();
       try {
-        const result = await ownStart(s, args, fd);
+        const result = await startByHand(s, args, GIT_ENV, { stdout: fd });
         const lost = LOST.exec(result.stderr);
         assert.ok(lost, `${args.join(' ')}: ${JSON.stringify(result.stderr)}`);
         expectCode(lost![1]!);
@@ -47,7 +45,7 @@ async function everyCommand(stdout: () => number, expectCode: (code: string) => 
     const repo = newRepository(dir);
     const fd = stdout();
     try {
-      const result = await ownStart(repo, ['init'], fd);
+      const result = await startByHand(repo, ['init'], GIT_ENV, { stdout: fd });
       assert.ok(LOST.test(result.stderr), result.stderr);
       assert.equal(result.code, 2);
     } finally {
@@ -76,15 +74,15 @@ test('S1-6: test 240: a closed standard output is the same as one sent to /dev/n
   await withSample(async (s) => {
     append(s, 'src/cli/main.ts', "console.log('done');\n");
     for (const args of [['check', '--base', 'main'], ['prime'], ['--version']]) {
-      const closed = await ownStart(s, args, 'pipe', '>&-');
-      const devNull = await ownStart(s, args, 'pipe', '>/dev/null');
+      const closed = await startByHand(s, args, GIT_ENV, { redirect: '>&-' });
+      const devNull = await startByHand(s, args, GIT_ENV, { redirect: '>/dev/null' });
       assert.equal(closed.code, devNull.code, args.join(' '));
       assert.equal(closed.stderr, devNull.stderr, args.join(' '));
       assert.equal(closed.code, 0, args.join(' '));
     }
     write(s, D_PATH, D);
-    assert.equal((await ownStart(s, ['check', '--base', 'main'], 'pipe', '>&-')).code, 1);
-    assert.equal((await ownStart(s, ['check', '--base', 'main'], 'pipe', '>/dev/null')).code, 1);
+    assert.equal((await startByHand(s, ['check', '--base', 'main'], GIT_ENV, { redirect: '>&-' })).code, 1);
+    assert.equal((await startByHand(s, ['check', '--base', 'main'], GIT_ENV, { redirect: '>/dev/null' })).code, 1);
   });
 });
 
@@ -93,11 +91,7 @@ test('S8-8: test 240: a reader that stops early ends the run with its own code a
   await withSample(
     async (s) => {
       write(s, D_PATH, D);
-      const child = spawn(process.execPath, [BIN, 'check', '--base', 'main', '--json'], { cwd: s, env: GIT_ENV, stdio: ['ignore', 'pipe', 'pipe'] });
-      let stderr = '';
-      child.stderr.setEncoding('utf8').on('data', (chunk: string) => (stderr += chunk));
-      child.stdout.once('data', () => child.stdout.destroy());
-      const code = await new Promise<number | null>((done) => child.on('close', (c) => done(c)));
+      const { code, stderr } = await startByHand(s, ['check', '--base', 'main', '--json'], GIT_ENV, { closeAfterFirst: true });
       assert.equal(stderr, '');
       assert.equal(code, 1);
     },

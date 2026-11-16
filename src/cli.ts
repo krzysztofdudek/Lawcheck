@@ -152,10 +152,10 @@ function started(): string | null {
   }
 }
 
-// The command and its modules load in the worker alone, so the handlers of the signals are in place before them; started as dist/cli.js or through dist/bin.js, this module loads no more, and a test that imports the command loads it here.
+// The command and its modules load in the worker alone, so the handlers of the signals are in place before them; started as dist/cli.js or through dist/bin.cjs, this module loads no more, and a test that imports the command loads it here.
 const here = fileURLToPath(import.meta.url);
 const first = started();
-const launched = isMainThread && (first === here || first === join(dirname(here), 'bin.js'));
+const launched = isMainThread && (first === here || first === join(dirname(here), 'bin.cjs'));
 if (launched && first === here) start();
 const command: typeof import('./main.js') | null = launched ? null : await import('./main.js');
 export const main = command?.main as typeof import('./main.js').main;
