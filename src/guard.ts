@@ -5,12 +5,13 @@ import { killTree, powershell, PROCESS_TABLE, toEnd } from './programs.js';
 
 const pids = new Set<number>();
 const windows = process.platform === 'win32';
-// On Windows a program left by one that has ended can be found only through the list of processes, and PowerShell takes seconds to start on a busy machine. While a group is registered, or once the tool has said it starts programs, one PowerShell keeps that list fresh, so the guard ends the tree from its next list without starting another.
+// On Windows a program left by one that has ended can be found only through the list of processes, and PowerShell takes seconds to start on a busy machine. While a group is registered, or once the tool has said it starts programs, one PowerShell keeps that list fresh, so the guard ends the tree from a list begun after the kill without starting another PowerShell.
 let watcher: ChildProcess | null = null;
 let table = '';
 let listed = false;
 let onListed: (() => void) | null = null;
-const waitingForList: ((list: string | null) => void)[] = [];
+// A list is printed after its snapshot ends, so one that comes after the kill may show the processes as they were before it; each list starts with the time its snapshot began, and the guard ends a tree only from a list begun once it knew of the kill.
+const waitingForList: { since: number; done: (list: string | null) => void }[] = [];
 // The tool starts a program only once the guard says its list runs, so a tool killed at any moment of a call leaves a tree the next list finds.
 let held = false;
 process.stdout.on('error', () => undefined);
@@ -21,11 +22,11 @@ function sayListing(): void {
 
 function watch(): void {
   if (!windows || watcher !== null) return;
-  watcher = spawn(powershell(), ['-NoProfile', '-NonInteractive', '-Command', `while ($true) { ${PROCESS_TABLE}; Start-Sleep -Seconds 1; '--'; Start-Sleep -Milliseconds 250 }`], { stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true });
+  watcher = spawn(powershell(), ['-NoProfile', '-NonInteractive', '-Command', `while ($true) { [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds(); ${PROCESS_TABLE}; Start-Sleep -Seconds 1; '--'; Start-Sleep -Milliseconds 250 }`], { stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true });
   const current = watcher;
   const gone = () => {
     if (watcher !== current) return;
-    for (const next of waitingForList.splice(0)) next(null);
+    for (const next of waitingForList.splice(0)) next.done(null);
     if (!listed) sayListing();
   };
   current.on('error', gone);
@@ -36,12 +37,17 @@ function watch(): void {
     const end = partial.lastIndexOf('\n--');
     if (end < 0) return;
     const start = partial.lastIndexOf('\n--', end - 1);
-    table = partial.slice(start < 0 ? 0 : start + 3, end);
+    const [begun, ...rows] = partial.slice(start < 0 ? 0 : start + 3, end).trimStart().split('\n');
+    table = rows.join('\n');
     partial = partial.slice(end + 3);
     if (!listed) sayListing();
     listed = true;
     onListed?.();
-    for (const next of waitingForList.splice(0)) next(table);
+    const takenAt = Number(begun);
+    for (const next of waitingForList.filter((waiting) => takenAt >= waiting.since)) {
+      waitingForList.splice(waitingForList.indexOf(next), 1);
+      next.done(table);
+    }
   });
 }
 const groups = new Set<number>();
@@ -104,22 +110,30 @@ function stopWatching(then: () => void = () => undefined): void {
 let ended = false;
 
 // Windows gives an ended process's id to a new one soon, so a process is killed from the list only when a list made after the tool's end still shows that id made at the same time.
-function nextList(ms: number): Promise<string | null> {
+function listSince(since: number, ms: number): Promise<string | null> {
   if (watcher === null || watcher.exitCode !== null) return Promise.resolve(null);
   return new Promise((done) => {
-    const timer = setTimeout(() => done(null), ms);
-    waitingForList.push((list) => {
-      clearTimeout(timer);
-      done(list);
-    });
+    const waiting = {
+      since,
+      done: (list: string | null) => {
+        clearTimeout(timer);
+        done(list);
+      },
+    };
+    const timer = setTimeout(() => {
+      waitingForList.splice(waitingForList.indexOf(waiting), 1);
+      done(null);
+    }, ms);
+    waitingForList.push(waiting);
   });
 }
 
 // False when no list came, and the trees are then ended without one.
 async function endWatched(): Promise<boolean> {
   if (groups.size === 0) return true;
+  const learned = Date.now();
   const before = table;
-  const fresh = await nextList(3000);
+  const fresh = await listSince(learned, 10_000);
   if (fresh === null) return false;
   for (const pid of toEnd(before, fresh, [...groups])) {
     try {
