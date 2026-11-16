@@ -315,6 +315,8 @@ export const SLOW_TESTS: Record<string, Slow> = {
   'tests/environments/ci-recipes.nightly.test.ts > tests 306 and 307: S7-1, S7-2, S7-3, S7-4, the workflow and the hooks of docs/ci.md (design tests 15 and 16), run as written on pnpm, as a pull request and as a push (network)': { fixed: 70_000, measured: { linux: 70_000 } },
   'tests/environments/git.nightly.test.ts > test 207: the check slice acceptance tests and the security tests pass on the git of ubuntu:22.04, debian:12, ubuntu:24.04 and debian:sid (network)': { fixed: 2_400_000, measured: { linux: 2_400_000 } },
   'tests/environments/ownership.nightly.test.ts > S7-15: in a container whose user does not own the checkout, check names the safe.directory command, and that command lets it through (network)': { fixed: 300_000, measured: { linux: 300_000 } },
+  // Measured on Nightly run 43965209262 (seven entries of the list): each entry builds the broken code and runs its test; the run took 8.2 s with five.
+  'tests/sabotage/sabotage.nightly.test.ts > question 95: the sabotage list, every break of the list turns its test red': { fixed: 0, measured: { linux: 21_000 } },
 
 };
 
