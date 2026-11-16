@@ -584,3 +584,9 @@ The coordinator's decision of the build, which goes on the owner's list: a file 
 
 Choice: the first. The file is committed and merged with `merge=union`, so a pass this tree does not need may be one another branch needs; a pass the writer dropped here would be gone from that branch after the next merge, and paid for again. The error says how many passes the file holds, how many of them the reviews of this tree need and how many calls a review of every file of the law would take, all worked out without a call, and its `next:` asks the user how to make room, since a pass is a hash nobody can pick by hand.
 
+
+## 135. A path longer than a system allows, given to `explain`
+
+Two packages of the build fixed stress finding S5-6, `explain` of a path with a segment over 255 bytes ending as `internal`, in two ways. The hostile inputs answered such a path as one that does not exist yet, with exit 0. The limits answered it as `usage`, `the path '<path>' cannot exist here: it is longer than this system allows for a name or a path`, with exit 2, and wrote that into test 245 of `check-slice.md`. Both cannot hold once the two are merged.
+
+Choice, made at the merge and open for the owner: test 245, since it is the one the spec states and no file system Lawcheck runs on can hold such a path. The hostile test of S5-6 now expects test 245's answer, and adds that a segment written with escapes is measured by the bytes it stands for, so a name of 300 characters that stands for 200 bytes is still a file that does not exist yet.
