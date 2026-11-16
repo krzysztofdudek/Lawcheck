@@ -21,7 +21,7 @@ function sayListing(): void {
 
 function watch(): void {
   if (!windows || watcher !== null) return;
-  watcher = spawn(powershell(), ['-NoProfile', '-NonInteractive', '-Command', `while ($true) { ${PROCESS_TABLE}; '--'; Start-Sleep -Milliseconds 250 }`], { stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true });
+  watcher = spawn(powershell(), ['-NoProfile', '-NonInteractive', '-Command', `while ($true) { ${PROCESS_TABLE}; Start-Sleep -Seconds 1; '--'; Start-Sleep -Milliseconds 250 }`], { stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true });
   const current = watcher;
   const gone = () => {
     if (watcher !== current) return;
