@@ -4,7 +4,7 @@ import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { COMMIT_TARGET_MS, LOOP_TARGET_MS, SEED, SLOW_TESTS, slowBudget, TEST_BUDGET_MS } from './numbers.ts';
 import type { Speed } from './numbers.ts';
-import { COMMIT_GROUPS, EMPTY_GROUPS, groupDirs, NIGHTLY_GROUPS, perPushFiles, ROOT, setFiles, TESTS } from './harness/sets.ts';
+import { COMMIT_GROUPS, EMPTY_GROUPS, groupDirs, NIGHTLY_GROUPS, perPushFiles, perPushTests, ROOT, setFiles, TESTS } from './harness/sets.ts';
 import type { System } from './harness/sets.ts';
 import { readPlan } from './harness/shards.ts';
 
@@ -107,10 +107,13 @@ function plan(parsed: Parsed): Plan {
     const planned = readPlan().shards[process.platform];
     if (planned === undefined || planned.length !== parsed.shard.count) fail(`tests/harness/shards.json plans ${planned?.length ?? 'no'} shards for ${process.platform}, not ${parsed.shard.count}`);
     const files = planned[parsed.shard.index - 1]!;
-    const perPush = perPushFiles(process.platform as System);
+    const system = process.platform as System;
+    const perPush = perPushFiles(system);
     const stray = files.filter((file) => !perPush.includes(file));
     if (stray.length > 0) fail(`tests/harness/shards.json names ${stray.join(', ')} in shard ${parsed.shard.index}, which is not a test file of the per-push set of ${process.platform}`);
-    return { files, patterns, notes };
+    const selected = perPushTests(system, files);
+    const exact = (name: string): string => `/^${name.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')}$/`;
+    return { files, patterns: selected === null ? patterns : selected.map(exact), notes };
   }
   let targets = parsed.targets;
   if (parsed.speed === 'loop' && targets.length === 0) {

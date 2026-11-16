@@ -2,7 +2,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { COMMIT_TARGET_MS } from '../numbers.ts';
-import { perPushFiles, ROOT, type System } from './sets.ts';
+import { PLATFORM_TESTS, perPushFiles, perPushTests, ROOT, type System } from './sets.ts';
 import { readPlan, type Plan } from './shards.ts';
 
 export interface Meta { system: string; node: string; root?: string; shard: number; of: number; files: string[]; started: number; ended: number; status: number }
@@ -41,7 +41,7 @@ export function failedTests(events: Event[]): number {
 }
 
 // What makes the shards of one system one run: every planned shard reported, each with the plan's count, and the files they ran are the commit set, each once.
-export function mergeProblems(system: string, plan: Plan, shards: Shard[], files: string[]): string[] {
+export function mergeProblems(system: string, plan: Plan, shards: Shard[], files: string[], selected: { file: string; test: string }[] | null = null): string[] {
   const problems: string[] = [];
   const planned = plan.shards[system] ?? [];
   const count = planned.length;
@@ -63,6 +63,23 @@ export function mergeProblems(system: string, plan: Plan, shards: Shard[], files
   for (const s of shards) for (const file of ranFiles(s.events)) where.set(file, [...(where.get(file) ?? []), s.meta.shard]);
   for (const s of shards) for (const file of s.meta.files) if (!ranFiles(s.events).has(file)) problems.push(`${file} was planned for shard ${s.meta.shard} and reported no test`);
   for (const file of files) if (!where.has(file)) problems.push(`${file} ran in no shard on ${system}`);
+  if (selected !== null) {
+    const ran = new Map<string, number>();
+    for (const s of shards) for (const e of s.events) {
+      if ((e.type !== 'test:pass' && e.type !== 'test:fail') || e.data.nesting !== 0 || !e.data.file) continue;
+      const file = rel(e.data.file);
+      if (e.data.name === e.data.file || e.data.name === file) continue;
+      const key = `${file} > ${e.data.name}`;
+      ran.set(key, (ran.get(key) ?? 0) + 1);
+    }
+    const wanted = new Set(selected.map((t) => `${t.file} > ${t.test}`));
+    for (const key of wanted) {
+      const n = ran.get(key) ?? 0;
+      if (n === 0) problems.push(`${key} is selected for ${system} and did not run`);
+      if (n > 1) problems.push(`${key} ran ${n} times on ${system}`);
+    }
+    for (const key of ran.keys()) if (!wanted.has(key)) problems.push(`${key} ran on ${system}, and PLATFORM_TESTS does not select it there`);
+  }
   for (const [file, in_] of where) {
     if (in_.length > 1) problems.push(`${file} ran in shards ${in_.join(' and ')} on ${system}`);
     if (!files.includes(file)) problems.push(`${file} ran in shard ${in_[0]} on ${system}, and it is not a test file of the per-push set of ${system}`);
@@ -77,7 +94,9 @@ async function* replay(events: Event[]): AsyncGenerator<Event> {
 export async function judge(dir: string, system = process.platform as System): Promise<{ text: string; failed: boolean }> {
   const { shards, problems: read } = readShards(dir);
   const ordered = [...shards].sort((a, b) => a.meta.shard - b.meta.shard);
-  const problems = [...read, ...mergeProblems(system, readPlan(), ordered, perPushFiles(system))];
+  const files = perPushFiles(system);
+  const selected = perPushTests(system, files) === null ? null : PLATFORM_TESTS.filter((t) => t.systems.includes(system as 'win32' | 'darwin') && files.includes(t.file)).map((t) => ({ file: t.file, test: t.test }));
+  const problems = [...read, ...mergeProblems(system, readPlan(), ordered, files, selected)];
   const events = ordered.flatMap((s) => s.events);
   const spent = ordered.reduce((sum, s) => sum + (s.meta.ended - s.meta.started), 0);
   const wall = ordered.length === 0 ? 0 : Math.max(...ordered.map((s) => s.meta.ended)) - Math.min(...ordered.map((s) => s.meta.started));

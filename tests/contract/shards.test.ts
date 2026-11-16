@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parse } from 'yaml';
 import { failedTests, mergeProblems, type Event, type Shard } from '../harness/merge.ts';
-import { LINUX_ONLY, perPushFiles, ROOT, setFiles, groupDirs } from '../harness/sets.ts';
+import { groupDirs, perPushFiles, PLATFORM_TESTS, ROOT, setFiles } from '../harness/sets.ts';
 import { balance, planProblems, readPlan, SYSTEMS, type Plan } from '../harness/shards.ts';
 
 type Entry = { os: string; node: string; system: string; shard?: number; of?: number };
@@ -69,14 +69,23 @@ test('the merge of one system finds a shard that did not report, a file run twic
   assert.equal(failedTests([...shard(1, 2, files).events, ...failing.events]), 1);
 });
 
-test('the per-push set of Windows and macOS is the commit set minus LINUX_ONLY, each entry with a reason, and Linux runs it all', () => {
+test('the merge of Windows or macOS finds a selected test that did not run, one that ran twice, and one that is not selected', () => {
+  const files = ['tests/unit/a.test.ts'];
+  const plan: Plan = { measured: {}, shards: { linux: [files], win32: [files], darwin: [files] } };
+  const run = (names: string[]): Shard => ({ meta: { system: 'win32', node: 'v24', shard: 1, of: 1, files, started: 0, ended: 1, status: 0 }, events: names.map((n) => ok(files[0]!, n)) });
+  const selected = [{ file: files[0]!, test: 'test 1: a' }, { file: files[0]!, test: 'test 2: b' }];
+  assert.deepEqual(mergeProblems('win32', plan, [run(['test 1: a', 'test 2: b'])], files, selected), []);
+  assert.deepEqual(mergeProblems('win32', plan, [run(['test 1: a', 'test 1: a', 'test 3: c'])], files, selected), [
+    'tests/unit/a.test.ts > test 1: a ran 2 times on win32',
+    'tests/unit/a.test.ts > test 2: b is selected for win32 and did not run',
+    'tests/unit/a.test.ts > test 3: c ran on win32, and PLATFORM_TESTS does not select it there',
+  ]);
+});
+
+test('Linux runs the whole commit set per push, and Windows and macOS the files PLATFORM_TESTS names for them', () => {
   const all = setFiles('commit', groupDirs('commit', null)!);
   assert.deepEqual(perPushFiles('linux'), all);
-  for (const entry of LINUX_ONLY) {
-    assert.ok(all.includes(entry.file), entry.file);
-    assert.ok(entry.reason.trim().length > 0, entry.file);
-  }
-  for (const system of ['win32', 'darwin'] as const) assert.deepEqual(perPushFiles(system), all.filter((f) => !LINUX_ONLY.some((e) => e.file === f)));
+  for (const system of ['win32', 'darwin'] as const) assert.deepEqual(perPushFiles(system), all.filter((f) => PLATFORM_TESTS.some((e) => e.file === f && e.systems.includes(system))));
 });
 
 test('balance spreads files by measured time, slowest first, and gives an unmeasured file the median', () => {
