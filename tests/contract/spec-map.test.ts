@@ -282,6 +282,16 @@ test('R-49: control, an assertion that cannot fail is named, and so is an assert
   assert.ok(hooks.problems.some((p) => p.includes('in beforeEach() counts for no test')), hooks.problems.join('\n'));
   const timers = scanTests('tests/unit/a.test.ts', code("test('test 1: a', () => { setTimeout(() => assert.equal(f(), 1), 10); });"));
   assert.ok(timers.problems.some((p) => p.includes('callback of setTimeout()')), timers.problems.join('\n'));
+  const named = [
+    "function later() { assert.equal(f(), 1); }\ntest('test 1: a', () => { setTimeout(later, 30); });",
+    "const later = () => { assert.equal(f(), 1); };\ntest('test 1: a', () => { setTimeout(later, 30); });",
+    "const later = () => assert.equal(f(), 1);\ntest('test 1: a', () => { setTimeout(later, 30); });",
+    "async function later() { assert.equal(f(), 1); }\ntest('test 1: a', () => { setImmediate(later); });",
+    "test('test 1: a', () => { function later() { assert.equal(f(), 1); }\n  setTimeout(later.bind(null), 30); });",
+  ];
+  for (const line of named) assert.ok(scanTests('tests/unit/a.test.ts', code(line)).problems.some((p) => p.includes('callback of set') && p.includes('later')), line);
+  const harmless = ["test('test 1: a', async () => { await new Promise((done) => setTimeout(done, 30)); assert.equal(f(), 1); });", "function tidy() { cleanup(); }\ntest('test 1: a', () => { setTimeout(tidy, 30); assert.equal(f(), 1); });"];
+  for (const line of harmless) assert.deepEqual(scanTests('tests/unit/a.test.ts', code(line)).problems, [], line);
   const good = ["test('test 1: a', () => { assert.equal(f(), 1); });", "test('test 1: a', () => { try { assert.equal(f(), 1); } catch (e) { throw e; } });", "test('test 1: a', () => { assert.equal(f(1), f(2)); });", "test('test 1: a', () => { assert.ok(f()); });"];
   for (const line of good) assert.deepEqual(scanTests('tests/unit/a.test.ts', code(line)).problems, [], line);
 });

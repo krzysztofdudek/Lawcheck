@@ -313,6 +313,22 @@ function matching(body: string, open: number, up: string, down: string): number 
   return body.length;
 }
 
+function definitionOf(body: string, name: string): string {
+  const id = name.replace(/\$/g, '\\$');
+  const fn = new RegExp(`\\bfunction\\s*\\*?\\s+${id}\\s*\\(`).exec(body);
+  if (fn !== null) {
+    const open = body.indexOf('{', matching(body, fn.index + fn[0].length - 1, '(', ')'));
+    return open < 0 ? '' : body.slice(fn.index, matching(body, open, '{', '}') + 1);
+  }
+  const variable = new RegExp(`\\b(?:const|let|var)\\s+${id}\\s*=`).exec(body);
+  if (variable === null) return '';
+  const from = variable.index + variable[0].length;
+  const block = /^\s*(?:async\s*)?(?:function\b[^{]*|(?:\([^)]*\)|[\w$]+)\s*=>\s*)\{/.exec(body.slice(from));
+  if (block !== null) return body.slice(variable.index, matching(body, from + block[0].length - 1, '{', '}') + 1);
+  const end = body.slice(from).search(/;|\n/);
+  return body.slice(variable.index, end < 0 ? body.length : from + end);
+}
+
 function argumentsAt(body: string, text: string, open: number): string[] {
   const close = matching(body, open, '(', ')');
   const out: string[] = [];
@@ -486,6 +502,12 @@ export function scanTests(file: string, text: string): Scanned {
   for (let m = timer.exec(body); m !== null; m = timer.exec(body)) {
     const open = m.index + m[0].length - 1;
     if (/\b(assert|expectBroken)\b/.test(body.slice(open, matching(body, open, '(', ')')))) result.problems.push(`${file}:${lineOf(text, m.index)}: an assertion in the callback of ${m[1]}() may run after its test has ended`);
+    else {
+      const callback = /^\s*([A-Za-z_$][\w$]*)\s*[,.)]/.exec(body.slice(open + 1))?.[1];
+      if (callback !== undefined && !['function', 'async', 'new', 'await'].includes(callback) && /\b(assert|expectBroken)\b/.test(definitionOf(body, callback))) {
+        result.problems.push(`${file}:${lineOf(text, m.index)}: an assertion in ${callback}, the callback of ${m[1]}(), may run after its test has ended`);
+      }
+    }
   }
   const alias = /(?<![\w$.])=\s*(test|it|describe)\s*[;,\n)]/g;
   for (let m = alias.exec(body); m !== null; m = alias.exec(body)) result.problems.push(`${file}:${lineOf(text, m.index)}: ${m[1]} is assigned to another name, so calls through it cannot be read`);
