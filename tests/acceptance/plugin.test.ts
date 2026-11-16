@@ -8,17 +8,11 @@ import { alive, append, D, D_PATH, F, F_PATH, git, GIT_ENV, inTemp, LAW, lawchec
 import type { Expect, Run, Running } from './helpers.ts';
 import { example } from '../harness/examples.ts';
 import { fakeWrites, platformSkip, startHook, startProgram, testFolder } from '../harness/tool.ts';
-import { HOOK_EDIT_DEADLINE_MS, HOOK_SIGTERM_AFTER_MS, HOOK_STOP_DEADLINE_MS, STOPPED_HOOK_ENDS_MS } from '../numbers.ts';
-import { installedLawcheck, packageRunner } from '../harness/fakes.ts';
+import { TEST_HOOK_DEADLINES } from '../numbers.ts';
+import { DEADLINES } from '../../plugin/hooks/start.mjs';
+import { Bench, deadlineScenario, edited, ended, GIT_DIR, hook, json, NODE_DIR, nothing, PLUGIN, Session, SYSTEM_ENV, withBench } from './plugin-bench.ts';
+import type { HookRun } from './plugin-bench.ts';
 
-const PLUGIN = join(ROOT, 'plugin');
-const HOOK = join(PLUGIN, 'hooks', 'lawcheck-hook.mjs');
-const NODE_DIR = dirname(process.execPath);
-const WINDOWS = process.platform === 'win32';
-const where = (program: string) =>
-  WINDOWS ? execFileSync('where.exe', [program], { encoding: 'utf8' }).split(/\r?\n/)[0]!.trim() : execFileSync('sh', ['-c', `command -v ${program}`], { encoding: 'utf8' }).trim();
-const GIT_DIR = dirname(where('git'));
-const SYSTEM_ENV: NodeJS.ProcessEnv = WINDOWS ? { SystemRoot: process.env.SystemRoot, ComSpec: process.env.ComSpec } : {};
 const spec = readFileSync(join(ROOT, 'spec', 'plugin-slice.md'), 'utf8');
 const BROKEN_LAW = LAW.replace('status: advisory', 'statuss: advisory');
 
@@ -43,152 +37,8 @@ const stopErrorHeader = (cmd = 'lawcheck') =>
   `Lawcheck could not check the files that changed in this turn, and the turn changed files under .lawcheck/. Fix what the error names, then finish; if that needs the user's word, tell the user and finish. ${cmd} check on those files printed:`;
 const released = (cmd = 'lawcheck') => ({ systemMessage: `lawcheck: the turn ended while lawcheck check still fails on the files that changed in it; ${cmd} check shows why.` });
 const handBack = (text: string) => ({ hookSpecificOutput: { hookEventName: 'Stop', additionalContext: text } });
-const edited = (text: string) => ({ hookSpecificOutput: { hookEventName: 'PostToolUse', additionalContext: text } });
 const started = (text: string) => ({ hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: text } });
 
-const EVENT_NAMES: Record<string, string> = { 'session-start': 'SessionStart', prompt: 'UserPromptSubmit', edit: 'PostToolUse', stop: 'Stop' };
-
-type HookRun = Run;
-
-interface LogLine {
-  args: string[];
-  cwd: string;
-}
-
-class Bench {
-  readonly bin: string;
-  readonly data: string;
-  readonly logFile: string;
-  readonly runnerLog: string;
-  readonly dir: string;
-  constructor(dir: string) {
-    this.dir = dir;
-    // The plugin writes its state under CLAUDE_PLUGIN_DATA, and the stand-ins of lawcheck and of the runners log their calls beside it.
-    fakeWrites(dir, ['data/', 'lawcheck.log', 'runner.log']);
-    this.bin = join(dir, 'bin');
-    this.data = join(dir, 'data');
-    this.logFile = join(dir, 'lawcheck.log');
-    this.runnerLog = join(dir, 'runner.log');
-    mkdirSync(this.bin, { recursive: true });
-    this.script('lawcheck', installedLawcheck(this.logFile));
-  }
-
-  script(name: string, body: string[]): void {
-    const path = join(this.bin, name);
-    writeFileSync(path, [`#!${process.execPath}`, "import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';", "import { spawn, spawnSync } from 'node:child_process';", ...body, ''].join('\n'));
-    chmodSync(path, 0o755);
-    // A package manager installs a program on Windows as a .cmd file of this shape.
-    if (WINDOWS) writeFileSync(`${path}.cmd`, `@"${process.execPath}" "${path}" %*\r\n`);
-  }
-
-  remove(name: string): void {
-    rmSync(join(this.bin, name), { force: true });
-    rmSync(join(this.bin, `${name}.cmd`), { force: true });
-  }
-
-  runner(name: string, skip: number, yarn = false): void {
-    this.script(name, packageRunner(this.runnerLog, name, skip, join(this.bin, 'lawcheck'), yarn));
-  }
-
-  log(): LogLine[] {
-    return existsSync(this.logFile) ? readFileSync(this.logFile, 'utf8').trim().split('\n').filter(Boolean).map((line) => JSON.parse(line)) : [];
-  }
-
-  runners(): { runner: string; args: string[] }[] {
-    return existsSync(this.runnerLog) ? readFileSync(this.runnerLog, 'utf8').trim().split('\n').filter(Boolean).map((line) => JSON.parse(line)) : [];
-  }
-
-  clearLog(): void {
-    rmSync(this.logFile, { force: true });
-    rmSync(this.runnerLog, { force: true });
-  }
-
-  checks(): string[][] {
-    return this.log().filter((line) => line.args[0] === 'check').map((line) => line.args);
-  }
-
-  env(extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
-    return { PATH: [this.bin, GIT_DIR, NODE_DIR].join(delimiter), ...SYSTEM_ENV, CLAUDE_PLUGIN_ROOT: PLUGIN, CLAUDE_PLUGIN_DATA: this.data, ...extra };
-  }
-
-  sessions(): string[] {
-    const dir = join(this.data, 'sessions');
-    return existsSync(dir) ? readdirSync(dir).sort() : [];
-  }
-
-  state(id = 's1'): any {
-    return JSON.parse(readFileSync(join(this.data, 'sessions', `${id}.json`), 'utf8'));
-  }
-}
-
-function hook(bench: Bench, event: string, input: string, env: NodeJS.ProcessEnv = {}, onStart?: (running: Running) => void, expect: Expect = {}): Promise<HookRun> {
-  const running = startHook(event, input, bench.env(env), { ...expect, hook: HOOK });
-  onStart?.(running);
-  return running.ended;
-}
-
-class Session {
-  prompts = 0;
-  readonly bench: Bench;
-  readonly cwd: string;
-  readonly id: string;
-  readonly env: NodeJS.ProcessEnv;
-
-  constructor(bench: Bench, cwd: string, id = 's1', env: NodeJS.ProcessEnv = {}) {
-    this.bench = bench;
-    this.cwd = cwd;
-    this.id = id;
-    this.env = env;
-  }
-
-  input(event: string, fields: Record<string, unknown> = {}): string {
-    return JSON.stringify({ session_id: this.id, prompt_id: `p${Math.max(this.prompts, 1)}`, cwd: this.cwd, hook_event_name: EVENT_NAMES[event] ?? event, ...fields });
-  }
-
-  run(event: string, fields: Record<string, unknown> = {}, env: NodeJS.ProcessEnv = {}): Promise<HookRun> {
-    return hook(this.bench, event, this.input(event, fields), { ...this.env, ...env });
-  }
-
-  start(source = 'startup', fields: Record<string, unknown> = {}): Promise<HookRun> {
-    return this.run('session-start', { source, ...fields });
-  }
-
-  prompt(env: NodeJS.ProcessEnv = {}): Promise<HookRun> {
-    this.prompts++;
-    return this.run('prompt', { prompt: 'go' }, env);
-  }
-
-  edit(path: string, tool = 'Write', fields: Record<string, unknown> = {}, env: NodeJS.ProcessEnv = {}): Promise<HookRun> {
-    const key = tool === 'NotebookEdit' ? 'notebook_path' : 'file_path';
-    return this.run('edit', { tool_name: tool, tool_input: { [key]: join(this.cwd, path) }, tool_response: {}, ...fields }, env);
-  }
-
-  stop(fields: Record<string, unknown> = {}, env: NodeJS.ProcessEnv = {}): Promise<HookRun> {
-    return this.run('stop', { stop_hook_active: false, background_tasks: [], last_assistant_message: 'done', ...fields }, env);
-  }
-}
-
-async function withBench<T>(body: (bench: Bench, dir: string) => Promise<T>): Promise<T> {
-  return inTemp((dir) => body(new Bench(dir), dir));
-}
-
-function nothing(run: HookRun, what = ''): void {
-  assert.equal(run.stdout, '', `${what}: ${run.stdout}${run.stderr}`);
-  assert.equal(run.code, 0, `${what}: ${run.stderr}`);
-}
-
-function json(run: HookRun, expected: unknown, what = ''): void {
-  assert.equal(run.code, 0, `${what}: ${run.stderr}`);
-  assert.deepEqual(run.json, expected, what);
-}
-
-async function ended(...pids: number[]): Promise<boolean> {
-  for (let i = 0; i < 30; i++) {
-    if (!pids.some(alive)) return true;
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  }
-  return false;
-}
 
 function specBlock(after: string): string {
   const at = spec.indexOf(after);
@@ -426,42 +276,17 @@ test('test 162: the two switches', async () => {
 });
 
 test('test 163: the deadline, and a hook that is stopped', async () => {
-  await withBench(async (bench, dir) => {
-    const s = makeSample(dir);
-    write(s, D_PATH, D);
-    const pids = join(dir, 'pids');
-    fakeWrites(dir, ['pids']);
-    bench.script('lawcheck', [
-      "const c = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 300000)'], { stdio: 'ignore' });",
-      `writeFileSync(${JSON.stringify(pids)}, process.pid + ' ' + c.pid);`,
-      'setTimeout(() => {}, 300000);',
-    ]);
-    const gone = async () => {
-      const [a, b] = readFileSync(pids, 'utf8').trim().split(' ').map(Number);
-      assert.ok(await ended(a!, b!), `${a} ${b}`);
-      rmSync(pids);
-    };
-    const session = new Session(bench, s);
-    const edit = await session.edit(D_PATH);
-    assert.ok(edit.ms < HOOK_EDIT_DEADLINE_MS, String(edit.ms));
-    json(edit, edited(`Lawcheck: lawcheck check ./${D_PATH} did not finish within 25 seconds and was stopped.`));
-    await gone();
-    rmSync(join(s, D_PATH));
-    await session.prompt();
-    write(s, D_PATH, D);
-    const stop = await session.stop();
-    assert.ok(stop.ms < HOOK_STOP_DEADLINE_MS, String(stop.ms));
-    json(stop, { systemMessage: 'lawcheck: the check before the agent finished did not run: it did not finish within 145 seconds.' });
-    await gone();
-    if (platformSkip('a hook stopped by SIGTERM') !== null) return;
-    const stopped = await hook(bench, 'edit', session.input('edit', { tool_name: 'Write', tool_input: { file_path: join(s, D_PATH) } }), {}, (running) => {
-      setTimeout(() => running.kill('SIGTERM'), HOOK_SIGTERM_AFTER_MS);
-    });
-    assert.equal(stopped.code, 0);
-    assert.equal(stopped.stdout, '');
-    assert.ok(stopped.ms < HOOK_SIGTERM_AFTER_MS + STOPPED_HOOK_ENDS_MS, String(stopped.ms));
-    await gone();
-  });
+  await deadlineScenario(TEST_HOOK_DEADLINES, 'started');
+});
+
+test('test 163: the plugin ships deadlines of 25 seconds for session-start and edit, 15 for prompt and 145 for stop, each its timeout in hooks.json less 5', () => {
+  const sentence = /\*\*One deadline per hook\*\*, its `timeout` less (\d+) seconds: (\d+) seconds for `session-start` and `edit`, (\d+) for `prompt`, (\d+) for `stop`/.exec(spec);
+  assert.ok(sentence, 'spec/plugin-slice.md, section 4, names the deadlines');
+  const [less, startAndEdit, prompt, stop] = sentence.slice(1).map(Number) as [number, number, number, number];
+  assert.deepEqual(DEADLINES, { 'session-start': startAndEdit, prompt, edit: startAndEdit, stop });
+  const hooks = JSON.parse(readFileSync(join(PLUGIN, 'hooks', 'hooks.json'), 'utf8')).hooks as Record<string, { hooks: { args: string[]; timeout: number }[] }[]>;
+  const timeouts = Object.fromEntries(Object.values(hooks).flatMap((groups) => groups.flatMap((group) => group.hooks.map((entry) => [entry.args.at(-1)!, entry.timeout - less]))));
+  assert.deepEqual(timeouts, DEADLINES);
 });
 
 test('section 5: the call ends 2 seconds after Lawcheck exits while a child holds its output', async () => {

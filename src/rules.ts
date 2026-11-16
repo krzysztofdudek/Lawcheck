@@ -19,7 +19,8 @@ export interface RuleFile {
 
 export const RUNNER = fileURLToPath(new URL('./runner.js', import.meta.url));
 export const PACKAGE_DIR = realpathSync(dirname(dirname(RUNNER)));
-export const TIMEOUT_MS = 30_000;
+// spec/check-slice.md, section 3: 30 seconds for the load and for each call. Only a test changes it, from an entry of its own that sets it before it starts the tool (tests/harness/tool-with-limits.mjs); no option, variable or file a user controls reaches it, and a rule runs in a process of its own, which cannot.
+export const LIMITS = { ruleMs: 30_000 };
 const GUARD = fileURLToPath(new URL('./guard.js', import.meta.url));
 
 const live = new Set<ChildProcess>();
@@ -193,7 +194,7 @@ function whyNotStarted(root: string, ended: string): string {
 }
 
 export function runRule(run: RuleRun): Promise<RuleOutcome> {
-  const timeoutMs = run.timeoutMs ?? TIMEOUT_MS;
+  const timeoutMs = run.timeoutMs ?? LIMITS.ruleMs;
   return new Promise((resolve, reject) => {
     const child = fork(RUNNER, [], {
       execArgv: runnerArgs(run.root),

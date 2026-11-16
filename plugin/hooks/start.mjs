@@ -51,6 +51,9 @@ export function cutPoints(text, max) {
   return [...text].slice(0, max).join('');
 }
 
+// spec/plugin-slice.md, section 4: each hook's timeout in hooks.json less 5 seconds. Only a test changes these values, from an entry of its own that sets them before it imports lawcheck-hook.mjs; no setting, variable or file a user controls reaches this object.
+export const DEADLINES = { 'session-start': 25, prompt: 15, edit: 25, stop: 145 };
+
 export class Deadline {
   constructor(seconds) {
     this.seconds = seconds;

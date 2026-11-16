@@ -7,11 +7,11 @@ import { afterEach, beforeEach } from 'node:test';
 import { budgetNamed, slowBudget, TEST_BUDGET_MS } from '../numbers.ts';
 import { Broken } from './invariants.ts';
 import { skipReason } from './skips.ts';
-import { CLI, gate, HOOK, observe, ROOT_DIR } from './start.ts';
+import { CLI, gate, HOOK, HOOK_WITH_DEADLINES, observe, ROOT_DIR, TOOL_WITH_LIMITS } from './start.ts';
 import { real, tree, treeChanges } from './state.ts';
 
 export { CLI, CouldNotRun, HOOK, ROOT, startHook, startProgram, startShell, startTool, unpackTarball, withoutTypeStrippingWarning } from './start.ts';
-export type { Expect, Run, Running, Shell, ToolOptions } from './start.ts';
+export type { Expect, HookOptions, Run, Running, Shell, ToolOptions } from './start.ts';
 export { PLATFORM_SKIPS } from './skips.ts';
 export type { PlatformSkip } from './skips.ts';
 
@@ -34,14 +34,14 @@ let current: TestState | null = null;
 const fileOf = (path: string | undefined) => (path === undefined ? '' : relative(ROOT_DIR, path.startsWith('file:') ? fileURLToPath(path) : path).split(sep).join('/'));
 
 const slash = (text: string) => text.split('\\').join('/');
-const TOOL_PATHS = [slash(CLI), slash(HOOK)];
+const TOOL_PATHS = [slash(CLI), slash(HOOK), slash(HOOK_WITH_DEADLINES), slash(TOOL_WITH_LIMITS)];
 
 // Whether a start names Lawcheck: the built tool, a hook, a copy's or the unpacked tarball's dist/cli.js, or a program called lawcheck.
 export function namesTool(words: unknown[]): string | null {
   for (const word of words) {
     if (typeof word !== 'string') continue;
     const text = slash(word);
-    if (TOOL_PATHS.includes(text) || /(^|[\s"'/])dist\/(cli\.js|bin\.cjs)(["'\s]|$)/.test(text) || /lawcheck-hook\.mjs(["'\s]|$)/.test(text) || /^(.*\/)?lawcheck(\.cmd|\.exe)?$/.test(text)) return word;
+    if (TOOL_PATHS.includes(text) || /(^|[\s"'/])dist\/(cli\.js|bin\.cjs)(["'\s]|$)/.test(text) || /(lawcheck-hook|hook-with-deadlines|tool-with-limits)\.mjs(["'\s]|$)/.test(text) || /^(.*\/)?lawcheck(\.cmd|\.exe)?$/.test(text)) return word;
   }
   return null;
 }
@@ -50,7 +50,7 @@ const SHELLS = /^(sh|bash|dash|zsh|ksh|cmd|powershell|pwsh)(\.exe)?$/i;
 
 // A command line a shell reads: Lawcheck is named where lawcheck stands as a word of it, alone or ending a path, or where it names the built tool or a hook.
 export function namesToolInLine(line: string): boolean {
-  return /(^|[\s;&|("'`\/\\])lawcheck(\.cmd|\.exe|\.ps1)?($|[\s;&|)"'`])/.test(line) || /dist[\/\\](cli\.js|bin\.cjs)|lawcheck-hook\.mjs/.test(line);
+  return /(^|[\s;&|("'`\/\\])lawcheck(\.cmd|\.exe|\.ps1)?($|[\s;&|)"'`])/.test(line) || /dist[\/\\](cli\.js|bin\.cjs)|lawcheck-hook\.mjs|hook-with-deadlines\.mjs|tool-with-limits\.mjs/.test(line);
 }
 
 // The strings of a start that a shell reads: the line of exec and execSync, and the words given to a shell program or under shell: true.
