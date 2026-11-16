@@ -105,7 +105,9 @@ export const SLOW_TESTS: Record<string, Slow> = {
   // A run of the tool per case.
   'tests/acceptance/plugin.test.ts > test 160: edits that pass, and inputs the hook leaves alone': { fixed: 0, measured: { win32: 16_411 } },
   // The hook deadlines of 25 and 145 seconds (spec/plugin-slice.md, section 4) and the SIGTERM 2 seconds into the third hook.
-  'tests/environments/hook-deadlines.nightly.test.ts > test 163: the deadline, and a hook that is stopped, at the deadlines the plugin ships': { fixed: 172_000, measured: { darwin: 173_433, linux: 172_534, win32: 174_998 } },
+  'tests/deadlines/hook-deadlines.nightly.test.ts > test 163: the deadline, and a hook that is stopped, at the deadlines the plugin ships': { fixed: 172_000, measured: { darwin: 173_433, linux: 172_534, win32: 174_998 } },
+  // The session-start and prompt deadlines of 25 and 15 seconds (spec/plugin-slice.md, section 5).
+  'tests/deadlines/hook-deadlines.nightly.test.ts > section 5: the session-start and prompt hooks each end at their own deadline, at the deadlines the plugin ships': { fixed: 40_000, measured: { darwin: 41_000, linux: 41_000, win32: 43_000 } },
   // A run of the tool per case.
   'tests/acceptance/plugin.test.ts > test 166 and 167: the hand-back, and the guard': { fixed: 0, measured: { darwin: 8_965, win32: 14_528 } },
   // A run of the tool per case.
@@ -135,7 +137,7 @@ export const SLOW_TESTS: Record<string, Slow> = {
   // A run of the tool per case.
   'tests/acceptance/rules.test.ts > test 21: each broken answer crashes the rule': { fixed: 0, measured: { win32: 7_512 } },
   // The 30 seconds a rule may run (spec/check-slice.md, section 3).
-  'tests/environments/rule-limit.nightly.test.ts > test 24: a rule that hangs is stopped, at the limit the tool ships': { fixed: 30_000, measured: { darwin: 30_868, linux: 30_608, win32: 34_041 } },
+  'tests/deadlines/rule-limit.nightly.test.ts > test 24: a rule that hangs is stopped, at the limit the tool ships': { fixed: 30_000, measured: { darwin: 30_868, linux: 30_608, win32: 34_041 } },
   // 300 requests to the fake reviewer.
   'tests/acceptance/stability.test.ts > test 76: the measurement against the fake': { fixed: 0, measured: { darwin: 11_934, linux: 6_267, win32: 17_482 } },
   // STABILITY_RUNS runs of 30 calls of the fake claude, each a process; on Windows ten runs took 116.8 s, so it makes two there.

@@ -17,6 +17,7 @@ export const NIGHTLY_GROUPS: Record<string, string[]> = {
   security: ['security'],
   limits: ['limits'],
   environments: ['environments'],
+  deadlines: ['deadlines'],
   docs: ['docs'],
   sabotage: ['sabotage'],
   corpus: ['corpus'],
