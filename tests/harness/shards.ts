@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, realpathSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { perPushFiles, ROOT } from './sets.ts';
@@ -157,7 +157,7 @@ export function measureShards(dir: string, system: (typeof SYSTEMS)[number]): Om
   return { cost, tests, slots };
 }
 
-if (process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (process.argv[1] !== undefined && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const usage = 'usage: node tests/harness/shards.ts plan [--count <system>=<n>]... [--slots <system>=<n>]... [--measured <system>=<a profile, or a folder holding the recordings of its shards>=<run>]...';
   const [command, ...rest] = process.argv.slice(2);
   const refuse = (message = usage): never => { process.stderr.write(`${message}\n`); process.exit(2); };

@@ -1,4 +1,4 @@
-import { appendFileSync, existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, readdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { COMMIT_TARGET_MS } from '../numbers.ts';
@@ -195,7 +195,7 @@ export async function judge(dir: string, system: System, out: { profile?: string
   return { text, failed: judged.failed };
 }
 
-if (process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (process.argv[1] !== undefined && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const usage = 'usage: node tests/harness/merge.ts <folder holding meta-<i>.json and events-<i>.jsonl of every shard> --system <linux|win32|darwin> [--profile <file>] [--summary <file>] [--run-started <run_started_at of the run, as GitHub gives it>]\n';
   const [dir, ...rest] = process.argv.slice(2);
   const options: Record<string, string> = {};
