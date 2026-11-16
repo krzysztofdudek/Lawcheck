@@ -375,7 +375,7 @@ function leftNothing(where: string, texts: string[], files: string[], secrets: s
 }
 
 test('test 404: the key canary', async () => {
-  for (const keyed of KEYED) {
+  await Promise.all(KEYED.map(async (keyed) => {
     const canary = `canary-${randomBytes(12).toString('hex')}`;
     const own = `own-${randomBytes(12).toString('hex')}`;
     const others = Object.fromEntries(VENDOR_KEYS.filter((name) => name !== keyed.own).map((name) => [name, `other-${randomBytes(12).toString('hex')}`]));
@@ -424,8 +424,8 @@ test('test 404: the key canary', async () => {
         }
       }, configOf(keyed.provider, '  parallel: 1\n'));
     }, replies);
-  }
-  for (const [provider, name] of PROGRAM_PROVIDERS) {
+  }));
+  await Promise.all(PROGRAM_PROVIDERS.map(async ([provider, name]) => {
     await withR(async (r, dir) => {
       write(r, F_PATH, F);
       const folder = testFolder('lawcheck-canary-');
@@ -451,7 +451,7 @@ test('test 404: the key canary', async () => {
         folder.remove();
       }
     }, configOf(provider));
-  }
+  }));
 });
 
 test('test 405: a key under a provider name goes to that provider alone', async () => {
