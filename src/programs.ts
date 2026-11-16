@@ -101,18 +101,48 @@ export function stillListed(before: string, after: string, roots: number[]): num
   return listed.filter((pid) => known.has(pid) && now.get(pid) === known.get(pid));
 }
 
-// What the guard ends of the groups' trees when the tool has ended: what both lists show made at the same time, and what the list made after the end shows below a root. On Windows a root ends with the tool, which holds it in its job, and what the root started lives on below its id.
+// What the guard ends of the groups' trees when the tool has ended: what both lists show made at the same time, and what the list made after the end shows below a root. On Windows a root ends with the tool, which holds it in its job, and what the root started lives on below its id. Windows gives an ended process's id to a new one, so below a process only what was made after it counts, and below a root whose id a later process holds only what was made before that one.
 export function toEnd(before: string, after: string, roots: number[]): number[] {
-  return [...new Set([...stillListed(before, after, roots), ...roots.flatMap((root) => descendantsIn(after, root))])];
+  const known = createdIn(before);
+  const now = createdIn(after);
+  const children = childrenIn(after);
+  const found = new Set(stillListed(before, after, roots));
+  for (const root of roots) {
+    const queue: [number, string | undefined][] = [[root, known.get(root) ?? now.get(root)]];
+    const seen = new Set([root]);
+    while (queue.length > 0) {
+      const [pid, made] = queue.shift()!;
+      const holder = now.get(pid);
+      for (const child of children.get(pid) ?? []) {
+        const childMade = now.get(child);
+        if (seen.has(child)) continue;
+        if (made !== undefined && childMade !== undefined && earlier(childMade, made)) continue;
+        if (holder !== undefined && made !== undefined && holder !== made && childMade !== undefined && !earlier(childMade, holder)) continue;
+        seen.add(child);
+        found.add(child);
+        queue.push([child, childMade]);
+      }
+    }
+  }
+  return [...found];
 }
 
-export function descendantsIn(table: string, root: number): number[] {
+function earlier(a: string, b: string): boolean {
+  return a.length !== b.length ? a.length < b.length : a < b;
+}
+
+function childrenIn(table: string): Map<number, number[]> {
   const children = new Map<number, number[]>();
   for (const line of table.split(/\r?\n/)) {
     const [child, parent] = line.trim().split(' ').map(Number);
     if (!Number.isInteger(child) || !Number.isInteger(parent) || child === parent) continue;
     children.set(parent!, [...(children.get(parent!) ?? []), child!]);
   }
+  return children;
+}
+
+export function descendantsIn(table: string, root: number): number[] {
+  const children = childrenIn(table);
   const found: number[] = [];
   const queue = [root];
   while (queue.length > 0) {
