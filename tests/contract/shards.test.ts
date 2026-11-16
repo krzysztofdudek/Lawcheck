@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parse } from 'yaml';
-import { failedTests, judge, judgeShards, mergeProblems, parseRunStarted, profile, readShards, summary, tied, type Event, type Shard } from '../harness/merge.ts';
+import { failedTests, judge, judgeShards, mergeProblems, parseRunStarted, profile, readShards, summary, tied, type Event, type Judge, type Shard } from '../harness/merge.ts';
 import { judgeRun } from '../harness/reporter.ts';
 import { startProgram, testFolder } from '../harness/tool.ts';
 import { continueOnErrorProblems } from '../harness/workflows.ts';
@@ -11,11 +11,11 @@ import { groupDirs, perPushFiles, PLATFORM_TESTS, ROOT, setFiles } from '../harn
 import { balance, matrix, measureShards, plannedWalls, planProblems, readPlan, repoPath, SYSTEMS, wallOf, type Plan, type Run } from '../harness/shards.ts';
 
 
-test('every test file of each system\'s per-push set is in exactly one shard of tests/harness/shards.json', () => {
+test('question 95: every test file of each system\'s per-push set is in exactly one shard of tests/harness/shards.json', () => {
   assert.deepEqual(planProblems(readPlan()), []);
 });
 
-test('a plan that leaves a file out, names one twice, or names a file that is no test is refused (control)', () => {
+test('question 95: a plan that leaves a file out, names one twice, or names a file that is no test is refused (control)', () => {
   const plan = readPlan();
   const shards = plan.shards.linux!;
   const at = shards.findIndex((list) => list.length > 1);
@@ -92,7 +92,7 @@ function ciProblems(ci: Ci, plan: Plan): string[] {
 
 const ciFile = (): Ci => parse(readFileSync(join(ROOT, '.github', 'workflows', 'ci.yml'), 'utf8')) as Ci;
 
-test('each of the three systems runs per push in the shards of tests/harness/shards.json, each system\'s merge waits for its own shards only, and the one required check waits for every job', () => {
+test('question 95: each of the three systems runs per push in the shards of tests/harness/shards.json, each system\'s merge waits for its own shards only, and the one required check waits for every job', () => {
   const ci = ciFile();
   const plan = readPlan();
   assert.deepEqual(ciProblems(ci, plan), []);
@@ -106,7 +106,7 @@ test('each of the three systems runs per push in the shards of tests/harness/sha
   }
 });
 
-test('a ci.yml that drops the runs of a system, merges a system after another\'s shards, writes the shards by hand, or leaves a job out of the required check is refused (control)', () => {
+test('question 95: a ci.yml that drops the runs of a system, merges a system after another\'s shards, writes the shards by hand, or leaves a job out of the required check is refused (control)', () => {
   const plan = readPlan();
   const changed = (edit: (ci: Ci) => void): string[] => { const ci = ciFile(); edit(ci); return ciProblems(ci, plan); };
   const unstarted = (job: string) => `ci.yml: ${job} does not time its run from the run's own start, run_started_at of the API, or lets a failed call fail the merge`;
@@ -132,7 +132,7 @@ test('a ci.yml that drops the runs of a system, merges a system after another\'s
   assert.deepEqual(changed((ci) => { delete ci.jobs['merge-linux']!.permissions; }), ['ci.yml: merge-linux has permissions other than read of the contents and of the actions']);
 });
 
-test('continue-on-error on any job of ci.yml or any step of one is refused, and a literal false is not (control)', () => {
+test('question 95: continue-on-error on any job of ci.yml or any step of one is refused, and a literal false is not (control)', () => {
   const plan = readPlan();
   const changed = (edit: (ci: Ci) => void): string[] => { const ci = ciFile(); edit(ci); return ciProblems(ci, plan); };
   const reds = (what: string) => `${what} has continue-on-error, so GitHub reports its red as a success`;
@@ -160,7 +160,7 @@ const shard = (index: number, of: number, files: string[], status = 0): Shard =>
   events: files.map((f) => ok(f, `${f} test`)),
 });
 
-test('the merge of one system finds a shard that did not report, a file run twice or by no shard, and a failed shard', () => {
+test('question 95: the merge of one system finds a shard that did not report, a file run twice or by no shard, and a failed shard', () => {
   const files = ['tests/unit/a.test.ts', 'tests/unit/b.test.ts', 'tests/unit/c.test.ts'];
   const plan: Plan = { measured: {}, shards: { linux: [[files[0]!, files[1]!], [files[2]!]], win32: [files], darwin: [files] } };
   assert.deepEqual(mergeProblems('linux', plan, [shard(1, 2, [files[0]!, files[1]!]), shard(2, 2, [files[2]!])], files), []);
@@ -176,7 +176,7 @@ test('the merge of one system finds a shard that did not report, a file run twic
   assert.equal(failedTests([...shard(1, 2, files).events, ...failing.events]), 1);
 });
 
-test('the merge of Windows or macOS finds a selected test that did not run, one that ran twice, and one that is not selected', () => {
+test('question 95: the merge of Windows or macOS finds a selected test that did not run, one that ran twice, and one that is not selected', () => {
   const files = ['tests/unit/a.test.ts'];
   const plan: Plan = { measured: {}, shards: { linux: [files], win32: [files], darwin: [files] } };
   const run = (names: string[]): Shard => ({ meta: { system: 'win32', node: 'v24', shard: 1, of: 1, files, started: 0, ended: 1, status: 0 }, events: names.map((n) => ok(files[0]!, n)) });
@@ -189,18 +189,18 @@ test('the merge of Windows or macOS finds a selected test that did not run, one 
   ]);
 });
 
-test('Linux runs the whole commit set per push, and Windows and macOS the files PLATFORM_TESTS names for them', () => {
+test('question 95: Linux runs the whole commit set per push, and Windows and macOS the files PLATFORM_TESTS names for them', () => {
   const all = setFiles('commit', groupDirs('commit', null)!);
   assert.deepEqual(perPushFiles('linux'), all);
   for (const system of ['win32', 'darwin'] as const) assert.deepEqual(perPushFiles(system), all.filter((f) => PLATFORM_TESTS.some((e) => e.file === f && e.systems.includes(system))));
 });
 
-test('balance spreads files by measured time, slowest first, and gives an unmeasured file the median', () => {
+test('question 95: balance spreads files by measured time, slowest first, and gives an unmeasured file the median', () => {
   assert.deepEqual(balance(['a', 'b', 'c', 'd'], { a: 90, b: 50, c: 40, d: 10 }, 2), [['a', 'd'], ['b', 'c']]);
   assert.deepEqual(balance(['a', 'b', 'x'], { a: 100, b: 10 }, 2), [['a', 'b'], ['x']]);
 });
 
-test('balance plans the wall time of shards that run several files at once, not the sum of their times, and lists each shard slowest first', () => {
+test('question 95: balance plans the wall time of shards that run several files at once, not the sum of their times, and lists each shard slowest first', () => {
   const ms = { a: 100, b: 60, c: 60, d: 50, e: 50 };
   const shards = balance(['a', 'b', 'c', 'd', 'e'], ms, 2, 2);
   assert.deepEqual(shards, [['a', 'd', 'e'], ['b', 'c']]);
@@ -208,7 +208,7 @@ test('balance plans the wall time of shards that run several files at once, not 
   assert.equal(wallOf(['a', 'b', 'c'], (f) => ms[f as keyof typeof ms], 2), 120);
 });
 
-test('the committed plan is what the planner makes from its own measurements: each file\'s cost in a shard and the slots of each system', () => {
+test('question 95: the committed plan is what the planner makes from its own measurements: each file\'s cost in a shard and the slots of each system', () => {
   const plan = readPlan();
   for (const system of SYSTEMS) {
     const measured = plan.measured[system]!;
@@ -218,7 +218,7 @@ test('the committed plan is what the planner makes from its own measurements: ea
   }
 });
 
-test('a file\'s cost is its time in the shard from node:test\'s summary of it, read from the recordings of that system only', () => {
+test('question 95: a file\'s cost is its time in the shard from node:test\'s summary of it, read from the recordings of that system only', () => {
   const root = '/home/runner/work/Lawcheck/Lawcheck/';
   const summary = (file: string, ms: number): Event => ({ type: 'test:summary', data: { file: `${root}${file}`, duration_ms: ms } });
   const dir = recorded([
@@ -248,7 +248,7 @@ function recorded(shards: { meta: Record<string, unknown>; events: Event[] }[]):
   return dir;
 }
 
-test('the merge reads a shard recorded on Windows against the root it recorded, from a checkout on another system', () => {
+test('question 95: the merge reads a shard recorded on Windows against the root it recorded, from a checkout on another system', () => {
   assert.equal(repoPath('D:\\a\\Lawcheck\\Lawcheck\\tests\\unit\\a.test.ts', 'D:\\a\\Lawcheck\\Lawcheck\\'), 'tests/unit/a.test.ts');
   assert.equal(repoPath('file:///D:/a/Lawcheck/Lawcheck/tests/unit/a.test.ts', 'd:\\a\\Lawcheck\\Lawcheck'), 'tests/unit/a.test.ts');
   assert.equal(repoPath('/Users/runner/work/Lawcheck/Lawcheck/tests/unit/a.test.ts', '/Users/runner/work/Lawcheck/Lawcheck/'), 'tests/unit/a.test.ts');
@@ -267,7 +267,7 @@ test('the merge reads a shard recorded on Windows against the root it recorded, 
   }
 });
 
-test('the reporter judges a run against the SLOW_TESTS of the system it ran on, not of the machine that reads it', async () => {
+test('question 95: the reporter judges a run against the SLOW_TESTS of the system it ran on, not of the machine that reads it', async () => {
   const key = 'tests/acceptance/cli.test.ts > test 38: the base';
   const events: Event[] = [{ type: 'test:pass', data: { file: join(ROOT, 'tests/acceptance/cli.test.ts'), name: 'test 38: the base', nesting: 0, details: { duration_ms: 4_400 } } }];
   const on = async (system: 'linux' | 'win32') => (await judgeRun(replay(events), { system, started: null, target: 0 })).text;
@@ -275,9 +275,9 @@ test('the reporter judges a run against the SLOW_TESTS of the system it ran on, 
   assert.match(await on('linux'), new RegExp(`no entry in SLOW_TESTS for linux\\n +4400 ms  ${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
 });
 
-test('the merge of Windows or macOS counts a selected test that skipped or is todo as not run, unless PLATFORM_SKIPS skips it whole there', () => {
+test('question 95: the merge of Windows or macOS counts a selected test that skipped or is todo as not run, unless PLATFORM_SKIPS skips it whole there', () => {
   const file = 'tests/acceptance/law.test.ts';
-  const excused = 'section 6: a law that cannot be read is law-invalid';
+  const excused = 'check-slice §6: a law that cannot be read is law-invalid';
   const plan: Plan = { measured: {}, shards: { linux: [[file]], win32: [[file]], darwin: [[file]] } };
   const run = (system: 'win32' | 'darwin', events: Event[]): Shard => ({ meta: { system, node: 'v24', shard: 1, of: 1, files: [file], started: 0, ended: 1, status: 0 }, events });
   const event = (name: string, extra: Record<string, unknown>): Event => ({ type: 'test:pass', data: { file: join(ROOT, file), name, nesting: 0, details: { duration_ms: 1 }, ...extra } });
@@ -290,11 +290,23 @@ test('the merge of Windows or macOS counts a selected test that skipped or is to
   assert.ok(mergeProblems('darwin', plan, [run('darwin', events)], [file], selected).includes(`${file} > ${excused} is selected for darwin and was skipped, so it did not run, and PLATFORM_SKIPS does not excuse it there`));
 });
 
-test('the merge fails whenever the reporter judges the merged run red, and passes the run the reporter passes', async () => {
+test('question 95: the merge fails whenever the reporter judges the merged run red, and passes the run the reporter passes', async () => {
   const files = ['tests/unit/a.test.ts'];
   const plan: Plan = { measured: {}, shards: { linux: [files], win32: [files], darwin: [files] } };
   const clean = [shard(1, 1, files)];
-  assert.equal((await judgeShards('linux', plan, clean, files)).failed, false);
+  const untied: Judge = async (events, options) => {
+    const tie = process.env.LAWCHECK_TIE;
+    delete process.env.LAWCHECK_TIE;
+    try {
+      return await judgeRun(events, options);
+    } finally {
+      if (tie !== undefined) process.env.LAWCHECK_TIE = tie;
+    }
+  };
+  assert.equal((await judgeShards('linux', plan, clean, files, untied)).failed, false);
+  const whole = await judgeShards('linux', plan, clean, files);
+  assert.equal(whole.failed, true);
+  assert.match(whole.text, /^RED {6}the run-time tie of question 79$/m);
   const red = await judgeShards('linux', plan, clean, files, async () => ({ text: 'RED      a whole-run verdict of the reporter', red: true }));
   assert.equal(red.failed, true);
   assert.match(red.text, /^RED {6}a whole-run verdict of the reporter$/m);
@@ -302,10 +314,10 @@ test('the merge fails whenever the reporter judges the merged run red, and passe
   const failing = shard(1, 1, files);
   failing.events = [{ type: 'test:fail', data: { file: join(ROOT, files[0]!), name: 'test 1: a', nesting: 0, details: { error: { failureType: 'testCodeFailure' } } } }];
   assert.equal((await judgeRun(replay(failing.events), { system: 'linux', started: null, target: 0 })).red, true);
-  assert.equal((await judgeShards('linux', plan, [failing], files)).failed, true);
+  assert.equal((await judgeShards('linux', plan, [failing], files, untied)).failed, true);
 });
 
-test('the merge times a system as its wall time, from the first shard\'s start to the last one\'s end, beside the time summed over the shards', async () => {
+test('question 95: the merge times a system as its wall time, from the first shard\'s start to the last one\'s end, beside the time summed over the shards', async () => {
   const files = ['tests/unit/a.test.ts', 'tests/unit/b.test.ts'];
   const plan: Plan = { measured: {}, shards: { linux: [[files[0]!], [files[1]!]], win32: [files], darwin: [files] } };
   const one = shard(1, 2, [files[0]!]);
@@ -322,7 +334,7 @@ test('the merge times a system as its wall time, from the first shard\'s start t
   assert.match(summary('linux', [one, two], false), /^150 s of wall time, from the first shard's start to the last one's end; 200 s summed over 2 shards; the slowest, shard 1, took 100 s\.$/m);
 });
 
-test('the merge times a system from the start of the run to its own verdict, beside the shards\' wall time, in its text, its summary and its profile', async () => {
+test('question 95: the merge times a system from the start of the run to its own verdict, beside the shards\' wall time, in its text, its summary and its profile', async () => {
   const files = ['tests/unit/a.test.ts'];
   const dir = recorded([{ meta: { system: 'linux', node: 'v24', shard: 1, of: 1, files, started: 1_000_000, ended: 1_076_000, status: 0 }, events: [ok(files[0]!, 'test 1: a')] }]);
   const out = testFolder('lawcheck-merge-out-').dir;
@@ -344,7 +356,7 @@ test('the merge times a system from the start of the run to its own verdict, bes
 
 const unreadable = "The start of the run could not be read, so only the wall time of the shards is given: 76 s from the first shard's start to the last one's end.";
 
-test('when the call that reads the start of the run fails, the merge says so and gives the shards\' time, and its verdict is the tests\' verdict, as when the call works', async () => {
+test('question 95: when the call that reads the start of the run fails, the merge says so and gives the shards\' time, and its verdict is the tests\' verdict, as when the call works', async () => {
   const files = ['tests/unit/a.test.ts'];
   const meta = { system: 'linux', node: 'v24', shard: 1, of: 1, files, started: 1_000_000, ended: 1_076_000 };
   const green = recorded([{ meta: { ...meta, status: 0 }, events: [ok(files[0]!, 'test 1: a')] }]);
@@ -382,13 +394,13 @@ test('when the call that reads the start of the run fails, the merge says so and
   }
 });
 
-test('the start of a run is read from the timestamp GitHub gives, and an empty or other value is no start', () => {
+test('question 95: the start of a run is read from the timestamp GitHub gives, and an empty or other value is no start', () => {
   assert.equal(parseRunStarted('2026-11-16T01:50:00Z'), Date.UTC(2026, 10, 16, 1, 50, 0));
   assert.equal(parseRunStarted('2026-11-16T01:50:00.250Z'), Date.UTC(2026, 10, 16, 1, 50, 0, 250));
   for (const value of ['', 'null', '1763257800', '2026-11-16', '2026-11-16T01:50:00+01:00', '2026-13-45T99:99:99Z']) assert.equal(parseRunStarted(value), null, JSON.stringify(value));
 });
 
-test('the ledger tie judges only the merged run of Linux, which runs the whole commit set; Windows and macOS are judged without it, whatever the environment held', async () => {
+test('question 95: the ledger tie judges only the merged run of Linux, which runs the whole commit set; Windows and macOS are judged without it, whatever the environment held', async () => {
   const seen: Record<string, string | undefined> = {};
   const before = process.env.LAWCHECK_TIE;
   process.env.LAWCHECK_TIE = '1';

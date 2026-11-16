@@ -70,7 +70,7 @@ test('test 249: 4 GiB of text across files stops at the file that passes 128 MiB
   });
 });
 
-test('S1-4: S5-2: test 250: a text file of 600 MB written whole is file-too-large in check, doctor, explain and try', async () => {
+test('test 250: S1-4, S5-2, a text file of 600 MB written whole is file-too-large in check, doctor, explain and try', async () => {
   await withSample(async (s) => {
     realText(s, 'src/core/huge.ts', 600_000_000);
     const line = 'src/core/huge.ts  error[file-too-large]  the file holds 600,000,000 bytes, more than the 16 MiB a file read as text may hold';
@@ -85,7 +85,7 @@ test('S1-4: S5-2: test 250: a text file of 600 MB written whole is file-too-larg
   });
 });
 
-test('S2-5: test 251: 30 rules that hang end as rule-crashed, each after its 30 seconds, within the time of the run', async () => {
+test('test 251: S2-5, 30 rules that hang end as rule-crashed, each after its 30 seconds, within the time of the run', async () => {
   const ids = Array.from({ length: 30 }, (_, i) => `hang-${String(i + 1).padStart(2, '0')}`);
   await withSample(
     async (s) => {
@@ -107,7 +107,7 @@ test('S2-5: test 251: 30 rules that hang end as rule-crashed, each after its 30 
   );
 });
 
-test('S2-5: test 251: rules that take 29 seconds a file are stopped when the script rules of the run pass 600 seconds', async () => {
+test('test 251: S2-5, rules that take 29 seconds a file are stopped when the script rules of the run pass 600 seconds', async () => {
   const ids = ['slow-a', 'slow-b', 'slow-c'];
   const slow = 'export async function check() { await new Promise((done) => setTimeout(done, 29_000)); return []; }\n';
   await withSample(
@@ -192,7 +192,7 @@ const STEP_NEXT = "next: make the step named faster, such as a type's content pa
 const stepTooSlow = (what: string) =>
   ['lawcheck: ERROR  1 error', '', `error[step-too-slow]  one step of the run took more than 30 seconds without an end: ${what}`, '  why:  a step that never ends gives no answer, so one step of a run has a limit of time', '', STEP_NEXT, ''].join('\n');
 
-test('S1-1: test 255: a step that never ends, typing against a content pattern that backtracks, ends as step-too-slow after 30 seconds', async () => {
+test('test 255: S1-1, a step that never ends, typing against a content pattern that backtracks, ends as step-too-slow after 30 seconds', async () => {
   await withSample(
     async (s) => {
       write(s, 'slow/a.ts', `${'a'.repeat(80)}!\n`);
@@ -221,7 +221,7 @@ test('test 259: a git that never answers ends as step-too-slow after 30 seconds,
 // The nightly job mounts a small file system of its own here, `--tmpfs /full:size=8m,mode=1777`, so a test can fill it.
 const FULL_DISK = process.env.LAWCHECK_FULL_DISK;
 
-test('S3-8: test 265: a review on a disk with one free page is file-unwritable, and init there too, never internal', async () => {
+test('test 265: S3-8, a review on a disk with one free page is file-unwritable, and init there too, never internal', async () => {
   assert.ok(FULL_DISK !== undefined && existsSync(FULL_DISK), 'could not run: LAWCHECK_FULL_DISK names no folder; the nightly job mounts one');
   const folder = testFolder('lawcheck-test-', FULL_DISK!);
   const filler = join(folder.dir, 'filler');

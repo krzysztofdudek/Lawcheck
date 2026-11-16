@@ -281,11 +281,11 @@ test('test 163: the deadline, and a hook that is stopped', async () => {
   await deadlineScenario(TEST_HOOK_DEADLINES, 'started');
 });
 
-test('section 5: the session-start and prompt hooks each end at their own deadline', async () => {
+test('R-86: the session-start and prompt hooks each end at their own deadline', async () => {
   await startAndPromptScenario(TEST_HOOK_DEADLINES);
 });
 
-test('section 5: the plugin ships deadlines of 25 seconds for session-start and edit, 15 for prompt and 145 for stop, each its timeout in hooks.json less 5', () => {
+test('plugin-slice §5: the plugin ships deadlines of 25 seconds for session-start and edit, 15 for prompt and 145 for stop, each its timeout in hooks.json less 5', () => {
   const sentence = /\*\*One deadline per hook\*\*, its `timeout` less (\d+) seconds: (\d+) seconds for `session-start` and `edit`, (\d+) for `prompt`, (\d+) for `stop`/.exec(spec);
   assert.ok(sentence, 'spec/plugin-slice.md, section 5, names the deadlines');
   const [less, startAndEdit, prompt, stop] = sentence.slice(1).map(Number) as [number, number, number, number];
@@ -295,7 +295,7 @@ test('section 5: the plugin ships deadlines of 25 seconds for session-start and 
   assert.deepEqual(timeouts, DEADLINES);
 });
 
-test('section 5: the hook a user runs keeps its shipped deadline for every event when the variable of the test entry is set', async () => {
+test('R-87: the hook a user runs keeps its shipped deadline for every event when the variable of the test entry is set', async () => {
   await withBench(async (bench, dir) => {
     const s = makeSample(dir);
     const primed = (await lawcheck(s, ['prime'])).stdout.replace(/\n$/, '');
@@ -323,7 +323,7 @@ test('section 5: the hook a user runs keeps its shipped deadline for every event
   });
 });
 
-test('section 5: the test entry of the hooks refuses a deadline as long as the shipped one, and no program a hook starts sees its variable', async () => {
+test('R-88: the test entry of the hooks refuses a deadline as long as the shipped one, and no program a hook starts sees its variable', async () => {
   await withBench(async (bench, dir) => {
     const s = makeSample(dir);
     append(s, 'src/cli/main.ts', '// end\n');

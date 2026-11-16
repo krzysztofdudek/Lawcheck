@@ -71,7 +71,7 @@ export function answerProperties(speed: Speed): Record<string, () => unknown> {
   const test = (name: string, body: () => unknown) => {
     out[name] = body;
   };
-  test('I-answer-1, S3-3: the answer read is the one the reading of section 4 takes, on small input', () => {
+  test('I-answer-1: S3-3, the answer read is the one the reading of section 4 takes, on small input', () => {
     pure(
       speed,
       answer,
@@ -87,7 +87,7 @@ export function answerProperties(speed: Speed): Record<string, () => unknown> {
     );
   });
 
-  test('I-answer-1, S3-3: any answer is a verdict or a named bad answer, in linear time, with lines in or out of range', () => {
+  test('I-answer-1: S3-3, any answer is a verdict or a named bad answer, in linear time, with lines in or out of range', () => {
     const big = fc.tuple(fc.constantFrom('{', '{"a":', '[', '"', '{"verdict":', '\\', 'x'), fc.integer({ min: 1, max: 200_000 }), fc.constantFrom('', PASS, FAIL, '}')).map(([unit, n, tail]) => unit.repeat(n) + tail);
     const outOfRange = fc.tuple(fc.integer({ min: -3, max: 12 }), fc.oneof(fc.constant(null), fc.constant('2'), fc.constant(1.5))).map(([line, odd]) => `{"verdict": "fail", "findings": [{"line": ${JSON.stringify(line % 3 === 0 ? odd : line)}, "message": "m"}]}`);
     pure(
@@ -114,7 +114,7 @@ export function answerProperties(speed: Speed): Record<string, () => unknown> {
   });
 
   // Question 82 is open: a fail followed by a pass reads today as the last one, and the owner may make it a fail or a bad answer, so that order is asserted in no way. A pass followed by a fail reads as the fail under every option: today the last one wins, option A makes a disagreement a fail, and option B a bad answer.
-  test('I-answer-1, S3-4: two verdict objects that agree give their verdict, and a pass followed by a fail is never read as a pass', () => {
+  test('I-answer-1: S3-4, two verdict objects that agree give their verdict, and a pass followed by a fail is never read as a pass', () => {
     const prose = fc.constantFrom('', 'Verdict: ', ' I would have answered ', '\n\nIf the file kept the rule: ');
     const orders = fc.constantFrom<[string, string]>([PASS, PASS], [FAIL, FAIL], [PASS, FAIL]);
     pure(

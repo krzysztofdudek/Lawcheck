@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { runRule } from '../../dist/rules.js';
 
-test('S2-5: test 247: a rule still running when the time of the run is over is stopped and named rules-too-slow', async () => {
+test('test 247: S2-5, a rule still running when the time of the run is over is stopped and named rules-too-slow', async () => {
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'lawcheck-test-')));
   try {
     const ruleFile = join(root, 'slow.mjs');

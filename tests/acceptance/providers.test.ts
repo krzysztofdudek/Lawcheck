@@ -516,7 +516,7 @@ test('test 67: claude-code past its timeout, and the tool killed', async () => {
   }
 });
 
-test('the test entry of the tool refuses a limit as long as the one the tool ships, and no program the tool starts sees its variable', async () => {
+test('R-88: the test entry of the tool refuses a limit as long as the one the tool ships, and no program the tool starts sees its variable', async () => {
   await withR(async (r, dir) => {
     write(r, F_PATH, F);
     const env = claudeEnv(dir, 'answer');

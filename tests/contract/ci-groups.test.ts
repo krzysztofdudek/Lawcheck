@@ -46,16 +46,16 @@ function nightlyProblems(workflows: Record<string, Workflow>, groups: string[]):
 
 const later = () => ({ nightly: read('nightly.yml'), weekly: read('weekly.yml') });
 
-test('the commit matrix of ci.yml and its other jobs run every commit group of tests/harness/sets.ts, and no other', () => {
+test('question 95: the commit matrix of ci.yml and its other jobs run every commit group of tests/harness/sets.ts, and no other', () => {
   assert.deepEqual(commitProblems(read('ci.yml'), Object.keys(COMMIT_GROUPS)), []);
 });
 
-test('the nightly and weekly workflows run every nightly group of tests/harness/sets.ts in exactly one job, and no other', () => {
+test('question 95: the nightly and weekly workflows run every nightly group of tests/harness/sets.ts in exactly one job, and no other', () => {
   const workflows = later();
   assert.deepEqual(nightlyProblems({ 'nightly.yml': workflows.nightly, 'weekly.yml': workflows.weekly }, Object.keys(NIGHTLY_GROUPS)), []);
 });
 
-test('a group added to tests/harness/sets.ts and to no workflow is named, in each set (control)', () => {
+test('question 95: a group added to tests/harness/sets.ts and to no workflow is named, in each set (control)', () => {
   const named = { jobs: { a: { steps: [{ run: 'npm test -- --group core' }] } } };
   assert.deepEqual(commitProblems(named, ['core', 'planted']), ['ci.yml: no job runs commit group planted']);
   const workflows = later();
@@ -76,11 +76,11 @@ function wholeSetSystems(workflow: Workflow): string[] {
   return [...out].sort();
 }
 
-test('the nightly runs the whole commit set on Linux, Windows and macOS', () => {
+test('question 95: the nightly runs the whole commit set on Linux, Windows and macOS', () => {
   assert.deepEqual(wholeSetSystems(read('nightly.yml')), ['darwin', 'linux', 'win32']);
 });
 
-test('a nightly that runs the whole commit set on Linux alone, behind a condition, or nowhere is refused (control)', () => {
+test('question 95: a nightly that runs the whole commit set on Linux alone, behind a condition, or nowhere is refused (control)', () => {
   const narrowed = read('nightly.yml');
   narrowed.jobs.repeat!.strategy!.matrix!.os = ['ubuntu-latest'];
   assert.deepEqual(wholeSetSystems(narrowed), ['linux']);
@@ -115,12 +115,12 @@ function unreadNightlySkips(workflows: Workflow[]): string[] {
   return unread;
 }
 
-test('a nightly file with a part skipped on Windows or macOS runs on that system in the nightly, so the skip applies there', () => {
+test('question 95: a nightly file with a part skipped on Windows or macOS runs on that system in the nightly, so the skip applies there', () => {
   assert.ok(PLATFORM_SKIPS.some((skip) => nightly(skip.file) && skip.platform === 'win32'));
   assert.deepEqual(unreadNightlySkips([read('nightly.yml'), read('weekly.yml')]), []);
 });
 
-test('a nightly file skipped in part on Windows whose group runs on Linux alone is named (control)', () => {
+test('question 95: a nightly file skipped in part on Windows whose group runs on Linux alone is named (control)', () => {
   const narrowed = read('nightly.yml');
   narrowed.jobs.deadlines!.strategy!.matrix!.os = ['ubuntu-latest'];
   assert.deepEqual(unreadNightlySkips([narrowed, read('weekly.yml')]), ['tests/deadlines/hook-deadlines.nightly.test.ts > test 163: the deadline, and a hook that is stopped, at the deadlines the plugin ships: a hook stopped by SIGTERM on win32']);
@@ -138,18 +138,18 @@ function grammarKeys(workflows: Record<string, Workflow>): string[] {
   return problems;
 }
 
-test('every grammar cache is keyed by every file that decides the bytes of .grammars', () => {
+test('question 95: every grammar cache is keyed by every file that decides the bytes of .grammars', () => {
   assert.deepEqual(grammarKeys({ 'ci.yml': read('ci.yml'), 'nightly.yml': read('nightly.yml'), 'weekly.yml': read('weekly.yml'), 'release.yml': read('release.yml') }), []);
 });
 
 const WORKFLOW_FILES = readdirSync(WORKFLOWS).filter((name) => /\.ya?ml$/.test(name)).sort();
 
-test('no job or step of any workflow file carries continue-on-error, as a red there must stop the required check and the release', () => {
+test('question 95: no job or step of any workflow file carries continue-on-error, as a red there must stop the required check and the release', () => {
   assert.ok(WORKFLOW_FILES.length > 0);
   for (const file of WORKFLOW_FILES) assert.deepEqual(continueOnErrorProblems(file, read(file).jobs), [], file);
 });
 
-test('continue-on-error on any job or step of any workflow file is refused, and a literal false is not (control)', () => {
+test('question 95: continue-on-error on any job or step of any workflow file is refused, and a literal false is not (control)', () => {
   const reds = (file: string, what: string) => `${file}: ${what} has continue-on-error, so GitHub reports its red as a success`;
   for (const file of WORKFLOW_FILES) {
     const on = (edit: (workflow: Workflow) => void): string[] => { const workflow = read(file); edit(workflow); return continueOnErrorProblems(file, workflow.jobs); };

@@ -38,7 +38,7 @@ test('commands-slice §2: version and help exit 0', async () => {
   }
 });
 
-test('test 240: a write that fails because the reader is gone is not a lost result, whichever code the system gives for it', () => {
+test('test 240: R-82, a write that fails because the reader is gone is not a lost result, whichever code the system gives for it', () => {
   for (const code of ['EPIPE', 'ENOTCONN']) assert.equal(readerGone(Object.assign(new Error(code), { code })), true, code);
   for (const code of ['ENOSPC', 'EBADF', 'EPERM', 'EACCES', 'EIO']) assert.equal(readerGone(Object.assign(new Error(code), { code })), false, code);
   assert.equal(readerGone(new Error('no code')), false);

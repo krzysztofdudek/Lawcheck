@@ -53,7 +53,7 @@ export function globProperties(speed: Speed): Record<string, () => unknown> {
   const test = (name: string, body: () => unknown) => {
     out[name] = body;
   };
-  test('I-glob-1, S1-1: a pattern matches as the reference matcher does, on small input', () => {
+  test('I-glob-1: S1-1, a pattern matches as the reference matcher does, on small input', () => {
     const pair = fc.tuple(pattern, name, fc.boolean()).map(([p, n, near]) => {
       if (!near) return { p, n };
       const made = p.replace(/\*\*/g, 'a/b').replace(/\*/g, 'ab').replace(/\?/g, 'x').replace(/\{([^,}]*)[^}]*\}/g, '$1');
@@ -75,7 +75,7 @@ export function globProperties(speed: Speed): Record<string, () => unknown> {
     );
   });
 
-  test('I-glob-1, S1-1: a list with exclusions matches as the reference does', () => {
+  test('I-glob-1: S1-1, a list with exclusions matches as the reference does', () => {
     const list = fc.array(fc.tuple(fc.boolean(), pattern), { minLength: 1, maxLength: 4 }).map((items) => items.map(([not, p]) => (not ? `!${p}` : p)));
     pure(
       speed,
@@ -89,7 +89,7 @@ export function globProperties(speed: Speed): Record<string, () => unknown> {
     );
   });
 
-  test('I-glob-1, S1-1: any text is a pattern that compiles or one with a named problem', () => {
+  test('I-glob-1: S1-1, any text is a pattern that compiles or one with a named problem', () => {
     const text = fc.string({ unit: fc.constantFrom('a', '/', '*', '**', '{', '}', ',', '!', '.', '..', '?', '\\', '\n', '\u0000', 'ż'), maxLength: 30 });
     pure(
       speed,
@@ -108,7 +108,7 @@ export function globProperties(speed: Speed): Record<string, () => unknown> {
     );
   });
 
-  test('I-glob-1, S1-1: a match costs time linear in the name, for any pattern and a name of up to 4,096 bytes', () => {
+  test('I-glob-1: S1-1, a match costs time linear in the name, for any pattern and a name of up to 4,096 bytes', () => {
     const many = fc.array(fc.constantFrom('*a', '*b', '*', '?', 'a'), { minLength: 4, maxLength: 24 }).map((t) => `src/**/${t.join('')}*b.ts`);
     const long = fc.tuple(fc.integer({ min: 1, max: 4096 }), fc.constantFrom('a', 'ab', 'aż')).map(([n, unit]) => `src/x/${unit.repeat(n).slice(0, n)}.ts`);
     pure(

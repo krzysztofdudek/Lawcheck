@@ -571,6 +571,9 @@ export function questionNumbers(questions: string): Set<number> {
   return new Set([...questions.matchAll(/^## (\d+)\./gm)].map((m) => Number(m[1])));
 }
 
+// Entries 95 and 160 of spec/questions.md say that no spec describes what their tests check, the suite's own machinery and the repository's own law, so no row can ever carry those tests: one that cites only its entry, in the files of that machinery, is outside the count of tests that cite only a section.
+export const NO_ROW_QUESTIONS: Record<number, RegExp> = { 95: /^tests\/contract\//, 160: /^tests\/acceptance\/self-law[\w-]*\.test\.ts$/ };
+
 export const SEVERITIES = ['blocks the release', 'should be fixed before', 'after the release'];
 export const PACKAGES = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'P', 'after alpha'];
 export const STATES = ['open', 'limit', 'runes-limit', 'closed'];
@@ -580,8 +583,20 @@ export const STRESS_FINDINGS: Record<number, number> = { 1: 15, 2: 8, 3: 9, 4: 1
 
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-// A test carries a finding when the finding's id is its own source, at the start of its name: a mention after another source ties nothing.
-export const carries = (name: string, id: string): boolean => new RegExp(`^${escape(id)}(?![\\w-])`).test(name);
+const ROW_LEAD = /^tests? \d+(?:(?:,\s*|\s+and\s+|,\s+and\s+)\d+)*: /;
+const FINDING_ID = /^(?:S\d+-\d+|U-\d+|R-\d+|T[1-8])$/;
+
+// A test carries a finding when the finding's id is its own source, at the start of its name, or one of the ids listed right after a leading spec row (`test 240: S8-8, R-77, ...`), since a test that carries a row cannot lead with a finding too; a mention anywhere else ties nothing.
+export const carries = (name: string, id: string): boolean => {
+  if (new RegExp(`^${escape(id)}(?![\\w-])`).test(name)) return true;
+  const lead = ROW_LEAD.exec(name);
+  if (lead === null) return false;
+  for (const part of name.slice(lead[0].length).split(', ')) {
+    if (!FINDING_ID.test(part)) return false;
+    if (part === id) return true;
+  }
+  return false;
+};
 
 const LIMIT_QUOTE_SHARES = 3;
 const FILLER = new Set(['the', 'and', 'that', 'such', 'with', 'from', 'are', 'not', 'its', 'for', 'was', 'has', 'into', 'this', 'which', 'when', 'than', 'each', 'any', 'all', 'but', 'can', 'may', 'one', 'their', 'there', 'then', 'they', 'out', 'per']);
@@ -733,7 +748,8 @@ export function problemsOf(input: Inputs): string[] {
     }
     if (known === 0) problems.push(`${where} names no source: a spec row, an invariant id, a finding id, a spec section or a question`);
     else if (!leadsWithSource(name)) problems.push(`${where} does not lead with its source`);
-    if (known > 0 && strong === 0) sectionOnly++;
+    const noRow = source.sections.length === 0 && source.questions.length > 0 && source.questions.every((q) => NO_ROW_QUESTIONS[q]?.test(file) === true);
+    if (known > 0 && strong === 0 && !noRow) sectionOnly++;
   }
   for (const row of rows) {
     if (!carried.has(row.number) && !manualNumbers.has(row.number)) problems.push(`row ${row.number} of ${row.spec} has no test`);

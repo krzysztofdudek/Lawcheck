@@ -85,7 +85,7 @@ export const SLOW_TESTS: Record<string, Slow> = {
   // Measured on CI runs 43762617467 and 43764121085: 25 runs of the tool or of a hook.
   "tests/properties/arguments.test.ts > I-args-1: tokens of the tool and junk give usage or a run, never internal, and change nothing in git": { fixed: 0, measured: { darwin: 7_875, linux: 5_085, win32: 9_010 } },
   // Measured on CI runs 43762617467 and 43764121085: 25 runs of the tool or of a hook.
-  "tests/properties/arguments.test.ts > I-hook-1, S6-6, S6-8: any input to a hook gives exit 0 with nothing or one hook document, or the defined notice, never a stack trace": { fixed: 0, measured: { darwin: 9_955, linux: 5_762, win32: 13_367 } },
+  "tests/properties/arguments.test.ts > I-hook-1: S6-6, S6-8, any input to a hook gives exit 0 with nothing or one hook document, or the defined notice, never a stack trace": { fixed: 0, measured: { darwin: 9_955, linux: 5_762, win32: 13_367 } },
   // Measured on CI runs 43762617467 and 43764121085: 25 sample repositories, a check in text and in JSON each.
   "tests/properties/contents.test.ts > I-lines-1: for any text of a judged file, every finding lies inside it, and the text and JSON forms agree": { fixed: 0, measured: { darwin: 24_953, linux: 12_949, win32: 66_110 } },
   // Measured on CI runs 43762617467 and 43764121085: 25 sequences of git commands, each followed by seven runs of the tool.
@@ -95,15 +95,15 @@ export const SLOW_TESTS: Record<string, Slow> = {
   // Measured on CI runs 43762617467 and 43764121085: 25 sample repositories with generated names, three runs of the tool each.
   "tests/properties/names.test.ts > I-files-1: every file a type matches is judged, whatever bytes its name holds, and its JSON path maps back to the file on disk": { fixed: 0, measured: { darwin: 30_513, linux: 32_388, win32: 84_470 } },
   // Measured on CI runs 43762617467 and 43764121085: 25 rules, each judged alone and with a second file.
-  "tests/properties/rules.test.ts > I-rules-1, S2-4, S2-6: any value a rule returns, throws or rejects with gives findings or a rule-crashed naming its cause, and file A is judged the same alone or with B": { fixed: 0, measured: { darwin: 25_976, linux: 22_921, win32: 75_556 } },
+  "tests/properties/rules.test.ts > I-rules-1: S2-4, S2-6, any value a rule returns, throws or rejects with gives findings or a rule-crashed naming its cause, and file A is judged the same alone or with B": { fixed: 0, measured: { darwin: 25_976, linux: 22_921, win32: 75_556 } },
   // The nightly run of a property searches for NIGHTLY_MS, a fixed wait, then ends the case it is in: up to two cases of the commit run's time, at least 5 s.
-  "tests/properties/glob.nightly.test.ts > I-glob-1, S1-1: a pattern matches as the reference matcher does, on small input": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 125_000 } },
-  "tests/properties/glob.nightly.test.ts > I-glob-1, S1-1: a list with exclusions matches as the reference does": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 125_000 } },
-  "tests/properties/glob.nightly.test.ts > I-glob-1, S1-1: any text is a pattern that compiles or one with a named problem": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 125_000 } },
-  "tests/properties/glob.nightly.test.ts > I-glob-1, S1-1: a match costs time linear in the name, for any pattern and a name of up to 4,096 bytes": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 125_000 } },
-  "tests/properties/answer.nightly.test.ts > I-answer-1, S3-3: the answer read is the one the reading of section 4 takes, on small input": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 125_000 } },
-  "tests/properties/answer.nightly.test.ts > I-answer-1, S3-3: any answer is a verdict or a named bad answer, in linear time, with lines in or out of range": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 125_000 } },
-  "tests/properties/answer.nightly.test.ts > I-answer-1, S3-4: two verdict objects that agree give their verdict, and a pass followed by a fail is never read as a pass": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 125_000 } },
+  "tests/properties/glob.nightly.test.ts > I-glob-1: S1-1, a pattern matches as the reference matcher does, on small input": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 125_000 } },
+  "tests/properties/glob.nightly.test.ts > I-glob-1: S1-1, a list with exclusions matches as the reference does": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 125_000 } },
+  "tests/properties/glob.nightly.test.ts > I-glob-1: S1-1, any text is a pattern that compiles or one with a named problem": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 125_000 } },
+  "tests/properties/glob.nightly.test.ts > I-glob-1: S1-1, a match costs time linear in the name, for any pattern and a name of up to 4,096 bytes": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 125_000 } },
+  "tests/properties/answer.nightly.test.ts > I-answer-1: S3-3, the answer read is the one the reading of section 4 takes, on small input": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 125_000 } },
+  "tests/properties/answer.nightly.test.ts > I-answer-1: S3-3, any answer is a verdict or a named bad answer, in linear time, with lines in or out of range": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 125_000 } },
+  "tests/properties/answer.nightly.test.ts > I-answer-1: S3-4, two verdict objects that agree give their verdict, and a pass followed by a fail is never read as a pass": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 125_000 } },
   "tests/properties/names.nightly.test.ts > I-files-1: a name maps back to its bytes, holds no line break, and the hooks write it the same way": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 125_000 } },
   "tests/properties/names.nightly.test.ts > I-files-1: every file a type matches is judged, whatever bytes its name holds, and its JSON path maps back to the file on disk": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 126_756 } },
   "tests/properties/contents.nightly.test.ts > I-lines-1: lines split as section 3 says, and every waiver sits on a line of the file and covers one": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 125_000 } },
@@ -112,27 +112,27 @@ export const SLOW_TESTS: Record<string, Slow> = {
   "tests/properties/law.nightly.test.ts > I-law-1: any text as law.yaml is a law or law-invalid at a line of the file": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 125_000 } },
   "tests/properties/law.nightly.test.ts > I-law-1: an accepted law is printed back by explain, every type and every rule whole": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 125_592 } },
   "tests/properties/law.nightly.test.ts > I-law-1: any text as config.yaml is a config or config-invalid at a line of the file": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 125_000 } },
-  "tests/properties/rules.nightly.test.ts > I-rules-1, S2-4, S2-6: any value a rule returns, throws or rejects with gives findings or a rule-crashed naming its cause, and file A is judged the same alone or with B": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 126_044 } },
+  "tests/properties/rules.nightly.test.ts > I-rules-1: S2-4, S2-6, any value a rule returns, throws or rejects with gives findings or a rule-crashed naming its cause, and file A is judged the same alone or with B": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 126_044 } },
   "tests/properties/git-states.nightly.test.ts > I-git-3: in any state a sequence of git commands leaves, a check changes nothing in git, its change gives what --full gives for those files, and it prints the same from below the root and twice": { fixed: 120_000, measured: { darwin: 126_570, linux: 125_000, win32: 138_482 } },
   "tests/properties/arguments.nightly.test.ts > I-args-1: tokens of the tool and junk give usage or a run, never internal, and change nothing in git": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 125_000 } },
-  "tests/properties/arguments.nightly.test.ts > I-hook-1, S6-6, S6-8: any input to a hook gives exit 0 with nothing or one hook document, or the defined notice, never a stack trace": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 125_000 } },
+  "tests/properties/arguments.nightly.test.ts > I-hook-1: S6-6, S6-8, any input to a hook gives exit 0 with nothing or one hook document, or the defined notice, never a stack trace": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 125_000 } },
   // The limits tests of the commit set, measured on CI: each starts the tool several times at a limit, which Windows starts slowly.
   'tests/limits/sizes.test.ts > test 254: a law may hold 10,000 rules, 1,000 types and 1 MiB, and past each it is file-too-large': { fixed: 0, measured: { darwin: 6_233, linux: 4_085, win32: 23_560 } },
-  'tests/limits/reviews.test.ts > S3-6: test 243: a second run right after any run prints the same': { fixed: 0, measured: { darwin: 7_475, linux: 4_188, win32: 12_489 } },
-  'tests/limits/reviews.test.ts > S3-6: test 243: a plain check right after a passing review passes, with a type whose paths cover .lawcheck/': { fixed: 0, measured: { win32: 4_079 } },
+  'tests/limits/reviews.test.ts > test 243: S3-6, a second run right after any run prints the same': { fixed: 0, measured: { darwin: 7_475, linux: 4_188, win32: 12_489 } },
+  'tests/limits/reviews.test.ts > test 243: S3-6, a plain check right after a passing review passes, with a type whose paths cover .lawcheck/': { fixed: 0, measured: { win32: 4_079 } },
   'tests/limits/sizes.test.ts > test 263: a file whose uses are read may hold 512 KiB, even of the costliest text, past it its uses are not read and the run goes on, and a config may hold 1 MiB': { fixed: 0, measured: { darwin: 8_054, linux: 5_116, win32: 11_260 } },
-  'tests/limits/writes.test.ts > S1-6: S5-13: S8-8: test 240: every command writing to an output opened only for reading ends with exit 2': { fixed: 0, measured: { win32: 8_675 } },
-  'tests/limits/findings.test.ts > S2-1: test 235: 125,000 and 200,000 findings from one rule give the full report and exit 1': { fixed: 0, measured: { darwin: 5_663, linux: 4_143, win32: 8_518 } },
-  'tests/limits/findings.test.ts > S2-1: test 236: 200,001 and 1,000,000 findings from one rule, and 300,000 over three files, are too-many-findings': { fixed: 0, measured: { win32: 7_853 } },
+  'tests/limits/writes.test.ts > test 240: S1-6, S5-13, S8-8, every command writing to an output opened only for reading ends with exit 2': { fixed: 0, measured: { win32: 8_675 } },
+  'tests/limits/findings.test.ts > test 235: S2-1, 125,000 and 200,000 findings from one rule give the full report and exit 1': { fixed: 0, measured: { darwin: 5_663, linux: 4_143, win32: 8_518 } },
+  'tests/limits/findings.test.ts > test 236: S2-1, 200,001 and 1,000,000 findings from one rule, and 300,000 over three files, are too-many-findings': { fixed: 0, measured: { win32: 7_853 } },
   'tests/limits/findings.test.ts > test 237: the messages of a run may hold 16,777,216 characters together, and a message 4,096': { fixed: 0, measured: { win32: 6_113 } },
   'tests/limits/findings.test.ts > test 264: waivers count toward the findings of a run: 200,000 waivers that name no rule are reported, and one more is too-many-findings': { fixed: 0, measured: { darwin: 4_005, win32: 5_283 } },
   // The nightly limits, measured in the container of 1 GB and 2 CPUs on Linux; the fixed parts are the tool's limits the tests wait on: 30 rules that each pass 30 seconds, 15 at a time; the 600 seconds of the script rules of a run; the 30 seconds of a step.
   'tests/limits/large.nightly.test.ts > test 248: 150,000 files: every one is typed and judged, and the one that breaks a rule is found': { fixed: 0, measured: { linux: 17_662 } },
   'tests/limits/large.nightly.test.ts > test 249: 4 GiB of text across files stops at the file that passes 128 MiB, as text-too-large': { fixed: 0, measured: { linux: 6_119 } },
-  'tests/limits/large.nightly.test.ts > S2-5: test 251: 30 rules that hang end as rule-crashed, each after its 30 seconds, within the time of the run': { fixed: 450_000, measured: { linux: 450_462 } },
-  'tests/limits/large.nightly.test.ts > S2-5: test 251: rules that take 29 seconds a file are stopped when the script rules of the run pass 600 seconds': { fixed: 600_000, measured: { linux: 600_156 } },
+  'tests/limits/large.nightly.test.ts > test 251: S2-5, 30 rules that hang end as rule-crashed, each after its 30 seconds, within the time of the run': { fixed: 450_000, measured: { linux: 450_462 } },
+  'tests/limits/large.nightly.test.ts > test 251: S2-5, rules that take 29 seconds a file are stopped when the script rules of the run pass 600 seconds': { fixed: 600_000, measured: { linux: 600_156 } },
   'tests/limits/large.nightly.test.ts > test 252: kill -9 at a random moment of 50 reviews leaves a verdicts file that parses, and the next run passes': { fixed: 0, measured: { linux: 8_030 } },
-  'tests/limits/large.nightly.test.ts > S1-1: test 255: a step that never ends, typing against a content pattern that backtracks, ends as step-too-slow after 30 seconds': { fixed: 30_000, measured: { linux: 30_237 } },
+  'tests/limits/large.nightly.test.ts > test 255: S1-1, a step that never ends, typing against a content pattern that backtracks, ends as step-too-slow after 30 seconds': { fixed: 30_000, measured: { linux: 30_237 } },
   'tests/limits/large.nightly.test.ts > test 259: a git that never answers ends as step-too-slow after 30 seconds, and git with it': { fixed: 30_000, measured: { linux: 30_193 } },
   'tests/limits/large.nightly.test.ts > test 269: explain of a file whose content pattern backtracks names its typing as the step past its limit': { fixed: 30_000, measured: { linux: 30_185 } },
   // A check per counted run of the committed trial.
@@ -176,13 +176,13 @@ export const SLOW_TESTS: Record<string, Slow> = {
   // The hook deadlines of 25 and 145 seconds (spec/plugin-slice.md, section 4) and the SIGTERM 2 seconds into the third hook.
   'tests/deadlines/hook-deadlines.nightly.test.ts > test 163: the deadline, and a hook that is stopped, at the deadlines the plugin ships': { fixed: 172_000, measured: { darwin: 175_080, linux: 174_217, win32: 174_998 } },
   // The session-start and prompt deadlines of 25 and 15 seconds (spec/plugin-slice.md, section 5).
-  'tests/deadlines/hook-deadlines.nightly.test.ts > section 5: the session-start and prompt hooks each end at their own deadline, at the deadlines the plugin ships': { fixed: 40_000, measured: { darwin: 40_734, linux: 40_201, win32: 41_022 } },
+  'tests/deadlines/hook-deadlines.nightly.test.ts > R-86: the session-start and prompt hooks each end at their own deadline, at the deadlines the plugin ships': { fixed: 40_000, measured: { darwin: 40_734, linux: 40_201, win32: 41_022 } },
   // The test deadlines of the edit and stop hooks, 3 and 4 seconds, and on Linux and macOS the SIGKILL 2 seconds after SIGTERM (spec/plugin-slice.md, section 5).
   'tests/acceptance/plugin.test.ts > test 163: the deadline, and a hook that is stopped': { fixed: 7_000, measured: { linux: 9_515, win32: 8_375 } },
   // The test deadlines of the session-start and prompt hooks, 5 and 6 seconds (spec/plugin-slice.md, section 5).
-  'tests/acceptance/plugin.test.ts > section 5: the session-start and prompt hooks each end at their own deadline': { fixed: 11_000, measured: { linux: 11_817 } },
+  'tests/acceptance/plugin.test.ts > R-86: the session-start and prompt hooks each end at their own deadline': { fixed: 11_000, measured: { linux: 11_817 } },
   // Three waits of PAST_USER_SET_MS past the deadline of 1 second the variable would set (session-start and edit at once, prompt, stop).
-  'tests/acceptance/plugin.test.ts > section 5: the hook a user runs keeps its shipped deadline for every event when the variable of the test entry is set': { fixed: 7_500, measured: { linux: 9_447 } },
+  'tests/acceptance/plugin.test.ts > R-87: the hook a user runs keeps its shipped deadline for every event when the variable of the test entry is set': { fixed: 7_500, measured: { linux: 9_447 } },
   // A run of the tool per case.
   'tests/acceptance/plugin.test.ts > test 166 and 167: the hand-back, and the guard': { fixed: 0, measured: { darwin: 8_965, win32: 14_528 } },
   // A run of the tool per case.
@@ -210,7 +210,7 @@ export const SLOW_TESTS: Record<string, Slow> = {
   // A run of the tool per case.
   'tests/acceptance/reviewer.test.ts > test 56: a bad answer is asked once more, then fails the run': { fixed: 0, measured: { darwin: 8_697, win32: 20_651 } },
   // Two calls of RULE_CALL_MS under the test limit of 3 seconds (spec/check-slice.md, section 3).
-  'tests/acceptance/rules.test.ts > section 3: each call of a rule has the whole limit, so two calls that are each inside it pass however long they take together': { fixed: 4_000, measured: { linux: 4_438 } },
+  'tests/acceptance/rules.test.ts > R-85: each call of a rule has the whole limit, so two calls that are each inside it pass however long they take together': { fixed: 4_000, measured: { linux: 4_438 } },
   // A run of the tool per case.
   'tests/acceptance/rules.test.ts > test 21: each broken answer crashes the rule': { fixed: 0, measured: { win32: 7_512 } },
   // The test limit of 3 seconds a rule may run, in place of 30 (spec/check-slice.md, section 3).
@@ -327,8 +327,8 @@ export function slowBudget(key: string, system: System = process.platform as Sys
 }
 
 
-// The tests whose names cite only a spec section or a question (spec/questions.md, entry 79). The rail checks the count against this number, above and below, so that a lower count is written down here. That the number may only fall is the suite guard's, read from the base through `stronger`; the rail alone stays green when the number is raised.
-export const SECTION_ONLY_TESTS = 198;
+// The tests whose names cite only a spec section or a question (spec/questions.md, entry 79), less the tests of the suite's machinery and of the repository's own law that cite only entry 95 or 160 (entry 96). The rail checks the count against this number, above and below, so that a lower count is written down here. That the number may only fall is the suite guard's, read from the base through `stronger`; the rail alone stays green when the number is raised.
+export const SECTION_ONLY_TESTS = 178;
 
 export const SLOWEST_SHOWN = 10;
 

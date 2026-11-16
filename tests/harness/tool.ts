@@ -69,10 +69,10 @@ function shellLines(name: string, args: unknown[]): string[] {
 
 // The tests that start Lawcheck by hand because the harness cannot give the run what they test: a standard output that is a file descriptor of the test, one a shell closes, or a pipe the test closes early. The list may only shrink.
 export const HAND_STARTS: { file: string; test: string }[] = [
-  { file: 'tests/limits/writes.test.ts', test: 'S1-6: S5-13: S8-8: test 240: every command writing to /dev/full ends with exit 2 and says the result is lost' },
-  { file: 'tests/limits/writes.test.ts', test: 'S1-6: S5-13: S8-8: test 240: every command writing to an output opened only for reading ends with exit 2' },
-  { file: 'tests/limits/writes.test.ts', test: 'S1-6: test 240: a closed standard output is the same as one sent to /dev/null' },
-  { file: 'tests/limits/writes.test.ts', test: 'S8-8: test 240: a reader that stops early ends the run with its own code and nothing on standard error' },
+  { file: 'tests/limits/writes.test.ts', test: 'test 240: S1-6, S5-13, S8-8, every command writing to /dev/full ends with exit 2 and says the result is lost' },
+  { file: 'tests/limits/writes.test.ts', test: 'test 240: S1-6, S5-13, S8-8, every command writing to an output opened only for reading ends with exit 2' },
+  { file: 'tests/limits/writes.test.ts', test: 'test 240: S1-6, a closed standard output is the same as one sent to /dev/null' },
+  { file: 'tests/limits/writes.test.ts', test: 'test 240: S8-8, a reader that stops early ends the run with its own code and nothing on standard error' },
 ];
 
 function handStartAllowed(): boolean {

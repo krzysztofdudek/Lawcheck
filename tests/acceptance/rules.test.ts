@@ -70,7 +70,7 @@ test('test 24: a rule that hangs is stopped', async () => {
   await hangScenario(TEST_RULE_MS);
 });
 
-test('section 3: each call of a rule has the whole limit, so two calls that are each inside it pass however long they take together', async () => {
+test('R-85: each call of a rule has the whole limit, so two calls that are each inside it pass however long they take together', async () => {
   await withRule(ORIGINAL + `export async function check(input) {\n  await new Promise((done) => setTimeout(done, ${RULE_CALL_MS}));\n  return original(input);\n}\n`, async (s) => {
     write(s, 'src/core/second.ts', 'export const second = 1;\n');
     const run = await startLawcheck(s, ['check', '--base', 'main'], { limits: { ruleMs: TEST_RULE_MS } }).ended;
@@ -80,14 +80,14 @@ test('section 3: each call of a rule has the whole limit, so two calls that are 
   });
 });
 
-test('section 3: the tool allows a rule 30 seconds for its load and 30 for each call', () => {
+test('check-slice §3: the tool allows a rule 30 seconds for its load and 30 for each call', () => {
   const sentence = /The tool allows (\d+) seconds for the load and (\d+) seconds for each call/.exec(readFileSync(join(ROOT, 'spec', 'check-slice.md'), 'utf8'));
   assert.ok(sentence, 'spec/check-slice.md, section 3, names the time a rule may take');
   assert.equal(sentence[1], sentence[2]);
   assert.deepEqual(LIMITS, { ruleMs: Number(sentence[1]) * 1000 });
 });
 
-test('section 3: the tool a user starts keeps its 30 seconds for a rule when the variable of the test entry is set', async () => {
+test('R-87: the tool a user starts keeps its 30 seconds for a rule when the variable of the test entry is set', async () => {
   await withRule(
     ORIGINAL + `export async function check(input) {\n  await new Promise((done) => setTimeout(done, ${PAST_USER_SET_MS}));\n  return original(input);\n}\n`,
     async (s) => {

@@ -159,6 +159,13 @@ test('question 79: control, a row run by hand needs a spec row, a reason, an own
 test('question 79: control, the count of tests that cite only a section may only fall', () => {
   assert.ok(problemsOf(inputs({ sectionOnly: 1 })).some((p) => p.includes('the ratchet allows 1')));
   assert.ok(problemsOf(inputs({ sectionOnly: 3 })).some((p) => p.includes('lower SECTION_ONLY_TESTS')));
+  const questions = '## 5. A question\n## 95. The machinery\n## 160. The own law\n';
+  const outside = (path: string, name: string) => problemsOf(inputs({ questions, sectionOnly: 2, tests: [...inputs().tests, { path, text: code(`test('${name}', () => { assert.equal(compute(1), 1); });`) }] }));
+  assert.deepEqual(outside('tests/contract/b.test.ts', 'question 95: the runner'), []);
+  assert.deepEqual(outside('tests/acceptance/self-law-rules.test.ts', 'question 160: a rule of the own law'), []);
+  for (const [path, name] of [['tests/unit/b.test.ts', 'question 95: the runner'], ['tests/contract/b.test.ts', 'question 160: a rule'], ['tests/contract/b.test.ts', 'question 5: a ruling'], ['tests/contract/b.test.ts', 'question 95: one-slice §1, the runner']]) {
+    assert.ok(outside(path, name).some((p) => p.includes('the ratchet allows 2')), `${path}: ${name}`);
+  }
 });
 
 test('R-52: control, the ledger has unique well-formed ids and fixed sets, a closed row names a real test that leads with its id, and a question row points to its entry', () => {
@@ -180,6 +187,9 @@ test('R-52: control, the ledger has unique well-formed ids and fixed sets, a clo
   assert.ok(run([row('S1-1', 'after the release', '2', 'D', 'no', 'tests/unit/a.test.ts: S1-1', 'closed')], [{ file: 'tests/unit/a.test.ts', name: 'S1-10: a hang' }]).some((p) => p.includes('carries S1-1 as a whole id')));
   assert.ok(run([row('S1-1', 'after the release', '2', 'D', 'no', 'tests/unit/a.test.ts: S1-1', 'closed')], [{ file: 'tests/unit/a.test.ts', name: 'I-out-1: S1-1, a hang' }]).some((p) => p.includes('carries S1-1 as a whole id')));
   assert.deepEqual(run([row('S1-1', 'after the release', '2', 'D', 'no', 'tests/unit/a.test.ts: S1-1', 'closed')], [{ file: 'tests/unit/a.test.ts', name: 'S1-1: a hang' }]), []);
+  const closed = row('S1-1', 'after the release', '2', 'D', 'no', 'tests/unit/a.test.ts: S1-1', 'closed');
+  assert.deepEqual(run([closed], [{ file: 'tests/unit/a.test.ts', name: 'test 3: S2-1, S1-1, a hang' }]), []);
+  for (const name of ['test 3: a hang, S1-1', 'test 3: S1-10, a hang', 'test 3: a hang S1-1, S1-1', 'question 5: S1-1, a hang']) assert.ok(run([closed], [{ file: 'tests/unit/a.test.ts', name }]).some((p) => p.includes('carries S1-1 as a whole id')), name);
 });
 
 test('question 79: the parsers read sources from names', () => {

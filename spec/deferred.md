@@ -62,6 +62,7 @@ A row leaves this file when its feature is built, and the commit that builds it 
 | A second, independent answer for content that already has a verdict | `reviewer-slice.md` section 1 and decision 16 | one answer; `--again` asks again only where a failure is cached | The measurement of section 9 decides: below a `pairwise_agreement` of 0.95 on the clear files the question goes back to the owner. |
 | Removing verdict lines that match no content | `reviewer-slice.md` section 1 and decision 11 | the tool never removes a line, so a merge never loses a verdict another branch needs | A pruning needs a rule for lines another branch may still use. |
 | The debug log, and the tokens and the cost of a call | `reviewer-slice.md` section 1 | not kept | Cut from the second slice's scope and not taken up since. |
+| A test that runs on any system the guard's wait for its list of processes on Windows: a list begun after the kill, else a fresh PowerShell after 10 seconds (`src/guard.ts`) | `reviewer-slice.md` section 6 and test 67 | the real Windows run of test 67 per push reaches the wait; no test reaches it deterministically (ledger row R-66) | The guard would need its platform injected, so that its Windows branch can run on Linux. It is a known gap of coverage, and no promise is softened. |
 
 ### The agent plugin
 

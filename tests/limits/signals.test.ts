@@ -43,7 +43,7 @@ async function stop(running: Running, signal: (typeof SIGNALS)[number]): Promise
 // The content pattern backtracks exponentially on a line of a's that ends in another character, so typing the file never ends by itself.
 const HEAVY_LAW = `${LAW}  slow:\n    paths: ["slow/**"]\n    content: "^(a|a)+$"\n`;
 
-test('S1-1: test 239: a signal while files are typed against a heavy pattern ends the run as stopped', async (t) => {
+test('test 239: S1-1, a signal while files are typed against a heavy pattern ends the run as stopped', async (t) => {
   const skipped = platformSkip('the whole test');
   if (skipped !== null) return t.skip(skipped);
   for (const signal of SIGNALS) {
@@ -63,7 +63,7 @@ test('S1-1: test 239: a signal while files are typed against a heavy pattern end
   }
 });
 
-test('S1-1: test 239: a signal while a rule spins ends the run as stopped, and the runner with it', async (t) => {
+test('test 239: S1-1, a signal while a rule spins ends the run as stopped, and the runner with it', async (t) => {
   const skipped = platformSkip('the whole test');
   if (skipped !== null) return t.skip(skipped);
   const spin = "export function check() { console.error('runner ' + process.pid); while (true) {} }\n";
@@ -82,7 +82,7 @@ test('S1-1: test 239: a signal while a rule spins ends the run as stopped, and t
 });
 
 // The fake sends the first half of an answer of one megabyte and holds the rest, so the signal always comes while the answer is read.
-test('S3-3: test 239: a signal while a one-megabyte answer is read ends the run as stopped', async (t) => {
+test('test 239: S3-3, a signal while a one-megabyte answer is read ends the run as stopped', async (t) => {
   const skipped = platformSkip('the whole test');
   if (skipped !== null) return t.skip(skipped);
   const body = JSON.stringify({ choices: [{ message: { role: 'assistant', content: `${'{'.repeat(1_000_000)}{"verdict":"pass","findings":[]}` } }] });

@@ -54,13 +54,13 @@ async function everyCommand(stdout: () => number, expectCode: (code: string) => 
   });
 }
 
-test('S1-6: S5-13: S8-8: test 240: every command writing to /dev/full ends with exit 2 and says the result is lost', async (t) => {
+test('test 240: S1-6, S5-13, S8-8, every command writing to /dev/full ends with exit 2 and says the result is lost', async (t) => {
   const skipped = platformSkip('the whole test');
   if (skipped !== null) return t.skip(skipped);
   await everyCommand(() => openSync('/dev/full', 'w'), (code) => assert.equal(code, 'ENOSPC'));
 });
 
-test('S1-6: S5-13: S8-8: test 240: every command writing to an output opened only for reading ends with exit 2', async () => {
+test('test 240: S1-6, S5-13, S8-8, every command writing to an output opened only for reading ends with exit 2', async () => {
   await inTemp(async (dir) => {
     const file = join(dir, 'read-only');
     writeFileSync(file, '');
@@ -68,7 +68,7 @@ test('S1-6: S5-13: S8-8: test 240: every command writing to an output opened onl
   });
 });
 
-test('S1-6: test 240: a closed standard output is the same as one sent to /dev/null', async (t) => {
+test('test 240: S1-6, a closed standard output is the same as one sent to /dev/null', async (t) => {
   const skipped = platformSkip('the whole test');
   if (skipped !== null) return t.skip(skipped);
   await withSample(async (s) => {
@@ -86,7 +86,7 @@ test('S1-6: test 240: a closed standard output is the same as one sent to /dev/n
   });
 });
 
-test('S8-8: test 240: a reader that stops early ends the run with its own code and nothing on standard error', async () => {
+test('test 240: S8-8, a reader that stops early ends the run with its own code and nothing on standard error', async () => {
   const many = "export function check() { return Array.from({ length: 60000 }, () => ({ message: 'm' })); }\n";
   await withSample(
     async (s) => {

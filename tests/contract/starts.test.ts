@@ -52,7 +52,7 @@ test('question 95: a test that starts the tool makes its folders with testFolder
   assert.deepEqual(found, []);
 });
 
-test('the harness knows both entries of the built tool, and each hand start it allows names a test of its file', () => {
+test('question 95: the harness knows both entries of the built tool, and each hand start it allows names a test of its file', () => {
   assert.notEqual(namesTool([join(ROOT, 'dist', 'bin.cjs')]), null);
   assert.notEqual(namesTool(['/elsewhere/dist/bin.cjs']), null);
   assert.ok(namesToolInLine('node dist/bin.cjs check'));

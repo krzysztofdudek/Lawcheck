@@ -20,7 +20,7 @@ const withCounted = <T>(body: (s: string) => Promise<T>) => withSample(body, { o
 const tooMany = (count: string, chars: string, total: string, totalChars: string) =>
   `${RULE}  error[too-many-findings]  returns ${count} findings with ${chars} characters of message in this run; the rules of a run may return 200,000 findings with 16,777,216 characters of message in all, and they returned ${total} with ${totalChars}`;
 
-test('S2-1: test 235: 125,000 and 200,000 findings from one rule give the full report and exit 1', async () => {
+test('test 235: S2-1, 125,000 and 200,000 findings from one rule give the full report and exit 1', async () => {
   await withCounted(async (s) => {
     for (const count of [125_000, 200_000]) {
       write(s, 'src/core/many.ts', `// ${count} 1\n`);
@@ -41,7 +41,7 @@ test('S2-1: test 235: 125,000 and 200,000 findings from one rule give the full r
   });
 });
 
-test('S2-1: test 236: 200,001 and 1,000,000 findings from one rule, and 300,000 over three files, are too-many-findings', async () => {
+test('test 236: S2-1, 200,001 and 1,000,000 findings from one rule, and 300,000 over three files, are too-many-findings', async () => {
   {
     const cases: [Record<string, string>, string][] = [
       [{ 'src/core/many.ts': '// 200001 1\n' }, tooMany('200,001', '200,001', '200,001', '200,001')],
@@ -96,7 +96,7 @@ test('test 237: the messages of a run may hold 16,777,216 characters together, a
   });
 });
 
-test('S2-1: test 238: try counts the findings of its rule the same way', async () => {
+test('test 238: S2-1, try counts the findings of its rule the same way', async () => {
   await withCounted(async (s) => {
     write(s, 'src/core/many.ts', '// 200001 1\n');
     const result = await run(s, ['try', 'no-console', 'src/core/many.ts'], { budget: 'LIMITS_RUN_MS' });

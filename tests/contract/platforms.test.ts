@@ -106,16 +106,16 @@ const tests = commitFiles.flatMap(declaredTests);
 const entriesOf = (file: string, matches: (name: string) => boolean) => PLATFORM_TESTS.filter((entry) => entry.file === file && matches(entry.test));
 const wholeSkip = (entry: { file: string; test: string }, system: string) => PLATFORM_SKIPS.some((skip) => skip.file === entry.file && skip.test === entry.test && skip.part === 'the whole test' && skip.platform === system);
 
-test('the scan finds the top-level tests of a file, a name built from a template included, and nothing inside a string', () => {
+test('question 95: the scan finds the top-level tests of a file, a name built from a template included, and nothing inside a string', () => {
   const frame = declaredTests('tests/security/frame.test.ts');
   assert.ok(frame.some((t) => t.matches('I-frame-1: the attack file cr.ts stays inside its <file> block')));
   assert.ok(!frame.some((t) => t.matches('I-frame-1: the attack file cr.ts stays outside its <file> block')));
-  assert.ok(declaredTests('tests/unit/programs.test.ts').some((t) => t.name === 'a program is found on PATH, and on Windows by the endings of PATHEXT'));
+  assert.ok(declaredTests('tests/unit/programs.test.ts').some((t) => t.name === 'reviewer-slice §6: a program is found on PATH, and on Windows by the endings of PATHEXT'));
   assert.ok(!declaredTests('tests/contract/harness.test.ts').some((t) => t.name === ''));
   assert.ok(tests.length > 500, `${tests.length} tests`);
 });
 
-test('every entry of PLATFORM_TESTS names one top-level test of the commit set, once, for Windows or macOS', () => {
+test('question 95: every entry of PLATFORM_TESTS names one top-level test of the commit set, once, for Windows or macOS', () => {
   const seen = new Set<string>();
   for (const entry of PLATFORM_TESTS) {
     const key = `${entry.file} > ${entry.test}`;
@@ -127,11 +127,11 @@ test('every entry of PLATFORM_TESTS names one top-level test of the commit set, 
   }
 });
 
-test('every entry of PLATFORM_TESTS names behaviours of PLATFORM_BEHAVIOURS that hold on each of its systems, and a reason that names each system', () => {
+test('question 95: every entry of PLATFORM_TESTS names behaviours of PLATFORM_BEHAVIOURS that hold on each of its systems, and a reason that names each system', () => {
   assert.deepEqual(PLATFORM_TESTS.flatMap((entry) => behaviourProblems(`${entry.file} > ${entry.test}`, entry.systems, entry.behaviours, entry.reason)), []);
 });
 
-test('an entry whose reason names no platform behaviour, names one outside the list, or one that does not hold on its system is refused (control)', () => {
+test('question 95: an entry whose reason names no platform behaviour, names one outside the list, or one that does not hold on its system is refused (control)', () => {
   assert.deepEqual(behaviourProblems('t', ['win32'], [], 'this test matters for the process on Windows'), ['t: names no behaviour of PLATFORM_BEHAVIOURS', 't: no behaviour it names holds on win32']);
   assert.deepEqual(behaviourProblems('t', ['win32'], ['crlf-everywhere'], 'CRLF line endings split into lines, the endings of Windows'), ['t: crlf-everywhere is no behaviour of PLATFORM_BEHAVIOURS', 't: no behaviour it names holds on win32']);
   assert.deepEqual(behaviourProblems('t', ['win32', 'darwin'], ['cmd-shims'], 'a fake claude is a .cmd shim on Windows and macOS'), ['t: no behaviour it names holds on darwin']);
@@ -139,7 +139,7 @@ test('an entry whose reason names no platform behaviour, names one outside the l
   assert.deepEqual(behaviourProblems('t', ['win32'], ['line-ends'], 'CRLF line ends that a checkout writes'), ['t: the reason does not name win32']);
 });
 
-test('every behaviour of PLATFORM_BEHAVIOURS holds on Windows or macOS, says what differs there, and is named by an entry', () => {
+test('question 95: every behaviour of PLATFORM_BEHAVIOURS holds on Windows or macOS, says what differs there, and is named by an entry', () => {
   const named = new Set([...PLATFORM_TESTS.flatMap((entry) => entry.behaviours), ...Object.values(PLATFORM_PROMISES).flatMap((p) => p.behaviours)]);
   for (const [name, { systems, behaviour }] of Object.entries(PLATFORM_BEHAVIOURS)) {
     assert.ok(systems.length > 0 && systems.every((system) => OTHERS.includes(system)), name);
@@ -148,11 +148,11 @@ test('every behaviour of PLATFORM_BEHAVIOURS holds on Windows or macOS, says wha
   }
 });
 
-test('no entry runs a test per push on a system where its whole body is skipped', () => {
+test('question 95: no entry runs a test per push on a system where its whole body is skipped', () => {
   for (const entry of PLATFORM_TESTS) for (const system of entry.systems) assert.ok(!wholeSkip(entry, system), `${entry.file} > ${entry.test}: skipped whole on ${system}`);
 });
 
-test('a test with a part skipped on Windows or macOS runs there per push, and one skipped whole on Linux runs per push where it is not skipped', () => {
+test('question 95: a test with a part skipped on Windows or macOS runs there per push, and one skipped whole on Linux runs per push where it is not skipped', () => {
   const missing: string[] = [];
   for (const skip of PLATFORM_SKIPS) {
     if (skip.file === 'tests/harness' || nightly(skip.file)) continue;
@@ -200,14 +200,14 @@ function askedParts(t: Declared, byFunction: Map<string, Set<string>>): string[]
 
 const allTests = [...commitFiles, ...setFiles('nightly', groupDirs('nightly', null)!)].flatMap(declaredTests);
 
-test('every part a test asks platformSkip for, in its body or through a function of the tests it calls, has an entry of PLATFORM_SKIPS for that test', () => {
+test('question 95: every part a test asks platformSkip for, in its body or through a function of the tests it calls, has an entry of PLATFORM_SKIPS for that test', () => {
   const byFunction = partsByFunction();
   const missing: string[] = [];
   for (const t of allTests) for (const part of askedParts(t, byFunction)) if (!PLATFORM_SKIPS.some((skip) => skip.file === t.file && t.matches(skip.test) && skip.part === part)) missing.push(`${t.file} > ${t.name}: ${part}`);
   assert.deepEqual(missing, []);
 });
 
-test('the parts a test asks for are found through the scenario it runs, in the per-push file and in the nightly one (control)', () => {
+test('question 95: the parts a test asks for are found through the scenario it runs, in the per-push file and in the nightly one (control)', () => {
   const byFunction = partsByFunction();
   const of = (file: string, prefix: string) => askedParts(allTests.find((t) => t.file === file && t.name.startsWith(prefix))!, byFunction);
   assert.deepEqual(of('tests/acceptance/plugin.test.ts', 'test 163: '), ['a hook stopped by SIGTERM']);
@@ -215,7 +215,7 @@ test('the parts a test asks for are found through the scenario it runs, in the p
   assert.deepEqual(of('tests/acceptance/program-providers.test.ts', 'test 406: '), ['a child that left the group']);
 });
 
-test('every id of PLATFORM_PROMISES is a promise the spec map resolves, naming behaviours of PLATFORM_BEHAVIOURS that hold on each of its systems', () => {
+test('question 95: every id of PLATFORM_PROMISES is a promise the spec map resolves, naming behaviours of PLATFORM_BEHAVIOURS that hold on each of its systems', () => {
   assert.ok(Object.keys(PLATFORM_PROMISES).length > 0);
   for (const [id, { systems, behaviours, behaviour }] of Object.entries(PLATFORM_PROMISES)) {
     assert.notEqual(promiseOf(id), null, `${id}: the spec map resolves no promise`);
@@ -224,7 +224,7 @@ test('every id of PLATFORM_PROMISES is a promise the spec map resolves, naming b
   }
 });
 
-test('no test that carries a promise of PLATFORM_PROMISES is Linux only on a system the promise names', () => {
+test('question 95: no test that carries a promise of PLATFORM_PROMISES is Linux only on a system the promise names', () => {
   const missing: string[] = [];
   for (const t of tests) {
     for (const id of testIds(t.name)) {
@@ -240,7 +240,7 @@ test('no test that carries a promise of PLATFORM_PROMISES is Linux only on a sys
   assert.deepEqual(missing, []);
 });
 
-test('per push, Linux runs the whole commit set, and Windows and macOS the declared tests of the files that hold them', () => {
+test('question 95: per push, Linux runs the whole commit set, and Windows and macOS the declared tests of the files that hold them', () => {
   assert.deepEqual(perPushFiles('linux'), commitFiles);
   assert.equal(perPushTests('linux', commitFiles), null);
   for (const system of OTHERS) {

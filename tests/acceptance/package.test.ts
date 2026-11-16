@@ -41,7 +41,7 @@ function pluginFiles(dir = join(ROOT, 'plugin')): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => (entry.isDirectory() ? pluginFiles(join(dir, entry.name)) : [relative(ROOT, join(dir, entry.name)).split('\\').join('/')]));
 }
 
-test('package: nothing the tarball or the plugin ships holds a test entry, names one or its variable, or changes the shipped limits and deadlines', () => {
+test('release-readiness §Package: package: nothing the tarball or the plugin ships holds a test entry, names one or its variable, or changes the shipped limits and deadlines', () => {
   const shipped = [...packed(), ...pluginFiles()];
   assert.ok(shipped.includes('dist/rules.js') && shipped.includes('plugin/hooks/start.mjs'), shipped.join(', '));
   const names = [basename(HOOK_WITH_DEADLINES), basename(TOOL_WITH_LIMITS), DEADLINES_VARIABLE, LIMITS_VARIABLE];

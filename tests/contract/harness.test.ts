@@ -486,7 +486,7 @@ test('question 95: harness-N, each harness invariant has its promise text for th
   }
 });
 
-test('harness: the type stripping warning of Node 24.0 is taken out of the output of the suite\'s own programs, and nothing else', () => {
+test('question 95: harness: the type stripping warning of Node 24.0 is taken out of the output of the suite\'s own programs, and nothing else', () => {
   const warning = '(node:42) ExperimentalWarning: Type Stripping is an experimental feature and might change at any time\n(Use `node --trace-warnings ...` to show where the warning was created)\n';
   assert.equal(withoutTypeStrippingWarning(`${warning}agent-trial: claude is not on the PATH\n`), 'agent-trial: claude is not on the PATH\n');
   const other = '(node:42) ExperimentalWarning: The Fetch API is an experimental feature\n(Use `node --trace-warnings ...` to show where the warning was created)\n';

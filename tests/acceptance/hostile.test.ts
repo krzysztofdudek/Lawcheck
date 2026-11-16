@@ -131,7 +131,7 @@ function nestedRepository(s: string, dir: string, submodule: boolean): void {
 
 for (const submodule of [true, false]) {
   const kind = submodule ? 'a submodule' : 'a repository of its own';
-  test(`S1-9, S5-8: a type that reaches into ${kind} is named in a note, and explain and try give the true reason`, async () => {
+  test(`S1-9: S5-8, a type that reaches into ${kind} is named in a note, and explain and try give the true reason`, async () => {
     await withSample(async (s) => {
       write(s, '.lawcheck/law.yaml', `${LAW}  libs:\n    paths: ["libs/**/*.ts"]\n    rules: [no-console]\n`);
       nestedRepository(s, 'libs/sub', submodule);

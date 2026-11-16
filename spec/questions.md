@@ -616,6 +616,16 @@ The build's decision. The harness, the runner, the numbers, the map from `src/` 
 
 Choice: a named place for tests that no spec row can carry, so that every test still leads its name with a source that the rail checks.
 
+## 96. The rail over the whole suite
+
+The build's decision, taken when the ledger's rail first judged every test of the other packages. Three rules of entry 79 met the suite as it grew, and each is a choice the final reviewer of the group may undo.
+
+A test that carries a spec row may list finding ids right after the row: `test 240: S8-8, R-82, a write that fails`. A closed row of `tests/findings.md` may name such a test. Elsewhere a finding is tied only when it leads the name, so `I-out-1: S1-1, a hang` still ties nothing. Without this, the test of a fix that has its own row could never close the finding it fixes.
+
+A test that cites only entry 95 inside `tests/contract/`, or only entry 160 inside the tests of the repository's own law, is outside `SECTION_ONLY_TESTS`. No spec describes the suite's machinery or the repository's own law, so no row can ever carry those tests, and counting them would make every new test of the CI layout break the ratchet. The count falls from 198 to 178: the 21 tests of entry 95 that it counted leave it, and the other packages bring one more test that cites only a section than they take away.
+
+`rules-too-slow` and `step-too-slow` have no case in the codes test. Their limits are 600 and 30 seconds of run time, which no test entry of the tool shortens, so the codes test lists them with the nightly test that reaches each and the open ledger row R-89. A case for each comes when a test entry can shorten those limits.
+
 # Questions found while adding the six providers
 
 ## 100. The owner's ruling of 2026-11-15: all nine providers before the alpha

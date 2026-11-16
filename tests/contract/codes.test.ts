@@ -26,9 +26,11 @@ import {
   REVIEWER_CONFIG,
   SAMPLE,
   setRule,
+  startLawcheck,
   U_LAW,
   write,
 } from '../acceptance/helpers.ts';
+import { MiB, sparse, textHead } from '../limits/support.ts';
 import { CODES, WHY } from '../../dist/output.js';
 import { main } from '../../dist/cli.js';
 import { ledgerRows } from './spec-map.ts';
@@ -70,6 +72,8 @@ interface Ready {
   hint?: string;
   leads?: string;
   inProcess?: boolean;
+  // A line of standard error the run prints once it is under way; the run is then sent SIGTERM.
+  stop?: RegExp;
   follow?: Follow;
 }
 
@@ -452,6 +456,58 @@ const CASES: Case[] = [
   },
 ];
 
+const HELD = "export function check() { console.error('runner ' + process.pid); while (true) {} }\n";
+const MANY = 'export function check() { return Array.from({ length: 200001 }, () => ({ message: "m" })); }\n';
+const CS = (s: string) => write(s, '.lawcheck/law.yaml', `${LAW}  cs:\n    paths: ["cs/app/**"]\n    may_use: [cs]\n`);
+
+function bigDeclarations(s: string): void {
+  let body = 'class C { void m() { int x = f(';
+  while (body.length < 64 * 1024) body += 'a < b, ';
+  write(s, 'cs/gen/Big.cs', body);
+  write(s, 'cs/app/App.cs', 'class App { }\n');
+}
+
+// Each reaches its limit as the test of its row in tests/limits does, at the limit the tool ships.
+const LIMIT_CASES: Case[] = [
+  inS('file-too-large, a text file past 16 MiB', 'file-too-large', CHECK, (s) => sparse(s, 'src/core/edge.ts', textHead('export const a = 1;\n'), 16 * MiB + 1)),
+  inS('text-too-large, the files of a run past 128 MiB of text', 'text-too-large', CHECK, (s) => {
+    for (let i = 1; i <= 9; i++) sparse(s, `src/core/big/t${i}.ts`, textHead(''), 15 * MiB);
+  }),
+  inS('too-many-findings, a rule that returns 200,001', 'too-many-findings', CHECK, (s) => {
+    setRule(s, 'no-console', MANY);
+    write(s, 'src/core/many.ts', 'export const m = 1;\n');
+  }),
+  {
+    id: 'file-unwritable, init where .lawcheck is a file',
+    code: 'file-unwritable',
+    setup: (dir) => {
+      const repo = newRepository(dir, { '.lawcheck': 'x\n' });
+      return { cwd: repo, argv: ['init'], follow: { fix: () => rmSync(join(repo, '.lawcheck')) } };
+    },
+  },
+  inS('memory-too-large, a file read for what it declares', 'memory-too-large', CHECK, (s) => {
+    CS(s);
+    bigDeclarations(s);
+  }),
+];
+
+const STOPPED: Case = {
+  id: 'stopped, SIGTERM while a rule spins',
+  code: 'stopped',
+  setup: (dir) => {
+    const s = makeSample(dir);
+    setRule(s, 'no-console', HELD);
+    write(s, 'src/core/discount.ts', 'export const d = 1;\n');
+    return { cwd: s, argv: CHECK, stop: /^runner \d+$/m, stderr: /^runner \d+\n$/, follow: { fix: () => repair(s) } };
+  },
+};
+
+// The two codes whose limits are minutes of run time, which no test entry shortens: the nightly tests of their rows reach them whole, and their next lines are followed by no test until a row of the ledger is closed.
+const UNREACHED: { code: string; test: string; finding: string }[] = [
+  { code: 'rules-too-slow', test: 'tests/limits/large.nightly.test.ts > test 251: S2-5, rules that take 29 seconds a file are stopped when the script rules of the run pass 600 seconds', finding: 'R-89' },
+  { code: 'step-too-slow', test: 'tests/limits/large.nightly.test.ts > test 255: S1-1, a step that never ends, typing against a content pattern that backtracks, ends as step-too-slow after 30 seconds', finding: 'R-89' },
+];
+
 const UNREADABLE: Case = {
   id: 'file-unreadable',
   code: 'file-unreadable',
@@ -562,8 +618,16 @@ async function reproduce(spec: Case, dir: string, fake: Fake): Promise<string[]>
   const ready = await spec.setup(dir, fake);
   const doc = documented().find((d) => d.code === spec.code) ?? { code: '', kind: 'doctor', why: '' };
   const expecting = ready.stderr === undefined ? {} : { stderr: ready.stderr };
+  const stopped = async (argv: string[]) => {
+    const running = startLawcheck(ready.cwd, argv, { env: ready.env ?? {}, ...expecting });
+    await running.output(ready.stop!, 'stderr');
+    running.kill('SIGTERM');
+    return running.ended;
+  };
   const go = (argv: string[], env: NodeJS.ProcessEnv = {}, first = false, cwd = ready.cwd) =>
-    ready.cli === undefined
+    first && ready.stop !== undefined
+      ? stopped(argv)
+      : ready.cli === undefined
       ? lawcheck(cwd, argv, { ...(ready.env ?? {}), ...env }, first ? (ready.node ?? []) : [], first ? expecting : {})
       : lawcheckAt(ready.cli, cwd, argv, { ...(ready.env ?? {}), ...env }, first ? expecting : {});
 
@@ -693,7 +757,7 @@ const inGroup = (group: string): Case[] => CASES.filter((c) => GROUPS[group]!.so
 test('check-slice §6: the codes of the cases, of the tool and of the codes page are the same, and every case is in one group', () => {
   const rows = documented();
   assert.equal(rows.length, CODES.size);
-  assert.deepEqual([...new Set([...CASES.map((c) => c.code), UNREADABLE.code].filter((c) => c !== null))].sort(), [...CODES].sort());
+  assert.deepEqual([...new Set([...[...CASES, ...LIMIT_CASES, STOPPED].map((c) => c.code), UNREADABLE.code, ...UNREACHED.map((u) => u.code)].filter((c) => c !== null))].sort(), [...CODES].sort());
   assert.deepEqual(rows.map((r) => r.code).sort(), [...CODES].sort());
   for (const row of rows) assert.equal(row.why, WHY[row.code], row.code);
   assert.equal(new Set(CASES.map((c) => c.id)).size, CASES.length);
@@ -722,6 +786,28 @@ test('check-slice §6: the reviewer codes, in text and in JSON, and the commands
 
 test('check-slice §6: the findings, with their exit codes and the exact text the spec fixes, and the notes of doctor', async () => {
   assert.deepEqual(await runCases(inGroup('findings')), []);
+});
+
+test('tests 232, 233, 236, 241 and 277: file-too-large, text-too-large, too-many-findings, file-unwritable and memory-too-large, in text and in JSON, and the commands their next lines name', async () => {
+  assert.deepEqual(await runCases(LIMIT_CASES), []);
+});
+
+test('test 239: stopped, in text and in JSON, and the command its next line names', async (t) => {
+  const skip = platformSkip('the whole test');
+  if (skip !== null) return t.skip(skip);
+  assert.deepEqual(await runCases([STOPPED]), []);
+});
+
+test('R-89: a code no case reaches per push names its open row of the ledger and the nightly test that reaches it', () => {
+  const rows = ledgerRows(readFileSync(new URL('../findings.md', import.meta.url), 'utf8'));
+  for (const unreached of UNREACHED) {
+    assert.ok(CODES.has(unreached.code), unreached.code);
+    assert.equal(rows.find((r) => r.id === unreached.finding)?.state, 'open', unreached.code);
+    const [file, name] = unreached.test.split(' > ');
+    const text = readFileSync(new URL(`../../${file}`, import.meta.url), 'utf8');
+    assert.ok(text.includes(`test('${name}'`), unreached.test);
+    assert.ok(text.includes(unreached.code), `${file} reaches no ${unreached.code}`);
+  }
 });
 
 test('check-slice §6: file-unreadable, in text and in JSON, and its next line gets further', async (t) => {
