@@ -82,7 +82,7 @@ function ciProblems(ci: Ci, plan: Plan): string[] {
     const others = Object.keys(ci.jobs).filter((name) => name !== 'commit-set').sort();
     if (JSON.stringify(needsOf(gate)) !== JSON.stringify(others)) problems.push(`ci.yml: commit-set waits for ${needsOf(gate).join(', ')}, not for every other job`);
   }
-  problems.push(...continueOnErrorProblems('ci.yml', ci.jobs, Object.keys(ci.jobs).filter((name) => /^(shard|merge)-/.test(name) || name === 'commit-set')));
+  problems.push(...continueOnErrorProblems('ci.yml', ci.jobs));
   return problems;
 }
 
@@ -119,7 +119,7 @@ test('a ci.yml that drops the runs of a system, merges a system after another\'s
   assert.deepEqual(changed((ci) => { delete ci.jobs['merge-linux']!.permissions; }), ['ci.yml: merge-linux has permissions other than read of the contents and of the actions']);
 });
 
-test('continue-on-error on a shard job, a merge job, the commit set job or any step of them is refused, and a literal false is not (control)', () => {
+test('continue-on-error on any job of ci.yml or any step of one is refused, and a literal false is not (control)', () => {
   const plan = readPlan();
   const changed = (edit: (ci: Ci) => void): string[] => { const ci = ciFile(); edit(ci); return ciProblems(ci, plan); };
   const reds = (what: string) => `${what} has continue-on-error, so GitHub reports its red as a success`;
@@ -129,7 +129,16 @@ test('continue-on-error on a shard job, a merge job, the commit set job or any s
   assert.deepEqual(changed((ci) => { ci.jobs['merge-linux']!.steps!.find((s) => s.name === 'The shards as one run')!['continue-on-error'] = true; }), [`ci.yml: ${reds('step 5 of merge-linux (The shards as one run)')}`]);
   assert.deepEqual(changed((ci) => { ci.jobs['commit-set']!['continue-on-error'] = true; }), [`ci.yml: ${reds('commit-set')}`]);
   assert.deepEqual(changed((ci) => { ci.jobs['commit-set']!.steps![0]!['continue-on-error'] = true; }), [`ci.yml: ${reds('step 1 of commit-set (Every job green)')}`]);
-  assert.deepEqual(changed((ci) => { ci.jobs['shard-linux']!['continue-on-error'] = false; ci.jobs['commit-set']!.steps![0]!['continue-on-error'] = false; }), []);
+  assert.deepEqual(changed((ci) => { ci.jobs.real!['continue-on-error'] = true; }), [`ci.yml: ${reds('real')}`]);
+  assert.deepEqual(changed((ci) => { ci.jobs.real!.steps!.find((s) => s.name === 'Two real repositories')!['continue-on-error'] = '${{ always() }}'; }), [`ci.yml: ${reds('step 5 of real (Two real repositories)')}`]);
+  assert.deepEqual(changed((ci) => { ci.jobs.plugin!['continue-on-error'] = true; }), [`ci.yml: ${reds('plugin')}`]);
+  assert.deepEqual(changed((ci) => { ci.jobs.workflows!.steps!.find((s) => s.name === 'actionlint')!['continue-on-error'] = true; }), [`ci.yml: ${reds('step 2 of workflows (actionlint)')}`]);
+  assert.deepEqual(changed((ci) => { ci.jobs['shard-linux']!['continue-on-error'] = false; ci.jobs['commit-set']!.steps![0]!['continue-on-error'] = false; ci.jobs.real!['continue-on-error'] = false; }), []);
+  const every = ciFile();
+  for (const [name, job] of Object.entries(every.jobs)) {
+    assert.equal(changed((ci) => { ci.jobs[name]!['continue-on-error'] = true; }).filter((p) => p.includes('continue-on-error')).length, 1, name);
+    for (let i = 0; i < (job.steps ?? []).length; i++) assert.equal(changed((ci) => { ci.jobs[name]!.steps![i]!['continue-on-error'] = true; }).filter((p) => p.includes('continue-on-error')).length, 1, `step ${i + 1} of ${name}`);
+  }
 });
 
 const ok = (file: string, name: string): Event => ({ type: 'test:pass', data: { file: join(ROOT, file), name, nesting: 0, details: { duration_ms: 5 } } });
