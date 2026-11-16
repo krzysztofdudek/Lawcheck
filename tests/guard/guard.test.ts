@@ -44,6 +44,9 @@ const EXPECT: { [name: string]: Expect } = {
   'refused-ratchet-grew': { refused: ['ratchet-grew'] },
   'refused-number-unclassified': { refused: ['number-unclassified', 'record-invalid'] },
   'refused-owner-row-from-branch': { refused: ['guard-changed'] },
+  'refused-owner-row-alone-short': { refused: ['record-invalid'] },
+  'refused-owner-row-alone-by-reviewer': { refused: ['record-invalid'] },
+  'refused-owner-row-alone-no-anchor': { refused: ['record-invalid'] },
   'refused-weakenings-old-row-edited': { refused: ['weakenings-rewritten', 'record-invalid'] },
   'refused-weakenings-old-row-removed': { refused: ['weakenings-rewritten'] },
   'refused-only-added': { refused: ['only-added'] },
@@ -78,6 +81,7 @@ const EXPECT: { [name: string]: Expect } = {
   'accepted-test-removed-with-row': { cleared: ['promise-changed', 'test-removed'] },
   'accepted-promise-by-owner': { cleared: ['promise-changed'] },
   'accepted-guard-by-owner': { cleared: ['guard-changed', 'guard-changed'] },
+  'accepted-owner-row-alone': { cleared: [] },
   'accepted-ci-by-owner': { cleared: ['ci-changed', 'ci-changed'] },
   'accepted-threshold-by-owner': { cleared: ['threshold-lowered'] },
   'accepted-threshold-stronger': { cleared: [] },
@@ -170,6 +174,27 @@ test('question 95: the suite guard, a record of an owner kind that the branch br
     const finding = report.findings.find((f) => f.kind === 'guard-changed')!;
     assert.deepEqual(finding.why, [`the record at tests/weakenings.md:6: a record of guard-changed counts only when it is already on the base ${report.base.slice(0, 7)}: the owner's row lands there first, in a change of its own, and a branch never brings its own`], name);
     assert.ok(render(report).includes("needs    the owner's row in tests/weakenings.md on the base, landed there first in a change of its own:"), name);
+  }
+});
+
+test('question 95: the suite guard, an owner\'s row lands alone first, and the change it approves passes once the row is on the base', () => {
+  const lone = judgeCase('accepted-owner-row-alone');
+  assert.equal(lone.passed, true, render(lone));
+  assert.deepEqual(lone.records.map((r) => [r.matched, r.valid]), [[false, true]]);
+  const repo = baseRepo(BASE);
+  try {
+    applyCase(repo, join(CASES, 'accepted-owner-row-alone.diff'));
+    sh(repo.dir, ['checkout', '-q', 'main']);
+    sh(repo.dir, ['merge', '-q', '--ff-only', 'work']);
+    sh(repo.dir, ['checkout', '-q', '-b', 'later']);
+    writeFileSync(join(repo.dir, 'tests/guard/check.ts'), 'export const GUARD = false;\n');
+    writeFileSync(join(repo.dir, 'tests/guard/config.json'), '{ "directions": { "PROPERTY_CASES": "higher" } }\n');
+    sh(repo.dir, ['commit', '-q', '-a', '-m', 'the guard changes']);
+    const report = judge(repo.dir, 'main', 'later', fixtureConfig(), '2026-11-15');
+    assert.equal(report.passed, true, render(report));
+    assert.deepEqual(report.findings.map((f) => f.kind), ['guard-changed', 'guard-changed']);
+  } finally {
+    repo.done();
   }
 });
 

@@ -572,7 +572,10 @@ export function judge(repo: string, baseRev: string, headRev: string, config: Co
     };
   });
 
-  const records = recordState.map((r) => ({ record: r.record, matched: r.matched, valid: r.why.length === 0, why: r.why }));
+  const records = recordState.map((r) => {
+    const why = !r.matched && ownWord(r.record.kind) ? validate(r.record, context, true) : r.why;
+    return { record: r.record, matched: r.matched, valid: why.length === 0, why };
+  });
   for (const r of records) {
     if (!r.matched && !r.valid) {
       findings.push({ kind: 'record-invalid', subject: r.record.what, where: `${config.weakenings}:${r.record.line}`, detail: r.why.join('; '), cleared: false, why: r.why });
@@ -694,7 +697,7 @@ function anchorProblem(anchor: Anchor, ctx: AnchorContext): string | null {
   return ctx.diff.some((c) => re.test(c.path) || re.test(c.from)) ? null : `the anchor '${anchor.raw}' names no path this change touches`;
 }
 
-function validate(record: Record, ctx: AnchorContext): string[] {
+function validate(record: Record, ctx: AnchorContext, anchorsOfAnotherChange = false): string[] {
   const why: string[] = [];
   if (!(RECORD_KINDS as readonly string[]).includes(record.kind)) {
     return [`'${record.kind}' is not a kind the guard knows (${RECORD_KINDS.join(', ')})`];
@@ -706,7 +709,7 @@ function validate(record: Record, ctx: AnchorContext): string[] {
   const parts = record.anchor.split(/\s*;\s*/).filter(Boolean);
   const anchors = parts.map(parseAnchor);
   parts.forEach((p, i) => { if (!anchors[i]) why.push(`'${p}' is not an anchor (row <n>, I-..., S<r>-<n>, ruling <n>, Runes <version>, or a path)`); });
-  for (const a of anchors) if (a) { const p = anchorProblem(a, ctx); if (p) why.push(p); }
+  if (!anchorsOfAnotherChange) for (const a of anchors) if (a) { const p = anchorProblem(a, ctx); if (p) why.push(p); }
   const types = anchors.filter((a): a is Anchor => a !== null).map((a) => a.type);
   const permitted = OWNER_LIKE.has(record.kind) || record.kind === 'harness-changed' || record.kind === 'law-changed' || record.kind === 'platform-narrowed' ? ['row', 'invariant', 'ledger', 'ruling', 'runes', 'path'] : record.kind === 'test-removed' ? ['row', 'invariant', 'ledger', 'ruling', 'runes'] : record.kind === 'sabotage-removed' ? ['row', 'invariant', 'ledger'] : ['row', 'invariant', 'ruling', 'runes'];
   if (types.length > 0 && !types.some((t) => permitted.includes(t))) why.push(`${record.kind} needs an anchor of another kind: ${anchorHint(record.kind)}`);
