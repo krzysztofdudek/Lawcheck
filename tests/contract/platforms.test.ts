@@ -3,14 +3,31 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PLATFORM_PROMISES, promiseOf, testIds } from '../harness/promises.ts';
-import { groupDirs, perPushFiles, perPushTests, PLATFORM_TESTS, ROOT, setFiles } from '../harness/sets.ts';
+import { groupDirs, perPushFiles, perPushTests, PLATFORM_BEHAVIOURS, PLATFORM_TESTS, ROOT, setFiles } from '../harness/sets.ts';
 import type { PlatformTest } from '../harness/sets.ts';
 import { PLATFORM_SKIPS } from '../harness/skips.ts';
 
 type Other = 'win32' | 'darwin';
 const OTHERS: Other[] = ['win32', 'darwin'];
 const NAMED: Record<Other, RegExp> = { win32: /\bWindows\b/, darwin: /\bmacOS\b/ };
-const BEHAVIOUR = /path|separator|backslash|slash|drive|case|lock|unreadable|chmod|executable bit|symlink|symbolic link|link|junction|realpath|line end|CRLF|process|tree|group|child|signal|kill|console|shell|cmd\.exe|\.cmd|shim|PATH|PATHEXT|current folder|guard|install|npm|pnpm|yarn|bun|tarball|permission|temporary|TEMP|file name|UTF|Unicode|normaliz|\/private|environment|ps\b|taskkill|PowerShell|null device|\.exe|start/i;
+
+// What a check can hold an entry to: behaviours named from PLATFORM_BEHAVIOURS that hold on its systems, every system covered, and a reason that names each system. Whether the test exercises them is its reviewer's to judge.
+function behaviourProblems(key: string, systems: readonly string[], behaviours: readonly string[], reason?: string): string[] {
+  const problems: string[] = [];
+  const catalogue = PLATFORM_BEHAVIOURS as Record<string, { systems: readonly string[] }>;
+  if (behaviours.length === 0) problems.push(`${key}: names no behaviour of PLATFORM_BEHAVIOURS`);
+  if (new Set(behaviours).size !== behaviours.length) problems.push(`${key}: names a behaviour twice`);
+  for (const b of behaviours) {
+    if (catalogue[b] === undefined) problems.push(`${key}: ${b} is no behaviour of PLATFORM_BEHAVIOURS`);
+    else if (!catalogue[b]!.systems.some((system) => systems.includes(system))) problems.push(`${key}: ${b} holds on ${catalogue[b]!.systems.join(' and ')}, none of its systems`);
+  }
+  for (const system of systems) if (!behaviours.some((b) => catalogue[b]?.systems.includes(system))) problems.push(`${key}: no behaviour it names holds on ${system}`);
+  if (reason !== undefined) {
+    if (reason.trim().length < 20) problems.push(`${key}: reason ${JSON.stringify(reason)}`);
+    for (const system of systems) if (!NAMED[system as Other].test(reason)) problems.push(`${key}: the reason does not name ${system}`);
+  }
+  return problems;
+}
 
 interface Declared {
   file: string;
@@ -103,12 +120,24 @@ test('every entry of PLATFORM_TESTS names one top-level test of the commit set, 
   }
 });
 
-test('every reason names each system of its entry and a behaviour of that system', () => {
-  for (const entry of PLATFORM_TESTS) {
-    const key = `${entry.file} > ${entry.test}`;
-    assert.ok(entry.reason.trim().length >= 20, `${key}: reason ${JSON.stringify(entry.reason)}`);
-    assert.match(entry.reason, BEHAVIOUR, `${key}: the reason names no platform behaviour`);
-    for (const system of entry.systems) assert.match(entry.reason, NAMED[system], `${key}: the reason does not name ${system}`);
+test('every entry of PLATFORM_TESTS names behaviours of PLATFORM_BEHAVIOURS that hold on each of its systems, and a reason that names each system', () => {
+  assert.deepEqual(PLATFORM_TESTS.flatMap((entry) => behaviourProblems(`${entry.file} > ${entry.test}`, entry.systems, entry.behaviours, entry.reason)), []);
+});
+
+test('an entry whose reason names no platform behaviour, names one outside the list, or one that does not hold on its system is refused (control)', () => {
+  assert.deepEqual(behaviourProblems('t', ['win32'], [], 'this test matters for the process on Windows'), ['t: names no behaviour of PLATFORM_BEHAVIOURS', 't: no behaviour it names holds on win32']);
+  assert.deepEqual(behaviourProblems('t', ['win32'], ['crlf-everywhere'], 'CRLF line endings split into lines, the endings of Windows'), ['t: crlf-everywhere is no behaviour of PLATFORM_BEHAVIOURS', 't: no behaviour it names holds on win32']);
+  assert.deepEqual(behaviourProblems('t', ['win32', 'darwin'], ['cmd-shims'], 'a fake claude is a .cmd shim on Windows and macOS'), ['t: no behaviour it names holds on darwin']);
+  assert.deepEqual(behaviourProblems('t', ['win32'], ['real-paths'], 'realpath of a temporary folder on Windows'), ['t: real-paths holds on darwin, none of its systems', 't: no behaviour it names holds on win32']);
+  assert.deepEqual(behaviourProblems('t', ['win32'], ['line-ends'], 'CRLF line ends that a checkout writes'), ['t: the reason does not name win32']);
+});
+
+test('every behaviour of PLATFORM_BEHAVIOURS holds on Windows or macOS, says what differs there, and is named by an entry', () => {
+  const named = new Set([...PLATFORM_TESTS.flatMap((entry) => entry.behaviours), ...Object.values(PLATFORM_PROMISES).flatMap((p) => p.behaviours)]);
+  for (const [name, { systems, behaviour }] of Object.entries(PLATFORM_BEHAVIOURS)) {
+    assert.ok(systems.length > 0 && systems.every((system) => OTHERS.includes(system)), name);
+    assert.ok(behaviour.length >= 20, name);
+    assert.ok(named.has(name as keyof typeof PLATFORM_BEHAVIOURS), `${name}: no entry names it`);
   }
 });
 
@@ -127,13 +156,12 @@ test('a test with a part skipped on Windows or macOS runs there per push, and on
   assert.deepEqual(missing, []);
 });
 
-test('every id of PLATFORM_PROMISES is a promise the spec map resolves, with a behaviour that names each of its systems', () => {
+test('every id of PLATFORM_PROMISES is a promise the spec map resolves, naming behaviours of PLATFORM_BEHAVIOURS that hold on each of its systems', () => {
   assert.ok(Object.keys(PLATFORM_PROMISES).length > 0);
-  for (const [id, { systems, behaviour }] of Object.entries(PLATFORM_PROMISES)) {
+  for (const [id, { systems, behaviours, behaviour }] of Object.entries(PLATFORM_PROMISES)) {
     assert.notEqual(promiseOf(id), null, `${id}: the spec map resolves no promise`);
     assert.ok(systems.length > 0 && systems.every((system) => OTHERS.includes(system)), `${id}: systems ${JSON.stringify(systems)}`);
-    assert.match(behaviour, BEHAVIOUR, `${id}: the behaviour names no platform behaviour`);
-    for (const system of systems) assert.match(behaviour, NAMED[system], `${id}: the behaviour does not name ${system}`);
+    assert.deepEqual(behaviourProblems(id, systems, behaviours, behaviour), []);
   }
 });
 

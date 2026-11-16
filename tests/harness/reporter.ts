@@ -68,7 +68,21 @@ function block(failed: Failed, seeds: Map<string, string>): string[] {
   return out;
 }
 
-export default async function* reporter(source: AsyncIterable<{ type: string; data: any }>): AsyncGenerator<string> {
+export type System = 'linux' | 'darwin' | 'win32';
+
+export interface RunOptions {
+  system: System;
+  started: number | null;
+  target: number;
+}
+
+export interface Verdict {
+  text: string;
+  red: boolean;
+}
+
+// The verdict on a whole run: what a plain run exits with, and what the merge of a system's shards is held to.
+export async function judgeRun(source: AsyncIterable<{ type: string; data: any }>, options: RunOptions): Promise<Verdict> {
   const failed: Failed[] = [];
   const times: { ms: number; name: string; file: string }[] = [];
   const files = new Set<string>();
@@ -110,10 +124,10 @@ export default async function* reporter(source: AsyncIterable<{ type: string; da
   if (counts.skipped > 0) parts.push(`${counts.skipped} skipped`);
   if (counts.todo > 0) parts.push(`${counts.todo} todo`);
   const lines: string[] = [];
-  const started = Number(process.env.LAWCHECK_STARTED);
-  const took = Number.isFinite(started) && started > 0 ? Date.now() - started : null;
+  const started = options.started;
+  const took = started !== null && Number.isFinite(started) && started > 0 ? Date.now() - started : null;
   lines.push(`ran ${files.size} test files, ${total} tests: ${parts.join(', ')}${took === null ? '' : `, in ${(took / 1000).toFixed(1)} s`}`);
-  const target = Number(process.env.LAWCHECK_TARGET_MS);
+  const target = options.target;
   if (took !== null && target > 0 && took > target) lines.push(`past the target of ${target / 1000} s for this speed (tests/numbers.ts)`);
   for (const [file, seed] of seeds) lines.push(`seed ${seed}  ${where(file)}`);
   for (const skip of skips) lines.push(`skipped ${skip}`);
@@ -121,12 +135,19 @@ export default async function* reporter(source: AsyncIterable<{ type: string; da
   if (times.length > 0) {
     lines.push('', 'slowest');
     for (const t of times.slice(0, SLOWEST_SHOWN)) lines.push(`${String(Math.round(t.ms)).padStart(8)} ms  ${t.name.slice(0, 90)}  ${where(t.file)}`);
-    const unlisted = times.filter((t) => t.ms > TEST_BUDGET_MS / 5 && slowBudget(`${where(t.file)} > ${t.name}`) === null);
+    const unlisted = times.filter((t) => t.ms > TEST_BUDGET_MS / 5 && slowBudget(`${where(t.file)} > ${t.name}`, options.system) === null);
     if (unlisted.length > 0) {
-      lines.push('', `past a fifth of TEST_BUDGET_MS with no entry in SLOW_TESTS for ${process.platform}`);
+      lines.push('', `past a fifth of TEST_BUDGET_MS with no entry in SLOW_TESTS for ${options.system}`);
       for (const t of unlisted) lines.push(`${String(Math.round(t.ms)).padStart(8)} ms  ${where(t.file)} > ${t.name}`);
     }
   }
   for (const f of failed) lines.push('', ...block(f, seeds));
-  yield lines.join('\n') + '\n';
+  return { text: lines.join('\n') + '\n', red: counts.failed > 0 };
+}
+
+export default async function* reporter(source: AsyncIterable<{ type: string; data: any }>): AsyncGenerator<string> {
+  const started = Number(process.env.LAWCHECK_STARTED);
+  const verdict = await judgeRun(source, { system: process.platform as System, started: Number.isFinite(started) && started > 0 ? started : null, target: Number(process.env.LAWCHECK_TARGET_MS) });
+  if (verdict.red) process.exitCode = 1;
+  yield verdict.text;
 }

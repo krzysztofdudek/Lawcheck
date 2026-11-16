@@ -22,7 +22,7 @@ jobs:
       - uses: actions/cache@v6
         with:
           path: .grammars
-          key: grammars-${{ hashFiles('package-lock.json') }}
+          key: grammars-${{ hashFiles('package-lock.json', 'scripts/grammars.ts', 'scripts/grammar-licenses.txt') }}
       - name: Grammars
         run: npm run grammars
       - uses: actions/upload-artifact@v7
