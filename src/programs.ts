@@ -111,6 +111,11 @@ export function stillListed(before: string, after: string, roots: number[]): num
   return listed.filter((pid) => known.has(pid) && now.get(pid) === known.get(pid));
 }
 
+// What the guard ends of the groups' trees when the tool has ended: what both lists show made at the same time, and what the list made after the end shows below a root. On Windows a root ends with the tool, which holds it in its job, and what the root started lives on below its id.
+export function toEnd(before: string, after: string, roots: number[]): number[] {
+  return [...new Set([...stillListed(before, after, roots), ...roots.flatMap((root) => descendantsIn(after, root))])];
+}
+
 export function descendantsIn(table: string, root: number): number[] {
   const children = new Map<number, number[]>();
   for (const line of table.split(/\r?\n/)) {

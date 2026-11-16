@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { chmodSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createdIn, descendantsIn, findProgram, killTree, startProgram, stillListed } from '../../dist/programs.js';
+import { createdIn, descendantsIn, findProgram, killTree, startProgram, stillListed, toEnd } from '../../dist/programs.js';
 
 function inDir(body: (dir: string) => void | Promise<void>): Promise<void> {
   const dir = realpathSync(mkdtempSync(join(tmpdir(), 'lawcheck-programs-')));
@@ -115,6 +115,15 @@ test('the descendants of a process are read from the list of processes, its own 
 test('the time each process was made is read from the list of processes', () => {
   const table = ['10 1 638900000000000001', '11 10 638900000000000002', 'junk', '12 11', ''].join('\r\n');
   assert.deepEqual([...createdIn(table)], [[10, '638900000000000001'], [11, '638900000000000002']]);
+});
+
+test('R-34: below a root that ended with the tool, the guard ends what the list made after the end shows, and of the earlier list only what that list still shows', () => {
+  const before = ['100 1 500', '101 100 501', '103 100 503', ''].join('\r\n');
+  const after = ['101 100 501', '102 101 502', '103 7 903', '104 103 904', '200 1 600', ''].join('\r\n');
+  assert.deepEqual(toEnd(before, after, [100]).sort((a, b) => a - b), [101, 102]);
+  assert.deepEqual(toEnd('', after, [100]).sort((a, b) => a - b), [101, 102]);
+  assert.deepEqual(toEnd(before, before, [100]).sort((a, b) => a - b), [100, 101, 103]);
+  assert.deepEqual(toEnd(before, '', [100]), []);
 });
 
 test('R-34: the guard kills from its list only a process whose id and time of making a later list still shows', () => {
