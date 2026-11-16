@@ -66,6 +66,19 @@ export function gitFolder(dir: string): void {
   copyFileSync(join(MATRIX, 'git-cell.sh'), join(dir, 'git-cell.sh'));
 }
 
+// The security tests of every commit, which read git's answers as closely as the check slice does.
+export function securityFiles(): string[] {
+  return readdirSync(join(ROOT, 'tests', 'security'))
+    .filter((name) => name.endsWith('.test.ts') && !name.endsWith('.nightly.test.ts'))
+    .map((name) => `tests/security/${name}`)
+    .sort();
+}
+
+// What the git matrix runs on each git: the check slice's acceptance tests and the security tests.
+export function gitMatrixFiles(): string[] {
+  return [...checkSliceFiles(), ...securityFiles()];
+}
+
 // The test files whose names carry a row of spec/check-slice.md, section 8.
 export function checkSliceFiles(): string[] {
   const dir = join(ROOT, 'tests', 'acceptance');

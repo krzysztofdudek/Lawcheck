@@ -11,7 +11,7 @@
     "tests/acceptance/docs.test.ts",
     "tests/unit/args.test.ts"
   ],
-  "src/bin.ts": [
+  "src/bin.cts": [
     "tests/environments/refusal.test.ts"
   ],
   "src/check.ts": [

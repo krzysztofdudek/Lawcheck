@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Node's permission model, turned on by --permission in NODE_OPTIONS, lets the entry file load and refuses every module it imports, so this file imports none of Lawcheck's own modules before it looks.
+// Node's permission model, turned on by --permission in NODE_OPTIONS, lets the entry file load and refuses every module it imports, so this file imports none of Lawcheck's own modules before it looks. It is CommonJS whatever package.json says: Node 24.2 to 24.6 under that model cannot read package.json, and would parse an ES module entry as CommonJS.
 const COMMANDS = ['init', 'prime', 'check', 'explain', 'try', 'docs', 'doctor'];
 
 function refuse(): void {
@@ -15,4 +15,4 @@ function refuse(): void {
 }
 
 if ((process as { permission?: unknown }).permission !== undefined) refuse();
-else (await import('./cli.js')).start();
+else void import('./cli.js').then((cli) => cli.start());

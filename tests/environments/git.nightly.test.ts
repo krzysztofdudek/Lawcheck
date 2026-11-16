@@ -1,11 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { inTemp } from '../acceptance/helpers.ts';
-import { checkSliceFiles, docker, GIT_IMAGES, gitFolder } from './matrix.ts';
+import { checkSliceFiles, docker, GIT_IMAGES, gitFolder, securityFiles } from './matrix.ts';
 
-test('test 207: the check slice acceptance tests pass on the git of ubuntu:22.04, debian:12, ubuntu:24.04 and debian:sid (network)', async () => {
-  const files = checkSliceFiles();
-  assert.ok(files.length >= 5, files.join(' '));
+test('test 207: the check slice acceptance tests and the security tests pass on the git of ubuntu:22.04, debian:12, ubuntu:24.04 and debian:sid (network)', async () => {
+  const files = [...checkSliceFiles(), ...securityFiles()];
+  assert.ok(checkSliceFiles().length >= 5 && securityFiles().length >= 1, files.join(' '));
   await inTemp(async (dir) => {
     gitFolder(dir);
     const problems: string[] = [];
