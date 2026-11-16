@@ -1,9 +1,9 @@
 import { fork, spawn, spawnSync } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
-import { availableParallelism } from 'node:os';
+import { availableParallelism, tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { dirname, sep } from 'node:path';
-import { realpathSync, rmSync } from 'node:fs';
+import { existsSync, realpathSync, rmSync } from 'node:fs';
 import type { TypeDef } from './law.js';
 import { killTree } from './programs.js';
 import { safeText } from './output.js';
@@ -26,15 +26,40 @@ const live = new Set<ChildProcess>();
 const liveGroups = new Set<number>();
 const liveFolders = new Set<string>();
 let guard: ChildProcess | null = null;
+let listing: Promise<void> | null = null;
+const LISTING_WAIT_MS = 10_000;
 
 function startGuard(): void {
   if (guard === null) {
-    guard = spawn(process.execPath, [GUARD], { cwd: dirname(GUARD), stdio: ['pipe', 'ignore', 'ignore'], detached: true });
+    guard = spawn(process.execPath, [GUARD], { cwd: dirname(GUARD), stdio: ['pipe', process.platform === 'win32' ? 'pipe' : 'ignore', 'ignore'], detached: true });
     guard.on('error', () => undefined);
     guard.stdin!.on('error', () => undefined);
     guard.unref();
     (guard.stdin as unknown as { unref(): void }).unref();
+    if (guard.stdout !== null) (guard.stdout as unknown as { unref(): void }).unref();
   }
+}
+
+// On Windows the guard finds what a program started only in PowerShell's list of processes, and PowerShell takes seconds to start on a busy machine; a program starts once that list runs, so the tool killed at any moment of a call leaves nothing the guard cannot find within seconds. A guard that cannot list says so too, and after 10 seconds the program starts anyway. PowerShell makes a missing temporary directory, and without one no program starts, as a call's folder is made there, so the list is then not waited for.
+export function guardListing(): Promise<void> {
+  if (process.platform !== 'win32' || (listing === null && !existsSync(tmpdir()))) return Promise.resolve();
+  listing ??= new Promise((done) => {
+    startGuard();
+    const ready = () => {
+      clearTimeout(timer);
+      done();
+    };
+    const timer = setTimeout(ready, LISTING_WAIT_MS);
+    let said = '';
+    guard!.stdout?.setEncoding('utf8').on('data', (chunk: string) => {
+      said += chunk;
+      if (said.includes('listing\n')) ready();
+    });
+    guard!.on('error', ready);
+    guard!.on('exit', ready);
+    guard!.stdin!.write('+w\n');
+  });
+  return listing;
 }
 
 function watch(child: ChildProcess): void {

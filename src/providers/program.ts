@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { existsSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { killGroup, releaseFolder, releaseGroup, watchFolder, watchGroup } from '../rules.js';
+import { guardListing, killGroup, releaseFolder, releaseGroup, watchFolder, watchGroup } from '../rules.js';
 import { findProgram, startProgram } from '../programs.js';
 import { MAX_REPLY_BYTES } from './http.js';
 import { variable } from './index.js';
@@ -92,6 +92,7 @@ export function programProvider(program: Program, env: Env, timeoutSeconds: numb
     async ask(prompt, seconds) {
       const found = binary ?? find(env);
       if (found === null) return { failure: missing, resend: false, fix };
+      await guardListing();
       const deadline = Date.now() + Math.min(timeoutSeconds, seconds ?? timeoutSeconds) * 1000;
       let extra: string[] = [];
       if (program.prepare !== undefined) {

@@ -1,21 +1,35 @@
 import { spawn } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
 import { rmSync } from 'node:fs';
-import { killTree, powershell, PROCESS_TABLE, stillListed } from './programs.js';
+import { killTree, powershell, PROCESS_TABLE, toEnd } from './programs.js';
 
 const pids = new Set<number>();
 const windows = process.platform === 'win32';
-// On Windows a program left by one that has ended can be found only through the list of processes, and PowerShell takes seconds to start on a busy machine. While a group is registered, one PowerShell keeps that list fresh, so the guard ends the tree at once from the last list.
+// On Windows a program left by one that has ended can be found only through the list of processes, and PowerShell takes seconds to start on a busy machine. While a group is registered, or once the tool has said it starts programs, one PowerShell keeps that list fresh, so the guard ends the tree from its next list without starting another.
 let watcher: ChildProcess | null = null;
 let table = '';
 let listed = false;
 let onListed: (() => void) | null = null;
-const waitingForList: (() => void)[] = [];
+const waitingForList: ((list: string | null) => void)[] = [];
+// The tool starts a program only once the guard says its list runs, so a tool killed at any moment of a call leaves a tree the next list finds.
+let held = false;
+process.stdout.on('error', () => undefined);
+
+function sayListing(): void {
+  if (held) process.stdout.write('listing\n');
+}
 
 function watch(): void {
   if (!windows || watcher !== null) return;
   watcher = spawn(powershell(), ['-NoProfile', '-NonInteractive', '-Command', `while ($true) { ${PROCESS_TABLE}; '--'; Start-Sleep -Milliseconds 250 }`], { stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true });
-  watcher.on('error', () => undefined);
+  const current = watcher;
+  const gone = () => {
+    if (watcher !== current) return;
+    for (const next of waitingForList.splice(0)) next(null);
+    if (!listed) sayListing();
+  };
+  current.on('error', gone);
+  current.on('close', gone);
   let partial = '';
   watcher.stdout!.setEncoding('utf8').on('data', (chunk: string) => {
     partial += chunk;
@@ -24,9 +38,10 @@ function watch(): void {
     const start = partial.lastIndexOf('\n--', end - 1);
     table = partial.slice(start < 0 ? 0 : start + 3, end);
     partial = partial.slice(end + 3);
+    if (!listed) sayListing();
     listed = true;
     onListed?.();
-    for (const next of waitingForList.splice(0)) next();
+    for (const next of waitingForList.splice(0)) next(table);
   });
 }
 const groups = new Set<number>();
@@ -40,6 +55,12 @@ process.stdin.on('data', (chunk: string) => {
     const line = pending.slice(0, end);
     pending = pending.slice(end + 1);
     const adding = line.startsWith('+');
+    if (line === '+w') {
+      held = true;
+      if (!windows || listed || (watcher !== null && watcher.exitCode !== null)) sayListing();
+      else watch();
+      continue;
+    }
     if (line[1] === 'd') {
       if (adding) folders.add(line.slice(2));
       else folders.delete(line.slice(2));
@@ -51,7 +72,7 @@ process.stdin.on('data', (chunk: string) => {
     if (adding) set.add(pid);
     else set.delete(pid);
     if (group && adding) watch();
-    if (group && !adding && groups.size === 0) stopWatching();
+    if (group && !adding && groups.size === 0 && !held) stopWatching();
   }
 });
 // PowerShell writes test files to the temporary directory while it starts and removes them once started, so the watcher is ended only after its first list, or after 10 seconds.
@@ -87,25 +108,27 @@ function nextList(ms: number): Promise<string | null> {
   if (watcher === null || watcher.exitCode !== null) return Promise.resolve(null);
   return new Promise((done) => {
     const timer = setTimeout(() => done(null), ms);
-    waitingForList.push(() => {
+    waitingForList.push((list) => {
       clearTimeout(timer);
-      done(table);
+      done(list);
     });
   });
 }
 
-async function endWatched(): Promise<void> {
+// False when no list came, and the trees are then ended without one.
+async function endWatched(): Promise<boolean> {
+  if (groups.size === 0) return true;
   const before = table;
-  if (stillListed(before, before, [...groups]).length === 0) return;
   const fresh = await nextList(3000);
-  if (fresh === null) return;
-  for (const pid of stillListed(before, fresh, [...groups])) {
+  if (fresh === null) return false;
+  for (const pid of toEnd(before, fresh, [...groups])) {
     try {
       process.kill(pid, 'SIGKILL');
     } catch {
       // The process has already ended.
     }
   }
+  return true;
 }
 
 function endAll(): void {
@@ -118,8 +141,8 @@ function endAll(): void {
       // The runner has already ended.
     }
   }
-  void endWatched().then(() => {
-    for (const pid of groups) killTree(pid, 'SIGKILL', true);
+  void endWatched().then((found) => {
+    for (const pid of groups) killTree(pid, 'SIGKILL', !found);
     for (const folder of folders) rmSync(folder, { recursive: true, force: true, maxRetries: 10 });
     stopWatching(() => process.exit(0));
   });
