@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, readFileSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, statSync, utimesSync, watch, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { defaultAnswer, openai, withFake } from '../acceptance/fake-reviewer.ts';
 import { D, D_PATH, F, F_PATH, F_PRIME, KEY_F, KEY_F_PRIME, REVIEWER_LAW, withR, withSample, write } from '../acceptance/helpers.ts';
@@ -231,6 +231,27 @@ test('test 253: two runs that write the verdicts file at once keep the lines of 
   });
 });
 
+// The review makes `.lawcheck/.local/failures` after its check of the file's size and its probe of the folder, and just before it takes the lock; with the lock held by the test it waits there, so the folder's appearing is the event that shows the review is held.
+async function heldAtLock(local: string, review: Promise<unknown>): Promise<void> {
+  const failures = join(local, 'failures');
+  let stop = (): void => undefined;
+  const held = new Promise<void>((resolve) => {
+    const watcher = watch(local, () => {
+      if (existsSync(failures)) resolve();
+    });
+    stop = () => watcher.close();
+    if (existsSync(failures)) resolve();
+  });
+  const ended = review.then(() => {
+    throw new Error('the review ended before it was held at the lock');
+  });
+  try {
+    await Promise.race([held, ended]);
+  } finally {
+    stop();
+  }
+}
+
 // As in test 253 the test is a second run holding the lock; it adds three passes, so the review's own pass would take the file past 16 MiB at the moment it writes.
 test('test 272: a pass that would take the verdicts file past 16 MiB when it is written is refused, even after the check before the calls', async () => {
   await withFake(async (fake) => {
@@ -253,10 +274,7 @@ test('test 272: a pass that would take the verdicts file past 16 MiB when it is 
       writeFileSync(join(local, '.gitignore'), '*\n');
       writeFileSync(join(lock, 'pid'), String(process.pid));
       const review = run(r, REVIEW, { env: { LAWCHECK_REVIEWER_ENDPOINT: fake.url }, budget: 'LIMITS_RUN_MS', writes: [/^\.lawcheck\/\.local(\/|$)/, '.lawcheck/verdicts'] });
-      let ended = false;
-      void review.then(() => (ended = true));
-      const deadline = Date.now() + 3000;
-      while (!ended && Date.now() < deadline) await new Promise((done) => setTimeout(done, 20));
+      await heldAtLock(local, review);
       writeFileSync(verdicts, filler + ['1', '2', '3'].map((d) => `${d.repeat(32)} clear-errors\n`).join(''));
       rmSync(lock, { recursive: true, force: true });
       const result = await review;
