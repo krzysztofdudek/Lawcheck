@@ -24,8 +24,9 @@ export function packageRunner(log: string, name: string, skip: number, lawcheck:
 }
 
 export interface FakeGit {
-  // Hang until it is killed, before it answers.
+  // Before it answers: hang until it is killed, or wait this long on its first call alone.
   hang?: boolean;
+  firstWaitMs?: number;
   // A file each call appends its words and the value of this variable to.
   record?: { file: string; variable: string };
 }
@@ -36,16 +37,18 @@ export function fakeGit(bin: string, realGit: string, act: FakeGit): NodeJS.Proc
   copyFileSync(process.execPath, program);
   chmodSync(program, 0o755);
   const preload = join(bin, 'fake-git.cjs');
+  const waited = join(bin, 'fake-git-waited');
   writeFileSync(
     preload,
     [
       "const { basename } = require('node:path');",
       "if (/^git(\\.exe)?$/i.test(basename(process.execPath))) {",
-      "  const { appendFileSync } = require('node:fs');",
+      "  const { appendFileSync, existsSync, writeFileSync } = require('node:fs');",
       "  const { spawnSync } = require('node:child_process');",
       '  const words = [basename(process.argv[1]), ...process.argv.slice(2)];',
       ...(act.record === undefined ? [] : [`  appendFileSync(${JSON.stringify(act.record.file)}, JSON.stringify({ words, value: process.env[${JSON.stringify(act.record.variable)}] ?? null }) + '\\n');`]),
       ...(act.hang === true ? ['  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0);'] : []),
+      ...(act.firstWaitMs === undefined ? [] : [`  if (!existsSync(${JSON.stringify(waited)})) {`, `    writeFileSync(${JSON.stringify(waited)}, '');`, `    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ${act.firstWaitMs});`, '  }']),
       `  process.exit(spawnSync(${JSON.stringify(realGit)}, words, { stdio: 'inherit' }).status ?? 2);`,
       '}',
       '',
@@ -55,5 +58,5 @@ export function fakeGit(bin: string, realGit: string, act: FakeGit): NodeJS.Proc
 }
 
 export function removeFakeGit(bin: string): void {
-  for (const name of ['git', 'git.exe', 'fake-git.cjs']) rmSync(join(bin, name), { force: true });
+  for (const name of ['git', 'git.exe', 'fake-git.cjs', 'fake-git-waited']) rmSync(join(bin, name), { force: true });
 }

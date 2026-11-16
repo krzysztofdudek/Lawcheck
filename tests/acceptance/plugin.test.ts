@@ -8,10 +8,10 @@ import { alive, append, D, D_PATH, F, F_PATH, git, GIT_ENV, inTemp, LAW, lawchec
 import type { Expect, Run, Running } from './helpers.ts';
 import { example } from '../harness/examples.ts';
 import { DEADLINES_VARIABLE, fakeWrites, platformSkip, startHook, startProgram, testFolder } from '../harness/tool.ts';
-import { installedLawcheck } from '../harness/fakes.ts';
-import { PAST_USER_SET_MS, TEST_HOOK_DEADLINES, USER_SET_EDIT_DEADLINE_S } from '../numbers.ts';
+import { fakeGit, installedLawcheck, removeFakeGit } from '../harness/fakes.ts';
+import { PAST_USER_SET_MS, TEST_HOOK_DEADLINES, USER_SET_DEADLINE_S } from '../numbers.ts';
 import { DEADLINES } from '../../plugin/hooks/start.mjs';
-import { Bench, deadlineScenario, edited, ended, GIT_DIR, hook, json, NODE_DIR, nothing, PLUGIN, Session, startAndPromptScenario, SYSTEM_ENV, withBench } from './plugin-bench.ts';
+import { Bench, deadlineScenario, edited, ended, GIT_DIR, hook, json, NODE_DIR, nothing, PLUGIN, Session, startAndPromptScenario, SYSTEM_ENV, where, withBench } from './plugin-bench.ts';
 import type { HookRun } from './plugin-bench.ts';
 
 const spec = readFileSync(join(ROOT, 'spec', 'plugin-slice.md'), 'utf8');
@@ -294,15 +294,31 @@ test('section 5: the plugin ships deadlines of 25 seconds for session-start and 
   assert.deepEqual(timeouts, DEADLINES);
 });
 
-test('section 5: the hook a user runs keeps its deadline of 25 seconds for an edit when the variable of the test entry is set', async () => {
+test('section 5: the hook a user runs keeps its shipped deadline for every event when the variable of the test entry is set', async () => {
   await withBench(async (bench, dir) => {
     const s = makeSample(dir);
-    append(s, 'src/cli/main.ts', '// end\n');
+    const primed = (await lawcheck(s, ['prime'])).stdout.replace(/\n$/, '');
     bench.script('lawcheck', [`Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ${PAST_USER_SET_MS});`, ...installedLawcheck(bench.logFile)]);
-    const run = await new Session(bench, s, 's1', { [DEADLINES_VARIABLE]: JSON.stringify({ edit: USER_SET_EDIT_DEADLINE_S }) }).edit('src/cli/main.ts');
-    nothing(run);
-    assert.ok(run.ms >= PAST_USER_SET_MS, `the hook ended after ${run.ms} ms, before the stand-in lawcheck answered`);
-    assert.equal(bench.checks().length, 1);
+    const session = new Session(bench, s, 's1', { [DEADLINES_VARIABLE]: JSON.stringify(Object.fromEntries(Object.keys(DEADLINES).map((event) => [event, USER_SET_DEADLINE_S]))) });
+    const waited = (run: HookRun, event: string) => assert.ok(run.ms >= PAST_USER_SET_MS, `${event}: the hook ended after ${run.ms} ms, before what it started answered`);
+    append(s, 'src/cli/main.ts', '// end\n');
+    const [start, edit] = await Promise.all([session.start(), session.edit('src/cli/main.ts')]);
+    json(start, started(primed), 'session-start');
+    waited(start, 'session-start');
+    nothing(edit, 'edit');
+    waited(edit, 'edit');
+    fakeWrites(bench.bin, ['fake-git-waited']);
+    const slowGit = fakeGit(bench.bin, where('git'), { firstWaitMs: PAST_USER_SET_MS });
+    const prompt = await session.prompt(slowGit);
+    nothing(prompt, 'prompt');
+    waited(prompt, 'prompt');
+    assert.equal(bench.state().open, true);
+    removeFakeGit(bench.bin);
+    write(s, D_PATH, D);
+    const stop = await session.stop();
+    json(stop, handBack(`${stopHeader()}\n\n${D_OUTPUT}`), 'stop');
+    waited(stop, 'stop');
+    assert.deepEqual(bench.checks(), [['check', './src/cli/main.ts'], ['check', `./${D_PATH}`]]);
   });
 });
 

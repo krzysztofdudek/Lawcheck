@@ -45,7 +45,7 @@ export const RULE_PAST_LIMIT_SHARE = 0.5;
 export const RULE_CALL_MS = 2_000;
 // What the variables of the test entries would set if they reached the tool or the hook a user runs, and how long a rule and a stand-in lawcheck then take: past those, and far inside the shipped 30 and 25 seconds.
 export const USER_SET_RULE_MS = 1_000;
-export const USER_SET_EDIT_DEADLINE_S = 1;
+export const USER_SET_DEADLINE_S = 1;
 export const PAST_USER_SET_MS = 2_500;
 
 // spec/reviewer-slice.md, section 6: a call ends at reviewer.timeout without waiting for the kill grace or a second full timeout. Tests 406 to 408 run with a timeout of 1 second, the shared list and call with one of SHARED_TIMEOUT_S, test 411 with one of 3; a timeout of 1 second of an HTTP provider in test 403, and a program that ended while a child holds its output, ended 2 seconds later.
@@ -280,7 +280,7 @@ export const stronger: Record<string, 'higher' | 'lower' | 'fixed'> = {
   RULE_CALL_MS: 'fixed',
   TEST_RULE_MS: 'fixed',
   USER_SET_RULE_MS: 'fixed',
-  USER_SET_EDIT_DEADLINE_S: 'fixed',
+  USER_SET_DEADLINE_S: 'fixed',
   PAST_USER_SET_MS: 'fixed',
   TEST_HOOK_DEADLINES: 'fixed',
   HOOK_SIGTERM_AFTER_MS: 'fixed',
