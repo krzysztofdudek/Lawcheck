@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { parse } from 'yaml';
 import { COMMIT_GROUPS, NIGHTLY_GROUPS, ROOT } from '../harness/sets.ts';
 
-type Job = { strategy?: { matrix?: { group?: string[]; include?: Record<string, unknown>[] } }; steps?: { run?: string }[]; needs?: string | string[]; name?: string; if?: string };
+type Job = { strategy?: { matrix?: { group?: string[]; os?: string[]; include?: Record<string, unknown>[] } }; steps?: { run?: string; if?: string }[]; needs?: string | string[]; name?: string; if?: string; 'runs-on'?: string };
 type Workflow = { jobs: Record<string, Job> };
 
 const WORKFLOWS = join(ROOT, '.github', 'workflows');
@@ -59,4 +59,38 @@ test('a group added to tests/harness/sets.ts and to no workflow is named, in eac
   const workflows = later();
   assert.deepEqual(nightlyProblems({ 'nightly.yml': workflows.nightly, 'weekly.yml': workflows.weekly }, [...Object.keys(NIGHTLY_GROUPS), 'planted']), ['nightly group planted runs in no workflow, not in exactly one job']);
   assert.deepEqual(commitProblems(named, ['inputs']), ['ci.yml: no job runs commit group inputs', 'ci.yml: group core is not a commit group of tests/harness/sets.ts']);
+});
+
+const WHOLE_COMMIT_SET = /^(npm test( -- --repeat [1-9]\d*)?|node tests\/run\.ts commit( --repeat [1-9]\d*)?)$/;
+const SYSTEM_OF: [RegExp, string][] = [[/^ubuntu-/, 'linux'], [/^windows-/, 'win32'], [/^macos-/, 'darwin']];
+
+// The systems on which a job runs the whole commit set, every test of every group, with no condition on the job or the step.
+function wholeSetSystems(workflow: Workflow): string[] {
+  const out = new Set<string>();
+  for (const job of Object.values(workflow.jobs)) {
+    if (job.if !== undefined || !(job.steps ?? []).some((step) => step.if === undefined && WHOLE_COMMIT_SET.test((step.run ?? '').trim()))) continue;
+    const on = job['runs-on'] ?? '';
+    const oses = on === '${{ matrix.os }}' ? [...(job.strategy?.matrix?.os ?? []), ...(job.strategy?.matrix?.include ?? []).map((e) => String(e.os))] : [on];
+    for (const os of oses) for (const [pattern, system] of SYSTEM_OF) if (pattern.test(os)) out.add(system);
+  }
+  return [...out].sort();
+}
+
+test('the nightly runs the whole commit set on Linux, Windows and macOS', () => {
+  assert.deepEqual(wholeSetSystems(read('nightly.yml')), ['darwin', 'linux', 'win32']);
+});
+
+test('a nightly that runs the whole commit set on Linux alone, behind a condition, or nowhere is refused (control)', () => {
+  const narrowed = read('nightly.yml');
+  narrowed.jobs.repeat!.strategy!.matrix!.os = ['ubuntu-latest'];
+  assert.deepEqual(wholeSetSystems(narrowed), ['linux']);
+  const gated = read('nightly.yml');
+  gated.jobs.repeat!.if = "github.event_name == 'schedule'";
+  assert.deepEqual(wholeSetSystems(gated), []);
+  const grouped = read('nightly.yml');
+  for (const step of grouped.jobs.repeat!.steps!) if (step.run !== undefined) step.run = step.run.replace('npm test -- --repeat 3', 'npm test -- --group core --repeat 3');
+  assert.deepEqual(wholeSetSystems(grouped), []);
+  const gone = read('nightly.yml');
+  delete gone.jobs.repeat;
+  assert.deepEqual(wholeSetSystems(gone), []);
 });
