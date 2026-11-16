@@ -4,8 +4,9 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parse } from 'yaml';
 import { COMMIT_GROUPS, NIGHTLY_GROUPS, ROOT } from '../harness/sets.ts';
+import { continueOnErrorProblems } from '../harness/workflows.ts';
 
-type Job = { strategy?: { matrix?: { group?: string[]; os?: string[]; include?: Record<string, unknown>[] } }; steps?: { run?: string; if?: string }[]; needs?: string | string[]; name?: string; if?: string; 'runs-on'?: string };
+type Job = { 'continue-on-error'?: unknown; strategy?: { matrix?: { group?: string[]; os?: string[]; include?: Record<string, unknown>[] } }; steps?: { name?: string; run?: string; if?: string; 'continue-on-error'?: unknown }[]; needs?: string | string[]; name?: string; if?: string; 'runs-on'?: string };
 type Workflow = { jobs: Record<string, Job> };
 
 const WORKFLOWS = join(ROOT, '.github', 'workflows');
@@ -109,4 +110,16 @@ function grammarKeys(workflows: Record<string, Workflow>): string[] {
 
 test('every grammar cache is keyed by every file that decides the bytes of .grammars', () => {
   assert.deepEqual(grammarKeys({ 'ci.yml': read('ci.yml'), 'nightly.yml': read('nightly.yml'), 'weekly.yml': read('weekly.yml'), 'release.yml': read('release.yml') }), []);
+});
+
+test('the nightly repeat job and its test step carry no continue-on-error, as a flake there must stop the release', () => {
+  assert.deepEqual(continueOnErrorProblems('nightly.yml', read('nightly.yml').jobs, ['repeat']), []);
+});
+
+test('continue-on-error on the nightly repeat job or its test step is refused, and a literal false is not (control)', () => {
+  const on = (edit: (workflow: Workflow) => void): string[] => { const workflow = read('nightly.yml'); edit(workflow); return continueOnErrorProblems('nightly.yml', workflow.jobs, ['repeat']); };
+  const reds = (what: string) => `nightly.yml: ${what} has continue-on-error, so GitHub reports its red as a success`;
+  assert.deepEqual(on((w) => { w.jobs.repeat!['continue-on-error'] = true; }), [reds('repeat')]);
+  assert.deepEqual(on((w) => { w.jobs.repeat!.steps!.find((s) => s.run === 'npm test -- --repeat 3')!['continue-on-error'] = true; }), [reds('step 6 of repeat (The commit set, three times)')]);
+  assert.deepEqual(on((w) => { w.jobs.repeat!['continue-on-error'] = false; }), []);
 });

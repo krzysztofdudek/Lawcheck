@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { parse } from 'yaml';
 import { failedTests, judgeShards, mergeProblems, profile, readShards, summary, tied, type Event, type Shard } from '../harness/merge.ts';
 import { judgeRun } from '../harness/reporter.ts';
+import { continueOnErrorProblems } from '../harness/workflows.ts';
 import { groupDirs, perPushFiles, PLATFORM_TESTS, ROOT, setFiles } from '../harness/sets.ts';
 import { balance, matrix, measureShards, plannedWalls, planProblems, readPlan, repoPath, SYSTEMS, wallOf, type Plan, type Run } from '../harness/shards.ts';
 
@@ -26,8 +27,8 @@ test('a plan that leaves a file out, names one twice, or names a file that is no
   assert.deepEqual(planProblems(changed(at, [...shards[at]!, 'tests/unit/none.test.ts'])).filter((p) => p.startsWith('linux:')), [`linux: shard ${at + 1} names tests/unit/none.test.ts, which is not a test file of the per-push set of linux`]);
 });
 
-type Step = { id?: string; name?: string; uses?: string; if?: string; env?: Record<string, string>; run?: string; with?: Record<string, unknown> };
-type CiJob = { needs?: string | string[]; if?: string; 'runs-on'?: string; outputs?: Record<string, string>; strategy?: { matrix?: { include?: unknown } }; steps?: Step[] };
+type Step = { id?: string; name?: string; uses?: string; if?: string; env?: Record<string, string>; run?: string; with?: Record<string, unknown>; 'continue-on-error'?: unknown };
+type CiJob = { 'continue-on-error'?: unknown; needs?: string | string[]; if?: string; 'runs-on'?: string; outputs?: Record<string, string>; strategy?: { matrix?: { include?: unknown } }; steps?: Step[] };
 type Ci = { jobs: Record<string, CiJob> };
 const OS: Record<(typeof SYSTEMS)[number], RegExp> = { linux: /^ubuntu-/, win32: /^windows-/, darwin: /^macos-/ };
 const needsOf = (job: CiJob | undefined): string[] => [job?.needs ?? []].flat().sort();
@@ -78,6 +79,7 @@ function ciProblems(ci: Ci, plan: Plan): string[] {
     const others = Object.keys(ci.jobs).filter((name) => name !== 'commit-set').sort();
     if (JSON.stringify(needsOf(gate)) !== JSON.stringify(others)) problems.push(`ci.yml: commit-set waits for ${needsOf(gate).join(', ')}, not for every other job`);
   }
+  problems.push(...continueOnErrorProblems('ci.yml', ci.jobs, Object.keys(ci.jobs).filter((name) => /^(shard|merge)-/.test(name) || name === 'commit-set')));
   return problems;
 }
 
@@ -108,6 +110,19 @@ test('a ci.yml that drops the runs of a system, merges a system after another\'s
   assert.deepEqual(changed((ci) => { ci.jobs['commit-set']!.needs = needsOf(ci.jobs['commit-set']).filter((n) => n !== 'shard-darwin'); }), [`ci.yml: commit-set waits for ${needsOf(ciFile().jobs['commit-set']).filter((n) => n !== 'shard-darwin').join(', ')}, not for every other job`]);
   assert.deepEqual(changed((ci) => { ci.jobs['merge-win32']!.if = 'success()'; }), ['ci.yml: merge-win32 does not run when a shard failed, was cancelled or skipped']);
   assert.deepEqual(changed((ci) => { ci.jobs['shard-darwin']!.if = "github.event_name == 'push'"; }), ["ci.yml: shard-darwin runs only if github.event_name == 'push'"]);
+});
+
+test('continue-on-error on a shard job, a merge job, the commit set job or any step of them is refused, and a literal false is not (control)', () => {
+  const plan = readPlan();
+  const changed = (edit: (ci: Ci) => void): string[] => { const ci = ciFile(); edit(ci); return ciProblems(ci, plan); };
+  const reds = (what: string) => `${what} has continue-on-error, so GitHub reports its red as a success`;
+  assert.deepEqual(changed((ci) => { ci.jobs['shard-linux']!['continue-on-error'] = true; }), [`ci.yml: ${reds('shard-linux')}`]);
+  assert.deepEqual(changed((ci) => { ci.jobs['shard-win32']!.steps!.find((s) => s.name?.startsWith('Shard '))!['continue-on-error'] = true; }), [`ci.yml: ${reds('step 6 of shard-win32 (Shard ${{ matrix.shard }} of ${{ matrix.of }})')}`]);
+  assert.deepEqual(changed((ci) => { ci.jobs['merge-darwin']!['continue-on-error'] = '${{ matrix.node != \'24\' }}'; }), [`ci.yml: ${reds('merge-darwin')}`]);
+  assert.deepEqual(changed((ci) => { ci.jobs['merge-linux']!.steps!.find((s) => s.name === 'The shards as one run')!['continue-on-error'] = true; }), [`ci.yml: ${reds('step 4 of merge-linux (The shards as one run)')}`]);
+  assert.deepEqual(changed((ci) => { ci.jobs['commit-set']!['continue-on-error'] = true; }), [`ci.yml: ${reds('commit-set')}`]);
+  assert.deepEqual(changed((ci) => { ci.jobs['commit-set']!.steps![0]!['continue-on-error'] = true; }), [`ci.yml: ${reds('step 1 of commit-set (Every job green)')}`]);
+  assert.deepEqual(changed((ci) => { ci.jobs['shard-linux']!['continue-on-error'] = false; ci.jobs['commit-set']!.steps![0]!['continue-on-error'] = false; }), []);
 });
 
 const ok = (file: string, name: string): Event => ({ type: 'test:pass', data: { file: join(ROOT, file), name, nesting: 0, details: { duration_ms: 5 } } });
