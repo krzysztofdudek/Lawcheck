@@ -1,0 +1,83 @@
+name: Suite guard
+
+# A branch cannot edit its own judge. On pull_request_target GitHub runs this file as the base holds it, never the branch's copy, and the job checks out the base and runs the base's guard, reading the head only as git objects: no code of the head runs here, and the token is read-only.
+on:
+  pull_request_target:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      base:
+        description: The commit or ref whose guard judges (default origin/main)
+        required: false
+      head:
+        description: The commit or ref that is judged (default the dispatched commit)
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  guard:
+    name: suite guard
+    runs-on: ubuntu-latest
+    steps:
+      - name: The base and the head
+        id: range
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BEFORE: ${{ github.event.before }}
+          INPUT_BASE: ${{ inputs.base }}
+          INPUT_HEAD: ${{ inputs.head }}
+          DEFAULT: ${{ github.event.repository.default_branch }}
+          SHA: ${{ github.sha }}
+        run: |
+          fetch=""
+          if [ "$EVENT" = pull_request_target ]; then
+            base="$PR_BASE"; head="$PR_HEAD"; fetch="refs/pull/$PR_NUMBER/head"
+          elif [ "$EVENT" = push ] && [ -n "$(printf '%s' "$BEFORE" | tr -d 0)" ]; then
+            base="$BEFORE"; head="$SHA"
+          else
+            base="${INPUT_BASE:-origin/${DEFAULT:-main}}"; head="${INPUT_HEAD:-$SHA}"
+          fi
+          {
+            echo "base=$base"
+            echo "head=$head"
+            echo "fetch=${fetch:-$head}"
+          } >> "$GITHUB_OUTPUT"
+          echo "base $base, head $head"
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: The base and the head, as git objects
+        env:
+          BASE: ${{ steps.range.outputs.base }}
+          FETCH: ${{ steps.range.outputs.fetch }}
+        run: |
+          case "$BASE" in origin/*) ;; *) git fetch --no-tags origin "$BASE" ;; esac
+          git fetch --no-tags origin "$FETCH"
+      - name: The guard of the base
+        env:
+          BASE_REF: ${{ steps.range.outputs.base }}
+          HEAD_REF: ${{ steps.range.outputs.head }}
+        run: |
+          set -eu
+          head=$(git rev-parse --verify "$HEAD_REF^{commit}" 2>/dev/null || git rev-parse --verify FETCH_HEAD)
+          base=$(git rev-parse --verify "$BASE_REF^{commit}")
+          git checkout -q --detach "$base"
+          if [ -f tests/guard/from-base.ts ]; then
+            exec node tests/guard/from-base.ts --base "$base" --head "$head"
+          fi
+          if [ -e tests/guard ] || [ -e tests/weakenings.md ]; then
+            echo "suite guard: could not run  the base $(git rev-parse --short "$base") holds tests/guard or tests/weakenings.md but no tests/guard/from-base.ts"
+            exit 1
+          fi
+          echo "suite guard: not judged  the base $(git rev-parse --short "$base") has no suite guard yet"
