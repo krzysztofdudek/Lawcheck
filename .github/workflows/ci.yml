@@ -52,30 +52,38 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { os: ubuntu-latest, node: '24', system: linux, shard: 1, of: 2 }
-          - { os: ubuntu-latest, node: '24', system: linux, shard: 2, of: 2 }
-          - { os: ubuntu-latest, node: 'newest', system: linux, shard: 1, of: 2 }
-          - { os: ubuntu-latest, node: 'newest', system: linux, shard: 2, of: 2 }
-          - { os: windows-latest, node: '24', system: win32, shard: 1, of: 6 }
-          - { os: windows-latest, node: '24', system: win32, shard: 2, of: 6 }
-          - { os: windows-latest, node: '24', system: win32, shard: 3, of: 6 }
-          - { os: windows-latest, node: '24', system: win32, shard: 4, of: 6 }
-          - { os: windows-latest, node: '24', system: win32, shard: 5, of: 6 }
-          - { os: windows-latest, node: '24', system: win32, shard: 6, of: 6 }
-          - { os: macos-latest, node: '24', system: darwin, shard: 1, of: 4 }
-          - { os: macos-latest, node: '24', system: darwin, shard: 2, of: 4 }
-          - { os: macos-latest, node: '24', system: darwin, shard: 3, of: 4 }
-          - { os: macos-latest, node: '24', system: darwin, shard: 4, of: 4 }
+          - { os: ubuntu-latest, node: '24', system: linux, shard: 1, of: 3, offline: true }
+          - { os: ubuntu-latest, node: '24', system: linux, shard: 2, of: 3, offline: true }
+          - { os: ubuntu-latest, node: '24', system: linux, shard: 3, of: 3, offline: true }
+          - { os: ubuntu-latest, node: '24.0.0', system: linux, shard: 1, of: 3 }
+          - { os: ubuntu-latest, node: '24.0.0', system: linux, shard: 2, of: 3 }
+          - { os: ubuntu-latest, node: '24.0.0', system: linux, shard: 3, of: 3 }
+          - { os: ubuntu-latest, node: 'newest', system: linux, shard: 1, of: 3 }
+          - { os: ubuntu-latest, node: 'newest', system: linux, shard: 2, of: 3 }
+          - { os: ubuntu-latest, node: 'newest', system: linux, shard: 3, of: 3 }
+          - { os: windows-latest, node: '24', system: win32, shard: 1, of: 8 }
+          - { os: windows-latest, node: '24', system: win32, shard: 2, of: 8 }
+          - { os: windows-latest, node: '24', system: win32, shard: 3, of: 8 }
+          - { os: windows-latest, node: '24', system: win32, shard: 4, of: 8 }
+          - { os: windows-latest, node: '24', system: win32, shard: 5, of: 8 }
+          - { os: windows-latest, node: '24', system: win32, shard: 6, of: 8 }
+          - { os: windows-latest, node: '24', system: win32, shard: 7, of: 8 }
+          - { os: windows-latest, node: '24', system: win32, shard: 8, of: 8 }
+          - { os: macos-latest, node: '24', system: darwin, shard: 1, of: 5 }
+          - { os: macos-latest, node: '24', system: darwin, shard: 2, of: 5 }
+          - { os: macos-latest, node: '24', system: darwin, shard: 3, of: 5 }
+          - { os: macos-latest, node: '24', system: darwin, shard: 4, of: 5 }
+          - { os: macos-latest, node: '24', system: darwin, shard: 5, of: 5 }
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           persist-credentials: false
-      # '24' is the newest 24.x and 'newest' the newest released Node: the range '*' leaves prereleases out, which 'latest' does not. check-latest asks for the newest even when the runner caches an older one.
+      # '24' is the newest 24.x, '24.0.0' the oldest Node the package accepts (engines: >=24), and 'newest' the newest released Node: the range '*' leaves prereleases out, which 'latest' does not. check-latest asks for the newest even when the runner caches an older one.
       - uses: actions/setup-node@v7
         with:
           node-version: ${{ matrix.node == 'newest' && '*' || matrix.node }}
-          check-latest: true
+          check-latest: ${{ matrix.node != '24.0.0' }}
           cache: npm
       - run: npm ci
       - uses: actions/download-artifact@v8
@@ -88,9 +96,18 @@ jobs:
           path: dist
       # Through npm, so the tests that pack the tarball start npm by its own script on every system.
       - name: Shard ${{ matrix.shard }} of ${{ matrix.of }}
+        if: ${{ !matrix.offline }}
         env:
           LAWCHECK_RECORD: ${{ runner.temp }}/shard
         run: npm run test:shard -- ${{ matrix.shard }}/${{ matrix.of }}
+      # In a network namespace that holds only a loopback device, as the runner's user with no supplementary group (so not the docker group, whose socket reaches the network), so a test that reaches the network outside the suites named for it fails here.
+      - name: Shard ${{ matrix.shard }} of ${{ matrix.of }}, with the network closed
+        if: ${{ matrix.offline }}
+        env:
+          LAWCHECK_RECORD: ${{ runner.temp }}/shard
+        run: |
+          sudo unshare --net -- sh -c 'ip link set lo up && u=$1 g=$2 && shift 2 && exec setpriv --reuid="$u" --regid="$g" --clear-groups env -i "$@"' \
+            sh "$(id -u)" "$(id -g)" PATH="$PATH" HOME="$HOME" USER="$(id -un)" LOGNAME="$(id -un)" LAWCHECK_RECORD="$LAWCHECK_RECORD" npm run test:shard -- ${{ matrix.shard }}/${{ matrix.of }}
       - uses: actions/upload-artifact@v7
         if: always()
         with:
@@ -110,6 +127,7 @@ jobs:
       matrix:
         include:
           - { os: ubuntu-latest, node: '24', system: linux }
+          - { os: ubuntu-latest, node: '24.0.0', system: linux }
           - { os: ubuntu-latest, node: 'newest', system: linux }
           - { os: windows-latest, node: '24', system: win32 }
           - { os: macos-latest, node: '24', system: darwin }
@@ -120,7 +138,7 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: ${{ matrix.node == 'newest' && '*' || matrix.node }}
-          check-latest: true
+          check-latest: ${{ matrix.node != '24.0.0' }}
           cache: npm
       - run: npm ci
       - uses: actions/download-artifact@v8
@@ -130,46 +148,6 @@ jobs:
           merge-multiple: true
       - name: The shards as one run
         run: node tests/harness/merge.ts shards
-
-  # The oldest Node the package accepts (engines: >=24), so a use of an API newer than 24.0.0 fails here.
-  floor:
-    name: commit floor (ubuntu-latest, Node 24.0.0)
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24.0.0
-          cache: npm
-      - run: npm ci
-      - uses: actions/download-artifact@v8
-        with:
-          name: grammar-cache
-          path: .grammars
-      - name: The commit set on Node 24.0.0
-        run: npm test
-
-  # The same commit set in a network namespace that holds only a loopback device, as the runner's user with no supplementary group (so not the docker group, whose socket reaches the network), so a test that reaches the network outside the suites named for it fails here.
-  offline:
-    name: commit offline (ubuntu-latest, Node 24)
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: npm
-      - run: npm ci
-      - uses: actions/download-artifact@v8
-        with:
-          name: grammar-cache
-          path: .grammars
-      - name: The commit set with the network closed
-        run: |
-          sudo unshare --net -- sh -c 'ip link set lo up && u=$1 g=$2 && shift 2 && exec setpriv --reuid="$u" --regid="$g" --clear-groups env -i "$@"' \
-            sh "$(id -u)" "$(id -g)" PATH="$PATH" HOME="$HOME" USER="$(id -un)" LOGNAME="$(id -un)" npm test
 
   # Lawcheck on two public repositories pinned at full commits (tests/real), held to the committed expected results. Each repository is fetched by its commit alone.
   real:
@@ -217,7 +195,7 @@ jobs:
   # The one required check: green only when every job above is green; a cancelled, skipped or missing job is red.
   commit-set:
     name: commit set
-    needs: [build, shard, merge, floor, offline, real, plugin, workflows]
+    needs: [build, shard, merge, real, plugin, workflows]
     if: always()
     runs-on: ubuntu-latest
     steps:
