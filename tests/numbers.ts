@@ -39,6 +39,8 @@ export const STOPPED_HOOK_ENDS_MS = 10_000;
 // spec/check-slice.md, test 24: a rule that hangs crashes within 40 seconds of a limit of 30, so within 10 seconds of its limit. The per-push run gives the tool a limit of 3 seconds in place of 30, which leaves the runner time to start on a busy Windows runner, so that the hang in check is stopped in its call and not in its load; the nightly runs the shipped one.
 export const RULE_PAST_LIMIT_MS = 10_000;
 export const TEST_RULE_MS = 3_000;
+// How far past its limit a hung rule may run, as a share of the limit, counted from the moment the rule says it hangs: the runner is ended and the tool prints and exits. A timer set to twice the limit or more fails it.
+export const RULE_PAST_LIMIT_SHARE = 0.5;
 // What the variables of the test entries would set if they reached the tool or the hook a user runs, and how long a rule and a stand-in lawcheck then take: past those, and far inside the shipped 30 and 25 seconds.
 export const USER_SET_RULE_MS = 1_000;
 export const USER_SET_EDIT_DEADLINE_S = 1;
@@ -272,6 +274,7 @@ export const stronger: Record<string, 'higher' | 'lower' | 'fixed'> = {
   FAKE_STARTED_MS: 'lower',
   HOOK_PAST_DEADLINE_MS: 'lower',
   RULE_PAST_LIMIT_MS: 'lower',
+  RULE_PAST_LIMIT_SHARE: 'lower',
   TEST_RULE_MS: 'fixed',
   USER_SET_RULE_MS: 'fixed',
   USER_SET_EDIT_DEADLINE_S: 'fixed',
