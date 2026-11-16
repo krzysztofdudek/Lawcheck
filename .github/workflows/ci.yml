@@ -15,12 +15,32 @@ jobs:
   build:
     name: build
     runs-on: ubuntu-latest
+    outputs:
+      shards_linux: ${{ steps.matrix.outputs.shards_linux }}
+      shards_win32: ${{ steps.matrix.outputs.shards_win32 }}
+      shards_darwin: ${{ steps.matrix.outputs.shards_darwin }}
+      runs_linux: ${{ steps.matrix.outputs.runs_linux }}
+      runs_win32: ${{ steps.matrix.outputs.runs_win32 }}
+      runs_darwin: ${{ steps.matrix.outputs.runs_darwin }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
+      # The runs of each system per push; tests/harness/shards.json gives each its shards, so a new plan changes no line here.
+      - name: The shards of each system
+        id: matrix
+        env:
+          RUNS: >-
+            [{"os": "ubuntu-latest", "node": "24", "system": "linux", "offline": true},
+            {"os": "ubuntu-latest", "node": "24.0.0", "system": "linux"},
+            {"os": "ubuntu-latest", "node": "newest", "system": "linux"},
+            {"os": "windows-latest", "node": "24", "system": "win32"},
+            {"os": "macos-latest", "node": "24", "system": "darwin"}]
+        run: |
+          set -o pipefail
+          node tests/harness/shards.ts matrix "$RUNS" | tee -a "$GITHUB_OUTPUT"
       - run: npm ci
       - uses: actions/cache@v6
         with:
@@ -43,31 +63,15 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  # The per-push commit set of each system, in the shards of tests/harness/shards.json. Each shard records its events; the merge job of its system judges them as one run.
-  shard:
+  # The per-push commit set of each system, in the shards of tests/harness/shards.json, one job per system so that each system's merge waits for its own shards only. Each shard records its events.
+  shard-linux:
     name: commit shard ${{ matrix.shard }}/${{ matrix.of }} (${{ matrix.os }}, Node ${{ matrix.node }})
     needs: build
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - { os: ubuntu-latest, node: '24', system: linux, shard: 1, of: 3, offline: true }
-          - { os: ubuntu-latest, node: '24', system: linux, shard: 2, of: 3, offline: true }
-          - { os: ubuntu-latest, node: '24', system: linux, shard: 3, of: 3, offline: true }
-          - { os: ubuntu-latest, node: '24.0.0', system: linux, shard: 1, of: 3 }
-          - { os: ubuntu-latest, node: '24.0.0', system: linux, shard: 2, of: 3 }
-          - { os: ubuntu-latest, node: '24.0.0', system: linux, shard: 3, of: 3 }
-          - { os: ubuntu-latest, node: 'newest', system: linux, shard: 1, of: 3 }
-          - { os: ubuntu-latest, node: 'newest', system: linux, shard: 2, of: 3 }
-          - { os: ubuntu-latest, node: 'newest', system: linux, shard: 3, of: 3 }
-          - { os: windows-latest, node: '24', system: win32, shard: 1, of: 4 }
-          - { os: windows-latest, node: '24', system: win32, shard: 2, of: 4 }
-          - { os: windows-latest, node: '24', system: win32, shard: 3, of: 4 }
-          - { os: windows-latest, node: '24', system: win32, shard: 4, of: 4 }
-          - { os: macos-latest, node: '24', system: darwin, shard: 1, of: 3 }
-          - { os: macos-latest, node: '24', system: darwin, shard: 2, of: 3 }
-          - { os: macos-latest, node: '24', system: darwin, shard: 3, of: 3 }
+        include: ${{ fromJSON(needs.build.outputs.shards_linux) }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -110,24 +114,18 @@ jobs:
           if-no-files-found: error
           retention-days: 3
 
-  # One system's shards judged as one run: every shard reported, the files they ran are the per-push set of the system each once, and the reporter judges the merged events as it judges a whole run.
-  merge:
-    name: commit ${{ matrix.system }} (${{ matrix.os }}, Node ${{ matrix.node }})
-    needs: shard
-    if: always()
+  shard-win32:
+    name: commit shard ${{ matrix.shard }}/${{ matrix.of }} (${{ matrix.os }}, Node ${{ matrix.node }})
+    needs: build
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - { os: ubuntu-latest, node: '24', system: linux }
-          - { os: ubuntu-latest, node: '24.0.0', system: linux }
-          - { os: ubuntu-latest, node: 'newest', system: linux }
-          - { os: windows-latest, node: '24', system: win32 }
-          - { os: macos-latest, node: '24', system: darwin }
+        include: ${{ fromJSON(needs.build.outputs.shards_win32) }}
     steps:
       - uses: actions/checkout@v7
         with:
+          fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-node@v7
         with:
@@ -137,12 +135,150 @@ jobs:
       - run: npm ci
       - uses: actions/download-artifact@v8
         with:
+          name: grammar-cache
+          path: .grammars
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist
+      - name: Shard ${{ matrix.shard }} of ${{ matrix.of }}
+        env:
+          LAWCHECK_RECORD: ${{ runner.temp }}/shard
+        run: npm run test:shard -- ${{ matrix.shard }}/${{ matrix.of }}
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: shard-${{ matrix.os }}-${{ matrix.node }}-${{ matrix.shard }}
+          path: ${{ runner.temp }}/shard
+          if-no-files-found: error
+          retention-days: 3
+
+  shard-darwin:
+    name: commit shard ${{ matrix.shard }}/${{ matrix.of }} (${{ matrix.os }}, Node ${{ matrix.node }})
+    needs: build
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.build.outputs.shards_darwin) }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node == 'newest' && '*' || matrix.node }}
+          check-latest: ${{ matrix.node != '24.0.0' }}
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v8
+        with:
+          name: grammar-cache
+          path: .grammars
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist
+      - name: Shard ${{ matrix.shard }} of ${{ matrix.of }}
+        env:
+          LAWCHECK_RECORD: ${{ runner.temp }}/shard
+        run: npm run test:shard -- ${{ matrix.shard }}/${{ matrix.of }}
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: shard-${{ matrix.os }}-${{ matrix.node }}-${{ matrix.shard }}
+          path: ${{ runner.temp }}/shard
+          if-no-files-found: error
+          retention-days: 3
+
+  # One system's shards judged as one run: every shard reported, the files they ran are the per-push set of the system each once, and the reporter judges the merged events as it judges a whole run. The merge reads only the recordings, so it runs on Linux for every system, without npm ci.
+  merge-linux:
+    name: commit ${{ matrix.system }} (${{ matrix.os }}, Node ${{ matrix.node }})
+    needs: [build, shard-linux]
+    if: always()
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.build.outputs.runs_linux) }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - uses: actions/download-artifact@v8
+        with:
           pattern: shard-${{ matrix.os }}-${{ matrix.node }}-*
           path: shards
           merge-multiple: true
       - name: The shards as one run
         run: node tests/harness/merge.ts shards --system ${{ matrix.system }} --profile "${{ runner.temp }}/profile.json" --summary "$GITHUB_STEP_SUMMARY"
-      # Every test's file and time on this system, for the shard plan (node tests/harness/shards.ts plan --measured) and for finding where the seconds go.
+      # Every test's file and time on this system, and what each file took in its shard, for the shard plan (node tests/harness/shards.ts plan --measured) and for finding where the seconds go.
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: profile-${{ matrix.os }}-${{ matrix.node }}
+          path: ${{ runner.temp }}/profile.json
+          if-no-files-found: warn
+          retention-days: 30
+
+  merge-win32:
+    name: commit ${{ matrix.system }} (${{ matrix.os }}, Node ${{ matrix.node }})
+    needs: [build, shard-win32]
+    if: always()
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.build.outputs.runs_win32) }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: shard-${{ matrix.os }}-${{ matrix.node }}-*
+          path: shards
+          merge-multiple: true
+      - name: The shards as one run
+        run: node tests/harness/merge.ts shards --system ${{ matrix.system }} --profile "${{ runner.temp }}/profile.json" --summary "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: profile-${{ matrix.os }}-${{ matrix.node }}
+          path: ${{ runner.temp }}/profile.json
+          if-no-files-found: warn
+          retention-days: 30
+
+  merge-darwin:
+    name: commit ${{ matrix.system }} (${{ matrix.os }}, Node ${{ matrix.node }})
+    needs: [build, shard-darwin]
+    if: always()
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.build.outputs.runs_darwin) }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: shard-${{ matrix.os }}-${{ matrix.node }}-*
+          path: shards
+          merge-multiple: true
+      - name: The shards as one run
+        run: node tests/harness/merge.ts shards --system ${{ matrix.system }} --profile "${{ runner.temp }}/profile.json" --summary "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v7
         if: always()
         with:
@@ -197,7 +333,7 @@ jobs:
   # The one required check: green only when every job above is green; a cancelled, skipped or missing job is red.
   commit-set:
     name: commit set
-    needs: [build, shard, merge, real, plugin, workflows]
+    needs: [build, shard-linux, shard-win32, shard-darwin, merge-linux, merge-win32, merge-darwin, real, plugin, workflows]
     if: always()
     runs-on: ubuntu-latest
     steps:

@@ -7,11 +7,8 @@ import { parse } from 'yaml';
 import { failedTests, judgeShards, mergeProblems, profile, readShards, summary, tied, type Event, type Shard } from '../harness/merge.ts';
 import { judgeRun } from '../harness/reporter.ts';
 import { groupDirs, perPushFiles, PLATFORM_TESTS, ROOT, setFiles } from '../harness/sets.ts';
-import { balance, measureShards, plannedWalls, planProblems, readPlan, repoPath, SYSTEMS, wallOf, type Plan } from '../harness/shards.ts';
+import { balance, matrix, measureShards, plannedWalls, planProblems, readPlan, repoPath, SYSTEMS, wallOf, type Plan, type Run } from '../harness/shards.ts';
 
-type Entry = { os: string; node: string; system: string; shard?: number; of?: number };
-type Job = { needs?: string | string[]; if?: string; strategy?: { matrix?: { include?: Entry[] } } };
-const ci = parse(readFileSync(join(ROOT, '.github', 'workflows', 'ci.yml'), 'utf8')) as { jobs: Record<string, Job> };
 
 test('every test file of each system\'s per-push set is in exactly one shard of tests/harness/shards.json', () => {
   assert.deepEqual(planProblems(readPlan()), []);
@@ -29,25 +26,88 @@ test('a plan that leaves a file out, names one twice, or names a file that is no
   assert.deepEqual(planProblems(changed(at, [...shards[at]!, 'tests/unit/none.test.ts'])).filter((p) => p.startsWith('linux:')), [`linux: shard ${at + 1} names tests/unit/none.test.ts, which is not a test file of the per-push set of linux`]);
 });
 
-test('the shards of ci.yml are the shards of the plan, for each system and Node, and the merge and the one required check wait for them', () => {
-  const plan = readPlan();
-  const entries = ci.jobs.shard?.strategy?.matrix?.include ?? [];
-  const runs = new Map<string, Entry[]>();
-  for (const e of entries) runs.set(`${e.os} ${e.node}`, [...(runs.get(`${e.os} ${e.node}`) ?? []), e]);
-  assert.ok(runs.size >= 3);
-  for (const [run, list] of runs) {
-    const system = list[0]!.system;
-    assert.ok((SYSTEMS as readonly string[]).includes(system), run);
-    const count = plan.shards[system]!.length;
-    assert.deepEqual(list.map((e) => [e.system, e.shard, e.of]).sort(), Array.from({ length: count }, (_, i) => [system, i + 1, count]).sort(), run);
+type Step = { id?: string; name?: string; uses?: string; if?: string; env?: Record<string, string>; run?: string; with?: Record<string, unknown> };
+type CiJob = { needs?: string | string[]; if?: string; 'runs-on'?: string; outputs?: Record<string, string>; strategy?: { matrix?: { include?: unknown } }; steps?: Step[] };
+type Ci = { jobs: Record<string, CiJob> };
+const OS: Record<(typeof SYSTEMS)[number], RegExp> = { linux: /^ubuntu-/, win32: /^windows-/, darwin: /^macos-/ };
+const needsOf = (job: CiJob | undefined): string[] => [job?.needs ?? []].flat().sort();
+
+// Each system runs per push in the shards of the plan and is merged on its own: the build prints the matrix from tests/harness/shards.json, one shard job per system reads it, the merge of a system waits for that system's shards only, and the one required check waits for every job.
+function ciProblems(ci: Ci, plan: Plan): string[] {
+  const problems: string[] = [];
+  const build = ci.jobs.build;
+  const step = build?.steps?.find((s) => /^set -o pipefail\nnode tests\/harness\/shards\.ts matrix "\$RUNS" \| tee -a "\$GITHUB_OUTPUT"\n?$/.test(s.run ?? ''));
+  if (step === undefined || step.id === undefined || step.env?.RUNS === undefined) return ['ci.yml: no step of the build job prints the matrix of tests/harness/shards.json from its RUNS'];
+  const runs = JSON.parse(step.env.RUNS) as Run[];
+  const { outputs, problems: planned } = matrix(plan, runs);
+  problems.push(...planned.map((p) => `ci.yml: ${p}`));
+  for (const run of runs) {
+    if (!(SYSTEMS as readonly string[]).includes(run.system)) continue;
+    if (!OS[run.system].test(run.os)) problems.push(`ci.yml: the run ${run.os} Node ${run.node} is named ${run.system}`);
+    if (run.offline !== undefined && run.system !== 'linux') problems.push(`ci.yml: the run ${run.os} Node ${run.node} asks for a closed network, which only the shards of Linux close`);
   }
-  const merges = (ci.jobs.merge?.strategy?.matrix?.include ?? []).map((e) => `${e.os} ${e.node}`).sort();
-  assert.deepEqual(merges, [...runs.keys()].sort());
-  assert.equal(ci.jobs.merge?.if, 'always()');
-  const gate = ci.jobs['commit-set']!;
-  assert.equal(gate.if, 'always()');
-  const others = Object.keys(ci.jobs).filter((name) => name !== 'commit-set');
-  assert.deepEqual([...(gate.needs as string[])].sort(), others.sort());
+  for (const system of SYSTEMS) {
+    for (const key of [`shards_${system}`, `runs_${system}`]) {
+      if (build!.outputs?.[key] !== `\${{ steps.${step.id}.outputs.${key} }}`) problems.push(`ci.yml: the build job does not give out ${key} of its matrix step`);
+      if (!(key in outputs) || (outputs[key] ?? []).length === 0) problems.push(`ci.yml: ${key} is empty`);
+    }
+    const shard = ci.jobs[`shard-${system}`];
+    if (shard === undefined) { problems.push(`ci.yml: no job shard-${system}`); continue; }
+    if (!needsOf(shard).includes('build')) problems.push(`ci.yml: shard-${system} does not wait for the build`);
+    if (shard.strategy?.matrix?.include !== `\${{ fromJSON(needs.build.outputs.shards_${system}) }}`) problems.push(`ci.yml: shard-${system} does not run the shards the plan has for ${system}`);
+    if (shard['runs-on'] !== '${{ matrix.os }}') problems.push(`ci.yml: shard-${system} does not run on the system of its run`);
+    if (shard.if !== undefined) problems.push(`ci.yml: shard-${system} runs only if ${shard.if}`);
+    const runsShard = (shard.steps ?? []).filter((s) => (s.run ?? '').includes('npm run test:shard -- ${{ matrix.shard }}/${{ matrix.of }}'));
+    if (runsShard.length === 0 || runsShard.some((s) => s.env?.LAWCHECK_RECORD !== '${{ runner.temp }}/shard')) problems.push(`ci.yml: shard-${system} does not run and record its shard`);
+    const upload = (shard.steps ?? []).find((s) => s.uses?.startsWith('actions/upload-artifact@') && s.with?.name === 'shard-${{ matrix.os }}-${{ matrix.node }}-${{ matrix.shard }}');
+    if (upload?.if !== 'always()') problems.push(`ci.yml: shard-${system} does not upload its recording whatever its result`);
+    const merge = ci.jobs[`merge-${system}`];
+    if (merge === undefined) { problems.push(`ci.yml: no job merge-${system}`); continue; }
+    if (JSON.stringify(needsOf(merge)) !== JSON.stringify(['build', `shard-${system}`].sort())) problems.push(`ci.yml: merge-${system} waits for ${needsOf(merge).join(', ')}, not for the build and the shards of ${system} alone`);
+    if (merge.if !== 'always()') problems.push(`ci.yml: merge-${system} does not run when a shard failed, was cancelled or skipped`);
+    if (merge.strategy?.matrix?.include !== `\${{ fromJSON(needs.build.outputs.runs_${system}) }}`) problems.push(`ci.yml: merge-${system} does not merge each run of ${system}`);
+    const merged = (merge.steps ?? []).find((s) => /^node tests\/harness\/merge\.ts shards --system \$\{\{ matrix\.system \}\}( |$)/.test(s.run ?? ''));
+    const download = (merge.steps ?? []).find((s) => s.uses?.startsWith('actions/download-artifact@') && s.with?.pattern === 'shard-${{ matrix.os }}-${{ matrix.node }}-*' && s.with?.path === 'shards');
+    if (merged === undefined || download === undefined) problems.push(`ci.yml: merge-${system} does not judge the shards of its run as one run of its system`);
+  }
+  for (const name of Object.keys(ci.jobs)) if (/^(shard|merge)(-|$)/.test(name) && !SYSTEMS.some((system) => name === `shard-${system}` || name === `merge-${system}`)) problems.push(`ci.yml: ${name} is no job of a system`);
+  const gate = ci.jobs['commit-set'];
+  if (gate === undefined) problems.push('ci.yml: no job commit-set');
+  else {
+    if (gate.if !== 'always()') problems.push('ci.yml: commit-set does not run when a job failed, was cancelled or skipped');
+    const others = Object.keys(ci.jobs).filter((name) => name !== 'commit-set').sort();
+    if (JSON.stringify(needsOf(gate)) !== JSON.stringify(others)) problems.push(`ci.yml: commit-set waits for ${needsOf(gate).join(', ')}, not for every other job`);
+  }
+  return problems;
+}
+
+const ciFile = (): Ci => parse(readFileSync(join(ROOT, '.github', 'workflows', 'ci.yml'), 'utf8')) as Ci;
+
+test('each of the three systems runs per push in the shards of tests/harness/shards.json, each system\'s merge waits for its own shards only, and the one required check waits for every job', () => {
+  const ci = ciFile();
+  const plan = readPlan();
+  assert.deepEqual(ciProblems(ci, plan), []);
+  const runs = JSON.parse(ci.jobs.build!.steps!.find((s) => s.id === 'matrix')!.env!.RUNS!) as Run[];
+  const { outputs } = matrix(plan, runs);
+  for (const system of SYSTEMS) {
+    const count = plan.shards[system]!.length;
+    const mine = runs.filter((run) => run.system === system);
+    assert.ok(mine.length > 0, system);
+    assert.deepEqual(outputs[`shards_${system}`], mine.flatMap((run) => Array.from({ length: count }, (_, i) => ({ ...run, shard: i + 1, of: count }))), system);
+  }
+});
+
+test('a ci.yml that drops the runs of a system, merges a system after another\'s shards, writes the shards by hand, or leaves a job out of the required check is refused (control)', () => {
+  const plan = readPlan();
+  const changed = (edit: (ci: Ci) => void): string[] => { const ci = ciFile(); edit(ci); return ciProblems(ci, plan); };
+  const runsOf = (ci: Ci) => ci.jobs.build!.steps!.find((s) => s.id === 'matrix')!.env!;
+  assert.deepEqual(changed((ci) => { const env = runsOf(ci); env.RUNS = JSON.stringify((JSON.parse(env.RUNS!) as Run[]).filter((run) => run.system !== 'win32')); }), ['ci.yml: no run of win32 per push', 'ci.yml: shards_win32 is empty', 'ci.yml: runs_win32 is empty']);
+  assert.deepEqual(changed((ci) => { ci.jobs['merge-darwin']!.needs = ['build', 'shard-darwin', 'shard-win32']; }), ['ci.yml: merge-darwin waits for build, shard-darwin, shard-win32, not for the build and the shards of darwin alone']);
+  assert.deepEqual(changed((ci) => { ci.jobs['shard-win32']!.strategy!.matrix!.include = [{ os: 'windows-latest', node: '24', system: 'win32', shard: 1, of: 1 }]; }), ['ci.yml: shard-win32 does not run the shards the plan has for win32']);
+  assert.deepEqual(changed((ci) => { delete ci.jobs['merge-darwin']; ci.jobs['commit-set']!.needs = needsOf(ci.jobs['commit-set']).filter((n) => n !== 'merge-darwin'); }), ['ci.yml: no job merge-darwin']);
+  assert.deepEqual(changed((ci) => { ci.jobs['commit-set']!.needs = needsOf(ci.jobs['commit-set']).filter((n) => n !== 'shard-darwin'); }), [`ci.yml: commit-set waits for ${needsOf(ciFile().jobs['commit-set']).filter((n) => n !== 'shard-darwin').join(', ')}, not for every other job`]);
+  assert.deepEqual(changed((ci) => { ci.jobs['merge-win32']!.if = 'success()'; }), ['ci.yml: merge-win32 does not run when a shard failed, was cancelled or skipped']);
+  assert.deepEqual(changed((ci) => { ci.jobs['shard-darwin']!.if = "github.event_name == 'push'"; }), ["ci.yml: shard-darwin runs only if github.event_name == 'push'"]);
 });
 
 const ok = (file: string, name: string): Event => ({ type: 'test:pass', data: { file: join(ROOT, file), name, nesting: 0, details: { duration_ms: 5 } } });
