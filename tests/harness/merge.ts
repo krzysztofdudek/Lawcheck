@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { COMMIT_TARGET_MS } from '../numbers.ts';
@@ -104,7 +104,18 @@ async function* replay(events: Event[]): AsyncGenerator<Event> {
   for (const e of events) yield e;
 }
 
-export function profile(system: string, shards: Shard[]): { system: string; node: string; files: Record<string, number>; tests: Record<string, { file: string; ms: number; shard: number }> } {
+// A system's run takes its wall time, from the first shard's start to the last one's end, as the shards run side by side; the summed time is what the shards spent together.
+export function times(shards: Shard[]): { wall: number; summed: number; slowest: { shard: number; ms: number } | null } {
+  if (shards.length === 0) return { wall: 0, summed: 0, slowest: null };
+  const took = shards.map((s) => ({ shard: s.meta.shard, ms: s.meta.ended - s.meta.started }));
+  return {
+    wall: Math.max(...shards.map((s) => s.meta.ended)) - Math.min(...shards.map((s) => s.meta.started)),
+    summed: took.reduce((sum, t) => sum + t.ms, 0),
+    slowest: took.reduce((a, b) => (b.ms > a.ms ? b : a)),
+  };
+}
+
+export function profile(system: string, shards: Shard[]): { system: string; node: string; wall_ms: number; summed_ms: number; shards: { shard: number; files: number; started: number; ended: number }[]; files: Record<string, number>; tests: Record<string, { file: string; ms: number; shard: number }> } {
   const files: Record<string, number> = {};
   const tests: Record<string, { file: string; ms: number; shard: number }> = {};
   for (const s of shards) for (const e of s.events) {
@@ -115,7 +126,9 @@ export function profile(system: string, shards: Shard[]): { system: string; node
     files[file] = (files[file] ?? 0) + ms;
     tests[`${file} > ${e.data.name}`] = { file, ms, shard: s.meta.shard };
   }
-  return { system, node: shards[0]?.meta.node ?? '', files, tests };
+  const { wall, summed } = times(shards);
+  const timed = [...shards].sort((a, b) => a.meta.shard - b.meta.shard).map((s) => ({ shard: s.meta.shard, files: s.meta.files.length, started: s.meta.started, ended: s.meta.ended }));
+  return { system, node: shards[0]?.meta.node ?? '', wall_ms: wall, summed_ms: summed, shards: timed, files, tests };
 }
 
 export type Judge = typeof judgeRun;
@@ -126,15 +139,14 @@ export async function judgeShards(system: System, plan: Plan, shards: Shard[], f
   const selected = perPushTests(system, files) === null ? null : PLATFORM_TESTS.filter((t) => t.systems.includes(system as 'win32' | 'darwin') && files.includes(t.file)).map((t) => ({ file: t.file, test: t.test }));
   const problems = mergeProblems(system, plan, ordered, files, selected);
   const events = ordered.flatMap((s) => s.events);
-  const spent = ordered.reduce((sum, s) => sum + (s.meta.ended - s.meta.started), 0);
-  const wall = ordered.length === 0 ? 0 : Math.max(...ordered.map((s) => s.meta.ended)) - Math.min(...ordered.map((s) => s.meta.started));
-  const lines = [`the commit set on ${system} in ${ordered.length} shards: ${ordered.map((s) => `${s.meta.shard}: ${s.meta.files.length} files in ${((s.meta.ended - s.meta.started) / 1000).toFixed(0)} s`).join(', ')}; ${(spent / 1000).toFixed(0)} s of tests, ${(wall / 1000).toFixed(0)} s from the first start to the last end`];
+  const { wall, summed } = times(ordered);
+  const lines = [`the commit set on ${system} in ${ordered.length} shards: ${ordered.map((s) => `${s.meta.shard}: ${s.meta.files.length} files in ${((s.meta.ended - s.meta.started) / 1000).toFixed(0)} s`).join(', ')}; ${(wall / 1000).toFixed(0)} s of wall time from the first shard's start to the last one's end, ${(summed / 1000).toFixed(0)} s summed over the shards`];
   const env = { LAWCHECK_SPEED: process.env.LAWCHECK_SPEED, LAWCHECK_TIE: process.env.LAWCHECK_TIE };
   process.env.LAWCHECK_SPEED = 'commit';
   process.env.LAWCHECK_TIE = '1';
   let judged: Awaited<ReturnType<Judge>>;
   try {
-    judged = await verdict(replay(events), { system, started: Date.now() - spent, target: COMMIT_TARGET_MS });
+    judged = await verdict(replay(events), { system, started: Date.now() - wall, target: COMMIT_TARGET_MS });
   } finally {
     for (const [key, value] of Object.entries(env)) if (value === undefined) delete process.env[key]; else process.env[key] = value;
   }
@@ -145,26 +157,33 @@ export async function judgeShards(system: System, plan: Plan, shards: Shard[], f
   return { text: `${lines.join('\n')}\n`, failed };
 }
 
-export async function judge(dir: string, system: System, profileTo: string | null = null): Promise<{ text: string; failed: boolean }> {
+export function summary(system: string, shards: Shard[], failed: boolean): string {
+  const { wall, summed, slowest } = times(shards);
+  const node = shards[0]?.meta.node ?? '';
+  return `### The commit set on ${system}${node === '' ? '' : `, Node ${node}`}: ${failed ? 'FAIL' : 'PASS'}\n\n${(wall / 1000).toFixed(0)} s of wall time, from the first shard's start to the last one's end; ${(summed / 1000).toFixed(0)} s summed over ${shards.length} shards${slowest === null ? '' : `; the slowest, shard ${slowest.shard}, took ${(slowest.ms / 1000).toFixed(0)} s`}.\n\n`;
+}
+
+export async function judge(dir: string, system: System, out: { profile?: string; summary?: string } = {}): Promise<{ text: string; failed: boolean }> {
   const { shards, problems } = readShards(dir);
-  if (profileTo !== null) writeFileSync(profileTo, `${JSON.stringify(profile(system, shards), null, 2)}\n`);
+  if (out.profile !== undefined) writeFileSync(out.profile, `${JSON.stringify(profile(system, shards), null, 2)}\n`);
   const judged = await judgeShards(system, readPlan(), shards, perPushFiles(system));
-  if (problems.length === 0) return judged;
-  return { text: `${judged.text}${problems.map((p) => `\nRED      the shards of this run are not one whole run\ngot      ${p}\n`).join('')}`, failed: true };
+  const result = problems.length === 0 ? judged : { text: `${judged.text}${problems.map((p) => `\nRED      the shards of this run are not one whole run\ngot      ${p}\n`).join('')}`, failed: true };
+  if (out.summary !== undefined) appendFileSync(out.summary, summary(system, shards, result.failed));
+  return result;
 }
 
 if (process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const usage = 'usage: node tests/harness/merge.ts <folder holding meta-<i>.json and events-<i>.jsonl of every shard> --system <linux|win32|darwin> [--profile <file>]\n';
+  const usage = 'usage: node tests/harness/merge.ts <folder holding meta-<i>.json and events-<i>.jsonl of every shard> --system <linux|win32|darwin> [--profile <file>] [--summary <file>]\n';
   const [dir, ...rest] = process.argv.slice(2);
   const options: Record<string, string> = {};
   for (let i = 0; i < rest.length; i += 2) {
     const [flag, value] = [rest[i]!, rest[i + 1]];
-    if (!['--system', '--profile'].includes(flag) || value === undefined || options[flag] !== undefined) { process.stderr.write(usage); process.exit(2); }
+    if (!['--system', '--profile', '--summary'].includes(flag) || value === undefined || options[flag] !== undefined) { process.stderr.write(usage); process.exit(2); }
     options[flag] = value;
   }
   const system = options['--system'] as System | undefined;
   if (dir === undefined || system === undefined || !(SYSTEMS as readonly string[]).includes(system)) { process.stderr.write(usage); process.exit(2); }
-  const { text, failed } = await judge(resolve(dir), system, options['--profile'] === undefined ? null : resolve(options['--profile']));
+  const { text, failed } = await judge(resolve(dir), system, { profile: options['--profile'], summary: options['--summary'] });
   process.stdout.write(text);
   process.exit(failed ? 1 : 0);
 }

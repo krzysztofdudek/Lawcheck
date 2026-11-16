@@ -4,7 +4,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { parse } from 'yaml';
-import { failedTests, judgeShards, mergeProblems, readShards, type Event, type Shard } from '../harness/merge.ts';
+import { failedTests, judgeShards, mergeProblems, profile, readShards, summary, type Event, type Shard } from '../harness/merge.ts';
 import { judgeRun } from '../harness/reporter.ts';
 import { groupDirs, perPushFiles, PLATFORM_TESTS, ROOT, setFiles } from '../harness/sets.ts';
 import { balance, planProblems, readPlan, repoPath, SYSTEMS, type Plan } from '../harness/shards.ts';
@@ -163,4 +163,21 @@ test('the merge fails whenever the reporter judges the merged run red, and passe
   failing.events = [{ type: 'test:fail', data: { file: join(ROOT, files[0]!), name: 'test 1: a', nesting: 0, details: { error: { failureType: 'testCodeFailure' } } } }];
   assert.equal((await judgeRun(replay(failing.events), { system: 'linux', started: null, target: 0 })).red, true);
   assert.equal((await judgeShards('linux', plan, [failing], files)).failed, true);
+});
+
+test('the merge times a system as its wall time, from the first shard\'s start to the last one\'s end, beside the time summed over the shards', async () => {
+  const files = ['tests/unit/a.test.ts', 'tests/unit/b.test.ts'];
+  const plan: Plan = { measured: {}, shards: { linux: [[files[0]!], [files[1]!]], win32: [files], darwin: [files] } };
+  const one = shard(1, 2, [files[0]!]);
+  const two = shard(2, 2, [files[1]!]);
+  one.meta.started = 1_000_000; one.meta.ended = 1_100_000;
+  two.meta.started = 1_050_000; two.meta.ended = 1_150_000;
+  const judged = await judgeShards('linux', plan, [one, two], files);
+  assert.match(judged.text, /; 150 s of wall time from the first shard's start to the last one's end, 200 s summed over the shards$/m);
+  assert.match(judged.text, /^ran 2 test files, 2 tests: 2 passed, 0 failed, in 150\.\d s$/m);
+  const written = profile('linux', [one, two]);
+  assert.equal(written.wall_ms, 150_000);
+  assert.equal(written.summed_ms, 200_000);
+  assert.deepEqual(written.shards.map((s) => [s.shard, s.started, s.ended]), [[1, 1_000_000, 1_100_000], [2, 1_050_000, 1_150_000]]);
+  assert.match(summary('linux', [one, two], false), /^150 s of wall time, from the first shard's start to the last one's end; 200 s summed over 2 shards; the slowest, shard 1, took 100 s\.$/m);
 });
