@@ -15,8 +15,8 @@ import type { ScriptView } from './readers.js';
 import { lawChangeLine, lawChanges } from './lawchange.js';
 import { call, preflight } from './review.js';
 import type { Ask } from './review.js';
-import { crashNext, linksOut, runAll, runnerProblem, runRule } from './rules.js';
-import type { RawFinding } from './rules.js';
+import { crashNext, FindingBudget, linksOut, rulesDeadline, runAll, runnerProblem, runRule, slowMessage } from './rules.js';
+import type { RawFinding, RuleOutcome } from './rules.js';
 import { filesOfTypes, isBinary } from './types.js';
 import { bytesOf, selectTargets } from './try.js';
 import { fromCwd, loadConfig, loadLaw, loadRuleFiles, locate, requireGit, RULES_DIR, LAW, stopped, theChange, touchesLaw, typeAll } from './setup.js';
@@ -25,8 +25,10 @@ import { judgeUses, listInForce, notRead } from './uses.js';
 import type { Forbidden, NotRead, Target } from './uses.js';
 import type { TypedFile } from './types.js';
 import type { Runtime } from './environment.js';
-import { readFailure, readVerdicts, reviewKey, VerdictWriter } from './verdicts.js';
+import { countPasses, FULL_NEXT, readFailure, readVerdicts, reviewKey, Unwritable, VERDICTS, VerdictsFull, VerdictsUnreadable, VerdictWriter } from './verdicts.js';
 import { parseWaivers, waive } from './waivers.js';
+import { count, mib, points, readError, RUN_FINDINGS, RUN_MESSAGE_CHARS, USES_FILE_BYTES } from './limits.js';
+import { step } from './progress.js';
 import type { Waiver, WaiverProblem } from './waivers.js';
 
 export { findRoot } from './setup.js';
@@ -89,18 +91,23 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
   const run = options.full ? typed : typed.filter((file) => changed.has(file.path));
   run.sort((a, b) => comparePaths(a.path, b.path));
   const filesOf = filesOfTypes(typed, law);
+  const budget = new FindingBudget();
+  const deadline = rulesDeadline();
   const tasks = [...kinds.scripts]
     .map((rule) => ({ rule, files: run.filter((file) => file.rules.includes(rule)) }))
     .filter(({ files: bound }) => bound.length > 0)
-    .map(({ rule, files: bound }) => async () => ({
+    .map(({ rule, files: bound }) => async (): Promise<{ rule: string; outcome: RuleOutcome }> => ({
       rule,
-      outcome: await runRule({ root, rule, ruleFile: join(root, `${RULES_DIR}${rule}.mjs`), files: bound, filesOf }),
+      outcome: deadline.signal.aborted
+        ? { slow: slowMessage('not started') }
+        : await runRule({ root, rule, ruleFile: join(root, `${RULES_DIR}${rule}.mjs`), files: bound, filesOf, budget, signal: deadline.signal }),
     }));
   const unsupported = tasks.length === 0 ? null : runnerProblem(root);
   if (unsupported !== null) return { errors: [{ code: 'path-unsupported', file: null, line: null, message: unsupported }] };
   const out = tasks.length === 0 ? [] : linksOut(root, workTreeTop(root), trackedLinks(root));
   if (out.length > 0) return { errors: out.map(linkError) };
   const outcomes = await runAll(tasks);
+  deadline.clear();
   const crashes: ErrorItem[] = [];
   const raw: RawFinding[] = [];
   for (const { rule, outcome } of outcomes) {
@@ -108,20 +115,49 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
     if ('crash' in outcome) {
       const next = crashNext(outcome.crash);
       crashes.push({ code: 'rule-crashed', file: `${RULES_DIR}${rule}.mjs`, line: null, message: outcome.crash, ...(next === undefined ? {} : { next }) });
-    }
-    else raw.push(...outcome.findings);
+    } else if ('slow' in outcome) crashes.push({ code: 'rules-too-slow', file: `${RULES_DIR}${rule}.mjs`, line: null, message: outcome.slow });
+    else for (const finding of outcome.findings) raw.push(finding);
   }
   if (crashes.length > 0) return { errors: crashes };
+  if (budget.passed()) return { errors: tooManyFindings(budget) };
 
   const uses = await readTheUses(root, files, read, typed, run, changed);
   if ('errors' in uses) return { errors: uses.errors };
+  const byFile = new Map<string, { count: number; chars: number }>();
+  const tally = (path: string, text: string) => {
+    const own = byFile.get(path) ?? { count: 0, chars: 0 };
+    byFile.set(path, { count: own.count + 1, chars: own.chars + points(text) });
+  };
+  for (const item of uses.forbidden) tally(item.file, item.message);
+  for (const item of uses.unresolved) tally(item.file, item.what);
+  for (const item of uses.notRead) tally(LAW, item.message);
+  for (const item of uses.tooLarge) tally(item.file, item.message);
+  for (const path of [...byFile.keys()].sort(comparePaths)) {
+    const own = byFile.get(path)!;
+    if (budget.addAt(own.count, own.chars)) return { errors: [tooManyAt(path, budget)] };
+  }
 
   const ruleIds = new Set([...law.rules.keys(), 'forbidden-use']);
-  const waiversOf = new Map(run.map((file) => [file.path, takesWaivers(file.type) ? parseWaivers(file.lines, ruleIds) : { waivers: [], problems: [] }]));
+  const waiversOf = new Map<string, ReturnType<typeof parseWaivers>>();
+  for (const file of run) {
+    const parsed = takesWaivers(file.type) ? parseWaivers(file.lines, ruleIds) : { waivers: [], problems: [] };
+    waiversOf.set(file.path, parsed);
+    let chars = 0;
+    for (const problem of parsed.problems) chars += points(problem.message);
+    for (const waiver of parsed.waivers) chars += points(waiver.reason);
+    if (budget.addAt(parsed.problems.length + parsed.waivers.length, chars)) return { errors: [tooManyAt(file.path, budget)] };
+  }
   const review = `lawcheck check --review${options.base === null ? '' : ` --base ${hide(options.base)}`}`;
   const cap = options.maxCalls ?? config.maxCalls;
 
-  const verdicts = readVerdicts(root);
+  const roomOf = () => verdictRoom(root, law, typed, kinds);
+  let verdicts: Set<string>;
+  try {
+    verdicts = readVerdicts(root);
+  } catch (error) {
+    if (!(error instanceof VerdictsUnreadable) || !error.cause.startsWith('it holds more')) throw error;
+    return { errors: [{ code: 'file-unreadable', file: VERDICTS, line: null, message: `the file cannot be read (${error.cause}); ${roomOf()}`, next: FULL_NEXT }] };
+  }
   const asks: Ask[] = [];
   const builtIn: BuiltIn[] = [];
   const reviewerRaw = (file: string, rule: string, findings: AnswerFinding[]) => {
@@ -142,6 +178,9 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
       if (!options.again) {
         const cached = readFailure(root, key, rule, lineCount);
         if (cached !== null) {
+          let chars = 0;
+          for (const finding of cached) chars += points(finding.message);
+          if (budget.addAt(cached.length, chars)) return { errors: [tooManyAt(file.path, budget)] };
           reviewerRaw(file.path, rule, cached);
           continue;
         }
@@ -170,24 +209,45 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
     const provider = createProvider(config, context.env);
     const blocked = preflight(provider, config, cap, asks.length, review);
     if (blocked.length > 0) return { errors: blocked };
-    context.warn?.(`lawcheck: ${plural(asks.length, 'reviewer call')} to ${config.provider}`);
     const writer = new VerdictWriter(root);
-    const result = await call(asks, provider!, writer, { cap, parallel: config.parallel, timeoutSeconds: config.timeout });
+    try {
+      writer.ready(asks.map((ask) => ask.rule));
+    } catch (error) {
+      if (!(error instanceof VerdictsFull)) throw error;
+      return { errors: [{ code: 'file-unwritable', file: VERDICTS, line: null, message: `cannot be written (${error.cause}); ${roomOf()}`, next: FULL_NEXT }] };
+    }
+    context.warn?.(`lawcheck: ${plural(asks.length, 'reviewer call')} to ${config.provider}`);
+    let result: Awaited<ReturnType<typeof call>>;
+    try {
+      result = await call(asks, provider!, writer, { cap, parallel: config.parallel, timeoutSeconds: config.timeout });
+    } catch (error) {
+      if (!(error instanceof Unwritable)) throw error;
+      const room = error instanceof VerdictsFull ? `; ${roomOf()}` : '';
+      return { errors: [{ code: 'file-unwritable', file: error.path, line: null, message: `cannot be written (${error.cause}), so the answers of the reviewer calls this run made are lost${room}`, ...(error.next === null ? {} : { next: error.next }) }] };
+    }
     if (result.failed.length > 0) {
       const again = 'run the same command again; what was answered is kept, so it asks only the rest';
       return {
         errors: result.failed.map((f) => ({ code: f.code, file: f.ask.file, line: null, message: f.message, ...(f.fix === undefined ? {} : { next: `${f.fix}, then ${again}` }) })),
       };
     }
-    for (const answered of result.answered) reviewerRaw(answered.ask.file, answered.ask.rule, answered.findings);
+    for (const answered of result.answered) {
+      let chars = 0;
+      for (const finding of answered.findings) chars += points(finding.message);
+      if (budget.addAt(answered.findings.length, chars)) return { errors: [tooManyAt(answered.ask.file, budget)] };
+      reviewerRaw(answered.ask.file, answered.ask.rule, answered.findings);
+    }
     callsMade = result.sent;
     passesRecorded = writer.added;
     missing = [];
   }
   for (const ask of missing) {
-    builtIn.push({ code: 'not-reviewed', rule: ask.rule, file: ask.file, message: `${ask.rule} has no verdict for this content` });
+    const message = `${ask.rule} has no verdict for this content`;
+    if (budget.addAt(1, points(message))) return { errors: [tooManyAt(ask.file, budget)] };
+    builtIn.push({ code: 'not-reviewed', rule: ask.rule, file: ask.file, message });
   }
 
+  step('judging the findings');
   const report = judge(law, run, raw, builtIn, uses, waiversOf, kinds.reviewers, changed, base, named ? 'paths' : options.full ? 'full' : 'change');
   report.reviews = {
     missing: [...report.findings, ...report.debt].filter((f) => f.code === 'not-reviewed').length,
@@ -240,10 +300,46 @@ function unseenRepositories(root: string, listed: Set<string>, law: Law): string
   return `note: the paths of a type reach into ${named.join(', ')}${more}; Lawcheck does not look into another repository, so no file there is judged`;
 }
 
+// What the reviews of this tree need of a full verdicts file, worked out with no call: its passes, those the files of the tree need, and the calls a review of every file of the law would take.
+function verdictRoom(root: string, law: Law, typed: TypedFile[], kinds: Kinds): string {
+  const needed = new Set<string>();
+  for (const file of typed) {
+    for (const rule of file.rules) {
+      const reviewer = kinds.reviewers.get(rule);
+      if (reviewer === undefined) continue;
+      const why = law.rules.get(rule)!.why;
+      needed.add(`${reviewKey({ frame: FRAME, ruleId: rule, why, ruleText: reviewer.text, context: reviewer.context, filePath: file.path, fileText: file.text })} ${rule}`);
+    }
+  }
+  const counted = countPasses(root, needed);
+  return `of its ${count(counted.held)} ${counted.held === 1 ? 'pass' : 'passes'} the files of this tree need ${count(counted.needed)}, and a review of every file of this law would take ${plural(needed.size, 'reviewer call')}`;
+}
+
+export function tooManyFindings(budget: FindingBudget): ErrorItem[] {
+  const all = `the rules of a run may return ${count(RUN_FINDINGS)} findings with ${count(RUN_MESSAGE_CHARS)} characters of message in all, and they returned ${count(budget.total)} with ${count(budget.chars)}`;
+  const items: ErrorItem[] = [];
+  for (const [rule, own] of budget.byRule) {
+    if (own.count === 0) continue;
+    items.push({ code: 'too-many-findings', file: `${RULES_DIR}${rule}.mjs`, line: null, message: `returns ${count(own.count)} findings with ${count(own.chars)} characters of message in this run; ${all}` });
+  }
+  return items;
+}
+
+function tooManyAt(path: string, budget: FindingBudget): ErrorItem {
+  return {
+    code: 'too-many-findings',
+    file: path,
+    line: null,
+    message: `brings the findings of this run to ${count(budget.total)} with ${count(budget.chars)} characters of message, more than the ${count(RUN_FINDINGS)} findings with ${count(RUN_MESSAGE_CHARS)} characters one run may hold`,
+    next: `narrow the types whose files bring so many findings, then run lawcheck check`,
+  };
+}
+
 interface UsesRead {
   forbidden: Forbidden[];
   notRead: NotRead[];
   unresolved: Unresolved[];
+  tooLarge: { file: string; message: string; type: string }[];
 }
 
 async function readTheUses(
@@ -254,7 +350,7 @@ async function readTheUses(
   run: TypedFile[],
   changed: Set<string>,
 ): Promise<UsesRead | { errors: ErrorItem[] }> {
-  const out: UsesRead = { forbidden: [], notRead: [], unresolved: [] };
+  const out: UsesRead = { forbidden: [], notRead: [], unresolved: [], tooLarge: [] };
   const siblings = siblingsOf(files);
   const toRead: { path: string; view: ScriptView | null }[] = [];
   const unread: { path: string; type: TypedFile['type']; debt: boolean }[] = [];
@@ -273,7 +369,7 @@ async function readTheUses(
     try {
       return read(path);
     } catch (error) {
-      throw new Unreadable(path, (error as NodeJS.ErrnoException).code ?? 'an error');
+      throw new Unreadable(path, readError(path, error));
     }
   };
   const ownerOf = (path: string) => {
@@ -284,6 +380,11 @@ async function readTheUses(
   };
   const outcome = await readUses({ root, files, bytes, ownerOf, read: toRead });
   if ('error' in outcome) return { errors: [outcome.error] };
+  for (const { path, bytes, uses } of outcome.skipped) {
+    const size = `the file holds ${count(bytes)} bytes, more than the ${mib(USES_FILE_BYTES)} a file whose uses are read may hold`;
+    const message = uses ? `its uses are not read: ${size}` : `the uses of it are not judged: it is read for what it declares, and ${size}`;
+    out.tooLarge.push({ file: path, message, type: typedByPath.get(path)?.type.id ?? '' });
+  }
 
   const targetOf = (path: string): Target => {
     const file = typedByPath.get(path);
@@ -294,7 +395,7 @@ async function readTheUses(
     const found = outcome.uses.get(file.path);
     if (found === undefined) continue;
     const judged = judgeUses(file.path, file.type, found, targetOf);
-    out.forbidden.push(...judged.forbidden);
+    for (const item of judged.forbidden) out.forbidden.push(item);
     const debt = !changed.has(file.path);
     for (const item of judged.unresolved) out.unresolved.push({ ...item, debt });
   }
@@ -373,6 +474,12 @@ function judge(
       message: item.message,
       why: WHY['forbidden-use']!,
     });
+  }
+
+  for (const item of uses.tooLarge) {
+    const isDebt = !changed.has(item.file);
+    if (isDebt && mode !== 'full') continue;
+    place({ code: 'uses-not-read', rule: null, severity: isDebt ? 'warning' : 'error', debt: isDebt, file: item.file, type: item.type, message: item.message, why: WHY['uses-not-read']! });
   }
 
   for (const item of uses.notRead) {

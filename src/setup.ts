@@ -1,7 +1,7 @@
-import { readFileSync, realpathSync, statSync } from 'node:fs';
+import { realpathSync, statSync } from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { changedPaths, defaultBase, GitFailed, gitNext, hasHead, fetchesEveryBranch, isShallow, listedPaths, listFiles, mergeBase, NoGit, remoteNames, resolveCommit, workTreeProblem } from './files.js';
-import { CONFIG, readConfig } from './config.js';
+import { CONFIG, ConfigTooLarge, readConfig } from './config.js';
 import { canonicalName, onDisk } from './names.js';
 import type { ReviewerConfig } from './config.js';
 import { nearestKey, parseLaw } from './law.js';
@@ -9,9 +9,12 @@ import type { Law } from './law.js';
 import type { ErrorItem } from './output.js';
 import { decode, isBinary, typeFiles } from './types.js';
 import type { TypedFile } from './types.js';
-import { VERDICTS } from './verdicts.js';
+import { ATTRIBUTES, FULL_NEXT, Unwritable, VERDICTS, VerdictsUnreadable } from './verdicts.js';
 import { keyEnvironment } from './keys.js';
 import { createProvider } from './providers/index.js';
+
+export const WRITTEN = new Set([VERDICTS, ATTRIBUTES]);
+import { CONFIG_BYTES, count, LAW_BYTES, mib, readBounded, readError, readFailure, readWhole, RUN_TEXT_BYTES, TextTooLarge } from './limits.js';
 
 export const LAW = '.lawcheck/law.yaml';
 export const RULES_DIR = '.lawcheck/rules/';
@@ -27,8 +30,8 @@ export class Stop extends Error {
 function isFile(path: string): boolean {
   try {
     return statSync(path).isFile();
-  } catch {
-    return false;
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === 'EACCES';
   }
 }
 
@@ -44,26 +47,37 @@ export function findRoot(cwd: string): string | null {
 
 export type Read = (path: string) => Uint8Array;
 
+const BINARY = Uint8Array.of(0);
+
+// A text file is read again each time it is asked for, and counted once, so a run never holds its bytes beside its text.
 export function onceReader(root: string): Read {
-  const reads = new Map<string, Uint8Array | Error>();
+  const known = new Map<string, typeof BINARY | Error | number>();
+  let total = 0;
   return (path) => {
-    let entry = reads.get(path);
-    if (entry === undefined) {
-      try {
-        entry = readFileSync(onDisk(root, path));
-      } catch (error) {
-        entry = error as Error;
-      }
-      reads.set(path, entry);
-    }
+    const entry = known.get(path);
     if (entry instanceof Error) throw entry;
-    return entry;
+    if (entry === BINARY) return BINARY;
+    try {
+      const read = readBounded(onDisk(root, path), path);
+      if (read.binary) {
+        known.set(path, BINARY);
+        return BINARY;
+      }
+      if (entry === undefined) {
+        total += read.bytes.length;
+        if (total > RUN_TEXT_BYTES) throw new TextTooLarge(path, total);
+        known.set(path, read.bytes.length);
+      }
+      return read.bytes;
+    } catch (error) {
+      known.set(path, error as Error);
+      throw error;
+    }
   };
 }
 
 export function unreadable(path: string, error: unknown): ErrorItem {
-  const code = (error as NodeJS.ErrnoException).code ?? 'an error';
-  return { code: 'file-unreadable', file: path, line: null, message: `the file cannot be read (${code})` };
+  return readError(path, error);
 }
 
 // The laws git lists below a folder that has none, as at the top of a monorepo whose law lives in one package.
@@ -123,18 +137,24 @@ export function noGit(dir: string, problem: string): ErrorItem {
   return { code: 'no-git', file: null, line: null, message: problem, ...(fix === undefined ? {} : fix) };
 }
 
+function lawTooLarge(line: number, message: string): ErrorItem {
+  return { code: 'file-too-large', file: LAW, line, message, next: `make ${LAW} hold less than its limits (1 MiB, 10,000 rules and 1,000 types), then run lawcheck check` };
+}
+
 export function lawErrors(root: string): { law: Law } | { errors: ErrorItem[] } {
   let source: Uint8Array;
   try {
-    source = readFileSync(join(root, LAW));
+    source = readWhole(join(root, LAW), LAW);
   } catch (error) {
-    const code = (error as NodeJS.ErrnoException).code ?? 'an error';
-    return { errors: [{ code: 'law-invalid', file: LAW, line: 1, message: `the law cannot be read (${code})` }] };
+    return { errors: [{ code: 'law-invalid', file: LAW, line: 1, message: `the law cannot be read (${readFailure(error)})` }] };
+  }
+  if (source.length > LAW_BYTES) {
+    return { errors: [lawTooLarge(1, `the law holds ${count(source.length)} bytes, more than the ${mib(LAW_BYTES)} a law may hold`)] };
   }
   const { law, problems } = parseLaw(decode(source));
   if (law === null) {
     if (linked(root, LAW)) return { errors: [{ code: 'law-invalid', file: LAW, line: null, message: LINKED(LAW) }] };
-    return { errors: problems.map((p) => ({ code: 'law-invalid', file: LAW, line: p.line, message: p.message })) };
+    return { errors: problems.map((p) => (p.tooLarge ? lawTooLarge(p.line, p.message) : { code: 'law-invalid', file: LAW, line: p.line, message: p.message })) };
   }
   return { law };
 }
@@ -156,7 +176,14 @@ export function loadLaw(root: string): Law {
 }
 
 export function configErrors(root: string): { config: ReviewerConfig } | { errors: ErrorItem[] } {
-  const configured = readConfig(root);
+  let configured: ReturnType<typeof readConfig>;
+  try {
+    configured = readConfig(root);
+  } catch (error) {
+    if (!(error instanceof ConfigTooLarge)) throw error;
+    const message = `the file holds ${count(error.bytes)} bytes, more than the ${mib(CONFIG_BYTES)} the config may hold`;
+    return { errors: [{ code: 'file-too-large', file: CONFIG, line: null, message, next: `make ${CONFIG} smaller than ${mib(CONFIG_BYTES)}, then run lawcheck check` }] };
+  }
   if ('problems' in configured) {
     if (linked(root, CONFIG)) return { errors: [{ code: 'config-invalid', file: CONFIG, line: null, message: LINKED(CONFIG) }] };
     return { errors: configured.problems.map((p) => ({ code: 'config-invalid', file: CONFIG, line: p.line, message: p.message })) };
@@ -196,7 +223,7 @@ export function loadRuleFiles(root: string, law: Law, withContext = true): RuleF
 export function typingErrors(root: string, law: Law, files: string[], read: Read, extra: ErrorItem[] = []): { typed: TypedFile[]; errors: ErrorItem[] } {
   const { typed, unreadable: unreadableFiles, overlaps } = typeFiles(
     root,
-    files.filter((path) => path !== VERDICTS),
+    files.filter((path) => !WRITTEN.has(path)),
     law,
     read,
   );
@@ -299,6 +326,11 @@ export async function stopped<T>(body: () => Promise<T> | T): Promise<T | { erro
     return await body();
   } catch (error) {
     if (error instanceof Stop) return { errors: error.errors };
+    if (error instanceof Unwritable) return { errors: [{ code: 'file-unwritable', file: error.path, line: null, message: `cannot be written (${error.cause})`, ...(error.next === null ? {} : { next: error.next }) }] };
+    if (error instanceof VerdictsUnreadable) {
+      const next = error.cause.startsWith('it holds more') ? FULL_NEXT : undefined;
+      return { errors: [{ code: 'file-unreadable', file: VERDICTS, line: null, message: `the file cannot be read (${error.cause})`, ...(next === undefined ? {} : { next }) }] };
+    }
     if (error instanceof NoGit) return { errors: [{ code: 'no-git', file: null, line: null, message: error.message }] };
     if (error instanceof GitFailed) throw new Internal(error.message);
     throw error;
@@ -350,7 +382,9 @@ export function ruleKinds(law: Law, files: string[], read: Read): Kinds {
     }
     let text: string | null = null;
     try {
-      text = decode(read(prose));
+      const bytes = read(prose);
+      if (isBinary(bytes)) invalid(rule.line, `the file ${prose} of the rule '${rule.id}' is binary`);
+      else text = decode(bytes);
     } catch (error) {
       out.errors.push(unreadable(prose, error));
     }

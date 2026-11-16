@@ -12,6 +12,9 @@ export const COMMIT_GROUPS: Record<string, string[]> = {
   gate: ['gate'],
 };
 
+// The folders whose nightly files run one at a time.
+export const SERIAL_DIRS = ['limits'];
+
 export const NIGHTLY_GROUPS: Record<string, string[]> = {
   properties: ['properties'],
   security: ['security'],
@@ -29,7 +32,7 @@ export const NIGHTLY_GROUPS: Record<string, string[]> = {
 // The groups that have no test file yet, by set; a group not named here that finds none fails, and a contract test fails when one named here holds tests.
 export const EMPTY_GROUPS: Record<'commit' | 'nightly', string[]> = {
   commit: ['gate'],
-  nightly: ['security', 'limits', 'docs', 'sabotage', 'corpus', 'coverage', 'live', 'mutants'],
+  nightly: ['security', 'docs', 'sabotage', 'corpus', 'coverage', 'live', 'mutants'],
 };
 
 // Folders under tests/ that hold repositories, inputs and recorded results for the tests, never tests of their own.
@@ -110,6 +113,7 @@ export const PLATFORM_BEHAVIOURS = {
   'process-listing': { systems: ['darwin'], behaviour: 'there is no /proc: the processes a program left are found with ps' },
   'case-folding': { systems: ['win32', 'darwin'], behaviour: 'the default file systems of Windows and macOS ignore case in names' },
   'install': { systems: ['win32', 'darwin'], behaviour: 'a global npm install starts from the shells of the system: cmd.exe, PowerShell, Git Bash and .cmd shims on Windows, BSD tar and the shells of macOS' },
+  'memory-readings': { systems: ['win32', 'darwin'], behaviour: 'resident memory reads less where the system compresses or trims pages, and what is left is read from free and standby pages on Windows, with no limit of a job object, and not at all on macOS' },
 } as const satisfies Record<string, { systems: readonly ('win32' | 'darwin')[]; behaviour: string }>;
 
 export type Behaviour = keyof typeof PLATFORM_BEHAVIOURS;
@@ -133,12 +137,12 @@ export const PLATFORM_TESTS: PlatformTest[] = [
   { file: 'tests/acceptance/explain.test.ts', test: 'test 107: ignored, symbolic links and binary files', systems: ['win32'], behaviours: ['links'], reason: 'symbolic links need privileges on Windows and differ from POSIX links' },
   { file: 'tests/acceptance/explain.test.ts', test: 'test 113: usage', systems: ['win32'], behaviours: ['windows-paths'], reason: 'a path outside the root is told by backslash separators on Windows' },
   { file: 'tests/acceptance/hostile.test.ts', test: 'S1-2: a file whose name holds a line break, a carriage return or an invalid byte is judged, its name escaped', systems: ['darwin'], behaviours: ['unicode-names'], reason: 'the file systems of macOS take a name only as valid UTF-8, which they normalize, so there the invalid byte is left out and the names with a line break and a carriage return must still be judged and map back to the files git lists' },
-  { file: 'tests/acceptance/hostile.test.ts', test: 'S5-6: explain of a path with a segment over 255 bytes says it does not exist yet, never internal', systems: ['win32'], behaviours: ['error-codes', 'windows-paths'], reason: 'a segment over 255 bytes and a path of 5,000 characters, past the 260 of a Windows path, get other error codes from the file system of Windows, and explain must still say the file does not exist yet' },
+  { file: 'tests/acceptance/hostile.test.ts', test: 'S5-6: explain of a path with a segment over 255 bytes is usage as test 245 says, and an escaped segment is measured by the bytes it stands for, never internal', systems: ['win32'], behaviours: ['error-codes', 'windows-paths'], reason: 'a segment over 255 bytes and a path of 5,000 characters, past the 260 of a Windows path, get other error codes from the file system of Windows, and explain must still say the file does not exist yet' },
   { file: 'tests/acceptance/hostile.test.ts', test: 'S1-14: with the law below it, in pkg/, a marked file with no edit passes and an edited one is in the change', systems: ['win32'], behaviours: ['windows-paths'], reason: 'the marked files are hashed from the top of the work tree through the prefix git gives, and found on disk below a root in pkg/ through paths joined with backslashes on Windows' },
   { file: 'tests/acceptance/http-providers.test.ts', test: 'test 404: the key canary', systems: ['win32', 'darwin'], behaviours: ['cmd-shims', 'environment', 'temp-folders', 'process-listing'], reason: '.cmd shims, variable case and TEMP on Windows; the macOS branch finding escaped children' },
   { file: 'tests/acceptance/http-providers.test.ts', test: 'test 405: a key under a provider name goes to that provider alone', systems: ['win32', 'darwin'], behaviours: ['cmd-shims', 'process-listing'], reason: 'fake programs started as .cmd shims on Windows; macOS branch of the program runner' },
   { file: 'tests/acceptance/init.test.ts', test: 'test 97: init refuses where a law already governs, and writes nothing', systems: ['win32'], behaviours: ['windows-paths'], reason: 'a law found above is named by a relative path with backslashes on Windows' },
-  { file: 'tests/acceptance/init.test.ts', test: 'init where .lawcheck is a file: internal, and its next line names init', systems: ['win32'], behaviours: ['error-codes'], reason: 'Windows gives other error codes when the path of a folder is a file' },
+  { file: 'tests/acceptance/init.test.ts', test: 'S5-4: test 241: init where .lawcheck is a file names it', systems: ['win32'], behaviours: ['error-codes'], reason: 'Windows gives other error codes when the path of a folder is a file' },
   { file: 'tests/acceptance/law.test.ts', test: 'test 15: a symlink and a binary file have no type; an unreadable file stops the run', systems: ['win32'], behaviours: ['links', 'file-modes'], reason: 'symbolic links and chmod cannot make a file unreadable on Windows' },
   { file: 'tests/acceptance/package.test.ts', test: 'package: the tarball holds the licence, the readme, the built tool, its docs and the grammars with their licences, and nothing else', systems: ['win32'], behaviours: ['cmd-shims'], reason: 'npm pack, and npm on PATH is a .cmd shim on Windows' },
   { file: 'tests/acceptance/package.test.ts', test: 'package: every shipped grammar is named in the licence file', systems: ['win32'], behaviours: ['cmd-shims'], reason: 'npm pack, and npm on PATH is a .cmd shim on Windows' },
@@ -275,6 +279,20 @@ export const PLATFORM_TESTS: PlatformTest[] = [
   { file: 'tests/unit/providers-program.test.ts', test: 'the working folder and the folder aside are gone when the call ends, before the tool does', systems: ['win32'], behaviours: ['locks', 'environment', 'cmd-shims'], reason: 'Windows keeps the working folder of a running process; Path case and .cmd shim' },
   { file: 'tests/unit/runner.test.ts', test: 'the runner makes one call per file, in order, and passes repo.filesOf', systems: ['win32', 'darwin'], behaviours: ['windows-paths', 'real-paths'], reason: 'Node\'s --permission paths of the runner on Windows and macOS' },
   { file: 'tests/unit/runner.test.ts', test: 'a call past the time limit crashes the rule', systems: ['win32'], behaviours: ['process-ends'], reason: 'the runner is killed at its time limit, by taskkill on Windows' },
+  { file: 'tests/limits/internals.test.ts', test: 'S5-6: test 245: explain on a path that cannot exist is usage, not internal', systems: ['win32'], behaviours: ['error-codes', 'windows-paths'], reason: 'Windows answers a name over 255 bytes or a path over 4,095 as a missing file, so explain refuses them itself' },
+  { file: 'tests/limits/memory.test.ts', test: 'test 277: a file read only for what it declares that takes too much memory names the step the user can take', systems: ['win32', 'darwin'], behaviours: ['memory-readings'], reason: 'the guard reads resident memory, which Windows and macOS may read low where they trim or compress pages, and what is left, which Windows reads from free and standby pages and macOS not at all' },
+  { file: 'tests/limits/reviews.test.ts', test: 'S3-8: test 242: a review whose .lawcheck/.local cannot be written fails before the first call', systems: ['win32'], behaviours: ['error-codes'], reason: 'a folder made where a file stands fails with the error code Windows gives for it' },
+  { file: 'tests/limits/reviews.test.ts', test: 'S3-8: test 242: a write that fails after the calls is file-unwritable, not internal', systems: ['win32'], behaviours: ['error-codes'], reason: 'a write into a folder that is now a file fails with the error code Windows gives for it' },
+  { file: 'tests/limits/reviews.test.ts', test: 'test 242: a folder named .lawcheck/verdicts is file-unreadable, not internal', systems: ['win32'], behaviours: ['error-codes'], reason: 'a folder opened for reading as a file fails with the error code Windows gives for it' },
+  { file: 'tests/limits/reviews.test.ts', test: 'test 261: a lock left by a run that ended, whose pid now names a live process, is taken over before the first call', systems: ['win32'], behaviours: ['locks'], reason: 'the lock file is removed and made again while Windows may hold it open' },
+  { file: 'tests/limits/reviews.test.ts', test: 'test 253: two runs that write the verdicts file at once keep the lines of both', systems: ['win32'], behaviours: ['locks'], reason: 'the verdicts file is renamed over under a lock, which Windows refuses while a file is open' },
+  { file: 'tests/limits/reviews.test.ts', test: 'test 272: a pass that would take the verdicts file past 16 MiB when it is written is refused, even after the check before the calls', systems: ['win32'], behaviours: ['locks'], reason: 'the verdicts file is written under a lock a second run holds, which Windows keeps open' },
+  { file: 'tests/limits/rules-time.test.ts', test: 'S2-5: test 247: a rule still running when the time of the run is over is stopped and named rules-too-slow', systems: ['win32'], behaviours: ['process-ends'], reason: 'the runner still running when the time of the run is over is ended by taskkill on Windows' },
+  { file: 'tests/limits/signals.test.ts', test: 'test 270: a worker slow to start is no step past its limit, since the watch starts with the command', systems: ['win32'], behaviours: ['slow-starts'], reason: 'a worker and its modules start slowly on Windows, which the watch of the steps must not count as a step' },
+  { file: 'tests/limits/sizes.test.ts', test: 'test 263: a file whose uses are read may hold 512 KiB, even of the costliest text, past it its uses are not read and the run goes on, and a config may hold 1 MiB', systems: ['win32', 'darwin'], behaviours: ['memory-readings'], reason: 'the costliest parse within the limit stays under the 384 MiB a file may add as Windows and macOS read resident memory' },
+  { file: 'tests/limits/sizes.test.ts', test: 'test 273: a file whose uses take more memory than a run may hold ends the run as memory-too-large at that file', systems: ['win32', 'darwin'], behaviours: ['memory-readings'], reason: 'the guard reads resident memory, which Windows and macOS may read low where they trim or compress pages, and what is left, which Windows reads from free and standby pages and macOS not at all' },
+  { file: 'tests/limits/writes.test.ts', test: 'S1-6: S5-13: S8-8: test 240: every command writing to an output opened only for reading ends with exit 2', systems: ['win32'], behaviours: ['error-codes'], reason: 'a write to a handle opened only for reading fails with the error code Windows gives for it' },
+  { file: 'tests/limits/writes.test.ts', test: 'S8-8: test 240: a reader that stops early ends the run with its own code and nothing on standard error', systems: ['win32'], behaviours: ['process-ends', 'error-codes'], reason: 'Windows has no SIGPIPE, and a write to a pipe its reader closed fails with its own error code' },
   { file: 'tests/unit/runner.test.ts', test: 'a load past the time limit crashes the rule', systems: ['win32'], behaviours: ['process-ends'], reason: 'the runner is killed at its time limit, by taskkill on Windows' },
   { file: 'tests/unit/runner.test.ts', test: 'a module that does not load', systems: ['win32'], behaviours: ['windows-paths'], reason: 'a module load under Node\'s --permission with Windows paths' },
   { file: 'tests/unit/runner.test.ts', test: 'process.env is empty in a rule, and an unknown type throws', systems: ['win32'], behaviours: ['environment'], reason: 'a child started with an empty environment on Windows' },

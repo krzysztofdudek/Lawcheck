@@ -1,4 +1,5 @@
 import { pathToFileURL } from 'node:url';
+import { MESSAGE_CHARS, points, RUN_FINDINGS, RUN_MESSAGE_CHARS } from './limits.js';
 
 interface CallFile {
   path: string;
@@ -128,17 +129,34 @@ async function load(file: string, filesOf: Map<string, string[]>): Promise<void>
   send({ kind: 'loaded' });
 }
 
+// A list or a message past its limit is answered by its size alone, so it never crosses the channel whole.
+function oversized(value: unknown): { kind: string; count: number; chars?: number } | null {
+  if (!Array.isArray(value)) return null;
+  let chars = 0;
+  for (const item of value as unknown[]) {
+    const message = typeof item === 'object' && item !== null ? (item as { message?: unknown }).message : undefined;
+    if (typeof message !== 'string') continue;
+    const length = points(message);
+    if (length > MESSAGE_CHARS) return { kind: 'too-long', count: length };
+    chars += length;
+  }
+  if (value.length > RUN_FINDINGS || chars > RUN_MESSAGE_CHARS) return { kind: 'too-many', count: value.length, chars };
+  return null;
+}
+
 async function call(file: CallFile): Promise<void> {
   let value: unknown;
+  let over: ReturnType<typeof oversized>;
   try {
     value = await check!({ files: [file], repo: repo! });
+    over = oversized(value);
   } catch (error) {
     send({ kind: 'threw', message: text(error) });
     return;
   }
   await turn();
   if (reported) return;
-  send({ kind: 'result', value });
+  send(over ?? { kind: 'result', value });
 }
 
 process.on('message', (message: Incoming) => {

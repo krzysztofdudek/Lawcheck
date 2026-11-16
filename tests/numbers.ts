@@ -63,6 +63,12 @@ export const LIST_DELAY_MS = 2_000;
 export const LATE_ANSWER_MS = 3_000;
 
 // Rule 7 of section 16 of the test design: a time budget is at least 20 times the measured time.
+// The runs of the limits tests, tests/limits: a run at a limit of spec/check-slice.md, section 10; a nightly run of the large inputs; a nightly run that waits for the 600 seconds the script rules of a run may take; and the two seconds a run has to answer a signal.
+export const LIMITS_RUN_MS = 120_000;
+export const LIMITS_LARGE_RUN_MS = 300_000;
+export const LIMITS_RULES_RUN_MS = 700_000;
+export const LIMITS_STOPPED_MS = 2_000;
+
 export const SLOW_MARGIN = 20;
 
 export type System = 'linux' | 'darwin' | 'win32';
@@ -110,6 +116,25 @@ export const SLOW_TESTS: Record<string, Slow> = {
   "tests/properties/git-states.nightly.test.ts > I-git-2: in any state a sequence of git commands leaves, a check changes nothing in git, its change gives what --full gives for those files, and it prints the same from below the root and twice": { fixed: 120_000, measured: { darwin: 126_570, linux: 125_000, win32: 138_482 } },
   "tests/properties/arguments.nightly.test.ts > I-args-1: tokens of the tool and junk give usage or a run, never internal, and change nothing in git": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 125_000 } },
   "tests/properties/arguments.nightly.test.ts > I-hook-1, S6-6, S6-8: any input to a hook gives exit 0 with nothing or one hook document, or the defined notice, never a stack trace": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 125_000 } },
+  // The limits tests of the commit set, measured on CI: each starts the tool several times at a limit, which Windows starts slowly.
+  'tests/limits/sizes.test.ts > test 254: a law may hold 10,000 rules, 1,000 types and 1 MiB, and past each it is file-too-large': { fixed: 0, measured: { darwin: 6_233, linux: 4_085, win32: 23_560 } },
+  'tests/limits/reviews.test.ts > S3-6: test 243: a second run right after any run prints the same': { fixed: 0, measured: { darwin: 7_475, linux: 4_188, win32: 12_489 } },
+  'tests/limits/reviews.test.ts > S3-6: test 243: a plain check right after a passing review passes, with a type whose paths cover .lawcheck/': { fixed: 0, measured: { win32: 4_079 } },
+  'tests/limits/sizes.test.ts > test 263: a file whose uses are read may hold 512 KiB, even of the costliest text, past it its uses are not read and the run goes on, and a config may hold 1 MiB': { fixed: 0, measured: { darwin: 8_054, linux: 5_116, win32: 11_260 } },
+  'tests/limits/writes.test.ts > S1-6: S5-13: S8-8: test 240: every command writing to an output opened only for reading ends with exit 2': { fixed: 0, measured: { win32: 8_675 } },
+  'tests/limits/findings.test.ts > S2-1: test 235: 125,000 and 200,000 findings from one rule give the full report and exit 1': { fixed: 0, measured: { darwin: 5_663, linux: 4_143, win32: 8_518 } },
+  'tests/limits/findings.test.ts > S2-1: test 236: 200,001 and 1,000,000 findings from one rule, and 300,000 over three files, are too-many-findings': { fixed: 0, measured: { win32: 7_853 } },
+  'tests/limits/findings.test.ts > test 237: the messages of a run may hold 16,777,216 characters together, and a message 4,096': { fixed: 0, measured: { win32: 6_113 } },
+  'tests/limits/findings.test.ts > test 264: waivers count toward the findings of a run: 200,000 waivers that name no rule are reported, and one more is too-many-findings': { fixed: 0, measured: { darwin: 4_005, win32: 5_283 } },
+  // The nightly limits, measured in the container of 1 GB and 2 CPUs on Linux; the fixed parts are the tool's limits the tests wait on: 30 rules that each pass 30 seconds, 15 at a time; the 600 seconds of the script rules of a run; the 30 seconds of a step.
+  'tests/limits/large.nightly.test.ts > test 248: 150,000 files: every one is typed and judged, and the one that breaks a rule is found': { fixed: 0, measured: { linux: 17_662 } },
+  'tests/limits/large.nightly.test.ts > test 249: 4 GiB of text across files stops at the file that passes 128 MiB, as text-too-large': { fixed: 0, measured: { linux: 6_119 } },
+  'tests/limits/large.nightly.test.ts > S2-5: test 251: 30 rules that hang end as rule-crashed, each after its 30 seconds, within the time of the run': { fixed: 450_000, measured: { linux: 450_462 } },
+  'tests/limits/large.nightly.test.ts > S2-5: test 251: rules that take 29 seconds a file are stopped when the script rules of the run pass 600 seconds': { fixed: 600_000, measured: { linux: 600_156 } },
+  'tests/limits/large.nightly.test.ts > test 252: kill -9 at a random moment of 50 reviews leaves a verdicts file that parses, and the next run passes': { fixed: 0, measured: { linux: 8_030 } },
+  'tests/limits/large.nightly.test.ts > S1-1: test 255: a step that never ends, typing against a content pattern that backtracks, ends as step-too-slow after 30 seconds': { fixed: 30_000, measured: { linux: 30_237 } },
+  'tests/limits/large.nightly.test.ts > test 259: a git that never answers ends as step-too-slow after 30 seconds, and git with it': { fixed: 30_000, measured: { linux: 30_193 } },
+  'tests/limits/large.nightly.test.ts > test 269: explain of a file whose content pattern backtracks names its typing as the step past its limit': { fixed: 30_000, measured: { linux: 30_185 } },
   // A check per counted run of the committed trial.
   'tests/acceptance/agent-result.test.ts > test 181: the committed result of the trial': { fixed: 0, measured: { darwin: 20_939, linux: 10_314, win32: 53_052 } },
   // A run of the tool per case.
@@ -330,6 +355,10 @@ export const RECIPE_PNPM = '12.21.0';
 
 // Which way each number makes the suite stronger, read by the suite guard; a seed is neither, so any change of it is a change to review.
 export const stronger: Record<string, 'higher' | 'lower' | 'fixed'> = {
+  LIMITS_RUN_MS: 'lower',
+  LIMITS_LARGE_RUN_MS: 'lower',
+  LIMITS_RULES_RUN_MS: 'lower',
+  LIMITS_STOPPED_MS: 'lower',
   SEED: 'fixed',
   UNPARSABLE_JAVA_CHARS: 'higher',
   CASES_PURE: 'higher',

@@ -1,7 +1,8 @@
+import { spawn } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { createRequire, syncBuiltinESMExports } from 'node:module';
 import { tmpdir } from 'node:os';
-import { join, relative, sep } from 'node:path';
+import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach } from 'node:test';
 import { budgetNamed, slowBudget, TEST_BUDGET_MS } from '../numbers.ts';
@@ -34,9 +35,9 @@ let current: TestState | null = null;
 const fileOf = (path: string | undefined) => (path === undefined ? '' : relative(ROOT_DIR, path.startsWith('file:') ? fileURLToPath(path) : path).split(sep).join('/'));
 
 const slash = (text: string) => text.split('\\').join('/');
-const TOOL_PATHS = [slash(CLI), slash(HOOK), slash(HOOK_WITH_DEADLINES), slash(TOOL_WITH_LIMITS)];
+const TOOL_PATHS = [slash(CLI), slash(join(dirname(CLI), 'bin.cjs')), slash(HOOK), slash(HOOK_WITH_DEADLINES), slash(TOOL_WITH_LIMITS)];
 
-// Whether a start names Lawcheck: the built tool, a hook, a copy's or the unpacked tarball's dist/cli.js, or a program called lawcheck.
+// Whether a start names Lawcheck: the built tool by either of its entries, a hook, a copy's or the unpacked tarball's dist/cli.js or dist/bin.cjs, or a program called lawcheck.
 export function namesTool(words: unknown[]): string | null {
   for (const word of words) {
     if (typeof word !== 'string') continue;
@@ -61,6 +62,18 @@ function shellLines(name: string, args: unknown[]): string[] {
   const options = (Array.isArray(args[1]) ? args[2] : args[1]) as { shell?: unknown } | undefined;
   if (SHELLS.test(program) || (options !== null && typeof options === 'object' && options.shell !== undefined && options.shell !== false)) return [typeof args[0] === 'string' ? args[0] : '', ...words];
   return [];
+}
+
+// The tests that start Lawcheck by hand because the harness cannot give the run what they test: a standard output that is a file descriptor of the test, one a shell closes, or a pipe the test closes early. The list may only shrink.
+export const HAND_STARTS: { file: string; test: string }[] = [
+  { file: 'tests/limits/writes.test.ts', test: 'S1-6: S5-13: S8-8: test 240: every command writing to /dev/full ends with exit 2 and says the result is lost' },
+  { file: 'tests/limits/writes.test.ts', test: 'S1-6: S5-13: S8-8: test 240: every command writing to an output opened only for reading ends with exit 2' },
+  { file: 'tests/limits/writes.test.ts', test: 'S1-6: test 240: a closed standard output is the same as one sent to /dev/null' },
+  { file: 'tests/limits/writes.test.ts', test: 'S8-8: test 240: a reader that stops early ends the run with its own code and nothing on standard error' },
+];
+
+function handStartAllowed(): boolean {
+  return current !== null && HAND_STARTS.some((entry) => entry.file === current!.file && entry.test === current!.name);
 }
 
 function guardStarts(): void {
@@ -185,4 +198,40 @@ export async function expectBroken(invariant: string, body: () => Promise<unknow
     throw error;
   }
   throw new Error(`the run broke no invariant; ${invariant} was expected`);
+}
+
+export interface ByHand {
+  code: number | null;
+  signal: NodeJS.Signals | null;
+  stdout: string;
+  stderr: string;
+}
+
+// A start for a test of HAND_STARTS alone: the package's bin, with a standard output the test gives, under a shell that redirects it, or a pipe the test closes after the first chunk.
+export function startByHand(cwd: string, args: string[], env: NodeJS.ProcessEnv, how: { stdout?: 'pipe' | number; redirect?: string; closeAfterFirst?: boolean } = {}): Promise<ByHand> {
+  if (!handStartAllowed()) throw new Error(`harness: ${current?.file ?? 'a test'} > "${current?.name ?? ''}" is not in HAND_STARTS of tests/harness/tool.ts`);
+  const bin = join(dirname(CLI), 'bin.cjs');
+  const [program, words] = how.redirect === undefined ? [process.execPath, [bin, ...args]] : ['/bin/sh', ['-c', `exec "$0" "$@" ${how.redirect}`, process.execPath, bin, ...args]];
+  if (current !== null) {
+    current.runs++;
+    current.compared++;
+  }
+  return new Promise((resolve, reject) => {
+    gate.open++;
+    let child: ReturnType<typeof spawn>;
+    try {
+      child = spawn(program, words, { cwd, env, stdio: ['ignore', how.stdout ?? 'pipe', 'pipe'] });
+    } finally {
+      gate.open--;
+    }
+    let out = '';
+    let err = '';
+    child.stdout?.setEncoding('utf8').on('data', (chunk: string) => {
+      out += chunk;
+      if (how.closeAfterFirst) child.stdout!.destroy();
+    });
+    child.stderr!.setEncoding('utf8').on('data', (chunk: string) => (err += chunk));
+    child.on('error', reject);
+    child.on('close', (code, signal) => resolve({ code, signal, stdout: out, stderr: err }));
+  });
 }

@@ -333,7 +333,8 @@ The path names a file that exists, or one that does not exist yet. Only that fil
 | a directory on its path is a symbolic link | `it lies behind a symbolic link, which has no type` |
 | git ignores it | `git ignores it, so Lawcheck never sees it` |
 | a symbolic link | `it is a symbolic link, which has no type` |
-| `.lawcheck/verdicts` | `Lawcheck writes this file, and it has no type` |
+| a named pipe, a socket or a device | `it is no regular file, which has no type` |
+| `.lawcheck/verdicts` or `.lawcheck/.gitattributes` | `Lawcheck writes this file, and it has no type` |
 | no type's paths match | `no type's paths match it, so no rule judges it` |
 | binary | `it is binary, which has no type` |
 | root types' paths match and their content does not | `it matches the paths of <ids> but not their content, so no rule judges it` |

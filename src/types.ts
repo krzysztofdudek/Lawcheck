@@ -1,7 +1,8 @@
-import { readFileSync } from 'node:fs';
 import { onDisk } from './names.js';
 import type { Law, TypeDef } from './law.js';
 import type { ErrorItem } from './output.js';
+import { readBounded, readError, TextTooLarge } from './limits.js';
+import { step } from './progress.js';
 
 export interface TypedFile {
   path: string;
@@ -9,6 +10,20 @@ export interface TypedFile {
   rules: string[];
   text: string;
   lines: string[];
+}
+
+// The lines are split again on each use, so a run holds the text of a file once.
+class LinedFile implements TypedFile {
+  constructor(
+    readonly path: string,
+    readonly type: TypeDef,
+    readonly rules: string[],
+    readonly text: string,
+  ) {}
+
+  get lines(): string[] {
+    return splitLines(this.text);
+  }
 }
 
 const decoder = new TextDecoder('utf-8');
@@ -41,19 +56,20 @@ export function typeFiles(
   root: string,
   paths: string[],
   law: Law,
-  read: (path: string) => Uint8Array = (path) => readFileSync(onDisk(root, path)),
+  read: (path: string) => Uint8Array = (path) => readBounded(onDisk(root, path), path).bytes,
 ): { typed: TypedFile[]; unreadable: ErrorItem[]; overlaps: ErrorItem[] } {
   const typed: TypedFile[] = [];
   const unreadable: ErrorItem[] = [];
   const overlaps: ErrorItem[] = [];
   for (const path of paths) {
+    step(`typing ${path}`);
     if (!anyPathMatch(path, law.types)) continue;
     let bytes: Uint8Array;
     try {
       bytes = read(path);
     } catch (error) {
-      const code = (error as NodeJS.ErrnoException).code ?? 'an error';
-      unreadable.push({ code: 'file-unreadable', file: path, line: null, message: `the file cannot be read (${code})` });
+      unreadable.push(readError(path, error));
+      if (error instanceof TextTooLarge) break;
       continue;
     }
     if (isBinary(bytes)) continue;
@@ -74,7 +90,7 @@ export function typeFiles(
     if (chain.length === 0) continue;
     const rules: string[] = [];
     for (const type of chain) for (const rule of type.rules) if (!rules.includes(rule)) rules.push(rule);
-    typed.push({ path, type: chain[chain.length - 1]!, rules, text, lines: splitLines(text) });
+    typed.push(new LinedFile(path, chain[chain.length - 1]!, rules, text));
   }
   return { typed, unreadable, overlaps };
 }

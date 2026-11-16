@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { main, parseArguments } from '../../dist/cli.js';
+import { main, parseArguments, readerGone } from '../../dist/cli.js';
 
 const context = { cwd: '/', env: {} };
 
@@ -36,4 +36,11 @@ test('version and help exit 0', async () => {
     assert.equal(result.code, 0);
     assert.equal(result.stdout.split('\n')[0], first);
   }
+});
+
+test('test 240: a write that fails because the reader is gone is not a lost result, whichever code the system gives for it', () => {
+  for (const code of ['EPIPE', 'ENOTCONN']) assert.equal(readerGone(Object.assign(new Error(code), { code })), true, code);
+  for (const code of ['ENOSPC', 'EBADF', 'EPERM', 'EACCES', 'EIO']) assert.equal(readerGone(Object.assign(new Error(code), { code })), false, code);
+  assert.equal(readerGone(new Error('no code')), false);
+  assert.equal(readerGone(null), false);
 });

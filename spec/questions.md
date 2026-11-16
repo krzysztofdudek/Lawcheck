@@ -553,3 +553,40 @@ T-2 A, the lead session's technical ruling of question 73, names npm, pnpm, Yarn
 Choice: Yarn 4 with `nodeLinker: pnpm` is supported and promised, listed with the others in the README, `docs/config.md` and `spec/environments.md`, section 2, and its cells of the nightly install matrix are the proof.
 
 What already holds, said in the same place. Plug'n'Play is refused when Lawcheck's own files are served from a Plug'n'Play archive: `process.versions.pnp` is set and Lawcheck's folder lies below a folder whose name ends in `.zip`. A Lawcheck installed outside an archive, globally or by another package manager, runs inside a Plug'n'Play project. Its script rules run in a process without Yarn's loader, so they import `node:` built-ins and files below the root, such as `.lawcheck/rules/lib/`, and not the project's packages, which Plug'n'Play keeps in its archives or resolves through its own map, an unplugged package included.
+
+## 130. A reader that closes standard output early
+
+`spec/check-slice.md`, section 6, now ends a run with exit 2 when standard output cannot be written. A reader that closes the pipe before the end, as `lawcheck check | head -1` does, gives the same failure, `EPIPE` on Linux and `ENOTCONN` on macOS, though nothing went wrong that the reader did not choose. With `set -o pipefail`, the default of a GitHub Actions `bash` step, exit 2 there would fail the step.
+
+Choice: `EPIPE`, and `ENOTCONN`, which macOS gives for the same closed pipe, end the run with their own code and print nothing. Every other failed write ends with exit 2 and the line on standard error.
+
+## 131. A closed standard output
+
+The design asked that a run whose standard output is closed (`>&-`) end with a code other than 0. Node opens `/dev/null`, read and write, in place of a closed descriptor before any code of the tool runs, and a program that starts Lawcheck with its output ignored hands it the same descriptor, so the two cannot be told apart. Treating it as closed would fail every caller that wants only the exit code.
+
+Choice: a closed standard output is the same as `> /dev/null`, stated as a limit in section 10 of `spec/check-slice.md`, and test 240 pins it. A failed write is tested on `/dev/full` on Linux and on an output opened for reading alone on every system.
+
+## 132. A signal while Node itself starts
+
+`spec/check-slice.md`, section 3, promises that SIGINT, SIGTERM and SIGHUP end a run with exit 2 and `stopped`. Node installs no handler of Lawcheck's until its first module runs, and before that a signal ends the process by the signal. The entry now loads only the modules that answer a signal, so the window is Node's own start: in the dev container SIGTERM sent 0 to 10 milliseconds after the start ended the process by the signal in every trial, at 12 and 14 milliseconds in some, and from 16 milliseconds in none.
+
+Choice: the window is stated as a limit in section 10 of `spec/check-slice.md`, and test 257 checks that the main thread loads nothing more than the answer needs.
+
+## 133. A file whose uses cannot be read within the limits
+
+Section 10 of `check-slice.md` bounds a file whose uses are read at 512 KiB, and before this entry a file past it stopped the whole run with `file-too-large`. A file read only for what it declares (Java, Kotlin, C#, Ruby, Rust), under no type, stopped it too, with a `next:` line nobody could follow.
+
+The coordinator's decision of the build, which goes on the owner's list: a file whose uses cannot be read within the limits does not stop the run. Its uses are reported as not read, `uses-not-read` at the file, with the reason: an error when the file is in the change, debt under `--full`. The run goes on and every other finding is shown. A file read only for what it declares is not read either; it gets the same finding at its path, since the uses of it by other files are not judged, an error in the change and debt under `--full` (a review found that leaving it out silently turned a `forbidden-use` into a pass). Where the process itself cannot go on, past the memory of a run, the run ends with `memory-too-large` at the file, never with `internal` or a silent kill. Tests 263, 273, 274 and 275 hold it.
+
+## 134. A verdicts file past its limit
+
+`.lawcheck/verdicts` may hold 16 MiB (`check-slice.md`, section 10). Past it, the tool advised deleting the file, which loses every pass paid for, those the current tree needs among them: on the reviewer sample with 122 reviewed files the next review needed 122 calls against a cap of 100. Two ways were open: say how many of the file's passes the current tree still needs, or have the writer drop the passes no current file needs.
+
+Choice: the first. The file is committed and merged with `merge=union`, so a pass this tree does not need may be one another branch needs; a pass the writer dropped here would be gone from that branch after the next merge, and paid for again. The error says how many passes the file holds, how many of them the reviews of this tree need and how many calls a review of every file of the law would take, all worked out without a call, and its `next:` asks the user how to make room, since a pass is a hash nobody can pick by hand.
+
+
+## 135. A path longer than a system allows, given to `explain`
+
+Two packages of the build fixed stress finding S5-6, `explain` of a path with a segment over 255 bytes ending as `internal`, in two ways. The hostile inputs answered such a path as one that does not exist yet, with exit 0. The limits answered it as `usage`, `the path '<path>' cannot exist here: it is longer than this system allows for a name or a path`, with exit 2, and wrote that into test 245 of `check-slice.md`. Both cannot hold once the two are merged.
+
+Choice, a decision of the build and not an open question: test 245 stands, since the spec decides over a package's test. Such a path is `usage`, exit 2, and no file system Lawcheck runs on can hold it. The hostile test of S5-6 now expects test 245's answer, and adds that a segment written with escapes is measured by the bytes it stands for, so a name of 300 characters that stands for 200 bytes is still a file that does not exist yet.

@@ -4,6 +4,9 @@ import { devNull, tmpdir } from 'node:os';
 import { dirname, join, resolve, sep } from 'node:path';
 import { findProgram } from './programs.js';
 import { bytesOfName, nameOf, onDisk, quotedLine } from './names.js';
+import { receiveMessageOnPort } from 'node:worker_threads';
+import type { MessagePort } from 'node:worker_threads';
+import { step } from './progress.js';
 
 export class NoGit extends Error {}
 
@@ -17,18 +20,52 @@ interface GitResult {
 
 const loose = new TextDecoder('utf-8', { ignoreBOM: true });
 
+export interface GitRequest {
+  program: string;
+  root: string;
+  args: string[];
+  env: NodeJS.ProcessEnv;
+  input?: Uint8Array;
+}
+
+export interface GitReply {
+  error: { code: string | null; message: string } | null;
+  status: number | null;
+  signal: string | null;
+  stdout: Uint8Array;
+  stderr: Uint8Array;
+}
+
+let channel: { port: MessagePort; flag: Int32Array } | null = null;
+
+// In the worker git runs in the main thread, which can end it at a signal; the worker waits for its reply as a synchronous call would.
+export function gitThroughMainThread(port: MessagePort, flag: SharedArrayBuffer): void {
+  channel = { port, flag: new Int32Array(flag) };
+}
+
+function run(request: GitRequest): GitReply {
+  if (channel === null) {
+    const result = spawnSync(request.program, request.args, { cwd: request.root, env: request.env, input: request.input, maxBuffer: 1 << 30, stdio: [request.input === undefined ? 'ignore' : 'pipe', 'pipe', 'pipe'] });
+    const error = result.error ? { code: (result.error as NodeJS.ErrnoException).code ?? null, message: result.error.message } : null;
+    return { error, status: result.status, signal: result.signal, stdout: result.stdout ?? new Uint8Array(), stderr: result.stderr ?? new Uint8Array() };
+  }
+  Atomics.store(channel.flag, 0, 0);
+  channel.port.postMessage(request);
+  for (;;) {
+    Atomics.wait(channel.flag, 0, 0);
+    const reply = receiveMessageOnPort(channel.port);
+    if (reply !== undefined) return reply.message as GitReply;
+    Atomics.store(channel.flag, 0, 0);
+  }
+}
+
 const filters = new Map<string, string[]>();
 
 function filterKeys(program: string, cwd: string): string[] {
   let keys = filters.get(cwd);
   if (keys === undefined) {
-    const listed = spawnSync(program, ['config', '-z', '--name-only', '--get-regexp', '^filter\\.'], {
-      cwd,
-      env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' },
-      maxBuffer: 1 << 24,
-      stdio: ['ignore', 'pipe', 'ignore'],
-    });
-    keys = listed.status === 0 ? listed.stdout.toString('utf8').split('\0').filter((key) => /^filter\..+\.(clean|smudge|process)$/.test(key)) : [];
+    const listed = run({ program, root: cwd, args: ['config', '-z', '--name-only', '--get-regexp', '^filter\\.'], env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' } });
+    keys = listed.status === 0 ? new TextDecoder().decode(listed.stdout).split('\0').filter((key) => /^filter\..+\.(clean|smudge|process)$/.test(key)) : [];
     filters.set(cwd, keys);
   }
   return keys;
@@ -59,20 +96,15 @@ export function git(root: string, args: string[], extra: NodeJS.ProcessEnv = {},
   // git by its path on PATH, so no relative entry and no current folder can put the repository's own git in its place; Windows starts git.exe alone.
   gitProgram ??= findProgram('git', { ...Object.fromEntries(Object.entries(process.env).filter(([name]) => name.toUpperCase() !== 'PATHEXT')), PATHEXT: '.EXE' });
   if (gitProgram === null) throw new NoGit('git cannot be started: it is not on the PATH');
-  const result = spawnSync(gitProgram, args, {
-    cwd: root,
-    input,
-    env: { ...startsNothing(gitProgram, root), ...extra },
-    maxBuffer: 1 << 30,
-    stdio: [input === undefined ? 'ignore' : 'pipe', 'pipe', 'pipe'],
-  });
+  step(`running git ${args.join(' ')}`);
+  const result = run({ program: gitProgram, root, args, env: { ...startsNothing(gitProgram, root), ...extra }, input });
   if (result.error) {
-    const code = (result.error as NodeJS.ErrnoException).code;
+    const code = result.error.code;
     if (code === 'ENOENT' || code === 'EACCES') throw new NoGit(`git cannot be started: ${result.error.message}`);
     throw new GitFailed(`git ${args[0]} failed: ${result.error.message}`);
   }
   if (result.status === null) throw new GitFailed(`git ${args[0]} ended by the signal ${result.signal}`);
-  return { status: result.status, stdout: result.stdout, stderr: result.stderr };
+  return { status: result.status, stdout: Buffer.from(result.stdout.buffer, result.stdout.byteOffset, result.stdout.byteLength), stderr: Buffer.from(result.stderr.buffer, result.stderr.byteOffset, result.stderr.byteLength) };
 }
 
 function firstPrinted(result: GitResult): string {
@@ -133,7 +165,9 @@ export function listFiles(root: string, listed: Set<string> = listedPaths(root))
       if (lstatSync(onDisk(root, path)).isFile()) files.push(path);
     } catch (error) {
       const code = (error as NodeJS.ErrnoException).code;
-      if (code !== 'ENOENT' && code !== 'ENOTDIR') throw error;
+      // A path git lists below a folder that cannot be searched may be a file; reading it later names it as unreadable when a type takes it.
+      if (code === 'EACCES' || code === 'EPERM') files.push(path);
+      else if (code !== 'ENOENT' && code !== 'ENOTDIR') throw error;
     }
   }
   return files.sort(comparePaths);

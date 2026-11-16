@@ -20,6 +20,8 @@ import { comparePaths } from './files.js';
 import { firstLine } from './law.js';
 import type { ErrorItem } from './output.js';
 import { decode, isBinary } from './types.js';
+import { step } from './progress.js';
+import { USES_FILE_BYTES } from './limits.js';
 
 export type Reason = 'unfollowed' | 'unowned';
 
@@ -78,16 +80,20 @@ export const RUNES: Runes = {
 };
 
 export class Unreadable extends Error {
+  readonly item: ErrorItem;
+
   constructor(
     readonly path: string,
-    readonly code: string,
+    cause: string | ErrorItem,
   ) {
-    super(`${path} cannot be read (${code})`);
+    const item = typeof cause === 'string' ? { code: 'file-unreadable', file: path, line: null, message: `the file cannot be read (${cause})` } : cause;
+    super(`${path}: ${item.message}`);
+    this.item = item;
   }
 }
 
 export function unreadableError(error: Unreadable): ErrorItem {
-  return { code: 'file-unreadable', file: error.path, line: null, message: `the file cannot be read (${error.code})` };
+  return error.item;
 }
 
 const SFC = new Set(['.vue', '.svelte']);
@@ -148,7 +154,14 @@ export interface ReadInput {
   grammarDir?: string;
 }
 
-export type ReadOutcome = { uses: Map<string, Use[]> } | { error: ErrorItem };
+export type ReadOutcome = { uses: Map<string, Use[]>; skipped: Skipped[] } | { error: ErrorItem };
+
+// A file past the limit of a file whose uses are read: one the run judges (uses), or one read only for what it declares.
+export interface Skipped {
+  path: string;
+  bytes: number;
+  uses: boolean;
+}
 
 class Stop extends Error {
   constructor(readonly item: ErrorItem) {
@@ -169,7 +182,8 @@ function readerFailure(language: string, path: string, error: unknown): Stop {
 
 export async function readUses(input: ReadInput, runes: Runes = RUNES): Promise<ReadOutcome> {
   try {
-    return { uses: await readAll(input, runes) };
+    const skipped: Skipped[] = [];
+    return { uses: await readAll(input, runes, skipped), skipped };
   } catch (error) {
     if (error instanceof Stop) return { error: error.item };
     if (error instanceof Unreadable) return { error: unreadableError(error) };
@@ -184,7 +198,7 @@ interface Parse {
   uses: boolean;
 }
 
-async function readAll(input: ReadInput, runes: Runes): Promise<Map<string, Use[]>> {
+async function readAll(input: ReadInput, runes: Runes, skipped: Skipped[]): Promise<Map<string, Use[]>> {
   const out = new Map<string, Use[]>();
   const parses = new Map<string, Parse>();
   for (const { path, view } of input.read) {
@@ -220,7 +234,15 @@ async function readAll(input: ReadInput, runes: Runes): Promise<Map<string, Use[
   const csharp = new Map<string, CsharpExtract>();
 
   for (const parse of [...parses.values()].sort((a, b) => comparePaths(a.path, b.path))) {
+    step(parse.uses ? `reading the uses of ${parse.path}` : `reading what ${parse.path} declares`);
     const { language, parsePath, content } = parse.view;
+    // A file past the limit is not parsed, and the run names it: one whose uses it judges, as not read; one read only for what it declares, as a file whose uses by others are not judged.
+    const size = Buffer.byteLength(content, 'utf8');
+    if (size > USES_FILE_BYTES) {
+      skipped.push({ path: parse.path, bytes: size, uses: parse.uses });
+      if (parse.uses) out.delete(parse.path);
+      continue;
+    }
     if (!loaded.has(language)) {
       try {
         await host.getParser(primaryExtensionForLanguage(language) ?? '');
@@ -236,6 +258,8 @@ async function readAll(input: ReadInput, runes: Runes): Promise<Map<string, Use[
       loaded.add(language);
     }
     const override = getLanguageForExtension(extname(parsePath)) === language ? undefined : language;
+    // The step names its file only from here, so the memory it may add counts from the parse and not from the grammar loaded before it.
+    step(parse.uses ? `reading the uses of ${parse.path}` : `reading what ${parse.path} declares`, parse.path);
     try {
       await host.withParsedFile(
         parsePath,

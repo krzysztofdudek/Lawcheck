@@ -1,4 +1,5 @@
-import { readFileSync } from 'node:fs';
+import { CONFIG_BYTES, readWhole } from './limits.js';
+import { decode } from './types.js';
 import { join } from 'node:path';
 import { documentOf, noWords, usageError } from './args.js';
 import { CONFIG, RUNNER_COMMANDS, runnerOf } from './config.js';
@@ -140,7 +141,9 @@ function assemble(first: string, head: string, typeLines: string[], ruleLines: s
 export function startPart(root: string): string {
   let runner = 'global';
   try {
-    runner = runnerOf(readFileSync(join(root, CONFIG), 'utf8'));
+    const bytes = readWhole(join(root, CONFIG), CONFIG);
+    if (bytes.length > CONFIG_BYTES) return '';
+    runner = runnerOf(decode(bytes));
   } catch {
     return '';
   }

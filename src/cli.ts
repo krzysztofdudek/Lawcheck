@@ -1,129 +1,183 @@
 #!/usr/bin/env node
 import { realpathSync } from 'node:fs';
-import { pathToFileURL } from 'node:url';
-import { check } from './check.js';
-import type { CheckContext, CheckOptions, CheckOutcome } from './check.js';
-import { firstLine } from './law.js';
-import { renderErrors, renderReport, safeJson, safeText } from './output.js';
-import { hide, useKeys } from './keys.js';
-import { COMMANDS, number, PROGRAM_USAGE, readArguments, text, usageError, USAGE, version } from './args.js';
-import type { Arguments, CommandName, Result } from './args.js';
+import { spawn } from 'node:child_process';
+import type { ChildProcess } from 'node:child_process';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { isMainThread, MessageChannel, Worker } from 'node:worker_threads';
 
-export { version };
-export type { Result };
-import { init } from './init.js';
-import { absolutePath, NO_CURRENT_FOLDER } from './programs.js';
-import { prime } from './prime.js';
-import { explain } from './explain.js';
-import { tryRule } from './try.js';
-import { docs } from './docs.js';
-import { doctor } from './doctor.js';
-import { environmentRefusal, gitNow, runtimeNow } from './environment.js';
+const GIT_OUTPUT_BYTES = 1 << 30;
+import { COMMANDS } from './args.js';
+import { hiddenJson, hide, useKeys } from './keys.js';
+import { totalmem } from 'node:os';
+import { availableNow, MEMORY_CHECK_MS, MEMORY_RESERVE_BYTES, memoryCase, mib, runBound, STEP_MEMORY_BYTES, STEP_MS } from './limits.js';
+import type { MemoryCase } from './limits.js';
+import { renderErrors, safeJson, safeText } from './output.js';
 import type { ErrorItem } from './output.js';
+import { lastStep, progressBuffer } from './progress.js';
+import { absolutePath, NO_CURRENT_FOLDER } from './programs.js';
 
-
-export type Command = (options: CheckOptions, context: CheckContext) => Promise<CheckOutcome>;
-
-
-export function parseArguments(argv: string[]): { options: CheckOptions } | { problem: string } {
-  const read = readArguments(argv);
-  if ('problem' in read) return { problem: read.problem };
-  if (read.arguments.command !== 'check') return { problem: `the command '${read.arguments.command}' is not check` };
-  return checkOptions(read.arguments);
-}
-
-function checkOptions(args: Arguments): { options: CheckOptions } | { problem: string } {
-  const review = args.flags.has('--review');
-  if (args.words.length > 0 && ['--full', '--base', '--review', '--again', '--max-calls'].some((flag) => args.flags.has(flag))) {
-    return { problem: 'paths go with --json alone' };
+// Each case names a step the user can take: a file whose uses are read leaves the types with may_use; a file read only for what it declares leaves the files git lists; a run or a machine short of memory gets more of it.
+function memoryError(found: Exclude<MemoryCase, null>, what: string, file: string | null, command: string): ErrorItem {
+  const again = `then run lawcheck ${command} again`;
+  if (found === 'file' && file !== null && what.startsWith('reading what')) {
+    return { code: 'memory-too-large', file, line: null, message: `the run grew by more than the ${mib(STEP_MEMORY_BYTES)} of memory one file may add while ${what}`, next: `keep ${file} out of the files git lists here (git rm --cached, and a line in .gitignore), since Lawcheck reads it for what it declares, ${again}` };
   }
-  if (!review && args.flags.has('--again')) return { problem: 'the flag --again works only with --review' };
-  if (!review && args.flags.has('--max-calls')) return { problem: 'the flag --max-calls works only with --review' };
-  return { options: { full: args.flags.has('--full'), base: text(args, '--base'), review, again: args.flags.has('--again'), maxCalls: number(args, '--max-calls'), paths: args.words } };
+  if (found === 'file' && file !== null) {
+    return { code: 'memory-too-large', file, line: null, message: `the run grew by more than the ${mib(STEP_MEMORY_BYTES)} of memory one file may add while ${what}`, next: `leave ${file} out of the types whose may_use is in force, ${again}` };
+  }
+  if (found === 'run') {
+    return { code: 'memory-too-large', file: null, line: null, message: `the run passed the ${mib(runBound(totalmem()))} of memory it may hold while ${what}`, next: `narrow the types whose may_use is in force in .lawcheck/law.yaml, or run Lawcheck where it may hold more memory, ${again}` };
+  }
+  return { code: 'memory-too-large', file: null, line: null, message: `the system had less than ${mib(MEMORY_RESERVE_BYTES)} of memory left while ${what}`, next: `free memory on this machine, or run Lawcheck where it has more, ${again}` };
 }
 
 function internal(error: unknown): ErrorItem {
-  return { code: 'internal', file: null, line: null, message: firstLine(error) || 'an unknown failure' };
+  const text = error instanceof Error ? error.message : String(error);
+  return { code: 'internal', file: null, line: null, message: text.split(/\r?\n/)[0] || 'an unknown failure' };
 }
 
-export type Handler = (args: Arguments, context: CheckContext, json: boolean) => Promise<Result>;
-
-const HANDLERS: Record<Exclude<CommandName, 'check'>, Handler> = { init, prime, explain, try: tryRule, docs, doctor };
-
-export async function main(argv: string[], context: CheckContext, command: Command = check): Promise<Result> {
-  useKeys(context.env);
-  const result = await run(argv, context, command);
-  return { ...result, stdout: argv.includes('--json') ? safeJson(hiddenJson(result.stdout)) : safeText(result.stdout) };
+// macOS reports a write to a pipe whose reader closed as ENOTCONN, as well as EPIPE.
+export function readerGone(error: unknown): boolean {
+  const code = (error as NodeJS.ErrnoException | null)?.code;
+  return code === 'EPIPE' || code === 'ENOTCONN';
 }
 
-// The fields of a document that hold text from outside Lawcheck; its own fields, such as schema, code, the ids and the counts, stay as they are.
-const OUTSIDE_FIELDS = new Set(['file', 'files', 'message', 'base', 'path', 'paths', 'reason', 'what', 'candidates', 'answer', 'text', 'about', 'pattern', 'content', 'why', 'model']);
+type FromWork = { kind: 'warn'; line: string } | { kind: 'stderr'; text: string } | { kind: 'done'; code: number; stdout: Uint8Array };
 
-// The key written as [key] in the strings of the outside fields; the layout is the one every document has.
-function hiddenJson(text: string): string {
-  let document: unknown;
-  try {
-    document = JSON.parse(text);
-  } catch {
-    return text;
-  }
-  const masked = (value: unknown): unknown => (typeof value === 'string' ? hide(value) : Array.isArray(value) ? value.map(masked) : value);
-  const walk = (value: unknown): unknown =>
-    Array.isArray(value) ? value.map(walk) : value !== null && typeof value === 'object' ? Object.fromEntries(Object.entries(value).map(([name, item]) => [name, OUTSIDE_FIELDS.has(name) ? masked(item) : walk(item)])) : value;
-  return JSON.stringify(walk(document), null, 2) + '\n';
-}
-
-async function run(argv: string[], context: CheckContext, command: Command): Promise<Result> {
-  const json = argv.includes('--json');
-  const named = (COMMANDS as readonly string[]).includes(argv[0] ?? '') ? argv[0]! : null;
-  try {
-    if (argv.length === 1 && argv[0] === '--version') return { code: 0, stdout: version() + '\n' };
-    if (argv.length === 1 && argv[0] === '--help') return { code: 0, stdout: PROGRAM_USAGE };
-    if (argv.length === 2 && named !== null && argv[1] === '--help') return { code: 0, stdout: USAGE[named as CommandName] };
-    const read = readArguments(argv);
-    if ('problem' in read) return usageError(read.problem, json, read.command);
-    const args = read.arguments;
-    if (args.command !== 'docs' && args.command !== 'doctor') {
-      const refused = environmentRefusal(context.runtime ?? runtimeNow(), () => gitNow(context.cwd));
-      if (refused !== null) return { code: 2, stdout: renderErrors([refused], json, args.command) };
-    }
-    if (args.command !== 'check') return await HANDLERS[args.command](args, context, json);
-    const parsed = checkOptions(args);
-    if ('problem' in parsed) return usageError(parsed.problem, json, 'check');
-    const outcome = await command(parsed.options, context);
-    if ('errors' in outcome) return { code: 2, stdout: renderErrors(outcome.errors, json) };
-    const text = renderReport(outcome.report, json);
-    return { code: outcome.report.findings.some((f) => f.severity === 'error') ? 1 : 0, stdout: text };
-  } catch (error) {
-    return { code: 2, stdout: renderErrors([internal(error)], json, named) };
-  }
-}
-
-function finish(result: Result): void {
-  process.stdout.write(result.stdout, () => process.exit(result.code));
-}
-
-function isEntry(): boolean {
-  try {
-    return process.argv[1] !== undefined && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href;
-  } catch {
-    return false;
-  }
-}
-
+// The command runs in a worker, so a signal is answered while the command is busy in code that never yields, such as a regular expression.
 export function start(): void {
   absolutePath(process.env);
   if (process.platform === 'win32') process.env[NO_CURRENT_FOLDER] = '1';
-  const json = process.argv.slice(2).includes('--json');
-  const crash = (error: unknown) => {
-    const text = renderErrors([internal(error)], json);
-    process.stdout.write(json ? safeJson(hiddenJson(text)) : safeText(text), () => process.exit(2));
+  useKeys(process.env);
+  const argv = process.argv.slice(2);
+  const json = argv.includes('--json');
+  const named = (COMMANDS as readonly string[]).includes(argv[0] ?? '') ? argv[0]! : null;
+  let writing = false;
+  const gits = new Set<ChildProcess>();
+  const gitFlag = new Int32Array(new SharedArrayBuffer(4));
+  const exit = (code: number) => {
+    for (const child of gits) child.kill('SIGKILL');
+    process.exit(code);
   };
-  process.on('uncaughtException', crash);
-  process.on('unhandledRejection', crash);
-  for (const signal of ['SIGTERM', 'SIGINT', 'SIGHUP'] as const) process.on(signal, () => crash(new Error(`stopped by ${signal}`)));
-  const warn = (line: string) => process.stderr.write(safeText(line) + '\n');
-  main(process.argv.slice(2), { cwd: process.cwd(), env: process.env, warn }).then(finish, crash);
+  const writeOut = (bytes: Uint8Array | string, code: number) => {
+    writing = true;
+    process.stdout.on('error', () => undefined);
+    process.stdout.write(bytes, (error) => {
+      if (!error || readerGone(error)) return exit(code);
+      const cause = (error as NodeJS.ErrnoException).code ?? 'an error';
+      process.stderr.write(`error[file-unwritable]  standard output cannot be written (${cause}), so the result is lost\n`, () => exit(2));
+    });
+  };
+  const fail = (item: ErrorItem) => {
+    if (writing) {
+      process.stderr.write(safeText(`error[${item.code}]  ${hide(item.message)}\n`), () => exit(2));
+      return;
+    }
+    const text = renderErrors([item], json, named);
+    writeOut(json ? safeJson(hiddenJson(text)) : safeText(text), 2);
+  };
+  for (const signal of ['SIGTERM', 'SIGINT', 'SIGHUP'] as const) {
+    process.on(signal, () => fail({ code: 'stopped', file: null, line: null, message: `stopped by ${signal}` }));
+  }
+  const progress = progressBuffer();
+  const { port1, port2 } = new MessageChannel();
+  port1.on('message', (request: { program: string; root: string; args: string[]; env: NodeJS.ProcessEnv; input?: Uint8Array }) => {
+    const reply = (message: object, transfer: ArrayBuffer[] = []) => {
+      port1.postMessage(message, transfer);
+      Atomics.store(gitFlag, 0, 1);
+      Atomics.notify(gitFlag, 0);
+    };
+    const child = spawn(request.program, request.args, { cwd: request.root, env: request.env, stdio: [request.input === undefined ? 'ignore' : 'pipe', 'pipe', 'pipe'] });
+    gits.add(child);
+    if (request.input !== undefined) {
+      // A git that ends before it reads all its input closes the pipe; its status says why.
+      child.stdin!.on('error', () => {});
+      child.stdin!.end(request.input);
+    }
+    const out: Buffer[] = [];
+    const err: Buffer[] = [];
+    let size = 0;
+    let failed: { code: string | null; message: string } | null = null;
+    const collect = (into: Buffer[]) => (chunk: Buffer) => {
+      size += chunk.length;
+      if (size > GIT_OUTPUT_BYTES && failed === null) {
+        failed = { code: 'ENOBUFS', message: 'git printed more than 1 GiB' };
+        child.kill('SIGKILL');
+      }
+      if (failed === null) into.push(chunk);
+    };
+    child.stdout!.on('data', collect(out));
+    child.stderr!.on('data', collect(err));
+    child.on('error', (error) => {
+      failed ??= { code: (error as NodeJS.ErrnoException).code ?? null, message: error.message };
+    });
+    child.on('close', (status, signal) => {
+      gits.delete(child);
+      const stdout = new Uint8Array(Buffer.concat(out));
+      const stderr = new Uint8Array(Buffer.concat(err));
+      reply({ error: failed, status, signal, stdout, stderr }, [stdout.buffer, stderr.buffer]);
+    });
+  });
+  port1.unref();
+  const worker = new Worker(new URL('./work.js', import.meta.url), {
+    workerData: { argv, cwd: process.cwd(), progress, git: port2, gitFlag: gitFlag.buffer },
+    transferList: [port2],
+    stdout: false,
+    stderr: false,
+  });
+  const watch = setInterval(() => {
+    const last = lastStep(progress);
+    if (writing || Date.now() - last.at <= STEP_MS) return;
+    clearInterval(watch);
+    fail({ code: 'step-too-slow', file: null, line: null, message: `one step of the run took more than ${STEP_MS / 1000} seconds without an end: ${last.what}` });
+  }, 1000);
+  watch.unref();
+  // A reader of uses can grow by megabytes a millisecond and cannot be stopped from within, so the memory of the whole process is read from here, often, and the run ends before the system ends it.
+  const total = totalmem();
+  let stepAt = -1;
+  let stepRss = 0;
+  const memory = setInterval(() => {
+    if (writing) return;
+    const rss = process.memoryUsage.rss();
+    const last = lastStep(progress);
+    if (last.at !== stepAt) {
+      stepAt = last.at;
+      stepRss = rss;
+    }
+    const found = memoryCase({ rss, stepGrowth: last.file === null ? null : rss - stepRss, available: availableNow(), total });
+    if (found === null) return;
+    clearInterval(memory);
+    fail(memoryError(found, last.what, last.file, named ?? 'check'));
+  }, MEMORY_CHECK_MS);
+  memory.unref();
+  worker.on('message', (message: FromWork) => {
+    if (message.kind === 'warn') process.stderr.write(safeText(message.line) + '\n');
+    else if (message.kind === 'stderr') process.stderr.write(message.text);
+    else writeOut(message.stdout, message.code);
+  });
+  worker.on('error', (error) => fail(internal(error)));
+  worker.on('exit', () => {
+    if (!writing) fail(internal(new Error('the command ended without a result')));
+  });
 }
 
-if (isEntry()) start();
+
+function started(): string | null {
+  try {
+    return process.argv[1] === undefined ? null : realpathSync(process.argv[1]);
+  } catch {
+    return null;
+  }
+}
+
+// The command and its modules load in the worker alone, so the handlers of the signals are in place before them; started as dist/cli.js or through dist/bin.cjs, this module loads no more, and a test that imports the command loads it here.
+const here = fileURLToPath(import.meta.url);
+const first = started();
+const launched = isMainThread && (first === here || first === join(dirname(here), 'bin.cjs'));
+if (launched && first === here) start();
+const command: typeof import('./main.js') | null = launched ? null : await import('./main.js');
+export const main = command?.main as typeof import('./main.js').main;
+export const parseArguments = command?.parseArguments as typeof import('./main.js').parseArguments;
+export const version = command?.version as typeof import('./main.js').version;
+export type { Command, Handler, Result } from './main.js';

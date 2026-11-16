@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { closeSync, existsSync, mkdirSync, openSync, readdirSync, readSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { FILE_TEXT_BYTES, mib, readFailure as failureOfRead, readWhole } from './limits.js';
 import { checkFindings } from './prompt.js';
 import { hide } from './keys.js';
 import type { AnswerFinding } from './prompt.js';
@@ -44,7 +45,7 @@ export function verdictLines(text: string): string[] {
 
 function readText(path: string): string | null {
   try {
-    return readFileSync(path, 'utf8');
+    return new TextDecoder('utf-8', { ignoreBOM: true }).decode(readWhole(path, path));
   } catch (error) {
     const code = (error as NodeJS.ErrnoException).code;
     if (code === 'ENOENT' || code === 'ENOTDIR') return null;
@@ -52,16 +53,166 @@ function readText(path: string): string | null {
   }
 }
 
+export class VerdictsUnreadable extends Error {
+  constructor(readonly cause: string) {
+    super(`${VERDICTS} cannot be read (${cause})`);
+  }
+}
+
 export function readVerdicts(root: string): Set<string> {
-  return new Set(verdictLines(readText(join(root, VERDICTS)) ?? ''));
+  try {
+    return new Set(verdictLines(readText(join(root, VERDICTS)) ?? ''));
+  } catch (error) {
+    throw new VerdictsUnreadable(failureOfRead(error));
+  }
+}
+
+export class Unwritable extends Error {
+  constructor(
+    readonly path: string,
+    readonly cause: string,
+    readonly next: string | null = null,
+  ) {
+    super(`${path} cannot be written (${cause})`);
+  }
+}
+
+// A pass is a hash of what it judged, so no step removes only the passes this tree does not need, and passes another branch needs come back through the union merge.
+export const FULL_NEXT = `ask the user how to make room in ${VERDICTS}: its passes are hashes, so none can be told apart by hand`;
+
+export class VerdictsFull extends Unwritable {}
+
+// The passes the file holds, and how many of them the reviews of this tree need, read in pieces whatever the file's size.
+export function countPasses(root: string, needed: Set<string>): { held: number; needed: number } {
+  let held = 0;
+  let used = 0;
+  let fd: number;
+  try {
+    fd = openSync(join(root, VERDICTS), 'r');
+  } catch {
+    return { held: 0, needed: 0 };
+  }
+  const chunk = Buffer.allocUnsafe(1 << 20);
+  let rest = '';
+  const take = (line: string) => {
+    const clean = line.endsWith('\r') ? line.slice(0, -1) : line;
+    if (!LINE.test(clean)) return;
+    held++;
+    if (needed.has(clean)) used++;
+  };
+  try {
+    for (;;) {
+      const n = readSync(fd, chunk, 0, chunk.length, null);
+      if (n === 0) break;
+      const lines = (rest + chunk.toString('utf8', 0, n)).split('\n');
+      rest = lines.pop()!;
+      for (const line of lines) take(line);
+    }
+    if (rest !== '') take(rest);
+  } finally {
+    closeSync(fd);
+  }
+  return { held, needed: used };
+}
+
+function tooFull(): Unwritable {
+  return new VerdictsFull(VERDICTS, `with the passes of this run it would hold more than ${mib(FILE_TEXT_BYTES)}, the most a run reads of it`, FULL_NEXT);
+}
+
+function writing<T>(path: string, work: () => T): T {
+  try {
+    return work();
+  } catch (error) {
+    if (error instanceof Unwritable) throw error;
+    throw new Unwritable(path, failureOfRead(error));
+  }
 }
 
 function ensureLocal(root: string): string {
   const local = join(root, LOCAL);
-  mkdirSync(local, { recursive: true });
+  writing(LOCAL, () => mkdirSync(local, { recursive: true }));
   const ignore = join(local, '.gitignore');
-  if (!existsSync(ignore)) writeFileSync(ignore, '*\n');
+  if (!existsSync(ignore)) writing(`${LOCAL}/.gitignore`, () => writeFileSync(ignore, '*\n'));
   return local;
+}
+
+function notDirectory(root: string, path: string): void {
+  let directory = false;
+  try {
+    directory = statSync(join(root, path)).isDirectory();
+  } catch {
+    return;
+  }
+  if (directory) throw new Unwritable(path, 'EISDIR');
+}
+
+function ended(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return false;
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === 'ESRCH';
+  }
+}
+
+const LOCK_WAIT_MS = 10_000;
+const pause = new Int32Array(new SharedArrayBuffer(4));
+
+// A run holds the lock for one write, so a lock older than the wait is stale even when its pid now names another live process.
+function staleLock(lock: string): boolean {
+  try {
+    if (Date.now() - statSync(lock).mtimeMs > LOCK_WAIT_MS) return true;
+  } catch {
+    return false;
+  }
+  try {
+    const owner = Number(readText(join(lock, 'pid')));
+    if (Number.isInteger(owner) && owner > 0) return ended(owner);
+  } catch {
+    // The owner has made the folder and not yet written its pid, or has just removed it.
+  }
+  return false;
+}
+
+// Two runs at once each read the verdicts file, add their lines and replace it, so the replacing is done under a lock that a killed run leaves stale.
+function locked<T>(local: string, work: () => T): T {
+  const lock = join(local, 'verdicts.lock');
+  const deadline = Date.now() + LOCK_WAIT_MS;
+  for (;;) {
+    try {
+      mkdirSync(lock);
+      break;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw new Unwritable(`${LOCAL}/verdicts.lock`, (error as NodeJS.ErrnoException).code ?? 'an error');
+      if (staleLock(lock)) {
+        rmSync(lock, { recursive: true, force: true });
+        continue;
+      }
+      if (Date.now() > deadline) throw new Unwritable(`${LOCAL}/verdicts.lock`, 'EBUSY');
+      Atomics.wait(pause, 0, 0, 5);
+    }
+  }
+  try {
+    writing(`${LOCAL}/verdicts.lock`, () => writeFileSync(join(lock, 'pid'), String(process.pid)));
+    return work();
+  } finally {
+    rmSync(lock, { recursive: true, force: true });
+  }
+}
+
+const LEFT = /^(?:verdicts|probe)-(\d+)-[0-9a-f]+$/;
+
+function removeLeftovers(local: string): void {
+  let names: string[];
+  try {
+    names = readdirSync(local);
+  } catch {
+    return;
+  }
+  for (const name of names) {
+    const left = LEFT.exec(name);
+    if (left !== null && ended(Number(left[1]))) rmSync(join(local, name), { force: true });
+  }
 }
 
 function failurePath(root: string, key: string): string {
@@ -96,28 +247,59 @@ export class VerdictWriter {
 
   constructor(private readonly root: string) {}
 
+  // Every place a review writes is tried before the first call, so a run that cannot record an answer pays for none.
+  // A verdicts file past the limit of a text file could be written but never read again, so the passes this run may add are counted before its first call.
+  ready(rules: string[] = []): void {
+    let size = 0;
+    try {
+      size = statSync(join(this.root, VERDICTS)).size;
+    } catch {
+      size = 0;
+    }
+    for (const rule of rules) size += 32 + 1 + rule.length + 1;
+    if (size > FILE_TEXT_BYTES) throw tooFull();
+    const local = ensureLocal(this.root);
+    removeLeftovers(local);
+    const probe = join(local, `probe-${process.pid}-${randomBytes(6).toString('hex')}`);
+    writing(LOCAL, () => {
+      writeFileSync(probe, '');
+      rmSync(probe);
+    });
+    writing(`${LOCAL}/failures`, () => mkdirSync(join(local, 'failures'), { recursive: true }));
+    locked(local, () => undefined);
+    notDirectory(this.root, VERDICTS);
+    notDirectory(this.root, ATTRIBUTES);
+  }
+
   pass(key: string, rule: string): Promise<void> {
     return this.enqueue(() => {
       const local = ensureLocal(this.root);
       const path = join(this.root, VERDICTS);
-      const lines = new Set(verdictLines(readText(path) ?? ''));
-      const line = `${key} ${rule}`;
-      if (!lines.has(line)) this.added++;
-      lines.add(line);
-      const sorted = [...lines].sort();
-      const temporary = join(local, `verdicts-${process.pid}-${randomBytes(6).toString('hex')}`);
-      writeFileSync(temporary, sorted.map((entry) => entry + '\n').join(''));
-      renameSync(temporary, path);
-      this.attributes();
-      rmSync(failurePath(this.root, key), { force: true });
+      locked(local, () => {
+        const lines = new Set(verdictLines(writing(VERDICTS, () => readText(path)) ?? ''));
+        const line = `${key} ${rule}`;
+        if (!lines.has(line)) this.added++;
+        lines.add(line);
+        const sorted = [...lines].sort();
+        let bytes = 0;
+        for (const entry of sorted) bytes += Buffer.byteLength(entry) + 1;
+        if (bytes > FILE_TEXT_BYTES) throw tooFull();
+        const temporary = join(local, `verdicts-${process.pid}-${randomBytes(6).toString('hex')}`);
+        writing(LOCAL, () => writeFileSync(temporary, sorted.map((entry) => entry + '\n').join('')));
+        writing(VERDICTS, () => renameSync(temporary, path));
+        writing(ATTRIBUTES, () => this.attributes());
+      });
+      writing(`${LOCAL}/failures`, () => rmSync(failurePath(this.root, key), { force: true }));
     });
   }
 
   failure(key: string, rule: string, findings: AnswerFinding[]): Promise<void> {
     return this.enqueue(() => {
       const local = ensureLocal(this.root);
-      mkdirSync(join(local, 'failures'), { recursive: true });
-      writeFileSync(failurePath(this.root, key), JSON.stringify({ rule, findings: findings.map((finding) => ({ ...finding, message: hide(finding.message) })) }) + '\n');
+      writing(`${LOCAL}/failures`, () => {
+        mkdirSync(join(local, 'failures'), { recursive: true });
+        writeFileSync(failurePath(this.root, key), JSON.stringify({ rule, findings: findings.map((finding) => ({ ...finding, message: hide(finding.message) })) }) + '\n');
+      });
     });
   }
 

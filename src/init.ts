@@ -1,4 +1,4 @@
-import { closeSync, mkdirSync, openSync, realpathSync, writeSync } from 'node:fs';
+import { closeSync, lstatSync, mkdirSync, openSync, realpathSync, statSync, writeSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { documentOf, errorResult, noWords, usageError, version } from './args.js';
 import type { Arguments, Result } from './args.js';
@@ -47,20 +47,42 @@ function already(place: string, below = false): Stop {
   ]);
 }
 
-export function writeNew(path: string, content: string): boolean {
+function notAFolder(path: string): string | null {
+  let link: boolean;
+  try {
+    link = lstatSync(path).isSymbolicLink();
+  } catch {
+    return null;
+  }
+  try {
+    if (statSync(path).isDirectory()) return null;
+  } catch {
+    return 'it is a symbolic link to a place that does not exist, so the folder .lawcheck cannot be made';
+  }
+  return link ? 'it is a symbolic link to a file, so the folder .lawcheck cannot be made' : 'it is a file, so the folder .lawcheck cannot be made';
+}
+
+export function writeNew(path: string, content: string, place = path): boolean {
   let fd: number;
   try {
     fd = openSync(path, 'wx');
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'EEXIST') return false;
-    throw error;
+    throw unwritable(place, error);
   }
   try {
     writeSync(fd, content);
+  } catch (error) {
+    throw unwritable(place, error);
   } finally {
     closeSync(fd);
   }
   return true;
+}
+
+function unwritable(place: string, error: unknown): Stop {
+  const code = (error as NodeJS.ErrnoException).code ?? 'an error';
+  return new Stop([{ code: 'file-unwritable', file: place, line: null, message: `cannot be written (${code})`, next: `make ${place} writable, then run lawcheck init again` }]);
 }
 
 export async function init(args: Arguments, context: CheckContext, json: boolean): Promise<Result> {
@@ -75,11 +97,19 @@ export async function init(args: Arguments, context: CheckContext, json: boolean
     const below = listFiles(cwd).find((path) => path === LAW || path.endsWith(`/${LAW}`));
     if (below !== undefined) throw already(below, true);
     const prefix = showPrefix(cwd);
-    mkdirSync(join(cwd, '.lawcheck'), { recursive: true });
-    if (!writeNew(join(cwd, LAW), lawText(version()))) throw already(LAW);
+    const obstacle = notAFolder(join(cwd, '.lawcheck'));
+    if (obstacle !== null) {
+      throw new Stop([{ code: 'file-unwritable', file: '.lawcheck', line: null, message: obstacle, next: 'move .lawcheck out of the way, then run lawcheck init again' }]);
+    }
+    try {
+      mkdirSync(join(cwd, '.lawcheck'), { recursive: true });
+    } catch (error) {
+      throw unwritable('.lawcheck', error);
+    }
+    if (!writeNew(join(cwd, LAW), lawText(version()), LAW)) throw already(LAW);
     const created = [LAW];
     const kept: string[] = [];
-    (writeNew(join(cwd, IGNORE), GITIGNORE) ? created : kept).push(IGNORE);
+    (writeNew(join(cwd, IGNORE), GITIGNORE, IGNORE) ? created : kept).push(IGNORE);
     return { prefix, created, kept };
   });
   if ('errors' in outcome) return errorResult(outcome.errors, json, 'init');
