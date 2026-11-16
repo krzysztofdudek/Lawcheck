@@ -126,6 +126,13 @@ test('R-34: below a root that ended with the tool, the guard ends what the list 
   assert.deepEqual(toEnd(before, '', [100]), []);
 });
 
+test('R-34: below each root the guard ends only what the root made, matching the id and the time of making, and not what a process given a dead root\'s id has started', () => {
+  const before = ['100 1 500', '101 100 501', '200 1 510', '201 200 511', '400 1 520', ''].join('\r\n');
+  const after = ['100 9 900', '300 100 950', '101 100 501', '102 101 520', '201 200 511', '202 201 530', '203 200 540', '205 200 400', '400 1 520', '401 400 560', ''].join('\r\n');
+  assert.deepEqual(toEnd(before, after, [100, 200, 400]).sort((a, b) => a - b), [101, 102, 201, 202, 203, 400, 401]);
+  assert.deepEqual(toEnd(before, after, [200, 100]).sort((a, b) => a - b), [101, 102, 201, 202, 203]);
+});
+
 test('R-34: the guard kills from its list only a process whose id and time of making a later list still shows', () => {
   const before = ['100 1 500', '101 100 501', '102 101 502', '103 100 503', '200 1 600', ''].join('\r\n');
   const reused = ['101 7 901', '102 101 502', '103 100 503', '200 1 600', ''].join('\r\n');
