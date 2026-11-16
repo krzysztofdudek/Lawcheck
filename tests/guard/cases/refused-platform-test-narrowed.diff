@@ -1,0 +1,10 @@
+diff --git a/tests/harness/sets.ts b/tests/harness/sets.ts
+index 976f337..65ea5b8 100644
+--- a/tests/harness/sets.ts
++++ b/tests/harness/sets.ts
+@@ -1,4 +1,4 @@
+ export const PLATFORM_TESTS: PlatformTest[] = [
+-  { file: 'tests/acceptance/cli.test.ts', test: 'test 1: nothing changed', systems: ['win32', 'darwin'], reason: 'paths' },
++  { file: 'tests/acceptance/cli.test.ts', test: 'test 1: nothing changed', systems: ['win32'], reason: 'paths' },
+   { file: 'tests/acceptance/cli.test.ts', test: 'I-frame-1: no text of a file starts a prompt line', systems: ['win32'], reason: 'line endings' },
+ ];

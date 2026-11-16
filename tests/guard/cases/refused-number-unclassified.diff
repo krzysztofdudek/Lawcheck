@@ -1,0 +1,18 @@
+diff --git a/tests/numbers.ts b/tests/numbers.ts
+index 18a3452..7dab865 100644
+--- a/tests/numbers.ts
++++ b/tests/numbers.ts
+@@ -5,3 +5,4 @@ export const SLOW_TESTS: Record<string, number> = { 'test 24': 60_000 };
+ export const SECTION_ONLY_TESTS = 218;
+ export const SPEED = ((): string => process.env.LAWCHECK_SPEED ?? 'commit')();
+ export const stronger: Record<string, 'higher' | 'lower' | 'fixed'> = { SEED: 'fixed', PROPERTY_CASES: 'higher', BUDGET: 'lower', SLOW_TESTS: 'lower', SECTION_ONLY_TESTS: 'lower' };
++export const NEW_FLOOR = 3;
+diff --git a/tests/weakenings.md b/tests/weakenings.md
+index 5357732..6205d6c 100644
+--- a/tests/weakenings.md
++++ b/tests/weakenings.md
+@@ -3,3 +3,4 @@
+ | Date | What | Kind | Reason | Anchor | Approved by |
+ |---|---|---|---|---|---|
+ | 2026-11-01 | tests/real/hono.expected | expected-changed | Runes 1.1.0 reads the router | Runes 1.1.0 | reviewer old-agent |
++| 2026-11-15 | NEW_FLOOR | threshold-lowered | a new floor | tests/numbers.ts | owner |

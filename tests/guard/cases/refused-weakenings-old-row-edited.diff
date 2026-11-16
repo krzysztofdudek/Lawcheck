@@ -1,0 +1,10 @@
+diff --git a/tests/weakenings.md b/tests/weakenings.md
+index 5357732..edf7514 100644
+--- a/tests/weakenings.md
++++ b/tests/weakenings.md
+@@ -2,4 +2,4 @@
+ 
+ | Date | What | Kind | Reason | Anchor | Approved by |
+ |---|---|---|---|---|---|
+-| 2026-11-01 | tests/real/hono.expected | expected-changed | Runes 1.1.0 reads the router | Runes 1.1.0 | reviewer old-agent |
++| 2026-11-01 | tests/real/hono.expected | expected-changed | the router changed | Runes 1.1.0 | reviewer old-agent |

@@ -1,0 +1,18 @@
+diff --git a/spec/check-slice.md b/spec/check-slice.md
+index 0218fbb..cdd04e4 100644
+--- a/spec/check-slice.md
++++ b/spec/check-slice.md
+@@ -22,4 +22,3 @@ lawcheck: PASS  nothing changed against main
+ | Id | Promise | Test |
+ |---|---|---|
+ | I-frame-1 | No text of a judged file starts a line of the prompt without its line number. | tests/acceptance/cli.test.ts |
+-| I-out-1 | No output line starts with a CI command. | tests/acceptance/cli.test.ts |
+diff --git a/tests/weakenings.md b/tests/weakenings.md
+index 5357732..34f98d6 100644
+--- a/tests/weakenings.md
++++ b/tests/weakenings.md
+@@ -3,3 +3,4 @@
+ | Date | What | Kind | Reason | Anchor | Approved by |
+ |---|---|---|---|---|---|
+ | 2026-11-01 | tests/real/hono.expected | expected-changed | Runes 1.1.0 reads the router | Runes 1.1.0 | reviewer old-agent |
++| 2026-11-15 | I-out-1 | promise-changed | not needed | I-out-1 | reviewer fresh-agent-7 |

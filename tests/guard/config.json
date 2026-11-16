@@ -1,0 +1,135 @@
+{
+  "weakenings": "tests/weakenings.md",
+  "tests": [
+    "tests/**/*.test.ts"
+  ],
+  "specs": [
+    "spec/*.md"
+  ],
+  "rulings": "spec/questions.md",
+  "docs": [
+    "docs/**/*.md",
+    "README.md"
+  ],
+  "ledger": "tests/findings.md",
+  "numbers": "tests/numbers.ts",
+  "sabotage": "tests/sabotage/list.json",
+  "runes": "@chrisdudek/runes",
+  "platformReasons": {
+    "file": "tests/harness/skips.ts",
+    "export": "PLATFORM_SKIPS",
+    "call": "platformSkip"
+  },
+  "paths": {
+    "guard": [
+      "tests/guard/**"
+    ],
+    "ci": [
+      ".github/workflows/**"
+    ],
+    "harness": [
+      "tests/harness/**",
+      "tests/run.ts"
+    ],
+    "expected": [
+      "tests/**/*.expected",
+      "tests/**/expected/**",
+      "tests/**/recordings/**",
+      "tests/**/*.schema.json",
+      "tests/harness/schemas/**",
+      "tests/**/attacks/**",
+      "tests/stability/labels.json"
+    ],
+    "law": [
+      ".lawcheck/**"
+    ]
+  },
+  "roles": {
+    "owner": "^owner\\b",
+    "reviewer": "^reviewer\\s+\\S"
+  },
+  "approvers": {
+    "test-removed": [
+      "reviewer"
+    ],
+    "expected-changed": [
+      "reviewer"
+    ],
+    "docs-example-changed": [
+      "reviewer"
+    ],
+    "sabotage-changed": [
+      "reviewer"
+    ],
+    "sabotage-removed": [
+      "reviewer"
+    ],
+    "harness-changed": [
+      "reviewer"
+    ],
+    "promise-changed": [
+      "owner"
+    ],
+    "guard-changed": [
+      "owner"
+    ],
+    "ci-changed": [
+      "owner"
+    ],
+    "threshold-lowered": [
+      "owner"
+    ],
+    "finding-weakened": [
+      "reviewer"
+    ],
+    "ratchet-grew": [
+      "reviewer"
+    ],
+    "law-changed": [
+      "reviewer"
+    ],
+    "platform-narrowed": [
+      "reviewer"
+    ]
+  },
+  "stronger": "stronger",
+  "ratchets": [
+    "tests/contract/pending-next.json",
+    {
+      "file": "tests/harness/skips.ts",
+      "lists": [
+        "PLATFORM_SKIPS"
+      ]
+    },
+    {
+      "file": "tests/acceptance/self-law.test.ts",
+      "lists": [
+        "ADVISORY",
+        "WAIVERS",
+        "UNRESOLVED",
+        "UNSORTED"
+      ]
+    }
+  ],
+  "severities": [
+    "after the release",
+    "should be fixed before",
+    "blocks the release"
+  ],
+  "closedStates": [
+    "closed"
+  ],
+  "shrinkOnly": [
+    "SLOW_TESTS"
+  ],
+  "selection": {
+    "tests": {
+      "file": "tests/harness/sets.ts",
+      "export": "PLATFORM_TESTS"
+    },
+    "promises": {
+      "file": "tests/harness/promises.ts",
+      "export": "PLATFORM_PROMISES"
+    }
+  }
+}

@@ -1,0 +1,8 @@
+diff --git a/.lawcheck/law.yaml b/.lawcheck/law.yaml
+index 4952a27..0ab2102 100644
+--- a/.lawcheck/law.yaml
++++ b/.lawcheck/law.yaml
+@@ -1,2 +1,2 @@
+ lawcheck: 1.0.0
+-rules: {}
++rules: { no-console: { why: x } }

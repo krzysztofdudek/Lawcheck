@@ -1,0 +1,20 @@
+diff --git a/tests/harness/skips.ts b/tests/harness/skips.ts
+index 038dce3..097a323 100644
+--- a/tests/harness/skips.ts
++++ b/tests/harness/skips.ts
+@@ -1,6 +1,5 @@
+ export const PLATFORM_SKIPS: PlatformSkip[] = [
+   { test: 'S3-1', part: 'the whole test', platform: 'win32', reason: 'no file mode on Windows' },
+-  { test: 'test 1', part: 'an unreadable file', platform: 'root', reason: 'chmod cannot make a file unreadable for root' },
+ ];
+ 
+ export function platformSkip(part: string): string | null {
+diff --git a/tests/weakenings.md b/tests/weakenings.md
+index 5357732..e5ae495 100644
+--- a/tests/weakenings.md
++++ b/tests/weakenings.md
+@@ -3,3 +3,4 @@
+ | Date | What | Kind | Reason | Anchor | Approved by |
+ |---|---|---|---|---|---|
+ | 2026-11-01 | tests/real/hono.expected | expected-changed | Runes 1.1.0 reads the router | Runes 1.1.0 | reviewer old-agent |
++| 2026-11-15 | tests/harness/skips.ts | harness-changed | test 1 no longer needs the skip | tests/harness/skips.ts | reviewer fresh-agent-7 |

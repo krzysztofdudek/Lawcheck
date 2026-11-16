@@ -1,0 +1,36 @@
+diff --git a/spec/check-slice.md b/spec/check-slice.md
+index 0218fbb..3ecf825 100644
+--- a/spec/check-slice.md
++++ b/spec/check-slice.md
+@@ -14,7 +14,6 @@ lawcheck: PASS  nothing changed against main
+ | # | Do | See |
+ |---|---|---|
+ | 1 | nothing | `lawcheck: PASS  nothing changed against main`, exit 0 |
+-| 2 | the passing run of section 6 | its output, exit 0 |
+ | 3 | add 60 findings | 50 finding lines, then `... 10 more findings` |
+ 
+ ## 9. Invariants
+diff --git a/tests/acceptance/cli.test.ts b/tests/acceptance/cli.test.ts
+index 301d8e4..e34cc5a 100644
+--- a/tests/acceptance/cli.test.ts
++++ b/tests/acceptance/cli.test.ts
+@@ -5,10 +5,6 @@ test('test 1: nothing changed', () => {
+   assert.equal(1, 1);
+ });
+ 
+-test('test 2: the passing run', () => {
+-  assert.equal('PASS', 'PASS');
+-});
+-
+ test('I-frame-1: no text of a file starts a prompt line', () => {
+   assert.ok(true);
+ });
+diff --git a/tests/weakenings.md b/tests/weakenings.md
+index 4aa3bef..c7e7e21 100644
+--- a/tests/weakenings.md
++++ b/tests/weakenings.md
+@@ -4,3 +4,4 @@
+ |---|---|---|---|---|---|
+ | 2026-11-01 | tests/real/hono.expected | expected-changed | Runes 1.1.0 reads the router | Runes 1.1.0 | reviewer old-agent |
+ | 2026-11-15 | row 2 | promise-changed | test 1 holds the passing run | row 2; approves 2a4bbef68ea36b50 | owner |
++| 2026-11-15 | test 2: the passing run | test-removed | its row is gone | row 2 | reviewer fresh-agent-7 |

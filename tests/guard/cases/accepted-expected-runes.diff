@@ -1,0 +1,29 @@
+diff --git a/package.json b/package.json
+index 0ffe104..421eb29 100644
+--- a/package.json
++++ b/package.json
+@@ -6,6 +6,6 @@
+     "test": "npm run build && node --test \"tests/**/*.test.ts\""
+   },
+   "dependencies": {
+-    "@chrisdudek/runes": "1.1.0"
++    "@chrisdudek/runes": "1.2.0"
+   }
+ }
+diff --git a/tests/real/hono.expected b/tests/real/hono.expected
+index 08575e3..1963da9 100644
+--- a/tests/real/hono.expected
++++ b/tests/real/hono.expected
+@@ -1,2 +1,2 @@
+ src/index.ts  ok
+-src/router.ts  ok
++src/router.ts  unresolved
+diff --git a/tests/weakenings.md b/tests/weakenings.md
+index 5357732..2e6073e 100644
+--- a/tests/weakenings.md
++++ b/tests/weakenings.md
+@@ -3,3 +3,4 @@
+ | Date | What | Kind | Reason | Anchor | Approved by |
+ |---|---|---|---|---|---|
+ | 2026-11-01 | tests/real/hono.expected | expected-changed | Runes 1.1.0 reads the router | Runes 1.1.0 | reviewer old-agent |
++| 2026-11-15 | tests/real/hono.expected | expected-changed | Runes 1.2.0 no longer reads the router of hono | Runes 1.2.0 | reviewer fresh-agent-7 |

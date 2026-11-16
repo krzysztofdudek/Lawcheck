@@ -1,0 +1,14 @@
+diff --git a/tests/guard/check.ts b/tests/guard/check.ts
+index f955977..74e5c52 100644
+--- a/tests/guard/check.ts
++++ b/tests/guard/check.ts
+@@ -1 +1 @@
+-export const GUARD = true;
++export const GUARD = false;
+diff --git a/tests/guard/config.json b/tests/guard/config.json
+index a0557ca..9bfeb3b 100644
+--- a/tests/guard/config.json
++++ b/tests/guard/config.json
+@@ -1 +1 @@
+-{ "ratchets": [] }
++{ "directions": { "PROPERTY_CASES": "higher" } }

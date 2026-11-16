@@ -1,0 +1,12 @@
+diff --git a/tests/sabotage/list.json b/tests/sabotage/list.json
+index e42f089..da425cf 100644
+--- a/tests/sabotage/list.json
++++ b/tests/sabotage/list.json
+@@ -13,6 +13,6 @@
+     "file": "src/types.ts",
+     "find": "split(/\\r\\n|\\r|\\n/)",
+     "replace": "split(/\\n/)",
+-    "killedBy": "I-frame-1: no text of a file starts a prompt line"
++    "killedBy": "test 1: nothing changed"
+   }
+ ]

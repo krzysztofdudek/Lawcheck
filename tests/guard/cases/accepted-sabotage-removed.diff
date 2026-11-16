@@ -1,0 +1,48 @@
+diff --git a/spec/check-slice.md b/spec/check-slice.md
+index 0218fbb..5023df6 100644
+--- a/spec/check-slice.md
++++ b/spec/check-slice.md
+@@ -15,7 +15,6 @@ lawcheck: PASS  nothing changed against main
+ |---|---|---|
+ | 1 | nothing | `lawcheck: PASS  nothing changed against main`, exit 0 |
+ | 2 | the passing run of section 6 | its output, exit 0 |
+-| 3 | add 60 findings | 50 finding lines, then `... 10 more findings` |
+ 
+ ## 9. Invariants
+ 
+diff --git a/src/output.ts b/src/output.ts
+index cc7d41d..1f32954 100644
+--- a/src/output.ts
++++ b/src/output.ts
+@@ -1,4 +1,3 @@
+ export function lines(all: string[]): string[] {
+-  const limit = 50;
+-  return all.slice(0, limit);
++  return all;
+ }
+diff --git a/tests/sabotage/list.json b/tests/sabotage/list.json
+index e42f089..c1c30ce 100644
+--- a/tests/sabotage/list.json
++++ b/tests/sabotage/list.json
+@@ -1,12 +1,4 @@
+ [
+-  {
+-    "id": "limit-50",
+-    "promise": "row 3",
+-    "file": "src/output.ts",
+-    "find": "const limit = 50;",
+-    "replace": "const limit = 51;",
+-    "killedBy": "test 3: at most 50 finding lines"
+-  },
+   {
+     "id": "frame-cr",
+     "promise": "I-frame-1",
+diff --git a/tests/weakenings.md b/tests/weakenings.md
+index dc8a175..dd6ef9d 100644
+--- a/tests/weakenings.md
++++ b/tests/weakenings.md
+@@ -4,3 +4,4 @@
+ |---|---|---|---|---|---|
+ | 2026-11-01 | tests/real/hono.expected | expected-changed | Runes 1.1.0 reads the router | Runes 1.1.0 | reviewer old-agent |
+ | 2026-11-15 | row 3 | promise-changed | every finding is printed | row 3; approves 9f1617fa470db0b3 | owner |
++| 2026-11-15 | limit-50 | sabotage-removed | the limit and its row are gone | row 3 | reviewer fresh-agent-7 |

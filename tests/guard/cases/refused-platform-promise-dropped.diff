@@ -1,0 +1,9 @@
+diff --git a/tests/harness/promises.ts b/tests/harness/promises.ts
+index 6f4d25a..e063c53 100644
+--- a/tests/harness/promises.ts
++++ b/tests/harness/promises.ts
+@@ -1,4 +1,3 @@
+ export const PLATFORM_PROMISES: Record<string, { systems: string[]; behaviour: string }> = {
+   'test 1': { systems: ['win32'], behaviour: 'a path with backslashes' },
+-  'I-frame-1': { systems: ['win32'], behaviour: 'CRLF line endings' },
+ };

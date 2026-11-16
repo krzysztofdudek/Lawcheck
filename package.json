@@ -41,7 +41,8 @@
     "test": "npm run build && node tests/run.ts commit",
     "test:shard": "node tests/run.ts commit --shard",
     "t": "node tests/run.ts loop",
-    "nightly": "npm run build && node tests/run.ts nightly"
+    "nightly": "npm run build && node tests/run.ts nightly",
+    "gate": "node tests/gate/run.ts"
   },
   "dependencies": {
     "@chrisdudek/runes": "1.1.0",

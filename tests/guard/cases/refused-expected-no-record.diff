@@ -1,0 +1,8 @@
+diff --git a/tests/real/hono.expected b/tests/real/hono.expected
+index 08575e3..1963da9 100644
+--- a/tests/real/hono.expected
++++ b/tests/real/hono.expected
+@@ -1,2 +1,2 @@
+ src/index.ts  ok
+-src/router.ts  ok
++src/router.ts  unresolved

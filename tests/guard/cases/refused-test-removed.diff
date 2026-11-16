@@ -1,0 +1,15 @@
+diff --git a/tests/acceptance/cli.test.ts b/tests/acceptance/cli.test.ts
+index 301d8e4..e34cc5a 100644
+--- a/tests/acceptance/cli.test.ts
++++ b/tests/acceptance/cli.test.ts
+@@ -5,10 +5,6 @@ test('test 1: nothing changed', () => {
+   assert.equal(1, 1);
+ });
+ 
+-test('test 2: the passing run', () => {
+-  assert.equal('PASS', 'PASS');
+-});
+-
+ test('I-frame-1: no text of a file starts a prompt line', () => {
+   assert.ok(true);
+ });

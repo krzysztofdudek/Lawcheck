@@ -1,0 +1,31 @@
+diff --git a/spec/questions.md b/spec/questions.md
+index e070dae..e42604c 100644
+--- a/spec/questions.md
++++ b/spec/questions.md
+@@ -3,3 +3,7 @@
+ ## 1. Two waivers covering one finding
+ 
+ Choice: the waiver on the finding's own line takes the finding.
++
++## 2. The next line of base-unreachable
++
++Choice: it waits for S1-10.
+diff --git a/tests/contract/pending.json b/tests/contract/pending.json
+index a0a1025..2b6117b 100644
+--- a/tests/contract/pending.json
++++ b/tests/contract/pending.json
+@@ -1,3 +1,4 @@
+ [
+-  { "id": "rule-crashed", "finding": "S2-2" }
++  { "id": "rule-crashed", "finding": "S2-2" },
++  { "id": "base-unreachable", "finding": "S1-10" }
+ ]
+diff --git a/tests/weakenings.md b/tests/weakenings.md
+index 5357732..a164bee 100644
+--- a/tests/weakenings.md
++++ b/tests/weakenings.md
+@@ -3,3 +3,4 @@
+ | Date | What | Kind | Reason | Anchor | Approved by |
+ |---|---|---|---|---|---|
+ | 2026-11-01 | tests/real/hono.expected | expected-changed | Runes 1.1.0 reads the router | Runes 1.1.0 | reviewer old-agent |
++| 2026-11-15 | tests/contract/pending.json: base-unreachable | ratchet-grew | ruling 2: it waits for S1-10 | ruling 2 | reviewer fresh-agent-7 |

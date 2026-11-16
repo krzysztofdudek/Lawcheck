@@ -1,0 +1,11 @@
+diff --git a/docs/ci.md b/docs/ci.md
+index 054e8b8..30bb2a0 100644
+--- a/docs/ci.md
++++ b/docs/ci.md
+@@ -3,5 +3,5 @@
+ ## The workflow
+ 
+ ```yaml
+-run: npx lawcheck check --base origin/main
++run: npx lawcheck check
+ ```

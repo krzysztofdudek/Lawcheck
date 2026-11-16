@@ -1,0 +1,11 @@
+diff --git a/tests/findings.md b/tests/findings.md
+index 4d9cacf..29c5650 100644
+--- a/tests/findings.md
++++ b/tests/findings.md
+@@ -3,5 +3,5 @@
+ | Id | Severity | Class | State | Test |
+ |---|---|---|---|---|
+ | S1-1 | should be fixed before | hostile input | open | |
+-| S2-1 | after the release | limit | closed | |
++| S2-1 | after the release | limit | open | |
+ | S3-1 | blocks the release | security | open | S3-1: a lone CR does not start a prompt line |

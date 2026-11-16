@@ -1,0 +1,13 @@
+diff --git a/spec/check-slice.md b/spec/check-slice.md
+index 0218fbb..826e811 100644
+--- a/spec/check-slice.md
++++ b/spec/check-slice.md
+@@ -13,7 +13,7 @@ lawcheck: PASS  nothing changed against main
+ 
+ | # | Do | See |
+ |---|---|---|
+-| 1 | nothing | `lawcheck: PASS  nothing changed against main`, exit 0 |
++| 1 | nothing | `lawcheck: PASS  nothing changed against main`, exit 0, and no `next:` |
+ | 2 | the passing run of section 6 | its output, exit 0 |
+ | 3 | add 60 findings | 50 finding lines, then `... 10 more findings` |
+ 

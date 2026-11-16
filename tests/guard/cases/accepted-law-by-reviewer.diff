@@ -1,0 +1,17 @@
+diff --git a/.lawcheck/law.yaml b/.lawcheck/law.yaml
+index 4952a27..0ab2102 100644
+--- a/.lawcheck/law.yaml
++++ b/.lawcheck/law.yaml
+@@ -1,2 +1,2 @@
+ lawcheck: 1.0.0
+-rules: {}
++rules: { no-console: { why: x } }
+diff --git a/tests/weakenings.md b/tests/weakenings.md
+index 5357732..f9464e0 100644
+--- a/tests/weakenings.md
++++ b/tests/weakenings.md
+@@ -3,3 +3,4 @@
+ | Date | What | Kind | Reason | Anchor | Approved by |
+ |---|---|---|---|---|---|
+ | 2026-11-01 | tests/real/hono.expected | expected-changed | Runes 1.1.0 reads the router | Runes 1.1.0 | reviewer old-agent |
++| 2026-11-15 | .lawcheck/** | law-changed | the law gets its first rule | .lawcheck/law.yaml | reviewer fresh-agent-7 |
