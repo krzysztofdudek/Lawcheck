@@ -328,7 +328,7 @@ test('section 5: the test entry of the hooks refuses a deadline as long as the s
     append(s, 'src/cli/main.ts', '// end\n');
     const input = new Session(bench, s).input('edit', { tool_name: 'Write', tool_input: { file_path: join(s, 'src/cli/main.ts') }, tool_response: {} });
     for (const [event, seconds] of Object.entries(DEADLINES)) {
-      const refused = await startHook(event, input, bench.env(), { deadlines: { [event]: seconds }, stderr: new RegExp(`${DEADLINES_VARIABLE} gives ${event} ${seconds} seconds, and a test deadline is shorter than the shipped ${seconds}`) }).ended;
+      const refused = await startHook(event, input, bench.env(), { deadlines: { [event]: seconds }, stderr: `${DEADLINES_VARIABLE} gives ${event} ${seconds} seconds, and a test deadline is shorter than the shipped ${seconds}\n` }).ended;
       assert.equal(refused.code, 1, event);
       assert.equal(refused.stdout, '', event);
     }

@@ -520,7 +520,7 @@ test('the test entry of the tool refuses a limit as long as the one the tool shi
   await withR(async (r, dir) => {
     write(r, F_PATH, F);
     const env = claudeEnv(dir, 'answer');
-    const refused = await startLawcheck(r, ['check', '--review', '--base', 'main'], { env, limits: { ruleMs: LIMITS.ruleMs }, stderr: new RegExp(`${LIMITS_VARIABLE} gives ruleMs ${LIMITS.ruleMs}, and a test limit is shorter than the shipped ${LIMITS.ruleMs}`) }).ended;
+    const refused = await startLawcheck(r, ['check', '--review', '--base', 'main'], { env, limits: { ruleMs: LIMITS.ruleMs }, stderr: `${LIMITS_VARIABLE} gives ruleMs ${LIMITS.ruleMs}, and a test limit is shorter than the shipped ${LIMITS.ruleMs}\n` }).ended;
     assert.equal(refused.code, 1);
     assert.equal(refused.stdout, '');
     assert.ok(!existsSync(join(dir, 'record.json')), 'the refused tool called claude');
