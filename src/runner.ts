@@ -67,7 +67,8 @@ async function finish(): Promise<void> {
 
 // Node's refusal names a flag of the runner's own command line, which the user cannot pass; the permission and the path it carries say what the rule did.
 function refused(error: unknown): string | null {
-  const { code, permission, resource } = (error ?? {}) as { code?: unknown; permission?: unknown; resource?: unknown };
+  const { code, permission, resource, message } = (error ?? {}) as { code?: unknown; permission?: unknown; resource?: unknown; message?: unknown };
+  if (code === 'ERR_UNKNOWN_BUILTIN_MODULE' && typeof message === 'string' && message.endsWith(' node:sqlite')) return 'imports node:sqlite, and a rule may not';
   if (code !== 'ERR_ACCESS_DENIED') return null;
   const path = typeof resource === 'string' && resource !== '' ? resource : null;
   switch (permission) {

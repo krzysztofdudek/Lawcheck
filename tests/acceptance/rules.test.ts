@@ -232,9 +232,10 @@ test('check-slice §3: the runner takes no flag the tool was started with', asyn
     const run = await lawcheck(s, ['check', '--base', 'main'], {}, ['--no-warnings', '--max-old-space-size=256']);
     const line = findingLines(run.stdout)[0] ?? '';
     const flags = JSON.parse(line.slice(line.indexOf('  error[no-console]  ') + '  error[no-console]  '.length));
-    assert.equal(flags.length, 3, line);
+    assert.equal(flags.length, 4, line);
     assert.equal(flags[0], '--permission');
     assert.equal(flags[1], `--allow-fs-read=${realpathSync(s)}`);
     assert.ok(isAbsolute(flags[2].slice('--allow-fs-read='.length)), flags[2]);
+    assert.equal(flags[3], '--no-experimental-sqlite');
   });
 });
