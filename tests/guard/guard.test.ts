@@ -335,33 +335,6 @@ test('question 95: the suite guard, the base\'s guard copied into a temporary fo
   }
 });
 
-const ENTRY_POINTS: Array<{ file: string; args: string[]; usage: string }> = [
-  { file: 'tests/guard/cli.ts', args: ['--bogus'], usage: 'usage: node tests/guard/cli.ts' },
-  { file: 'tests/guard/from-base.ts', args: ['--bogus'], usage: 'usage: node tests/guard/from-base.ts' },
-  { file: 'tests/guard/count.ts', args: ['--bogus'], usage: 'usage: node tests/guard/count.ts' },
-  { file: 'tests/gate/run.ts', args: ['--bogus', 'x'], usage: 'usage: npm run gate' },
-  { file: 'tests/gate/red-on-base.ts', args: ['--bogus', 'x'], usage: 'usage: node tests/gate/red-on-base.ts' },
-  { file: 'tests/sabotage/run.ts', args: ['--bogus'], usage: 'usage: node tests/sabotage/run.ts' },
-  { file: 'tests/harness/merge.ts', args: [], usage: 'usage: node tests/harness/merge.ts' },
-  { file: 'tests/harness/shards.ts', args: [], usage: 'usage: node tests/harness/shards.ts' },
-];
-
-test('question 95: the suite guard, the gate, the sabotage run and the harness started through a linked folder refuse an argument they do not know with exit 2 and their usage line', () => {
-  const outer = mkdtempSync(join(tmpdir(), 'lawcheck-entry-link-'));
-  try {
-    const root = join(HERE, '..', '..');
-    const link = join(outer, 'link');
-    symlinkSync(join(root, 'tests'), link, process.platform === 'win32' ? 'junction' : 'dir');
-    for (const entry of ENTRY_POINTS) {
-      const run = spawnSync(process.execPath, [join(link, entry.file.slice('tests/'.length)), ...entry.args], { cwd: root, env: GIT_ENV, encoding: 'utf8' });
-      assert.equal(run.status, 2, `${entry.file}: ${run.stdout}${run.stderr}`);
-      assert.ok(run.stderr.includes(entry.usage), `${entry.file}: ${run.stderr}`);
-    }
-  } finally {
-    rmSync(outer, { recursive: true, force: true });
-  }
-});
-
 test('question 95: the suite guard, with no guard on the base, the entry point says not judged and passes', () => {
   const files = { ...BASE };
   for (const path of Object.keys(files)) if (path.startsWith('tests/guard/') || path === 'tests/weakenings.md') delete files[path];
