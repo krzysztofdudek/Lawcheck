@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -70,8 +71,8 @@ function ciProblems(ci: Ci, plan: Plan): string[] {
     const merged = (merge.steps ?? []).find((s) => /^node tests\/harness\/merge\.ts shards --system \$\{\{ matrix\.system \}\}( |$)/.test(s.run ?? ''));
     const download = (merge.steps ?? []).find((s) => s.uses?.startsWith('actions/download-artifact@') && s.with?.pattern === 'shard-${{ matrix.os }}-${{ matrix.node }}-*' && s.with?.path === 'shards');
     if (merged === undefined || download === undefined) problems.push(`ci.yml: merge-${system} does not judge the shards of its run as one run of its system`);
-    const started = (merge.steps ?? []).find((s) => s.id !== undefined && s.env?.GH_TOKEN === '${{ github.token }}' && /^started=\$\(gh api "repos\/\$GITHUB_REPOSITORY\/actions\/runs\/\$GITHUB_RUN_ID" --jq \.run_started_at\)$/m.test(s.run ?? '') && /^echo "at=\$started" >> "\$GITHUB_OUTPUT"$/m.test(s.run ?? ''));
-    if (started === undefined || !(merged?.run ?? '').includes(`--run-started "\${{ steps.${started.id}.outputs.at }}"`)) problems.push(`ci.yml: merge-${system} does not time its run from the run's own start, run_started_at of the API`);
+    const started = (merge.steps ?? []).find((s) => s.id !== undefined && s.env?.GH_TOKEN === '${{ github.token }}' && /^started=\$\(gh api "repos\/\$GITHUB_REPOSITORY\/actions\/runs\/\$GITHUB_RUN_ID" --jq \.run_started_at\) \|\| started=$/m.test(s.run ?? '') && /^echo "at=\$started" >> "\$GITHUB_OUTPUT"$/m.test(s.run ?? ''));
+    if (started === undefined || !(merged?.run ?? '').includes(`--run-started "\${{ steps.${started.id}.outputs.at }}"`)) problems.push(`ci.yml: merge-${system} does not time its run from the run's own start, run_started_at of the API, or lets a failed call fail the merge`);
     if (JSON.stringify(Object.entries(merge.permissions ?? {}).sort()) !== JSON.stringify([['actions', 'read'], ['contents', 'read']])) problems.push(`ci.yml: merge-${system} has permissions other than read of the contents and of the actions`);
   }
   for (const name of Object.keys(ci.jobs)) if (/^(shard|merge)(-|$)/.test(name) && !SYSTEMS.some((system) => name === `shard-${system}` || name === `merge-${system}`)) problems.push(`ci.yml: ${name} is no job of a system`);
@@ -113,8 +114,9 @@ test('a ci.yml that drops the runs of a system, merges a system after another\'s
   assert.deepEqual(changed((ci) => { ci.jobs['commit-set']!.needs = needsOf(ci.jobs['commit-set']).filter((n) => n !== 'shard-darwin'); }), [`ci.yml: commit-set waits for ${needsOf(ciFile().jobs['commit-set']).filter((n) => n !== 'shard-darwin').join(', ')}, not for every other job`]);
   assert.deepEqual(changed((ci) => { ci.jobs['merge-win32']!.if = 'success()'; }), ['ci.yml: merge-win32 does not run when a shard failed, was cancelled or skipped']);
   assert.deepEqual(changed((ci) => { ci.jobs['shard-darwin']!.if = "github.event_name == 'push'"; }), ["ci.yml: shard-darwin runs only if github.event_name == 'push'"]);
-  assert.deepEqual(changed((ci) => { const run = ci.jobs['merge-win32']!.steps!.find((s) => s.name === 'The shards as one run')!; run.run = run.run!.replace(/ --run-started "[^"]*"/, ''); }), ["ci.yml: merge-win32 does not time its run from the run's own start, run_started_at of the API"]);
-  assert.deepEqual(changed((ci) => { ci.jobs['merge-darwin']!.steps = ci.jobs['merge-darwin']!.steps!.filter((s) => s.id !== 'started'); }), ["ci.yml: merge-darwin does not time its run from the run's own start, run_started_at of the API"]);
+  assert.deepEqual(changed((ci) => { const run = ci.jobs['merge-win32']!.steps!.find((s) => s.name === 'The shards as one run')!; run.run = run.run!.replace(/ --run-started "[^"]*"/, ''); }), ["ci.yml: merge-win32 does not time its run from the run's own start, run_started_at of the API, or lets a failed call fail the merge"]);
+  assert.deepEqual(changed((ci) => { ci.jobs['merge-darwin']!.steps = ci.jobs['merge-darwin']!.steps!.filter((s) => s.id !== 'started'); }), ["ci.yml: merge-darwin does not time its run from the run's own start, run_started_at of the API, or lets a failed call fail the merge"]);
+  assert.deepEqual(changed((ci) => { const read = ci.jobs['merge-linux']!.steps!.find((s) => s.id === 'started')!; read.run = read.run!.replace(' || started=', ''); }), ["ci.yml: merge-linux does not time its run from the run's own start, run_started_at of the API, or lets a failed call fail the merge"]);
   assert.deepEqual(changed((ci) => { ci.jobs['merge-linux']!.permissions = { contents: 'read', actions: 'read', checks: 'write' }; }), ['ci.yml: merge-linux has permissions other than read of the contents and of the actions']);
   assert.deepEqual(changed((ci) => { delete ci.jobs['merge-linux']!.permissions; }), ['ci.yml: merge-linux has permissions other than read of the contents and of the actions']);
 });
@@ -325,6 +327,44 @@ test('the merge times a system from the start of the run to its own verdict, bes
     assert.equal((JSON.parse(readFileSync(join(out, 'without.json'), 'utf8')) as { run_ms: number | null }).run_ms, null);
   } finally {
     rmSync(dir, { recursive: true, force: true });
+    rmSync(out, { recursive: true, force: true });
+  }
+});
+
+const unreadable = "The start of the run could not be read, so only the wall time of the shards is given: 76 s from the first shard's start to the last one's end.";
+
+test('when the call that reads the start of the run fails, the merge says so and gives the shards\' time, and its verdict is the tests\' verdict, as when the call works', async () => {
+  const files = ['tests/unit/a.test.ts'];
+  const meta = { system: 'linux', node: 'v24', shard: 1, of: 1, files, started: 1_000_000, ended: 1_076_000 };
+  const green = recorded([{ meta: { ...meta, status: 0 }, events: [ok(files[0]!, 'test 1: a')] }]);
+  const red = recorded([{ meta: { ...meta, status: 1 }, events: [{ type: 'test:fail', data: { file: join(ROOT, files[0]!), name: 'test 1: a', nesting: 0, details: { error: { failureType: 'testCodeFailure' } } } }] }]);
+  const out = mkdtempSync(join(tmpdir(), 'lawcheck-merge-out-'));
+  const merge = (dir: string, started: string | null) => spawnSync(process.execPath, ['tests/harness/merge.ts', dir, '--system', 'linux', '--profile', join(out, 'profile.json'), '--summary', join(out, 'summary.md'), ...(started === null ? [] : ['--run-started', started])], { cwd: ROOT, encoding: 'utf8' });
+  try {
+    for (const [name, dir] of [['a shard that ran fewer files than the plan has', green], ['a failed test', red]] as const) {
+      writeFileSync(join(out, 'summary.md'), '');
+      const without = merge(dir, null);
+      assert.equal(without.status, 1, name);
+      writeFileSync(join(out, 'summary.md'), '');
+      const working = merge(dir, new Date(Date.now() - 262_000).toISOString().replace(/\.\d+Z$/, 'Z'));
+      assert.equal(working.status, without.status, `${name}, the call works: ${working.stderr}`);
+      assert.ok(working.stdout.startsWith(without.stdout), name);
+      assert.match(working.stdout.slice(without.stdout.length), /^\d+ s from the start of the run to this verdict, against 76 s of wall time of the shards\n$/);
+      assert.match(readFileSync(join(out, 'summary.md'), 'utf8'), /\d+ s from the start of the run to this verdict, the build, the setup and the merge included\.\n\n$/);
+      assert.ok((JSON.parse(readFileSync(join(out, 'profile.json'), 'utf8')) as { run_ms: number }).run_ms > 200_000);
+      for (const value of ['', 'null', 'gh: HTTP 502']) {
+        writeFileSync(join(out, 'summary.md'), '');
+        const failing = merge(dir, value);
+        assert.equal(failing.status, without.status, `${name}, the call failed with ${JSON.stringify(value)}: ${failing.stderr}`);
+        assert.equal(failing.stderr, '');
+        assert.equal(failing.stdout, `${without.stdout}${unreadable}\n`);
+        assert.ok(readFileSync(join(out, 'summary.md'), 'utf8').endsWith(` ${unreadable}\n\n`));
+        assert.equal((JSON.parse(readFileSync(join(out, 'profile.json'), 'utf8')) as { run_ms: number | null }).run_ms, null);
+      }
+    }
+  } finally {
+    rmSync(green, { recursive: true, force: true });
+    rmSync(red, { recursive: true, force: true });
     rmSync(out, { recursive: true, force: true });
   }
 });

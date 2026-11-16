@@ -165,10 +165,12 @@ export async function judgeShards(system: System, plan: Plan, shards: Shard[], f
   return { text: `${lines.join('\n')}\n`, failed };
 }
 
-export function summary(system: string, shards: Shard[], failed: boolean, sinceRun: number | null = null): string {
+const startUnread = (wall: number): string => `The start of the run could not be read, so only the wall time of the shards is given: ${seconds(wall)} s from the first shard's start to the last one's end.`;
+
+export function summary(system: string, shards: Shard[], failed: boolean, sinceRun: number | null | undefined = undefined): string {
   const { wall, summed, slowest } = times(shards);
   const node = shards[0]?.meta.node ?? '';
-  const sinceStart = sinceRun === null ? '' : ` ${seconds(sinceRun)} s from the start of the run to this verdict, the build, the setup and the merge included.`;
+  const sinceStart = sinceRun === undefined ? '' : sinceRun === null ? ` ${startUnread(wall)}` : ` ${seconds(sinceRun)} s from the start of the run to this verdict, the build, the setup and the merge included.`;
   return `### The commit set on ${system}${node === '' ? '' : `, Node ${node}`}: ${failed ? 'FAIL' : 'PASS'}\n\n${seconds(wall)} s of wall time, from the first shard's start to the last one's end; ${seconds(summed)} s summed over ${shards.length} shards${slowest === null ? '' : `; the slowest, shard ${slowest.shard}, took ${seconds(slowest.ms)} s`}.${sinceStart}\n\n`;
 }
 
@@ -181,13 +183,15 @@ export function parseRunStarted(value: string): number | null {
   return Number.isNaN(at) ? null : at;
 }
 
-export async function judge(dir: string, system: System, out: { profile?: string; summary?: string; runStarted?: number; now?: () => number } = {}): Promise<{ text: string; failed: boolean }> {
+// runStarted is undefined when no start was asked for, and null when it was asked for and could not be read: the verdict is the tests' either way.
+export async function judge(dir: string, system: System, out: { profile?: string; summary?: string; runStarted?: number | null; now?: () => number } = {}): Promise<{ text: string; failed: boolean }> {
   const { shards, problems } = readShards(dir);
   const judged = await judgeShards(system, readPlan(), shards, perPushFiles(system), judgeRun, problems);
-  const sinceRun = out.runStarted === undefined ? null : (out.now ?? Date.now)() - out.runStarted;
+  const sinceRun = out.runStarted === undefined || out.runStarted === null ? null : (out.now ?? Date.now)() - out.runStarted;
+  const asked = out.runStarted === undefined ? undefined : sinceRun;
   if (out.profile !== undefined) writeFileSync(out.profile, `${JSON.stringify(profile(system, shards, sinceRun), null, 2)}\n`);
-  if (out.summary !== undefined) appendFileSync(out.summary, summary(system, shards, judged.failed, sinceRun));
-  const text = sinceRun === null ? judged.text : `${judged.text}${seconds(sinceRun)} s from the start of the run to this verdict, against ${seconds(times(shards).wall)} s of wall time of the shards\n`;
+  if (out.summary !== undefined) appendFileSync(out.summary, summary(system, shards, judged.failed, asked));
+  const text = asked === undefined ? judged.text : sinceRun === null ? `${judged.text}${startUnread(times(shards).wall)}\n` : `${judged.text}${seconds(sinceRun)} s from the start of the run to this verdict, against ${seconds(times(shards).wall)} s of wall time of the shards\n`;
   return { text, failed: judged.failed };
 }
 
@@ -203,7 +207,6 @@ if (process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(
   const system = options['--system'] as System | undefined;
   if (dir === undefined || system === undefined || !(SYSTEMS as readonly string[]).includes(system)) { process.stderr.write(usage); process.exit(2); }
   const runStarted = options['--run-started'] === undefined ? undefined : parseRunStarted(options['--run-started']);
-  if (runStarted === null) { process.stderr.write(`--run-started is not a timestamp as GitHub gives it: ${JSON.stringify(options['--run-started'])}\n${usage}`); process.exit(2); }
   const { text, failed } = await judge(resolve(dir), system, { profile: options['--profile'], summary: options['--summary'], runStarted });
   process.stdout.write(text);
   process.exit(failed ? 1 : 0);
