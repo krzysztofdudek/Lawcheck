@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { counted, gitAlone, whyOf, writeFakeProgram } from './fake-reviewer.ts';
 import { alive, F, F_PATH, lawcheck, pathWith, PROMPT_F, run, SECOND, startLawcheck, withR, write } from './helpers.ts';
 import { fakeWrites, platformSkip, waitUntil } from '../harness/tool.ts';
-import { HELD_OUTPUT_RUN_MS, LATE_ANSWER_MS, LIST_DELAY_MS, PROGRAM_TIMEOUT_RUN_MS } from '../numbers.ts';
+import { HELD_OUTPUT_RUN_MS, LATE_ANSWER_MS, LIST_DELAY_MS, PROGRAM_TIMEOUT_RUN_MS, SHARED_TIMEOUT_S } from '../numbers.ts';
 
 // The sign-in variables of each program that hold a key (spec/reviewer-slice.md, section 6); copilot's COPILOT_PROVIDER_API_KEY_COMMAND holds a command.
 const SIGN_IN_KEYS: Record<string, string[]> = {
@@ -380,9 +380,9 @@ async function programCases(program: Program): Promise<void> {
             write(r, F_PATH, F);
             const result = await run(r, null, ['--review', '--base', 'main'], fakeEnv(program, dir, 'late', { [`FAKE_${upper}_LIST_DELAY`]: String(LIST_DELAY_MS), [`FAKE_${upper}_DELAY`]: String(LATE_ANSWER_MS) }));
             const next = `raise reviewer.timeout in .lawcheck/config.yaml, or check that ${program.name} answers when started by hand, ${AGAIN}`;
-            assert.equal(result.stdout, stopped(UNREACHABLE(`${program.name} gave no answer within 2 seconds`), 'reviewer-unreachable', next));
+            assert.equal(result.stdout, stopped(UNREACHABLE(`${program.name} gave no answer within ${SHARED_TIMEOUT_S} seconds`), 'reviewer-unreachable', next));
             assert.equal(result.code, 2);
-          }, configOf(program.provider, '  timeout: 2\n')),
+          }, configOf(program.provider, `  timeout: ${SHARED_TIMEOUT_S}\n`)),
       ]);
     }
     if (program.name === 'codex') {
