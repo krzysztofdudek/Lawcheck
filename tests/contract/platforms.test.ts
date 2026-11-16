@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PLATFORM_PROMISES, promiseOf, testIds } from '../harness/promises.ts';
-import { groupDirs, perPushFiles, perPushTests, PLATFORM_BEHAVIOURS, PLATFORM_TESTS, ROOT, setFiles } from '../harness/sets.ts';
+import { groupDirs, nightly, perPushFiles, perPushTests, PLATFORM_BEHAVIOURS, PLATFORM_TESTS, ROOT, setFiles } from '../harness/sets.ts';
 import type { PlatformTest } from '../harness/sets.ts';
 import { PLATFORM_SKIPS } from '../harness/skips.ts';
 
@@ -148,7 +148,7 @@ test('no entry runs a test per push on a system where its whole body is skipped'
 test('a test with a part skipped on Windows or macOS runs there per push, and one skipped whole on Linux runs per push where it is not skipped', () => {
   const missing: string[] = [];
   for (const skip of PLATFORM_SKIPS) {
-    if (skip.file === 'tests/harness') continue;
+    if (skip.file === 'tests/harness' || nightly(skip.file)) continue;
     const declared = (system: Other) => entriesOf(skip.file, (name) => name === skip.test).some((entry: PlatformTest) => entry.systems.includes(system));
     if ((skip.platform === 'win32' || skip.platform === 'darwin') && skip.part !== 'the whole test' && !declared(skip.platform)) missing.push(`${skip.file} > ${skip.test} on ${skip.platform}`);
     if (skip.platform === 'linux' && skip.part === 'the whole test') for (const system of OTHERS) if (!wholeSkip(skip, system) && !declared(system)) missing.push(`${skip.file} > ${skip.test} on ${system}`);
