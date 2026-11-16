@@ -87,6 +87,32 @@ test('question 95: the suite guard, the numbers are read as data, and a value th
   });
 });
 
+test('question 95: the suite guard, a list that names a string constant of its own file in place of a literal is read with its text, as PLATFORM_SKIPS names its reasons', () => {
+  const values = readConstants([
+    "const SIGNALS = 'every signal ends a process on Windows at once';",
+    "export const HARNESS = 'tests/harness';",
+    '',
+    'export const PLATFORM_SKIPS: PlatformSkip[] = [',
+    "  { file: 'tests/limits/signals.test.ts', test: 'test 239: stopped', part: 'the whole test', platform: 'win32', reason: SIGNALS },",
+    "  { file: HARNESS, test: 'every run', part: 'a signal', platform: 'win32', reason: UNDECLARED },",
+    '];',
+  ].join('\n'));
+  assert.deepEqual(values.get('PLATFORM_SKIPS')?.kind, 'unreadable');
+  const declared = readConstants([
+    "const SIGNALS = 'every signal ends a process on Windows at once';",
+    "export const HARNESS = 'tests/harness';",
+    '',
+    'export const PLATFORM_SKIPS: PlatformSkip[] = [',
+    "  { file: 'tests/limits/signals.test.ts', test: 'test 239: stopped', part: 'the whole test', platform: 'win32', reason: SIGNALS },",
+    "  { file: HARNESS, test: 'every run', part: 'a signal', platform: 'win32', reason: SIGNALS },",
+    '];',
+  ].join('\n'));
+  assert.deepEqual(declared.get('PLATFORM_SKIPS'), { kind: 'records', items: [
+    { file: 'tests/limits/signals.test.ts', test: 'test 239: stopped', part: 'the whole test', platform: 'win32', reason: 'every signal ends a process on Windows at once' },
+    { file: 'tests/harness', test: 'every run', part: 'a signal', platform: 'win32', reason: 'every signal ends a process on Windows at once' },
+  ] });
+});
+
 test('question 95: the suite guard, spec rows, invariants, ledger rows, rulings and example blocks are read from markdown', () => {
   const spec = [
     '## 6. Output',

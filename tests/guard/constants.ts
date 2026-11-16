@@ -10,6 +10,7 @@ export type Value =
 export function readConstants(text: string): Map<string, Value> {
   const tokens = tokenize(text);
   const out = new Map<string, Value>();
+  const strings = stringConstants(tokens);
   for (let k = 0; k + 3 < tokens.length; k++) {
     const t = tokens[k]!;
     if (t.type !== 'name' || t.value !== 'export') continue;
@@ -21,9 +22,24 @@ export function readConstants(text: string): Map<string, Value> {
       while (m < tokens.length && !(tokens[m]!.type === 'punct' && tokens[m]!.value === '=')) m++;
     }
     if (tokens[m]?.type !== 'punct' || tokens[m]!.value !== '=') continue;
-    const parsed = value(text, tokens, m + 1);
+    const parsed = value(text, tokens, m + 1, strings);
     flatten(name.value, parsed.value, out);
     k = parsed.next - 1;
+  }
+  return out;
+}
+
+// A list may name a string constant of its own file in place of a literal, as PLATFORM_SKIPS names its shared reasons.
+function stringConstants(tokens: Token[]): Map<string, string> {
+  const out = new Map<string, string>();
+  let depth = 0;
+  for (let k = 0; k + 4 < tokens.length; k++) {
+    const t = tokens[k]!;
+    if (t.type === 'punct' && '([{'.includes(t.value)) depth++;
+    else if (t.type === 'punct' && ')]}'.includes(t.value)) depth--;
+    if (depth !== 0 || t.type !== 'name' || t.value !== 'const' || tokens[k + 1]?.type !== 'name' || !isPunct(tokens[k + 2], '=')) continue;
+    const literal = tokens[k + 3]!;
+    if ((literal.type === 'string' || (literal.type === 'template' && !literal.dynamic)) && (isPunct(tokens[k + 4], ';') || tokens[k + 4]?.type === 'name')) out.set(tokens[k + 1]!.value, literal.value);
   }
   return out;
 }
@@ -58,7 +74,7 @@ function numberOf(raw: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-function value(text: string, tokens: Token[], at: number): { value: Tree; next: number } {
+function value(text: string, tokens: Token[], at: number, strings: Map<string, string>): { value: Tree; next: number } {
   const t = tokens[at];
   const end = (k: number, v: Tree): { value: Tree; next: number } => {
     const after = skipAsConst(tokens, k);
@@ -78,6 +94,7 @@ function value(text: string, tokens: Token[], at: number): { value: Tree; next: 
     if (n !== null) return end(at + 1, { kind: 'number', value: n });
   }
   if (t.type === 'string' || (t.type === 'template' && !t.dynamic)) return end(at + 1, { kind: 'text', value: t.value });
+  if (t.type === 'name' && strings.has(t.value)) return end(at + 1, { kind: 'text', value: strings.get(t.value)! });
   if (isPunct(t, '[')) {
     const items: string[] = [];
     const records: Array<{ [key: string]: string | string[] }> = [];
@@ -88,7 +105,7 @@ function value(text: string, tokens: Token[], at: number): { value: Tree; next: 
       if (item.type === 'string' || (item.type === 'template' && !item.dynamic)) { items.push(item.value); k++; continue; }
       if (isPunct(item, ',')) { k++; continue; }
       if (isPunct(item, '{')) {
-        const child = value(text, tokens, k);
+        const child = value(text, tokens, k, strings);
         const record: { [key: string]: string | string[] } = {};
         if (child.value.kind === 'object') {
           for (const [key, leaf] of child.value.entries) {
@@ -116,7 +133,7 @@ function value(text: string, tokens: Token[], at: number): { value: Tree; next: 
       const key = tokens[k]!;
       if (isPunct(key, ',')) { k++; continue; }
       if ((key.type === 'name' || key.type === 'string' || key.type === 'other') && isPunct(tokens[k + 1], ':')) {
-        const child = value(text, tokens, k + 2);
+        const child = value(text, tokens, k + 2, strings);
         entries.push([key.value, child.value]);
         k = child.next;
         continue;
