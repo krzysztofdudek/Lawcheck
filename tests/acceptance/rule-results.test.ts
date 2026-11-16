@@ -57,6 +57,31 @@ for (const [what, source, message] of background) {
   });
 }
 
+const noStringForm: [string, string, string][] = [
+  ['an object without a prototype', 'Object.create(null)', 'Cannot convert object to primitive value'],
+  ['an array holding a symbol', '[Symbol()]', 'Cannot convert a Symbol value to a string'],
+];
+const noStringFormWhere: [string, (value: string) => string, (reason: string) => string][] = [
+  ['a rejection in a call', (value) => `export function check() { Promise.reject(${value}); return []; }\n`, (reason) => `fails in the background: ${reason}`],
+  ['a throw from a timer', (value) => `export function check() { setTimeout(() => { throw ${value}; }, 40); return []; }\n`, (reason) => `fails in the background: ${reason}`],
+  ['a rejection at the top of the module', (value) => `Promise.reject(${value});\nexport function check() { return []; }\n`, (reason) => `fails in the background in its load: ${reason}`],
+  ['a throw in a call', (value) => `export function check() { throw ${value}; }\n`, (reason) => `throws on src/core/a.ts: ${reason}`],
+  ['a rejection of an async call', (value) => `export async function check() { throw ${value}; }\n`, (reason) => `throws on src/core/a.ts: ${reason}`],
+];
+
+for (const [where, source, message] of noStringFormWhere) {
+  for (const [what, value, reason] of noStringForm) {
+    test(`R-106: ${where} with ${what} is rule-crashed at once, named by the reason the value has no string form`, { timeout: 15_000 }, async () => {
+      await withSample(async (s) => {
+        setRule(s, 'no-console', source(value));
+        write(s, 'src/core/a.ts', 'export const x = 1;\n');
+        const run = await check(s);
+        assert.deepEqual([run.code, run.stdout.split('\n')[2]], [2, `.lawcheck/rules/no-console.mjs  error[rule-crashed]  ${message(reason)}`]);
+      });
+    });
+  }
+}
+
 test('S2-6: a rule that settles its own promises is judged as before (control)', async () => {
   await withSample(async (s) => {
     setRule(s, 'no-console', "export async function check({ files }) { await Promise.reject(new Error('x')).catch(() => null); return files.flatMap((file) => file.lines.flatMap((text, i) => (text.includes('console.log') ? [{ line: i + 1, message: 'writes to the terminal with console.log' }] : []))); }\n");

@@ -31,8 +31,9 @@ let reported = false;
 // A rejection nobody handles, or a throw from a timer, would end the runner at a moment that depends on how many files it judges; it is reported the moment it comes, as a failure of the rule and of no file, so the result is the same alone or with other files.
 function failed(error: unknown): void {
   if (reported) return;
+  const message = text(error);
   reported = true;
-  send({ kind: 'background', message: text(error), load: !loaded });
+  send({ kind: 'background', message, load: !loaded });
 }
 process.on('unhandledRejection', failed);
 process.on('uncaughtException', failed);
@@ -89,11 +90,20 @@ function refused(error: unknown): string | null {
   }
 }
 
+// A value can have no string form (an object without a prototype, an array holding a symbol), so its text is the reason JavaScript gives for that.
 function text(error: unknown): string {
-  const named = refused(error);
-  if (named !== null) return named;
-  const message = error instanceof Error ? error.message : String(error);
-  return message.split(/\r?\n/)[0] ?? '';
+  try {
+    const named = refused(error);
+    if (named !== null) return named;
+    const message = error instanceof Error ? String(error.message) : String(error);
+    return message.split(/\r?\n/)[0] ?? '';
+  } catch (reason) {
+    try {
+      return String((reason as Error).message).split(/\r?\n/)[0] ?? '';
+    } catch {
+      return 'a value with no string form';
+    }
+  }
 }
 
 function send(message: unknown): void {

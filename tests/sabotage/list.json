@@ -40,6 +40,14 @@
     "killedBy": "R-98: a rule reads no SQLite database outside the root and writes none through node:sqlite, by any route to the module"
   },
   {
+    "id": "runner-no-string-form",
+    "promise": "I-rules-1",
+    "file": "src/runner.ts",
+    "find": "  } catch (reason) {",
+    "replace": "  } catch (reason) { if (reason) throw reason;",
+    "killedBy": "R-106: a throw in a call with an object without a prototype is rule-crashed at once, named by the reason the value has no string form"
+  },
+  {
     "id": "safe-directory-quoted",
     "promise": "S7-15",
     "file": "src/files.ts",

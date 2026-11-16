@@ -24,13 +24,16 @@ export type Classes<T> = Record<string, (value: T) => boolean>;
 
 export interface Claim<T> {
   classes: Classes<T>;
+  // Cases that run before the generated ones and count toward the classes, so a class a seed might not draw is still tried on every seed.
+  examples?: T[];
   least?: Record<string, number>;
 }
 
-function parameters(speed: Speed, tool: boolean): fc.Parameters<unknown> {
+function parameters(speed: Speed, tool: boolean, examples: unknown[] = []): fc.Parameters<unknown> {
   const numRuns = cases(tool ? 'tool' : 'pure');
-  if (!speed.nightly) return { seed: speed.seed, numRuns };
-  return { seed: speed.seed, numRuns: Number.MAX_SAFE_INTEGER, interruptAfterTimeLimit: NIGHTLY_MS, markInterruptAsFailure: false };
+  const given = examples.map((example) => [example]);
+  if (!speed.nightly) return { seed: speed.seed, numRuns, examples: given as [unknown][] };
+  return { seed: speed.seed, examples: given as [unknown][], numRuns: Number.MAX_SAFE_INTEGER, interruptAfterTimeLimit: NIGHTLY_MS, markInterruptAsFailure: false };
 }
 
 function counter<T>(claim: Claim<T>) {
@@ -65,7 +68,7 @@ export function pure<T>(speed: Speed, arbitrary: fc.Arbitrary<T>, claim: Claim<T
         throw error;
       }
     }),
-    parameters(speed, false),
+    parameters(speed, false, claim.examples),
   );
   tally.reached();
 }
@@ -84,7 +87,7 @@ export async function tool<T>(speed: Speed, arbitrary: fc.Arbitrary<T>, claim: C
         throw error;
       }
     }),
-    parameters(speed, true),
+    parameters(speed, true, claim.examples),
   );
   tally.reached();
 }

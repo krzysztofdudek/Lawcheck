@@ -7,7 +7,8 @@ import type { Speed } from './support.ts';
 // JavaScript source for a value a rule may return: plain data, odd numbers, objects of every shape a finding can take, and values the channel cannot carry.
 const leaf = fc.constantFrom('null', 'undefined', '0', '-1', '1', '2', '1.5', 'NaN', 'Infinity', '2n', "'2'", "''", "'x'", "'a\\nb'", 'true', '[]', '{}', 'Symbol()', '() => 1', 'new Date(0)', 'new Map()', '/x/', "'\\u0000\\u001b[2K'");
 const finding = fc.record({ message: leaf, line: fc.option(leaf, { nil: null }), file: fc.option(fc.constantFrom("'src/core/a.ts'", "'src/core/b.ts'", "'other.ts'"), { nil: null }) }).map(({ message, line, file }) => `{ message: ${message}${line === null ? '' : `, line: ${line}`}${file === null ? '' : `, file: ${file}`} }`);
-const returned = fc.oneof(leaf, fc.array(fc.oneof({ weight: 3, arbitrary: finding }, { weight: 1, arbitrary: leaf }), { maxLength: 3 }).map((items) => `[${items.join(', ')}]`));
+const noStringForm = ['Object.create(null)', '[Symbol()]'];
+const returned = fc.oneof({ weight: 2, arbitrary: fc.constantFrom(...noStringForm) }, { weight: 3, arbitrary: leaf }, { weight: 3, arbitrary: fc.array(fc.oneof({ weight: 3, arbitrary: finding }, { weight: 1, arbitrary: leaf }), { maxLength: 3 }).map((items) => `[${items.join(', ')}]`) });
 const how = fc.constantFrom('return', 'return Promise.resolve', 'throw', 'return Promise.reject', 'background', 'top', 'timer', 'late');
 
 function ruleSource(kind: string, value: string): string {
@@ -60,10 +61,17 @@ export function rulesProperties(speed: Speed): Record<string, () => unknown> {
       speed,
       fc.tuple(how, returned),
       {
+        examples: [
+          ['background', 'Object.create(null)'],
+          ['timer', '[Symbol()]'],
+          ['throw', 'Object.create(null)'],
+          ['top', '[Symbol()]'],
+        ],
         classes: {
           'returns a list': ([kind, value]) => kind.startsWith('return') && value.startsWith('['),
           'throws or rejects': ([kind]) => !kind.startsWith('return'),
           'fails from a timer or after several turns': ([kind]) => kind === 'timer' || kind === 'late',
+          'throws or rejects with a value that has no string form': ([kind, value]) => !kind.startsWith('return') && noStringForm.includes(value),
           'a line of an odd kind': ([, value]) => /line: (null|undefined|'|2n|1\.5|NaN|\[|\{)/.test(value),
         },
       },
