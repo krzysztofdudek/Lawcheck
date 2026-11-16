@@ -222,8 +222,8 @@ test('R-53: control, no row hides: a ledger row after a blank line and an indent
 
 test('R-54: control, a stress finding with no row, a limit row without its statement or its test, and a reused test name are named', () => {
   const run = (rows: string[], tests: { file: string; name: string }[], stress: Record<number, number>) =>
-    ledgerProblems(['| id | severity | class | defect | layer | package | Runes | test | gen | state |', '|---|---|---|---|---|---|---|---|---|---|', ...rows].join('\n'), tests, new Set(), new Map([['spec/one-slice.md', 'A limit is written here: a key under 8 characters stays.']]), stress);
-  const row = (test: string, gen: string) => `| R-5 | after the release | c | d | 3 | E | no | ${test} | ${gen} | limit |`;
+    ledgerProblems(['| id | severity | class | defect | layer | package | Runes | test | gen | state |', '|---|---|---|---|---|---|---|---|---|---|', ...rows].join('\n'), tests, new Set(), new Map([['spec/one-slice.md', 'A limit is written here: a key under 8 characters stays. Elsewhere the largest file read as text is named.']]), stress);
+  const row = (test: string, gen: string) => `| R-5 | after the release | c | A key under 8 characters is not replaced, the run garbles words | 3 | E | no | ${test} | ${gen} | limit |`;
   assert.ok(run([], [], { 1: 2 }).some((p) => p === 'the finding S1-1 of the stress reports has no row in the ledger'));
   const tests = [{ file: 'tests/unit/a.test.ts', name: 'R-5: a key under 8 characters stays' }];
   const stated = 'stated in spec/one-slice.md: "a key under 8 characters stays"';
@@ -232,6 +232,10 @@ test('R-54: control, a stress finding with no row, a limit row without its state
   assert.ok(run([row('tests/unit/a.test.ts: R-5: a key', '')], tests, {}).some((p) => p.includes('says where the limit is stated')));
   assert.ok(run([row('tests/unit/a.test.ts: R-5: a key', 'stated in spec/nowhere.md: "a key"')], tests, {}).some((p) => p.includes('does not exist')));
   assert.ok(run([row('tests/unit/a.test.ts: R-5: a key', 'stated in spec/one-slice.md: "an unrelated sentence"')], tests, {}).some((p) => p.includes('does not hold the words')));
+  for (const quote of ['the', 'A limit is written here', 'the largest file read as text is named', 'key']) {
+    assert.ok(run([row('tests/unit/a.test.ts: R-5: a key', `stated in spec/one-slice.md: "${quote}"`)], tests, {}).some((p) => p.includes('say nothing of this row')), quote);
+  }
+  assert.deepEqual(run([row('tests/unit/a.test.ts: R-5: a key', 'stated in spec/one-slice.md: "a key under 8 characters stays"')], tests, {}), []);
   const twice = problemsOf(inputs(withTests(...all, "test('test 1: a', () => { assert.equal(compute(1), 1); });")));
   assert.ok(twice.some((p) => p.includes('is used by two tests of one file')), twice.join('\n'));
 });

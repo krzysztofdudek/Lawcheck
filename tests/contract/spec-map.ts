@@ -583,6 +583,11 @@ const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 // A test carries a finding when the finding's id is its own source, at the start of its name: a mention after another source ties nothing.
 export const carries = (name: string, id: string): boolean => new RegExp(`^${escape(id)}(?![\\w-])`).test(name);
 
+const LIMIT_QUOTE_SHARES = 3;
+const FILLER = new Set(['the', 'and', 'that', 'such', 'with', 'from', 'are', 'not', 'its', 'for', 'was', 'has', 'into', 'this', 'which', 'when', 'than', 'each', 'any', 'all', 'but', 'can', 'may', 'one', 'their', 'there', 'then', 'they', 'out', 'per']);
+const wordsOf = (t: string): string[] => [...new Set((t.toLowerCase().match(/[a-z0-9_]+/g) ?? []).filter((w) => w.length >= 3 && !FILLER.has(w)))];
+const sharedWords = (quote: string, defect: string): string[] => wordsOf(quote).filter((w) => wordsOf(defect).includes(w));
+
 export function ledgerProblems(ledger: string, tests: TestName[], questions: Set<number>, files: Map<string, string> = new Map(), stress: Record<number, number> = {}): string[] {
   const problems: string[] = [];
   const seen = new Set<string>();
@@ -623,6 +628,7 @@ export function ledgerProblems(ledger: string, tests: TestName[], questions: Set
       if (stated === null) problems.push(`${at}: a limit row says where the limit is stated, as stated in spec/<file>.md: "<words of the limit>", in the column generalised by`);
       else if (!files.has(stated[1]!)) problems.push(`${at}: the file ${stated[1]} that states the limit does not exist`);
       else if (!squash(files.get(stated[1]!)!).includes(squash(stated[2]!))) problems.push(`${at}: ${stated[1]} does not hold the words "${stated[2]}" of the limit`);
+      else if (sharedWords(stated[2]!, row.defect).length < LIMIT_QUOTE_SHARES) problems.push(`${at}: the words "${stated[2]}" of ${stated[1]} say nothing of this row: a quote shares at least ${LIMIT_QUOTE_SHARES} words with the defect`);
     }
   }
   return problems;
