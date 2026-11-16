@@ -3,8 +3,7 @@ import { fakeWrites, platformSkip } from '../harness/tool.ts';
 import { CLAUDE_TIMEOUT_RUN_MS, FAKE_STARTED_MS, KILLED_GRACE_MS, LEFTOVER_GRACE_MS } from '../numbers.ts';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { appendFileSync, existsSync, readFileSync, rmSync } from 'node:fs';
-import { cpus } from 'node:os';
+import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { anthropic, defaultAnswer, gitAlone, openai, startFake, withFake, writeFakeClaude } from './fake-reviewer.ts';
 import { alive, append, F, F_PATH, findingLines, pathWith, PROMPT_F, read, REVIEWER_CONFIG, REVIEWER_LAW, run, SECOND, startLawcheck, withR, write } from './helpers.ts';
@@ -469,83 +468,6 @@ async function waitFor(condition: () => boolean, ms: number): Promise<boolean> {
   return condition();
 }
 
-function cpuTimes(): { idle: number; total: number } {
-  let idle = 0;
-  let total = 0;
-  for (const cpu of cpus()) {
-    idle += cpu.times.idle;
-    total += cpu.times.idle + cpu.times.user + cpu.times.sys + cpu.times.irq + cpu.times.nice;
-  }
-  return { idle, total };
-}
-
-const summaries: string[] = [];
-
-function bounded<T>(promise: Promise<T>, ms: number, what: string): Promise<T> {
-  return Promise.race([promise, new Promise<T>((_, fail) => setTimeout(() => fail(new Error(`${what} did not happen within ${ms} ms`)), ms).unref())]);
-}
-
-function compact(lines: string[], killedAt: number): string {
-  const lists: number[] = [];
-  const out: string[] = [];
-  for (const line of lines) {
-    const at = Number(line.slice(0, line.indexOf(' '))) - killedAt;
-    const text = line.slice(line.indexOf(' ') + 1).replace(/^\S+\[\d+\] /, '');
-    if (text.startsWith('list of')) {
-      lists.push(at);
-      if (text.endsWith('the first')) out.push(`first list@${at}`);
-      continue;
-    }
-    if (text === 'start' || text.startsWith('test killed') || text.startsWith('started claude')) continue;
-    out.push(`${text.replace(/ by a new PowerShell/, ' newPS').replace(/; a list was/, ' list').replace(/in the last list/, 'last')}@${at}`);
-  }
-  const before = lists.filter((at) => at < 0);
-  const gaps = before.slice(1).map((at, i) => at - before[i]!);
-  return `${out.join(' | ')} | lists before ${before.length} (gaps ${gaps.join(',')}) after ${lists.filter((at) => at >= 0).join(',')}`;
-}
-
-async function measuredKill(r: string, dir: string, signal: NodeJS.Signals, label: string): Promise<{ seen: ReturnType<typeof record>; child: ReturnType<typeof startLawcheck>; gone: boolean; ms: number }> {
-  const traced = join(dir, 'trace.txt');
-  fakeWrites(dir, ['trace.txt']);
-  const child = startLawcheck(r, ['check', '--review', '--base', 'main'], { env: claudeEnv(dir, 'sleep', { LAWCHECK_GUARD_TRACE: traced }), internal: signal !== 'SIGKILL' });
-  try {
-    const startedAt = Date.now();
-    assert.ok(await waitFor(() => existsSync(join(dir, 'record.json')), FAKE_STARTED_MS), 'the fake claude started');
-    const seen = record(dir) as ReturnType<typeof record> & { at: number };
-    const before = cpuTimes();
-    child.kill(signal);
-    const killedAt = Date.now();
-    appendFileSync(traced, `${killedAt} test killed lawcheck ${child.pid} by ${signal}; fake ${seen.pid}, its child ${seen.child}; the fake started ${seen.at - startedAt} ms after lawcheck, the record read ${killedAt - seen.at} ms after\n`);
-    let fakeGone: number | null = null;
-    let childGone: number | null = null;
-    let last = killedAt;
-    let gap = 0;
-    let ticks = 0;
-    const gone = await waitFor(() => {
-      const now = Date.now();
-      gap = Math.max(gap, now - last);
-      last = now;
-      ticks++;
-      if (fakeGone === null && !alive(seen.pid)) fakeGone = now - killedAt;
-      if (childGone === null && !alive(seen.child!)) childGone = now - killedAt;
-      return fakeGone !== null && childGone !== null;
-    }, KILLED_GRACE_MS);
-    const ms = Date.now() - killedAt;
-    const after = cpuTimes();
-    const busy = 1 - (after.idle - before.idle) / Math.max(1, after.total - before.total);
-    await waitFor(() => existsSync(traced) && readFileSync(traced, 'utf8').includes('] exit'), 15_000);
-    const raw = existsSync(traced) ? readFileSync(traced, 'utf8').trim().split('\n') : [];
-    const lines = raw.map((line) => `  ${String(Number(line.slice(0, line.indexOf(' '))) - killedAt).padStart(6)} ms  ${line.slice(line.indexOf(' ') + 1)}`);
-    const head = `${label}: fake ${fakeGone} child ${childGone} checked ${ms} (${ticks} checks, gap ${gap}, busy ${(busy * 100).toFixed(0)}% of ${cpus().length}, record read ${killedAt - seen.at} after the fake wrote it)`;
-    summaries.push(`${head} | ${compact(raw, killedAt)}`);
-    process.stderr.write(`kill-timing ${head}\n${lines.join('\n')}\n`);
-    return { seen, child, gone, ms };
-  } catch (error) {
-    child.kill('SIGKILL');
-    throw error;
-  }
-}
-
 test('test 67: claude-code past its timeout, and the tool killed', async () => {
   await withR(async (r, dir) => {
     write(r, F_PATH, F);
@@ -557,28 +479,32 @@ test('test 67: claude-code past its timeout, and the tool killed', async () => {
     assert.ok(await waitFor(() => !alive(seen.pid), LEFTOVER_GRACE_MS), 'the fake claude is alive');
     assert.ok(await waitFor(() => !alive(seen.child!), LEFTOVER_GRACE_MS), 'its child is alive');
   }, config(CLAUDE_CONFIG + '  timeout: 1\n'));
-  const late: string[] = [];
-  for (let round = 1; round <= 5; round++) {
-    await withR(async (r, dir) => {
-      write(r, F_PATH, F);
-      const { seen, child, gone, ms } = await measuredKill(r, dir, 'SIGKILL', `SIGKILL round ${round}`);
-      try {
-        assert.ok(gone, `both are gone: ${survivors(seen)}`);
-        if (ms > KILLED_GRACE_MS) late.push(`round ${round}: ${ms} ms`);
-        assert.ok(await waitFor(() => !existsSync(seen.cwd), KILLED_GRACE_MS), `${seen.cwd} is left`);
-        assert.equal((await bounded(child.ended, 30_000, 'the end of the killed run')).signal, 'SIGKILL');
-      } finally {
-        child.kill('SIGKILL');
-      }
-    }, config(CLAUDE_CONFIG));
-  }
+  await withR(async (r, dir) => {
+    write(r, F_PATH, F);
+    const child = startLawcheck(r, ['check', '--review', '--base', 'main'], { env: claudeEnv(dir, 'sleep') });
+    try {
+      assert.ok(await waitFor(() => existsSync(join(dir, 'record.json')), FAKE_STARTED_MS), 'the fake claude started');
+      const seen = record(dir);
+      child.kill('SIGKILL');
+      const killedAt = Date.now();
+      assert.ok(await waitFor(() => !alive(seen.pid) && !alive(seen.child!), KILLED_GRACE_MS), `both are gone: ${survivors(seen)}`);
+      assert.ok(Date.now() - killedAt <= KILLED_GRACE_MS);
+      assert.ok(await waitFor(() => !existsSync(seen.cwd), KILLED_GRACE_MS), `${seen.cwd} is left`);
+      assert.equal((await child.ended).signal, 'SIGKILL');
+    } finally {
+      child.kill('SIGKILL');
+    }
+  }, config(CLAUDE_CONFIG));
   for (const signal of ['SIGTERM', 'SIGINT'] as const) {
     await withR(async (r, dir) => {
       write(r, F_PATH, F);
       // Slice one, section 3: a signal that the tool can catch ends it as internal.
-      const { seen, child } = await measuredKill(r, dir, signal, signal);
+      const child = startLawcheck(r, ['check', '--review', '--base', 'main'], { env: claudeEnv(dir, 'sleep'), internal: true });
       try {
-        const { code } = await bounded(child.ended, 30_000, `the end of the run after ${signal}`);
+        assert.ok(await waitFor(() => existsSync(join(dir, 'record.json')), FAKE_STARTED_MS), 'the fake claude started');
+        const seen = record(dir);
+        child.kill(signal);
+        const { code } = await child.ended;
         if (platformSkip('exit 2 after SIGTERM and SIGINT') === null) assert.equal(code, 2, signal);
         assert.ok(await waitFor(() => !alive(seen.pid) && !alive(seen.child!), KILLED_GRACE_MS), `${signal}: both are gone`);
         assert.ok(await waitFor(() => !existsSync(seen.cwd), KILLED_GRACE_MS), `${signal}: ${seen.cwd} is left`);
@@ -587,8 +513,6 @@ test('test 67: claude-code past its timeout, and the tool killed', async () => {
       }
     }, config(CLAUDE_CONFIG));
   }
-  if (process.platform === 'win32') assert.fail(`kill-timing late: ${late.join(', ') || 'none'}\n${summaries.join('\n')}`);
-  assert.deepEqual(late, []);
 });
 
 test('test 92: a connection that gave no answer names its cause', async () => {

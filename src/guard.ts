@@ -1,9 +1,8 @@
 import { spawn } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
 import { rmSync } from 'node:fs';
-import { createdIn, killTree, powershell, PROCESS_TABLE, stillListed, toEnd, trace } from './programs.js';
+import { killTree, powershell, PROCESS_TABLE, toEnd } from './programs.js';
 
-trace('guard', 'start');
 const pids = new Set<number>();
 const windows = process.platform === 'win32';
 // On Windows a program left by one that has ended can be found only through the list of processes, and PowerShell takes seconds to start on a busy machine. While a group is registered, or once the tool has said it starts programs, one PowerShell keeps that list fresh, so the guard ends the tree from its next list without starting another.
@@ -22,7 +21,6 @@ function sayListing(): void {
 
 function watch(): void {
   if (!windows || watcher !== null) return;
-  trace('guard', 'watcher spawned');
   watcher = spawn(powershell(), ['-NoProfile', '-NonInteractive', '-Command', `while ($true) { ${PROCESS_TABLE}; '--'; Start-Sleep -Milliseconds 250 }`], { stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true });
   const current = watcher;
   const gone = () => {
@@ -40,7 +38,6 @@ function watch(): void {
     const start = partial.lastIndexOf('\n--', end - 1);
     table = partial.slice(start < 0 ? 0 : start + 3, end);
     partial = partial.slice(end + 3);
-    trace('guard', `list of ${createdIn(table).size} processes${listed ? '' : ', the first'}`);
     if (!listed) sayListing();
     listed = true;
     onListed?.();
@@ -122,17 +119,9 @@ function nextList(ms: number): Promise<string | null> {
 async function endWatched(): Promise<boolean> {
   if (groups.size === 0) return true;
   const before = table;
-  const roots = [...groups];
-  trace('guard', `groups ${roots.join(',')}, in the last list: ${stillListed(before, before, roots).join(',') || 'none'}`);
-  const began = Date.now();
   const fresh = await nextList(3000);
-  if (fresh === null) {
-    trace('guard', `fresh list after ${Date.now() - began} ms: none`);
-    return false;
-  }
-  const ending = toEnd(before, fresh, roots);
-  trace('guard', `fresh list after ${Date.now() - began} ms: kills ${ending.join(',') || 'none'}`);
-  for (const pid of ending) {
+  if (fresh === null) return false;
+  for (const pid of toEnd(before, fresh, [...groups])) {
     try {
       process.kill(pid, 'SIGKILL');
     } catch {
@@ -142,10 +131,9 @@ async function endWatched(): Promise<boolean> {
   return true;
 }
 
-function endAll(why = 'its input closed'): void {
+function endAll(): void {
   if (ended) return;
   ended = true;
-  trace('guard', `the tool ended (${why}); a list ${listed ? 'was' : 'was not yet'} made`);
   for (const pid of pids) {
     try {
       process.kill(pid, 'SIGKILL');
@@ -155,17 +143,12 @@ function endAll(why = 'its input closed'): void {
   }
   void endWatched().then((found) => {
     for (const pid of groups) killTree(pid, 'SIGKILL', !found);
-    const began = Date.now();
     for (const folder of folders) rmSync(folder, { recursive: true, force: true, maxRetries: 10 });
-    trace('guard', `folders removed in ${Date.now() - began} ms`);
-    stopWatching(() => {
-      trace('guard', 'exit');
-      process.exit(0);
-    });
+    stopWatching(() => process.exit(0));
   });
 }
 
-process.stdin.on('close', () => endAll());
+process.stdin.on('close', endAll);
 
 // On Windows the guard's input did not close when the tool was killed while claude ran, so the guard also watches the tool itself.
 if (process.platform === 'win32') {
@@ -174,7 +157,7 @@ if (process.platform === 'win32') {
     try {
       process.kill(tool, 0);
     } catch {
-      endAll('its parent is gone');
+      endAll();
     }
   }, 250);
 }

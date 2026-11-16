@@ -1,19 +1,9 @@
 import { spawn, spawnSync } from 'node:child_process';
 import type { ChildProcess, SpawnOptions } from 'node:child_process';
-import { accessSync, appendFileSync, constants, statSync } from 'node:fs';
+import { accessSync, constants, statSync } from 'node:fs';
 import { join, normalize, posix, win32 } from 'node:path';
 
 export type Env = Record<string, string | undefined>;
-
-export function trace(who: string, text: string): void {
-  const file = process.env.LAWCHECK_GUARD_TRACE;
-  if (!file) return;
-  try {
-    appendFileSync(file, `${Date.now()} ${who}[${process.pid}] ${text}\n`);
-  } catch {
-    // measuring only
-  }
-}
 
 const CMD_META = /([()\][%!^"`<>&|;, *?])/g;
 
@@ -136,19 +126,14 @@ export function descendantsIn(table: string, root: number): number[] {
 }
 
 function descendants(root: number): number[] {
-  const began = Date.now();
   const listed = spawnSync(powershell(), ['-NoProfile', '-NonInteractive', '-Command', PROCESS_TABLE], { encoding: 'utf8', windowsHide: true });
-  const found = descendantsIn(listed.stdout ?? '', root);
-  trace('kill', `descendants of ${root} by a new PowerShell: ${Date.now() - began} ms, found ${found.join(',') || 'none'}`);
-  return found;
+  return descendantsIn(listed.stdout ?? '', root);
 }
 
 // orphans: on Windows the root of a tree can end before its children, and taskkill /T cannot find a tree whose root is gone, so the children are found by their parent's pid.
 export function killTree(pid: number, signal: NodeJS.Signals, orphans = false): boolean {
   if (process.platform === 'win32') {
-    const began = Date.now();
     const ended = spawnSync(systemProgram('taskkill.exe'), ['/pid', String(pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true }).status === 0;
-    trace('kill', `taskkill /T of ${pid}: ${Date.now() - began} ms, ${ended ? 'ended it' : 'found none'}`);
     if (ended || !orphans) return ended;
     const left = descendants(pid);
     for (const child of left) {
