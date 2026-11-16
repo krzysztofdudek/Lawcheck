@@ -10,7 +10,7 @@ Keep Lawcheck as a dev dependency, so jobs and hooks run the pinned version:
 $ npm install --save-dev lawcheck@alpha
 ```
 
-Commit `package.json` and the lockfile, if any. Jobs and hooks start it with `npx --no-install lawcheck`, which never downloads a tool. That works with npm, pnpm and Yarn 1, not Yarn Plug'n'Play (`lawcheck docs config`).
+Commit `package.json` and the lockfile, if any. Jobs and hooks start it with `npx --no-install lawcheck`, which never downloads a tool. That works with npm, pnpm, Yarn 1, Yarn 4 (`nodeLinker: node-modules` or `pnpm`) and Bun beside Node, not with Yarn Plug'n'Play. The job needs Node 24 and git 2.34 or later, or a command refuses in its first line (`lawcheck docs config`).
 
 ## A CI job
 
@@ -65,7 +65,7 @@ jobs:
           fi
 ```
 
-`npm install` works with and without a lockfile; `npm ci` fails without one. For pnpm (installed by a step such as `pnpm/action-setup`) or Yarn 1, replace that step:
+`npm install` works with and without a lockfile; `npm ci` fails without one. For pnpm (set up by `pnpm/action-setup`) or Yarn 1, replace that step (Yarn 4 takes `yarn install --immutable`):
 
 <!-- example: ci-install-pnpm -->
 ```sh
@@ -77,21 +77,21 @@ pnpm install --frozen-lockfile
 yarn install --frozen-lockfile
 ```
 
-`persist-credentials: false` keeps the job's token out of `.git/config`, which a script rule can read. A push with no earlier commit to compare, such as a first push, a force-push that removed the "before" commit or a root commit, falls back to the parent commit, then to `--full`: a force-push is judged by its last commit.
+`persist-credentials: false` keeps the job's token out of `.git/config`, which a script rule can read. A push with no earlier commit to compare (a first push, a force-push that removed the "before" commit, a root commit) falls back to the parent commit, then to `--full`: a force-push is judged by its last commit.
 
-Always name the base in CI. Without `--base`, Lawcheck takes `LAWCHECK_BASE`, then `origin/HEAD`, and a CI checkout often has neither. In a CI job a plain check that finds no base ends with `base-unreachable` and says so, instead of judging every file as changed. Lawcheck knows a CI job by the variable `CI`, or, without it, by the variable of a CI service, such as `GITHUB_ACTIONS`, `GITLAB_CI` or `TF_BUILD`; `CI=false` or `CI=no` turns that off. `lawcheck check --full` judges every file and needs no base.
+Always name the base in CI. Without `--base`, Lawcheck takes `LAWCHECK_BASE`, then `origin/HEAD`, and a CI checkout often has neither. In a CI job a plain check that finds no base ends with `base-unreachable`, not with every file judged as changed. Lawcheck knows a CI job by `CI`, or, without it, by the variable of a CI service, such as `GITHUB_ACTIONS`, `GITLAB_CI` or `TF_BUILD`; `CI=false` or `CI=no` turns that off. `lawcheck check --full` judges every file and needs no base.
 
-A shallow clone (`fetch-depth: 1`) has no merge base, and the run ends with `base-unreachable`. Its message says that the clone is shallow, and its next line gives the `git fetch --unshallow` that brings the history. A clone that fetched one branch says so too, with the `git fetch` that brings the base.
+A shallow clone (`fetch-depth: 1`) has no merge base: the run ends with `base-unreachable`, says the clone is shallow, and its next line gives the `git fetch --unshallow` that brings the history. A clone that fetched one branch says so, with the `git fetch` that brings the base.
 
-Every file git lists counts, untracked ones included, unless git ignores it. A cache folder inside the project, such as `.npm/` for a GitLab cache, then counts as changed code. Add the folder to `.gitignore`, or to `.git/info/exclude` in the job:
+Every file git lists counts, untracked ones included, unless git ignores it. A cache folder inside the project, such as `.npm/`, counts as changed code. Add it to `.gitignore`, or to `.git/info/exclude` in the job:
 
 ```sh
 echo .npm/ >> .git/info/exclude
 ```
 
-A job whose checkout belongs to another user than the one it runs as, as in a container, makes git refuse the repository. The check ends with `no-git`, and its next line gives the command that tells git to trust the folder, `git config --global --add safe.directory <path>`, quoted for `sh`, the shell of a Linux job.
+A checkout owned by another user than the job's, as in a container, makes git refuse the repository. The check ends with `no-git`, and its next line gives the command that trusts the folder, `git config --global --add safe.directory <path>`, quoted for `sh`.
 
-Exit 1 fails the job on an error in the change. Exit 2 fails it on a broken law or setup; its output names what to fix. `--json` prints one document (`lawcheck docs json`). Warnings appear only in the log, and debt only with `--full`. Run `doctor` on a developer's machine, not in the job.
+Exit 1 fails the job on an error in the change; exit 2, on a broken law or setup, and the output names the fix. `--json` prints one document (`lawcheck docs json`). Warnings appear only in the log, and debt only with `--full`. Run `doctor` on a developer's machine, not in the job.
 
 A file a reviewer rule binds that has no verdict is `not-reviewed`, an error. Run `lawcheck check --review` where a reviewer is set up, before you push, and commit `.lawcheck/verdicts`. A contributor with no reviewer leaves that to a maintainer. A job shows a reviewer's findings only where `--review` ran.
 
@@ -101,7 +101,7 @@ In the open mode a pull request can change the law that judges it, and pass. `ch
 
 That holds less than it seems. On `pull_request` GitHub runs the pull request's own workflow, `package.json` and lockfile, and a rule of the base reads the pull request's copy of any file outside `.lawcheck/`. A pull request that edits them can skip the second check, point `lawcheck` at another program, or change what a rule reads. Protect with a code owner and a required review: `.lawcheck/`, which holds `.lawcheck/verdicts` that anyone who can push can write, `.github/workflows/`, `package.json`, the lockfile, and every file a rule imports or reads. Keep a rule's helpers and settings under `.lawcheck/rules/`, where the second check reads the base's copy.
 
-- A pull request that changes the law and breaks a rule it removes fails the second check: change the law first, the code after.
+- A pull request that changes the law and breaks a rule it removes fails the second check: change the law first.
 - A fork's pull request on `pull_request` gets no secrets, and `check` needs none. Never use `pull_request_target`: it runs the fork's script rules with the repository's secrets.
 
 ## Git hooks
@@ -130,4 +130,4 @@ done
 
 ## Where a check may run
 
-A check runs the repository's script rules. Each is code of the repository, run with the rights of whoever runs the check: it can read any file the user can and open network connections (`lawcheck docs script-rules`). Run `lawcheck check` only where you would run that change's tests, such as a CI job that already runs them.
+A check runs the repository's script rules. Each is code of the repository, run with the rights of whoever runs the check: it can read any file the user can and open network connections (`lawcheck docs script-rules`). Run `lawcheck check` only where you would run that change's tests, such as a CI job that runs them.

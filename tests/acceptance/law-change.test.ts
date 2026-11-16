@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { rmSync } from 'node:fs';
+import { readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { append, check, LAW, lawcheck, read, setRule, withR, withSample, write } from './helpers.ts';
 
@@ -109,6 +109,10 @@ test('test 304: S7-3, a change of the config is a change of the law, and a chang
     append(s, '.lawcheck/law.yaml', '# a note\n');
     const run = await lawcheck(s, ['check']);
     assert.ok(!run.stdout.includes('note:'), 'with no base nothing is compared');
+    const noBase = JSON.parse((await lawcheck(s, ['check', '--json'])).stdout).scope;
+    assert.equal(noBase.base, null);
+    assert.ok(!('law_changes' in noBase), 'with no base the key is absent');
+    assert.ok(readFileSync(new URL('../../docs/json.md', import.meta.url), 'utf8').includes('`law_changes`, present only when a base was compared and the law differs'));
   });
 });
 

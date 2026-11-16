@@ -11,7 +11,7 @@ From `check`, exit 0 or 1.
 | Key | Value |
 |---|---|
 | `result` | `pass` or `fail` |
-| `scope` | `{ "mode", "base", "files", "law_changed", "law_changes" }`: `change`, `full` or `paths`, the base or null, the count of changed files, or of the named files under `paths`, and whether the change touches `.lawcheck/law.yaml`, `.lawcheck/config.yaml` or a rule file; with `law_changed` true, `law_changes` lists in words what the change does to the law, as `lawcheck docs change` says |
+| `scope` | `{ "mode", "base", "files", "law_changed", "law_changes" }`: `change`, `full` or `paths`, the base or null, the count of changed files, or of the named files under `paths`, and whether the change touches `.lawcheck/law.yaml`, `.lawcheck/config.yaml` or a rule file; `law_changes`, present only when a base was compared and the law differs, lists in words what the change does to the law, as `lawcheck docs change` says |
 | `summary` | `{ "errors", "warnings", "debt", "waivers", "unresolved" }`, counted over the change; `debt` counts the debt findings |
 | `findings` | every finding, the change before the debt: `{ "code", "rule", "severity", "blocking", "debt", "file", "line", "type", "message", "why" }`, `rule` null for a built-in code, `line` absent for a whole-file finding |
 | `waivers` | `{ "file", "line", "rule", "debt", "waived", "reason" }` |

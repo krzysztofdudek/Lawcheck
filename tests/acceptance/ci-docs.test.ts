@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { parse } from 'yaml';
 import { example } from '../harness/examples.ts';
+import { inTemp, lawcheck, newRepository } from './helpers.ts';
 
 interface Step {
   uses?: string;
@@ -72,4 +73,27 @@ test('S7-2, S7-11: the hooks of docs/ci.md start Lawcheck through npx, name a ba
   assert.ok(example('pre-push-hook').includes('while read -r local_ref local_sha remote_ref remote_sha'), 'a pre-push hook reads the refs git gives it');
   assert.ok(!example('pre-push-hook').includes('refs/heads/'), 'every ref but a tag is judged, HEAD included');
   for (const what of ['core.hooksPath', 'never passes `--review`', 'never the index', '`--staged` is not built', 'spec/deferred.md', 'cannot catch a loosened law', '`origin/main`', 'not of the commits pushed']) assert.ok(page.includes(what), what);
+});
+
+test('S7-4, S8: the page names the managers, the floors and the refusal of a plain check with no base in CI, and the code does what it says', async () => {
+  for (const what of ['Yarn 4 (`nodeLinker: node-modules` or `pnpm`)', 'Bun beside Node', "not with Yarn Plug'n'Play", 'Node 24 and git 2.34 or later', 'a command refuses in its first line', '`yarn install --immutable`', '`persist-credentials: false`', '`base-unreachable`', '`LAWCHECK_BASE`', '`--full`']) assert.ok(page.includes(what), what);
+  const change = readFileSync(new URL('../../docs/change.md', import.meta.url), 'utf8');
+  for (const what of ['a check on a machine counts every file as changed', 'In a CI job a plain check with no base is `base-unreachable` instead', 'checks the change a second time with the law of the base']) assert.ok(change.includes(what), what);
+  await inTemp(async (dir) => {
+    const repo = newRepository(dir, { 'src/price.ts': 'export const price = 1;\n', '.lawcheck/law.yaml': 'lawcheck: 0.1.0\n\ntypes:\n  source:\n    about: Everything that ships.\n    paths: ["src/**/*.ts"]\n' });
+    const machine = await lawcheck(repo, ['check']);
+    assert.match(machine.stdout, /\(no base: every file counts as changed\)/, 'outside CI the first line says it');
+    for (const env of [{ CI: 'true' }, { GITHUB_ACTIONS: 'true' }, { GITLAB_CI: 'true' }, { TF_BUILD: 'True' }]) {
+      const job = await lawcheck(repo, ['check'], env);
+      assert.equal(job.code, 2, JSON.stringify(env));
+      assert.match(job.stdout, /error\[base-unreachable\]  no base in this CI job/);
+      for (const way of ['--base', 'LAWCHECK_BASE', '--full']) assert.ok(job.stdout.includes(way), way);
+    }
+    for (const off of ['false', 'no']) {
+      const job = await lawcheck(repo, ['check'], { CI: off, GITHUB_ACTIONS: 'true' });
+      assert.match(job.stdout, /\(no base: every file counts as changed\)/, `CI=${off} turns it off`);
+    }
+    const full = await lawcheck(repo, ['check', '--full'], { CI: 'true' });
+    assert.ok(!full.stdout.includes('base-unreachable'), '--full needs no base');
+  });
 });

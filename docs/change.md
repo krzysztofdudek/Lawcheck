@@ -14,7 +14,7 @@ The change is measured against a base, the first of these that is set:
 $ lawcheck check --base main
 ```
 
-A base that names no commit, or shares no history with `HEAD`, is `base-unreachable`, exit 2. Without any base, every file counts as changed, and the first line says so.
+A base that names no commit, or shares no history with `HEAD`, is `base-unreachable`, exit 2. Without any base, a check on a machine counts every file as changed, and the first line says so. In a CI job a plain check with no base is `base-unreachable` instead: it names `--base`, `LAWCHECK_BASE` and `--full`, since it could not tell the change from debt (`lawcheck docs ci`).
 
 ## The change
 
@@ -47,7 +47,7 @@ note: the law changed in this change; lawcheck check --full --base main shows wh
 note: this change edits the law that judges it: takes the rule no-console off the type library
 ```
 
-The second line says what the change does to the law that judges it. A pull request can change that law: take a rule off a type, or make a rule script return nothing, and the same pull request passes its own check. The line names what Lawcheck can tell by comparing with the base: types and rules added or removed, a rule made advisory or enforced, a rule taken off or put on a type, a changed `why`, `context`, `about`, `paths`, `content` or `may_use` (the `why` of a reviewer rule is part of what the reviewer is told), a waiver the change adds, and each file of `.lawcheck/rules/` and `.lawcheck/config.yaml` added, removed or changed. A rule script is named by its file, not by what it now does. It shows five items and counts the rest, and `--json` lists all of them in `scope.law_changes`. It never changes the exit code; `lawcheck docs ci` gives a job that fails such a pull request.
+The second line says what the change does to the law that judges it. A pull request can change that law: take a rule off a type, or make a rule script return nothing, and the same pull request passes its own check. The line names what Lawcheck can tell by comparing with the base: types and rules added or removed, a rule made advisory or enforced, a rule taken off or put on a type, a changed `why`, `context`, `about`, `paths`, `content` or `may_use` (the `why` of a reviewer rule is part of what the reviewer is told), a waiver the change adds, and each file of `.lawcheck/rules/` and `.lawcheck/config.yaml` added, removed or changed. A rule script is named by its file, not by what it now does. It shows five items and counts the rest, and `--json` lists all of them in `scope.law_changes`. It never changes the exit code; `lawcheck docs ci` gives a job that checks the change a second time with the law of the base.
 
 `lawcheck doctor` reports the same in its `law-change` check. No line reports the other two kinds.
 
