@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { existsSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { guardListing, killGroup, releaseFolder, releaseGroup, watchFolder, watchGroup } from '../rules.js';
+import { killGroup, releaseFolder, releaseGroup, startListing, watchFolder, watchGroup } from '../rules.js';
 import { findProgram, startProgram } from '../programs.js';
 import { MAX_REPLY_BYTES } from './http.js';
 import { variable } from './index.js';
@@ -75,7 +75,7 @@ export function programEnv(env: Env, program: string, platform: NodeJS.Platform 
   return Object.fromEntries(Object.entries(env).filter(([key]) => !hidden(key)));
 }
 
-export function programProvider(program: Program, env: Env, timeoutSeconds: number, listing: () => Promise<void> = guardListing): Provider {
+export function programProvider(program: Program, env: Env, timeoutSeconds: number): Provider {
   const find = program.find ?? ((e: Env) => findProgram(program.name, e));
   const missing = `the program ${program.name} is not on PATH`;
   const fix = `install ${program.name}, or put the folder that holds it on PATH`;
@@ -85,6 +85,7 @@ export function programProvider(program: Program, env: Env, timeoutSeconds: numb
   return {
     keys: (SIGN_IN_VARIABLES[program.name] ?? []).filter((name) => !NOT_KEYS.includes(name)).map((name) => variable(env, name)).filter((key): key is string => key !== null),
     ready() {
+      startListing();
       binary = find(env);
       return binary === null ? missing : null;
     },
@@ -92,8 +93,8 @@ export function programProvider(program: Program, env: Env, timeoutSeconds: numb
     async ask(prompt, seconds) {
       const found = binary ?? find(env);
       if (found === null) return { failure: missing, resend: false, fix };
+      startListing();
       const deadline = Date.now() + Math.min(timeoutSeconds, seconds ?? timeoutSeconds) * 1000;
-      if (!(await within(listing(), deadline - Date.now()))) return timedOut(program.name, timeoutSeconds);
       let extra: string[] = [];
       if (program.prepare !== undefined) {
         const listFix = `run ${program.name} mcp list --json and fix what it says`;
@@ -129,16 +130,6 @@ function marked(call: string): number[] {
     }
   }
   return found;
-}
-
-function within(waited: Promise<void>, ms: number): Promise<boolean> {
-  return new Promise((done) => {
-    const timer = setTimeout(() => done(false), ms);
-    void waited.then(() => {
-      clearTimeout(timer);
-      done(true);
-    });
-  });
 }
 
 function timedOut(name: string, timeoutSeconds: number): Asked {

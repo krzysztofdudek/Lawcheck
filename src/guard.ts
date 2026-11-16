@@ -12,13 +12,8 @@ let listed = false;
 let onListed: (() => void) | null = null;
 // A list is printed after its snapshot ends, so one that comes after the kill may show the processes as they were before it; each list starts with the time its snapshot began, and the guard ends a tree only from a list begun once it knew of the kill.
 const waitingForList: { since: number; done: (list: string | null) => void }[] = [];
-// The tool starts a program only once the guard says its list runs, so a tool killed at any moment of a call leaves a tree the next list finds.
+// Once the tool has said it is about to call a program, the list runs until the tool ends, so it is running when a call starts.
 let held = false;
-process.stdout.on('error', () => undefined);
-
-function sayListing(): void {
-  if (held) process.stdout.write('listing\n');
-}
 
 function watch(): void {
   if (!windows || watcher !== null) return;
@@ -27,7 +22,6 @@ function watch(): void {
   const gone = () => {
     if (watcher !== current) return;
     for (const next of waitingForList.splice(0)) next.done(null);
-    if (!listed) sayListing();
   };
   current.on('error', gone);
   current.on('close', gone);
@@ -40,7 +34,6 @@ function watch(): void {
     const [begun, ...rows] = partial.slice(start < 0 ? 0 : start + 3, end).trimStart().split('\n');
     table = rows.join('\n');
     partial = partial.slice(end + 3);
-    if (!listed) sayListing();
     listed = true;
     onListed?.();
     const takenAt = Number(begun);
@@ -63,8 +56,7 @@ process.stdin.on('data', (chunk: string) => {
     const adding = line.startsWith('+');
     if (line === '+w') {
       held = true;
-      if (!windows || listed || (watcher !== null && watcher.exitCode !== null)) sayListing();
-      else watch();
+      watch();
       continue;
     }
     if (line[1] === 'd') {

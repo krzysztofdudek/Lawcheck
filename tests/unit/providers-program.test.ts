@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { delimiter, dirname, join } from 'node:path';
 import { DEFAULT_CONFIG } from '../../dist/config.js';
 import { geminiCli } from '../../dist/providers/gemini-cli.js';
-import { failure, LAWCHECK_VARIABLES, lastLine, plainOutput, programEnv, programProvider, SIGN_IN_VARIABLES } from '../../dist/providers/program.js';
+import { failure, LAWCHECK_VARIABLES, lastLine, plainOutput, programEnv, SIGN_IN_VARIABLES } from '../../dist/providers/program.js';
 import { writeFakeProgram } from '../acceptance/fake-reviewer.ts';
 
 const ended = (code: number | null, signal: string | null, stdout: string, stderr: string) => ({ code, signal, stdout, stderr });
@@ -50,16 +50,6 @@ test('the working folder and the folder aside are gone when the call ends, befor
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
-});
-
-test("the wait for the guard's list of processes is part of reviewer.timeout, which bounds the whole call (decision 26 of the reviewer slice)", async () => {
-  const program = { name: 'node', args: () => ['-e', "process.stdout.write('an answer')"], read: plainOutput('node'), find: () => process.execPath };
-  const slowList = () => new Promise<void>((done) => setTimeout(done, 2_000).unref());
-  const started = Date.now();
-  const asked = await programProvider(program, process.env, 1, slowList).ask('a prompt');
-  const took = Date.now() - started;
-  assert.deepEqual(asked, { failure: 'node gave no answer within 1 seconds', resend: false, fix: 'raise reviewer.timeout in .lawcheck/config.yaml, or check that node answers when started by hand' });
-  assert.ok(took < 2_000, `${took} ms`);
 });
 
 test("a program gets its own sign-in variables, and neither Lawcheck's nor another program's", () => {
