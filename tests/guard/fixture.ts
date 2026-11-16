@@ -79,9 +79,11 @@ export const BASE: { [path: string]: string } = {
     '',
   ].join('\n'),
   'tests/harness/skips.ts': [
+    "const FILE_MODES = 'no file mode on Windows';",
+    '',
     "export const PLATFORM_SKIPS: PlatformSkip[] = [",
-    "  { test: 'S3-1', part: 'the whole test', platform: 'win32', reason: 'no file mode on Windows' },",
-    "  { test: 'test 1', part: 'an unreadable file', platform: 'root', reason: 'chmod cannot make a file unreadable for root' },",
+    "  { file: 'tests/acceptance/cli.test.ts', test: 'S3-1: a lone CR does not start a prompt line', part: 'the whole test', platform: 'win32', reason: FILE_MODES },",
+    "  { file: 'tests/acceptance/cli.test.ts', test: 'test 1: nothing changed', part: 'an unreadable file', platform: 'root', reason: 'chmod cannot make a file unreadable for root' },",
     '];',
     '',
     'export function platformSkip(part: string): string | null {',

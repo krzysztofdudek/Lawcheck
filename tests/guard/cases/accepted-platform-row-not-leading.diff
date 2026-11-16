@@ -1,0 +1,11 @@
+diff --git a/tests/acceptance/cli.test.ts b/tests/acceptance/cli.test.ts
+--- a/tests/acceptance/cli.test.ts
++++ b/tests/acceptance/cli.test.ts
+@@ -17,3 +17,7 @@ test('S3-1: a lone CR does not start a prompt line', (t) => {
+   if (process.platform === 'win32') return t.skip('no file mode on Windows');
+   assert.equal(2, 2);
+ });
++
++test('I-out-1: no output line starts with a CI command, as tests 1 and 2 of the design say', () => {
++  assert.equal(1, 1);
++});

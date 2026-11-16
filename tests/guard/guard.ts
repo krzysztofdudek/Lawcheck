@@ -18,7 +18,7 @@ export type Config = {
   runes: string;
   platformReasons: { file: string; export: string; call: string };
   shrinkOnly: string[];
-  selection: { tests: { file: string; export: string }; promises: { file: string; export: string } };
+  selection: { tests: { file: string; export: string }; promises: { file: string; export: string }; nightly: string[] };
   paths: { guard: string[]; ci: string[]; harness: string[]; expected: string[]; law: string[] };
   roles: { [role: string]: string };
   approvers: { [kind: string]: string[] };
@@ -139,6 +139,12 @@ function count<T>(items: T[], key: (item: T) => string): Map<string, number> {
   return out;
 }
 
+// The rows a test carries for platform selection, as testIds of tests/harness/promises.ts reads them: only the leading 'test 12' or 'tests 306 and 307'.
+function leadingRows(name: string): Set<string> {
+  const rows = /^tests? (\d+(?:(?:, | and )\d+)*)/.exec(name);
+  return new Set(rows === null ? [] : rows[1]!.split(/, | and /));
+}
+
 function namedIn(id: string): Set<string> {
   const out = new Set<string>();
   for (const m of id.matchAll(/\btests?\s+(\d+(?:\s*(?:,|and|to)\s*\d+)*)/gi)) {
@@ -192,9 +198,9 @@ function readList(text: string | null): Entry[] | null {
   }
 }
 
-function platformReasons(tree: Tree, config: Config): { reasons: Set<string>; parts: Set<string>; found: boolean } {
+function platformReasons(tree: Tree, config: Config): { reasons: Set<string>; parts: Set<string>; found: boolean; wholeSkips: Array<{ file: string; test: string; platform: string }> } {
   const text = tree.read(config.platformReasons.file);
-  const out = { reasons: new Set<string>(), parts: new Set<string>(), found: false };
+  const out = { reasons: new Set<string>(), parts: new Set<string>(), found: false, wholeSkips: [] as Array<{ file: string; test: string; platform: string }> };
   if (text === null) return out;
   const value = readConstants(text).get(config.platformReasons.export);
   if (!value) return out;
@@ -204,6 +210,7 @@ function platformReasons(tree: Tree, config: Config): { reasons: Set<string>; pa
     for (const entry of value.items) {
       if (typeof entry.reason === 'string') out.reasons.add(entry.reason);
       if (typeof entry.part === 'string') out.parts.add(entry.part);
+      if (entry.part === 'the whole test' && typeof entry.file === 'string' && typeof entry.test === 'string' && typeof entry.platform === 'string') out.wholeSkips.push({ file: entry.file, test: entry.test, platform: entry.platform });
     }
   }
   return out;
@@ -470,14 +477,17 @@ export function judge(repo: string, baseRev: string, headRev: string, config: Co
     for (const map of [promisesBefore, promisesAfter]) for (const [id, systems] of map) promises.set(id, new Set([...(promises.get(id) ?? []), ...systems]));
     const carries = (name: string, id: string): boolean => {
       const row = /^tests? (\d+)$/.exec(id);
-      if (row) return namedIn(name).has(`row ${row[1]}`);
+      if (row) return leadingRows(name).has(row[1]!);
       return new RegExp(`(^|[^\\w-])${id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}([^\\w-]|$)`).test(name);
     };
+    const skips = platformReasons(after, config).wholeSkips;
     for (const [file, src] of afterSources) {
+      if (matchesAny(file, config.selection.nightly)) continue;
       for (const t of src.tests) {
         for (const [id, systems] of promises) {
           if (!carries(t.id, id)) continue;
           for (const system of systems) {
+            if (skips.some((skip) => skip.file === file && skip.platform === system && (skip.test === t.top.id || (t.top.dynamic && namePattern(t.top.id, true).test(skip.test))))) continue;
             const listed = testsAfter.some((e) => e.file === file && e.systems.includes(system) && (e.test === t.top.id || (t.top.dynamic && namePattern(t.top.id, true).test(e.test))));
             if (!listed) add({ kind: 'platform-unlisted', subject: `${file} > ${t.top.id} on ${system}`, where: `${file}:${t.line}`, detail: `"${t.id}" carries ${id}, which behaves differently on ${system}, and ${config.selection.tests.export} in ${selectionFile} does not run its test there per push` });
           }

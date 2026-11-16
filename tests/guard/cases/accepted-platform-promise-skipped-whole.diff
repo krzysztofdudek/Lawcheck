@@ -1,0 +1,17 @@
+diff --git a/tests/harness/promises.ts b/tests/harness/promises.ts
+--- a/tests/harness/promises.ts
++++ b/tests/harness/promises.ts
+@@ -1,4 +1,5 @@
+ export const PLATFORM_PROMISES: Record<string, { systems: string[]; behaviour: string }> = {
+   'test 1': { systems: ['win32'], behaviour: 'a path with backslashes' },
+   'I-frame-1': { systems: ['win32'], behaviour: 'CRLF line endings' },
++  'S3-1': { systems: ['win32'], behaviour: 'a lone CR' },
+ };
+diff --git a/tests/weakenings.md b/tests/weakenings.md
+--- a/tests/weakenings.md
++++ b/tests/weakenings.md
+@@ -3,3 +3,4 @@
+ | Date | What | Kind | Reason | Anchor | Approved by |
+ |---|---|---|---|---|---|
+ | 2026-11-01 | tests/real/hono.expected | expected-changed | Runes 1.1.0 reads the router | Runes 1.1.0 | reviewer old-agent |
++| 2026-11-15 | tests/harness/** | harness-changed | S3-1 behaves differently on another system | tests/harness/promises.ts | reviewer fresh-agent-7 |

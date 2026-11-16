@@ -130,6 +130,9 @@
     "promises": {
       "file": "tests/harness/promises.ts",
       "export": "PLATFORM_PROMISES"
-    }
+    },
+    "nightly": [
+      "tests/**/*.nightly.test.ts"
+    ]
   }
 }
