@@ -133,6 +133,11 @@ export function profile(system: string, shards: Shard[]): { system: string; node
 
 export type Judge = typeof judgeRun;
 
+// The ledger tie checks the whole commit set, so only the merged run of a system that runs all of it per push is judged with it; the selection of Windows and macOS, and any single shard, would read as tests gone missing.
+export function tied(system: System, files: string[]): boolean {
+  return perPushTests(system, files) === null;
+}
+
 // One system's shards judged as one run: red when the shards are not one whole run, a test failed, or the reporter judges the merged events red, whatever made it so.
 export async function judgeShards(system: System, plan: Plan, shards: Shard[], files: string[], verdict: Judge = judgeRun): Promise<{ text: string; failed: boolean }> {
   const ordered = [...shards].sort((a, b) => a.meta.shard - b.meta.shard);
@@ -143,7 +148,8 @@ export async function judgeShards(system: System, plan: Plan, shards: Shard[], f
   const lines = [`the commit set on ${system} in ${ordered.length} shards: ${ordered.map((s) => `${s.meta.shard}: ${s.meta.files.length} files in ${((s.meta.ended - s.meta.started) / 1000).toFixed(0)} s`).join(', ')}; ${(wall / 1000).toFixed(0)} s of wall time from the first shard's start to the last one's end, ${(summed / 1000).toFixed(0)} s summed over the shards`];
   const env = { LAWCHECK_SPEED: process.env.LAWCHECK_SPEED, LAWCHECK_TIE: process.env.LAWCHECK_TIE };
   process.env.LAWCHECK_SPEED = 'commit';
-  process.env.LAWCHECK_TIE = '1';
+  if (tied(system, files)) process.env.LAWCHECK_TIE = '1';
+  else delete process.env.LAWCHECK_TIE;
   let judged: Awaited<ReturnType<Judge>>;
   try {
     judged = await verdict(replay(events), { system, started: Date.now() - wall, target: COMMIT_TARGET_MS });

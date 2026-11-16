@@ -4,7 +4,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { parse } from 'yaml';
-import { failedTests, judgeShards, mergeProblems, profile, readShards, summary, type Event, type Shard } from '../harness/merge.ts';
+import { failedTests, judgeShards, mergeProblems, profile, readShards, summary, tied, type Event, type Shard } from '../harness/merge.ts';
 import { judgeRun } from '../harness/reporter.ts';
 import { groupDirs, perPushFiles, PLATFORM_TESTS, ROOT, setFiles } from '../harness/sets.ts';
 import { balance, planProblems, readPlan, repoPath, SYSTEMS, type Plan } from '../harness/shards.ts';
@@ -180,4 +180,22 @@ test('the merge times a system as its wall time, from the first shard\'s start t
   assert.equal(written.summed_ms, 200_000);
   assert.deepEqual(written.shards.map((s) => [s.shard, s.started, s.ended]), [[1, 1_000_000, 1_100_000], [2, 1_050_000, 1_150_000]]);
   assert.match(summary('linux', [one, two], false), /^150 s of wall time, from the first shard's start to the last one's end; 200 s summed over 2 shards; the slowest, shard 1, took 100 s\.$/m);
+});
+
+test('the ledger tie judges only the merged run of Linux, which runs the whole commit set; Windows and macOS are judged without it, whatever the environment held', async () => {
+  const seen: Record<string, string | undefined> = {};
+  const before = process.env.LAWCHECK_TIE;
+  process.env.LAWCHECK_TIE = '1';
+  try {
+    for (const system of SYSTEMS) {
+      const files = perPushFiles(system);
+      const one: Shard = { meta: { system, node: 'v24', shard: 1, of: 1, files, started: 0, ended: 1, status: 0 }, events: [] };
+      await judgeShards(system, { measured: {}, shards: { [system]: [files] } }, [one], files, async () => { seen[system] = process.env.LAWCHECK_TIE; return { text: '', red: false }; });
+      assert.equal(process.env.LAWCHECK_TIE, '1', `${system}: the environment is given back`);
+    }
+  } finally {
+    if (before === undefined) delete process.env.LAWCHECK_TIE; else process.env.LAWCHECK_TIE = before;
+  }
+  assert.deepEqual(seen, { linux: '1', win32: undefined, darwin: undefined });
+  assert.deepEqual(SYSTEMS.map((system) => tied(system, perPushFiles(system))), [true, false, false]);
 });

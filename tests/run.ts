@@ -208,7 +208,8 @@ function main(): void {
   }
   args.push(...files);
   const target = parsed.speed === 'loop' ? LOOP_TARGET_MS : parsed.speed === 'commit' && parsed.targets.length === 0 && parsed.group === null && parsed.shard === null ? COMMIT_TARGET_MS : null;
-  const env = { ...process.env, LAWCHECK_SPEED: parsed.speed, LAWCHECK_SEED: seed, LAWCHECK_TARGET_MS: target === null ? '' : String(target) };
+  const env: NodeJS.ProcessEnv = { ...process.env, LAWCHECK_SPEED: parsed.speed, LAWCHECK_SEED: seed, LAWCHECK_TARGET_MS: target === null ? '' : String(target) };
+  if (parsed.shard !== null) delete env.LAWCHECK_TIE;
   let failed = false;
   for (let round = 1; round <= parsed.repeat; round++) {
     if (parsed.repeat > 1) process.stdout.write(`round ${round} of ${parsed.repeat}\n`);
