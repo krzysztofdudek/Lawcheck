@@ -198,6 +198,9 @@ jobs:
     needs: [build, shard-linux]
     if: always()
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
     strategy:
       fail-fast: false
       matrix:
@@ -214,8 +217,16 @@ jobs:
           pattern: shard-${{ matrix.os }}-${{ matrix.node }}-*
           path: shards
           merge-multiple: true
+      # The merge reports the time from the start of the run to its verdict, which no job's own clock knows, so the start comes from the run.
+      - name: The start of the run
+        id: started
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          started=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" --jq .run_started_at)
+          echo "at=$started" >> "$GITHUB_OUTPUT"
       - name: The shards as one run
-        run: node tests/harness/merge.ts shards --system ${{ matrix.system }} --profile "${{ runner.temp }}/profile.json" --summary "$GITHUB_STEP_SUMMARY"
+        run: node tests/harness/merge.ts shards --system ${{ matrix.system }} --run-started "${{ steps.started.outputs.at }}" --profile "${{ runner.temp }}/profile.json" --summary "$GITHUB_STEP_SUMMARY"
       # Every test's file and time on this system, and what each file took in its shard, for the shard plan (node tests/harness/shards.ts plan --measured) and for finding where the seconds go.
       - uses: actions/upload-artifact@v7
         if: always()
@@ -230,6 +241,9 @@ jobs:
     needs: [build, shard-win32]
     if: always()
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
     strategy:
       fail-fast: false
       matrix:
@@ -246,8 +260,16 @@ jobs:
           pattern: shard-${{ matrix.os }}-${{ matrix.node }}-*
           path: shards
           merge-multiple: true
+      # The merge reports the time from the start of the run to its verdict, which no job's own clock knows, so the start comes from the run.
+      - name: The start of the run
+        id: started
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          started=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" --jq .run_started_at)
+          echo "at=$started" >> "$GITHUB_OUTPUT"
       - name: The shards as one run
-        run: node tests/harness/merge.ts shards --system ${{ matrix.system }} --profile "${{ runner.temp }}/profile.json" --summary "$GITHUB_STEP_SUMMARY"
+        run: node tests/harness/merge.ts shards --system ${{ matrix.system }} --run-started "${{ steps.started.outputs.at }}" --profile "${{ runner.temp }}/profile.json" --summary "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v7
         if: always()
         with:
@@ -261,6 +283,9 @@ jobs:
     needs: [build, shard-darwin]
     if: always()
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
     strategy:
       fail-fast: false
       matrix:
@@ -277,8 +302,16 @@ jobs:
           pattern: shard-${{ matrix.os }}-${{ matrix.node }}-*
           path: shards
           merge-multiple: true
+      # The merge reports the time from the start of the run to its verdict, which no job's own clock knows, so the start comes from the run.
+      - name: The start of the run
+        id: started
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          started=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" --jq .run_started_at)
+          echo "at=$started" >> "$GITHUB_OUTPUT"
       - name: The shards as one run
-        run: node tests/harness/merge.ts shards --system ${{ matrix.system }} --profile "${{ runner.temp }}/profile.json" --summary "$GITHUB_STEP_SUMMARY"
+        run: node tests/harness/merge.ts shards --system ${{ matrix.system }} --run-started "${{ steps.started.outputs.at }}" --profile "${{ runner.temp }}/profile.json" --summary "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v7
         if: always()
         with:

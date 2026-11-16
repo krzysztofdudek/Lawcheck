@@ -4,7 +4,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { parse } from 'yaml';
-import { failedTests, judgeShards, mergeProblems, profile, readShards, summary, tied, type Event, type Shard } from '../harness/merge.ts';
+import { failedTests, judge, judgeShards, mergeProblems, parseRunStarted, profile, readShards, summary, tied, type Event, type Shard } from '../harness/merge.ts';
 import { judgeRun } from '../harness/reporter.ts';
 import { continueOnErrorProblems } from '../harness/workflows.ts';
 import { groupDirs, perPushFiles, PLATFORM_TESTS, ROOT, setFiles } from '../harness/sets.ts';
@@ -28,7 +28,7 @@ test('a plan that leaves a file out, names one twice, or names a file that is no
 });
 
 type Step = { id?: string; name?: string; uses?: string; if?: string; env?: Record<string, string>; run?: string; with?: Record<string, unknown>; 'continue-on-error'?: unknown };
-type CiJob = { 'continue-on-error'?: unknown; needs?: string | string[]; if?: string; 'runs-on'?: string; outputs?: Record<string, string>; strategy?: { matrix?: { include?: unknown } }; steps?: Step[] };
+type CiJob = { 'continue-on-error'?: unknown; permissions?: Record<string, string>; needs?: string | string[]; if?: string; 'runs-on'?: string; outputs?: Record<string, string>; strategy?: { matrix?: { include?: unknown } }; steps?: Step[] };
 type Ci = { jobs: Record<string, CiJob> };
 const OS: Record<(typeof SYSTEMS)[number], RegExp> = { linux: /^ubuntu-/, win32: /^windows-/, darwin: /^macos-/ };
 const needsOf = (job: CiJob | undefined): string[] => [job?.needs ?? []].flat().sort();
@@ -70,6 +70,9 @@ function ciProblems(ci: Ci, plan: Plan): string[] {
     const merged = (merge.steps ?? []).find((s) => /^node tests\/harness\/merge\.ts shards --system \$\{\{ matrix\.system \}\}( |$)/.test(s.run ?? ''));
     const download = (merge.steps ?? []).find((s) => s.uses?.startsWith('actions/download-artifact@') && s.with?.pattern === 'shard-${{ matrix.os }}-${{ matrix.node }}-*' && s.with?.path === 'shards');
     if (merged === undefined || download === undefined) problems.push(`ci.yml: merge-${system} does not judge the shards of its run as one run of its system`);
+    const started = (merge.steps ?? []).find((s) => s.id !== undefined && s.env?.GH_TOKEN === '${{ github.token }}' && /^started=\$\(gh api "repos\/\$GITHUB_REPOSITORY\/actions\/runs\/\$GITHUB_RUN_ID" --jq \.run_started_at\)$/m.test(s.run ?? '') && /^echo "at=\$started" >> "\$GITHUB_OUTPUT"$/m.test(s.run ?? ''));
+    if (started === undefined || !(merged?.run ?? '').includes(`--run-started "\${{ steps.${started.id}.outputs.at }}"`)) problems.push(`ci.yml: merge-${system} does not time its run from the run's own start, run_started_at of the API`);
+    if (JSON.stringify(Object.entries(merge.permissions ?? {}).sort()) !== JSON.stringify([['actions', 'read'], ['contents', 'read']])) problems.push(`ci.yml: merge-${system} has permissions other than read of the contents and of the actions`);
   }
   for (const name of Object.keys(ci.jobs)) if (/^(shard|merge)(-|$)/.test(name) && !SYSTEMS.some((system) => name === `shard-${system}` || name === `merge-${system}`)) problems.push(`ci.yml: ${name} is no job of a system`);
   const gate = ci.jobs['commit-set'];
@@ -110,6 +113,10 @@ test('a ci.yml that drops the runs of a system, merges a system after another\'s
   assert.deepEqual(changed((ci) => { ci.jobs['commit-set']!.needs = needsOf(ci.jobs['commit-set']).filter((n) => n !== 'shard-darwin'); }), [`ci.yml: commit-set waits for ${needsOf(ciFile().jobs['commit-set']).filter((n) => n !== 'shard-darwin').join(', ')}, not for every other job`]);
   assert.deepEqual(changed((ci) => { ci.jobs['merge-win32']!.if = 'success()'; }), ['ci.yml: merge-win32 does not run when a shard failed, was cancelled or skipped']);
   assert.deepEqual(changed((ci) => { ci.jobs['shard-darwin']!.if = "github.event_name == 'push'"; }), ["ci.yml: shard-darwin runs only if github.event_name == 'push'"]);
+  assert.deepEqual(changed((ci) => { const run = ci.jobs['merge-win32']!.steps!.find((s) => s.name === 'The shards as one run')!; run.run = run.run!.replace(/ --run-started "[^"]*"/, ''); }), ["ci.yml: merge-win32 does not time its run from the run's own start, run_started_at of the API"]);
+  assert.deepEqual(changed((ci) => { ci.jobs['merge-darwin']!.steps = ci.jobs['merge-darwin']!.steps!.filter((s) => s.id !== 'started'); }), ["ci.yml: merge-darwin does not time its run from the run's own start, run_started_at of the API"]);
+  assert.deepEqual(changed((ci) => { ci.jobs['merge-linux']!.permissions = { contents: 'read', actions: 'read', checks: 'write' }; }), ['ci.yml: merge-linux has permissions other than read of the contents and of the actions']);
+  assert.deepEqual(changed((ci) => { delete ci.jobs['merge-linux']!.permissions; }), ['ci.yml: merge-linux has permissions other than read of the contents and of the actions']);
 });
 
 test('continue-on-error on a shard job, a merge job, the commit set job or any step of them is refused, and a literal false is not (control)', () => {
@@ -119,7 +126,7 @@ test('continue-on-error on a shard job, a merge job, the commit set job or any s
   assert.deepEqual(changed((ci) => { ci.jobs['shard-linux']!['continue-on-error'] = true; }), [`ci.yml: ${reds('shard-linux')}`]);
   assert.deepEqual(changed((ci) => { ci.jobs['shard-win32']!.steps!.find((s) => s.name?.startsWith('Shard '))!['continue-on-error'] = true; }), [`ci.yml: ${reds('step 6 of shard-win32 (Shard ${{ matrix.shard }} of ${{ matrix.of }})')}`]);
   assert.deepEqual(changed((ci) => { ci.jobs['merge-darwin']!['continue-on-error'] = '${{ matrix.node != \'24\' }}'; }), [`ci.yml: ${reds('merge-darwin')}`]);
-  assert.deepEqual(changed((ci) => { ci.jobs['merge-linux']!.steps!.find((s) => s.name === 'The shards as one run')!['continue-on-error'] = true; }), [`ci.yml: ${reds('step 4 of merge-linux (The shards as one run)')}`]);
+  assert.deepEqual(changed((ci) => { ci.jobs['merge-linux']!.steps!.find((s) => s.name === 'The shards as one run')!['continue-on-error'] = true; }), [`ci.yml: ${reds('step 5 of merge-linux (The shards as one run)')}`]);
   assert.deepEqual(changed((ci) => { ci.jobs['commit-set']!['continue-on-error'] = true; }), [`ci.yml: ${reds('commit-set')}`]);
   assert.deepEqual(changed((ci) => { ci.jobs['commit-set']!.steps![0]!['continue-on-error'] = true; }), [`ci.yml: ${reds('step 1 of commit-set (Every job green)')}`]);
   assert.deepEqual(changed((ci) => { ci.jobs['shard-linux']!['continue-on-error'] = false; ci.jobs['commit-set']!.steps![0]!['continue-on-error'] = false; }), []);
@@ -291,6 +298,32 @@ test('the merge times a system as its wall time, from the first shard\'s start t
   assert.equal(written.summed_ms, 200_000);
   assert.deepEqual(written.shards.map((s) => [s.shard, s.started, s.ended]), [[1, 1_000_000, 1_100_000], [2, 1_050_000, 1_150_000]]);
   assert.match(summary('linux', [one, two], false), /^150 s of wall time, from the first shard's start to the last one's end; 200 s summed over 2 shards; the slowest, shard 1, took 100 s\.$/m);
+});
+
+test('the merge times a system from the start of the run to its own verdict, beside the shards\' wall time, in its text, its summary and its profile', async () => {
+  const files = ['tests/unit/a.test.ts'];
+  const dir = recorded([{ meta: { system: 'linux', node: 'v24', shard: 1, of: 1, files, started: 1_000_000, ended: 1_076_000, status: 0 }, events: [ok(files[0]!, 'test 1: a')] }]);
+  const out = mkdtempSync(join(tmpdir(), 'lawcheck-merge-out-'));
+  try {
+    const runStarted = parseRunStarted('2026-11-16T01:50:00Z')!;
+    const judged = await judge(dir, 'linux', { profile: join(out, 'profile.json'), summary: join(out, 'summary.md'), runStarted, now: () => runStarted + 262_000 });
+    assert.match(judged.text, /^262 s from the start of the run to this verdict, against 76 s of wall time of the shards$/m);
+    assert.match(readFileSync(join(out, 'summary.md'), 'utf8'), /^76 s of wall time, from the first shard's start to the last one's end; 76 s summed over 1 shards; the slowest, shard 1, took 76 s\. 262 s from the start of the run to this verdict, the build, the setup and the merge included\.$/m);
+    const written = JSON.parse(readFileSync(join(out, 'profile.json'), 'utf8')) as { wall_ms: number; run_ms: number | null };
+    assert.deepEqual([written.wall_ms, written.run_ms], [76_000, 262_000]);
+    const without = await judge(dir, 'linux', { profile: join(out, 'without.json') });
+    assert.doesNotMatch(without.text, /from the start of the run/);
+    assert.equal((JSON.parse(readFileSync(join(out, 'without.json'), 'utf8')) as { run_ms: number | null }).run_ms, null);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+    rmSync(out, { recursive: true, force: true });
+  }
+});
+
+test('the start of a run is read from the timestamp GitHub gives, and an empty or other value is no start', () => {
+  assert.equal(parseRunStarted('2026-11-16T01:50:00Z'), Date.UTC(2026, 10, 16, 1, 50, 0));
+  assert.equal(parseRunStarted('2026-11-16T01:50:00.250Z'), Date.UTC(2026, 10, 16, 1, 50, 0, 250));
+  for (const value of ['', 'null', '1763257800', '2026-11-16', '2026-11-16T01:50:00+01:00', '2026-13-45T99:99:99Z']) assert.equal(parseRunStarted(value), null, JSON.stringify(value));
 });
 
 test('the ledger tie judges only the merged run of Linux, which runs the whole commit set; Windows and macOS are judged without it, whatever the environment held', async () => {

@@ -115,7 +115,7 @@ export function times(shards: Shard[]): { wall: number; summed: number; slowest:
   };
 }
 
-export function profile(system: string, shards: Shard[]): { system: string; node: string; slots: number | null; wall_ms: number; summed_ms: number; shards: { shard: number; files: number; started: number; ended: number }[]; costs: Record<string, number>; files: Record<string, number>; tests: Record<string, { file: string; ms: number; shard: number }> } {
+export function profile(system: string, shards: Shard[], sinceRun: number | null = null): { system: string; node: string; slots: number | null; wall_ms: number; summed_ms: number; run_ms: number | null; shards: { shard: number; files: number; started: number; ended: number }[]; costs: Record<string, number>; files: Record<string, number>; tests: Record<string, { file: string; ms: number; shard: number }> } {
   const files: Record<string, number> = {};
   const costs: Record<string, number> = {};
   const tests: Record<string, { file: string; ms: number; shard: number }> = {};
@@ -130,7 +130,7 @@ export function profile(system: string, shards: Shard[]): { system: string; node
   }
   const { wall, summed } = times(shards);
   const timed = [...shards].sort((a, b) => a.meta.shard - b.meta.shard).map((s) => ({ shard: s.meta.shard, files: s.meta.files.length, started: s.meta.started, ended: s.meta.ended }));
-  return { system, node: shards[0]?.meta.node ?? '', slots: shards[0]?.meta.slots ?? null, wall_ms: wall, summed_ms: summed, shards: timed, costs, files, tests };
+  return { system, node: shards[0]?.meta.node ?? '', slots: shards[0]?.meta.slots ?? null, wall_ms: wall, summed_ms: summed, run_ms: sinceRun, shards: timed, costs, files, tests };
 }
 
 export type Judge = typeof judgeRun;
@@ -165,32 +165,46 @@ export async function judgeShards(system: System, plan: Plan, shards: Shard[], f
   return { text: `${lines.join('\n')}\n`, failed };
 }
 
-export function summary(system: string, shards: Shard[], failed: boolean): string {
+export function summary(system: string, shards: Shard[], failed: boolean, sinceRun: number | null = null): string {
   const { wall, summed, slowest } = times(shards);
   const node = shards[0]?.meta.node ?? '';
-  return `### The commit set on ${system}${node === '' ? '' : `, Node ${node}`}: ${failed ? 'FAIL' : 'PASS'}\n\n${(wall / 1000).toFixed(0)} s of wall time, from the first shard's start to the last one's end; ${(summed / 1000).toFixed(0)} s summed over ${shards.length} shards${slowest === null ? '' : `; the slowest, shard ${slowest.shard}, took ${(slowest.ms / 1000).toFixed(0)} s`}.\n\n`;
+  const sinceStart = sinceRun === null ? '' : ` ${seconds(sinceRun)} s from the start of the run to this verdict, the build, the setup and the merge included.`;
+  return `### The commit set on ${system}${node === '' ? '' : `, Node ${node}`}: ${failed ? 'FAIL' : 'PASS'}\n\n${seconds(wall)} s of wall time, from the first shard's start to the last one's end; ${seconds(summed)} s summed over ${shards.length} shards${slowest === null ? '' : `; the slowest, shard ${slowest.shard}, took ${seconds(slowest.ms)} s`}.${sinceStart}\n\n`;
 }
 
-export async function judge(dir: string, system: System, out: { profile?: string; summary?: string } = {}): Promise<{ text: string; failed: boolean }> {
+const seconds = (ms: number): string => (ms / 1000).toFixed(0);
+
+// GitHub gives the start of a run as an ISO timestamp (run_started_at). Anything else, an empty value included, is no start.
+export function parseRunStarted(value: string): number | null {
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/.test(value)) return null;
+  const at = Date.parse(value);
+  return Number.isNaN(at) ? null : at;
+}
+
+export async function judge(dir: string, system: System, out: { profile?: string; summary?: string; runStarted?: number; now?: () => number } = {}): Promise<{ text: string; failed: boolean }> {
   const { shards, problems } = readShards(dir);
-  if (out.profile !== undefined) writeFileSync(out.profile, `${JSON.stringify(profile(system, shards), null, 2)}\n`);
   const judged = await judgeShards(system, readPlan(), shards, perPushFiles(system), judgeRun, problems);
-  if (out.summary !== undefined) appendFileSync(out.summary, summary(system, shards, judged.failed));
-  return judged;
+  const sinceRun = out.runStarted === undefined ? null : (out.now ?? Date.now)() - out.runStarted;
+  if (out.profile !== undefined) writeFileSync(out.profile, `${JSON.stringify(profile(system, shards, sinceRun), null, 2)}\n`);
+  if (out.summary !== undefined) appendFileSync(out.summary, summary(system, shards, judged.failed, sinceRun));
+  const text = sinceRun === null ? judged.text : `${judged.text}${seconds(sinceRun)} s from the start of the run to this verdict, against ${seconds(times(shards).wall)} s of wall time of the shards\n`;
+  return { text, failed: judged.failed };
 }
 
 if (process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const usage = 'usage: node tests/harness/merge.ts <folder holding meta-<i>.json and events-<i>.jsonl of every shard> --system <linux|win32|darwin> [--profile <file>] [--summary <file>]\n';
+  const usage = 'usage: node tests/harness/merge.ts <folder holding meta-<i>.json and events-<i>.jsonl of every shard> --system <linux|win32|darwin> [--profile <file>] [--summary <file>] [--run-started <run_started_at of the run, as GitHub gives it>]\n';
   const [dir, ...rest] = process.argv.slice(2);
   const options: Record<string, string> = {};
   for (let i = 0; i < rest.length; i += 2) {
     const [flag, value] = [rest[i]!, rest[i + 1]];
-    if (!['--system', '--profile', '--summary'].includes(flag) || value === undefined || options[flag] !== undefined) { process.stderr.write(usage); process.exit(2); }
+    if (!['--system', '--profile', '--summary', '--run-started'].includes(flag) || value === undefined || options[flag] !== undefined) { process.stderr.write(usage); process.exit(2); }
     options[flag] = value;
   }
   const system = options['--system'] as System | undefined;
   if (dir === undefined || system === undefined || !(SYSTEMS as readonly string[]).includes(system)) { process.stderr.write(usage); process.exit(2); }
-  const { text, failed } = await judge(resolve(dir), system, { profile: options['--profile'], summary: options['--summary'] });
+  const runStarted = options['--run-started'] === undefined ? undefined : parseRunStarted(options['--run-started']);
+  if (runStarted === null) { process.stderr.write(`--run-started is not a timestamp as GitHub gives it: ${JSON.stringify(options['--run-started'])}\n${usage}`); process.exit(2); }
+  const { text, failed } = await judge(resolve(dir), system, { profile: options['--profile'], summary: options['--summary'], runStarted });
   process.stdout.write(text);
   process.exit(failed ? 1 : 0);
 }
