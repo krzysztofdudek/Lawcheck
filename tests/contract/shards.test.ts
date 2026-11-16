@@ -358,7 +358,9 @@ test('when the call that reads the start of the run fails, the merge says so and
       assert.equal(without.code, 1, name);
       writeFileSync(join(out, 'summary.md'), '');
       const working = await merge(dir, new Date(Date.now() - 262_000).toISOString().replace(/\.\d+Z$/, 'Z'));
-      assert.equal(working.code, without.code, `${name}, the call works: ${working.stderr}`);
+      assert.equal(without.stderr, '', `${name}, no start given`);
+      assert.equal(working.stderr, '', `${name}, the call works`);
+      assert.equal(working.code, without.code, `${name}, the call works`);
       assert.ok(working.stdout.startsWith(without.stdout), name);
       assert.match(working.stdout.slice(without.stdout.length), /^\d+ s from the start of the run to this verdict, against 76 s of wall time of the shards\n$/);
       assert.match(readFileSync(join(out, 'summary.md'), 'utf8'), /\d+ s from the start of the run to this verdict, the build, the setup and the merge included\.\n\n$/);
@@ -367,7 +369,7 @@ test('when the call that reads the start of the run fails, the merge says so and
         writeFileSync(join(out, 'summary.md'), '');
         const failing = await merge(dir, value);
         assert.equal(failing.code, without.code, `${name}, the call failed with ${JSON.stringify(value)}: ${failing.stderr}`);
-        assert.equal(failing.stderr, '');
+        assert.equal(failing.stderr, '', `${name}, the call failed with ${JSON.stringify(value)}`);
         assert.equal(failing.stdout, `${without.stdout}${unreadable}\n`);
         assert.ok(readFileSync(join(out, 'summary.md'), 'utf8').endsWith(` ${unreadable}\n\n`));
         assert.equal((JSON.parse(readFileSync(join(out, 'profile.json'), 'utf8')) as { run_ms: number | null }).run_ms, null);
