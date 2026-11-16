@@ -196,6 +196,33 @@ test('S2-2: a rule that imports a package from a node_modules above the root is 
   assert.deepEqual(problems, []);
 });
 
+function pnpmStore(name: string, store: string): Scenario {
+  const folder = `node_modules/.pnpm/${store}/node_modules/${name}`;
+  return {
+    name: `R-101 ${name}`,
+    args: BASE,
+    options: { onMain: (s) => setRule(s, 'no-console', `import { hoisted } from '../../../${folder}/index.js';\nexport function check() { return [{ message: hoisted }]; }\n`) },
+    arrange: (p) => {
+      write(p.root, D_PATH, D);
+      write(p.top, `${folder}/package.json`, JSON.stringify({ name, type: 'module', main: 'index.js' }) + '\n');
+      write(p.top, `${folder}/index.js`, "export const hoisted = 'from a pnpm store';\n");
+    },
+    expect: (run) => {
+      const crash = run.stdout.split('\n').find((line) => line.includes('error[rule-crashed]')) ?? '';
+      assert.ok(crash.startsWith('.lawcheck/rules/no-console.mjs  error[rule-crashed]  fails to load: reads '), crash);
+      assert.ok(crash.includes('.pnpm'), crash);
+      assert.match(run.stdout, new RegExp(`^next: install ${name} in a node_modules below the root, then run lawcheck check$`, 'm'));
+      assert.equal(run.stderr, '');
+      assert.equal(run.code, 2);
+    },
+  };
+}
+
+test('R-101: a package of a pnpm workspace in the store below node_modules/.pnpm is named by its own name in the next line, a scoped one with its scope', async () => {
+  const [inPackage] = SHAPES.filter((shape) => shape.name.includes('pkg/'));
+  assert.deepEqual(await inShapes([pnpmStore('lodash', 'lodash@4.17.21'), pnpmStore('@scope/util', '@scope+util@1.0.0')], [inPackage!]), []);
+});
+
 test('S2-2: control, the same rule loads the same package from a node_modules below the root', async () => {
   const problems = await inShapes(
     [

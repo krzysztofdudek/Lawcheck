@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { setRule, withSample, write } from '../acceptance/helpers.ts';
 import { errorLines, run } from './support.ts';
 
@@ -154,4 +155,15 @@ test('test 268: a message of 4,096 characters outside the first plane is a findi
       { onMain: (s) => setRule(s, 'no-console', wide(count)) },
     );
   }
+});
+
+test('R-102: the page of script rules names the limit of a message where it says what a finding holds and where it lists what makes a rule rule-crashed, as the codes page gives it', () => {
+  const codes = readFileSync(new URL('../../docs/codes.md', import.meta.url), 'utf8');
+  const page = readFileSync(new URL('../../docs/script-rules.md', import.meta.url), 'utf8');
+  const limit = /\| `rule-crashed` \|.*?returns a message over ([\d,]+) characters/.exec(codes)?.[1];
+  assert.equal(limit, '4,096', 'the codes page gives the limit of a message as a cause of rule-crashed');
+  const finding = page.split('\n').find((line) => line.startsWith('- `message`'));
+  assert.ok(finding?.includes(`at most ${limit} characters`), finding);
+  const list = page.slice(page.indexOf('## rule-crashed'), page.indexOf('## Trying a rule'));
+  assert.ok(list.includes(`a message over ${limit} characters`), list);
 });

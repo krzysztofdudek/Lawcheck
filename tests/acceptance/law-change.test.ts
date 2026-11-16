@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { append, check, LAW, lawcheck, read, setRule, withR, withSample, write } from './helpers.ts';
+import { append, check, E, E_PATH, LAW, lawcheck, read, setRule, withR, withSample, withU, write } from './helpers.ts';
 
 const GENERIC = 'note: the law changed in this change; lawcheck check --full --base main shows what it finds in the rest of the code';
 const PREFIX = 'note: this change edits the law that judges it: ';
@@ -180,5 +180,19 @@ test('test 318: S7-3, R-75, a changed waivers key is named by the type that writ
     const run = await check(s);
     assert.deepEqual(secondLines(run.stdout), [GENERIC, `${PREFIX}changes the waivers of the type source`]);
     assert.equal(run.code, 0);
+  });
+});
+
+test('R-99: a waiver of forbidden-use that the change adds is named in the line, in text and in JSON, as a waiver of a rule is', async () => {
+  const lines = E.split('\n');
+  await withU(async (u) => {
+    append(u, '.lawcheck/law.yaml', '# a note\n');
+    write(u, E_PATH, [lines[0], "import '../cli/main.js'; // lawcheck-waive forbidden-use -- the report repeats the banner until 2.0", lines[2], ''].join('\n'));
+    const run = await check(u);
+    assert.equal(run.stdout.split('\n')[0], 'lawcheck: PASS  2 changed files (against main), 1 waiver');
+    assert.ok(run.stdout.split('\n').includes(`${PREFIX}edits .lawcheck/law.yaml without changing a rule or a type; adds a waiver of forbidden-use in ${E_PATH}`), run.stdout);
+    assert.equal(run.code, 0);
+    const json = JSON.parse((await check(u, '--base', 'main', '--json')).stdout);
+    assert.deepEqual(json.scope.law_changes, ['edits .lawcheck/law.yaml without changing a rule or a type', `adds a waiver of forbidden-use in ${E_PATH}`]);
   });
 });

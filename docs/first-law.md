@@ -168,7 +168,7 @@ src/report.ts:1  warning[no-console]  writes to the terminal with console.log
   why:  Only the command layer writes to the terminal.
 ```
 
-The three changed files are the new files of `.lawcheck/`: a file git lists counts, the law's own included, and the two note lines say the change edits the law (`lawcheck docs change`). What the check finds outside the change is listed as debt. Debt is a warning and never fails the run.
+The three changed files are the new files of `.lawcheck/`: a file git lists counts, the law's own included, and the note line says the change edits the law (`lawcheck docs change`). What the check finds outside the change is listed as debt. Debt is a warning and never fails the run.
 
 ## Pay the debt, or start advisory
 

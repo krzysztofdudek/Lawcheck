@@ -145,7 +145,7 @@ export function lawChanges(root: string, base: string, files: string[], changed:
   }
   const config = ofFile(CONFIG, blobAt(root, fork, CONFIG), fileNow(root, CONFIG));
   if (config !== null) items.push(config);
-  items.push(...waiversAdded(root, fork, changed, new Set([...(lawsBefore?.rules.keys() ?? []), ...(lawsAfter?.rules.keys() ?? [])]), plain));
+  items.push(...waiversAdded(root, fork, changed, new Set([...(lawsBefore?.rules.keys() ?? []), ...(lawsAfter?.rules.keys() ?? []), 'forbidden-use']), plain));
   return items;
 }
 

@@ -376,7 +376,7 @@ export function runRule(run: RuleRun): Promise<RuleOutcome> {
 
 // A rule whose load read a package in a node_modules outside the root needs that package installed below the root, not a change of its file.
 export function crashNext(crash: string): string | undefined {
-  const found = /^fails to load: reads .*?[\\/]node_modules[\\/]((?:@[^\\/\s]+[\\/])?[^\\/\s]+)/.exec(crash);
+  const found = /^fails to load: reads .*[\\/]node_modules[\\/]((?:@[^\\/\s]+[\\/])?[^\\/\s]+)/.exec(crash);
   return found === null ? undefined : `install ${found[1]!.replace(/\\/g, '/')} in a node_modules below the root, then run lawcheck check`;
 }
 
