@@ -104,6 +104,7 @@ function ofLaw(before: Law, after: Law): string[] {
     if (old.content?.source !== now.content?.source) items.push(`changes the content of the type ${id}`);
     if (!same(old.mayUse, now.mayUse)) items.push(`changes may_use of the type ${id}`);
     if (old.about !== now.about) items.push(`changes the about of the type ${id}`);
+    if (old.waivers !== now.waivers) items.push(`changes the waivers of the type ${id}`);
   }
   return items;
 }

@@ -165,3 +165,20 @@ test('test 317: S7-3, a waiver the change adds is named in the line, and one the
     { onMain: (s) => write(s, 'src/core/shipping.ts', "console.log('x'); // lawcheck-waive no-console -- a legacy call\n") },
   );
 });
+
+test('test 318: S7-3, a changed waivers key is named by the type that writes it, and the types that inherit its value are not', async () => {
+  await withSample(async (s) => {
+    edit(s, '        rules: [no-console]\n', '        rules: [no-console]\n        waivers: false\n');
+    const run = await check(s);
+    assert.deepEqual(secondLines(run.stdout), [GENERIC, `${PREFIX}changes the waivers of the type library`]);
+    assert.equal(run.code, 0);
+    const json = await check(s, '--base', 'main', '--json');
+    assert.deepEqual(JSON.parse(json.stdout).scope.law_changes, ['changes the waivers of the type library']);
+  });
+  await withSample(async (s) => {
+    edit(s, '    rules: [no-todo]\n    types:', '    rules: [no-todo]\n    waivers: false\n    types:');
+    const run = await check(s);
+    assert.deepEqual(secondLines(run.stdout), [GENERIC, `${PREFIX}changes the waivers of the type source`]);
+    assert.equal(run.code, 0);
+  });
+});
