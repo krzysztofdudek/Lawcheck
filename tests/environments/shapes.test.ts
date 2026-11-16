@@ -218,14 +218,9 @@ function pnpmStore(name: string, store: string): Scenario {
   };
 }
 
-test('R-101: a package of a pnpm workspace that lies in the store below node_modules/.pnpm is named by its own name in the next line', async () => {
+test('R-101: a package of a pnpm workspace in the store below node_modules/.pnpm is named by its own name in the next line, a scoped one with its scope', async () => {
   const [inPackage] = SHAPES.filter((shape) => shape.name.includes('pkg/'));
-  assert.deepEqual(await inShapes([pnpmStore('lodash', 'lodash@4.17.21')], [inPackage!]), []);
-});
-
-test('R-101: a scoped package of a pnpm workspace is named with its scope in the next line', async () => {
-  const [inPackage] = SHAPES.filter((shape) => shape.name.includes('pkg/'));
-  assert.deepEqual(await inShapes([pnpmStore('@scope/util', '@scope+util@1.0.0')], [inPackage!]), []);
+  assert.deepEqual(await inShapes([pnpmStore('lodash', 'lodash@4.17.21'), pnpmStore('@scope/util', '@scope+util@1.0.0')], [inPackage!]), []);
 });
 
 test('S2-2: control, the same rule loads the same package from a node_modules below the root', async () => {
