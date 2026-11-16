@@ -209,6 +209,29 @@ jobs:
       - run: npm run build
       - run: node tests/run.ts nightly --group environments
 
+  # The hook deadlines and the rule limit that the plugin and the tool ship, which per push run shorter, on each system: they end processes, which each system does its own way.
+  deadlines:
+    name: nightly shipped deadlines (${{ matrix.os }})
+    needs: grammars
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v8
+        with:
+          name: nightly-grammar-cache
+          path: .grammars
+      - run: npm run build
+      - run: node tests/run.ts nightly --group deadlines
+
   docs:
     name: nightly docs recipes
     needs: grammars

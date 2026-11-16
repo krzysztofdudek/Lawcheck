@@ -5,11 +5,22 @@ const NAME = 'LAWCHECK_TEST_LIMITS';
 
 const given = JSON.parse(process.env[NAME] ?? 'null');
 delete process.env[NAME];
-if (given === null || typeof given !== 'object' || Object.keys(given).length === 0) throw new Error(`${NAME} names no limit`);
-for (const [name, value] of Object.entries(given)) {
-  if (!Object.hasOwn(LIMITS, name)) throw new Error(`${NAME} names ${name}, which is no limit of the tool`);
-  if (typeof value !== 'number' || !(value > 0) || value >= LIMITS[name]) throw new Error(`${NAME} gives ${name} ${value}, and a test limit is shorter than the shipped ${LIMITS[name]}`);
-  LIMITS[name] = value;
+
+function problem() {
+  if (given === null || typeof given !== 'object' || Object.keys(given).length === 0) return `${NAME} names no limit`;
+  for (const [name, value] of Object.entries(given)) {
+    if (!Object.hasOwn(LIMITS, name)) return `${NAME} names ${name}, which is no limit of the tool`;
+    if (typeof value !== 'number' || !(value > 0) || value >= LIMITS[name]) return `${NAME} gives ${name} ${value}, and a test limit is shorter than the shipped ${LIMITS[name]}`;
+  }
+  return null;
 }
 
-await import('../../dist/bin.cjs');
+// A refusal is one line on standard error, written before the process ends: an uncaught error would print the source line, which a Windows checkout ends with CR.
+const refused = problem();
+if (refused !== null) {
+  process.stderr.write(`${refused}\n`);
+  process.exitCode = 1;
+} else {
+  Object.assign(LIMITS, given);
+  await import('../../dist/bin.cjs');
+}

@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parse } from 'yaml';
-import { COMMIT_GROUPS, NIGHTLY_GROUPS, ROOT } from '../harness/sets.ts';
+import { COMMIT_GROUPS, nightly, NIGHTLY_GROUPS, ROOT, setFiles } from '../harness/sets.ts';
+import { PLATFORM_SKIPS } from '../harness/skips.ts';
 import { continueOnErrorProblems } from '../harness/workflows.ts';
 
 type Job = { 'continue-on-error'?: unknown; strategy?: { matrix?: { group?: string[]; os?: string[]; include?: Record<string, unknown>[] } }; steps?: { name?: string; uses?: string; run?: string; if?: string; 'continue-on-error'?: unknown }[]; needs?: string | string[]; name?: string; if?: string; 'runs-on'?: string };
@@ -70,9 +71,7 @@ function wholeSetSystems(workflow: Workflow): string[] {
   const out = new Set<string>();
   for (const job of Object.values(workflow.jobs)) {
     if (job.if !== undefined || !(job.steps ?? []).some((step) => step.if === undefined && WHOLE_COMMIT_SET.test((step.run ?? '').trim()))) continue;
-    const on = job['runs-on'] ?? '';
-    const oses = on === '${{ matrix.os }}' ? [...(job.strategy?.matrix?.os ?? []), ...(job.strategy?.matrix?.include ?? []).map((e) => String(e.os))] : [on];
-    for (const os of oses) for (const [pattern, system] of SYSTEM_OF) if (pattern.test(os)) out.add(system);
+    for (const system of jobSystems(job)) out.add(system);
   }
   return [...out].sort();
 }
@@ -94,6 +93,37 @@ test('a nightly that runs the whole commit set on Linux alone, behind a conditio
   const gone = read('nightly.yml');
   delete gone.jobs.repeat;
   assert.deepEqual(wholeSetSystems(gone), []);
+});
+
+// The systems a job runs on: its runner, or each runner of its matrix.
+function jobSystems(job: Job): string[] {
+  const on = job['runs-on'] ?? '';
+  const oses = on === '${{ matrix.os }}' ? [...(job.strategy?.matrix?.os ?? []), ...(job.strategy?.matrix?.include ?? []).map((e) => String(e.os))] : [on];
+  return SYSTEM_OF.filter(([pattern]) => oses.some((os) => pattern.test(os))).map(([, system]) => system);
+}
+
+// The parts of nightly files that PLATFORM_SKIPS skips on Windows or macOS, where no job of the nightly and weekly workflows runs the file's group on that system, so the entry never applies.
+function unreadNightlySkips(workflows: Workflow[]): string[] {
+  const systems = new Map<string, Set<string>>();
+  for (const workflow of workflows) for (const job of Object.values(workflow.jobs)) for (const group of named({ jobs: { job } })) for (const system of jobSystems(job)) systems.set(group, (systems.get(group) ?? new Set()).add(system));
+  const unread: string[] = [];
+  for (const skip of PLATFORM_SKIPS) {
+    if (!nightly(skip.file) || (skip.platform !== 'win32' && skip.platform !== 'darwin')) continue;
+    const groups = Object.entries(NIGHTLY_GROUPS).filter(([, dirs]) => setFiles('nightly', dirs).includes(skip.file)).map(([group]) => group);
+    if (!groups.some((group) => systems.get(group)?.has(skip.platform))) unread.push(`${skip.file} > ${skip.test}: ${skip.part} on ${skip.platform}`);
+  }
+  return unread;
+}
+
+test('a nightly file with a part skipped on Windows or macOS runs on that system in the nightly, so the skip applies there', () => {
+  assert.ok(PLATFORM_SKIPS.some((skip) => nightly(skip.file) && skip.platform === 'win32'));
+  assert.deepEqual(unreadNightlySkips([read('nightly.yml'), read('weekly.yml')]), []);
+});
+
+test('a nightly file skipped in part on Windows whose group runs on Linux alone is named (control)', () => {
+  const narrowed = read('nightly.yml');
+  narrowed.jobs.deadlines!.strategy!.matrix!.os = ['ubuntu-latest'];
+  assert.deepEqual(unreadNightlySkips([narrowed, read('weekly.yml')]), ['tests/deadlines/hook-deadlines.nightly.test.ts > test 163: the deadline, and a hook that is stopped, at the deadlines the plugin ships: a hook stopped by SIGTERM on win32']);
 });
 
 // What decides the bytes of .grammars: the pinned packages, the script that builds and checks them, and the licenses it copies.

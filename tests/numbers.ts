@@ -32,16 +32,20 @@ export const FAKE_STARTED_MS = 20_000;
 // spec/plugin-slice.md, test 163: within 30 seconds of the deadline of 25 and within 150 of the deadline of 145, so a hook ends within 5 seconds of its deadline; SIGTERM after 2 seconds.
 export const HOOK_PAST_DEADLINE_MS = 5_000;
 export const HOOK_SIGTERM_AFTER_MS = 2_000;
-// The deadlines in seconds that the per-push run of test 163 gives the edit and stop hooks in place of 25 and 145; the nightly runs the shipped ones. Each leaves the stand-in lawcheck time to start through cmd.exe on a busy Windows runner, so that each run ends at its deadline with the stand-in running.
-export const TEST_HOOK_DEADLINES = { edit: 3, stop: 4 };
+// The deadlines in seconds that the per-push runs of test 163 and of section 5's session-start and prompt hooks give in place of 25, 15, 25 and 145; the nightly runs the shipped ones. Each leaves the stand-in lawcheck time to start through cmd.exe on a busy Windows runner, so that each run ends at its deadline with the stand-in running. No two are the same, and prompt's, which no message names, is the longest, so a hook that reads another hook's deadline ends too early or names the wrong one.
+export const TEST_HOOK_DEADLINES = { 'session-start': 5, prompt: 6, edit: 3, stop: 4 };
 export const STOPPED_HOOK_ENDS_MS = 10_000;
 
 // spec/check-slice.md, test 24: a rule that hangs crashes within 40 seconds of a limit of 30, so within 10 seconds of its limit. The per-push run gives the tool a limit of 3 seconds in place of 30, which leaves the runner time to start on a busy Windows runner, so that the hang in check is stopped in its call and not in its load; the nightly runs the shipped one.
 export const RULE_PAST_LIMIT_MS = 10_000;
 export const TEST_RULE_MS = 3_000;
+// How far past its limit a hung rule may run, as a share of the limit, counted from the moment the rule says it hangs: the runner is ended and the tool prints and exits. A timer set to twice the limit or more fails it.
+export const RULE_PAST_LIMIT_SHARE = 0.5;
+// Each of two calls of a rule takes this long under TEST_RULE_MS: each call is inside the limit, the two together are past it.
+export const RULE_CALL_MS = 2_000;
 // What the variables of the test entries would set if they reached the tool or the hook a user runs, and how long a rule and a stand-in lawcheck then take: past those, and far inside the shipped 30 and 25 seconds.
 export const USER_SET_RULE_MS = 1_000;
-export const USER_SET_EDIT_DEADLINE_S = 1;
+export const USER_SET_DEADLINE_S = 1;
 export const PAST_USER_SET_MS = 2_500;
 
 // spec/reviewer-slice.md, section 6: a call ends at reviewer.timeout without waiting for the kill grace or a second full timeout. Tests 406 to 408 run with a timeout of 1 second, the shared list and call with one of SHARED_TIMEOUT_S, test 411 with one of 3; a timeout of 1 second of an HTTP provider in test 403, and a program that ended while a child holds its output, ended 2 seconds later.
@@ -101,7 +105,15 @@ export const SLOW_TESTS: Record<string, Slow> = {
   // A run of the tool per case.
   'tests/acceptance/plugin.test.ts > test 160: edits that pass, and inputs the hook leaves alone': { fixed: 0, measured: { win32: 16_411 } },
   // The hook deadlines of 25 and 145 seconds (spec/plugin-slice.md, section 4) and the SIGTERM 2 seconds into the third hook.
-  'tests/environments/hook-deadlines.nightly.test.ts > test 163: the deadline, and a hook that is stopped, at the deadlines the plugin ships': { fixed: 172_000, measured: { darwin: 173_433, linux: 172_534, win32: 174_998 } },
+  'tests/deadlines/hook-deadlines.nightly.test.ts > test 163: the deadline, and a hook that is stopped, at the deadlines the plugin ships': { fixed: 172_000, measured: { darwin: 175_080, linux: 174_217, win32: 174_998 } },
+  // The session-start and prompt deadlines of 25 and 15 seconds (spec/plugin-slice.md, section 5).
+  'tests/deadlines/hook-deadlines.nightly.test.ts > section 5: the session-start and prompt hooks each end at their own deadline, at the deadlines the plugin ships': { fixed: 40_000, measured: { darwin: 40_734, linux: 40_201, win32: 41_022 } },
+  // The test deadlines of the edit and stop hooks, 3 and 4 seconds, and on Linux and macOS the SIGKILL 2 seconds after SIGTERM (spec/plugin-slice.md, section 5).
+  'tests/acceptance/plugin.test.ts > test 163: the deadline, and a hook that is stopped': { fixed: 7_000, measured: { linux: 9_515, win32: 8_375 } },
+  // The test deadlines of the session-start and prompt hooks, 5 and 6 seconds (spec/plugin-slice.md, section 5).
+  'tests/acceptance/plugin.test.ts > section 5: the session-start and prompt hooks each end at their own deadline': { fixed: 11_000, measured: { linux: 11_817 } },
+  // Three waits of PAST_USER_SET_MS past the deadline of 1 second the variable would set (session-start and edit at once, prompt, stop).
+  'tests/acceptance/plugin.test.ts > section 5: the hook a user runs keeps its shipped deadline for every event when the variable of the test entry is set': { fixed: 7_500, measured: { linux: 9_447 } },
   // A run of the tool per case.
   'tests/acceptance/plugin.test.ts > test 166 and 167: the hand-back, and the guard': { fixed: 0, measured: { darwin: 8_965, win32: 14_528 } },
   // A run of the tool per case.
@@ -128,10 +140,14 @@ export const SLOW_TESTS: Record<string, Slow> = {
   'tests/acceptance/reviewer-law.test.ts > test 70: what re-opens a verdict': { fixed: 0, measured: { win32: 13_666 } },
   // A run of the tool per case.
   'tests/acceptance/reviewer.test.ts > test 56: a bad answer is asked once more, then fails the run': { fixed: 0, measured: { darwin: 8_697, win32: 20_651 } },
+  // Two calls of RULE_CALL_MS under the test limit of 3 seconds (spec/check-slice.md, section 3).
+  'tests/acceptance/rules.test.ts > section 3: each call of a rule has the whole limit, so two calls that are each inside it pass however long they take together': { fixed: 4_000, measured: { linux: 4_438 } },
   // A run of the tool per case.
   'tests/acceptance/rules.test.ts > test 21: each broken answer crashes the rule': { fixed: 0, measured: { win32: 7_512 } },
+  // The test limit of 3 seconds a rule may run, in place of 30 (spec/check-slice.md, section 3).
+  'tests/acceptance/rules.test.ts > test 24: a rule that hangs is stopped': { fixed: 3_000, measured: { win32: 5_717 } },
   // The 30 seconds a rule may run (spec/check-slice.md, section 3).
-  'tests/environments/rule-limit.nightly.test.ts > test 24: a rule that hangs is stopped, at the limit the tool ships': { fixed: 30_000, measured: { darwin: 30_868, linux: 30_608, win32: 34_041 } },
+  'tests/deadlines/rule-limit.nightly.test.ts > test 24: a rule that hangs is stopped, at the limit the tool ships': { fixed: 30_000, measured: { darwin: 31_335, linux: 30_608, win32: 34_041 } },
   // 300 requests to the fake reviewer.
   'tests/acceptance/stability.test.ts > test 76: the measurement against the fake': { fixed: 0, measured: { darwin: 11_934, linux: 6_267, win32: 17_482 } },
   // STABILITY_RUNS runs of 30 calls of the fake claude, each a process; on Windows ten runs took 116.8 s, so it makes two there.
@@ -272,9 +288,11 @@ export const stronger: Record<string, 'higher' | 'lower' | 'fixed'> = {
   FAKE_STARTED_MS: 'lower',
   HOOK_PAST_DEADLINE_MS: 'lower',
   RULE_PAST_LIMIT_MS: 'lower',
+  RULE_PAST_LIMIT_SHARE: 'lower',
+  RULE_CALL_MS: 'fixed',
   TEST_RULE_MS: 'fixed',
   USER_SET_RULE_MS: 'fixed',
-  USER_SET_EDIT_DEADLINE_S: 'fixed',
+  USER_SET_DEADLINE_S: 'fixed',
   PAST_USER_SET_MS: 'fixed',
   TEST_HOOK_DEADLINES: 'fixed',
   HOOK_SIGTERM_AFTER_MS: 'fixed',

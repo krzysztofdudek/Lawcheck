@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PLATFORM_PROMISES, promiseOf, testIds } from '../harness/promises.ts';
-import { groupDirs, nightly, perPushFiles, perPushTests, PLATFORM_BEHAVIOURS, PLATFORM_TESTS, ROOT, setFiles } from '../harness/sets.ts';
+import { groupDirs, nightly, perPushFiles, perPushTests, PLATFORM_BEHAVIOURS, PLATFORM_TESTS, ROOT, setFiles, TESTS, walk } from '../harness/sets.ts';
 import type { PlatformTest } from '../harness/sets.ts';
 import { PLATFORM_SKIPS } from '../harness/skips.ts';
 
@@ -33,6 +33,8 @@ interface Declared {
   file: string;
   name: string;
   matches: (name: string) => boolean;
+  // The text of the test( call, up to the first line at its own indent that closes a brace and a parenthesis.
+  body: string;
 }
 
 function literalEnd(text: string, at: number): number {
@@ -69,9 +71,14 @@ function declaredTests(file: string): Declared[] {
   for (const m of text.matchAll(/^[ \t]*test\(\s*(?=['"`])/gm)) {
     const start = m.index + m[0].length;
     const literal = text.slice(start, literalEnd(text, start) + 1);
+    const indent = /^[ \t]*/.exec(m[0])![0];
+    const close = new RegExp(`\\n${indent}\\}[^\\n]*\\)`, 'g');
+    close.lastIndex = start;
+    const end = close.exec(text);
+    const body = text.slice(start, end === null ? text.length : end.index + end[0].length);
     if (!literal.startsWith('`') || !literal.includes('${')) {
       const name = evaluate(literal);
-      out.push({ file, name, matches: (other) => other === name });
+      out.push({ file, name, matches: (other) => other === name, body });
       continue;
     }
     const parts: string[] = [];
@@ -89,7 +96,7 @@ function declaredTests(file: string): Declared[] {
     }
     parts.push(evaluate(`\`${chunk}\``));
     const pattern = new RegExp(`^${parts.map(escape).join('.*?')}$`, 's');
-    out.push({ file, name: parts.join('…'), matches: (other) => pattern.test(other) });
+    out.push({ file, name: parts.join('…'), matches: (other) => pattern.test(other), body });
   }
   return out;
 }
@@ -154,6 +161,58 @@ test('a test with a part skipped on Windows or macOS runs there per push, and on
     if (skip.platform === 'linux' && skip.part === 'the whole test') for (const system of OTHERS) if (!wholeSkip(skip, system) && !declared(system)) missing.push(`${skip.file} > ${skip.test} on ${system}`);
   }
   assert.deepEqual(missing, []);
+});
+
+const ASKED = /\bplatformSkip\(\s*'([^']+)'\s*\)/g;
+
+// The parts each top-level function of the test code asks platformSkip for, itself or through a function of the test code it calls, by name. A function runs to the first line that starts with a closing brace.
+function partsByFunction(): Map<string, Set<string>> {
+  const bodies = new Map<string, string>();
+  for (const path of walk(TESTS, (name) => name.endsWith('.ts'))) {
+    const text = readFileSync(join(ROOT, path), 'utf8');
+    for (const m of text.matchAll(/^(?:export )?(?:async )?function (\w+)\b/gm)) {
+      const end = text.indexOf('\n}', m.index);
+      bodies.set(m[1]!, text.slice(m.index, end < 0 ? text.length : end + 2));
+    }
+  }
+  const parts = new Map([...bodies].map(([name, body]) => [name, new Set([...body.matchAll(ASKED)].map((m) => m[1]!))]));
+  for (let changed = true; changed; ) {
+    changed = false;
+    for (const [name, body] of bodies) {
+      for (const [other, asked] of parts) {
+        if (other === name || !new RegExp(`\\b${other}\\(`).test(body)) continue;
+        const own = parts.get(name)!;
+        for (const part of asked) if (!own.has(part)) {
+          own.add(part);
+          changed = true;
+        }
+      }
+    }
+  }
+  return parts;
+}
+
+function askedParts(t: Declared, byFunction: Map<string, Set<string>>): string[] {
+  const asked = new Set([...t.body.matchAll(ASKED)].map((m) => m[1]!));
+  for (const [name, parts] of byFunction) if (parts.size > 0 && new RegExp(`\\b${name}\\(`).test(t.body)) for (const part of parts) asked.add(part);
+  return [...asked];
+}
+
+const allTests = [...commitFiles, ...setFiles('nightly', groupDirs('nightly', null)!)].flatMap(declaredTests);
+
+test('every part a test asks platformSkip for, in its body or through a function of the tests it calls, has an entry of PLATFORM_SKIPS for that test', () => {
+  const byFunction = partsByFunction();
+  const missing: string[] = [];
+  for (const t of allTests) for (const part of askedParts(t, byFunction)) if (!PLATFORM_SKIPS.some((skip) => skip.file === t.file && t.matches(skip.test) && skip.part === part)) missing.push(`${t.file} > ${t.name}: ${part}`);
+  assert.deepEqual(missing, []);
+});
+
+test('the parts a test asks for are found through the scenario it runs, in the per-push file and in the nightly one (control)', () => {
+  const byFunction = partsByFunction();
+  const of = (file: string, prefix: string) => askedParts(allTests.find((t) => t.file === file && t.name.startsWith(prefix))!, byFunction);
+  assert.deepEqual(of('tests/acceptance/plugin.test.ts', 'test 163: '), ['a hook stopped by SIGTERM']);
+  assert.deepEqual(of('tests/deadlines/hook-deadlines.nightly.test.ts', 'test 163: '), ['a hook stopped by SIGTERM']);
+  assert.deepEqual(of('tests/acceptance/program-providers.test.ts', 'test 406: '), ['a child that left the group']);
 });
 
 test('every id of PLATFORM_PROMISES is a promise the spec map resolves, naming behaviours of PLATFORM_BEHAVIOURS that hold on each of its systems', () => {

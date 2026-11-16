@@ -1,6 +1,7 @@
 import { test } from 'node:test';
-import { fakeWrites, platformSkip } from '../harness/tool.ts';
-import { CLAUDE_TIMEOUT_RUN_MS, FAKE_STARTED_MS, KILLED_GRACE_MS, LEFTOVER_GRACE_MS } from '../numbers.ts';
+import { fakeWrites, LIMITS_VARIABLE, platformSkip } from '../harness/tool.ts';
+import { CLAUDE_TIMEOUT_RUN_MS, FAKE_STARTED_MS, KILLED_GRACE_MS, LEFTOVER_GRACE_MS, TEST_RULE_MS } from '../numbers.ts';
+import { LIMITS } from '../../dist/rules.js';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, rmSync } from 'node:fs';
@@ -513,6 +514,23 @@ test('test 67: claude-code past its timeout, and the tool killed', async () => {
       }
     }, config(CLAUDE_CONFIG));
   }
+});
+
+test('the test entry of the tool refuses a limit as long as the one the tool ships, and no program the tool starts sees its variable', async () => {
+  await withR(async (r, dir) => {
+    write(r, F_PATH, F);
+    const env = claudeEnv(dir, 'answer');
+    const refused = await startLawcheck(r, ['check', '--review', '--base', 'main'], { env, limits: { ruleMs: LIMITS.ruleMs }, stderr: `${LIMITS_VARIABLE} gives ruleMs ${LIMITS.ruleMs}, and a test limit is shorter than the shipped ${LIMITS.ruleMs}\n` }).ended;
+    assert.equal(refused.code, 1);
+    assert.equal(refused.stdout, '');
+    assert.ok(!existsSync(join(dir, 'record.json')), 'the refused tool called claude');
+    const result = await startLawcheck(r, ['check', '--review', '--base', 'main'], { env, limits: { ruleMs: TEST_RULE_MS } }).ended;
+    assert.equal(result.stdout, SECOND);
+    assert.equal(result.code, 1);
+    const seen = JSON.parse(readFileSync(join(dir, 'record.json'), 'utf8')) as { env: Record<string, string> };
+    assert.ok(Object.keys(seen.env).length > 0);
+    assert.equal(seen.env[LIMITS_VARIABLE], undefined);
+  }, config(CLAUDE_CONFIG));
 });
 
 test('test 92: a connection that gave no answer names its cause', async () => {

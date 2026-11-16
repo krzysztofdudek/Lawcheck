@@ -5,7 +5,7 @@ import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
 import { append, check, D, D_PATH, findingLines, lawcheck, NO_CONSOLE, ROOT, setRule, startLawcheck, TEST4, withSample, write } from './helpers.ts';
 import { assertCrashes, CRASH, hangScenario, withRule, withRules } from './rule-bench.ts';
-import { PAST_USER_SET_MS, TEST_RULE_MS, USER_SET_RULE_MS } from '../numbers.ts';
+import { PAST_USER_SET_MS, RULE_CALL_MS, TEST_RULE_MS, USER_SET_RULE_MS } from '../numbers.ts';
 import { LIMITS } from '../../dist/rules.js';
 
 const ORIGINAL = NO_CONSOLE.replace('export function check', 'function original');
@@ -68,6 +68,16 @@ test('test 23: a rule with no file to judge is not loaded', async () => {
 
 test('test 24: a rule that hangs is stopped', async () => {
   await hangScenario(TEST_RULE_MS);
+});
+
+test('section 3: each call of a rule has the whole limit, so two calls that are each inside it pass however long they take together', async () => {
+  await withRule(ORIGINAL + `export async function check(input) {\n  await new Promise((done) => setTimeout(done, ${RULE_CALL_MS}));\n  return original(input);\n}\n`, async (s) => {
+    write(s, 'src/core/second.ts', 'export const second = 1;\n');
+    const run = await startLawcheck(s, ['check', '--base', 'main'], { limits: { ruleMs: TEST_RULE_MS } }).ended;
+    assert.equal(run.stdout, TEST4.replace('in 1 changed file', 'in 2 changed files'));
+    assert.equal(run.code, 1);
+    assert.ok(run.ms >= 2 * RULE_CALL_MS, `the check ended after ${run.ms} ms, before both calls answered`);
+  });
 });
 
 test('section 3: the tool allows a rule 30 seconds for its load and 30 for each call', () => {
