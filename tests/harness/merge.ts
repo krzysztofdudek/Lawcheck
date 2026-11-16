@@ -5,6 +5,7 @@ import { COMMIT_TARGET_MS } from '../numbers.ts';
 import { judgeRun } from './reporter.ts';
 import { PLATFORM_TESTS, perPushFiles, perPushTests, ROOT, type System } from './sets.ts';
 import { readPlan, repoPath, SYSTEMS, type Plan } from './shards.ts';
+import { PLATFORM_SKIPS } from './skips.ts';
 
 export interface Meta { system: string; node: string; root?: string; shard: number; of: number; files: string[]; started: number; ended: number; status: number }
 export type Event = { type: string; data: { file?: string; name?: string; nesting?: number; skip?: unknown; todo?: unknown; details?: { type?: string; duration_ms?: number; error?: { failureType?: string } } } };
@@ -71,19 +72,25 @@ export function mergeProblems(system: string, plan: Plan, shards: Shard[], files
   for (const file of files) if (!where.has(file)) problems.push(`${file} ran in no shard on ${system}`);
   if (selected !== null) {
     const ran = new Map<string, number>();
+    const notRun = new Map<string, string>();
     for (const s of shards) for (const e of s.events) {
       if ((e.type !== 'test:pass' && e.type !== 'test:fail') || e.data.nesting !== 0 || !e.data.file) continue;
       const file = rel(e.data.file);
       if (e.data.name === e.data.file || e.data.name === file) continue;
       const key = `${file} > ${e.data.name}`;
       ran.set(key, (ran.get(key) ?? 0) + 1);
+      if (e.data.skip !== undefined) notRun.set(key, 'skipped');
+      else if (e.data.todo !== undefined) notRun.set(key, 'marked todo');
     }
-    const wanted = new Set(selected.map((t) => `${t.file} > ${t.test}`));
-    for (const key of wanted) {
+    const excused = (t: { file: string; test: string }) => PLATFORM_SKIPS.some((skip) => skip.file === t.file && skip.test === t.test && skip.part === 'the whole test' && skip.platform === system);
+    for (const t of selected) {
+      const key = `${t.file} > ${t.test}`;
       const n = ran.get(key) ?? 0;
       if (n === 0) problems.push(`${key} is selected for ${system} and did not run`);
+      else if (notRun.has(key) && !excused(t)) problems.push(`${key} is selected for ${system} and was ${notRun.get(key)}, so it did not run, and PLATFORM_SKIPS does not excuse it there`);
       if (n > 1) problems.push(`${key} ran ${n} times on ${system}`);
     }
+    const wanted = new Set(selected.map((t) => `${t.file} > ${t.test}`));
     for (const key of ran.keys()) if (!wanted.has(key)) problems.push(`${key} ran on ${system}, and PLATFORM_TESTS does not select it there`);
   }
   for (const [file, in_] of where) {

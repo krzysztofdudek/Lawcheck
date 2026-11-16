@@ -134,3 +134,18 @@ test('the reporter judges a run against the SLOW_TESTS of the system it ran on, 
   assert.doesNotMatch(await on('win32'), /no entry in SLOW_TESTS/);
   assert.match(await on('linux'), new RegExp(`no entry in SLOW_TESTS for linux\\n +4400 ms  ${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
 });
+
+test('the merge of Windows or macOS counts a selected test that skipped or is todo as not run, unless PLATFORM_SKIPS skips it whole there', () => {
+  const file = 'tests/acceptance/law.test.ts';
+  const excused = 'section 6: a law that cannot be read is law-invalid';
+  const plan: Plan = { measured: {}, shards: { linux: [[file]], win32: [[file]], darwin: [[file]] } };
+  const run = (system: 'win32' | 'darwin', events: Event[]): Shard => ({ meta: { system, node: 'v24', shard: 1, of: 1, files: [file], started: 0, ended: 1, status: 0 }, events });
+  const event = (name: string, extra: Record<string, unknown>): Event => ({ type: 'test:pass', data: { file: join(ROOT, file), name, nesting: 0, details: { duration_ms: 1 }, ...extra } });
+  const selected = [{ file, test: 'test 1: a' }, { file, test: 'test 2: b' }, { file, test: excused }];
+  const events = [event('test 1: a', { skip: true }), event('test 2: b', { todo: true }), event(excused, { skip: 'chmod on Windows sets only the read-only flag' })];
+  assert.deepEqual(mergeProblems('win32', plan, [run('win32', events)], [file], selected), [
+    `${file} > test 1: a is selected for win32 and was skipped, so it did not run, and PLATFORM_SKIPS does not excuse it there`,
+    `${file} > test 2: b is selected for win32 and was marked todo, so it did not run, and PLATFORM_SKIPS does not excuse it there`,
+  ]);
+  assert.ok(mergeProblems('darwin', plan, [run('darwin', events)], [file], selected).includes(`${file} > ${excused} is selected for darwin and was skipped, so it did not run, and PLATFORM_SKIPS does not excuse it there`));
+});
