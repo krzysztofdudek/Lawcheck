@@ -118,35 +118,39 @@ export function profile(system: string, shards: Shard[]): { system: string; node
   return { system, node: shards[0]?.meta.node ?? '', files, tests };
 }
 
-export async function judge(dir: string, system: System, profileTo: string | null = null): Promise<{ text: string; failed: boolean }> {
-  const { shards, problems: read } = readShards(dir);
+export type Judge = typeof judgeRun;
+
+// One system's shards judged as one run: red when the shards are not one whole run, a test failed, or the reporter judges the merged events red, whatever made it so.
+export async function judgeShards(system: System, plan: Plan, shards: Shard[], files: string[], verdict: Judge = judgeRun): Promise<{ text: string; failed: boolean }> {
   const ordered = [...shards].sort((a, b) => a.meta.shard - b.meta.shard);
-  const files = perPushFiles(system);
   const selected = perPushTests(system, files) === null ? null : PLATFORM_TESTS.filter((t) => t.systems.includes(system as 'win32' | 'darwin') && files.includes(t.file)).map((t) => ({ file: t.file, test: t.test }));
-  const problems = [...read, ...mergeProblems(system, readPlan(), ordered, files, selected)];
+  const problems = mergeProblems(system, plan, ordered, files, selected);
   const events = ordered.flatMap((s) => s.events);
-  if (profileTo !== null) writeFileSync(profileTo, `${JSON.stringify(profile(system, ordered), null, 2)}\n`);
   const spent = ordered.reduce((sum, s) => sum + (s.meta.ended - s.meta.started), 0);
   const wall = ordered.length === 0 ? 0 : Math.max(...ordered.map((s) => s.meta.ended)) - Math.min(...ordered.map((s) => s.meta.started));
   const lines = [`the commit set on ${system} in ${ordered.length} shards: ${ordered.map((s) => `${s.meta.shard}: ${s.meta.files.length} files in ${((s.meta.ended - s.meta.started) / 1000).toFixed(0)} s`).join(', ')}; ${(spent / 1000).toFixed(0)} s of tests, ${(wall / 1000).toFixed(0)} s from the first start to the last end`];
   const env = { LAWCHECK_SPEED: process.env.LAWCHECK_SPEED, LAWCHECK_TIE: process.env.LAWCHECK_TIE };
   process.env.LAWCHECK_SPEED = 'commit';
   process.env.LAWCHECK_TIE = '1';
-  const before = process.exitCode;
-  process.exitCode = 0;
-  let judged = '';
+  let judged: Awaited<ReturnType<Judge>>;
   try {
-    judged = (await judgeRun(replay(events), { system, started: Date.now() - spent, target: COMMIT_TARGET_MS })).text;
+    judged = await verdict(replay(events), { system, started: Date.now() - spent, target: COMMIT_TARGET_MS });
   } finally {
     for (const [key, value] of Object.entries(env)) if (value === undefined) delete process.env[key]; else process.env[key] = value;
   }
-  const reporterFailed = Number(process.exitCode ?? 0) !== 0;
-  process.exitCode = before;
-  lines.push(judged.trimEnd());
+  lines.push(judged.text.trimEnd());
   for (const p of problems) lines.push('', 'RED      the shards of this run are not one whole run', `got      ${p}`);
-  const failed = problems.length > 0 || failedTests(events) > 0 || reporterFailed;
+  const failed = problems.length > 0 || failedTests(events) > 0 || judged.red;
   lines.push('', `${failed ? 'FAIL' : 'PASS'}  the commit set on ${system}, judged as one run of ${ordered.length} shards`);
   return { text: `${lines.join('\n')}\n`, failed };
+}
+
+export async function judge(dir: string, system: System, profileTo: string | null = null): Promise<{ text: string; failed: boolean }> {
+  const { shards, problems } = readShards(dir);
+  if (profileTo !== null) writeFileSync(profileTo, `${JSON.stringify(profile(system, shards), null, 2)}\n`);
+  const judged = await judgeShards(system, readPlan(), shards, perPushFiles(system));
+  if (problems.length === 0) return judged;
+  return { text: `${judged.text}${problems.map((p) => `\nRED      the shards of this run are not one whole run\ngot      ${p}\n`).join('')}`, failed: true };
 }
 
 if (process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

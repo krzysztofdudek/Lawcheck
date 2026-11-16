@@ -4,7 +4,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { parse } from 'yaml';
-import { failedTests, mergeProblems, readShards, type Event, type Shard } from '../harness/merge.ts';
+import { failedTests, judgeShards, mergeProblems, readShards, type Event, type Shard } from '../harness/merge.ts';
 import { judgeRun } from '../harness/reporter.ts';
 import { groupDirs, perPushFiles, PLATFORM_TESTS, ROOT, setFiles } from '../harness/sets.ts';
 import { balance, planProblems, readPlan, repoPath, SYSTEMS, type Plan } from '../harness/shards.ts';
@@ -148,4 +148,19 @@ test('the merge of Windows or macOS counts a selected test that skipped or is to
     `${file} > test 2: b is selected for win32 and was marked todo, so it did not run, and PLATFORM_SKIPS does not excuse it there`,
   ]);
   assert.ok(mergeProblems('darwin', plan, [run('darwin', events)], [file], selected).includes(`${file} > ${excused} is selected for darwin and was skipped, so it did not run, and PLATFORM_SKIPS does not excuse it there`));
+});
+
+test('the merge fails whenever the reporter judges the merged run red, and passes the run the reporter passes', async () => {
+  const files = ['tests/unit/a.test.ts'];
+  const plan: Plan = { measured: {}, shards: { linux: [files], win32: [files], darwin: [files] } };
+  const clean = [shard(1, 1, files)];
+  assert.equal((await judgeShards('linux', plan, clean, files)).failed, false);
+  const red = await judgeShards('linux', plan, clean, files, async () => ({ text: 'RED      a whole-run verdict of the reporter', red: true }));
+  assert.equal(red.failed, true);
+  assert.match(red.text, /^RED {6}a whole-run verdict of the reporter$/m);
+  assert.match(red.text, /^FAIL {2}the commit set on linux/m);
+  const failing = shard(1, 1, files);
+  failing.events = [{ type: 'test:fail', data: { file: join(ROOT, files[0]!), name: 'test 1: a', nesting: 0, details: { error: { failureType: 'testCodeFailure' } } } }];
+  assert.equal((await judgeRun(replay(failing.events), { system: 'linux', started: null, target: 0 })).red, true);
+  assert.equal((await judgeShards('linux', plan, [failing], files)).failed, true);
 });

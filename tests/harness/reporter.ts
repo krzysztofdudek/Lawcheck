@@ -148,5 +148,6 @@ export async function judgeRun(source: AsyncIterable<{ type: string; data: any }
 export default async function* reporter(source: AsyncIterable<{ type: string; data: any }>): AsyncGenerator<string> {
   const started = Number(process.env.LAWCHECK_STARTED);
   const verdict = await judgeRun(source, { system: process.platform as System, started: Number.isFinite(started) && started > 0 ? started : null, target: Number(process.env.LAWCHECK_TARGET_MS) });
+  if (verdict.red) process.exitCode = 1;
   yield verdict.text;
 }
