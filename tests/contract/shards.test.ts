@@ -1,12 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parse } from 'yaml';
 import { failedTests, judge, judgeShards, mergeProblems, parseRunStarted, profile, readShards, summary, tied, type Event, type Shard } from '../harness/merge.ts';
 import { judgeRun } from '../harness/reporter.ts';
+import { startProgram, testFolder } from '../harness/tool.ts';
 import { continueOnErrorProblems } from '../harness/workflows.ts';
 import { groupDirs, perPushFiles, PLATFORM_TESTS, ROOT, setFiles } from '../harness/sets.ts';
 import { balance, matrix, measureShards, plannedWalls, planProblems, readPlan, repoPath, SYSTEMS, wallOf, type Plan, type Run } from '../harness/shards.ts';
@@ -229,7 +228,7 @@ async function* replay(events: Event[]): AsyncGenerator<Event> {
 }
 
 function recorded(shards: { meta: Record<string, unknown>; events: Event[] }[]): string {
-  const dir = mkdtempSync(join(tmpdir(), 'lawcheck-merge-'));
+  const dir = testFolder('lawcheck-merge-').dir;
   for (const { meta, events } of shards) {
     writeFileSync(join(dir, `meta-${meta.shard}.json`), JSON.stringify(meta));
     writeFileSync(join(dir, `events-${meta.shard}.jsonl`), events.map((e) => JSON.stringify(e)).join('\n'));
@@ -314,7 +313,7 @@ test('the merge times a system as its wall time, from the first shard\'s start t
 test('the merge times a system from the start of the run to its own verdict, beside the shards\' wall time, in its text, its summary and its profile', async () => {
   const files = ['tests/unit/a.test.ts'];
   const dir = recorded([{ meta: { system: 'linux', node: 'v24', shard: 1, of: 1, files, started: 1_000_000, ended: 1_076_000, status: 0 }, events: [ok(files[0]!, 'test 1: a')] }]);
-  const out = mkdtempSync(join(tmpdir(), 'lawcheck-merge-out-'));
+  const out = testFolder('lawcheck-merge-out-').dir;
   try {
     const runStarted = parseRunStarted('2026-11-16T01:50:00Z')!;
     const judged = await judge(dir, 'linux', { profile: join(out, 'profile.json'), summary: join(out, 'summary.md'), runStarted, now: () => runStarted + 262_000 });
@@ -338,24 +337,24 @@ test('when the call that reads the start of the run fails, the merge says so and
   const meta = { system: 'linux', node: 'v24', shard: 1, of: 1, files, started: 1_000_000, ended: 1_076_000 };
   const green = recorded([{ meta: { ...meta, status: 0 }, events: [ok(files[0]!, 'test 1: a')] }]);
   const red = recorded([{ meta: { ...meta, status: 1 }, events: [{ type: 'test:fail', data: { file: join(ROOT, files[0]!), name: 'test 1: a', nesting: 0, details: { error: { failureType: 'testCodeFailure' } } } }] }]);
-  const out = mkdtempSync(join(tmpdir(), 'lawcheck-merge-out-'));
-  const merge = (dir: string, started: string | null) => spawnSync(process.execPath, ['tests/harness/merge.ts', dir, '--system', 'linux', '--profile', join(out, 'profile.json'), '--summary', join(out, 'summary.md'), ...(started === null ? [] : ['--run-started', started])], { cwd: ROOT, encoding: 'utf8' });
+  const out = testFolder('lawcheck-merge-out-').dir;
+  const merge = (dir: string, started: string | null) => startProgram(join(ROOT, 'tests', 'harness', 'merge.ts'), [dir, '--system', 'linux', '--profile', join(out, 'profile.json'), '--summary', join(out, 'summary.md'), ...(started === null ? [] : ['--run-started', started])], ROOT, {}).ended;
   try {
     for (const [name, dir] of [['a shard that ran fewer files than the plan has', green], ['a failed test', red]] as const) {
       writeFileSync(join(out, 'summary.md'), '');
-      const without = merge(dir, null);
-      assert.equal(without.status, 1, name);
+      const without = await merge(dir, null);
+      assert.equal(without.code, 1, name);
       writeFileSync(join(out, 'summary.md'), '');
-      const working = merge(dir, new Date(Date.now() - 262_000).toISOString().replace(/\.\d+Z$/, 'Z'));
-      assert.equal(working.status, without.status, `${name}, the call works: ${working.stderr}`);
+      const working = await merge(dir, new Date(Date.now() - 262_000).toISOString().replace(/\.\d+Z$/, 'Z'));
+      assert.equal(working.code, without.code, `${name}, the call works: ${working.stderr}`);
       assert.ok(working.stdout.startsWith(without.stdout), name);
       assert.match(working.stdout.slice(without.stdout.length), /^\d+ s from the start of the run to this verdict, against 76 s of wall time of the shards\n$/);
       assert.match(readFileSync(join(out, 'summary.md'), 'utf8'), /\d+ s from the start of the run to this verdict, the build, the setup and the merge included\.\n\n$/);
       assert.ok((JSON.parse(readFileSync(join(out, 'profile.json'), 'utf8')) as { run_ms: number }).run_ms > 200_000);
       for (const value of ['', 'null', 'gh: HTTP 502']) {
         writeFileSync(join(out, 'summary.md'), '');
-        const failing = merge(dir, value);
-        assert.equal(failing.status, without.status, `${name}, the call failed with ${JSON.stringify(value)}: ${failing.stderr}`);
+        const failing = await merge(dir, value);
+        assert.equal(failing.code, without.code, `${name}, the call failed with ${JSON.stringify(value)}: ${failing.stderr}`);
         assert.equal(failing.stderr, '');
         assert.equal(failing.stdout, `${without.stdout}${unreadable}\n`);
         assert.ok(readFileSync(join(out, 'summary.md'), 'utf8').endsWith(` ${unreadable}\n\n`));
