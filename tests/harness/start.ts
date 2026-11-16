@@ -18,6 +18,13 @@ export const CLI = join(ROOT_DIR, 'dist', 'cli.js');
 export const HOOK = join(ROOT_DIR, 'plugin', 'hooks', 'lawcheck-hook.mjs');
 const WINDOWS = process.platform === 'win32';
 
+// Node 24.0 to 24.x before type stripping became stable warns once on standard error when it starts a .ts file. Only the suite's own .ts programs are started so; Lawcheck itself is JavaScript, so this one warning is taken out of their output alone, and every other line stays.
+const TYPE_STRIPPING_WARNING = /^\(node:\d+\) ExperimentalWarning: Type Stripping is an experimental feature and might change at any time\n\(Use `node --trace-warnings \.\.\.` to show where the warning was created\)\n/m;
+
+export function withoutTypeStrippingWarning(text: string): string {
+  return text.replace(TYPE_STRIPPING_WARNING, '');
+}
+
 export class CouldNotRun extends Error {
   constructor(missing: string) {
     super(`could not run: ${missing}`);
@@ -381,6 +388,7 @@ function launch(start: Start, expect: Expect): Running {
       tracker.stop();
       stdout += live.stdout.end();
       stderr += live.stderr.end();
+      if (start.kind === 'program' && start.argv[0]!.endsWith('.ts')) stderr = withoutTypeStrippingWarning(stderr);
       // PowerShell writes the lines of a program it runs with CRLF; the tool wrote LF, and only those bytes are its output.
       if (start.shell !== undefined && WINDOWS) {
         stdout = stdout.replace(/\r\n/g, '\n');
