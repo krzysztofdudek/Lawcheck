@@ -35,6 +35,30 @@ test('R-57: the tests of a file run in the order of the seed, the same order for
   assert.deepEqual(order('2'), orders[1]);
 });
 
+test('R-91: a shuffled run reports each test at the file that holds it, as a plain run does, so the skip list and the tie of the rows read the right file', () => {
+  const folder = testFolder('lawcheck-order-');
+  try {
+    const file = join(folder.dir, 'scratch.test.ts');
+    const reporter = join(folder.dir, 'files.mjs');
+    writeFileSync(file, [`import { test } from 'node:test';`, `import assert from 'node:assert/strict';`, ...NAMES.map((n) => `test(${JSON.stringify(`test 1: ${n}`)}, () => { assert.equal(1, 1); });`)].join('\n'));
+    writeFileSync(reporter, `export default async function* (source) { for await (const event of source) if (event.type === 'test:pass' && event.data.nesting === 0) yield event.data.name + '\\t' + event.data.file + '\\n'; }\n`);
+    const harness = pathToFileURL(join(ROOT, 'tests', 'harness', 'tool.ts')).href;
+    const reported = (seed: string): Map<string, string> => {
+      const env: NodeJS.ProcessEnv = { ...process.env, LAWCHECK_SHUFFLE: seed, LAWCHECK_TIE: '', LAWCHECK_STARTED: '' };
+      delete env.NODE_TEST_CONTEXT;
+      const run = spawnSync(process.execPath, ['--test', `--import=${harness}`, `--test-reporter=${pathToFileURL(reporter).href}`, file], { cwd: folder.dir, env, encoding: 'utf8' });
+      return new Map(run.stdout.split('\n').filter((line) => line.includes('\t')).map((line) => line.split('\t') as [string, string]));
+    };
+    for (const seed of ['', '5']) {
+      const found = reported(seed);
+      assert.deepEqual([...found.keys()].filter((name) => name.startsWith('test 1: ')).sort(), NAMES.map((n) => `test 1: ${n}`).sort(), `seed ${seed}`);
+      for (const [name, at] of found) assert.equal(at, file, `seed ${seed}: ${name}`);
+    }
+  } finally {
+    folder.remove();
+  }
+});
+
 test('R-49: a test of a file that asserts nothing fails the run, whether it is empty or only waits for the timer of the test before it', () => {
   const folder = testFolder('lawcheck-count-');
   try {

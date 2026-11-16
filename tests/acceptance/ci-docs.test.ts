@@ -42,7 +42,7 @@ test('test 305: S7-4, the workflow of docs/ci.md runs on a pull request, a merge
   assert.match(check.run!, /check --full/, 'a root commit falls back to --full');
 });
 
-test('test 305: S7-4, the checkout keeps the history and not the token', () => {
+test('test 305: S7-4, R-12, the checkout keeps the history and not the token', () => {
   const checkout = steps.find((step) => step.uses?.startsWith('actions/checkout@'))!;
   assert.equal(checkout.with?.['fetch-depth'], 0);
   assert.equal(checkout.with?.['persist-credentials'], false);

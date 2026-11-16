@@ -117,7 +117,7 @@ export const SLOW_TESTS: Record<string, Slow> = {
   "tests/properties/arguments.nightly.test.ts > I-args-1: tokens of the tool and junk give usage or a run, never internal, and change nothing in git": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 125_000 } },
   "tests/properties/arguments.nightly.test.ts > I-hook-1: S6-6, S6-8, any input to a hook gives exit 0 with nothing or one hook document, or the defined notice, never a stack trace": { fixed: 120_000, measured: { darwin: 125_000, linux: 125_000, win32: 125_000 } },
   // The limits tests of the commit set, measured on CI: each starts the tool several times at a limit, which Windows starts slowly.
-  'tests/limits/sizes.test.ts > test 254: a law may hold 10,000 rules, 1,000 types and 1 MiB, and past each it is file-too-large': { fixed: 0, measured: { darwin: 6_233, linux: 4_085, win32: 23_560 } },
+  'tests/limits/sizes.test.ts > test 254: R-28, a law may hold 10,000 rules, 1,000 types and 1 MiB, and past each it is file-too-large': { fixed: 0, measured: { darwin: 6_233, linux: 4_085, win32: 23_560 } },
   'tests/limits/reviews.test.ts > test 243: S3-6, a second run right after any run prints the same': { fixed: 0, measured: { darwin: 7_475, linux: 4_188, win32: 12_489 } },
   'tests/limits/reviews.test.ts > test 243: S3-6, a plain check right after a passing review passes, with a type whose paths cover .lawcheck/': { fixed: 0, measured: { win32: 4_079 } },
   'tests/limits/sizes.test.ts > test 263: a file whose uses are read may hold 512 KiB, even of the costliest text, past it its uses are not read and the run goes on, and a config may hold 1 MiB': { fixed: 0, measured: { darwin: 8_054, linux: 5_116, win32: 11_260 } },
@@ -251,7 +251,7 @@ export const SLOW_TESTS: Record<string, Slow> = {
   // A run of the tool per case.
   'tests/security/output-sources.test.ts > I-out-1: the about text of a type and a rule id cannot forge a line of prime, explain or check': { fixed: 0, measured: { win32: 5_231 } },
   // A run of the tool per case.
-  "tests/security/output-sources.test.ts > I-out-1: file names cannot forge a line of check, explain or try, and each finding stays one line": { fixed: 0, measured: { win32: 4_316 } },
+  "tests/security/output-sources.test.ts > S1-5: file names cannot forge a line of check, explain or try, and each finding stays one line": { fixed: 0, measured: { win32: 4_316 } },
   // A run of the tool per case.
   "tests/security/runner.test.ts > I-runner-1: a rule reads nothing outside the root and the package at a root path holding *, a comma, a backslash, a space or non-ASCII (test 26, S8-4, S2-8)": { fixed: 0, measured: { darwin: 9_616, linux: 5_312, win32: 20_698 } },
   // A run of the tool per case.

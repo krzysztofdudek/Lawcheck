@@ -769,7 +769,7 @@ test('S6-10: the check before finishing sees a file whose name holds a line brea
   });
 });
 
-test('S6-10: a file whose name starts with a double quote does not stop the check before finishing from seeing the rest', async (t) => {
+test('R-24: a file whose name starts with a double quote does not stop the check before finishing from seeing the rest', async (t) => {
   const skip = platformSkip('the whole test');
   if (skip !== null) return t.skip(skip);
   await withBench(async (bench, dir) => {

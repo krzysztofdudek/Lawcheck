@@ -74,7 +74,7 @@ function linesWith(stdout: string, part: string): string[] {
   return stdout.split('\n').filter((line) => line.includes(part));
 }
 
-test('I-out-1: file names cannot forge a line of check, explain or try, and each finding stays one line', async () => {
+test('S1-5: file names cannot forge a line of check, explain or try, and each finding stays one line', async () => {
   const names = onThisSystem(['::error title=pwned::x.ts', '##vso[task.setvariable variable=a]b.ts', `e\x1b[2K\x1b[1A\x07\u202e\u2028\x85.ts`, ' ::warning::w.ts', '##[group]g.ts']);
   await inTemp(async (dir) => {
     const r = repo(dir, { files: Object.fromEntries(names.map((name) => [name, 'const a = 1;\n'])) });

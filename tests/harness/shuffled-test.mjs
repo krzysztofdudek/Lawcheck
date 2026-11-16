@@ -1,8 +1,11 @@
 import * as real from 'node:test';
+import { Script } from 'node:vm';
 
 export * from 'node:test';
 
 const queue = [];
+const parent = new URL(import.meta.url).searchParams.get('parent');
+const register = parent === null ? (args) => real.test(...args) : new Script('(test) => (args) => test(...args)', { filename: parent }).runInThisContext()(real.test);
 let state = Number(process.env.LAWCHECK_SHUFFLE) >>> 0;
 
 function next() {
@@ -18,7 +21,7 @@ function flush() {
     const j = Math.floor(next() * (i + 1));
     [queue[i], queue[j]] = [queue[j], queue[i]];
   }
-  for (const args of queue.splice(0)) real.test(...args);
+  for (const args of queue.splice(0)) register(args);
 }
 
 export const test = Object.assign(function shuffledTest(...args) {
