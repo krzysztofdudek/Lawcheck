@@ -6,11 +6,10 @@ The second working slice: rules judged by a model, end to end. It extends `spec/
 
 In: reviewer rules, written as Markdown and attached to types like script rules; the prompt a reviewer gets and the answer it gives; findings, `not-reviewed` and `too-large-to-review` in `lawcheck check`; the verdicts file and the local cache of failures; nine providers (`anthropic`, `openai`, `google`, `openai-compatible`, `ollama`, `claude-code`, `codex`, `gemini-cli`, `copilot-cli`) set in `.lawcheck/config.yaml`; the cap on calls; the flags `--review`, `--again` and `--max-calls`; a measurement of how often two answers agree.
 
-Out, each with what this slice does where the design has it:
+Out: what the design has and no slice builds yet is listed in [`deferred.md`](deferred.md), with where it is mentioned and why it waits. What this slice does in its place:
 
 | Out | Here |
 |---|---|
-| everything slice one leaves out (`may_use`, other commands, the plugin, range and file waivers, `--strict` and the other flags) | as slice one |
 | `reviewer.endpoint`, `keys`, `base`, `runner` and `scripts` in a settings file | `config-invalid` |
 | `.lawcheck/config.local.yaml` and the machine's `~/.config/lawcheck/config.yaml` | not read |
 | `--dry-run` | `usage`; when every error of a plain run is `not-reviewed`, its `next:` names the number of calls, and `reviews.missing` in JSON counts them in every run |

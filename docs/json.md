@@ -11,7 +11,7 @@ From `check`, exit 0 or 1.
 | Key | Value |
 |---|---|
 | `result` | `pass` or `fail` |
-| `scope` | `{ "mode", "base", "files", "law_changed" }`: `change`, `full` or `paths`, the base or null, the count of changed files, or of the named files under `paths`, and whether the change touches `.lawcheck/law.yaml` or a rule file |
+| `scope` | `{ "mode", "base", "files", "law_changed", "law_changes" }`: `change`, `full` or `paths`, the base or null, the count of changed files, or of the named files under `paths`, and whether the change touches `.lawcheck/law.yaml`, `.lawcheck/config.yaml` or a rule file; `law_changes`, present only when a base was compared and the law differs, lists in words what the change does to the law, as `lawcheck docs change` says |
 | `summary` | `{ "errors", "warnings", "debt", "waivers", "unresolved" }`, counted over the change; `debt` counts the debt findings |
 | `findings` | every finding, the change before the debt: `{ "code", "rule", "severity", "blocking", "debt", "file", "line", "type", "message", "why" }`, `rule` null for a built-in code, `line` absent for a whole-file finding |
 | `waivers` | `{ "file", "line", "rule", "debt", "waived", "reason" }` |
@@ -44,7 +44,7 @@ From `explain`, with `subject` one of `file`, `directory`, `type` and `rule`. Ab
 |---|---|
 | `file` | `path`, `exists`, `type`, `chain`, `about`, `none`, `matched` (`{ "type", "pattern", "content" }`), `not_matched` (`{ "type", "content" }`), `then`, `may_use` (`{ "types", "from" }`), `uses` (`{ "read", "language" }`), `rules` (`{ "id", "kind", "status", "why", "from", "review" }`), `waivers` (`{ "line", "rule", "reason" }`) |
 | `directory` | `path` (with a trailing `/`), `files`, `types` (`{ "type", "files" }`, `type` null for no type) |
-| `type` | `id`, `chain`, `about`, `paths`, `content`, `may_use`, `rules` (without `review`), `subtypes`, `files` |
+| `type` | `id`, `chain`, `about`, `paths`, `content`, `may_use`, `rules` (without `review`), `subtypes`, `waivers` (false when the type's files hold no waivers), `files` |
 | `rule` | `id`, `kind`, `status`, `why`, `file`, `context`, `types`, `files`, `reviewed` (a count, or null for a script rule) |
 
 `review` is `reviewed`, `failed`, `too-large`, `not-reviewed`, or null for a script rule or a file that does not exist. A file with no type has `none`, the reason, and empty lists.

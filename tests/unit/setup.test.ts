@@ -36,7 +36,7 @@ test('the law and the rule files are what a change of the law touches', () => {
   assert.ok(touchesLaw('.lawcheck/law.yaml'));
   assert.ok(touchesLaw('.lawcheck/rules/no-todo.mjs'));
   assert.ok(touchesLaw('.lawcheck/rules/lib/shared.mjs'));
-  assert.ok(!touchesLaw('.lawcheck/config.yaml'));
+  assert.ok(touchesLaw('.lawcheck/config.yaml'));
   assert.ok(!touchesLaw('.lawcheck/verdicts'));
   assert.ok(!touchesLaw('src/.lawcheck/law.yaml'));
 });

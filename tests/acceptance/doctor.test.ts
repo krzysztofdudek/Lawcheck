@@ -82,11 +82,11 @@ test('test 133: a change of the law, in doctor and in check', async () => {
     assert.equal(checked.stdout, block('lawcheck: PASS  1 changed file (against main)').join('\n') + '\n');
     assert.equal(checked.code, 0);
     const json = await lawcheck(s, ['check', '--base', 'main', '--json']);
-    assert.deepEqual(JSON.parse(json.stdout).scope, { mode: 'change', base: 'main', files: 1, law_changed: true });
+    assert.deepEqual(JSON.parse(json.stdout).scope, { mode: 'change', base: 'main', files: 1, law_changed: true, law_changes: [`edits .lawcheck/law.yaml without changing a rule or a type`] });
     const fullJson = await lawcheck(s, ['check', '--full', '--base', 'main', '--json']);
-    assert.deepEqual(JSON.parse(fullJson.stdout).scope, { mode: 'full', base: 'main', files: 1, law_changed: true });
+    assert.deepEqual(JSON.parse(fullJson.stdout).scope, { mode: 'full', base: 'main', files: 1, law_changed: true, law_changes: [`edits .lawcheck/law.yaml without changing a rule or a type`] });
     const full = await lawcheck(s, ['check', '--full', '--base', 'main']);
-    assert.ok(!full.stdout.includes('note:'));
+    assert.ok(!full.stdout.includes('the law changed in this change'));
     assert.equal(full.code, 0);
     const noBase = await lawcheck(s, ['check']);
     assert.ok(!noBase.stdout.includes('note:'));

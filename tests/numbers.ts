@@ -322,9 +322,16 @@ export const PURE_CALL_BUDGET_MS = 1_000;
 // One start of the tool on a generated case.
 export const TOOL_RUN_BUDGET_MS = 20_000;
 
+// tests/acceptance/runes-limits.test.ts, S4-10: a Java file of this many characters with syntax errors is parsed on every run, and the run passes.
+export const UNPARSABLE_JAVA_CHARS = 400_000;
+
+// tests/environments/ci-recipes.nightly.test.ts: the pnpm the docs recipes run with, installed with npm in the node:24 image. A string, not a number the guard reads.
+export const RECIPE_PNPM = '12.21.0';
+
 // Which way each number makes the suite stronger, read by the suite guard; a seed is neither, so any change of it is a change to review.
 export const stronger: Record<string, 'higher' | 'lower' | 'fixed'> = {
   SEED: 'fixed',
+  UNPARSABLE_JAVA_CHARS: 'higher',
   CASES_PURE: 'higher',
   CASES_TOOL: 'higher',
   CASES_LOOP: 'higher',

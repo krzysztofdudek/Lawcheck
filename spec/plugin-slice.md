@@ -15,7 +15,7 @@ In:
 - a section of the README for every agent (section 9);
 - the trial of a fresh agent in a fixed repository (section 10).
 
-Out, with what this slice does where the design has it:
+Out: what the design has and no slice builds yet is listed in [`deferred.md`](deferred.md), with where it is mentioned and why it waits. What this slice does in its place:
 
 | Out | Here |
 |---|---|

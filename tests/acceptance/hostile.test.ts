@@ -132,7 +132,7 @@ for (const submodule of [true, false]) {
       nestedRepository(s, 'libs/sub', submodule);
       const note = `note: the paths of a type reach into libs/sub (${kind}); Lawcheck does not look into another repository, so no file there is judged`;
       const run = await check(s, '--full', '--base', 'main');
-      assert.equal(run.stdout.split('\n')[1], note, run.stdout);
+      assert.equal(run.stdout.split('\n')[2], note, run.stdout);
       const explained = await lawcheck(s, ['explain', 'libs/sub/a.ts']);
       assert.deepEqual([explained.code, explained.stdout], [0, `libs/sub/a.ts\n  type:  none: it lies in libs/sub, ${kind}, which Lawcheck does not look into\n`]);
       const absent = await lawcheck(s, ['explain', 'libs/sub/b.ts']);

@@ -6,21 +6,19 @@ The first working slice. A worker builds what this file says, and a reviewer tic
 
 In: `lawcheck check` in a git repository. It reads `.lawcheck/law.yaml`, gives each file one type, runs script rules, judges the change against a base, lists the rest as debt on request, honours line waivers, and prints text or JSON with exit code 0, 1 or 2.
 
-Out, each with what this slice does where the design has it:
+Out: what the design has and no slice builds yet is listed in [`deferred.md`](deferred.md), with where it is mentioned and why it waits. What this slice does in its place:
 
 | Out | Here |
 |---|---|
-| rules judged by a model, `may_use`, language readers and syntax trees, the agent plugin, every other command | absent |
 | a rule call that sees several files | one call per file |
 | waivers for a range or a file (`lawcheck-waive-start`, `-end`, `-file`) | `waiver-unknown-rule` |
 | the law keys `required` and `ignored`, the code `untyped-file` | `law-invalid` |
 | `/` in a rule id | `law-invalid` |
-| `check <paths>` and the flags `--strict`, `--staged`, `--rule`, `--type`, `--no-scripts`, `--no-color` | `usage` |
+| the flags `--strict`, `--staged`, `--rule`, `--type`, `--no-scripts`, `--no-color` | `usage` |
 | settings files, colour | absent; the 30 seconds of section 3 are fixed |
 | `column` in a finding | ignored, as any unknown field |
-| the `note:` line when the change touches the law | absent |
 | the base from a CI system's variables, or from a remote with another name than `origin` | the caller passes `--base` or `LAWCHECK_BASE` |
-| `skipped_rules`, `new_waivers`, `reviews` and `waivers[].new` in the JSON document | absent; decision 16 |
+| `skipped_rules`, `new_waivers` and `waivers[].new` in the JSON document | absent; decision 16 |
 
 ## 2. The law file
 

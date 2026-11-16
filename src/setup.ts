@@ -291,7 +291,7 @@ function fetchNext(root: string, base: string, shallow: boolean): [string, strin
 }
 
 export function touchesLaw(path: string): boolean {
-  return path === LAW || path.startsWith(RULES_DIR);
+  return path === LAW || path === CONFIG || path.startsWith(RULES_DIR);
 }
 
 export async function stopped<T>(body: () => Promise<T> | T): Promise<T | { errors: ErrorItem[] }> {

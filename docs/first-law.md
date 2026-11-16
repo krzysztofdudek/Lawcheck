@@ -2,6 +2,8 @@
 
 This page builds a law with one type and one script rule, tries the rule, and turns it on.
 
+The outputs below come from a repository whose `main` holds `src/price.ts`, a file that writes nothing, and `src/report.ts`, which calls `console.log`, with `node_modules/` in `.gitignore`. The work is on a branch made from `main`.
+
 ## Start the law
 
 Run this at the root of the code you want checked, inside a git work tree:
@@ -10,12 +12,20 @@ Run this at the root of the code you want checked, inside a git work tree:
 $ lawcheck init
 ```
 
+```output
+lawcheck: created .lawcheck/law.yaml and .lawcheck/.gitignore
+
+Nothing is checked yet: the law has no types.
+next: describe your first file type in .lawcheck/law.yaml  (lawcheck docs first-law shows how)
+```
+
 It writes `.lawcheck/law.yaml` and `.lawcheck/.gitignore`, and nothing else. The law has no types yet, so nothing is checked.
 
 ## Describe one type
 
-A type says which files are of one kind. Give it `paths` and an `about`:
+A type says which files are of one kind. Give it `paths` and an `about`. A type matches only the files git lists, so a folder that `.gitignore` names, `node_modules/` or a build folder, is never judged; one that git does not ignore would be:
 
+<!-- example: first-law-type -->
 ```yaml
 lawcheck: 0.1.0
 
@@ -31,10 +41,20 @@ Check what a file gets:
 $ lawcheck explain src/price.ts
 ```
 
+```output
+src/price.ts
+  type:  source  (source)  Everything that ships.
+  matched:  source by "src/**/*.ts"
+  may use:  any file; no type on the way up has may_use
+  rules:  none
+  waivers:  none
+```
+
 ## Write one script rule
 
 A rule has an entry in the law and one file. The entry holds its `why`:
 
+<!-- example: first-law-entry -->
 ```yaml
 lawcheck: 0.1.0
 
@@ -48,8 +68,15 @@ types:
     paths: ["src/**/*.ts"]
 ```
 
-The file is `.lawcheck/rules/no-console.mjs`. It exports `check`, which gets one file at a time and returns findings:
+The file is `.lawcheck/rules/no-console.mjs`. `init` makes no `rules/` folder, so create it first:
 
+```text
+$ mkdir -p .lawcheck/rules
+```
+
+The file exports `check`, which gets one file at a time and returns findings:
+
+<!-- example: first-law-rule -->
 ```js
 export function check({ files }) {
   const findings = [];
@@ -63,7 +90,7 @@ export function check({ files }) {
 }
 ```
 
-`lawcheck docs script-rules` has the whole contract.
+The rule reads lines as text and parses no comments, so it also finds `console.log` inside a comment or a string, such as a code example in a doc comment. A rule that must not do that removes comments from the text first. `lawcheck docs script-rules` has the whole contract.
 
 ## Try it before a type lists it
 
@@ -71,19 +98,43 @@ export function check({ files }) {
 
 ```text
 $ lawcheck try no-console src/price.ts
-$ lawcheck try no-console src/cli/main.ts
 ```
 
-A file that writes to the terminal gives a finding and exit 1. A file that does not gives `nothing found in 1 file` and exit 0. Try a pattern to see a whole folder:
+```output
+lawcheck: try no-console (script rule, enforced)  nothing found in 1 file
+```
+
+A file that does not write to the terminal gives `nothing found in 1 file` and exit 0. A file in the library, `src/report.ts`, that calls `console.log` gives a finding and exit 1:
+
+```text
+$ lawcheck try no-console src/report.ts
+```
+
+```output
+lawcheck: try no-console (script rule, enforced)  1 finding in 1 of 1 file
+
+src/report.ts:1  error[no-console]  writes to the terminal with console.log
+  why:  Only the command layer writes to the terminal.
+```
+
+Try a pattern to see a whole folder:
 
 ```text
 $ lawcheck try no-console 'src/**/*.ts'
+```
+
+```output
+lawcheck: try no-console (script rule, enforced)  1 finding in 1 of 2 files
+
+src/report.ts:1  error[no-console]  writes to the terminal with console.log
+  why:  Only the command layer writes to the terminal.
 ```
 
 ## List the rule on the type
 
 Add the rule to the type:
 
+<!-- example: first-law-law -->
 ```yaml
 lawcheck: 0.1.0
 
@@ -108,7 +159,16 @@ A plain check judges only the files that differ from the base. The files nobody 
 $ lawcheck check --full --base main
 ```
 
-What it finds outside the change is listed as debt. Debt is a warning and never fails the run.
+```output
+lawcheck: PASS  3 changed files (against main)
+note: this change edits the law that judges it: adds .lawcheck/law.yaml; adds .lawcheck/rules/no-console.mjs
+
+debt (outside this change): 1 finding in 1 file
+src/report.ts:1  warning[no-console]  writes to the terminal with console.log
+  why:  Only the command layer writes to the terminal.
+```
+
+The three changed files are the new files of `.lawcheck/`: a file git lists counts, the law's own included, and the two note lines say the change edits the law (`lawcheck docs change`). What the check finds outside the change is listed as debt. Debt is a warning and never fails the run.
 
 ## Pay the debt, or start advisory
 
