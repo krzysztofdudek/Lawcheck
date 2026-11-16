@@ -1,5 +1,6 @@
 import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { availableParallelism } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { COMMIT_TARGET_MS, LOOP_TARGET_MS, SEED, SLOW_TESTS, slowBudget, TEST_BUDGET_MS } from './numbers.ts';
@@ -200,6 +201,8 @@ function main(): void {
     `--test-timeout=${slowest + TEST_BUDGET_MS}`,
     ...patterns.map((p) => `--test-name-pattern=${p}`),
   ];
+  const slots = Math.max(1, availableParallelism() - 1);
+  if (parsed.shard !== null) args.push(`--test-concurrency=${slots}`);
   const recording = process.env.LAWCHECK_RECORD ? resolve(process.env.LAWCHECK_RECORD) : null;
   const tag = parsed.shard === null ? 'whole' : String(parsed.shard.index);
   if (recording !== null) {
@@ -217,7 +220,7 @@ function main(): void {
     if (result.status !== 0) failed = true;
   }
   if (recording !== null) {
-    const meta = { system: process.platform, node: process.version, root: ROOT, shard: parsed.shard?.index ?? 1, of: parsed.shard?.count ?? 1, files, started: began, ended: Date.now(), status: failed ? 1 : 0 };
+    const meta = { system: process.platform, node: process.version, root: ROOT, slots, shard: parsed.shard?.index ?? 1, of: parsed.shard?.count ?? 1, files, started: began, ended: Date.now(), status: failed ? 1 : 0 };
     writeFileSync(join(recording, `meta-${tag}.json`), `${JSON.stringify(meta, null, 2)}\n`);
   }
   process.exit(failed ? 1 : 0);

@@ -1,13 +1,21 @@
-import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join, relative, resolve } from 'node:path';
+import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { PLATFORM_TESTS, perPushFiles, perPushTests, ROOT } from './sets.ts';
+import { perPushFiles, ROOT } from './sets.ts';
 
 export const PLAN = join(ROOT, 'tests', 'harness', 'shards.json');
 export const SYSTEMS = ['linux', 'win32', 'darwin'] as const;
 
+// cost: what each file took in a shard of that system, from its start to its end (node:test's summary of the file), so with the files that ran beside it; slots: how many files a shard runs at once there.
+export interface Measured {
+  from: string;
+  slots: number;
+  cost: Record<string, number>;
+  tests: Record<string, number>;
+}
+
 export interface Plan {
-  measured: Record<string, { from: string; ms: Record<string, number>; tests?: Record<string, number> }>;
+  measured: Record<string, Measured>;
   shards: Record<string, string[][]>;
 }
 
@@ -29,19 +37,42 @@ export function repoPath(file: string, root: string | undefined): string {
   return fold(path).startsWith(`${fold(base)}/`) ? path.slice(base.length + 1) : path;
 }
 
-// Longest processing time first: each file, slowest first, goes to the shard with the least measured time so far. A file with no measurement on that system counts as the median of the measured ones.
-export function balance(files: string[], ms: Record<string, number>, count: number): string[][] {
+// A shard runs its files in the plan's order, as many at once as it has slots, each taking the next free slot. Its wall time is when the last slot frees.
+export function wallOf(files: string[], cost: (file: string) => number, slots: number): number {
+  const free = Array.from({ length: Math.max(1, slots) }, () => 0);
+  for (const file of files) {
+    const at = free.indexOf(Math.min(...free));
+    free[at]! += cost(file);
+  }
+  return Math.max(...free);
+}
+
+const costOf = (ms: Record<string, number>): ((file: string) => number) => {
   const known = Object.values(ms).filter((n) => n > 0).sort((a, b) => a - b);
   const median = known.length === 0 ? 1000 : known[Math.floor(known.length / 2)]!;
-  const cost = (file: string): number => ms[file] ?? median;
+  return (file) => ms[file] ?? median;
+};
+
+// Longest processing time first, over the slots of every shard: each file, slowest first, goes to the shard whose wall time it raises least, and each shard lists its files slowest first, the order it starts them in. A file with no measurement on that system counts as the median of the measured ones.
+export function balance(files: string[], ms: Record<string, number>, count: number, slots = 1): string[][] {
+  const cost = costOf(ms);
   const order = [...files].sort((a, b) => cost(b) - cost(a) || (a < b ? -1 : 1));
-  const shards: { files: string[]; total: number }[] = Array.from({ length: count }, () => ({ files: [], total: 0 }));
+  const shards: { files: string[]; free: number[]; total: number }[] = Array.from({ length: count }, () => ({ files: [], free: Array.from({ length: Math.max(1, slots) }, () => 0), total: 0 }));
   for (const file of order) {
-    const lightest = shards.reduce((best, shard, i) => (shard.total < shards[best]!.total ? i : best), 0);
-    shards[lightest]!.files.push(file);
-    shards[lightest]!.total += cost(file);
+    const after = (shard: { free: number[] }) => Math.max(...shard.free, Math.min(...shard.free) + cost(file));
+    const best = shards.reduce((b, shard, i) => (after(shard) < after(shards[b]!) || (after(shard) === after(shards[b]!) && shard.total < shards[b]!.total) ? i : b), 0);
+    const shard = shards[best]!;
+    shard.files.push(file);
+    shard.free[shard.free.indexOf(Math.min(...shard.free))]! += cost(file);
+    shard.total += cost(file);
   }
-  return shards.map((s) => s.files.sort());
+  return shards.map((s) => s.files);
+}
+
+export function plannedWalls(plan: Plan, system: (typeof SYSTEMS)[number]): number[] {
+  const measured = plan.measured[system];
+  const cost = costOf(measured?.cost ?? {});
+  return (plan.shards[system] ?? []).map((files) => wallOf(files, cost, measured?.slots ?? 1));
 }
 
 export function planProblems(plan: Plan, filesOf: (system: (typeof SYSTEMS)[number]) => string[] = perPushFiles): string[] {
@@ -62,70 +93,76 @@ export function planProblems(plan: Plan, filesOf: (system: (typeof SYSTEMS)[numb
   return problems;
 }
 
-// The measured time of a file is the sum of the durations node:test reports for its top-level tests, read from the recordings of one CI run (tests/harness/record.ts).
-export function measure(dir: string): Record<string, number> {
-  return measureTests(dir).files;
+function recordings(dir: string): string[] {
+  const out: string[] = [];
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isDirectory()) out.push(...recordings(join(dir, entry.name)));
+    else if (/^meta-\d+\.json$/.test(entry.name)) out.push(join(dir, entry.name));
+  }
+  return out.sort();
 }
 
-export function measureTests(dir: string): { files: Record<string, number>; tests: Record<string, number> } {
-  const ms: Record<string, number> = {};
+// The cost of each file and the time of each top-level test on one system, from a profile the merge wrote or from the recordings of its shards (tests/harness/record.ts) anywhere under dir; a file measured in several runs, as Linux's on three Node versions, counts its longest.
+export function measureShards(dir: string, system: (typeof SYSTEMS)[number]): Omit<Measured, 'from' | 'slots'> & { slots: number | undefined } {
+  const cost: Record<string, number> = {};
   const tests: Record<string, number> = {};
-  for (const name of readdirSync(dir).filter((n) => n.startsWith('events-') && n.endsWith('.jsonl'))) {
-    const metaFile = join(dir, name.replace(/^events-/, 'meta-').replace(/\.jsonl$/, '.json'));
-    const root = existsSync(metaFile) ? (JSON.parse(readFileSync(metaFile, 'utf8')) as { root?: string }).root : undefined;
-    const inRepo = (file: string): string => repoPath(file, root);
-    for (const line of readFileSync(join(dir, name), 'utf8').split('\n')) {
+  let slots: number | undefined;
+  if (statSync(dir).isFile()) {
+    const written = JSON.parse(readFileSync(dir, 'utf8')) as { system: string; slots?: number; costs?: Record<string, number>; tests: Record<string, { ms: number }> };
+    if (written.system !== system) return { cost, tests, slots };
+    for (const [key, t] of Object.entries(written.tests)) tests[key] = t.ms;
+    return { cost: { ...written.costs }, tests, slots: written.slots };
+  }
+  for (const metaFile of recordings(dir)) {
+    const meta = JSON.parse(readFileSync(metaFile, 'utf8')) as { system: string; root?: string; shard: number; slots?: number };
+    if (meta.system !== system) continue;
+    if (meta.slots !== undefined) slots = Math.max(slots ?? 0, meta.slots);
+    const events = join(dirname(metaFile), `events-${meta.shard}.jsonl`);
+    if (!existsSync(events)) continue;
+    for (const line of readFileSync(events, 'utf8').split('\n')) {
       if (!line) continue;
-      const event = JSON.parse(line) as { type: string; data: { file?: string; name?: string; nesting?: number; details?: { duration_ms?: number } } };
+      const event = JSON.parse(line) as { type: string; data: { file?: string; name?: string; nesting?: number; duration_ms?: number; details?: { duration_ms?: number } } };
       const data = event.data;
-      if ((event.type !== 'test:pass' && event.type !== 'test:fail') || data.nesting !== 0 || !data.file) continue;
-      const file = inRepo(data.file);
-      if (data.name === data.file || data.name === file) continue;
-      const took = Math.round(data.details?.duration_ms ?? 0);
-      ms[file] = (ms[file] ?? 0) + took;
-      tests[`${file} > ${data.name}`] = (tests[`${file} > ${data.name}`] ?? 0) + took;
+      if (!data.file) continue;
+      const file = repoPath(data.file, meta.root);
+      if (event.type === 'test:summary' && data.duration_ms !== undefined) cost[file] = Math.max(cost[file] ?? 0, Math.round(data.duration_ms));
+      if ((event.type !== 'test:pass' && event.type !== 'test:fail') || data.nesting !== 0 || data.name === data.file || data.name === file) continue;
+      const key = `${file} > ${data.name}`;
+      tests[key] = Math.max(tests[key] ?? 0, Math.round(data.details?.duration_ms ?? 0));
     }
   }
-  return { files: ms, tests };
-}
-
-// What a file costs in a system's shard: its selected tests on Windows and macOS, all of it on Linux.
-export function costs(system: (typeof SYSTEMS)[number], files: string[], measured: Plan['measured'][string] | undefined): Record<string, number> {
-  const out: Record<string, number> = {};
-  const selected = perPushTests(system, files);
-  for (const file of files) {
-    if (selected === null || measured?.tests === undefined) { if (measured?.ms[file] !== undefined) out[file] = measured.ms[file]!; continue; }
-    const names = PLATFORM_TESTS.filter((t) => t.file === file && t.systems.includes(system as 'win32' | 'darwin')).map((t) => t.test);
-    const known = names.map((n) => measured.tests![`${file} > ${n}`]).filter((n): n is number => n !== undefined);
-    if (known.length > 0) out[file] = known.reduce((a, b) => a + b, 0);
-  }
-  return out;
+  return { cost, tests, slots };
 }
 
 if (process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const usage = 'usage: node tests/harness/shards.ts plan [--count <system>=<n>]... [--measured <system>=<dir of recordings>=<run>]...';
+  const usage = 'usage: node tests/harness/shards.ts plan [--count <system>=<n>]... [--slots <system>=<n>]... [--measured <system>=<a profile, or a folder holding the recordings of its shards>=<run>]...';
   const [command, ...rest] = process.argv.slice(2);
-  if (command !== 'plan') { process.stderr.write(`${usage}\n`); process.exit(2); }
+  const refuse = (message = usage): never => { process.stderr.write(`${message}\n`); process.exit(2); };
+  if (command !== 'plan') refuse();
   const plan: Plan = existsSync(PLAN) ? readPlan() : { measured: {}, shards: {} };
   const counts: Record<string, number> = {};
+  const slots: Record<string, number> = {};
   for (let i = 0; i < rest.length; i += 2) {
     const [flag, value] = [rest[i], rest[i + 1]];
-    if (value === undefined) { process.stderr.write(`${usage}\n`); process.exit(2); }
-    const [system, a, b] = value.split('=');
-    if (!(SYSTEMS as readonly string[]).includes(system!)) { process.stderr.write(`unknown system ${system}; the systems are ${SYSTEMS.join(', ')}\n`); process.exit(2); }
-    if (flag === '--count') counts[system!] = Number(a);
-    else if (flag === '--measured') { const m = measureTests(resolve(a!)); plan.measured[system!] = { from: b ?? a!, ms: m.files, tests: m.tests }; }
-    else { process.stderr.write(`${usage}\n`); process.exit(2); }
+    if (value === undefined) refuse();
+    const [system, a, b] = value!.split('=') as [(typeof SYSTEMS)[number], string?, string?];
+    if (!(SYSTEMS as readonly string[]).includes(system)) refuse(`unknown system ${system}; the systems are ${SYSTEMS.join(', ')}`);
+    if (flag === '--count') counts[system] = Number(a);
+    else if (flag === '--slots') slots[system] = Number(a);
+    else if (flag === '--measured') {
+      const m = measureShards(resolve(a!), system);
+      if (Object.keys(m.cost).length === 0) refuse(`${a} holds no recording of a shard on ${system}`);
+      plan.measured[system] = { from: b ?? a!, slots: m.slots ?? plan.measured[system]?.slots ?? 1, cost: m.cost, tests: m.tests };
+    } else refuse();
   }
   for (const system of SYSTEMS) {
+    if (slots[system] !== undefined && plan.measured[system] !== undefined) plan.measured[system]!.slots = slots[system]!;
     const count = counts[system] ?? plan.shards[system]?.length ?? 1;
-    const files = perPushFiles(system);
-    plan.shards[system] = balance(files, costs(system, files, plan.measured[system]), count);
+    plan.shards[system] = balance(perPushFiles(system), plan.measured[system]?.cost ?? {}, count, plan.measured[system]?.slots ?? 1);
   }
   writeFileSync(PLAN, `${JSON.stringify(plan, null, 2)}\n`);
   for (const system of SYSTEMS) {
-    const ms = costs(system, perPushFiles(system), plan.measured[system]);
-    const totals = plan.shards[system]!.map((list) => list.reduce((sum, f) => sum + (ms[f] ?? 0), 0));
-    process.stdout.write(`${system}: ${totals.length} shards, measured ${totals.map((t) => `${(t / 1000).toFixed(0)} s`).join(', ')}\n`);
+    const walls = plannedWalls(plan, system);
+    process.stdout.write(`${system}: ${walls.length} shards of ${plan.measured[system]?.slots ?? 1} slots, planned ${walls.map((t) => `${(t / 1000).toFixed(0)} s`).join(', ')}\n`);
   }
 }

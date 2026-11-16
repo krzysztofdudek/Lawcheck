@@ -7,8 +7,8 @@ import { PLATFORM_TESTS, perPushFiles, perPushTests, ROOT, type System } from '.
 import { readPlan, repoPath, SYSTEMS, type Plan } from './shards.ts';
 import { PLATFORM_SKIPS } from './skips.ts';
 
-export interface Meta { system: string; node: string; root?: string; shard: number; of: number; files: string[]; started: number; ended: number; status: number }
-export type Event = { type: string; data: { file?: string; name?: string; nesting?: number; skip?: unknown; todo?: unknown; details?: { type?: string; duration_ms?: number; error?: { failureType?: string } } } };
+export interface Meta { system: string; node: string; root?: string; slots?: number; shard: number; of: number; files: string[]; started: number; ended: number; status: number }
+export type Event = { type: string; data: { file?: string; name?: string; nesting?: number; skip?: unknown; todo?: unknown; duration_ms?: number; details?: { type?: string; duration_ms?: number; error?: { failureType?: string } } } };
 export interface Shard { meta: Meta; events: Event[] }
 
 // The files of a shard's events, as paths of this checkout: the reporter and the merge then read them the same, whichever system recorded them.
@@ -115,10 +115,12 @@ export function times(shards: Shard[]): { wall: number; summed: number; slowest:
   };
 }
 
-export function profile(system: string, shards: Shard[]): { system: string; node: string; wall_ms: number; summed_ms: number; shards: { shard: number; files: number; started: number; ended: number }[]; files: Record<string, number>; tests: Record<string, { file: string; ms: number; shard: number }> } {
+export function profile(system: string, shards: Shard[]): { system: string; node: string; slots: number | null; wall_ms: number; summed_ms: number; shards: { shard: number; files: number; started: number; ended: number }[]; costs: Record<string, number>; files: Record<string, number>; tests: Record<string, { file: string; ms: number; shard: number }> } {
   const files: Record<string, number> = {};
+  const costs: Record<string, number> = {};
   const tests: Record<string, { file: string; ms: number; shard: number }> = {};
   for (const s of shards) for (const e of s.events) {
+    if (e.type === 'test:summary' && e.data.file && e.data.duration_ms !== undefined) costs[rel(e.data.file)] = Math.round(e.data.duration_ms);
     if ((e.type !== 'test:pass' && e.type !== 'test:fail') || e.data.nesting !== 0 || !e.data.file) continue;
     const file = rel(e.data.file);
     if (e.data.name === e.data.file || e.data.name === file) continue;
@@ -128,7 +130,7 @@ export function profile(system: string, shards: Shard[]): { system: string; node
   }
   const { wall, summed } = times(shards);
   const timed = [...shards].sort((a, b) => a.meta.shard - b.meta.shard).map((s) => ({ shard: s.meta.shard, files: s.meta.files.length, started: s.meta.started, ended: s.meta.ended }));
-  return { system, node: shards[0]?.meta.node ?? '', wall_ms: wall, summed_ms: summed, shards: timed, files, tests };
+  return { system, node: shards[0]?.meta.node ?? '', slots: shards[0]?.meta.slots ?? null, wall_ms: wall, summed_ms: summed, shards: timed, costs, files, tests };
 }
 
 export type Judge = typeof judgeRun;

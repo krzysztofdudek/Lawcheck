@@ -7,7 +7,7 @@ import { parse } from 'yaml';
 import { failedTests, judgeShards, mergeProblems, profile, readShards, summary, tied, type Event, type Shard } from '../harness/merge.ts';
 import { judgeRun } from '../harness/reporter.ts';
 import { groupDirs, perPushFiles, PLATFORM_TESTS, ROOT, setFiles } from '../harness/sets.ts';
-import { balance, planProblems, readPlan, repoPath, SYSTEMS, type Plan } from '../harness/shards.ts';
+import { balance, measureShards, plannedWalls, planProblems, readPlan, repoPath, SYSTEMS, wallOf, type Plan } from '../harness/shards.ts';
 
 type Entry = { os: string; node: string; system: string; shard?: number; of?: number };
 type Job = { needs?: string | string[]; if?: string; strategy?: { matrix?: { include?: Entry[] } } };
@@ -19,13 +19,14 @@ test('every test file of each system\'s per-push set is in exactly one shard of 
 
 test('a plan that leaves a file out, names one twice, or names a file that is no test is refused (control)', () => {
   const plan = readPlan();
-  const [first, ...rest] = plan.shards.linux!;
-  const dropped: Plan = { ...plan, shards: { ...plan.shards, linux: [first!.slice(1), ...rest] } };
-  assert.deepEqual(planProblems(dropped).filter((p) => p.startsWith('linux:')), [`linux: ${first![0]} is in no shard`]);
-  const twice: Plan = { ...plan, shards: { ...plan.shards, linux: [first!, ...rest.map((s, i) => (i === 0 ? [...s, first![0]!] : s))] } };
-  assert.deepEqual(planProblems(twice).filter((p) => p.startsWith('linux:')), [`linux: ${first![0]} is in shards 1 and 2`]);
-  const stray: Plan = { ...plan, shards: { ...plan.shards, linux: [[...first!, 'tests/unit/none.test.ts'], ...rest] } };
-  assert.deepEqual(planProblems(stray).filter((p) => p.startsWith('linux:')), ['linux: shard 1 names tests/unit/none.test.ts, which is not a test file of the per-push set of linux']);
+  const shards = plan.shards.linux!;
+  const at = shards.findIndex((list) => list.length > 1);
+  const other = at === 0 ? 1 : 0;
+  const file = shards[at]![0]!;
+  const changed = (index: number, list: string[]): Plan => ({ ...plan, shards: { ...plan.shards, linux: shards.map((s, i) => (i === index ? list : s)) } });
+  assert.deepEqual(planProblems(changed(at, shards[at]!.slice(1))).filter((p) => p.startsWith('linux:')), [`linux: ${file} is in no shard`]);
+  assert.deepEqual(planProblems(changed(other, [...shards[other]!, file])).filter((p) => p.startsWith('linux:')), [`linux: ${file} is in shards ${[at + 1, other + 1].sort().join(' and ')}`]);
+  assert.deepEqual(planProblems(changed(at, [...shards[at]!, 'tests/unit/none.test.ts'])).filter((p) => p.startsWith('linux:')), [`linux: shard ${at + 1} names tests/unit/none.test.ts, which is not a test file of the per-push set of linux`]);
 });
 
 test('the shards of ci.yml are the shards of the plan, for each system and Node, and the merge and the one required check wait for them', () => {
@@ -93,6 +94,41 @@ test('Linux runs the whole commit set per push, and Windows and macOS the files 
 test('balance spreads files by measured time, slowest first, and gives an unmeasured file the median', () => {
   assert.deepEqual(balance(['a', 'b', 'c', 'd'], { a: 90, b: 50, c: 40, d: 10 }, 2), [['a', 'd'], ['b', 'c']]);
   assert.deepEqual(balance(['a', 'b', 'x'], { a: 100, b: 10 }, 2), [['a', 'b'], ['x']]);
+});
+
+test('balance plans the wall time of shards that run several files at once, not the sum of their times, and lists each shard slowest first', () => {
+  const ms = { a: 100, b: 60, c: 60, d: 50, e: 50 };
+  const shards = balance(['a', 'b', 'c', 'd', 'e'], ms, 2, 2);
+  assert.deepEqual(shards, [['a', 'd', 'e'], ['b', 'c']]);
+  assert.deepEqual(shards.map((files) => wallOf(files, (f) => ms[f as keyof typeof ms], 2)), [100, 60]);
+  assert.equal(wallOf(['a', 'b', 'c'], (f) => ms[f as keyof typeof ms], 2), 120);
+});
+
+test('the committed plan is what the planner makes from its own measurements: each file\'s cost in a shard and the slots of each system', () => {
+  const plan = readPlan();
+  for (const system of SYSTEMS) {
+    const measured = plan.measured[system]!;
+    assert.ok(measured.slots >= 1 && Object.keys(measured.cost).length > 0, system);
+    assert.deepEqual(plan.shards[system], balance(perPushFiles(system), measured.cost, plan.shards[system]!.length, measured.slots), `${system}: node tests/harness/shards.ts plan writes another plan`);
+    assert.equal(plannedWalls(plan, system).length, plan.shards[system]!.length);
+  }
+});
+
+test('a file\'s cost is its time in the shard from node:test\'s summary of it, read from the recordings of that system only', () => {
+  const root = '/home/runner/work/Lawcheck/Lawcheck/';
+  const summary = (file: string, ms: number): Event => ({ type: 'test:summary', data: { file: `${root}${file}`, duration_ms: ms } });
+  const dir = recorded([
+    { meta: { system: 'linux', node: 'v24', root, slots: 3, shard: 1, of: 2, files: [], started: 0, ended: 1, status: 0 }, events: [summary('tests/unit/a.test.ts', 7_000.4), ok('tests/unit/a.test.ts', 'test 1: a'), summary('tests/unit/b.test.ts', 2_000)] },
+    { meta: { system: 'win32', node: 'v24', root: 'D:\\a\\Lawcheck\\Lawcheck\\', slots: 3, shard: 2, of: 2, files: [], started: 0, ended: 1, status: 0 }, events: [{ type: 'test:summary', data: { file: 'D:\\a\\Lawcheck\\Lawcheck\\tests\\unit\\a.test.ts', duration_ms: 50_000 } }] },
+  ]);
+  try {
+    const linux = measureShards(dir, 'linux');
+    assert.deepEqual(linux.cost, { 'tests/unit/a.test.ts': 7_000, 'tests/unit/b.test.ts': 2_000 });
+    assert.equal(linux.slots, 3);
+    assert.deepEqual(measureShards(dir, 'win32').cost, { 'tests/unit/a.test.ts': 50_000 });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 async function* replay(events: Event[]): AsyncGenerator<Event> {
