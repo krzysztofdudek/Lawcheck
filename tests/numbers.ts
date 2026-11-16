@@ -41,6 +41,8 @@ export const RULE_PAST_LIMIT_MS = 10_000;
 export const TEST_RULE_MS = 3_000;
 // How far past its limit a hung rule may run, as a share of the limit, counted from the moment the rule says it hangs: the runner is ended and the tool prints and exits. A timer set to twice the limit or more fails it.
 export const RULE_PAST_LIMIT_SHARE = 0.5;
+// Each of two calls of a rule takes this long under TEST_RULE_MS: each call is inside the limit, the two together are past it.
+export const RULE_CALL_MS = 2_000;
 // What the variables of the test entries would set if they reached the tool or the hook a user runs, and how long a rule and a stand-in lawcheck then take: past those, and far inside the shipped 30 and 25 seconds.
 export const USER_SET_RULE_MS = 1_000;
 export const USER_SET_EDIT_DEADLINE_S = 1;
@@ -275,6 +277,7 @@ export const stronger: Record<string, 'higher' | 'lower' | 'fixed'> = {
   HOOK_PAST_DEADLINE_MS: 'lower',
   RULE_PAST_LIMIT_MS: 'lower',
   RULE_PAST_LIMIT_SHARE: 'lower',
+  RULE_CALL_MS: 'fixed',
   TEST_RULE_MS: 'fixed',
   USER_SET_RULE_MS: 'fixed',
   USER_SET_EDIT_DEADLINE_S: 'fixed',
