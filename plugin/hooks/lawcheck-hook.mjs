@@ -5,7 +5,7 @@ import { fit } from './fit.mjs';
 import { nameOf } from './names.mjs';
 import { snapshot, turnPaths } from './snapshot.mjs';
 import { blank, deleteState, readState, removeOld, stateFile, writeState } from './state.mjs';
-import { absolutePath, cutPoints, Deadline, DEADLINES, findRoot, firstLine, killCurrent, NO_CURRENT_FOLDER, runLawcheck, runnerAt } from './start.mjs';
+import { absolutePath, cutPoints, Deadline, DEADLINES, findRoot, firstLine, killCurrent, NO_CURRENT_FOLDER, plainText, runLawcheck, runnerAt } from './start.mjs';
 
 absolutePath(process.env);
 if (process.platform === 'win32') process.env[NO_CURRENT_FOLDER] = '1';
@@ -234,6 +234,6 @@ async function main() {
 main().then(
   () => process.exit(0),
   (error) => {
-    process.stderr.write(`lawcheck plugin: ${firstLine(error?.message ?? error)}\n`, () => process.exit(1));
+    process.stderr.write(`lawcheck plugin: ${plainText(firstLine(error?.message ?? error))}\n`, () => process.exit(1));
   },
 );

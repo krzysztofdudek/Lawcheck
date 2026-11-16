@@ -75,14 +75,18 @@ export function argumentsProperties(speed: Speed): Record<string, () => unknown>
       const env: NodeJS.ProcessEnv = { PATH: [bin, git, dirname(process.execPath)].join(delimiter), CLAUDE_PLUGIN_ROOT: join(ROOT, 'plugin'), CLAUDE_PLUGIN_DATA: join(dir.dir, 'data'), ...(process.platform === 'win32' ? { SystemRoot: process.env.SystemRoot, ComSpec: process.env.ComSpec } : {}) };
       const id = fc.oneof({ weight: 2, arbitrary: fc.constant('x'.repeat(5000)) }, { weight: 3, arbitrary: fc.constantFrom('s1', '../x', '', 'a b', 'ż', 'y'.repeat(129)) }, { weight: 1, arbitrary: fc.string({ maxLength: 10 }) }, { weight: 1, arbitrary: fc.integer() });
       const field = fc.oneof(fc.constantFrom(s, '/', join(s, 'src'), join(s, D_PATH), join(s, 'src/core/new\nline.ts'), 'relative/path.ts', ''), fc.anything());
+      const object = fc
+        .record({ session_id: id, prompt_id: fc.oneof(fc.constant('p1'), fc.anything()), cwd: field, tool_name: fc.constantFrom('Write', 'Edit', 'NotebookEdit', 'Bash', 7), tool_input: fc.oneof(fc.record({ file_path: field, notebook_path: field }), fc.anything()), stop_hook_active: fc.oneof(fc.boolean(), fc.anything()), background_tasks: fc.oneof(fc.constant([]), fc.anything()) }, { requiredKeys: ['session_id'] })
+        .map((v) => JSON.stringify(v));
       const input = fc.oneof(
-        { weight: 3, arbitrary: fc.record({ session_id: id, prompt_id: fc.oneof(fc.constant('p1'), fc.anything()), cwd: field, tool_name: fc.constantFrom('Write', 'Edit', 'NotebookEdit', 'Bash', 7), tool_input: fc.oneof(fc.record({ file_path: field, notebook_path: field }), fc.anything()), stop_hook_active: fc.oneof(fc.boolean(), fc.anything()), background_tasks: fc.oneof(fc.constant([]), fc.anything()) }, { requiredKeys: ['session_id'] }).map((v) => JSON.stringify(v)) },
+        { weight: 3, arbitrary: object },
+        { weight: 1, arbitrary: object.map((text) => `\ufeff${text}`) },
         { weight: 2, arbitrary: fc.oneof(fc.string({ maxLength: 40 }), fc.json(), fc.constantFrom('', '{', 'null', '[]', '"x"', '\ufeff{"session_id":"s1","cwd":"/"}')) },
       );
       await tool(
         speed,
         fc.tuple(fc.constantFrom(...EVENTS), input, fc.constantFrom('', 'runner: global\n', '\ufeffrunner: global\n', 'runner: bogus\n', '\ufeffrunner: bogus\n', '\ufeffrunner: global  # pinned\r\n')),
-        { classes: { 'a config with a byte-order mark': ([, , config]) => config.startsWith('\ufeff'), 'an object': ([, i]) => i.startsWith('{"'), 'no JSON object': ([, i]) => !i.startsWith('{"'), 'a session id of 5,000 characters to a hook that keeps state': ([event, i]) => event !== 'session-start' && i.includes('x'.repeat(5000)) } },
+        { classes: { 'a config with a byte-order mark': ([, , config]) => config.startsWith('\ufeff'), 'an object': ([, i]) => i.startsWith('{"'), 'no JSON object': ([, i]) => !i.startsWith('{"'), 'a byte-order mark at the start of the input': ([, i]) => i.startsWith('\ufeff'), 'a session id of 5,000 characters to a hook that keeps state': ([event, i]) => event !== 'session-start' && i.includes('x'.repeat(5000)) } },
         async ([event, i, config]) => {
           write(s, '.lawcheck/config.yaml', config);
           const run = await runHook(event, i, env);
