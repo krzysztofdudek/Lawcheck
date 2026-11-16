@@ -161,6 +161,21 @@ async function programCases(program: Program): Promise<void> {
         assert.ok(await waitUntil(() => !alive(seen.pid) && !alive(seen.child!), 'LEFTOVER_GRACE_MS'), 'the fake or its child is alive');
         assert.ok(await waitUntil(() => !existsSync(seen.cwd), 'LEFTOVER_GRACE_MS'), seen.cwd);
       }, configOf(program.provider, '  timeout: 1\n'));
+    const heldOutput = (): Promise<void> =>
+      withR(async (r, dir) => {
+        if (platformSkip('a child that left the group') !== null) return;
+        write(r, F_PATH, F);
+        const result = await run(r, null, ['--review', '--base', 'main'], fakeEnv(program, dir, 'setsid'));
+        const seen = record(dir);
+        try {
+          assert.equal(result.stdout, SECOND);
+          assert.equal(result.code, 1);
+          assert.ok(result.ms < HELD_OUTPUT_RUN_MS, `${result.ms} ms`);
+          assert.ok(await waitUntil(() => !alive(seen.child!), 'LEFTOVER_GRACE_MS'), 'the child is alive');
+        } finally {
+          if (alive(seen.child!)) process.kill(seen.child!, 'SIGKILL');
+        }
+      }, configOf(program.provider));
     const cases: [string, () => Promise<void>][] = [
       [
         'a fail with lines, and how the program is started',
@@ -251,24 +266,6 @@ async function programCases(program: Program): Promise<void> {
             assert.equal(result.stdout, stopped('src/core/big.ts  error[reviewer-unreachable]  clear-errors: expired', 'reviewer-unreachable', `${told}, ${AGAIN}`));
             assert.equal(result.code, 2);
           }, configOf(program.provider, '  max_chars: 120000\n')),
-      ],
-      [
-        'a child that leaves the group and holds the output',
-        () =>
-          withR(async (r, dir) => {
-            if (platformSkip('a child that left the group') !== null) return;
-            write(r, F_PATH, F);
-            const result = await run(r, null, ['--review', '--base', 'main'], fakeEnv(program, dir, 'setsid'));
-            const seen = record(dir);
-            try {
-              assert.equal(result.stdout, SECOND);
-              assert.equal(result.code, 1);
-              assert.ok(result.ms < HELD_OUTPUT_RUN_MS, `${result.ms} ms`);
-              assert.ok(await waitUntil(() => !alive(seen.child!), 'LEFTOVER_GRACE_MS'), 'the child is alive');
-            } finally {
-              if (alive(seen.child!)) process.kill(seen.child!, 'SIGKILL');
-            }
-          }, configOf(program.provider)),
       ],
       [
         'a child that leaves the group and lets go of the output',
@@ -399,8 +396,9 @@ async function programCases(program: Program): Promise<void> {
       ]);
     }
     await Promise.all(cases.map(([what, body]) => named(program, what, body)));
-    // This case is timed when this process reads the error line, so it runs alone: the setup of the other cases runs git synchronously and holds this process for seconds on Windows.
+    // These two cases are timed by this process, so each runs alone: the setup of the other cases and the harness's checks of their runs are synchronous and hold this process for seconds, on Windows and on a loaded macOS runner.
     await named(program, 'past its timeout, which bounds the whole call', pastTimeout);
+    await named(program, 'a child that leaves the group and holds the output', heldOutput);
   }
 }
 
