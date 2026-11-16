@@ -37,6 +37,12 @@ function internal(error: unknown): ErrorItem {
   return { code: 'internal', file: null, line: null, message: text.split(/\r?\n/)[0] || 'an unknown failure' };
 }
 
+// macOS reports a write to a pipe whose reader closed as ENOTCONN, as well as EPIPE.
+export function readerGone(error: unknown): boolean {
+  const code = (error as NodeJS.ErrnoException | null)?.code;
+  return code === 'EPIPE' || code === 'ENOTCONN';
+}
+
 type FromWork = { kind: 'warn'; line: string } | { kind: 'stderr'; text: string } | { kind: 'done'; code: number; stdout: Uint8Array };
 
 // The command runs in a worker, so a signal is answered while the command is busy in code that never yields, such as a regular expression.
@@ -58,7 +64,7 @@ export function start(): void {
     writing = true;
     process.stdout.on('error', () => undefined);
     process.stdout.write(bytes, (error) => {
-      if (!error || (error as NodeJS.ErrnoException).code === 'EPIPE') return exit(code);
+      if (!error || readerGone(error)) return exit(code);
       const cause = (error as NodeJS.ErrnoException).code ?? 'an error';
       process.stderr.write(`error[file-unwritable]  standard output cannot be written (${cause}), so the result is lost\n`, () => exit(2));
     });

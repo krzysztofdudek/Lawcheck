@@ -284,7 +284,7 @@ A line gets one of the first two at most, and those waive nothing. All three sit
 
 Exit 0: no error. Exit 1: at least one error, so the code breaks the law. Exit 2: Lawcheck could not conclude, and it prints the errors and no findings. The tool ends with no other code: it catches every failure of its own and reports it as `internal`, so exit 1 never means a fault of the tool.
 
-**Output that cannot be written.** When standard output refuses the result (a full disk, an output opened only for reading), the run ends with exit 2, whatever its result, and standard error gets one line: `error[file-unwritable]  standard output cannot be written (<code>), so the result is lost`, with `<code>` the system's code, such as `ENOSPC` or `EBADF`. A reader that closes the pipe early (`EPIPE`, as `lawcheck check | head -1` does) chose to stop reading: the run ends with its own code and says nothing. Every command and `--version` and `--help` follow this.
+**Output that cannot be written.** When standard output refuses the result (a full disk, an output opened only for reading), the run ends with exit 2, whatever its result, and standard error gets one line: `error[file-unwritable]  standard output cannot be written (<code>), so the result is lost`, with `<code>` the system's code, such as `ENOSPC` or `EBADF`. A reader that closes the pipe early (`EPIPE`, or `ENOTCONN` on macOS, as `lawcheck check | head -1` does) chose to stop reading: the run ends with its own code and says nothing. Every command and `--version` and `--help` follow this.
 
 Text goes to standard output without colour, with two spaces between the parts of a line and no alignment. The lines, with `<...>` for a part that varies:
 

@@ -556,9 +556,9 @@ What already holds, said in the same place. Plug'n'Play is refused when Lawcheck
 
 ## 130. A reader that closes standard output early
 
-`spec/check-slice.md`, section 6, now ends a run with exit 2 when standard output cannot be written. A reader that closes the pipe before the end, as `lawcheck check | head -1` does, gives the same failure, `EPIPE`, though nothing went wrong that the reader did not choose. With `set -o pipefail`, the default of a GitHub Actions `bash` step, exit 2 there would fail the step.
+`spec/check-slice.md`, section 6, now ends a run with exit 2 when standard output cannot be written. A reader that closes the pipe before the end, as `lawcheck check | head -1` does, gives the same failure, `EPIPE` on Linux and `ENOTCONN` on macOS, though nothing went wrong that the reader did not choose. With `set -o pipefail`, the default of a GitHub Actions `bash` step, exit 2 there would fail the step.
 
-Choice: `EPIPE` ends the run with its own code and prints nothing. Every other failed write ends with exit 2 and the line on standard error.
+Choice: `EPIPE`, and `ENOTCONN`, which macOS gives for the same closed pipe, end the run with their own code and print nothing. Every other failed write ends with exit 2 and the line on standard error.
 
 ## 131. A closed standard output
 
