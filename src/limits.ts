@@ -1,4 +1,6 @@
-import { closeSync, constants, fstatSync, openSync, readSync } from 'node:fs';
+import { closeSync, constants, fstatSync, openSync, readFileSync, readSync } from 'node:fs';
+import { freemem } from 'node:os';
+import { join } from 'node:path';
 import type { ErrorItem } from './output.js';
 
 const MiB = 1024 * 1024;
@@ -31,7 +33,30 @@ export function runBound(total: number): number {
 
 // The memory the system can still give: on Linux the kernel's estimate, or a container's limit less what its processes use; on Windows the physical memory that is free or on standby. macOS counts only the pages free this moment, which it keeps few, so there it gives no number.
 export function availableNow(platform: NodeJS.Platform = process.platform): number | null {
-  return platform === 'darwin' ? null : process.availableMemory();
+  if (platform === 'darwin') return null;
+  const left = process.availableMemory();
+  if (platform !== 'linux' || left >= MEMORY_RESERVE_BYTES) return left;
+  return withCache(left, cgroupStat(), freemem());
+}
+
+// A cgroup v2 counts its page cache as used, so right after a large write its limit less its use reads near nothing; the kernel takes those file pages back before it kills a process of the cgroup, so they count as left, as the kernel's own estimate of available memory counts the page cache, and never as more than that estimate. Shared memory and tmpfs are not on these lists.
+export function withCache(left: number, stat: string | null, free: number): number {
+  if (stat === null) return left;
+  let cache = 0;
+  for (const line of stat.split('\n')) {
+    const [key, value] = line.split(' ');
+    if (key === 'active_file' || key === 'inactive_file') cache += Number(value) || 0;
+  }
+  return cache === 0 ? left : Math.min(free, left + cache);
+}
+
+function cgroupStat(): string | null {
+  try {
+    const own = /^0::(\/.*)$/m.exec(readFileSync('/proc/self/cgroup', 'utf8'));
+    return own === null ? null : readFileSync(join('/sys/fs/cgroup', own[1]!, 'memory.stat'), 'utf8');
+  } catch {
+    return null;
+  }
 }
 
 export interface MemoryRead {

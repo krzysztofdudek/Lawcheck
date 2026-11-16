@@ -2,13 +2,13 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { availableNow, memoryCase, runBound } from '../../dist/limits.js';
+import { availableNow, memoryCase, runBound, withCache } from '../../dist/limits.js';
 import { withSample, write } from '../acceptance/helpers.ts';
 import { errorLines, MiB, run } from './support.ts';
 
 const GiB = 1024 * MiB;
 
-test('test 276: the memory guard ends a run whose file grows by 384 MiB, a run past its bound, and one the system has no room left for', () => {
+test('test 276: the memory guard ends a run whose file grows by 384 MiB, a run past its bound, and one the system has no room left for, counting a cgroup\'s page cache as left', () => {
   const quiet = { rss: 200 * MiB, stepGrowth: 10 * MiB, available: 4 * GiB, total: 16 * GiB };
   assert.equal(memoryCase(quiet), null);
   assert.equal(memoryCase({ ...quiet, stepGrowth: 384 * MiB + 1 }), 'file');
@@ -19,6 +19,13 @@ test('test 276: the memory guard ends a run whose file grows by 384 MiB, a run p
   assert.equal(memoryCase({ ...quiet, available: 128 * MiB - 1 }), 'system');
   assert.equal(memoryCase({ ...quiet, available: 128 * MiB }), null);
   assert.equal(memoryCase({ ...quiet, available: null }), null);
+  const stat = ['anon 10485760', 'file 1021313024', 'shmem 0', 'file_dirty 574619648', 'inactive_file 1021313024', 'active_file 0', 'slab_reclaimable 0', ''].join('\n');
+  assert.equal(withCache(40 * MiB, stat, 16 * GiB), 1014 * MiB);
+  assert.equal(memoryCase({ ...quiet, available: withCache(40 * MiB, stat, 16 * GiB) }), null);
+  assert.equal(withCache(40 * MiB, stat, 100 * MiB), 100 * MiB);
+  assert.equal(memoryCase({ ...quiet, available: withCache(40 * MiB, stat, 100 * MiB) }), 'system');
+  assert.equal(withCache(40 * MiB, null, 16 * GiB), 40 * MiB);
+  assert.equal(withCache(40 * MiB, 'file 1021313024\nshmem 1021313024\n', 16 * GiB), 40 * MiB);
   assert.equal(availableNow('darwin'), null);
   assert.equal(typeof availableNow('linux'), 'number');
 });
