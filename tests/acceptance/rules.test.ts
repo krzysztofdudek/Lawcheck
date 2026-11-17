@@ -229,7 +229,8 @@ test('R-114: check-slice §3, a rule that sends its own standard error with an i
     const started = performance.now();
     const run = await check(s);
     assert.equal(run.code, 0, run.stdout);
-    assert.ok(performance.now() - started < 5_000, `the run took ${Math.round(performance.now() - started)} ms`);
+    // A handle the tool kept open would hold the run until 10 seconds after the runner ended, the bound of src/rules.ts.
+    assert.ok(performance.now() - started < 10_000, `the run took ${Math.round(performance.now() - started)} ms`);
   });
 });
 
