@@ -8,7 +8,7 @@ import type { Speed } from './support.ts';
 const leaf = fc.constantFrom('null', 'undefined', '0', '-1', '1', '2', '1.5', 'NaN', 'Infinity', '2n', "'2'", "''", "'x'", "'a\\nb'", 'true', '[]', '{}', 'Symbol()', '() => 1', 'new Date(0)', 'new Map()', '/x/', "'\\u0000\\u001b[2K'");
 const finding = fc.record({ message: leaf, line: fc.option(leaf, { nil: null }), file: fc.option(fc.constantFrom("'src/core/a.ts'", "'src/core/b.ts'", "'other.ts'"), { nil: null }) }).map(({ message, line, file }) => `{ message: ${message}${line === null ? '' : `, line: ${line}`}${file === null ? '' : `, file: ${file}`} }`);
 const noStringForm = ['Object.create(null)', '[Symbol()]'];
-const returned = fc.oneof({ weight: 2, arbitrary: fc.constantFrom(...noStringForm) }, { weight: 3, arbitrary: leaf }, { weight: 3, arbitrary: fc.array(fc.oneof({ weight: 3, arbitrary: finding }, { weight: 1, arbitrary: leaf }), { maxLength: 3 }).map((items) => `[${items.join(', ')}]`) });
+const returned = fc.oneof({ weight: 2, arbitrary: fc.constantFrom(...noStringForm) }, { weight: 2, arbitrary: leaf }, { weight: 6, arbitrary: fc.array(fc.oneof({ weight: 3, arbitrary: finding }, { weight: 1, arbitrary: leaf }), { maxLength: 3 }).map((items) => `[${items.join(', ')}]`) });
 const how = fc.constantFrom('return', 'return Promise.resolve', 'throw', 'return Promise.reject', 'background', 'top', 'timer', 'late');
 
 function ruleSource(kind: string, value: string): string {
