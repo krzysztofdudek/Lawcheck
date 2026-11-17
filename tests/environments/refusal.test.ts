@@ -260,8 +260,8 @@ test('test 201: a runner Node cannot start with its flags is runner-failed, with
   });
 });
 
-// The runner ends at once and leaves a program that holds its standard error and writes to it 300 ms later, as a loaded machine may deliver what an ended runner printed.
-const LATE_RUNNER = "import { spawn } from 'node:child_process';\nspawn(process.execPath, ['-e', \"setTimeout(() => process.stderr.write('the runner said this late\\\\n'), 300)\"], { stdio: ['ignore', 'ignore', 'inherit'] });\nprocess.exit(9);\n";
+// The runner ends at once and leaves a program that holds its standard error and writes to it 300 ms later, as a loaded machine may deliver what an ended runner printed. The program is detached because on Windows Node puts every other child in a job object that ends it the moment its parent ends.
+const LATE_RUNNER = "import { spawn } from 'node:child_process';\nspawn(process.execPath, ['-e', \"setTimeout(() => process.stderr.write('the runner said this late\\\\n'), 300)\"], { stdio: ['ignore', 'ignore', 'inherit'], detached: true });\nprocess.exit(9);\n";
 
 test('R-114: test 201, what a runner that did not start printed reaches standard error when it comes after the runner has ended', async () => {
   await withCopy(async (copy) => {
