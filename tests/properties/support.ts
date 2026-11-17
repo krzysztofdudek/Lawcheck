@@ -32,7 +32,7 @@ export interface Claim<T> {
 function parameters(speed: Speed, tool: boolean, examples: unknown[] = []): fc.Parameters<unknown> {
   const numRuns = cases(tool ? 'tool' : 'pure');
   const given = examples.map((example) => [example]);
-  if (!speed.nightly) return { seed: speed.seed, numRuns, examples: given as [unknown][] };
+  if (!speed.nightly) return { seed: speed.seed, numRuns: numRuns + given.length, examples: given as [unknown][] };
   return { seed: speed.seed, examples: given as [unknown][], numRuns: Number.MAX_SAFE_INTEGER, interruptAfterTimeLimit: NIGHTLY_MS, markInterruptAsFailure: false };
 }
 
