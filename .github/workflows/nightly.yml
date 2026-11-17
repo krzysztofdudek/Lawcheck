@@ -312,7 +312,7 @@ jobs:
           sudo unshare --net -- sh -c 'ip link set lo up && u=$1 g=$2 && shift 2 && exec setpriv --reuid="$u" --regid="$g" --clear-groups env -i "$@"' \
             sh "$(id -u)" "$(id -g)" PATH="$PATH" HOME="$HOME" USER="$(id -un)" LOGNAME="$(id -un)" node tests/run.ts nightly --group coverage
 
-  # Every live result covers the paths it guards; the release runs this through the nightly set.
+  # Every live result covers the paths it guards; the nightly set runs this, and the release requires a green nightly set on its commit.
   live:
     name: nightly live results current
     needs: grammars

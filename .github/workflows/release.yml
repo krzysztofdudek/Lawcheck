@@ -175,7 +175,7 @@ jobs:
         env:
           VERSION: ${{ needs.pack.outputs.version }}
           DISTTAG: ${{ needs.pack.outputs.disttag }}
-        run: npm publish "release/lawcheck-${VERSION}.tgz" --ignore-scripts --provenance --access public --tag "${DISTTAG}"
+        run: npm publish "./release/lawcheck-${VERSION}.tgz" --ignore-scripts --provenance --access public --tag "${DISTTAG}"
 
   github-release:
     name: GitHub release
