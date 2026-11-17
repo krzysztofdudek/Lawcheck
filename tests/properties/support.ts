@@ -29,6 +29,67 @@ export interface Claim<T> {
   least?: Record<string, number>;
 }
 
+// The draw before the case for which a class would fall below its share, worst case one class per case; a share of 0 never comes due.
+function due(share: number, count: number): number {
+  if (share <= 0) return Number.POSITIVE_INFINITY;
+  let total = Math.floor(count / share) + 1;
+  while (total > 1 && Math.ceil(share * (total - 1)) > count) total--;
+  while (Math.ceil(share * total) <= count) total++;
+  return total;
+}
+
+// A class a seed draws less often than its share would leave the reach short on some seeds, so the draw is steered: when a class comes due within as many cases as there are classes, the generator draws again, up to TRIES times, until the case lies in that class, the one due first. With the shares summing below 1, every class holds its share from as many cases as there are classes on, whatever the seed, and the cases keep the generator's own shrinking. A class the generator cannot reach stays short, and the reach says so.
+const TRIES = 1000;
+
+export class Reaching<T> extends fc.Arbitrary<T> {
+  private readonly inner: fc.Arbitrary<T>;
+  private readonly shares: number[];
+  private readonly holds: ((value: T) => boolean)[];
+  private readonly counts: number[];
+  private total = 0;
+
+  constructor(inner: fc.Arbitrary<T>, claim: Claim<T>) {
+    super();
+    this.inner = inner;
+    const names = Object.keys(claim.classes);
+    this.shares = names.map((name) => claim.least?.[name] ?? REACH_SHARE);
+    this.holds = names.map((name) => claim.classes[name]!);
+    this.counts = names.map(() => 0);
+    for (const example of claim.examples ?? []) this.count(example);
+  }
+
+  private count(value: T): void {
+    this.total++;
+    this.holds.forEach((holds, i) => {
+      if (holds(value)) this.counts[i]!++;
+    });
+  }
+
+  generate(mrng: fc.Random, biasFactor: number | undefined): fc.Value<T> {
+    let first = -1;
+    let soonest = Number.POSITIVE_INFINITY;
+    this.shares.forEach((share, i) => {
+      const at = due(share, this.counts[i]!);
+      if (at < soonest) {
+        soonest = at;
+        first = i;
+      }
+    });
+    let drawn = this.inner.generate(mrng, biasFactor);
+    if (soonest - (this.total + 1) < this.shares.length) for (let tries = 1; tries < TRIES && !this.holds[first]!(drawn.value); tries++) drawn = this.inner.generate(mrng, biasFactor);
+    this.count(drawn.value);
+    return drawn;
+  }
+
+  canShrinkWithoutContext(value: unknown): value is T {
+    return this.inner.canShrinkWithoutContext(value);
+  }
+
+  shrink(value: T, context: unknown): fc.Stream<fc.Value<T>> {
+    return this.inner.shrink(value, context);
+  }
+}
+
 function parameters(speed: Speed, tool: boolean, examples: unknown[] = []): fc.Parameters<unknown> {
   const numRuns = cases(tool ? 'tool' : 'pure');
   const given = examples.map((example) => [example]);
@@ -59,7 +120,7 @@ export function pure<T>(speed: Speed, arbitrary: fc.Arbitrary<T>, claim: Claim<T
   const tally = counter(claim);
   let shrinking = false;
   fc.assert(
-    fc.property(arbitrary, (value) => {
+    fc.property(new Reaching(arbitrary, claim), (value) => {
       if (!shrinking) tally.count(value);
       try {
         predicate(value);
@@ -78,7 +139,7 @@ export async function tool<T>(speed: Speed, arbitrary: fc.Arbitrary<T>, claim: C
   const tally = counter(claim);
   let shrinking = false;
   await fc.assert(
-    fc.asyncProperty(arbitrary, async (value) => {
+    fc.asyncProperty(new Reaching(arbitrary, claim), async (value) => {
       if (!shrinking) tally.count(value);
       try {
         await predicate(value);
