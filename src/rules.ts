@@ -2,8 +2,9 @@ import { fork, spawn, spawnSync } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
 import { availableParallelism, tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { dirname, sep } from 'node:path';
-import { existsSync, realpathSync, rmSync } from 'node:fs';
+import { dirname, join, sep } from 'node:path';
+import { randomBytes } from 'node:crypto';
+import { existsSync, mkdirSync, realpathSync, rmSync } from 'node:fs';
 import type { TypeDef } from './law.js';
 import { killTree } from './programs.js';
 import { safeText } from './output.js';
@@ -70,6 +71,21 @@ export function watchFolder(path: string): void {
   liveFolders.add(path);
   startGuard();
   guard!.stdin!.write(`+d${path}\n`);
+}
+
+// A folder made before the guard knows of it outlives a tool killed by SIGKILL in between, so the guard learns its name first and the folder is made after.
+export function guardedFolder(prefix: string): string {
+  for (let tries = 1; ; tries++) {
+    const path = join(tmpdir(), `${prefix}${randomBytes(6).toString('hex')}`);
+    watchFolder(path);
+    try {
+      mkdirSync(path, { mode: 0o700 });
+      return path;
+    } catch (error) {
+      if (liveFolders.delete(path)) guard?.stdin?.write(`-d${path}\n`);
+      if ((error as NodeJS.ErrnoException).code !== 'EEXIST' || tries === 10) throw error;
+    }
+  }
 }
 
 export function releaseFolder(path: string): void {

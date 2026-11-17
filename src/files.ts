@@ -1,8 +1,9 @@
 import { spawnSync } from 'node:child_process';
-import { copyFileSync, existsSync, lstatSync, mkdtempSync, rmSync } from 'node:fs';
-import { devNull, tmpdir } from 'node:os';
+import { copyFileSync, existsSync, lstatSync } from 'node:fs';
+import { devNull } from 'node:os';
 import { dirname, join, resolve, sep } from 'node:path';
 import { findProgram } from './programs.js';
+import { guardedFolder, releaseFolder } from './rules.js';
 import { bytesOfName, nameOf, onDisk, quotedLine } from './names.js';
 import { receiveMessageOnPort } from 'node:worker_threads';
 import type { MessagePort } from 'node:worker_threads';
@@ -231,7 +232,7 @@ function onIndexCopy<T>(root: string, read: (env: NodeJS.ProcessEnv) => T): T {
   if (!existsSync(resolved)) return read({});
   let folder: string;
   try {
-    folder = mkdtempSync(join(tmpdir(), 'lawcheck-index-'));
+    folder = guardedFolder('lawcheck-index-');
   } catch {
     // Without a temporary folder the diff reads the index itself: the change is the same, and git may write the index again with fresh times.
     return read({});
@@ -244,7 +245,7 @@ function onIndexCopy<T>(root: string, read: (env: NodeJS.ProcessEnv) => T): T {
     }
     return read({ GIT_INDEX_FILE: join(folder, 'index') });
   } finally {
-    rmSync(folder, { recursive: true, force: true });
+    releaseFolder(folder);
   }
 }
 

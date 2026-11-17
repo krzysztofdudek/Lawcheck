@@ -171,3 +171,27 @@ test('test 270: a worker slow to start is no step past its limit, since the watc
     assert.equal(result.code, 0);
   });
 });
+
+// The hook holds the worker once the index is copied into its temporary folder, so the kill lands while that folder exists.
+const HOLD_COPY = [
+  "import fs from 'node:fs';",
+  "import { syncBuiltinESMExports } from 'node:module';",
+  'const copy = fs.copyFileSync;',
+  "fs.copyFileSync = (from, to, mode) => { copy(from, to, mode); if (String(to).includes('lawcheck-index-')) { fs.writeFileSync(process.env.LAWCHECK_TEST_COPIED, ''); Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 20000); } };",
+  'syncBuiltinESMExports();',
+  '',
+].join('\n');
+
+test('test 252: R-112, a run killed with SIGKILL while git reads its copy of the index leaves nothing in the temporary directory', async () => {
+  await withSample(async (s, dir) => {
+    const hook = join(dir, 'hold.mjs');
+    const copied = join(dir, 'copied');
+    writeFileSync(hook, HOLD_COPY);
+    const running = startLawcheck(s, ['check', '--base', 'main'], { env: { LAWCHECK_TEST_COPIED: copied }, node: ['--import', pathToFileURL(hook).href], outside: ['copied'] });
+    await until(() => existsSync(copied), 'the copy of the index');
+    running.kill('SIGKILL');
+    const result = await running.ended;
+    assert.equal(result.signal, 'SIGKILL');
+    assert.equal(result.stdout, '');
+  });
+});
