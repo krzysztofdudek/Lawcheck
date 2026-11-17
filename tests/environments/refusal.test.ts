@@ -260,6 +260,24 @@ test('test 201: a runner Node cannot start with its flags is runner-failed, with
   });
 });
 
+// The runner ends at once and leaves a program that holds its standard error and writes to it 300 ms later, as a loaded machine may deliver what an ended runner printed.
+const LATE_RUNNER = "import { spawn } from 'node:child_process';\nspawn(process.execPath, ['-e', \"setTimeout(() => process.stderr.write('the runner said this late\\\\n'), 300)\"], { stdio: ['ignore', 'ignore', 'inherit'] });\nprocess.exit(9);\n";
+
+test('R-114: test 201, what a runner that did not start printed reaches standard error when it comes after the runner has ended', async () => {
+  await withCopy(async (copy) => {
+    const rules = join(copy.dir, 'dist', 'rules.js');
+    const late = join(copy.dir, 'late-runner.mjs');
+    writeFileSync(late, LATE_RUNNER);
+    const sound = readFileSync(rules, 'utf8');
+    assert.ok(sound.includes('fork(RUNNER, [], {') && sound.includes('execArgv: runnerArgs(run.root),'));
+    writeFileSync(rules, sound.replace('fork(RUNNER, [], {', `fork(${JSON.stringify(late)}, [], {`).replace('execArgv: runnerArgs(run.root),', 'execArgv: [],'));
+    await inTemp(async (dir) => {
+      const run = await lawcheckAt(copy.cli, sampleWithD(dir), ['check', '--base', 'main'], {}, { stderr: /^(the runner said this late\n)+$/ });
+      runnerFailed(run, /it ended with 9 before it started$/, 'check');
+    });
+  });
+});
+
 test('R-31: test 201, a runner whose process cannot be started, as with EAGAIN, is runner-failed with the system\'s words', async () => {
   await withCopy(async (copy) => {
     const rules = join(copy.dir, 'dist', 'rules.js');

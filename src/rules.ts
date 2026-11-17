@@ -297,6 +297,10 @@ export function runRule(run: RuleRun): Promise<RuleOutcome> {
     relay(child.stdout);
     relay(child.stderr);
     watch(child);
+    let closed = false;
+    child.once('close', () => {
+      closed = true;
+    });
     let settled = false;
     let started = false;
     let timer: NodeJS.Timeout | undefined;
@@ -311,9 +315,9 @@ export function runRule(run: RuleRun): Promise<RuleOutcome> {
       run.signal?.removeEventListener('abort', stop);
       release(child);
       const settle = () => (outcome instanceof Error ? reject(outcome) : resolve(outcome));
-      // Windows refuses to remove the root while the killed runner, which works in it, is still ending.
-      if (child.pid === undefined || child.exitCode !== null || child.signalCode !== null) settle();
-      else child.once('exit', settle);
+      // Windows refuses to remove the root while the killed runner, which works in it, is still ending; and a runner that has ended can still hold what it printed in its pipes, which the tool relays before the run goes on.
+      if (child.pid === undefined || closed) settle();
+      else child.once('close', settle);
     };
     const ask = (request: unknown, onAnswer: (message: Message) => void) => {
       timer = setTimeout(() => end({ crash: `passes ${timeoutMs / 1000} seconds ${stage}` }), timeoutMs);
