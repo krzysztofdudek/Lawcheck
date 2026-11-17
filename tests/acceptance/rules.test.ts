@@ -217,8 +217,19 @@ test("check-slice §3: a rule that writes to the runner's channel crashes as tha
 test("R-114: check-slice §3, a rule that sends its own standard error through the runner's channel crashes as that rule, and the run ends", async () => {
   await withRule("process._send({ kind: 'x' }, process.stderr, {}, () => {});\nexport function check() { return []; }\n", async (s) => {
     const run = await check(s);
+    // Node on Windows passes only TCP handles through a channel, so there the send fails inside the rule and the rule is judged.
+    if (process.platform === 'win32') return assert.equal(run.code, 0, run.stdout);
     assertCrashes(run, 'sends its standard error');
     assert.match(run.stdout, /writes to the runner's channel in its load/);
+  });
+});
+
+test('R-114: check-slice §3, a rule that sends its own standard error with an internal message of Node is judged, and the run ends at once', async () => {
+  await withRule("process._send({ cmd: 'NODE_x' }, process.stderr, {}, () => {});\nexport function check() { return []; }\n", async (s) => {
+    const started = performance.now();
+    const run = await check(s);
+    assert.equal(run.code, 0, run.stdout);
+    assert.ok(performance.now() - started < 5_000, `the run took ${Math.round(performance.now() - started)} ms`);
   });
 });
 

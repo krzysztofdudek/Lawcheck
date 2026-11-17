@@ -23,7 +23,7 @@ export const RUNNER = fileURLToPath(new URL('./runner.js', import.meta.url));
 export const PACKAGE_DIR = realpathSync(dirname(dirname(RUNNER)));
 // spec/check-slice.md, section 3: 30 seconds for the load and for each call. Only a test changes it, from an entry of its own that sets it before it starts the tool; no option, variable or file a user controls reaches it, and a rule runs in a process of its own, which cannot.
 export const LIMITS = { ruleMs: 30_000 };
-// How long a run waits, after its runner has ended, for the runner's pipes to close. Only on Windows can a program the tool starts at the same moment, such as git, inherit them, for as long as it runs, and a loaded machine takes seconds to start Node, so 10 seconds lets a line printed at the end through and bounds a pipe that something else holds open.
+// How long a run waits, after its runner has ended, for the runner's pipes to close. The tool closes every handle a runner sends, so only on Windows can something else hold them: a program the tool starts at the same moment, such as git, inherits them for as long as it runs. A loaded machine takes seconds to start Node, so 10 seconds lets a line printed at the end through and bounds a pipe that something else holds open.
 const DRAIN_MS = 10_000;
 const GUARD = fileURLToPath(new URL('./guard.js', import.meta.url));
 
@@ -285,6 +285,13 @@ function whyNotStarted(root: string, ended: string): string {
   return `the runner of script rules did not start: ${said ?? ended}`;
 }
 
+function closeHandle(handle: unknown): void {
+  if (handle === undefined || handle === null) return;
+  const held = handle as { destroy?(): void; close?(): void };
+  if (held.destroy) held.destroy();
+  else held.close?.();
+}
+
 export function runRule(run: RuleRun): Promise<RuleOutcome> {
   const timeoutMs = run.timeoutMs ?? LIMITS.ruleMs;
   const budget = run.budget ?? new FindingBudget();
@@ -390,13 +397,10 @@ export function runRule(run: RuleRun): Promise<RuleOutcome> {
       if (started) return end({ crash: `ends before answering ${stage}` });
       end({ broken: whyNotStarted(run.root, `it ended with ${code ?? signal} before it started`) });
     });
+    // A rule can send a handle through the channel, its own standard error among them, with a message or with one of Node's internal messages, and the tool's copy would keep that pipe open.
+    child.on('internalMessage', (_message: unknown, handle: unknown) => closeHandle(handle));
     child.on('message', (message: unknown, handle: unknown) => {
-      // A rule can send a handle through the channel, its own standard error among them, and the tool's copy would keep that pipe open.
-      if (handle !== undefined && handle !== null) {
-        const held = handle as { destroy?(): void; close?(): void };
-        if (held.destroy) held.destroy();
-        else held.close?.();
-      }
+      closeHandle(handle);
       const known = typeof message === 'object' && message !== null && typeof (message as Message).kind === 'string';
       if (!started && known && (message as Message).kind === 'ready') {
         started = true;
