@@ -76,7 +76,7 @@ A rule is `rule-crashed`, exit 2, at its file when it:
 - ends its process before answering, or sends a message nobody asked for;
 - leaves a promise rejected with no handler, or a timer that throws, while its process lives: the message names the load, or no file. After the last call Lawcheck waits once, at most 2 seconds, for what the rule left running.
 
-The message names the judged file, or the load. A thrown or rejected value that has no string form, such as an object with no prototype, is named by the reason JavaScript gives for that. One run names each broken rule once.
+The message names the judged file, or the load. A thrown or rejected value that has no string form, such as an object with no prototype, is named by the reason JavaScript gives for that, and a value built so that not even that reason can be had, such as a proxy whose every trap throws something that is not an error, by the text `a value with no string form`. One run names each broken rule once.
 
 A runner that Node cannot start at all is `runner-failed` instead, with Node's own line in the message, and no rule is blamed. Reinstalling Lawcheck is the fix.
 

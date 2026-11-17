@@ -60,6 +60,8 @@ for (const [what, source, message] of background) {
 const noStringForm: [string, string, string][] = [
   ['an object without a prototype', 'Object.create(null)', 'Cannot convert object to primitive value'],
   ['an array holding a symbol', '[Symbol()]', 'Cannot convert a Symbol value to a string'],
+  ['a proxy whose traps throw a symbol', 'new Proxy({}, new Proxy({}, { get() { throw Symbol(); } }))', 'a value with no string form'],
+  ['a proxy whose traps throw an object', 'new Proxy({}, new Proxy({}, { get() { throw { a: 1 }; } }))', 'a value with no string form'],
 ];
 const noStringFormWhere: [string, (value: string) => string, (reason: string) => string][] = [
   ['a rejection in a call', (value) => `export function check() { Promise.reject(${value}); return []; }\n`, (reason) => `fails in the background: ${reason}`],
@@ -80,6 +82,17 @@ for (const [where, source, message] of noStringFormWhere) {
       });
     });
   }
+}
+
+for (const [what, value, reason] of noStringForm.slice(0, 2)) {
+  test(`R-106: a throw at the top of the module with ${what} is rule-crashed at once, named by the reason the value has no string form`, { timeout: 15_000 }, async () => {
+    await withSample(async (s) => {
+      setRule(s, 'no-console', `throw ${value};\nexport function check() { return []; }\n`);
+      write(s, 'src/core/a.ts', 'export const x = 1;\n');
+      const run = await check(s);
+      assert.deepEqual([run.code, run.stdout.split('\n')[2]], [2, `.lawcheck/rules/no-console.mjs  error[rule-crashed]  fails to load: ${reason}`]);
+    });
+  });
 }
 
 test('S2-6: a rule that settles its own promises is judged as before (control)', async () => {

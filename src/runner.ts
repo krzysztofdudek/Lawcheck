@@ -90,6 +90,8 @@ function refused(error: unknown): string | null {
   }
 }
 
+const NO_STRING_FORM = 'a value with no string form';
+
 // A value can have no string form (an object without a prototype, an array holding a symbol), so its text is the reason JavaScript gives for that.
 function text(error: unknown): string {
   try {
@@ -99,10 +101,11 @@ function text(error: unknown): string {
     return message.split(/\r?\n/)[0] ?? '';
   } catch (reason) {
     try {
-      return String((reason as Error).message).split(/\r?\n/)[0] ?? '';
+      if (reason instanceof Error) return String(reason.message).split(/\r?\n/)[0] ?? '';
     } catch {
-      return 'a value with no string form';
+      return NO_STRING_FORM;
     }
+    return NO_STRING_FORM;
   }
 }
 
