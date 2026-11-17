@@ -214,6 +214,14 @@ test("check-slice §3: a rule that writes to the runner's channel crashes as tha
   }
 });
 
+test("R-114: check-slice §3, a rule that sends its own standard error through the runner's channel crashes as that rule, and the run ends", async () => {
+  await withRule("process._send({ kind: 'x' }, process.stderr, {}, () => {});\nexport function check() { return []; }\n", async (s) => {
+    const run = await check(s);
+    assertCrashes(run, 'sends its standard error');
+    assert.match(run.stdout, /writes to the runner's channel in its load/);
+  });
+});
+
 test('check-slice §3: what a rule prints goes to standard error', async () => {
   await withRule(
     ORIGINAL + "export function check(input) { console.log('out from the rule'); console.error('err from the rule'); return original(input); }\n",

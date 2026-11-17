@@ -23,6 +23,8 @@ export const RUNNER = fileURLToPath(new URL('./runner.js', import.meta.url));
 export const PACKAGE_DIR = realpathSync(dirname(dirname(RUNNER)));
 // spec/check-slice.md, section 3: 30 seconds for the load and for each call. Only a test changes it, from an entry of its own that sets it before it starts the tool; no option, variable or file a user controls reaches it, and a rule runs in a process of its own, which cannot.
 export const LIMITS = { ruleMs: 30_000 };
+// How long a run waits, after its runner has ended, for the runner's pipes to close. Only on Windows can a program the tool starts at the same moment, such as git, inherit them, for as long as it runs, and a loaded machine takes seconds to start Node, so 10 seconds lets a line printed at the end through and bounds a pipe that something else holds open.
+const DRAIN_MS = 10_000;
 const GUARD = fileURLToPath(new URL('./guard.js', import.meta.url));
 
 const live = new Set<ChildProcess>();
@@ -315,9 +317,18 @@ export function runRule(run: RuleRun): Promise<RuleOutcome> {
       run.signal?.removeEventListener('abort', stop);
       release(child);
       const settle = () => (outcome instanceof Error ? reject(outcome) : resolve(outcome));
-      // Windows refuses to remove the root while the killed runner, which works in it, is still ending; and a runner that has ended can still hold what it printed in its pipes, which the tool relays before the run goes on.
-      if (child.pid === undefined || closed) settle();
-      else child.once('close', settle);
+      // Windows refuses to remove the root while the killed runner, which works in it, is still ending; and a runner that has ended can still hold what it printed in its pipes, which the tool relays before the run goes on. A pipe can outlive the runner, so the wait ends DRAIN_MS after the runner has ended.
+      if (child.pid === undefined || closed) return settle();
+      let drain: NodeJS.Timeout | undefined;
+      const bounded = () => {
+        drain = setTimeout(settle, DRAIN_MS);
+      };
+      child.once('close', () => {
+        clearTimeout(drain);
+        settle();
+      });
+      if (child.exitCode !== null || child.signalCode !== null) bounded();
+      else child.once('exit', bounded);
     };
     const ask = (request: unknown, onAnswer: (message: Message) => void) => {
       timer = setTimeout(() => end({ crash: `passes ${timeoutMs / 1000} seconds ${stage}` }), timeoutMs);
@@ -379,7 +390,13 @@ export function runRule(run: RuleRun): Promise<RuleOutcome> {
       if (started) return end({ crash: `ends before answering ${stage}` });
       end({ broken: whyNotStarted(run.root, `it ended with ${code ?? signal} before it started`) });
     });
-    child.on('message', (message: unknown) => {
+    child.on('message', (message: unknown, handle: unknown) => {
+      // A rule can send a handle through the channel, its own standard error among them, and the tool's copy would keep that pipe open.
+      if (handle !== undefined && handle !== null) {
+        const held = handle as { destroy?(): void; close?(): void };
+        if (held.destroy) held.destroy();
+        else held.close?.();
+      }
       const known = typeof message === 'object' && message !== null && typeof (message as Message).kind === 'string';
       if (!started && known && (message as Message).kind === 'ready') {
         started = true;
