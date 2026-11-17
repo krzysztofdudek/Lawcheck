@@ -29,7 +29,7 @@ export interface Claim<T> {
   least?: Record<string, number>;
 }
 
-// The draw before the case for which a class would fall below its share, worst case one class per case; a share of 0 never comes due.
+// The total at which a class falls below its share unless that case lies in it, by the bound reached() asserts, Math.ceil(share * total); a share of 0 never comes due.
 function due(share: number, count: number): number {
   if (share <= 0) return Number.POSITIVE_INFINITY;
   let total = Math.floor(count / share) + 1;
@@ -38,7 +38,7 @@ function due(share: number, count: number): number {
   return total;
 }
 
-// A class a seed draws less often than its share would leave the reach short on some seeds, so the draw is steered: when a class comes due within as many cases as there are classes, the generator draws again, up to TRIES times, until the case lies in that class, the one due first. With the shares summing below 1, every class holds its share from as many cases as there are classes on, whatever the seed, and the cases keep the generator's own shrinking. A class the generator cannot reach stays short, and the reach says so.
+// A seed that draws a class less often than its share would leave the reach short though the generator reaches the class, so the draw is steered: when a class comes due within as many cases as there are classes, the generator draws again, up to TRIES times, until the case lies in the class due first. Every total at which all the shares can be met at once then holds them, whatever the seed: for the claims of this suite, at most five classes of share 0.1 or less, every total from the examples plus as many cases as there are classes on. A class that TRIES draws in a row miss is no longer steered toward, so a class the generator cannot reach costs TRIES draws once and leaves the reach short. The classes read a value's own instance, value_, since reading value hands out the one uncloned instance of a cloneable value, and fc.commands shrinks by the commands that instance ran.
 const TRIES = 1000;
 
 export class Reaching<T> extends fc.Arbitrary<T> {
@@ -46,6 +46,7 @@ export class Reaching<T> extends fc.Arbitrary<T> {
   private readonly shares: number[];
   private readonly holds: ((value: T) => boolean)[];
   private readonly counts: number[];
+  private readonly missed: boolean[];
   private total = 0;
 
   constructor(inner: fc.Arbitrary<T>, claim: Claim<T>) {
@@ -55,6 +56,7 @@ export class Reaching<T> extends fc.Arbitrary<T> {
     this.shares = names.map((name) => claim.least?.[name] ?? REACH_SHARE);
     this.holds = names.map((name) => claim.classes[name]!);
     this.counts = names.map(() => 0);
+    this.missed = names.map(() => false);
     for (const example of claim.examples ?? []) this.count(example);
   }
 
@@ -69,6 +71,7 @@ export class Reaching<T> extends fc.Arbitrary<T> {
     let first = -1;
     let soonest = Number.POSITIVE_INFINITY;
     this.shares.forEach((share, i) => {
+      if (this.missed[i]) return;
       const at = due(share, this.counts[i]!);
       if (at < soonest) {
         soonest = at;
@@ -76,8 +79,11 @@ export class Reaching<T> extends fc.Arbitrary<T> {
       }
     });
     let drawn = this.inner.generate(mrng, biasFactor);
-    if (soonest - (this.total + 1) < this.shares.length) for (let tries = 1; tries < TRIES && !this.holds[first]!(drawn.value); tries++) drawn = this.inner.generate(mrng, biasFactor);
-    this.count(drawn.value);
+    if (soonest - (this.total + 1) < this.shares.length) {
+      for (let tries = 1; tries < TRIES && !this.holds[first]!(drawn.value_); tries++) drawn = this.inner.generate(mrng, biasFactor);
+      if (!this.holds[first]!(drawn.value_)) this.missed[first] = true;
+    }
+    this.count(drawn.value_);
     return drawn;
   }
 
