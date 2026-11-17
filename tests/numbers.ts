@@ -180,9 +180,9 @@ export const SLOW_TESTS: Record<string, Slow> = {
   // The test deadlines of the edit and stop hooks, 3 and 4 seconds, and on Linux and macOS the SIGKILL 2 seconds after SIGTERM (spec/plugin-slice.md, section 5).
   'tests/acceptance/plugin.test.ts > test 163: the deadline, and a hook that is stopped': { fixed: 7_000, measured: { linux: 9_515, win32: 8_375 } },
   // The test deadlines of the session-start and prompt hooks, 5 and 6 seconds (spec/plugin-slice.md, section 5).
-  'tests/acceptance/plugin.test.ts > R-86: the session-start and prompt hooks each end at their own deadline': { fixed: 11_000, measured: { linux: 11_817 } },
+  'tests/acceptance/plugin.test.ts > R-86: the session-start and prompt hooks each end at their own deadline': { fixed: 11_000, measured: { linux: 11_817, win32: 13_487 } },
   // Three waits of PAST_USER_SET_MS past the deadline of 1 second the variable would set (session-start and edit at once, prompt, stop).
-  'tests/acceptance/plugin.test.ts > R-87: the hook a user runs keeps its shipped deadline for every event when the variable of the test entry is set': { fixed: 7_500, measured: { linux: 9_447 } },
+  'tests/acceptance/plugin.test.ts > R-87: the hook a user runs keeps its shipped deadline for every event when the variable of the test entry is set': { fixed: 7_500, measured: { linux: 9_447, win32: 16_939 } },
   // A run of the tool per case.
   'tests/acceptance/plugin.test.ts > test 166 and 167: the hand-back, and the guard': { fixed: 0, measured: { darwin: 8_965, win32: 14_528 } },
   // A run of the tool per case.
@@ -237,8 +237,8 @@ export const SLOW_TESTS: Record<string, Slow> = {
   'tests/acceptance/http-providers.test.ts > test 404: the key canary': { fixed: 0, measured: { darwin: 18_425, win32: 27_263 } },
   // A run of the tool per provider and per program.
   'tests/acceptance/http-providers.test.ts > test 405: a key under a provider name goes to that provider alone': { fixed: 0, measured: { darwin: 5_010, win32: 7_929 } },
-  // A run of the tool per case, each starting the fake program through cmd.exe on Windows.
-  'tests/acceptance/program-providers.test.ts > test 406: codex': { fixed: 0, measured: { darwin: 11_854, win32: 64_931 } },
+  // A run of the tool per case, each starting the fake program through cmd.exe on Windows. On Linux test 406 takes 11.6 to 17.5 s in every completed CI run since 43918757215, and took 29.1 s in shard 2 of CI run 44116929952, attempt 1, on Node 24.0.0 (R-115).
+  'tests/acceptance/program-providers.test.ts > test 406: codex': { fixed: 0, measured: { linux: 29_147, darwin: 11_854, win32: 64_931 } },
   'tests/acceptance/program-providers.test.ts > test 407: gemini-cli': { fixed: 0, measured: { linux: 5_194, darwin: 12_728, win32: 63_443 } },
   'tests/acceptance/program-providers.test.ts > test 408: copilot-cli': { fixed: 0, measured: { linux: 6_455, darwin: 12_112, win32: 86_831 } },
   // STABILITY_PROVIDER_RUNS runs of 30 calls through each fake, a process per call of a program.
@@ -315,6 +315,43 @@ export const SLOW_TESTS: Record<string, Slow> = {
   'tests/environments/ci-recipes.nightly.test.ts > tests 306 and 307: S7-1, S7-2, S7-3, S7-4, the workflow and the hooks of docs/ci.md (design tests 15 and 16), run as written on pnpm, as a pull request and as a push (network)': { fixed: 70_000, measured: { linux: 70_000 } },
   'tests/environments/git.nightly.test.ts > test 207: the check slice acceptance tests and the security tests pass on the git of ubuntu:22.04, debian:12, ubuntu:24.04 and debian:sid (network)': { fixed: 2_400_000, measured: { linux: 2_400_000 } },
   'tests/environments/ownership.nightly.test.ts > S7-15: in a container whose user does not own the checkout, check names the safe.directory command, and that command lets it through (network)': { fixed: 300_000, measured: { linux: 300_000 } },
+  // R-115: the longest time of each test on the Windows three-times jobs of the Nightlies 43899819915 to 44102549698 and of the Nightly that release run 44027365971 called (its round 1, as it was cancelled in round 2), every round included; there a system service can stall the disk and the processors for 34 to 55 seconds early in a job, and a test past 8 seconds kept too little of the default budget for it.
+  'tests/contract/codes.test.ts > tests 232, 233, 236, 241 and 277: file-too-large, text-too-large, too-many-findings, file-unwritable and memory-too-large, in text and in JSON, and the commands their next lines name': { fixed: 0, measured: { win32: 23_265 } },
+  'tests/acceptance/waivers.test.ts > test 33: a waiver of an unknown rule': { fixed: 0, measured: { win32: 20_350 } },
+  'tests/acceptance/reviewer.test.ts > test 55: each form of a good answer': { fixed: 0, measured: { win32: 16_453 } },
+  'tests/acceptance/self-law-rules.test.ts > question 160: no-import-cycles, a circle of value imports is found on each file of it; a type-only import closes no circle': { fixed: 0, measured: { win32: 15_275 } },
+  'tests/acceptance/reviewer-law.test.ts > R-97: a pass recorded while the waiver counted is no pass once the type sets waivers: false, in check, check of a named file, explain and --review': { fixed: 0, measured: { win32: 15_130 } },
+  'tests/acceptance/uses.test.ts > test 90: a grammar that cannot be loaded stops the run': { fixed: 0, measured: { win32: 15_012 } },
+  'tests/acceptance/law-change.test.ts > test 300: S7-3, a rule taken off a type while the change breaks it is said in plain words, and the exit code stays': { fixed: 0, measured: { win32: 12_376 } },
+  'tests/acceptance/providers.test.ts > test 62: a prompt larger than reviewer.max_chars is never sent': { fixed: 0, measured: { win32: 14_877 } },
+  'tests/acceptance/paths.test.ts > test 143: directories, patterns, a file twice, an untyped file, files that select nothing, and a name that starts with -': { fixed: 0, measured: { win32: 11_583 } },
+  'tests/acceptance/uses.test.ts > test 89: no grammar is loaded where no list reaches, and only the grammars a run parses': { fixed: 0, measured: { win32: 11_275 } },
+  'tests/acceptance/providers.test.ts > test 63: no reviewer set': { fixed: 0, measured: { win32: 12_233 } },
+  'tests/acceptance/plugin.test.ts > test 162: the two switches': { fixed: 0, measured: { win32: 11_228 } },
+  'tests/acceptance/http-providers.test.ts > test 412: doctor asks the Ollama server whether it is there, and names its address': { fixed: 0, measured: { win32: 11_219 } },
+  'tests/acceptance/http-providers.test.ts > test 413: the next line of a reviewer that cannot be called names the fix': { fixed: 0, measured: { win32: 11_163 } },
+  'tests/security/output.test.ts > I-out-1: no file name, message or base forges a line or puts a forbidden character into text output, and one finding is one line': { fixed: 0, measured: { win32: 11_160 } },
+  'tests/acceptance/plugin.test.ts > test 168: a fix lets the agent finish, and an empty turn checks nothing': { fixed: 0, measured: { win32: 10_836 } },
+  'tests/security/output.test.ts > I-out-1: an error message the tool did not write stays on one line of text output': { fixed: 0, measured: { win32: 10_821 } },
+  'tests/acceptance/reviewer-law.test.ts > test 71: two branches merge their verdicts': { fixed: 0, measured: { win32: 10_648 } },
+  "tests/contract/shards.test.ts > question 95: when the call that reads the start of the run fails, the merge says so and gives the shards' time, and its verdict is the tests' verdict, as when the call works": { fixed: 0, measured: { win32: 10_312 } },
+  'tests/acceptance/hostile.test.ts > S1-14: an edit of a file marked assume-unchanged or skip-worktree is in the change': { fixed: 0, measured: { win32: 10_222 } },
+  'tests/security/runner.test.ts > R-98: a rule reads no SQLite database outside the root and writes none through node:sqlite, by any route to the module': { fixed: 0, measured: { win32: 10_057 } },
+  'tests/acceptance/uses.test.ts > test 86: a waiver of forbidden-use, unused, and of a code that cannot be waived': { fixed: 0, measured: { win32: 9_994 } },
+  'tests/acceptance/prime.test.ts > test 103: a law that cannot be read': { fixed: 0, measured: { win32: 9_818 } },
+  'tests/acceptance/plugin.test.ts > test 177: no hook asks the reviewer': { fixed: 0, measured: { win32: 9_738 } },
+  'tests/acceptance/law-change.test.ts > test 317: S7-3, a waiver the change adds is named in the line, and one the base already had is not': { fixed: 0, measured: { win32: 9_726 } },
+  'tests/acceptance/uses.test.ts > test 85: untyped, binary, ignored and outside targets, and what is not read': { fixed: 0, measured: { win32: 8_927 } },
+  'tests/acceptance/prime.test.ts > test 104: the budget takes the first step that fits': { fixed: 0, measured: { win32: 8_704 } },
+  'tests/environments/shapes.test.ts > R-101: a package of a pnpm workspace in the store below node_modules/.pnpm is named by its own name in the next line, a scoped one with its scope': { fixed: 0, measured: { win32: 8_939 } },
+  'tests/acceptance/providers.test.ts > test 59: the first error starts no new review, and what was answered is kept': { fixed: 0, measured: { win32: 8_575 } },
+  'tests/acceptance/ci-docs.test.ts > S7-4: the page names the managers, the floors and the refusal of a plain check with no base in CI, and the code does what it says (report S8)': { fixed: 0, measured: { win32: 8_495 } },
+  'tests/acceptance/reviewer.test.ts > test 49: a clone with no reviewer reads the committed verdict; CRLF keeps it, an edit loses it': { fixed: 0, measured: { win32: 8_290 } },
+  'tests/acceptance/providers.test.ts > test 93: a key an HTTP header cannot carry stops the run before any call': { fixed: 0, measured: { win32: 8_269 } },
+  'tests/acceptance/waivers.test.ts > test 35: two waivers in comments of other languages': { fixed: 0, measured: { win32: 8_176 } },
+  'tests/acceptance/package.test.ts > release-readiness §Package: package: nothing the tarball or the plugin ships holds a test entry, names one or its variable, or changes the shipped limits and deadlines': { fixed: 0, measured: { win32: 8_163 } },
+  'tests/acceptance/uses.test.ts > test 83: a forbidden use outside the change is debt': { fixed: 0, measured: { win32: 8_107 } },
+  'tests/acceptance/rule-results.test.ts > S2-6: a rule that leaves an interval of ten minutes judges 200 files within the time of a rule that leaves nothing, plus one wait of 2 seconds': { fixed: 2_000, measured: { win32: 8_035 } },
   // Measured on Nightly run 43965209262 (seven entries of the list): each entry builds the broken code and runs its test; the run took 8.2 s with five.
   'tests/sabotage/sabotage.nightly.test.ts > question 95: the sabotage list, every break of the list turns its test red': { fixed: 0, measured: { linux: 21_000 } },
 

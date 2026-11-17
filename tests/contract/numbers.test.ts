@@ -20,7 +20,7 @@ test('question 95: every key of SLOW_TESTS names a test that exists, and every s
   for (const [key, budgets] of Object.entries(numbers.SLOW_TESTS)) {
     const [file, name] = key.split(' > ');
     const text = readFileSync(join(ROOT, file!), 'utf8');
-    assert.ok(text.includes(`test(${JSON.stringify(name).replace(/^"|"$/g, "'")}`) || text.includes(`test('${name}'`), key);
+    assert.ok(text.includes(`test(${JSON.stringify(name).replace(/^"|"$/g, "'")}`) || text.includes(`test('${name}'`) || text.includes(`test('${name!.replace(/'/g, "\\'")}'`), key);
     for (const [system, measured] of Object.entries(budgets.measured)) {
       assert.ok(['linux', 'darwin', 'win32'].includes(system), `${key}: ${system}`);
       assert.ok(measured! >= budgets.fixed, `${key}: ${system} measured ${measured} below its fixed waits`);
