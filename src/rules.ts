@@ -23,7 +23,7 @@ export const RUNNER = fileURLToPath(new URL('./runner.js', import.meta.url));
 export const PACKAGE_DIR = realpathSync(dirname(dirname(RUNNER)));
 // spec/check-slice.md, section 3: 30 seconds for the load and for each call. Only a test changes it, from an entry of its own that sets it before it starts the tool; no option, variable or file a user controls reaches it, and a rule runs in a process of its own, which cannot.
 export const LIMITS = { ruleMs: 30_000 };
-// How long a run waits, after its runner has ended, for the runner's pipes to close. The tool closes every handle a runner sends, so only on Windows can something else hold them: a program the tool starts at the same moment, such as git, inherits them for as long as it runs. A loaded machine takes seconds to start Node, so 10 seconds lets a line printed at the end through and bounds a pipe that something else holds open.
+// How long a run waits, after its runner has ended, for the runner's pipes to close. No program the tool starts holds them: the tool closes every handle a runner sends, a rule starts no program, and git starts in the main thread only while the worker, which starts the runners, waits for it, so no git is made while a runner's pipe is inheritable. Only a program the tool did not start can hold them, such as one a replaced runner leaves; the bound keeps it from holding the run.
 const DRAIN_MS = 10_000;
 const GUARD = fileURLToPath(new URL('./guard.js', import.meta.url));
 
