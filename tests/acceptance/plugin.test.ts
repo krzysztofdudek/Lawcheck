@@ -337,8 +337,22 @@ test('R-88: the test entry of the hooks refuses a deadline as long as the shippe
     const seen = join(dir, 'seen');
     fakeWrites(dir, ['seen']);
     bench.script('lawcheck', [`appendFileSync(${JSON.stringify(seen)}, JSON.stringify(process.env[${JSON.stringify(DEADLINES_VARIABLE)}] ?? null) + '\\n');`, ...installedLawcheck(bench.logFile)]);
-    nothing(await startHook('edit', input, bench.env(), { deadlines: { edit: TEST_HOOK_DEADLINES.edit } }).ended);
+    nothing(await startHook('edit', input, bench.env(), { deadlines: { edit: DEADLINES.edit - 1 } }).ended);
     assert.equal(readFileSync(seen, 'utf8'), 'null\n');
+    assert.equal(bench.checks().length, 1);
+  });
+});
+
+test('R-110: the edit hook given the longest deadline the test entry takes waits for a lawcheck slower than its test deadline, as the test of R-88 needs on a loaded runner', async () => {
+  await withBench(async (bench, dir) => {
+    const s = makeSample(dir);
+    append(s, 'src/cli/main.ts', '// end\n');
+    const input = new Session(bench, s).input('edit', { tool_name: 'Write', tool_input: { file_path: join(s, 'src/cli/main.ts') }, tool_response: {} });
+    const slower = TEST_HOOK_DEADLINES.edit * 1000 + 500;
+    bench.script('lawcheck', [`Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ${slower});`, ...installedLawcheck(bench.logFile)]);
+    const run = await startHook('edit', input, bench.env(), { deadlines: { edit: DEADLINES.edit - 1 } }).ended;
+    nothing(run);
+    assert.ok(run.ms >= slower, `the hook ended after ${run.ms} ms, before what it started answered`);
     assert.equal(bench.checks().length, 1);
   });
 });
