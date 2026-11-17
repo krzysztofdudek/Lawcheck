@@ -11,7 +11,11 @@ permissions:
 
 jobs:
   # The commit set and the nightly set at the tagged commit; a red job in either stops the publish.
+  # ci.yml's merge jobs read the start of their run through the API, and a called workflow gets no permission its caller withholds.
   verify:
+    permissions:
+      contents: read
+      actions: read
     uses: ./.github/workflows/ci.yml
 
   nightly:
