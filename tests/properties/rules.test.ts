@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fc from 'fast-check';
+import { cases } from '../numbers.ts';
 import { rulesProperties } from './rules.ts';
 import { COMMIT, pure, Reaching } from './support.ts';
 
@@ -23,7 +24,7 @@ class Step implements fc.Command<object, { count: number }> {
 
 test('R-111: the draw is steered, so a class the generator reaches holds its share on every seed, a class it cannot reach leaves the reach short, and fc.commands still shrinks', () => {
   for (let seed = 1; seed <= 50; seed++) pure({ nightly: false, seed }, fc.integer({ min: 0, max: 99 }), { classes: { 'one in twenty': (n) => n % 20 === 13 } }, () => undefined);
-  assert.throws(() => pure(COMMIT, fc.integer({ min: 0, max: 99 }), { classes: { 'over 99': (n) => n > 99 } }, () => undefined), /the generator reached the class 'over 99' in 0 of 100 cases, below the share 0\.1 it claims/);
+  assert.throws(() => pure(COMMIT, fc.integer({ min: 0, max: 99 }), { classes: { 'over 99': (n) => n > 99 } }, () => undefined), new RegExp(`the generator reached the class 'over 99' in 0 of ${cases('pure')} cases, below the share 0\\.1 it claims`));
   const read = new Set<unknown>();
   const own = new Reaching(fc.commands([fc.constant(new Step())], { maxCommands: 2 }), { classes: { 'any case': (commands) => read.add(commands) !== undefined } });
   fc.assert(fc.property(own, (commands) => assert.ok(read.has(commands), 'the property runs the instance the classes read, not a clone of it')), { seed: COMMIT.seed, numRuns: 20 });
