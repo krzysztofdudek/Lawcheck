@@ -30,7 +30,7 @@ async function judged(files: Record<string, string>): Promise<Found> {
     return {
       result: document.result,
       findings: document.findings.filter((f: any) => f.code === 'forbidden-use').map((f: any) => `${f.file}:${f.line}`),
-      unresolved: document.unresolved.map((u: any) => `${u.file}:${u.line} ${u.answer} ${u.what}`),
+      unresolved: document.unresolved.map((u: any) => `${u.file}:${u.line} ${u.reason === null ? u.answer : `${u.answer} ${u.reason}`} ${u.what}`),
     };
   });
 }
@@ -51,7 +51,7 @@ test('test 310: S4-1, a use through an alias of the bundler configuration is jud
     'src/ui/c.ts': 'const g = import.meta.glob("../data/*.ts");\nconst h = require.context("../data");\nexport { g, h };\n',
     'src/ui/m.test.ts': 'vi.mock("../data/d");\n',
   });
-  assert.deepEqual(found, { result: 'fail', findings: ['src/ui/a.ts:1', 'src/ui/b.js:1', 'src/ui/m.test.ts:1'], unresolved: ['src/ui/a.ts:2 none ~data/d'] });
+  assert.deepEqual(found, { result: 'fail', findings: ['src/ui/a.ts:1', 'src/ui/b.js:1', 'src/ui/m.test.ts:1'], unresolved: ['src/ui/a.ts:2 none unfollowed ~data/d'] });
   const control = await judged({
     '.lawcheck/law.yaml': UI_DATA,
     'src/data/d.ts': 'export const d = 1;\n',
@@ -103,6 +103,7 @@ test('test 312: S4-3, a Rust mod with #[path], in src/lib.rs and in a module fil
 });
 
 test('test 313: S4-6, a script block inside an HTML comment of a Vue file is not read, and a script with src is judged', async () => {
+  assert.ok(page.includes('or uses the file a relative `<script src>` names; a script in an HTML comment is not read'));
   const found = await judged({
     '.lawcheck/law.yaml': law(['ui', ['ui/**'], ['ui']], ['data', ['data/**'], null]),
     'data/d.ts': 'export const d = 1;\n',
@@ -124,10 +125,11 @@ test('test 313: S4-7, a name imported from a Python module is not counted, wheth
     'app/abs.py': 'from app.m import Name\n',
     'app/top.py': 'from . import Top\n',
   });
-  assert.deepEqual(found.unresolved, ['app/top.py:1 none .Top']);
+  assert.deepEqual(found.unresolved, ['app/top.py:1 none unfollowed .Top']);
 });
 
 test('test 313: S4-8, a Go module wired to a sibling only by replace is judged, as with a go.work', async () => {
+  assert.ok(spec.includes('a `replace` with a relative directory of the repository (S4-8)'));
   const files = (extra: Record<string, string>) => ({
     '.lawcheck/law.yaml': law(['ui', ['ui/**/*.go'], ['ui']], ['data', ['data/**/*.go'], null]),
     'ui/go.mod': 'module example.com/ui\n\ngo 1.22\n\nrequire example.com/data v0.0.0\n\nreplace example.com/data => ../data\n',
