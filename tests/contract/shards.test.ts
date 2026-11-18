@@ -137,13 +137,13 @@ test('question 95: continue-on-error on any job of ci.yml or any step of one is 
   const changed = (edit: (ci: Ci) => void): string[] => { const ci = ciFile(); edit(ci); return ciProblems(ci, plan); };
   const reds = (what: string) => `${what} has continue-on-error, so GitHub reports its red as a success`;
   assert.deepEqual(changed((ci) => { ci.jobs['shard-linux']!['continue-on-error'] = true; }), [`ci.yml: ${reds('shard-linux')}`]);
-  assert.deepEqual(changed((ci) => { ci.jobs['shard-win32']!.steps!.find((s) => s.name?.startsWith('Shard '))!['continue-on-error'] = true; }), [`ci.yml: ${reds('step 6 of shard-win32 (Shard ${{ matrix.shard }} of ${{ matrix.of }})')}`]);
+  assert.deepEqual(changed((ci) => { ci.jobs['shard-win32']!.steps!.find((s) => s.name?.startsWith('Shard '))!['continue-on-error'] = true; }), [`ci.yml: ${reds('step 5 of shard-win32 (Shard ${{ matrix.shard }} of ${{ matrix.of }})')}`]);
   assert.deepEqual(changed((ci) => { ci.jobs['merge-darwin']!['continue-on-error'] = '${{ matrix.node != \'24\' }}'; }), [`ci.yml: ${reds('merge-darwin')}`]);
   assert.deepEqual(changed((ci) => { ci.jobs['merge-linux']!.steps!.find((s) => s.name === 'The shards as one run')!['continue-on-error'] = true; }), [`ci.yml: ${reds('step 5 of merge-linux (The shards as one run)')}`]);
   assert.deepEqual(changed((ci) => { ci.jobs['commit-set']!['continue-on-error'] = true; }), [`ci.yml: ${reds('commit-set')}`]);
   assert.deepEqual(changed((ci) => { ci.jobs['commit-set']!.steps![0]!['continue-on-error'] = true; }), [`ci.yml: ${reds('step 1 of commit-set (Every job green)')}`]);
   assert.deepEqual(changed((ci) => { ci.jobs.real!['continue-on-error'] = true; }), [`ci.yml: ${reds('real')}`]);
-  assert.deepEqual(changed((ci) => { ci.jobs.real!.steps!.find((s) => s.name === 'Two real repositories')!['continue-on-error'] = '${{ always() }}'; }), [`ci.yml: ${reds('step 5 of real (Two real repositories)')}`]);
+  assert.deepEqual(changed((ci) => { ci.jobs.real!.steps!.find((s) => s.name === 'Two real repositories')!['continue-on-error'] = '${{ always() }}'; }), [`ci.yml: ${reds('step 4 of real (Two real repositories)')}`]);
   assert.deepEqual(changed((ci) => { ci.jobs.plugin!['continue-on-error'] = true; }), [`ci.yml: ${reds('plugin')}`]);
   assert.deepEqual(changed((ci) => { ci.jobs.workflows!.steps!.find((s) => s.name === 'actionlint')!['continue-on-error'] = true; }), [`ci.yml: ${reds('step 2 of workflows (actionlint)')}`]);
   assert.deepEqual(changed((ci) => { ci.jobs['shard-linux']!['continue-on-error'] = false; ci.jobs['commit-set']!.steps![0]!['continue-on-error'] = false; ci.jobs.real!['continue-on-error'] = false; }), []);

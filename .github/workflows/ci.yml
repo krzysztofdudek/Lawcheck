@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 jobs:
-  # The grammars and dist/ are built once, on Linux, and handed to the other jobs. A grammar built from source on Windows has other bytes than its pinned sha256, so Runes refuses that build there; the other jobs read this cache offline. dist/ built here is what the release packs, also on Linux.
+  # dist/ is built once, on Linux, and handed to the other jobs; the build copies the grammars from the installed Runes package, which checks each against its pinned sha256. dist/ built here is what the release packs, also on Linux.
   build:
     name: build
     runs-on: ubuntu-latest
@@ -42,20 +42,7 @@ jobs:
           set -o pipefail
           node tests/harness/shards.ts matrix "$RUNS" | tee -a "$GITHUB_OUTPUT"
       - run: npm ci
-      - uses: actions/cache@v6
-        with:
-          path: .grammars
-          key: grammars-${{ hashFiles('package-lock.json', 'scripts/grammars.ts', 'scripts/grammar-licenses.txt') }}
-      - name: Grammars
-        run: npm run grammars
       - run: npm run build
-      - uses: actions/upload-artifact@v7
-        with:
-          name: grammar-cache
-          path: .grammars
-          include-hidden-files: true
-          if-no-files-found: error
-          retention-days: 1
       - uses: actions/upload-artifact@v7
         with:
           name: dist
@@ -84,10 +71,6 @@ jobs:
           check-latest: ${{ matrix.node != '24.0.0' }}
           cache: npm
       - run: npm ci
-      - uses: actions/download-artifact@v8
-        with:
-          name: grammar-cache
-          path: .grammars
       - uses: actions/download-artifact@v8
         with:
           name: dist
@@ -135,10 +118,6 @@ jobs:
       - run: npm ci
       - uses: actions/download-artifact@v8
         with:
-          name: grammar-cache
-          path: .grammars
-      - uses: actions/download-artifact@v8
-        with:
           name: dist
           path: dist
       - name: Shard ${{ matrix.shard }} of ${{ matrix.of }}
@@ -172,10 +151,6 @@ jobs:
           check-latest: ${{ matrix.node != '24.0.0' }}
           cache: npm
       - run: npm ci
-      - uses: actions/download-artifact@v8
-        with:
-          name: grammar-cache
-          path: .grammars
       - uses: actions/download-artifact@v8
         with:
           name: dist
@@ -332,10 +307,6 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - uses: actions/download-artifact@v8
-        with:
-          name: grammar-cache
-          path: .grammars
       - name: Two real repositories
         run: npm run real
 
