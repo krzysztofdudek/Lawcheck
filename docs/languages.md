@@ -20,9 +20,9 @@ When a type has a `may_use` list in force (`lawcheck docs law`), `check` reads w
 | `php` | `.php` |
 | `ruby` | `.rb` |
 
-A `.vue` or `.svelte` file is read through its script block, as TypeScript or JavaScript; without one it uses nothing.
+A `.vue` or `.svelte` file is read through its script block, as TypeScript or JavaScript, or uses the file a relative `<script src>` names; a script in an HTML comment is not read, and without a script the file uses nothing.
 
-A use is one reference the reader reports: an import, an `export ... from`, a type-only import, a `require` or an `import()` with a literal string, an `#include`, a `use`, a `mod` declaration, `require_relative`, a name of the same package written without an import, a type named in a declaration, a call or a `new`.
+A use is one reference the reader reports: an import, an `export ... from`, a type-only import, a `require` or an `import()` with a literal string, a `vi.mock` or `jest.mock` with a literal path, an `#include`, a `use`, a `mod` declaration, a path to a crate written in code, `require` and `require_relative`, a name of the same package written without an import, a type named in a declaration, a call or a `new`.
 
 The readers come from Runes. Dynamic forms are not reported: `import()` of a variable, `importlib.import_module`, reflection strings, `const_get`.
 
@@ -42,33 +42,30 @@ Each run counts them, in the first line for the changed files and in the debt he
 |---|---|---|
 | `none` | `unfollowed` | the use names a place of the repository that holds no file: a file the build writes and git ignores, an alias or a workspace package whose entry is build output the repository does not hold, a name of the repository's own package that no file declares |
 | `none` | `unowned` | the use binds a file of the repository that no type maps; `candidates` names it |
-| `none` | none | the readers give no reason: every miss in C, C++ and Ruby, system headers and gems included, and a `#include` that needs `-I` when `compile_commands.json` is not in git |
+| `none` | none | the readers cannot say where it points, as in a Rust file of no Cargo package |
 | `ambiguous` | none | the use could name several files of different types, or of a type and no type; `candidates` lists them. It is not judged, even when the list forbids every one |
 
-Outside, by language: TypeScript and JavaScript, an installed package or a Node built-in; Python, a module whose top-level name no root of the repository holds; Go, an import path no module of the repository holds; Rust, a path from a crate the repository does not hold (`std`, a registry dependency); PHP, a class under no prefix of the repository's Composer maps; Java and Kotlin, a name in a package the repository declares nothing in, a `java.lang` name and a Kotlin default import (`String`, `List`), and a simple name an on-demand import of such a package can give (`List` under `import java.util.*;`); C#, a name only a namespace from elsewhere can give (`System.Text`). C, C++ and Ruby tell nothing.
+Outside, by language: TypeScript and JavaScript, an installed package or a Node built-in; Python, a module whose top-level name no root of the repository holds; Go, an import path no module of the repository holds; Rust, a path from a crate the repository does not hold (`std`, a registry dependency); PHP, a class under no prefix of the repository's Composer maps; Java and Kotlin, a name in a package the repository declares nothing in, a `java.lang` name and a Kotlin default import (`String`, `List`), and a simple name an on-demand import of such a package can give (`List` under `import java.util.*;`); C#, a name only a namespace from elsewhere can give (`System.Text`); C and C++, an `#include <...>` of a header the repository does not hold (`<stdio.h>`); Ruby, a gem, the standard library and a constant the repository does not declare (`JSON`). A quoted `#include` of a library header (`"gtest/gtest.h"`), or one that needs `-I` when `compile_commands.json` is not in git, is `unfollowed`.
 
 ## Known limits
 
-- A Java, Kotlin or C# name that a library also declares into a package or namespace of the repository counts as the repository's, so it is `unfollowed`; so is a Java member type inherited from a supertype outside the repository (`Entry` of a class that extends `java.util.AbstractMap`).
-- In Python and PHP, a use several roots or projects could hold is `unfollowed` with no candidates.
+- A Java, Kotlin or C# name that a library also declares into a package or namespace of the repository counts as the repository's, so it is `unfollowed`. A Java member type inherited from a supertype outside the repository (`Entry` of a class that extends `java.util.AbstractMap`) is `outside`, unless the class's package declares a type of that name, which then takes the use.
 - Java and Kotlin: a type an annotation processor generates into the file's own package (`AutoValue_Use`, `DaggerAppComponent`) counts as outside when a star import of a library could give its simple name, so a use of that generated code is dropped without a count; without such a star import it is `unfollowed`.
 - A Go import of a package whose files have more than one type is `ambiguous` with the package's files.
 - TypeScript: a package's `types@<range>` export keys are read as TypeScript 7.0.2 reads them.
-- C#: a member inherited from a base class outside the repository (`ControllerBase.User`) lets a type of the repository with that name take the use; a chain of `is not` tests of dotted types gives no use.
+- C#: a member inherited from a base class outside the repository (`ControllerBase.User`) lets a type of the repository with that name take the use.
 - Rust `[patch]`: the patched crate's version is not compared with the dependency's requirement, a workspace's `exclude` and `package.workspace` are not read, and a GitHub URL is matched as written.
-- Rust: paths inside a macro invocation and `include!` are not read; a library rooted at the package root whose `lib.rs` holds only an inline module with a `#[path]` module gives no use for the `mod` lines of the loaded file.
+- Rust: paths inside a macro invocation and `include!` are not read.
+- Python, Go, Ruby, C and C++: a file with lone CR line ends can give fewer uses than the same file with LF line ends.
 
 ## Forms the readers miss
 
 A use a reader misses is never a `forbidden-use` and is not counted, so a check can pass where the same use written another way fails, and nothing in the output shows it. Search the code for these forms; a script rule (`lawcheck docs script-rules`) can check the ones that matter.
 
-- TypeScript and JavaScript: an alias that only a bundler defines (Vite or webpack `resolve.alias`, Babel `module-resolver`) is read as an installed package; put it in `tsconfig.json` `paths` too. `import.meta.glob`, `require.context` and `vi.mock` are not read.
-- Python: a folder that only configuration names, such as `lib/` with `where = ["lib"]` in `pyproject.toml`, is no root. A package there has its absolute imports of itself (`from pkg.data.d import x`) read as outside; its relative imports are read.
-- Rust: a `mod` with `#[path]` gave no use where tried. A path-dependency crate named in code with no `use` (`datacrate::dc()`) is not read; `use datacrate::dc;` is.
-- Go: a sibling module wired only by `replace` in `go.mod` is outside; use a `go.work`.
-- Vue: a `<script>` in an HTML comment is read as code; `<script src>` is not read.
+- TypeScript and JavaScript: `import.meta.glob` and `require.context` are not read. An alias only a bundler defines (Vite or webpack `resolve.alias`, Babel `module-resolver`) is read when its target is `fileURLToPath(new URL('./src', import.meta.url))`, `path.resolve(__dirname, 'src')` or, in Babel, a relative path; an alias written another way, such as through a variable, is not followed, and its uses are counted as unresolved. Put such an alias in `tsconfig.json` `paths` too.
+- Rust: a `mod` with `#[path]` inside an inline module, a function body or a `cfg_if!` branch, or under a `cfg_attr`, gives no use; nor does a `use` in a `cfg_if!` branch.
 - Java: a fully qualified name is read in a field type, and not in a call, an annotation or `Class.forName`.
-- A line can hold two uses: `from ..data.d import x` uses the module `d`, judged, and the name `x`, counted as unresolved when it is no module. So the count depends on the import style: `from .m import Name` is counted and `from app.m import Name` is not.
+- Python: `from . import x`, where `x` is a name `__init__.py` defines, is counted as unresolved, while `from .m import x` and `from pkg.m import x` are judged.
 
 ## uses-not-read
 

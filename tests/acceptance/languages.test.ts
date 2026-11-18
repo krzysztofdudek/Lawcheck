@@ -33,7 +33,7 @@ test('test 88: one use from domain to app in each language', async () => {
     const run = await lawcheck(l, ['check', '--json']);
     const document = JSON.parse(run.stdout);
     assert.deepEqual(document.scope, { mode: 'change', base: null, files: 36, law_changed: false });
-    assert.deepEqual(document.summary, { errors: 15, warnings: 1, debt: 0, waivers: 0, unresolved: 9 });
+    assert.deepEqual(document.summary, { errors: 15, warnings: 1, debt: 0, waivers: 0, unresolved: 7 });
     assert.deepEqual(
       document.findings.map((f: any) => `${place(f)}  ${f.severity}[${f.code}]  ${f.message}`),
       FINDINGS,
@@ -47,7 +47,7 @@ test('test 88: one use from domain to app in each language', async () => {
     assert.equal(run.code, 1);
 
     const text = await lawcheck(l, ['check']);
-    assert.equal(text.stdout.split('\n')[0], 'lawcheck: FAIL  15 errors, 1 warning in 36 files (no base: every file counts as changed), 9 unresolved uses');
+    assert.equal(text.stdout.split('\n')[0], 'lawcheck: FAIL  15 errors, 1 warning in 36 files (no base: every file counts as changed), 7 unresolved uses');
     assert.deepEqual(findingLines(text.stdout), FINDINGS);
 
     git(l, 'checkout', '-q', '-b', 'work');
@@ -72,7 +72,7 @@ test('test 88: debt, every finding and unresolved use of L outside the change', 
     const run = await check(l, '--full', '--base', 'main');
     const lines = run.stdout.split('\n');
     assert.equal(lines[0], 'lawcheck: PASS  nothing changed against main');
-    assert.ok(lines.includes('debt (outside this change): 16 findings in 15 files, 9 unresolved uses'), run.stdout);
+    assert.ok(lines.includes('debt (outside this change): 16 findings in 15 files, 7 unresolved uses'), run.stdout);
     assert.deepEqual(findingLines(run.stdout), FINDINGS.map((line) => line.replace('  error[', '  warning[')));
     assert.equal(run.code, 0);
     const json = await check(l, '--full', '--base', 'main', '--json');

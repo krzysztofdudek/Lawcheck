@@ -37,20 +37,21 @@ async function judged(files: Record<string, string>): Promise<Found> {
 
 const UI_DATA = law(['ui', ['src/ui/**'], ['ui']], ['data', ['src/data/**'], null]);
 
-test('test 310: S4-1, a use through an alias that only a bundler defines is read as an installed package, so it is dropped and not counted; the relative path of the same use fails', async () => {
-  assert.ok(page.includes('an alias that only a bundler defines'));
-  assert.ok(page.includes('`import.meta.glob`, `require.context` and `vi.mock` are not read'));
-  assert.ok(spec.includes('**An alias only a bundler defines is read as an installed package** (S4-1)'));
+test('test 310: S4-1, a use through an alias of the bundler configuration is judged where the readers read the alias, counted where they cannot follow it, and import.meta.glob and require.context give no use', async () => {
+  assert.ok(page.includes('`import.meta.glob` and `require.context` are not read'));
+  assert.ok(page.includes('an alias written another way, such as through a variable, is not followed, and its uses are counted as unresolved'));
+  assert.ok(spec.includes('**An alias a bundler defines is read from its configuration as text** (S4-1)'));
   const found = await judged({
     '.lawcheck/law.yaml': UI_DATA,
-    'vite.config.ts': 'export default { resolve: { alias: { "@": "/abs/src", "~data": "/abs/src/data" } } };\n',
+    'vite.config.ts': 'import { fileURLToPath } from "node:url";\nconst dataDir = "/abs/src/data";\nexport default { resolve: { alias: { "@": fileURLToPath(new URL("./src", import.meta.url)), "~data": dataDir } } };\n',
     '.babelrc': '{"plugins":[["module-resolver",{"alias":{"@d":"./src/data"}}]]}\n',
     'src/data/d.ts': 'export const d = 1;\n',
     'src/ui/a.ts': 'import { d } from "@/data/d";\nimport { e } from "~data/d";\nexport const x = [d, e];\n',
     'src/ui/b.js': 'import { d } from "@d/d";\nexport const x = d;\n',
     'src/ui/c.ts': 'const g = import.meta.glob("../data/*.ts");\nconst h = require.context("../data");\nexport { g, h };\n',
+    'src/ui/m.test.ts': 'vi.mock("../data/d");\n',
   });
-  assert.deepEqual(found, { result: 'pass', findings: [], unresolved: [] });
+  assert.deepEqual(found, { result: 'fail', findings: ['src/ui/a.ts:1', 'src/ui/b.js:1', 'src/ui/m.test.ts:1'], unresolved: ['src/ui/a.ts:2 none ~data/d'] });
   const control = await judged({
     '.lawcheck/law.yaml': UI_DATA,
     'src/data/d.ts': 'export const d = 1;\n',
@@ -70,24 +71,19 @@ const PY_FILES = (root: string, where: string) => ({
   [`${root}pkg/ui/a.py`]: 'from pkg.data.d import x\nfrom ..data.d import x as y\nimport pkg.data.d\n',
 });
 
-test('test 311: S4-2, a Python package under a root that only configuration names has its absolute self-imports dropped and not counted; the same package at a root the readers search is judged on every form', async () => {
-  assert.ok(page.includes('has its absolute imports of itself (`from pkg.data.d import x`) read as outside'));
-  assert.ok(spec.includes('**A Python root that only configuration names is no root** (S4-2)'));
+test('test 311: S4-2, a Python package under a root that configuration names is judged on every form, as the same package at the root', async () => {
+  assert.ok(spec.includes('**A Python root that configuration names is a root** (S4-2)'));
   const lib = await judged(PY_FILES('lib/', '[tool.setuptools.packages.find]\nwhere = ["lib"]\n'));
-  assert.deepEqual(lib.findings, ['lib/pkg/ui/a.py:2'], 'only the relative import is judged');
-  assert.deepEqual(lib.unresolved, ['lib/pkg/ui/a.py:2 none ..data.d.x'], 'one line, two uses: the module is judged and the name is counted');
-  assert.ok(page.includes('A line can hold two uses: `from ..data.d import x` uses the module `d`, judged, and the name `x`, counted as unresolved when it is no module'));
-  assert.ok(spec.includes('one line can hold a judged use and a counted one'));
+  assert.deepEqual({ findings: lib.findings, unresolved: lib.unresolved }, { findings: ['lib/pkg/ui/a.py:1', 'lib/pkg/ui/a.py:2', 'lib/pkg/ui/a.py:3'], unresolved: [] });
   const control = await judged(PY_FILES('', ''));
-  assert.deepEqual(control.findings, ['pkg/ui/a.py:1', 'pkg/ui/a.py:2', 'pkg/ui/a.py:3']);
+  assert.deepEqual({ findings: control.findings, unresolved: control.unresolved }, { findings: ['pkg/ui/a.py:1', 'pkg/ui/a.py:2', 'pkg/ui/a.py:3'], unresolved: [] });
 });
 
 const RUST_LAW = law(['ui', ['src/ui/**', 'src/lib.rs'], ['ui']], ['data', ['src/data/**', 'datacrate/**'], null]);
 
-test('test 312: S4-3, a Rust mod with #[path] and a path-dependency crate written in code with no use give no use, where a plain mod and a use are judged', async () => {
-  assert.ok(page.includes('a `mod` with `#[path]` gave no use where tried'));
+test('test 312: S4-3, a Rust mod with #[path], in src/lib.rs and in a module file, and a path-dependency crate written in code with no use are judged, as a plain mod and a use are', async () => {
+  assert.ok(page.includes('a `mod` with `#[path]` inside an inline module, a function body or a `cfg_if!` branch, or under a `cfg_attr`, gives no use'));
   assert.ok(spec.includes('**Rust `#[path]` and a crate written in code** (S4-3)'));
-  assert.ok(!spec.includes('`mod` declarations with and without `#[path]`'), 'the spec no longer promises #[path]');
   const found = await judged({
     '.lawcheck/law.yaml': RUST_LAW,
     'Cargo.toml': '[package]\nname = "app"\nversion = "0.1.0"\nedition = "2021"\n[dependencies]\ndatacrate = { path = "datacrate" }\n',
@@ -102,12 +98,11 @@ test('test 312: S4-3, a Rust mod with #[path] and a path-dependency crate writte
     'src/ui/f.rs': 'pub fn k() { datacrate::dc(); }\n',
     'src/ui/g.rs': 'use datacrate::dc;\npub fn k() { dc(); }\n',
   });
-  assert.deepEqual(found.findings, ['src/lib.rs:4', 'src/ui/g.rs:1'], 'the plain mod and the use are judged, the two #[path] mods and the path in code are not');
+  assert.deepEqual(found.findings, ['src/lib.rs:3', 'src/lib.rs:4', 'src/ui/f.rs:1', 'src/ui/g.rs:1', 'src/ui/k.rs:2'], 'the two #[path] mods, the plain mod, the path in code and the use are judged');
   assert.deepEqual(found.unresolved, []);
 });
 
-test('test 313: S4-6, a script block inside an HTML comment of a Vue file is read as code, and a script with src is neither read nor counted', async () => {
-  assert.ok(page.includes('a `<script>` in an HTML comment is read as code; `<script src>` is not read'));
+test('test 313: S4-6, a script block inside an HTML comment of a Vue file is not read, and a script with src is judged', async () => {
   const found = await judged({
     '.lawcheck/law.yaml': law(['ui', ['ui/**'], ['ui']], ['data', ['data/**'], null]),
     'data/d.ts': 'export const d = 1;\n',
@@ -115,24 +110,24 @@ test('test 313: S4-6, a script block inside an HTML comment of a Vue file is rea
     'ui/Src.vue': '<template><p/></template>\n<script src="../data/d.ts"></script>\n',
     'ui/Plain.vue': '<template><p/></template>\n<script lang="ts">\nimport { d } from "../data/d";\n</script>\n',
   });
-  assert.deepEqual(found.findings, ['ui/Commented.vue:4', 'ui/Plain.vue:3']);
+  assert.deepEqual(found.findings, ['ui/Plain.vue:3', 'ui/Src.vue:2']);
   assert.deepEqual(found.unresolved, []);
 });
 
-test('test 313: S4-7, the count of unresolved uses depends on the import style of Python', async () => {
-  assert.ok(page.includes("`from .m import Name` is counted and `from app.m import Name` is not"));
+test('test 313: S4-7, a name imported from a Python module is not counted, whether the import is relative or absolute', async () => {
+  assert.ok(page.includes('`from . import x`, where `x` is a name `__init__.py` defines, is counted as unresolved, while `from .m import x` and `from pkg.m import x` are judged'));
   const found = await judged({
     '.lawcheck/law.yaml': law(['app', ['app/**'], ['app']]),
-    'app/__init__.py': '',
+    'app/__init__.py': 'Top = 1\n',
     'app/m.py': 'Name = 1\n',
     'app/rel.py': 'from .m import Name\n',
     'app/abs.py': 'from app.m import Name\n',
+    'app/top.py': 'from . import Top\n',
   });
-  assert.deepEqual(found.unresolved, ['app/rel.py:1 none .m.Name']);
+  assert.deepEqual(found.unresolved, ['app/top.py:1 none .Top']);
 });
 
-test('test 313: S4-8, a Go module wired to a sibling only by replace is outside, so its use is neither judged nor counted', async () => {
-  assert.ok(page.includes('a sibling module wired only by `replace` in `go.mod` is outside; use a `go.work`'));
+test('test 313: S4-8, a Go module wired to a sibling only by replace is judged, as with a go.work', async () => {
   const files = (extra: Record<string, string>) => ({
     '.lawcheck/law.yaml': law(['ui', ['ui/**/*.go'], ['ui']], ['data', ['data/**/*.go'], null]),
     'ui/go.mod': 'module example.com/ui\n\ngo 1.22\n\nrequire example.com/data v0.0.0\n\nreplace example.com/data => ../data\n',
@@ -142,7 +137,7 @@ test('test 313: S4-8, a Go module wired to a sibling only by replace is outside,
     ...extra,
   });
   const replaced = await judged(files({}));
-  assert.deepEqual({ findings: replaced.findings, unresolved: replaced.unresolved }, { findings: [], unresolved: [] });
+  assert.deepEqual({ findings: replaced.findings, unresolved: replaced.unresolved }, { findings: ['ui/main.go:3'], unresolved: [] });
   const workspace = await judged(files({ 'go.work': 'go 1.22\n\nuse (\n\t./ui\n\t./data\n)\n' }));
   assert.deepEqual(workspace.findings, ['ui/main.go:3'], 'the control: with a go.work the same use is judged');
 });
