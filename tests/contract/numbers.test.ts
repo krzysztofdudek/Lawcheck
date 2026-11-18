@@ -7,6 +7,15 @@ import { ROOT } from '../harness/sets.ts';
 
 const numeric = (value: unknown): boolean => typeof value === 'number' || (typeof value === 'object' && value !== null && Object.keys(value).length > 0 && Object.values(value).every(numeric));
 
+const written = (text: string, name: string): boolean =>
+  text.includes(`test(${JSON.stringify(name).replace(/^"|"$/g, "'")}`) || text.includes(`test('${name}'`) || text.includes(`test('${name.replace(/'/g, "\\'")}'`) || text.includes(`test(${JSON.stringify(name)}`);
+
+const templated = (text: string, name: string): boolean =>
+  [...text.matchAll(/test\(`((?:[^`\\]|\\.)*)`/g)].some(([, body]) => {
+    const parts = body!.split(/\$\{[^}]*\}/);
+    return parts.length > 1 && new RegExp(`^${parts.map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('.+')}$`, 's').test(name);
+  });
+
 test('question 95: every number of tests/numbers.ts says which way is stronger, and nothing else does', () => {
   const exported = Object.entries(numbers)
     .filter(([, value]) => numeric(value))
@@ -20,7 +29,7 @@ test('question 95: every key of SLOW_TESTS names a test that exists, and every s
   for (const [key, budgets] of Object.entries(numbers.SLOW_TESTS)) {
     const [file, name] = key.split(' > ');
     const text = readFileSync(join(ROOT, file!), 'utf8');
-    assert.ok(text.includes(`test(${JSON.stringify(name).replace(/^"|"$/g, "'")}`) || text.includes(`test('${name}'`) || text.includes(`test('${name!.replace(/'/g, "\\'")}'`), key);
+    assert.ok(written(text, name!) || templated(text, name!), key);
     for (const [system, measured] of Object.entries(budgets.measured)) {
       assert.ok(['linux', 'darwin', 'win32'].includes(system), `${key}: ${system}`);
       assert.ok(measured! >= budgets.fixed, `${key}: ${system} measured ${measured} below its fixed waits`);
