@@ -182,12 +182,12 @@ test('S1-14: a marked file with no edit stays out of the change', async () => {
 });
 
 
-test('S4-9: in a file with lone CR line ends a use is on the line an editor shows, and that line is inside the file', async () => {
+test('S4-9: in a file with lone CR line ends a use is on line 1, since a lone \\r stays in its line, and that line is inside the file', async () => {
   await withU(async (u) => {
     write(u, 'src/core/g.ts', "export const a = 1;\rexport const b = 2;\rimport '../cli/main.js';\r");
     const run = await check(u, '--base', 'main', '--json');
     const uses = JSON.parse(run.stdout).findings.filter((f: { code: string }) => f.code === 'forbidden-use');
-    assert.deepEqual(uses.map((f: { file: string; line: number }) => [f.file, f.line]), [['src/core/g.ts', 3]]);
+    assert.deepEqual(uses.map((f: { file: string; line: number }) => [f.file, f.line]), [['src/core/g.ts', 1]]);
   });
 });
 

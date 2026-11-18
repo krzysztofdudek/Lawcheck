@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { GRAMMARS, readerOf, readUses, RUNES, siblingsOf, Unreadable } from '../../dist/readers.js';
+import { GRAMMARS, ownLine, readerOf, readUses, RUNES, siblingsOf, Unreadable } from '../../dist/readers.js';
 
 type Hint = { kind: 'path'; specifier: string } | { kind: 'symbol'; symbolKey: string };
 type Kind =
@@ -258,4 +258,11 @@ test('dependency-slice §6: a notice in dist/grammars/LICENSES.txt for every gra
     assert.match(block, /Permission is hereby granted/, grammar);
   }
   assert.equal(fileURLToPath(new URL('../../dist/grammars', import.meta.url)), dir);
+});
+
+test('check-slice §2: a line Runes counts after a lone CR is the line of the file that holds its start, and without a lone CR it stays', () => {
+  const mixed = ownLine('a\rb\r\nc\nd\re');
+  assert.deepEqual([1, 2, 3, 4, 5].map(mixed), [1, 1, 2, 3, 3]);
+  const plain = ownLine('a\r\nb\nc');
+  assert.deepEqual([1, 2, 3].map(plain), [1, 2, 3]);
 });

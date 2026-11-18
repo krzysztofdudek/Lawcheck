@@ -333,6 +333,7 @@ async function readAll(input: ReadInput, runes: Runes, skipped: Skipped[]): Prom
     const parse = parses.get(path);
     if (parse === undefined) continue;
     const uses = out.get(path)!;
+    const lineOf = ownLine(parse.view.content);
     for (const use of detected.get(path) ?? []) {
       let classified: Classification;
       try {
@@ -340,10 +341,23 @@ async function readAll(input: ReadInput, runes: Runes, skipped: Skipped[]): Prom
       } catch (error) {
         throw readerFailure(parse.view.language, path, error);
       }
-      uses.push({ line: use.line, answer: answerOf(classified, use.candidates) });
+      uses.push({ line: lineOf(use.line), answer: answerOf(classified, use.candidates) });
     }
   }
   return out;
+}
+
+// Runes ends a line at a lone CR too, while a file's lines here end only at LF and CRLF (check-slice section 2), so its line is moved to the line that holds its start.
+export function ownLine(content: string): (line: number) => number {
+  if (!/\r(?!\n)/.test(content)) return (line) => line;
+  const starts = [1];
+  let lf = 0;
+  for (let i = 0; i < content.length; i++) {
+    const c = content.charCodeAt(i);
+    if (c === 10) lf++;
+    if (c === 10 || (c === 13 && content.charCodeAt(i + 1) !== 10)) starts.push(lf + 1);
+  }
+  return (line) => starts[line - 1] ?? line;
 }
 
 export const LANGUAGES = ['typescript', 'tsx', 'javascript', 'python', 'go', 'rust', 'java', 'kotlin', 'csharp', 'c', 'cpp', 'php', 'ruby'];
