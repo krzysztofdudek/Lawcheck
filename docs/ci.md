@@ -211,7 +211,7 @@ lawcheck: PASS  3 changed files (against origin/main)
 A CI job can record the reviews in place of a machine. Lawcheck runs `check --review` in a job as it does on a machine. The run writes `.lawcheck/verdicts` and `.lawcheck/.gitattributes` in the checkout of the job. Lawcheck commits nothing and pushes nothing. The job has to commit and push the two files.
 
 1. Keep the key of the reviewer in a secret of the CI service. Lawcheck takes the key from the environment alone ([Reviewers and keys](providers.md)).
-2. Give the key to the one step that runs the review. On GitHub, for the provider `anthropic`, the environment of the step holds `ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}`.
+2. Give the key to the one step that runs the review. On GitHub, for the provider `anthropic`, the environment of the step sets `ANTHROPIC_API_KEY` from a repository secret of the same name.
 3. In that step, run `npx --no-install lawcheck check --review --base "$base"`, with `base` set as in the workflow of step 2.
 4. Commit `.lawcheck/verdicts` and `.lawcheck/.gitattributes`. Then push that commit to the branch of the pull request.
 
