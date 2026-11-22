@@ -194,6 +194,17 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
       - name: Use npm that runs dist-tag over OIDC
         run: npm install --global --ignore-scripts npm@11.21.2
+      # A re-run after a newer alpha must not move latest back to this one.
+      - name: alpha still names this version
+        env:
+          VERSION: ${{ needs.pack.outputs.version }}
+        run: |
+          set -euo pipefail
+          ALPHA=$(curl -fsS https://registry.npmjs.org/-/package/lawcheck/dist-tags | jq -r '.alpha')
+          if [ "${ALPHA}" != "${VERSION}" ]; then
+            echo "::error::The dist-tag alpha of lawcheck names ${ALPHA}, and this run releases ${VERSION}; latest moves only to the version alpha names, so it stays where it is."
+            exit 1
+          fi
       - name: Move latest to the new alpha
         env:
           VERSION: ${{ needs.pack.outputs.version }}
