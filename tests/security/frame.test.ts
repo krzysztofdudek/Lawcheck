@@ -6,12 +6,11 @@ import { buildPrompt } from '../../dist/prompt.js';
 import { splitLines } from '../../dist/types.js';
 import { ATTACKS, attackText } from './attacks.ts';
 import { cases, REACH_SHARE, seed } from '../numbers.ts';
+import { example } from '../harness/examples.ts';
 
 const RUNS = cases('pure');
 
-const SPEC = readFileSync(new URL('../../spec/reviewer-slice.md', import.meta.url), 'utf8');
-const FRAME_START = SPEC.indexOf('```text\n', SPEC.indexOf('The frame:')) + '```text\n'.length;
-const FRAME_TEXT = SPEC.slice(FRAME_START, SPEC.indexOf('\n```', FRAME_START));
+const FRAME_TEXT = example('reviewer-frame');
 const R = new URL('../reviewer-sample/', import.meta.url);
 const WHY = 'An error a caller sees says what happened and what to do next.';
 const RULE = "Every error message a caller can see says what happened and what the caller can do next.\n\nReport each thrown error or returned error message that leaves one of the two out.\n";

@@ -164,7 +164,7 @@ export async function judgeRun(source: AsyncIterable<{ type: string; data: any }
     const problems = tieProblems(loadInputs(new URL('../../', import.meta.url), 0), setFiles(speed, dirs), ran, excused);
     if (problems.length > 0) {
       red = true;
-      lines.push('', 'RED      the run-time tie of question 79', 'promise  design/decisions.md, decision 79: a test number, a promise or a finding is covered only by a test that ran and passed in this run', ...problems.slice(0, 20).map((p) => `got      ${p}`), 'if the promise changed, change the spec row first; the guard then accepts a new expectation');
+      lines.push('', 'RED      the run-time tie of question 79', 'promise  design/decisions.md, decision 79: a test number, a promise or a finding is covered only by a test that ran and passed in this run', ...problems.slice(0, 20).map((p) => `got      ${p}`), CLOSING);
     }
   }
   return { text: lines.join('\n') + '\n', red: counts.failed > 0 || red };

@@ -610,7 +610,7 @@ export function problemsOf(input: Inputs): string[] {
     for (const id of source.invariants) {
       named.add(id);
       if (invariantIds.has(id)) known++, strong++;
-      else problems.push(`${where} names invariant ${id}, which is not in design/promises.md`);
+      else problems.push(`${where} names invariant ${id}, which no promise table of design/promises.md or docs/ holds`);
     }
     for (const id of source.harness) {
       named.add(id);

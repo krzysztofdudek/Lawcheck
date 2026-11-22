@@ -13,8 +13,8 @@ export interface Example {
 }
 
 function pages(): string[] {
-  const out: string[] = [];
-  for (const dir of ['spec', 'docs']) for (const name of readdirSync(join(ROOT, dir)).sort()) if (name.endsWith('.md')) out.push(`${dir}/${name}`);
+  const out: string[] = ['tests/expected/examples.md'];
+  for (const name of readdirSync(join(ROOT, 'docs')).sort()) if (name.endsWith('.md')) out.push(`docs/${name}`);
   return out;
 }
 
@@ -43,7 +43,7 @@ export function examples(): Map<string, Example> {
 
 export function example(id: string): string {
   const found = examples().get(id);
-  if (found === undefined) throw new Error(`no fenced block in spec/ or docs/ carries <!-- example: ${id} -->`);
+  if (found === undefined) throw new Error(`no fenced block in tests/expected/examples.md or docs/ carries <!-- example: ${id} -->`);
   return found.text;
 }
 

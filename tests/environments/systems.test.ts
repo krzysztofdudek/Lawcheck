@@ -8,6 +8,7 @@ import { delimiter, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { withFake } from '../acceptance/fake-reviewer.ts';
 import { D, D_PATH, F, F_PATH, findingLines, git, GIT_ENV, inTemp, KEY_F, lawcheck, makeR, makeSample, PROMPT_F, ROOT, TEST4, write } from '../acceptance/helpers.ts';
+import { exampleText } from '../harness/examples.ts';
 
 const WINDOWS = process.platform === 'win32';
 
@@ -17,12 +18,9 @@ function ignoresCase(dir: string): boolean {
   return existsSync(join(dir, 'CASE-PROBE'));
 }
 
-// The block of spec/commands-slice.md, section 6, that answers lawcheck explain src/core/price.ts in S.
+// The answer of lawcheck explain src/core/price.ts in S.
 function priceBlock(): string {
-  const spec = readFileSync(join(ROOT, 'spec', 'commands-slice.md'), 'utf8');
-  const at = spec.indexOf('```\nsrc/core/price.ts\n  type:  library');
-  assert.ok(at >= 0, 'the explain block of src/core/price.ts');
-  return spec.slice(at + 4, spec.indexOf('```', at + 4));
+  return exampleText('explain-price');
 }
 
 test('test 202: on a file system that ignores case, explain SRC/core/price.ts answers for src/core/price.ts, the file git lists', async (t) => {

@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
@@ -6,23 +7,9 @@ import { ROOT } from './helpers.ts';
 
 const FIXTURE = join(ROOT, 'tests', 'stability', 'fixture');
 
-const headings: { file: string; label: string; borderline: boolean }[] = [];
-
-function specFixture(): Map<string, string> {
-  const spec = readFileSync(join(ROOT, 'spec', 'reviewer-slice.md'), 'utf8');
-  const lines = spec.slice(spec.indexOf('### The fixture'), spec.indexOf('### The script')).split('\n');
-  const files = new Map<string, string>();
-  for (let i = 0; i < lines.length; i++) {
-    const heading = lines[i]!.match(/^`([^`]+)`(?:, (pass|fail)(?:, (borderline|keyword trap))?)?:$/);
-    if (heading === null) continue;
-    if (heading[2] !== undefined) headings.push({ file: heading[1]!, label: heading[2], borderline: heading[3] === 'borderline' });
-    assert.ok(lines[i + 2]!.startsWith('```'));
-    let end = i + 3;
-    while (lines[end] !== '```') end++;
-    files.set(heading[1]!, lines.slice(i + 3, end).join('\n') + '\n');
-    i = end;
-  }
-  return files;
+// The fixture of the measurement, by the SHA-256 of each file, as it was measured.
+function expectedFixture(): Map<string, string> {
+  return new Map(Object.entries(JSON.parse(readFileSync(join(ROOT, 'tests', 'stability', 'expected', 'fixture.json'), 'utf8')) as Record<string, string>));
 }
 
 function walk(dir: string): string[] {
@@ -31,11 +18,11 @@ function walk(dir: string): string[] {
   );
 }
 
-test('test 78: the fixture is section 9 byte for byte, and the committed result follows from its pairs', () => {
-  const expected = specFixture();
+test('test 78: the fixture is the measured one byte for byte, and the committed result follows from its pairs', () => {
+  const expected = expectedFixture();
   assert.equal(expected.size, 35);
   assert.deepEqual(walk(FIXTURE).sort(), [...expected.keys()].sort());
-  for (const [path, text] of expected) assert.equal(readFileSync(join(FIXTURE, path), 'utf8'), text, path);
+  for (const [path, sha] of expected) assert.equal(createHash('sha256').update(readFileSync(join(FIXTURE, path))).digest('hex'), sha, path);
 
   const text = readFileSync(join(ROOT, 'tests', 'stability', 'result.json'), 'utf8');
   assert.ok(!text.includes('://'));
@@ -46,7 +33,8 @@ test('test 78: the fixture is section 9 byte for byte, and the committed result 
   assert.equal(result.runs, 10);
   assert.equal(result.pairs.length, 30);
   const labels = JSON.parse(readFileSync(join(ROOT, 'tests', 'stability', 'labels.json'), 'utf8')) as { file: string; rule: string; label: string; borderline: boolean; why?: string; reading?: string }[];
-  assert.deepEqual(labels.map(({ file, label, borderline }) => ({ file, label, borderline })), headings);
+  assert.equal(labels.length, 30);
+  assert.ok(labels.every((l) => expected.has(l.file)), 'every labelled file is in the fixture');
   assert.ok(labels.every((l) => l.borderline === (typeof l.why === 'string' && typeof l.reading === 'string')));
   assert.deepEqual(result.pairs.map((p: Record<string, unknown>) => ({ file: p.file, rule: p.rule, label: p.label, borderline: p.borderline })), labels.map(({ file, rule, label, borderline }) => ({ file, rule, label, borderline })));
   for (const pair of result.pairs) {

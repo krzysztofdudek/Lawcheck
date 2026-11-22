@@ -15,7 +15,6 @@ import { DEADLINES } from '../../plugin/hooks/start.mjs';
 import { Bench, deadlineScenario, edited, ended, GIT_DIR, hook, json, NODE_DIR, nothing, PLUGIN, Session, startAndPromptScenario, SYSTEM_ENV, where, withBench } from './plugin-bench.ts';
 import type { HookRun } from './plugin-bench.ts';
 
-const spec = readFileSync(join(ROOT, 'spec', 'plugin-slice.md'), 'utf8');
 const BROKEN_LAW = LAW.replace('status: advisory', 'statuss: advisory');
 
 const NO_ROOT = 'The Lawcheck plugin is on, and this directory has no law (.lawcheck/law.yaml here or above).\nStart one with lawcheck init only when the user asks for it.';
@@ -42,10 +41,8 @@ const handBack = (text: string) => ({ hookSpecificOutput: { hookEventName: 'Stop
 const started = (text: string) => ({ hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: text } });
 
 
-function specBlock(after: string): string {
-  const at = spec.indexOf(after);
-  const start = spec.indexOf('```json\n', at) + '```json\n'.length;
-  return spec.slice(start, spec.indexOf('```\n', start));
+function specBlock(id: string): string {
+  return example(id);
 }
 
 function walk(dir: string, base = dir): string[] {
@@ -58,13 +55,13 @@ function walk(dir: string, base = dir): string[] {
 test('test 152: the files of the plugin', () => {
   const manifest = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
   const plugin = JSON.parse(readFileSync(join(PLUGIN, '.claude-plugin', 'plugin.json'), 'utf8'));
-  const expectedPlugin = JSON.parse(specBlock('### 4.3 `plugin/.claude-plugin/plugin.json`'));
+  const expectedPlugin = JSON.parse(specBlock('plugin-manifest'));
   expectedPlugin.version = manifest.version;
   assert.deepEqual(plugin, expectedPlugin);
   const marketplace = JSON.parse(readFileSync(join(ROOT, '.claude-plugin', 'marketplace.json'), 'utf8'));
-  const expectedMarketplace = JSON.parse(specBlock('### 4.2 `.claude-plugin/marketplace.json`').replace('"<description>"', JSON.stringify(expectedPlugin.description)));
+  const expectedMarketplace = JSON.parse(specBlock('marketplace-manifest').replace('"<description>"', JSON.stringify(expectedPlugin.description)));
   assert.deepEqual(marketplace, expectedMarketplace);
-  assert.deepEqual(JSON.parse(readFileSync(join(PLUGIN, 'hooks', 'hooks.json'), 'utf8')), JSON.parse(specBlock('### 4.4 `plugin/hooks/hooks.json`')));
+  assert.deepEqual(JSON.parse(readFileSync(join(PLUGIN, 'hooks', 'hooks.json'), 'utf8')), JSON.parse(specBlock('hooks-manifest')));
   const files = walk(PLUGIN).sort();
   const modules = files.filter((file) => file.endsWith('.mjs'));
   assert.deepEqual(files.filter((file) => !file.endsWith('.mjs')), ['.claude-plugin/plugin.json', 'LICENSE', 'hooks/hooks.json']);
@@ -286,9 +283,10 @@ test('R-86: the session-start and prompt hooks each end at their own deadline', 
 });
 
 test('plugin-slice §5: the plugin ships deadlines of 25 seconds for session-start and edit, 15 for prompt and 145 for stop, each its timeout in hooks.json less 5', () => {
-  const sentence = /\*\*One deadline per hook\*\*, its `timeout` less (\d+) seconds: (\d+) seconds for `session-start` and `edit`, (\d+) for `prompt`, (\d+) for `stop`/.exec(spec);
-  assert.ok(sentence, 'spec/plugin-slice.md, section 5, names the deadlines');
-  const [less, startAndEdit, prompt, stop] = sentence.slice(1).map(Number) as [number, number, number, number];
+  const sentence = /Each hook has a deadline: (\d+) seconds at the session start and after an edit, (\d+) seconds for the prompt, (\d+) seconds before finishing\./.exec(readFileSync(join(ROOT, 'docs', 'plugin.md'), 'utf8'));
+  assert.ok(sentence, 'docs/plugin.md names the deadlines');
+  const less = 5;
+  const [startAndEdit, prompt, stop] = sentence.slice(1).map(Number) as [number, number, number];
   assert.deepEqual(DEADLINES, { 'session-start': startAndEdit, prompt, edit: startAndEdit, stop });
   const hooks = JSON.parse(readFileSync(join(PLUGIN, 'hooks', 'hooks.json'), 'utf8')).hooks as Record<string, { hooks: { args: string[]; timeout: number }[] }[]>;
   const timeouts = Object.fromEntries(Object.values(hooks).flatMap((groups) => groups.flatMap((group) => group.hooks.map((entry) => [entry.args.at(-1)!, entry.timeout - less]))));

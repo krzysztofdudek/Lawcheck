@@ -21,7 +21,7 @@ export function namesProblems(input: Inputs, ran: Ran[]): string[] {
   for (const { file, name } of ran) {
     const source = sourcesOf(name);
     const where = `${file}: ${name}`;
-    for (const id of source.invariants) if (!invariants.has(id)) problems.push(`${where} names invariant ${id}, which is not in design/promises.md`);
+    for (const id of source.invariants) if (!invariants.has(id)) problems.push(`${where} names invariant ${id}, which no promise table of design/promises.md or docs/ holds`);
     for (const id of source.harness) if (!input.harness.includes(id)) problems.push(`${where} names ${id}, which is no harness invariant`);
     for (const n of source.questions) if (!questions.has(n)) problems.push(`${where} names question ${n}, which is not in design/decisions.md`);
     for (const [stem, section] of source.sections) if (!sections.has(`${stem} §${section}`)) problems.push(`${where} names ${stem} §${section}, which the table of tests/README.md does not list`);

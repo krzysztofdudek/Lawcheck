@@ -191,6 +191,11 @@ test('question 95: the suite guard, an owner\'s row lands alone first, and the c
   }
 });
 
+test('question 95: the suite guard, a removed test is anchored only by what its own name names, a ruling or a Runes version', () => {
+  const finding = judgeCase('refused-test-removed-anchor-not-named').findings.find((f) => f.kind === 'test-removed')!;
+  assert.deepEqual(finding.why, ['the record at tests/weakenings.md:6: the test\'s name names row 2, and the record anchors S1-1']);
+});
+
 test('question 95: the suite guard, an owner\'s row that lands alone is refused for what is wrong with the row itself', () => {
   const detail = (name: string): string[] => judgeCase(name).findings.filter((f) => f.kind === 'record-invalid').flatMap((f) => [f.detail]);
   assert.deepEqual(detail('refused-owner-row-alone-short'), ['not a record: it has 5 cells, the table has 6']);

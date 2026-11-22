@@ -1,18 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { inTemp, lawcheck, newRepository, read, setRule, withR, withSample, withU, write } from './helpers.ts';
+import { example, exampleText } from '../harness/examples.ts';
 
-const spec = readFileSync(new URL('../../spec/commands-slice.md', import.meta.url), 'utf8').split('\n');
-const block = (start: string): string[] => {
-  const at = spec.indexOf(start);
-  const lines: string[] = [];
-  for (let i = at; spec[i] !== '```'; i++) lines.push(spec[i]!);
-  return lines;
-};
+const block = (id: string): string[] => example(id).split('\n');
 
-const PRIME_S = block("Lawcheck checks this repository's code against its law: the file types and the rules each type keeps. The law is .lawcheck/law.yaml; rule files are in .lawcheck/rules/.").join('\n') + '\n';
+const PRIME_S = exampleText('prime-s');
 const FIRST_PART = PRIME_S.split('\n').slice(0, 19).join('\n') + '\n';
 
 function firstPart(reviewers: boolean, mayUse: boolean): string {
@@ -27,8 +21,8 @@ function firstPart(reviewers: boolean, mayUse: boolean): string {
 }
 
 const FULL = firstPart(true, true);
-const R_PART = block('The law here: 4 types, 3 rules');
-const U_TYPES = block('source  src/**/*.ts, !src/**/*.d.ts  Everything that ships.  rules: no-todo  may use: library');
+const R_PART = block('prime-r-part');
+const U_TYPES = block('prime-u-types');
 const NO_LAW = 'Lawcheck is installed, and this directory has no law (.lawcheck/law.yaml here or above).\nRun lawcheck init only when the user asks for a law here.\n';
 const SHORTENED = 'shortened to fit; lawcheck explain --type <id> shows a type in full, lawcheck explain --rule <id> a rule';
 const TEST_17 = [

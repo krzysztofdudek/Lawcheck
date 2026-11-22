@@ -5,23 +5,11 @@ import { join } from 'node:path';
 import { withFake } from './fake-reviewer.ts';
 import { D, D_PATH, E, E_PATH, F, F_PATH, git, inTemp, LAW, lawcheck, newRepository, run, SAMPLE, setRule, withR, withSample, withU, write } from './helpers.ts';
 import { parseConfig } from '../../dist/config.js';
+import { exampleText } from '../harness/examples.ts';
 
-const spec = readFileSync(new URL('../../spec/plugin-slice.md', import.meta.url), 'utf8').split('\n');
-const fenced = (first: string): string => {
-  const at = spec.indexOf(first);
-  const lines: string[] = [];
-  for (let i = at; spec[i] !== '```'; i++) lines.push(spec[i]!);
-  return lines.join('\n') + '\n';
-};
-const commands = readFileSync(new URL('../../spec/commands-slice.md', import.meta.url), 'utf8').split('\n');
-const PRIME_S = (() => {
-  const at = commands.indexOf("Lawcheck checks this repository's code against its law: the file types and the rules each type keeps. The law is .lawcheck/law.yaml; rule files are in .lawcheck/rules/.");
-  const lines: string[] = [];
-  for (let i = at; commands[i] !== '```'; i++) lines.push(commands[i]!);
-  return lines.join('\n') + '\n';
-})();
+const PRIME_S = exampleText('prime-s');
 
-const TEST142 = fenced('lawcheck: FAIL  1 error in 1 named file');
+const TEST142 = exampleText('check-named-file-error');
 const TEST17 = [
   'lawcheck: ERROR  1 error',
   '',
@@ -228,7 +216,7 @@ test('test 150: prime names the command of the runner', async () => {
       assert.equal(result.code, 0);
     }
     assert.equal(
-      fenced("Lawcheck checks this repository's code against its law: the file types and the rules each type keeps. The law is .lawcheck/law.yaml; rule files are in .lawcheck/rules/. Start it here as: pnpm exec lawcheck"),
+      exampleText('prime-runner-pnpm'),
       PRIME_S.split('\n')[0] + ' Start it here as: pnpm exec lawcheck\n',
     );
     for (const config of ['runner: global\n', null, 'runner: make\n', 'runner: "pnpm"\n']) {

@@ -5,7 +5,6 @@ import { UNPARSABLE_JAVA_CHARS } from '../numbers.ts';
 import { inTemp, lawcheck, newRepository } from './helpers.ts';
 
 const page = readFileSync(new URL('../../docs/languages.md', import.meta.url), 'utf8');
-const spec = readFileSync(new URL('../../spec/dependency-slice.md', import.meta.url), 'utf8');
 
 function law(...types: [string, string[], string[] | null][]): string {
   const lines = ['lawcheck: 0.1.0', '', 'types:'];
@@ -40,7 +39,6 @@ const UI_DATA = law(['ui', ['src/ui/**'], ['ui']], ['data', ['src/data/**'], nul
 test('test 310: S4-1, a use through an alias of the bundler configuration is judged where the readers read the alias, counted where they cannot follow it, and import.meta.glob and require.context give no use', async () => {
   assert.ok(page.includes('`import.meta.glob` and `require.context` are not read'));
   assert.ok(page.includes('an alias written another way, such as through a variable, is not followed, and its uses are counted as unresolved'));
-  assert.ok(spec.includes('**An alias a bundler defines is read from its configuration as text** (S4-1)'));
   const found = await judged({
     '.lawcheck/law.yaml': UI_DATA,
     'vite.config.ts': 'import { fileURLToPath } from "node:url";\nconst dataDir = "/abs/src/data";\nexport default { resolve: { alias: { "@": fileURLToPath(new URL("./src", import.meta.url)), "~data": dataDir } } };\n',
@@ -72,7 +70,6 @@ const PY_FILES = (root: string, where: string) => ({
 });
 
 test('test 311: S4-2, a Python package under a root that configuration names is judged on every form, as the same package at the root', async () => {
-  assert.ok(spec.includes('**A Python root that configuration names is a root** (S4-2)'));
   const lib = await judged(PY_FILES('lib/', '[tool.setuptools.packages.find]\nwhere = ["lib"]\n'));
   assert.deepEqual({ findings: lib.findings, unresolved: lib.unresolved }, { findings: ['lib/pkg/ui/a.py:1', 'lib/pkg/ui/a.py:2', 'lib/pkg/ui/a.py:3'], unresolved: [] });
   const control = await judged(PY_FILES('', ''));
@@ -83,7 +80,6 @@ const RUST_LAW = law(['ui', ['src/ui/**', 'src/lib.rs'], ['ui']], ['data', ['src
 
 test('test 312: S4-3, a Rust mod with #[path], in src/lib.rs and in a module file, and a path-dependency crate written in code with no use are judged, as a plain mod and a use are', async () => {
   assert.ok(page.includes('a `mod` with `#[path]` inside an inline module, a function body or a `cfg_if!` branch, or under a `cfg_attr`, gives no use'));
-  assert.ok(spec.includes('**Rust `#[path]` and a crate written in code** (S4-3)'));
   const found = await judged({
     '.lawcheck/law.yaml': RUST_LAW,
     'Cargo.toml': '[package]\nname = "app"\nversion = "0.1.0"\nedition = "2021"\n[dependencies]\ndatacrate = { path = "datacrate" }\n',
@@ -129,7 +125,6 @@ test('test 313: S4-7, a name imported from a Python module is not counted, wheth
 });
 
 test('test 313: S4-8, a Go module wired to a sibling only by replace is judged, as with a go.work', async () => {
-  assert.ok(spec.includes('a `replace` with a relative directory of the repository (S4-8)'));
   const files = (extra: Record<string, string>) => ({
     '.lawcheck/law.yaml': law(['ui', ['ui/**/*.go'], ['ui']], ['data', ['data/**/*.go'], null]),
     'ui/go.mod': 'module example.com/ui\n\ngo 1.22\n\nrequire example.com/data v0.0.0\n\nreplace example.com/data => ../data\n',
@@ -144,14 +139,13 @@ test('test 313: S4-8, a Go module wired to a sibling only by replace is judged, 
   assert.deepEqual(workspace.findings, ['ui/main.go:3'], 'the control: with a go.work the same use is judged');
 });
 
-test('test 313: S4-11, the dependency spec lists declare module as read, and a fully qualified Java name as read in a field type only', async () => {
+test('test 313: S4-11, declare module is read as a use, and a fully qualified Java name is read in a field type only', async () => {
   const typescript = await judged({
     '.lawcheck/law.yaml': law(['ui', ['ui/**'], ['ui']], ['data', ['data/**'], null]),
     'data/d.ts': 'export const d = 1;\n',
     'ui/decl.ts': 'declare module "../data/d" {\n  export const e: number;\n}\n',
   });
   assert.deepEqual(typescript.findings, ['ui/decl.ts:1']);
-  assert.ok(spec.includes('`declare module \\"<path>\\"`') || spec.includes('`declare module "<path>"`'));
   const java = (name: string, body: string) => ({ [`ui/src/main/java/com/acme/ui/${name}.java`]: `package com.acme.ui;\n${body}\n` });
   const found = await judged({
     '.lawcheck/law.yaml': law(['ui', ['ui/**'], ['ui']], ['data', ['data/**'], null]),
@@ -169,7 +163,6 @@ test('test 313: S4-11, the dependency spec lists declare module as read, and a f
 
 test('test 313: S4-10, a large Java file with syntax errors is parsed on every run and bounded by nothing: the run passes, with no error and no named limit', async () => {
   assert.ok(page.includes('a file of any size with syntax errors has no bound'));
-  assert.ok(spec.includes('a large file with syntax errors has no bound (S4-10)'));
   const line = '  int x = ((( ;;; } } class class 12 @@ \n';
   let text = 'package com.acme.ui;\npublic class Big {\n';
   while (text.length < UNPARSABLE_JAVA_CHARS) text += line;

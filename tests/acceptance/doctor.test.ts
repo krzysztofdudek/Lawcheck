@@ -5,17 +5,12 @@ import { join } from 'node:path';
 import { withFake, openai } from './fake-reviewer.ts';
 import { writeFakeClaude } from './fake-reviewer.ts';
 import { append, git, inTemp, lawcheck, lawcheckAt, newRepository, pathWith, PRICING, read, withCopy, withR, withSample, withU, write } from './helpers.ts';
+import { example } from '../harness/examples.ts';
 
-const spec = readFileSync(new URL('../../spec/commands-slice.md', import.meta.url), 'utf8').split('\n');
-const block = (start: string): string[] => {
-  const at = spec.indexOf(start);
-  const lines: string[] = [];
-  for (let i = at; spec[i] !== '```'; i++) lines.push(spec[i]!);
-  return lines;
-};
+const block = (id: string): string[] => example(id).split('\n');
 const NODE = /^ok {2}node {2}Node \d+\.\d+\.\d+; Lawcheck needs 24 or later$/;
-const DOCTOR_S = block('lawcheck: PASS  9 checks');
-const NOTE_LINES = block('lawcheck: PASS  9 checks, 1 note');
+const DOCTOR_S = block('doctor-pass');
+const NOTE_LINES = block('doctor-note');
 
 function sameAsSpec(stdout: string, expected: string[]): void {
   const lines = stdout.split('\n');
@@ -79,7 +74,7 @@ test('test 133: a change of the law, in doctor and in check', async () => {
     assert.equal(nextAfter(result.stdout, 'law-change'), NOTE_LINES[3]);
     assert.equal(result.code, 0);
     const checked = await lawcheck(s, ['check', '--base', 'main']);
-    assert.equal(checked.stdout, block('lawcheck: PASS  1 changed file (against main)').join('\n') + '\n');
+    assert.equal(checked.stdout, block('check-changed-file').join('\n') + '\n');
     assert.equal(checked.code, 0);
     const json = await lawcheck(s, ['check', '--base', 'main', '--json']);
     assert.deepEqual(JSON.parse(json.stdout).scope, { mode: 'change', base: 'main', files: 1, law_changed: true, law_changes: [`edits .lawcheck/law.yaml without changing a rule or a type`] });
@@ -276,7 +271,7 @@ test('test 140: the usage of the program and of each command', async () => {
     const help = await lawcheck(dir, ['--help']);
     assert.equal(help.stdout.split('\n')[0], 'usage: lawcheck <command> [<arguments>] [--json]');
     assert.equal(help.code, 0);
-    const firsts = spec.filter((l) => /^usage: lawcheck [a-z]+ /.test(l)).slice(0, 7);
+    const firsts = block('usage-first-lines');
     assert.equal(firsts.length, 7);
     for (const first of firsts) {
       const command = first.split(' ')[2]!;

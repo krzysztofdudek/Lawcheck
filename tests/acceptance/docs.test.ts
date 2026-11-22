@@ -8,8 +8,8 @@ import { parseConfig } from '../../dist/config.js';
 import { readArguments } from '../../dist/args.js';
 import { parseArguments } from '../../dist/cli.js';
 import { WHY } from '../../dist/output.js';
+import { example } from '../harness/examples.ts';
 
-const spec = readFileSync(new URL('../../spec/commands-slice.md', import.meta.url), 'utf8').split('\n');
 const LIST = [
   'lawcheck docs: 23 topics; lawcheck docs <topic> prints one',
   '',
@@ -47,7 +47,7 @@ const LIST = [
   '  support  Supported environments',
 ];
 const TOPICS = LIST.filter((line) => line.startsWith('  ')).map((line) => ({ id: line.split('  ')[1]!, title: line.split('  ')[2]! }));
-const PARAGRAPH = spec.find((line) => line.startsWith('> A plain check judges only'))!.slice(2);
+const PARAGRAPH = example('change-paragraph');
 
 function page(id: string): string {
   return readFileSync(new URL(`../../docs/${id}.md`, import.meta.url), 'utf8');
@@ -187,6 +187,6 @@ test('test 417: lawcheck docs prints a link to another page as the command that 
 });
 
 test('commands-slice §7: no page and no spec speaks of moving from another tool', () => {
-  const texts = [...TOPICS.map(({ id }) => page(id)), readFileSync(new URL('../../spec/commands-slice.md', import.meta.url), 'utf8')];
+  const texts = [...TOPICS.map(({ id }) => page(id)), ...['architecture', 'decisions', 'promises'].map((name) => readFileSync(new URL(`../../design/${name}.md`, import.meta.url), 'utf8'))];
   for (const text of texts) assert.doesNotMatch(text, /migrat|moving from|switch(ing)? from/i);
 });
