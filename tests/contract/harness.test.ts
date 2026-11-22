@@ -342,10 +342,10 @@ test('question 95: the reporter: one block per red test, last, with its promise,
     assert.ok(at > 0, red.out);
     assert.match(lines[0]!, /^ran 1 test files, 1 tests: 0 passed, 1 failed$/);
     assert.match(lines[at]!, /^RED {6}test 3  \S*scratch\.test\.ts$/);
-    assert.match(lines[at + 1]!, /^promise  spec\/check-slice\.md, section 8, row 3: "Do: the failing run of section 6; See: its output, exit 1"$/);
+    assert.equal(lines[at + 1], 'promise  test 3: what this test expects');
     assert.match(lines[at + 2]!, /^got      the first line$/);
     assert.ok(lines.includes("rerun    npm run t -- 'test 3'"), red.out);
-    assert.equal(lines[lines.length - 1], 'if the promise changed, change the spec row first; the guard then accepts a new expectation');
+    assert.equal(lines[lines.length - 1], 'if the promise changed, the change says so in tests/weakenings.md, and the suite guard checks the row (tests/README.md)');
     const green = nodeTest(dir, 'test 3: the failing run', 'assert.equal(1, 1);');
     assert.equal(green.code, 0);
     assert.ok(!green.out.includes('RED'), green.out);
