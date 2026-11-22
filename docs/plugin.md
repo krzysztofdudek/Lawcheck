@@ -15,7 +15,7 @@ A hook is a command that Claude Code runs at an event. The plugin's hooks run La
 
 The hooks run code of the repository on your machine. That code is the repository's [script rules](concepts.md#script-rule), and with some `runner` settings a program that the repository names. Use the plugin only in a repository whose code you would run yourself.
 
-A script rule is a JavaScript module that the repository holds in `.lawcheck/rules/`. Lawcheck runs the script rules on each check, after an edit and before the agent finishes. A script rule may read the files below the folder that holds `.lawcheck/`. On Node 24, a script rule can open a network connection. Node 25 and later refuse that connection ([Script rules](script-rules.md)).
+A script rule is a JavaScript module that the repository holds in `.lawcheck/rules/`. Lawcheck runs the script rules on each check, after an edit and before the agent finishes. A script rule may read the files below the folder that holds `.lawcheck/`. It cannot open a network connection ([Script rules](script-rules.md)).
 
 With a `runner` setting other than `global`, the package manager starts Lawcheck from the repository's own files ([Settings](config.md#runner)). These files can name a program of the repository, such as `yarnPath` in `.yarnrc.yml` or a committed `node_modules/.bin/lawcheck`. The hook then runs the program that those files name.
 

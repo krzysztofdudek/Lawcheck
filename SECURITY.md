@@ -20,7 +20,7 @@ A report is in scope when Lawcheck breaks one of these promises. Each one has a 
 
 ## What Lawcheck does not promise
 
-- The runner of script rules is no sandbox. A rule is code of the repository and runs with your rights: it reads every file under the root, opens network connections, and puts what it read into its messages. Run `lawcheck check` only where you would run the repository's tests. [docs/script-rules.md](docs/script-rules.md) lists what the runner stops and what it does not.
+- The runner of script rules is no sandbox. A rule is code of the repository and runs with your rights: it reads every file under the root and puts what it read into its messages. Run `lawcheck check` only where you would run the repository's tests. [docs/script-rules.md](docs/script-rules.md) lists what the runner stops and what it does not.
 - A line of `.lawcheck/verdicts` proves that someone wrote it, not that a model gave the verdict.
 - A pull request can change the law that judges it. The check says so, and [docs/ci.md](docs/ci.md) gives a recipe that catches it.
 - A reviewer model reads the text it judges, and that text can try to steer it. A verdict is a model's answer.

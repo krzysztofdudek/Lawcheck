@@ -63,9 +63,10 @@ The rule runner refuses these actions:
 - reading through `node:fs` outside the root and Lawcheck's folder;
 - starting a child process or a worker thread;
 - loading a native add-on or WASI;
+- using the network: opening a connection, listening on a port, sending over UDP or looking up a name in DNS. The rule runner closes `node:net`, `node:dgram`, `node:dns` and the globals `fetch` and `WebSocket` before the rule loads. `node:http`, `node:https` and `node:tls` open their connections through `node:net`, and fail the same way;
 - importing `node:sqlite`. Node's permission model is the set of limits that `--permission` turns on. That model leaves `node:sqlite` open, so the rule runner starts Node without that module. No rule can open, attach or write a database through it. In a rule, `process.getBuiltinModule('node:sqlite')` returns `undefined`.
 
-Each refused action throws an error inside the rule. A rule that does not catch that error is `rule-crashed`. The message of `rule-crashed` then says what the rule did, such as `reads <path> outside the root and Lawcheck's folder, and a rule may read nothing else`, `writes <path>, and a rule may write no file` or `imports node:sqlite, and a rule may not`.
+Each refused action throws an error inside the rule. A rule that does not catch that error is `rule-crashed`. The message of `rule-crashed` then says what the rule did, such as `reads <path> outside the root and Lawcheck's folder, and a rule may read nothing else`, `writes <path>, and a rule may write no file`, `uses the network, which is closed to script rules` or `imports node:sqlite, and a rule may not`.
 
 A rule may import these modules:
 
@@ -85,7 +86,6 @@ The rule runner does not shut a rule off from your machine. A rule can still do 
 - read every file under the root, `.git/` and ignored files such as `.env` included;
 - read any file you can read, through a symbolic link under the root that git does not track;
 - read a file elsewhere in the git work tree, through a tracked link. A tracked link that leads outside the work tree stops the run with `link-outside-root` before any rule starts;
-- do what Node's permission model leaves open. On Node 24, that includes opening a network connection. Node 25 and later refuse that connection under `--permission`, because the rule runner passes no `--allow-net`;
 - put what it read into its messages. Lawcheck prints those messages, and a CI job keeps them in its log.
 
 A rule file is code of the repository. It runs with your rights, as the tests do. Run `lawcheck check` and `lawcheck try` only where you would run the tests of the change.

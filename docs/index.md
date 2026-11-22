@@ -53,7 +53,7 @@ The quick start ends on a rule about which layer may import which. For a first r
 
 Lawcheck is an alpha. It needs Node 24 or later and git 2.34 or later.
 
-Lawcheck sends code to a model only when you ask the model to judge a rule written in prose. A [script rule](concepts.md#script-rule) is code of your own repository. When Lawcheck runs one, the rule can read any file under the [root](concepts.md#law) of the law. On Node 24, a script rule can open a network connection. On Node 25 and later, the permission model of Node refuses that connection.
+Lawcheck sends code to a model only when you ask the model to judge a rule written in prose. A [script rule](concepts.md#script-rule) is code of your own repository. When Lawcheck runs one, the rule can read any file under the [root](concepts.md#law) of the law. A script rule cannot open a network connection.
 
 ## Read next
 

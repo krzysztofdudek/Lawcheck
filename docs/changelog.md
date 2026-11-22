@@ -2,6 +2,14 @@
 
 Lawcheck follows [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+On Node 24, a script rule could open a network connection, and Node 25 and later refused it. Now the rule runner refuses the network on every Node: a rule that connects, listens on a port, sends over UDP or looks up a name in DNS is `rule-crashed`, with the message `uses the network, which is closed to script rules`.
+
+### Before you upgrade
+
+A script rule that reads from the network on Node 24 now ends as `rule-crashed`, and the check exits with code 2. Keep what the rule needs in a file of the repository, and let the rule read that file.
+
 ## [0.1.0-alpha.3] - 2026-11-22
 
 `lawcheck docs` lists 36 pages, where alpha.2 listed 12, and groups them in five sections. The 24 new pages include an install page, a quick start, guides for Claude Code, for other coding agents, for an existing repository and for a monorepo, a reference of every command, a page of questions and an upgrade page. The twelve topics of alpha.2 keep their names and gain detail: `lawcheck docs codes` gives every code its cause, its fix and the output of a real case. In the terminal, a link to another page prints with the command that prints that page, as in `Install (lawcheck docs install)`. The pages are also a website, at https://krzysztofdudek.github.io/Lawcheck/, and `README.md` shows one law and the finding it gives on its first screen. `check`, the readers, the plugin's hooks and the reviewer's prompt work as in alpha.2: a check gives the same results, and the verdicts in `.lawcheck/verdicts` still count.

@@ -333,10 +333,9 @@ Make it executable with `chmod +x .githooks/pre-push`.
 
 ## Where a check may run
 
-A check runs the script rules that its checkout holds. A pull request from a stranger can add rules of its own. Lawcheck starts each rule in a Node process with `--permission`. In that process, the rule cannot write a file or start a process. It can still do these things:
+A check runs the script rules that its checkout holds. A pull request from a stranger can add rules of its own. Lawcheck starts each rule in a Node process with `--permission`. In that process, the rule cannot write a file, start a process or open a network connection. It can still do these things:
 
 - read each file below the folder that holds `.lawcheck/`, `.env` included;
-- open a network connection on Node 24. Node 25 and later refuse that connection under `--permission`;
 - print what it read into the log of the job.
 
 [Script rules](script-rules.md) says what else the process allows and refuses.

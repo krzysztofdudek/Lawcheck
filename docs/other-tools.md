@@ -88,7 +88,7 @@ A reviewer rule needs a model. `lawcheck check --review` asks the model once for
 
 Lawcheck sends code only to a model you ask to judge a reviewer rule, with `--review` or `lawcheck try`. The code goes to the one of nine providers you name. With the provider `ollama`, Lawcheck sends it to a server on your own machine by default ([Reviewers and keys](providers.md)).
 
-A script rule is code of your own repository. When Lawcheck runs one, the rule can read any file under the [root](concepts.md#law) of the law ([Script rules](script-rules.md)). On Node 24, a script rule can open a network connection. On Node 25 and later, the permission model of Node refuses that connection.
+A script rule is code of your own repository. When Lawcheck runs one, the rule can read any file under the [root](concepts.md#law) of the law ([Script rules](script-rules.md)). A script rule cannot open a network connection.
 
 Lawcheck needs no account. Its licence is MIT.
 

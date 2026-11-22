@@ -35,7 +35,7 @@ A rules file is advice the agent reads, and nothing in the session checks the co
 
 ## Try it
 
-Lawcheck is an alpha under the MIT license. It needs Node 24 or later and git 2.34 or later. Lawcheck sends code only to a model you ask to judge a rule written in prose. A script rule is your repository's own code, and it can read every file under the root. On Node 24 it can open a network connection. Node 25 and later refuse that connection, because Lawcheck starts the rule with Node's permission model on. The quick start takes a git repository, a new one or yours, to its first finding in five steps, with no model and no key. Its first step is `lawcheck init` at the root of that repository:
+Lawcheck is an alpha under the MIT license. It needs Node 24 or later and git 2.34 or later. Lawcheck sends code only to a model you ask to judge a rule written in prose. A script rule is your repository's own code, and it can read every file under the root. It cannot open a network connection. The quick start takes a git repository, a new one or yours, to its first finding in five steps, with no model and no key. Its first step is `lawcheck init` at the root of that repository:
 
 ```text
 npm install --global lawcheck@alpha
