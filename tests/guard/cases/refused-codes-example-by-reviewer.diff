@@ -1,13 +1,12 @@
 diff --git a/docs/codes.md b/docs/codes.md
 --- a/docs/codes.md
 +++ b/docs/codes.md
-@@ -4,5 +4,5 @@
+@@ -4,4 +4,4 @@
  
  ```text
 -src/a\nb.ts:3  error[no-console]  console.log is not allowed
 +src/a b.ts:3  error[no-console]  console.log is not allowed
  ```
- 
 diff --git a/tests/weakenings.md b/tests/weakenings.md
 --- a/tests/weakenings.md
 +++ b/tests/weakenings.md
