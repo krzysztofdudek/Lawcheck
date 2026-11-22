@@ -1,6 +1,10 @@
 # A finding you believe is wrong
 
-A check fails on a line that you believe breaks no [rule](concepts.md#rule). A [waiver](concepts.md#waiver) on the line would make the build green and leave the cause in place. These steps find the cause first. The cause is the [type](concepts.md#type), the rule, or one line that is a real exception. At the end, the rule reads the file right. The one exception carries a waiver with its reason. Each waiver left in the repository drops a [finding](concepts.md#finding).
+A check fails on a line that you believe breaks no [rule](concepts.md#rule). A [waiver](concepts.md#waiver) on the line would make the build green and leave the cause in place. These steps find the cause first: the [type](concepts.md#type), the rule, or one line that is a real exception. At the end:
+
+- the rule reads the file right;
+- the one exception carries a waiver with its reason;
+- each waiver left in the repository drops a [finding](concepts.md#finding).
 
 The outputs below come from a repository whose `main` holds the [law](concepts.md#law) of [Bring a law into an existing repository](adopt-in-an-existing-repository.md). In that law, the type `library` has the rule `no-console`, enforced. The branch `main` holds `src/core/round.ts` as well, where someone put a waiver on a comment:
 
@@ -160,7 +164,7 @@ src/core/round.ts:2  warning[waiver-unused]  the waiver of 'no-console' drops no
   why:  a waiver that drops nothing would hide the next finding on its line
 ```
 
-The older waiver in `src/core/round.ts` covered a comment. The fixed rule finds nothing on that line. Lawcheck reports [`waiver-unused`](codes.md#waiver-unused) for the waiver. The file lies outside the change. Lawcheck shows a finding outside the change as a warning of [debt](concepts.md#debt).
+The older waiver in `src/core/round.ts` covered a comment, where the fixed rule finds nothing. Lawcheck reports [`waiver-unused`](codes.md#waiver-unused) for it. That file lies outside the change, so the finding shows as a warning of [debt](concepts.md#debt).
 
 `lawcheck check --full --json` lists every waiver of the repository in `waivers`, with its file, line, rule and reason. The field `waived` of a waiver counts the findings it dropped. On a waiver of a [script rule](concepts.md#script-rule), a 0 there marks a waiver that waives nothing ([JSON documents](json.md)).
 

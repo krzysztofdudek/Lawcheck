@@ -2,7 +2,7 @@
 
 Two developers record reviews on two branches. Both branches add lines to `.lawcheck/verdicts`. Git keeps the lines of both branches in the merge. You do not pay the reviewer again for a file that your teammate's review covers. The [law](concepts.md#law), the [rules](concepts.md#rule), the settings and the [verdicts](concepts.md#verdict) are files in git. Every clone checks against the same law.
 
-The outputs below come from a repository with this law. Its [reviewer rule](concepts.md#reviewer-rule) is the file `.lawcheck/rules/clear-errors.md` ([Reviewer rules](reviewer-rules.md)). Its `main` holds the law and no code:
+The outputs below come from a repository whose `main` holds the law and no code. Its [reviewer rule](concepts.md#reviewer-rule) is `.lawcheck/rules/clear-errors.md` ([Reviewer rules](reviewer-rules.md)). This is its law:
 
 ```yaml
 lawcheck: 0.1.0

@@ -1,8 +1,8 @@
 # The law file
 
-An agent writes a database call into a page component. The build stays green. The law is the file `.lawcheck/law.yaml`. In it, you say which kinds of files the repository has, and which rules bind each kind.
+An agent writes a database call into a page component. The build stays green. The law is the file `.lawcheck/law.yaml`. In it, you say which kinds of files the repository has, and which rules the files of each kind keep.
 
-Lawcheck looks for the file in the current directory, then in each directory above it. The nearest directory that holds it is the root. Git and the rules run in the root. Every path of the law starts there. A root below the top of the git work tree sees only the files below it. The law may hold 1 MiB, 10,000 rules and 1,000 types, subtypes included. A larger law is `file-too-large`.
+Lawcheck looks for the file in the current directory, then in each directory above it. The nearest directory that holds it is the root of the law, where git and the rules run and where every path of the law starts. A root below the top of the git work tree sees only the files below it. Past 1 MiB, 10,000 rules or 1,000 types, subtypes included, the law is `file-too-large`.
 
 ## Keys
 
@@ -68,7 +68,7 @@ types:
 
 ### status
 
-`status` is `enforced`, the default, or `advisory`. A finding of an enforced rule in the change is an error that fails the run. A finding of an advisory rule is a warning that never fails the run.
+`status` is `enforced`, the default, or `advisory`. A finding of an enforced rule in the change is an error that fails the run, while a finding of an advisory rule is a warning that never does.
 
 ### context
 
@@ -92,13 +92,13 @@ types:
 
 ### rules
 
-`rules` lists the ids of the rules that bind the type's files. Each id must be a rule of the law. An id listed twice counts once.
+`rules` lists the ids of the rules that the type's files keep. Each id must be a rule of the law. An id listed twice counts once.
 
 ### may_use
 
-`may_use` lists the types whose files this type's files may [use](concepts.md#use). A type without the key takes the list of its nearest ancestor that has one. That list is the list in force for the type. Without a list anywhere above, a file may use anything.
+`may_use` lists the types whose files this type's files may [use](concepts.md#use). A type without the key takes the list of its nearest ancestor that has one. That list is the list in force for the type. Without a list anywhere above, the file may use any file, and Lawcheck reads none of its uses.
 
-A list allows a target whose type is a listed type or a subtype of one. A type may use its own files only when its list names it. `may_use: []` allows nothing. No list allows a use of a file with no type. Lawcheck does not judge a use of a binary file, nor a file's use of itself. Each id must be a type of the law. Each use that the list does not allow is `forbidden-use`. `lawcheck docs languages` says which uses Lawcheck reads.
+A list allows a target whose type is a listed type or a subtype of one. A type may use its own files only when its list names it. `may_use: []` allows nothing. No list allows a use of a file with no type. Lawcheck does not judge a use of a binary file, nor a file's use of itself. Every use that the list does not allow gives the finding `forbidden-use`. The ids of the list must all be types of the law. `lawcheck docs languages` lists, for each language, the forms of a use that Lawcheck reads.
 
 ### types
 
@@ -134,9 +134,16 @@ Lawcheck refuses these patterns with `law-invalid`:
 
 ## The type of a file
 
-Lawcheck takes the files that `git ls-files --cached --others --exclude-standard` lists at the root, regular files alone. A symbolic link has no type. A file that git ignores has no type. `.lawcheck/verdicts` and `.lawcheck/.gitattributes` have no type either. A file whose first 8,000 bytes hold a NUL byte is binary. A binary file has no type. A file name may hold a line break, a carriage return, a backslash or bytes that are not UTF-8. Lawcheck judges such a file like any other. It prints the name with `\n`, `\r`, `\\` and `\xHH` in their place. Lawcheck does not look into a submodule, or into a repository of its own inside this one. It prints a note when the paths of a type reach into one.
+Lawcheck takes the files that `git ls-files --cached --others --exclude-standard` lists at the root, regular files alone. These listed files have no type:
 
-Lawcheck tests a file against the root types, `paths` first and then `content`. It then tests the file against the subtypes of the type that matched, and so on down. The deepest match is the type of the file. The rules of every type on the way down bind the file, each rule once. Lawcheck never judges a file that no type matches.
+- a symbolic link;
+- a file that git ignores;
+- `.lawcheck/verdicts` and `.lawcheck/.gitattributes`;
+- a binary file, which Lawcheck tells by a byte of value 0 in its first 8,000 bytes.
+
+Lawcheck judges a file like any other when its name holds a line break, a carriage return, a backslash or bytes that are not UTF-8. It prints such a name with `\n`, `\r`, `\\` and `\xHH` in their place. A submodule is a git repository that another repository holds in its tree. Lawcheck does not look into a submodule, or into any other repository inside this one, and prints a note when the paths of a type reach into one.
+
+Lawcheck tests a file against the types at the top of `types`, `paths` first and then `content`. It then tests the file against the subtypes of the type that matched, and so on down. The deepest match is the type of the file. The file keeps the rules of every type on the way down, each rule once. Lawcheck never judges a file that no type matches.
 
 Two types of one level that both match a file are `type-overlap`. Every run then stops with exit 2. To split two types by path, add a `!` pattern to one of them. To give some files of a type a type of their own by their text, make a subtype with a `content` expression under that type ([Types for an existing project](types-for-a-project.md#_14-give-the-tests-beside-the-code-a-type-by-their-text)). A second type of the same level with the same `paths` and a `content` still overlaps. The first type matches every file that the second one matches. `lawcheck explain <path>` shows how a file got its type.
 

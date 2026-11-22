@@ -93,13 +93,13 @@ The check exits 1. The primer tells the agent that exit 1 means "fix the code". 
 
 ## 4. Check in CI what the agent skips
 
-Without a hook, no program checks a file after the agent edits it. No program keeps the agent at work while its files break the law. The agent checks its code only when it follows the primer. Run the same check in a CI job or a git hook ([CI and git hooks](ci.md)). That check catches a change the agent left unchecked.
+These agents have no hook. Lawcheck checks a file only when the agent runs `lawcheck check`, as the primer tells it to after each change. Run the same check in a CI job or a git hook ([CI and git hooks](ci.md)). That check catches a change that the agent left unchecked, before you merge it.
 
 ## If it goes wrong
 
-- The agent runs `lawcheck`. The shell finds no such program. The project keeps Lawcheck as a dev dependency, outside the `PATH`. Write the command of your runner in the line of step 1. With `runner` set, the first line of the primer names that command too.
+- The shell finds no `lawcheck` when the agent runs it. The project keeps Lawcheck as a dev dependency, which puts it outside the `PATH`. Write your runner's command in the line of step 1. With `runner` set, the first line of the primer names that command too.
 - The agent says it is done while `lawcheck check` exits 1. The primer forbids that. No hook stops the agent. The CI job of step 4 fails the change.
 - `lawcheck check` says "no base". The primer tells the agent to pass `--base` with the branch it started from.
-- The law is not valid. `prime` prints the start of the text, then the errors, and exits 2.
+- The law is not valid. `prime` prints the primer without its part about the law, then the errors, and exits 2.
 
 Next: [CI and git hooks](ci.md)

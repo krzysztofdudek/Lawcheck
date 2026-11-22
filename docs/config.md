@@ -1,6 +1,6 @@
 # Settings
 
-A [reviewer rule](concepts.md#reviewer-rule) needs a model. The key of that model stays out of the repository. The settings live in `.lawcheck/config.yaml` at the root of the law. Lawcheck takes keys from the environment alone. The file is optional. Without it, every setting has its default. Lawcheck then has no reviewer. [Script rules](concepts.md#script-rule) need no settings.
+A [reviewer rule](concepts.md#reviewer-rule) needs a model. Its key must stay out of the repository, so Lawcheck takes keys from the environment alone. The other settings live in `.lawcheck/config.yaml`, beside the law. The file is optional: without it, every setting has its default and Lawcheck has no reviewer. [Script rules](concepts.md#script-rule) need no settings at all.
 
 ```yaml
 reviewer:
@@ -61,7 +61,7 @@ Lawcheck stops with `config-invalid` and exit 2 in these cases:
 
 The error names the line. The message names a known key or provider one or two letters away, when there is one. Three cases have a message of their own.
 
-The first case is a key in the file. A key never goes into a committed file. Lawcheck takes it from the environment (section "Variables" below):
+The first case is a key in the file, which Lawcheck refuses because a key never goes into a committed file. Lawcheck takes it from the environment (section "Variables" below):
 
 ```text
 reviewer:
@@ -85,7 +85,7 @@ reviewer:
   temperature: 0
 ```
 
-Lawcheck reads `.lawcheck/config.yaml` and `.lawcheck/law.yaml` through a symbolic link too. An error about such a file shows none of its text. A link can lead to a secret outside the repository.
+Lawcheck reads `.lawcheck/config.yaml` and `.lawcheck/law.yaml` through a symbolic link too. An error about such a file shows none of its text, because a link can lead to a secret outside the repository.
 
 ## runner
 

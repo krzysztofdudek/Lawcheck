@@ -1,6 +1,6 @@
 # Lawcheck in Claude Code
 
-An agent writes `console.log` into `src/core/total.ts`. The [law](concepts.md#law) of the repository forbids that call there. With the Lawcheck plugin, the agent sees the [finding](concepts.md#finding) after its edit. Before the agent ends its turn, the plugin sends it back to work while the files of the turn break the law. At the start of a session, the plugin gives the agent the law.
+An agent writes `console.log` into `src/core/total.ts`. The [law](concepts.md#law) of the repository forbids that call there. With the Lawcheck plugin, the agent sees the [finding](concepts.md#finding) after its edit. Before the agent ends its turn, the plugin sends it back to work while the files of the turn break the law. At the start of a session, the agent gets a summary of the law from the plugin.
 
 The outputs below come from a repository with this law. Its [script rule](concepts.md#script-rule) `no-console` is the rule of [The first type and the first rule](first-law.md). The file `src/core/total.ts` has the [type](concepts.md#type) `library`:
 

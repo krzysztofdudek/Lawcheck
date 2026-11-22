@@ -2,15 +2,7 @@
 
 Lawcheck has seven commands and two flags of its own. For each command, this page gives its usage line, what it reads and writes, its flags, its exit codes and one run. `lawcheck <command> --help` prints the usage of one command in the terminal.
 
-The runs below come from one repository. Its `main` holds these files:
-
-- `README.md`;
-- the law below;
-- the rule file `.lawcheck/rules/no-console.mjs`, which reports each call such as `console.log` ([Script rules](script-rules.md));
-- `src/core/price.ts`, which writes nothing;
-- `src/cli/main.ts`, which calls `console.log`.
-
-The law reads:
+The runs below come from one repository. Its `main` holds five files: `README.md`, the law below, the rule file `.lawcheck/rules/no-console.mjs` ([Script rules](script-rules.md)), `src/core/price.ts` and `src/cli/main.ts`. The rule reports each call such as `console.log`. `src/cli/main.ts` makes one such call, and `src/core/price.ts` writes nothing. You write that law by hand, without `lawcheck init`, so the repository has no `.lawcheck/.gitignore`. The law reads:
 
 ```yaml
 lawcheck: 0.1.0
@@ -36,7 +28,7 @@ The work is on a branch made from `main`. On that branch, `src/core/report.ts` c
 
 `--json` may stand anywhere among the arguments. With it, the command prints one JSON document in place of text ([JSON documents](json.md)).
 
-Lawcheck stops a command with exit 2 in these cases. The error names the next step ([Codes](codes.md)).
+Lawcheck stops a command with exit 2 in the cases below, and the error names the next step ([Codes](codes.md)). The code [`usage`](codes.md#usage) means that the command line does not match the usage line of its command.
 
 | The case | The code |
 |---|---|
@@ -61,7 +53,7 @@ usage: lawcheck init [--json]
 - `.lawcheck/law.yaml`, with an empty law and a short example in comments;
 - `.lawcheck/.gitignore`, with the lines `.local/` and `config.local.yaml`.
 
-`init` overwrites no file. It writes no `.lawcheck/config.yaml`. In a folder below the top of the git work tree, `init` starts a law that covers only the files below that folder. A note in its output says so. `init` refuses with `already-initialized` when a law governs this folder from here or from above. It refuses in the same way when git lists a law below this folder. `init` takes no word besides `--json`. An extra word is `usage`.
+`init` overwrites no file, and it writes no `.lawcheck/config.yaml`. In a folder below the top of the git work tree, `init` starts a law that covers only the files below that folder, and its output says so in a note. `init` refuses with `already-initialized` when a law governs this folder from here or from above, or when git lists a law below this folder. An extra word after `init` ends it with `usage`.
 
 Run `init` once per repository, at the root of the code you want to check. In a new repository:
 
@@ -122,7 +114,13 @@ usage: lawcheck prime [--json]
 - what the agent may do unasked;
 - the law in short.
 
-`prime` runs no rule and calls no reviewer. It reads no [use](concepts.md#use) and writes nothing. The text holds at most 8,000 characters. For a large law, Lawcheck shortens the text in up to four steps. The text then says what it left out. With a `runner` other than `global`, the first line says how to start Lawcheck in this repository. Without a law, `prime` prints two lines that say so. With a law that is not valid, it prints the first part of the text, then the errors. `prime` takes no word besides `--json`. An extra word is `usage`.
+`prime` reads the law, the rule files and the setting `runner`, and writes nothing. It does none of the work of a check:
+
+- it runs no rule;
+- it reads no [use](concepts.md#use);
+- it calls no reviewer.
+
+The text holds at most 8,000 characters. For a large law, Lawcheck shortens the text in up to four steps, and the text says what it left out. With a `runner` other than `global`, the first line says how to start Lawcheck in this repository. Without a law, `prime` prints two lines that say so. With a law that is not valid, it prints the primer without its part about the law, then the errors. An extra word after `prime` ends it with `usage`.
 
 Name `prime` in the instructions of an agent other than Claude Code. The Claude Code plugin runs `prime` at the start of each session ([The Claude Code plugin](plugin.md)).
 
@@ -193,7 +191,7 @@ With paths or patterns, `check` judges only the files you name, changed or not. 
 
 ### --full
 
-`--full` judges the files outside the change too. It lists their findings as [debt](concepts.md#debt). Debt is a warning in every case. It never fails the check.
+`--full` judges the files outside the change too, and lists their findings as [debt](concepts.md#debt). Debt never fails the check, since every finding of debt is a warning.
 
 ### --base `<ref>`
 
@@ -209,7 +207,7 @@ With paths or patterns, `check` judges only the files you name, changed or not. 
 
 ### --max-calls `<n>`
 
-`--max-calls` works with `--review` alone. It sets the most requests this run sends. It replaces `reviewer.max_calls` for this run ([Settings](config.md)). A run that needs more requests stops with `too-many-reviews` before its first call.
+`--max-calls` works with `--review` alone. It caps the number of requests this run sends. It replaces `reviewer.max_calls` for this run ([Settings](config.md)). A run that needs more requests stops with `too-many-reviews` before its first call.
 
 ### --json
 
@@ -278,7 +276,7 @@ Each name in the path may hold at most 255 bytes. The whole path on disk, with t
 - whether it reads waivers;
 - its files.
 
-An id that the law does not have is `usage`. The message names the nearest id.
+For an id that the law does not have, the command ends with `usage`. The message names an id of the law that is one or two letters away, when there is one.
 
 ### --rule `<id>`
 
@@ -286,10 +284,10 @@ An id that the law does not have is `usage`. The message names the nearest id.
 
 - its kind, script or reviewer, with its `status` and `why`;
 - its rule file, and the files its `context` names, which a reviewer rule sends with each file it judges;
-- the types that list it, and the files it binds;
+- the types that list it, and the files of those types and their subtypes;
 - for a reviewer rule, how many of those files have a verdict.
 
-An id that the law does not have is `usage`. The message names the nearest id.
+For an id that the law does not have, the command ends with `usage`. The message names an id of the law that is one or two letters away, when there is one.
 
 ### --json
 
@@ -308,7 +306,7 @@ An id that the law does not have is `usage`. The message names the nearest id.
 usage: lawcheck try <rule> [<path or pattern>...] [--times <n>] [--dry-run] [--max-calls <n>] [--json]
 ```
 
-`try` runs one rule on the files you choose, with no base. It records nothing: no verdict, no failure, no file in the repository. The rule needs an entry in the law. No type has to list the rule yet. Each finding carries the severity of the rule's `status`. The waivers of the file apply.
+`try` runs one rule on the files you choose, with no base. It records nothing, so the verdicts, the cached failures and the files of the repository stay as they were. The rule needs an entry in the law, even while no type lists it. Each finding carries the severity of the rule's `status`, and the waivers of the file apply.
 
 Run `try` while you write a rule, before a type lists it ([Script rules](script-rules.md)).
 
@@ -325,11 +323,11 @@ src/cli/main.ts:1  error[no-console]  writes to the terminal with console.log
 
 ### `<rule>`
 
-`<rule>` is the id of a rule of the law. A code of Lawcheck, such as `forbidden-use`, is `usage` here. `check` judges the codes of Lawcheck, and `try` does not.
+`<rule>` is the id of a rule of the law. A code of Lawcheck, such as `forbidden-use`, ends `try` with `usage`, because only `check` judges those codes.
 
 ### `<path or pattern>...`
 
-The paths name the files to run the rule on, from the current folder. Each one is a file, a folder with every file below it, or a pattern. `try` leaves binary files out. A target that selects nothing is `usage`. Without targets, a script rule runs on the files it binds. A reviewer rule takes files one by one, and at least one. It refuses a folder or a pattern.
+The paths name the files to run the rule on, from the current folder: files, folders with every file below them, or patterns. `try` leaves binary files out, and a target that selects no file ends it with `usage`. Without targets, a script rule runs on every file whose type, or a type above it, lists the rule. A reviewer rule needs at least one file, named one by one: `try` refuses a folder or a pattern for it.
 
 ### --times `<n>`
 
@@ -341,7 +339,7 @@ The paths name the files to run the rule on, from the current folder. Each one i
 
 ### --max-calls `<n>`
 
-`--max-calls` works with a reviewer rule alone. It sets the most requests this run sends, in place of `reviewer.max_calls`.
+`--max-calls` works with a reviewer rule alone. It caps the number of requests this run sends, in place of `reviewer.max_calls`.
 
 ### --json
 
@@ -361,13 +359,13 @@ The paths name the files to run the rule on, from the current folder. Each one i
 usage: lawcheck docs [<topic>] [--json]
 ```
 
-`docs` prints the pages of this reference in the terminal. Without a topic, it lists the topics under their sections. It needs no law, no git and no network. A link to another page prints as the command that prints that page, such as `Codes (lawcheck docs codes)`.
+`docs` prints the pages of this reference in the terminal, even offline, outside git and without a law. Without a topic, it lists the topics under their sections. A link to another page prints as the command that prints that page, such as `Codes (lawcheck docs codes)`.
 
 Run `docs` on a machine without a browser, or to give an agent one page.
 
 ### `<topic>`
 
-`<topic>` is the id of one page. More than one word is `usage`. An unknown id is `usage`. The message names the nearest id:
+`<topic>` is the id of one page. Two or more words end the command with `usage`. So does an id that no page has, and then the message names the id of a page that is one or two letters away:
 
 ```text
 $ lawcheck docs jsn
@@ -399,7 +397,7 @@ next: run lawcheck docs as its usage line says: lawcheck docs --help
 usage: lawcheck doctor [--base <ref>] [--reviewer] [--json]
 ```
 
-`doctor` says what is wrong with this setup, with one next step for each problem. It writes nothing. It works without a law, and outside git. It opens no connection unless you pass `--reviewer`, with one exception. With the provider `ollama` and a reviewer rule in the law, `doctor` asks the server for its version without the flag. On an environment that Lawcheck refuses, `doctor` starts with the same refusal as every other command. It then runs its nine checks below that line. `doctor` takes no word besides its flags. An extra word is `usage`.
+`doctor` says what is wrong with this setup, with one next step for each problem. It writes nothing. It works without a law, and outside git. It opens no connection unless you pass `--reviewer`, with one exception. With the provider `ollama` and a reviewer rule in the law, `doctor` asks the server for its version without the flag. On an environment that Lawcheck refuses, `doctor` starts with the same refusal as every other command. It then runs its nine checks below that line. An extra word after `doctor` ends it with `usage`.
 
 Run `doctor` after you install Lawcheck, after you change `.lawcheck/config.yaml`, and before you report a bug.
 
@@ -421,7 +419,7 @@ ok  readers  no type has may_use, so no use is read; the 13 grammars load
 ok  reviewer  no reviewer rule, so no reviewer is needed
 ```
 
-The `node` line names the Node that runs Lawcheck. Three of the six files have no type: `README.md` and the two files under `.lawcheck/`. The nine checks run in this order:
+The `node` line names the Node that runs Lawcheck. Three of the six files have no type: `README.md` and the two files under `.lawcheck/`. A repository where `lawcheck init` started the law holds `.lawcheck/.gitignore` as well, and there `doctor` prints `3 of 7 files have a type`. The nine checks run in this order:
 
 | Check | What it looks at |
 |---|---|
@@ -472,7 +470,7 @@ Each check ends as `ok`, `note`, `fail` or `skip`. A check shows `skip`, with `n
 
 ## --help
 
-`lawcheck --help` prints one line for each command and exits 0. `lawcheck <command> --help` prints the usage of that command and its flags. For `check` and `try`, it prints their exit codes as well. `--help` works only when it is the one argument, or the one argument after a command. `lawcheck --help` prints:
+`lawcheck --help` prints one line for each command and exits 0. `lawcheck <command> --help` prints the usage and flags of that command, and for `check` and `try` their exit codes too. `--help` works only when it is the one argument, or the one argument after a command. `lawcheck --help` prints:
 
 ```output
 usage: lawcheck <command> [<arguments>] [--json]

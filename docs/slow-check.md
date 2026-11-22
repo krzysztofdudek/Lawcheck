@@ -1,6 +1,6 @@
 # A slow check
 
-A check in a git hook runs on each commit. A check in CI runs on each pull request. A check that takes two minutes costs two minutes on each of them. These steps find the part of a run that takes the time. Reviewer calls are the one part of a run that can cost money. Step 5 puts a bound on them.
+A check in a git hook runs on each commit, and a check in CI on each pull request. A check that takes two minutes costs two minutes every time. These steps find the slow part. Reviewer calls are the one part of a run that can cost money, and step 5 puts a bound on them.
 
 The outputs below come from a repository that joins two other guides. It has the [script rule](concepts.md#script-rule) `no-console` of [Bring a law into an existing repository](adopt-in-an-existing-repository.md). It has the [reviewer rule](concepts.md#reviewer-rule) `clear-errors` and the Ollama reviewer of [Write a reviewer rule](write-a-reviewer-rule.md). Its [law](concepts.md#law):
 
@@ -57,7 +57,7 @@ src/core/tax.ts  warning[not-reviewed]  clear-errors has no verdict for this con
   why:  a reviewer rule says nothing about content it has not judged
 ```
 
-A check of named files judges those files alone. It needs no base and calls no reviewer. Compare its time with the time of step 1. Then name a folder or a pattern, to narrow down the part that takes the time.
+A check of named files judges those files alone, with no base and no reviewer call. Compare its time with the time of step 1. Then name a folder or a pattern, to narrow down the part that takes the time.
 
 ## 3. Run each script rule alone
 
@@ -69,7 +69,7 @@ $ lawcheck try no-console
 lawcheck: try no-console (script rule, enforced)  nothing found in 2 files
 ```
 
-`try` with no file runs one script rule on every file the rule binds. It runs no other rule. Run `try` for each script rule of the law, and compare the times.
+`try` with no file runs one script rule alone, on every file whose type, or a type above it, lists the rule. Run `try` for each script rule of the law, and compare the times.
 
 ## 4. See which files are read for uses
 
@@ -83,7 +83,7 @@ Find its `readers` line:
 ok  readers  uses are read in 2 files: typescript 2; the 13 grammars load
 ```
 
-The line counts the files whose [uses](concepts.md#use) Lawcheck reads, by language. A use is an import, or another reference from one file to another. Lawcheck reads the uses of a file whose type, or a type above it, has `may_use` ([Forbid one layer to use another](forbid-a-use.md)). A plain check reads the uses of the changed files among them. `--full` reads the uses of all of them. A large count may come from generated or vendored code. Leave that code out of the type: narrow its `paths`.
+The line counts the files whose [uses](concepts.md#use) Lawcheck reads, by language. A use is an import, or another reference from one file to another. Lawcheck reads the uses of a file whose type, or a type above it, has `may_use` ([Forbid one layer to use another](forbid-a-use.md)). A plain check reads the uses of the changed files among them, and `--full` reads the uses of all of them. A large count may come from generated or vendored code. To leave that code out, narrow the `paths` of the type.
 
 ## 5. Bound the reviewer
 
@@ -104,7 +104,7 @@ With `max_calls: 20`, a run that needs more than 20 calls sends none. A call tha
 - a call has 60 seconds, or 300 seconds with `ollama`;
 - with `claude-code`, `codex`, `gemini-cli` or `copilot-cli`, a call has 300 seconds. Lawcheck makes one call at a time to these programs.
 
-`--max-calls` sets the cap for one run. This change needs 2 calls. Set the cap to 1:
+`--max-calls` sets the cap for one run. This change needs 2 calls, so set the cap to 1 to see the refusal:
 
 ```text
 $ lawcheck check --review --max-calls 1 --base main

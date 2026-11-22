@@ -1,6 +1,6 @@
 # Reviewer rules
 
-An error message says that something failed. It gives the caller no next step. A language model can read the message and tell whether it names the next step. A reviewer rule is a rule in prose that a model judges.
+An error message says that something failed, and leaves the caller without a next step. A language model can read such a message and tell whether it names one. A reviewer rule is a rule in prose that a model judges.
 
 ## The rule file
 
@@ -28,7 +28,7 @@ Lawcheck builds one prompt per file and rule, from these parts:
 5. `<file path="...">` with the judged file, its lines numbered;
 6. `<waived>` with the line numbers a waiver of this rule covers, or `none`.
 
-Lawcheck sends no other file, no git data and no variable. Lawcheck never sends a prompt over `reviewer.max_chars` characters. The file gets `too-large-to-review` in its place.
+The prompt holds these parts and nothing else from the repository, from git or from the environment. A prompt over `reviewer.max_chars` characters stays unsent, and the file gets `too-large-to-review` in its place.
 
 ## The answer
 
@@ -61,7 +61,7 @@ The key is a hash of these parts:
 - the path and text of the judged file;
 - the waived lines that the prompt names.
 
-A change to any of these parts re-opens the review. The key leaves out the status, the provider, the model and the settings. A change to them keeps every pass. A waiver changes the text of the file. A new waiver then re-opens the review.
+After a change to any of these parts, Lawcheck asks for a new review. The key leaves out the status, the provider, the model and the settings, so Lawcheck keeps every pass when you change them. A waiver is part of the text of the file, and a new waiver needs a new review.
 
 In a type with `waivers: false`, a waiver of the rule is plain text. The reviewer then judges the line that the waiver would cover. The key differs from the key of the same text where the waiver counts. A pass recorded while the waiver counted then stops counting. That happens once the type sets `waivers: false`, or once a change of the law moves the file into such a type.
 
@@ -73,7 +73,7 @@ Lawcheck keeps a failed review on this machine alone, in `.lawcheck/.local/failu
 
 ## The state of a review
 
-Lawcheck gives each judged file and each reviewer rule that binds it the first state that applies, in this order:
+For each judged file and each reviewer rule that the file keeps, Lawcheck takes the first state that applies, in this order:
 
 1. the verdicts file has its line: a pass, nothing shown;
 2. the failure cache holds a fail: Lawcheck shows its findings again, with or without `--review`;
@@ -94,7 +94,7 @@ $ lawcheck check --review --max-calls 3 --base main
 - `--again` asks the reviewer again where the cache holds a failure.
 - `--max-calls <n>` replaces `reviewer.max_calls` for one run. Every request counts, a request sent again included. A run that needs more calls than the cap makes none, and stops with `too-many-reviews`.
 
-Without `--review`, Lawcheck sends nothing to a reviewer. A request that fails stops the run with `reviewer-unreachable`. The passes that the run recorded stay in `.lawcheck/verdicts`. Run the same command again, and Lawcheck asks the reviewer for the remaining reviews alone.
+Without `--review`, Lawcheck sends nothing to a reviewer. A request that fails stops the run with `reviewer-unreachable`, but the passes the run recorded stay in `.lawcheck/verdicts`. Run the same command again, and Lawcheck asks the reviewer for the remaining reviews alone.
 
 ## Trying a reviewer rule
 
