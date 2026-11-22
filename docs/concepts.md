@@ -109,7 +109,7 @@ The change is the set of files that differ from the merge base of `HEAD` and the
 
 Example: on a branch where you edited one file, the first line of `lawcheck check --base main` ends with `1 changed file (against main)`.
 
-## plain check
+## Plain check
 
 A plain check is a run of `lawcheck check` that judges the change alone. It reads the passes in `.lawcheck/verdicts`. It calls no reviewer. A file outside the change never fails a plain check.
 
