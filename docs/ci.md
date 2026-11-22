@@ -291,7 +291,7 @@ src/core/total.ts:2  error[no-console]  writes to the terminal with console.log
 next: fix src/core/total.ts:2
 ```
 
-The hook exits 1. Git makes no commit. A commit that keeps the law goes through.
+The hook exits 1, and git makes no commit. A commit that keeps the law goes through.
 
 ### 5. Add the pre-push hook
 
