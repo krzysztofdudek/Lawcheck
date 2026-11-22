@@ -1,8 +1,10 @@
 # Upgrade Lawcheck
 
-Lawcheck finds the [uses](concepts.md#use) of each file through a parsing library named Runes. Lawcheck 0.1.0-alpha.2 depends on Runes 1.2.0. alpha.2 finds uses that 0.1.0-alpha.1 missed, such as a `vi.mock` of a file of another layer. Lawcheck judges those uses against `may_use`. A branch that passed on alpha.1 can then fail on alpha.2, at a line that the branch did not touch.
+Lawcheck 0.1.0-alpha.3 judges the code as 0.1.0-alpha.2 does, and `lawcheck docs` lists 36 pages in place of 12. Its text list groups the pages under five section lines, so a script that reads that list meets lines it did not see before. From alpha.2, the first three steps are the whole upgrade. From 0.1.0-alpha.1, read the whole page.
 
-At the end of this guide, alpha.2 runs. `lawcheck check --full` has listed its new findings. You have changed the law or the code so that the next change passes.
+Lawcheck finds the [uses](concepts.md#use) of each file through a parsing library named Runes. Lawcheck 0.1.0-alpha.2 depends on Runes 1.2.0. alpha.2 finds uses that 0.1.0-alpha.1 missed, such as a `vi.mock` of a file of another layer. Lawcheck judges those uses against `may_use`. A branch that passed on alpha.1 can then fail on alpha.3, at a line that the branch did not touch.
+
+At the end of this guide, alpha.3 runs. `lawcheck check --full` has listed its new findings. You have changed the law or the code so that the next change passes.
 
 ## Changes in the results
 
@@ -23,19 +25,19 @@ At the end of this guide, alpha.2 runs. `lawcheck check --full` has listed its n
 | a C or C++ system header, a Ruby constant the repository does not declare, a Java or Kotlin member type inherited from a library | outside the repository, where alpha.1 counted an unresolved use |
 | an alias the readers cannot follow | an unresolved use, where alpha.1 dropped it |
 
-The release note of alpha.2 says the same in prose ([Changelog](changelog.md)).
+The release note of alpha.2 says the same in prose ([Changelog](changelog.md)). alpha.3 gives the same results.
 
 ## Files that need no edit
 
-The law keeps its `lawcheck: 0.1.0` line, since Lawcheck checks the form of that version and never compares it with its own ([The law file](law.md#lawcheck)). alpha.2 reads the rules and `.lawcheck/config.yaml` as alpha.1 does.
+The law keeps its `lawcheck: 0.1.0` line, since Lawcheck checks the form of that version and never compares it with its own ([The law file](law.md#lawcheck)). alpha.2 and alpha.3 read the rules and `.lawcheck/config.yaml` as alpha.1 does.
 
-alpha.2 sends the reviewer the same prompt as alpha.1. The upgrade needs no new review, since every pass in `.lawcheck/verdicts` stays valid.
+alpha.2 and alpha.3 send the reviewer the same prompt as alpha.1. The upgrade needs no new review, since every pass in `.lawcheck/verdicts` stays valid.
 
 ## Before you upgrade
 
-- A file that alpha.1 passed can hold a use that alpha.2 forbids. A plain check fails on it the first time a change touches that file. You list those files before a change does in [List what the new version finds](#_4-list-what-the-new-version-finds).
-- A grammar is the file that describes the syntax of one language. The grammars that Runes 1.2.0 ships make the install about 34 MB larger than the install of alpha.1.
-- CI and the git hooks run the version that the project's lockfile pins. Commit `package.json` and the lockfile with the upgrade. Then the CI job, the hooks and each machine's copy in the project run alpha.2.
+- From alpha.1, a file that alpha.1 passed can hold a use that alpha.2 and alpha.3 forbid. A plain check fails on it the first time a change touches that file. You list those files before a change does in [List what the new version finds](#_4-list-what-the-new-version-finds).
+- From alpha.1, the install grows by about 34 MB. A grammar is the file that describes the syntax of one language, and the grammars that Runes 1.2.0 ships take that space.
+- CI and the git hooks run the version that the project's lockfile pins. Commit `package.json` and the lockfile with the upgrade. Then the CI job, the hooks and each machine's copy in the project run alpha.3.
 
 ## 1. Install the new version
 
@@ -63,14 +65,14 @@ In a project, start Lawcheck through the package manager, as in `pnpm exec lawch
 
 ## 3. Update the Claude Code plugin
 
-Without the plugin, skip this step. The plugin of alpha.2 runs the same hooks as the plugin of alpha.1. These two commands install its newest version:
+Without the plugin, skip this step. The plugins of alpha.2 and alpha.3 run the same hooks as the plugin of alpha.1. These two commands install its newest version:
 
 ```text
 claude plugin marketplace update lawcheck-marketplace
 claude plugin update lawcheck@lawcheck-marketplace
 ```
 
-Restart Claude Code. The plugin starts the Lawcheck that the `runner` setting names. After you install the new version ([Install the new version](#_1-install-the-new-version)), that Lawcheck is alpha.2.
+Restart Claude Code. The plugin starts the Lawcheck that the `runner` setting names. After you install the new version ([Install the new version](#_1-install-the-new-version)), that Lawcheck is alpha.3.
 
 ## 4. List what the new version finds
 
@@ -169,7 +171,7 @@ The branch did not touch line 4. That line holds the `vi.mock` call. alpha.1 pas
 
 ## If it goes wrong
 
-- `lawcheck --version` still prints `0.1.0-alpha.1`: the command started the other copy. Upgrade the copy that the `runner` setting names, or start Lawcheck with the command of that setting, as in `npx --no-install lawcheck --version`.
+- `lawcheck --version` still prints the old version, such as `0.1.0-alpha.2`: the command started the other copy. Upgrade the copy that the `runner` setting names, or start Lawcheck with the command of that setting, as in `npx --no-install lawcheck --version`.
 - CI reports fewer findings than your machine: the job runs the version of the committed lockfile. Commit `package.json` and the lockfile.
 - Lawcheck reports a forbidden use in a file that the upgrade did not touch, in a form you do not expect. `lawcheck explain <path>` shows the file's type and its `may_use` ([The commands](commands.md#explain)).
 
