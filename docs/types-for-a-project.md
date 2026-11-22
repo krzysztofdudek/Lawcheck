@@ -1,6 +1,6 @@
 # Types for an existing project
 
-You end with a law whose types cover the folders of an existing project. No file falls in two types. One type takes its files by their text. `lawcheck explain` says for any path which type it has, and why.
+You end with a law whose [types](concepts.md#type) cover the folders of an existing project. No file falls in two types. One type takes its files by their text. `lawcheck explain` says for any path which type it has, and why.
 
 The outputs below come from a repository with `scripts/release.mjs` and five files under `src/`:
 
@@ -10,7 +10,7 @@ The outputs below come from a repository with `scripts/release.mjs` and five fil
 - `src/db/orders.ts`;
 - `src/generated/schema.ts`, which a code generator writes.
 
-You ran `lawcheck init` in its top folder, the [root](concepts.md#law) of the law ([The first type and the first rule](first-law.md)).
+Its top folder is the [root](concepts.md#law) of the law: you ran `lawcheck init` there ([The first type and the first rule](first-law.md)).
 
 ## 1. See the files without a type
 
@@ -27,7 +27,7 @@ $ lawcheck explain .
 
 ## 2. Describe the folders as types
 
-Give each folder of `src/` a [type](concepts.md#type). A type under the `types` key of another type is a subtype, which Lawcheck tests on a file only after the file matched the parent. Under the parent `source`, `api` takes the `.ts` files of `src/api/` and no other file. Write this into `.lawcheck/law.yaml`:
+Give each folder of `src/` a type. A type under the `types` key of another type is a subtype. Lawcheck tests a subtype on a file only after the file matched its parent. Under the parent `source`, `api` takes the `.ts` files of `src/api/` and no other file. Write this into `.lawcheck/law.yaml`:
 
 ```yaml
 lawcheck: 0.1.0
@@ -157,7 +157,7 @@ src/core/price.test.ts
 
 ## 10. Leave the generated file out
 
-The code generator writes `src/generated/schema.ts` again on every build. No rule should judge it. Add a second exclusion to the `paths` of `source`:
+The code generator writes `src/generated/schema.ts` again on every build. You want no rule to judge it. Add a second exclusion to the `paths` of `source`:
 
 ```yaml
     paths: ["src/**/*.ts", "!src/**/*.test.ts", "!src/generated/**"]
@@ -203,7 +203,7 @@ test('a price is a whole number', () => price);
 
 ## 14. Give the tests beside the code a type by their text
 
-A `content` expression gives a type to the files whose text matches it. Put such a type under the type that takes the file by its paths, because Lawcheck tests a subtype only on the files that matched its parent. In `.lawcheck/law.yaml`, replace the three lines of `core` with these:
+With a `content` expression, a type takes only the files whose text matches it. Put such a type under the type that takes the file by its paths, because Lawcheck tests a subtype only on the files that matched its parent. In `.lawcheck/law.yaml`, replace the three lines of `core` with these:
 
 ```yaml
       core:
@@ -216,7 +216,7 @@ A `content` expression gives a type to the files whose text matches it. Put such
             content: "from 'node:test'"
 ```
 
-A type with `content` beside `core` does not work. Both types of one level would match the test, because `core` takes it by its paths alone. Every run would then stop with `type-overlap`.
+Keep the type with `content` out of the level of `core`. Both types of that level would match the test, because `core` takes it by its paths alone. Every run would then stop with `type-overlap`.
 
 ## 15. See the type a file gets by its text
 
@@ -233,17 +233,17 @@ src/core/rounding.ts
   waivers:  none
 ```
 
-The `matched` line names the pattern and the content that chose `core-test`. `src/core/price.ts` holds no `from 'node:test'`. It keeps the type `core`.
+The `matched` line names the pattern and the content that gave the file the type `core-test`. `src/core/price.ts` holds no `from 'node:test'`. It keeps the type `core`.
 
 [The law file](law.md) describes every key of a type and every form of a pattern.
 
 ## If it goes wrong
 
-- Two subtypes, such as `api` and `core`, give `type-overlap`: add a `!` pattern to one of them, as in step 8.
-- A type with `content` and a type beside it give `type-overlap`: move the type with `content` under the type that takes the file by its paths, as in step 14.
+- Lawcheck prints `type-overlap` for two subtypes that match one file, such as `api` and `core`: add a `!` pattern to one of them, as in step 8.
+- Lawcheck prints `type-overlap` for a type with `content` and a type beside it: move the type with `content` under the type that takes the file by its paths, as in step 14.
 - Lawcheck prints `law-invalid`, and the message says the pattern `holds ** beside other characters in one segment`: `**` stands for a whole segment. Write `src/api/**/*.ts`, never `src/api/**.ts`.
 - A file of `src/api/v1/` gets `source` and no `api`, with the pattern `src/api/*`: `*` stops at a `/`. Write `src/api/**`.
-- `explain` says the file matches the paths of a type but not their content: the type has a `content` expression. The text of the file does not match it.
+- `explain` says the file matches the paths of a type but not its content: the type has a `content` expression. The text of the file does not match it.
 - `explain` answers `git ignores it, so Lawcheck never sees it`: `.gitignore` names the file. No type takes a file that git ignores.
 - `explain --type` prints the error [`usage`](codes.md#usage), and the message ends with the nearest type id, such as `(did you mean 'core'?)`: `--type` takes the id of a type of the law.
 

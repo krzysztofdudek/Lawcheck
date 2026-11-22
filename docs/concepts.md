@@ -20,31 +20,31 @@ types:
 
 ## Type
 
-A type is one kind of file. The patterns of its `paths` say which files it takes. An optional `content` expression narrows them to the files whose text matches it. A type can hold subtypes, which Lawcheck tests on a file only after the file matched their parent. A file gets the deepest type that matches it. Lawcheck never judges a file that has no type.
+A type is one kind of file. The patterns of its `paths` say which files it takes. An optional `content` expression narrows them to the files whose text matches it. A type can hold subtypes. Lawcheck tests a subtype on a file only after the file matched its parent. A file gets the deepest type that matches it. Lawcheck never judges a file that has no type.
 
 Example: under the law above, `src/core/receipt.ts` has the type `core`. `lawcheck explain src/core/receipt.ts` shows it.
 
 ## Rule
 
-A rule is one requirement with an id and a `why`. When a type lists the rule, the rule binds the files of that type and of its subtypes: Lawcheck judges those files against it. Lawcheck prints the `why` beside each finding. The findings of a rule with `status: advisory` are warnings.
+A rule is one requirement with an id and a `why`. When a type lists the rule, the rule binds the files of that type and of its subtypes: Lawcheck judges those files against it. Lawcheck prints the `why` beside each finding. A rule is `enforced` unless its entry says `status: advisory`. The findings of an advisory rule are warnings.
 
 Example: the rule `no-console`, with `why: Only the command layer writes to the terminal.`
 
 ## Script rule
 
-A script rule is a JavaScript module, `.lawcheck/rules/<id>.mjs`, whose function `check` receives the files and returns their findings. It needs no model and no key. Lawcheck runs it in a Node process of its own, which may read files below the root of the law and in Lawcheck's own folder and nowhere else.
+A script rule is a JavaScript module, `.lawcheck/rules/<id>.mjs`, whose function `check` receives the files and returns their findings. It needs no model and no key. Lawcheck runs it in a Node process of its own. That process may read files below the root of the law and in Lawcheck's own folder, and nowhere else.
 
 Example: `.lawcheck/rules/no-console.mjs` returns `{ line: 1, message: 'writes to the terminal with console.log' }` for a file whose first line calls `console.log`.
 
 ## Reviewer rule
 
-A reviewer rule is a Markdown file, `.lawcheck/rules/<id>.md`. It tells a language model what must hold in each file it binds. The model that judges the rule is the reviewer. `lawcheck check --review` sends the reviewer one file and one rule per call. The reviewer answers pass or fail.
+A reviewer rule is a Markdown file, `.lawcheck/rules/<id>.md`. It tells a language model what must hold in each file the rule binds. The model that judges the rule is the reviewer. `lawcheck check --review` sends the reviewer one file and one rule per call. The reviewer answers pass or fail.
 
 Example: `.lawcheck/rules/clear-errors.md` says "Every error message a caller can see says what happened and what the caller can do next."
 
 ## Use
 
-A use is a reference from one file to another file of the repository, such as an `import`. Lawcheck reads uses in TypeScript, JavaScript, Python, Go, Rust, Java, Kotlin, C#, C, C++, PHP and Ruby. The part of Lawcheck that reads the uses of one language is its reader. The `may_use` list of a type names the types its files may use, and Lawcheck reports each use outside the list as the finding `forbidden-use`.
+A use is a reference from one file to another file of the repository, such as an `import`. Lawcheck reads uses in TypeScript, JavaScript, Python, Go, Rust, Java, Kotlin, C#, C, C++, PHP and Ruby. The part of Lawcheck that reads the uses of one language is its reader. The `may_use` list of a type names the types its files may use. Lawcheck reports each use outside the list as the finding `forbidden-use`.
 
 Example: `import { print } from "../cli/print.js";` in `src/core/receipt.ts` is a use of `src/cli/print.ts`.
 
@@ -73,12 +73,12 @@ Example: a comment at the end of a line that prints a warning. The comment names
 
 ## Verdict
 
-A verdict is the answer of the reviewer, pass or fail, for one file and one reviewer rule. Lawcheck writes each pass as a line of `.lawcheck/verdicts`. You commit that file. A later check reads the pass and calls no model for that file and rule. The pass holds until one of these changes:
+A verdict is the answer of the reviewer, pass or fail, for one file and one reviewer rule. Lawcheck writes each pass as a line of `.lawcheck/verdicts`. You commit that file. A later check reads the pass and calls no model for that file and rule. A reviewer rule can list more files in its `context` key. The reviewer reads those files beside each file it judges. The pass holds until one of these changes:
 
 - the file;
 - the text of the rule;
 - the `why` of the rule;
-- a file the rule lists in `context`, which the reviewer reads beside each file it judges.
+- a file of the rule's `context`.
 
 Example: the pass of `clear-errors` for one file, as a key and the rule id:
 
@@ -107,7 +107,7 @@ The change is the set of files that differ from the merge base of `HEAD` and the
 - modified;
 - new, and not ignored by git.
 
-A plain `lawcheck check` judges the change alone. A file outside the change never fails a plain check.
+A plain `lawcheck check`, with no path and no `--full`, judges the change alone. A file outside the change never fails a plain check.
 
 Example: on a branch where you edited one file, the first line of `lawcheck check --base main` ends with `1 changed file (against main)`.
 
@@ -119,11 +119,11 @@ The law sits in the repository beside the code. You change the law with the same
 
 ### A file and its type
 
-Lawcheck gives a type to each file git lists, except symbolic links and binary files. It tests the file against the top-level types first, the types directly under `types:` in the law. Then it goes down through the subtypes of the type that matched, one level at a time, until no subtype matches. The deepest match is the type of the file. The rules of every type on the way down bind it. If two types of one level match one file, every run stops with `type-overlap`. `lawcheck explain <path>` shows the type of a file. For a path with no file yet, it shows the type a new file there would get. [The law file](law.md) has every key.
+Lawcheck gives a type to each file git lists, except symbolic links and binary files. The top-level types sit directly under `types:` in the law. Lawcheck tests each file against them first. Then it goes down through the subtypes of the type that matched, one level at a time, until no subtype matches. The deepest match is the type of the file. The rules of every type on the way down bind it. If two types of one level match one file, every run stops with `type-overlap`. `lawcheck explain <path>` shows the type of a file. For a path with no file yet, it shows the type a new file there would get. [The law file](law.md) has every key.
 
 ### Debt and the exit code
 
-A plain check judges the change, where an error fails the run. With `--full`, `lawcheck check` judges every other file too. It lists what it finds outside the change as debt, below the findings of the change. Debt has no effect on the exit code. A new law therefore passes in a repository whose old code already breaks it. A rule can stay `advisory` until you fix its debt. [What a check judges](change.md) has the details.
+A plain check judges the change. An error in the change fails the run. With `--full`, `lawcheck check` judges every other file too. It lists what it finds outside the change as debt, below the findings of the change. Debt has no effect on the exit code. A new law therefore passes in a repository whose old code already breaks it. A rule can stay `advisory` until you fix its debt. [What a check judges](change.md) has the details.
 
 ### A script rule or a reviewer rule
 
@@ -135,7 +135,7 @@ The plugin runs Lawcheck inside a Claude Code session at three moments:
 
 - at the start of the session, it gives the agent the output of `lawcheck prime`;
 - after each edit, it checks the edited file;
-- before the agent ends its turn, it checks the files of the turn and sends the agent back while they break the law, three times at most.
+- when the agent is about to finish its answer to your prompt, it checks the files the agent changed for that prompt. While they break the law, it sends the agent back, three times at most.
 
 [The Claude Code plugin](plugin.md) has every hook and setting.
 

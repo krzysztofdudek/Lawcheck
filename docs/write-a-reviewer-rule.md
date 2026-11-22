@@ -1,6 +1,8 @@
 # Write a reviewer rule
 
-A [script rule](concepts.md#script-rule) can find `console.log` in a file. It cannot tell whether the message of `new Error('failed')` tells the caller what to do next. A [reviewer rule](concepts.md#reviewer-rule) can tell. With a reviewer rule, a language model reads each file against a [rule](concepts.md#rule) you write in plain words. At the end of these steps, a reviewer rule judges `src/core/`. Its [verdict](concepts.md#verdict) sits in `.lawcheck/verdicts`. A plain check reads that verdict without a call to a model.
+A [script rule](concepts.md#script-rule) can find `console.log` in a file. It cannot tell whether the message of `new Error('failed')` tells the caller what to do next. A [reviewer rule](concepts.md#reviewer-rule) can tell. With a reviewer rule, a language model reads each file against a [rule](concepts.md#rule) you write in plain words. That model is the reviewer.
+
+You end with a reviewer rule that judges `src/core/`. Lawcheck records the [verdict](concepts.md#verdict) of the reviewer in `.lawcheck/verdicts`. A later `lawcheck check` without `--review` reads that verdict in place of a call to the model.
 
 The outputs below come from a repository whose `main` holds the `.lawcheck/` that `lawcheck init` makes. Its [law](concepts.md#law) has the [type](concepts.md#type) `library` of step 2 and no rule. On a branch made from `main`, you added `src/core/refund.ts`:
 
@@ -15,7 +17,7 @@ A test server that answers as Ollama does gave the answers below. A real model w
 
 ## 1. Write the rule file
 
-`init` makes no `rules/` folder, so create it with `mkdir -p .lawcheck/rules`. Then write the file `.lawcheck/rules/clear-errors.md`. It says what must hold, what to report, and what does not count:
+`init` makes no `rules/` folder. Create it with `mkdir -p .lawcheck/rules`, then write the file `.lawcheck/rules/clear-errors.md`. It says what must hold, what to report, and what does not count:
 
 ```text
 Every error message a caller can see says what happened and what the caller can do next.
@@ -27,7 +29,7 @@ The reviewer receives this text, the rule's `why` and the file it judges.
 
 ## 2. Put the rule in the law
 
-Give the rule a `why`. List the rule on the type. The reviewer may need another file beside the file it judges, such as a catalogue of messages. The rule then names that file in its `context` key ([Reviewer rules](reviewer-rules.md)). Write `.lawcheck/law.yaml`:
+Give the rule a `why`. List the rule on the type. The reviewer may need another file beside the file it judges, such as a catalogue of messages. In that case, list the file under the `context` key of the rule ([Reviewer rules](reviewer-rules.md)). Write `.lawcheck/law.yaml`:
 
 ```yaml
 lawcheck: 0.1.0
@@ -91,7 +93,7 @@ src/core/refund.ts  error[not-reviewed]  clear-errors has no verdict for this co
 next: lawcheck check --review --base main  (1 reviewer call)
 ```
 
-A plain check judges the [change](concepts.md#change). It calls no model. Its `next:` line counts the calls a review would make.
+`lawcheck check` without `--review` judges the [change](concepts.md#change). It calls no model. Its `next:` line counts the calls a review would make.
 
 ## 6. See the cost of a try
 
@@ -166,11 +168,11 @@ note: the law changed in this change; lawcheck check --full --base main shows wh
 note: this change edits the law that judges it: adds the rule clear-errors; adds .lawcheck/rules/clear-errors.md; adds .lawcheck/config.yaml
 ```
 
-Lawcheck wrote the pass to `.lawcheck/verdicts`. It wrote `.lawcheck/.gitattributes` as well. With that file, git merges the passes of two branches without a conflict.
+Lawcheck wrote the pass to `.lawcheck/verdicts`. It wrote `.lawcheck/.gitattributes` beside it. With that file, git merges the passes of two branches without a conflict.
 
 ## 11. Commit the verdicts
 
-Commit the passes with the change. git prints its own lines:
+Commit the passes with the change. The page leaves out the lines that git prints:
 
 ```text
 $ git add .lawcheck src
@@ -193,11 +195,11 @@ The plain check found the pass. It called no model. A CI job runs the same check
 
 ## If it goes wrong
 
-- Lawcheck prints [`reviewer-unreachable`](codes.md#reviewer-unreachable): the server is down, the key is wrong, or the program is not signed in. The message names the cause. Fix it, then run the same command again: `check --review` keeps the answers it got before the failure and asks the reviewer about the rest.
+- Lawcheck prints [`reviewer-unreachable`](codes.md#reviewer-unreachable): the server is down, the key is wrong, or the program is not signed in. The message names the cause. Fix the cause and run the same command again. `check --review` keeps the answers it got before the failure. It asks the reviewer about the rest.
 - The reviewer failed a file you believe is right. Lawcheck keeps the fail on this machine. It shows the fail again without a call, until the file or the rule changes. With `--again`, Lawcheck asks the reviewer once more: `lawcheck check --review --again --base main`.
-- Lawcheck prints [`too-large-to-review`](codes.md#too-large-to-review): the prompt of a file holds more than `reviewer.max_chars` characters, 50,000 by default. Lawcheck never sends such a prompt. Split the file, or raise `max_chars` in `.lawcheck/config.yaml`.
+- Lawcheck prints [`too-large-to-review`](codes.md#too-large-to-review): the prompt of a file holds more characters than the setting `reviewer.max_chars` allows. Its default is 50,000. Lawcheck never sends such a prompt. Split the file, or raise `max_chars` in `.lawcheck/config.yaml`.
 - Lawcheck prints [`reviewer-bad-answer`](codes.md#reviewer-bad-answer): the model gave no verdict twice. Reword the rule file, or try another model.
-- Lawcheck prints [`too-many-reviews`](codes.md#too-many-reviews): the run needs more calls than `reviewer.max_calls`, 100 by default. It makes none of them. [A slow check](slow-check.md) shows how to cap the calls.
-- After you change the model or the provider, Lawcheck keeps every recorded pass, because the key of a pass covers the file and the rule and holds no provider or model. Check the new setup with `lawcheck doctor --reviewer`.
+- Lawcheck prints [`too-many-reviews`](codes.md#too-many-reviews): the run needs more calls than the setting `reviewer.max_calls` allows (100 by default). Lawcheck then makes none of them. [A slow check](slow-check.md) shows how to cap the calls.
+- Lawcheck keeps every recorded pass after you change the model or the provider. It records a pass under a key made from the file and the rule. The key holds no provider and no model. Check the new setup with `lawcheck doctor --reviewer`.
 
 Next: [Bring a law into an existing repository](adopt-in-an-existing-repository.md)

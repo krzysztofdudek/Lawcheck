@@ -1,6 +1,6 @@
 # Forbid one layer to use another
 
-You end with a law in which the business logic may not import the HTTP handlers. `lawcheck check` fails on the line that does.
+You end with a law in which the business logic may not import the HTTP handlers. `lawcheck check` fails on the line that imports one.
 
 The outputs below come from a repository with three files:
 
@@ -27,7 +27,7 @@ types:
     may_use: [core]
 ```
 
-`api` has no list. Its files may use any file. A subtype without a list takes the list of its nearest parent that has one.
+`api` has no list. Its files may use any file. A type written inside another type is its subtype. A subtype without a list takes the list of its nearest parent that has one.
 
 ## 2. See the list a file gets
 
@@ -79,11 +79,16 @@ The [finding](concepts.md#finding) gives four things:
 - the type and the path of the file it imports;
 - the `may_use` list of `core`.
 
-`check` exits 1. `lawcheck check src/core/discount.ts` judges the file you name, changed or not. On a branch, a plain `lawcheck check` judges the file once it differs from the [base](concepts.md#base).
+`check` exits 1. `lawcheck check src/core/discount.ts` judges the file you name, changed or not. On a branch, `lawcheck check` without a path judges the file once it differs from the [base](concepts.md#base).
 
 ## 5. Fix the import
 
-You have two fixes. One keeps the list and takes the import out. The other writes `may_use: [core, api]`, for a `core` that may use `api` after all. This example keeps the list. Write `src/core/discount.ts` again, without the import of `api`:
+You can fix the import in two ways:
+
+- keep the list and take the import out;
+- write `may_use: [core, api]`, if `core` may use `api` after all.
+
+This example keeps the list. Write `src/core/discount.ts` again, without the import of `api`:
 
 ```ts
 import { price } from './price';
@@ -122,7 +127,7 @@ $ lawcheck check src/core/discount.ts
 lawcheck: PASS  1 named file, 1 unresolved use
 ```
 
-The import points into the repository. git lists no file there, since `.gitignore` names `src/generated/`. Lawcheck cannot tell which type the use reaches, so it counts the use as unresolved and judges it against no list. Such a use never fails a run, and the first line of the output counts it.
+The import points into the repository. git lists no file there, since `.gitignore` names `src/generated/`. Lawcheck cannot tell which type the use reaches. It counts such a use as unresolved. An unresolved use never fails a run, since Lawcheck checks it against no `may_use` list. The first line of the output gives the count.
 
 ## 9. List the unresolved uses
 
@@ -146,7 +151,7 @@ The `unresolved` list of the output holds the use:
   ],
 ```
 
-`unfollowed` means the use names a place of the repository that holds no file git lists. [Languages and uses](languages.md) lists every answer and reason. A use of an installed package or of the standard library leaves the repository. Lawcheck does not count such a use.
+`unfollowed` means the use names a place of the repository that holds no file git lists. [Languages and uses](languages.md) lists every answer and reason. A use of an installed package or of the standard library points outside the repository. Lawcheck does not count such a use.
 
 ## 10. Check the whole folder
 
@@ -161,7 +166,7 @@ lawcheck: PASS  1 warning in 3 named files, 1 unresolved use
   why:  a restriction that cannot be checked is not shown as kept
 ```
 
-Lawcheck reads the uses of twelve languages. A reader is the part of Lawcheck that reads the uses of one language. No reader reads `.sql` files. Lawcheck cannot check a `.sql` file of `core` against the list. It warns once for the type, at the line of `core` in the law. The warning never fails a run.
+Lawcheck reads the uses of twelve languages. A reader is the part of Lawcheck that reads the uses of one language. Lawcheck has no reader for `.sql` files. It cannot check a `.sql` file of `core` against the list. It warns once for the type, at the line of `core` in the law. The warning never fails a run.
 
 ## 11. Leave the .sql files out of core
 
@@ -181,13 +186,13 @@ $ lawcheck check src/core
 lawcheck: PASS  3 named files, 1 unresolved use
 ```
 
-The `.sql` files have no type now. No list judges them. A [script rule](concepts.md#script-rule) can check what they use ([Write a script rule](write-a-script-rule.md)).
+After this step, the `.sql` files have no type. Lawcheck checks them against no `may_use` list. A [script rule](concepts.md#script-rule) can check what they use ([Write a script rule](write-a-script-rule.md)).
 
 ## If it goes wrong
 
-- The finding says `core may not use src/util/x.ts, which has no type`: no list allows a file without a type. Give the file a type and list that type, or move the file under a type the list names.
+- The finding says `core may not use src/util/x.ts, which has no type`: a `may_use` list names types, so it cannot allow a file without a type. Give the file a type and list that type, or move the file under a type the list names.
 - A file of `core` uses another file of `core`, and the check fails: the list must name `core` itself.
 - An import you expected to fail passes, and the first line counts no unresolved use: the readers miss some forms, such as `import()` of a variable. [Languages and uses](languages.md) lists them.
-- An unresolved use with the answer `ambiguous`: the use could name several files of different types, and `candidates` lists them. Lawcheck judges none of them.
+- An unresolved use with the answer `ambiguous`: the use could name several files of different types. The list `candidates` names those files. Lawcheck judges the use against none of them.
 
 Next: [Write a script rule](write-a-script-rule.md)

@@ -1,6 +1,6 @@
 # Write a script rule
 
-You end with a [script rule](concepts.md#script-rule) that finds the calls of `fetch()` outside the api layer. The rule uses a helper that other rules can import. Its finding is an error first. You then make it a warning.
+You end with a [script rule](concepts.md#script-rule) that finds the calls of `fetch()` outside the api layer. The rule calls code from a helper module that other rules can import. At first, its finding is an error. A later step makes it a warning.
 
 The outputs below come from a repository with three files under `src/`:
 
@@ -37,7 +37,7 @@ types:
 
 ## 2. Write a helper the rules share
 
-A file below `.lawcheck/rules/lib/` is no rule. Every rule may import it. Write `.lawcheck/rules/lib/lines.mjs`:
+Lawcheck reads no file below `.lawcheck/rules/lib/` as a rule. Every rule may import such a file. Write `.lawcheck/rules/lib/lines.mjs`:
 
 ```js
 export function linesMatching(files, pattern, message) {
@@ -53,7 +53,7 @@ export function linesMatching(files, pattern, message) {
 
 ## 3. Write the rule
 
-The file of the rule is `.lawcheck/rules/no-fetch.mjs`, as the name of a rule file is the id of its rule. It exports `check`. Lawcheck calls that function with the files of the rule and gets back a list of findings:
+The file of the rule is `.lawcheck/rules/no-fetch.mjs`, as the name of a rule file is the id of its rule. It exports `check`. Lawcheck calls that function with the files of the rule. The function returns a list of findings:
 
 ```js
 import { linesMatching } from './lib/lines.mjs';
@@ -85,7 +85,7 @@ rule no-fetch  script  enforced
 
 ## 5. Try the rule
 
-Without a path, `lawcheck try` runs a script rule on every file it binds: here, the two files of `core`. A rule that no type lists binds no file, and then `try` needs a path. Without one, it refuses the command line with the error [`usage`](codes.md#usage). Run it without a path:
+Without a path, `lawcheck try` runs a script rule on every file it binds: here, the two files of `core`. A rule that no type lists binds no file. For such a rule, `try` needs a path. Without a path, `try` stops with the error [`usage`](codes.md#usage) before it runs the rule. Run it without a path:
 
 ```text
 $ lawcheck try no-fetch
@@ -193,12 +193,12 @@ src/core/price.ts:2  warning[no-fetch]  calls fetch outside the api layer
 
 ## If it goes wrong
 
-- Lawcheck prints `rule-crashed`, and the message says the rule cannot find a package: the rule imports a package that no `node_modules` below the [root](concepts.md#law) of the law holds. A rule may read nothing outside the root and the folder of Lawcheck. A package in a `node_modules` above the root, as a monorepo keeps it, does not load. Install the package below the root, or write the code in `.lawcheck/rules/lib/`.
-- Lawcheck prints `rule-crashed`, and the message says the rule passes 30 seconds on a file: one call took longer than 30 seconds. Lawcheck gives the load of the rule 30 seconds as well. Make the rule do less work per file.
+- Lawcheck prints `rule-crashed`, and the message says the rule cannot find a package: the rule imports a package that no `node_modules` below the [root](concepts.md#law) of the law holds. Lawcheck lets a rule read files only below the root and in the folder of Lawcheck. A rule cannot load a package from a `node_modules` above the root, where a monorepo can keep it. Install the package below the root, or write the code in `.lawcheck/rules/lib/`.
+- Lawcheck prints `rule-crashed`, and the message says the rule passes 30 seconds on a file: one call of `check` on one file took longer than 30 seconds. The load of the rule module has its own limit of 30 seconds. Make the rule do less work per file.
 - Lawcheck prints `rules-too-slow`: the script rules of one run took over 600 seconds together. List the rule on fewer types, or narrow their paths.
 - Lawcheck prints `rule-crashed` with `writes` or `reads` and a path: the rule wrote a file, or read outside the root. Lawcheck stopped it. A rule may write no file. It may read no file outside the root and the folder of Lawcheck.
 - The rule finds nothing in a file where you expected a finding: the file has no type that lists the rule. `lawcheck explain <path>` shows its rules.
 - `lawcheck try no-fetch` stops with [`usage`](codes.md#usage): no file has a type that lists the rule. Name the files, or list the rule on a type as in step 1.
-- A plain `lawcheck check` passes on code that breaks a new rule: a plain check judges the changed files only. `lawcheck check --full` lists the rest as debt.
+- `lawcheck check` without a path passes on code that breaks a new rule: without a path or `--full`, it judges the changed files only. `lawcheck check --full` lists the rest as debt.
 
 Next: [Write a reviewer rule](write-a-reviewer-rule.md)

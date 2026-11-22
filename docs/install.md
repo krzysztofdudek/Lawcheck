@@ -24,14 +24,14 @@ Lawcheck does not run in three setups:
 - under Bun without Node;
 - with `--permission` in `NODE_OPTIONS`.
 
-On an older Node, npm and pnpm install Lawcheck and print a warning. Lawcheck refuses to work in four setups:
+On a Node older than 24, npm and pnpm install Lawcheck and print a warning. Lawcheck itself refuses to work in four setups:
 
 - on an older Node;
 - on an older git;
 - under Bun;
 - from Plug'n'Play.
 
-In those setups, every command but `--version`, `--help`, `docs` and `doctor` stops with `unsupported-environment` and exit 2. The error names the cause in its first line and the fix in its `next:` line. `lawcheck doctor` prints the same first line, with its nine checks below it.
+In those setups, every command but `--version`, `--help`, `docs` and `doctor` stops with `unsupported-environment` and exit 2. The first line of the error names the cause. Its `next:` line names the fix. `lawcheck doctor` prints the same first line, with its nine checks below it.
 
 ## Install globally
 
@@ -39,7 +39,7 @@ In those setups, every command but `--version`, `--help`, `docs` and `doctor` st
 $ npm install --global lawcheck@alpha
 ```
 
-The program `lawcheck` is then on your `PATH`. The runner is the setting that says how to start Lawcheck. Its default, `global`, fits this install. You set nothing more.
+The program `lawcheck` is then on your `PATH`. The `runner` setting in `.lawcheck/config.yaml` says how to start Lawcheck. You leave it out, since its default, `global`, fits this install.
 
 ## Install in a project
 
@@ -52,23 +52,23 @@ Add Lawcheck as a development dependency. You then start it through the package 
 | Yarn | `yarn add --dev lawcheck@alpha` | `yarn run lawcheck` | `yarn` |
 | Bun | `bun add --dev lawcheck@alpha` | `bun x --no-install lawcheck` | `bun` |
 
-With `--no-install`, npx runs the copy of the project. It downloads nothing. A plain `npx lawcheck` downloads a copy when the project has none.
+With `--no-install`, npx runs the copy installed in the project. It downloads nothing. A plain `npx lawcheck` downloads a copy when the project has none.
 
 ## The runner setting
 
-`lawcheck init` makes the folder `.lawcheck/`, as step 1 of [Quick start](quick-start.md) shows. After it, write the runner from the table into `.lawcheck/config.yaml`:
+`lawcheck init` makes the folder `.lawcheck/`, as step 1 of [Quick start](quick-start.md) shows. After it, write the value of `runner` from the table into `.lawcheck/config.yaml`:
 
 ```yaml
 runner: pnpm
 ```
 
-The runner reaches three places:
+Three parts of Lawcheck read the `runner` setting:
 
-- The Claude Code plugin starts Lawcheck with the command of the runner.
+- The Claude Code plugin starts Lawcheck with the command that the setting names.
 - `lawcheck prime` tells the agent to start Lawcheck the same way.
-- `lawcheck doctor` fails its `config` check when the program of the runner is not on the `PATH`.
+- `lawcheck doctor` fails its `config` check when the program that the setting names is not on the `PATH`.
 
-Without the line, the runner is `global`. Write the line on its own, at the top level of the file. [Settings](config.md#runner) has the exact form.
+Without the line, the `runner` setting is `global`. Write the line on its own, at the top level of the file. [Settings](config.md#runner) has the exact form.
 
 ## Check the install
 

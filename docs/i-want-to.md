@@ -9,7 +9,7 @@ Each line ends the sentence of the title. Its link opens the step where that pat
 - [start Lawcheck through the package manager of the project](install.md#the-runner-setting)
 - [confirm that the setup works](install.md#check-the-install)
 - [remove Lawcheck](install.md#remove-it)
-- [see a first breach caught in my own repository](quick-start.md#_1-start-the-law)
+- [see a first finding in my own repository](quick-start.md#_1-start-the-law)
 - [fix the line a failing check names](quick-start.md#_5-check)
 - [learn the words these pages use](concepts.md)
 - [choose between Lawcheck and a tool I already use](other-tools.md)
@@ -72,7 +72,7 @@ Each line ends the sentence of the title. Its link opens the step where that pat
 - [use Lawcheck with Claude Code](claude-code.md#_1-install-lawcheck)
 - [give the agent the law at the start of each session](claude-code.md#_3-start-a-session)
 - [have each edit of the agent checked at once](claude-code.md#_4-see-the-check-after-an-edit)
-- [send the agent back while the files of its turn break the law](claude-code.md#_5-see-the-check-before-the-agent-finishes)
+- [send the agent back while the files it changed for my prompt break the law](claude-code.md#_5-see-the-check-before-the-agent-finishes)
 - [switch off one of the plugin's checks](claude-code.md#_6-switch-off-one-of-the-checks)
 - [use Lawcheck with Codex, Copilot CLI, Gemini CLI or another agent](other-agents.md#_1-add-one-line-to-the-instructions-file)
 - [see what the agent leaves to my word](other-agents.md#_2-see-what-the-agent-reads)
@@ -101,7 +101,7 @@ Each line ends the sentence of the title. Its link opens the step where that pat
 - [use Lawcheck in a monorepo](monorepo.md#_1-start-a-law-in-one-package)
 - [run it from a folder inside a package](monorepo.md#_3-check-from-a-folder-inside-the-package)
 - [understand the error at the top of the monorepo](monorepo.md#_4-run-it-from-the-top)
-- [give each package its own runner or reviewer](monorepo.md#_5-give-a-package-its-own-runner)
+- [give each package its own `runner` setting or reviewer](monorepo.md#_5-give-a-package-its-own-runner)
 - [leave a submodule or a nested repository to its own law](monorepo.md#_6-leave-a-nested-repository-to-its-own-law)
 
 ## Trouble
