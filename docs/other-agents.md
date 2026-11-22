@@ -48,7 +48,7 @@ How to work here
 - Exit 0: nothing blocks; warnings are advisory. Exit 1: the code breaks the law; fix the code. Exit 2: Lawcheck or the law is broken; fix what the error names, not the code.
 - Never report work as done while lawcheck check exits 1.
 - A failing run ends with a next line; do what it says. When it asks for something listed below as the user's, or a finding cannot be fixed in the code, ask the user.
-- A plain check judges only changed files. After you change the law or a rule file, run lawcheck check --full and tell the user how many findings it lists outside your change.
+- A [plain check](concepts.md#plain-check) judges only changed files. After you change the law or a rule file, run lawcheck check --full and tell the user how many findings it lists outside your change.
 - Findings outside your change are debt. Leave them unless the user asks.
 
 Only on the user's word

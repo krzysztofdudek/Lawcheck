@@ -191,7 +191,7 @@ note: the law changed in this change; lawcheck check --full --base main shows wh
 note: this change edits the law that judges it: adds the rule clear-errors; adds .lawcheck/rules/clear-errors.md; adds .lawcheck/config.yaml
 ```
 
-The plain check found the pass. It called no model. A CI job runs the same check with no key ([CI and git hooks](ci.md)).
+A [plain check](concepts.md#plain-check) reads the pass from `.lawcheck/verdicts`. It calls no model. A CI job runs the same plain check with no key ([CI and git hooks](ci.md)).
 
 ## If it goes wrong
 

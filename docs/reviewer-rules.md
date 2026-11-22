@@ -75,7 +75,7 @@ In a type with `waivers: false`, Lawcheck reads a waiver marker as plain text. T
 - the file's type sets `waivers: false` after the review;
 - a change of the law moves the file into a type with `waivers: false`.
 
-Lawcheck keeps the lines of `.lawcheck/verdicts` sorted. Commit this file. A plain `lawcheck check` reads it and calls no reviewer for a file and rule that have a pass there. A CI job then needs no API key.
+Lawcheck keeps the lines of `.lawcheck/verdicts` sorted. Commit this file. A [plain `lawcheck check`](concepts.md#plain-check) reads it and calls no reviewer for a file and rule that have a pass there. A CI job then needs no API key.
 
 Lawcheck writes `verdicts merge=union` into `.lawcheck/.gitattributes`. With that line, git merges `.lawcheck/verdicts` without a conflict when two branches both add lines to it.
 

@@ -176,7 +176,7 @@ usage: lawcheck check [--full] [--base <ref>] [--review [--again] [--max-calls <
 - it applies the [verdicts](concepts.md#verdict) of [reviewer rules](concepts.md#reviewer-rule), and the [waivers](concepts.md#waiver);
 - it prints the [findings](concepts.md#finding).
 
-A plain check judges the files of the [change](concepts.md#change) against a [base](concepts.md#base) ([What a check judges](change.md)). Without `--review`, `check` calls no reviewer. A cached failure is a failed review that Lawcheck keeps in `.lawcheck/.local/failures/`. A file gets `not-reviewed` when one of its reviewer rules has no verdict and no cached failure for it. `check` writes nothing unless you pass `--review`, which records passes and failures ([Files](files.md)).
+A [plain check](concepts.md#plain-check) judges the files of the [change](concepts.md#change) against a [base](concepts.md#base) ([What a check judges](change.md)). Without `--review`, `check` calls no reviewer. A cached failure is a failed review that Lawcheck keeps in `.lawcheck/.local/failures/`. A file gets `not-reviewed` when one of its reviewer rules has no verdict and no cached failure for it. `check` writes nothing unless you pass `--review`, which records passes and failures ([Files](files.md)).
 
 Run `check` after every change, in CI and in a git hook ([CI and git hooks](ci.md)).
 

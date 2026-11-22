@@ -10,7 +10,7 @@ Lawcheck runs on Linux, macOS and Windows, with Node 24 or later and git 2.34 or
 
 ## Code that leaves the machine
 
-A plain `lawcheck check` opens no connection and starts no reviewer program. Only `check --review`, `lawcheck try` on a reviewer rule and `lawcheck doctor --reviewer` send a prompt to the reviewer you set. Each call sends one prompt with one judged file, the rule and the files of the rule's `context`. [Reviewers and keys](providers.md#text-that-leaves-the-machine) says where each provider sends it.
+A [plain `lawcheck check`](concepts.md#plain-check) opens no connection and starts no reviewer program. Only `check --review`, `lawcheck try` on a reviewer rule and `lawcheck doctor --reviewer` send a prompt to the reviewer you set. Each call sends one prompt with one judged file, the rule and the files of the rule's `context`. [Reviewers and keys](providers.md#text-that-leaves-the-machine) says where each provider sends it.
 
 ## A key in CI
 

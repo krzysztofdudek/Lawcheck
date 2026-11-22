@@ -41,7 +41,7 @@ Lawcheck ignores other fields. A rule that returns an empty list reports no find
 
 ## Calls
 
-Lawcheck calls `check` once for each file of the run whose type, or a type above it, lists the rule. It makes the calls in path order, one call at a time. A plain `lawcheck check` passes the rule the files of the [change](concepts.md#change). With `--full`, Lawcheck passes it every file that the rule binds, changed or not. Keep nothing between calls in a rule. A rule that counts the files it has seen reaches one count in a plain check and another with `--full`, so its findings differ between the two.
+Lawcheck calls `check` once for each file of the run whose type, or a type above it, lists the rule. It makes the calls in path order, one call at a time. A [plain `lawcheck check`](concepts.md#plain-check) passes the rule the files of the [change](concepts.md#change). With `--full`, Lawcheck passes it every file that the rule binds, changed or not. Keep nothing between calls in a rule. A rule that counts the files it has seen reaches one count in a plain check and another with `--full`, so its findings differ between the two.
 
 Lawcheck does not load a rule that has no file to judge in the run.
 

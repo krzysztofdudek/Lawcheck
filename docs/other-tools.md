@@ -54,7 +54,7 @@ Lawcheck reads no uses in any other language, such as Swift. When a type has a `
 
 - A reader is the part of Lawcheck that reads the uses of one language. Lawcheck counts a use that its readers cannot resolve to one file. Such a use never becomes a finding ([Languages and uses](languages.md)).
 - The same law holds reviewer rules, for a requirement a person would judge by reading.
-- A plain check judges the [change](concepts.md#change). With `--full`, `lawcheck check` lists the findings outside the change as [debt](concepts.md#debt). Debt never changes the exit code, so you can start a law in a repository that already breaks it.
+- A [plain check](concepts.md#plain-check) judges the [change](concepts.md#change). With `--full`, `lawcheck check` lists the findings outside the change as [debt](concepts.md#debt). Debt never changes the exit code, so you can start a law in a repository that already breaks it.
 
 Lawcheck reads the uses written out in the code. It does not read an `import()` of a variable, `importlib.import_module`, or a class that the code finds by its name at run time. In Java, Kotlin, C#, Ruby and Rust, a check of one file reads the names, such as class names, that every file of its language declares in the repository. Such a run reads more files than the check names.
 

@@ -42,7 +42,7 @@ src/core/tax.ts  error[not-reviewed]  clear-errors has no verdict for this conte
 next: lawcheck check --review --base main  (2 reviewer calls)
 ```
 
-A plain check judges the files of the [change](concepts.md#change) against a [base](concepts.md#base). The first line names that base. When the first line ends in `(no base: every file counts as changed)`, the run judges every file ([Give the check its base](#_6-give-the-check-its-base)). With `--full`, a check judges every file that has a [type](concepts.md#type). A check without `--review` calls no reviewer. Its `next:` line counts the calls that a review would make.
+A [plain check](concepts.md#plain-check) judges the files of the [change](concepts.md#change) against a [base](concepts.md#base). The first line names that base. When the first line ends in `(no base: every file counts as changed)`, the run judges every file ([Give the check its base](#_6-give-the-check-its-base)). With `--full`, a check judges every file that has a [type](concepts.md#type). A check without `--review` calls no reviewer. Its `next:` line counts the calls that a review would make.
 
 ## 2. Check one file
 

@@ -35,7 +35,7 @@ alpha.2 and alpha.3 send the reviewer the same prompt as alpha.1. The upgrade ne
 
 ## Before you upgrade
 
-- From alpha.1, a file that alpha.1 passed can hold a use that alpha.2 and alpha.3 forbid. A plain check fails on it the first time a change touches that file. You list those files before a change does in [List what the new version finds](#_4-list-what-the-new-version-finds).
+- From alpha.1, a file that alpha.1 passed can hold a use that alpha.2 and alpha.3 forbid. A [plain check](concepts.md#plain-check) fails on it the first time a change touches that file. You list those files before a change does in [List what the new version finds](#_4-list-what-the-new-version-finds).
 - From alpha.1, the install grows by about 34 MB. A grammar is the file that describes the syntax of one language, and the grammars that Runes 1.2.0 ships take that space.
 - CI and the git hooks run the version that the project's lockfile pins. Commit `package.json` and the lockfile with the upgrade. Then the CI job, the hooks and each machine's copy in the project run alpha.3.
 

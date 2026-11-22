@@ -29,7 +29,13 @@ Lawcheck stops with `law-invalid` in these cases:
 - an empty file;
 - a value of the wrong kind.
 
-When a key outside the table differs by one or two letters from a known key, the message names the known key. A YAML alias, such as `*base`, stands for the value that an anchor, such as `&base`, marks. Lawcheck reads an alias as the value of its anchor. A type that holds itself through an alias is `law-invalid`. The law below uses every key of the table except `context`, `may_use` and `waivers`:
+When a key outside the table differs by one or two letters from a known key, the `law-invalid` error prints the known key after `did you mean`.
+
+A YAML alias, such as `*base`, stands for the value that an anchor, such as `&base`, marks. Lawcheck reads an alias as the value of its anchor.
+
+Lawcheck stops with `law-invalid` when a type holds itself through an alias. For example, a subtype `again: *source` under `source: &source` makes `source` hold itself.
+
+The law below uses every key of the table except `context`, `may_use` and `waivers`:
 
 ```yaml
 lawcheck: 0.1.0

@@ -1,6 +1,6 @@
 # Concepts
 
-These pages use twelve words, each with one meaning. Each word has a heading here, a short definition and one example.
+These pages use thirteen words, each with one meaning. Each word has a heading here, a short definition and one example.
 
 ## Law
 
@@ -94,7 +94,7 @@ The base is the commit that a check compares your work with. Lawcheck takes it f
 2. the variable `LAWCHECK_BASE`;
 3. `origin/HEAD`.
 
-With no base, a check on your machine counts every file as changed. A plain check in a CI job with no base stops with `base-unreachable`.
+With no base, a check on your machine counts every file as changed. In a CI job with no base, `lawcheck check` stops with `base-unreachable`, unless you name a path or pass `--full`.
 
 Example: `lawcheck check --base main`.
 
@@ -107,9 +107,19 @@ The change is the set of files that differ from the merge base of `HEAD` and the
 - modified;
 - new, and not ignored by git.
 
-A plain `lawcheck check`, with no path and no `--full`, judges the change alone. A file outside the change never fails a plain check.
-
 Example: on a branch where you edited one file, the first line of `lawcheck check --base main` ends with `1 changed file (against main)`.
+
+## Plain check
+
+A plain check is a run of `lawcheck check` that judges the change alone. It reads the passes in `.lawcheck/verdicts`. It calls no reviewer. A file outside the change never fails a plain check.
+
+A run is not a plain check when:
+
+- it names a path;
+- it uses `--full`;
+- it uses `--review`.
+
+Example: `lawcheck check --base main` is a plain check. `lawcheck check --full --base main` is not.
 
 ## Short answers
 

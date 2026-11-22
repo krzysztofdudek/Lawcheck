@@ -1,6 +1,6 @@
 # What a check judges
 
-A law written for code that already breaks it would fail every build on the first day. `lawcheck check` judges the files of the [change](concepts.md#change). Old code fails nothing until someone changes it.
+A law written for code that already breaks it would fail every build on the first day. `lawcheck check` judges the files of the [change](concepts.md#change). A [plain check](concepts.md#plain-check) calls no reviewer. Old code fails nothing until someone changes it.
 
 ## The base
 
