@@ -793,7 +793,7 @@ Each of these steps clears it:
 - pass `--max-calls` with a number at least as high as the calls the run needs;
 - name fewer paths to `check`.
 
-A higher limit spends more calls, so the first two steps are the user's decision, as the `next:` line says.
+A run with a higher limit can send more calls, so the first two steps are the user's decision, as the `next:` line says.
 
 **Example**
 
@@ -913,7 +913,7 @@ One step of the run did not end within 30 seconds. Lawcheck counts two kinds of 
 
 **Typical cause**
 
-A pattern that backtracks tries the text in a number of ways that grows with the length of the line. Lawcheck gives this code in two cases:
+A pattern backtracks when matching it on a line takes a number of tries that grows with the length of the line. Lawcheck gives this code in two cases:
 
 - a type's `content` pattern backtracks on a long line, such as `^(a|a)+$`;
 - git does not answer.
