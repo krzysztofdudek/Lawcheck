@@ -42,7 +42,7 @@ types:
 
 ## 3. Check from a folder inside the package
 
-Lawcheck finds the law in the folder you run it from or in one above it. Lawcheck reads a path you name from the folder you are in, and its output names files from the root of the law. In `packages/api/src`, where `total.ts` calls `console.log`:
+Lawcheck finds the law in the folder you run it from or in one above it. It reads a path you name from the folder you are in, and its output names files from the root of the law. In `packages/api/src`, where `total.ts` calls `console.log`:
 
 ```text
 $ lawcheck check total.ts
@@ -113,7 +113,7 @@ To judge the files of `src/vendor`, start a law in that repository.
 
 ## If it goes wrong
 
-- `lawcheck init` at the top refuses with `already-initialized`, because a law below already governs a part of the tree. One folder and the folders below it have one law.
+- `lawcheck init` at the top refuses with `already-initialized`, because a law below already governs a part of the tree. `lawcheck init` starts no law above or below another one.
 - `lawcheck check ../../web/src/page.ts` ends with `usage`: the path lies outside the root of the law. Run the check in the folder of the other law.
 - A rule ends in `rule-crashed`, and the message says it fails to load because it reads a file in a `node_modules` above the package. The package manager put the package the rule imports in the `node_modules` at the top, and a rule reads nothing above its root. Install the package in a `node_modules` of the package, as the `next:` line says ([Script rules](script-rules.md)).
 - A Claude Code session started at the top of the repository finds no law there. The check after an edit looks for the law from the edited file and still runs. The check before the agent finishes looks for the law from the session's folder, finds none, and does not run. Start the session in the package folder ([The Claude Code plugin](plugin.md)).

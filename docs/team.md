@@ -1,6 +1,6 @@
 # A law shared by a team
 
-Two developers record reviews on two branches, and both branches add lines to `.lawcheck/verdicts`. The merge keeps both, so nobody asks the reviewer again for what a teammate already paid for. The [law](concepts.md#law), the [rules](concepts.md#rule), the settings and the [verdicts](concepts.md#verdict) live in git, and every clone checks against the same law.
+Two developers record reviews on two branches, and both branches add lines to `.lawcheck/verdicts`. The merge keeps both, so you do not ask the reviewer again for a file your teammate already paid to review. The [law](concepts.md#law), the [rules](concepts.md#rule), the settings and the [verdicts](concepts.md#verdict) live in git, and every clone checks against the same law.
 
 The outputs below come from a repository with this law, a [reviewer rule](concepts.md#reviewer-rule) in `.lawcheck/rules/clear-errors.md` ([Reviewer rules](reviewer-rules.md)), and a `main` that holds the law and no code:
 
