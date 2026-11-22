@@ -159,3 +159,9 @@ Why: no file system Lawcheck runs on can hold such a path, so it is a mistake in
 ## 160. Lawcheck's repository keeps its own law
 
 Lawcheck's own repository runs under Lawcheck, and `npm test` checks it. The law in `.lawcheck/` is the architecture the code moves to: layers as folders under `src/`, script rules, and reviewer rules answered by `claude-code`, whose passes are committed in `.lawcheck/verdicts`. Files of `src/` not yet in a layer are listed in the law, and that list only shrinks. `tests/acceptance/self-law.test.ts` clones `HEAD`, runs `check --full`, and fails on any finding of an enforced rule or of a built-in code, on a waiver or an unresolved use it does not list, and on a new file of `src/` left without a type.
+
+## 161. A release moves the version its pages show
+
+The pages show the real output of `lawcheck --version`, and their scenarios compare each such block with the command and with `package.json`. The commit that moves the version therefore changes those blocks too, and each changed block gets a `docs-example-changed` row anchored on this decision.
+
+Why: a block that kept an old version would be false from the day of the release, and the suite guard takes no path as the anchor of a changed block of a page.
