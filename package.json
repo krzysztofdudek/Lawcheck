@@ -1,6 +1,6 @@
 {
   "name": "lawcheck",
-  "version": "0.1.0-alpha.2",
+  "version": "0.1.0-alpha.3",
   "description": "Architecture checks for coding agents. Lawcheck checks your code against the architecture and rules you write down, and tells your coding agent which line breaks which rule.",
   "license": "MIT",
   "author": "Krzysztof Dudek",
