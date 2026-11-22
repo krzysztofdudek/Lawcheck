@@ -1,10 +1,10 @@
 # Reviewer rules
 
-A reviewer rule is judged by a language model. Use one for what a script cannot check, such as whether an error message says what to do next.
+An error message says that something failed and leaves the caller with no next step. A script cannot judge that, and a language model can. A reviewer rule is a rule written in prose that a model judges.
 
 ## The rule file
 
-The rule is `.lawcheck/rules/<id>.md`: the instruction to the reviewer, in plain prose. Its `why`, `status` and `context` are in the law. `context` names files the reviewer receives with every file it judges:
+The rule is `.lawcheck/rules/<id>.md`: the instruction to the reviewer, in plain prose. Its `why`, `status` and `context` are in the law (`lawcheck docs law`). `context` names files the reviewer receives with every file it judges:
 
 ```yaml
 lawcheck: 0.1.0
@@ -15,9 +15,9 @@ rules:
     context: ["docs/errors.md"]
 ```
 
-A good rule file says what must hold, what to report, and what is not a violation. The reviewer judges one file against one rule per call and sees nothing else of the repository.
+A good rule file says what must hold, what to report, and what is not a violation. The reviewer judges one file against one rule per call and sees nothing else of the repository. A rule file of whitespace only is `rule-missing-file`.
 
-## What the reviewer receives
+## The prompt
 
 One prompt per file and rule, built from:
 
@@ -28,9 +28,9 @@ One prompt per file and rule, built from:
 5. `<file path="...">` with the judged file, its lines numbered;
 6. `<waived>` with the line numbers a waiver of this rule covers, or `none`.
 
-No other file, no git data and no variable is sent.
+Lawcheck sends no other file, no git data and no variable. A prompt over `reviewer.max_chars` characters is never sent: the file gets `too-large-to-review`.
 
-## What it must answer
+## The answer
 
 One JSON object:
 
@@ -38,17 +38,19 @@ One JSON object:
 {"verdict": "fail", "findings": [{"line": 12, "message": "what breaks the rule on this line"}]}
 ```
 
-A pass is `{"verdict": "pass", "findings": []}`. A finding with `line` null is about the whole file. Lawcheck also finds the object inside a fenced block or after other text. A pass with findings, a fail without one, or a line outside the file is a bad answer: Lawcheck asks once more, and a second bad answer is `reviewer-bad-answer`.
+A pass is `{"verdict": "pass", "findings": []}`. A finding with `line` null is about the whole file. Lawcheck reads the whole answer as JSON first, then the first fenced block, then the last object in the text that holds a `verdict`.
 
-Findings on waived lines are dropped. A fail with no finding left counts as a pass.
+A pass with findings, a fail without one, a finding with no message and a line outside the file make a bad answer. Lawcheck asks once more when the cap of calls allows it, and a second bad answer is `reviewer-bad-answer`. A finding becomes a finding of the rule, at its line or about the whole file. Lawcheck drops the findings on waived lines, and a fail with no finding left counts as a pass.
 
 ## Verdicts
 
-A pass is recorded in `.lawcheck/verdicts`, one line per pass: a key and the rule id. Commit this file. A plain `lawcheck check` reads it and calls nobody, so CI needs no key.
+A pass is recorded in `.lawcheck/verdicts`, one line per pass: a key and the rule id, sorted. Commit this file. A plain `lawcheck check` reads it and calls nobody, so CI needs no key.
 
-The key is a hash of the frame, the rule id, its `why`, the rule file's text, each context file's path and text, and the judged file's path and text. A change to any of these re-opens the review. The key also covers the waived lines the reviewer is told about. When the file holds a waiver of the rule and its type sets `waivers: false`, the reviewer judges the line the waiver would cover, and the key differs from the one the same text has where the waiver counts. So a pass recorded while the waiver counted no longer counts once the type sets `waivers: false`, or once a law change moves the file into such a type, and the review re-opens. The status, the provider, the model and the settings are not in the key, so changing them re-opens nothing. A waiver changes the file's text, so adding one re-opens the review.
+The key is a hash of the frame, the rule id, its `why`, the rule file's text, each context file's path and text, the judged file's path and text, and the waived lines the reviewer is told about. A change to any of these re-opens the review. The status, the provider, the model and the settings are not in the key, so changing them keeps every pass. A waiver changes the file's text, so adding one re-opens the review.
 
-`.lawcheck/.gitattributes` gets `verdicts merge=union`, so two branches that add lines merge without a conflict.
+When the file holds a waiver of the rule and its type sets `waivers: false`, the reviewer judges the line the waiver would cover, and the key differs from the one the same text has where the waiver counts. So a pass recorded while the waiver counted no longer counts once the type sets `waivers: false`, or once a law change moves the file into such a type.
+
+`.lawcheck/.gitattributes` gets `verdicts merge=union`, so two branches that add lines merge without a conflict. Lawcheck writes the verdicts file under a lock in `.lawcheck/.local/`, so two runs at once keep both sets of passes.
 
 ## The failure cache
 
@@ -56,14 +58,14 @@ A fail is kept on this machine only, in `.lawcheck/.local/failures/<key>.json`, 
 
 ## The state of a review
 
-For each changed file and each reviewer rule that binds it, in this order:
+For each judged file and each reviewer rule that binds it, in this order:
 
 1. the verdicts file has its line: a pass, nothing shown;
-2. the failure cache holds a fail: its findings are shown again;
+2. the failure cache holds a fail: its findings are shown again, with or without `--review`;
 3. the prompt is larger than `reviewer.max_chars`: `too-large-to-review`;
-4. otherwise: `not-reviewed`, an error in the change.
+4. otherwise: `not-reviewed`.
 
-`lawcheck explain <path>` shows this state for each reviewer rule of a file.
+`not-reviewed` and `too-large-to-review` are errors for an enforced rule in the change, and warnings for an advisory rule, in debt and for files you name. `lawcheck explain <path>` shows this state for each reviewer rule of a file.
 
 ## Asking the reviewer
 
@@ -77,7 +79,7 @@ $ lawcheck check --review --max-calls 3 --base main
 - `--again` also asks where a fail is cached.
 - `--max-calls <n>` replaces `reviewer.max_calls` for one run. Every request counts, a request sent again included. A run that needs more calls than the cap makes none: `too-many-reviews`.
 
-Without `--review`, nothing leaves the machine.
+Without `--review`, nothing leaves the machine. A request that fails stops the run with `reviewer-unreachable`; the passes it recorded stay, so the same command asks only the rest.
 
 ## Trying a reviewer rule
 
