@@ -87,7 +87,7 @@ $ mkdir -p .lawcheck/rules
 
 ## 6. Write the rule file
 
-Write `.lawcheck/rules/no-console.mjs`. The name of the file is the id of the rule. The file exports the function `check`. Lawcheck calls it with one file at a time, and it returns findings:
+Write `.lawcheck/rules/no-console.mjs`. The name of the file is the id of the rule. The file exports the function `check`. Lawcheck calls it with one file at a time. `check` returns the findings:
 
 <!-- example: first-law-rule -->
 ```js
