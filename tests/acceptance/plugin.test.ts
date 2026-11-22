@@ -283,11 +283,17 @@ test('R-86: the session-start and prompt hooks each end at their own deadline', 
 });
 
 test('plugin-slice §5: the plugin ships deadlines of 25 seconds for session-start and edit, 15 for prompt and 145 for stop, each its timeout in hooks.json less 5', () => {
-  const sentence = /Each hook has a deadline: (\d+) seconds at the session start and after an edit, (\d+) seconds for the prompt, (\d+) seconds before finishing\./.exec(readFileSync(join(ROOT, 'docs', 'plugin.md'), 'utf8'));
-  assert.ok(sentence, 'docs/plugin.md names the deadlines');
+  const page = readFileSync(join(ROOT, 'docs', 'plugin.md'), 'utf8');
+  const row = (hook: string): [number, number] => {
+    const cells = new RegExp(`^\\| \`${hook}\` \\| [^|]+ \\| (\\d+) seconds \\| (\\d+) seconds \\|$`, 'm').exec(page);
+    assert.ok(cells, `docs/plugin.md names the deadline of ${hook}`);
+    return [Number(cells[1]), Number(cells[2])];
+  };
   const less = 5;
-  const [startAndEdit, prompt, stop] = sentence.slice(1).map(Number) as [number, number, number];
-  assert.deepEqual(DEADLINES, { 'session-start': startAndEdit, prompt, edit: startAndEdit, stop });
+  assert.ok(page.includes('The deadline ends five seconds before the time Claude Code gives the hook'));
+  const rows = { 'session-start': row('SessionStart'), prompt: row('UserPromptSubmit'), edit: row('PostToolUse'), stop: row('Stop') };
+  for (const [given, deadline] of Object.values(rows)) assert.equal(deadline, given - less);
+  assert.deepEqual(DEADLINES, Object.fromEntries(Object.entries(rows).map(([event, [, deadline]]) => [event, deadline])));
   const hooks = JSON.parse(readFileSync(join(PLUGIN, 'hooks', 'hooks.json'), 'utf8')).hooks as Record<string, { hooks: { args: string[]; timeout: number }[] }[]>;
   const timeouts = Object.fromEntries(Object.values(hooks).flatMap((groups) => groups.flatMap((group) => group.hooks.map((entry) => [entry.args.at(-1)!, entry.timeout - less]))));
   assert.deepEqual(timeouts, DEADLINES);
