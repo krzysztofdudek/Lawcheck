@@ -96,10 +96,16 @@ yarn install --frozen-lockfile
 
 ### 4. Keep cache folders out of the change
 
-Lawcheck counts every file that git lists, untracked files included. A cache folder inside the project, such as `.npm/`, then counts as changed code. Add the folder to `.gitignore`, or add it to `.git/info/exclude` in the job:
+Lawcheck counts every file that git lists, untracked files included. So every folder that the job creates, and that git does not ignore, counts as changed code. The common case is `node_modules/`: after `npm install` in a project whose `.gitignore` leaves it out, the check counts each of its files as a changed file. A cache folder such as `.npm/` counts the same way. Add such a folder to `.gitignore`, or add it to `.git/info/exclude` in the job:
 
 ```sh
 echo .npm/ >> .git/info/exclude
+```
+
+For `node_modules/`, add the line to `.gitignore` and commit it, so every clone and every job leaves the folder out:
+
+```sh
+echo node_modules/ >> .gitignore
 ```
 
 ### 5. Give the base on another CI service

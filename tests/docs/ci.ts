@@ -15,6 +15,7 @@ export const claims: Claims = {
   'example ci-install-pnpm': RECIPE('pnpm'),
   'example ci-install-yarn': RECIPE('yarn1'),
   'block 1 under "4. Keep cache folders out of the change"': SCENARIO,
+  'block 2 under "4. Keep cache folders out of the change"': SCENARIO,
   'block 1 under "5. Give the base on another CI service"': SCENARIO,
   'block 2 under "5. Give the base on another CI service"': SCENARIO,
   'block 3 under "5. Give the base on another CI service"': SCENARIO,
@@ -120,6 +121,20 @@ export async function scenario(page: Page): Promise<void> {
     appendFileSync(join(repo, exclude[2]!), `${exclude[1]}\n`);
     const excluded = await lawcheck(repo, ['check', '--base', 'main']);
     assert.deepEqual([excluded.code, excluded.stdout], [0, 'lawcheck: PASS  nothing changed against main\n'], 'the excluded cache folder is not in the change');
+  });
+
+  const ignore = /^echo (\S+) >> (\S+)$/.exec(page.text('block 2 under "4. Keep cache folders out of the change"'));
+  assert.ok(ignore, 'the block appends one line to a file');
+  await inTemp(async (dir) => {
+    const repo = newRepository(dir, { '.lawcheck/law.yaml': 'lawcheck: 0.1.0\n\ntypes:\n  source:\n    paths: ["src/**/*.ts"]\n', 'src/price.ts': 'export const price = 1;\n', '.gitignore': '.env\n' });
+    git(repo, 'checkout', '-q', '-b', 'work');
+    write(repo, 'node_modules/left-pad/index.js', 'module.exports = 1;\n');
+    write(repo, 'node_modules/left-pad/package.json', '{"name":"left-pad"}\n');
+    const installed = await lawcheck(repo, ['check', '--base', 'main']);
+    assert.deepEqual([installed.code, installed.stdout], [0, 'lawcheck: PASS  2 changed files (against main)\n'], 'the files of node_modules count as changed');
+    appendFileSync(join(repo, ignore[2]!), `${ignore[1]}\n`);
+    const ignored = await lawcheck(repo, ['check', '--base', 'main']);
+    assert.deepEqual([ignored.code, ignored.stdout], [0, 'lawcheck: PASS  1 changed file (against main)\n'], 'only the edited .gitignore is in the change');
   });
 
   await inTemp(async (dir) => {
