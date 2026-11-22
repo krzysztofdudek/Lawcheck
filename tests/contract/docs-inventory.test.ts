@@ -128,7 +128,7 @@ function arrayOf(read: Read, path: string, name: string): string[] {
   return strings(block(source(read, path), new RegExp(`const ${name}\\b[^=]*=\\s*\\[([^\\]]*)\\]`), path));
 }
 
-export function itemsOf(read: Read): Item[] {
+function itemsOf(read: Read): Item[] {
   const args = source(read, 'src/args.ts');
   const flags = block(args, /const FLAGS[^=]*=\s*\{([\s\S]*?)\n\};/, 'src/args.ts');
   const sources = walk(join(ROOT, 'src'), (name) => name.endsWith('.ts')).map((path) => source(read, path)).join('\n');
@@ -163,7 +163,7 @@ export function itemsOf(read: Read): Item[] {
   return out;
 }
 
-export function holds(page: string, name: string): boolean {
+function holds(page: string, name: string): boolean {
   let fenced = false;
   for (const line of page.split('\n')) {
     if (/^\s*(```|~~~)/.test(line)) { fenced = !fenced; continue; }
@@ -176,7 +176,7 @@ export function holds(page: string, name: string): boolean {
   return false;
 }
 
-export function problemsOf(items: Item[], read: Read, list: string[]): string[] {
+function problemsOf(items: Item[], read: Read, list: string[]): string[] {
   const problems: string[] = [];
   const wanted = new Map<string, string>();
   for (const { kind, name } of items) for (const page of PAGES[kind]!) wanted.set(`${page}: ${name}`, kind);
