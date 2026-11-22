@@ -42,7 +42,7 @@ An exit-2 code stops the run before Lawcheck gives a PASS or a FAIL, and its out
 | `uses-not-read` | finding | Lawcheck reads no uses from a file whose `may_use` list is in force | a restriction that cannot be checked is not shown as kept |
 | `waiver-unknown-rule` | finding | a waiver names no rule of the law | a waiver that names no rule of the law waives nothing |
 | `waiver-without-reason` | finding | a waiver has no reason after `--` | a waiver without a reason cannot be weighed later |
-| `waiver-unused` | finding | a waiver of a script rule drops no finding | a waiver that drops nothing would hide the next finding on its line |
+| `waiver-unused` | finding | a waiver drops no finding; a waiver of a reviewer rule never gets it | a waiver that drops nothing would hide the next finding on its line |
 
 A finding of a rule of the law carries the rule's id as its code, and the rule's own `why`. A rule id may not equal any code above, nor `untyped-file`.
 
@@ -995,7 +995,7 @@ next: fix src/core/shipping.ts:1
 
 **Meaning**
 
-A waiver drops no finding on the line it covers. The finding is a warning. Only a waiver of a script rule gets it.
+A waiver drops no finding on the line it covers. The finding is a warning. A waiver of a reviewer rule never gets it.
 
 **Typical cause**
 
