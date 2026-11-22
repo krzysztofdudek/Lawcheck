@@ -1,6 +1,6 @@
 # The first type and the first rule
 
-You end with a law of one [type](concepts.md#type) and one [script rule](concepts.md#script-rule). A script rule is a JavaScript file of your repository that returns [findings](concepts.md#finding) for the lines of your files that break it. `lawcheck try` and `lawcheck check` show the line of `src/report.ts` that breaks the rule.
+You end with a law of one [type](concepts.md#type) and one [script rule](concepts.md#script-rule). A script rule is a JavaScript file of your repository that returns [findings](concepts.md#finding) for the lines of your files that break it. `lawcheck check` and `lawcheck try` show the line of `src/report.ts` that breaks the rule.
 
 The outputs below come from a repository with two files on `main`:
 
@@ -59,25 +59,7 @@ src/price.ts
 
 The file has the type `source` and no rule yet.
 
-## 4. Add the rule to the law
-
-A rule has an entry in the law and one file. Add the entry under `rules`, with the `why` that Lawcheck prints under every finding of the rule:
-
-<!-- example: first-law-entry -->
-```yaml
-lawcheck: 0.1.0
-
-rules:
-  no-console:
-    why: Only the command layer writes to the terminal.
-
-types:
-  source:
-    about: Everything that ships.
-    paths: ["src/**/*.ts"]
-```
-
-## 5. Make the rules folder
+## 4. Make the rules folder
 
 The file of the rule goes in `.lawcheck/rules/`. `init` makes no `rules/` folder. Create it:
 
@@ -85,9 +67,9 @@ The file of the rule goes in `.lawcheck/rules/`. `init` makes no `rules/` folder
 $ mkdir -p .lawcheck/rules
 ```
 
-## 6. Write the rule file
+## 5. Write the rule file
 
-Write `.lawcheck/rules/no-console.mjs`. The name of the file is the id of the rule. The file exports the function `check`. Lawcheck calls it with one file at a time. `check` returns the findings:
+Write `.lawcheck/rules/no-console.mjs`. The name of the file is the id of the rule. It exports the function `check`, which Lawcheck calls with one file at a time and which returns the findings of that file:
 
 <!-- example: first-law-rule -->
 ```js
@@ -105,53 +87,27 @@ export function check({ files }) {
 
 The rule reads lines as text. It parses no comments. It finds `console.log` inside a comment or a string as well, such as a code example in a doc comment. A rule that must skip those removes the comments from the text first. [Script rules](script-rules.md) has the whole contract.
 
-## 7. Try the rule on one file
+Until step 6 adds the rule to the law, a command that reads the law stops with `rule-file-without-entry`.
 
-`lawcheck try` runs one rule on the files you name, with no base, and writes nothing in the repository. It works before a type lists the rule. Until a file has a type that lists the rule, though, `try` needs a path: without one, it stops with the error [`usage`](codes.md#usage) and says that no file has a type that lists `no-console`. Try the rule on `src/price.ts`:
+## 6. Add the rule to the law
 
-```text
-$ lawcheck try no-console src/price.ts
+A rule has an entry in the law and one file. Add the entry under `rules`, with the `why` that Lawcheck prints under every finding of the rule:
+
+<!-- example: first-law-entry -->
+```yaml
+lawcheck: 0.1.0
+
+rules:
+  no-console:
+    why: Only the command layer writes to the terminal.
+
+types:
+  source:
+    about: Everything that ships.
+    paths: ["src/**/*.ts"]
 ```
 
-```output
-lawcheck: try no-console (script rule, enforced)  nothing found in 1 file
-```
-
-`src/price.ts` writes nothing to the terminal. `try` exits 0.
-
-## 8. Try it on a file that breaks it
-
-```text
-$ lawcheck try no-console src/report.ts
-```
-
-```output
-lawcheck: try no-console (script rule, enforced)  1 finding in 1 of 1 file
-
-src/report.ts:1  error[no-console]  writes to the terminal with console.log
-  why:  Only the command layer writes to the terminal.
-```
-
-The finding names the file, the line, the rule and its `why`. `try` exits 1.
-
-## 9. Try it on a whole folder
-
-A pattern selects every file it matches. Put the pattern in quotes. The shell then passes it to Lawcheck as written:
-
-```text
-$ lawcheck try no-console 'src/**/*.ts'
-```
-
-```output
-lawcheck: try no-console (script rule, enforced)  1 finding in 1 of 2 files
-
-src/report.ts:1  error[no-console]  writes to the terminal with console.log
-  why:  Only the command layer writes to the terminal.
-```
-
-## 10. List the rule on the type
-
-Add `rules` to the type:
+Then list the rule in the `rules` of the type. The whole law is then:
 
 <!-- example: first-law-law -->
 ```yaml
@@ -168,6 +124,8 @@ types:
     rules: [no-console]
 ```
 
+## 7. Check the file that breaks the rule
+
 `lawcheck check` now judges the files of type `source` with the rule. With a path, it judges the files you name, changed or not:
 
 ```text
@@ -183,9 +141,9 @@ src/report.ts:1  error[no-console]  writes to the terminal with console.log
 next: fix src/report.ts:1
 ```
 
-The check fails and exits 1. Without a path, a plain `lawcheck check` judges the files that differ from the [base](concepts.md#base). A check against `main` passes on `src/report.ts`, because the file is the same as on `main`. Step 11 lists it as [debt](concepts.md#debt).
+The check fails and exits 1. Without a path, a plain `lawcheck check` judges the files that differ from the [base](concepts.md#base). A check against `main` passes on `src/report.ts`, because the file is the same as on `main`. Step 8 lists it as [debt](concepts.md#debt).
 
-## 11. See the debt
+## 8. See the debt
 
 A plain check judges only the files that differ from the base. The files you did not touch may already break the new rule. `--full` judges them too:
 
@@ -204,6 +162,50 @@ src/report.ts:1  warning[no-console]  writes to the terminal with console.log
 
 The three changed files are the new files of `.lawcheck/`, which count like any other file git lists. The note line says the change edits the law ([What a check judges](change.md)). A finding outside the change is [debt](concepts.md#debt): a warning that never fails the run.
 
+## 9. Try the rule on one file
+
+`lawcheck try` runs one rule on the files you name, with no base, and writes nothing in the repository. You can use it while you write a rule, before any type lists it. Until a file has a type that lists the rule, though, `try` needs a path: without one, it stops with the error [`usage`](codes.md#usage) and says that no file has a type that lists the rule. Try `no-console` on `src/price.ts`:
+
+```text
+$ lawcheck try no-console src/price.ts
+```
+
+```output
+lawcheck: try no-console (script rule, enforced)  nothing found in 1 file
+```
+
+`src/price.ts` writes nothing to the terminal. `try` exits 0.
+
+## 10. Try it on a file that breaks it
+
+```text
+$ lawcheck try no-console src/report.ts
+```
+
+```output
+lawcheck: try no-console (script rule, enforced)  1 finding in 1 of 1 file
+
+src/report.ts:1  error[no-console]  writes to the terminal with console.log
+  why:  Only the command layer writes to the terminal.
+```
+
+The finding names the file, the line, the rule and its `why`. `try` exits 1.
+
+## 11. Try it on a whole folder
+
+A pattern selects every file it matches. Put the pattern in quotes. The shell then passes it to Lawcheck as written:
+
+```text
+$ lawcheck try no-console 'src/**/*.ts'
+```
+
+```output
+lawcheck: try no-console (script rule, enforced)  1 finding in 1 of 2 files
+
+src/report.ts:1  error[no-console]  writes to the terminal with console.log
+  why:  Only the command layer writes to the terminal.
+```
+
 ## 12. Fix the debt, or start the rule advisory
 
 Fix `src/report.ts`: take out its call of `console.log`. The rule keeps the default status, `enforced`. If the debt is too large to fix now, give the rule `status: advisory` instead. Its findings are then warnings in every file. The run passes:
@@ -221,12 +223,12 @@ After you fix the debt, delete the `status` line, and the rule is enforced again
 
 ## If it goes wrong
 
-- `lawcheck check` passes, and you expected the finding in `src/report.ts`: a plain check judges only the changed files. Add `--full`, as in step 11.
+- `lawcheck check` passes, and you expected the finding in `src/report.ts`: a plain check judges only the changed files. Add `--full`, as in step 8.
 - Lawcheck prints `law-invalid`: the law misspells a key, such as `path` for `paths`. The message names the line and ends with the nearest known key, `(did you mean 'paths'?)`.
 - Lawcheck prints `rule-missing-file`: the law names a rule, and `.lawcheck/rules/` holds no file of that name. The file name must be the rule id followed by `.mjs`.
-- Lawcheck prints `rule-file-without-entry`: a file in `.lawcheck/rules/` names no rule of the law. Give the file the rule id as its name, or add an entry for it.
+- Lawcheck prints `rule-file-without-entry`: a file in `.lawcheck/rules/` names no rule of the law, as between steps 5 and 6. Give the file the rule id as its name, or add an entry for it.
 - Lawcheck prints `rule-crashed`: the rule threw an error or returned something other than a list of findings. [Write a script rule](write-a-script-rule.md) shows how to find the cause.
 - `lawcheck explain` answers `none: git ignores it, so Lawcheck never sees it`: `.gitignore` names the file. No type takes a file that git ignores.
-- `lawcheck try no-console` without a path stops with [`usage`](codes.md#usage): no file has a type that lists the rule yet. Name a file, as in step 7.
+- `lawcheck try no-console` without a path stops with [`usage`](codes.md#usage): no file has a type that lists the rule yet. Name a file, as in step 9.
 
 Next: [Types for an existing project](types-for-a-project.md)
