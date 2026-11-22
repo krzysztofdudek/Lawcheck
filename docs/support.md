@@ -52,7 +52,7 @@ error[unsupported-environment]  Node 22.11.0 is older than 24, the oldest Node L
 next: install Node 24 or later, then run lawcheck check
 ```
 
-Node's permission model is the set of limits that `--permission` turns on. Under it, Node loads Lawcheck's entry file and refuses every module that the file imports. Lawcheck's entry file holds the check for the model, before the first import. If it finds the model, it prints the refusal of the table above. That check runs only when Node 24.2 or later starts the entry file by the file's own path. A shim is the small script that npm installs to start a command. The Windows shims of npm start the entry file that way.
+Node's permission model is the set of limits that `--permission` turns on. Under it, Node loads Lawcheck's entry file and refuses every module that the file imports. Lawcheck's entry file holds the check for the model, before the first import. Under the model, Lawcheck prints the refusal of the table above. That check runs only when Node 24.2 or later starts the entry file by the file's own path. A shim is the small script that npm installs to start a command. The Windows shims of npm start the entry file that way.
 
 In two other cases, Node with `--permission` stops before the entry file runs:
 
