@@ -1,8 +1,8 @@
 # Codes
 
-A run stopped with `error[type-overlap]`, or a check came back with `warning[uses-not-read]`, and you need the step that clears it. Each code Lawcheck prints has a heading of its own on this page: `law-invalid` is under `## law-invalid`.
+A run stopped with `error[type-overlap]`, or a check came back with `warning[uses-not-read]`. You need the step that clears it. Each code that Lawcheck prints has a heading of its own on this page. The code `law-invalid`, for one, is under `## law-invalid`.
 
-An exit-2 code stops the run before Lawcheck gives a PASS or a FAIL, and its output ends with one `next:` line that says what to fix. A finding is a line of `check`'s report and comes with its rule's `why`, or with the fixed why below for a built-in code. Lawcheck prints the `why:` line once for each code, under its first error or finding.
+An exit-2 code stops the run before Lawcheck gives a PASS or a FAIL. Its output ends with one `next:` line that says what to fix. A [finding](concepts.md#finding) is a line of the report of `check`. A finding of a rule comes with the rule's `why`. A finding of a built-in code comes with the fixed why of the table below. Lawcheck prints the `why:` line once for each code, under its first error or finding.
 
 | Code | Kind | When | Why |
 |---|---|---|---|
@@ -20,7 +20,7 @@ An exit-2 code stops the run before Lawcheck gives a PASS or a FAIL, and its out
 | `text-too-large` | exit 2 | the files a run reads hold more than 128 MiB of text | a run holds the text it reads in memory, so all of it may hold only so much |
 | `file-unwritable` | exit 2 | Lawcheck cannot write a file or folder it must write | what Lawcheck cannot write is lost, so the run cannot say it is done |
 | `type-overlap` | exit 2 | two types of one level match one file | a file has one type, so the rules that bind it are never in doubt |
-| `base-unreachable` | exit 2 | the base names no commit, shares no history with `HEAD`, or a CI job has no base | without its base a change cannot be told from debt |
+| `base-unreachable` | exit 2 | the base names no commit, shares no history with `HEAD`, or the repository has no commit; or a CI job has no base | without its base a change cannot be told from debt |
 | `link-outside-root` | exit 2 | a script rule is to run, and a link git tracks leads outside the work tree | a script rule reads nothing outside the work tree, and a link that leads out of it would let it |
 | `path-unsupported` | exit 2 | a script rule is to run, and the path of the root or of Lawcheck holds a `*` or a backslash | a script rule reads nothing outside the root and Lawcheck's folder, and the runner can keep that only on such a path |
 | `runner-failed` | exit 2 | the process that runs script rules does not start | a runner that does not start says nothing about the rules |
@@ -31,7 +31,7 @@ An exit-2 code stops the run before Lawcheck gives a PASS or a FAIL, and its out
 | `reviewer-not-configured` | exit 2 | a run asks for reviews, and the config names no provider | reviewer rules need a reviewer to judge them |
 | `too-many-reviews` | exit 2 | a run needs more reviewer calls than its cap | reviewer.max_calls bounds what one run spends |
 | `reviewer-unreachable` | exit 2 | Lawcheck cannot call the reviewer, or a request fails | without the reviewer's answer a reviewer rule says nothing |
-| `reviewer-bad-answer` | exit 2 | the reviewer's answer is no verdict twice | an answer that is no verdict cannot be recorded |
+| `reviewer-bad-answer` | exit 2 | the reviewer's answer is no verdict twice, or once when the cap leaves no call to ask again | an answer that is no verdict cannot be recorded |
 | `memory-too-large` | exit 2 | the run passes its memory | a run past its memory would be ended by the system |
 | `step-too-slow` | exit 2 | one step of a run takes more than 30 seconds | a step that never ends gives no answer, so one step of a run has a limit of time |
 | `stopped` | exit 2 | SIGINT, SIGTERM or SIGHUP ended the run | a run stopped before its end says nothing about the code |
@@ -44,19 +44,24 @@ An exit-2 code stops the run before Lawcheck gives a PASS or a FAIL, and its out
 | `waiver-without-reason` | finding | a waiver has no reason after `--` | a waiver without a reason cannot be weighed later |
 | `waiver-unused` | finding | a waiver drops no finding; a waiver of a reviewer rule never gets it | a waiver that drops nothing would hide the next finding on its line |
 
-A finding of a rule of the law carries the rule's id as its code, and the rule's own `why`. A rule id may not equal any code above, nor `untyped-file`.
+A finding of a rule of the law carries the rule's id as its code. It carries the rule's own `why`. A rule id may not equal any code above, and it may not be `untyped-file`.
 
-Each Example below is the standard output of a test of Lawcheck's suite on the sample repository the suite builds. The examples leave out standard error, where Lawcheck prints such lines as the count of reviewer calls. A path under `/home/you/projects` stands for the test's temporary folder, and `/usr/local/bin/node` for the node that runs it.
+Each Example below is the standard output of a test of Lawcheck's own suite. The suite builds a sample repository and runs the test there. The examples leave out standard error. Lawcheck prints lines such as the count of reviewer calls on standard error. A path under `/home/you/projects` stands for the temporary folder of the test. `/usr/local/bin/node` stands for the node that runs the test.
 
 ## usage
 
 **Meaning**
 
-The command line breaks the usage line of its command, and Lawcheck runs nothing.
+The command line breaks the usage line of its command. Lawcheck runs nothing.
 
 **Typical cause**
 
-A flag the command does not have, a flag given twice or without its value, a path outside the root, or a rule, type or topic that does not exist.
+The command line holds one of these:
+
+- a flag the command does not have;
+- a flag given twice, or a flag without its value;
+- a path outside the root;
+- a rule, type or topic that does not exist.
 
 **Fix**
 
@@ -78,18 +83,24 @@ next: run lawcheck docs as its usage line says: lawcheck docs --help
 
 **Meaning**
 
-Lawcheck refuses to run on this machine, and the first line of the output names the cause.
+Lawcheck refuses to run on this machine. The first line of the output names the cause.
 
 **Typical cause**
 
-Node older than 24, a run on Bun, a Lawcheck that Yarn's Plug'n'Play serves from a zip archive, git older than 2.34, or `--permission` in `NODE_OPTIONS`.
+The cause is one of these:
+
+- Node is older than 24;
+- the run is on Bun;
+- Yarn's Plug'n'Play serves Lawcheck from a zip archive;
+- git is older than 2.34;
+- `NODE_OPTIONS` holds `--permission`.
 
 **Fix**
 
 The `next:` line gives the step for the cause:
 
 - Node older than 24: install Node 24 or later.
-- Bun: start Lawcheck as `bun x --no-install lawcheck`, without `--bun`, so it runs on the `node` of the `PATH`. With no `node` there, install Node 24 beside Bun.
+- Bun: start Lawcheck as `bun x --no-install lawcheck`, without `--bun`. Lawcheck then runs on the `node` of the `PATH`. With no `node` there, install Node 24 beside Bun.
 - Plug'n'Play: set `nodeLinker: node-modules` in `.yarnrc.yml` and run `yarn install`.
 - git older than 2.34: install git 2.34 or later.
 - `--permission`: start Lawcheck with `NODE_OPTIONS` free of `--permission`.
@@ -114,7 +125,7 @@ Lawcheck finds no `.lawcheck/law.yaml` in the folder it runs in or in any folder
 
 **Typical cause**
 
-The repository has no law yet, or you run Lawcheck from a folder above the one that holds `.lawcheck/`, such as the top of a monorepo whose packages each have a law. Then the message names up to three folders below that hold a law.
+The repository has no law yet. The other cause: you run Lawcheck from a folder above the one that holds `.lawcheck/`, such as the top of a monorepo whose packages each have a law. In that case, the message names up to three folders below that hold a law.
 
 **Fix**
 
@@ -136,7 +147,7 @@ next: write .lawcheck/law.yaml at the root of the code to check, then run lawche
 
 **Meaning**
 
-`init` finds a law in this folder, in a folder above it or in one below it, and writes nothing.
+`init` finds a law in this folder, in a folder above it or in a folder below it. It writes nothing.
 
 **Typical cause**
 
@@ -162,11 +173,16 @@ next: lawcheck doctor  (shows how the law here stands)
 
 **Meaning**
 
-Lawcheck takes the files and the change from git, and git cannot give them here. The message holds the line git printed, where git printed one.
+Lawcheck takes the files and the change from git. Here git cannot give them. The message holds the line that git printed, if git printed one.
 
 **Typical cause**
 
-A folder outside any git work tree, no git on the `PATH`, a damaged repository, or a repository that git refuses because another user owns it.
+The cause is one of these:
+
+- the folder is outside any git work tree;
+- git is not on the `PATH`;
+- the repository is damaged;
+- git refuses the repository because another user owns it.
 
 **Fix**
 
@@ -188,11 +204,17 @@ next: run lawcheck check inside a git work tree, with git on the PATH
 
 **Meaning**
 
-Lawcheck cannot use `.lawcheck/law.yaml`. The error names the line of the law where it has one.
+Lawcheck cannot use `.lawcheck/law.yaml`. The error names the line of the law, if the error has a line.
 
 **Typical cause**
 
-A misspelled key, such as rulez for `rules`, a wrong value or id, a name in a type's `rules` or `may_use` that the law does not have, a pattern or `content` expression that does not parse, or a `context` file that git does not list.
+The law holds one of these:
+
+- a misspelled key, such as rulez for `rules`;
+- a wrong value or id;
+- a name in a type's `rules` or `may_use` that the law does not have;
+- a pattern or `content` expression that does not parse;
+- a `context` file that git does not list.
 
 **Fix**
 
@@ -214,11 +236,15 @@ next: fix .lawcheck/law.yaml, then run lawcheck check
 
 **Meaning**
 
-Lawcheck cannot use `.lawcheck/config.yaml`. The error names the line where it has one.
+Lawcheck cannot use `.lawcheck/config.yaml`. The error names the line, if the error has a line.
 
 **Typical cause**
 
-An unknown key, such as bogus, a wrong value, or a reviewer provider that Lawcheck cannot set up from the settings.
+The config holds one of these:
+
+- an unknown key, such as bogus;
+- a wrong value;
+- a reviewer provider that Lawcheck cannot set up from the settings.
 
 **Fix**
 
@@ -240,15 +266,15 @@ next: fix .lawcheck/config.yaml, then run lawcheck check
 
 **Meaning**
 
-A rule of the law has neither its script `.lawcheck/rules/<id>.mjs` nor its prompt `.lawcheck/rules/<id>.md`, or its `.md` file holds only whitespace.
+A rule of the law has neither its script `.lawcheck/rules/<id>.mjs` nor its prompt `.lawcheck/rules/<id>.md`. The same code covers a `.md` file that holds whitespace and nothing else.
 
 **Typical cause**
 
-You add a rule to the law before you write its file, or you delete or rename the file and leave the rule in the law.
+You add a rule to the law before you write its file. The other cause: you delete or rename the file and leave the rule in the law.
 
 **Fix**
 
-Write `.lawcheck/rules/<id>.mjs` for a script rule or `.lawcheck/rules/<id>.md` for a reviewer rule, or take the rule out of the law.
+Write `.lawcheck/rules/<id>.mjs` for a script rule, or `.lawcheck/rules/<id>.md` for a reviewer rule. You can take the rule out of the law instead.
 
 **Example**
 
@@ -266,15 +292,23 @@ next: ask the user to write the rule files the law names or to take their rules 
 
 **Meaning**
 
-A file in `.lawcheck/rules/`, outside `lib/`, belongs to no rule of the law, or one rule has both a `.mjs` and a `.md` file.
+A file in `.lawcheck/rules/`, outside `lib/`, belongs to no rule of the law. The same code covers a rule that has both a `.mjs` and a `.md` file.
 
 **Typical cause**
 
-You write a rule file and forget its entry under `rules:`, you keep a shared module beside the rules, or a reviewer rule keeps the script it replaced.
+The cause is one of these:
+
+- you write a rule file and forget its entry under `rules:`;
+- you keep a shared module beside the rules;
+- a reviewer rule keeps the script it replaced.
 
 **Fix**
 
-Add the rule under `rules:` in the law, move a shared module to `.lawcheck/rules/lib/`, or delete one of the two files of a rule.
+The step depends on the cause:
+
+- add the rule under `rules:` in the law;
+- move a shared module to `.lawcheck/rules/lib/`;
+- delete one of the two files of a rule.
 
 **Example**
 
@@ -292,15 +326,19 @@ next: add a rule for .lawcheck/rules/extra.mjs to the law, or move the file to .
 
 **Meaning**
 
-Lawcheck must read a file and the system refuses. The message gives the reason, such as the error code `EACCES`.
+The system refuses to let Lawcheck read a file that it must read. The message gives the reason, such as the error code `EACCES`.
 
 **Typical cause**
 
-A file you have no read permission on, a path that is no regular file, such as a folder or a named pipe, or a `.lawcheck/verdicts` over 16 MiB.
+The file is one of these:
+
+- a file you have no read permission on;
+- a path that is no regular file, such as a folder or a named pipe;
+- a `.lawcheck/verdicts` over 16 MiB.
 
 **Fix**
 
-Give yourself read permission on the file, or put a regular file at the path. For a `.lawcheck/verdicts` over 16 MiB, you decide how to make room in it: its passes are hashes, so you cannot tell one from another by hand.
+Give yourself read permission on the file, or put a regular file at the path. For a `.lawcheck/verdicts` over 16 MiB, the message gives two counts. The first is the number of passes that the files of this tree need. The second is the number of reviewer calls that a review of every file of the law would take. You decide with those counts how to make room. The passes are hashes, so you cannot tell one pass from another by hand.
 
 **Example**
 
@@ -318,7 +356,7 @@ next: make src/core/price.ts readable, then run lawcheck check
 
 **Meaning**
 
-One file passes the limit of what Lawcheck reads from it. A file read as text may hold 16 MiB and 1,048,576 lines. The law and the config may each hold 1 MiB, and the law 10,000 rules and 1,000 types.
+One file goes over the limit of what Lawcheck reads from it. A file read as text may hold 16 MiB and 1,048,576 lines. The law and the config may each hold 1 MiB. The law may hold 10,000 rules and 1,000 types.
 
 **Typical cause**
 
@@ -326,7 +364,7 @@ A type's `paths` match a generated file, a bundle or a data dump.
 
 **Fix**
 
-Add a pattern that starts with `!` to the type's `paths`, such as `"!src/core/edge.ts"`, or make the file smaller. A law or a config past its limit has to become smaller.
+Add a pattern that starts with `!` to the type's `paths`, such as `"!src/core/edge.ts"`. You can make the file smaller instead. A law or a config over its limit has to become smaller.
 
 **Example**
 
@@ -344,11 +382,11 @@ next: leave src/core/edge.ts out of the types with a pattern that starts with ! 
 
 **Meaning**
 
-The files one run reads hold more than 128 MiB of text together. The error names the file that passed the limit.
+The files one run reads hold more than 128 MiB of text together. The error names the file that went over the limit.
 
 **Typical cause**
 
-The types match many large files, such as a folder of generated code or test data.
+The types match large files whose text adds up to more than 128 MiB, such as a folder of generated code or test data.
 
 **Fix**
 
@@ -370,15 +408,23 @@ next: narrow the paths of the types in .lawcheck/law.yaml, so that the files the
 
 **Meaning**
 
-Lawcheck must write a file or a folder and cannot. The error names it.
+Lawcheck cannot write a file or a folder that it must write. The error names that file or folder.
 
 **Typical cause**
 
-A file stands where Lawcheck makes a folder, such as a file named `.lawcheck`, the folder is read-only, the disk is full, standard output is closed, or `.lawcheck/verdicts` would pass 16 MiB.
+The cause is one of these:
+
+- a file stands where Lawcheck makes a folder, such as a file named `.lawcheck`;
+- the folder is read-only;
+- the disk is full;
+- `.lawcheck/verdicts` would grow past 16 MiB;
+- a write to standard output fails, such as a write to a file on a full disk.
+
+A reader of the output that closes the pipe early gives no error. Lawcheck then ends quietly, with the exit code of its result.
 
 **Fix**
 
-Edit the place the error names: move the file that stands there, or give yourself write permission on it. For a full `.lawcheck/verdicts`, you decide how to make room in it: its passes are hashes, so you cannot tell one from another by hand.
+Edit the place that the error names. You can move the file that stands there, or give yourself write permission on it. For a full `.lawcheck/verdicts`, the message gives two counts. The first is the number of passes that the files of this tree need. The second is the number of reviewer calls that a review of every file of the law would take. You decide with those counts how to make room. The passes are hashes, so you cannot tell one pass from another by hand.
 
 **Example**
 
@@ -423,15 +469,23 @@ next: narrow the paths or content of the types that overlap in .lawcheck/law.yam
 
 **Meaning**
 
-Lawcheck cannot reach the base it compares the change with, so it cannot tell new findings from debt.
+Lawcheck cannot reach the base that it compares the change with. Without the base, it cannot tell new findings from debt.
 
 **Typical cause**
 
-A `--base` or `LAWCHECK_BASE` that names no commit here, a shallow clone, a clone that did not fetch the branch, a base of forty zeros from the push of a new branch, a base that ends with `/` because the variable after it was empty, or a CI job with no base at all.
+The cause is one of these:
+
+- a `--base` or `LAWCHECK_BASE` that names no commit here;
+- a repository with no commit yet;
+- a shallow clone, which holds part of the history;
+- a clone that did not fetch the branch;
+- a base of forty zeros, from the push of a new branch;
+- a base that ends with `/`, because the variable after it was empty;
+- a CI job with no base at all.
 
 **Fix**
 
-Run the command again with a `--base` that names a branch or a commit here, such as `--base origin/main`. In a shallow clone, or one without the branch, run the `git fetch` command of the `next:` line, or set `fetch-depth: 0` in `actions/checkout`. For the push of a new branch, pass the branch it was made from.
+Run the command again with a `--base` that names a branch or a commit here, such as `--base origin/main`. In a shallow clone, or in a clone without the branch, run the `git fetch` command of the `next:` line. In GitHub Actions, you can set `fetch-depth: 0` in `actions/checkout` instead. For the push of a new branch, pass the branch that the new one came from. In a repository with no commit, make the first commit, or name the files to check, as in `lawcheck check src/`.
 
 **Example**
 
@@ -449,7 +503,7 @@ next: pass --base with a branch or a commit that exists here
 
 **Meaning**
 
-A script rule is about to run, and a link that git tracks leads outside the git work tree and Lawcheck's folder. A rule could read outside the repository through it, so Lawcheck runs no rule.
+A script rule is about to run. A link that git tracks leads outside the git work tree and outside Lawcheck's folder. A rule could read outside the repository through that link. Lawcheck runs no rule.
 
 **Typical cause**
 
@@ -475,7 +529,7 @@ next: remove the link outside, or let it lead inside the work tree, then run law
 
 **Meaning**
 
-A script rule is about to run, and the path of the repository or of Lawcheck holds a `*`, or a backslash outside Windows. On such a path the runner of script rules cannot keep a rule inside the root.
+A script rule is about to run. The path of the repository or of Lawcheck holds a `*`, or a backslash outside Windows. The runner is the Node process that runs the script rules. On such a path, the runner cannot keep a rule inside the root.
 
 **Typical cause**
 
@@ -505,7 +559,7 @@ The Node process that runs the script rules did not start. The message holds the
 
 **Typical cause**
 
-A damaged installation of Lawcheck, or a Node that refuses the options the runner starts with.
+The installation of Lawcheck is damaged, or Node refuses the options that the runner starts with.
 
 **Fix**
 
@@ -527,15 +581,23 @@ next: reinstall Lawcheck, then run lawcheck check
 
 **Meaning**
 
-A script rule broke, so Lawcheck has none of its findings and stops the run. The error names the rule's file, the file it judged and the cause.
+A script rule failed to give its findings. Lawcheck stops the run. The error names the rule's file, the file it judged and the cause.
 
 **Typical cause**
 
-The rule throws, does not load, returns something other than a list of findings, returns a message over 4,096 characters, or takes more than 30 seconds on one file. A rule that imports a package installed above the root does not load.
+The rule does one of these:
+
+- it does not load;
+- it throws;
+- it returns something other than a list of findings;
+- it returns a message over 4,096 characters;
+- it takes more than 30 seconds on one file.
+
+A rule that imports a package installed above the root does not load.
 
 **Fix**
 
-Run `lawcheck try <rule> <path>` with the rule and the file the error names, and edit `.lawcheck/rules/<rule>.mjs` until `try` ends without an error. For a package above the root, install it in a node_modules folder below the root, as the `next:` line says.
+Run `lawcheck try <rule> <path>` with the rule and the file that the error names. Edit `.lawcheck/rules/<rule>.mjs` until `try` ends without an error. For a package above the root, install the package in a `node_modules` folder below the root, as the `next:` line says.
 
 **Example**
 
@@ -557,7 +619,7 @@ The rules of one run returned more than 200,000 findings, or more than 16,777,21
 
 **Typical cause**
 
-A rule that reports every line of a file, or a rule on a type that matches generated code.
+A rule reports every line of a file, or a rule binds a type that matches generated code.
 
 **Fix**
 
@@ -579,11 +641,11 @@ next: make the rules return fewer findings, or narrow the types that list them, 
 
 **Meaning**
 
-The script rules of one run took more than 600 seconds together. Lawcheck stops them and names each rule that had not finished. It runs as many rules at once as the machine has processors, so with fewer processors than rules the later ones show "had not started". The Example shows a machine of three processors or more.
+The script rules of one run took more than 600 seconds together. Lawcheck stops them. It names each rule that had not finished. Lawcheck runs as many rules at once as the machine has processors. With fewer processors than rules, the later rules show "had not started". The Example comes from a machine of three processors or more.
 
 **Typical cause**
 
-A rule that takes seconds on each file, such as one that starts a program for every file, on a type with hundreds of files.
+A rule takes seconds on each file, such as a rule that starts a program for every file. The rule binds a type with hundreds of files.
 
 **Fix**
 
@@ -607,15 +669,15 @@ next: make the slow rules faster, or narrow the types that list them, then run l
 
 **Meaning**
 
-Lawcheck could not read the uses of a file, so it cannot judge the file's `may_use`.
+Lawcheck could not read the uses of a file. It cannot judge the file's `may_use`.
 
 **Typical cause**
 
-A grammar file of Lawcheck's installation that is damaged or missing, or a reader that fails on one file.
+A grammar file of Lawcheck's installation is damaged or missing. A grammar is the file that tells a reader the syntax of one language. A reader is the part of Lawcheck that parses one language and reports the uses of a file ([Languages and uses](languages.md)). The other cause is a reader that fails on one file.
 
 **Fix**
 
-For a grammar, install Lawcheck again, such as with `npm install --save-dev lawcheck`. For a reader that fails on one file, a new install does not help: report it at https://github.com/krzysztofdudek/Lawcheck/issues with the file's language.
+For a grammar, install Lawcheck again, such as with `npm install --save-dev lawcheck`. A new install does not help a reader that fails on one file. Report that failure at https://github.com/krzysztofdudek/Lawcheck/issues with the file's language.
 
 **Example**
 
@@ -637,7 +699,7 @@ You asked for reviews, and `.lawcheck/config.yaml` names no reviewer.
 
 **Typical cause**
 
-`check --review` in a repository whose `.lawcheck/config.yaml` has no provider in its `reviewer` section.
+You run `check --review` in a repository whose `.lawcheck/config.yaml` has no provider in its `reviewer` section.
 
 **Fix**
 
@@ -659,15 +721,19 @@ next: ask the user to set reviewer.provider and reviewer.model in .lawcheck/conf
 
 **Meaning**
 
-The run needs more reviewer calls than its cap allows, so Lawcheck sends none.
+The run needs more reviewer calls than its cap allows. Lawcheck sends none of them.
 
 **Typical cause**
 
-A change that touches many files under reviewer rules, against the cap of `reviewer.max_calls` or a lower `--max-calls`.
+A change needs one call for each pair of a changed file and a reviewer rule that binds it. The count of these calls is over the cap. The cap is `reviewer.max_calls`, or a lower `--max-calls`.
 
 **Fix**
 
-Give `reviewer.max_calls` a higher value in `.lawcheck/config.yaml`, pass a higher `--max-calls`, or name fewer paths to `check`.
+Each of these steps clears it:
+
+- give `reviewer.max_calls` a higher value in `.lawcheck/config.yaml`;
+- pass a higher `--max-calls`;
+- name fewer paths to `check`.
 
 **Example**
 
@@ -689,11 +755,18 @@ Lawcheck could not call the reviewer, or the reviewer answered a request with an
 
 **Typical cause**
 
-No key in the environment, no endpoint for `openai-compatible`, a program provider whose program is not on the `PATH`, an HTTP error, a timeout, or no network.
+The cause is one of these:
+
+- no key in the environment;
+- no endpoint for `openai-compatible`;
+- a program provider whose program is not on the `PATH`;
+- an HTTP error;
+- a timeout;
+- no network.
 
 **Fix**
 
-Add what the message names to the environment, such as `LAWCHECK_REVIEWER_ENDPOINT` or the provider's key, then run the same command again. `check` keeps every answer it has and asks only the rest. `try` keeps none and makes every call again.
+Add what the message names to the environment, such as `LAWCHECK_REVIEWER_ENDPOINT` or the provider's key. Then run the same command again. `check` keeps every answer it has. Its next run sends the calls still missing and no others. `try` keeps no answer and makes every call again.
 
 **Example**
 
@@ -711,15 +784,15 @@ next: set LAWCHECK_REVIEWER_ENDPOINT to the base address of the server, such as 
 
 **Meaning**
 
-The reviewer answered twice, and neither answer held a verdict Lawcheck can record.
+Lawcheck asked the reviewer twice. Both answers held no verdict that Lawcheck can record. The same code comes after one answer with no verdict, if the cap of calls leaves no call to ask again.
 
 **Typical cause**
 
-A model that answers in prose where Lawcheck asks for a JSON object with a verdict.
+The model answers in prose where Lawcheck asks for a JSON object with a verdict. For a single answer, the other cause is the cap. `reviewer.max_calls`, or `--max-calls`, leaves no call for a second question.
 
 **Fix**
 
-Run the same command again: `check` keeps every answer it has and asks only the rest. If the same file fails again, set a stronger `model` in the `reviewer` section of `.lawcheck/config.yaml`.
+Run the same command again. `check` keeps every answer it has. Its next run sends the calls still missing and no others. If the same file fails again, set a stronger `model` in the `reviewer` section of `.lawcheck/config.yaml`. If the cap left no call, give the run a cap above the calls it needs.
 
 **Example**
 
@@ -737,15 +810,20 @@ next: run the same command again; what was answered is kept, so it asks only the
 
 **Meaning**
 
-The run passed the memory it may hold, and Lawcheck ended it before the system did.
+The run went over the memory it may hold. Lawcheck ended the run before the system could end it.
 
 **Typical cause**
 
-One file that adds more than 384 MiB of memory while Lawcheck reads it, a run past 1,536 MiB, or past 85 percent of the machine's memory where that is less, or a system with less than 128 MiB left.
+The cause is one of these:
+
+- one file adds more than 384 MiB of memory while Lawcheck reads it;
+- the run holds more than 1,536 MiB;
+- the run holds more than 85 percent of the machine's memory, where that is less than 1,536 MiB;
+- the system has less than 128 MiB of memory left.
 
 **Fix**
 
-Run the step of the `next:` line. For one large file, keep it out of the files git lists with `git rm --cached` and a line in `.gitignore`, or leave it out of the types whose `may_use` is in force.
+Run the step of the `next:` line. For one large file, keep the file out of the files that git lists, with `git rm --cached` and a line in `.gitignore`. You can leave it out of the types whose `may_use` is in force instead.
 
 **Example**
 
@@ -763,11 +841,11 @@ next: keep cs/gen/Big.cs out of the files git lists here (git rm --cached, and a
 
 **Meaning**
 
-One step of the run, such as typing one file or one call of git, took more than 30 seconds without an end. The error names the step.
+One step of the run took more than 30 seconds without an end. Lawcheck counts the work of giving one file its type as one step, and one call of git as one step. The error names the step.
 
 **Typical cause**
 
-A `content` pattern of a type that backtracks on a long line, such as `^(a|a)+$`, or a git that does not answer.
+A `content` pattern of a type backtracks on a long line, such as `^(a|a)+$`. A pattern that backtracks tries the text in a number of ways that grows with the length of the line. The other cause is a git that does not answer.
 
 **Fix**
 
@@ -793,7 +871,11 @@ A signal ended the run: SIGINT, SIGTERM or SIGHUP.
 
 **Typical cause**
 
-You end the run from its terminal, CI cancels the job, or the program that started Lawcheck ends it at its own timeout.
+The cause is one of these:
+
+- you end the run from its terminal;
+- CI cancels the job;
+- the program that started Lawcheck ends it at its own timeout.
 
 **Fix**
 
@@ -819,7 +901,7 @@ Lawcheck failed in a way no other code names.
 
 **Typical cause**
 
-A fault in Lawcheck, such as an exception it does not catch.
+Lawcheck has a fault, such as an exception it does not catch.
 
 **Fix**
 
@@ -841,11 +923,14 @@ next: run lawcheck check again, and report the error if it stays
 
 **Meaning**
 
-A reviewer rule has no verdict for the content a file has now. A plain `check` calls no model, so it reports the file as not reviewed.
+A reviewer rule has no verdict for the content a file has now. A plain `check` calls no model. It reports the file as not reviewed.
 
 **Typical cause**
 
-You changed a file that a reviewer rule judges, or the rule's prompt, its `why` or a file of its `context`. Then no one ran `check --review`, or no one committed `.lawcheck/verdicts` after the review.
+You changed a file that a reviewer rule judges, or you changed the rule's prompt, its `why` or a file of its `context`. After that change, the review is missing in one of two ways:
+
+- `check --review` did not run;
+- the review ran, and the commit holds the old `.lawcheck/verdicts`.
 
 **Fix**
 
@@ -867,15 +952,19 @@ next: lawcheck check --review --base main  (1 reviewer call)
 
 **Meaning**
 
-The prompt for a file would hold more characters than `reviewer.max_chars`, so Lawcheck does not send it. Under `try` this code ends the run with exit 2.
+The prompt for a file would hold more characters than `reviewer.max_chars`. Lawcheck does not send that prompt. Under `try`, this code ends the run with exit 2.
 
 **Typical cause**
 
-A large file under a reviewer rule, or a rule whose `context` files fill most of the prompt.
+A reviewer rule binds a large file, or the rule's `context` files fill most of the prompt.
 
 **Fix**
 
-Leave the file out of the type with a `!` pattern, split it, or give `reviewer.max_chars` a higher value in `.lawcheck/config.yaml`.
+Each of these steps clears it:
+
+- leave the file out of the type with a `!` pattern;
+- split the file;
+- give `reviewer.max_chars` a higher value in `.lawcheck/config.yaml`.
 
 **Example**
 
@@ -893,15 +982,15 @@ next: fix src/core/refund.ts
 
 **Meaning**
 
-A file uses a file of a type that its own type's `may_use` list does not name. The message names the type the list comes from. It can be a parent type.
+A file uses a file of a type that its own type's `may_use` list does not name. The message names the type the list comes from. That type can be a parent type.
 
 **Typical cause**
 
-An import that crosses a layer, such as code in `src/core/` that imports from `src/cli/`.
+An import crosses a layer, such as code in `src/core/` that imports from `src/cli/`.
 
 **Fix**
 
-Edit the code so the use goes in the allowed direction, or add the used type to `may_use` when the law should allow it.
+Edit the code so that the use goes in the allowed direction. If the law should allow the use, add the used type to `may_use`.
 
 **Example**
 
@@ -919,11 +1008,11 @@ next: fix src/core/report.ts:2
 
 **Meaning**
 
-A type has a `may_use` list in force, its own or a parent's, and Lawcheck reads no uses from some of its files, so the list does not hold for them. For files with no reader, Lawcheck warns at the type's line of the law. For a changed file over 512 KiB, it reports an error at the file, and a warning when the file is debt.
+A type has a `may_use` list in force, its own or a parent's. Lawcheck reads no uses from some of its files. The list does not hold for those files. For files with no reader, Lawcheck warns at the type's line of the law. For a changed file over 512 KiB, it reports an error at the file. For such a file in debt, it reports a warning.
 
 **Typical cause**
 
-A type whose `paths` take files in a language Lawcheck has no reader for, such as `.json`, or a file over 512 KiB.
+A type's `paths` take files in a language that Lawcheck has no reader for, such as `.json`. The other cause is a file over 512 KiB.
 
 **Fix**
 
@@ -947,7 +1036,11 @@ A waiver names no rule of the law, so it waives nothing.
 
 **Typical cause**
 
-A misspelled rule id, a rule taken out of the law while its waivers stayed, or a marker that runs on into the next word with no space before the id.
+The cause is one of these:
+
+- a misspelled rule id;
+- a rule taken out of the law while its waivers stayed;
+- a marker that runs on into the next word, with no space before the id.
 
 **Fix**
 
@@ -969,11 +1062,11 @@ next: fix src/core/shipping.ts:1
 
 **Meaning**
 
-A waiver has no reason after `--`, so Lawcheck does not take it.
+A waiver has no reason after `--`. Lawcheck does not take it.
 
 **Typical cause**
 
-A waiver that ends with its rule id, with no `--` and no reason after it.
+The waiver ends with its rule id, with no `--` and no reason after it.
 
 **Fix**
 
@@ -995,7 +1088,7 @@ next: fix src/core/shipping.ts:1
 
 **Meaning**
 
-A waiver drops no finding on the line it covers. The finding is a warning. A waiver of a reviewer rule never gets it.
+A waiver drops no finding on the line it covers. The finding is a warning. A waiver of a reviewer rule never gets this code.
 
 **Typical cause**
 
@@ -1017,7 +1110,7 @@ src/core/shipping.ts:1  warning[waiver-unused]  the waiver of 'no-console' drops
 
 ## Notes
 
-A note is a line that starts with `note:` under the first line of `check` or `init`. It changes no exit code and carries no code. `doctor` marks a check of its report with `note` instead, and the `next:` line under it gives the step.
+A note is a line that starts with `note:`, under the first line of `check` or `init`. A note changes no exit code. It carries no code. `doctor` marks a check of its report with `note` instead. The `next:` line under that check gives the step.
 
 | Text | When | Fix |
 |---|---|---|
@@ -1029,7 +1122,16 @@ A note is a line that starts with `note:` under the first line of `check` or `in
 
 ## Escapes in the output
 
-A file name, a rule or reviewer message, the base, the law's ids, `about` texts and patterns, config values, and the text that git, a reviewer endpoint or a reviewer program prints can hold any character. Lawcheck writes these characters as escapes, so one finding or error stays one line and a terminal or a CI log reads no control sequence:
+The output holds text from outside Lawcheck:
+
+- a file name;
+- a rule message or a reviewer message;
+- the base;
+- the ids of the law, its `about` texts and its patterns;
+- config values;
+- the text that git, a reviewer endpoint or a reviewer program prints.
+
+Such text can hold any character. A control sequence is a run of characters that a terminal reads as a command, such as a change of color or a move of the cursor. Lawcheck writes the characters of the table below as escapes. One finding or error then stays one line. The output carries no control sequence to a terminal or a CI log:
 
 | Character | Written as |
 |---|---|
@@ -1040,6 +1142,8 @@ A file name, a rule or reviewer message, the base, the law's ids, `about` texts 
 | U+0080 to U+009F, U+2028, U+2029, and every format character of Unicode (category Cf, such as a zero-width space or a mark that changes the direction of text) except the joiners U+200C and U+200D | `\u` and four hexadecimal digits for each UTF-16 unit, such as `\u202e` |
 | a line that a CI runner would read as a command of GitHub Actions or Azure Pipelines | its first character as `\x3a` or `\x23` |
 
-Nothing else is escaped, a backslash included. In `--json` a string keeps the text as it is, except that the characters of the last two rows are written as `\u` escapes, so the printed document holds none of them raw and a program that parses it gets the text unchanged. Lawcheck writes what a script rule prints on its own streams to standard error through the same escapes.
+Lawcheck escapes nothing else, a backslash included. In `--json`, a string keeps the text as it is, with one exception. Lawcheck writes the characters below U+0020, U+007F to U+009F, U+2028, U+2029 and the format characters as JSON escapes. The printed document holds none of them raw. A program that parses the document gets the text unchanged ([JSON documents](json.md)).
+
+Lawcheck writes what a script rule prints on its own streams to standard error, through the same escapes.
 
 Next: [Questions](questions.md)
