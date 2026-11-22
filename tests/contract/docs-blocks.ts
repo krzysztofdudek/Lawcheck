@@ -41,7 +41,6 @@ export function pageOf(id: string, markdown: string, claims: Claims): Page {
   };
 }
 
-// The lines of a block, each a whole line of the output and in its order, byte for byte.
 export function shows(output: string, block: string): void {
   const lines = output.split('\n');
   const want = block.split('\n');
