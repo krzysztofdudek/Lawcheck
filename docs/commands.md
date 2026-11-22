@@ -369,11 +369,7 @@ Prints `lawcheck-doctor/0`.
 
 ## --version
 
-`lawcheck --version` prints the version of the installed package, and exits 0. It works only as the one argument.
-
-```text
-$ lawcheck --version
-```
+`lawcheck --version` prints the version of the installed package, and exits 0. It works only as the one argument:
 
 ```output
 0.1.0-alpha.2
@@ -381,11 +377,7 @@ $ lawcheck --version
 
 ## --help
 
-`lawcheck --help` prints one line for each command, and exits 0. `lawcheck <command> --help` prints that command's usage, its flags and, for `check` and `try`, its exit codes. `--help` works only as the one argument, or as the one argument after a command.
-
-```text
-$ lawcheck --help
-```
+`lawcheck --help` prints one line for each command, and exits 0. `lawcheck <command> --help` prints that command's usage, its flags and, for `check` and `try`, its exit codes. `--help` works only as the one argument, or as the one argument after a command. `lawcheck --help` prints:
 
 ```output
 usage: lawcheck <command> [<arguments>] [--json]
