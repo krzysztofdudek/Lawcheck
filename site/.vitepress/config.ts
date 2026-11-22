@@ -2,6 +2,7 @@ import { createRequire } from 'node:module';
 import { dirname } from 'node:path';
 import { defineConfig } from 'vitepress';
 import manifest from '../../package.json' with { type: 'json' };
+import topics from '../../docs/topics.json' with { type: 'json' };
 
 export default defineConfig({
   srcDir: '../docs',
@@ -14,32 +15,9 @@ export default defineConfig({
   themeConfig: {
     siteTitle: `lawcheck ${manifest.version}`,
     search: { provider: 'local' },
-    sidebar: [
-      {
-        text: 'Guides',
-        items: [
-          { text: 'The first type and the first rule', link: '/first-law' },
-          { text: 'CI and git hooks', link: '/ci' },
-        ],
-      },
-      {
-        text: 'Reference',
-        items: [
-          { text: 'The law file', link: '/law' },
-          { text: 'Settings', link: '/config' },
-          { text: 'Script rules', link: '/script-rules' },
-          { text: 'Reviewer rules', link: '/reviewer-rules' },
-          { text: 'Reviewers and keys', link: '/providers' },
-          { text: 'Languages and uses', link: '/languages' },
-          { text: 'Waivers', link: '/waivers' },
-          { text: 'What a check judges', link: '/change' },
-          { text: 'JSON documents', link: '/json' },
-        ],
-      },
-      {
-        text: 'Troubleshooting',
-        items: [{ text: 'Codes', link: '/codes' }],
-      },
-    ],
+    sidebar: [...new Set(topics.map((t) => t.section))].map((section) => ({
+      text: section,
+      items: topics.filter((t) => t.section === section).map((t) => ({ text: t.title, link: `/${t.id}` })),
+    })),
   },
 });
