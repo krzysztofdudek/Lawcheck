@@ -40,6 +40,14 @@
     "killedBy": "R-98: a rule reads no SQLite database outside the root and writes none through node:sqlite, by any route to the module"
   },
   {
+    "id": "runner-network",
+    "promise": "test 770",
+    "file": "src/runner.ts",
+    "find": "closeNetwork();",
+    "replace": "",
+    "killedBy": "test 770: a rule that connects through net.connect, fetch, dns.lookup, process.getBuiltinModule('node:http') or a dynamic import of node:https is rule-crashed, and reaches no listener"
+  },
+  {
     "id": "runner-no-string-form",
     "promise": "I-rules-1",
     "file": "src/runner.ts",

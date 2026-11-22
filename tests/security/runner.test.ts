@@ -2,6 +2,8 @@ import { test } from 'node:test';
 import { platformSkip } from '../harness/tool.ts';
 import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { createServer } from 'node:net';
+import { createSocket } from 'node:dgram';
 import { DatabaseSync } from 'node:sqlite';
 import { dirname, join, sep } from 'node:path';
 import fc from 'fast-check';
@@ -197,4 +199,83 @@ test('R-98: a rule reads no SQLite database outside the root and writes none thr
     assert.equal(run.code, 1, run.stdout);
     assert.deepEqual(findingLines(run.stdout), ['src/core/discount.ts  error[no-console]  no node:sqlite']);
   });
+});
+
+const REFUSED_NET = 'uses the network, which is closed to script rules';
+
+// A listener on 127.0.0.1 that counts what reaches it, over TCP and over UDP.
+async function listening(): Promise<{ tcp: number; udp: number; reached(): number; close(): void }> {
+  const counts = { tcp: 0, udp: 0 };
+  const server = createServer((socket) => {
+    counts.tcp++;
+    socket.destroy();
+  });
+  await new Promise<void>((done) => server.listen(0, '127.0.0.1', done));
+  const udp = createSocket('udp4').on('message', () => counts.udp++);
+  await new Promise<void>((done) => udp.bind(0, '127.0.0.1', done));
+  return {
+    tcp: (server.address() as { port: number }).port,
+    udp: udp.address().port,
+    reached: () => counts.tcp + counts.udp,
+    close: () => {
+      server.close();
+      udp.close();
+    },
+  };
+}
+
+async function assertNoNetwork(routes: { route: string; rule: string; refused: string }[], reached: () => number): Promise<void> {
+  await inTemp(async (dir) => {
+    const s = makeSample(join(dir, 'repo'));
+    writeFileSync(join(s, 'src/core/discount.ts'), 'export const d = 1;\n');
+    for (const { route, rule, refused } of routes) {
+      setRule(s, 'no-console', rule);
+      const run = await check(s);
+      assert.equal(run.code, 2, `${route}: ${run.stdout}`);
+      assert.deepEqual(
+        run.stdout.split('\n').filter((line) => line.includes('error[rule-crashed]')),
+        [`.lawcheck/rules/no-console.mjs  error[rule-crashed]  ${refused}: ${REFUSED_NET}`],
+        route,
+      );
+    }
+  });
+  await new Promise((done) => setTimeout(done, 200));
+  assert.equal(reached(), 0, 'a rule reached the listener');
+}
+
+test('test 770: a rule that connects through net.connect, fetch, dns.lookup, process.getBuiltinModule(\'node:http\') or a dynamic import of node:https is rule-crashed, and reaches no listener', async () => {
+  const at = await listening();
+  try {
+    const call = 'throws on src/core/discount.ts';
+    await assertNoNetwork(
+      [
+        { route: 'net.connect', rule: `import { connect } from 'node:net';\nexport function check() { connect(${at.tcp}, '127.0.0.1'); return [{ message: 'connected' }]; }\n`, refused: call },
+        { route: 'fetch', rule: `export async function check() { await fetch('http://127.0.0.1:${at.tcp}/'); return [{ message: 'fetched' }]; }\n`, refused: call },
+        { route: 'dns.lookup', rule: `import { lookup } from 'node:dns';\nexport async function check() { const address = await new Promise((done, fail) => lookup('localhost', (error, found) => (error ? fail(error) : done(found)))); return [{ message: 'resolved ' + address }]; }\n`, refused: call },
+        { route: 'process.getBuiltinModule', rule: `export async function check() { await new Promise((done, fail) => process.getBuiltinModule('node:http').get('http://127.0.0.1:${at.tcp}/', done).on('error', fail)); return [{ message: 'got' }]; }\n`, refused: call },
+        { route: 'a dynamic import', rule: `export async function check() { const https = await import('node:https'); await new Promise((done, fail) => https.get('https://127.0.0.1:${at.tcp}/', done).on('error', fail)); return [{ message: 'got' }]; }\n`, refused: call },
+      ],
+      at.reached,
+    );
+  } finally {
+    at.close();
+  }
+});
+
+test('test 771: a rule that listens on a port, sends over UDP, opens a WebSocket or binds the class of a pipe is rule-crashed, and reaches no listener', async () => {
+  const at = await listening();
+  try {
+    const call = 'throws on src/core/discount.ts';
+    await assertNoNetwork(
+      [
+        { route: 'a server in the load', rule: `import { createServer } from 'node:net';\ncreateServer().listen(0, '127.0.0.1');\nexport function check() { return [{ message: 'listened' }]; }\n`, refused: 'fails to load' },
+        { route: 'dgram', rule: `import { createSocket } from 'node:dgram';\nexport async function check() { const socket = createSocket('udp4'); await new Promise((done, fail) => socket.send('x', ${at.udp}, '127.0.0.1', (error) => (error ? fail(error) : done()))); return [{ message: 'sent' }]; }\n`, refused: call },
+        { route: 'WebSocket', rule: `export async function check() { const socket = new WebSocket('ws://127.0.0.1:${at.tcp}/'); await new Promise((done, fail) => { socket.onopen = done; socket.onerror = fail; }); return [{ message: 'opened' }]; }\n`, refused: call },
+        { route: 'the class of a pipe', rule: `export function check() { const Pipe = process.stdout._handle.constructor; const pipe = new Pipe(1); return [{ message: 'bound ' + pipe.bind(process.platform === 'win32' ? '\\\\\\\\.\\\\pipe\\\\lawcheck-771' : '\\0lawcheck-771') + ' listened ' + pipe.listen(1) }]; }\n`, refused: call },
+      ],
+      at.reached,
+    );
+  } finally {
+    at.close();
+  }
 });
