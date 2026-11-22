@@ -11,7 +11,7 @@ import { WHY } from '../../dist/output.js';
 import { example } from '../harness/examples.ts';
 
 const LIST = [
-  'lawcheck docs: 35 topics; lawcheck docs <topic> prints one',
+  'lawcheck docs: 36 topics; lawcheck docs <topic> prints one',
   '',
   'Start',
   '  index  Lawcheck',
@@ -21,6 +21,7 @@ const LIST = [
   '  other-tools  Lawcheck and the tools you already use',
   '',
   'Guides',
+  '  i-want-to  I want to',
   '  first-law  The first type and the first rule',
   '  types-for-a-project  Types for an existing project',
   '  forbid-a-use  Forbid one layer to use another',
@@ -116,7 +117,7 @@ test('test 128: the list of topics, its JSON, and one page, outside git', async 
 });
 
 test('test 129: every page holds what section 7 asks, and its examples are real', async () => {
-  assert.equal(TOPICS.length, 35);
+  assert.equal(TOPICS.length, 36);
   for (const { id, title } of TOPICS) {
     const text = page(id);
     assert.equal(text.split('\n')[0], `# ${title}`, id);

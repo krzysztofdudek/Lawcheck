@@ -4,6 +4,7 @@
   { "id": "quick-start", "title": "Quick start", "section": "Start" },
   { "id": "concepts", "title": "Concepts", "section": "Start" },
   { "id": "other-tools", "title": "Lawcheck and the tools you already use", "section": "Start" },
+  { "id": "i-want-to", "title": "I want to", "section": "Guides" },
   { "id": "first-law", "title": "The first type and the first rule", "section": "Guides" },
   { "id": "types-for-a-project", "title": "Types for an existing project", "section": "Guides" },
   { "id": "forbid-a-use", "title": "Forbid one layer to use another", "section": "Guides" },
