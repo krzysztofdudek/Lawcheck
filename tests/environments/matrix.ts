@@ -62,7 +62,7 @@ export function gitFolder(dir: string): void {
   chmodSync(join(dir, 'node', 'node'), 0o755);
   const repo = join(dir, 'repo');
   mkdirSync(repo);
-  for (const entry of ['package.json', 'dist', 'node_modules', 'tests', 'spec', 'docs', 'plugin']) cpSync(join(ROOT, entry), join(repo, entry), { recursive: true, verbatimSymlinks: true });
+  for (const entry of ['package.json', 'dist', 'node_modules', 'tests', 'docs', 'plugin']) cpSync(join(ROOT, entry), join(repo, entry), { recursive: true, verbatimSymlinks: true });
   copyFileSync(join(MATRIX, 'git-cell.sh'), join(dir, 'git-cell.sh'));
 }
 
