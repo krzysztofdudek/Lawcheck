@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { lawcheck, newRepository, NO_CONSOLE, write } from '../acceptance/helpers.ts';
+import { lawcheck, newRepository, write } from '../acceptance/helpers.ts';
+import { exampleText } from '../harness/examples.ts';
 import { json, nothing, Session, withBench } from '../acceptance/plugin-bench.ts';
 import { SCENARIO } from '../contract/docs-blocks.ts';
 import type { Claims, Page } from '../contract/docs-blocks.ts';
@@ -37,7 +38,7 @@ export async function scenario(page: Page): Promise<void> {
   assert.ok(Object.hasOwn(read('plugin/.claude-plugin/plugin.json').userConfig, 'check_after_edit'));
 
   await withBench(async (bench, dir) => {
-    const repo = newRepository(dir, { '.lawcheck/law.yaml': page.text('block 1 under "Lawcheck in Claude Code"'), '.lawcheck/rules/no-console.mjs': NO_CONSOLE, 'src/core/price.ts': 'export const price = 1;\n' });
+    const repo = newRepository(dir, { '.lawcheck/law.yaml': page.text('block 1 under "Lawcheck in Claude Code"'), '.lawcheck/rules/no-console.mjs': exampleText('first-law-rule'), 'src/core/price.ts': 'export const price = 1;\n' });
     const session = new Session(bench, repo);
     assert.equal(page.text('block 1 under "3. Start a session"'), '$ lawcheck prime');
     const primed = await lawcheck(repo, ['prime']);

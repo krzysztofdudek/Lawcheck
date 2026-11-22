@@ -2,7 +2,7 @@
 
 Codex, Copilot CLI, Gemini CLI and other agents read the law from `lawcheck prime` and check their code with `lawcheck check`, once one line of their instructions file tells them to. Lawcheck has a plugin for Claude Code alone, so no hook checks the edits of these agents.
 
-The outputs below come from a repository with this law and a script rule `no-console` that reports each call of `console`:
+The outputs below come from a repository with this law and the script rule `no-console` of [The first type and the first rule](first-law.md):
 
 ```yaml
 lawcheck: 0.1.0

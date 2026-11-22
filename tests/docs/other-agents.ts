@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { git, inTemp, lawcheck, newRepository, NO_CONSOLE, write } from '../acceptance/helpers.ts';
+import { git, inTemp, lawcheck, newRepository, write } from '../acceptance/helpers.ts';
+import { exampleText } from '../harness/examples.ts';
 import { SCENARIO } from '../contract/docs-blocks.ts';
 import type { Claims, Page } from '../contract/docs-blocks.ts';
 
@@ -21,7 +22,7 @@ export async function scenario(page: Page): Promise<void> {
   const line = /^Run `lawcheck (\w+)` at the start of every session and follow it\.$/.exec(page.text('block 1 under "1. Add one line to the instructions file"'));
   assert.ok(line, 'the line names one command of lawcheck');
   await inTemp(async (dir) => {
-    const repo = newRepository(dir, { '.lawcheck/law.yaml': page.text('block 1 under "Other coding agents"'), '.lawcheck/rules/no-console.mjs': NO_CONSOLE, 'src/core/price.ts': 'export const price = 1;\n' });
+    const repo = newRepository(dir, { '.lawcheck/law.yaml': page.text('block 1 under "Other coding agents"'), '.lawcheck/rules/no-console.mjs': exampleText('first-law-rule'), 'src/core/price.ts': 'export const price = 1;\n' });
     const prime = args(page.text('block 1 under "2. See what the agent reads"'));
     assert.deepEqual(prime, [line[1]], 'step 2 runs the command of the line');
     const primed = await lawcheck(repo, prime);

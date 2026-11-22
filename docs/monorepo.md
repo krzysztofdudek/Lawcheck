@@ -24,7 +24,7 @@ The folder that holds `.lawcheck/` is the root of the law. The law judges only t
 
 ## 2. Describe the package
 
-The paths of the law start at its root, here `packages/api/`. With a script rule `no-console` that reports each call of `console`, `packages/api/.lawcheck/law.yaml` reads:
+The paths of the law start at its root, here `packages/api/`. With the script rule `no-console` of [The first type and the first rule](first-law.md) in `packages/api/.lawcheck/rules/`, `packages/api/.lawcheck/law.yaml` reads:
 
 ```yaml
 lawcheck: 0.1.0

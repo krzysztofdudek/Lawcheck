@@ -2,7 +2,7 @@
 
 An agent writes `console.log` into `src/core/total.ts`, where the law forbids it. With the Lawcheck plugin, the agent sees that finding after the edit, and the plugin sends it back while the files of its turn break the law. The agent also gets the law when a session starts.
 
-The outputs below come from a repository with this law and a script rule `no-console` that reports each call of `console`. `src/core/total.ts` has the type `library`:
+The outputs below come from a repository with this law and the script rule `no-console` of [The first type and the first rule](first-law.md). `src/core/total.ts` has the type `library`:
 
 ```yaml
 lawcheck: 0.1.0

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { join } from 'node:path';
-import { git, inTemp, lawcheck, newRepository, NO_CONSOLE, write } from '../acceptance/helpers.ts';
+import { git, inTemp, lawcheck, newRepository, write } from '../acceptance/helpers.ts';
+import { exampleText } from '../harness/examples.ts';
 import { SCENARIO } from '../contract/docs-blocks.ts';
 import type { Claims, Page } from '../contract/docs-blocks.ts';
 
@@ -37,7 +38,7 @@ export async function scenario(page: Page): Promise<void> {
     const web = join(repo, 'packages/web');
     await shown(api, page, '1. Start a law in one package', 0);
     write(api, '.lawcheck/law.yaml', page.text('block 1 under "2. Describe the package"') + '\n');
-    write(api, '.lawcheck/rules/no-console.mjs', NO_CONSOLE);
+    write(api, '.lawcheck/rules/no-console.mjs', exampleText('first-law-rule'));
     write(api, 'src/total.ts', TOTAL);
     await shown(join(api, 'src'), page, '3. Check from a folder inside the package', 1);
     assert.equal((await lawcheck(join(api, 'src'), ['check', '--base', 'main'])).code, 1, 'the check of the change in the same folder finds the line');

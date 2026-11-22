@@ -2,7 +2,7 @@
 
 Two developers record reviews on two branches, and both branches add lines to `.lawcheck/verdicts`. The merge keeps both, so nobody asks the reviewer again for what a teammate already paid for. The law, the rules, the settings and the verdicts live in git, and every clone checks against the same law.
 
-The outputs below come from a repository with this law, a reviewer rule in `.lawcheck/rules/clear-errors.md`, and a `main` that holds the law and no code:
+The outputs below come from a repository with this law, a reviewer rule in `.lawcheck/rules/clear-errors.md` ([Reviewer rules](reviewer-rules.md)), and a `main` that holds the law and no code:
 
 ```yaml
 lawcheck: 0.1.0
