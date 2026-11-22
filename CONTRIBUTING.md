@@ -35,7 +35,7 @@ It runs `npm test`, the suite guard of the base, and prints the pack a reviewer 
 ## What a change goes through
 
 1. CI runs the commit set on Linux, macOS and Windows.
-2. The suite guard of `main` judges the change. Every weakening it finds needs its row in `tests/weakenings.md`, in the same change. A row of the four kinds the owner approves (`promise-changed`, `guard-changed`, `ci-changed`, `threshold-lowered`) lands on `main` first, in a change of its own, and names the change it approves.
+2. The suite guard of `main` judges the change. A row of the four kinds the owner approves (`promise-changed`, `guard-changed`, `ci-changed`, `threshold-lowered`) lands on `main` first, in a change of its own, and names the change it approves. Every other weakening it finds needs its row in `tests/weakenings.md`, in the same change.
 3. The change lands on `main` only after both are green.
 
 ## Before a release

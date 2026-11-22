@@ -72,4 +72,4 @@ The Claude Code plugin lives in `plugin/`, and `.claude-plugin/marketplace.json`
 
 ## The tests
 
-`npm test` runs the commit set: unit, acceptance, contract and guard tests, then properties, security and limits, then environments. The nightly set adds longer runs of the same layers, the shipped deadlines and the sabotage list. [tests/README.md](../tests/README.md) describes the layers, the labels in test names, and the rules of the suite guard.
+`npm test` runs the commit set: the unit, acceptance, contract and guard tests, the properties, security and limits tests, and the environments tests. The nightly set adds longer runs of the same layers, the shipped deadlines and the sabotage list. [tests/README.md](../tests/README.md) describes the layers, the labels in test names, and the rules of the suite guard.
