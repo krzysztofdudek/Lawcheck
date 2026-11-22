@@ -179,7 +179,7 @@ Lawcheck's tests run this workflow on Linux alone. Lawcheck itself runs on Linux
 
 ## Reviewer rules in CI
 
-Without `--review`, the job of step 2 calls no reviewer and needs no key. It reads the [verdicts](concepts.md#verdict) committed in `.lawcheck/verdicts`. If that file holds no pass for a file that a reviewer rule binds, the check reports `not-reviewed`, and the job fails:
+Without `--review`, the job of step 2 calls no reviewer and needs no API key. It reads the [verdicts](concepts.md#verdict) committed in `.lawcheck/verdicts`. If that file holds no pass for a file that a reviewer rule binds, the check reports `not-reviewed`, and the job fails:
 
 ```output
 lawcheck: FAIL  1 error in 1 changed file (against origin/main)
@@ -231,7 +231,7 @@ On `pull_request`, GitHub gives the pull request of a fork no secrets. Record th
 
 ## A change to the law
 
-A pull request can change the law that judges it. Its own check then passes. Say a pull request takes the [rule](concepts.md#rule) `no-console` off the [type](concepts.md#type) `library` and adds `console.log` to `src/core/total.ts`. The first check of the job prints:
+A pull request can change the law that judges it. Its first check then passes. Say a pull request takes the [rule](concepts.md#rule) `no-console` off the [type](concepts.md#type) `library` and adds `console.log` to `src/core/total.ts`. The first check of the job prints:
 
 ```output
 lawcheck: PASS  2 changed files (against origin/main)
@@ -303,7 +303,7 @@ The hook exits with code 1, and git makes no commit. A commit with no error goes
 
 ### 5. Add the pre-push hook
 
-Write `.githooks/pre-push`, and make it executable as in step 2. The hook skips each tag that the push sends and each branch that it deletes. For any other push, it runs the check of the working tree, not of the commits pushed. A push may send commits of another branch too, and a finding in those commits gets past the hook.
+Write `.githooks/pre-push`, and make it executable as in step 2. The hook skips each tag that the push sends and each branch that it deletes. For any other push, it runs the check of the working tree, not of the commits pushed. A push may send commits of another branch too. A finding in those commits gets past the hook.
 
 <!-- example: pre-push-hook -->
 ```sh
@@ -319,7 +319,7 @@ done
 
 A check runs the script rules that its checkout holds. A pull request from a stranger can add rules of its own. Lawcheck starts each rule in a Node process with `--permission`, where the rule cannot write a file or start a process. The rule can still read every file below the folder that holds `.lawcheck/`, `.env` included. On Node 24, it can open a network connection. Node 25 and later refuse that connection under `--permission`. A rule can print what it read into the log of the job ([Script rules](script-rules.md) lists the rest).
 
-Run the check only where you would run the tests of that change. On `pull_request`, GitHub gives the pull request of a fork no secrets. A plain `check` needs none. The event `pull_request_target` would run the script rules of the fork with the secrets of the repository.
+Run the check only where you would run the tests of that change. On `pull_request`, GitHub gives the pull request of a fork no secrets. A plain `lawcheck check` needs no secret. The event `pull_request_target` would run the script rules of the fork with the secrets of the repository.
 
 ## If it goes wrong
 
