@@ -24,7 +24,7 @@ Lawcheck reads twelve languages under thirteen ids, since `tsx` is TypeScript wi
 
 A `.vue` or `.svelte` file is read through its script block, as TypeScript or JavaScript, or uses the file a relative `<script src>` names; a script in an HTML comment is not read, and without a script the file uses nothing.
 
-A use is one reference the reader reports: an import, an `export ... from`, a type-only import, a `require` or an `import()` with a literal string, a `vi.mock` or `jest.mock` with a literal path, an `#include`, a `use`, a `mod` declaration, a path to a crate written in code, `require` and `require_relative`, a name of the same package written without an import, a type named in a declaration, a call or a `new`.
+A use is one reference the reader reports: an import, an `export ... from`, a type-only import, a `declare module` with a path, a `require` or an `import()` with a literal string, a `vi.mock` or `jest.mock` with a literal path, an `#include`, a `use`, a `mod` declaration, a path to a crate written in code, `require` and `require_relative`, a name of the same package written without an import, a type named in a declaration, a call or a `new`.
 
 The readers come from Runes and report no dynamic form: `import()` of a variable, `importlib.import_module`, reflection strings, `const_get`.
 
@@ -33,6 +33,8 @@ The readers come from Runes and report no dynamic form: `import()` of a variable
 Java, Kotlin, C#, Ruby and Rust bind a name through what other files declare. A run that reads the uses of one file of the groups {Java, Kotlin}, {C#}, {Ruby} or {Rust} also reads the declarations of every file of that group in the repository, typed or not. Such a run costs most in Java; a file of any size with syntax errors has no bound.
 
 The other languages resolve by path, through files such as `tsconfig.json`, `go.mod` and `composer.json`.
+
+Python searches the root of the repository, a `src` layout, and the roots that `pyproject.toml` or `setup.cfg` name; it does not read `setup.py`. Go follows `go.work` and a `replace` with a relative directory of the repository; a `replace` by another version, or to a directory outside the repository, is not followed.
 
 ## Unresolved uses
 

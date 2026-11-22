@@ -70,6 +70,7 @@ const PY_FILES = (root: string, where: string) => ({
 });
 
 test('test 311: S4-2, a Python package under a root that configuration names is judged on every form, as the same package at the root', async () => {
+  assert.ok(page.includes('Python searches the root of the repository, a `src` layout, and the roots that `pyproject.toml` or `setup.cfg` name; it does not read `setup.py`.'));
   const lib = await judged(PY_FILES('lib/', '[tool.setuptools.packages.find]\nwhere = ["lib"]\n'));
   assert.deepEqual({ findings: lib.findings, unresolved: lib.unresolved }, { findings: ['lib/pkg/ui/a.py:1', 'lib/pkg/ui/a.py:2', 'lib/pkg/ui/a.py:3'], unresolved: [] });
   const control = await judged(PY_FILES('', ''));
@@ -125,6 +126,7 @@ test('test 313: S4-7, a name imported from a Python module is not counted, wheth
 });
 
 test('test 313: S4-8, a Go module wired to a sibling only by replace is judged, as with a go.work', async () => {
+  assert.ok(page.includes('Go follows `go.work` and a `replace` with a relative directory of the repository'));
   const files = (extra: Record<string, string>) => ({
     '.lawcheck/law.yaml': law(['ui', ['ui/**/*.go'], ['ui']], ['data', ['data/**/*.go'], null]),
     'ui/go.mod': 'module example.com/ui\n\ngo 1.22\n\nrequire example.com/data v0.0.0\n\nreplace example.com/data => ../data\n',
@@ -140,6 +142,7 @@ test('test 313: S4-8, a Go module wired to a sibling only by replace is judged, 
 });
 
 test('test 313: S4-11, declare module is read as a use, and a fully qualified Java name is read in a field type only', async () => {
+  assert.ok(page.includes('a type-only import, a `declare module` with a path,'));
   const typescript = await judged({
     '.lawcheck/law.yaml': law(['ui', ['ui/**'], ['ui']], ['data', ['data/**'], null]),
     'data/d.ts': 'export const d = 1;\n',
