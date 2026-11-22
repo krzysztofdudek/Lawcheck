@@ -160,7 +160,7 @@ Pass `--base` with the branch you started from, as the steps above do, or set `L
 
 ## The limits of a run
 
-A run that goes over one of the limits below stops with exit 2. A file over 512 KiB is the one exception. It gets the [finding](concepts.md#finding) `uses-not-read`, and the run goes on. The code says which limit the run went over:
+A run that goes over one of the limits below stops with exit 2. A file over 512 KiB is the one exception. It gets the [finding](concepts.md#finding) `uses-not-read`, and the run goes on. The table gives the code that the run prints for each limit:
 
 | Limit | Code |
 |---|---|
@@ -173,7 +173,7 @@ A run that goes over one of the limits below stops with exit 2. A file over 512 
 
 ## If it goes wrong
 
-- When `step-too-slow` comes while Lawcheck gives a file its type, a `content` expression of the law takes too long on that file. In `^(a|a)+$`, each `a` can match either branch. On a line of 80 `a` and a `!`, the expression tries every way to match, and the run goes over the limit. `^a+$` matches the same lines with one way for each `a`.
+- When `step-too-slow` comes while Lawcheck gives a file its type, a `content` expression of the law takes too long on that file. In `^(a|a)+$`, each `a` can match either branch. On a line of 80 `a` and a `!`, the expression tries every way to match, and the run goes over the limit. Write `^a+$` instead: it matches the same lines, with one way to match each `a`.
 - The `next:` line of `memory-too-large` names the step that went past the limit. The fix depends on that step:
   - for a file whose uses Lawcheck reads, leave the file out of the types whose `may_use` is in force;
   - for a file that Lawcheck reads only for the names it declares, keep it out of the files git lists: run `git rm --cached` on it, and add a line to `.gitignore`;
