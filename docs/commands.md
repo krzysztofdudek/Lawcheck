@@ -2,7 +2,7 @@
 
 Lawcheck has seven commands and two flags of its own. This page gives each command its usage line, what it reads and writes, its flags, its exit codes and one run. `lawcheck <command> --help` prints the usage of one command in the terminal.
 
-The runs below come from one repository. Its `main` holds a `README.md`, this law, the rule file `.lawcheck/rules/no-console.mjs` that reports each `console.` call (`lawcheck docs script-rules`), `src/core/price.ts`, which writes nothing, and `src/cli/main.ts`, which calls `console.log`:
+The runs below come from one repository. Its `main` holds a `README.md`, this law, the rule file `.lawcheck/rules/no-console.mjs` that reports each call such as `console.log` (`lawcheck docs script-rules`), `src/core/price.ts`, which writes nothing, and `src/cli/main.ts`, which calls `console.log`:
 
 ```yaml
 lawcheck: 0.1.0
@@ -30,7 +30,7 @@ The work is on a branch made from `main`, where `src/core/report.ts` calls `cons
 - A flag the command does not take, a flag given twice, a flag without its value, or a number with a character other than a digit is `usage`, exit 2.
 - No command, or a command Lawcheck does not have, is `usage` too, and the message names the seven commands.
 - On a Node, a git or a package manager Lawcheck does not run on, every command but `docs` and `doctor` stops with `unsupported-environment` ([Support](support.md)).
-- A run stopped by `SIGTERM`, `SIGINT` or `SIGHUP` ends with `stopped`, exit 2. Output that cannot be written ends with `file-unwritable` on standard error, exit 2.
+- A run stopped by `SIGTERM`, `SIGINT` or `SIGHUP` ends with `stopped`, exit 2. A run whose output Lawcheck cannot write ends with `file-unwritable` on standard error, exit 2.
 - Exit 2 means that the command reached no conclusion. The error names the next step ([Codes](codes.md)).
 
 ## init
@@ -130,11 +130,11 @@ next: fix src/core/report.ts:2
 
 ### `<path or pattern>...`
 
-Judges only the files named, changed or not: a file, a folder with every file below it, or a pattern ([The law file](law.md)). The check has no base, and its scope is `N named files`. Named files go with `--json` alone; with any other flag the command is `usage`.
+Judges only the files you name, changed or not: a file, a folder with every file below it, or a pattern ([The law file](law.md)). The check has no base, and its first line counts the named files. A check of named files takes `--json` and no other flag; with any other flag the command is `usage`.
 
 ### --full
 
-Also judges the files outside the change and lists their findings as debt. Debt is always a warning, so it never fails the check.
+Judges the files outside the change too, and lists their findings as debt. Debt is always a warning, so it never fails the check.
 
 ### --base `<ref>`
 
@@ -238,11 +238,11 @@ The id of a rule of the law. A code of Lawcheck, such as `forbidden-use`, is `us
 
 ### `<path or pattern>...`
 
-The files to run the rule on, read from the current folder: a file, a folder with every file below it, or a pattern. Binary files are left out, and a target that selects nothing is `usage`. A script rule without targets takes the files it binds. A reviewer rule takes files one by one, needs at least one, and refuses a folder or a pattern.
+The files to run the rule on, read from the current folder: a file, a folder with every file below it, or a pattern. It leaves binary files out, and a target that selects nothing is `usage`. A script rule without targets takes the files it binds. A reviewer rule takes files one by one, needs at least one, and refuses a folder or a pattern.
 
 ### --times `<n>`
 
-Goes only with a reviewer rule. Asks about each file `n` times, at least once. The first line counts the answers that fail and pass, and each file gets a line per answer, such as `src/core/refund.ts  answer 2 of 3: fail`.
+Goes only with a reviewer rule. Asks about each file as many times as the number says, at least once. The first line counts the answers that fail and pass, and each file gets a line per answer, such as `src/core/refund.ts  answer 2 of 3: fail`.
 
 ### --dry-run
 
