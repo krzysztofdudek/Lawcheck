@@ -25,7 +25,7 @@ Each line ends the sentence of the title. Its link opens the step where that pat
 - [fix two types that claim one file](types-for-a-project.md#_7-run-a-check)
 - [keep generated or vendored files out of the law](types-for-a-project.md#_10-leave-the-generated-file-out)
 - [see the law of a file I have not written yet](types-for-a-project.md#_12-see-the-type-of-a-file-you-have-not-written-yet)
-- [give the files of one folder two types by their text, such as tests beside the code](law.md#content)
+- [give the files of one folder two types by their text, such as tests beside the code](types-for-a-project.md#_14-give-the-tests-beside-the-code-a-type-by-their-text)
 - [find out why a file has no type](commands.md#explain)
 
 ## Uses

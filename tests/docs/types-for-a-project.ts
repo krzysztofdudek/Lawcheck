@@ -16,8 +16,12 @@ const STEPS = [
   '10. Leave the generated file out',
   '11. See the generated file',
   '12. See the type of a file you have not written yet',
+  '13. Write a test beside the code',
+  '14. Give the tests beside the code a type by their text',
+  '15. See the type a file gets by its text',
 ];
-const EDITS = new Set(['2. Describe the folders as types', '6. Add a type for the tests', '8. Leave the tests out of source', '10. Leave the generated file out']);
+const EDITS = new Set(['2. Describe the folders as types', '6. Add a type for the tests', '8. Leave the tests out of source', '10. Leave the generated file out', '13. Write a test beside the code', '14. Give the tests beside the code a type by their text']);
+const CORE = '      core:\n        about: The business logic.\n        paths: ["src/core/**"]\n';
 
 export const claims: Claims = Object.fromEntries(STEPS.flatMap((step) => (EDITS.has(step) ? [`block 1 under "${step}"`] : [`block 1 under "${step}"`, `block 2 under "${step}"`])).map((key) => [key, SCENARIO]));
 
@@ -55,6 +59,12 @@ export async function scenario(page: Page): Promise<void> {
       const block = page.text(`block 1 under "${step}"`);
       if (step.startsWith('2.')) write(repo, LAW, block + '\n');
       else if (step.startsWith('6.')) write(repo, LAW, read(repo, LAW) + block + '\n');
+      else if (step.startsWith('13.')) write(repo, 'src/core/rounding.ts', block + '\n');
+      else if (step.startsWith('14.')) {
+        const law = read(repo, LAW);
+        assert.ok(law.includes(CORE), law);
+        write(repo, LAW, law.replace(CORE, block + '\n'));
+      }
       else if (EDITS.has(step)) paths(repo, block);
       else {
         const run = await lawcheck(repo, words(block.replace(/^\$ lawcheck /, '')));
