@@ -2,9 +2,9 @@
 
 Each code that Lawcheck prints has a heading of its own on this page. Under it stand four parts: what the code means, its typical cause, the step that clears it and an example. If a run stops with `error[type-overlap]`, you find the step under `## type-overlap`.
 
-The Kind column of the table below says what a code does to the run. A code of the kind `exit 2` stops the run before Lawcheck gives a PASS or a FAIL. Lawcheck then exits with code 2. Its output ends on one `next:` line that says what to fix.
+The table below gives each code one of two kinds, exit 2 or finding. With a code of the kind exit 2, Lawcheck stops the run before it gives a PASS or a FAIL. Lawcheck then exits with code 2. Its output ends on one `next:` line that says what to fix.
 
-A code of the kind `finding` names a [finding](concepts.md#finding) in the report of `check`. The report opens with the PASS or FAIL of the run. Each finding below it starts a line of its own.
+A code of the kind finding names a [finding](concepts.md#finding) in the report of `check`. The report opens with the PASS or FAIL of the run. Each finding below it starts a line of its own.
 
 Lawcheck prints a `why:` line under the first error or finding of each code. Its text depends on the code:
 
@@ -101,7 +101,7 @@ Lawcheck refuses to run in this environment. The first line of the output names 
 
 **Typical cause**
 
-Lawcheck refuses in one of five cases:
+The cause is one of these five:
 
 - Node is older than 24;
 - the run is on Bun;
@@ -233,7 +233,7 @@ The law holds one of these:
 - a wrong value or id;
 - a name in a type's `rules` or `may_use` that the law does not have;
 - a pattern or `content` expression that does not parse;
-- a file in a rule's `context` list that git does not list.
+- a file named in a rule's `context` that git does not list.
 
 **Fix**
 
@@ -362,13 +362,13 @@ The file is one of these:
 
 Give yourself read permission on the file, or put a regular file at the path.
 
-`.lawcheck/verdicts` holds one line for each pass of the reviewer. Each line is a hash, so you cannot tell by hand which file and rule a line belongs to. For a `.lawcheck/verdicts` over 16 MiB, the message gives three counts:
+`.lawcheck/verdicts` holds one line for each [pass](concepts.md#verdict) of the reviewer. Each line holds a hash and a rule id, so you cannot tell by hand which file a line belongs to. For a `.lawcheck/verdicts` over 16 MiB, the message gives three counts:
 
 - the passes that the file holds;
 - the passes that the files of this tree need;
 - the reviewer calls that a review of every file of the law would take.
 
-The choice of how to make room is the user's. The `next:` line asks the user, and `lawcheck prime` tells a coding agent to edit `.lawcheck/verdicts` only on the user's word.
+The user decides how to make room, as the `next:` line says. `lawcheck prime` tells a coding agent to edit `.lawcheck/verdicts` only on the user's word.
 
 One way is to delete `.lawcheck/verdicts`. A review of every file then takes as many calls as the third count. If the second count is close to the first, the passes this tree needs fill most of a new file again. In that case, narrow the `paths` of the types that list the reviewer rules, so that fewer files need a pass.
 
@@ -466,7 +466,7 @@ The step depends on the cause:
 - give yourself write permission on the file or the folder that the error names;
 - free space on a full disk.
 
-For a full `.lawcheck/verdicts`, the message gives the same three counts as for [file-unreadable](codes.md#file-unreadable). That section says what the counts mean and what a delete of the file costs. The choice to make room is the user's.
+For a full `.lawcheck/verdicts`, the message gives the same three counts as for [file-unreadable](codes.md#file-unreadable). That section says what the counts mean and what deleting the file costs. The user decides how to make room.
 
 **Example**
 
@@ -779,11 +779,11 @@ next: ask the user to set reviewer.provider and reviewer.model in .lawcheck/conf
 
 **Meaning**
 
-The limit of calls is the most reviewer calls that one run may send. `reviewer.max_calls` in `.lawcheck/config.yaml` sets it, and its default is 100. For one run, `--max-calls` replaces that value with a number of its own, higher or lower. This run needs more calls than its limit, so Lawcheck sends none of them.
+The limit of calls is the most reviewer calls that one run may send. `reviewer.max_calls` in `.lawcheck/config.yaml` sets it, with 100 as the default. For one run, `--max-calls` replaces that value with a number of its own, higher or lower. This run needs more calls than its limit, so Lawcheck sends none of them.
 
 **Typical cause**
 
-A change needs one call for each pair of a changed file and a reviewer rule that binds it, unless Lawcheck holds an answer for that pair from an earlier review. Here the count of these calls is over the limit of calls.
+A change needs one call for each pair of a changed file and a reviewer rule that binds it. A pair needs no call if Lawcheck holds its answer from an earlier review. Here the count of these calls is over the limit of calls.
 
 **Fix**
 
@@ -826,7 +826,7 @@ The cause is one of these:
 
 **Fix**
 
-Add what the message names to the environment, such as `LAWCHECK_REVIEWER_ENDPOINT` or the provider's API key. Then run the same command again. A `check` that ran into this error keeps the answers it got before it, so its next run sends only the calls still missing. Each run of `try` makes every call again, because `try` records no answer.
+Add what the message names to the environment, such as `LAWCHECK_REVIEWER_ENDPOINT` or the provider's API key. Then run the same command again. A `check` that ran into this error keeps the answers it got before the error, so its next run sends only the calls still missing. Each run of `try` makes every call again, because `try` records no answer.
 
 **Example**
 
@@ -889,7 +889,7 @@ The cause is one of these:
 The `next:` line names the step for the case. A type with a `may_use` list on it, or on a type above it, is a type whose files Lawcheck reads for their uses ([`may_use`](law.md#may-use)).
 
 - For one file that Lawcheck reads for its uses, leave the file out of every such type with a `!` pattern.
-- For one file that Lawcheck reads only for the names it declares, as in the Example, keep the file out of the files that git lists. Run `git rm --cached` on it and add a line for it to `.gitignore`.
+- For one file that Lawcheck reads only for the names it declares, as in the Example, keep the file out of the files that git lists. In Java, Kotlin, C#, Ruby and Rust, Lawcheck reads those names from every file that git lists, with a type or without one ([Languages and uses](languages.md)). Run `git rm --cached` on the file and add a line for it to `.gitignore`.
 - For a whole run over its memory, narrow the `paths` of those types, or run Lawcheck on a machine with more memory.
 - For a system short of memory, free memory on the machine.
 
@@ -1037,7 +1037,7 @@ Each of these steps clears it:
 - split the file;
 - give `reviewer.max_chars` a higher value in `.lawcheck/config.yaml`.
 
-The third step edits `.lawcheck/config.yaml`, which `lawcheck prime` leaves to the user's word.
+The third step edits `.lawcheck/config.yaml`. `lawcheck prime` leaves that edit to the user's word.
 
 **Example**
 
@@ -1063,7 +1063,7 @@ An import crosses a layer, such as code in `src/core/` that imports from `src/cl
 
 **Fix**
 
-Edit the code so that the use goes in the allowed direction. If the law should allow the use, add the used type to `may_use`. That edit widens the law, so it is the user's decision.
+Edit the code so that the use goes in the allowed direction. If the law should allow the use, add the used type to `may_use`. A wider `may_use` is the user's decision.
 
 **Example**
 
@@ -1192,7 +1192,7 @@ src/core/shipping.ts:1  warning[waiver-unused]  the waiver of 'no-console' drops
 
 A note is a line that starts with `note:`, under the first line of `check` or `init`. It carries no code and changes no exit code.
 
-`doctor` prints no such line. In its report, `note` is the state of one check, and the `next:` line below that check gives its step, as for a failed check.
+`doctor` prints no such line. In its report, `note` is the state of a check. A `next:` line below such a check gives its step, as below a failed check.
 
 | Text | When | Fix |
 |---|---|---|
@@ -1228,6 +1228,6 @@ Lawcheck writes every character outside the table as it is. A backslash stays a 
 
 In `--json`, Lawcheck keeps the text of a string as it is, with one exception. It writes these characters as JSON escapes: those below U+0020, U+007F to U+009F, U+2028, U+2029 and the format characters. The printed document holds none of them raw. A program that parses the document gets the text unchanged ([JSON documents](json.md)).
 
-A script rule can print to its own standard output or standard error. Lawcheck writes that text to its own standard error, through the same escapes.
+A script rule can print to standard output or standard error. Lawcheck writes that text to its own standard error, through the same escapes.
 
 Next: [Questions](questions.md)
