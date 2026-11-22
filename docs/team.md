@@ -28,7 +28,7 @@ reviewer:
   model: your-model-id
 ```
 
-The key never goes into a file. Each developer sets `ANTHROPIC_API_KEY` in their own environment, and a key in `.lawcheck/config.yaml` is `config-invalid` ([Reviewers and keys](providers.md)).
+Lawcheck takes the key from the environment alone. Each developer sets `ANTHROPIC_API_KEY` in their own, and a key in `.lawcheck/config.yaml` is `config-invalid` ([Reviewers and keys](providers.md)).
 
 ## 2. See the files with no verdict
 

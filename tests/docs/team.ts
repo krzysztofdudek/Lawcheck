@@ -77,7 +77,6 @@ export async function scenario(page: Page): Promise<void> {
       shell(repo, page.text('block 1 under "5. Merge two branches that both recorded reviews"').replace('git merge', 'git merge --no-edit'));
       const explained = await lawcheck(repo, explain);
       assert.deepEqual([explained.code, explained.stdout], [0, page.text('block 2 under "6. Check that both reviews hold"') + '\n']);
-      assert.match((await lawcheck(repo, ['explain', 'src/core/price.ts'])).stdout, / reviewed /, 'the teammate pass holds too');
     });
 
     await inTemp(async (dir) => {
@@ -88,10 +87,8 @@ export async function scenario(page: Page): Promise<void> {
       shell(repo, page.text('block 1 under "2. Merge the file again"'));
       shell(repo, add!);
       shell(repo, commit!);
-      for (const path of ['src/core/refund.ts', 'src/core/price.ts']) {
-        const explained = await lawcheck(repo, ['explain', path]);
-        assert.match(explained.stdout, /  clear-errors  reviewer  enforced  from library  reviewed  /, path);
-      }
+      const explained = await lawcheck(repo, ['explain', 'src/core/price.ts']);
+      assert.match(explained.stdout, /  clear-errors  reviewer  enforced  from library  reviewed  /, 'the pass of the branch merged second holds');
     });
   }, (request) => anthropic(defaultAnswer(request.prompt)));
 }

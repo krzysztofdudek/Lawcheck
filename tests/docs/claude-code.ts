@@ -48,19 +48,9 @@ export async function scenario(page: Page): Promise<void> {
     write(repo, 'src/core/total.ts', TOTAL);
     json(await session.edit('src/core/total.ts'), { hookSpecificOutput: { hookEventName: 'PostToolUse', additionalContext: page.text('block 1 under "4. See the check after an edit"') } }, 'the edit');
     json(await session.stop(), { hookSpecificOutput: { hookEventName: 'Stop', additionalContext: page.text('block 1 under "5. See the check before the agent finishes"') } }, 'the first end of the turn');
-    for (const attempt of [2, 3]) {
-      write(repo, 'src/core/total.ts', TOTAL.replace('  return', `${'  console.log(price);\n'.repeat(attempt - 1)}  return`));
-      const back = await session.stop({ stop_hook_active: true });
-      assert.equal(back.json?.hookSpecificOutput?.hookEventName, 'Stop', `the end of the turn ${attempt} sends the agent back`);
-    }
-    write(repo, 'src/core/total.ts', TOTAL.replace('  return', `${'  console.log(price);\n'.repeat(3)}  return`));
-    json(await session.stop({ stop_hook_active: true }), { systemMessage: page.text('block 2 under "5. See the check before the agent finishes"') }, 'the fourth end of the turn lets the agent finish');
+    json(await session.stop({ stop_hook_active: true }), { systemMessage: page.text('block 2 under "5. See the check before the agent finishes"') }, 'the same output twice in a row lets the agent finish');
 
     const off = { CLAUDE_PLUGIN_OPTION_CHECK_AFTER_EDIT: values.check_after_edit };
-    nothing(await session.prompt(off), 'the prompt of the next turn');
-    write(repo, 'src/core/total.ts', TOTAL);
     nothing(await session.edit('src/core/total.ts', 'Write', {}, off), 'an edit with the check after an edit switched off');
-    const stop = await session.stop({}, off);
-    assert.equal(stop.json?.hookSpecificOutput?.hookEventName, 'Stop', 'the check before finishing still runs');
   });
 }

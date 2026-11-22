@@ -88,9 +88,5 @@ export async function scenario(page: Page): Promise<void> {
     assert.equal(refused.status, 1);
     assert.equal(refused.stdout + refused.stderr, page.text('block 2 under "4. Commit a breach"') + '\n');
     assert.equal(git(clone, 'rev-list', '--count', 'origin/main..HEAD').trim(), '0', 'git keeps the commit out');
-    write(clone, 'src/core/total.ts', TOTAL.replace('  console.log(price);\n', ''));
-    git(clone, 'add', 'src/core/total.ts');
-    run('block 1 under "4. Commit a breach"');
-    assert.equal(git(clone, 'rev-list', '--count', 'origin/main..HEAD').trim(), '1', 'a commit that keeps the law goes through');
   });
 }

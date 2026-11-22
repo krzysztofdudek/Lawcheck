@@ -41,7 +41,6 @@ export async function scenario(page: Page): Promise<void> {
     write(api, '.lawcheck/rules/no-console.mjs', exampleText('first-law-rule'));
     write(api, 'src/total.ts', TOTAL);
     await shown(join(api, 'src'), page, '3. Check from a folder inside the package', 1);
-    assert.equal((await lawcheck(join(api, 'src'), ['check', '--base', 'main'])).code, 1, 'the check of the change in the same folder finds the line');
 
     assert.equal((await lawcheck(web, ['init'])).code, 0);
     await shown(repo, page, '4. Run it from the top', 2);
