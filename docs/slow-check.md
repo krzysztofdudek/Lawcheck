@@ -2,7 +2,29 @@
 
 A check runs on every commit and every pull request, so a slow one costs time on each. These steps find the part of a run that takes the time, and put a bound on reviewer calls, the one part that can cost money.
 
-The outputs below come from a repository whose law has a script rule, `no-console`, and a reviewer rule, `clear-errors`, both on the type `library` for `src/core/**`, whose `may_use` is `[library]`. A branch made from `main` changes `src/core/price.ts` and `src/core/tax.ts`. Put `time` before a command to see how long it takes; the shell prints its own lines after Lawcheck's output.
+The outputs below come from a repository that joins two other guides: the script rule `no-console` of [Bring a law into an existing repository](adopt-in-an-existing-repository.md), and the reviewer rule `clear-errors` with the Ollama reviewer of [Write a reviewer rule](write-a-reviewer-rule.md). Its law:
+
+```yaml
+lawcheck: 0.1.0
+
+rules:
+  no-console:
+    why: Only the command layer writes to the terminal.
+  clear-errors:
+    why: An error a caller sees says what happened and what to do next.
+
+types:
+  library:
+    about: Code the commands call.
+    paths: ["src/core/**"]
+    rules: [no-console, clear-errors]
+    may_use: [library]
+  command:
+    about: The command layer.
+    paths: ["src/cli/**"]
+```
+
+A branch made from `main` changes `src/core/price.ts` and `src/core/tax.ts`, and `tax.ts` imports `price.ts`. Put `time` before a command to see how long it takes; the shell prints its own lines after Lawcheck's output.
 
 ## 1. See what the run judges
 

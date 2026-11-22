@@ -2,7 +2,7 @@
 
 A script can find `console.log` in a file. It cannot tell whether `throw new Error('failed')` tells the caller what to do next. A reviewer rule can: a language model reads each file against a rule you write in plain words. At the end of these steps a reviewer rule judges `src/core/`, its pass sits in `.lawcheck/verdicts`, and a plain check reads that pass without calling a model.
 
-The outputs below come from a repository whose `main` holds a law with one type, `library`, for `src/core/**`. On a branch made from `main`, you added `src/core/refund.ts`:
+The outputs below come from a repository whose `main` holds the `.lawcheck/` that `lawcheck init` makes, with the type `library` of step 2 in its law and no rule. On a branch made from `main`, you added `src/core/refund.ts`:
 
 ```ts
 export function refund(paid: boolean): number {
@@ -49,7 +49,7 @@ types:
 | a model on your own machine, served by Ollama | `ollama` | none |
 | Claude Code, Codex, Gemini CLI or Copilot CLI, signed in | `claude-code`, `codex`, `gemini-cli` or `copilot-cli` | the program's own sign-in |
 
-These steps use Ollama. Create `.lawcheck/config.yaml`, with the name of a model the server has pulled:
+These steps use Ollama, which Lawcheck calls at `http://localhost:11434`; set `LAWCHECK_REVIEWER_ENDPOINT` to the server's address when it runs elsewhere. Create `.lawcheck/config.yaml`, with the name of a model the server has pulled:
 
 ```yaml
 reviewer:
@@ -102,7 +102,7 @@ lawcheck: try clear-errors (reviewer rule, enforced)  dry run: 1 reviewer call, 
 src/core/refund.ts  1 call, a prompt of 1814 characters
 ```
 
-Each file you name costs one call, and `--times 3` makes it three.
+Each file you name costs one call, and `--times 2` makes it two.
 
 ## 7. Try the rule on the file
 
@@ -120,22 +120,20 @@ src/core/refund.ts:2  error[clear-errors]  the message says neither what happene
   why:  An error a caller sees says what happened and what to do next.
 ```
 
-## 8. Ask the same question three times
+## 8. Ask the same question twice
 
 ```text
-$ lawcheck try clear-errors src/core/refund.ts --times 3
+$ lawcheck try clear-errors src/core/refund.ts --times 2
 ```
 
 ```output
-lawcheck: 3 reviewer calls to ollama
-lawcheck: try clear-errors (reviewer rule, enforced)  3 answers for 1 file: 3 fail, 0 pass, 3 reviewer calls
+lawcheck: 2 reviewer calls to ollama
+lawcheck: try clear-errors (reviewer rule, enforced)  2 answers for 1 file: 2 fail, 0 pass, 2 reviewer calls
 
-src/core/refund.ts  answer 1 of 3: fail
+src/core/refund.ts  answer 1 of 2: fail
 src/core/refund.ts:2  error[clear-errors]  the message says neither what happened nor what to do next
   why:  An error a caller sees says what happened and what to do next.
-src/core/refund.ts  answer 2 of 3: fail
-src/core/refund.ts:2  error[clear-errors]  the message says neither what happened nor what to do next
-src/core/refund.ts  answer 3 of 3: fail
+src/core/refund.ts  answer 2 of 2: fail
 src/core/refund.ts:2  error[clear-errors]  the message says neither what happened nor what to do next
 ```
 

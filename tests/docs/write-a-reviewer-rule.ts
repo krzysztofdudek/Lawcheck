@@ -18,8 +18,8 @@ export const claims: Claims = {
   'block 2 under "6. See the cost of a try"': SCENARIO,
   'block 1 under "7. Try the rule on the file"': SCENARIO,
   'block 2 under "7. Try the rule on the file"': SCENARIO,
-  'block 1 under "8. Ask the same question three times"': SCENARIO,
-  'block 2 under "8. Ask the same question three times"': SCENARIO,
+  'block 1 under "8. Ask the same question twice"': SCENARIO,
+  'block 2 under "8. Ask the same question twice"': SCENARIO,
   'block 1 under "9. Fix the file"': SCENARIO,
   'block 1 under "10. Review the change"': SCENARIO,
   'block 2 under "10. Review the change"': SCENARIO,
@@ -53,21 +53,22 @@ export async function walk(page: Page, repo: string, heading: string, code: numb
   assert.deepEqual([run.code, run.stderr + run.stdout], [code, page.text(`block ${block + 1} under "${heading}"`) + '\n'], heading);
 }
 
-const MAIN_LAW = 'lawcheck: 0.1.0\n\ntypes:\n  library:\n    about: Code the commands call.\n    paths: ["src/core/**"]\n';
-
 export async function scenario(page: Page): Promise<void> {
   const config = page.text('block 1 under "3. Choose a reviewer"');
   const read = parseConfig(config);
   assert.ok('config' in read && read.config.provider === 'ollama', config);
+  const law = page.text('block 1 under "2. Put the rule in the law"') + '\n';
+  const mainLaw = law.replace(/\nrules:\n {2}clear-errors:\n {4}why: .*\n/, '').replace('    rules: [clear-errors]\n', '');
+  assert.equal(mainLaw, 'lawcheck: 0.1.0\n\ntypes:\n  library:\n    about: Code the commands call.\n    paths: ["src/core/**"]\n');
   await withFake(
     async (fake) => {
       const env = { LAWCHECK_REVIEWER_ENDPOINT: fake.base };
       await inTemp(async (dir) => {
-        const repo = newRepository(dir, { '.lawcheck/law.yaml': MAIN_LAW, '.lawcheck/.gitignore': '.local/\nconfig.local.yaml\n' });
+        const repo = newRepository(dir, { '.lawcheck/law.yaml': mainLaw, '.lawcheck/.gitignore': '.local/\nconfig.local.yaml\n' });
         git(repo, 'checkout', '-q', '-b', 'work');
         write(repo, 'src/core/refund.ts', page.text('block 1 under "Write a reviewer rule"') + '\n');
         write(repo, '.lawcheck/rules/clear-errors.md', page.text('block 1 under "1. Write the rule file"') + '\n');
-        write(repo, '.lawcheck/law.yaml', page.text('block 1 under "2. Put the rule in the law"') + '\n');
+        write(repo, '.lawcheck/law.yaml', law);
         write(repo, '.lawcheck/config.yaml', config + '\n');
 
         const chats = () => fake.requests.filter((request) => request.path === '/api/chat').length;
@@ -82,7 +83,7 @@ export async function scenario(page: Page): Promise<void> {
         await walk(page, repo, '6. See the cost of a try', 0, env);
         assert.equal(chats(), 1, 'a plain check and a dry run call nobody');
         await walk(page, repo, '7. Try the rule on the file', 1, env);
-        await walk(page, repo, '8. Ask the same question three times', 1, env);
+        await walk(page, repo, '8. Ask the same question twice', 1, env);
         assert.equal(git(repo, 'status', '--short', '--untracked-files=all', '.lawcheck/verdicts', '.lawcheck/.local'), '', 'try records nothing');
 
         write(repo, 'src/core/refund.ts', page.text('block 1 under "9. Fix the file"') + '\n');

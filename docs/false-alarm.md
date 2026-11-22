@@ -2,7 +2,19 @@
 
 A check fails on a line that, to you, breaks no rule. Waiving the line makes the build green and leaves the cause in place. These steps find the cause first: the type, the rule, or one line that is a real exception. At the end the rule reads the file right, the one exception carries a waiver with its reason, and no waiver in the repository is left unused.
 
-The outputs below come from a repository whose `main` holds the law of [Bring a law into an existing repository](adopt-in-an-existing-repository.md), with the rule `no-console` enforced on the type `library`, and `src/core/round.ts`, which holds an older waiver. On a branch made from `main`, you added `src/core/format.ts`:
+The outputs below come from a repository whose `main` holds the law of [Bring a law into an existing repository](adopt-in-an-existing-repository.md), with the rule `no-console` enforced on the type `library`. It also holds `src/core/round.ts`, whose comment someone waived:
+
+```ts
+/**
+ * lawcheck-waive no-console -- the example in this comment prints nothing
+ * Example: console.log(round(2.5)) prints 3.
+ */
+export function round(value: number): number {
+  return Math.round(value);
+}
+```
+
+On a branch made from `main`, you added `src/core/format.ts`:
 
 ```ts
 /**

@@ -8,6 +8,7 @@ import type { Claims, Page } from '../contract/docs-blocks.ts';
 import { commands, walk } from './write-a-reviewer-rule.ts';
 
 export const claims: Claims = {
+  'block 1 under "A slow check"': SCENARIO,
   'block 1 under "1. See what the run judges"': SCENARIO,
   'block 2 under "1. See what the run judges"': SCENARIO,
   'block 1 under "2. Check one file"': SCENARIO,
@@ -21,25 +22,6 @@ export const claims: Claims = {
   'block 3 under "5. Bound the reviewer"': SCENARIO,
 };
 
-const LAW = `lawcheck: 0.1.0
-
-rules:
-  no-console:
-    why: Only the command layer writes to the terminal.
-  clear-errors:
-    why: An error a caller sees says what happened and what to do next.
-
-types:
-  library:
-    about: Code the commands call.
-    paths: ["src/core/**"]
-    rules: [no-console, clear-errors]
-    may_use: [library]
-  command:
-    about: The command layer.
-    paths: ["src/cli/**"]
-`;
-
 const reviewerPage = readFileSync(new URL('../../docs/write-a-reviewer-rule.md', import.meta.url), 'utf8');
 const blockOf = (markdown: string, key: string) => blocksOf(markdown).find((block) => block.key === key)!.text;
 
@@ -51,7 +33,7 @@ export async function scenario(page: Page): Promise<void> {
   await withFake(async (fake) => {
     await inTemp(async (dir) => {
       const repo = newRepository(dir, {
-        '.lawcheck/law.yaml': LAW,
+        '.lawcheck/law.yaml': page.text('block 1 under "A slow check"') + '\n',
         '.lawcheck/.gitignore': '.local/\nconfig.local.yaml\n',
         '.lawcheck/config.yaml': blockOf(reviewerPage, 'block 1 under "3. Choose a reviewer"') + '\n',
         '.lawcheck/rules/no-console.mjs': blockOf(readFileSync(new URL('../../docs/adopt-in-an-existing-repository.md', import.meta.url), 'utf8'), 'block 1 under "3. Write the rule"') + '\n',
