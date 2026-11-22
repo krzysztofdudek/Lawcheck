@@ -1,0 +1,27 @@
+import assert from 'node:assert/strict';
+import { git, inTemp, lawcheck, newRepository, write } from '../acceptance/helpers.ts';
+import { SCENARIO } from '../contract/docs-blocks.ts';
+import type { Claims, Page } from '../contract/docs-blocks.ts';
+
+export const claims: Claims = {
+  'block 1 under "Script rules"': SCENARIO,
+  'block 1 under "Trying a rule"': 'tests/acceptance/docs.test.ts > test 129: every page holds what section 7 asks, and its examples are real',
+};
+
+export async function scenario(page: Page): Promise<void> {
+  await inTemp(async (dir) => {
+    const repo = newRepository(dir, {
+      '.lawcheck/law.yaml': 'lawcheck: 0.1.0\n\nrules:\n  no-todo:\n    why: A TODO without an issue number gets forgotten.\n\ntypes:\n  source:\n    paths: ["src/**/*.ts"]\n    rules: [no-todo]\n',
+      'src/tax.ts': '// TODO round the tax\n// TODO #12 round the discount\nexport const tax = 1;\n',
+    });
+    write(repo, '.lawcheck/rules/no-todo.mjs', page.text('block 1 under "Script rules"') + '\n');
+    const run = await lawcheck(repo, ['try', 'no-todo', 'src/tax.ts']);
+    assert.deepEqual([run.code, run.stdout], [1, [
+      'lawcheck: try no-todo (script rule, enforced)  1 finding in 1 of 1 file',
+      '',
+      'src/tax.ts:1  error[no-todo]  TODO without an issue number',
+      '  why:  A TODO without an issue number gets forgotten.',
+      '',
+    ].join('\n')]);
+  });
+}
