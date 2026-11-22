@@ -55,7 +55,7 @@ Lawcheck checks before the pull request exists: in Claude Code, after each edit 
 
 A reviewer rule needs a model. `lawcheck check --review` asks the reviewer once per file and rule, and records each pass as a [verdict](concepts.md#verdict) in `.lawcheck/verdicts`, which you commit. A later check reads that pass, and Lawcheck sends the file again only after the file, the rule, its `why` or its context changes. CI reads the committed verdicts, calls no model and needs no key. A changed file with no recorded pass of an enforced reviewer rule is `not-reviewed`, an error that fails the job, so someone runs `lawcheck check --review` before the push ([CI and git hooks](ci.md)).
 
-Code leaves your machine only when you ask a model to judge a reviewer rule, with `--review` or `lawcheck try`. It goes to the one of nine providers you name, and `ollama` sends it to a server on your own machine by default ([Reviewers and keys](providers.md)). Lawcheck needs no account, and its licence is MIT. A check tells you when a change edits the law that judges it.
+Lawcheck sends code only to a model you ask to judge a reviewer rule, with `--review` or `lawcheck try`. It goes to the one of nine providers you name, and `ollama` sends it to a server on your own machine by default ([Reviewers and keys](providers.md)). A script rule is your repository's own code and can do anything that code can ([Script rules](script-rules.md)). Lawcheck needs no account, and its licence is MIT. A check tells you when a change edits the law that judges it.
 
 Lawcheck writes no annotation into the pull request. A CI job shows its findings in the log, and `--json` prints them as one document.
 

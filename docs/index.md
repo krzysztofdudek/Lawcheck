@@ -49,7 +49,7 @@ npm install --global lawcheck@alpha
 lawcheck docs quick-start
 ```
 
-Lawcheck is an alpha. It needs Node 24 or later and git 2.34 or later. Code leaves your machine only when you ask a model to judge a rule written in prose.
+Lawcheck is an alpha. It needs Node 24 or later and git 2.34 or later. Lawcheck sends code only to a model you ask to judge a rule written in prose. A script rule is your repository's own code and can do anything that code can.
 
 ## Read next
 
