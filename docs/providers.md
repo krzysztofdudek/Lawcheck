@@ -22,7 +22,7 @@ Lawcheck sends `POST <address>/models/<model>:generateContent` to https://genera
 
 ## openai-compatible
 
-This provider calls any server that answers chat completions, at the address that `LAWCHECK_REVIEWER_ENDPOINT` holds. The variable is required. Lawcheck sends the server the request of `openai`. If the environment holds `LAWCHECK_REVIEWER_KEY`, Lawcheck sends it as `authorization: Bearer <key>`. This provider never reads `OPENAI_API_KEY`.
+This provider calls any server that answers chat completions, at the address that `LAWCHECK_REVIEWER_ENDPOINT` holds, such as http://localhost:8000/v1. The variable is required. Lawcheck sends the server the request of `openai`. If the environment holds `LAWCHECK_REVIEWER_KEY`, Lawcheck sends it as `authorization: Bearer <key>`. This provider never reads `OPENAI_API_KEY`.
 
 ## ollama
 
@@ -85,11 +85,14 @@ Lawcheck runs `copilot mcp list --json` once a run. It switches off each server 
 
 ## Over HTTP
 
-`LAWCHECK_REVIEWER_ENDPOINT` sets the address for all five HTTP providers. Each request carries two things: the prompt as one user message, and the temperature. Lawcheck keeps three limits on each request:
+`LAWCHECK_REVIEWER_ENDPOINT` sets the base address for all five HTTP providers, in place of their own. It holds an `http:` or `https:` address, and Lawcheck refuses one with a user, a password, a query or a fragment. Lawcheck drops the `/` at the end of the address, if there is one. Then it adds the path of the provider:
 
-- it follows no redirect;
-- it reads no reply over 4 MiB;
-- it refuses an address that holds a user or a password.
+- `openai` and `openai-compatible` add `/chat/completions`, so a server that answers under `/v1` takes http://localhost:8000/v1;
+- `anthropic` adds `/messages`, as it does to its own https://api.anthropic.com/v1;
+- `google` adds `/models/<model>:generateContent`;
+- `ollama` adds `/api/chat`, so its address is the server alone, such as http://gpu-box:11434.
+
+Each request carries two things: the prompt as one user message, and the temperature. Lawcheck follows no redirect, and it reads no reply over 4 MiB.
 
 A failed request gets a message that names the fix for its HTTP status. For HTTP 401, the fix is the key.
 
