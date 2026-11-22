@@ -22,7 +22,7 @@ Lawcheck sends `POST <address>/models/<model>:generateContent` to https://genera
 
 ## openai-compatible
 
-This provider calls any server that answers chat completions, at the address that `LAWCHECK_REVIEWER_ENDPOINT` holds, such as http://localhost:8000/v1. The variable is required. Lawcheck sends the server the request of `openai`. If the environment holds `LAWCHECK_REVIEWER_KEY`, Lawcheck sends it as `authorization: Bearer <key>`. This provider never reads `OPENAI_API_KEY`.
+This provider calls any server that answers chat completions, at the address that `LAWCHECK_REVIEWER_ENDPOINT` holds, such as http://gpu-box:8000/v1. The variable is required. Lawcheck sends the server the request of `openai`. If the environment holds `LAWCHECK_REVIEWER_KEY`, Lawcheck sends it as `authorization: Bearer <key>`. This provider never reads `OPENAI_API_KEY`.
 
 ## ollama
 
@@ -87,7 +87,7 @@ Lawcheck runs `copilot mcp list --json` once a run. It switches off each server 
 
 `LAWCHECK_REVIEWER_ENDPOINT` sets the base address for all five HTTP providers, in place of their own. It holds an `http:` or `https:` address, and Lawcheck refuses one with a user, a password, a query or a fragment. Lawcheck drops the `/` at the end of the address, if there is one. Then it adds the path of the provider:
 
-- `openai` and `openai-compatible` add `/chat/completions`, so a server that answers under `/v1` takes http://localhost:8000/v1;
+- `openai` and `openai-compatible` add `/chat/completions`, so a server that answers under `/v1` takes http://gpu-box:8000/v1;
 - `anthropic` adds `/messages`, as it does to its own https://api.anthropic.com/v1;
 - `google` adds `/models/<model>:generateContent`;
 - `ollama` adds `/api/chat`, so its address is the server alone, such as http://gpu-box:11434.
