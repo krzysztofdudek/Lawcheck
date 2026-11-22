@@ -2,7 +2,7 @@
 
 Lawcheck 0.1.0-alpha.2 reads the code with Runes 1.2.0. Runes is the parsing library that finds the [uses](concepts.md#use) of each file. alpha.2 finds uses that 0.1.0-alpha.1 missed, such as a `vi.mock` of a file of another layer. Lawcheck judges those uses against `may_use`. A branch that passed on alpha.1 can then fail on alpha.2, at a line that the branch did not touch.
 
-At the end of this guide, alpha.2 runs and the new findings are listed. You change the law or the code so that the next change passes.
+At the end of this guide, alpha.2 runs. `lawcheck check --full` has listed its new findings. You have changed the law or the code so that the next change passes.
 
 ## Changes in the results
 

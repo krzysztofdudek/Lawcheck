@@ -507,7 +507,7 @@ A script rule is about to run. A link that git tracks leads outside the git work
 
 **Typical cause**
 
-A committed link to a shared folder beside the repository, or to a folder in your home.
+The repository holds a committed link to a shared folder beside it, or to a folder in your home.
 
 **Fix**
 
@@ -533,7 +533,7 @@ A script rule is about to run. The path of the repository or of Lawcheck holds a
 
 **Typical cause**
 
-A folder named with a `*`, such as `zone*`, in the path of the repository or of the Lawcheck installation.
+A folder in the path of the repository or of the Lawcheck installation has a `*` in its name, such as `zone*`.
 
 **Fix**
 
@@ -695,7 +695,7 @@ next: reinstall Lawcheck; a grammar it ships cannot be loaded
 
 **Meaning**
 
-You asked for reviews, and `.lawcheck/config.yaml` names no reviewer.
+You asked for reviews. `.lawcheck/config.yaml` names no reviewer.
 
 **Typical cause**
 
@@ -1032,7 +1032,7 @@ lawcheck: PASS  1 warning in 1 changed file (against main)
 
 **Meaning**
 
-A waiver names no rule of the law, so it waives nothing.
+A waiver names no rule of the law. It waives nothing.
 
 **Typical cause**
 

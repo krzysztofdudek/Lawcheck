@@ -33,7 +33,7 @@ Lawcheck takes the merge base of `HEAD` and the base. The merge base is the newe
 
 - a file committed on this branch, staged, modified, or new and not ignored, is in the change;
 - a deleted file is not;
-- a renamed file is changed under its new path;
+- a renamed file counts as changed under its new path;
 - a change of mode alone counts;
 - an edit of a file marked `assume-unchanged` or `skip-worktree` counts. `git diff` does not show such an edit.
 
@@ -41,7 +41,7 @@ A rule judges the changed files it binds. Lawcheck judges a changed file whole. 
 
 Lawcheck runs git with settings that start no program the repository names: no `core.fsmonitor` program, no hook, no external diff, no `textconv` and no filter. Settings you pass to git yourself, through `GIT_CONFIG_PARAMETERS` or `git -c` in an alias, take effect. A program that such a setting names can run.
 
-Git reads some files through a filter, such as the files of Git LFS. Lawcheck compares such a file as its bytes on disk. When the file's time no longer matches git's index, the file can count as changed.
+Git reads some files through a filter, such as the files of Git LFS. Lawcheck compares such a file as its bytes on disk. If the file's time no longer matches git's index, the file can count as changed.
 
 ## --full and debt
 

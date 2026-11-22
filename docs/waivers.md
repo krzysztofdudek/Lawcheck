@@ -47,7 +47,7 @@ No other code takes a waiver, such as `uses-not-read`, `not-reviewed` or the thr
 | `waiver-without-reason` | the rule is known, and no `--` follows it, or nothing follows the `--` | error |
 | `waiver-unused` | a counted waiver dropped no finding | warning |
 
-A waiver with either of the first two codes waives nothing. Lawcheck reports all three codes at the waiver's line, and no waiver can drop them. Outside the change, these findings are [debt](concepts.md#debt), so they are warnings.
+A waiver with either of the first two codes waives nothing. Lawcheck reports all three codes at the waiver's line. No waiver can drop them. Outside the change, these findings are [debt](concepts.md#debt). A finding of debt is a warning.
 
 Lawcheck has no waiver for a range of lines or for a whole file. `lawcheck-waive-file`, like any word joined to the marker, is `waiver-unknown-rule`.
 
@@ -57,6 +57,6 @@ A waiver of a [reviewer rule](concepts.md#reviewer-rule) never gets `waiver-unus
 
 Lawcheck counts each waiver that has a known rule and a reason, whether it dropped a finding or not. The first line of `check` counts the waivers of the changed files. Under `--full`, the debt heading counts the waivers of the other files. In JSON, `waivers` lists each waiver with `file`, `line`, `rule`, `reason` and `waived`. `waived` holds the number of findings the waiver dropped.
 
-When a change edits the law and adds a waiver, `check` prints a note that names the waiver (`lawcheck docs change`). `lawcheck explain <path>` lists the counted waivers of a file. `lawcheck try` counts the findings that waivers dropped in its run.
+If a change edits the law and adds a waiver, `check` prints a note that names the waiver (`lawcheck docs change`). `lawcheck explain <path>` lists the counted waivers of a file. `lawcheck try` counts the findings that waivers dropped in its run.
 
 Next: [What a check judges](change.md)

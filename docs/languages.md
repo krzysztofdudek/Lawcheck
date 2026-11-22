@@ -1,8 +1,8 @@
 # Languages and uses
 
-A file of the domain layer imports a file of the command layer, and the law forbids that [use](concepts.md#use). A type's `may_use` list names the types its files may use. A file's list in force is the list of its own type, or of the nearest type above it that has one. `lawcheck check` reads the uses of each judged file that has a list in force. It reports each use that the list does not allow as `forbidden-use`.
+A file of the domain layer imports a file of the command layer. The law forbids that [use](concepts.md#use). A type's `may_use` list names the types its files may use. A file's list in force is the list of its own type, or of the nearest type above it that has one. `lawcheck check` reads the uses of each judged file that has a list in force. It reports each use that the list does not allow as `forbidden-use`.
 
-A reader is the part of Lawcheck that parses the files of one language and reports their uses. The readers come from Runes, the parsing library that Lawcheck depends on. Each reader loads a grammar. A grammar is a file that describes the syntax of one language, and Lawcheck's installation holds 13 of them.
+A reader is the part of Lawcheck that parses the files of one language and reports their uses. The readers come from Runes, the parsing library that Lawcheck depends on. Each reader loads a grammar. A grammar is a file that describes the syntax of one language. Lawcheck's installation holds 13 grammars.
 
 ## The languages whose uses are read
 
@@ -44,7 +44,7 @@ A reader reports no dynamic form of a use, such as `import()` of a variable, `im
 
 ## Languages that read other files' declarations
 
-Java, Kotlin, C#, Ruby and Rust bind a name through what other files declare. The readers take these languages in four groups: Java with Kotlin, C#, Ruby, and Rust. When a run reads the uses of one file of a group, it reads the declarations of every file of that group in the repository. It reads them in files with a type and in files without one. Such a run costs the most in Java. Lawcheck sets no limit on what a file with syntax errors costs, whatever its size.
+Java, Kotlin, C#, Ruby and Rust bind a name through what other files declare. The readers take these languages in four groups: Java with Kotlin, C#, Ruby, and Rust. A run that reads the uses of one file of a group reads the declarations of every file of that group in the repository. It reads them in files with a type and in files without one. Such a run costs the most in Java. Lawcheck sets no limit on what a file with syntax errors costs, whatever its size.
 
 The readers of the other languages resolve a use by its path. The readers consult files such as `tsconfig.json`, `go.mod` and `composer.json` to do it.
 
@@ -84,9 +84,9 @@ The readers report two kinds of `#include` as `unfollowed`. The first is a quote
 ## Known limits
 
 - Java, Kotlin and C#: a library can declare a name into a package or namespace of the repository. The readers count that name as the repository's. Its use is then `unfollowed`.
-- Java: a class can inherit a member type from a supertype outside the repository, such as `Entry` of a class that extends `java.util.AbstractMap`. The readers count that member type as outside the repository. When the class's package declares a type of the same name, that type takes the use instead.
-- Java and Kotlin: an annotation processor is a tool that the compiler runs to generate code. It can generate a type into the file's own package, such as `AutoValue_Use` or `DaggerAppComponent`. A star import, such as `import java.util.*;`, brings in every name of a package. When a star import of a library could give the generated type's simple name, the readers count the type as outside. Lawcheck then drops a use of it and counts nothing. Without such a star import, the use is `unfollowed`.
-- Go: the files of one package can have more than one type. An import of such a package is `ambiguous`, and its `candidates` are the package's files.
+- Java: a class can inherit a member type from a supertype outside the repository, such as `Entry` of a class that extends `java.util.AbstractMap`. The readers count that member type as outside the repository. If the class's package declares a type of the same name, that type takes the use instead.
+- Java and Kotlin: an annotation processor is a tool that the compiler runs to generate code. It can generate a type into the file's own package, such as `AutoValue_Use` or `DaggerAppComponent`. A star import, such as `import java.util.*;`, brings in every name of a package. If a star import of a library could give the generated type's simple name, the readers count the type as outside. Lawcheck then drops a use of it and counts nothing. Without such a star import, the use is `unfollowed`.
+- Go: the files of one package can have more than one type. An import of such a package is `ambiguous`. Its `candidates` are the package's files.
 - TypeScript: the readers read the `types@<range>` export keys of a package the way TypeScript 7.0.2 reads them.
 - C#: a class can inherit a member from a base class outside the repository, such as `ControllerBase.User`. A type of the repository with the member's name then takes the use.
 - Rust `[patch]`: the readers compare no versions. The readers read no `exclude` and no `package.workspace` of a workspace. The readers match a GitHub URL as the manifest writes it.
@@ -106,13 +106,13 @@ Lawcheck neither judges nor counts a use that a reader misses. The output shows 
 
 ## uses-not-read
 
-Lawcheck has no reader for some text files, such as `.json`. When such a file has a `may_use` list in force, Lawcheck cannot check its uses against the list. It warns with `uses-not-read`, so that it does not show the list as kept:
+Lawcheck has no reader for some text files, such as `.json`. If such a file has a `may_use` list in force, Lawcheck cannot check its uses against the list. It warns with `uses-not-read`, so that it does not show the list as kept:
 
 ```text
 .lawcheck/law.yaml:4  warning[uses-not-read]  1 file of type domain is not read for uses: 1 .json
 ```
 
-Lawcheck gives this warning once per type, at the type's line in the law. It counts the files by extension. The warning never fails a run, and a waiver cannot drop it. To clear it, narrow the type's `paths` to files with a reader, or give the other files a type without a list. `lawcheck doctor` counts these files in its `readers` check.
+Lawcheck gives this warning once per type, at the type's line in the law. It counts the files by extension. The warning never fails a run. A waiver cannot drop it. To clear it, narrow the type's `paths` to files with a reader, or give the other files a type without a list. `lawcheck doctor` counts these files in its `readers` check.
 
 Lawcheck does not read a file over 512 KiB for its uses. In Java, Kotlin, C#, Ruby and Rust, it does not read such a file for what it declares either. The file gets `uses-not-read` at its own path, whether it has a type or not. In the change, that finding is an error. In [debt](concepts.md#debt), it is a warning.
 

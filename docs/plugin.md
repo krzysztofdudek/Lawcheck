@@ -101,7 +101,7 @@ A hook that fails inside itself prints `lawcheck plugin:` and the cause on stand
 
 ## The settings
 
-The plugin has two settings, and both are on by default:
+The plugin has two settings. Both are on by default:
 
 | Setting | Its title in Claude Code | With it off |
 |---|---|---|

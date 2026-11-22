@@ -22,7 +22,7 @@ Lawcheck sends `POST <address>/models/<model>:generateContent` to https://genera
 
 ## openai-compatible
 
-This provider calls any server that answers chat completions. Lawcheck sends that server the request of `openai`. The provider needs the server's address in `LAWCHECK_REVIEWER_ENDPOINT`. When `LAWCHECK_REVIEWER_KEY` is set, Lawcheck sends it as `authorization: Bearer <key>`. This provider never reads `OPENAI_API_KEY`.
+This provider calls any server that answers chat completions. Lawcheck sends that server the request of `openai`. The provider needs the server's address in `LAWCHECK_REVIEWER_ENDPOINT`. If the environment holds `LAWCHECK_REVIEWER_KEY`, Lawcheck sends it as `authorization: Bearer <key>`. This provider never reads `OPENAI_API_KEY`.
 
 ## ollama
 
@@ -68,13 +68,13 @@ Lawcheck runs `copilot --silent` with no questions, no custom instructions, no t
 - it reads no reply over 4 MiB;
 - it refuses an address that holds a user or a password.
 
-When a request fails, the message names the fix for its HTTP status. For HTTP 401, the fix is the key.
+A failed request gets a message that names the fix for its HTTP status. For HTTP 401, the fix is the key.
 
 ## The programs
 
 Lawcheck finds the program on `PATH` and starts it with no shell. The program runs in a new empty folder. Lawcheck removes that folder after the call. Lawcheck writes the prompt to the program's standard input.
 
-Lawcheck passes `--model` when `model` is set. Without `model`, the program runs its own default model. A call has 300 seconds by default. `parallel` is 1 by default. Lawcheck refuses a `temperature` for a program, because the program runs at its own.
+Lawcheck passes `--model` if the config sets `model`. Without `model`, the program runs its own default model. A call has 300 seconds by default. `parallel` is 1 by default. Lawcheck refuses a `temperature` for a program. The program runs at its own temperature.
 
 An exit code other than 0 counts as a failure. The last line of the program's standard error becomes the message of that failure. After the timeout, Lawcheck ends the program and every process it started.
 
@@ -85,7 +85,7 @@ The program gets your environment with two changes:
 
 ## Where a key goes
 
-A key goes only to the address it was given for:
+Lawcheck sends a key only to the address that the key belongs to:
 
 - with `LAWCHECK_REVIEWER_ENDPOINT` set, `anthropic`, `openai` and `google` send `LAWCHECK_REVIEWER_KEY` alone;
 - without it, each sends its own variable, else `LAWCHECK_REVIEWER_KEY`, to its own address;
