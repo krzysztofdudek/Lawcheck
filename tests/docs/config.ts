@@ -9,8 +9,8 @@ const READ = 'tests/acceptance/docs.test.ts > test 129: every page holds what se
 
 export const claims: Claims = {
   'block 1 under "Settings"': READ,
-  'block 1 under "Keys of reviewer"': READ,
-  'block 2 under "Keys of reviewer"': READ,
+  'block 1 under "reviewer"': READ,
+  'block 2 under "reviewer"': READ,
   'block 1 under "What is refused"': SCENARIO,
   'block 2 under "What is refused"': SCENARIO,
   'block 3 under "What is refused"': SCENARIO,
