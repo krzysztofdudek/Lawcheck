@@ -1,8 +1,8 @@
 # A law shared by a team
 
-Two developers record reviews on two branches, and both branches add lines to `.lawcheck/verdicts`. The merge keeps both, so you do not ask the reviewer again for a file your teammate already paid to review. The [law](concepts.md#law), the [rules](concepts.md#rule), the settings and the [verdicts](concepts.md#verdict) live in git, and every clone checks against the same law.
+Two developers record reviews on two branches. Both branches add lines to `.lawcheck/verdicts`. Git keeps the lines of both branches in the merge. You do not pay the reviewer again for a file that your teammate's review covers. The [law](concepts.md#law), the [rules](concepts.md#rule), the settings and the [verdicts](concepts.md#verdict) are files in git. Every clone checks against the same law.
 
-The outputs below come from a repository with this law, a [reviewer rule](concepts.md#reviewer-rule) in `.lawcheck/rules/clear-errors.md` ([Reviewer rules](reviewer-rules.md)), and a `main` that holds the law and no code:
+The outputs below come from a repository with this law. Its [reviewer rule](concepts.md#reviewer-rule) is the file `.lawcheck/rules/clear-errors.md` ([Reviewer rules](reviewer-rules.md)). Its `main` holds the law and no code:
 
 ```yaml
 lawcheck: 0.1.0
@@ -28,7 +28,7 @@ reviewer:
   model: your-model-id
 ```
 
-Lawcheck takes the key from the environment alone. Each developer sets `ANTHROPIC_API_KEY` on their own machine. A key written into `.lawcheck/config.yaml` is `config-invalid` ([Reviewers and keys](providers.md)).
+Lawcheck takes the key from the environment alone. Each developer sets `ANTHROPIC_API_KEY` on their own machine. Lawcheck refuses a key written into `.lawcheck/config.yaml` with `config-invalid` ([Reviewers and keys](providers.md)).
 
 ## 2. See the files with no verdict
 
@@ -47,7 +47,7 @@ src/core/refund.ts  error[not-reviewed]  clear-errors has no verdict for this co
 next: lawcheck check --review --base main  (1 reviewer call)
 ```
 
-A CI job prints the same, and fails, for a file whose review nobody committed.
+A CI job prints the same lines and fails when the committed `.lawcheck/verdicts` holds no review of the file.
 
 ## 3. Record the reviews before you push
 
@@ -71,17 +71,17 @@ $ git status --short --ignored .lawcheck
 !! .lawcheck/.local/
 ```
 
-Commit `.lawcheck/verdicts` and `.lawcheck/.gitattributes` with the code. `.lawcheck/verdicts` holds one line per pass. `.lawcheck/.gitattributes` holds `verdicts merge=union`, so a merge keeps the lines of both branches. `.lawcheck/.local/` holds the fails this machine cached, and git ignores it.
+Commit `.lawcheck/verdicts` and `.lawcheck/.gitattributes` with the code. `.lawcheck/verdicts` holds one line per pass. `.lawcheck/.gitattributes` holds `verdicts merge=union`. With that line, git keeps the lines of both branches when it merges the file. `.lawcheck/.local/` holds the failed reviews that this machine keeps. Git ignores that folder.
 
 ## 5. Merge two branches that both recorded reviews
 
-A teammate recorded the review of `src/core/price.ts` on the branch `price`. On `main`, after you merged `refund`:
+A teammate recorded the review of `src/core/price.ts` on the branch `price`. You merged `refund` into `main`. On `main`, merge `price`:
 
 ```text
 $ git merge price
 ```
 
-Git keeps the lines of both branches, and the merge goes through.
+Git keeps the lines of both branches. The merge goes through without a conflict.
 
 ## 6. See the teammate's review on main
 
@@ -99,11 +99,11 @@ src/core/price.ts
   waivers:  none
 ```
 
-`reviewed` says that `.lawcheck/verdicts` holds the pass for this content. A CI job reads it and calls no reviewer ([CI and git hooks](ci.md)).
+The word `reviewed` says that `.lawcheck/verdicts` holds the pass for this content of the file. A CI job reads that pass and calls no reviewer ([CI and git hooks](ci.md)).
 
 ## A conflict in the verdicts file
 
-A merge stops with a conflict in `.lawcheck/verdicts` when `.lawcheck/.gitattributes` was never committed. Git then shows the lines of both branches between conflict markers.
+If the repository has no committed `.lawcheck/.gitattributes`, git stops the merge with a conflict in `.lawcheck/verdicts`. Git then shows the lines of both branches between conflict markers.
 
 ### 1. Write the attribute
 
@@ -119,7 +119,7 @@ verdicts merge=union
 $ git checkout -m .lawcheck/verdicts
 ```
 
-Git merges the file again with the attribute, and keeps every line of both branches without markers.
+Git merges the file again with the attribute. It keeps every line of both branches, with no conflict markers.
 
 ### 3. Commit the merge
 
@@ -132,12 +132,12 @@ $ git commit --no-edit
 
 ## A change of the law
 
-A [change](concepts.md#change) that edits the law or a rule file changes the law every developer checks against. `lawcheck check` says so under its first line ([What a check judges](change.md)), and the CI job checks such a change a second time with the law of its base ([CI and git hooks](ci.md)). Lawcheck does not choose who reviews the change. On GitHub, a code owner for `.lawcheck/` and a required review make a person approve every change of the law.
+A [change](concepts.md#change) that edits the law or a rule file changes the law that every developer checks against. `lawcheck check` says so in a note under its first line ([What a check judges](change.md)). The CI job checks such a change a second time, with the law of its base ([CI and git hooks](ci.md)). Lawcheck does not choose who reviews the change. On GitHub, a code owner for `.lawcheck/` and a required review make a person approve each change of the law.
 
 ## If it goes wrong
 
-- `config-invalid` at the line of `keys`: someone wrote a key into `.lawcheck/config.yaml`. The key goes in the environment, so take that line out.
-- A teammate's check shows `not-reviewed` for a file you reviewed. The file, the text or `why` of the rule, or a file its `context` names changed after your review, or you did not push `.lawcheck/verdicts`. Run `lawcheck check --review` again and commit the file.
-- A review failed on your machine, and your teammate sees `not-reviewed`. A fail stays in `.lawcheck/.local/` of the machine that asked, and only a pass goes into `.lawcheck/verdicts`.
+- `config-invalid` at the line of `keys`: someone wrote a key into `.lawcheck/config.yaml`. Remove that line, and set the key in the environment.
+- A teammate's check shows `not-reviewed` for a file you reviewed. You did not push `.lawcheck/verdicts`, or one of these changed after your review: the file, the text or `why` of the rule, or a file that the rule's `context` names. The key `context` of a rule names files that the reviewer reads with each file it judges. Run `lawcheck check --review` again, and commit `.lawcheck/verdicts`.
+- A review failed on your machine, and your teammate sees `not-reviewed`. Lawcheck keeps a failed review in `.lawcheck/.local/` of the machine that ran it. It writes a pass alone into `.lawcheck/verdicts`.
 
 Next: [A monorepo](monorepo.md)
