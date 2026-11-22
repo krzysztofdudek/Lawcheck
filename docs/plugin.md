@@ -28,7 +28,7 @@ Exit 0 says nothing, warnings included. Exit 1 hands the output to the agent und
 
 ## Before finishing
 
-The files of the turn are the files that changed since the prompt, and the files of commits made during the turn. A file the user's editor wrote during the turn counts as the turn's. A turn that never reached its end, because the user stopped it or an error ended it, is checked with the next one. Without a state, the hook checks every file that differs from `HEAD` and the untracked ones, and sends the agent back at most once.
+The files of the turn are the files that changed since the prompt, and the files of commits made during the turn. A file the user's editor wrote during the turn counts as the turn's. A turn that never reached its end, because the user stopped it or an error ended it, is checked with the next one. When the plugin has no record of the turn's start, the hook checks every file that differs from `HEAD` and the untracked ones, and sends the agent back at most once.
 
 - Exit 0: the agent finishes.
 - Exit 1: the hook sends the agent back with the output, to fix the code or to tell the user what blocks it. It does this at most three times in a turn, and never twice in a row for the same output. Then it lets the agent finish and tells the user that the check still fails.
@@ -42,6 +42,7 @@ This check judges the files of the turn, not the change against a base. It never
 A notice goes to the user, never to the agent. The check before finishing sends one in these cases, and only the first notice of a session is shown:
 
 - Lawcheck is not installed, or the runner's program is missing;
+- the runner printed an error, or ended with no Lawcheck result;
 - the project's Lawcheck is older than `check <paths>`;
 - a check did not finish within its time;
 - git could not list the files of the turn;
