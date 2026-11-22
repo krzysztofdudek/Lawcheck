@@ -35,7 +35,7 @@ In Claude Code, the Lawcheck plugin runs this check after each edit and before t
 
 ## Try it
 
-Lawcheck is an alpha under the MIT license. It needs Node 24 or later and git 2.34 or later. Lawcheck sends code only to a model you ask to judge a rule written in prose. A script rule is your repository's own code and can do anything that code can. The quick start takes a new repository to its first finding in five steps, with no model and no key:
+Lawcheck is an alpha under the MIT license. It needs Node 24 or later and git 2.34 or later. Lawcheck sends code only to a model you ask to judge a rule written in prose. A script rule is your repository's own code: it can read every file under the root and open a network connection. The quick start takes a new repository to its first finding in five steps, with no model and no key:
 
 ```text
 npm install --global lawcheck@alpha
