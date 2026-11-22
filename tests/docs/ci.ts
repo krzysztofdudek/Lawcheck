@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { appendFileSync, chmodSync } from 'node:fs';
 import { join } from 'node:path';
 import { anthropic, defaultAnswer, withFake } from '../acceptance/fake-reviewer.ts';
@@ -19,6 +19,8 @@ export const claims: Claims = {
   'block 2 under "5. Give the base on another CI service"': SCENARIO,
   'block 3 under "5. Give the base on another CI service"': SCENARIO,
   'block 4 under "5. Give the base on another CI service"': SCENARIO,
+  'block 1 under "6. Give the base on GitLab CI"': SCENARIO,
+  'block 1 under "7. Give the base on Azure Pipelines"': SCENARIO,
   'block 1 under "Reviewer rules in CI"': SCENARIO,
   'block 1 under "1. Record the reviews before you push"': SCENARIO,
   'block 2 under "1. Record the reviews before you push"': SCENARIO,
@@ -78,6 +80,32 @@ function job(dir: string, files: Record<string, string>): string {
 }
 
 export async function scenario(page: Page): Promise<void> {
+  await inTemp(async (dir) => {
+    const origin = newRepository(join(dir, 'origin'), { '.lawcheck/law.yaml': LAW, '.lawcheck/rules/no-console.mjs': NO_CONSOLE, '.gitignore': 'node_modules/\n' });
+    git(origin, 'checkout', '-q', '-b', 'work');
+    write(origin, 'src/core/total.ts', TOTAL);
+    git(origin, 'add', '-A');
+    git(origin, 'commit', '-q', '-m', 'total');
+    const services: [step: string, clone: string[], env: NodeJS.ProcessEnv][] = [
+      ['6. Give the base on GitLab CI', ['--single-branch', '--branch', 'work'], { GITLAB_CI: 'true', CI_MERGE_REQUEST_TARGET_BRANCH_NAME: 'main' }],
+      ['7. Give the base on Azure Pipelines', ['--branch', 'work'], { TF_BUILD: 'True', SYSTEM_PULLREQUEST_TARGETBRANCH: 'refs/heads/main' }],
+      ['7. Give the base on Azure Pipelines', ['--branch', 'work'], { TF_BUILD: 'True', SYSTEM_PULLREQUEST_TARGETBRANCH: 'main' }],
+    ];
+    for (const [at, [step, options, env]] of services.entries()) {
+      const clone = join(dir, `job-${at}`);
+      git(dir, 'clone', '-q', ...options, origin, clone);
+      if (step.includes('GitLab')) assert.throws(() => git(clone, 'rev-parse', '--verify', '-q', 'origin/main'), 'the job fetched its own branch alone');
+      // A stand-in for the dev dependency, so npx --no-install starts the built tool with no network.
+      write(clone, 'node_modules/lawcheck/package.json', JSON.stringify({ name: 'lawcheck', version: '0.0.0', bin: { lawcheck: 'cli.js' } }));
+      write(clone, 'node_modules/.bin/lawcheck', `#!/bin/sh\nexec "${process.execPath}" "${CLI}" "$@"\n`);
+      chmodSync(join(clone, 'node_modules/.bin/lawcheck'), 0o755);
+      const job = spawnSync('sh', ['-c', page.text(`block 1 under "${step}"`)], { cwd: clone, env: { ...GIT_ENV, npm_config_update_notifier: 'false', ...env }, encoding: 'utf8' });
+      assert.equal(job.status, 1, `${step}\n${job.stdout}${job.stderr}`);
+      assert.equal(job.stdout.split('\n')[0], 'lawcheck: FAIL  1 error in 1 changed file (against origin/main)', step);
+      assert.match(job.stdout, /^src\/core\/total\.ts:2  error\[no-console\]/m, step);
+    }
+  });
+
   const exclude = /^echo (\S+) >> (\S+)$/.exec(page.text('block 1 under "4. Keep cache folders out of the change"'));
   assert.ok(exclude, 'the block appends one line to a file');
   await inTemp(async (dir) => {
