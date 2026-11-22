@@ -113,7 +113,7 @@ export function answerProperties(speed: Speed): Record<string, () => unknown> {
     );
   });
 
-  // Question 82 is open: a fail followed by a pass reads today as the last one, and the owner may make it a fail or a bad answer, so that order is asserted in no way. A pass followed by a fail reads as the fail under every option: today the last one wins, option A makes a disagreement a fail, and option B a bad answer.
+  // Which of two verdict objects that disagree wins is not decided yet (promise I-answer-1 of design/promises.md): a fail followed by a pass reads today as the last one, and the owner may make it a fail or a bad answer, so that order is asserted in no way. A pass followed by a fail reads as the fail under every option: today the last one wins, option A makes a disagreement a fail, and option B a bad answer.
   test('I-answer-1: S3-4, two verdict objects that agree give their verdict, and a pass followed by a fail is never read as a pass', () => {
     const prose = fc.constantFrom('', 'Verdict: ', ' I would have answered ', '\n\nIf the file kept the rule: ');
     const orders = fc.constantFrom<[string, string]>([PASS, PASS], [FAIL, FAIL], [PASS, FAIL]);

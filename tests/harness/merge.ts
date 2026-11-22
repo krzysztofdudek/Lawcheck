@@ -135,7 +135,7 @@ export function profile(system: string, shards: Shard[], sinceRun: number | null
 
 export type Judge = typeof judgeRun;
 
-// The ledger tie checks the whole commit set, so only the merged run of a system that runs all of it per push is judged with it; the selection of Windows and macOS, and any single shard, would read as tests gone missing.
+// The run-time tie of decision 79 (tests/contract/tie.ts) checks the whole commit set, so only the merged run of a system that runs all of it per push is judged with it; the selection of Windows and macOS, and any single shard, would read as tests gone missing.
 export function tied(system: System, files: string[]): boolean {
   return perPushTests(system, files) === null;
 }

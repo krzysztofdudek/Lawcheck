@@ -18,7 +18,7 @@ interface Setup {
   files?: Record<string, string>;
 }
 
-// Windows refuses control characters and these in a file name; the design filters such names by platform and prints the count.
+// Windows refuses control characters and these in a file name; this file filters such names by platform and prints the count.
 const REFUSED = process.platform === 'win32' ? /[\x00-\x1f:*?"<>|]/ : /\x00/;
 
 function onThisSystem(names: string[]): string[] {

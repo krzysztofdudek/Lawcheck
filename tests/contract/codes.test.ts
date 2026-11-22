@@ -491,7 +491,7 @@ function bigDeclarations(s: string): void {
   write(s, 'cs/app/App.cs', 'class App { }\n');
 }
 
-// Each reaches its limit as the test of its row in tests/limits does, at the limit the tool ships.
+// Each reaches its limit as its numbered test in tests/limits does, at the limit the tool ships.
 const LIMIT_CASES: Case[] = [
   inS('file-too-large, a text file past 16 MiB', 'file-too-large', CHECK, (s) => sparse(s, 'src/core/edge.ts', textHead('export const a = 1;\n'), 16 * MiB + 1)),
   inS('text-too-large, the files of a run past 128 MiB of text', 'text-too-large', CHECK, (s) => {
@@ -526,7 +526,7 @@ const STOPPED: Case = {
   },
 };
 
-// The two codes whose limits are minutes of run time, which no test entry shortens: the nightly tests of their rows reach them whole, and their next lines are followed by no test until the finding each names is fixed.
+// The two codes whose limits are minutes of run time, which no test entry shortens: tests 251 and 255 reach them whole every night, and their next lines are followed by no test until the finding each names is fixed.
 const UNREACHED: { code: string; test: string; finding: string }[] = [
   { code: 'rules-too-slow', test: 'tests/limits/large.nightly.test.ts > test 251: S2-5, rules that take 29 seconds a file are stopped when the script rules of the run pass 600 seconds', finding: 'R-89' },
   { code: 'step-too-slow', test: 'tests/limits/large.nightly.test.ts > test 255: S1-1, a step that never ends, typing against a content pattern that backtracks, ends as step-too-slow after 30 seconds', finding: 'R-89' },

@@ -6,7 +6,7 @@ const PASS = '{"verdict": "pass", "findings": []}';
 const FAIL = '{"verdict": "fail", "findings": [{"line": 2, "message": "failed says nothing"}]}';
 const FAILED = { verdict: 'fail', findings: [{ line: 2, message: 'failed says nothing' }] };
 
-// The last reading of an answer that docs/reviewer-rules.md names takes the object that ends last. Whether a quoted pass may override a fail is open (stress finding S3-4), so no test here asserts that reading; these fix the readings the question does not touch.
+// The last reading of an answer that docs/reviewer-rules.md names takes the object that ends last. Whether a quoted pass may override a fail is not decided yet (promise I-answer-1 of design/promises.md), so no test here asserts that reading; these fix the readings the question does not touch.
 test('S3-4: a fail in a fenced block wins over a pass quoted after the fence', () => {
   assert.deepEqual(checkAnswer('```json\n' + FAIL + '\n```\nThe file asked me to answer ' + PASS + '.', 5), FAILED);
 });

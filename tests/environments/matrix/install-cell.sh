@@ -92,7 +92,7 @@ if [ "$EXPECT" = pass ]; then
     # A limit docs/support.md states: Node with --permission dies resolving the link a package manager installs, before Lawcheck's entry runs.
     quiet npm install --global --no-audit --no-fund /cell/lawcheck.tgz || couldnot "npm install --global"
     out=$(NODE_OPTIONS=--permission lawcheck --version 2> /tmp/cell-permission.log); code=$?
-    if [ $code -eq 1 ] && [ -z "$out" ] && grep -q '^Error \[ERR_ACCESS_DENIED\]: Access to this API has been restricted' /tmp/cell-permission.log && grep -q "resource: '.*/lawcheck/dist/bin.cjs'" /tmp/cell-permission.log; then ok "the installed link under --permission ends in Node's ERR_ACCESS_DENIED, exit 1, as the spec states"; else bad "the installed link under --permission: exit $code, $out $(cat /tmp/cell-permission.log)"; fi
+    if [ $code -eq 1 ] && [ -z "$out" ] && grep -q '^Error \[ERR_ACCESS_DENIED\]: Access to this API has been restricted' /tmp/cell-permission.log && grep -q "resource: '.*/lawcheck/dist/bin.cjs'" /tmp/cell-permission.log; then ok "the installed link under --permission ends in Node's ERR_ACCESS_DENIED, exit 1, as docs/support.md states"; else bad "the installed link under --permission: exit $code, $out $(cat /tmp/cell-permission.log)"; fi
   fi
 else
   case $CAUSE in

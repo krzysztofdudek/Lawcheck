@@ -543,7 +543,7 @@ export function sectionLabels(readme: string): Set<string> {
   return out;
 }
 
-// Decisions 95 and 160 of design/decisions.md say that no feature of the tool describes what their tests check, the suite's own machinery and the repository's own law, so no test number, promise or finding can carry those tests: one that cites only its entry, in the files of that machinery, is outside the count of tests that cite only a section.
+// Decision 96 of design/decisions.md: decisions 95 and 160 say that no feature of the tool describes what their tests check, the suite's own machinery and the repository's own law, so no test number, promise or finding can carry those tests: one that cites only its entry, in the files of that machinery, is outside the count of tests that cite only a section.
 export const NO_ROW_QUESTIONS: Record<number, RegExp> = { 95: /^tests\/(contract|guard|sabotage)\//, 160: /^tests\/acceptance\/self-law[\w-]*\.test\.ts$/ };
 
 export function problemsOf(input: Inputs): string[] {

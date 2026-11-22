@@ -71,7 +71,7 @@ if (process.argv[1] !== undefined && realMain(process.argv[1]) === import.meta.f
     renderRed(red),
     '3. Mutants on the changed lines',
     '',
-    'not built yet: layer 9 comes after the Stryker spike. Until then the reviewer\'s own break of section 18 stands in for it.',
+    'not built yet: the mutants group of tests/harness/sets.ts is empty. Until it holds tests, the reviewer breaks each changed line by hand and checks that a test turns red, as tests/sabotage/list.json does for its entries.',
     '',
     '4. The suite guard, taken from the base',
     '',

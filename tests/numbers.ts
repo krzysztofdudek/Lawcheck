@@ -13,7 +13,7 @@ export const CASES_PURE = 100;
 export const CASES_TOOL = 25;
 export const CASES_LOOP = 25;
 
-// The default stays 20 s, the design's budget per test (section 15): most tests take under a second on every system, and a test that needs more says so in SLOW_TESTS with its measured times.
+// The default stays 20 s, the budget of harness-6 for a test with no entry in SLOW_TESTS: most tests take under a second on every system, and a test that needs more says so in SLOW_TESTS with its measured times.
 export const TEST_BUDGET_MS = 20_000;
 export const RUN_BUDGET_MS = 20_000;
 export const LOOP_TARGET_MS = 30_000;
@@ -62,13 +62,13 @@ export const SHARED_TIMEOUT_S = 4;
 export const LIST_DELAY_MS = 2_000;
 export const LATE_ANSWER_MS = 3_000;
 
-// Rule 7 of section 16 of the test design: a time budget is at least 20 times the measured time.
 // The runs of the limits tests, tests/limits: a run at a limit of the table in docs/config.md; a nightly run of the large inputs; a nightly run that waits for the 600 seconds the script rules of a run may take; and the two seconds a run has to answer a signal.
 export const LIMITS_RUN_MS = 120_000;
 export const LIMITS_LARGE_RUN_MS = 300_000;
 export const LIMITS_RULES_RUN_MS = 700_000;
 export const LIMITS_STOPPED_MS = 2_000;
 
+// A time budget is at least this many times the measured time (tests/README.md).
 export const SLOW_MARGIN = 20;
 
 export type System = 'linux' | 'darwin' | 'win32';
@@ -237,7 +237,7 @@ export const SLOW_TESTS: Record<string, Slow> = {
   'tests/acceptance/http-providers.test.ts > test 404: the key canary': { fixed: 0, measured: { darwin: 18_425, win32: 27_263 } },
   // A run of the tool per provider and per program.
   'tests/acceptance/http-providers.test.ts > test 405: a key under a provider name goes to that provider alone': { fixed: 0, measured: { darwin: 5_010, win32: 7_929 } },
-  // A run of the tool per case, each starting the fake program through cmd.exe on Windows. On Linux test 406 takes 11.6 to 17.5 s in every completed CI run since 43918757215, and took 29.1 s in shard 2 of CI run 44116929952, attempt 1, on Node 24.0.0 (R-115).
+  // A run of the tool per case, each starting the fake program through cmd.exe on Windows. On Linux test 406 takes 11.6 to 17.5 s in every completed CI run since 43918757215, and took 29.1 s in shard 2 of CI run 44116929952, attempt 1, on Node 24.0.0.
   'tests/acceptance/program-providers.test.ts > test 406: codex': { fixed: 0, measured: { linux: 29_147, darwin: 11_854, win32: 64_931 } },
   'tests/acceptance/program-providers.test.ts > test 407: gemini-cli': { fixed: 0, measured: { linux: 5_194, darwin: 12_728, win32: 63_443 } },
   'tests/acceptance/program-providers.test.ts > test 408: copilot-cli': { fixed: 0, measured: { linux: 6_455, darwin: 12_112, win32: 86_831 } },
@@ -315,7 +315,7 @@ export const SLOW_TESTS: Record<string, Slow> = {
   'tests/environments/ci-recipes.nightly.test.ts > tests 306 and 307: S7-1, S7-2, S7-3, S7-4, the workflow and the hooks of docs/ci.md (design tests 15 and 16), run as written on pnpm, as a pull request and as a push (network)': { fixed: 70_000, measured: { linux: 70_000 } },
   'tests/environments/git.nightly.test.ts > test 207: the check slice acceptance tests and the security tests pass on the git of ubuntu:22.04, debian:12, ubuntu:24.04 and debian:sid (network)': { fixed: 2_400_000, measured: { linux: 2_400_000 } },
   'tests/environments/ownership.nightly.test.ts > S7-15: in a container whose user does not own the checkout, check names the safe.directory command, and that command lets it through (network)': { fixed: 300_000, measured: { linux: 300_000 } },
-  // R-115: the longest time of each test on the Windows three-times jobs of the Nightlies 43899819915 to 44102549698 and of the Nightly that release run 44027365971 called (its round 1, as it was cancelled in round 2), every round included; there a system service can stall the disk and the processors for 34 to 55 seconds early in a job, and a test past 8 seconds kept too little of the default budget for it.
+  // The longest time of each test on the Windows three-times jobs of the Nightlies 43899819915 to 44102549698 and of the Nightly that release run 44027365971 called (its round 1, as it was cancelled in round 2), every round included; there a system service can stall the disk and the processors for 34 to 55 seconds early in a job, and a test past 8 seconds kept too little of the default budget for it.
   'tests/contract/codes.test.ts > tests 232, 233, 236, 241 and 277: file-too-large, text-too-large, too-many-findings, file-unwritable and memory-too-large, in text and in JSON, and the commands their next lines name': { fixed: 0, measured: { win32: 23_265 } },
   'tests/acceptance/waivers.test.ts > test 33: a waiver of an unknown rule': { fixed: 0, measured: { win32: 20_350 } },
   'tests/acceptance/reviewer.test.ts > test 55: each form of a good answer': { fixed: 0, measured: { win32: 16_453 } },
@@ -352,7 +352,7 @@ export const SLOW_TESTS: Record<string, Slow> = {
   'tests/acceptance/package.test.ts > release-readiness §Package: package: nothing the tarball or the plugin ships holds a test entry, names one or its variable, or changes the shipped limits and deadlines': { fixed: 0, measured: { win32: 8_163 } },
   'tests/acceptance/uses.test.ts > test 83: a forbidden use outside the change is debt': { fixed: 0, measured: { win32: 8_107 } },
   'tests/acceptance/rule-results.test.ts > S2-6: a rule that leaves an interval of ten minutes judges 200 files within the time of a rule that leaves nothing, plus one wait of 2 seconds': { fixed: 2_000, measured: { win32: 8_035 } },
-  // R-115, round 1: the longest time of each test that passed a fifth of TEST_BUDGET_MS with no entry for win32 on the Windows runners of CI: the three-times jobs of the Nightlies 43899819915 to 44255743291 and of the Nightly that release run 44027365971 called, every round included, and the Windows commit jobs of CI runs 43918757215 to 44254948562 and of release runs 44027365971, 44159029678 and 44174812849. In round 1 of Nightly 44255743291 a stall of the machine took test 402 from about 6 to 31.9 seconds, so a test of 4 to 8 seconds is as exposed as one past 8. Fixed waits: R-87 of the rules waits PAST_USER_SET_MS, test 58 a reviewer.timeout of 1 second, R-110 the edit hook's test deadline of 3 seconds and half a second more, R-114 a write 2 seconds after the runner has ended, test 270 a worker held 2 seconds, test 253 a lock held up to 3 seconds, and the four tests of tests/security/secrets.test.ts whose reply is first a 429 each wait the 2 seconds before the resend (docs/providers.md).
+  // The longest time of each test that passed a fifth of TEST_BUDGET_MS with no entry for win32 on the Windows runners of CI: the three-times jobs of the Nightlies 43899819915 to 44255743291 and of the Nightly that release run 44027365971 called, every round included, and the Windows commit jobs of CI runs 43918757215 to 44254948562 and of release runs 44027365971, 44159029678 and 44174812849. In round 1 of Nightly 44255743291 a stall of the machine took test 402 from about 6 to 31.9 seconds, so a test of 4 to 8 seconds is as exposed as one past 8. Fixed waits: R-87 of the rules waits PAST_USER_SET_MS, test 58 a reviewer.timeout of 1 second, R-110 the edit hook's test deadline of 3 seconds and half a second more, R-114 a write 2 seconds after the runner has ended, test 270 a worker held 2 seconds, test 253 a lock held up to 3 seconds, and the four tests of tests/security/secrets.test.ts whose reply is first a 429 each wait the 2 seconds before the resend (docs/providers.md).
   'tests/acceptance/http-providers.test.ts > test 402: ollama': { fixed: 0, measured: { win32: 31_906 } },
   'tests/acceptance/init.test.ts > test 99: JSON, usage, and already-initialized as a reserved rule id': { fixed: 0, measured: { win32: 19_941 } },
   'tests/acceptance/languages.test.ts > test 88: debt, every finding and unresolved use of L outside the change': { fixed: 0, measured: { win32: 18_315 } },
@@ -600,12 +600,12 @@ export const LIVE_FAIL_SHARE = 1;
 // One try of LIVE_TIMES calls of the real claude.
 export const LIVE_RUN_BUDGET_MS = 900_000;
 
-// Layer 2, the properties of tests/properties: the nightly run of a property goes on with a new seed until this much time has passed.
+// The nightly property files of tests/properties: the nightly run of a property goes on with a new seed until this much time has passed.
 export const NIGHTLY_MS = 120_000;
-// A match of src/**/*a*a*a*a*a*a*b.ts against a name of 240 `a`, through the matcher and through check --full (design test 4, stress finding S1-1); measured below 2 ms and 400 ms.
+// A match of src/**/*a*a*a*a*a*a*b.ts against a name of 240 `a`, through the matcher and through check --full (I-glob-1, S1-1); measured below 2 ms and 400 ms.
 export const MATCH_BUDGET_MS = 100;
 export const PATTERN_RUN_BUDGET_MS = 8_000;
-// takeAnswer on one megabyte of `{` and on 50,000 nested objects (design test 6, stress finding S3-3); measured below 30 ms.
+// takeAnswer on one megabyte of `{` and on 50,000 nested objects (I-answer-1, S3-3); measured below 30 ms.
 export const ANSWER_BUDGET_MS = 1_000;
 // parseLaw on the generator's deepest text, 20,000 levels of brackets; measured at 57 ms in the dev container.
 export const LAW_PARSE_BUDGET_MS = 1_500;
@@ -624,7 +624,7 @@ export const UNPARSABLE_JAVA_CHARS = 400_000;
 // tests/environments/ci-recipes.nightly.test.ts: the pnpm the docs recipes run with, installed with npm in the node:24 image. A string, not a number the guard reads.
 export const RECIPE_PNPM = '12.21.0';
 
-// The items of the code that no page of docs/ holds yet, the length of the list in tests/contract/docs-inventory.test.ts; the documentation's packages bring it to 0.
+// The items of the code that no page of docs/ holds yet, the length of the list in tests/contract/docs-inventory.test.ts, which may only fall.
 export const DOCS_NOT_COVERED = 0;
 
 // Which way each number makes the suite stronger, read by the suite guard; a seed is neither, so any change of it is a change to review.

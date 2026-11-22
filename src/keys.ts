@@ -15,7 +15,7 @@ function spellings(key: string): string {
   return parts.join('');
 }
 
-// The build's reading of the ruling: a key shorter than this is no secret, such as a dummy key for a local endpoint, and replacing it would garble names that hold it.
+// Decision 93 of design/decisions.md: a key shorter than this is no secret, such as a dummy key for a local endpoint, and replacing it would garble names that hold it.
 export const SHORTEST = 8;
 
 export function hidden(text: string, keys: string[]): string {
