@@ -31,7 +31,7 @@ CI runs `npm run real` in its job `real`; `npm run agent-trial` runs by hand bef
 | `limits/` | every limit, at its edge and past it |
 | `environments/` | Node and git versions, package managers, repository shapes, CI shapes, operating systems |
 | `deadlines/` | the shipped deadlines of rules and hooks, run nightly at their real length |
-| `docs/` | one file per page of `docs/`, named as the page: each fenced block of the page claimed by the file's scenario or by an existing test that checks it; `contract/docs-examples.test.ts` runs them and fails on a block no one claims |
+| `docs/` | one file per page of `docs/`, named as the page, and `README.ts` for `README.md`: each fenced block of the page claimed by the file's scenario or by an existing test that checks it; `contract/docs-examples.test.ts` runs them and fails on a block no one claims |
 | `sabotage/` | breaks the code on purpose, one entry of `sabotage/list.json` at a time, and expects the test the entry names to fail |
 | `harness/` | the code that starts the tool in tests and checks every run |
 | `real/`, `stability/`, `agent/`, `live/` | the runs outside `npm test`, and their committed results: `real/` runs in its own CI job, the others by hand |

@@ -11,7 +11,9 @@ import * as change from '../docs/change.ts';
 const ids = (dir: string, end: string): string[] => readdirSync(join(ROOT, dir)).filter((name) => name.endsWith(end)).map((name) => name.slice(0, -end.length)).sort();
 
 const PAGES: Record<string, string> = Object.fromEntries(ids('docs', '.md').map((id) => [id, readFileSync(join(ROOT, 'docs', `${id}.md`), 'utf8')]));
-const FILES: Record<string, PageFile> = Object.fromEntries(await Promise.all(ids('tests/docs', '.ts').map(async (id) => [id, (await import(pathToFileURL(join(ROOT, 'tests', 'docs', `${id}.ts`)).href)) as PageFile])));
+const load = async (id: string): Promise<PageFile> => (await import(pathToFileURL(join(ROOT, 'tests', 'docs', `${id}.ts`)).href)) as PageFile;
+const FILES: Record<string, PageFile> = Object.fromEntries(await Promise.all(ids('tests/docs', '.ts').filter((id) => id !== 'README').map(async (id) => [id, await load(id)])));
+const README = readFileSync(join(ROOT, 'README.md'), 'utf8');
 const source = (file: string): string | null => (file.startsWith('tests/') && existsSync(join(ROOT, file)) ? readFileSync(join(ROOT, file), 'utf8') : null);
 
 test('test 430: every fenced block of every page of docs/ is claimed once, by the scenario of tests/docs/<page>.ts or by a test that exists, and every page has its file', () => {
@@ -30,6 +32,12 @@ test('test 431: control, an unclaimed block, a claim of a block the page lacks, 
   assert.deepEqual(railProblems({ a: page }, { a: { claims: { 'block 1 under "One"': 'tests/contract/nothing.test.ts > test 430: x' } } }, source), ['tests/docs/a.ts claims block 1 under "One" by "tests/contract/nothing.test.ts > test 430: x", which names no test file']);
   assert.deepEqual(railProblems({ a: page }, { a: { claims: { 'block 1 under "One"': SCENARIO } } }, source), ['tests/docs/a.ts claims block 1 under "One" for a scenario it does not export']);
   assert.deepEqual(railProblems({ a: page, b: page }, { a: held, c: held }, source), ['docs/b.md has no tests/docs/b.ts', 'tests/docs/c.ts names no page of docs/']);
+});
+
+test('test 740: every fenced block of README.md is claimed once, by the scenario of tests/docs/README.ts or by a test that exists, and the scenario runs the blocks it claims and shows each output as the tool prints it, byte for byte', async () => {
+  const file = await load('README');
+  assert.deepEqual(railProblems({ README }, { README: file }, source), []);
+  assert.deepEqual(await runScenario('README', README, file), []);
 });
 
 // One test per page, so that each scenario has the budget of one test and a page added to docs/ takes nothing from the others.
