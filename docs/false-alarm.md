@@ -167,7 +167,7 @@ src/core/round.ts:2  warning[waiver-unused]  the waiver of 'no-console' drops no
   why:  a waiver that drops nothing would hide the next finding on its line
 ```
 
-The older waiver in `src/core/round.ts` covers a comment line. The fixed rule finds nothing on that line, so Lawcheck reports the waiver as [`waiver-unused`](codes.md#waiver-unused). `src/core/round.ts` lies outside the change, and Lawcheck lists that finding as a warning of [debt](concepts.md#debt).
+The older waiver in `src/core/round.ts` covers a comment line. The fixed rule finds nothing on that line, so Lawcheck reports the waiver as [`waiver-unused`](codes.md#waiver-unused). `src/core/round.ts` lies outside the change, so Lawcheck lists that finding as a warning of [debt](concepts.md#debt).
 
 `lawcheck check --full --json` lists every waiver of the repository in `waivers`, with its file, line, rule and reason. The field `waived` of a waiver counts the findings it dropped. On a waiver of a [script rule](concepts.md#script-rule), a `waived` of 0 marks a waiver that drops nothing ([JSON documents](json.md)).
 

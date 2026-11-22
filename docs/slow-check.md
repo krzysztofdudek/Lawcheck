@@ -129,7 +129,7 @@ The run stops with [`too-many-reviews`](codes.md#too-many-reviews) and sends not
 
 ## 6. Give the check its base
 
-A plain check takes its base from `--base`, then from `LAWCHECK_BASE`, then from `origin/HEAD`. With none of the three, a check on a machine counts every file as changed. It runs every rule on every file that has a type, and `--review` then asks for a review of each such file. This repository has no remote and no `origin/HEAD`:
+A plain check takes its base from `--base`, then from `LAWCHECK_BASE`, then from `origin/HEAD`. With none of the three, a check on a machine counts every file as changed. It runs every rule on every file that has a type. With `--review`, it then asks for a review of each such file. This repository has no remote and no `origin/HEAD`:
 
 ```text
 $ lawcheck check

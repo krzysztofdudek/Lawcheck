@@ -75,7 +75,7 @@ The review wrote three entries:
 
 - `.lawcheck/verdicts` holds one line per pass;
 - `.lawcheck/.gitattributes` holds `verdicts merge=union`. With that line, git keeps the lines of both branches when it merges `.lawcheck/verdicts`;
-- `.lawcheck/.local/` keeps the failed reviews of this machine, and git ignores it.
+- `.lawcheck/.local/` keeps the failed reviews of this machine. Git ignores that folder.
 
 Commit `.lawcheck/verdicts` and `.lawcheck/.gitattributes` with the code.
 
