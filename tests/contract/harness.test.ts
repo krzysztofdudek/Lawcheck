@@ -383,9 +383,9 @@ test('harness-1: a hook the test stops exits 0 and prints nothing, as question 5
     };
     assert.equal((await stopHook("process.on('SIGTERM', () => process.exit(0)); " + ready)).code, 0);
     const prints = await expectBroken('harness-1', () => stopHook("process.on('SIGTERM', () => { process.stdout.write('{}'); process.exit(0); }); " + ready));
-    assert.match(prints.message, /question 56/);
+    assert.match(prints.message, /decision 56/);
     const fails = await expectBroken('harness-1', () => stopHook("process.on('SIGTERM', () => process.exit(1)); " + ready));
-    assert.match(fails.message, /question 56/);
+    assert.match(fails.message, /decision 56/);
   });
 });
 
