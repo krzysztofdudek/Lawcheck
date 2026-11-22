@@ -1,12 +1,15 @@
 import assert from 'node:assert/strict';
-import { git, inTemp, lawcheck, newRepository, write } from '../acceptance/helpers.ts';
-import { SCENARIO } from '../contract/docs-blocks.ts';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { git, inTemp, lawcheck, newRepository, ROOT, write } from '../acceptance/helpers.ts';
+import { blocksOf, SCENARIO } from '../contract/docs-blocks.ts';
 import type { Claims, Page } from '../contract/docs-blocks.ts';
 
 export const claims: Claims = {
   'block 1 under "A law and a finding"': SCENARIO,
   'block 2 under "A law and a finding"': SCENARIO,
   'block 3 under "A law and a finding"': SCENARIO,
+  'block 1 under "Try it"': SCENARIO,
 };
 
 export const PRINT = 'export function print(text: string): void {\n  console.log(text);\n}\n';
@@ -23,6 +26,8 @@ export async function receiptCheck(law: string): Promise<{ code: number; stdout:
 }
 
 export async function scenario(page: Page): Promise<void> {
+  const readme = blocksOf(readFileSync(join(ROOT, 'README.md'), 'utf8')).find((block) => block.key === 'block 1 under "Try it"');
+  assert.equal(page.text('block 1 under "Try it"'), readme?.text, 'the commands of README.md, which test 740 holds');
   assert.equal(page.text('block 2 under "A law and a finding"'), '$ lawcheck check --base main');
   const run = await receiptCheck(page.text('block 1 under "A law and a finding"') + '\n');
   assert.equal(run.code, 1, run.stdout);
