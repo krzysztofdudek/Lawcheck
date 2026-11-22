@@ -95,19 +95,88 @@ echo .npm/ >> .git/info/exclude
 
 ### 5. Give the base on another CI service
 
-A plain `lawcheck check` takes `--base`, then `LAWCHECK_BASE`, then `origin/HEAD`, and a CI checkout often has none. In a CI job it then ends with `base-unreachable`, and its `next:` line names `--base origin/<branch>` and the setting that fetches the history in GitHub Actions, GitLab CI and Azure Pipelines. Lawcheck knows a CI job by `CI`, or by a variable such as `GITHUB_ACTIONS`, `GITLAB_CI` or `TF_BUILD`; `CI=false` or `CI=no` turns that off.
+A plain `lawcheck check` takes `--base`, then `LAWCHECK_BASE`, then `origin/HEAD`, and a CI checkout often has none of them. In a CI job the check then stops before it judges a file:
+
+```text
+$ lawcheck check
+```
+
+```output
+lawcheck: ERROR  1 error
+
+error[base-unreachable]  no base in this CI job: no --base, no LAWCHECK_BASE and no origin/HEAD, and a plain check without one would count every file as changed
+  why:  without its base a change cannot be told from debt
+
+next: pass --base origin/<the branch the change goes into> or set LAWCHECK_BASE, with the history fetched (fetch-depth: 0 in actions/checkout, GIT_DEPTH: 0 in GitLab CI, fetchDepth: 0 in Azure Pipelines); or judge every file with lawcheck check --full
+```
+
+Set the history setting the `next:` line names for your service, and pass the branch the change goes into:
+
+```text
+$ lawcheck check --base origin/main
+```
+
+```output
+lawcheck: FAIL  1 error in 1 changed file (against origin/main)
+
+src/core/total.ts:2  error[no-console]  writes to the terminal with console.log
+  why:  Only the command layer writes to the terminal.
+
+next: fix src/core/total.ts:2
+```
+
+Lawcheck knows a CI job by `CI`, or by a variable such as `GITHUB_ACTIONS`, `GITLAB_CI` or `TF_BUILD`; `CI=false` or `CI=no` turns that off.
 
 ## Reviewer rules in CI
 
-The job calls no reviewer unless it passes `--review`, and a file with no verdict for a reviewer rule fails it with `not-reviewed`. Run `lawcheck check --review` before you push, and commit `.lawcheck/verdicts` ([A law shared by a team](team.md)).
+The job of step 2 passes no `--review`, so it calls no reviewer and needs no key. It reads the passes committed in `.lawcheck/verdicts`. A file of a reviewer rule with no pass there fails the job:
+
+```output
+lawcheck: FAIL  1 error in 1 changed file (against origin/main)
+
+src/core/refund.ts  error[not-reviewed]  clear-errors has no verdict for this content
+  why:  a reviewer rule says nothing about content it has not judged
+
+next: lawcheck check --review --base origin/main  (1 reviewer call)
+```
+
+### 1. Record the reviews before you push
+
+On a machine with a reviewer ([Reviewers and keys](providers.md)):
+
+```text
+$ lawcheck check --review --base origin/main
+```
+
+```output
+lawcheck: PASS  1 changed file (against origin/main), 1 reviewer call
+```
+
+### 2. Commit the verdicts
+
+Commit `.lawcheck/verdicts` and `.lawcheck/.gitattributes` with the code. The job then passes, and calls no reviewer. It counts those two files as changed files of the pull request:
+
+```output
+lawcheck: PASS  3 changed files (against origin/main)
+```
+
+[A law shared by a team](team.md) says how these files merge.
 
 ## A change to the law
 
-A pull request can change the law that judges it, and pass. `check` says so under its first line ([What a check judges](change.md)), and the job of step 2 checks again with the law of the base.
+A pull request can change the law that judges it, and pass. On a pull request that takes the rule `no-console` off the type `library` and adds `console.log` to `src/core/total.ts`, the first check of the job prints:
+
+```output
+lawcheck: PASS  2 changed files (against origin/main)
+note: the law changed in this change; lawcheck check --full --base origin/main shows what it finds in the rest of the code
+note: this change edits the law that judges it: takes the rule no-console off the type library
+```
+
+The job of step 2 then checks again with the law of the base, and that check fails with exit 1 at `src/core/total.ts:2`. [What a check judges](change.md) lists every change of the law the note names.
 
 On `pull_request` GitHub runs the pull request's own workflow and `package.json`, and a rule of the base reads the pull request's copy of any file outside `.lawcheck/`. A pull request that edits them can skip the second check or change what a rule reads. Lawcheck does not guard these files. On GitHub, a code owner and a required review guard `.lawcheck/` (anyone who can push can write `.lawcheck/verdicts`), `.github/workflows/`, `package.json`, the lockfile, and every file a rule imports or reads. Keep a rule's helpers and settings under `.lawcheck/rules/`, where the second check reads the base's copy.
 
-A pull request that removes a rule and breaks it fails the second check, so land the change of the law first. A fork's pull request gets no secrets on `pull_request`, and `check` needs none; `pull_request_target` would run its script rules with the repository's secrets.
+A pull request that removes a rule and breaks it fails the second check, so land the change of the law first.
 
 ## Git hooks
 
@@ -172,7 +241,9 @@ done
 
 ## Where a check may run
 
-A check runs the repository's script rules, which are code of the change ([Script rules](script-rules.md)). Run it only where you would run that change's tests.
+A check runs the script rules of the change it judges, so a stranger's pull request brings its own rules. Each rule runs in a Node process started with `--permission`, so it cannot write a file or start a process. It can still read every file under the root, `.env` included, open a network connection, and print what it read into the job's log ([Script rules](script-rules.md) lists the rest).
+
+Run the check only where you would run that change's tests. On GitHub, a fork's pull request gets no secrets on `pull_request`, and `check` needs none. `pull_request_target` would run the fork's script rules with the repository's secrets.
 
 ## If it goes wrong
 
