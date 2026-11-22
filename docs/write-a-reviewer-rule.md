@@ -188,7 +188,7 @@ note: this change edits the law that judges it: adds the rule clear-errors; adds
 
 The plain check found the pass and called nobody, so CI needs no key ([CI and git hooks](ci.md)).
 
-## Can go wrong
+## If it goes wrong
 
 - `reviewer-unreachable`: the server is down, the key is wrong, or the program is not signed in. The message names the cause. Fix it and run the same command again: `check --review` keeps what was answered and asks only the rest.
 - The reviewer failed a file you believe is right. `check --review` keeps the fail on this machine and shows it again without a call, until the file or the rule changes. `--again` asks once more: `lawcheck check --review --again --base main`.

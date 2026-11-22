@@ -188,7 +188,7 @@ note: this change edits the law that judges it: makes the rule no-console enforc
 
 From the merge of this change on, a `console` call in a changed file of `src/core/` fails the run with exit 1.
 
-## Can go wrong
+## If it goes wrong
 
 - You start with the rule enforced. The first change that edits `src/core/report.ts` fails on line 2, which nobody touched:
 

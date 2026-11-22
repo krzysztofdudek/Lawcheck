@@ -24,7 +24,7 @@ export const claims: Claims = {
   'block 1 under "9. Make the rule enforced"': SCENARIO,
   'block 2 under "9. Make the rule enforced"': SCENARIO,
   'block 3 under "9. Make the rule enforced"': SCENARIO,
-  'block 1 under "Can go wrong"': SCENARIO,
+  'block 1 under "If it goes wrong"': SCENARIO,
 };
 
 const MAIN = {
@@ -69,6 +69,6 @@ export async function scenario(page: Page): Promise<void> {
     git(repo, 'checkout', '-q', '-b', 'unit');
     write(repo, 'src/core/report.ts', page.text('block 1 under "7. Change an old file"') + '\n');
     const run = await lawcheck(repo, ['check', '--base', 'main']);
-    assert.deepEqual([run.code, run.stdout], [1, page.text('block 1 under "Can go wrong"') + '\n']);
+    assert.deepEqual([run.code, run.stdout], [1, page.text('block 1 under "If it goes wrong"') + '\n']);
   });
 }

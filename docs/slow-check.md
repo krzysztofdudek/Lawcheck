@@ -83,7 +83,7 @@ Its `readers` line:
 ok  readers  uses are read in 2 files: typescript 2; the 13 grammars load
 ```
 
-The line counts the files whose uses Lawcheck reads, by language: the files whose type, or a type above it, has `may_use`. A plain check reads the uses of the changed files among them, and `--full` of all of them. A large count that comes from generated or vendored code shrinks when you narrow the type's `paths`.
+The line counts the files whose uses Lawcheck reads, by language: the files whose type, or a type above it, has `may_use` ([Forbid one layer to use another](forbid-a-use.md)). A plain check reads the uses of the changed files among them, and `--full` of all of them. A large count that comes from generated or vendored code shrinks when you narrow the type's `paths`.
 
 ## 5. Bound the reviewer
 
@@ -128,7 +128,7 @@ Past each limit the run stops with exit 2, or the file gets a finding, and the c
 | a file over 512 KiB, for its uses | `uses-not-read` |
 | one run: 1536 MiB of memory, or 85 percent of the machine's memory where that is less | `memory-too-large` |
 
-## Can go wrong
+## If it goes wrong
 
 - `step-too-slow` while typing a file: a `content` expression of the law takes too long on that file. Simplify the expression; a nested repetition such as `(\w+)*x` can run past the limit on one long line.
 - `memory-too-large`: its `next:` line names what to narrow. For one large file it says to keep the file out of what git lists, with `git rm --cached` and a line in `.gitignore`; for a whole run, to narrow the types whose `may_use` is in force.

@@ -61,7 +61,7 @@ src/core/format.ts
   waivers:  none
 ```
 
-The file is code the commands call, so `library` is right. A file with the wrong type is a fault of the law: change the type's `paths`, add a `!` pattern, or a `content` expression ([The law file](law.md)).
+The file is code the commands call, so `library` is right. A file with the wrong type is a fault of the law: change the type's `paths`, add a `!` pattern, or a `content` expression ([Types for an existing project](types-for-a-project.md)).
 
 ## 3. Check the rule alone
 
@@ -186,7 +186,7 @@ note: this change edits the law that judges it: changes .lawcheck/rules/no-conso
 debt (outside this change): none
 ```
 
-## Can go wrong
+## If it goes wrong
 
 - `waiver-unknown-rule` or `waiver-without-reason`: the marker names no rule of the law, or has no reason after `--`. That waiver waives nothing, and Lawcheck reports it as an error in the change.
 - A type with `waivers: false` reads the marker as text, so the finding stays.
