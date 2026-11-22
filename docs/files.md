@@ -32,7 +32,7 @@ The law, the config and the rule files get a type when a type's `paths` match th
 | File | What it holds |
 |---|---|
 | `failures/<key>.json` | one failed review: the rule and its findings, with any key hidden as `[key]`; a later `check` reports it again without a call, and `check --review --again` asks again ([Reviewer rules](reviewer-rules.md)) |
-| `verdicts.lock` | a folder that one run holds while it writes `.lawcheck/verdicts`; a lock older than 10 seconds, or of a run that ended, is removed |
+| `verdicts.lock` | a folder that one run holds while it writes `.lawcheck/verdicts`; a run that needs the lock removes one older than 10 seconds, or one of a run that ended |
 | `verdicts-<pid>-<hex>` | the new verdicts file before it replaces the old one |
 | `probe-<pid>-<hex>` | a test that the folder can be written, made and removed before the first call |
 

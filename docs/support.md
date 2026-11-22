@@ -14,18 +14,18 @@ Lawcheck 0.1.0-alpha.2 runs on Node 24 or later with git 2.34 or later, on Linux
 
 ## Package managers
 
-Lawcheck installs as a package of the project or globally. `runner` in `.lawcheck/config.yaml` names the way it starts ([Settings](config.md)). Every night the tests install the package in a new project with npm, pnpm, Yarn 1, both kinds of Yarn 4 and Bun, and run `doctor`, `check` and `try` through the runner:
+Lawcheck installs as a package of the project or as a global package. `runner` in `.lawcheck/config.yaml` names the way it starts ([Settings](config.md)). Every night the tests install the package in a new project with npm, pnpm, Yarn 1, both kinds of Yarn 4 and Bun, and run `doctor`, `check` and `try` through the runner:
 
 | Package manager | Lawcheck starts as | `runner` |
 |---|---|---|
-| npm, installed globally | `lawcheck` | `global`, the default |
+| npm, as a global package | `lawcheck` | `global`, the default |
 | npm, in the project | `npx --no-install lawcheck` | `npx` |
 | pnpm | `pnpm exec lawcheck` | `pnpm` |
 | Yarn 1 | `yarn run lawcheck` | `yarn` |
 | Yarn 4 with `nodeLinker: node-modules` or `nodeLinker: pnpm` | `yarn run lawcheck` | `yarn` |
 | Bun, with Node 24 on the `PATH` | `bun x --no-install lawcheck` | `bun` |
 
-## What is refused
+## Refused environments
 
 Every command but `docs` and `doctor` stops with the code `unsupported-environment` and exit 2 ([unsupported-environment](codes.md#unsupported-environment)). `doctor` prints the same first line, fails its `node` or `git` check with the same message, and runs its other checks.
 

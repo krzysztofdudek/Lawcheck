@@ -2,7 +2,7 @@
 
 Lawcheck has seven commands and two flags of its own. This page gives each command its usage line, what it reads and writes, its flags, its exit codes and one run. `lawcheck <command> --help` prints the usage of one command in the terminal.
 
-The runs below come from one repository. Its `main` holds a `README.md`, this law, the rule file `.lawcheck/rules/no-console.mjs` that reports each call such as `console.log` (`lawcheck docs script-rules`), `src/core/price.ts`, which writes nothing, and `src/cli/main.ts`, which calls `console.log`:
+The runs below come from one repository. Its `main` holds a `README.md`, this law, the rule file `.lawcheck/rules/no-console.mjs` that reports each call such as `console.log` ([Script rules](script-rules.md)), `src/core/price.ts`, which writes nothing, and `src/cli/main.ts`, which calls `console.log`:
 
 ```yaml
 lawcheck: 0.1.0
@@ -31,7 +31,7 @@ The work is on a branch made from `main`, where `src/core/report.ts` calls `cons
 - No command, or a command Lawcheck does not have, is `usage` too, and the message names the seven commands.
 - On a Node, a git or a package manager Lawcheck does not run on, every command but `docs` and `doctor` stops with `unsupported-environment` ([Supported environments](support.md)).
 - A run stopped by `SIGTERM`, `SIGINT` or `SIGHUP` ends with `stopped`, exit 2. A run whose output Lawcheck cannot write ends with `file-unwritable` on standard error, exit 2.
-- Exit 2 means that the command reached no conclusion. The error names the next step ([Codes](codes.md)).
+- Outside `doctor`, exit 2 means that the command reached no conclusion. The error names the next step ([Codes](codes.md)).
 
 ## init
 
@@ -170,7 +170,7 @@ Prints `lawcheck-check/0`, with every finding. The text output prints 50 finding
 usage: lawcheck explain (<path> | --type <id> | --rule <id>) [--json]
 ```
 
-`explain` says why a file has the law it has: its type and the chain of types above it, the pattern that matched, what it may use, whether its uses are read, its rules with the state of each review, and its waivers. A file without a type gets the reason, such as: git ignores it, no type's paths match it, its content matches no type, it is binary or a symbolic link, or it belongs to another repository. It runs no rule and writes nothing. It takes exactly one subject.
+`explain` says why a file has the law it has: its type and the chain of types above it, the pattern that matched, what it may use, whether its uses are read, its rules with the state of each review, and its waivers. A file without a type gets the reason, such as: git ignores it, no type's paths match it, its content matches no type, it is binary or a symbolic link, or it belongs to another repository. It runs no rule and writes nothing. It takes one subject: a path, `--type` or `--rule`.
 
 Use it before you create a file, to see the law the file will get, and to find why a file has a type.
 

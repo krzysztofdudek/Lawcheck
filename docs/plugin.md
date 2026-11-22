@@ -7,7 +7,7 @@ claude plugin marketplace add krzysztofdudek/Lawcheck
 claude plugin install lawcheck@lawcheck-marketplace
 ```
 
-The plugin ships without the tool. It starts Lawcheck with the command that `runner` in `.lawcheck/config.yaml` names ([Settings](config.md)), so Lawcheck must be installed that way. The hooks also need `node` and `git` on the `PATH`. The plugin runs on Linux, macOS and Windows.
+The plugin ships without the tool. It starts Lawcheck with the command that `runner` in `.lawcheck/config.yaml` names ([Settings](config.md)), so install Lawcheck that way. The hooks also need `node` and `git` on the `PATH`. The plugin runs on Linux, macOS and Windows.
 
 The hooks run Lawcheck and the repository's rule scripts after edits and before the agent finishes. Use the plugin where you would run the repository's tests.
 
@@ -24,17 +24,17 @@ Claude Code names each hook by its event. Each one runs `node` on the plugin's `
 | `PostToolUse` | `Write`, `Edit` or `NotebookEdit` succeeded | 30 seconds | 25 seconds |
 | `Stop` | the agent is about to end its turn | 150 seconds | 145 seconds |
 
-Git and Lawcheck share the deadline of their hook. When it passes, the hook stops Lawcheck and its child processes. The deadline ends five seconds before the time Claude Code gives the hook, so the hook has those seconds to end.
+Git and Lawcheck share the deadline of their hook. Past the deadline, the hook stops Lawcheck and its child processes. The deadline ends five seconds before the time Claude Code gives the hook, so the hook has those seconds to end.
 
-The root is the nearest folder, here or above, that holds `.lawcheck/law.yaml`. After an edit, the hook looks for it from the edited file, so a file of another repository is checked under that repository's law and runner. The other hooks look from the session's current folder.
+The root is the nearest folder, here or above, that holds `.lawcheck/law.yaml`. After an edit, the hook looks for it from the edited file, so it checks a file of another repository under that repository's law and runner. The other hooks look from the session's current folder.
 
 ## SessionStart
 
-The hook gives the agent the output of `lawcheck prime`, started through the runner. Without a law, the agent gets two lines: the plugin is on, the folder has no law, and the agent starts one with `lawcheck init` only when the user asks. When `runner` names none of the five runners, the agent is told to read `.lawcheck/law.yaml` and to tell the user that the setting is wrong. When `prime` does not run, the agent gets the reason, the line that installs Lawcheck for the runner, such as `npm i -g lawcheck@alpha`, and the advice to read `.lawcheck/law.yaml` until a new session starts.
+The hook gives the agent the output of `lawcheck prime`, started through the runner. Without a law, the agent gets two lines: the plugin is on, the folder has no law, and the agent starts one with `lawcheck init` only when the user asks. A `runner` that names none of the five runners gives the agent the advice to read `.lawcheck/law.yaml` and to tell the user that the setting is wrong. A `prime` that does not run gives the agent the reason, the line that installs Lawcheck for the runner, such as `npm i -g lawcheck@alpha`, and the advice to read `.lawcheck/law.yaml` until a new session starts.
 
 ## UserPromptSubmit
 
-The hook notes `HEAD`, the files that differ from it and the untracked ones, so the `Stop` hook knows what the turn changed. It says nothing to the agent. When the last turn never reached its end, because the user stopped it or an error ended it, the hook keeps the note of that turn, and the next `Stop` checks both turns together. With `check_before_stop` off, this hook does nothing.
+The hook notes `HEAD`, the files that differ from it and the untracked ones, so the `Stop` hook knows what the turn changed. It says nothing to the agent. A turn that never reached its end, because the user stopped it or an error ended it, keeps its note, and the next `Stop` checks both turns together. With `check_before_stop` off, this hook does nothing.
 
 ## PostToolUse
 
@@ -61,13 +61,13 @@ This check judges the files of the turn, not the change against a base. It never
 
 ### Three returns at most
 
-The hook sends the agent back at most three times in a turn, and never twice in a row for the same output. After that it lets the agent finish and tells the user that the check still fails. When the plugin has no note of the turn's start, the hook checks every file that differs from `HEAD` and the untracked ones, and sends the agent back at most once.
+The hook sends the agent back at most three times in a turn, and never twice in a row for the same output. After that it lets the agent finish and tells the user that the check still fails. Without a note of the turn's start, the hook checks every file that differs from `HEAD` and the untracked ones, and sends the agent back at most once.
 
-## What the agent sees
+## The text the agent gets
 
 The hook hands the agent at most 9,000 characters. A longer output keeps its first line and its `next:` line, drops lines from the middle, and says how many it dropped. A line longer than 2,000 characters is cut, and the cut says how many characters it left out.
 
-## What the user is told
+## Notices to the user
 
 A notice goes to the user, never to the agent. The `Stop` hook sends one in these cases, and only the first notice of a session is shown:
 
@@ -93,6 +93,6 @@ Two settings, both on by default:
 
 Claude Code hands each hook the value as the variable `CLAUDE_PLUGIN_OPTION_CHECK_AFTER_EDIT` or `CLAUDE_PLUGIN_OPTION_CHECK_BEFORE_STOP`. The hook reads `false`, `0`, `no` and `off` as off, in any case, and any other value as on.
 
-## What the plugin keeps
+## The state the plugin keeps
 
 The hook keeps one small file per session in the plugin's data folder (`CLAUDE_PLUGIN_DATA`), or else in a folder of the system's temporary directory that only your user may read. Each session start deletes the files older than 7 days. On Windows the hook needs `CLAUDE_PLUGIN_DATA` for its state, and keeps none without it.
