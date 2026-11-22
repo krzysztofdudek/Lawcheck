@@ -1,6 +1,6 @@
 # Lawcheck and the tools you already use
 
-Your repository already has an `AGENTS.md`, an ESLint rule for its layers, or a bot that reviews pull requests, and you want to know whether Lawcheck replaces it, adds to it, or does not fit. Each section below names one kind of tool, where it goes further than Lawcheck, what Lawcheck adds, and the case for each choice.
+Your repository already has an `AGENTS.md`, an ESLint rule for its layers, or a bot that reviews pull requests, and you want to know whether Lawcheck replaces it, adds to it, or does not fit.
 
 Lawcheck checks your code against a [law](concepts.md#law) you write in `.lawcheck/law.yaml`. The law names the [types](concepts.md#type) of your files, which types each type may [use](concepts.md#use), and the [rules](concepts.md#rule) each type keeps. In Claude Code, the Lawcheck plugin gives the agent the law when a session starts, checks each file the agent edits, and checks the files of its turn before the turn ends. A CI job checks the same law before the merge, with no key and no network.
 
@@ -12,9 +12,9 @@ A rules file holds rules about how the agent works, such as "run the tests befor
 
 The agent reads the rules file, and nothing in the session checks the code against it. On 2026-11-22 the issue tracker of Claude Code held 297 reports with the words "ignores CLAUDE.md", 60 of them opened since June 2026.
 
-Lawcheck turns the rules about files into a check. `lawcheck check` prints each [finding](concepts.md#finding) with its file, its line and the rule it breaks, and exits 1 while the code breaks the law. `lawcheck prime` prints the law for the agent, with the changes to the law the agent may make alone and the ones that need your word.
+You write the rules about files as a law, and `lawcheck check` judges the code against it. It prints each [finding](concepts.md#finding) with its file, its line and the rule it breaks, and exits 1 while the code breaks the law. `lawcheck prime` prints the law for the agent, with the changes to the law the agent may make alone and the ones that need your word.
 
-Lawcheck works through the rules file too. For an agent other than Claude Code, one line in its instructions file tells it to run `lawcheck prime` at the start of every session ([The Claude Code plugin](plugin.md) says what that agent then lacks). In Claude Code, the plugin hands the agent the output of `lawcheck prime` when a session starts, resumes, is cleared or is compacted, so `CLAUDE.md` needs no line for Lawcheck.
+Lawcheck works through the rules file too. For an agent other than Claude Code, one line in its instructions file tells it to run `lawcheck prime` at the start of every session, and Lawcheck ships no hook for that agent. In Claude Code, the plugin hands the agent the output of `lawcheck prime` when a session starts, resumes, is cleared or is compacted, so `CLAUDE.md` needs no line for Lawcheck.
 
 | Your case | Use |
 |---|---|
@@ -47,7 +47,7 @@ Lawcheck reads the uses written out in the code. An `import()` of a variable, `i
 
 ## A review bot at the pull request
 
-CodeRabbit has a model review each pull request, and runs pre-merge checks that you write in prose in `.coderabbit/`, each with the mode off, warning or error. Qodo and Greptile review pull requests with rules in prose, and Qodo imports `AGENTS.md` and draws rules from the history of earlier pull requests. Cursor Bugbot learns rules from review comments. Copilot code review reads the instructions of the repository. Claude Code Review runs several agents on a pull request, and never approves or blocks it. Continue runs Markdown checks from `.continue/checks` as a status of the pull request. The services among them charge per person, per review or in credits.
+CodeRabbit reviews each pull request with a model, and runs pre-merge checks that you write in prose in `.coderabbit/`, each with the mode off, warning or error. Qodo and Greptile review pull requests with rules in prose, and Qodo imports `AGENTS.md` and draws rules from the history of earlier pull requests. Cursor Bugbot learns rules from review comments. Copilot code review reads the instructions of the repository. Claude Code Review runs several agents on a pull request, and never approves or blocks it. Continue runs Markdown checks from `.continue/checks` as a status of the pull request. The services among them charge per person, per review or in credits.
 
 A review bot reads the whole pull request, and comments on the change as a whole, with your rules or without them. Lawcheck's reviewer sees one file and one rule per call, with the context files the rule names, and nothing else of the repository. A requirement that spans the files of a change, such as a new handler that comes with its test, is outside what a reviewer rule sees.
 
@@ -68,9 +68,9 @@ Lawcheck writes no annotation into the pull request. A CI job shows its findings
 
 ## A hook you wrote in Claude Code
 
-A Claude Code hook runs a script on an event of the session. Exit 2 from a hook blocks the action and hands the hook's message to the agent. A hook of your own can run any program, such as your linter, your type checker or your tests, on any event Claude Code has. `PreToolUse` comes before a tool runs, so a hook there can stop an edit before it is written.
+A Claude Code hook runs a script on an event of the session. Exit 2 from a hook blocks the action and hands the hook's message to the agent. A hook of your own can run any program, such as your linter or your tests, on any event Claude Code has. `PreToolUse` comes before a tool runs, so a hook there can stop an edit before it is written.
 
-A script rule of Lawcheck cannot start a program, and the plugin checks a file after the edit. A hook that runs your linter checks what the linter knows: no `may_use` across languages and no reviewer rules.
+Your hook goes further than Lawcheck in two places. The plugin checks a file after the edit is written, and a script rule cannot start a program such as your linter. A hook that runs your linter checks what the linter knows: no `may_use` across languages and no reviewer rules.
 
 The Lawcheck plugin adds the law to the session ([The Claude Code plugin](plugin.md)):
 
