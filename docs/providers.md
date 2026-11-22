@@ -2,15 +2,15 @@
 
 A [reviewer rule](concepts.md#reviewer-rule) needs a model to judge each file. The provider is the service, or the program on your machine, that runs that model. You name one of nine providers in `.lawcheck/config.yaml` (`lawcheck docs config`). Lawcheck takes the provider's key from the environment and never from a file. The five HTTP providers need `model`. For the four programs, `model` is optional.
 
-In the requests below, `<address>` stands for the address of the provider's API. `LAWCHECK_REVIEWER_ENDPOINT` can replace it ([Over HTTP](providers.md#over-http)).
+In the requests below, `<address>` stands for the address of the provider's API. With `LAWCHECK_REVIEWER_ENDPOINT` set, Lawcheck takes the address from that variable ([Over HTTP](providers.md#over-http)).
 
 ## anthropic
 
-Lawcheck sends `POST <address>/messages` to https://api.anthropic.com/v1. The key goes in the header `x-api-key`: `ANTHROPIC_API_KEY`, else `LAWCHECK_REVIEWER_KEY`. The request carries the header `anthropic-version: 2023-06-01`. It asks for at most 8192 tokens. Lawcheck joins the text items of `content` into one answer.
+Lawcheck sends `POST <address>/messages` to https://api.anthropic.com/v1. The key goes in the header `x-api-key`, from `ANTHROPIC_API_KEY` or else from `LAWCHECK_REVIEWER_KEY`. The request carries the header `anthropic-version: 2023-06-01`. It asks for at most 8192 tokens. Lawcheck joins the text items of `content` into one answer.
 
 ## openai
 
-Lawcheck sends `POST <address>/chat/completions` to https://api.openai.com/v1. The key goes as `authorization: Bearer <key>`: `OPENAI_API_KEY`, else `LAWCHECK_REVIEWER_KEY`. The request asks for a JSON object through `response_format`. Lawcheck reads the first choice's message.
+Lawcheck sends `POST <address>/chat/completions` to https://api.openai.com/v1. The key goes as `authorization: Bearer <key>`, from `OPENAI_API_KEY` or else from `LAWCHECK_REVIEWER_KEY`. The request asks for a JSON object through `response_format`. Lawcheck reads the first choice's message.
 
 ```yaml
 reviewer:
@@ -20,7 +20,7 @@ reviewer:
 
 ## google
 
-Lawcheck sends `POST <address>/models/<model>:generateContent` to https://generativelanguage.googleapis.com/v1beta. The key goes in the header `x-goog-api-key` and never in the address: `GOOGLE_API_KEY`, else `LAWCHECK_REVIEWER_KEY`. The request asks for `application/json`. Lawcheck joins the text parts of the first candidate into one answer. It leaves out the parts that the model marks as thought.
+Lawcheck sends `POST <address>/models/<model>:generateContent` to https://generativelanguage.googleapis.com/v1beta. The key goes in the header `x-goog-api-key`, never in the address. Lawcheck takes it from `GOOGLE_API_KEY` or else from `LAWCHECK_REVIEWER_KEY`. The request asks for `application/json`. Lawcheck joins the text parts of the first candidate into one answer. It leaves out the parts that the model marks as thought.
 
 ## openai-compatible
 

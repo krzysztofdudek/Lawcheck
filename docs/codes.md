@@ -2,7 +2,7 @@
 
 A run stopped with `error[type-overlap]`, or a check came back with `warning[uses-not-read]`. You need the step that clears it. Each code that Lawcheck prints has a heading of its own on this page. The code `law-invalid`, for one, is under `## law-invalid`.
 
-With an exit-2 code, Lawcheck stops the run before it gives a PASS or a FAIL. Its output ends with one `next:` line that says what to fix. A [finding](concepts.md#finding) is one line of the report of `check`, with a `why:` line under it. For a finding of a rule, the why is the rule's own `why`. For a built-in code, it is the text of the Why column in the table below. Lawcheck prints the `why:` line once for each code, under its first error or finding.
+With an exit-2 code, Lawcheck stops the run before it gives a PASS or a FAIL. Its output ends with one `next:` line that says what to fix. A [finding](concepts.md#finding) is one line of the report of `check`. Lawcheck prints a `why:` line under the first error or finding of each code. For a finding of a rule, the why is the rule's own `why`. For a built-in code, it is the text of the Why column in the table below.
 
 Two words recur below. The root is the folder that holds `.lawcheck/`. A rule binds a file when the file's type, or a type above it, lists the rule.
 
