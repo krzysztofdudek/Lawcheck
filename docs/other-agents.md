@@ -1,8 +1,8 @@
 # Other coding agents
 
-Codex, Copilot CLI, Gemini CLI and other agents read the law from `lawcheck prime` and check their code with `lawcheck check`, once one line of their instructions file tells them to. Lawcheck has a plugin for Claude Code alone, so no hook checks the edits of these agents.
+Codex, Copilot CLI, Gemini CLI and other agents read the [law](concepts.md#law) from `lawcheck prime` and check their code with `lawcheck check`, once one line of their instructions file tells them to. Lawcheck has a plugin for Claude Code alone, so no hook checks the edits of these agents.
 
-The outputs below come from a repository with this law and the script rule `no-console` of [The first type and the first rule](first-law.md):
+The outputs below come from a repository with this law and the [script rule](concepts.md#script-rule) `no-console` of [The first type and the first rule](first-law.md):
 
 ```yaml
 lawcheck: 0.1.0
@@ -68,7 +68,7 @@ no-console  script  Only the command layer writes to the terminal.
 More: lawcheck docs
 ```
 
-The part `Only on the user's word` lists what the agent leaves to you: a waiver, a rule taken off a type or deleted, and any edit of `.lawcheck/verdicts` or `.lawcheck/config.yaml`. A law with `may_use` adds a line for widening it.
+The part `Only on the user's word` lists what the agent leaves to you: a [waiver](concepts.md#waiver), a [rule](concepts.md#rule) taken off a [type](concepts.md#type) or deleted, and any edit of `.lawcheck/verdicts` or `.lawcheck/config.yaml`. A law with `may_use` adds a line for widening it.
 
 The text stays within 8,000 characters. For a large law, Lawcheck shortens the part about the law, and the last line names the commands that show a type or a rule in full. Without a law, `prime` prints two lines that say so, and exits 0.
 

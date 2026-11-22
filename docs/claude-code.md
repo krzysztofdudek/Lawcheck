@@ -1,8 +1,8 @@
 # Lawcheck in Claude Code
 
-An agent writes `console.log` into `src/core/total.ts`, where the law forbids it. With the Lawcheck plugin, the agent sees that finding after the edit, and the plugin sends it back while the files of its turn break the law. The agent also gets the law when a session starts.
+An agent writes `console.log` into `src/core/total.ts`, where the [law](concepts.md#law) forbids it. With the Lawcheck plugin, the agent sees that [finding](concepts.md#finding) after the edit, and the plugin sends it back while the files of its turn break the law. The agent also gets the law when a session starts.
 
-The outputs below come from a repository with this law and the script rule `no-console` of [The first type and the first rule](first-law.md). `src/core/total.ts` has the type `library`:
+The outputs below come from a repository with this law and the [script rule](concepts.md#script-rule) `no-console` of [The first type and the first rule](first-law.md). `src/core/total.ts` has the [type](concepts.md#type) `library`:
 
 ```yaml
 lawcheck: 0.1.0
@@ -100,6 +100,6 @@ Start Claude Code again. After that, an edit gets no check, and the check before
 
 - The agent hears that `lawcheck prime` did not run because `lawcheck was not found`. Lawcheck is not installed the way `runner` says. Install it as step 1 does, then start a new session.
 - The repository has no law. The plugin tells the agent so, and tells it to start one with `lawcheck init` only when you ask.
-- The agent finished, and CI still fails. The plugin judges the files of the turn without a base. It never passes `--review`, so a missing review is a warning there. CI judges the whole change and fails on `not-reviewed` ([CI and git hooks](ci.md)).
+- The agent finished, and CI still fails. The plugin judges the files of the turn without a [base](concepts.md#base). It never passes `--review`, so a missing review is a warning there. CI judges the whole [change](concepts.md#change) and fails on `not-reviewed` ([CI and git hooks](ci.md)).
 - More than 1,000 files changed in a turn. The check before the agent finishes does not run, and a line says so.
 - A background subagent, teammate or workflow is still running. The check before the agent finishes waits, and runs at the first end of a turn after it.

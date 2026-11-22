@@ -1,6 +1,6 @@
 # A monorepo
 
-In a monorepo, `lawcheck check` at the top ends with `not-initialized` and names the laws below it. You check each package that holds a law from its own folder, against its own law and settings.
+In a monorepo, `lawcheck check` at the top ends with `not-initialized` and names the [laws](concepts.md#law) below it. You check each package that holds a law from its own folder, against its own law and settings.
 
 The outputs below come from a git repository whose `main` holds `packages/api/src/price.ts` and `packages/web/src/page.ts`. The work is on a branch made from `main`.
 
@@ -24,7 +24,7 @@ The folder that holds `.lawcheck/` is the root of the law. The law judges only t
 
 ## 2. Describe the package
 
-The paths of the law start at its root, here `packages/api/`. With the script rule `no-console` of [The first type and the first rule](first-law.md) in `packages/api/.lawcheck/rules/`, `packages/api/.lawcheck/law.yaml` reads:
+The paths of the law start at its root, here `packages/api/`. With the [script rule](concepts.md#script-rule) `no-console` of [The first type and the first rule](first-law.md) in `packages/api/.lawcheck/rules/`, `packages/api/.lawcheck/law.yaml` reads:
 
 ```yaml
 lawcheck: 0.1.0
@@ -96,7 +96,7 @@ Each package also sets its own `reviewer` in the same file ([Settings](config.md
 
 ## 6. Leave a nested repository to its own law
 
-Lawcheck does not look into a submodule or another repository inside the tree. With `total.ts` fixed, and a repository of its own in `packages/api/src/vendor`, the paths of the type `source` reach into it. In `packages/api`:
+Lawcheck does not look into a submodule or another repository inside the tree. With `total.ts` fixed, and a repository of its own in `packages/api/src/vendor`, the paths of the [type](concepts.md#type) `source` reach into it. In `packages/api`:
 
 ```text
 $ lawcheck check --full
@@ -115,5 +115,5 @@ To judge the files of `src/vendor`, start a law in that repository.
 
 - `lawcheck init` at the top refuses with `already-initialized`, because a law below already governs a part of the tree. One folder and the folders below it have one law.
 - `lawcheck check ../../web/src/page.ts` ends with `usage`: the path lies outside the root of the law. Run the check in the folder of the other law.
-- `rule-crashed` says that a rule `fails to load: reads` a file in a `node_modules` above the package. The package manager put the package the rule imports in the `node_modules` at the top, and a rule reads nothing above its root. Install the package in a `node_modules` of the package, as the `next:` line says ([Script rules](script-rules.md)).
+- A rule ends in `rule-crashed`, and the message says it fails to load because it reads a file in a `node_modules` above the package. The package manager put the package the rule imports in the `node_modules` at the top, and a rule reads nothing above its root. Install the package in a `node_modules` of the package, as the `next:` line says ([Script rules](script-rules.md)).
 - A Claude Code session started at the top of the repository finds no law there. The check after an edit looks for the law from the edited file and still runs. The check before the agent finishes looks for the law from the session's folder, finds none, and does not run. Start the session in the package folder ([The Claude Code plugin](plugin.md)).

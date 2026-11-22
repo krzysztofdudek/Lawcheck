@@ -1,8 +1,8 @@
 # A law shared by a team
 
-Two developers record reviews on two branches, and both branches add lines to `.lawcheck/verdicts`. The merge keeps both, so nobody asks the reviewer again for what a teammate already paid for. The law, the rules, the settings and the verdicts live in git, and every clone checks against the same law.
+Two developers record reviews on two branches, and both branches add lines to `.lawcheck/verdicts`. The merge keeps both, so nobody asks the reviewer again for what a teammate already paid for. The [law](concepts.md#law), the [rules](concepts.md#rule), the settings and the [verdicts](concepts.md#verdict) live in git, and every clone checks against the same law.
 
-The outputs below come from a repository with this law, a reviewer rule in `.lawcheck/rules/clear-errors.md` ([Reviewer rules](reviewer-rules.md)), and a `main` that holds the law and no code:
+The outputs below come from a repository with this law, a [reviewer rule](concepts.md#reviewer-rule) in `.lawcheck/rules/clear-errors.md` ([Reviewer rules](reviewer-rules.md)), and a `main` that holds the law and no code:
 
 ```yaml
 lawcheck: 0.1.0
@@ -132,7 +132,7 @@ $ git commit --no-edit
 
 ## A change of the law
 
-A change that edits the law or a rule file changes the law every developer checks against. `lawcheck check` says so under its first line ([What a check judges](change.md)), and the CI job checks such a change a second time with the law of its base ([CI and git hooks](ci.md)). Lawcheck does not choose who reviews the change. On GitHub, a code owner for `.lawcheck/` and a required review make a person approve every change of the law.
+A [change](concepts.md#change) that edits the law or a rule file changes the law every developer checks against. `lawcheck check` says so under its first line ([What a check judges](change.md)), and the CI job checks such a change a second time with the law of its base ([CI and git hooks](ci.md)). Lawcheck does not choose who reviews the change. On GitHub, a code owner for `.lawcheck/` and a required review make a person approve every change of the law.
 
 ## If it goes wrong
 

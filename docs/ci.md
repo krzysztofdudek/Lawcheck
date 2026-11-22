@@ -1,6 +1,6 @@
 # CI and git hooks
 
-A pull request adds `console.log` to `src/core/`, where the law forbids it, and the job below fails with exit 1. It needs the history back to the merge base, and no key: Lawcheck judges reviewer rules from the committed `.lawcheck/verdicts`.
+A pull request adds `console.log` to `src/core/`, where the [law](concepts.md#law) forbids it, and the job below fails with exit 1. It needs the history back to the merge base, and no key: Lawcheck judges [reviewer rules](concepts.md#reviewer-rule) from the committed `.lawcheck/verdicts`.
 
 ## A CI job
 
@@ -16,7 +16,7 @@ Commit `package.json` and the lockfile, if any. Jobs and hooks start it with `np
 
 ### 2. Add the workflow
 
-Write `.github/workflows/lawcheck.yml`. It judges a pull request, a merge queue and a push to `main` by the branch's law and again by the base's. With the law below the top of the repository, give the step `working-directory: <the folder that holds .lawcheck>`.
+Write `.github/workflows/lawcheck.yml`. It judges a pull request, a merge queue and a push to `main` by the branch's law and again by the [base](concepts.md#base)'s. With the law below the top of the repository, give the step `working-directory: <the folder that holds .lawcheck>`.
 
 <!-- example: ci-workflow -->
 ```yaml
@@ -67,7 +67,7 @@ jobs:
           fi
 ```
 
-The workflow's shell picks the base; Lawcheck takes the one it is given. A push with no earlier commit to compare (a first push, a force-push that removed the "before" commit, a root commit) falls back to the parent commit, then to `--full`: a force-push is judged by its last commit. `persist-credentials: false` keeps the job's token out of `.git/config`, which a script rule can read.
+The workflow's shell picks the base; Lawcheck takes the one it is given. A push with no earlier commit to compare (a first push, a force-push that removed the "before" commit, a root commit) falls back to the parent commit, then to `--full`: a force-push is judged by its last commit. `persist-credentials: false` keeps the job's token out of `.git/config`, which a [script rule](concepts.md#script-rule) can read.
 
 Exit 2 fails the job too, on a broken law or setup. `--json` prints one document for a script that annotates the pull request ([JSON documents](json.md)).
 
@@ -110,7 +110,7 @@ error[base-unreachable]  no base in this CI job: no --base, no LAWCHECK_BASE and
 next: pass --base origin/<the branch the change goes into> or set LAWCHECK_BASE, with the history fetched (fetch-depth: 0 in actions/checkout, GIT_DEPTH: 0 in GitLab CI, fetchDepth: 0 in Azure Pipelines); or judge every file with lawcheck check --full
 ```
 
-Set the history setting the `next:` line names for your service, and pass the branch the change goes into:
+Fetch the history with the setting the `next:` line names for your service, and pass the branch the change goes into:
 
 ```text
 $ lawcheck check --base origin/main
@@ -129,7 +129,7 @@ Lawcheck knows a CI job by `CI`, or by a variable such as `GITHUB_ACTIONS`, `GIT
 
 ## Reviewer rules in CI
 
-The job of step 2 passes no `--review`, so it calls no reviewer and needs no key. It reads the passes committed in `.lawcheck/verdicts`. A file of a reviewer rule with no pass there fails the job:
+The job of step 2 passes no `--review`, so it calls no reviewer and needs no key. It reads the [verdicts](concepts.md#verdict) committed in `.lawcheck/verdicts`. A file of a reviewer rule with no pass there fails the job:
 
 ```output
 lawcheck: FAIL  1 error in 1 changed file (against origin/main)
@@ -164,7 +164,7 @@ lawcheck: PASS  3 changed files (against origin/main)
 
 ## A change to the law
 
-A pull request can change the law that judges it, and pass. On a pull request that takes the rule `no-console` off the type `library` and adds `console.log` to `src/core/total.ts`, the first check of the job prints:
+A pull request can change the law that judges it, and pass. On a pull request that takes the [rule](concepts.md#rule) `no-console` off the [type](concepts.md#type) `library` and adds `console.log` to `src/core/total.ts`, the first check of the job prints:
 
 ```output
 lawcheck: PASS  2 changed files (against origin/main)
@@ -241,7 +241,7 @@ done
 
 ## Where a check may run
 
-A check runs the script rules of the change it judges, so a stranger's pull request brings its own rules. Each rule runs in a Node process started with `--permission`, so it cannot write a file or start a process. It can still read every file under the root, `.env` included, open a network connection, and print what it read into the job's log ([Script rules](script-rules.md) lists the rest).
+A check runs the script rules of the [change](concepts.md#change) it judges, so a stranger's pull request brings its own rules. Each rule runs in a Node process started with `--permission`, so it cannot write a file or start a process. It can still read every file under the root, `.env` included, open a network connection, and print what it read into the job's log ([Script rules](script-rules.md) lists the rest).
 
 Run the check only where you would run that change's tests. On GitHub, a fork's pull request gets no secrets on `pull_request`, and `check` needs none. `pull_request_target` would run the fork's script rules with the repository's secrets.
 
