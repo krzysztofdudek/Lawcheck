@@ -58,7 +58,7 @@ The hook runs `lawcheck check ./<file>` on the file that `Write`, `Edit` or `Not
 | 1 | the output, under a line that names the file and says it breaks the law of this repository |
 | 2 | the output, under a line that says Lawcheck could not check the file; the hook does not hand over the same output twice in a row, so a law the user is still editing reaches the agent once |
 
-If the check passes its deadline, the agent gets one line that says so. If Lawcheck does not run for another reason, such as a missing program, the agent gets nothing.
+If the check runs past its deadline, the agent gets one line that says so. If Lawcheck does not run for another reason, such as a missing program, the agent gets nothing.
 
 ## Stop
 
