@@ -471,13 +471,14 @@ A file with no type, an overlap included, has `type`, `about`, `then`, `may_use`
 Without a topic, exit 0:
 
 ```
-lawcheck docs: 12 topics; lawcheck docs <topic> prints one
+lawcheck docs: 14 topics; lawcheck docs <topic> prints one
 
 Guides
   first-law  The first type and the first rule
   ci  CI and git hooks
 
 Reference
+  commands  The commands
   law  The law file
   config  Settings
   script-rules  Script rules
@@ -487,6 +488,7 @@ Reference
   waivers  Waivers
   change  What a check judges
   json  JSON documents
+  plugin  The Claude Code plugin
 
 Troubleshooting
   codes  Codes
