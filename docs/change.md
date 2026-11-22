@@ -30,6 +30,8 @@ Lawcheck takes the merge base of `HEAD` and the base, and the change is every fi
 
 A rule judges the changed files it binds. The change counts per file: an error on a line you did not touch still fails the run.
 
+Git runs with settings that start no program the repository names: no `core.fsmonitor` program, no hook, no external diff, no `textconv` and no filter. Settings you pass to git yourself, through `GIT_CONFIG_PARAMETERS` or `git -c` in an alias, still take effect, and a program they name can run. A file that git reads through a filter, such as a file of Git LFS, is compared as its bytes on disk, so such a file whose time no longer matches the index can count as changed.
+
 ## --full and debt
 
 ```text

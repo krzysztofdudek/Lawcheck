@@ -1,8 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { chmodSync, mkdirSync, readdirSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, readdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { append, git, inTemp, lawcheck, makeSample } from '../acceptance/helpers.ts';
+
+const CHANGE_PAGE = readFileSync(new URL('../../docs/change.md', import.meta.url), 'utf8');
 
 const HOOKS = ['pre-commit', 'post-index-change', 'reference-transaction', 'post-checkout', 'fsmonitor-watchman', 'pre-auto-gc', 'post-rewrite'];
 
@@ -84,6 +86,7 @@ test('S5-14: init starts no program that the repository names for git (I-git-1)'
 });
 
 test('R-22: S5-14, check and try start no program that the repository names for git, and still see the change (I-git-1)', async () => {
+  assert.ok(CHANGE_PAGE.includes('A file that git reads through a filter, such as a file of Git LFS, is compared as its bytes on disk'));
   await inTemp(async (dir) => {
     const s = makeSample(dir);
     writeFileSync(join(s, 'src/core/discount.ts'), "export const d = 1;\nconsole.log('d');\n");
@@ -100,6 +103,7 @@ test('R-22: S5-14, check and try start no program that the repository names for 
 });
 
 test('R-21: S5-14, the fixture arms git: the same reads through git itself start the programs', async () => {
+  assert.ok(CHANGE_PAGE.includes('Settings you pass to git yourself, through `GIT_CONFIG_PARAMETERS` or `git -c` in an alias, still take effect, and a program they name can run.'));
   await inTemp(async (dir) => {
     const s = makeSample(dir);
     append(s, 'src/core/price.ts', '// edited\n');
