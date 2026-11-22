@@ -881,9 +881,7 @@ Leave the file out of the type with a `!` pattern, split it, or give `reviewer.m
 
 ```text
 $ lawcheck check --base main
-lawcheck: FAIL  1 error in 2 changed files (against main), 1 waiver
-note: the law changed in this change; lawcheck check --full --base main shows what it finds in the rest of the code
-note: this change edits the law that judges it: changes .lawcheck/config.yaml; adds a waiver of clear-errors in src/core/refund.ts
+lawcheck: FAIL  1 error in 1 changed file (against main), 1 waiver
 
 src/core/refund.ts  error[too-large-to-review]  the prompt for clear-errors holds 2127 characters; reviewer.max_chars is 2126
   why:  the reviewer is never sent more than reviewer.max_chars characters
@@ -935,9 +933,7 @@ Leave the files out of the type with a `!` pattern, such as `"!src/**/*.json"`. 
 
 ```text
 $ lawcheck check --base main
-lawcheck: PASS  1 warning in 2 changed files (against main)
-note: the law changed in this change; lawcheck check --full --base main shows what it finds in the rest of the code
-note: this change edits the law that judges it: changes the paths of the type source
+lawcheck: PASS  1 warning in 1 changed file (against main)
 
 .lawcheck/law.yaml:17  warning[uses-not-read]  1 file of type library is not read for uses: 1 .json
   why:  a restriction that cannot be checked is not shown as kept
@@ -961,16 +957,12 @@ Write a rule id of the law after the marker, or delete the waiver. `lawcheck doc
 
 ```text
 $ lawcheck check --base main
-lawcheck: FAIL  2 errors, 1 warning in 1 changed file (against main), 1 waiver
+lawcheck: FAIL  1 error in 1 changed file (against main)
 
-src/core/discount.ts:2  error[waiver-unknown-rule]  the waiver names 'no-such', which is no rule of the law
+src/core/shipping.ts:1  error[waiver-unknown-rule]  the waiver names 'no-such', which is no rule of the law
   why:  a waiver that names no rule of the law waives nothing
-src/core/discount.ts:3  error[no-console]  writes to the terminal with console.log
-  why:  Only the command layer writes to the terminal.
-src/core/discount.ts:4  warning[no-todo]  TODO without an issue number
-  why:  A TODO without an issue number gets forgotten.
 
-next: fix src/core/discount.ts:2
+next: fix src/core/shipping.ts:1
 ```
 
 ## waiver-without-reason
@@ -991,16 +983,12 @@ Add `--` and the reason after the rule id. `lawcheck docs waivers` shows the for
 
 ```text
 $ lawcheck check --base main
-lawcheck: FAIL  2 errors, 1 warning in 1 changed file (against main), 1 waiver
+lawcheck: FAIL  1 error in 1 changed file (against main)
 
-src/core/discount.ts:2  error[waiver-without-reason]  the waiver of 'no-console' gives no reason after --
+src/core/shipping.ts:1  error[waiver-without-reason]  the waiver of 'no-console' gives no reason after --
   why:  a waiver without a reason cannot be weighed later
-src/core/discount.ts:3  error[no-console]  writes to the terminal with console.log
-  why:  Only the command layer writes to the terminal.
-src/core/discount.ts:4  warning[no-todo]  TODO without an issue number
-  why:  A TODO without an issue number gets forgotten.
 
-next: fix src/core/discount.ts:2
+next: fix src/core/shipping.ts:1
 ```
 
 ## waiver-unused
@@ -1021,16 +1009,10 @@ Edit the line and take the waiver out.
 
 ```text
 $ lawcheck check --base main
-lawcheck: FAIL  1 error, 2 warnings in 1 changed file (against main), 2 waivers
+lawcheck: PASS  1 warning in 1 changed file (against main), 1 waiver
 
-src/core/discount.ts:2  error[no-console]  writes to the terminal with console.log
-  why:  Only the command layer writes to the terminal.
-src/core/discount.ts:3  warning[no-todo]  TODO without an issue number
-  why:  A TODO without an issue number gets forgotten.
-src/core/discount.ts:7  warning[waiver-unused]  the waiver of 'no-console' drops no finding
+src/core/shipping.ts:1  warning[waiver-unused]  the waiver of 'no-console' drops no finding
   why:  a waiver that drops nothing would hide the next finding on its line
-
-next: fix src/core/discount.ts:2
 ```
 
 ## Notes

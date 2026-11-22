@@ -329,6 +329,15 @@ const CASES: Case[] = [
     }),
     () => ({}),
   ),
+  {
+    id: 'too-large-to-review, the cap set on main',
+    code: 'too-large-to-review',
+    setup: (dir, fake) => {
+      const r = makeR(dir, { onMain: (m) => write(m, '.lawcheck/config.yaml', REVIEWER_CONFIG + '  max_chars: 2126\n') });
+      write(r, F_PATH, F);
+      return { cwd: r, argv: ['check', '--base', 'main'], env: { LAWCHECK_REVIEWER_ENDPOINT: fake.url }, exit: 1, exact: ['src/core/refund.ts  error[too-large-to-review]  the prompt for clear-errors holds 2127 characters; reviewer.max_chars is 2126'] };
+    },
+  },
   reviewer(
     'too-large-to-review',
     'too-large-to-review',
@@ -349,6 +358,17 @@ const CASES: Case[] = [
     },
   },
   {
+    id: 'uses-not-read, the law on main',
+    code: 'uses-not-read',
+    setup: (dir) => {
+      const law = U_LAW.replace('"src/**/*.ts", ', '"src/**/*.ts", "src/**/*.json", ');
+      const u = makeU(dir, { onMain: (m) => write(m, '.lawcheck/law.yaml', law) });
+      write(u, 'src/core/data.json', '{}\n');
+      const at = law.split('\n').findIndex((line) => line.trim() === 'library:') + 1;
+      return { cwd: u, argv: CHECK, exit: 0, exact: [`.lawcheck/law.yaml:${at}  warning[uses-not-read]  1 file of type library is not read for uses: 1 .json`] };
+    },
+  },
+  {
     id: 'uses-not-read',
     code: 'uses-not-read',
     setup: (dir) => {
@@ -360,6 +380,9 @@ const CASES: Case[] = [
       return { cwd: u, argv: CHECK, exit: 0, exact: [`.lawcheck/law.yaml:${at}  warning[uses-not-read]  1 file of type library is not read for uses: 1 .json`, '  why:  a restriction that cannot be checked is not shown as kept'] };
     },
   },
+  alone('waiver-unknown-rule', 'export const s = 1; // lawcheck-waive no-such -- support reads this line', 1),
+  alone('waiver-without-reason', 'export const s = 1; // lawcheck-waive no-console', 1),
+  alone('waiver-unused', 'export const s = 1; // lawcheck-waive no-console -- nothing here', 0),
   waiver('waiver-unknown-rule', '  // lawcheck-waive no-such -- support reads this line', null, 'src/core/discount.ts:2  error[waiver-unknown-rule]'),
   waiver('waiver-without-reason', '  // lawcheck-waive no-console', 'lawcheck: FAIL  2 errors, 1 warning in 1 changed file (against main), 1 waiver', 'src/core/discount.ts:2  error[waiver-without-reason]'),
   {
@@ -518,6 +541,19 @@ const UNREADABLE: Case = {
     return { cwd: s, argv: CHECK, follow: { fix: () => chmodSync(join(s, 'src/core/price.ts'), 0o644) } };
   },
 };
+
+// The Example of each waiver code on docs/codes.md is its finding with no other finding beside it.
+function alone(code: string, line: string, exit: number): Case {
+  return {
+    id: `${code}, alone in a file of one line`,
+    code,
+    setup: (dir) => {
+      const s = makeSample(dir);
+      write(s, 'src/core/shipping.ts', `${line}\n`);
+      return { cwd: s, argv: CHECK, exit, exact: [`src/core/shipping.ts:1  ${exit === 1 ? 'error' : 'warning'}[${code}]`] };
+    },
+  };
+}
 
 function waiver(code: string, line: string, first: string | null, place: string): Case {
   return {
