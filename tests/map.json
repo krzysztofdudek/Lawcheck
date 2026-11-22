@@ -130,7 +130,6 @@
     "tests/acceptance/ci-docs.test.ts",
     "tests/acceptance/docs.test.ts",
     "tests/acceptance/first-law-docs.test.ts",
-    "tests/unit/deferred.test.ts",
     "tests/unit/docs.test.ts"
   ],
   "src/doctor.ts": [
