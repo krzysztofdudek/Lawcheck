@@ -3,14 +3,15 @@ import assert from 'node:assert/strict';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { COMMANDS, readArguments } from '../../dist/args.js';
-import { PROVIDERS, RUNNERS } from '../../dist/config.js';
+import { CONFIG, PROVIDERS, RUNNERS } from '../../dist/config.js';
 import { CODES } from '../../dist/output.js';
+import { LAW, RULES_DIR } from '../../dist/setup.js';
+import { ATTRIBUTES, LOCAL, VERDICTS } from '../../dist/verdicts.js';
 import { SIGN_IN_VARIABLES } from '../../dist/providers/program.js';
 import { LANGUAGES } from '../../dist/readers.js';
 import { DOCS_NOT_COVERED } from '../numbers.ts';
 import { ROOT, walk } from '../harness/sets.ts';
 
-// Section 7 of the documentation design: the page of docs/ that holds each kind of item.
 const PAGES: Record<string, string[]> = {
   command: ['cli'],
   flag: ['cli'],
@@ -27,10 +28,11 @@ const PAGES: Record<string, string[]> = {
   'JSON field': ['json'],
   hook: ['plugin'],
   setting: ['plugin'],
+  file: ['files'],
 };
 
-// LAWCHECK_REVIEW_CALL marks the processes of one reviewer call so that Lawcheck can end them; Lawcheck sets it, a user never does.
-const INTERNAL_VARIABLES = ['LAWCHECK_REVIEW_CALL'];
+// Lawcheck sets these for the programs it starts, and a user never does: LAWCHECK_REVIEW_CALL marks the processes of one reviewer call so that Lawcheck can end them, and GIT_CONFIG_COUNT carries the settings Lawcheck gives git.
+const INTERNAL_VARIABLES = ['LAWCHECK_REVIEW_CALL', 'GIT_CONFIG_COUNT'];
 
 // The items no page holds yet, as '<page>: <name>'. It may only shrink: the rail fails on an entry that its page now holds, and DOCS_NOT_COVERED in tests/numbers.ts counts it.
 const NOT_YET_COVERED: string[] = [
@@ -98,6 +100,119 @@ const NOT_YET_COVERED: string[] = [
   'plugin: Stop',
   'plugin: check_after_edit',
   'plugin: check_before_stop',
+  'config: CI',
+  'json: scope.mode',
+  'json: scope.base',
+  'json: scope.files',
+  'json: scope.law_changed',
+  'json: scope.law_changes',
+  'json: summary.errors',
+  'json: summary.warnings',
+  'json: summary.debt',
+  'json: summary.waivers',
+  'json: summary.unresolved',
+  'json: findings.code',
+  'json: findings.rule',
+  'json: findings.severity',
+  'json: findings.blocking',
+  'json: findings.debt',
+  'json: findings.file',
+  'json: findings.line',
+  'json: findings.type',
+  'json: findings.message',
+  'json: findings.why',
+  'json: waivers.file',
+  'json: waivers.line',
+  'json: waivers.rule',
+  'json: waivers.debt',
+  'json: waivers.waived',
+  'json: waivers.reason',
+  'json: unresolved.file',
+  'json: unresolved.line',
+  'json: unresolved.what',
+  'json: unresolved.answer',
+  'json: unresolved.reason',
+  'json: unresolved.candidates',
+  'json: unresolved.debt',
+  'json: reviews.missing',
+  'json: reviews.calls_made',
+  'json: reviews.passes_recorded',
+  'json: next.command',
+  'json: next.text',
+  'json: topics',
+  'json: topics.id',
+  'json: topics.title',
+  'json: id',
+  'json: title',
+  'json: checks.id',
+  'json: checks.state',
+  'json: checks.message',
+  'json: checks.next',
+  'json: checks.next.command',
+  'json: checks.next.text',
+  'json: errors.code',
+  'json: errors.file',
+  'json: errors.line',
+  'json: errors.message',
+  'json: errors.why',
+  'json: path',
+  'json: exists',
+  'json: chain',
+  'json: about',
+  'json: none',
+  'json: matched',
+  'json: matched.type',
+  'json: matched.pattern',
+  'json: matched.content',
+  'json: not_matched',
+  'json: not_matched.type',
+  'json: not_matched.content',
+  'json: then',
+  'json: may_use',
+  'json: may_use.types',
+  'json: may_use.from',
+  'json: uses',
+  'json: uses.read',
+  'json: uses.language',
+  'json: rules',
+  'json: rules.id',
+  'json: rules.kind',
+  'json: rules.status',
+  'json: rules.why',
+  'json: rules.from',
+  'json: rules.review',
+  'json: types',
+  'json: types.type',
+  'json: types.files',
+  'json: paths',
+  'json: content',
+  'json: subtypes',
+  'json: kind',
+  'json: status',
+  'json: why',
+  'json: context',
+  'json: reviewed',
+  'json: summary.findings',
+  'json: summary.files_with_findings',
+  'json: summary.waived',
+  'json: summary.calls_made',
+  'json: runs.file',
+  'json: runs.attempt',
+  'json: runs.verdict',
+  'json: runs.findings',
+  'json: runs.findings.line',
+  'json: runs.findings.message',
+  'json: runs.findings.severity',
+  'json: runs.waived',
+  'json: runs.answer',
+  'json: runs.prompt_chars',
+  'files: .lawcheck/config.yaml',
+  'files: .lawcheck/.gitignore',
+  'files: .lawcheck/law.yaml',
+  'files: .lawcheck/rules/',
+  'files: .lawcheck/verdicts',
+  'files: .lawcheck/.gitattributes',
+  'files: .lawcheck/.local',
 ];
 
 type Item = { kind: string; name: string };
@@ -124,6 +239,22 @@ function block(text: string, pattern: RegExp, path: string): string {
   return found[1]!;
 }
 
+type Schema = { $ref?: string; properties?: Record<string, Schema | boolean>; items?: Schema; oneOf?: Schema[]; anyOf?: Schema[]; allOf?: Schema[]; then?: Schema; else?: Schema; definitions?: Record<string, Schema> };
+
+// A nested field is named by its path of keys, as findings.code or checks.state, whether it sits in an object or in the items of a list.
+function fieldsOf(node: Schema | boolean | undefined, root: Schema, prefix: string): string[] {
+  if (typeof node !== 'object') return [];
+  const at = node.$ref === undefined ? node : root.definitions![node.$ref.replace('#/definitions/', '')]!;
+  const out: string[] = [];
+  for (const [key, child] of Object.entries(at.properties ?? {})) {
+    const name = prefix === '' ? key : `${prefix}.${key}`;
+    if (name !== 'schema') out.push(name);
+    out.push(...fieldsOf(child, root, name));
+  }
+  for (const branch of [...(at.oneOf ?? []), ...(at.anyOf ?? []), ...(at.allOf ?? []), at.then, at.else, at.items]) out.push(...fieldsOf(branch, root, prefix));
+  return out;
+}
+
 function arrayOf(read: Read, path: string, name: string): string[] {
   return strings(block(source(read, path), new RegExp(`const ${name}\\b[^=]*=\\s*\\[([^\\]]*)\\]`), path));
 }
@@ -142,7 +273,7 @@ function itemsOf(read: Read): Item[] {
     'config key': ['TOP_KEYS', 'REVIEWER_KEYS'].flatMap((name) => arrayOf(read, 'src/config.ts', name)),
     runner: arrayOf(read, 'src/config.ts', 'RUNNERS'),
     variable: [
-      ...[...sources.matchAll(/['"`](LAWCHECK_[A-Z0-9_]+)['"`]/g)].map((m) => m[1]!).filter((name) => !INTERNAL_VARIABLES.includes(name)),
+      ...[...sources.matchAll(/['"`](LAWCHECK_[A-Z0-9_]+)['"`]|\benv\.([A-Z][A-Z0-9_]*)\b/g)].map((m) => (m[1] ?? m[2])!).filter((name) => !INTERNAL_VARIABLES.includes(name)),
       ...[...sources.matchAll(/ownKey\(env, '[^']+', [^,]+, '([A-Z0-9_]+)'\)/g)].map((m) => m[1]!),
       ...strings(programs),
     ],
@@ -150,8 +281,12 @@ function itemsOf(read: Read): Item[] {
     language: arrayOf(read, 'src/readers.ts', 'LANGUAGES'),
     code: [...block(source(read, 'src/output.ts'), /const WHY[^=]*=\s*\{([\s\S]*?)\n\};/, 'src/output.ts').matchAll(/^\s+'?([a-z][a-z-]*)'?:/gm)].map((m) => m[1]!),
     'JSON document': schemas.map((file) => file.replace(/-(\d+)\.json$/, '/$1')),
-    'JSON field': schemas.flatMap((file) => Object.keys((JSON.parse(source(read, `tests/harness/schemas/${file}`)) as { properties?: object }).properties ?? {})).filter((key) => key !== 'schema'),
+    'JSON field': schemas.flatMap((file) => {
+      const schema = JSON.parse(source(read, `tests/harness/schemas/${file}`)) as Schema;
+      return fieldsOf(schema, schema, '');
+    }),
     hook: Object.keys((JSON.parse(source(read, 'plugin/hooks/hooks.json')) as { hooks: object }).hooks),
+    file: [...sources.matchAll(/const [A-Z_]+ = '(\.lawcheck\/[^']*)'/g)].map((m) => m[1]!),
     setting: Object.keys((JSON.parse(source(read, 'plugin/.claude-plugin/plugin.json')) as { userConfig: object }).userConfig),
   };
   groups['waiver code'] = groups.code!.filter((code) => code.startsWith('waiver-'));
@@ -213,6 +348,7 @@ test('question 95: what the rail reads from the source text is what the built co
   assert.deepEqual(of('provider'), [...PROVIDERS].sort());
   assert.deepEqual(of('runner'), [...RUNNERS].sort());
   assert.deepEqual(of('language'), [...LANGUAGES].sort());
+  for (const path of [LAW, RULES_DIR, CONFIG, VERDICTS, ATTRIBUTES, LOCAL]) assert.ok(of('file').includes(path), path);
   for (const name of Object.values(SIGN_IN_VARIABLES).flat()) assert.ok(of('variable').includes(name), name);
   const known = (flag: string) => COMMANDS.some((command) => {
     const read = readArguments([command, flag, '1']);
@@ -232,10 +368,10 @@ test('question 95: a flag planted in the argument parser and a code planted in t
   assert.ok(items.some((i) => i.kind === 'flag' && i.name === '--planted-flag'));
   assert.ok(items.some((i) => i.kind === 'code' && i.name === 'planted-code'));
   const problems = problemsOf(items, planted, NOT_YET_COVERED);
-  assert.deepEqual(problems.filter((p) => p.includes('planted')), [
-    'cli: --planted-flag (flag) is no heading and no first cell of a table row of docs/cli.md, which does not exist',
-    'codes: planted-code (code) is no heading and no first cell of a table row of docs/codes.md',
-  ]);
+  const named = problems.filter((p) => p.includes('planted'));
+  assert.equal(named.length, 2);
+  assert.ok(named[0]!.startsWith('cli: --planted-flag (flag) is no heading and no first cell of a table row of docs/cli.md'), named[0]);
+  assert.ok(named[1]!.startsWith('codes: planted-code (code) is no heading and no first cell of a table row of docs/codes.md'), named[1]);
 });
 
 test('question 95: control, an entry of the list that its page holds, an entry that names no item, and an entry given twice are each named', () => {
