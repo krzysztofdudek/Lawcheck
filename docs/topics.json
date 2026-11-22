@@ -19,5 +19,7 @@
   { "id": "change", "title": "What a check judges", "section": "Reference" },
   { "id": "json", "title": "JSON documents", "section": "Reference" },
   { "id": "plugin", "title": "The Claude Code plugin", "section": "Reference" },
-  { "id": "codes", "title": "Codes", "section": "Troubleshooting" }
+  { "id": "files", "title": "Files Lawcheck reads and writes", "section": "Reference" },
+  { "id": "codes", "title": "Codes", "section": "Troubleshooting" },
+  { "id": "support", "title": "Supported environments", "section": "Project" }
 ]

@@ -11,7 +11,7 @@ import { WHY } from '../../dist/output.js';
 
 const spec = readFileSync(new URL('../../spec/commands-slice.md', import.meta.url), 'utf8').split('\n');
 const LIST = [
-  'lawcheck docs: 21 topics; lawcheck docs <topic> prints one',
+  'lawcheck docs: 23 topics; lawcheck docs <topic> prints one',
   '',
   'Start',
   '  index  Lawcheck',
@@ -38,9 +38,13 @@ const LIST = [
   '  change  What a check judges',
   '  json  JSON documents',
   '  plugin  The Claude Code plugin',
+  '  files  Files Lawcheck reads and writes',
   '',
   'Troubleshooting',
   '  codes  Codes',
+  '',
+  'Project',
+  '  support  Supported environments',
 ];
 const TOPICS = LIST.filter((line) => line.startsWith('  ')).map((line) => ({ id: line.split('  ')[1]!, title: line.split('  ')[2]! }));
 const PARAGRAPH = spec.find((line) => line.startsWith('> A plain check judges only'))!.slice(2);
@@ -100,7 +104,7 @@ test('test 128: the list of topics, its JSON, and one page, outside git', async 
 });
 
 test('test 129: every page holds what section 7 asks, and its examples are real', async () => {
-  assert.equal(TOPICS.length, 21);
+  assert.equal(TOPICS.length, 23);
   for (const { id, title } of TOPICS) {
     const text = page(id);
     assert.equal(text.split('\n')[0], `# ${title}`, id);
