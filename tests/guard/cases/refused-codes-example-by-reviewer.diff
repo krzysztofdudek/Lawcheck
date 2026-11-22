@@ -14,4 +14,4 @@ diff --git a/tests/weakenings.md b/tests/weakenings.md
  | Date | What | Kind | Reason | Anchor | Approved by |
  |---|---|---|---|---|---|
  | 2026-11-01 | tests/real/hono.expected | expected-changed | Runes 1.1.0 reads the router | Runes 1.1.0 | reviewer old-agent |
-+| 2026-11-15 | docs/codes.md block 1 under "Escapes in the output" | docs-example-changed | the escape is gone | docs/codes.md | reviewer fresh-agent-7 |
++| 2026-11-15 | docs/codes.md block 1 under "Escapes in the output" | docs-example-changed | the escape is gone | ruling 1 | reviewer fresh-agent-7 |
