@@ -4,14 +4,15 @@
     "tests/**/*.test.ts"
   ],
   "specs": [
-    "spec/*.md"
+    "design/promises.md",
+    "docs/codes.md",
+    "docs/json.md"
   ],
-  "rulings": "spec/questions.md",
+  "rulings": "design/decisions.md",
   "docs": [
     "docs/**/*.md",
     "README.md"
   ],
-  "ledger": "tests/findings.md",
   "numbers": "tests/numbers.ts",
   "sabotage": "tests/sabotage/list.json",
   "runes": "@chrisdudek/runes",
@@ -79,9 +80,6 @@
     "threshold-lowered": [
       "owner"
     ],
-    "finding-weakened": [
-      "reviewer"
-    ],
     "ratchet-grew": [
       "reviewer"
     ],
@@ -110,14 +108,6 @@
         "UNSORTED"
       ]
     }
-  ],
-  "severities": [
-    "after the release",
-    "should be fixed before",
-    "blocks the release"
-  ],
-  "closedStates": [
-    "closed"
   ],
   "shrinkOnly": [
     "SLOW_TESTS"

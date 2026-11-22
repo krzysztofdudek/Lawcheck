@@ -1,14 +1,11 @@
-diff --git a/spec/check-slice.md b/spec/check-slice.md
-index 0218fbb..cdd04e4 100644
---- a/spec/check-slice.md
-+++ b/spec/check-slice.md
-@@ -22,4 +22,3 @@ lawcheck: PASS  nothing changed against main
- | Id | Promise | Test |
+diff --git a/design/promises.md b/design/promises.md
+--- a/design/promises.md
++++ b/design/promises.md
+@@ -15,3 +15,2 @@
  |---|---|---|
  | I-frame-1 | No text of a judged file starts a line of the prompt without its line number. | tests/acceptance/cli.test.ts |
 -| I-out-1 | No output line starts with a CI command. | tests/acceptance/cli.test.ts |
 diff --git a/tests/weakenings.md b/tests/weakenings.md
-index 5357732..34f98d6 100644
 --- a/tests/weakenings.md
 +++ b/tests/weakenings.md
 @@ -3,3 +3,4 @@

@@ -1,7 +1,7 @@
 import { changes, Tree } from '../guard/git.ts';
 import { matchesAny } from '../guard/glob.ts';
 import { loadConfig } from '../guard/guard.ts';
-import { acceptanceRows, invariantRows, ledgerRows, type Row } from '../guard/markdown.ts';
+import { invariantRows, type Row } from '../guard/markdown.ts';
 import { EXACT, isPattern, readSource } from '../guard/source.ts';
 import type { Changed } from './red-on-base.ts';
 
@@ -11,11 +11,8 @@ function promises(tree: Tree): Map<string, { file: string; text: string }> {
   const out = new Map<string, { file: string; text: string }>();
   const add = (file: string, rows: Row[]): void => { for (const r of rows) if (!out.has(r.key)) out.set(r.key, { file, text: r.text }); };
   for (const file of [...tree.list()].filter((p) => matchesAny(p, config.specs) && p !== config.rulings).sort()) {
-    const text = tree.read(file) ?? '';
-    add(file, acceptanceRows(text));
-    add(file, invariantRows(text));
+    add(file, invariantRows(tree.read(file) ?? ''));
   }
-  add(config.ledger, ledgerRows(tree.read(config.ledger) ?? ''));
   return out;
 }
 
@@ -48,10 +45,11 @@ export function testIds(repo: string, mergeBase: string, head: string, changed: 
   const lines = ['| Test | File | Change | Promise |', '|---|---|---|---|'];
   const promise = (id: string): string => {
     const keys = named(id);
-    if (keys.length === 0) return 'names no spec row, invariant or finding';
+    if (keys.length === 0) return 'names no test number, promise or finding';
     return keys.map((k) => {
       const p = known.get(k);
-      return p ? `${k} of ${p.file}: ${p.text.length > 160 ? `${p.text.slice(0, 157)}...` : p.text}` : `${k}: not in the spec or the ledger`;
+      if (p) return `${k} of ${p.file}: ${p.text.length > 160 ? `${p.text.slice(0, 157)}...` : p.text}`;
+      return k.startsWith('I-') ? `${k}: not in ${config.specs.join(', ')}` : k.replace(/^row /, 'test ');
     }).join('; ').replace(/\|/g, '\\|');
   };
   for (const c of changed) lines.push(`| ${c.id.replace(/\|/g, '\\|')} | ${c.file}:${c.line} | ${c.change} | ${promise(c.id)} |`);

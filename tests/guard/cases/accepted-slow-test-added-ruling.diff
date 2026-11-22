@@ -1,7 +1,7 @@
-diff --git a/spec/questions.md b/spec/questions.md
+diff --git a/design/decisions.md b/design/decisions.md
 index e070dae..72574cd 100644
---- a/spec/questions.md
-+++ b/spec/questions.md
+--- a/design/decisions.md
++++ b/design/decisions.md
 @@ -3,3 +3,7 @@
  ## 1. Two waivers covering one finding
  

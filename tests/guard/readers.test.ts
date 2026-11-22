@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readSource } from './source.ts';
 import { readConstants } from './constants.ts';
-import { acceptanceRows, fencedBlocks, invariantRows, ledgerRows, readWeakenings, rulings } from './markdown.ts';
+import { fencedBlocks, invariantRows, readWeakenings, rulings } from './markdown.ts';
 import { parseAnchor } from './guard.ts';
 
 test('question 95: the suite guard, test ids are the names of test, it and describe calls, and nothing a comment, a string or a regex holds', () => {
@@ -113,7 +113,7 @@ test('question 95: the suite guard, a list that names a string constant of its o
   ] });
 });
 
-test('question 95: the suite guard, spec rows, invariants, ledger rows, rulings and example blocks are read from markdown', () => {
+test('question 95: the suite guard, promises, rulings and example blocks are read from markdown', () => {
   const spec = [
     '## 6. Output',
     '',
@@ -135,10 +135,8 @@ test('question 95: the suite guard, spec rows, invariants, ledger rows, rulings 
     '|---|---|',
     '| `I-frame-1` | No text starts a line. |',
   ].join('\n');
-  assert.deepEqual(acceptanceRows(spec).map((r) => [r.key, r.line]), [['row 1', 14], ['row 2', 15]]);
   assert.deepEqual(invariantRows(spec).map((r) => r.key), ['I-frame-1']);
   assert.deepEqual(fencedBlocks(spec).map((b) => [b.key, b.content]), [['example pass-run', '\nlawcheck: PASS'], ['block 2 under "6. Output"', 'yaml\na: 1']]);
-  assert.deepEqual(ledgerRows('| S3-1 | security | open |\n|---|---|---|\n| x | S1-12 | fixed |').map((r) => r.key), ['S3-1', 'S1-12']);
   assert.deepEqual([...rulings('## 1. One\ntext\n## 12. Twelve\n### 13. not one')], ['1', '12']);
 });
 
@@ -159,5 +157,5 @@ test('question 95: the suite guard, an anchor is a row, an invariant, a finding,
   assert.deepEqual(['row 21', 'test 21', 'I-frame-1', 'S3-1', 'ruling 73', 'Runes 1.2.0', 'runes v1.2.0-beta.1', 'tests/guard/**', 'package.json#scripts.test', 'because I said so'].map((a) => {
     const parsed = parseAnchor(a);
     return parsed && [parsed.type, parsed.key];
-  }), [['row', 'row 21'], ['row', 'row 21'], ['invariant', 'I-frame-1'], ['ledger', 'S3-1'], ['ruling', '73'], ['runes', '1.2.0'], ['runes', '1.2.0-beta.1'], ['path', 'tests/guard/**'], ['path', 'package.json'], null]);
+  }), [['row', 'row 21'], ['row', 'row 21'], ['invariant', 'I-frame-1'], ['finding', 'S3-1'], ['ruling', '73'], ['runes', '1.2.0'], ['runes', '1.2.0-beta.1'], ['path', 'tests/guard/**'], ['path', 'package.json'], null]);
 });

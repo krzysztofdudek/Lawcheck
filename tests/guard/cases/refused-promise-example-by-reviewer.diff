@@ -1,22 +1,18 @@
-diff --git a/spec/check-slice.md b/spec/check-slice.md
-index 0218fbb..a2c5d5e 100644
---- a/spec/check-slice.md
-+++ b/spec/check-slice.md
-@@ -6,7 +6,7 @@ The passing run prints:
- 
+diff --git a/design/promises.md b/design/promises.md
+--- a/design/promises.md
++++ b/design/promises.md
+@@ -7,5 +7,5 @@
  <!-- example: pass-run -->
  ```
 -lawcheck: PASS  nothing changed against main
 +lawcheck: PASS
  ```
  
- ## 8. Acceptance
 diff --git a/tests/weakenings.md b/tests/weakenings.md
-index 5357732..b5225c2 100644
 --- a/tests/weakenings.md
 +++ b/tests/weakenings.md
 @@ -3,3 +3,4 @@
  | Date | What | Kind | Reason | Anchor | Approved by |
  |---|---|---|---|---|---|
  | 2026-11-01 | tests/real/hono.expected | expected-changed | Runes 1.1.0 reads the router | Runes 1.1.0 | reviewer old-agent |
-+| 2026-11-15 | spec/check-slice.md example pass-run | promise-changed | shorter | spec/check-slice.md | reviewer fresh-agent-7 |
++| 2026-11-15 | design/promises.md example pass-run | promise-changed | shorter | design/promises.md | reviewer fresh-agent-7 |

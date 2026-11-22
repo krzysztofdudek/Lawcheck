@@ -10,16 +10,6 @@ index 301d8e4..5b3fbdc 100644
 -  if (process.platform === 'win32') return t.skip('no file mode on Windows');
 -  assert.equal(2, 2);
 -});
-diff --git a/tests/findings.md b/tests/findings.md
-index 4d9cacf..b8b2164 100644
---- a/tests/findings.md
-+++ b/tests/findings.md
-@@ -4,4 +4,4 @@
- |---|---|---|---|---|
- | S1-1 | should be fixed before | hostile input | open | |
- | S2-1 | after the release | limit | closed | |
--| S3-1 | blocks the release | security | open | S3-1: a lone CR does not start a prompt line |
-+| S3-1 | blocks the release | security | closed | |
 diff --git a/tests/weakenings.md b/tests/weakenings.md
 index 5357732..f183707 100644
 --- a/tests/weakenings.md

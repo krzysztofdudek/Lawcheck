@@ -1,22 +1,16 @@
-diff --git a/spec/check-slice.md b/spec/check-slice.md
-index 0218fbb..1204a0f 100644
---- a/spec/check-slice.md
-+++ b/spec/check-slice.md
-@@ -13,7 +13,7 @@ lawcheck: PASS  nothing changed against main
- 
- | # | Do | See |
+diff --git a/design/promises.md b/design/promises.md
+--- a/design/promises.md
++++ b/design/promises.md
+@@ -15,3 +15,3 @@
  |---|---|---|
--| 1 | nothing | `lawcheck: PASS  nothing changed against main`, exit 0 |
-+| 1 | nothing | `lawcheck: PASS`, exit 0 |
- | 2 | the passing run of section 6 | its output, exit 0 |
- | 3 | add 60 findings | 50 finding lines, then `... 10 more findings` |
- 
+ | I-frame-1 | No text of a judged file starts a line of the prompt without its line number. | tests/acceptance/cli.test.ts |
+-| I-out-1 | No output line starts with a CI command. | tests/acceptance/cli.test.ts |
++| I-out-1 | No output line starts with a CI command, mostly. | tests/acceptance/cli.test.ts |
 diff --git a/tests/weakenings.md b/tests/weakenings.md
-index 5357732..6def13b 100644
 --- a/tests/weakenings.md
 +++ b/tests/weakenings.md
 @@ -3,3 +3,4 @@
  | Date | What | Kind | Reason | Anchor | Approved by |
  |---|---|---|---|---|---|
  | 2026-11-01 | tests/real/hono.expected | expected-changed | Runes 1.1.0 reads the router | Runes 1.1.0 | reviewer old-agent |
-+| 2026-11-15 | row 1 | promise-changed | shorter | row 1 | reviewer fresh-agent-7 |
++| 2026-11-15 | I-out-1 | promise-changed | shorter | I-out-1 | reviewer fresh-agent-7 |

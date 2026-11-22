@@ -1,13 +1,8 @@
-diff --git a/spec/check-slice.md b/spec/check-slice.md
-index 0218fbb..826e811 100644
---- a/spec/check-slice.md
-+++ b/spec/check-slice.md
-@@ -13,7 +13,7 @@ lawcheck: PASS  nothing changed against main
- 
- | # | Do | See |
+diff --git a/design/promises.md b/design/promises.md
+--- a/design/promises.md
++++ b/design/promises.md
+@@ -15,3 +15,3 @@
  |---|---|---|
--| 1 | nothing | `lawcheck: PASS  nothing changed against main`, exit 0 |
-+| 1 | nothing | `lawcheck: PASS  nothing changed against main`, exit 0, and no `next:` |
- | 2 | the passing run of section 6 | its output, exit 0 |
- | 3 | add 60 findings | 50 finding lines, then `... 10 more findings` |
- 
+ | I-frame-1 | No text of a judged file starts a line of the prompt without its line number. | tests/acceptance/cli.test.ts |
+-| I-out-1 | No output line starts with a CI command. | tests/acceptance/cli.test.ts |
++| I-out-1 | No output line starts with a CI command, and none holds one. | tests/acceptance/cli.test.ts |

@@ -24,19 +24,6 @@ export function plain(cell: string): string {
 
 export type Row = { key: string; text: string; line: number };
 
-export function acceptanceRows(text: string): Row[] {
-  const rows: Row[] = [];
-  let inTable = false;
-  text.split('\n').forEach((line, index) => {
-    const row = cells(line);
-    if (!row) { inTable = false; return; }
-    if (row[0] === '#') { inTable = true; return; }
-    if (!inTable || isRule(row)) return;
-    if (/^\d+$/.test(row[0]!)) rows.push({ key: `row ${row[0]}`, text: line.trim(), line: index + 1 });
-  });
-  return rows;
-}
-
 export function invariantRows(text: string): Row[] {
   const rows: Row[] = [];
   text.split('\n').forEach((line, index) => {
@@ -44,17 +31,6 @@ export function invariantRows(text: string): Row[] {
     if (!row) return;
     const id = plain(row[0]!);
     if (/^I-[A-Za-z0-9][\w-]*$/.test(id)) rows.push({ key: id, text: line.trim(), line: index + 1 });
-  });
-  return rows;
-}
-
-export function ledgerRows(text: string): Row[] {
-  const rows: Row[] = [];
-  text.split('\n').forEach((line, index) => {
-    const row = cells(line);
-    if (!row || isRule(row)) return;
-    const id = row.map(plain).find((c) => /^S\d+-\d+$/.test(c));
-    if (id) rows.push({ key: id, text: line.trim(), line: index + 1 });
   });
   return rows;
 }
@@ -125,27 +101,6 @@ export function readWeakenings(text: string, firstLine = 1): Ledger {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { out.malformed.push({ line: at, raw: line, why: 'its date is not YYYY-MM-DD' }); return; }
     if (!what || !kind || !reason || !anchor || !approvedBy) { out.malformed.push({ line: at, raw: line, why: 'a cell is empty' }); return; }
     out.records.push({ line: at, date, what, kind, reason, anchor, approvedBy, raw: line });
-  });
-  return out;
-}
-
-export type LedgerEntry = { id: string; line: number; cells: Map<string, string> };
-
-export function ledgerTable(text: string): Map<string, LedgerEntry> {
-  const out = new Map<string, LedgerEntry>();
-  let header: string[] | null = null;
-  text.split('\n').forEach((line, index) => {
-    const row = cells(line);
-    if (!row) { header = null; return; }
-    if (!header) {
-      const names = row.map((c) => plain(c).toLowerCase());
-      if (names.includes('id')) header = names;
-      return;
-    }
-    if (isRule(row)) return;
-    const named = new Map(header.map((name, i) => [name, plain(row[i] ?? '')] as [string, string]));
-    const id = named.get('id');
-    if (id) out.set(id, { id, line: index + 1, cells: named });
   });
   return out;
 }

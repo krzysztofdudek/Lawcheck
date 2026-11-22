@@ -27,7 +27,7 @@ const EXPECT: { [name: string]: Expect } = {
   'refused-test-removed-anchor-not-named': { refused: ['test-removed'] },
   'refused-promise-reworded-by-reviewer': { refused: ['promise-changed'] },
   'refused-invariant-removed-by-reviewer': { refused: ['promise-changed'] },
-  'refused-spec-example-by-reviewer': { refused: ['promise-changed'] },
+  'refused-promise-example-by-reviewer': { refused: ['promise-changed'] },
   'refused-guard-by-reviewer': { refused: ['guard-changed'] },
   'refused-guard-config-by-reviewer': { refused: ['guard-changed'] },
   'refused-ci-workflow-by-reviewer': { refused: ['ci-changed'] },
@@ -38,9 +38,6 @@ const EXPECT: { [name: string]: Expect } = {
   'refused-threshold-removed': { refused: ['threshold-lowered'] },
   'refused-threshold-direction-turned': { refused: ['threshold-lowered'] },
   'refused-number-unreadable': { refused: ['number-unreadable'] },
-  'refused-finding-removed': { refused: ['finding-weakened'] },
-  'refused-finding-severity-lowered': { refused: ['finding-weakened'] },
-  'refused-finding-reopened': { refused: ['finding-weakened'] },
   'refused-ratchet-grew': { refused: ['ratchet-grew'] },
   'refused-number-unclassified': { refused: ['number-unclassified'] },
   'refused-owner-row-from-branch': { refused: ['guard-changed'] },
@@ -72,13 +69,12 @@ const EXPECT: { [name: string]: Expect } = {
   'refused-platform-promise-skipped-elsewhere': { refused: ['platform-unlisted'] },
   'refused-self-law-waiver-added': { refused: ['ratchet-grew'] },
   'refused-section-only-raised': { refused: ['threshold-lowered'] },
-  'refused-finding-open-to-question': { refused: ['finding-weakened'] },
   'refused-platform-skip-added': { refused: ['harness-changed', 'ratchet-grew'] },
   'refused-self-law-unsorted-grows': { refused: ['ratchet-grew'] },
   'accepted-expected-runes': { cleared: ['expected-changed'] },
   'accepted-expected-ruling': { cleared: ['expected-changed'] },
-  'accepted-test-removed-ledger': { cleared: ['test-removed'] },
-  'accepted-test-removed-with-row': { cleared: ['promise-changed', 'test-removed'] },
+  'accepted-test-removed-finding': { cleared: ['test-removed'] },
+  'accepted-test-removed-with-row': { cleared: ['test-removed'] },
   'accepted-promise-by-owner': { cleared: ['promise-changed'] },
   'accepted-guard-by-owner': { cleared: ['guard-changed', 'guard-changed'] },
   'accepted-owner-row-alone': { cleared: [] },
@@ -86,14 +82,12 @@ const EXPECT: { [name: string]: Expect } = {
   'accepted-threshold-by-owner': { cleared: ['threshold-lowered'] },
   'accepted-threshold-stronger': { cleared: [] },
   'accepted-new-number-with-direction': { cleared: [] },
-  'accepted-finding-state-changed': { cleared: [] },
-  'accepted-finding-removed-ruling': { cleared: ['finding-weakened'] },
   'accepted-ratchet-shrinks': { cleared: [] },
   'accepted-slow-test-removed': { cleared: [] },
   'accepted-slow-test-added-ruling': { cleared: ['ratchet-grew'] },
   'accepted-ratchet-grew-ruling': { cleared: ['ratchet-grew'] },
   'accepted-skip-platform': { cleared: [] },
-  'accepted-sabotage-removed': { cleared: ['promise-changed', 'sabotage-removed'] },
+  'accepted-sabotage-removed': { cleared: ['sabotage-removed', 'test-removed'] },
   'accepted-harness-by-reviewer': { cleared: ['harness-changed'] },
   'accepted-law-by-reviewer': { cleared: ['law-changed'] },
   'accepted-platform-narrowed-by-reviewer': { cleared: ['platform-narrowed', 'harness-changed'] },
@@ -102,8 +96,6 @@ const EXPECT: { [name: string]: Expect } = {
   'accepted-platform-promise-nightly': { cleared: [] },
   'accepted-platform-row-not-leading': { cleared: [] },
   'accepted-self-law-shrinks': { cleared: [] },
-  'accepted-finding-open-to-closed': { cleared: [] },
-  'accepted-finding-open-to-question-ruling': { cleared: ['finding-weakened'] },
   'accepted-platform-skip-removed': { cleared: ['harness-changed'] },
   'accepted-new-test': { cleared: [] },
   'accepted-test-moved': { cleared: [] },
@@ -161,7 +153,7 @@ test('question 95: the suite guard, a refusal names the weakening, the record th
     'why      no record of it in this change',
     'needs    a row added to tests/weakenings.md in this change:',
     '         | 2026-11-15 | test 2: the passing run | test-removed | <why the suite may get weaker here> | <anchor> | reviewer <the fresh reviewer agent> |',
-    "anchor   the acceptance row ('row <n>'), invariant ('I-...') or ledger row ('S<r>-<n>') that the test's name names, removed or reworded in this change; or 'ruling <n>' of spec/questions.md; or 'Runes <version>' that this change moves to",
+    "anchor   the test number ('test <n>'), promise ('I-...') or finding ('S<r>-<n>') that the test's name leads with; or 'ruling <n>' of design/decisions.md; or 'Runes <version>' that this change moves to",
     '',
     text.trimEnd().split('\n').at(-1),
     '',
@@ -202,7 +194,7 @@ test('question 95: the suite guard, an owner\'s row that lands alone is refused 
   const detail = (name: string): string[] => judgeCase(name).findings.filter((f) => f.kind === 'record-invalid').flatMap((f) => [f.detail]);
   assert.deepEqual(detail('refused-owner-row-alone-short'), ['not a record: it has 5 cells, the table has 6']);
   assert.deepEqual(detail('refused-owner-row-alone-by-reviewer'), ['guard-changed needs the approval of owner, and reviewer approved it']);
-  assert.deepEqual(detail('refused-owner-row-alone-no-anchor'), ["'not an anchor at all' is not an anchor (row <n>, I-..., S<r>-<n>, ruling <n>, Runes <version>, or a path)"]);
+  assert.deepEqual(detail('refused-owner-row-alone-no-anchor'), ["'not an anchor at all' is not an anchor (test <n>, I-..., S<r>-<n>, ruling <n>, Runes <version>, or a path)"]);
 });
 
 test('question 95: the suite guard, an owner\'s row on the base covers only the change it approves, so a later change of the same paths is refused', () => {
@@ -252,7 +244,7 @@ test('question 95: the suite guard, a record of an owner kind on the base that a
 
 test('question 95: the suite guard, an anchor that does not exist, and one this change does not touch, are named as such', () => {
   const missing = judgeCase('refused-expected-anchor-missing').findings.find((f) => f.kind === 'expected-changed')!;
-  assert.deepEqual(missing.why, ["the record at tests/weakenings.md:6: the anchor 'row 99' does not exist in the spec"]);
+  assert.deepEqual(missing.why, ["the record at tests/weakenings.md:6: the anchor 'row 99' does not exist in the names of the tests"]);
   const unchanged = judgeCase('refused-expected-anchor-unchanged').findings.find((f) => f.kind === 'expected-changed')!;
   assert.deepEqual(unchanged.why, ["the record at tests/weakenings.md:6: the anchor 'row 2' exists, but this change does not add, reword or remove it"]);
 });

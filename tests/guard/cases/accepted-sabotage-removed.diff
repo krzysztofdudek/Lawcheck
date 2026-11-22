@@ -1,15 +1,14 @@
-diff --git a/spec/check-slice.md b/spec/check-slice.md
-index 0218fbb..5023df6 100644
---- a/spec/check-slice.md
-+++ b/spec/check-slice.md
-@@ -15,7 +15,6 @@ lawcheck: PASS  nothing changed against main
- |---|---|---|
- | 1 | nothing | `lawcheck: PASS  nothing changed against main`, exit 0 |
- | 2 | the passing run of section 6 | its output, exit 0 |
--| 3 | add 60 findings | 50 finding lines, then `... 10 more findings` |
+diff --git a/tests/acceptance/limits.test.ts b/tests/acceptance/limits.test.ts
+--- a/tests/acceptance/limits.test.ts
++++ b/tests/acceptance/limits.test.ts
+@@ -1,7 +1,3 @@
+ import { test } from 'node:test';
+ import assert from 'node:assert/strict';
  
- ## 9. Invariants
- 
+-test('test 3: at most 50 finding lines', () => {
+-  assert.equal(50, 50);
+-});
+-
 diff --git a/src/output.ts b/src/output.ts
 index cc7d41d..1f32954 100644
 --- a/src/output.ts
@@ -38,11 +37,11 @@ index e42f089..c1c30ce 100644
      "id": "frame-cr",
      "promise": "I-frame-1",
 diff --git a/tests/weakenings.md b/tests/weakenings.md
-index dc8a175..dd6ef9d 100644
 --- a/tests/weakenings.md
 +++ b/tests/weakenings.md
-@@ -4,3 +4,4 @@
+@@ -3,3 +3,5 @@
+ | Date | What | Kind | Reason | Anchor | Approved by |
  |---|---|---|---|---|---|
  | 2026-11-01 | tests/real/hono.expected | expected-changed | Runes 1.1.0 reads the router | Runes 1.1.0 | reviewer old-agent |
- | 2026-11-15 | row 3 | promise-changed | every finding is printed | row 3; approves 9f1617fa470db0b3 | owner |
-+| 2026-11-15 | limit-50 | sabotage-removed | the limit and its row are gone | row 3 | reviewer fresh-agent-7 |
++| 2026-11-15 | test 3: at most 50 finding lines | test-removed | every finding is printed | row 3 | reviewer fresh-agent-7 |
++| 2026-11-15 | limit-50 | sabotage-removed | the limit and its test are gone | row 3 | reviewer fresh-agent-7 |

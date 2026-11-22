@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { changes, git, resolve, Tree, type Change } from './git.ts';
 import { matchesAny, globToRegExp } from './glob.ts';
-import { acceptanceRows, fencedBlocks, invariantRows, ledgerRows, ledgerTable, readWeakenings, RECORD_HEADER, rulings, type Record, type Row } from './markdown.ts';
+import { fencedBlocks, invariantRows, readWeakenings, RECORD_HEADER, rulings, type Record, type Row } from './markdown.ts';
 import { namePattern, readSource, tokenize, type Marker } from './source.ts';
 import { readConstants, type Value } from './constants.ts';
 
@@ -12,7 +12,6 @@ export type Config = {
   specs: string[];
   rulings: string;
   docs: string[];
-  ledger: string;
   numbers: string;
   sabotage: string;
   runes: string;
@@ -24,8 +23,6 @@ export type Config = {
   approvers: { [kind: string]: string[] };
   stronger: string;
   ratchets: Array<string | { file: string; lists: string[] }>;
-  severities: string[];
-  closedStates: string[];
 };
 
 export type Direction = 'higher' | 'lower' | 'fixed';
@@ -45,7 +42,6 @@ export const RECORD_KINDS = [
   'guard-changed',
   'ci-changed',
   'threshold-lowered',
-  'finding-weakened',
   'ratchet-grew',
   'law-changed',
   'platform-narrowed',
@@ -88,11 +84,12 @@ export type Report = {
   passed: boolean;
 };
 
+// rows and findings come from the names of the tests: 'test 12' and 'S3-1' at the start of a name. Each maps to the names that carry it, so a change that removes or renames such a test changes its anchor.
 type Snapshot = {
   tree: Tree;
   rows: Map<string, string[]>;
   invariants: Map<string, string[]>;
-  ledger: Map<string, string[]>;
+  findings: Map<string, string[]>;
   rulings: Set<string>;
   runes: string | null;
 };
@@ -109,16 +106,16 @@ function specFiles(tree: Tree, config: Config): string[] {
   return [...tree.list()].filter((p) => matchesAny(p, config.specs) && p !== config.rulings).sort();
 }
 
-function snapshot(tree: Tree, config: Config): Snapshot {
-  const rows = new Map<string, string[]>();
+function snapshot(tree: Tree, config: Config, names: string[]): Snapshot {
   const invariants = new Map<string, string[]>();
-  for (const file of specFiles(tree, config)) {
-    const text = tree.read(file) ?? '';
-    group(acceptanceRows(text), rows);
-    group(invariantRows(text), invariants);
+  for (const file of specFiles(tree, config)) group(invariantRows(tree.read(file) ?? ''), invariants);
+  const rows = new Map<string, string[]>();
+  const findings = new Map<string, string[]>();
+  for (const name of [...names].sort()) {
+    for (const row of leadingRows(name)) group([{ key: `row ${row}`, text: name, line: 0 }], rows);
+    const finding = /^(S\d+-\d+)(?![\w-])/.exec(name)?.[1];
+    if (finding) group([{ key: finding, text: name, line: 0 }], findings);
   }
-  const ledger = new Map<string, string[]>();
-  group(ledgerRows(tree.read(config.ledger) ?? ''), ledger);
   let runes: string | null = null;
   try {
     const pkg = JSON.parse(tree.read('package.json') ?? '{}') as { dependencies?: { [k: string]: string }; devDependencies?: { [k: string]: string } };
@@ -126,7 +123,7 @@ function snapshot(tree: Tree, config: Config): Snapshot {
   } catch {
     runes = null;
   }
-  return { tree, rows, invariants, ledger, rulings: rulings(tree.read(config.rulings) ?? ''), runes };
+  return { tree, rows, invariants, findings, rulings: rulings(tree.read(config.rulings) ?? ''), runes };
 }
 
 function same(a: string[] | undefined, b: string[] | undefined): boolean {
@@ -216,11 +213,11 @@ function platformReasons(tree: Tree, config: Config): { reasons: Set<string>; pa
   return out;
 }
 
-function anchorHint(kind: string): string {
-  if (kind === 'test-removed') return "the acceptance row ('row <n>'), invariant ('I-...') or ledger row ('S<r>-<n>') that the test's name names, removed or reworded in this change; or 'ruling <n>' of spec/questions.md; or 'Runes <version>' that this change moves to";
+function anchorHint(kind: string, config: Config): string {
+  if (kind === 'test-removed') return `the test number ('test <n>'), promise ('I-...') or finding ('S<r>-<n>') that the test's name leads with; or 'ruling <n>' of ${config.rulings}; or 'Runes <version>' that this change moves to`;
   if (kind === 'sabotage-removed') return "the entry's promise, removed in this change together with the code the entry breaks";
-  if (OWNER_LIKE.has(kind) || kind === 'harness-changed' || kind === 'law-changed' || kind === 'platform-narrowed') return "anything this change really holds: a path it changes, 'row <n>' or 'I-...' it changes, 'ruling <n>', or 'Runes <version>' it moves to";
-  return "'row <n>' or 'I-...' that this change adds, rewords or removes; or 'ruling <n>' of spec/questions.md; or 'Runes <version>' that this change moves to";
+  if (OWNER_LIKE.has(kind) || kind === 'harness-changed' || kind === 'law-changed' || kind === 'platform-narrowed') return "anything this change really holds: a path it changes, 'test <n>' or 'I-...' it changes, 'ruling <n>', or 'Runes <version>' it moves to";
+  return `'test <n>' or 'I-...' that this change adds, changes or removes; or 'ruling <n>' of ${config.rulings}; or 'Runes <version>' that this change moves to`;
 }
 
 export function judge(repo: string, baseRev: string, headRev: string, config: Config, today = new Date().toISOString().slice(0, 10)): Report {
@@ -318,14 +315,12 @@ export function judge(repo: string, baseRev: string, headRev: string, config: Co
     }
   }
 
-  const snapBefore = snapshot(before, config);
-  const snapAfter = snapshot(after, config);
-  for (const [map, label] of [[snapBefore.rows, 'acceptance row'], [snapBefore.invariants, 'invariant']] as const) {
-    const other = map === snapBefore.rows ? snapAfter.rows : snapAfter.invariants;
-    for (const [key, texts] of map) {
-      if (same(texts, other.get(key))) continue;
-      add({ kind: 'promise-changed', subject: key, where: findRowFile(before, config, key), detail: other.has(key) ? `${label} reworded: ${texts[0]} -> ${other.get(key)![0]}` : `${label} removed: ${texts[0]}`, promise: key });
-    }
+  const names = (sources: Map<string, ReturnType<typeof readSource>>): string[] => [...sources.values()].flatMap((s) => s.tests.map((t) => t.id));
+  const snapBefore = snapshot(before, config, names(beforeSources));
+  const snapAfter = snapshot(after, config, names(afterSources));
+  for (const [key, texts] of snapBefore.invariants) {
+    if (same(texts, snapAfter.invariants.get(key))) continue;
+    add({ kind: 'promise-changed', subject: key, where: findRowFile(before, config, key), detail: snapAfter.invariants.has(key) ? `promise reworded: ${texts[0]} -> ${snapAfter.invariants.get(key)![0]}` : `promise removed: ${texts[0]}`, promise: key });
   }
 
   const blockChanges = (files: string[], kind: 'promise-changed' | 'docs-example-changed'): void => {
@@ -336,13 +331,14 @@ export function judge(repo: string, baseRev: string, headRev: string, config: Co
       for (const block of old) {
         const left = kept.get(block.content) ?? 0;
         if (left > 0) { kept.set(block.content, left - 1); continue; }
-        add({ kind, subject: `${file} ${block.key}`, where: `${file}:${block.line}`, detail: `an example block of ${kind === 'promise-changed' ? 'a spec' : 'a docs page'} changed or removed` });
+        add({ kind, subject: `${file} ${block.key}`, where: `${file}:${block.line}`, detail: `an example block of ${kind === 'promise-changed' ? 'a page of promises' : 'a docs page'} changed or removed` });
       }
     }
   };
   const changedPaths = new Set(diff.filter((c) => c.status !== 'A').map((c) => c.from));
   blockChanges(specFiles(before, config).filter((f) => changedPaths.has(f)), 'promise-changed');
-  blockChanges([...before.list()].filter((p) => matchesAny(p, config.docs) && changedPaths.has(p)).sort(), 'docs-example-changed');
+  const promiseFiles = new Set(specFiles(before, config));
+  blockChanges([...before.list()].filter((p) => matchesAny(p, config.docs) && changedPaths.has(p) && !promiseFiles.has(p)).sort(), 'docs-example-changed');
 
   const numbersBefore = numbers(before.read(config.numbers), config);
   const numbersText = after.read(config.numbers);
@@ -385,28 +381,12 @@ export function judge(repo: string, baseRev: string, headRev: string, config: Co
       const guardGone = code === null || !code.includes(entry.find);
       const promiseGone = existed(snapBefore, entry.promise) && !existed(snapAfter, entry.promise);
       if (!guardGone || !promiseGone) {
-        const missing = [!guardGone ? `${entry.file} still holds the code it breaks` : '', !promiseGone ? `its promise ${entry.promise} ${existed(snapAfter, entry.promise) ? 'is still in the spec' : 'was not in the spec of the merge base'}` : ''].filter(Boolean).join('; ');
+        const missing = [!guardGone ? `${entry.file} still holds the code it breaks` : '', !promiseGone ? `its promise ${entry.promise} ${existed(snapAfter, entry.promise) ? 'still exists' : 'did not exist on the merge base'}` : ''].filter(Boolean).join('; ');
         add({ kind: 'sabotage-guard-kept', subject: entry.id, where: config.sabotage, detail: `an entry of the sabotage list is removed only with the guard it breaks and with its promise: ${missing}` });
       } else {
         add({ kind: 'sabotage-removed', subject: entry.id, where: config.sabotage, detail: `removed with the code it breaks and its promise ${entry.promise}`, promise: entry.promise });
       }
     }
-  }
-
-  const findingsBefore = ledgerTable(before.read(config.ledger) ?? '');
-  const findingsAfter = ledgerTable(after.read(config.ledger) ?? '');
-  const rank = (severity: string | undefined): number => config.severities.indexOf((severity ?? '').trim().toLowerCase());
-  for (const [id, was] of findingsBefore) {
-    const now = findingsAfter.get(id);
-    const at = `${config.ledger}:${was.line}`;
-    if (!now) { add({ kind: 'finding-weakened', subject: id, where: at, detail: `the row of ${id} is removed, or its id changed` }); continue; }
-    const s0 = was.cells.get('severity');
-    const s1 = now.cells.get('severity');
-    if (rank(s0) >= 0 && rank(s1) < rank(s0)) add({ kind: 'finding-weakened', subject: id, where: `${config.ledger}:${now.line}`, detail: `its severity is lowered: ${s0} -> ${s1 || 'none'}` });
-    const st0 = (was.cells.get('state') ?? '').toLowerCase();
-    const st1 = (now.cells.get('state') ?? '').toLowerCase();
-    if (config.closedStates.includes(st0) && st1 !== st0) add({ kind: 'finding-weakened', subject: id, where: `${config.ledger}:${now.line}`, detail: `a closed finding is reopened as ${st1 || 'nothing'}` });
-    else if (st0 === 'open' && st1 !== st0 && !config.closedStates.includes(st1)) add({ kind: 'finding-weakened', subject: id, where: `${config.ledger}:${now.line}`, detail: `an open finding becomes ${st1 || 'nothing'} without being closed` });
   }
 
   for (const ratchet of config.ratchets) {
@@ -521,8 +501,8 @@ export function judge(repo: string, baseRev: string, headRev: string, config: Co
   const stateOf = (w: Weakening): string => {
     if (w.kind === 'threshold-lowered') return `${describeValue(numbersAfter.values.get(w.subject))} ${numbersAfter.direction(w.subject) ?? 'no direction'}`;
     if (w.kind === 'promise-changed') {
-      const row = snapAfter.rows.get(w.subject) ?? snapAfter.invariants.get(w.subject);
-      if (w.subject.startsWith('row ') || w.subject.startsWith('I-')) return row ? row.join('\n') : 'removed';
+      const row = snapAfter.invariants.get(w.subject);
+      if (w.subject.startsWith('I-')) return row ? row.join('\n') : 'removed';
       const file = w.subject.split(' ')[0]!;
       return after.blob(file) ?? 'deleted';
     }
@@ -568,7 +548,7 @@ export function judge(repo: string, baseRev: string, headRev: string, config: Co
       needs: `| ${today} | ${w.subject.replace(/\|/g, '\\|')} | ${w.kind} | <why the suite may get weaker here> | <anchor>${ownWord(w.kind) ? `; approves ${approvalOf(w.kind, w.subject)}` : ''} | ${roles.map((r) => (r === 'reviewer' ? 'reviewer <the fresh reviewer agent>' : r)).join(' or ') || '<nobody may approve this kind>'} |`,
       needsBase: ownWord(w.kind),
       approves: ownWord(w.kind) ? approvalOf(w.kind, w.subject) : undefined,
-      anchors: anchorHint(w.kind),
+      anchors: anchorHint(w.kind, config),
     };
   });
 
@@ -640,15 +620,15 @@ export function whatMatches(what: string, subject: string, kind: string): boolea
 function findRowFile(tree: Tree, config: Config, key: string): string {
   for (const file of specFiles(tree, config)) {
     const text = tree.read(file) ?? '';
-    const hit = [...acceptanceRows(text), ...invariantRows(text)].find((r) => r.key === key);
+    const hit = invariantRows(text).find((r) => r.key === key);
     if (hit) return `${file}:${hit.line}`;
   }
-  return 'spec';
+  return config.specs.join(', ');
 }
 
 type AnchorContext = { before: Snapshot; after: Snapshot; diff: Change[]; config: Config };
 
-type Anchor = { type: 'row' | 'invariant' | 'ledger' | 'ruling' | 'runes' | 'path' | 'approves'; key: string; raw: string };
+type Anchor = { type: 'row' | 'invariant' | 'finding' | 'ruling' | 'runes' | 'path' | 'approves'; key: string; raw: string };
 
 export function approvalHash(items: Array<{ kind: string; subject: string; state?: string }>): string {
   const lines = items.map((w) => `${w.kind}\t${w.subject}\t${w.state ?? ''}`).sort();
@@ -660,7 +640,7 @@ export function parseAnchor(raw: string): Anchor | null {
   let m = /^(?:row|test)\s+(\d+)$/i.exec(text);
   if (m) return { type: 'row', key: `row ${m[1]}`, raw: text };
   if (/^I-[A-Za-z0-9][\w-]*$/.test(text)) return { type: 'invariant', key: text, raw: text };
-  if (/^S\d+-\d+$/.test(text)) return { type: 'ledger', key: text, raw: text };
+  if (/^S\d+-\d+$/.test(text)) return { type: 'finding', key: text, raw: text };
   m = /^ruling\s+(\d+)$/i.exec(text);
   if (m) return { type: 'ruling', key: m[1]!, raw: text };
   m = /^approves\s+([0-9a-f]{16})$/.exec(text);
@@ -672,17 +652,17 @@ export function parseAnchor(raw: string): Anchor | null {
 }
 
 function existed(snap: Snapshot, key: string): boolean {
-  return snap.rows.has(key) || snap.invariants.has(key) || snap.ledger.has(key);
+  return snap.rows.has(key) || snap.invariants.has(key) || snap.findings.has(key);
 }
 
 function anchorProblem(anchor: Anchor, ctx: AnchorContext): string | null {
   const { before, after } = ctx;
   if (anchor.type === 'approves') return null;
-  if (anchor.type === 'row' || anchor.type === 'invariant' || anchor.type === 'ledger') {
-    const pick = (s: Snapshot): Map<string, string[]> => (anchor.type === 'row' ? s.rows : anchor.type === 'invariant' ? s.invariants : s.ledger);
+  if (anchor.type === 'row' || anchor.type === 'invariant' || anchor.type === 'finding') {
+    const pick = (s: Snapshot): Map<string, string[]> => (anchor.type === 'row' ? s.rows : anchor.type === 'invariant' ? s.invariants : s.findings);
     const a = pick(before).get(anchor.key);
     const b = pick(after).get(anchor.key);
-    const where = anchor.type === 'ledger' ? ctx.config.ledger : 'the spec';
+    const where = anchor.type === 'invariant' ? ctx.config.specs.join(', ') : 'the names of the tests';
     if (!a && !b) return `the anchor '${anchor.raw}' does not exist in ${where}`;
     if (same(a, b)) return `the anchor '${anchor.raw}' exists, but this change does not add, reword or remove it`;
     return null;
@@ -708,11 +688,11 @@ function validate(record: Record, ctx: AnchorContext, anchorsOfAnotherChange = f
   else if (!allowed.includes(role)) why.push(`${record.kind} needs the approval of ${allowed.join(' or ') || 'nobody the configuration names'}, and ${role} approved it`);
   const parts = record.anchor.split(/\s*;\s*/).filter(Boolean);
   const anchors = parts.map(parseAnchor);
-  parts.forEach((p, i) => { if (!anchors[i]) why.push(`'${p}' is not an anchor (row <n>, I-..., S<r>-<n>, ruling <n>, Runes <version>, or a path)`); });
+  parts.forEach((p, i) => { if (!anchors[i]) why.push(`'${p}' is not an anchor (test <n>, I-..., S<r>-<n>, ruling <n>, Runes <version>, or a path)`); });
   if (!anchorsOfAnotherChange) for (const a of anchors) if (a) { const p = anchorProblem(a, ctx); if (p) why.push(p); }
   const types = anchors.filter((a): a is Anchor => a !== null).map((a) => a.type);
-  const permitted = OWNER_LIKE.has(record.kind) || record.kind === 'harness-changed' || record.kind === 'law-changed' || record.kind === 'platform-narrowed' ? ['row', 'invariant', 'ledger', 'ruling', 'runes', 'path'] : record.kind === 'test-removed' ? ['row', 'invariant', 'ledger', 'ruling', 'runes'] : record.kind === 'sabotage-removed' ? ['row', 'invariant', 'ledger'] : ['row', 'invariant', 'ruling', 'runes'];
-  if (types.length > 0 && !types.some((t) => permitted.includes(t))) why.push(`${record.kind} needs an anchor of another kind: ${anchorHint(record.kind)}`);
+  const permitted = OWNER_LIKE.has(record.kind) || record.kind === 'harness-changed' || record.kind === 'law-changed' || record.kind === 'platform-narrowed' ? ['row', 'invariant', 'finding', 'ruling', 'runes', 'path'] : record.kind === 'test-removed' ? ['row', 'invariant', 'finding', 'ruling', 'runes'] : record.kind === 'sabotage-removed' ? ['row', 'invariant', 'finding'] : ['row', 'invariant', 'ruling', 'runes'];
+  if (types.length > 0 && !types.some((t) => permitted.includes(t))) why.push(`${record.kind} needs an anchor of another kind: ${anchorHint(record.kind, ctx.config)}`);
   return why;
 }
 
