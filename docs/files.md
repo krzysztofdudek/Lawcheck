@@ -1,13 +1,13 @@
 # Files Lawcheck reads and writes
 
-Lawcheck keeps its files in `.lawcheck/`. The root is the folder that holds `.lawcheck/`, and every path of the law starts there. You write the law, the settings and the rules. Lawcheck writes three things: the [verdicts](concepts.md#verdict) of reviewer rules, a merge setting for them, and a local folder that git ignores.
+Lawcheck keeps its files in the folder `.lawcheck/`. The folder that holds it is the root, where each path of the law starts. You write the law, the settings and the rules. Lawcheck writes the other three: the [verdicts](concepts.md#verdict) of reviewer rules, a merge setting for them, and a local folder that git ignores.
 
 ## The folder .lawcheck
 
 | File | What it holds | Written by | Commit it |
 |---|---|---|---|
 | `.lawcheck/law.yaml` | the law: the types, the rules and `may_use` ([The law file](law.md)) | `lawcheck init` writes the first one, and you edit it | yes |
-| `.lawcheck/config.yaml` | the settings: the reviewer and the runner ([Settings](config.md)) | you; Lawcheck only reads it | yes |
+| `.lawcheck/config.yaml` | the settings, such as the reviewer and the `runner` setting ([Settings](config.md)) | you; Lawcheck only reads it | yes |
 | `.lawcheck/rules/` | one file per rule, `<id>.mjs` for a script rule or `<id>.md` for a reviewer rule, and helpers of script rules in `rules/lib/` | you; `init` makes no `rules/` folder | yes |
 | `.lawcheck/verdicts` | the passes of reviewer rules, one line per pass: 32 hexadecimal characters, a space and the rule's id, sorted | `lawcheck check --review` | yes, so that CI reads the passes and calls no reviewer |
 | `.lawcheck/.gitattributes` | the line `verdicts merge=union`, so a merge of two branches keeps the passes of both | `lawcheck check --review`, when it records a pass and the line is missing | yes |
@@ -23,7 +23,7 @@ config.local.yaml
 
 Lawcheck 0.1.0-alpha.2 reads no `config.local.yaml`. The second line of this file keeps a file of that name out of git.
 
-A type's `paths` can match the law, the config and the rule files. Such a file then has that type, so the rules of the type can judge it. `.lawcheck/verdicts` and `.lawcheck/.gitattributes` never get a type.
+A type's `paths` can match the law, the config and the rule files. Lawcheck then judges such a file against the rules of its type. `.lawcheck/verdicts` and `.lawcheck/.gitattributes` never get a type.
 
 ## The folder .lawcheck/.local
 
@@ -36,7 +36,7 @@ A type's `paths` can match the law, the config and the rule files. Such a file t
 | `verdicts-<pid>-<hex>` | the new verdicts file before it replaces the old one |
 | `probe-<pid>-<hex>` | a test that the folder can be written, made and removed before the first call |
 
-A review that passes removes its file from `failures/`. If you delete the `.local` folder, you lose the cached failures and nothing else. The next `check --review` asks the reviewer for those reviews again.
+After a review passes, Lawcheck removes its file from `failures/`. If you delete the `.local` folder, you lose the cached failures and nothing else. The next `check --review` asks the reviewer for those reviews again.
 
 ## Outside the repository
 
@@ -46,6 +46,10 @@ A review that passes removes its file from `failures/`. If you delete the `.loca
 | a folder in the system's temporary directory named `lawcheck-`, the program's name, a dash and 6 random characters, such as `lawcheck-claude-` and 6 characters for `claude-code` | the working folder of one call to a reviewer program; `gemini-cli` gets a second folder, ending `-aside-` and 6 characters, for its policy file | `check --review` and `try`, which remove both after the call |
 | a folder `lawcheck-index-` and 12 random characters in the system's temporary directory | a copy of git's index, so that reading the change leaves the real index untouched | `check` and `doctor`, when they compare with a base, and they remove it at once |
 
-Lawcheck reads the files git lists below the root, the files that the `context` of a reviewer rule names, and git's own data through `git`.
+Lawcheck reads three more things:
+
+- the files git lists below the root;
+- the files that the `context` of a reviewer rule names;
+- git's own data, through `git`.
 
 Next: [Codes](codes.md)

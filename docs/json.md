@@ -1,19 +1,19 @@
 # JSON documents
 
-`--json` on any command prints one JSON document to standard output and nothing else. The first field of every document is `schema`. It names the document and its version. The form of a document whose name ends in `/0` may change between versions. `lawcheck-error/1` is stable.
+With `--json`, every command prints one JSON document to standard output and nothing else. The first field of every document is `schema`. It names the document and its version. The form of a document whose name ends in `/0` may change between versions. `lawcheck-error/1` is stable.
 
 A field that holds no value is null and stays in the document. Two cases differ:
 
 - `findings.line` and `runs.findings.line` are absent for a finding about the whole file;
 - `law_changes` is present only when the check compared a base and the law differs.
 
-A string holds the text as it is, a file name or a message included. Lawcheck writes three kinds of character in a string as escapes, such as `\n`, `\u001b` and `\u202e`:
+A string holds the text as it is, a file name or a message included. A format character of Unicode is an invisible mark, such as a zero-width space or a mark that changes the direction of text. Lawcheck writes three kinds of character in a string as escapes, such as `\n`, `\u001b` and `\u202e`:
 
 - the control characters, below U+0020 and from U+007F to U+009F;
 - U+2028 and U+2029, which some programs read as line ends;
-- the format characters of Unicode except the joiners U+200C and U+200D. A format character is an invisible mark, such as a zero-width space or a mark that changes the direction of text.
+- the format characters of Unicode, except the joiners U+200C and U+200D.
 
-The printed document holds none of these characters raw. A program that parses the document gets the text unchanged. The text output writes the same characters as visible escapes, such as `\x1b` and `\u202e` ([Codes](codes.md#escapes-in-the-output)). Lawcheck writes an API key of the reviewer as `[key]` in both outputs.
+The printed document holds none of these characters raw. A program that parses the document gets the text unchanged. In the text output, Lawcheck writes the same characters as visible escapes, such as `\x1b` and `\u202e` ([Codes](codes.md#escapes-in-the-output)). Lawcheck writes an API key of the reviewer as `[key]` in both outputs.
 
 This page names a field of a list's items by its path. `findings.code` is the `code` of each item of `findings`.
 
@@ -105,7 +105,7 @@ This page names a field of a list's items by its path. `findings.code` is the `c
 | `unresolved.what` | the name or path of the use as the reader reads it |
 | `unresolved.answer` | `ambiguous` or `none` |
 | `unresolved.reason` | for `none`, `unfollowed` or `unowned` when the readers give one, else null |
-| `unresolved.candidates` | the files an `ambiguous` use could name, or for `unowned` the one file it binds, else empty |
+| `unresolved.candidates` | the files an `ambiguous` use could name, or for `unowned` the one file it names, else empty |
 | `unresolved.debt` | true for a file outside the change |
 | `reviews` | the reviewer rules in this run |
 | `reviews.missing` | `not-reviewed` findings |
