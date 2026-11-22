@@ -80,9 +80,11 @@ test('test 128: the list of topics, its JSON, and one page, outside git', async 
     assert.equal(law.stdout.split('\n')[0], '# The law file');
     assert.equal(law.stdout, page('law'));
     assert.equal(law.code, 0);
+    const ids = TOPICS.map((t) => t.id);
+    const terminal = (text: string): string => text.replace(/\[([^\]]+)\]\(([a-z-]+)\.md(?:#[^)]*)?\)/g, (link, label: string, id: string) => (ids.includes(id) ? `${label} (lawcheck docs ${id})` : link));
     for (const { id } of TOPICS) {
       const result = await lawcheck(dir, ['docs', id]);
-      assert.equal(result.stdout, page(id), id);
+      assert.equal(result.stdout, terminal(page(id)), id);
       assert.equal(result.code, 0);
     }
   });
