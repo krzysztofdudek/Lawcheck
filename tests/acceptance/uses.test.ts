@@ -86,7 +86,7 @@ test('test 82: the same with --json', async () => {
     write(u, E_PATH, E);
     const run = await check(u, '--base', 'main', '--json');
     assert.deepEqual(JSON.parse(run.stdout), TEST82);
-    assert.equal(JSON.stringify(JSON.parse(run.stdout)), JSON.stringify(TEST82), 'the keys keep the order of section 5');
+    assert.equal(JSON.stringify(JSON.parse(run.stdout)), JSON.stringify(TEST82), 'the keys keep the order of docs/json.md');
     assert.equal(run.code, 1);
   });
 });

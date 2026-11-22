@@ -501,7 +501,7 @@ const STOPPED: Case = {
   },
 };
 
-// The two codes whose limits are minutes of run time, which no test entry shortens: the nightly tests of their rows reach them whole, and their next lines are followed by no test until a row of the ledger is closed.
+// The two codes whose limits are minutes of run time, which no test entry shortens: the nightly tests of their rows reach them whole, and their next lines are followed by no test until the finding each names is fixed.
 const UNREACHED: { code: string; test: string; finding: string }[] = [
   { code: 'rules-too-slow', test: 'tests/limits/large.nightly.test.ts > test 251: S2-5, rules that take 29 seconds a file are stopped when the script rules of the run pass 600 seconds', finding: 'R-89' },
   { code: 'step-too-slow', test: 'tests/limits/large.nightly.test.ts > test 255: S1-1, a step that never ends, typing against a content pattern that backtracks, ends as step-too-slow after 30 seconds', finding: 'R-89' },
@@ -599,7 +599,7 @@ function supplied(ran: string[], supply: string[]): string[] {
   return out;
 }
 
-// What a command that a next line names leads to, as the grammar of the specs gives it: a check or a doctor answers with PASS or FAIL, init creates, docs prints a page, --help prints usage.
+// What a command that a next line names leads to: a check or a doctor answers with PASS or FAIL, init creates, docs prints a page, --help prints usage.
 export function leadsTo(argv: string[], run: { code: number | null; stdout: string }): string | null {
   const first = run.stdout.split('\n')[0]!;
   const [command] = argv;
@@ -716,7 +716,7 @@ async function reproduce(spec: Case, dir: string, fake: Fake): Promise<string[]>
     if (ready.inProcess === true) further = await main(argv, { cwd: ready.cwd, env: { ...GIT_ENV } });
     else further = await go(argv, ready.follow?.env ?? {}, false, ready.follow?.cwd);
     const expected = ready.leads ?? ready.argv[0];
-    if (argv[0] !== expected && !(expected === '--help' && argv[0] === '--help')) say(`the line "${next}" names lawcheck ${argv[0]}, and the spec leads this case to ${expected}`);
+    if (argv[0] !== expected && !(expected === '--help' && argv[0] === '--help')) say(`the line "${next}" names lawcheck ${argv[0]}, and this case leads to ${expected}`);
     if (argv.includes('--help') && spec.code !== 'usage') say(`the line "${next}" sends the user to ${argv.join(' ')}, which only the next line of usage may do`);
     const gets = leadsTo(argv, further) === null;
     const stuck = pending !== undefined && pending.command === text;

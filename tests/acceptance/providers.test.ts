@@ -499,7 +499,7 @@ test('test 67: claude-code past its timeout, and the tool killed', async () => {
   for (const signal of ['SIGTERM', 'SIGINT'] as const) {
     await withR(async (r, dir) => {
       write(r, F_PATH, F);
-      // Slice one, section 3: a signal that the tool can catch ends it as internal.
+      // A signal that the tool can catch ends it as stopped, exit 2 (docs/codes.md).
       const child = startLawcheck(r, ['check', '--review', '--base', 'main'], { env: claudeEnv(dir, 'sleep'), internal: true });
       try {
         assert.ok(await waitFor(() => existsSync(join(dir, 'record.json')), FAKE_STARTED_MS), 'the fake claude started');

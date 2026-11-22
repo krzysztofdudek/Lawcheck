@@ -69,7 +69,7 @@ function referenceName(b: Buffer): string {
   return out;
 }
 
-// The bytes a name stands for, read from the spec's escapes.
+// The bytes a name stands for, read from the escapes of decision 80 of design/decisions.md.
 function referenceBytes(name: string): Buffer {
   const parts: Buffer[] = [];
   for (let i = 0; i < name.length; i++) {

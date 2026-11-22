@@ -66,7 +66,7 @@ export function gitFolder(dir: string): void {
   copyFileSync(join(MATRIX, 'git-cell.sh'), join(dir, 'git-cell.sh'));
 }
 
-// The security tests of every commit, which read git's answers as closely as the check slice does.
+// The security tests of every commit, which read git's answers as closely as the acceptance tests of check do.
 export function securityFiles(): string[] {
   return readdirSync(join(ROOT, 'tests', 'security'))
     .filter((name) => name.endsWith('.test.ts') && !name.endsWith('.nightly.test.ts'))
@@ -74,7 +74,7 @@ export function securityFiles(): string[] {
     .sort();
 }
 
-// What the git matrix runs on each git: the check slice's acceptance tests and the security tests.
+// What the git matrix runs on each git: the acceptance tests of check and the security tests.
 export function gitMatrixFiles(): string[] {
   return [...checkSliceFiles(), ...securityFiles()];
 }

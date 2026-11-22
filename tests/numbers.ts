@@ -32,7 +32,7 @@ export const FAKE_STARTED_MS = 20_000;
 // Test 163: within 30 seconds of the deadline of 25 and within 150 of the deadline of 145, so a hook ends within 5 seconds of its deadline; SIGTERM after 2 seconds.
 export const HOOK_PAST_DEADLINE_MS = 5_000;
 export const HOOK_SIGTERM_AFTER_MS = 2_000;
-// The deadlines in seconds that the per-push runs of test 163 and of section 5's session-start and prompt hooks give in place of 25, 15, 25 and 145; the nightly runs the shipped ones. Each leaves the stand-in lawcheck time to start through cmd.exe on a busy Windows runner, so that each run ends at its deadline with the stand-in running. No two are the same, and prompt's, which no message names, is the longest, so a hook that reads another hook's deadline ends too early or names the wrong one.
+// The deadlines in seconds that the per-push runs of test 163 and of R-86's session-start and prompt hooks give in place of 25, 15, 25 and 145; the nightly runs the shipped ones. Each leaves the stand-in lawcheck time to start through cmd.exe on a busy Windows runner, so that each run ends at its deadline with the stand-in running. No two are the same, and prompt's, which no message names, is the longest, so a hook that reads another hook's deadline ends too early or names the wrong one.
 export const TEST_HOOK_DEADLINES = { 'session-start': 5, prompt: 6, edit: 3, stop: 4 };
 export const STOPPED_HOOK_ENDS_MS = 10_000;
 

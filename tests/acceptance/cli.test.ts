@@ -129,7 +129,7 @@ test('test 41: JSON', async () => {
       next: { command: null, text: 'fix src/core/discount.ts:2' },
     };
     assert.deepEqual(JSON.parse(run.stdout), expected);
-    assert.equal(JSON.stringify(JSON.parse(run.stdout)), JSON.stringify(expected), 'the keys keep the order of section 6');
+    assert.equal(JSON.stringify(JSON.parse(run.stdout)), JSON.stringify(expected), 'the keys keep the order of docs/json.md');
     assert.ok(run.stdout.endsWith('}\n'));
     assert.equal(run.stdout, JSON.stringify(JSON.parse(run.stdout), null, 2) + '\n');
     assert.equal(run.code, 1);

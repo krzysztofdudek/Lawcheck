@@ -409,7 +409,7 @@ test('test 75: JSON', async () => {
         next: { command: 'lawcheck check --review --base main', text: 'lawcheck check --review --base main  (1 reviewer call)' },
       };
       assert.deepEqual(JSON.parse(plain.stdout), expected);
-      assert.equal(JSON.stringify(JSON.parse(plain.stdout)), JSON.stringify(expected), 'the keys keep the order of section 8');
+      assert.equal(JSON.stringify(JSON.parse(plain.stdout)), JSON.stringify(expected), 'the keys keep the order of docs/json.md');
       assert.equal(plain.code, 1);
       const reviewed = await run(r, fake, ['--review', '--base', 'main', '--json']);
       const document = JSON.parse(reviewed.stdout);

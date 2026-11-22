@@ -26,7 +26,7 @@ function commit(placed: Placed, message: string): void {
 const NO_CONSOLE_WHY = 'Only the command layer writes to the terminal.';
 const NO_TODO_WHY = 'A TODO without an issue number gets forgotten.';
 
-// The grammar of the text output (docs/codes.md), for a run that fails on one finding and for exit 2 with one error.
+// The grammar of the text output (docs/commands.md), for a run that fails on one finding and for exit 2 with one error.
 function failing(place: string, rest: string, why: string): string {
   return [`lawcheck: FAIL  1 error in 1 changed file (against main)`, '', `${place}  ${rest}`, `  why:  ${why}`, '', `next: fix ${place}`, ''].join('\n');
 }
@@ -39,7 +39,7 @@ const finding = (f: { code: string; severity: string; debt: boolean; file: strin
   code: f.code, rule: f.code, severity: f.severity, blocking: f.severity === 'error', debt: f.debt, file: f.file, line: f.line, type: f.type, message: f.message, why: f.why,
 });
 
-// The document of docs/json.md, with its three debt findings, and the keys the later slices add: law_changed, unresolved and reviews.
+// The document of docs/json.md, with its three debt findings and the keys law_changed, unresolved and reviews.
 const TEST41 = {
   schema: 'lawcheck-check/0',
   result: 'fail',

@@ -17,7 +17,7 @@ export function jsonProblem(text: string): string | null {
   return raw === null ? null : `the document holds U+${raw[0].codePointAt(0)!.toString(16)} raw`;
 }
 
-// The escapes section 6 gives for text the tool does not own, written here from the spec.
+// The escapes docs/codes.md gives for text the tool does not own, written here from the page.
 export function expectedField(text: string): string {
   return text.replace(/\n/g, '\\n').replace(FORBIDDEN_ALL, (c) => {
     if (c === '\r') return '\\r';
