@@ -157,7 +157,7 @@ src/core/price.test.ts
 
 ## 10. Leave the generated file out
 
-The code generator writes `src/generated/schema.ts` again on every build. You want no rule to judge it. Add a second exclusion to the `paths` of `source`:
+The code generator writes `src/generated/schema.ts` again on every build, so a fix by hand in that file lasts until the next build. Leave the file out of the law with a second exclusion in the `paths` of `source`:
 
 ```yaml
     paths: ["src/**/*.ts", "!src/**/*.test.ts", "!src/generated/**"]
@@ -216,7 +216,7 @@ With a `content` expression, a type takes only the files whose text matches it. 
             content: "from 'node:test'"
 ```
 
-Keep the type with `content` out of the level of `core`. Both types of that level would match the test, because `core` takes it by its paths alone. Every run would then stop with `type-overlap`.
+If you put the type with `content` beside `core`, every run stops with `type-overlap`. Both types of that level match the test, because `core` takes it by its paths alone.
 
 ## 15. See the type a file gets by its text
 

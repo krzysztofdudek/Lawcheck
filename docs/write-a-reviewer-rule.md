@@ -195,7 +195,7 @@ The plain check found the pass. It called no model. A CI job runs the same check
 
 ## If it goes wrong
 
-- Lawcheck prints [`reviewer-unreachable`](codes.md#reviewer-unreachable): the server is down, the key is wrong, or the program is not signed in. The message names the cause. Fix the cause and run the same command again. `check --review` keeps the answers it got before the failure. It asks the reviewer about the rest.
+- Lawcheck prints [`reviewer-unreachable`](codes.md#reviewer-unreachable): the server is down, the key is wrong, or the program is not signed in. The message names the cause. Fix the cause and run the same command again. `check --review` keeps the answers it got before the failure, so the second run asks the reviewer only about the files it has no answer for.
 - The reviewer failed a file you believe is right. Lawcheck keeps the fail on this machine. It shows the fail again without a call, until the file or the rule changes. With `--again`, Lawcheck asks the reviewer once more: `lawcheck check --review --again --base main`.
 - Lawcheck prints [`too-large-to-review`](codes.md#too-large-to-review): the prompt of a file holds more characters than the setting `reviewer.max_chars` allows. Its default is 50,000. Lawcheck never sends such a prompt. Split the file, or raise `max_chars` in `.lawcheck/config.yaml`.
 - Lawcheck prints [`reviewer-bad-answer`](codes.md#reviewer-bad-answer): the model gave no verdict twice. Reword the rule file, or try another model.

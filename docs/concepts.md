@@ -26,13 +26,13 @@ Example: under the law above, `src/core/receipt.ts` has the type `core`. `lawche
 
 ## Rule
 
-A rule is one requirement with an id and a `why`. When a type lists the rule, the rule binds the files of that type and of its subtypes: Lawcheck judges those files against it. Lawcheck prints the `why` beside each finding. A rule is `enforced` unless its entry says `status: advisory`. The findings of an advisory rule are warnings.
+A rule is one requirement with an id and a `why`. When a type lists the rule, the rule binds the files of that type and of its subtypes: Lawcheck judges those files against it. Lawcheck prints the `why` beside each finding. A rule is `enforced` unless its entry in the law says `status: advisory`. The findings of an advisory rule are warnings.
 
 Example: the rule `no-console`, with `why: Only the command layer writes to the terminal.`
 
 ## Script rule
 
-A script rule is a JavaScript module, `.lawcheck/rules/<id>.mjs`, whose function `check` receives the files and returns their findings. It needs no model and no key. Lawcheck runs it in a Node process of its own. That process may read files below the root of the law and in Lawcheck's own folder, and nowhere else.
+A script rule is a JavaScript module, `.lawcheck/rules/<id>.mjs`. Its function `check` receives the files and returns their findings. It needs no model and no key. Lawcheck runs it in a Node process of its own. That process may read files below the root of the law and in Lawcheck's own folder, and nowhere else.
 
 Example: `.lawcheck/rules/no-console.mjs` returns `{ line: 1, message: 'writes to the terminal with console.log' }` for a file whose first line calls `console.log`.
 
@@ -123,7 +123,7 @@ Lawcheck gives a type to each file git lists, except symbolic links and binary f
 
 ### Debt and the exit code
 
-A plain check judges the change. An error in the change fails the run. With `--full`, `lawcheck check` judges every other file too. It lists what it finds outside the change as debt, below the findings of the change. Debt has no effect on the exit code. A new law therefore passes in a repository whose old code already breaks it. A rule can stay `advisory` until you fix its debt. [What a check judges](change.md) has the details.
+A plain check judges the change. Each error it finds there fails the run with exit 1. With `--full`, `lawcheck check` judges every other file too. It lists what it finds outside the change as debt, below the findings of the change. Debt has no effect on the exit code. A new law therefore passes in a repository whose old code already breaks it. A rule can stay `advisory` until you fix its debt. [What a check judges](change.md) has the details.
 
 ### A script rule or a reviewer rule
 
