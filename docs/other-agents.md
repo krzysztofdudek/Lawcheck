@@ -1,6 +1,6 @@
 # Other coding agents
 
-Codex, Copilot CLI, Gemini CLI and other coding agents work with Lawcheck through one line in their instructions file. That line tells the agent to run `lawcheck prime`. The text that `lawcheck prime` prints is the primer. The primer gives the agent the [law](concepts.md#law) and tells it to check its code with `lawcheck check`. Lawcheck has a plugin for Claude Code alone. For these agents, no hook checks an edit.
+Codex, Copilot CLI, Gemini CLI and other coding agents work with Lawcheck through one line in their instructions file. That line tells the agent to run `lawcheck prime` at the start of every session. The text that `lawcheck prime` prints is the primer. The primer gives the agent the [law](concepts.md#law) in short. It tells the agent to check its code with `lawcheck check` after each change. Lawcheck has a plugin for Claude Code alone, so for these agents no hook of Lawcheck checks an edit.
 
 The outputs below come from a repository with this law. Its [script rule](concepts.md#script-rule) `no-console` is the rule of [The first type and the first rule](first-law.md):
 
@@ -29,7 +29,7 @@ Put this line in the file your agent reads at the start of a session, such as `A
 Run `lawcheck prime` at the start of every session and follow it.
 ```
 
-A project may start Lawcheck through its package manager. Then the line names that command, such as `pnpm exec lawcheck prime`. The setting `runner` in `.lawcheck/config.yaml` names the same command for Lawcheck ([Settings](config.md)).
+A project may start Lawcheck through its package manager. The line then names that command, such as `pnpm exec lawcheck prime`. Write the same package manager into the `runner` setting of `.lawcheck/config.yaml`, such as `runner: pnpm` ([Settings](config.md#runner)).
 
 ## 2. See what the agent reads
 
@@ -68,9 +68,16 @@ no-console  script  Only the command layer writes to the terminal.
 More: lawcheck docs
 ```
 
-The part `Only on the user's word` lists the steps the agent leaves to you. These are a [waiver](concepts.md#waiver), a [rule](concepts.md#rule) taken off a [type](concepts.md#type) or deleted, and any edit of `.lawcheck/verdicts` or `.lawcheck/config.yaml`. For a law with `may_use`, that part also lists widening `may_use`.
+The part `Only on the user's word` lists the steps that the agent leaves to you:
 
-The primer holds at most 8,000 characters. For a large law, Lawcheck shortens the part about the law. The last line then names the commands that show a type or a rule in full. Without a law, `prime` prints two lines that say so and exits 0.
+- a [waiver](concepts.md#waiver);
+- taking a [rule](concepts.md#rule) off a [type](concepts.md#type);
+- deleting a rule, or changing its `status` or its `why`;
+- an edit of `.lawcheck/verdicts` or of `.lawcheck/config.yaml`.
+
+For a law with `may_use`, the part holds one more step: widening a `may_use` list.
+
+The primer holds at most 8,000 characters. For a large law, Lawcheck shortens the part about the law. The last line then names the commands that show a type or a rule in full. Without a law, `lawcheck prime` prints two lines that say so, and it exits 0.
 
 ## 3. See a failed check as the agent does
 
@@ -89,15 +96,15 @@ src/core/total.ts:2  error[no-console]  writes to the terminal with console.log
 next: fix src/core/total.ts:2
 ```
 
-The check exits 1. The primer tells the agent that exit 1 means "fix the code". The `next:` line names the first line to fix. Exit 2 means that Lawcheck or the law is broken. The error then names what to fix.
+The check exits 1. The primer tells the agent that exit 1 means "fix the code". The `next:` line names the first line to fix. With exit 2, Lawcheck or the law is broken, and the primer tells the agent to fix what the error names instead of the code.
 
 ## 4. Check in CI what the agent skips
 
-These agents have no hook. Lawcheck checks a file only when the agent runs `lawcheck check`, as the primer tells it to after each change. Run the same check in a CI job or a git hook ([CI and git hooks](ci.md)). That check catches a change that the agent left unchecked, before you merge it.
+No hook of Lawcheck runs in these agents. Lawcheck checks a file only when the agent runs `lawcheck check`, as the primer tells it to after each change. Run the same check in a CI job or a git hook ([CI and git hooks](ci.md)). That check finds the errors of a change that the agent never checked, before you merge it.
 
 ## If it goes wrong
 
-- The shell finds no `lawcheck` when the agent runs it. The project keeps Lawcheck as a dev dependency, which puts it outside the `PATH`. Write your runner's command in the line of step 1. With `runner` set, the first line of the primer names that command too.
+- The shell finds no `lawcheck` when the agent runs it. The project keeps Lawcheck as a dev dependency, which puts it outside the `PATH`. Write the command of your package manager, such as `pnpm exec lawcheck prime`, in the line of step 1. When the `runner` setting names your package manager, the first line of the primer gives the same command.
 - The agent says it is done while `lawcheck check` exits 1. The primer forbids that. No hook stops the agent. The CI job of step 4 fails the change.
 - `lawcheck check` says "no base". The primer tells the agent to pass `--base` with the branch it started from.
 - The law is not valid. `prime` prints the primer without its part about the law, then the errors, and exits 2.
