@@ -428,7 +428,15 @@ script  tools/**/*.{mjs,js}  content: ^#!  Executable helpers.  rules: no-todo  
 
 <!-- example: change-paragraph -->
 ```
-A plain check judges only the files that differ from the base. Three kinds of change can alter a judgment without changing the file judged: a change of the law (`.lawcheck/law.yaml`, `.lawcheck/config.yaml` or a rule file); a file whose new text moves it to another type, which changes the judgment of every file that uses it; and a file the language readers consult, such as `tsconfig.json`, `package.json`, `go.mod`, `Cargo.toml`, `composer.json` or a C# project file. Each passes a plain check, and the files it affects are judged the next time they change. This is deliberate: the default judges the change, and code nobody touched never turns a build red. To judge everything after such a change, run `lawcheck check --full`; what it finds outside the change is listed as debt and blocks nothing. When the change touches the law, `check` and `doctor` say so.
+A plain check judges the files that differ from the base. Three kinds of change can alter a judgment without changing the file judged:
+
+- a change of the law: `.lawcheck/law.yaml`, `.lawcheck/config.yaml` or a rule file;
+- a file whose new text gives it another type: the judgment of each file that uses it can change;
+- a file that the language readers consult, such as `tsconfig.json`, `package.json`, `go.mod`, `Cargo.toml`, `composer.json` or a C# project file.
+
+Each of these passes a plain check. Lawcheck judges the files they affect the next time those files change. A file outside the change never fails a plain check.
+
+To judge every file after such a change, run `lawcheck check --full`. Lawcheck lists what it finds outside the change as debt. Debt blocks nothing. `check` and `doctor` say so when the change touches the law.
 ```
 
 ## plugin-slice, blocks without an id there
