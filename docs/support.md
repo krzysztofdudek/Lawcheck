@@ -25,16 +25,18 @@ Lawcheck installs as a package of the project or as a global package. `runner` i
 | Yarn 4 with `nodeLinker: node-modules` or `nodeLinker: pnpm` | `yarn run lawcheck` | `yarn` |
 | Bun, with Node 24 on the `PATH` | `bun x --no-install lawcheck` | `bun` |
 
+Yarn 1 prints lines of its own around `yarn run`, and Yarn 4 holds back a package for its first day; [Settings](config.md) gives the line for each.
+
 ## The environments Lawcheck refuses
 
 Every command but `docs` and `doctor` stops with the code `unsupported-environment` and exit 2 ([unsupported-environment](codes.md#unsupported-environment)). `doctor` prints the same first line, fails its `node` or `git` check with the same message, and runs its other checks.
 
 | Environment | Message | Fix |
 |---|---|---|
-| Node older than 24 | `Node 22.11.0 is older than 24, the oldest Node Lawcheck runs on` | install Node 24 or later |
+| Node older than 24, on which npm and pnpm install Lawcheck with a warning and no more | `Node 22.11.0 is older than 24, the oldest Node Lawcheck runs on` | install Node 24 or later |
 | git older than 2.34 | `git 2.30.2 is older than 2.34, the oldest git Lawcheck runs with` | install git 2.34 or later |
-| Bun as the runtime, as with `bun x --bun` | `this run is on Bun 1.4.0, and Lawcheck runs on Node 24 or later`, with the node the `PATH` holds, or the words that it holds none | start it without `--bun`, as `bun x --no-install lawcheck`, which runs it on the node of the `PATH`, or install Node 24 beside Bun |
-| Yarn Plug'n'Play, with Lawcheck installed in the project | `Yarn Plug'n'Play is not supported`, with the archive Lawcheck is served from | set `nodeLinker: node-modules` in `.yarnrc.yml` and run `yarn install`; a Lawcheck installed outside the project runs in such a project |
+| Bun as the runtime: on a machine with no Node, or with `--bun` | `this run is on Bun 1.4.0, and Lawcheck runs on Node 24 or later`, with the node the `PATH` holds, or the words that it holds none | start it without `--bun`, as `bun x --no-install lawcheck`, which runs it on the node of the `PATH`, or install Node 24 beside Bun |
+| Yarn Plug'n'Play, with Lawcheck installed in the project, since the runner of script rules cannot open its archives | `Yarn Plug'n'Play is not supported`, with the archive Lawcheck is served from | set `nodeLinker: node-modules` in `.yarnrc.yml` and run `yarn install`; a Lawcheck installed outside the project runs in such a project |
 | Node with `--permission` in `NODE_OPTIONS` | `Node runs with --permission, set in NODE_OPTIONS, and under it Lawcheck cannot read its own files` | start Lawcheck with `NODE_OPTIONS` free of `--permission` |
 
 A `check` on Node 22 prints:
