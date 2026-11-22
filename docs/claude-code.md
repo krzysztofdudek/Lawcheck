@@ -111,7 +111,7 @@ Then start Claude Code again. From then on, the plugin checks no file after an e
 ## If it goes wrong
 
 - The agent gets the message that `lawcheck prime` did not run because `lawcheck was not found`. The plugin found no Lawcheck through the command of the `runner` setting, which is `lawcheck` on your `PATH` by default. Install Lawcheck as in step 1, then start a new session.
-- The repository has no law. The plugin tells the agent so. It tells the agent to start a law with `lawcheck init` only when you ask for one.
+- The repository has no law. At the start of the session, the plugin gives the agent two lines: the folder has no `.lawcheck/law.yaml`, and the agent may start one with `lawcheck init` only when you ask for it.
 - The agent ended its turn, and CI fails. The plugin judges the files of the turn alone, with no [base](concepts.md#base). It never passes `--review`. Its check therefore shows a missing review as a warning. CI judges the whole [change](concepts.md#change) and fails on `not-reviewed` ([CI and git hooks](ci.md)).
 - More than 1,000 files changed in a turn. The plugin skips the check before the end of the turn and prints one line that says so.
 - A background subagent, teammate or workflow is still running. The plugin holds back the check before the end of the turn. It runs that check when the agent next finishes a turn after the background work has ended.
