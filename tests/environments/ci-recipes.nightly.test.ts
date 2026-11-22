@@ -67,9 +67,10 @@ function cellFolder(dir: string): void {
   if (tarball === undefined) throw new Error('npm pack made no tarball');
   const repo = join(dir, 'repo');
   mkdirSync(join(repo, 'tests', 'harness'), { recursive: true });
-  for (const entry of ['package.json', 'docs', 'spec']) cpSync(join(ROOT, entry), join(repo, entry), { recursive: true });
+  for (const entry of ['package.json', 'docs']) cpSync(join(ROOT, entry), join(repo, entry), { recursive: true });
   mkdirSync(join(repo, 'tests', 'environments'), { recursive: true });
-  for (const entry of ['tests/sample', 'tests/harness/examples.ts', 'tests/environments/ci-cell.ts', 'tests/environments/ci-cell-main.ts', 'tests/environments/ci-scenarios.ts']) cpSync(join(ROOT, entry), join(repo, entry), { recursive: true });
+  mkdirSync(join(repo, 'tests', 'expected'), { recursive: true });
+  for (const entry of ['tests/sample', 'tests/expected/examples.md', 'tests/harness/examples.ts', 'tests/environments/ci-cell.ts', 'tests/environments/ci-cell-main.ts', 'tests/environments/ci-scenarios.ts']) cpSync(join(ROOT, entry), join(repo, entry), { recursive: true });
   mkdirSync(join(repo, 'node_modules'));
   cpSync(join(ROOT, 'node_modules', 'yaml'), join(repo, 'node_modules', 'yaml'), { recursive: true });
   cpSync(join(dir, tarball), join(dir, 'lawcheck.tgz'));
