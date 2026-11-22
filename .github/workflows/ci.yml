@@ -334,10 +334,37 @@ jobs:
       - name: actionlint
         run: docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.7 -color
 
+  # The site of docs/ as docs.yml deploys it; VitePress fails the build on a dead internal link. Nothing deploys from here.
+  docs-site:
+    name: docs site
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+      - run: npm --prefix site ci
+      - run: npm --prefix site run build
+      - name: Every page names the version
+        run: |
+          version="lawcheck $(jq -r .version package.json)"
+          pages=$(find site/.vitepress/dist -name '*.html' | wc -l)
+          missing=$(grep -rLF --include='*.html' "$version" site/.vitepress/dist || true)
+          if [ "$pages" -eq 0 ] || [ -n "$missing" ]; then
+            echo "docs site: FAIL  $pages pages built; without '$version':"
+            echo "$missing"
+            exit 1
+          fi
+          echo "docs site: PASS  all $pages pages name '$version'"
+
   # The one required check: green only when every job above is green; a cancelled, skipped or missing job is red.
   commit-set:
     name: commit set
-    needs: [build, shard-linux, shard-win32, shard-darwin, merge-linux, merge-win32, merge-darwin, real, plugin, workflows]
+    needs: [build, shard-linux, shard-win32, shard-darwin, merge-linux, merge-win32, merge-darwin, real, plugin, workflows, docs-site]
     if: always()
     runs-on: ubuntu-latest
     steps:
