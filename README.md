@@ -35,9 +35,7 @@ In Claude Code, the Lawcheck plugin runs this check after each edit and before t
 
 ## Try it
 
-Lawcheck is an alpha under the MIT license. It needs Node 24 or later and git 2.34 or later. Code leaves your machine only when you ask a model to judge a rule written in prose.
-
-The quick start takes a new repository to its first finding in five steps, with no model and no key:
+Lawcheck is an alpha under the MIT license. It needs Node 24 or later and git 2.34 or later. Code leaves your machine only when you ask a model to judge a rule written in prose. The quick start takes a new repository to its first finding in five steps, with no model and no key:
 
 ```text
 npm install --global lawcheck@alpha

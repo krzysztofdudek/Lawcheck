@@ -33,7 +33,7 @@ export async function scenario(page: Page): Promise<void> {
   assert.deepEqual(read('docs/quick-start.md').match(/^## \d+\. /gm), ['## 1. ', '## 2. ', '## 3. ', '## 4. ', '## 5. ']);
 
   assert.equal(page.text('block 1 under "Your coding agent"'), blockOf('docs/plugin.md', 'block 1 under "The Claude Code plugin"'), 'the commands that docs/plugin.md builds from the marketplace');
-  assert.equal(page.text('block 2 under "Your coding agent"'), 'Run `lawcheck prime` at the start of every session and follow it.');
+  assert.equal(page.text('block 2 under "Your coding agent"'), blockOf('docs/other-agents.md', 'block 1 under "1. Add one line to the instructions file"'), 'the line of docs/other-agents.md, whose scenario follows it');
 
   const own = parse(read('.lawcheck/law.yaml')) as { rules: Record<string, unknown>; types: Types };
   const counted = `${Object.keys(own.rules).length} rules over ${count(own.types)} types`;

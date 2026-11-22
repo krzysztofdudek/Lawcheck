@@ -38,9 +38,9 @@ The run exits 1. The [finding](concepts.md#finding) gives the file and the line,
 
 ## Where it checks
 
-- Claude Code: the plugin checks each file the agent edits. Before the agent ends its turn, the plugin sends it back, up to three times, while the files of the turn break the law.
-- Any other agent: one line in its instructions file has it run `lawcheck prime`, which prints the law and the commands that check it.
-- CI: `lawcheck check --base origin/main` judges the change with no key and no network.
+- [Claude Code](claude-code.md): the plugin checks each file the agent edits. Before the agent ends its turn, the plugin sends it back, up to three times, while the files of the turn break the law.
+- [Any other agent](other-agents.md): one line in its instructions file has it run `lawcheck prime`, which prints the law and the commands that check it.
+- [CI](ci.md): `lawcheck check --base origin/main` judges the change with no key and no network.
 
 ## Try it
 
@@ -60,5 +60,5 @@ Lawcheck is an alpha. It needs Node 24 or later and git 2.34 or later. Code leav
 ## Limits
 
 - After three returns, the plugin lets the agent finish and tells you that the check still fails ([The Claude Code plugin](plugin.md#three-returns-at-most)).
-- A pull request can edit the law that judges it. `check` names what the change does to that law ([What a check judges](change.md#the-limits-of-a-plain-check)), and the job of [CI and git hooks](ci.md) checks the change a second time with the law of the base.
+- A pull request can edit the law that judges it. `check` names what the change does to that law ([What a check judges](change.md#the-limits-of-a-plain-check)), and the job of [CI and git hooks](ci.md#a-change-to-the-law) checks the change a second time with the law of the base.
 - Lawcheck reads the uses written out in the code. An `import()` of a variable, `importlib.import_module` and reflection stay unread ([Languages and uses](languages.md#the-languages-whose-uses-are-read)).
