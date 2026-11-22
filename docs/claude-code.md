@@ -80,7 +80,7 @@ src/core/total.ts:2  error[no-console]  writes to the terminal with console.log
 next: fix src/core/total.ts:2
 ```
 
-The plugin sends the agent back at most three times in a turn, and never twice in a row with the same output. After that the agent finishes, and you see this line:
+It does so at most three times in a turn, and never twice in a row with the same output. After that the agent finishes, and you see this line:
 
 ```output
 lawcheck: the turn ended while lawcheck check still fails on the files that changed in it; lawcheck check shows why.
@@ -99,7 +99,7 @@ Start Claude Code again. After that, an edit gets no check, and the check before
 ## If it goes wrong
 
 - The agent hears that `lawcheck prime` did not run because `lawcheck was not found`. Lawcheck is not installed the way `runner` says. Install it as step 1 does, then start a new session.
-- The repository has no law. The agent hears that, and starts one with `lawcheck init` only when you ask.
+- The repository has no law. The plugin tells the agent so, and tells it to start one with `lawcheck init` only when you ask.
 - The agent finished, and CI still fails. The plugin judges the files of the turn without a base. It never passes `--review`, so a missing review is a warning there. CI judges the whole change and fails on `not-reviewed` ([CI and git hooks](ci.md)).
 - More than 1,000 files changed in a turn. The check before the agent finishes does not run, and a line says so.
 - A background subagent, teammate or workflow is still running. The check before the agent finishes waits, and runs at the first end of a turn after it.
