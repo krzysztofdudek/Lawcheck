@@ -1,0 +1,51 @@
+# Supported environments
+
+Lawcheck 0.1.0-alpha.2 runs on Node 24 or later with git 2.34 or later, on Linux, macOS and Windows. Anywhere else it stops before it reads the law, and says which program to change.
+
+## Programs and systems
+
+| Program or system | Lawcheck needs | What the tests run it on |
+|---|---|---|
+| Node | 24 or later, as `engines` in `package.json` says | every push: Node 24.0.0, the newest Node 24 and the newest Node on Linux, and the newest Node 24 on Windows and macOS |
+| git | 2.34 or later | every night: the git of Ubuntu 22.04, Debian 12, Ubuntu 24.04 and Debian sid |
+| Linux | a system that runs Node 24 | every push, on the newest Ubuntu runner of GitHub Actions; every night, in the Node 24 images of Debian and Alpine |
+| macOS | a version that runs Node 24 | every push, on the newest macOS runner of GitHub Actions |
+| Windows | a version that runs Node 24 | every push, on the newest Windows runner of GitHub Actions |
+
+## Package managers
+
+Lawcheck installs as a package of the project or globally. `runner` in `.lawcheck/config.yaml` names the way it starts ([Settings](config.md)). Every night the tests install the package in a new project with npm, pnpm, Yarn 1, both kinds of Yarn 4 and Bun, and run `doctor`, `check` and `try` through the runner:
+
+| Package manager | Lawcheck starts as | `runner` |
+|---|---|---|
+| npm, installed globally | `lawcheck` | `global`, the default |
+| npm, in the project | `npx --no-install lawcheck` | `npx` |
+| pnpm | `pnpm exec lawcheck` | `pnpm` |
+| Yarn 1 | `yarn run lawcheck` | `yarn` |
+| Yarn 4 with `nodeLinker: node-modules` or `nodeLinker: pnpm` | `yarn run lawcheck` | `yarn` |
+| Bun, with Node 24 on the `PATH` | `bun x --no-install lawcheck` | `bun` |
+
+## What is refused
+
+Every command but `docs` and `doctor` stops with the code `unsupported-environment` and exit 2 ([unsupported-environment](codes.md#unsupported-environment)). `doctor` prints the same first line, fails its `node` or `git` check with the same message, and runs its other checks.
+
+| Environment | Message | Fix |
+|---|---|---|
+| Node older than 24 | `Node 22.11.0 is older than 24, the oldest Node Lawcheck runs on` | install Node 24 or later |
+| git older than 2.34 | `git 2.30.2 is older than 2.34, the oldest git Lawcheck runs with` | install git 2.34 or later |
+| Bun as the runtime, as with `bun x --bun` | `this run is on Bun 1.4.0, and Lawcheck runs on Node 24 or later`, with the node the `PATH` holds, or the words that it holds none | start it without `--bun`, as `bun x --no-install lawcheck`, which runs it on the node of the `PATH`, or install Node 24 beside Bun |
+| Yarn Plug'n'Play, with Lawcheck installed in the project | `Yarn Plug'n'Play is not supported`, with the archive Lawcheck is served from | set `nodeLinker: node-modules` in `.yarnrc.yml` and run `yarn install`; a Lawcheck installed outside the project runs in such a project |
+| Node with `--permission` in `NODE_OPTIONS` | `Node runs with --permission, set in NODE_OPTIONS, and under it Lawcheck cannot read its own files` | start Lawcheck with `NODE_OPTIONS` free of `--permission` |
+
+A `check` on Node 22 prints:
+
+```output
+lawcheck: ERROR  Node 22.11.0 is older than 24, the oldest Node Lawcheck runs on
+
+error[unsupported-environment]  Node 22.11.0 is older than 24, the oldest Node Lawcheck runs on
+  why:  Lawcheck answers only where its rules and readers are known to run
+
+next: install Node 24 or later, then run lawcheck check
+```
+
+Lawcheck prints the refusal of `--permission` when Node starts its entry file by its own path, as the Windows shims of npm do, on Node 24.2 or later. Started through the link that npm installs on Linux and macOS, or on Node 24.0 and 24.1, Node with `--permission` stops before Lawcheck runs: it prints its own `ERR_ACCESS_DENIED` and exits 1.
