@@ -40,10 +40,8 @@ It runs `npm test`, the suite guard of the base, and prints the pack a reviewer 
 
 ## Before a release
 
-The release workflow needs a green Nightly on the tagged commit. These steps run by hand before the tag ([decision 58](design/decisions.md#58-acceptance-tests-that-run-outside-npm-test)):
+The release workflow needs a green Nightly on the tagged commit. CI runs `npm run real` and `claude plugin validate` on every push to `main` and every pull request. These steps run by hand before the tag ([decision 58](design/decisions.md#58-acceptance-tests-that-run-outside-npm-test)):
 
-- `npm run real`, which needs the network;
-- `claude plugin validate .` and `claude plugin validate plugin`, on a host with Claude Code;
 - `npm run agent-trial`, the trial of the plugin with a live agent, on the host;
 - a person reads the README and the plugin's files for their wording and for names of other tools.
 

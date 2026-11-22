@@ -15,7 +15,7 @@ Every command below runs inside the dev container, except `npm run agent-trial` 
 | `npm run agent-trial` | the trial of the plugin with a live agent, run on the host through `claude`; writes `tests/agent/result.json` |
 | `node tests/live/run.ts` | the attack files through the real reviewer, `claude-code` on the host; writes `tests/live/result.json` |
 
-`npm run real` and `npm run agent-trial` run by hand before a release ([decision 58](../design/decisions.md#58-acceptance-tests-that-run-outside-npm-test)). `npm run stability` and `node tests/live/run.ts` run when the prompt, the providers or the plugin changed since their last result ([decision 75](../design/decisions.md#75-when-the-tests-with-a-live-model-run)).
+CI runs `npm run real` in its job `real`; `npm run agent-trial` runs by hand before a release ([decision 58](../design/decisions.md#58-acceptance-tests-that-run-outside-npm-test)). `npm run stability` and `node tests/live/run.ts` run when the prompt, the providers or the plugin changed since their last result ([decision 75](../design/decisions.md#75-when-the-tests-with-a-live-model-run)).
 
 ## The layers
 
@@ -34,7 +34,7 @@ Every command below runs inside the dev container, except `npm run agent-trial` 
 | `docs/` | one file per page of `docs/`, named as the page: each fenced block of the page claimed by the file's scenario or by an existing test that checks it; `contract/docs-examples.test.ts` runs them and fails on a block no one claims |
 | `sabotage/` | breaks the code on purpose, one entry of `sabotage/list.json` at a time, and expects the test the entry names to fail |
 | `harness/` | the code that starts the tool in tests and checks every run |
-| `real/`, `stability/`, `agent/`, `live/` | the runs by hand, and their committed results |
+| `real/`, `stability/`, `agent/`, `live/` | the runs outside `npm test`, and their committed results: `real/` runs in its own CI job, the others by hand |
 
 The folders `sample/`, `reviewer-sample/`, `uses-sample/` and `languages-sample/` hold repositories that tests copy. They hold no tests of their own.
 
@@ -42,14 +42,14 @@ Every run of the tool in a test passes the checks of `harness/invariants.ts`: `h
 
 ## The labels in test names
 
-Every test name starts with its source and a colon ([decision 79](../design/decisions.md#79-every-test-leads-its-name-with-its-source)). The rail `contract/spec-map.test.ts` fails on a name with no source, or with a source that does not exist.
+Every test name starts with its source and a colon ([decision 79](../design/decisions.md#79-every-test-leads-its-name-with-its-source)). The rail `contract/spec-map.test.ts` fails on a name with no source, or with a promise, harness check, section label or decision that does not exist; it checks test numbers and finding ids only for their form.
 
 | Label | What it is |
 |---|---|
-| `test N:` or `tests N and M:` | the number of an acceptance test; a new acceptance test takes a number no test uses yet, and the unit tests of its parts may carry it too |
+| `test N:` or `tests N and M:` | the number of an acceptance test; a new acceptance test takes a number above the highest in use, never one that `design/decisions.md` or `tests/weakenings.md` names, and the unit tests of its parts may carry it too |
 | `I-<name>-<n>:` | a promise of [design/promises.md](../design/promises.md) |
 | `harness-<n>:` | a check of `harness/invariants.ts` |
-| `S<report>-<n>:`, `R-<n>:`, `U-<n>:`, `T<n>:` | the number of a bug found in a stress test (`S`), a review (`R`), a user's report (`U`) or Lawcheck's own law (`T`); the test is its regression test |
+| `S<report>-<n>:`, `R-<n>:`, `U-<n>:`, `T1:` to `T8:` | the number of a bug found in a stress test (`S`), a review (`R`), a user's report (`U`) or Lawcheck's own law (`T`); the test is its regression test |
 | `question N:` | a decision of [design/decisions.md](../design/decisions.md), by the same number |
 | `<slice> §<n>:` | a topic of the first design, written as one spec per slice before the build; the table below says what each covers and where it is described |
 
@@ -62,13 +62,13 @@ A finding id may also follow an acceptance test number: `test 240: S8-8, R-82, a
 | `check-slice §4` | the command `check`, the base and the change | [docs/change.md](../docs/change.md) |
 | `check-slice §5` | waivers | [docs/waivers.md](../docs/waivers.md) |
 | `check-slice §6` | output and exit codes | [docs/codes.md](../docs/codes.md), [docs/json.md](../docs/json.md) |
-| `commands-slice §2` | what every command shares: usage, errors, the `next:` line | [docs/codes.md](../docs/codes.md) |
-| `commands-slice §3` | `init` | [docs/first-law.md](../docs/first-law.md) |
-| `commands-slice §4` | `prime` | `lawcheck prime --help`, [docs/json.md](../docs/json.md) |
+| `commands-slice §2` | what every command shares: usage, errors, the `next:` line | [docs/commands.md](../docs/commands.md#every-command), [docs/codes.md](../docs/codes.md) |
+| `commands-slice §3` | `init` | [docs/commands.md](../docs/commands.md#init), [docs/files.md](../docs/files.md), [docs/first-law.md](../docs/first-law.md) |
+| `commands-slice §4` | `prime` | [docs/commands.md](../docs/commands.md#prime), [docs/other-agents.md](../docs/other-agents.md), [docs/json.md](../docs/json.md) |
 | `commands-slice §5` | `try` | [docs/script-rules.md](../docs/script-rules.md), [docs/reviewer-rules.md](../docs/reviewer-rules.md) |
-| `commands-slice §6` | `explain` | `lawcheck explain --help`, [docs/json.md](../docs/json.md) |
-| `commands-slice §7` | `docs` | `lawcheck docs`, [docs/json.md](../docs/json.md) |
-| `commands-slice §8` | `doctor`, and a change of the law | [docs/ci.md](../docs/ci.md), [docs/json.md](../docs/json.md) |
+| `commands-slice §6` | `explain` | [docs/commands.md](../docs/commands.md#explain), [docs/json.md](../docs/json.md) |
+| `commands-slice §7` | `docs` | [docs/commands.md](../docs/commands.md#docs), [docs/json.md](../docs/json.md) |
+| `commands-slice §8` | `doctor`, and a change of the law | [docs/commands.md](../docs/commands.md#doctor), [docs/ci.md](../docs/ci.md#a-change-to-the-law), [docs/json.md](../docs/json.md) |
 | `dependency-slice §2` | `may_use` in the law | [docs/law.md](../docs/law.md) |
 | `dependency-slice §3.1` | what counts as a use | [docs/languages.md](../docs/languages.md) |
 | `dependency-slice §3.2` | which files are read for uses | [docs/languages.md](../docs/languages.md) |
@@ -76,7 +76,7 @@ A finding id may also follow an acceptance test number: `test 240: S8-8, R-82, a
 | `dependency-slice §3.5` | from a use to a type | [docs/languages.md](../docs/languages.md) |
 | `dependency-slice §5` | the findings and output of uses | [docs/languages.md](../docs/languages.md), [docs/codes.md](../docs/codes.md) |
 | `dependency-slice §6` | the readers and their grammars | [docs/languages.md](../docs/languages.md) |
-| `plugin-slice §5` | what every hook shares | [README.md](../README.md), [docs/config.md](../docs/config.md) |
+| `plugin-slice §5` | what every hook shares: its deadline, its root and its runner | [docs/plugin.md](../docs/plugin.md), [docs/config.md](../docs/config.md) |
 | `plugin-slice §10` | the agent trial | `agent/` |
 | `release-readiness §Package` | what the npm package holds | `package.json` |
 | `reviewer-slice §2` | reviewer rules in the law | [docs/reviewer-rules.md](../docs/reviewer-rules.md) |
@@ -98,4 +98,4 @@ Agents write most of this code, and an agent under pressure makes a red test gre
 
 The opening paragraph of `weakenings.md` and its older rows name `spec/questions.md` and the rows of the specs, the anchors of the first design. They stay as they were written. [design/decisions.md](../design/decisions.md) keeps the decisions it took over under the same numbers. The kind `finding-weakened` that the opening paragraph lists is gone with the findings ledger.
 
-`numbers.ts` holds the budgets, the seed and the counts that may only move one way. A test that takes more time than its budget fails, and a budget raised in `numbers.ts` is a weakening.
+`numbers.ts` holds the budgets, the seed and the counts that may only move one way. A test that takes more time than its budget fails, and a budget raised in `numbers.ts` is a weakening. A test's budget is 20 seconds unless `SLOW_TESTS` gives it more, and a budget is at least `SLOW_MARGIN`, 20, times the measured time.

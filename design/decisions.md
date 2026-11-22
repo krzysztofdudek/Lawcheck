@@ -1,6 +1,6 @@
 # Decisions
 
-Each entry is a choice that a contributor could take for a mistake and "fix". It says what was decided, and why where the reason was recorded. The number is the one the decision had when it was taken, and test names cite it as `question <n>`. The gaps in the numbering are entries left out: choices a test now pins down on its own, notes of reviews, and questions still open.
+Each entry is a choice that a contributor could take for a mistake and "fix". It says what was decided, and why where the reason was recorded. The number is the one the decision had when it was taken, and test names cite it as `question <n>`; a row of `tests/weakenings.md` anchors it as `ruling <n>`. The gaps in the numbering are entries left out: choices a test now pins down on its own, notes of reviews, and questions still open.
 
 ## 1. Two waivers covering one finding
 
@@ -32,6 +32,12 @@ These texts are fixed in `src/review.ts` and `src/output.ts`:
 - the `next:` of a failed review: `run the same command again; what was answered is kept, so it asks only the rest`;
 - the status of an HTTP failure: `HTTP <status> <status text>`, then `: ` and the first line of `error.message` when the body has one.
 
+## 21. Tests 78 and 79
+
+Test 79 is `npm test` itself, so no test inside `npm test` can carry it: the whole suite is the test.
+
+Test 78 is the reviewer's reading of the committed result of `npm run stability`. `tests/acceptance/stability-result.test.ts` checks what a script can: the fixture against its checksums in `tests/stability/expected/fixture.json`, the model, the counts and shares against the pairs, `label_match.clear.share` of at least 0.9, and no `://`.
+
 ## 56. A hook stopped by a signal
 
 A hook stopped by `SIGTERM`, `SIGINT` or `SIGHUP` kills the process group of a call in progress and exits with 0, printing nothing.
@@ -40,9 +46,9 @@ Why: the hook was stopped and did not fail, and Claude Code has already given up
 
 ## 58. Acceptance tests that run outside `npm test`
 
-Tests 153, 180 and 182 run by hand before a release. Test 153 is `claude plugin validate`, run on the host with Claude Code. Test 180 is a person reading the README and the plugin's files for their wording and for names of other tools. Test 182 is the agent trial, `npm run agent-trial`, run on the host. Test 181 reads `tests/agent/result.json`, which the trial writes, so it fails until the trial has run once. Tests 79, 94, 141 and 183 stand for `npm test` itself, and test 95 for `npm run real`, which needs the network.
+CI runs two checks in jobs of their own: `npm run real`, which needs the network, in the job `real`, and `claude plugin validate .` and `claude plugin validate ./plugin`, with a pinned Claude Code, in the job `plugin`. Two run by hand before a release: the agent trial, `npm run agent-trial`, on the host, and a person reading the README and the plugin's files for their wording and for names of other tools. Test 181 reads `tests/agent/result.json`, which the trial writes, so it fails until the trial has run once.
 
-Why: each needs something `npm test` does not have: the host's Claude Code, a person's reading, or the network.
+Why: each needs something `npm test` does not have: the network, Claude Code, a live agent, or a person's reading.
 
 ## 71. An ambiguous use whose every candidate is forbidden
 
@@ -88,7 +94,7 @@ Why: a pull request can leave a rule out of a type, rewrite a rule script to ret
 
 ## 79. Every test leads its name with its source
 
-Every test name starts with its source and a colon: an acceptance test number (`test 12:` or `tests 3 and 4:`), a promise id (`I-frame-1:`), a finding id (`S3-1:`, `R-2:` or `T6:`), a section label (`check-slice §4:`) or a decision of this file (`question 79:`). The rail `tests/contract/spec-map.test.ts` fails on a name with no source, or with a source that does not exist. Every promise of [promises.md](promises.md) and every check of `tests/harness/invariants.ts` needs a test that carries its id. Tests that cite only a section or a decision are counted in `SECTION_ONLY_TESTS` in `tests/numbers.ts`, and that count may only fall.
+Every test name starts with its source and a colon: an acceptance test number (`test 12:` or `tests 3 and 4:`), a promise id (`I-frame-1:`), a finding id (`S3-1:`, `R-34:` or `T6:`), a section label (`check-slice §4:`) or a decision of this file (`question 79:`). The rail `tests/contract/spec-map.test.ts` fails on a name with no source, or with a promise, harness check, section label or decision that does not exist; test numbers and finding ids it checks only for their form. Every promise of [promises.md](promises.md) and every check of `tests/harness/invariants.ts` needs a test that carries its id. Tests that cite only a section or a decision are counted in `SECTION_ONLY_TESTS` in `tests/numbers.ts`, and that count may only fall.
 
 A skip needs a platform reason in `tests/harness/skips.ts`, and a test that asserts nothing fails the run. A test that ran and passed is the only thing that covers its source in a run.
 
@@ -130,7 +136,7 @@ Why: a key of one to seven characters is a dummy or a test value, and replacing 
 
 ## 95. The suite's own machinery
 
-The harness, the runner, the numbers, the map from `src/` to tests, the discovery of test files, the suite guard, the gate and the sabotage list belong to the suite itself. A test of that machinery that checks none of the harness invariants cites this decision in its name. [tests/README.md](../tests/README.md) describes the machinery.
+The harness, the runner, the numbers, the map from `src/` to tests, the discovery of test files, the suite guard, the gate and the sabotage list belong to the suite itself. A test of that machinery that checks none of the harness invariants cites this decision in its name. [tests/README.md](../tests/README.md) describes its layers, the labels in test names and the suite guard.
 
 Why: every test still leads its name with a source the rail checks, including tests that no feature of the tool can carry.
 

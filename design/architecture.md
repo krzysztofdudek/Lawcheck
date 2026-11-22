@@ -2,7 +2,7 @@
 
 This page is for someone who changes Lawcheck's code. What the tool does for a user is in [docs/](../docs). The promises that hold for every input are in [promises.md](promises.md), and the choices not to undo are in [decisions.md](decisions.md).
 
-Lawcheck is TypeScript on Node 24, compiled from `src/` to `dist/`. Its runtime dependencies are `yaml`, `web-tree-sitter` and `@chrisdudek/runes`, which brings the readers of the thirteen languages and their grammars. `npm run build` compiles the code and copies the grammars from the installed Runes package into `dist/grammars/`.
+Lawcheck is TypeScript on Node 24, compiled from `src/` to `dist/`. Its runtime dependencies are `yaml`, `web-tree-sitter` and `@chrisdudek/runes`, which brings the readers of the twelve languages and their grammars. `npm run build` compiles the code and copies the grammars from the installed Runes package into `dist/grammars/`.
 
 ## One run, from the command line to the result
 
