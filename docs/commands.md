@@ -29,7 +29,7 @@ The work is on a branch made from `main`, where `src/core/report.ts` calls `cons
 - `--json` goes anywhere among the arguments, and the command prints one JSON document instead of text ([JSON documents](json.md)).
 - A flag the command does not take, a flag given twice, a flag without its value, or a number with a character other than a digit is `usage`, exit 2.
 - No command, or a command Lawcheck does not have, is `usage` too, and the message names the seven commands.
-- On a Node, a git or a package manager Lawcheck does not run on, every command but `docs` and `doctor` stops with `unsupported-environment` ([Support](support.md)).
+- On a Node, a git or a package manager Lawcheck does not run on, every command but `docs` and `doctor` stops with `unsupported-environment` ([Supported environments](support.md)).
 - A run stopped by `SIGTERM`, `SIGINT` or `SIGHUP` ends with `stopped`, exit 2. A run whose output Lawcheck cannot write ends with `file-unwritable` on standard error, exit 2.
 - Exit 2 means that the command reached no conclusion. The error names the next step ([Codes](codes.md)).
 

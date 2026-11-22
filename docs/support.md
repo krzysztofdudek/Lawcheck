@@ -2,7 +2,7 @@
 
 Lawcheck 0.1.0-alpha.2 runs on Node 24 or later with git 2.34 or later, on Linux, macOS and Windows. Anywhere else it stops before it reads the law, and says which program to change.
 
-## Programs and systems
+## Node, git and the systems
 
 | Program or system | Lawcheck needs | What the tests run it on |
 |---|---|---|
@@ -48,4 +48,4 @@ error[unsupported-environment]  Node 22.11.0 is older than 24, the oldest Node L
 next: install Node 24 or later, then run lawcheck check
 ```
 
-Lawcheck prints the refusal of `--permission` when Node starts its entry file by its own path, as the Windows shims of npm do, on Node 24.2 or later. Started through the link that npm installs on Linux and macOS, or on Node 24.0 and 24.1, Node with `--permission` stops before Lawcheck runs: it prints its own `ERR_ACCESS_DENIED` and exits 1.
+Lawcheck prints the refusal of `--permission` when Node starts its entry file by its own path, as the Windows shims of npm do, on Node 24.2 or later. On Linux and macOS, through the link that npm installs, and on Node 24.0 and 24.1, Node with `--permission` stops before Lawcheck runs: it prints its own `ERR_ACCESS_DENIED` and exits 1.
