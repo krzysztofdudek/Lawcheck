@@ -44,9 +44,9 @@ If `prime` does not run, the hook gives the agent three things:
 
 ## UserPromptSubmit
 
-The hook records `HEAD`, the files that differ from it and the untracked files. The `Stop` hook reads this note to learn what the turn changed. This hook says nothing to the agent.
+The hook writes a note of `HEAD`, the files that differ from it and the untracked files. The `Stop` hook reads this note to learn what the turn changed. This hook says nothing to the agent.
 
-A turn can stop before its end, because the user stopped it or an error ended it. The note of that turn then stays. The next `Stop` hook checks the files of both turns together. With the setting `check_before_stop` off, this hook records nothing.
+A turn can stop before its end, because the user stopped it or an error ended it. The note of that turn then stays. The next `Stop` hook checks the files of both turns together. With the setting `check_before_stop` off, this hook writes no note.
 
 ## PostToolUse
 

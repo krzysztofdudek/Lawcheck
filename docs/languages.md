@@ -70,7 +70,7 @@ The first line of `check` counts the unresolved uses in the files of the change.
 The readers count these uses as outside the repository:
 
 - TypeScript and JavaScript: an installed package or a Node built-in;
-- Python: a module whose top-level name no root of the repository holds;
+- Python: a module whose top-level name no source folder of the repository holds;
 - Go: an import path that no module of the repository holds;
 - Rust: a crate the repository does not hold (`std`, a registry dependency);
 - PHP: a class under no prefix of the repository's Composer maps;

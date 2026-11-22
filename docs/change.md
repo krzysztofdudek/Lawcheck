@@ -21,7 +21,7 @@ Lawcheck stops with `base-unreachable` and exit 2 in four cases:
 - the repository has no commit yet;
 - the base is a commit id of forty zeros, which CI gives as the commit before the push of a new branch.
 
-A shallow clone holds part of the history. In a shallow clone, or in a clone that did not fetch the base's branch, the message names the `git fetch` command that brings the base.
+A shallow clone holds part of the history. In a shallow clone, or in a clone that did not fetch the base's branch, the message names the `git fetch` command that fetches the base.
 
 With no base, a check on a machine counts every file as changed. Its first line says so. In a CI job, a plain check with no base stops with `base-unreachable`, because without a base it cannot tell the change from [debt](concepts.md#debt). The `next:` line of that error names `--base`, `LAWCHECK_BASE` and `--full` (`lawcheck docs ci`).
 
@@ -92,7 +92,9 @@ The line shows five items and the count of the rest. In `--json`, `scope.law_cha
 
 ## Files you name
 
-`lawcheck check <path or pattern>...` judges the files you name, changed or not, and no others. This form needs no base. It runs in CI, and in a repository with no commit. Lawcheck reads each path and pattern from the folder you run it in. A folder selects its files at any depth. A path that selects nothing, such as a missing file, a file git ignores or a binary file, adds nothing to the run. The root is the folder that holds `.lawcheck/`. A path outside the root stops the run with the error [`usage`](codes.md#usage). Write a file whose name starts with `-` with `./` before it, as in `./-x.ts`.
+`lawcheck check <path or pattern>...` judges the files you name, changed or not, and no others. This form needs no base. It runs in CI, and in a repository with no commit.
+
+Lawcheck reads each path and pattern from the folder you run it in. A folder selects its files at any depth. A path that selects nothing, such as a missing file, a file git ignores or a binary file, adds nothing to the run. The root is the folder that holds `.lawcheck/`. A path outside the root stops the run with the error [`usage`](codes.md#usage). Write a file whose name starts with `-` with `./` before it, as in `./-x.ts`.
 
 This form prints neither debt nor the note of a law change. It takes one flag, `--json`. A missing review never makes this form exit 1, because `not-reviewed` and `too-large-to-review` are warnings in it. The Claude Code plugin checks files this way (`lawcheck docs plugin`).
 

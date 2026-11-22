@@ -46,7 +46,7 @@ After a review passes, Lawcheck removes its file from `failures/`. If you delete
 | a folder in the system's temporary directory named `lawcheck-`, the program's name, a dash and 6 random characters, such as `lawcheck-claude-` and 6 characters for `claude-code` | the working folder of one call to a reviewer program; `gemini-cli` gets a second folder, ending `-aside-` and 6 characters, for its policy file | `check --review` and `try`, which remove both after the call |
 | a folder `lawcheck-index-` and 12 random characters in the system's temporary directory | a copy of git's index, so that reading the change leaves the real index untouched | `check` and `doctor`, when they compare with a base, and they remove it at once |
 
-Lawcheck reads three more things:
+Outside `.lawcheck/`, Lawcheck reads three things:
 
 - the files git lists below the root;
 - the files that the `context` of a reviewer rule names;
