@@ -2,7 +2,7 @@
 
 You end with a law of one type and one script rule, and `lawcheck try` and `lawcheck check` show the line of `src/report.ts` that breaks the rule.
 
-The outputs below come from a repository whose `main` holds `src/price.ts`, a file that writes nothing, and `src/report.ts`, which calls `console.log`, with `node_modules/` in `.gitignore`. You work on a branch made from `main`.
+The outputs below come from a repository whose `main` holds `src/price.ts`, a file that writes nothing, and `src/report.ts`, whose first line calls `console.log`, with `node_modules/` in `.gitignore`. You work on a branch made from `main`.
 
 ## 1. Start the law
 
@@ -23,7 +23,7 @@ next: describe your first file type in .lawcheck/law.yaml  (lawcheck docs first-
 
 ## 2. Describe one type
 
-A type names the files of one kind. Write this into `.lawcheck/law.yaml`, in place of what `init` put there: one type, its `paths` and an `about`.
+A type names the files of one kind. Write this into `.lawcheck/law.yaml`, in place of what `init` put there: one type, its `paths` and an `about`:
 
 <!-- example: first-law-type -->
 ```yaml

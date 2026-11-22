@@ -1,8 +1,8 @@
 # Write a script rule
 
-You end with a rule that finds every call of `fetch()` outside the api layer, built on a helper other rules can import, first as an error and then as a warning.
+You end with a rule that finds the calls of `fetch()` outside the api layer, built on a helper other rules can import, first as an error and then as a warning.
 
-The outputs below come from a repository whose `src/api/orders.ts` and `src/core/price.ts` call `fetch()`, and whose `src/core/tax.ts` does not. The law gives `src/**/*.ts` the type `source`, with the subtypes `api` for `src/api/` and `core` for `src/core/` ([Types for an existing project](types-for-a-project.md)).
+The outputs below come from a repository with three files under `src/`: `src/api/orders.ts` calls `fetch()`, the second line of `src/core/price.ts` calls it too, and `src/core/tax.ts` does not. The law gives `src/**/*.ts` the type `source`, with the subtypes `api` for `src/api/` and `core` for `src/core/` ([Types for an existing project](types-for-a-project.md)).
 
 ## 1. Add the rule to the law
 
@@ -185,9 +185,9 @@ src/core/price.ts:2  warning[no-fetch]  calls fetch outside the api layer
 
 ## If it goes wrong
 
-- `rule-crashed`, and the message says the rule cannot find a package: the rule imports a package no `node_modules` below the root holds. A rule reads nothing outside the root, so a package a monorepo keeps in a `node_modules` above it does not load. Install the package below the root, or write the code in `.lawcheck/rules/lib/`.
+- `rule-crashed`, and the message says the rule cannot find a package: the rule imports a package no `node_modules` below the root holds. A rule may read nothing outside the root and Lawcheck's folder, so a package a monorepo keeps in a `node_modules` above it does not load. Install the package below the root, or write the code in `.lawcheck/rules/lib/`.
 - `rule-crashed`, and the message says the rule passes 30 seconds on a file: one call took longer than 30 seconds. The load has 30 seconds too. Make the rule do less work per file.
 - `rules-too-slow`: the script rules of one run took over 600 seconds together. List the rule on fewer types, or narrow their paths.
 - `rule-crashed` with `writes` or `reads` and a path: the rule wrote a file or read outside the root, and Lawcheck stopped it. A rule may write no file, and may read no file outside the root and Lawcheck's own folder.
-- The rule finds nothing in a file you expected: the file has no type that lists the rule. `lawcheck explain <path>` shows its rules.
+- The rule finds nothing in a file where you expected a finding: the file has no type that lists the rule. `lawcheck explain <path>` shows its rules.
 - A plain `lawcheck check` passes on code that breaks a new rule: a plain check judges the changed files only. `lawcheck check --full` lists the rest as debt.

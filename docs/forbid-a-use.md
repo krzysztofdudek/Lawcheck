@@ -133,7 +133,7 @@ The `unresolved` list of the output holds the use:
   ],
 ```
 
-`unfollowed` means the use names a place of the repository that holds no file git lists. [Languages and uses](languages.md) lists every answer and reason. A use of an installed package or of the standard library leaves the repository and is not counted.
+`unfollowed` means the use names a place of the repository that holds no file git lists. [Languages and uses](languages.md) lists every answer and reason. A use of an installed package or of the standard library leaves the repository, and Lawcheck does not count it.
 
 ## 10. Check the whole folder
 

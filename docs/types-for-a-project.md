@@ -1,6 +1,6 @@
 # Types for an existing project
 
-You end with a law whose types cover the folders of an existing project, one type for each file, and `lawcheck explain` says for any path which type it has and why.
+You end with a law whose types cover the folders of an existing project with no file in two types, and `lawcheck explain` says for any path which type it has and why.
 
 The outputs below come from a repository with `scripts/release.mjs` and five files under `src/`: `api/orders.ts`, `core/price.ts`, its test `core/price.test.ts`, `db/orders.ts`, and `generated/schema.ts`, which a code generator writes. You ran `lawcheck init` at its root ([The first type and the first rule](first-law.md)).
 
@@ -59,7 +59,7 @@ $ lawcheck explain .
   no type  2 files
 ```
 
-The file of `source` is `src/generated/schema.ts`: it matches `src/**/*.ts` and no subtype. The two files without a type are the files of `.lawcheck/`. A file without a type is never judged.
+The file of `source` is `src/generated/schema.ts`: it matches `src/**/*.ts` and no subtype. The two files without a type are the files of `.lawcheck/`. No rule judges a file without a type.
 
 ## 4. See why a file has its type
 
