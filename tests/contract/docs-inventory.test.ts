@@ -13,9 +13,9 @@ import { DOCS_NOT_COVERED } from '../numbers.ts';
 import { ROOT, walk } from '../harness/sets.ts';
 
 const PAGES: Record<string, string[]> = {
-  command: ['cli'],
-  flag: ['cli'],
-  'exit code': ['cli', 'change'],
+  command: ['commands'],
+  flag: ['commands'],
+  'exit code': ['commands', 'change'],
   'law key': ['law'],
   'config key': ['config'],
   runner: ['config'],
@@ -36,29 +36,22 @@ const INTERNAL_VARIABLES = ['LAWCHECK_REVIEW_CALL', 'GIT_CONFIG_COUNT'];
 
 // The items no page holds yet, as '<page>: <name>'. It may only shrink: the rail fails on an entry that its page now holds, and DOCS_NOT_COVERED in tests/numbers.ts counts it.
 const NOT_YET_COVERED: string[] = [
-  'cli: init',
-  'cli: prime',
-  'cli: check',
-  'cli: explain',
-  'cli: try',
-  'cli: docs',
-  'cli: doctor',
-  'cli: --version',
-  'cli: --help',
-  'cli: --json',
-  'cli: --full',
-  'cli: --base',
-  'cli: --review',
-  'cli: --again',
-  'cli: --max-calls',
-  'cli: --type',
-  'cli: --rule',
-  'cli: --times',
-  'cli: --dry-run',
-  'cli: --reviewer',
-  'cli: 0',
-  'cli: 1',
-  'cli: 2',
+  'commands: --version',
+  'commands: --help',
+  'commands: --json',
+  'commands: --full',
+  'commands: --base',
+  'commands: --review',
+  'commands: --again',
+  'commands: --max-calls',
+  'commands: --type',
+  'commands: --rule',
+  'commands: --times',
+  'commands: --dry-run',
+  'commands: --reviewer',
+  'commands: 0',
+  'commands: 1',
+  'commands: 2',
   'law: lawcheck',
   'law: rules',
   'law: types',
@@ -370,14 +363,14 @@ test('question 95: a flag planted in the argument parser and a code planted in t
   const problems = problemsOf(items, planted, NOT_YET_COVERED);
   const named = problems.filter((p) => p.includes('planted'));
   assert.equal(named.length, 2);
-  assert.ok(named[0]!.startsWith('cli: --planted-flag (flag) is no heading and no first cell of a table row of docs/cli.md'), named[0]);
+  assert.ok(named[0]!.startsWith('commands: --planted-flag (flag) is no heading and no first cell of a table row of docs/commands.md'), named[0]);
   assert.ok(named[1]!.startsWith('codes: planted-code (code) is no heading and no first cell of a table row of docs/codes.md'), named[1]);
 });
 
 test('question 95: control, an entry of the list that its page holds, an entry that names no item, and an entry given twice are each named', () => {
-  const problems = problemsOf(itemsOf(readRepo), readRepo, [...NOT_YET_COVERED, 'codes: usage', 'cli: --no-such-flag', 'codes: usage']);
+  const problems = problemsOf(itemsOf(readRepo), readRepo, [...NOT_YET_COVERED, 'codes: usage', 'commands: --no-such-flag', 'codes: usage']);
   assert.ok(problems.includes('codes: usage (code) is on the list of items not yet covered, and docs/codes.md now holds it: remove it from the list and lower DOCS_NOT_COVERED'));
-  assert.ok(problems.includes('cli: --no-such-flag is on the list of items not yet covered and is no item of the code: remove it'));
+  assert.ok(problems.includes('commands: --no-such-flag is on the list of items not yet covered and is no item of the code: remove it'));
   assert.ok(problems.includes('codes: usage is twice on the list of items not yet covered'));
 });
 
