@@ -1,7 +1,7 @@
 name: Release
 
 # Publishes lawcheck when a vX.Y.Z tag is pushed. Nothing else publishes: no job here creates tags, and the owner pushes the tag.
-# npm trusted publishing is configured on npmjs.com for this repository and this workflow file, release.yml, with no environment: the file keeps that name, and the jobs publish and latest keep id-token: write and no environment.
+# npm trusted publishing is configured on npmjs.com for this repository and this workflow file, release.yml, with no environment: the file keeps that name, and the jobs publish and alpha keep id-token: write and no environment. The trusted publisher also needs "Allow npm dist-tag" turned on, for the job alpha.
 on:
   push:
     tags: ['v*']
@@ -83,7 +83,7 @@ jobs:
             fi
           done
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-          # A prerelease X.Y.Z-<id>.N publishes under <id> when <id> starts with a letter (alpha, beta, rc); a numeric prerelease such as X.Y.Z-1 publishes under 'next', because npm refuses a dist-tag that parses as a version range. A stable X.Y.Z publishes under 'latest'.
+          # A prerelease X.Y.Z-<id>.N publishes under <id> when <id> starts with a letter (alpha, beta, rc), except that an alpha goes under latest (see the publish job); a numeric prerelease such as X.Y.Z-1 publishes under 'next', because npm refuses a dist-tag that parses as a version range. A stable X.Y.Z publishes under 'latest'.
           if [[ "${VERSION}" == *-* ]]; then
             PRE="${VERSION#*-}"
             PRE="${PRE%%.*}"
@@ -171,16 +171,21 @@ jobs:
       - name: Use OIDC-capable npm
         run: npm install --global --ignore-scripts npm@11.6.2
       # No NODE_AUTH_TOKEN: authentication is npm trusted publishing over OIDC (id-token: write above).
+      # An alpha goes under latest, and the job alpha then adds the dist-tag alpha to that version. Under its own tag, the alpha would leave latest where it was.
       - name: Publish to npm
         env:
           VERSION: ${{ needs.pack.outputs.version }}
           DISTTAG: ${{ needs.pack.outputs.disttag }}
-        run: npm publish "./release/lawcheck-${VERSION}.tgz" --ignore-scripts --provenance --access public --tag "${DISTTAG}"
+        run: |
+          TAG="${DISTTAG}"
+          if [ "${DISTTAG}" = alpha ]; then
+            TAG=latest
+          fi
+          npm publish "./release/lawcheck-${VERSION}.tgz" --ignore-scripts --provenance --access public --tag "${TAG}"
 
-  # latest follows the newest alpha, and alpha stays a tag of its own. A publish sets one dist-tag and npm never takes a version twice, so this job adds latest after the publish under alpha.
-  # npm runs dist-tag over OIDC from npm 11.21.0, and only when the trusted publisher of release.yml on npmjs.com has "Allow npm dist-tag" turned on. A re-run of this job alone repeats only the tag.
-  latest:
-    name: npm latest on the new alpha
+  # latest names the newest alpha, and alpha stays a tag of its own. The publish sets latest to the alpha it publishes, and this job adds the dist-tag alpha to that version. npm runs dist-tag over OIDC from npm 11.21.0, and only when the trusted publisher of release.yml on npmjs.com has "Allow npm dist-tag" turned on. This job needs that setting to add alpha. A re-run of this job alone repeats only the dist-tag moves.
+  alpha:
+    name: npm alpha on the new alpha
     needs: [pack, publish]
     if: needs.pack.outputs.disttag == 'alpha'
     runs-on: ubuntu-latest
@@ -194,27 +199,47 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
       - name: Use npm that runs dist-tag over OIDC
         run: npm install --global --ignore-scripts npm@11.21.2
-      # A re-run after a newer alpha must not move latest back to this one.
-      - name: alpha still names this version
+      # A re-run after a newer alpha must not move alpha back to this one.
+      # The registry takes about a minute to show a write, so a read that names an older version is read again every 10 seconds, for up to 5 minutes. A newer version fails at once.
+      - name: latest still names this version
         env:
           VERSION: ${{ needs.pack.outputs.version }}
         run: |
           set -euo pipefail
-          ALPHA=$(curl -fsS https://registry.npmjs.org/-/package/lawcheck/dist-tags | jq -r '.alpha')
-          if [ "${ALPHA}" != "${VERSION}" ]; then
-            echo "::error::The dist-tag alpha of lawcheck names ${ALPHA}, and this run releases ${VERSION}; latest moves only to the version alpha names, so it stays where it is."
-            exit 1
-          fi
-      - name: Move latest to the new alpha
+          for _ in $(seq 30); do
+            LATEST=$(curl -fsS https://registry.npmjs.org/-/package/lawcheck/dist-tags | jq -r '.latest')
+            if [ "${LATEST}" = "${VERSION}" ]; then
+              exit 0
+            fi
+            if [ "$(printf '%s\n' "${LATEST}" "${VERSION}" | sort -V | tail -n 1)" = "${LATEST}" ]; then
+              break
+            fi
+            sleep 10
+          done
+          echo "::error::The dist-tag latest of lawcheck names ${LATEST}, and this run releases ${VERSION}; alpha moves to the version that latest names, so it stays where it is."
+          exit 1
+      - name: Move alpha to the new version
         env:
           VERSION: ${{ needs.pack.outputs.version }}
-        run: npm dist-tag add "lawcheck@${VERSION}" latest
-      - name: alpha and latest name the new alpha
+        run: npm dist-tag add "lawcheck@${VERSION}" alpha
+      - name: alpha and latest name the new version
         env:
           VERSION: ${{ needs.pack.outputs.version }}
         run: |
           set -euo pipefail
-          TAGS=$(curl -fsS https://registry.npmjs.org/-/package/lawcheck/dist-tags)
+          for _ in $(seq 30); do
+            TAGS=$(curl -fsS https://registry.npmjs.org/-/package/lawcheck/dist-tags)
+            ALPHA=$(jq -r '.alpha' <<< "${TAGS}")
+            LATEST=$(jq -r '.latest' <<< "${TAGS}")
+            if [ "${ALPHA}" = "${VERSION}" ] && [ "${LATEST}" = "${VERSION}" ]; then
+              echo "${TAGS}"
+              exit 0
+            fi
+            if [ "$(printf '%s\n' "${ALPHA}" "${LATEST}" "${VERSION}" | sort -V | tail -n 1)" != "${VERSION}" ]; then
+              break
+            fi
+            sleep 10
+          done
           echo "${TAGS}"
           for tag in alpha latest; do
             if [ "$(jq -r --arg tag "${tag}" '.[$tag]' <<< "${TAGS}")" != "${VERSION}" ]; then
