@@ -67,7 +67,7 @@ Lawcheck reads the uses written out in the code. It does not read an `import()` 
 
 ## A review bot at the pull request
 
-- CodeRabbit reviews each pull request with a model. It runs pre-merge checks that you write in prose in `.coderabbit/`. Each check has the mode off, warning or error.
+- CodeRabbit reviews each pull request with a model. It runs pre-merge checks as well, which you write in prose in `.coderabbit/` and set to the mode off, warning or error.
 - Qodo and Greptile review pull requests with rules in prose. Qodo imports `AGENTS.md`. It draws rules from the history of earlier pull requests.
 - Cursor Bugbot learns rules from review comments.
 - Copilot code review reads the instructions of the repository.
@@ -76,15 +76,15 @@ Lawcheck reads the uses written out in the code. It does not read an `import()` 
 
 The services among them charge per person, per review or in credits.
 
-A review bot reads the whole pull request. It comments on the change as a whole, with your rules or without them. The reviewer of Lawcheck sees one file and one rule per call. It sees the files the rule lists in `context` as well. It sees no other file of the repository. A reviewer rule cannot judge a requirement that spans the files of a change, such as a new handler that comes with its test.
+A review bot reads the whole pull request. It comments on the change as a whole, with your rules or without them. The reviewer of Lawcheck sees one file and one rule per call. It sees the files that the rule lists in `context` beside that file, and nothing else of the repository. A reviewer rule cannot judge a requirement that spans the files of a change, such as a new handler that comes with its test.
 
 Lawcheck checks before the pull request exists. In Claude Code, it checks after each edit and before the agent ends its turn. Uses and script rules need no model. A second check of the same code prints the same output.
 
-A reviewer rule needs a model. `lawcheck check --review` asks the reviewer once per file and rule. It records each pass as a [verdict](concepts.md#verdict) in `.lawcheck/verdicts`. You commit that file. A later check reads the pass. Lawcheck sends the file again only after the file, the rule, its `why` or its `context` changes. CI reads the committed verdicts. It needs no model and no key. A changed file with no recorded pass of an enforced reviewer rule gets the error `not-reviewed`. That error fails the job. You run `lawcheck check --review` before the push ([CI and git hooks](ci.md)).
+A reviewer rule needs a model, and `lawcheck check --review` asks that model once per file and rule. It records each pass as a [verdict](concepts.md#verdict) in `.lawcheck/verdicts`. You commit that file. A later check reads the pass. Lawcheck sends the file again only after the file, the rule, its `why` or its `context` changes. CI reads the committed verdicts. It needs no model and no key. A changed file with no recorded pass of an enforced reviewer rule gets the error `not-reviewed`. That error fails the job. You run `lawcheck check --review` before the push ([CI and git hooks](ci.md)).
 
 Lawcheck sends code only to a model you ask to judge a reviewer rule, with `--review` or `lawcheck try`. The code goes to the one of nine providers you name. The provider `ollama` sends it to a server on your own machine by default ([Reviewers and keys](providers.md)). A script rule is code of your own repository. It can read every file under the [root](concepts.md#law) of the law and open a network connection ([Script rules](script-rules.md)). Lawcheck needs no account. Its licence is MIT. A check tells you when a change edits the law that judges it.
 
-Lawcheck writes no annotation into the pull request. A CI job shows its findings in the log. `--json` prints them as one document.
+Lawcheck writes no annotation into the pull request. A CI job shows its findings in the log, and `--json` prints them as one document for a script of your own.
 
 | Your case | Use |
 |---|---|
@@ -106,7 +106,7 @@ The Lawcheck plugin adds the law to the session ([The Claude Code plugin](plugin
 - Before the agent ends its turn, the plugin checks the files that changed since the prompt and the files of the commits made during the turn. While they break the law, the plugin sends the agent back, three times at most and never twice in a row with the same output. After the last return, the plugin lets the agent finish. It tells you that the check still fails.
 - Each check has a deadline five seconds shorter than the time Claude Code gives the hook. Past the deadline, the plugin ends Lawcheck and its child processes.
 
-A hook of your own can run `lawcheck check <file>` too. Lawcheck exits 1 when the file breaks the law. It exits 2 when the law or the setup has an error. Claude Code blocks on exit 2 of a hook. Your hook turns the exit 1 of Lawcheck into exit 2. You decide in the hook what the exit 2 of Lawcheck means. Each of the two checks of the plugin has a setting: `check_after_edit` and `check_before_stop`. You can turn off the one that your own hook does.
+A hook of your own can run `lawcheck check <file>` too. Lawcheck exits 1 when the file breaks the law, and 2 when the law or the setup has an error. Claude Code blocks on exit 2 of a hook. Your hook therefore turns the exit 1 of Lawcheck into exit 2, and decides for itself what an exit 2 of Lawcheck means. The two checks of the plugin each have a setting, `check_after_edit` and `check_before_stop`. You can turn off the one your hook does.
 
 Cursor, Copilot, Codex and Gemini CLI have hooks on similar events, where exit 2 blocks as well. Lawcheck ships a plugin for Claude Code alone. In the other agents, a hook you write runs `lawcheck check`. Without such a hook, the agent checks only when it follows its instructions file. A CI job catches what the agent skips.
 

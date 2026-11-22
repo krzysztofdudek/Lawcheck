@@ -28,7 +28,7 @@ next: describe your first file type in .lawcheck/law.yaml  (lawcheck docs first-
 
 ## 2. Describe one type
 
-A type names the files of one kind. Write one type, with its `paths` and an `about`, into `.lawcheck/law.yaml`. It takes the place of what `init` put there:
+A type names the files of one kind. Write one type, with its `paths` and an `about`, into `.lawcheck/law.yaml`, in place of what `init` put there:
 
 <!-- example: first-law-type -->
 ```yaml
@@ -61,7 +61,7 @@ The file has the type `source` and no rule yet.
 
 ## 4. Add the rule to the law
 
-A rule has an entry in the law and one file. Add the entry under `rules`, with its `why`. Lawcheck prints the `why` under every finding of the rule:
+A rule has an entry in the law and one file. Add the entry under `rules`, with the `why` that Lawcheck prints under every finding of the rule:
 
 <!-- example: first-law-entry -->
 ```yaml
@@ -202,7 +202,7 @@ src/report.ts:1  warning[no-console]  writes to the terminal with console.log
   why:  Only the command layer writes to the terminal.
 ```
 
-The three changed files are the new files of `.lawcheck/`, which count like any other file git lists. The note line says the change edits the law ([What a check judges](change.md)). A finding outside the change is [debt](concepts.md#debt). Debt is a warning. It never fails the run.
+The three changed files are the new files of `.lawcheck/`, which count like any other file git lists. The note line says the change edits the law ([What a check judges](change.md)). A finding outside the change is [debt](concepts.md#debt): a warning that never fails the run.
 
 ## 12. Fix the debt, or start the rule advisory
 
@@ -217,7 +217,7 @@ rules:
     status: advisory
 ```
 
-After you fix the debt, delete the `status` line. The rule is then enforced again. [The law file](law.md) describes every key of the law.
+After you fix the debt, delete the `status` line, and the rule is enforced again. [The law file](law.md) describes every key of the law.
 
 ## If it goes wrong
 

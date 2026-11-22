@@ -60,7 +60,7 @@ reviewer:
   model: your-model-id
 ```
 
-A key goes in the environment. Lawcheck refuses a key in this file with [`config-invalid`](codes.md#config-invalid). [Reviewers and keys](providers.md) has every provider and its keys.
+A key goes in the environment, because Lawcheck refuses a key in this file with [`config-invalid`](codes.md#config-invalid). [Reviewers and keys](providers.md) has every provider and its keys.
 
 ## 4. Check that the reviewer answers
 

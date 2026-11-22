@@ -6,7 +6,7 @@ Your code already breaks the [rule](concepts.md#rule) you are about to write. A 
 
 An enforced rule fits when the old code holds few findings of the rule. `lawcheck check --base main` passes the change that adds the law, because that change holds only the files of `.lawcheck/`. The old code fails nothing until a change edits an old file. Then the change fails on every finding in that file, on old lines as much as on new ones. Its author fixes them in the same change.
 
-An advisory rule fits when the old code holds many findings of the rule, or when other people edit the old files before you can fix them. The findings of an advisory rule are warnings. No change fails on them. The steps below take this path:
+An advisory rule fits when the old code holds many findings of the rule, or when other people edit the old files before you can fix them. The findings of an advisory rule are warnings, which fail no change. The steps below take this path:
 
 - the rule starts as advisory;
 - `lawcheck check --full` lists the old [findings](concepts.md#finding) as [debt](concepts.md#debt);
@@ -103,7 +103,7 @@ src/core/report.ts:2  warning[no-console]  writes to the terminal with console.l
 src/core/tax.ts:2  warning[no-console]  writes to the terminal with console.warn
 ```
 
-`--full` judges every other file as well. A finding outside the change is debt. Debt is a warning, whatever the status of the rule. The run passes. `--json` gives the count of debt in `summary.debt`. It marks each finding of debt with `"debt": true` ([JSON documents](json.md)).
+`--full` judges every other file as well. A finding outside the change is debt: a warning, whatever the status of the rule. The run passes. `--json` gives the count of debt in `summary.debt`. It marks each finding of debt with `"debt": true` ([JSON documents](json.md)).
 
 ## 6. Merge the law
 

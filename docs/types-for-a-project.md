@@ -27,7 +27,7 @@ $ lawcheck explain .
 
 ## 2. Describe the folders as types
 
-Give each folder of `src/` a [type](concepts.md#type). A type under the `types` key of another type is a subtype. Lawcheck tests a file against a subtype only after the file matched the parent. Under the parent `source`, `api` takes the `.ts` files of `src/api/` and no other file. Write this into `.lawcheck/law.yaml`:
+Give each folder of `src/` a [type](concepts.md#type). A type under the `types` key of another type is a subtype, which Lawcheck tests on a file only after the file matched the parent. Under the parent `source`, `api` takes the `.ts` files of `src/api/` and no other file. Write this into `.lawcheck/law.yaml`:
 
 ```yaml
 lawcheck: 0.1.0

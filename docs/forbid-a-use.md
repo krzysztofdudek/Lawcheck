@@ -122,7 +122,7 @@ $ lawcheck check src/core/discount.ts
 lawcheck: PASS  1 named file, 1 unresolved use
 ```
 
-The import points into the repository. git lists no file there, since `.gitignore` names `src/generated/`. Lawcheck cannot tell which type the use reaches. It counts the use as unresolved. The list neither allows nor forbids an unresolved use. Such a use never fails a run. The first line counts it.
+The import points into the repository. git lists no file there, since `.gitignore` names `src/generated/`. Lawcheck cannot tell which type the use reaches, so it counts the use as unresolved and judges it against no list. Such a use never fails a run, and the first line of the output counts it.
 
 ## 9. List the unresolved uses
 

@@ -92,7 +92,7 @@ The run exits 1. The [finding](concepts.md#finding) names the file, the line, th
 
 A check judges the files that differ from a [base](concepts.md#base). The base is a commit, such as `origin/HEAD` or the branch that `--base` names. The new repository has no base. The check then counts all four of its files as changed: the two of `.lawcheck/` and the two of `src/`.
 
-You can fix the line in two ways. One fix takes the printing out of the core. The other gives `src/cli/` a type. You then decide whether `core` may use it.
+You can fix the line in two ways. One takes the printing out of the core. The other gives `src/cli/` a type of its own, after which you decide in the law whether `core` may use that type.
 
 ## Can go wrong
 

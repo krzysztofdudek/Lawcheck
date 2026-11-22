@@ -44,7 +44,7 @@ Example: `.lawcheck/rules/clear-errors.md` says "Every error message a caller ca
 
 ## Use
 
-A use is a reference from one file to another file of the repository, such as an `import`. Lawcheck reads uses in TypeScript, JavaScript, Python, Go, Rust, Java, Kotlin, C#, C, C++, PHP and Ruby. The part of Lawcheck that reads the uses of one language is its reader. The `may_use` list of a type names the types its files may use. A use the list does not allow is the finding `forbidden-use`.
+A use is a reference from one file to another file of the repository, such as an `import`. Lawcheck reads uses in TypeScript, JavaScript, Python, Go, Rust, Java, Kotlin, C#, C, C++, PHP and Ruby. The part of Lawcheck that reads the uses of one language is its reader. The `may_use` list of a type names the types its files may use, and Lawcheck reports each use outside the list as the finding `forbidden-use`.
 
 Example: `import { print } from "../cli/print.js";` in `src/core/receipt.ts` is a use of `src/cli/print.ts`.
 
@@ -73,7 +73,7 @@ Example: a comment at the end of a line that prints a warning. The comment names
 
 ## Verdict
 
-A verdict is the answer of the reviewer, pass or fail, for one file and one reviewer rule. Lawcheck writes each pass as a line of `.lawcheck/verdicts`. You commit that file. A later check reads the pass. It calls no model for that file and rule. The pass holds until one of these changes:
+A verdict is the answer of the reviewer, pass or fail, for one file and one reviewer rule. Lawcheck writes each pass as a line of `.lawcheck/verdicts`. You commit that file. A later check reads the pass and calls no model for that file and rule. The pass holds until one of these changes:
 
 - the file;
 - the text of the rule;
@@ -131,6 +131,12 @@ A script rule fits what code can find in the text of a file: a call, a name, a l
 
 ### The Claude Code plugin
 
-The plugin runs Lawcheck inside a Claude Code session. At the start it gives the agent the output of `lawcheck prime`. After each edit it checks the edited file. Before the agent ends its turn, the plugin checks the files of the turn. While they break the law, it sends the agent back, three times at most. [The Claude Code plugin](plugin.md) has every hook and setting.
+The plugin runs Lawcheck inside a Claude Code session at three moments:
+
+- at the start of the session, it gives the agent the output of `lawcheck prime`;
+- after each edit, it checks the edited file;
+- before the agent ends its turn, it checks the files of the turn and sends the agent back while they break the law, three times at most.
+
+[The Claude Code plugin](plugin.md) has every hook and setting.
 
 Next: [Lawcheck and the tools you already use](other-tools.md)
