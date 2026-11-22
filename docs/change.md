@@ -53,7 +53,7 @@ The second line says what the change does to the law that judges it. A pull requ
 
 ## Files you name
 
-`lawcheck check <path or pattern>...` judges the files you name, changed or not, and no others. It needs no base, so it runs in a repository with no commit and in CI as anywhere. A path or pattern is read from the current folder, and a folder selects its files at any depth. A target that selects nothing, such as a missing file, a file git ignores or a binary file, adds nothing. A target outside the root is `usage`. Write a file whose name starts with `-` as `./-x.ts`.
+`lawcheck check <path or pattern>...` judges the files you name, changed or not, and no others. It needs no base. It runs in a repository with no commit, and in CI. A path or pattern is read from the current folder, and a folder selects its files at any depth. A target that selects nothing, such as a missing file, a file git ignores or a binary file, adds nothing. A target outside the root is `usage`. Write a file whose name starts with `-` as `./-x.ts`.
 
 This form has no debt and no note of a law change, and it takes no flag but `--json`. `not-reviewed` and `too-large-to-review` are always warnings here, so a missing review never makes it exit 1. The Claude Code plugin checks files this way (`lawcheck docs plugin`).
 

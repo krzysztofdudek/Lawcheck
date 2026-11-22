@@ -34,9 +34,9 @@ The other languages resolve by path, through files such as `tsconfig.json`, `pac
 
 ## Unresolved uses
 
-A use the readers do not resolve to exactly one file is unresolved, unless they say it leaves the repository: a use of the standard library or of an installed package is not counted at all. Lawcheck never guesses what a use meant. An unresolved use is neither allowed nor forbidden: it is never a finding and never changes the exit code.
+A use the readers do not resolve to exactly one file is unresolved, unless they say it leaves the repository: a use of the standard library or of an installed package is not counted at all. Lawcheck never guesses. An unresolved use is neither allowed nor forbidden: it is never a finding and never changes the exit code.
 
-Each run counts them, in the first line for the changed files and in the debt heading for the others, and `--json` lists each one with the readers' answer:
+Each run counts them, in the first line for the change and in the debt heading for the rest, and `--json` lists each with the readers' answer:
 
 | Answer | Reason | What it means |
 |---|---|---|
@@ -60,7 +60,7 @@ Outside, by language: TypeScript and JavaScript, an installed package or a Node 
 
 ## Forms the readers miss
 
-A use a reader misses is never a `forbidden-use` and is not counted, so a check can pass where the same use written another way fails, and nothing in the output shows it. Search the code for these forms; a script rule (`lawcheck docs script-rules`) can check the ones that matter.
+A use a reader misses is never a `forbidden-use` and is not counted, so a check can pass where the same use written another way fails, and the output shows nothing. A script rule (`lawcheck docs script-rules`) can check the forms that matter.
 
 - TypeScript and JavaScript: `import.meta.glob` and `require.context` are not read. An alias only a bundler defines (Vite or webpack `resolve.alias`, Babel `module-resolver`) is read when its target is `fileURLToPath(new URL('./src', import.meta.url))`, `path.resolve(__dirname, 'src')` or, in Babel, a relative path; an alias written another way, such as through a variable, is not followed, and its uses are counted as unresolved. Put such an alias in `tsconfig.json` `paths` too.
 - Rust: a `mod` with `#[path]` inside an inline module, a function body or a `cfg_if!` branch, or under a `cfg_attr`, gives no use; nor does a `use` in a `cfg_if!` branch.
@@ -75,11 +75,9 @@ A text file of a type with a list in force, in a language without a reader, cann
 .lawcheck/law.yaml:4  warning[uses-not-read]  1 file of type domain is not read for uses: 1 .json
 ```
 
-The warning is one per type, at the type's line in the law, with the count of such files by extension. It never fails a run and cannot be waived. To clear it, narrow the type's `paths` to files with a reader, or give the others a type without a list.
+The warning comes once per type, at its line in the law, with the count of such files by extension. It never fails a run and cannot be waived. To clear it, narrow the type's `paths` to files with a reader, or give the others a type without a list. `lawcheck doctor` counts these files in its `readers` check.
 
-A file over 512 KiB that would be read for uses is not read. It gets `uses-not-read` at its own path: an error when it is in the change, a warning in debt.
-
-`lawcheck doctor` counts these files in its `readers` check.
+A file over 512 KiB is not read for its uses, nor, in Java, Kotlin, C#, Ruby and Rust, for what it declares, so the uses of it are not judged. It gets `uses-not-read` at its own path, typed or not: an error in the change, a warning in debt.
 
 ## parser-failed
 

@@ -15,15 +15,15 @@
 
 ## prime
 
-`lawcheck prime` prints what a coding agent reads at the start of a session: how to work with Lawcheck here, which steps are only the user's to take, and the law in short. It runs no rule, reads no use, calls no reviewer and writes nothing. Without a law it prints two lines that say so, and exits 0. With a law that is not valid, it prints the start of the text, then the errors, and exits 2. The text stays within 8,000 characters, so the law part of a large law is shortened, and the text says what it left out. With a `runner` set, it says how to start Lawcheck here.
+`lawcheck prime` prints what a coding agent reads at the start of a session: how to work with Lawcheck here, which steps are only the user's to take, and the law in short. It runs no rule, reads no use, calls no reviewer and writes nothing. Without a law it prints two lines that say so, and exits 0. With a law that is not valid, it prints the start of the text, then the errors, and exits 2. The text stays within 8,000 characters, so the law part of a large law is shortened, and the text says what it left out. With a `runner` other than `global`, it says how to start Lawcheck here.
 
 ## explain
 
-`lawcheck explain <path>` says why a file has the law it has: its type and the chain of types above it, the pattern that matched, what it may use, whether its uses are read, its rules with the state of each review, and its waivers. The path may name a file that does not exist yet, which shows the law a new file there would get, or a folder. `--type <id>` explains a type with its files, and `--rule <id>` a rule with the files it binds. A file without a type gets the reason, such as no pattern that matches it, git ignoring it, or a binary file. `explain` runs no rule and writes nothing. It exits 0 when it answered, a type overlap included.
+`lawcheck explain <path>` says why a file has the law it has: its type and the chain of types above it, the pattern that matched, what it may use, whether its uses are read, its rules with the state of each review, and its waivers. The path may name a file that does not exist yet, which shows the law a new file there would get, or a folder. `--type <id>` explains a type with its files, and `--rule <id>` a rule with the files it binds. A file without a type gets the reason, such as no pattern that matches it, git ignoring it, or a binary file. `explain` runs no rule and writes nothing. For a file it exits 0 when it answered, its own type overlap included. For a folder, a type or a rule, an overlap is exit 2.
 
 ## try
 
-`lawcheck try <rule> [<path or pattern>...]` runs one rule on the files you choose, with no base, and writes nothing in the repository. A path or pattern is read from the current folder, a folder selects its files at any depth, and binary files are left out. A script rule without targets takes the files it binds. `--times`, `--dry-run` and `--max-calls` go only with a reviewer rule (`lawcheck docs reviewer-rules`).
+`lawcheck try <rule> [<path or pattern>...]` runs one rule on the files you choose, with no base, and writes nothing in the repository. A path or pattern is read from the current folder, a folder selects its files at any depth, and binary files are left out. A target that selects nothing, a binary file named directly included, is `usage`. A script rule without targets takes the files it binds. `--times`, `--dry-run` and `--max-calls` go only with a reviewer rule (`lawcheck docs reviewer-rules`).
 
 ## docs
 
@@ -31,7 +31,7 @@
 
 ## doctor
 
-`lawcheck doctor` says what is wrong with this setup, with one next step for each problem. It writes nothing. It works without a law and outside git, and it opens no connection unless you pass `--reviewer`, which sends the reviewer one small test request. Its nine checks run in this order:
+`lawcheck doctor` says what is wrong with this setup, with one next step for each problem. It writes nothing. It works without a law and outside git. It opens no connection unless you pass `--reviewer`, which sends the reviewer one small test request. With `ollama` and reviewer rules, it asks the server for its version even without the flag. Its nine checks run in this order:
 
 | Check | What it looks at |
 |---|---|

@@ -68,7 +68,7 @@ A pattern matches the whole path from the root, case-sensitive on every system.
 - Other characters are literal, and there is no escape.
 - A leading `!` excludes. A file matches a list when it matches one plain pattern and no exclusion. The order of the list means nothing.
 
-An empty pattern, an empty segment, a segment `.` or `..`, `**` beside other characters in one segment and a brace that is nested, unclosed or unopened are `law-invalid`.
+An empty pattern, an empty segment, a segment `.` or `..`, `**` beside other characters in one segment, `!` alone, and a brace that is nested, unclosed or unopened, or that holds a `/` or an empty alternative, are `law-invalid`.
 
 ## How a file gets its type
 
