@@ -1,6 +1,6 @@
 # Files Lawcheck reads and writes
 
-Lawcheck keeps its files in one folder, `.lawcheck/`, at the root of the law. You write the law, the settings and the rules. Lawcheck writes the verdicts of reviewer rules, a merge setting for them, and a local folder that stays out of git.
+Lawcheck keeps its files in one folder, `.lawcheck/`. The folder that holds `.lawcheck/` is the root. You write the law, the settings and the rules. Lawcheck writes three things: the [verdicts](concepts.md#verdict) of reviewer rules, a merge setting for them, and a local folder that git ignores.
 
 ## The folder .lawcheck
 
@@ -21,13 +21,13 @@ Lawcheck keeps its files in one folder, `.lawcheck/`, at the root of the law. Yo
 config.local.yaml
 ```
 
-Lawcheck 0.1.0-alpha.2 reads no `config.local.yaml`. The line keeps a file of that name out of git.
+Lawcheck 0.1.0-alpha.2 reads no `config.local.yaml`. The second line of this file keeps a file of that name out of git.
 
-The law, the config and the rule files get a type when a type's `paths` match them, so a rule can judge them. `.lawcheck/verdicts` and `.lawcheck/.gitattributes` never get a type.
+A type's `paths` can match the law, the config and the rule files. Such a file then has that type. A rule of the type can judge it. `.lawcheck/verdicts` and `.lawcheck/.gitattributes` never get a type.
 
 ## The folder .lawcheck/.local
 
-`check --review` makes this folder with its own `.gitignore`, which holds `*`, so git ignores everything in it even without `.lawcheck/.gitignore`.
+`check --review` makes this folder. The folder holds its own `.gitignore` with the line `*`. Git ignores every file of the folder, even without `.lawcheck/.gitignore`.
 
 | File | What it holds |
 |---|---|
@@ -36,7 +36,7 @@ The law, the config and the rule files get a type when a type's `paths` match th
 | `verdicts-<pid>-<hex>` | the new verdicts file before it replaces the old one |
 | `probe-<pid>-<hex>` | a test that the folder can be written, made and removed before the first call |
 
-A pass of a review removes its file from `failures/`. A deleted `.local` folder loses the cached failures and nothing else: the next `check --review` asks those reviews again.
+A review that passes removes its file from `failures/`. If you delete the `.local` folder, you lose the cached failures and nothing else. The next `check --review` asks the reviewer for those reviews again.
 
 ## Outside the repository
 
@@ -46,6 +46,6 @@ A pass of a review removes its file from `failures/`. A deleted `.local` folder 
 | a folder in the system's temporary directory named `lawcheck-`, the program's name, a dash and 6 random characters, such as `lawcheck-claude-` and 6 characters for `claude-code` | the working folder of one call to a reviewer program; `gemini-cli` gets a second folder, ending `-aside-` and 6 characters, for its policy file | `check --review` and `try`, which remove both after the call |
 | a folder `lawcheck-index-` and 12 random characters in the system's temporary directory | a copy of git's index, so that reading the change leaves the real index untouched | `check` and `doctor`, when they compare with a base, and they remove it at once |
 
-Lawcheck reads the files git lists below the root, the `context` files of reviewer rules, and git's own data through `git`.
+Lawcheck reads the files git lists below the root, the files that the `context` of a reviewer rule names, and git's own data through `git`.
 
 Next: [Codes](codes.md)

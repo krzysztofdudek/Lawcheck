@@ -1,14 +1,25 @@
 # JSON documents
 
-`--json` on any command prints one JSON document to standard output and nothing else. Every document has `schema` first, which names the document and its version. A document named `/0` may still change; `lawcheck-error/1` is stable. A field that holds no value is null and stays in the document, except `findings.line` and `runs.findings.line`, absent for a finding about the whole file, and `law_changes`, present only when a base was compared and the law differs.
+`--json` on any command prints one JSON document to standard output and nothing else. The first field of every document is `schema`. It names the document and its version. The form of a document whose name ends in `/0` may change between versions. `lawcheck-error/1` is stable.
 
-A string holds the text as it is, a file name or a message included. Control characters, U+2028, U+2029 and the format characters of Unicode, such as a zero-width space or a mark that changes the direction of text, except the joiners U+200C and U+200D, are written as `\u` escapes, so the document holds none of them raw when it is printed; a program that parses it gets the text unchanged. The text output writes the same characters as visible escapes, such as `\x1b` and `\u202e`. An API key of the reviewer is written as `[key]` in both.
+A field that holds no value is null and stays in the document. Two cases differ:
 
-A field of a list's items is named here by its path, such as `findings.code` for the `code` of each item of `findings`.
+- `findings.line` and `runs.findings.line` are absent for a finding about the whole file;
+- `law_changes` is present only when the check compared a base and the law differs.
+
+A string holds the text as it is, a file name or a message included. Lawcheck writes three kinds of character in a string as escapes, such as `\n`, `\u001b` and `\u202e`:
+
+- the control characters, below U+0020 and from U+007F to U+009F;
+- U+2028 and U+2029, which some programs read as line ends;
+- the format characters of Unicode except the joiners U+200C and U+200D. A format character is an invisible mark, such as a zero-width space or a mark that changes the direction of text.
+
+The printed document holds none of these characters raw. A program that parses the document gets the text unchanged. The text output writes the same characters as visible escapes, such as `\x1b` and `\u202e` ([Codes](codes.md#escapes-in-the-output)). Lawcheck writes an API key of the reviewer as `[key]` in both outputs.
+
+This page names a field of a list's items by its path. `findings.code` is the `code` of each item of `findings`.
 
 ## lawcheck-check/0
 
-From `check`, exit 0 or 1. In the repository of [The commands](commands.md), where `src/core/report.ts` calls `console.log` on its line 2, `lawcheck check --base main --json` prints:
+`check` prints this document, with exit 0 or 1. The repository of [The commands](commands.md) has a file `src/core/report.ts` that calls `console.log` on its line 2. In that repository, `lawcheck check --base main --json` prints:
 
 ```json
 {
@@ -106,7 +117,7 @@ From `check`, exit 0 or 1. In the repository of [The commands](commands.md), whe
 
 ## lawcheck-error/1
 
-From every command that ends with exit 2, except `doctor`.
+Every command but `doctor` prints this document when it ends with exit 2.
 
 | Field | Value |
 |---|---|
@@ -122,7 +133,7 @@ From every command that ends with exit 2, except `doctor`.
 
 ## lawcheck-init/0
 
-From `init`, exit 0.
+`init` prints this document, with exit 0.
 
 | Field | Value |
 |---|---|
@@ -135,7 +146,7 @@ From `init`, exit 0.
 
 ## lawcheck-prime/0
 
-From `prime`, exit 0.
+`prime` prints this document, with exit 0.
 
 | Field | Value |
 |---|---|
@@ -145,13 +156,13 @@ From `prime`, exit 0.
 
 ## lawcheck-explain/0
 
-From `explain`, exit 0. `subject` says which of the four forms follows: `file`, `directory`, `type` or `rule`.
+`explain` prints this document, with exit 0. `subject` says which of the four forms follows: `file`, `directory`, `type` or `rule`.
 
 | Field | Value |
 |---|---|
 | `subject` | `file`, `directory`, `type` or `rule` |
 
-For a file, after `schema` and `subject`:
+For a file, these fields follow `schema` and `subject`:
 
 | Field | Value |
 |---|---|
@@ -187,7 +198,7 @@ For a file, after `schema` and `subject`:
 | `waivers.rule` | the rule it waives |
 | `waivers.reason` | the text after `--` |
 
-For a directory, after `schema` and `subject`:
+For a directory, these fields follow `schema` and `subject`:
 
 | Field | Value |
 |---|---|
@@ -197,7 +208,7 @@ For a directory, after `schema` and `subject`:
 | `types.type` | the type, or null |
 | `types.files` | its count of files |
 
-For a type, after `schema` and `subject`: `id`, `chain`, `about`, `may_use`, `rules` (without `review`) and `files` as above, and:
+For a type, the fields `id`, `chain`, `about`, `may_use`, `rules` (without `review`) and `files` follow `schema` and `subject`, as above. These fields come with them:
 
 | Field | Value |
 |---|---|
@@ -206,9 +217,9 @@ For a type, after `schema` and `subject`: `id`, `chain`, `about`, `may_use`, `ru
 | `content` | its `content`, or null |
 | `subtypes` | the ids of its subtypes |
 
-`waivers` is false when the type's files take no waivers, else true, and `files` lists the paths of its files.
+`waivers` is false when the type's files take no waivers, else true. `files` lists the paths of the type's files.
 
-For a rule, after `schema` and `subject`:
+For a rule, these fields follow `schema` and `subject`:
 
 | Field | Value |
 |---|---|
@@ -219,11 +230,11 @@ For a rule, after `schema` and `subject`:
 | `context` | the paths of its `context`, or null |
 | `reviewed` | for a reviewer rule, how many of its files have a verdict; null for a script rule |
 
-`id` is the rule, `types` the types that list it and `files` the files it binds.
+`id` is the rule. `types` names the types that list the rule. `files` names the files the rule binds.
 
 ## lawcheck-try/0
 
-From `try`, exit 0 or 1.
+`try` prints this document, with exit 0 or 1.
 
 | Field | Value |
 |---|---|
@@ -249,7 +260,7 @@ From `try`, exit 0 or 1.
 
 ## lawcheck-docs/0
 
-From `docs`, exit 0. Without a topic:
+`docs` prints this document, with exit 0. Without a topic, the document holds these fields:
 
 | Field | Value |
 |---|---|
@@ -257,7 +268,7 @@ From `docs`, exit 0. Without a topic:
 | `topics.id` | the id `lawcheck docs` takes |
 | `topics.title` | the title |
 
-With a topic: `id`, `title`, and `text`, the page as it is written, with its links as they are.
+With a topic, the document holds `id`, `title` and `text`. `text` holds the page as its file reads, with its links unchanged.
 
 | Field | Value |
 |---|---|
@@ -267,7 +278,7 @@ With a topic: `id`, `title`, and `text`, the page as it is written, with its lin
 
 ## lawcheck-doctor/0
 
-From `doctor`, exit 0 or 2.
+`doctor` prints this document, with exit 0 or 2.
 
 | Field | Value |
 |---|---|
