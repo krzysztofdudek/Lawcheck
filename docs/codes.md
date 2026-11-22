@@ -575,7 +575,7 @@ The installation of Lawcheck is damaged, or Node refuses the options that the ru
 
 **Fix**
 
-Install Lawcheck again, such as with `npm install --save-dev lawcheck`.
+Install Lawcheck again, such as with `npm install --save-dev lawcheck@alpha`.
 
 **Example**
 
@@ -689,7 +689,7 @@ A grammar file of Lawcheck's installation is damaged or missing. A grammar is th
 
 **Fix**
 
-For a grammar, install Lawcheck again, such as with `npm install --save-dev lawcheck`. A new install does not help a reader that fails on one file. Report that failure at https://github.com/krzysztofdudek/Lawcheck/issues with the file's language.
+For a grammar, install Lawcheck again, such as with `npm install --save-dev lawcheck@alpha`. A new install does not help a reader that fails on one file. Report that failure at https://github.com/krzysztofdudek/Lawcheck/issues with the file's language.
 
 **Example**
 
