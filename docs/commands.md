@@ -434,7 +434,7 @@ The `node` line names the version of the Node that runs Lawcheck, here 24.11.0. 
 | `node` | the Node version, and Bun or Yarn Plug'n'Play |
 | `git` | git, its version, the work tree, and where the root lies in it |
 | `law` | `.lawcheck/law.yaml` and the rule files |
-| `config` | `.lawcheck/config.yaml`, and the runner's program on the `PATH` |
+| `config` | `.lawcheck/config.yaml`, and the program of the `runner` setting on the `PATH` |
 | `types` | how many files have a type, and a type overlap |
 | `base` | the base, where it came from, and how many files the change holds |
 | `law-change` | whether the change touches the law |
