@@ -90,7 +90,7 @@ Lawcheck reports `rule-crashed` with exit 2, at the file of the rule, when the r
 - returns anything but a list of findings as above. A list with a message over 4,096 characters counts as such a return. So does a value that Lawcheck cannot pass out of the rule's process, such as a function;
 - takes more than 30 seconds to load, or more than 30 seconds for one call;
 - ends its process before it answers, or sends a message that Lawcheck did not ask for;
-- leaves a promise rejected with no handler, or a timer that throws, while its process lives. The message then names the load, or no file. After the last call, Lawcheck waits once, at most 2 seconds, for what the rule left running.
+- leaves a promise rejected with no handler, or a timer that throws, while its process lives. The message then names no judged file. For a failure during the load, it says `in its load`. After the last call, Lawcheck waits once, at most 2 seconds, for what the rule left running.
 
 The message names the judged file, or the load. A thrown or rejected value may have no string form, such as an object with no prototype. The message then gives the reason that JavaScript gives for that. A value may not even give that reason, such as a proxy whose every trap throws something that is not an error. The message then reads `a value with no string form`. One run names each broken rule once.
 
