@@ -37,8 +37,8 @@ async function judged(files: Record<string, string>): Promise<Found> {
 const UI_DATA = law(['ui', ['src/ui/**'], ['ui']], ['data', ['src/data/**'], null]);
 
 test('test 310: S4-1, a use through an alias of the bundler configuration is judged where the readers read the alias, counted where they cannot follow it, and import.meta.glob and require.context give no use', async () => {
-  assert.ok(page.includes('`import.meta.glob` and `require.context` are not read'));
-  assert.ok(page.includes('an alias written another way, such as through a variable, is not followed, and its uses are counted as unresolved'));
+  assert.ok(page.includes('the readers do not read `import.meta.glob` and `require.context`'));
+  assert.ok(page.includes('The readers do not follow an alias written another way, such as through a variable. Lawcheck counts the uses of such an alias as unresolved.'));
   const found = await judged({
     '.lawcheck/law.yaml': UI_DATA,
     'vite.config.ts': 'import { fileURLToPath } from "node:url";\nconst dataDir = "/abs/src/data";\nexport default { resolve: { alias: { "@": fileURLToPath(new URL("./src", import.meta.url)), "~data": dataDir } } };\n',
@@ -70,7 +70,7 @@ const PY_FILES = (root: string, where: string) => ({
 });
 
 test('test 311: S4-2, a Python package under a root that configuration names is judged on every form, as the same package at the root', async () => {
-  assert.ok(page.includes('Python searches the root of the repository, a `src` layout, and the roots that `pyproject.toml` or `setup.cfg` name; it does not read `setup.py`.'));
+  assert.ok(page.includes('The Python reader searches the root of the repository, a `src` layout, and the roots that `pyproject.toml` or `setup.cfg` name. It does not read `setup.py`.'));
   const lib = await judged(PY_FILES('lib/', '[tool.setuptools.packages.find]\nwhere = ["lib"]\n'));
   assert.deepEqual({ findings: lib.findings, unresolved: lib.unresolved }, { findings: ['lib/pkg/ui/a.py:1', 'lib/pkg/ui/a.py:2', 'lib/pkg/ui/a.py:3'], unresolved: [] });
   const control = await judged(PY_FILES('', ''));
@@ -100,7 +100,7 @@ test('test 312: S4-3, a Rust mod with #[path], in src/lib.rs and in a module fil
 });
 
 test('test 313: S4-6, a script block inside an HTML comment of a Vue file is not read, and a script with src is judged', async () => {
-  assert.ok(page.includes('or uses the file a relative `<script src>` names; a script in an HTML comment is not read'));
+  assert.ok(page.includes('A file with a relative `<script src>` uses the file that this attribute names. The readers skip a script inside an HTML comment.'));
   const found = await judged({
     '.lawcheck/law.yaml': law(['ui', ['ui/**'], ['ui']], ['data', ['data/**'], null]),
     'data/d.ts': 'export const d = 1;\n',
@@ -113,7 +113,7 @@ test('test 313: S4-6, a script block inside an HTML comment of a Vue file is not
 });
 
 test('test 313: S4-7, a name imported from a Python module is not counted, whether the import is relative or absolute', async () => {
-  assert.ok(page.includes('`from . import x`, where `x` is a name `__init__.py` defines, is counted as unresolved, while `from .m import x` and `from pkg.m import x` are judged'));
+  assert.ok(page.includes('Lawcheck counts `from . import x` as unresolved when `x` is a name that `__init__.py` defines. It judges `from .m import x` and `from pkg.m import x`.'));
   const found = await judged({
     '.lawcheck/law.yaml': law(['app', ['app/**'], ['app']]),
     'app/__init__.py': 'Top = 1\n',
@@ -126,7 +126,7 @@ test('test 313: S4-7, a name imported from a Python module is not counted, wheth
 });
 
 test('test 313: S4-8, a Go module wired to a sibling only by replace is judged, as with a go.work', async () => {
-  assert.ok(page.includes('Go follows `go.work` and a `replace` with a relative directory of the repository'));
+  assert.ok(page.includes('The Go reader follows `go.work` and a `replace` with a relative directory of the repository'));
   const files = (extra: Record<string, string>) => ({
     '.lawcheck/law.yaml': law(['ui', ['ui/**/*.go'], ['ui']], ['data', ['data/**/*.go'], null]),
     'ui/go.mod': 'module example.com/ui\n\ngo 1.22\n\nrequire example.com/data v0.0.0\n\nreplace example.com/data => ../data\n',
@@ -142,7 +142,7 @@ test('test 313: S4-8, a Go module wired to a sibling only by replace is judged, 
 });
 
 test('test 313: S4-11, declare module is read as a use, and a fully qualified Java name is read in a field type only', async () => {
-  assert.ok(page.includes('a type-only import, a `declare module` with a path,'));
+  assert.ok(page.includes('- a type-only import;\n- a `declare module` with a path;'));
   const typescript = await judged({
     '.lawcheck/law.yaml': law(['ui', ['ui/**'], ['ui']], ['data', ['data/**'], null]),
     'data/d.ts': 'export const d = 1;\n',
@@ -160,12 +160,12 @@ test('test 313: S4-11, declare module is read as a use, and a fully qualified Ja
     ...java('Refl', 'public class Refl { void f() throws Exception { Class.forName("com.acme.data.Dat"); } }'),
   });
   assert.deepEqual(found.findings, ['ui/src/main/java/com/acme/ui/Field.java:2']);
-  assert.ok(page.includes('a fully qualified name is read in a field type, and not in a call, an annotation or `Class.forName`'));
-  assert.ok(page.includes('a file of any size with syntax errors has no bound'), 'S4-10');
+  assert.ok(page.includes('the readers read a fully qualified name in a field type. The readers do not read it in a call, an annotation or `Class.forName`.'));
+  assert.ok(page.includes('Lawcheck sets no limit on what a file with syntax errors costs, whatever its size'), 'S4-10');
 });
 
 test('test 313: S4-10, a large Java file with syntax errors is parsed on every run and bounded by nothing: the run passes, with no error and no named limit', async () => {
-  assert.ok(page.includes('a file of any size with syntax errors has no bound'));
+  assert.ok(page.includes('Lawcheck sets no limit on what a file with syntax errors costs, whatever its size'));
   const line = '  int x = ((( ;;; } } class class 12 @@ \n';
   let text = 'package com.acme.ui;\npublic class Big {\n';
   while (text.length < UNPARSABLE_JAVA_CHARS) text += line;
