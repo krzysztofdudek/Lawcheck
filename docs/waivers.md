@@ -1,6 +1,6 @@
 # Waivers
 
-A [rule](concepts.md#rule) holds for a whole layer. One line breaks it, for a reason the team accepts. A [waiver](concepts.md#waiver) drops the findings of one rule on one line, and its reason stays in the code beside that line. Add a waiver only when the user agrees.
+A [rule](concepts.md#rule) holds for a whole layer. One line breaks it, for a reason the team accepts. A [waiver](concepts.md#waiver) drops the findings of one rule on one line. Its reason sits beside the line. Add a waiver only when the user agrees.
 
 ```ts
 console.warn('no campaign'); // lawcheck-waive no-console -- the pricing team reads this warning until 2.0
@@ -25,9 +25,9 @@ A waiver with a letter or a digit before the marker on its line covers its own l
 console.log('released');
 ```
 
-Waivers on several lines that stand alone, one above the other, all cover the line below them. If two waivers of one rule cover the same line, the one on the line itself drops the findings. If the line holds none, the nearest waiver above it drops them. A waiver at the end of a file covers nothing.
+Waivers on several lines that stand alone, one above the other, all cover the line below them. If two waivers of one rule cover the same line, one of them drops the findings: the waiver on the line itself, or else the nearest waiver above it. A waiver at the end of a file covers nothing.
 
-A waiver drops every finding of its rule on the line it covers. A finding about the whole file has no line, so no waiver can drop it.
+A waiver drops every finding of its rule on the line it covers. No waiver can drop a finding about the whole file, because such a finding has no line.
 
 ## forbidden-use
 
@@ -37,7 +37,7 @@ A waiver can name the code `forbidden-use` in place of a rule of the law. Such a
 import '../cli/main.js'; // lawcheck-waive forbidden-use -- the report repeats the banner until 2.0
 ```
 
-No other code takes a waiver, `uses-not-read`, `not-reviewed` and the three waiver codes below included.
+`forbidden-use` is the one built-in code that takes a waiver. `uses-not-read`, `not-reviewed` and the three waiver codes below take none.
 
 ## The three waiver codes
 
@@ -47,11 +47,11 @@ No other code takes a waiver, `uses-not-read`, `not-reviewed` and the three waiv
 | `waiver-without-reason` | the rule is known, and no `--` follows it, or nothing follows the `--` | error |
 | `waiver-unused` | a counted waiver dropped no finding | warning |
 
-A waiver with either of the first two codes waives nothing. Lawcheck reports all three codes at the waiver's line, where no waiver can drop them. Outside the change, these findings are [debt](concepts.md#debt), so Lawcheck reports them as warnings.
+A waiver with either of the first two codes waives nothing. Lawcheck reports all three codes at the waiver's line, where no waiver can drop them. Outside the change, Lawcheck reports these findings as warnings, because they are [debt](concepts.md#debt).
 
-Lawcheck has no waiver for a range of lines or for a whole file. `lawcheck-waive-file`, like any word joined to the marker, is `waiver-unknown-rule`.
+Lawcheck has no waiver for a range of lines or for a whole file. Lawcheck reports `lawcheck-waive-file`, like any word joined to the marker, as `waiver-unknown-rule`.
 
-A waiver of a [reviewer rule](concepts.md#reviewer-rule) never gets `waiver-unused`, because a recorded pass cannot show what such a waiver dropped. Lawcheck sends the waived lines to the reviewer inside `<waived>`. It drops what the reviewer reports on those lines.
+Lawcheck never reports `waiver-unused` for a waiver of a [reviewer rule](concepts.md#reviewer-rule), because a recorded pass cannot show what such a waiver dropped. Lawcheck sends the waived lines to the reviewer inside `<waived>`. It drops what the reviewer reports on those lines.
 
 ## The count of waivers
 
