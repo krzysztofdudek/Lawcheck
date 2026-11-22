@@ -1041,3 +1041,5 @@ A file name, a rule or reviewer message, the base, the law's ids, `about` texts 
 | a line that a CI runner would read as a command of GitHub Actions or Azure Pipelines | its first character as `\x3a` or `\x23` |
 
 Nothing else is escaped, a backslash included. In `--json` a string keeps the text as it is, except that the characters of the last two rows are written as `\u` escapes, so the printed document holds none of them raw and a program that parses it gets the text unchanged. Lawcheck writes what a script rule prints on its own streams to standard error through the same escapes.
+
+Next: [Questions](questions.md)

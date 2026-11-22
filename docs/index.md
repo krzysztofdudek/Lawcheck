@@ -62,3 +62,5 @@ Lawcheck is an alpha. It needs Node 24 or later and git 2.34 or later. Code leav
 - After three returns, the plugin lets the agent finish and tells you that the check still fails ([The Claude Code plugin](plugin.md#three-returns-at-most)).
 - A pull request can edit the law that judges it. `check` names what the change does to that law ([What a check judges](change.md#the-limits-of-a-plain-check)), and the job of [CI and git hooks](ci.md#a-change-to-the-law) checks the change a second time with the law of the base.
 - Lawcheck reads the uses written out in the code. An `import()` of a variable, `importlib.import_module` and reflection stay unread ([Languages and uses](languages.md#the-languages-whose-uses-are-read)).
+
+Next: [Install](install.md)

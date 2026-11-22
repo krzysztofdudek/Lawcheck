@@ -279,3 +279,5 @@ From `doctor`, exit 0 or 2.
 | `checks.next` | the next step for a `note` or `fail`, or null |
 | `checks.next.command` | the command alone, such as `lawcheck init`, where the step is one, else null |
 | `checks.next.text` | the step in words |
+
+Next: [The Claude Code plugin](plugin.md)

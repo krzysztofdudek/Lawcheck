@@ -157,3 +157,5 @@ An empty variable counts as unset. Each reviewer program gets the sign-in variab
 | The reviewer requests of one run | `reviewer.max_calls`, or `--max-calls <n>` for one run | `too-many-reviews` |
 | A reviewer's reply | 4 MiB | `reviewer-unreachable` |
 | The findings `check` and `try` print as text | 50; `--json` lists all | none |
+
+Next: [Script rules](script-rules.md)

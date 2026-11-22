@@ -389,3 +389,5 @@ usage: lawcheck <command> [<arguments>] [--json]
   docs  prints the reference, one topic at a time
   doctor  says what is wrong with this setup
 ```
+
+Next: [The law file](law.md)

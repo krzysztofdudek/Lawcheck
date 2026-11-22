@@ -191,3 +191,5 @@ src/core/price.ts:2  warning[no-fetch]  calls fetch outside the api layer
 - `rule-crashed` with `writes` or `reads` and a path: the rule wrote a file or read outside the root, and Lawcheck stopped it. A rule may write no file, and may read no file outside the root and Lawcheck's own folder.
 - The rule finds nothing in a file where you expected a finding: the file has no type that lists the rule. `lawcheck explain <path>` shows its rules.
 - A plain `lawcheck check` passes on code that breaks a new rule: a plain check judges the changed files only. `lawcheck check --full` lists the rest as debt.
+
+Next: [Write a reviewer rule](write-a-reviewer-rule.md)

@@ -51,3 +51,5 @@ Add one line to the agent's instructions file: Run `lawcheck prime` at the start
 ## The pages in the terminal
 
 `lawcheck docs` lists the pages that ship with the version you installed, and `lawcheck docs <topic>` prints one. It needs no law, no git and no network. [The commands](commands.md#docs) gives the flags.
+
+Next: [Changelog](changelog.md)

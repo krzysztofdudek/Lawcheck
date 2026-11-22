@@ -135,3 +135,5 @@ Past a limit, the run stops with exit 2, or the file gets a [finding](concepts.m
 - `step-too-slow` while typing a file: a `content` expression of the law takes too long on that file. In `^(a|a)+$` each `a` can match either branch, and on a line of 80 `a` and a `!` the run passes the limit. `^a+$` matches the same lines with one way for each `a`.
 - `memory-too-large`: its `next:` line names the step. For a file whose uses Lawcheck reads, leave the file out of the types whose `may_use` is in force. For a file Lawcheck reads only for what it declares, keep it out of the files git lists, with `git rm --cached` and a line in `.gitignore`. For a whole run, narrow those types, or run Lawcheck on a machine with more memory.
 - [`internal`](codes.md#internal): a fault of Lawcheck. Run the command again, and report the error if it stays.
+
+Next: [The commands](commands.md)

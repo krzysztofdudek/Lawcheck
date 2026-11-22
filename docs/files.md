@@ -47,3 +47,5 @@ A pass of a review removes its file from `failures/`. A deleted `.local` folder 
 | a folder `lawcheck-index-` and 12 random characters in the system's temporary directory | a copy of git's index, so that reading the change leaves the real index untouched | `check` and `doctor`, when they compare with a base, and they remove it at once |
 
 Lawcheck reads the files git lists below the root, the `context` files of reviewer rules, and git's own data through `git`.
+
+Next: [Codes](codes.md)

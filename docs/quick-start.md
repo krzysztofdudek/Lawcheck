@@ -96,3 +96,5 @@ The run exits 1. The [finding](concepts.md#finding) names the file and the line,
 - `error[law-invalid]` at a line of `.lawcheck/law.yaml`: the law has a mistake there, such as `may-use` for `may_use`. The message names the nearest known key.
 - A first line that passes and ends with `1 unresolved use`: the import names no file of the repository, so Lawcheck counts the use and judges nothing. Fix the path.
 - `warning[uses-not-read]`: Lawcheck does not read uses in the file's language. [Languages and uses](languages.md) lists the languages it reads.
+
+Next: [Concepts](concepts.md)

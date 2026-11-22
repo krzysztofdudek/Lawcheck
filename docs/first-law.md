@@ -207,3 +207,5 @@ Make the rule enforced again once the debt is paid: delete the `status` line. [T
 - `rule-file-without-entry`: a file in `.lawcheck/rules/` names no rule of the law. Give the file the rule id as its name, or add an entry for it.
 - `rule-crashed`: the rule threw an error or returned something other than a list of findings. [Write a script rule](write-a-script-rule.md) shows how to find the cause.
 - `lawcheck explain` answers `none: git ignores it, so Lawcheck never sees it`: the file is in `.gitignore`, so no type takes it.
+
+Next: [Types for an existing project](types-for-a-project.md)

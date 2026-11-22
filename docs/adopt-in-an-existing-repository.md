@@ -203,3 +203,5 @@ next: fix src/core/report.ts:2
 
 - A CI job with no [base](concepts.md#base) stops with [`base-unreachable`](codes.md#base-unreachable): without a base, Lawcheck cannot tell the change from debt. Pass `--base`, or set `LAWCHECK_BASE` ([CI and git hooks](ci.md)).
 - A [reviewer rule](concepts.md#reviewer-rule) over old code gives [`not-reviewed`](codes.md#not-reviewed) debt for every file it binds. `lawcheck check --full --review` asks the reviewer about each of them, one call per file and rule. A run that needs more calls than `reviewer.max_calls` makes none.
+
+Next: [Lawcheck in Claude Code](claude-code.md)

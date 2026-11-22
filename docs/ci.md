@@ -250,3 +250,5 @@ Run the check only where you would run that change's tests. On GitHub, a fork's 
 - `base-unreachable` says the clone is shallow, or did not fetch the base branch. Its `next:` line gives the `git fetch` that brings the history.
 - `no-git` in a container: another user owns the checkout, and the `next:` line gives the `safe.directory` command, quoted for `sh`.
 - A warning stays in the log of a job that passed. Warnings never fail a job.
+
+Next: [A law shared by a team](team.md)

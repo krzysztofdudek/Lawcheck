@@ -192,3 +192,5 @@ debt (outside this change): none
 - In a type with `waivers: false`, Lawcheck reads the marker as text, so the finding stays.
 - A finding about the whole file has no line, and no waiver covers it. Fix the rule or the law.
 - A [reviewer rule](concepts.md#reviewer-rule) failed a file you believe is right. Lawcheck keeps the fail on this machine, and `lawcheck check --review --again` asks the reviewer once more. A reworded rule file gets a new review without `--again` ([Write a reviewer rule](write-a-reviewer-rule.md)).
+
+Next: [A slow check](slow-check.md)

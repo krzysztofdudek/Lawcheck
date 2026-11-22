@@ -51,3 +51,5 @@ next: install Node 24 or later, then run lawcheck check
 ```
 
 Lawcheck prints the refusal of `--permission` when Node starts its entry file by its own path, as the Windows shims of npm do, on Node 24.2 or later. On Linux and macOS, through the link that npm installs, and on Node 24.0 and 24.1, Node with `--permission` stops before Lawcheck runs: it prints its own `ERR_ACCESS_DENIED` and exits 1.
+
+Next: [Upgrade Lawcheck](upgrade.md)

@@ -96,3 +96,5 @@ $ lawcheck try clear-errors src/core/refund.ts --times 3
 - `--max-calls <n>` bounds the run, as in `check`.
 
 A reviewer rule takes files one by one: no directory, no pattern, and no run without a file. `lawcheck docs providers` says how to set a reviewer up.
+
+Next: [Reviewers and keys](providers.md)

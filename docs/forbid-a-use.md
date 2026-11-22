@@ -176,3 +176,5 @@ The `.sql` files now have no type, and no list judges them. A script rule can ch
 - A file of `core` uses another file of `core`, and the check fails: the list must name `core` itself.
 - An import you expected to fail passes, and the first line counts no unresolved use: the readers miss some forms, such as `import()` of a variable. [Languages and uses](languages.md) lists them.
 - An unresolved use with the answer `ambiguous`: the use could name several files of different types, and `candidates` lists them. Lawcheck judges none of them.
+
+Next: [Write a script rule](write-a-script-rule.md)

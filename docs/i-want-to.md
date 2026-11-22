@@ -125,3 +125,5 @@ Each line ends the sentence of the title. Its link opens the step where that pat
 - [upgrade to a new alpha](upgrade.md#_1-install-the-new-version)
 - [understand why a law that passed now fails](upgrade.md#a-law-that-passed-now-fails)
 - [see what each version changed](changelog.md)
+
+Next: [The first type and the first rule](first-law.md)

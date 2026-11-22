@@ -78,3 +78,5 @@ This form has no debt and no note of a law change, and it takes no flag but `--j
 | 2 | no conclusion: Lawcheck, the law or the setup is broken, and the output names what to fix |
 
 A finding of an `enforced` rule in the change is an error. A finding of an `advisory` rule, and every finding of debt, is a warning. A failing run ends with one `next:` line that says what to do.
+
+Next: [JSON documents](json.md)

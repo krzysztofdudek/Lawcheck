@@ -113,3 +113,5 @@ $ lawcheck doctor --reviewer
 ```
 
 `doctor` says whether the provider can be called, without asking it for a review; for `ollama` it asks the server for its version and names the address it reached. `--reviewer` sends one small test request, outside every cap, and says whether it answered with a verdict. Each failure ends with a `next:` line that names what to set or start.
+
+Next: [Languages and uses](languages.md)

@@ -162,3 +162,5 @@ The branch did not touch line 4, which holds the `vi.mock` call. alpha.1 passes 
 - `lawcheck --version` still prints `0.1.0-alpha.1`: the command started the other copy. Upgrade the copy the runner names, or start it through the runner, as in `npx --no-install lawcheck --version`.
 - CI finds less than your machine: the job runs the version of the committed lockfile. Commit `package.json` and the lockfile.
 - A forbidden use appears in a file the upgrade did not touch, in a form you do not expect: `lawcheck explain <path>` shows the file's type and its `may_use` ([The commands](commands.md#explain)).
+
+Next: [I want to](i-want-to.md)

@@ -97,3 +97,5 @@ $ lawcheck try no-todo
 ```
 
 Without a target, a script rule runs on every file it binds through its type. `lawcheck try` records nothing in the repository. `lawcheck docs first-law` shows the loop of writing and trying a rule.
+
+Next: [Reviewer rules](reviewer-rules.md)

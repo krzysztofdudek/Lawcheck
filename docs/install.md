@@ -83,3 +83,5 @@ The `node` and `git` lines say that Lawcheck runs here, and the `node` line show
 | with Bun | `bun remove lawcheck` |
 
 The law, its rules and the recorded verdicts are files in `.lawcheck/` at the root of the repository; delete that folder to remove them. In Claude Code, `claude plugin uninstall lawcheck@lawcheck-marketplace` removes the plugin.
+
+Next: [Quick start](quick-start.md)

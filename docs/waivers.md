@@ -54,3 +54,5 @@ A waiver of a reviewer rule is never `waiver-unused`: a recorded pass cannot sho
 A waiver with a known rule and a reason is counted, used or not. The first line of `check` counts the waivers of the changed files, and the debt heading those of the other files under `--full`. In JSON, `waivers` lists each one with `file`, `line`, `rule`, `reason` and `waived`, the number of findings it dropped.
 
 A change that edits the law and adds a waiver gets a note that names it (`lawcheck docs change`). `lawcheck explain <path>` lists the counted waivers of a file, and `lawcheck try` counts the findings its run waived.
+
+Next: [What a check judges](change.md)

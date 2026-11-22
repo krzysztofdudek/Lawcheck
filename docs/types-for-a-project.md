@@ -192,3 +192,5 @@ src/api/refunds.ts  (does not exist yet)
 - `explain` says the file matches the paths of a type but not their content: the type has a `content` expression, and the text of the file does not match it.
 - `explain` answers `git ignores it, so Lawcheck never sees it`: `.gitignore` names the file, so no type takes it.
 - `usage`, and the message ends with the nearest type id, such as `(did you mean 'core'?)`: `--type` takes the id of a type of the law.
+
+Next: [Forbid one layer to use another](forbid-a-use.md)

@@ -98,3 +98,5 @@ Lawcheck reads a file over 512 KiB neither for its uses nor, in Java, Kotlin, C#
 ## parser-failed
 
 A grammar that cannot be loaded, or a reader that fails on a file, stops the run with `parser-failed`, exit 2.
+
+Next: [Waivers](waivers.md)

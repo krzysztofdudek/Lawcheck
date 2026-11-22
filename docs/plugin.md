@@ -96,3 +96,5 @@ Claude Code hands each hook the value as the variable `CLAUDE_PLUGIN_OPTION_CHEC
 ## The state the plugin keeps
 
 The hook keeps one small file per session in the plugin's data folder (`CLAUDE_PLUGIN_DATA`), or else in a folder of the system's temporary directory that only your user may read. Each session start deletes the files older than 7 days. On Windows the hook needs `CLAUDE_PLUGIN_DATA` for its state, and keeps none without it.
+
+Next: [Files Lawcheck reads and writes](files.md)

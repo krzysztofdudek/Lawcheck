@@ -198,3 +198,5 @@ The plain check found the pass and called no model, so CI needs no key ([CI and 
 - [`reviewer-bad-answer`](codes.md#reviewer-bad-answer): the model gave no verdict twice. Reword the rule file, or try another model.
 - [`too-many-reviews`](codes.md#too-many-reviews): the run needs more calls than `reviewer.max_calls`, 100 by default, and makes none. [A slow check](slow-check.md) shows how to keep calls bounded.
 - A new model or provider keeps every pass: the key of a pass covers the file and the rule, and no provider or model. Check the new setup with `lawcheck doctor --reviewer`.
+
+Next: [Bring a law into an existing repository](adopt-in-an-existing-repository.md)

@@ -142,3 +142,5 @@ Each rule has one file in `.lawcheck/rules/`:
 - `<id>.md` for a reviewer rule (`lawcheck docs reviewer-rules`).
 
 A rule with neither file, or with a reviewer file of whitespace only, is `rule-missing-file`, and one with both is `rule-file-without-entry`. Any other file in `.lawcheck/rules/` is `rule-file-without-entry`, except below `.lawcheck/rules/lib/`, where a script rule keeps the code it imports. Lawcheck sees the files git lists, so a rule file git ignores is missing.
+
+Next: [Settings](config.md)

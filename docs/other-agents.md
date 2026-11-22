@@ -101,3 +101,5 @@ Nothing checks a file after an edit, and nothing holds the turn while the law is
 - The agent says it is done while `lawcheck check` exits 1. The primer tells it never to, and no hook holds it to that. The CI job catches the change.
 - `lawcheck check` says "no base". The primer tells the agent to pass `--base` with the branch it started from.
 - The law is not valid. `prime` prints the start of the text, then the errors, and exits 2.
+
+Next: [CI and git hooks](ci.md)
