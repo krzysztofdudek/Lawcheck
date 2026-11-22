@@ -450,7 +450,10 @@ A new type's `paths` cover files an older type takes, such as `src/core/**` besi
 
 **Fix**
 
-Run `lawcheck explain <path>` on the file the error names to see both types. Then add a `!` pattern to the `paths` of one of them, or narrow its `content`.
+Run `lawcheck explain <path>` on the file that the error names. It shows both types. Then take one of these steps:
+
+- add a `!` pattern to the `paths` of one of them, so that it leaves the file out;
+- make the type that tells the files apart by their text a subtype of the other, with its `content` ([Types for a project](types-for-a-project.md#_14-give-the-tests-beside-the-code-a-type-by-their-text)).
 
 **Example**
 
