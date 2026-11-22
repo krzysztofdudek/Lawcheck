@@ -11,7 +11,7 @@ The plugin ships without the tool. It starts Lawcheck with the command that `run
 
 ## The four hooks
 
-| Hook | When | What it does |
+| The hook | When | What it does |
 |---|---|---|
 | session start | a session starts, resumes, is cleared or compacted | gives the agent the output of `lawcheck prime`; without a law, two lines that say so |
 | prompt | the user sends a prompt | notes the files that differ from `HEAD` and the untracked ones, so the hook before finishing knows what the turn changed |
@@ -35,7 +35,7 @@ The files of the turn are the files that changed since the prompt, and the files
 
 This check judges the files of the turn, not the change against a base. It never passes `--review`, so it calls no reviewer, and a missing review is a warning. An agent can finish while CI still fails on `not-reviewed` or on files the turn did not touch.
 
-## Notices to the user
+## What the user is told
 
 A notice goes to the user, never to the agent, and each kind comes once per session:
 
@@ -48,9 +48,9 @@ A notice goes to the user, never to the agent, and each kind comes once per sess
 
 After an edit, none of these is shown, except a check past its time, which the agent hears in one line.
 
-## Times
+## How long a hook may run
 
-Each hook has a deadline: 25 seconds at the session start and after an edit, 15 seconds for the prompt, 145 seconds before finishing. Git and Lawcheck share it. At the deadline the hook stops Lawcheck and its child processes.
+Each hook has a deadline: 25 seconds at the session start and after an edit, 15 seconds for the prompt, 145 seconds before finishing. Git and Lawcheck share it. When it passes, the hook stops Lawcheck and its child processes.
 
 ## The switches
 
@@ -59,7 +59,7 @@ Two switches, both on by default, under `/plugin configure lawcheck@lawcheck-mar
 - `check_after_edit`: the check after an edit;
 - `check_before_stop`: the check before finishing. When it is off, the prompt hook does nothing either.
 
-## State
+## What the plugin keeps
 
 The hook keeps one small file per session in the plugin's data folder (`CLAUDE_PLUGIN_DATA`), or else in a folder of the system's temporary directory that only your user may read. At each session start it deletes the files older than 7 days.
 
