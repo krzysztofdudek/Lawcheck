@@ -30,6 +30,7 @@
   { "id": "plugin", "title": "The Claude Code plugin", "section": "Reference" },
   { "id": "files", "title": "Files Lawcheck reads and writes", "section": "Reference" },
   { "id": "codes", "title": "Codes", "section": "Troubleshooting" },
+  { "id": "questions", "title": "Questions", "section": "Troubleshooting" },
   { "id": "changelog", "title": "Changelog", "section": "Project" },
   { "id": "support", "title": "Supported environments", "section": "Project" }
 ]
