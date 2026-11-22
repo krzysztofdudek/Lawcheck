@@ -1122,7 +1122,7 @@ src/core/shipping.ts:1  warning[waiver-unused]  the waiver of 'no-console' drops
 
 ## Notes
 
-A note is a line that starts with `note:`, under the first line of `check` or `init`. A note changes no exit code. It carries no code. `doctor` marks a check of its report with `note` instead. The `next:` line under that check gives the step.
+A note is a line that starts with `note:`, under the first line of `check` or `init`. A note carries no code and changes no exit code. `doctor` marks a check of its report with `note` instead. The `next:` line under that check gives the step.
 
 | Text | When | Fix |
 |---|---|---|
