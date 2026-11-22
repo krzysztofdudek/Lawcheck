@@ -38,7 +38,7 @@ function words(line: string): string[] {
   return [...line.matchAll(/'([^']*)'|(\S+)/g)].map((m) => m[1] ?? m[2]!);
 }
 
-const EXIT: Record<string, number> = { init: 0, 'explain src/price.ts': 0, 'try no-console src/price.ts': 0, 'try no-console src/report.ts': 1, "try no-console src/**/*.ts": 1, 'check --full --base main': 0 };
+const EXIT: Record<string, number> = { init: 0, 'explain src/price.ts': 0, 'try no-console src/price.ts': 0, 'try no-console src/report.ts': 1, "try no-console src/**/*.ts": 1, 'check src/report.ts': 1, 'check --full --base main': 0 };
 
 test('test 309: R-7, the first-law page walked top to bottom in a new repository: every command it gives prints, byte for byte, the output the page shows after it', async () => {
   assert.ok(page.includes('`init` makes no `rules/` folder'), 'the page says init makes no rules folder');
@@ -68,12 +68,12 @@ test('test 309: R-7, the first-law page walked top to bottom in a new repository
         compared++;
       }
     }
-    assert.equal(compared, 6, 'the commands the page runs');
+    assert.equal(compared, 7, 'the commands the page runs');
   });
 });
 
 test('test 309: S7-7, a folder git ignores is never judged, and the same folder not ignored is', async () => {
-  assert.ok(page.includes('so a folder that `.gitignore` names, `node_modules/` or a build folder, is never judged; one that git does not ignore would be'));
+  assert.ok(page.includes('Lawcheck never judges a folder that `.gitignore` names, such as `node_modules/` or a build folder. It would judge the same folder if git did not ignore it.'));
   const law = (repo: string) => {
     write(repo, '.lawcheck/rules/no-console.mjs', example('first-law-rule') + '\n');
     write(repo, '.lawcheck/law.yaml', example('first-law-law').replace('src/**/*.ts', '**/*.ts') + '\n');
@@ -98,7 +98,7 @@ test('test 309: S7-7, a folder git ignores is never judged, and the same folder 
 });
 
 test('test 309: S7-12, the rule of the first-law page reads lines as text, so it finds console.log in a comment, as the page says', async () => {
-  assert.ok(page.includes('parses no comments, so it also finds `console.log` inside a comment'));
+  assert.ok(page.includes('It parses no comments. It finds `console.log` inside a comment'));
   await inTemp(async (dir) => {
     const repo = newRepository(dir, { 'src/price.ts': "// console.log('an example in a comment');\nexport const price = 1;\n" });
     mkdirSync(join(repo, '.lawcheck', 'rules'), { recursive: true });
@@ -116,6 +116,6 @@ test('R-100: the page tells the note lines of the check of --full as many as its
   assert.ok(shown, 'the output block of the check of --full');
   const notes = shown.lines.filter((l) => l.startsWith('note: ')).length;
   assert.equal(notes, 1, 'the block holds one note line');
-  assert.ok(page.includes('and the note line says the change edits the law'), 'the sentence after the block names that one line');
+  assert.ok(page.includes('The note line says the change edits the law'), 'the sentence after the block names that one line');
   assert.ok(!/\btwo note lines\b/.test(page), 'the page names no second note line');
 });
