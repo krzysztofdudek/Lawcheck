@@ -1,4 +1,4 @@
-// The owner's ruling of question 89 (spec/questions.md): the exact key is written as [key] wherever Lawcheck prints or writes it.
+// The owner's ruling, decision 89 of design/decisions.md: the exact key is written as [key] wherever Lawcheck prints or writes it.
 export const KEY_SHOWN = '[key]';
 
 const NAMED_ESCAPES: Record<string, string> = { '"': '\\"', '\\': '\\\\', '/': '\\/', '\b': '\\b', '\f': '\\f', '\n': '\\n', '\r': '\\r', '\t': '\\t' };

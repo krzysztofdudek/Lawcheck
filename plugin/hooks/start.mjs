@@ -66,7 +66,7 @@ export function cutPoints(text, max) {
   return [...text].slice(0, max).join('');
 }
 
-// spec/plugin-slice.md, section 5: each hook's timeout in hooks.json less 5 seconds. Only a test changes these values, from an entry of its own that sets them before it imports lawcheck-hook.mjs; no setting, variable or file a user controls reaches this object.
+// docs/plugin.md: each hook's timeout in hooks.json less 5 seconds. Only a test changes these values, from an entry of its own that sets them before it imports lawcheck-hook.mjs; no setting, variable or file a user controls reaches this object.
 export const DEADLINES = { 'session-start': 25, prompt: 15, edit: 25, stop: 145 };
 
 export class Deadline {
@@ -272,7 +272,7 @@ export function firstLine(text) {
   return String(text).split('\n')[0];
 }
 
-// The characters of spec/check-slice.md, section 6, written as the tool writes them, for text the hook echoes from input it does not own.
+// The characters of the escapes of docs/codes.md, written as the tool writes them, for text the hook echoes from input it does not own.
 const FORBIDDEN = /[\x00-\x09\x0b-\x1f\x7f-\x9f\u2028\u2029]|(?![\u200c\u200d])\p{Cf}/gu;
 
 export function plainText(text) {

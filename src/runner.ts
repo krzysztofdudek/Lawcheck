@@ -38,7 +38,7 @@ function failed(error: unknown): void {
 process.on('unhandledRejection', failed);
 process.on('uncaughtException', failed);
 
-// How long the runner waits once, after the last call, for the timers and other work the rule left behind; spec/check-slice.md, section 3.
+// How long the runner waits once, after the last call, for the timers and other work the rule left behind, as docs/script-rules.md says.
 const SETTLE_MS = 2_000;
 
 function counts(): Map<string, number> {

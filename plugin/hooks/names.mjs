@@ -18,7 +18,7 @@ function sequence(bytes, at) {
   return 0;
 }
 
-// The names of spec/check-slice.md, section 2, as src/names.ts writes them; the hooks ship without the tool, so they hold their own copy, and a property test holds the two equal.
+// The names of decision 80 of design/decisions.md, as src/names.ts writes them; the hooks ship without the tool, so they hold their own copy, and a property test holds the two equal.
 export function nameOf(bytes) {
   try {
     const text = strict.decode(bytes);

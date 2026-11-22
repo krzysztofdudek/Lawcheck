@@ -265,7 +265,7 @@ class Spans {
   }
 }
 
-// Section 4 of spec/reviewer-slice.md: among the spans that start with `{`, end at their matching `}`, parse, and are objects with the key verdict, the one that ends last. A span that parses as JSON ends at its matching brace, so reading each start as JSON finds the same spans.
+// The last reading of an answer that docs/reviewer-rules.md names: among the spans that start with `{`, end at their matching `}`, parse, and are objects with the key verdict, the one that ends last. A span that parses as JSON ends at its matching brace, so reading each start as JSON finds the same spans.
 function lastSpan(answer: string): Record<string, unknown> | null {
   const spans = new Spans(answer);
   let best: { start: number; end: number } | null = null;

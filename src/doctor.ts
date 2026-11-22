@@ -75,7 +75,7 @@ export interface Inputs {
   gitText?: () => string | null;
 }
 
-// The program each runner starts first; its install line is the plugin's (spec/plugin-slice.md, section 3).
+// The program each runner starts first; its install line is the one the runner table of docs/config.md gives.
 const RUNNER_PROGRAMS: Record<string, string> = { global: 'lawcheck', npx: 'npx', pnpm: 'pnpm', yarn: 'yarn', bun: 'bun' };
 
 interface Found {

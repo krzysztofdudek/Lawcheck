@@ -179,7 +179,7 @@ function fixedNext(error: ErrorItem, command: string): string {
   }
 }
 
-// spec/check-slice.md, section 6: no text output holds these, and no JSON document holds them raw. Format characters (Unicode category Cf) all count but the joiners U+200C and U+200D, which scripts and emoji sequences need.
+// Promise I-out-1 of design/promises.md and the escapes of docs/codes.md: no text output holds these, and no JSON document holds them raw. Format characters (Unicode category Cf) all count but the joiners U+200C and U+200D, which scripts and emoji sequences need.
 const FORBIDDEN = /[\x00-\x09\x0b-\x1f\x7f-\x9f\u2028\u2029]|(?![\u200c\u200d])\p{Cf}/gu;
 const RAW_IN_JSON = /[\x7f-\x9f\u2028\u2029]|(?![\u200c\u200d])\p{Cf}/gu;
 // A line that starts like a command of GitHub Actions or Azure Pipelines; GitHub reads a command after leading white space, and Azure reads ##vso[ anywhere in a line.

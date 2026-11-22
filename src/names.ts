@@ -22,7 +22,7 @@ function sequence(bytes: Uint8Array, at: number): number {
   return 0;
 }
 
-// spec/check-slice.md, section 2: a path's bytes read as UTF-8, with a backslash, a line feed, a carriage return and every byte outside valid UTF-8 written as an escape, so the name holds no line break and maps back to the bytes on disk.
+// Decision 80 of design/decisions.md: a path's bytes read as UTF-8, with a backslash, a line feed, a carriage return and every byte outside valid UTF-8 written as an escape, so the name holds no line break and maps back to the bytes on disk.
 export function nameOf(bytes: Uint8Array): string {
   try {
     const text = strict.decode(bytes);

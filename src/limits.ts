@@ -5,7 +5,7 @@ import type { ErrorItem } from './output.js';
 
 const MiB = 1024 * 1024;
 
-// The numbers of the table of limits in spec/check-slice.md, section 10, each measured as that section says.
+// The numbers of the table of limits in docs/config.md (decision 74 of design/decisions.md).
 export const HEAD_BYTES = 8000;
 export const FILE_TEXT_BYTES = 16 * MiB;
 export const FILE_LINES = 1_048_576;
