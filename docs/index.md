@@ -49,6 +49,8 @@ npm install --global lawcheck@alpha
 lawcheck docs quick-start
 ```
 
+The quick start ends on a rule about which layer may import which. For a first rule about the text of a file, such as no `console.log` in one folder, read [The first type and the first rule](first-law.md).
+
 Lawcheck is an alpha. It needs Node 24 or later and git 2.34 or later. Lawcheck sends code only to a model you ask to judge a rule written in prose. A [script rule](concepts.md#script-rule) is code of your own repository. It can read every file under the [root](concepts.md#law) of the law and open a network connection.
 
 ## Read next

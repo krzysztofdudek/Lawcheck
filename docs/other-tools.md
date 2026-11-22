@@ -112,14 +112,14 @@ A hook of your own can run `lawcheck check <file>` too. Lawcheck exits 1 when th
 
 Cursor, Copilot, Codex and Gemini CLI have hooks on similar events, where exit 2 blocks as well. Lawcheck ships a plugin for Claude Code alone. In the other agents, a hook you write runs `lawcheck check`. Without such a hook, the agent checks only when it follows its instructions file. A CI job catches what the agent skips.
 
-In such an agent, you may want the check inside the agent and nowhere else. If the linter of each language already knows your rules, a hook of that agent that runs those linters fits better than Lawcheck.
+The return to the agent after each edit and before the end of its turn ships for Claude Code alone. For that loop in another agent, the agent's own hook with the linter of each language fits better, and Lawcheck can add the law in a CI job.
 
 | Your case | Use |
 |---|---|
 | Your hook runs the linter and the tests, and the linter already holds your layers | your hook |
 | You want the law checked inside the turn, on the files of the turn, with at most three returns | the Lawcheck plugin |
 | Your hook runs the tests, and the law holds your layers | both: your hook runs the tests, and the plugin checks the law |
-| You work in another agent that has hooks, and the law holds your rules | a hook you write that runs `lawcheck check`, and the same check in CI |
-| You work in another agent that has hooks, you want the check only inside it, and a linter of each language knows your rules | a hook of that agent that runs those linters |
+| You work in another agent that has hooks, and you want the agent sent back after each edit | the agent's own hook with the linter of each language, since Lawcheck ships that loop for Claude Code alone; Lawcheck can add the law in CI |
+| You work in another agent, and the law holds rules that no linter knows, such as `may_use` across languages | a hook you write that runs `lawcheck check` before the agent finishes, and the same check in CI |
 
 Next: [I want to](i-want-to.md)
