@@ -1,14 +1,13 @@
 diff --git a/tests/acceptance/limits.test.ts b/tests/acceptance/limits.test.ts
 --- a/tests/acceptance/limits.test.ts
 +++ b/tests/acceptance/limits.test.ts
-@@ -1,7 +1,3 @@
+@@ -1,6 +1,3 @@
  import { test } from 'node:test';
  import assert from 'node:assert/strict';
  
 -test('test 3: at most 50 finding lines', () => {
 -  assert.equal(50, 50);
 -});
--
 diff --git a/src/output.ts b/src/output.ts
 index cc7d41d..1f32954 100644
 --- a/src/output.ts
