@@ -216,7 +216,7 @@ A `content` expression gives a type to the files whose text matches it. Put the 
             content: "from 'node:test'"
 ```
 
-A type with `content` beside `core` does not work. `core` takes the test by its paths alone. The two types of one level would both match it, and every run would stop with `type-overlap`.
+A type with `content` beside `core` does not work. `core` takes the test by its paths alone. The two types of one level would both match it. Every run would then stop with `type-overlap`.
 
 ## 15. See the type a file gets by its text
 
@@ -233,7 +233,7 @@ src/core/rounding.ts
   waivers:  none
 ```
 
-The `matched` line names the pattern and the content that chose `core-test`. `src/core/price.ts` holds no `from 'node:test'`, so it keeps the type `core`.
+The `matched` line names the pattern and the content that chose `core-test`. `src/core/price.ts` holds no `from 'node:test'`. It keeps the type `core`.
 
 [The law file](law.md) describes every key of a type and every form of a pattern.
 
@@ -243,7 +243,7 @@ The `matched` line names the pattern and the content that chose `core-test`. `sr
 - A type with `content` and a type beside it give `type-overlap`: move the type with `content` under the type that takes the file by its paths, as in step 14.
 - Lawcheck prints `law-invalid`, and the message says the pattern `holds ** beside other characters in one segment`: `**` stands for a whole segment. Write `src/api/**/*.ts`, never `src/api/**.ts`.
 - A file of `src/api/v1/` gets `source` and no `api`, with the pattern `src/api/*`: `*` stops at a `/`. Write `src/api/**`.
-- `explain` says the file matches the paths of a type but not their content: the type has a `content` expression, and the text of the file does not match it.
+- `explain` says the file matches the paths of a type but not their content: the type has a `content` expression. The text of the file does not match it.
 - `explain` answers `git ignores it, so Lawcheck never sees it`: `.gitignore` names the file. No type takes a file that git ignores.
 - `explain --type` prints `usage`, and the message ends with the nearest type id, such as `(did you mean 'core'?)`: `--type` takes the id of a type of the law.
 

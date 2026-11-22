@@ -67,7 +67,7 @@ Example: `debt (outside this change): 1 finding in 1 file`, after the findings o
 
 ## Waiver
 
-A waiver is a marker in a line that names one rule and a reason. It drops the findings of that rule on the line it covers. The reason is required. In a type with `waivers: false`, Lawcheck reads the marker as plain text.
+A waiver is a marker in a line that names one rule and a reason. It drops the findings of that rule on the line it covers. A waiver needs a reason. In a type with `waivers: false`, Lawcheck reads the marker as plain text.
 
 Example: a comment at the end of a line that prints a warning. The comment names the rule `no-console` and the reason "the pricing team reads this warning until 2.0". [Waivers](waivers.md) shows the marker and the lines it covers.
 
@@ -119,11 +119,11 @@ The law sits in the repository beside the code. You change the law with the same
 
 ### A file and its type
 
-Lawcheck gives a type to the files git lists. Lawcheck gives no type to symbolic links and binary files. Lawcheck tests a file against the root types first. It then tests the file against the subtypes of the type that matched, and so on down. The deepest match is the type of the file. The rules of every type on the way down bind the file. If two types of one level match one file, every run stops with `type-overlap`. `lawcheck explain <path>` shows the type of a file. For a path with no file yet, it shows the type a new file there would get. [The law file](law.md) has every key.
+Lawcheck gives a type to the files git lists. Lawcheck gives no type to symbolic links and binary files. Lawcheck tests a file against the root types first. It then tests the file against the subtypes of the type that matched, one level at a time. The deepest match is the type of the file. The rules of every type on the way down bind the file. If two types of one level match one file, every run stops with `type-overlap`. `lawcheck explain <path>` shows the type of a file. For a path with no file yet, it shows the type a new file there would get. [The law file](law.md) has every key.
 
 ### Debt and the exit code
 
-A plain check judges the change. Its errors fail the run. `lawcheck check --full` judges every other file too. It lists what it finds there as debt, after the findings of the change. Debt has no effect on the exit code. In a repository that already breaks a new law, the old code is debt. The new law passes there. A rule can start as `advisory` and stay so until you fix its debt. [What a check judges](change.md) has the details.
+A plain check judges the change. Its errors fail the run. `lawcheck check --full` judges every other file too. It lists what it finds there as debt, after the findings of the change. Debt has no effect on the exit code. In a repository that already breaks a new law, the old code is debt. The new law passes there. A rule can stay `advisory` until you fix its debt. [What a check judges](change.md) has the details.
 
 ### A script rule or a reviewer rule
 

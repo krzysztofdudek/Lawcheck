@@ -62,6 +62,7 @@ Each line ends the sentence of the title. Its link opens the step where that pat
 ## A law for existing code
 
 - [bring in a law without turning the build red](adopt-in-an-existing-repository.md#_1-start-the-law-on-a-branch)
+- [decide whether a new rule starts enforced or advisory](adopt-in-an-existing-repository.md#start-the-rule-enforced-or-advisory)
 - [start a new rule as advisory](adopt-in-an-existing-repository.md#_2-write-the-law-with-an-advisory-rule)
 - [list the debt](adopt-in-an-existing-repository.md#_5-list-the-debt)
 - [turn an advisory rule into an enforced one](adopt-in-an-existing-repository.md#_9-make-the-rule-enforced)

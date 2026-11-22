@@ -139,7 +139,7 @@ src/core/report.ts:2  warning[no-console]  writes to the terminal with console.l
   why:  Only the command layer writes to the terminal.
 ```
 
-Lawcheck judges a changed file whole. The old line 2 is part of the change. The rule is advisory, and its finding is a warning. The run passes.
+Lawcheck judges a changed file whole. The old line 2 is part of the change. The rule is advisory. Its finding is a warning. The run passes.
 
 ## 8. Pay the debt
 

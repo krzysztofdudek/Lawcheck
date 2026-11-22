@@ -24,7 +24,7 @@ Lawcheck does not run in three setups:
 - under Bun without Node;
 - with `--permission` in `NODE_OPTIONS`.
 
-On an older Node, npm and pnpm install Lawcheck and print a warning. Lawcheck refuses to work on an older Node, on an older git, under Bun and from Plug'n'Play. In those setups, every command but `--version`, `--help`, `docs` and `doctor` stops with `unsupported-environment` and exit 2. The first line of the error names the cause. Its `next:` line names the fix. `lawcheck doctor` prints the same first line, and its nine checks below it.
+On an older Node, npm and pnpm install Lawcheck and print a warning. Lawcheck refuses to work on an older Node, on an older git, under Bun and from Plug'n'Play. In those setups, every command but `--version`, `--help`, `docs` and `doctor` stops with `unsupported-environment` and exit 2. The first line of the error names the cause. Its `next:` line names the fix. `lawcheck doctor` prints the same first line. Its nine checks follow below it.
 
 ## Install globally
 
@@ -32,7 +32,7 @@ On an older Node, npm and pnpm install Lawcheck and print a warning. Lawcheck re
 $ npm install --global lawcheck@alpha
 ```
 
-The program `lawcheck` is then on your `PATH`. The runner is the setting that says how to start Lawcheck. Its default is `global`, which is this install. You set nothing more.
+The program `lawcheck` is then on your `PATH`. The runner is the setting that says how to start Lawcheck. Its default, `global`, fits this install. You set nothing more.
 
 ## Install in a project
 

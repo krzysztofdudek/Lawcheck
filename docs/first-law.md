@@ -107,7 +107,7 @@ The rule reads lines as text. It parses no comments. It finds `console.log` insi
 
 ## 7. Try the rule on one file
 
-`lawcheck try` runs one rule on the files you name. It needs no base. It writes nothing in the repository. It works before a type lists the rule. Until a file has a type that lists the rule, `try` needs a path. Without a path, `try` stops with `usage`, and the message says that no file has a type that lists `no-console`. Try the rule on `src/price.ts`:
+`lawcheck try` runs one rule on the files you name. It needs no base. It writes nothing in the repository. It works before a type lists the rule. Until a file has a type that lists the rule, `try` needs a path. Without a path, `try` stops with `usage`. Its message says that no file has a type that lists `no-console`. Try the rule on `src/price.ts`:
 
 ```text
 $ lawcheck try no-console src/price.ts
@@ -183,7 +183,7 @@ src/report.ts:1  error[no-console]  writes to the terminal with console.log
 next: fix src/report.ts:1
 ```
 
-The check fails and exits 1. Without a path, a plain `lawcheck check` judges the files that differ from the [base](concepts.md#base). `src/report.ts` is the same as on `main`. A plain check passes on it, and step 11 lists it as debt.
+The check fails and exits 1. Without a path, a plain `lawcheck check` judges the files that differ from the [base](concepts.md#base). `src/report.ts` is the same as on `main`. A plain check passes on it. Step 11 lists it as debt.
 
 ## 11. See the debt
 
@@ -222,7 +222,7 @@ After you fix the debt, delete the `status` line. The rule is then enforced agai
 ## If it goes wrong
 
 - `lawcheck check` passes, and you expected the finding in `src/report.ts`: a plain check judges only the changed files. Add `--full`, as in step 11.
-- Lawcheck prints `law-invalid`: a key of the law is misspelled, such as `path` for `paths`. The message names the line and ends with the nearest known key, `(did you mean 'paths'?)`.
+- Lawcheck prints `law-invalid`: the law misspells a key, such as `path` for `paths`. The message names the line and ends with the nearest known key, `(did you mean 'paths'?)`.
 - Lawcheck prints `rule-missing-file`: the law names a rule, and `.lawcheck/rules/` holds no file of that name. The file name must be the rule id followed by `.mjs`.
 - Lawcheck prints `rule-file-without-entry`: a file in `.lawcheck/rules/` names no rule of the law. Give the file the rule id as its name, or add an entry for it.
 - Lawcheck prints `rule-crashed`: the rule threw an error or returned something other than a list of findings. [Write a script rule](write-a-script-rule.md) shows how to find the cause.

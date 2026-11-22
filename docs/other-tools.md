@@ -14,7 +14,7 @@ A CI job checks the same law before the merge. It needs no key and no network.
 
 A rules file is prose that the agent reads at the start of a session. You can write anything there: the command that runs the tests, the branch to start from, the form of a commit message. `AGENTS.md` is an open format that Codex, Gemini CLI and Copilot read. Claude Code reads it from version 2.1.277, in a repository with no `CLAUDE.md`.
 
-A rules file holds rules about how the agent works, such as "run the tests before you finish". Lawcheck judges files, so the law has no place for such a rule.
+A rules file holds rules about how the agent works, such as "run the tests before you finish". Lawcheck judges files. The law has no place for a rule about the work.
 
 The agent reads the rules file. Claude Code does not check the code against it. On 2026-11-22, the issue tracker of Claude Code held 297 reports with the words "ignores CLAUDE.md". The tracker received 60 of them since June 2026.
 
@@ -76,7 +76,7 @@ Lawcheck reads the uses written out in the code. It does not read an `import()` 
 
 The services among them charge per person, per review or in credits.
 
-A review bot reads the whole pull request. It comments on the change as a whole, with your rules or without them. The reviewer of Lawcheck sees one file and one rule per call. It sees the files the rule lists in `context` too, and no other file of the repository. A reviewer rule cannot judge a requirement that spans the files of a change, such as a new handler that comes with its test.
+A review bot reads the whole pull request. It comments on the change as a whole, with your rules or without them. The reviewer of Lawcheck sees one file and one rule per call. It sees the files the rule lists in `context` as well. It sees no other file of the repository. A reviewer rule cannot judge a requirement that spans the files of a change, such as a new handler that comes with its test.
 
 Lawcheck checks before the pull request exists. In Claude Code, it checks after each edit and before the agent ends its turn. Uses and script rules need no model. A second check of the same code prints the same output.
 
