@@ -47,7 +47,15 @@ $ lawcheck doctor --reviewer
 
 ## claude-code
 
-Lawcheck runs `claude --print --output-format json` with no tools, no slash commands, no settings files, no MCP servers and no saved session. The program uses its own sign-in, or one of the variables `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN` and `CLAUDE_CODE_OAUTH_TOKEN`.
+Lawcheck runs `claude --print --output-format json` and turns off five things for the call:
+
+- the tools;
+- the slash commands;
+- the settings files;
+- the MCP servers;
+- the saved session.
+
+The program uses its own sign-in, or one of the variables `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN` and `CLAUDE_CODE_OAUTH_TOKEN`.
 
 ## codex
 
@@ -64,7 +72,16 @@ Lawcheck runs `gemini` with text output, in plan mode, with no extensions and no
 
 ## copilot-cli
 
-Lawcheck runs `copilot --silent` with no questions, no custom instructions, no tools, no MCP server, no access to the temporary folder and no update. Lawcheck runs `copilot mcp list --json` once a run. It switches off each server that this list names. Lawcheck changes no setting of the history that `copilot` may keep of its sessions. The VS Code Copilot extension holds a `copilot` program that only offers to install the CLI. Lawcheck passes over a `copilot` inside the folder of that extension. The program uses its own sign-in, or one of the variables `COPILOT_GITHUB_TOKEN`, `GH_TOKEN`, `GITHUB_TOKEN` and `COPILOT_PROVIDER_`.
+Lawcheck runs `copilot --silent` and turns off six things for the call:
+
+- questions to the user;
+- custom instructions;
+- the tools;
+- the built-in MCP servers;
+- access to the temporary folder;
+- the automatic update.
+
+Lawcheck runs `copilot mcp list --json` once a run. It switches off each server that this list names. Lawcheck changes no setting of the history that `copilot` may keep of its sessions. The VS Code Copilot extension holds a `copilot` program that only offers to install the CLI. Lawcheck passes over a `copilot` inside the folder of that extension. The program uses its own sign-in, or one of the variables `COPILOT_GITHUB_TOKEN`, `GH_TOKEN`, `GITHUB_TOKEN` and `COPILOT_PROVIDER_`.
 
 ## Over HTTP
 
@@ -114,7 +131,7 @@ Each call of these commands sends one prompt (`lawcheck docs reviewer-rules`). T
 - one judged file with its path;
 - the numbers of the waived lines.
 
-The request carries the model name, the parameters and the key beside the prompt. Lawcheck sends no other file, no git data and no other variable.
+The request carries the model name, the parameters and the key beside the prompt. Other files, git data and other variables stay on the machine.
 
 - The five HTTP providers send it to the address in force.
 - The four programs get it on standard input. Each program adds its own system prompt. A program can load your own instruction files, as its settings say. It sends the request to the model provider that its own configuration names.

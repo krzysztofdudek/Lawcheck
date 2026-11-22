@@ -105,7 +105,13 @@ alpha.1 prints `debt (outside this change): none` for the same repository. Debt 
 
 ## 5. Give the tests a type of their own
 
-The finding is a use the law forbids. You can change the code, waive the line ([Waivers](waivers.md)), or change the law. Here the tests of `core` may mock the commands. The law gives them a subtype with a list of its own:
+The finding is a use the law forbids. Three steps clear it:
+
+- change the code;
+- waive the line ([Waivers](waivers.md));
+- change the law.
+
+Here the tests of `core` may mock the files of the type `cli`. The law below gives the tests a subtype of `core` with a `may_use` list of its own:
 
 ```yaml
 lawcheck: 0.1.0
