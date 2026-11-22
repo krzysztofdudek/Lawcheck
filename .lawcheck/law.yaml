@@ -109,8 +109,8 @@ types:
     rules: [layer-imports, comments-say-why]
 
   docs:
-    about: The pages lawcheck docs prints. docs/waivers.md and docs/false-alarm.md are left out, because Lawcheck reads a quoted waiver marker as a waiver.
-    paths: ["docs/*.md", "!docs/waivers.md", "!docs/false-alarm.md"]
+    about: The pages lawcheck docs prints.
+    paths: ["docs/*.md"]
     rules: [docs-state-facts]
     waivers: false
 
