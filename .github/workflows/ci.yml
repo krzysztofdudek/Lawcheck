@@ -101,6 +101,8 @@ jobs:
     name: commit shard ${{ matrix.shard }}/${{ matrix.of }} (${{ matrix.os }}, Node ${{ matrix.node }})
     needs: build
     runs-on: ${{ matrix.os }}
+    # Three times the slowest green run of this job in the last 20 green CI runs, rounded up to 5 minutes.
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
