@@ -25,7 +25,7 @@ Lawcheck installs as a package of the project or as a global package. `runner` i
 | Yarn 4 with `nodeLinker: node-modules` or `nodeLinker: pnpm` | `yarn run lawcheck` | `yarn` |
 | Bun, with Node 24 on the `PATH` | `bun x --no-install lawcheck` | `bun` |
 
-## Refused environments
+## The environments Lawcheck refuses
 
 Every command but `docs` and `doctor` stops with the code `unsupported-environment` and exit 2 ([unsupported-environment](codes.md#unsupported-environment)). `doctor` prints the same first line, fails its `node` or `git` check with the same message, and runs its other checks.
 

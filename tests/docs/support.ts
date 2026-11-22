@@ -3,7 +3,7 @@ import { inTemp, lawcheck, makeSample } from '../acceptance/helpers.ts';
 import { SCENARIO } from '../contract/docs-blocks.ts';
 import type { Claims, Page } from '../contract/docs-blocks.ts';
 
-const NODE_22 = 'block 1 under "Refused environments"';
+const NODE_22 = 'block 1 under "The environments Lawcheck refuses"';
 
 export const claims: Claims = {
   [NODE_22]: SCENARIO,
