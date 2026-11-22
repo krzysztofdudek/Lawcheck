@@ -32,12 +32,13 @@ test('test 431: control, an unclaimed block, a claim of a block the page lacks, 
   assert.deepEqual(railProblems({ a: page, b: page }, { a: held, c: held }, source), ['docs/b.md has no tests/docs/b.ts', 'tests/docs/c.ts names no page of docs/']);
 });
 
-test('test 432: every scenario of tests/docs runs the blocks it claims, and each output a page shows is the one the tool prints, byte for byte', async () => {
-  for (const [id, file] of Object.entries(FILES)) {
-    if (PAGES[id] === undefined) continue;
-    assert.deepEqual(await runScenario(id, PAGES[id], file), [], id);
-  }
-});
+// One test per page, so that each scenario has the budget of one test and a page added to docs/ takes nothing from the others.
+for (const [id, file] of Object.entries(FILES)) {
+  if (PAGES[id] === undefined || file.scenario === undefined) continue;
+  test(`test 432: the scenario of docs/${id}.md runs the blocks it claims, and each output the page shows is the one the tool prints, byte for byte`, async () => {
+    assert.deepEqual(await runScenario(id, PAGES[id]!, file), []);
+  });
+}
 
 test('test 433: control, a planted wrong output fails the scenario of its page, and a scenario that never reads a block it claims, or reads one it does not, is named', async () => {
   const shown = 'takes the rule no-console off the type library';
