@@ -1,0 +1,46 @@
+name: Bug
+description: Lawcheck did something wrong, or printed something wrong.
+labels: [bug]
+body:
+  - type: textarea
+    id: command
+    attributes:
+      label: The command
+      description: The command you ran, and the folder you ran it in.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: What it printed
+      description: The whole output, with its exit code (`echo $?`).
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: lawcheck doctor
+      description: The output of `lawcheck doctor`, run in the same folder. Its nine checks show Node, git, the law, the config and the reviewer of the repository.
+      render: text
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: lawcheck --version
+    validations:
+      required: true
+  - type: textarea
+    id: law
+    attributes:
+      label: The law, if it matters
+      description: The part of `.lawcheck/law.yaml` and the rule files that the bug needs. Leave out anything private.
+      render: yaml

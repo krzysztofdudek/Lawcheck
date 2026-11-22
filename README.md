@@ -35,3 +35,7 @@ Run `lawcheck prime` at the start of every session and follow it.
 ```
 
 That agent then checks only when it follows the primer: nothing checks a file after an edit or holds the turn while the law is broken. A project that starts Lawcheck through its package manager names it as `runner` in `.lawcheck/config.yaml` (`lawcheck docs config`), and the sentence then uses that command, such as `pnpm exec lawcheck prime`.
+
+## More
+
+`lawcheck docs` prints the pages of [docs/](docs): the law file, script and reviewer rules, waivers, codes, JSON, settings, providers and CI. [CONTRIBUTING.md](CONTRIBUTING.md) says how to report a bug and how to build and test Lawcheck. [SECURITY.md](SECURITY.md) says how to report a vulnerability privately.

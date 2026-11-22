@@ -1,0 +1,96 @@
+# Tests
+
+Every command below runs inside the dev container. `npm test` needs no network and no key.
+
+## Running them
+
+| Command | What it runs |
+|---|---|
+| `npm test` | builds, then runs the commit set: the tests CI runs on every push |
+| `npm run t -- <file or test id>` | the tests of the files you name, or of the source files you changed; `tests/map.json` maps each file of `src/` to its tests |
+| `npm run nightly` | builds, then runs the nightly set |
+| `npm run gate -- --base origin/main` | `npm test`, then the suite guard of the base, and the reviewer's pack: test ids added, changed and removed, and which of them fail on the base |
+| `npm run real` | builds, then checks two real repositories, hono and gson, against their expected results; needs the network |
+| `npm run stability` | builds, then asks a real reviewer the same questions ten times and writes `tests/stability/result.json`; needs a real endpoint |
+| `npm run agent-trial` | the trial of the plugin with a live agent, run on the host through `claude`; writes `tests/agent/result.json` |
+
+The last three run by hand before a release ([decision 58](../design/decisions.md#58-acceptance-tests-that-run-outside-npm-test) and [decision 75](../design/decisions.md#75-when-the-tests-with-a-live-model-run)).
+
+## The layers
+
+| Folder | What its tests hold |
+|---|---|
+| `unit/` | one file per source file |
+| `acceptance/` | the tool from the outside: one command in a repository built in a temporary folder, with its exact output |
+| `contract/` | the suite's own rules: every test leads with a source, the docs name only allowed tools, every code has a case, the CI groups match the sets |
+| `guard/` | the suite guard and its cases in `guard/cases/` |
+| `gate/` | the gate that `npm run gate` runs |
+| `properties/` | generated inputs for the promises of [design/promises.md](../design/promises.md); the nightly files run more of them |
+| `security/` | the security promises: output, keys, the runner, git programs, the reviewer's frame |
+| `limits/` | every limit, at its edge and past it |
+| `environments/` | Node and git versions, package managers, repository shapes, CI shapes, operating systems |
+| `deadlines/` | the shipped deadlines of rules and hooks, run nightly at their real length |
+| `sabotage/` | breaks the code on purpose, one entry of `sabotage/list.json` at a time, and expects the test the entry names to fail |
+| `harness/` | the code that starts the tool in tests and checks every run |
+| `real/`, `stability/`, `agent/`, `live/` | the runs by hand, and their committed results |
+
+The folders `sample/`, `reviewer-sample/`, `uses-sample/` and `languages-sample/` hold repositories that tests copy. They hold no tests of their own.
+
+Every run of the tool in a test passes the checks of `harness/invariants.ts`: `harness-1` to `harness-8` and `harness-count`. Among them, the exit code is 0, 1 or 2, standard error is empty unless the test expects text there, no process outlives the run, and git is unchanged.
+
+## The labels in test names
+
+Every test name starts with its source and a colon ([decision 79](../design/decisions.md#79-every-test-leads-its-name-with-its-source)). The rail `contract/spec-map.test.ts` fails on a name with no source, or with a source that does not exist.
+
+| Label | What it is |
+|---|---|
+| `test N:` or `tests N and M:` | a stable number of an acceptance test; a new acceptance test takes the next free number |
+| `I-<name>-<n>:` | a promise of [design/promises.md](../design/promises.md) |
+| `harness-<n>:` | a check of `harness/invariants.ts` |
+| `S<report>-<n>:`, `R-<n>:`, `U-<n>:`, `T<n>:` | the number of a bug found in a stress test (`S`), a review (`R`), a user's report (`U`) or Lawcheck's own law (`T`); the test is its regression test |
+| `question N:` | a decision of [design/decisions.md](../design/decisions.md), by the same number |
+| `<slice> §<n>:` | a topic of the first design, written as one spec per slice before the build; the table below says what each covers and where it is described |
+
+A finding id may also follow an acceptance test number: `test 240: S8-8, R-82, a write that fails` ([decision 96](../design/decisions.md#96-the-rail-over-the-whole-suite)).
+
+| Section label | What it covers | Described in |
+|---|---|---|
+| `check-slice §2` | the law file, types and patterns | [docs/law.md](../docs/law.md) |
+| `check-slice §3` | the script rule contract and the runner | [docs/script-rules.md](../docs/script-rules.md) |
+| `check-slice §4` | the command `check`, the base and the change | [docs/change.md](../docs/change.md) |
+| `check-slice §5` | waivers | [docs/waivers.md](../docs/waivers.md) |
+| `check-slice §6` | output and exit codes | [docs/codes.md](../docs/codes.md), [docs/json.md](../docs/json.md) |
+| `commands-slice §2` | what every command shares: usage, errors, the `next:` line | [docs/codes.md](../docs/codes.md) |
+| `commands-slice §3` | `init` | [docs/first-law.md](../docs/first-law.md) |
+| `commands-slice §4` | `prime` | [docs/json.md](../docs/json.md) |
+| `commands-slice §5` | `try` | [docs/script-rules.md](../docs/script-rules.md), [docs/reviewer-rules.md](../docs/reviewer-rules.md) |
+| `commands-slice §6` | `explain` | [docs/json.md](../docs/json.md) |
+| `commands-slice §7` | `docs` | [docs/json.md](../docs/json.md) |
+| `commands-slice §8` | `doctor`, and a change of the law | [docs/ci.md](../docs/ci.md), [docs/json.md](../docs/json.md) |
+| `dependency-slice §2` | `may_use` in the law | [docs/law.md](../docs/law.md) |
+| `dependency-slice §3.1` | what counts as a use | [docs/languages.md](../docs/languages.md) |
+| `dependency-slice §3.2` | which files are read for uses | [docs/languages.md](../docs/languages.md) |
+| `dependency-slice §3.3` | the readers | [docs/languages.md](../docs/languages.md) |
+| `dependency-slice §3.5` | from a use to a type | [docs/languages.md](../docs/languages.md) |
+| `dependency-slice §5` | the findings and output of uses | [docs/languages.md](../docs/languages.md), [docs/codes.md](../docs/codes.md) |
+| `dependency-slice §6` | the readers and their grammars | [docs/languages.md](../docs/languages.md) |
+| `plugin-slice §5` | what every hook shares | [README.md](../README.md), [docs/config.md](../docs/config.md) |
+| `plugin-slice §10` | the agent trial | `agent/` |
+| `release-readiness §Package` | what the npm package holds | `package.json` |
+| `reviewer-slice §2` | reviewer rules in the law | [docs/reviewer-rules.md](../docs/reviewer-rules.md) |
+| `reviewer-slice §4` | the review: what the reviewer receives and must answer | [docs/reviewer-rules.md](../docs/reviewer-rules.md) |
+| `reviewer-slice §5` | verdicts | [docs/reviewer-rules.md](../docs/reviewer-rules.md) |
+| `reviewer-slice §6` | providers, keys and config | [docs/providers.md](../docs/providers.md), [docs/config.md](../docs/config.md) |
+| `reviewer-slice §7` | the cap on reviewer calls | [docs/config.md](../docs/config.md) |
+| `reviewer-slice §8` | `check --review` | [docs/reviewer-rules.md](../docs/reviewer-rules.md) |
+
+## The suite guard
+
+Agents write most of this code, and an agent under pressure makes a red test green by weakening it. The suite guard, in `guard/`, compares a change with its base and finds what makes the suite weaker: a removed or renamed test, a changed expected output, a removed sabotage entry, a changed harness, a raised time budget, a changed guard or CI file. Each such weakening passes only when the same change adds a row to `weakenings.md`, with its reason, an anchor and an approver.
+
+- The rows of `weakenings.md` are only ever added. The guard refuses a change that edits or removes one.
+- `guard/config.json` says who approves each kind. A fresh reviewer agent approves most kinds. The owner approves `promise-changed`, `guard-changed`, `ci-changed` and `threshold-lowered` ([decision 76](../design/decisions.md#76-who-may-weaken-the-suite)).
+- The guard that judges a change is always the one on the base, never the one on the branch. CI runs it from `.github/workflows/guard.yml`, and `npm run gate` runs it locally.
+- When the guard refuses, it prints the row it needs. Run it alone with `node tests/guard/cli.ts --base origin/main`.
+
+`numbers.ts` holds the budgets, the seed and the counts that may only move one way. A test that takes more time than its budget fails, and a budget raised in `numbers.ts` is a weakening.
