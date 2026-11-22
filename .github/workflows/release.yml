@@ -1,7 +1,7 @@
 name: Release
 
 # Publishes lawcheck when a vX.Y.Z tag is pushed. Nothing else publishes: no job here creates tags, and the owner pushes the tag.
-# npm trusted publishing is configured on npmjs.com for this repository and this workflow file, release.yml, with no environment: the file keeps that name, and the publish job keeps id-token: write and no environment.
+# npm trusted publishing is configured on npmjs.com for this repository and this workflow file, release.yml, with no environment: the file keeps that name, and the jobs publish and latest keep id-token: write and no environment.
 on:
   push:
     tags: ['v*']
@@ -176,6 +176,41 @@ jobs:
           VERSION: ${{ needs.pack.outputs.version }}
           DISTTAG: ${{ needs.pack.outputs.disttag }}
         run: npm publish "./release/lawcheck-${VERSION}.tgz" --ignore-scripts --provenance --access public --tag "${DISTTAG}"
+
+  # latest follows the newest alpha, and alpha stays a tag of its own. A publish sets one dist-tag and npm never takes a version twice, so this job adds latest after the publish under alpha.
+  # npm runs dist-tag over OIDC from npm 11.21.0, and only when the trusted publisher of release.yml on npmjs.com has "Allow npm dist-tag" turned on. A re-run of this job alone repeats only the tag.
+  latest:
+    name: npm latest on the new alpha
+    needs: [pack, publish]
+    if: needs.pack.outputs.disttag == 'alpha'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          registry-url: 'https://registry.npmjs.org'
+      - name: Use npm that runs dist-tag over OIDC
+        run: npm install --global --ignore-scripts npm@11.21.2
+      - name: Move latest to the new alpha
+        env:
+          VERSION: ${{ needs.pack.outputs.version }}
+        run: npm dist-tag add "lawcheck@${VERSION}" latest
+      - name: alpha and latest name the new alpha
+        env:
+          VERSION: ${{ needs.pack.outputs.version }}
+        run: |
+          set -euo pipefail
+          TAGS=$(curl -fsS https://registry.npmjs.org/-/package/lawcheck/dist-tags)
+          echo "${TAGS}"
+          for tag in alpha latest; do
+            if [ "$(jq -r --arg tag "${tag}" '.[$tag]' <<< "${TAGS}")" != "${VERSION}" ]; then
+              echo "::error::The dist-tag ${tag} of lawcheck does not name ${VERSION}."
+              exit 1
+            fi
+          done
 
   github-release:
     name: GitHub release
