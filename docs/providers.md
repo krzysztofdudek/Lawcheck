@@ -93,7 +93,7 @@ Lawcheck runs `copilot --silent` and turns off six things for the call:
 - access to the temporary folder;
 - the automatic update.
 
-Lawcheck runs `copilot mcp list --json` once a run. It switches off each server that this list names. `copilot` may keep a history of its sessions, and Lawcheck changes none of the settings of that history.
+Lawcheck runs `copilot mcp list --json` once a run. It switches off each server that this list names. `copilot` may keep a history of its sessions. Lawcheck changes none of the settings of that history.
 
 The VS Code Copilot extension holds a `copilot` program that only offers to install the CLI. Lawcheck skips a `copilot` inside the folder of that extension.
 

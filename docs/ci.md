@@ -311,7 +311,7 @@ src/core/total.ts:2  error[no-console]  writes to the terminal with console.log
 next: fix src/core/total.ts:2
 ```
 
-The hook exits with code 1, and git makes no commit. A commit with no error goes through.
+Git makes no commit when the hook exits with code 1. A commit with no error goes through.
 
 ### 5. Add the pre-push hook
 
@@ -341,7 +341,7 @@ A check runs the script rules that its checkout holds. A pull request from a str
 
 [Script rules](script-rules.md) says what else the process allows and refuses.
 
-Run the check of a pull request only on a machine where you would run the tests of that pull request.
+A check of a pull request runs the script rules that the pull request holds. These rules are code of the pull request. Run that check only on a machine where you would run the tests of the pull request.
 
 On `pull_request`, GitHub gives the pull request of a fork no secrets. A plain `lawcheck check` needs no secret. The event `pull_request_target` would run the script rules of the fork with the secrets of the repository.
 
@@ -349,6 +349,6 @@ On `pull_request`, GitHub gives the pull request of a fork no secrets. A plain `
 
 - Lawcheck prints `base-unreachable` when the job did not fetch the base branch, or when the clone is shallow. A shallow clone holds only the last commits, without the merge base. The `next:` line gives the `git fetch` command that fetches the history.
 - In a container, `no-git` means that another user owns the checkout. Git refuses to work in such a folder. The `next:` line gives the `git config` command that adds the folder to the git setting `safe.directory`. The command quotes the path for `sh`.
-- The log of a job that passed shows a warning. A warning leaves the exit code at 0, so the job passes.
+- The log of a job that passed shows a warning. A warning leaves the exit code at 0. A CI job fails only on an exit code other than 0.
 
 Next: [A law shared by a team](team.md)

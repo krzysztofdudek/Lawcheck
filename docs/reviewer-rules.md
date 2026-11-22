@@ -114,11 +114,11 @@ $ lawcheck check --review --max-calls 3 --base main
 - With `--again`, Lawcheck asks the reviewer again about each review whose failure the cache holds.
 - `--max-calls <n>` replaces `reviewer.max_calls` for one run.
 
-`reviewer.max_calls` sets the most requests that one run may send to the reviewer. A request that Lawcheck sends again counts as one more request. A run that needs more requests than that limit sends none, and it stops with [`too-many-reviews`](codes.md#too-many-reviews).
+`reviewer.max_calls` sets the most requests that one run may send to the reviewer. A request that Lawcheck sends again counts as one more request. A run that needs more requests than that limit sends none. It stops with [`too-many-reviews`](codes.md#too-many-reviews).
 
 Without `--review`, `lawcheck check` sends no request to a reviewer.
 
-A request that fails stops the run with [`reviewer-unreachable`](codes.md#reviewer-unreachable). The passes that the run recorded before that request stay in `.lawcheck/verdicts`. Run the same command again, and Lawcheck asks the reviewer only about the reviews still missing.
+A request that fails stops the run with [`reviewer-unreachable`](codes.md#reviewer-unreachable). The passes that the run recorded before that request stay in `.lawcheck/verdicts`. When you run the same command again, Lawcheck asks the reviewer only about the reviews still missing.
 
 ## Trying a reviewer rule
 

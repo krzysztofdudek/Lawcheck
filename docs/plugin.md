@@ -107,7 +107,7 @@ The `Stop` hook sends the user two kinds of text: notices and messages. A notice
 The user gets a message each time the agent finishes, as long as its case holds. The hook sends a message in these cases:
 
 - the turn changed more than 1,000 files. The hook then runs no check;
-- a background subagent, teammate or workflow is running. The check waits for it. The hook runs the check the first time the agent finishes after that task ends;
+- a background subagent, teammate or workflow is running. The hook waits for it. The hook runs the check the first time the agent finishes after that task ends;
 - the check still fails past the limits of [Three returns at most](#three-returns-at-most).
 
 A hook that fails inside its own code prints `lawcheck plugin:` and the cause on standard error. It then exits 1. A hook exits 0 in every other case.
