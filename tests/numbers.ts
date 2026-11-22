@@ -624,6 +624,9 @@ export const UNPARSABLE_JAVA_CHARS = 400_000;
 // tests/environments/ci-recipes.nightly.test.ts: the pnpm the docs recipes run with, installed with npm in the node:24 image. A string, not a number the guard reads.
 export const RECIPE_PNPM = '12.21.0';
 
+// The items of the code that no page of docs/ holds yet, the length of the list in tests/contract/docs-inventory.test.ts; the documentation's packages bring it to 0.
+export const DOCS_NOT_COVERED = 64;
+
 // Which way each number makes the suite stronger, read by the suite guard; a seed is neither, so any change of it is a change to review.
 export const stronger: Record<string, 'higher' | 'lower' | 'fixed'> = {
   LIMITS_RUN_MS: 'lower',
@@ -685,6 +688,7 @@ export const stronger: Record<string, 'higher' | 'lower' | 'fixed'> = {
   NOTHING_LEFT_EXTRA_MS: 'lower',
   PURE_CALL_BUDGET_MS: 'lower',
   TOOL_RUN_BUDGET_MS: 'lower',
+  DOCS_NOT_COVERED: 'lower',
 };
 
 export function budgetNamed(key: string): number {
