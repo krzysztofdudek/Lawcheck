@@ -1,0 +1,16 @@
+[
+  { "id": "first-law", "title": "The first type and the first rule", "section": "Guides" },
+  { "id": "ci", "title": "CI and git hooks", "section": "Guides" },
+  { "id": "commands", "title": "The commands", "section": "Reference" },
+  { "id": "law", "title": "The law file", "section": "Reference" },
+  { "id": "config", "title": "Settings", "section": "Reference" },
+  { "id": "script-rules", "title": "Script rules", "section": "Reference" },
+  { "id": "reviewer-rules", "title": "Reviewer rules", "section": "Reference" },
+  { "id": "providers", "title": "Reviewers and keys", "section": "Reference" },
+  { "id": "languages", "title": "Languages and uses", "section": "Reference" },
+  { "id": "waivers", "title": "Waivers", "section": "Reference" },
+  { "id": "change", "title": "What a check judges", "section": "Reference" },
+  { "id": "json", "title": "JSON documents", "section": "Reference" },
+  { "id": "plugin", "title": "The Claude Code plugin", "section": "Reference" },
+  { "id": "codes", "title": "Codes", "section": "Troubleshooting" }
+]

@@ -5,45 +5,54 @@ import type { Arguments, Result } from './args.js';
 import type { CheckContext } from './check.js';
 import { nearestKey } from './law.js';
 
-export const TOPICS: { id: string; title: string }[] = [
-  { id: 'first-law', title: 'The first type and the first rule' },
-  { id: 'law', title: 'The law file' },
-  { id: 'change', title: 'What a check judges' },
-  { id: 'commands', title: 'The commands' },
-  { id: 'script-rules', title: 'Script rules' },
-  { id: 'reviewer-rules', title: 'Reviewer rules' },
-  { id: 'waivers', title: 'Waivers' },
-  { id: 'config', title: 'Settings' },
-  { id: 'providers', title: 'Reviewers and keys' },
-  { id: 'languages', title: 'Languages and uses' },
-  { id: 'ci', title: 'CI and git hooks' },
-  { id: 'plugin', title: 'The Claude Code plugin' },
-  { id: 'json', title: 'JSON documents' },
-  { id: 'codes', title: 'Codes' },
-];
+export interface Topic {
+  id: string;
+  title: string;
+  section: string;
+}
 
 export const DOCS_DIR = fileURLToPath(new URL('../docs/', import.meta.url));
+
+export function topics(): Topic[] {
+  return JSON.parse(readFileSync(`${DOCS_DIR}topics.json`, 'utf8')) as Topic[];
+}
 
 export function page(id: string): string {
   return readFileSync(`${DOCS_DIR}${id}.md`, 'utf8');
 }
 
-export function topicList(): string {
-  const lines = [`lawcheck docs: ${TOPICS.length} topics; lawcheck docs <topic> prints one`, '', ...TOPICS.map((t) => `${t.id}  ${t.title}`)];
+export function topicList(list: Topic[]): string {
+  const lines = [`lawcheck docs: ${list.length} topics; lawcheck docs <topic> prints one`];
+  for (const section of new Set(list.map((t) => t.section))) {
+    lines.push('', section, ...list.filter((t) => t.section === section).map((t) => `  ${t.id}  ${t.title}`));
+  }
   return lines.join('\n') + '\n';
+}
+
+export function forTerminal(text: string, ids: string[]): string {
+  let fenced = false;
+  return text
+    .split('\n')
+    .map((line) => {
+      if (/^\s*(```|~~~)/.test(line)) fenced = !fenced;
+      if (fenced) return line;
+      return line.replace(/\[([^\]]+)\]\(([a-z0-9-]+)\.md(#[^)\s]*)?\)/g, (link, label: string, id: string) => (ids.includes(id) ? `${label} (lawcheck docs ${id})` : link));
+    })
+    .join('\n');
 }
 
 export async function docs(args: Arguments, _context: CheckContext, json: boolean): Promise<Result> {
   if (args.words.length > 1) return usageError('docs takes one topic at most', json, 'docs');
+  const list = topics();
   const id = args.words[0];
   if (id === undefined) {
-    return { code: 0, stdout: json ? documentOf({ schema: 'lawcheck-docs/0', topics: TOPICS }) : topicList() };
+    return { code: 0, stdout: json ? documentOf({ schema: 'lawcheck-docs/0', topics: list.map((t) => ({ id: t.id, title: t.title })) }) : topicList(list) };
   }
-  const topic = TOPICS.find((t) => t.id === id);
+  const topic = list.find((t) => t.id === id);
   if (topic === undefined) {
-    const near = nearestKey(id, TOPICS.map((t) => t.id));
+    const near = nearestKey(id, list.map((t) => t.id));
     return usageError(`there is no topic '${id}'${near === null ? '' : ` (did you mean '${near}'?)`}; lawcheck docs lists them`, json, 'docs');
   }
   const text = page(id);
-  return { code: 0, stdout: json ? documentOf({ schema: 'lawcheck-docs/0', id, title: topic.title, text }) : text };
+  return { code: 0, stdout: json ? documentOf({ schema: 'lawcheck-docs/0', id, title: topic.title, text }) : forTerminal(text, list.map((t) => t.id)) };
 }

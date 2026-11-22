@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { inTemp, lawcheck } from './helpers.ts';
+import { appendFileSync, cpSync, readFileSync, symlinkSync } from 'node:fs';
+import { join } from 'node:path';
+import { inTemp, lawcheck, lawcheckAt, ROOT } from './helpers.ts';
 import { parseLaw } from '../../dist/law.js';
 import { parseConfig } from '../../dist/config.js';
 import { readArguments } from '../../dist/args.js';
@@ -12,22 +13,27 @@ const spec = readFileSync(new URL('../../spec/commands-slice.md', import.meta.ur
 const LIST = [
   'lawcheck docs: 14 topics; lawcheck docs <topic> prints one',
   '',
-  'first-law  The first type and the first rule',
-  'law  The law file',
-  'change  What a check judges',
-  'commands  The commands',
-  'script-rules  Script rules',
-  'reviewer-rules  Reviewer rules',
-  'waivers  Waivers',
-  'config  Settings',
-  'providers  Reviewers and keys',
-  'languages  Languages and uses',
-  'ci  CI and git hooks',
-  'plugin  The Claude Code plugin',
-  'json  JSON documents',
-  'codes  Codes',
+  'Guides',
+  '  first-law  The first type and the first rule',
+  '  ci  CI and git hooks',
+  '',
+  'Reference',
+  '  commands  The commands',
+  '  law  The law file',
+  '  config  Settings',
+  '  script-rules  Script rules',
+  '  reviewer-rules  Reviewer rules',
+  '  providers  Reviewers and keys',
+  '  languages  Languages and uses',
+  '  waivers  Waivers',
+  '  change  What a check judges',
+  '  json  JSON documents',
+  '  plugin  The Claude Code plugin',
+  '',
+  'Troubleshooting',
+  '  codes  Codes',
 ];
-const TOPICS = LIST.slice(2).map((line) => ({ id: line.split('  ')[0]!, title: line.split('  ')[1]! }));
+const TOPICS = LIST.filter((line) => line.startsWith('  ')).map((line) => ({ id: line.split('  ')[1]!, title: line.split('  ')[2]! }));
 const PARAGRAPH = spec.find((line) => line.startsWith('> A plain check judges only'))!.slice(2);
 
 function page(id: string): string {
@@ -134,6 +140,34 @@ test('test 130: usage', async () => {
       assert.equal(result.code, 2);
       if (args[1] === 'codez') assert.match(result.stdout, /'codes'/);
     }
+  });
+});
+
+test('test 416: an unknown topic is usage naming the nearest topic, in text and in JSON, and prints no page', async () => {
+  await inTemp(async (dir) => {
+    const text = await lawcheck(dir, ['docs', 'lw']);
+    assert.equal(text.stdout, "lawcheck: ERROR  1 error\n\nerror[usage]  there is no topic 'lw' (did you mean 'law'?); lawcheck docs lists them\n  why:  the tool does only what its usage line says\n\nnext: run lawcheck docs as its usage line says: lawcheck docs --help\n");
+    assert.equal(text.code, 2);
+    const json = await lawcheck(dir, ['docs', 'nope', '--json']);
+    const document = JSON.parse(json.stdout);
+    assert.equal(document.schema, 'lawcheck-error/1');
+    assert.deepEqual(document.errors.map((e: { code: string; message: string }) => [e.code, e.message]), [['usage', "there is no topic 'nope'; lawcheck docs lists them"]]);
+    assert.equal(json.code, 2);
+  });
+});
+
+test('test 417: lawcheck docs prints a link to another page as the command that prints it, and --json gives the page as written', async () => {
+  await inTemp(async (dir) => {
+    const copy = join(dir, 'lawcheck');
+    for (const entry of ['package.json', 'dist', 'docs']) cpSync(join(ROOT, entry), join(copy, entry), { recursive: true });
+    symlinkSync(join(ROOT, 'node_modules'), join(copy, 'node_modules'), process.platform === 'win32' ? 'junction' : 'dir');
+    appendFileSync(join(copy, 'docs', 'law.md'), '\nSee [the codes](codes.md#law-invalid) and [the site](https://example.com/codes.md).\n');
+    const cli = join(copy, 'dist', 'cli.js');
+    const text = await lawcheckAt(cli, dir, ['docs', 'law']);
+    assert.equal(text.stdout, `${page('law')}\nSee the codes (lawcheck docs codes) and [the site](https://example.com/codes.md).\n`);
+    assert.equal(text.code, 0);
+    const json = await lawcheckAt(cli, dir, ['docs', 'law', '--json']);
+    assert.equal(JSON.parse(json.stdout).text, `${page('law')}\nSee [the codes](codes.md#law-invalid) and [the site](https://example.com/codes.md).\n`);
   });
 });
 
