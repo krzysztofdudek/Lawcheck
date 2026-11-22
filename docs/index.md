@@ -49,7 +49,7 @@ npm install --global lawcheck@alpha
 lawcheck docs quick-start
 ```
 
-Lawcheck is an alpha. It needs Node 24 or later and git 2.34 or later. Lawcheck sends code only to a model you ask to judge a rule written in prose. A [script rule](concepts.md#script-rule) is code of your own repository. It can read every file under the root of the repository and open a network connection.
+Lawcheck is an alpha. It needs Node 24 or later and git 2.34 or later. Lawcheck sends code only to a model you ask to judge a rule written in prose. A [script rule](concepts.md#script-rule) is code of your own repository. It can read every file under the [root](concepts.md#law) of the law and open a network connection.
 
 ## Read next
 
@@ -62,6 +62,6 @@ Lawcheck is an alpha. It needs Node 24 or later and git 2.34 or later. Lawcheck 
 
 - After the third return, the plugin lets the agent finish. The plugin tells you that the check still fails ([The Claude Code plugin](plugin.md#three-returns-at-most)).
 - A pull request can edit the law that judges it. `check` prints what the pull request does to that law ([What a check judges](change.md#the-limits-of-a-plain-check)). The CI job of [CI and git hooks](ci.md#a-change-to-the-law) checks the pull request a second time, with the law of the [base](concepts.md#base).
-- Lawcheck reads the [uses](concepts.md#use) written out in the code. It does not read an `import()` of a variable, `importlib.import_module` or reflection ([Languages and uses](languages.md#the-languages-whose-uses-are-read)).
+- Lawcheck reads the [uses](concepts.md#use) written out in the code. It does not read an `import()` of a variable, `importlib.import_module`, or a class that the code finds by its name at run time ([Languages and uses](languages.md#the-languages-whose-uses-are-read)).
 
 Next: [Install](install.md)

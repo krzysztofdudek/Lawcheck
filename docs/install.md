@@ -31,7 +31,7 @@ On an older Node, npm and pnpm install Lawcheck and print a warning. Lawcheck re
 - under Bun;
 - from Plug'n'Play.
 
-In those setups, every command but `--version`, `--help`, `docs` and `doctor` stops with `unsupported-environment` and exit 2. The first line of the error names the cause. Its `next:` line names the fix. `lawcheck doctor` prints the same first line. Its nine checks follow below it.
+In those setups, every command but `--version`, `--help`, `docs` and `doctor` stops with `unsupported-environment` and exit 2. The error names the cause in its first line and the fix in its `next:` line. `lawcheck doctor` prints the same first line, with its nine checks below it.
 
 ## Install globally
 
@@ -95,7 +95,7 @@ skip  readers  needs types
 skip  reviewer  needs law
 ```
 
-The `node` and `git` lines say that Lawcheck runs here. The `node` line shows your own version of Node. The repository has no law until you run `lawcheck init`. `doctor` skips the checks that need the law. It exits 2. After `lawcheck init`, the first line starts with `lawcheck: PASS  9 checks`.
+The `node` and `git` lines say that Lawcheck can run on this machine. The `node` line shows your own version. With no law in the repository, `doctor` skips the six checks below the `law` line. It exits 2. After `lawcheck init`, the first line starts with `lawcheck: PASS  9 checks`.
 
 ## Remove it
 
@@ -107,6 +107,6 @@ The `node` and `git` lines say that Lawcheck runs here. The `node` line shows yo
 | with Yarn | `yarn remove lawcheck` |
 | with Bun | `bun remove lawcheck` |
 
-The law, its rules and the recorded [verdicts](concepts.md#verdict) are files in `.lawcheck/`, at the root of the repository. Delete that folder to remove them. In Claude Code, `claude plugin uninstall lawcheck@lawcheck-marketplace` removes the plugin.
+The law, its rules and the recorded [verdicts](concepts.md#verdict) are files in `.lawcheck/`, at the [root](concepts.md#law) of the law. Delete that folder to remove them. In Claude Code, `claude plugin uninstall lawcheck@lawcheck-marketplace` removes the plugin.
 
 Next: [Quick start](quick-start.md)

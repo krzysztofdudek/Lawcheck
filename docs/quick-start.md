@@ -1,6 +1,6 @@
 # Quick start
 
-You write down the architecture and the rules of your repository. Lawcheck checks your code against them. It tells your coding agent which line breaks which rule. In five steps you write a law with one type and one `may_use` line. You break the law with one import. `lawcheck check` names the line. You need no model and no key.
+You write down the architecture and the rules of your repository. Lawcheck checks your code against them. It tells your coding agent which line breaks which rule. In five steps you write a law with one type and one `may_use` line. After you break it with one import, `lawcheck check` names the line. You need no model and no key.
 
 Before step 1, install Lawcheck as [Install](install.md) says. Start in a new repository. Then each output you get matches the one on this page:
 
