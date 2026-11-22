@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "lawcheck-docs/0, from docs/json.md and spec/commands-slice.md",
+  "title": "lawcheck-docs/0, from docs/json.md",
   "oneOf": [
     {
       "type": "object",

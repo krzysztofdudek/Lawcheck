@@ -12,7 +12,7 @@ const UNREADABLE_WINDOWS = 'chmod on Windows sets only the read-only flag, so a 
 const UNREADABLE_ROOT = 'chmod cannot make a file unreadable for root';
 const SIGNALS = 'every signal ends a process on Windows at once, so the tool cannot answer it with its own exit code';
 
-const ESCAPED = 'Windows lets no process read the environment of another, which is how the tool finds a child that left the program\'s group (spec/reviewer-slice.md, section 6), and such a child keeps the folder of the test from being removed';
+const ESCAPED = 'Windows lets no process read the environment of another, which is how the tool finds a child that left the program\'s group, and such a child keeps the folder of the test from being removed';
 
 export const HARNESS = 'tests/harness';
 

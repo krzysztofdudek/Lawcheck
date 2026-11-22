@@ -8,7 +8,7 @@ import { alive, F, F_PATH, lawcheck, pathWith, PROMPT_F, run, SECOND, startLawch
 import { fakeWrites, platformSkip, waitUntil } from '../harness/tool.ts';
 import { HELD_OUTPUT_RUN_MS, LATE_ANSWER_MS, LIST_DELAY_MS, PROGRAM_TIMEOUT_RUN_MS, SHARED_TIMEOUT_S } from '../numbers.ts';
 
-// The sign-in variables of each program that hold a key (spec/reviewer-slice.md, section 6); copilot's COPILOT_PROVIDER_API_KEY_COMMAND holds a command.
+// The sign-in variables of each program that hold a key (docs/config.md, Variables); copilot's COPILOT_PROVIDER_API_KEY_COMMAND holds a command.
 const SIGN_IN_KEYS: Record<string, string[]> = {
   codex: ['OPENAI_API_KEY', 'CODEX_API_KEY'],
   gemini: ['GEMINI_API_KEY', 'GOOGLE_API_KEY'],

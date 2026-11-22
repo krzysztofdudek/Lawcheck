@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "lawcheck-error/1, from docs/json.md and spec/check-slice.md, section 6",
+  "title": "lawcheck-error/1, from docs/json.md",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema", "errors", "next"],

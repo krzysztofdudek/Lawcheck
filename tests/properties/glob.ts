@@ -5,7 +5,7 @@ import { PURE_CALL_BUDGET_MS } from '../numbers.ts';
 import { pure, within } from './support.ts';
 import type { Speed } from './support.ts';
 
-// The matcher of spec/check-slice.md, section 2, written as the backtracking regular expression it reads as; right on small input, slow on adversarial input.
+// The pattern matcher of docs/law.md, written as the backtracking regular expression it reads as; right on small input, slow on adversarial input.
 function reference(pattern: string): RegExp {
   const special = new Set(['^', '$', '\\', '.', '*', '+', '?', '(', ')', '[', ']', '{', '}', '|', '/']);
   const segment = (text: string) => {

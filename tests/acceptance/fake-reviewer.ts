@@ -245,7 +245,7 @@ process.stdin.on('end', () => {
     else process.stderr.write('starting\\nNot logged in\\n');
     process.exit(1);
   }
-  // A program gets its own sign-in variables and never LAWCHECK_REVIEWER_KEY (spec/reviewer-slice.md, decision 25), so each fake echoes the keys among its own.
+  // A program gets its own sign-in variables and never LAWCHECK_REVIEWER_KEY (docs/config.md, Variables), so each fake echoes the keys among its own.
   const keys = ${JSON.stringify(ECHOED[name] ?? [])}.map((variable) => process.env[variable]).filter((value, i) => envelope || value !== undefined).join(' and ');
   if (mode === 'echo-error') {
     if (envelope) process.stdout.write(JSON.stringify({ type: 'result', is_error: true, result: 'Invalid API key: ' + keys }));

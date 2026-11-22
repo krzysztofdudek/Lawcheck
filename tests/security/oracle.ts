@@ -1,4 +1,4 @@
-// spec/check-slice.md, section 6, invariant I-out-1: the characters no text output holds, and the lines a CI runner reads as a command.
+// Promise I-out-1 of design/promises.md: the characters no text output holds, and the lines a CI runner reads as a command.
 // Every control character but the line feed, the two separators, and every format character (Unicode category Cf) but the joiners U+200C and U+200D.
 export const FORBIDDEN = /[\u0000-\u0009\u000b-\u001f\u007f-\u009f\u2028\u2029]|(?![\u200c\u200d])\p{Cf}/u;
 const FORBIDDEN_ALL = new RegExp(FORBIDDEN.source, 'gu');

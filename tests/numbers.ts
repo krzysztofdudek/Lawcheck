@@ -25,18 +25,18 @@ export const KILLED_GRACE_MS = 5_000;
 export const REAL_RUN_BUDGET_MS = 300_000;
 export const STABILITY_RUN_BUDGET_MS = 900_000;
 
-// spec/reviewer-slice.md, test 67: reviewer.timeout of 1 second, then SIGTERM and SIGKILL 5 seconds later.
+// Test 67: reviewer.timeout of 1 second, then SIGTERM and SIGKILL 5 seconds later.
 export const CLAUDE_TIMEOUT_RUN_MS = 15_000;
 export const FAKE_STARTED_MS = 20_000;
 
-// spec/plugin-slice.md, test 163: within 30 seconds of the deadline of 25 and within 150 of the deadline of 145, so a hook ends within 5 seconds of its deadline; SIGTERM after 2 seconds.
+// Test 163: within 30 seconds of the deadline of 25 and within 150 of the deadline of 145, so a hook ends within 5 seconds of its deadline; SIGTERM after 2 seconds.
 export const HOOK_PAST_DEADLINE_MS = 5_000;
 export const HOOK_SIGTERM_AFTER_MS = 2_000;
 // The deadlines in seconds that the per-push runs of test 163 and of section 5's session-start and prompt hooks give in place of 25, 15, 25 and 145; the nightly runs the shipped ones. Each leaves the stand-in lawcheck time to start through cmd.exe on a busy Windows runner, so that each run ends at its deadline with the stand-in running. No two are the same, and prompt's, which no message names, is the longest, so a hook that reads another hook's deadline ends too early or names the wrong one.
 export const TEST_HOOK_DEADLINES = { 'session-start': 5, prompt: 6, edit: 3, stop: 4 };
 export const STOPPED_HOOK_ENDS_MS = 10_000;
 
-// spec/check-slice.md, test 24: a rule that hangs crashes within 40 seconds of a limit of 30, so within 10 seconds of its limit. The per-push run gives the tool a limit of 3 seconds in place of 30, which leaves the runner time to start on a busy Windows runner, so that the hang in check is stopped in its call and not in its load; the nightly runs the shipped one.
+// Test 24: a rule that hangs crashes within 40 seconds of a limit of 30, so within 10 seconds of its limit. The per-push run gives the tool a limit of 3 seconds in place of 30, which leaves the runner time to start on a busy Windows runner, so that the hang in check is stopped in its call and not in its load; the nightly runs the shipped one.
 export const RULE_PAST_LIMIT_MS = 10_000;
 export const TEST_RULE_MS = 3_000;
 // How far past its limit a hung rule may run, as a share of the limit, counted from the moment the rule says it hangs: the runner is ended and the tool prints and exits. A timer set to twice the limit or more fails it.
@@ -48,11 +48,11 @@ export const USER_SET_RULE_MS = 1_000;
 export const USER_SET_DEADLINE_S = 1;
 export const PAST_USER_SET_MS = 2_500;
 
-// spec/reviewer-slice.md, section 6: a call ends at reviewer.timeout without waiting for the kill grace or a second full timeout. Tests 406 to 408 run with a timeout of 1 second, the shared list and call with one of SHARED_TIMEOUT_S, test 411 with one of 3; a timeout of 1 second of an HTTP provider in test 403, and a program that ended while a child holds its output, ended 2 seconds later.
+// A call ends at reviewer.timeout without waiting for the kill grace or a second full timeout. Tests 406 to 408 run with a timeout of 1 second, the shared list and call with one of SHARED_TIMEOUT_S, test 411 with one of 3; a timeout of 1 second of an HTTP provider in test 403, and a program that ended while a child holds its output, ended 2 seconds later.
 export const PROGRAM_TIMEOUT_RUN_MS = 5_000;
 export const HTTP_TIMEOUT_RUN_MS = 10_000;
 export const HELD_OUTPUT_RUN_MS = 10_000;
-// spec/reviewer-slice.md, section 6: the resend after a 429 waits 2 seconds.
+// docs/providers.md: the resend after a 429 waits 2 seconds.
 export const RESEND_WAIT_MS = 2_000;
 // Test 411: the fake answers after 2.5 seconds of a timeout of 3, so the resend has 0.5 seconds left; the bound adds 1 second, twenty times the tens of milliseconds a request takes to be cut off, and stays well below the full 3 seconds a resend had before.
 export const RESEND_REPLY_DELAY_MS = 2_500;
@@ -63,7 +63,7 @@ export const LIST_DELAY_MS = 2_000;
 export const LATE_ANSWER_MS = 3_000;
 
 // Rule 7 of section 16 of the test design: a time budget is at least 20 times the measured time.
-// The runs of the limits tests, tests/limits: a run at a limit of spec/check-slice.md, section 10; a nightly run of the large inputs; a nightly run that waits for the 600 seconds the script rules of a run may take; and the two seconds a run has to answer a signal.
+// The runs of the limits tests, tests/limits: a run at a limit of the table in docs/config.md; a nightly run of the large inputs; a nightly run that waits for the 600 seconds the script rules of a run may take; and the two seconds a run has to answer a signal.
 export const LIMITS_RUN_MS = 120_000;
 export const LIMITS_LARGE_RUN_MS = 300_000;
 export const LIMITS_RULES_RUN_MS = 700_000;
@@ -173,13 +173,13 @@ export const SLOW_TESTS: Record<string, Slow> = {
   'tests/acceptance/plugin.test.ts > test 158: every runner starts the same Lawcheck with its own words': { fixed: 0, measured: { darwin: 9_922, linux: 7_839, win32: 19_425 } },
   // A run of the tool per case.
   'tests/acceptance/plugin.test.ts > test 160: edits that pass, and inputs the hook leaves alone': { fixed: 0, measured: { win32: 16_411 } },
-  // The hook deadlines of 25 and 145 seconds (spec/plugin-slice.md, section 4) and the SIGTERM 2 seconds into the third hook.
+  // The hook deadlines of 25 and 145 seconds (docs/plugin.md) and the SIGTERM 2 seconds into the third hook.
   'tests/deadlines/hook-deadlines.nightly.test.ts > test 163: the deadline, and a hook that is stopped, at the deadlines the plugin ships': { fixed: 172_000, measured: { darwin: 175_080, linux: 174_217, win32: 174_998 } },
-  // The session-start and prompt deadlines of 25 and 15 seconds (spec/plugin-slice.md, section 5).
+  // The session-start and prompt deadlines of 25 and 15 seconds (docs/plugin.md).
   'tests/deadlines/hook-deadlines.nightly.test.ts > R-86: the session-start and prompt hooks each end at their own deadline, at the deadlines the plugin ships': { fixed: 40_000, measured: { darwin: 40_734, linux: 40_201, win32: 41_022 } },
-  // The test deadlines of the edit and stop hooks, 3 and 4 seconds, and on Linux and macOS the SIGKILL 2 seconds after SIGTERM (spec/plugin-slice.md, section 5).
+  // The test deadlines of the edit and stop hooks, 3 and 4 seconds, and on Linux and macOS the SIGKILL 2 seconds after SIGTERM.
   'tests/acceptance/plugin.test.ts > test 163: the deadline, and a hook that is stopped': { fixed: 7_000, measured: { linux: 9_515, win32: 8_375 } },
-  // The test deadlines of the session-start and prompt hooks, 5 and 6 seconds (spec/plugin-slice.md, section 5).
+  // The test deadlines of the session-start and prompt hooks, 5 and 6 seconds.
   'tests/acceptance/plugin.test.ts > R-86: the session-start and prompt hooks each end at their own deadline': { fixed: 11_000, measured: { linux: 11_817, win32: 13_487 } },
   // Three waits of PAST_USER_SET_MS past the deadline of 1 second the variable would set (session-start and edit at once, prompt, stop).
   'tests/acceptance/plugin.test.ts > R-87: the hook a user runs keeps its shipped deadline for every event when the variable of the test entry is set': { fixed: 7_500, measured: { linux: 9_447, win32: 16_939 } },
@@ -187,7 +187,7 @@ export const SLOW_TESTS: Record<string, Slow> = {
   'tests/acceptance/plugin.test.ts > test 166 and 167: the hand-back, and the guard': { fixed: 0, measured: { darwin: 8_965, win32: 14_528 } },
   // A run of the tool per case.
   'tests/acceptance/plugin.test.ts > test 169: what counts as changed in the turn': { fixed: 0, measured: { darwin: 7_137, win32: 22_195 } },
-  // One 429, answered after 2 seconds (spec/reviewer-slice.md, section 6).
+  // One 429, answered after 2 seconds (docs/providers.md).
   'tests/acceptance/providers.test.ts > test 57: what the HTTP reviewer answers': { fixed: 2_000, measured: { darwin: 7_372, linux: 5_364, win32: 26_763 } },
   // A run of the tool per case.
   'tests/acceptance/providers.test.ts > test 60: at most reviewer.parallel requests are in flight': { fixed: 0, measured: { win32: 4_477 } },
@@ -199,7 +199,7 @@ export const SLOW_TESTS: Record<string, Slow> = {
   'tests/acceptance/providers.test.ts > test 65: anthropic': { fixed: 0, measured: { win32: 6_356 } },
   // A run of the tool per case.
   'tests/acceptance/providers.test.ts > test 66: claude-code': { fixed: 0, measured: { darwin: 5_715, win32: 10_952 } },
-  // reviewer.timeout of 1 second, then SIGKILL 5 seconds after the SIGTERM (spec/reviewer-slice.md, section 6).
+  // reviewer.timeout of 1 second, then SIGKILL 5 seconds after the SIGTERM.
   'tests/acceptance/providers.test.ts > test 67: claude-code past its timeout, and the tool killed': { fixed: 6_000, measured: { darwin: 10_541, linux: 7_770, win32: 18_254 } },
   // A run of the tool per case.
   'tests/acceptance/reviewer-law.test.ts > test 68: config-invalid': { fixed: 0, measured: { win32: 47_615 } },
@@ -209,13 +209,13 @@ export const SLOW_TESTS: Record<string, Slow> = {
   'tests/acceptance/reviewer-law.test.ts > test 70: what re-opens a verdict': { fixed: 0, measured: { win32: 13_666 } },
   // A run of the tool per case.
   'tests/acceptance/reviewer.test.ts > test 56: a bad answer is asked once more, then fails the run': { fixed: 0, measured: { darwin: 8_697, win32: 20_651 } },
-  // Two calls of RULE_CALL_MS under the test limit of 3 seconds (spec/check-slice.md, section 3).
+  // Two calls of RULE_CALL_MS under the test limit of 3 seconds.
   'tests/acceptance/rules.test.ts > R-85: each call of a rule has the whole limit, so two calls that are each inside it pass however long they take together': { fixed: 4_000, measured: { linux: 4_438, win32: 6_710 } },
   // A run of the tool per case.
   'tests/acceptance/rules.test.ts > test 21: each broken answer crashes the rule': { fixed: 0, measured: { win32: 7_512 } },
-  // The test limit of 3 seconds a rule may run, in place of 30 (spec/check-slice.md, section 3).
+  // The test limit of 3 seconds a rule may run, in place of 30.
   'tests/acceptance/rules.test.ts > test 24: a rule that hangs is stopped': { fixed: 3_000, measured: { win32: 5_717 } },
-  // The 30 seconds a rule may run (spec/check-slice.md, section 3).
+  // The 30 seconds a rule may run (docs/script-rules.md).
   'tests/deadlines/rule-limit.nightly.test.ts > test 24: a rule that hangs is stopped, at the limit the tool ships': { fixed: 30_000, measured: { darwin: 31_335, linux: 30_608, win32: 34_041 } },
   // 300 requests to the fake reviewer.
   'tests/acceptance/stability.test.ts > test 76: the measurement against the fake': { fixed: 0, measured: { darwin: 11_934, linux: 6_267, win32: 17_482 } },
@@ -229,7 +229,7 @@ export const SLOW_TESTS: Record<string, Slow> = {
   'tests/acceptance/try.test.ts > test 125: what stops a reviewer rule before the first call': { fixed: 0, measured: { win32: 6_932 } },
   // A run of the tool per case.
   'tests/acceptance/uses.test.ts > test 87: may_use values and reserved ids are law-invalid': { fixed: 0, measured: { win32: 8_493 } },
-  // A run of the tool per case, and one 429 answered after 2 seconds (spec/reviewer-slice.md, section 6).
+  // A run of the tool per case, and one 429 answered after 2 seconds (docs/providers.md).
   'tests/acceptance/http-providers.test.ts > test 403: what openai answers': { fixed: 2_000, measured: { linux: 5_508, darwin: 12_768, win32: 15_075 } },
   'tests/acceptance/http-providers.test.ts > test 403: what google answers': { fixed: 2_000, measured: { linux: 5_682, darwin: 13_523, win32: 12_891 } },
   'tests/acceptance/http-providers.test.ts > test 403: what ollama answers': { fixed: 2_000, measured: { linux: 6_514, darwin: 10_669, win32: 12_815 } },
@@ -243,7 +243,7 @@ export const SLOW_TESTS: Record<string, Slow> = {
   'tests/acceptance/program-providers.test.ts > test 408: copilot-cli': { fixed: 0, measured: { linux: 6_455, darwin: 12_112, win32: 86_831 } },
   // STABILITY_PROVIDER_RUNS runs of 30 calls through each fake, a process per call of a program.
   'tests/acceptance/stability.test.ts > test 410: the measurement through ollama, codex and copilot-cli': { fixed: 0, measured: { linux: 6_606, darwin: 26_998, win32: 52_639 } },
-  // A 429 after 2.5 seconds, then a dropped connection after 2.5 seconds and a resend held to the 0.5 seconds left of a timeout of 3 (spec/reviewer-slice.md, test 411).
+  // A 429 after 2.5 seconds, then a dropped connection after 2.5 seconds and a resend held to the 0.5 seconds left of a timeout of 3 (test 411).
   'tests/acceptance/http-providers.test.ts > test 411: the timeout bounds a request and its resend': { fixed: 5_500, measured: { linux: 5_769, darwin: 6_875, win32: 7_131 } },
   // Two leftovers, each looked for during LEFTOVER_GRACE_MS.
   // A run of the tool per case.
@@ -303,7 +303,7 @@ export const SLOW_TESTS: Record<string, Slow> = {
   'tests/environments/systems.test.ts > test 205: the packed tarball, installed globally without the network, starts from every shell of the system and checks the sample': { fixed: 0, measured: { darwin: 4_359, win32: 9_364 } },
   // A run of the tool per case.
   'tests/environments/refusal.test.ts > test 200: below git 2.34 every command but --version, --help and docs refuses in its first line, naming the version': { fixed: 0, measured: { darwin: 4_259 } },
-  // The nightly containers of spec/environments.md, section 7: image pulls and package installs over the network take the time, not the tool, so each budget is a bound for its cells on Linux, given as fixed time, and no multiple of a measurement.
+  // The nightly containers of the install and git matrices (tests/environments/matrix.ts): image pulls and package installs over the network take the time, not the tool, so each budget is a bound for its cells on Linux, given as fixed time, and no multiple of a measurement.
   'tests/environments/install.nightly.test.ts > test 206: the install matrix, each package manager on node:24 and node:24-alpine, passes or refuses as the spec says (network)': { fixed: 1_800_000, measured: { linux: 1_800_000 } },
   'tests/environments/install.nightly.test.ts > S8-2: on oven/bun, Bun with no Node, the installed Lawcheck refuses in its first line, and doctor agrees with check (network)': { fixed: 300_000, measured: { linux: 300_000 } },
   'tests/environments/install.nightly.test.ts > S8-3: on node:20 and node:22, npm installs Lawcheck with a warning, and every command refuses in its first line, naming the Node version (network)': { fixed: 600_000, measured: { linux: 600_000 } },
@@ -352,7 +352,7 @@ export const SLOW_TESTS: Record<string, Slow> = {
   'tests/acceptance/package.test.ts > release-readiness §Package: package: nothing the tarball or the plugin ships holds a test entry, names one or its variable, or changes the shipped limits and deadlines': { fixed: 0, measured: { win32: 8_163 } },
   'tests/acceptance/uses.test.ts > test 83: a forbidden use outside the change is debt': { fixed: 0, measured: { win32: 8_107 } },
   'tests/acceptance/rule-results.test.ts > S2-6: a rule that leaves an interval of ten minutes judges 200 files within the time of a rule that leaves nothing, plus one wait of 2 seconds': { fixed: 2_000, measured: { win32: 8_035 } },
-  // R-115, round 1: the longest time of each test that passed a fifth of TEST_BUDGET_MS with no entry for win32 on the Windows runners of CI: the three-times jobs of the Nightlies 43899819915 to 44255743291 and of the Nightly that release run 44027365971 called, every round included, and the Windows commit jobs of CI runs 43918757215 to 44254948562 and of release runs 44027365971, 44159029678 and 44174812849. In round 1 of Nightly 44255743291 a stall of the machine took test 402 from about 6 to 31.9 seconds, so a test of 4 to 8 seconds is as exposed as one past 8. Fixed waits: R-87 of the rules waits PAST_USER_SET_MS, test 58 a reviewer.timeout of 1 second, R-110 the edit hook's test deadline of 3 seconds and half a second more, R-114 a write 2 seconds after the runner has ended, test 270 a worker held 2 seconds, test 253 a lock held up to 3 seconds, and the four tests of tests/security/secrets.test.ts whose reply is first a 429 each wait the 2 seconds before the resend (spec/reviewer-slice.md, section 6).
+  // R-115, round 1: the longest time of each test that passed a fifth of TEST_BUDGET_MS with no entry for win32 on the Windows runners of CI: the three-times jobs of the Nightlies 43899819915 to 44255743291 and of the Nightly that release run 44027365971 called, every round included, and the Windows commit jobs of CI runs 43918757215 to 44254948562 and of release runs 44027365971, 44159029678 and 44174812849. In round 1 of Nightly 44255743291 a stall of the machine took test 402 from about 6 to 31.9 seconds, so a test of 4 to 8 seconds is as exposed as one past 8. Fixed waits: R-87 of the rules waits PAST_USER_SET_MS, test 58 a reviewer.timeout of 1 second, R-110 the edit hook's test deadline of 3 seconds and half a second more, R-114 a write 2 seconds after the runner has ended, test 270 a worker held 2 seconds, test 253 a lock held up to 3 seconds, and the four tests of tests/security/secrets.test.ts whose reply is first a 429 each wait the 2 seconds before the resend (docs/providers.md).
   'tests/acceptance/http-providers.test.ts > test 402: ollama': { fixed: 0, measured: { win32: 31_906 } },
   'tests/acceptance/init.test.ts > test 99: JSON, usage, and already-initialized as a reserved rule id': { fixed: 0, measured: { win32: 19_941 } },
   'tests/acceptance/languages.test.ts > test 88: debt, every finding and unresolved use of L outside the change': { fixed: 0, measured: { win32: 18_315 } },
@@ -593,7 +593,7 @@ export const SLOWEST_SHOWN = 10;
 // The share of a property's cases that must hold each class of input its generator claims to reach.
 export const REACH_SHARE = 0.1;
 
-// The live run of the attack files (spec/reviewer-slice.md, invariant I-frame-1): each attack file and its twin go through the real reviewer this many times, and the run holds when this share of pairs agrees and this share of verdicts is fail.
+// The live run of the attack files (promise I-frame-1 of design/promises.md): each attack file and its twin go through the real reviewer this many times, and the run holds when this share of pairs agrees and this share of verdicts is fail.
 export const LIVE_TIMES = 5;
 export const LIVE_SAME_SHARE = 1;
 export const LIVE_FAIL_SHARE = 1;
@@ -609,7 +609,7 @@ export const PATTERN_RUN_BUDGET_MS = 8_000;
 export const ANSWER_BUDGET_MS = 1_000;
 // parseLaw on the generator's deepest text, 20,000 levels of brackets; measured at 57 ms in the dev container.
 export const LAW_PARSE_BUDGET_MS = 1_500;
-// What a rule that leaves an interval running may add to a run of 200 files: the one wait of 2 seconds after its last call (spec/check-slice.md, section 3), and 2 seconds for the noise of two runs.
+// What a rule that leaves an interval running may add to a run of 200 files: the one wait of 2 seconds after its last call (docs/script-rules.md), and 2 seconds for the noise of two runs.
 export const LEFT_RUNNING_EXTRA_MS = 4_000;
 // What starting the runners of a rule that leaves nothing adds to a run of one file: measured at 16 ms in the dev container; a runner that waited its full 2 seconds after the last call would pass it.
 export const NOTHING_LEFT_EXTRA_MS = 1_000;

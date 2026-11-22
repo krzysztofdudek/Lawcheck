@@ -33,7 +33,7 @@ export function sparse(repo: string, path: string, head: string, size: number): 
   }
 }
 
-// A head of 8,000 bytes without a NUL makes the file text under section 2 of spec/check-slice.md, whatever follows.
+// A head of 8,000 bytes without a NUL makes the file text, whatever follows.
 export function textHead(firstLine: string): string {
   const line = 'export const a = 1;\n';
   let head = firstLine;

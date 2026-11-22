@@ -44,7 +44,7 @@ const control = (b: Buffer) => b.some((x) => x < 0x20 || x === 0x7f);
 const LEADS = /[\xc0\xc1\xf5-\xff]|\xe0[\x80-\x9f]|\xed[\xa0-\xbf]|\xf0[\x80-\x8f]|\xf4[\x90-\xbf]|[\xc2-\xf4](?![\x80-\xbf])/;
 const multiByte = (b: Buffer) => LEADS.test(b.toString('latin1'));
 
-// The grammar of spec/check-slice.md, section 2, read the slow way and apart from the tool: at each byte, the shortest run of one to four bytes that a strict decoder reads as one character is that character; a byte that starts none is \xHH.
+// The names of decision 80 of design/decisions.md, read the slow way and apart from the tool: at each byte, the shortest run of one to four bytes that a strict decoder reads as one character is that character; a byte that starts none is \xHH.
 function referenceName(b: Buffer): string {
   let out = '';
   for (let at = 0; at < b.length; ) {

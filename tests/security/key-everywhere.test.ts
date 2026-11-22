@@ -20,7 +20,7 @@ function files(dir: string, out: string[] = []): string[] {
   return out;
 }
 
-// The owner's ruling of question 89 (spec/questions.md): the key appears nowhere Lawcheck prints or writes, not even its first characters cut off at a limit.
+// The owner's ruling, decision 89 of design/decisions.md: the key appears nowhere Lawcheck prints or writes, not even its first characters cut off at a limit.
 function assertHidden(runs: Run[], root: string, planted: string[] = [], keys: string[] = [KEY, OTHER]): void {
   for (const run of runs) {
     for (const key of keys) {
@@ -58,7 +58,7 @@ test('S3-2: a judged file named with the key shows [key] in check and explain, a
     assertHidden(runs, s);
     assert.ok(runs[0]!.stdout.includes('src/core/[key].ts:1  error[no-console]'), runs[0]!.stdout);
     assert.ok(runs[3]!.stdout.includes("the base '[key]'"), runs[3]!.stdout);
-    // With no provider configured, ANTHROPIC_API_KEY is the key of none Lawcheck would call, so it stays as it came (spec/reviewer-slice.md, section 6).
+    // With no provider configured, ANTHROPIC_API_KEY is the key of none Lawcheck would call, so it stays as it came.
     const other = await lawcheck(s, ['check', '--base', OTHER, '--json'], ENV);
     assert.ok(JSON.parse(other.stdout).errors.some((e: { message: string }) => e.message.includes(`'${OTHER}'`)), other.stdout);
   });

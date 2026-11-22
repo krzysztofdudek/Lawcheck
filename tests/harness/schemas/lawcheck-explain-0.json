@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "lawcheck-explain/0, from docs/json.md and spec/commands-slice.md, section 6",
+  "title": "lawcheck-explain/0, from docs/json.md",
   "type": "object",
   "required": ["schema", "subject"],
   "properties": {

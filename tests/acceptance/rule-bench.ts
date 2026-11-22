@@ -26,7 +26,7 @@ export async function withRules(rules: Record<string, string>, body: (s: string)
   });
 }
 
-// Test 24 of spec/check-slice.md: a rule that never answers, in check and at the top level of its module, crashes once its time passes. With a limit given, the tool runs with it in place of the shipped one. The rule says it hangs once its limit already runs, so the tool's end is timed from there too.
+// Test 24: a rule that never answers, in check and at the top level of its module, crashes once its time passes. With a limit given, the tool runs with it in place of the shipped one. The rule says it hangs once its limit already runs, so the tool's end is timed from there too.
 export async function hangScenario(limitMs: number | null): Promise<void> {
   const ms = limitMs ?? LIMITS.ruleMs;
   const cases: [string, string, string][] = [

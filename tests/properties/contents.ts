@@ -9,7 +9,7 @@ import { PURE_CALL_BUDGET_MS } from '../numbers.ts';
 import { pure, tool, within } from './support.ts';
 import type { Speed } from './support.ts';
 
-// The lines of spec/check-slice.md, section 3, read the slow way: split at \n, a \r before it taken off, and a final line end adding no line.
+// The lines a script rule gets (docs/script-rules.md), read the slow way: split at \n, a \r before it taken off, and a final line end adding no line.
 function lines(text: string): string[] {
   if (text === '') return [];
   const out: string[] = [];

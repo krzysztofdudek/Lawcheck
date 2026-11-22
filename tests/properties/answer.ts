@@ -5,7 +5,7 @@ import { PURE_CALL_BUDGET_MS } from '../numbers.ts';
 import { pure, within } from './support.ts';
 import type { Speed } from './support.ts';
 
-// The reading of spec/reviewer-slice.md, section 4, written the slow way: every start, scanned to its matching brace, parsed whole.
+// The last reading of an answer that docs/reviewer-rules.md names, written the slow way: every start, scanned to its matching brace, parsed whole.
 function reference(answer: string): Record<string, unknown> | null {
   const parsed = (text: string) => {
     try {

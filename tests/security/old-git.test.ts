@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { git, inTemp, lawcheck, makeSample } from '../acceptance/helpers.ts';
 import { platformSkip } from '../harness/tool.ts';
 
-// git 2.34, the oldest Lawcheck promises (spec/environments.md), dies in ls-files when --recurse-submodules comes with any of these; a stand-in refuses the same and hands every other call to the real git.
+// git 2.34, the oldest Lawcheck supports (docs/support.md), dies in ls-files when --recurse-submodules comes with any of these; a stand-in refuses the same and hands every other call to the real git.
 const REFUSED_WITH_RECURSE = ['-s', '--stage', '-o', '--others', '-d', '--deleted', '-u', '--unmerged', '-k', '--killed', '-m', '--modified', '--resolve-undo', '--with-tree'];
 
 function oldGit(dir: string): string {

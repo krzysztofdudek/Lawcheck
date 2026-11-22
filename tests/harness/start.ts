@@ -129,7 +129,7 @@ function prefixOf(dir: string, top: string): string {
   return rel === '' ? '' : `${rel}/`;
 }
 
-// The files and folders each command writes by contract: init, spec/commands-slice.md, section 3; check --review, spec/reviewer-slice.md, section 5.
+// The files and folders each command writes by contract: init, docs/files.md; check --review, the verdicts of docs/reviewer-rules.md.
 function contractWrites(start: Start, top: string): (string | RegExp)[] {
   if (start.kind !== 'cli') return [];
   const cwd = real(start.cwd);
@@ -145,7 +145,7 @@ function contractWrites(start: Start, top: string): (string | RegExp)[] {
   return [];
 }
 
-// spec/reviewer-slice.md, section 6: before its calls the tool writes one line to standard error with the number of calls and the provider; spec/questions.md, question 18, fixes its words.
+// Decision 18 of design/decisions.md: before its calls the tool writes one line to standard error with the number of calls and the provider, in fixed words.
 const CALLS_LINE = /^(lawcheck: \d+ reviewer calls? to (anthropic|openai|google|openai-compatible|ollama|claude-code|codex|gemini-cli|copilot-cli)\n)?$/;
 
 function contractStderr(start: Start): RegExp | null {
@@ -411,11 +411,11 @@ function launch(start: Start, expect: Expect): Running {
       }
       if (overran) problems.push(['harness-6', `the run did not end within its budget of ${budget} ms`]);
       const caught = sent !== null && CATCHABLE.includes(sent) && !harnessSkip('a signal the test sent ends the run as the spec says');
-      if (signal !== null && !overran && !(sent === 'SIGKILL' && signal === 'SIGKILL') && !(sent !== null && signal === sent && !caught)) problems.push(['harness-1', `the run died by ${signal}${caught ? `; spec/check-slice.md, section 3, and spec/questions.md, question 56, say a caught ${sent} ends with an exit code` : ''}`]);
+      if (signal !== null && !overran && !(sent === 'SIGKILL' && signal === 'SIGKILL') && !(sent !== null && signal === sent && !caught)) problems.push(['harness-1', `the run died by ${signal}${caught ? `; a caught ${sent} ends the run with an exit code` : ''}`]);
       if (code !== null && ![0, 1, 2].includes(code)) problems.push(['harness-1', `exit code ${code}`]);
       if (caught && signal === null) {
-        if (start.kind === 'cli' && code !== 2) problems.push(['harness-1', `after ${sent} the tool exited with ${code}; spec/check-slice.md, section 3, says a caught signal ends it as internal, exit 2`]);
-        if (start.kind === 'hook' && (code !== 0 || stdout !== '')) problems.push(['harness-1', `after ${sent} the hook exited with ${code} and printed ${JSON.stringify(stdout.slice(0, 100))}; spec/questions.md, question 56, says it exits 0 with nothing printed`]);
+        if (start.kind === 'cli' && code !== 2) problems.push(['harness-1', `after ${sent} the tool exited with ${code}; a caught signal ends the tool as internal, exit 2`]);
+        if (start.kind === 'hook' && (code !== 0 || stdout !== '')) problems.push(['harness-1', `after ${sent} the hook exited with ${code} and printed ${JSON.stringify(stdout.slice(0, 100))}; decision 56 of design/decisions.md says it exits 0 with nothing printed`]);
       }
       let document: unknown;
       if (start.kind === 'cli' && start.args.includes('--json') && !overran && signal === null && !caught) {

@@ -194,7 +194,7 @@ function hangBench(bench: Bench, dir: string) {
   return { pids, gone, within };
 }
 
-// Section 5 of spec/plugin-slice.md: the session-start hook, whose lawcheck prime never answers, and the prompt hook, whose git never answers, each end at its own deadline. With deadlines given, the hooks run with them in place of the shipped ones.
+// docs/plugin.md: the session-start hook, whose lawcheck prime never answers, and the prompt hook, whose git never answers, each end at its own deadline. With deadlines given, the hooks run with them in place of the shipped ones.
 export async function startAndPromptScenario(deadlines: Deadlines | null): Promise<void> {
   const start = deadlines?.['session-start'] ?? DEADLINES['session-start'];
   const prompt = deadlines?.prompt ?? DEADLINES.prompt;
@@ -219,7 +219,7 @@ export async function startAndPromptScenario(deadlines: Deadlines | null): Promi
   });
 }
 
-// Test 163 of spec/plugin-slice.md: a stand-in lawcheck that never answers, run by the edit hook and by the stop hook to their deadlines, then by an edit hook stopped by SIGTERM. The edit hook's stand-in and its child stay alive on SIGTERM, so it ends only by the SIGKILL that follows. With deadlines given, the first two hooks run with them in place of the shipped ones; the third is the shipped hook, stopped once the stand-in has started, or after a fixed time.
+// Test 163: a stand-in lawcheck that never answers, run by the edit hook and by the stop hook to their deadlines, then by an edit hook stopped by SIGTERM. The edit hook's stand-in and its child stay alive on SIGTERM, so it ends only by the SIGKILL that follows. With deadlines given, the first two hooks run with them in place of the shipped ones; the third is the shipped hook, stopped once the stand-in has started, or after a fixed time.
 export async function deadlineScenario(deadlines: Deadlines | null, sigterm: 'started' | 'after 2 seconds'): Promise<void> {
   const edit = deadlines?.edit ?? DEADLINES.edit;
   const stop = deadlines?.stop ?? DEADLINES.stop;

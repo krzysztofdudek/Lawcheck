@@ -10,7 +10,7 @@ const where = (program: string) =>
   WINDOWS ? execFileSync('where.exe', [program], { encoding: 'utf8' }).split(/\r?\n/)[0]!.trim() : execFileSync('sh', ['-c', `command -v ${program}`], { encoding: 'utf8' }).trim();
 const GIT_DIR = dirname(where('git'));
 
-// spec/plugin-slice.md, section 8: the headers, and the output of check <paths> for D in S.
+// The headers, and the output of check <paths> for D in S.
 const D_OUTPUT = [
   'lawcheck: FAIL  1 error, 1 warning in 1 named file, 1 waiver',
   '',

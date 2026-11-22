@@ -36,7 +36,7 @@ export class Broken extends Error {
   }
 }
 
-// spec/check-slice.md, section 6, invariant I-out-1: the control characters but the line feed, the two separators, and every format character (category Cf) but the joiners U+200C and U+200D.
+// Promise I-out-1 of design/promises.md and the escapes of docs/codes.md: the control characters but the line feed, the two separators, and every format character (category Cf) but the joiners U+200C and U+200D.
 const FORBIDDEN = /[\u0000-\u0009\u000b-\u001f\u007f-\u009f\u2028\u2029]|(?![\u200c\u200d])\p{Cf}/u;
 // What a JSON document may hold only as a \u escape: the same set less the control characters, which JSON.stringify already escapes.
 const RAW_IN_JSON = /[\u007f-\u009f\u2028\u2029]|(?![\u200c\u200d])\p{Cf}/gu;
@@ -120,7 +120,7 @@ function differ(pairs: [string, number, number][]): string | null {
   return wrong.length === 0 ? null : wrong.join('; ');
 }
 
-// spec/check-slice.md, section 6, and docs/json.md say what each count counts.
+// docs/json.md says what each count counts.
 const COUNTS: Record<string, (document: any) => string | null> = {
   'lawcheck-check/0': (d) =>
     differ([
@@ -165,7 +165,7 @@ export function jsonProblem(stdout: string, code: number | null): { problem: str
   if (!exits.includes(code ?? -1)) return { problem: `${schema} with exit ${code}; the document means exit ${exits.join(' or ')}`, document };
   const units = (c: string) => [...Array(c.length).keys()].map((i) => `\\u${c.charCodeAt(i).toString(16).padStart(4, '0')}`).join('');
   if (stdout !== JSON.stringify(document, null, 2).replace(RAW_IN_JSON, units) + '\n') {
-    return { problem: 'standard output is not exactly JSON.stringify(document, null, 2) with the characters of I-out-1 as \\u escapes, and a line end, as docs/json.md and spec/check-slice.md, section 6, say', document };
+    return { problem: 'standard output is not exactly JSON.stringify(document, null, 2) with the characters of I-out-1 as \\u escapes, and a line end, as docs/json.md and docs/codes.md say', document };
   }
   return { problem: null, document };
 }

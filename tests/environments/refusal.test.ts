@@ -16,7 +16,7 @@ function posing(name: string, value: string): string[] {
 
 const WHY = 'Lawcheck answers only where its rules and readers are known to run';
 
-// The refusal as spec/environments.md, section 3, gives it: the message as the first line, the error line, its why, the next line.
+// The refusal as docs/support.md gives it: the message as the first line, the error line, its why, the next line.
 function refusal(message: string, next: string, command: string): string {
   const again = command === 'check' ? 'then run lawcheck check' : `then run lawcheck ${command} again`;
   return ['lawcheck: ERROR  ' + message, '', `error[unsupported-environment]  ${message}`, `  why:  ${WHY}`, '', `next: ${next.replace('then run lawcheck check', again)}`, ''].join('\n');
@@ -177,7 +177,7 @@ test("R-30: S8-1, control, a Lawcheck in a folder whose name ends in .zip, with 
   });
 });
 
-// spec/environments.md, section 3: Node 24.0 and 24.1 under --permission refuse to read the entry file itself, so Node's own error is all the user sees there.
+// docs/support.md: Node 24.0 and 24.1 under --permission refuse to read the entry file itself, so Node's own error is all the user sees there.
 const ENTRY_UNREADABLE = (() => {
   const [major, minor] = process.versions.node.split('.').map(Number);
   return major === 24 && minor! < 2;

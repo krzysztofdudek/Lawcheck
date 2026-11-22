@@ -1,5 +1,5 @@
 #!/bin/sh
-# One cell of the git matrix (spec/environments.md, test 207), run as root in a clean official image with /cell mounted read-only: /cell/node (the Node 24 that starts it), /cell/repo (a checkout with dist and node_modules) and this script.
+# One cell of the git matrix (test 207), run as root in a clean official image with /cell mounted read-only: /cell/node (the Node 24 that starts it), /cell/repo (a checkout with dist and node_modules) and this script.
 # Usage: git-cell.sh <test file>...
 set -u
 say() { printf 'cell: %s\n' "$*"; }

@@ -10,7 +10,7 @@ import { SEED } from '../numbers.ts';
 import { testFolder } from '../harness/tool.ts';
 import { errorLines, MiB, run } from './support.ts';
 
-// These run nightly, on Linux, in a container of 1 GB of memory and 2 CPUs; spec/check-slice.md, section 10, holds the numbers.
+// These run nightly, on Linux, in a container of 1 GB of memory and 2 CPUs; the table of limits in docs/config.md holds the numbers.
 
 function random(seed: number): () => number {
   let state = seed >>> 0;

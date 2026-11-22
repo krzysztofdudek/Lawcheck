@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "lawcheck-prime/0, from docs/json.md and spec/commands-slice.md, section 4",
+  "title": "lawcheck-prime/0, from docs/json.md",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema", "text", "step", "characters"],

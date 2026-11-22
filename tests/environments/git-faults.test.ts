@@ -12,7 +12,7 @@ function nextLine(stdout: string): string {
 // git's own switch makes it treat every repository as owned by another user, the case a CI container meets; the nightly ownership test meets it with a real other user.
 const OTHER_OWNER = { GIT_TEST_ASSUME_DIFFERENT_OWNER: '1' };
 
-// spec/check-slice.md, section 6: the path in single quotes for a POSIX shell when it holds a character outside letters, digits and @%+=:,./\\-.
+// A next line writes the path in single quotes for a POSIX shell when it holds a character outside letters, digits and @%+=:,./\\-.
 function shellQuoted(path: string): string {
   return /^[\w@%+=:,./\\-]+$/.test(path) ? path : `'${path.replace(/'/g, `'\\''`)}'`;
 }

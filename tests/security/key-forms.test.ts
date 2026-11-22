@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { openai, withFake, writeFakeClaude } from '../acceptance/fake-reviewer.ts';
 import { F, F_PATH, lawcheck, pathWith, withR, write } from '../acceptance/helpers.ts';
 
-// The owner's ruling of question 89 (spec/questions.md): every spelling of the one exact key in a reply's text is written as [key], and the reply is read as it came.
+// The owner's ruling, decision 89 of design/decisions.md: every spelling of the one exact key in a reply's text is written as [key], and the reply is read as it came.
 function masked(text: string, key: string): string {
   return text.split(key).join('[key]');
 }

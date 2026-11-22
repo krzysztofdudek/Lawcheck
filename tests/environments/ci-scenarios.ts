@@ -185,7 +185,7 @@ function prScenarios(cell: Cell): Outcome[] {
             'next: fetch the history: git fetch --unshallow origin +refs/heads/main:refs/remotes/origin/main (fetch-depth: 0 in actions/checkout, GIT_DEPTH: 0 in GitLab CI, fetchDepth: 0 in Azure Pipelines), then run lawcheck check',
             '',
           ].join('\n'),
-          'the message the page and spec/check-slice.md give for a shallow clone',
+          'the message docs/ci.md gives for a shallow clone',
           problems,
         );
         same(result.stderr, '', 'the standard error', problems);

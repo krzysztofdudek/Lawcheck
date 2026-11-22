@@ -1,5 +1,5 @@
 #!/bin/sh
-# One cell of the install matrix (spec/environments.md, test 206), run as root in a clean official image with /cell mounted read-only: /cell/lawcheck.tgz, /cell/sample and this script.
+# One cell of the install matrix (test 206), run as root in a clean official image with /cell mounted read-only: /cell/lawcheck.tgz, /cell/sample and this script.
 # Usage: install-cell.sh <npm|pnpm|yarn1|yarn4|yarn4-pnpm|yarn4-pnp|bun> <pass|refuse> [<node|bun|pnp: the refusal it expects>]
 set -u
 CELL=$1
@@ -89,7 +89,7 @@ if [ "$EXPECT" = pass ]; then
   if [ $try_code -eq 1 ] && printf '%s\n' "$try" | grep -q '^src/core/one.ts:1  error\[no-console\]  writes to the terminal with console.log$'; then ok "try finds it"; else bad "try exit $try_code: $try"; fi
   if [ $parsed_code -eq 0 ] && [ "$parsed" = "lawcheck-check/0 fail no-console" ]; then ok "check --json through $json parses"; else bad "check --json through $json: $parsed; the output was: $document"; fi
   if [ "$CELL" = npm ]; then
-    # spec/environments.md, section 3, a limit: Node with --permission dies resolving the link a package manager installs, before Lawcheck's entry runs.
+    # A limit docs/support.md states: Node with --permission dies resolving the link a package manager installs, before Lawcheck's entry runs.
     quiet npm install --global --no-audit --no-fund /cell/lawcheck.tgz || couldnot "npm install --global"
     out=$(NODE_OPTIONS=--permission lawcheck --version 2> /tmp/cell-permission.log); code=$?
     if [ $code -eq 1 ] && [ -z "$out" ] && grep -q '^Error \[ERR_ACCESS_DENIED\]: Access to this API has been restricted' /tmp/cell-permission.log && grep -q "resource: '.*/lawcheck/dist/bin.cjs'" /tmp/cell-permission.log; then ok "the installed link under --permission ends in Node's ERR_ACCESS_DENIED, exit 1, as the spec states"; else bad "the installed link under --permission: exit $code, $out $(cat /tmp/cell-permission.log)"; fi

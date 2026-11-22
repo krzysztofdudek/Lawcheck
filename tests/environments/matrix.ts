@@ -12,7 +12,7 @@ export interface Cell {
   cause?: string;
 }
 
-// spec/environments.md, section 7: which cells pass and which are refused, and which refusal of section 3 each gives.
+// Which cells pass and which are refused, and which refusal of docs/support.md each gives (decision 73 of design/decisions.md).
 export const INSTALL_CELLS: Cell[] = [
   ...['node:24', 'node:24-alpine'].flatMap((image): Cell[] => [
     { image, manager: 'npm', expect: 'pass' },
@@ -79,7 +79,7 @@ export function gitMatrixFiles(): string[] {
   return [...checkSliceFiles(), ...securityFiles()];
 }
 
-// The test files whose names carry a row of spec/check-slice.md, section 8.
+// The test files whose names carry an acceptance test number from 1 to 45, the tests of check.
 export function checkSliceFiles(): string[] {
   const dir = join(ROOT, 'tests', 'acceptance');
   return readdirSync(dir)

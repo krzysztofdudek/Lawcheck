@@ -147,7 +147,7 @@ test('harness-2: every forbidden code point fails the output, and its allowed ne
     for (let c = first; c <= last; c++) assert.match(outputProblem(`lawcheck: PASS\na${String.fromCodePoint(c)}b\n`) ?? '', new RegExp(hex(c).replace('+', '\\+')), hex(c));
   }
   for (const c of ALLOWED) assert.equal(outputProblem(`lawcheck: PASS\na${String.fromCodePoint(c)}b\n`), null, hex(c));
-  // spec/check-slice.md, section 6: every format character (Unicode category Cf) but the two joiners.
+  // The escapes of docs/codes.md: every format character (Unicode category Cf) but the two joiners.
   for (let c = 0; c <= 0xffff; c++) {
     if (c >= 0xd800 && c <= 0xdfff) continue;
     const char = String.fromCodePoint(c);

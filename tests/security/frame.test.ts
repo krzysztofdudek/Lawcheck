@@ -20,7 +20,7 @@ const ERRORS = readFileSync(new URL('docs/errors.md', R), 'utf8');
 const BREAK = /\r\n|[\n\r\v\f\x1c-\x1e\x85\u2028\u2029]/;
 const SEPARATORS = ['\r', '\v', '\f', '\x1c', '\x1d', '\x1e', '\x85', '\u2028', '\u2029'];
 
-// spec/reviewer-slice.md, section 4: inside a numbered line these characters are written as escapes.
+// Inside a numbered line of the reviewer's frame these characters are written as escapes.
 const ESCAPES: Record<string, string> = {
   '\r': '\\r',
   '\v': '\\v',
