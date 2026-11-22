@@ -38,4 +38,4 @@ That agent then checks only when it follows the primer: nothing checks a file af
 
 ## More
 
-`lawcheck docs` prints the pages of [docs/](docs): the law file, script and reviewer rules, waivers, codes, JSON, settings, providers and CI. [CONTRIBUTING.md](CONTRIBUTING.md) says how to report a bug and how to build and test Lawcheck. [SECURITY.md](SECURITY.md) says how to report a vulnerability privately.
+`lawcheck docs` prints the pages of [docs/](docs), from the first law to the CI job. [The contributing guide](CONTRIBUTING.md) says how to report a bug and how to build and test Lawcheck. [The security policy](SECURITY.md) says how to report a vulnerability privately.
