@@ -27,6 +27,19 @@ export const claims: Claims = Object.fromEntries([
   ...ALONE.map((flag) => [key(flag, 1), SCENARIO]),
 ]);
 
+// The repository the runs of the page come from; docs/json.md shows a run in it too.
+export function exampleRepository(dir: string, law: string): string {
+  const repo = newRepository(dir, {
+    '.lawcheck/law.yaml': law + '\n',
+    '.lawcheck/rules/no-console.mjs': NO_CONSOLE,
+    'src/core/price.ts': 'export const price = 1;\n',
+    'src/cli/main.ts': "console.log('hello');\n",
+  });
+  git(repo, 'checkout', '-q', '-b', 'work');
+  write(repo, 'src/core/report.ts', "export function report() {\n  console.log('total');\n}\n");
+  return repo;
+}
+
 function argvOf(block: string): string[] {
   assert.match(block, /^\$ lawcheck [^\n]+$/, block);
   return block.slice('$ lawcheck '.length).split(' ');
@@ -40,14 +53,7 @@ export async function scenario(page: Page): Promise<void> {
       assert.ok(help.stdout.startsWith(`${page.text(key(command, 1))}\n\n`), `the usage of ${command} is the start of its --help\n${help.stdout}`);
     }
     const fresh = newRepository(join(dir, 'fresh'));
-    const repo = newRepository(join(dir, 'example'), {
-      '.lawcheck/law.yaml': page.text(LAW) + '\n',
-      '.lawcheck/rules/no-console.mjs': NO_CONSOLE,
-      'src/core/price.ts': 'export const price = 1;\n',
-      'src/cli/main.ts': "console.log('hello');\n",
-    });
-    git(repo, 'checkout', '-q', '-b', 'work');
-    write(repo, 'src/core/report.ts', "export function report() {\n  console.log('total');\n}\n");
+    const repo = exampleRepository(join(dir, 'example'), page.text(LAW));
     for (const [heading, at, code] of RUNS) {
       const argv = argvOf(page.text(key(heading, at)));
       const shown = page.text(key(heading, at + 1)) + '\n';
