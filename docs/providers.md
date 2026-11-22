@@ -30,7 +30,7 @@ This provider calls a server that answers the chat completions API of OpenAI. La
 
 ## ollama
 
-Lawcheck sends `POST <address>/api/chat` with no API key. The default `<address>` of `ollama` is http://localhost:11434. The request sets three fields:
+Lawcheck sends `POST <address>/api/chat` with no API key. The default `<address>` of `ollama` is `http://localhost:11434`. The request sets three fields:
 
 - `stream: false`;
 - `format: json`;
