@@ -1,17 +1,25 @@
 # The Claude Code plugin
 
-The Claude Code plugin gives the agent the [law](concepts.md#law) at the start of every session. It checks each file that the agent edits. A turn is the agent's work on one prompt of the user. If the files of a turn break the law when the agent ends it, the plugin sends the agent back to work. Install the plugin with:
+The Claude Code plugin gives the agent the [law](concepts.md#law) at the start of every session. It checks each file that the agent edits. A turn is the agent's work on one prompt of the user. If the files of a turn break the law when the agent finishes, the plugin sends the agent back to work. Install the plugin with:
 
 ```text
 claude plugin marketplace add krzysztofdudek/Lawcheck
 claude plugin install lawcheck@lawcheck-marketplace
 ```
 
-The plugin ships without Lawcheck itself. It starts Lawcheck with the command that the `runner` setting of `.lawcheck/config.yaml` names ([Settings](config.md)). Install Lawcheck where that command finds it. The plugin runs on Linux, macOS and Windows, with `node` and `git` on the `PATH`.
+The plugin does not hold Lawcheck. It starts Lawcheck with the command that the `runner` setting of `.lawcheck/config.yaml` names ([Settings](config.md#runner)). Install Lawcheck where that command finds it. For the default `global`, that install is `npm i -g lawcheck@alpha`.
 
-A hook is a command that Claude Code runs at an event. After each edit and before the agent finishes, the plugin's hooks run Lawcheck on your machine. Lawcheck then runs the script rules, which are JavaScript modules that the repository holds in `.lawcheck/rules/`. A script rule may read the files below the folder that holds `.lawcheck/`. On Node 24, it can open a network connection as well. Node 25 and later refuse the connection ([Script rules](script-rules.md)). With a `runner` setting other than `global`, the package manager picks Lawcheck itself from the repository's own files ([Settings](config.md#runner)). Use the plugin only in a repository whose code you trust.
+The plugin runs on Linux, macOS and Windows. It needs `node` and `git` on the `PATH`.
 
-Lawcheck has no plugin for another coding agent. For such an agent, you write in its instructions file that it runs `lawcheck prime` at the start and `lawcheck check` after a change ([Other coding agents](other-agents.md)).
+A hook is a command that Claude Code runs at an event. The plugin's hooks run Lawcheck on your machine at the start of a session, after each edit and before the agent finishes ([The four hooks](#the-four-hooks)).
+
+The hooks run code of the repository on your machine. That code is the repository's [script rules](concepts.md#script-rule), and with some `runner` settings a program that the repository names. Use the plugin only in a repository whose code you would run yourself.
+
+A script rule is a JavaScript module that the repository holds in `.lawcheck/rules/`. Lawcheck runs the script rules on each check, after an edit and before the agent finishes. A script rule may read the files below the folder that holds `.lawcheck/`. On Node 24, a script rule can open a network connection. Node 25 and later refuse that connection ([Script rules](script-rules.md)).
+
+With a `runner` setting other than `global`, the package manager starts Lawcheck from the repository's own files ([Settings](config.md#runner)). These files can name a program of the repository, such as `yarnPath` in `.yarnrc.yml` or a committed `node_modules/.bin/lawcheck`. The hook then runs the program that those files name.
+
+Lawcheck has no plugin for another coding agent. For such an agent, write in its instructions file that it runs `lawcheck prime` at the start of a session and `lawcheck check` after each change ([Other coding agents](other-agents.md)).
 
 ## The four hooks
 
@@ -26,15 +34,15 @@ Claude Code names each hook by its event. Each hook runs `node` on the plugin's 
 
 A hook's git calls and its Lawcheck run share one deadline. After the deadline, the hook stops Lawcheck and every child process that Lawcheck started. The deadline ends five seconds before the time Claude Code gives the hook. The hook uses those five seconds to end.
 
-The root is the nearest folder that holds `.lawcheck/law.yaml`: the folder where a hook starts its search, or a folder above it. After an edit, the hook starts the search from the folder of the edited file. That way, a file you edit in another repository gets the law and the `runner` setting of that repository. The other hooks search from the folder where the session runs.
+Each hook looks for `.lawcheck/law.yaml` in the folder where it starts, then in each folder above it. The first folder that holds the file is the root of the law. After an edit, the hook starts from the folder of the edited file. A file you edit in another repository therefore gets the law and the `runner` setting of that repository. The other hooks start from the folder where the session runs.
 
 ## SessionStart
 
-The hook starts `lawcheck prime` with the command of the `runner` setting. It gives the agent the output.
+The hook starts `lawcheck prime` with the command of the `runner` setting. The agent gets what `prime` prints.
 
 Without a law, the agent gets two lines. The first says that the plugin is on and the folder has no law. The second tells the agent to start a law with `lawcheck init` only when the user asks for it.
 
-The `runner` setting can hold a value other than its five. Then the hook tells the agent to read `.lawcheck/law.yaml` and to tell the user that the setting is wrong.
+When the `runner` setting holds a value outside the five of [Settings](config.md#runner), the hook tells the agent to read `.lawcheck/law.yaml` and to tell the user that the setting is wrong.
 
 If `prime` does not run, the hook gives the agent three things:
 
@@ -44,9 +52,11 @@ If `prime` does not run, the hook gives the agent three things:
 
 ## UserPromptSubmit
 
-The hook writes a note of `HEAD`, the files that differ from it and the untracked files. The `Stop` hook reads this note to learn what the turn changed. This hook says nothing to the agent.
+The hook writes a note that records `HEAD`, the files that differ from it and the untracked files. The `Stop` hook reads this note to find the files that the turn changed. The agent gets nothing from this hook.
 
-A turn can stop before its end, because the user stopped it or an error ended it. The note of that turn then stays. The next `Stop` hook checks the files of both turns together. With the setting `check_before_stop` off, this hook writes no note.
+The user can stop a turn, or an error can end it, before the `Stop` hook runs. The note of that turn then stays in place. The next `Stop` hook checks the files of both turns together.
+
+With the setting `check_before_stop` off, this hook writes no note.
 
 ## PostToolUse
 
@@ -67,23 +77,25 @@ The files of the turn are the files that changed since the user's prompt, and th
 - Exit 0: the agent finishes.
 - Exit 1: the hook sends the agent back with the output, to fix the code or to tell the user what blocks it.
 - Exit 2, when the turn changed files under `.lawcheck/`: the hook sends the agent back to fix what the error names.
-- Exit 2 otherwise: the error lies in the law, a rule or Lawcheck, and the turn changed none of them. The hook sends the user a notice. The agent finishes.
+- Exit 2, when the turn changed no file under `.lawcheck/`: the error lies in the law, a rule or Lawcheck. The hook sends the user a notice ([The notices the user gets](#the-notices-the-user-gets)) and lets the agent finish.
 
-This check judges the files of the turn by name, with no base. The check calls no reviewer, since the hook never passes `--review`. A missing review is a warning here. An agent can finish while CI fails on `not-reviewed`, or on files the turn did not touch.
+This check judges the files of the turn by name, with no base. It calls no reviewer, since the hook never passes `--review`. A check of named files reports a missing review as a warning. An agent can therefore finish while a CI job fails on the same branch. The job can fail on `not-reviewed`, or on a file that the turn did not touch.
 
 ### Three returns at most
 
-The hook sends the agent back at most three times in a turn. It never sends the agent back twice in a row for the same output. Past these limits, the hook lets the agent finish. It sends the user a message that the check still fails.
+The hook sends the agent back at most three times in a turn. It never sends the agent back twice in a row for the same output. Past these limits, the hook lets the agent finish. It sends the user a message that the check still fails ([The notices the user gets](#the-notices-the-user-gets)).
 
 A turn can start with no note from `UserPromptSubmit`. Then the hook checks every file that differs from `HEAD` and every untracked file. It sends the agent back at most once in that turn.
 
 ## The text the agent gets
 
-The hook hands the agent at most 9,000 characters. From a longer output, the hook keeps the first line and the `next:` line. In place of the lines it drops from the middle, it writes how many it dropped. The hook cuts each line longer than 2,000 characters. At the cut, it says how many characters it left out.
+The hook hands the agent at most 9,000 characters. From a longer output, it keeps the first line, the `next:` line and as many lines between them as fit. A line `... <n> more lines not shown` stands in place of the rest.
+
+The hook cuts each line longer than 2,000 characters. At the cut, it says how many characters it left out.
 
 ## The notices the user gets
 
-A notice goes to the user and never to the agent. The `Stop` hook sends a notice in the cases below. The user sees the first notice of a session and no later one:
+The `Stop` hook sends the user two kinds of text: notices and messages. A notice goes to the user and never to the agent. The user sees the first notice of a session and no later one. The hook sends a notice in these cases:
 
 - Lawcheck is not installed, or the program of the `runner` setting is missing;
 - the command of the `runner` setting printed an error, or ended with no result of Lawcheck;
@@ -92,10 +104,11 @@ A notice goes to the user and never to the agent. The `Stop` hook sends a notice
 - git could not list the files of the turn;
 - the check ended with exit 2, and the turn did not touch `.lawcheck/`.
 
-In two more cases, the `Stop` hook sends the user a message each time the agent finishes, where a notice comes once a session:
+The user gets a message each time the agent finishes, as long as its case holds. The hook sends a message in these cases:
 
 - the turn changed more than 1,000 files. The hook then runs no check;
-- a background subagent, teammate or workflow is running. The check waits for it. The hook runs the check the first time the agent finishes after that task ends.
+- a background subagent, teammate or workflow is running. The check waits for it. The hook runs the check the first time the agent finishes after that task ends;
+- the check still fails past the limits of [Three returns at most](#three-returns-at-most).
 
 A hook that fails inside its own code prints `lawcheck plugin:` and the cause on standard error. It then exits 1. A hook exits 0 in every other case.
 
@@ -112,6 +125,6 @@ Claude Code hands each hook the value as the variable `CLAUDE_PLUGIN_OPTION_CHEC
 
 ## The state the plugin keeps
 
-Claude Code names the plugin's data folder in `CLAUDE_PLUGIN_DATA`. The hook keeps one small file per session in that folder. Without that variable, the hook keeps the file in a folder of the system's temporary directory that only your user may read. At each session start, the hook deletes the files older than 7 days. On Windows the hook keeps no state without `CLAUDE_PLUGIN_DATA`.
+Claude Code names the plugin's data folder in `CLAUDE_PLUGIN_DATA`. The hook keeps one file per session in that folder. Without that variable, the hook keeps the file in a folder of the system's temporary directory that only your user may read. On Windows, it keeps no file without `CLAUDE_PLUGIN_DATA`. At each session start, the hook deletes the files older than 7 days.
 
 Next: [Files Lawcheck reads and writes](files.md)
