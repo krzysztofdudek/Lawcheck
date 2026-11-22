@@ -103,7 +103,7 @@ test('R-22: S5-14, check and try start no program that the repository names for 
 });
 
 test('R-21: S5-14, the fixture arms git: the same reads through git itself start the programs', async () => {
-  assert.ok(CHANGE_PAGE.includes('Settings you pass to git yourself, through `GIT_CONFIG_PARAMETERS` or `git -c` in an alias, take effect. If one of your own settings names a program, git starts that program.'));
+  assert.ok(CHANGE_PAGE.includes('Settings you pass to git yourself, through `GIT_CONFIG_PARAMETERS` or `git -c` in an alias, take effect. If one of your own settings names a program, git can start that program.'));
   await inTemp(async (dir) => {
     const s = makeSample(dir);
     append(s, 'src/core/price.ts', '// edited\n');

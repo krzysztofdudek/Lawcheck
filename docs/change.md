@@ -47,7 +47,7 @@ The git settings of a repository can name programs that git starts while it read
 - a `textconv` program, which turns a file into text for `git diff`;
 - a filter, which changes a file on its way into or out of git.
 
-Settings you pass to git yourself, through `GIT_CONFIG_PARAMETERS` or `git -c` in an alias, take effect. If one of your own settings names a program, git starts that program.
+Settings you pass to git yourself, through `GIT_CONFIG_PARAMETERS` or `git -c` in an alias, take effect. If one of your own settings names a program, git can start that program.
 
 Git reads some files through a filter, such as the files of Git LFS. Lawcheck compares such a file as its bytes on disk. If the file's time no longer matches git's index, the file can count as changed.
 
