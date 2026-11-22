@@ -200,6 +200,6 @@ debt (outside this change): none
 - Lawcheck reports [`waiver-unknown-rule`](codes.md#waiver-unknown-rule) for a marker that names no rule of the law. It reports [`waiver-without-reason`](codes.md#waiver-without-reason) for a marker with no reason after `--`. Such a waiver drops no finding. In the change, Lawcheck reports it as an error.
 - In a type with `waivers: false`, Lawcheck reads the marker as plain text. The finding on that line stays.
 - A finding about the whole file has no line. A waiver drops the findings on its own line, so no waiver can drop this one. Fix the rule or the law instead.
-- A [reviewer rule](concepts.md#reviewer-rule) failed a file you believe is right. Lawcheck keeps the failed review on this machine, in `.lawcheck/.local/failures/`. `lawcheck check --review --again` sends the file to the reviewer once more. After you reword the rule file, `lawcheck check --review` reviews the file again without `--again` ([Write a reviewer rule](write-a-reviewer-rule.md)).
+- A [reviewer rule](concepts.md#reviewer-rule) failed a file you believe is right. Lawcheck caches that failure in `.lawcheck/.local/failures/` and shows it again on each later check. `lawcheck check --review --again` sends the file to the reviewer once more. After you reword the rule file, `lawcheck check --review` reviews the file again without `--again` ([Write a reviewer rule](write-a-reviewer-rule.md)).
 
 Next: [A slow check](slow-check.md)

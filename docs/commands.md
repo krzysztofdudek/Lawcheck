@@ -61,7 +61,7 @@ usage: lawcheck init [--json]
 - `.lawcheck/law.yaml`, with an empty law and a short example in comments;
 - `.lawcheck/.gitignore`, with the lines `.local/` and `config.local.yaml`.
 
-`init` overwrites no file. It writes no `.lawcheck/config.yaml`. In a folder below the top of the git work tree, `init` starts a law that covers only the files below that folder, and its output says so in a note. `init` refuses with `already-initialized` in two cases: a law governs this folder from here or from above, or git lists a law below this folder. An extra word after `init` ends it with `usage`.
+`init` overwrites no file. It writes no `.lawcheck/config.yaml`. In a folder below the top of the git work tree, `init` starts a law that covers only the files below that folder. Its output says so in a note. `init` refuses with `already-initialized` in two cases: a law governs this folder from here or from above, or git lists a law below this folder. An extra word after `init` ends it with `usage`.
 
 Run `init` once per repository, at the root of the code you want to check. In a new repository:
 
@@ -195,7 +195,7 @@ next: fix src/core/report.ts:2
 
 ### `<path or pattern>...`
 
-With paths or patterns, `check` judges only the files you name, changed or not. Each argument names a file, a folder with every file below it, or a pattern ([The law file](law.md)). This check has no base, and its first line counts the named files. A check of named files takes `--json` and no other flag. With any other flag, the command ends with `usage`.
+With paths or patterns, `check` judges only the files you name, changed or not. Each argument names a file, a folder with every file below it, or a pattern ([The law file](law.md)). This check has no base. Its first line counts the named files. A check of named files takes `--json` and no other flag. With any other flag, the command ends with `usage`.
 
 ### --full
 
@@ -211,7 +211,7 @@ With `--review`, Lawcheck asks the reviewer about each pair of a file and a revi
 
 ### --again
 
-`--again` works with `--review` alone. With it, Lawcheck asks the reviewer again for each review whose failure `.lawcheck/.local/failures/` holds. Without `--again`, Lawcheck shows a cached failure again, and that costs no call.
+`--again` works with `--review` alone. With it, Lawcheck asks the reviewer again for each review whose failure `.lawcheck/.local/failures/` holds. Without `--again`, Lawcheck shows a cached failure again without a call.
 
 ### --max-calls `<n>`
 
@@ -427,7 +427,7 @@ ok  readers  no type has may_use, so no use is read; the 13 grammars load
 ok  reviewer  no reviewer rule, so no reviewer is needed
 ```
 
-The `node` line names the version of the Node that runs Lawcheck, here 24.11.0. Three of the six files have no type: `README.md` and the two files under `.lawcheck/`. In a repository where `lawcheck init` started the law, `.lawcheck/.gitignore` is a seventh file, and `doctor` prints `3 of 7 files have a type`. The nine checks run in this order:
+The `node` line names the version of the Node that runs Lawcheck, here 24.11.0. Three of the six files have no type: `README.md` and the two files under `.lawcheck/`. In a repository where `lawcheck init` started the law, `.lawcheck/.gitignore` is a seventh file. `doctor` then prints `3 of 7 files have a type`. The nine checks run in this order:
 
 | Check | What it looks at |
 |---|---|
