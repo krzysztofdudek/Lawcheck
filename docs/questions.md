@@ -2,7 +2,7 @@
 
 ## Package managers
 
-Lawcheck installs with npm, pnpm, Yarn 1, Yarn 4 with `nodeLinker: node-modules` or `nodeLinker: pnpm`, and Bun with Node 24 on the `PATH`. Under Yarn Plug'n'Play, a Lawcheck installed in the project stops with `unsupported-environment`. Set the `runner` setting in `.lawcheck/config.yaml` to your package manager. The Claude Code plugin then starts Lawcheck through that package manager. `lawcheck prime` names that command to the agent. [Supported environments](support.md#package-managers) gives the command that starts Lawcheck under each package manager.
+Lawcheck installs with npm, pnpm, Yarn 1, Yarn 4 with `nodeLinker: node-modules` or `nodeLinker: pnpm`, and Bun with Node 24 on the `PATH`. Under Yarn Plug'n'Play, a Lawcheck installed in the project stops with `unsupported-environment`. In `.lawcheck/config.yaml`, set the `runner` setting to the package manager of your project. The Claude Code plugin then starts Lawcheck through it. `lawcheck prime` names that command to the agent. [Supported environments](support.md#package-managers) gives the command that starts Lawcheck under each package manager.
 
 ## Windows and macOS
 
