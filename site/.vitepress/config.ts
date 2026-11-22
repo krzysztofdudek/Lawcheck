@@ -15,6 +15,7 @@ export default defineConfig({
   themeConfig: {
     siteTitle: `lawcheck ${manifest.version}`,
     search: { provider: 'local' },
+    docFooter: { prev: false, next: false },
     sidebar: [...new Set(topics.map((t) => t.section))].map((section) => ({
       text: section,
       items: topics.filter((t) => t.section === section).map((t) => ({ text: t.title, link: `/${t.id}` })),
