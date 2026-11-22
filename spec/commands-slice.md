@@ -466,25 +466,30 @@ A file with no type, an overlap included, has `type`, `about`, `then`, `may_use`
 
 ## 7. `docs`
 
-`lawcheck docs [<topic>] [--json]` prints the tool's reference, one topic at a time. It needs no law, no git and no network, and never ends with 1. Each topic is a file `docs/<topic>.md` of the repository, shipped in the package (`"files"` gains `docs`), printed as it is. The same files are the published documentation, so the two cannot disagree. An unknown topic is `usage`, naming the nearest within two edits; more than one word is `usage`.
+`lawcheck docs [<topic>] [--json]` prints the tool's reference, one topic at a time. It needs no law, no git and no network, and never ends with 1. Each topic is a file `docs/<topic>.md` of the repository, shipped in the package (`"files"` gains `docs`), and `docs/topics.json` lists them: `id`, `title` and `section`, in reading order. A page prints as it is, except that a link to another topic, `[text](<id>.md)` or `[text](<id>.md#<anchor>)` outside code, prints as `text (lawcheck docs <id>)`; any other link prints as written, and `--json` gives the page as written. The same files are the published documentation, so the two cannot disagree. An unknown topic is `usage`, naming the nearest within two edits; more than one word is `usage`.
 
 Without a topic, exit 0:
 
 ```
 lawcheck docs: 12 topics; lawcheck docs <topic> prints one
 
-first-law  The first type and the first rule
-law  The law file
-change  What a check judges
-script-rules  Script rules
-reviewer-rules  Reviewer rules
-waivers  Waivers
-config  Settings
-providers  Reviewers and keys
-languages  Languages and uses
-ci  CI and git hooks
-json  JSON documents
-codes  Codes
+Guides
+  first-law  The first type and the first rule
+  ci  CI and git hooks
+
+Reference
+  law  The law file
+  config  Settings
+  script-rules  Script rules
+  reviewer-rules  Reviewer rules
+  providers  Reviewers and keys
+  languages  Languages and uses
+  waivers  Waivers
+  change  What a check judges
+  json  JSON documents
+
+Troubleshooting
+  codes  Codes
 ```
 
 A page's first line is `# <its title>`. A page holds at most 8,000 characters, so an agent can read one whole. Each describes what is built, and only that, which the reviewer checks by reading; no page names another tool but Runes, the library the readers come from (question 77); what each must hold:
@@ -689,7 +694,7 @@ The earlier slices' terms hold: S, R, U, D, E, F, F', the fake, the fake claude 
 | 432 | the scenario of each page of `tests/docs/` | each checks the blocks it claims as they are written: a command runs in a repository the scenario builds, a block of config or of a reviewer's answer goes through the reader that takes it, and a command that names the plugin is held to the marketplace file; each output a page shows is the tool's output, byte for byte; every block a scenario claims is read by it |
 | 433 | the scenario of `docs/change.md` with one word of its shown output changed; a scenario that reads no block it claims; one that reads a block claimed by a test | the first fails on the block it shows; the second is named; the third throws |
 | 414 | the list of `docs` made from three topics, two in the section `Start` and one in `Reference` | `lawcheck docs: 3 topics; lawcheck docs <topic> prints one`, then for each section in the order of `docs/topics.json` a blank line, its name, and its topics, each `  <id>  <title>` |
-| 415 | a page that links `[the law file](law.md)` and `[the codes](codes.md#law-invalid)`, links to a URL, to `../README.md` and to a page that is no topic, and holds a link inside a code block, printed for the terminal | `the law file (lawcheck docs law)` and `the codes (lawcheck docs codes)`; every other link and the code block as written |
+| 415 | a page that links `[the law file](law.md)` and `[the codes](codes.md#law-invalid)`, links to a URL, to `../README.md` and to a page that is no topic, and holds a link inside a code block and inside inline code of one and of two backticks, printed for the terminal | `the law file (lawcheck docs law)` and `the codes (lawcheck docs codes)`; every other link, the code block and the inline code as written |
 | 416 | `docs lw`; `docs nope --json` | `error[usage]  there is no topic 'lw' (did you mean 'law'?); lawcheck docs lists them`, exit 2; a `lawcheck-error/1` document whose one error is `usage` with `there is no topic 'nope'; lawcheck docs lists them`, exit 2 |
 | 417 | a copy of the package whose `docs/law.md` ends with a link to `codes.md#law-invalid` and one to a URL: `docs law`; `docs law --json` | the page with `the codes (lawcheck docs codes)` and the URL's link as written, exit 0; `text` holds the page as written |
 | 418 | `docs/topics.json` and the files of `docs/` | every `.md` file has an entry, every entry has its file, and no id is named twice |
