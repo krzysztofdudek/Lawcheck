@@ -1,6 +1,6 @@
 # Languages and uses
 
-A file of the domain layer imports the command layer, and the law forbids it. For each judged file of a type with a `may_use` list in force, `check` reads what the file uses, and reports each use the list does not allow as `forbidden-use`. Lawcheck reads no uses in the files of a type without a list.
+A file of the domain layer imports the command layer, and the law forbids it. For each judged file of a type with a `may_use` list in force, `check` reads what the file uses, and reports each use the list does not allow as `forbidden-use`.
 
 ## The languages whose uses are read
 
@@ -47,7 +47,19 @@ The first line counts them for the change, the debt heading for the rest, and `-
 | `none` | none | the readers cannot say where it points, as in a Rust file of no Cargo package |
 | `ambiguous` | none | the use could name several files of different types, or typed and untyped files; `candidates` lists them. Lawcheck does not judge it, even when the list forbids every one |
 
-Outside, by language: TypeScript and JavaScript, an installed package or a Node built-in; Python, a module whose top-level name no root of the repository holds; Go, an import path no module of the repository holds; Rust, a crate the repository does not hold (`std`, a registry dependency); PHP, a class under no prefix of the repository's Composer maps; Java and Kotlin, a name in a package the repository declares nothing in, a `java.lang` name, a Kotlin default import (`String`, `List`), and a simple name an on-demand import of such a package can give (`List` under `import java.util.*;`); C#, a name only a namespace from elsewhere can give (`System.Text`); C and C++, an `#include <...>` of a header the repository does not hold (`<stdio.h>`); Ruby, a gem, the standard library and a constant the repository does not declare (`JSON`). A quoted `#include` of a library header (`"gtest/gtest.h"`), or one that needs `-I` when `compile_commands.json` is not in git, is `unfollowed`.
+Outside the repository, by language:
+
+- TypeScript and JavaScript: an installed package or a Node built-in;
+- Python: a module whose top-level name no root of the repository holds;
+- Go: an import path no module of the repository holds;
+- Rust: a crate the repository does not hold (`std`, a registry dependency);
+- PHP: a class under no prefix of the repository's Composer maps;
+- Java and Kotlin: a name in a package the repository declares nothing in, a `java.lang` name, a Kotlin default import (`String`, `List`), and a simple name an on-demand import of such a package can give (`List` under `import java.util.*;`);
+- C#: a name only a namespace from elsewhere can give (`System.Text`);
+- C and C++: an `#include <...>` of a header the repository does not hold (`<stdio.h>`);
+- Ruby: a gem, the standard library and a constant the repository does not declare (`JSON`).
+
+A quoted `#include` of a library header (`"gtest/gtest.h"`), or one that needs `-I` when `compile_commands.json` is not in git, is `unfollowed`.
 
 ## Known limits
 

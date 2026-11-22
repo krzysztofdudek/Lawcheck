@@ -131,7 +131,7 @@ npmPreapprovedPackages: [lawcheck, "@chrisdudek/runes"]
 | `COPILOT_PROVIDER_BEARER_TOKEN` | passes it to `copilot` |
 | `CI` | treats the run as a CI job, where a plain check with no base is `base-unreachable`; set to 0, false, no or off, it means no job. Without `CI`, a CI service's own variable, such as `GITHUB_ACTIONS`, marks the job |
 | `PATH` | finds `git` and the reviewer programs there, and leaves out relative and empty entries |
-| `NODE_OPTIONS` | refuses every command when it holds `--permission`: `unsupported-environment` |
+| `NODE_OPTIONS` | refuses every command when it holds `--permission`, under which Lawcheck cannot read its own files |
 | `TMPDIR` | makes the folder of a reviewer program there; `TEMP` on Windows |
 
 An empty variable counts as unset. Each reviewer program gets the sign-in variables of its own row and none of the others, and no program gets `LAWCHECK_REVIEWER_KEY` or `LAWCHECK_REVIEWER_ENDPOINT`. The plugin's two variables are on its own page (`lawcheck docs plugin`).
