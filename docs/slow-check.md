@@ -1,6 +1,6 @@
 # A slow check
 
-A check in a git hook runs on each commit, and a check in CI on each pull request. A check that takes two minutes costs two minutes every time. These steps find the slow part. Reviewer calls are the one part of a run that can cost money, and step 5 puts a bound on them.
+A check in a git hook runs on each commit. In CI, it runs on each pull request. A check that takes two minutes costs two minutes every time. These steps find the slow part. Reviewer calls are the one part of a run that can cost money. Step 5 puts a bound on them.
 
 The outputs below come from a repository that joins two other guides. It has the [script rule](concepts.md#script-rule) `no-console` of [Bring a law into an existing repository](adopt-in-an-existing-repository.md). It has the [reviewer rule](concepts.md#reviewer-rule) `clear-errors` and the Ollama reviewer of [Write a reviewer rule](write-a-reviewer-rule.md). Its [law](concepts.md#law):
 
@@ -24,7 +24,7 @@ types:
     paths: ["src/cli/**"]
 ```
 
-A branch made from `main` changes `src/core/price.ts` and `src/core/tax.ts`. The file `src/core/tax.ts` imports `src/core/price.ts`. Put `time` before a command to see how long it takes. The shell prints its own lines after the output of Lawcheck.
+A branch made from `main` changes `src/core/price.ts` and `src/core/tax.ts`. The file `src/core/tax.ts` imports `src/core/price.ts`. Put `time` before a command to see how long it takes. The shell prints its timing lines after the output of Lawcheck.
 
 ## 1. See what the run judges
 
@@ -42,7 +42,7 @@ src/core/tax.ts  error[not-reviewed]  clear-errors has no verdict for this conte
 next: lawcheck check --review --base main  (2 reviewer calls)
 ```
 
-A plain check judges the files of the [change](concepts.md#change) against a [base](concepts.md#base). The first line names that base. A first line that ends in `(no base: every file counts as changed)` means that the run judges every file (step 6). With `--full`, a check judges every file that has a [type](concepts.md#type). A check without `--review` calls no reviewer. Its `next:` line counts the calls that a review would make.
+A plain check judges the files of the [change](concepts.md#change) against a [base](concepts.md#base). The first line names that base. When the first line ends in `(no base: every file counts as changed)`, the run judges every file (step 6). With `--full`, a check judges every file that has a [type](concepts.md#type). A check without `--review` calls no reviewer. Its `next:` line counts the calls that a review would make.
 
 ## 2. Check one file
 
@@ -57,7 +57,7 @@ src/core/tax.ts  warning[not-reviewed]  clear-errors has no verdict for this con
   why:  a reviewer rule says nothing about content it has not judged
 ```
 
-A check of named files judges those files alone, with no base and no reviewer call. Compare its time with the time of step 1. Then name a folder or a pattern, to narrow down the part that takes the time.
+A check of named files judges those files alone, with no base and no reviewer call. Compare its time with the time of step 1. Then name a folder or a pattern, to find the folder whose files take the time.
 
 ## 3. Run each script rule alone
 
@@ -69,7 +69,7 @@ $ lawcheck try no-console
 lawcheck: try no-console (script rule, enforced)  nothing found in 2 files
 ```
 
-`try` with no file runs one script rule alone, on every file whose type, or a type above it, lists the rule. Run `try` for each script rule of the law, and compare the times.
+`lawcheck try` with no file runs one script rule alone, on every file whose type, or a type above it, lists the rule. Run `lawcheck try` for each script rule of the law, and compare the times.
 
 ## 4. See which files are read for uses
 
@@ -83,7 +83,7 @@ Find its `readers` line:
 ok  readers  uses are read in 2 files: typescript 2; the 13 grammars load
 ```
 
-The line counts the files whose [uses](concepts.md#use) Lawcheck reads, by language. A use is an import, or another reference from one file to another. Lawcheck reads the uses of a file whose type, or a type above it, has `may_use` ([Forbid one layer to use another](forbid-a-use.md)). A plain check reads the uses of the changed files among them, and `--full` reads the uses of all of them. A large count may come from generated or vendored code. To leave that code out, narrow the `paths` of the type.
+A [use](concepts.md#use) is an import, or another reference from one file to another. The line counts the files whose uses Lawcheck reads, by language. Lawcheck reads the uses of a file whose type, or a type above it, has `may_use` ([Forbid one layer to use another](forbid-a-use.md)). A plain check reads the uses of the changed files among them. With `--full`, it reads the uses of all of them. A large count may come from generated code, or from code copied in from another project. To leave that code out, narrow the `paths` of the type.
 
 ## 5. Bound the reviewer
 
@@ -98,13 +98,19 @@ reviewer:
   timeout: 120
 ```
 
-With `max_calls: 20`, a run that needs more than 20 calls sends none. A call that Lawcheck sends again counts too, after a failure or after an answer with no verdict. With `parallel: 2`, Lawcheck sends at most two calls at once. With `timeout: 120`, one call has two minutes. Without these keys, Lawcheck takes the defaults:
+The three keys set these limits:
+
+- `max_calls: 20`: a run that needs more than 20 calls sends none. A call that Lawcheck sends again, after a failure or after an answer with no verdict, counts as one more;
+- `parallel: 2`: Lawcheck sends at most two calls at once;
+- `timeout: 120`: one call has two minutes.
+
+Without these keys, Lawcheck takes the defaults:
 
 - a run sends at most 100 calls, 4 at a time;
 - a call has 60 seconds, or 300 seconds with `ollama`;
 - with `claude-code`, `codex`, `gemini-cli` or `copilot-cli`, a call has 300 seconds. Lawcheck makes one call at a time to these programs.
 
-`--max-calls` sets the cap for one run. This change needs 2 calls, so set the cap to 1 to see the refusal:
+`--max-calls <n>` replaces `max_calls` for one run. This change needs 2 calls, so `--max-calls 1` shows the refusal:
 
 ```text
 $ lawcheck check --review --max-calls 1 --base main
@@ -119,11 +125,11 @@ error[too-many-reviews]  this run needs 2 reviewer calls and may send 1
 next: 2 reviewer calls are needed and the limit is 1; raising reviewer.max_calls or --max-calls is the user's decision
 ```
 
-The run stops with [`too-many-reviews`](codes.md#too-many-reviews) and sends nothing. `lawcheck try <rule> <file> --dry-run` prints the calls and the size of each prompt, and makes no call ([Write a reviewer rule](write-a-reviewer-rule.md)).
+The run stops with [`too-many-reviews`](codes.md#too-many-reviews) and sends nothing. To count the calls before you spend any, run `lawcheck try <rule> <file> --dry-run`. It prints the calls and the size of each prompt, and makes no call ([Write a reviewer rule](write-a-reviewer-rule.md)).
 
 ## 6. Give the check its base
 
-A plain check takes its base from `--base`, then from `LAWCHECK_BASE`, then from `origin/HEAD`. With none of the three, a check on a machine counts every file as changed. It runs every rule on every file that has a type. A review then covers every such file. This repository has no remote and no `origin/HEAD`:
+A plain check takes its base from `--base`, then from `LAWCHECK_BASE`, then from `origin/HEAD`. With none of the three, a check on a machine counts every file as changed. It runs every rule on every file that has a type, and `--review` then asks for a review of each such file. This repository has no remote and no `origin/HEAD`:
 
 ```text
 $ lawcheck check
@@ -139,7 +145,7 @@ src/core/tax.ts  error[not-reviewed]  clear-errors has no verdict for this conte
 next: lawcheck check --review  (2 reviewer calls)
 ```
 
-The run counts all 9 files that git lists as changed, where step 1 counts 2. `lawcheck doctor` without `--base` gives a note in its `base` line:
+The run counts all 9 files that git lists as changed. Step 1 counted 2. `lawcheck doctor` without `--base` prints a note in its `base` line:
 
 ```text
 $ lawcheck doctor
@@ -154,7 +160,7 @@ Pass `--base` with the branch you started from, as the steps above do, or set `L
 
 ## The limits of a run
 
-A run that goes over one of these limits stops with exit 2. For some limits, the file gets a [finding](concepts.md#finding) instead. The code says which limit the run went over:
+A run that goes over one of the limits below stops with exit 2. A file over 512 KiB is the one exception. It gets the [finding](concepts.md#finding) `uses-not-read`, and the run goes on. The code says which limit the run went over:
 
 | Limit | Code |
 |---|---|
@@ -167,8 +173,11 @@ A run that goes over one of these limits stops with exit 2. For some limits, the
 
 ## If it goes wrong
 
-- `step-too-slow` while Lawcheck gives a file its type: a `content` expression of the law takes too long on that file. In `^(a|a)+$`, each `a` can match either branch. On a line of 80 `a` and a `!`, the run goes over the limit. `^a+$` matches the same lines with one way for each `a`.
-- `memory-too-large`: its `next:` line names the step. For a file whose uses Lawcheck reads, leave the file out of the types whose `may_use` is in force. For a file that Lawcheck reads only for the names it declares, keep it out of the files git lists: run `git rm --cached` on it, and add a line to `.gitignore`. For a whole run, narrow those types, or run Lawcheck on a machine with more memory.
-- [`internal`](codes.md#internal): a fault of Lawcheck. Run the command again, and report the error if it stays.
+- When `step-too-slow` comes while Lawcheck gives a file its type, a `content` expression of the law takes too long on that file. In `^(a|a)+$`, each `a` can match either branch. On a line of 80 `a` and a `!`, the expression tries every way to match, and the run goes over the limit. `^a+$` matches the same lines with one way for each `a`.
+- The `next:` line of `memory-too-large` names the step that went past the limit. The fix depends on that step:
+  - for a file whose uses Lawcheck reads, leave the file out of the types whose `may_use` is in force;
+  - for a file that Lawcheck reads only for the names it declares, keep it out of the files git lists: run `git rm --cached` on it, and add a line to `.gitignore`;
+  - for a whole run, narrow those types, or run Lawcheck on a machine with more memory.
+- [`internal`](codes.md#internal) is a fault of Lawcheck. Run the command again, and report the error if it comes back.
 
 Next: [The commands](commands.md)
