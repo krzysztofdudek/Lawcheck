@@ -20,6 +20,10 @@ export const claims: Claims = {
   'block 1 under "5. Bound the reviewer"': SCENARIO,
   'block 2 under "5. Bound the reviewer"': SCENARIO,
   'block 3 under "5. Bound the reviewer"': SCENARIO,
+  'block 1 under "6. Give the check its base"': SCENARIO,
+  'block 2 under "6. Give the check its base"': SCENARIO,
+  'block 3 under "6. Give the check its base"': SCENARIO,
+  'block 4 under "6. Give the check its base"': SCENARIO,
 };
 
 const reviewerPage = readFileSync(new URL('../../docs/write-a-reviewer-rule.md', import.meta.url), 'utf8');
@@ -57,6 +61,14 @@ export async function scenario(page: Page): Promise<void> {
       write(repo, '.lawcheck/config.yaml', config);
       await walk(page, repo, '5. Bound the reviewer', 2, env, 2);
       assert.equal(fake.requests.filter((request) => request.path === '/api/chat').length, 0, 'a run past its cap sends nothing');
+      await walk(page, repo, '6. Give the check its base', 1, env);
+      const [noBase, ...more] = commands(page.text('block 3 under "6. Give the check its base"'));
+      assert.equal(more.length, 0);
+      const doctorWithout = await lawcheck(repo, noBase!.slice(1), env);
+      const lines = doctorWithout.stdout.split('\n');
+      const at = lines.findIndex((line) => /^\w+  base  /.test(line));
+      assert.ok(at >= 0, doctorWithout.stdout);
+      assert.equal(lines.slice(at, /^\s+next: /.test(lines[at + 1] ?? '') ? at + 2 : at + 1).join('\n'), page.text('block 4 under "6. Give the check its base"'), doctorWithout.stdout);
     });
   }, (request) => (request.path === '/api/version' ? { body: '{"version":"0.12.6"}' } : { status: 500, body: '{}' }));
 }
