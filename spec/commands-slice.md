@@ -494,7 +494,7 @@ Troubleshooting
   codes  Codes
 ```
 
-A page's first line is `# <its title>`. A page holds at most 30,000 characters, so an agent can read one whole: Claude Code shows 30,000 characters of one command's output before it cuts the middle. Each describes what is built, and only that, which the reviewer checks by reading; no page names another tool but Runes, the library the readers come from (question 77); what each must hold:
+A page's first line is `# <its title>`. A page holds at most 30,000 characters, so an agent can read one whole: Claude Code reads 30,000 characters of one command's output back into the command's result. Each describes what is built, and only that, which the reviewer checks by reading; no page names another tool but Runes, the library the readers come from (question 77); what each must hold:
 
 | Topic | Holds |
 |---|---|
