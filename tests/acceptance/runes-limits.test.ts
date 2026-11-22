@@ -70,7 +70,7 @@ const PY_FILES = (root: string, where: string) => ({
 });
 
 test('test 311: S4-2, a Python package under a root that configuration names is judged on every form, as the same package at the root', async () => {
-  assert.ok(page.includes('The Python reader searches the root of the repository, a `src` layout, and the roots that `pyproject.toml` or `setup.cfg` name. It does not read `setup.py`.'));
+  assert.ok(page.includes('The Python reader looks for modules in the top folder of the repository, in a `src` folder, and in the source folders that `pyproject.toml` or `setup.cfg` name. It does not read `setup.py`.'));
   const lib = await judged(PY_FILES('lib/', '[tool.setuptools.packages.find]\nwhere = ["lib"]\n'));
   assert.deepEqual({ findings: lib.findings, unresolved: lib.unresolved }, { findings: ['lib/pkg/ui/a.py:1', 'lib/pkg/ui/a.py:2', 'lib/pkg/ui/a.py:3'], unresolved: [] });
   const control = await judged(PY_FILES('', ''));
