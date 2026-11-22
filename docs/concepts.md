@@ -4,7 +4,7 @@ These pages use twelve words, each with one meaning. Each word has a heading her
 
 ## Law
 
-The law is what you write down about your repository. It names the types of its files, the types each type may use, and the rules each type keeps. The law is the file `.lawcheck/law.yaml`, with one file per rule in `.lawcheck/rules/`. You commit the law with the code.
+The law is what you write down about your repository. It names the types of its files, the types each type may use, and the rules each type keeps. The law lives in `.lawcheck/law.yaml`, with one file per rule in `.lawcheck/rules/`. You commit it with the code. The folder that holds `.lawcheck/` is the root of the law.
 
 Example: the law of [Quick start](quick-start.md).
 
@@ -20,19 +20,19 @@ types:
 
 ## Type
 
-A type is one kind of file. The patterns of its `paths` say which files it takes. An optional `content` expression keeps only the files whose text matches it. A type can hold subtypes. Lawcheck tests a file against a subtype only after the file matched its parent. A file gets the deepest type that matches it. Lawcheck never judges a file that has no type.
+A type is one kind of file. The patterns of its `paths` say which files it takes. An optional `content` expression narrows them to the files whose text matches it. A type can hold subtypes, which Lawcheck tests on a file only after the file matched their parent. A file gets the deepest type that matches it. Lawcheck never judges a file that has no type.
 
 Example: under the law above, `src/core/receipt.ts` has the type `core`. `lawcheck explain src/core/receipt.ts` shows it.
 
 ## Rule
 
-A rule is one requirement with an id and a `why`. A type lists the rules its files keep. Lawcheck prints the `why` beside each finding of the rule. The findings of a rule with `status: advisory` are warnings.
+A rule is one requirement with an id and a `why`. When a type lists the rule, the rule binds the files of that type and of its subtypes: Lawcheck judges those files against it. Lawcheck prints the `why` beside each finding. The findings of a rule with `status: advisory` are warnings.
 
 Example: the rule `no-console`, with `why: Only the command layer writes to the terminal.`
 
 ## Script rule
 
-A script rule is a JavaScript module, `.lawcheck/rules/<id>.mjs`. Its function `check` receives the files and returns findings. A script rule needs no model and no key. It runs in a Node process of its own. That process may read only the root of the repository and Lawcheck's own folder.
+A script rule is a JavaScript module, `.lawcheck/rules/<id>.mjs`, whose function `check` receives the files and returns their findings. It needs no model and no key. Lawcheck runs it in a Node process of its own, which may read files below the root of the law and in Lawcheck's own folder and nowhere else.
 
 Example: `.lawcheck/rules/no-console.mjs` returns `{ line: 1, message: 'writes to the terminal with console.log' }` for a file whose first line calls `console.log`.
 
@@ -119,11 +119,11 @@ The law sits in the repository beside the code. You change the law with the same
 
 ### A file and its type
 
-Lawcheck gives a type to the files git lists. Lawcheck gives no type to symbolic links and binary files. Lawcheck tests a file against the root types first. It then tests the file against the subtypes of the type that matched, one level at a time. The deepest match is the type of the file. The rules of every type on the way down bind the file. If two types of one level match one file, every run stops with `type-overlap`. `lawcheck explain <path>` shows the type of a file. For a path with no file yet, it shows the type a new file there would get. [The law file](law.md) has every key.
+Lawcheck gives a type to each file git lists, except symbolic links and binary files. It tests the file against the top-level types first, the types directly under `types:` in the law. Then it goes down through the subtypes of the type that matched, one level at a time, until no subtype matches. The deepest match is the type of the file. The rules of every type on the way down bind it. If two types of one level match one file, every run stops with `type-overlap`. `lawcheck explain <path>` shows the type of a file. For a path with no file yet, it shows the type a new file there would get. [The law file](law.md) has every key.
 
 ### Debt and the exit code
 
-A plain check judges the change. Its errors fail the run. `lawcheck check --full` judges every other file too. It lists what it finds there as debt, after the findings of the change. Debt has no effect on the exit code. In a repository that already breaks a new law, the old code is debt. The new law passes there. A rule can stay `advisory` until you fix its debt. [What a check judges](change.md) has the details.
+A plain check judges the change, where an error fails the run. With `--full`, `lawcheck check` judges every other file too. It lists what it finds outside the change as debt, below the findings of the change. Debt has no effect on the exit code. A new law therefore passes in a repository whose old code already breaks it. A rule can stay `advisory` until you fix its debt. [What a check judges](change.md) has the details.
 
 ### A script rule or a reviewer rule
 
