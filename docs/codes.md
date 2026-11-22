@@ -46,7 +46,7 @@ An exit-2 code stops the run before Lawcheck gives a PASS or a FAIL, and its out
 
 A finding of a rule of the law carries the rule's id as its code, and the rule's own `why`. A rule id may not equal any code above, nor `untyped-file`.
 
-Each Example below is the standard output of a test of Lawcheck's suite on the sample repository the suite builds. The Examples leave out standard error, where Lawcheck prints such lines as the count of reviewer calls. A path under `/home/you/projects` stands for the test's temporary folder, and `/usr/local/bin/node` for the node that runs it.
+Each Example below is the standard output of a test of Lawcheck's suite on the sample repository the suite builds. The examples leave out standard error, where Lawcheck prints such lines as the count of reviewer calls. A path under `/home/you/projects` stands for the test's temporary folder, and `/usr/local/bin/node` for the node that runs it.
 
 ## usage
 
