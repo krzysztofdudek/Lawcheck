@@ -89,3 +89,5 @@ Cursor, Copilot, Codex and Gemini CLI have hooks on similar events, where exit 2
 | You want the law checked inside the turn, on the files of the turn, with at most three returns | the Lawcheck plugin |
 | Your hook runs the tests, and the law holds your layers | both: your hook runs the tests, and the plugin checks the law |
 | You work in another agent that has hooks | a hook you write that runs `lawcheck check`, and the same check in CI |
+
+Next: [I want to](i-want-to.md)
