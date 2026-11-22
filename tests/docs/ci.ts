@@ -76,7 +76,7 @@ function standIn(clone: string): void {
   write(clone, 'node_modules/lawcheck/package.json', JSON.stringify({ name: 'lawcheck', version: '0.0.0', bin: { lawcheck: 'cli.js' } }));
   write(clone, 'node_modules/.bin/lawcheck', `#!/bin/sh\nexec "${process.execPath}" "${CLI}" "$@"\n`);
   chmodSync(join(clone, 'node_modules/.bin/lawcheck'), 0o755);
-  // On Windows npm exec starts a bin through cmd.exe, which runs the .cmd file beside it and never the sh script.
+  // On Windows npm exec starts a bin through cmd.exe, which runs the .cmd file beside it and never the sh script; the sh script stays, because npm checks that this exact file exists before it starts the bin.
   if (process.platform === 'win32') write(clone, 'node_modules/.bin/lawcheck.cmd', `@"${process.execPath}" "${CLI}" %*\r\n`);
 }
 
