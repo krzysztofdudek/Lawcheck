@@ -1,5 +1,8 @@
 [
   { "id": "first-law", "title": "The first type and the first rule", "section": "Guides" },
+  { "id": "types-for-a-project", "title": "Types for an existing project", "section": "Guides" },
+  { "id": "forbid-a-use", "title": "Forbid one layer to use another", "section": "Guides" },
+  { "id": "write-a-script-rule", "title": "Write a script rule", "section": "Guides" },
   { "id": "ci", "title": "CI and git hooks", "section": "Guides" },
   { "id": "commands", "title": "The commands", "section": "Reference" },
   { "id": "law", "title": "The law file", "section": "Reference" },

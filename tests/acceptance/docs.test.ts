@@ -11,10 +11,13 @@ import { WHY } from '../../dist/output.js';
 
 const spec = readFileSync(new URL('../../spec/commands-slice.md', import.meta.url), 'utf8').split('\n');
 const LIST = [
-  'lawcheck docs: 14 topics; lawcheck docs <topic> prints one',
+  'lawcheck docs: 17 topics; lawcheck docs <topic> prints one',
   '',
   'Guides',
   '  first-law  The first type and the first rule',
+  '  types-for-a-project  Types for an existing project',
+  '  forbid-a-use  Forbid one layer to use another',
+  '  write-a-script-rule  Write a script rule',
   '  ci  CI and git hooks',
   '',
   'Reference',
@@ -91,7 +94,7 @@ test('test 128: the list of topics, its JSON, and one page, outside git', async 
 });
 
 test('test 129: every page holds what section 7 asks, and its examples are real', async () => {
-  assert.equal(TOPICS.length, 14);
+  assert.equal(TOPICS.length, 17);
   for (const { id, title } of TOPICS) {
     const text = page(id);
     assert.equal(text.split('\n')[0], `# ${title}`, id);
