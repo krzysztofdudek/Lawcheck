@@ -1,6 +1,6 @@
 # Supported environments
 
-Lawcheck 0.1.0-alpha.2 runs on Node 24 or later with git 2.34 or later, on Linux, macOS and Windows. Anywhere else it stops before it reads the law, and says which program to change.
+Lawcheck 0.1.0-alpha.2 runs on Node 24 or later with git 2.34 or later, on Linux, macOS and Windows. Anywhere else, it stops before it reads the law. Its message says which program to change.
 
 ## Node, git and the systems
 
@@ -14,7 +14,7 @@ Lawcheck 0.1.0-alpha.2 runs on Node 24 or later with git 2.34 or later, on Linux
 
 ## Package managers
 
-Lawcheck installs as a package of the project or as a global package. `runner` in `.lawcheck/config.yaml` names the way it starts ([Settings](config.md)). Every night the tests install the package in a new project with npm, pnpm, Yarn 1, both kinds of Yarn 4 and Bun, and run `doctor`, `check` and `try` through the runner:
+Lawcheck installs as a package of the project or as a global package. The setting `runner` in `.lawcheck/config.yaml` names the command that starts it ([Settings](config.md)). Every night, the tests install the package in a new project with npm, pnpm, Yarn 1, both kinds of Yarn 4 and Bun. The tests then run `doctor`, `check` and `try` through the runner:
 
 | Package manager | Lawcheck starts as | `runner` |
 |---|---|---|
@@ -25,11 +25,13 @@ Lawcheck installs as a package of the project or as a global package. `runner` i
 | Yarn 4 with `nodeLinker: node-modules` or `nodeLinker: pnpm` | `yarn run lawcheck` | `yarn` |
 | Bun, with Node 24 on the `PATH` | `bun x --no-install lawcheck` | `bun` |
 
-Yarn 1 prints lines of its own around `yarn run`, and Yarn 4 holds back a package for its first day; [Settings](config.md) gives the line for each.
+Yarn 1 prints lines of its own around the output of `yarn run`. To read `--json`, run `yarn --silent run lawcheck`.
+
+Yarn 4 holds back a package published less than a day ago. On the first day after a release, `yarn add` of Lawcheck ends with `YN0016` and `quarantined`. [Settings](config.md) gives the line of `.yarnrc.yml` that lets the install through.
 
 ## The environments Lawcheck refuses
 
-Every command but `docs` and `doctor` stops with the code `unsupported-environment` and exit 2 ([unsupported-environment](codes.md#unsupported-environment)). `doctor` prints the same first line, fails its `node` or `git` check with the same message, and runs its other checks.
+Every command but `docs` and `doctor` stops with the code `unsupported-environment` and exit 2 ([unsupported-environment](codes.md#unsupported-environment)). `doctor` prints the same first line. It fails its `node` or `git` check with the same message. It runs its other checks as well.
 
 | Environment | Message | Fix |
 |---|---|---|
@@ -50,6 +52,13 @@ error[unsupported-environment]  Node 22.11.0 is older than 24, the oldest Node L
 next: install Node 24 or later, then run lawcheck check
 ```
 
-Lawcheck prints the refusal of `--permission` when Node starts its entry file by its own path, as the Windows shims of npm do, on Node 24.2 or later. On Linux and macOS, through the link that npm installs, and on Node 24.0 and 24.1, Node with `--permission` stops before Lawcheck runs: it prints its own `ERR_ACCESS_DENIED` and exits 1.
+Lawcheck prints the refusal of `--permission` in one case: Node 24.2 or later starts Lawcheck's entry file by the file's own path. A shim is the small script that npm installs to start a command. The Windows shims of npm start the entry file that way.
+
+In two other cases, Node with `--permission` stops before Lawcheck runs:
+
+- on Linux and macOS, through the link that npm installs;
+- on Node 24.0 and 24.1.
+
+Node then prints its own `ERR_ACCESS_DENIED` and exits 1.
 
 Next: [Upgrade Lawcheck](upgrade.md)
