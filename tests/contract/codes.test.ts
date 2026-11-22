@@ -927,6 +927,13 @@ test('test 582: the Example of every code is the output of its first case here, 
     const [file, name] = unreached.test.split(' > ');
     const text = readFileSync(new URL(`../../${file}`, import.meta.url), 'utf8');
     const body = text.slice(text.indexOf(`test('${name}'`), text.indexOf('\ntest(', text.indexOf(`test('${name}'`) + 1));
-    assert.ok(body.includes(`exampleOf(codesPage(), '${code}')`), `${unreached.test} compares no output with the Example of ${code}`);
+    assert.equal(comparisonProblem(body, code), null, unreached.test);
   }
+  assert.match(comparisonProblem("  if (cores >= 3) assert.equal(shownRun(argv, out, s), exampleOf(codesPage(), 'rules-too-slow'));\n", 'rules-too-slow')!, /under a condition/);
 });
+
+function comparisonProblem(body: string, code: string): string | null {
+  const line = body.split('\n').find((l) => l.includes(`exampleOf(codesPage(), '${code}')`));
+  if (line === undefined) return `compares no output with the Example of ${code}`;
+  return /^\s*assert\.equal\(shownRun\(/.test(line) ? null : `compares the Example of ${code} under a condition: ${line.trim()}`;
+}

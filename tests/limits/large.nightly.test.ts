@@ -108,6 +108,16 @@ test('test 251: S2-5, 30 rules that hang end as rule-crashed, each after its 30 
   );
 });
 
+// docs/codes.md shows the run where every rule starts. Lawcheck runs as many rules at once as there are processors, so with fewer the later rules had not started, and their lines on the page must name the file of the first line.
+function onCores(example: string, cores: number): string {
+  const first = / had not finished on (\S+) when /.exec(example)?.[1];
+  let rule = 0;
+  return example
+    .split('\n')
+    .map((line) => (!line.includes('error[rules-too-slow]') || rule++ < cores ? line : line.replace(` had not finished on ${first} when `, ' had not started when ')))
+    .join('\n');
+}
+
 test('test 251: S2-5, rules that take 29 seconds a file are stopped when the script rules of the run pass 600 seconds', async () => {
   const ids = ['slow-a', 'slow-b', 'slow-c'];
   const slow = 'export async function check() { await new Promise((done) => setTimeout(done, 29_000)); return []; }\n';
@@ -124,7 +134,7 @@ test('test 251: S2-5, rules that take 29 seconds a file are stopped when the scr
       });
       assert.ok(result.ms >= 600_000 && result.ms < 660_000, String(result.ms));
       assert.equal(result.code, 2);
-      if (cores >= ids.length) assert.equal(shownRun(['check', '--base', 'main'], result.stdout, s), exampleOf(codesPage(), 'rules-too-slow'));
+      assert.equal(shownRun(['check', '--base', 'main'], result.stdout, s), onCores(exampleOf(codesPage(), 'rules-too-slow') ?? '', cores));
     },
     {
       onMain: (s) => {
