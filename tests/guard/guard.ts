@@ -136,7 +136,7 @@ function count<T>(items: T[], key: (item: T) => string): Map<string, number> {
   return out;
 }
 
-// The rows a test carries for platform selection, as testIds of tests/harness/promises.ts reads them: only the leading 'test 12' or 'tests 306 and 307'.
+// The test numbers a name leads with, 'test 12' or 'tests 306 and 307', as testIds of tests/harness/promises.ts reads them; the platform selection and the anchors of a removed test both read them here.
 function leadingRows(name: string): Set<string> {
   const rows = /^tests? (\d+(?:(?:, | and )\d+)*)/.exec(name);
   return new Set(rows === null ? [] : rows[1]!.split(/, | and /));
@@ -214,7 +214,7 @@ function platformReasons(tree: Tree, config: Config): { reasons: Set<string>; pa
 }
 
 function anchorHint(kind: string, config: Config): string {
-  if (kind === 'test-removed') return `the test number ('test <n>'), promise ('I-...') or finding ('S<r>-<n>') that the test's name leads with; or 'ruling <n>' of ${config.rulings}; or 'Runes <version>' that this change moves to`;
+  if (kind === 'test-removed') return `the test number ('test <n>') or finding ('S<r>-<n>') that the test's name leads with, or a promise ('I-...') it names whose row this change also changes; or 'ruling <n>' of ${config.rulings}; or 'Runes <version>' that this change moves to`;
   if (kind === 'sabotage-removed') return "the entry's promise, removed in this change together with the code the entry breaks";
   if (OWNER_LIKE.has(kind) || kind === 'harness-changed' || kind === 'law-changed' || kind === 'platform-narrowed') return "anything this change really holds: a path it changes, 'test <n>' or 'I-...' it changes, 'ruling <n>', or 'Runes <version>' it moves to";
   return `'test <n>' or 'I-...' that this change adds, changes or removes; or 'ruling <n>' of ${config.rulings}; or 'Runes <version>' that this change moves to`;

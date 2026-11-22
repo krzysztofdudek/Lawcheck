@@ -59,6 +59,7 @@ const EXPECT: { [name: string]: Expect } = {
   'refused-slow-test-budget-raised': { refused: ['threshold-lowered'] },
   'refused-schema-no-record': { refused: ['expected-changed'] },
   'refused-sabotage-removed-guard-kept': { refused: ['sabotage-guard-kept', 'record-invalid'] },
+  'refused-sabotage-removed-test-kept': { refused: ['sabotage-guard-kept', 'record-invalid'] },
   'refused-sabotage-changed': { refused: ['sabotage-changed'] },
   'refused-harness-no-record': { refused: ['harness-changed'] },
   'refused-docs-example-no-record': { refused: ['docs-example-changed'] },
@@ -154,7 +155,7 @@ test('question 95: the suite guard, a refusal names the weakening, the record th
     'why      no record of it in this change',
     'needs    a row added to tests/weakenings.md in this change:',
     '         | 2026-11-15 | test 2: the passing run | test-removed | <why the suite may get weaker here> | <anchor> | reviewer <the fresh reviewer agent> |',
-    "anchor   the test number ('test <n>'), promise ('I-...') or finding ('S<r>-<n>') that the test's name leads with; or 'ruling <n>' of design/decisions.md; or 'Runes <version>' that this change moves to",
+    "anchor   the test number ('test <n>') or finding ('S<r>-<n>') that the test's name leads with, or a promise ('I-...') it names whose row this change also changes; or 'ruling <n>' of design/decisions.md; or 'Runes <version>' that this change moves to",
     '',
     text.trimEnd().split('\n').at(-1),
     '',
@@ -191,9 +192,14 @@ test('question 95: the suite guard, an owner\'s row lands alone first, and the c
   }
 });
 
-test('question 95: the suite guard, a removed test is anchored only by what its own name names, a ruling or a Runes version', () => {
+test('question 95: the suite guard, the record of a removed test that anchors a finding the name does not lead with is refused', () => {
   const finding = judgeCase('refused-test-removed-anchor-not-named').findings.find((f) => f.kind === 'test-removed')!;
   assert.deepEqual(finding.why, ['the record at tests/weakenings.md:6: the test\'s name names row 2, and the record anchors S1-1']);
+});
+
+test('question 95: the suite guard, a sabotage entry removed with its code is refused while a test still carries its promise', () => {
+  const finding = judgeCase('refused-sabotage-removed-test-kept').findings.find((f) => f.kind === 'sabotage-guard-kept')!;
+  assert.equal(finding.detail, 'an entry of the sabotage list is removed only with the guard it breaks and with its promise: its promise row 3 still exists');
 });
 
 test('question 95: the suite guard, an owner\'s row that lands alone is refused for what is wrong with the row itself', () => {
