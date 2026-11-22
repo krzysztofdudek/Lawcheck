@@ -29,7 +29,7 @@ Lawcheck stops with `law-invalid` in these cases:
 - an empty file;
 - a value of the wrong kind.
 
-When a key outside the table differs by one or two letters from a known key, the `law-invalid` error prints the known key after `did you mean`.
+When a key outside the table differs by one or two letters from a known key, the `law-invalid` error adds a hint that names the known key. The hint reads: did you mean 'paths'?
 
 A YAML alias, such as `*base`, stands for the value that an anchor, such as `&base`, marks. Lawcheck reads an alias as the value of its anchor.
 

@@ -370,7 +370,7 @@ Give yourself read permission on the file, or put a regular file at the path.
 
 The user decides how to make room, as the `next:` line says. `lawcheck prime` tells a coding agent to edit `.lawcheck/verdicts` only on the user's word.
 
-One way is to delete `.lawcheck/verdicts`. A review of every file of the law takes as many reviewer calls as the message counts. The passes of that review fill a new file. If the passes that the files of this tree need are close to the passes that the old file holds, the new file is about as large as the old one. In that case, deleting the file frees little room. Narrow the `paths` of the types that list the reviewer rules. Fewer files then need a pass.
+One way is to delete `.lawcheck/verdicts`. A review of every file of the law takes as many reviewer calls as the message counts. The passes of that review fill a new file. If the passes that the files of this tree need are close to the passes that the old file holds, the new file is about as large as the old one. In that case, deleting the file frees little room. You can narrow the `paths` of the types that list the reviewer rules. Then fewer files need a pass.
 
 **Example**
 
