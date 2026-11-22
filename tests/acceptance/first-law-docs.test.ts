@@ -72,6 +72,15 @@ test('test 309: R-7, the first-law page walked top to bottom in a new repository
   });
 });
 
+test('test 309: the first-law page writes the rule file and then the whole law in one block, and its first command after init and mkdir is the check that fails', () => {
+  const all = blocks();
+  const commands = all.flatMap((b) => b.lines.filter((l) => l.startsWith('$ ')).map((l) => l.slice(2)));
+  assert.deepEqual(commands.slice(0, 3), ['lawcheck init', 'mkdir -p .lawcheck/rules', 'lawcheck check src/report.ts']);
+  assert.equal(EXIT['check src/report.ts'], 1);
+  const written = all.filter((b) => b.marker !== null).map((b) => b.marker);
+  assert.deepEqual(written, ['first-law-rule', 'first-law-law'], 'the rule file comes first, and the law is one edit');
+});
+
 test('test 309: S7-7, a folder git ignores is never judged, and the same folder not ignored is', async () => {
   assert.ok(page.includes('Lawcheck never judges a folder that `.gitignore` names, such as `node_modules/` or a build folder. It would judge the same folder if git did not ignore it.'));
   const law = (repo: string) => {
