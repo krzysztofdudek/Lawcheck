@@ -569,26 +569,8 @@ export const SLOW_TESTS: Record<string, Slow> = {
   // Measured on Nightly run 43965209262 (seven entries of the list): each entry builds the broken code and runs its test; the run took 8.2 s with five.
   'tests/sabotage/sabotage.nightly.test.ts > question 95: the sabotage list, every break of the list turns its test red': { fixed: 0, measured: { linux: 21_000 } },
 
-  // The longest time of each test that passed a fifth of TEST_BUDGET_MS with no entry for win32 in the Windows three-times job of the Nightly 45057543660, every round included: the scenarios of the documentation pages, first run on Windows there.
+  // The longest time on the Windows three-times job of the Nightly 45057543660, every round included, where the scenarios of the documentation pages first ran on Windows; the CI page's scenario starts three job scripts and a git hook through sh and npx.
   'tests/contract/docs-examples.test.ts > test 432: the scenario of docs/ci.md runs the blocks it claims, and each output the page shows is the one the tool prints, byte for byte': { fixed: 0, measured: { win32: 30_216 } },
-  'tests/contract/docs-examples.test.ts > test 432: the scenario of docs/adopt-in-an-existing-repository.md runs the blocks it claims, and each output the page shows is the one the tool prints, byte for byte': { fixed: 0, measured: { win32: 13_265 } },
-  'tests/contract/docs-examples.test.ts > test 432: the scenario of docs/team.md runs the blocks it claims, and each output the page shows is the one the tool prints, byte for byte': { fixed: 0, measured: { win32: 10_180 } },
-  'tests/contract/docs-examples.test.ts > test 432: the scenario of docs/waivers.md runs the blocks it claims, and each output the page shows is the one the tool prints, byte for byte': { fixed: 0, measured: { win32: 9_402 } },
-  'tests/contract/docs-examples.test.ts > test 432: the scenario of docs/slow-check.md runs the blocks it claims, and each output the page shows is the one the tool prints, byte for byte': { fixed: 0, measured: { win32: 9_401 } },
-  'tests/contract/docs-examples.test.ts > test 432: the scenario of docs/false-alarm.md runs the blocks it claims, and each output the page shows is the one the tool prints, byte for byte': { fixed: 0, measured: { win32: 8_777 } },
-  'tests/contract/docs-examples.test.ts > test 432: the scenario of docs/write-a-reviewer-rule.md runs the blocks it claims, and each output the page shows is the one the tool prints, byte for byte': { fixed: 0, measured: { win32: 8_454 } },
-  'tests/contract/docs-examples.test.ts > test 432: the scenario of docs/commands.md runs the blocks it claims, and each output the page shows is the one the tool prints, byte for byte': { fixed: 0, measured: { win32: 7_595 } },
-  'tests/contract/docs-examples.test.ts > test 432: the scenario of docs/monorepo.md runs the blocks it claims, and each output the page shows is the one the tool prints, byte for byte': { fixed: 0, measured: { win32: 7_245 } },
-  'tests/contract/docs-examples.test.ts > test 432: the scenario of docs/claude-code.md runs the blocks it claims, and each output the page shows is the one the tool prints, byte for byte': { fixed: 0, measured: { win32: 7_212 } },
-  'tests/contract/docs-examples.test.ts > test 432: the scenario of docs/types-for-a-project.md runs the blocks it claims, and each output the page shows is the one the tool prints, byte for byte': { fixed: 0, measured: { win32: 7_065 } },
-  'tests/acceptance/rules.test.ts > test 28: a rule reads files under the root': { fixed: 0, measured: { win32: 6_985 } },
-  'tests/acceptance/rule-results.test.ts > R-106: a throw in a call with an object without a prototype is rule-crashed at once, named by the reason the value has no string form': { fixed: 0, measured: { win32: 6_499 } },
-  'tests/acceptance/runes-limits.test.ts > test 310: S4-1, a use through an alias of the bundler configuration is judged where the readers read the alias, counted where they cannot follow it, and import.meta.glob and require.context give no use': { fixed: 0, measured: { win32: 5_808 } },
-  'tests/contract/docs-examples.test.ts > test 432: the scenario of docs/forbid-a-use.md runs the blocks it claims, and each output the page shows is the one the tool prints, byte for byte': { fixed: 0, measured: { win32: 5_444 } },
-  'tests/contract/docs-examples.test.ts > test 432: the scenario of docs/write-a-script-rule.md runs the blocks it claims, and each output the page shows is the one the tool prints, byte for byte': { fixed: 0, measured: { win32: 5_265 } },
-  'tests/contract/docs-examples.test.ts > test 432: the scenario of docs/upgrade.md runs the blocks it claims, and each output the page shows is the one the tool prints, byte for byte': { fixed: 0, measured: { win32: 5_216 } },
-  'tests/acceptance/prime.test.ts > test 102: prime without a law': { fixed: 0, measured: { win32: 4_979 } },
-  'tests/acceptance/rule-results.test.ts > R-106: a throw in a call with an array holding a symbol is rule-crashed at once, named by the reason the value has no string form': { fixed: 0, measured: { win32: 4_425 } },
 };
 
 // Test 410 proves that the script takes ollama, codex and copilot-cli, which two runs, the fewest it accepts, show.
