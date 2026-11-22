@@ -2,7 +2,9 @@
 
 A run stopped with `error[type-overlap]`, or a check came back with `warning[uses-not-read]`. You need the step that clears it. Each code that Lawcheck prints has a heading of its own on this page. The code `law-invalid`, for one, is under `## law-invalid`.
 
-An exit-2 code stops the run before Lawcheck gives a PASS or a FAIL. Its output ends with one `next:` line that says what to fix. A [finding](concepts.md#finding) is a line of the report of `check`. A finding of a rule comes with the rule's `why`. A finding of a built-in code comes with the fixed why of the table below. Lawcheck prints the `why:` line once for each code, under its first error or finding.
+An exit-2 code stops the run before Lawcheck gives a PASS or a FAIL. Its output ends with one `next:` line that says what to fix. A [finding](concepts.md#finding) is a line of the report of `check`, and a `why:` line comes with it. For a rule, the why is the rule's `why`. For a built-in code, it is the text of the Why column in the table below. Lawcheck prints the `why:` line once for each code, under its first error or finding.
+
+Two words recur below. The root is the folder that holds `.lawcheck/`. A rule binds a file when the file's type, or a type above it, lists the rule.
 
 | Code | Kind | When | Why |
 |---|---|---|---|
@@ -46,13 +48,16 @@ An exit-2 code stops the run before Lawcheck gives a PASS or a FAIL. Its output 
 
 A finding of a rule of the law carries the rule's id as its code. It carries the rule's own `why`. A rule id may not equal any code above, and it may not be `untyped-file`.
 
-Each Example below is the standard output of a test of Lawcheck's own suite. The suite builds a sample repository and runs the test there. The examples leave out standard error. Lawcheck prints lines such as the count of reviewer calls on standard error. A path under `/home/you/projects` stands for the temporary folder of the test. `/usr/local/bin/node` stands for the node that runs the test.
+Each Example below is the standard output of a test of Lawcheck's own suite. The suite builds a sample repository and runs the test there. The examples leave out standard error, where Lawcheck prints lines such as the count of reviewer calls. In the examples, two paths stand for what differs from machine to machine:
+
+- `/home/you/projects` for the temporary folder of the test;
+- `/usr/local/bin/node` for the node that runs the test.
 
 ## usage
 
 **Meaning**
 
-The command line breaks the usage line of its command. Lawcheck runs nothing.
+The usage line of a command is the form that `lawcheck <command> --help` prints. Here the command line breaks that form, and Lawcheck runs nothing.
 
 **Typical cause**
 
@@ -100,7 +105,7 @@ The cause is one of these:
 The `next:` line gives the step for the cause:
 
 - Node older than 24: install Node 24 or later.
-- Bun: start Lawcheck as `bun x --no-install lawcheck`, without `--bun`. Lawcheck then runs on the `node` of the `PATH`. With no `node` there, install Node 24 beside Bun.
+- Bun: start Lawcheck as `bun x --no-install lawcheck`, without `--bun`, and it runs on the `node` of the `PATH`. With no `node` there, install Node 24 beside Bun.
 - Plug'n'Play: set `nodeLinker: node-modules` in `.yarnrc.yml` and run `yarn install`.
 - git older than 2.34: install git 2.34 or later.
 - `--permission`: start Lawcheck with `NODE_OPTIONS` free of `--permission`.
@@ -125,7 +130,7 @@ Lawcheck finds no `.lawcheck/law.yaml` in the folder it runs in or in any folder
 
 **Typical cause**
 
-The repository has no law yet. The other cause: you run Lawcheck from a folder above the one that holds `.lawcheck/`, such as the top of a monorepo whose packages each have a law. In that case, the message names up to three folders below that hold a law.
+The repository has no `.lawcheck/law.yaml` yet. The other cause: you run Lawcheck from a folder above the one that holds `.lawcheck/`, such as the top of a monorepo with one law per package. In that case, the message names up to three folders below that hold a law.
 
 **Fix**
 
@@ -356,7 +361,11 @@ next: make src/core/price.ts readable, then run lawcheck check
 
 **Meaning**
 
-One file goes over the limit of what Lawcheck reads from it. A file read as text may hold 16 MiB and 1,048,576 lines. The law and the config may each hold 1 MiB. The law may hold 10,000 rules and 1,000 types.
+One file goes over the limit of what Lawcheck reads from it. The limits are:
+
+- 16 MiB and 1,048,576 lines for a file read as text;
+- 1 MiB each for the law and the config;
+- 10,000 rules and 1,000 types for the law.
 
 **Typical cause**
 
@@ -442,7 +451,7 @@ next: move .lawcheck out of the way, then run lawcheck init again
 
 **Meaning**
 
-Two types of one level match the same file. A file has one type, so Lawcheck stops before it judges anything.
+Two types of one level match the same file. A file has one type, so Lawcheck stops before it judges a file.
 
 **Typical cause**
 
@@ -626,7 +635,7 @@ A rule reports every line of a file, or a rule binds a type that matches generat
 
 **Fix**
 
-Edit the rule so it returns one finding for each breach, or narrow the `paths` of the types that list it.
+Edit the rule so it returns one finding for each line that breaks it, or narrow the `paths` of the types that list it.
 
 **Example**
 
@@ -644,7 +653,7 @@ next: make the rules return fewer findings, or narrow the types that list them, 
 
 **Meaning**
 
-The script rules of one run took more than 600 seconds together. Lawcheck stops them. It names each rule that had not finished. Lawcheck runs as many rules at once as the machine has processors. With fewer processors than rules, the later rules show "had not started". The Example comes from a machine of three processors or more.
+The script rules of one run took more than 600 seconds together. Lawcheck stops them. It names each rule that had not finished. Lawcheck runs as many rules at once as the machine has processors, so on a machine with fewer processors than rules the later ones show "had not started". The Example comes from a machine of three processors or more.
 
 **Typical cause**
 

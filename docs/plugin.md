@@ -7,7 +7,7 @@ claude plugin marketplace add krzysztofdudek/Lawcheck
 claude plugin install lawcheck@lawcheck-marketplace
 ```
 
-The plugin ships without Lawcheck itself. It starts Lawcheck with the command that `runner` in `.lawcheck/config.yaml` names ([Settings](config.md)). Install Lawcheck the way that `runner` says. The hooks need `node` and `git` on the `PATH` as well. The plugin runs on Linux, macOS and Windows.
+The plugin ships without Lawcheck itself. It starts Lawcheck with the command that `runner` in `.lawcheck/config.yaml` names ([Settings](config.md)). Install Lawcheck the way that `runner` says. The plugin runs on Linux, macOS and Windows, with `node` and `git` on the `PATH`.
 
 A hook is a command that Claude Code runs at an event of a session. The plugin's hooks run Lawcheck and the repository's rule scripts after edits and before the agent finishes. Use the plugin in a repository whose tests you would run on your machine.
 
@@ -26,7 +26,7 @@ Claude Code names each hook by its event. Each hook runs `node` on the plugin's 
 
 Git and Lawcheck share the deadline of their hook. After the deadline, the hook stops Lawcheck and its child processes. The deadline ends five seconds before the time Claude Code gives the hook. The hook uses those five seconds to end.
 
-The root is the nearest folder, here or above, that holds `.lawcheck/law.yaml`. After an edit, the hook looks for the root from the edited file. A file of another repository gets that repository's law and runner. The other hooks look from the session's current folder.
+The root is the nearest folder that holds `.lawcheck/law.yaml`: the folder where the search starts, or one above it. After an edit, the hook starts the search from the folder of the edited file. That way, a file of another repository gets that repository's law and runner. The other hooks start from the session's current folder.
 
 ## SessionStart
 
@@ -62,7 +62,7 @@ If the check passes its deadline, the agent gets one line that says so. If Lawch
 
 ## Stop
 
-The files of the turn are the files that changed since the prompt, and the files of the commits of the turn. A file that the user's editor wrote during the turn counts as a file of the turn. The hook runs `lawcheck check` on these files:
+The files of the turn are the files that changed since the prompt, and the files of the turn's commits. A file that the user's editor wrote during the turn counts as one of them. The hook runs `lawcheck check` on these files:
 
 - Exit 0: the agent finishes.
 - Exit 1: the hook sends the agent back with the output, to fix the code or to tell the user what blocks it.
@@ -112,6 +112,6 @@ Claude Code hands each hook the value as the variable `CLAUDE_PLUGIN_OPTION_CHEC
 
 ## The state the plugin keeps
 
-Claude Code names the plugin's data folder in `CLAUDE_PLUGIN_DATA`. The hook keeps one small file per session in that folder. Without that variable, the hook keeps the file in a folder of the system's temporary directory that only your user may read. Each session start deletes the files older than 7 days. On Windows, the hook needs `CLAUDE_PLUGIN_DATA` for its state. Without that variable on Windows, the hook keeps no state.
+Claude Code names the plugin's data folder in `CLAUDE_PLUGIN_DATA`. The hook keeps one small file per session in that folder. Without that variable, the hook keeps the file in a folder of the system's temporary directory that only your user may read. Each session start deletes the files older than 7 days. On Windows the hook keeps no state without `CLAUDE_PLUGIN_DATA`.
 
 Next: [Files Lawcheck reads and writes](files.md)

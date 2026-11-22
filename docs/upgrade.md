@@ -49,7 +49,7 @@ Run the install line again. `@alpha` names the newest alpha:
 | with Yarn | `yarn add --dev lawcheck@alpha` |
 | with Bun | `bun add --dev lawcheck@alpha` |
 
-A global install does not change the copy a project installed. The project's install does not change the global one. The runner in `.lawcheck/config.yaml` says which of the two runs ([Install](install.md#the-runner-setting)).
+A global install and the project's install leave each other's copy as it is. The runner in `.lawcheck/config.yaml` says which of the two runs ([Install](install.md#the-runner-setting)).
 
 ## 2. Check the version
 

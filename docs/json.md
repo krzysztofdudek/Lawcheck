@@ -208,7 +208,7 @@ For a directory, these fields follow `schema` and `subject`:
 | `types.type` | the type, or null |
 | `types.files` | its count of files |
 
-For a type, the fields `id`, `chain`, `about`, `may_use`, `rules` (without `review`) and `files` follow `schema` and `subject`, as above. These fields come with them:
+For a type, the document holds `chain`, `about`, `may_use`, `rules` (without `review`) and `files` after `schema` and `subject`, with the meanings above. It holds four fields of its own:
 
 | Field | Value |
 |---|---|
@@ -230,7 +230,7 @@ For a rule, these fields follow `schema` and `subject`:
 | `context` | the paths of its `context`, or null |
 | `reviewed` | for a reviewer rule, how many of its files have a verdict; null for a script rule |
 
-`id` is the rule. `types` names the types that list the rule. `files` names the files the rule binds.
+`id` is the rule. `types` names each type that lists it. `files` names the files it binds: each file whose type, or a type above it, lists the rule.
 
 ## lawcheck-try/0
 

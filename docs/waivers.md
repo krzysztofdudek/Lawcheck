@@ -1,6 +1,6 @@
 # Waivers
 
-A [rule](concepts.md#rule) holds for a whole layer. One line breaks it, for a reason the team accepts. A [waiver](concepts.md#waiver) drops the findings of one rule on one line. Its reason stays in the code beside that line. Add a waiver only when the user agrees.
+A [rule](concepts.md#rule) holds for a whole layer. One line breaks it, for a reason the team accepts. A [waiver](concepts.md#waiver) drops the findings of one rule on one line, and its reason stays in the code beside that line. Add a waiver only when the user agrees.
 
 ```ts
 console.warn('no campaign'); // lawcheck-waive no-console -- the pricing team reads this warning until 2.0
@@ -25,7 +25,7 @@ A waiver with a letter or a digit before the marker on its line covers its own l
 console.log('released');
 ```
 
-Waivers on several lines that stand alone, one above the other, all cover the line below them. Two waivers of one rule can cover the same line. Then the waiver on the line itself drops the findings. Without a waiver there, the nearest one above drops them. A waiver at the end of a file covers nothing.
+Waivers on several lines that stand alone, one above the other, all cover the line below them. If two waivers of one rule cover the same line, the one on the line itself drops the findings. If the line holds none, the nearest waiver above it drops them. A waiver at the end of a file covers nothing.
 
 A waiver drops every finding of its rule on the line it covers. A finding about the whole file has no line, so no waiver can drop it.
 
@@ -47,7 +47,7 @@ No other code takes a waiver, `uses-not-read`, `not-reviewed` and the three waiv
 | `waiver-without-reason` | the rule is known, and no `--` follows it, or nothing follows the `--` | error |
 | `waiver-unused` | a counted waiver dropped no finding | warning |
 
-A waiver with either of the first two codes waives nothing. Lawcheck reports all three codes at the waiver's line. No waiver can drop them. Outside the change, these findings are [debt](concepts.md#debt). A finding of debt is a warning.
+A waiver with either of the first two codes waives nothing. Lawcheck reports all three codes at the waiver's line, where no waiver can drop them. Outside the change, these findings are [debt](concepts.md#debt), so Lawcheck reports them as warnings.
 
 Lawcheck has no waiver for a range of lines or for a whole file. `lawcheck-waive-file`, like any word joined to the marker, is `waiver-unknown-rule`.
 
@@ -55,7 +55,7 @@ A waiver of a [reviewer rule](concepts.md#reviewer-rule) never gets `waiver-unus
 
 ## The count of waivers
 
-Lawcheck counts each waiver that has a known rule and a reason, whether it dropped a finding or not. The first line of `check` counts the waivers of the changed files. Under `--full`, the debt heading counts the waivers of the other files. In JSON, `waivers` lists each waiver with `file`, `line`, `rule`, `reason` and `waived`. `waived` holds the number of findings the waiver dropped.
+Lawcheck counts each waiver that has a known rule and a reason, whether it dropped a finding or not. The first line of `check` counts the waivers of the changed files. Under `--full`, the debt heading counts those of the other files. In JSON, the list `waivers` holds each waiver with its `file`, `line`, `rule`, `reason` and `waived`. `waived` holds the number of findings the waiver dropped.
 
 If a change edits the law and adds a waiver, `check` prints a note that names the waiver (`lawcheck docs change`). `lawcheck explain <path>` lists the counted waivers of a file. `lawcheck try` counts the findings that waivers dropped in its run.
 

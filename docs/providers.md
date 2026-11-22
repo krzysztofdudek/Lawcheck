@@ -1,6 +1,6 @@
 # Reviewers and keys
 
-A [reviewer rule](concepts.md#reviewer-rule) needs a model that answers. You name one of nine providers in `.lawcheck/config.yaml` (`lawcheck docs config`). Lawcheck takes the provider's key from the environment and never from a file. The five HTTP providers need `model`. The four programs run on your machine. For them, `model` is optional.
+A [reviewer rule](concepts.md#reviewer-rule) needs a model that answers. You name one of nine providers in `.lawcheck/config.yaml` (`lawcheck docs config`). Lawcheck takes the provider's key from the environment and never from a file. The five HTTP providers need `model`. For the four programs, which run on your machine, `model` is optional.
 
 ## anthropic
 
@@ -8,7 +8,7 @@ Lawcheck sends `POST <address>/messages` to https://api.anthropic.com/v1. The ke
 
 ## openai
 
-Lawcheck sends `POST <address>/chat/completions` to https://api.openai.com/v1. The key goes as `authorization: Bearer <key>`: `OPENAI_API_KEY`, else `LAWCHECK_REVIEWER_KEY`. The request asks for a JSON object through `response_format`. Lawcheck reads the message of the first choice.
+Lawcheck sends `POST <address>/chat/completions` to https://api.openai.com/v1. The key goes as `authorization: Bearer <key>`: `OPENAI_API_KEY`, else `LAWCHECK_REVIEWER_KEY`. The request asks for a JSON object through `response_format`. Lawcheck reads the first choice's message.
 
 ```yaml
 reviewer:
@@ -22,11 +22,17 @@ Lawcheck sends `POST <address>/models/<model>:generateContent` to https://genera
 
 ## openai-compatible
 
-This provider calls any server that answers chat completions. Lawcheck sends that server the request of `openai`. The provider needs the server's address in `LAWCHECK_REVIEWER_ENDPOINT`. If the environment holds `LAWCHECK_REVIEWER_KEY`, Lawcheck sends it as `authorization: Bearer <key>`. This provider never reads `OPENAI_API_KEY`.
+This provider calls any server that answers chat completions, at the address that `LAWCHECK_REVIEWER_ENDPOINT` holds. The variable is required. Lawcheck sends the server the request of `openai`. If the environment holds `LAWCHECK_REVIEWER_KEY`, Lawcheck sends it as `authorization: Bearer <key>`. This provider never reads `OPENAI_API_KEY`.
 
 ## ollama
 
-Lawcheck sends `POST <address>/api/chat` over HTTP to port 11434 of this machine. The request sets `stream: false` and `format: json`. It puts the temperature in `options`. Lawcheck reads the answer from `message.content`. It sends no key. `model` names a model that the server has pulled. A call has 300 seconds by default. For a server on another machine, set the provider and the address:
+Lawcheck sends `POST <address>/api/chat` over HTTP to port 11434 of this machine, with no key. The request sets three fields:
+
+- `stream: false`;
+- `format: json`;
+- `options`, which holds the temperature.
+
+Lawcheck reads the answer from `message.content`. `model` names a model that the server has pulled. A call may take 300 seconds by default, and the setting `timeout` changes that. For a server on another machine, set the provider and the address:
 
 ```yaml
 reviewer:
@@ -72,9 +78,9 @@ A failed request gets a message that names the fix for its HTTP status. For HTTP
 
 ## The programs
 
-Lawcheck finds the program on `PATH` and starts it with no shell. The program runs in a new empty folder. Lawcheck removes that folder after the call. Lawcheck writes the prompt to the program's standard input.
+Lawcheck finds the program on `PATH` and starts it with no shell. The program runs in a new empty folder, which Lawcheck removes after the call. The prompt goes to the program's standard input.
 
-Lawcheck passes `--model` if the config sets `model`. Without `model`, the program runs its own default model. A call has 300 seconds by default. `parallel` is 1 by default. Lawcheck refuses a `temperature` for a program. The program runs at its own temperature.
+Lawcheck passes `--model` if the config sets `model`. Without it, the program runs its own default model. The defaults are 300 seconds for a call and 1 for `parallel`. Lawcheck refuses a `temperature` for a program, since each program sets its own.
 
 An exit code other than 0 counts as a failure. The last line of the program's standard error becomes the message of that failure. After the timeout, Lawcheck ends the program and every process it started.
 
@@ -113,7 +119,7 @@ The request carries the model name, the parameters and the key beside the prompt
 - The five HTTP providers send it to the address in force.
 - The four programs get it on standard input. Each program adds its own system prompt. A program can load your own instruction files, as its settings say. It sends the request to the model provider that its own configuration names.
 
-`check --review` sends a file that has a type and a reviewer rule that binds it. `try` sends the file you name. A prompt holds at most `reviewer.max_chars` characters. A run sends at most `reviewer.max_calls` requests.
+A rule binds a file when the file's type, or a type above it, lists the rule. `check --review` sends each file that a reviewer rule binds. `try` sends the file you name. Two settings cap the cost: a prompt holds at most `reviewer.max_chars` characters, and a run sends at most `reviewer.max_calls` requests.
 
 Lawcheck writes a key as `[key]` wherever it shows text from outside itself: a reply, a program's output, a rule message, a file name, `--base`, a config value. Lawcheck hides two kinds of key. The first is the value of `LAWCHECK_REVIEWER_KEY`. The second is each key that the configured provider would send or pass on. Lawcheck leaves the variables of another provider as they came. It leaves a key shorter than 8 characters as it is. Lawcheck replaces the exact key and never a prefix of it or a percent-encoded copy.
 
@@ -138,6 +144,6 @@ $ lawcheck doctor --reviewer
 
 `lawcheck doctor` says whether Lawcheck can call the provider. It asks the provider for no review. For `ollama`, it asks the server for its version and names the address it reached.
 
-`lawcheck doctor --reviewer` sends one small test request, and no cap counts it. It says whether the reviewer answered with a verdict. A failed check ends with a `next:` line. That line names what to set or start.
+`lawcheck doctor --reviewer` sends one small test request, which no cap counts. It says whether the reviewer answered with a verdict. A failed check ends with a `next:` line that names what to set or start.
 
 Next: [Languages and uses](languages.md)

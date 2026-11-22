@@ -18,7 +18,7 @@ A CI job needs no key. A plain check reads the passes recorded in `.lawcheck/ver
 
 ## A script rule that reads other files
 
-Lawcheck calls a [script rule](concepts.md#script-rule) once for each file it binds. The argument `files` holds that one file. `repo.filesOf(typeId)` gives the paths of every file of a type. The rule may read any file under the root with `node:fs`. [Script rules](script-rules.md#the-argument-of-check) lists what the rule receives.
+Lawcheck calls a [script rule](concepts.md#script-rule) once for each file it binds: each file whose type, or a type above it, lists the rule. The argument `files` holds that one file. `repo.filesOf(typeId)` gives the paths of every file of a type. With `node:fs`, the rule may read any file below the folder that holds `.lawcheck/`. [Script rules](script-rules.md#the-argument-of-check) lists what the rule receives.
 
 ## A reviewer rule that needs another file
 
@@ -26,11 +26,11 @@ The reviewer judges one file per call and sees nothing else of the repository. N
 
 ## Old code that breaks the law
 
-A plain `lawcheck check` judges the files that differ from the base. Old code fails nothing until a change touches it. `lawcheck check --full` lists the findings in the rest of the code as [debt](concepts.md#debt). A finding of debt is a warning. Debt never changes the exit code. [What a check judges](change.md#full-and-debt) shows the output.
+A plain `lawcheck check` judges the files that differ from the base. Old code fails nothing until a change touches it. `lawcheck check --full` lists the findings in the rest of the code as [debt](concepts.md#debt). Debt is a warning, so it never changes the exit code. [What a check judges](change.md#full-and-debt) shows the output.
 
 ## A new model for the reviewer
 
-A change of provider or model keeps every recorded pass. The key of a pass holds no provider and no model. A change of the judged file needs a new review. So does a change of the rule's text, its `why` or its context files. [Reviewer rules](reviewer-rules.md#verdicts) lists every part of the key.
+Lawcheck keeps every recorded pass when you change the provider or the model, because the key of a pass holds neither. It asks for a new review when the judged file changes. It does the same when the rule's text, its `why` or its context files change. [Reviewer rules](reviewer-rules.md#verdicts) lists every part of the key.
 
 ## The cost of a review
 
@@ -38,11 +38,11 @@ A change of provider or model keeps every recorded pass. The key of a pass holds
 
 ## Submodules and nested repositories
 
-Lawcheck does not look into a submodule, or into a separate repository inside this one. It prints a note when a type's paths reach into one. Give that repository a law of its own and run Lawcheck there. [A monorepo](monorepo.md#_6-leave-a-nested-repository-to-its-own-law) shows the note.
+A submodule is a repository that git keeps inside another one at a fixed commit. Lawcheck does not look into a submodule, or into a separate repository inside this one. It prints a note when a type's paths reach into one. Give that repository a law of its own and run Lawcheck there. [A monorepo](monorepo.md#_6-leave-a-nested-repository-to-its-own-law) shows the note.
 
 ## Generated and vendored files
 
-A file git ignores has no type. Lawcheck never judges a file with no type. Add the folder to `.gitignore`, or keep it out of the type with a `!` pattern in its `paths`. [The law file](law.md#patterns) gives the syntax of a pattern.
+Lawcheck never judges a file that git ignores, because such a file has no type. Add the folder to `.gitignore`, or keep it out of the type with a `!` pattern in its `paths`. [The law file](law.md#patterns) gives the syntax of a pattern.
 
 ## Another coding agent
 

@@ -100,7 +100,7 @@ test('test 312: S4-3, a Rust mod with #[path], in src/lib.rs and in a module fil
 });
 
 test('test 313: S4-6, a script block inside an HTML comment of a Vue file is not read, and a script with src is judged', async () => {
-  assert.ok(page.includes('A file with a relative `<script src>` uses the file that this attribute names. The readers skip a script inside an HTML comment.'));
+  assert.ok(page.includes('Such a file with a relative `<script src>` uses the file that this attribute names. The readers skip a script inside an HTML comment.'));
   const found = await judged({
     '.lawcheck/law.yaml': law(['ui', ['ui/**'], ['ui']], ['data', ['data/**'], null]),
     'data/d.ts': 'export const d = 1;\n',
@@ -161,11 +161,11 @@ test('test 313: S4-11, declare module is read as a use, and a fully qualified Ja
   });
   assert.deepEqual(found.findings, ['ui/src/main/java/com/acme/ui/Field.java:2']);
   assert.ok(page.includes('the readers read a fully qualified name in a field type. The readers do not read it in a call, an annotation or `Class.forName`.'));
-  assert.ok(page.includes('Lawcheck sets no limit on what a file with syntax errors costs, whatever its size'), 'S4-10');
+  assert.ok(page.includes('Lawcheck sets no limit of its own on reading a file with syntax errors, whatever its size'), 'S4-10');
 });
 
 test('test 313: S4-10, a large Java file with syntax errors is parsed on every run and bounded by nothing: the run passes, with no error and no named limit', async () => {
-  assert.ok(page.includes('Lawcheck sets no limit on what a file with syntax errors costs, whatever its size'));
+  assert.ok(page.includes('Lawcheck sets no limit of its own on reading a file with syntax errors, whatever its size'));
   const line = '  int x = ((( ;;; } } class class 12 @@ \n';
   let text = 'package com.acme.ui;\npublic class Big {\n';
   while (text.length < UNPARSABLE_JAVA_CHARS) text += line;

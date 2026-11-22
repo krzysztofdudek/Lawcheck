@@ -37,9 +37,17 @@ Lawcheck takes the merge base of `HEAD` and the base. The merge base is the newe
 - a change of mode alone counts;
 - an edit of a file marked `assume-unchanged` or `skip-worktree` counts. `git diff` does not show such an edit.
 
-A rule judges the changed files it binds. Lawcheck judges a changed file whole. An error on a line you did not touch fails the run.
+A rule judges each changed file whose type, or a type above it, lists the rule. Lawcheck judges a changed file whole. An error on a line you did not touch fails the run.
 
-Lawcheck runs git with settings that start no program the repository names: no `core.fsmonitor` program, no hook, no external diff, no `textconv` and no filter. Settings you pass to git yourself, through `GIT_CONFIG_PARAMETERS` or `git -c` in an alias, take effect. A program that such a setting names can run.
+The git settings of a repository can name programs that git starts while it reads the files. Lawcheck runs git with these programs turned off:
+
+- a `core.fsmonitor` program, which watches the work tree for changes;
+- a hook, a script that git runs at an event such as a commit;
+- an external diff program;
+- a `textconv` program, which turns a file into text for `git diff`;
+- a filter, which changes a file on its way into or out of git.
+
+Settings you pass to git yourself, through `GIT_CONFIG_PARAMETERS` or `git -c` in an alias, take effect. If one of your own settings names a program, git starts that program.
 
 Git reads some files through a filter, such as the files of Git LFS. Lawcheck compares such a file as its bytes on disk. If the file's time no longer matches git's index, the file can count as changed.
 
@@ -80,13 +88,13 @@ The second line says what the change does to the law that judges it. A pull requ
 - a waiver the change adds;
 - a file of `.lawcheck/rules/`, or `.lawcheck/config.yaml`, added, removed or changed. The line names such a file by its path and not by what it does.
 
-The line shows five items and counts the rest. `--json` lists all of them in `scope.law_changes`. The line never changes the exit code. `lawcheck docs ci` gives a job that checks the change a second time with the law of the base.
+The line shows five items and counts the rest. In `--json`, `scope.law_changes` lists every item. The line never changes the exit code of the run, whatever it lists. `lawcheck docs ci` gives a job that checks the change a second time with the law of the base.
 
 `lawcheck doctor` reports the same in its `law-change` check. No line reports the other two kinds of change.
 
 ## Files you name
 
-`lawcheck check <path or pattern>...` judges the files you name, changed or not, and no others. This form needs no base. It runs in a repository with no commit, and in CI. Lawcheck reads a path or a pattern from the current folder. A folder selects its files at any depth. A target that selects nothing, such as a missing file, a file git ignores or a binary file, adds nothing. A target outside the root is `usage`. Write a file whose name starts with `-` with `./` before it, as in `./-x.ts`.
+`lawcheck check <path or pattern>...` judges the files you name, changed or not, and no others. This form needs no base. It runs in a repository with no commit, and in CI. Lawcheck reads a path or a pattern from the current folder. A folder selects its files at any depth. A target that selects nothing, such as a missing file, a file git ignores or a binary file, adds nothing. The root is the folder that holds `.lawcheck/`, and a target outside it stops the run with the error [`usage`](codes.md#usage). Write a file whose name starts with `-` with `./` before it, as in `./-x.ts`.
 
 This form reports no debt and no note of a law change. It takes no flag but `--json`. Here `not-reviewed` and `too-large-to-review` are warnings. A missing review never makes this form exit 1. The Claude Code plugin checks files this way (`lawcheck docs plugin`).
 
@@ -98,6 +106,6 @@ This form reports no debt and no note of a law change. It takes no flag but `--j
 | 1 | an error: the code breaks the law |
 | 2 | no conclusion: Lawcheck, the law or the setup is broken, and the output names what to fix |
 
-A finding of an `enforced` rule in the change is an error. A finding of an `advisory` rule, and every finding of debt, is a warning. A failing run ends with one `next:` line that says what to do.
+Lawcheck reports a finding of an `enforced` rule in the change as an error, and the run exits 1. A finding of an `advisory` rule is a warning, and so is every finding of debt. A failing run ends with one `next:` line that says what to do.
 
 Next: [JSON documents](json.md)

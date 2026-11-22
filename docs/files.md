@@ -1,6 +1,6 @@
 # Files Lawcheck reads and writes
 
-Lawcheck keeps its files in one folder, `.lawcheck/`. The folder that holds `.lawcheck/` is the root. You write the law, the settings and the rules. Lawcheck writes three things: the [verdicts](concepts.md#verdict) of reviewer rules, a merge setting for them, and a local folder that git ignores.
+Lawcheck keeps its files in `.lawcheck/`. The root is the folder that holds `.lawcheck/`, and every path of the law starts there. You write the law, the settings and the rules. Lawcheck writes three things: the [verdicts](concepts.md#verdict) of reviewer rules, a merge setting for them, and a local folder that git ignores.
 
 ## The folder .lawcheck
 
@@ -23,7 +23,7 @@ config.local.yaml
 
 Lawcheck 0.1.0-alpha.2 reads no `config.local.yaml`. The second line of this file keeps a file of that name out of git.
 
-A type's `paths` can match the law, the config and the rule files. Such a file then has that type. A rule of the type can judge it. `.lawcheck/verdicts` and `.lawcheck/.gitattributes` never get a type.
+A type's `paths` can match the law, the config and the rule files. Such a file then has that type, so the rules of the type can judge it. `.lawcheck/verdicts` and `.lawcheck/.gitattributes` never get a type.
 
 ## The folder .lawcheck/.local
 
