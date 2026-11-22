@@ -1,6 +1,6 @@
 # Lawcheck
 
-You write down the architecture and the rules of your repository. Lawcheck checks your code against them. It tells your coding agent which line breaks which rule.
+Architecture checks for coding agents. Lawcheck checks your code against the architecture and rules you write down, and tells your coding agent which line breaks which rule.
 
 ## A law and a finding
 
