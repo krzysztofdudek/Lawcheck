@@ -46,7 +46,7 @@ Every test name starts with its source and a colon ([decision 79](../design/deci
 
 | Label | What it is |
 |---|---|
-| `test N:` or `tests N and M:` | the number of an acceptance test |
+| `test N:` or `tests N and M:` | the number of an acceptance test; a new acceptance test takes a number no test uses yet, and the unit tests of its parts may carry it too |
 | `I-<name>-<n>:` | a promise of [design/promises.md](../design/promises.md) |
 | `harness-<n>:` | a check of `harness/invariants.ts` |
 | `S<report>-<n>:`, `R-<n>:`, `U-<n>:`, `T<n>:` | the number of a bug found in a stress test (`S`), a review (`R`), a user's report (`U`) or Lawcheck's own law (`T`); the test is its regression test |
@@ -91,8 +91,11 @@ A finding id may also follow an acceptance test number: `test 240: S8-8, R-82, a
 Agents write most of this code, and an agent under pressure makes a red test green by weakening it. The suite guard, in `guard/`, compares a change with its base and finds what makes the suite weaker: a removed or renamed test, a changed expected output, a removed sabotage entry, a changed harness, a raised time budget, a changed guard or CI file, a changed law of the repository. Each such weakening passes only with a row in `weakenings.md` that gives its reason, an anchor and an approver. The change adds that row itself, except for the four kinds the owner approves: their row lands on `main` first, in a change of its own, and names the change it approves with `approves <hash>`.
 
 - The rows of `weakenings.md` are only ever added. The guard refuses a change that edits or removes one.
+- A changed or removed row of [design/promises.md](../design/promises.md), and a changed example block of `docs/codes.md` or `docs/json.md`, is `promise-changed`. A removed or renamed test needs an anchor: the test number, promise or finding its name leads with, a decision, or a Runes version.
 - `guard/config.json` says who approves each kind. A fresh reviewer agent approves most kinds. The owner approves `promise-changed`, `guard-changed`, `ci-changed` and `threshold-lowered` ([decision 76](../design/decisions.md#76-who-may-weaken-the-suite)).
 - The guard that judges a change is always the one on the base, never the one on the branch. CI runs it from `.github/workflows/guard.yml`, and `npm run gate` runs it locally.
 - When the guard refuses, it prints the row it needs. Run the guard of the base alone with `node tests/guard/from-base.ts --base origin/main`.
+
+The opening paragraph of `weakenings.md` and its older rows name `spec/questions.md` and the rows of the specs, the anchors of the first design. They stay as they were written. [design/decisions.md](../design/decisions.md) keeps the decisions under the same numbers.
 
 `numbers.ts` holds the budgets, the seed and the counts that may only move one way. A test that takes more time than its budget fails, and a budget raised in `numbers.ts` is a weakening.
