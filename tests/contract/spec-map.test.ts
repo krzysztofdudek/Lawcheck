@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { invariantsOf, ledgerRows, loadInputs, problemsOf, rowsOf, scanTests, sectionLabels, sourcesOf, type Inputs } from './spec-map.ts';
+import { invariantsOf, loadInputs, problemsOf, rowsOf, scanTests, sectionLabels, sourcesOf, type Inputs } from './spec-map.ts';
 import { SECTION_ONLY_TESTS } from '../numbers.ts';
 import { namesProblems, tieProblems } from './tie.ts';
 
@@ -173,10 +173,7 @@ test('R-63: control, a harness invariant needs a test that leads with its id, an
   assert.ok(uncovered.includes('harness invariant harness-1 has no test with its id in the name'), uncovered.join('\n'));
 });
 
-test('R-53: control, no row hides: a ledger row after a blank line and an indented spec row are read, and a numbered row with no header is refused', () => {
-  const header = '| id | severity | class | defect and reproduction | layer | package | Runes cause | test | generalised by | state |\n|---|---|---|---|---|---|---|---|---|---|';
-  const row = (id: string) => `| ${id} | after the release | c | d | 2 | D | no |  |  | open |`;
-  assert.deepEqual(ledgerRows([header, row('S1-1'), '', row('S1-2'), '  ' + row('R-1')].join('\n')).map((r) => r.id), ['S1-1', 'S1-2', 'R-1']);
+test('R-53: control, no row hides: an indented table row is read, and a numbered row with no header is refused', () => {
   assert.deepEqual(rowsOf({ path: 'spec/s.md', text: ['| # | Do | See |', '|---|---|---|', '  | 5 | a | b |'].join('\n') }).rows.map((r) => r.number), [5]);
   const split = rowsOf({ path: 'spec/s.md', text: ['| # | Do | See |', '|---|---|---|', '| 1 | a | b |', '', '| 2 | c | d |'].join('\n') });
   assert.ok(split.problems.some((p) => p.includes('stands in a table with no header')), split.problems.join('\n'));

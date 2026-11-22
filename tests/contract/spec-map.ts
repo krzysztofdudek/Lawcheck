@@ -127,30 +127,6 @@ export function invariantsOf(file: TextFile): { invariants: Invariant[]; problem
   return { invariants, problems };
 }
 
-export interface LedgerRow {
-  id: string;
-  severity: string;
-  class: string;
-  defect: string;
-  layer: string;
-  package: string;
-  runes: string;
-  test: string;
-  generalised: string;
-  state: string;
-}
-
-export function ledgerRows(ledger: string): LedgerRow[] {
-  const out: LedgerRow[] = [];
-  for (const { line } of outsideFences(ledger)) {
-    const trimmed = line.trimStart();
-    if (!trimmed.startsWith('|') || /^\|[\s:|-]+\|$/.test(trimmed) || firstCell(trimmed) === 'id') continue;
-    const c = cells(trimmed);
-    out.push({ id: c[0]!, severity: c[1] ?? '', class: c[2] ?? '', defect: c[3] ?? '', layer: c[4] ?? '', package: c[5] ?? '', runes: c[6] ?? '', test: c[7] ?? '', generalised: c[8] ?? '', state: c[9] ?? '' });
-  }
-  return out;
-}
-
 export interface Scanned {
   tests: TestName[];
   skipped: string[];
