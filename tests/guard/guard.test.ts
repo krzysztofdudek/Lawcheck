@@ -28,6 +28,7 @@ const EXPECT: { [name: string]: Expect } = {
   'refused-promise-reworded-by-reviewer': { refused: ['promise-changed'] },
   'refused-invariant-removed-by-reviewer': { refused: ['promise-changed'] },
   'refused-promise-example-by-reviewer': { refused: ['promise-changed'] },
+  'refused-codes-example-by-reviewer': { refused: ['promise-changed'] },
   'refused-guard-by-reviewer': { refused: ['guard-changed'] },
   'refused-guard-config-by-reviewer': { refused: ['guard-changed'] },
   'refused-ci-workflow-by-reviewer': { refused: ['ci-changed'] },

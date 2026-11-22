@@ -40,6 +40,16 @@ export const BASE: { [path: string]: string } = {
     'Choice: the waiver on the finding\'s own line takes the finding.',
     '',
   ].join('\n'),
+  'docs/codes.md': [
+    '# Codes',
+    '',
+    '## Escapes in the output',
+    '',
+    '```text',
+    'src/a\\nb.ts:3  error[no-console]  console.log is not allowed',
+    '```',
+    '',
+  ].join('\n'),
   'docs/ci.md': [
     '# Lawcheck in CI',
     '',

@@ -1,0 +1,18 @@
+diff --git a/docs/codes.md b/docs/codes.md
+--- a/docs/codes.md
++++ b/docs/codes.md
+@@ -4,5 +4,5 @@
+ 
+ ```text
+-src/a\nb.ts:3  error[no-console]  console.log is not allowed
++src/a b.ts:3  error[no-console]  console.log is not allowed
+ ```
+ 
+diff --git a/tests/weakenings.md b/tests/weakenings.md
+--- a/tests/weakenings.md
++++ b/tests/weakenings.md
+@@ -3,3 +3,4 @@
+ | Date | What | Kind | Reason | Anchor | Approved by |
+ |---|---|---|---|---|---|
+ | 2026-11-01 | tests/real/hono.expected | expected-changed | Runes 1.1.0 reads the router | Runes 1.1.0 | reviewer old-agent |
++| 2026-11-15 | docs/codes.md block 1 under "Escapes in the output" | docs-example-changed | the escape is gone | docs/codes.md | reviewer fresh-agent-7 |
