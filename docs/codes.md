@@ -2,7 +2,7 @@
 
 A run stopped with `error[type-overlap]`, or a check came back with `warning[uses-not-read]`. You need the step that clears it. Each code that Lawcheck prints has a heading of its own on this page. The code `law-invalid`, for one, is under `## law-invalid`.
 
-Lawcheck stops the run on an exit-2 code before it gives a PASS or a FAIL. Its output ends with one `next:` line that says what to fix. A [finding](concepts.md#finding) is one line of the report of `check`, with a `why:` line under it. For a finding of a rule, the why is the rule's own `why`. For a built-in code, it is the text of the Why column in the table below. Lawcheck prints the `why:` line once for each code, under its first error or finding.
+With an exit-2 code, Lawcheck stops the run before it gives a PASS or a FAIL. Its output ends with one `next:` line that says what to fix. A [finding](concepts.md#finding) is one line of the report of `check`, with a `why:` line under it. For a finding of a rule, the why is the rule's own `why`. For a built-in code, it is the text of the Why column in the table below. Lawcheck prints the `why:` line once for each code, under its first error or finding.
 
 Two words recur below. The root is the folder that holds `.lawcheck/`. A rule binds a file when the file's type, or a type above it, lists the rule.
 
@@ -134,7 +134,7 @@ The repository has no `.lawcheck/law.yaml` yet. The other cause is that you run 
 
 **Fix**
 
-Run `lawcheck init` at the root of the code to check. If the message names folders below, run the command in the one you mean. The `next:` line names the first of them.
+Run `lawcheck init` in the top folder of the code to check. If the message names folders below, run the command in the one you mean. The `next:` line names the first of them.
 
 **Example**
 
@@ -349,7 +349,7 @@ Give yourself read permission on the file, or put a regular file at the path. Fo
 - the passes that the files of this tree need;
 - the reviewer calls that a review of every file of the law would take.
 
-You cannot tell the passes apart by hand, because each one is a hash. To make room, delete `.lawcheck/verdicts`. The reviews of every file then take as many calls as the third count. If the second count is close to the first, the new file fills up again. Then narrow the `paths` of the types that list the reviewer rules.
+You cannot tell the passes apart by hand, because each one is a hash. To make room, delete `.lawcheck/verdicts`. The reviews of every file then take as many calls as the third count. If the second count is close to the first, the new file fills up again. In that case, narrow the types that list the reviewer rules.
 
 **Example**
 
@@ -435,7 +435,7 @@ The cause is one of these:
 - `.lawcheck/verdicts` would grow past 16 MiB;
 - a write to standard output fails, such as a write to a file on a full disk.
 
-One case is no cause: a program that reads the output and closes the pipe early. Lawcheck then exits with the exit code of its result.
+A program that reads the output and closes the pipe early is no cause of this error. Lawcheck then exits with the exit code of its result.
 
 **Fix**
 
