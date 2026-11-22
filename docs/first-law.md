@@ -107,7 +107,7 @@ The rule reads lines as text. It parses no comments. It finds `console.log` insi
 
 ## 7. Try the rule on one file
 
-`lawcheck try` runs one rule on the files you name. It needs no base. It writes nothing in the repository. It works before a type lists the rule. Until a file has a type that lists the rule, `try` needs a path. Without a path, `try` stops with `usage`. Its message says that no file has a type that lists `no-console`. Try the rule on `src/price.ts`:
+`lawcheck try` runs one rule on the files you name, with no base, and writes nothing in the repository. It works before a type lists the rule. Until a file has a type that lists the rule, though, `try` needs a path: without one, it stops with the error [`usage`](codes.md#usage) and says that no file has a type that lists `no-console`. Try the rule on `src/price.ts`:
 
 ```text
 $ lawcheck try no-console src/price.ts
@@ -183,7 +183,7 @@ src/report.ts:1  error[no-console]  writes to the terminal with console.log
 next: fix src/report.ts:1
 ```
 
-The check fails and exits 1. Without a path, a plain `lawcheck check` judges the files that differ from the [base](concepts.md#base). A check against `main` passes on `src/report.ts`, because the file is the same as on `main`. Step 11 lists it as debt.
+The check fails and exits 1. Without a path, a plain `lawcheck check` judges the files that differ from the [base](concepts.md#base). A check against `main` passes on `src/report.ts`, because the file is the same as on `main`. Step 11 lists it as [debt](concepts.md#debt).
 
 ## 11. See the debt
 
@@ -202,7 +202,7 @@ src/report.ts:1  warning[no-console]  writes to the terminal with console.log
   why:  Only the command layer writes to the terminal.
 ```
 
-The three changed files are the new files of `.lawcheck/`. The files of the law count like any other file git lists. The note line says the change edits the law ([What a check judges](change.md)). A finding outside the change is [debt](concepts.md#debt). Debt is a warning. It never fails the run.
+The three changed files are the new files of `.lawcheck/`, which count like any other file git lists. The note line says the change edits the law ([What a check judges](change.md)). A finding outside the change is [debt](concepts.md#debt). Debt is a warning. It never fails the run.
 
 ## 12. Fix the debt, or start the rule advisory
 
@@ -227,6 +227,6 @@ After you fix the debt, delete the `status` line. The rule is then enforced agai
 - Lawcheck prints `rule-file-without-entry`: a file in `.lawcheck/rules/` names no rule of the law. Give the file the rule id as its name, or add an entry for it.
 - Lawcheck prints `rule-crashed`: the rule threw an error or returned something other than a list of findings. [Write a script rule](write-a-script-rule.md) shows how to find the cause.
 - `lawcheck explain` answers `none: git ignores it, so Lawcheck never sees it`: `.gitignore` names the file. No type takes a file that git ignores.
-- `lawcheck try no-console` without a path stops with `usage`: no file has a type that lists the rule yet. Name a file, as in step 7.
+- `lawcheck try no-console` without a path stops with [`usage`](codes.md#usage): no file has a type that lists the rule yet. Name a file, as in step 7.
 
 Next: [Types for an existing project](types-for-a-project.md)

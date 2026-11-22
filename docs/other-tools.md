@@ -97,7 +97,7 @@ Lawcheck writes no annotation into the pull request. A CI job shows its findings
 
 A Claude Code hook runs a script on an event of the session. Exit 2 from a hook blocks the action. Claude Code then hands the message of the hook to the agent. A hook of your own can run any program on any event Claude Code has, such as your linter or your tests. The event `PreToolUse` comes before a tool runs. A hook there can stop an edit before Claude Code writes it.
 
-Your hook goes further than Lawcheck in two places. A hook on `PreToolUse` can stop an edit before Claude Code writes it, while the plugin checks a file after the write. A hook can start any program, such as your linter, which a script rule cannot do. A hook that runs your linter checks only what that linter knows. A `may_use` list across languages and a reviewer rule are outside it.
+Your hook goes further than Lawcheck in two places. A hook on `PreToolUse` can stop an edit before Claude Code writes it, while the plugin checks a file after the write. A hook can start any program, such as your linter, which a script rule cannot do. Your linter, run from such a hook, checks only what it knows. A `may_use` list across languages and a reviewer rule are outside it.
 
 The Lawcheck plugin adds the law to the session ([The Claude Code plugin](plugin.md)):
 

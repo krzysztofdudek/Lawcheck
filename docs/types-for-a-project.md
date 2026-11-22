@@ -245,6 +245,6 @@ The `matched` line names the pattern and the content that chose `core-test`. `sr
 - A file of `src/api/v1/` gets `source` and no `api`, with the pattern `src/api/*`: `*` stops at a `/`. Write `src/api/**`.
 - `explain` says the file matches the paths of a type but not their content: the type has a `content` expression. The text of the file does not match it.
 - `explain` answers `git ignores it, so Lawcheck never sees it`: `.gitignore` names the file. No type takes a file that git ignores.
-- `explain --type` prints `usage`, and the message ends with the nearest type id, such as `(did you mean 'core'?)`: `--type` takes the id of a type of the law.
+- `explain --type` prints the error [`usage`](codes.md#usage), and the message ends with the nearest type id, such as `(did you mean 'core'?)`: `--type` takes the id of a type of the law.
 
 Next: [Forbid one layer to use another](forbid-a-use.md)

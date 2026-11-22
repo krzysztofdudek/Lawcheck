@@ -8,7 +8,7 @@ The outputs below come from a repository with three files:
 - `src/core/price.ts`;
 - `src/core/orders.sql`.
 
-The build writes `src/generated/schema.ts`. The `.gitignore` of the repository names `src/generated/`. The law gives `src/api/` the type `api` and `src/core/` the type `core` ([Types for an existing project](types-for-a-project.md)).
+The build writes `src/generated/schema.ts`, into a folder that `.gitignore` names. The law gives `src/api/` the type `api` and `src/core/` the type `core` ([Types for an existing project](types-for-a-project.md)).
 
 ## 1. Give core a may_use list
 
