@@ -31,9 +31,9 @@ Two words recur below. The root is the folder that holds `.lawcheck/`. A rule bi
 | `rules-too-slow` | exit 2 | the script rules of a run take over 600 seconds | a run that never ends gives no answer |
 | `parser-failed` | exit 2 | Lawcheck cannot load a grammar, or a reader fails on a file | a file whose uses were not read is not taken to use nothing |
 | `reviewer-not-configured` | exit 2 | a run asks for reviews, and the config names no provider | reviewer rules need a reviewer to judge them |
-| `too-many-reviews` | exit 2 | a run needs more reviewer calls than its cap | reviewer.max_calls bounds what one run spends |
+| `too-many-reviews` | exit 2 | a run needs more reviewer calls than `--max-calls` or `reviewer.max_calls` allows | reviewer.max_calls bounds what one run spends |
 | `reviewer-unreachable` | exit 2 | Lawcheck cannot call the reviewer, or a request fails | without the reviewer's answer a reviewer rule says nothing |
-| `reviewer-bad-answer` | exit 2 | the reviewer's answer is no verdict twice, or once when the cap leaves no call to ask again | an answer that is no verdict cannot be recorded |
+| `reviewer-bad-answer` | exit 2 | the reviewer's answer is no verdict twice, or once when the run has no call left to ask again | an answer that is no verdict cannot be recorded |
 | `memory-too-large` | exit 2 | the run passes its memory | a run past its memory would be ended by the system |
 | `step-too-slow` | exit 2 | one step of a run takes more than 30 seconds | a step that never ends gives no answer, so one step of a run has a limit of time |
 | `stopped` | exit 2 | SIGINT, SIGTERM or SIGHUP ended the run | a run stopped before its end says nothing about the code |
@@ -331,7 +331,7 @@ next: add a rule for .lawcheck/rules/extra.mjs to the law, or move the file to .
 
 **Meaning**
 
-The system refuses to let Lawcheck read a file that it must read. The message gives the reason, such as the error code `EACCES`.
+Lawcheck cannot read a file that it must read. The message gives the reason, such as the system's error code `EACCES`.
 
 **Typical cause**
 
@@ -343,13 +343,17 @@ The file is one of these:
 
 **Fix**
 
-Give yourself read permission on the file, or put a regular file at the path. For a `.lawcheck/verdicts` over 16 MiB, the message gives three counts:
+Give yourself read permission on the file, or put a regular file at the path.
+
+`.lawcheck/verdicts` holds one line for each pass of the reviewer. Each line is a hash, so you cannot tell by hand which file and rule a line belongs to. For a `.lawcheck/verdicts` over 16 MiB, the message gives three counts:
 
 - the passes that the file holds;
 - the passes that the files of this tree need;
 - the reviewer calls that a review of every file of the law would take.
 
-You cannot tell the passes apart by hand, because each one is a hash. To make room, delete `.lawcheck/verdicts`. The reviews of every file then take as many calls as the third count. If the second count is close to the first, the new file fills up again. In that case, narrow the types that list the reviewer rules.
+The choice of how to make room is the user's. The `next:` line asks the user, and `lawcheck prime` tells a coding agent to edit `.lawcheck/verdicts` only on the user's word.
+
+One way is to delete `.lawcheck/verdicts`. A review of every file then takes as many calls as the third count. If the second count is close to the first, the passes this tree needs fill most of a new file again. In that case, narrow the `paths` of the types that list the reviewer rules, so that fewer files need a pass.
 
 **Example**
 
@@ -445,7 +449,7 @@ The step depends on the cause:
 - give yourself write permission on the file or the folder that the error names;
 - free space on a full disk.
 
-For a full `.lawcheck/verdicts`, the message gives the same three counts as for [file-unreadable](codes.md#file-unreadable). Make room in the file as that section says.
+For a full `.lawcheck/verdicts`, the message gives the same three counts as for [file-unreadable](codes.md#file-unreadable). That section says what the counts mean and what a delete of the file costs. The choice to make room is the user's.
 
 **Example**
 
@@ -750,19 +754,21 @@ next: ask the user to set reviewer.provider and reviewer.model in .lawcheck/conf
 
 **Meaning**
 
-The cap of a run is the most reviewer calls it may send: `reviewer.max_calls`, or a lower `--max-calls`. This run needs more calls than its cap. Lawcheck sends none of them.
+The limit of calls is the most reviewer calls that one run may send. `reviewer.max_calls` in `.lawcheck/config.yaml` sets it, and its default is 100. For one run, `--max-calls` replaces that value with a number of its own, higher or lower. This run needs more calls than its limit, so Lawcheck sends none of them.
 
 **Typical cause**
 
-A change needs one call for each pair of a changed file and a reviewer rule that binds it. Here the count of these calls is over the cap.
+A change needs one call for each pair of a changed file and a reviewer rule that binds it, unless Lawcheck holds an answer for that pair from an earlier review. Here the count of these calls is over the limit of calls.
 
 **Fix**
 
 Each of these steps clears it:
 
 - give `reviewer.max_calls` a higher value in `.lawcheck/config.yaml`;
-- pass a higher `--max-calls`;
+- pass `--max-calls` with a number at least as high as the calls the run needs;
 - name fewer paths to `check`.
+
+A higher limit spends more calls, so the first two steps are the user's decision, as the `next:` line says.
 
 **Example**
 
@@ -813,15 +819,18 @@ next: set LAWCHECK_REVIEWER_ENDPOINT to the base address of the server, such as 
 
 **Meaning**
 
-Lawcheck asked the reviewer twice. Both answers held no verdict that Lawcheck can record. Lawcheck gives the same code after one answer with no verdict, if the cap leaves no call to ask again.
+Lawcheck asked the reviewer for a [verdict](concepts.md#verdict) on one file and one rule. No answer held a verdict that Lawcheck can record.
 
 **Typical cause**
 
-The model answers in prose where Lawcheck asks for a JSON object with a verdict. For a single answer, the other cause is the cap. `reviewer.max_calls`, or `--max-calls`, leaves no call for a second question.
+The model answers in prose, where Lawcheck asks for a JSON object with a verdict. Lawcheck gives the code in two cases:
+
+- the model answers in prose twice;
+- the model answers in prose once, and the run has no call left under `--max-calls` or `reviewer.max_calls` to ask again.
 
 **Fix**
 
-Run the same command again. `check` keeps every answer it has. Its next run sends the calls still missing and no others. If the same file fails again, set a stronger `model` in the `reviewer` section of `.lawcheck/config.yaml`. If the cap left no call, raise `reviewer.max_calls`, or pass a higher `--max-calls`, above the calls the run needs.
+Run the same command again. The next run of `check` sends only the calls that the last run left without an answer. If the same file fails again, set a stronger `model` in the `reviewer` section of `.lawcheck/config.yaml`. If the run had no call left, the user can raise `reviewer.max_calls`, or pass `--max-calls` with a number above the calls the run needs ([too-many-reviews](codes.md#too-many-reviews)).
 
 **Example**
 
@@ -847,12 +856,17 @@ The cause is one of these:
 
 - one file adds more than 384 MiB of memory while Lawcheck reads it;
 - the run holds more than 1,536 MiB;
-- the run holds more than 85 percent of the machine's memory, where that is less than 1,536 MiB;
+- the run holds more than 85 percent of the machine's memory, on a machine where that share is below 1,536 MiB;
 - the system has less than 128 MiB of memory left.
 
 **Fix**
 
-Run the step of the `next:` line. For one large file, keep the file out of the files that git lists, with `git rm --cached` and a line in `.gitignore`. You can leave it out of the types whose `may_use` is in force instead.
+The `next:` line names the step for the case. A type with a `may_use` list on it, or on a type above it, is a type whose files Lawcheck reads for their uses ([`may_use`](law.md#may-use)).
+
+- For one file that Lawcheck reads for its uses, leave the file out of every such type with a `!` pattern.
+- For one file that Lawcheck reads only for the names it declares, as in the Example, keep the file out of the files that git lists. Run `git rm --cached` on it and add a line for it to `.gitignore`.
+- For a whole run over its memory, narrow the `paths` of those types, or run Lawcheck on a machine with more memory.
+- For a system short of memory, free memory on the machine.
 
 **Example**
 
