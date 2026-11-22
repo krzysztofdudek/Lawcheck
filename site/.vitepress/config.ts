@@ -6,7 +6,7 @@ import topics from '../../docs/topics.json' with { type: 'json' };
 
 export default defineConfig({
   srcDir: '../docs',
-  base: '/Lawcheck/',
+  base: '/',
   lang: 'en',
   title: 'Lawcheck',
   description: manifest.description,
