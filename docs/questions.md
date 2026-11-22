@@ -2,11 +2,11 @@
 
 ## Package managers
 
-Lawcheck installs with npm, pnpm, Yarn 1, Yarn 4 with `nodeLinker: node-modules` or `nodeLinker: pnpm`, and Bun with Node 24 on the `PATH`. Under Yarn Plug'n'Play, a Lawcheck installed in the project stops with `unsupported-environment`. Set `runner` in `.lawcheck/config.yaml` to your package manager. The plugin and `lawcheck prime` then start Lawcheck through it. [Supported environments](support.md#package-managers) gives the command that starts Lawcheck under each package manager.
+Lawcheck installs with npm, pnpm, Yarn 1, Yarn 4 with `nodeLinker: node-modules` or `nodeLinker: pnpm`, and Bun with Node 24 on the `PATH`. Under Yarn Plug'n'Play, a Lawcheck installed in the project stops with `unsupported-environment`. Set the `runner` setting in `.lawcheck/config.yaml` to your package manager. The Claude Code plugin then starts Lawcheck through that package manager. `lawcheck prime` names that command to the agent. [Supported environments](support.md#package-managers) gives the command that starts Lawcheck under each package manager.
 
 ## Windows and macOS
 
-Lawcheck runs on Linux, macOS and Windows, with Node 24 or later and git 2.34 or later. On every push the tests run on the newest Windows and macOS runners of GitHub Actions, beside Linux. [Supported environments](support.md#node-git-and-the-systems) says what the tests run on each system.
+Lawcheck runs on Linux, macOS and Windows, with Node 24 or later and git 2.34 or later. On every push, Lawcheck's tests run on Linux and on the newest Windows and macOS machines of GitHub Actions. [Supported environments](support.md#node-git-and-the-systems) says what the tests run on each system.
 
 ## Code that leaves the machine
 
@@ -14,7 +14,7 @@ A plain `lawcheck check` opens no connection and starts no reviewer program. Onl
 
 ## A key in CI
 
-A CI job needs no key. A plain check reads the passes recorded in `.lawcheck/verdicts` and calls no reviewer. Run `lawcheck check --review` on a machine with a reviewer, then commit that file. Without a recorded pass, a changed file under an enforced reviewer rule gets the error `not-reviewed`. [Reviewer rules](reviewer-rules.md#verdicts) says what a pass holds.
+A CI job needs no key. A plain check calls no reviewer. It reads the passes in `.lawcheck/verdicts`, where each pass is the reviewer's [verdict](concepts.md#verdict) of pass for one file and one rule. Run `lawcheck check --review` on a machine with a reviewer, then commit that file. For a changed file with no recorded pass of an enforced reviewer rule, Lawcheck reports the error `not-reviewed`. [Reviewer rules](reviewer-rules.md#verdicts) says what a pass holds.
 
 ## A script rule that reads other files
 
@@ -22,15 +22,21 @@ Lawcheck calls a [script rule](concepts.md#script-rule) once for each file it bi
 
 ## A reviewer rule that needs another file
 
-The reviewer judges one file per call and sees nothing else of the repository. Name the other files in the rule's `context` in the law. The reviewer then gets them with every file it judges. After a change to a context file, each file of the rule needs a new review. [The law file](law.md#context) gives the form.
+The reviewer sees one file per call and nothing else of the repository. To give it other files, name them in the rule's `context` in the law. The reviewer then gets them beside every file it judges. After a change to a context file, each file that the rule binds needs a new review. [The law file](law.md#context) gives the form.
 
 ## Old code that breaks the law
 
-A plain `lawcheck check` judges the files that differ from the base. Old code fails nothing until a change touches it. `lawcheck check --full` lists the findings in the rest of the code as [debt](concepts.md#debt). Debt is a warning, so it never changes the exit code. [What a check judges](change.md#full-and-debt) shows the output.
+A plain `lawcheck check` judges the files that differ from the base. Old code fails nothing until a change touches it. `lawcheck check --full` lists the findings in the rest of the code as [debt](concepts.md#debt). A finding of debt is a warning, which never changes the exit code. [What a check judges](change.md#full-and-debt) shows the output.
 
 ## A new model for the reviewer
 
-Lawcheck keeps every recorded pass when you change the provider or the model, because the key of a pass holds neither. It asks for a new review when the judged file changes. It does the same when the rule's text, its `why` or its context files change. [Reviewer rules](reviewer-rules.md#verdicts) lists every part of the key.
+Lawcheck keeps every recorded pass when you change the provider or the model, because the key of a pass holds neither. A file needs a new review when one of these changes:
+
+- the judged file;
+- the rule's text or its `why`;
+- a context file of the rule.
+
+[Reviewer rules](reviewer-rules.md#verdicts) lists every part of the key.
 
 ## The cost of a review
 
@@ -46,10 +52,10 @@ Lawcheck never judges a file that git ignores, because such a file has no type. 
 
 ## Another coding agent
 
-Add one line to the agent's instructions file: Run `lawcheck prime` at the start of every session and follow it. The agent then checks its work when it follows the text that `lawcheck prime` prints. No hook checks a file after an edit. [Other coding agents](other-agents.md#_1-add-one-line-to-the-instructions-file) shows what the agent reads and what it skips.
+Add one line to the agent's instructions file: Run `lawcheck prime` at the start of every session and follow it. The text that `lawcheck prime` prints tells the agent to run `lawcheck check` after each change of code. With another agent, no hook checks a file after an edit. [Other coding agents](other-agents.md#_1-add-one-line-to-the-instructions-file) shows what the agent reads and what it skips.
 
 ## The pages in the terminal
 
-`lawcheck docs` lists the pages that ship with the version you installed. `lawcheck docs <topic>` prints one page. The command reads the pages inside the installed package, so it works without a law, git or a network. [The commands](commands.md#docs) gives the flags.
+`lawcheck docs` lists the pages that ship with the version you installed. `lawcheck docs <topic>` prints one page. It works without a law, git or a network, because it reads the pages inside the installed package. [The commands](commands.md#docs) gives the flags.
 
 Next: [Changelog](changelog.md)
