@@ -1,6 +1,6 @@
 # Decisions
 
-Each entry is a choice that a contributor could take for a mistake and "fix". It says what was decided and why. The number is the one the decision had when it was taken, and test names cite it as `question <n>`. The gaps in the numbering are choices that a test now pins down well enough on its own.
+Each entry is a choice that a contributor could take for a mistake and "fix". It says what was decided, and why where the reason was recorded. The number is the one the decision had when it was taken, and test names cite it as `question <n>`. The gaps in the numbering are entries left out: choices a test now pins down on its own, notes of reviews, and questions still open.
 
 ## 1. Two waivers covering one finding
 
@@ -12,19 +12,15 @@ Why: this choice decides which waiver `waiver-unused` names, so it has to be one
 
 Each rule keeps one call at a time in its own process. Up to as many rules as the machine has cores run at once.
 
-Why: a run of many rules finishes sooner. The output does not depend on it, because findings and crashes are sorted before printing.
+The output does not depend on it, because findings and crashes are sorted before printing.
 
 ## 6. The order of errors and the `next:` line of exit 2
 
 Errors sort like findings, by file, line and code, and an error without a place comes first. The `next:` line follows the first error after sorting.
 
-Why: one order makes the output the same on every run.
-
 ## 7. The order of `waivers` in JSON
 
 By file path, then by line.
-
-Why: one order makes the JSON document the same on every run.
 
 ## 18. Fixed texts of the reviewer calls
 
@@ -35,8 +31,6 @@ These texts are fixed in `src/review.ts` and `src/output.ts`:
 - the `next:` of a `reviewer-unreachable` without a place: `make <provider> reachable as the error says, then run <review>`;
 - the `next:` of a failed review: `run the same command again; what was answered is kept, so it asks only the rest`;
 - the status of an HTTP failure: `HTTP <status> <status text>`, then `: ` and the first line of `error.message` when the body has one.
-
-Why: an agent reads these lines and acts on them, and the tests compare them as they are.
 
 ## 56. A hook stopped by a signal
 
@@ -54,25 +48,25 @@ Why: each needs something `npm test` does not have: the host's Claude Code, a pe
 
 Such a use is not reported as `forbidden-use`. It is counted as unresolved, and its candidates are listed in the JSON output.
 
-Why: a finding would rest on an answer the readers did not resolve, and the readers never guess. An explicit import of the forbidden member still fails.
+Why: a finding would rest on an answer the readers did not resolve, and the readers never guess. An explicit import of the forbidden member still fails. The owner may decide otherwise.
 
 ## 73. The environments Lawcheck supports
 
-Lawcheck runs on Node 24 and later, with git 2.34 and later. It installs with npm, pnpm, Yarn 1, Yarn 4 with `nodeLinker: node-modules` or `nodeLinker: pnpm`, and Bun beside Node. It refuses everything else in the first line of its output, with the reason: Node 20 and 22, Yarn Plug'n'Play, Bun without Node. A refused environment never blames a rule file. This is the owner's decision.
+Lawcheck runs on Node 24 and later, with git 2.34 and later. It installs with npm, pnpm, Yarn 1, Yarn 4 with `nodeLinker: node-modules` or `nodeLinker: pnpm`, and Bun beside Node. It refuses everything else in the first line of its output, with the reason: Node 20 and 22, Yarn Plug'n'Play, Bun without Node. A refused environment never blames a rule file.
 
 Why: a narrow promise, said loudly. A wider one would put more code in the way rules start, and more cells in the install matrix for good.
 
 ## 74. Limits instead of "no size limit"
 
-Every input has a named, measured limit: the largest file read as text, the count of findings, the size of a reviewer answer, the wall time of a run, and the others in `docs/config.md` and `docs/codes.md`. Past a limit the tool prints a named error with the path, never `internal`. This is the owner's decision.
+Every input has a named, measured limit: the largest file read as text, the count of findings, the size of a reviewer answer, the wall time of a run, and the others in `docs/config.md` and `docs/codes.md`. Past a limit the tool prints a named error with the path, never `internal`.
 
 Why: reading every file as a stream would be a large rewrite for text files over 512 MB, which almost nobody has.
 
 ## 75. When the tests with a live model run
 
-The tests with a live model run when the files they guard change (the prompt, the providers, the plugin) and before every release. A release does not go out when the last result is older than those files. They run through `claude` on the host, on the owner's subscription, never with an API key. This is the owner's decision.
+The tests with a live model run when the files they guard change (the prompt, the providers, the plugin) and before every release. A release does not go out when the last result is older than those files. They run through `claude` on the host, on the owner's subscription, never with an API key.
 
-Why: a live model costs money and time on every run. A weekly run would show sooner when a new model version judges differently, at the price of a full run every week.
+Why: a weekly run would show sooner when a new model version judges differently, at the price of a full run every week.
 
 ## 76. Who may weaken the suite
 
@@ -94,7 +88,7 @@ Why: a pull request can leave a rule out of a type, rewrite a rule script to ret
 
 ## 79. Every test leads its name with its source
 
-Every test name starts with its source and a colon: an acceptance test number (`test 12:` or `tests 3 and 4:`), a promise id (`I-frame-1:`), a finding id (`S3-1:`, `R-2:` or `T6:`), a section label (`check-slice §4:`) or a decision of this file (`question 79:`). The rail `tests/contract/spec-map.test.ts` fails on a name with no source, or with a source that does not exist. Tests that cite only a section or a decision are counted in `SECTION_ONLY_TESTS` in `tests/numbers.ts`, and that count may only fall.
+Every test name starts with its source and a colon: an acceptance test number (`test 12:` or `tests 3 and 4:`), a promise id (`I-frame-1:`), a finding id (`S3-1:`, `R-2:` or `T6:`), a section label (`check-slice §4:`) or a decision of this file (`question 79:`). The rail `tests/contract/spec-map.test.ts` fails on a name with no source, or with a source that does not exist. Every promise of [promises.md](promises.md) and every check of `tests/harness/invariants.ts` needs a test that carries its id. Tests that cite only a section or a decision are counted in `SECTION_ONLY_TESTS` in `tests/numbers.ts`, and that count may only fall.
 
 A skip needs a platform reason in `tests/harness/skips.ts`, and a test that asserts nothing fails the run. A test that ran and passed is the only thing that covers its source in a run.
 
@@ -122,13 +116,11 @@ Why: the tool knows the key it sent, so it replaces that string. Text it does no
 
 The first alpha ships all nine reviewer providers. This is the owner's decision.
 
-Why: the design named nine providers, and the first alpha was not to ship a part of them.
-
 ## 91. Windows blocks a release
 
-A red run of the suite on Windows blocks a release exactly as a red run on Linux or macOS does. This is the owner's decision.
+A red run of the suite on Windows blocked the alpha exactly as a red run on Linux or macOS did. This is the owner's decision. The release workflow holds every release to it, since it needs a green Nightly, and the Nightly runs on all three systems.
 
-Why: the three systems are one gate, so a user on any of them gets a tool that passed its suite there.
+Why: three systems are one gate.
 
 ## 93. A key shorter than 8 characters is not replaced
 
@@ -152,8 +144,6 @@ Why: without the first rule, the test of a fix that has its own number could nev
 
 `openai`, `google`, `ollama`, `codex`, `gemini-cli` and `copilot-cli` share the HTTP request and the program call of the first three providers. Tests 400 to 413 hold them.
 
-Why: one request and one program call keep timeouts, redirects and keys in one place for every provider.
-
 ## 135. A path longer than a system allows, given to `explain`
 
 Such a path is `usage`, exit 2: `the path '<path>' cannot exist here: it is longer than this system allows for a name or a path`. A segment written with escapes is measured by the bytes it stands for.
@@ -162,6 +152,4 @@ Why: no file system Lawcheck runs on can hold such a path, so it is a mistake in
 
 ## 160. Lawcheck's repository keeps its own law
 
-Lawcheck's own repository runs under Lawcheck, and `npm test` checks it. The law in `.lawcheck/` is the architecture the code moves to: layers as folders under `src/`, script rules, and reviewer rules answered by `claude-code`, whose passes are committed in `.lawcheck/verdicts`. Files of `src/` not yet in a layer are listed in the law, and that list only shrinks. `tests/acceptance/self-law.test.ts` clones `HEAD`, runs `check --full`, and fails on any finding of an enforced rule, on a waiver or an unresolved use it does not list, and on a new file of `src/` left without a type.
-
-Why: Lawcheck shows how it is used on its own code, and a breach of its own law turns its own suite red.
+Lawcheck's own repository runs under Lawcheck, and `npm test` checks it. The law in `.lawcheck/` is the architecture the code moves to: layers as folders under `src/`, script rules, and reviewer rules answered by `claude-code`, whose passes are committed in `.lawcheck/verdicts`. Files of `src/` not yet in a layer are listed in the law, and that list only shrinks. `tests/acceptance/self-law.test.ts` clones `HEAD`, runs `check --full`, and fails on any finding of an enforced rule or of a built-in code, on a waiver or an unresolved use it does not list, and on a new file of `src/` left without a type.

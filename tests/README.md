@@ -1,6 +1,6 @@
 # Tests
 
-Every command below runs inside the dev container. `npm test` needs no network and no key.
+Every command below runs inside the dev container, except `npm run agent-trial` and `node tests/live/run.ts`, which need Claude Code on the host. `npm test` needs no network and no key.
 
 ## Running them
 
@@ -11,10 +11,11 @@ Every command below runs inside the dev container. `npm test` needs no network a
 | `npm run nightly` | builds, then runs the nightly set |
 | `npm run gate -- --base origin/main` | `npm test`, then the suite guard of the base, and the reviewer's pack: test ids added, changed and removed, and which of them fail on the base |
 | `npm run real` | builds, then checks two real repositories, hono and gson, against their expected results; needs the network |
-| `npm run stability` | builds, then asks a real reviewer the same questions ten times and writes `tests/stability/result.json`; needs a real endpoint |
+| `npm run stability` | builds, then asks a real reviewer the same questions ten times and writes `tests/stability/result.json`; needs `LAWCHECK_STABILITY_MODEL` and a reviewer that answers |
 | `npm run agent-trial` | the trial of the plugin with a live agent, run on the host through `claude`; writes `tests/agent/result.json` |
+| `node tests/live/run.ts` | the attack files through the real reviewer, `claude-code` on the host; writes `tests/live/result.json` |
 
-The last three run by hand before a release ([decision 58](../design/decisions.md#58-acceptance-tests-that-run-outside-npm-test) and [decision 75](../design/decisions.md#75-when-the-tests-with-a-live-model-run)).
+`npm run real` and `npm run agent-trial` run by hand before a release ([decision 58](../design/decisions.md#58-acceptance-tests-that-run-outside-npm-test)). `npm run stability` and `node tests/live/run.ts` run when the prompt, the providers or the plugin changed since their last result ([decision 75](../design/decisions.md#75-when-the-tests-with-a-live-model-run)).
 
 ## The layers
 
@@ -24,7 +25,7 @@ The last three run by hand before a release ([decision 58](../design/decisions.m
 | `acceptance/` | the tool from the outside: one command in a repository built in a temporary folder, with its exact output |
 | `contract/` | the suite's own rules: every test leads with a source, the docs name only allowed tools, every code has a case, the CI groups match the sets |
 | `guard/` | the suite guard and its cases in `guard/cases/` |
-| `gate/` | the gate that `npm run gate` runs |
+| `gate/` | the code of `npm run gate`; its group of the commit set holds no tests yet |
 | `properties/` | generated inputs for the promises of [design/promises.md](../design/promises.md); the nightly files run more of them |
 | `security/` | the security promises: output, keys, the runner, git programs, the reviewer's frame |
 | `limits/` | every limit, at its edge and past it |
@@ -44,7 +45,7 @@ Every test name starts with its source and a colon ([decision 79](../design/deci
 
 | Label | What it is |
 |---|---|
-| `test N:` or `tests N and M:` | a stable number of an acceptance test; a new acceptance test takes the next free number |
+| `test N:` or `tests N and M:` | the number of an acceptance test |
 | `I-<name>-<n>:` | a promise of [design/promises.md](../design/promises.md) |
 | `harness-<n>:` | a check of `harness/invariants.ts` |
 | `S<report>-<n>:`, `R-<n>:`, `U-<n>:`, `T<n>:` | the number of a bug found in a stress test (`S`), a review (`R`), a user's report (`U`) or Lawcheck's own law (`T`); the test is its regression test |
@@ -62,10 +63,10 @@ A finding id may also follow an acceptance test number: `test 240: S8-8, R-82, a
 | `check-slice §6` | output and exit codes | [docs/codes.md](../docs/codes.md), [docs/json.md](../docs/json.md) |
 | `commands-slice §2` | what every command shares: usage, errors, the `next:` line | [docs/codes.md](../docs/codes.md) |
 | `commands-slice §3` | `init` | [docs/first-law.md](../docs/first-law.md) |
-| `commands-slice §4` | `prime` | [docs/json.md](../docs/json.md) |
+| `commands-slice §4` | `prime` | `lawcheck prime --help`, [docs/json.md](../docs/json.md) |
 | `commands-slice §5` | `try` | [docs/script-rules.md](../docs/script-rules.md), [docs/reviewer-rules.md](../docs/reviewer-rules.md) |
-| `commands-slice §6` | `explain` | [docs/json.md](../docs/json.md) |
-| `commands-slice §7` | `docs` | [docs/json.md](../docs/json.md) |
+| `commands-slice §6` | `explain` | `lawcheck explain --help`, [docs/json.md](../docs/json.md) |
+| `commands-slice §7` | `docs` | `lawcheck docs`, [docs/json.md](../docs/json.md) |
 | `commands-slice §8` | `doctor`, and a change of the law | [docs/ci.md](../docs/ci.md), [docs/json.md](../docs/json.md) |
 | `dependency-slice §2` | `may_use` in the law | [docs/law.md](../docs/law.md) |
 | `dependency-slice §3.1` | what counts as a use | [docs/languages.md](../docs/languages.md) |
@@ -86,11 +87,11 @@ A finding id may also follow an acceptance test number: `test 240: S8-8, R-82, a
 
 ## The suite guard
 
-Agents write most of this code, and an agent under pressure makes a red test green by weakening it. The suite guard, in `guard/`, compares a change with its base and finds what makes the suite weaker: a removed or renamed test, a changed expected output, a removed sabotage entry, a changed harness, a raised time budget, a changed guard or CI file. Each such weakening passes only when the same change adds a row to `weakenings.md`, with its reason, an anchor and an approver.
+Agents write most of this code, and an agent under pressure makes a red test green by weakening it. The suite guard, in `guard/`, compares a change with its base and finds what makes the suite weaker: a removed or renamed test, a changed expected output, a removed sabotage entry, a changed harness, a raised time budget, a changed guard or CI file, a changed law of the repository. Each such weakening passes only with a row in `weakenings.md` that gives its reason, an anchor and an approver. The change adds that row itself, except for the four kinds the owner approves: their row lands on `main` first, in a change of its own, and names the change it approves with `approves <hash>`.
 
 - The rows of `weakenings.md` are only ever added. The guard refuses a change that edits or removes one.
 - `guard/config.json` says who approves each kind. A fresh reviewer agent approves most kinds. The owner approves `promise-changed`, `guard-changed`, `ci-changed` and `threshold-lowered` ([decision 76](../design/decisions.md#76-who-may-weaken-the-suite)).
 - The guard that judges a change is always the one on the base, never the one on the branch. CI runs it from `.github/workflows/guard.yml`, and `npm run gate` runs it locally.
-- When the guard refuses, it prints the row it needs. Run it alone with `node tests/guard/cli.ts --base origin/main`.
+- When the guard refuses, it prints the row it needs. Run the guard of the base alone with `node tests/guard/from-base.ts --base origin/main`.
 
 `numbers.ts` holds the budgets, the seed and the counts that may only move one way. A test that takes more time than its budget fails, and a budget raised in `numbers.ts` is a weakening.

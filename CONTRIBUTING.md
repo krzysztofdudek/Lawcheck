@@ -12,7 +12,7 @@ Open an issue first, and say what you would change. Open the pull request once I
 
 ## Building and testing
 
-All code runs in the dev container in `.devcontainer/`. On a fresh clone:
+All code runs in the dev container in `.devcontainer/`, except the steps below that need Claude Code on the host. On a fresh clone:
 
     npm ci
     npm run build
@@ -35,15 +35,16 @@ It runs `npm test`, the suite guard of the base, and prints the pack a reviewer 
 ## What a change goes through
 
 1. CI runs the commit set on Linux, macOS and Windows.
-2. The suite guard of `main` judges the change. Every weakening it finds needs its row in `tests/weakenings.md`, in the same change.
+2. The suite guard of `main` judges the change. Every weakening it finds needs its row in `tests/weakenings.md`, in the same change. A row of the four kinds the owner approves (`promise-changed`, `guard-changed`, `ci-changed`, `threshold-lowered`) lands on `main` first, in a change of its own, and names the change it approves.
 3. The change lands on `main` only after both are green.
 
 ## Before a release
 
-The release workflow needs a green Nightly on the tagged commit. Three steps run by hand before the tag:
+The release workflow needs a green Nightly on the tagged commit. These steps run by hand before the tag ([decision 58](design/decisions.md#58-acceptance-tests-that-run-outside-npm-test)):
 
 - `npm run real`, which needs the network;
 - `claude plugin validate .` and `claude plugin validate plugin`, on a host with Claude Code;
-- `npm run agent-trial`, the trial of the plugin with a live agent.
+- `npm run agent-trial`, the trial of the plugin with a live agent, on the host;
+- a person reads the README and the plugin's files for their wording and for names of other tools.
 
-The tests with a live model run too when the prompt, the providers or the plugin changed since their last result ([decision 75](design/decisions.md#75-when-the-tests-with-a-live-model-run)).
+The tests with a live model, `npm run stability` and `node tests/live/run.ts`, run too when the prompt, the providers or the plugin changed since their last result ([decision 75](design/decisions.md#75-when-the-tests-with-a-live-model-run)).

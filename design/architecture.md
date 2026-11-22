@@ -57,7 +57,7 @@ Lawcheck is TypeScript on Node 24, compiled from `src/` to `dist/`. Its runtime 
 | `src/output.ts` | the report and the errors as text and as JSON |
 | `src/init.ts`, `src/prime.ts`, `src/explain.ts`, `src/try.ts`, `src/docs.ts`, `src/doctor.ts` | the other commands |
 
-`.lawcheck/law.yaml` draws the layers the code moves to: `core`, `output`, `adapters`, `steps` and `commands` as folders under `src/`. Most files above have not moved yet, and the law lists them ([decision 160](decisions.md#160-lawchecks-repository-keeps-its-own-law)).
+`.lawcheck/law.yaml` draws the layers the code moves to: `core`, `output`, `adapters`, `steps` and `commands` as folders under `src/`. None of the files above has moved yet, and the law lists them ([decision 160](decisions.md#160-lawchecks-repository-keeps-its-own-law)).
 
 ## The plugin
 
@@ -72,4 +72,4 @@ The Claude Code plugin lives in `plugin/`, and `.claude-plugin/marketplace.json`
 
 ## The tests
 
-`npm test` runs the commit set in four groups: `core` (unit, acceptance, contract and guard tests), `inputs` (properties, security and limits), `environments`, and `gate`. The nightly set adds longer runs of the same layers, the shipped deadlines and the sabotage list. [tests/README.md](../tests/README.md) describes the layers, the labels in test names, and the rules of the suite guard.
+`npm test` runs the commit set: unit, acceptance, contract and guard tests, then properties, security and limits, then environments. The nightly set adds longer runs of the same layers, the shipped deadlines and the sabotage list. [tests/README.md](../tests/README.md) describes the layers, the labels in test names, and the rules of the suite guard.
