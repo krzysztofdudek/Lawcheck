@@ -625,7 +625,7 @@ export const UNPARSABLE_JAVA_CHARS = 400_000;
 export const RECIPE_PNPM = '12.21.0';
 
 // The items of the code that no page of docs/ holds yet, the length of the list in tests/contract/docs-inventory.test.ts; the documentation's packages bring it to 0.
-export const DOCS_NOT_COVERED = 142;
+export const DOCS_NOT_COVERED = 0;
 
 // Which way each number makes the suite stronger, read by the suite guard; a seed is neither, so any change of it is a change to review.
 export const stronger: Record<string, 'higher' | 'lower' | 'fixed'> = {
