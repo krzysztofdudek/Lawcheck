@@ -1,6 +1,6 @@
 # Promises
 
-Each promise below holds for every input, not only for the examples a test names. The test file in its row holds a test with the promise's id in its name. Most of these tests generate their inputs; the environment tests run every shape and system the promise names. Changing or removing a promise is the owner's decision ([decision 76](decisions.md#76-who-may-weaken-the-suite)).
+Each promise below holds for every input. The test file in its row holds a test with the promise's id in its name. Most of these tests generate their inputs; the environment tests run every shape and system the promise names. Changing or removing a promise is the owner's decision ([decision 76](decisions.md#76-who-may-weaken-the-suite)).
 
 The docs pages say what the tool does for a given input. These rows say what no input can make it do.
 
