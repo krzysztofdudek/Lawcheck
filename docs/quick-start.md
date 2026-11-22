@@ -1,6 +1,6 @@
 # Quick start
 
-After five steps, `lawcheck check` fails on a file of the core that uses the command layer, and names the line. You need no model and no key.
+Lawcheck checks your code against the architecture and rules you write down, and tells your coding agent which line breaks which rule. In five steps you write a law with one type and one `may_use` line, break it with one import, and `lawcheck check` names the line. You need no model and no key.
 
 Before step 1, install Lawcheck as [Install](install.md) says. The steps start in a new repository with one file of the command layer, so that every output here is the one you get:
 
