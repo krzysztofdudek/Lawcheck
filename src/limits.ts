@@ -5,7 +5,7 @@ import type { ErrorItem } from './output.js';
 
 const MiB = 1024 * 1024;
 
-// The numbers of the table of limits in docs/config.md (decision 74 of design/decisions.md).
+// Most of these are the numbers of the table of limits in docs/config.md (decision 74 of design/decisions.md); HEAD_BYTES is the binary test of docs/law.md, and MEMORY_CHECK_MS is on no page.
 export const HEAD_BYTES = 8000;
 export const FILE_TEXT_BYTES = 16 * MiB;
 export const FILE_LINES = 1_048_576;

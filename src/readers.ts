@@ -347,7 +347,7 @@ async function readAll(input: ReadInput, runes: Runes, skipped: Skipped[]): Prom
   return out;
 }
 
-// Runes ends a line at a lone CR too, while a file's lines here end only at LF and CRLF (check-slice section 2), so its line is moved to the line that holds its start.
+// Runes ends a line at a lone CR too, while a file's lines here end only at LF and CRLF (the lines of docs/script-rules.md), so its line is moved to the line that holds its start.
 export function ownLine(content: string): (line: number) => number {
   if (!/\r(?!\n)/.test(content)) return (line) => line;
   const starts = [1];
