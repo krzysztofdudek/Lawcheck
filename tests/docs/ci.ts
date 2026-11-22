@@ -100,7 +100,7 @@ export async function scenario(page: Page): Promise<void> {
     chmodSync(join(clone, 'node_modules/.bin/lawcheck'), 0o755);
     const run = (block: string): string => {
       const [program, ...args] = words(page.text(block).slice(2));
-      return execFileSync(program!, args, { cwd: clone, env: GIT_ENV, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+      return execFileSync(program!, args, { cwd: clone, env: { ...GIT_ENV, npm_config_update_notifier: 'false' }, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
     };
     run('block 1 under "2. Make it executable"');
     run('block 1 under "3. Make git read the folder"');
