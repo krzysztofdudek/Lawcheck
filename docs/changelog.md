@@ -4,7 +4,7 @@ Lawcheck follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-On Node 24, a script rule could open a network connection, and Node 25 and later refused it. Now the rule runner refuses the network on every Node: a rule that connects, listens on a port, sends over UDP or looks up a name in DNS is `rule-crashed`, with the message `uses the network, which is closed to script rules`.
+On Node 24, a script rule could open a network connection, and Node 25 and later refused it. The rule runner now refuses the network on every Node: a rule that connects, listens on a port, sends over UDP or looks up a name in DNS is `rule-crashed`, with the message `uses the network, which is closed to script rules`.
 
 ### Before you upgrade
 
