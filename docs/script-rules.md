@@ -47,7 +47,7 @@ Lawcheck does not load a rule that has no file to judge in the run.
 
 ## The runner
 
-Each rule runs in its own Node process, started with `--permission`, read access to the root and to Lawcheck's own folder, no variable of the caller (`process.env` is empty), and the root as its working directory. What the rule prints goes to standard error.
+Each rule runs in its own Node process, started with `--permission`, read access to the root and to Lawcheck's own folder, no variable of the caller (`process.env` is empty), and the root as its working directory. Lawcheck relays what the rule prints to standard error.
 
 A rule has 30 seconds to load and 30 seconds for each call. All script rules of one run have 600 seconds together; past them the run stops with `rules-too-slow` at the file of each rule that had not finished.
 
@@ -61,7 +61,7 @@ The runner stops these, and the rule is `rule-crashed` when the refusal reaches 
 
 A rule imports `node:` built-ins, files below the root such as `.lawcheck/rules/lib/`, and packages installed in a `node_modules` below the root. A package hoisted to a `node_modules` above the root, as in a monorepo with the law in one package, or reached through a link that leads outside the root, cannot be read, so the rule does not load. Install what the rule needs below the root.
 
-When the runner stops a rule, the message says what the rule did, such as `reads <path> outside the root and Lawcheck's folder, and a rule may read nothing else`, `writes <path>, and a rule may write no file` or `imports node:sqlite, and a rule may not`.
+A rule the runner stops gets a message that says what it did, such as `reads <path> outside the root and Lawcheck's folder, and a rule may read nothing else`, `writes <path>, and a rule may write no file` or `imports node:sqlite, and a rule may not`.
 
 The runner is no sandbox. A rule can still:
 
@@ -87,7 +87,7 @@ A rule is `rule-crashed`, exit 2, at its file when it:
 
 The message names the judged file, or the load. A thrown or rejected value that has no string form, such as an object with no prototype, is named by the reason JavaScript gives for that, and a value built so that not even that reason can be had, such as a proxy whose every trap throws something that is not an error, by the text `a value with no string form`. One run names each broken rule once.
 
-A runner that Node cannot start at all is `runner-failed` instead, with Node's own line in the message, and no rule is blamed. Reinstalling Lawcheck is the fix.
+A runner that Node cannot start at all is `runner-failed` instead, with Node's own line in the message, and Lawcheck blames no rule. Reinstalling Lawcheck is the fix.
 
 ## Trying a rule
 

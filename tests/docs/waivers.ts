@@ -5,7 +5,7 @@ import type { Claims, Page } from '../contract/docs-blocks.ts';
 
 export const claims: Claims = {
   'block 1 under "Waivers"': SCENARIO,
-  'block 1 under "What it covers"': SCENARIO,
+  'block 1 under "The lines a waiver covers"': SCENARIO,
   'block 1 under "forbidden-use"': SCENARIO,
 };
 

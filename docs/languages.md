@@ -1,6 +1,6 @@
 # Languages and uses
 
-A file of the domain layer imports the command layer, and the law forbids it. When a type has a `may_use` list in force, `check` reads what each judged file of that type uses, and reports each use the list does not allow as `forbidden-use`. Lawcheck reads no uses in the files of a type without a list.
+A file of the domain layer imports the command layer, and the law forbids it. For each judged file of a type with a `may_use` list in force, `check` reads what the file uses, and reports each use the list does not allow as `forbidden-use`. Lawcheck reads no uses in the files of a type without a list.
 
 ## The languages whose uses are read
 
@@ -30,13 +30,13 @@ The readers come from Runes and report no dynamic form: `import()` of a variable
 
 ## Languages that read other files' declarations
 
-Java, Kotlin, C#, Ruby and Rust bind a name through what other files declare. When a run reads the uses of one file of the groups {Java, Kotlin}, {C#}, {Ruby} or {Rust}, it also reads the declarations of every file of that group in the repository, typed or not. Such a run costs most in Java; a file of any size with syntax errors has no bound.
+Java, Kotlin, C#, Ruby and Rust bind a name through what other files declare. A run that reads the uses of one file of the groups {Java, Kotlin}, {C#}, {Ruby} or {Rust} also reads the declarations of every file of that group in the repository, typed or not. Such a run costs most in Java; a file of any size with syntax errors has no bound.
 
 The other languages resolve by path, through files such as `tsconfig.json`, `go.mod` and `composer.json`.
 
 ## Unresolved uses
 
-A use the readers do not resolve to exactly one file is unresolved, unless they say it leaves the repository: Lawcheck does not count a use of the standard library or of an installed package. An unresolved use is neither allowed nor forbidden: it is never a finding and never changes the exit code.
+A use the readers do not resolve to a single file is unresolved, unless they say it leaves the repository: Lawcheck does not count a use of the standard library or of an installed package. An unresolved use is neither allowed nor forbidden: it is never a finding and never changes the exit code.
 
 The first line counts them for the change, the debt heading for the rest, and `--json` lists each with the readers' answer:
 

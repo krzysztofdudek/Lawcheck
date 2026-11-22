@@ -1,6 +1,6 @@
 # Reviewer rules
 
-An error message says that something failed and leaves the caller with no next step. A script cannot judge that, and a language model can. A reviewer rule is a rule written in prose that a model judges.
+An error message says that something failed and leaves the caller with no next step. A language model can read the message and tell whether it names the next step. A reviewer rule is a rule in prose that a model judges.
 
 ## The rule file
 
@@ -44,17 +44,17 @@ A pass with findings, a fail without one, a finding with no message and a line o
 
 ## Verdicts
 
-A pass is recorded in `.lawcheck/verdicts`, one line per pass: a key and the rule id, sorted. Commit this file. A plain `lawcheck check` reads it and calls nobody, so CI needs no key.
+Lawcheck records each pass in `.lawcheck/verdicts`, one line per pass: a key and the rule id, sorted. Commit this file. A plain `lawcheck check` reads it and calls nobody, so CI needs no key.
 
 The key is a hash of the frame, the rule id, its `why`, the rule file's text, each context file's path and text, the judged file's path and text, and the waived lines the reviewer is told about. A change to any of these re-opens the review. The status, the provider, the model and the settings are not in the key, so changing them keeps every pass. A waiver changes the file's text, so adding one re-opens the review.
 
-When the file holds a waiver of the rule and its type sets `waivers: false`, the reviewer judges the line the waiver would cover, and the key differs from the one the same text has where the waiver counts. So a pass recorded while the waiver counted no longer counts once the type sets `waivers: false`, or once a law change moves the file into such a type.
+A waiver of the rule in a file whose type sets `waivers: false` is plain text, so the reviewer judges the line the waiver would cover, and the key differs from the one the same text has where the waiver counts. So a pass recorded while the waiver counted no longer counts once the type sets `waivers: false`, or once a law change moves the file into such a type.
 
 `.lawcheck/.gitattributes` gets `verdicts merge=union`, so two branches that add lines merge without a conflict. Lawcheck writes the verdicts file under a lock in `.lawcheck/.local/`, so two runs at once keep both sets of passes.
 
 ## The failure cache
 
-A fail is kept on this machine only, in `.lawcheck/.local/failures/<key>.json`, so the same content is not paid for twice. `.lawcheck/.local/` holds a `.gitignore` of its own, so git sees nothing there. A later pass of the same key removes the file.
+Lawcheck keeps a fail on this machine only, in `.lawcheck/.local/failures/<key>.json`, so you do not pay twice for the same content. `.lawcheck/.local/` holds a `.gitignore` of its own, so git sees nothing there. A later pass of the same key removes the file.
 
 ## The state of a review
 

@@ -8,7 +8,7 @@ const READ = 'tests/acceptance/docs.test.ts > test 129: every page holds what se
 export const claims: Claims = {
   'block 1 under "The base"': READ,
   'block 1 under "--full and debt"': READ,
-  'block 1 under "What a plain check leaves out"': SCENARIO,
+  'block 1 under "The limits of a plain check"': SCENARIO,
 };
 
 const LAW = (rules: string) => `lawcheck: 0.1.0
@@ -36,6 +36,6 @@ export async function scenario(page: Page): Promise<void> {
     write(repo, '.lawcheck/law.yaml', LAW(''));
     const run = await lawcheck(repo, ['check', '--base', 'main']);
     assert.equal(run.code, 0, run.stdout);
-    shows(run.stdout, page.text('block 1 under "What a plain check leaves out"'));
+    shows(run.stdout, page.text('block 1 under "The limits of a plain check"'));
   });
 }

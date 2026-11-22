@@ -58,7 +58,7 @@ Lawcheck runs `gemini` with text output, in plan mode, with no extensions, no MC
 
 ## copilot-cli
 
-Lawcheck runs `copilot --silent` with no questions, no custom instructions, no tools, no MCP server, no access to the temporary folder and no update. It asks `copilot mcp list --json` once a run and switches off each server that list names. Lawcheck sets nothing about any history `copilot` keeps of its sessions. A `copilot` inside the folder of the VS Code Copilot extension is passed over: it only offers to install the CLI. The program signs in its own way, or with `COPILOT_GITHUB_TOKEN`, `GH_TOKEN`, `GITHUB_TOKEN` or a `COPILOT_PROVIDER_` variable.
+Lawcheck runs `copilot --silent` with no questions, no custom instructions, no tools, no MCP server, no access to the temporary folder and no update. It asks `copilot mcp list --json` once a run and switches off each server that list names. Lawcheck sets nothing about any history `copilot` keeps of its sessions. Lawcheck passes over a `copilot` inside the folder of the VS Code Copilot extension, which only offers to install the CLI. The program signs in its own way, or with `COPILOT_GITHUB_TOKEN`, `GH_TOKEN`, `GITHUB_TOKEN` or a `COPILOT_PROVIDER_` variable.
 
 ## Over HTTP
 
@@ -80,7 +80,7 @@ An empty variable counts as absent.
 
 A new provider or model keeps every recorded pass (`lawcheck docs reviewer-rules`), so check a new setup with `lawcheck doctor --reviewer`.
 
-## What leaves the machine
+## Text that leaves the machine
 
 Without `--review`, and outside `lawcheck try` on a reviewer rule and `lawcheck doctor --reviewer`, nothing: Lawcheck opens no connection and starts no reviewer program.
 

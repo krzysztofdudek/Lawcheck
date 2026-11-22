@@ -11,17 +11,17 @@ export const claims: Claims = {
   'block 1 under "Settings"': READ,
   'block 1 under "reviewer"': READ,
   'block 2 under "reviewer"': READ,
-  'block 1 under "What is refused"': SCENARIO,
-  'block 2 under "What is refused"': SCENARIO,
-  'block 3 under "What is refused"': SCENARIO,
+  'block 1 under "Keys and values Lawcheck refuses"': SCENARIO,
+  'block 2 under "Keys and values Lawcheck refuses"': SCENARIO,
+  'block 3 under "Keys and values Lawcheck refuses"': SCENARIO,
   'block 1 under "runner"': READ,
   'block 2 under "runner"': SCENARIO,
 };
 
 const REFUSED: [string, string, RegExp][] = [
-  ['block 1 under "What is refused"', 'keys', /in the environment$/],
-  ['block 2 under "What is refused"', 'endpoint', /LAWCHECK_REVIEWER_ENDPOINT$/],
-  ['block 3 under "What is refused"', 'temperature', /takes no temperature/],
+  ['block 1 under "Keys and values Lawcheck refuses"', 'keys', /in the environment$/],
+  ['block 2 under "Keys and values Lawcheck refuses"', 'endpoint', /LAWCHECK_REVIEWER_ENDPOINT$/],
+  ['block 3 under "Keys and values Lawcheck refuses"', 'temperature', /takes no temperature/],
 ];
 
 export async function scenario(page: Page): Promise<void> {

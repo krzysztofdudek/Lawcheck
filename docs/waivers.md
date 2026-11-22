@@ -16,7 +16,7 @@ console.warn('no campaign'); // lawcheck-waive no-console -- the pricing team re
 - The reason is the rest of the line after `--`, trimmed. It is required.
 - A file whose type sets `waivers: false` holds no waivers: the marker there is text (`lawcheck docs law`).
 
-## What it covers
+## The lines a waiver covers
 
 With a letter or a digit before the marker on its line, the waiver covers its own line. Otherwise the line stands alone, and the waiver covers the next line that does not stand alone:
 
@@ -25,7 +25,7 @@ With a letter or a digit before the marker on its line, the waiver covers its ow
 console.log('released');
 ```
 
-Waivers on several lines that stand alone, one above the other, all cover the line below them. When two waivers of one rule cover a line, the one on the line itself drops the findings, else the nearest one above. A waiver at the end of a file covers nothing. A waiver drops every finding of its rule on the line it covers. A finding about the whole file has no line and cannot be waived.
+Waivers on several lines that stand alone, one above the other, all cover the line below them. Two waivers of one rule can cover one line: then the one on the line itself drops the findings, else the nearest one above. A waiver at the end of a file covers nothing. A waiver drops every finding of its rule on the line it covers. A finding about the whole file has no line and cannot be waived.
 
 ## forbidden-use
 
@@ -49,7 +49,7 @@ A waiver with either of the first two waives nothing. All three sit on the waive
 
 A waiver of a reviewer rule is never `waiver-unused`: a recorded pass cannot show what the waiver dropped. Its lines go to the reviewer in `<waived>`, and Lawcheck drops what the reviewer reports on them.
 
-## How waivers are counted
+## The count of waivers
 
 A waiver with a known rule and a reason is counted, used or not. The first line of `check` counts the waivers of the changed files, and the debt heading those of the other files under `--full`. In JSON, `waivers` lists each one with `file`, `line`, `rule`, `reason` and `waived`, the number of findings it dropped.
 

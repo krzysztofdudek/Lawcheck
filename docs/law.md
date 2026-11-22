@@ -98,11 +98,11 @@ Rule ids that bind the type's files. Each id must be a rule of the law. An id li
 
 The types whose files this type's files may use. A type without the key takes the list of its nearest ancestor that has one: that is the list in force. Without a list anywhere above, a file may use anything.
 
-A list allows a target whose type is a listed type or a subtype of one. A type may use its own files only when its list names it. `may_use: []` allows nothing. A use of a file with no type is allowed by no list. Lawcheck does not judge a use of a binary file, nor a file's use of itself. Each id must be a type of the law, and each use the list does not allow is `forbidden-use`. `lawcheck docs languages` says which uses are read.
+A list allows a target whose type is a listed type or a subtype of one. A type may use its own files only when its list names it. `may_use: []` allows nothing. No list allows a use of a file with no type. Lawcheck does not judge a use of a binary file, nor a file's use of itself. Each id must be a type of the law, and each use the list does not allow is `forbidden-use`. `lawcheck docs languages` says which uses are read.
 
 ### types
 
-The subtypes of the type, with the same keys (section "How a file gets its type" below).
+The subtypes of the type, with the same keys (section "The type of a file" below).
 
 ### waivers
 
@@ -126,7 +126,7 @@ A pattern matches the whole path from the root, case-sensitive on every system.
 
 An empty pattern, an empty segment, a segment `.` or `..`, `**` beside other characters in one segment, `!` alone, and a brace that is nested, unclosed or unopened, or that holds a `/` or an empty alternative, are `law-invalid`.
 
-## How a file gets its type
+## The type of a file
 
 The files are the ones `git ls-files --cached --others --exclude-standard` lists at the root, regular files only. A symbolic link and a file git ignores have no type, and neither do `.lawcheck/verdicts` and `.lawcheck/.gitattributes`. A file whose first 8,000 bytes hold a NUL byte is binary and has no type. A file whose name holds a line break, a carriage return, a backslash or bytes that are not UTF-8 is judged like any other, and its name prints with `\n`, `\r`, `\\` and `\xHH` in their place. Lawcheck does not look into a submodule or a repository of its own inside this one, and prints a note when a type's paths reach into one.
 

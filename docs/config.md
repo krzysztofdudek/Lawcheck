@@ -49,7 +49,7 @@ reviewer:
   timeout: 600
 ```
 
-## What is refused
+## Keys and values Lawcheck refuses
 
 Any other key, a key written twice, or a value outside the table, is `config-invalid`, exit 2, at its line. The message names a known key or provider one or two letters away, when there is one. Three cases have a message of their own.
 
@@ -77,7 +77,7 @@ reviewer:
   temperature: 0
 ```
 
-Lawcheck reads `.lawcheck/config.yaml` and `.lawcheck/law.yaml` through a symbolic link too. When such a file is not valid, the error shows none of its text, since a link can lead to a secret outside the repository.
+Lawcheck reads `.lawcheck/config.yaml` and `.lawcheck/law.yaml` through a symbolic link too. The error about such a file shows none of its text, since a link can lead to a secret outside the repository.
 
 ## runner
 
@@ -97,7 +97,7 @@ runner: pnpm  # pinned in package.json
 
 `global` runs the `lawcheck` on your `PATH`. With any other runner, the package manager picks the program from the repository's own files, so the repository decides what runs; use the plugin only in a repository whose tests you would run. `lawcheck doctor` checks that the runner's program is on the `PATH`.
 
-The plugin reads the runner without a YAML parser. It takes the first line that starts with `runner:` in its first column, and the rest of that line without a comment after a space or a tab, trimmed. Without such a line the runner is `global`. A value outside the five is `config-invalid`, and so is a value this reading takes differently from YAML, such as `runner: "pnpm"` or a key in flow style: write `runner: pnpm` on one line of its own at the top level.
+The plugin reads the runner without a YAML parser. It takes the first line that starts with `runner:` in its first column, and the rest of that line without a comment after a space or a tab, trimmed. Without such a line the runner is `global`. A value outside the five is `config-invalid`, and so is a value YAML reads another way, such as `runner: "pnpm"` or a key in flow style: write `runner: pnpm` on one line of its own at the top level.
 
 Yarn 1 prints lines of its own around `yarn run`, so read `--json` from `yarn --silent run lawcheck`.
 
@@ -134,7 +134,7 @@ npmPreapprovedPackages: [lawcheck, "@chrisdudek/runes"]
 | `NODE_OPTIONS` | refuses every command when it holds `--permission`: `unsupported-environment` |
 | `TMPDIR` | makes the folder of a reviewer program there; `TEMP` on Windows |
 
-An empty variable counts as unset. Each reviewer program gets the sign-in variables of its own row and none of the others, and no program gets `LAWCHECK_REVIEWER_KEY` or `LAWCHECK_REVIEWER_ENDPOINT`. The plugin's two variables are on [its page](plugin.md).
+An empty variable counts as unset. Each reviewer program gets the sign-in variables of its own row and none of the others, and no program gets `LAWCHECK_REVIEWER_KEY` or `LAWCHECK_REVIEWER_ENDPOINT`. The plugin's two variables are on its own page (`lawcheck docs plugin`).
 
 ## Limits
 

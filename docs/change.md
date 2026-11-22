@@ -4,7 +4,7 @@ A law written for code that already breaks it would turn every build red on the 
 
 ## The base
 
-The change is measured against a base, the first of these that is set:
+Lawcheck measures the change against a base, the first of these that is set:
 
 1. `--base <ref>` on the command line;
 2. the variable `LAWCHECK_BASE`, when it is not empty;
@@ -36,9 +36,9 @@ A rule judges the changed files it binds. The change counts per file: an error o
 $ lawcheck check --full --base main
 ```
 
-`--full` also judges every other file. What it finds there is debt: a warning, whatever the rule's status, with no effect on the exit code. The debt block comes after the findings of the change, with its own count of findings, files, waivers and unresolved uses. In `--json` each finding of debt has `debt: true`.
+`--full` also judges every other file. Its findings there are debt: a warning, whatever the rule's status, with no effect on the exit code. The debt block comes after the findings of the change, with its own count of findings, files, waivers and unresolved uses. In `--json` each finding of debt has `debt: true`.
 
-## What a plain check leaves out
+## The limits of a plain check
 
 A plain check judges only the files that differ from the base. Three kinds of change can alter a judgment without changing the file judged: a change of the law (`.lawcheck/law.yaml`, `.lawcheck/config.yaml` or a rule file); a file whose new text moves it to another type, which changes the judgment of every file that uses it; and a file the language readers consult, such as `tsconfig.json`, `package.json`, `go.mod`, `Cargo.toml`, `composer.json` or a C# project file. Each passes a plain check, and the files it affects are judged the next time they change. This is deliberate: the default judges the change, and code nobody touched never turns a build red. To judge everything after such a change, run `lawcheck check --full`; what it finds outside the change is listed as debt and blocks nothing. When the change touches the law, `check` and `doctor` say so.
 
