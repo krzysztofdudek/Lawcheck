@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import { join } from 'node:path';
+import { COMMANDS, USAGE } from '../../dist/args.js';
 import { git, inTemp, lawcheck, newRepository, NO_CONSOLE, write } from '../acceptance/helpers.ts';
 import { SCENARIO } from '../contract/docs-blocks.ts';
 import type { Claims, Page } from '../contract/docs-blocks.ts';
 
 const LAW = 'block 1 under "The commands"';
 
-const USAGE = ['init', 'prime', 'check', 'explain', 'try', 'docs', 'doctor'];
 const RUNS: [heading: string, at: number, code: number][] = [
   ['init', 2, 0],
   ['prime', 2, 0],
@@ -22,7 +22,7 @@ const key = (heading: string, at: number) => `block ${at} under "${heading}"`;
 
 export const claims: Claims = Object.fromEntries([
   [LAW, SCENARIO],
-  ...USAGE.map((command) => [key(command, 1), SCENARIO]),
+  ...COMMANDS.map((command) => [key(command, 1), SCENARIO]),
   ...RUNS.flatMap(([heading, at]) => [[key(heading, at), SCENARIO], [key(heading, at + 1), SCENARIO]]),
   ...ALONE.map((flag) => [key(flag, 1), SCENARIO]),
 ]);
@@ -46,12 +46,8 @@ function argvOf(block: string): string[] {
 }
 
 export async function scenario(page: Page): Promise<void> {
+  for (const command of COMMANDS) assert.ok(USAGE[command].startsWith(`${page.text(key(command, 1))}\n\n`), `the usage of ${command} is the start of its --help\n${USAGE[command]}`);
   await inTemp(async (dir) => {
-    for (const command of USAGE) {
-      const help = await lawcheck(dir, [command, '--help']);
-      assert.equal(help.code, 0, command);
-      assert.ok(help.stdout.startsWith(`${page.text(key(command, 1))}\n\n`), `the usage of ${command} is the start of its --help\n${help.stdout}`);
-    }
     const fresh = newRepository(join(dir, 'fresh'));
     const repo = exampleRepository(join(dir, 'example'), page.text(LAW));
     for (const [heading, at, code] of RUNS) {
