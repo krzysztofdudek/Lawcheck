@@ -31,7 +31,7 @@ src/core/discount.ts:1  error[forbidden-use]  core may not use api (src/api/orde
 next: fix src/core/discount.ts:1
 ```
 
-A rules file is advice the agent reads, and nothing in the session checks the code against it. Lawcheck checks the files. In Claude Code, the Lawcheck plugin runs this check after each edit and before the agent ends its turn, and sends the agent back, up to three times, while the files of its turn break the law. Any other agent gets the law from `lawcheck prime`, through one line in its instructions file. CI checks the same law with no key and no network. An architecture test or the layer rule of a linter works in one language or one ecosystem, and one law covers the uses of twelve languages.
+A rules file is advice the agent reads, and nothing in the session checks the code against it. Lawcheck checks the files. In Claude Code, the Lawcheck plugin runs this check after each edit and before the agent ends its turn, and sends the agent back, up to three times, while the files of its turn break the law. Any other agent gets the law from `lawcheck prime`, through one line in its instructions file. A CI job checks the same law and needs no key and no network. An architecture test or the layer rule of a linter works in one language or one ecosystem, and one law covers the uses of twelve languages.
 
 ## Try it
 
@@ -68,7 +68,7 @@ That agent checks only when it follows the line, and nothing sends it back. A pr
 ## What one law holds
 
 - Uses. Lawcheck reads imports and other uses in twelve languages: TypeScript, JavaScript, Python, Go, Rust, Java, Kotlin, C#, C, C++, PHP and Ruby. Each use that `may_use` does not allow is a finding. A use Lawcheck cannot resolve is counted, and never a finding.
-- Script rules. A rule is a JavaScript module that gets one file at a time and returns findings with their lines.
+- Script rules. A rule is a JavaScript module that gets one file at a time and returns findings, each with its line when it has one.
 - Reviewer rules. A model judges a rule written in prose, one file at a time. Lawcheck records each pass, so an unchanged file is not sent again. You pick one of nine providers, among them a local Ollama and the `claude`, `codex`, `gemini` and `copilot` programs with their own sign-in.
 - Debt. `check` judges the files a change touches. `--full` lists the older breaches as debt. Debt is a warning and never fails the run.
 - Waivers. `lawcheck-waive <rule> -- <reason>` drops one rule on one line, and the reason stays in the code.
