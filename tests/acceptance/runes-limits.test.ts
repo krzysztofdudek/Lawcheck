@@ -161,11 +161,11 @@ test('test 313: S4-11, declare module is read as a use, and a fully qualified Ja
   });
   assert.deepEqual(found.findings, ['ui/src/main/java/com/acme/ui/Field.java:2']);
   assert.ok(page.includes('the readers read a fully qualified name in a field type. The readers do not read it in a call, an annotation or `Class.forName`.'));
-  assert.ok(page.includes('Below the 512 KiB limit, Lawcheck sets no limit of its own on the time it takes to parse a file with syntax errors'), 'S4-10');
+  assert.ok(page.includes('Lawcheck sets no limit of its own on the time it takes to parse a file with syntax errors under 512 KiB'), 'S4-10');
 });
 
 test('test 313: S4-10, a large Java file with syntax errors is parsed on every run and bounded by nothing: the run passes, with no error and no named limit', async () => {
-  assert.ok(page.includes('Below the 512 KiB limit, Lawcheck sets no limit of its own on the time it takes to parse a file with syntax errors'));
+  assert.ok(page.includes('Lawcheck sets no limit of its own on the time it takes to parse a file with syntax errors under 512 KiB'));
   const line = '  int x = ((( ;;; } } class class 12 @@ \n';
   let text = 'package com.acme.ui;\npublic class Big {\n';
   while (text.length < UNPARSABLE_JAVA_CHARS) text += line;
