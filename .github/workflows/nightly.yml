@@ -9,7 +9,9 @@ on:
 permissions:
   contents: read
 
-# The network is open only where the design names it: the install, git and ownership matrices (environments), the docs recipes that start images (docs) and, later, the corpus. Every other job closes it as the offline job of ci.yml does: a namespace with only a loopback device, as the runner's user with no supplementary group.
+# The network is open in environments, which starts official images and fetches packages, and in repeat, deadlines, docs and corpus, which do not close it.
+# docs and corpus are declared empty in tests/harness/sets.ts, so their jobs run no test. Each docs page's scenario runs in every commit set (tests/contract/docs-examples.test.ts), and until corpus holds a test, the real job of ci.yml, which checks two real repositories on every push, stands in for it.
+# Every other job closes the network: a namespace with only a loopback device, as the runner's user with no supplementary group, and limits in a container run with --network none.
 jobs:
   # Three runs of the commit set on one commit, on each system: a test with mixed results is a flake, and a flake stops the release until it is fixed.
   repeat:
@@ -237,7 +239,7 @@ jobs:
           sudo unshare --net -- sh -c 'ip link set lo up && u=$1 g=$2 && shift 2 && exec setpriv --reuid="$u" --regid="$g" --clear-groups env -i "$@"' \
             sh "$(id -u)" "$(id -g)" PATH="$PATH" HOME="$HOME" USER="$(id -un)" LOGNAME="$(id -un)" node tests/run.ts nightly --group coverage
 
-  # Every live result covers the paths it guards; the nightly set runs this, and the release requires a green nightly set on its commit.
+  # The live group of tests/harness/sets.ts is declared empty, so this job runs no test and checks no live result. Until a test holds one, decision 75 of design/decisions.md stands in: a person runs node tests/live/run.ts and npm run stability by hand when the prompt, the providers or the plugin change, and before every release.
   live:
     name: nightly live results current
     runs-on: ubuntu-latest

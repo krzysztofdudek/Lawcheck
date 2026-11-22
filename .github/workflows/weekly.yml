@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 jobs:
-  # All mutants of each module against its floor in tests/numbers.ts.
+  # The mutants group of tests/harness/sets.ts is declared empty, and tests/numbers.ts holds no mutant floor, so this job runs no test. Until the group holds one, the sabotage list stands in: the nightly set runs it, and it breaks the code on purpose, one entry at a time, and expects the named test to fail.
   mutants:
     name: weekly mutants
     runs-on: ubuntu-latest
