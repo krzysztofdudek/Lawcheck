@@ -1,6 +1,6 @@
 # Lawcheck
 
-Lawcheck checks your code against the architecture and rules you write down, and tells your coding agent which line breaks which rule.
+Lawcheck checks your code against the architecture and rules you write down, and tells your coding agent which line breaks which rule. It is for a developer or a small team that writes most of its code through a coding agent, in a repository whose layers or modules matter.
 
 I build software with coding agents, and I read their code only where a mistake could cost a lot or could not be undone. The agents repeat patterns well. After a few dozen sessions the structure drifts: a component lands where the pages live, a call goes to the database past the persistence layer, and an instruction from the rules file is gone ten messages later. The tests pass, because they check what the code does.
 
