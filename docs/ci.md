@@ -74,7 +74,7 @@ The shell script of the step `Check the change` picks the base. Lawcheck uses th
 | a push whose "before" commit is in the clone | that commit |
 | a first push of a branch, whose "before" is all zeros | the parent of the last commit |
 | a force-push that removed the "before" commit | the parent of the last commit, so a force-push is judged by its last commit |
-| a root commit, which has no parent | none: the script runs `check --full` |
+| a root commit, which has no parent | none: the script runs the check with `--full` |
 
 `persist-credentials: false` keeps the token of the job out of `.git/config`. A [script rule](concepts.md#script-rule) can read that file.
 
