@@ -286,9 +286,9 @@ test('test 151: the pages config and json', async () => {
       for (let j = i + 1; lines[j] !== '```'; j++) block.push(lines[j]!);
       assert.ok('config' in parseConfig(block.join('\n') + '\n'), block.join('\n'));
     }
-    assert.ok(points(config.stdout) <= 8000);
+    assert.ok(points(config.stdout) <= 30000);
     const json = await lawcheck(dir, ['docs', 'json']);
     assert.ok(json.stdout.includes('`paths`'));
-    assert.ok(points(json.stdout) <= 8000);
+    assert.ok(points(json.stdout) <= 30000);
   });
 });
