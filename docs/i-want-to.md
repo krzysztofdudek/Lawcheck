@@ -18,7 +18,7 @@ Each line ends the sentence of the title. Its link opens the step where that pat
 ## Types
 
 - [write the first type and the first script rule](first-law.md#_1-start-the-law)
-- [try a rule on the files I name, even before a type lists it](first-law.md#_9-try-the-rule-on-one-file)
+- [try a rule on the files I name, even before a type lists it](first-law.md#_7-try-the-rule-on-one-file)
 - [give every file of an existing project a type](types-for-a-project.md#_1-see-the-files-without-a-type)
 - [describe a project with types inside types](types-for-a-project.md#_2-describe-the-folders-as-types)
 - [find out why a file has its type](types-for-a-project.md#_4-see-why-a-file-has-its-type)
