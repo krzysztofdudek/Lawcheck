@@ -98,7 +98,7 @@ Each package sets its own `reviewer` in the same file as well ([Settings](config
 
 ## 6. Leave a nested repository to its own law
 
-Lawcheck does not look into a submodule, or into another repository inside the tree. Say `total.ts` is fixed, and `packages/api/src/vendor` is a repository of its own. The paths of the [type](concepts.md#type) `source` reach into that folder. In `packages/api`, run:
+Lawcheck does not look into a submodule, or into another repository inside the tree. Say `total.ts` is fixed. The folder `packages/api/src/vendor` is a repository of its own. The paths of the [type](concepts.md#type) `source` reach into that folder. In `packages/api`, run:
 
 ```text
 $ lawcheck check --full
@@ -117,7 +117,7 @@ To judge the files of `src/vendor`, start a law in that repository.
 
 - `lawcheck init` at the top refuses with `already-initialized`. A law below already governs a part of the tree. `lawcheck init` starts no law above or below another law.
 - `lawcheck check ../../web/src/page.ts` ends with `usage`: the path lies outside the root of the law. Run the check in the folder of the other law.
-- A rule ends in `rule-crashed`. The message says that the rule fails to load, because it reads a file in a `node_modules` above the package. The package manager put the package that the rule imports in the `node_modules` at the top of the repository. A rule may read nothing above its root. Install the package in a `node_modules` inside the package, as the `next:` line says ([Script rules](script-rules.md)).
-- You start a Claude Code session at the top of the repository, where no law is. The check after an edit looks for the law from the edited file, and it runs. The check before the end of the turn looks for the law from the folder of the session. It finds no law there and does not run. Start the session in the folder of the package ([The Claude Code plugin](plugin.md)).
+- A rule ends in `rule-crashed`. The message says that the rule fails to load. The rule reads a file in a `node_modules` above the package. The package manager put the package that the rule imports in the `node_modules` at the top of the repository. A rule may read nothing above its root. Install the package in a `node_modules` inside the package, as the `next:` line says ([Script rules](script-rules.md)).
+- You start a Claude Code session at the top of the repository, where no law is. The check after an edit looks for the law from the edited file. That check runs. The check before the end of the turn looks for the law from the folder of the session. It finds no law there and does not run. Start the session in the folder of the package ([The Claude Code plugin](plugin.md)).
 
 Next: [A finding you believe is wrong](false-alarm.md)

@@ -10,7 +10,7 @@ The runs below come from one repository. Its `main` holds these files:
 - `src/core/price.ts`, which writes nothing;
 - `src/cli/main.ts`, which calls `console.log`.
 
-The law:
+The law reads:
 
 ```yaml
 lawcheck: 0.1.0
@@ -61,7 +61,7 @@ usage: lawcheck init [--json]
 - `.lawcheck/law.yaml`, with an empty law and a short example in comments;
 - `.lawcheck/.gitignore`, with the lines `.local/` and `config.local.yaml`.
 
-`init` overwrites no file, and it writes no `.lawcheck/config.yaml`. In a folder below the top of the git work tree, `init` starts a law that covers only the files below that folder. A note in its output says so. `init` refuses with `already-initialized` when a law governs this folder from here or from above. It refuses in the same way when git lists a law below this folder. `init` takes no word besides `--json`, and an extra word is `usage`.
+`init` overwrites no file. It writes no `.lawcheck/config.yaml`. In a folder below the top of the git work tree, `init` starts a law that covers only the files below that folder. A note in its output says so. `init` refuses with `already-initialized` when a law governs this folder from here or from above. It refuses in the same way when git lists a law below this folder. `init` takes no word besides `--json`. An extra word is `usage`.
 
 Run `init` once per repository, at the root of the code you want to check. In a new repository:
 
@@ -122,7 +122,7 @@ usage: lawcheck prime [--json]
 - what the agent may do unasked;
 - the law in short.
 
-`prime` runs no rule and calls no reviewer. It reads no [use](concepts.md#use) and writes nothing. The text holds at most 8,000 characters. For a large law, Lawcheck shortens the text in up to four steps. The text then says what it left out. With a `runner` other than `global`, the first line says how to start Lawcheck in this repository. Without a law, `prime` prints two lines that say so. With a law that is not valid, it prints the first part of the text, then the errors. `prime` takes no word besides `--json`, and an extra word is `usage`.
+`prime` runs no rule and calls no reviewer. It reads no [use](concepts.md#use) and writes nothing. The text holds at most 8,000 characters. For a large law, Lawcheck shortens the text in up to four steps. The text then says what it left out. With a `runner` other than `global`, the first line says how to start Lawcheck in this repository. Without a law, `prime` prints two lines that say so. With a law that is not valid, it prints the first part of the text, then the errors. `prime` takes no word besides `--json`. An extra word is `usage`.
 
 Name `prime` in the instructions of an agent other than Claude Code. The Claude Code plugin runs `prime` at the start of each session ([The Claude Code plugin](plugin.md)).
 
@@ -205,7 +205,7 @@ With paths or patterns, `check` judges only the files you name, changed or not. 
 
 ### --again
 
-`--again` works with `--review` alone. It asks the reviewer again where `.lawcheck/.local/failures/` holds a cached failure. Without `--again`, Lawcheck reports a cached failure again, and the failure costs no call.
+`--again` works with `--review` alone. It asks the reviewer again where `.lawcheck/.local/failures/` holds a cached failure. Without `--again`, Lawcheck reports a cached failure again. That costs no call.
 
 ### --max-calls `<n>`
 
@@ -278,7 +278,7 @@ Each name in the path may hold at most 255 bytes. The whole path on disk, with t
 - whether it reads waivers;
 - its files.
 
-An id that the law does not have is `usage`, and the message names the nearest id.
+An id that the law does not have is `usage`. The message names the nearest id.
 
 ### --rule `<id>`
 
@@ -289,7 +289,7 @@ An id that the law does not have is `usage`, and the message names the nearest i
 - the types that list it, and the files it binds;
 - for a reviewer rule, how many of those files have a verdict.
 
-An id that the law does not have is `usage`, and the message names the nearest id.
+An id that the law does not have is `usage`. The message names the nearest id.
 
 ### --json
 
@@ -367,7 +367,7 @@ Run `docs` on a machine without a browser, or to give an agent one page.
 
 ### `<topic>`
 
-`<topic>` is the id of one page. More than one word is `usage`. An unknown id is `usage`, and the message names the nearest id:
+`<topic>` is the id of one page. More than one word is `usage`. An unknown id is `usage`. The message names the nearest id:
 
 ```text
 $ lawcheck docs jsn
@@ -399,7 +399,7 @@ next: run lawcheck docs as its usage line says: lawcheck docs --help
 usage: lawcheck doctor [--base <ref>] [--reviewer] [--json]
 ```
 
-`doctor` says what is wrong with this setup, with one next step for each problem. It writes nothing. It works without a law, and outside git. It opens no connection unless you pass `--reviewer`, with one exception. With the provider `ollama` and a reviewer rule in the law, `doctor` asks the server for its version without the flag. On an environment that Lawcheck refuses, `doctor` starts with the same refusal as every other command. It then runs its nine checks below that line. `doctor` takes no word besides its flags, and an extra word is `usage`.
+`doctor` says what is wrong with this setup, with one next step for each problem. It writes nothing. It works without a law, and outside git. It opens no connection unless you pass `--reviewer`, with one exception. With the provider `ollama` and a reviewer rule in the law, `doctor` asks the server for its version without the flag. On an environment that Lawcheck refuses, `doctor` starts with the same refusal as every other command. It then runs its nine checks below that line. `doctor` takes no word besides its flags. An extra word is `usage`.
 
 Run `doctor` after you install Lawcheck, after you change `.lawcheck/config.yaml`, and before you report a bug.
 

@@ -1,6 +1,6 @@
 # Lawcheck in Claude Code
 
-An agent writes `console.log` into `src/core/total.ts`, and the [law](concepts.md#law) of the repository forbids that call there. With the Lawcheck plugin, the agent sees the [finding](concepts.md#finding) after its edit. Before the agent ends its turn, the plugin sends it back to work while the files of the turn break the law. At the start of a session, the plugin gives the agent the law.
+An agent writes `console.log` into `src/core/total.ts`. The [law](concepts.md#law) of the repository forbids that call there. With the Lawcheck plugin, the agent sees the [finding](concepts.md#finding) after its edit. Before the agent ends its turn, the plugin sends it back to work while the files of the turn break the law. At the start of a session, the plugin gives the agent the law.
 
 The outputs below come from a repository with this law. Its [script rule](concepts.md#script-rule) `no-console` is the rule of [The first type and the first rule](first-law.md). The file `src/core/total.ts` has the [type](concepts.md#type) `library`:
 
@@ -38,7 +38,7 @@ claude plugin marketplace add krzysztofdudek/Lawcheck
 claude plugin install lawcheck@lawcheck-marketplace
 ```
 
-Then start a new Claude Code session in the repository. The plugin works through hooks. A hook is a command that Claude Code runs at a set moment of a session, such as after an edit. The hooks need `node` and `git` on the `PATH`. The hooks start Lawcheck, and Lawcheck runs the script rules of the repository. Use the plugin only in a repository whose tests you would run.
+Then start a new Claude Code session in the repository. The plugin works through hooks. A hook is a command that Claude Code runs at a set moment of a session, such as after an edit. The hooks need `node` and `git` on the `PATH`. The hooks start Lawcheck. Lawcheck runs the script rules of the repository. Use the plugin only in a repository whose tests you would run.
 
 ## 3. Start a session
 
@@ -80,7 +80,7 @@ src/core/total.ts:2  error[no-console]  writes to the terminal with console.log
 next: fix src/core/total.ts:2
 ```
 
-The plugin sends the agent back at most three times in one turn. It does not send the agent back a second time in a row with the same output. After that, the agent ends its turn, and you see this line:
+The plugin sends the agent back at most three times in one turn. It does not send the agent back a second time in a row with the same output. After that, the agent ends its turn. You see this line:
 
 ```output
 lawcheck: the turn ended while lawcheck check still fails on the files that changed in it; lawcheck check shows why.
@@ -88,7 +88,7 @@ lawcheck: the turn ended while lawcheck check still fails on the files that chan
 
 ## 6. Switch off one of the checks
 
-The plugin has two settings, and both are on by default. `check_after_edit` turns on the check of step 4. `check_before_stop` turns on the check of step 5. In a session, the command `/plugin configure lawcheck@lawcheck-marketplace` opens the two settings. From a terminal, this line switches off the check after an edit:
+The plugin has two settings. Both are on by default. `check_after_edit` turns on the check of step 4. `check_before_stop` turns on the check of step 5. In a session, the command `/plugin configure lawcheck@lawcheck-marketplace` opens the two settings. From a terminal, this line switches off the check after an edit:
 
 ```text
 $ echo '{"check_after_edit": "false"}' | claude plugin configure lawcheck@lawcheck-marketplace --values-stdin

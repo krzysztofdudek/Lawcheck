@@ -102,7 +102,7 @@ With `max_calls: 20`, a run that needs more than 20 calls sends none. A call tha
 
 - a run sends at most 100 calls, 4 at a time;
 - a call has 60 seconds, or 300 seconds with `ollama`;
-- with `claude-code`, `codex`, `gemini-cli` or `copilot-cli`, a call has 300 seconds, and Lawcheck makes one call at a time.
+- with `claude-code`, `codex`, `gemini-cli` or `copilot-cli`, a call has 300 seconds. Lawcheck makes one call at a time to these programs.
 
 `--max-calls` sets the cap for one run. This change needs 2 calls. Set the cap to 1:
 
@@ -154,7 +154,7 @@ Pass `--base` with the branch you started from, as the steps above do, or set `L
 
 ## The limits of a run
 
-A run that goes over one of these limits stops with exit 2, or the file gets a [finding](concepts.md#finding). The code says which limit the run went over:
+A run that goes over one of these limits stops with exit 2. For some limits, the file gets a [finding](concepts.md#finding) instead. The code says which limit the run went over:
 
 | Limit | Code |
 |---|---|

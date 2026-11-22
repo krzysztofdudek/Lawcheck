@@ -1,6 +1,6 @@
 # Settings
 
-A [reviewer rule](concepts.md#reviewer-rule) needs a model. The key of that model stays out of the repository. The settings live in `.lawcheck/config.yaml` at the root of the law. Lawcheck takes keys from the environment alone. The file is optional. Without it, every setting has its default, and Lawcheck has no reviewer. [Script rules](concepts.md#script-rule) need no settings.
+A [reviewer rule](concepts.md#reviewer-rule) needs a model. The key of that model stays out of the repository. The settings live in `.lawcheck/config.yaml` at the root of the law. Lawcheck takes keys from the environment alone. The file is optional. Without it, every setting has its default. Lawcheck then has no reviewer. [Script rules](concepts.md#script-rule) need no settings.
 
 ```yaml
 reviewer:
@@ -53,7 +53,13 @@ reviewer:
 
 ## Keys and values Lawcheck refuses
 
-Lawcheck stops with `config-invalid` and exit 2 on any other key, on a key written twice, and on a value outside the table. The error names the line. The message names a known key or provider one or two letters away, when there is one. Three cases have a message of their own.
+Lawcheck stops with `config-invalid` and exit 2 in these cases:
+
+- a key outside the table;
+- a key written twice;
+- a value outside the table.
+
+The error names the line. The message names a known key or provider one or two letters away, when there is one. Three cases have a message of their own.
 
 The first case is a key in the file. A key never goes into a committed file. Lawcheck takes it from the environment (section "Variables" below):
 

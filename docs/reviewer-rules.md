@@ -51,7 +51,7 @@ After a bad answer, Lawcheck asks once more when the cap of calls allows it. A s
 
 ## Verdicts
 
-Lawcheck records each pass in `.lawcheck/verdicts`, one line per pass. A line holds a key and the rule id, and Lawcheck keeps the lines sorted. Commit this file. A plain `lawcheck check` reads it and calls no reviewer. CI then needs no key.
+Lawcheck records each pass in `.lawcheck/verdicts`, one line per pass. A line holds a key and the rule id. Lawcheck keeps the lines sorted. Commit this file. A plain `lawcheck check` reads it and calls no reviewer. CI then needs no key.
 
 The key is a hash of these parts:
 
@@ -76,7 +76,7 @@ Lawcheck keeps a failed review on this machine alone, in `.lawcheck/.local/failu
 Lawcheck gives each judged file and each reviewer rule that binds it the first state that applies, in this order:
 
 1. the verdicts file has its line: a pass, nothing shown;
-2. the failure cache holds a fail: its findings are shown again, with or without `--review`;
+2. the failure cache holds a fail: Lawcheck shows its findings again, with or without `--review`;
 3. the prompt is larger than `reviewer.max_chars`: `too-large-to-review`;
 4. otherwise: `not-reviewed`.
 

@@ -63,7 +63,7 @@ The runner stops these actions. The rule is `rule-crashed` when the refusal reac
 - reading through `node:fs` outside the root and Lawcheck's folder;
 - starting a child process or a worker thread;
 - loading a native add-on or WASI;
-- importing `node:sqlite`. Node's permission model is the set of limits that `--permission` turns on, and it does not cover that module. The runner blocks the import. A rule cannot open, attach or write a database through it. `process.getBuiltinModule('node:sqlite')` returns `undefined`.
+- importing `node:sqlite`. Node's permission model is the set of limits that `--permission` turns on. That model does not cover the module. The runner blocks the import. A rule cannot open, attach or write a database through it. `process.getBuiltinModule('node:sqlite')` returns `undefined`.
 
 A rule may import `node:` built-ins, files below the root such as `.lawcheck/rules/lib/`, and packages installed in a `node_modules` below the root. The runner cannot read a package in a `node_modules` above the root. A monorepo with the law in one package may put the packages there. The runner cannot read a package reached through a link that leads outside the root either. In both cases, the rule does not load. Install what the rule needs below the root.
 
@@ -94,7 +94,7 @@ Lawcheck reports `rule-crashed` with exit 2, at the file of the rule, when the r
 
 The message names the judged file, or the load. A thrown or rejected value may have no string form, such as an object with no prototype. The message then gives the reason that JavaScript gives for that. A value may not even give that reason, such as a proxy whose every trap throws something that is not an error. The message then reads `a value with no string form`. One run names each broken rule once.
 
-A runner that Node cannot start at all is `runner-failed` instead. The message holds Node's own line, and Lawcheck blames no rule. Reinstalling Lawcheck fixes it.
+A runner that Node cannot start at all is `runner-failed` instead. The message holds Node's own line. Lawcheck blames no rule. Reinstalling Lawcheck fixes it.
 
 ## Trying a rule
 

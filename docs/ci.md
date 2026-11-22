@@ -1,6 +1,6 @@
 # CI and git hooks
 
-A pull request adds `console.log` to `src/core/`, and the [law](concepts.md#law) forbids that call there. The job below fails on it with exit 1. The job needs the git history of the branch back to its merge base with the target branch. It needs no key, because Lawcheck judges [reviewer rules](concepts.md#reviewer-rule) by the reviews committed in `.lawcheck/verdicts`.
+A pull request adds `console.log` to `src/core/`. The [law](concepts.md#law) forbids that call there. The job below fails on it with exit 1. The job needs the git history of the branch back to its merge base with the target branch. It needs no key. Lawcheck judges [reviewer rules](concepts.md#reviewer-rule) by the reviews committed in `.lawcheck/verdicts`.
 
 ## A CI job
 
@@ -138,7 +138,7 @@ Lawcheck takes a run for a CI job when the variable `CI` is set. Without `CI`, a
 
 ### 6. Give the base on GitLab CI
 
-GitLab sets the variable `CI_MERGE_REQUEST_TARGET_BRANCH_NAME` in a merge request pipeline. It names the branch that the merge request goes into. A job of such a pipeline may fetch its own branch alone, so the script below fetches the target branch first.
+GitLab sets the variable `CI_MERGE_REQUEST_TARGET_BRANCH_NAME` in a merge request pipeline. It names the branch that the merge request goes into. A job of such a pipeline may fetch its own branch alone. The script below fetches the target branch first.
 
 1. In `.gitlab-ci.yml`, give the job the variable `GIT_DEPTH: 0`. The runner then fetches the whole history.
 2. Run the job in merge request pipelines: its `rules` hold `if: $CI_PIPELINE_SOURCE == "merge_request_event"`.
@@ -213,7 +213,7 @@ A CI job can record the reviews in place of a machine. Lawcheck runs `check --re
 1. Keep the key of the reviewer in a secret of the CI service. Lawcheck takes the key from the environment alone ([Reviewers and keys](providers.md)).
 2. Give the key to the one step that runs the review. On GitHub, for the provider `anthropic`, the environment of the step holds `ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}`.
 3. In that step, run `npx --no-install lawcheck check --review --base "$base"`, with `base` set as in the workflow of step 2.
-4. Commit `.lawcheck/verdicts` and `.lawcheck/.gitattributes`, and push the commit to the branch of the pull request.
+4. Commit `.lawcheck/verdicts` and `.lawcheck/.gitattributes`. Then push that commit to the branch of the pull request.
 
 The job of step 2 cannot push. Its token may read the repository and not write to it. `persist-credentials: false` keeps that token out of the checkout as well. Run the review in a job of its own, whose permissions hold `contents: write`.
 
@@ -291,7 +291,7 @@ src/core/total.ts:2  error[no-console]  writes to the terminal with console.log
 next: fix src/core/total.ts:2
 ```
 
-The hook exits 1, and git makes no commit. A commit that keeps the law goes through.
+The hook exits 1. Git makes no commit. A commit that keeps the law goes through.
 
 ### 5. Add the pre-push hook
 
@@ -316,7 +316,7 @@ Run the check only where you would run the tests of that change. On `pull_reques
 ## If it goes wrong
 
 - `base-unreachable` says that the clone is shallow, or that the job did not fetch the base branch. A shallow clone holds the last commits alone. The `next:` line gives the `git fetch` command that brings the history.
-- `no-git` in a container: another user owns the checkout, and git refuses to work in it. The `next:` line gives the `git config` command that adds the folder to `safe.directory`. The command quotes the path for `sh`.
+- `no-git` in a container: another user owns the checkout. Git refuses to work in it. The `next:` line gives the `git config` command that adds the folder to `safe.directory`. The command quotes the path for `sh`.
 - A warning shows in the log of a job that passed. A warning never fails a job.
 
 Next: [A law shared by a team](team.md)

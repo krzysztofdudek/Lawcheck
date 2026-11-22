@@ -137,7 +137,7 @@ A [change](concepts.md#change) that edits the law or a rule file changes the law
 ## If it goes wrong
 
 - `config-invalid` at the line of `keys`: someone wrote a key into `.lawcheck/config.yaml`. Remove that line, and set the key in the environment.
-- A teammate's check shows `not-reviewed` for a file you reviewed. You did not push `.lawcheck/verdicts`, or one of these changed after your review: the file, the text or `why` of the rule, or a file that the rule's `context` names. The key `context` of a rule names files that the reviewer reads with each file it judges. Run `lawcheck check --review` again, and commit `.lawcheck/verdicts`.
-- A review failed on your machine, and your teammate sees `not-reviewed`. Lawcheck keeps a failed review in `.lawcheck/.local/` of the machine that ran it. It writes a pass alone into `.lawcheck/verdicts`.
+- A teammate's check shows `not-reviewed` for a file you reviewed. Check that you pushed `.lawcheck/verdicts`. If you did, one of these changed after your review: the file, the text or `why` of the rule, or a file that the rule's `context` names. The key `context` of a rule names files that the reviewer reads with each file it judges. Run `lawcheck check --review` again, and commit `.lawcheck/verdicts`.
+- A review failed on your machine. Your teammate sees `not-reviewed` for that file. Lawcheck keeps a failed review in `.lawcheck/.local/` of the machine that ran it. It writes only passes into `.lawcheck/verdicts`.
 
 Next: [A monorepo](monorepo.md)
