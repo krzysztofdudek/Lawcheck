@@ -78,7 +78,7 @@ test('S7-2: S7-11, the hooks of docs/ci.md start Lawcheck through npx, name a ba
 test('S7-4: the page names the managers, the floors and the refusal of a plain check with no base in CI, and the code does what it says (report S8)', async () => {
   for (const what of ['Yarn 4 (`nodeLinker: node-modules` or `pnpm`)', 'Bun beside Node', "not with Yarn Plug'n'Play", 'Node 24 and git 2.34 or later', 'a command refuses in its first line', '`yarn install --immutable`', '`persist-credentials: false`', '`base-unreachable`', '`LAWCHECK_BASE`', '`--full`']) assert.ok(page.includes(what), what);
   const change = readFileSync(new URL('../../docs/change.md', import.meta.url), 'utf8');
-  for (const what of ['a check on a machine counts every file as changed', 'In a CI job a plain check with no base is `base-unreachable` instead', 'checks the change a second time with the law of the base']) assert.ok(change.includes(what), what);
+  for (const what of ['a check on a machine counts every file as changed', 'In a CI job, a plain check with no base stops with `base-unreachable`', 'checks the change a second time with the law of the base']) assert.ok(change.includes(what), what);
   await inTemp(async (dir) => {
     const repo = newRepository(dir, { 'src/price.ts': 'export const price = 1;\n', '.lawcheck/law.yaml': 'lawcheck: 0.1.0\n\ntypes:\n  source:\n    about: Everything that ships.\n    paths: ["src/**/*.ts"]\n' });
     const machine = await lawcheck(repo, ['check']);

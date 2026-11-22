@@ -4,7 +4,7 @@ A law written for code that already breaks it would fail every build on the firs
 
 ## The base
 
-Lawcheck compares the change with a [base](concepts.md#base). It takes the first of these three that you give:
+Lawcheck compares the change with a [base](concepts.md#base). A ref is a name that git resolves to a commit, such as a branch, a tag or a commit hash. Lawcheck takes the base from the first of these three that you give:
 
 1. `--base <ref>` on the command line;
 2. the variable `LAWCHECK_BASE`, when it is not empty;
@@ -14,35 +14,33 @@ Lawcheck compares the change with a [base](concepts.md#base). It takes the first
 $ lawcheck check --base main
 ```
 
-A ref is a name that git resolves to a commit, such as a branch, a tag or a commit hash.
-
 Lawcheck stops with `base-unreachable` and exit 2 in four cases:
 
 - the base names no commit;
 - the base shares no history with `HEAD`;
 - the repository has no commit yet;
-- the base is the commit of zeros, which a push of a new branch names as the commit before it.
+- the base is a commit id of forty zeros, which CI gives as the commit before the push of a new branch.
 
 A shallow clone holds part of the history. In a shallow clone, or in a clone that did not fetch the base's branch, the message names the `git fetch` command that brings the base.
 
-Without any base, a check on a machine counts every file as changed. Its first line says so. In a CI job a plain check with no base is `base-unreachable` instead. Without a base, the check cannot tell the change from [debt](concepts.md#debt). The message names `--base`, `LAWCHECK_BASE` and `--full` (`lawcheck docs ci`).
+With no base, a check on a machine counts every file as changed. Its first line says so. In a CI job, a plain check with no base stops with `base-unreachable`, because without a base it cannot tell the change from [debt](concepts.md#debt). The `next:` line of that error names `--base`, `LAWCHECK_BASE` and `--full` (`lawcheck docs ci`).
 
 ## The change
 
-Lawcheck takes the merge base of `HEAD` and the base. The merge base is the newest commit that both histories hold. The change is every file of the working tree that differs from the merge base:
+The merge base of two commits is the newest commit that both histories hold. Lawcheck finds the merge base of `HEAD` and the base. The change is every file of the working tree that differs from that merge base:
 
 - a file committed on this branch, staged, modified, or new and not ignored, is in the change;
 - a deleted file is not;
 - a renamed file counts as changed under its new path;
 - a change of mode alone counts;
-- an edit of a file marked `assume-unchanged` or `skip-worktree` counts. `git diff` does not show such an edit.
+- an edit of a file that you marked `assume-unchanged` or `skip-worktree` in git counts. `git diff` does not show such an edit.
 
-A rule judges each changed file whose type, or a type above it, lists the rule. Lawcheck judges a changed file whole. An error on a line you did not touch fails the run.
+Lawcheck judges each changed file against the rules that bind it. A rule binds a file when the file's type, or a type above it, lists the rule. Lawcheck judges the whole file. An error on a line you did not touch fails the run too.
 
 The git settings of a repository can name programs that git starts while it reads the files. Lawcheck runs git with these programs turned off:
 
 - a `core.fsmonitor` program, which watches the work tree for changes;
-- a hook, a script that git runs at an event such as a commit;
+- the hooks that git runs at an event such as a commit;
 - an external diff program;
 - a `textconv` program, which turns a file into text for `git diff`;
 - a filter, which changes a file on its way into or out of git.
@@ -57,7 +55,7 @@ Git reads some files through a filter, such as the files of Git LFS. Lawcheck co
 $ lawcheck check --full --base main
 ```
 
-`--full` judges every other file as well. Its findings in those files are debt. A finding of debt is a warning, whatever the rule's status. Debt never changes the exit code.
+With `--full`, Lawcheck judges every other file as well. The findings in those other files are debt. Debt never changes the exit code, because each of its findings is a warning, whatever the status of its rule.
 
 Lawcheck prints the debt block after the findings of the change. The block has its own count of findings, files, waivers and unresolved uses. In `--json` each finding of debt has `debt: true`.
 
@@ -88,15 +86,15 @@ The second line says what the change does to the law that judges it. A pull requ
 - a waiver the change adds;
 - a file of `.lawcheck/rules/`, or `.lawcheck/config.yaml`, added, removed or changed. The line names such a file by its path and not by what it does.
 
-The line shows five items and counts the rest. In `--json`, `scope.law_changes` lists every item. The line never changes the exit code of the run, whatever it lists. `lawcheck docs ci` gives a job that checks the change a second time with the law of the base.
+The line shows five items and the count of the rest. In `--json`, `scope.law_changes` lists every item. The line never changes the exit code of the run, whatever it lists. `lawcheck docs ci` gives a job that checks the change a second time with the law of the base.
 
-`lawcheck doctor` reports the same in its `law-change` check. No line reports the other two kinds of change.
+`lawcheck doctor` reports the same in its `law-change` check. No line of `check` or `doctor` reports the other two kinds of change.
 
 ## Files you name
 
-`lawcheck check <path or pattern>...` judges the files you name, changed or not, and no others. This form needs no base. It runs in a repository with no commit, and in CI. Lawcheck reads a path or a pattern from the current folder. A folder selects its files at any depth. A target that selects nothing, such as a missing file, a file git ignores or a binary file, adds nothing. The root is the folder that holds `.lawcheck/`, and a target outside it stops the run with the error [`usage`](codes.md#usage). Write a file whose name starts with `-` with `./` before it, as in `./-x.ts`.
+`lawcheck check <path or pattern>...` judges the files you name, changed or not, and no others. This form needs no base. It runs in CI, and in a repository with no commit. Lawcheck reads each path and pattern from the folder you run it in. A folder selects its files at any depth. A path that selects nothing, such as a missing file, a file git ignores or a binary file, adds nothing to the run. The root is the folder that holds `.lawcheck/`. A path outside the root stops the run with the error [`usage`](codes.md#usage). Write a file whose name starts with `-` with `./` before it, as in `./-x.ts`.
 
-This form reports no debt and no note of a law change. It takes no flag but `--json`. Here `not-reviewed` and `too-large-to-review` are warnings. A missing review never makes this form exit 1. The Claude Code plugin checks files this way (`lawcheck docs plugin`).
+This form prints neither debt nor the note of a law change. It takes one flag, `--json`. A missing review never makes this form exit 1, because `not-reviewed` and `too-large-to-review` are warnings in it. The Claude Code plugin checks files this way (`lawcheck docs plugin`).
 
 ## Exit codes
 
@@ -106,6 +104,6 @@ This form reports no debt and no note of a law change. It takes no flag but `--j
 | 1 | an error: the code breaks the law |
 | 2 | no conclusion: Lawcheck, the law or the setup is broken, and the output names what to fix |
 
-Lawcheck reports a finding of an `enforced` rule in the change as an error, and the run exits 1. A finding of an `advisory` rule is a warning, and so is every finding of debt. A failing run ends with one `next:` line that says what to do.
+Lawcheck reports a finding of an `enforced` rule in the change as an error. An error makes the run exit 1. Two kinds of finding are warnings: a finding of an `advisory` rule, and each finding of debt. A failing run ends with one `next:` line that says what to do next.
 
 Next: [JSON documents](json.md)
