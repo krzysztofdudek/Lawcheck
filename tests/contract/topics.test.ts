@@ -18,6 +18,10 @@ test('test 418: docs/topics.json and the pages of docs/ name each other one to o
   assert.deepEqual(topicsProblems(readdirSync(DOCS), topics), []);
 });
 
+test('test 700: docs/changelog.md is CHANGELOG.md, byte for byte', () => {
+  assert.equal(readFileSync(new URL('changelog.md', DOCS), 'utf8'), readFileSync(new URL('../CHANGELOG.md', DOCS), 'utf8'));
+});
+
 test('test 419: control, a page with no entry, an entry with no page, and an id named twice are each named', () => {
   const files = ['law.md', 'codes.md', 'topics.json'];
   const topics = [{ id: 'law' }, { id: 'codes' }];
