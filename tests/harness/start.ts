@@ -193,7 +193,8 @@ const scopes = new Map<string, Scope>();
 
 // Every run folder made in this process stays known: on Windows a program the guard started may still write in one after its run.
 const runFolders = new Set<string>();
-const notRunFolder = (root: string) => (name: string) => runFolders.has(join(root, name));
+// The walk of a test's folder leaves out the run folders, and the repository when it lies directly in the folder: gitState compares the repository's files, and close drops them from the folder's comparison.
+const notWalked = (root: string, top: string | null) => (name: string) => runFolders.has(join(root, name)) || join(root, name) === top;
 
 function open(start: Start, expect: Expect): Scope {
   const where = real(folderOf(start, expect));
@@ -204,7 +205,7 @@ function open(start: Start, expect: Expect): Scope {
   const key = folder ?? top ?? `run ${randomBytes(4).toString('hex')}`;
   let scope = scopes.get(key);
   if (scope === undefined) {
-    scope = { folder, top, runs: 0, tree: folder === null ? null : tree(folder, notRunFolder(folder)), git: top === null ? null : gitState(top), writes: [], outside: [] };
+    scope = { folder, top, runs: 0, tree: folder === null ? null : tree(folder, notWalked(folder, top)), git: top === null ? null : gitState(top), writes: [], outside: [] };
     scopes.set(key, scope);
   }
   scope.runs++;
@@ -232,7 +233,7 @@ function close(scope: Scope): [string, string][] {
   }
   if (scope.folder !== null && scope.tree !== null) {
     const top = scope.top;
-    const outside = treeChanges(scope.tree, tree(scope.folder, notRunFolder(scope.folder))).filter((path) => (top === null || !inside(join(scope.folder!, path), top)) && !allowed(path, scope.outside));
+    const outside = treeChanges(scope.tree, tree(scope.folder, notWalked(scope.folder, scope.top))).filter((path) => (top === null || !inside(join(scope.folder!, path), top)) && !allowed(path, scope.outside));
     if (outside.length > 0) problems.push(['harness-8', `the run changed ${outside.slice(0, 10).join(', ')} in the test's folder ${scope.folder}, outside the repository`]);
   }
   return problems;
