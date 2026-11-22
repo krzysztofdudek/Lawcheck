@@ -42,11 +42,11 @@ An exit-2 code stops the run before Lawcheck gives a PASS or a FAIL, and its out
 | `uses-not-read` | finding | Lawcheck reads no uses from a file whose `may_use` list is in force | a restriction that cannot be checked is not shown as kept |
 | `waiver-unknown-rule` | finding | a waiver names no rule of the law | a waiver that names no rule of the law waives nothing |
 | `waiver-without-reason` | finding | a waiver has no reason after `--` | a waiver without a reason cannot be weighed later |
-| `waiver-unused` | finding | a waiver drops no finding | a waiver that drops nothing would hide the next finding on its line |
+| `waiver-unused` | finding | a waiver of a script rule drops no finding | a waiver that drops nothing would hide the next finding on its line |
 
 A finding of a rule of the law carries the rule's id as its code, and the rule's own `why`. A rule id may not equal any code above, nor `untyped-file`.
 
-Each Example below is the output of a test of Lawcheck's suite on the sample repository the suite builds. A path under `/home/you/projects` stands for the test's temporary folder, and `/usr/local/bin/node` for the node that runs it.
+Each Example below is the standard output of a test of Lawcheck's suite on the sample repository the suite builds. The Examples leave out standard error, where Lawcheck prints such lines as the count of reviewer calls. A path under `/home/you/projects` stands for the test's temporary folder, and `/usr/local/bin/node` for the node that runs it.
 
 ## usage
 
@@ -579,7 +579,7 @@ next: make the rules return fewer findings, or narrow the types that list them, 
 
 **Meaning**
 
-The script rules of one run took more than 600 seconds together. Lawcheck stops them and names each rule that had not finished.
+The script rules of one run took more than 600 seconds together. Lawcheck stops them and names each rule that had not finished. It runs as many rules at once as the machine has processors, so with fewer processors than rules the later ones show "had not started". The Example shows a machine of three processors or more.
 
 **Typical cause**
 
@@ -995,7 +995,7 @@ next: fix src/core/shipping.ts:1
 
 **Meaning**
 
-A waiver drops no finding on the line it covers. The finding is a warning.
+A waiver drops no finding on the line it covers. The finding is a warning. Only a waiver of a script rule gets it.
 
 **Typical cause**
 
