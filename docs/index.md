@@ -54,6 +54,7 @@ Lawcheck is an alpha. It needs Node 24 or later and git 2.34 or later. Lawcheck 
 ## Read next
 
 - [Quick start](quick-start.md) takes a new repository to its first finding in five steps. You need no model and no key.
+- [The first type and the first rule](first-law.md) writes a [script rule](concepts.md#script-rule) and shows the check that fails on its first finding.
 - [Concepts](concepts.md) defines the twelve words these pages use, each with one example.
 - [Lawcheck and the tools you already use](other-tools.md) compares Lawcheck with a rules file, an architecture linter, a review bot and a hook of your own.
 
