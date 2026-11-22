@@ -420,7 +420,7 @@ The cause is one of these:
 - `.lawcheck/verdicts` would grow past 16 MiB;
 - a write to standard output fails, such as a write to a file on a full disk.
 
-A reader of the output that closes the pipe early gives no error. Lawcheck then ends quietly, with the exit code of its result.
+A program that reads the output and closes the pipe early gives no error. Lawcheck then ends quietly, with the exit code of its result.
 
 **Fix**
 

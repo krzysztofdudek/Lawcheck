@@ -268,7 +268,7 @@ For a rule, these fields follow `schema` and `subject`:
 | `topics.id` | the id `lawcheck docs` takes |
 | `topics.title` | the title |
 
-With a topic, the document holds `id`, `title` and `text`. `text` holds the page as its file reads, with its links unchanged.
+With a topic, the document holds `id`, `title` and `text`. `text` holds the Markdown of the page, with its links unchanged.
 
 | Field | Value |
 |---|---|

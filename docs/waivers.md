@@ -37,7 +37,7 @@ A waiver can name the code `forbidden-use` in place of a rule of the law. Such a
 import '../cli/main.js'; // lawcheck-waive forbidden-use -- the report repeats the banner until 2.0
 ```
 
-No other code takes a waiver, such as `uses-not-read`, `not-reviewed` or the three waiver codes below.
+No other code takes a waiver, `uses-not-read`, `not-reviewed` and the three waiver codes below included.
 
 ## The three waiver codes
 

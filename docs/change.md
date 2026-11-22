@@ -1,6 +1,6 @@
 # What a check judges
 
-A law written for code that already breaks it would turn every build red on the first day. `lawcheck check` judges the files of the [change](concepts.md#change). Old code fails nothing until someone changes it.
+A law written for code that already breaks it would fail every build on the first day. `lawcheck check` judges the files of the [change](concepts.md#change). Old code fails nothing until someone changes it.
 
 ## The base
 
@@ -61,7 +61,7 @@ A plain check judges the files that differ from the base. Three kinds of change 
 - a file whose new text gives it another type: the judgment of each file that uses it can change;
 - a file that the language readers consult, such as `tsconfig.json`, `package.json`, `go.mod`, `Cargo.toml`, `composer.json` or a C# project file.
 
-Each of these passes a plain check. Lawcheck judges the files they affect the next time those files change. A plain check judges the change, so a file outside the change never turns a build red.
+Each of these passes a plain check. Lawcheck judges the files they affect the next time those files change. A file outside the change never fails a plain check.
 
 To judge every file after such a change, run `lawcheck check --full`. Lawcheck lists what it finds outside the change as debt. Debt blocks nothing. `check` and `doctor` say so when the change touches the law.
 
