@@ -569,8 +569,9 @@ export const SLOW_TESTS: Record<string, Slow> = {
   // Measured on Nightly run 43965209262 (seven entries of the list): each entry builds the broken code and runs its test; the run took 8.2 s with five.
   'tests/sabotage/sabotage.nightly.test.ts > question 95: the sabotage list, every break of the list turns its test red': { fixed: 0, measured: { linux: 21_000 } },
 
-  // The longest time on the Windows three-times job of the Nightly 45057543660, every round included, where the scenarios of the documentation pages first ran on Windows; the CI page's scenario starts three job scripts and a git hook through sh and npx.
+  // The longest time on the Windows three-times job of the Nightly 45057543660, every round included, the first Nightly where these documentation scenarios passed their assertions on Windows.
   'tests/contract/docs-examples.test.ts > test 432: the scenario of docs/ci.md runs the blocks it claims, and each output the page shows is the one the tool prints, byte for byte': { fixed: 0, measured: { win32: 30_216 } },
+  'tests/contract/docs-examples.test.ts > test 432: the scenario of docs/adopt-in-an-existing-repository.md runs the blocks it claims, and each output the page shows is the one the tool prints, byte for byte': { fixed: 0, measured: { win32: 13_265 } },
 };
 
 // Test 410 proves that the script takes ollama, codex and copilot-cli, which two runs, the fewest it accepts, show.
