@@ -33,6 +33,7 @@ import {
 import { MiB, sparse, textHead } from '../limits/support.ts';
 import { CODES, WHY } from '../../dist/output.js';
 import { main } from '../../dist/cli.js';
+import { codesPage, exampleOf, partsProblems, shownRun } from './codes-page.ts';
 
 
 interface Pending {
@@ -125,6 +126,7 @@ function reviewer(id: string, code: string, argv: string[], arrange: (r: string,
 }
 
 const CASES: Case[] = [
+  { id: 'usage, docs, a topic that does not exist', code: 'usage', setup: (dir) => ({ cwd: makeSample(dir), argv: ['docs', 'codez'], exit: 2 }) },
   { id: 'usage, check', code: 'usage', setup: (dir) => ({ cwd: makeSample(dir), argv: ['check', '--nope'], exit: 2 }) },
   { id: 'usage, no command', code: 'usage', setup: (dir) => ({ cwd: makeSample(dir), argv: ['--nope'], exit: 2, leads: '--help' }) },
   {
@@ -531,6 +533,11 @@ function waiver(code: string, line: string, first: string | null, place: string)
   };
 }
 
+// The Example of a code on docs/codes.md is the output of the first case of that code.
+function firstCase(code: string): Case | undefined {
+  return [...CASES, ...LIMIT_CASES, STOPPED, UNREADABLE].find((c) => c.code === code);
+}
+
 function documented(): { code: string; kind: string; why: string }[] {
   const page = readFileSync(new URL('../../docs/codes.md', import.meta.url), 'utf8');
   return page
@@ -651,6 +658,10 @@ async function reproduce(spec: Case, dir: string, fake: Fake): Promise<string[]>
     return problems;
   }
   const out = text.stdout;
+  if (spec.code !== null && firstCase(spec.code) === spec) {
+    const shown = shownRun(ready.argv, out, dir);
+    if (exampleOf(codesPage(), spec.code) !== shown) say(`the Example of ${spec.code} in docs/codes.md is not the output of this case, which is:\n${shown}`);
+  }
   if (ready.report === 'doctor') {
     if (document.schema !== 'lawcheck-doctor/0') say(`the schema is ${document.schema}`);
   } else if (doc.kind === 'exit 2') {
@@ -852,4 +863,34 @@ test('R-55: every pending next line names its case, code, exact command and the 
     assert.ok(CASES.some((c) => c.id === pending.case && c.code === pending.code), `${pending.case} with the code ${pending.code}`);
   }
   assert.equal(new Set(PENDING.map((p) => p.case)).size, PENDING.length);
+});
+
+test('test 580: every code has its heading on docs/codes.md, with Meaning, Typical cause, Fix and Example in that order, and the Example a block that opens with its command', () => {
+  assert.deepEqual(partsProblems(codesPage(), CODES), []);
+});
+
+test('test 581: the rail of test 580 names a code whose Fix is taken out, and a code whose Example has no block (control)', () => {
+  const page = codesPage();
+  const section = page.indexOf('## law-invalid\n');
+  const fix = page.indexOf('**Fix**', section);
+  const example = page.indexOf('**Example**', section);
+  const noFix = page.slice(0, fix) + page.slice(example);
+  assert.deepEqual(partsProblems(noFix, ['usage', 'law-invalid', 'config-invalid']), ['law-invalid: the parts are Meaning, Typical cause, Example, and they must be Meaning, Typical cause, Fix, Example, in that order']);
+  const block = page.indexOf('```text', example);
+  const noBlock = page.slice(0, block) + page.slice(page.indexOf('```\n', block + 1) + 4);
+  assert.deepEqual(partsProblems(noBlock, ['law-invalid']), ['law-invalid: the Example is no text block that opens with a $ lawcheck command']);
+});
+
+test('test 582: the Example of every code is the output of its first case here, or of the nightly test that reaches the code', () => {
+  for (const code of CODES) {
+    const unreached = UNREACHED.find((u) => u.code === code);
+    if (unreached === undefined) {
+      assert.ok(firstCase(code) !== undefined, code);
+      continue;
+    }
+    const [file, name] = unreached.test.split(' > ');
+    const text = readFileSync(new URL(`../../${file}`, import.meta.url), 'utf8');
+    const body = text.slice(text.indexOf(`test('${name}'`), text.indexOf('\ntest(', text.indexOf(`test('${name}'`) + 1));
+    assert.ok(body.includes(`exampleOf(codesPage(), '${code}')`), `${unreached.test} compares no output with the Example of ${code}`);
+  }
 });

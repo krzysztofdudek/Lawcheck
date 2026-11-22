@@ -9,6 +9,7 @@ import { alive, D, D_PATH, F_PRIME, git, inTemp, pathWith, programDir, ROOT, set
 import { SEED } from '../numbers.ts';
 import { testFolder } from '../harness/tool.ts';
 import { errorLines, MiB, run } from './support.ts';
+import { codesPage, exampleOf, shownRun } from '../contract/codes-page.ts';
 
 // These run nightly, on Linux, in a container of 1 GB of memory and 2 CPUs; the table of limits in docs/config.md holds the numbers.
 
@@ -123,6 +124,7 @@ test('test 251: S2-5, rules that take 29 seconds a file are stopped when the scr
       });
       assert.ok(result.ms >= 600_000 && result.ms < 660_000, String(result.ms));
       assert.equal(result.code, 2);
+      if (cores >= ids.length) assert.equal(shownRun(['check', '--base', 'main'], result.stdout, s), exampleOf(codesPage(), 'rules-too-slow'));
     },
     {
       onMain: (s) => {
@@ -198,6 +200,7 @@ test('test 255: S1-1, a step that never ends, typing against a content pattern t
       write(s, 'slow/a.ts', `${'a'.repeat(80)}!\n`);
       const result = await run(s, ['check', '--base', 'main'], { budget: 'LIMITS_RUN_MS' });
       assert.equal(result.stdout, stepTooSlow('typing slow/a.ts'));
+      assert.equal(shownRun(['check', '--base', 'main'], result.stdout, s), exampleOf(codesPage(), 'step-too-slow'));
       assert.equal(result.code, 2);
       assert.ok(result.ms >= 30_000 && result.ms < 40_000, String(result.ms));
     },
