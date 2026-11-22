@@ -1,14 +1,14 @@
 {
   "name": "lawcheck",
   "version": "0.1.0-alpha.2",
-  "description": "You write the architecture and the rules. Lawcheck tells your coding agent which line breaks which rule.",
+  "description": "Architecture checks for coding agents. Lawcheck checks your code against the architecture and rules you write down, and tells your coding agent which line breaks which rule.",
   "license": "MIT",
   "author": "Krzysztof Dudek",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/krzysztofdudek/Lawcheck.git"
   },
-  "homepage": "https://github.com/krzysztofdudek/Lawcheck#readme",
+  "homepage": "https://krzysztofdudek.github.io/Lawcheck/",
   "bugs": "https://github.com/krzysztofdudek/Lawcheck/issues",
   "keywords": [
     "architecture",
