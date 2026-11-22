@@ -4,7 +4,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { DOCS_DIR, page, topicList, TOPICS } from '../../dist/docs.js';
 
 test('commands-slice §7: every topic has its page, whose first line is its title', () => {
-  assert.equal(TOPICS.length, 12);
+  assert.equal(TOPICS.length, 14);
   for (const { id, title } of TOPICS) {
     assert.ok(existsSync(`${DOCS_DIR}${id}.md`), id);
     assert.equal(page(id).split('\n')[0], `# ${title}`);
@@ -13,8 +13,8 @@ test('commands-slice §7: every topic has its page, whose first line is its titl
 
 test('commands-slice §7: the list names the topics in order', () => {
   const lines = topicList().split('\n');
-  assert.equal(lines[0], 'lawcheck docs: 12 topics; lawcheck docs <topic> prints one');
-  assert.deepEqual(lines.slice(2, 14), TOPICS.map((t) => `${t.id}  ${t.title}`));
+  assert.equal(lines[0], 'lawcheck docs: 14 topics; lawcheck docs <topic> prints one');
+  assert.deepEqual(lines.slice(2, 16), TOPICS.map((t) => `${t.id}  ${t.title}`));
 });
 
 test('commands-slice §7: the package ships docs', () => {

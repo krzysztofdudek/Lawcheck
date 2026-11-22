@@ -51,7 +51,7 @@ The second line says what the change does to the law that judges it. A pull requ
 
 `lawcheck doctor` reports the same in its `law-change` check. No line reports the other two kinds.
 
-## Named files
+## Files you name
 
 `lawcheck check <path or pattern>...` judges the files you name, changed or not, and no others. It needs no base, so it runs in a repository with no commit and in CI as anywhere. A path or pattern is read from the current folder, and a folder selects its files at any depth. A target that selects nothing, such as a missing file, a file git ignores or a binary file, adds nothing. A target outside the root is `usage`. Write a file whose name starts with `-` as `./-x.ts`.
 
