@@ -162,6 +162,6 @@ Lawcheck's own repository runs under Lawcheck, and `npm test` checks it. The law
 
 ## 161. A release moves the version its pages show
 
-The pages show the real output of `lawcheck --version`, and their scenarios compare each such block with the command and with `package.json`. The commit that moves the version therefore changes those blocks too, and each changed block gets a `docs-example-changed` row anchored on this decision.
+The pages show the real output of `lawcheck --version`, and their scenarios compare each such block with the output of the command, which prints the version of `package.json`. The commit that moves the version therefore changes those blocks too, and each changed block gets a `docs-example-changed` row anchored on this decision.
 
 Why: a block that kept an old version would be false from the day of the release, and the suite guard takes no path as the anchor of a changed block of a page.
