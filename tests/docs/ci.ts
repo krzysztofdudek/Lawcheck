@@ -99,7 +99,10 @@ export async function scenario(page: Page): Promise<void> {
       write(clone, 'node_modules/lawcheck/package.json', JSON.stringify({ name: 'lawcheck', version: '0.0.0', bin: { lawcheck: 'cli.js' } }));
       write(clone, 'node_modules/.bin/lawcheck', `#!/bin/sh\nexec "${process.execPath}" "${CLI}" "$@"\n`);
       chmodSync(join(clone, 'node_modules/.bin/lawcheck'), 0o755);
-      const job = spawnSync('sh', ['-c', page.text(`block 1 under "${step}"`)], { cwd: clone, env: { ...GIT_ENV, npm_config_update_notifier: 'false', ...env }, encoding: 'utf8' });
+      // A script file inside the clone would count as a changed file.
+      const script = join(dir, `job-${at}.sh`);
+      write(dir, `job-${at}.sh`, page.text(`block 1 under "${step}"`) + '\n');
+      const job = spawnSync('sh', [script], { cwd: clone, env: { ...GIT_ENV, npm_config_update_notifier: 'false', ...env }, encoding: 'utf8' });
       assert.equal(job.status, 1, `${step}\n${job.stdout}${job.stderr}`);
       assert.equal(job.stdout.split('\n')[0], 'lawcheck: FAIL  1 error in 1 changed file (against origin/main)', step);
       assert.match(job.stdout, /^src\/core\/total\.ts:2  error\[no-console\]/m, step);
