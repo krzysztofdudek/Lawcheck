@@ -71,6 +71,15 @@ const output = (page: Page, key: string): string => page.text(key) + '\n';
 // The words of a command line as sh splits them, for the lines of these blocks: no variable, no escape.
 const words = (line: string): string[] => [...line.matchAll(/"([^"]*)"|(\S+)/g)].map((m) => m[1] ?? m[2]!);
 
+// A stand-in for the dev dependency, so npx --no-install starts the built tool with no network.
+function standIn(clone: string): void {
+  write(clone, 'node_modules/lawcheck/package.json', JSON.stringify({ name: 'lawcheck', version: '0.0.0', bin: { lawcheck: 'cli.js' } }));
+  write(clone, 'node_modules/.bin/lawcheck', `#!/bin/sh\nexec "${process.execPath}" "${CLI}" "$@"\n`);
+  chmodSync(join(clone, 'node_modules/.bin/lawcheck'), 0o755);
+  // On Windows npm exec starts a bin through cmd.exe, which runs the .cmd file beside it and never the sh script.
+  if (process.platform === 'win32') write(clone, 'node_modules/.bin/lawcheck.cmd', `@"${process.execPath}" "${CLI}" %*\r\n`);
+}
+
 function job(dir: string, files: Record<string, string>): string {
   const origin = newRepository(join(dir, 'origin'), { '.lawcheck/law.yaml': LAW, '.lawcheck/rules/no-console.mjs': NO_CONSOLE, ...files });
   const clone = join(dir, 'job');
@@ -96,10 +105,7 @@ export async function scenario(page: Page): Promise<void> {
       const clone = join(dir, `job-${at}`);
       git(dir, 'clone', '-q', ...options, origin, clone);
       if (step.includes('GitLab')) assert.throws(() => git(clone, 'rev-parse', '--verify', '-q', 'origin/main'), 'the job fetched its own branch alone');
-      // A stand-in for the dev dependency, so npx --no-install starts the built tool with no network.
-      write(clone, 'node_modules/lawcheck/package.json', JSON.stringify({ name: 'lawcheck', version: '0.0.0', bin: { lawcheck: 'cli.js' } }));
-      write(clone, 'node_modules/.bin/lawcheck', `#!/bin/sh\nexec "${process.execPath}" "${CLI}" "$@"\n`);
-      chmodSync(join(clone, 'node_modules/.bin/lawcheck'), 0o755);
+      standIn(clone);
       // A script file inside the clone would count as a changed file.
       const script = join(dir, `job-${at}.sh`);
       write(dir, `job-${at}.sh`, page.text(`block 1 under "${step}"`) + '\n');
@@ -140,10 +146,7 @@ export async function scenario(page: Page): Promise<void> {
   await inTemp(async (dir) => {
     const clone = job(dir, { '.gitignore': 'node_modules/\n' });
     write(clone, '.githooks/pre-commit', page.text('example pre-commit-hook') + '\n');
-    // A stand-in for the dev dependency, so npx --no-install starts the built tool with no network.
-    write(clone, 'node_modules/lawcheck/package.json', JSON.stringify({ name: 'lawcheck', version: '0.0.0', bin: { lawcheck: 'cli.js' } }));
-    write(clone, 'node_modules/.bin/lawcheck', `#!/bin/sh\nexec "${process.execPath}" "${CLI}" "$@"\n`);
-    chmodSync(join(clone, 'node_modules/.bin/lawcheck'), 0o755);
+    standIn(clone);
     const run = (block: string): string => {
       const [program, ...args] = words(page.text(block).slice(2));
       return execFileSync(program!, args, { cwd: clone, env: { ...GIT_ENV, npm_config_update_notifier: 'false' }, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
