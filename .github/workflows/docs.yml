@@ -1,0 +1,54 @@
+name: Docs
+
+# Deploys the site of docs/ to GitHub Pages after a green Release run, from the commit that run released, or by hand from the dispatched ref.
+# The build runs the site's dependencies with a read-only token; only the deploy job may write to Pages or mint the token it deploys with.
+# The github-pages environment lets only main deploy, and a run of a tag would be refused. A run started by workflow_run runs on main, so it may deploy, and it builds the released commit.
+on:
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: build the site
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+      - run: npm --prefix site ci
+      - run: npm --prefix site run build
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: site/.vitepress/dist
+
+  deploy:
+    name: deploy
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/configure-pages@v6
+      - id: deployment
+        uses: actions/deploy-pages@v5
