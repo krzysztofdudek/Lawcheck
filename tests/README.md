@@ -31,7 +31,7 @@ Every command below runs inside the dev container, except `npm run agent-trial` 
 | `limits/` | every limit, at its edge and past it |
 | `environments/` | Node and git versions, package managers, repository shapes, CI shapes, operating systems |
 | `deadlines/` | the shipped deadlines of rules and hooks, run nightly at their real length |
-| `docs/` | one file per page of `docs/`, named as the page, and `README.ts` for `README.md`: each fenced block of the page claimed by the file's scenario or by an existing test that checks it; `contract/docs-examples.test.ts` runs them and fails on a block no one claims |
+| `docs/` | one file per page of `docs/`, named as the page: each fenced block of the page claimed by the file's scenario or by an existing test that checks it; `contract/docs-examples.test.ts` runs them and fails on a block no one claims |
 | `sabotage/` | breaks the code on purpose, one entry of `sabotage/list.json` at a time, and expects the test the entry names to fail |
 | `harness/` | the code that starts the tool in tests and checks every run |
 | `real/`, `stability/`, `agent/`, `live/` | the runs by hand, and their committed results |
@@ -76,7 +76,7 @@ A finding id may also follow an acceptance test number: `test 240: S8-8, R-82, a
 | `dependency-slice §3.5` | from a use to a type | [docs/languages.md](../docs/languages.md) |
 | `dependency-slice §5` | the findings and output of uses | [docs/languages.md](../docs/languages.md), [docs/codes.md](../docs/codes.md) |
 | `dependency-slice §6` | the readers and their grammars | [docs/languages.md](../docs/languages.md) |
-| `plugin-slice §5` | what every hook shares | [docs/plugin.md](../docs/plugin.md), [docs/config.md](../docs/config.md) |
+| `plugin-slice §5` | what every hook shares | [README.md](../README.md), [docs/config.md](../docs/config.md) |
 | `plugin-slice §10` | the agent trial | `agent/` |
 | `release-readiness §Package` | what the npm package holds | `package.json` |
 | `reviewer-slice §2` | reviewer rules in the law | [docs/reviewer-rules.md](../docs/reviewer-rules.md) |
