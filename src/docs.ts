@@ -36,7 +36,7 @@ export function forTerminal(text: string, ids: string[]): string {
     .map((line) => {
       if (/^\s*(```|~~~)/.test(line)) fenced = !fenced;
       if (fenced) return line;
-      return line.replace(/\[([^\]]+)\]\(([a-z0-9-]+)\.md(#[^)\s]*)?\)/g, (link, label: string, id: string) => (ids.includes(id) ? `${label} (lawcheck docs ${id})` : link));
+      return line.replace(/(`+)[\s\S]*?\1|\[([^\]]+)\]\(([a-z0-9-]+)\.md(#[^)\s]*)?\)/g, (found, code: string | undefined, label: string, id: string) => (code === undefined && ids.includes(id) ? `${label} (lawcheck docs ${id})` : found));
     })
     .join('\n');
 }
