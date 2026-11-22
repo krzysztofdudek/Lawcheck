@@ -1,6 +1,6 @@
 # Write a reviewer rule
 
-A script can find `console.log` in a file. It cannot tell whether `throw new Error('failed')` tells the caller what to do next. A reviewer rule can: a language model reads each file against a rule you write in plain words. At the end of these steps a reviewer rule judges `src/core/`, its pass sits in `.lawcheck/verdicts`, and a plain check reads that pass without calling a model.
+A script can find `console.log` in a file. It cannot tell whether the message of `new Error('failed')` tells the caller what to do next. A reviewer rule can: a language model reads each file against a rule you write in plain words. At the end of these steps a reviewer rule judges `src/core/`, its pass sits in `.lawcheck/verdicts`, and a plain check reads that pass without calling a model.
 
 The outputs below come from a repository whose `main` holds the `.lawcheck/` that `lawcheck init` makes, with the type `library` of step 2 in its law and no rule. On a branch made from `main`, you added `src/core/refund.ts`:
 
@@ -49,7 +49,7 @@ types:
 | a model on your own machine, served by Ollama | `ollama` | none |
 | Claude Code, Codex, Gemini CLI or Copilot CLI, signed in | `claude-code`, `codex`, `gemini-cli` or `copilot-cli` | the program's own sign-in |
 
-These steps use Ollama, which Lawcheck calls at `http://localhost:11434`; set `LAWCHECK_REVIEWER_ENDPOINT` to the server's address when it runs elsewhere. Create `.lawcheck/config.yaml`, with the name of a model the server has pulled:
+These steps use Ollama, which Lawcheck calls on `localhost:11434`; set `LAWCHECK_REVIEWER_ENDPOINT` to the server's address when it runs elsewhere. Create `.lawcheck/config.yaml`, with the name of a model the server has pulled:
 
 ```yaml
 reviewer:

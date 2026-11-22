@@ -189,6 +189,6 @@ debt (outside this change): none
 ## If it goes wrong
 
 - `waiver-unknown-rule` or `waiver-without-reason`: the marker names no rule of the law, or has no reason after `--`. That waiver waives nothing, and Lawcheck reports it as an error in the change.
-- A type with `waivers: false` reads the marker as text, so the finding stays.
+- In a type with `waivers: false`, Lawcheck reads the marker as text, so the finding stays.
 - A finding about the whole file has no line, and no waiver covers it. Fix the rule or the law.
 - A reviewer rule you believe is wrong: the fail stays cached on this machine. Reword the rule file, then ask again with `lawcheck check --review --again` ([Write a reviewer rule](write-a-reviewer-rule.md)).

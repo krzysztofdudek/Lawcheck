@@ -1,6 +1,6 @@
 # A slow check
 
-A check runs on every commit and every pull request, so a slow one costs time on each. These steps find the part of a run that takes the time, and put a bound on reviewer calls, the one part that can cost money.
+A check in a git hook and in CI runs on each commit and each pull request, so a slow one costs time on each. These steps find the part of a run that takes the time, and put a bound on reviewer calls, the one part that can cost money.
 
 The outputs below come from a repository that joins two other guides: the script rule `no-console` of [Bring a law into an existing repository](adopt-in-an-existing-repository.md), and the reviewer rule `clear-errors` with the Ollama reviewer of [Write a reviewer rule](write-a-reviewer-rule.md). Its law:
 
@@ -24,7 +24,7 @@ types:
     paths: ["src/cli/**"]
 ```
 
-A branch made from `main` changes `src/core/price.ts` and `src/core/tax.ts`, and `tax.ts` imports `price.ts`. Put `time` before a command to see how long it takes; the shell prints its own lines after Lawcheck's output.
+A branch made from `main` changes `src/core/price.ts` and `src/core/tax.ts`, and `src/core/tax.ts` imports `src/core/price.ts`. Put `time` before a command to see how long it takes; the shell prints its own lines after Lawcheck's output.
 
 ## 1. See what the run judges
 
@@ -98,7 +98,7 @@ reviewer:
   timeout: 120
 ```
 
-`max_calls` is the most requests one run sends, 100 by default; a request sent again counts. `parallel` is how many are in flight at once, 4 by default and 1 for the four programs. `timeout` is the seconds one call may take, 60 by default and 300 for `ollama` and the programs. `--max-calls` sets the cap for one run:
+With `max_calls: 20` a run that would send more than 20 requests sends none, and a request sent again counts. `parallel: 2` keeps two requests in flight at once. `timeout: 120` gives one call two minutes. Without these keys a run may send 100 requests, 4 at a time, each within 60 seconds; `ollama` gets 300 seconds, and the four programs 300 seconds one at a time. `--max-calls` sets the cap for one run:
 
 ```text
 $ lawcheck check --review --max-calls 1 --base main
@@ -124,7 +124,7 @@ Past each limit the run stops with exit 2, or the file gets a finding, and the c
 | a script rule: 30 seconds to load, and 30 seconds for each call | `rule-crashed` |
 | all script rules of a run: 600 seconds together | `rules-too-slow` |
 | one step of a run, such as typing one file: 30 seconds | `step-too-slow` |
-| a reviewer call: `reviewer.timeout` | `reviewer-unreachable` |
+| a reviewer call: its `timeout` | `reviewer-unreachable` |
 | a file over 512 KiB, for its uses | `uses-not-read` |
 | one run: 1536 MiB of memory, or 85 percent of the machine's memory where that is less | `memory-too-large` |
 
