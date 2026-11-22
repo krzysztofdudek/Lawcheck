@@ -1,12 +1,12 @@
 # A finding you believe is wrong
 
-A check fails on a line that you believe breaks no [rule](concepts.md#rule). A [waiver](concepts.md#waiver) on the line would make the build green and leave the cause in place. These steps find the cause first: the [type](concepts.md#type), the rule, or one line that is a real exception. At the end:
+A check fails on a line that you believe breaks no [rule](concepts.md#rule). A [waiver](concepts.md#waiver) on the line would make the build green. The cause would stay in place. These steps find the cause first. It lies in the [type](concepts.md#type), in the rule, or in one line that is a real exception. At the end of the steps:
 
-- the rule reads the file right;
+- the rule gives no wrong finding on the file;
 - the one exception carries a waiver with its reason;
 - each waiver left in the repository drops a [finding](concepts.md#finding).
 
-The outputs below come from a repository whose `main` holds the [law](concepts.md#law) of [Bring a law into an existing repository](adopt-in-an-existing-repository.md). In that law, the type `library` has the rule `no-console`, enforced. The branch `main` holds `src/core/round.ts` as well, where someone put a waiver on a comment:
+The outputs below come from a repository whose `main` holds the [law](concepts.md#law) of [Bring a law into an existing repository](adopt-in-an-existing-repository.md). In that law, the type `library` lists the enforced rule `no-console`. The branch `main` holds `src/core/round.ts` too. A waiver marker sits on line 2 of that file, inside a doc comment:
 
 ```ts
 /**
@@ -65,7 +65,7 @@ src/core/format.ts
   waivers:  none
 ```
 
-The file holds code that the commands call. `library` is the right type for it. A file with the wrong type is a fault of the law. Fix it in the law: change the `paths` of the type, add a `!` pattern, or add a `content` expression ([Types for an existing project](types-for-a-project.md)).
+The file holds code that the commands call. `library` is the right type for it. When a file has the wrong type, the fault lies in the law. Fix it in `.lawcheck/law.yaml`: change the `paths` of the type, add a `!` pattern, or add a `content` expression ([Types for an existing project](types-for-a-project.md)).
 
 ## 3. Check the rule alone
 
@@ -81,7 +81,7 @@ src/core/format.ts:3  error[no-console]  writes to the terminal with console.log
 src/core/format.ts:6  error[no-console]  writes to the terminal with console.warn
 ```
 
-`try` runs one rule on the files you name. It writes nothing. The rule gives both findings by itself. The cause is in the rule or in the code.
+`lawcheck try` runs one rule on the files you name and writes nothing. The rule `no-console` alone gives both findings, so the cause lies in the rule or in the code.
 
 ## 4. Choose the fix
 
@@ -91,7 +91,10 @@ src/core/format.ts:6  error[no-console]  writes to the terminal with console.war
 | the rule misreads lines like this one, in any file | the rule |
 | the rule is right, and this one line is an agreed exception | a waiver on that line |
 
-The rule reads line 3, a comment, as a call. The fix for line 3 goes into the rule. Line 6 is a real call that the team keeps on purpose. The fix for line 6 is a waiver.
+Each line needs its own fix:
+
+- line 3 is a comment that the rule reads as a call, so the fix goes into the rule;
+- line 6 is a real call that the team keeps on purpose, so it gets a waiver.
 
 ## 5. Fix the rule
 
@@ -147,7 +150,7 @@ note: the law changed in this change; lawcheck check --full --base main shows wh
 note: this change edits the law that judges it: changes .lawcheck/rules/no-console.mjs; adds a waiver of no-console in src/core/format.ts
 ```
 
-The note names the waiver. The person who reviews the [change](concepts.md#change) sees the waiver there. [Waivers](waivers.md) shows every form of the marker.
+The note names the waiver, so the person who reviews the [change](concepts.md#change) sees it. [Waivers](waivers.md) shows every form of the marker.
 
 ## 7. Find the waivers that waive nothing
 
@@ -164,9 +167,9 @@ src/core/round.ts:2  warning[waiver-unused]  the waiver of 'no-console' drops no
   why:  a waiver that drops nothing would hide the next finding on its line
 ```
 
-The older waiver in `src/core/round.ts` covered a comment, where the fixed rule finds nothing. Lawcheck reports [`waiver-unused`](codes.md#waiver-unused) for it. That file lies outside the change, so the finding shows as a warning of [debt](concepts.md#debt).
+The older waiver in `src/core/round.ts` covers a comment line. The fixed rule finds nothing on that line, so Lawcheck reports the waiver as [`waiver-unused`](codes.md#waiver-unused). `src/core/round.ts` lies outside the change, and Lawcheck lists that finding as a warning of [debt](concepts.md#debt).
 
-`lawcheck check --full --json` lists every waiver of the repository in `waivers`, with its file, line, rule and reason. The field `waived` of a waiver counts the findings it dropped. On a waiver of a [script rule](concepts.md#script-rule), a 0 there marks a waiver that waives nothing ([JSON documents](json.md)).
+`lawcheck check --full --json` lists every waiver of the repository in `waivers`, with its file, line, rule and reason. The field `waived` of a waiver counts the findings it dropped. On a waiver of a [script rule](concepts.md#script-rule), a `waived` of 0 marks a waiver that drops nothing ([JSON documents](json.md)).
 
 ## 8. Remove it
 
@@ -194,9 +197,9 @@ debt (outside this change): none
 
 ## If it goes wrong
 
-- [`waiver-unknown-rule`](codes.md#waiver-unknown-rule) or [`waiver-without-reason`](codes.md#waiver-without-reason): the marker names no rule of the law, or it has no reason after `--`. Such a waiver waives nothing. Lawcheck reports it as an error in the change.
-- In a type with `waivers: false`, Lawcheck reads the marker as plain text. The finding stays.
-- A finding about the whole file has no line. Lawcheck has no waiver for a whole file. Fix the rule or the law.
-- A [reviewer rule](concepts.md#reviewer-rule) failed a file you believe is right. Lawcheck keeps the failed review on this machine. `lawcheck check --review --again` sends the file to the reviewer once more. After you reword the rule file, `lawcheck check --review` reviews the file again without `--again` ([Write a reviewer rule](write-a-reviewer-rule.md)).
+- Lawcheck reports [`waiver-unknown-rule`](codes.md#waiver-unknown-rule) for a marker that names no rule of the law. It reports [`waiver-without-reason`](codes.md#waiver-without-reason) for a marker with no reason after `--`. Such a waiver drops no finding. In the change, Lawcheck reports it as an error.
+- In a type with `waivers: false`, Lawcheck reads the marker as plain text. The finding on that line stays.
+- A finding about the whole file has no line. A waiver drops the findings on its own line, so no waiver can drop this one. Fix the rule or the law instead.
+- A [reviewer rule](concepts.md#reviewer-rule) failed a file you believe is right. Lawcheck keeps the failed review on this machine, in `.lawcheck/.local/failures/`. `lawcheck check --review --again` sends the file to the reviewer once more. After you reword the rule file, `lawcheck check --review` reviews the file again without `--again` ([Write a reviewer rule](write-a-reviewer-rule.md)).
 
 Next: [A slow check](slow-check.md)
