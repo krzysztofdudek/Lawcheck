@@ -44,7 +44,7 @@ A reader reports no dynamic form of a use, such as `import()` of a variable, `im
 
 ## Languages that read other files' declarations
 
-Java, Kotlin, C#, Ruby and Rust resolve a name through what other files declare. The readers take these languages in four groups: Java with Kotlin, C#, Ruby, and Rust. A run that reads the uses of one file of a group reads the declarations of every file of that group in the repository, with a type or without one. Such a run takes the most time in Java. Lawcheck sets no limit of its own on reading a file with syntax errors, whatever its size.
+Java, Kotlin, C#, Ruby and Rust resolve a name through what other files declare. The readers take these languages in four groups: Java with Kotlin, C#, Ruby, and Rust. A run that reads the uses of one file of a group reads the declarations of every file of that group in the repository, with a type or without one. Such a run takes the most time in Java. Below the 512 KiB limit, Lawcheck sets no limit of its own on the time it takes to parse a file with syntax errors.
 
 The readers of the other languages resolve a use by its path. The readers consult files such as `tsconfig.json`, `go.mod` and `composer.json` to do it.
 
