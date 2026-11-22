@@ -1,15 +1,15 @@
 # Quick start
 
-Lawcheck checks your code against the architecture and rules you write down, and tells your coding agent which line breaks which rule. In five steps you write a law with one type and one `may_use` line, break it with one import, and `lawcheck check` names the line. You need no model and no key.
+You write down the architecture and the rules of your repository. Lawcheck checks your code against them. It tells your coding agent which line breaks which rule. In five steps you write a law with one type and one `may_use` line. You break the law with one import, and `lawcheck check` names the line. You need no model and no key.
 
-Before step 1, install Lawcheck as [Install](install.md) says. The steps start in a new repository with one file of the command layer, so that every output here is the one you get:
+Before step 1, install Lawcheck as [Install](install.md) says. Start in a new repository. Then each output you get matches the one on this page:
 
 ```text
 $ git init shop
 $ cd shop
 ```
 
-Write `src/cli/print.ts`, in a new folder `src/cli/`:
+Write the file of the command layer, `src/cli/print.ts`, in a new folder `src/cli/`:
 
 ```ts
 export function print(text: string): void {
@@ -17,7 +17,7 @@ export function print(text: string): void {
 }
 ```
 
-In your own repository, use your own folders in step 2 and an import that crosses them in step 4.
+In your own repository, use your own folders in step 2. In step 4, write an import that crosses them.
 
 ## 1. Start the law
 
@@ -59,7 +59,7 @@ types:
     may_use: [core]
 ```
 
-A file of `core` may now use other files of `core` and no other file of the repository. `src/cli/print.ts` has no type, so no list allows it.
+With this line, a file of `core` may use other files of `core` and no other file of the repository. `src/cli/print.ts` has no type. No `may_use` list allows a file without a type.
 
 ## 4. Write a file that breaks it
 
@@ -88,13 +88,17 @@ src/core/receipt.ts:1  error[forbidden-use]  core may not use src/cli/print.ts, 
 next: fix src/core/receipt.ts:1
 ```
 
-The run exits 1. The [finding](concepts.md#finding) names the file and the line, the code `forbidden-use` and the list in force. A check judges the files that differ from a [base](concepts.md#base), such as `origin/HEAD` or the branch that `--base` names. The new repository has none, so the check counts all four of its files as changed: the two of `.lawcheck/` and the two of `src/`. To fix the line, move the printing out of the core, or give `src/cli/` a type and decide whether `core` may use it.
+The run exits 1. The [finding](concepts.md#finding) names the file, the line, the code `forbidden-use` and the `may_use` list of `core`.
+
+A check judges the files that differ from a [base](concepts.md#base). The base is a commit, such as `origin/HEAD` or the branch that `--base` names. The new repository has no base. The check then counts all four of its files as changed: the two of `.lawcheck/` and the two of `src/`.
+
+You can fix the line in two ways. One fix takes the printing out of the core. The other gives `src/cli/` a type, and then you decide whether `core` may use it.
 
 ## Can go wrong
 
-- `error[no-git]` from `lawcheck init`: the folder is no git work tree. Run `git init` there, or go to your repository.
-- `error[law-invalid]` at a line of `.lawcheck/law.yaml`: the law has a mistake there, such as `may-use` for `may_use`. The message names the nearest known key.
-- A first line that passes and ends with `1 unresolved use`: the import names no file of the repository, so Lawcheck counts the use and judges nothing. Fix the path.
-- `warning[uses-not-read]`: Lawcheck does not read uses in the file's language. [Languages and uses](languages.md) lists the languages it reads.
+- `lawcheck init` prints `error[no-git]`: the folder is no git work tree. Run `git init` there, or go to your repository.
+- Lawcheck prints `error[law-invalid]` at a line of `.lawcheck/law.yaml`: the law has a mistake there, such as `may-use` for `may_use`. The message names the nearest known key.
+- The first line says PASS and ends with `1 unresolved use`: the import names no file of the repository. Lawcheck counts such a use and judges nothing. Fix the path.
+- The check prints `warning[uses-not-read]`: Lawcheck does not read uses in the language of the file. [Languages and uses](languages.md) lists the languages it reads.
 
 Next: [Concepts](concepts.md)

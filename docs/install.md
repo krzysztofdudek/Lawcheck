@@ -1,6 +1,6 @@
 # Install
 
-Lawcheck is one program, `lawcheck`, published on npm as an alpha. Install it once on your machine, or as a development dependency of one project, then check the setup with `lawcheck doctor`.
+Lawcheck is one program, `lawcheck`. You install its alpha from npm, once on your machine or as a development dependency of one project. Then `lawcheck doctor` checks the setup.
 
 ## Requirements
 
@@ -10,9 +10,21 @@ Lawcheck is one program, `lawcheck`, published on npm as an alpha. Install it on
 | git | 2.34 or later |
 | System | Linux, macOS or Windows |
 
-Lawcheck installs with npm, pnpm, Yarn 1, Yarn 4 with `nodeLinker: node-modules` or `nodeLinker: pnpm`, and Bun beside Node. It does not run under Yarn Plug'n'Play, under Bun without Node, or with `--permission` in `NODE_OPTIONS`.
+You can install Lawcheck with:
 
-npm and pnpm install Lawcheck on an older Node and print a warning. On an older Node or git, under Bun or from Plug'n'Play, every command but `--version`, `--help`, `docs` and `doctor` stops with `unsupported-environment` and exit 2. Its first line names the cause, and its `next:` line the fix. `lawcheck doctor` prints the same first line and runs its nine checks below it.
+- npm;
+- pnpm;
+- Yarn 1;
+- Yarn 4 with `nodeLinker: node-modules` or `nodeLinker: pnpm`;
+- Bun, with Node installed beside it.
+
+Lawcheck does not run in three setups:
+
+- under Yarn Plug'n'Play;
+- under Bun without Node;
+- with `--permission` in `NODE_OPTIONS`.
+
+On an older Node, npm and pnpm install Lawcheck and print a warning. Lawcheck refuses to work on an older Node, on an older git, under Bun and from Plug'n'Play. In those setups, every command but `--version`, `--help`, `docs` and `doctor` stops with `unsupported-environment` and exit 2. The first line of the error names the cause. Its `next:` line names the fix. `lawcheck doctor` prints the same first line, and its nine checks below it.
 
 ## Install globally
 
@@ -20,11 +32,11 @@ npm and pnpm install Lawcheck on an older Node and print a warning. On an older 
 $ npm install --global lawcheck@alpha
 ```
 
-The program is then `lawcheck` on your `PATH`. That is the default runner, `global`, so you set nothing more.
+The program `lawcheck` is then on your `PATH`. The runner is the setting that says how to start Lawcheck. Its default is `global`, which is this install. You set nothing more.
 
 ## Install in a project
 
-Add Lawcheck as a development dependency, and start it through the package manager:
+Add Lawcheck as a development dependency. You then start it through the package manager:
 
 | Package manager | Install | Start | `runner` |
 |---|---|---|---|
@@ -33,23 +45,29 @@ Add Lawcheck as a development dependency, and start it through the package manag
 | Yarn | `yarn add --dev lawcheck@alpha` | `yarn run lawcheck` | `yarn` |
 | Bun | `bun add --dev lawcheck@alpha` | `bun x --no-install lawcheck` | `bun` |
 
-With `--no-install`, npx runs the copy the project installed and downloads nothing. A plain `npx lawcheck` downloads a copy when the project has none.
+With `--no-install`, npx runs the copy of the project. It downloads nothing. A plain `npx lawcheck` downloads a copy when the project has none.
 
 ## The runner setting
 
-After `lawcheck init`, which [Quick start](quick-start.md) runs in its first step, write the runner of the table in `.lawcheck/config.yaml`:
+`lawcheck init` makes the folder `.lawcheck/`, as step 1 of [Quick start](quick-start.md) shows. After it, write the runner from the table into `.lawcheck/config.yaml`:
 
 ```yaml
 runner: pnpm
 ```
 
-The Claude Code plugin starts Lawcheck with the command of the runner, `lawcheck prime` tells the agent to start it that way, and `lawcheck doctor` fails its `config` check when that program is not on the `PATH`. Without the line the runner is `global`. Write it on a line of its own at the top level; [Settings](config.md#runner) has the exact form.
+The runner reaches three places:
+
+- The Claude Code plugin starts Lawcheck with the command of the runner.
+- `lawcheck prime` tells the agent to start Lawcheck the same way.
+- `lawcheck doctor` fails its `config` check when the program of the runner is not on the `PATH`.
+
+Without the line, the runner is `global`. Write the line on its own, at the top level of the file. [Settings](config.md#runner) has the exact form.
 
 ## Check the install
 
-`lawcheck --version` prints the version you installed. This page describes `0.1.0-alpha.2`. In a project, put the start command first, as in `pnpm exec lawcheck --version`.
+`lawcheck --version` prints the version you installed. This page describes `0.1.0-alpha.2`. In a project, start Lawcheck through the package manager, as in `pnpm exec lawcheck --version`.
 
-`lawcheck doctor` checks the setup and writes nothing. In a git repository that has no law yet, it prints:
+`lawcheck doctor` checks the setup. It writes nothing. In a git repository with no law yet, it prints:
 
 ```text
 $ lawcheck doctor
@@ -70,7 +88,7 @@ skip  readers  needs types
 skip  reviewer  needs law
 ```
 
-The `node` and `git` lines say that Lawcheck runs here, and the `node` line shows your own version. The law is missing until `lawcheck init`, so `doctor` skips the checks that need it and exits 2. After `lawcheck init`, the first line starts with `lawcheck: PASS  9 checks`.
+The `node` and `git` lines say that Lawcheck runs here. The `node` line shows your own version of Node. The repository has no law until you run `lawcheck init`. `doctor` skips the checks that need the law. It exits 2. After `lawcheck init`, the first line starts with `lawcheck: PASS  9 checks`.
 
 ## Remove it
 
@@ -82,6 +100,6 @@ The `node` and `git` lines say that Lawcheck runs here, and the `node` line show
 | with Yarn | `yarn remove lawcheck` |
 | with Bun | `bun remove lawcheck` |
 
-The law, its rules and the recorded verdicts are files in `.lawcheck/` at the root of the repository; delete that folder to remove them. In Claude Code, `claude plugin uninstall lawcheck@lawcheck-marketplace` removes the plugin.
+The law, its rules and the recorded [verdicts](concepts.md#verdict) are files in `.lawcheck/`, at the root of the repository. Delete that folder to remove them. In Claude Code, `claude plugin uninstall lawcheck@lawcheck-marketplace` removes the plugin.
 
 Next: [Quick start](quick-start.md)
