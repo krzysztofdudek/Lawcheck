@@ -9,6 +9,7 @@ export const TOPICS: { id: string; title: string }[] = [
   { id: 'first-law', title: 'The first type and the first rule' },
   { id: 'law', title: 'The law file' },
   { id: 'change', title: 'What a check judges' },
+  { id: 'commands', title: 'The commands' },
   { id: 'script-rules', title: 'Script rules' },
   { id: 'reviewer-rules', title: 'Reviewer rules' },
   { id: 'waivers', title: 'Waivers' },
@@ -16,6 +17,7 @@ export const TOPICS: { id: string; title: string }[] = [
   { id: 'providers', title: 'Reviewers and keys' },
   { id: 'languages', title: 'Languages and uses' },
   { id: 'ci', title: 'CI and git hooks' },
+  { id: 'plugin', title: 'The Claude Code plugin' },
   { id: 'json', title: 'JSON documents' },
   { id: 'codes', title: 'Codes' },
 ];

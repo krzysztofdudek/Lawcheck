@@ -6,7 +6,7 @@ You write your repository's architecture and rules. Lawcheck checks the code aga
 
 This is an alpha for early testing.
 
-Lawcheck needs Node 24 or later and git 2.34 or later. It installs with npm, pnpm, Yarn 1, Yarn 4 with `nodeLinker: node-modules` or `nodeLinker: pnpm`, and Bun beside Node. Yarn Plug'n'Play is not supported, and neither is Bun without Node.
+Lawcheck needs Node 24 or later and git 2.34 or later, on Linux, macOS or Windows. It installs with npm, pnpm, Yarn 1, Yarn 4 with `nodeLinker: node-modules` or `nodeLinker: pnpm`, and Bun beside Node. Yarn Plug'n'Play is not supported, and neither is Bun without Node.
 
     npm install --global lawcheck@alpha
 
@@ -26,7 +26,7 @@ claude plugin marketplace add krzysztofdudek/Lawcheck
 claude plugin install lawcheck@lawcheck-marketplace
 ```
 
-The hooks run Lawcheck and the repository's rule scripts after edits and before the agent finishes, so use the plugin where you would run the repository's tests. With a `runner` other than `global`, the package manager also reads the repository's own files, such as `yarnPath` in `.yarnrc.yml` or a committed `node_modules/.bin/lawcheck`, and starts the program they name. The two checks, the one after an edit and the one before the agent finishes, can both be switched off with `/plugin configure lawcheck@lawcheck-marketplace`.
+The hooks run Lawcheck and the repository's rule scripts after edits and before the agent finishes, so use the plugin where you would run the repository's tests. With a `runner` other than `global`, the package manager also reads the repository's own files, such as `yarnPath` in `.yarnrc.yml` or a committed `node_modules/.bin/lawcheck`, and starts the program they name. The two checks, the one after an edit and the one before the agent finishes, can both be switched off with `/plugin configure lawcheck@lawcheck-marketplace`. `lawcheck docs plugin` says what each hook does and when it stays silent.
 
 With any other agent, paste this sentence into its instructions file:
 

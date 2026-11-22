@@ -34,9 +34,9 @@ The other languages resolve by path, through files such as `tsconfig.json`, `pac
 
 ## Unresolved uses
 
-A use the readers do not resolve to exactly one file is unresolved, unless they say it leaves the repository: a use of the standard library or of an installed package is not counted at all. Lawcheck never guesses what a use meant: outside, unfollowed or ambiguous is the readers' answer. An unresolved use is neither allowed nor forbidden: it is never a finding and never changes the exit code.
+A use the readers do not resolve to exactly one file is unresolved, unless they say it leaves the repository: a use of the standard library or of an installed package is not counted at all. Lawcheck never guesses what a use meant. An unresolved use is neither allowed nor forbidden: it is never a finding and never changes the exit code.
 
-Each run counts them, in the first line for the changed files and in the debt heading for the others, and `--json` lists each one (`lawcheck docs json`) with the readers' answer:
+Each run counts them, in the first line for the changed files and in the debt heading for the others, and `--json` lists each one with the readers' answer:
 
 | Answer | Reason | What it means |
 |---|---|---|
@@ -77,7 +77,9 @@ A text file of a type with a list in force, in a language without a reader, cann
 
 The warning is one per type, at the type's line in the law, with the count of such files by extension. It never fails a run and cannot be waived. To clear it, narrow the type's `paths` to files with a reader, or give the others a type without a list.
 
-`lawcheck doctor` counts these files in its `readers` check, and loads every grammar, so a broken install shows before a check needs one.
+A file over 512 KiB that would be read for uses is not read. It gets `uses-not-read` at its own path: an error when it is in the change, a warning in debt.
+
+`lawcheck doctor` counts these files in its `readers` check.
 
 ## parser-failed
 

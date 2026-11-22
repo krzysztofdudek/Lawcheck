@@ -106,7 +106,7 @@ That holds less than it seems. On `pull_request` GitHub runs the pull request's 
 
 ## Git hooks
 
-The hooks start Lawcheck through `npx`, as a dev dependency. A hook judges the working tree against the merge base with `origin/main`, never the index: a breach that is staged while the tree holds the clean text is committed (`--staged` is not built, see `spec/deferred.md`). A hook never passes `--review` and cannot catch a loosened law. `.git/hooks` is not shared: commit hooks in `.githooks` and run `git config core.hooksPath .githooks` in each clone.
+The hooks start Lawcheck through `npx`, as a dev dependency. A hook judges the working tree against the merge base with `origin/main`, never the index: a breach that is staged while the tree holds the clean text is committed (`--staged` is not built). A hook never passes `--review` and cannot catch a loosened law. `.git/hooks` is not shared: commit hooks in `.githooks` and run `git config core.hooksPath .githooks` in each clone.
 
 `.git/hooks/pre-commit`, made executable:
 

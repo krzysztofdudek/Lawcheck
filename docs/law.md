@@ -62,12 +62,13 @@ A rule id may not equal a code of Lawcheck (`lawcheck docs codes` lists them), n
 
 A pattern matches the whole path from the root, case-sensitive on every system.
 
-- `*` matches any run of characters without `/`, and `?` one such character.
-- `**` is a whole segment. Before the last segment it matches any number of directories, none included. As the last segment it matches every file below its directory.
-- `{a,b}` is one of its alternatives. An alternative is not empty and holds no `/`.
-- A leading `!` excludes. A file matches a list when it matches one plain pattern and no exclusion.
+- `*` matches any run of characters without `/`, the empty run included, and `?` one such character. A leading dot in a name is a character like any other, so `*` matches `.env`.
+- `**` is a whole segment. Before the last segment it matches any number of directories, none included. As the last segment it matches every file below its directory at any depth, and not the directory's own path.
+- `{a,b}` is one of its alternatives. An alternative is not empty, holds no `/`, `{`, `}` or `,`, and may hold `*` and `?`.
+- Other characters are literal, and there is no escape.
+- A leading `!` excludes. A file matches a list when it matches one plain pattern and no exclusion. The order of the list means nothing.
 
-An empty pattern, an empty segment, a segment `.` or `..`, `**` beside other characters in one segment and a broken brace are `law-invalid`.
+An empty pattern, an empty segment, a segment `.` or `..`, `**` beside other characters in one segment and a brace that is nested, unclosed or unopened are `law-invalid`.
 
 ## How a file gets its type
 

@@ -13,7 +13,7 @@ The docs pages say what the tool does for a given input. These rows say what no 
 | I-git-2 | Every git command a run sends is one git 2.34, the oldest git Lawcheck runs with, accepts; the link guard reads each submodule in its own folder. | tests/security/old-git.test.ts |
 | I-secret-2 | An error about a law or a config read through a symbolic link quotes none of the file. | tests/security/linked.test.ts |
 | I-files-1 | Every path that `git ls-files -z` lists at the root and a type's pattern matches is judged, or named as left out with its reason, whatever bytes its name holds; its name in the output maps back to the bytes on disk, and `explain` gives the true reason for it. | tests/properties/names.test.ts |
-| I-glob-1 | A pattern compiles or gets a named problem, matches as the reference matcher of its test reads it, and costs time linear in the path. | tests/properties/glob.test.ts |
+| I-glob-1 | A pattern compiles or gets a named problem, matches as `docs/law.md` says, and costs time linear in the path. | tests/properties/glob.test.ts |
 | I-lines-1 | For any text of a file, every line separator, NUL, a byte-order mark and waiver markers included, every finding's line lies inside the file's `lines`, a type with `waivers: false` waives nothing, and the text and JSON forms of a report agree. | tests/properties/contents.test.ts |
 | I-law-1 | Any text as `law.yaml` gives `law-invalid` at a line of the file, or a law that `explain` prints back. | tests/properties/law.test.ts |
 | I-rules-1 | Any value a rule returns, throws or rejects with, at once or in the background, gives findings or a `rule-crashed` that names its cause, and the result for a file is the same whether it is judged alone or with others. | tests/properties/rules.test.ts |

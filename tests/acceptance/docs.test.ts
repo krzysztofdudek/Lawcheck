@@ -9,9 +9,24 @@ import { parseArguments } from '../../dist/cli.js';
 import { WHY } from '../../dist/output.js';
 
 const spec = readFileSync(new URL('../../spec/commands-slice.md', import.meta.url), 'utf8').split('\n');
-const LIST_START = spec.indexOf('lawcheck docs: 12 topics; lawcheck docs <topic> prints one');
-const LIST: string[] = [];
-for (let i = LIST_START; spec[i] !== '```'; i++) LIST.push(spec[i]!);
+const LIST = [
+  'lawcheck docs: 14 topics; lawcheck docs <topic> prints one',
+  '',
+  'first-law  The first type and the first rule',
+  'law  The law file',
+  'change  What a check judges',
+  'commands  The commands',
+  'script-rules  Script rules',
+  'reviewer-rules  Reviewer rules',
+  'waivers  Waivers',
+  'config  Settings',
+  'providers  Reviewers and keys',
+  'languages  Languages and uses',
+  'ci  CI and git hooks',
+  'plugin  The Claude Code plugin',
+  'json  JSON documents',
+  'codes  Codes',
+];
 const TOPICS = LIST.slice(2).map((line) => ({ id: line.split('  ')[0]!, title: line.split('  ')[1]! }));
 const PARAGRAPH = spec.find((line) => line.startsWith('> A plain check judges only'))!.slice(2);
 
@@ -68,7 +83,7 @@ test('test 128: the list of topics, its JSON, and one page, outside git', async 
 });
 
 test('test 129: every page holds what section 7 asks, and its examples are real', async () => {
-  assert.equal(TOPICS.length, 12);
+  assert.equal(TOPICS.length, 14);
   for (const { id, title } of TOPICS) {
     const text = page(id);
     assert.equal(text.split('\n')[0], `# ${title}`, id);
