@@ -81,7 +81,7 @@ test('R-85: each call of a rule has the whole limit, so two calls that are each 
 });
 
 test('check-slice §3: the tool allows a rule 30 seconds for its load and 30 for each call', () => {
-  const sentence = /A rule has (\d+) seconds to load and (\d+) seconds per call\./.exec(readFileSync(join(ROOT, 'docs', 'script-rules.md'), 'utf8'));
+  const sentence = /A rule has (\d+) seconds to load and (\d+) seconds for each call\./.exec(readFileSync(join(ROOT, 'docs', 'script-rules.md'), 'utf8'));
   assert.ok(sentence, 'docs/script-rules.md names the time a rule may take');
   assert.equal(sentence[1], sentence[2]);
   assert.deepEqual(LIMITS, { ruleMs: Number(sentence[1]) * 1000 });
