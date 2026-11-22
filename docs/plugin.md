@@ -61,6 +61,6 @@ Two switches, both on by default, under `/plugin configure lawcheck@lawcheck-mar
 
 ## What the plugin keeps
 
-The hook keeps one small file per session in the plugin's data folder (`CLAUDE_PLUGIN_DATA`), or else in a folder of the system's temporary directory that only your user may read. At each session start it deletes the files older than 7 days.
+The hook keeps one small file per session in the plugin's data folder (`CLAUDE_PLUGIN_DATA`), or else in a folder of the system's temporary directory that only your user may read. Each session start deletes the files older than 7 days.
 
 The hooks run Lawcheck and the repository's rule scripts after edits and before the agent finishes. Use the plugin where you would run the repository's tests.
