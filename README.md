@@ -31,7 +31,7 @@ src/core/discount.ts:1  error[forbidden-use]  core may not use api (src/api/orde
 next: fix src/core/discount.ts:1
 ```
 
-In Claude Code, the Lawcheck plugin runs this check after each edit and before the agent ends its turn, and sends the agent back, up to three times, while the files of its turn break the law. Any other agent gets the law from `lawcheck prime`, through one line in its instructions file. CI checks the same law with no key and no network.
+A rules file is advice the agent reads, and nothing in the session checks the code against it. Lawcheck checks the files. In Claude Code, the Lawcheck plugin runs this check after each edit and before the agent ends its turn, and sends the agent back, up to three times, while the files of its turn break the law. Any other agent gets the law from `lawcheck prime`, through one line in its instructions file. CI checks the same law with no key and no network. An architecture test or the layer rule of a linter works in one language or one ecosystem, and one law covers the uses of twelve languages.
 
 ## Try it
 
