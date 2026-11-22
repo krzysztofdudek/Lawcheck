@@ -218,7 +218,8 @@ test('question 95: the parts a test asks for are found through the scenario it r
 test('question 95: every id of PLATFORM_PROMISES is a promise the spec map resolves, naming behaviours of PLATFORM_BEHAVIOURS that hold on each of its systems', () => {
   assert.ok(Object.keys(PLATFORM_PROMISES).length > 0);
   for (const [id, { systems, behaviours, behaviour }] of Object.entries(PLATFORM_PROMISES)) {
-    assert.notEqual(promiseOf(id), null, `${id}: the spec map resolves no promise`);
+    const carried = id.startsWith('test ') && allTests.some((t) => testIds(t.name).includes(id));
+    assert.ok(carried || promiseOf(id) !== null, `${id}: no test carries it, and it is no promise of design/promises.md or harness check`);
     assert.ok(systems.length > 0 && systems.every((system) => OTHERS.includes(system)), `${id}: systems ${JSON.stringify(systems)}`);
     assert.deepEqual(behaviourProblems(id, systems, behaviours, behaviour), []);
   }

@@ -26,12 +26,10 @@ export interface Inputs {
   specs: TextFile[];
   docs: TextFile[];
   questions: string;
+  sections: string;
   tests: TextFile[];
-  manual: string;
-  ledger: string;
   sectionOnly: number;
   harness: string[];
-  stress: Record<number, number>;
 }
 
 export function cells(line: string): string[] {
@@ -127,15 +125,6 @@ export function invariantsOf(file: TextFile): { invariants: Invariant[]; problem
     }
   }
   return { invariants, problems };
-}
-
-export function headingsOf(text: string): string[] {
-  const out: string[] = [];
-  for (const { line } of outsideFences(text)) {
-    const match = /^#{2,4}\s+(.*?)\s*$/.exec(line);
-    if (match) out.push(match[1]!);
-  }
-  return out;
 }
 
 export interface LedgerRow {
@@ -533,17 +522,14 @@ function markdownUnder(root: URL, prefix: string): TextFile[] {
 }
 
 export function loadInputs(repo: URL, sectionOnly: number): Inputs {
-  const testsDir = new URL('tests/', repo);
   return {
-    specs: markdownUnder(new URL('spec/', repo), 'spec/'),
+    specs: [{ path: 'design/promises.md', text: readFileSync(new URL('design/promises.md', repo), 'utf8') }],
     docs: markdownUnder(new URL('docs/', repo), 'docs/'),
-    questions: readFileSync(new URL('spec/questions.md', repo), 'utf8'),
+    questions: readFileSync(new URL('design/decisions.md', repo), 'utf8'),
+    sections: readFileSync(new URL('tests/README.md', repo), 'utf8'),
     tests: testFilesOfRunner(repo),
-    manual: readFileSync(new URL('contract/manual-rows.md', testsDir), 'utf8'),
-    ledger: readFileSync(new URL('findings.md', testsDir), 'utf8'),
     sectionOnly,
     harness: Object.keys(INVARIANTS),
-    stress: STRESS_FINDINGS,
   };
 }
 
@@ -571,115 +557,22 @@ export function questionNumbers(questions: string): Set<number> {
   return new Set([...questions.matchAll(/^## (\d+)\./gm)].map((m) => Number(m[1])));
 }
 
-// Entries 95 and 160 of spec/questions.md say that no spec describes what their tests check, the suite's own machinery and the repository's own law, so no row can ever carry those tests: one that cites only its entry, in the files of that machinery, is outside the count of tests that cite only a section.
-export const NO_ROW_QUESTIONS: Record<number, RegExp> = { 95: /^tests\/(contract|guard|sabotage)\//, 160: /^tests\/acceptance\/self-law[\w-]*\.test\.ts$/ };
-
-export const SEVERITIES = ['blocks the release', 'should be fixed before', 'after the release'];
-export const PACKAGES = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'P', 'after alpha'];
-export const STATES = ['open', 'limit', 'runes-limit', 'closed'];
-
-// The findings of the stress reports 1 to 8, as each report numbers them: no row of these may go.
-export const STRESS_FINDINGS: Record<number, number> = { 1: 15, 2: 8, 3: 9, 4: 11, 5: 16, 6: 10, 7: 16, 8: 8 };
-
-const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-const ROW_LEAD = /^tests? \d+(?:(?:,\s*|\s+and\s+|,\s+and\s+)\d+)*: /;
-const FINDING_ID = /^(?:S\d+-\d+|U-\d+|R-\d+|T[1-8])$/;
-
-// A test carries a finding when the finding's id is its own source, at the start of its name, or one of the ids listed right after a leading spec row (`test 240: S8-8, R-77, ...`), since a test that carries a row cannot lead with a finding too; a mention anywhere else ties nothing.
-export const carries = (name: string, id: string): boolean => {
-  if (new RegExp(`^${escape(id)}(?![\\w-])`).test(name)) return true;
-  const lead = ROW_LEAD.exec(name);
-  if (lead === null) return false;
-  for (const part of name.slice(lead[0].length).split(', ')) {
-    if (!FINDING_ID.test(part)) return false;
-    if (part === id) return true;
+// The section labels of the first design, as the table of tests/README.md lists them: its first column, `<slice> §<n>`.
+export function sectionLabels(readme: string): Set<string> {
+  const out = new Set<string>();
+  for (const table of tablesOf(readme)) for (const row of table.rows) {
+    const label = /^([a-z][a-z/-]*) §([\w.]+)$/.exec(firstCell(row));
+    if (label) out.add(`${label[1]} §${label[2]}`);
   }
-  return false;
-};
-
-const LIMIT_QUOTE_SHARES = 3;
-const FILLER = new Set(['the', 'and', 'that', 'such', 'with', 'from', 'are', 'not', 'its', 'for', 'was', 'has', 'into', 'this', 'which', 'when', 'than', 'each', 'any', 'all', 'but', 'can', 'may', 'one', 'their', 'there', 'then', 'they', 'out', 'per']);
-const wordsOf = (t: string): string[] => [...new Set((t.toLowerCase().match(/[a-z0-9_]+/g) ?? []).filter((w) => w.length >= 3 && !FILLER.has(w)))];
-const sharedWords = (quote: string, defect: string): string[] => wordsOf(quote).filter((w) => wordsOf(defect).includes(w));
-
-export function ledgerProblems(ledger: string, tests: TestName[], questions: Set<number>, files: Map<string, string> = new Map(), stress: Record<number, number> = {}): string[] {
-  const problems: string[] = [];
-  const seen = new Set<string>();
-  const rows = ledgerRows(ledger);
-  if (rows.length === 0) problems.push('the ledger holds no rows');
-  if (!tablesOf(ledger).some((t) => firstCell(t.header) === 'id')) problems.push('the ledger has no table headed id');
-  for (const [report, count] of Object.entries(stress)) {
-    for (let n = 1; n <= count; n++) if (!rows.some((r) => r.id === `S${report}-${n}`)) problems.push(`the finding S${report}-${n} of the stress reports has no row in the ledger`);
-  }
-  for (const row of rows) {
-    const at = `ledger ${row.id}`;
-    if (!/^(S[1-8]-\d+|U-\d+|R-\d+|T[1-8])$/.test(row.id)) problems.push(`${at}: the id is not S<report>-<n>, U-<n>, R-<n> or T<n>`);
-    if (seen.has(row.id)) problems.push(`${at}: the id is used twice`);
-    seen.add(row.id);
-    if (!SEVERITIES.includes(row.severity)) problems.push(`${at}: severity "${row.severity}" is not one of ${SEVERITIES.join(', ')}`);
-    if (!/^(-|\d(, \d)*)$/.test(row.layer)) problems.push(`${at}: layer "${row.layer}" is not - or layers 0 to 9`);
-    if (!PACKAGES.includes(row.package)) problems.push(`${at}: package "${row.package}" is not one of ${PACKAGES.join(', ')}`);
-    if (row.severity !== 'after the release' && row.package === 'after alpha') problems.push(`${at}: a finding that blocks or should be fixed before needs a package`);
-    if (!['yes', 'no'].includes(row.runes)) problems.push(`${at}: Runes cause "${row.runes}" is not yes or no`);
-    if (row.defect === '') problems.push(`${at}: the defect is empty`);
-    const question = /^question (\d+)$/.exec(row.state);
-    if (question !== null) {
-      if (!questions.has(Number(question[1]))) problems.push(`${at}: state points to question ${question[1]}, which is not in spec/questions.md`);
-    } else if (!STATES.includes(row.state)) problems.push(`${at}: state "${row.state}" is not one of ${STATES.join(', ')} or "question <n>"`);
-    if (row.runes === 'yes' && row.state !== 'runes-limit' && row.state !== 'closed') problems.push(`${at}: a Runes cause is state runes-limit`);
-    if (row.state === 'runes-limit' && row.runes !== 'yes') problems.push(`${at}: state runes-limit needs a Runes cause`);
-    for (const m of `${row.defect} ${row.test} ${row.generalised}`.matchAll(/\bquestion (\d+)\b/g)) {
-      if (!questions.has(Number(m[1]))) problems.push(`${at}: names question ${m[1]}, which is not in spec/questions.md`);
-    }
-    if (row.state === 'closed' || row.state === 'limit') {
-      const named = /^(tests\/[^\s:]+): (.+)$/.exec(row.test);
-      if (named === null) problems.push(`${at}: a ${row.state} row names its test as "<file>: <fragment>"`);
-      else if (!tests.some((t) => t.file === named[1] && t.name.includes(named[2]!) && carries(t.name, row.id))) problems.push(`${at}: no test of ${named[1]} holds "${named[2]}" in its name and carries ${row.id} as a whole id`);
-    }
-    if (row.state === 'limit') {
-      const stated = /\bstated in ((?:spec|docs)\/[\w./-]+\.md): "([^"]+)"/.exec(row.generalised);
-      const squash = (t: string) => t.replace(/\s+/g, ' ');
-      if (stated === null) problems.push(`${at}: a limit row says where the limit is stated, as stated in spec/<file>.md: "<words of the limit>", in the column generalised by`);
-      else if (!files.has(stated[1]!)) problems.push(`${at}: the file ${stated[1]} that states the limit does not exist`);
-      else if (!squash(files.get(stated[1]!)!).includes(squash(stated[2]!))) problems.push(`${at}: ${stated[1]} does not hold the words "${stated[2]}" of the limit`);
-      else if (sharedWords(stated[2]!, row.defect).length < LIMIT_QUOTE_SHARES) problems.push(`${at}: the words "${stated[2]}" of ${stated[1]} say nothing of this row: a quote shares at least ${LIMIT_QUOTE_SHARES} words with the defect`);
-    }
-  }
-  return problems;
+  return out;
 }
+
+// Decisions 95 and 160 of design/decisions.md say that no feature of the tool describes what their tests check, the suite's own machinery and the repository's own law, so no row can ever carry those tests: one that cites only its entry, in the files of that machinery, is outside the count of tests that cite only a section.
+export const NO_ROW_QUESTIONS: Record<number, RegExp> = { 95: /^tests\/(contract|guard|sabotage)\//, 160: /^tests\/acceptance\/self-law[\w-]*\.test\.ts$/ };
 
 export function problemsOf(input: Inputs): string[] {
   const problems: string[] = [];
-  const rows: Row[] = [];
-  for (const spec of input.specs) {
-    const read = rowsOf(spec);
-    rows.push(...read.rows);
-    problems.push(...read.problems);
-  }
-  const rowNumbers = new Set<number>();
-  for (const row of rows) {
-    if (rowNumbers.has(row.number)) problems.push(`row ${row.number} is used twice (again in ${row.spec})`);
-    rowNumbers.add(row.number);
-  }
-
-  const manualNumbers = new Set<number>();
-  for (const table of tablesOf(input.manual)) {
-    if (firstCell(table.header) !== '#') continue;
-    for (const line of table.rows) {
-      const c = cells(line);
-      if (!/^\d+$/.test(c[0]!)) {
-        problems.push(`the rows no test carries: "${c[0]}" is not a plain integer`);
-        continue;
-      }
-      const number = Number(c[0]);
-      if (manualNumbers.has(number)) problems.push(`row ${number} is listed twice in the rows no test carries`);
-      manualNumbers.add(number);
-      if (!rowNumbers.has(number)) problems.push(`row ${number} is listed in the rows no test carries and is in no spec table`);
-      if ((c[1] ?? '').length < 8) problems.push(`row ${number} is listed in the rows no test carries without a reason`);
-      if ((c[2] ?? '').length < 3) problems.push(`row ${number} is listed in the rows no test carries without an owner`);
-    }
-  }
+  for (const spec of input.specs) problems.push(...rowsOf(spec).problems);
 
   const invariants: Invariant[] = [];
   for (const file of [...input.specs, ...input.docs]) {
@@ -705,54 +598,37 @@ export function problemsOf(input: Inputs): string[] {
     names.add(`${t.file}\n${t.name}`);
   }
   const questions = questionNumbers(input.questions);
-  problems.push(...ledgerProblems(input.ledger, tests, questions, new Map([...input.specs, ...input.docs].map((f) => [f.path, f.text])), input.stress));
-  const findings = new Set(ledgerRows(input.ledger).map((r) => r.id));
-  const headings = new Map(input.specs.filter((s) => s.path.startsWith('spec/')).map((s) => [s.path.slice('spec/'.length, -'.md'.length), headingsOf(s.text)]));
+  const sections = sectionLabels(input.sections);
 
-  const carried = new Set<number>();
   const named = new Set<string>();
   let sectionOnly = 0;
   for (const { file, name } of tests) {
     const source = sourcesOf(name);
     const where = `${file}: "${name}"`;
-    let known = 0;
-    let strong = 0;
-    for (const number of source.rows) {
-      carried.add(number);
-      if (rowNumbers.has(number)) known++, strong++;
-      else problems.push(`${where} names test ${number}, which is in no spec table`);
-      if (manualNumbers.has(number)) problems.push(`${where} carries row ${number}, which the rows no test carries list`);
-    }
+    let known = source.rows.length + source.findings.length;
+    let strong = known;
     for (const id of source.invariants) {
       named.add(id);
       if (invariantIds.has(id)) known++, strong++;
-      else problems.push(`${where} names invariant ${id}, which is in no spec table`);
+      else problems.push(`${where} names invariant ${id}, which is not in design/promises.md`);
     }
     for (const id of source.harness) {
       named.add(id);
       if (input.harness.includes(id)) known++, strong++;
       else problems.push(`${where} names ${id}, which is no invariant of tests/harness/invariants.ts`);
     }
-    for (const id of source.findings) {
-      if (findings.has(id)) known++, strong++;
-      else problems.push(`${where} names finding ${id}, which is not in tests/findings.md`);
-    }
     for (const [stem, section] of source.sections) {
-      const list = headings.get(stem);
-      if (list !== undefined && list.some((h) => h === section || h.startsWith(`${section}. `) || h.startsWith(`${section} `) || h.startsWith(`${section}:`))) known++;
-      else problems.push(`${where} names ${stem} §${section}, which is no heading of that spec`);
+      if (sections.has(`${stem} §${section}`)) known++;
+      else problems.push(`${where} names ${stem} §${section}, which the table of tests/README.md does not list`);
     }
     for (const number of source.questions) {
       if (questions.has(number)) known++;
-      else problems.push(`${where} names question ${number}, which is not in spec/questions.md`);
+      else problems.push(`${where} names question ${number}, which is not in design/decisions.md`);
     }
-    if (known === 0) problems.push(`${where} names no source: a spec row, an invariant id, a finding id, a spec section or a question`);
+    if (known === 0) problems.push(`${where} names no source: a test number, a promise id, a finding id, a section or a decision`);
     else if (!leadsWithSource(name)) problems.push(`${where} does not lead with its source`);
     const noRow = source.sections.length === 0 && source.questions.length > 0 && source.questions.every((q) => NO_ROW_QUESTIONS[q]?.test(file) === true);
     if (known > 0 && strong === 0 && !noRow) sectionOnly++;
-  }
-  for (const row of rows) {
-    if (!carried.has(row.number) && !manualNumbers.has(row.number)) problems.push(`row ${row.number} of ${row.spec} has no test`);
   }
   for (const invariant of invariants) {
     if (!named.has(invariant.id)) problems.push(`invariant ${invariant.id} of ${invariant.spec} has no test with its id in the name`);
@@ -760,7 +636,7 @@ export function problemsOf(input: Inputs): string[] {
   for (const id of input.harness) {
     if (!named.has(id)) problems.push(`harness invariant ${id} has no test with its id in the name`);
   }
-  if (sectionOnly > input.sectionOnly) problems.push(`${sectionOnly} tests cite only a spec section or a question, and the ratchet allows ${input.sectionOnly}: a new test names a row, an invariant id or a finding id`);
-  if (sectionOnly < input.sectionOnly) problems.push(`${sectionOnly} tests cite only a spec section or a question, and the ratchet still says ${input.sectionOnly}: lower SECTION_ONLY_TESTS in tests/numbers.ts`);
+  if (sectionOnly > input.sectionOnly) problems.push(`${sectionOnly} tests cite only a section or a decision, and the ratchet allows ${input.sectionOnly}: a new test names a test number, a promise id or a finding id`);
+  if (sectionOnly < input.sectionOnly) problems.push(`${sectionOnly} tests cite only a section or a decision, and the ratchet still says ${input.sectionOnly}: lower SECTION_ONLY_TESTS in tests/numbers.ts`);
   return problems;
 }

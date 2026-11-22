@@ -9,7 +9,7 @@ import { COMMIT_GROUPS, NIGHTLY_GROUPS, setFiles } from './sets.ts';
 import { applies, HARNESS, PLATFORM_SKIPS } from './skips.ts';
 
 const ROOT = fileURLToPath(new URL('../..', import.meta.url));
-const CLOSING = 'if the promise changed, change the spec row first; the guard then accepts a new expectation';
+const CLOSING = 'if the promise changed, the change says so in tests/weakenings.md, and the suite guard checks the row (tests/README.md)';
 
 interface Failed {
   name: string;
@@ -56,10 +56,10 @@ function block(failed: Failed, seeds: Map<string, string>): string[] {
     return out;
   }
   out.push(`RED      ${head}  ${file}`);
-  if (ids.length === 0) out.push(`promise  none: the name "${failed.name.slice(0, 120)}" carries no spec row, invariant or finding id`);
+  if (ids.length === 0) out.push(`promise  none: the name "${failed.name.slice(0, 120)}" carries no test number, promise or finding id`);
   for (const id of ids) {
     const promised = promiseOf(id);
-    out.push(promised === null ? `promise  ${id} names no row of spec/*.md or tests/findings.md` : `promise  ${promised.where}: ${quote(promised.text)}`);
+    out.push(promised !== null ? `promise  ${promised.where}: ${quote(promised.text)}` : id.startsWith('I-') ? `promise  ${id} is not in design/promises.md` : `promise  ${id}: what this test expects`);
   }
   const broke = /^(harness-[a-z0-9]+): /.exec(message);
   if (broke !== null && INVARIANTS[broke[1]!]) out.push(`broke    ${broke[1]}: ${INVARIANTS[broke[1]!]}`);
@@ -154,7 +154,7 @@ export async function judgeRun(source: AsyncIterable<{ type: string; data: any }
   let red = false;
   if (unlistedSkips.length > 0) {
     red = true;
-    lines.push('', 'RED      a test was skipped or marked todo with no whole-test entry in PLATFORM_SKIPS for this system', 'promise  spec/questions.md, entry 91: a skip is a platform reason in the list of tests/harness/skips.ts', ...unlistedSkips.map((u) => `got      ${u}`));
+    lines.push('', 'RED      a test was skipped or marked todo with no whole-test entry in PLATFORM_SKIPS for this system', 'promise  design/decisions.md, decision 79: a skip is a platform reason in the list of tests/harness/skips.ts', ...unlistedSkips.map((u) => `got      ${u}`));
   }
   if (process.env.LAWCHECK_TIE === '1') {
     const speed = process.env.LAWCHECK_SPEED === 'nightly' ? 'nightly' : 'commit';
@@ -164,7 +164,7 @@ export async function judgeRun(source: AsyncIterable<{ type: string; data: any }
     const problems = tieProblems(loadInputs(new URL('../../', import.meta.url), 0), setFiles(speed, dirs), ran, excused);
     if (problems.length > 0) {
       red = true;
-      lines.push('', 'RED      the run-time tie of question 79', 'promise  spec/questions.md, entry 79: a row or an invariant is covered only by a test that ran and passed in this run', ...problems.slice(0, 20).map((p) => `got      ${p}`), 'if the promise changed, change the spec row first; the guard then accepts a new expectation');
+      lines.push('', 'RED      the run-time tie of question 79', 'promise  design/decisions.md, decision 79: a test number, a promise or a finding is covered only by a test that ran and passed in this run', ...problems.slice(0, 20).map((p) => `got      ${p}`), 'if the promise changed, change the spec row first; the guard then accepts a new expectation');
     }
   }
   return { text: lines.join('\n') + '\n', red: counts.failed > 0 || red };

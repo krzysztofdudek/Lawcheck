@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { INVARIANTS } from './invariants.ts';
@@ -6,7 +6,7 @@ import type { Behaviour } from './sets.ts';
 
 const ROOT = fileURLToPath(new URL('../..', import.meta.url));
 
-// The promises of the spec and of the harness that are about a behaviour of Windows or macOS, by the ids promiseOf resolves. A test whose name carries one runs per push on each system named here (PLATFORM_TESTS of tests/harness/sets.ts). The suite guard reads this object as plain data, so it stays literals.
+// The acceptance tests, the promises and the harness checks that are about a behaviour of Windows or macOS, by the ids promiseOf resolves. A test whose name carries one runs per push on each system named here (PLATFORM_TESTS of tests/harness/sets.ts). The suite guard reads this object as plain data, so it stays literals.
 export const PLATFORM_PROMISES: Record<string, { systems: ('win32' | 'darwin')[]; behaviours: Behaviour[]; behaviour: string }> = {
   'test 15': { systems: ['win32'], behaviours: ['links', 'file-modes'], behaviour: 'Windows has no symbolic links by default, and chmod cannot make a file unreadable there' },
   'test 24': { systems: ['win32'], behaviours: ['process-ends'], behaviour: 'a hung rule is ended by killing its process tree, which Windows does with taskkill' },
@@ -65,42 +65,16 @@ function cells(line: string): string[] {
     .map((cell) => cell.trim());
 }
 
-function sectionOf(lines: string[], at: number): string {
-  for (let i = at; i >= 0; i--) {
-    const m = /^##\s+(\d+)\.\s+(.*)$/.exec(lines[i]!);
-    if (m !== null) return `section ${m[1]}`;
-  }
-  return 'no section';
-}
-
-function specs(): string[] {
-  const dir = join(ROOT, 'spec');
-  return existsSync(dir) ? readdirSync(dir).filter((name) => name.endsWith('.md')).sort().map((name) => `spec/${name}`) : [];
-}
-
+// A test number or a finding id has no text outside its test; a promise has its row in design/promises.md, and a harness invariant its sentence.
 export function promiseOf(id: string): Promised | null {
   if (id.startsWith('harness-')) return INVARIANTS[id] === undefined ? null : { id, where: 'tests/harness/invariants.ts', text: INVARIANTS[id]! };
-  const row = /^test (\d+)$/.exec(id);
-  const finding = /^(S\d+-\d+|U-\d+|R-\d+|T[1-8])$/.test(id);
-  const files = finding ? ['tests/findings.md'] : specs();
-  for (const file of files) {
-    const path = join(ROOT, file);
-    if (!existsSync(path)) continue;
-    const lines = readFileSync(path, 'utf8').split('\n');
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i]!;
-      if (!line.startsWith('|')) continue;
-      const parts = cells(line);
-      const key = row !== null ? row[1] : id;
-      if (parts[0] !== key && parts[0] !== `\`${key}\``) continue;
-      const header = lines.slice(Math.max(0, i - 400), i).reverse().find((l) => /^\|\s*#|^\|\s*[Ii]d\s*\|/.test(l));
-      const names = header === undefined ? [] : cells(header);
-      const text = parts
-        .slice(1)
-        .map((cell, k) => (names[k + 1] ? `${names[k + 1]}: ${cell}` : cell))
-        .join('; ');
-      return { id, where: finding ? `${file}, row ${id}` : `${file}, ${sectionOf(lines, i)}, row ${parts[0]}`, text };
-    }
+  if (!id.startsWith('I-')) return null;
+  const path = join(ROOT, 'design', 'promises.md');
+  if (!existsSync(path)) return null;
+  for (const line of readFileSync(path, 'utf8').split('\n')) {
+    if (!line.startsWith('|')) continue;
+    const parts = cells(line);
+    if (parts[0] === id || parts[0] === `\`${id}\``) return { id, where: 'design/promises.md', text: parts[1] ?? '' };
   }
   return null;
 }

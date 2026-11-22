@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { invariantsOf, ledgerProblems, ledgerRows, loadInputs, problemsOf, rowsOf, scanTests, sourcesOf, type Inputs } from './spec-map.ts';
+import { invariantsOf, ledgerRows, loadInputs, problemsOf, rowsOf, scanTests, sectionLabels, sourcesOf, type Inputs } from './spec-map.ts';
 import { SECTION_ONLY_TESTS } from '../numbers.ts';
 import { namesProblems, tieProblems } from './tie.ts';
 
@@ -9,18 +9,12 @@ const REPO = new URL('../../', import.meta.url);
 const table = (head: string, rows: string[]) => ['', `| ${head} |`, '|---|---|---|', ...rows, ''].join('\n');
 const code = (...lines: string[]) => [`import { test, describe } from 'node:test';`, ...lines, ''].join('\n');
 
-const LEDGER = [
-  '| id | severity | class | defect and reproduction | layer | package | Runes cause | test | generalised by | state |',
-  '|---|---|---|---|---|---|---|---|---|---|',
-  '| S1-1 | should be fixed before | limit | a hang | 2, 4 | D | no |  |  | open |',
-  '| S1-2 | after the release | wording | a word | - | after alpha | no |  |  | question 5 |',
-].join('\n');
-
 function inputs(over: Partial<Inputs> = {}): Inputs {
   return {
-    specs: [{ path: 'spec/one-slice.md', text: ['## 1. Scope', '', table('# | Do | See', ['| 1 | a | b |', '| 2 | c | d |']), table('Id | Promise | Test', ['| I-out-1 | p | tests/x.test.ts |'])].join('\n') }],
+    specs: [{ path: 'design/promises.md', text: ['# Promises', '', table('Id | Promise | Test', ['| I-out-1 | p | tests/x.test.ts |'])].join('\n') }],
     docs: [],
     questions: '## 5. A question\n',
+    sections: table('Section label | What it covers | Described in', ['| `one-slice §1` | the scope | docs/a.md |']),
     tests: [
       {
         path: 'tests/unit/a.test.ts',
@@ -34,11 +28,8 @@ function inputs(over: Partial<Inputs> = {}): Inputs {
         ),
       },
     ],
-    manual: table('# | Why no test carries it | Who runs it', []),
-    ledger: LEDGER,
     sectionOnly: 2,
     harness: [],
-    stress: {},
     ...over,
   };
 }
@@ -46,7 +37,7 @@ function inputs(over: Partial<Inputs> = {}): Inputs {
 const withTests = (...lines: string[]): Partial<Inputs> => ({ tests: [{ path: 'tests/unit/a.test.ts', text: code(...lines) }] });
 const all = ["test('test 1: a', () => { assert.equal(compute(1), 1); });", "test('tests 2: c', () => { assert.equal(compute(1), 1); });", "test('I-out-1: i', () => { assert.equal(compute(1), 1); });"];
 
-test('question 79: every row of every acceptance table has a test, every test a source that leads its name, and no number is used twice', () => {
+test('question 79: every test leads its name with a source that exists, and every promise and harness check has a test', () => {
   assert.deepEqual(problemsOf(loadInputs(REPO, SECTION_ONLY_TESTS)), []);
 });
 
@@ -54,13 +45,12 @@ test('question 79: control, a consistent small map has no problem', () => {
   assert.deepEqual(problemsOf(inputs()), []);
 });
 
-test('question 79: control, a row without a test, a test number without a row, and a number used twice are named', () => {
-  const noTest = problemsOf(inputs(withTests("test('test 1: a', () => { assert.equal(compute(1), 1); });", "test('I-out-1: i', () => { assert.equal(compute(1), 1); });")));
-  assert.ok(noTest.includes('row 2 of spec/one-slice.md has no test'), noTest.join('\n'));
-  const stray = problemsOf(inputs(withTests(...all, "test('test 9: nothing', () => { assert.equal(compute(1), 1); });")));
-  assert.ok(stray.some((p) => p.includes('names test 9, which is in no spec table')), stray.join('\n'));
-  const twice = problemsOf(inputs({ specs: [...inputs().specs, { path: 'spec/two-slice.md', text: table('# | Do | See', ['| 2 | e | f |']) }] }));
-  assert.ok(twice.includes('row 2 is used twice (again in spec/two-slice.md)'), twice.join('\n'));
+test('question 79: control, a test number needs no table, and a promise without a test is named', () => {
+  assert.deepEqual(problemsOf(inputs({ ...withTests(...all, "test('test 9: a new acceptance test', () => { assert.equal(compute(1), 1); });"), sectionOnly: 0 })), []);
+  const untested = problemsOf(inputs({ ...withTests("test('test 1: a', () => { assert.equal(compute(1), 1); });"), sectionOnly: 0 }));
+  assert.ok(untested.includes('invariant I-out-1 of design/promises.md has no test with its id in the name'), untested.join('\n'));
+  const twice = problemsOf(inputs({ docs: [{ path: 'docs/a.md', text: table('Id | Promise | Test', ['| I-out-1 | p | f.ts |']) }] }));
+  assert.ok(twice.includes('invariant I-out-1 is used twice (again in docs/a.md)'), twice.join('\n'));
 });
 
 test('R-58: control, a test that does not run covers nothing', () => {
@@ -79,10 +69,10 @@ test('R-58: control, a test that does not run covers nothing', () => {
     "const options = { skip: true }; test('test 2: options in a variable', options, () => { assert.equal(compute(1), 1); });",
   ];
   for (const line of skipped) {
-    const problems = problemsOf(inputs({ ...withTests("test('test 1: a', () => { assert.equal(compute(1), 1); });", "test('I-out-1: i', () => { assert.equal(compute(1), 1); });", line), sectionOnly: 0 }));
-    assert.ok(problems.includes('row 2 of spec/one-slice.md has no test'), `${line}\n${problems.join('\n')}`);
+    const problems = problemsOf(inputs({ ...withTests("test('test 1: a', () => { assert.equal(compute(1), 1); });", line.replaceAll('test 2: ', 'I-out-1: ')), sectionOnly: 0 }));
+    assert.ok(problems.includes('invariant I-out-1 of design/promises.md has no test with its id in the name'), `${line}\n${problems.join('\n')}`);
   }
-  const live = problemsOf(inputs({ ...withTests("test('test 1: a', () => { assert.equal(compute(1), 1); });", "test('I-out-1: i', () => { assert.equal(compute(1), 1); });", "test('test 2: runs', { skip: false }, () => { assert.equal(compute(1), 1); });"), sectionOnly: 0 }));
+  const live = problemsOf(inputs({ ...withTests("test('test 1: a', () => { assert.equal(compute(1), 1); });", "test('I-out-1: runs', { skip: false }, () => { assert.equal(compute(1), 1); });"), sectionOnly: 0 }));
   assert.deepEqual(live, []);
 });
 
@@ -110,17 +100,15 @@ test('R-59: control, a test call the rail cannot read, and a test in a place the
 
 test('R-60: control, a name leads with its source and a colon, and every source it cites exists', () => {
   const junk = problemsOf(inputs(withTests(...all, "test('test 1: and test 9999 and one-slice §9', () => { assert.equal(compute(1), 1); });", "test('a hang, S1-1', () => { assert.equal(compute(1), 1); });", "test('S1-1: a hang and S9-9', () => { assert.equal(compute(1), 1); });", "test('test 1: and question 6', () => { assert.equal(compute(1), 1); });", "test('test 1: and I-out-2', () => { assert.equal(compute(1), 1); });", "test('test 9999: a stray row', () => { assert.equal(compute(1), 1); });")));
-  for (const part of ['a hang, S1-1" does not lead', 'finding S9-9', 'one-slice §9', 'question 6', 'invariant I-out-2', 'names test 9999, which is in no spec table']) assert.ok(junk.some((p) => p.includes(part)), `${part}\n${junk.join('\n')}`);
+  for (const part of ['a hang, S1-1" does not lead', 'one-slice §9', 'question 6', 'invariant I-out-2']) assert.ok(junk.some((p) => p.includes(part)), `${part}\n${junk.join('\n')}`);
   const none = problemsOf(inputs(withTests(...all, "test('something that works', () => { assert.equal(compute(1), 1); });")));
   assert.ok(none.some((p) => p.includes('names no source')), none.join('\n'));
   const lone = problemsOf(inputs(withTests("test('test 1: a', () => { assert.equal(compute(1), 1); });", "test('tests 2: c', () => { assert.equal(compute(1), 1); });")));
-  assert.ok(lone.some((p) => p.includes('invariant I-out-1 of spec/one-slice.md has no test')), lone.join('\n'));
+  assert.ok(lone.some((p) => p.includes('invariant I-out-1 of design/promises.md has no test')), lone.join('\n'));
   for (const name of ['test 600 files are read in parallel', 'test 2 and a row', 'tests 1 and 2 are covered', 'S1-1 is a hang', 'I-out-1 holds', 'one-slice §1 says so', 'question 5 answers it']) {
     const problems = problemsOf(inputs(withTests(...all, `test('${name}', () => { assert.equal(compute(1), 1); });`)));
     assert.ok(problems.some((p) => p.includes(`"${name}" does not lead with its source`) || p.includes(`"${name}" names no source`)), `${name}\n${problems.join('\n')}`);
   }
-  const noted = problemsOf(inputs({ ...withTests("test('test 1: a', () => { assert.equal(compute(1), 1); });", "test('I-out-1: i', () => { assert.equal(compute(1), 1); });", "test('test 600 files are read in parallel', () => { assert.equal(compute(1), 1); });"), sectionOnly: 0 }));
-  assert.ok(noted.includes('row 2 of spec/one-slice.md has no test'), noted.join('\n'));
 });
 
 test('R-61: control, the tables are read strictly, and code fences hide nothing and add nothing', () => {
@@ -141,19 +129,9 @@ test('R-61: control, the tables are read strictly, and code fences hide nothing 
   assert.equal(bad.problems.length, 2);
   const inDocs = problemsOf(inputs({ docs: [{ path: 'docs/a.md', text: table('Id | Promise | Test', ['| I-doc-1 | p | f.ts |']) }] }));
   assert.ok(inDocs.includes('invariant I-doc-1 of docs/a.md has no test with its id in the name'), inDocs.join('\n'));
-  const fenced = problemsOf(inputs({ specs: [{ path: 'spec/one-slice.md', text: [inputs().specs[0]!.text, '```', '## 7. Hidden', '```'].join('\n') }], ...withTests(...all, "test('one-slice §7: hidden', () => { assert.equal(compute(1), 1); });") }));
+  const fenced = problemsOf(inputs({ sections: [inputs().sections, '```', '| `one-slice §7` | hidden | docs/a.md |', '```'].join('\n'), ...withTests(...all, "test('one-slice §7: hidden', () => { assert.equal(compute(1), 1); });") }));
   assert.ok(fenced.some((p) => p.includes('one-slice §7')), fenced.join('\n'));
-});
-
-test('question 79: control, a row run by hand needs a spec row, a reason, an owner, and no test', () => {
-  const ok = problemsOf(inputs({ manual: table('# | Why no test carries it | Who runs it', ['| 2 | by hand on the host | the reviewer |']), ...withTests("test('test 1: a', () => { assert.equal(compute(1), 1); });", "test('I-out-1: i', () => { assert.equal(compute(1), 1); });"), sectionOnly: 0 }));
-  assert.deepEqual(ok, []);
-  const stale = problemsOf(inputs({ manual: table('# | Why no test carries it | Who runs it', ['| 1 | by hand on the host | the reviewer |']) }));
-  assert.ok(stale.some((p) => p.includes('carries row 1')), stale.join('\n'));
-  const stray = problemsOf(inputs({ manual: table('# | Why no test carries it | Who runs it', ['| 8 | by hand on the host | the reviewer |']) }));
-  assert.ok(stray.some((p) => p.includes('row 8 is listed') && p.includes('no spec table')), stray.join('\n'));
-  const bare = problemsOf(inputs({ manual: table('# | Why no test carries it | Who runs it', ['| 2 |  |  |']), ...withTests("test('test 1: a', () => { assert.equal(compute(1), 1); });", "test('I-out-1: i', () => { assert.equal(compute(1), 1); });") }));
-  assert.ok(bare.some((p) => p.includes('without a reason')) && bare.some((p) => p.includes('without an owner')), bare.join('\n'));
+  assert.deepEqual([...sectionLabels(table('Section label | What it covers | Described in', ['| `check-slice §2` | a | b |', '| `dependency-slice §3.1` | c | d |', '| check | e | f |']))], ['check-slice §2', 'dependency-slice §3.1']);
 });
 
 test('question 79: control, the count of tests that cite only a section may only fall', () => {
@@ -166,30 +144,6 @@ test('question 79: control, the count of tests that cite only a section may only
   for (const [path, name] of [['tests/unit/b.test.ts', 'question 95: the runner'], ['tests/contract/b.test.ts', 'question 160: a rule'], ['tests/contract/b.test.ts', 'question 5: a ruling'], ['tests/contract/b.test.ts', 'question 95: one-slice §1, the runner']]) {
     assert.ok(outside(path, name).some((p) => p.includes('the ratchet allows 2')), `${path}: ${name}`);
   }
-});
-
-test('R-52: control, the ledger has unique well-formed ids and fixed sets, a closed row names a real test that leads with its id, and a question row points to its entry', () => {
-  const run = (rows: string[], tests: { file: string; name: string }[] = [], stress: Record<number, number> = {}) => ledgerProblems([LEDGER.split('\n').slice(0, 2).join('\n'), ...rows].join('\n'), tests, new Set([5]), new Map([['spec/one-slice.md', 'A limit is written here: a key under 8 characters stays.']]), stress);
-  const row = (id: string, sev: string, layer: string, pkg: string, runes: string, test: string, state: string, gen = '') => `| ${id} | ${sev} | c | a defect | ${layer} | ${pkg} | ${runes} | ${test} | ${gen} | ${state} |`;
-  const good = row('S1-1', 'after the release', '2', 'D', 'no', '', 'open');
-  assert.deepEqual(run([good]), []);
-  assert.ok(run([good, good]).some((p) => p.includes('used twice')));
-  assert.ok(run([row('X1-1', 'after the release', '2', 'D', 'no', '', 'open')]).some((p) => p.includes('the id is not')));
-  assert.ok(run([row('S1-1', 'soon', '2', 'D', 'no', '', 'open')]).some((p) => p.includes('severity')));
-  assert.ok(run([row('S1-1', 'after the release', '12', 'D', 'no', '', 'open')]).some((p) => p.includes('layer')));
-  assert.ok(run([row('S1-1', 'after the release', '2', 'Z', 'no', '', 'open')]).some((p) => p.includes('package')));
-  assert.ok(run([row('S1-1', 'blocks the release', '2', 'after alpha', 'no', '', 'open')]).some((p) => p.includes('needs a package')));
-  assert.ok(run([row('S1-1', 'after the release', '2', 'D', 'yes', '', 'open')]).some((p) => p.includes('a Runes cause')));
-  assert.ok(run([row('S1-1', 'after the release', '2', 'D', 'no', '', 'finished')]).some((p) => p.includes('state "finished"')));
-  assert.ok(run([row('S1-1', 'after the release', '2', 'D', 'no', '', 'question 6')]).some((p) => p.includes('question 6')));
-  assert.deepEqual(run([row('S1-1', 'after the release', '2', 'D', 'no', '', 'question 5')]), []);
-  assert.ok(run([row('S1-1', 'after the release', '2', 'D', 'no', '', 'closed')]).some((p) => p.includes('names its test')));
-  assert.ok(run([row('S1-1', 'after the release', '2', 'D', 'no', 'tests/unit/a.test.ts: S1-1', 'closed')], [{ file: 'tests/unit/a.test.ts', name: 'S1-10: a hang' }]).some((p) => p.includes('carries S1-1 as a whole id')));
-  assert.ok(run([row('S1-1', 'after the release', '2', 'D', 'no', 'tests/unit/a.test.ts: S1-1', 'closed')], [{ file: 'tests/unit/a.test.ts', name: 'I-out-1: S1-1, a hang' }]).some((p) => p.includes('carries S1-1 as a whole id')));
-  assert.deepEqual(run([row('S1-1', 'after the release', '2', 'D', 'no', 'tests/unit/a.test.ts: S1-1', 'closed')], [{ file: 'tests/unit/a.test.ts', name: 'S1-1: a hang' }]), []);
-  const closed = row('S1-1', 'after the release', '2', 'D', 'no', 'tests/unit/a.test.ts: S1-1', 'closed');
-  assert.deepEqual(run([closed], [{ file: 'tests/unit/a.test.ts', name: 'test 3: S2-1, S1-1, a hang' }]), []);
-  for (const name of ['test 3: a hang, S1-1', 'test 3: S1-10, a hang', 'test 3: a hang S1-1, S1-1', 'question 5: S1-1, a hang']) assert.ok(run([closed], [{ file: 'tests/unit/a.test.ts', name }]).some((p) => p.includes('carries S1-1 as a whole id')), name);
 });
 
 test('question 79: the parsers read sources from names', () => {
@@ -230,22 +184,7 @@ test('R-53: control, no row hides: a ledger row after a blank line and an indent
   assert.ok(loose.problems.some((p) => p.includes('stands in a table with no header')), loose.problems.join('\n'));
 });
 
-test('R-54: control, a stress finding with no row, a limit row without its statement or its test, and a reused test name are named', () => {
-  const run = (rows: string[], tests: { file: string; name: string }[], stress: Record<number, number>) =>
-    ledgerProblems(['| id | severity | class | defect | layer | package | Runes | test | gen | state |', '|---|---|---|---|---|---|---|---|---|---|', ...rows].join('\n'), tests, new Set(), new Map([['spec/one-slice.md', 'A limit is written here: a key under 8 characters stays. Elsewhere the largest file read as text is named.']]), stress);
-  const row = (test: string, gen: string) => `| R-5 | after the release | c | A key under 8 characters is not replaced, the run garbles words | 3 | E | no | ${test} | ${gen} | limit |`;
-  assert.ok(run([], [], { 1: 2 }).some((p) => p === 'the finding S1-1 of the stress reports has no row in the ledger'));
-  const tests = [{ file: 'tests/unit/a.test.ts', name: 'R-5: a key under 8 characters stays' }];
-  const stated = 'stated in spec/one-slice.md: "a key under 8 characters stays"';
-  assert.deepEqual(run([row('tests/unit/a.test.ts: R-5: a key', stated)], tests, {}), []);
-  assert.ok(run([row('', stated)], tests, {}).some((p) => p.includes('names its test')));
-  assert.ok(run([row('tests/unit/a.test.ts: R-5: a key', '')], tests, {}).some((p) => p.includes('says where the limit is stated')));
-  assert.ok(run([row('tests/unit/a.test.ts: R-5: a key', 'stated in spec/nowhere.md: "a key"')], tests, {}).some((p) => p.includes('does not exist')));
-  assert.ok(run([row('tests/unit/a.test.ts: R-5: a key', 'stated in spec/one-slice.md: "an unrelated sentence"')], tests, {}).some((p) => p.includes('does not hold the words')));
-  for (const quote of ['the', 'A limit is written here', 'the largest file read as text is named', 'key']) {
-    assert.ok(run([row('tests/unit/a.test.ts: R-5: a key', `stated in spec/one-slice.md: "${quote}"`)], tests, {}).some((p) => p.includes('say nothing of this row')), quote);
-  }
-  assert.deepEqual(run([row('tests/unit/a.test.ts: R-5: a key', 'stated in spec/one-slice.md: "a key under 8 characters stays"')], tests, {}), []);
+test('R-54: control, a test name used twice in one file is named', () => {
   const twice = problemsOf(inputs(withTests(...all, "test('test 1: a', () => { assert.equal(compute(1), 1); });")));
   assert.ok(twice.some((p) => p.includes('is used by two tests of one file')), twice.join('\n'));
 });
@@ -259,26 +198,16 @@ test('R-49: control, a test that asserts nothing is named: an empty body, a bare
   assert.deepEqual(scanTests('tests/unit/a.test.ts', code("test('test 1: a', () => { assert.equal(compute(1), 1); });", "test('test 2: b', () => helper());")).problems, []);
 });
 
-test('R-51: control, a closed finding is tied to a test that ran, and what a template name holds after its literal start is checked', () => {
-  const ledger = [
-    '| id | severity | class | defect and reproduction | layer | package | Runes cause | test | generalised by | state |',
-    '|---|---|---|---|---|---|---|---|---|---|',
-    '| S1-1 | should be fixed before | limit | a hang | 2 | D | no | tests/unit/a.test.ts: S1-1 | I-out-1 | closed |',
-    '| S1-10 | should be fixed before | limit | a hang | 2 | D | no |  | I-out-1 | open |',
-  ].join('\n');
+test('R-51: control, a finding that leads a name is tied to a test that ran, and what a template name holds after its literal start is checked', () => {
   const files = ['tests/unit/a.test.ts'];
-  const base = inputs({ ledger, tests: [{ path: files[0]!, text: code("test('S1-1: a hang', () => { assert.equal(compute(1), 1); });", "test('S1-10: another', () => { assert.equal(compute(1), 1); });", "test('tests 1 and 2: c', () => { assert.equal(compute(1), 1); });", "test('I-out-1: i', () => { assert.equal(compute(1), 1); });") }] });
+  const base = inputs({ tests: [{ path: files[0]!, text: code("test('S1-1: a hang', () => { assert.equal(compute(1), 1); });", "test('S1-10: another', () => { assert.equal(compute(1), 1); });", "test('tests 1 and 2: c', () => { assert.equal(compute(1), 1); });", "test('I-out-1: i', () => { assert.equal(compute(1), 1); });") }] });
   const ran = (...names: string[]) => names.map((name) => ({ file: files[0]!, name }));
-  assert.deepEqual(tieProblems(base, files, ran('S1-1: a hang', 'tests 1 and 2: c', 'I-out-1: i')), []);
-  const other = inputs({ ...base, ledger: ledger.replace('tests/unit/a.test.ts: S1-1 |', 'tests/unit/a.test.ts: S1-1: a hang |'), tests: [{ path: files[0]!, text: code("test('S1-1: a hang', () => { assert.equal(compute(1), 1); });", "test('S1-1: a sibling', () => { assert.equal(compute(1), 1); });", "test('tests 1 and 2: c', () => { assert.equal(compute(1), 1); });", "test('I-out-1: i', () => { assert.equal(compute(1), 1); });") }] });
-  const sibling = tieProblems(other, files, ran('S1-1: a sibling', 'tests 1 and 2: c', 'I-out-1: i'));
-  assert.ok(sibling.some((p) => p.startsWith('the closed row S1-1 names its test as "S1-1: a hang"')), sibling.join('\n'));
+  assert.deepEqual(tieProblems(base, files, ran('S1-1: a hang', 'S1-10: another', 'tests 1 and 2: c', 'I-out-1: i')), []);
   const skipped = tieProblems(base, files, ran('tests 1 and 2: c', 'I-out-1: i', 'S1-10: another'));
-  assert.ok(skipped.some((p) => p.startsWith('S1-1 is carried by a test of this run')), skipped.join('\n'));
-  assert.ok(skipped.some((p) => p.startsWith('the closed row S1-1 names its test')), skipped.join('\n'));
+  assert.deepEqual(skipped, ['S1-1 is carried by a test of this run and none of them ran and passed: tests/unit/a.test.ts: S1-1: a hang']);
   assert.deepEqual(tieProblems(base, files, ran('tests 1 and 2: c', 'I-out-1: i', 'S1-10: another'), ran('S1-1: a hang')), []);
-  const late = namesProblems(base, ran('S1-1: a key of S9-9 characters', 'S1-1: a key of question 7'));
-  assert.ok(late.some((p) => p.includes('finding S9-9')) && late.some((p) => p.includes('question 7')), late.join('\n'));
+  const late = namesProblems(base, ran('S1-1: a key of I-out-9 characters', 'S1-1: a key of question 7'));
+  assert.ok(late.some((p) => p.includes('invariant I-out-9')) && late.some((p) => p.includes('question 7')), late.join('\n'));
 });
 
 test('R-49: control, an assertion that cannot fail is named, and so is an assertion in a hook', () => {
