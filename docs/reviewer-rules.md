@@ -51,7 +51,7 @@ After a bad answer, Lawcheck asks once more when `reviewer.max_calls` leaves roo
 
 ## Verdicts
 
-Lawcheck records each pass in `.lawcheck/verdicts`, one line per pass. A line holds a key and the rule id, and Lawcheck keeps the lines sorted. Commit this file. A plain `lawcheck check` reads it and calls no reviewer for a file and rule with a pass. CI then needs no API key.
+Lawcheck records each pass in `.lawcheck/verdicts`, one line per pass. A line holds a key and the rule id. Lawcheck keeps the lines sorted. Commit this file. A plain `lawcheck check` reads it and calls no reviewer for a file and rule with a pass. CI then needs no API key.
 
 The key is a hash of these parts:
 
@@ -63,7 +63,7 @@ The key is a hash of these parts:
 
 After a change to any of these parts, the key changes, so the old pass no longer counts. The key leaves out the status of the rule, the provider, the model and the settings. A pass therefore holds when you change any of them. A waiver is part of the text of the file, so a new waiver needs a new review.
 
-In a type with `waivers: false`, Lawcheck reads a waiver marker as plain text. The prompt then names no waived line. The reviewer judges the line that the marker would cover, and the key of that prompt differs from the key where the waiver counts. A pass recorded while the waiver counted no longer counts once the type sets `waivers: false`, or once a change of the law moves the file into such a type.
+In a type with `waivers: false`, Lawcheck reads a waiver marker as plain text. The prompt then names no waived line. The reviewer judges the line that the marker would cover. The key of that prompt therefore differs from the key of the same text where the waiver counts. A pass recorded while the waiver counted no longer counts once the type sets `waivers: false`, or once a change of the law moves the file into such a type.
 
 Lawcheck writes `verdicts merge=union` into `.lawcheck/.gitattributes`. Git then merges two branches that add lines to the file without a conflict. Lawcheck holds a lock in `.lawcheck/.local/` while it writes the file. When two runs write at once, the file keeps the passes of both.
 

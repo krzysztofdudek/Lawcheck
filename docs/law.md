@@ -2,7 +2,7 @@
 
 An agent writes a database call into a page component. The build stays green. The law is the file `.lawcheck/law.yaml`. In it, you say which kinds of files the repository has, and which rules the files of each kind keep. Under a law whose page components may not use the database code, Lawcheck reports that call as `forbidden-use`.
 
-Lawcheck looks for the file in the current directory, then in each directory above it. The nearest directory that holds it is the root of the law. Lawcheck runs git and the script rules in the root, and every path of the law starts there. When the root lies below the top of the git work tree, Lawcheck judges only the files below the root. A law past 1 MiB, 10,000 rules or 1,000 types, subtypes included, stops the run with `file-too-large`.
+Lawcheck looks for the file in the current directory, then in each directory above it. The nearest directory that holds it is the root of the law. Lawcheck runs git and the script rules in the root. Every path of the law starts there. When the root lies below the top of the git work tree, Lawcheck judges only the files below the root. A law past 1 MiB, 10,000 rules or 1,000 types, subtypes included, stops the run with `file-too-large`.
 
 ## Keys
 
@@ -75,7 +75,7 @@ types:
 
 ### status
 
-`status` is `enforced`, the default, or `advisory`. A finding of an enforced rule in the [change](concepts.md#change) is an error, which makes the run exit 1. A finding of an advisory rule is a warning, and a warning leaves the exit code at 0.
+`status` is `enforced`, the default, or `advisory`. A finding of an enforced rule in the [change](concepts.md#change) is an error, which makes the run exit 1. A finding of an advisory rule is a warning, which leaves the exit code at 0.
 
 ### context
 
@@ -127,7 +127,7 @@ With `waivers: false`, Lawcheck reads a waiver marker in the type's files as pla
 
 A rule id and a type id are kebab-case: lower-case letters and digits, in words joined by `-`. The pattern is `[a-z0-9]+(-[a-z0-9]+)*`. Each type id may appear once in the whole tree of types. A key that YAML reads as no string, such as `true` or `12`, is `law-invalid`. Write such a key in quotes.
 
-A rule id may not equal a code of Lawcheck, or `untyped-file` (`lawcheck docs codes` lists the codes). Lawcheck reserves `forbidden-use`, `uses-not-read`, `parser-failed` and `already-initialized` this way, among the other codes.
+A rule id may not equal a code of Lawcheck, or `untyped-file` (`lawcheck docs codes` lists the codes). The reserved ids include `forbidden-use`, `uses-not-read`, `parser-failed` and `already-initialized`.
 
 ## Patterns
 
