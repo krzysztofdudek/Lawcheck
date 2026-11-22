@@ -183,7 +183,7 @@ src/report.ts:1  error[no-console]  writes to the terminal with console.log
 next: fix src/report.ts:1
 ```
 
-The check fails and exits 1. Without a path, a plain `lawcheck check` judges the files that differ from the [base](concepts.md#base). `src/report.ts` is the same as on `main`. A plain check passes on it. Step 11 lists it as debt.
+The check fails and exits 1. Without a path, a plain `lawcheck check` judges the files that differ from the [base](concepts.md#base). `src/report.ts` is the same as on `main`. A check against `main` passes on it. Step 11 lists it as debt.
 
 ## 11. See the debt
 

@@ -55,7 +55,7 @@ Lawcheck prints the debt block after the findings of the change. The block has i
 
 ## The limits of a plain check
 
-A plain check judges the files that differ from the base. Three kinds of change can alter a judgment without changing the file judged:
+A plain check judges only the files that differ from the base. Three kinds of change can alter a judgment without changing the file judged:
 
 - a change of the law: `.lawcheck/law.yaml`, `.lawcheck/config.yaml` or a rule file;
 - a file whose new text gives it another type: the judgment of each file that uses it can change;
@@ -63,7 +63,7 @@ A plain check judges the files that differ from the base. Three kinds of change 
 
 Each of these passes a plain check. Lawcheck judges the files they affect the next time those files change. A file outside the change never fails a plain check.
 
-To judge every file after such a change, run `lawcheck check --full`. Lawcheck lists what it finds outside the change as debt. Debt blocks nothing. `check` and `doctor` say so when the change touches the law.
+To judge every file after such a change, run `lawcheck check --full`. Lawcheck lists what it finds outside the change as debt. Debt blocks nothing. `check` and `doctor` say when the change touches the law.
 
 `check` prints these lines when the change touches the law: `.lawcheck/law.yaml`, `.lawcheck/config.yaml` or a file in `.lawcheck/rules/`. It prints the first line only without `--full`:
 
