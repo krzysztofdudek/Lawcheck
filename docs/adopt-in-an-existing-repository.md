@@ -1,0 +1,205 @@
+# Bring a law into an existing repository
+
+Your code already breaks the rule you are about to write. A plain check passes the change that adds the law, because that change touches only `.lawcheck/`. The next change that edits an old file then fails on a line nobody touched. These steps bring the rule in as advisory, list the old findings as debt, pay the debt, and then make the rule enforced.
+
+The outputs below come from a repository whose `main` holds four files: `src/core/report.ts` calls `console.log` on line 2, `src/core/tax.ts` calls `console.warn` on line 2, `src/core/price.ts` writes nothing, and `src/cli/main.ts` is the command layer.
+
+## 1. Start the law on a branch
+
+```text
+$ git checkout -b law
+$ lawcheck init
+```
+
+```output
+lawcheck: created .lawcheck/law.yaml and .lawcheck/.gitignore
+
+Nothing is checked yet: the law has no types.
+next: describe your first file type in .lawcheck/law.yaml  (lawcheck docs first-law shows how)
+```
+
+## 2. Write the law with an advisory rule
+
+Write `.lawcheck/law.yaml`. With `status: advisory`, the rule's findings are warnings, and the rule never fails a run:
+
+```yaml
+lawcheck: 0.1.0
+
+rules:
+  no-console:
+    why: Only the command layer writes to the terminal.
+    status: advisory
+
+types:
+  library:
+    about: Code the commands call.
+    paths: ["src/core/**"]
+    rules: [no-console]
+  command:
+    about: The command layer.
+    paths: ["src/cli/**"]
+```
+
+## 3. Write the rule
+
+Create the folder `.lawcheck/rules/` and in it `no-console.mjs` ([The first type and the first rule](first-law.md) explains it):
+
+```js
+export function check({ files }) {
+  const findings = [];
+  for (const file of files) {
+    file.lines.forEach((text, index) => {
+      const call = text.match(/\bconsole\.(\w+)/);
+      if (call) findings.push({ line: index + 1, message: `writes to the terminal with console.${call[1]}` });
+    });
+  }
+  return findings;
+}
+```
+
+## 4. Check the branch
+
+```text
+$ lawcheck check --base main
+```
+
+```output
+lawcheck: PASS  3 changed files (against main)
+note: the law changed in this change; lawcheck check --full --base main shows what it finds in the rest of the code
+note: this change edits the law that judges it: adds .lawcheck/law.yaml; adds .lawcheck/rules/no-console.mjs
+```
+
+The change holds the three files of `.lawcheck/`, so Lawcheck judges none of the old code.
+
+## 5. List the debt
+
+```text
+$ lawcheck check --full --base main
+```
+
+```output
+lawcheck: PASS  3 changed files (against main)
+note: this change edits the law that judges it: adds .lawcheck/law.yaml; adds .lawcheck/rules/no-console.mjs
+
+debt (outside this change): 2 findings in 2 files
+src/core/report.ts:2  warning[no-console]  writes to the terminal with console.log
+  why:  Only the command layer writes to the terminal.
+src/core/tax.ts:2  warning[no-console]  writes to the terminal with console.warn
+```
+
+`--full` judges every other file as well. A finding outside the change is debt: a warning, whatever the rule's status, and the run passes. `--json` gives `summary.debt` and marks each such finding `"debt": true` ([JSON documents](json.md)).
+
+## 6. Merge the law
+
+git prints its own lines:
+
+```text
+$ git add .lawcheck
+$ git commit -m "A law: only the command layer writes to the terminal"
+$ git checkout main
+$ git merge law
+```
+
+## 7. Change an old file
+
+On a new branch, `git checkout -b unit`, add a line to `src/core/report.ts`:
+
+```ts
+export function report(total: number): void {
+  console.log('total', total);
+}
+
+export const unit = 'EUR';
+```
+
+```text
+$ lawcheck check --base main
+```
+
+```output
+lawcheck: PASS  1 warning in 1 changed file (against main)
+
+src/core/report.ts:2  warning[no-console]  writes to the terminal with console.log
+  why:  Only the command layer writes to the terminal.
+```
+
+Lawcheck judges a changed file whole, so the old line 2 is part of the change. The rule is advisory, so its finding is a warning, and the run passes.
+
+## 8. Pay the debt
+
+Remove the `console` calls from the library. `src/core/report.ts`:
+
+```ts
+export function report(total: number): string {
+  return 'total ' + total;
+}
+
+export const unit = 'EUR';
+```
+
+`src/core/tax.ts`:
+
+```ts
+export function tax(cents: number): number {
+  return Math.round(cents * 0.2);
+}
+```
+
+```text
+$ lawcheck check --full --base main
+```
+
+```output
+lawcheck: PASS  2 changed files (against main)
+
+debt (outside this change): none
+```
+
+## 9. Make the rule enforced
+
+Delete the line `status: advisory`. `enforced` is the default:
+
+```yaml
+lawcheck: 0.1.0
+
+rules:
+  no-console:
+    why: Only the command layer writes to the terminal.
+
+types:
+  library:
+    about: Code the commands call.
+    paths: ["src/core/**"]
+    rules: [no-console]
+  command:
+    about: The command layer.
+    paths: ["src/cli/**"]
+```
+
+```text
+$ lawcheck check --base main
+```
+
+```output
+lawcheck: PASS  3 changed files (against main)
+note: the law changed in this change; lawcheck check --full --base main shows what it finds in the rest of the code
+note: this change edits the law that judges it: makes the rule no-console enforced
+```
+
+From the merge of this change on, a `console` call in a changed file of `src/core/` fails the run with exit 1.
+
+## Can go wrong
+
+- You start with the rule enforced. The first change that edits `src/core/report.ts` fails on line 2, which nobody touched:
+
+```output
+lawcheck: FAIL  1 error in 1 changed file (against main)
+
+src/core/report.ts:2  error[no-console]  writes to the terminal with console.log
+  why:  Only the command layer writes to the terminal.
+
+next: fix src/core/report.ts:2
+```
+
+- A CI job with no base ends in `base-unreachable`, since it cannot tell the change from debt. Pass `--base`, or set `LAWCHECK_BASE` ([CI and git hooks](ci.md)).
+- A reviewer rule over old code gives `not-reviewed` debt for every file it binds. `lawcheck check --full --review` asks the reviewer about each of them, one call per file and rule. A run that needs more calls than `reviewer.max_calls` makes none.

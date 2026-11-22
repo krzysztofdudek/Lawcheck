@@ -11,7 +11,7 @@ import { WHY } from '../../dist/output.js';
 import { example } from '../harness/examples.ts';
 
 const LIST = [
-  'lawcheck docs: 23 topics; lawcheck docs <topic> prints one',
+  'lawcheck docs: 27 topics; lawcheck docs <topic> prints one',
   '',
   'Start',
   '  index  Lawcheck',
@@ -24,7 +24,11 @@ const LIST = [
   '  types-for-a-project  Types for an existing project',
   '  forbid-a-use  Forbid one layer to use another',
   '  write-a-script-rule  Write a script rule',
+  '  write-a-reviewer-rule  Write a reviewer rule',
+  '  adopt-in-an-existing-repository  Bring a law into an existing repository',
   '  ci  CI and git hooks',
+  '  false-alarm  A finding you believe is wrong',
+  '  slow-check  A slow check',
   '',
   'Reference',
   '  commands  The commands',
@@ -104,7 +108,7 @@ test('test 128: the list of topics, its JSON, and one page, outside git', async 
 });
 
 test('test 129: every page holds what section 7 asks, and its examples are real', async () => {
-  assert.equal(TOPICS.length, 23);
+  assert.equal(TOPICS.length, 27);
   for (const { id, title } of TOPICS) {
     const text = page(id);
     assert.equal(text.split('\n')[0], `# ${title}`, id);
