@@ -1,6 +1,6 @@
 # Settings
 
-A [reviewer rule](concepts.md#reviewer-rule) needs a model. Its key must stay out of the repository, so Lawcheck takes keys from the environment alone. The other settings live in `.lawcheck/config.yaml`, beside the law. The file is optional: without it, every setting has its default and Lawcheck has no reviewer. [Script rules](concepts.md#script-rule) need no settings at all.
+A [reviewer rule](concepts.md#reviewer-rule) needs a model to judge it. Lawcheck reads the API key of that model's service from an environment variable alone, so no API key goes into a committed file. The other settings live in `.lawcheck/config.yaml`, beside the law. You may leave the file out. Without it, every setting has its default, and Lawcheck has no reviewer. [Script rules](concepts.md#script-rule) need no settings.
 
 ```yaml
 reviewer:
@@ -13,7 +13,7 @@ reviewer:
 | `reviewer` | a mapping of the keys below | none: no reviewer |
 | `runner` | `global`, `npx`, `pnpm`, `yarn` or `bun` | `global` |
 
-An empty file, or one of comments only, sets nothing.
+An empty file, or a file that holds only comments, sets nothing.
 
 ## reviewer
 
@@ -53,15 +53,15 @@ reviewer:
 
 ## Keys and values Lawcheck refuses
 
-Lawcheck stops with `config-invalid` and exit 2 in these cases:
+Lawcheck stops with `config-invalid` and exits with code 2 in these cases:
 
 - a key outside the table;
 - a key written twice;
 - a value outside the table.
 
-The error names the line. The message names a known key or provider one or two letters away, when there is one. Three cases have a message of their own.
+The error names the line. When a known key or provider differs by one or two letters from what you wrote, the message names it. Three cases get a message of their own.
 
-The first case is a key in the file, which Lawcheck refuses because a key never goes into a committed file. Lawcheck takes it from the environment (section "Variables" below):
+The first case is an API key written into the file. An API key never goes into a committed file, so Lawcheck reads it from an environment variable instead (section "Variables" below):
 
 ```text
 reviewer:
@@ -85,11 +85,11 @@ reviewer:
   temperature: 0
 ```
 
-Lawcheck reads `.lawcheck/config.yaml` and `.lawcheck/law.yaml` through a symbolic link too. An error about such a file shows none of its text, because a link can lead to a secret outside the repository.
+When `.lawcheck/config.yaml` or `.lawcheck/law.yaml` is a symbolic link, Lawcheck reads the file it leads to. An error about such a file shows none of its text, because the link can lead to a secret outside the repository.
 
 ## runner
 
-`runner` names the command that starts Lawcheck in this repository. `prime` names that command to the agent. The Claude Code plugin runs it:
+The `runner` setting names the command that starts Lawcheck in this repository. With a value other than `global`, `lawcheck prime` names that command to the coding agent. The Claude Code plugin starts Lawcheck with it:
 
 | `runner` | The command | Its install hint |
 |---|---|---|
@@ -103,19 +103,19 @@ Lawcheck reads `.lawcheck/config.yaml` and `.lawcheck/law.yaml` through a symbol
 runner: pnpm  # pinned in package.json
 ```
 
-`global` runs the `lawcheck` program on your `PATH`. With any other runner, the package manager picks the program from the repository's own files. The repository then decides what runs. Use the plugin only in a repository whose tests you would run. `lawcheck doctor` checks that the program of the runner is on the `PATH`.
+With `global`, the plugin runs the `lawcheck` program on your `PATH`. With any other value, the package manager takes the `lawcheck` program from the repository's own files. The repository then decides which code runs on your machine, with your rights, each time the plugin starts Lawcheck. Use the plugin in such a repository only when you would run its code yourself. `lawcheck doctor` fails its `config` check when the program of the `runner` setting, such as `pnpm`, is not on the `PATH`.
 
-The plugin reads the runner without a YAML parser. It takes the first line that starts with `runner:` in its first column. The value is the rest of that line, trimmed, without a comment after a space or a tab. Without such a line, the runner is `global`. A value outside the five is `config-invalid`. A value that YAML reads another way is `config-invalid` too, such as `runner: "pnpm"` or a key in flow style. Write `runner: pnpm` on a line of its own, at the top level.
+The plugin reads the `runner` setting without a YAML parser. It takes the first line that starts with `runner:` in its first column. The value is the rest of that line, trimmed, without a comment after a space or a tab. With no such line, the setting is `global`. Lawcheck stops with `config-invalid` on a value outside the five. It stops the same way when YAML reads a value other than the one the plugin took, as with `runner: "pnpm"` or a key in flow style. Write `runner: pnpm` on a line of its own, at the top level.
 
-Yarn 1 prints lines of its own around the output of `yarn run`. Read `--json` from `yarn --silent run lawcheck`, which leaves those lines out.
+Yarn 1 prints lines of its own around the output of `yarn run`. To read the JSON of `--json`, start Lawcheck with `yarn --silent run lawcheck`. The flag `--silent` leaves those lines out.
 
-Yarn 4 holds back a package published less than a day ago. Runes is the library that Lawcheck uses to read the code of each language. On the first day after a release of Lawcheck or of Runes, `yarn add` ends with `YN0016` and `quarantined`. This line in `.yarnrc.yml` lets the install through:
+Yarn 4 holds back a package published less than a day ago. Lawcheck reads the code of each language with the package `@chrisdudek/runes`, which these pages call Runes. On the first day after a release of Lawcheck or of Runes, `yarn add` ends with `YN0016` and `quarantined`. With this line in `.yarnrc.yml`, Yarn installs both packages on that first day:
 
 ```text
 npmPreapprovedPackages: [lawcheck, "@chrisdudek/runes"]
 ```
 
-`.lawcheck/.gitignore` names `config.local.yaml`. No command of Lawcheck reads that file.
+Git ignores `.lawcheck/config.local.yaml`, because `.lawcheck/.gitignore` names it. No command of Lawcheck reads that file.
 
 ## Variables
 
@@ -142,7 +142,7 @@ npmPreapprovedPackages: [lawcheck, "@chrisdudek/runes"]
 | `NODE_OPTIONS` | refuses every command when it holds `--permission`, under which Lawcheck cannot read its own files |
 | `TMPDIR` | makes the folder of a reviewer program there; `TEMP` on Windows |
 
-Lawcheck counts an empty variable as unset. Each reviewer program gets the sign-in variables of its own rows, and none of the others. No program gets `LAWCHECK_REVIEWER_KEY` or `LAWCHECK_REVIEWER_ENDPOINT`. The two variables of the plugin are on the page of the plugin (`lawcheck docs plugin`).
+Lawcheck counts an empty variable as unset. Each reviewer program gets the sign-in variables of its own rows in the table, and none of the other rows. Lawcheck passes `LAWCHECK_REVIEWER_KEY` and `LAWCHECK_REVIEWER_ENDPOINT` to no program. The plugin reads two variables of its own, which `lawcheck docs plugin` lists.
 
 ## Limits
 
