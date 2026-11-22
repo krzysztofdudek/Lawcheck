@@ -32,5 +32,6 @@
   { "id": "codes", "title": "Codes", "section": "Troubleshooting" },
   { "id": "questions", "title": "Questions", "section": "Troubleshooting" },
   { "id": "changelog", "title": "Changelog", "section": "Project" },
-  { "id": "support", "title": "Supported environments", "section": "Project" }
+  { "id": "support", "title": "Supported environments", "section": "Project" },
+  { "id": "upgrade", "title": "Upgrade Lawcheck", "section": "Project" }
 ]

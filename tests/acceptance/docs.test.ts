@@ -11,7 +11,7 @@ import { WHY } from '../../dist/output.js';
 import { example } from '../harness/examples.ts';
 
 const LIST = [
-  'lawcheck docs: 34 topics; lawcheck docs <topic> prints one',
+  'lawcheck docs: 35 topics; lawcheck docs <topic> prints one',
   '',
   'Start',
   '  index  Lawcheck',
@@ -56,6 +56,7 @@ const LIST = [
   'Project',
   '  changelog  Changelog',
   '  support  Supported environments',
+  '  upgrade  Upgrade Lawcheck',
 ];
 const TOPICS = LIST.filter((line) => line.startsWith('  ')).map((line) => ({ id: line.split('  ')[1]!, title: line.split('  ')[2]! }));
 const PARAGRAPH = example('change-paragraph');
@@ -115,7 +116,7 @@ test('test 128: the list of topics, its JSON, and one page, outside git', async 
 });
 
 test('test 129: every page holds what section 7 asks, and its examples are real', async () => {
-  assert.equal(TOPICS.length, 34);
+  assert.equal(TOPICS.length, 35);
   for (const { id, title } of TOPICS) {
     const text = page(id);
     assert.equal(text.split('\n')[0], `# ${title}`, id);
