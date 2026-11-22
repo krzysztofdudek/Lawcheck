@@ -1,6 +1,6 @@
 # Bring a law into an existing repository
 
-Your code already breaks the rule you are about to write. A plain check passes the change that adds the law, because that change touches only `.lawcheck/`. The next change that edits an old file then fails on a line nobody touched. These steps bring the rule in as advisory, list the old findings as debt, pay the debt, and then make the rule enforced.
+Your code already breaks the [rule](concepts.md#rule) you are about to write. A plain check passes the [change](concepts.md#change) that adds the [law](concepts.md#law), because that change touches nothing outside `.lawcheck/`. The next change that edits an old file then fails on a line nobody touched. These steps bring the rule in as advisory, list the old [findings](concepts.md#finding) as [debt](concepts.md#debt), pay the debt, and then make the rule enforced.
 
 The outputs below come from a repository whose `main` holds four files: `src/core/report.ts` calls `console.log` on line 2, `src/core/tax.ts` calls `console.warn` on line 2, `src/core/price.ts` writes nothing, and `src/cli/main.ts` is the command layer.
 
@@ -20,7 +20,7 @@ next: describe your first file type in .lawcheck/law.yaml  (lawcheck docs first-
 
 ## 2. Write the law with an advisory rule
 
-Write `.lawcheck/law.yaml`. With `status: advisory`, the rule's findings are warnings, and the rule never fails a run:
+Write `.lawcheck/law.yaml` with two [types](concepts.md#type): `library` for `src/core/` and `command` for `src/cli/`. With `status: advisory`, the rule's findings are warnings, and a warning never fails a run:
 
 ```yaml
 lawcheck: 0.1.0
@@ -42,7 +42,7 @@ types:
 
 ## 3. Write the rule
 
-Create the folder `.lawcheck/rules/` and in it `no-console.mjs` ([The first type and the first rule](first-law.md) explains it):
+The rule is a [script rule](concepts.md#script-rule). Create the folder `.lawcheck/rules/` and in it `no-console.mjs` ([The first type and the first rule](first-law.md) explains it):
 
 ```js
 export function check({ files }) {
@@ -102,7 +102,7 @@ $ git merge law
 
 ## 7. Change an old file
 
-On a new branch, `git checkout -b unit`, add a line to `src/core/report.ts`:
+Start a new branch with `git checkout -b unit`, and add a line to `src/core/report.ts`:
 
 ```ts
 export function report(total: number): void {
@@ -123,7 +123,7 @@ src/core/report.ts:2  warning[no-console]  writes to the terminal with console.l
   why:  Only the command layer writes to the terminal.
 ```
 
-Lawcheck judges a changed file whole, so the old line 2 is part of the change. The rule is advisory, so its finding is a warning, and the run passes.
+Lawcheck judges a changed file whole, so the old line 2 is part of the change. The rule is advisory: its finding is a warning, and the run passes.
 
 ## 8. Pay the debt
 
@@ -157,7 +157,7 @@ debt (outside this change): none
 
 ## 9. Make the rule enforced
 
-Delete the line `status: advisory`. `enforced` is the default:
+On the same branch, delete the line `status: advisory` from the law. A rule without `status` is enforced:
 
 ```yaml
 lawcheck: 0.1.0
@@ -190,7 +190,7 @@ From the merge of this change on, a `console` call in a changed file of `src/cor
 
 ## If it goes wrong
 
-- You start with the rule enforced. The first change that edits `src/core/report.ts` fails on line 2, which nobody touched:
+A rule enforced from the start fails the first change that edits `src/core/report.ts`. The run fails on line 2, though the change left that line as it was:
 
 ```output
 lawcheck: FAIL  1 error in 1 changed file (against main)
@@ -201,5 +201,5 @@ src/core/report.ts:2  error[no-console]  writes to the terminal with console.log
 next: fix src/core/report.ts:2
 ```
 
-- A CI job with no base ends in `base-unreachable`, since it cannot tell the change from debt. Pass `--base`, or set `LAWCHECK_BASE` ([CI and git hooks](ci.md)).
-- A reviewer rule over old code gives `not-reviewed` debt for every file it binds. `lawcheck check --full --review` asks the reviewer about each of them, one call per file and rule. A run that needs more calls than `reviewer.max_calls` makes none.
+- A CI job with no [base](concepts.md#base) stops with [`base-unreachable`](codes.md#base-unreachable): without a base, Lawcheck cannot tell the change from debt. Pass `--base`, or set `LAWCHECK_BASE` ([CI and git hooks](ci.md)).
+- A [reviewer rule](concepts.md#reviewer-rule) over old code gives [`not-reviewed`](codes.md#not-reviewed) debt for every file it binds. `lawcheck check --full --review` asks the reviewer about each of them, one call per file and rule. A run that needs more calls than `reviewer.max_calls` makes none.

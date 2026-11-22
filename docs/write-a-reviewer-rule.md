@@ -1,8 +1,8 @@
 # Write a reviewer rule
 
-A script can find `console.log` in a file. It cannot tell whether the message of `new Error('failed')` tells the caller what to do next. A reviewer rule can: a language model reads each file against a rule you write in plain words. At the end of these steps a reviewer rule judges `src/core/`, its pass sits in `.lawcheck/verdicts`, and a plain check reads that pass without calling a model.
+A [script rule](concepts.md#script-rule) can find `console.log` in a file. It cannot tell whether the message of `new Error('failed')` tells the caller what to do next. A [reviewer rule](concepts.md#reviewer-rule) can: a language model reads each file against a [rule](concepts.md#rule) you write in plain words. At the end of these steps a reviewer rule judges `src/core/`, its [verdict](concepts.md#verdict) sits in `.lawcheck/verdicts`, and a plain check reads that verdict without calling a model.
 
-The outputs below come from a repository whose `main` holds the `.lawcheck/` that `lawcheck init` makes, with the type `library` of step 2 in its law and no rule. On a branch made from `main`, you added `src/core/refund.ts`:
+The outputs below come from a repository whose `main` holds the `.lawcheck/` that `lawcheck init` makes, with the [type](concepts.md#type) `library` of step 2 in its [law](concepts.md#law) and no rule. On a branch made from `main`, you added `src/core/refund.ts`:
 
 ```ts
 export function refund(paid: boolean): number {
@@ -11,11 +11,11 @@ export function refund(paid: boolean): number {
 }
 ```
 
-A test server that answers as Ollama does gave the answers below. A real model words its findings in its own way.
+A test server that answers as Ollama does gave the answers below. A real model words its [findings](concepts.md#finding) in its own way.
 
 ## 1. Write the rule file
 
-Create `.lawcheck/rules/clear-errors.md`. Say what must hold, what to report, and what does not count. The reviewer receives this text, the rule's `why` and one file, and nothing else of the repository:
+Create `.lawcheck/rules/clear-errors.md`. Say what must hold, what to report, and what does not count:
 
 ```text
 Every error message a caller can see says what happened and what the caller can do next.
@@ -23,9 +23,11 @@ Every error message a caller can see says what happened and what the caller can 
 Report each thrown error or returned error message that leaves one of the two out. A message logged for developers is not such a message.
 ```
 
+The reviewer receives this text, the rule's `why` and the file it judges.
+
 ## 2. Put the rule in the law
 
-Give the rule a `why` and list it on the type. A rule that needs another file, such as a catalogue of messages, names it in `context` ([Reviewer rules](reviewer-rules.md)). `.lawcheck/law.yaml`:
+Give the rule a `why` and list it on the type. A rule whose reviewer needs another file too, such as a catalogue of messages, names that file in `context` ([Reviewer rules](reviewer-rules.md)). `.lawcheck/law.yaml`:
 
 ```yaml
 lawcheck: 0.1.0
@@ -49,7 +51,7 @@ types:
 | a model on your own machine, served by Ollama | `ollama` | none |
 | Claude Code, Codex, Gemini CLI or Copilot CLI, signed in | `claude-code`, `codex`, `gemini-cli` or `copilot-cli` | the program's own sign-in |
 
-These steps use Ollama, which Lawcheck calls on `localhost:11434`; set `LAWCHECK_REVIEWER_ENDPOINT` to the server's address when it runs elsewhere. Create `.lawcheck/config.yaml`, with the name of a model the server has pulled:
+These steps use Ollama. Lawcheck calls it on `localhost:11434`, or at the address in `LAWCHECK_REVIEWER_ENDPOINT`. Create `.lawcheck/config.yaml`, with the name of a model the server has pulled:
 
 ```yaml
 reviewer:
@@ -57,7 +59,7 @@ reviewer:
   model: your-model-id
 ```
 
-A key goes in the environment and never in this file, where it is `config-invalid`. [Reviewers and keys](providers.md) has every provider and its keys.
+A key goes in the environment. In this file it is [`config-invalid`](codes.md#config-invalid). [Reviewers and keys](providers.md) has every provider and its keys.
 
 ## 4. Check that the reviewer answers
 
@@ -88,7 +90,7 @@ src/core/refund.ts  error[not-reviewed]  clear-errors has no verdict for this co
 next: lawcheck check --review --base main  (1 reviewer call)
 ```
 
-A plain check calls no model. It counts the calls a review would make.
+A plain check judges the [change](concepts.md#change) and calls no model. Its `next:` line counts the calls a review would make.
 
 ## 6. See the cost of a try
 
@@ -137,7 +139,7 @@ src/core/refund.ts  answer 2 of 2: fail
 src/core/refund.ts:2  error[clear-errors]  the message says neither what happened nor what to do next
 ```
 
-Answers that differ mean the rule's words leave room. Reword the rule file and ask again until the answers agree.
+Two answers that differ mean the rule allows two readings. Reword the rule file and ask again until the answers agree.
 
 ## 9. Fix the file
 
@@ -186,13 +188,13 @@ note: the law changed in this change; lawcheck check --full --base main shows wh
 note: this change edits the law that judges it: adds the rule clear-errors; adds .lawcheck/rules/clear-errors.md; adds .lawcheck/config.yaml
 ```
 
-The plain check found the pass and called nobody, so CI needs no key ([CI and git hooks](ci.md)).
+The plain check found the pass and called no model, so CI needs no key ([CI and git hooks](ci.md)).
 
 ## If it goes wrong
 
-- `reviewer-unreachable`: the server is down, the key is wrong, or the program is not signed in. The message names the cause. Fix it and run the same command again: `check --review` keeps what was answered and asks only the rest.
-- The reviewer failed a file you believe is right. `check --review` keeps the fail on this machine and shows it again without a call, until the file or the rule changes. `--again` asks once more: `lawcheck check --review --again --base main`.
-- `too-large-to-review`: the prompt of a file passes `reviewer.max_chars`, 50,000 characters by default, and Lawcheck never sends it. Split the file, or raise `max_chars` in `.lawcheck/config.yaml`.
-- `reviewer-bad-answer`: the model gave no verdict twice. Reword the rule file, or try another model.
-- `too-many-reviews`: the run needs more calls than `reviewer.max_calls`, 100 by default, and makes none. [A slow check](slow-check.md) shows how to keep calls bounded.
+- [`reviewer-unreachable`](codes.md#reviewer-unreachable): the server is down, the key is wrong, or the program is not signed in. The message names the cause. Fix it and run the same command again: `check --review` keeps the answers it got and asks the rest.
+- The reviewer failed a file you believe is right. Lawcheck keeps the fail on this machine and shows it again without a call, until the file or the rule changes. `--again` asks once more: `lawcheck check --review --again --base main`.
+- [`too-large-to-review`](codes.md#too-large-to-review): the prompt of a file passes `reviewer.max_chars`, 50,000 characters by default, and Lawcheck never sends it. Split the file, or raise `max_chars` in `.lawcheck/config.yaml`.
+- [`reviewer-bad-answer`](codes.md#reviewer-bad-answer): the model gave no verdict twice. Reword the rule file, or try another model.
+- [`too-many-reviews`](codes.md#too-many-reviews): the run needs more calls than `reviewer.max_calls`, 100 by default, and makes none. [A slow check](slow-check.md) shows how to keep calls bounded.
 - A new model or provider keeps every pass: the key of a pass covers the file and the rule, and no provider or model. Check the new setup with `lawcheck doctor --reviewer`.
