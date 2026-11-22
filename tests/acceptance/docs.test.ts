@@ -62,6 +62,9 @@ const LIST = [
 const TOPICS = LIST.filter((line) => line.startsWith('  ')).map((line) => ({ id: line.split('  ')[1]!, title: line.split('  ')[2]! }));
 const PARAGRAPH = example('change-paragraph');
 
+const IDS = TOPICS.map((t) => t.id);
+const terminal = (text: string): string => text.replace(/\[([^\]]+)\]\(([a-z-]+)\.md(?:#[^)]*)?\)/g, (link, label: string, id: string) => (IDS.includes(id) ? `${label} (lawcheck docs ${id})` : link));
+
 function page(id: string): string {
   return readFileSync(new URL(`../../docs/${id}.md`, import.meta.url), 'utf8');
 }
@@ -104,10 +107,8 @@ test('test 128: the list of topics, its JSON, and one page, outside git', async 
     assert.equal(json.code, 0);
     const law = await lawcheck(dir, ['docs', 'law']);
     assert.equal(law.stdout.split('\n')[0], '# The law file');
-    assert.equal(law.stdout, page('law'));
+    assert.equal(law.stdout, terminal(page('law')));
     assert.equal(law.code, 0);
-    const ids = TOPICS.map((t) => t.id);
-    const terminal = (text: string): string => text.replace(/\[([^\]]+)\]\(([a-z-]+)\.md(?:#[^)]*)?\)/g, (link, label: string, id: string) => (ids.includes(id) ? `${label} (lawcheck docs ${id})` : link));
     for (const { id } of TOPICS) {
       const result = await lawcheck(dir, ['docs', id], {}, [], { internal: id === 'codes' });
       assert.equal(result.stdout, terminal(page(id)), id);
@@ -192,7 +193,7 @@ test('test 417: lawcheck docs prints a link to another page as the command that 
     appendFileSync(join(copy, 'docs', 'law.md'), '\nSee [the codes](codes.md#law-invalid) and [the site](https://example.com/codes.md).\n');
     const cli = join(copy, 'dist', 'cli.js');
     const text = await lawcheckAt(cli, dir, ['docs', 'law']);
-    assert.equal(text.stdout, `${page('law')}\nSee the codes (lawcheck docs codes) and [the site](https://example.com/codes.md).\n`);
+    assert.equal(text.stdout, `${terminal(page('law'))}\nSee the codes (lawcheck docs codes) and [the site](https://example.com/codes.md).\n`);
     assert.equal(text.code, 0);
     const json = await lawcheckAt(cli, dir, ['docs', 'law', '--json']);
     assert.equal(JSON.parse(json.stdout).text, `${page('law')}\nSee [the codes](codes.md#law-invalid) and [the site](https://example.com/codes.md).\n`);
