@@ -73,7 +73,7 @@ Example: a comment at the end of a line that prints a warning. The comment names
 
 ## Verdict
 
-A verdict is the answer of the reviewer, pass or fail, for one file and one reviewer rule. Lawcheck writes each pass as a line of `.lawcheck/verdicts`. You commit that file. A later check reads the pass and calls no model. The pass holds until one of these changes:
+A verdict is the answer of the reviewer, pass or fail, for one file and one reviewer rule. Lawcheck writes each pass as a line of `.lawcheck/verdicts`. You commit that file. A later check reads the pass. It calls no model for that file and rule. The pass holds until one of these changes:
 
 - the file;
 - the text of the rule;

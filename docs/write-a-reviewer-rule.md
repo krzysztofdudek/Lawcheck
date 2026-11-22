@@ -1,6 +1,6 @@
 # Write a reviewer rule
 
-A [script rule](concepts.md#script-rule) can find `console.log` in a file. It cannot tell whether the message of `new Error('failed')` tells the caller what to do next. A [reviewer rule](concepts.md#reviewer-rule) can tell. With a reviewer rule, a language model reads each file against a [rule](concepts.md#rule) you write in plain words. At the end of these steps, a reviewer rule judges `src/core/`. Its [verdict](concepts.md#verdict) sits in `.lawcheck/verdicts`. A plain check reads that verdict and calls no model.
+A [script rule](concepts.md#script-rule) can find `console.log` in a file. It cannot tell whether the message of `new Error('failed')` tells the caller what to do next. A [reviewer rule](concepts.md#reviewer-rule) can tell. With a reviewer rule, a language model reads each file against a [rule](concepts.md#rule) you write in plain words. At the end of these steps, a reviewer rule judges `src/core/`. Its [verdict](concepts.md#verdict) sits in `.lawcheck/verdicts`. A plain check reads that verdict without a call to a model.
 
 The outputs below come from a repository whose `main` holds the `.lawcheck/` that `lawcheck init` makes. Its [law](concepts.md#law) has the [type](concepts.md#type) `library` of step 2 and no rule. On a branch made from `main`, you added `src/core/refund.ts`:
 

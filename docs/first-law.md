@@ -202,7 +202,7 @@ src/report.ts:1  warning[no-console]  writes to the terminal with console.log
   why:  Only the command layer writes to the terminal.
 ```
 
-The three changed files are the new files of `.lawcheck/`. Every file git lists counts, the files of the law included. The note line says the change edits the law ([What a check judges](change.md)). A finding outside the change is [debt](concepts.md#debt). Debt is a warning. It never fails the run.
+The three changed files are the new files of `.lawcheck/`. The files of the law count like any other file git lists. The note line says the change edits the law ([What a check judges](change.md)). A finding outside the change is [debt](concepts.md#debt). Debt is a warning. It never fails the run.
 
 ## 12. Fix the debt, or start the rule advisory
 
