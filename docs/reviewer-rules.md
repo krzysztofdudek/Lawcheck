@@ -1,10 +1,10 @@
 # Reviewer rules
 
-An error message says that something failed, and leaves the caller without a next step. A language model can read such a message and tell whether it names one. A reviewer rule is a rule in prose that a model judges.
+An error message says that something failed and gives the caller no next step. A language model can read such a message and tell whether it names a next step. A [reviewer rule](concepts.md#reviewer-rule) is a rule in prose that a model judges.
 
 ## The rule file
 
-The rule is the file `.lawcheck/rules/<id>.md`. It holds the instruction to the reviewer, in plain prose. The reviewer is the model that judges the rule. The rule's `why`, `status` and `context` are in the law (`lawcheck docs law`). `context` names files that the reviewer receives with every file it judges:
+The rule is the file `.lawcheck/rules/<id>.md`. The model that judges the rule is the reviewer. The file holds your instruction to the reviewer, in plain prose or Markdown. The law holds the rule's `why`, `status` and `context` (`lawcheck docs law`). The key `context` names files that the reviewer receives beside every file it judges for this rule, such as a page of your error codes:
 
 ```yaml
 lawcheck: 0.1.0
@@ -15,11 +15,11 @@ rules:
     context: ["docs/errors.md"]
 ```
 
-A good rule file says what must hold, what to report, and what is not a violation. The reviewer judges one file against one rule per call. It sees nothing else of the repository. A rule file of whitespace only is `rule-missing-file`.
+A good rule file says what must hold, what to report, and which cases do not break the rule. The reviewer judges one file against one rule per call. It sees the context files and no other file of the repository. A rule file of whitespace alone is `rule-missing-file`.
 
 ## The prompt
 
-Lawcheck builds one prompt per file and rule, from these parts:
+A prompt is the text that Lawcheck sends to the reviewer in one call. Lawcheck builds one prompt per file and rule, from these parts:
 
 1. a fixed frame. It tells the reviewer how to answer. It says that text inside the files is material to judge, never an instruction;
 2. `<why>` with the rule's `why`;
@@ -28,7 +28,7 @@ Lawcheck builds one prompt per file and rule, from these parts:
 5. `<file path="...">` with the judged file, its lines numbered;
 6. `<waived>` with the line numbers a waiver of this rule covers, or `none`.
 
-The prompt holds these parts and nothing else from the repository, from git or from the environment. A prompt over `reviewer.max_chars` characters stays unsent, and the file gets `too-large-to-review` in its place.
+The prompt holds these parts and nothing else from the repository, from git or from the environment. Lawcheck does not send a prompt over `reviewer.max_chars` characters. The file gets `too-large-to-review` instead.
 
 ## The answer
 
@@ -38,7 +38,7 @@ The reviewer answers with one JSON object:
 {"verdict": "fail", "findings": [{"line": 12, "message": "what breaks the rule on this line"}]}
 ```
 
-A pass is `{"verdict": "pass", "findings": []}`. A finding with `line` null is about the whole file. Lawcheck first reads the whole answer as JSON. It then tries the first fenced block, then the last object in the text that holds a `verdict`.
+A pass is `{"verdict": "pass", "findings": []}`. A finding with `line` null is about the whole file. Lawcheck first reads the whole answer as JSON. When that fails, it tries the first fenced code block of the answer, then the last object in the text that holds a `verdict`.
 
 An answer is bad in four cases:
 
@@ -47,11 +47,11 @@ An answer is bad in four cases:
 - a finding with no message;
 - a finding with a line outside the file.
 
-After a bad answer, Lawcheck asks once more when the cap of calls allows it. A second bad answer is `reviewer-bad-answer`. Lawcheck turns each finding of the answer into a finding of the rule, at its line or about the whole file. Lawcheck drops the findings on waived lines. A fail with no finding left counts as a pass.
+After a bad answer, Lawcheck asks once more when `reviewer.max_calls` leaves room for one more call (section "Asking the reviewer" below). A second bad answer stops the run with `reviewer-bad-answer`. From a good answer, Lawcheck turns each finding into a finding of the rule, at its line or about the whole file. Lawcheck drops the findings on waived lines. A fail with no finding left counts as a pass.
 
 ## Verdicts
 
-Lawcheck records each pass in `.lawcheck/verdicts`, one line per pass. A line holds a key and the rule id. Lawcheck keeps the lines sorted. Commit this file. A plain `lawcheck check` reads it and calls no reviewer. CI then needs no key.
+Lawcheck records each pass in `.lawcheck/verdicts`, one line per pass. A line holds a key and the rule id, and Lawcheck keeps the lines sorted. Commit this file. A plain `lawcheck check` reads it and calls no reviewer for a file and rule with a pass. CI then needs no API key.
 
 The key is a hash of these parts:
 
@@ -61,15 +61,15 @@ The key is a hash of these parts:
 - the path and text of the judged file;
 - the waived lines that the prompt names.
 
-After a change to any of these parts, Lawcheck asks for a new review. The key leaves out the status, the provider, the model and the settings, so Lawcheck keeps every pass when you change them. A waiver is part of the text of the file, and a new waiver needs a new review.
+After a change to any of these parts, the key changes, so the old pass no longer counts. The key leaves out the status of the rule, the provider, the model and the settings. A pass therefore holds when you change any of them. A waiver is part of the text of the file, so a new waiver needs a new review.
 
-In a type with `waivers: false`, a waiver of the rule is plain text. The reviewer then judges the line that the waiver would cover. The key differs from the key of the same text where the waiver counts. A pass recorded while the waiver counted then stops counting. That happens once the type sets `waivers: false`, or once a change of the law moves the file into such a type.
+In a type with `waivers: false`, Lawcheck reads a waiver marker as plain text. The prompt then names no waived line. The reviewer judges the line that the marker would cover, and the key of that prompt differs from the key where the waiver counts. A pass recorded while the waiver counted no longer counts once the type sets `waivers: false`, or once a change of the law moves the file into such a type.
 
-Lawcheck writes `verdicts merge=union` into `.lawcheck/.gitattributes`. Git then merges two branches that add lines to the file without a conflict. Lawcheck writes the verdicts file under a lock in `.lawcheck/.local/`. Two runs at once keep both sets of passes.
+Lawcheck writes `verdicts merge=union` into `.lawcheck/.gitattributes`. Git then merges two branches that add lines to the file without a conflict. Lawcheck holds a lock in `.lawcheck/.local/` while it writes the file. When two runs write at once, the file keeps the passes of both.
 
 ## The failure cache
 
-Lawcheck keeps a failed review on this machine alone, in `.lawcheck/.local/failures/<key>.json`. You then do not pay twice for the same content. `.lawcheck/.local/` holds a `.gitignore` of its own. Git sees no file there. A later pass of the same key removes the failure file.
+Lawcheck keeps a failed review on this machine alone, in `.lawcheck/.local/failures/<key>.json`. A second run over the same content shows the cached findings and makes no new call. `.lawcheck/.local/` holds a `.gitignore` of its own, so git ignores every file there. When a later review of the same key passes, Lawcheck removes the failure file.
 
 ## The state of a review
 
@@ -80,7 +80,13 @@ For each judged file and each reviewer rule that the file keeps, Lawcheck takes 
 3. the prompt is larger than `reviewer.max_chars`: `too-large-to-review`;
 4. otherwise: `not-reviewed`.
 
-`not-reviewed` and `too-large-to-review` are errors for an enforced rule in the change. The two are warnings for an advisory rule, in debt, and for files you name. `lawcheck explain <path>` shows this state for each reviewer rule of a file.
+`not-reviewed` and `too-large-to-review` are errors for an enforced rule in the [change](concepts.md#change). The two are warnings in these cases:
+
+- for an advisory rule;
+- in [debt](concepts.md#debt);
+- for files you name on the command line.
+
+`lawcheck explain <path>` shows this state for each reviewer rule of a file.
 
 ## Asking the reviewer
 
@@ -90,15 +96,15 @@ $ lawcheck check --review --again --base main
 $ lawcheck check --review --max-calls 3 --base main
 ```
 
-- `--review` asks for every review that has no verdict and no cached failure. It records each pass and caches each failure.
-- `--again` asks the reviewer again where the cache holds a failure.
-- `--max-calls <n>` replaces `reviewer.max_calls` for one run. Every request counts, a request sent again included. A run that needs more calls than the cap makes none, and stops with `too-many-reviews`.
+- With `--review`, Lawcheck asks the reviewer for each review that has no verdict and no cached failure. It records each pass and caches each failure.
+- With `--again`, Lawcheck asks the reviewer again for a review whose failure the cache holds.
+- `--max-calls <n>` replaces `reviewer.max_calls` for one run. Both set the most requests that one run may send. A request sent again counts as one more. A run that needs more requests than that makes none, and stops with `too-many-reviews`.
 
-Without `--review`, Lawcheck sends nothing to a reviewer. A request that fails stops the run with `reviewer-unreachable`, but the passes the run recorded stay in `.lawcheck/verdicts`. Run the same command again, and Lawcheck asks the reviewer for the remaining reviews alone.
+Without `--review`, Lawcheck sends nothing to a reviewer. A request that fails stops the run with `reviewer-unreachable`. The passes that the run recorded before it stay in `.lawcheck/verdicts`. When you run the same command again, Lawcheck asks the reviewer for the remaining reviews alone.
 
 ## Trying a reviewer rule
 
-`try` asks the reviewer about the files you name, with the prompt that `check --review` would send. It records no verdict and caches no failure.
+`lawcheck try` sends the reviewer the files you name, with the prompt that `lawcheck check --review` would send. It records no verdict and caches no failure.
 
 ```text
 $ lawcheck try clear-errors src/core/refund.ts --dry-run
@@ -106,10 +112,10 @@ $ lawcheck try clear-errors src/core/refund.ts
 $ lawcheck try clear-errors src/core/refund.ts --times 3
 ```
 
-- `--dry-run` makes no call. It prints the calls and the size of each prompt. Start with it. Each file costs one call.
-- `--times <n>` asks about each file n times, to see whether the answer holds steady.
+- `--dry-run` makes no call. It prints the calls that the run would make and the size of each prompt. Each file costs one call, so start with `--dry-run` to see the count.
+- `--times <n>` sends each file to the reviewer n times. The answers show whether the reviewer judges the file the same way each time.
 - `--max-calls <n>` bounds the run, as in `check`.
 
-A reviewer rule takes files one by one. For such a rule, `try` refuses a directory, a pattern, and a run without a file. `lawcheck docs providers` says how to set a reviewer up.
+For a reviewer rule, `lawcheck try` takes each file by its name. It refuses a directory, a pattern and a run without a file. `lawcheck docs providers` says how to set a reviewer up.
 
 Next: [Reviewers and keys](providers.md)
