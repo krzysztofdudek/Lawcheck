@@ -9,7 +9,6 @@ export default defineConfig({
   lang: 'en',
   title: 'Lawcheck',
   description: manifest.description,
-  rewrites: { 'first-law.md': 'index.md' },
   // The pages live in ../docs, and an import resolved from there would not find site/node_modules.
   vite: { resolve: { alias: { vue: dirname(createRequire(import.meta.url).resolve('vue/package.json')) } } },
   themeConfig: {
@@ -19,7 +18,7 @@ export default defineConfig({
       {
         text: 'Guides',
         items: [
-          { text: 'The first type and the first rule', link: '/' },
+          { text: 'The first type and the first rule', link: '/first-law' },
           { text: 'CI and git hooks', link: '/ci' },
         ],
       },
