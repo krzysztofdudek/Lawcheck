@@ -112,6 +112,7 @@ types:
     about: The pages lawcheck docs prints. docs/waivers.md and docs/false-alarm.md are left out, because Lawcheck reads a quoted waiver marker as a waiver.
     paths: ["docs/*.md", "!docs/waivers.md", "!docs/false-alarm.md"]
     rules: [docs-state-facts]
+    waivers: false
 
   manifest:
     about: The package manifest. src/adapters/package.ts reads the version from it.
