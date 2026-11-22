@@ -1,6 +1,6 @@
 # The first type and the first rule
 
-You end with a law of one [type](concepts.md#type) and one [script rule](concepts.md#script-rule). A script rule is a JavaScript file of your repository that finds breaches in the text of your files. `lawcheck try` and `lawcheck check` show the line of `src/report.ts` that breaks the rule.
+You end with a law of one [type](concepts.md#type) and one [script rule](concepts.md#script-rule). A script rule is a JavaScript file of your repository that returns [findings](concepts.md#finding) for the lines of your files that break it. `lawcheck try` and `lawcheck check` show the line of `src/report.ts` that breaks the rule.
 
 The outputs below come from a repository with two files on `main`:
 
@@ -11,7 +11,7 @@ Its `.gitignore` names `node_modules/`. You work on a branch made from `main`.
 
 ## 1. Start the law
 
-Run this at the root of the code you want checked, inside a git work tree:
+Run this in the folder of the code you want checked, inside a git work tree. That folder becomes the [root](concepts.md#law) of the law:
 
 ```text
 $ lawcheck init
@@ -183,7 +183,7 @@ src/report.ts:1  error[no-console]  writes to the terminal with console.log
 next: fix src/report.ts:1
 ```
 
-The check fails and exits 1. Without a path, a plain `lawcheck check` judges the files that differ from the [base](concepts.md#base). `src/report.ts` is the same as on `main`. A check against `main` passes on it. Step 11 lists it as debt.
+The check fails and exits 1. Without a path, a plain `lawcheck check` judges the files that differ from the [base](concepts.md#base). A check against `main` passes on `src/report.ts`, because the file is the same as on `main`. Step 11 lists it as debt.
 
 ## 11. See the debt
 

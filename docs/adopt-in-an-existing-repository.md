@@ -4,9 +4,9 @@ Your code already breaks the [rule](concepts.md#rule) you are about to write. A 
 
 ## Start the rule enforced or advisory
 
-An enforced rule fits when the old breaches are few. `lawcheck check --base main` passes the change that adds the law. That check judges only the files of `.lawcheck/`. The old code fails nothing until a change edits an old file. That change then fails on every breach in the file. The old lines count as well. The author of the change fixes those lines in the same change.
+An enforced rule fits when the old code holds few findings of the rule. `lawcheck check --base main` passes the change that adds the law, because that change holds only the files of `.lawcheck/`. The old code fails nothing until a change edits an old file. Then the change fails on every finding in that file, on old lines as much as on new ones. Its author fixes them in the same change.
 
-An advisory rule fits when the old breaches are many, or when other people edit the old files before you can fix them. The findings of an advisory rule are warnings. No change fails on them. The steps below take this path:
+An advisory rule fits when the old code holds many findings of the rule, or when other people edit the old files before you can fix them. The findings of an advisory rule are warnings. No change fails on them. The steps below take this path:
 
 - the rule starts as advisory;
 - `lawcheck check --full` lists the old [findings](concepts.md#finding) as [debt](concepts.md#debt);
@@ -139,7 +139,7 @@ src/core/report.ts:2  warning[no-console]  writes to the terminal with console.l
   why:  Only the command layer writes to the terminal.
 ```
 
-Lawcheck judges a changed file whole. The old line 2 is part of the change. The rule is advisory. Its finding is a warning. The run passes.
+The old line 2 is part of the change, because Lawcheck judges a changed file whole. The finding is a warning, as the rule is advisory. The run passes.
 
 ## 8. Pay the debt
 
@@ -218,6 +218,6 @@ next: fix src/core/report.ts:2
 ```
 
 - A CI job with no [base](concepts.md#base) stops with [`base-unreachable`](codes.md#base-unreachable): without a base, Lawcheck cannot tell the change from debt. Pass `--base`, or set `LAWCHECK_BASE` ([CI and git hooks](ci.md)).
-- A [reviewer rule](concepts.md#reviewer-rule) over old code gives [`not-reviewed`](codes.md#not-reviewed) debt for every file it binds. `lawcheck check --full --review` asks the reviewer about each of them. It makes one call per file and rule. A run that needs more calls than `reviewer.max_calls` makes none.
+- A [reviewer rule](concepts.md#reviewer-rule) over old code gives [`not-reviewed`](codes.md#not-reviewed) debt for every file it [binds](concepts.md#rule). `lawcheck check --full --review` asks the reviewer about each of them, with one call per file and rule. A run that needs more calls than `reviewer.max_calls` makes none.
 
 Next: [Lawcheck in Claude Code](claude-code.md)

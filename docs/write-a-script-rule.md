@@ -53,7 +53,7 @@ export function linesMatching(files, pattern, message) {
 
 ## 3. Write the rule
 
-The file of the rule is `.lawcheck/rules/no-fetch.mjs`. Its name is the id of the rule. The file exports the function `check`. Lawcheck calls it with the files. `check` returns a list of findings:
+The file of the rule is `.lawcheck/rules/no-fetch.mjs`, as the name of a rule file is the id of its rule. It exports `check`. Lawcheck calls that function with the files of the rule and gets back a list of findings:
 
 ```js
 import { linesMatching } from './lib/lines.mjs';
@@ -66,6 +66,8 @@ export function check({ files }) {
 A second rule imports `./lib/lines.mjs` in the same way. [Script rules](script-rules.md) says what `check` receives and what a finding holds.
 
 ## 4. See the files the rule binds
+
+A rule [binds](concepts.md#rule) the files of the types that list it.
 
 ```text
 $ lawcheck explain --rule no-fetch
@@ -83,7 +85,7 @@ rule no-fetch  script  enforced
 
 ## 5. Try the rule
 
-Without a path, `lawcheck try` runs a script rule on every file it binds. The rule binds the files of the types that list it: the two files of `core`. While no file has a type that lists the rule, `try` needs a path. Without a path, it then stops with `usage`. Run it without a path:
+Without a path, `lawcheck try` runs a script rule on every file it binds: here, the two files of `core`. A rule that no type lists binds no file, and then `try` needs a path. Without one, it refuses the command line with the error [`usage`](codes.md#usage). Run it without a path:
 
 ```text
 $ lawcheck try no-fetch
@@ -164,7 +166,7 @@ lawcheck: ERROR  1 error
 next: fix .lawcheck/rules/no-fetch.mjs, then run lawcheck try again
 ```
 
-The error names the file of the rule, though the line that throws is in the helper. The message names the file the call judged, `src/core/price.ts`. It names the error the rule threw as well. A broken rule says nothing about the code. `try` and `check` exit 2 on it ([rule-crashed](codes.md#rule-crashed)).
+The error names the file of the rule, though the line that throws is in the helper. Its message names `src/core/price.ts` and the error that the rule threw. `try` and `check` exit 2, because a broken rule says nothing about the code ([rule-crashed](codes.md#rule-crashed)).
 
 ## 11. Fix the helper
 
@@ -191,7 +193,7 @@ src/core/price.ts:2  warning[no-fetch]  calls fetch outside the api layer
 
 ## If it goes wrong
 
-- Lawcheck prints `rule-crashed`, and the message says the rule cannot find a package: the rule imports a package that no `node_modules` below the root holds. A rule may read nothing outside the root and the folder of Lawcheck. A package in a `node_modules` above the root, as a monorepo keeps it, does not load. Install the package below the root, or write the code in `.lawcheck/rules/lib/`.
+- Lawcheck prints `rule-crashed`, and the message says the rule cannot find a package: the rule imports a package that no `node_modules` below the [root](concepts.md#law) of the law holds. A rule may read nothing outside the root and the folder of Lawcheck. A package in a `node_modules` above the root, as a monorepo keeps it, does not load. Install the package below the root, or write the code in `.lawcheck/rules/lib/`.
 - Lawcheck prints `rule-crashed`, and the message says the rule passes 30 seconds on a file: one call took longer than 30 seconds. Lawcheck gives the load of the rule 30 seconds as well. Make the rule do less work per file.
 - Lawcheck prints `rules-too-slow`: the script rules of one run took over 600 seconds together. List the rule on fewer types, or narrow their paths.
 - Lawcheck prints `rule-crashed` with `writes` or `reads` and a path: the rule wrote a file, or read outside the root. Lawcheck stopped it. A rule may write no file. It may read no file outside the root and the folder of Lawcheck.

@@ -15,7 +15,7 @@ A test server that answers as Ollama does gave the answers below. A real model w
 
 ## 1. Write the rule file
 
-`init` makes no `rules/` folder. Create it with `mkdir -p .lawcheck/rules`. Then create `.lawcheck/rules/clear-errors.md`. In it, say what must hold, what to report, and what does not count:
+`init` makes no `rules/` folder, so create it with `mkdir -p .lawcheck/rules`. Then write the file `.lawcheck/rules/clear-errors.md`. It says what must hold, what to report, and what does not count:
 
 ```text
 Every error message a caller can see says what happened and what the caller can do next.
@@ -193,11 +193,11 @@ The plain check found the pass. It called no model. A CI job runs the same check
 
 ## If it goes wrong
 
-- Lawcheck prints [`reviewer-unreachable`](codes.md#reviewer-unreachable): the server is down, the key is wrong, or the program is not signed in. The message names the cause. Fix the cause. Then run the same command again. `check --review` keeps the answers it got before the failure. The second run sends requests for the rest.
+- Lawcheck prints [`reviewer-unreachable`](codes.md#reviewer-unreachable): the server is down, the key is wrong, or the program is not signed in. The message names the cause. Fix it, then run the same command again: `check --review` keeps the answers it got before the failure and asks the reviewer about the rest.
 - The reviewer failed a file you believe is right. Lawcheck keeps the fail on this machine. It shows the fail again without a call, until the file or the rule changes. With `--again`, Lawcheck asks the reviewer once more: `lawcheck check --review --again --base main`.
 - Lawcheck prints [`too-large-to-review`](codes.md#too-large-to-review): the prompt of a file holds more than `reviewer.max_chars` characters, 50,000 by default. Lawcheck never sends such a prompt. Split the file, or raise `max_chars` in `.lawcheck/config.yaml`.
 - Lawcheck prints [`reviewer-bad-answer`](codes.md#reviewer-bad-answer): the model gave no verdict twice. Reword the rule file, or try another model.
-- Lawcheck prints [`too-many-reviews`](codes.md#too-many-reviews): the run needs more calls than `reviewer.max_calls`, 100 by default. It makes none of them. [A slow check](slow-check.md) shows how to bound the calls.
-- A new model or provider keeps every pass. The key of a pass covers the file and the rule, and no provider or model. Check the new setup with `lawcheck doctor --reviewer`.
+- Lawcheck prints [`too-many-reviews`](codes.md#too-many-reviews): the run needs more calls than `reviewer.max_calls`, 100 by default. It makes none of them. [A slow check](slow-check.md) shows how to cap the calls.
+- After you change the model or the provider, Lawcheck keeps every recorded pass, because the key of a pass covers the file and the rule and holds no provider or model. Check the new setup with `lawcheck doctor --reviewer`.
 
 Next: [Bring a law into an existing repository](adopt-in-an-existing-repository.md)

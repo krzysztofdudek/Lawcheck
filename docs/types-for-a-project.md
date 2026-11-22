@@ -10,7 +10,7 @@ The outputs below come from a repository with `scripts/release.mjs` and five fil
 - `src/db/orders.ts`;
 - `src/generated/schema.ts`, which a code generator writes.
 
-You ran `lawcheck init` at its root ([The first type and the first rule](first-law.md)).
+You ran `lawcheck init` in its top folder, the [root](concepts.md#law) of the law ([The first type and the first rule](first-law.md)).
 
 ## 1. See the files without a type
 
@@ -84,7 +84,7 @@ src/api/orders.ts
   waivers:  none
 ```
 
-The `type` line gives the chain from the root type down to the type of the file: `source > api`. The `matched` line gives the pattern that matched at each level. The rules of every type in the chain bind the file.
+The `type` line gives the chain from the top-level type down to the type of the file: `source > api`. The `matched` line gives the pattern that matched at each level. The rules of every type in the chain [bind](concepts.md#rule) the file.
 
 ## 5. List the files of one type
 
@@ -103,7 +103,7 @@ type core  (source > core)  The business logic.
     src/core/price.ts
 ```
 
-`core` holds the test of `src/core/price.ts` too. The tests need rules of their own. Give them a type of their own.
+`core` holds the test of `src/core/price.ts` too. The next step gives the tests a type, because they need rules of their own.
 
 ## 6. Add a type for the tests
 
@@ -130,7 +130,7 @@ src/core/price.test.ts  error[type-overlap]  the file matches the types 'source'
 next: narrow the paths or content of the types that overlap in .lawcheck/law.yaml, then run lawcheck check
 ```
 
-`src/core/price.test.ts` matches the two root types `source` and `test`. A file has one type. Every run stops with exit 2 until one of the two types leaves the file out ([type-overlap](codes.md#type-overlap)).
+`src/core/price.test.ts` matches the two top-level types `source` and `test`. A file has one type. Every run stops with exit 2 until one of the two types leaves the file out ([type-overlap](codes.md#type-overlap)).
 
 ## 8. Leave the tests out of source
 
@@ -203,7 +203,7 @@ test('a price is a whole number', () => price);
 
 ## 14. Give the tests beside the code a type by their text
 
-A `content` expression gives a type to the files whose text matches it. Put the type with `content` under the type that takes the file by its paths. Lawcheck tests a file against a subtype only after the file matched the parent. In `.lawcheck/law.yaml`, replace the three lines of `core` with these:
+A `content` expression gives a type to the files whose text matches it. Put such a type under the type that takes the file by its paths, because Lawcheck tests a subtype only on the files that matched its parent. In `.lawcheck/law.yaml`, replace the three lines of `core` with these:
 
 ```yaml
       core:
@@ -216,7 +216,7 @@ A `content` expression gives a type to the files whose text matches it. Put the 
             content: "from 'node:test'"
 ```
 
-A type with `content` beside `core` does not work. `core` takes the test by its paths alone. The two types of one level would both match it. Every run would then stop with `type-overlap`.
+A type with `content` beside `core` does not work. Both types of one level would match the test, because `core` takes it by its paths alone. Every run would then stop with `type-overlap`.
 
 ## 15. See the type a file gets by its text
 
