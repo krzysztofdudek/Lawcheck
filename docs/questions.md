@@ -38,7 +38,7 @@ A change of provider or model keeps every recorded pass, since neither is part o
 
 ## Submodules and nested repositories
 
-Lawcheck does not look into a submodule, or into a repository of its own inside this one, and prints a note when a type's paths reach into one. Give that repository a law of its own and run Lawcheck there. [The law file](law.md#the-type-of-a-file) says which files get a type.
+Lawcheck does not look into a submodule, or into a repository of its own inside this one, and prints a note when a type's paths reach into one. Give that repository a law of its own and run Lawcheck there. [A monorepo](monorepo.md#_6-leave-a-nested-repository-to-its-own-law) shows the note.
 
 ## Generated and vendored files
 
@@ -46,7 +46,7 @@ A file git ignores has no type, and Lawcheck never judges a file with no type. A
 
 ## Another coding agent
 
-Add one line to the agent's instructions file: Run `lawcheck prime` at the start of every session and follow it. The agent then checks when it follows the primer, and nothing checks a file after an edit. [The Claude Code plugin](plugin.md) says what the plugin adds in Claude Code.
+Add one line to the agent's instructions file: Run `lawcheck prime` at the start of every session and follow it. The agent then checks when it follows the primer, and nothing checks a file after an edit. [Other coding agents](other-agents.md#_1-add-one-line-to-the-instructions-file) shows what the agent reads and what it skips.
 
 ## The pages in the terminal
 
