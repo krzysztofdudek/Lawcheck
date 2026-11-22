@@ -110,7 +110,7 @@ export function absolutePath(env) {
 export const NO_CURRENT_FOLDER = 'NoDefaultCurrentDirectoryInExePath';
 
 // On Windows a package manager installs a program as name.cmd beside a POSIX script called name, which Windows cannot start.
-// An absolute PATH entry, with the surrounding double quotes cmd.exe allows removed; a relative or empty entry is not one.
+// cmd.exe accepts a PATH entry written in double quotes, and the quotes are not part of the folder.
 export function absoluteEntry(dir) {
   const bare = WINDOWS && dir.length >= 2 && dir.startsWith('"') && dir.endsWith('"') ? dir.slice(1, -1) : dir;
   return bare !== '' && isAbsolute(bare) ? bare : null;
