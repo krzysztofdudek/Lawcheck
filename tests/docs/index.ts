@@ -26,8 +26,8 @@ export async function receiptCheck(law: string): Promise<{ code: number; stdout:
 }
 
 export async function scenario(page: Page): Promise<void> {
-  const readme = blocksOf(readFileSync(join(ROOT, 'README.md'), 'utf8')).find((block) => block.key === 'block 1 under "Try it"');
-  assert.equal(page.text('block 1 under "Try it"'), readme?.text, 'the commands of README.md, which test 740 holds');
+  const install = blocksOf(readFileSync(join(ROOT, 'docs/install.md'), 'utf8')).find((block) => block.key === 'block 1 under "Install globally"');
+  assert.equal(page.text('block 1 under "Try it"'), `${install?.text.replace(/^\$ /, '')}\nlawcheck docs quick-start`, 'the install line of docs/install.md, which test 205 runs, then the quick start');
   assert.equal(page.text('block 2 under "A law and a finding"'), '$ lawcheck check --base main');
   const run = await receiptCheck(page.text('block 1 under "A law and a finding"') + '\n');
   assert.equal(run.code, 1, run.stdout);
