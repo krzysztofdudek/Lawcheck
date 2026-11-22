@@ -68,7 +68,7 @@ export const LIMITS_LARGE_RUN_MS = 300_000;
 export const LIMITS_RULES_RUN_MS = 700_000;
 export const LIMITS_STOPPED_MS = 2_000;
 
-// A time budget is at least this many times the measured time (tests/README.md).
+// The factor slowBudget applies to the measured time above a test's fixed waits (tests/README.md).
 export const SLOW_MARGIN = 20;
 
 export type System = 'linux' | 'darwin' | 'win32';
