@@ -14,7 +14,7 @@ The agent reads the rules file, and nothing in the session checks the code again
 
 You write the rules about files as a law, and `lawcheck check` judges the code against it. It prints each [finding](concepts.md#finding) with its file, its line and the rule it breaks, and exits 1 while the code breaks the law. `lawcheck prime` prints the law for the agent, with the changes to the law the agent may make alone and the ones that need your word.
 
-Lawcheck works through the rules file too. For an agent other than Claude Code, one line in its instructions file tells it to run `lawcheck prime` at the start of every session, and Lawcheck ships no hook for that agent. In Claude Code, the plugin hands the agent the output of `lawcheck prime` when a session starts, resumes, is cleared or is compacted, so `CLAUDE.md` needs no line for Lawcheck.
+Lawcheck works through the rules file too. For an agent other than Claude Code, one line in its instructions file tells it to run `lawcheck prime` at the start of every session, and Lawcheck ships no hook for that agent ([Other coding agents](other-agents.md)). In Claude Code, the plugin hands the agent the output of `lawcheck prime` when a session starts, resumes, is cleared or is compacted, so `CLAUDE.md` needs no line for Lawcheck.
 
 | Your case | Use |
 |---|---|
