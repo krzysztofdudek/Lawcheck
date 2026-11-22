@@ -41,7 +41,7 @@ Lawcheck ignores other fields. A rule that returns an empty list reports no find
 
 ## Calls
 
-Lawcheck calls `check` once for each file of the run whose type, or a type above it, lists the rule. It makes the calls in path order, one call at a time. A plain `lawcheck check` passes the rule the files of the [change](concepts.md#change). With `--full`, Lawcheck passes it every file. Keep nothing between calls in a rule. A rule that counts the files it has seen reaches one count in a plain check and another with `--full`, so its findings differ between the two.
+Lawcheck calls `check` once for each file of the run whose type, or a type above it, lists the rule. It makes the calls in path order, one call at a time. A plain `lawcheck check` passes the rule the files of the [change](concepts.md#change). With `--full`, Lawcheck passes it every file that the rule binds, changed or not. Keep nothing between calls in a rule. A rule that counts the files it has seen reaches one count in a plain check and another with `--full`, so its findings differ between the two.
 
 Lawcheck does not load a rule that has no file to judge in the run.
 
@@ -55,7 +55,7 @@ Lawcheck runs each script rule in a Node process of its own. This page calls tha
 
 Lawcheck writes what the rule prints, on either stream, to its own standard error.
 
-A rule has 30 seconds to load and 30 seconds for each call. A rule that takes longer is `rule-crashed`. All script rules of one run have 600 seconds together. A run that goes past them stops with `rules-too-slow`. Lawcheck reports it at the file that each unfinished rule was judging.
+A rule has 30 seconds to load and 30 seconds for each call. A rule that takes longer is `rule-crashed`. All script rules of one run have 600 seconds together. A run that goes past the 600 seconds stops with `rules-too-slow`. Lawcheck reports that code at the file that each unfinished rule was judging.
 
 The rule runner refuses these actions:
 
@@ -85,7 +85,7 @@ The rule runner does not shut a rule off from your machine. A rule can still do 
 - read every file under the root, `.git/` and ignored files such as `.env` included;
 - read any file you can read, through a symbolic link under the root that git does not track;
 - read a file elsewhere in the git work tree, through a tracked link. A tracked link that leads outside the work tree stops the run with `link-outside-root` before any rule starts;
-- do what Node's permission model leaves open. On Node 24 that includes opening a network connection, which Node 25 and later refuse under `--permission`;
+- do what Node's permission model leaves open. On Node 24, that includes opening a network connection. Node 25 and later refuse that connection under `--permission`, because the rule runner passes no `--allow-net`;
 - put what it read into its messages. Lawcheck prints those messages, and a CI job keeps them in its log.
 
 A rule file is code of the repository. It runs with your rights, as the tests do. Run `lawcheck check` and `lawcheck try` only where you would run the tests of the change.
@@ -103,7 +103,7 @@ Lawcheck reports `rule-crashed` and exits with code 2 when the rule:
 - ends its process before it answers, or sends a message that Lawcheck did not ask for;
 - leaves a promise rejected with no handler, or a timer that throws, while its process runs. Its message names no judged file. A failure during the load adds the words `in its load`. After the last call, Lawcheck waits once, at most 2 seconds, for what the rule left running.
 
-In the other cases, the message of `rule-crashed` names the judged file, or the load. A rule may throw a value with no string form, such as an object with no prototype. The message then holds the error JavaScript gives for it. A proxy whose every trap throws something other than an error raises no such error. Its message reads `a value with no string form`. Lawcheck names each crashed rule once in a run.
+In the other cases, the message of `rule-crashed` names the judged file, or the load. A rule may throw a value with no string form, such as an object with no prototype. The message then holds the error JavaScript gives for it. A proxy whose every trap throws something other than an error raises no such error. For such a value, the message reads `a value with no string form`. Lawcheck names each crashed rule once in a run.
 
 When Node cannot start the rule runner at all, Lawcheck stops with `runner-failed` and names no rule. The message holds Node's own error line. To fix it, reinstall Lawcheck.
 
