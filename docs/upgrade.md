@@ -33,7 +33,7 @@ alpha.2 sends the reviewer the same prompt as alpha.1. The upgrade needs no new 
 
 ## Before you upgrade
 
-- A file that alpha.1 passed can hold a use that alpha.2 forbids. A plain check fails on it the first time a change touches that file. Step 4 lists those files before a change does.
+- A file that alpha.1 passed can hold a use that alpha.2 forbids. A plain check fails on it the first time a change touches that file. You list those files before a change does in [List what the new version finds](#_4-list-what-the-new-version-finds).
 - A grammar is the file that describes the syntax of one language. The grammars that Runes 1.2.0 ships make the install about 34 MB larger than the install of alpha.1.
 - CI and the git hooks run the version that the project's lockfile pins. Commit `package.json` and the lockfile with the upgrade. Then the CI job, the hooks and each machine's copy in the project run alpha.2.
 
@@ -70,7 +70,7 @@ claude plugin marketplace update lawcheck-marketplace
 claude plugin update lawcheck@lawcheck-marketplace
 ```
 
-Restart Claude Code. The plugin starts the Lawcheck that the `runner` setting names. After step 1, that Lawcheck is alpha.2.
+Restart Claude Code. The plugin starts the Lawcheck that the `runner` setting names. After you install the new version ([Install the new version](#_1-install-the-new-version)), that Lawcheck is alpha.2.
 
 ## 4. List what the new version finds
 
@@ -150,7 +150,7 @@ The note names the change of the law. The person who reviews the pull request se
 
 ## A law that passed now fails
 
-A plain `lawcheck check` judges the files that differ from the base. An error anywhere in a changed file fails the run ([What a check judges](change.md#the-change)). A branch with the upgrade alone passes. The check fails on the first change that touches a file with a new finding. Without step 5, `check` prints this on a branch that adds a test to `src/core/price.test.ts`:
+A plain `lawcheck check` judges the files that differ from the base. An error anywhere in a changed file fails the run ([What a check judges](change.md#the-change)). A branch with the upgrade alone passes. The check fails on the first change that touches a file with a new finding. Without the test type of [Give the tests a type of their own](#_5-give-the-tests-a-type-of-their-own), `check` prints this on a branch that adds a test to `src/core/price.test.ts`:
 
 ```text
 $ lawcheck check --base main
@@ -165,7 +165,7 @@ src/core/price.test.ts:4  error[forbidden-use]  core may not use cli (src/cli/pr
 next: fix src/core/price.test.ts:4
 ```
 
-The branch did not touch line 4. That line holds the `vi.mock` call. alpha.1 passes the same branch, because it does not read `vi.mock`. Step 5 is the fix.
+The branch did not touch line 4. That line holds the `vi.mock` call. alpha.1 passes the same branch, because it does not read `vi.mock`. You fix it with the test type of [Give the tests a type of their own](#_5-give-the-tests-a-type-of-their-own).
 
 ## If it goes wrong
 

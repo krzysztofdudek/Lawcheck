@@ -56,7 +56,7 @@ With `--no-install`, npx runs the copy installed in the project. It downloads no
 
 ## The runner setting
 
-`lawcheck init` makes the folder `.lawcheck/`, as step 1 of [Quick start](quick-start.md) shows. After it, write the value of `runner` from the table into `.lawcheck/config.yaml`:
+`lawcheck init` makes the folder `.lawcheck/`, as the quick start shows in [Start the law](quick-start.md#_1-start-the-law). After it, write the value of `runner` from the table into `.lawcheck/config.yaml`:
 
 ```yaml
 runner: pnpm

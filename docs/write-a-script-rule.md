@@ -198,7 +198,7 @@ src/core/price.ts:2  warning[no-fetch]  calls fetch outside the api layer
 - Lawcheck prints `rules-too-slow`: the script rules of one run took over 600 seconds together. List the rule on fewer types, or narrow their paths.
 - Lawcheck prints `rule-crashed` with `writes` or `reads` and a path: the rule wrote a file, or read outside the root. Lawcheck stopped it. A rule may write no file. It may read no file outside the root and the folder of Lawcheck.
 - The rule finds nothing in a file where you expected a finding: the file has no type that lists the rule. `lawcheck explain <path>` shows its rules.
-- `lawcheck try no-fetch` stops with [`usage`](codes.md#usage): no file has a type that lists the rule. Name the files, or list the rule on a type as in step 1.
+- `lawcheck try no-fetch` stops with [`usage`](codes.md#usage): no file has a type that lists the rule. Name the files, or list the rule on a type as in [Add the rule to the law](#_1-add-the-rule-to-the-law).
 - `lawcheck check` without a path passes on code that breaks a new rule: without a path or `--full`, it judges the changed files only. `lawcheck check --full` lists the rest as debt.
 
 Next: [Write a reviewer rule](write-a-reviewer-rule.md)

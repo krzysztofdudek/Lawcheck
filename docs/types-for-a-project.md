@@ -239,8 +239,8 @@ The `matched` line names the pattern and the content that gave the file the type
 
 ## If it goes wrong
 
-- Lawcheck prints `type-overlap` for two subtypes that match one file, such as `api` and `core`: add a `!` pattern to one of them, as in step 8.
-- Lawcheck prints `type-overlap` for a type with `content` and a type beside it: move the type with `content` under the type that takes the file by its paths, as in step 14.
+- Lawcheck prints `type-overlap` for two subtypes that match one file, such as `api` and `core`: add a `!` pattern to one of them, as [Leave the tests out of source](#_8-leave-the-tests-out-of-source) does.
+- Lawcheck prints `type-overlap` for a type with `content` and a type beside it: move the type with `content` under the type that takes the file by its paths, as [Give the tests beside the code a type by their text](#_14-give-the-tests-beside-the-code-a-type-by-their-text) does.
 - Lawcheck prints `law-invalid`, and the message says the pattern `holds ** beside other characters in one segment`: `**` stands for a whole segment. Write `src/api/**/*.ts`, never `src/api/**.ts`.
 - A file of `src/api/v1/` gets `source` and no `api`, with the pattern `src/api/*`: `*` stops at a `/`. Write `src/api/**`.
 - `explain` says the file matches the paths of a type but not its content: the type has a `content` expression. The text of the file does not match it.

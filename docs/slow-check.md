@@ -1,6 +1,6 @@
 # A slow check
 
-A check in a git hook runs on each commit. In CI, it runs on each pull request. A check that takes two minutes costs two minutes every time. These steps find the slow part. Reviewer calls are the one part of a run that can cost money. Step 5 puts a bound on them.
+A check in a git hook runs on each commit. In CI, it runs on each pull request. A check that takes two minutes costs two minutes every time. These steps find the slow part. Reviewer calls are the one part of a run that can cost money. You limit them in [Bound the reviewer](#_5-bound-the-reviewer).
 
 The outputs below come from a repository that joins two other guides. It has the [script rule](concepts.md#script-rule) `no-console` of [Bring a law into an existing repository](adopt-in-an-existing-repository.md). It has the [reviewer rule](concepts.md#reviewer-rule) `clear-errors` and the Ollama reviewer of [Write a reviewer rule](write-a-reviewer-rule.md). Its [law](concepts.md#law):
 
@@ -42,7 +42,7 @@ src/core/tax.ts  error[not-reviewed]  clear-errors has no verdict for this conte
 next: lawcheck check --review --base main  (2 reviewer calls)
 ```
 
-A plain check judges the files of the [change](concepts.md#change) against a [base](concepts.md#base). The first line names that base. When the first line ends in `(no base: every file counts as changed)`, the run judges every file (step 6). With `--full`, a check judges every file that has a [type](concepts.md#type). A check without `--review` calls no reviewer. Its `next:` line counts the calls that a review would make.
+A plain check judges the files of the [change](concepts.md#change) against a [base](concepts.md#base). The first line names that base. When the first line ends in `(no base: every file counts as changed)`, the run judges every file ([Give the check its base](#_6-give-the-check-its-base)). With `--full`, a check judges every file that has a [type](concepts.md#type). A check without `--review` calls no reviewer. Its `next:` line counts the calls that a review would make.
 
 ## 2. Check one file
 
@@ -57,7 +57,7 @@ src/core/tax.ts  warning[not-reviewed]  clear-errors has no verdict for this con
   why:  a reviewer rule says nothing about content it has not judged
 ```
 
-A check of named files judges those files alone, with no base and no reviewer call. Compare its time with the time of step 1. Then name a folder or a pattern, to find the folder whose files take the time.
+A check of named files judges those files alone, with no base and no reviewer call. Compare its time with the time of the run in [See what the run judges](#_1-see-what-the-run-judges). Then name a folder or a pattern, to find the folder whose files take the time.
 
 ## 3. Run each script rule alone
 
@@ -145,7 +145,7 @@ src/core/tax.ts  error[not-reviewed]  clear-errors has no verdict for this conte
 next: lawcheck check --review  (2 reviewer calls)
 ```
 
-The run counts all 9 files that git lists as changed. Step 1 counted 2. `lawcheck doctor` without `--base` prints a note in its `base` line:
+The run counts all 9 files that git lists as changed. The run in [See what the run judges](#_1-see-what-the-run-judges) counted 2. `lawcheck doctor` without `--base` prints a note in its `base` line:
 
 ```text
 $ lawcheck doctor

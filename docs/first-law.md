@@ -52,7 +52,7 @@ export function check({ files }) {
 
 The rule reads lines as text. It parses no comments. It finds `console.log` inside a comment or a string, such as a code example in a doc comment. To skip those, a rule removes the comments from the text first. [Script rules](script-rules.md) has the whole contract.
 
-Until step 3 adds the rule to the law, a command that reads the law stops with [`rule-file-without-entry`](codes.md#rule-file-without-entry) and exit 2.
+Until you add the rule to the law in [Write the law](#_3-write-the-law), a command that reads the law stops with [`rule-file-without-entry`](codes.md#rule-file-without-entry) and exit 2.
 
 ## 3. Write the law
 
@@ -100,7 +100,7 @@ src/report.ts:1  error[no-console]  writes to the terminal with console.log
 next: fix src/report.ts:1
 ```
 
-The check fails and exits 1. Without a path, `lawcheck check` judges the files that differ from the [base](concepts.md#base). A check against `main` with no path passes, because `src/report.ts` is the same as on `main`. Step 6 lists the finding of that file as [debt](concepts.md#debt).
+The check fails and exits 1. Without a path, `lawcheck check` judges the files that differ from the [base](concepts.md#base). A check against `main` with no path passes, because `src/report.ts` is the same as on `main`. A check with `--full` lists the finding of that file as [debt](concepts.md#debt) ([See the debt](#_6-see-the-debt)).
 
 ## 5. See what a file gets
 
@@ -204,12 +204,12 @@ After you fix the debt, delete the `status` line. The rule is then enforced agai
 
 ## If it goes wrong
 
-- `lawcheck check` passes, and you expected the finding in `src/report.ts`: without a path, a check judges only the changed files. Add `--full`, as in step 6.
+- `lawcheck check` passes, and you expected the finding in `src/report.ts`: without a path, a check judges only the changed files. Add `--full`, as in [See the debt](#_6-see-the-debt).
 - Lawcheck prints `law-invalid`: the law misspells a key, such as `path` for `paths`. The message names the line and ends with the nearest known key, `(did you mean 'paths'?)`.
 - Lawcheck prints `rule-missing-file`: the law names a rule, and `.lawcheck/rules/` holds no file of that name. The file name must be the rule id followed by `.mjs`.
-- Lawcheck prints `rule-file-without-entry`: a file in `.lawcheck/rules/` names no rule of the law, as between steps 2 and 3. Give the file the rule id as its name, or add an entry for it.
+- Lawcheck prints `rule-file-without-entry`: a file in `.lawcheck/rules/` names no rule of the law, as between [Write the rule file](#_2-write-the-rule-file) and [Write the law](#_3-write-the-law). Give the file the rule id as its name, or add an entry for it.
 - Lawcheck prints `rule-crashed`: the rule threw an error or returned something other than a list of findings. [Write a script rule](write-a-script-rule.md) shows how to find the cause.
 - `lawcheck explain` answers `none: git ignores it, so Lawcheck never sees it`: `.gitignore` names the file. No type takes a file that git ignores.
-- `lawcheck try no-console` without a path stops with [`usage`](codes.md#usage): no file has a type that lists the rule yet. Name a file, as in step 7.
+- `lawcheck try no-console` without a path stops with [`usage`](codes.md#usage): no file has a type that lists the rule yet. Name a file, as in [Try the rule on one file](#_7-try-the-rule-on-one-file).
 
 Next: [Types for an existing project](types-for-a-project.md)

@@ -4,7 +4,7 @@ A [script rule](concepts.md#script-rule) can find `console.log` in a file. It ca
 
 You end with a reviewer rule that judges `src/core/`. Lawcheck records the [verdict](concepts.md#verdict) of the reviewer in `.lawcheck/verdicts`. A later `lawcheck check` without `--review` reads that verdict in place of a call to the model.
 
-The outputs below come from a repository whose `main` holds the `.lawcheck/` that `lawcheck init` makes. Its [law](concepts.md#law) has the [type](concepts.md#type) `library` of step 2 and no rule. On a branch made from `main`, you added `src/core/refund.ts`:
+The outputs below come from a repository whose `main` holds the `.lawcheck/` that `lawcheck init` makes. Its [law](concepts.md#law) has the [type](concepts.md#type) `library` that [Put the rule in the law](#_2-put-the-rule-in-the-law) shows, without the rule. On a branch made from `main`, you added `src/core/refund.ts`:
 
 ```ts
 export function refund(paid: boolean): number {

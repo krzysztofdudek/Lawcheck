@@ -97,8 +97,8 @@ lawcheck: the turn ended while lawcheck check still fails on the files that chan
 
 The plugin has two settings, and both are on by default:
 
-- `check_after_edit` turns on the check of step 4;
-- `check_before_stop` turns on the check of step 5.
+- `check_after_edit` turns on the check after each edit ([See the check after an edit](#_4-see-the-check-after-an-edit));
+- `check_before_stop` turns on the check before the agent finishes ([See the check before the agent finishes](#_5-see-the-check-before-the-agent-finishes)).
 
 In a session, the command `/plugin configure lawcheck@lawcheck-marketplace` opens the two settings. From a terminal, this line switches off the check after an edit:
 
@@ -110,7 +110,7 @@ Then start Claude Code again. From then on, the plugin checks no file after an e
 
 ## If it goes wrong
 
-- The agent gets the message that `lawcheck prime` did not run because `lawcheck was not found`. The plugin found no Lawcheck through the command of the `runner` setting, which is `lawcheck` on your `PATH` by default. Install Lawcheck as in step 1, then start a new session.
+- The agent gets the message that `lawcheck prime` did not run because `lawcheck was not found`. The plugin found no Lawcheck through the command of the `runner` setting, which is `lawcheck` on your `PATH` by default. Install Lawcheck as [Install Lawcheck](#_1-install-lawcheck) says, then start a new session.
 - The repository has no law. At the start of the session, the plugin gives the agent two lines: the folder has no `.lawcheck/law.yaml`, and the agent may start one with `lawcheck init` only when you ask for it.
 - The agent ended its turn, and CI fails. The plugin judges the files of the turn alone, with no [base](concepts.md#base). It never passes `--review`. Its check therefore shows a missing review as a warning. CI judges the whole [change](concepts.md#change) and fails on `not-reviewed` ([CI and git hooks](ci.md)).
 - More than 1,000 files changed in a turn. The plugin skips the check before the end of the turn and prints one line that says so.

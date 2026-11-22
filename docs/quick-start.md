@@ -2,7 +2,7 @@
 
 You write down the architecture and the rules of your repository. Lawcheck checks your code against them. It tells your coding agent which line breaks which rule. In five steps you write a law with one type and one `may_use` line. After you break it with one import, `lawcheck check` names the line. You need no model and no key.
 
-Before step 1, install Lawcheck as [Install](install.md) says. Start in a new repository. Then each output you get matches the one on this page:
+Before you start the law, install Lawcheck as [Install](install.md) says. Start in a new repository. Then each output you get matches the one on this page:
 
 ```text
 $ git init shop
@@ -17,7 +17,7 @@ export function print(text: string): void {
 }
 ```
 
-In your own repository, use your own folders in step 2. In step 4, write an import from one of those folders into the other.
+In your own repository, use your own folders in [Describe one type](#_2-describe-one-type). In [Write a file that breaks it](#_4-write-a-file-that-breaks-it), write an import from one of those folders into the other.
 
 ## 1. Start the law
 

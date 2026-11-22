@@ -134,7 +134,7 @@ $ git add .lawcheck/verdicts .lawcheck/.gitattributes
 $ git commit --no-edit
 ```
 
-`lawcheck explain src/core/price.ts` then shows `reviewed`, as in step 6.
+`lawcheck explain src/core/price.ts` then shows `reviewed`, as in [See the teammate's review on main](#_6-see-the-teammate-s-review-on-main).
 
 ## A change of the law
 
