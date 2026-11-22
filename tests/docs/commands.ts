@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { COMMANDS, USAGE } from '../../dist/args.js';
 import { git, inTemp, lawcheck, newRepository, NO_CONSOLE, write } from '../acceptance/helpers.ts';
@@ -17,11 +18,13 @@ const RUNS: [heading: string, at: number, code: number][] = [
   ['doctor', 2, 0],
 ];
 const ALONE = ['--version', '--help'];
+const INIT_LAW = 'block 4 under "init"';
 
 const key = (heading: string, at: number) => `block ${at} under "${heading}"`;
 
 export const claims: Claims = Object.fromEntries([
   [LAW, SCENARIO],
+  [INIT_LAW, SCENARIO],
   ...COMMANDS.map((command) => [key(command, 1), SCENARIO]),
   ...RUNS.flatMap(([heading, at]) => [[key(heading, at), SCENARIO], [key(heading, at + 1), SCENARIO]]),
   ...ALONE.map((flag) => [key(flag, 1), SCENARIO]),
@@ -59,6 +62,7 @@ export async function scenario(page: Page): Promise<void> {
       else if (heading === 'doctor') assert.equal(run.stdout.replace(`Node ${process.versions.node};`, 'Node 24.11.0;'), shown);
       else assert.equal(run.stdout, shown, argv.join(' '));
     }
+    assert.equal(readFileSync(join(fresh, '.lawcheck', 'law.yaml'), 'utf8'), page.text(INIT_LAW) + '\n', 'the law init writes');
     for (const flag of ALONE) {
       const run = await lawcheck(repo, [flag]);
       assert.deepEqual([run.code, run.stdout], [0, page.text(key(flag, 1)) + '\n'], flag);
