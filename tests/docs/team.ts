@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { rmSync } from 'node:fs';
+import { readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { parse } from 'yaml';
 import { parseConfig } from '../../dist/config.js';
@@ -20,8 +20,8 @@ export const claims: Claims = {
   'block 1 under "4. Commit what the review wrote"': SCENARIO,
   'block 2 under "4. Commit what the review wrote"': SCENARIO,
   'block 1 under "5. Merge two branches that both recorded reviews"': SCENARIO,
-  'block 1 under "6. Check that both reviews hold"': SCENARIO,
-  'block 2 under "6. Check that both reviews hold"': SCENARIO,
+  'block 1 under "6. See the teammate\'s review on main"': SCENARIO,
+  'block 2 under "6. See the teammate\'s review on main"': SCENARIO,
   'block 1 under "1. Write the attribute"': SCENARIO,
   'block 1 under "2. Merge the file again"': SCENARIO,
   'block 1 under "3. Commit the merge"': SCENARIO,
@@ -42,7 +42,7 @@ export async function scenario(page: Page): Promise<void> {
   assert.ok('config' in parseConfig(config), config);
   assert.equal((parse(config) as { reviewer: { provider: string } }).reviewer.provider, 'anthropic', 'the page names the key of anthropic');
   const review = command(page.text('block 1 under "3. Record the reviews before you push"'), 'lawcheck');
-  const explain = command(page.text('block 1 under "6. Check that both reviews hold"'), 'lawcheck');
+  const explain = command(page.text('block 1 under "6. See the teammate\'s review on main"'), 'lawcheck');
   const [add, commit] = page.text('block 1 under "3. Commit the merge"').split('\n');
 
   await withFake(async (fake) => {
@@ -76,7 +76,7 @@ export async function scenario(page: Page): Promise<void> {
       await branches(repo, true);
       shell(repo, page.text('block 1 under "5. Merge two branches that both recorded reviews"').replace('git merge', 'git merge --no-edit'));
       const explained = await lawcheck(repo, explain);
-      assert.deepEqual([explained.code, explained.stdout], [0, page.text('block 2 under "6. Check that both reviews hold"') + '\n']);
+      assert.deepEqual([explained.code, explained.stdout], [0, page.text('block 2 under "6. See the teammate\'s review on main"') + '\n']);
     });
 
     await inTemp(async (dir) => {
@@ -87,8 +87,10 @@ export async function scenario(page: Page): Promise<void> {
       shell(repo, page.text('block 1 under "2. Merge the file again"'));
       shell(repo, add!);
       shell(repo, commit!);
-      const explained = await lawcheck(repo, ['explain', 'src/core/price.ts']);
-      assert.match(explained.stdout, /  clear-errors  reviewer  enforced  from library  reviewed  /, 'the pass of the branch merged second holds');
+      assert.doesNotMatch(readFileSync(join(repo, '.lawcheck/verdicts'), 'utf8'), /^(<{7}|={7}|>{7})/m, 'no conflict marker is left');
+      assert.equal(git(repo, 'show', 'HEAD:.lawcheck/verdicts').split('\n').filter(Boolean).length, 2, 'the merge keeps the pass of each branch');
+      const explained = await lawcheck(repo, explain);
+      assert.deepEqual([explained.code, explained.stdout], [0, page.text('block 2 under "6. See the teammate\'s review on main"') + '\n'], 'the pass of the branch merged second holds');
     });
   }, (request) => anthropic(defaultAnswer(request.prompt)));
 }

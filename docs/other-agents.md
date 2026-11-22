@@ -70,7 +70,7 @@ More: lawcheck docs
 
 The part `Only on the user's word` lists what the agent leaves to you: a waiver, a rule taken off a type or deleted, and any edit of `.lawcheck/verdicts` or `.lawcheck/config.yaml`. A law with `may_use` adds a line for widening it.
 
-The text stays within 8,000 characters. For a large law, Lawcheck shortens the part about the law and says what it left out. Without a law, `prime` prints two lines that say so, and exits 0.
+The text stays within 8,000 characters. For a large law, Lawcheck shortens the part about the law, and the last line names the commands that show a type or a rule in full. Without a law, `prime` prints two lines that say so, and exits 0.
 
 ## 3. See a failed check as the agent does
 
@@ -97,7 +97,7 @@ Nothing checks a file after an edit, and nothing holds the turn while the law is
 
 ## If it goes wrong
 
-- The agent runs `lawcheck`, and the shell finds no such program. Lawcheck is a dev dependency of the project. Write the runner's command in the line of step 1; with a `runner` set, the primer names that command too.
+- The agent runs `lawcheck`, and the shell finds no such program, because the project keeps Lawcheck as a dev dependency. Write the runner's command in the line of step 1. With `runner` set, the first line of the primer names that command too.
 - The agent says it is done while `lawcheck check` exits 1. The primer tells it never to, and no hook holds it to that. The CI job catches the change.
 - `lawcheck check` says "no base". The primer tells the agent to pass `--base` with the branch it started from.
 - The law is not valid. `prime` prints the start of the text, then the errors, and exits 2.

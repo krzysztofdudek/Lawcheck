@@ -28,7 +28,7 @@ reviewer:
   model: your-model-id
 ```
 
-Lawcheck takes the key from the environment alone. Each developer sets `ANTHROPIC_API_KEY` in their own, and a key in `.lawcheck/config.yaml` is `config-invalid` ([Reviewers and keys](providers.md)).
+Lawcheck takes the key from the environment alone. Each developer sets `ANTHROPIC_API_KEY` on their own machine. A key written into `.lawcheck/config.yaml` is `config-invalid` ([Reviewers and keys](providers.md)).
 
 ## 2. See the files with no verdict
 
@@ -83,14 +83,14 @@ $ git merge price
 
 Git keeps the lines of both branches, and the merge goes through.
 
-## 6. Check that both reviews hold
+## 6. See the teammate's review on main
 
 ```text
-$ lawcheck explain src/core/refund.ts
+$ lawcheck explain src/core/price.ts
 ```
 
 ```output
-src/core/refund.ts
+src/core/price.ts
   type:  library  (library)  The code every command shares.
   matched:  library by "src/core/**"
   may use:  any file; no type on the way up has may_use
@@ -128,7 +128,7 @@ $ git add .lawcheck/verdicts .lawcheck/.gitattributes
 $ git commit --no-edit
 ```
 
-`lawcheck explain src/core/refund.ts` then shows `reviewed`, as in step 6.
+`lawcheck explain src/core/price.ts` then shows `reviewed`, as in step 6.
 
 ## A change of the law
 
@@ -137,5 +137,5 @@ A change that edits the law or a rule file changes the law every developer check
 ## If it goes wrong
 
 - `config-invalid` at the line of `keys`: someone wrote a key into `.lawcheck/config.yaml`. The key goes in the environment, so take that line out.
-- A teammate's check shows `not-reviewed` for a file you reviewed. The file, the rule or its `why` changed after your review, or you did not push `.lawcheck/verdicts`. Run `lawcheck check --review` again and commit the file.
+- A teammate's check shows `not-reviewed` for a file you reviewed. The file, the text or `why` of the rule, or a file its `context` names changed after your review, or you did not push `.lawcheck/verdicts`. Run `lawcheck check --review` again and commit the file.
 - A review failed on your machine, and your teammate sees `not-reviewed`. A fail stays in `.lawcheck/.local/` of the machine that asked, and only a pass goes into `.lawcheck/verdicts`.
