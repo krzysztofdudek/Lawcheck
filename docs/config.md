@@ -13,7 +13,7 @@ reviewer:
 | `reviewer` | a mapping of the keys below | none: no reviewer |
 | `runner` | `global`, `npx`, `pnpm`, `yarn` or `bun` | `global` |
 
-An empty file, or one of comments only, sets nothing. The file may hold 1 MiB.
+An empty file, or one of comments only, sets nothing.
 
 ## reviewer
 
@@ -51,7 +51,7 @@ reviewer:
 
 ## What is refused
 
-Any other key, or a value outside the table, is `config-invalid`, exit 2, at its line. The message names a known key or provider one or two letters away, when there is one. Three cases have a message of their own.
+Any other key, a key written twice, or a value outside the table, is `config-invalid`, exit 2, at its line. The message names a known key or provider one or two letters away, when there is one. Three cases have a message of their own.
 
 A key in the file. A key never goes into a committed file; it comes from the environment (section "Variables" below):
 
@@ -134,7 +134,7 @@ npmPreapprovedPackages: [lawcheck, "@chrisdudek/runes"]
 | `NODE_OPTIONS` | refuses every command when it holds `--permission`: `unsupported-environment` |
 | `TMPDIR` | makes the folder of a reviewer program there; `TEMP` on Windows |
 
-An empty variable counts as unset. Each reviewer program gets the sign-in variables of its own row and none of the others, and no program gets `LAWCHECK_REVIEWER_KEY` or `LAWCHECK_REVIEWER_ENDPOINT`. Lawcheck prints a key as `[key]` (`lawcheck docs providers`). The plugin's two variables are on [its page](plugin.md).
+An empty variable counts as unset. Each reviewer program gets the sign-in variables of its own row and none of the others, and no program gets `LAWCHECK_REVIEWER_KEY` or `LAWCHECK_REVIEWER_ENDPOINT`. The plugin's two variables are on [its page](plugin.md).
 
 ## Limits
 
@@ -156,3 +156,4 @@ An empty variable counts as unset. Each reviewer program gets the sign-in variab
 | A reviewer prompt | `reviewer.max_chars` | `too-large-to-review` |
 | The reviewer requests of one run | `reviewer.max_calls`, or `--max-calls <n>` for one run | `too-many-reviews` |
 | A reviewer's reply | 4 MiB | `reviewer-unreachable` |
+| The findings `check` and `try` print as text | 50; `--json` lists all | none |
