@@ -569,7 +569,7 @@ export const SLOW_TESTS: Record<string, Slow> = {
   // Measured on Nightly run 43965209262 (seven entries of the list): each entry builds the broken code and runs its test; the run took 8.2 s with five.
   'tests/sabotage/sabotage.nightly.test.ts > question 95: the sabotage list, every break of the list turns its test red': { fixed: 0, measured: { linux: 21_000 } },
 
-  // The longest time on the Windows three-times job of the Nightly 45057543660, every round included, the first Nightly where these documentation scenarios passed their assertions on Windows.
+  // The longest time on the Windows three-times jobs: for the CI page, of the Nightly 45057543660, the first where its scenario passed its assertions on Windows; for the adopt page, of the Nightlies 45049413622 and 45057543660. Every round included.
   'tests/contract/docs-examples.test.ts > test 432: the scenario of docs/ci.md runs the blocks it claims, and each output the page shows is the one the tool prints, byte for byte': { fixed: 0, measured: { win32: 30_216 } },
   'tests/contract/docs-examples.test.ts > test 432: the scenario of docs/adopt-in-an-existing-repository.md runs the blocks it claims, and each output the page shows is the one the tool prints, byte for byte': { fixed: 0, measured: { win32: 13_265 } },
 };
