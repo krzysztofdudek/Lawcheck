@@ -1,4 +1,5 @@
-import { relative } from 'node:path';
+import { readFileSync } from 'node:fs';
+import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { SLOWEST_SHOWN, slowBudget, TEST_BUDGET_MS } from '../numbers.ts';
 import { INVARIANTS } from './invariants.ts';
@@ -33,6 +34,29 @@ function messageOf(error: any): string {
   return text;
 }
 
+// node:test fails a test file whose process ended before it reported as a whole, with only "test failed"; its error keeps the signal or the exit code of that process.
+function processEnd(error: any, oomKills: number | null): string {
+  if (error?.code !== 'ERR_TEST_FAILURE') return '';
+  if (typeof error.signal === 'string') {
+    const oom = error.signal === 'SIGKILL' && oomKills !== null && oomKills > 0 ? `, and memory.events of this cgroup counts ${oomKills} ${oomKills === 1 ? 'process' : 'processes'} the kernel killed for lack of memory` : '';
+    return `: ${error.signal} ended the process of the test file${oom}`;
+  }
+  if (error.failureType === 'testCodeFailure' && typeof error.exitCode === 'number' && error.exitCode !== 0) return `: the process of the test file exited with ${error.exitCode}`;
+  return '';
+}
+
+// The kernel counts in memory.events every process of a cgroup it killed for lack of memory, as in a container at its memory limit.
+function oomKills(): number | null {
+  try {
+    const own = /^0::(\/.*)$/m.exec(readFileSync('/proc/self/cgroup', 'utf8'))?.[1];
+    if (own === undefined) return null;
+    const found = /^oom_kill (\d+)$/m.exec(readFileSync(join('/sys/fs/cgroup', own, 'memory.events'), 'utf8'));
+    return found === null ? null : Number(found[1]);
+  } catch {
+    return null;
+  }
+}
+
 function clip(text: string, lines: number): string[] {
   const all = text.split('\n');
   const kept = all.slice(0, lines).map((line) => (line.length > 300 ? line.slice(0, 300) + '...' : line));
@@ -43,10 +67,10 @@ function clip(text: string, lines: number): string[] {
 const quote = (s: string) => JSON.stringify(s);
 const shell = (s: string) => (/^[\w./-]+$/.test(s) ? s : `'${s.replace(/'/g, `'\\''`)}'`);
 
-function block(failed: Failed, seeds: Map<string, string>): string[] {
+function block(failed: Failed, seeds: Map<string, string>, oomKills: number | null): string[] {
   const ids = testIds(failed.name);
   const file = where(failed.file);
-  const message = messageOf(failed.error);
+  const message = messageOf(failed.error) + processEnd(failed.error, oomKills);
   const head = ids.length > 0 ? ids.join(', ') : failed.name.slice(0, 80);
   const out: string[] = [];
   const rerun = `rerun    npm run t -- ${ids.length > 0 ? shell(ids[0]!) : file}`;
@@ -78,6 +102,8 @@ export interface RunOptions {
   system: System;
   started: number | null;
   target: number;
+  // Only a live run reads its own cgroup, once its events have ended; a merge of recorded shards runs elsewhere.
+  oomKills?: () => number | null;
 }
 
 export interface Verdict {
@@ -150,7 +176,8 @@ export async function judgeRun(source: AsyncIterable<{ type: string; data: any }
       for (const t of unlisted) lines.push(`${String(Math.round(t.ms)).padStart(8)} ms  ${where(t.file)} > ${t.name}`);
     }
   }
-  for (const f of failed) lines.push('', ...block(f, seeds));
+  const kills = failed.length > 0 ? (options.oomKills?.() ?? null) : null;
+  for (const f of failed) lines.push('', ...block(f, seeds, kills));
   let red = false;
   if (unlistedSkips.length > 0) {
     red = true;
@@ -172,7 +199,7 @@ export async function judgeRun(source: AsyncIterable<{ type: string; data: any }
 
 export default async function* reporter(source: AsyncIterable<{ type: string; data: any }>): AsyncGenerator<string> {
   const started = Number(process.env.LAWCHECK_STARTED);
-  const verdict = await judgeRun(source, { system: process.platform as System, started: Number.isFinite(started) && started > 0 ? started : null, target: Number(process.env.LAWCHECK_TARGET_MS) });
+  const verdict = await judgeRun(source, { system: process.platform as System, started: Number.isFinite(started) && started > 0 ? started : null, target: Number(process.env.LAWCHECK_TARGET_MS), oomKills });
   if (verdict.red) process.exitCode = 1;
   yield verdict.text;
 }
