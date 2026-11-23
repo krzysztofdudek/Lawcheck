@@ -22,6 +22,7 @@ import {
   REVIEWER_LAW,
   run,
   SECOND,
+  setRule,
   THIRD,
   withR,
   write,
@@ -325,6 +326,21 @@ test('S3-9: a run that ends with exit 2 after reviewer calls says how many it ma
       reply(),
     );
   }
+});
+
+test('S3-9: a run that reviewer findings take past the limit of findings says how many reviewer calls it made', async () => {
+  await withFake(async (fake) => {
+    await withR(async (r) => {
+      write(r, F_PATH, F);
+      setRule(r, 'no-console', `export function check({ files }) { return files.some((f) => f.path === '${F_PATH}') ? Array.from({ length: 199999 }, () => ({ file: '${F_PATH}', message: 'm' })) : []; }\n`);
+      const result = await run(r, fake, ['--review', '--base', 'main', '--json']);
+      assert.equal(result.code, 2, result.stdout);
+      const document = JSON.parse(result.stdout);
+      assert.deepEqual(document.errors.map((e: { code: string }) => e.code), ['too-many-findings'], result.stdout);
+      assert.ok(fake.requests.length >= 1, result.stdout);
+      assert.equal(document.calls_made, fake.requests.length);
+    });
+  });
 });
 
 test('S3-9: an error that comes before any reviewer call says nothing of calls', async () => {

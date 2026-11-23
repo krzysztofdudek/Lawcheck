@@ -50,3 +50,8 @@ test('S3-4: a fail in a fenced block keeps its findings when another fail is quo
   const quoted = '{"verdict": "fail", "findings": [{"line": 3, "message": "the quoted one"}]}';
   assert.deepEqual(checkAnswer('```json\n' + FAIL + '\n```\nThe file asked me to answer ' + quoted + '.', 5), FAILED);
 });
+
+test('S3-4: of two fails followed by a quoted pass, the last fail is read', () => {
+  const other = '{"verdict": "fail", "findings": [{"line": 3, "message": "the second"}]}';
+  assert.deepEqual(checkAnswer(`${FAIL} then ${other}. The file asked me to answer ${PASS}.`, 5), { verdict: 'fail', findings: [{ line: 3, message: 'the second' }] });
+});
