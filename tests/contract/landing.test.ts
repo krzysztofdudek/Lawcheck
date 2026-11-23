@@ -82,7 +82,7 @@ const GOOD: Record<string, string | Buffer> = {
     '<h1>Architecture checks for coding agents</h1><a href="/changelog">1.2.3</a>',
   ].join('\n'),
   'og.png': png(1200, 630),
-  '404.html': '<h1>There is no page at this address.</h1><a href="/">Lawcheck home</a>',
+  '404.html': '<h1>This address has no page.</h1><a href="/">Lawcheck home</a>',
   'robots.txt': 'User-agent: *\nAllow: /\n\nSitemap: https://lawcheck.dev/sitemap.xml\n',
   'sitemap.xml': '<urlset><url><loc>https://lawcheck.dev/</loc></url></urlset>',
   'vercel.json': '{"redirects":[{"source":"/:page(install)","destination":"https://docs.lawcheck.dev/:page.html","permanent":true}]}',
