@@ -205,3 +205,17 @@ Why: the cache never decides a verdict that a parse would decide otherwise, beca
 A use that a `may_use` list forbids is an error in the change, and the law has no key that makes a list give warnings. A team whose old files break a list it brings in puts the list first on the types whose files are clean, waives each old use with its reason, and pays the waivers back. The page [Bring a law into an existing repository](../docs/adopt-in-an-existing-repository.md#bring-in-a-may-use-list) gives the steps.
 
 Why: a list that gives warnings is one more switch that a team forgets to turn on, and a list with a waiver on each old use judges every use a change adds from the first day. Each waiver stays in its file and in the JSON until someone removes it. The owner chose the page over a new key on 2026-11-23.
+
+## 167. The waivers a change adds
+
+`check` against a base reads each changed file at the merge base of `HEAD` and the base, parses its waivers with the rules of the current law, and marks a waiver of the change as added when the base holds fewer waivers of its rule with its reason. Of equal waivers, those whose line the base lacks count as added first. The text output names them in a note under the first line, and the JSON gives each item of `waivers` the field `added`, null where no base was compared. The law-change note no longer lists waivers. A marker in a file that no type takes, or in a file under `ignored`, is not named, because it waives nothing; the law-change note names the pattern of `required` or `ignored` that a change adds or takes off. A file moved to a new path counts its waivers as added.
+
+The Claude Code plugin tells the user once, at the stop that ends a turn, which waivers the turn added and which files of the law it changed, and never sends the agent back for it (the owner's choice of 2026-11-23). The hook compares the text from the marker to the end of each line with the file at the start of the turn: `UserPromptSubmit` keeps those lines of each file that differs from `HEAD`, and `HEAD` holds the rest. The text of the message is built in `plugin/hooks/turn.mjs` alone, so the plugins of other agents can send the same text.
+
+Why: an agent that cannot fix a breach adds a waiver and ends green, and the owner does not see it. Matching by rule and reason, not by line, keeps a waiver that only moved from being named on every edit near it. The hook reads text and not the parse of `check`, because `check` of named files has no base, and a file at the start of a turn may exist only on disk.
+
+## 168. A waiver at the end of a multi-line import
+
+A waiver after code covers its own line, and a waiver on a line of its own covers the next line. The `forbidden-use` finding of an import over several lines sits on the statement's first line, so a waiver at the end of its last line covers nothing and is `waiver-unused`. The waiver goes on the line above the statement, as `docs/waivers.md` shows for TypeScript and Python.
+
+Why: a waiver that covered the statement it ends would need the statement's extent from the reader of each language, and in Java, Kotlin and C#, where a use can be any type in a declaration, the same rule would let a waiver at the closing brace of a method cover a use in its signature. One rule of two lines is easier to know than a rule per language, and `waiver-unused` already tells the author that the waiver missed.

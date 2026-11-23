@@ -99,6 +99,7 @@ This page names a field of a list's items by its path. `findings.code` is the `c
 | `waivers.debt` | true for a file outside the change |
 | `waivers.waived` | how many findings it dropped |
 | `waivers.reason` | the text after `--` |
+| `waivers.added` | true for a waiver that the file did not hold at the base, false for one it held there and for a waiver of debt, null where the check compared no base, as under `paths` ([What a check judges](change.md#waivers-a-change-adds)) |
 | `unresolved` | every use the readers found and could not tie to one file |
 | `unresolved.file` | the file that holds the use |
 | `unresolved.line` | the line of the use |

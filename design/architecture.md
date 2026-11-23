@@ -68,7 +68,7 @@ The Claude Code plugin lives in `plugin/`, and `.claude-plugin/marketplace.json`
 - after `Write`, `Edit` or `NotebookEdit`, it runs `lawcheck check ./<file>` and hands a breach to the agent;
 - before the agent finishes, it runs `lawcheck check` on the files that changed in the turn and sends the agent back, at most three times, while they break the law.
 
-`snapshot.mjs` lists the files of a turn with git, `state.mjs` keeps the state of a session, `start.mjs` finds and starts programs, `fit.mjs` cuts a text to the size Claude Code takes, and `names.mjs` holds its own copy of the file name escapes of `src/names.ts`.
+`snapshot.mjs` lists the files of a turn with git, `turn.mjs` finds the waivers and the files of the law that a turn added or changed and writes the message about them, `state.mjs` keeps the state of a session, `start.mjs` finds and starts programs, `fit.mjs` cuts a text to the size Claude Code takes, and `names.mjs` holds its own copy of the file name escapes of `src/names.ts`.
 
 ## The tests
 

@@ -1013,6 +1013,7 @@ Run the command of the `next:` line, such as `lawcheck check --review --base mai
 ```text
 $ lawcheck check --base main
 lawcheck: FAIL  1 error in 1 changed file (against main), 1 waiver
+note: this change adds 1 waiver: clear-errors at src/core/refund.ts:3
 
 src/core/refund.ts  error[not-reviewed]  clear-errors has no verdict for this content
   why:  a reviewer rule says nothing about content it has not judged
@@ -1045,6 +1046,7 @@ The third step edits `.lawcheck/config.yaml`. `lawcheck prime` leaves that edit 
 ```text
 $ lawcheck check --base main
 lawcheck: FAIL  1 error in 1 changed file (against main), 1 waiver
+note: this change adds 1 waiver: clear-errors at src/core/refund.ts:3
 
 src/core/refund.ts  error[too-large-to-review]  the prompt for clear-errors holds 2127 characters; reviewer.max_chars is 2126
   why:  the reviewer is never sent more than reviewer.max_chars characters
@@ -1214,6 +1216,7 @@ Remove the waiver from the line.
 ```text
 $ lawcheck check --base main
 lawcheck: PASS  1 warning in 1 changed file (against main), 1 waiver
+note: this change adds 1 waiver: no-console at src/core/shipping.ts:1
 
 src/core/shipping.ts:1  warning[waiver-unused]  the waiver of 'no-console' drops no finding
   why:  a waiver that drops nothing would hide the next finding on its line
@@ -1228,7 +1231,8 @@ A note is a line that starts with `note:`, under the first line of `check` or `i
 | Text | When | Fix |
 |---|---|---|
 | `note: the law changed in this change; lawcheck check --full ...` | a `check` with no path and no `--full` judges a change that edits `.lawcheck/law.yaml`, `.lawcheck/config.yaml` or a file of `.lawcheck/rules/` | run the `check --full` command of the note to see what the new law finds in the rest of the code |
-| `note: this change edits the law that judges it: ...` | the same change; the note lists what it changes in the law, such as types, rules, `may_use` and the waivers it adds | read the list before you accept the change |
+| `note: this change edits the law that judges it: ...` | the same change; the note lists what it changes in the law, such as types, rules, `may_use` and the patterns of `required` and `ignored` | read the list before you accept the change |
+| `note: this change adds <n> waivers: ...` | a `check` against a base, where a changed file holds a waiver that it did not hold at the base | read each waiver and its reason before you accept the change |
 | `note: the paths of a type reach into ...` | the paths of a type reach into a submodule or a repository of its own, and Lawcheck judges no file there | run Lawcheck in that repository with its own law |
 | `note: <path> lies in ...` | a path named to `check` lies in a submodule or a repository of its own | run Lawcheck in that repository |
 | `note: the law covers only the files below ...` | `init` runs in a folder below the top of the git work tree | run `init` at the top if the law should cover the whole repository |

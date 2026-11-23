@@ -147,10 +147,11 @@ $ lawcheck check --base main
 ```output
 lawcheck: PASS  2 changed files (against main), 1 waiver
 note: the law changed in this change; lawcheck check --full --base main shows what it finds in the rest of the code
-note: this change edits the law that judges it: changes .lawcheck/rules/no-console.mjs; adds a waiver of no-console in src/core/format.ts
+note: this change edits the law that judges it: changes .lawcheck/rules/no-console.mjs
+note: this change adds 1 waiver: no-console at src/core/format.ts:6
 ```
 
-The note names the waiver, so the person who reviews the [change](concepts.md#change) sees it. [Waivers](waivers.md) shows every form of the marker.
+The last note names the waiver, so the person who reviews the [change](concepts.md#change) sees it. [Waivers](waivers.md) shows every form of the marker.
 
 ## 7. Find the waivers that waive nothing
 
@@ -160,7 +161,8 @@ $ lawcheck check --full --base main
 
 ```output
 lawcheck: PASS  2 changed files (against main), 1 waiver
-note: this change edits the law that judges it: changes .lawcheck/rules/no-console.mjs; adds a waiver of no-console in src/core/format.ts
+note: this change edits the law that judges it: changes .lawcheck/rules/no-console.mjs
+note: this change adds 1 waiver: no-console at src/core/format.ts:6
 
 debt (outside this change): 1 finding in 1 file, 1 waiver
 src/core/round.ts:2  warning[waiver-unused]  the waiver of 'no-console' drops no finding
@@ -190,7 +192,8 @@ $ lawcheck check --full --base main
 
 ```output
 lawcheck: PASS  3 changed files (against main), 1 waiver
-note: this change edits the law that judges it: changes .lawcheck/rules/no-console.mjs; adds a waiver of no-console in src/core/format.ts
+note: this change edits the law that judges it: changes .lawcheck/rules/no-console.mjs
+note: this change adds 1 waiver: no-console at src/core/format.ts:6
 
 debt (outside this change): none
 ```
