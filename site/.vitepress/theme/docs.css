@@ -1,0 +1,142 @@
+:root,
+:root.dark {
+  --vp-font-family-base: var(--lc-font-sans);
+  --vp-font-family-mono: var(--lc-font-mono);
+
+  --vp-c-bg: var(--lc-ground);
+  --vp-c-bg-alt: var(--lc-surface);
+  --vp-c-bg-elv: var(--lc-surface);
+  --vp-c-bg-soft: var(--lc-surface);
+  --vp-c-text-1: var(--lc-text);
+  --vp-c-text-2: var(--lc-text-muted);
+  --vp-c-text-3: var(--lc-text-muted);
+  --vp-c-border: var(--lc-line-strong);
+  --vp-c-divider: var(--lc-line);
+  --vp-c-gutter: var(--lc-line);
+  --vp-c-neutral: var(--lc-text);
+  --vp-c-neutral-inverse: var(--lc-ground);
+
+  --vp-c-brand-1: var(--lc-brand);
+  --vp-c-brand-2: var(--lc-brand-hover);
+  --vp-c-brand-3: var(--lc-brand);
+  --vp-c-brand-soft: var(--lc-surface);
+  --vp-c-default-1: var(--lc-text-muted);
+  --vp-c-default-2: var(--lc-line-strong);
+  --vp-c-default-3: var(--lc-line-strong);
+  --vp-c-default-soft: var(--lc-surface);
+  --vp-c-gray-1: var(--lc-text-muted);
+  --vp-c-gray-2: var(--lc-line-strong);
+  --vp-c-gray-3: var(--lc-line-strong);
+  --vp-c-gray-soft: var(--lc-surface);
+  --vp-c-indigo-1: var(--lc-brand);
+  --vp-c-indigo-2: var(--lc-brand-hover);
+  --vp-c-indigo-3: var(--lc-brand);
+  --vp-c-indigo-soft: var(--lc-surface);
+  --vp-c-purple-1: var(--lc-brand);
+  --vp-c-purple-2: var(--lc-brand-hover);
+  --vp-c-purple-3: var(--lc-brand);
+  --vp-c-purple-soft: var(--lc-surface);
+  --vp-c-yellow-1: var(--lc-brand);
+  --vp-c-yellow-2: var(--lc-brand-hover);
+  --vp-c-yellow-3: var(--lc-brand);
+  --vp-c-yellow-soft: var(--lc-surface);
+  --vp-c-green-1: var(--lc-proof);
+  --vp-c-green-2: var(--lc-proof);
+  --vp-c-green-3: var(--lc-proof);
+  --vp-c-green-soft: var(--lc-surface);
+  --vp-c-red-1: var(--lc-fail);
+  --vp-c-red-2: var(--lc-fail);
+  --vp-c-red-3: var(--lc-fail);
+  --vp-c-red-soft: var(--lc-surface);
+
+  --vp-button-brand-border: var(--lc-brand);
+  --vp-button-brand-text: var(--lc-on-brand);
+  --vp-button-brand-bg: var(--lc-brand);
+  --vp-button-brand-hover-border: var(--lc-brand-hover);
+  --vp-button-brand-hover-text: var(--lc-on-brand);
+  --vp-button-brand-hover-bg: var(--lc-brand-hover);
+  --vp-button-brand-active-border: var(--lc-brand-hover);
+  --vp-button-brand-active-text: var(--lc-on-brand);
+  --vp-button-brand-active-bg: var(--lc-brand-hover);
+  --vp-button-alt-border: var(--lc-line-strong);
+  --vp-button-alt-text: var(--lc-text);
+  --vp-button-alt-bg: var(--lc-surface);
+  --vp-button-alt-hover-border: var(--lc-brand);
+  --vp-button-alt-hover-text: var(--lc-text);
+  --vp-button-alt-hover-bg: var(--lc-surface);
+  --vp-button-alt-active-border: var(--lc-brand);
+  --vp-button-alt-active-text: var(--lc-text);
+  --vp-button-alt-active-bg: var(--lc-surface);
+
+  --vp-code-bg: var(--lc-surface);
+  --vp-code-color: var(--lc-text);
+  --vp-code-link-color: var(--lc-brand);
+  --vp-code-link-hover-color: var(--lc-brand-hover);
+
+  --vp-input-border-color: var(--lc-line-strong);
+  --vp-input-bg-color: var(--lc-ground);
+  --vp-input-switch-bg-color: var(--lc-surface);
+
+  --vp-nav-bg-color: var(--lc-ground);
+  --vp-nav-screen-bg-color: var(--lc-ground);
+  --vp-local-nav-bg-color: var(--lc-ground);
+  --vp-sidebar-bg-color: var(--lc-surface);
+
+  --vp-local-search-bg: var(--lc-ground);
+  --vp-local-search-result-bg: var(--lc-surface);
+  --vp-local-search-result-border: var(--lc-line-strong);
+  --vp-local-search-result-selected-bg: var(--lc-surface);
+  --vp-local-search-result-selected-border: var(--lc-brand);
+  --vp-local-search-highlight-bg: var(--lc-brand);
+  --vp-local-search-highlight-text: var(--lc-on-brand);
+}
+
+:root.dark {
+  --vp-c-text-3: var(--lc-text-quiet);
+}
+
+.vp-doc div[class*='language-'] {
+  --vp-code-block-bg: var(--lc-code);
+  --vp-code-block-color: var(--lc-text);
+  --vp-code-block-divider-color: var(--lc-line-lit);
+  --vp-code-lang-color: var(--lc-text-muted);
+  --vp-code-line-number-color: var(--lc-text-quiet);
+  --vp-code-line-highlight-color: var(--lc-surface);
+  --vp-code-copy-code-bg: var(--lc-surface);
+  --vp-code-copy-code-border-color: var(--lc-line-strong);
+  --vp-code-copy-code-hover-bg: var(--lc-surface);
+  --vp-code-copy-code-hover-border-color: var(--lc-brand);
+  --vp-code-copy-code-active-text: var(--lc-text-muted);
+  border-radius: var(--lc-radius-control);
+  font-variant-ligatures: none;
+}
+
+:root:not(.dark) .vp-doc div[class*='language-'] {
+  color: var(--lc-text);
+}
+
+:focus-visible {
+  outline: 2px solid var(--lc-brand);
+  outline-offset: 2px;
+}
+
+.VPNavBarTitle .title {
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
+}
+
+.VPNavBarTitle .title > span:not(.lc-lockup) {
+  margin-left: 31px;
+  font-family: var(--lc-font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.2;
+  color: var(--vp-c-text-2);
+}
+
+.DocSearch.DocSearch-Button .DocSearch-Button-Keys {
+  display: none;
+}
+

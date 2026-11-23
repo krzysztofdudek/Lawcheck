@@ -5,11 +5,17 @@
   "scripts": {
     "build": "vitepress build",
     "dev": "vitepress dev",
-    "preview": "vitepress preview"
+    "preview": "vitepress preview",
+    "build:landing": "vitepress build landing",
+    "dev:landing": "vitepress dev landing",
+    "preview:landing": "vitepress preview landing"
   },
   "devDependencies": {
+    "@fontsource-variable/jetbrains-mono": "5.3.0",
+    "shiki": "2.5.0",
     "vitepress": "1.6.4",
-    "vue": "3.5.45"
+    "vue": "3.5.45",
+    "yaml": "2.9.1"
   },
   "overrides": {
     "vite": "6.4.6"

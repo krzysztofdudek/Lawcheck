@@ -2,3 +2,4 @@ node_modules/
 dist/
 .grammars/
 site/.vitepress/cache/
+site/landing/.vitepress/cache/
