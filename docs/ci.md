@@ -329,7 +329,7 @@ The function writes the JSON outside the checkout, so the report is not a change
 
 ### 2. Report code quality on GitLab
 
-Save this script as `scripts/lawcheck-code-quality.mjs`. It writes the format of a GitLab code quality report: one entry for each finding, with a fingerprint that GitLab needs to tell findings apart. A finding for the whole file gets line 1. Like the script for GitHub, it names each file from the top of the repository.
+Save this script as `scripts/lawcheck-code-quality.mjs`. It writes the format of a GitLab code quality report: one entry for each finding, with a fingerprint that GitLab needs to tell findings apart. A finding for the whole file gets line 1. The script names each file from the top of the repository, as the script for GitHub does.
 
 <!-- example: code-quality-script -->
 ```js
