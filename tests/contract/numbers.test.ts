@@ -44,7 +44,7 @@ const OUTLIERS: [finding: string, key: string, system: numbers.System, ms: numbe
   ['R-95', 'tests/acceptance/program-providers.test.ts > test 406: codex', 'linux', 9_000, 'a Linux commit job'],
 ];
 
-test('R-73, R-78, R-95: test 26 and test 242 on Windows and test 406 on Linux have an entry in SLOW_TESTS for that system, whose budget holds the time the test took there in CI', () => {
+test('R-73: R-78, R-95, test 26 and test 242 on Windows and test 406 on Linux have an entry in SLOW_TESTS for that system, whose budget holds the time the test took there in CI', () => {
   for (const [finding, key, system, ms, run] of OUTLIERS) {
     const budget = numbers.slowBudget(key, system);
     assert.ok(budget !== null, `${finding}: ${key} took ${ms} ms on ${system} in ${run}, and SLOW_TESTS has no entry for it there`);
