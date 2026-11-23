@@ -100,8 +100,15 @@ function counts(): Map<string, number> {
   return out;
 }
 
-// The runner's own channel is open only once the first message arrives, so what it holds itself is counted then.
+// The runner's own channel is open only once the first message arrives, so what it holds itself is counted then. Its start can still have a timer or an immediate pending at that moment, which ends soon after; counted as the runner's, it would hide the same kind left by the rule, so only handles are counted.
 let own: Map<string, number> | null = null;
+
+function handles(): Map<string, number> {
+  const out = counts();
+  out.delete('Timeout');
+  out.delete('Immediate');
+  return out;
+}
 
 function leftBehind(): boolean {
   for (const [kind, count] of counts()) if (count > (own?.get(kind) ?? 0)) return true;
@@ -266,7 +273,7 @@ async function call(file: CallFile): Promise<void> {
 }
 
 process.on('message', (message: Incoming) => {
-  own ??= counts();
+  own ??= handles();
   if (message.kind === 'load') void load(message.file, message.filesOf);
   else if (message.kind === 'finish') void finish();
   else if (message.kind === 'answer') {
