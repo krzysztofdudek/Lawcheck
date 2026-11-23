@@ -460,7 +460,7 @@ test('test 797: a read that a reader failure stops keeps what it read before the
   });
 });
 
-test('question 165: after its last parse a read marks the step resolving the uses, which names no file, whether the files before came from a parse or from the cache', async () => {
+test('test 798: after its last parse a read marks the step resolving the uses, which names no file, whether the files before came from a parse or from the cache', async () => {
   const progress = progressBuffer();
   attach(progress);
   await withRoot(async (root) => {
@@ -471,7 +471,7 @@ test('question 165: after its last parse a read marks the step resolving the use
   });
 });
 
-test('question 165: a C# file read only for what it declares stays in the reach of the projects, from a parse and from the cache', async () => {
+test('test 790: a C# file read only for what it declares stays in the reach of the projects, from a parse and from the cache', async () => {
   const project = (references: string) => `<Project Sdk="Microsoft.NET.Sdk"><ItemGroup>${references}</ItemGroup></Project>\n`;
   const files: Record<string, string> = {
     'a/A.csproj': project('<ProjectReference Include="../c/C.csproj" />'),
