@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { parse } from 'yaml';
 import { ROOT } from '../harness/sets.ts';
 import { ALLOWED_NAMES } from './allowed-names.ts';
-import { problems } from '../../site/landing/check.mjs';
+import { phoneProblems, problems } from '../../site/landing/check.mjs';
 import { problems as docsCardProblems } from '../../site/check-docs-card.mjs';
 import { CARD, cardHead, cardProblems, pngProblems } from '../../site/theme/card.mjs';
 import { CATEGORY, FINDING, og } from '../../site/theme/og.mjs';
@@ -172,4 +172,34 @@ test('test 891: the check of the built documentation names a page without the ca
   assert.ok(read('README.md').includes(`${FINDING.place}  ${FINDING.code}  ${FINDING.text}`), 'the finding of the card is a line of README.md');
   const html = og(JSON.parse(read('brand/tokens.json')), { interFont: '/a.woff2', monoFont: '/b.woff2', markFile: join(ROOT, 'brand/mark.svg') });
   for (const text of [CATEGORY, FINDING.place, FINDING.code, FINDING.text]) assert.ok(html.includes(text), text);
+});
+
+const SHEET = [
+  '.pair{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:32px}',
+  '.cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}',
+  '@media(max-width:860px){.pair{grid-template-columns:minmax(0,1fr)}.cards{grid-template-columns:minmax(0,1fr)}}',
+  '@media(max-width:400px){.bar-inner{gap:8px}}',
+  '@font-face{font-family:x;src:url(a.woff2)}',
+].join('\n');
+
+function sheetProblems(css: string | null): string[] {
+  const dir = mkdtempSync(join(tmpdir(), 'lawcheck-phone-'));
+  try {
+    if (css !== null) {
+      mkdirSync(join(dir, 'assets'));
+      writeFileSync(join(dir, 'assets', 'style.css'), css);
+    }
+    return phoneProblems(dir);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+test('test 892: the check of the built landing page passes a stylesheet that stacks its grids below 860 px, and names a grid that keeps two columns at 320, 360 and 390 px, a stylesheet that is missing, and a media query that does not reach a phone (control)', () => {
+  assert.deepEqual(sheetProblems(SHEET), []);
+  const broken = SHEET.replace('.pair{grid-template-columns:minmax(0,1fr)}', '.pair,.terminal pre{white-space:pre-wrap}');
+  assert.deepEqual(sheetProblems(broken), [320, 360, 390].map((width) => `at ${width} px .pair keeps 2 columns (minmax(0,5fr) minmax(0,7fr)), so its blocks stand side by side on a phone`));
+  assert.deepEqual(sheetProblems(SHEET.replace('max-width:860px', 'max-width:300px')), [320, 360, 390].flatMap((width) => [`at ${width} px .pair keeps 2 columns (minmax(0,5fr) minmax(0,7fr)), so its blocks stand side by side on a phone`, `at ${width} px .cards keeps 3 columns (repeat(3,minmax(0,1fr))), so its blocks stand side by side on a phone`]));
+  assert.deepEqual(sheetProblems(SHEET.replace('max-width:860px', 'min-width:861px')), sheetProblems(SHEET.replace('max-width:860px', 'max-width:300px')));
+  assert.deepEqual(sheetProblems(null), ['assets has no stylesheet']);
 });

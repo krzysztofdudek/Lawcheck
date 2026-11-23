@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { cardProblems, pngProblems } from '../theme/card.mjs';
@@ -64,14 +64,79 @@ export function problems(dir, version) {
   return out;
 }
 
+export const PHONE_WIDTHS = [320, 360, 390];
+
+function ruleList(css) {
+  const rules = [];
+  const walk = (text, inside) => {
+    let at = 0;
+    while (at < text.length) {
+      const open = text.indexOf('{', at);
+      if (open === -1) break;
+      let depth = 1;
+      let end = open + 1;
+      while (end < text.length && depth > 0) {
+        if (text[end] === '{') depth++;
+        else if (text[end] === '}') depth--;
+        end++;
+      }
+      const head = text.slice(at, open).trim();
+      const body = text.slice(open + 1, end - 1);
+      if (head.startsWith('@media')) {
+        const max = /max-width\s*:\s*(\d+)px/.exec(head);
+        const min = /min-width\s*:\s*(\d+)px/.exec(head);
+        walk(body, { max: Math.min(inside.max, max ? Number(max[1]) : Infinity), min: Math.max(inside.min, min ? Number(min[1]) : 0) });
+      } else if (!head.startsWith('@')) rules.push({ selectors: head.split(',').map((selector) => selector.trim()), body, ...inside });
+      at = end;
+    }
+  };
+  walk(css.replace(/\/\*[\s\S]*?\*\//g, ''), { max: Infinity, min: 0 });
+  return rules;
+}
+
+function trackCount(value) {
+  let tracks = 0;
+  let depth = 0;
+  let word = false;
+  for (const char of value.trim()) {
+    if (char === '(') depth++;
+    if (char === ')') depth--;
+    if (/\s/.test(char) && depth === 0) word = false;
+    else if (!word) {
+      word = true;
+      tracks++;
+    }
+  }
+  const repeated = /^repeat\(\s*(\d+)\s*,/.exec(value.trim());
+  return repeated ? Number(repeated[1]) : tracks;
+}
+
+export function phoneProblems(dir) {
+  const assets = join(dir, 'assets');
+  const sheets = existsSync(assets) ? readdirSync(assets).filter((name) => name.endsWith('.css')) : [];
+  if (sheets.length === 0) return ['assets has no stylesheet'];
+  const rules = sheets.flatMap((name) => ruleList(readFileSync(join(assets, name), 'utf8')));
+  const out = [];
+  for (const width of PHONE_WIDTHS) {
+    const columns = new Map();
+    for (const rule of rules) {
+      if (width > rule.max || width < rule.min) continue;
+      const value = /(?:^|;)\s*grid-template-columns\s*:\s*([^;]+)/.exec(rule.body)?.[1];
+      if (value !== undefined) for (const selector of rule.selectors) columns.set(selector, value.trim());
+    }
+    for (const [selector, value] of columns) if (trackCount(value) > 1) out.push(`at ${width} px ${selector} keeps ${trackCount(value)} columns (${value}), so its blocks stand side by side on a phone`);
+  }
+  return out;
+}
+
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   const [dir, manifest] = process.argv.slice(2);
   const { version } = JSON.parse(readFileSync(manifest, 'utf8'));
-  const found = problems(dir, version);
+  const found = [...problems(dir, version), ...phoneProblems(dir)];
   if (found.length > 0) {
     console.log(`landing: FAIL  ${found.length} problems in ${dir}`);
     for (const problem of found) console.log(`  ${problem}`);
     process.exit(1);
   }
-  console.log(`landing: PASS  ${dir} has one h1, its title, description, canonical address, Open Graph and its card, JSON-LD for ${version}, a 404 page, robots.txt, sitemap.xml and vercel.json`);
+  console.log(`landing: PASS  ${dir} has one h1, its title, description, canonical address, Open Graph and its card, JSON-LD for ${version}, a 404 page, robots.txt, sitemap.xml and vercel.json, and no grid of more than one column at ${PHONE_WIDTHS.join(', ')} px`);
 }

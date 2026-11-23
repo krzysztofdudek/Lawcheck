@@ -302,6 +302,22 @@ section {
   overflow-wrap: anywhere;
 }
 
+.code pre,
+.command pre,
+.table {
+  background-image: linear-gradient(to right, var(--lc-cover), var(--lc-cover)), linear-gradient(to left, var(--lc-cover), var(--lc-cover)), linear-gradient(to right, var(--lc-edge), transparent), linear-gradient(to left, var(--lc-edge), transparent);
+  background-position: left, right, left, right;
+  background-size: 24px 100%, 24px 100%, 16px 100%, 16px 100%;
+  background-repeat: no-repeat;
+  background-attachment: local, local, scroll, scroll;
+  --lc-cover: var(--lc-code);
+  --lc-edge: var(--lc-brand-dim);
+}
+
+.table {
+  --lc-cover: var(--lc-ground);
+}
+
 .cards {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -466,13 +482,12 @@ th.group {
     font-size: 14px;
   }
 
-  .pair,
-  .terminal pre {
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
+  .pair {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+  }
 
-.cards {
+  .cards {
     grid-template-columns: minmax(0, 1fr);
   }
 
@@ -493,7 +508,8 @@ th.group {
 
 @media (max-width: 400px) {
   .bar-inner {
-    gap: 12px;
+    gap: 8px;
+    padding: 0 16px;
   }
 
   .bar-inner .version {
