@@ -235,7 +235,6 @@ export function normalizeMessage(message: string): string {
 }
 
 function valueName(value: unknown): string {
-  if (value === null) return 'null';
   if (typeof value === 'string') return `the string ${JSON.stringify(value.length > 20 ? `${value.slice(0, 20)}…` : value)}`;
   if (typeof value === 'bigint') return `the bigint ${value}n`;
   if (typeof value === 'number') return `the number ${String(value)}`;
@@ -252,13 +251,13 @@ export function validate(rule: string, value: unknown, file: RuleFile): { findin
     const { message, file: path, line } = item as { message?: unknown; file?: unknown; line?: unknown };
     if (typeof message !== 'string' || message === '') return { problem: 'a finding without a message' };
     if (path !== undefined && path !== file.path) return { problem: `a finding about '${String(path)}'` };
-    if (line !== undefined) {
+    if (line !== undefined && line !== null) {
       if (!Number.isInteger(line)) return { problem: `a finding whose line is ${valueName(line)}, not an integer` };
       if (lineCount === 0) return { problem: `a finding at line ${line as number}, though the file has no lines,` };
       if ((line as number) < 1 || (line as number) > lineCount) return { problem: `a finding at line ${line as number}, outside lines 1 to ${lineCount}` };
     }
     const finding: RawFinding = { rule, file: file.path, message: normalizeMessage(message) };
-    if (line !== undefined) finding.line = line as number;
+    if (line !== undefined && line !== null) finding.line = line as number;
     findings.push(finding);
   }
   return { findings };

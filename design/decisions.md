@@ -205,3 +205,9 @@ Why: the cache never decides a verdict that a parse would decide otherwise, beca
 A use that a `may_use` list forbids is an error in the change, and the law has no key that makes a list give warnings. A team whose old files break a list it brings in puts the list first on the types whose files are clean, waives each old use with its reason, and pays the waivers back. The page [Bring a law into an existing repository](../docs/adopt-in-an-existing-repository.md#bring-in-a-may-use-list) gives the steps.
 
 Why: a list that gives warnings is one more switch that a team forgets to turn on, and a list with a waiver on each old use judges every use a change adds from the first day. Each waiver stays in its file and in the JSON until someone removes it. The owner chose the page over a new key on 2026-11-23.
+
+## 167. A script rule's `line` of null means no line
+
+A finding that a script rule returns with `line: null` is about the whole file, as one without `line` is. Any other value that is not an integer from 1 to the number of lines, such as the string `'2'`, a bigint or `1.5`, still makes the rule `rule-crashed`, and the message names the value and says it is not an integer. The reviewer's answer already reads a `line` of null this way.
+
+Why: a rule author who writes `line: null` means no line, and a crash with a message about a range tells them nothing they can act on. The refusal of every other value stays because the line selects which waiver applies, and a wrong line would drop or keep a finding for the wrong reason. This was taken as a technical choice on 2026-11-23, and the owner may reverse it.
