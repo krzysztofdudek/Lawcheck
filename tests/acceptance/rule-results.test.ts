@@ -74,6 +74,27 @@ for (const [what, source, message] of background) {
   });
 }
 
+const unreferenced: [string, string][] = [
+  ['a timer', "export function check() { setTimeout(() => { throw new Error('unref'); }, 50).unref(); return []; }\n"],
+  ['an interval', "export function check() { setInterval(() => { throw new Error('unref'); }, 50).unref(); return []; }\n"],
+  ['an immediate', "export function check() { setImmediate(() => { throw new Error('unref'); }).unref(); return []; }\n"],
+  ['a timer of node:timers/promises', "import { setTimeout as wait } from 'node:timers/promises';\nexport function check() { void wait(50, null, { ref: false }).then(() => { throw new Error('unref'); }); return []; }\n"],
+  ['an immediate of node:timers/promises', "import { setImmediate as soon } from 'node:timers/promises';\nexport function check() { void soon(null, { ref: false }).then(() => { throw new Error('unref'); }); return []; }\n"],
+  ['an interval of node:timers/promises', "import { setInterval as every } from 'node:timers/promises';\nexport function check() { void (async () => { for await (const _ of every(50, null, { ref: false })) throw new Error('unref'); })(); return []; }\n"],
+  ['a wait of the scheduler of node:timers/promises', "import { scheduler } from 'node:timers/promises';\nexport function check() { void scheduler.wait(50, { ref: false }).then(() => { throw new Error('unref'); }); return []; }\n"],
+];
+
+for (const [what, source] of unreferenced) {
+  test(`R-124: a throw from ${what} that the rule leaves unreferenced, after its last result, is rule-crashed as a throw from a referenced timer is`, async () => {
+    await withSample(async (s) => {
+      setRule(s, 'no-console', source);
+      write(s, 'src/core/a.ts', 'export const x = 1;\n');
+      const run = await check(s);
+      assert.deepEqual([run.code, run.stdout.split('\n')[2]], [2, '.lawcheck/rules/no-console.mjs  error[rule-crashed]  fails in the background: unref']);
+    });
+  });
+}
+
 const noStringForm: [string, string, string][] = [
   ['an object without a prototype', 'Object.create(null)', 'Cannot convert object to primitive value'],
   ['an array holding a symbol', '[Symbol()]', 'Cannot convert a Symbol value to a string'],
