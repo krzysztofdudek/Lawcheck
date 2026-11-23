@@ -434,7 +434,7 @@ A [plain check](concepts.md#plain-check) calls no reviewer. It judges only the f
 - a file whose new text gives it another type: the judgment of each file that uses it can change;
 - a file that the language readers consult, such as `tsconfig.json`, `package.json`, `go.mod`, `Cargo.toml`, `composer.json` or a C# project file.
 
-Each of these passes a plain check. Lawcheck judges the files they affect the next time those files change. Only a file in the change fails a plain check with exit 1. A file outside the change can stop one with exit 2: [type-overlap](codes.md#type-overlap), [file-unreadable](codes.md#file-unreadable) or [link-outside-root](codes.md#link-outside-root).
+Each of these passes a plain check. Lawcheck judges the files they affect the next time those files change. Only a file in the change fails a plain check with exit 1. A file outside the change can still stop one with exit 2, for example with [type-overlap](codes.md#type-overlap), [file-unreadable](codes.md#file-unreadable), [file-too-large](codes.md#file-too-large), [text-too-large](codes.md#text-too-large), [parser-failed](codes.md#parser-failed) or [link-outside-root](codes.md#link-outside-root).
 
 To judge every file after such a change, run `lawcheck check --full`. Lawcheck lists what it finds outside the change as debt. Debt blocks nothing. `check` and `doctor` say when the change touches the law.
 ```
