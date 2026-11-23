@@ -14,6 +14,9 @@ const LIMIT_SHIM = join(ROOT, 'tests', 'agent', 'limit-shim.mjs');
 const LIMIT_MS = 15 * 60 * 1000;
 const LARGEST_FILE = 50000;
 const HOSTS: Record<string, Host> = { codex: CODEX };
+// A session the model's endpoint refused ends the trial, so a refused endpoint spends no further runs.
+const REFUSED = 'an error of the agent: ';
+let refused: string | null = null;
 
 // The prompt of the film's sessions, as film/record.mjs on the branch film gives it.
 export const PROMPT = 'Add a loyalty discount in src/core: a customer with more than five orders gets ten percent off. Return the new total and a message that shows the saved amount as money, the way the receipts do.';
@@ -27,13 +30,16 @@ export interface Arm {
   most: number;
 }
 
+// The sizes of the owner's ruling proby-wtyczek-oszczednie, about 40 sessions a host; each threshold is the design's, scaled to them.
 export const ARMS: Record<string, Arm> = {
-  none: { law: false, events: null, fails: false, counted: false, target: 20, most: 40 },
-  start: { law: true, events: ['session-start', 'prompt', 'edit', 'stop'], fails: false, counted: false, target: 20, most: 40 },
-  edit: { law: true, events: ['edit'], fails: false, counted: true, target: 10, most: 40 },
-  stop: { law: true, events: ['prompt', 'stop'], fails: false, counted: true, target: 10, most: 40 },
-  limit: { law: true, events: ['prompt', 'stop'], fails: true, counted: false, target: 5, most: 10 },
+  none: { law: false, events: null, fails: false, counted: false, target: 10, most: 15 },
+  start: { law: true, events: ['session-start', 'prompt', 'edit', 'stop'], fails: false, counted: false, target: 10, most: 15 },
+  edit: { law: true, events: ['edit'], fails: false, counted: true, target: 5, most: 15 },
+  stop: { law: true, events: ['prompt', 'stop'], fails: false, counted: true, target: 5, most: 15 },
+  limit: { law: true, events: ['prompt', 'stop'], fails: true, counted: false, target: 3, most: 6 },
 };
+export const START_CLEAN = 9;
+export const FIXED = 4;
 
 export interface HostChecks {
   tests: boolean;
@@ -168,6 +174,26 @@ export interface Verdict {
   lines: string[];
 }
 
+// 'pass' or 'fail' once the sessions so far settle the arm's threshold whatever the rest would do, else 'open'.
+export function armState(name: string, record: ArmRecord): 'pass' | 'fail' | 'open' {
+  const arm = ARMS[name]!;
+  const good = record.list.filter((entry) => entry.error === null);
+  const left = arm.most - record.runs;
+  if (name === 'none') return good.length >= arm.target ? 'pass' : good.length + left < arm.target ? 'fail' : 'open';
+  if (arm.counted) {
+    const counted = good.filter((entry) => entry.breach);
+    const fixed = counted.filter((entry) => entry.clean === true).length;
+    if (counted.length - fixed > arm.target - FIXED) return 'fail';
+    if (fixed >= FIXED) return 'pass';
+    return fixed + left < FIXED ? 'fail' : 'open';
+  }
+  const bad = name === 'start' ? good.filter((entry) => !entry.primed || entry.imports.length > 0).length : good.filter((entry) => entry.stops !== 4).length;
+  const unclean = name === 'start' ? good.filter((entry) => entry.clean !== true).length : 0;
+  if (bad > 0 || (name === 'start' && unclean > arm.target - START_CLEAN)) return 'fail';
+  if (good.length >= arm.target) return 'pass';
+  return good.length + left < arm.target ? 'fail' : 'open';
+}
+
 export function verdictOf(arms: Record<string, ArmRecord>): Verdict {
   const lines: string[] = [];
   let passes = true;
@@ -190,11 +216,11 @@ export function verdictOf(arms: Record<string, ArmRecord>): Verdict {
       say(good.length === arm.target, `start: ${good.length} of ${arm.target} sessions ran`);
       say(good.every((entry) => entry.primed), `start: the law reached the agent in ${good.filter((entry) => entry.primed).length} of ${good.length}`);
       say(good.every((entry) => entry.imports.length === 0), `start: ${good.filter((entry) => entry.imports.length > 0).length} of ${good.length} end with an import of the API code in src/core`);
-      say(good.filter((entry) => entry.clean === true).length >= 18, `start: ${good.filter((entry) => entry.clean === true).length} of ${good.length} end clean, 18 needed`);
+      say(good.filter((entry) => entry.clean === true).length >= START_CLEAN, `start: ${good.filter((entry) => entry.clean === true).length} of ${good.length} end clean, ${START_CLEAN} needed`);
     } else if (arm.counted) {
       const counted = good.filter((entry) => entry.breach);
-      say(counted.length === arm.target, `${name}: ${counted.length} of ${arm.target} counted sessions in ${record.runs} runs`);
-      say(counted.filter((entry) => entry.clean === true).length >= 8, `${name}: ${counted.filter((entry) => entry.clean === true).length} of ${counted.length} counted sessions fixed, 8 needed`);
+      const fixed = counted.filter((entry) => entry.clean === true).length;
+      say(armState(name, record) === 'pass', `${name}: ${fixed} of ${counted.length} counted sessions fixed in ${record.runs} runs; ${FIXED} fixed needed, with at most ${arm.target - FIXED} counted and not fixed, in at most ${arm.most} runs`);
     } else {
       say(good.length === arm.target, `${name}: ${good.length} of ${arm.target} sessions ran`);
       say(good.every((entry) => entry.stops === 4), `${name}: the agent went back exactly three times and the session ended in ${good.filter((entry) => entry.stops === 4).length} of ${good.length}`);
@@ -345,15 +371,15 @@ function describe(name: string, entry: HostEntry): string {
   return `${name} run ${entry.run}: ${what} (${entry.seconds} s)`;
 }
 
-async function runArm(options: Options, name: string, pathDirs: string[]): Promise<ArmRecord> {
+async function runArm(options: Options, name: string, pathDirs: string[], kept: ArmRecord | undefined, save: (record: ArmRecord) => void): Promise<ArmRecord> {
   const arm = ARMS[name]!;
-  const record: ArmRecord = { runs: 0, sessions: 0, counted: 0, list: [] };
+  const record: ArmRecord = kept === undefined ? { runs: 0, sessions: 0, counted: 0, list: [] } : { ...kept, list: [...kept.list] };
   const done = () => (arm.counted ? record.counted : record.sessions);
-  let started = 0;
+  let started = record.runs;
   let running = 0;
   await new Promise<void>((finish) => {
     const launch = () => {
-      while (running < options.jobs && started < arm.most && done() + running < arm.target) {
+      while (refused === null && running < options.jobs && started < arm.most && done() + running < arm.target && armState(name, record) === 'open') {
         const number = ++started;
         running++;
         void oneRun(options, name, number, pathDirs).then((entry) => {
@@ -362,6 +388,9 @@ async function runArm(options: Options, name: string, pathDirs: string[]): Promi
           record.list.push(entry);
           if (entry.error === null) record.sessions++;
           if (entry.error === null && entry.breach) record.counted++;
+          if (entry.error?.startsWith(REFUSED)) refused ??= entry.error;
+          record.list.sort((a, b) => a.run - b.run);
+          save(record);
           process.stdout.write(describe(name, entry) + '\n');
           launch();
         });
@@ -385,27 +414,39 @@ export async function hostTrial(argv: string[]): Promise<void> {
   const commit = gitIn(ROOT, ['rev-parse', 'HEAD']).trim() + (dirty ? '-dirty' : '');
   const previous = existsSync(options.out) ? JSON.parse(readFileSync(options.out, 'utf8')) : null;
   const arms: Record<string, ArmRecord> = previous?.lawcheck_commit === commit ? { ...previous.arms } : {};
+  const agent = options.host.version(process.env);
+  const write = () => {
+    const verdict = verdictOf(arms);
+    writeFileSync(options.out, JSON.stringify(resultOf(options, agent, manifest.version, commit, arms, verdict.passes), null, 2) + '\n');
+    return verdict;
+  };
   for (const name of options.arms) {
-    arms[name] = await runArm(options, name, pathDirs);
+    arms[name] = await runArm(options, name, pathDirs, arms[name], (record) => {
+      arms[name] = record;
+      write();
+    });
     const record = arms[name]!;
-    process.stdout.write(`${name}: ${record.runs} runs, ${record.sessions} sessions, ${record.counted} counted\n`);
+    process.stdout.write(`${name}: ${record.runs} runs, ${record.sessions} sessions, ${record.counted} counted, ${armState(name, record)}\n`);
+    if (refused !== null) stop(`the trial stopped after ${name} run ${record.runs}: ${refused}`);
   }
-  const verdict = verdictOf(arms);
+  const verdict = write();
   for (const line of verdict.lines) process.stdout.write(`${line}\n`);
-  const result = {
+  process.stdout.write(`${verdict.passes ? 'pass' : 'fail'}, written to ${options.out}\n`);
+}
+
+function resultOf(options: Options, agent: string, version: string, commit: string, arms: Record<string, ArmRecord>, passes: boolean) {
+  return {
     schema: 'lawcheck-agent-trial-host/0',
     host: options.host.name,
     date: new Date().toISOString().slice(0, 10),
-    agent: options.host.version(process.env),
+    agent,
     model: options.model,
     answered_by: options.answeredBy,
-    lawcheck: manifest.version,
+    lawcheck: version,
     lawcheck_commit: commit,
     repository: 'film/fixture',
     prompt: PROMPT,
-    passes: verdict.passes,
+    passes,
     arms: Object.fromEntries(Object.keys(ARMS).filter((name) => arms[name] !== undefined).map((name) => [name, arms[name]])),
   };
-  writeFileSync(options.out, JSON.stringify(result, null, 2) + '\n');
-  process.stdout.write(`${verdict.passes ? 'pass' : 'fail'}, written to ${options.out}\n`);
 }

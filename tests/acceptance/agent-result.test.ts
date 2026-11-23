@@ -5,7 +5,7 @@ import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { ARM_EVENTS, breachOf, checksIn, errorOf, isFixed, makeRepository, readTranscript, removeSessionState, ROOT, runsLawcheck, settleFolder } from '../agent/run.ts';
 import type { RunEntry } from '../agent/run.ts';
-import { apiImports, FILM, hostBreach, hostErrorOf, PROMPT, stopsOf, verdictOf } from '../agent/trial.ts';
+import { apiImports, armState, FILM, hostBreach, hostErrorOf, PROMPT, stopsOf, verdictOf } from '../agent/trial.ts';
 import type { HostEntry } from '../agent/trial.ts';
 import { readCodex } from '../agent/codex.ts';
 import { inTemp } from './helpers.ts';
@@ -162,20 +162,27 @@ test('test 926: the trial reads a Codex session from what codex exec --json prin
   assert.deepEqual([failed.completed, failed.errors, failed.primed], [false, ['SessionStart Failed'], false]);
 });
 
-test('test 927: the verdict of a trial of another agent holds each arm to its threshold', () => {
+test('test 927: the verdict of a trial of another agent holds each arm to its threshold, scaled to the sessions of ruling proby-wtyczek-oszczednie, and settles an arm as soon as the rest cannot change it', () => {
   const entry = (run: number, fields: Partial<HostEntry> = {}): HostEntry => ({ run, error: null, breach: false, primed: true, imports: [], stops: 0, checks: null, clean: true, log: [], files: {}, seconds: 1, reply: '', ...fields });
-  const arm = (list: HostEntry[]) => ({ runs: list.length, sessions: list.filter((e) => e.error === null).length, counted: list.filter((e) => e.error === null && e.breach).length, list });
+  const arm = (list: HostEntry[]) => ({ runs: list.length, sessions: list.filter((e) => e.error === null).length, counted: list.filter((e) => e.error === null && e.breach).length, list: list.map((e, i) => ({ ...e, run: i + 1 })) });
   const many = (n: number, fields: Partial<HostEntry> = {}) => Array.from({ length: n }, (_, i) => entry(i + 1, fields));
-  const good = { none: arm(many(20, { imports: ['src/core/a.ts:1'] })), start: arm([...many(18), ...many(2, { clean: false })]), edit: arm([...many(8, { breach: true }), ...many(2, { breach: true, clean: false }), ...many(3)]), stop: arm(many(10, { breach: true })), limit: arm(many(5, { stops: 4 })) };
+  const good = { none: arm(many(10, { imports: ['src/core/a.ts:1'] })), start: arm([...many(9), entry(10, { clean: false })]), edit: arm([...many(4, { breach: true }), ...many(3)]), stop: arm([entry(1, { breach: true, clean: false }), ...many(4, { breach: true })]), limit: arm(many(3, { stops: 4 })) };
   const verdict = verdictOf(good);
   assert.equal(verdict.passes, true, verdict.lines.join('\n'));
-  assert.ok(verdict.lines.includes('none: 20 of 20 sessions import the API code into src/core'));
-  assert.equal(verdictOf({ ...good, start: arm([...many(17), ...many(3, { clean: false })]) }).passes, false);
-  assert.equal(verdictOf({ ...good, start: arm([...many(19), entry(20, { primed: false })]) }).passes, false);
-  assert.equal(verdictOf({ ...good, start: arm([...many(19), entry(20, { imports: ['src/core/a.ts:1'] })]) }).passes, false);
-  assert.equal(verdictOf({ ...good, edit: arm([...many(7, { breach: true }), ...many(3, { breach: true, clean: false })]) }).passes, false);
-  assert.equal(verdictOf({ ...good, stop: arm(many(9, { breach: true })) }).passes, false);
-  assert.equal(verdictOf({ ...good, limit: arm([...many(4, { stops: 4 }), entry(5, { stops: 5 })]) }).passes, false);
+  assert.ok(verdict.lines.includes('none: 10 of 10 sessions import the API code into src/core'));
+  for (const [name, record] of Object.entries(good)) assert.equal(armState(name, record), 'pass', name);
+  assert.equal(verdictOf({ ...good, start: arm([...many(8), ...many(2, { clean: false })]) }).passes, false);
+  assert.equal(armState('start', arm(many(2, { clean: false }))), 'fail');
+  assert.equal(armState('start', arm([entry(1, { primed: false })])), 'fail');
+  assert.equal(armState('start', arm([entry(1, { imports: ['src/core/a.ts:1'] })])), 'fail');
+  assert.equal(armState('start', arm(many(9))), 'open');
+  assert.equal(armState('edit', arm([...many(2, { breach: true, clean: false })])), 'fail');
+  assert.equal(armState('edit', arm([...many(3, { breach: true }), ...many(11)])), 'open');
+  assert.equal(armState('edit', arm([...many(3, { breach: true }), ...many(12)])), 'fail');
+  assert.equal(verdictOf({ ...good, stop: arm(many(3, { breach: true })) }).passes, false);
+  assert.equal(armState('limit', arm([entry(1, { stops: 5 })])), 'fail');
+  assert.equal(armState('none', arm([...many(5), ...many(10, { error: 'the 15 minutes' })])), 'fail');
+  assert.equal(verdictOf({ ...good, limit: arm([...many(2, { stops: 4 }), entry(3, { stops: 3 })]) }).passes, false);
   const { limit, ...missing } = good;
   assert.ok(limit !== undefined);
   assert.equal(verdictOf(missing).passes, false);
