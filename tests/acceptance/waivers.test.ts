@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { append, check, D, D_PATH, findingLines, withSample, write } from './helpers.ts';
+import { append, check, D, D_PATH, E_PATH, findingLines, withSample, withU, write } from './helpers.ts';
 
 function withLine(at: number, line: string): string {
   const lines = D.split('\n');
@@ -122,4 +122,71 @@ test('test 37: waiver findings outside the change are debt', async () => {
     },
     { onMain: (s) => append(s, 'src/core/tax.ts', '// lawcheck-waive no-such -- x\n// lawcheck-waive no-todo -- nothing here\n') },
   );
+});
+
+const LEGACY = "console.log('x'); // lawcheck-waive no-console -- a legacy call\n";
+const SHIPPING = 'src/core/shipping.ts';
+const ADDED = (line: number) => `note: this change adds 1 waiver: no-console at ${SHIPPING}:${line}`;
+const waiversOf = async (s: string, ...args: string[]) => JSON.parse((await check(s, ...args, '--json')).stdout).waivers.map((w: { line: number; added: boolean | null }) => [w.line, w.added]);
+
+test('test 850: check names a waiver the change adds, in text and in JSON, and not one the base already holds', async () => {
+  await withSample(async (s) => {
+    write(s, SHIPPING, LEGACY);
+    const run = await check(s);
+    assert.equal(run.stdout, `lawcheck: PASS  1 changed file (against main), 1 waiver\n${ADDED(1)}\n`);
+    assert.equal(run.code, 0);
+    const json = JSON.parse((await check(s, '--base', 'main', '--json')).stdout);
+    assert.deepEqual(json.waivers, [{ file: SHIPPING, line: 1, rule: 'no-console', debt: false, waived: 1, reason: 'a legacy call', added: true }]);
+    assert.ok((await check(s, '--full', '--base', 'main')).stdout.split('\n').includes(ADDED(1)), 'a full check against a base names it too');
+    const named = await check(s, `./${SHIPPING}`);
+    assert.ok(!named.stdout.includes('note:'), named.stdout);
+    assert.deepEqual(await waiversOf(s, `./${SHIPPING}`), [[1, null]]);
+  });
+  await withSample(
+    async (s) => {
+      append(s, SHIPPING, '// more\n');
+      const run = await check(s);
+      assert.equal(run.stdout, 'lawcheck: PASS  1 changed file (against main), 1 waiver\n');
+      assert.deepEqual(await waiversOf(s, '--base', 'main'), [[1, false]]);
+      assert.deepEqual(await waiversOf(s, '--full', '--base', 'main'), [[1, false]]);
+    },
+    { onMain: (s) => write(s, SHIPPING, LEGACY) },
+  );
+  await withSample(
+    async (s) => {
+      write(s, SHIPPING, LEGACY.replace("'x'", "'y'") + LEGACY);
+      const run = await check(s);
+      assert.equal(run.stdout, `lawcheck: PASS  1 changed file (against main), 2 waivers\n${ADDED(1)}\n`);
+      assert.deepEqual(await waiversOf(s, '--base', 'main'), [[1, true], [2, false]]);
+    },
+    { onMain: (s) => write(s, SHIPPING, LEGACY) },
+  );
+  await withSample(async (s) => {
+    write(s, 'notes/plan.md', '<!-- lawcheck-waive no-console -- no type takes this file -->\n');
+    write(s, SHIPPING, Array.from({ length: 7 }, (_, i) => LEGACY.replace("'x'", `'${i}'`)).join(''));
+    const run = await check(s);
+    assert.deepEqual(run.stdout.split('\n').slice(0, 2), [
+      'lawcheck: PASS  2 changed files (against main), 7 waivers',
+      `note: this change adds 7 waivers: ${[1, 2, 3, 4, 5].map((line) => `no-console at ${SHIPPING}:${line}`).join('; ')}; and 2 more`,
+    ]);
+  });
+});
+
+test('S4-5: a waiver after the last line of a multi-line import does not cover the use, which sits on the first line; a waiver on the line above the statement does', async () => {
+  const reason = 'the report repeats the banner until 2.0';
+  await withU(async (u) => {
+    write(u, E_PATH, `import {\n  main,\n} from '../cli/main.js'; // lawcheck-waive forbidden-use -- ${reason}\nexport const report = main;\n`);
+    const run = await check(u);
+    assert.deepEqual(findingLines(run.stdout), [
+      `${E_PATH}:1  error[forbidden-use]  library may not use command (src/cli/main.ts); its may_use is [library]`,
+      `${E_PATH}:3  warning[waiver-unused]  the waiver of 'forbidden-use' drops no finding`,
+    ]);
+    assert.equal(run.code, 1);
+  });
+  await withU(async (u) => {
+    write(u, E_PATH, `// lawcheck-waive forbidden-use -- ${reason}\nimport {\n  main,\n} from '../cli/main.js';\nexport const report = main;\n`);
+    const run = await check(u);
+    assert.deepEqual(findingLines(run.stdout), []);
+    assert.equal(run.code, 0);
+  });
 });
