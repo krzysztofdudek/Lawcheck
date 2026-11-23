@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { existsSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { FAILED_MESSAGE, withFake } from './fake-reviewer.ts';
+import { MiB, sparse, textHead } from '../limits/support.ts';
 import {
   append,
   F,
@@ -560,6 +561,10 @@ test('test 901: the companion runs in the closed runner of script rules, and a c
           git(r, 'checkout', '-q', '--', '.');
         }
         assert.equal(fake.requests.length, 2);
+        sparse(r, '.lawcheck/verdicts', textHead(read(r, '.lawcheck/verdicts')), 16 * MiB + 1);
+        const full = await run(r, null, ['--full', '--base', 'main']);
+        assert.equal(full.code, 2, full.stdout);
+        assert.ok(full.stdout.includes('the file cannot be read (it holds more than 16 MiB); of its 2 passes the files of this tree need 2,'), full.stdout);
       },
       { onMain: withPair() },
     );

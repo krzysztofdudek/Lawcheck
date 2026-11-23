@@ -353,7 +353,12 @@ function unseenRepositories(root: string, listed: Set<string>, law: Law): string
 
 // What the reviews of this tree need of a full verdicts file, worked out with no call: its passes, those the files of the tree need, and the calls a review of every file of the law would take.
 async function verdictRoom(root: string, law: Law, typed: TypedFile[], kinds: Kinds, run: CompanionRun): Promise<string | ErrorItem[]> {
-  const paired = [...kinds.reviewers].filter(([, reviewer]) => reviewer.companion !== null).map(([rule]) => ({ rule, files: typed.filter((file) => file.rules.includes(rule)) }));
+  const paired = [...kinds.reviewers].filter(([, reviewer]) => reviewer.companion !== null).map(([rule]) => ({ rule, files: typed.filter((file) => file.rules.includes(rule)) })).filter(({ files }) => files.length > 0);
+  // The run guarded the runner only for the files it judges, and this counts every file of the law, so a run that judged none of a companion's files has not guarded it.
+  if (paired.length > 0) {
+    const errors = runnerErrors(root);
+    if (errors.length > 0) return errors;
+  }
   const resolved = await resolveCompanions({ ...run, signal: undefined }, kinds.reviewers, paired);
   if ('errors' in resolved) return resolved.errors;
   const needed = new Set<string>();
