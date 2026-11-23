@@ -89,3 +89,58 @@ test('check-slice §3: the time limit holds for the load and for each call, not 
     },
   );
 });
+
+function serving(answer: (what: string, path: string) => unknown, waitMs = 0) {
+  const asked: string[] = [];
+  const serve = async (what: 'tree' | 'uses', asking: { path: string }) => {
+    asked.push(`${what} ${asking.path}`);
+    if (waitMs > 0) await new Promise((done) => setTimeout(done, waitMs));
+    return answer(what, asking.path) as never;
+  };
+  return { asked, serve };
+}
+
+const FLAT = { language: 'typescript', tree: { types: ['program', 'identifier'], fields: ['name'], nodes: Int32Array.of(-1, 0, -1, 1, 0, 2, 1, 0, 0, 1, 0, 1, 0, 1, 1, 0) }, absent: null };
+
+test('test 773: a rule that does not ask for the tree or the uses makes the tool read neither', async () => {
+  await withRule("export function check({ files }) { return [{ message: typeof files[0].tree + ' ' + typeof files[0].uses }]; }\n", async (root, ruleFile) => {
+    const { asked, serve } = serving(() => FLAT);
+    const outcome = await runRule({ root, rule: 'r', ruleFile, files: [file('a.ts', ['x']), file('b.ts', ['y'])], filesOf, serve });
+    assert.deepEqual(outcome, { findings: [{ rule: 'r', file: 'a.ts', message: 'function function' }, { rule: 'r', file: 'b.ts', message: 'function function' }] });
+    assert.deepEqual(asked, []);
+  });
+});
+
+test('test 773: tree() and uses() ask the tool once per call, for the file of that call, and a tree arrives as nested nodes', async () => {
+  await withRule(
+    'export async function check({ files: [file] }) {\n  const [one, two, uses] = await Promise.all([file.tree(), file.tree(), file.uses()]);\n  return [{ message: (one === two) + " " + JSON.stringify(one) + " " + JSON.stringify(uses) }];\n}\n',
+    async (root, ruleFile) => {
+      const { asked, serve } = serving((what) => (what === 'tree' ? FLAT : { uses: [], absent: null }));
+      const outcome = await runRule({ root, rule: 'r', ruleFile, files: [file('a.ts', ['x']), file('b.ts', ['y'])], filesOf, serve });
+      const tree = { language: 'typescript', root: { type: 'program', named: true, field: null, start: 0, end: 2, line: 1, column: 0, children: [{ type: 'identifier', named: true, field: 'name', start: 0, end: 1, line: 1, column: 0, children: [] }] }, absent: null };
+      const message = `true ${JSON.stringify(tree)} {"uses":[],"absent":null}`;
+      assert.deepEqual(outcome, { findings: [{ rule: 'r', file: 'a.ts', message }, { rule: 'r', file: 'b.ts', message }] });
+      assert.deepEqual(asked, ['tree a.ts', 'uses a.ts', 'tree b.ts', 'uses b.ts']);
+    },
+  );
+});
+
+test('test 773: the time the tool takes to read what a rule asks for does not count toward the time of the call', async () => {
+  await withRule('export async function check({ files: [file] }) { const tree = await file.tree(); return [{ message: tree.absent }]; }\n', async (root, ruleFile) => {
+    const { serve } = serving(() => ({ language: null, tree: null, absent: 'no-reader' }), 1500);
+    const outcome = await runRule({ root, rule: 'r', ruleFile, files: [file('a.ts', ['x'])], filesOf, timeoutMs: 1000, serve });
+    assert.deepEqual(outcome, { findings: [{ rule: 'r', file: 'a.ts', message: 'no-reader' }] });
+  });
+});
+
+test('test 773: a file kept from an earlier call answers tree() with an error, and the tool is not asked', async () => {
+  await withRule(
+    'let last = null;\nexport async function check({ files: [file] }) {\n  const before = last;\n  last = file;\n  if (before === null) return [];\n  try { await before.tree(); return []; } catch (error) { return [{ message: error.message }]; }\n}\n',
+    async (root, ruleFile) => {
+      const { asked, serve } = serving(() => FLAT);
+      const outcome = await runRule({ root, rule: 'r', ruleFile, files: [file('a.ts', ['x']), file('b.ts', ['y'])], filesOf, serve });
+      assert.deepEqual(outcome, { findings: [{ rule: 'r', file: 'b.ts', message: 'tree() was called after its call of check ended' }] });
+      assert.deepEqual(asked, []);
+    },
+  );
+});

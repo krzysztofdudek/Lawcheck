@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { GRAMMARS, ownLine, readerOf, readUses, RUNES, siblingsOf, Unreadable } from '../../dist/readers.js';
+import { GRAMMARS, ownLine, readerOf, readUses, ruleReads, RUNES, siblingsOf, Unreadable } from '../../dist/readers.js';
 
 type Hint = { kind: 'path'; specifier: string } | { kind: 'symbol'; symbolKey: string };
 type Kind =
@@ -19,6 +19,7 @@ interface FakeOptions {
   failProject?: boolean;
   failAssemble?: string;
   failClassify?: string;
+  failParse?: string;
 }
 
 function fake(options: FakeOptions) {
@@ -32,6 +33,7 @@ function fake(options: FakeOptions) {
         return {};
       },
       withParsedFile: async (path: string, _content: string, fn: (tree: unknown) => unknown) => {
+        if (path === options.failParse) throw new Error('parse broke');
         record.parsed.push(path);
         return fn({});
       },
@@ -265,4 +267,83 @@ test('S4-9: a line Runes counts after a lone CR is the line of the file that hol
   assert.deepEqual([1, 2, 3, 4, 5].map(mixed), [1, 1, 2, 3, 3]);
   const plain = ownLine('a\r\nb\nc');
   assert.deepEqual([1, 2, 3].map(plain), [1, 2, 3]);
+});
+
+function reads(files: Record<string, string>, runes: any) {
+  const paths = Object.keys(files).sort();
+  const bound = paths.map((path) => ({ path, text: files[path]! }));
+  const serve = ruleReads({ root: '/nowhere', files: paths, bytes: (path) => enc.encode(files[path]!), ownerOf: () => 'owner', typeOf: (path) => (path.startsWith('app/') ? 'app' : null) }, runes)(bound);
+  return { serve, file: (path: string) => ({ path, text: files[path]! }) };
+}
+
+test('test 773: the reads of a script rule load no grammar and parse nothing until the rule asks, and a tree parses only its own file', async () => {
+  const { runes, record } = fake({});
+  const { serve, file } = reads({ 'a.ts': '', 'b.ts': '', 'c.java': '' }, runes);
+  assert.deepEqual(record, { loaded: [], parsed: [], declared: [], classified: [], project: 0 });
+  await serve('tree', file('b.ts'));
+  assert.deepEqual(record.parsed, ['b.ts']);
+  assert.deepEqual(record.declared, []);
+});
+
+test('test 773: the tree of a file is its nodes in preorder, with the type, the field, named, the range in the text, and the line and column of the start', async () => {
+  const { serve, file } = reads({ 'a.ts': 'let é = f(\r\n  x);\n' }, RUNES);
+  const answer = (await serve('tree', file('a.ts'))) as any;
+  assert.equal(answer.language, 'typescript');
+  assert.equal(answer.absent, null);
+  const { types, fields, nodes } = answer.tree;
+  const rows: string[] = [];
+  for (let at = 0; at < nodes.length; at += 8) {
+    rows.push(`${nodes[at]} ${types[nodes[at + 1]]} ${nodes[at + 2] < 0 ? '-' : fields[nodes[at + 2]]} ${nodes[at + 3] === 1 ? 'named' : 'anonymous'} ${nodes[at + 4]}-${nodes[at + 5]} ${nodes[at + 6]}:${nodes[at + 7]}`);
+  }
+  assert.deepEqual(rows, [
+    '-1 program - named 0-18 1:0',
+    '0 lexical_declaration - named 0-17 1:0',
+    '1 let kind anonymous 0-3 1:0',
+    '1 variable_declarator - named 4-16 1:4',
+    '3 identifier name named 4-5 1:4',
+    '3 = - anonymous 6-7 1:6',
+    '3 call_expression value named 8-16 1:8',
+    '6 identifier function named 8-9 1:8',
+    '6 arguments arguments named 9-16 1:9',
+    '8 ( - anonymous 9-10 1:9',
+    '8 identifier - named 14-15 2:2',
+    '8 ) - anonymous 15-16 2:3',
+    '1 ; - anonymous 16-17 2:4',
+  ]);
+});
+
+test('test 775: a file past the limit, a file with no reader and a reader that fails are absences that name their reason', async () => {
+  const { runes, record } = fake({ failParse: 'b.ts' });
+  const { serve, file } = reads({ 'a.ts': `${'x'.repeat(512 * 1024)}y`, 'b.ts': '', 'c.md': '', 'd.vue': '<template></template>' }, runes);
+  assert.deepEqual(await serve('tree', file('a.ts')), { language: 'typescript', tree: null, absent: 'too-large' });
+  assert.deepEqual(await serve('tree', file('b.ts')), { language: 'typescript', tree: null, absent: 'reader-failed' });
+  assert.deepEqual(await serve('tree', file('c.md')), { language: null, tree: null, absent: 'no-reader' });
+  assert.deepEqual(await serve('tree', file('d.vue')), { language: null, tree: null, absent: 'no-reader' });
+  assert.deepEqual(await serve('uses', file('a.ts')), { uses: null, absent: 'too-large' });
+  assert.deepEqual(await serve('uses', file('b.ts')), { uses: null, absent: 'reader-failed' });
+  assert.deepEqual(await serve('uses', file('c.md')), { uses: null, absent: 'no-reader' });
+  assert.deepEqual(await serve('uses', file('d.vue')), { uses: [], absent: null });
+  assert.deepEqual(record.parsed, []);
+});
+
+test("test 774: a rule's uses are read once for every file it judges, each target with its type, and a reader that fails on one file leaves the others their uses", async () => {
+  const use = (line: number, specifier: string) => ({ line, candidates: [{ kind: 'path', specifier } as Hint] });
+  const uses = { 'domain/a.py': [use(1, 'app'), use(2, 'none')], 'domain/b.py': [use(3, 'app')], 'domain/c.py': [] };
+  const classifyUse = (candidates: Hint[]): Kind => ((candidates[0] as { specifier: string }).specifier === 'app' ? { kind: 'resolved', owner: 'app', resolvedFile: 'app/x.py' } : { kind: 'absent', reason: 'unfollowed' });
+  const files = { 'app/x.py': '', 'domain/a.py': '', 'domain/b.py': '', 'domain/c.py': '' };
+  const once = fake({ uses, classifyUse });
+  const { serve, file } = reads(files, once.runes);
+  assert.deepEqual(await serve('uses', file('domain/a.py')), {
+    uses: [
+      { line: 1, kind: 'file', file: 'app/x.py', type: 'app' },
+      { line: 2, kind: 'none', what: 'none', reason: 'unfollowed', candidates: [] },
+    ],
+    absent: null,
+  });
+  assert.deepEqual(await serve('uses', file('domain/b.py')), { uses: [{ line: 3, kind: 'file', file: 'app/x.py', type: 'app' }], absent: null });
+  assert.deepEqual(once.record.parsed, ['app/x.py', 'domain/a.py', 'domain/b.py', 'domain/c.py']);
+  const failing = fake({ uses, classifyUse, failUses: 'domain/b.py' });
+  const second = reads(files, failing.runes);
+  assert.deepEqual(await second.serve('uses', second.file('domain/b.py')), { uses: null, absent: 'reader-failed' });
+  assert.deepEqual(await second.serve('uses', second.file('domain/c.py')), { uses: [], absent: null });
 });
