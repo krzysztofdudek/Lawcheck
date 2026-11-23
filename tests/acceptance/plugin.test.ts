@@ -31,13 +31,13 @@ const D_OUTPUT = [
 const TEST17_CHECK = example('check-law-invalid');
 
 const editHeader = (rel: string, cmd = 'lawcheck') => `Lawcheck: after this edit, ${rel} breaks the law of this repository. ${cmd} check ./${rel} printed:`;
-const editErrorHeader = (rel: string, cmd = 'lawcheck') => `Lawcheck could not check ${rel} after this edit. ${cmd} check ./${rel} printed:`;
+const editErrorHeader = (rel: string, cmd = 'lawcheck') => `Lawcheck: after this edit, ${cmd} check ./${rel} could not check the file. It printed:`;
 const stopHeader = (cmd = 'lawcheck') =>
   `Lawcheck: the files that changed in this turn break the law of this repository. Fix the code, then finish; if a fix needs the user's word, tell the user what blocks you and finish. ${cmd} check on those files printed:`;
 const stopErrorHeader = (cmd = 'lawcheck') =>
-  `Lawcheck could not check the files that changed in this turn, and the turn changed files under .lawcheck/. Fix what the error names, then finish; if that needs the user's word, tell the user and finish. ${cmd} check on those files printed:`;
-const released = (cmd = 'lawcheck') => ({ systemMessage: `lawcheck: the turn ended while lawcheck check still fails on the files that changed in it; ${cmd} check shows why.` });
-const D_WAIVER = 'lawcheck: in this turn the agent added 1 waiver (no-console at src/core/discount.ts:4). Read them before you accept the turn.';
+  `Lawcheck: the check at the end of the turn stopped with an error, and the turn changed files under .lawcheck/. Fix what the error names, then finish; if that needs the user's word, tell the user and finish. ${cmd} check on those files printed:`;
+const released = (cmd = 'lawcheck') => ({ systemMessage: `Lawcheck: the turn ended while the check of its files still fails. ${cmd} check shows why.` });
+const D_WAIVER = 'Lawcheck: in this turn the agent added 1 waiver (no-console at src/core/discount.ts:4). Read them before you accept the turn.';
 const withD = (output: { systemMessage: string }) => ({ systemMessage: `${output.systemMessage}\n${D_WAIVER}` });
 const handBack = (text: string) => ({ hookSpecificOutput: { hookEventName: 'Stop', additionalContext: text } });
 const started = (text: string) => ({ hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: text } });
@@ -138,6 +138,21 @@ test('test 156: prime that does not run', async () => {
   });
 });
 
+test('S6-9: a reason that ends with a full stop gets no second one', async () => {
+  await withBench(async (bench, dir) => {
+    const s = makeSample(dir);
+    bench.script('lawcheck', ["process.stderr.write('error Command \"lawcheck\" not found.\\n');", 'process.exitCode = 1;']);
+    json(
+      await new Session(bench, s).start(),
+      started('This repository has a Lawcheck law (.lawcheck/law.yaml), and lawcheck prime did not run: error Command "lawcheck" not found.\nInstall it with npm i -g lawcheck@alpha, then start a new session. Until then, read .lawcheck/law.yaml for the law.'),
+    );
+    const session = new Session(bench, s, 's2');
+    await session.prompt();
+    write(s, D_PATH, D);
+    json(await session.stop(), withD({ systemMessage: 'Lawcheck: the check at the end of the turn did not run: error Command "lawcheck" not found.' }));
+  });
+});
+
 test('test 157: prime with a broken law', async () => {
   await withBench(async (bench, dir) => {
     const s = makeSample(dir);
@@ -188,7 +203,7 @@ test('test 158: every runner starts the same Lawcheck with its own words', async
     json(
       await session.start(),
       started(
-        'This repository has a Lawcheck law (.lawcheck/law.yaml), and .lawcheck/config.yaml sets runner to make, which is none of global, npx, pnpm, yarn, bun, so Lawcheck was not started.\nRead .lawcheck/law.yaml for the law, and tell the user that the runner setting is wrong.',
+        "This repository has a Lawcheck law (.lawcheck/law.yaml), and .lawcheck/config.yaml sets runner to 'make'. The runner takes global, npx, pnpm, yarn or bun, so the plugin did not start Lawcheck.\nRead .lawcheck/law.yaml for the law, and tell the user that the runner setting is wrong.",
       ),
     );
     await session.prompt();
@@ -254,6 +269,49 @@ test('test 161: a broken law reaches the agent once', async () => {
     assert.ok(other.json?.hookSpecificOutput?.additionalContext.startsWith(`${editErrorHeader('.lawcheck/law.yaml')}\n\nlawcheck: ERROR  `), other.stdout);
     assert.match(other.json.hookSpecificOutput.additionalContext, /whyy/);
     nothing(await session.edit('.lawcheck/law.yaml'), 'the second output again');
+  });
+});
+
+test('S6-3: a law error that a check the hook could run clears comes back to the agent when the law breaks the same way again', async () => {
+  await withBench(async (bench, dir) => {
+    const s = makeSample(dir);
+    const session = new Session(bench, s);
+    const broken = edited(`${editErrorHeader('.lawcheck/law.yaml')}\n\n${TEST17_CHECK}`);
+    write(s, '.lawcheck/law.yaml', BROKEN_LAW);
+    json(await session.edit('.lawcheck/law.yaml'), broken, 'the first break');
+    write(s, '.lawcheck/law.yaml', LAW);
+    nothing(await session.edit('.lawcheck/law.yaml'), 'the law fixed');
+    write(s, '.lawcheck/law.yaml', BROKEN_LAW);
+    json(await session.edit('.lawcheck/law.yaml'), broken, 'the same break again');
+    write(s, D_PATH, D);
+    nothing(await session.edit(D_PATH), 'the same output, still broken');
+    write(s, '.lawcheck/law.yaml', LAW);
+    json(await session.edit(D_PATH), edited(`${editHeader(D_PATH)}\n\n${D_OUTPUT}`), 'a check that breaks the law also clears it');
+    write(s, '.lawcheck/law.yaml', BROKEN_LAW);
+    json(await session.edit('.lawcheck/law.yaml'), broken, 'the same break after a failing check');
+  });
+});
+
+test('S6-5: with a reviewer rule and no reviewer set, prime says so and the session start tells the user once', async () => {
+  await withBench(async (bench, dir) => {
+    const r = makeR(dir);
+    rmSync(join(r, '.lawcheck/config.yaml'));
+    const primed = await lawcheck(r, ['prime']);
+    assert.equal(primed.code, 0);
+    assert.ok(primed.stdout.includes('\n- not-reviewed: no reviewer is set in .lawcheck/config.yaml, so a plain lawcheck check and CI fail on every file a reviewer rule judges. Tell the user once; setting a reviewer is the user\'s decision.\n'), primed.stdout);
+    const told = {
+      ...started(primed.stdout.replace(/\n$/, '')),
+      systemMessage: "Lawcheck: this repository has a reviewer rule, and .lawcheck/config.yaml sets no reviewer, so a plain lawcheck check and CI fail on every file a reviewer rule judges. Set reviewer.provider and reviewer.model there; lawcheck docs providers lists the choices.",
+    };
+    const session = new Session(bench, r);
+    json(await session.start(), told, 'the first start');
+    await session.prompt();
+    json(await session.start('compact'), started(primed.stdout.replace(/\n$/, '')), 'the same session again');
+    json(await new Session(bench, r, 's2').start(), told, 'another session');
+    write(r, '.lawcheck/config.yaml', 'reviewer:\n  provider: openai-compatible\n  model: test-model\n');
+    const set = await lawcheck(r, ['prime']);
+    assert.ok(set.stdout.includes('\n- not-reviewed: fix every other finding first, then run lawcheck check --review\n'), set.stdout);
+    json(await new Session(bench, r, 's3').start(), started(set.stdout.replace(/\n$/, '')), 'a reviewer set');
   });
 });
 
@@ -403,7 +461,7 @@ test('test 164: a long output is fitted', async () => {
     assert.equal(lines[1], '');
     assert.equal(lines[2], printed[0]);
     const more = lines[lines.length - 2]!;
-    const k = /^\.\.\. (\d+) more lines not shown; run the command yourself to see them all$/.exec(more);
+    const k = /^\.\.\. (\d+) more lines? not shown; run the command yourself to see them all$/.exec(more);
     assert.ok(k, more);
     const kept = lines.slice(3, -2);
     assert.deepEqual(kept, printed.slice(1, 1 + kept.length));
@@ -617,7 +675,7 @@ test('test 173: a broken law, touched by the turn or not', async () => {
     const session = new Session(bench, s);
     await session.prompt();
     append(s, 'src/cli/main.ts', '// end\n');
-    json(await session.stop(), { systemMessage: 'lawcheck: lawcheck check could not judge the files that changed in this turn; lawcheck check shows why.' });
+    json(await session.stop(), { systemMessage: 'Lawcheck: the check at the end of the turn stopped with an error, and the turn changed no file under .lawcheck/. lawcheck check shows the error.' });
   });
 });
 
@@ -628,7 +686,7 @@ test('test 174: more than 1,000 files', async () => {
     await session.prompt();
     mkdirSync(join(s, 'notes'));
     for (let i = 1; i <= 1001; i++) writeFileSync(join(s, 'notes', `${i}.md`), `${i}\n`);
-    json(await session.stop(), { systemMessage: 'lawcheck: 1001 files changed in this turn, more than the 1000 the check before finishing takes, so it did not run; lawcheck check shows the result.' });
+    json(await session.stop(), { systemMessage: 'Lawcheck: 1001 files changed in this turn, and the check at the end of a turn takes at most 1000, so it did not run. lawcheck check shows the result.' });
     assert.deepEqual(bench.checks(), []);
   });
 });
@@ -640,7 +698,7 @@ test('test 175: a check that does not run is told once per session', async () =>
     const session = new Session(bench, s);
     await session.prompt();
     write(s, D_PATH, D);
-    json(await session.stop(), withD({ systemMessage: 'lawcheck: the check before the agent finished did not run: lawcheck was not found.' }));
+    json(await session.stop(), withD({ systemMessage: 'Lawcheck: the check at the end of the turn did not run: lawcheck was not found.' }));
     await session.prompt();
     append(s, D_PATH, '// more\n');
     nothing(await session.stop(), 'told already');
@@ -649,12 +707,12 @@ test('test 175: a check that does not run is told once per session', async () =>
     nothing(await other.edit(D_PATH), 'edit with an old lawcheck');
     await other.prompt();
     append(s, D_PATH, '// again\n');
-    json(await other.stop(), { systemMessage: 'lawcheck: the check before the agent finished did not run: this lawcheck does not take check <paths>; update it.' });
+    json(await other.stop(), { systemMessage: 'Lawcheck: the check at the end of the turn did not run: this Lawcheck does not take check <paths>; update it.' });
   });
 });
 
 test('test 851: the end of a turn that added a waiver or changed the law tells the user once, and a waiver from before the turn is not named', async () => {
-  const told = (text: string) => ({ systemMessage: `lawcheck: in this turn the agent ${text}. Read them before you accept the turn.` });
+  const told = (text: string) => ({ systemMessage: `Lawcheck: in this turn the agent ${text}. Read them before you accept the turn.` });
   const legacy = (what: string) => `console.log('${what}'); // lawcheck-waive no-console -- a legacy call\n`;
   await withBench(async (bench, dir) => {
     const s = makeSample(dir);
@@ -696,7 +754,7 @@ test('test 176: a background agent keeps the turn open and says so; a background
     await session.prompt();
     write(s, D_PATH, D);
     json(await session.stop({ background_tasks: [{ id: 't1', type: 'subagent', status: 'running' }] }), {
-      systemMessage: 'lawcheck: the check before the agent finished waits for the background task t1 (subagent), which may still be writing files; it runs at the first stop after that task ends.',
+      systemMessage: 'Lawcheck: the check at the end of the turn waits for the background task t1 (subagent), which may still be writing files. It runs the first time the agent finishes after that task ends.',
     });
     assert.deepEqual(bench.checks(), []);
     assert.equal(bench.state().open, true);
@@ -733,9 +791,9 @@ test('test 177: no hook asks the reviewer', async () => {
 test('test 178: a failure of the hook itself', async () => {
   await withBench(async (bench, dir) => {
     for (const [event, input] of [['stop', 'not json'], ['nope', JSON.stringify({ session_id: 's1', cwd: dir, hook_event_name: 'Stop' })]] as const) {
-      const run = await hook(bench, event, input, {}, undefined, { stderr: /^lawcheck plugin: [^\n]+\n$/ });
+      const run = await hook(bench, event, input, {}, undefined, { stderr: /^Lawcheck plugin: [^\n]+\n$/ });
       assert.equal(run.stdout, '', event);
-      assert.match(run.stderr, /^lawcheck plugin: /, event);
+      assert.match(run.stderr, /^Lawcheck plugin: /, event);
       assert.equal(run.code, 1, event);
     }
   });

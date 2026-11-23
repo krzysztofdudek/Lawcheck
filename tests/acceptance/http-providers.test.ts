@@ -295,7 +295,7 @@ const CASES: Case[] = [
     respond: () => () => ({ hang: true }),
     extra: '  timeout: 1\n',
     expect: (result, fake, http) => {
-      assert.equal(result.stdout, after(failedWith('the reviewer gave no answer within 1 seconds', `raise reviewer.timeout in .lawcheck/config.yaml, or check that the reviewer at ${baseOf(http, fake)} works`), fake.requests.length));
+      assert.equal(result.stdout, after(failedWith('the reviewer gave no answer within 1 seconds', `check that the reviewer at ${baseOf(http, fake)} works, or ask the user to raise reviewer.timeout in .lawcheck/config.yaml`), fake.requests.length));
       assert.ok(result.ms < HTTP_TIMEOUT_RUN_MS, `${result.ms} ms`);
       assert.equal(fake.requests.length, 1);
     },
@@ -509,7 +509,7 @@ test('test 411: the timeout bounds a request and its resend', async () => {
             assert.equal(result.stdout, after(failedWith('HTTP 429 Too Many Requests', "wait until the provider's rate limit allows another call"), fake.requests.length));
             assert.equal(fake.requests.length, 1);
           } else {
-            assert.equal(result.stdout, after(failedWith('the reviewer gave no answer within 3 seconds', `raise reviewer.timeout in .lawcheck/config.yaml, or check that the reviewer at ${fake.url} works`), fake.requests.length));
+            assert.equal(result.stdout, after(failedWith('the reviewer gave no answer within 3 seconds', `check that the reviewer at ${fake.url} works, or ask the user to raise reviewer.timeout in .lawcheck/config.yaml`), fake.requests.length));
             assert.equal(fake.requests.length, 2);
             const resend = fake.requests[1]!;
             assert.ok(resend.end - resend.start < RESEND_LEFT_BOUND_MS, `the resend lasted ${resend.end - resend.start} ms with 0.5 seconds left`);

@@ -156,7 +156,7 @@ async function programCases(program: Program): Promise<void> {
         await running.output(/error\[reviewer-unreachable\]/, 'stdout');
         const shown = Date.now();
         const result = await running.ended;
-        const next = `raise reviewer.timeout in .lawcheck/config.yaml, or check that ${program.name} answers when started by hand, ${AGAIN}`;
+        const next = `check that ${program.name} answers when started by hand, or ask the user to raise reviewer.timeout in .lawcheck/config.yaml, ${AGAIN}`;
         assert.equal(result.stdout, after(stopped(UNREACHABLE(`${program.name} gave no answer within 1 seconds`), 'reviewer-unreachable', next), 1));
         assert.equal(result.code, 2);
         const seen = record(dir);
@@ -379,7 +379,7 @@ async function programCases(program: Program): Promise<void> {
           withR(async (r, dir) => {
             write(r, F_PATH, F);
             const result = await run(r, null, ['--review', '--base', 'main'], fakeEnv(program, dir, 'late', { [`FAKE_${upper}_LIST_DELAY`]: String(LIST_DELAY_MS), [`FAKE_${upper}_DELAY`]: String(LATE_ANSWER_MS) }));
-            const next = `raise reviewer.timeout in .lawcheck/config.yaml, or check that ${program.name} answers when started by hand, ${AGAIN}`;
+            const next = `check that ${program.name} answers when started by hand, or ask the user to raise reviewer.timeout in .lawcheck/config.yaml, ${AGAIN}`;
             assert.equal(result.stdout, after(stopped(UNREACHABLE(`${program.name} gave no answer within ${SHARED_TIMEOUT_S} seconds`), 'reviewer-unreachable', next), 1));
             assert.equal(result.code, 2);
           }, configOf(program.provider, `  timeout: ${SHARED_TIMEOUT_S}\n`)),

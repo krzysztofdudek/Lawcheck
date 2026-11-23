@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { chmodSync, cpSync, mkdirSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { chmodSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { delimiter, join } from 'node:path';
 import { openai, startFake, type Fake } from '../acceptance/fake-reviewer.ts';
 import { platformSkip } from '../harness/tool.ts';
 import {
@@ -946,3 +946,60 @@ function comparisonProblem(body: string, code: string): string | null {
   if (line === undefined) return `compares no output with the Example of ${code}`;
   return /^\s*assert\.equal\(shownRun\(/.test(line) ? null : `compares the Example of ${code} under a condition: ${line.trim()}`;
 }
+
+const USERS_STEPS = [/\.lawcheck\/config\.yaml/, /\bset runner\b/, /\breviewer\.(provider|model|timeout)\b/, /\.lawcheck\/verdicts/, /--again\b/, /max_calls|--max-calls/, /max_chars/, /lawcheck-waive|\bwaiver/, /out of the law|off a type/, /\bwiden/];
+const LEFT_TO_USER = /\bask the user\b|\bthe user's decision\b/;
+
+test("R-35: every next line that names a step the primer leaves to the user asks the user to take it", async () => {
+  const fake = await startFake();
+  try {
+    await inTemp(async (dir) => {
+      const env = { LAWCHECK_REVIEWER_ENDPOINT: fake.url };
+      const calls = { stderr: /^(lawcheck: [^\n]*\n)*$/ };
+      const runs: [string, () => Promise<{ stdout: string }>][] = [];
+      const r = makeR(join(dir, 'r'));
+      write(r, F_PATH, F);
+      const unset = makeR(join(dir, 'unset'));
+      write(unset, F_PATH, F);
+      rmSync(join(unset, '.lawcheck/config.yaml'));
+      runs.push(['check, no reviewer set', () => lawcheck(unset, ['check', '--base', 'main'])]);
+      runs.push(['check --review, no reviewer set', () => lawcheck(unset, ['check', ...REVIEW])]);
+      runs.push(['try, no reviewer set', () => lawcheck(unset, ['try', 'clear-errors', F_PATH])]);
+      runs.push(['doctor, no reviewer set', () => lawcheck(unset, ['doctor', '--base', 'main'])]);
+      runs.push(['doctor --reviewer, no reviewer set', () => lawcheck(unset, ['doctor', '--base', 'main', '--reviewer'])]);
+      const missing = makeSample(join(dir, 'missing'));
+      rmSync(join(missing, '.lawcheck/rules/no-console.mjs'));
+      runs.push(['rule-missing-file', () => lawcheck(missing, ['check', '--base', 'main'])]);
+      const invalid = makeSample(join(dir, 'invalid'));
+      write(invalid, '.lawcheck/config.yaml', 'bogus: 1\n');
+      runs.push(['config-invalid', () => lawcheck(invalid, ['check', '--base', 'main'])]);
+      const runner = makeSample(join(dir, 'runner'));
+      write(runner, '.lawcheck/config.yaml', 'runner: pnpm\n');
+      const noPnpm = GIT_ENV.PATH!.split(delimiter).filter((d) => !existsSync(join(d, process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm'))).join(delimiter);
+      runs.push(['doctor, the runner has no program', () => lawcheck(runner, ['doctor', '--base', 'main'], { PATH: noPnpm })]);
+      runs.push(['doctor --reviewer, the model answers fail', async () => {
+        fake.respond = () => openai('{"verdict": "fail", "findings": [{"line": null, "message": "m"}]}');
+        return lawcheck(r, ['doctor', '--base', 'main', '--reviewer'], env, [], calls);
+      }]);
+      runs.push(['check --review, the model is not found', async () => {
+        fake.respond = () => ({ status: 404, body: '{"error": {"message": "no such model"}}' });
+        return lawcheck(r, ['check', ...REVIEW], env, [], calls);
+      }]);
+      runs.push(['check --review, the reviewer does not answer in time', async () => {
+        write(r, '.lawcheck/config.yaml', `${REVIEWER_CONFIG}  timeout: 1\n`);
+        fake.respond = () => ({ hang: true });
+        return lawcheck(r, ['check', ...REVIEW], env, [], calls);
+      }]);
+      const handed: string[] = [];
+      for (const [name, run] of runs) {
+        const lines = (await run()).stdout.split('\n').map((line) => line.trimStart()).filter((line) => line.startsWith('next: '));
+        const steps = lines.filter((line) => USERS_STEPS.some((step) => step.test(line)));
+        assert.ok(steps.length > 0, `${name}: no next line names a step of the user: ${lines.join(' | ')}`);
+        for (const line of steps) if (!LEFT_TO_USER.test(line)) handed.push(`${name}: ${line}`);
+      }
+      assert.deepEqual(handed, []);
+    });
+  } finally {
+    await fake.close();
+  }
+});

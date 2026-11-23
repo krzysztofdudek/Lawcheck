@@ -24,7 +24,7 @@ const D_OUTPUT = [
 const STOP_HEADER =
   "Lawcheck: the files that changed in this turn break the law of this repository. Fix the code, then finish; if a fix needs the user's word, tell the user what blocks you and finish. lawcheck check on those files printed:";
 const STOP_ERROR_HEADER =
-  "Lawcheck could not check the files that changed in this turn, and the turn changed files under .lawcheck/. Fix what the error names, then finish; if that needs the user's word, tell the user and finish. lawcheck check on those files printed:";
+  "Lawcheck: the check at the end of the turn stopped with an error, and the turn changed files under .lawcheck/. Fix what the error names, then finish; if that needs the user's word, tell the user and finish. lawcheck check on those files printed:";
 const EDIT_HEADER = `Lawcheck: after this edit, ${D_PATH} breaks the law of this repository. lawcheck check ./${D_PATH} printed:`;
 const PRIMER_START = "Lawcheck checks this repository's code against its law";
 
@@ -114,7 +114,7 @@ test('S6-1: a check before finishing that cannot take its snapshot says so', asy
     const stopped = await runHook('stop', input({ hook_event_name: 'Stop', stop_hook_active: false }), withoutGit);
     assert.equal(stopped.code, 0, stopped.stderr);
     const message = (stopped.json as { systemMessage?: string } | null)?.systemMessage ?? '';
-    assert.ok(message.startsWith('lawcheck: the check before the agent finished did not run: git could not list the files of this turn, because git cannot be started'), stopped.stdout);
+    assert.ok(message.startsWith('Lawcheck: the check at the end of the turn did not run: git could not list the files of this turn, because git cannot be started'), stopped.stdout);
   });
   assert.deepEqual(problems, []);
 });

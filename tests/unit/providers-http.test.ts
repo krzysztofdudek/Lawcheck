@@ -41,7 +41,7 @@ test('test 403: statuses, a body that is no JSON, a redirect and an error messag
     const denied = await post(`${url}/401`, {}, {}, 5);
     assert.ok('failure' in denied && denied.failure.startsWith('HTTP 401 Unauthorized: bad key') && !denied.failure.includes('second'));
     assert.deepEqual(await post(`${url}/403`, {}, {}, 5, { keyName: 'OPENAI_API_KEY' }), { failure: `HTTP 403 Forbidden: ${'y'.repeat(200)}`, resend: false, fix: 'check the key in OPENAI_API_KEY' });
-    assert.deepEqual(await post(`${url}/404`, {}, {}, 5, { base: 'B' }), { failure: "HTTP 404 Not Found: model 'm' not found", resend: false, fix: 'check reviewer.model in .lawcheck/config.yaml and the address B' });
+    assert.deepEqual(await post(`${url}/404`, {}, {}, 5, { base: 'B' }), { failure: "HTTP 404 Not Found: model 'm' not found", resend: false, fix: 'check that B is the right address, or ask the user to check reviewer.model in .lawcheck/config.yaml' });
     assert.deepEqual(await post(`${url}/400`, {}, {}, 5, { base: 'B' }), { failure: 'HTTP 400 Bad Request', resend: false, fix: 'fix what the reviewer at B says' });
     assert.deepEqual(await post(`${url}/307`, {}, {}, 5), { failure: 'HTTP 307 Temporary Redirect', resend: false, fix: 'set LAWCHECK_REVIEWER_ENDPOINT to the address that answers without a redirect' });
     assert.deepEqual(await post(`${url}/500`, {}, {}, 5, { base: 'B' }), { failure: 'HTTP 500 Internal Server Error', resend: false, fix: 'wait until the reviewer at B works again' });
