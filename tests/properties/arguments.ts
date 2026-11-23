@@ -22,7 +22,7 @@ function state(repo: string): string {
 const EVENTS = ['session-start', 'prompt', 'edit', 'stop'];
 
 function runHook(event: string, input: string, env: NodeJS.ProcessEnv): Promise<{ code: number | null; stdout: string; stderr: string }> {
-  return startHook(event, input, env, { stderr: /^(lawcheck plugin: [^\n]+\n)?$/ }).ended;
+  return startHook(event, input, env, { stderr: /^(Lawcheck plugin: [^\n]+\n)?$/ }).ended;
 }
 
 // Each property by its name, for tests/properties/arguments.test.ts and arguments.nightly.test.ts to register with its name written out.
@@ -100,7 +100,7 @@ export function argumentsProperties(speed: Speed): Record<string, () => unknown>
           }
           assert.doesNotMatch(run.stderr, /\n\s+at /, `a stack trace: ${run.stderr}`);
           if (run.code === 1) {
-            assert.match(run.stderr, /^lawcheck plugin: [^\n]+\n$/, run.stderr);
+            assert.match(run.stderr, /^Lawcheck plugin: [^\n]+\n$/, run.stderr);
             assert.ok(!i.startsWith('{"'), `a JSON object is input the hook takes, so it exits 0: ${run.stderr}`);
             assert.equal(run.stdout, '');
             return;

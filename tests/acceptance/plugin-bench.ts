@@ -231,7 +231,7 @@ export async function deadlineScenario(deadlines: Deadlines | null, sigterm: 'st
     const session = new Session(bench, s, 's1', {}, deadlines === null ? {} : { deadlines });
     const late = await session.edit(D_PATH);
     within(late, edit);
-    json(late, edited(`Lawcheck: lawcheck check ./${D_PATH} did not finish within ${edit} seconds and was stopped.`));
+    json(late, edited(`Lawcheck: lawcheck check ./${D_PATH} did not finish within ${edit} seconds, so the hook stopped it.`));
     await gone();
     hangingLawcheck(bench, pids, false);
     rmSync(join(s, D_PATH));
@@ -239,7 +239,7 @@ export async function deadlineScenario(deadlines: Deadlines | null, sigterm: 'st
     write(s, D_PATH, D);
     const stopped = await session.stop();
     within(stopped, stop);
-    json(stopped, { systemMessage: `lawcheck: the check before the agent finished did not run: it did not finish within ${stop} seconds.` });
+    json(stopped, { systemMessage: `Lawcheck: the check at the end of the turn did not run: it did not finish within ${stop} seconds.` });
     await gone();
     if (platformSkip('a hook stopped by SIGTERM') !== null) return;
     let sent = 0;

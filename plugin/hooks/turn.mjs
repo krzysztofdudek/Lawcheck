@@ -1,6 +1,7 @@
 import { readFileSync, statSync } from 'node:fs';
 import { onDisk } from './names.mjs';
 import { blobsAt } from './snapshot.mjs';
+import { turnMessage as message } from './messages.mjs';
 import { plainText } from './start.mjs';
 
 // Lawcheck's own law reads plugin/ for waivers, and the marker written whole would be one with no rule.
@@ -83,12 +84,6 @@ function listed(items) {
 }
 
 export function turnMessage({ waivers, law }) {
-  const parts = [];
-  if (waivers.length > 0) {
-    const named = waivers.map(({ path, line, rule }) => plainText(`${rule ?? MARKER} at ${path}:${line}`));
-    parts.push(`added ${waivers.length === 1 ? '1 waiver' : `${waivers.length} waivers`} (${listed(named)})`);
-  }
-  if (law.length > 0) parts.push(`changed ${listed(law.map(plainText))}`);
-  if (parts.length === 0) return null;
-  return `lawcheck: in this turn the agent ${parts.join(' and ')}. Read them before you accept the turn.`;
+  const named = waivers.map(({ path, line, rule }) => plainText(`${rule ?? MARKER} at ${path}:${line}`));
+  return message({ count: waivers.length, named: listed(named) }, law.length === 0 ? null : listed(law.map(plainText)));
 }

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { parseLaw } from '../../dist/law.js';
-import { cut, firstPart, length, NO_LAW, primeText } from '../../dist/prime.js';
+import { cut, firstPart, length, NO_LAW, NO_REVIEWER, primeText } from '../../dist/prime.js';
 
 const FIRST_PART = firstPart(false, false);
 
@@ -106,7 +106,7 @@ test('commands-slice §4: the guard: type lines while they fit, then the rule li
   const fewer = primeText(law, k, full - 1);
   assert.equal(fewer.step, 4);
   assert.ok(length(fewer.text) <= full - 1);
-  assert.ok(part(fewer.text).some((line) => /^\.\.\. and [12] more root types$/.test(line)));
+  assert.ok(part(fewer.text).some((line) => /^\.\.\. and (1 more root type|2 more root types)$/.test(line)));
   let budget = full - 1;
   while (!part(primeText(law, k, budget).text).includes('... and 2 more root types')) budget--;
   assert.ok(part(primeText(law, k, budget).text).includes('r1, r2'));
@@ -117,6 +117,16 @@ test('commands-slice §4: the guard: type lines while they fit, then the rule li
   const cutIds = primeText(many, kinds(ids), target);
   assert.ok(whole.step === 1 && cutIds.step === 4);
   assert.ok(length(cutIds.text) <= target);
-  assert.ok(part(cutIds.text).includes('... and 1 more root types'));
+  assert.ok(part(cutIds.text).includes('... and 1 more root type'));
   assert.ok(part(cutIds.text).some((line) => /^rule-number-01, .*, and \d+ more$/.test(line)));
+});
+
+test('S6-5: with no reviewer set, the line on not-reviewed says so and leaves the setting to the user', () => {
+  const unset = firstPart(true, false, false, true);
+  assert.ok(unset.includes(`\n${NO_REVIEWER}\n`));
+  assert.equal(NO_REVIEWER, "- not-reviewed: no reviewer is set in .lawcheck/config.yaml, so a plain lawcheck check and CI fail on every file a reviewer rule judges; tell the user once, since setting a reviewer is the user's decision.");
+  assert.ok(!unset.includes('then run lawcheck check --review'));
+  assert.equal(firstPart(false, false, false, true), FIRST_PART);
+  assert.ok(primeText(law, kinds([]), 100000, '', true).text.includes(NO_REVIEWER));
+  assert.ok(!primeText(law, kinds(['r1', 'r2']), 100000, '', true).text.includes('not-reviewed'));
 });

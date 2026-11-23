@@ -136,7 +136,7 @@ function fixedNext(error: ErrorItem, command: string): string {
     case 'law-invalid':
       return 'fix .lawcheck/law.yaml, then run lawcheck check';
     case 'config-invalid':
-      return 'fix .lawcheck/config.yaml, then run lawcheck check';
+      return 'ask the user to fix .lawcheck/config.yaml, then run lawcheck check';
     case 'rule-missing-file':
       return 'ask the user to write the rule files the law names or to take their rules out of the law, then run lawcheck check';
     case 'rule-file-without-entry':
