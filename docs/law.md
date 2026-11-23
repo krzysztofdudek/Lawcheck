@@ -176,7 +176,7 @@ Lawcheck refuses these patterns with `law-invalid`:
 Lawcheck takes the regular files that `git ls-files --cached --others --exclude-standard` lists at the root. These listed files have no type:
 
 - a symbolic link;
-- a file that git ignores;
+- a file that git does not track and `.gitignore` names;
 - `.lawcheck/verdicts` and `.lawcheck/.gitattributes`;
 - a binary file, which Lawcheck tells by a byte of value 0 in its first 8,000 bytes;
 - a file that a pattern of `ignored` matches.
@@ -201,6 +201,6 @@ Lawcheck stops with exit 2 and one of two codes when the rule files do not match
 - `rule-missing-file`, for a rule with neither file, or with a reviewer file that holds only whitespace;
 - `rule-file-without-entry`, for a rule with both files, and for any other file in `.lawcheck/rules/` outside `.lawcheck/rules/lib/`.
 
-A script rule keeps the code it imports in `.lawcheck/rules/lib/`. Lawcheck sees only the files that git lists, so a rule file that git ignores counts as missing.
+A script rule keeps the code it imports in `.lawcheck/rules/lib/`. Lawcheck sees only the files that git lists, so a rule file that git does not track and `.gitignore` names counts as missing.
 
 Next: [Settings](config.md)

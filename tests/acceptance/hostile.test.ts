@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PATTERN_RUN_BUDGET_MS } from '../numbers.ts';
 import { platformSkip } from '../harness/tool.ts';
@@ -257,3 +257,36 @@ for (const [what, name] of QUOTED) {
     });
   });
 }
+
+test('S1-13: a file that git tracks and .gitignore names has its type and is judged, and a file that git does not track and .gitignore names has none', async () => {
+  await withSample(async (s) => {
+    write(s, 'src/core/tracked.ts', BREACH);
+    git(s, 'add', 'src/core/tracked.ts');
+    git(s, 'commit', '-q', '-m', 'tracked');
+    write(s, '.gitignore', 'src/core/tracked.ts\nsrc/core/loose.ts\n');
+    write(s, 'src/core/loose.ts', BREACH);
+    const tracked = await lawcheck(s, ['explain', 'src/core/tracked.ts']);
+    assert.match(tracked.stdout, /^src\/core\/tracked\.ts\n {2}type: {2}library\b/);
+    const loose = await lawcheck(s, ['explain', 'src/core/loose.ts']);
+    assert.equal(loose.stdout, 'src/core/loose.ts\n  type:  none: git ignores it, so Lawcheck never sees it\n');
+    const judged = await check(s, 'src/core/tracked.ts', 'src/core/loose.ts');
+    assert.equal(judged.code, 1);
+    assert.ok(judged.stdout.includes(finding('src/core/tracked.ts:1')), judged.stdout);
+    assert.ok(!judged.stdout.includes('loose.ts'), judged.stdout);
+  });
+});
+
+test('S1-13: the pages that say a file that git ignores has no type say that a file git tracks keeps its type', () => {
+  const page = (name: string) => readFileSync(new URL(`../../docs/${name}.md`, import.meta.url), 'utf8');
+  const says: [string, string][] = [
+    ['commands', 'the file is not tracked, and `.gitignore` names it'],
+    ['first-law', 'A file that git already tracks is the exception: it stays listed, and keeps its type, even when `.gitignore` names it.'],
+    ['first-law', '`.gitignore` names the file, and git does not track it. No type takes such a file. A file that git tracks keeps its type even when `.gitignore` names it.'],
+    ['law', '- a file that git does not track and `.gitignore` names;'],
+    ['law', 'so a rule file that git does not track and `.gitignore` names counts as missing.'],
+    ['types-for-a-project', '`.gitignore` names the file, and git does not track it. No type takes such a file. A file that git tracks keeps its type even when `.gitignore` names it.'],
+    ['questions', 'Lawcheck never judges a file that git does not track and `.gitignore` names, because such a file has no type. A file that git tracks keeps its type even when `.gitignore` names it.'],
+    ['change', 'a file that git does not track and `.gitignore` names'],
+  ];
+  for (const [name, sentence] of says) assert.ok(page(name).includes(sentence), `${name}: ${sentence}`);
+});

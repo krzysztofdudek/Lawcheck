@@ -3,7 +3,7 @@ import { join, relative, resolve } from 'node:path';
 import { documentOf, errorResult, noWords, usageError, version } from './args.js';
 import type { Arguments, Result } from './args.js';
 import type { CheckContext } from './check.js';
-import { listFiles, showPrefix, workTreeProblem } from './files.js';
+import { ignoresPath, listFiles, showPrefix, workTreeProblem } from './files.js';
 import { findRoot, LAW, stopped } from './setup.js';
 import { noGit, Stop } from './setup.js';
 
@@ -110,16 +110,18 @@ export async function init(args: Arguments, context: CheckContext, json: boolean
     const created = [LAW];
     const kept: string[] = [];
     (writeNew(join(cwd, IGNORE), GITIGNORE, IGNORE) ? created : kept).push(IGNORE);
-    return { prefix, created, kept };
+    // git check-ignore refuses a path beyond a symbolic link, and .lawcheck can still be a link to a folder here.
+    return { prefix, created, kept, ignored: !lstatSync(join(cwd, '.lawcheck')).isSymbolicLink() && ignoresPath(cwd, LAW) };
   });
   if ('errors' in outcome) return errorResult(outcome.errors, json, 'init');
-  const { prefix, created, kept } = outcome;
+  const { prefix, created, kept, ignored } = outcome;
   if (json) {
-    return { code: 0, stdout: documentOf({ schema: 'lawcheck-init/0', root: prefix, created, kept, next: { command: null, text: NEXT } }) };
+    return { code: 0, stdout: documentOf({ schema: 'lawcheck-init/0', root: prefix, created, kept, next: { command: null, text: ignored ? `git ignores ${LAW}, so remove the line that ignores it, then ${NEXT}` : NEXT } }) };
   }
   const first = kept.length === 0 ? `lawcheck: created ${created.join(' and ')}` : `lawcheck: created ${created.join(' and ')}; kept ${kept.join(' and ')}`;
   const lines = [first];
   if (prefix !== '') lines.push(`note: the law covers only the files below ${prefix}`);
+  if (ignored) lines.push(`note: git ignores ${LAW}, so no commit carries the law and no other checkout has it; remove the line that ignores it, as \`git check-ignore -v ${LAW}\` shows`);
   lines.push('', 'Nothing is checked yet: the law has no types.', `next: ${NEXT}`);
   return { code: 0, stdout: lines.join('\n') + '\n' };
 }

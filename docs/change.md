@@ -110,7 +110,7 @@ Lawcheck names only the waivers it counts: those with a known rule and a reason,
 
 `lawcheck check <path or pattern>...` judges the files you name, changed or not, and no others. This form needs no base. It runs in CI, and in a repository with no commit.
 
-Lawcheck reads each path and pattern from the folder you run it in. A folder selects its files at any depth. A path that selects nothing, such as a missing file, a file git ignores or a binary file, adds nothing to the run. The root is the folder that holds `.lawcheck/`. A path outside the root stops the run with the error [`usage`](codes.md#usage). Write a file whose name starts with `-` with `./` before it, as in `./-x.ts`.
+Lawcheck reads each path and pattern from the folder you run it in. A folder selects its files at any depth. A path that selects nothing, such as a missing file, a file that git does not track and `.gitignore` names or a binary file, adds nothing to the run. The root is the folder that holds `.lawcheck/`. A path outside the root stops the run with the error [`usage`](codes.md#usage). Write a file whose name starts with `-` with `./` before it, as in `./-x.ts`.
 
 This form prints neither debt, nor the note of a law change, nor the note of added waivers. It takes one flag, `--json`. A missing review never makes this form exit 1, because `not-reviewed` and `too-large-to-review` are warnings in it. The Claude Code plugin checks files this way (`lawcheck docs plugin`).
 

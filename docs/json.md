@@ -143,7 +143,7 @@ Every command but `doctor` prints this document when it ends with exit 2.
 | `kept` | the files that were there and stay as they were |
 | `next` | the next step |
 | `next.command` | null |
-| `next.text` | the step in words |
+| `next.text` | the step in words; it starts with a warning when git ignores `.lawcheck/law.yaml` |
 
 ## lawcheck-prime/0
 

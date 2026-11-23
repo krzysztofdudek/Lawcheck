@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, lstatSync, readFileSync } from 'node:fs';
 import { environmentRefusal, gitNow, gitRefusal, runtimeNow, runtimeRefusal } from './environment.js';
 import type { Runtime } from './environment.js';
 import { findProgram } from './programs.js';
@@ -19,7 +19,7 @@ import { hide } from './keys.js';
 import type { Env, Provider } from './providers/index.js';
 import { LANGUAGES, loadGrammars, ownersOf, readerOf, readUses, siblingsOf } from './readers.js';
 import type { ScriptView } from './readers.js';
-import { belowPart, configErrors, findRoot, lawsBelow, lawErrors, onceReader, ruleFileErrors, Stop, theChange, touchesLaw, typingErrors } from './setup.js';
+import { belowPart, configErrors, findRoot, LAW, lawsBelow, lawErrors, onceReader, ruleFileErrors, Stop, theChange, touchesLaw, typingErrors } from './setup.js';
 import type { Change, Kinds, Read } from './setup.js';
 import type { TypedFile } from './types.js';
 import { extensionOf, listInForce } from './uses.js';
@@ -150,7 +150,9 @@ export async function runChecks(inputs: Inputs): Promise<Check[]> {
       walk(read.law.types, () => types++);
       const scripts = rules.kinds.scripts.size;
       const reviewers = rules.kinds.reviewers.size;
-      set('law', 'ok', `.lawcheck/law.yaml: ${plural(types, 'type')}, ${plural(read.law.rules.size, 'rule')} (${scripts} script, ${reviewers} reviewer)`);
+      const summary = `.lawcheck/law.yaml: ${plural(types, 'type')}, ${plural(read.law.rules.size, 'rule')} (${scripts} script, ${reviewers} reviewer)`;
+      if (rules.files.includes(LAW) || lstatSync(join(found.root, '.lawcheck')).isSymbolicLink()) return set('law', 'ok', summary);
+      set('law', 'note', `${summary}; git ignores it, so no other checkout has the law`, next(`remove the line that ignores ${LAW}, as \`git check-ignore -v ${LAW}\` shows, then run lawcheck doctor again`));
     },
     config: () => {
       const read = configErrors(found.root!);

@@ -81,7 +81,7 @@ A type names the files of one kind. The type `source` has three keys:
 - `paths` takes its files, here every `.ts` file below `src/`;
 - `rules` lists the rules that Lawcheck judges its files against.
 
-A type matches only the files git lists. Lawcheck never judges a folder that `.gitignore` names, such as `node_modules/` or a build folder. It would judge the same folder if git did not ignore it.
+A type matches only the files git lists. Lawcheck never judges a folder that `.gitignore` names, such as `node_modules/` or a build folder. It would judge the same folder if git did not ignore it. A file that git already tracks is the exception: it stays listed, and keeps its type, even when `.gitignore` names it.
 
 ## 4. Check the file that breaks the rule
 
@@ -209,7 +209,7 @@ After you fix the debt, delete the `status` line. The rule is then enforced agai
 - Lawcheck prints `rule-missing-file`: the law names a rule, and `.lawcheck/rules/` holds no file of that name. The file name must be the rule id followed by `.mjs`.
 - Lawcheck prints `rule-file-without-entry`: a file in `.lawcheck/rules/` names no rule of the law, as between [Write the rule file](#_2-write-the-rule-file) and [Write the law](#_3-write-the-law). Give the file the rule id as its name, or add an entry for it.
 - Lawcheck prints `rule-crashed`: the rule threw an error or returned something other than a list of findings. [Write a script rule](write-a-script-rule.md) shows how to find the cause.
-- `lawcheck explain` answers `none: git ignores it, so Lawcheck never sees it`: `.gitignore` names the file. No type takes a file that git ignores.
+- `lawcheck explain` answers `none: git ignores it, so Lawcheck never sees it`: `.gitignore` names the file, and git does not track it. No type takes such a file. A file that git tracks keeps its type even when `.gitignore` names it.
 - `lawcheck try no-console` without a path stops with [`usage`](codes.md#usage): no file has a type that lists the rule yet. Name a file, as in [Try the rule on one file](#_7-try-the-rule-on-one-file).
 
 Next: [Types for an existing project](types-for-a-project.md)

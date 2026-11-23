@@ -61,7 +61,9 @@ usage: lawcheck init [--json]
 - `.lawcheck/law.yaml`, with an empty law and a short example in comments;
 - `.lawcheck/.gitignore`, with the lines `.local/` and `config.local.yaml`.
 
-`init` overwrites no file. It writes no `.lawcheck/config.yaml`. In a folder below the top of the git work tree, `init` starts a law that covers only the files below that folder. Its output says so in a note. `init` refuses with `already-initialized` in two cases: a law governs this folder from here or from above, or git lists a law below this folder. An extra word after `init` ends it with `usage`.
+`init` overwrites no file. It writes no `.lawcheck/config.yaml`. In a folder below the top of the git work tree, `init` starts a law that covers only the files below that folder. Its output says so in a note. `init` refuses with `already-initialized` in two cases: a law governs this folder from here or from above, or git lists a law below this folder. An extra word after `init` ends it with `usage`. When `.lawcheck` is a file, or a symbolic link to a file or to nothing, `init` stops with `file-unwritable`, names `.lawcheck` and writes nothing.
+
+When git ignores `.lawcheck/law.yaml`, because `.gitignore` names `.lawcheck`, `init` still writes the files and exits 0. It adds a `note:` line under the first line: no commit carries the law, so no other checkout has it. The note gives `git check-ignore -v .lawcheck/law.yaml`, which shows the line to remove. With `--json`, `next.text` starts with the same warning.
 
 Run `init` once per repository, at the root of the code you want to check. In a new repository:
 
@@ -251,7 +253,7 @@ usage: lawcheck explain (<path> | --type <id> | --rule <id>) [--json]
 
 For a file without a type, `explain` gives the reason. These are some of the reasons:
 
-- git ignores the file;
+- the file is not tracked, and `.gitignore` names it (git lists a tracked file even when `.gitignore` names it, and the file keeps its type);
 - no type's paths match it;
 - its content matches no type;
 - it is binary or a symbolic link;
@@ -442,7 +444,7 @@ The `node` line names the version of the Node that runs Lawcheck, here 24.11.0. 
 |---|---|
 | `node` | the Node version, and Bun or Yarn Plug'n'Play |
 | `git` | git, its version, the work tree, and where the root lies in it |
-| `law` | `.lawcheck/law.yaml` and the rule files |
+| `law` | `.lawcheck/law.yaml` and the rule files, and whether git lists the law (when git ignores `.lawcheck/law.yaml`, the check shows `note`) |
 | `config` | `.lawcheck/config.yaml`, and the program of the `runner` setting on the `PATH` |
 | `types` | how many files have a type, and a type overlap |
 | `base` | the base, where it came from, and how many files the change holds |

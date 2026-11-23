@@ -32,6 +32,9 @@ The `git fetch` that the `next:` line of `base-unreachable` names now runs as on
 ### Before you upgrade
 
 `scope.law_changes` in `lawcheck check --json` no longer lists the waivers a change adds. A script that read them there reads the items of `waivers` whose `added` is true.
+`lawcheck init` in a repository whose `.gitignore` names `.lawcheck` still writes the law, and now says that git ignores it, so no commit carries it and no other checkout has it. The output gains a `note:` line, and in `--json` the `next.text` starts with the same warning. `lawcheck doctor` shows its `law` check as `note` and names `git check-ignore -v .lawcheck/law.yaml`, which finds the line to remove. In alpha.4, both passed and said nothing.
+
+The pages of `lawcheck docs` said that a file git ignores has no type. That holds only for a file git does not track. A file git tracks keeps its type and is judged even when `.gitignore` names it, as `lawcheck explain` shows. The pages now say so.
 
 ## [0.1.0-alpha.4] - 2026-11-23
 

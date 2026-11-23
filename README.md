@@ -2,7 +2,7 @@
 
 Architecture checks for coding agents. Lawcheck checks your code against the architecture and rules you write down, and tells your coding agent which line breaks which rule. It works for one developer and for a team: you commit the architecture and the rules in `.lawcheck/`, so each developer checks against the same law.
 
-I build software with coding agents, and I read their code only where a mistake could cost a lot or could not be undone. In the code I do not read, an agent imports a handler into the business logic or calls the database past the persistence layer, and the tests pass. A rule in `CLAUDE.md` does not stop it: on 2026-11-22, the issue tracker of Claude Code held 297 reports with the words "ignores CLAUDE.md".
+I build software with coding agents, and I read their code only where a mistake could cost a lot or could not be undone. In the code I do not read, an agent imports a handler into the business logic or calls the database past the persistence layer, and the tests pass. A rule in `CLAUDE.md` does not stop it: on 2026-11-23, a search of the issue tracker of Claude Code found 204 [reports with the words "ignores CLAUDE.md"](https://github.com/anthropics/claude-code/issues?q=%22ignores+CLAUDE.md%22+is%3Aissue); the search shows the count now.
 
 The law is a file in the repository. It names the kinds of files, which kind may use which, and the rules each kind follows:
 

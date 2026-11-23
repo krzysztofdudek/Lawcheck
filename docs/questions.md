@@ -48,7 +48,7 @@ A submodule is a repository that git keeps inside another one at a fixed commit.
 
 ## Generated and vendored files
 
-Lawcheck never judges a file that git ignores, because such a file has no type. Add the folder to `.gitignore`, or keep it out of the type with a `!` pattern in its `paths`. [The law file](law.md#patterns) gives the syntax of a pattern.
+Lawcheck never judges a file that git does not track and `.gitignore` names, because such a file has no type. A file that git tracks keeps its type even when `.gitignore` names it. Add the folder to `.gitignore` and run `git rm --cached -r` on it, or keep it out of the type with a `!` pattern in its `paths`. [The law file](law.md#patterns) gives the syntax of a pattern.
 
 ## Another coding agent
 
