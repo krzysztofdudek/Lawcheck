@@ -11,7 +11,7 @@ import { testFolder } from '../harness/tool.ts';
 import { errorLines, MiB, run } from './support.ts';
 import { codesPage, exampleOf, shownRun } from '../contract/codes-page.ts';
 
-// These run nightly, on Linux, in a container of 1 GB of memory and 2 CPUs; the table of limits in docs/config.md holds the numbers.
+// These run nightly, on Linux, in a container of 1 GB of memory and 2 CPUs, test 248 in one of 2 GB; the table of limits in docs/config.md holds the numbers.
 
 function random(seed: number): () => number {
   let state = seed >>> 0;
