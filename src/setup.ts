@@ -1,6 +1,6 @@
 import { realpathSync, statSync } from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
-import { changedPaths, defaultBase, GitFailed, gitNext, hasHead, fetchesEveryBranch, isShallow, listedPaths, listFiles, mergeBase, NoGit, remoteNames, resolveCommit, workTreeProblem } from './files.js';
+import { changedPaths, defaultBase, fetchCommand, GitFailed, gitNext, hasHead, fetchesEveryBranch, isShallow, listedPaths, listFiles, mergeBase, NoGit, remoteNames, resolveCommit, workTreeProblem } from './files.js';
 import { CONFIG, ConfigTooLarge, readConfig } from './config.js';
 import { canonicalName, onDisk } from './names.js';
 import type { ReviewerConfig } from './config.js';
@@ -336,9 +336,8 @@ const FETCH_ALL = 'fetch-depth: 0 in actions/checkout, GIT_DEPTH: 0 in GitLab CI
 
 function fetchNext(root: string, base: string, shallow: boolean): [string, string | undefined] {
   const remote = remoteNames(root).find((name) => base.startsWith(`${name}/`) && base.length > name.length + 1);
-  const branch = remote === undefined ? '' : base.slice(remote.length + 1);
-  if (remote === undefined || /[\s'"\\]/.test(branch) || (!shallow && fetchesEveryBranch(root, remote))) return shallow ? [`fetch the history: git fetch --unshallow (${FETCH_ALL}), then run lawcheck check`, 'git fetch --unshallow'] : [`pass --base with a branch or a commit that exists here`, undefined];
-  const fetch = `git fetch${shallow ? ' --unshallow' : ''} ${remote} +refs/heads/${branch}:refs/remotes/${remote}/${branch}`;
+  const fetch = remote === undefined || (!shallow && fetchesEveryBranch(root, remote)) ? null : fetchCommand(root, remote, base.slice(remote.length + 1), shallow);
+  if (fetch === null) return shallow ? [`fetch the history: git fetch --unshallow (${FETCH_ALL}), then run lawcheck check`, 'git fetch --unshallow'] : [`pass --base with a branch or a commit that exists here`, undefined];
   return [`fetch ${shallow ? 'the history' : 'the branch'}: ${fetch} (${FETCH_ALL}), then run lawcheck check`, fetch];
 }
 

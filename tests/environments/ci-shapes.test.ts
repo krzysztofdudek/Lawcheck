@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
-import { appendFileSync, mkdirSync } from 'node:fs';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { appendFileSync, existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { D, D_PATH, findingLines, git, GIT_ENV, inTemp, lawcheck, LAW, makeSample, TEST4, write } from '../acceptance/helpers.ts';
@@ -272,5 +272,55 @@ test('test 778: a variable of a CI service counts only in that service and not w
     assert.equal(nextLine(run.stdout), `fetch the history: git fetch --unshallow origin +refs/heads/main:refs/remotes/origin/main (${FETCH_ALL}), then run lawcheck check`);
     follow(nextLine(run.stdout), clone);
     assert.equal((await lawcheck(clone, ['check'], { GITHUB_ACTIONS: 'true', GITHUB_BASE_REF: 'main' })).stdout, AGAINST_ORIGIN);
+  });
+});
+
+const HOSTILE = [
+  ['a semicolon', 'x;touch${IFS}canary-semicolon'],
+  ['a command substitution', 'x$(touch${IFS}canary-substitution)'],
+  ['a backtick', 'x`touch${IFS}canary-backtick`'],
+  ['a leading dash', '-dash'],
+  ['an apostrophe and an ampersand', "it's&touch${IFS}canary-ampersand"],
+] as const;
+
+test('test 890: a base that a CI variable names with a semicolon, a command substitution, a backtick, a leading dash or an apostrophe gives a next line whose command a POSIX shell runs as one git fetch of that ref', async () => {
+  await inTemp(async (dir) => {
+    const url = origin(dir);
+    const tip = git(join(dir, 's'), 'rev-parse', 'main').trim();
+    for (const [, name] of HOSTILE) git(join(dir, 's'), 'update-ref', `refs/heads/${name}`, tip);
+    for (const [what, name] of HOSTILE) {
+      git(dir, 'clone', '-q', '--depth', '1', '--branch', 'work', url, `clone ${what}`);
+      const clone = join(dir, `clone ${what}`);
+      const env = { GITHUB_ACTIONS: 'true', GITHUB_BASE_REF: name };
+      const run = await lawcheck(clone, ['check'], env);
+      assert.equal(run.code, 2, what);
+      const command = JSON.parse((await lawcheck(clone, ['check', '--json'], env)).stdout).next.command as string | null;
+      assert.ok(command !== null && command.startsWith('git fetch --unshallow origin '), `${what}: ${command}`);
+      assert.ok(nextLine(run.stdout).includes(`: ${command} (`), `${what}: the next line holds the command`);
+      const shell = spawnSync('sh', ['-c', command], { cwd: clone, env: GIT_ENV, encoding: 'utf8' });
+      assert.equal(shell.status, 0, `${what}: ${shell.stderr}`);
+      for (const canary of ['semicolon', 'substitution', 'backtick', 'ampersand']) assert.equal(existsSync(join(clone, `canary-${canary}`)), false, `${what}: the shell ran a second command`);
+      assert.equal(git(clone, 'rev-parse', `refs/remotes/origin/${name}`).trim(), tip, `${what}: the shell fetched the ref`);
+      assert.match((await lawcheck(clone, ['check'], env)).stdout, /^lawcheck: FAIL .*\(against origin\//, `${what}: the check finds its base after the fetch`);
+    }
+  });
+});
+
+test('test 890: a base with a line break or another character the output escapes, a name git refuses as a branch, or a remote that starts with a dash gives the fetch of the history alone, with no ref in it', async () => {
+  await inTemp(async (dir) => {
+    git(dir, 'clone', '-q', '--depth', '1', '--branch', 'work', origin(dir), 'clone');
+    const clone = join(dir, 'clone');
+    git(clone, 'remote', 'add', '--', '-r', 'file:///nowhere');
+    git(clone, 'remote', 'add', 'a;b', 'file:///nowhere');
+    git(clone, 'config', 'remote.x y.url', 'file:///nowhere');
+    for (const base of ['x y/main', 'origin/x\ny', 'origin/x\ttab', 'origin/x\u0085y', 'origin/x\u202ey', 'origin/a..b', 'origin/a b', 'origin/x:y', 'origin/a@{b', 'origin/x.lock', 'origin/a//b', '-r/main', '-r/-main', 'a;b/x y']) {
+      const run = await lawcheck(clone, ['check', '--json'], { ...CI, LAWCHECK_BASE: base });
+      const document = JSON.parse(run.stdout);
+      assert.equal(document.next.command, 'git fetch --unshallow', JSON.stringify(base));
+      assert.equal(document.next.text, `fetch the history: git fetch --unshallow (${FETCH_ALL}), then run lawcheck check`, JSON.stringify(base));
+      assert.equal(run.code, 2, JSON.stringify(base));
+    }
+    const quoted = JSON.parse((await lawcheck(clone, ['check', '--json'], { ...CI, LAWCHECK_BASE: 'a;b/main' })).stdout);
+    assert.equal(quoted.next.command, "git fetch --unshallow 'a;b' '+refs/heads/main:refs/remotes/a;b/main'", 'a remote named with a semicolon is quoted');
   });
 });

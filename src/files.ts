@@ -147,6 +147,15 @@ function repositoryAbove(dir: string): string | null {
   }
 }
 
+// The fetch of one branch, for a base that a CI variable or a flag may have named. It is printed only when git accepts both refs and a POSIX shell reads it as one git fetch: a name with a character that the output escapes, or a remote that git would read as an option, gives none.
+export function fetchCommand(root: string, remote: string, branch: string, shallow: boolean): string | null {
+  if (remote.startsWith('-') || /[\p{Cc}\p{Cf}\u2028\u2029]/u.test(remote + branch)) return null;
+  const source = `refs/heads/${branch}`;
+  const target = `refs/remotes/${remote}/${branch}`;
+  if (git(root, ['check-ref-format', source]).status !== 0 || git(root, ['check-ref-format', target]).status !== 0) return null;
+  return `git fetch${shallow ? ' --unshallow' : ''} ${quoted(remote)} ${quoted(`+${source}:${target}`)}`;
+}
+
 // What git's own sentence asks of the user, where the plain next line of no-git would send them to the work tree they are in. The command is written for a POSIX shell, as docs/ci.md says.
 export function gitNext(dir: string, problem: string): { next: string; command?: string } | undefined {
   const dubious = /dubious ownership in repository at '(.*)'\s*$/.exec(problem);
