@@ -828,3 +828,38 @@ test('R-126: a use that reaches a file that cannot be read fails only the file t
     assert.deepEqual([first, fromFirst, fromSecond, await both('uses', file('domain/y.py'))], [first, reached, reached, failed]);
   }
 });
+
+test('R-127: a use that reaches a file that cannot be read leaves the resolver nothing half built, so a later file of the same read that reaches it too fails as it does alone, whichever rule asks first', async () => {
+  const files: Record<string, string> = {
+    'pkgs/b/index.ts': 'export const s = 1;\n',
+    'pkgs/b/package.json': '{ "name": "shared", "main": "index.ts" }',
+    'pkgs/z/index.ts': 'export const o = 1;\n',
+    'pkgs/z/package.json': '{ "name": "other", "main": "index.ts" }',
+    'src/x.ts': "import { s } from 'shared';\n",
+    'src/y.ts': "import { s } from 'shared';\n",
+  };
+  const paths = Object.keys(files).sort();
+  const file = (path: string) => ({ path, text: files[path]! });
+  const readsOf = (unreadable: string | null) =>
+    ruleReads({
+      root: '/nowhere',
+      files: paths,
+      bytes: (path) => {
+        if (path === unreadable) throw new Unreadable(path, 'EACCES');
+        return enc.encode(files[path]!);
+      },
+      ownerOf: (path) => (files[path] === undefined ? undefined : 'owner'),
+      typeOf: (path) => (path.startsWith('pkgs/b/') ? 'shared' : null),
+    });
+  const readable = readsOf(null)([file('src/x.ts'), file('src/y.ts')]);
+  assert.deepEqual(await readable('uses', file('src/y.ts')), { uses: [{ line: 1, kind: 'file', file: 'pkgs/b/index.ts', type: 'shared' }], absent: null });
+  const failed = { uses: null, absent: 'reader-failed' };
+  for (const first of ['both', 'alone']) {
+    const reads = readsOf('pkgs/z/package.json');
+    const both = reads([file('src/x.ts'), file('src/y.ts')]);
+    const alone = reads([file('src/y.ts')]);
+    const asked = first === 'both' ? [both('uses', file('src/y.ts')), alone('uses', file('src/y.ts'))] : [alone('uses', file('src/y.ts')), both('uses', file('src/y.ts'))];
+    const [fromFirst, fromSecond] = await Promise.all(asked);
+    assert.deepEqual([first, fromFirst, fromSecond, await both('uses', file('src/x.ts'))], [first, failed, failed, failed]);
+  }
+});
