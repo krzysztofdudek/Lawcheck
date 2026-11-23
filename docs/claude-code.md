@@ -108,10 +108,20 @@ $ echo '{"check_after_edit": "false"}' | claude plugin configure lawcheck@lawche
 
 Then start Claude Code again. From then on, the plugin checks no file after an edit. The check before the agent ends its turn keeps running. [The Claude Code plugin](plugin.md) says what each hook does, and in which cases it prints nothing.
 
+## 7. Let the agent write the first law
+
+In a repository with no law, type this in a session:
+
+```text
+/lawcheck:setup
+```
+
+Or ask in your own words, such as "Set up Lawcheck in this repository". The agent follows [Let a coding agent write the first law](agent-setup.md). It describes the folders as types, writes down which type uses which today, and asks you before it forbids anything that the code already does. It changes only `.lawcheck/` and commits nothing. At the end of its turn the plugin tells you that the agent changed `.lawcheck/law.yaml` ([The end of a turn](plugin.md#the-end-of-a-turn)).
+
 ## If it goes wrong
 
 - The agent gets the message that `lawcheck prime` did not run because `lawcheck was not found`. The plugin found no Lawcheck through the command of the `runner` setting, which is `lawcheck` on your `PATH` by default. Install Lawcheck as [Install Lawcheck](#_1-install-lawcheck) says, then start a new session.
-- The repository has no law. At the start of the session, the plugin gives the agent two lines: the folder has no `.lawcheck/law.yaml`, and the agent may start one with `lawcheck init` only when you ask for it.
+- The repository has no law. At the start of the session, the plugin gives the agent two lines: the folder has no `.lawcheck/law.yaml`, and the agent may start one only when you ask for it, with `/lawcheck:setup` ([Let the agent write the first law](#_7-let-the-agent-write-the-first-law)).
 - The agent ended its turn, and CI fails. The plugin judges the files of the turn alone, with no [base](concepts.md#base). It never passes `--review`. Its check therefore shows a missing review as a warning. CI judges the whole [change](concepts.md#change) and fails on `not-reviewed` ([CI and git hooks](ci.md)).
 - More than 1,000 files changed in a turn. The plugin skips the check before the end of the turn and prints one line that says so.
 - A background subagent, teammate or workflow is still running. The plugin holds back the check before the end of the turn. It runs that check when the agent next finishes a turn after the background work has ended.

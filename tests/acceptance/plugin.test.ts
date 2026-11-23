@@ -17,7 +17,7 @@ import type { HookRun } from './plugin-bench.ts';
 
 const BROKEN_LAW = LAW.replace('status: advisory', 'statuss: advisory');
 
-const NO_ROOT = 'The Lawcheck plugin is on, and this directory has no law (.lawcheck/law.yaml here or above).\nStart one with lawcheck init only when the user asks for it.';
+const NO_ROOT = 'The Lawcheck plugin is on, and this directory has no law (.lawcheck/law.yaml here or above).\nStart one only when the user asks for it, with the skill lawcheck:setup, which follows lawcheck docs agent-setup.';
 const D_OUTPUT = [
   'lawcheck: FAIL  1 error, 1 warning in 1 named file, 1 waiver',
   '',
@@ -70,7 +70,7 @@ test('test 152: the files of the plugin', () => {
   assert.deepEqual(JSON.parse(readFileSync(join(PLUGIN, 'hooks', 'hooks.json'), 'utf8')), JSON.parse(specBlock('hooks-manifest')));
   const files = walk(PLUGIN).sort();
   const modules = files.filter((file) => file.endsWith('.mjs'));
-  assert.deepEqual(files.filter((file) => !file.endsWith('.mjs')), ['.claude-plugin/plugin.json', 'LICENSE', 'hooks/hooks.json']);
+  assert.deepEqual(files.filter((file) => !file.endsWith('.mjs')), ['.claude-plugin/plugin.json', 'LICENSE', 'hooks/hooks.json', 'skills/setup/SKILL.md', 'skills/setup/references/advice.md', 'skills/setup/references/target.md']);
   assert.ok(modules.includes('hooks/lawcheck-hook.mjs'));
   for (const file of modules) {
     assert.equal(dirname(file), 'hooks', file);
@@ -915,4 +915,45 @@ test('S6-10: with the law below the top of the work tree, the check before finis
     assert.equal(run.json?.hookSpecificOutput?.hookEventName, 'Stop', run.stdout);
     assert.deepEqual(bench.checks(), [['check', `./${D_PATH}`]]);
   });
+});
+
+const SKILL = join(PLUGIN, 'skills', 'setup');
+
+function skillFiles(dir = SKILL): string[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => (entry.isDirectory() ? skillFiles(join(dir, entry.name)) : entry.name.endsWith('.md') ? [join(dir, entry.name)] : []));
+}
+
+function namedParts(text: string): { parts: string[]; steps: number[]; links: string[] } {
+  const parts = [...text.matchAll(/\bparts? ((?:"[^"\n]+"(?:, | and | or )?)+)/g)].flatMap((match) => [...match[1]!.matchAll(/"([^"\n]+)"/g)].map((quoted) => quoted[1]!));
+  const steps = [...text.matchAll(/\bsteps? (\d+)\b/g)].map((match) => Number(match[1]));
+  const links = [...text.matchAll(/\]\(([^)#:]+\.md)\)/g)].map((match) => match[1]!);
+  return { parts, steps, links };
+}
+
+test('test 904: every part and step of the setup page that a file of the setup skill names is in docs/agent-setup.md, every file it links exists, and every file format it gives says first that nothing in it is law', () => {
+  const page = readFileSync(join(ROOT, 'docs', 'agent-setup.md'), 'utf8');
+  const headings = page.split('\n').filter((line) => line.startsWith('## ')).map((line) => line.slice(3));
+  const files = skillFiles();
+  assert.ok(files.some((file) => file.endsWith(`${sep}SKILL.md`)));
+  const main = readFileSync(join(SKILL, 'SKILL.md'), 'utf8');
+  assert.match(main, /^---\nname: setup\ndescription: .+\n---\n/);
+  let named = 0;
+  for (const file of files) {
+    const text = readFileSync(file, 'utf8');
+    const { parts, steps, links } = namedParts(text);
+    named += parts.length;
+    for (const part of parts) assert.ok(headings.includes(part), `${relative(ROOT, file)} names the part "${part}", and docs/agent-setup.md has no such heading`);
+    for (const step of steps) assert.ok(headings.some((heading) => heading.startsWith(`${step}. `)), `${relative(ROOT, file)} names step ${step}, and docs/agent-setup.md has no such step`);
+    for (const link of links) assert.ok(existsSync(join(dirname(file), link)), `${relative(ROOT, file)} links ${link}, which does not exist`);
+    for (const format of text.matchAll(/^````markdown\n([^]*?)\n````$/gm)) {
+      const paragraphs = format[1]!.split('\n\n');
+      assert.ok(paragraphs[0]!.startsWith('# ') && paragraphs[1]!.includes('Nothing in this file is law'), `${relative(ROOT, file)}: a file format says in its first paragraph that nothing in it is law`);
+    }
+  }
+  assert.ok(named >= 3, 'the skill names the parts of the page it uses');
+});
+
+test('test 904: control, the names of parts and steps are found in every form the skill writes them, and a missing heading is named', () => {
+  const found = namedParts('the page\'s part "Never" holds. Through the page\'s parts "A" and "B", and parts "C", "D" or "E". After step 11 of the page; steps 2 and 7. See [x](references/advice.md) and [y](https://example.com/z.md).');
+  assert.deepEqual(found, { parts: ['Never', 'A', 'B', 'C', 'D', 'E'], steps: [11, 2], links: ['references/advice.md'] });
 });

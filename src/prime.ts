@@ -50,7 +50,7 @@ export const FIRST_PART = firstPart(true, true);
 
 export const NO_LAW = [
   'Lawcheck is installed, and this directory has no law (.lawcheck/law.yaml here or above).',
-  'Run lawcheck init only when the user asks for a law here.',
+  'Start one only when the user asks for a law here, and then follow lawcheck docs agent-setup.',
   '',
 ].join('\n');
 

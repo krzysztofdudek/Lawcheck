@@ -1,4 +1,4 @@
-export const NO_LAW = 'The Lawcheck plugin is on, and this directory has no law (.lawcheck/law.yaml here or above).\nStart one with lawcheck init only when the user asks for it.';
+export const NO_LAW = 'The Lawcheck plugin is on, and this directory has no law (.lawcheck/law.yaml here or above).\nStart one only when the user asks for it, with the skill lawcheck:setup, which follows lawcheck docs agent-setup.';
 
 // The line lawcheck prime prints when the law has a reviewer rule and .lawcheck/config.yaml sets no reviewer; an older Lawcheck prints none.
 export const PRIME_NO_REVIEWER = '- not-reviewed: no reviewer is set in .lawcheck/config.yaml';
