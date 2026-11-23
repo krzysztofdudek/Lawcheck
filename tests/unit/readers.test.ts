@@ -1,6 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readdirSync, readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { chmodSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { GRAMMARS, ownLine, readerOf, readUses, ruleReads, RUNES, siblingsOf, Unreadable } from '../../dist/readers.js';
 
@@ -173,6 +176,264 @@ test('dependency-slice §3.3: files are parsed once, in path order, and the name
   const others = fake({});
   await readUses(input({ 'a.py': '', 'b.php': '<?php', 'c.go': '', 'd.ts': '', 'e.c': '', 'f.cpp': '', 'g.js': '' }, ['a.py', 'b.php', 'c.go', 'd.ts', 'e.c', 'f.cpp', 'g.js']), others.runes);
   assert.deepEqual(others.record.declared, []);
+});
+
+// One file whose uses are read in each name-binding group, and the file it uses: Java by a name of its own package, C# through a global using of another file.
+const GROUP_FILES: Record<string, string> = {
+  'cs/Globals.cs': 'global using App;\n',
+  'cs/app/Service.cs': 'namespace App { public class Service {} }\n',
+  'cs/domain/Order.cs': 'namespace Domain { public class Order { Service service; } }\n',
+  'j/app/Service.java': 'package shop;\npublic class Service {}\n',
+  'j/domain/Order.java': 'package shop;\npublic class Order { Service service; }\n',
+  'k/app/Clock.kt': 'package app\nclass Clock\n',
+  'k/domain/Watch.kt': 'package domain\nimport app.Clock\nclass Watch(val clock: Clock)\n',
+  'rb/app/service.rb': 'class Service\nend\n',
+  'rb/domain/order.rb': 'class Order\n  def go\n    Service.new\n  end\nend\n',
+  'rs/Cargo.toml': '[package]\nname = "shop"\nversion = "0.1.0"\n',
+  'rs/src/app.rs': 'pub struct Service;\n',
+  'rs/src/domain.rs': 'use crate::app::Service;\npub fn go() -> Service { Service }\n',
+  'rs/src/lib.rs': 'mod app;\nmod domain;\n',
+};
+const JUDGED = ['cs/domain/Order.cs', 'j/domain/Order.java', 'k/domain/Watch.kt', 'rb/domain/order.rb', 'rs/src/domain.rs'];
+const PACKS = ['csharp', 'jvm', 'ruby', 'rust'];
+
+interface Counted {
+  runes: any;
+  parsed: string[];
+}
+
+function counted(options: { identity?: string; digest?: string; fail?: string } = {}): Counted {
+  const parsed: string[] = [];
+  const runes = {
+    ...RUNES,
+    ...(options.identity === undefined ? {} : { identity: () => options.identity! }),
+    createHost: (dir: string) => {
+      const host = RUNES.createHost(dir);
+      return {
+        getParser: (extension: string) => host.getParser(extension),
+        withParsedFile: (path: string, content: string, fn: (tree: any) => unknown, language?: string) => {
+          parsed.push(path);
+          if (path === options.fail) return Promise.reject(new Error('the reader broke'));
+          return host.withParsedFile(path, content, fn, language);
+        },
+        newParser: () => host.newParser(),
+        grammarDigestForLanguage: (language: string) => `${host.grammarDigestForLanguage!(language)}${options.digest ?? ''}`,
+      };
+    },
+  };
+  return { runes, parsed };
+}
+
+async function withRoot<T>(body: (root: string) => Promise<T>, law = true): Promise<T> {
+  const root = mkdtempSync(join(tmpdir(), 'lawcheck-readers-'));
+  try {
+    if (law) mkdirSync(join(root, '.lawcheck'));
+    return await body(root);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
+const ownerOfGroup = (files: Record<string, string>) => (path: string) => (files[path] === undefined ? undefined : /\/app[/.]/.test(path) ? 'app' : /\/domain[/.]/.test(path) ? 'domain' : '#untyped');
+
+async function readGroups(root: string, files: Record<string, string>, runes: any = counted().runes, listed: string[] = []) {
+  const paths = [...Object.keys(files), ...listed].sort();
+  const siblings = siblingsOf(paths);
+  const outcome = await readUses(
+    {
+      root,
+      files: paths,
+      bytes: (path: string) => enc.encode(files[path] ?? ''),
+      ownerOf: ownerOfGroup(files),
+      read: JUDGED.filter((path) => files[path] !== undefined).map((path) => ({ path, view: (readerOf(path, files[path]!, siblings) as any).view })),
+    },
+    runes,
+  );
+  assert.ok('uses' in outcome, JSON.stringify(outcome));
+  return { uses: [...outcome.uses], skipped: outcome.skipped };
+}
+
+async function uncached(files: Record<string, string>) {
+  return withRoot((root) => readGroups(root, files), false);
+}
+
+const packOf = (root: string, group: string) => readFileSync(join(root, '.lawcheck', '.local', 'readers', group), 'utf8');
+const entries = (root: string, group: string) => Object.keys(JSON.parse(packOf(root, group).slice(packOf(root, group).indexOf('\n') + 1)));
+
+function forge(text: string, change: (body: Record<string, unknown>) => void): string {
+  const body = JSON.parse(text.slice(text.indexOf('\n') + 1));
+  change(body);
+  const json = JSON.stringify(body);
+  return `lawcheck-readers/1 ${createHash('sha256').update(json).digest('hex')}\n${json}`;
+}
+
+test('test 790: a second read parses only the files whose uses it reads, takes what the others declare from .lawcheck/.local/readers, and gives the uses a read without the cache gives', async () => {
+  const reference = await uncached(GROUP_FILES);
+  assert.equal(reference.uses.length, 5);
+  assert.ok(reference.uses.every(([, uses]) => uses.length === 1 && uses[0]!.answer.kind === 'file'), JSON.stringify(reference));
+  await withRoot(async (root) => {
+    const cold = counted();
+    assert.deepEqual(await readGroups(root, GROUP_FILES, cold.runes), reference);
+    assert.deepEqual(cold.parsed, Object.keys(GROUP_FILES).filter((path) => !path.endsWith('.toml')).sort());
+    assert.deepEqual(readdirSync(join(root, '.lawcheck', '.local', 'readers')).sort(), PACKS);
+    assert.equal(readFileSync(join(root, '.lawcheck', '.local', '.gitignore'), 'utf8'), '*\n');
+    const packs = PACKS.map((group) => packOf(root, group));
+    const warm = counted();
+    assert.deepEqual(await readGroups(root, GROUP_FILES, warm.runes), reference);
+    assert.deepEqual(warm.parsed, JUDGED);
+    assert.deepEqual(PACKS.map((group) => packOf(root, group)), packs);
+  });
+});
+
+test('test 791: after a changed, a renamed and a deleted file, a read with the packs of the read before gives what a read without the cache gives', async () => {
+  await withRoot(async (root) => {
+    const first = await readGroups(root, GROUP_FILES);
+    const changed = { ...GROUP_FILES, 'j/app/Service.java': 'package shop;\npublic class Servant {}\n' };
+    const afterChange = counted();
+    const outcome = await readGroups(root, changed, afterChange.runes);
+    assert.deepEqual(outcome, await uncached(changed));
+    assert.notDeepEqual(outcome, first);
+    assert.deepEqual(afterChange.parsed, [...JUDGED, 'j/app/Service.java'].sort());
+
+    const { 'cs/app/Service.cs': moved, ...rest } = changed;
+    const renamed = { ...rest, 'cs/app/Services.cs': moved! };
+    const afterRename = counted();
+    const renamedOutcome = await readGroups(root, renamed, afterRename.runes);
+    assert.deepEqual(renamedOutcome, await uncached(renamed));
+    assert.notDeepEqual(renamedOutcome, outcome);
+    assert.deepEqual(afterRename.parsed, [...JUDGED, 'cs/app/Services.cs'].sort());
+    assert.equal(entries(root, 'csharp').length, 3);
+
+    const before = entries(root, 'ruby').length;
+    const { 'rb/app/service.rb': _gone, ...deleted } = renamed;
+    const afterDelete = counted();
+    const deletedOutcome = await readGroups(root, deleted, afterDelete.runes);
+    assert.deepEqual(deletedOutcome, await uncached(deleted));
+    assert.notDeepEqual(deletedOutcome, renamedOutcome);
+    assert.deepEqual(afterDelete.parsed, JUDGED);
+    assert.equal(entries(root, 'ruby').length, before - 1);
+  });
+});
+
+test('test 792: another version of Lawcheck or Runes, or another grammar, parses every file again and gives what a read without the cache gives', async () => {
+  const reference = await uncached(GROUP_FILES);
+  const all = Object.keys(GROUP_FILES).filter((path) => !path.endsWith('.toml')).sort();
+  await withRoot(async (root) => {
+    await readGroups(root, GROUP_FILES);
+    for (const options of [{ identity: JSON.stringify(['0.1.0-alpha.99', '1.2.0']) }, { identity: JSON.stringify([JSON.parse(RUNES.identity())[0], '1.99.0']) }, { digest: 'another grammar' }]) {
+      const changed = counted(options);
+      assert.deepEqual(await readGroups(root, GROUP_FILES, changed.runes), reference, JSON.stringify(options));
+      assert.deepEqual(changed.parsed, all, JSON.stringify(options));
+      const again = counted(options);
+      await readGroups(root, GROUP_FILES, again.runes);
+      assert.deepEqual(again.parsed, JUDGED, JSON.stringify(options));
+    }
+  });
+});
+
+test('test 793: a pack that is damaged, cut short, of another shape or no file is not read, and a read without that fault writes it again', async () => {
+  const reference = await uncached(GROUP_FILES);
+  const damages: [string, (path: string) => void][] = [
+    ['a changed byte', (path) => writeFileSync(path, readFileSync(path, 'utf8').replace('shop.Service', 'shop.Servant'))],
+    ['cut short', (path) => writeFileSync(path, readFileSync(path, 'utf8').slice(0, 100))],
+    ['another shape', (path) => writeFileSync(path, forge(readFileSync(path, 'utf8'), (body) => (body[Object.keys(body)[0]!] = [['shop.Service'], 5])))],
+    ['empty', (path) => writeFileSync(path, '')],
+    ['a folder', (path) => (rmSync(path), mkdirSync(path))],
+  ];
+  for (const [what, damage] of damages) {
+    await withRoot(async (root) => {
+      await readGroups(root, GROUP_FILES);
+      const pack = join(root, '.lawcheck', '.local', 'readers', 'jvm');
+      damage(pack);
+      const after = counted();
+      assert.deepEqual(await readGroups(root, GROUP_FILES, after.runes), reference, what);
+      assert.deepEqual(after.parsed, [...JUDGED, 'j/app/Service.java', 'k/app/Clock.kt'].sort(), what);
+      const again = counted();
+      await readGroups(root, GROUP_FILES, again.runes);
+      assert.deepEqual(again.parsed, what === 'a folder' ? [...JUDGED, 'j/app/Service.java', 'k/app/Clock.kt'].sort() : JUDGED, what);
+    });
+  }
+});
+
+test('test 794: a pack that git lists, or that lies behind a link or in another repository, is neither read nor written, while the same pack in its own folder would change the uses', async () => {
+  const reference = await uncached(GROUP_FILES);
+  const empty = (text: string) => forge(text, (body) => Object.keys(body).forEach((key) => (body[key] = [[], null])));
+  await withRoot(async (root) => {
+    await readGroups(root, GROUP_FILES);
+    const pack = join(root, '.lawcheck', '.local', 'readers', 'jvm');
+    const forged = empty(readFileSync(pack, 'utf8'));
+    writeFileSync(pack, forged);
+    assert.deepEqual(await readGroups(root, GROUP_FILES, counted().runes, ['.lawcheck/.local/readers/jvm']), reference);
+    assert.equal(readFileSync(pack, 'utf8'), forged);
+    mkdirSync(join(root, '.lawcheck', '.local', 'readers', '.git'));
+    assert.deepEqual(await readGroups(root, GROUP_FILES), reference);
+    assert.equal(readFileSync(pack, 'utf8'), forged);
+    rmSync(join(root, '.lawcheck', '.local', 'readers', '.git'), { recursive: true });
+    const planted = await readGroups(root, GROUP_FILES);
+    assert.notDeepEqual(planted, reference);
+  });
+  await withRoot(async (root) => {
+    await withRoot(async (elsewhere) => {
+      await readGroups(elsewhere, GROUP_FILES);
+      const pack = join(elsewhere, '.lawcheck', '.local', 'readers', 'jvm');
+      const forged = empty(readFileSync(pack, 'utf8'));
+      writeFileSync(pack, forged);
+      symlinkSync(join(elsewhere, '.lawcheck', '.local'), join(root, '.lawcheck', '.local'), process.platform === 'win32' ? 'junction' : 'dir');
+      assert.deepEqual(await readGroups(root, GROUP_FILES), reference);
+      assert.equal(readFileSync(pack, 'utf8'), forged);
+      assert.deepEqual(readdirSync(join(elsewhere, '.lawcheck', '.local', 'readers')).sort(), PACKS);
+    });
+  });
+});
+
+test('test 795: a folder the cache cannot be written to, or that is a file, changes nothing of the uses', async () => {
+  const reference = await uncached(GROUP_FILES);
+  await withRoot(async (root) => {
+    writeFileSync(join(root, '.lawcheck', '.local'), 'not a folder');
+    assert.deepEqual(await readGroups(root, GROUP_FILES), reference);
+    assert.equal(readFileSync(join(root, '.lawcheck', '.local'), 'utf8'), 'not a folder');
+  });
+  await withRoot(async (root) => {
+    mkdirSync(join(root, '.lawcheck', '.local', 'readers'), { recursive: true });
+    chmodSync(join(root, '.lawcheck', '.local', 'readers'), 0o500);
+    try {
+      assert.deepEqual(await readGroups(root, GROUP_FILES), reference);
+      assert.deepEqual(await readGroups(root, GROUP_FILES), reference);
+    } finally {
+      chmodSync(join(root, '.lawcheck', '.local', 'readers'), 0o700);
+    }
+  });
+});
+
+test('test 796: two reads at once each give what a read without the cache gives, and leave packs a third read takes', async () => {
+  const reference = await uncached(GROUP_FILES);
+  await withRoot(async (root) => {
+    const [one, two] = await Promise.all([readGroups(root, GROUP_FILES), readGroups(root, GROUP_FILES)]);
+    assert.deepEqual(one, reference);
+    assert.deepEqual(two, reference);
+    const third = counted();
+    assert.deepEqual(await readGroups(root, GROUP_FILES, third.runes), reference);
+    assert.deepEqual(third.parsed, JUDGED);
+    assert.deepEqual(readdirSync(join(root, '.lawcheck', '.local', 'readers')).sort(), PACKS);
+  });
+});
+
+test('test 797: a read that a reader failure stops keeps what it read before the failure, and the next read gives what a read without the cache gives', async () => {
+  const reference = await uncached(GROUP_FILES);
+  await withRoot(async (root) => {
+    const failing = counted({ fail: 'k/app/Clock.kt' });
+    const paths = Object.keys(GROUP_FILES).sort();
+    const outcome = await readUses(
+      { root, files: paths, bytes: (path: string) => enc.encode(GROUP_FILES[path]!), ownerOf: ownerOfGroup(GROUP_FILES), read: JUDGED.map((path) => ({ path, view: (readerOf(path, GROUP_FILES[path]!, siblingsOf(paths)) as any).view })) },
+      failing.runes,
+    );
+    assert.ok('error' in outcome);
+    assert.equal(outcome.error.file, 'k/app/Clock.kt');
+    assert.deepEqual(readdirSync(join(root, '.lawcheck', '.local', 'readers')).sort(), ['csharp', 'jvm']);
+    const next = counted();
+    assert.deepEqual(await readGroups(root, GROUP_FILES, next.runes), reference);
+    assert.deepEqual(next.parsed, [...JUDGED, 'k/app/Clock.kt', 'rb/app/service.rb', 'rs/src/app.rs', 'rs/src/lib.rs'].sort());
+  });
 });
 
 test('dependency-slice §6: a grammar that cannot be loaded stops the run without a place, and no file after it is read', async () => {

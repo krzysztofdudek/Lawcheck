@@ -1,9 +1,9 @@
 import { test } from 'node:test';
 import { example } from '../harness/examples.ts';
 import assert from 'node:assert/strict';
-import { cpSync, readFileSync } from 'node:fs';
+import { cpSync, existsSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { append, check, findingLines, git, inTemp, LANGUAGES_SAMPLE, lawcheck, ROOT, write } from './helpers.ts';
+import { append, check, findingLines, git, inTemp, LANGUAGES_SAMPLE, lawcheck, lawcheckAt, makeR, makeSample, makeU, ROOT, startLawcheck, withCopy, write } from './helpers.ts';
 
 const FINDINGS = example('dependency-l-findings').split('\n');
 
@@ -62,6 +62,111 @@ test('test 88: one use from domain to app in each language', async () => {
     );
     assert.equal(findingLines(changed.stdout).length, 4);
     assert.equal(changed.code, 1);
+  });
+});
+
+const NAMED = ['cs/domain/Order.cs', 'java/src/main/java/com/acme/domain/Order.java', 'kotlin/src/main/kotlin/com/acme/k/domain/Order.kt', 'ruby/domain/order.rb', 'rust/src/domain/mod.rs'];
+
+const readersOf = (repo: string) => join(repo, '.lawcheck', '.local', 'readers');
+
+function packs(repo: string): Record<string, string> {
+  return Object.fromEntries(readdirSync(readersOf(repo)).sort().map((group) => [group, readFileSync(join(readersOf(repo), group), 'utf8')]));
+}
+
+// The run with the packs the runs before it left, then the same run with none; both must print the same and exit the same.
+async function withAndWithout(repo: string, args: string[]): Promise<string> {
+  const warm = await lawcheck(repo, args);
+  rmSync(join(repo, '.lawcheck', '.local'), { recursive: true, force: true });
+  const cold = await lawcheck(repo, args);
+  assert.equal(warm.stdout, cold.stdout, args.join(' '));
+  assert.equal(warm.code, cold.code, args.join(' '));
+  return `${cold.code}\n${cold.stdout}`;
+}
+
+test('test 798: on the test repositories that hold no Java, Kotlin, C#, Ruby or Rust, check writes no cache and gives the same output on a second run', async () => {
+  await inTemp(async (dir) => {
+    for (const repo of [makeSample(join(dir, 'sample')), makeU(join(dir, 'u')), makeR(join(dir, 'r'))]) {
+      for (const args of [['check', '--full', '--json'], ['check', '--base', 'main']]) await withAndWithout(repo, args);
+      assert.equal(existsSync(join(repo, '.lawcheck', '.local')), false, repo);
+    }
+  });
+});
+
+test('test 798: on L, and after a changed, a renamed and a deleted file of it, check gives the same output with the reader cache and without it', async () => {
+  await inTemp(async (dir) => {
+    const l = makeL(dir);
+    git(l, 'checkout', '-q', '-b', 'work');
+    const runs = [['check', '--base', 'main'], ['check', ...NAMED, '--json']];
+    const states: string[][] = [];
+    const state = async () => {
+      const outputs: string[] = [];
+      for (const args of runs) outputs.push(await withAndWithout(l, args));
+      states.push(outputs);
+    };
+    await state();
+    assert.deepEqual(Object.keys(packs(l)), ['csharp', 'jvm', 'ruby', 'rust']);
+    write(l, 'cs/app/Service.cs', 'namespace Shop.App;\n\npublic class Servant { public Clock Now; }\n');
+    await state();
+    renameSync(join(l, 'ruby/app/service.rb'), join(l, 'ruby/app/services.rb'));
+    await state();
+    rmSync(join(l, 'kotlin/src/main/kotlin/com/acme/k/app/Service.kt'));
+    await state();
+    for (let i = 1; i < states.length; i++) assert.notEqual(states[i]![1], states[i - 1]![1], `state ${i}`);
+  });
+});
+
+// A custom section at the end of a WebAssembly module changes its bytes and not what it does: id 0, its size, then a name and a payload.
+function withCustomSection(module: Uint8Array): Uint8Array {
+  const name = Buffer.from('lawcheck');
+  const payload = Buffer.from('another build');
+  return Buffer.concat([module, Buffer.from([0, 1 + name.length + payload.length, name.length]), name, payload]);
+}
+
+test('test 799: a check by another version of Lawcheck, or with another Java grammar, takes no entry of the packs written before it and gives the same output', async () => {
+  await inTemp(async (dir) => {
+    await withCopy(async (copy) => {
+      const l = makeL(dir);
+      const args = ['check', ...NAMED, '--json'];
+      const first = await lawcheck(l, args);
+      const before = packs(l);
+      const manifest = readFileSync(join(copy.dir, 'package.json'), 'utf8');
+      writeFileSync(join(copy.dir, 'package.json'), manifest.replace(/"version": "[^"]*"/, '"version": "0.1.0-alpha.99"'));
+      const other = await lawcheckAt(copy.cli, l, args);
+      assert.equal(other.stdout, first.stdout);
+      assert.equal(other.code, first.code);
+      const versioned = packs(l);
+      for (const group of Object.keys(before)) assert.notEqual(versioned[group], before[group], group);
+
+      writeFileSync(join(copy.dir, 'package.json'), manifest);
+      await lawcheckAt(copy.cli, l, args);
+      assert.deepEqual(packs(l), before);
+      const grammar = join(copy.dir, 'dist', 'grammars', 'tree-sitter-java.wasm');
+      writeFileSync(grammar, withCustomSection(readFileSync(grammar)));
+      const regrammared = await lawcheckAt(copy.cli, l, args);
+      assert.equal(regrammared.stdout, first.stdout);
+      assert.equal(regrammared.code, first.code);
+      const after = packs(l);
+      assert.notEqual(after.jvm, before.jvm);
+      assert.deepEqual({ ...after, jvm: '' }, { ...before, jvm: '' });
+    });
+  });
+});
+
+test('test 800: two checks at once give the output of a check without the cache, and leave packs the next check takes', async () => {
+  await inTemp(async (dir) => {
+    const l = makeL(dir);
+    const args = ['check', ...NAMED, '--json'];
+    const [one, two] = await Promise.all([startLawcheck(l, args).ended, startLawcheck(l, args).ended]);
+    const after = packs(l);
+    rmSync(join(l, '.lawcheck', '.local'), { recursive: true, force: true });
+    const cold = await lawcheck(l, args);
+    for (const run of [one, two]) {
+      assert.equal(run.stdout, cold.stdout);
+      assert.equal(run.code, cold.code);
+    }
+    assert.deepEqual(packs(l), after);
+    const warm = await lawcheck(l, args);
+    assert.equal(warm.stdout, cold.stdout);
   });
 });
 
