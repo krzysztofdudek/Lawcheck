@@ -3,7 +3,8 @@ import { onDisk } from './names.mjs';
 import { blobsAt } from './snapshot.mjs';
 import { plainText } from './start.mjs';
 
-export const MARKER = 'lawcheck-waive';
+// Lawcheck's own law reads plugin/ for waivers, and the marker written whole would be one with no rule.
+export const MARKER = ['lawcheck', 'waive'].join('-');
 // FILE_TEXT_BYTES of src/limits.ts: Lawcheck reads no larger file, so a waiver in one never counts.
 const LARGEST = 16 * 1024 * 1024;
 const SHOWN = 5;
@@ -69,7 +70,7 @@ export function turnChanges(root, state, paths, deadline) {
     for (const { line, key } of found) {
       const at = before.indexOf(key);
       if (at >= 0) before.splice(at, 1);
-      else waivers.push({ path, line, rule: /^lawcheck-waive\s+(\S+)/.exec(key)?.[1] ?? null });
+      else waivers.push({ path, line, rule: /^\s+(\S+)/.exec(key.slice(MARKER.length))?.[1] ?? null });
     }
   }
   return { waivers, law };
