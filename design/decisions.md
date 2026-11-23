@@ -206,19 +206,19 @@ A use that a `may_use` list forbids is an error in the change, and the law has n
 
 Why: a list that gives warnings is one more switch that a team forgets to turn on, and a list with a waiver on each old use judges every use a change adds from the first day. Each waiver stays in its file and in the JSON until someone removes it. The owner chose the page over a new key on 2026-11-23.
 
-## 167. A script rule's `line` of null means no line
+## 168. A script rule's `line` of null means no line
 
 A finding that a script rule returns with `line: null` is about the whole file, as one without `line` is. Any other value that is not an integer from 1 to the number of lines, such as the string `'2'`, a bigint or `1.5`, still makes the rule `rule-crashed`, and the message names the value and says it is not an integer. The reviewer's answer already reads a `line` of null this way.
 
 Why: a rule author who writes `line: null` means no line, and a crash with a message about a range tells them nothing they can act on. The refusal of every other value stays because the line selects which waiver applies, and a wrong line would drop or keep a finding for the wrong reason. This was taken as a technical choice on 2026-11-23, and the owner may reverse it.
 
-## 168. Two verdict objects that disagree read as the fail
+## 169. Two verdict objects that disagree read as the fail
 
 When the answer of a reviewer holds more than one object with a `verdict` and one of them is a `fail`, the answer is the last of the fails, whatever else the answer holds and in whatever order. An object inside another object with a `verdict` does not count. A whole answer that is one verdict object, and the same verdict twice, read as before.
 
 Why: a file can ask the reviewer to quote a pass, and a reviewer that reports the attempt and quotes what the file asked for would turn its own fail into a pass if the last object won. The price is a fail that a model quotes in a sentence after a pass, which fails the file with findings the user did not expect. A pass that was wrongly kept is silent and a fail that was wrongly given is visible and one more review away from correction, so the choice errs toward the visible one. This was taken as a technical choice on 2026-11-23, and the owner may reverse it.
 
-## 169. An error after reviewer requests names how many were sent
+## 170. An error after reviewer requests names how many were sent
 
 The first line of a `check` or `try` that ends with exit 2 after it sent requests to a reviewer ends with the count, as the lines of PASS and FAIL do: `lawcheck: ERROR  1 error, 2 reviewer calls`. The JSON document `lawcheck-error/1` gains the key `calls_made` after `errors`, only when the count is above 0. A run that stops before its first request, and one that stops on `file-unwritable`, name no count.
 
