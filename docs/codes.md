@@ -1056,7 +1056,7 @@ next: fix src/core/refund.ts
 
 **Meaning**
 
-A file uses a file of a type that its own type's `may_use` list does not name. The message names the type the list comes from. That type can be a parent type.
+A file uses a file of a type that its own type's `may_use` list does not name. The message names the type the list comes from. That type can be a parent type. A use that could name several files is a `forbidden-use` when the list forbids every one of them, and its message names those files with their types.
 
 **Typical cause**
 

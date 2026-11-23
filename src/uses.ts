@@ -32,6 +32,27 @@ export function forbiddenMessage(type: TypeDef, inForce: InForce, file: string, 
   return `${type.id} may not use ${file}, which has no type; ${listPart(type, inForce)}`;
 }
 
+const CANDIDATES_SHOWN = 3;
+
+function ambiguousMessage(type: TypeDef, inForce: InForce, what: string, candidates: { file: string; target: Target }[]): string {
+  const named = candidates.map(({ file, target }) => `${file} (${target.kind === 'typed' ? target.type.id : 'no type'})`);
+  const shown = named.length > CANDIDATES_SHOWN ? `${named.slice(0, CANDIDATES_SHOWN).join(', ')} and ${named.length - CANDIDATES_SHOWN} more` : `${named.slice(0, -1).join(', ')} and ${named[named.length - 1]}`;
+  return `${type.id} may not use ${what}, which names one of ${shown}; ${listPart(type, inForce)}`;
+}
+
+// Whichever candidate the use names, the list forbids it, so the finding rests on no guess.
+function everyForbidden(path: string, list: string[], candidates: string[], targetOf: (file: string) => Target): { file: string; target: Target }[] | null {
+  if (candidates.length === 0) return null;
+  const out: { file: string; target: Target }[] = [];
+  for (const file of candidates) {
+    if (file === path) return null;
+    const target = targetOf(file);
+    if (target.kind === 'binary' || (target.kind === 'typed' && allows(list, target.type))) return null;
+    out.push({ file, target });
+  }
+  return out;
+}
+
 export interface Forbidden {
   file: string;
   line: number;
@@ -53,6 +74,11 @@ export function judgeUses(path: string, type: TypeDef, uses: Use[], targetOf: (f
     if (answer.kind !== 'file') {
       const reason = answer.kind === 'none' ? answer.reason : null;
       out.unresolved.push({ file: path, line, what: answer.what, answer: answer.kind, reason, candidates: answer.candidates });
+      const forbidden = answer.kind === 'ambiguous' ? everyForbidden(path, inForce.list, answer.candidates, targetOf) : null;
+      const key = `${line}\0\0${answer.what}`;
+      if (forbidden === null || seen.has(key)) continue;
+      seen.add(key);
+      out.forbidden.push({ file: path, line, message: ambiguousMessage(type, inForce, answer.what, forbidden) });
       continue;
     }
     if (answer.file === path) continue;

@@ -52,9 +52,9 @@ Why: each needs something `npm test` does not have: the network, Claude Code, a 
 
 ## 71. An ambiguous use whose every candidate is forbidden
 
-Such a use is not reported as `forbidden-use`. It is counted as unresolved, and its candidates are listed in the JSON output.
+Such a use is a `forbidden-use` whose message names its candidates with their types, and it stays counted as unresolved, with its candidates in the JSON output. A use with one allowed, binary or own file among its candidates is no finding.
 
-Why: a finding would rest on an answer the readers did not resolve, and the readers never guess. An explicit import of the forbidden member still fails. The owner may decide otherwise.
+Why: whichever candidate the use names, the list forbids it, so the finding rests on no guess. The readers still did not tie the use to one file, so it stays unresolved. Until alpha.5 such a use was only counted, which left a Java star import of a package with files of two forbidden types passing. The owner accepted the change on 2026-11-23, in the triage of what the first design left unbuilt.
 
 ## 73. The environments Lawcheck supports
 

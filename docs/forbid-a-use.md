@@ -193,6 +193,6 @@ After this step, the `.sql` files have no type. Lawcheck checks them against no 
 - The finding says `core may not use src/util/x.ts, which has no type`: a `may_use` list names types, so it cannot allow a file without a type. Give the file a type and list that type, or move the file under a type the list names.
 - A file of `core` uses another file of `core`, and the check fails: the list must name `core` itself.
 - An import you expected to fail passes, and the first line counts no unresolved use: the readers miss some forms, such as `import()` of a variable. [Languages and uses](languages.md) lists them.
-- An unresolved use with the answer `ambiguous`: the use could name several files of different types. The list `candidates` names those files. Lawcheck judges the use against none of them.
+- An unresolved use with the answer `ambiguous`: the use could name several files of different types. The list `candidates` names those files. When the list forbids every one of them, the use is a `forbidden-use` that names them. When the list allows one of them, Lawcheck reports nothing for the use.
 
 Next: [Write a script rule](write-a-script-rule.md)

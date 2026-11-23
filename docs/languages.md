@@ -75,7 +75,7 @@ The first line of `check` counts the unresolved uses in the files of the change.
 | `none` | `unfollowed` | the use names a place of the repository that holds no file: a file the build writes and git ignores, an alias or a workspace package whose entry is build output, a name of the repository's own package that no file declares |
 | `none` | `unowned` | the use names a file that has no type; `candidates` names it |
 | `none` | none | the readers cannot say where it points, as in a Rust file of no Cargo package |
-| `ambiguous` | none | the use could name several files of different types, or typed and untyped files; `candidates` lists them. Lawcheck does not judge it, even when the list forbids every one |
+| `ambiguous` | none | the use could name several files of different types, or typed and untyped files; `candidates` lists them. When the list in force forbids every one, the use is also a `forbidden-use`; otherwise Lawcheck does not judge it |
 
 The readers count these uses as outside the repository:
 

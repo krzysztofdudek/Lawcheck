@@ -59,6 +59,8 @@ test('dependency-slice §3.5: each answer of section 3.5', () => {
     'src/cli/b.ts': { kind: 'typed', type: byId.get('command')! },
     'lib/c.ts': { kind: 'untyped' },
     'src/core/d.png': { kind: 'binary' },
+    'src/a/B.ts': { kind: 'typed', type: library },
+    'src/b/B.ts': { kind: 'untyped' },
   };
   const judged = judgeUses(
     'src/core/x.ts',
