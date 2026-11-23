@@ -201,8 +201,12 @@ export function atBase(root: string, base: string): ((paths: string[]) => Map<st
   return fork === null ? null : (paths) => blobsAt(root, fork, paths);
 }
 
+const LOOSENS = /^(?:removes the (?:rule|type) |makes the rule \S+ advisory$|takes the rule \S+ off the type |adds .* to ignored$|takes .* off required$)/;
+
+// The line shows five items, so past five the items that loosen the law go first and are never left in the count.
 export function lawChangeLine(items: string[]): string {
-  const shown = items.slice(0, LINE_ITEMS).join('; ');
+  const ordered = items.length > LINE_ITEMS ? [...items.filter((item) => LOOSENS.test(item)), ...items.filter((item) => !LOOSENS.test(item))] : items;
+  const shown = ordered.slice(0, LINE_ITEMS).join('; ');
   const rest = items.length - LINE_ITEMS;
   return `note: this change edits the law that judges it: ${shown}${rest > 0 ? `; and ${rest} more` : ''}`;
 }
