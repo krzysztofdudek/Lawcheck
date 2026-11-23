@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { runRule } from '../../dist/rules.js';
+import { fork } from 'node:child_process';
+import { pathToFileURL } from 'node:url';
+import { RUNNER, runRule } from '../../dist/rules.js';
 
 function file(path: string, lines: string[]) {
   return { path, type: { id: 'source' }, rules: [], text: lines.join('\n') + '\n', lines } as never;
@@ -153,6 +155,38 @@ test("R-119: a rule that asks the tool again through the channel for what its ca
       const outcome = await runRule({ root, rule: 'r', ruleFile, files: [file('a.ts', ['x'])], filesOf, timeoutMs: 5000, serve });
       assert.deepEqual(outcome, { crash: "writes to the runner's channel on a.ts" });
       assert.deepEqual(asked, ['tree a.ts']);
+    },
+  );
+});
+
+test('S2-6: an immediate that the runner still has pending when the first message arrives does not hide the background failure of a rule', async () => {
+  await withRule(
+    "export function check() { setTimeout(() => { const until = Date.now() + 100; const again = () => { if (Date.now() < until) setImmediate(again); else throw new Error('later'); }; again(); }, 200); return []; }\n",
+    async (root, ruleFile) => {
+      const pending = join(root, 'pending.mjs');
+      writeFileSync(pending, "let spin = true;\nconst again = () => { if (spin) setImmediate(again); };\nagain();\nprocess.once('message', () => { spin = false; });\n");
+      const child = fork(RUNNER, [], { execArgv: ['--import', pathToFileURL(pending).href], env: {}, cwd: root, serialization: 'advanced', stdio: ['ignore', 'pipe', 'pipe', 'ipc'] });
+      try {
+        const queue: unknown[] = [];
+        let wake = () => {};
+        child.on('message', (message) => {
+          queue.push(message);
+          wake();
+        });
+        const next = async () => {
+          while (queue.length === 0) await new Promise<void>((done) => (wake = done));
+          return queue.shift() as { kind: string };
+        };
+        assert.equal((await next()).kind, 'ready');
+        child.send({ kind: 'load', file: ruleFile, filesOf: new Map() });
+        assert.equal((await next()).kind, 'loaded');
+        child.send({ kind: 'call', file: { path: 'a.ts', type: null, text: 'x\n', lines: ['x'] } });
+        assert.equal((await next()).kind, 'result');
+        child.send({ kind: 'finish' });
+        assert.deepEqual(await next(), { kind: 'background', message: 'later', load: false });
+      } finally {
+        child.kill('SIGKILL');
+      }
     },
   );
 });
