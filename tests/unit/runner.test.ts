@@ -135,6 +135,32 @@ test('test 773: the time the tool takes to read what a rule asks for does not co
   });
 });
 
+test("R-123: a call of one rule does not pass its time limit while the tool, busy reading for another rule, cannot take that call's ask", async () => {
+  await withRule("export async function check({ files: [file] }) { await file.uses(); return [{ message: 'one' }]; }\n", async (root, oneFile) => {
+    const otherFile = join(root, '.lawcheck/rules/other.mjs');
+    writeFileSync(otherFile, "export async function check({ files: [file] }) { await file.tree(); await new Promise((done) => setTimeout(done, 200)); await file.uses(); return [{ message: 'other' }]; }\n");
+    let answered = false;
+    const uses = { uses: [], absent: null } as never;
+    const blocking = async () => {
+      const turn = () => new Promise((done) => setImmediate(done));
+      while (!answered) await turn();
+      for (const until = Date.now() + 50; Date.now() < until; ) await turn();
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 1500);
+      return uses;
+    };
+    const other = async (what: 'tree' | 'uses') => {
+      if (what === 'uses') return uses;
+      answered = true;
+      return FLAT as never;
+    };
+    const [one, two] = await Promise.all([
+      runRule({ root, rule: 'one', ruleFile: oneFile, files: [file('a.ts', ['x'])], filesOf, timeoutMs: 1000, serve: blocking }),
+      runRule({ root, rule: 'other', ruleFile: otherFile, files: [file('b.ts', ['y'])], filesOf, timeoutMs: 1000, serve: other }),
+    ]);
+    assert.deepEqual([one, two], [{ findings: [{ rule: 'one', file: 'a.ts', message: 'one' }] }, { findings: [{ rule: 'other', file: 'b.ts', message: 'other' }] }]);
+  });
+});
+
 test('test 773: a file kept from an earlier call answers tree() with an error, and the tool is not asked', async () => {
   await withRule(
     'let last = null;\nexport async function check({ files: [file] }) {\n  const before = last;\n  last = file;\n  if (before === null) return [];\n  try { await before.tree(); return []; } catch (error) { return [{ message: error.message }]; }\n}\n',

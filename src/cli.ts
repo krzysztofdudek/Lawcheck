@@ -17,17 +17,25 @@ import type { ErrorItem } from './output.js';
 import { lastStep, progressBuffer } from './progress.js';
 import { absolutePath, NO_CURRENT_FOLDER } from './programs.js';
 
-// Each case names a step the user can take: a file whose uses are read leaves the types with may_use; a file read only for what it declares leaves the files git lists; a run or a machine short of memory gets more of it.
-function memoryError(found: Exclude<MemoryCase, null>, what: string, file: string | null, command: string): ErrorItem {
+// Each case names a step the user can take: a file whose uses are read leaves the types with may_use, or the types of the rule that read them; a file read only for what it declares leaves the files git lists; a run or a machine short of memory gets more of it.
+export function memoryError(found: Exclude<MemoryCase, null>, what: string, file: string | null, command: string): ErrorItem {
   const again = `then run lawcheck ${command} again`;
+  const message = found === 'file' ? `the run grew by more than the ${mib(STEP_MEMORY_BYTES)} of memory one file may add while ${what}` : `the run passed the ${mib(runBound(totalmem()))} of memory it may hold while ${what}`;
+  const asker = / for the (script rule|companion of the reviewer rule) ([a-z0-9]+(?:-[a-z0-9]+)*)$/.exec(what);
+  const judging = asker === null ? null : `the types whose files the ${asker[1] === 'script rule' ? 'script' : 'reviewer'} rule ${asker[2]} judges`;
   if (found === 'file' && file !== null && what.startsWith('reading what')) {
-    return { code: 'memory-too-large', file, line: null, message: `the run grew by more than the ${mib(STEP_MEMORY_BYTES)} of memory one file may add while ${what}`, next: `keep ${file} out of the files git lists here (git rm --cached, and a line in .gitignore), since Lawcheck reads it for what it declares, ${again}` };
+    return { code: 'memory-too-large', file, line: null, message, next: `keep ${file} out of the files git lists here (git rm --cached, and a line in .gitignore), since Lawcheck reads it for what it declares, ${again}` };
+  }
+  if (found === 'file' && file !== null && judging !== null) {
+    const call = what.startsWith('reading the tree') ? 'tree()' : 'uses()';
+    const keep = asker![1] === 'script rule' ? 'keep the rule' : 'keep its companion';
+    return { code: 'memory-too-large', file, line: null, message, next: `leave ${file} out of ${judging}, or ${keep} from calling ${call} on it, ${again}` };
   }
   if (found === 'file' && file !== null) {
-    return { code: 'memory-too-large', file, line: null, message: `the run grew by more than the ${mib(STEP_MEMORY_BYTES)} of memory one file may add while ${what}`, next: `leave ${file} out of the types whose may_use is in force, ${again}` };
+    return { code: 'memory-too-large', file, line: null, message, next: `leave ${file} out of the types whose may_use is in force, ${again}` };
   }
   if (found === 'run') {
-    return { code: 'memory-too-large', file: null, line: null, message: `the run passed the ${mib(runBound(totalmem()))} of memory it may hold while ${what}`, next: `narrow the types whose may_use is in force in .lawcheck/law.yaml, or run Lawcheck where it may hold more memory, ${again}` };
+    return { code: 'memory-too-large', file: null, line: null, message, next: `narrow ${judging ?? 'the types whose may_use is in force'} in .lawcheck/law.yaml, or run Lawcheck where it may hold more memory, ${again}` };
   }
   return { code: 'memory-too-large', file: null, line: null, message: `the system had less than ${mib(MEMORY_RESERVE_BYTES)} of memory left while ${what}`, next: `free memory on this machine, or run Lawcheck where it has more, ${again}` };
 }
