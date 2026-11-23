@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSy
 import { availableParallelism } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { COMMIT_TARGET_MS, LOOP_TARGET_MS, SEED, SLOW_TESTS, slowBudget, TEST_BUDGET_MS } from './numbers.ts';
+import { COMMIT_TARGET_MS, LOOP_TARGET_MS, SEED, SLOW_TESTS, TEST_BUDGET_MS, testBudget } from './numbers.ts';
 import type { Speed } from './numbers.ts';
 import { COMMIT_GROUPS, EMPTY_GROUPS, groupDirs, NIGHTLY_GROUPS, perPushFiles, perPushTests, ROOT, SERIAL_DIRS, setFiles, TESTS } from './harness/sets.ts';
 import type { System } from './harness/sets.ts';
@@ -12,7 +12,7 @@ import { readPlan } from './harness/shards.ts';
 const REPORTER = pathToFileURL(join(TESTS, 'harness', 'reporter.ts')).href;
 const HARNESS = pathToFileURL(join(TESTS, 'harness', 'tool.ts')).href;
 const RECORDER = pathToFileURL(join(TESTS, 'harness', 'record.ts')).href;
-const USAGE = 'usage: node tests/run.ts <loop|commit|nightly> [--group <name> | --shard <i>/<n>] [--repeat <n>] [--shuffle[=<seed>]] [<test id or source file>...]';
+const USAGE = 'usage: node tests/run.ts <loop|commit|nightly> [--group <name> | --shard <i>/<n>] [--repeat <n>] [--shuffle[=<seed>]] [--skip <test id>]... [<test id or source file>...]';
 
 function fail(message: string): never {
   process.stderr.write(`${message}\n${USAGE}\n`);
@@ -34,6 +34,7 @@ interface Parsed {
   speed: Speed;
   group: string | null;
   repeat: number;
+  skips: string[];
   shuffle: string | null;
   targets: string[];
   shard: { index: number; count: number } | null;
@@ -47,6 +48,7 @@ function parse(argv: string[]): Parsed {
   let shard: Parsed['shard'] = null;
   let shuffle: string | null = null;
   const targets: string[] = [];
+  const skips: string[] = [];
   for (let i = 0; i < rest.length; i++) {
     const arg = rest[i]!;
     if (arg === '--group') {
@@ -62,6 +64,10 @@ function parse(argv: string[]): Parsed {
       shard = { index: Number(m[1]), count: Number(m[2]) };
     } else if (arg === '--shuffle' || /^--shuffle=\d+$/.test(arg)) {
       shuffle = arg === '--shuffle' ? String(Math.floor(Math.random() * 2 ** 31)) : arg.slice('--shuffle='.length);
+    } else if (arg === '--skip') {
+      const id = rest[++i];
+      if (id === undefined || !ID.test(id)) fail('--skip takes a test id');
+      skips.push(id.replace(/^tests /, 'test '));
     } else if (arg.startsWith('--')) fail(`unknown option ${arg}`);
     else targets.push(arg);
   }
@@ -69,7 +75,7 @@ function parse(argv: string[]): Parsed {
   const ordered = process.env.LAWCHECK_ORDER_SEED;
   if (shuffle === null && ordered !== undefined && /^\d+$/.test(ordered)) shuffle = ordered;
   if (shard !== null && (speed !== 'commit' || group !== null || targets.length > 0 || repeat > 1)) fail('--shard splits the whole commit set, with no group, target or --repeat');
-  return { speed, group, repeat, shuffle, targets, shard };
+  return { speed, group, repeat, shuffle, targets, shard, skips };
 }
 
 function changedFiles(): string[] {
@@ -201,7 +207,7 @@ function main(): void {
   if (parsed.shuffle !== null) process.stdout.write(`order seed ${parsed.shuffle}\nrerun with --shuffle=${parsed.shuffle}\n`);
   // The large limits share one container of 1 GB, so their files run one at a time; Node takes this flag only on its command line, never from NODE_OPTIONS.
   const serial = files.some((file) => SERIAL_DIRS.some((dir) => file.startsWith(`tests/${dir}/`)) && file.endsWith('.nightly.test.ts'));
-  const slowest = Math.max(TEST_BUDGET_MS, ...Object.keys(SLOW_TESTS).map((key) => slowBudget(key) ?? 0));
+  const slowest = Math.max(testBudget(''), ...Object.keys(SLOW_TESTS).map((key) => testBudget(key)));
   const args = [
     '--test',
     `--import=${HARNESS}`,
@@ -210,6 +216,7 @@ function main(): void {
     `--test-timeout=${slowest + TEST_BUDGET_MS}`,
     ...(serial ? ['--test-concurrency=1'] : []),
     ...patterns.map((p) => `--test-name-pattern=${p}`),
+    ...parsed.skips.map((id) => `--test-skip-pattern=${idPattern(id)}`),
   ];
   const slots = Math.max(1, availableParallelism() - 1);
   if (parsed.shard !== null && !serial) args.push(`--test-concurrency=${slots}`);

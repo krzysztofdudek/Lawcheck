@@ -37,3 +37,34 @@ test('question 95: every key of SLOW_TESTS names a test that exists, and every s
     }
   }
 });
+
+const holds = (finding: string, key: string, system: numbers.System, ms: number, run: string): void => {
+  const budget = numbers.slowBudget(key, system);
+  assert.ok(budget !== null, `${finding}: ${key} took ${ms} ms on ${system} in ${run}, and SLOW_TESTS has no entry for it there`);
+  assert.ok(budget >= ms, `${finding}: ${key} took ${ms} ms on ${system} in ${run}, past its budget there of ${budget} ms`);
+};
+
+test('R-73: test 26 has an entry in SLOW_TESTS for win32, whose budget holds the time it took there in round 1 of Nightly 43809304091', () => {
+  holds('R-73', 'tests/acceptance/rules.test.ts > test 26: the runner stops writes, programs, workers and reads outside', 'win32', 25_351, 'Nightly 43809304091, round 1');
+});
+
+test('R-78: test 242 has an entry in SLOW_TESTS for win32, whose budget holds the time it took there in round 1 of Nightly 43838961244', () => {
+  holds('R-78', 'tests/limits/reviews.test.ts > test 242: S3-8, a review whose .lawcheck/.local cannot be written fails before the first call', 'win32', 23_659, 'Nightly 43838961244, round 1');
+});
+
+test('R-95: test 406 has an entry in SLOW_TESTS for linux, whose budget holds the time it took in a Linux commit job', () => {
+  holds('R-95', 'tests/acceptance/program-providers.test.ts > test 406: codex', 'linux', 9_000, 'a Linux commit job');
+});
+
+test('R-115: a test with no entry in SLOW_TESTS has 90 seconds on Windows and 20 elsewhere, and an entry never gives less than that', () => {
+  const testBudget = (numbers as Record<string, unknown>).testBudget as ((key: string, system: numbers.System) => number) | undefined;
+  assert.equal(typeof testBudget, 'function', 'tests/numbers.ts exports testBudget');
+  assert.equal(testBudget!('no such test', 'win32'), 90_000);
+  assert.equal(testBudget!('no such test', 'linux'), 20_000);
+  assert.equal(testBudget!('no such test', 'darwin'), 20_000);
+  const small = Object.keys(numbers.SLOW_TESTS).find((key) => (numbers.slowBudget(key, 'win32') ?? Infinity) < 90_000);
+  assert.ok(small !== undefined, 'SLOW_TESTS holds an entry whose win32 budget is under 90 seconds');
+  assert.equal(testBudget!(small!, 'win32'), 90_000, small);
+  const large = Object.keys(numbers.SLOW_TESTS).find((key) => (numbers.slowBudget(key, 'win32') ?? 0) > 90_000)!;
+  assert.equal(testBudget!(large, 'win32'), numbers.slowBudget(large, 'win32'), large);
+});

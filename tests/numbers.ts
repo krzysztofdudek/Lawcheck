@@ -15,6 +15,8 @@ export const CASES_LOOP = 25;
 
 // The default stays 20 s, the budget of harness-6 for a test with no entry in SLOW_TESTS: most tests take under a second on every system, and a test that needs more says so in SLOW_TESTS with its measured times.
 export const TEST_BUDGET_MS = 20_000;
+// On Windows a test with no entry has 90 s: a fresh runner can stall for up to a minute in the first minutes of a job, and every test running then takes that minute longer (R-115, ruling windows-limit-90s of the loop).
+export const WINDOWS_TEST_BUDGET_MS = 90_000;
 export const RUN_BUDGET_MS = 20_000;
 export const LOOP_TARGET_MS = 30_000;
 export const COMMIT_TARGET_MS = 600_000;
@@ -583,6 +585,11 @@ export const STABILITY_PROVIDER_RUNS = 2;
 // On Windows each call of the fake claude starts cmd.exe and node, so ten runs of 300 calls took 117 s there; two runs, the fewest that give a pair of runs to compare, prove the same promise of test 76.
 export const STABILITY_RUNS: Record<System, number> = { linux: 10, darwin: 10, win32: 2 };
 
+// The budget of harness-6: the test's entry in SLOW_TESTS for the system, and never less than the system's default.
+export function testBudget(key: string, system: System = process.platform as System): number {
+  return Math.max(system === 'win32' ? WINDOWS_TEST_BUDGET_MS : TEST_BUDGET_MS, slowBudget(key, system) ?? 0);
+}
+
 export function slowBudget(key: string, system: System = process.platform as System): number | null {
   const slow = SLOW_TESTS[key];
   const measured = slow?.measured[system];
@@ -645,6 +652,7 @@ export const stronger: Record<string, 'higher' | 'lower' | 'fixed'> = {
   CASES_TOOL: 'higher',
   CASES_LOOP: 'higher',
   TEST_BUDGET_MS: 'lower',
+  WINDOWS_TEST_BUDGET_MS: 'lower',
   RUN_BUDGET_MS: 'lower',
   LOOP_TARGET_MS: 'lower',
   COMMIT_TARGET_MS: 'lower',

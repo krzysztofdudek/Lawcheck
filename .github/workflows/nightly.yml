@@ -111,7 +111,7 @@ jobs:
           sudo unshare --net -- sh -c 'ip link set lo up && u=$1 g=$2 && shift 2 && exec setpriv --reuid="$u" --regid="$g" --clear-groups env -i "$@"' \
             sh "$(id -u)" "$(id -g)" PATH="$PATH" HOME="$HOME" USER="$(id -un)" LOGNAME="$(id -un)" node tests/run.ts nightly --group security
 
-  # The large limits under 1 GB of memory and no swap, two processors, a full disk of 8 MB at /full and no network. The install and the build run before, on the runner, because the container has no network.
+  # The large limits under 1 GB of memory and no swap, test 248 under 2 GB, two processors, a full disk of 8 MB at /full and no network. The install and the build run before, on the runner, because the container has no network.
   limits:
     name: nightly limits
     runs-on: ubuntu-latest
@@ -137,13 +137,22 @@ jobs:
             echo "::error::the container's /tmp has $free kB free; the limits need about 6 GB"
             exit 1
           fi
-      - name: The limits in a container of 1 GB
+      - name: The limits in a container of 1 GB, all but test 248
         timeout-minutes: 45
         run: |
           docker run --rm --network none -m 1g --memory-swap 1g --cpus 2 \
             --tmpfs /full:size=8m,mode=1777 -e LAWCHECK_FULL_DISK=/full \
             --user "$(id -u):$(id -g)" -e HOME=/tmp \
-            -v "$PWD:/w" -w /w node:24 node tests/run.ts nightly --group limits
+            -v "$PWD:/w" -w /w node:24 node tests/run.ts nightly --group limits --skip 'test 248'
+      # Test 248 writes 150,000 files, and the runner's kernel charges their inodes and dentries on overlayfs, about 340 MiB, to the container, so 1 GB ended it for lack of memory on some nights.
+      - name: Test 248 in a container of 2 GB
+        if: ${{ !cancelled() }}
+        timeout-minutes: 15
+        run: |
+          docker run --rm --network none -m 2g --memory-swap 2g --cpus 2 \
+            --tmpfs /full:size=8m,mode=1777 -e LAWCHECK_FULL_DISK=/full \
+            --user "$(id -u):$(id -g)" -e HOME=/tmp \
+            -v "$PWD:/w" -w /w node:24 node tests/run.ts nightly --group limits 'test 248'
 
   # The install, git and ownership matrices start official images with Docker, and fetch packages, so this job has the network.
   environments:

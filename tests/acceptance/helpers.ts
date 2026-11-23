@@ -22,6 +22,12 @@ export const GIT_ENV: NodeJS.ProcessEnv = {
   GIT_COMMITTER_EMAIL: 'test@example.com',
   GIT_CONFIG_NOSYSTEM: '1',
   GIT_CONFIG_GLOBAL: '/dev/null',
+  // A commit, a merge or a rebase starts git's automatic maintenance in the background, and its repack writes .git/info/refs and packed-refs while the next run is compared (harness-7); a clone of a checkout with two packs or many loose objects starts it on every commit.
+  GIT_CONFIG_COUNT: '2',
+  GIT_CONFIG_KEY_0: 'maintenance.auto',
+  GIT_CONFIG_VALUE_0: 'false',
+  GIT_CONFIG_KEY_1: 'gc.auto',
+  GIT_CONFIG_VALUE_1: '0',
 };
 delete GIT_ENV.LAWCHECK_BASE;
 // CI services set CI or a variable of their own, and a plain check with no base refuses to run there (decision 87 of design/decisions.md); a test that wants CI sets one.

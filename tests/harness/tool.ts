@@ -6,7 +6,7 @@ import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import assertModule from 'node:assert';
 import { afterEach, beforeEach } from 'node:test';
-import { budgetNamed, slowBudget, TEST_BUDGET_MS } from '../numbers.ts';
+import { budgetNamed, testBudget } from '../numbers.ts';
 import { Broken } from './invariants.ts';
 import { skipReason } from './skips.ts';
 import { CLI, gate, HOOK, HOOK_WITH_DEADLINES, observe, ROOT_DIR, TOOL_WITH_LIMITS } from './start.ts';
@@ -129,7 +129,7 @@ if (!registry[REGISTERED]) {
   countAssertions();
   if (process.env.LAWCHECK_SHUFFLE) register(new URL('./shuffle-hooks.mjs', import.meta.url), { data: { target: new URL('./shuffled-test.mjs', import.meta.url).href } });
   observe({
-    budget: () => current?.budget ?? TEST_BUDGET_MS,
+    budget: () => current?.budget ?? testBudget(''),
     folders: () => current?.folders ?? [],
     fakes: (folder) => current?.fakes.get(folder) ?? [],
     started: () => {
@@ -147,7 +147,7 @@ if (!registry[REGISTERED]) {
       file,
       name: t.name,
       started: Date.now(),
-      budget: slowBudget(`${file} > ${t.name}`) ?? TEST_BUDGET_MS,
+      budget: testBudget(`${file} > ${t.name}`),
       runs: 0,
       compared: 0,
       asserted: { n: 0 },
