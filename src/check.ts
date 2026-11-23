@@ -148,7 +148,7 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
     for (const waiver of parsed.waivers) chars += points(waiver.reason);
     if (budget.addAt(parsed.problems.length + parsed.waivers.length, chars)) return { errors: [tooManyAt(file.path, budget)] };
   }
-  const review = `lawcheck check --review${options.base === null ? '' : ` --base ${hide(options.base)}`}`;
+  const review = `lawcheck check${options.strict === true ? ' --strict' : ''} --review${options.base === null ? '' : ` --base ${hide(options.base)}`}`;
   const cap = options.maxCalls ?? config.maxCalls;
 
   const roomOf = () => verdictRoom(root, law, typed, kinds);

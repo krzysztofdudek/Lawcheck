@@ -164,7 +164,7 @@ More: lawcheck docs
 ## check
 
 ```text
-usage: lawcheck check [--full | --strict] [--base <ref>] [--review [--again] [--max-calls <n>]] [--json]
+usage: lawcheck check [--full] [--strict] [--base <ref>] [--review [--again] [--max-calls <n>]] [--json]
        lawcheck check <path or pattern>... [--json]
 ```
 

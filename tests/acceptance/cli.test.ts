@@ -193,7 +193,7 @@ test('test 44: version and help', async () => {
     const version = await lawcheck(dir, ['--version']);
     assert.equal(version.stdout, '0.1.0-alpha.4\n');
     assert.equal(version.code, 0);
-    for (const [args, first] of [[['--help'], 'usage: lawcheck <command> [<arguments>] [--json]'], [['check', '--help'], 'usage: lawcheck check [--full | --strict] [--base <ref>] [--review [--again] [--max-calls <n>]] [--json]']] as const) {
+    for (const [args, first] of [[['--help'], 'usage: lawcheck <command> [<arguments>] [--json]'], [['check', '--help'], 'usage: lawcheck check [--full] [--strict] [--base <ref>] [--review [--again] [--max-calls <n>]] [--json]']] as const) {
       const run = await lawcheck(dir, [...args]);
       assert.equal(run.stdout.split('\n')[0], first);
       assert.equal(run.code, 0);

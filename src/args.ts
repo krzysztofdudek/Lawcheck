@@ -70,7 +70,7 @@ export const USAGE: Record<CommandName, string> = {
     '',
   ].join('\n'),
   check: [
-    'usage: lawcheck check [--full | --strict] [--base <ref>] [--review [--again] [--max-calls <n>]] [--json]',
+    'usage: lawcheck check [--full] [--strict] [--base <ref>] [--review [--again] [--max-calls <n>]] [--json]',
     '       lawcheck check <path or pattern>... [--json]',
     '',
     'Checks the files of this change, or the files named, against .lawcheck/law.yaml.',
