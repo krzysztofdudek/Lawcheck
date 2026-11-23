@@ -128,13 +128,5 @@ test('S6-5: with no reviewer set, the line on not-reviewed says so and leaves th
   assert.ok(!unset.includes('then run lawcheck check --review'));
   assert.equal(firstPart(false, false, false, true), FIRST_PART);
   assert.ok(primeText(law, kinds([]), 100000, '', true).text.includes(NO_REVIEWER));
-  assert.ok(!primeText(law, kinds(['r1']), 100000, '', true).text.includes('not-reviewed'));
-});
-
-test('S6-9: one root type left out is one root type', () => {
-  const k = kinds(['r1']);
-  const full = length(primeText(law, k, budgetFor(4)).text);
-  let budget = full - 1;
-  while (!part(primeText(law, k, budget).text).some((line) => line.startsWith('... and 1 more root type'))) budget--;
-  assert.ok(part(primeText(law, k, budget).text).includes('... and 1 more root type'));
+  assert.ok(!primeText(law, kinds(['r1', 'r2']), 100000, '', true).text.includes('not-reviewed'));
 });

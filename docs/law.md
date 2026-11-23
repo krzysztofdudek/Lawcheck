@@ -71,7 +71,7 @@ types:
 
 ## lawcheck
 
-`lawcheck` holds the version of the law's format. Lawcheck checks that the value has the form `MAJOR.MINOR.PATCH`, such as `0.1.0`. It does not compare the value with its own version. `lawcheck init` writes its own version there.
+`lawcheck` holds the version of the law's format, in the form `MAJOR.MINOR.PATCH`, such as `0.1.0`. Lawcheck checks only that form, and it does not compare the value with its own version. `lawcheck init` writes the format of the Lawcheck that runs it: `0.1.0` for every 0.1.0 release, alpha versions included.
 
 ## required
 

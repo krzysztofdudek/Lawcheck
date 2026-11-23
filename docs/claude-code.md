@@ -90,7 +90,7 @@ next: fix src/core/total.ts:2
 The plugin sends the agent back at most three times in one turn. It does not send the agent back twice in a row for the same output. When the plugin lets the agent finish while the check still fails, you see this line:
 
 ```output
-lawcheck: the turn ended while lawcheck check still fails on the files that changed in it; lawcheck check shows why.
+Lawcheck: the turn ended while the check of its files still fails. lawcheck check shows why.
 ```
 
 ## 6. Switch off one of the checks

@@ -29,6 +29,16 @@ A change that moves a type under another parent is now named in the note about a
 `lawcheck docs ci` has two new sections and a new step. "Pull requests from a fork" says that the job of a fork needs no secret, that the check must not run on `pull_request_target`, what a contributor without a reviewer does about `not-reviewed`, and that the job trusts the lines a pull request adds to `.lawcheck/verdicts`. "Findings in the pull request" gives a script that turns `check --json` into GitHub annotations and one that writes a GitLab code quality report. It also says that a warning shows only in the log of a job and that a plain check prints no debt. Step 4 of "Reviewer rules in CI" says to run `lawcheck doctor` on your machine: in a job that reads the committed verdicts it fails with exit 2 where `check` passes.
 
 The `git fetch` that the `next:` line of `base-unreachable` names now runs as one command in a POSIX shell, or is not printed, whatever the branch is called. In alpha.4 a base with `;`, `$(`, a backtick or `&` in its name gave a line that the shell read as several commands. The command quotes such a name. A name that git refuses as a branch name or that holds a line break gets `git fetch --unshallow`, or no command on a full clone. Lawcheck runs nothing itself, and the same line is in `next.command` of the JSON.
+
+With a reviewer rule in the law and no reviewer in `.lawcheck/config.yaml`, `lawcheck prime` now tells the agent that a plain check and CI fail on every file the rule judges, and to tell you. The Claude Code plugin also sends you that message itself, once per session. In alpha.4 every hook stayed silent, the agent finished its turn, and the check in CI failed with `not-reviewed`.
+
+Six `next:` lines that told the agent to edit `.lawcheck/config.yaml` now tell it to ask you, since `lawcheck prime` leaves every edit of that file to you. They follow `config-invalid`, a reviewer that gives no answer within `reviewer.timeout`, a model the provider does not find, and in `lawcheck doctor` a model that answers the test call wrong and a `runner` whose program is not on the `PATH`.
+
+In the Claude Code plugin, a law error that the agent was shown once comes back after an edit that Lawcheck could check. In alpha.4, a law broken, fixed and broken again the same way within one prompt reached the agent only the first time.
+
+Every message of the Claude Code plugin now starts with `Lawcheck:`. In alpha.4 some started with `lawcheck:`, as the tool's own output does, and one read `lawcheck: lawcheck check could not judge`. A reason that ends in a full stop no longer gets a second one, the text the agent gets says `... 1 more line not shown` for one line, and `lawcheck prime` says `1 more root type`.
+
+The code that quotes arguments for `cmd.exe` on Windows is a copy of the escaping in cross-spawn, and both copies now carry cross-spawn's MIT licence.
 ### Before you upgrade
 
 `scope.law_changes` in `lawcheck check --json` no longer lists the waivers a change adds. A script that read them there reads the items of `waivers` whose `added` is true.

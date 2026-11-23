@@ -257,3 +257,14 @@ Why: a file can ask the reviewer to quote a pass, and a reviewer that reports th
 The first line of a `check` or `try` that ends with exit 2 after it sent requests to a reviewer ends with the count, as the lines of PASS and FAIL do: `lawcheck: ERROR  1 error, 2 reviewer calls`. The JSON document `lawcheck-error/1` gains the key `calls_made` after `errors`, only when the count is above 0. A run that stops before its first request, and one that stops on `file-unwritable`, name no count.
 
 Why: a run that fails after calls has spent what the user pays for, and the same count stands in the other two forms. The key is added to `lawcheck-error/1` and the schema is not raised to `/2`, because a document of a run with no request stays byte for byte as it was, and a reader that ignores keys it does not know reads the new one as it read the old. `file-unwritable` is left out because the run is cut off while other requests may still be in flight, so a count taken then would be too low. This was taken as a technical choice on 2026-11-23, and the owner may reverse it.
+
+
+## 177. The plugin's messages, and a reviewer rule with no reviewer
+
+Every text the plugin's hooks hand to the agent or the user is built in `plugin/hooks/messages.mjs`, and each one starts with `Lawcheck:`, the name of the tool, where the output of `lawcheck` starts its lines with the command `lawcheck:`. The message of decision 171 moved there from `plugin/hooks/turn.mjs`. A plugin for another agent can import the same file, so the same case gives the same words on every agent.
+
+When the law has a reviewer rule and `.lawcheck/config.yaml` sets no reviewer, `prime` replaces its line about `not-reviewed` with one that says so and asks the agent to tell the user once. The `SessionStart` hook finds that line in the output of `prime` by its start, kept in `PRIME_NO_REVIEWER`, and sends the user a message once per session, marked in the session's state. A config that Lawcheck cannot read gives the old line, since `check` stops on it anyway.
+
+The `PostToolUse` hook forgets the last law error it handed over after a check that Lawcheck could run, with exit 0 or 1, so a law broken, fixed and broken again the same way reaches the agent again.
+
+Why: the hook reads no YAML, and a second reader of `.lawcheck/config.yaml` in the hook could disagree with Lawcheck about what is set, so it takes the answer from `prime`. A change of the wording of that line in `src/prime.ts` must change `PRIME_NO_REVIEWER` with it; test S6-5 runs the real `prime` and fails on a mismatch. The message goes at the start of the session, because a check of named files reports `not-reviewed` as a warning, and the hook at the end of a turn lets such a check pass in silence. Forgetting the error on a pass keeps the purpose of handing it over once: the user editing a broken law does not repeat it to the agent at every edit.
