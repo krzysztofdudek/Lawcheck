@@ -38,7 +38,7 @@ In the Claude Code plugin, a law error that the agent was shown once comes back 
 
 Every message of the Claude Code plugin now starts with `Lawcheck:`. In alpha.4 some started with `lawcheck:`, as the tool's own output does, and one read `lawcheck: lawcheck check could not judge`. A reason that ends in a full stop no longer gets a second one, the text the agent gets says `... 1 more line not shown` for one line, and `lawcheck prime` says `1 more root type`.
 
-The code that quotes arguments for `cmd.exe` on Windows is a copy of the escaping in cross-spawn, and both copies now carry cross-spawn's MIT licence.
+The npm package and the Claude Code plugin now include the MIT licence of cross-spawn, whose escaping of arguments for `cmd.exe` they use on Windows.
 ### Before you upgrade
 
 `scope.law_changes` in `lawcheck check --json` no longer lists the waivers a change adds. A script that read them there reads the items of `waivers` whose `added` is true.

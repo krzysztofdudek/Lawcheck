@@ -76,7 +76,7 @@ test('test 152: the files of the plugin', () => {
     assert.equal(dirname(file), 'hooks', file);
     const source = readFileSync(join(PLUGIN, file), 'utf8');
     const specifiers = [...source.matchAll(/^\s*(?:import|export)\s[^'"]*?from\s+['"]([^'"]+)['"]|^\s*import\s+['"]([^'"]+)['"]|import\(\s*['"]([^'"]+)['"]\s*\)/gm)].map((m) => m[1] ?? m[2] ?? m[3]!);
-    assert.ok(specifiers.length > 0, file);
+    assert.ok(specifiers.length > 0 || !/\b(import|export\s[^\n]*\sfrom)\b/.test(source), file);
     for (const specifier of specifiers) {
       const ok = specifier.startsWith('node:') || (specifier.startsWith('./') && !specifier.slice(2).includes('/') && modules.includes(`hooks/${specifier.slice(2)}`));
       assert.ok(ok, `${file} imports ${specifier}`);
@@ -301,7 +301,7 @@ test('S6-5: with a reviewer rule and no reviewer set, prime says so and the sess
     assert.ok(primed.stdout.includes('\n- not-reviewed: no reviewer is set in .lawcheck/config.yaml, so a plain lawcheck check and CI fail on every file a reviewer rule judges. Tell the user once; setting a reviewer is the user\'s decision.\n'), primed.stdout);
     const told = {
       ...started(primed.stdout.replace(/\n$/, '')),
-      systemMessage: "Lawcheck: this repository has a reviewer rule, and .lawcheck/config.yaml sets no reviewer, so a plain lawcheck check and CI fail on every file a reviewer rule judges. Set reviewer.provider and reviewer.model there; lawcheck docs providers lists the choices.",
+      systemMessage: "Lawcheck: this repository has a reviewer rule, and .lawcheck/config.yaml sets no reviewer, so a plain lawcheck check and CI fail on every file a reviewer rule judges. Choosing the reviewer is your decision: set reviewer.provider and reviewer.model there, from the choices lawcheck docs providers lists.",
     };
     const session = new Session(bench, r);
     json(await session.start(), told, 'the first start');
