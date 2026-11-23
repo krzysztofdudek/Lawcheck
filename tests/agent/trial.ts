@@ -5,8 +5,8 @@ import { delimiter, dirname, join } from 'node:path';
 import { startTool } from '../harness/start.ts';
 import { CODEX } from './codex.ts';
 import type { Host } from './codex.ts';
-import { CLI, GIT_IDENTITY, gitIn, newest, onPath, points, readLog, replacePaths, ROOT, runsLawcheck, settleFolder, stop } from './run.ts';
-import type { LogLine } from './run.ts';
+import { breachOf, checksIn, CLI, GIT_IDENTITY, gitIn, isFixed, makeRepository, newest, onPath, points, readLog, replacePaths, ROOT, runsLawcheck, settleFolder, stop } from './run.ts';
+import type { Checks, LogLine } from './run.ts';
 
 export const FILM = join(ROOT, 'film', 'fixture');
 const SHIM = join(ROOT, 'tests', 'harness', 'agent-shim.mjs');
@@ -40,6 +40,11 @@ export const ARMS: Record<string, Arm> = {
 };
 export const START_CLEAN = 9;
 export const FIXED = 4;
+// The design's fallback: when fewer agents than this import the API code with no law, the film's shop gives the hooks alone too few breaches, so their arms run on the repository and task of the trial of Claude Code.
+export const FEWEST_IMPORTS = 3;
+export const FILM_REPOSITORY = 'film/fixture';
+export const CLAUDE_REPOSITORY = 'tests/agent/fixture';
+const TASK = join(ROOT, 'tests', 'agent', 'task.md');
 
 export interface HostChecks {
   tests: boolean;
@@ -55,7 +60,7 @@ export interface HostEntry {
   primed: boolean;
   imports: string[];
   stops: number;
-  checks: HostChecks | null;
+  checks: HostChecks | Checks | null;
   clean: boolean | null;
   log: LogLine[];
   files: Record<string, string | null>;
@@ -64,6 +69,7 @@ export interface HostEntry {
 }
 
 export interface ArmRecord {
+  repository: string;
   runs: number;
   sessions: number;
   counted: number;
@@ -83,6 +89,16 @@ export function apiImports(files: Record<string, string>): string[] {
     }
   }
   return found;
+}
+
+export function repositoryFor(name: string, arms: Record<string, ArmRecord>): string {
+  if (!ARMS[name]!.counted) return FILM_REPOSITORY;
+  const none = arms.none?.list.filter((entry) => entry.error === null) ?? [];
+  return none.length > 0 && none.filter((entry) => entry.imports.length > 0).length < FEWEST_IMPORTS ? CLAUDE_REPOSITORY : FILM_REPOSITORY;
+}
+
+export function breachIn(repository: string, log: LogLine[], arm: string): boolean {
+  return repository === CLAUDE_REPOSITORY ? breachOf(log, arm) : hostBreach(log, arm);
 }
 
 export function hostBreach(log: LogLine[], arm: string): boolean {
@@ -281,9 +297,9 @@ function marketFor(folder: string, host: Host, arm: Arm): string {
   return market;
 }
 
-function runSession(host: Host, work: string, env: NodeJS.ProcessEnv, model: string): Promise<{ stdout: string; timedOut: boolean; code: number | null }> {
+function runSession(host: Host, work: string, env: NodeJS.ProcessEnv, model: string, prompt: string): Promise<{ stdout: string; timedOut: boolean; code: number | null }> {
   return new Promise((resolve) => {
-    const child = spawn(host.program, host.args(PROMPT, model), { cwd: work, env, stdio: ['ignore', 'pipe', 'pipe'], detached: true });
+    const child = spawn(host.program, host.args(prompt, model), { cwd: work, env, stdio: ['ignore', 'pipe', 'pipe'], detached: true });
     const chunks: Buffer[] = [];
     let timedOut = false;
     const timer = setTimeout(() => {
@@ -305,13 +321,14 @@ function runSession(host: Host, work: string, env: NodeJS.ProcessEnv, model: str
   });
 }
 
-async function oneRun(options: Options, name: string, number: number, pathDirs: string[]): Promise<HostEntry> {
+async function oneRun(options: Options, name: string, number: number, pathDirs: string[], repository: string): Promise<HostEntry> {
   const arm = ARMS[name]!;
+  const claude = repository === CLAUDE_REPOSITORY;
   const begin = Date.now();
   const folder = mkdtempSync(join(tmpdir(), 'lawcheck-trial-'));
   let error: string | null = null;
   try {
-    const work = makeFilmRepository(folder, arm.law);
+    const work = claude ? makeRepository(folder) : makeFilmRepository(folder, arm.law);
     const bin = join(folder, 'bin');
     mkdirSync(bin);
     writeFileSync(join(bin, 'lawcheck'), `#!/bin/sh\nexec ${JSON.stringify(process.execPath)} ${JSON.stringify(arm.fails ? LIMIT_SHIM : SHIM)} "$@"\n`, { mode: 0o755 });
@@ -329,13 +346,13 @@ async function oneRun(options: Options, name: string, number: number, pathDirs: 
     };
     for (const key of Object.keys(env)) if (env[key] === undefined) delete env[key];
     options.host.install(home, arm.events === null ? '' : marketFor(folder, options.host, arm), env);
-    const { stdout, timedOut, code } = await runSession(options.host, work, env, options.model);
+    const { stdout, timedOut, code } = await runSession(options.host, work, env, options.model, claude ? readFileSync(TASK, 'utf8').trim() : PROMPT);
     writeFileSync(join(folder, 'transcript.jsonl'), stdout);
     const session = options.host.read(stdout, home);
     const lines = readLog(log);
     const files = filmFilesOf(work);
     error = hostErrorOf(name, session, lines, files, timedOut, code);
-    const checks = error === null ? await filmChecksIn(work, arm.law) : null;
+    const checks = error === null ? (claude ? await checksIn(work) : await filmChecksIn(work, arm.law)) : null;
     const real = (path: string) => {
       try {
         return realpathSync(path);
@@ -346,12 +363,12 @@ async function oneRun(options: Options, name: string, number: number, pathDirs: 
     return {
       run: number,
       error,
-      breach: hostBreach(lines, name),
+      breach: breachIn(repository, lines, name),
       primed: session.primed,
       imports: apiImports(allSource(work, files)),
       stops: stopsOf(lines),
       checks,
-      clean: checks === null ? null : isClean(checks),
+      clean: checks === null ? null : 'intent' in checks ? isFixed(checks) : isClean(checks),
       log: lines,
       files,
       seconds: Math.round((Date.now() - begin) / 1000),
@@ -371,9 +388,9 @@ function describe(name: string, entry: HostEntry): string {
   return `${name} run ${entry.run}: ${what} (${entry.seconds} s)`;
 }
 
-async function runArm(options: Options, name: string, pathDirs: string[], kept: ArmRecord | undefined, save: (record: ArmRecord) => void): Promise<ArmRecord> {
+async function runArm(options: Options, name: string, pathDirs: string[], kept: ArmRecord | undefined, repository: string, save: (record: ArmRecord) => void): Promise<ArmRecord> {
   const arm = ARMS[name]!;
-  const record: ArmRecord = kept === undefined ? { runs: 0, sessions: 0, counted: 0, list: [] } : { ...kept, list: [...kept.list] };
+  const record: ArmRecord = kept === undefined ? { repository, runs: 0, sessions: 0, counted: 0, list: [] } : { ...kept, list: [...kept.list] };
   const done = () => (arm.counted ? record.counted : record.sessions);
   let started = record.runs;
   let running = 0;
@@ -382,7 +399,7 @@ async function runArm(options: Options, name: string, pathDirs: string[], kept: 
       while (refused === null && running < options.jobs && started < arm.most && done() + running < arm.target && armState(name, record) === 'open') {
         const number = ++started;
         running++;
-        void oneRun(options, name, number, pathDirs).then((entry) => {
+        void oneRun(options, name, number, pathDirs, record.repository).then((entry) => {
           running--;
           record.runs++;
           record.list.push(entry);
@@ -413,7 +430,7 @@ export async function hostTrial(argv: string[]): Promise<void> {
   const dirty = gitIn(ROOT, ['status', '--porcelain', '--', 'src', 'plugin']).trim() !== '';
   const commit = gitIn(ROOT, ['rev-parse', 'HEAD']).trim() + (dirty ? '-dirty' : '');
   const previous = existsSync(options.out) ? JSON.parse(readFileSync(options.out, 'utf8')) : null;
-  const arms: Record<string, ArmRecord> = previous?.lawcheck_commit === commit ? { ...previous.arms } : {};
+  const arms: Record<string, ArmRecord> = previous?.lawcheck_commit === commit ? Object.fromEntries(Object.entries(previous.arms as Record<string, ArmRecord>).map(([name, record]) => [name, { repository: FILM_REPOSITORY, ...record }])) : {};
   const agent = options.host.version(process.env);
   const write = () => {
     const verdict = verdictOf(arms);
@@ -421,7 +438,7 @@ export async function hostTrial(argv: string[]): Promise<void> {
     return verdict;
   };
   for (const name of options.arms) {
-    arms[name] = await runArm(options, name, pathDirs, arms[name], (record) => {
+    arms[name] = await runArm(options, name, pathDirs, arms[name], arms[name]?.repository ?? repositoryFor(name, arms), (record) => {
       arms[name] = record;
       write();
     });
@@ -444,7 +461,6 @@ function resultOf(options: Options, agent: string, version: string, commit: stri
     answered_by: options.answeredBy,
     lawcheck: version,
     lawcheck_commit: commit,
-    repository: 'film/fixture',
     prompt: PROMPT,
     passes,
     arms: Object.fromEntries(Object.keys(ARMS).filter((name) => arms[name] !== undefined).map((name) => [name, arms[name]])),

@@ -5,7 +5,7 @@ import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { ARM_EVENTS, breachOf, checksIn, errorOf, isFixed, makeRepository, readTranscript, removeSessionState, ROOT, runsLawcheck, settleFolder } from '../agent/run.ts';
 import type { RunEntry } from '../agent/run.ts';
-import { apiImports, armState, FILM, hostBreach, hostErrorOf, PROMPT, stopsOf, verdictOf } from '../agent/trial.ts';
+import { apiImports, armState, breachIn, CLAUDE_REPOSITORY, FILM, FILM_REPOSITORY, hostBreach, hostErrorOf, PROMPT, repositoryFor, stopsOf, verdictOf } from '../agent/trial.ts';
 import type { HostEntry } from '../agent/trial.ts';
 import { readCodex } from '../agent/codex.ts';
 import { inTemp } from './helpers.ts';
@@ -142,6 +142,14 @@ test('test 925: the trial of another agent counts an import of the API code as t
   assert.equal(hostBreach([hookLine('agent', 1, [FORBIDDEN])], 'stop'), false);
   assert.equal(hostBreach([hookLine('stop', 1, ['src/api/orders.ts:1  error[forbidden-use]  x'])], 'stop'), false);
   assert.equal(stopsOf([hookLine('stop', 1, []), hookLine('agent', 0, []), hookLine('stop', 1, [])]), 2);
+  const coded = { caller: 'edit', args: ['check', './src/core/discount.js'], exit: 1, errors: [LINE] };
+  assert.equal(breachIn(CLAUDE_REPOSITORY, [coded], 'edit'), true);
+  assert.equal(breachIn(FILM_REPOSITORY, [coded], 'edit'), false);
+  assert.equal(breachIn(FILM_REPOSITORY, [hookLine('edit', 1, [FORBIDDEN])], 'edit'), true);
+  const none = (imports: number) => ({ none: { repository: FILM_REPOSITORY, runs: 10, sessions: 10, counted: 0, list: Array.from({ length: 10 }, (_, i) => ({ run: i + 1, error: null, breach: false, primed: false, imports: i < imports ? ['src/core/a.ts:1'] : [], stops: 0, checks: null, clean: true, log: [], files: {}, seconds: 1, reply: '' })) } });
+  assert.equal(repositoryFor('edit', none(2)), CLAUDE_REPOSITORY);
+  assert.equal(repositoryFor('stop', none(3)), FILM_REPOSITORY);
+  assert.equal(repositoryFor('start', none(0)), FILM_REPOSITORY);
   const session = { completed: true, errors: [], shell: ['npm test'] };
   assert.equal(hostErrorOf('stop', session, [hookLine('edit', 1, [])], {}, false, 0), "a log line whose caller is not agent and not one of the arm's events");
   assert.equal(hostErrorOf('none', session, [hookLine('agent', 0, [])], {}, false, 0), null);
@@ -164,7 +172,7 @@ test('test 926: the trial reads a Codex session from what codex exec --json prin
 
 test('test 927: the verdict of a trial of another agent holds each arm to its threshold, scaled to the sessions of ruling proby-wtyczek-oszczednie, and settles an arm as soon as the rest cannot change it', () => {
   const entry = (run: number, fields: Partial<HostEntry> = {}): HostEntry => ({ run, error: null, breach: false, primed: true, imports: [], stops: 0, checks: null, clean: true, log: [], files: {}, seconds: 1, reply: '', ...fields });
-  const arm = (list: HostEntry[]) => ({ runs: list.length, sessions: list.filter((e) => e.error === null).length, counted: list.filter((e) => e.error === null && e.breach).length, list: list.map((e, i) => ({ ...e, run: i + 1 })) });
+  const arm = (list: HostEntry[]) => ({ repository: FILM_REPOSITORY, runs: list.length, sessions: list.filter((e) => e.error === null).length, counted: list.filter((e) => e.error === null && e.breach).length, list: list.map((e, i) => ({ ...e, run: i + 1 })) });
   const many = (n: number, fields: Partial<HostEntry> = {}) => Array.from({ length: n }, (_, i) => entry(i + 1, fields));
   const good = { none: arm(many(10, { imports: ['src/core/a.ts:1'] })), start: arm([...many(9), entry(10, { clean: false })]), edit: arm([...many(4, { breach: true }), ...many(3)]), stop: arm([entry(1, { breach: true, clean: false }), ...many(4, { breach: true })]), limit: arm(many(3, { stops: 4 })) };
   const verdict = verdictOf(good);
@@ -198,15 +206,16 @@ test('test 928: the plugin for Codex ships only with a trial of real Codex sessi
   assert.equal(result.schema, 'lawcheck-agent-trial-host/0');
   assert.equal(result.host, 'codex');
   assert.equal(result.prompt, PROMPT);
-  for (const [name, record] of Object.entries(result.arms) as [string, { runs: number; sessions: number; counted: number; list: HostEntry[] }][]) {
+  for (const [name, record] of Object.entries(result.arms) as [string, { repository: string; runs: number; sessions: number; counted: number; list: HostEntry[] }][]) {
+    assert.equal(record.repository, repositoryFor(name, result.arms), name);
     assert.equal(record.runs, record.list.length, name);
     assert.deepEqual(record.list.map((entry) => entry.run), record.list.map((_, i) => i + 1), name);
     assert.equal(record.sessions, record.list.filter((entry) => entry.error === null).length, name);
     assert.equal(record.counted, record.list.filter((entry) => entry.error === null && entry.breach).length, name);
     for (const entry of record.list) {
-      assert.equal(entry.breach, hostBreach(entry.log, name), `${name} run ${entry.run}`);
+      assert.equal(entry.breach, breachIn(record.repository, entry.log, name), `${name} run ${entry.run}`);
       assert.equal(entry.stops, stopsOf(entry.log), `${name} run ${entry.run}`);
-      assert.deepEqual(entry.imports, apiImports(Object.fromEntries(Object.entries({ ...FILM_CORE, ...entry.files }).filter(([path, text]) => path.startsWith('src/core/') && text !== null)) as Record<string, string>), `${name} run ${entry.run}`);
+      if (record.repository === FILM_REPOSITORY) assert.deepEqual(entry.imports, apiImports(Object.fromEntries(Object.entries({ ...FILM_CORE, ...entry.files }).filter(([path, text]) => path.startsWith('src/core/') && text !== null)) as Record<string, string>), `${name} run ${entry.run}`);
       for (const place of ['/tmp', homedir(), '/home/']) assert.ok(!entry.reply.includes(place), `${name} run ${entry.run}: ${entry.reply}`);
     }
   }
