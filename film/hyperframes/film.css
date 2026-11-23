@@ -1,0 +1,158 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 1920px;
+  height: 1080px;
+  overflow: hidden;
+  background: var(--lc-ground);
+}
+
+.ground {
+  position: absolute;
+  inset: 0;
+  background: var(--lc-ground);
+}
+
+.stage {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 110px;
+  bottom: 150px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 40px;
+}
+
+.block {
+  width: calc(48ch + 104px);
+  font-family: var(--lc-font-mono);
+  font-size: 52px;
+  line-height: 72px;
+  color: var(--lc-text);
+  background: var(--lc-code);
+  border: 2px solid var(--lc-line-lit);
+  border-radius: 28px;
+  padding: 30px 50px;
+}
+
+.label {
+  font-size: 46px;
+  line-height: 66px;
+  color: var(--lc-text-muted);
+  margin-bottom: 12px;
+  white-space: pre;
+}
+
+.tick {
+  color: var(--lc-brand);
+  margin-right: 0.6ch;
+}
+
+.row {
+  white-space: pre;
+  min-height: 72px;
+}
+
+.marked {
+  position: relative;
+}
+
+.outline {
+  position: absolute;
+  inset: -4px -16px;
+  border: 3px solid var(--lc-brand);
+  border-radius: 12px;
+}
+
+.gutter {
+  display: inline-block;
+  width: 3ch;
+  color: var(--lc-text-quiet);
+}
+
+.prompt {
+  color: var(--lc-text-quiet);
+}
+
+.more {
+  color: var(--lc-text-muted);
+}
+
+.code-span {
+  color: var(--lc-syntax-string);
+}
+
+.card {
+  width: 1720px;
+  text-align: center;
+  font-family: var(--lc-font-sans);
+}
+
+.card .bar {
+  width: 120px;
+  height: 4px;
+  margin: 0 auto 48px;
+  background: var(--lc-brand);
+}
+
+.card .main {
+  font-size: 76px;
+  line-height: 92px;
+  font-weight: 600;
+  color: var(--lc-text);
+}
+
+.card .small {
+  margin-top: 36px;
+  font-size: 48px;
+  line-height: 66px;
+  font-weight: 400;
+  color: var(--lc-text-muted);
+}
+
+.lockup {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  font-family: var(--lc-font-sans);
+  font-size: 112px;
+  line-height: 1;
+  font-weight: 700;
+  color: var(--lc-text);
+}
+
+.lockup svg {
+  height: 150px;
+  width: auto;
+  color: var(--lc-brand);
+}
+
+.corner {
+  position: absolute;
+  top: 60px;
+  right: 100px;
+  height: 64px;
+  width: auto;
+  color: var(--lc-brand);
+}
+
+.caption {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 64px;
+  text-align: center;
+  font-family: var(--lc-font-sans);
+  font-size: 56px;
+  line-height: 68px;
+  font-weight: 600;
+  color: var(--lc-text);
+}
