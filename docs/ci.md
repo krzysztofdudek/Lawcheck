@@ -248,7 +248,124 @@ GitHub starts no workflow for a push that a job makes with its `GITHUB_TOKEN`. T
 
 The step with the key runs the copy of Lawcheck that the change's own `package.json` and lockfile install. A pull request can therefore change the program that receives the key. Lawcheck passes none of its environment variables to a script rule. The key is not in the `process.env` of a script rule.
 
-On `pull_request`, GitHub gives the pull request of a fork no secrets. Record the reviews of such a pull request on a machine, as [Record the reviews before you push](#_1-record-the-reviews-before-you-push) shows.
+A pull request of a fork has no secret for that step: see [Pull requests from a fork](#pull-requests-from-a-fork).
+
+### 4. Run doctor on a machine, not in the job
+
+`lawcheck doctor` checks that Lawcheck can call the reviewer: the key of the provider, and for `openai-compatible` the address in `LAWCHECK_REVIEWER_ENDPOINT` ([Reviewers and keys](providers.md)). The job of [Add the workflow](#_2-add-the-workflow) reads the committed verdicts and holds neither. In that job `lawcheck check` passes, and `lawcheck doctor` fails with exit 2:
+
+<!-- example: doctor-in-ci -->
+```output
+fail  reviewer  1 reviewer rule; openai-compatible cannot be called: openai-compatible needs the address of its endpoint in LAWCHECK_REVIEWER_ENDPOINT
+  next: set LAWCHECK_REVIEWER_ENDPOINT to the base address of the server, such as http://localhost:8000/v1, then run lawcheck doctor
+```
+
+Run `doctor` on your machine, after you install Lawcheck and after you change `.lawcheck/config.yaml` ([doctor](commands.md#doctor)). Put it in a job only when that job holds the key and the address, as the job of the step above does.
+
+## Pull requests from a fork
+
+On `pull_request`, GitHub runs the workflow for a pull request of a fork with a read-only token and no secrets. The job of [Add the workflow](#_2-add-the-workflow) needs no secret, because `lawcheck check` reads the committed verdicts. It runs for a fork as it runs for a branch of the repository.
+
+Keep the workflow on `pull_request`. The event `pull_request_target` runs in the base repository with its secrets. A job on that event that checks out the fork runs the script rules of the fork with those secrets ([Where a check may run](#where-a-check-may-run)).
+
+### A contributor with no reviewer
+
+When the change touches a file that a reviewer rule binds, the job fails with `not-reviewed`. A contributor without the key of the provider cannot record the review: `lawcheck check --review` needs it. The contributor can leave the pull request failing and say so. A maintainer then records the reviews:
+
+1. Fetch the branch and read the change.
+2. On a machine where you would run the tests of the pull request, run `lawcheck check --review --base origin/main`. The check runs the script rules of the fork.
+3. Push `.lawcheck/verdicts` and `.lawcheck/.gitattributes` to the contributor's branch. GitHub allows that when the contributor lets maintainers edit the pull request.
+
+A contributor who has the key records the reviews as [Record the reviews before you push](#_1-record-the-reviews-before-you-push) shows.
+
+### The job trusts the verdicts
+
+`.lawcheck/verdicts` is a file of the pull request. A line in it is a pass for the file and rule it names, whoever wrote it and whether a reviewer was asked. The check reads the line and cannot tell where it came from. A contributor can record the reviews with a reviewer of their own, or copy a line, and the job passes. CI therefore trusts the author of the pull request on reviews, as it does on `.lawcheck/` ([A change to the law](#a-change-to-the-law)). Have a code owner read each change to `.lawcheck/verdicts`, or record the reviews yourself as above.
+
+## Findings in the pull request
+
+A job that passes prints its warnings in its log, and nowhere else. A warning leaves the exit code at 0, so GitHub and GitLab show nothing on the pull request. A plain check prints no debt either: the text names no finding of a file outside the change, and `summary.debt` of its JSON is 0. With `--full` or `--strict`, `findings` holds the debt with `debt: true`.
+
+`--json` gives every finding with its file and line ([JSON documents](json.md)). A short script turns that document into what the service shows on the changed lines.
+
+### 1. Annotate on GitHub
+
+Save this script as `.github/lawcheck-annotations.mjs`. It prints one workflow command for each finding: `error` for a finding that blocks, `warning` for the other findings of the change, and `notice` for debt. It also prints the `next:` line, which the JSON text output no longer shows.
+
+<!-- example: annotations-script -->
+```js
+import { readFileSync } from 'node:fs';
+
+const data = (text) => String(text).replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A');
+const property = (text) => data(text).replace(/:/g, '%3A').replace(/,/g, '%2C');
+
+const document = JSON.parse(readFileSync(0, 'utf8'));
+for (const item of document.findings ?? document.errors ?? []) {
+  const level = item.blocking === false ? (item.debt ? 'notice' : 'warning') : 'error';
+  const properties = [`title=${property(item.code)}`];
+  if (item.file) properties.push(`file=${property(item.file)}`);
+  if (item.line) properties.push(`line=${item.line}`);
+  console.log(`::${level} ${properties.join(',')}::${data(item.message)}`);
+}
+if (document.next) console.log(`next: ${document.next.text}`);
+```
+
+In the script of the step `Check the change`, define this function first. Then replace each `npx --no-install lawcheck check` line with a call of it: `check_and_annotate --base "$base"`, and `check_and_annotate --full` for the root commit.
+
+<!-- example: annotations-step -->
+```sh
+check_and_annotate() {
+  report=$(mktemp)
+  status=0
+  npx --no-install lawcheck check "$@" --json > "$report" || status=$?
+  node .github/lawcheck-annotations.mjs < "$report"
+  return "$status"
+}
+```
+
+The function writes the JSON outside the checkout, so the report is not a changed file. A check that ends with exit 2 prints `lawcheck-error/1`, and the script annotates its errors the same way. GitHub limits the annotations it shows for a step and for a job. The log keeps every line.
+
+### 2. Report code quality on GitLab
+
+Save this script as `scripts/lawcheck-code-quality.mjs`. It writes the format of a GitLab code quality report: one entry for each finding, with a fingerprint that GitLab needs to tell findings apart. A finding for the whole file gets line 1.
+
+<!-- example: code-quality-script -->
+```js
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+
+const document = JSON.parse(readFileSync(0, 'utf8'));
+const report = (document.findings ?? []).map((finding) => ({
+  description: `${finding.code}: ${finding.message}`,
+  check_name: finding.code,
+  fingerprint: createHash('sha256').update(JSON.stringify([finding.code, finding.file, finding.line ?? null, finding.message])).digest('hex'),
+  severity: finding.blocking ? 'critical' : finding.debt ? 'info' : 'minor',
+  location: { path: finding.file, lines: { begin: finding.line ?? 1 } },
+}));
+console.log(JSON.stringify(report, null, 2));
+```
+
+The job below extends the job of [Give the base on GitLab CI](#_6-give-the-base-on-gitlab-ci). It keeps the exit code of the check, so the job still fails on an error, and it keeps the report as an artifact even then. A check that ends with exit 2 has no findings, and the report is an empty list.
+
+<!-- example: gitlab-code-quality-job -->
+```yaml
+lawcheck-quality:
+  variables:
+    GIT_DEPTH: "0"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  script:
+    - git fetch origin "+refs/heads/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME:refs/remotes/origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
+    - report=$(mktemp)
+    - status=0
+    - npx --no-install lawcheck check --json > "$report" || status=$?
+    - node scripts/lawcheck-code-quality.mjs < "$report" > gl-code-quality-report.json
+    - exit "$status"
+  artifacts:
+    when: always
+    reports:
+      codequality: gl-code-quality-report.json
+```
 
 ## A change to the law
 
@@ -355,12 +472,14 @@ A check runs the script rules that its checkout holds. A pull request from a str
 
 A check of a pull request runs the script rules that the pull request holds. These rules are code of the pull request. Run that check only on a machine where you would run the tests of the pull request.
 
-On `pull_request`, GitHub gives the pull request of a fork no secrets. A plain `lawcheck check` needs no secret. The event `pull_request_target` would run the script rules of the fork with the secrets of the repository.
+A pull request of a fork runs the same script rules ([Pull requests from a fork](#pull-requests-from-a-fork)).
 
 ## If it goes wrong
 
 - Lawcheck prints `base-unreachable` when the job did not fetch the base branch, or when the clone is shallow. A shallow clone holds only the last commits, without the merge base. The `next:` line gives the `git fetch` command that fetches the history.
+  The command is written for a POSIX shell. It quotes a remote or branch name that holds a character the shell reads, such as `;` or `$`. For a name that git refuses as a branch name, or that holds a line break, the line names no branch: on a shallow clone it gives `git fetch --unshallow`, and otherwise no command.
 - In a container, `no-git` means that another user owns the checkout. Git refuses to work in such a folder. The `next:` line gives the `git config` command that adds the folder to the git setting `safe.directory`. The command quotes the path for `sh`.
-- The log of a job that passed shows a warning. A warning leaves the exit code at 0. A CI job fails only on an exit code other than 0.
+- The log of a job that passed shows a warning. A warning leaves the exit code at 0. A CI job fails only on an exit code other than 0. Only the log shows the warning, unless the job annotates the pull request ([Findings in the pull request](#findings-in-the-pull-request)).
+- `lawcheck doctor` fails in a job that reads the committed verdicts, where `lawcheck check` passes: [Run doctor on a machine, not in the job](#_4-run-doctor-on-a-machine-not-in-the-job).
 
 Next: [A law shared by a team](team.md)

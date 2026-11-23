@@ -1,9 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { chmodSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { parse } from 'yaml';
 import { example } from '../harness/examples.ts';
-import { inTemp, lawcheck, newRepository } from './helpers.ts';
+import { openai, withFake } from './fake-reviewer.ts';
+import { CLI, git, GIT_ENV, inTemp, lawcheck, newRepository, NO_CONSOLE, NO_TODO, write } from './helpers.ts';
 
 interface Step {
   uses?: string;
@@ -95,5 +98,177 @@ test('S7-4: the page names the managers, the floors and the refusal of a plain c
     }
     const full = await lawcheck(repo, ['check', '--full'], { CI: 'true' });
     assert.ok(!full.stdout.includes('base-unreachable'), '--full needs no base');
+  });
+});
+
+const REVIEWED_LAW = 'lawcheck: 0.1.0\n\nrules:\n  clear-errors:\n    why: An error says what to do next.\n\ntypes:\n  library:\n    paths: ["src/core/**"]\n    rules: [clear-errors]\n';
+const REVIEWER_RULE = 'Every error message says what happened and what to do next.\n';
+const REFUSE = "export function refund(): never {\n  throw new Error('failed');\n}\n";
+const OPENAI_CONFIG = 'reviewer:\n  provider: openai-compatible\n  model: test-model\n';
+const ANNOTATED_LAW = `lawcheck: 0.1.0
+
+rules:
+  no-console:
+    why: Only the command layer writes to the terminal.
+  no-todo:
+    why: A TODO without an issue number gets forgotten.
+    status: advisory
+
+types:
+  library:
+    paths: ["src/core/**"]
+    rules: [no-console, no-todo]
+`;
+
+function sections(): string[] {
+  return page.split('\n').filter((line) => line.startsWith('#'));
+}
+
+// A stand-in for the dev dependency, so npx --no-install starts the built tool with no network.
+function standIn(clone: string): void {
+  write(clone, 'node_modules/lawcheck/package.json', JSON.stringify({ name: 'lawcheck', version: '0.0.0', bin: { lawcheck: 'cli.js' } }));
+  write(clone, 'node_modules/.bin/lawcheck', `#!/bin/sh\nexec "${process.execPath}" "${CLI}" "$@"\n`);
+  chmodSync(join(clone, 'node_modules/.bin/lawcheck'), 0o755);
+  if (process.platform === 'win32') write(clone, 'node_modules/.bin/lawcheck.cmd', `@"${process.execPath}" "${CLI}" %*\r\n`);
+}
+
+function clone(dir: string, files: Record<string, string>): string {
+  const origin = newRepository(join(dir, 'origin'), files);
+  const work = join(dir, 'job');
+  git(dir, 'clone', '-q', origin, work);
+  git(work, 'remote', 'set-head', 'origin', '-d');
+  git(work, 'checkout', '-q', '-b', 'work');
+  return work;
+}
+
+test('S7-9: the CI page covers the pull request of a fork: no secret, no pull_request_target, a contributor with no reviewer, and the verdicts that CI trusts; and a job with no key does what the page says', async () => {
+  assert.ok(sections().includes('## Pull requests from a fork'));
+  assert.ok(sections().includes('### A contributor with no reviewer'));
+  assert.ok(sections().includes('### The job trusts the verdicts'));
+  for (const what of ['read-only token and no secrets', 'Keep the workflow on `pull_request`', 'The event `pull_request_target` runs in the base repository with its secrets', 'fails with `not-reviewed`', 'A maintainer then records the reviews', 'lets maintainers edit the pull request', 'whoever wrote it and whether a reviewer was asked', 'CI therefore trusts the author of the pull request on reviews']) assert.ok(page.includes(what), what);
+  await inTemp(async (dir) => {
+    const repo = newRepository(dir, { '.lawcheck/law.yaml': REVIEWED_LAW, '.lawcheck/rules/clear-errors.md': REVIEWER_RULE });
+    git(repo, 'checkout', '-q', '-b', 'work');
+    write(repo, 'src/core/refund.ts', REFUSE);
+    const noKey = { CI: 'true', GITHUB_ACTIONS: 'true', GITHUB_BASE_REF: 'main' };
+    const job = await lawcheck(repo, ['check', '--base', 'main'], noKey);
+    assert.equal(job.code, 1);
+    assert.match(job.stdout, /error\[not-reviewed\]  clear-errors has no verdict for this content/, 'the job of a fork fails with not-reviewed');
+    const contributor = await lawcheck(repo, ['check', '--review', '--base', 'main'], noKey);
+    assert.equal(contributor.code, 2);
+    assert.match(contributor.stdout, /error\[reviewer-not-configured\]/, 'a contributor with no reviewer cannot record it');
+  });
+  await withFake(async (fake) => {
+    await inTemp(async (dir) => {
+      const files = { '.lawcheck/law.yaml': REVIEWED_LAW, '.lawcheck/rules/clear-errors.md': REVIEWER_RULE, '.lawcheck/config.yaml': OPENAI_CONFIG };
+      fake.respond = () => openai('{"verdict": "pass", "findings": []}');
+      const author = clone(join(dir, 'author'), files);
+      write(author, 'src/core/refund.ts', REFUSE);
+      const own = await lawcheck(author, ['check', '--review', '--base', 'origin/main'], { LAWCHECK_REVIEWER_ENDPOINT: fake.url });
+      assert.equal(own.code, 0, 'a reviewer of the contributor, which passes every file');
+      const copy = clone(join(dir, 'copy'), files);
+      write(copy, 'src/core/refund.ts', REFUSE);
+      write(copy, '.lawcheck/verdicts', readFileSync(join(author, '.lawcheck/verdicts'), 'utf8'));
+      const job = await lawcheck(copy, ['check', '--base', 'origin/main'], { CI: 'true' });
+      assert.deepEqual([job.code, job.stdout.split('\n')[0]], [0, 'lawcheck: PASS  2 changed files (against origin/main)'], 'a line of the verdicts file passes, from whichever reviewer or hand it came');
+    });
+  });
+});
+
+test('S7-13: the recipes of docs/ci.md turn --json into GitHub annotations and a GitLab code quality report, run as written', async () => {
+  assert.ok(sections().includes('## Findings in the pull request'));
+  assert.ok(sections().includes('### 1. Annotate on GitHub'));
+  assert.ok(sections().includes('### 2. Report code quality on GitLab'));
+  for (const what of ['A job that passes prints its warnings in its log, and nowhere else', 'A plain check prints no debt either', '`summary.debt` of its JSON is 0', 'With `--full` or `--strict`, `findings` holds the debt with `debt: true`']) assert.ok(page.includes(what), what);
+  const todo = (name: string) => `export const ${name} = 1; // TODO tidy\n`;
+  await inTemp(async (dir) => {
+    const work = clone(dir, { '.gitignore': 'node_modules/\n', '.lawcheck/law.yaml': ANNOTATED_LAW, '.lawcheck/rules/no-console.mjs': NO_CONSOLE, '.lawcheck/rules/no-todo.mjs': NO_TODO, 'src/core/old.ts': "export const old = () => console.log('old');\n" });
+    write(work, 'src/core/total.ts', 'export function total(price: number): number {\n  console.log(price);\n  // TODO tidy\n  return price;\n}\n');
+    standIn(work);
+    write(work, '.github/lawcheck-annotations.mjs', example('annotations-script') + '\n');
+    write(work, 'scripts/lawcheck-code-quality.mjs', example('code-quality-script') + '\n');
+    const env = { ...GIT_ENV, npm_config_update_notifier: 'false' };
+    let scripts = 0;
+    const shell = (script: string, extra: NodeJS.ProcessEnv = {}) => {
+      const name = `script-${scripts++}.sh`;
+      write(dir, name, `set -e\n${script}\n`);
+      return spawnSync('sh', [join(dir, name)], { cwd: work, env: { ...env, ...extra }, encoding: 'utf8' });
+    };
+    const annotate = (...args: string[]) => shell(`${example('annotations-step')}\ncheck_and_annotate ${args.join(' ')}`);
+
+    const plain = annotate('--base', 'origin/main');
+    assert.equal(plain.status, 1, plain.stdout + plain.stderr);
+    assert.equal(
+      plain.stdout,
+      ['::error title=no-console,file=src/core/total.ts,line=2::writes to the terminal with console.log', '::warning title=no-todo,file=src/core/total.ts,line=3::TODO without an issue number', 'next: fix src/core/total.ts:2', ''].join('\n'),
+      'a finding that blocks is an error, an advisory one a warning, and the debt is not in a plain check',
+    );
+    const plainJson = JSON.parse((await lawcheck(work, ['check', '--json', '--base', 'origin/main'])).stdout);
+    assert.equal(plainJson.summary.debt, 0, 'a plain check holds no debt');
+    assert.equal(plainJson.findings.some((finding: { debt: boolean }) => finding.debt), false);
+    const full = annotate('--base', 'origin/main', '--full');
+    assert.ok(full.stdout.includes('::notice title=no-console,file=src/core/old.ts,line=1::writes to the terminal with console.log\n'), 'debt is a notice with --full');
+    const strict = annotate('--base', 'origin/main', '--strict');
+    assert.ok(strict.stdout.includes('::error title=no-console,file=src/core/old.ts,line=1::'), 'an enforced finding of debt is an error with --strict');
+    const refused = annotate('--base', 'origin/nope');
+    assert.equal(refused.status, 2, 'the function keeps the exit code of the check');
+    assert.match(refused.stdout, /^::error title=base-unreachable::the base 'origin\/nope' names no commit here\nnext: /, 'an error of exit 2 is annotated too');
+
+    const escaped = spawnSync(process.execPath, ['.github/lawcheck-annotations.mjs'], {
+      cwd: work,
+      encoding: 'utf8',
+      input: JSON.stringify({ findings: [{ code: 'x', blocking: true, debt: false, file: 'a,b:c%d\ne.ts', line: 3, message: '50% of line1\nline2' }, { code: 'y', blocking: true, debt: false, file: 'whole.ts', message: 'whole file' }] }),
+    });
+    assert.equal(escaped.stdout, '::error title=x,file=a%2Cb%3Ac%25d%0Ae.ts,line=3::50%25 of line1%0Aline2\n::error title=y,file=whole.ts::whole file\n', 'the characters of a workflow command are escaped, and a finding of a whole file has no line');
+
+    const job = (parse(example('gitlab-code-quality-job')) as { 'lawcheck-quality': { script: string[]; artifacts: { when: string; reports: { codequality: string } } } })['lawcheck-quality'];
+    assert.equal(job.artifacts.when, 'always');
+    const run = shell(job.script.join('\n'), { GITLAB_CI: 'true', CI_MERGE_REQUEST_TARGET_BRANCH_NAME: 'main' });
+    assert.equal(run.status, 1, run.stdout + run.stderr);
+    const report = JSON.parse(readFileSync(join(work, job.artifacts.reports.codequality), 'utf8')) as { description: string; check_name: string; fingerprint: string; severity: string; location: { path: string; lines: { begin: number } } }[];
+    assert.deepEqual(
+      report.map(({ fingerprint, ...rest }) => (assert.match(fingerprint, /^[0-9a-f]{64}$/), rest)),
+      [
+        { description: 'no-console: writes to the terminal with console.log', check_name: 'no-console', severity: 'critical', location: { path: 'src/core/total.ts', lines: { begin: 2 } } },
+        { description: 'no-todo: TODO without an issue number', check_name: 'no-todo', severity: 'minor', location: { path: 'src/core/total.ts', lines: { begin: 3 } } },
+      ],
+    );
+    assert.equal(new Set(report.map((item) => item.fingerprint)).size, report.length, 'every fingerprint is its own');
+  });
+  await inTemp(async (dir) => {
+    const repo = newRepository(dir, { '.lawcheck/law.yaml': ANNOTATED_LAW.replace('rules: [no-console, no-todo]', 'rules: [no-todo]'), '.lawcheck/rules/no-console.mjs': NO_CONSOLE, '.lawcheck/rules/no-todo.mjs': NO_TODO, 'src/core/old.ts': todo('old') });
+    git(repo, 'checkout', '-q', '-b', 'work');
+    write(repo, 'src/core/new.ts', todo('added'));
+    const plain = await lawcheck(repo, ['check', '--base', 'main']);
+    assert.equal(plain.code, 0, 'a warning leaves the exit code at 0');
+    assert.match(plain.stdout, /^lawcheck: PASS  1 warning in 1 changed file/);
+    assert.ok(plain.stdout.includes('src/core/new.ts:1  warning[no-todo]'), 'the log shows the warning of the change');
+    assert.ok(!plain.stdout.includes('old.ts'), 'a plain check prints no debt');
+    const full = JSON.parse((await lawcheck(repo, ['check', '--base', 'main', '--full', '--json'])).stdout);
+    assert.deepEqual(full.findings.filter((finding: { debt: boolean }) => finding.debt).map((finding: { file: string }) => finding.file), ['src/core/old.ts']);
+  });
+});
+
+test('S7-16: the CI page says doctor is for a machine, and in a job that reads the committed verdicts doctor fails where check passes', async () => {
+  assert.ok(sections().includes('### 4. Run doctor on a machine, not in the job'));
+  for (const what of ['`lawcheck doctor` fails with exit 2', 'Run `doctor` on your machine', 'Put it in a job only when that job holds the key and the address']) assert.ok(page.includes(what), what);
+  await withFake(async (fake) => {
+    await inTemp(async (dir) => {
+      const work = clone(dir, { '.lawcheck/law.yaml': REVIEWED_LAW, '.lawcheck/rules/clear-errors.md': REVIEWER_RULE, '.lawcheck/config.yaml': OPENAI_CONFIG });
+      write(work, 'src/core/refund.ts', "export function refund(): never {\n  throw new Error('The order is paid out already; open a new order to refund it again.');\n}\n");
+      const recorded = await lawcheck(work, ['check', '--review', '--base', 'origin/main'], { LAWCHECK_REVIEWER_ENDPOINT: fake.url });
+      assert.equal(recorded.code, 0, recorded.stdout);
+      git(work, 'add', '-A');
+      git(work, 'commit', '-q', '-m', 'refund');
+      const job = { CI: 'true' };
+      const check = await lawcheck(work, ['check', '--base', 'origin/main'], job);
+      assert.deepEqual([check.code, check.stdout.split('\n')[0]], [0, 'lawcheck: PASS  3 changed files (against origin/main)'], 'the job passes on the committed verdicts');
+      const doctor = await lawcheck(work, ['doctor', '--base', 'origin/main'], job);
+      assert.equal(doctor.code, 2, 'doctor fails in the same job');
+      const shown = example('doctor-in-ci').split('\n');
+      const lines = doctor.stdout.split('\n');
+      const at = lines.indexOf(shown[0]!);
+      assert.ok(at >= 0 && lines[at + 1] === shown[1], doctor.stdout);
+    });
   });
 });
