@@ -29,7 +29,7 @@ export function check({ files }) {
 | `uses()` | a promise of the file's [uses](#the-uses), the ones that `may_use` judges |
 | `repo.filesOf(typeId)` | the sorted paths of every file of that type and its subtypes, at once; an unknown id throws |
 
-Lawcheck reads the tree and the uses only when the rule calls `tree()` or `uses()`. A rule that calls neither makes Lawcheck parse nothing for it. A second call in the same call of `check` gives the same promise. A file kept from an earlier call throws `tree() was called after its call of check ended`.
+Lawcheck reads the tree and the uses only when the rule calls `tree()` or `uses()`. A rule that calls neither makes Lawcheck parse nothing for it. A second call in the same call of `check` gives the same promise. On a file kept from an earlier call, `tree()` rejects with `tree() was called after its call of check ended`, and `uses()` with the same message about `uses()`.
 
 In `path`, Lawcheck writes a backslash, a line feed, a carriage return and a byte that is not UTF-8 as `\\`, `\n`, `\r` and `\xHH`. Such a `path` no longer names the file on disk, so read the file's text from `text`. A final line end adds no empty line to `lines`. For an empty file, `lines` is an empty list.
 
@@ -116,6 +116,8 @@ Lawcheck sets the keys of the result and of a node. A version of Lawcheck that c
 |---|---|
 | `uses` | the uses the reader found, in the order of the file, or null when they are absent |
 | `absent` | null, or why the uses are absent: `no-reader`, `too-large` or `reader-failed`, as for the tree |
+
+A Vue or Svelte file with no script block has no uses, so its list is empty, while its tree is absent with `no-reader`.
 
 Each use has `line` and `kind`. These are the same uses that `may_use` judges ([Languages and uses](languages.md)):
 
