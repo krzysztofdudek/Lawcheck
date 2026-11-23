@@ -5,7 +5,7 @@ import { PURE_CALL_BUDGET_MS } from '../numbers.ts';
 import { pure, within } from './support.ts';
 import type { Speed } from './support.ts';
 
-// The last reading of an answer that docs/reviewer-rules.md names, written the slow way: every start, scanned to its matching brace, parsed whole.
+// The reading of an answer that docs/reviewer-rules.md names, written the slow way: every start, scanned to its matching brace, parsed whole.
 function reference(answer: string): Record<string, unknown> | null {
   const parsed = (text: string) => {
     try {
@@ -17,18 +17,15 @@ function reference(answer: string): Record<string, unknown> | null {
   };
   const whole = parsed(answer.trim());
   if (whole !== null) return whole;
+  let fencedObject: Record<string, unknown> | null = null;
   const open = answer.indexOf('```');
   if (open >= 0) {
     let start = open + 3;
     if (answer.startsWith('json', start)) start += 4;
     const close = answer.indexOf('```', start);
-    if (close >= 0) {
-      const fenced = parsed(answer.slice(start, close).trim());
-      if (fenced !== null) return fenced;
-    }
+    if (close >= 0) fencedObject = parsed(answer.slice(start, close).trim());
   }
-  let best: Record<string, unknown> | null = null;
-  let bestEnd = -1;
+  const found: Record<string, unknown>[] = [];
   for (let start = answer.indexOf('{'); start >= 0; start = answer.indexOf('{', start + 1)) {
     let depth = 0;
     let inString = false;
@@ -45,14 +42,15 @@ function reference(answer: string): Record<string, unknown> | null {
         break;
       }
     }
-    if (end <= bestEnd) continue;
-    const object = parsed(answer.slice(start, end + 1));
+    const object = end < 0 ? null : parsed(answer.slice(start, end + 1));
     if (object !== null) {
-      best = object;
-      bestEnd = end;
+      found.push(object);
+      start = end;
     }
   }
-  return best;
+  const chosen = fencedObject ?? found[found.length - 1] ?? null;
+  if (chosen !== null && chosen.verdict === 'fail') return chosen;
+  return found.findLast((object) => object.verdict === 'fail') ?? chosen;
 }
 
 const PASS = '{"verdict": "pass", "findings": []}';
@@ -113,18 +111,18 @@ export function answerProperties(speed: Speed): Record<string, () => unknown> {
     );
   });
 
-  // Which of two verdict objects that disagree wins is not decided yet (promise I-answer-1 of design/promises.md): a fail followed by a pass reads today as the last one, and the owner may make it a fail or a bad answer, so that order is asserted in no way. A pass followed by a fail reads as the fail under every option: today the last one wins, option A makes a disagreement a fail, and option B a bad answer.
+  // Two verdict objects that disagree read as the fail, in either order (docs/reviewer-rules.md).
   test('I-answer-1: S3-4, two verdict objects that agree give their verdict, and a pass followed by a fail is never read as a pass', () => {
     const prose = fc.constantFrom('', 'Verdict: ', ' I would have answered ', '\n\nIf the file kept the rule: ');
-    const orders = fc.constantFrom<[string, string]>([PASS, PASS], [FAIL, FAIL], [PASS, FAIL]);
+    const orders = fc.constantFrom<[string, string]>([PASS, PASS], [FAIL, FAIL], [PASS, FAIL], [FAIL, PASS]);
     pure(
       speed,
       fc.tuple(orders, prose, prose),
-      { classes: { agree: ([[a, b]]) => a === b, 'a pass then a fail': ([[a, b]]) => a === PASS && b === FAIL } },
+      { classes: { agree: ([[a, b]]) => a === b, 'a pass then a fail': ([[a, b]]) => a === PASS && b === FAIL, 'a fail then a pass': ([[a, b]]) => a === FAIL && b === PASS } },
       ([[first, second], before, between]) => {
         const checked = checkAnswer(`${before}${first}${between}${second}`, 3);
         if (first === second) assert.deepEqual(checked, first === PASS ? { verdict: 'pass', findings: [] } : { verdict: 'fail', findings: [{ line: 1, message: 'm' }] });
-        else assert.ok('problem' in checked || (checked.verdict === 'fail' && checked.findings.length === 1), JSON.stringify(checked));
+        else assert.deepEqual(checked, { verdict: 'fail', findings: [{ line: 1, message: 'm' }] });
       },
     );
   });
