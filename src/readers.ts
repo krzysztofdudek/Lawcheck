@@ -21,7 +21,8 @@ import { firstLine } from './law.js';
 import type { ErrorItem } from './output.js';
 import { decode, isBinary } from './types.js';
 import { step } from './progress.js';
-import { USES_FILE_BYTES } from './limits.js';
+import { readError, USES_FILE_BYTES } from './limits.js';
+import type { TypedFile } from './types.js';
 
 export type Reason = 'unfollowed' | 'unowned';
 
@@ -378,4 +379,178 @@ export async function loadGrammars(grammarDir: string = GRAMMARS, runes: Runes =
     }
   }
   return null;
+}
+
+export type Absent = 'too-large' | 'no-reader' | 'reader-failed';
+
+// A tree crosses to the rule runner as numbers, NODE_INTS to a node in preorder (parent, type, field, named, start, end, line, column), so neither side recurses on a deep tree; src/runner.ts reads the same layout.
+export const NODE_INTS = 8;
+
+export interface FlatTree {
+  types: string[];
+  fields: string[];
+  nodes: Int32Array;
+}
+
+export type TreeAnswer = { language: string; tree: FlatTree; absent: null } | { language: string | null; tree: null; absent: Absent };
+
+export type RuleUse = { line: number; type?: string | null } & Answer;
+
+export type UsesAnswer = { uses: RuleUse[]; absent: null } | { uses: null; absent: Absent };
+
+type Tree = ParsedFile['tree'];
+
+function flatten(tree: Tree): FlatTree {
+  const types = new Map<string, number>();
+  const fields = new Map<string, number>();
+  const id = (names: Map<string, number>, name: string) => {
+    let at = names.get(name);
+    if (at === undefined) names.set(name, (at = names.size));
+    return at;
+  };
+  let nodes = new Int32Array(NODE_INTS * 1024);
+  let count = 0;
+  const parents: number[] = [];
+  const cursor = tree.walk();
+  try {
+    for (;;) {
+      if ((count + 1) * NODE_INTS > nodes.length) {
+        const grown = new Int32Array(nodes.length * 2);
+        grown.set(nodes);
+        nodes = grown;
+      }
+      const field = cursor.currentFieldName;
+      const start = cursor.startPosition;
+      nodes.set(
+        [parents.at(-1) ?? -1, id(types, cursor.nodeType), field === null ? -1 : id(fields, field), cursor.nodeIsNamed ? 1 : 0, cursor.startIndex, cursor.endIndex, start.row + 1, start.column],
+        count * NODE_INTS,
+      );
+      const self = count++;
+      if (cursor.gotoFirstChild()) {
+        parents.push(self);
+        continue;
+      }
+      while (!cursor.gotoNextSibling()) {
+        if (!cursor.gotoParent()) return { types: [...types.keys()], fields: [...fields.keys()], nodes: nodes.slice(0, count * NODE_INTS) };
+        parents.pop();
+      }
+    }
+  } finally {
+    cursor.delete();
+  }
+}
+
+export interface Owners {
+  bytes: (path: string) => Uint8Array;
+  ownerOf: (path: string) => string | undefined;
+  typeOf: (path: string) => string | null;
+}
+
+export function ownersOf(files: string[], read: (path: string) => Uint8Array, typed: TypedFile[]): Owners {
+  const known = new Set(files);
+  const typedByPath = new Map(typed.map((file) => [file.path, file.type.id]));
+  const bytes = (path: string) => {
+    try {
+      return read(path);
+    } catch (error) {
+      throw new Unreadable(path, readError(path, error));
+    }
+  };
+  const ownerOf = (path: string) => {
+    const type = typedByPath.get(path);
+    if (type !== undefined) return type;
+    if (!known.has(path)) return undefined;
+    return isBinary(bytes(path)) ? '#binary' : '#untyped';
+  };
+  return { bytes, ownerOf, typeOf: (path) => typedByPath.get(path) ?? null };
+}
+
+export interface RuleReadsInput extends Owners {
+  root: string;
+  files: string[];
+  grammarDir?: string;
+}
+
+export interface RuleFileText {
+  path: string;
+  text: string;
+}
+
+export type Serve = (what: 'tree' | 'uses', file: RuleFileText) => Promise<TreeAnswer | UsesAnswer>;
+
+// The first ask of a rule reads the uses of every file it judges in the run at once, so a name-binding group is parsed once per rule and not once per file.
+export function ruleReads(input: RuleReadsInput, runes: Runes = RUNES): (bound: RuleFileText[]) => Serve {
+  const siblings = siblingsOf(input.files);
+  let host: Host | null = null;
+
+  const tree = async (file: RuleFileText): Promise<TreeAnswer> => {
+    const reader = readerOf(file.path, file.text, siblings, runes);
+    if (!reader.reader || reader.view === null) return { language: null, tree: null, absent: 'no-reader' };
+    const { language, parsePath, content } = reader.view;
+    if (Buffer.byteLength(content, 'utf8') > USES_FILE_BYTES) return { language, tree: null, absent: 'too-large' };
+    host ??= runes.createHost(input.grammarDir ?? GRAMMARS);
+    step(`reading the tree of ${file.path}`, file.path);
+    try {
+      const override = getLanguageForExtension(extname(parsePath)) === language ? undefined : language;
+      return { language, tree: await host.withParsedFile(parsePath, content, flatten, override), absent: null };
+    } catch {
+      return { language, tree: null, absent: 'reader-failed' };
+    }
+  };
+
+  const failed: UsesAnswer = { uses: null, absent: 'reader-failed' };
+  const tooLarge = (view: ScriptView | null) => view !== null && Buffer.byteLength(view.content, 'utf8') > USES_FILE_BYTES;
+
+  // Reading each file alone after a failure would parse a whole name-binding group once per file, so a failure on a judged file takes that file out of the batch, and any other failure splits the batch by language or group and fails the part that shares it.
+  const read = async (judged: { path: string; view: ScriptView | null }[], out: Map<string, UsesAnswer>, split: boolean): Promise<void> => {
+    let left = judged;
+    while (left.length > 0) {
+      const outcome = await readUses({ root: input.root, files: input.files, bytes: input.bytes, ownerOf: input.ownerOf, read: left, ...(input.grammarDir === undefined ? {} : { grammarDir: input.grammarDir }) }, runes);
+      if (!('error' in outcome)) {
+        for (const [path, uses] of outcome.uses) {
+          out.set(path, { uses: uses.map(({ line, answer }) => (answer.kind === 'file' ? { line, ...answer, type: input.typeOf(answer.file) } : { line, ...answer })), absent: null });
+        }
+        return;
+      }
+      const at = outcome.error.file;
+      if (at !== null && left.some((one) => one.path === at)) {
+        out.set(at, failed);
+        left = left.filter((one) => one.path !== at);
+        continue;
+      }
+      const parts = new Map<string, typeof left>();
+      for (const one of left) {
+        const language = one.view?.language ?? '';
+        const key = GROUPS[language] ?? language;
+        parts.set(key, [...(parts.get(key) ?? []), one]);
+      }
+      if (!split || parts.size === 1) {
+        for (const one of left) out.set(one.path, failed);
+        return;
+      }
+      for (const part of parts.values()) await read(part, out, false);
+      return;
+    }
+  };
+
+  return (bound) => {
+    let all: Promise<Map<string, UsesAnswer>> | null = null;
+    const readBound = async () => {
+      const out = new Map<string, UsesAnswer>();
+      const judged = bound.flatMap((file) => {
+        const reader = readerOf(file.path, file.text, siblings, runes);
+        return reader.reader && !tooLarge(reader.view) ? [{ path: file.path, view: reader.view }] : [];
+      });
+      await read(judged, out, true);
+      return out;
+    };
+    return async (what, file) => {
+      if (what === 'tree') return tree(file);
+      const reader = readerOf(file.path, file.text, siblings, runes);
+      if (!reader.reader) return { uses: null, absent: 'no-reader' };
+      if (tooLarge(reader.view)) return { uses: null, absent: 'too-large' };
+      all ??= readBound();
+      return (await all).get(file.path) ?? failed;
+    };
+  };
 }

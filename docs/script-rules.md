@@ -25,9 +25,112 @@ export function check({ files }) {
 | `type` | the file's type id; under `lawcheck try`, null for a file with no type |
 | `text` | the file's text |
 | `lines` | the text split at `\n` and `\r\n` |
+| `tree()` | a promise of the file's [syntax tree](#the-syntax-tree) |
+| `uses()` | a promise of the file's [uses](#the-uses), the ones that `may_use` judges |
 | `repo.filesOf(typeId)` | the sorted paths of every file of that type and its subtypes, at once; an unknown id throws |
 
+Lawcheck reads the tree and the uses only when the rule calls `tree()` or `uses()`. A rule that calls neither makes Lawcheck parse nothing for it. A second call in the same call of `check` gives the same promise. On a file kept from an earlier call, `tree()` rejects with `tree() was called after its call of check ended`, and `uses()` with the same message about `uses()`.
+
 In `path`, Lawcheck writes a backslash, a line feed, a carriage return and a byte that is not UTF-8 as `\\`, `\n`, `\r` and `\xHH`. Such a `path` no longer names the file on disk, so read the file's text from `text`. A final line end adds no empty line to `lines`. For an empty file, `lines` is an empty list.
+
+## The syntax tree
+
+This rule finds a call of `eval`. A string or a comment that holds `eval(x)` is no call, so the rule does not report it.
+
+```js
+export async function check({ files: [file] }) {
+  const { root } = await file.tree();
+  if (root === null) return [];
+  const findings = [];
+  const stack = [root];
+  while (stack.length > 0) {
+    const node = stack.pop();
+    const callee = node.type === 'call_expression' ? node.children.find((child) => child.field === 'function') : undefined;
+    if (callee && file.text.slice(callee.start, callee.end) === 'eval') findings.push({ line: node.line, message: 'eval runs text as code' });
+    stack.push(...node.children);
+  }
+  return findings;
+}
+```
+
+`await file.tree()` gives an object with three keys:
+
+| Key | Value |
+|---|---|
+| `language` | the language the reader parsed, such as `typescript` or `tsx`; null for a file with no reader |
+| `root` | the root node, or null when the tree is absent |
+| `absent` | null, or why the tree is absent |
+
+Each node has these keys:
+
+| Key | Value |
+|---|---|
+| `type` | the node's type in the grammar, such as `call_expression` or `comment` |
+| `named` | false for a keyword or a punctuation mark such as `let` or `(`, true for the other nodes |
+| `field` | the name its parent gives the node, such as `name` or `body`, or null |
+| `start`, `end` | where the node starts and ends in `text`, so `text.slice(node.start, node.end)` is its text |
+| `line` | the line of `start`, counted from 1, as in `lines` and in a finding |
+| `column` | the column of `start` in its line, counted from 0 in UTF-16 code units, as JavaScript counts a string |
+| `children` | the node's children, in the order of the text |
+
+A node of type `ERROR` holds text that the grammar cannot read. Where the text lacks a token, the parser can add a node whose `start` equals its `end`. A Vue or Svelte file gets the tree of its script blocks. Lawcheck parses that file with every character outside the blocks turned into a space, so `start` and `end` still point into `text`.
+
+The tree depends on the file's path and text. A header of C or C++ also depends on the other files of its folder, which decide its language ([Languages and uses](languages.md)). A plain check and `--full` give a rule the same tree for the same file.
+
+The tree is absent in three cases:
+
+| `absent` | When |
+|---|---|
+| `no-reader` | no reader reads the file's language ([Languages and uses](languages.md)), or a Vue or Svelte file has no script block |
+| `too-large` | the parsed text holds more than 512 KiB, the limit of a file whose uses are read |
+| `reader-failed` | Lawcheck cannot load the grammar of the language, or the parser fails on the file |
+
+An absent tree stops nothing. The rule decides what to report for that file.
+
+### The grammars
+
+The node types and fields come from the grammar of each language. Lawcheck ships the grammars of Runes 1.2.0:
+
+| `language` | Version of the grammar |
+|---|---|
+| `typescript`, `tsx` | 0.23.2, with four fixes from the grammar's own repository |
+| `javascript` | 0.25.0 |
+| `python` | 0.25.0 |
+| `go` | 0.25.0 |
+| `rust` | 0.24.2 |
+| `java` | 0.23.5 |
+| `kotlin` | 1.1.0 |
+| `csharp` | a commit after 0.23.5, not released, that reads C# 14 |
+| `c` | 0.24.2 |
+| `cpp` | a commit after 0.23.4, not released |
+| `php` | a commit after 0.24.2, not released |
+| `ruby` | a commit after 0.23.1, not released |
+
+Lawcheck sets the keys of the result and of a node. A version of Lawcheck that changes them says so in the changelog, under "Before you upgrade". The grammar sets the node types, the fields and the nesting. A new version of Lawcheck can take a new Runes with new grammars, and the same code can then give other node types, other fields or other nesting. The changelog names each version of Lawcheck that changes a grammar, and this table shows the grammar versions.
+
+## The uses
+
+`await file.uses()` gives an object with two keys:
+
+| Key | Value |
+|---|---|
+| `uses` | the uses the reader found, in the order of the file, or null when they are absent |
+| `absent` | null, or why the uses are absent: `no-reader`, `too-large` or `reader-failed`, as for the tree |
+
+A Vue or Svelte file with no script block has no uses, so its list is empty, while its tree is absent with `no-reader`.
+
+Each use has `line` and `kind`. These are the same uses that `may_use` judges ([Languages and uses](languages.md)):
+
+| `kind` | Other keys | Meaning |
+|---|---|---|
+| `file` | `file`, `type` | the use reaches a file of the repository; `file` is that file's path, written as `path` is, and `type` its type id, or null for a file with no type |
+| `outside` | none | the use leaves the repository, such as an import of a package |
+| `ambiguous` | `what`, `candidates` | the use could name several files; `candidates` lists them |
+| `none` | `what`, `reason`, `candidates` | the readers found no file; `reason` is `unfollowed`, `unowned` or null, as in [Unresolved uses](languages.md#unresolved-uses) |
+
+The list holds what `may_use` skips: a use of the file itself, and a use of a binary file.
+
+The first call of `uses()` in a run reads the uses of every file the rule judges in that run, at once. A file of Java, Kotlin, C#, Ruby or Rust needs the declarations of every file of its language, so that first call can take seconds in a large repository. When the reader fails on a file the rule judges, that file gets `reader-failed`, and Lawcheck reads the other files again without it. A failure on anything else gives `reader-failed` to every file that depends on it. A grammar that does not load fails every file of its language. A file of Java, Kotlin, C#, Ruby or Rust that Lawcheck reads only for what it declares fails every file of its language, and Java and Kotlin count as one language here. The uses of a file do not depend on the other files of the run, so a plain check and `--full` give a rule the same uses.
 
 ## The return value
 
@@ -55,7 +158,7 @@ Lawcheck runs each script rule in a Node process of its own. This page calls tha
 
 Lawcheck writes what the rule prints, on either stream, to its own standard error.
 
-A rule has 30 seconds to load and 30 seconds for each call. A rule that takes longer is `rule-crashed`. All script rules of one run have 600 seconds together. A run that goes past the 600 seconds stops with `rules-too-slow`. Lawcheck reports that code at the file that each unfinished rule was judging.
+A rule has 30 seconds to load and 30 seconds for each call. A rule that takes longer is `rule-crashed`. All script rules of one run have 600 seconds together. The time Lawcheck takes to read a tree or the uses counts toward the 600 seconds of the run, and not toward the 30 seconds of a call. A run that goes past the 600 seconds stops with `rules-too-slow`. Lawcheck reports that code at the file that each unfinished rule was judging.
 
 The rule runner refuses these actions:
 

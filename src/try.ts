@@ -14,6 +14,7 @@ import { buildPrompt, cleanMessage, size } from './prompt.js';
 import { createProvider } from './providers/index.js';
 import { call, NO_RECORD, preflight, remaining } from './review.js';
 import type { Ask } from './review.js';
+import { ownersOf, ruleReads } from './readers.js';
 import { crashNext, FindingBudget, linksOut, rulesDeadline, runnerProblem, runRule } from './rules.js';
 import type { RawFinding } from './rules.js';
 import { tooManyFindings } from './check.js';
@@ -182,7 +183,8 @@ export async function tryRule(args: Arguments, context: CheckContext, json: bool
       }
       const budget = new FindingBudget();
       const deadline = rulesDeadline();
-      const ran = await runRule({ root, rule: id, ruleFile: join(root, `${RULES_DIR}${id}.mjs`), files: ruleFiles, filesOf: filesOfTypes(typed, law), budget, signal: deadline.signal });
+      const reads = ruleReads({ root, files, ...ownersOf(files, read, typed) });
+      const ran = await runRule({ root, rule: id, ruleFile: join(root, `${RULES_DIR}${id}.mjs`), files: ruleFiles, filesOf: filesOfTypes(typed, law), budget, signal: deadline.signal, serve: reads(ruleFiles) });
       deadline.clear();
       if ('broken' in ran) throw new Stop([{ code: 'runner-failed', file: null, line: null, message: ran.broken }]);
       if ('crash' in ran) {

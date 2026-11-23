@@ -234,7 +234,7 @@ test('test 45: at most 50 finding lines', async () => {
   });
 });
 
-test('test 773: --strict fails on the debt that --full lists, as an error where the rule is enforced, and passes where there is none', async () => {
+test('test 777: --strict fails on the debt that --full lists, as an error where the rule is enforced, and passes where there is none', async () => {
   await withSample(async (s) => {
     const full = await check(s, '--full', '--base', 'main');
     assert.equal(full.code, 0);

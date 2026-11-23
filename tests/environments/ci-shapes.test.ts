@@ -231,7 +231,7 @@ function fullClone(dir: string): string {
   return clone;
 }
 
-test('test 774: a plain check in GitHub Actions, GitLab CI and Azure Pipelines takes its base from the variables of the pull request or push, after --base and LAWCHECK_BASE', async () => {
+test('test 778: a plain check in GitHub Actions, GitLab CI and Azure Pipelines takes its base from the variables of the pull request or push, after --base and LAWCHECK_BASE', async () => {
   await inTemp(async (dir) => {
     const clone = fullClone(dir);
     for (const [service, env] of SERVICES) {
@@ -252,7 +252,7 @@ test('test 774: a plain check in GitHub Actions, GitLab CI and Azure Pipelines t
   });
 });
 
-test('test 774: a variable of a CI service counts only in that service and not when CI is off, a push of zeros names no base, and a clone without the base branch says so', async () => {
+test('test 778: a variable of a CI service counts only in that service and not when CI is off, a push of zeros names no base, and a clone without the base branch says so', async () => {
   await inTemp(async (dir) => {
     const clone = fullClone(dir);
     const strayed = await lawcheck(clone, ['check'], { CI: 'true', GITHUB_BASE_REF: 'main', CI_MERGE_REQUEST_TARGET_BRANCH_NAME: 'main', SYSTEM_PULLREQUEST_TARGETBRANCH: 'main' });

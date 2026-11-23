@@ -166,7 +166,13 @@ The pages show the real output of `lawcheck --version`, and their scenarios comp
 
 Why: a block that kept an old version would be false from the day of the release, and the suite guard takes no path as the anchor of a changed block of a page.
 
-## 162. The base from the variables of the CI service
+## 162. A script rule reads the tree and the uses of its file by asking
+
+A rule calls `file.tree()` and `file.uses()`, and the runner asks the tool for them during that call. The law declares nothing for it. The tool parses the file in its own process and sends the tree as numbers, eight to a node in preorder. The runner builds the nodes from them, so neither process recurses on a deep tree. The tree is plain data with Lawcheck's own keys (`type`, `named`, `field`, `start`, `end`, `line`, `column`, `children`). The rule gets no object of the parsing library. The first ask for uses in a run reads the uses of every file the rule judges in that run, with `readUses`, the code that `may_use` uses. A reader failure on a file the rule judges fails that file, and the other files are read again without it. Any other failure fails the files that share it, and the batch is read again one language or name-binding group at a time, so a failure never costs one read of a whole group per file. A file past 512 KiB, a file with no reader and a reader that fails give `absent`, never an error of the run. The time the tool spends on an ask does not count toward the call's 30 seconds.
+
+Why: a rule that does not ask parses nothing, and a key in the law would only repeat what the call already says. The runner reads only the root and Lawcheck's folder, and a package manager can install the parsing library outside that folder. Opening another folder to the runner would change the promise I-runner-1. The library's own objects change between its versions, while Lawcheck's keys stay. A batch per rule parses a name-binding group, Java or C#, once per rule instead of once per file. Krzysztof, 2026-11-23 (translated from Polish): "I want script rules to have access to the AST of the file."
+
+## 163. The base from the variables of the CI service
 
 A plain `check` in a CI job takes its base from `--base`, then from `LAWCHECK_BASE`, then from the variables below, then from `origin/HEAD`. The order puts the owner's explicit words first and the guess last. Each service has its variables, and Lawcheck reads them only when the service's own variable is set (`GITHUB_ACTIONS`, `GITLAB_CI`, `TF_BUILD`) and `CI` is not off, so a stray variable on a developer's machine changes nothing.
 
@@ -178,7 +184,7 @@ A branch name becomes `origin/<name>` and the prefix `refs/heads/` is removed. L
 
 Why: the first run in CI failed with `base-unreachable` until the adopter copied a flag from the docs, which is the first five minutes of that adopter with CI. The variables are the services' own words for the target of a pull request, so nothing is guessed.
 
-## 163. `check --strict` makes debt fail the run
+## 164. `check --strict` makes debt fail the run
 
 `--strict` judges every file as `--full` does, and a finding of debt gets the severity that the same finding would have inside the change: an error for a finding of an `enforced` rule, a `forbidden-use`, a waiver with no reason or an unknown rule, and a file too large for its uses; a warning where the change would give a warning too (an `advisory` rule, `waiver-unused`, `uses-not-read` of a type). The finding stays marked as debt. The exit code is 1 when any finding, debt included, is an error, and `result` in JSON is then `fail`. `summary.errors` keeps counting the errors of the change alone, as `docs/json.md` and the harness check say, and the first line of the text counts the errors of debt apart (`2 errors in debt`). `--strict` includes `--full`, so the two together act as `--strict`, and it takes no paths, as `--full` does not. It needs a verdict for every file under an enforced reviewer rule: an old file with none is a `not-reviewed` error, and the review command of the `next:` line carries `--strict`, since `--review` alone leaves old files out and the run would fail again with the same line.
 

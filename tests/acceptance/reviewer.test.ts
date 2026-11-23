@@ -299,7 +299,7 @@ test('test 56: a bad answer is asked once more, then fails the run', async () =>
   );
 });
 
-test('test 775: --strict names a missing review of old code, and the command of its next line asks about that old code, so a second strict run passes', async () => {
+test('test 779: --strict names a missing review of old code, and the command of its next line asks about that old code, so a second strict run passes', async () => {
   await withFake(async (fake) => {
     await withR(async (r) => {
       const first = await run(r, fake, ['--strict', '--base', 'main', '--json']);
