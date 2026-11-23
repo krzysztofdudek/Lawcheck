@@ -2,12 +2,12 @@
   "redirects": [
     {
       "source": "/index",
-      "destination": "/",
+      "destination": "https://docs.lawcheck.dev/",
       "permanent": true
     },
     {
       "source": "/index.html",
-      "destination": "/",
+      "destination": "https://docs.lawcheck.dev/",
       "permanent": true
     },
     {
