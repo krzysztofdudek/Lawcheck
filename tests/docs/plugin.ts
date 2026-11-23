@@ -5,6 +5,7 @@ import type { Claims, Page } from '../contract/docs-blocks.ts';
 
 export const claims: Claims = {
   'block 1 under "The Claude Code plugin"': SCENARIO,
+  'block 1 under "The end of a turn"': 'tests/acceptance/plugin.test.ts > test 851: the end of a turn that added a waiver or changed the law tells the user once, and a waiver from before the turn is not named',
 };
 
 const read = (path: string): unknown => JSON.parse(readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8'));

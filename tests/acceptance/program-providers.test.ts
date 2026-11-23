@@ -16,7 +16,7 @@ const SIGN_IN_KEYS: Record<string, string[]> = {
 };
 const POLICY = '[[rule]]\ntoolName = "*"\ndecision = "deny"\npriority = 999\n';
 const AGAIN = 'then run the same command again; what was answered is kept, so it asks only the rest';
-const PASSED = 'lawcheck: PASS  1 changed file (against main), 1 waiver, 1 reviewer call\n';
+const PASSED = 'lawcheck: PASS  1 changed file (against main), 1 waiver, 1 reviewer call\nnote: this change adds 1 waiver: clear-errors at src/core/refund.ts:3\n';
 
 interface Program {
   provider: 'codex' | 'gemini-cli' | 'copilot-cli';

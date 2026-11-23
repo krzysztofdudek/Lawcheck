@@ -85,9 +85,9 @@ test('test 243: S3-6, a plain check right after a passing review passes, with a 
         write(r, F_PATH, F_PRIME);
         const env = { LAWCHECK_REVIEWER_ENDPOINT: fake.url };
         const reviewed = await run(r, REVIEW, { env });
-        assert.equal(reviewed.stdout, 'lawcheck: PASS  1 changed file (against main), 1 waiver, 1 reviewer call\n');
+        assert.equal(reviewed.stdout, 'lawcheck: PASS  1 changed file (against main), 1 waiver, 1 reviewer call\nnote: this change adds 1 waiver: clear-errors at src/core/refund.ts:3\n');
         assert.equal(reviewed.code, 0);
-        const plain = 'lawcheck: PASS  3 changed files (against main), 1 waiver\n';
+        const plain = 'lawcheck: PASS  3 changed files (against main), 1 waiver\nnote: this change adds 1 waiver: clear-errors at src/core/refund.ts:3\n';
         for (const args of [['check', '--base', 'main'], ['check', '--base', 'main'], REVIEW]) {
           const again = await run(r, args, { env });
           assert.equal(again.stdout, plain, args.join(' '));
@@ -136,7 +136,7 @@ test('test 261: a lock left by a run that ended, whose pid now names a live proc
       const old = new Date(Date.now() - 60_000);
       utimesSync(lock, old, old);
       const result = await run(r, REVIEW, { env: { LAWCHECK_REVIEWER_ENDPOINT: fake.url }, budget: 'LIMITS_RUN_MS', writes: [/^\.lawcheck\/\.local(\/|$)/] });
-      assert.equal(result.stdout, 'lawcheck: PASS  1 changed file (against main), 1 waiver, 1 reviewer call\n');
+      assert.equal(result.stdout, 'lawcheck: PASS  1 changed file (against main), 1 waiver, 1 reviewer call\nnote: this change adds 1 waiver: clear-errors at src/core/refund.ts:3\n');
       assert.equal(result.code, 0);
       assert.ok(result.ms < 5_000, String(result.ms));
       assert.equal(existsSync(lock), false);

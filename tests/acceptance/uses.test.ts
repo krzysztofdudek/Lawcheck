@@ -208,11 +208,11 @@ test('test 86: a waiver of forbidden-use, unused, and of a code that cannot be w
   await withU(async (u) => {
     write(u, E_PATH, [lines[0], "import '../cli/main.js'; // lawcheck-waive forbidden-use -- the report repeats the banner until 2.0", lines[2], ''].join('\n'));
     const run = await check(u);
-    assert.equal(run.stdout, 'lawcheck: PASS  1 changed file (against main), 1 waiver\n');
+    assert.equal(run.stdout, 'lawcheck: PASS  1 changed file (against main), 1 waiver\nnote: this change adds 1 waiver: forbidden-use at src/core/report.ts:2\n');
     assert.equal(run.code, 0);
     const json = await check(u, '--base', 'main', '--json');
     assert.deepEqual(JSON.parse(json.stdout).waivers, [
-      { file: 'src/core/report.ts', line: 2, rule: 'forbidden-use', debt: false, waived: 1, reason: 'the report repeats the banner until 2.0' },
+      { file: 'src/core/report.ts', line: 2, rule: 'forbidden-use', debt: false, waived: 1, reason: 'the report repeats the banner until 2.0', added: true },
     ]);
     assert.equal(json.code, 0);
   });

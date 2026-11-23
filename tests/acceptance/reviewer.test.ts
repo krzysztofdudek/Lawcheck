@@ -82,12 +82,12 @@ test("test 48: F' passes, and its pass is recorded", async () => {
     await withR(async (r) => {
       write(r, F_PATH, F_PRIME);
       const reviewed = await run(r, fake, ['--review', '--base', 'main']);
-      assert.equal(reviewed.stdout, 'lawcheck: PASS  1 changed file (against main), 1 waiver, 1 reviewer call\n');
+      assert.equal(reviewed.stdout, 'lawcheck: PASS  1 changed file (against main), 1 waiver, 1 reviewer call\nnote: this change adds 1 waiver: clear-errors at src/core/refund.ts:3\n');
       assert.equal(reviewed.code, 0);
       assert.equal(read(r, '.lawcheck/verdicts'), `${KEY_F_PRIME} clear-errors\n`);
       assert.equal(read(r, '.lawcheck/.gitattributes'), 'verdicts merge=union\n');
       const plain = await run(r, fake, ['--base', 'main']);
-      assert.equal(plain.stdout, 'lawcheck: PASS  3 changed files (against main), 1 waiver\n');
+      assert.equal(plain.stdout, 'lawcheck: PASS  3 changed files (against main), 1 waiver\nnote: this change adds 1 waiver: clear-errors at src/core/refund.ts:3\n');
       assert.equal(fake.requests.length, 1);
     });
   });
@@ -103,11 +103,11 @@ test('test 49: a clone with no reviewer reads the committed verdict; CRLF keeps 
       git(dir, 'clone', '-q', r, 'clone');
       const clone = join(dir, 'clone');
       const first = await run(clone, null, ['--base', 'origin/main']);
-      assert.equal(first.stdout, 'lawcheck: PASS  3 changed files (against origin/main), 1 waiver\n');
+      assert.equal(first.stdout, 'lawcheck: PASS  3 changed files (against origin/main), 1 waiver\nnote: this change adds 1 waiver: clear-errors at src/core/refund.ts:3\n');
       assert.equal(first.code, 0);
       write(clone, F_PATH, F_PRIME.replace(/\n/g, '\r\n'));
       const crlf = await run(clone, null, ['--base', 'origin/main']);
-      assert.equal(crlf.stdout, 'lawcheck: PASS  3 changed files (against origin/main), 1 waiver\n');
+      assert.equal(crlf.stdout, 'lawcheck: PASS  3 changed files (against origin/main), 1 waiver\nnote: this change adds 1 waiver: clear-errors at src/core/refund.ts:3\n');
       assert.equal(crlf.code, 0);
       append(clone, F_PATH, '// end\n');
       const edited = await run(clone, null, ['--base', 'origin/main']);

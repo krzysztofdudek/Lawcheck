@@ -17,6 +17,7 @@ export function discount(net: number): number {
 <!-- example: check-failing-run -->
 ```
 lawcheck: FAIL  1 error, 1 warning in 1 changed file (against main), 1 waiver
+note: this change adds 1 waiver: no-console at src/core/discount.ts:4
 
 src/core/discount.ts:2  error[no-console]  writes to the terminal with console.log
   why:  Only the command layer writes to the terminal.
@@ -102,6 +103,7 @@ Report each thrown error or returned error message that leaves one of the two ou
 <!-- example: reviewer-first -->
 ```
 lawcheck: FAIL  1 error in 1 changed file (against main), 1 waiver
+note: this change adds 1 waiver: clear-errors at src/core/refund.ts:3
 
 src/core/refund.ts  error[not-reviewed]  clear-errors has no verdict for this content
   why:  a reviewer rule says nothing about content it has not judged
@@ -112,6 +114,7 @@ next: lawcheck check --review --base main  (1 reviewer call)
 <!-- example: reviewer-second -->
 ```
 lawcheck: FAIL  1 error in 1 changed file (against main), 1 waiver, 1 reviewer call
+note: this change adds 1 waiver: clear-errors at src/core/refund.ts:3
 
 src/core/refund.ts:2  error[clear-errors]  the message says neither what happened nor what to do next
   why:  An error a caller sees says what happened and what to do next.
@@ -122,6 +125,7 @@ next: fix src/core/refund.ts:2
 <!-- example: reviewer-third -->
 ```
 lawcheck: FAIL  1 error in 1 changed file (against main), 1 waiver
+note: this change adds 1 waiver: clear-errors at src/core/refund.ts:3
 
 src/core/refund.ts  error[not-reviewed]  clear-errors has no verdict for this content
   why:  a reviewer rule says nothing about content it has not judged

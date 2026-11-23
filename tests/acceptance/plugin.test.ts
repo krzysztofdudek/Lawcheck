@@ -37,6 +37,8 @@ const stopHeader = (cmd = 'lawcheck') =>
 const stopErrorHeader = (cmd = 'lawcheck') =>
   `Lawcheck could not check the files that changed in this turn, and the turn changed files under .lawcheck/. Fix what the error names, then finish; if that needs the user's word, tell the user and finish. ${cmd} check on those files printed:`;
 const released = (cmd = 'lawcheck') => ({ systemMessage: `lawcheck: the turn ended while lawcheck check still fails on the files that changed in it; ${cmd} check shows why.` });
+const D_WAIVER = 'lawcheck: in this turn the agent added 1 waiver (no-console at src/core/discount.ts:4). Read them before you accept the turn.';
+const withD = (output: { systemMessage: string }) => ({ systemMessage: `${output.systemMessage}\n${D_WAIVER}` });
 const handBack = (text: string) => ({ hookSpecificOutput: { hookEventName: 'Stop', additionalContext: text } });
 const started = (text: string) => ({ hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: text } });
 
@@ -447,7 +449,7 @@ test('test 166 and 167: the hand-back, and the guard', async () => {
     write(s, D_PATH, D);
     json(await session.stop(), handBack(`${stopHeader()}\n\n${D_OUTPUT}`), '166');
     assert.deepEqual(bench.checks(), [['check', `./${D_PATH}`]]);
-    json(await session.stop(), released(), '167 the same output');
+    json(await session.stop(), withD(released()), '167 the same output');
     await session.prompt();
     const runs: HookRun[] = [];
     for (let i = 0; i < 4; i++) {
@@ -638,7 +640,7 @@ test('test 175: a check that does not run is told once per session', async () =>
     const session = new Session(bench, s);
     await session.prompt();
     write(s, D_PATH, D);
-    json(await session.stop(), { systemMessage: 'lawcheck: the check before the agent finished did not run: lawcheck was not found.' });
+    json(await session.stop(), withD({ systemMessage: 'lawcheck: the check before the agent finished did not run: lawcheck was not found.' }));
     await session.prompt();
     append(s, D_PATH, '// more\n');
     nothing(await session.stop(), 'told already');
@@ -790,7 +792,7 @@ test('S6-6: a session_id of 5,000 characters keeps its state under its hash, and
     assert.equal(JSON.parse(readFileSync(join(bench.data, 'sessions', file), 'utf8')).open, true);
     write(s, D_PATH, D);
     json(await session.stop(), handBack(`${stopHeader()}\n\n${D_OUTPUT}`), 'stop');
-    json(await session.stop(), released(), 'the same output again is let go, so the state was read');
+    json(await session.stop(), withD(released()), 'the same output again is let go, so the state was read');
     nothing(await new Session(bench, s, 'y'.repeat(128)).prompt(), 'an id of 128 characters');
     assert.deepEqual(bench.sessions(), [file, `${'y'.repeat(128)}.json`].sort());
   });

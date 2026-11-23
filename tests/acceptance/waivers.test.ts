@@ -70,7 +70,7 @@ test('test 35: two waivers in comments of other languages', async () => {
   await withSample(async (s) => {
     write(s, 'src/core/both.ts', both);
     const run = await check(s);
-    assert.equal(run.stdout, 'lawcheck: PASS  1 changed file (against main), 2 waivers\n');
+    assert.equal(run.stdout, 'lawcheck: PASS  1 changed file (against main), 2 waivers\nnote: this change adds 2 waivers: no-console at src/core/both.ts:1; no-todo at src/core/both.ts:2\n');
     assert.equal(run.code, 0);
     const json = JSON.parse((await check(s, '--base', 'main', '--json')).stdout);
     assert.deepEqual(
@@ -178,7 +178,7 @@ test('S4-5: a waiver after the last line of a multi-line import does not cover t
     write(u, E_PATH, `import {\n  main,\n} from '../cli/main.js'; // lawcheck-waive forbidden-use -- ${reason}\nexport const report = main;\n`);
     const run = await check(u);
     assert.deepEqual(findingLines(run.stdout), [
-      `${E_PATH}:1  error[forbidden-use]  library may not use command (src/cli/main.ts); its may_use is [library]`,
+      `${E_PATH}:1  error[forbidden-use]  library may not use command (src/cli/main.ts); it takes may_use [library] from source`,
       `${E_PATH}:3  warning[waiver-unused]  the waiver of 'forbidden-use' drops no finding`,
     ]);
     assert.equal(run.code, 1);

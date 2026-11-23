@@ -222,6 +222,9 @@ test('check-slice §4: every git command runs with GIT_OPTIONAL_LOCKS=0, in the 
       'ls-files -v -z',
       'rev-parse --show-toplevel',
       'ls-files -z --stage',
+      'rev-parse --verify --quiet --end-of-options main^{commit}',
+      'merge-base HEAD <sha>',
+      '--literal-pathspecs ls-tree -z <sha> -- src/core/discount.ts',
     ]);
   });
 });

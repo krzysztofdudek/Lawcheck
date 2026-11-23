@@ -122,7 +122,7 @@ test('test 41: JSON', async () => {
         ...DEBT,
       ],
       waivers: [
-        { file: 'src/core/discount.ts', line: 4, rule: 'no-console', debt: false, waived: 1, reason: 'the pricing team reads this warning until 2.0' },
+        { file: 'src/core/discount.ts', line: 4, rule: 'no-console', debt: false, waived: 1, reason: 'the pricing team reads this warning until 2.0', added: true },
       ],
       unresolved: [],
       reviews: { missing: 0, calls_made: 0, passes_recorded: 0 },
