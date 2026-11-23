@@ -1,6 +1,6 @@
 # What a check judges
 
-A law written for code that already breaks it would fail every build on the first day. `lawcheck check` judges the files of the [change](concepts.md#change). Old code fails nothing until someone changes it.
+`lawcheck check` judges the files of the [change](concepts.md#change). Old code fails nothing until someone changes it, so a law that old code breaks fails no build on the day you add it.
 
 ## The base
 
@@ -48,7 +48,7 @@ The git settings of a repository can name programs that git starts while it read
 
 Settings you pass to git yourself, through `GIT_CONFIG_PARAMETERS` or `git -c` in an alias, take effect. If one of your own settings names a program, git can start that program.
 
-Git reads some files through a filter, such as the files of Git LFS. Lawcheck compares such a file as its bytes on disk. If the file's time no longer matches git's index, the file can count as changed.
+Git reads some files through a filter, such as the files of Git LFS. Lawcheck compares such a file as its bytes on disk, and those bytes differ from what git stores for it. git reads the file only when its time or size differs from git's index, or when the file is not older than the index. The file then counts as changed.
 
 ## --full and debt
 
