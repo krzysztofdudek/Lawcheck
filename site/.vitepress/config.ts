@@ -4,10 +4,11 @@ import { dirname, join } from 'node:path';
 import { defineConfig } from 'vitepress';
 import topics from '../../docs/topics.json' with { type: 'json' };
 import { brandStyles, dropEmptyIcons, CANONICAL, codeThemeOfBrand, fontPreloads, GITHUB, LINK, manifest, REPOSITORY, themeColor, viteShared } from '../theme/brand.ts';
+import { cardHead } from '../theme/card.mjs';
 import { describe } from '../theme/describe.ts';
 
 const HOME_TITLE = 'Lawcheck documentation';
-const HOME_DESCRIPTION = 'The documentation of Lawcheck: install, quick start, guides for Claude Code, other agents and CI, a reference of every command, and every code.';
+const HOME_DESCRIPTION = 'The documentation of Lawcheck: install, quick start, guides for Claude Code, other agents and CI, every command, and what each code in the output means.';
 
 // The landing page's description; a page of the docs may not repeat it.
 const PROMISE = manifest.description.slice(manifest.description.indexOf('. ') + 2);
@@ -61,6 +62,7 @@ export default defineConfig({
       ['meta', { property: 'og:title', content: head.title }],
       ['meta', { property: 'og:description', content: head.description }],
       ['meta', { property: 'og:url', content: url }],
+      ...cardHead(),
       ...fonts,
     ];
   },

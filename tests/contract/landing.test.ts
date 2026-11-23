@@ -7,6 +7,9 @@ import { parse } from 'yaml';
 import { ROOT } from '../harness/sets.ts';
 import { ALLOWED_NAMES } from './allowed-names.ts';
 import { problems } from '../../site/landing/check.mjs';
+import { problems as docsCardProblems } from '../../site/check-docs-card.mjs';
+import { CARD, cardHead, cardProblems, pngProblems } from '../../site/theme/card.mjs';
+import { CATEGORY, FINDING, og } from '../../site/theme/og.mjs';
 import { Fragments } from '../../site/landing/fragments.ts';
 
 const ALLOWED = new Set(Object.values(ALLOWED_NAMES).flat());
@@ -58,22 +61,34 @@ test('test 780: control, a code block, text below the front matter, a taken word
   assert.deepEqual(copyProblems(['---', 'h1: Lawcheck', '---', '', '```text', 'x', '```', ''].join('\n')), ['a code block', 'text below the front matter, where the landing page does not read it']);
 });
 
-const GOOD: Record<string, string> = {
+const png = (width: number, height: number, bytes = 1000): Buffer => {
+  const file = Buffer.alloc(bytes);
+  Buffer.from('89504e470d0a1a0a0000000d49484452', 'hex').copy(file);
+  file.writeUInt32BE(width, 16);
+  file.writeUInt32BE(height, 20);
+  return file;
+};
+
+const cardTags = (): string => cardHead().map(([, attributes]) => `<meta ${Object.entries(attributes as Record<string, string>).map(([key, value]) => `${key}="${value.replace(/"/g, '&quot;')}"`).join(' ')}>`).join('');
+
+const GOOD: Record<string, string | Buffer> = {
   'index.html': [
     '<title>Lawcheck: architecture checks for coding agents</title>',
     '<meta name="description" content="Lawcheck checks your code against the architecture and rules you write down, and tells your coding agent which line breaks which rule.">',
     '<link rel="canonical" href="https://lawcheck.dev/">',
     '<meta property="og:type" content="website"><meta property="og:site_name" content="Lawcheck"><meta property="og:title" content="Lawcheck"><meta property="og:description" content="x"><meta property="og:url" content="https://lawcheck.dev/">',
+    cardTags(),
     '<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"WebSite"},{"@type":"SoftwareApplication","softwareVersion":"1.2.3"}]}</script>',
     '<h1>Architecture checks for coding agents</h1><a href="/changelog">1.2.3</a>',
   ].join('\n'),
-  '404.html': '<h1>This address is not on lawcheck.dev.</h1><a href="/">Lawcheck home</a>',
+  'og.png': png(1200, 630),
+  '404.html': '<h1>This address has no page.</h1><a href="/">Lawcheck home</a>',
   'robots.txt': 'User-agent: *\nAllow: /\n\nSitemap: https://lawcheck.dev/sitemap.xml\n',
   'sitemap.xml': '<urlset><url><loc>https://lawcheck.dev/</loc></url></urlset>',
   'vercel.json': '{"redirects":[{"source":"/:page(install)","destination":"https://docs.lawcheck.dev/:page.html","permanent":true}]}',
 };
 
-function built(files: Record<string, string>): string[] {
+function built(files: Record<string, string | Buffer>): string[] {
   const dir = mkdtempSync(join(tmpdir(), 'lawcheck-landing-'));
   try {
     for (const [name, text] of Object.entries(files)) {
@@ -88,14 +103,16 @@ function built(files: Record<string, string>): string[] {
 
 test('test 781: the check of the built landing page passes a page with its head, its JSON-LD, its 404 page, robots.txt, sitemap.xml and vercel.json, and names each fault planted in one (control)', () => {
   assert.deepEqual(built(GOOD), []);
-  const index = GOOD['index.html']!;
+  const index = GOOD['index.html'] as string;
   assert.deepEqual(built({ ...GOOD, 'index.html': index.replace('<h1>', '<h1>x</h1><h1>') }), ['index.html has 2 h1 elements, not one']);
   assert.deepEqual(built({ ...GOOD, 'index.html': index.replace('https://lawcheck.dev/">', 'https://lawcheck.dev/quick-start">') }), ['the canonical address is ["https://lawcheck.dev/quick-start"], not https://lawcheck.dev/ once']);
   assert.deepEqual(built({ ...GOOD, 'index.html': index.replace('"softwareVersion":"1.2.3"', '"softwareVersion":"1.2.2","aggregateRating":{}') }), ['the JSON-LD names the version 1.2.2, not 1.2.3', 'the JSON-LD holds a rating or a review']);
   assert.deepEqual(built({ ...GOOD, 'index.html': index.replace('>1.2.3<', '>1.2<') }), ['index.html does not show the version 1.2.3']);
   assert.deepEqual(built({ ...GOOD, '404.html': '<h1>x</h1><script type="module" src="/app.js"></script>' }), ['404.html has no link to /', '404.html loads the app, which would replace its text']);
   assert.deepEqual(built({ ...GOOD, 'vercel.json': '{' }), ['vercel.json is missing or does not parse']);
-  assert.deepEqual(built({ 'index.html': index }), ['404.html is missing', 'robots.txt does not name the sitemap', 'sitemap.xml does not hold https://lawcheck.dev/', 'vercel.json is missing or does not parse']);
+  assert.deepEqual(built({ ...GOOD, 'index.html': index.replace(/<meta name="twitter:card"[^>]*>/, '') }), ['index.html: twitter:card is [], not summary_large_image once']);
+  assert.deepEqual(built({ ...GOOD, 'og.png': png(1200, 600) }), ['og.png is 1200 by 600, not 1200 by 630']);
+  assert.deepEqual(built({ 'index.html': index }), ['og.png is missing', '404.html is missing', 'robots.txt does not name the sitemap', 'sitemap.xml does not hold https://lawcheck.dev/', 'vercel.json is missing or does not parse']);
 });
 
 test('test 782: the landing page finds a paragraph, a sentence and a code block by its heading and its opening words, so one that is gone or one that starts like another stops the build, as a missing heading or table row does (control)', () => {
@@ -119,4 +136,40 @@ test('test 782: the landing page finds a paragraph, a sentence and a code block 
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test('test 891: the card of the landing page and of the documentation is a PNG of 1200 by 630 pixels under 300 KB that the pages name by its full address with its text, and each fault planted in the file or in a page is named (control)', () => {
+  const card = readFileSync(join(ROOT, 'site/landing/public/og.png'));
+  assert.deepEqual(pngProblems(card), []);
+  assert.equal(CARD.url, 'https://lawcheck.dev/og.png');
+  const tags = cardTags();
+  assert.deepEqual(cardProblems(tags, 'p'), []);
+  assert.deepEqual(pngProblems(png(1200, 630)), []);
+  assert.deepEqual(pngProblems(png(1200, 600)), ['og.png is 1200 by 600, not 1200 by 630']);
+  assert.deepEqual(pngProblems(png(1200, 630, 300 * 1024)), ['og.png has 307200 bytes, not under 307200']);
+  assert.deepEqual(pngProblems(Buffer.from('GIF89a and more')), ['og.png is not a PNG file']);
+  assert.deepEqual(cardProblems(tags.replace('https://lawcheck.dev/og.png', '/og.png'), 'p'), [`p: og:image is ["/og.png"], not "https://lawcheck.dev/og.png" once`]);
+  assert.deepEqual(cardProblems(tags.replace(/<meta property="og:image:alt"[^>]*>/, ''), 'p'), [`p: og:image:alt is [], not ${JSON.stringify(CARD.alt)} once`]);
+  assert.deepEqual(cardProblems(tags.replace('summary_large_image', 'summary'), 'p'), ['p: twitter:card is ["summary"], not summary_large_image once']);
+  assert.deepEqual(cardProblems(tags + tags, 'p').length, 6);
+});
+
+test('test 891: the check of the built documentation names a page without the card tags, and the finding on the card is a line that README.md shows', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'lawcheck-docs-card-'));
+  try {
+    writeFileSync(join(dir, 'install.html'), `<meta property="og:url" content="https://docs.lawcheck.dev/install.html">${cardTags()}`);
+    writeFileSync(join(dir, 'concepts.html'), '<meta property="og:url" content="https://docs.lawcheck.dev/concepts.html">');
+    writeFileSync(join(dir, '404.html'), '<h1>x</h1>');
+    const found = docsCardProblems(dir, join(ROOT, 'site/landing/public/og.png'));
+    assert.equal(found.length, 6);
+    assert.ok(found.every((line) => line.startsWith('concepts.html: ')));
+    assert.deepEqual(docsCardProblems(dir, join(ROOT, 'brand/mark.svg')).slice(0, 1), ['og.png is not a PNG file']);
+    for (const name of ['install.html', 'concepts.html']) rmSync(join(dir, name));
+    assert.deepEqual(docsCardProblems(dir, join(ROOT, 'site/landing/public/og.png')), [`${dir} has no page with an og:url`]);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+  assert.ok(read('README.md').includes(`${FINDING.place}  ${FINDING.code}  ${FINDING.text}`), 'the finding of the card is a line of README.md');
+  const html = og(JSON.parse(read('brand/tokens.json')), { interFont: '/a.woff2', monoFont: '/b.woff2', markFile: join(ROOT, 'brand/mark.svg') });
+  for (const text of [CATEGORY, FINDING.place, FINDING.code, FINDING.text]) assert.ok(html.includes(text), text);
 });

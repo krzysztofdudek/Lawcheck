@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { cardProblems, pngProblems } from '../theme/card.mjs';
 
 const CANONICAL = 'https://lawcheck.dev/';
 
@@ -23,6 +24,10 @@ export function problems(dir, version) {
   if (canonical.length !== 1 || canonical[0] !== CANONICAL) out.push(`the canonical address is ${JSON.stringify(canonical)}, not ${CANONICAL} once`);
   for (const property of ['og:title', 'og:description', 'og:type', 'og:site_name', 'og:url']) if (metaOf(index, 'property', property).length !== 1) out.push(`${property} is not there once`);
   if (metaOf(index, 'property', 'og:url')[0] !== CANONICAL) out.push(`og:url is not ${CANONICAL}`);
+  out.push(...cardProblems(index, 'index.html'));
+  const card = existsSync(join(dir, 'og.png')) ? readFileSync(join(dir, 'og.png')) : null;
+  if (card === null) out.push('og.png is missing');
+  else out.push(...pngProblems(card));
   if (/noindex/i.test(index)) out.push('index.html says noindex');
   if (!index.includes(`>${version}<`)) out.push(`index.html does not show the version ${version}`);
 
@@ -68,5 +73,5 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
     for (const problem of found) console.log(`  ${problem}`);
     process.exit(1);
   }
-  console.log(`landing: PASS  ${dir} has one h1, its title, description, canonical address, Open Graph, JSON-LD for ${version}, a 404 page, robots.txt, sitemap.xml and vercel.json`);
+  console.log(`landing: PASS  ${dir} has one h1, its title, description, canonical address, Open Graph and its card, JSON-LD for ${version}, a 404 page, robots.txt, sitemap.xml and vercel.json`);
 }

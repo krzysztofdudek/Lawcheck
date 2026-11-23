@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { defineConfig } from 'vitepress';
 import type { HeadConfig } from 'vitepress';
 import { brandStyles, dropEmptyIcons, CANONICAL, fontPreloads, GITHUB, manifest, NPM, REPOSITORY, themeColor, viteShared } from '../../theme/brand.ts';
+import { cardHead } from '../../theme/card.mjs';
 import { copyOf, head, pageUrl } from '../facts.ts';
 
 const page = head();
@@ -67,6 +68,7 @@ export default defineConfig({
       ['meta', { property: 'og:title', content: page.title }],
       ['meta', { property: 'og:description', content: page.description }],
       ['meta', { property: 'og:url', content: CANONICAL.landing }],
+      ...cardHead(),
       ['script', { type: 'application/ld+json' }, JSON.stringify(structured)],
     ];
   },
