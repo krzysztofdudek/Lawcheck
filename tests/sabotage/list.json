@@ -1,7 +1,7 @@
 [
   {
     "id": "limit-50",
-    "promise": "row 45",
+    "promise": "test 45",
     "file": "src/output.ts",
     "find": "const limit = 50;",
     "replace": "const limit = 51;",
@@ -9,7 +9,7 @@
   },
   {
     "id": "pass-nothing-changed",
-    "promise": "row 1",
+    "promise": "test 1",
     "file": "src/output.ts",
     "find": "nothing changed against ${shown(report.base)}",
     "replace": "nothing changed since ${shown(report.base)}",
@@ -17,7 +17,7 @@
   },
   {
     "id": "waiver-without-reason",
-    "promise": "row 32",
+    "promise": "test 32",
     "file": "src/waivers.ts",
     "find": "problems.push({ code: 'waiver-without-reason', line,",
     "replace": "problems.push({ code: 'waiver-unknown-rule', line,",

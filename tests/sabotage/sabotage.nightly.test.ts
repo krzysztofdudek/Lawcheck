@@ -40,7 +40,7 @@ test('question 95: the sabotage list, a break its test does not catch fails the 
   assert.equal(run.stdout, [
     '| Entry | Promise | Break | Test | Result |',
     '|---|---|---|---|---|',
-    `| same-limit | row 45 | src/output.ts | ${limit.killedBy} | SURVIVED: '${limit.killedBy}' is green with the break in place |`,
+    `| same-limit | test 45 | src/output.ts | ${limit.killedBy} | SURVIVED: '${limit.killedBy}' is green with the break in place |`,
     '',
     'sabotage: FAIL  1 of 1 breaks did not turn their test red: same-limit',
     '',
@@ -55,9 +55,9 @@ test('question 95: the sabotage list, an entry that no longer applies, names no 
   ]);
   assert.equal(run.status, 1, run.stdout + run.stderr);
   const lines = run.stdout.split('\n');
-  assert.ok(lines.includes(`| gone | row 45 | src/output.ts | ${limit.killedBy} | error: its find text occurs 0 times in src/output.ts, not once |`), run.stdout);
-  assert.ok(lines.includes("| no-test | row 45 | src/output.ts | test 999: nothing | error: no test is named 'test 999: nothing' |"), run.stdout);
-  assert.ok(lines.includes(`| no-build | row 45 | src/output.ts | ${limit.killedBy} | error: the broken code does not build: |`), run.stdout);
+  assert.ok(lines.includes(`| gone | test 45 | src/output.ts | ${limit.killedBy} | error: its find text occurs 0 times in src/output.ts, not once |`), run.stdout);
+  assert.ok(lines.includes("| no-test | test 45 | src/output.ts | test 999: nothing | error: no test is named 'test 999: nothing' |"), run.stdout);
+  assert.ok(lines.includes(`| no-build | test 45 | src/output.ts | ${limit.killedBy} | error: the broken code does not build: |`), run.stdout);
   assert.ok(run.stdout.endsWith('sabotage: FAIL  3 of 3 breaks did not turn their test red: gone, no-test, no-build\n'), run.stdout);
 });
 

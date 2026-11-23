@@ -194,12 +194,46 @@ test('question 95: the suite guard, an owner\'s row lands alone first, and the c
 
 test('question 95: the suite guard, the record of a removed test that anchors a finding the name does not lead with is refused', () => {
   const finding = judgeCase('refused-test-removed-anchor-not-named').findings.find((f) => f.kind === 'test-removed')!;
-  assert.deepEqual(finding.why, ['the record at tests/weakenings.md:6: the test\'s name names row 2, and the record anchors S1-1']);
+  assert.deepEqual(finding.why, ['the record at tests/weakenings.md:6: the test\'s name names test 2, and the record anchors S1-1']);
 });
 
 test('question 95: the suite guard, a sabotage entry removed with its code is refused while a test still carries its promise', () => {
   const finding = judgeCase('refused-sabotage-removed-test-kept').findings.find((f) => f.kind === 'sabotage-guard-kept')!;
-  assert.equal(finding.detail, 'an entry of the sabotage list is removed only with the guard it breaks and with its promise: its promise row 3 still exists');
+  assert.equal(finding.detail, 'an entry of the sabotage list is removed only with the guard it breaks and with its promise: its promise test 3 still exists');
+});
+
+test('question 95: the suite guard, test N and row N are one key, in an anchor and in a sabotage promise', () => {
+  const entries = JSON.parse(BASE['tests/sabotage/list.json']!) as Array<{ id: string; promise: string }>;
+  const withTestPromise = entries.map((e) => (e.id === 'limit-50' ? { ...e, promise: 'test 3' } : e));
+  const without = entries.filter((e) => e.id !== 'limit-50');
+  const json = (list: unknown[]): string => `${JSON.stringify(list, null, 2)}\n`;
+  const limitGone = 'export function lines(all: string[]): string[] {\n  return all;\n}\n';
+  const testGone = "import { test } from 'node:test';\nimport assert from 'node:assert/strict';\n\n";
+  for (const anchor of ['row 3', 'test 3']) {
+    const repo = baseRepo({ ...BASE, 'tests/sabotage/list.json': json(withTestPromise) });
+    try {
+      writeFileSync(join(repo.dir, 'tests/sabotage/list.json'), json(without));
+      writeFileSync(join(repo.dir, 'src/output.ts'), limitGone);
+      writeFileSync(join(repo.dir, 'tests/acceptance/limits.test.ts'), testGone);
+      writeFileSync(join(repo.dir, 'tests/weakenings.md'), `${BASE['tests/weakenings.md']}| 2026-11-15 | test 3: at most 50 finding lines | test-removed | every finding is printed | ${anchor} | reviewer fresh-agent-7 |\n| 2026-11-15 | limit-50 | sabotage-removed | the limit and its test are gone | ${anchor} | reviewer fresh-agent-7 |\n`);
+      sh(repo.dir, ['commit', '-q', '-a', '-m', 'the limit and its test go']);
+      const report = judge(repo.dir, 'main', 'work', fixtureConfig(), '2026-11-15');
+      assert.equal(report.passed, true, render(report));
+      assert.deepEqual(report.findings.map((f) => [f.kind, f.cleared]).sort(), [['sabotage-removed', true], ['test-removed', true]], anchor);
+    } finally {
+      repo.done();
+    }
+  }
+  const kept = baseRepo({ ...BASE, 'tests/sabotage/list.json': json(withTestPromise) });
+  try {
+    writeFileSync(join(kept.dir, 'tests/sabotage/list.json'), json(without));
+    writeFileSync(join(kept.dir, 'src/output.ts'), limitGone);
+    sh(kept.dir, ['commit', '-q', '-a', '-m', 'the entry and its code go, the test stays']);
+    const finding = judge(kept.dir, 'main', 'work', fixtureConfig(), '2026-11-15').findings.find((f) => f.kind === 'sabotage-guard-kept')!;
+    assert.equal(finding.detail, 'an entry of the sabotage list is removed only with the guard it breaks and with its promise: its promise test 3 still exists');
+  } finally {
+    kept.done();
+  }
 });
 
 test('question 95: the suite guard, an owner\'s row that lands alone is refused for what is wrong with the row itself', () => {
@@ -256,9 +290,9 @@ test('question 95: the suite guard, a record of an owner kind on the base that a
 
 test('question 95: the suite guard, an anchor that does not exist, and one this change does not touch, are named as such', () => {
   const missing = judgeCase('refused-expected-anchor-missing').findings.find((f) => f.kind === 'expected-changed')!;
-  assert.deepEqual(missing.why, ["the record at tests/weakenings.md:6: the anchor 'row 99' does not exist in the names of the tests"]);
+  assert.deepEqual(missing.why, ["the record at tests/weakenings.md:6: the anchor 'test 99' does not exist in the names of the tests"]);
   const unchanged = judgeCase('refused-expected-anchor-unchanged').findings.find((f) => f.kind === 'expected-changed')!;
-  assert.deepEqual(unchanged.why, ["the record at tests/weakenings.md:6: the anchor 'row 2' exists, but this change does not add, reword or remove it"]);
+  assert.deepEqual(unchanged.why, ["the record at tests/weakenings.md:6: the anchor 'test 2' exists, but this change does not add, reword or remove it"]);
 });
 
 test('question 95: the suite guard, who may approve each kind is configuration', () => {

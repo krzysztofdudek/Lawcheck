@@ -142,6 +142,16 @@ function leadingRows(name: string): Set<string> {
   return new Set(rows === null ? [] : rows[1]!.split(/, | and /));
 }
 
+// Older rows of tests/weakenings.md and older sabotage entries write a test number as 'row N'; the key of both spellings stays 'row N'.
+function keyOf(text: string): string {
+  const row = /^(?:row|test)\s+(\d+)$/i.exec(text);
+  return row ? `row ${row[1]}` : String(text);
+}
+
+function shown(key: string): string {
+  return key.replace(/^row /, 'test ');
+}
+
 function namedIn(id: string): Set<string> {
   const out = new Set<string>();
   for (const m of id.matchAll(/\btests?\s+(\d+(?:\s*(?:,|and|to)\s*\d+)*)/gi)) {
@@ -377,14 +387,15 @@ export function judge(repo: string, baseRev: string, headRev: string, config: Co
         if (JSON.stringify(kept) !== JSON.stringify(entry)) add({ kind: 'sabotage-changed', subject: entry.id, where: config.sabotage, detail: `entry changed: ${JSON.stringify(entry)} -> ${JSON.stringify(kept)}` });
         continue;
       }
+      const promise = keyOf(entry.promise);
       const code = after.read(entry.file);
       const guardGone = code === null || !code.includes(entry.find);
-      const promiseGone = existed(snapBefore, entry.promise) && !existed(snapAfter, entry.promise);
+      const promiseGone = existed(snapBefore, promise) && !existed(snapAfter, promise);
       if (!guardGone || !promiseGone) {
-        const missing = [!guardGone ? `${entry.file} still holds the code it breaks` : '', !promiseGone ? `its promise ${entry.promise} ${existed(snapAfter, entry.promise) ? 'still exists' : 'did not exist on the merge base'}` : ''].filter(Boolean).join('; ');
+        const missing = [!guardGone ? `${entry.file} still holds the code it breaks` : '', !promiseGone ? `its promise ${shown(promise)} ${existed(snapAfter, promise) ? 'still exists' : 'did not exist on the merge base'}` : ''].filter(Boolean).join('; ');
         add({ kind: 'sabotage-guard-kept', subject: entry.id, where: config.sabotage, detail: `an entry of the sabotage list is removed only with the guard it breaks and with its promise: ${missing}` });
       } else {
-        add({ kind: 'sabotage-removed', subject: entry.id, where: config.sabotage, detail: `removed with the code it breaks and its promise ${entry.promise}`, promise: entry.promise });
+        add({ kind: 'sabotage-removed', subject: entry.id, where: config.sabotage, detail: `removed with the code it breaks and its promise ${shown(promise)}`, promise });
       }
     }
   }
@@ -655,6 +666,10 @@ function existed(snap: Snapshot, key: string): boolean {
   return snap.rows.has(key) || snap.invariants.has(key) || snap.findings.has(key);
 }
 
+function label(anchor: Anchor): string {
+  return anchor.type === 'row' ? shown(anchor.key) : anchor.raw;
+}
+
 function anchorProblem(anchor: Anchor, ctx: AnchorContext): string | null {
   const { before, after } = ctx;
   if (anchor.type === 'approves') return null;
@@ -663,8 +678,8 @@ function anchorProblem(anchor: Anchor, ctx: AnchorContext): string | null {
     const a = pick(before).get(anchor.key);
     const b = pick(after).get(anchor.key);
     const where = anchor.type === 'invariant' ? ctx.config.specs.join(', ') : 'the names of the tests';
-    if (!a && !b) return `the anchor '${anchor.raw}' does not exist in ${where}`;
-    if (same(a, b)) return `the anchor '${anchor.raw}' exists, but this change does not add, reword or remove it`;
+    if (!a && !b) return `the anchor '${label(anchor)}' does not exist in ${where}`;
+    if (same(a, b)) return `the anchor '${label(anchor)}' exists, but this change does not add, reword or remove it`;
     return null;
   }
   if (anchor.type === 'ruling') return after.rulings.has(anchor.key) ? null : `the anchor '${anchor.raw}' is not a ruling of ${ctx.config.rulings} ('## ${anchor.key}. ...' is not there)`;
@@ -701,10 +716,10 @@ function fitsWeakening(record: Record, w: Weakening): string[] {
   if (w.kind === 'test-removed' && w.testId !== undefined) {
     const named = namedIn(w.testId);
     const strong = anchors.filter((a) => a.type === 'ruling' || a.type === 'runes' || named.has(a.key));
-    if (strong.length === 0) return [`the test's name names ${named.size ? [...named].join(', ') : 'no row, invariant or finding'}, and the record anchors ${anchors.map((a) => a.raw).join('; ') || 'nothing'}`];
+    if (strong.length === 0) return [`the test's name names ${named.size ? [...named].map(shown).join(', ') : 'no test number, invariant or finding'}, and the record anchors ${anchors.map(label).join('; ') || 'nothing'}`];
   }
   if (w.kind === 'sabotage-removed' && w.promise && !anchors.some((a) => a.key === w.promise)) {
-    return [`the entry's promise is ${w.promise}, and the record anchors ${anchors.map((a) => a.raw).join('; ') || 'nothing'}`];
+    return [`the entry's promise is ${shown(w.promise)}, and the record anchors ${anchors.map(label).join('; ') || 'nothing'}`];
   }
   return [];
 }
