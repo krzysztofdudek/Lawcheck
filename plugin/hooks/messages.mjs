@@ -16,7 +16,7 @@ export function primeNotRun(cmd, reason, install) {
 }
 
 export function noReviewer(cmd) {
-  return `Lawcheck: this repository has a reviewer rule, and .lawcheck/config.yaml sets no reviewer, so a plain ${cmd} check and CI fail on every file a reviewer rule judges. Setting reviewer.provider and reviewer.model there is the user's decision; lawcheck docs providers lists the choices.`;
+  return `Lawcheck: this repository has a reviewer rule, and .lawcheck/config.yaml sets no reviewer, so a plain ${cmd} check and CI fail on every file a reviewer rule judges. Setting reviewer.provider and reviewer.model there is the user's decision; ${cmd} docs providers lists the choices.`;
 }
 
 export function editLate(command, seconds) {
@@ -63,10 +63,11 @@ export function stillFails(cmd) {
   return `Lawcheck: the turn ended while the check of its files still fails. ${cmd} check shows why.`;
 }
 
-export function turnMessage(waivers, law) {
+export function turnMessage(waivers, law, gone) {
   const parts = [];
   if (waivers.count > 0) parts.push(`added ${waivers.count === 1 ? '1 waiver' : `${waivers.count} waivers`} (${waivers.named})`);
   if (law !== null) parts.push(`changed ${law}`);
+  if (gone !== null) parts.push(`deleted ${gone}`);
   if (parts.length === 0) return null;
   return `Lawcheck: in this turn the agent ${parts.join(' and ')}. Read them before you accept the turn.`;
 }

@@ -3,8 +3,8 @@ import { realpathSync, statSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fit } from './fit.mjs';
 import { nameOf } from './names.mjs';
-import { snapshot, turnPaths } from './snapshot.mjs';
-import { blank, deleteState, readState, removeOld, stateFile, writeState } from './state.mjs';
+import { changedInTurn, isRegular, snapshot } from './snapshot.mjs';
+import { blank, readState, removeOld, stateFile, writeState } from './state.mjs';
 import { marksAtStart, turnChanges, turnMessage } from './turn.mjs';
 import * as say from './messages.mjs';
 import { absolutePath, cutPoints, Deadline, DEADLINES, findRoot, firstLine, killCurrent, NO_CURRENT_FOLDER, plainText, runLawcheck, runnerAt } from './start.mjs';
@@ -65,7 +65,9 @@ async function sessionStart(input, deadline) {
   const file = stateFile(input.session_id);
   const state = readState(file) ?? blank(root, null);
   if (state.reviewer_told === true) return primed;
-  writeState(file, { ...state, reviewer_told: true });
+  try {
+    writeState(file, { ...state, reviewer_told: true });
+  } catch {}
   return { ...primed, systemMessage: say.noReviewer(runner.cmd) };
 }
 
@@ -86,7 +88,7 @@ async function prompt(input, deadline) {
   } else {
     const shot = snapshot(root, deadline);
     if ('problem' in shot) {
-      deleteState(file);
+      writeState(file, state);
       return null;
     }
     state.open = true;
@@ -131,15 +133,20 @@ async function edit(input, deadline) {
   }
   const file = stateFile(input.session_id);
   const saved = readState(file);
+  const errors = saved !== null && saved.last_error !== null && typeof saved.last_error === 'object' && !Array.isArray(saved.last_error) ? saved.last_error : {};
   if (result.code !== 2) {
-    if (saved !== null && typeof saved.last_error === 'string') writeState(file, { ...saved, last_error: null });
+    if (Object.hasOwn(errors, root)) {
+      const rest = { ...errors };
+      delete rest[root];
+      writeState(file, { ...saved, last_error: rest });
+    }
     return result.code === 1 ? done(fit(say.editBreaks(rel, command), result.output)) : null;
   }
   if (file !== null) {
     const state = saved ?? blank(root, promptOf(input));
     const h = hash(result.output);
-    if (state.last_error === h) return null;
-    writeState(file, { ...state, last_error: h });
+    if (errors[root] === h) return null;
+    writeState(file, { ...state, last_error: { ...errors, [root]: h } });
   }
   return done(fit(say.editError(command), result.output));
 }
@@ -157,10 +164,25 @@ function notice(file, root, input, text) {
   return { systemMessage: text };
 }
 
+function lawDeleted(input) {
+  const file = stateFile(input.session_id);
+  const saved = readState(file);
+  if (saved === null || saved.open !== true || typeof saved.root !== 'string') return null;
+  let here;
+  try {
+    here = realpathSync(startDir(input));
+  } catch {
+    return null;
+  }
+  if (here !== saved.root && !here.startsWith(saved.root.endsWith(sep) ? saved.root : saved.root + sep)) return null;
+  writeState(file, { ...saved, open: false });
+  return { systemMessage: turnMessage({ waivers: [], law: [], gone: ['.lawcheck/law.yaml'] }) };
+}
+
 async function stop(input, deadline) {
   if (!switchOn('CLAUDE_PLUGIN_OPTION_CHECK_BEFORE_STOP')) return null;
   const root = findRoot(startDir(input));
-  if (root === null) return null;
+  if (root === null) return lawDeleted(input);
   const runner = runnerAt(root);
   if ('bad' in runner) return null;
   const writing = (Array.isArray(input.background_tasks) ? input.background_tasks : []).find((task) => task?.status === 'running' && WRITERS.includes(task?.type));
@@ -180,13 +202,14 @@ async function stop(input, deadline) {
   };
 
   const now = snapshot(root, deadline);
-  const paths = 'problem' in now ? now : turnPaths(root, state === null ? null : { head: state.head, files: state.files }, now, state?.started ?? 0, deadline);
-  if ('problem' in paths) {
+  const changed = 'problem' in now ? now : changedInTurn(root, state === null ? null : { head: state.head, files: state.files }, now, state?.started ?? 0, deadline);
+  if ('problem' in changed) {
     finish(null);
-    return notice(file, root, input, say.gitFailed(paths.problem));
+    return notice(file, root, input, say.gitFailed(changed.problem));
   }
-  if (paths.length === 0) return finish(null);
-  const withTurn = (output) => joined(output, state === null ? null : turnMessage(turnChanges(root, state, paths, deadline)));
+  const paths = changed.filter((path) => isRegular(root, path));
+  const withTurn = (output) => joined(output, state === null ? null : turnMessage(turnChanges(root, state, changed, deadline)));
+  if (paths.length === 0) return finish(withTurn(null));
   if (paths.length > MOST_FILES) {
     return finish(withTurn({ systemMessage: say.tooManyFiles(paths.length, MOST_FILES, runner.cmd) }));
   }
@@ -199,7 +222,7 @@ async function stop(input, deadline) {
   let header;
   if (result.code === 1) {
     header = say.stopBreaks(runner.cmd);
-  } else if (paths.some((path) => path.startsWith('.lawcheck/'))) {
+  } else if (changed.some((path) => path.startsWith('.lawcheck/'))) {
     header = say.stopLawError(runner.cmd);
   } else {
     finish(null);
