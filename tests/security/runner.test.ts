@@ -279,3 +279,22 @@ test('test 771: a rule that listens on a port, sends over UDP, opens a WebSocket
     at.close();
   }
 });
+
+test('test 772: a rule that binds, listens or connects through the class of a raw TCP handle, or binds a net.BoundSocket where Node has one, is rule-crashed, and reaches no listener', async () => {
+  const at = await listening();
+  try {
+    const call = 'throws on src/core/discount.ts';
+    const tcp = "import { Socket } from 'node:net';\nimport { TLSSocket } from 'node:tls';\nconst TCP = new TLSSocket(null)._handle._parent.constructor;\n";
+    const routes = [
+      { route: 'a raw TCP handle that listens', rule: `${tcp}export function check() { const server = new TCP(1); return [{ message: 'bound ' + server.bind('127.0.0.1', 0) + ' listened ' + server.listen(1) }]; }\n`, refused: call },
+      { route: 'a raw TCP handle that connects and writes', rule: `${tcp}export async function check() { const handle = new TCP(0); const request = new TCP(0); await new Promise((done) => { request.oncomplete = () => new Socket({ handle }).write('sent', done); handle.connect(request, '127.0.0.1', ${at.tcp}); }); return [{ message: 'wrote' }]; }\n`, refused: call },
+      { route: 'the TLS handle, which passes bind to its TCP handle', rule: `${tcp}export function check() { return [{ message: 'bound ' + new TLSSocket(null)._handle.bind('127.0.0.1', 0) }]; }\n`, refused: call },
+    ];
+    if ('BoundSocket' in process.getBuiltinModule('node:net')) {
+      routes.push({ route: 'net.BoundSocket', rule: `import { BoundSocket } from 'node:net';\nexport function check() { new BoundSocket({ host: '127.0.0.1', port: 0 }); return [{ message: 'bound' }]; }\n`, refused: call });
+    }
+    await assertNoNetwork(routes, at.reached);
+  } finally {
+    at.close();
+  }
+});

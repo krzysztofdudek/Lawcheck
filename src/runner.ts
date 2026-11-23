@@ -24,24 +24,28 @@ process.send = undefined;
 // macOS adds __CF_USER_TEXT_ENCODING to every process it starts, even one started with an empty environment.
 for (const name of Object.keys(process.env)) delete process.env[name];
 
-// Node 24's permission model has no permission for the network, so every way a rule has to the network throws here, before the rule loads; on Node 25 and later, which refuse the network themselves, this gives the same refusal at the same moment as on Node 24. A rule reaches the class of a pipe through the handle of any pipe, its standard output among them, and that class binds, listens and connects by itself.
+// Node 24's permission model has no permission for the network; Node 25 and later refuse it themselves. Before the rule loads, the runner replaces with one refusal the functions of node:net, node:dgram and node:dns that reach the network, the globals and the export of node:http that open a connection, and the methods by which the classes of a TCP handle and of a pipe handle bind, listen and connect. A rule reaches those classes through the handle of a socket, as a TLS socket with no socket of its own makes one, and a pipe handle opens no network on its own, so its open stays for the runner's standard streams.
 function closeNetwork(): void {
   function closed(): never {
     throw Object.assign(new Error('the network is closed to script rules'), { code: 'ERR_ACCESS_DENIED', permission: 'Net' });
   }
   const shut = (target: object, names: string[]) => {
-    for (const name of names) Object.defineProperty(target, name, { value: closed });
+    for (const name of names) if (name in target) Object.defineProperty(target, name, { value: closed });
   };
   const net = process.getBuiltinModule('node:net');
-  shut(net, ['connect', 'createConnection', '_createServerHandle']);
+  const tls = new (process.getBuiltinModule('node:tls').TLSSocket)(null as never) as unknown as { _handle: { _parent: object }; destroy(): void };
+  shut(Object.getPrototypeOf(tls._handle._parent), ['open', 'bind', 'bind6', 'listen', 'connect', 'connect6']);
+  tls.destroy();
+  shut(Object.getPrototypeOf((process.stdout as unknown as { _handle: object })._handle), ['bind', 'listen', 'connect']);
+  shut(net, ['connect', 'createConnection', '_createServerHandle', 'BoundSocket', '_TransferredBoundSocket']);
   shut(net.Socket.prototype, ['connect']);
   shut(net.Server.prototype, ['listen', '_listen2']);
   for (const id of ['node:dgram', 'node:dns', 'node:dns/promises']) {
     const module = process.getBuiltinModule(id) as Record<string, unknown>;
     shut(module, Object.keys(module).filter((name) => typeof module[name] === 'function'));
   }
-  shut(globalThis, ['fetch', 'WebSocket', 'EventSource'].filter((name) => name in globalThis));
-  shut(Object.getPrototypeOf((process.stdout as unknown as { _handle: object })._handle), ['bind', 'listen', 'connect']);
+  shut(process.getBuiltinModule('node:http'), ['WebSocket']);
+  shut(globalThis, ['fetch', 'WebSocket', 'EventSource']);
   syncBuiltinESMExports();
 }
 closeNetwork();
