@@ -194,7 +194,7 @@ test('S7-13: the recipes of docs/ci.md turn --json into GitHub annotations and a
       write(dir, name, `set -e\n${script}\n`);
       return spawnSync('sh', [join(dir, name)], { cwd: work, env: { ...env, ...extra }, encoding: 'utf8' });
     };
-    const annotate = (...args: string[]) => shell(`${example('annotations-step')}\ncheck_and_annotate ${args.join(' ')}`);
+    const annotate = (...args: string[]) => shell(`${example('annotations-step')}\ncheck_and_annotate ${args.join(' ')}`, { GITHUB_WORKSPACE: work });
 
     const plain = annotate('--base', 'origin/main');
     assert.equal(plain.status, 1, plain.stdout + plain.stderr);
@@ -217,9 +217,9 @@ test('S7-13: the recipes of docs/ci.md turn --json into GitHub annotations and a
     const escaped = spawnSync(process.execPath, ['.github/lawcheck-annotations.mjs'], {
       cwd: work,
       encoding: 'utf8',
-      input: JSON.stringify({ findings: [{ code: 'x', blocking: true, debt: false, file: 'a,b:c%d\ne.ts', line: 3, message: '50% of line1\nline2' }, { code: 'y', blocking: true, debt: false, file: 'whole.ts', message: 'whole file' }] }),
+      input: JSON.stringify({ findings: [{ code: 'x,y:z', blocking: true, debt: false, file: 'a,b:c%d\ne.ts', line: 3, message: '50% of line1\r\nline2' }, { code: 'y', blocking: true, debt: false, file: 'whole.ts', message: 'whole file' }] }),
     });
-    assert.equal(escaped.stdout, '::error title=x,file=a%2Cb%3Ac%25d%0Ae.ts,line=3::50%25 of line1%0Aline2\n::error title=y,file=whole.ts::whole file\n', 'the characters of a workflow command are escaped, and a finding of a whole file has no line');
+    assert.equal(escaped.stdout, '::error title=x%2Cy%3Az,file=a%2Cb%3Ac%25d%0Ae.ts,line=3::50%25 of line1%0D%0Aline2\n::error title=y,file=whole.ts::whole file\n', 'the characters of a workflow command are escaped, and a finding of a whole file has no line');
 
     const job = (parse(example('gitlab-code-quality-job')) as { 'lawcheck-quality': { script: string[]; artifacts: { when: string; reports: { codequality: string } } } })['lawcheck-quality'];
     assert.equal(job.artifacts.when, 'always');
@@ -234,6 +234,28 @@ test('S7-13: the recipes of docs/ci.md turn --json into GitHub annotations and a
       ],
     );
     assert.equal(new Set(report.map((item) => item.fingerprint)).size, report.length, 'every fingerprint is its own');
+
+    const debt = { code: 'no-todo', blocking: false, debt: true, file: 'src/core/old.ts', message: 'TODO without an issue number' };
+    const quality = spawnSync(process.execPath, ['scripts/lawcheck-code-quality.mjs'], { cwd: work, encoding: 'utf8', input: JSON.stringify({ findings: [{ ...debt, line: 1 }, { ...debt, line: 2 }, { ...debt, message: 'another' }, debt] }) });
+    const entries = JSON.parse(quality.stdout) as { fingerprint: string; severity: string; location: { lines: { begin: number } } }[];
+    assert.deepEqual(entries.map((entry) => [entry.severity, entry.location.lines.begin]), [['info', 1], ['info', 2], ['info', 1], ['info', 1]], 'debt is info, and a finding of the whole file is on line 1');
+    assert.equal(new Set(entries.map((entry) => entry.fingerprint)).size, 4, 'findings of one rule in one file differ by line and by message');
+  });
+  await inTemp(async (dir) => {
+    const repo = newRepository(dir, { '.gitignore': 'node_modules/\n', 'pkg/.lawcheck/law.yaml': ANNOTATED_LAW, 'pkg/.lawcheck/rules/no-console.mjs': NO_CONSOLE, 'pkg/.lawcheck/rules/no-todo.mjs': NO_TODO });
+    git(repo, 'checkout', '-q', '-b', 'work');
+    write(repo, 'pkg/src/core/total.ts', 'console.log(1);\n');
+    write(repo, '.github/lawcheck-annotations.mjs', example('annotations-script') + '\n');
+    write(repo, 'scripts/lawcheck-code-quality.mjs', example('code-quality-script') + '\n');
+    const pkg = join(repo, 'pkg');
+    standIn(pkg);
+    write(dir, 'step.sh', `set -e\n${example('annotations-step')}\ncheck_and_annotate --base main\n`);
+    const step = spawnSync('sh', [join(dir, 'step.sh')], { cwd: pkg, env: { ...GIT_ENV, GITHUB_WORKSPACE: repo }, encoding: 'utf8' });
+    assert.equal(step.status, 1, step.stdout + step.stderr);
+    assert.ok(step.stdout.startsWith('::error title=no-console,file=pkg/src/core/total.ts,line=1::'), `the step of a law below the top names the file from the top: ${step.stdout}`);
+    const json = (await lawcheck(pkg, ['check', '--json', '--base', 'main'])).stdout;
+    const quality = spawnSync(process.execPath, [join(repo, 'scripts/lawcheck-code-quality.mjs')], { cwd: pkg, encoding: 'utf8', input: json });
+    assert.equal((JSON.parse(quality.stdout) as { location: { path: string } }[])[0]!.location.path, 'pkg/src/core/total.ts', 'the GitLab report names the file from the top');
   });
   await inTemp(async (dir) => {
     const repo = newRepository(dir, { '.lawcheck/law.yaml': ANNOTATED_LAW.replace('rules: [no-console, no-todo]', 'rules: [no-todo]'), '.lawcheck/rules/no-console.mjs': NO_CONSOLE, '.lawcheck/rules/no-todo.mjs': NO_TODO, 'src/core/old.ts': todo('old') });

@@ -272,9 +272,9 @@ Keep the workflow on `pull_request`. The event `pull_request_target` runs in the
 
 When the change touches a file that a reviewer rule binds, the job fails with `not-reviewed`. A contributor without the key of the provider cannot record the review: `lawcheck check --review` needs it. The contributor can leave the pull request failing and say so. A maintainer then records the reviews:
 
-1. Fetch the branch and read the change.
+1. Fetch the branch and read the change, `package.json` and the lockfile included. The check of step 2 gives the reviewer's key to the Lawcheck that they install.
 2. On a machine where you would run the tests of the pull request, run `lawcheck check --review --base origin/main`. The check runs the script rules of the fork.
-3. Push `.lawcheck/verdicts` and `.lawcheck/.gitattributes` to the contributor's branch. GitHub allows that when the contributor lets maintainers edit the pull request.
+3. Commit `.lawcheck/verdicts` and `.lawcheck/.gitattributes`, and push the commit to the contributor's branch. GitHub allows that when the contributor lets maintainers edit the pull request.
 
 A contributor who has the key records the reviews as [Record the reviews before you push](#_1-record-the-reviews-before-you-push) shows.
 
@@ -290,20 +290,22 @@ A job that passes prints its warnings in its log, and nowhere else. A warning le
 
 ### 1. Annotate on GitHub
 
-Save this script as `.github/lawcheck-annotations.mjs`. It prints one workflow command for each finding: `error` for a finding that blocks, `warning` for the other findings of the change, and `notice` for debt. It also prints the `next:` line, which the JSON text output no longer shows.
+Save this script as `.github/lawcheck-annotations.mjs`. It prints one workflow command for each finding: `error` for a finding that blocks, `warning` for the other findings of the change, and `notice` for debt. It also prints the `next:` line, because `--json` replaces the text output that holds it. GitHub places an annotation by its path from the top of the repository, and the JSON gives each path from the folder that holds `.lawcheck`. The script asks git for that folder, so the annotations land on the right lines when the law sits below the top.
 
 <!-- example: annotations-script -->
 ```js
+import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 
 const data = (text) => String(text).replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A');
 const property = (text) => data(text).replace(/:/g, '%3A').replace(/,/g, '%2C');
+const folder = execFileSync('git', ['rev-parse', '--show-prefix'], { encoding: 'utf8' }).replace(/\n$/, '');
 
 const document = JSON.parse(readFileSync(0, 'utf8'));
 for (const item of document.findings ?? document.errors ?? []) {
   const level = item.blocking === false ? (item.debt ? 'notice' : 'warning') : 'error';
   const properties = [`title=${property(item.code)}`];
-  if (item.file) properties.push(`file=${property(item.file)}`);
+  if (item.file) properties.push(`file=${property(folder + item.file)}`);
   if (item.line) properties.push(`line=${item.line}`);
   console.log(`::${level} ${properties.join(',')}::${data(item.message)}`);
 }
@@ -318,7 +320,7 @@ check_and_annotate() {
   report=$(mktemp)
   status=0
   npx --no-install lawcheck check "$@" --json > "$report" || status=$?
-  node .github/lawcheck-annotations.mjs < "$report"
+  node "$GITHUB_WORKSPACE/.github/lawcheck-annotations.mjs" < "$report"
   return "$status"
 }
 ```
@@ -327,20 +329,22 @@ The function writes the JSON outside the checkout, so the report is not a change
 
 ### 2. Report code quality on GitLab
 
-Save this script as `scripts/lawcheck-code-quality.mjs`. It writes the format of a GitLab code quality report: one entry for each finding, with a fingerprint that GitLab needs to tell findings apart. A finding for the whole file gets line 1.
+Save this script as `scripts/lawcheck-code-quality.mjs`. It writes the format of a GitLab code quality report: one entry for each finding, with a fingerprint that GitLab needs to tell findings apart. A finding for the whole file gets line 1. Like the script for GitHub, it names each file from the top of the repository.
 
 <!-- example: code-quality-script -->
 ```js
+import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 
+const folder = execFileSync('git', ['rev-parse', '--show-prefix'], { encoding: 'utf8' }).replace(/\n$/, '');
 const document = JSON.parse(readFileSync(0, 'utf8'));
 const report = (document.findings ?? []).map((finding) => ({
   description: `${finding.code}: ${finding.message}`,
   check_name: finding.code,
   fingerprint: createHash('sha256').update(JSON.stringify([finding.code, finding.file, finding.line ?? null, finding.message])).digest('hex'),
   severity: finding.blocking ? 'critical' : finding.debt ? 'info' : 'minor',
-  location: { path: finding.file, lines: { begin: finding.line ?? 1 } },
+  location: { path: folder + finding.file, lines: { begin: finding.line ?? 1 } },
 }));
 console.log(JSON.stringify(report, null, 2));
 ```
