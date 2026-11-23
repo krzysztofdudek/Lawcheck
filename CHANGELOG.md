@@ -2,6 +2,10 @@
 
 Lawcheck follows [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+A script rule can read the syntax tree and the uses of its file. `await file.tree()` gives the tree that the grammar of the file's language parses, with each node's type, field, place in the text, line, column and children. `await file.uses()` gives the uses that `may_use` judges, each with the file it reaches and that file's type. Lawcheck reads either one only when the rule asks, so a rule that asks for neither costs what it cost in alpha.4. A file over 512 KiB, a language with no reader and a reader that fails give the rule an `absent` reason instead of an error of the run. The grammars are those of Runes 1.2.0, the same as in alpha.4. `lawcheck docs script-rules` lists each grammar's version and says what a new grammar may change.
+
 ## [0.1.0-alpha.4] - 2026-11-23
 
 A script rule that uses the network now gets an error from the call itself, on every Node. On Node 24, alpha.3 let the call through. On Node 25 and later, alpha.3 passed Node's refusal to the callback, the `error` event or the promise, so a rule that handled the refusal there passed. The rule runner of alpha.4 closes the network before the rule loads. A rule that connects, listens on a port, sends over UDP, looks up a name in DNS or calls `fetch` gets the error. A rule that does not catch it is `rule-crashed`, with the message `uses the network, which is closed to script rules`.
