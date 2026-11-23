@@ -781,3 +781,50 @@ test('R-122: the uses of a file are read once in a run, however many rules ask f
   ]);
   assert.deepEqual(extracted.sort(), ['domain/a.py', 'domain/b.py', 'domain/c.py', 'j/A.java', 'j/B.java']);
 });
+
+test('R-125: the reads of a run take turns, so each parse runs under the step that names its own file and the rule that asked for it', async () => {
+  const buffer = progressBuffer();
+  attach(buffer);
+  const seen: string[] = [];
+  const { runes } = fake({});
+  const waiting = {
+    ...runes,
+    createHost: () => {
+      const host = runes.createHost();
+      return {
+        ...host,
+        withParsedFile: async (path: string, content: string, fn: (tree: unknown) => unknown) => {
+          await new Promise((done) => setImmediate(done));
+          seen.push(`${path} under ${lastStep(buffer).what}`);
+          return host.withParsedFile(path, content, fn);
+        },
+      };
+    },
+  };
+  const files = ['a.py', 'b.py'];
+  const reads = ruleReads({ root: '/nowhere', files, bytes: () => enc.encode(''), ownerOf: () => 'owner', typeOf: () => null }, waiting);
+  const file = (path: string) => ({ path, text: '' });
+  await Promise.all([reads([file('a.py')], 'the script rule one')('tree', file('a.py')), reads([file('b.py')], 'the script rule two')('uses', file('b.py'))]);
+  assert.deepEqual(seen.sort(), ['a.py under reading the tree of a.py for the script rule one', 'b.py under reading the uses of b.py for the script rule two']);
+});
+
+test('R-126: a use that reaches a file that cannot be read fails only the file that holds it, so every rule gets for any other file the uses that file gets alone, whichever rule asks first', async () => {
+  const use = (line: number, specifier: string) => ({ line, candidates: [{ kind: 'path', specifier } as Hint] });
+  const classifyUse = (_candidates: Hint[], from: string): Kind => {
+    if (from === 'domain/y.py') throw new Unreadable('domain/z.py', 'EACCES');
+    return { kind: 'resolved', owner: 'app', resolvedFile: 'app/w.py' };
+  };
+  const { runes } = fake({ uses: { 'domain/x.py': [use(1, 'app')], 'domain/y.py': [use(1, 'z')] }, classifyUse });
+  const files = ['app/w.py', 'domain/x.py', 'domain/y.py', 'domain/z.py'];
+  const file = (path: string) => ({ path, text: '' });
+  const reached = { uses: [{ line: 1, kind: 'file', file: 'app/w.py', type: 'app' }], absent: null };
+  const failed = { uses: null, absent: 'reader-failed' };
+  for (const first of ['both', 'alone']) {
+    const reads = ruleReads({ root: '/nowhere', files, bytes: () => enc.encode(''), ownerOf: () => 'owner', typeOf: (path) => (path.startsWith('app/') ? 'app' : null) }, runes);
+    const both = reads([file('domain/x.py'), file('domain/y.py')]);
+    const alone = reads([file('domain/x.py')]);
+    const asked = first === 'both' ? [both('uses', file('domain/x.py')), alone('uses', file('domain/x.py'))] : [alone('uses', file('domain/x.py')), both('uses', file('domain/x.py'))];
+    const [fromFirst, fromSecond] = await Promise.all(asked);
+    assert.deepEqual([first, fromFirst, fromSecond, await both('uses', file('domain/y.py'))], [first, reached, reached, failed]);
+  }
+});
