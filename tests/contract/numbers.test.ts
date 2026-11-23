@@ -37,3 +37,16 @@ test('question 95: every key of SLOW_TESTS names a test that exists, and every s
     }
   }
 });
+
+const OUTLIERS: [finding: string, key: string, system: numbers.System, ms: number, run: string][] = [
+  ['R-73', 'tests/acceptance/rules.test.ts > test 26: the runner stops writes, programs, workers and reads outside', 'win32', 25_351, 'Nightly 43809304091, round 1'],
+  ['R-78', 'tests/limits/reviews.test.ts > test 242: S3-8, a review whose .lawcheck/.local cannot be written fails before the first call', 'win32', 23_659, 'Nightly 43838961244, round 1'],
+  ['R-95', 'tests/acceptance/program-providers.test.ts > test 406: codex', 'linux', 9_000, 'a Linux commit job'],
+];
+
+test('R-73, R-78, R-95: test 26 and test 242 on Windows and test 406 on Linux have budgets that hold the times that went past the default 20 seconds or close to it in CI', () => {
+  for (const [finding, key, system, ms, run] of OUTLIERS) {
+    const budget = numbers.slowBudget(key, system);
+    assert.ok(budget !== null && budget >= ms, `${finding}: ${key} took ${ms} ms on ${system} in ${run}, and its budget there is ${budget ?? numbers.TEST_BUDGET_MS} ms`);
+  }
+});
