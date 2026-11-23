@@ -25,7 +25,7 @@ footer:
   npm: npm
   author: Made by Krzysztof Dudek
 notFound:
-  heading: This address is not on lawcheck.dev.
+  heading: There is no page at this address.
   text: The documentation is at docs.lawcheck.dev.
   docs: { text: Documentation, page: index }
   home: Lawcheck home

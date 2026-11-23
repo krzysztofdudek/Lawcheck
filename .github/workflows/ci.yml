@@ -362,6 +362,8 @@ jobs:
             exit 1
           fi
           echo "docs site: PASS  all $pages pages name '$version'"
+      - name: Every page names the card
+        run: node site/check-docs-card.mjs site/.vitepress/dist site/landing/public/og.png
 
   # The landing page of site/landing as Vercel would serve it; the build fails when a part it pulls from README.md or docs/ is gone. Nothing deploys from here.
   landing:

@@ -1,0 +1,75 @@
+name: Landing
+
+# Deploys the landing page of site/landing to Vercel after a green Release run, from the commit that run released, or by hand from the dispatched ref: a manual run is a preview unless its production input is set.
+# The build runs the site's dependencies with a read-only token and no secret. The deploy job holds the Vercel token, runs no code of the repository, and runs one command on the built folder.
+# The vercel environment lets only main deploy, so a manual run of another ref builds and is then refused. A run started by workflow_run runs on main, and it builds the released commit.
+# The project lawcheck on Vercel is not connected to the repository by Git, so nothing deploys on a push. vercel.json sits in the built folder, so the redirects and headers are in the repository.
+on:
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      production:
+        description: Deploy to lawcheck.dev. Left off, the run is a preview at an address of vercel.app.
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vercel
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: build the landing page
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+      - run: npm --prefix site ci
+      - run: npm --prefix site run build:landing
+      - run: node site/landing/check.mjs site/landing/.vitepress/dist package.json
+      - uses: actions/upload-artifact@v7
+        with:
+          name: landing
+          path: site/landing/.vitepress/dist
+          if-no-files-found: error
+
+  deploy:
+    name: deploy to Vercel
+    needs: build
+    runs-on: ubuntu-latest
+    environment: vercel
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: landing
+          path: landing
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Production
+        if: github.event_name == 'workflow_run' || inputs.production
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+        run: npx --yes vercel@66.6.0 deploy landing --prod --yes
+      - name: Preview
+        if: github.event_name == 'workflow_dispatch' && !inputs.production
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+        run: npx --yes vercel@66.6.0 deploy landing --yes
