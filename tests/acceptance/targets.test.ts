@@ -45,11 +45,38 @@ test('dependency-slice §3.5: targets are counted by type, so a partial class sp
       const domain = document.findings.filter((f: any) => f.file === 'cs/domain/Order.cs');
       assert.deepEqual(
         domain.map((f: any) => `${f.file}:${f.line}  ${f.severity}[${f.code}]  ${f.message}`),
-        ['cs/domain/Order.cs:5  error[forbidden-use]  domain may not use app (cs/app/Clock.A.cs); its may_use is [domain]'],
+        [
+          'cs/domain/Order.cs:5  error[forbidden-use]  domain may not use app (cs/app/Clock.A.cs); its may_use is [domain]',
+          'cs/domain/Order.cs:5  error[forbidden-use]  domain may not use Shop.Domain.Order+Ledger, which names one of cs/app/Ledger.cs (app) and cs/infra/Ledger.cs (infra); its may_use is [domain]',
+        ],
       );
       assert.deepEqual(
         document.unresolved.filter((u: any) => u.file === 'cs/domain/Order.cs').map((u: any) => `${u.line}  ${u.answer}  ${u.what}  [${u.candidates.join(', ')}]`),
         ['5  ambiguous  Shop.Domain.Order+Ledger  [cs/app/Ledger.cs, cs/infra/Ledger.cs]'],
+      );
+      assert.equal(run.code, 1);
+    },
+  );
+});
+
+test('S4-4: a use that names one of two files, of two types the list forbids, is a forbidden-use and stays an unresolved use; with one allowed type among them it is no finding', async () => {
+  await inRepo(
+    {
+      'cs/app/Ledger.cs': 'namespace Shop.App;\n\npublic partial class Ledger {}\n',
+      'cs/infra/Ledger.cs': 'namespace Shop.App;\n\npublic partial class Ledger { public int Rows; }\n',
+      'cs/domain/Order.cs': 'using Shop.App;\n\nnamespace Shop.Domain;\n\npublic class Order { public Ledger L; }\n',
+      'cs/app/Book.cs': 'namespace Shop.App;\n\npublic class Book { public Ledger L; }\n',
+    },
+    async (repo) => {
+      const run = await lawcheck(repo, ['check', '--json']);
+      const document = JSON.parse(run.stdout);
+      assert.deepEqual(
+        document.findings.map((f: any) => `${f.file}:${f.line}  ${f.severity}[${f.code}]  ${f.message}`),
+        ['cs/domain/Order.cs:5  error[forbidden-use]  domain may not use Shop.Domain.Order+Ledger, which names one of cs/app/Ledger.cs (app) and cs/infra/Ledger.cs (infra); its may_use is [domain]'],
+      );
+      assert.deepEqual(
+        document.unresolved.map((u: any) => `${u.file}:${u.line}  ${u.answer}  [${u.candidates.join(', ')}]`),
+        ['cs/app/Book.cs:3  ambiguous  [cs/app/Ledger.cs, cs/infra/Ledger.cs]', 'cs/domain/Order.cs:5  ambiguous  [cs/app/Ledger.cs, cs/infra/Ledger.cs]'],
       );
       assert.equal(run.code, 1);
     },

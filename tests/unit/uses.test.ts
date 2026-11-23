@@ -87,6 +87,41 @@ test('dependency-slice §3.5: each answer of section 3.5', () => {
   ]);
 });
 
+test('S4-4: an ambiguous use whose every candidate the list forbids is a forbidden-use; one with an allowed, a binary or its own file among them is not, and every one stays unresolved', () => {
+  const byId = types();
+  const command = { kind: 'typed', type: byId.get('command')! };
+  const targets: Record<string, any> = {
+    'src/cli/a.ts': command,
+    'src/cli/b.ts': command,
+    'src/cli/c.ts': command,
+    'src/cli/d.ts': command,
+    'lib/c.ts': { kind: 'untyped' },
+    'src/core/d.ts': { kind: 'typed', type: byId.get('library')! },
+    'src/core/e.png': { kind: 'binary' },
+  };
+  const ambiguous = (line: number, what: string, candidates: string[]) => ({ line, answer: { kind: 'ambiguous' as const, what, candidates } });
+  const judged = judgeUses(
+    'src/core/x.ts',
+    byId.get('library')!,
+    [
+      ambiguous(1, 'A.B', ['src/cli/a.ts', 'lib/c.ts']),
+      ambiguous(2, 'A.C', ['src/cli/a.ts', 'src/core/d.ts']),
+      ambiguous(3, 'A.D', ['src/cli/a.ts', 'src/core/e.png']),
+      ambiguous(4, 'A.E', ['src/core/x.ts', 'src/cli/a.ts']),
+      ambiguous(5, 'A.F', ['src/cli/a.ts', 'src/cli/b.ts', 'src/cli/c.ts', 'src/cli/d.ts', 'lib/c.ts']),
+      ambiguous(5, 'A.F', ['src/cli/a.ts', 'src/cli/b.ts', 'src/cli/c.ts', 'src/cli/d.ts', 'lib/c.ts']),
+    ],
+    (file) => targets[file],
+  );
+  assert.deepEqual(judged.forbidden, [
+    { file: 'src/core/x.ts', line: 1, message: 'library may not use A.B, which names one of src/cli/a.ts (command) and lib/c.ts (no type); it takes may_use [library] from source' },
+    { file: 'src/core/x.ts', line: 5, message: 'library may not use A.F, which names one of src/cli/a.ts (command), src/cli/b.ts (command), src/cli/c.ts (command) and 2 more; it takes may_use [library] from source' },
+  ]);
+  assert.deepEqual(judged.unresolved.map((u) => u.line), [1, 2, 3, 4, 5, 5]);
+  const free = judgeUses('free/x.ts', byId.get('free')!, [ambiguous(1, 'A.B', ['src/cli/a.ts', 'lib/c.ts'])], (file) => targets[file]);
+  assert.deepEqual(free, { forbidden: [], unresolved: [] });
+});
+
 test('dependency-slice §5: the messages with a list of its own, and an empty one', () => {
   const byId = types();
   const target = (): any => ({ kind: 'untyped' });
