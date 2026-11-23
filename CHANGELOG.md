@@ -41,6 +41,8 @@ In the Claude Code plugin, a law error that the agent was shown once comes back 
 Every message the Claude Code plugin sends you, and every text it gives the agent after an edit or at the end of a turn, now starts with `Lawcheck:`. In alpha.4 some started with `lawcheck:`, as the tool's own output does, and one read `lawcheck: lawcheck check could not judge`. A hook that fails now prints `Lawcheck plugin:` before the cause. A reason that ends in a full stop no longer gets a second one, the text the agent gets says `... 1 more line not shown` for one line, and `lawcheck prime` says `1 more root type`.
 
 The npm package and the Claude Code plugin now include the MIT licence of cross-spawn, whose escaping of arguments for `cmd.exe` they use on Windows.
+
+The Lawcheck plugin now works in Codex CLI. `codex plugin marketplace add krzysztofdudek/Lawcheck` and `codex plugin add lawcheck@lawcheck-marketplace` install it, and Codex runs its hooks after you trust them in `/hooks`. The agent gets the law when a session starts, a check after each `apply_patch`, and up to three returns before it finishes, as in Claude Code. A file the agent writes through the shell gets no check after the edit, and the check before the end of the turn catches it. `LAWCHECK_PLUGIN_CHECK_AFTER_EDIT` and `LAWCHECK_PLUGIN_CHECK_BEFORE_STOP` switch the two checks off. In alpha.4 Codex got the law only through a line in its instructions file. `lawcheck docs codex-cli` has the steps.
 ### Before you upgrade
 
 `scope.law_changes` in `lawcheck check --json` no longer lists the waivers a change adds. A script that read them there reads the items of `waivers` whose `added` is true.
