@@ -75,7 +75,7 @@ Each node has these keys:
 
 A node of type `ERROR` holds text that the grammar cannot read. Where the text lacks a token, the parser can add a node whose `start` equals its `end`. A Vue or Svelte file gets the tree of its script blocks. Lawcheck parses that file with every character outside the blocks turned into a space, so `start` and `end` still point into `text`.
 
-The tree depends only on the file's path and text. A plain check and `--full` give a rule the same tree for the same file.
+The tree depends on the file's path and text. A header of C or C++ also depends on the other files of its folder, which decide its language ([Languages and uses](languages.md)). A plain check and `--full` give a rule the same tree for the same file.
 
 The tree is absent in three cases:
 
