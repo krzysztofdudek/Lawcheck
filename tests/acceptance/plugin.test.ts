@@ -298,7 +298,7 @@ test('S6-5: with a reviewer rule and no reviewer set, prime says so and the sess
     rmSync(join(r, '.lawcheck/config.yaml'));
     const primed = await lawcheck(r, ['prime']);
     assert.equal(primed.code, 0);
-    assert.ok(primed.stdout.includes('\n- not-reviewed: no reviewer is set in .lawcheck/config.yaml, so a plain lawcheck check and CI fail on every file a reviewer rule judges. Tell the user once; setting a reviewer is the user\'s decision.\n'), primed.stdout);
+    assert.ok(primed.stdout.includes('\n- not-reviewed: no reviewer is set in .lawcheck/config.yaml, so a plain lawcheck check and CI fail on every file a reviewer rule judges; tell the user once, since setting a reviewer is the user\'s decision.\n'), primed.stdout);
     const told = {
       ...started(primed.stdout.replace(/\n$/, '')),
       systemMessage: "Lawcheck: this repository has a reviewer rule, and .lawcheck/config.yaml sets no reviewer, so a plain lawcheck check and CI fail on every file a reviewer rule judges. Setting reviewer.provider and reviewer.model there is the user's decision; lawcheck docs providers lists the choices.",

@@ -124,7 +124,7 @@ test('commands-slice §4: the guard: type lines while they fit, then the rule li
 test('S6-5: with no reviewer set, the line on not-reviewed says so and leaves the setting to the user', () => {
   const unset = firstPart(true, false, false, true);
   assert.ok(unset.includes(`\n${NO_REVIEWER}\n`));
-  assert.equal(NO_REVIEWER, "- not-reviewed: no reviewer is set in .lawcheck/config.yaml, so a plain lawcheck check and CI fail on every file a reviewer rule judges. Tell the user once; setting a reviewer is the user's decision.");
+  assert.equal(NO_REVIEWER, "- not-reviewed: no reviewer is set in .lawcheck/config.yaml, so a plain lawcheck check and CI fail on every file a reviewer rule judges; tell the user once, since setting a reviewer is the user's decision.");
   assert.ok(!unset.includes('then run lawcheck check --review'));
   assert.equal(firstPart(false, false, false, true), FIRST_PART);
   assert.ok(primeText(law, kinds([]), 100000, '', true).text.includes(NO_REVIEWER));

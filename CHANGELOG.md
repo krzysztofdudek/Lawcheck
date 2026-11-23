@@ -32,7 +32,7 @@ The `git fetch` that the `next:` line of `base-unreachable` names now runs as on
 
 With a reviewer rule in the law and no reviewer in `.lawcheck/config.yaml`, `lawcheck prime` now tells the agent that a plain check and CI fail on every file the rule judges, and to tell you. The Claude Code plugin also sends you that message itself, once per session. In alpha.4 every hook stayed silent, the agent finished its turn, and the check in CI failed with `not-reviewed`.
 
-Six `next:` lines that told the agent to edit `.lawcheck/config.yaml` now tell it to ask you, since `lawcheck prime` leaves every edit of that file to you. They follow `config-invalid`, a reviewer that gives no answer within `reviewer.timeout`, a model the provider does not find, and in `lawcheck doctor` a model that answers the test call wrong and a `runner` whose program is not on the `PATH`.
+The `next:` lines that told the agent to edit `.lawcheck/config.yaml` now tell it to ask you, since `lawcheck prime` leaves every edit of that file to you. This holds for the line after `config-invalid`, after a reviewer that gives no answer in time, after a model the provider does not find, and in `lawcheck doctor` after a model that answers the test call wrong and after a `runner` whose program is not on the `PATH`.
 
 In the Claude Code plugin, a law error that the agent was shown once comes back after an edit that Lawcheck could check. In alpha.4, a law broken, fixed and broken again the same way within one prompt reached the agent only the first time.
 

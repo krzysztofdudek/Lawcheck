@@ -15,7 +15,7 @@ import { listInForce } from './uses.js';
 const PLAIN_PLAN = 'the file types and the rules each type keeps';
 const PLAN_WITH_USES = 'the file types, the rules each type keeps, and which types may use which';
 
-export const NO_REVIEWER = '- not-reviewed: no reviewer is set in .lawcheck/config.yaml, so a plain lawcheck check and CI fail on every file a reviewer rule judges. Tell the user once; setting a reviewer is the user\'s decision.';
+export const NO_REVIEWER = '- not-reviewed: no reviewer is set in .lawcheck/config.yaml, so a plain lawcheck check and CI fail on every file a reviewer rule judges; tell the user once, since setting a reviewer is the user\'s decision.';
 
 export function firstPart(reviewers: boolean, mayUse: boolean, folders = false, noReviewer = false): string {
   return [
