@@ -1,5 +1,9 @@
+import { createHash, randomBytes } from 'node:crypto';
+import { lstatSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, extname, join, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { version as lawcheckVersion } from './args.js';
+import { LOCAL } from './verdicts.js';
 import * as TreeSitter from 'web-tree-sitter';
 import { createParserHost, fileSha256 } from '@chrisdudek/runes/ast';
 import { getLanguageForExtension, primaryExtensionForLanguage, relationLanguageForPath } from '@chrisdudek/runes/grammars';
@@ -14,6 +18,7 @@ import {
   makeResolver,
   sfcScriptView,
   SymbolTable,
+  version as runesVersion,
 } from '@chrisdudek/runes/relations';
 import type { Classification, CsharpExtract, DetectedDep, FileView, ParsedFile, TargetHint } from '@chrisdudek/runes/relations';
 import { comparePaths } from './files.js';
@@ -49,6 +54,7 @@ export interface Host {
   getParser(extension: string): Promise<unknown>;
   withParsedFile<T>(filePath: string, content: string, fn: (tree: ParsedFile['tree']) => T | Promise<T>, language?: string): Promise<T>;
   newParser(): ReturnType<NonNullable<ParsedFile['newParser']>>;
+  grammarDigestForLanguage?(language: string): string | undefined;
 }
 
 export interface Runes {
@@ -60,6 +66,7 @@ export interface Runes {
   buildCsharpReachability: typeof buildCsharpReachability;
   makeResolver: typeof makeResolver;
   makeResolvePathToFile: typeof makeResolvePathToFile;
+  identity(): string;
 }
 
 export const GRAMMARS = join(dirname(fileURLToPath(new URL('../package.json', import.meta.url))), 'dist', 'grammars');
@@ -78,6 +85,7 @@ export const RUNES: Runes = {
   buildCsharpReachability,
   makeResolver,
   makeResolvePathToFile,
+  identity: () => JSON.stringify([lawcheckVersion(), runesVersion]),
 };
 
 export class Unreadable extends Error {
@@ -199,6 +207,155 @@ interface Parse {
   uses: boolean;
 }
 
+type GlobalFacts = { globalPrefixes: string[]; globalAliases: [string, string][]; globalStatics: string[] };
+
+// What a file of a name-binding group gives the run besides its own uses: the keys it declares and, in C#, its global usings.
+interface Declared {
+  keys: string[];
+  csharp: GlobalFacts | null;
+}
+
+const PACK_FORMAT = 'lawcheck-readers/1';
+
+const strings = (value: unknown): value is string[] => Array.isArray(value) && value.every((item) => typeof item === 'string');
+
+function declaredOf(value: unknown): Declared | null {
+  if (!Array.isArray(value) || value.length !== 2 || !strings(value[0])) return null;
+  if (value[1] === null) return { keys: value[0], csharp: null };
+  const facts = value[1] as unknown[];
+  if (!Array.isArray(facts) || facts.length !== 3 || !strings(facts[0]) || !strings(facts[2])) return null;
+  if (!Array.isArray(facts[1]) || !facts[1].every((pair) => Array.isArray(pair) && pair.length === 2 && strings(pair))) return null;
+  return { keys: value[0], csharp: { globalPrefixes: facts[0], globalAliases: facts[1] as [string, string][], globalStatics: facts[2] } };
+}
+
+const sha256 = (text: string) => createHash('sha256').update(text, 'utf8').digest('hex');
+
+// The cache of what each file of a group declares, one pack per group in .lawcheck/.local/readers. A pack is trusted only where git lists nothing under .lawcheck/.local and no folder on its way is a link or another repository, so no commit can plant one; an entry is found by a hash of everything its parse depends on, so a stale or foreign entry is never found. Any fault in reading or writing a pack only costs the parse.
+class DeclaredCache {
+  private readonly dir: string;
+  private readonly loaded = new Map<string, Map<string, Declared>>();
+  private readonly kept = new Map<string, Map<string, Declared>>();
+  private readonly missed = new Set<string>();
+  private readonly prefixes = new Map<string, string | null>();
+
+  private constructor(
+    private readonly root: string,
+    private readonly host: Host,
+    private readonly runes: Runes,
+  ) {
+    this.dir = join(root, LOCAL, 'readers');
+  }
+
+  static open(root: string, files: string[], host: Host, runes: Runes): DeclaredCache | null {
+    if (host.grammarDigestForLanguage === undefined) return null;
+    if (files.some((path) => path === LOCAL || path.startsWith(`${LOCAL}/`))) return null;
+    try {
+      for (const dir of ['.lawcheck', LOCAL, `${LOCAL}/readers`]) {
+        const stat = lstatSync(join(root, dir), { throwIfNoEntry: false });
+        if (stat === undefined) {
+          if (dir === '.lawcheck') return null;
+          break;
+        }
+        if (!stat.isDirectory() || lstatSync(join(root, dir, '.git'), { throwIfNoEntry: false }) !== undefined) return null;
+      }
+    } catch {
+      return null;
+    }
+    return new DeclaredCache(root, host, runes);
+  }
+
+  key(language: string, path: string, content: string): string | null {
+    let prefix = this.prefixes.get(language);
+    if (prefix === undefined) {
+      try {
+        const digest = this.host.grammarDigestForLanguage!(language);
+        const extractor = this.runes.extractorForLanguage(language);
+        prefix = digest === undefined || extractor === undefined ? null : JSON.stringify([PACK_FORMAT, this.runes.identity(), extractor.rev, digest, language]);
+      } catch {
+        prefix = null;
+      }
+      this.prefixes.set(language, prefix);
+    }
+    if (prefix === null) return null;
+    return createHash('sha256').update(prefix, 'utf8').update('\0').update(path, 'utf8').update('\0').update(content, 'utf8').digest('hex');
+  }
+
+  get(group: string, key: string): Declared | undefined {
+    const found = this.pack(group).get(key);
+    if (found !== undefined) this.keep(group, key, found);
+    return found;
+  }
+
+  put(group: string, key: string, declared: Declared): void {
+    if (!this.pack(group).has(key)) this.missed.add(group);
+    this.keep(group, key, declared);
+  }
+
+  private pack(group: string): Map<string, Declared> {
+    let pack = this.loaded.get(group);
+    if (pack === undefined) this.loaded.set(group, (pack = this.read(group)));
+    return pack;
+  }
+
+  private keep(group: string, key: string, declared: Declared): void {
+    let kept = this.kept.get(group);
+    if (kept === undefined) this.kept.set(group, (kept = new Map()));
+    kept.set(key, declared);
+  }
+
+  private read(group: string): Map<string, Declared> {
+    const out = new Map<string, Declared>();
+    try {
+      const path = join(this.dir, group);
+      if (!lstatSync(path).isFile()) return out;
+      const text = readFileSync(path, 'utf8');
+      const end = text.indexOf('\n');
+      if (end < 0 || text.slice(0, end) !== `${PACK_FORMAT} ${sha256(text.slice(end + 1))}`) return out;
+      const body = JSON.parse(text.slice(end + 1)) as unknown;
+      if (typeof body !== 'object' || body === null || Array.isArray(body)) return out;
+      for (const [key, value] of Object.entries(body)) {
+        const declared = declaredOf(value);
+        if (declared === null) return new Map();
+        out.set(key, declared);
+      }
+    } catch {
+      return new Map();
+    }
+    return out;
+  }
+
+  // A run that read every file keeps only its own entries, so a pack holds at most one entry for each file of its group; a run a reader failure stopped keeps the entries it did not reach as well.
+  write(complete: boolean): void {
+    for (const [group, kept] of this.kept) {
+      const loaded = this.loaded.get(group) ?? new Map<string, Declared>();
+      if (!this.missed.has(group) && (!complete || kept.size === loaded.size)) continue;
+      const entries = complete ? kept : new Map([...loaded, ...kept]);
+      const body = JSON.stringify(Object.fromEntries([...entries].map(([key, { keys, csharp }]) => [key, [keys, csharp === null ? null : [csharp.globalPrefixes, csharp.globalAliases, csharp.globalStatics]]])));
+      this.save(group, `${PACK_FORMAT} ${sha256(body)}\n${body}`);
+    }
+  }
+
+  private save(group: string, text: string): void {
+    const path = join(this.dir, group);
+    const temporary = join(this.dir, `.${group}.${process.pid}.${randomBytes(4).toString('hex')}.tmp`);
+    try {
+      mkdirSync(this.dir, { recursive: true });
+      const ignore = join(this.root, LOCAL, '.gitignore');
+      if (lstatSync(ignore, { throwIfNoEntry: false }) === undefined) writeFileSync(ignore, '*\n');
+      const existing = lstatSync(path, { throwIfNoEntry: false });
+      if (existing !== undefined && !existing.isFile()) return;
+      writeFileSync(temporary, text);
+      renameSync(temporary, path);
+    } catch {
+      try {
+        rmSync(temporary, { force: true });
+      } catch {
+        // A folder that refuses this removal refused the write too; the next run's pack replaces nothing of it.
+      }
+    }
+  }
+}
+
 async function readAll(input: ReadInput, runes: Runes, skipped: Skipped[]): Promise<Map<string, Use[]>> {
   const out = new Map<string, Use[]>();
   const parses = new Map<string, Parse>();
@@ -233,6 +390,8 @@ async function readAll(input: ReadInput, runes: Runes, skipped: Skipped[]): Prom
   const symbolTable = new SymbolTable();
   const detected = new Map<string, DetectedDep[]>();
   const csharp = new Map<string, CsharpExtract>();
+  const globals = new Map<string, GlobalFacts>();
+  const cache = groups.size > 0 ? DeclaredCache.open(input.root, input.files, host, runes) : null;
 
   for (const parse of [...parses.values()].sort((a, b) => comparePaths(a.path, b.path))) {
     step(parse.uses ? `reading the uses of ${parse.path}` : `reading what ${parse.path} declares`);
@@ -244,10 +403,19 @@ async function readAll(input: ReadInput, runes: Runes, skipped: Skipped[]): Prom
       if (parse.uses) out.delete(parse.path);
       continue;
     }
+    const group = GROUPS[language];
+    const key = cache !== null && parse.declarations && group !== undefined ? cache.key(language, parse.path, content) : null;
+    const known = key === null || parse.uses ? undefined : cache!.get(group!, key);
+    if (known !== undefined) {
+      for (const symbolKey of known.keys) symbolTable.declare(language, symbolKey, parse.path);
+      if (known.csharp !== null) globals.set(parse.path, known.csharp);
+      continue;
+    }
     if (!loaded.has(language)) {
       try {
         await host.getParser(primaryExtensionForLanguage(language) ?? '');
       } catch (error) {
+        cache?.write(false);
         throw new Stop({
           code: 'parser-failed',
           file: null,
@@ -269,31 +437,40 @@ async function readAll(input: ReadInput, runes: Runes, skipped: Skipped[]): Prom
           const parsed: ParsedFile = { path: parse.path, content, tree, language, newParser: host.newParser };
           const extractor = runes.extractorForLanguage(language);
           if (extractor === undefined) throw new Error(`no extractor for ${language}`);
+          const keys: string[] = [];
           if (parse.declarations) {
-            for (const declared of extractor.declarations(parsed)) symbolTable.declare(language, declared.symbolKey, parse.path);
+            for (const declared of extractor.declarations(parsed)) {
+              symbolTable.declare(language, declared.symbolKey, parse.path);
+              keys.push(declared.symbolKey);
+            }
           }
-          if (language === 'csharp') csharp.set(parse.path, runes.extractCsharpRefs(parsed));
-          else if (parse.uses) detected.set(parse.path, extractor.uses(parsed));
+          let facts: GlobalFacts | null = null;
+          if (language === 'csharp') {
+            const extract = runes.extractCsharpRefs(parsed);
+            facts = { globalPrefixes: extract.scope.globalPrefixes, globalAliases: [...extract.scope.globalAliases.entries()], globalStatics: extract.scope.globalStatics };
+            globals.set(parse.path, facts);
+            if (parse.uses) csharp.set(parse.path, extract);
+          } else if (parse.uses) detected.set(parse.path, extractor.uses(parsed));
+          if (key !== null) cache!.put(group!, key, { keys, csharp: facts });
         },
         override,
       );
     } catch (error) {
+      cache?.write(false);
       throw readerFailure(language, parse.path, error);
     }
   }
+  // From here no file is parsed, so the memory the run gains belongs to no file, and a file found in the cache must not change which file the last parse leaves named.
+  step('resolving the uses');
+  cache?.write(true);
 
   let reach: ReturnType<typeof buildCsharpReachability> | undefined;
-  if (csharp.size > 0) {
+  if (globals.size > 0) {
     let scopes: ReturnType<typeof buildCsharpProjectScopes>;
     try {
-      const facts = [...csharp].map(([path, extract]) => ({
-        path,
-        globalPrefixes: extract.scope.globalPrefixes,
-        globalAliases: [...extract.scope.globalAliases.entries()],
-        globalStatics: extract.scope.globalStatics,
-      }));
+      const facts = [...globals].map(([path, global]) => ({ path, ...global }));
       scopes = runes.buildCsharpProjectScopes(input.root, facts, { files: view });
-      reach = runes.buildCsharpReachability(input.root, [...csharp.keys()], { files: view });
+      reach = runes.buildCsharpReachability(input.root, [...globals.keys()], { files: view });
     } catch (error) {
       if (error instanceof Unreadable) throw error;
       throw new Stop({
@@ -305,7 +482,6 @@ async function readAll(input: ReadInput, runes: Runes, skipped: Skipped[]): Prom
       });
     }
     for (const [path, extract] of csharp) {
-      if (!parses.get(path)!.uses) continue;
       const scope = scopes.get(path);
       try {
         detected.set(

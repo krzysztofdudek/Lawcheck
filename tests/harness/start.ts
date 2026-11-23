@@ -129,8 +129,11 @@ function prefixOf(dir: string, top: string): string {
   return rel === '' ? '' : `${rel}/`;
 }
 
-// The files and folders each command writes by contract: init, docs/files.md; check --review, the verdicts of docs/reviewer-rules.md.
+const READERS = '\\.lawcheck/\\.local/(\\.gitignore|readers/(jvm|csharp|ruby|rust))';
+
+// The files and folders each command writes by contract: init, docs/files.md; check --review, the verdicts of docs/reviewer-rules.md; check and the hooks that start it, the reader cache of docs/files.md.
 function contractWrites(start: Start, top: string): (string | RegExp)[] {
+  if (start.kind === 'hook') return [new RegExp(`^(.*/)?${READERS}$`)];
   if (start.kind !== 'cli') return [];
   const cwd = real(start.cwd);
   const command = start.args[0];
@@ -138,9 +141,11 @@ function contractWrites(start: Start, top: string): (string | RegExp)[] {
     const p = prefixOf(cwd, top);
     return [new RegExp(`^${escape(p)}\\.lawcheck/(law\\.yaml|\\.gitignore)$`), `=${p}.lawcheck/`];
   }
-  if (command === 'check' && start.args.includes('--review')) {
+  if (command === 'check') {
     const p = prefixOf(lawRoot(cwd, top), top);
-    return [new RegExp(`^${escape(p)}\\.lawcheck/(verdicts|\\.gitattributes|\\.local/\\.gitignore|\\.local/failures/[0-9a-f]{32}\\.json)$`), `=${p}.lawcheck/.local/`, `=${p}.lawcheck/.local/failures/`];
+    const readers = new RegExp(`^${escape(p)}${READERS}$`);
+    if (!start.args.includes('--review')) return [readers];
+    return [new RegExp(`^${escape(p)}\\.lawcheck/(verdicts|\\.gitattributes|\\.local/\\.gitignore|\\.local/failures/[0-9a-f]{32}\\.json)$`), readers, `=${p}.lawcheck/.local/`, `=${p}.lawcheck/.local/failures/`];
   }
   return [];
 }
