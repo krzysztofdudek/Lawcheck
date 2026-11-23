@@ -812,7 +812,7 @@ test('R-154: a prompt whose snapshot fails keeps what the session was told, so a
 
 test('R-155: the message about no reviewer names the docs command of the runner the repository sets', async () => {
   await withBench(async (bench, dir) => {
-    bench.runner('pnpm', 1);
+    bench.runner('pnpm', 2);
     const r = makeR(dir);
     write(r, '.lawcheck/config.yaml', 'runner: pnpm\n');
     const run = await new Session(bench, r).start();
