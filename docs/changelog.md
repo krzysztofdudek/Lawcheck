@@ -8,7 +8,7 @@ On Node 24, a script rule could open a network connection, and Node 25 and later
 
 ### Before you upgrade
 
-A script rule that reads from the network on Node 24 now gets an error. Unless the rule catches it, the rule is `rule-crashed`, and the check exits with code 2. Keep what the rule needs in a file of the repository, and let the rule read that file.
+A script rule that reads from the network on Node 24 now gets an error. The rule is `rule-crashed` if it does not catch that error, and the check exits with code 2. Keep what the rule needs in a file of the repository, and let the rule read that file.
 
 ## [0.1.0-alpha.3] - 2026-11-22
 
