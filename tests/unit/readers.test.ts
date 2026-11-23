@@ -863,3 +863,38 @@ test('R-127: a use that reaches a file that cannot be read leaves the resolver n
     assert.deepEqual([first, fromFirst, fromSecond, await both('uses', file('src/x.ts'))], [first, failed, failed, failed]);
   }
 });
+
+test('R-128: a C# use that reaches a project file that cannot be read leaves the reach of the projects nothing half built, so a later file of the same read that reaches it too fails as it does alone, whichever rule asks first', async () => {
+  const files: Record<string, string> = {
+    'app/App.csproj': '<Project Sdk="Microsoft.NET.Sdk"><ItemGroup><PackageReference Include="Lib" /></ItemGroup></Project>\n',
+    'app/X.cs': 'using LibNs;\nnamespace AppNs { class X { Thing t; } }\n',
+    'app/Y.cs': 'using LibNs;\nnamespace AppNs { class Y { Thing t; } }\n',
+    'b/B.fsproj': '<Project Sdk="Microsoft.NET.Sdk"></Project>\n',
+    'lib/Lib.csproj': '<Project Sdk="Microsoft.NET.Sdk"></Project>\n',
+    'lib/Thing.cs': 'namespace LibNs { public class Thing {} }\n',
+  };
+  const paths = Object.keys(files).sort();
+  const file = (path: string) => ({ path, text: files[path]! });
+  const readsOf = (unreadable: string | null) =>
+    ruleReads({
+      root: '/nowhere',
+      files: paths,
+      bytes: (path) => {
+        if (path === unreadable) throw new Unreadable(path, 'EACCES');
+        return enc.encode(files[path]!);
+      },
+      ownerOf: (path) => (files[path] === undefined ? undefined : 'owner'),
+      typeOf: (path) => (path.startsWith('lib/') ? 'lib' : null),
+    });
+  const readable = readsOf(null)([file('app/X.cs'), file('app/Y.cs')]);
+  assert.deepEqual(await readable('uses', file('app/Y.cs')), { uses: [{ line: 2, kind: 'file', file: 'lib/Thing.cs', type: 'lib' }], absent: null });
+  const failed = { uses: null, absent: 'reader-failed' };
+  for (const first of ['both', 'alone']) {
+    const reads = readsOf('b/B.fsproj');
+    const both = reads([file('app/X.cs'), file('app/Y.cs')]);
+    const alone = reads([file('app/Y.cs')]);
+    const asked = first === 'both' ? [both('uses', file('app/Y.cs')), alone('uses', file('app/Y.cs'))] : [alone('uses', file('app/Y.cs')), both('uses', file('app/Y.cs'))];
+    const [fromFirst, fromSecond] = await Promise.all(asked);
+    assert.deepEqual([first, fromFirst, fromSecond, await both('uses', file('app/X.cs'))], [first, failed, failed, failed]);
+  }
+});
