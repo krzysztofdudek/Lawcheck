@@ -82,6 +82,36 @@ function closeNetwork(): void {
 }
 closeNetwork();
 
+// process.getActiveResourcesInfo() leaves out a timer or an immediate that does not hold the process, so the wait after the last call would not see one the rule left unreferenced, and its throw would come after the rule's result. The channel holds the runner whatever its timers do, so the runner keeps every timer referenced.
+function keepTimersReferenced(): void {
+  const timeout = setTimeout(() => undefined, 0);
+  const immediate = setImmediate(() => undefined);
+  for (const made of [timeout, immediate]) {
+    Object.defineProperty(Object.getPrototypeOf(made), 'unref', { value: function unref(this: unknown) { return this; }, writable: true, configurable: true });
+  }
+  clearTimeout(timeout);
+  clearImmediate(immediate);
+  const promises = process.getBuiltinModule('node:timers/promises') as unknown as Record<string, (...args: unknown[]) => unknown> & { scheduler: { wait: (...args: unknown[]) => unknown } };
+  const referenced = (options: unknown) => (typeof options === 'object' && options !== null ? { ...options, ref: true } : options);
+  const wrap = (owner: Record<string, unknown>, name: string, at: number) => {
+    const original = owner[name] as (...args: unknown[]) => unknown;
+    Object.defineProperty(owner, name, {
+      value: function (this: unknown, ...args: unknown[]) {
+        if (args.length > at) args[at] = referenced(args[at]);
+        return original.apply(this, args);
+      },
+      writable: true,
+      configurable: true,
+    });
+  };
+  wrap(promises, 'setTimeout', 2);
+  wrap(promises, 'setImmediate', 1);
+  wrap(promises, 'setInterval', 2);
+  wrap(promises.scheduler, 'wait', 1);
+  syncBuiltinESMExports();
+}
+keepTimersReferenced();
+
 let check: Check | null = null;
 let companion: Companion | null = null;
 let repo: Repo | null = null;
