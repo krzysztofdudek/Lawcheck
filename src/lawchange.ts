@@ -93,6 +93,7 @@ function ofLaw(before: Law, after: Law): string[] {
     if (old === undefined) continue;
     if (old.why !== now.why) items.push(`changes the why of the rule ${id}`);
     if (!same(old.context?.map((c) => c.path), now.context?.map((c) => c.path))) items.push(`changes the context of the rule ${id}`);
+    if (old.companion?.path !== now.companion?.path) items.push(`changes the companion of the rule ${id}`);
   }
   for (const id of sorted(is.keys())) {
     const old = was.get(id);

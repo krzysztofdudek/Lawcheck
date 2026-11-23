@@ -15,8 +15,8 @@ import type { ScriptView } from './readers.js';
 import { atBase, lawChangeLine, lawChanges } from './lawchange.js';
 import { call, preflight } from './review.js';
 import type { Ask } from './review.js';
-import { crashNext, FindingBudget, linksOut, rulesDeadline, runAll, runnerProblem, runRule, slowMessage } from './rules.js';
-import type { RawFinding, RuleOutcome } from './rules.js';
+import { contextOf, crashNext, FindingBudget, linksOut, resolveCompanions, rulesDeadline, runAll, runnerProblem, runRule, slowMessage } from './rules.js';
+import type { CompanionRun, RawFinding, RuleOutcome } from './rules.js';
 import { decode, filesOfTypes, isBinary, splitLines } from './types.js';
 import { bytesOf, selectTargets } from './try.js';
 import { fromCwd, loadConfig, loadLaw, loadRuleFiles, locate, requireGit, RULES_DIR, LAW, Stop, stopped, theChange, touchesLaw, typingErrors } from './setup.js';
@@ -85,6 +85,12 @@ function linkError(link: { path: string; target: string }): ErrorItem {
   return { code: 'link-outside-root', file: link.path, line: null, message: `the link leads to ${link.target}, outside the git work tree and Lawcheck's folder, and a script rule could read through it` };
 }
 
+export function runnerErrors(root: string): ErrorItem[] {
+  const unsupported = runnerProblem(root);
+  if (unsupported !== null) return [{ code: 'path-unsupported', file: null, line: null, message: unsupported }];
+  return linksOut(root, workTreeTop(root), trackedLinks(root)).map(linkError);
+}
+
 async function checkAt(root: string, options: CheckOptions, context: CheckContext, front: Front): Promise<CheckOutcome> {
   const { law, config, files, read, kinds, typed, chosen } = front;
   const named = chosen !== null;
@@ -107,12 +113,12 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
         ? { slow: slowMessage('not started') }
         : await runRule({ root, rule, ruleFile: join(root, `${RULES_DIR}${rule}.mjs`), files: bound, filesOf, budget, signal: deadline.signal, serve: reads(bound) }),
     }));
-  const unsupported = tasks.length === 0 ? null : runnerProblem(root);
-  if (unsupported !== null) return { errors: [{ code: 'path-unsupported', file: null, line: null, message: unsupported }] };
-  const out = tasks.length === 0 ? [] : linksOut(root, workTreeTop(root), trackedLinks(root));
-  if (out.length > 0) return { errors: out.map(linkError) };
+  const paired = [...kinds.reviewers].filter(([, reviewer]) => reviewer.companion !== null).map(([rule]) => ({ rule, files: run.filter((file) => file.rules.includes(rule)) })).filter(({ files: bound }) => bound.length > 0);
+  if (tasks.length > 0 || paired.length > 0) {
+    const errors = runnerErrors(root);
+    if (errors.length > 0) return { errors };
+  }
   const outcomes = await runAll(tasks);
-  deadline.clear();
   const crashes: ErrorItem[] = [];
   const raw: RawFinding[] = [];
   for (const { rule, outcome } of outcomes) {
@@ -123,8 +129,19 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
     } else if ('slow' in outcome) crashes.push({ code: 'rules-too-slow', file: `${RULES_DIR}${rule}.mjs`, line: null, message: outcome.slow });
     else for (const finding of outcome.findings) raw.push(finding);
   }
-  if (crashes.length > 0) return { errors: crashes };
-  if (budget.passed()) return { errors: tooManyFindings(budget) };
+  if (crashes.length > 0) {
+    deadline.clear();
+    return { errors: crashes };
+  }
+  if (budget.passed()) {
+    deadline.clear();
+    return { errors: tooManyFindings(budget) };
+  }
+  const companionRun = { root, files, read, filesOf, serve: reads, signal: deadline.signal };
+  const resolved = await resolveCompanions(companionRun, kinds.reviewers, paired);
+  deadline.clear();
+  if ('errors' in resolved) return { errors: resolved.errors };
+  const companions = resolved.companions;
 
   const uses = await readTheUses(root, files, read, typed, run, changed);
   if ('errors' in uses) return { errors: uses.errors };
@@ -156,13 +173,15 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
   const review = `lawcheck check${options.strict === true ? ' --strict' : ''} --review${options.base === null ? '' : ` --base ${hide(options.base)}`}`;
   const cap = options.maxCalls ?? config.maxCalls;
 
-  const roomOf = () => verdictRoom(root, law, typed, kinds);
+  const roomOf = () => verdictRoom(root, law, typed, kinds, companionRun);
   let verdicts: Set<string>;
   try {
     verdicts = readVerdicts(root);
   } catch (error) {
     if (!(error instanceof VerdictsUnreadable) || !error.cause.startsWith('it holds more')) throw error;
-    return { errors: [{ code: 'file-unreadable', file: VERDICTS, line: null, message: `the file cannot be read (${error.cause}); ${roomOf()}`, next: FULL_NEXT }] };
+    const room = await roomOf();
+    if (typeof room !== 'string') return { errors: room };
+    return { errors: [{ code: 'file-unreadable', file: VERDICTS, line: null, message: `the file cannot be read (${error.cause}); ${room}`, next: FULL_NEXT }] };
   }
   const asks: Ask[] = [];
   const builtIn: BuiltIn[] = [];
@@ -179,7 +198,8 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
       const reviewer = kinds.reviewers.get(rule)!;
       const why = law.rules.get(rule)!.why;
       const waived = waivedLines(waiversOf.get(file.path)!.waivers, rule);
-      const key = reviewKey({ frame: FRAME, ruleId: rule, why, ruleText: reviewer.text, context: reviewer.context, filePath: file.path, fileText: file.text, waived });
+      const context = contextOf(reviewer, companions, rule, file.path);
+      const key = reviewKey({ frame: FRAME, ruleId: rule, why, ruleText: reviewer.text, context, filePath: file.path, fileText: file.text, waived, companion: reviewer.companion });
       if (verdicts.has(`${key} ${rule}`)) continue;
       const lineCount = file.lines.length;
       if (!options.again) {
@@ -192,7 +212,7 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
           continue;
         }
       }
-      const prompt = buildPrompt({ why, ruleText: reviewer.text, context: reviewer.context, filePath: file.path, fileText: file.text, waived });
+      const prompt = buildPrompt({ why, ruleText: reviewer.text, context, filePath: file.path, fileText: file.text, waived });
       const characters = size(prompt);
       if (characters > config.maxChars) {
         builtIn.push({
@@ -219,7 +239,9 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
       writer.ready(asks.map((ask) => ask.rule));
     } catch (error) {
       if (!(error instanceof VerdictsFull)) throw error;
-      return { errors: [{ code: 'file-unwritable', file: VERDICTS, line: null, message: `cannot be written (${error.cause}); ${roomOf()}`, next: FULL_NEXT }] };
+      const room = await roomOf();
+      if (typeof room !== 'string') return { errors: room };
+      return { errors: [{ code: 'file-unwritable', file: VERDICTS, line: null, message: `cannot be written (${error.cause}); ${room}`, next: FULL_NEXT }] };
     }
     context.warn?.(`lawcheck: ${plural(asks.length, 'reviewer call')} to ${config.provider}`);
     let result: Awaited<ReturnType<typeof call>>;
@@ -227,7 +249,12 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
       result = await call(asks, provider!, writer, { cap, parallel: config.parallel, timeoutSeconds: config.timeout });
     } catch (error) {
       if (!(error instanceof Unwritable)) throw error;
-      const room = error instanceof VerdictsFull ? `; ${roomOf()}` : '';
+      let room = '';
+      if (error instanceof VerdictsFull) {
+        const known = await roomOf();
+        if (typeof known !== 'string') return { errors: known };
+        room = `; ${known}`;
+      }
       return { errors: [{ code: 'file-unwritable', file: error.path, line: null, message: `cannot be written (${error.cause}), so the answers of the reviewer calls this run made are lost${room}`, ...(error.next === null ? {} : { next: error.next }) }] };
     }
     callsMade = result.sent;
@@ -325,7 +352,10 @@ function unseenRepositories(root: string, listed: Set<string>, law: Law): string
 }
 
 // What the reviews of this tree need of a full verdicts file, worked out with no call: its passes, those the files of the tree need, and the calls a review of every file of the law would take.
-function verdictRoom(root: string, law: Law, typed: TypedFile[], kinds: Kinds): string {
+async function verdictRoom(root: string, law: Law, typed: TypedFile[], kinds: Kinds, run: CompanionRun): Promise<string | ErrorItem[]> {
+  const paired = [...kinds.reviewers].filter(([, reviewer]) => reviewer.companion !== null).map(([rule]) => ({ rule, files: typed.filter((file) => file.rules.includes(rule)) }));
+  const resolved = await resolveCompanions({ ...run, signal: undefined }, kinds.reviewers, paired);
+  if ('errors' in resolved) return resolved.errors;
   const needed = new Set<string>();
   const ruleIds = new Set([...law.rules.keys(), 'forbidden-use']);
   for (const file of typed) {
@@ -336,7 +366,8 @@ function verdictRoom(root: string, law: Law, typed: TypedFile[], kinds: Kinds): 
       waivers ??= takesWaivers(file.type) ? parseWaivers(file.lines, ruleIds).waivers : [];
       const why = law.rules.get(rule)!.why;
       const waived = waivedLines(waivers, rule);
-      needed.add(`${reviewKey({ frame: FRAME, ruleId: rule, why, ruleText: reviewer.text, context: reviewer.context, filePath: file.path, fileText: file.text, waived })} ${rule}`);
+      const context = contextOf(reviewer, resolved.companions, rule, file.path);
+      needed.add(`${reviewKey({ frame: FRAME, ruleId: rule, why, ruleText: reviewer.text, context, filePath: file.path, fileText: file.text, waived, companion: reviewer.companion })} ${rule}`);
     }
   }
   const counted = countPasses(root, needed);

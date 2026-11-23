@@ -106,7 +106,7 @@
     {
       "properties": { "subject": { "const": "rule" } },
       "additionalProperties": false,
-      "required": ["schema", "subject", "id", "kind", "status", "why", "file", "context", "types", "files", "reviewed"],
+      "required": ["schema", "subject", "id", "kind", "status", "why", "file", "context", "companion", "types", "files", "reviewed"],
       "properties": {
         "schema": true,
         "subject": true,
@@ -116,6 +116,7 @@
         "why": { "type": "string" },
         "file": { "type": ["string", "null"] },
         "context": { "anyOf": [{ "type": "array", "items": { "type": "string" } }, { "type": "null" }] },
+        "companion": { "type": ["string", "null"] },
         "types": { "$ref": "#/definitions/ids" },
         "files": { "type": "array", "items": { "type": "string" } },
         "reviewed": { "anyOf": [{ "type": "integer", "minimum": 0 }, { "type": "null" }] }

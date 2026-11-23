@@ -19,6 +19,7 @@ export interface Rule {
   line: number;
   context: ContextItem[] | null;
   contextLine: number | null;
+  companion: ContextItem | null;
 }
 
 export interface TypeDef {
@@ -58,7 +59,7 @@ export interface LawProblem {
 const ID = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const VERSION = /^\d+\.\d+\.\d+$/;
 const TOP_KEYS = ['lawcheck', 'required', 'ignored', 'rules', 'types'];
-const RULE_KEYS = ['why', 'status', 'context'];
+const RULE_KEYS = ['why', 'status', 'context', 'companion'];
 const TYPE_KEYS = ['about', 'paths', 'content', 'rules', 'types', 'may_use', 'waivers'];
 
 export function distance(a: string, b: string): number {
@@ -222,6 +223,7 @@ class Reader {
       let status: Status = 'enforced';
       let context: ContextItem[] | null = null;
       let contextLine: number | null = null;
+      let companion: ContextItem | null = null;
       for (const field of (value as YAMLMap).items) {
         const key = this.keyOf(field);
         const fieldLine = this.lineOf(field.key);
@@ -236,12 +238,15 @@ class Reader {
         } else if (key === 'context') {
           contextLine = fieldLine;
           context = this.paths(fieldValue, fieldLine, `'context' of rule '${id}'`);
+        } else if (key === 'companion') {
+          const path = this.string(fieldValue, fieldLine, `'companion' of rule '${id}'`);
+          if (path !== null) companion = { path, line: fieldLine };
         } else {
           this.unknown(key, RULE_KEYS, fieldLine, `in rule '${id}'`);
         }
       }
       if (!(value as YAMLMap).items.some((field) => this.keyOf(field) === 'why')) this.problem(line, `rule '${id}' has no 'why'`);
-      this.rules.set(id, { id, why: why ?? '', status, line, context, contextLine });
+      this.rules.set(id, { id, why: why ?? '', status, line, context, contextLine, companion });
     }
   }
 

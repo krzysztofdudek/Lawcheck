@@ -13,7 +13,10 @@ import { readError } from './limits.js';
 import { step } from './progress.js';
 import { mayUsePart, ruleKind, walk } from './prime.js';
 import { buildPrompt, FRAME, size } from './prompt.js';
-import { readerOf, siblingsOf } from './readers.js';
+import { ownersOf, readerOf, ruleReads, siblingsOf } from './readers.js';
+import { contextOf, resolveCompanions } from './rules.js';
+import type { Companions, RuleFile } from './rules.js';
+import { runnerErrors } from './check.js';
 import { loadConfig, loadLaw, loadRuleFiles, locate, fromCwd, nearPart, requireGit, RULES_DIR, stopped, typeAll, typingErrors, Stop, usage, WRITTEN } from './setup.js';
 import type { Kinds, Read } from './setup.js';
 import { decode, filesOfTypes, isBinary, splitLines } from './types.js';
@@ -111,17 +114,31 @@ function usesOf(ctx: Ctx, type: TypeDef, path: string, text: string): FileAnswer
   return { read: true, language: reader.view?.language ?? path.slice(dot + 1) };
 }
 
-function reviewState(ctx: Ctx, path: string, text: string, waivers: ReturnType<typeof parseWaivers>['waivers']): (rule: string) => Review {
+// A companion is code of the repository, so explain runs it, in the runner of script rules, only for a rule that has one.
+async function companionsFor(ctx: Ctx, rules: string[], files: RuleFile[]): Promise<Companions> {
+  const paired = rules.filter((rule) => ctx.kinds.reviewers.get(rule)?.companion != null);
+  if (paired.length === 0 || files.length === 0) return new Map();
+  const errors = runnerErrors(ctx.root);
+  if (errors.length > 0) throw new Stop(errors);
+  const typed = typeAll(ctx.root, ctx.law, ctx.files, ctx.read);
+  const run = { root: ctx.root, files: ctx.files, read: ctx.read, filesOf: filesOfTypes(typed, ctx.law), serve: ruleReads({ root: ctx.root, files: ctx.files, ...ownersOf(ctx.files, ctx.read, typed) }) };
+  const resolved = await resolveCompanions(run, ctx.kinds.reviewers, paired.map((rule) => ({ rule, files })));
+  if ('errors' in resolved) throw new Stop(resolved.errors);
+  return resolved.companions;
+}
+
+function reviewState(ctx: Ctx, path: string, text: string, waivers: ReturnType<typeof parseWaivers>['waivers'], companions: Companions): (rule: string) => Review {
   const verdicts = readVerdicts(ctx.root);
   const lineCount = splitLines(text).length;
   return (id) => {
     const reviewer = ctx.kinds.reviewers.get(id)!;
     const why = ctx.law.rules.get(id)!.why;
     const waived = waivedLines(waivers, id);
-    const key = reviewKey({ frame: FRAME, ruleId: id, why, ruleText: reviewer.text, context: reviewer.context, filePath: path, fileText: text, waived });
+    const context = contextOf(reviewer, companions, id, path);
+    const key = reviewKey({ frame: FRAME, ruleId: id, why, ruleText: reviewer.text, context, filePath: path, fileText: text, waived, companion: reviewer.companion });
     if (verdicts.has(`${key} ${id}`)) return 'reviewed';
     if (readFailure(ctx.root, key, id, lineCount) !== null) return 'failed';
-    const prompt = buildPrompt({ why, ruleText: reviewer.text, context: reviewer.context, filePath: path, fileText: text, waived });
+    const prompt = buildPrompt({ why, ruleText: reviewer.text, context, filePath: path, fileText: text, waived });
     return size(prompt) > ctx.config.maxChars ? 'too-large' : 'not-reviewed';
   };
 }
@@ -154,7 +171,7 @@ function guarded(ctx: Ctx, answer: FileAnswer): FileAnswer {
   return { ...answer, then: `${answer.then}; with no type, ${part}` };
 }
 
-function existing(ctx: Ctx, path: string, symlink: boolean): FileAnswer {
+async function existing(ctx: Ctx, path: string, symlink: boolean): Promise<FileAnswer> {
   if (behindLink(ctx.root, path)) return untyped(path, true, BEHIND);
   const nested = repositoryHolding(ctx.root, path, ctx.listed);
   if (nested !== null) return untyped(path, true, nestedReason(nested));
@@ -193,6 +210,7 @@ function existing(ctx: Ctx, path: string, symlink: boolean): FileAnswer {
   const type = chain[chain.length - 1]!;
   const ruleIds = new Set([...ctx.law.rules.keys(), 'forbidden-use']);
   const { waivers } = takesWaivers(type) ? parseWaivers(splitLines(text), ruleIds) : { waivers: [] };
+  const companions = await companionsFor(ctx, [...new Set(chain.flatMap((t) => t.rules))], [{ path, type, text, lines: splitLines(text) }]);
   return {
     path,
     exists: true,
@@ -203,7 +221,7 @@ function existing(ctx: Ctx, path: string, symlink: boolean): FileAnswer {
     notMatched: notMatched.map((t) => ({ type: t.id, content: t.expression! })),
     then: null,
     uses: usesOf(ctx, type, path, text),
-    rules: rulesOf(ctx, chain, reviewState(ctx, path, text, waivers)),
+    rules: rulesOf(ctx, chain, reviewState(ctx, path, text, waivers, companions)),
     waivers: waivers.map((w) => ({ line: w.line, rule: w.rule, reason: w.reason })),
   };
 }
@@ -377,7 +395,7 @@ function typeAnswer(ctx: Ctx, id: string, json: boolean): string {
   return lines.join('\n') + '\n';
 }
 
-function ruleAnswer(ctx: Ctx, id: string, json: boolean): string {
+async function ruleAnswer(ctx: Ctx, id: string, json: boolean): Promise<string> {
   const rule = ctx.law.rules.get(id)!;
   const kind = ruleKind(ctx.kinds, id);
   const typed = typeAll(ctx.root, ctx.law, ctx.files, ctx.read);
@@ -392,18 +410,22 @@ function ruleAnswer(ctx: Ctx, id: string, json: boolean): string {
     const verdicts = readVerdicts(ctx.root);
     const reviewer = ctx.kinds.reviewers.get(id)!;
     const ruleIds = new Set([...ctx.law.rules.keys(), 'forbidden-use']);
+    const companions = await companionsFor(ctx, [id], bound);
     reviewed = bound.filter((file) => {
       const waived = waivedLines(takesWaivers(file.type) ? parseWaivers(file.lines, ruleIds).waivers : [], id);
-      return verdicts.has(`${reviewKey({ frame: FRAME, ruleId: id, why: rule.why, ruleText: reviewer.text, context: reviewer.context, filePath: file.path, fileText: file.text, waived })} ${id}`);
+      const context = contextOf(reviewer, companions, id, file.path);
+      return verdicts.has(`${reviewKey({ frame: FRAME, ruleId: id, why: rule.why, ruleText: reviewer.text, context, filePath: file.path, fileText: file.text, waived, companion: reviewer.companion })} ${id}`);
     }).length;
   }
   const file = `${RULES_DIR}${id}.${kind === 'script' ? 'mjs' : 'md'}`;
   const context = rule.context === null ? null : rule.context.map((item) => item.path);
+  const companion = rule.companion?.path ?? null;
   if (json) {
-    return documentOf({ schema: 'lawcheck-explain/0', subject: 'rule', id, kind, status: rule.status, why: rule.why, file, context, types: onTypes, files, reviewed });
+    return documentOf({ schema: 'lawcheck-explain/0', subject: 'rule', id, kind, status: rule.status, why: rule.why, file, context, companion, types: onTypes, files, reviewed });
   }
   const lines = [`rule ${id}  ${kind}  ${rule.status}`, `  why:  ${rule.why}`, `  file:  ${file}`];
   if (context !== null) lines.push(`  context:  ${context.join(', ')}`);
+  if (companion !== null) lines.push(`  companion:  ${companion}`);
   if (onTypes.length === 0) {
     lines.push('  on types:  none; it judges no file until a type lists it', '  binds:  0 files');
     return lines.join('\n') + '\n';
@@ -442,7 +464,7 @@ export async function explain(args: Arguments, context: CheckContext, json: bool
   const ruleId = flagText(args, '--rule');
   const given = args.words.length + (typeId === null ? 0 : 1) + (ruleId === null ? 0 : 1);
   if (given !== 1) return usageError('explain takes exactly one of a path, --type <id> and --rule <id>', json, 'explain');
-  const outcome = await stopped(() => {
+  const outcome = await stopped(async () => {
     const root = locate(context.cwd);
     requireGit(root);
     const law = loadLaw(root);
@@ -452,7 +474,7 @@ export async function explain(args: Arguments, context: CheckContext, json: bool
     const { listed, files, read, kinds } = loadRuleFiles(root, law);
     const ctx: Ctx = { root, law, config, listed, files, read, kinds };
     if (typeId !== null) return typeAnswer(ctx, typeId, json);
-    if (ruleId !== null) return ruleAnswer(ctx, ruleId, json);
+    if (ruleId !== null) return await ruleAnswer(ctx, ruleId, json);
     const given = fromCwd(root, context.cwd, args.words[0]!);
     // A name over 255 bytes or a path over 4,095 can exist on no system Lawcheck runs on, though Windows answers that such a file is missing. An escaped name is measured by the bytes it stands for.
     if (given.split('/').some((part) => bytesOfName(part).length > 255) || Buffer.byteLength(onDisk(root, given)) > 4095) {
@@ -473,7 +495,7 @@ export async function explain(args: Arguments, context: CheckContext, json: bool
       const answer = untyped(path, true, 'it is no regular file, which has no type');
       return json ? documentOf(fileJson(answer)) : fileText(answer);
     }
-    const answer = stat === null ? absent(ctx, path) : existing(ctx, path, stat.isSymbolicLink());
+    const answer = stat === null ? absent(ctx, path) : await existing(ctx, path, stat.isSymbolicLink());
     return json ? documentOf(fileJson(answer)) : fileText(answer);
   });
   if (typeof outcome !== 'string') return errorResult(outcome.errors, json, 'explain');

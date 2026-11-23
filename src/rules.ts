@@ -10,8 +10,11 @@ import { killTree } from './programs.js';
 import { safeText } from './output.js';
 import { hide } from './keys.js';
 import type { Readable } from 'node:stream';
-import { count, MESSAGE_CHARS, points, RULES_RUN_MS, RUN_FINDINGS, RUN_MESSAGE_CHARS } from './limits.js';
+import { count, MESSAGE_CHARS, points, readError, RULES_RUN_MS, RUN_FINDINGS, RUN_MESSAGE_CHARS } from './limits.js';
 import type { Serve } from './readers.js';
+import type { ErrorItem } from './output.js';
+import type { Read, ReviewerRule } from './setup.js';
+import { decode, isBinary } from './types.js';
 
 export interface RuleFile {
   path: string;
@@ -171,7 +174,7 @@ export interface RawFinding {
   message: string;
 }
 
-export type RuleOutcome = { findings: RawFinding[] } | { crash: string } | { broken: string } | { slow: string };
+export type RuleOutcome = { findings: RawFinding[]; paths?: Map<string, string[]> } | { crash: string } | { broken: string } | { slow: string };
 
 export function rulesDeadline(): { signal: AbortSignal; clear(): void } {
   const controller = new AbortController();
@@ -273,6 +276,17 @@ export interface RuleRun {
   budget?: FindingBudget;
   signal?: AbortSignal;
   serve?: Serve;
+  entry?: 'check' | 'companion';
+}
+
+function pathsOf(value: unknown): string[] | { problem: string } {
+  if (!Array.isArray(value)) return { problem: 'no list of paths' };
+  const paths: string[] = [];
+  for (const item of value as unknown[]) {
+    if (typeof item !== 'string') return { problem: 'a path that is no string' };
+    paths.push(item);
+  }
+  return paths;
 }
 
 // Node's permission model does not reach node:sqlite (Node 24.0 to 26.13 at least), which opens, attaches and writes any database the user can, so the runner starts without it.
@@ -322,6 +336,7 @@ export function runRule(run: RuleRun): Promise<RuleOutcome> {
     let current: { file: RuleFile; serving: number; asked: Set<string> } | null = null;
     let stage = 'in its load';
     const findings: RawFinding[] = [];
+    const paths = new Map<string, string[]>();
 
     const end = (outcome: RuleOutcome | Error) => {
       if (settled) return;
@@ -365,7 +380,7 @@ export function runRule(run: RuleRun): Promise<RuleOutcome> {
       if (file === undefined) {
         stage = 'after its last call';
         ask({ kind: 'finish' }, (message) => {
-          if (message.kind === 'finished') return end({ findings });
+          if (message.kind === 'finished') return end(run.entry === 'companion' ? { findings, paths } : { findings });
           return end({ crash: `writes to the runner's channel ${stage}` });
         });
         return;
@@ -386,6 +401,12 @@ export function runRule(run: RuleRun): Promise<RuleOutcome> {
           return end({ crash: `returns a message of ${count(message.count!)} characters for ${file.path}, and a message holds at most ${count(MESSAGE_CHARS)}` });
         }
         if (message.kind !== 'result') return end({ crash: `writes to the runner's channel ${stage}` });
+        if (run.entry === 'companion') {
+          const returned = pathsOf(message.value);
+          if ('problem' in returned) return end({ crash: `returns ${returned.problem} for ${file.path}` });
+          paths.set(file.path, returned);
+          return callNext(index + 1);
+        }
         const checked = validate(run.rule, message.value, file);
         if ('problem' in checked) return end({ crash: `returns ${checked.problem} for ${file.path}` });
         budget.take(run.rule, findings, checked.findings);
@@ -416,7 +437,7 @@ export function runRule(run: RuleRun): Promise<RuleOutcome> {
     };
 
     const load = () =>
-      ask({ kind: 'load', file: run.ruleFile, filesOf: run.filesOf }, (message) => {
+      ask({ kind: 'load', file: run.ruleFile, filesOf: run.filesOf, entry: run.entry ?? 'check' }, (message) => {
         if (message.kind === 'load-failed') return end({ crash: `fails to load: ${message.message}` });
         if (message.kind === 'uncloneable') return end({ crash: `fails to load: ${message.message}` });
         if (message.kind !== 'loaded') return end({ crash: `writes to the runner's channel ${stage}` });
@@ -468,4 +489,91 @@ export async function runAll<T>(tasks: (() => Promise<T>)[], limit = availablePa
   };
   await Promise.all(Array.from({ length: Math.min(limit, tasks.length) }, worker));
   return results;
+}
+
+export interface ContextFile {
+  path: string;
+  text: string;
+}
+
+export type Companions = Map<string, Map<string, ContextFile[]>>;
+
+export interface CompanionRun {
+  root: string;
+  files: string[];
+  read: Read;
+  filesOf: Map<string, string[]>;
+  serve: (bound: RuleFile[]) => Serve;
+  signal?: AbortSignal;
+}
+
+// The prompt already holds the judged file and the rule's context, so a path the module returns again adds nothing to it.
+function filesFor(run: CompanionRun, reviewer: ReviewerRule, file: RuleFile, paths: string[], listed: Set<string>): ContextFile[] | ErrorItem {
+  const module = reviewer.companion!.path;
+  const crashed = (message: string): ErrorItem => ({ code: 'rule-crashed', file: module, line: null, message });
+  const seen = new Set([file.path, ...reviewer.context.map((item) => item.path)]);
+  const out: ContextFile[] = [];
+  for (const path of paths) {
+    if (seen.has(path)) continue;
+    seen.add(path);
+    const quoted = `'${path}'`;
+    if (!listed.has(path)) return crashed(`returns ${quoted} for ${file.path}, which is no file git lists here`);
+    let bytes: Uint8Array;
+    try {
+      bytes = run.read(path);
+    } catch (error) {
+      return readError(path, error);
+    }
+    if (isBinary(bytes)) return crashed(`returns ${quoted} for ${file.path}, which is binary`);
+    out.push({ path, text: decode(bytes) });
+  }
+  return out;
+}
+
+// The caller first makes sure the runner can keep its limits (runnerProblem, linksOut). The module of each rule runs once over the files the rule judges, in a runner of its own as a script rule does, and gives each file the files that go into its prompt after the rule's context.
+export async function resolveCompanions(run: CompanionRun, reviewers: Map<string, ReviewerRule>, bound: { rule: string; files: RuleFile[] }[]): Promise<{ companions: Companions } | { errors: ErrorItem[] }> {
+  const wanted = bound.filter(({ rule, files }) => files.length > 0 && reviewers.get(rule)?.companion != null);
+  if (wanted.length === 0) return { companions: new Map() };
+  const own = run.signal === undefined ? rulesDeadline() : null;
+  const signal = run.signal ?? own!.signal;
+  const outcomes = await runAll(
+    wanted.map(({ rule, files }) => async () => {
+      const module = reviewers.get(rule)!.companion!.path;
+      return { rule, files, outcome: signal.aborted ? { slow: slowMessage('not started') } : await runRule({ root: run.root, rule, ruleFile: join(run.root, module), files, filesOf: run.filesOf, signal, serve: run.serve(files), entry: 'companion' }) };
+    }),
+  );
+  own?.clear();
+  const listed = new Set(run.files);
+  const companions: Companions = new Map();
+  const errors: ErrorItem[] = [];
+  for (const { rule, files, outcome } of outcomes) {
+    const reviewer = reviewers.get(rule)!;
+    const module = reviewer.companion!.path;
+    if ('broken' in outcome) return { errors: [{ code: 'runner-failed', file: null, line: null, message: outcome.broken }] };
+    if ('crash' in outcome) {
+      const next = crashNext(outcome.crash);
+      errors.push({ code: 'rule-crashed', file: module, line: null, message: outcome.crash, ...(next === undefined ? {} : { next }) });
+      continue;
+    }
+    if ('slow' in outcome) {
+      errors.push({ code: 'rules-too-slow', file: module, line: null, message: outcome.slow });
+      continue;
+    }
+    const byFile = new Map<string, ContextFile[]>();
+    for (const file of files) {
+      const found = filesFor(run, reviewer, file, outcome.paths?.get(file.path) ?? [], listed);
+      if (!Array.isArray(found)) {
+        errors.push(found);
+        break;
+      }
+      byFile.set(file.path, found);
+    }
+    companions.set(rule, byFile);
+  }
+  return errors.length > 0 ? { errors } : { companions };
+}
+
+export function contextOf(reviewer: ReviewerRule, companions: Companions, rule: string, path: string): ContextFile[] {
+  const added = companions.get(rule)?.get(path);
+  return added === undefined || added.length === 0 ? reviewer.context : [...reviewer.context, ...added];
 }

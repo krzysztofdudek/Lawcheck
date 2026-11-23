@@ -580,10 +580,10 @@ test('test 902: the prompt size limit counts the companion files, and a returned
       write(r, '.lawcheck/config.yaml', `${REVIEWER_CONFIG}  max_chars: ${larger - 1}\n`);
       const result = await run(r, null, ['--full', '--base', 'main']);
       assert.ok(
-        findingLines(result.stdout).includes(`src/core/price.ts  error[too-large-to-review]  the prompt for clear-errors holds ${larger} characters; reviewer.max_chars is ${larger - 1}`),
+        findingLines(result.stdout).includes(`src/core/price.ts  warning[too-large-to-review]  the prompt for clear-errors holds ${larger} characters; reviewer.max_chars is ${larger - 1}`),
         result.stdout,
       );
-      assert.ok(!findingLines(result.stdout).some((line) => line.startsWith('src/core/tax.ts  error[too-large-to-review]')), result.stdout);
+      assert.ok(!findingLines(result.stdout).some((line) => line.startsWith('src/core/tax.ts  warning[too-large-to-review]')), result.stdout);
     },
     { onMain: withPair() },
   );
