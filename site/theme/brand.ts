@@ -13,12 +13,22 @@ export { manifest, tokens };
 export const REPOSITORY = fileURLToPath(new URL('../../', import.meta.url));
 const MODULES = fileURLToPath(new URL('../node_modules/', import.meta.url));
 
-export const CANONICAL = { landing: 'https://lawcheck.dev/', docs: 'https://docs.lawcheck.dev/' };
+// The host the documentation answers on is the one line DOCS_HOST of the workflow that deploys it: lawcheck.dev until the domain switch, docs.lawcheck.dev after it. Every build reads it there, so a build on a machine or in a check of CI names the host the deploy names.
+function docsHost(): string {
+  const line = /^\s+DOCS_HOST:\s*([a-z0-9.-]+)\s*$/m.exec(readFileSync(join(REPOSITORY, '.github', 'workflows', 'docs.yml'), 'utf8'));
+  if (!line) throw new Error('site: .github/workflows/docs.yml has no line DOCS_HOST: <host>, which names the host of the documentation');
+  return line[1]!;
+}
+
+export const CANONICAL = { landing: 'https://lawcheck.dev/', docs: `https://${docsHost()}/` };
+
+// The landing page goes live only with the domain switch, so its links lead to the documentation's host after it.
+const DOCS_AFTER_SWITCH = 'https://docs.lawcheck.dev/';
 
 // A preview serves the two sites on other hosts; only the links between them follow it, never a canonical address.
 export const LINK = {
   landing: process.env.LAWCHECK_LANDING_URL ?? CANONICAL.landing,
-  docs: process.env.LAWCHECK_DOCS_URL ?? CANONICAL.docs,
+  docs: process.env.LAWCHECK_DOCS_URL ?? DOCS_AFTER_SWITCH,
 };
 
 export const GITHUB = 'https://github.com/krzysztofdudek/Lawcheck';
