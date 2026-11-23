@@ -301,7 +301,7 @@ test('S6-5: with a reviewer rule and no reviewer set, prime says so and the sess
     assert.ok(primed.stdout.includes('\n- not-reviewed: no reviewer is set in .lawcheck/config.yaml, so a plain lawcheck check and CI fail on every file a reviewer rule judges. Tell the user once; setting a reviewer is the user\'s decision.\n'), primed.stdout);
     const told = {
       ...started(primed.stdout.replace(/\n$/, '')),
-      systemMessage: "Lawcheck: this repository has a reviewer rule, and .lawcheck/config.yaml sets no reviewer, so a plain lawcheck check and CI fail on every file a reviewer rule judges. Choosing the reviewer is your decision: set reviewer.provider and reviewer.model there, from the choices lawcheck docs providers lists.",
+      systemMessage: "Lawcheck: this repository has a reviewer rule, and .lawcheck/config.yaml sets no reviewer, so a plain lawcheck check and CI fail on every file a reviewer rule judges. Setting reviewer.provider and reviewer.model there is the user's decision; lawcheck docs providers lists the choices.",
     };
     const session = new Session(bench, r);
     json(await session.start(), told, 'the first start');

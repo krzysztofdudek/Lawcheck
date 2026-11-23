@@ -43,7 +43,7 @@ The hook starts `lawcheck prime` with the command of the `runner` setting. The a
 When the law has a reviewer rule and `.lawcheck/config.yaml` sets no reviewer, `prime` says so to the agent. The hook also sends you a message, once per session:
 
 ```text
-Lawcheck: this repository has a reviewer rule, and .lawcheck/config.yaml sets no reviewer, so a plain lawcheck check and CI fail on every file a reviewer rule judges. Choosing the reviewer is your decision: set reviewer.provider and reviewer.model there, from the choices lawcheck docs providers lists.
+Lawcheck: this repository has a reviewer rule, and .lawcheck/config.yaml sets no reviewer, so a plain lawcheck check and CI fail on every file a reviewer rule judges. Setting reviewer.provider and reviewer.model there is the user's decision; lawcheck docs providers lists the choices.
 ```
 
 Without a law, the agent gets two lines. The first says that the plugin is on and the folder has no law. The second tells the agent to start a law with `lawcheck init` only when the user asks for it.

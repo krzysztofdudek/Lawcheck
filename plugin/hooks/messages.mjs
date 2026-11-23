@@ -16,7 +16,7 @@ export function primeNotRun(cmd, reason, install) {
 }
 
 export function noReviewer(cmd) {
-  return `Lawcheck: this repository has a reviewer rule, and .lawcheck/config.yaml sets no reviewer, so a plain ${cmd} check and CI fail on every file a reviewer rule judges. Choosing the reviewer is your decision: set reviewer.provider and reviewer.model there, from the choices lawcheck docs providers lists.`;
+  return `Lawcheck: this repository has a reviewer rule, and .lawcheck/config.yaml sets no reviewer, so a plain ${cmd} check and CI fail on every file a reviewer rule judges. Setting reviewer.provider and reviewer.model there is the user's decision; lawcheck docs providers lists the choices.`;
 }
 
 export function editLate(command, seconds) {
