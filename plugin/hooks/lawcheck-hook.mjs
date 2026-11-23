@@ -28,7 +28,7 @@ function readInput() {
 let host = HOSTS['claude-code'];
 
 function switchOn(name) {
-  const value = process.env[host.switchName(name)];
+  const value = process.env[host.switches[name]];
   if (value === undefined) return true;
   return !['false', '0', 'no', 'off'].includes(value.trim().toLowerCase());
 }
@@ -68,7 +68,7 @@ async function sessionStart(input, deadline) {
 }
 
 async function prompt(input, deadline) {
-  if (!switchOn('CHECK_BEFORE_STOP')) return null;
+  if (!switchOn('check_before_stop')) return null;
   const root = findRoot(startDir(input));
   if (root === null) return null;
   const file = stateFile(input.session_id);
@@ -107,7 +107,7 @@ function onDisk(path) {
 }
 
 async function edit(input, deadline) {
-  if (!switchOn('CHECK_AFTER_EDIT')) return null;
+  if (!switchOn('check_after_edit')) return null;
   const paths = host.editedFiles(input).map(onDisk).filter((path) => path !== null);
   if (paths.length === 0) return null;
   const root = findRoot(dirname(paths[0]));
@@ -152,7 +152,7 @@ function notice(file, root, input, text) {
 }
 
 async function stop(input, deadline) {
-  if (!switchOn('CHECK_BEFORE_STOP')) return null;
+  if (!switchOn('check_before_stop')) return null;
   const root = findRoot(startDir(input));
   if (root === null) return null;
   const runner = runnerAt(root);

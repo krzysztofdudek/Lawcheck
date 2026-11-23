@@ -42,13 +42,13 @@ export const HOSTS = {
     promptId: (input) => stringOr(input.prompt_id),
     editedFiles: claudeFiles,
     handBack: (text) => ({ hookSpecificOutput: { hookEventName: 'Stop', additionalContext: text } }),
-    switchName: (name) => `CLAUDE_PLUGIN_OPTION_${name}`,
+    switches: { check_after_edit: 'CLAUDE_PLUGIN_OPTION_CHECK_AFTER_EDIT', check_before_stop: 'CLAUDE_PLUGIN_OPTION_CHECK_BEFORE_STOP' },
   },
   codex: {
     promptId: (input) => stringOr(input.turn_id),
     editedFiles: patchFiles,
     handBack: (text) => ({ decision: 'block', reason: text }),
-    switchName: (name) => `LAWCHECK_PLUGIN_${name}`,
+    switches: { check_after_edit: 'LAWCHECK_PLUGIN_CHECK_AFTER_EDIT', check_before_stop: 'LAWCHECK_PLUGIN_CHECK_BEFORE_STOP' },
   },
 };
 

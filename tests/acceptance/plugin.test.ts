@@ -933,7 +933,7 @@ test('test 920: the files of the plugin for Codex', () => {
   for (const [name, groups] of Object.entries(codexHooks) as [string, any[]][]) {
     const event = Object.keys(EVENT_NAMES).find((key) => EVENT_NAMES[key] === name)!;
     const ours = claudeHooks[name][0].hooks[0];
-    assert.deepEqual(groups, [{ ...(name === 'PostToolUse' ? { matcher: 'apply_patch' } : {}), hooks: [{ type: 'command', command: `node "\${PLUGIN_ROOT}/hooks/lawcheck-hook.mjs" ${event} --host codex`, timeout: ours.timeout }] }], name);
+    assert.deepEqual(groups, [{ ...(name === 'PostToolUse' ? { matcher: 'apply_patch' } : {}), hooks: [{ type: 'command', command: `node "\${CLAUDE_PLUGIN_ROOT}/hooks/lawcheck-hook.mjs" ${event} --host codex`, timeout: ours.timeout }] }], name);
   }
 });
 
