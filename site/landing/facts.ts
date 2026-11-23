@@ -108,7 +108,7 @@ export async function facts() {
     where: {
       heading: fragments.heading('docs/index.md', 'Where it checks'),
       items: fragments.list('docs/index.md', 'Where it checks', 1).map(index),
-      other: readme(fragments.sentence('README.md', 'Your coding agent', 'That agent checks only')),
+      other: others(fragments.sentence('docs/other-tools.md', 'A hook you wrote in Claude Code', 'Lawcheck sends the agent back')),
     },
     holds: {
       heading: fragments.heading('README.md', 'What one law holds'),
