@@ -258,7 +258,6 @@ The first line of a `check` or `try` that ends with exit 2 after it sent request
 
 Why: a run that fails after calls has spent what the user pays for, and the same count stands in the other two forms. The key is added to `lawcheck-error/1` and the schema is not raised to `/2`, because a document of a run with no request stays byte for byte as it was, and a reader that ignores keys it does not know reads the new one as it read the old. `file-unwritable` is left out because the run is cut off while other requests may still be in flight, so a count taken then would be too low. This was taken as a technical choice on 2026-11-23, and the owner may reverse it.
 
-
 ## 177. The plugin's messages, and a reviewer rule with no reviewer
 
 Every text the plugin's hooks hand to the agent or the user is built in `plugin/hooks/messages.mjs`, and each one starts with `Lawcheck:`, the name of the tool, where the output of `lawcheck` starts its lines with the command `lawcheck:`. The message of decision 171 moved there from `plugin/hooks/turn.mjs`. A plugin for another agent can import the same file, so the same case gives the same words on every agent.
