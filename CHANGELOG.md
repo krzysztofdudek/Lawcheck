@@ -16,6 +16,8 @@ The law takes two new keys at the top, `required` and `ignored`, each a list of 
 
 A use that could name several files is now a `forbidden-use` when the `may_use` list forbids every one of them, such as a Java star import of a package whose files are all of forbidden types, or a C# partial class spread over two forbidden layers. The message names each file with its type. In alpha.4 such a use was only counted as unresolved and the check passed. A use with one allowed file among its candidates still passes, and every such use stays in the unresolved list.
 
+A change that moves a type under another parent is now named in the note about a change to the law, such as `moves the type library from source to script`. In alpha.4 the note said `edits .lawcheck/law.yaml without changing a rule or a type`, though the files of the moved type could lose their rules and their `may_use` list.
+
 ## [0.1.0-alpha.4] - 2026-11-23
 
 A script rule that uses the network now gets an error from the call itself, on every Node. On Node 24, alpha.3 let the call through. On Node 25 and later, alpha.3 passed Node's refusal to the callback, the `error` event or the promise, so a rule that handled the refusal there passed. The rule runner of alpha.4 closes the network before the rule loads. A rule that connects, listens on a port, sends over UDP, looks up a name in DNS or calls `fetch` gets the error. A rule that does not catch it is `rule-crashed`, with the message `uses the network, which is closed to script rules`.

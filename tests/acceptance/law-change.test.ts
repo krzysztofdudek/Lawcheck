@@ -212,7 +212,7 @@ test('R-104: a type moved under another parent is named, though its own keys sta
   await withSample(async (s) => {
     const script = '  script:\n    about: Executable helpers.\n    paths: ["tools/**/*.{mjs,js}"]\n    content: "^#!"\n    rules: [no-todo]\n';
     edit(s, script, '');
-    edit(s, '      command:\n', `${script.replace(/^/gm, '    ')}      command:\n`);
+    edit(s, '      command:\n', `${script.replace(/^(?=.)/gm, '    ')}      command:\n`);
     const run = await check(s);
     assert.deepEqual(secondLines(run.stdout), [GENERIC, `${PREFIX}moves the type script from the top of types to source`]);
     assert.equal(run.code, 0);

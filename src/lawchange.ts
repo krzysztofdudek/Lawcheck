@@ -100,6 +100,9 @@ function ofLaw(before: Law, after: Law): string[] {
     const old = was.get(id);
     const now = is.get(id)!;
     if (old === undefined) continue;
+    const from = old.parent?.id ?? null;
+    const to = now.parent?.id ?? null;
+    if (from !== to) items.push(`moves the type ${id} from ${from ?? 'the top of types'} to ${to ?? 'the top of types'}`);
     for (const rule of old.rules) if (!now.rules.includes(rule) && after.rules.has(rule)) items.push(`takes the rule ${rule} off the type ${id}`);
     for (const rule of now.rules) if (!old.rules.includes(rule) && before.rules.has(rule)) items.push(`puts the rule ${rule} on the type ${id}`);
     if (!same(old.paths, now.paths)) items.push(`changes the paths of the type ${id}`);
