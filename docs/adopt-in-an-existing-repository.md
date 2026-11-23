@@ -13,6 +13,8 @@ An advisory rule fits when the old code holds many findings of the rule, or when
 - you fix the debt;
 - you make the rule enforced.
 
+A [`may_use`](law.md#may-use) list has no advisory status. The section [Bring in a may_use list](#bring-in-a-may-use-list) says how to close one on old code that breaks it.
+
 The outputs below come from a repository whose `main` holds four files:
 
 - `src/core/report.ts` calls `console.log` on line 2;
@@ -203,6 +205,17 @@ note: this change edits the law that judges it: makes the rule no-console enforc
 ```
 
 From the merge of this change on, a `console` call in a changed file of `src/core/` fails the run with exit 1.
+
+## Bring in a may_use list
+
+A `may_use` list has no `status`. A use that the list forbids is a [`forbidden-use`](codes.md#forbidden-use), and in a changed file it is an error. A list put on a type whose old files already break it fails the next change of each of those files. Bring the list in with these steps:
+
+1. On a branch, add the list to the law and run `lawcheck check --full`. Each `forbidden-use` in the debt is an old use that the list forbids.
+2. Put the list first on the types whose files hold none of those findings. From the merge on, a new use that breaks the list fails its change.
+3. On a type with old uses that the list forbids, put a waiver with its reason on each of those lines, such as `import '../cli/main.js'; // lawcheck-waive forbidden-use -- the report prints the banner until 2.0`. Then put the list on that type. Every use that a change adds is judged, and the old ones pass.
+4. Pay the waivers back one at a time. Remove the use, then its waiver. A waiver left on a line whose use is gone is [`waiver-unused`](codes.md#waiver-unused).
+
+In `lawcheck check --full --json`, the list `waivers` holds every waiver of the repository, so the waivers of `forbidden-use` left in it are what the list still owes. [Waivers](waivers.md#forbidden-use) gives the form of a waiver.
 
 ## If it goes wrong
 

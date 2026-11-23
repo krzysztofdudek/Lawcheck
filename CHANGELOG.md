@@ -18,6 +18,8 @@ A use that could name several files is now a `forbidden-use` when the `may_use` 
 
 A change that moves a type under another parent is now named in the note about a change to the law, such as `moves the type library from source to script`. In alpha.4 the note said `edits .lawcheck/law.yaml without changing a rule or a type`, though the files of the moved type could lose their rules and their `may_use` list.
 
+`lawcheck docs adopt-in-an-existing-repository` gains the section "Bring in a may_use list". A `may_use` list has no advisory status, so the section says how to close one on old code that already breaks it: the list goes first on the clean types, each old use gets a waiver with its reason, and the waivers are paid back one at a time.
+
 ## [0.1.0-alpha.4] - 2026-11-23
 
 A script rule that uses the network now gets an error from the call itself, on every Node. On Node 24, alpha.3 let the call through. On Node 25 and later, alpha.3 passed Node's refusal to the callback, the `error` event or the promise, so a rule that handled the refusal there passed. The rule runner of alpha.4 closes the network before the rule loads. A rule that connects, listens on a port, sends over UDP, looks up a name in DNS or calls `fetch` gets the error. A rule that does not catch it is `rule-crashed`, with the message `uses the network, which is closed to script rules`.
