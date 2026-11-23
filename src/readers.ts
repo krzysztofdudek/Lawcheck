@@ -21,7 +21,8 @@ import { firstLine } from './law.js';
 import type { ErrorItem } from './output.js';
 import { decode, isBinary } from './types.js';
 import { step } from './progress.js';
-import { USES_FILE_BYTES } from './limits.js';
+import { readError, USES_FILE_BYTES } from './limits.js';
+import type { TypedFile } from './types.js';
 
 export type Reason = 'unfollowed' | 'unowned';
 
@@ -378,4 +379,149 @@ export async function loadGrammars(grammarDir: string = GRAMMARS, runes: Runes =
     }
   }
   return null;
+}
+
+export type Absent = 'too-large' | 'no-reader' | 'reader-failed';
+
+// A tree crosses to the rule runner as numbers, NODE_INTS to a node in preorder (parent, type, field, named, start, end, line, column), so neither side recurses on a deep tree; src/runner.ts reads the same layout.
+export const NODE_INTS = 8;
+
+export interface FlatTree {
+  types: string[];
+  fields: string[];
+  nodes: Int32Array;
+}
+
+export type TreeAnswer = { language: string; tree: FlatTree; absent: null } | { language: string | null; tree: null; absent: Absent };
+
+export type RuleUse = { line: number; type?: string | null } & Answer;
+
+export type UsesAnswer = { uses: RuleUse[]; absent: null } | { uses: null; absent: Absent };
+
+type Tree = ParsedFile['tree'];
+
+function flatten(tree: Tree): FlatTree {
+  const types = new Map<string, number>();
+  const fields = new Map<string, number>();
+  const id = (names: Map<string, number>, name: string) => {
+    let at = names.get(name);
+    if (at === undefined) names.set(name, (at = names.size));
+    return at;
+  };
+  let nodes = new Int32Array(NODE_INTS * 1024);
+  let count = 0;
+  const parents: number[] = [];
+  const cursor = tree.walk();
+  try {
+    for (;;) {
+      if ((count + 1) * NODE_INTS > nodes.length) {
+        const grown = new Int32Array(nodes.length * 2);
+        grown.set(nodes);
+        nodes = grown;
+      }
+      const field = cursor.currentFieldName;
+      const start = cursor.startPosition;
+      nodes.set(
+        [parents.at(-1) ?? -1, id(types, cursor.nodeType), field === null ? -1 : id(fields, field), cursor.nodeIsNamed ? 1 : 0, cursor.startIndex, cursor.endIndex, start.row + 1, start.column],
+        count * NODE_INTS,
+      );
+      const self = count++;
+      if (cursor.gotoFirstChild()) {
+        parents.push(self);
+        continue;
+      }
+      while (!cursor.gotoNextSibling()) {
+        if (!cursor.gotoParent()) return { types: [...types.keys()], fields: [...fields.keys()], nodes: nodes.slice(0, count * NODE_INTS) };
+        parents.pop();
+      }
+    }
+  } finally {
+    cursor.delete();
+  }
+}
+
+export interface Owners {
+  bytes: (path: string) => Uint8Array;
+  ownerOf: (path: string) => string | undefined;
+  typeOf: (path: string) => string | null;
+}
+
+export function ownersOf(files: string[], read: (path: string) => Uint8Array, typed: TypedFile[]): Owners {
+  const known = new Set(files);
+  const typedByPath = new Map(typed.map((file) => [file.path, file.type.id]));
+  const bytes = (path: string) => {
+    try {
+      return read(path);
+    } catch (error) {
+      throw new Unreadable(path, readError(path, error));
+    }
+  };
+  const ownerOf = (path: string) => {
+    const type = typedByPath.get(path);
+    if (type !== undefined) return type;
+    if (!known.has(path)) return undefined;
+    return isBinary(bytes(path)) ? '#binary' : '#untyped';
+  };
+  return { bytes, ownerOf, typeOf: (path) => typedByPath.get(path) ?? null };
+}
+
+export interface RuleReadsInput extends Owners {
+  root: string;
+  files: string[];
+  grammarDir?: string;
+}
+
+export interface RuleFileText {
+  path: string;
+  text: string;
+}
+
+export type Serve = (what: 'tree' | 'uses', file: RuleFileText) => Promise<TreeAnswer | UsesAnswer>;
+
+// The first ask of a rule reads the uses of every file it judges in the run at once, so a name-binding group is parsed once per rule and not once per file.
+export function ruleReads(input: RuleReadsInput, runes: Runes = RUNES): (bound: RuleFileText[]) => Serve {
+  const siblings = siblingsOf(input.files);
+  let host: Host | null = null;
+
+  const tree = async (file: RuleFileText): Promise<TreeAnswer> => {
+    const reader = readerOf(file.path, file.text, siblings, runes);
+    if (!reader.reader || reader.view === null) return { language: null, tree: null, absent: 'no-reader' };
+    const { language, parsePath, content } = reader.view;
+    if (Buffer.byteLength(content, 'utf8') > USES_FILE_BYTES) return { language, tree: null, absent: 'too-large' };
+    host ??= runes.createHost(input.grammarDir ?? GRAMMARS);
+    step(`reading the tree of ${file.path}`, file.path);
+    try {
+      const override = getLanguageForExtension(extname(parsePath)) === language ? undefined : language;
+      return { language, tree: await host.withParsedFile(parsePath, content, flatten, override), absent: null };
+    } catch {
+      return { language, tree: null, absent: 'reader-failed' };
+    }
+  };
+
+  const read = async (files: RuleFileText[]): Promise<Map<string, UsesAnswer>> => {
+    const views = files.flatMap((file) => {
+      const reader = readerOf(file.path, file.text, siblings, runes);
+      return reader.reader ? [{ path: file.path, view: reader.view }] : [];
+    });
+    const out = new Map<string, UsesAnswer>();
+    if (views.length === 0) return out;
+    const outcome = await readUses({ root: input.root, files: input.files, bytes: input.bytes, ownerOf: input.ownerOf, read: views, ...(input.grammarDir === undefined ? {} : { grammarDir: input.grammarDir }) }, runes);
+    if ('error' in outcome) return out;
+    for (const skipped of outcome.skipped) if (skipped.uses) out.set(skipped.path, { uses: null, absent: 'too-large' });
+    for (const [path, uses] of outcome.uses) {
+      out.set(path, { uses: uses.map(({ line, answer }) => (answer.kind === 'file' ? { line, ...answer, type: input.typeOf(answer.file) } : { line, ...answer })), absent: null });
+    }
+    return out;
+  };
+
+  return (bound) => {
+    let all: Promise<Map<string, UsesAnswer>> | null = null;
+    return async (what, file) => {
+      if (what === 'tree') return tree(file);
+      if (!readerOf(file.path, file.text, siblings, runes).reader) return { uses: null, absent: 'no-reader' };
+      all ??= read(bound);
+      // A file whose uses the shared read could not give, because the reader failed on another file, is read alone.
+      return (await all).get(file.path) ?? (await read([file])).get(file.path) ?? { uses: null, absent: 'reader-failed' };
+    };
+  };
 }
