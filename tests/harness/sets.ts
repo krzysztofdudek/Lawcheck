@@ -42,7 +42,12 @@ export const TEST_FILE = /\.(test|spec)\.[cm]?[jt]sx?$/;
 
 // What discovery leaves out when it looks for test files anywhere in the checkout: what npm, the build and git make, and the files that are named like a test and are none. Every other file named like a test must be in a set of the runner.
 export const NOT_SEARCHED = ['node_modules', '.git', 'dist', '.grammars'];
-export const NOT_TESTS: string[] = [];
+export const NOT_TESTS: string[] = [
+  'film/fixture/shop/tests/format.test.ts',
+  'film/fixture/shop/tests/orders.test.ts',
+  'film/fixture/shop/tests/price.test.ts',
+  'film/takes/a09/files/tests/price.test.ts',
+];
 
 const rel = (path: string) => relative(ROOT, path).split(sep).join('/');
 

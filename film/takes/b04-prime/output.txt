@@ -1,0 +1,28 @@
+Lawcheck checks this repository's code against its law: the file types, the rules each type keeps, and which types may use which. The law is .lawcheck/law.yaml; rule files are in .lawcheck/rules/.
+
+How to work here
+- Before you create a file, or first edit a file of a type new to you: lawcheck explain <path>
+- After you change code: lawcheck check. If it says "no base", run lawcheck check --base <the branch you started from>.
+- Exit 0: nothing blocks; warnings are advisory. Exit 1: the code breaks the law; fix the code. Exit 2: Lawcheck or the law is broken; fix what the error names, not the code.
+- Never report work as done while lawcheck check exits 1.
+- A failing run ends with a next line; do what it says. When it asks for something listed below as the user's, or a finding cannot be fixed in the code, ask the user.
+- A plain check judges only changed files. After you change the law or a rule file, run lawcheck check --full and tell the user how many findings it lists outside your change.
+- Findings outside your change are debt. Leave them unless the user asks.
+
+Only on the user's word
+- a waiver comment: lawcheck-waive <rule> -- <reason> (lawcheck docs waivers), or taking a rule off a type
+- deleting a rule, or changing its status or its why
+- widening may_use
+- any edit of .lawcheck/verdicts or of .lawcheck/config.yaml
+
+You may, unasked
+- add a type for a new kind of file, or make a type finer
+- write a rule the user asked for, and try it first: lawcheck try <rule> <files>
+
+The law here: 2 types, 0 rules
+api  src/api/**  The HTTP handlers.
+core  src/core/**  The business logic.  may use: core
+
+Rules
+
+More: lawcheck docs
