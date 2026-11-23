@@ -36,9 +36,9 @@ export function companion({ file }) {
 }
 ```
 
-For each file that the rule judges, Lawcheck calls `companion` with `file` and `repo`, the keys that a script rule gets (`lawcheck docs script-rules`). The function returns a list of paths from the root, or a promise of one. With this companion, the prompt for `tests/price.test.ts` holds `specs/price.md`, and the prompt for `tests/tax.test.ts` holds `specs/tax.md`. A file of the list goes into the prompt of that one judged file, after the files of `context`. A path that the prompt already holds, the judged file or a file of `context`, goes in once. An empty list adds no file.
+For each file that the rule judges, Lawcheck calls `companion` with `file` and `repo`, the keys that a script rule gets (`lawcheck docs script-rules`). The function returns a list of paths from the root, or a promise of one. With this companion, the prompt for `tests/price.test.ts` holds `specs/price.md`, and the prompt for `tests/tax.test.ts` holds `specs/tax.md`. A file of the list goes into the prompt of that one judged file, after the files of `context`. A path that the prompt already holds, the judged file or a file of `context`, goes in once. An empty list adds no file. Each returned file adds its whole text to the prompt of that judged file, so every call of the rule sends the reviewer more text.
 
-The companion runs in the runner of script rules, under the same limits: it reads the files below the root, and it writes no file, starts no program and opens no network connection. It can ask for the judged file's syntax tree and uses, so it can return the files that the judged file imports. Lawcheck runs it on every check, with or without `--review`, because the files it returns decide the review hash. `lawcheck try` and `lawcheck explain` run it too.
+The companion runs in the runner of script rules, under the same limits: it reads the files below the root, and it writes no file, starts no program and opens no network connection. It can ask for the judged file's syntax tree and uses, so it can return the files that the judged file imports. Lawcheck runs it on each check that judges a file of the rule, with or without `--review`, because the files it returns decide the review hash. Its time counts toward the 600 seconds that the script rules of a check may take together. `lawcheck try` and `lawcheck explain` run it too.
 
 Lawcheck stops the run with [`rule-crashed`](codes.md#rule-crashed), and names the companion's file, in these cases:
 
@@ -97,7 +97,7 @@ A [verdict](concepts.md#verdict) is the reviewer's answer, pass or fail, for one
 - the path and text of the judged file;
 - the waived lines that the prompt names.
 
-A change to any of these parts gives a new review hash. Lawcheck then finds no pass for the file and rule. The file needs a new review. A new waiver changes the review hash, because the waiver is part of the text of the file. A change to `specs/price.md` gives a new review hash to `tests/price.test.ts` alone. A change to the companion's module gives one to every file of the rule.
+A change to any of these parts gives a new review hash. Lawcheck then finds no pass for the file and rule. The file needs a new review. A new waiver changes the review hash, because the waiver is part of the text of the file. A change to `specs/price.md` gives a new review hash to `tests/price.test.ts` alone. A change to the companion's module gives one to every file of the rule. A module that the companion imports is not part of the review hash: a change to it gives a new one only to the files whose returned files it changes.
 
 Lawcheck leaves the rule's `status`, the provider, the model and the other settings out of the review hash. A recorded pass stays valid when you change any of them.
 

@@ -30,12 +30,12 @@ Two words recur below. The root is the folder that holds `.lawcheck/`. A rule bi
 | `file-unwritable` | exit 2 | Lawcheck cannot write a file or folder it must write | what Lawcheck cannot write is lost, so the run cannot say it is done |
 | `type-overlap` | exit 2 | two types of one level match one file | a file has one type, so the rules that bind it are never in doubt |
 | `base-unreachable` | exit 2 | the base names no commit, shares no history with `HEAD`, or the repository has no commit; or a CI job has no base | without its base a change cannot be told from debt |
-| `link-outside-root` | exit 2 | a script rule is to run, and a link git tracks leads outside the work tree | a script rule reads nothing outside the work tree, and a link that leads out of it would let it |
-| `path-unsupported` | exit 2 | a script rule is to run, and the path of the root or of Lawcheck holds a `*` or a backslash | a script rule reads nothing outside the root and Lawcheck's folder, and the runner can keep that only on such a path |
+| `link-outside-root` | exit 2 | a script rule or a companion is to run, and a link git tracks leads outside the work tree | a script rule reads nothing outside the work tree, and a link that leads out of it would let it |
+| `path-unsupported` | exit 2 | a script rule or a companion is to run, and the path of the root or of Lawcheck holds a `*` or a backslash | a script rule reads nothing outside the root and Lawcheck's folder, and the runner can keep that only on such a path |
 | `runner-failed` | exit 2 | the process that runs script rules does not start | a runner that does not start says nothing about the rules |
 | `rule-crashed` | exit 2 | a script rule does not load, throws, returns no list of findings, returns a message over 4,096 characters, or passes 30 seconds; or a reviewer rule's companion fails the same way or returns a path that is no file to send | a broken rule says nothing about the code |
 | `too-many-findings` | exit 2 | a run's findings pass 200,000, or 16,777,216 characters of message | a run holds every finding in memory, so it may hold only so many |
-| `rules-too-slow` | exit 2 | the script rules of a run take over 600 seconds | a run that never ends gives no answer |
+| `rules-too-slow` | exit 2 | the script rules and companions of a run take over 600 seconds | a run that never ends gives no answer |
 | `parser-failed` | exit 2 | Lawcheck cannot load a grammar, or a reader fails on a file | a file whose uses were not read is not taken to use nothing |
 | `reviewer-not-configured` | exit 2 | a run asks for reviews, and the config names no provider | reviewer rules need a reviewer to judge them |
 | `too-many-reviews` | exit 2 | a run needs more reviewer calls than `--max-calls` or `reviewer.max_calls` allows | reviewer.max_calls bounds what one run spends |
@@ -557,7 +557,7 @@ next: pass --base with a branch or a commit that exists here
 
 **Meaning**
 
-A script rule is about to run. A symbolic link that git tracks leads outside the git work tree and outside Lawcheck's folder. A rule could read outside the repository through that link, so Lawcheck runs no rule.
+A script rule, or the companion of a reviewer rule, is about to run. A symbolic link that git tracks leads outside the git work tree and outside Lawcheck's folder. A rule could read outside the repository through that link, so Lawcheck runs no rule.
 
 **Typical cause**
 
@@ -583,7 +583,7 @@ next: remove the link outside, or let it lead inside the work tree, then run law
 
 **Meaning**
 
-A script rule is about to run. The path of the repository or of Lawcheck holds a `*`, or a backslash outside Windows. The rule runner is the Node process that runs the script rules. On such a path, the rule runner cannot keep a rule from reading outside the root.
+A script rule, or the companion of a reviewer rule, is about to run. The path of the repository or of Lawcheck holds a `*`, or a backslash outside Windows. The rule runner is the Node process that runs the script rules. On such a path, the rule runner cannot keep a rule from reading outside the root.
 
 **Typical cause**
 
@@ -697,7 +697,7 @@ next: make the rules return fewer findings, or narrow the types that list them, 
 
 **Meaning**
 
-The script rules of one run took more than 600 seconds together. Lawcheck stops them. The error names each rule that had not finished, with the file it was on.
+The script rules of one run, with the companions of its reviewer rules, took more than 600 seconds together. Lawcheck stops them. The error names each rule or companion that had not finished, with the file it was on.
 
 Lawcheck runs as many rules at once as the machine has processors. On a machine with fewer processors than rules, the error says "had not started" for the later rules. The Example comes from a machine of three processors or more.
 
