@@ -206,7 +206,7 @@ A use that a `may_use` list forbids is an error in the change, and the law has n
 
 Why: a list that gives warnings is one more switch that a team forgets to turn on, and a list with a waiver on each old use judges every use a change adds from the first day. Each waiver stays in its file and in the JSON until someone removes it. The owner chose the page over a new key on 2026-11-23.
 
-## 167. The waivers a change adds
+## 171. The waivers a change adds
 
 `check` against a base reads each changed file at the merge base of `HEAD` and the base, parses its waivers with the rules of the current law, and marks a waiver of the change as added when the base holds fewer waivers of its rule with its reason. Of equal waivers, those whose line the base lacks count as added first. The text output names them in a note under the first line, and the JSON gives each item of `waivers` the field `added`, null where no base was compared. The law-change note no longer lists waivers. A marker in a file that no type takes, or in a file under `ignored`, is not named, because it waives nothing; the law-change note names the pattern of `required` or `ignored` that a change adds or takes off. A file moved to a new path counts its waivers as added.
 
@@ -214,7 +214,7 @@ The Claude Code plugin tells the user once, at the stop that ends a turn, which 
 
 Why: an agent that cannot fix a breach adds a waiver and ends green, and the owner does not see it. Matching by rule and reason, not by line, keeps a waiver that only moved from being named on every edit near it. The hook reads text and not the parse of `check`, because `check` of named files has no base, and a file at the start of a turn may exist only on disk.
 
-## 168. A waiver at the end of a multi-line import
+## 172. A waiver at the end of a multi-line import
 
 A waiver after code covers its own line, and a waiver on a line of its own covers the next line. The `forbidden-use` finding of an import over several lines sits on the statement's first line, so a waiver at the end of its last line covers nothing and is `waiver-unused`. The waiver goes on the line above the statement, as `docs/waivers.md` shows for TypeScript and Python.
 
