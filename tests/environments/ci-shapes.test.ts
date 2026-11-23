@@ -312,7 +312,8 @@ test('test 890: a base with a line break or another character the output escapes
     const clone = join(dir, 'clone');
     git(clone, 'remote', 'add', '--', '-r', 'file:///nowhere');
     git(clone, 'remote', 'add', 'a;b', 'file:///nowhere');
-    for (const base of ['origin/x\ny', 'origin/x\ttab', 'origin/x\u0085y', 'origin/x\u202ey', 'origin/a..b', 'origin/a b', 'origin/x:y', 'origin/a@{b', 'origin/x.lock', 'origin/a//b', '-r/main', '-r/-main', 'a;b/x y']) {
+    git(clone, 'config', 'remote.x y.url', 'file:///nowhere');
+    for (const base of ['x y/main', 'origin/x\ny', 'origin/x\ttab', 'origin/x\u0085y', 'origin/x\u202ey', 'origin/a..b', 'origin/a b', 'origin/x:y', 'origin/a@{b', 'origin/x.lock', 'origin/a//b', '-r/main', '-r/-main', 'a;b/x y']) {
       const run = await lawcheck(clone, ['check', '--json'], { ...CI, LAWCHECK_BASE: base });
       const document = JSON.parse(run.stdout);
       assert.equal(document.next.command, 'git fetch --unshallow', JSON.stringify(base));
