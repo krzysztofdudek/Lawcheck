@@ -541,7 +541,8 @@ test('question 95: tests/run.ts --skip <id> leaves the tests of that id out of t
   assert.ok(total !== null, all.stdout);
   const skipped = ran('--skip', 'R-73');
   assert.equal(skipped.status, 0, skipped.stdout + skipped.stderr);
-  assert.match(skipped.stdout, new RegExp(`ran 1 test files, ${total![1]} tests: ${Number(total![1]) - 1} passed, 0 failed, 1 skipped`));
+  const left = Number(total![1]) - 1;
+  assert.match(skipped.stdout, new RegExp(`ran 1 test files, ${left} tests: ${left} passed, 0 failed`));
   const refused = ran('--skip', 'nothing');
   assert.equal(refused.status, 2, refused.stdout + refused.stderr);
   assert.match(refused.stderr + refused.stdout, /--skip takes a test id/);
