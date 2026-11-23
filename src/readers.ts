@@ -162,6 +162,8 @@ export interface ReadInput {
   read: { path: string; view: ScriptView | null }[];
   grammarDir?: string;
   cacheWrites?: boolean;
+  // Who asked for the read, such as the script rule no-todo, when a rule did; the steps name it, so memory-too-large names a step that fits the read.
+  asker?: string;
 }
 
 export type ReadOutcome = { uses: Map<string, Use[]>; skipped: Skipped[]; unreadable: UnreadableConfig[] } | { error: ErrorItem };
@@ -405,10 +407,11 @@ async function readAll(input: ReadInput, runes: Runes, skipped: Skipped[], unrea
   const detected = new Map<string, DetectedDep[]>();
   const csharp = new Map<string, CsharpExtract>();
   const globals = new Map<string, GlobalFacts>();
+  const asked = input.asker === undefined ? '' : ` for ${input.asker}`;
   const cache = groups.size > 0 ? DeclaredCache.open(input.root, input.files, host, runes, input.cacheWrites !== false) : null;
 
   for (const parse of [...parses.values()].sort((a, b) => comparePaths(a.path, b.path))) {
-    step(parse.uses ? `reading the uses of ${parse.path}` : `reading what ${parse.path} declares`);
+    step(parse.uses ? `reading the uses of ${parse.path}${asked}` : `reading what ${parse.path} declares${asked}`);
     const { language, parsePath, content } = parse.view;
     // A file past the limit is not parsed, and the run names it: one whose uses it judges, as not read; one read only for what it declares, as a file whose uses by others are not judged.
     const size = Buffer.byteLength(content, 'utf8');
@@ -442,7 +445,7 @@ async function readAll(input: ReadInput, runes: Runes, skipped: Skipped[], unrea
     }
     const override = getLanguageForExtension(extname(parsePath)) === language ? undefined : language;
     // The step names its file only from here, so the memory it may add counts from the parse and not from the grammar loaded before it.
-    step(parse.uses ? `reading the uses of ${parse.path}` : `reading what ${parse.path} declares`, parse.path);
+    step(parse.uses ? `reading the uses of ${parse.path}${asked}` : `reading what ${parse.path} declares${asked}`, parse.path);
     try {
       await host.withParsedFile(
         parsePath,
@@ -475,7 +478,7 @@ async function readAll(input: ReadInput, runes: Runes, skipped: Skipped[], unrea
     }
   }
   // From here no file is parsed, so the memory the run gains belongs to no file, and a file found in the cache must not change which file the last parse leaves named.
-  step('resolving the uses');
+  step(`resolving the uses${asked}`);
   cache?.write(true);
 
   let reach: ReturnType<typeof buildCsharpReachability> | undefined;
@@ -673,18 +676,20 @@ export interface RuleFileText {
 
 export type Serve = (what: 'tree' | 'uses', file: RuleFileText) => Promise<TreeAnswer | UsesAnswer>;
 
+export type Reads = (bound: RuleFileText[], asker?: string) => Serve;
+
 // The first ask of a rule reads the uses of every file it judges in the run that no rule has asked for before, at once, so a name-binding group is parsed once per batch and not once per file.
-export function ruleReads(input: RuleReadsInput, runes: Runes = RUNES): (bound: RuleFileText[]) => Serve {
+export function ruleReads(input: RuleReadsInput, runes: Runes = RUNES): Reads {
   const siblings = siblingsOf(input.files);
   let host: Host | null = null;
 
-  const tree = async (file: RuleFileText): Promise<TreeAnswer> => {
+  const tree = async (file: RuleFileText, asker: string | undefined): Promise<TreeAnswer> => {
     const reader = readerOf(file.path, file.text, siblings, runes);
     if (!reader.reader || reader.view === null) return { language: null, tree: null, absent: 'no-reader' };
     const { language, parsePath, content } = reader.view;
     if (Buffer.byteLength(content, 'utf8') > USES_FILE_BYTES) return { language, tree: null, absent: 'too-large' };
     host ??= runes.createHost(input.grammarDir ?? GRAMMARS);
-    step(`reading the tree of ${file.path}`, file.path);
+    step(`reading the tree of ${file.path}${asker === undefined ? '' : ` for ${asker}`}`, file.path);
     try {
       const override = getLanguageForExtension(extname(parsePath)) === language ? undefined : language;
       return { language, tree: await host.withParsedFile(parsePath, content, flatten, override), absent: null };
@@ -697,10 +702,10 @@ export function ruleReads(input: RuleReadsInput, runes: Runes = RUNES): (bound: 
   const tooLarge = (view: ScriptView | null) => view !== null && Buffer.byteLength(view.content, 'utf8') > USES_FILE_BYTES;
 
   // Reading each file alone after a failure would parse a whole name-binding group once per file, so a failure on a judged file takes that file out of the batch, and any other failure splits the batch by language or group and fails the part that shares it.
-  const read = async (judged: { path: string; view: ScriptView | null }[], out: Map<string, UsesAnswer>, split: boolean): Promise<void> => {
+  const read = async (judged: { path: string; view: ScriptView | null }[], out: Map<string, UsesAnswer>, split: boolean, asker: string | undefined): Promise<void> => {
     let left = judged;
     while (left.length > 0) {
-      const outcome = await readUses({ root: input.root, files: input.files, bytes: input.bytes, ownerOf: input.ownerOf, read: left, ...(input.grammarDir === undefined ? {} : { grammarDir: input.grammarDir }) }, runes);
+      const outcome = await readUses({ root: input.root, files: input.files, bytes: input.bytes, ownerOf: input.ownerOf, read: left, ...(input.grammarDir === undefined ? {} : { grammarDir: input.grammarDir }), ...(asker === undefined ? {} : { asker }) }, runes);
       if (!('error' in outcome)) {
         for (const [path, uses] of outcome.uses) {
           out.set(path, { uses: uses.map(({ line, answer }) => (answer.kind === 'file' ? { line, ...answer, type: input.typeOf(answer.file) } : { line, ...answer })), absent: null });
@@ -723,7 +728,7 @@ export function ruleReads(input: RuleReadsInput, runes: Runes = RUNES): (bound: 
         for (const one of left) out.set(one.path, failed);
         return;
       }
-      for (const part of parts.values()) await read(part, out, false);
+      for (const part of parts.values()) await read(part, out, false, asker);
       return;
     }
   };
@@ -731,7 +736,7 @@ export function ruleReads(input: RuleReadsInput, runes: Runes = RUNES): (bound: 
   // The uses of a file do not depend on the batch that reads them, so every rule of the run takes them from the one read that first reached the file.
   const answers = new Map<string, Promise<UsesAnswer>>();
 
-  return (bound) => {
+  return (bound, asker) => {
     let asked = false;
     const readBound = () => {
       const judged = bound.flatMap((file) => {
@@ -741,7 +746,7 @@ export function ruleReads(input: RuleReadsInput, runes: Runes = RUNES): (bound: 
       });
       if (judged.length === 0) return;
       const out = new Map<string, UsesAnswer>();
-      const batch = read(judged, out, true);
+      const batch = read(judged, out, true, asker);
       for (const { path } of judged) {
         const answer = batch.then(() => out.get(path) ?? failed);
         // A failure of the read reaches every rule that asks for one of its files; a file no rule asks for again must not end the run as a rejection nobody handled.
@@ -750,7 +755,7 @@ export function ruleReads(input: RuleReadsInput, runes: Runes = RUNES): (bound: 
       }
     };
     return async (what, file) => {
-      if (what === 'tree') return tree(file);
+      if (what === 'tree') return tree(file, asker);
       const reader = readerOf(file.path, file.text, siblings, runes);
       if (!reader.reader) return { uses: null, absent: 'no-reader' };
       if (tooLarge(reader.view)) return { uses: null, absent: 'too-large' };

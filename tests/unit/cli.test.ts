@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { main, parseArguments, readerGone } from '../../dist/cli.js';
+import { main, memoryError, parseArguments, readerGone } from '../../dist/cli.js';
 
 const context = { cwd: '/', env: {} };
 
@@ -44,4 +44,16 @@ test('test 240: R-82, a write that fails because the reader is gone is not a los
   for (const code of ['ENOSPC', 'EBADF', 'EPERM', 'EACCES', 'EIO']) assert.equal(readerGone(Object.assign(new Error(code), { code })), false, code);
   assert.equal(readerGone(new Error('no code')), false);
   assert.equal(readerGone(null), false);
+});
+
+test('R-121: memory-too-large names a step that fits what the run was reading: a may_use list, a script rule, a companion, or a file read for what it declares', () => {
+  const next = (found: 'file' | 'run', what: string, file: string | null) => memoryError(found, what, file, 'check').next;
+  const again = 'then run lawcheck check again';
+  assert.equal(next('file', 'reading the uses of a.ts', 'a.ts'), `leave a.ts out of the types whose may_use is in force, ${again}`);
+  assert.equal(next('file', 'reading the uses of a.ts for the script rule no-todo', 'a.ts'), `leave a.ts out of the types whose files the script rule no-todo judges, or keep the rule from calling uses() on it, ${again}`);
+  assert.equal(next('file', 'reading the tree of a.ts for the script rule no-todo', 'a.ts'), `leave a.ts out of the types whose files the script rule no-todo judges, or keep the rule from calling tree() on it, ${again}`);
+  assert.equal(next('file', 'reading the uses of a.ts for the companion of the reviewer rule spec-of-test', 'a.ts'), `leave a.ts out of the types whose files the reviewer rule spec-of-test judges, or keep its companion from calling uses() on it, ${again}`);
+  assert.equal(next('file', 'reading what A.cs declares for the script rule no-todo', 'A.cs'), `keep A.cs out of the files git lists here (git rm --cached, and a line in .gitignore), since Lawcheck reads it for what it declares, ${again}`);
+  assert.equal(next('run', 'resolving the uses for the script rule no-todo', null), `narrow the types whose files the script rule no-todo judges in .lawcheck/law.yaml, or run Lawcheck where it may hold more memory, ${again}`);
+  assert.equal(next('run', 'resolving the uses', null), `narrow the types whose may_use is in force in .lawcheck/law.yaml, or run Lawcheck where it may hold more memory, ${again}`);
 });

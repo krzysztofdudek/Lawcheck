@@ -891,6 +891,8 @@ The cause is one of these:
 
 The `next:` line names the step for the case. A type with a `may_use` list on it, or on a type above it, is a type whose files Lawcheck reads for their uses ([`may_use`](law.md#may-use)).
 
+Lawcheck also reads for their uses the files of a script rule that calls `uses()`, and of a reviewer rule whose companion calls it ([The uses](script-rules.md#the-uses)). The error then names that rule, and the `next:` line names the types whose files the rule judges, or says to keep the rule from calling `uses()` on the file. A law with no `may_use` list can end this way too.
+
 - For one file that Lawcheck reads for its uses, leave the file out of every such type with a `!` pattern.
 - For one file that Lawcheck reads only for the names it declares, as in the Example, keep the file out of the files that git lists. In Java, Kotlin, C#, Ruby and Rust, Lawcheck reads those names from every file that git lists, with a type or without one ([Languages and uses](languages.md)). Run `git rm --cached` on the file and add a line for it to `.gitignore`.
 - For a whole run over its memory, narrow the `paths` of those types, or run Lawcheck on a machine with more memory.

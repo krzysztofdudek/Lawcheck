@@ -11,7 +11,7 @@ import { safeText } from './output.js';
 import { hide } from './keys.js';
 import type { Readable } from 'node:stream';
 import { count, MESSAGE_CHARS, points, readError, RULES_RUN_MS, RUN_FINDINGS, RUN_MESSAGE_CHARS } from './limits.js';
-import type { Serve } from './readers.js';
+import type { Reads, Serve } from './readers.js';
 import type { ErrorItem } from './output.js';
 import type { Read, ReviewerRule } from './setup.js';
 import { decode, isBinary } from './types.js';
@@ -529,7 +529,7 @@ export interface CompanionRun {
   files: string[];
   read: Read;
   filesOf: Map<string, string[]>;
-  serve: (bound: RuleFile[]) => Serve;
+  serve: Reads;
   signal?: AbortSignal;
 }
 
@@ -565,7 +565,7 @@ export async function resolveCompanions(run: CompanionRun, reviewers: Map<string
   const outcomes = await runAll(
     wanted.map(({ rule, files }) => async () => {
       const module = reviewers.get(rule)!.companion!.path;
-      return { rule, files, outcome: signal.aborted ? { slow: slowMessage('not started') } : await runRule({ root: run.root, rule, ruleFile: join(run.root, module), files, filesOf: run.filesOf, signal, serve: run.serve(files), entry: 'companion' }) };
+      return { rule, files, outcome: signal.aborted ? { slow: slowMessage('not started') } : await runRule({ root: run.root, rule, ruleFile: join(run.root, module), files, filesOf: run.filesOf, signal, serve: run.serve(files, `the companion of the reviewer rule ${rule}`), entry: 'companion' }) };
     }),
   );
   own?.clear();
