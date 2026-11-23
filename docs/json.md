@@ -127,6 +127,7 @@ Every command but `doctor` prints this document when it ends with exit 2.
 | `errors.line` | the line, or null |
 | `errors.message` | what is wrong |
 | `errors.why` | the line that explains the code |
+| `calls_made` | the requests this run sent to the reviewer before it ended; present only when it sent any, and then after `errors` |
 | `next` | the next step for the first error |
 | `next.command` | the command alone, where the step is one command, else null |
 | `next.text` | the step in words |

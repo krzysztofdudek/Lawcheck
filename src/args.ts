@@ -16,8 +16,8 @@ export function usageError(problem: string, json: boolean, command: string | nul
   return errorResult([{ code: 'usage', file: null, line: null, message: problem }], json, command);
 }
 
-export function errorResult(errors: ErrorItem[], json: boolean, command: string | null): Result {
-  return { code: 2, stdout: renderErrors(errors, json, command) };
+export function errorResult(errors: ErrorItem[], json: boolean, command: string | null, calls = 0): Result {
+  return { code: 2, stdout: renderErrors(errors, json, command, Infinity, calls) };
 }
 
 export function documentOf(value: unknown): string {

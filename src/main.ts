@@ -71,7 +71,7 @@ async function run(argv: string[], context: CheckContext, command: Command): Pro
     const parsed = checkOptions(args);
     if ('problem' in parsed) return usageError(parsed.problem, json, 'check');
     const outcome = await command(parsed.options, context);
-    if ('errors' in outcome) return { code: 2, stdout: renderErrors(outcome.errors, json) };
+    if ('errors' in outcome) return { code: 2, stdout: renderErrors(outcome.errors, json, 'check', Infinity, outcome.calls) };
     step('writing the report');
     const text = renderReport(outcome.report, json);
     return { code: blocking(outcome.report).length > 0 ? 1 : 0, stdout: text };

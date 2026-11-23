@@ -278,19 +278,20 @@ export function errorLines(errors: ErrorItem[], limit = Infinity): string[] {
   return lines;
 }
 
-export function renderErrors(input: ErrorItem[], json: boolean, command: string | null = 'check', limit = Infinity): string {
+export function renderErrors(input: ErrorItem[], json: boolean, command: string | null = 'check', limit = Infinity, calls = 0): string {
   const errors = sortErrors(input);
   const next = nextFor(errors[0]!, command);
   if (json) {
     const document = {
       schema: 'lawcheck-error/1',
       errors: errors.map((e) => ({ code: e.code, file: e.file, line: e.line, message: e.message, why: WHY[e.code] ?? '' })),
+      ...(calls === 0 ? {} : { calls_made: calls }),
       next: { command: commandIn(next, errors[0]!.command), text: next },
     };
     return JSON.stringify(document, null, 2) + '\n';
   }
   const refused = errors.find((e) => e.code === 'unsupported-environment');
-  const lines = [`lawcheck: ERROR  ${refused === undefined ? plural(errors.length, 'error') : shown(refused.message)}`, '', ...errorLines(errors, limit)];
+  const lines = [`lawcheck: ERROR  ${refused === undefined ? plural(errors.length, 'error') + (calls === 0 ? '' : `, ${plural(calls, 'reviewer call')}`) : shown(refused.message)}`, '', ...errorLines(errors, limit)];
   lines.push('', `next: ${plain(next)}`);
   return lines.join('\n') + '\n';
 }
