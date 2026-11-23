@@ -1,6 +1,6 @@
 # Upgrade Lawcheck
 
-Lawcheck 0.1.0-alpha.4 judges the code as 0.1.0-alpha.3 does, except a script rule that uses the network on Node 24. From alpha.3 and from 0.1.0-alpha.2, the upgrade is [Before you upgrade](#before-you-upgrade) and the first three steps. From alpha.2, `lawcheck docs` also lists 36 pages in place of 12. Its text list groups the pages under five section lines, so a script that reads that list meets lines it did not see before. From 0.1.0-alpha.1, read the whole page.
+Lawcheck 0.1.0-alpha.4 judges the code as 0.1.0-alpha.3 does, except a script rule that uses the network. From alpha.3 and from 0.1.0-alpha.2, the upgrade is [Before you upgrade](#before-you-upgrade) and the first three steps. From alpha.2, `lawcheck docs` also lists 36 pages in place of 12. Its text list groups the pages under five section lines, so a script that reads that list meets lines it did not see before. From 0.1.0-alpha.1, read the whole page.
 
 Lawcheck finds the [uses](concepts.md#use) of each file through a parsing library named Runes. Lawcheck 0.1.0-alpha.2 depends on Runes 1.2.0. alpha.2 finds uses that 0.1.0-alpha.1 missed, such as a `vi.mock` of a file of another layer. Lawcheck judges those uses against `may_use`. A branch that passed on alpha.1 can then fail on alpha.4, at a line that the branch did not touch.
 
@@ -25,7 +25,7 @@ At the end of this guide, alpha.4 runs. `lawcheck check --full` has listed its n
 | a C or C++ system header, a Ruby constant the repository does not declare, a Java or Kotlin member type inherited from a library | outside the repository, where alpha.1 counted an unresolved use |
 | an alias the readers cannot follow | an unresolved use, where alpha.1 dropped it |
 
-The release note of alpha.2 says the same in prose ([Changelog](changelog.md)). alpha.3 gives the same results. alpha.4 does too, apart from a script rule that uses the network on Node 24.
+The release note of alpha.2 says the same in prose ([Changelog](changelog.md)). alpha.3 gives the same results. alpha.4 does too, apart from a script rule that uses the network.
 
 ## Files that need no edit
 
@@ -35,7 +35,7 @@ alpha.2, alpha.3 and alpha.4 send the reviewer the same prompt as alpha.1. The u
 
 ## Before you upgrade
 
-- On Node 24, a script rule that reads from the network now gets an error. The rule is `rule-crashed` if it does not catch that error, and the check exits with code 2. Keep what the rule needs in a file of the repository, and let the rule read that file.
+- A script rule that uses the network now gets an error from the call itself, on every Node. On Node 24, alpha.3 let the call through. On Node 25 and later, alpha.3 passed Node's refusal to the callback, the `error` event or the promise. The rule is `rule-crashed` if it does not catch the error at the call, and the check exits with code 2. Keep what the rule needs in a file of the repository, and let the rule read that file.
 - From alpha.1, a file that alpha.1 passed can hold a use that alpha.2, alpha.3 and alpha.4 forbid. A [plain check](concepts.md#plain-check) fails on it the first time a change touches that file. You list those files before a change does in [List what the new version finds](#_4-list-what-the-new-version-finds).
 - From alpha.1, the install grows by about 34 MB. A grammar is the file that describes the syntax of one language, and the grammars that Runes 1.2.0 ships take that space.
 - CI and the git hooks run the version that the project's lockfile pins. Commit `package.json` and the lockfile with the upgrade. Then the CI job, the hooks and each machine's copy in the project run alpha.4.

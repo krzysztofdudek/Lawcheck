@@ -4,13 +4,13 @@ Lawcheck follows [Semantic Versioning](https://semver.org/).
 
 ## [0.1.0-alpha.4] - 2026-11-23
 
-On Node 24, alpha.3 let a script rule open a network connection, and Node 25 and later refused it. Lawcheck 0.1.0-alpha.4 closes the network to script rules on every Node it supports, Node 24 included. The rule runner closes it before the rule loads. A rule that connects, listens on a port, sends over UDP, looks up a name in DNS or calls `fetch` gets an error. A rule that does not catch that error is `rule-crashed`, with the message `uses the network, which is closed to script rules`.
+A script rule that uses the network now gets an error from the call itself, on every Node. On Node 24, alpha.3 let the call through. On Node 25 and later, alpha.3 passed Node's refusal to the callback, the `error` event or the promise, so a rule that handled the refusal there passed. The rule runner of alpha.4 closes the network before the rule loads. A rule that connects, listens on a port, sends over UDP, looks up a name in DNS or calls `fetch` gets the error. A rule that does not catch it is `rule-crashed`, with the message `uses the network, which is closed to script rules`.
 
 The documentation site is now at https://lawcheck.dev, and its old address redirects there. The pages of `lawcheck docs` now say that a file outside the change can stop a plain check with exit 2, with a code such as `type-overlap` or `file-unreadable`. The alpha.3 pages said that such a file never fails a plain check. `check` judges such a file as alpha.3 does.
 
 ### Before you upgrade
 
-A script rule that reads from the network on Node 24 now gets an error. The rule is `rule-crashed` if it does not catch that error, and the check exits with code 2. Keep what the rule needs in a file of the repository, and let the rule read that file.
+A script rule that uses the network now gets an error at the call, on any Node. A handler on the callback, the `error` event or the promise no longer sees it. The rule is `rule-crashed` if it does not catch that error at the call, and the check exits with code 2. Keep what the rule needs in a file of the repository, and let the rule read that file.
 
 ## [0.1.0-alpha.3] - 2026-11-22
 
