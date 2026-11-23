@@ -149,12 +149,12 @@ test('S5-7: init where .gitignore names .lawcheck says that git ignores the law,
 test('S5-7: init and doctor where .lawcheck is a symbolic link to a folder write through it and pass with no note, never internal', async () => {
   await inTemp(async (dir) => {
     const repo = newRepository(dir);
-    mkdirSync(join(dir, 'shared'));
-    symlinkSync(join(dir, 'shared'), join(repo, '.lawcheck'), process.platform === 'win32' ? 'junction' : 'dir');
-    const run = await lawcheck(repo, ['init']);
+    mkdirSync(join(repo, 'shared'));
+    symlinkSync(join(repo, 'shared'), join(repo, '.lawcheck'), process.platform === 'win32' ? 'junction' : 'dir');
+    const run = await lawcheck(repo, ['init'], {}, [], { writes: [/^shared\/(law\.yaml|\.gitignore)$/] });
     assert.equal(run.stdout, CREATED, run.stdout);
     assert.equal(run.code, 0);
-    assert.equal(existsSync(join(dir, 'shared/law.yaml')), true);
+    assert.equal(existsSync(join(repo, 'shared/law.yaml')), true);
     const doctor = await lawcheck(repo, ['doctor']);
     assert.match(doctor.stdout, /^ok {2}law {2}\.lawcheck\/law\.yaml: 0 types, 0 rules \(0 script, 0 reviewer\)$/m, doctor.stdout);
   });
