@@ -210,16 +210,22 @@ export function armState(name: string, record: ArmRecord): 'pass' | 'fail' | 'op
   return good.length + left < arm.target ? 'fail' : 'open';
 }
 
-export function verdictOf(arms: Record<string, ArmRecord>): Verdict {
+// The arms that prove a host's plugin. For Codex, the owner's ruling codex-dowod: the agent broke no law in the arms of a hook alone, so the plugin stands on the whole plugin and the three returns in real sessions, and on a test with a planted breach for the check at the end of a turn.
+export const PROOF: Record<string, string[]> = { codex: ['none', 'start', 'limit'] };
+
+export function verdictOf(arms: Record<string, ArmRecord>, required: string[] = Object.keys(ARMS)): Verdict {
   const lines: string[] = [];
   let passes = true;
+  let judged = true;
   const say = (ok: boolean, text: string) => {
-    lines.push(`${ok ? 'pass' : 'fail'}: ${text}`);
-    if (!ok) passes = false;
+    lines.push(`${ok ? 'pass' : 'fail'}${judged ? '' : ', not required'}: ${text}`);
+    if (!ok && judged) passes = false;
   };
   for (const name of Object.keys(ARMS)) {
+    judged = required.includes(name);
     const record = arms[name];
     if (record === undefined) {
+      if (!judged) continue;
       say(false, `${name}: the arm did not run`);
       continue;
     }
@@ -430,10 +436,10 @@ export async function hostTrial(argv: string[]): Promise<void> {
   const dirty = gitIn(ROOT, ['status', '--porcelain', '--', 'src', 'plugin']).trim() !== '';
   const commit = gitIn(ROOT, ['rev-parse', 'HEAD']).trim() + (dirty ? '-dirty' : '');
   const previous = existsSync(options.out) ? JSON.parse(readFileSync(options.out, 'utf8')) : null;
-  const arms: Record<string, ArmRecord> = previous?.lawcheck_commit === commit ? Object.fromEntries(Object.entries(previous.arms as Record<string, ArmRecord>).map(([name, record]) => [name, { repository: FILM_REPOSITORY, ...record }])) : {};
+  const arms: Record<string, ArmRecord> = previous !== null && sameCode(previous.lawcheck_commit, commit) ? Object.fromEntries(Object.entries(previous.arms as Record<string, ArmRecord>).map(([name, record]) => [name, { repository: FILM_REPOSITORY, ...record }])) : {};
   const agent = options.host.version(process.env);
   const write = () => {
-    const verdict = verdictOf(arms);
+    const verdict = verdictOf(arms, PROOF[options.host.name]);
     writeFileSync(options.out, JSON.stringify(resultOf(options, agent, manifest.version, commit, arms, verdict.passes), null, 2) + '\n');
     return verdict;
   };
@@ -449,6 +455,12 @@ export async function hostTrial(argv: string[]): Promise<void> {
   const verdict = write();
   for (const line of verdict.lines) process.stdout.write(`${line}\n`);
   process.stdout.write(`${verdict.passes ? 'pass' : 'fail'}, written to ${options.out}\n`);
+}
+
+// A session of an earlier commit counts when Lawcheck and its plugin are the same at both, so a change to the trial's own code runs no session twice.
+function sameCode(before: unknown, now: string): boolean {
+  if (typeof before !== 'string' || before.endsWith('-dirty') || now.endsWith('-dirty')) return before === now;
+  return spawnSync('git', ['diff', '--quiet', before, now, '--', 'src', 'plugin'], { cwd: ROOT }).status === 0;
 }
 
 function resultOf(options: Options, agent: string, version: string, commit: string, arms: Record<string, ArmRecord>, passes: boolean) {

@@ -5,7 +5,7 @@ import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { ARM_EVENTS, breachOf, checksIn, errorOf, isFixed, makeRepository, readTranscript, removeSessionState, ROOT, runsLawcheck, settleFolder } from '../agent/run.ts';
 import type { RunEntry } from '../agent/run.ts';
-import { apiImports, armState, breachIn, CLAUDE_REPOSITORY, FILM, FILM_REPOSITORY, hostBreach, hostErrorOf, PROMPT, repositoryFor, stopsOf, verdictOf } from '../agent/trial.ts';
+import { apiImports, armState, breachIn, CLAUDE_REPOSITORY, FILM, FILM_REPOSITORY, hostBreach, hostErrorOf, PROMPT, PROOF, repositoryFor, stopsOf, verdictOf } from '../agent/trial.ts';
 import type { HostEntry } from '../agent/trial.ts';
 import { readCodex } from '../agent/codex.ts';
 import { inTemp } from './helpers.ts';
@@ -194,12 +194,17 @@ test('test 927: the verdict of a trial of another agent holds each arm to its th
   const { limit, ...missing } = good;
   assert.ok(limit !== undefined);
   assert.equal(verdictOf(missing).passes, false);
+  const { edit, stop, ...proof } = good;
+  assert.ok(edit !== undefined && stop !== undefined);
+  assert.equal(verdictOf({ ...proof, edit: arm(many(12)) }, PROOF.codex).passes, true, 'ruling codex-dowod: Codex stands on the arms with no plugin, the whole plugin and three returns');
+  assert.equal(verdictOf({ ...proof, edit: arm(many(12)) }).passes, false);
+  assert.equal(verdictOf(missing, PROOF.codex).passes, false);
 });
 
 const FILM_CORE: Record<string, string | null> = { 'src/core/price.ts': readFileSync(join(FILM, 'shop', 'src', 'core', 'price.ts'), 'utf8') };
 const RESULT_CODEX = join(ROOT, 'tests', 'agent', 'result-codex.json');
 
-test('test 928: the plugin for Codex ships only with a trial of real Codex sessions that passes its thresholds', () => {
+test('test 928: the plugin for Codex ships only with a trial of real Codex sessions that passes the thresholds of its proof, ruling codex-dowod', () => {
   assert.ok(existsSync(join(ROOT, 'plugin', '.codex-plugin', 'plugin.json')));
   assert.ok(existsSync(RESULT_CODEX), 'tests/agent/result-codex.json is missing: run npm run agent-trial -- --host codex');
   const result = JSON.parse(readFileSync(RESULT_CODEX, 'utf8'));
@@ -219,7 +224,7 @@ test('test 928: the plugin for Codex ships only with a trial of real Codex sessi
       for (const place of ['/tmp', homedir(), '/home/']) assert.ok(!entry.reply.includes(place), `${name} run ${entry.run}: ${entry.reply}`);
     }
   }
-  const verdict = verdictOf(result.arms);
+  const verdict = verdictOf(result.arms, PROOF.codex);
   assert.equal(result.passes, verdict.passes);
   assert.ok(verdict.passes, verdict.lines.filter((line) => line.startsWith('fail')).join('\n'));
 });
