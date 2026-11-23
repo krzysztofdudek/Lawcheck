@@ -51,7 +51,7 @@ A plain `lawcheck check` no longer misses a file edited in the same second as th
 The pages of `lawcheck docs` said that a file git ignores has no type. That holds only for a file git does not track. A file git tracks keeps its type and is judged even when `.gitignore` names it, as `lawcheck explain` shows. The pages now say so.
 A script rule may return `line: null` for a finding about the whole file. In alpha.4 the rule was `rule-crashed`. A string such as `'2'`, a bigint or `1.5` still crashes the rule, with a message that names the value.
 
-A script rule whose timer throws after the rule's last result is now `rule-crashed` also when the rule unrefs the timer, with `unref()` or with `ref: false` of `node:timers/promises`, and when the throw follows an `Atomics.waitAsync` that ends after that result. In alpha.4 such a rule passed, because Lawcheck did not wait for an unreferenced timer or a pending `Atomics.waitAsync`.
+A script rule whose timer throws after the rule's last result is now `rule-crashed` also when the rule unrefs the timer, with `unref()` or with `ref: false` of `node:timers/promises`, and when the throw follows an asynchronous wait on shared memory that ends after that result. In alpha.4 such a rule passed, because Lawcheck waited neither for an unreferenced timer nor for such a wait.
 
 When a reviewer's answer holds two verdict objects and one of them is a `fail`, the answer is that fail. In alpha.4 the last object won, so a fail followed by a quoted pass read as a pass. A pass is now a bad answer when an object of the answer holds the key `verdict` twice, or when another object holds a verdict that is neither `pass` nor `fail`, such as `"Fail"`. In alpha.4 both read as a pass.
 
