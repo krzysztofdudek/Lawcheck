@@ -267,7 +267,7 @@ test('test 831: untyped-file in debt, a binary file, a file a type takes by path
   });
 });
 
-test('commands-slice §8: past five items, the law-change line shows first what loosens the law, and JSON keeps every item in its order', async () => {
+test('test 133: past five items, the law-change line shows first what loosens the law, and JSON keeps every item in its order', async () => {
   await withSample(async (s) => {
     const required = ['src/a/**', 'src/b/**', 'src/c/**', 'src/d/**', 'src/e/**'];
     write(s, '.lawcheck/law.yaml', LAW.replace('rules:\n', `required: [${required.map((p) => `"${p}"`).join(', ')}]\nignored: ["src/gen/**"]\n\nrules:\n`).replace('    rules: [no-console]\n', '    rules: []\n'));

@@ -193,7 +193,7 @@ test('check-slice §4: a file staged and then put back is not in the change', as
 });
 
 // git reads a file whose time is not older than the index by its content; the second the index was written is set here, as a commit or git add a moment before the edit would leave it.
-test('check-slice §4: an edit that keeps the size, made in the second git last wrote the index, is in the change', async () => {
+test('test 13: an edit that keeps the size, made in the second git last wrote the index, is in the change', async () => {
   await withSample(async (s) => {
     const second = Math.floor(Date.now() / 1000) - 60;
     const file = join(s, 'src/core/price.ts');

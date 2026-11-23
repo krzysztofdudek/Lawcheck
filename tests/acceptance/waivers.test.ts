@@ -194,7 +194,7 @@ test('S4-5: a waiver after the last line of a multi-line import does not cover t
   });
 });
 
-test('check-slice §5: the base text of the changed files that hold a waiver is read by as many git processes for twenty files as for two', async () => {
+test('test 850: the base text of the changed files that hold a waiver is read by as many git processes for twenty files as for two', async () => {
   const starts = async (count: number) =>
     withSample(
       async (s, dir) => {
