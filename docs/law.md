@@ -77,6 +77,8 @@ types:
 
 `required` lists the patterns of the files that must have a type. The section "Patterns" below gives their syntax. A text file that git lists, that a pattern of `required` matches and that no type takes is the finding `untyped-file`. With `required: ["src/**"]`, a file that an agent adds in a new folder `src/gen/` fails the check until a type takes it.
 
+With `required: ["src/**"]` and a type whose `paths` take only `src/**/*.ts`, a stylesheet or an empty placeholder file in `src/` is also `untyped-file`. A `!` pattern leaves such files out of `required`, as in `required: ["src/**", "!src/**/*.css"]`.
+
 `untyped-file` is an error in the change and a warning in debt, like `forbidden-use`. A binary file, a symbolic link and a file under `ignored` are never `untyped-file`. Without `required`, a file that no type takes is no finding.
 
 A non-empty `required` needs at least one pattern without `!`. A wrong pattern is `law-invalid`.
