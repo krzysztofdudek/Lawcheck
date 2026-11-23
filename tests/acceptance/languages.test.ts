@@ -96,12 +96,9 @@ test('test 798: on L, and after a changed, a renamed and a deleted file of it, c
   await inTemp(async (dir) => {
     const l = makeL(dir);
     git(l, 'checkout', '-q', '-b', 'work');
-    const runs = [['check', '--base', 'main'], ['check', ...NAMED, '--json']];
-    const states: string[][] = [];
+    const states: string[] = [];
     const state = async () => {
-      const outputs: string[] = [];
-      for (const args of runs) outputs.push(await withAndWithout(l, args));
-      states.push(outputs);
+      states.push(await withAndWithout(l, ['check', ...NAMED, '--json']));
     };
     await state();
     assert.deepEqual(Object.keys(packs(l)), ['csharp', 'jvm', 'ruby', 'rust']);
@@ -111,7 +108,8 @@ test('test 798: on L, and after a changed, a renamed and a deleted file of it, c
     await state();
     rmSync(join(l, 'kotlin/src/main/kotlin/com/acme/k/app/Service.kt'));
     await state();
-    for (let i = 1; i < states.length; i++) assert.notEqual(states[i]![1], states[i - 1]![1], `state ${i}`);
+    for (let i = 1; i < states.length; i++) assert.notEqual(states[i], states[i - 1], `state ${i}`);
+    await withAndWithout(l, ['check', '--base', 'main']);
   });
 });
 

@@ -44,7 +44,7 @@ A reader reports no dynamic form of a use, such as `import()` of a variable, `im
 
 ## Languages that read other files' declarations
 
-In Java, Kotlin, C#, Ruby and Rust, a reader finds the file that a name points to by reading what other files declare. The readers take these languages in four groups: Java with Kotlin, C#, Ruby, and Rust. A run that reads the uses of one file of a group reads the declarations of every file of that group in the repository, with a type or without one. The first such run parses every file of the group. Later runs take the declarations of an unchanged file from the [reader cache](#the-reader-cache). Lawcheck sets no limit of its own on the time it takes to parse a file with syntax errors under 512 KiB.
+In Java, Kotlin, C#, Ruby and Rust, a reader finds the file that a name points to by reading what other files declare. The readers take these languages in four groups: Java with Kotlin, C#, Ruby, and Rust. A run that reads the uses of one file of a group reads the declarations of every file of that group in the repository, with a type or without one. The first such run parses every file of the group. The runs after it take the declarations of an unchanged file from the [reader cache](#the-reader-cache). Lawcheck sets no limit of its own on the time it takes to parse a file with syntax errors under 512 KiB.
 
 The readers of the other languages find the file of a use by its path. To do it, they read files such as `tsconfig.json`, `go.mod` and `composer.json`.
 
@@ -54,7 +54,7 @@ The Go reader follows `go.work` and a `replace` with a relative directory of the
 
 ## The reader cache
 
-Lawcheck keeps what each file of the four groups declares in `.lawcheck/.local/readers/`, one file per group. A later run parses again only the files whose uses it reads and the files that changed since the last run. In guava, a check of one changed Java file takes about 0.3 seconds with the cache and 6 seconds without it. In Newtonsoft.Json, a check of one changed C# file takes about 0.3 seconds with the cache and 4 seconds without it.
+Lawcheck keeps what each file of the four groups declares in `.lawcheck/.local/readers/`, one file per group. A later run parses again only the files whose uses it reads and the files that changed since the last run. In a Java repository of 3,267 files, a check of one changed file takes about 0.3 seconds with the cache and 6 seconds without it. In a C# repository of 951 files, it takes about 0.3 seconds with the cache and 4 seconds without it.
 
 An entry of the cache counts only for the same path, the same text, the same grammar and the same versions of Lawcheck and Runes. A check with the cache gives the same output and exit code as a check without it. A damaged cache file counts as empty, and the run writes it again.
 
