@@ -203,7 +203,9 @@ With `--full`, `check` judges every file, the files outside the change included.
 
 ### --strict
 
-With `--strict`, `check` judges every file as `--full` does, and holds the debt to the standard of the change. A finding of debt is an error exactly when the same finding inside the change would be one: a finding of an `enforced` rule, a `forbidden-use` or a waiver with no reason. A finding of an `advisory` rule stays a warning. The run exits 1 on such an error, and the first line counts it apart, as `2 errors in debt`. A run with no such debt passes. `--strict` takes the other flags of `check` and no paths.
+With `--strict`, `check` judges every file as `--full` does, and holds the debt to the standard of the change. A finding of debt is an error exactly when the same finding inside the change would be one: a finding of an `enforced` rule, a `forbidden-use` or a waiver with no reason. A finding of an `advisory` rule stays a warning. The run exits 1 on such an error, and the first line counts it apart, as `2 errors in debt`. A run with no such debt passes. `--strict` includes `--full`, so giving both is the same as giving `--strict`. It takes the other flags of `check` and no paths.
+
+`--strict` needs a verdict for every file that an `enforced` [reviewer rule](concepts.md#reviewer-rule) binds, old files included. A file with no verdict is a `not-reviewed` error, and its first run can ask the reviewer about the whole repository. The `next:` line then names `lawcheck check --strict --review`, which asks about the old files too. A check with `--review` and without `--strict` leaves them out.
 
 ### --base `<ref>`
 
