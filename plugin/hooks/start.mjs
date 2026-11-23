@@ -1,6 +1,7 @@
 import { spawn, spawnSync } from 'node:child_process';
 import { accessSync, constants, readFileSync, realpathSync, statSync } from 'node:fs';
 import { dirname, isAbsolute, join, normalize, resolve } from 'node:path';
+import { late, NO_PATHS, noResult, notFound } from './messages.mjs';
 
 const CONFIG_BYTES = 1024 * 1024;
 
@@ -134,7 +135,33 @@ export function findProgram(name, env) {
   return null;
 }
 
-// The quoting of cross-spawn: cmd.exe reads the line once, and the %* of a package manager's .cmd file reads it again.
+/*
+ * cmdArgument and the command line built for a .cmd or .bat program copy the escaping of cross-spawn 7.0.6
+ * (lib/util/escape.js and lib/parse.js, https://github.com/moxystudio/node-cross-spawn): cmd.exe reads the line
+ * once, and the %* of a package manager's .cmd file reads it again. cross-spawn's licence:
+ *
+ * The MIT License (MIT)
+ *
+ * Copyright (c) 2018 Made With MOXY Lda <hello@moxy.studio>
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
 export function cmdArgument(arg) {
   let quoted = arg.replace(/(?=(\\+?)?)\1"/g, '$1$1\\"');
   quoted = quoted.replace(/(?=(\\+?)?)\1$/, '$1$1');
@@ -250,14 +277,14 @@ export async function runLawcheck(runner, args, root, deadline) {
   const output = outputOf(result.stdout, runner.name);
   const notRun = (reason) => ({ ran: false, reason, output });
   if (result.error !== null) {
-    if (result.error.code === 'ENOENT') return notRun(`${runner.words[0]} was not found`);
+    if (result.error.code === 'ENOENT') return notRun(notFound(runner.words[0]));
     return notRun(firstLine(result.error.message));
   }
-  if (result.timedOut) return { ...notRun(`it did not finish within ${deadline.seconds} seconds`), late: true };
+  if (result.timedOut) return { ...notRun(late(deadline.seconds)), late: true };
   const isCheck = args[0] === 'check';
   if (isCheck && result.code === 2) {
     const marked = output.filter((line) => line.includes('error['));
-    if (marked.length > 0 && marked.every((line) => line.includes('error[usage]'))) return notRun('this lawcheck does not take check <paths>; update it');
+    if (marked.length > 0 && marked.every((line) => line.includes('error[usage]'))) return notRun(NO_PATHS);
   }
   const answered = isCheck
     ? [0, 1, 2].includes(result.code) && output.length > 0 && ANSWERS.some((start) => output[0].startsWith(start))
@@ -265,7 +292,7 @@ export async function runLawcheck(runner, args, root, deadline) {
   if (answered) return { ran: true, code: result.code, output };
   const said = result.stderr.split('\n').map((line) => line.replace(/\r$/, '')).find((line) => line.trim() !== '');
   if (said !== undefined) return notRun(cutPoints(said, 200));
-  return notRun(`it exited with ${result.code ?? result.signal} and printed no Lawcheck result`);
+  return notRun(noResult(result.code ?? result.signal));
 }
 
 export function firstLine(text) {

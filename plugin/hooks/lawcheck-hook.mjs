@@ -6,6 +6,7 @@ import { nameOf } from './names.mjs';
 import { snapshot, turnPaths } from './snapshot.mjs';
 import { blank, deleteState, readState, removeOld, stateFile, writeState } from './state.mjs';
 import { marksAtStart, turnChanges, turnMessage } from './turn.mjs';
+import * as say from './messages.mjs';
 import { absolutePath, cutPoints, Deadline, DEADLINES, findRoot, firstLine, killCurrent, NO_CURRENT_FOLDER, plainText, runLawcheck, runnerAt } from './start.mjs';
 
 absolutePath(process.env);
@@ -54,20 +55,18 @@ async function sessionStart(input, deadline) {
   removeOld();
   const root = findRoot(startDir(input));
   const done = (text) => context('SessionStart', text);
-  if (root === null) {
-    return done('The Lawcheck plugin is on, and this directory has no law (.lawcheck/law.yaml here or above).\nStart one with lawcheck init only when the user asks for it.');
-  }
+  if (root === null) return done(say.NO_LAW);
   const runner = runnerAt(root);
-  if ('bad' in runner) {
-    return done(
-      `This repository has a Lawcheck law (.lawcheck/law.yaml), and .lawcheck/config.yaml sets runner to ${cutPoints(runner.bad, 40)}, which is none of global, npx, pnpm, yarn, bun, so Lawcheck was not started.\nRead .lawcheck/law.yaml for the law, and tell the user that the runner setting is wrong.`,
-    );
-  }
+  if ('bad' in runner) return done(say.badRunner(cutPoints(runner.bad, 40)));
   const result = await runLawcheck(runner, ['prime'], root, deadline);
-  if (result.ran) return done(fit(null, result.output));
-  return done(
-    `This repository has a Lawcheck law (.lawcheck/law.yaml), and ${runner.cmd} prime did not run: ${result.reason}.\nInstall it with ${runner.install}, then start a new session. Until then, read .lawcheck/law.yaml for the law.`,
-  );
+  if (!result.ran) return done(say.primeNotRun(runner.cmd, result.reason, runner.install));
+  const primed = done(fit(null, result.output));
+  if (!result.output.some((line) => line.startsWith(say.PRIME_NO_REVIEWER))) return primed;
+  const file = stateFile(input.session_id);
+  const state = readState(file) ?? blank(root, null);
+  if (state.reviewer_told === true) return primed;
+  writeState(file, { ...state, reviewer_told: true });
+  return { ...primed, systemMessage: say.noReviewer(runner.cmd) };
 }
 
 async function prompt(input, deadline) {
@@ -77,7 +76,7 @@ async function prompt(input, deadline) {
   const file = stateFile(input.session_id);
   if (file === null) return null;
   const old = readState(file);
-  const state = { ...blank(root, promptOf(input)), told: old?.told === true };
+  const state = { ...blank(root, promptOf(input)), told: old?.told === true, reviewer_told: old?.reviewer_told === true };
   if (old !== null && old.root === root && old.open === true) {
     state.open = true;
     state.started = old.started;
@@ -127,19 +126,22 @@ async function edit(input, deadline) {
   const result = await runLawcheck(runner, ['check', `./${rel}`], root, deadline);
   const done = (text) => context('PostToolUse', text);
   if (!result.ran) {
-    if (result.late === true) return done(`Lawcheck: ${command} did not finish within ${deadline.seconds} seconds and was stopped.`);
+    if (result.late === true) return done(say.editLate(command, deadline.seconds));
     return null;
   }
-  if (result.code === 1) return done(fit(`Lawcheck: after this edit, ${rel} breaks the law of this repository. ${command} printed:`, result.output));
-  if (result.code !== 2) return null;
   const file = stateFile(input.session_id);
+  const saved = readState(file);
+  if (result.code !== 2) {
+    if (saved !== null && typeof saved.last_error === 'string') writeState(file, { ...saved, last_error: null });
+    return result.code === 1 ? done(fit(say.editBreaks(rel, command), result.output)) : null;
+  }
   if (file !== null) {
-    const state = readState(file) ?? blank(root, promptOf(input));
+    const state = saved ?? blank(root, promptOf(input));
     const h = hash(result.output);
     if (state.last_error === h) return null;
     writeState(file, { ...state, last_error: h });
   }
-  return done(fit(`Lawcheck could not check ${rel} after this edit. ${command} printed:`, result.output));
+  return done(fit(say.editError(command), result.output));
 }
 
 function joined(output, text) {
@@ -163,7 +165,7 @@ async function stop(input, deadline) {
   if ('bad' in runner) return null;
   const writing = (Array.isArray(input.background_tasks) ? input.background_tasks : []).find((task) => task?.status === 'running' && WRITERS.includes(task?.type));
   if (writing !== undefined) {
-    return { systemMessage: `lawcheck: the check before the agent finished waits for the background task ${writing.id} (${writing.type}), which may still be writing files; it runs at the first stop after that task ends.` };
+    return { systemMessage: say.waitsForTask(writing.id, writing.type) };
   }
 
   const file = stateFile(input.session_id);
@@ -181,33 +183,33 @@ async function stop(input, deadline) {
   const paths = 'problem' in now ? now : turnPaths(root, state === null ? null : { head: state.head, files: state.files }, now, state?.started ?? 0, deadline);
   if ('problem' in paths) {
     finish(null);
-    return notice(file, root, input, `lawcheck: the check before the agent finished did not run: git could not list the files of this turn, because ${paths.problem}.`);
+    return notice(file, root, input, say.gitFailed(paths.problem));
   }
   if (paths.length === 0) return finish(null);
   const withTurn = (output) => joined(output, state === null ? null : turnMessage(turnChanges(root, state, paths, deadline)));
   if (paths.length > MOST_FILES) {
-    return finish(withTurn({ systemMessage: `lawcheck: ${paths.length} files changed in this turn, more than the ${MOST_FILES} the check before finishing takes, so it did not run; ${runner.cmd} check shows the result.` }));
+    return finish(withTurn({ systemMessage: say.tooManyFiles(paths.length, MOST_FILES, runner.cmd) }));
   }
   const result = await runLawcheck(runner, ['check', ...paths.map((path) => `./${path}`)], root, deadline);
   if (!result.ran) {
     finish(null);
-    return withTurn(notice(file, root, input, `lawcheck: the check before the agent finished did not run: ${result.reason}.`));
+    return withTurn(notice(file, root, input, say.checkNotRun(result.reason)));
   }
   if (result.code === 0) return finish(withTurn(null));
   let header;
   if (result.code === 1) {
-    header = `Lawcheck: the files that changed in this turn break the law of this repository. Fix the code, then finish; if a fix needs the user's word, tell the user what blocks you and finish. ${runner.cmd} check on those files printed:`;
+    header = say.stopBreaks(runner.cmd);
   } else if (paths.some((path) => path.startsWith('.lawcheck/'))) {
-    header = `Lawcheck could not check the files that changed in this turn, and the turn changed files under .lawcheck/. Fix what the error names, then finish; if that needs the user's word, tell the user and finish. ${runner.cmd} check on those files printed:`;
+    header = say.stopLawError(runner.cmd);
   } else {
     finish(null);
-    return withTurn(notice(file, root, input, `lawcheck: lawcheck check could not judge the files that changed in this turn; ${runner.cmd} check shows why.`));
+    return withTurn(notice(file, root, input, say.stopError(runner.cmd)));
   }
   const handBack = context('Stop', fit(header, result.output));
   const h = hash(result.output);
   if (state === null) return input.stop_hook_active === true ? null : handBack;
   if (h === last || blocks >= 3) {
-    return finish(withTurn({ systemMessage: `lawcheck: the turn ended while lawcheck check still fails on the files that changed in it; ${runner.cmd} check shows why.` }));
+    return finish(withTurn({ systemMessage: say.stillFails(runner.cmd) }));
   }
   blocks += 1;
   last = h;
@@ -228,14 +230,14 @@ async function main() {
     });
   }
   const text = await readInput();
-  if (handler === null) throw new Error(`unknown event '${event ?? ''}'; the events are session-start, prompt, edit, stop`);
+  if (handler === null) throw new Error(say.unknownEvent(event ?? ''));
   let input;
   try {
     input = JSON.parse(text);
   } catch (error) {
-    throw new Error(`the input is no JSON: ${firstLine(error.message)}`);
+    throw new Error(say.notJson(firstLine(error.message)));
   }
-  if (input === null || typeof input !== 'object' || Array.isArray(input)) throw new Error('the input is no JSON object');
+  if (input === null || typeof input !== 'object' || Array.isArray(input)) throw new Error(say.NOT_OBJECT);
   const output = await handler(input, deadline);
   if (output !== null) await new Promise((done) => process.stdout.write(JSON.stringify(output) + '\n', done));
 }
@@ -243,6 +245,6 @@ async function main() {
 main().then(
   () => process.exit(0),
   (error) => {
-    process.stderr.write(`lawcheck plugin: ${plainText(firstLine(error?.message ?? error))}\n`, () => process.exit(1));
+    process.stderr.write(say.hookFailed(plainText(firstLine(error?.message ?? error))), () => process.exit(1));
   },
 );
