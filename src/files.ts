@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { copyFileSync, existsSync, lstatSync } from 'node:fs';
+import { copyFileSync, existsSync, lstatSync, statSync, utimesSync } from 'node:fs';
 import { devNull } from 'node:os';
 import { dirname, join, resolve, sep } from 'node:path';
 import { findProgram } from './programs.js';
@@ -232,7 +232,7 @@ export function mergeBase(root: string, commit: string): string | null {
   throw failed(args, result);
 }
 
-// git diff writes the index again when the times of its files no longer match it, whatever GIT_OPTIONAL_LOCKS says, so the change is read through a copy of the index.
+// git diff writes the index again when the times of its files no longer match it, whatever GIT_OPTIONAL_LOCKS says, so the change is read through a copy of the index. The copy keeps the index's modification time, cut to the whole second: git reads a file changed in the second the index was written by its content, and on a copy with a fresh time it would trust a same-size edit of that second as unchanged.
 function onIndexCopy<T>(root: string, read: (env: NodeJS.ProcessEnv) => T): T {
   const pathArgs = ['rev-parse', '--git-path', 'index'];
   const found = git(root, pathArgs);
@@ -248,7 +248,10 @@ function onIndexCopy<T>(root: string, read: (env: NodeJS.ProcessEnv) => T): T {
   }
   try {
     try {
-      copyFileSync(resolved, join(folder, 'index'));
+      const copy = join(folder, 'index');
+      const { atimeMs, mtimeMs } = statSync(resolved);
+      copyFileSync(resolved, copy);
+      utimesSync(copy, atimeMs / 1000, Math.floor(mtimeMs / 1000));
     } catch {
       return read({});
     }
