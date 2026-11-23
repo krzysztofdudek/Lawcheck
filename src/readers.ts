@@ -164,6 +164,8 @@ export interface ReadInput {
   cacheWrites?: boolean;
   // Who asked for the read, such as the script rule no-todo, when a rule did; the steps name it, so memory-too-large names a step that fits the read.
   asker?: string;
+  // A rule's read is shared by every rule of the run, so a file whose use reaches a file that cannot be read fails alone, and the other files keep the uses they get read alone.
+  ownFailures?: boolean;
 }
 
 export type ReadOutcome = { uses: Map<string, Use[]>; skipped: Skipped[]; unreadable: UnreadableConfig[] } | { error: ErrorItem };
@@ -538,6 +540,10 @@ async function readAll(input: ReadInput, runes: Runes, skipped: Skipped[], unrea
       try {
         classified = resolver.classifyUse(use.candidates, path, parse.view.language);
       } catch (error) {
+        if (input.ownFailures === true && error instanceof Unreadable) {
+          out.delete(path);
+          break;
+        }
         throw readerFailure(parse.view.language, path, error);
       }
       uses.push({ line: lineOf(use.line), answer: answerOf(classified, use.candidates) });
@@ -705,7 +711,7 @@ export function ruleReads(input: RuleReadsInput, runes: Runes = RUNES): Reads {
   const read = async (judged: { path: string; view: ScriptView | null }[], out: Map<string, UsesAnswer>, split: boolean, asker: string | undefined): Promise<void> => {
     let left = judged;
     while (left.length > 0) {
-      const outcome = await readUses({ root: input.root, files: input.files, bytes: input.bytes, ownerOf: input.ownerOf, read: left, ...(input.grammarDir === undefined ? {} : { grammarDir: input.grammarDir }), ...(asker === undefined ? {} : { asker }) }, runes);
+      const outcome = await readUses({ root: input.root, files: input.files, bytes: input.bytes, ownerOf: input.ownerOf, read: left, ownFailures: true, ...(input.grammarDir === undefined ? {} : { grammarDir: input.grammarDir }), ...(asker === undefined ? {} : { asker }) }, runes);
       if (!('error' in outcome)) {
         for (const [path, uses] of outcome.uses) {
           out.set(path, { uses: uses.map(({ line, answer }) => (answer.kind === 'file' ? { line, ...answer, type: input.typeOf(answer.file) } : { line, ...answer })), absent: null });
@@ -736,6 +742,14 @@ export function ruleReads(input: RuleReadsInput, runes: Runes = RUNES): Reads {
   // The uses of a file do not depend on the batch that reads them, so every rule of the run takes them from the one read that first reached the file.
   const answers = new Map<string, Promise<UsesAnswer>>();
 
+  // A read waits for a grammar between the step that names its file and the parse, and a second read let in then writes its own step, so the memory guard would name the wrong file and the wrong rule; the reads of a run take turns.
+  let turn: Promise<unknown> = Promise.resolve();
+  const inTurn = <T>(work: () => Promise<T>): Promise<T> => {
+    const done = turn.then(work);
+    turn = done.catch(() => undefined);
+    return done;
+  };
+
   return (bound, asker) => {
     let asked = false;
     const readBound = () => {
@@ -746,7 +760,7 @@ export function ruleReads(input: RuleReadsInput, runes: Runes = RUNES): Reads {
       });
       if (judged.length === 0) return;
       const out = new Map<string, UsesAnswer>();
-      const batch = read(judged, out, true, asker);
+      const batch = inTurn(() => read(judged, out, true, asker));
       for (const { path } of judged) {
         const answer = batch.then(() => out.get(path) ?? failed);
         // A failure of the read reaches every rule that asks for one of its files; a file no rule asks for again must not end the run as a rejection nobody handled.
@@ -755,7 +769,7 @@ export function ruleReads(input: RuleReadsInput, runes: Runes = RUNES): Reads {
       }
     };
     return async (what, file) => {
-      if (what === 'tree') return tree(file, asker);
+      if (what === 'tree') return inTurn(() => tree(file, asker));
       const reader = readerOf(file.path, file.text, siblings, runes);
       if (!reader.reader) return { uses: null, absent: 'no-reader' };
       if (tooLarge(reader.view)) return { uses: null, absent: 'too-large' };
