@@ -5,6 +5,7 @@ import { fit } from './fit.mjs';
 import { nameOf } from './names.mjs';
 import { snapshot, turnPaths } from './snapshot.mjs';
 import { blank, deleteState, readState, removeOld, stateFile, writeState } from './state.mjs';
+import { marksAtStart, turnChanges, turnMessage } from './turn.mjs';
 import { absolutePath, cutPoints, Deadline, DEADLINES, findRoot, firstLine, killCurrent, NO_CURRENT_FOLDER, plainText, runLawcheck, runnerAt } from './start.mjs';
 
 absolutePath(process.env);
@@ -82,6 +83,7 @@ async function prompt(input, deadline) {
     state.started = old.started;
     state.head = old.head;
     state.files = old.files;
+    state.marks = old.marks;
   } else {
     const shot = snapshot(root, deadline);
     if ('problem' in shot) {
@@ -92,6 +94,7 @@ async function prompt(input, deadline) {
     state.started = Math.floor(Date.now() / 1000);
     state.head = shot.head;
     state.files = shot.files;
+    state.marks = marksAtStart(root, shot.files);
   }
   writeState(file, state);
   return null;
@@ -139,6 +142,11 @@ async function edit(input, deadline) {
   return done(fit(`Lawcheck could not check ${rel} after this edit. ${command} printed:`, result.output));
 }
 
+function joined(output, text) {
+  if (text === null) return output;
+  return { systemMessage: output === null ? text : `${output.systemMessage}\n${text}` };
+}
+
 function notice(file, root, input, text) {
   if (file === null) return { systemMessage: text };
   const state = readState(file) ?? blank(root, promptOf(input));
@@ -176,15 +184,16 @@ async function stop(input, deadline) {
     return notice(file, root, input, `lawcheck: the check before the agent finished did not run: git could not list the files of this turn, because ${paths.problem}.`);
   }
   if (paths.length === 0) return finish(null);
+  const withTurn = (output) => joined(output, state === null ? null : turnMessage(turnChanges(root, state, paths, deadline)));
   if (paths.length > MOST_FILES) {
-    return finish({ systemMessage: `lawcheck: ${paths.length} files changed in this turn, more than the ${MOST_FILES} the check before finishing takes, so it did not run; ${runner.cmd} check shows the result.` });
+    return finish(withTurn({ systemMessage: `lawcheck: ${paths.length} files changed in this turn, more than the ${MOST_FILES} the check before finishing takes, so it did not run; ${runner.cmd} check shows the result.` }));
   }
   const result = await runLawcheck(runner, ['check', ...paths.map((path) => `./${path}`)], root, deadline);
   if (!result.ran) {
     finish(null);
-    return notice(file, root, input, `lawcheck: the check before the agent finished did not run: ${result.reason}.`);
+    return withTurn(notice(file, root, input, `lawcheck: the check before the agent finished did not run: ${result.reason}.`));
   }
-  if (result.code === 0) return finish(null);
+  if (result.code === 0) return finish(withTurn(null));
   let header;
   if (result.code === 1) {
     header = `Lawcheck: the files that changed in this turn break the law of this repository. Fix the code, then finish; if a fix needs the user's word, tell the user what blocks you and finish. ${runner.cmd} check on those files printed:`;
@@ -192,13 +201,13 @@ async function stop(input, deadline) {
     header = `Lawcheck could not check the files that changed in this turn, and the turn changed files under .lawcheck/. Fix what the error names, then finish; if that needs the user's word, tell the user and finish. ${runner.cmd} check on those files printed:`;
   } else {
     finish(null);
-    return notice(file, root, input, `lawcheck: lawcheck check could not judge the files that changed in this turn; ${runner.cmd} check shows why.`);
+    return withTurn(notice(file, root, input, `lawcheck: lawcheck check could not judge the files that changed in this turn; ${runner.cmd} check shows why.`));
   }
   const handBack = context('Stop', fit(header, result.output));
   const h = hash(result.output);
   if (state === null) return input.stop_hook_active === true ? null : handBack;
   if (h === last || blocks >= 3) {
-    return finish({ systemMessage: `lawcheck: the turn ended while lawcheck check still fails on the files that changed in it; ${runner.cmd} check shows why.` });
+    return finish(withTurn({ systemMessage: `lawcheck: the turn ended while lawcheck check still fails on the files that changed in it; ${runner.cmd} check shows why.` }));
   }
   blocks += 1;
   last = h;

@@ -37,6 +37,24 @@ A waiver can name the code `forbidden-use` in place of a rule of the law. Such a
 import '../cli/main.js'; // lawcheck-waive forbidden-use -- the report repeats the banner until 2.0
 ```
 
+The `forbidden-use` finding of an import that spans several lines sits on the first line of the statement. Put the waiver on its own line above the statement, so that it covers that first line:
+
+```ts
+// lawcheck-waive forbidden-use -- the report repeats the banner until 2.0
+import {
+  banner,
+} from '../cli/main.js';
+```
+
+```python
+# lawcheck-waive forbidden-use -- the report repeats the banner until 2.0
+from app.cli.main import (
+    banner,
+)
+```
+
+A waiver at the end of the last line, after `} from '../cli/main.js';` or after `)`, covers only that last line. It drops nothing, and Lawcheck reports it as `waiver-unused`.
+
 `forbidden-use` is the one built-in code that takes a waiver. `uses-not-read`, `not-reviewed` and the three waiver codes below take none.
 
 ## The three waiver codes
@@ -55,8 +73,8 @@ Lawcheck never reports `waiver-unused` for a waiver of a [reviewer rule](concept
 
 ## The count of waivers
 
-Lawcheck counts each waiver that has a known rule and a reason, whether it dropped a finding or not. The first line of `check` counts the waivers of the changed files. Under `--full`, the debt heading counts those of the other files. In JSON, the list `waivers` holds each waiver with its `file`, `line`, `rule`, `reason` and `waived`. `waived` holds the number of findings the waiver dropped.
+Lawcheck counts each waiver that has a known rule and a reason, whether it dropped a finding or not. The first line of `check` counts the waivers of the changed files. Under `--full`, the debt heading counts those of the other files. In JSON, the list `waivers` holds each waiver with its `file`, `line`, `rule`, `reason`, `waived` and `added`. `waived` holds the number of findings the waiver dropped. `added` is true for a waiver that the change adds.
 
-If a change edits the law and adds a waiver, `check` prints a note that names the waiver (`lawcheck docs change`). `lawcheck explain <path>` lists the counted waivers of a file. `lawcheck try` counts the findings that waivers dropped in its run.
+`check` names each waiver that the change adds, in a note such as `note: this change adds 1 waiver: no-console at src/core/shipping.ts:1` ([What a check judges](change.md#waivers-a-change-adds)). The Claude Code plugin tells you at the end of a turn in which the agent added a waiver ([The Claude Code plugin](plugin.md#the-end-of-a-turn)). `lawcheck explain <path>` lists the counted waivers of a file. `lawcheck try` counts the findings that waivers dropped in its run.
 
 Next: [What a check judges](change.md)

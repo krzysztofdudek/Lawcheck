@@ -81,6 +81,9 @@
     "tests/acceptance/plugin.test.ts",
     "tests/properties/arguments.test.ts"
   ],
+  "plugin/hooks/turn.mjs": [
+    "tests/acceptance/plugin.test.ts"
+  ],
   "src/args.ts": [
     "tests/acceptance/cli.test.ts",
     "tests/acceptance/docs.test.ts",

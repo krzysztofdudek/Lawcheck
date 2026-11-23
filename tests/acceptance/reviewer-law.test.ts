@@ -402,7 +402,7 @@ test('test 75: JSON', async () => {
           },
         ],
         waivers: [
-          { file: 'src/core/refund.ts', line: 3, rule: 'clear-errors', debt: false, waived: 0, reason: 'the payment provider matches this exact text' },
+          { file: 'src/core/refund.ts', line: 3, rule: 'clear-errors', debt: false, waived: 0, reason: 'the payment provider matches this exact text', added: true },
         ],
         unresolved: [],
         reviews: { missing: 1, calls_made: 0, passes_recorded: 0 },

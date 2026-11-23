@@ -150,3 +150,20 @@ export function turnPaths(root, before, after, started, deadline) {
     throw error;
   }
 }
+
+export function blobsAt(root, head, paths, deadline) {
+  try {
+    const ids = tree(root, head, deadline);
+    const blobs = new Map();
+    for (const path of paths) {
+      const id = ids.get(path);
+      if (id === undefined) continue;
+      const result = git(root, ['cat-file', 'blob', id], deadline);
+      if (result.status === 0) blobs.set(path, result.stdout);
+    }
+    return { blobs };
+  } catch (error) {
+    if (error instanceof NoSnapshot) return { problem: error.message };
+    throw error;
+  }
+}

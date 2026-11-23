@@ -262,7 +262,7 @@ test('test 831: untyped-file in debt, a binary file, a file a type takes by path
   await withSample(async (s) => {
     write(s, '.lawcheck/law.yaml', IGNORED('"src/gen/**"'));
     const run = await check(s);
-    assert.equal(run.stdout.split('\n')[2], 'note: this change edits the law that judges it: changes required; changes ignored');
+    assert.equal(run.stdout.split('\n')[2], 'note: this change edits the law that judges it: adds src/** to required; adds tools/** to required; adds src/gen/** to ignored');
     assert.equal(run.code, 0);
   });
 });

@@ -9,6 +9,7 @@ export const claims: Claims = {
   'block 1 under "The base"': READ,
   'block 1 under "--full and debt"': READ,
   'block 1 under "The limits of a plain check"': SCENARIO,
+  'block 1 under "Waivers a change adds"': 'tests/acceptance/waivers.test.ts > test 850: check names a waiver the change adds, in text and in JSON, and not one the base already holds',
 };
 
 const LAW = (rules: string) => `lawcheck: 0.1.0

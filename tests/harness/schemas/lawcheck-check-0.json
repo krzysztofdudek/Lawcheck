@@ -56,14 +56,15 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["file", "line", "rule", "debt", "waived", "reason"],
+        "required": ["file", "line", "rule", "debt", "waived", "reason", "added"],
         "properties": {
           "file": { "$ref": "#/definitions/path" },
           "line": { "$ref": "#/definitions/line" },
           "rule": { "$ref": "#/definitions/id" },
           "debt": { "type": "boolean" },
           "waived": { "$ref": "#/definitions/count" },
-          "reason": { "type": "string" }
+          "reason": { "type": "string" },
+          "added": { "type": ["boolean", "null"] }
         }
       }
     },

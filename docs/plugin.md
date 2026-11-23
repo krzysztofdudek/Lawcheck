@@ -52,7 +52,7 @@ If `prime` does not run, the hook gives the agent three things:
 
 ## UserPromptSubmit
 
-The hook writes a note that records `HEAD`, the files that differ from it and the untracked files. The `Stop` hook reads this note to find the files that the turn changed. The agent gets nothing from this hook.
+The hook writes a note that records `HEAD`, the files that differ from it and the untracked files, with the waiver lines of those files. The `Stop` hook reads this note to find the files that the turn changed. The agent gets nothing from this hook.
 
 The user can stop a turn, or an error can end it, before the `Stop` hook runs. The note of that turn then stays in place. The next `Stop` hook checks the files of both turns together.
 
@@ -79,6 +79,8 @@ The files of the turn are the files that changed since the user's prompt, and th
 - Exit 2, when the turn changed files under `.lawcheck/`: the hook sends the agent back to fix what the error names.
 - Exit 2, when the turn changed no file under `.lawcheck/`: the error lies in the law, a rule or Lawcheck. The hook sends the user a notice ([The notices the user gets](#the-notices-the-user-gets)) and lets the agent finish.
 
+When the hook lets the agent finish, it also tells the user what the turn did to the law and its waivers ([The end of a turn](#the-end-of-a-turn)).
+
 This check judges the files of the turn by name, with no base. It calls no reviewer, since the hook never passes `--review`. A check of named files reports a missing review as a warning. An agent can therefore finish while a CI job fails on the same branch. The job can fail on `not-reviewed`, or on a file that the turn did not touch.
 
 ### Three returns at most
@@ -86,6 +88,18 @@ This check judges the files of the turn by name, with no base. It calls no revie
 The hook sends the agent back at most three times in a turn. It never sends the agent back twice in a row for the same output. Past these limits, the hook lets the agent finish. It sends the user a message that the check still fails ([The notices the user gets](#the-notices-the-user-gets)).
 
 A turn can start with no note from `UserPromptSubmit`. Then the hook checks every file that differs from `HEAD` and every untracked file. It sends the agent back at most once in that turn.
+
+## The end of a turn
+
+An agent that cannot fix a breach can add a waiver, or change the law, and finish with a check that passes. When the hook lets the agent finish a turn that did either, it sends you one message:
+
+```text
+lawcheck: in this turn the agent added 1 waiver (no-console at src/core/shipping.ts:1) and changed .lawcheck/law.yaml. Read them before you accept the turn.
+```
+
+The message names each waiver that the turn added, by the rule after the marker and its line. The hook compares the text from `lawcheck-waive` to the end of each line with the same file at the start of the turn. A waiver that the file held before the turn is not named, whether the file was committed then or only changed on disk. The hook reads the marker as text in every file of the turn, so it also names a marker that `check` does not count, such as one in a file with no type. The message also names each file of the turn that is `.lawcheck/law.yaml`, `.lawcheck/config.yaml` or a file in `.lawcheck/rules/`. It shows five of each and the count of the rest.
+
+The message goes to you and never to the agent, and it does not send the agent back. It comes once, at the stop that ends the turn. A stop that sends the agent back says nothing of it. A turn with no note from `UserPromptSubmit` gets no such message, because the hook does not know what the files held at its start. `lawcheck check` against a base names the waivers of the whole change ([What a check judges](change.md#waivers-a-change-adds)).
 
 ## The text the agent gets
 
@@ -119,7 +133,7 @@ The plugin has two settings. Both are on by default:
 | Setting | Its title in Claude Code | With it off |
 |---|---|---|
 | `check_after_edit` | Check each edited file | no `PostToolUse` check |
-| `check_before_stop` | Check before the agent finishes | no `Stop` check, and `UserPromptSubmit` notes nothing |
+| `check_before_stop` | Check before the agent finishes | no `Stop` check and no message at the end of a turn, and `UserPromptSubmit` notes nothing |
 
 Claude Code hands each hook the value as the variable `CLAUDE_PLUGIN_OPTION_CHECK_AFTER_EDIT` or `CLAUDE_PLUGIN_OPTION_CHECK_BEFORE_STOP`. The hook reads `false`, `0`, `no` and `off` as off, in upper or lower case. It reads any other value as on.
 

@@ -37,12 +37,18 @@ const stopHeader = (cmd = 'lawcheck') =>
 const stopErrorHeader = (cmd = 'lawcheck') =>
   `Lawcheck could not check the files that changed in this turn, and the turn changed files under .lawcheck/. Fix what the error names, then finish; if that needs the user's word, tell the user and finish. ${cmd} check on those files printed:`;
 const released = (cmd = 'lawcheck') => ({ systemMessage: `lawcheck: the turn ended while lawcheck check still fails on the files that changed in it; ${cmd} check shows why.` });
+const D_WAIVER = 'lawcheck: in this turn the agent added 1 waiver (no-console at src/core/discount.ts:4). Read them before you accept the turn.';
+const withD = (output: { systemMessage: string }) => ({ systemMessage: `${output.systemMessage}\n${D_WAIVER}` });
 const handBack = (text: string) => ({ hookSpecificOutput: { hookEventName: 'Stop', additionalContext: text } });
 const started = (text: string) => ({ hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: text } });
 
 
 function specBlock(id: string): string {
   return example(id);
+}
+
+function setRuleFile(s: string): void {
+  appendFileSync(join(s, '.lawcheck/rules/no-console.mjs'), '// reviewed\n');
 }
 
 function walk(dir: string, base = dir): string[] {
@@ -443,7 +449,7 @@ test('test 166 and 167: the hand-back, and the guard', async () => {
     write(s, D_PATH, D);
     json(await session.stop(), handBack(`${stopHeader()}\n\n${D_OUTPUT}`), '166');
     assert.deepEqual(bench.checks(), [['check', `./${D_PATH}`]]);
-    json(await session.stop(), released(), '167 the same output');
+    json(await session.stop(), withD(released()), '167 the same output');
     await session.prompt();
     const runs: HookRun[] = [];
     for (let i = 0; i < 4; i++) {
@@ -634,7 +640,7 @@ test('test 175: a check that does not run is told once per session', async () =>
     const session = new Session(bench, s);
     await session.prompt();
     write(s, D_PATH, D);
-    json(await session.stop(), { systemMessage: 'lawcheck: the check before the agent finished did not run: lawcheck was not found.' });
+    json(await session.stop(), withD({ systemMessage: 'lawcheck: the check before the agent finished did not run: lawcheck was not found.' }));
     await session.prompt();
     append(s, D_PATH, '// more\n');
     nothing(await session.stop(), 'told already');
@@ -644,6 +650,42 @@ test('test 175: a check that does not run is told once per session', async () =>
     await other.prompt();
     append(s, D_PATH, '// again\n');
     json(await other.stop(), { systemMessage: 'lawcheck: the check before the agent finished did not run: this lawcheck does not take check <paths>; update it.' });
+  });
+});
+
+test('test 851: the end of a turn that added a waiver or changed the law tells the user once, and a waiver from before the turn is not named', async () => {
+  const told = (text: string) => ({ systemMessage: `lawcheck: in this turn the agent ${text}. Read them before you accept the turn.` });
+  const legacy = (what: string) => `console.log('${what}'); // lawcheck-waive no-console -- a legacy call\n`;
+  await withBench(async (bench, dir) => {
+    const s = makeSample(dir);
+    const session = new Session(bench, s);
+    await session.prompt();
+    write(s, 'src/core/shipping.ts', legacy('x'));
+    append(s, '.lawcheck/law.yaml', '# a note\n');
+    json(await session.stop(), told('added 1 waiver (no-console at src/core/shipping.ts:1) and changed .lawcheck/law.yaml'), 'the turn that adds them');
+    nothing(await session.stop(), 'a second stop of the same turn');
+    await session.prompt();
+    append(s, 'src/core/shipping.ts', '// more\n');
+    nothing(await session.stop(), 'a waiver written before the turn, in a file that differs from HEAD');
+    git(s, 'add', '-A');
+    git(s, 'commit', '-q', '-m', 'waiver');
+    await session.prompt();
+    append(s, 'src/core/shipping.ts', '// again\n');
+    nothing(await session.stop(), 'a committed waiver');
+    await session.prompt();
+    write(s, D_PATH, D);
+    append(s, 'src/core/shipping.ts', legacy('y'));
+    setRuleFile(s);
+    assert.equal((await session.stop()).json?.hookSpecificOutput?.hookEventName, 'Stop', 'the hand-back says nothing to the user');
+    write(s, D_PATH, 'export const d = 1;\n');
+    json(await session.stop(), told('added 1 waiver (no-console at src/core/shipping.ts:4) and changed .lawcheck/rules/no-console.mjs'), 'the stop that lets the agent finish');
+  });
+  await withBench(async (bench, dir) => {
+    const s = makeSample(dir);
+    const session = new Session(bench, s);
+    await session.prompt();
+    for (let i = 0; i < 7; i++) append(s, 'src/core/shipping.ts', legacy(String(i)));
+    json(await session.stop(), told(`added 7 waivers (${[1, 2, 3, 4, 5].map((line) => `no-console at src/core/shipping.ts:${line}`).join(', ')} and 2 more)`));
   });
 });
 
@@ -750,7 +792,7 @@ test('S6-6: a session_id of 5,000 characters keeps its state under its hash, and
     assert.equal(JSON.parse(readFileSync(join(bench.data, 'sessions', file), 'utf8')).open, true);
     write(s, D_PATH, D);
     json(await session.stop(), handBack(`${stopHeader()}\n\n${D_OUTPUT}`), 'stop');
-    json(await session.stop(), released(), 'the same output again is let go, so the state was read');
+    json(await session.stop(), withD(released()), 'the same output again is let go, so the state was read');
     nothing(await new Session(bench, s, 'y'.repeat(128)).prompt(), 'an id of 128 characters');
     assert.deepEqual(bench.sessions(), [file, `${'y'.repeat(128)}.json`].sort());
   });

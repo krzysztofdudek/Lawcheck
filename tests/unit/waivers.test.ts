@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseWaivers, waive } from '../../dist/waivers.js';
+import { addedWaivers, parseWaivers, waive } from '../../dist/waivers.js';
 
 const RULES = new Set(['no-console', 'no-todo']);
 
@@ -95,4 +95,22 @@ test('check-slice §5: a closing comment is cut off before the separator is look
     [3, 'waiver-without-reason'],
   ]);
   assert.deepEqual(waivers.map((w) => [w.line, w.reason]), [[4, 'kept']]);
+});
+
+test('test 850: a waiver counts as added when the base holds fewer of its rule with its reason, and of equal ones the line the base lacks is the added one', () => {
+  const added = (before: string[], now: string[]) => {
+    const old = parseWaivers(before, RULES).waivers;
+    const parsed = parseWaivers(now, RULES).waivers;
+    const found = addedWaivers(parsed, now, old, before);
+    return parsed.filter((w) => found.has(w)).map((w) => w.line);
+  };
+  const a = 'a(); // lawcheck-waive no-console -- legacy';
+  const b = 'b(); // lawcheck-waive no-console -- legacy';
+  assert.deepEqual(added([], [a]), [1]);
+  assert.deepEqual(added([a], ['', a]), [], 'a waiver that moved is no addition');
+  assert.deepEqual(added([a], [b, a]), [1]);
+  assert.deepEqual(added([a], [a, b]), [2]);
+  assert.deepEqual(added([a, a], [a, a, a]), [3]);
+  assert.deepEqual(added([a], [a.replace('legacy', 'new reason')]), [1], 'a new reason is a new waiver');
+  assert.deepEqual(added([a], [a.replace('no-console', 'no-todo')]), [1]);
 });

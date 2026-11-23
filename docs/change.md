@@ -86,14 +86,25 @@ The second line says what the change does to the law that judges it. A pull requ
 - a type or a rule added or removed;
 - a rule made advisory or enforced, taken off a type or put on one;
 - a changed `why`, `context`, `about`, `paths`, `content`, `may_use` or `waivers`;
-- a changed `required` or `ignored`;
+- a pattern added to `required` or `ignored`, or taken off one, such as `adds src/gen/** to ignored`;
 - a type moved under another parent, or to the top of `types`;
-- a waiver the change adds;
 - a file of `.lawcheck/rules/`, or `.lawcheck/config.yaml`, added, removed or changed. The line names such a file by its path and not by what it does.
 
 The line shows five items and the count of the rest. In `--json`, `scope.law_changes` lists every item. The line never changes the exit code of the run, whatever it lists. `lawcheck docs ci` gives a job that checks the change a second time with the law of the base.
 
 `lawcheck doctor` reports the same in its `law-change` check. No line of `check` or `doctor` reports the other two kinds of change.
+
+## Waivers a change adds
+
+A change can also pass its own check by adding a [waiver](concepts.md#waiver) on the line it breaks. `check` names each waiver that the change adds, in a note under the first line:
+
+```text
+note: this change adds 1 waiver: no-console at src/core/shipping.ts:1
+```
+
+Lawcheck reads each changed file at the merge base of `HEAD` and the base, the commit that the law-change note compares with, and compares the waivers of the two texts by rule and reason. A waiver that the base already holds is not named, even when the change moves it to another line. A file that the change moves to a new path has no waivers at that path in the base, so each of its waivers counts as added. The note shows five waivers and the count of the rest. In `--json`, each item of `waivers` has `added` ([JSON documents](json.md)). The note never changes the exit code.
+
+Lawcheck names only the waivers it counts: those with a known rule and a reason, in a file whose type reads waivers. A marker in a file that no type takes waives nothing, so the note leaves it out. When a change puts a file under `ignored` to hide it from the law, the law-change note names the pattern.
 
 ## Files you name
 
@@ -101,7 +112,7 @@ The line shows five items and the count of the rest. In `--json`, `scope.law_cha
 
 Lawcheck reads each path and pattern from the folder you run it in. A folder selects its files at any depth. A path that selects nothing, such as a missing file, a file git ignores or a binary file, adds nothing to the run. The root is the folder that holds `.lawcheck/`. A path outside the root stops the run with the error [`usage`](codes.md#usage). Write a file whose name starts with `-` with `./` before it, as in `./-x.ts`.
 
-This form prints neither debt nor the note of a law change. It takes one flag, `--json`. A missing review never makes this form exit 1, because `not-reviewed` and `too-large-to-review` are warnings in it. The Claude Code plugin checks files this way (`lawcheck docs plugin`).
+This form prints neither debt, nor the note of a law change, nor the note of added waivers. It takes one flag, `--json`. A missing review never makes this form exit 1, because `not-reviewed` and `too-large-to-review` are warnings in it. The Claude Code plugin checks files this way (`lawcheck docs plugin`).
 
 ## Exit codes
 

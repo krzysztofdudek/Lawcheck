@@ -150,17 +150,18 @@ test('test 317: S7-3, a waiver the change adds is named in the line, and one the
     write(s, 'src/core/shipping.ts', "console.log('x'); // lawcheck-waive no-console -- a legacy call\n");
     const run = await check(s);
     assert.equal(run.stdout.split('\n')[0], 'lawcheck: PASS  2 changed files (against main), 1 waiver');
-    assert.equal(run.stdout.split('\n')[2], `${PREFIX}edits .lawcheck/law.yaml without changing a rule or a type; adds a waiver of no-console in src/core/shipping.ts`);
+    assert.deepEqual(run.stdout.split('\n').slice(2, 4), [`${PREFIX}edits .lawcheck/law.yaml without changing a rule or a type`, 'note: this change adds 1 waiver: no-console at src/core/shipping.ts:1']);
     assert.equal(run.code, 0);
     const json = JSON.parse((await check(s, '--base', 'main', '--json')).stdout);
-    assert.deepEqual(json.scope.law_changes, ['edits .lawcheck/law.yaml without changing a rule or a type', 'adds a waiver of no-console in src/core/shipping.ts']);
+    assert.deepEqual(json.scope.law_changes, ['edits .lawcheck/law.yaml without changing a rule or a type']);
+    assert.deepEqual(json.waivers.map((w: { added: boolean }) => w.added), [true]);
   });
   await withSample(
     async (s) => {
       append(s, '.lawcheck/law.yaml', '# a note\n');
       append(s, 'src/core/shipping.ts', '// more\n');
       const run = await check(s);
-      assert.ok(!run.stdout.includes('adds a waiver'), 'a waiver that was already there is no addition');
+      assert.ok(!run.stdout.includes('adds 1 waiver'), 'a waiver that was already there is no addition');
     },
     { onMain: (s) => write(s, 'src/core/shipping.ts', "console.log('x'); // lawcheck-waive no-console -- a legacy call\n") },
   );
@@ -190,10 +191,11 @@ test('R-99: a waiver of forbidden-use that the change adds is named in the line,
     write(u, E_PATH, [lines[0], "import '../cli/main.js'; // lawcheck-waive forbidden-use -- the report repeats the banner until 2.0", lines[2], ''].join('\n'));
     const run = await check(u);
     assert.equal(run.stdout.split('\n')[0], 'lawcheck: PASS  2 changed files (against main), 1 waiver');
-    assert.ok(run.stdout.split('\n').includes(`${PREFIX}edits .lawcheck/law.yaml without changing a rule or a type; adds a waiver of forbidden-use in ${E_PATH}`), run.stdout);
+    assert.ok(run.stdout.split('\n').includes(`note: this change adds 1 waiver: forbidden-use at ${E_PATH}:2`), run.stdout);
     assert.equal(run.code, 0);
     const json = JSON.parse((await check(u, '--base', 'main', '--json')).stdout);
-    assert.deepEqual(json.scope.law_changes, ['edits .lawcheck/law.yaml without changing a rule or a type', `adds a waiver of forbidden-use in ${E_PATH}`]);
+    assert.deepEqual(json.scope.law_changes, ['edits .lawcheck/law.yaml without changing a rule or a type']);
+    assert.deepEqual(json.waivers.map((w: { rule: string; added: boolean }) => [w.rule, w.added]), [['forbidden-use', true]]);
   });
 });
 

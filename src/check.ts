@@ -5,19 +5,19 @@ import { hide } from './keys.js';
 import type { ReviewerConfig } from './config.js';
 import { patternFor, takesWaivers } from './law.js';
 import type { Law } from './law.js';
-import { blocking, fixNext, plural, sortFindings, WHY } from './output.js';
+import { addedWaiversLine, blocking, fixNext, plural, sortFindings, WHY } from './output.js';
 import type { ErrorItem, Finding, Next, Report, Unresolved, WaiverEntry } from './output.js';
 import { buildPrompt, cleanMessage, FRAME, size } from './prompt.js';
 import type { AnswerFinding } from './prompt.js';
 import { createProvider } from './providers/index.js';
 import { ownersOf, readerOf, readUses, ruleReads, siblingsOf } from './readers.js';
 import type { ScriptView } from './readers.js';
-import { lawChangeLine, lawChanges } from './lawchange.js';
+import { atBase, lawChangeLine, lawChanges } from './lawchange.js';
 import { call, preflight } from './review.js';
 import type { Ask } from './review.js';
 import { crashNext, FindingBudget, linksOut, rulesDeadline, runAll, runnerProblem, runRule, slowMessage } from './rules.js';
 import type { RawFinding, RuleOutcome } from './rules.js';
-import { filesOfTypes, isBinary } from './types.js';
+import { decode, filesOfTypes, isBinary, splitLines } from './types.js';
 import { bytesOf, selectTargets } from './try.js';
 import { fromCwd, loadConfig, loadLaw, loadRuleFiles, locate, requireGit, RULES_DIR, LAW, Stop, stopped, theChange, touchesLaw, typingErrors } from './setup.js';
 import type { Kinds, Read, ReviewerRule } from './setup.js';
@@ -26,7 +26,7 @@ import type { Forbidden, NotRead, Target } from './uses.js';
 import type { TypedFile } from './types.js';
 import type { Runtime } from './environment.js';
 import { countPasses, FULL_NEXT, readFailure, readVerdicts, reviewKey, Unwritable, VERDICTS, VerdictsFull, VerdictsUnreadable, VerdictWriter } from './verdicts.js';
-import { parseWaivers, waive, waivedLines } from './waivers.js';
+import { addedWaivers, parseWaivers, waive, waivedLines } from './waivers.js';
 import { count, mib, points, RUN_FINDINGS, RUN_MESSAGE_CHARS, USES_FILE_BYTES } from './limits.js';
 import { step } from './progress.js';
 import type { Waiver, WaiverProblem } from './waivers.js';
@@ -253,7 +253,8 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
   }
 
   step('judging the findings');
-  const report = judge(law, run, raw, builtIn, uses, untyped, waiversOf, kinds.reviewers, changed, base, named ? 'paths' : options.full ? 'full' : 'change', options.strict === true);
+  const added = base === null ? null : addedInChange(root, base, run, changed, waiversOf, ruleIds);
+  const report = judge(law, run, raw, builtIn, uses, untyped, waiversOf, added, kinds.reviewers, changed, base, named ? 'paths' : options.full ? 'full' : 'change', options.strict === true);
   report.reviews = {
     missing: [...report.findings, ...report.debt].filter((f) => f.code === 'not-reviewed').length,
     calls_made: callsMade,
@@ -263,13 +264,15 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
   report.lawChanged = lawChanged;
   const notes: string[] = [];
   if (lawChanged) {
-    const told = lawChanges(root, base!, files, changed, new Set(run.filter((file) => !takesWaivers(file.type)).map((file) => file.path)));
+    const told = lawChanges(root, base!, files, changed);
     if (!options.full) notes.push(`note: the law changed in this change; lawcheck check --full${options.base === null ? '' : ` --base ${options.base}`} shows what it finds in the rest of the code`);
     if (told.length > 0) {
       report.lawChanges = told;
       notes.push(lawChangeLine(told));
     }
   }
+  const addedLine = addedWaiversLine(report.waivers);
+  if (addedLine !== null) notes.push(addedLine);
   if (!named) {
     const unseen = unseenRepositories(root, front.listed, law);
     if (unseen !== null) notes.push(unseen);
@@ -277,6 +280,21 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
   notes.push(...front.elsewhere);
   report.note = notes.length === 0 ? null : notes.join('\n');
   return { report };
+}
+
+// A waiver is read only in a file whose type takes waivers, so a marker in a file no type takes, or one under ignored, waives nothing and is not named; the law-change note names the pattern that put the file there.
+function addedInChange(root: string, base: string, run: TypedFile[], changed: Set<string>, waiversOf: Map<string, { waivers: Waiver[] }>, ruleIds: Set<string>): Set<Waiver> | null {
+  const read = atBase(root, base);
+  if (read === null) return null;
+  const added = new Set<Waiver>();
+  for (const file of run) {
+    const now = waiversOf.get(file.path)!.waivers;
+    if (now.length === 0 || !changed.has(file.path)) continue;
+    const bytes = read(file.path);
+    const lines = bytes === null || isBinary(bytes) ? [] : splitLines(decode(bytes));
+    for (const waiver of addedWaivers(now, file.lines, parseWaivers(lines, ruleIds).waivers, lines)) added.add(waiver);
+  }
+  return added;
 }
 
 // A named path below a submodule or a repository of its own selects nothing, and the note says why rather than a bare count of 0.
@@ -433,6 +451,7 @@ function judge(
   uses: UsesRead,
   untyped: { file: string; message: string }[],
   waiversOf: Map<string, { waivers: Waiver[]; problems: WaiverProblem[] }>,
+  added: Set<Waiver> | null,
   reviewers: Map<string, ReviewerRule>,
   changed: Set<string>,
   base: string | null,
@@ -501,7 +520,7 @@ function judge(
       place({ code: problem.code, rule: null, severity: isDebt && !strict ? 'warning' : 'error', debt: isDebt, file: file.path, line: problem.line, type: file.type.id, message: problem.message, why: WHY[problem.code]! });
     }
     for (const waiver of valid) {
-      waivers.push({ file: file.path, line: waiver.line, rule: waiver.rule, debt: isDebt, waived: waiver.waived, reason: waiver.reason });
+      waivers.push({ file: file.path, line: waiver.line, rule: waiver.rule, debt: isDebt, waived: waiver.waived, reason: waiver.reason, added: added === null ? null : added.has(waiver) });
       if (waiver.waived === 0 && !reviewers.has(waiver.rule)) {
         place({ code: 'waiver-unused', rule: null, severity: 'warning', debt: isDebt, file: file.path, line: waiver.line, type: file.type.id, message: `the waiver of '${waiver.rule}' drops no finding`, why: WHY['waiver-unused']! });
       }

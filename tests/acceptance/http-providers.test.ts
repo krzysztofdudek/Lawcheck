@@ -11,7 +11,7 @@ import { HTTP_TIMEOUT_RUN_MS, RESEND_LEFT_BOUND_MS, RESEND_REPLY_DELAY_MS, RESEN
 
 const UNREACHABLE = 'src/core/refund.ts  error[reviewer-unreachable]  ';
 const AGAIN = 'then run the same command again; what was answered is kept, so it asks only the rest';
-const PASSED = 'lawcheck: PASS  1 changed file (against main), 1 waiver, 1 reviewer call\n';
+const PASSED = 'lawcheck: PASS  1 changed file (against main), 1 waiver, 1 reviewer call\nnote: this change adds 1 waiver: clear-errors at src/core/refund.ts:3\n';
 
 function stopped(error: string, code: 'reviewer-unreachable' | 'reviewer-bad-answer', next: string): string {
   return `lawcheck: ERROR  1 error\n\n${error}\n  why:  ${whyOf(code)}\n\nnext: ${next}\n`;

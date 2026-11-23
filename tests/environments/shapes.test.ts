@@ -52,7 +52,7 @@ const TEST41 = {
     finding({ code: 'no-todo', severity: 'warning', debt: true, file: 'src/core/tax.ts', line: 1, type: 'library', message: 'TODO without an issue number', why: NO_TODO_WHY }),
     finding({ code: 'no-todo', severity: 'warning', debt: true, file: 'tools/release.mjs', line: 2, type: 'script', message: 'TODO without an issue number', why: NO_TODO_WHY }),
   ],
-  waivers: [{ file: 'src/core/discount.ts', line: 4, rule: 'no-console', debt: false, waived: 1, reason: 'the pricing team reads this warning until 2.0' }],
+  waivers: [{ file: 'src/core/discount.ts', line: 4, rule: 'no-console', debt: false, waived: 1, reason: 'the pricing team reads this warning until 2.0', added: true }],
   unresolved: [],
   reviews: { missing: 0, calls_made: 0, passes_recorded: 0 },
   next: { command: null, text: 'fix src/core/discount.ts:2' },
@@ -116,6 +116,7 @@ const CORE: Scenario[] = [
       1,
       [
         'lawcheck: FAIL  1 error, 2 warnings in 1 changed file (against main), 1 waiver',
+        'note: this change adds 1 waiver: no-console at src/core/discount.ts:4',
         '',
         'src/core/discount.ts  error[no-console]  # Sample',
         `  why:  ${NO_CONSOLE_WHY}`,
@@ -140,7 +141,7 @@ const CORE: Scenario[] = [
     name: 'test 31',
     args: BASE,
     arrange: (p) => write(p.root, D_PATH, D.replace("  console.log('discount', net);", "  // lawcheck-waive no-console -- support reads this line\n  console.log('discount', net);")),
-    expect: exactly(0, ['lawcheck: PASS  1 warning in 1 changed file (against main), 2 waivers', '', 'src/core/discount.ts:4  warning[no-todo]  TODO without an issue number', `  why:  ${NO_TODO_WHY}`, ''].join('\n')),
+    expect: exactly(0, ['lawcheck: PASS  1 warning in 1 changed file (against main), 2 waivers', 'note: this change adds 2 waivers: no-console at src/core/discount.ts:2; no-console at src/core/discount.ts:5', '', 'src/core/discount.ts:4  warning[no-todo]  TODO without an issue number', `  why:  ${NO_TODO_WHY}`, ''].join('\n')),
   },
   { name: 'test 38', args: ['check', '--base', 'nope'], expect: exactly(2, BASE_NOPE) },
   {

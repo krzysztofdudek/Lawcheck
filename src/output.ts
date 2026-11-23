@@ -31,6 +31,7 @@ export interface WaiverEntry {
   debt: boolean;
   waived: number;
   reason: string;
+  added: boolean | null;
 }
 
 export interface Reviews {
@@ -303,6 +304,16 @@ function unresolvedPart(count: number): string {
   return count === 0 ? '' : `, ${plural(count, 'unresolved use')}`;
 }
 
+const ADDED_SHOWN = 5;
+
+export function addedWaiversLine(waivers: WaiverEntry[]): string | null {
+  const added = waivers.filter((w) => w.added === true);
+  if (added.length === 0) return null;
+  const items = added.slice(0, ADDED_SHOWN).map((w) => `${w.rule} at ${shown(w.file)}:${w.line}`);
+  const rest = added.length - ADDED_SHOWN;
+  return `note: this change adds ${plural(added.length, 'waiver')}: ${items.join('; ')}${rest > 0 ? `; and ${rest} more` : ''}`;
+}
+
 export function blocking(report: Report): Finding[] {
   return [...report.findings, ...report.debt].filter((f) => f.severity === 'error');
 }
@@ -363,7 +374,7 @@ export function renderReport(report: Report, json: boolean): string {
       },
       summary: { errors: changeErrors, warnings, debt: report.debt.length, waivers: changeWaivers, unresolved: changeUnresolved },
       findings: [...report.findings, ...report.debt].map(shape),
-      waivers: report.waivers.map((w) => ({ file: w.file, line: w.line, rule: w.rule, debt: w.debt, waived: w.waived, reason: w.reason })),
+      waivers: report.waivers.map((w) => ({ file: w.file, line: w.line, rule: w.rule, debt: w.debt, waived: w.waived, reason: w.reason, added: w.added })),
       unresolved: unresolved.map((u) => ({ file: u.file, line: u.line, what: u.what, answer: u.answer, reason: u.reason, candidates: u.candidates, debt: u.debt })),
       reviews: { missing: reviews.missing, calls_made: reviews.calls_made, passes_recorded: reviews.passes_recorded },
       next: nextOf === null ? null : { command: nextOf.command, text: nextOf.text },

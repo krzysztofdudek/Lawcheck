@@ -162,8 +162,8 @@ function prScenarios(cell: Cell): Outcome[] {
     pr(cell, 'a waiver the change adds is named', waiver, (steps, _o, problems) => {
       const result = last(steps);
       same(result.code, 0, 'the exit code', problems);
-      const line = `${NOTE_LAW}edits .lawcheck/law.yaml without changing a rule or a type; adds a waiver of no-console in ${at(cell, 'src/core/shipping.ts')}`;
-      if (!result.stdout.includes(line)) problems.push(`the waiver is not named: ${result.stdout}`);
+      const lines = `${NOTE_LAW}edits .lawcheck/law.yaml without changing a rule or a type\nnote: this change adds 1 waiver: no-console at ${at(cell, 'src/core/shipping.ts')}:1`;
+      if (!result.stdout.includes(lines)) problems.push(`the waiver is not named: ${result.stdout}`);
     }),
   );
   out.push(
