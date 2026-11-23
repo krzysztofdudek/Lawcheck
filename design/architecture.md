@@ -14,7 +14,7 @@ Lawcheck is TypeScript on Node 24, compiled from `src/` to `dist/`. Its runtime 
    - each listed file gets its type (`src/types.ts`, with the patterns of `src/glob.ts`);
    - `src/setup.ts` takes the change: the base from `--base`, `LAWCHECK_BASE` or `origin/HEAD`, and the files that differ from the merge base;
    - the script rules run (`src/rules.ts`). Each rule has its own Node process, `src/runner.ts`, started with `--permission` and read access to the root and to Lawcheck's folder only;
-   - the readers find each file's uses of other files (`src/readers.ts`), and `src/uses.ts` turns them into `forbidden-use` findings and unresolved uses;
+   - the readers find each file's uses of other files (`src/readers.ts`), taking what an unchanged file of Java, Kotlin, C#, Ruby or Rust declares from the reader cache in `.lawcheck/.local/readers/`, and `src/uses.ts` turns them into `forbidden-use` findings and unresolved uses;
    - each reviewer rule gets its state from `.lawcheck/verdicts` (`src/verdicts.ts`). With `--review`, `src/review.ts` asks the provider for what is missing, through `src/providers/`, and records each pass;
    - the waivers drop the findings they cover (`src/waivers.ts`), and the findings are split into the change and the debt;
    - `src/lawchange.ts` notes a change that edits the law that judges it.
@@ -42,7 +42,7 @@ Lawcheck is TypeScript on Node 24, compiled from `src/` to `dist/`. Its runtime 
 | `src/limits.ts` | the limits of a run, and the reading of a file within them |
 | `src/rules.ts` | starts the runners, keeps the time of each call, validates what a rule returns |
 | `src/runner.ts` | the runner process: loads one rule and answers the tool's calls |
-| `src/readers.ts`, `src/uses.ts` | the uses of each file, and the findings and unresolved uses they give |
+| `src/readers.ts`, `src/uses.ts` | the uses of each file, the reader cache, and the findings and unresolved uses they give |
 | `src/waivers.ts` | the waiver comments, and the findings they cover |
 | `src/verdicts.ts` | the review key, `.lawcheck/verdicts`, `.lawcheck/.gitattributes`, the failure cache |
 | `src/prompt.ts` | the prompt a reviewer gets, and the reading of its answer |

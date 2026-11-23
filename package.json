@@ -37,6 +37,7 @@
     "prepack": "npm run grammars && npm run build",
     "agent-trial": "node tests/agent/run.ts",
     "real": "npm run build && node tests/real/run.ts",
+    "speed": "npm run build && node tests/real/speed.ts",
     "stability": "npm run build && node tests/stability/run.ts",
     "test": "npm run build && node tests/run.ts commit",
     "test:shard": "node tests/run.ts commit --shard",

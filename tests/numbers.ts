@@ -24,6 +24,9 @@ export const KILLED_GRACE_MS = 5_000;
 // The whole-repository runs of tests/real on hono and gson, and one check --review of the stability fixture, 30 reviewer calls through a real model.
 export const REAL_RUN_BUDGET_MS = 300_000;
 export const STABILITY_RUN_BUDGET_MS = 900_000;
+// tests/real/speed.ts: the most that the median of SPEED_RUNS checks of one changed file, in guava and in Newtonsoft.Json with the reader cache, may take in the dev container. The design aimed at 0.3 s for one file; the medians measured on 2026-11-23 were 0.29 to 0.38 s, so 0.3 s would fail on noise alone (decision 164).
+export const ONE_FILE_CHECK_MS = 500;
+export const SPEED_RUNS = 5;
 
 // Test 67: reviewer.timeout of 1 second, then SIGTERM and SIGKILL 5 seconds later.
 export const CLAUDE_TIMEOUT_RUN_MS = 15_000;
@@ -649,6 +652,8 @@ export const stronger: Record<string, 'higher' | 'lower' | 'fixed'> = {
   KILLED_GRACE_MS: 'lower',
   REAL_RUN_BUDGET_MS: 'lower',
   STABILITY_RUN_BUDGET_MS: 'lower',
+  ONE_FILE_CHECK_MS: 'lower',
+  SPEED_RUNS: 'higher',
   CLAUDE_TIMEOUT_RUN_MS: 'lower',
   FAKE_STARTED_MS: 'lower',
   HOOK_PAST_DEADLINE_MS: 'lower',
