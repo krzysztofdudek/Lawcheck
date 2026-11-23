@@ -9,12 +9,38 @@ interface CallFile {
   lines: string[];
 }
 
+interface FlatTree {
+  types: string[];
+  fields: string[];
+  nodes: Int32Array;
+}
+
+interface TreeAnswer {
+  language: string | null;
+  tree: FlatTree | null;
+  absent: string | null;
+}
+
+interface TreeNode {
+  type: string;
+  named: boolean;
+  field: string | null;
+  start: number;
+  end: number;
+  line: number;
+  column: number;
+  children: TreeNode[];
+}
+
 type Incoming =
   | { kind: 'load'; file: string; filesOf: Map<string, string[]> }
   | { kind: 'call'; file: CallFile }
+  | { kind: 'answer'; id: number; value: unknown }
   | { kind: 'finish' };
 
-type Check = (input: { files: CallFile[]; repo: { filesOf(typeId: string): string[] } }) => unknown;
+type RuleFile = CallFile & { tree(): Promise<unknown>; uses(): Promise<unknown> };
+
+type Check = (input: { files: RuleFile[]; repo: { filesOf(typeId: string): string[] } }) => unknown;
 
 // Started without a channel, the runner only shows that Node can start it: the tool does this to learn why a runner did not start.
 if (process.send === undefined) process.exit(0);
@@ -187,15 +213,52 @@ function oversized(value: unknown): { kind: string; count: number; chars?: numbe
   return null;
 }
 
+// The layout NODE_INTS of src/readers.ts, eight numbers to a node in preorder: parent, type, field, named, start, end, line, column.
+function treeOf(answer: TreeAnswer): { language: string | null; root: TreeNode | null; absent: string | null } {
+  if (answer.tree === null) return { language: answer.language, root: null, absent: answer.absent };
+  const { types, fields, nodes } = answer.tree;
+  const made: TreeNode[] = [];
+  for (let at = 0; at < nodes.length; at += 8) {
+    const field = nodes[at + 2]!;
+    const node: TreeNode = { type: types[nodes[at + 1]!]!, named: nodes[at + 3] === 1, field: field < 0 ? null : fields[field]!, start: nodes[at + 4]!, end: nodes[at + 5]!, line: nodes[at + 6]!, column: nodes[at + 7]!, children: [] };
+    if (nodes[at]! >= 0) made[nodes[at]!]!.children.push(node);
+    made.push(node);
+  }
+  return { language: answer.language, root: made[0]!, absent: null };
+}
+
+const answers = new Map<number, (value: unknown) => void>();
+let asked = 0;
+
+function asking(what: 'tree' | 'uses', call: { ended: boolean; asks: Promise<unknown>[] }, read: (value: unknown) => unknown): () => Promise<unknown> {
+  let answer: Promise<unknown> | null = null;
+  return () => {
+    if (call.ended) return Promise.reject(new Error(`${what}() was called after its call of check ended`));
+    if (answer === null) {
+      const id = asked++;
+      answer = new Promise((resolve) => answers.set(id, resolve)).then(read);
+      call.asks.push(answer);
+      send({ kind: 'ask', id, what });
+    }
+    return answer;
+  };
+}
+
 async function call(file: CallFile): Promise<void> {
   let value: unknown;
   let over: ReturnType<typeof oversized>;
+  const state = { ended: false, asks: [] as Promise<unknown>[] };
+  const argument: RuleFile = { ...file, tree: asking('tree', state, (answer) => treeOf(answer as TreeAnswer)), uses: asking('uses', state, (answer) => answer) };
   try {
-    value = await check!({ files: [file], repo: repo! });
+    value = await check!({ files: [argument], repo: repo! });
     over = oversized(value);
+    // An answer the rule did not wait for still comes before the result, so the tool never meets an ask of a call it has closed.
+    for (let at = 0; at < state.asks.length; at++) await state.asks[at];
   } catch (error) {
     send({ kind: 'threw', message: text(error) });
     return;
+  } finally {
+    state.ended = true;
   }
   await turn();
   if (reported) return;
@@ -206,7 +269,10 @@ process.on('message', (message: Incoming) => {
   own ??= counts();
   if (message.kind === 'load') void load(message.file, message.filesOf);
   else if (message.kind === 'finish') void finish();
-  else void call(message.file);
+  else if (message.kind === 'answer') {
+    answers.get(message.id)?.(message.value);
+    answers.delete(message.id);
+  } else void call(message.file);
 });
 
 channel({ kind: 'ready' });

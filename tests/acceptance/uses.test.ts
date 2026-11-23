@@ -8,7 +8,10 @@ import {
   E,
   E_PATH,
   findingLines,
+  inTemp,
+  lawcheck,
   lawcheckAt,
+  newRepository,
   NOTHING_CHANGED,
   U_LAW,
   withCopy,
@@ -314,3 +317,47 @@ test('test 91: may_use: [] forbids every file, the own type included', async () 
   );
 });
 
+
+const ABSENT_LAW = 'lawcheck: 0.1.0\n\nrules:\n  absent:\n    why: The rule says what Lawcheck could not read.\n\ntypes:\n  code:\n    paths: ["src/**"]\n    rules: [absent]\n';
+
+const ABSENT_RULE = `export async function check({ files: [file] }) {
+  const tree = await file.tree();
+  const uses = await file.uses();
+  return [{ message: \`tree \${tree.absent ?? tree.root.type}, uses \${uses.absent ?? uses.uses.length}\` }];
+}
+`;
+
+test('test 775: a file over the size limit, a language with no reader and a reader that fails give the rule a stated absence, never a crash of the run', async () => {
+  await inTemp(async (dir) => {
+    const repo = newRepository(dir, {
+      '.lawcheck/law.yaml': ABSENT_LAW,
+      '.lawcheck/rules/absent.mjs': ABSENT_RULE,
+      'src/big.ts': `// ${'x'.repeat(512 * 1024)}\n`,
+      'src/notes.md': '# Notes\n',
+      'src/a.ts': "import { b } from './b';\n",
+      'src/b.ts': 'export const b = 1;\n',
+    });
+    const said = (run: { stdout: string; stderr: string; code: number | null }) => {
+      assert.equal(run.stderr, '');
+      assert.equal(run.code, 1, run.stdout);
+      return JSON.parse(run.stdout).findings.map((f: any) => `${f.file}  ${f.message}`);
+    };
+    assert.deepEqual(said(await lawcheck(repo, ['check', '--json'])), [
+      'src/a.ts  tree program, uses 1',
+      'src/b.ts  tree program, uses 0',
+      'src/big.ts  tree too-large, uses too-large',
+      'src/notes.md  tree no-reader, uses no-reader',
+    ]);
+    await withCopy(async (copy) => {
+      writeFileSync(join(copy.dir, 'dist', 'grammars', 'tree-sitter-typescript.wasm'), 'x');
+      assert.deepEqual(said(await lawcheckAt(copy.cli, repo, ['check', '--json'])), [
+        'src/a.ts  tree reader-failed, uses reader-failed',
+        'src/b.ts  tree reader-failed, uses reader-failed',
+        'src/big.ts  tree too-large, uses too-large',
+        'src/notes.md  tree no-reader, uses no-reader',
+      ]);
+      const tried = await lawcheckAt(copy.cli, repo, ['try', 'absent', 'src/a.ts']);
+      assert.deepEqual([tried.code, tried.stderr, tried.stdout.split('\n')[2]], [1, '', 'src/a.ts  error[absent]  tree reader-failed, uses reader-failed']);
+    });
+  });
+});

@@ -5,6 +5,7 @@ import type { Claims, Page } from '../contract/docs-blocks.ts';
 
 export const claims: Claims = {
   'block 1 under "Script rules"': SCENARIO,
+  'block 1 under "The syntax tree"': SCENARIO,
   'block 1 under "Trying a rule"': 'tests/acceptance/docs.test.ts > test 129: every page holds what section 7 asks, and its examples are real',
 };
 
@@ -21,6 +22,21 @@ export async function scenario(page: Page): Promise<void> {
       '',
       'src/tax.ts:1  error[no-todo]  TODO without an issue number',
       '  why:  A TODO without an issue number gets forgotten.',
+      '',
+    ].join('\n')]);
+  });
+  await inTemp(async (dir) => {
+    const repo = newRepository(dir, {
+      '.lawcheck/law.yaml': 'lawcheck: 0.1.0\n\nrules:\n  no-eval:\n    why: eval runs text that nobody reviewed as code.\n\ntypes:\n  source:\n    paths: ["src/**/*.ts"]\n    rules: [no-eval]\n',
+      'src/run.ts': 'const note = "eval(x)"; // eval(y)\neval(note);\n',
+    });
+    write(repo, '.lawcheck/rules/no-eval.mjs', page.text('block 1 under "The syntax tree"') + '\n');
+    const run = await lawcheck(repo, ['try', 'no-eval', 'src/run.ts']);
+    assert.deepEqual([run.code, run.stdout], [1, [
+      'lawcheck: try no-eval (script rule, enforced)  1 finding in 1 of 1 file',
+      '',
+      'src/run.ts:2  error[no-eval]  eval runs text as code',
+      '  why:  eval runs text that nobody reviewed as code.',
       '',
     ].join('\n')]);
   });

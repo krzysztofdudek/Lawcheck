@@ -10,7 +10,7 @@ import type { ErrorItem, Finding, Next, Report, Unresolved, WaiverEntry } from '
 import { buildPrompt, cleanMessage, FRAME, size } from './prompt.js';
 import type { AnswerFinding } from './prompt.js';
 import { createProvider } from './providers/index.js';
-import { readerOf, readUses, siblingsOf, Unreadable } from './readers.js';
+import { ownersOf, readerOf, readUses, ruleReads, siblingsOf } from './readers.js';
 import type { ScriptView } from './readers.js';
 import { lawChangeLine, lawChanges } from './lawchange.js';
 import { call, preflight } from './review.js';
@@ -27,7 +27,7 @@ import type { TypedFile } from './types.js';
 import type { Runtime } from './environment.js';
 import { countPasses, FULL_NEXT, readFailure, readVerdicts, reviewKey, Unwritable, VERDICTS, VerdictsFull, VerdictsUnreadable, VerdictWriter } from './verdicts.js';
 import { parseWaivers, waive, waivedLines } from './waivers.js';
-import { count, mib, points, readError, RUN_FINDINGS, RUN_MESSAGE_CHARS, USES_FILE_BYTES } from './limits.js';
+import { count, mib, points, RUN_FINDINGS, RUN_MESSAGE_CHARS, USES_FILE_BYTES } from './limits.js';
 import { step } from './progress.js';
 import type { Waiver, WaiverProblem } from './waivers.js';
 
@@ -93,6 +93,7 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
   const filesOf = filesOfTypes(typed, law);
   const budget = new FindingBudget();
   const deadline = rulesDeadline();
+  const reads = ruleReads({ root, files, ...ownersOf(files, read, typed) });
   const tasks = [...kinds.scripts]
     .map((rule) => ({ rule, files: run.filter((file) => file.rules.includes(rule)) }))
     .filter(({ files: bound }) => bound.length > 0)
@@ -100,7 +101,7 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
       rule,
       outcome: deadline.signal.aborted
         ? { slow: slowMessage('not started') }
-        : await runRule({ root, rule, ruleFile: join(root, `${RULES_DIR}${rule}.mjs`), files: bound, filesOf, budget, signal: deadline.signal }),
+        : await runRule({ root, rule, ruleFile: join(root, `${RULES_DIR}${rule}.mjs`), files: bound, filesOf, budget, signal: deadline.signal, serve: reads(bound) }),
     }));
   const unsupported = tasks.length === 0 ? null : runnerProblem(root);
   if (unsupported !== null) return { errors: [{ code: 'path-unsupported', file: null, line: null, message: unsupported }] };
@@ -366,21 +367,8 @@ async function readTheUses(
   out.notRead = notRead(unread);
   if (toRead.length === 0) return out;
 
-  const known = new Set(files);
   const typedByPath = new Map(typed.map((file) => [file.path, file]));
-  const bytes = (path: string) => {
-    try {
-      return read(path);
-    } catch (error) {
-      throw new Unreadable(path, readError(path, error));
-    }
-  };
-  const ownerOf = (path: string) => {
-    const file = typedByPath.get(path);
-    if (file !== undefined) return file.type.id;
-    if (!known.has(path)) return undefined;
-    return isBinary(bytes(path)) ? '#binary' : '#untyped';
-  };
+  const { bytes, ownerOf } = ownersOf(files, read, typed);
   const outcome = await readUses({ root, files, bytes, ownerOf, read: toRead });
   if ('error' in outcome) return { errors: [outcome.error] };
   for (const { path, bytes, uses } of outcome.skipped) {

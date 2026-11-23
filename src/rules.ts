@@ -11,6 +11,7 @@ import { safeText } from './output.js';
 import { hide } from './keys.js';
 import type { Readable } from 'node:stream';
 import { count, MESSAGE_CHARS, points, RULES_RUN_MS, RUN_FINDINGS, RUN_MESSAGE_CHARS } from './limits.js';
+import type { Serve } from './readers.js';
 
 export interface RuleFile {
   path: string;
@@ -221,6 +222,8 @@ interface Message {
   load?: boolean;
   count?: number;
   chars?: number;
+  what?: unknown;
+  id?: unknown;
 }
 
 function backgroundCrash(message: Message): RuleOutcome {
@@ -270,6 +273,7 @@ export interface RuleRun {
   timeoutMs?: number;
   budget?: FindingBudget;
   signal?: AbortSignal;
+  serve?: Serve;
 }
 
 // Node's permission model does not reach node:sqlite (Node 24.0 to 26.13 at least), which opens, attaches and writes any database the user can, so the runner starts without it.
@@ -313,7 +317,10 @@ export function runRule(run: RuleRun): Promise<RuleOutcome> {
     let settled = false;
     let started = false;
     let timer: NodeJS.Timeout | undefined;
+    let left = timeoutMs;
+    let since = 0;
     let waiting: ((message: Message) => void) | null = null;
+    let current: { file: RuleFile; serving: number; asked: Set<string> } | null = null;
     let stage = 'in its load';
     const findings: RawFinding[] = [];
 
@@ -337,11 +344,17 @@ export function runRule(run: RuleRun): Promise<RuleOutcome> {
       if (child.exitCode !== null || child.signalCode !== null) bounded();
       else child.once('exit', bounded);
     };
+    const arm = () => {
+      since = Date.now();
+      timer = setTimeout(() => end({ crash: `passes ${timeoutMs / 1000} seconds ${stage}` }), left);
+    };
     const ask = (request: unknown, onAnswer: (message: Message) => void) => {
-      timer = setTimeout(() => end({ crash: `passes ${timeoutMs / 1000} seconds ${stage}` }), timeoutMs);
+      left = timeoutMs;
+      arm();
       waiting = (message) => {
         clearTimeout(timer);
         waiting = null;
+        current = null;
         onAnswer(message);
       };
       child.send(request as object, (error) => {
@@ -359,6 +372,7 @@ export function runRule(run: RuleRun): Promise<RuleOutcome> {
         return;
       }
       stage = `on ${file.path}`;
+      current = { file, serving: 0, asked: new Set() };
       const payload = { path: file.path, type: file.type?.id ?? null, text: file.text, lines: file.lines };
       ask({ kind: 'call', file: payload }, (message) => {
         if (message.kind === 'threw') return end({ crash: `throws on ${file.path}: ${message.message}` });
@@ -378,6 +392,28 @@ export function runRule(run: RuleRun): Promise<RuleOutcome> {
         budget.take(run.rule, findings, checked.findings);
         callNext(index + 1);
       });
+    };
+
+    // The time Lawcheck takes to read what the rule asks for is not the rule's, so the call's clock stops while it reads.
+    const serve = (message: Message) => {
+      const call = current;
+      // The runner asks for each at most once a call, so a second ask is the rule's own write to the channel, and each one would cost the tool a read while the call's clock stands still.
+      if (call === null || run.serve === undefined || (message.what !== 'tree' && message.what !== 'uses') || call.asked.has(message.what)) return end({ crash: `writes to the runner's channel ${stage}` });
+      call.asked.add(message.what);
+      if (call.serving++ === 0) {
+        clearTimeout(timer);
+        left -= Date.now() - since;
+      }
+      run.serve(message.what, call.file).then(
+        (value) => {
+          if (settled || current !== call) return;
+          child.send({ kind: 'answer', id: message.id, value }, (error) => {
+            if (error && !settled) end({ crash: `ends before answering ${stage}` });
+          });
+          if (--call.serving === 0) arm();
+        },
+        (error: unknown) => end(error instanceof Error ? error : new Error(String(error))),
+      );
     };
 
     const load = () =>
@@ -408,6 +444,7 @@ export function runRule(run: RuleRun): Promise<RuleOutcome> {
         return load();
       }
       if (known && (message as Message).kind === 'background') return end(backgroundCrash(message as Message));
+      if (known && (message as Message).kind === 'ask') return serve(message as Message);
       if (waiting === null || !known) return end({ crash: `writes to the runner's channel ${stage}` });
       waiting(message as Message);
     });
