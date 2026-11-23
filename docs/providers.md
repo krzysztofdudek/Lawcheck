@@ -144,7 +144,7 @@ Check a new setup with `lawcheck doctor --reviewer` ([Checking the setup](#check
 
 ## Text that leaves the machine
 
-Three commands send text to a reviewer: `lawcheck check --review`, `lawcheck try` on a reviewer rule, and `lawcheck doctor --reviewer`. In any other run, Lawcheck opens no connection to a reviewer and starts no reviewer program.
+Three commands send text to a reviewer: `lawcheck check --review`, `lawcheck try` on a reviewer rule, and `lawcheck doctor --reviewer`. `lawcheck doctor` without the flag sends no prompt, but with the provider `ollama` and a reviewer rule in the law it sends `GET <address>/api/version` to the server, with a time limit of 5 seconds, to learn whether the server answers. In any other run, Lawcheck opens no connection to a reviewer and starts no reviewer program.
 
 Each call of these commands sends one prompt ([Reviewer rules](reviewer-rules.md#the-prompt)). The prompt holds five parts:
 
@@ -206,7 +206,7 @@ $ lawcheck doctor
 $ lawcheck doctor --reviewer
 ```
 
-`lawcheck doctor` says whether Lawcheck can call the provider. It asks the provider for no review. For `ollama`, it asks the server for its version and names the address it reached.
+`lawcheck doctor` says whether Lawcheck can call the provider. It asks the provider for no review. For `ollama`, it sends `GET <address>/api/version` to the server, with a time limit of 5 seconds, when the law holds a reviewer rule, and names the address it reached. For every other provider it opens no connection.
 
 `lawcheck doctor --reviewer` sends one test request. `reviewer.max_calls` does not count it. The command says whether the reviewer answered with a verdict. A failed check ends with a `next:` line that names what to set or start.
 

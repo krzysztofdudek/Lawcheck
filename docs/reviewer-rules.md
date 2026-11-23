@@ -116,7 +116,7 @@ $ lawcheck check --review --max-calls 3 --base main
 
 `reviewer.max_calls` sets the most requests that one run may send to the reviewer. A request that Lawcheck sends again counts as one more request. A run that needs more requests than that limit sends none. It stops with [`too-many-reviews`](codes.md#too-many-reviews).
 
-Without `--review`, `lawcheck check` sends no request to a reviewer.
+Without `--review`, `lawcheck check` sends no request to a reviewer. `lawcheck doctor` opens no connection to one either, with one exception: when the provider is `ollama` and the law holds a reviewer rule, it sends `GET <address>/api/version` to the server, with a time limit of 5 seconds. The request carries no prompt and no text of your repository. `lawcheck doctor --reviewer` sends a test prompt ([Reviewers and keys](providers.md#checking-the-setup)).
 
 A request that fails stops the run with [`reviewer-unreachable`](codes.md#reviewer-unreachable). The passes that the run recorded before that request stay in `.lawcheck/verdicts`. When you run the same command again, Lawcheck asks the reviewer only about the reviews still missing.
 
