@@ -447,8 +447,10 @@ The `node` line names the version of the Node that runs Lawcheck, here 24.11.0. 
 | `types` | how many files have a type, and a type overlap |
 | `base` | the base, where it came from, and how many files the change holds |
 | `law-change` | whether the change touches the law |
-| `readers` | the files whose uses are read, by language, and the 13 grammars, which it loads |
+| `readers` | the files whose uses are read, by language, the configuration files a reader could not read, and the 13 grammars, which it loads |
 | `reviewer` | the reviewer rules, and whether the reviewer can be called |
+
+The `readers` check reads the uses of the files whose `may_use` list is in force, as `check --full` does, and writes no reader cache. When a reader consults a configuration file that does not parse, such as a `tsconfig.json` with a single-quoted key, the check shows `note`, and one line under it names each such file ([A configuration file a reader cannot read](languages.md#a-configuration-file-a-reader-cannot-read)). The lines are the same with `--base` and without it.
 
 Each check ends as `ok`, `note`, `fail` or `skip`. A check shows `skip`, with `needs <check>`, when a check it needs did not pass. Lawcheck prints a `next:` line under each `note` and each `fail`.
 

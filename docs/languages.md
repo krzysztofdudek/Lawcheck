@@ -48,9 +48,11 @@ In Java, Kotlin, C#, Ruby and Rust, a reader finds the file that a name points t
 
 The readers of the other languages find the file of a use by its path. To do it, they read files such as `tsconfig.json`, `go.mod` and `composer.json`.
 
-The Python reader looks for modules in the top folder of the repository, in a `src` folder, and in the source folders that `pyproject.toml` or `setup.cfg` name. It does not read `setup.py`.
+The Python reader looks for modules in the top folder of the repository, in a `src` folder, and in the source folders that `pyproject.toml` or `setup.cfg` name. It does not read `setup.py`. It also looks in the root of each member of a uv or Poetry workspace, and in the folder that pytest puts on the path for a test file, which pytest calls its `basedir`. A test finds the helper modules that lie there.
 
 The Go reader follows `go.work` and a `replace` with a relative directory of the repository. It does not follow a `replace` that points outside the repository or names another version.
+
+The C# reader gives a file a use of a type of another project only when the file's project reaches that project. A project reaches another when its `.csproj`, or a `Directory.Build.props` above it, holds a `ProjectReference` to it, directly or through the projects in between. A project with no such reference does not reach the other. A use of a type of the other project is then unresolved, with the reason `unfollowed`. It is no `forbidden-use`, so a plain `check` passes, counts the use in the first line among the unresolved uses, and lists it in `--json`. To see a forbidden use between two C# projects, add the `ProjectReference` first. A project whose references the reader cannot read, such as a path that holds an unknown property, reaches every project. A `.cs` file under no `.csproj` sees every project too.
 
 ## The reader cache
 
@@ -113,6 +115,31 @@ Lawcheck neither judges nor counts a use that a reader misses. It prints nothing
 - Rust: a `mod` with `#[path]` inside an inline module, a function body or a `cfg_if!` branch, or under a `cfg_attr`, gives no use. A `use` in a `cfg_if!` branch gives no use either.
 - Java: the readers read a fully qualified name in a field type. The readers do not read it in a call, an annotation or `Class.forName`.
 - Python: Lawcheck counts `from . import x` as unresolved when `x` is a name that `__init__.py` defines. It judges `from .m import x` and `from pkg.m import x`.
+
+### Forms of each language that no reader reads
+
+| Language | Forms with no use |
+|---|---|
+| TypeScript and JavaScript | `import()` of a variable or of a template string, `require.resolve`, `import.meta.resolve`, `import.meta.glob`, `require.context`, an alias written in a form the first bullets above do not name, a JSDoc `@import` type, a triple-slash reference, `export interface I extends import('x').T {}` |
+| Vue and Svelte | the template |
+| Python | `importlib.import_module`, `__import__`, `__all__`, `setup.py` |
+| Go | a name used within one package, cgo, a `replace` by another version or by a directory outside the repository |
+| Rust | a path inside a macro invocation, `#[macro_export]`, `include!`, a `#[path]` inside an inline module, a function body, a `cfg_if!` branch or a `cfg_attr`, a `use` in a `cfg_if!` branch, a `[patch]` without a path |
+| Java | a fully qualified name written in a call, an annotation or a constant, such as `com.b.Util.run()`, `@com.acme.Audit` or `com.acme.Color.RED`; a reflection string; a module import |
+| Kotlin | a constructor call, a `::class` and any other reference written fully qualified; a file without `package` |
+| C# | a reflection string, `nameof`, a type behind `extern alias`, a base type that only another file's global using reaches |
+| C | `#embed`, an `#include` through a macro, a use by name that the linker joins |
+| C++ | a module: `import`, a partition, a header unit, `import std`; and the forms of C |
+| PHP | `use function`, `use const`, `require` of a path with no `__DIR__`, `new $var`, `class_alias`, a class name built from strings |
+| Ruby | `const_get`, `autoload` |
+
+A Kotlin file with syntax errors is read in spans, so a use after the error can go missing.
+
+## A configuration file a reader cannot read
+
+A reader reads some configuration files to find the file that a use names: `tsconfig.json` and `jsconfig.json` for aliases, `package.json` for workspace packages, `composer.json` for the maps of PHP classes, `compile_commands.json` for include folders, and `pnpm-workspace.yaml` for packages. When such a file does not parse, the reader goes on without it. Every use that goes through the file is then unresolved, and a law that forbids such a use looks kept.
+
+`lawcheck doctor` reads the uses of the files whose `may_use` list is in force, and prints one line under its `readers` check for each configuration file that a reader consulted and could not read. The line names the file and, when the parser gives it, the line and column of the failure. The check then shows `note`, and `doctor` still exits 0. The lines are the same with `--base` and without it. `lawcheck check` prints nothing about the file. A file that no use needs gets no line. An alias written in a form the reader does not follow, such as a variable in `vite.config.ts`, is no file that failed to parse: `doctor` prints no line for it, and the uses through it are unresolved as [Forms the readers miss](#forms-the-readers-miss) says.
 
 ## uses-not-read
 
