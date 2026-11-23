@@ -7,6 +7,7 @@ import { parse } from 'yaml';
 import { ROOT } from '../harness/sets.ts';
 import { ALLOWED_NAMES } from './allowed-names.ts';
 import { problems } from '../../site/landing/check.mjs';
+import { Fragments } from '../../site/landing/fragments.ts';
 
 const ALLOWED = new Set(Object.values(ALLOWED_NAMES).flat());
 const TAKEN = ['governance', 'trust', 'control', 'confidence', 'AI-native', 'guardrails'];
@@ -95,4 +96,27 @@ test('test 781: the check of the built landing page passes a page with its head,
   assert.deepEqual(built({ ...GOOD, '404.html': '<h1>x</h1><script type="module" src="/app.js"></script>' }), ['404.html has no link to /', '404.html loads the app, which would replace its text']);
   assert.deepEqual(built({ ...GOOD, 'vercel.json': '{' }), ['vercel.json is missing or does not parse']);
   assert.deepEqual(built({ 'index.html': index }), ['404.html is missing', 'robots.txt does not name the sitemap', 'sitemap.xml does not hold https://lawcheck.dev/', 'vercel.json is missing or does not parse']);
+});
+
+test('test 782: the landing page finds a paragraph, a sentence and a code block by its heading and its opening words, so one that is gone or one that starts like another stops the build, as a missing heading or table row does (control)', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'lawcheck-fragments-'));
+  try {
+    const page = ['# Tool', '', 'It checks files. It needs Node 24.', '', 'The law is a file.', '', '```text', '$ tool check', '```', '', '| Case | Use |', '|---|---|', '| one language | a linter |', ''];
+    writeFileSync(join(dir, 'a.md'), page.join('\n'));
+    writeFileSync(join(dir, 'b.md'), page.filter((line) => line !== 'The law is a file.').join('\n').replace('It checks files. ', '').replace('$ tool check', 'tool help'));
+    writeFileSync(join(dir, 'c.md'), page.join('\n').replace('It needs Node 24.', 'It checks git.'));
+    const fragments = new Fragments(dir);
+    assert.equal(fragments.sentence('a.md', 'Tool', 'It needs'), 'It needs Node 24.');
+    assert.equal(fragments.paragraph('a.md', 'Tool', 'The law'), 'The law is a file.');
+    assert.deepEqual(fragments.code('a.md', 'Tool', '$ tool'), { lang: 'text', code: '$ tool check' });
+    assert.deepEqual(fragments.rows('a.md', 'Tool', 1, ['one language']), [['Case', 'Use'], ['one language', 'a linter']]);
+    assert.throws(() => fragments.sentence('b.md', 'Tool', 'It checks'), { message: 'site/landing: b.md has 0 sentences under "Tool" that start with "It checks", and the landing page pulls exactly one' });
+    assert.throws(() => fragments.paragraph('b.md', 'Tool', 'The law'), { message: 'site/landing: b.md has 0 paragraphs under "Tool" that start with "The law", and the landing page pulls exactly one' });
+    assert.throws(() => fragments.code('b.md', 'Tool', '$ tool'), { message: 'site/landing: b.md has 0 code blocks under "Tool" that start with "$ tool", and the landing page pulls exactly one' });
+    assert.throws(() => fragments.sentence('c.md', 'Tool', 'It checks'), { message: 'site/landing: c.md has 2 sentences under "Tool" that start with "It checks", and the landing page pulls exactly one' });
+    assert.throws(() => fragments.paragraph('a.md', 'Limits', 'The law'), { message: 'site/landing: a.md has 0 headings "Limits", and the landing page pulls from exactly one' });
+    assert.throws(() => fragments.rows('a.md', 'Tool', 1, ['two languages']), { message: 'site/landing: table 1 under "Tool" of a.md has no row "two languages"' });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

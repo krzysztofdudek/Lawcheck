@@ -85,23 +85,31 @@ export class Fragments {
     return block;
   }
 
+  // A number would pull the next paragraph, sentence or block when one is removed, so these are found by their opening words.
+  private one(file: string, heading: string, kind: string, start: string, texts: string[]): string {
+    const found = texts.filter((text) => text.startsWith(start));
+    if (found.length !== 1) throw new Error(`site/landing: ${file} has ${found.length} ${kind}s under "${heading}" that start with "${start}", and the landing page pulls exactly one`);
+    return found[0]!;
+  }
+
   heading(file: string, heading: string): string {
     return this.section(file, heading).heading;
   }
 
-  paragraph(file: string, heading: string, n: number): string {
-    return this.nth(file, heading, 'paragraph', n).text;
+  paragraph(file: string, heading: string, start: string): string {
+    const texts = this.section(file, heading).blocks.flatMap((block) => (block.kind === 'paragraph' ? [block.text] : []));
+    return this.one(file, heading, 'paragraph', start, texts);
   }
 
-  sentence(file: string, heading: string, n: number, m: number): string {
-    const sentence = sentencesOf(this.paragraph(file, heading, n))[m - 1];
-    if (!sentence) throw new Error(`site/landing: paragraph ${n} under "${heading}" of ${file} has no sentence ${m}`);
-    return sentence;
+  sentence(file: string, heading: string, start: string): string {
+    const texts = this.section(file, heading).blocks.flatMap((block) => (block.kind === 'paragraph' ? sentencesOf(block.text) : []));
+    return this.one(file, heading, 'sentence', start, texts);
   }
 
-  code(file: string, heading: string, n: number): { lang: string; code: string } {
-    const { lang, code } = this.nth(file, heading, 'code', n);
-    return { lang, code };
+  code(file: string, heading: string, start: string): { lang: string; code: string } {
+    const blocks = this.section(file, heading).blocks.flatMap((block) => (block.kind === 'code' ? [block] : []));
+    const code = this.one(file, heading, 'code block', start, blocks.map((block) => block.code));
+    return { lang: blocks.find((block) => block.code === code)!.lang, code };
   }
 
   list(file: string, heading: string, n: number): string[] {
