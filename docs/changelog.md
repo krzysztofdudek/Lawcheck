@@ -20,7 +20,9 @@ A change that moves a type under another parent is now named in the note about a
 
 `lawcheck docs adopt-in-an-existing-repository` gains the section "Bring in a may_use list". A `may_use` list has no advisory status, so the section says how to close one on old code that already breaks it: the list goes first on the clean types, each old use gets a waiver with its reason, and the waivers are paid back one at a time.
 
-`lawcheck doctor` now names each configuration file that a reader could not read. When a `tsconfig.json`, `jsconfig.json`, `package.json`, `composer.json`, `compile_commands.json` or `pnpm-workspace.yaml` does not parse, the reader goes on without it, and every use through its aliases or workspace packages is unresolved, so a law that forbids such a use looked kept. The `readers` check now reads the uses of the files whose `may_use` list is in force, shows `note`, and prints one line for each file with the line and column of the failure. In `--json`, the check has a `details` list.
+`lawcheck doctor` now names each configuration file that a reader could not read. When a `tsconfig.json`, `jsconfig.json`, `package.json`, `composer.json`, `compile_commands.json` or `pnpm-workspace.yaml` does not parse, the reader goes on without it. The uses that need the file are unresolved, so a law that forbids such a use looked kept. The `readers` check now shows `note` and prints one line for each such file, with the line and column of the failure when the parser gives them. In `--json`, the check has a `details` list. To find these files, `doctor` reads the uses as `check --full` does, so it now takes about as long.
+
+`lawcheck docs languages` now says that a C# file uses a type of another project only when its project holds a `ProjectReference` to that project. Without one, the use is unresolved and no `may_use` list judges it. The page also lists the forms of each language that no reader reads.
 
 ## [0.1.0-alpha.4] - 2026-11-23
 

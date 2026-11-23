@@ -120,18 +120,20 @@ Lawcheck neither judges nor counts a use that a reader misses. It prints nothing
 
 | Language | Forms with no use |
 |---|---|
-| TypeScript and JavaScript | `import()` of a variable or of a template string, `require.resolve`, `import.meta.resolve`, `import.meta.glob`, `require.context`, an alias written in a form the first bullets above do not name, a JSDoc `@import` type, a triple-slash reference, `export interface I extends import('x').T {}` |
+| TypeScript and JavaScript | `import()` of a variable or of a template string that holds `${}`, `require.resolve`, `import.meta.resolve`, `import.meta.glob`, `require.context`, an alias written in a form the first bullets above do not name, a JSDoc `@import` type, a triple-slash reference, `export interface I extends import('x').T {}` |
 | Vue and Svelte | the template |
 | Python | `importlib.import_module`, `__import__`, `__all__`, `setup.py` |
 | Go | a name used within one package, cgo, a `replace` by another version or by a directory outside the repository |
-| Rust | a path inside a macro invocation, `#[macro_export]`, `include!`, a `#[path]` inside an inline module, a function body, a `cfg_if!` branch or a `cfg_attr`, a `use` in a `cfg_if!` branch, a `[patch]` without a path |
+| Rust | a path inside a macro invocation, a macro that `#[macro_export]` exports, `include!`, a `#[path]` inside an inline module, a function body, a `cfg_if!` branch or a `cfg_attr`, a `use` in a `cfg_if!` branch, a `[patch]` without a path |
 | Java | a fully qualified name written in a call, an annotation or a constant, such as `com.b.Util.run()`, `@com.acme.Audit` or `com.acme.Color.RED`; a reflection string; a module import |
-| Kotlin | a constructor call, a `::class` and any other reference written fully qualified; a file without `package` |
-| C# | a reflection string, `nameof`, a type behind `extern alias`, a base type that only another file's global using reaches |
+| Kotlin | a call written fully qualified, of a constructor, a function or a companion member, such as `com.acme.Foo()`; a use between two files without `package` |
+| C# | a reflection string, `nameof`, a type behind `extern alias`, a nested type of a base class that the file reaches only through another file's `global using` |
 | C | `#embed`, an `#include` through a macro, a use by name that the linker joins |
 | C++ | a module: `import`, a partition, a header unit, `import std`; and the forms of C |
 | PHP | `use function`, `use const`, `require` of a path with no `__DIR__`, `new $var`, `class_alias`, a class name built from strings |
 | Ruby | `const_get`, `autoload` |
+
+Three of these forms still leave an unresolved use with the reason `unfollowed`, which `check` counts: a call of a Rust macro that `#[macro_export]` exports, a Java name that only a module import gives, and the C# nested type above.
 
 A Kotlin file with syntax errors is read in spans, so a use after the error can go missing.
 
