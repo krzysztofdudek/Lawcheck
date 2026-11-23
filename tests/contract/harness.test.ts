@@ -13,6 +13,8 @@ import { rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { CLI, CouldNotRun, withoutTypeStrippingWarning, expectBroken, fakeWrites, HOOK, PLATFORM_SKIPS, platformSkip, ROOT, startHook, startProgram, startShell, startTool, testFolder, unpackTarball } from '../harness/tool.ts';
 import { promiseOf } from '../harness/promises.ts';
+import { gitChanges, gitState } from '../harness/state.ts';
+import { GIT_ENV } from '../acceptance/helpers.ts';
 import type { Expect, Shell } from '../harness/tool.ts';
 
 const WINDOWS = process.platform === 'win32';
@@ -487,6 +489,29 @@ test('harness-7: an empty folder in the repository and every file of .git but it
     assert.match((await expectBroken('harness-7', () => tool(dir, "writeFileSync('.git/HEAD', 'nonsense\\n');", ['check'], {}, repo))).message, /\.git\/HEAD/);
     writeFileSync(join(repo, '.git', 'HEAD'), 'ref: refs/heads/main\n');
     git('status');
+  });
+});
+
+test('harness-7: a commit a test makes through GIT_ENV starts no automatic maintenance of git, so no repack in the background changes .git while the next run is compared', async () => {
+  await inTemp(async (dir) => {
+    const repo = join(dir, 'repo');
+    mkdirSync(repo);
+    const plant = (...args: string[]) => execFileSync('git', ['-c', 'maintenance.auto=false', '-c', 'gc.auto=0', ...args], { cwd: repo, env: GIT_ENV, stdio: 'ignore' });
+    plant('init', '-q', '-b', 'main');
+    for (const name of ['a', 'b', 'c']) {
+      writeFileSync(join(repo, `${name}.txt`), `${name}\n`);
+      plant('add', '-A');
+      plant('commit', '-q', '-m', name);
+      plant('repack', '-q');
+    }
+    const trace = join(dir, 'trace.json');
+    execFileSync('git', ['commit', '-q', '--allow-empty', '-m', 'd'], { cwd: repo, env: { ...GIT_ENV, GIT_TRACE2_EVENT: trace }, stdio: 'ignore' });
+    const before = gitState(repo);
+    const started = readFileSync(trace, 'utf8').split('\n').filter((line) => line !== '').map((line) => JSON.parse(line) as { event: string; argv?: string[] });
+    const upkeep = started.filter((e) => e.event === 'child_start' && (e.argv ?? []).some((word) => word === 'maintenance' || word === 'gc'));
+    assert.deepEqual(upkeep.map((e) => e.argv!.join(' ')), []);
+    await new Promise((resolve) => setTimeout(resolve, 2_000));
+    assert.deepEqual(gitChanges(before, gitState(repo)).parts, []);
   });
 });
 
