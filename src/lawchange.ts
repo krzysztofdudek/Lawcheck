@@ -5,8 +5,6 @@ import { git, mergeBase, resolveCommit, splitZ } from './files.js';
 import { parseLaw } from './law.js';
 import type { Law, TypeDef } from './law.js';
 import { LAW, RULES_DIR } from './setup.js';
-import { decode, isBinary, splitLines } from './types.js';
-import { MARKER, parseWaivers } from './waivers.js';
 
 export const LINE_ITEMS = 5;
 
@@ -78,8 +76,8 @@ function ofLaw(before: Law, after: Law): string[] {
   const was = flat(before);
   const is = flat(after);
   const sorted = (ids: Iterable<string>) => [...ids].sort();
-  if (!same(before.required.patterns, after.required.patterns)) items.push('changes required');
-  if (!same(before.ignored.patterns, after.ignored.patterns)) items.push('changes ignored');
+  items.push(...ofFolders('required', before.required.patterns, after.required.patterns));
+  items.push(...ofFolders('ignored', before.ignored.patterns, after.ignored.patterns));
   for (const id of sorted(was.keys())) if (!is.has(id)) items.push(`removes the type ${id}`);
   for (const id of sorted(is.keys())) if (!was.has(id)) items.push(`adds the type ${id}`);
   for (const id of sorted(before.rules.keys())) if (!after.rules.has(id)) items.push(`removes the rule ${id}`);
@@ -114,6 +112,11 @@ function ofLaw(before: Law, after: Law): string[] {
   return items;
 }
 
+function ofFolders(key: string, before: string[], after: string[]): string[] {
+  const items = [...after.filter((pattern) => !before.includes(pattern)).map((pattern) => `adds ${named(pattern)} to ${key}`), ...before.filter((pattern) => !after.includes(pattern)).map((pattern) => `takes ${named(pattern)} off ${key}`)];
+  return items.length === 0 && !same(before, after) ? [`changes ${key}`] : items;
+}
+
 function ofFile(path: string, before: Buffer | null, after: Buffer | null): string | null {
   if (before === null && after === null) return null;
   const shown = named(path);
@@ -123,9 +126,8 @@ function ofFile(path: string, before: Buffer | null, after: Buffer | null): stri
 }
 
 // What the change does to the law that judges it, read against the merge base of HEAD and the base. A file that cannot be told apart in words is named, so the list is never empty when the law changed.
-export function lawChanges(root: string, base: string, files: string[], changed: Set<string>, plain: Set<string>): string[] {
-  const commit = resolveCommit(root, base);
-  const fork = commit === null ? null : mergeBase(root, commit);
+export function lawChanges(root: string, base: string, files: string[], changed: Set<string>): string[] {
+  const fork = forkOf(root, base);
   if (fork === null) return [];
   const items: string[] = [];
   const lawBefore = blobAt(root, fork, LAW);
@@ -150,35 +152,17 @@ export function lawChanges(root: string, base: string, files: string[], changed:
   }
   const config = ofFile(CONFIG, blobAt(root, fork, CONFIG), fileNow(root, CONFIG));
   if (config !== null) items.push(config);
-  items.push(...waiversAdded(root, fork, changed, new Set([...(lawsBefore?.rules.keys() ?? []), ...(lawsAfter?.rules.keys() ?? []), 'forbidden-use']), plain));
   return items;
 }
 
-function waiversOf(bytes: Buffer | null, rules: Set<string>): Map<string, number> {
-  const counts = new Map<string, number>();
-  if (bytes === null || isBinary(bytes)) return counts;
-  for (const waiver of parseWaivers(splitLines(decode(bytes)), rules).waivers) {
-    const key = `${waiver.rule}\u0000${waiver.reason}`;
-    counts.set(key, (counts.get(key) ?? 0) + 1);
-  }
-  return counts;
+function forkOf(root: string, base: string): string | null {
+  const commit = resolveCommit(root, base);
+  return commit === null ? null : mergeBase(root, commit);
 }
 
-function waiversAdded(root: string, fork: string, changed: Set<string>, rules: Set<string>, plain: Set<string>): string[] {
-  const items: string[] = [];
-  for (const path of [...changed].sort()) {
-    if (path.startsWith(RULES_DIR) || plain.has(path)) continue;
-    const now = fileNow(root, path);
-    if (now === null || !now.includes(MARKER)) continue;
-    const before = waiversOf(blobAt(root, fork, path), rules);
-    const seen = new Map<string, number>();
-    for (const [key, count] of waiversOf(now, rules)) {
-      const added = count - (before.get(key) ?? 0);
-      if (added > 0) seen.set(key.split('\u0000')[0]!, (seen.get(key.split('\u0000')[0]!) ?? 0) + added);
-    }
-    for (const rule of [...seen.keys()].sort()) items.push(`adds a waiver of ${rule} in ${named(path)}`);
-  }
-  return items;
+export function atBase(root: string, base: string): ((path: string) => Buffer | null) | null {
+  const fork = forkOf(root, base);
+  return fork === null ? null : (path) => blobAt(root, fork, path);
 }
 
 export function lawChangeLine(items: string[]): string {

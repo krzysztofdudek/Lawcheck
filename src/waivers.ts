@@ -87,3 +87,25 @@ export function waive(waivers: Waiver[], rule: string, line: number): boolean {
   waiver.waived++;
   return true;
 }
+
+export function addedWaivers(now: Waiver[], nowLines: string[], before: Waiver[], beforeLines: string[]): Set<Waiver> {
+  const key = (waiver: Waiver) => `${waiver.rule}\u0000${waiver.reason}`;
+  const held = new Map<string, string[]>();
+  for (const waiver of before) held.set(key(waiver), [...(held.get(key(waiver)) ?? []), beforeLines[waiver.line - 1]!.trim()]);
+  const groups = new Map<string, Waiver[]>();
+  for (const waiver of now) groups.set(key(waiver), [...(groups.get(key(waiver)) ?? []), waiver]);
+  const added = new Set<Waiver>();
+  for (const [at, group] of groups) {
+    const texts = [...(held.get(at) ?? [])];
+    const extra = group.length - texts.length;
+    if (extra <= 0) continue;
+    const fresh = group.filter((waiver) => {
+      const found = texts.indexOf(nowLines[waiver.line - 1]!.trim());
+      if (found < 0) return true;
+      texts.splice(found, 1);
+      return false;
+    });
+    for (const waiver of fresh.slice(-extra)) added.add(waiver);
+  }
+  return added;
+}
