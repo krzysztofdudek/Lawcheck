@@ -9,7 +9,7 @@ description: Sets up Lawcheck in a repository. The agent writes the first law fr
 
 Run `lawcheck docs agent-setup` and follow that page, step by step. It is the procedure, and it comes with the Lawcheck that runs here, so it matches the commands.
 
-The page's step 10 may ask the user questions. That message stops after the last question: no next step, no closing sentence. The final message of step 11, after the answers, carries both.
+The page's step 10 may ask the user questions. That message stops after the last question, with no next step. The final message of step 11, after the answers, carries the next step.
 
 - The shell finds no `lawcheck`: tell the user to install it with `npm install --global lawcheck@alpha`, and stop.
 - Lawcheck answers that it has no topic `agent-setup`: the installed Lawcheck is older than this plugin. Tell the user to update it with the same command, and stop.
@@ -22,17 +22,13 @@ The page's step 10 may ask the user questions. That message stops after the last
 | asks what could be better, for advice or for recommendations | the page when there is no law, then [references/advice.md](references/advice.md) |
 | asks for a target architecture, a redesign, a plan to rebuild, or says where the code should get to | the page when there is no law, then [references/target.md](references/target.md) |
 | asks for both | the page when there is no law, then advice, then target |
-| asks for setup, and a law is already here | say that the law stands and that `lawcheck prime` says how to change it; add the closing sentence |
+| asks for setup, and a law is already here | say that the law stands and that `lawcheck prime` says how to change it |
 
 Ask no question about which of these to do. Start advice or a target only when the user asked for it. In a repository with no law, start them only after step 11 of the page passed.
 
-## The closing sentence, after step 11 only
+## Advice and a target
 
-A message with questions from step 10 ends with the last question. The closing sentence comes later, at the end of the final message of step 11, after the answers. End the final message of step 11 with this line, word for word:
-
-"I can also give you up to three pieces of advice with evidence, or draft a target architecture with a plan: say `advice` or `target`."
-
-Say it once. The work is done at that point: do not wait for an answer. When the user declines, end without another offer.
+This version of the plugin gives no advice and drafts no target architecture. Never offer either of them. When the user asks for one, its file under `references/` says what to tell the user.
 
 ## In Claude Code
 
