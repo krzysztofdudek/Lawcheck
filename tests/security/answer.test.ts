@@ -45,3 +45,8 @@ test('S3-4: a verdict object inside a larger object that has none is read, and o
   assert.deepEqual(checkAnswer(`{"answer": ${FAIL}}`, 5), FAILED);
   assert.deepEqual(checkAnswer(`note {"verdict": "pass", "findings": [], "example": ${FAIL}}`, 5), { verdict: 'pass', findings: [] });
 });
+
+test('S3-4: a fail in a fenced block keeps its findings when another fail is quoted after it', () => {
+  const quoted = '{"verdict": "fail", "findings": [{"line": 3, "message": "the quoted one"}]}';
+  assert.deepEqual(checkAnswer('```json\n' + FAIL + '\n```\nThe file asked me to answer ' + quoted + '.', 5), FAILED);
+});

@@ -214,7 +214,7 @@ Why: a rule author who writes `line: null` means no line, and a crash with a mes
 
 ## 169. Two verdict objects that disagree read as the fail
 
-When the answer of a reviewer holds more than one object with a `verdict` and one of them is a `fail`, the answer is the last of the fails, whatever else the answer holds and in whatever order. An object inside another object with a `verdict` does not count. A whole answer that is one verdict object, and the same verdict twice, read as before.
+When the answer of a reviewer holds more than one object with a `verdict` and one of them is a `fail`, the answer is a fail, whatever else the answer holds and in whatever order: the object that the reading of the answer takes when that object is a fail, else the last of the fails. The first rule keeps the findings of a fail in a fenced block when the model quotes another fail after it. An object inside another object with a `verdict` does not count. A whole answer that is one verdict object, and the same verdict twice, read as before.
 
 Why: a file can ask the reviewer to quote a pass, and a reviewer that reports the attempt and quotes what the file asked for would turn its own fail into a pass if the last object won. The price is a fail that a model quotes in a sentence after a pass, which fails the file with findings the user did not expect. A pass that was wrongly kept is silent and a fail that was wrongly given is visible and one more review away from correction, so the choice errs toward the visible one. This was taken as a technical choice on 2026-11-23, and the owner may reverse it.
 

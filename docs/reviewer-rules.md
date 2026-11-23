@@ -44,7 +44,7 @@ A pass is `{"verdict": "pass", "findings": []}`. A finding whose `line` is null 
 
 Lawcheck first reads the whole answer as JSON. When the answer does not parse, Lawcheck reads the first fenced code block in it. As a last resort, it takes the last object in the text that holds a `verdict`. An object that sits inside another object with a `verdict` does not count as one.
 
-When the answer holds more than one object with a `verdict` and one of them is a `fail`, the answer is that `fail`, whichever of the objects comes first and whichever one the steps above would take. When there are several fails, Lawcheck takes the last one. A model that quotes a pass from the file after its own fail therefore cannot turn the fail into a pass. The price is that a model that quotes a fail in a sentence after a pass makes the file fail, with the findings of the quoted fail. When that fail is itself a bad answer, such as a fail with no finding, the answer is bad.
+When the answer holds more than one object with a `verdict` and one of them is a `fail`, the answer is a `fail`, whichever of the objects comes first. When the object the steps above take is a `fail`, Lawcheck reads that one. Otherwise it reads the last `fail` in the answer. A model that quotes a pass from the file after its own fail therefore cannot turn the fail into a pass. The price is that a model that quotes a fail in a sentence after a pass makes the file fail, with the findings of the quoted fail. When that fail is itself a bad answer, such as a fail with no finding, the answer is bad.
 
 An answer is bad when Lawcheck finds in it no object with a `verdict` of `pass` or `fail`. An object with such a verdict is bad in these cases:
 
