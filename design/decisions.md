@@ -260,7 +260,7 @@ Why: a run that fails after calls has spent what the user pays for, and the same
 
 ## 177. The plugin's messages, and a reviewer rule with no reviewer
 
-Every text the plugin's hooks hand to the agent or the user is built in `plugin/hooks/messages.mjs`, and each one starts with `Lawcheck:`, the name of the tool, where the output of `lawcheck` starts its lines with the command `lawcheck:`. The message of decision 171 moved there from `plugin/hooks/turn.mjs`. A plugin for another agent can import the same file, so the same case gives the same words on every agent.
+Every text the plugin's hooks hand to the agent or the user is built in `plugin/hooks/messages.mjs`, and each one starts with `Lawcheck:`, the name of the tool, where the output of `lawcheck` starts its lines with the command `lawcheck:`. The message of decision 171 moved there from `plugin/hooks/turn.mjs`. A plugin for another agent can import the same file, so the same case gives the same words on every agent. The description in `plugin/.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json` names the three tools the `PostToolUse` hook runs for, `Write`, `Edit` and `NotebookEdit`, since a file the agent writes from the shell is checked only at the end of the turn.
 
 When the law has a reviewer rule and `.lawcheck/config.yaml` sets no reviewer, `prime` replaces its line about `not-reviewed` with one that says so and asks the agent to tell the user once. The `SessionStart` hook finds that line in the output of `prime` by its start, kept in `PRIME_NO_REVIEWER`, and sends the user a message once per session, marked in the session's state. A config that Lawcheck cannot read gives the old line, since `check` stops on it anyway.
 
