@@ -2,9 +2,11 @@
 
 Lawcheck follows [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.1.0-alpha.4] - 2026-11-23
 
-On Node 24, a script rule could open a network connection, and Node 25 and later refused it. The rule runner now refuses the network on every Node: a rule that connects, listens on a port, sends over UDP or looks up a name in DNS gets an error, and a rule that does not catch that error is `rule-crashed`, with the message `uses the network, which is closed to script rules`.
+On Node 24, alpha.3 let a script rule open a network connection, and Node 25 and later refused it. Lawcheck 0.1.0-alpha.4 closes the network to script rules on every Node it supports, Node 24 included. The rule runner closes it before the rule loads. A rule that connects, listens on a port, sends over UDP, looks up a name in DNS or calls `fetch` gets an error. A rule that does not catch that error is `rule-crashed`, with the message `uses the network, which is closed to script rules`.
+
+The documentation site is now at https://lawcheck.dev, and its old address redirects there. The pages of `lawcheck docs` now say that a file outside the change can stop a plain check with exit 2, with a code such as `type-overlap` or `file-unreadable`. The alpha.3 pages said that such a file never fails a plain check. `check` judges such a file as alpha.3 does.
 
 ### Before you upgrade
 
@@ -12,7 +14,7 @@ A script rule that reads from the network on Node 24 now gets an error. The rule
 
 ## [0.1.0-alpha.3] - 2026-11-22
 
-`lawcheck docs` lists 36 pages, where alpha.2 listed 12, and groups them in five sections. The 24 new pages include an install page, a quick start, guides for Claude Code, for other coding agents, for an existing repository and for a monorepo, a reference of every command, a page of questions and an upgrade page. The twelve topics of alpha.2 keep their names and gain detail: `lawcheck docs codes` gives every code its cause, its fix and the output of a real case. In the terminal, a link to another page prints with the command that prints that page, as in `Install (lawcheck docs install)`. The pages are also a website, at https://krzysztofdudek.github.io/Lawcheck/, and `README.md` shows one law and the finding it gives on its first screen. `check`, the readers, the plugin's hooks and the reviewer's prompt work as in alpha.2: a check gives the same results, and the verdicts in `.lawcheck/verdicts` still count.
+`lawcheck docs` lists 36 pages, where alpha.2 listed 12, and groups them in five sections. The 24 new pages include an install page, a quick start, guides for Claude Code, for other coding agents, for an existing repository and for a monorepo, a reference of every command, a page of questions and an upgrade page. The twelve topics of alpha.2 keep their names and gain detail: `lawcheck docs codes` gives every code its cause, its fix and the output of a real case. In the terminal, a link to another page prints with the command that prints that page, as in `Install (lawcheck docs install)`. The pages are also a website, at https://lawcheck.dev, and `README.md` shows one law and the finding it gives on its first screen. `check`, the readers, the plugin's hooks and the reviewer's prompt work as in alpha.2: a check gives the same results, and the verdicts in `.lawcheck/verdicts` still count.
 
 ### Before you upgrade
 
