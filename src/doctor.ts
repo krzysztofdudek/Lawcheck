@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, lstatSync, readFileSync } from 'node:fs';
 import { environmentRefusal, gitNow, gitRefusal, runtimeNow, runtimeRefusal } from './environment.js';
 import type { Runtime } from './environment.js';
 import { findProgram } from './programs.js';
@@ -151,7 +151,7 @@ export async function runChecks(inputs: Inputs): Promise<Check[]> {
       const scripts = rules.kinds.scripts.size;
       const reviewers = rules.kinds.reviewers.size;
       const summary = `.lawcheck/law.yaml: ${plural(types, 'type')}, ${plural(read.law.rules.size, 'rule')} (${scripts} script, ${reviewers} reviewer)`;
-      if (rules.files.includes(LAW)) return set('law', 'ok', summary);
+      if (rules.files.includes(LAW) || lstatSync(join(found.root, '.lawcheck')).isSymbolicLink()) return set('law', 'ok', summary);
       set('law', 'note', `${summary}; git ignores it, so no other checkout has the law`, next(`remove the line that ignores ${LAW}, as \`git check-ignore -v ${LAW}\` shows, then run lawcheck doctor again`));
     },
     config: () => {

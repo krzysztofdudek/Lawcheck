@@ -110,7 +110,8 @@ export async function init(args: Arguments, context: CheckContext, json: boolean
     const created = [LAW];
     const kept: string[] = [];
     (writeNew(join(cwd, IGNORE), GITIGNORE, IGNORE) ? created : kept).push(IGNORE);
-    return { prefix, created, kept, ignored: ignoresPath(cwd, LAW) };
+    // git check-ignore refuses a path beyond a symbolic link, and .lawcheck can still be a link to a folder here.
+    return { prefix, created, kept, ignored: !lstatSync(join(cwd, '.lawcheck')).isSymbolicLink() && ignoresPath(cwd, LAW) };
   });
   if ('errors' in outcome) return errorResult(outcome.errors, json, 'init');
   const { prefix, created, kept, ignored } = outcome;

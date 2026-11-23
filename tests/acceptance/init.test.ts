@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import { exampleText } from '../harness/examples.ts';
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, symlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { git, inTemp, lawcheck, makeSample, newRepository, write } from './helpers.ts';
 
@@ -143,6 +143,20 @@ test('S5-7: init where .gitignore names .lawcheck says that git ignores the law,
     assert.ok(!run.stdout.includes('git ignores'), run.stdout);
     const doctor = await lawcheck(repo, ['doctor']);
     assert.ok(!doctor.stdout.includes('git ignores'), doctor.stdout);
+  });
+});
+
+test('S5-7: init and doctor where .lawcheck is a symbolic link to a folder write through it and pass with no note, never internal', async () => {
+  await inTemp(async (dir) => {
+    const repo = newRepository(dir);
+    mkdirSync(join(dir, 'shared'));
+    symlinkSync(join(dir, 'shared'), join(repo, '.lawcheck'), process.platform === 'win32' ? 'junction' : 'dir');
+    const run = await lawcheck(repo, ['init']);
+    assert.equal(run.stdout, CREATED, run.stdout);
+    assert.equal(run.code, 0);
+    assert.equal(existsSync(join(dir, 'shared/law.yaml')), true);
+    const doctor = await lawcheck(repo, ['doctor']);
+    assert.match(doctor.stdout, /^ok {2}law {2}\.lawcheck\/law\.yaml: 0 types, 0 rules \(0 script, 0 reviewer\)$/m, doctor.stdout);
   });
 });
 
