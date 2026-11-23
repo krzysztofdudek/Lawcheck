@@ -1,6 +1,6 @@
 # The Claude Code plugin
 
-The Claude Code plugin gives the agent the [law](concepts.md#law) at the start of every session. It checks each file that the agent edits. A turn is the agent's work on one prompt of the user. If the files of a turn break the law when the agent finishes, the plugin sends the agent back to work. Install the plugin with:
+The Claude Code plugin gives the agent the [law](concepts.md#law) at the start of every session. It checks each file that the agent writes with `Write`, `Edit` or `NotebookEdit`. A turn is the agent's work on one prompt of the user. If the files of a turn break the law when the agent finishes, the plugin sends the agent back to work. Install the plugin with:
 
 ```text
 claude plugin marketplace add krzysztofdudek/Lawcheck
@@ -40,6 +40,12 @@ Each hook looks for `.lawcheck/law.yaml` in the folder where it starts, then in 
 
 The hook starts `lawcheck prime` with the command of the `runner` setting. The agent gets what `prime` prints.
 
+When the law has a reviewer rule and `.lawcheck/config.yaml` sets no reviewer, `prime` says so to the agent. The hook also sends you a message, once per session:
+
+```text
+Lawcheck: this repository has a reviewer rule, and .lawcheck/config.yaml sets no reviewer, so a plain lawcheck check and CI fail on every file a reviewer rule judges. Setting reviewer.provider and reviewer.model there is the user's decision; lawcheck docs providers lists the choices.
+```
+
 Without a law, the agent gets two lines. The first says that the plugin is on and the folder has no law. The second tells the agent to start a law with `lawcheck init` only when the user asks for it.
 
 When the `runner` setting holds a value outside the five of [Settings](config.md#runner), the hook tells the agent to read `.lawcheck/law.yaml` and to tell the user that the setting is wrong.
@@ -66,7 +72,7 @@ The hook runs `lawcheck check ./<file>` on the file that `Write`, `Edit` or `Not
 |---|---|
 | 0 | nothing, warnings included |
 | 1 | the output, under a line that names the file and says it breaks the law of this repository |
-| 2 | the output, under a line that says Lawcheck could not check the file; the hook does not hand over the same output twice in a row, so a law the user is still editing reaches the agent once |
+| 2 | the output, under a line that says Lawcheck could not check the file; the hook does not hand over the same output twice in a row, so a law the user is still editing reaches the agent once. After an edit that Lawcheck could check, with exit 0 or 1, the same output reaches the agent again |
 
 If the check runs past its deadline, the agent gets one line that says so. If Lawcheck does not run for another reason, such as a missing program, the agent gets nothing.
 
@@ -94,7 +100,7 @@ A turn can start with no note from `UserPromptSubmit`. Then the hook checks ever
 An agent that cannot fix a breach can add a waiver, or change the law, and finish with a check that passes. When the hook lets the agent finish a turn that did either, it sends you one message:
 
 ```text
-lawcheck: in this turn the agent added 1 waiver (no-console at src/core/shipping.ts:1) and changed .lawcheck/law.yaml. Read them before you accept the turn.
+Lawcheck: in this turn the agent added 1 waiver (no-console at src/core/shipping.ts:1) and changed .lawcheck/law.yaml. Read them before you accept the turn.
 ```
 
 The message names each waiver that the turn added, by the rule after the marker and its line. The hook compares the text from `lawcheck-waive` to the end of each line with the same file at the start of the turn. A waiver that the file held before the turn is not named, whether the file was committed then or only changed on disk. The hook reads the marker as text in every file of the turn, so it also names a marker that `check` does not count, such as one in a file with no type. The message also names each file of the turn that is `.lawcheck/law.yaml`, `.lawcheck/config.yaml` or a file in `.lawcheck/rules/`. It shows five of each and the count of the rest.
@@ -103,7 +109,7 @@ The message goes to you and never to the agent, and it does not send the agent b
 
 ## The text the agent gets
 
-The hook hands the agent at most 9,000 characters. From a longer output, it keeps the first line, the `next:` line and as many lines between them as fit. A line `... <n> more lines not shown` stands in place of the rest.
+The hook hands the agent at most 9,000 characters. From a longer output, it keeps the first line, the `next:` line and as many lines between them as fit. A line `... <n> more lines not shown` stands in place of the rest, or `... 1 more line not shown` for one line.
 
 The hook cuts each line longer than 2,000 characters. At the cut, it says how many characters it left out.
 
@@ -124,7 +130,7 @@ The user gets a message each time the agent finishes, as long as its case holds.
 - a background subagent, teammate or workflow is running. The hook waits for it. The hook runs the check the first time the agent finishes after that task ends;
 - the check still fails past the limits of [Three returns at most](#three-returns-at-most).
 
-A hook that fails inside its own code prints `lawcheck plugin:` and the cause on standard error. It then exits 1. A hook exits 0 in every other case.
+A hook that fails inside its own code prints `Lawcheck plugin:` and the cause on standard error. It then exits 1. A hook exits 0 in every other case.
 
 ## The settings
 

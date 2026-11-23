@@ -279,7 +279,7 @@ lawcheck: ERROR  1 error
 .lawcheck/config.yaml:1  error[config-invalid]  unknown key 'bogus' at the top of the config
   why:  a misspelled setting changes the reviewer without a word
 
-next: fix .lawcheck/config.yaml, then run lawcheck check
+next: ask the user to fix .lawcheck/config.yaml, then run lawcheck check
 ```
 
 ## rule-missing-file

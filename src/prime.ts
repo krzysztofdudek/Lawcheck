@@ -2,7 +2,7 @@ import { CONFIG_BYTES, readWhole } from './limits.js';
 import { decode } from './types.js';
 import { join } from 'node:path';
 import { documentOf, noWords, usageError } from './args.js';
-import { CONFIG, RUNNER_COMMANDS, runnerOf } from './config.js';
+import { CONFIG, readConfig, RUNNER_COMMANDS, runnerOf } from './config.js';
 import type { Runner } from './config.js';
 import type { Arguments, Result } from './args.js';
 import type { CheckContext } from './check.js';
@@ -15,7 +15,9 @@ import { listInForce } from './uses.js';
 const PLAIN_PLAN = 'the file types and the rules each type keeps';
 const PLAN_WITH_USES = 'the file types, the rules each type keeps, and which types may use which';
 
-export function firstPart(reviewers: boolean, mayUse: boolean, folders = false): string {
+export const NO_REVIEWER = '- not-reviewed: no reviewer is set in .lawcheck/config.yaml, so a plain lawcheck check and CI fail on every file a reviewer rule judges; tell the user once, since setting a reviewer is the user\'s decision.';
+
+export function firstPart(reviewers: boolean, mayUse: boolean, folders = false, noReviewer = false): string {
   return [
     `Lawcheck checks this repository's code against its law: ${mayUse ? PLAN_WITH_USES : PLAIN_PLAN}. The law is .lawcheck/law.yaml; rule files are in .lawcheck/rules/.`,
     '',
@@ -25,7 +27,7 @@ export function firstPart(reviewers: boolean, mayUse: boolean, folders = false):
     '- Exit 0: nothing blocks; warnings are advisory. Exit 1: the code breaks the law; fix the code. Exit 2: Lawcheck or the law is broken; fix what the error names, not the code.',
     '- Never report work as done while lawcheck check exits 1.',
     "- A failing run ends with a next line; do what it says. When it asks for something listed below as the user's, or a finding cannot be fixed in the code, ask the user.",
-    ...(reviewers ? ['- not-reviewed: fix every other finding first, then run lawcheck check --review'] : []),
+    ...(reviewers ? [noReviewer ? NO_REVIEWER : '- not-reviewed: fix every other finding first, then run lawcheck check --review'] : []),
     '- A plain check judges only changed files. After you change the law or a rule file, run lawcheck check --full and tell the user how many findings it lists outside your change.',
     '- Findings outside your change are debt. Leave them unless the user asks.',
     '',
@@ -154,19 +156,28 @@ export function startPart(root: string): string {
   return runner === 'global' || !Object.hasOwn(RUNNER_COMMANDS, runner) ? '' : ` Start it here as: ${RUNNER_COMMANDS[runner as Runner].words.join(' ')}`;
 }
 
+export function reviewerUnset(root: string): boolean {
+  try {
+    const read = readConfig(root);
+    return 'config' in read && read.config.provider === null;
+  } catch {
+    return false;
+  }
+}
+
 export function withStart(first: string, start: string): string {
   const end = first.indexOf('\n');
   return first.slice(0, end) + start + first.slice(end);
 }
 
-export function primeText(law: Law, kinds: Kinds, budget = BUDGET, start = ''): { text: string; step: number } {
+export function primeText(law: Law, kinds: Kinds, budget = BUDGET, start = '', noReviewer = false): { text: string; step: number } {
   const head = '\n' + header(law);
   let mayUse = false;
   walk(law.types, (type) => {
     if (type.mayUse !== null) mayUse = true;
   });
   const folders = law.required.patterns.length > 0 || law.ignored.patterns.length > 0;
-  const first = withStart(firstPart([...law.rules.keys()].some((id) => ruleKind(kinds, id) === 'reviewer'), mayUse, folders), start);
+  const first = withStart(firstPart([...law.rules.keys()].some((id) => ruleKind(kinds, id) === 'reviewer'), mayUse, folders, noReviewer), start);
   const onTypes = listed(law);
   const ids = [...law.rules.keys()];
   const fits = (text: string) => length(text) <= budget;
@@ -179,7 +190,7 @@ export function primeText(law: Law, kinds: Kinds, budget = BUDGET, start = ''): 
   const roots = law.types.map(rootLine);
   const render = (count: number, idsLine: string) => {
     const lines = roots.slice(0, count);
-    if (count < roots.length) lines.push(`... and ${roots.length - count} more root types`);
+    if (count < roots.length) lines.push(`... and ${plural(roots.length - count, 'more root type')}`);
     return assemble(first, head, lines, idsLine === '' ? [] : [idsLine], SHORTENED);
   };
   let idsLine = ids.join(', ');
@@ -213,6 +224,6 @@ export async function prime(args: Arguments, context: CheckContext, json: boolea
     if (json) return { code: 2, stdout: renderErrors(outcome.errors, true, 'prime') };
     return { code: 2, stdout: withStart(FIRST_PART, startPart(root)) + '\n' + renderErrors(outcome.errors, false, 'prime', 20) };
   }
-  const { text, step } = primeText(outcome.law, outcome.kinds, BUDGET, startPart(root));
+  const { text, step } = primeText(outcome.law, outcome.kinds, BUDGET, startPart(root), reviewerUnset(root));
   return answer(text, step);
 }

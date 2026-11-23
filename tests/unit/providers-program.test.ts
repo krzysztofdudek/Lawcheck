@@ -16,11 +16,11 @@ test('test 406: the last non-empty line', () => {
 });
 
 test('test 406: a failure: the first reason given, else the last line of standard error, of standard output, then the exit', () => {
-  assert.deepEqual(failure('p', ended(1, null, 'out', 'err'), 'given'), { failure: 'given', resend: false, fix: 'do what p says, such as signing in or naming a model it has' });
-  assert.deepEqual(failure('p', ended(1, null, 'out\n', 'one\ntwo\n')), { failure: 'two', resend: false, fix: 'do what p says, such as signing in or naming a model it has' });
-  assert.deepEqual(failure('p', ended(1, null, 'first\nlast\n', '')), { failure: 'last', resend: false, fix: 'do what p says, such as signing in or naming a model it has' });
-  assert.deepEqual(failure('p', ended(4, null, '', '')), { failure: 'p exited with 4', resend: false, fix: 'do what p says, such as signing in or naming a model it has' });
-  assert.deepEqual(failure('p', ended(null, 'SIGKILL', '', '')), { failure: 'p was ended by SIGKILL', resend: false, fix: 'do what p says, such as signing in or naming a model it has' });
+  assert.deepEqual(failure('p', ended(1, null, 'out', 'err'), 'given'), { failure: 'given', resend: false, fix: 'ask the user to do what p says, such as signing in or setting reviewer.model in .lawcheck/config.yaml to a model p has' });
+  assert.deepEqual(failure('p', ended(1, null, 'out\n', 'one\ntwo\n')), { failure: 'two', resend: false, fix: 'ask the user to do what p says, such as signing in or setting reviewer.model in .lawcheck/config.yaml to a model p has' });
+  assert.deepEqual(failure('p', ended(1, null, 'first\nlast\n', '')), { failure: 'last', resend: false, fix: 'ask the user to do what p says, such as signing in or setting reviewer.model in .lawcheck/config.yaml to a model p has' });
+  assert.deepEqual(failure('p', ended(4, null, '', '')), { failure: 'p exited with 4', resend: false, fix: 'ask the user to do what p says, such as signing in or setting reviewer.model in .lawcheck/config.yaml to a model p has' });
+  assert.deepEqual(failure('p', ended(null, 'SIGKILL', '', '')), { failure: 'p was ended by SIGKILL', resend: false, fix: 'ask the user to do what p says, such as signing in or setting reviewer.model in .lawcheck/config.yaml to a model p has' });
   assert.equal((failure('p', ended(1, null, '', 'x'.repeat(400))) as { failure: string }).failure.length, 300);
 });
 
@@ -28,8 +28,8 @@ test('test 406: plain output: standard output is the answer after exit 0', () =>
   const read = plainOutput('p');
   assert.deepEqual(read(ended(0, null, 'the answer\n', 'progress\n')), { answer: 'the answer\n' });
   assert.deepEqual(read(ended(0, null, '', '')), { answer: '' });
-  assert.deepEqual(read(ended(1, null, 'half', 'ERROR: unexpected status 401\n')), { failure: 'ERROR: unexpected status 401', resend: false, fix: 'do what p says, such as signing in or naming a model it has' });
-  assert.deepEqual(read(ended(null, 'SIGTERM', '', '')), { failure: 'p was ended by SIGTERM', resend: false, fix: 'do what p says, such as signing in or naming a model it has' });
+  assert.deepEqual(read(ended(1, null, 'half', 'ERROR: unexpected status 401\n')), { failure: 'ERROR: unexpected status 401', resend: false, fix: 'ask the user to do what p says, such as signing in or setting reviewer.model in .lawcheck/config.yaml to a model p has' });
+  assert.deepEqual(read(ended(null, 'SIGTERM', '', '')), { failure: 'p was ended by SIGTERM', resend: false, fix: 'ask the user to do what p says, such as signing in or setting reviewer.model in .lawcheck/config.yaml to a model p has' });
 });
 
 test('test 406: the working folder and the folder aside are gone when the call ends, before the tool does', async () => {

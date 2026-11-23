@@ -199,7 +199,7 @@ test('test 104: the budget takes the first step that fits', async () => {
     assert.equal(part[0], 'The law here: 300 types, 300 rules');
     assert.deepEqual(ruleLines(part), [ids.map((n) => `r${n}`).join(', ')]);
     assert.ok(part.every((line) => !line.includes('subtypes:') && !line.includes('rules:')));
-    const more = part.findIndex((line) => /^\.\.\. and \d+ more root types$/.test(line));
+    const more = part.findIndex((line) => /^\.\.\. and (1 more root type|\d+ more root types)$/.test(line));
     assert.ok(more > 0 && more < part.length - 3);
   });
 });

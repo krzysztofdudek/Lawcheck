@@ -148,7 +148,7 @@ async function programCases(program: Program): Promise<void> {
           assert.equal(counted(join(dir, 'asked.txt')), mode === 'expired' ? 0 : 1);
         }, configOf(program.provider, extra)),
     ];
-    const told = `do what ${program.name} says, such as signing in or naming a model it has`;
+    const told = `ask the user to do what ${program.name} says, such as signing in or setting reviewer.model in .lawcheck/config.yaml to a model ${program.name} has`;
     const pastTimeout = (): Promise<void> =>
       withR(async (r, dir) => {
         write(r, F_PATH, F);
@@ -156,7 +156,7 @@ async function programCases(program: Program): Promise<void> {
         await running.output(/error\[reviewer-unreachable\]/, 'stdout');
         const shown = Date.now();
         const result = await running.ended;
-        const next = `raise reviewer.timeout in .lawcheck/config.yaml, or check that ${program.name} answers when started by hand, ${AGAIN}`;
+        const next = `check that ${program.name} answers when started by hand, or ask the user to raise reviewer.timeout in .lawcheck/config.yaml, ${AGAIN}`;
         assert.equal(result.stdout, after(stopped(UNREACHABLE(`${program.name} gave no answer within 1 seconds`), 'reviewer-unreachable', next), 1));
         assert.equal(result.code, 2);
         const seen = record(dir);
@@ -379,7 +379,7 @@ async function programCases(program: Program): Promise<void> {
           withR(async (r, dir) => {
             write(r, F_PATH, F);
             const result = await run(r, null, ['--review', '--base', 'main'], fakeEnv(program, dir, 'late', { [`FAKE_${upper}_LIST_DELAY`]: String(LIST_DELAY_MS), [`FAKE_${upper}_DELAY`]: String(LATE_ANSWER_MS) }));
-            const next = `raise reviewer.timeout in .lawcheck/config.yaml, or check that ${program.name} answers when started by hand, ${AGAIN}`;
+            const next = `check that ${program.name} answers when started by hand, or ask the user to raise reviewer.timeout in .lawcheck/config.yaml, ${AGAIN}`;
             assert.equal(result.stdout, after(stopped(UNREACHABLE(`${program.name} gave no answer within ${SHARED_TIMEOUT_S} seconds`), 'reviewer-unreachable', next), 1));
             assert.equal(result.code, 2);
           }, configOf(program.provider, `  timeout: ${SHARED_TIMEOUT_S}\n`)),

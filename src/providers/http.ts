@@ -61,7 +61,7 @@ function statusFix(status: number, where: Required<Where>): string {
   if (status === 401 || status === 403) {
     return where.keyName === null ? `the server at ${where.base} wants a key, which this provider never sends; reach it as openai-compatible with LAWCHECK_REVIEWER_KEY` : `check the key in ${where.keyName}`;
   }
-  if (status === 404) return `check reviewer.model in .lawcheck/config.yaml and the address ${where.base}`;
+  if (status === 404) return `check that ${where.base} is the right address, or ask the user to check reviewer.model in .lawcheck/config.yaml`;
   if (status === 429) return "wait until the provider's rate limit allows another call";
   if (status >= 300 && status < 400) return 'set LAWCHECK_REVIEWER_ENDPOINT to the address that answers without a redirect';
   if (status >= 500) return `wait until the reviewer at ${where.base} works again`;
@@ -102,7 +102,7 @@ async function send(url: string, init: RequestInit, timeoutSeconds: number, wher
       return {
         failure: `the reviewer gave no answer within ${timeoutSeconds} seconds`,
         resend: false,
-        fix: `raise reviewer.timeout in .lawcheck/config.yaml, or check that the reviewer at ${where.base} works`,
+        fix: `check that the reviewer at ${where.base} works, or ask the user to raise reviewer.timeout in .lawcheck/config.yaml`,
       };
     }
     return { failure: noAnswer(cause(error), where.base), resend: 'at-once', fix: `start the reviewer at ${where.base}, or set LAWCHECK_REVIEWER_ENDPOINT to the address where it runs` };

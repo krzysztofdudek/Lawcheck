@@ -322,7 +322,7 @@ test('test 210: doctor fails its config row when the runner the config names has
     const bin = join(dir, 'pnpm-bin');
     mkdirSync(bin);
     const missing = await lawcheck(s, ['doctor'], { PATH: GIT_ENV.PATH!.split(delimiter).filter((d) => !existsSync(join(d, WINDOWS ? 'pnpm.cmd' : 'pnpm'))).join(delimiter) });
-    assert.match(missing.stdout, /^fail  config  \.lawcheck\/config\.yaml: runner pnpm, and pnpm is not on the PATH\n  next: install pnpm, or set runner to the way this repository starts Lawcheck, then run lawcheck doctor again$/m);
+    assert.match(missing.stdout, /^fail  config  \.lawcheck\/config\.yaml: runner pnpm, and pnpm is not on the PATH\n  next: install pnpm, or ask the user to set runner to the way this repository starts Lawcheck, then run lawcheck doctor again$/m);
     assert.equal(missing.code, 2);
     const pnpm = join(bin, WINDOWS ? 'pnpm.cmd' : 'pnpm');
     writeFileSync(pnpm, WINDOWS ? '@exit /b 0\r\n' : '#!/bin/sh\nexit 0\n');
