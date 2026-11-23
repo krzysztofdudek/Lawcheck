@@ -14,7 +14,9 @@ const RUNS: Record<string, number> = {
 const EDITS = ['1. Add the rule to the law', '2. Write a helper the rules share', '3. Write the rule', '7. Make the rule advisory', '9. Put a typo in the helper', '11. Fix the helper'];
 const STEPS = [...EDITS, ...Object.keys(RUNS)].sort((a, b) => parseInt(a) - parseInt(b));
 
-export const claims: Claims = Object.fromEntries(STEPS.flatMap((step) => (step in RUNS ? [`block 1 under "${step}"`, `block 2 under "${step}"`] : [`block 1 under "${step}"`])).map((key) => [key, SCENARIO]));
+const TREE = '13. Read the syntax tree';
+
+export const claims: Claims = Object.fromEntries([...STEPS.flatMap((step) => (step in RUNS ? [`block 1 under "${step}"`, `block 2 under "${step}"`] : [`block 1 under "${step}"`])), ...[1, 2, 3, 4].map((n) => `block ${n} under "${TREE}"`)].map((key) => [key, SCENARIO]));
 
 const FILES: Record<string, string> = {
   '.lawcheck/law.yaml': 'lawcheck: 0.1.0\n\ntypes:\n  source:\n    about: Everything that ships.\n    paths: ["src/**/*.ts"]\n    types:\n      api:\n        about: The HTTP handlers.\n        paths: ["src/api/**"]\n      core:\n        about: The business logic.\n        paths: ["src/core/**"]\n',
@@ -58,5 +60,13 @@ export async function scenario(page: Page): Promise<void> {
         assert.equal(run.code, RUNS[step], step);
       }
     }
+    write(repo, 'src/core/cart.ts', page.text(`block 1 under "${TREE}"`) + '\n');
+    const lines = await lawcheck(repo, ['try', 'no-fetch']);
+    assert.ok(lines.stdout.includes('src/core/cart.ts:1  warning[no-fetch]') && lines.stdout.includes('src/core/cart.ts:3  warning[no-fetch]'), lines.stdout);
+    write(repo, '.lawcheck/rules/no-fetch.mjs', page.text(`block 2 under "${TREE}"`) + '\n');
+    const run = await lawcheck(repo, page.text(`block 3 under "${TREE}"`).replace(/^\$ lawcheck /, '').split(' '));
+    assert.equal(run.stdout, page.text(`block 4 under "${TREE}"`) + '\n', TREE);
+    assert.ok(run.stdout.includes('src/core/cart.ts:3  warning[no-fetch]') && !run.stdout.includes('src/core/cart.ts:1 '), run.stdout);
+    assert.equal(run.code, 1, TREE);
   });
 }
