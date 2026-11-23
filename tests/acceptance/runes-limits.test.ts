@@ -71,6 +71,7 @@ const PY_FILES = (root: string, where: string) => ({
 
 test('test 311: S4-2, a Python package under a root that configuration names is judged on every form, as the same package at the root', async () => {
   assert.ok(page.includes('The Python reader looks for modules in the top folder of the repository, in a `src` folder, and in the source folders that `pyproject.toml` or `setup.cfg` name. It does not read `setup.py`.'));
+  assert.ok(page.includes('It also looks in the root of each member of a uv or Poetry workspace, and in the folder that pytest puts on the path for a test file, which pytest calls its `basedir`.'));
   const lib = await judged(PY_FILES('lib/', '[tool.setuptools.packages.find]\nwhere = ["lib"]\n'));
   assert.deepEqual({ findings: lib.findings, unresolved: lib.unresolved }, { findings: ['lib/pkg/ui/a.py:1', 'lib/pkg/ui/a.py:2', 'lib/pkg/ui/a.py:3'], unresolved: [] });
   const control = await judged(PY_FILES('', ''));
@@ -174,4 +175,31 @@ test('test 313: S4-10, a large Java file with syntax errors is parsed on every r
     'ui/src/main/java/com/acme/ui/Big.java': text + '}\n',
   });
   assert.deepEqual(found, { result: 'pass', findings: [], unresolved: [] });
+});
+
+const CS_LAW = law(['ui', ['ui/**'], ['ui']], ['data', ['data/**'], null]);
+const csProject = (references: string) => `<Project Sdk="Microsoft.NET.Sdk"><ItemGroup>${references}</ItemGroup></Project>\n`;
+const csFiles = (references: string, using: string) => ({
+  '.lawcheck/law.yaml': CS_LAW,
+  'data/Data.csproj': csProject(''),
+  'data/Price.cs': 'namespace Shop.Data;\npublic class Price {}\n',
+  'ui/Ui.csproj': csProject(references),
+  'ui/View.cs': `${using}namespace Shop.Ui;\npublic class View { public Price P; }\n`,
+});
+
+test('test 883: a C# use of a type of another project is judged when the project of the file holds a ProjectReference to it, directly or through a project between, and is an unresolved use that no finding names when it holds none', async () => {
+  assert.ok(page.includes('A project reaches another when its `.csproj`, or a `Directory.Build.props` above it, holds a `ProjectReference` to it, directly or through the projects in between.'));
+  assert.ok(page.includes('A use of a type of the other project is then unresolved, with the reason `unfollowed`. It is no `forbidden-use`'));
+  const using = 'using Shop.Data;\n';
+  const without = await judged(csFiles('', using));
+  assert.deepEqual(without, { result: 'pass', findings: [], unresolved: ['ui/View.cs:3 none unfollowed Shop.Ui.View+Price'] });
+  const direct = await judged(csFiles('<ProjectReference Include="../data/Data.csproj" />', using));
+  assert.deepEqual(direct, { result: 'fail', findings: ['ui/View.cs:3'], unresolved: [] });
+  const through = await judged({
+    ...csFiles('<ProjectReference Include="../mid/Mid.csproj" />', using),
+    '.lawcheck/law.yaml': law(['ui', ['ui/**'], ['ui']], ['mid', ['mid/**'], ['mid', 'data']], ['data', ['data/**'], null]),
+    'mid/Mid.csproj': csProject('<ProjectReference Include="../data/Data.csproj" />'),
+    'mid/Mid.cs': 'namespace Shop.Mid;\npublic class Mid {}\n',
+  });
+  assert.deepEqual(through, { result: 'fail', findings: ['ui/View.cs:3'], unresolved: [] });
 });

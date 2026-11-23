@@ -287,6 +287,7 @@ With a topic, the document holds `id`, `title` and `text`. `text` holds the Mark
 | `checks.id` | the check, such as `node` |
 | `checks.state` | `ok`, `note`, `fail` or `skip` |
 | `checks.message` | what the check found |
+| `checks.details` | a list of lines about the check, present only when there are some; the `readers` check lists each configuration file a reader could not read |
 | `checks.next` | the next step for a `note` or `fail`, or null |
 | `checks.next.command` | the command alone, such as `lawcheck init`, where the step is one, else null |
 | `checks.next.text` | the step in words |
