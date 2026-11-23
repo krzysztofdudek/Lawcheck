@@ -56,7 +56,7 @@ test('R-95: test 406 has an entry in SLOW_TESTS for linux, whose budget holds th
   holds('R-95', 'tests/acceptance/program-providers.test.ts > test 406: codex', 'linux', 9_000, 'a Linux commit job');
 });
 
-test('harness-6: R-115, a test with no entry in SLOW_TESTS has 90 seconds on Windows and 20 elsewhere, and an entry never gives less than that', () => {
+test('R-115: a test with no entry in SLOW_TESTS has 90 seconds on Windows and 20 elsewhere, and an entry never gives less than that', () => {
   const testBudget = (numbers as Record<string, unknown>).testBudget as ((key: string, system: numbers.System) => number) | undefined;
   assert.equal(typeof testBudget, 'function', 'tests/numbers.ts exports testBudget');
   assert.equal(testBudget!('no such test', 'win32'), 90_000);
