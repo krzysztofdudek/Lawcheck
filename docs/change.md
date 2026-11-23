@@ -86,6 +86,7 @@ The second line says what the change does to the law that judges it. A pull requ
 - a type or a rule added or removed;
 - a rule made advisory or enforced, taken off a type or put on one;
 - a changed `why`, `context`, `about`, `paths`, `content`, `may_use` or `waivers`;
+- a changed `required` or `ignored`;
 - a waiver the change adds;
 - a file of `.lawcheck/rules/`, or `.lawcheck/config.yaml`, added, removed or changed. The line names such a file by its path and not by what it does.
 
