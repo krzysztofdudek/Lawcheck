@@ -109,6 +109,43 @@ test('test 241: S5-4, init where .lawcheck is a file names it', async () => {
   });
 });
 
+test('S5-7: init where .gitignore names .lawcheck says that git ignores the law, in text and in JSON, and doctor says it too', async () => {
+  const note =
+    'note: git ignores .lawcheck/law.yaml, so no commit carries the law and no other checkout has it; remove the line that ignores it, as `git check-ignore -v .lawcheck/law.yaml` shows';
+  await inTemp(async (dir) => {
+    const repo = newRepository(dir, { '.gitignore': '.lawcheck\n' });
+    const run = await lawcheck(repo, ['init']);
+    assert.deepEqual(run.stdout.split('\n'), [
+      'lawcheck: created .lawcheck/law.yaml and .lawcheck/.gitignore',
+      note,
+      '',
+      'Nothing is checked yet: the law has no types.',
+      'next: describe your first file type in .lawcheck/law.yaml  (lawcheck docs first-law shows how)',
+      '',
+    ]);
+    assert.equal(run.code, 0);
+    const doctor = await lawcheck(repo, ['doctor']);
+    assert.match(doctor.stdout, /^note {2}law {2}\.lawcheck\/law\.yaml: 0 types, 0 rules \(0 script, 0 reviewer\); git ignores it, so no other checkout has the law$/m);
+    assert.match(doctor.stdout, /^ {2}next: remove the line that ignores \.lawcheck\/law\.yaml, as `git check-ignore -v \.lawcheck\/law\.yaml` shows, then run lawcheck doctor again$/m);
+    assert.equal(doctor.code, 0);
+  });
+  await inTemp(async (dir) => {
+    const repo = newRepository(dir, { '.gitignore': '.lawcheck/\n' });
+    const run = await lawcheck(repo, ['init', '--json']);
+    const document = JSON.parse(run.stdout);
+    assert.equal(document.next.text, 'git ignores .lawcheck/law.yaml, so remove the line that ignores it, then describe your first file type in .lawcheck/law.yaml  (lawcheck docs first-law shows how)');
+    assert.deepEqual(document.created, ['.lawcheck/law.yaml', '.lawcheck/.gitignore']);
+    assert.equal(run.code, 0);
+  });
+  await inTemp(async (dir) => {
+    const repo = newRepository(dir);
+    const run = await lawcheck(repo, ['init']);
+    assert.ok(!run.stdout.includes('git ignores'), run.stdout);
+    const doctor = await lawcheck(repo, ['doctor']);
+    assert.ok(!doctor.stdout.includes('git ignores'), doctor.stdout);
+  });
+});
+
 test('test 99: JSON, usage, and already-initialized as a reserved rule id', async () => {
   await inTemp(async (dir) => {
     const repo = newRepository(dir);
