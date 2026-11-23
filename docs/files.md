@@ -12,7 +12,7 @@ Lawcheck keeps its files in the folder `.lawcheck/`. The folder that holds it is
 | `.lawcheck/verdicts` | the passes of reviewer rules, one line per pass: 32 hexadecimal characters, a space and the rule's id, sorted | `lawcheck check --review` | yes, so that CI reads the passes and calls no reviewer |
 | `.lawcheck/.gitattributes` | the line `verdicts merge=union`, so a merge of two branches keeps the passes of both | `lawcheck check --review`, when it records a pass and the line is missing | yes |
 | `.lawcheck/.gitignore` | `.local/` and `config.local.yaml` | `lawcheck init`, when the file is absent | yes |
-| `.lawcheck/.local` | the failure cache, a lock and temporary files of the verdicts | `lawcheck check --review` | no |
+| `.lawcheck/.local` | the failure cache, a lock and temporary files of the verdicts, and the reader cache | `lawcheck check --review`; `lawcheck check` writes the reader cache | no |
 
 `init` writes this `.gitignore`:
 
@@ -27,7 +27,7 @@ A type's `paths` can match the law, the config and the rule files. Lawcheck then
 
 ## The folder .lawcheck/.local
 
-`check --review` makes this folder. The folder holds its own `.gitignore` with the line `*`. Git ignores every file of the folder, even without `.lawcheck/.gitignore`.
+`check --review` makes this folder, and so does a `check` that reads a file of Java, Kotlin, C#, Ruby or Rust for its uses. The folder holds its own `.gitignore` with the line `*`. Git ignores every file of the folder, even without `.lawcheck/.gitignore`.
 
 | File | What it holds |
 |---|---|
@@ -35,8 +35,9 @@ A type's `paths` can match the law, the config and the rule files. Lawcheck then
 | `verdicts.lock` | a folder that one run holds while it writes `.lawcheck/verdicts`; a run that needs the lock removes one older than 10 seconds, or one of a run that ended |
 | `verdicts-<pid>-<hex>` | the new verdicts file before it replaces the old one |
 | `probe-<pid>-<hex>` | a test that the folder can be written, made and removed before the first call |
+| `readers/jvm`, `readers/csharp`, `readers/ruby`, `readers/rust` | the reader cache: what each file of the group declares, for the files of the last check ([Languages and uses](languages.md#the-reader-cache)) |
 
-After a review passes, Lawcheck removes its file from `failures/`. If you delete the `.local` folder, you lose the cached failures and nothing else. The next `check --review` asks the reviewer for those reviews again.
+After a review passes, Lawcheck removes its file from `failures/`. If you delete the `.local` folder, you lose the cached failures and the reader cache. The next `check --review` asks the reviewer for those reviews again, and the next `check` reads every file of a group again.
 
 ## Outside the repository
 

@@ -83,7 +83,7 @@ Find its `readers` line:
 ok  readers  uses are read in 2 files: typescript 2; the 13 grammars load
 ```
 
-A [use](concepts.md#use) is an import, or another reference from one file to another. The line counts the files whose uses Lawcheck reads, by language. Lawcheck reads the uses of a file whose type, or a type above it, has `may_use` ([Forbid one layer to use another](forbid-a-use.md)). A plain check reads the uses of the changed files among them. With `--full`, it reads the uses of all of them. A large count may come from generated code, or from code copied in from another project. To leave that code out, narrow the `paths` of the type.
+A [use](concepts.md#use) is an import, or another reference from one file to another. The line counts the files whose uses Lawcheck reads, by language. Lawcheck reads the uses of a file whose type, or a type above it, has `may_use` ([Forbid one layer to use another](forbid-a-use.md)). A plain check reads the uses of the changed files among them. With `--full`, it reads the uses of all of them. In Java, Kotlin, C#, Ruby and Rust, the first check also parses every file of the language, for what it declares. The checks after it parse again only the files that changed ([The reader cache](languages.md#the-reader-cache)). A large count may come from generated code, or from code copied in from another project. To leave that code out, narrow the `paths` of the type.
 
 ## 5. Bound the reviewer
 

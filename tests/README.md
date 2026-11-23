@@ -11,6 +11,7 @@ Every command below runs inside the dev container, except `npm run agent-trial` 
 | `npm run nightly` | builds, then runs the nightly set |
 | `npm run gate -- --base origin/main` | `npm test`, then the suite guard of the base, and the reviewer's pack: test ids added, changed and removed, and which of them fail on the base |
 | `npm run real` | builds, then checks two real repositories, hono and gson, against their expected results; needs the network |
+| `npm run build && node tests/real/speed.ts` | builds, then checks one changed file in guava and in Newtonsoft.Json with the reader cache and without it: the outputs must be the same, and the median of five checks with the cache must stay under `ONE_FILE_CHECK_MS`; needs the network |
 | `npm run stability` | builds, then asks a real reviewer the same questions ten times and writes `tests/stability/result.json`; needs `LAWCHECK_STABILITY_MODEL` and a reviewer that answers |
 | `npm run agent-trial` | the trial of the plugin with a live agent, run on the host through `claude`; writes `tests/agent/result.json` |
 | `node tests/live/run.ts` | the attack files through the real reviewer, `claude-code` on the host; writes `tests/live/result.json` |
