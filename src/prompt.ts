@@ -265,27 +265,30 @@ class Spans {
   }
 }
 
-// The last reading of an answer that docs/reviewer-rules.md names: among the spans that start with `{`, end at their matching `}`, parse, and are objects with the key verdict, the one that ends last. A span that parses as JSON ends at its matching brace, so reading each start as JSON finds the same spans.
-function lastSpan(answer: string): Record<string, unknown> | null {
+// The verdict objects of an answer in the order they stand: among the spans that start with `{`, end at their matching `}`, parse, and are objects with the key verdict, those that no other such span holds. A span that parses as JSON ends at its matching brace, so reading each start as JSON finds the same spans.
+function verdictObjects(answer: string): Record<string, unknown>[] {
   const spans = new Spans(answer);
-  let best: { start: number; end: number } | null = null;
+  const found: Record<string, unknown>[] = [];
   for (let start = answer.indexOf('{'); start >= 0; start = answer.indexOf('{', start + 1)) {
     const span = spans.at(start);
     if (span === null || !span.verdict) continue;
-    if (best === null || span.end > best.end) best = { start, end: span.end };
+    const object = parsed(answer.slice(start, span.end + 1));
+    if (object === null) continue;
+    found.push(object);
+    start = span.end;
   }
-  return best === null ? null : parsed(answer.slice(best.start, best.end + 1));
+  return found;
 }
 
 export function takeAnswer(answer: string): Record<string, unknown> | null {
   const whole = parsed(answer.trim());
   if (whole !== null) return whole;
+  const found = verdictObjects(answer);
   const inFence = fenced(answer);
-  if (inFence !== null) {
-    const object = parsed(inFence);
-    if (object !== null) return object;
-  }
-  return lastSpan(answer);
+  const object = inFence === null ? null : parsed(inFence);
+  const chosen = object ?? found[found.length - 1] ?? null;
+  if (chosen !== null && chosen.verdict === 'fail') return chosen;
+  return found.findLast((candidate) => candidate.verdict === 'fail') ?? chosen;
 }
 
 export function checkFindings(findings: unknown, lineCount: number): AnswerFinding[] | { problem: string } {

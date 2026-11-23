@@ -211,3 +211,9 @@ Why: a list that gives warnings is one more switch that a team forgets to turn o
 A finding that a script rule returns with `line: null` is about the whole file, as one without `line` is. Any other value that is not an integer from 1 to the number of lines, such as the string `'2'`, a bigint or `1.5`, still makes the rule `rule-crashed`, and the message names the value and says it is not an integer. The reviewer's answer already reads a `line` of null this way.
 
 Why: a rule author who writes `line: null` means no line, and a crash with a message about a range tells them nothing they can act on. The refusal of every other value stays because the line selects which waiver applies, and a wrong line would drop or keep a finding for the wrong reason. This was taken as a technical choice on 2026-11-23, and the owner may reverse it.
+
+## 168. Two verdict objects that disagree read as the fail
+
+When the answer of a reviewer holds more than one object with a `verdict` and one of them is a `fail`, the answer is the last of the fails, whatever else the answer holds and in whatever order. An object inside another object with a `verdict` does not count. A whole answer that is one verdict object, and the same verdict twice, read as before.
+
+Why: a file can ask the reviewer to quote a pass, and a reviewer that reports the attempt and quotes what the file asked for would turn its own fail into a pass if the last object won. The price is a fail that a model quotes in a sentence after a pass, which fails the file with findings the user did not expect. A pass that was wrongly kept is silent and a fail that was wrongly given is visible and one more review away from correction, so the choice errs toward the visible one. This was taken as a technical choice on 2026-11-23, and the owner may reverse it.
