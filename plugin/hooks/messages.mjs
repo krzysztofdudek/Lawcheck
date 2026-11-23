@@ -23,8 +23,9 @@ export function editLate(command, seconds) {
   return `Lawcheck: ${command} did not finish within ${seconds} seconds, so the hook stopped it.`;
 }
 
-export function editBreaks(rel, command) {
-  return `Lawcheck: after this edit, ${rel} breaks the law of this repository. ${command} printed:`;
+export function editBreaks(rels, command) {
+  if (rels.length === 1) return `Lawcheck: after this edit, ${rels[0]} breaks the law of this repository. ${command} printed:`;
+  return `Lawcheck: after this edit, the files it wrote break the law of this repository. ${command} printed:`;
 }
 
 export function editError(command) {
@@ -91,6 +92,10 @@ export function noResult(ended) {
 
 export function unknownEvent(event) {
   return `unknown event '${event}'; the events are session-start, prompt, edit, stop`;
+}
+
+export function unknownHost(words) {
+  return `unknown arguments '${words}' after the event; the hook takes --host claude-code or --host codex there`;
 }
 
 export function notJson(problem) {
