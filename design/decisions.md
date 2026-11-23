@@ -52,9 +52,9 @@ Why: each needs something `npm test` does not have: the network, Claude Code, a 
 
 ## 71. An ambiguous use whose every candidate is forbidden
 
-Such a use is not reported as `forbidden-use`. It is counted as unresolved, and its candidates are listed in the JSON output.
+Such a use is a `forbidden-use` whose message names its candidates with their types, and it stays counted as unresolved, with its candidates in the JSON output. A use with one allowed, binary or own file among its candidates is no finding.
 
-Why: a finding would rest on an answer the readers did not resolve, and the readers never guess. An explicit import of the forbidden member still fails. The owner may decide otherwise.
+Why: whichever candidate the use names, the list forbids it, so the finding rests on no guess. The readers still did not tie the use to one file, so it stays unresolved. Until alpha.5 such a use was only counted, which left a Java star import of a package with files of two forbidden types passing. The owner accepted the change on 2026-11-23, in the triage of what the first design left unbuilt.
 
 ## 73. The environments Lawcheck supports
 
@@ -199,3 +199,9 @@ In Java, Kotlin, C#, Ruby and Rust, a run that reads the uses of one file reads 
 `node tests/real/speed.ts`, after `npm run build`, measures one changed file in guava at fce80fd and in Newtonsoft.Json at 52fa3ae, the commits of the measurement of 2026-11-15 (6.1 s and 4.2 s then). It checks that each run with the cache prints what the same run without it prints, before and after a changed, a renamed and a deleted file, and in `--full`. It fails when the median of `SPEED_RUNS` checks with the cache passes `ONE_FILE_CHECK_MS`, 500 ms. It runs by hand in the dev container, not in CI.
 
 Why: the cache never decides a verdict that a parse would decide otherwise, because each entry is keyed by everything a parse of the file depends on, and a commit cannot place a pack that a run trusts. Only a person or a program with write access to the checkout can; that one can change Lawcheck itself. The extractors read nothing but the parsed file, so the path, the text and the versions are the whole input. A file whose uses the run reads is parsed anyway for its uses, so caching it would save nothing in a check of a change. A file system that ignores case, the default of macOS and Windows, shows a folder a commit adds as `.lawcheck/.LOCAL/` at `.lawcheck/.local/`, so the test of what git lists folds the case. The pack of guava's 3,267 files of Java and Kotlin holds 0.7 MB, and a whole pack of 420 MB ended a check with `memory-too-large`; the bound of 64 MiB leaves room for some 300,000 files. The threshold is the measured median with room for noise: the design's 0.3 s for one file was 0.29 to 0.38 s in five measurements on 2026-11-23, and a check of one changed Markdown file in guava took 0.14 s on 2026-11-15. A timing on a shared CI runner would fail on the runner, not on the code. The step mark after the last parse was needed for the same output with and without the cache: without it, `check --full` on guava stopped with `memory-too-large` at the last Kotlin file when that file was parsed, and passed when the file came from the cache.
+
+## 166. A may_use list has no advisory status
+
+A use that a `may_use` list forbids is an error in the change, and the law has no key that makes a list give warnings. A team whose old files break a list it brings in puts the list first on the types whose files are clean, waives each old use with its reason, and pays the waivers back. The page [Bring a law into an existing repository](../docs/adopt-in-an-existing-repository.md#bring-in-a-may-use-list) gives the steps.
+
+Why: a list that gives warnings is one more switch that a team forgets to turn on, and a list with a waiver on each old use judges every use a change adds from the first day. Each waiver stays in its file and in the JSON until someone removes it. The owner chose the page over a new key on 2026-11-23.

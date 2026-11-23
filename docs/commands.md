@@ -255,7 +255,10 @@ For a file without a type, `explain` gives the reason. These are some of the rea
 - no type's paths match it;
 - its content matches no type;
 - it is binary or a symbolic link;
-- it belongs to another repository.
+- it belongs to another repository;
+- a pattern of `ignored` in the law matches it.
+
+When a pattern of `required` matches a file with no type, `explain` adds that `check` reports it as `untyped-file`.
 
 `explain` runs no rule and writes nothing. It takes one subject: a path, `--type` or `--rule`.
 

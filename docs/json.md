@@ -89,7 +89,7 @@ This page names a field of a list's items by its path. `findings.code` is the `c
 | `findings.debt` | true for a file outside the change |
 | `findings.file` | the path from the root |
 | `findings.line` | the line, from 1; absent for a finding about the whole file |
-| `findings.type` | the id of the file's type |
+| `findings.type` | the id of the file's type, or an empty string for a file with no type, as in `untyped-file` |
 | `findings.message` | what is wrong |
 | `findings.why` | the rule's `why`, or the line that explains the code |
 | `waivers` | every waiver, in the change and in the debt |

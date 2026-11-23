@@ -196,3 +196,25 @@ test('R-99: a waiver of forbidden-use that the change adds is named in the line,
     assert.deepEqual(json.scope.law_changes, ['edits .lawcheck/law.yaml without changing a rule or a type', `adds a waiver of forbidden-use in ${E_PATH}`]);
   });
 });
+
+test('R-104: a type moved under another parent is named, though its own keys stay, and its files lose the rules of the old place', async () => {
+  const library = '      library:\n        about: Code the commands call.\n        paths: ["src/core/**"]\n        rules: [no-console]\n';
+  await withSample(async (s) => {
+    edit(s, library, '');
+    append(s, '.lawcheck/law.yaml', `    types:\n${library}`);
+    append(s, 'src/core/price.ts', "console.log('sneaky');\n");
+    const run = await check(s);
+    assert.deepEqual(secondLines(run.stdout), [GENERIC, `${PREFIX}moves the type library from source to script`]);
+    assert.equal(run.code, 0);
+    const json = await check(s, '--base', 'main', '--json');
+    assert.deepEqual(JSON.parse(json.stdout).scope.law_changes, ['moves the type library from source to script']);
+  });
+  await withSample(async (s) => {
+    const script = '  script:\n    about: Executable helpers.\n    paths: ["tools/**/*.{mjs,js}"]\n    content: "^#!"\n    rules: [no-todo]\n';
+    edit(s, script, '');
+    edit(s, '      command:\n', `${script.replace(/^(?=.)/gm, '    ')}      command:\n`);
+    const run = await check(s);
+    assert.deepEqual(secondLines(run.stdout), [GENERIC, `${PREFIX}moves the type script from the top of types to source`]);
+    assert.equal(run.code, 0);
+  });
+});

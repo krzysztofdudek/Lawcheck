@@ -78,6 +78,8 @@ function ofLaw(before: Law, after: Law): string[] {
   const was = flat(before);
   const is = flat(after);
   const sorted = (ids: Iterable<string>) => [...ids].sort();
+  if (!same(before.required.patterns, after.required.patterns)) items.push('changes required');
+  if (!same(before.ignored.patterns, after.ignored.patterns)) items.push('changes ignored');
   for (const id of sorted(was.keys())) if (!is.has(id)) items.push(`removes the type ${id}`);
   for (const id of sorted(is.keys())) if (!was.has(id)) items.push(`adds the type ${id}`);
   for (const id of sorted(before.rules.keys())) if (!after.rules.has(id)) items.push(`removes the rule ${id}`);
@@ -98,6 +100,9 @@ function ofLaw(before: Law, after: Law): string[] {
     const old = was.get(id);
     const now = is.get(id)!;
     if (old === undefined) continue;
+    const from = old.parent?.id ?? null;
+    const to = now.parent?.id ?? null;
+    if (from !== to) items.push(`moves the type ${id} from ${from ?? 'the top of types'} to ${to ?? 'the top of types'}`);
     for (const rule of old.rules) if (!now.rules.includes(rule) && after.rules.has(rule)) items.push(`takes the rule ${rule} off the type ${id}`);
     for (const rule of now.rules) if (!old.rules.includes(rule) && before.rules.has(rule)) items.push(`puts the rule ${rule} on the type ${id}`);
     if (!same(old.paths, now.paths)) items.push(`changes the paths of the type ${id}`);

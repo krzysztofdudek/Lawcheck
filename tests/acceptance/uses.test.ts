@@ -361,3 +361,35 @@ test('test 775: a file over the size limit, a language with no reader and a read
     });
   });
 });
+
+test('T5: a may_use list brought in on old code that breaks it, as the adoption page says: the old use is debt, its waiver lets a change of the file pass, a new use still fails, and a waiver whose use is gone is waiver-unused', async () => {
+  const OPEN = U_LAW.replace('    may_use: [library]\n    types:', '    types:');
+  const [first, use, last] = E.split('\n');
+  const WAIVED = [first, `${use} // lawcheck-waive forbidden-use -- the report prints the banner until 2.0`, last, ''].join('\n');
+  await withU(
+    async (u) => {
+      write(u, '.lawcheck/law.yaml', U_LAW);
+      const full = await check(u, '--full', '--base', 'main');
+      assert.deepEqual(findingLines(full.stdout).filter((line) => line.includes('[forbidden-use]')), [REPORT_LINE.replace('error[', 'warning[')]);
+      assert.equal(full.code, 0);
+    },
+    { onMain: (m) => (write(m, '.lawcheck/law.yaml', OPEN), write(m, E_PATH, E)) },
+  );
+  await withU(
+    async (u) => {
+      append(u, E_PATH, 'export const total = 2;\n');
+      const kept = await check(u);
+      assert.equal(kept.stdout, 'lawcheck: PASS  1 changed file (against main), 1 waiver\n');
+      assert.equal(kept.code, 0);
+      append(u, E_PATH, "import '../cli/main.js';\n");
+      const added = await check(u);
+      assert.deepEqual(findingLines(added.stdout), [REPORT_LINE.replace(':2 ', ':5 ')]);
+      assert.equal(added.code, 1);
+      write(u, E_PATH, [first, '// lawcheck-waive forbidden-use -- the report prints the banner until 2.0', last, ''].join('\n'));
+      const paid = await check(u);
+      assert.deepEqual(findingLines(paid.stdout), ["src/core/report.ts:2  warning[waiver-unused]  the waiver of 'forbidden-use' drops no finding"]);
+      assert.equal(paid.code, 0);
+    },
+    { onMain: (m) => write(m, E_PATH, WAIVED) },
+  );
+});

@@ -138,7 +138,7 @@ export async function tryRule(args: Arguments, context: CheckContext, json: bool
     requireGit(root);
     const law = loadLaw(root);
     if (!law.rules.has(id)) {
-      if (CODES.has(id) || id === 'untyped-file') throw usage(`'${id}' is a code of Lawcheck and no rule of the law; lawcheck check judges it`);
+      if (CODES.has(id)) throw usage(`'${id}' is a code of Lawcheck and no rule of the law; lawcheck check judges it`);
       throw usage(`the law has no rule '${id}'${nearPart(id, [...law.rules.keys()])}`);
     }
     const config = loadConfig(root);
