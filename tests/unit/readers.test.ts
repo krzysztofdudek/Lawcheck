@@ -746,3 +746,38 @@ test('R-120: a reader that fails on a file read only for what it declares fails 
   ]);
   assert.ok(times(failing.record.parsed) <= 2, failing.record.parsed.join(' '));
 });
+
+test('R-122: the uses of a file are read once in a run, however many rules ask for them, at once or one after another, and every rule gets the same answer', async () => {
+  const use = (line: number, specifier: string) => ({ line, candidates: [{ kind: 'path', specifier } as Hint] });
+  const classifyUse = (): Kind => ({ kind: 'resolved', owner: 'app', resolvedFile: 'app/x.py' });
+  const { runes } = fake({ uses: { 'domain/a.py': [use(1, 'app')], 'j/A.java': [use(2, 'app')] }, classifyUse });
+  const extracted: string[] = [];
+  const counting = {
+    ...runes,
+    extractorForLanguage: (language: string) => {
+      const extractor = runes.extractorForLanguage(language);
+      return { ...extractor, uses: (file: { path: string }) => (extracted.push(file.path), extractor.uses(file)) };
+    },
+  };
+  const files = { 'app/x.py': '', 'domain/a.py': '', 'domain/b.py': '', 'domain/c.py': '', 'j/A.java': '', 'j/B.java': '' };
+  const paths = Object.keys(files).sort();
+  const reads = ruleReads({ root: '/nowhere', files: paths, bytes: (path) => enc.encode(files[path as keyof typeof files]), ownerOf: () => 'owner', typeOf: (path) => (path.startsWith('app/') ? 'app' : null) }, counting);
+  const bound = (list: string[]) => list.map((path) => ({ path, text: '' }));
+  const file = (path: string) => ({ path, text: '' });
+  const first = bound(['domain/a.py', 'domain/b.py', 'j/A.java']);
+  const one = reads(first);
+  const two = reads(first);
+  const [fromOne, fromTwo] = await Promise.all([one('uses', file('domain/a.py')), two('uses', file('j/A.java'))]);
+  const three = reads(bound(['domain/a.py', 'domain/b.py', 'domain/c.py', 'j/A.java', 'j/B.java']));
+  const answers = [fromOne, fromTwo, await three('uses', file('domain/a.py')), await three('uses', file('j/A.java')), await three('uses', file('j/B.java')), await two('uses', file('domain/a.py'))];
+  const reached = { kind: 'file', file: 'app/x.py', type: 'app' };
+  assert.deepEqual(answers, [
+    { uses: [{ line: 1, ...reached }], absent: null },
+    { uses: [{ line: 2, ...reached }], absent: null },
+    { uses: [{ line: 1, ...reached }], absent: null },
+    { uses: [{ line: 2, ...reached }], absent: null },
+    { uses: [], absent: null },
+    { uses: [{ line: 1, ...reached }], absent: null },
+  ]);
+  assert.deepEqual(extracted.sort(), ['domain/a.py', 'domain/b.py', 'domain/c.py', 'j/A.java', 'j/B.java']);
+});
