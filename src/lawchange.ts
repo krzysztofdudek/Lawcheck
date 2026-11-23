@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { CONFIG } from './config.js';
 import { git, mergeBase, resolveCommit, splitZ } from './files.js';
+import { bytesOfName } from './names.js';
 import { parseLaw } from './law.js';
 import type { Law, TypeDef } from './law.js';
 import { LAW, RULES_DIR } from './setup.js';
@@ -161,9 +162,43 @@ function forkOf(root: string, base: string): string | null {
   return commit === null ? null : mergeBase(root, commit);
 }
 
-export function atBase(root: string, base: string): ((path: string) => Buffer | null) | null {
+const HEADER = /^[0-9a-f]{40}(?:[0-9a-f]{24})? (\S+) (\d+)$/;
+
+// One cat-file reads every path, where two processes for each path cost a few milliseconds a file. cat-file reads one name a line and drops a carriage return before the line break, so a path with either is read alone.
+function blobsAt(root: string, commit: string, paths: string[]): Map<string, Buffer | null> {
+  const out = new Map<string, Buffer | null>();
+  const batch: { path: string; bytes: Buffer }[] = [];
+  for (const path of paths) {
+    const bytes = bytesOfName(path);
+    if (bytes.includes(0x0a) || bytes.includes(0x0d)) out.set(path, blobAt(root, commit, path));
+    else batch.push({ path, bytes });
+  }
+  if (batch.length === 0) return out;
+  const result = git(root, ['cat-file', '--batch'], {}, Buffer.concat(batch.flatMap(({ bytes }) => [Buffer.from(`${commit}:./`), bytes, Buffer.from('\n')])));
+  const read = result.stdout;
+  let at = 0;
+  for (const { path } of batch) {
+    const end = result.status === 0 ? read.indexOf(0x0a, at) : -1;
+    if (end < 0) {
+      out.set(path, blobAt(root, commit, path));
+      continue;
+    }
+    const header = HEADER.exec(read.subarray(at, end).toString('latin1'));
+    at = end + 1;
+    if (header === null) {
+      out.set(path, null);
+      continue;
+    }
+    const size = Number(header[2]);
+    out.set(path, header[1] === 'blob' ? read.subarray(at, at + size) : null);
+    at += size + 1;
+  }
+  return out;
+}
+
+export function atBase(root: string, base: string): ((paths: string[]) => Map<string, Buffer | null>) | null {
   const fork = forkOf(root, base);
-  return fork === null ? null : (path) => blobAt(root, fork, path);
+  return fork === null ? null : (paths) => blobsAt(root, fork, paths);
 }
 
 export function lawChangeLine(items: string[]): string {
