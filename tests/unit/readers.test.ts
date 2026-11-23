@@ -1,11 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { chmodSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { GRAMMARS, ownLine, readerOf, readUses, ruleReads, RUNES, siblingsOf, Unreadable } from '../../dist/readers.js';
+import { attach, lastStep, progressBuffer } from '../../dist/progress.js';
 
 type Hint = { kind: 'path'; specifier: string } | { kind: 'symbol'; symbolKey: string };
 type Kind =
@@ -202,11 +203,19 @@ interface Counted {
   parsed: string[];
 }
 
-function counted(options: { identity?: string; digest?: string; fail?: string } = {}): Counted {
+function counted(options: { identity?: string; digest?: string; rev?: number; fail?: string } = {}): Counted {
   const parsed: string[] = [];
   const runes = {
     ...RUNES,
     ...(options.identity === undefined ? {} : { identity: () => options.identity! }),
+    ...(options.rev === undefined
+      ? {}
+      : {
+          extractorForLanguage: (language: string) => {
+            const extractor = RUNES.extractorForLanguage(language);
+            return extractor === undefined ? undefined : { ...extractor, rev: extractor.rev + options.rev! };
+          },
+        }),
     createHost: (dir: string) => {
       const host = RUNES.createHost(dir);
       return {
@@ -315,12 +324,12 @@ test('test 791: after a changed, a renamed and a deleted file, a read with the p
   });
 });
 
-test('test 792: another version of Lawcheck or Runes, or another grammar, parses every file again and gives what a read without the cache gives', async () => {
+test('test 792: another version of Lawcheck, Runes or an extractor, or another grammar, parses every file again and gives what a read without the cache gives', async () => {
   const reference = await uncached(GROUP_FILES);
   const all = Object.keys(GROUP_FILES).filter((path) => !path.endsWith('.toml')).sort();
   await withRoot(async (root) => {
-    await readGroups(root, GROUP_FILES);
-    for (const options of [{ identity: JSON.stringify(['0.1.0-alpha.99', '1.2.0']) }, { identity: JSON.stringify([JSON.parse(RUNES.identity())[0], '1.99.0']) }, { digest: 'another grammar' }]) {
+    for (const options of [{ identity: JSON.stringify(['0.1.0-alpha.99', '1.2.0']) }, { identity: JSON.stringify([JSON.parse(RUNES.identity())[0], '1.99.0']) }, { rev: 1 }, { digest: 'another grammar' }]) {
+      await readGroups(root, GROUP_FILES);
       const changed = counted(options);
       assert.deepEqual(await readGroups(root, GROUP_FILES, changed.runes), reference, JSON.stringify(options));
       assert.deepEqual(changed.parsed, all, JSON.stringify(options));
@@ -331,7 +340,7 @@ test('test 792: another version of Lawcheck or Runes, or another grammar, parses
   });
 });
 
-test('test 793: a pack that is damaged, cut short, of another shape or no file is not read, and a read without that fault writes it again', async () => {
+test('test 793: a pack that is damaged, cut short, of another shape, larger than 64 MiB or no file is not read, and a read without that fault writes it again', async () => {
   const reference = await uncached(GROUP_FILES);
   const damages: [string, (path: string) => void][] = [
     ['a changed byte', (path) => writeFileSync(path, readFileSync(path, 'utf8').replace('shop.Service', 'shop.Servant'))],
@@ -339,12 +348,23 @@ test('test 793: a pack that is damaged, cut short, of another shape or no file i
     ['another shape', (path) => writeFileSync(path, forge(readFileSync(path, 'utf8'), (body) => (body[Object.keys(body)[0]!] = [['shop.Service'], 5])))],
     ['empty', (path) => writeFileSync(path, '')],
     ['a folder', (path) => (rmSync(path), mkdirSync(path))],
+    [
+      'whole but larger than 64 MiB',
+      (path) =>
+        writeFileSync(
+          path,
+          forge(readFileSync(path, 'utf8'), (body) => {
+            for (let i = 0; i < 300_000; i++) body[createHash('sha256').update(String(i)).digest('hex')] = [['x'.repeat(160)], null];
+          }),
+        ),
+    ],
   ];
   for (const [what, damage] of damages) {
     await withRoot(async (root) => {
       await readGroups(root, GROUP_FILES);
       const pack = join(root, '.lawcheck', '.local', 'readers', 'jvm');
       damage(pack);
+      if (what.startsWith('whole')) assert.ok(statSync(pack).size > 64 * 1024 * 1024);
       const after = counted();
       assert.deepEqual(await readGroups(root, GROUP_FILES, after.runes), reference, what);
       assert.deepEqual(after.parsed, [...JUDGED, 'j/app/Service.java', 'k/app/Clock.kt'].sort(), what);
@@ -355,7 +375,7 @@ test('test 793: a pack that is damaged, cut short, of another shape or no file i
   }
 });
 
-test('test 794: a pack that git lists, or that lies behind a link or in another repository, is neither read nor written, while the same pack in its own folder would change the uses', async () => {
+test('test 794: a pack that git lists, whatever the case of its folders\' names, or that lies behind a link or in another repository, is neither read nor written, while the same pack in its own folder would change the uses', async () => {
   const reference = await uncached(GROUP_FILES);
   const empty = (text: string) => forge(text, (body) => Object.keys(body).forEach((key) => (body[key] = [[], null])));
   await withRoot(async (root) => {
@@ -365,6 +385,10 @@ test('test 794: a pack that git lists, or that lies behind a link or in another 
     writeFileSync(pack, forged);
     assert.deepEqual(await readGroups(root, GROUP_FILES, counted().runes, ['.lawcheck/.local/readers/jvm']), reference);
     assert.equal(readFileSync(pack, 'utf8'), forged);
+    for (const listed of ['.lawcheck/.LOCAL/readers/jvm', '.Lawcheck/.Local/readers/jvm']) {
+      assert.deepEqual(await readGroups(root, GROUP_FILES, counted().runes, [listed]), reference, listed);
+      assert.equal(readFileSync(pack, 'utf8'), forged, listed);
+    }
     mkdirSync(join(root, '.lawcheck', '.local', 'readers', '.git'));
     assert.deepEqual(await readGroups(root, GROUP_FILES), reference);
     assert.equal(readFileSync(pack, 'utf8'), forged);
@@ -433,6 +457,44 @@ test('test 797: a read that a reader failure stops keeps what it read before the
     const next = counted();
     assert.deepEqual(await readGroups(root, GROUP_FILES, next.runes), reference);
     assert.deepEqual(next.parsed, [...JUDGED, 'k/app/Clock.kt', 'rb/app/service.rb', 'rs/src/app.rs', 'rs/src/lib.rs'].sort());
+  });
+});
+
+test('question 165: after its last parse a read marks the step resolving the uses, which names no file, whether the files before came from a parse or from the cache', async () => {
+  const progress = progressBuffer();
+  attach(progress);
+  await withRoot(async (root) => {
+    for (const run of ['without the cache', 'with the cache']) {
+      await readGroups(root, GROUP_FILES);
+      assert.deepEqual({ what: lastStep(progress).what, file: lastStep(progress).file }, { what: 'resolving the uses', file: null }, run);
+    }
+  });
+});
+
+test('question 165: a C# file read only for what it declares stays in the reach of the projects, from a parse and from the cache', async () => {
+  const project = (references: string) => `<Project Sdk="Microsoft.NET.Sdk"><ItemGroup>${references}</ItemGroup></Project>\n`;
+  const files: Record<string, string> = {
+    'a/A.csproj': project('<ProjectReference Include="../c/C.csproj" />'),
+    'a/Use.cs': 'using Shared;\nnamespace A { public class Use { public Thing T; } }\n',
+    'b/B.csproj': project(''),
+    'b/Thing.cs': 'namespace Shared { public class Thing {} }\n',
+    'c/C.csproj': project(''),
+    'c/Thing.cs': 'namespace Shared { public class Thing {} }\n',
+  };
+  const paths = Object.keys(files).sort();
+  const read = async (root: string) => {
+    const outcome = await readUses(
+      { root, files: paths, bytes: (path: string) => enc.encode(files[path]!), ownerOf: (path: string) => (files[path] === undefined ? undefined : '#untyped'), read: [{ path: 'a/Use.cs', view: (readerOf('a/Use.cs', files['a/Use.cs']!, siblingsOf(paths)) as any).view }] },
+      counted().runes,
+    );
+    assert.ok('uses' in outcome, JSON.stringify(outcome));
+    return [...outcome.uses];
+  };
+  await withRoot(async (root) => {
+    for (const run of ['without the cache', 'with the cache']) {
+      const uses = await read(root);
+      assert.deepEqual(uses, [['a/Use.cs', [{ line: 2, answer: { kind: 'file', file: 'c/Thing.cs' } }]]], run);
+    }
   });
 });
 

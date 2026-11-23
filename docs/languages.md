@@ -56,9 +56,9 @@ The Go reader follows `go.work` and a `replace` with a relative directory of the
 
 Lawcheck keeps what each file of the four groups declares in `.lawcheck/.local/readers/`, one file per group. A later run parses again only the files whose uses it reads and the files that changed since the last run. In a Java repository of 3,267 files, a check of one changed file takes about 0.3 seconds with the cache and 6 seconds without it. In a C# repository of 951 files, it takes about 0.3 seconds with the cache and 4 seconds without it.
 
-An entry of the cache counts only for the same path, the same text, the same grammar and the same versions of Lawcheck and Runes. A check with the cache gives the same output and exit code as a check without it. A damaged cache file counts as empty, and the run writes it again.
+An entry of the cache counts only for the same path, the same text, the same grammar and the same versions of Lawcheck and Runes. A check with the cache gives the same output and exit code as a check without it. A damaged cache file, or one larger than 64 MiB, counts as empty, and the run writes it again.
 
-Lawcheck neither reads nor writes the cache when git lists a file under `.lawcheck/.local/`, or when that folder or its `readers/` folder is a link or holds a repository of its own. So a commit cannot bring a cache in. When Lawcheck cannot write the folder, the run gives the same output and parses every file of the group again next time.
+Lawcheck neither reads nor writes the cache when git lists a file under `.lawcheck/.local/`, in capital or small letters, such as `.lawcheck/.LOCAL/`, or when that folder or its `readers/` folder is a link or holds a repository of its own. So a commit cannot bring a cache in. When Lawcheck cannot write the folder, the run gives the same output and parses every file of the group again next time.
 
 To clear the cache, delete `.lawcheck/.local/readers/`. The next run parses every file of each group it reads.
 

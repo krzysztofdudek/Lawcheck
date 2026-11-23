@@ -216,6 +216,8 @@ interface Declared {
 }
 
 const PACK_FORMAT = 'lawcheck-readers/1';
+// The pack of guava, 3,267 files of Java and Kotlin, holds 0.7 MB, so the bound leaves room for some 300,000 files; a pack of 420 MB ended a run with memory-too-large.
+const PACK_BYTES = 64 * 1024 * 1024;
 
 const strings = (value: unknown): value is string[] => Array.isArray(value) && value.every((item) => typeof item === 'string');
 
@@ -248,7 +250,8 @@ class DeclaredCache {
 
   static open(root: string, files: string[], host: Host, runes: Runes): DeclaredCache | null {
     if (host.grammarDigestForLanguage === undefined) return null;
-    if (files.some((path) => path === LOCAL || path.startsWith(`${LOCAL}/`))) return null;
+    // A file system that ignores case shows the files git lists under .lawcheck/.LOCAL at .lawcheck/.local.
+    if (files.some((path) => path.toLowerCase() === LOCAL || path.toLowerCase().startsWith(`${LOCAL}/`))) return null;
     try {
       for (const dir of ['.lawcheck', LOCAL, `${LOCAL}/readers`]) {
         const stat = lstatSync(join(root, dir), { throwIfNoEntry: false });
@@ -307,7 +310,8 @@ class DeclaredCache {
     const out = new Map<string, Declared>();
     try {
       const path = join(this.dir, group);
-      if (!lstatSync(path).isFile()) return out;
+      const stat = lstatSync(path);
+      if (!stat.isFile() || stat.size > PACK_BYTES) return out;
       const text = readFileSync(path, 'utf8');
       const end = text.indexOf('\n');
       if (end < 0 || text.slice(0, end) !== `${PACK_FORMAT} ${sha256(text.slice(end + 1))}`) return out;
