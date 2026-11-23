@@ -529,3 +529,17 @@ test('question 95: harness: the type stripping warning of Node 24.0 is taken out
   assert.equal(withoutTypeStrippingWarning(other), other);
   assert.equal(withoutTypeStrippingWarning('a\n'), 'a\n');
 });
+
+test('question 95: tests/run.ts --skip <id> leaves the tests of that id out of the run and runs the rest', () => {
+  const ran = (...extra: string[]) => spawnSync(process.execPath, [join(ROOT, 'tests', 'run.ts'), 'commit', 'tests/contract/numbers.test.ts', ...extra], { cwd: ROOT, encoding: 'utf8', env: { ...process.env, LAWCHECK_RECORD: '' } });
+  const all = ran();
+  assert.equal(all.status, 0, all.stdout + all.stderr);
+  const total = /ran 1 test files, (\d+) tests: \1 passed, 0 failed/.exec(all.stdout);
+  assert.ok(total !== null, all.stdout);
+  const skipped = ran('--skip', 'R-73');
+  assert.equal(skipped.status, 0, skipped.stdout + skipped.stderr);
+  assert.match(skipped.stdout, new RegExp(`ran 1 test files, ${total![1]} tests: ${Number(total![1]) - 1} passed, 0 failed, 1 skipped`));
+  const refused = ran('--skip', 'nothing');
+  assert.equal(refused.status, 2, refused.stdout + refused.stderr);
+  assert.match(refused.stderr + refused.stdout, /--skip takes a test id/);
+});
