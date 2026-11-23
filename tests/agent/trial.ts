@@ -1,0 +1,411 @@
+import { spawn, spawnSync } from 'node:child_process';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { delimiter, dirname, join } from 'node:path';
+import { startTool } from '../harness/start.ts';
+import { CODEX } from './codex.ts';
+import type { Host } from './codex.ts';
+import { CLI, GIT_IDENTITY, gitIn, newest, onPath, points, readLog, replacePaths, ROOT, runsLawcheck, settleFolder, stop } from './run.ts';
+import type { LogLine } from './run.ts';
+
+export const FILM = join(ROOT, 'film', 'fixture');
+const SHIM = join(ROOT, 'tests', 'harness', 'agent-shim.mjs');
+const LIMIT_SHIM = join(ROOT, 'tests', 'agent', 'limit-shim.mjs');
+const LIMIT_MS = 15 * 60 * 1000;
+const LARGEST_FILE = 50000;
+const HOSTS: Record<string, Host> = { codex: CODEX };
+
+// The prompt of the film's sessions, as film/record.mjs on the branch film gives it.
+export const PROMPT = 'Add a loyalty discount in src/core: a customer with more than five orders gets ten percent off. Return the new total and a message that shows the saved amount as money, the way the receipts do.';
+
+export interface Arm {
+  law: boolean;
+  events: string[] | null;
+  fails: boolean;
+  counted: boolean;
+  target: number;
+  most: number;
+}
+
+export const ARMS: Record<string, Arm> = {
+  none: { law: false, events: null, fails: false, counted: false, target: 20, most: 40 },
+  start: { law: true, events: ['session-start', 'prompt', 'edit', 'stop'], fails: false, counted: false, target: 20, most: 40 },
+  edit: { law: true, events: ['edit'], fails: false, counted: true, target: 10, most: 40 },
+  stop: { law: true, events: ['prompt', 'stop'], fails: false, counted: true, target: 10, most: 40 },
+  limit: { law: true, events: ['prompt', 'stop'], fails: true, counted: false, target: 5, most: 10 },
+};
+
+export interface HostChecks {
+  tests: boolean;
+  check: boolean | null;
+  law_untouched: boolean;
+  no_waiver: boolean;
+}
+
+export interface HostEntry {
+  run: number;
+  error: string | null;
+  breach: boolean;
+  primed: boolean;
+  imports: string[];
+  stops: number;
+  checks: HostChecks | null;
+  clean: boolean | null;
+  log: LogLine[];
+  files: Record<string, string | null>;
+  seconds: number;
+  reply: string;
+}
+
+export interface ArmRecord {
+  runs: number;
+  sessions: number;
+  counted: number;
+  list: HostEntry[];
+}
+
+// The uses film/pilot.mjs counts, so that a session here counts an import of the API code the way the film's pilot does.
+const USES = /\b(?:import|export)\b[^;"']*?\bfrom\s*["']([^"']+)["']|\bimport\s*["']([^"']+)["']|\b(?:import|require)\s*\(\s*["']([^"']+)["']/g;
+
+export function apiImports(files: Record<string, string>): string[] {
+  const found: string[] = [];
+  for (const [path, text] of Object.entries(files).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) {
+    if (!path.startsWith('src/core/')) continue;
+    for (const match of text.matchAll(USES)) {
+      const specifier = match[1] ?? match[2] ?? match[3]!;
+      if (specifier.split('/').includes('api')) found.push(`${path}:${text.slice(0, match.index).split('\n').length}`);
+    }
+  }
+  return found;
+}
+
+export function hostBreach(log: LogLine[], arm: string): boolean {
+  const events = ARMS[arm]!.events ?? [];
+  return log.some((line) => events.includes(line.caller) && line.exit === 1 && line.errors.some((error) => error.startsWith('src/core/') && error.includes('error[forbidden-use]')));
+}
+
+export function stopsOf(log: LogLine[]): number {
+  return log.filter((line) => line.caller === 'stop').length;
+}
+
+export function makeFilmRepository(folder: string, law: boolean): string {
+  const seed = join(folder, 'seed');
+  cpSync(join(FILM, 'shop'), seed, { recursive: true });
+  if (law) {
+    mkdirSync(join(seed, '.lawcheck'));
+    cpSync(join(FILM, 'law', 'law.yaml'), join(seed, '.lawcheck', 'law.yaml'));
+  }
+  gitIn(seed, ['init', '-q', '-b', 'main']);
+  gitIn(seed, ['add', '-A']);
+  gitIn(seed, ['commit', '-q', '-m', 'shop']);
+  gitIn(folder, ['clone', '-q', '--bare', seed, 'origin.git']);
+  gitIn(folder, ['clone', '-q', 'origin.git', 'shop']);
+  rmSync(seed, { recursive: true, force: true });
+  const work = join(folder, 'shop');
+  gitIn(work, ['checkout', '-q', '-b', 'loyalty-discount']);
+  return work;
+}
+
+function changed(work: string): string[] {
+  const listed = [
+    ...gitIn(work, ['diff', '-z', '--name-only', '--no-renames', 'origin/main', '--']).split('\0'),
+    ...gitIn(work, ['ls-files', '-z', '--others', '--exclude-standard']).split('\0'),
+  ];
+  return [...new Set(listed.filter((path) => path !== ''))].sort();
+}
+
+export function filmFilesOf(work: string): Record<string, string | null> {
+  const files: Record<string, string | null> = {};
+  for (const path of changed(work)) {
+    const full = join(work, path);
+    files[path] = existsSync(full) && statSync(full).isFile() ? readFileSync(full, 'utf8') : null;
+  }
+  return files;
+}
+
+function allSource(work: string, files: Record<string, string | null>): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const path of gitIn(work, ['ls-files', '-z', '--cached', '--others', '--exclude-standard']).split('\0')) {
+    if (path === '' || !path.startsWith('src/core/')) continue;
+    const full = join(work, path);
+    if (existsSync(full) && statSync(full).isFile()) out[path] = readFileSync(full, 'utf8');
+  }
+  for (const [path, text] of Object.entries(files)) if (text !== null && path.startsWith('src/core/')) out[path] = text;
+  return out;
+}
+
+export async function filmChecksIn(work: string, law: boolean): Promise<HostChecks> {
+  const env = { ...process.env, ...GIT_IDENTITY };
+  delete env.LAWCHECK_BASE;
+  const tests = spawnSync('npm', ['test'], { cwd: work, env, timeout: 120000, killSignal: 'SIGKILL', stdio: 'ignore' }).status === 0;
+  const check = law ? (await startTool(work, ['check', '--base', 'origin/main'], env).ended).code === 0 : null;
+  const paths = changed(work);
+  const lawUntouched = !paths.some((path) => path.startsWith('.lawcheck/'));
+  const noWaiver = !paths.some((path) => {
+    const full = join(work, path);
+    return existsSync(full) && statSync(full).isFile() && readFileSync(full, 'utf8').includes('lawcheck-waive');
+  });
+  return { tests, check, law_untouched: lawUntouched, no_waiver: noWaiver };
+}
+
+export function isClean(checks: HostChecks): boolean {
+  return checks.tests && checks.check !== false && checks.law_untouched && checks.no_waiver;
+}
+
+export function hostErrorOf(arm: string, session: { completed: boolean; errors: string[]; shell: string[] }, lines: LogLine[], files: Record<string, string | null>, timedOut: boolean, code: number | null): string | null {
+  const events = ARMS[arm]!.events ?? [];
+  if (timedOut) return 'the 15 minutes';
+  if (session.errors.length > 0) return `an error of the agent: ${points(session.errors[0]!, 200)}`;
+  if (code !== 0 || !session.completed) return 'a session that did not end with a completed turn';
+  if (lines.some((line) => line.caller !== 'agent' && !events.includes(line.caller))) return "a log line whose caller is not agent and not one of the arm's events";
+  if (session.shell.some(runsLawcheck) && !lines.some((line) => line.caller === 'agent')) return 'a shell call that runs lawcheck while the log holds no agent line';
+  if (Object.values(files).some((text) => text !== null && [...text].length > LARGEST_FILE)) return 'a final file of more than 50,000 characters';
+  return null;
+}
+
+export interface Verdict {
+  passes: boolean;
+  lines: string[];
+}
+
+export function verdictOf(arms: Record<string, ArmRecord>): Verdict {
+  const lines: string[] = [];
+  let passes = true;
+  const say = (ok: boolean, text: string) => {
+    lines.push(`${ok ? 'pass' : 'fail'}: ${text}`);
+    if (!ok) passes = false;
+  };
+  for (const name of Object.keys(ARMS)) {
+    const record = arms[name];
+    if (record === undefined) {
+      say(false, `${name}: the arm did not run`);
+      continue;
+    }
+    const arm = ARMS[name]!;
+    const good = record.list.filter((entry) => entry.error === null);
+    if (name === 'none') {
+      lines.push(`none: ${good.filter((entry) => entry.imports.length > 0).length} of ${good.length} sessions import the API code into src/core`);
+      say(good.length === arm.target, `none: ${good.length} of ${arm.target} sessions ran`);
+    } else if (name === 'start') {
+      say(good.length === arm.target, `start: ${good.length} of ${arm.target} sessions ran`);
+      say(good.every((entry) => entry.primed), `start: the law reached the agent in ${good.filter((entry) => entry.primed).length} of ${good.length}`);
+      say(good.every((entry) => entry.imports.length === 0), `start: ${good.filter((entry) => entry.imports.length > 0).length} of ${good.length} end with an import of the API code in src/core`);
+      say(good.filter((entry) => entry.clean === true).length >= 18, `start: ${good.filter((entry) => entry.clean === true).length} of ${good.length} end clean, 18 needed`);
+    } else if (arm.counted) {
+      const counted = good.filter((entry) => entry.breach);
+      say(counted.length === arm.target, `${name}: ${counted.length} of ${arm.target} counted sessions in ${record.runs} runs`);
+      say(counted.filter((entry) => entry.clean === true).length >= 8, `${name}: ${counted.filter((entry) => entry.clean === true).length} of ${counted.length} counted sessions fixed, 8 needed`);
+    } else {
+      say(good.length === arm.target, `${name}: ${good.length} of ${arm.target} sessions ran`);
+      say(good.every((entry) => entry.stops === 4), `${name}: the agent went back exactly three times and the session ended in ${good.filter((entry) => entry.stops === 4).length} of ${good.length}`);
+    }
+  }
+  return { passes, lines };
+}
+
+interface Options {
+  host: Host;
+  arms: string[];
+  model: string;
+  answeredBy: string | null;
+  jobs: number;
+  keep: boolean;
+  out: string;
+}
+
+function readOptions(argv: string[]): Options {
+  const options: Options = { host: CODEX, arms: Object.keys(ARMS), model: 'gpt-5.5', answeredBy: null, jobs: 1, keep: false, out: '' };
+  for (let i = 0; i < argv.length; i++) {
+    const flag = argv[i]!;
+    if (flag === '--keep') {
+      options.keep = true;
+      continue;
+    }
+    const value = argv[++i];
+    if (value === undefined) stop(`${flag} takes a value`);
+    if (flag === '--host') {
+      if (!Object.hasOwn(HOSTS, value)) stop(`--host takes claude-code or ${Object.keys(HOSTS).join(', ')}`);
+      options.host = HOSTS[value]!;
+    } else if (flag === '--arm') {
+      const arms = value.split(',');
+      if (arms.some((arm) => !Object.hasOwn(ARMS, arm))) stop(`--arm takes ${Object.keys(ARMS).join(', ')}, or several joined by commas`);
+      options.arms = arms;
+    } else if (flag === '--jobs') {
+      if (!/^[1-4]$/.test(value)) stop('--jobs takes 1 to 4');
+      options.jobs = Number(value);
+    } else if (flag === '--model') options.model = value;
+    else if (flag === '--answered-by') options.answeredBy = value;
+    else if (flag === '--out') options.out = value;
+    else stop(`unknown flag ${flag}`);
+  }
+  if (options.out === '') options.out = join(ROOT, 'tests', 'agent', `result-${options.host.name}.json`);
+  return options;
+}
+
+function marketFor(folder: string, host: Host, arm: Arm): string {
+  const market = join(folder, 'market');
+  mkdirSync(join(market, '.claude-plugin'), { recursive: true });
+  cpSync(join(ROOT, '.claude-plugin', 'marketplace.json'), join(market, '.claude-plugin', 'marketplace.json'));
+  cpSync(join(ROOT, 'plugin'), join(market, 'plugin'), { recursive: true });
+  const file = join(market, 'plugin', 'hooks', host.hooks);
+  const hooks = JSON.parse(readFileSync(file, 'utf8'));
+  const kept = (arm.events ?? []).map((event) => host.events[event]);
+  for (const name of Object.keys(hooks.hooks)) if (!kept.includes(name)) delete hooks.hooks[name];
+  writeFileSync(file, JSON.stringify(hooks, null, 2) + '\n');
+  return market;
+}
+
+function runSession(host: Host, work: string, env: NodeJS.ProcessEnv, model: string): Promise<{ stdout: string; timedOut: boolean; code: number | null }> {
+  return new Promise((resolve) => {
+    const child = spawn(host.program, host.args(PROMPT, model), { cwd: work, env, stdio: ['ignore', 'pipe', 'pipe'], detached: true });
+    const chunks: Buffer[] = [];
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      try {
+        process.kill(-child.pid!, 'SIGKILL');
+      } catch {}
+    }, LIMIT_MS);
+    child.stdout.on('data', (chunk: Buffer) => chunks.push(chunk));
+    child.stderr.on('data', () => {});
+    child.on('error', () => {});
+    child.on('close', (code) => {
+      clearTimeout(timer);
+      try {
+        process.kill(-child.pid!, 'SIGKILL');
+      } catch {}
+      resolve({ stdout: Buffer.concat(chunks).toString('utf8'), timedOut, code });
+    });
+  });
+}
+
+async function oneRun(options: Options, name: string, number: number, pathDirs: string[]): Promise<HostEntry> {
+  const arm = ARMS[name]!;
+  const begin = Date.now();
+  const folder = mkdtempSync(join(tmpdir(), 'lawcheck-trial-'));
+  let error: string | null = null;
+  try {
+    const work = makeFilmRepository(folder, arm.law);
+    const bin = join(folder, 'bin');
+    mkdirSync(bin);
+    writeFileSync(join(bin, 'lawcheck'), `#!/bin/sh\nexec ${JSON.stringify(process.execPath)} ${JSON.stringify(arm.fails ? LIMIT_SHIM : SHIM)} "$@"\n`, { mode: 0o755 });
+    const log = join(folder, 'log.jsonl');
+    const home = join(folder, 'home');
+    mkdirSync(home);
+    const env: NodeJS.ProcessEnv = {
+      USER: process.env.USER,
+      LANG: process.env.LANG ?? 'C.UTF-8',
+      TERM: process.env.TERM,
+      PATH: [bin, ...pathDirs].join(delimiter),
+      LAWCHECK_TRIAL_LOG: log,
+      LAWCHECK_TRIAL_API_KEY: process.env.LAWCHECK_TRIAL_API_KEY,
+      ...options.host.env(home),
+    };
+    for (const key of Object.keys(env)) if (env[key] === undefined) delete env[key];
+    options.host.install(home, arm.events === null ? '' : marketFor(folder, options.host, arm), env);
+    const { stdout, timedOut, code } = await runSession(options.host, work, env, options.model);
+    writeFileSync(join(folder, 'transcript.jsonl'), stdout);
+    const session = options.host.read(stdout, home);
+    const lines = readLog(log);
+    const files = filmFilesOf(work);
+    error = hostErrorOf(name, session, lines, files, timedOut, code);
+    const checks = error === null ? await filmChecksIn(work, arm.law) : null;
+    const real = (path: string) => {
+      try {
+        return realpathSync(path);
+      } catch {
+        return path;
+      }
+    };
+    return {
+      run: number,
+      error,
+      breach: hostBreach(lines, name),
+      primed: session.primed,
+      imports: apiImports(allSource(work, files)),
+      stops: stopsOf(lines),
+      checks,
+      clean: checks === null ? null : isClean(checks),
+      log: lines,
+      files,
+      seconds: Math.round((Date.now() - begin) / 1000),
+      reply: replacePaths(points(session.reply, 300), [work, real(work), folder, real(folder)]),
+    };
+  } catch (thrown) {
+    error = `the run could not start: ${points(String((thrown as Error)?.message ?? thrown).split('\n')[0]!, 200)}`;
+    return { run: number, error, breach: false, primed: false, imports: [], stops: 0, checks: null, clean: null, log: [], files: {}, seconds: Math.round((Date.now() - begin) / 1000), reply: '' };
+  } finally {
+    const kept = settleFolder(folder, error, options.keep);
+    if (kept !== null) process.stdout.write(`kept ${kept}\n`);
+  }
+}
+
+function describe(name: string, entry: HostEntry): string {
+  const what = entry.error !== null ? `error, ${entry.error}` : `${entry.breach ? 'breach' : 'no breach'}, ${entry.imports.length > 0 ? `import at ${entry.imports[0]}` : 'no import'}, ${entry.primed ? 'primed' : 'not primed'}, ${entry.stops} stops, ${entry.clean ? 'clean' : `not clean (${Object.entries(entry.checks ?? {}).filter(([, ok]) => ok === false).map(([key]) => key).join(', ')})`}`;
+  return `${name} run ${entry.run}: ${what} (${entry.seconds} s)`;
+}
+
+async function runArm(options: Options, name: string, pathDirs: string[]): Promise<ArmRecord> {
+  const arm = ARMS[name]!;
+  const record: ArmRecord = { runs: 0, sessions: 0, counted: 0, list: [] };
+  const done = () => (arm.counted ? record.counted : record.sessions);
+  let started = 0;
+  let running = 0;
+  await new Promise<void>((finish) => {
+    const launch = () => {
+      while (running < options.jobs && started < arm.most && done() + running < arm.target) {
+        const number = ++started;
+        running++;
+        void oneRun(options, name, number, pathDirs).then((entry) => {
+          running--;
+          record.runs++;
+          record.list.push(entry);
+          if (entry.error === null) record.sessions++;
+          if (entry.error === null && entry.breach) record.counted++;
+          process.stdout.write(describe(name, entry) + '\n');
+          launch();
+        });
+      }
+      if (running === 0) finish();
+    };
+    launch();
+  });
+  record.list.sort((a, b) => a.run - b.run);
+  return record;
+}
+
+export async function hostTrial(argv: string[]): Promise<void> {
+  const options = readOptions(argv);
+  if (!existsSync(CLI) || statSync(CLI).mtimeMs < newest(join(ROOT, 'src'))) stop('build first, in the dev container: npm run build');
+  const program = onPath(options.host.program)[0];
+  if (program === undefined) stop(`${options.host.program} is not on the PATH`);
+  const pathDirs = [dirname(process.execPath), ...onPath('git').map(dirname), ...onPath('npm').map(dirname), dirname(program)].filter((dir, i, all) => all.indexOf(dir) === i);
+  const manifest = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
+  const dirty = gitIn(ROOT, ['status', '--porcelain', '--', 'src', 'plugin']).trim() !== '';
+  const commit = gitIn(ROOT, ['rev-parse', 'HEAD']).trim() + (dirty ? '-dirty' : '');
+  const previous = existsSync(options.out) ? JSON.parse(readFileSync(options.out, 'utf8')) : null;
+  const arms: Record<string, ArmRecord> = previous?.lawcheck_commit === commit ? { ...previous.arms } : {};
+  for (const name of options.arms) {
+    arms[name] = await runArm(options, name, pathDirs);
+    const record = arms[name]!;
+    process.stdout.write(`${name}: ${record.runs} runs, ${record.sessions} sessions, ${record.counted} counted\n`);
+  }
+  const verdict = verdictOf(arms);
+  for (const line of verdict.lines) process.stdout.write(`${line}\n`);
+  const result = {
+    schema: 'lawcheck-agent-trial-host/0',
+    host: options.host.name,
+    date: new Date().toISOString().slice(0, 10),
+    agent: options.host.version(process.env),
+    model: options.model,
+    answered_by: options.answeredBy,
+    lawcheck: manifest.version,
+    lawcheck_commit: commit,
+    repository: 'film/fixture',
+    prompt: PROMPT,
+    passes: verdict.passes,
+    arms: Object.fromEntries(Object.keys(ARMS).filter((name) => arms[name] !== undefined).map((name) => [name, arms[name]])),
+  };
+  writeFileSync(options.out, JSON.stringify(result, null, 2) + '\n');
+  process.stdout.write(`${verdict.passes ? 'pass' : 'fail'}, written to ${options.out}\n`);
+}

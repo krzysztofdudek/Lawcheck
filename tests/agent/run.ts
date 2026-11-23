@@ -62,7 +62,7 @@ export const GIT_IDENTITY: NodeJS.ProcessEnv = {
   GIT_CONFIG_GLOBAL: '/dev/null',
 };
 
-function gitIn(cwd: string, args: string[], env: NodeJS.ProcessEnv = {}): string {
+export function gitIn(cwd: string, args: string[], env: NodeJS.ProcessEnv = {}): string {
   const result = spawnSync('git', args, { cwd, env: { ...process.env, ...GIT_IDENTITY, ...env }, encoding: 'utf8', maxBuffer: 1 << 30 });
   if (result.status !== 0) throw new Error(`git ${args.join(' ')} failed: ${(result.stderr || result.stdout).split('\n')[0]}`);
   return result.stdout;
@@ -129,7 +129,7 @@ export function removeSessionState(home: string, sessionId: unknown): void {
   for (const plugin of readdirSync(data)) rmSync(join(data, plugin, 'sessions', `${sessionId}.json`), { force: true });
 }
 
-function stop(message: string): never {
+export function stop(message: string): never {
   process.stderr.write(`agent-trial: ${message}\n`);
   process.exit(2);
 }
@@ -169,7 +169,7 @@ function readOptions(argv: string[]): Options {
   return options;
 }
 
-function onPath(program: string): string[] {
+export function onPath(program: string): string[] {
   const found: string[] = [];
   for (const dir of (process.env.PATH ?? '').split(delimiter)) {
     if (dir === '') continue;
@@ -181,7 +181,7 @@ function onPath(program: string): string[] {
   return found;
 }
 
-function newest(dir: string): number {
+export function newest(dir: string): number {
   let latest = 0;
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const path = join(dir, entry.name);
@@ -200,7 +200,7 @@ function armPlugin(folder: string, arm: string): string {
   return copy;
 }
 
-function points(text: string, max: number): string {
+export function points(text: string, max: number): string {
   return [...text].slice(0, max).join('');
 }
 
@@ -298,12 +298,12 @@ function runClaude(work: string, plugin: string, options: Options, env: NodeJS.P
   });
 }
 
-function readLog(file: string): LogLine[] {
+export function readLog(file: string): LogLine[] {
   if (!existsSync(file)) return [];
   return readFileSync(file, 'utf8').split('\n').filter((line) => line.trim() !== '').map((line) => JSON.parse(line));
 }
 
-function replacePaths(text: string, paths: string[]): string {
+export function replacePaths(text: string, paths: string[]): string {
   let out = text;
   for (const path of [...new Set(paths)].sort((a, b) => b.length - a.length)) out = out.split(path).join('<work>');
   return out;
@@ -375,7 +375,12 @@ function describe(arm: string, entry: RunEntry): string {
 }
 
 async function main(): Promise<void> {
-  const options = readOptions(process.argv.slice(2));
+  const host = process.argv.indexOf('--host');
+  if (host >= 0 && process.argv[host + 1] !== 'claude-code') {
+    const { hostTrial } = await import('./trial.ts');
+    return hostTrial(process.argv.slice(2));
+  }
+  const options = readOptions(process.argv.slice(2).filter((word, i, all) => word !== '--host' && all[i - 1] !== '--host'));
   if (!existsSync(CLI) || statSync(CLI).mtimeMs < newest(join(ROOT, 'src'))) stop('build first, in the dev container: npm run build');
   const claude = onPath('claude')[0];
   if (claude === undefined) stop('claude is not on the PATH');
