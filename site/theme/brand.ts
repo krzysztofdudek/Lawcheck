@@ -2,6 +2,7 @@ import { readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Plugin, UserConfig } from 'vite';
+import type { HeadConfig } from 'vitepress';
 import { codeTheme } from '../../brand/code-theme.mjs';
 import { css } from '../../brand/css.mjs';
 import tokens from '../../brand/tokens.json' with { type: 'json' };
@@ -42,6 +43,10 @@ export const viteShared: UserConfig = {
   resolve: { alias: { '@lc-modules': MODULES } },
   server: { fs: { allow: [REPOSITORY] } },
 };
+
+// A font that arrives after the first paint moves the text set in it; VitePress preloads only its own Inter, and only in its default theme.
+export const fontPreloads = (assets: string[], names: RegExp): HeadConfig[] =>
+  assets.filter((file) => names.test(file)).map((href) => ['link', { rel: 'preload', href, as: 'font', type: 'font/woff2', crossorigin: '' }]);
 
 // VitePress links vp-icons.css from every page, also when no icon is configured and the file is empty; the empty stylesheet still blocks the first paint.
 export function dropEmptyIcons(outDir: string): void {

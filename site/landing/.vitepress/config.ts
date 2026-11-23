@@ -2,7 +2,7 @@ import { copyFileSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { defineConfig } from 'vitepress';
 import type { HeadConfig } from 'vitepress';
-import { brandStyles, dropEmptyIcons, CANONICAL, GITHUB, manifest, NPM, REPOSITORY, themeColor, viteShared } from '../../theme/brand.ts';
+import { brandStyles, dropEmptyIcons, CANONICAL, fontPreloads, GITHUB, manifest, NPM, REPOSITORY, themeColor, viteShared } from '../../theme/brand.ts';
 import { copyOf, head, pageUrl } from '../facts.ts';
 
 const page = head();
@@ -57,9 +57,10 @@ export default defineConfig({
     ['meta', { name: 'theme-color', content: themeColor }],
   ],
   vite: { ...viteShared, plugins: [brandStyles()] },
-  transformHead({ pageData }): HeadConfig[] {
+  transformHead({ pageData, assets }): HeadConfig[] {
     if (pageData.relativePath !== 'index.md') return [];
     return [
+      ...fontPreloads(assets, /\/(inter-roman-latin|jetbrains-mono-latin-wght-normal)\.[\w-]+\.woff2$/),
       ['link', { rel: 'canonical', href: CANONICAL.landing }],
       ['meta', { property: 'og:type', content: 'website' }],
       ['meta', { property: 'og:site_name', content: 'Lawcheck' }],

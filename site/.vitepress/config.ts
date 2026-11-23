@@ -3,7 +3,7 @@ import { copyFileSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { defineConfig } from 'vitepress';
 import topics from '../../docs/topics.json' with { type: 'json' };
-import { brandStyles, dropEmptyIcons, CANONICAL, codeThemeOfBrand, GITHUB, LINK, manifest, REPOSITORY, themeColor, viteShared } from '../theme/brand.ts';
+import { brandStyles, dropEmptyIcons, CANONICAL, codeThemeOfBrand, fontPreloads, GITHUB, LINK, manifest, REPOSITORY, themeColor, viteShared } from '../theme/brand.ts';
 import { describe } from '../theme/describe.ts';
 
 const HOME_TITLE = 'Lawcheck documentation';
@@ -48,10 +48,11 @@ export default defineConfig({
     pageData.description = description;
     if (home) pageData.titleTemplate = false;
   },
-  transformHead({ pageData }) {
+  transformHead({ pageData, assets }) {
+    const fonts = fontPreloads(assets, /\/jetbrains-mono-latin-wght-normal\.[\w-]+\.woff2$/);
     const id = pageId(pageData.relativePath);
     const head = heads.get(id);
-    if (!head) return [];
+    if (!head) return fonts;
     const url = canonicalOf(id);
     return [
       ['link', { rel: 'canonical', href: url }],
@@ -60,6 +61,7 @@ export default defineConfig({
       ['meta', { property: 'og:title', content: head.title }],
       ['meta', { property: 'og:description', content: head.description }],
       ['meta', { property: 'og:url', content: url }],
+      ...fonts,
     ];
   },
   buildEnd(site) {
