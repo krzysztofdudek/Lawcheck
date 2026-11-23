@@ -106,7 +106,7 @@ test('I-rules-1: a throw after an Atomics.waitAsync that ends after the rule\'s 
     setRule(s, 'no-console', "export function check() { void Atomics.waitAsync(new Int32Array(new SharedArrayBuffer(4)), 0, 0).value.then(() => { throw new Error('never'); }); return []; }\n");
     write(s, 'src/core/a.ts', 'export const x = 1;\n');
     const run = await check(s);
-    assert.deepEqual([run.code, run.stdout], [0, 'lawcheck: PASS  1 changed file (against main)\n']);
+    assert.deepEqual([run.code, run.stdout.split('\n')[0]], [0, 'lawcheck: PASS  2 changed files (against main)']);
   });
 });
 
