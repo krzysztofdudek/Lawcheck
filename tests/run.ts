@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSy
 import { availableParallelism } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { COMMIT_TARGET_MS, LOOP_TARGET_MS, SEED, SLOW_TESTS, slowBudget, TEST_BUDGET_MS } from './numbers.ts';
+import { COMMIT_TARGET_MS, LOOP_TARGET_MS, SEED, SLOW_TESTS, TEST_BUDGET_MS, testBudget } from './numbers.ts';
 import type { Speed } from './numbers.ts';
 import { COMMIT_GROUPS, EMPTY_GROUPS, groupDirs, NIGHTLY_GROUPS, perPushFiles, perPushTests, ROOT, SERIAL_DIRS, setFiles, TESTS } from './harness/sets.ts';
 import type { System } from './harness/sets.ts';
@@ -201,7 +201,7 @@ function main(): void {
   if (parsed.shuffle !== null) process.stdout.write(`order seed ${parsed.shuffle}\nrerun with --shuffle=${parsed.shuffle}\n`);
   // The large limits share one container of 1 GB, so their files run one at a time; Node takes this flag only on its command line, never from NODE_OPTIONS.
   const serial = files.some((file) => SERIAL_DIRS.some((dir) => file.startsWith(`tests/${dir}/`)) && file.endsWith('.nightly.test.ts'));
-  const slowest = Math.max(TEST_BUDGET_MS, ...Object.keys(SLOW_TESTS).map((key) => slowBudget(key) ?? 0));
+  const slowest = Math.max(testBudget(''), ...Object.keys(SLOW_TESTS).map((key) => testBudget(key)));
   const args = [
     '--test',
     `--import=${HARNESS}`,
