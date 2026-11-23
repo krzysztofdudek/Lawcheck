@@ -363,10 +363,28 @@ jobs:
           fi
           echo "docs site: PASS  all $pages pages name '$version'"
 
+  # The landing page of site/landing as Vercel would serve it; the build fails when a part it pulls from README.md or docs/ is gone. Nothing deploys from here.
+  landing:
+    name: landing page
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+      - run: npm --prefix site ci
+      - run: npm --prefix site run build:landing
+      - name: The head, the 404 page and the files beside them
+        run: node site/landing/check.mjs site/landing/.vitepress/dist package.json
+
   # The one required check: green only when every job above is green; a cancelled, skipped or missing job is red.
   commit-set:
     name: commit set
-    needs: [build, shard-linux, shard-win32, shard-darwin, merge-linux, merge-win32, merge-darwin, real, plugin, workflows, docs-site]
+    needs: [build, shard-linux, shard-win32, shard-darwin, merge-linux, merge-win32, merge-darwin, real, plugin, workflows, docs-site, landing]
     if: always()
     runs-on: ubuntu-latest
     steps:
