@@ -136,7 +136,7 @@ function timedOut(name: string, timeoutSeconds: number): Asked {
   return {
     failure: `${name} gave no answer within ${timeoutSeconds} seconds`,
     resend: false,
-    fix: `raise reviewer.timeout in .lawcheck/config.yaml, or check that ${name} answers when started by hand`,
+    fix: `check that ${name} answers when started by hand, or ask the user to raise reviewer.timeout in .lawcheck/config.yaml`,
   };
 }
 

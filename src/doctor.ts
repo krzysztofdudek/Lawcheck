@@ -167,7 +167,7 @@ export async function runChecks(inputs: Inputs): Promise<Check[]> {
       const program = named === undefined ? undefined : RUNNER_PROGRAMS[named];
       const at = program === undefined ? null : findProgram(program, inputs.env);
       if (program !== undefined && at === null) {
-        return set('config', 'fail', `.lawcheck/config.yaml: runner ${named}, and ${program} is not on the PATH`, next(`install ${program}, or set runner to the way this repository starts Lawcheck, then run lawcheck doctor again`));
+        return set('config', 'fail', `.lawcheck/config.yaml: runner ${named}, and ${program} is not on the PATH`, next(`install ${program}, or ask the user to set runner to the way this repository starts Lawcheck, then run lawcheck doctor again`));
       }
       const runner = program === undefined ? '' : `; runner ${named}, ${program} at ${at}`;
       if (configured.provider === null) return set('config', 'ok', `.lawcheck/config.yaml: no reviewer set${runner}`);
@@ -301,7 +301,7 @@ export async function runChecks(inputs: Inputs): Promise<Check[]> {
       const checked = checkAnswer(asked.answer, 0);
       if ('problem' in checked || checked.verdict !== 'pass') {
         const what = 'problem' in checked ? 'answered with no verdict' : 'answered fail to a test call that asks for pass';
-        return set('reviewer', 'fail', `${rules}; ${config.provider} ${what}: ${[...hide(asked.answer)].slice(0, 200).join('')}`, next(`check reviewer.model in .lawcheck/config.yaml, or try another model, then run lawcheck doctor --reviewer`));
+        return set('reviewer', 'fail', `${rules}; ${config.provider} ${what}: ${[...hide(asked.answer)].slice(0, 200).join('')}`, next(`ask the user to check reviewer.model in .lawcheck/config.yaml or to choose another model, then run lawcheck doctor --reviewer`));
       }
       set('reviewer', 'ok', `${rules}; ${config.provider} answered a test call`);
     },
