@@ -144,3 +144,15 @@ test('test 773: a file kept from an earlier call answers tree() with an error, a
     },
   );
 });
+
+test("R-119: a rule that asks the tool again through the channel for what its call already asked crashes as that rule, and the tool reads once", async () => {
+  await withRule(
+    "export async function check({ files: [file] }) {\n  await file.tree();\n  process._send({ kind: 'ask', id: -1, what: 'tree' }, undefined, {}, () => {});\n  return new Promise(() => {});\n}\n",
+    async (root, ruleFile) => {
+      const { asked, serve } = serving(() => FLAT);
+      const outcome = await runRule({ root, rule: 'r', ruleFile, files: [file('a.ts', ['x'])], filesOf, timeoutMs: 5000, serve });
+      assert.deepEqual(outcome, { crash: "writes to the runner's channel on a.ts" });
+      assert.deepEqual(asked, ['tree a.ts']);
+    },
+  );
+});

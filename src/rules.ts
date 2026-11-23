@@ -320,7 +320,7 @@ export function runRule(run: RuleRun): Promise<RuleOutcome> {
     let left = timeoutMs;
     let since = 0;
     let waiting: ((message: Message) => void) | null = null;
-    let current: { file: RuleFile; serving: number } | null = null;
+    let current: { file: RuleFile; serving: number; asked: Set<string> } | null = null;
     let stage = 'in its load';
     const findings: RawFinding[] = [];
 
@@ -372,7 +372,7 @@ export function runRule(run: RuleRun): Promise<RuleOutcome> {
         return;
       }
       stage = `on ${file.path}`;
-      current = { file, serving: 0 };
+      current = { file, serving: 0, asked: new Set() };
       const payload = { path: file.path, type: file.type?.id ?? null, text: file.text, lines: file.lines };
       ask({ kind: 'call', file: payload }, (message) => {
         if (message.kind === 'threw') return end({ crash: `throws on ${file.path}: ${message.message}` });
@@ -397,7 +397,9 @@ export function runRule(run: RuleRun): Promise<RuleOutcome> {
     // The time Lawcheck takes to read what the rule asks for is not the rule's, so the call's clock stops while it reads.
     const serve = (message: Message) => {
       const call = current;
-      if (call === null || run.serve === undefined || (message.what !== 'tree' && message.what !== 'uses')) return end({ crash: `writes to the runner's channel ${stage}` });
+      // The runner asks for each at most once a call, so a second ask is the rule's own write to the channel, and each one would cost the tool a read while the call's clock stands still.
+      if (call === null || run.serve === undefined || (message.what !== 'tree' && message.what !== 'uses') || call.asked.has(message.what)) return end({ crash: `writes to the runner's channel ${stage}` });
+      call.asked.add(message.what);
       if (call.serving++ === 0) {
         clearTimeout(timer);
         left -= Date.now() - since;
