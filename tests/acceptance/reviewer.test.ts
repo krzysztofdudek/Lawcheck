@@ -298,3 +298,26 @@ test('test 56: a bad answer is asked once more, then fails the run', async () =>
     (request) => (request.index === 0 ? openai('fine') : openai(defaultAnswer(request.prompt))),
   );
 });
+
+test('test 779: --strict names a missing review of old code, and the command of its next line asks about that old code, so a second strict run passes', async () => {
+  await withFake(async (fake) => {
+    await withR(async (r) => {
+      const first = await run(r, fake, ['--strict', '--base', 'main', '--json']);
+      assert.equal(first.code, 1);
+      const document = JSON.parse(first.stdout);
+      const missing = document.findings.filter((f: { code: string }) => f.code === 'not-reviewed');
+      assert.deepEqual(missing.map((f: { file: string; debt: boolean; severity: string }) => [f.file, f.debt, f.severity]), [['src/core/price.ts', true, 'error'], ['src/core/tax.ts', true, 'error']]);
+      assert.deepEqual(document.next, { command: 'lawcheck check --strict --review --base main', text: 'lawcheck check --strict --review --base main  (2 reviewer calls)' });
+      assert.equal(fake.requests.length, 0);
+      const text = await run(r, fake, ['--strict', '--base', 'main']);
+      assert.match(text.stdout, /^next: lawcheck check --strict --review --base main {2}\(2 reviewer calls\)$/m);
+      const followed = await run(r, fake, document.next.command.split(' ').slice(2));
+      assert.equal(followed.code, 0, followed.stdout);
+      assert.deepEqual(fake.requests.map((request) => request.prompt.match(/\n<file path="([^"]+)">/)![1]).sort(), ['src/core/price.ts', 'src/core/tax.ts']);
+      assert.equal(read(r, '.lawcheck/verdicts').trim().split('\n').length, 2);
+      const again = await run(r, fake, ['--strict', '--base', 'main']);
+      assert.equal(again.code, 0, again.stdout);
+      assert.equal(fake.requests.length, 2, 'the second strict run asks nothing');
+    }, { onMain: (r) => write(r, 'src/core/price.ts', 'export function price(net: number): number {\n  return net * 1.23;\n}\n') });
+  });
+});

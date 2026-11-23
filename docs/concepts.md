@@ -61,7 +61,7 @@ src/core/receipt.ts:1  error[forbidden-use]  core may not use src/cli/print.ts, 
 
 ## Debt
 
-Debt is what `lawcheck check --full` finds in the files outside the change. A finding of debt is a warning, whatever the status of its rule. Debt never changes the exit code.
+Debt is what `lawcheck check --full` finds in the files outside the change. A finding of debt is a warning, whatever the status of its rule. Debt never changes the exit code, unless you pass `--strict`.
 
 Example: `debt (outside this change): 1 finding in 1 file`, after the findings of the change.
 
@@ -92,7 +92,8 @@ The base is the commit that a check compares your work with. Lawcheck takes it f
 
 1. the flag `--base`, with a branch, a tag or a commit;
 2. the variable `LAWCHECK_BASE`;
-3. `origin/HEAD`.
+3. in a CI job, the variable of the service that names the target branch of a pull request or the commit before a push;
+4. `origin/HEAD`.
 
 With no base, a check on your machine counts every file as changed. In a CI job with no base, `lawcheck check` stops with `base-unreachable`, unless you name a path or pass `--full`.
 

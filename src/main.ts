@@ -2,7 +2,7 @@ import { step } from './progress.js';
 import { check } from './check.js';
 import type { CheckContext, CheckOptions, CheckOutcome } from './check.js';
 import { firstLine } from './law.js';
-import { renderErrors, renderReport, safeJson, safeText } from './output.js';
+import { blocking, renderErrors, renderReport, safeJson, safeText } from './output.js';
 import { hiddenJson, useKeys } from './keys.js';
 import { COMMANDS, number, PROGRAM_USAGE, readArguments, text, usageError, USAGE, version } from './args.js';
 import type { Arguments, CommandName, Result } from './args.js';
@@ -31,12 +31,12 @@ export function parseArguments(argv: string[]): { options: CheckOptions } | { pr
 
 function checkOptions(args: Arguments): { options: CheckOptions } | { problem: string } {
   const review = args.flags.has('--review');
-  if (args.words.length > 0 && ['--full', '--base', '--review', '--again', '--max-calls'].some((flag) => args.flags.has(flag))) {
+  if (args.words.length > 0 && ['--full', '--strict', '--base', '--review', '--again', '--max-calls'].some((flag) => args.flags.has(flag))) {
     return { problem: 'paths go with --json alone' };
   }
   if (!review && args.flags.has('--again')) return { problem: 'the flag --again works only with --review' };
   if (!review && args.flags.has('--max-calls')) return { problem: 'the flag --max-calls works only with --review' };
-  return { options: { full: args.flags.has('--full'), base: text(args, '--base'), review, again: args.flags.has('--again'), maxCalls: number(args, '--max-calls'), paths: args.words } };
+  return { options: { full: args.flags.has('--full') || args.flags.has('--strict'), strict: args.flags.has('--strict'), base: text(args, '--base'), review, again: args.flags.has('--again'), maxCalls: number(args, '--max-calls'), paths: args.words } };
 }
 
 function internal(error: unknown): ErrorItem {
@@ -74,7 +74,7 @@ async function run(argv: string[], context: CheckContext, command: Command): Pro
     if ('errors' in outcome) return { code: 2, stdout: renderErrors(outcome.errors, json) };
     step('writing the report');
     const text = renderReport(outcome.report, json);
-    return { code: outcome.report.findings.some((f) => f.severity === 'error') ? 1 : 0, stdout: text };
+    return { code: blocking(outcome.report).length > 0 ? 1 : 0, stdout: text };
   } catch (error) {
     return { code: 2, stdout: renderErrors([internal(error)], json, named) };
   }

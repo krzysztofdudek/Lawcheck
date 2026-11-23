@@ -103,7 +103,7 @@ src/core/report.ts:2  warning[no-console]  writes to the terminal with console.l
 src/core/tax.ts:2  warning[no-console]  writes to the terminal with console.warn
 ```
 
-With `--full`, Lawcheck judges every other file too. Lawcheck lists a finding outside the change as debt. A finding of debt is a warning, whatever the status of the rule. The run passes. `--json` gives the count of debt in `summary.debt`. It marks each finding of debt with `"debt": true` ([JSON documents](json.md)).
+With `--full`, Lawcheck judges every other file too. Lawcheck lists a finding outside the change as debt. A finding of debt is a warning, whatever the status of the rule. The run passes, unless you pass `--strict`, which makes a finding of an `enforced` rule in old code an error. `--json` gives the count of debt in `summary.debt`. It marks each finding of debt with `"debt": true` ([JSON documents](json.md)).
 
 ## 6. Merge the law
 
@@ -217,7 +217,7 @@ src/core/report.ts:2  error[no-console]  writes to the terminal with console.log
 next: fix src/core/report.ts:2
 ```
 
-- A CI job with no [base](concepts.md#base) stops with [`base-unreachable`](codes.md#base-unreachable), because without a base Lawcheck cannot tell the change from debt. Pass `--base`, or set `LAWCHECK_BASE` ([CI and git hooks](ci.md)).
+- A CI job with no [base](concepts.md#base) stops with [`base-unreachable`](codes.md#base-unreachable), because without a base Lawcheck cannot tell the change from debt. On a pull request in GitHub Actions, GitLab CI or Azure Pipelines, Lawcheck takes the base from the service's variables. On any other service, pass `--base`, or set `LAWCHECK_BASE` ([CI and git hooks](ci.md)).
 - For every old file that a [reviewer rule](concepts.md#reviewer-rule) [binds](concepts.md#rule), Lawcheck lists a [`not-reviewed`](codes.md#not-reviewed) finding as debt. The reviewer is the model that judges a reviewer rule. `lawcheck check --full --review` asks the reviewer about each of those files, with one call per file and rule. The setting `reviewer.max_calls` caps the calls of one run. A run that needs more calls than the cap makes none.
 
 Next: [Lawcheck in Claude Code](claude-code.md)

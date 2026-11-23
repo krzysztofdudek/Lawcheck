@@ -193,7 +193,7 @@ test('test 44: version and help', async () => {
     const version = await lawcheck(dir, ['--version']);
     assert.equal(version.stdout, '0.1.0-alpha.4\n');
     assert.equal(version.code, 0);
-    for (const [args, first] of [[['--help'], 'usage: lawcheck <command> [<arguments>] [--json]'], [['check', '--help'], 'usage: lawcheck check [--full] [--base <ref>] [--review [--again] [--max-calls <n>]] [--json]']] as const) {
+    for (const [args, first] of [[['--help'], 'usage: lawcheck <command> [<arguments>] [--json]'], [['check', '--help'], 'usage: lawcheck check [--full] [--strict] [--base <ref>] [--review [--again] [--max-calls <n>]] [--json]']] as const) {
       const run = await lawcheck(dir, [...args]);
       assert.equal(run.stdout.split('\n')[0], first);
       assert.equal(run.code, 0);
@@ -231,5 +231,42 @@ test('test 45: at most 50 finding lines', async () => {
     assert.ok(heading > out.indexOf(found[48]!));
     assert.equal(out[heading + 1], 'src/core/price.ts:2  warning[no-console]  writes to the terminal with console.log');
     assert.equal(out[heading + 2], '... 2 more findings (--json lists all)');
+  });
+});
+
+test('test 777: --strict fails on the debt that --full lists, as an error where the rule is enforced, and passes where there is none', async () => {
+  await withSample(async (s) => {
+    const full = await check(s, '--full', '--base', 'main');
+    assert.equal(full.code, 0);
+    assert.match(full.stdout, /^src\/core\/price\.ts:2  warning\[no-console\]/m);
+    const strict = await check(s, '--strict', '--base', 'main');
+    assert.equal(strict.code, 1);
+    assert.equal(strict.stdout.split('\n')[0], 'lawcheck: FAIL  nothing changed against main, 1 error in debt');
+    assert.match(strict.stdout, /^debt \(outside this change\): 3 findings in 3 files$/m);
+    assert.match(strict.stdout, /^src\/core\/price\.ts:2  error\[no-console\]  writes to the terminal with console\.log$/m);
+    assert.match(strict.stdout, /^src\/core\/tax\.ts:1  warning\[no-todo\]/m, 'an advisory rule stays a warning');
+    assert.match(strict.stdout, /^next: fix src\/core\/price\.ts:2$/m);
+    const json = JSON.parse((await check(s, '--strict', '--base', 'main', '--json')).stdout);
+    assert.equal(json.result, 'fail');
+    assert.equal(json.scope.mode, 'full');
+    assert.deepEqual(json.summary, { errors: 0, warnings: 0, debt: 3, waivers: 0, unresolved: 0 });
+    assert.deepEqual(json.findings.filter((f: { blocking: boolean }) => f.blocking).map((f: { file: string; debt: boolean }) => [f.file, f.debt]), [['src/core/price.ts', true]]);
+    assert.deepEqual(json.next, { command: null, text: 'fix src/core/price.ts:2' });
+  });
+  await withSample(
+    async (s) => {
+      const strict = await check(s, '--strict', '--base', 'main');
+      assert.equal(strict.code, 0);
+      assert.match(strict.stdout, /^debt \(outside this change\): 2 findings in 2 files$/m, 'advisory debt is listed and does not fail');
+      assert.equal(strict.stdout.split('\n')[0], 'lawcheck: PASS  nothing changed against main');
+    },
+    { onMain: (s) => write(s, 'src/core/price.ts', 'export function price(net: number): number {\n  return net * 1.23;\n}\n') },
+  );
+  await withSample(async (s) => {
+    for (const flags of [['--strict', 'src/core/price.ts'], ['src/core/price.ts', '--strict']]) {
+      const named = await lawcheck(s, ['check', ...flags]);
+      assert.equal(named.code, 2, flags.join(' '));
+      assert.match(named.stdout, /error\[usage\]  paths go with --json alone/);
+    }
   });
 });

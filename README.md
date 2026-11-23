@@ -70,7 +70,7 @@ That agent checks only when it follows the line, and nothing sends it back. A pr
 - Uses. Lawcheck reads imports and other uses in twelve languages: TypeScript, JavaScript, Python, Go, Rust, Java, Kotlin, C#, C, C++, PHP and Ruby. Each use that `may_use` does not allow is a finding. A use Lawcheck cannot resolve is counted, and never a finding.
 - Script rules. A rule is a JavaScript module that gets one file at a time and returns findings, each with its line when it has one.
 - Reviewer rules. A model judges a rule written in prose, one file at a time. Lawcheck records each pass, so an unchanged file is not sent again. You pick one of nine providers, among them a local Ollama and the `claude`, `codex`, `gemini` and `copilot` programs with their own sign-in.
-- Debt. `check` judges the files a change touches. `--full` lists the older breaches as debt. Debt is a warning and never fails the run.
+- Debt. `check` judges the files a change touches. `--full` lists the older breaches as debt. Debt is a warning and does not fail the run, unless you pass `--strict`.
 - Waivers. `lawcheck-waive <rule> -- <reason>` drops one rule on one line, and the reason stays in the code.
 
 ## Limits

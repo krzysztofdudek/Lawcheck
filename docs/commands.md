@@ -164,7 +164,7 @@ More: lawcheck docs
 ## check
 
 ```text
-usage: lawcheck check [--full] [--base <ref>] [--review [--again] [--max-calls <n>]] [--json]
+usage: lawcheck check [--full] [--strict] [--base <ref>] [--review [--again] [--max-calls <n>]] [--json]
        lawcheck check <path or pattern>... [--json]
 ```
 
@@ -199,11 +199,17 @@ With paths or patterns, `check` judges only the files you name, changed or not. 
 
 ### --full
 
-With `--full`, `check` judges every file, the files outside the change included. It lists their findings as [debt](concepts.md#debt). Every finding of debt is a warning, so debt never fails the check.
+With `--full`, `check` judges every file, the files outside the change included. It lists their findings as [debt](concepts.md#debt). Every finding of debt is a warning, so debt does not fail the check. `--strict` changes that.
+
+### --strict
+
+With `--strict`, `check` judges every file as `--full` does, and holds the debt to the standard of the change. A finding of debt is an error exactly when the same finding inside the change would be one: a finding of an `enforced` rule, a `forbidden-use` or a waiver with no reason. A finding of an `advisory` rule stays a warning. The run exits 1 on such an error, and the first line counts it apart, as `2 errors in debt`. A run with no such debt passes. `--strict` includes `--full`, so giving both is the same as giving `--strict`. It takes the other flags of `check` and no paths.
+
+`--strict` needs a verdict for every file that an `enforced` [reviewer rule](concepts.md#reviewer-rule) binds, old files included. A file with no verdict is a `not-reviewed` error, and its first run can ask the reviewer about the whole repository. The `next:` line then names `lawcheck check --strict --review`, which asks about the old files too. A check with `--review` and without `--strict` leaves them out.
 
 ### --base `<ref>`
 
-`--base` names the base of the change: a branch, a tag or a commit. Without the flag, Lawcheck takes `LAWCHECK_BASE`, then `origin/HEAD`. With none of the three, a plain check on a machine counts every file as changed. In a CI job, a plain check with none of the three stops with `base-unreachable`, unless you pass `--full`.
+`--base` names the base of the change: a branch, a tag or a commit. Without the flag, Lawcheck takes `LAWCHECK_BASE`, then the variable that a CI service sets for the target branch of a pull request or for the commit before a push, then `origin/HEAD`. [CI and git hooks](ci.md#_5-give-the-base-on-another-ci-service) lists the variables. With none of these, a plain check on a machine counts every file as changed. In a CI job, a plain check with none of them stops with `base-unreachable`, unless you pass `--full`.
 
 ### --review
 
@@ -225,7 +231,7 @@ With `--review`, Lawcheck asks the reviewer about each pair of a file and a revi
 
 | Code | Meaning |
 |---|---|
-| 0 | no finding with severity error; warnings and debt do not fail |
+| 0 | no finding with severity error; warnings do not fail, and debt does not fail without `--strict` |
 | 1 | at least one error: the code breaks the law |
 | 2 | no conclusion: the law, the config, a rule, the base, the reviewer or a limit stopped the run |
 
@@ -445,7 +451,7 @@ Each check ends as `ok`, `note`, `fail` or `skip`. A check shows `skip`, with `n
 
 ### --base `<ref>`
 
-`--base` gives the base for the `base` and `law-change` checks. Without the flag, `doctor` takes `LAWCHECK_BASE`, then `origin/HEAD`, as `check` does.
+`--base` gives the base for the `base` and `law-change` checks. Without the flag, `doctor` takes `LAWCHECK_BASE`, then the variables of a CI service, then `origin/HEAD`, as `check` does.
 
 ### --reviewer
 

@@ -537,7 +537,7 @@ The step depends on the cause:
 - in a shallow clone, or in a clone without the branch, run the `git fetch` command of the `next:` line;
 - in GitHub Actions, set `fetch-depth: 0` in `actions/checkout` to fetch the whole history;
 - for the push of a new branch, pass `--base` with the branch that the new one came from;
-- in a CI job with no base, pass `--base` with the branch the change goes into, or set `LAWCHECK_BASE`;
+- in a CI job with no base, pass `--base` with the branch the change goes into, or set `LAWCHECK_BASE`; GitHub Actions, GitLab CI and Azure Pipelines set a variable for a pull request that Lawcheck reads, so a job on a pull request needs neither ([CI and git hooks](ci.md#_5-give-the-base-on-another-ci-service));
 - in a repository with no commit, make the first commit, or name the files to check, as in `lawcheck check src/`.
 
 **Example**

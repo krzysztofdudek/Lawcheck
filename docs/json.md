@@ -68,7 +68,7 @@ This page names a field of a list's items by its path. `findings.code` is the `c
 
 | Field | Value |
 |---|---|
-| `result` | `fail` when a finding has severity error, else `pass` |
+| `result` | `fail` when a finding has severity error, else `pass`; a finding of debt has severity error only under `--strict` |
 | `scope` | what the check judged |
 | `scope.mode` | `change` for a check of the change with no path and no `--full`, `full` with `--full`, `paths` for named files |
 | `scope.base` | the base as given, or null without one |
@@ -76,7 +76,7 @@ This page names a field of a list's items by its path. `findings.code` is the `c
 | `scope.law_changed` | true when the change touches `.lawcheck/law.yaml`, `.lawcheck/config.yaml` or a rule file |
 | `scope.law_changes` | present only when a base was compared and the law differs: a list of what the change does to the law, in words ([What a check judges](change.md)) |
 | `summary` | counts over the change |
-| `summary.errors` | findings of the change with severity error |
+| `summary.errors` | findings of the change with severity error; under `--strict`, an error of the debt counts in `summary.debt` and in `findings.blocking` alone |
 | `summary.warnings` | findings of the change with severity warning |
 | `summary.debt` | findings outside the change, under `--full` |
 | `summary.waivers` | waivers in the files of the change |
