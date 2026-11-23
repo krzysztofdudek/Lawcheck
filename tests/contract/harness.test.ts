@@ -531,7 +531,10 @@ test('question 95: harness: the type stripping warning of Node 24.0 is taken out
 });
 
 test('question 95: tests/run.ts --skip <id> leaves the tests of that id out of the run and runs the rest', () => {
-  const ran = (...extra: string[]) => spawnSync(process.execPath, [join(ROOT, 'tests', 'run.ts'), 'commit', 'tests/contract/numbers.test.ts', ...extra], { cwd: ROOT, encoding: 'utf8', env: { ...process.env, LAWCHECK_RECORD: '' } });
+  const env: NodeJS.ProcessEnv = { ...process.env, LAWCHECK_RECORD: '' };
+  // Under node --test this process carries NODE_TEST_CONTEXT, which makes a nested node --test report to its parent instead of printing.
+  delete env.NODE_TEST_CONTEXT;
+  const ran = (...extra: string[]) => spawnSync(process.execPath, [join(ROOT, 'tests', 'run.ts'), 'commit', 'tests/contract/numbers.test.ts', ...extra], { cwd: ROOT, encoding: 'utf8', env });
   const all = ran();
   assert.equal(all.status, 0, all.stdout + all.stderr);
   const total = /ran 1 test files, (\d+) tests: \1 passed, 0 failed/.exec(all.stdout);
