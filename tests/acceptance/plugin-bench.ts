@@ -144,6 +144,56 @@ export class Session {
   }
 }
 
+// The inputs Codex 0.171.0 gave the hooks of a plugin in one real session, one per line: the session start, the prompt, an edit by apply_patch, the stop, a second edit and the stop after the hand-back.
+export const CODEX_INPUTS: Record<string, unknown>[] = readFileSync(join(ROOT, 'tests', 'agent', 'samples', 'codex-hooks.jsonl'), 'utf8').trim().split('\n').map((line) => JSON.parse(line));
+
+export function patchOf(lines: string[]): string {
+  return ['*** Begin Patch', ...lines, '*** End Patch', ''].join('\n');
+}
+
+export class CodexSession {
+  turns = 0;
+  readonly bench: Bench;
+  readonly cwd: string;
+  readonly id: string;
+  readonly env: NodeJS.ProcessEnv;
+
+  constructor(bench: Bench, cwd: string, id = 'c1', env: NodeJS.ProcessEnv = {}) {
+    this.bench = bench;
+    this.cwd = cwd;
+    this.id = id;
+    this.env = env;
+  }
+
+  input(event: string, fields: Record<string, unknown> = {}): string {
+    const recorded = CODEX_INPUTS.find((input) => input.hook_event_name === EVENT_NAMES[event]);
+    if (recorded === undefined) throw new Error(`no recorded Codex input for ${event}`);
+    const turn = event === 'session-start' ? {} : { turn_id: `t${Math.max(this.turns, 1)}` };
+    return JSON.stringify({ ...recorded, session_id: this.id, cwd: this.cwd, ...turn, ...fields });
+  }
+
+  run(event: string, fields: Record<string, unknown> = {}, env: NodeJS.ProcessEnv = {}): Promise<HookRun> {
+    return hook(this.bench, event, this.input(event, fields), { ...this.env, ...env }, undefined, { host: 'codex' });
+  }
+
+  start(source = 'startup'): Promise<HookRun> {
+    return this.run('session-start', { source });
+  }
+
+  prompt(env: NodeJS.ProcessEnv = {}): Promise<HookRun> {
+    this.turns++;
+    return this.run('prompt', { prompt: 'go' }, env);
+  }
+
+  patch(lines: string[], env: NodeJS.ProcessEnv = {}): Promise<HookRun> {
+    return this.run('edit', { tool_name: 'apply_patch', tool_input: { command: patchOf(lines) } }, env);
+  }
+
+  stop(fields: Record<string, unknown> = {}, env: NodeJS.ProcessEnv = {}): Promise<HookRun> {
+    return this.run('stop', { stop_hook_active: false, last_assistant_message: 'done', ...fields }, env);
+  }
+}
+
 export async function withBench<T>(body: (bench: Bench, dir: string) => Promise<T>): Promise<T> {
   return inTemp((dir) => body(new Bench(dir), dir));
 }
