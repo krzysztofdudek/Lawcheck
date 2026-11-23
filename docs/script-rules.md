@@ -130,7 +130,7 @@ Each use has `line` and `kind`. These are the same uses that `may_use` judges ([
 
 The list holds what `may_use` skips: a use of the file itself, and a use of a binary file.
 
-The first call of `uses()` in a run reads the uses of every file the rule judges in that run, at once. A file of Java, Kotlin, C#, Ruby or Rust needs the declarations of every file of its language, so that first call can take seconds in a large repository. When the reader fails on a file the rule judges, that file gets `reader-failed`, and Lawcheck reads the other files again without it. A failure on anything else gives `reader-failed` to every file that depends on it. A grammar that does not load fails every file of its language. A file of Java, Kotlin, C#, Ruby or Rust that Lawcheck reads only for what it declares fails every file of its language, and Java and Kotlin count as one language here. The uses of a file do not depend on the other files of the run, so a plain check and `--full` give a rule the same uses.
+The first call of `uses()` by a rule reads, at once, the uses of every file the rule judges in that run. Lawcheck reads the uses of each file once in a run, so a file whose uses another rule already asked for is not read again, and every rule gets the same answer for it. A file of Java, Kotlin, C#, Ruby or Rust needs the declarations of every file of its language, so that first call can take seconds in a large repository. When the reader fails on a file the rule judges, that file gets `reader-failed`, and Lawcheck reads the other files again without it. A failure on anything else gives `reader-failed` to every file that depends on it. A grammar that does not load fails every file of its language. A file of Java, Kotlin, C#, Ruby or Rust that Lawcheck reads only for what it declares fails every file of its language, and Java and Kotlin count as one language here. The uses of a file do not depend on the other files of the run, so a plain check and `--full` give a rule the same uses.
 
 ## The return value
 
@@ -158,7 +158,7 @@ Lawcheck runs each script rule in a Node process of its own. This page calls tha
 
 Lawcheck writes what the rule prints, on either stream, to its own standard error.
 
-A rule has 30 seconds to load and 30 seconds for each call. A rule that takes longer is `rule-crashed`. All script rules of one run have 600 seconds together. The time Lawcheck takes to read a tree or the uses counts toward the 600 seconds of the run, and not toward the 30 seconds of a call. A run that goes past the 600 seconds stops with `rules-too-slow`. Lawcheck reports that code at the file that each unfinished rule was judging.
+A rule has 30 seconds to load and 30 seconds for each call. A rule that takes longer is `rule-crashed`. All script rules of one run have 600 seconds together. The time Lawcheck takes to read a tree or the uses counts toward the 600 seconds of the run, and not toward the 30 seconds of any call. A rule that asks while Lawcheck reads for another rule does not lose that time either. A run that goes past the 600 seconds stops with `rules-too-slow`. Lawcheck reports that code at the file that each unfinished rule was judging.
 
 The rule runner refuses these actions:
 

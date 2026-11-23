@@ -673,7 +673,7 @@ export interface RuleFileText {
 
 export type Serve = (what: 'tree' | 'uses', file: RuleFileText) => Promise<TreeAnswer | UsesAnswer>;
 
-// The first ask of a rule reads the uses of every file it judges in the run at once, so a name-binding group is parsed once per rule and not once per file.
+// The first ask of a rule reads the uses of every file it judges in the run that no rule has asked for before, at once, so a name-binding group is parsed once per batch and not once per file.
 export function ruleReads(input: RuleReadsInput, runes: Runes = RUNES): (bound: RuleFileText[]) => Serve {
   const siblings = siblingsOf(input.files);
   let host: Host | null = null;
@@ -728,24 +728,37 @@ export function ruleReads(input: RuleReadsInput, runes: Runes = RUNES): (bound: 
     }
   };
 
+  // The uses of a file do not depend on the batch that reads them, so every rule of the run takes them from the one read that first reached the file.
+  const answers = new Map<string, Promise<UsesAnswer>>();
+
   return (bound) => {
-    let all: Promise<Map<string, UsesAnswer>> | null = null;
-    const readBound = async () => {
-      const out = new Map<string, UsesAnswer>();
+    let asked = false;
+    const readBound = () => {
       const judged = bound.flatMap((file) => {
+        if (answers.has(file.path)) return [];
         const reader = readerOf(file.path, file.text, siblings, runes);
         return reader.reader && !tooLarge(reader.view) ? [{ path: file.path, view: reader.view }] : [];
       });
-      await read(judged, out, true);
-      return out;
+      if (judged.length === 0) return;
+      const out = new Map<string, UsesAnswer>();
+      const batch = read(judged, out, true);
+      for (const { path } of judged) {
+        const answer = batch.then(() => out.get(path) ?? failed);
+        // A failure of the read reaches every rule that asks for one of its files; a file no rule asks for again must not end the run as a rejection nobody handled.
+        answer.catch(() => undefined);
+        answers.set(path, answer);
+      }
     };
     return async (what, file) => {
       if (what === 'tree') return tree(file);
       const reader = readerOf(file.path, file.text, siblings, runes);
       if (!reader.reader) return { uses: null, absent: 'no-reader' };
       if (tooLarge(reader.view)) return { uses: null, absent: 'too-large' };
-      all ??= readBound();
-      return (await all).get(file.path) ?? failed;
+      if (!asked) {
+        asked = true;
+        readBound();
+      }
+      return (await answers.get(file.path)) ?? failed;
     };
   };
 }
