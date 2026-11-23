@@ -19,19 +19,20 @@ test('check-slice §6: a command that throws ends in exit 2 with internal', asyn
 });
 
 test('check-slice §4: arguments', () => {
-  const plain = { full: false, base: null, review: false, again: false, maxCalls: null, paths: [] };
+  const plain = { full: false, strict: false, base: null, review: false, again: false, maxCalls: null, paths: [] };
   assert.deepEqual(parseArguments(['check']), { options: plain });
   assert.deepEqual(parseArguments(['check', '--json', '--base', 'main', '--full']), { options: { ...plain, full: true, base: 'main' } });
+  assert.deepEqual(parseArguments(['check', '--strict']), { options: { ...plain, full: true, strict: true } });
   assert.deepEqual(parseArguments(['check', '--max-calls', '0', '--again', '--review']), { options: { ...plain, review: true, again: true, maxCalls: 0 } });
   assert.deepEqual(parseArguments(['check', '--review', '--max-calls', '007']), { options: { ...plain, review: true, maxCalls: 7 } });
-  for (const argv of [[], ['fix'], ['check', 'src', '--full'], ['check', '--base'], ['check', '--base', '-x'], ['check', '--base=main'], ['check', '--full', '--full'], ['check', '--json', '--json'], ['check', '--base', 'a', '--base', 'b'], ['check', '--strict'], ['check', '--staged'], ['check', '--no-scripts'], ['check', '--dry-run'], ['check', '--review', '--max-calls', '1.5'], ['check', '--review', '--max-calls', ''], ['check', '--max-calls', '1']]) {
+  for (const argv of [[], ['fix'], ['check', 'src', '--full'], ['check', '--base'], ['check', '--base', '-x'], ['check', '--base=main'], ['check', '--full', '--full'], ['check', '--json', '--json'], ['check', '--base', 'a', '--base', 'b'], ['check', '--strict', '--strict'], ['check', '--staged'], ['check', '--no-scripts'], ['check', '--dry-run'], ['check', '--review', '--max-calls', '1.5'], ['check', '--review', '--max-calls', ''], ['check', '--max-calls', '1']]) {
     assert.ok('problem' in parseArguments(argv), argv.join(' '));
   }
 });
 
 test('commands-slice §2: version and help exit 0', async () => {
   assert.deepEqual(await main(['--version'], context), { code: 0, stdout: '0.1.0-alpha.4\n' });
-  for (const [argv, first] of [[['--help'], 'usage: lawcheck <command> [<arguments>] [--json]'], [['check', '--help'], 'usage: lawcheck check [--full] [--base <ref>] [--review [--again] [--max-calls <n>]] [--json]']] as const) {
+  for (const [argv, first] of [[['--help'], 'usage: lawcheck <command> [<arguments>] [--json]'], [['check', '--help'], 'usage: lawcheck check [--full] [--strict] [--base <ref>] [--review [--again] [--max-calls <n>]] [--json]']] as const) {
     const result = await main([...argv], context);
     assert.equal(result.code, 0);
     assert.equal(result.stdout.split('\n')[0], first);

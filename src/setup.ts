@@ -239,7 +239,7 @@ export function typeAll(root: string, law: Law, files: string[], read: Read, ext
   return typed;
 }
 
-export type BaseSource = '--base' | 'LAWCHECK_BASE' | 'origin/HEAD';
+export type BaseSource = '--base' | 'LAWCHECK_BASE' | 'origin/HEAD' | (typeof CI_BASES)[number]['variable'];
 
 export interface Change {
   base: string | null;
@@ -256,6 +256,13 @@ export function theChange(root: string, files: string[], option: string | null, 
     from = 'LAWCHECK_BASE';
   }
   if (base === null) {
+    const given = ciBase(env);
+    if (given !== null) {
+      base = given.base;
+      from = given.variable;
+    }
+  }
+  if (base === null) {
     base = defaultBase(root);
     if (base !== null) from = 'origin/HEAD';
   }
@@ -264,13 +271,13 @@ export function theChange(root: string, files: string[], option: string | null, 
   if (base === null) {
     if (!full && inCI(env)) {
       throw unreachable(
-        'no base in this CI job: no --base, no LAWCHECK_BASE and no origin/HEAD, and a plain check without one would count every file as changed',
+        'no base in this CI job: no --base, no LAWCHECK_BASE, no variable of the CI service for a pull request or push, and no origin/HEAD, and a plain check without one would count every file as changed',
         `pass --base origin/<the branch the change goes into> or set LAWCHECK_BASE, with the history fetched (${FETCH_ALL}); or judge every file with lawcheck check --full`,
       );
     }
     return { base, from, changed: new Set(files) };
   }
-  const taken = from === 'origin/HEAD' ? ', which origin/HEAD names,' : '';
+  const taken = from === 'origin/HEAD' ? ', which origin/HEAD names,' : from !== null && from !== '--base' && from !== 'LAWCHECK_BASE' ? `, which ${from} names,` : '';
   const fromHead = from === 'origin/HEAD' ? 'pass --base with a branch or a commit that exists here, or point origin/HEAD at one with git remote set-head origin --auto' : undefined;
   const missing = (message: string) => {
     if (isShallow(root)) return unreachable(`${message}, and this clone is shallow`, ...fetchNext(root, base, true));
@@ -305,6 +312,24 @@ const OFF = ['', '0', 'false', 'no', 'off'];
 export function inCI(env: NodeJS.ProcessEnv): boolean {
   if (env.CI !== undefined) return !OFF.includes(env.CI.trim().toLowerCase());
   return CI_VARIABLES.some((name) => !OFF.includes((env[name] ?? '').trim().toLowerCase()));
+}
+
+const CI_BASES = [
+  { service: 'GITHUB_ACTIONS', variable: 'GITHUB_BASE_REF', branch: true },
+  { service: 'GITLAB_CI', variable: 'CI_MERGE_REQUEST_TARGET_BRANCH_NAME', branch: true },
+  { service: 'GITLAB_CI', variable: 'CI_COMMIT_BEFORE_SHA', branch: false },
+  { service: 'TF_BUILD', variable: 'SYSTEM_PULLREQUEST_TARGETBRANCH', branch: true },
+] as const;
+
+function ciBase(env: NodeJS.ProcessEnv): { base: string; variable: (typeof CI_BASES)[number]['variable'] } | null {
+  if (env.CI !== undefined && OFF.includes(env.CI.trim().toLowerCase())) return null;
+  for (const { service, variable, branch } of CI_BASES) {
+    if (OFF.includes((env[service] ?? '').trim().toLowerCase())) continue;
+    const value = (env[variable] ?? '').trim();
+    if (value === '' || /^0+$/.test(value)) continue;
+    return { base: branch ? `origin/${value.replace(/^refs\/heads\//, '')}` : value, variable };
+  }
+  return null;
 }
 
 const FETCH_ALL = 'fetch-depth: 0 in actions/checkout, GIT_DEPTH: 0 in GitLab CI, fetchDepth: 0 in Azure Pipelines';

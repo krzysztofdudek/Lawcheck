@@ -4,11 +4,12 @@ A law written for code that already breaks it would fail every build on the firs
 
 ## The base
 
-Lawcheck compares the change with a [base](concepts.md#base). A ref is a name that git resolves to a commit, such as a branch, a tag or a commit hash. Lawcheck takes the base from the first of these three that you give:
+Lawcheck compares the change with a [base](concepts.md#base). A ref is a name that git resolves to a commit, such as a branch, a tag or a commit hash. Lawcheck takes the base from the first of these four that you give:
 
 1. `--base <ref>` on the command line;
 2. the variable `LAWCHECK_BASE`, when it is not empty;
-3. `origin/HEAD`, where the clone has it.
+3. in a CI job, the variable that the service sets for the target branch of a pull request, or for the commit before a push: `GITHUB_BASE_REF` in GitHub Actions, `CI_MERGE_REQUEST_TARGET_BRANCH_NAME` and `CI_COMMIT_BEFORE_SHA` in GitLab CI, `SYSTEM_PULLREQUEST_TARGETBRANCH` in Azure Pipelines ([CI and git hooks](ci.md#_5-give-the-base-on-another-ci-service));
+4. `origin/HEAD`, where the clone has it.
 
 ```text
 $ lawcheck check --base main
@@ -23,7 +24,7 @@ Lawcheck stops with `base-unreachable` and exit 2 in four cases:
 
 A shallow clone holds part of the history. In a shallow clone, or in a clone that did not fetch the base's branch, the message names the `git fetch` command that fetches the base.
 
-With no base, a check on a machine counts every file as changed. Its first line says so. In a CI job, a plain check with no base stops with `base-unreachable`, because without a base it cannot tell the change from [debt](concepts.md#debt). The `next:` line of that error names `--base`, `LAWCHECK_BASE` and `--full` (`lawcheck docs ci`).
+With no base, a check on a machine counts every file as changed. Its first line says so. In a CI job, a plain check with no base stops with `base-unreachable`, because without a base it cannot tell the change from [debt](concepts.md#debt). The `next:` line of that error names `--base`, `LAWCHECK_BASE` and `--full` (`lawcheck docs ci`). The history of the base still has to be in the clone: a shallow clone ends as `base-unreachable`, and the `next:` line names the `git fetch` that fixes it.
 
 ## The change
 
@@ -55,9 +56,11 @@ Git reads some files through a filter, such as the files of Git LFS. Lawcheck co
 $ lawcheck check --full --base main
 ```
 
-With `--full`, Lawcheck judges every other file as well. The findings in those other files are debt. Debt never changes the exit code, because each of its findings is a warning, whatever the status of its rule.
+With `--full`, Lawcheck judges every other file as well. The findings in those other files are debt. Without `--strict`, debt never changes the exit code, because each of its findings is a warning, whatever the status of its rule.
 
 Lawcheck prints the debt block after the findings of the change. The block has its own count of findings, files, waivers and unresolved uses. In `--json` each finding of debt has `debt: true`.
+
+With `--strict`, Lawcheck judges every file as `--full` does, and a finding of debt is an error exactly when the same finding inside the change would be one. A finding of an `enforced` rule in an old file is then an error, and the run exits 1. A finding of an `advisory` rule stays a warning, and so does a finding that is a warning in the change, such as `waiver-unused`. The first line of a run that fails only on debt counts it apart: `lawcheck: FAIL  3 changed files (against main), 2 errors in debt`. Use `--strict` where a team has paid its debt and wants the branch red until the next breach is cleaned up.
 
 ## The limits of a plain check
 
@@ -106,6 +109,6 @@ This form prints neither debt nor the note of a law change. It takes one flag, `
 | 1 | an error: the code breaks the law |
 | 2 | no conclusion: Lawcheck, the law or the setup is broken, and the output names what to fix |
 
-Lawcheck reports a finding of an `enforced` rule in the change as an error. An error makes the run exit 1. Two kinds of finding are warnings: a finding of an `advisory` rule, and each finding of debt. A failing run ends with one `next:` line that says what to do next.
+Lawcheck reports a finding of an `enforced` rule in the change as an error. An error makes the run exit 1. Two kinds of finding are warnings: a finding of an `advisory` rule, and each finding of debt, unless you pass `--strict`. A failing run ends with one `next:` line that says what to do next.
 
 Next: [JSON documents](json.md)

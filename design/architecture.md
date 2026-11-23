@@ -12,7 +12,7 @@ Lawcheck is TypeScript on Node 24, compiled from `src/` to `dist/`. Its runtime 
 4. `src/check.ts` is the command `check`. Its steps:
    - `src/setup.ts` finds the root (the folder that holds `.lawcheck/law.yaml`), reads the law (`src/law.ts`) and `.lawcheck/config.yaml` (`src/config.ts`), and lists the files with git (`src/files.ts`);
    - each listed file gets its type (`src/types.ts`, with the patterns of `src/glob.ts`);
-   - `src/setup.ts` takes the change: the base from `--base`, `LAWCHECK_BASE` or `origin/HEAD`, and the files that differ from the merge base;
+   - `src/setup.ts` takes the change: the base from `--base`, `LAWCHECK_BASE`, the variables of a CI service or `origin/HEAD`, and the files that differ from the merge base;
    - the script rules run (`src/rules.ts`). Each rule has its own Node process, `src/runner.ts`, started with `--permission` and read access to the root and to Lawcheck's folder only;
    - the readers find each file's uses of other files (`src/readers.ts`), and `src/uses.ts` turns them into `forbidden-use` findings and unresolved uses;
    - each reviewer rule gets its state from `.lawcheck/verdicts` (`src/verdicts.ts`). With `--review`, `src/review.ts` asks the provider for what is missing, through `src/providers/`, and records each pass;

@@ -375,7 +375,7 @@ test('test 74: the new flags', async () => {
       assert.equal(result.code, 2, args.join(' '));
       assert.match(result.stdout, /^error\[usage\]/m, args.join(' '));
     }
-    for (const [args, first] of [[['--help'], 'usage: lawcheck <command> [<arguments>] [--json]'], [['check', '--help'], 'usage: lawcheck check [--full] [--base <ref>] [--review [--again] [--max-calls <n>]] [--json]']] as const) {
+    for (const [args, first] of [[['--help'], 'usage: lawcheck <command> [<arguments>] [--json]'], [['check', '--help'], 'usage: lawcheck check [--full] [--strict] [--base <ref>] [--review [--again] [--max-calls <n>]] [--json]']] as const) {
       const result = await lawcheck(r, [...args]);
       assert.equal(result.stdout.split('\n')[0], first);
       assert.equal(result.code, 0);

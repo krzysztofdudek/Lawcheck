@@ -26,7 +26,7 @@ The reviewer sees one file per call and nothing else of the repository. To give 
 
 ## Old code that breaks the law
 
-A plain `lawcheck check` judges the files that differ from the base. Old code fails nothing until a change touches it. `lawcheck check --full` lists the findings in the rest of the code as [debt](concepts.md#debt). A finding of debt is a warning, which never changes the exit code. [What a check judges](change.md#full-and-debt) shows the output.
+A plain `lawcheck check` judges the files that differ from the base. Old code fails nothing until a change touches it. `lawcheck check --full` lists the findings in the rest of the code as [debt](concepts.md#debt). A finding of debt is a warning, which does not change the exit code unless you pass `--strict`. [What a check judges](change.md#full-and-debt) shows the output.
 
 ## A new model for the reviewer
 
