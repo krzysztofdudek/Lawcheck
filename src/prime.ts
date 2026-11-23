@@ -15,7 +15,7 @@ import { listInForce } from './uses.js';
 const PLAIN_PLAN = 'the file types and the rules each type keeps';
 const PLAN_WITH_USES = 'the file types, the rules each type keeps, and which types may use which';
 
-export function firstPart(reviewers: boolean, mayUse: boolean): string {
+export function firstPart(reviewers: boolean, mayUse: boolean, folders = false): string {
   return [
     `Lawcheck checks this repository's code against its law: ${mayUse ? PLAN_WITH_USES : PLAIN_PLAN}. The law is .lawcheck/law.yaml; rule files are in .lawcheck/rules/.`,
     '',
@@ -33,6 +33,7 @@ export function firstPart(reviewers: boolean, mayUse: boolean): string {
     '- a waiver comment: lawcheck-waive <rule> -- <reason> (lawcheck docs waivers), or taking a rule off a type',
     '- deleting a rule, or changing its status or its why',
     ...(mayUse ? ['- widening may_use'] : []),
+    ...(folders ? ['- adding a pattern to ignored, or taking one from required'] : []),
     ...(reviewers ? ['- lawcheck check --review --again, or --max-calls above reviewer.max_calls'] : []),
     '- any edit of .lawcheck/verdicts or of .lawcheck/config.yaml',
     '',
@@ -131,7 +132,10 @@ function rootLine(type: TypeDef): string {
 function header(law: Law): string {
   let count = 0;
   walk(law.types, () => count++);
-  return `The law here: ${plural(count, 'type')}, ${plural(law.rules.size, 'rule')}`;
+  const lines = [`The law here: ${plural(count, 'type')}, ${plural(law.rules.size, 'rule')}`];
+  if (law.required.patterns.length > 0) lines.push(`Every file under ${shown(law.required.patterns.join(', '))} needs a type; a file with none is untyped-file`);
+  if (law.ignored.patterns.length > 0) lines.push(`Left out of the law: ${shown(law.ignored.patterns.join(', '))}`);
+  return lines.join('\n');
 }
 
 function assemble(first: string, head: string, typeLines: string[], ruleLines: string[], last: string): string {
@@ -161,7 +165,8 @@ export function primeText(law: Law, kinds: Kinds, budget = BUDGET, start = ''): 
   walk(law.types, (type) => {
     if (type.mayUse !== null) mayUse = true;
   });
-  const first = withStart(firstPart([...law.rules.keys()].some((id) => ruleKind(kinds, id) === 'reviewer'), mayUse), start);
+  const folders = law.required.patterns.length > 0 || law.ignored.patterns.length > 0;
+  const first = withStart(firstPart([...law.rules.keys()].some((id) => ruleKind(kinds, id) === 'reviewer'), mayUse, folders), start);
   const onTypes = listed(law);
   const ids = [...law.rules.keys()];
   const fits = (text: string) => length(text) <= budget;

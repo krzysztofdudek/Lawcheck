@@ -49,11 +49,12 @@ Two words recur below. The root is the folder that holds `.lawcheck/`. A rule bi
 | `too-large-to-review` | finding | a prompt would pass `reviewer.max_chars`; under `try` it ends the run with exit 2 | the reviewer is never sent more than reviewer.max_chars characters |
 | `forbidden-use` | finding | a file uses a file its `may_use` list does not allow | a type's may_use names every type its files may use |
 | `uses-not-read` | finding | Lawcheck reads no uses from a file whose `may_use` list is in force | a restriction that cannot be checked is not shown as kept |
+| `untyped-file` | finding | a text file under `required` has no type | a file that no type takes is judged by no rule, so a folder under required may hold none |
 | `waiver-unknown-rule` | finding | a waiver names no rule of the law | a waiver that names no rule of the law waives nothing |
 | `waiver-without-reason` | finding | a waiver has no reason after `--` | a waiver without a reason cannot be weighed later |
 | `waiver-unused` | finding | a waiver drops no finding; a waiver of a reviewer rule never gets it | a waiver that drops nothing would hide the next finding on its line |
 
-A finding of a rule of the law carries the rule's id as its code. Lawcheck refuses a law with `law-invalid` if a rule id is a code of the table above, or `untyped-file`.
+A finding of a rule of the law carries the rule's id as its code. Lawcheck refuses a law with `law-invalid` if a rule id is a code of the table above.
 
 Each Example below is the standard output of a test of Lawcheck's own suite. The test runs in a sample repository that the suite builds. This page leaves out standard error, where Lawcheck prints lines such as the count of reviewer calls.
 
@@ -1106,6 +1107,36 @@ lawcheck: PASS  1 warning in 1 changed file (against main)
 
 .lawcheck/law.yaml:17  warning[uses-not-read]  1 file of type library is not read for uses: 1 .json
   why:  a restriction that cannot be checked is not shown as kept
+```
+
+## untyped-file
+
+**Meaning**
+
+A pattern of `required` in the law matches a text file, and no type takes the file ([`required`](law.md#required)). No rule judges such a file. The message names the pattern of `required`. The finding has no line, and its `type` in JSON is an empty string.
+
+**Typical cause**
+
+The cause is one of these:
+
+- an agent creates a folder beside the folders that types take, such as `src/gen/` beside `src/core/`;
+- a file has an extension that the type's `paths` leave out, such as a `.js` file where the type takes `src/**/*.ts`;
+- a file matches a type's `paths`, but its text does not match the type's `content`.
+
+**Fix**
+
+Move the file where a type's `paths` take it, or add a type for it. `lawcheck explain <path>` says why the file has no type. A pattern of `ignored` leaves the file out of the law, and adding one is the user's decision.
+
+**Example**
+
+```text
+$ lawcheck check --base main
+lawcheck: FAIL  1 error in 1 changed file (against main)
+
+src/gen/helpers.js  error[untyped-file]  the file lies under required (src/**) and no type of the law takes it
+  why:  a file that no type takes is judged by no rule, so a folder under required may hold none
+
+next: give src/gen/helpers.js a type: move it where a type's paths take it, or add a type for it to .lawcheck/law.yaml
 ```
 
 ## waiver-unknown-rule

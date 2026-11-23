@@ -196,6 +196,22 @@ export function readBounded(full: string | Buffer, path: string, headOnly = true
   }
 }
 
+// Only the first 8,000 bytes tell a binary file, so a file whose text no type needs is not read whole.
+export function startsBinary(full: string | Buffer): boolean {
+  const fd = openSync(full, OPEN);
+  try {
+    let got = 0;
+    while (got < HEAD_BYTES) {
+      const n = readSync(fd, head, got, HEAD_BYTES - got, null);
+      if (n === 0) break;
+      got += n;
+    }
+    return head.subarray(0, got).includes(0);
+  } finally {
+    closeSync(fd);
+  }
+}
+
 function lineEnds(bytes: Uint8Array): number {
   let lines = 0;
   for (let at = bytes.indexOf(10); at >= 0; at = bytes.indexOf(10, at + 1)) lines++;

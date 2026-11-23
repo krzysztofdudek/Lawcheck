@@ -2,7 +2,7 @@ import { isAlias, isMap, isScalar, isSeq, LineCounter, parseDocument, visit } fr
 import type { Document, Node as YamlNode, Pair, YAMLMap } from 'yaml';
 import { LAW_RULES, LAW_TYPES } from './limits.js';
 import { step } from './progress.js';
-import { compileList, patternProblem } from './glob.js';
+import { compileList, compilePattern, patternProblem } from './glob.js';
 import { CODES } from './output.js';
 
 export type Status = 'enforced' | 'advisory';
@@ -36,10 +36,17 @@ export interface TypeDef {
   waivers: boolean | null;
 }
 
+export interface Folders {
+  patterns: string[];
+  matches: (path: string) => boolean;
+}
+
 export interface Law {
   rules: Map<string, Rule>;
   types: TypeDef[];
   byId: Map<string, TypeDef>;
+  required: Folders;
+  ignored: Folders;
 }
 
 export interface LawProblem {
@@ -50,10 +57,9 @@ export interface LawProblem {
 
 const ID = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const VERSION = /^\d+\.\d+\.\d+$/;
-const TOP_KEYS = ['lawcheck', 'rules', 'types'];
+const TOP_KEYS = ['lawcheck', 'required', 'ignored', 'rules', 'types'];
 const RULE_KEYS = ['why', 'status', 'context'];
 const TYPE_KEYS = ['about', 'paths', 'content', 'rules', 'types', 'may_use', 'waivers'];
-const RESERVED = new Set([...CODES, 'untyped-file']);
 
 export function distance(a: string, b: string): number {
   const row = Array.from({ length: b.length + 1 }, (_, j) => j);
@@ -125,6 +131,14 @@ function typeCount(types: YAMLMap): number {
   return count;
 }
 
+const NO_FOLDERS: Folders = { patterns: [], matches: () => false };
+
+// The first plain pattern of the list that takes the path, to name in a message.
+export function patternFor(folders: Folders, path: string): string | null {
+  if (!folders.matches(path)) return null;
+  return folders.patterns.find((pattern) => !pattern.startsWith('!') && compilePattern(pattern).test(path)) ?? null;
+}
+
 class Reader {
   private readonly rules = new Map<string, Rule>();
   private readonly byId = new Map<string, TypeDef>();
@@ -150,6 +164,8 @@ class Reader {
       return { law: null, problems: this.problems };
     }
     let types: TypeDef[] = [];
+    let required = NO_FOLDERS;
+    let ignored = NO_FOLDERS;
     let sawVersion = false;
     for (const pair of top.items) {
       const key = this.keyOf(pair);
@@ -159,6 +175,10 @@ class Reader {
         sawVersion = true;
         const version = this.string(value, line, "'lawcheck'");
         if (version !== null && !VERSION.test(version)) this.problem(line, `'lawcheck' is '${version}'; it takes MAJOR.MINOR.PATCH`);
+      } else if (key === 'required') {
+        required = this.folders(value, line, "'required'") ?? NO_FOLDERS;
+      } else if (key === 'ignored') {
+        ignored = this.folders(value, line, "'ignored'") ?? NO_FOLDERS;
       } else if (key === 'rules') {
         if (!this.mapping(value, line, "'rules'")) continue;
         const count = (value as YAMLMap).items.length;
@@ -187,7 +207,7 @@ class Reader {
       if (!this.byId.has(type)) this.problem(line, `'may_use' of type '${owner}' names '${type}', which is no type of the law`);
     }
     if (this.problems.length > 0) return { law: null, problems: this.problems };
-    return { law: { rules: this.rules, types, byId: this.byId }, problems: [] };
+    return { law: { rules: this.rules, types, byId: this.byId, required, ignored }, problems: [] };
   }
 
   private readRules(map: YAMLMap): void {
@@ -195,7 +215,7 @@ class Reader {
       const id = this.keyOf(pair);
       const line = this.lineOf(pair.key);
       if (!ID.test(id)) this.problem(line, `the rule id '${id}' is not kebab-case`);
-      else if (RESERVED.has(id)) this.problem(line, `the rule id '${id}' is a code of Lawcheck`);
+      else if (CODES.has(id)) this.problem(line, `the rule id '${id}' is a code of Lawcheck`);
       const value = this.resolve(pair.value);
       if (!this.mapping(value, line, `rule '${id}'`)) continue;
       let why: string | null = null;
@@ -308,6 +328,26 @@ class Reader {
       out.push(type);
     }
     return out;
+  }
+
+  private folders(value: YamlNode | null, line: number, what: string): Folders | null {
+    const patterns = this.strings(value, line, what);
+    if (patterns === null) return null;
+    let valid = true;
+    for (const { text, line: itemLine } of patterns) {
+      const problem = patternProblem(text);
+      if (problem !== null) {
+        valid = false;
+        this.problem(itemLine, `the pattern '${text}' of ${what} ${problem}`);
+      }
+    }
+    if (patterns.length > 0 && !patterns.some(({ text }) => !text.startsWith('!'))) {
+      valid = false;
+      this.problem(line, `${what} holds no pattern without '!'`);
+    }
+    if (!valid) return null;
+    const list = patterns.map(({ text }) => text);
+    return { patterns: list, matches: list.length === 0 ? () => false : compileList(list) };
   }
 
   private resolve(node: unknown): YamlNode | null {

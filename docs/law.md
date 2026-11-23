@@ -9,6 +9,8 @@ Lawcheck looks for the file in the current directory, then in each directory abo
 | Key | In | Value |
 |---|---|---|
 | `lawcheck` | top | `MAJOR.MINOR.PATCH`, required |
+| `required` | top | patterns of files that must have a type |
+| `ignored` | top | patterns of files that the law leaves out |
 | `rules` | top | rule id to rule |
 | `types` | top | type id to root type |
 | `why` | rule | one line, required |
@@ -35,7 +37,7 @@ A YAML alias, such as `*base`, stands for the value that an anchor, such as `&ba
 
 Lawcheck stops with `law-invalid` when a type holds itself through an alias. For example, a subtype `again: *source` under `source: &source` makes `source` hold itself.
 
-The law below uses every key of the table except `context`, `may_use` and `waivers`:
+The law below uses every key of the table except `required`, `ignored`, `context`, `may_use` and `waivers`:
 
 ```yaml
 lawcheck: 0.1.0
@@ -70,6 +72,20 @@ types:
 ## lawcheck
 
 `lawcheck` holds the version of the law's format. Lawcheck checks that the value has the form `MAJOR.MINOR.PATCH`, such as `0.1.0`. It does not compare the value with its own version. `lawcheck init` writes its own version there.
+
+## required
+
+`required` lists the patterns of the files that must have a type. The section "Patterns" below gives their syntax. A text file that git lists, that a pattern of `required` matches and that no type takes is the finding `untyped-file`. With `required: ["src/**"]`, a file that an agent adds in a new folder `src/gen/` fails the check until a type takes it.
+
+`untyped-file` is an error in the change and a warning in debt, like `forbidden-use`. A binary file, a symbolic link and a file under `ignored` are never `untyped-file`. Without `required`, a file that no type takes is no finding.
+
+A non-empty `required` needs at least one pattern without `!`. A wrong pattern is `law-invalid`.
+
+## ignored
+
+`ignored` lists the patterns of the files that the law leaves out. A file that a pattern of `ignored` matches has no type, even when the paths of a type match it. No rule judges it, its waivers are not read, and it is never `untyped-file`. A use of such a file is a use of a file with no type, so a `may_use` list in force forbids it.
+
+`ignored` suits generated code inside a folder under `required`, such as `ignored: ["src/gen/**"]`. A non-empty `ignored` needs at least one pattern without `!`.
 
 ## rules
 
@@ -133,7 +149,7 @@ With `waivers: false`, Lawcheck reads a waiver marker in the type's files as pla
 
 A rule id and a type id are kebab-case: lower-case letters and digits, in words joined by `-`. The pattern is `[a-z0-9]+(-[a-z0-9]+)*`. Each type id may appear once in the whole tree of types. A key that YAML reads as no string, such as `true` or `12`, is `law-invalid`. Write such a key in quotes.
 
-A rule id may not equal a code of Lawcheck, or `untyped-file` (`lawcheck docs codes` lists the codes). The reserved ids include `forbidden-use`, `uses-not-read`, `parser-failed` and `already-initialized`.
+A rule id may not equal a code of Lawcheck (`lawcheck docs codes` lists the codes). The reserved ids include `forbidden-use`, `uses-not-read`, `untyped-file`, `parser-failed` and `already-initialized`.
 
 ## Patterns
 
@@ -160,13 +176,14 @@ Lawcheck takes the regular files that `git ls-files --cached --others --exclude-
 - a symbolic link;
 - a file that git ignores;
 - `.lawcheck/verdicts` and `.lawcheck/.gitattributes`;
-- a binary file, which Lawcheck tells by a byte of value 0 in its first 8,000 bytes.
+- a binary file, which Lawcheck tells by a byte of value 0 in its first 8,000 bytes;
+- a file that a pattern of `ignored` matches.
 
 Lawcheck judges a file like any other when its name holds a line break, a carriage return, a backslash or bytes that are not UTF-8. It prints such a name with `\n`, `\r`, `\\` and `\xHH` in their place.
 
 A submodule is a git repository held inside another one. Lawcheck judges no file of a submodule, or of another repository inside this one. It prints a note when the paths of a type reach into one.
 
-Lawcheck tests a file against the types at the top of `types`, `paths` first and then `content`. It then tests the file against the subtypes of the type that matched, one level at a time. The deepest match is the type of the file. The rules of every type on the way down bind the file, each rule once. Lawcheck never judges a file that no type matches.
+Lawcheck tests a file against the types at the top of `types`, `paths` first and then `content`. It then tests the file against the subtypes of the type that matched, one level at a time. The deepest match is the type of the file. The rules of every type on the way down bind the file, each rule once. No rule judges a file that no type matches. Under `required`, such a file is the finding `untyped-file`.
 
 When two types of one level both match a file, every run stops with `type-overlap` and exit 2. To split two types by path, add a `!` pattern to one of them. To give some files of a type a type of their own by their text, make a subtype with a `content` expression under that type ([Types for an existing project](types-for-a-project.md#_14-give-the-tests-beside-the-code-a-type-by-their-text)). A second type of the same level with the same `paths` and a `content` overlaps the first, because the first type matches every file that the second one matches. `lawcheck explain <path>` shows how a file got its type.
 

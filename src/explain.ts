@@ -6,7 +6,7 @@ import type { CheckContext } from './check.js';
 import type { ReviewerConfig } from './config.js';
 import { ignoresPath, nestedReason, repositoryHolding } from './files.js';
 import { compilePattern } from './glob.js';
-import { takesWaivers } from './law.js';
+import { patternFor, takesWaivers } from './law.js';
 import type { Law, TypeDef } from './law.js';
 import { plural, shown } from './output.js';
 import { readError } from './limits.js';
@@ -140,6 +140,20 @@ function behindLink(root: string, path: string): boolean {
   return false;
 }
 
+function ignoredReason(law: Law, path: string): string | null {
+  const pattern = patternFor(law.ignored, path);
+  return pattern === null ? null : `it lies under ignored (${pattern}), which the law leaves out`;
+}
+
+// A file that no type takes, under required, is a finding of check, so the answer says so.
+function guarded(ctx: Ctx, answer: FileAnswer): FileAnswer {
+  const pattern = patternFor(ctx.law.required, answer.path);
+  if (pattern === null) return answer;
+  const part = `it lies under required (${pattern}), so check reports it as untyped-file`;
+  if (answer.none !== null) return { ...answer, none: `${answer.none}; ${part}` };
+  return { ...answer, then: `${answer.then}; with no type, ${part}` };
+}
+
 function existing(ctx: Ctx, path: string, symlink: boolean): FileAnswer {
   if (behindLink(ctx.root, path)) return untyped(path, true, BEHIND);
   const nested = repositoryHolding(ctx.root, path, ctx.listed);
@@ -147,7 +161,9 @@ function existing(ctx: Ctx, path: string, symlink: boolean): FileAnswer {
   if (!ctx.listed.has(path)) return untyped(path, true, 'git ignores it, so Lawcheck never sees it');
   if (symlink) return untyped(path, true, 'it is a symbolic link, which has no type');
   if (WRITTEN.has(path)) return untyped(path, true, 'Lawcheck writes this file, and it has no type');
-  if (!ctx.law.types.some((type) => type.matches(path))) return untyped(path, true, "no type's paths match it, so no rule judges it");
+  const ignored = ignoredReason(ctx.law, path);
+  if (ignored !== null) return untyped(path, true, ignored);
+  if (!ctx.law.types.some((type) => type.matches(path))) return guarded(ctx, untyped(path, true, "no type's paths match it, so no rule judges it"));
   step(`typing ${path}`);
   let bytes: Uint8Array;
   try {
@@ -167,7 +183,7 @@ function existing(ctx: Ctx, path: string, symlink: boolean): FileAnswer {
       return untyped(path, true, `it matches ${names(hits.map((t) => t.id))} at one level (type-overlap); check stops with exit 2 until a ! pattern in one of them leaves it out`);
     }
     if (hits.length === 0) {
-      if (chain.length === 0) return untyped(path, true, `it matches the paths of ${names(byPath.map((t) => t.id))} but not their content, so no rule judges it`);
+      if (chain.length === 0) return guarded(ctx, untyped(path, true, `it matches the paths of ${names(byPath.map((t) => t.id))} but not their content, so no rule judges it`));
       notMatched = byPath;
       break;
     }
@@ -224,12 +240,14 @@ function absent(ctx: Ctx, path: string): FileAnswer {
   const nested = repositoryHolding(ctx.root, path, ctx.listed);
   if (nested !== null) return untyped(path, false, nestedReason(nested));
   if (ignoresPath(ctx.root, path)) return untyped(path, false, 'git ignores this path, so Lawcheck would never see it');
+  const ignored = ignoredReason(ctx.law, path);
+  if (ignored !== null) return untyped(path, false, ignored);
   const { chain, stop } = walkPath(ctx.law.types, path);
   const deepest = chain[chain.length - 1] ?? null;
   if (deepest === null) {
-    if (stop.length === 0) return untyped(path, false, "no type's paths match it, so no rule judges it");
+    if (stop.length === 0) return guarded(ctx, untyped(path, false, "no type's paths match it, so no rule judges it"));
     const { then, overlap } = alternatives(stop, null);
-    return overlap ? untyped(path, false, then) : untyped(path, false, null, then);
+    return overlap ? untyped(path, false, then) : guarded(ctx, untyped(path, false, null, then));
   }
   return {
     path,

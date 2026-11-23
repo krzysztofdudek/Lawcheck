@@ -220,8 +220,8 @@ export function loadRuleFiles(root: string, law: Law, withContext = true): RuleF
   return loaded;
 }
 
-export function typingErrors(root: string, law: Law, files: string[], read: Read, extra: ErrorItem[] = []): { typed: TypedFile[]; errors: ErrorItem[] } {
-  const { typed, unreadable: unreadableFiles, overlaps } = typeFiles(
+export function typingErrors(root: string, law: Law, files: string[], read: Read, extra: ErrorItem[] = []): { typed: TypedFile[]; untyped: string[]; errors: ErrorItem[] } {
+  const { typed, untyped, unreadable: unreadableFiles, overlaps } = typeFiles(
     root,
     files.filter((path) => !WRITTEN.has(path)),
     law,
@@ -229,8 +229,8 @@ export function typingErrors(root: string, law: Law, files: string[], read: Read
   );
   const cannotRead = [...unreadableFiles];
   for (const item of extra) if (!cannotRead.some((known) => known.file === item.file)) cannotRead.push(item);
-  if (cannotRead.length > 0) return { typed, errors: cannotRead };
-  return { typed, errors: overlaps };
+  if (cannotRead.length > 0) return { typed, untyped, errors: cannotRead };
+  return { typed, untyped, errors: overlaps };
 }
 
 export function typeAll(root: string, law: Law, files: string[], read: Read, extra: ErrorItem[] = []): TypedFile[] {

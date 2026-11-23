@@ -97,6 +97,7 @@ export const WHY: Record<string, string> = {
   'reviewer-bad-answer': 'an answer that is no verdict cannot be recorded',
   'forbidden-use': "a type's may_use names every type its files may use",
   'uses-not-read': 'a restriction that cannot be checked is not shown as kept',
+  'untyped-file': 'a file that no type takes is judged by no rule, so a folder under required may hold none',
   'parser-failed': 'a file whose uses were not read is not taken to use nothing',
   'already-initialized': 'a second law would split one repository\'s rules between two files',
   'file-too-large': 'a run holds every file it reads as text in memory, so one file may hold only so much',
@@ -311,6 +312,7 @@ export function firstError(report: Report): Finding | undefined {
 }
 
 export function fixNext(finding: Finding): string {
+  if (finding.code === 'untyped-file') return `give ${hide(finding.file)} a type: move it where a type's paths take it, or add a type for it to .lawcheck/law.yaml`;
   return `fix ${placeOf(hide(finding.file), finding.line)}`;
 }
 

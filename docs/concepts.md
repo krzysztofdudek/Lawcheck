@@ -20,7 +20,7 @@ types:
 
 ## Type
 
-A type is one kind of file. The patterns of its `paths` say which files it takes. An optional `content` expression narrows them to the files whose text matches it. A type can hold subtypes. Lawcheck tests a subtype on a file only after the file matched its parent. A file gets the deepest type that matches it. Lawcheck never judges a file that has no type.
+A type is one kind of file. The patterns of its `paths` say which files it takes. An optional `content` expression narrows them to the files whose text matches it. A type can hold subtypes. Lawcheck tests a subtype on a file only after the file matched its parent. A file gets the deepest type that matches it. No rule judges a file that has no type. A law can name folders where every file needs a type ([`required`](law.md#required)).
 
 Example: under the law above, `src/core/receipt.ts` has the type `core`. `lawcheck explain src/core/receipt.ts` shows it.
 

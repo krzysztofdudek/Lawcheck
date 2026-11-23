@@ -78,6 +78,8 @@ function ofLaw(before: Law, after: Law): string[] {
   const was = flat(before);
   const is = flat(after);
   const sorted = (ids: Iterable<string>) => [...ids].sort();
+  if (!same(before.required.patterns, after.required.patterns)) items.push('changes required');
+  if (!same(before.ignored.patterns, after.ignored.patterns)) items.push('changes ignored');
   for (const id of sorted(was.keys())) if (!is.has(id)) items.push(`removes the type ${id}`);
   for (const id of sorted(is.keys())) if (!was.has(id)) items.push(`adds the type ${id}`);
   for (const id of sorted(before.rules.keys())) if (!after.rules.has(id)) items.push(`removes the rule ${id}`);

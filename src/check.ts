@@ -3,7 +3,7 @@ import { comparePaths, nestedReason, nestedRepositories, repositoryHolding, trac
 import { compilePattern } from './glob.js';
 import { hide } from './keys.js';
 import type { ReviewerConfig } from './config.js';
-import { takesWaivers } from './law.js';
+import { patternFor, takesWaivers } from './law.js';
 import type { Law } from './law.js';
 import { blocking, fixNext, plural, sortFindings, WHY } from './output.js';
 import type { ErrorItem, Finding, Next, Report, Unresolved, WaiverEntry } from './output.js';
@@ -19,7 +19,7 @@ import { crashNext, FindingBudget, linksOut, rulesDeadline, runAll, runnerProble
 import type { RawFinding, RuleOutcome } from './rules.js';
 import { filesOfTypes, isBinary } from './types.js';
 import { bytesOf, selectTargets } from './try.js';
-import { fromCwd, loadConfig, loadLaw, loadRuleFiles, locate, requireGit, RULES_DIR, LAW, stopped, theChange, touchesLaw, typeAll } from './setup.js';
+import { fromCwd, loadConfig, loadLaw, loadRuleFiles, locate, requireGit, RULES_DIR, LAW, Stop, stopped, theChange, touchesLaw, typingErrors } from './setup.js';
 import type { Kinds, Read, ReviewerRule } from './setup.js';
 import { judgeUses, listInForce, notRead } from './uses.js';
 import type { Forbidden, NotRead, Target } from './uses.js';
@@ -61,9 +61,10 @@ export async function check(options: CheckOptions, context: CheckContext): Promi
     const { listed, files, read, kinds } = loadRuleFiles(root, law, false);
     const named = options.paths !== undefined && options.paths.length > 0;
     const chosen = named ? selectTargets(root, context.cwd, options.paths!, files, (path) => isBinary(bytesOf(read, path)), true) : null;
-    const typed = typeAll(root, law, files, read, kinds.unreadable);
+    const { typed, untyped, errors } = typingErrors(root, law, files, read, kinds.unreadable);
+    if (errors.length > 0) throw new Stop(errors);
     const elsewhere = named ? inOtherRepositories(root, context.cwd, options.paths!, chosen!, listed) : [];
-    return checkAt(root, options, context, { law, config, listed, files, read, kinds, typed, chosen, elsewhere });
+    return checkAt(root, options, context, { law, config, listed, files, read, kinds, typed, untyped, chosen, elsewhere });
   });
 }
 
@@ -76,6 +77,7 @@ interface Front {
   read: Read;
   kinds: Kinds;
   typed: TypedFile[];
+  untyped: string[];
   chosen: string[] | null;
 }
 
@@ -91,6 +93,7 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
 
   const run = options.full ? typed : typed.filter((file) => changed.has(file.path));
   run.sort((a, b) => comparePaths(a.path, b.path));
+  const untyped = (options.full ? front.untyped : front.untyped.filter((path) => changed.has(path))).map((path) => ({ file: path, message: untypedMessage(law, path) }));
   const filesOf = filesOfTypes(typed, law);
   const budget = new FindingBudget();
   const deadline = rulesDeadline();
@@ -134,6 +137,7 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
   for (const item of uses.unresolved) tally(item.file, item.what);
   for (const item of uses.notRead) tally(LAW, item.message);
   for (const item of uses.tooLarge) tally(item.file, item.message);
+  for (const item of untyped) tally(item.file, item.message);
   for (const path of [...byFile.keys()].sort(comparePaths)) {
     const own = byFile.get(path)!;
     if (budget.addAt(own.count, own.chars)) return { errors: [tooManyAt(path, budget)] };
@@ -249,7 +253,7 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
   }
 
   step('judging the findings');
-  const report = judge(law, run, raw, builtIn, uses, waiversOf, kinds.reviewers, changed, base, named ? 'paths' : options.full ? 'full' : 'change', options.strict === true);
+  const report = judge(law, run, raw, builtIn, uses, untyped, waiversOf, kinds.reviewers, changed, base, named ? 'paths' : options.full ? 'full' : 'change', options.strict === true);
   report.reviews = {
     missing: [...report.findings, ...report.debt].filter((f) => f.code === 'not-reviewed').length,
     calls_made: callsMade,
@@ -340,6 +344,10 @@ function tooManyAt(path: string, budget: FindingBudget): ErrorItem {
   };
 }
 
+function untypedMessage(law: Law, path: string): string {
+  return `the file lies under required (${patternFor(law.required, path)}) and no type of the law takes it`;
+}
+
 interface UsesRead {
   forbidden: Forbidden[];
   notRead: NotRead[];
@@ -423,6 +431,7 @@ function judge(
   raw: RawFinding[],
   builtIn: BuiltIn[],
   uses: UsesRead,
+  untyped: { file: string; message: string }[],
   waiversOf: Map<string, { waivers: Waiver[]; problems: WaiverProblem[] }>,
   reviewers: Map<string, ReviewerRule>,
   changed: Set<string>,
@@ -473,6 +482,11 @@ function judge(
     const isDebt = !changed.has(item.file);
     if (isDebt && mode !== 'full') continue;
     place({ code: 'uses-not-read', rule: null, severity: isDebt && !strict ? 'warning' : 'error', debt: isDebt, file: item.file, type: item.type, message: item.message, why: WHY['uses-not-read']! });
+  }
+
+  for (const item of untyped) {
+    const isDebt = !changed.has(item.file);
+    place({ code: 'untyped-file', rule: null, severity: isDebt && !strict ? 'warning' : 'error', debt: isDebt, file: item.file, type: '', message: item.message, why: WHY['untyped-file']! });
   }
 
   for (const item of uses.notRead) {
