@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
-import { css } from './css.mjs';
+import { css } from '../../brand/css.mjs';
 
 export const WIDTH = 1200;
 export const HEIGHT = 630;
@@ -40,6 +40,6 @@ body { width: ${WIDTH}px; height: ${HEIGHT}px; padding: 72px 80px; display: flex
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const [interFont, monoFont] = process.argv.slice(2);
-  const tokens = JSON.parse(readFileSync(new URL('./tokens.json', import.meta.url), 'utf8'));
-  process.stdout.write(og(tokens, { interFont, monoFont, markFile: new URL('./mark.svg', import.meta.url) }));
+  const tokens = JSON.parse(readFileSync(new URL('../../brand/tokens.json', import.meta.url), 'utf8'));
+  process.stdout.write(og(tokens, { interFont, monoFont, markFile: new URL('../../brand/mark.svg', import.meta.url) }));
 }

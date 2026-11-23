@@ -9,7 +9,7 @@ import { ALLOWED_NAMES } from './allowed-names.ts';
 import { problems } from '../../site/landing/check.mjs';
 import { problems as docsCardProblems } from '../../site/check-docs-card.mjs';
 import { CARD, cardHead, cardProblems, pngProblems } from '../../site/theme/card.mjs';
-import { CATEGORY, FINDING, og } from '../../brand/og.mjs';
+import { CATEGORY, FINDING, og } from '../../site/theme/og.mjs';
 import { Fragments } from '../../site/landing/fragments.ts';
 
 const ALLOWED = new Set(Object.values(ALLOWED_NAMES).flat());

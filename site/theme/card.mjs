@@ -1,4 +1,4 @@
-import { CATEGORY, FINDING, HEIGHT, WIDTH } from '../../brand/og.mjs';
+import { CATEGORY, FINDING, HEIGHT, WIDTH } from './og.mjs';
 
 export const CARD = {
   url: 'https://lawcheck.dev/og.png',
