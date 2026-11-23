@@ -58,7 +58,7 @@ An upgrade of one copy leaves the other copy as it is. The `runner` setting in `
 `lawcheck --version` prints the version that runs:
 
 ```output
-0.1.0-alpha.3
+0.1.0-alpha.4
 ```
 
 In a project, start Lawcheck through the package manager, as in `pnpm exec lawcheck --version`.

@@ -21,7 +21,7 @@ Lawcheck keeps its files in the folder `.lawcheck/`. The folder that holds it is
 config.local.yaml
 ```
 
-Lawcheck 0.1.0-alpha.3 reads no `config.local.yaml`. The second line of this file keeps a file of that name out of git.
+Lawcheck 0.1.0-alpha.4 reads no `config.local.yaml`. The second line of this file keeps a file of that name out of git.
 
 A type's `paths` can match the law, the config and the rule files. Lawcheck then judges such a file against the rules of its type. `.lawcheck/verdicts` and `.lawcheck/.gitattributes` never get a type.
 
