@@ -122,6 +122,7 @@ Git ignores `.lawcheck/config.local.yaml`, because `.lawcheck/.gitignore` names 
 | Variable | What Lawcheck does with it |
 |---|---|
 | `LAWCHECK_BASE` | takes it as the base of the change when `--base` is not given (`lawcheck docs change`) |
+| `GITHUB_BASE_REF`, `CI_MERGE_REQUEST_TARGET_BRANCH_NAME`, `CI_COMMIT_BEFORE_SHA`, `SYSTEM_PULLREQUEST_TARGETBRANCH` | take the one that the CI service sets as the base of the change, when neither `--base` nor `LAWCHECK_BASE` is given (`lawcheck docs ci`) |
 | `LAWCHECK_REVIEWER_ENDPOINT` | sends the requests of the HTTP providers to this address, which `openai-compatible` needs: `http:` or `https:`, with no user, password, query or fragment |
 | `LAWCHECK_REVIEWER_KEY` | sends it as the key of `openai-compatible`, and of `anthropic`, `openai` and `google` when their own variable is unset or `LAWCHECK_REVIEWER_ENDPOINT` is set |
 | `ANTHROPIC_API_KEY` | sends it as the key of `anthropic`, and passes it to `claude` |

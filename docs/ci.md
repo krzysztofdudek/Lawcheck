@@ -71,7 +71,7 @@ jobs:
           fi
 ```
 
-The shell script of the step `Check the change` picks the base and passes it to Lawcheck with `--base`. For a pull request, the base is the target branch under `origin/`. For a merge queue, it is the commit that the queue builds on. For a push, the script picks the base this way:
+The shell script of the step `Check the change` picks the base and passes it to Lawcheck with `--base`. On a pull request, a plain `lawcheck check` would find the same base from `GITHUB_BASE_REF` ([Give the base on another CI service](#_5-give-the-base-on-another-ci-service)). The script passes `--base` for two reasons: the merge queue and the push set no such variable, and the second check below needs the base commit. For a pull request, the base is the target branch under `origin/`. For a merge queue, it is the commit that the queue builds on. For a push, the script picks the base this way:
 
 | The push | The base the script passes |
 |---|---|
@@ -83,6 +83,8 @@ The shell script of the step `Check the change` picks the base and passes it to 
 `persist-credentials: false` keeps the token of the job out of `.git/config`. A [script rule](concepts.md#script-rule) can read that file. Without the setting, a rule that the pull request adds could read the token.
 
 Lawcheck exits with code 2 when it cannot judge the change, as with a law that is not valid (`law-invalid`) or a folder outside git (`no-git`). Exit 2 fails the job the same way as exit 1.
+
+A team that has paid its debt can add `--strict` to the two `lawcheck check` lines of the script. A finding of an `enforced` rule in an old file then fails the job too, so the branch stays at zero debt ([`--strict`](commands.md#strict)).
 
 With `--json`, Lawcheck prints one JSON document. A script that annotates the pull request can read that document ([JSON documents](json.md)).
 
@@ -118,7 +120,16 @@ echo node_modules/ >> .gitignore
 
 ### 5. Give the base on another CI service
 
-A check of the change takes its base from `--base`, then from `LAWCHECK_BASE`, then from `origin/HEAD`. A CI job often has none of the three. Lawcheck then stops before it judges a file:
+A check of the change takes its base from `--base`, then from `LAWCHECK_BASE`, then from the variables of the CI service below, then from `origin/HEAD`. Lawcheck reads the variables of a service only when that service's own variable is set and `CI` is not `false`, `no`, `0` or `off`. The base is `origin/` and the branch name. For Azure Pipelines, Lawcheck first removes the prefix `refs/heads/`.
+
+| CI service | Variable | What it holds |
+|---|---|---|
+| GitHub Actions | `GITHUB_BASE_REF` | the branch that a pull request goes into |
+| GitLab CI | `CI_MERGE_REQUEST_TARGET_BRANCH_NAME` | the branch that a merge request goes into |
+| GitLab CI | `CI_COMMIT_BEFORE_SHA` | the commit before a push to a branch; Lawcheck passes over a value of zeros, which GitLab sets for a new branch and for a merge request pipeline |
+| Azure Pipelines | `SYSTEM_PULLREQUEST_TARGETBRANCH` | the branch that a pull request goes into |
+
+GitHub Actions and Azure Pipelines set no variable for the commit before a push. A job on another service, or a push on those two, has none of the four places. Lawcheck then stops before it judges a file:
 
 ```text
 $ lawcheck check
@@ -152,7 +163,7 @@ Lawcheck treats a run as a CI job when the variable `CI` is set. Without `CI`, L
 
 ### 6. Give the base on GitLab CI
 
-In a merge request pipeline, GitLab sets `CI_MERGE_REQUEST_TARGET_BRANCH_NAME` to the branch that the merge request goes into. GitLab may fetch the job's own branch alone. The script below fetches the target branch first, then checks against it.
+In a merge request pipeline, GitLab sets `CI_MERGE_REQUEST_TARGET_BRANCH_NAME` to the branch that the merge request goes into. GitLab may fetch the job's own branch alone. The script below fetches the target branch first, then checks against it. Lawcheck finds the base in the variable, so the check needs no flag.
 
 1. In `.gitlab-ci.yml`, give the job the variable `GIT_DEPTH: 0`. GitLab then fetches the whole history into the job.
 2. Run the job in merge request pipelines. Give its `rules` the condition `if: $CI_PIPELINE_SOURCE == "merge_request_event"`.
@@ -160,21 +171,23 @@ In a merge request pipeline, GitLab sets `CI_MERGE_REQUEST_TARGET_BRANCH_NAME` t
 
 ```sh
 git fetch origin "+refs/heads/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME:refs/remotes/origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
-npx --no-install lawcheck check --base "origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
+npx --no-install lawcheck check
 ```
+
+A pipeline of a branch with no merge request has no target branch. Lawcheck takes `CI_COMMIT_BEFORE_SHA` there, the commit before the push, which the full history holds. For the first push of a branch, that variable is all zeros, and Lawcheck stops with `base-unreachable`.
 
 ### 7. Give the base on Azure Pipelines
 
-In a pull request build, Azure Pipelines sets `System.PullRequest.TargetBranch` to the branch that the pull request goes into. A script reads it as `SYSTEM_PULLREQUEST_TARGETBRANCH`. Its value is `refs/heads/main` for a repository that Azure hosts, and `main` for a GitHub repository.
+In a pull request build, Azure Pipelines sets `System.PullRequest.TargetBranch` to the branch that the pull request goes into. A script reads it as `SYSTEM_PULLREQUEST_TARGETBRANCH`. Its value is `refs/heads/main` for a repository that Azure hosts, and `main` for a GitHub repository. Lawcheck reads the variable and removes the prefix itself, so the check needs no flag.
 
 1. In `azure-pipelines.yml`, give the step `checkout: self` the setting `fetchDepth: 0`. The checkout then fetches the whole history of every branch into `origin/`.
 2. Give the job this script:
 
 ```sh
-npx --no-install lawcheck check --base "origin/${SYSTEM_PULLREQUEST_TARGETBRANCH#refs/heads/}"
+npx --no-install lawcheck check
 ```
 
-The part `#refs/heads/` makes the shell remove that prefix from the value, when the value starts with it.
+Azure sets the variable only when a branch policy runs the build for the pull request. A build with no such policy has no base, and Lawcheck stops with `base-unreachable`.
 
 ### 8. Run the job on macOS or Windows
 

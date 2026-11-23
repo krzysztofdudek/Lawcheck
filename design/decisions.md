@@ -165,3 +165,21 @@ Lawcheck's own repository runs under Lawcheck, and `npm test` checks it. The law
 The pages show the real output of `lawcheck --version`, and their scenarios compare each such block with the output of the command, which prints the version of `package.json`. The commit that moves the version therefore changes those blocks too, and each changed block gets a `docs-example-changed` row anchored on this decision.
 
 Why: a block that kept an old version would be false from the day of the release, and the suite guard takes no path as the anchor of a changed block of a page.
+
+## 162. The base from the variables of the CI service
+
+A plain `check` in a CI job takes its base from `--base`, then from `LAWCHECK_BASE`, then from the variables below, then from `origin/HEAD`. The order puts the owner's explicit words first and the guess last. Each service has its variables, and Lawcheck reads them only when the service's own variable is set (`GITHUB_ACTIONS`, `GITLAB_CI`, `TF_BUILD`) and `CI` is not off, so a stray variable on a developer's machine changes nothing.
+
+- GitHub Actions: `GITHUB_BASE_REF`, "the name of the base ref or target branch of the pull request in a workflow run" (docs.github.com, Actions, Variables reference). The page lists no variable for the commit before a push, so a push has no base from the variables.
+- GitLab CI: `CI_MERGE_REQUEST_TARGET_BRANCH_NAME`, "the target branch name of the merge request", then `CI_COMMIT_BEFORE_SHA`, "the previous latest commit present on a branch or tag", which GitLab sets to zeros for a merge request pipeline, a new branch and a manual run (docs.gitlab.com, CI/CD, Predefined variables). A value of zeros counts as not set.
+- Azure Pipelines: `SYSTEM_PULLREQUEST_TARGETBRANCH`, which holds `refs/heads/main` for Azure Repos and `main` for GitHub, and exists only when a branch policy runs the build for the pull request (learn.microsoft.com, Azure Pipelines, Predefined variables). The page lists no variable for the commit before a push.
+
+A branch name becomes `origin/<name>` and the prefix `refs/heads/` is removed. Lawcheck does not read the webhook payload that `GITHUB_EVENT_PATH` names, because the contents of that file are not a variable of the service. The history of the base is still the job's to fetch: a shallow clone ends as `base-unreachable` with the `git fetch` of its `next:` line, as under decision 87. The GitHub workflow of `docs/ci.md` keeps `--base`, because the merge queue and the push set no variable and its second check needs the base commit.
+
+Why: the first run in CI failed with `base-unreachable` until the adopter copied a flag from the docs, which is the first five minutes of that adopter with CI. The variables are the services' own words for the target of a pull request, so nothing is guessed.
+
+## 163. `check --strict` makes debt fail the run
+
+`--strict` judges every file as `--full` does, and a finding of debt gets the severity that the same finding would have inside the change: an error for a finding of an `enforced` rule, a `forbidden-use`, a waiver with no reason or an unknown rule, and a file too large for its uses; a warning where the change would give a warning too (an `advisory` rule, `waiver-unused`, `uses-not-read` of a type). The finding stays marked as debt. The exit code is 1 when any finding, debt included, is an error, and `result` in JSON is then `fail`. `summary.errors` keeps counting the errors of the change alone, as `docs/json.md` and the harness check say, and the first line of the text counts the errors of debt apart (`2 errors in debt`). `--strict` takes no paths, as `--full` does not.
+
+Why: a team that paid its debt had no way to keep it at zero, since `--full` only lists it. Holding the debt to the standard of the change adds no second set of severities to learn.

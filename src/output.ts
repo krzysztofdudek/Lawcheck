@@ -302,8 +302,12 @@ function unresolvedPart(count: number): string {
   return count === 0 ? '' : `, ${plural(count, 'unresolved use')}`;
 }
 
+export function blocking(report: Report): Finding[] {
+  return [...report.findings, ...report.debt].filter((f) => f.severity === 'error');
+}
+
 export function firstError(report: Report): Finding | undefined {
-  return report.findings.find((f) => f.severity === 'error');
+  return blocking(report)[0];
 }
 
 export function fixNext(finding: Finding): string {
@@ -311,12 +315,15 @@ export function fixNext(finding: Finding): string {
 }
 
 export function renderReport(report: Report, json: boolean): string {
-  const errors = report.findings.filter((f) => f.severity === 'error').length;
-  const warnings = report.findings.length - errors;
+  const errors = blocking(report).length;
+  const changeErrors = report.findings.filter((f) => f.severity === 'error').length;
+  const debtErrors = errors - changeErrors;
+  const debtPart = debtErrors === 0 ? '' : `, ${plural(debtErrors, 'error')} in debt`;
+  const warnings = report.findings.filter((f) => f.severity === 'warning').length;
   const failing = errors > 0;
-  const blocking = firstError(report);
+  const first = firstError(report);
   const nextOf: Next | null =
-    report.next !== undefined ? report.next : blocking ? { command: null, text: fixNext(blocking) } : null;
+    report.next !== undefined ? report.next : first ? { command: null, text: fixNext(first) } : null;
   const next = nextOf === null ? null : nextOf.text;
   const reviews = report.reviews ?? { missing: 0, calls_made: 0, passes_recorded: 0 };
   const calls = reviews.calls_made === 0 ? '' : `, ${plural(reviews.calls_made, 'reviewer call')}`;
@@ -352,7 +359,7 @@ export function renderReport(report: Report, json: boolean): string {
         law_changed: report.lawChanged ?? false,
         ...(report.lawChanges !== undefined && report.lawChanges.length > 0 ? { law_changes: report.lawChanges } : {}),
       },
-      summary: { errors, warnings, debt: report.debt.length, waivers: changeWaivers, unresolved: changeUnresolved },
+      summary: { errors: changeErrors, warnings, debt: report.debt.length, waivers: changeWaivers, unresolved: changeUnresolved },
       findings: [...report.findings, ...report.debt].map(shape),
       waivers: report.waivers.map((w) => ({ file: w.file, line: w.line, rule: w.rule, debt: w.debt, waived: w.waived, reason: w.reason })),
       unresolved: unresolved.map((u) => ({ file: u.file, line: u.line, what: u.what, answer: u.answer, reason: u.reason, candidates: u.candidates, debt: u.debt })),
@@ -365,9 +372,9 @@ export function renderReport(report: Report, json: boolean): string {
   const verdict = failing ? 'FAIL' : 'PASS';
   const lines: string[] = [];
   if (report.mode !== 'paths' && report.base !== null && report.changed === 0) {
-    lines.push(`lawcheck: ${verdict}  nothing changed against ${shown(report.base)}${calls}`);
+    lines.push(`lawcheck: ${verdict}  nothing changed against ${shown(report.base)}${debtPart}${calls}`);
   } else {
-    const counts = [errors > 0 ? plural(errors, 'error') : '', warnings > 0 ? plural(warnings, 'warning') : '']
+    const counts = [changeErrors > 0 ? plural(changeErrors, 'error') : '', warnings > 0 ? plural(warnings, 'warning') : '']
       .filter(Boolean)
       .join(', ');
     const scope =
@@ -376,7 +383,7 @@ export function renderReport(report: Report, json: boolean): string {
         : report.base === null
         ? `${plural(report.changed, 'file')} (no base: every file counts as changed)`
         : `${plural(report.changed, 'changed file')} (against ${shown(report.base)})`;
-    lines.push(`lawcheck: ${verdict}  ${counts === '' ? '' : counts + ' in '}${scope}${waiverPart(changeWaivers)}${unresolvedPart(changeUnresolved)}${calls}`);
+    lines.push(`lawcheck: ${verdict}  ${counts === '' ? '' : counts + ' in '}${scope}${debtPart}${waiverPart(changeWaivers)}${unresolvedPart(changeUnresolved)}${calls}`);
   }
   if (report.note) lines.push(report.note);
 

@@ -216,3 +216,61 @@ test('S7-7: a CI cache folder inside the project counts as changed code until th
     assert.equal(excluded.code, 0);
   });
 });
+
+const SERVICES: [string, NodeJS.ProcessEnv][] = [
+  ['GitHub Actions', { GITHUB_ACTIONS: 'true', GITHUB_BASE_REF: 'main' }],
+  ['GitLab CI merge request', { GITLAB_CI: 'true', CI_MERGE_REQUEST_TARGET_BRANCH_NAME: 'main', CI_COMMIT_BEFORE_SHA: '0'.repeat(40) }],
+  ['Azure Pipelines on Azure Repos', { TF_BUILD: 'True', SYSTEM_PULLREQUEST_TARGETBRANCH: 'refs/heads/main' }],
+  ['Azure Pipelines on GitHub', { TF_BUILD: 'True', SYSTEM_PULLREQUEST_TARGETBRANCH: 'main' }],
+];
+
+function fullClone(dir: string): string {
+  git(dir, 'clone', '-q', '--branch', 'work', origin(dir), 'clone');
+  const clone = join(dir, 'clone');
+  git(clone, 'update-ref', '--no-deref', '-d', 'refs/remotes/origin/HEAD');
+  return clone;
+}
+
+test('test 774: a plain check in GitHub Actions, GitLab CI and Azure Pipelines takes its base from the variables of the pull request or push, after --base and LAWCHECK_BASE', async () => {
+  await inTemp(async (dir) => {
+    const clone = fullClone(dir);
+    for (const [service, env] of SERVICES) {
+      const run = await lawcheck(clone, ['check'], env);
+      assert.equal(run.stdout, AGAINST_ORIGIN, service);
+      assert.equal(run.code, 1, service);
+    }
+    const tip = git(clone, 'rev-parse', 'origin/main').trim();
+    const push = await lawcheck(clone, ['check'], { GITLAB_CI: 'true', CI_COMMIT_BEFORE_SHA: tip });
+    assert.equal(push.stdout, AGAINST_ORIGIN.replace('origin/main', tip), 'a GitLab push names the commit before it');
+    const bad = { GITHUB_ACTIONS: 'true', GITHUB_BASE_REF: 'nope' };
+    assert.equal((await lawcheck(clone, ['check', '--base', 'origin/main'], bad)).stdout, AGAINST_ORIGIN, '--base comes first');
+    assert.equal((await lawcheck(clone, ['check'], { ...bad, LAWCHECK_BASE: 'origin/main' })).stdout, AGAINST_ORIGIN, 'LAWCHECK_BASE comes before the variables');
+    const doctor = await lawcheck(clone, ['doctor'], SERVICES[0]![1]);
+    assert.match(doctor.stdout, /^ok {2}base {2}origin\/main, from GITHUB_BASE_REF; the change holds 1 file$/m);
+    const json = JSON.parse((await lawcheck(clone, ['check', '--json'], SERVICES[0]![1])).stdout);
+    assert.equal(json.scope.base, 'origin/main');
+  });
+});
+
+test('test 774: a variable of a CI service counts only in that service and not when CI is off, a push of zeros names no base, and a clone without the base branch says so', async () => {
+  await inTemp(async (dir) => {
+    const clone = fullClone(dir);
+    const strayed = await lawcheck(clone, ['check'], { CI: 'true', GITHUB_BASE_REF: 'main', CI_MERGE_REQUEST_TARGET_BRANCH_NAME: 'main', SYSTEM_PULLREQUEST_TARGETBRANCH: 'main' });
+    assert.equal(strayed.stdout, NO_BASE_IN_CI, 'no service marker, no base from its variables');
+    const off = await lawcheck(clone, ['check'], { CI: 'false', GITHUB_ACTIONS: 'true', GITHUB_BASE_REF: 'main' });
+    assert.match(off.stdout, /^lawcheck: FAIL  .*\(no base: every file counts as changed\)/);
+    for (const env of [{ GITHUB_ACTIONS: 'true', GITHUB_BASE_REF: '' }, { GITLAB_CI: 'true', CI_COMMIT_BEFORE_SHA: '0'.repeat(40) }, { TF_BUILD: 'True' }]) {
+      assert.equal((await lawcheck(clone, ['check'], env)).stdout, NO_BASE_IN_CI, JSON.stringify(env));
+    }
+  });
+  await inTemp(async (dir) => {
+    git(dir, 'clone', '-q', '--depth', '1', '--branch', 'work', origin(dir), 'clone');
+    const clone = join(dir, 'clone');
+    git(clone, 'update-ref', '--no-deref', '-d', 'refs/remotes/origin/HEAD');
+    const run = await lawcheck(clone, ['check'], { GITHUB_ACTIONS: 'true', GITHUB_BASE_REF: 'main' });
+    assert.equal(errorLine(run.stdout), "error[base-unreachable]  the base 'origin/main', which GITHUB_BASE_REF names, names no commit here, and this clone is shallow");
+    assert.equal(nextLine(run.stdout), `fetch the history: git fetch --unshallow origin +refs/heads/main:refs/remotes/origin/main (${FETCH_ALL}), then run lawcheck check`);
+    follow(nextLine(run.stdout), clone);
+    assert.equal((await lawcheck(clone, ['check'], { GITHUB_ACTIONS: 'true', GITHUB_BASE_REF: 'main' })).stdout, AGAINST_ORIGIN);
+  });
+});

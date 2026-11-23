@@ -2,6 +2,12 @@
 
 Lawcheck follows [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+A plain `lawcheck check` in GitHub Actions, GitLab CI and Azure Pipelines now finds its base from the variables of the pull request: `GITHUB_BASE_REF`, `CI_MERGE_REQUEST_TARGET_BRANCH_NAME` (and `CI_COMMIT_BEFORE_SHA` for a push to a branch) and `SYSTEM_PULLREQUEST_TARGETBRANCH`. Before, the first run in CI stopped with `base-unreachable` until you added `--base` from the docs. `--base` and `LAWCHECK_BASE` still come first, and the job still has to fetch the history of the base. GitHub Actions and Azure Pipelines set no variable for the commit before a push, so a push there still needs `--base`. The recipes for GitLab CI and Azure Pipelines in `lawcheck docs ci` lose the flag.
+
+`lawcheck check --strict` judges every file as `--full` does, and a finding in old code fails the run when the same finding in the change would. A finding of an `enforced` rule in an old file is then an error with exit 1, and a finding of an `advisory` rule stays a warning. A team that paid its debt can keep it at zero. Without `--strict`, debt fails nothing, as before.
+
 ## [0.1.0-alpha.4] - 2026-11-23
 
 A script rule that uses the network now gets an error from the call itself, on every Node. On Node 24, alpha.3 let the call through. On Node 25 and later, alpha.3 passed Node's refusal to the callback, the `error` event or the promise, so a rule that handled the refusal there passed. The rule runner of alpha.4 closes the network before the rule loads. A rule that connects, listens on a port, sends over UDP, looks up a name in DNS or calls `fetch` gets the error. A rule that does not catch it is `rule-crashed`, with the message `uses the network, which is closed to script rules`.

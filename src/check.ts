@@ -5,7 +5,7 @@ import { hide } from './keys.js';
 import type { ReviewerConfig } from './config.js';
 import { takesWaivers } from './law.js';
 import type { Law } from './law.js';
-import { fixNext, plural, sortFindings, WHY } from './output.js';
+import { blocking, fixNext, plural, sortFindings, WHY } from './output.js';
 import type { ErrorItem, Finding, Next, Report, Unresolved, WaiverEntry } from './output.js';
 import { buildPrompt, cleanMessage, FRAME, size } from './prompt.js';
 import type { AnswerFinding } from './prompt.js';
@@ -35,6 +35,7 @@ export { findRoot } from './setup.js';
 
 export interface CheckOptions {
   full: boolean;
+  strict?: boolean;
   base: string | null;
   review?: boolean;
   again?: boolean;
@@ -247,7 +248,7 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
   }
 
   step('judging the findings');
-  const report = judge(law, run, raw, builtIn, uses, waiversOf, kinds.reviewers, changed, base, named ? 'paths' : options.full ? 'full' : 'change');
+  const report = judge(law, run, raw, builtIn, uses, waiversOf, kinds.reviewers, changed, base, named ? 'paths' : options.full ? 'full' : 'change', options.strict === true);
   report.reviews = {
     missing: [...report.findings, ...report.debt].filter((f) => f.code === 'not-reviewed').length,
     calls_made: callsMade,
@@ -407,11 +408,11 @@ async function readTheUses(
 }
 
 function nextOf(report: Report, config: ReviewerConfig, cap: number, review: string): Next | null {
-  const blocking = report.findings.filter((f) => f.severity === 'error');
-  if (blocking.length === 0) return null;
-  const other = blocking.find((f) => f.code !== 'not-reviewed');
+  const stopping = blocking(report);
+  if (stopping.length === 0) return null;
+  const other = stopping.find((f) => f.code !== 'not-reviewed');
   if (other !== undefined) return { command: null, text: fixNext(other) };
-  const count = report.findings.filter((f) => f.code === 'not-reviewed').length;
+  const count = stopping.filter((f) => f.code === 'not-reviewed').length;
   if (config.provider === null) {
     return { command: null, text: `ask the user to set reviewer.provider and reviewer.model in .lawcheck/config.yaml, then run ${review}` };
   }
@@ -439,6 +440,7 @@ function judge(
   changed: Set<string>,
   base: string | null,
   mode: Report['mode'],
+  strict: boolean,
 ): Report {
   const byPath = new Map(run.map((file) => [file.path, file]));
   const change: Finding[] = [];
@@ -450,7 +452,7 @@ function judge(
     if (item.line !== undefined && waive(waiversOf.get(item.file)!.waivers, item.rule, item.line)) continue;
     const rule = law.rules.get(item.rule)!;
     const isDebt = !changed.has(item.file);
-    const severity = !isDebt && rule.status === 'enforced' ? 'error' : 'warning';
+    const severity = (!isDebt || strict) && rule.status === 'enforced' ? 'error' : 'warning';
     const finding: Finding = { code: rule.id, rule: rule.id, severity, debt: isDebt, file: item.file, type: file.type.id, message: item.message, why: rule.why };
     if (item.line !== undefined) finding.line = item.line;
     place(finding);
@@ -459,7 +461,7 @@ function judge(
   for (const item of builtIn) {
     const rule = law.rules.get(item.rule)!;
     const isDebt = !changed.has(item.file);
-    const severity = !isDebt && rule.status === 'enforced' && mode !== 'paths' ? 'error' : 'warning';
+    const severity = (!isDebt || strict) && rule.status === 'enforced' && mode !== 'paths' ? 'error' : 'warning';
     place({ code: item.code, rule: rule.id, severity, debt: isDebt, file: item.file, type: byPath.get(item.file)!.type.id, message: item.message, why: WHY[item.code]! });
   }
 
@@ -469,7 +471,7 @@ function judge(
     place({
       code: 'forbidden-use',
       rule: null,
-      severity: isDebt ? 'warning' : 'error',
+      severity: isDebt && !strict ? 'warning' : 'error',
       debt: isDebt,
       file: item.file,
       line: item.line,
@@ -482,7 +484,7 @@ function judge(
   for (const item of uses.tooLarge) {
     const isDebt = !changed.has(item.file);
     if (isDebt && mode !== 'full') continue;
-    place({ code: 'uses-not-read', rule: null, severity: isDebt ? 'warning' : 'error', debt: isDebt, file: item.file, type: item.type, message: item.message, why: WHY['uses-not-read']! });
+    place({ code: 'uses-not-read', rule: null, severity: isDebt && !strict ? 'warning' : 'error', debt: isDebt, file: item.file, type: item.type, message: item.message, why: WHY['uses-not-read']! });
   }
 
   for (const item of uses.notRead) {
@@ -494,7 +496,7 @@ function judge(
     const isDebt = !changed.has(file.path);
     const { waivers: valid, problems } = waiversOf.get(file.path)!;
     for (const problem of problems) {
-      place({ code: problem.code, rule: null, severity: isDebt ? 'warning' : 'error', debt: isDebt, file: file.path, line: problem.line, type: file.type.id, message: problem.message, why: WHY[problem.code]! });
+      place({ code: problem.code, rule: null, severity: isDebt && !strict ? 'warning' : 'error', debt: isDebt, file: file.path, line: problem.line, type: file.type.id, message: problem.message, why: WHY[problem.code]! });
     }
     for (const waiver of valid) {
       waivers.push({ file: file.path, line: waiver.line, rule: waiver.rule, debt: isDebt, waived: waiver.waived, reason: waiver.reason });
