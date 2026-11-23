@@ -1,0 +1,56 @@
+{
+  "redirects": [
+    {
+      "source": "/index",
+      "destination": "/",
+      "permanent": true
+    },
+    {
+      "source": "/index.html",
+      "destination": "/",
+      "permanent": true
+    },
+    {
+      "source": "/:page(install|quick-start|concepts|other-tools|i-want-to|first-law|types-for-a-project|forbid-a-use|write-a-script-rule|write-a-reviewer-rule|adopt-in-an-existing-repository|claude-code|other-agents|ci|team|monorepo|false-alarm|slow-check|commands|law|config|script-rules|reviewer-rules|providers|languages|waivers|change|json|plugin|files|codes|questions|changelog|support|upgrade)",
+      "destination": "https://docs.lawcheck.dev/:page.html",
+      "permanent": true
+    },
+    {
+      "source": "/:page(install|quick-start|concepts|other-tools|i-want-to|first-law|types-for-a-project|forbid-a-use|write-a-script-rule|write-a-reviewer-rule|adopt-in-an-existing-repository|claude-code|other-agents|ci|team|monorepo|false-alarm|slow-check|commands|law|config|script-rules|reviewer-rules|providers|languages|waivers|change|json|plugin|files|codes|questions|changelog|support|upgrade).html",
+      "destination": "https://docs.lawcheck.dev/:page.html",
+      "permanent": true
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self'; font-src 'self'; connect-src 'self'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(), microphone=(), geolocation=()"
+        }
+      ]
+    },
+    {
+      "source": "/assets/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    }
+  ]
+}

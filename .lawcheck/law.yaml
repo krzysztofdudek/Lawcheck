@@ -114,6 +114,10 @@ types:
     rules: [docs-state-facts]
     waivers: false
 
+  site:
+    about: The landing page and the look of the documentation site, which VitePress builds from site/, and the brand they share. They read the files of the repository as data and import nothing of src/.
+    paths: ["site/**/*.{ts,mjs,vue}", "brand/*.mjs"]
+
   manifest:
     about: The package manifest. src/adapters/package.ts reads the version from it.
     paths: ["package.json"]
