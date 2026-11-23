@@ -219,6 +219,6 @@ Why: these two cases time a run in the test's own process, against bounds of 5 a
 
 ## 171. Init and doctor say that git ignores the law
 
-`init` writes the law as before when git ignores `.lawcheck/law.yaml`, and exits 0. It then adds a `note:` line to its text output, and in `--json` it starts `next.text` with the same warning; the document keeps its fields. `doctor` shows its `law` check as `note`, with a `next:` line, when git does not list `.lawcheck/law.yaml`. A law that git tracks and `.gitignore` also names is listed, so it gets no note.
+`init` writes the law as before when git ignores `.lawcheck/law.yaml`, and exits 0. It then adds a `note:` line to its text output, and in `--json` it starts `next.text` with the same warning; the document keeps its fields. `doctor` shows its `law` check as `note`, with a `next:` line, when git does not list `.lawcheck/law.yaml`. A law that git tracks and `.gitignore` also names is listed, so it gets no note. When `.lawcheck` is a symbolic link to a folder, both pass as before with no note: git lists no file beyond a link, and `git check-ignore` refuses such a path.
 
 Why: a law that git ignores works on the machine that made it and is in no commit, so every other checkout, and CI, has no law and checks nothing. Refusing in `init` would take away a repository's own choice and a global exclude the user may have for good reasons, and a new field would change the schema of `lawcheck-init/0` for a warning. `next.text` is the one field of the document that a person or an agent acts on.
