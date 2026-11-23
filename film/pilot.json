@@ -1,0 +1,2967 @@
+{
+  "prompt": "Add a loyalty discount in src/core: a customer with more than five orders gets ten percent off. Return the new total and a message that shows the saved amount as money, the way the receipts do.",
+  "recordHash": "SHA-256 of the lines \"<SHA-256 of a file>  <path>\" of every file of a record, sorted by path, each line ending in a newline",
+  "summary": {
+    "a": {
+      "sessions": 20,
+      "imported": 8
+    },
+    "b": {
+      "sessions": 60,
+      "imported": 0
+    }
+  },
+  "sessions": [
+    {
+      "id": "a01",
+      "arm": "a",
+      "recorded": "2026-11-23T12:35:36.457Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/format.ts",
+        "src/core/price.ts",
+        "tests/price.test.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "check": null,
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": []
+      },
+      "record": "e3e2024f1038b13158c192e2e04af254737dcb8c37c42a584a9eda3be98fcae7"
+    },
+    {
+      "id": "a02",
+      "arm": "a",
+      "recorded": "2026-11-23T12:35:36.459Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/money.ts",
+        "src/core/price.ts",
+        "tests/price.test.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "check": null,
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": []
+      },
+      "record": "362519d09b2d5cd3806ab97867d2e1ddf5a7eb3d12e82025ea8a40ceedeeddc5"
+    },
+    {
+      "id": "a03",
+      "arm": "a",
+      "recorded": "2026-11-23T12:35:36.458Z",
+      "complete": true,
+      "changed": [
+        "src/core/price.ts",
+        "tests/price.test.ts"
+      ],
+      "apiImports": [
+        "src/core/price.ts:1"
+      ],
+      "tests": {
+        "exit": 0,
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "check": null,
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": []
+      },
+      "record": "b554629ce32878c4f74489089ee250e20dd77cf698626f02642e0512c103ef9c"
+    },
+    {
+      "id": "a04",
+      "arm": "a",
+      "recorded": "2026-11-23T12:35:36.458Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/money.ts",
+        "src/core/price.ts",
+        "tests/price.test.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "check": null,
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": []
+      },
+      "record": "cf05e515ea44b246b1e3ff6569fe454082f8619b024475c0f5601c92da5e14a7"
+    },
+    {
+      "id": "a05",
+      "arm": "a",
+      "recorded": "2026-11-23T12:35:36.461Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/money.ts",
+        "src/core/price.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 8,
+        "pass": 8,
+        "fail": 0
+      },
+      "check": null,
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": []
+      },
+      "record": "4607a95a27f22e46f138af4d4c720bea1e7fc3c40a0a7c4b0bd90829042c6f2e"
+    },
+    {
+      "id": "a06",
+      "arm": "a",
+      "recorded": "2026-11-23T12:36:01.921Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/money.ts",
+        "src/core/price.ts",
+        "tests/price.test.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "check": null,
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": []
+      },
+      "record": "da4522ee83181e8021e7f7b99cd75b1e9a628ded7fea7874054e490a1679348c"
+    },
+    {
+      "id": "a07",
+      "arm": "a",
+      "recorded": "2026-11-23T12:36:02.685Z",
+      "complete": true,
+      "changed": [
+        "src/core/price.ts",
+        "tests/price.test.ts"
+      ],
+      "apiImports": [
+        "src/core/price.ts:1"
+      ],
+      "tests": {
+        "exit": 0,
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "check": null,
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": []
+      },
+      "record": "d2c3a80aef3667134af6a92861807c886f51d136d8cb06b170dd663cb48d9b9a"
+    },
+    {
+      "id": "a08",
+      "arm": "a",
+      "recorded": "2026-11-23T12:36:03.179Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/money.ts",
+        "src/core/price.ts",
+        "tests/price.test.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "check": null,
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": []
+      },
+      "record": "73c0db8175068f248829676a2111335f50401f838216315abb76484373a93efb"
+    },
+    {
+      "id": "a09",
+      "arm": "a",
+      "recorded": "2026-11-23T12:36:03.513Z",
+      "complete": true,
+      "changed": [
+        "src/core/price.ts",
+        "tests/price.test.ts"
+      ],
+      "apiImports": [
+        "src/core/price.ts:1"
+      ],
+      "tests": {
+        "exit": 0,
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "check": null,
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": []
+      },
+      "record": "33414439896a86e9b0ce8daca68f6746b91ec13437c853d5e5107193fab071b1"
+    },
+    {
+      "id": "a10",
+      "arm": "a",
+      "recorded": "2026-11-23T12:36:06.635Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/money.ts",
+        "src/core/price.ts",
+        "tests/price.test.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "check": null,
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": []
+      },
+      "record": "48210aa3a5d276f6bd8c674f5f7ebc721d4eb261f513937518be2942d739f00a"
+    },
+    {
+      "id": "a11",
+      "arm": "a",
+      "recorded": "2026-11-23T12:36:28.617Z",
+      "complete": true,
+      "changed": [
+        "src/core/price.ts",
+        "tests/price.test.ts"
+      ],
+      "apiImports": [
+        "src/core/price.ts:1"
+      ],
+      "tests": {
+        "exit": 0,
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "check": null,
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": []
+      },
+      "record": "af5b414b581f438187a1312ee7b3eed7e7d4c6cbd8fb5df5f2441c11d6c9e950"
+    },
+    {
+      "id": "a12",
+      "arm": "a",
+      "recorded": "2026-11-23T12:36:28.865Z",
+      "complete": true,
+      "changed": [
+        "src/core/price.ts",
+        "tests/price.test.ts"
+      ],
+      "apiImports": [
+        "src/core/price.ts:1"
+      ],
+      "tests": {
+        "exit": 0,
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "check": null,
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": []
+      },
+      "record": "5dea2af9879aad6517948efe010a0c6926aa56e30e43814e04b4eefeb2058a05"
+    },
+    {
+      "id": "a13",
+      "arm": "a",
+      "recorded": "2026-11-23T12:36:29.725Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/format.ts",
+        "src/core/price.ts",
+        "tests/price.test.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "check": null,
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": []
+      },
+      "record": "df84c9ac28784fd06c81bc141c057eb4cf67f08b7b649318b3ab1fea9dba2440"
+    },
+    {
+      "id": "a14",
+      "arm": "a",
+      "recorded": "2026-11-23T12:36:29.862Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/money.ts",
+        "src/core/price.ts",
+        "tests/price.test.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "check": null,
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": []
+      },
+      "record": "48ca4b8aea45c43062de73405e068f65b60c659471df69b2a8bffaa4c4450ba1"
+    },
+    {
+      "id": "a15",
+      "arm": "a",
+      "recorded": "2026-11-23T12:36:41.444Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/money.ts",
+        "src/core/price.ts",
+        "tests/price.test.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "check": null,
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": []
+      },
+      "record": "644ee6b2acdf8cbce3983f4a9ab3e84d3f817f92c56f4c842664ae4b71b3e416"
+    },
+    {
+      "id": "a16",
+      "arm": "a",
+      "recorded": "2026-11-23T12:36:55.261Z",
+      "complete": true,
+      "changed": [
+        "src/core/price.ts",
+        "tests/price.test.ts"
+      ],
+      "apiImports": [
+        "src/core/price.ts:1"
+      ],
+      "tests": {
+        "exit": 0,
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "check": null,
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": []
+      },
+      "record": "19095f4d9e4c2f55a1485416fff1a88389e122a0548dd1bc424e44f6924669e6"
+    },
+    {
+      "id": "a17",
+      "arm": "a",
+      "recorded": "2026-11-23T12:36:55.565Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/money.ts",
+        "src/core/price.ts",
+        "tests/price.test.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "check": null,
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": []
+      },
+      "record": "18292a45b98c203fd385466cdeead8400e138ac683363104c8eea3b1d7c6a601"
+    },
+    {
+      "id": "a18",
+      "arm": "a",
+      "recorded": "2026-11-23T12:36:57.701Z",
+      "complete": true,
+      "changed": [
+        "src/core/price.ts",
+        "tests/price.test.ts"
+      ],
+      "apiImports": [
+        "src/core/price.ts:1"
+      ],
+      "tests": {
+        "exit": 0,
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "check": null,
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": []
+      },
+      "record": "66d713c56d56ed46a4688c8477ca317da8d8be4304b194c7024d306714ac86dc"
+    },
+    {
+      "id": "a19",
+      "arm": "a",
+      "recorded": "2026-11-23T12:36:58.635Z",
+      "complete": true,
+      "changed": [
+        "src/core/price.ts",
+        "tests/price.test.ts"
+      ],
+      "apiImports": [
+        "src/core/price.ts:1"
+      ],
+      "tests": {
+        "exit": 0,
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "check": null,
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": []
+      },
+      "record": "da2da770e4f0e5267e1df055daa2af4b96e3b50be7b4b20fcf03dd6052249246"
+    },
+    {
+      "id": "a20",
+      "arm": "a",
+      "recorded": "2026-11-23T12:37:08.038Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/discount.ts",
+        "src/core/money.ts",
+        "tests/discount.test.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "check": null,
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": []
+      },
+      "record": "6420c82b48413f05e366153d22f9dc8caf07f7f85b32d2eab1dbfd1f77c94037"
+    },
+    {
+      "id": "b01",
+      "arm": "b",
+      "recorded": "2026-11-23T12:37:23.358Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/loyalty.ts",
+        "src/core/money.ts",
+        "tests/loyalty.test.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "check": {
+        "exit": 0,
+        "first": "lawcheck: PASS  4 changed files (against origin/main)"
+      },
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": [
+          {
+            "version": "0.1.0-alpha.4",
+            "commit": "c59c9a4e3eff764d9385fa5eefac3d1ea182ac9f"
+          }
+        ]
+      },
+      "record": "fd285a00980d0758ccb3e6a0cef9278e85d5e4c90ac9dea9631e5b75e5d67ae8"
+    },
+    {
+      "id": "b02",
+      "arm": "b",
+      "recorded": "2026-11-23T12:37:24.402Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/loyalty.ts",
+        "src/core/money.ts",
+        "tests/loyalty.test.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "check": {
+        "exit": 0,
+        "first": "lawcheck: PASS  4 changed files (against origin/main)"
+      },
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": [
+          {
+            "version": "0.1.0-alpha.4",
+            "commit": "c59c9a4e3eff764d9385fa5eefac3d1ea182ac9f"
+          }
+        ]
+      },
+      "record": "78f6fdd6ce71a4018508bfc2c0af508a732f37034a09ded517de46eb05338cdd"
+    },
+    {
+      "id": "b03",
+      "arm": "b",
+      "recorded": "2026-11-23T12:37:27.896Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/loyalty.ts",
+        "src/core/money.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 8,
+        "pass": 8,
+        "fail": 0
+      },
+      "check": {
+        "exit": 0,
+        "first": "lawcheck: PASS  3 changed files (against origin/main)"
+      },
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": [
+          {
+            "version": "0.1.0-alpha.4",
+            "commit": "c59c9a4e3eff764d9385fa5eefac3d1ea182ac9f"
+          }
+        ]
+      },
+      "record": "734ef6699cc02e46ac829ceea4a5b5177f0b0b5519c747fc0533334435f98978"
+    },
+    {
+      "id": "b04",
+      "arm": "b",
+      "recorded": "2026-11-23T12:37:28.387Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/loyalty.ts",
+        "src/core/money.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 8,
+        "pass": 8,
+        "fail": 0
+      },
+      "check": {
+        "exit": 0,
+        "first": "lawcheck: PASS  3 changed files (against origin/main)"
+      },
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": [
+          {
+            "version": "0.1.0-alpha.4",
+            "commit": "c59c9a4e3eff764d9385fa5eefac3d1ea182ac9f"
+          }
+        ]
+      },
+      "record": "95e36d52307c3deb0d32ec644533df5e5d615f9747110c7b70fa5ac71a33f568"
+    },
+    {
+      "id": "b05",
+      "arm": "b",
+      "recorded": "2026-11-23T12:37:37.578Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/loyalty.ts",
+        "src/core/money.ts",
+        "tests/loyalty.test.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "check": {
+        "exit": 0,
+        "first": "lawcheck: PASS  4 changed files (against origin/main)"
+      },
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": [
+          {
+            "version": "0.1.0-alpha.4",
+            "commit": "c59c9a4e3eff764d9385fa5eefac3d1ea182ac9f"
+          }
+        ]
+      },
+      "record": "c4457301f1b4553759e565529622a267750bebce9f29d92286b92072033428c7"
+    },
+    {
+      "id": "b06",
+      "arm": "b",
+      "recorded": "2026-11-23T12:37:59.021Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/loyalty.ts",
+        "src/core/money.ts",
+        "tests/loyalty.test.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "check": {
+        "exit": 0,
+        "first": "lawcheck: PASS  4 changed files (against origin/main)"
+      },
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": [
+          {
+            "version": "0.1.0-alpha.4",
+            "commit": "c59c9a4e3eff764d9385fa5eefac3d1ea182ac9f"
+          }
+        ]
+      },
+      "record": "d23b25bbb81407789900d51750ffda7a987b1522bd2d1ff23be5a756230f4fe7"
+    },
+    {
+      "id": "b07",
+      "arm": "b",
+      "recorded": "2026-11-23T12:37:59.610Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/loyalty.ts",
+        "src/core/money.ts",
+        "tests/loyalty.test.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "check": {
+        "exit": 0,
+        "first": "lawcheck: PASS  4 changed files (against origin/main)"
+      },
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": [
+          {
+            "version": "0.1.0-alpha.4",
+            "commit": "c59c9a4e3eff764d9385fa5eefac3d1ea182ac9f"
+          }
+        ]
+      },
+      "record": "76363862f544036c94c59b73336ce3d3421205579bd930bf8a21f25509bb94d2"
+    },
+    {
+      "id": "b08",
+      "arm": "b",
+      "recorded": "2026-11-23T12:38:01.100Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/money.ts",
+        "src/core/price.ts",
+        "tests/price.test.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "check": {
+        "exit": 0,
+        "first": "lawcheck: PASS  4 changed files (against origin/main)"
+      },
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": [
+          {
+            "version": "0.1.0-alpha.4",
+            "commit": "c59c9a4e3eff764d9385fa5eefac3d1ea182ac9f"
+          }
+        ]
+      },
+      "record": "652bde8e6c5322176e7b3812c05c86894c556650efc77166d8ca7cd56a8ef945"
+    },
+    {
+      "id": "b09",
+      "arm": "b",
+      "recorded": "2026-11-23T12:38:01.946Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/loyalty.ts",
+        "src/core/money.ts",
+        "tests/loyalty.test.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "check": {
+        "exit": 0,
+        "first": "lawcheck: PASS  4 changed files (against origin/main)"
+      },
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": [
+          {
+            "version": "0.1.0-alpha.4",
+            "commit": "c59c9a4e3eff764d9385fa5eefac3d1ea182ac9f"
+          }
+        ]
+      },
+      "record": "c5cd5dfd5c979c35e7e5fd0af49a703cdd8cf6f5725301eccc9120ef25ae59dc"
+    },
+    {
+      "id": "b10",
+      "arm": "b",
+      "recorded": "2026-11-23T12:38:12.185Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/loyalty.ts",
+        "src/core/money.ts",
+        "tests/loyalty.test.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "check": {
+        "exit": 0,
+        "first": "lawcheck: PASS  4 changed files (against origin/main)"
+      },
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": [
+          {
+            "version": "0.1.0-alpha.4",
+            "commit": "c59c9a4e3eff764d9385fa5eefac3d1ea182ac9f"
+          }
+        ]
+      },
+      "record": "353dd520d05ec8e353d12956d4945c197e81473e67d8ec5935a2d62e8a454da9"
+    },
+    {
+      "id": "b11",
+      "arm": "b",
+      "recorded": "2026-11-23T12:38:32.081Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/loyalty.ts",
+        "src/core/money.ts",
+        "tests/loyalty.test.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "check": {
+        "exit": 0,
+        "first": "lawcheck: PASS  4 changed files (against origin/main)"
+      },
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": [
+          {
+            "version": "0.1.0-alpha.4",
+            "commit": "c59c9a4e3eff764d9385fa5eefac3d1ea182ac9f"
+          }
+        ]
+      },
+      "record": "bb19e0b88c6bd7e8a36d1235244bf7d1bd73f16a6c815f064923e55c724eface"
+    },
+    {
+      "id": "b12",
+      "arm": "b",
+      "recorded": "2026-11-23T12:38:33.257Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/loyalty.ts",
+        "src/core/money.ts",
+        "tests/loyalty.test.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "check": {
+        "exit": 0,
+        "first": "lawcheck: PASS  4 changed files (against origin/main)"
+      },
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": [
+          {
+            "version": "0.1.0-alpha.4",
+            "commit": "c59c9a4e3eff764d9385fa5eefac3d1ea182ac9f"
+          }
+        ]
+      },
+      "record": "46cca0165e930090af0795dfa160109b7eca631040be84bfc10948f3630f594f"
+    },
+    {
+      "id": "b13",
+      "arm": "b",
+      "recorded": "2026-11-23T12:38:37.171Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/loyalty.ts",
+        "src/core/money.ts",
+        "tests/loyalty.test.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "check": {
+        "exit": 0,
+        "first": "lawcheck: PASS  4 changed files (against origin/main)"
+      },
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": [
+          {
+            "version": "0.1.0-alpha.4",
+            "commit": "c59c9a4e3eff764d9385fa5eefac3d1ea182ac9f"
+          }
+        ]
+      },
+      "record": "037d3f8879a40621dff0271df2383ecc307bcd383807b8d01d75a217e667b181"
+    },
+    {
+      "id": "b14",
+      "arm": "b",
+      "recorded": "2026-11-23T12:38:38.253Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/format.ts",
+        "src/core/loyalty.ts",
+        "tests/loyalty.test.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "check": {
+        "exit": 0,
+        "first": "lawcheck: PASS  4 changed files (against origin/main)"
+      },
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": [
+          {
+            "version": "0.1.0-alpha.4",
+            "commit": "c59c9a4e3eff764d9385fa5eefac3d1ea182ac9f"
+          }
+        ]
+      },
+      "record": "b1080ef1f899108fd20d50a725881051de7e4b78b9413f68d33b64129de7a83c"
+    },
+    {
+      "id": "b15",
+      "arm": "b",
+      "recorded": "2026-11-23T12:38:45.754Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/loyalty.ts",
+        "src/core/money.ts",
+        "tests/loyalty.test.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "check": {
+        "exit": 0,
+        "first": "lawcheck: PASS  4 changed files (against origin/main)"
+      },
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": [
+          {
+            "version": "0.1.0-alpha.4",
+            "commit": "c59c9a4e3eff764d9385fa5eefac3d1ea182ac9f"
+          }
+        ]
+      },
+      "record": "d7764eed956c614b86a0fa34bd8d3cccacd4c7ce2f2570cd7c817faf7bc4201d"
+    },
+    {
+      "id": "b16",
+      "arm": "b",
+      "recorded": "2026-11-23T12:39:05.621Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/loyalty.ts",
+        "src/core/money.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 8,
+        "pass": 8,
+        "fail": 0
+      },
+      "check": {
+        "exit": 0,
+        "first": "lawcheck: PASS  3 changed files (against origin/main)"
+      },
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": [
+          {
+            "version": "0.1.0-alpha.4",
+            "commit": "c59c9a4e3eff764d9385fa5eefac3d1ea182ac9f"
+          }
+        ]
+      },
+      "record": "527c57928f5e72b6f9d740515977c068e983e0153257808f60315ac4b48e4a28"
+    },
+    {
+      "id": "b17",
+      "arm": "b",
+      "recorded": "2026-11-23T12:39:06.740Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/money.ts",
+        "src/core/price.ts",
+        "tests/price.test.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 9,
+        "pass": 9,
+        "fail": 0
+      },
+      "check": {
+        "exit": 0,
+        "first": "lawcheck: PASS  4 changed files (against origin/main)"
+      },
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": [
+          {
+            "version": "0.1.0-alpha.4",
+            "commit": "c59c9a4e3eff764d9385fa5eefac3d1ea182ac9f"
+          }
+        ]
+      },
+      "record": "d9d020ceda4ab722b1bb59834e914cb30e8e44cf2db4d5221ca153b05121d884"
+    },
+    {
+      "id": "b18",
+      "arm": "b",
+      "recorded": "2026-11-23T12:39:11.467Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/loyalty.ts",
+        "src/core/money.ts",
+        "tests/loyalty.test.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "check": {
+        "exit": 0,
+        "first": "lawcheck: PASS  4 changed files (against origin/main)"
+      },
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": [
+          {
+            "version": "0.1.0-alpha.4",
+            "commit": "c59c9a4e3eff764d9385fa5eefac3d1ea182ac9f"
+          }
+        ]
+      },
+      "record": "479d4a6969a75913a5b2f2e10a8a5437c456101d594ab87f7bd04f495bf55197"
+    },
+    {
+      "id": "b19",
+      "arm": "b",
+      "recorded": "2026-11-23T12:39:11.727Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/loyalty.ts",
+        "src/core/money.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 8,
+        "pass": 8,
+        "fail": 0
+      },
+      "check": {
+        "exit": 0,
+        "first": "lawcheck: PASS  3 changed files (against origin/main)"
+      },
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": [
+          {
+            "version": "0.1.0-alpha.4",
+            "commit": "c59c9a4e3eff764d9385fa5eefac3d1ea182ac9f"
+          }
+        ]
+      },
+      "record": "6dbb9bdb4b60d647819a85bf81d933ac9290a4c131061aa2a071fa471aead9f5"
+    },
+    {
+      "id": "b20",
+      "arm": "b",
+      "recorded": "2026-11-23T12:39:21.540Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/money.ts",
+        "src/core/price.ts",
+        "tests/price.test.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 9,
+        "pass": 9,
+        "fail": 0
+      },
+      "check": {
+        "exit": 0,
+        "first": "lawcheck: PASS  4 changed files (against origin/main)"
+      },
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": [
+          {
+            "version": "0.1.0-alpha.4",
+            "commit": "c59c9a4e3eff764d9385fa5eefac3d1ea182ac9f"
+          }
+        ]
+      },
+      "record": "d5eab813cfdd64e29dde097f17a8896f7e80586fd4a63a2efa2d3f4ef613b059"
+    },
+    {
+      "id": "b21",
+      "arm": "b",
+      "recorded": "2026-11-23T12:40:14.073Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/loyalty.ts",
+        "src/core/money.ts",
+        "tests/loyalty.test.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "check": {
+        "exit": 0,
+        "first": "lawcheck: PASS  4 changed files (against origin/main)"
+      },
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": [
+          {
+            "version": "0.1.0-alpha.4",
+            "commit": "c59c9a4e3eff764d9385fa5eefac3d1ea182ac9f"
+          }
+        ]
+      },
+      "record": "26f6c54d49557835131d51218cb8df95682aedb82ebc59384dd08843e92c5651"
+    },
+    {
+      "id": "b22",
+      "arm": "b",
+      "recorded": "2026-11-23T12:40:14.310Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/loyalty.ts",
+        "src/core/money.ts",
+        "tests/loyalty.test.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "check": {
+        "exit": 0,
+        "first": "lawcheck: PASS  4 changed files (against origin/main)"
+      },
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": [
+          {
+            "version": "0.1.0-alpha.4",
+            "commit": "c59c9a4e3eff764d9385fa5eefac3d1ea182ac9f"
+          }
+        ]
+      },
+      "record": "494420b43168b54bc56457f3e406e7c9d14209f4fe21eda0bc5a19f3d29809c7"
+    },
+    {
+      "id": "b23",
+      "arm": "b",
+      "recorded": "2026-11-23T12:40:14.315Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/loyalty.ts",
+        "src/core/money.ts",
+        "tests/loyalty.test.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "check": {
+        "exit": 0,
+        "first": "lawcheck: PASS  4 changed files (against origin/main)"
+      },
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": [
+          {
+            "version": "0.1.0-alpha.4",
+            "commit": "c59c9a4e3eff764d9385fa5eefac3d1ea182ac9f"
+          }
+        ]
+      },
+      "record": "82edf850ef349b5e919e16218ba5935b736914d64080a9e8e5b6279cff816619"
+    },
+    {
+      "id": "b24",
+      "arm": "b",
+      "recorded": "2026-11-23T12:40:14.248Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/loyalty.ts",
+        "src/core/money.ts",
+        "tests/loyalty.test.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "check": {
+        "exit": 0,
+        "first": "lawcheck: PASS  4 changed files (against origin/main)"
+      },
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": [
+          {
+            "version": "0.1.0-alpha.4",
+            "commit": "c59c9a4e3eff764d9385fa5eefac3d1ea182ac9f"
+          }
+        ]
+      },
+      "record": "e2cbeb73129bdeba0db75488ecf3e5defc29f66cf6a33f99a85cfb4e0a7f250c"
+    },
+    {
+      "id": "b25",
+      "arm": "b",
+      "recorded": "2026-11-23T12:40:14.060Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/loyalty.ts",
+        "src/core/money.ts",
+        "tests/loyalty.test.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "check": {
+        "exit": 0,
+        "first": "lawcheck: PASS  4 changed files (against origin/main)"
+      },
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": [
+          {
+            "version": "0.1.0-alpha.4",
+            "commit": "c59c9a4e3eff764d9385fa5eefac3d1ea182ac9f"
+          }
+        ]
+      },
+      "record": "7118422111cedd5b418ccd6b1cee8bbefb653c40a84dd69a296aedb5d5c62fb0"
+    },
+    {
+      "id": "b26",
+      "arm": "b",
+      "recorded": "2026-11-23T12:40:14.121Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/loyalty.ts",
+        "src/core/money.ts",
+        "tests/loyalty.test.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "check": {
+        "exit": 0,
+        "first": "lawcheck: PASS  4 changed files (against origin/main)"
+      },
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": [
+          {
+            "version": "0.1.0-alpha.4",
+            "commit": "c59c9a4e3eff764d9385fa5eefac3d1ea182ac9f"
+          }
+        ]
+      },
+      "record": "2ff37a0a6989a0381b0671dffa02f9e2689f253c5af8671c1ba0a59ce42474a2"
+    },
+    {
+      "id": "b27",
+      "arm": "b",
+      "recorded": "2026-11-23T12:40:14.209Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/loyalty.ts",
+        "src/core/money.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 8,
+        "pass": 8,
+        "fail": 0
+      },
+      "check": {
+        "exit": 0,
+        "first": "lawcheck: PASS  3 changed files (against origin/main)"
+      },
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": [
+          {
+            "version": "0.1.0-alpha.4",
+            "commit": "c59c9a4e3eff764d9385fa5eefac3d1ea182ac9f"
+          }
+        ]
+      },
+      "record": "24a9f0e2d1c02b108d3f748e9295c2941ce592d8ba017d70c2401c27387e7b1e"
+    },
+    {
+      "id": "b28",
+      "arm": "b",
+      "recorded": "2026-11-23T12:40:14.107Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/loyalty.ts",
+        "src/core/money.ts",
+        "tests/loyalty.test.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "check": {
+        "exit": 0,
+        "first": "lawcheck: PASS  4 changed files (against origin/main)"
+      },
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": [
+          {
+            "version": "0.1.0-alpha.4",
+            "commit": "c59c9a4e3eff764d9385fa5eefac3d1ea182ac9f"
+          }
+        ]
+      },
+      "record": "d5eef6b74e5ad8538a250f8384cd8072820d2e6dcf82e1d9768af8c8b351de0f"
+    },
+    {
+      "id": "b29",
+      "arm": "b",
+      "recorded": "2026-11-23T12:40:47.614Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/loyalty.ts",
+        "src/core/money.ts",
+        "tests/loyalty.test.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "check": {
+        "exit": 0,
+        "first": "lawcheck: PASS  4 changed files (against origin/main)"
+      },
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": [
+          {
+            "version": "0.1.0-alpha.4",
+            "commit": "c59c9a4e3eff764d9385fa5eefac3d1ea182ac9f"
+          }
+        ]
+      },
+      "record": "c285851e125a266583814b00a60534822bdd7c26c29773ab4d2b81a2e6d42c22"
+    },
+    {
+      "id": "b30",
+      "arm": "b",
+      "recorded": "2026-11-23T12:40:47.802Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/money.ts",
+        "src/core/price.ts",
+        "tests/price.test.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 9,
+        "pass": 9,
+        "fail": 0
+      },
+      "check": {
+        "exit": 0,
+        "first": "lawcheck: PASS  4 changed files (against origin/main)"
+      },
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": [
+          {
+            "version": "0.1.0-alpha.4",
+            "commit": "c59c9a4e3eff764d9385fa5eefac3d1ea182ac9f"
+          }
+        ]
+      },
+      "record": "9fd9fda02fcae1971ce798cf0f65319c474af28f384382d3e76e4c85b518813b"
+    },
+    {
+      "id": "b31",
+      "arm": "b",
+      "recorded": "2026-11-23T12:40:48.827Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/loyalty.ts",
+        "src/core/money.ts",
+        "tests/loyalty.test.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "check": {
+        "exit": 0,
+        "first": "lawcheck: PASS  4 changed files (against origin/main)"
+      },
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": [
+          {
+            "version": "0.1.0-alpha.4",
+            "commit": "c59c9a4e3eff764d9385fa5eefac3d1ea182ac9f"
+          }
+        ]
+      },
+      "record": "ffb5ae6d7af66b47fe2e6d9764d58a15a438071ffb5dae1792229b1a2d86678d"
+    },
+    {
+      "id": "b32",
+      "arm": "b",
+      "recorded": "2026-11-23T12:40:49.716Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/loyalty.ts",
+        "src/core/money.ts",
+        "tests/loyalty.test.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "check": {
+        "exit": 0,
+        "first": "lawcheck: PASS  4 changed files (against origin/main)"
+      },
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": [
+          {
+            "version": "0.1.0-alpha.4",
+            "commit": "c59c9a4e3eff764d9385fa5eefac3d1ea182ac9f"
+          }
+        ]
+      },
+      "record": "ac9ab55e3c926c1be4375a5debaa7b85a2581571f818437213caf44d0f04718e"
+    },
+    {
+      "id": "b33",
+      "arm": "b",
+      "recorded": "2026-11-23T12:40:50.031Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/loyalty.ts",
+        "src/core/money.ts",
+        "tests/loyalty.test.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "check": {
+        "exit": 0,
+        "first": "lawcheck: PASS  4 changed files (against origin/main)"
+      },
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": [
+          {
+            "version": "0.1.0-alpha.4",
+            "commit": "c59c9a4e3eff764d9385fa5eefac3d1ea182ac9f"
+          }
+        ]
+      },
+      "record": "c1f38dcb0c51b107f49ba7eccfe4559897349e3c45213b203092b7a9b7f2e0dd"
+    },
+    {
+      "id": "b34",
+      "arm": "b",
+      "recorded": "2026-11-23T12:40:51.414Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/loyalty.ts",
+        "src/core/money.ts",
+        "tests/loyalty.test.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "check": {
+        "exit": 0,
+        "first": "lawcheck: PASS  4 changed files (against origin/main)"
+      },
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": [
+          {
+            "version": "0.1.0-alpha.4",
+            "commit": "c59c9a4e3eff764d9385fa5eefac3d1ea182ac9f"
+          }
+        ]
+      },
+      "record": "babe485549ec69d4c4dbed396f21d9fb74810b51b7a417c56c2072a4b3ce1e62"
+    },
+    {
+      "id": "b35",
+      "arm": "b",
+      "recorded": "2026-11-23T12:40:53.743Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/loyalty.ts",
+        "src/core/money.ts",
+        "tests/loyalty.test.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "check": {
+        "exit": 0,
+        "first": "lawcheck: PASS  4 changed files (against origin/main)"
+      },
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": [
+          {
+            "version": "0.1.0-alpha.4",
+            "commit": "c59c9a4e3eff764d9385fa5eefac3d1ea182ac9f"
+          }
+        ]
+      },
+      "record": "c00c9fbe24dae76ec58cce06c20f522c7add3a26456ba62566efc811fbd5b84c"
+    },
+    {
+      "id": "b36",
+      "arm": "b",
+      "recorded": "2026-11-23T12:40:54.613Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/loyalty.ts",
+        "src/core/money.ts",
+        "tests/loyalty.test.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "check": {
+        "exit": 0,
+        "first": "lawcheck: PASS  4 changed files (against origin/main)"
+      },
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": [
+          {
+            "version": "0.1.0-alpha.4",
+            "commit": "c59c9a4e3eff764d9385fa5eefac3d1ea182ac9f"
+          }
+        ]
+      },
+      "record": "55a04731b14627f82a670b429bf76fa0c8352bb556ed83f59f8025f0c49e49b7"
+    },
+    {
+      "id": "b37",
+      "arm": "b",
+      "recorded": "2026-11-23T12:41:20.273Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/loyalty.ts",
+        "src/core/money.ts",
+        "tests/loyalty.test.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "check": {
+        "exit": 0,
+        "first": "lawcheck: PASS  4 changed files (against origin/main)"
+      },
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": [
+          {
+            "version": "0.1.0-alpha.4",
+            "commit": "c59c9a4e3eff764d9385fa5eefac3d1ea182ac9f"
+          }
+        ]
+      },
+      "record": "5bdd2e5b2216e2baa2021976d3b37e23a5da07403225c5f85caa48cb135f4d03"
+    },
+    {
+      "id": "b38",
+      "arm": "b",
+      "recorded": "2026-11-23T12:41:20.864Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/loyalty.ts",
+        "src/core/money.ts",
+        "tests/loyalty.test.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "check": {
+        "exit": 0,
+        "first": "lawcheck: PASS  4 changed files (against origin/main)"
+      },
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": [
+          {
+            "version": "0.1.0-alpha.4",
+            "commit": "c59c9a4e3eff764d9385fa5eefac3d1ea182ac9f"
+          }
+        ]
+      },
+      "record": "d621ad7d18ad2411020a1da6aa16d4b1b62074784c253c95b1a35fc8c951899d"
+    },
+    {
+      "id": "b39",
+      "arm": "b",
+      "recorded": "2026-11-23T12:41:21.478Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/money.ts",
+        "src/core/price.ts",
+        "tests/price.test.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 9,
+        "pass": 9,
+        "fail": 0
+      },
+      "check": {
+        "exit": 0,
+        "first": "lawcheck: PASS  4 changed files (against origin/main)"
+      },
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": [
+          {
+            "version": "0.1.0-alpha.4",
+            "commit": "c59c9a4e3eff764d9385fa5eefac3d1ea182ac9f"
+          }
+        ]
+      },
+      "record": "4f1a8bb70aed2493e40ec5e33b24f7ad64e2fd7be4cf29e50103dd5c04e4003e"
+    },
+    {
+      "id": "b40",
+      "arm": "b",
+      "recorded": "2026-11-23T12:41:23.290Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/money.ts",
+        "src/core/price.ts",
+        "tests/price.test.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 9,
+        "pass": 9,
+        "fail": 0
+      },
+      "check": {
+        "exit": 0,
+        "first": "lawcheck: PASS  4 changed files (against origin/main)"
+      },
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": [
+          {
+            "version": "0.1.0-alpha.4",
+            "commit": "c59c9a4e3eff764d9385fa5eefac3d1ea182ac9f"
+          }
+        ]
+      },
+      "record": "1ef4f2d01604cb6297633c99c6f37e494057f92c91b0c0b4774fd349782d0099"
+    },
+    {
+      "id": "b41",
+      "arm": "b",
+      "recorded": "2026-11-23T12:41:26.753Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/money.ts",
+        "src/core/price.ts",
+        "tests/price.test.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "check": {
+        "exit": 0,
+        "first": "lawcheck: PASS  4 changed files (against origin/main)"
+      },
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": [
+          {
+            "version": "0.1.0-alpha.4",
+            "commit": "c59c9a4e3eff764d9385fa5eefac3d1ea182ac9f"
+          }
+        ]
+      },
+      "record": "a51b7bfda36374ca88f6f4f77df1085bd6990d441700302b33f047f52b9e9401"
+    },
+    {
+      "id": "b42",
+      "arm": "b",
+      "recorded": "2026-11-23T12:41:29.068Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/loyalty.ts",
+        "src/core/money.ts",
+        "tests/loyalty.test.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "check": {
+        "exit": 0,
+        "first": "lawcheck: PASS  4 changed files (against origin/main)"
+      },
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": [
+          {
+            "version": "0.1.0-alpha.4",
+            "commit": "c59c9a4e3eff764d9385fa5eefac3d1ea182ac9f"
+          }
+        ]
+      },
+      "record": "9a84f46a73143cd5fd8ba1af88b930ac1074482f74050b5cf507e8a9d6246992"
+    },
+    {
+      "id": "b43",
+      "arm": "b",
+      "recorded": "2026-11-23T12:41:29.271Z",
+      "complete": true,
+      "changed": [
+        "src/core/loyalty.ts",
+        "src/core/money.ts",
+        "tests/loyalty.test.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "check": {
+        "exit": 0,
+        "first": "lawcheck: PASS  3 changed files (against origin/main)"
+      },
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": [
+          {
+            "version": "0.1.0-alpha.4",
+            "commit": "c59c9a4e3eff764d9385fa5eefac3d1ea182ac9f"
+          }
+        ]
+      },
+      "record": "68f4662766931aeb0bc5020558073da60a80834bf045441b845eb6e8ac821558"
+    },
+    {
+      "id": "b44",
+      "arm": "b",
+      "recorded": "2026-11-23T12:41:31.884Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/discount.ts",
+        "src/core/money.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 8,
+        "pass": 8,
+        "fail": 0
+      },
+      "check": {
+        "exit": 0,
+        "first": "lawcheck: PASS  3 changed files (against origin/main)"
+      },
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": [
+          {
+            "version": "0.1.0-alpha.4",
+            "commit": "c59c9a4e3eff764d9385fa5eefac3d1ea182ac9f"
+          }
+        ]
+      },
+      "record": "471e0abf361f45d4200b55e3fe3e773fceceed29d8d427025097af156018ab17"
+    },
+    {
+      "id": "b45",
+      "arm": "b",
+      "recorded": "2026-11-23T12:41:54.492Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/loyalty.ts",
+        "src/core/money.ts",
+        "tests/loyalty.test.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "check": {
+        "exit": 0,
+        "first": "lawcheck: PASS  4 changed files (against origin/main)"
+      },
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": [
+          {
+            "version": "0.1.0-alpha.4",
+            "commit": "c59c9a4e3eff764d9385fa5eefac3d1ea182ac9f"
+          }
+        ]
+      },
+      "record": "7aefa120e9dd6493b813a4c1bd04ba4fa72e9cf64f74805f7f77334e5a2aab63"
+    },
+    {
+      "id": "b46",
+      "arm": "b",
+      "recorded": "2026-11-23T12:41:54.911Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/loyalty.ts",
+        "src/core/money.ts",
+        "tests/loyalty.test.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "check": {
+        "exit": 0,
+        "first": "lawcheck: PASS  4 changed files (against origin/main)"
+      },
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": [
+          {
+            "version": "0.1.0-alpha.4",
+            "commit": "c59c9a4e3eff764d9385fa5eefac3d1ea182ac9f"
+          }
+        ]
+      },
+      "record": "d6b6d43a2e2b071e4e4a01b7ce07117149f0658e7c23da91afe90391cd681935"
+    },
+    {
+      "id": "b47",
+      "arm": "b",
+      "recorded": "2026-11-23T12:41:55.326Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/loyalty.ts",
+        "src/core/money.ts",
+        "tests/loyalty.test.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "check": {
+        "exit": 0,
+        "first": "lawcheck: PASS  4 changed files (against origin/main)"
+      },
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": [
+          {
+            "version": "0.1.0-alpha.4",
+            "commit": "c59c9a4e3eff764d9385fa5eefac3d1ea182ac9f"
+          }
+        ]
+      },
+      "record": "398c89e3e52c791e3b77a9875f274ca91d1eb6aeade924f3ebb51d04bb858ab0"
+    },
+    {
+      "id": "b48",
+      "arm": "b",
+      "recorded": "2026-11-23T12:41:57.517Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/loyalty.ts",
+        "src/core/money.ts",
+        "tests/loyalty.test.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "check": {
+        "exit": 0,
+        "first": "lawcheck: PASS  4 changed files (against origin/main)"
+      },
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": [
+          {
+            "version": "0.1.0-alpha.4",
+            "commit": "c59c9a4e3eff764d9385fa5eefac3d1ea182ac9f"
+          }
+        ]
+      },
+      "record": "90cf8fdfe18cdece677fada9c13f0eb55978d1c0a8e3b1c946203d8f9d18d84c"
+    },
+    {
+      "id": "b49",
+      "arm": "b",
+      "recorded": "2026-11-23T12:42:00.332Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/loyalty.ts",
+        "src/core/money.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 8,
+        "pass": 8,
+        "fail": 0
+      },
+      "check": {
+        "exit": 0,
+        "first": "lawcheck: PASS  3 changed files (against origin/main)"
+      },
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": [
+          {
+            "version": "0.1.0-alpha.4",
+            "commit": "c59c9a4e3eff764d9385fa5eefac3d1ea182ac9f"
+          }
+        ]
+      },
+      "record": "7eae9168132e5cb0f42ec3ed709fe775468ac0f601552778947fe71b6c06290a"
+    },
+    {
+      "id": "b50",
+      "arm": "b",
+      "recorded": "2026-11-23T12:42:03.956Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/money.ts",
+        "src/core/price.ts",
+        "tests/price.test.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "check": {
+        "exit": 0,
+        "first": "lawcheck: PASS  4 changed files (against origin/main)"
+      },
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": [
+          {
+            "version": "0.1.0-alpha.4",
+            "commit": "c59c9a4e3eff764d9385fa5eefac3d1ea182ac9f"
+          }
+        ]
+      },
+      "record": "cc876228bb88a41192bd1e5b65788ccd4c215791d51a2ba369c31c502a7a2ca6"
+    },
+    {
+      "id": "b51",
+      "arm": "b",
+      "recorded": "2026-11-23T12:42:04.727Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/loyalty.ts",
+        "src/core/money.ts",
+        "tests/loyalty.test.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "check": {
+        "exit": 0,
+        "first": "lawcheck: PASS  4 changed files (against origin/main)"
+      },
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": [
+          {
+            "version": "0.1.0-alpha.4",
+            "commit": "c59c9a4e3eff764d9385fa5eefac3d1ea182ac9f"
+          }
+        ]
+      },
+      "record": "979b7a56fe3d56e2efec9dcca7b62568805c934347120852674013dfd9d04ca2"
+    },
+    {
+      "id": "b52",
+      "arm": "b",
+      "recorded": "2026-11-23T12:42:09.089Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/loyalty.ts",
+        "src/core/money.ts",
+        "tests/loyalty.test.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "check": {
+        "exit": 0,
+        "first": "lawcheck: PASS  4 changed files (against origin/main)"
+      },
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": [
+          {
+            "version": "0.1.0-alpha.4",
+            "commit": "c59c9a4e3eff764d9385fa5eefac3d1ea182ac9f"
+          }
+        ]
+      },
+      "record": "f3cfc0401ab9e4cda9bb6f93c82e04280fdfec262094fa226e674c704cbb1adc"
+    },
+    {
+      "id": "b53",
+      "arm": "b",
+      "recorded": "2026-11-23T12:42:28.597Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/loyalty.ts",
+        "src/core/money.ts",
+        "tests/loyalty.test.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "check": {
+        "exit": 0,
+        "first": "lawcheck: PASS  4 changed files (against origin/main)"
+      },
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": [
+          {
+            "version": "0.1.0-alpha.4",
+            "commit": "c59c9a4e3eff764d9385fa5eefac3d1ea182ac9f"
+          }
+        ]
+      },
+      "record": "ffe5a58a83800c2f12068f9b32288151fdbc22f7649b712a194d56ecbd2c77dc"
+    },
+    {
+      "id": "b54",
+      "arm": "b",
+      "recorded": "2026-11-23T12:42:29.017Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/loyalty.ts",
+        "src/core/money.ts",
+        "tests/loyalty.test.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "check": {
+        "exit": 0,
+        "first": "lawcheck: PASS  4 changed files (against origin/main)"
+      },
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": [
+          {
+            "version": "0.1.0-alpha.4",
+            "commit": "c59c9a4e3eff764d9385fa5eefac3d1ea182ac9f"
+          }
+        ]
+      },
+      "record": "9f4daa9cb020eb5aa44f5757fa7566911bd7557818735461eba97266304e43a1"
+    },
+    {
+      "id": "b55",
+      "arm": "b",
+      "recorded": "2026-11-23T12:42:29.535Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/money.ts",
+        "src/core/price.ts",
+        "tests/price.test.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 9,
+        "pass": 9,
+        "fail": 0
+      },
+      "check": {
+        "exit": 0,
+        "first": "lawcheck: PASS  4 changed files (against origin/main)"
+      },
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": [
+          {
+            "version": "0.1.0-alpha.4",
+            "commit": "c59c9a4e3eff764d9385fa5eefac3d1ea182ac9f"
+          }
+        ]
+      },
+      "record": "d0ecbdff90ef49d52a658cf774ad33f017eb50a3c343853b9833e94e60f4f0de"
+    },
+    {
+      "id": "b56",
+      "arm": "b",
+      "recorded": "2026-11-23T12:42:32.213Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/loyalty.ts",
+        "src/core/money.ts",
+        "tests/loyalty.test.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "check": {
+        "exit": 0,
+        "first": "lawcheck: PASS  4 changed files (against origin/main)"
+      },
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": [
+          {
+            "version": "0.1.0-alpha.4",
+            "commit": "c59c9a4e3eff764d9385fa5eefac3d1ea182ac9f"
+          }
+        ]
+      },
+      "record": "0a093a74d3190d612b75e52281970965064ff6105a3d8a5cf84d723cef84c11a"
+    },
+    {
+      "id": "b57",
+      "arm": "b",
+      "recorded": "2026-11-23T12:42:32.869Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/loyalty.ts",
+        "src/core/money.ts",
+        "tests/loyalty.test.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "check": {
+        "exit": 0,
+        "first": "lawcheck: PASS  4 changed files (against origin/main)"
+      },
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": [
+          {
+            "version": "0.1.0-alpha.4",
+            "commit": "c59c9a4e3eff764d9385fa5eefac3d1ea182ac9f"
+          }
+        ]
+      },
+      "record": "305a6cb19a628bbc8015803f6c0772fbce9508e3f388587a64ed00d70a3d7378"
+    },
+    {
+      "id": "b58",
+      "arm": "b",
+      "recorded": "2026-11-23T12:42:38.350Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/discount.ts",
+        "src/core/money.ts",
+        "tests/discount.test.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "check": {
+        "exit": 0,
+        "first": "lawcheck: PASS  4 changed files (against origin/main)"
+      },
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": [
+          {
+            "version": "0.1.0-alpha.4",
+            "commit": "c59c9a4e3eff764d9385fa5eefac3d1ea182ac9f"
+          }
+        ]
+      },
+      "record": "36da7a42e4c33a5caa134bb1a3205ae0d6d1e9905e19af081576a77cd1a96e2a"
+    },
+    {
+      "id": "b59",
+      "arm": "b",
+      "recorded": "2026-11-23T12:42:39.150Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/money.ts",
+        "src/core/price.ts",
+        "tests/price.test.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 9,
+        "pass": 9,
+        "fail": 0
+      },
+      "check": {
+        "exit": 0,
+        "first": "lawcheck: PASS  4 changed files (against origin/main)"
+      },
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": [
+          {
+            "version": "0.1.0-alpha.4",
+            "commit": "c59c9a4e3eff764d9385fa5eefac3d1ea182ac9f"
+          }
+        ]
+      },
+      "record": "08c3972761944097c6045835e0083a81d52f14deee32701d4c40ca1faaab0ea4"
+    },
+    {
+      "id": "b60",
+      "arm": "b",
+      "recorded": "2026-11-23T12:42:44.317Z",
+      "complete": true,
+      "changed": [
+        "src/api/format.ts",
+        "src/core/loyalty.ts",
+        "src/core/money.ts",
+        "tests/loyalty.test.ts"
+      ],
+      "apiImports": [],
+      "tests": {
+        "exit": 0,
+        "tests": 10,
+        "pass": 10,
+        "fail": 0
+      },
+      "check": {
+        "exit": 0,
+        "first": "lawcheck: PASS  4 changed files (against origin/main)"
+      },
+      "versions": {
+        "lawcheck": "0.1.0-alpha.4",
+        "claude_code": "2.1.330 (Claude Code)",
+        "node": "v24.22.3",
+        "models": [
+          "claude-sonnet-5-5"
+        ],
+        "effort": "medium",
+        "plugin": [
+          {
+            "version": "0.1.0-alpha.4",
+            "commit": "c59c9a4e3eff764d9385fa5eefac3d1ea182ac9f"
+          }
+        ]
+      },
+      "record": "11d60d73743ee72a8aa75516a22d12c185c6e246961399d59f6ed924725ba3dc"
+    }
+  ]
+}
