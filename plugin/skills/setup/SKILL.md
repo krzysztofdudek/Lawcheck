@@ -36,7 +36,7 @@ Say it once. The work is done at that point: do not wait for an answer. When the
 
 ## In Claude Code
 
-- Ask the user with the question tool, one decision per question, with the options and what each changes. Send all the questions of step 10 in one call.
+- Ask the user with the question tool, one decision per question, with the options and what each changes. The rules with findings share one question, with one answer per rule. Send all the questions of step 10 in one call.
 - Where the question tool is missing, as in a session started with `claude -p`, a person still reads your message and answers in the next prompt. Ask the questions of step 10 in your message, put nothing after them, and end the turn. Never skip them because the session looks non-interactive: skip them only when the user said that no one will answer.
 - The plugin's hooks check each file you edit, and the files of your turn before you finish, by the law in `.lawcheck/law.yaml` at that moment. So a measurement keeps its candidate outside the repository and swaps it in and out within one shell command, as the page shows.
 - Write, check and delete the probes of the page within one shell command. A probe written with the edit tool gets the hook's message that it breaks the law, which is what the probe is for.

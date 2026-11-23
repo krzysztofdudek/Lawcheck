@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { chmodSync, mkdirSync } from 'node:fs';
+import { chmodSync, mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { CLI, GIT_ENV, inTemp, lawcheck, newRepository, read, write } from '../acceptance/helpers.ts';
 import { SCENARIO } from '../contract/docs-blocks.ts';
@@ -10,6 +10,9 @@ export const claims: Claims = {
   'block 1 under "5. Measure the uses between types"': SCENARIO,
   'block 2 under "5. Measure the uses between types"': SCENARIO,
   'block 1 under "6. Write the lists that hold today"': SCENARIO,
+  'block 1 under "8. Write the rules"': SCENARIO,
+  'block 2 under "8. Write the rules"': SCENARIO,
+  'block 3 under "8. Write the rules"': SCENARIO,
   'block 1 under "Measure a law that is not in force"': SCENARIO,
   'block 2 under "Measure a law that is not in force"': SCENARIO,
   'block 1 under "Prove each restriction bites"': SCENARIO,
@@ -19,8 +22,8 @@ export const claims: Claims = {
 export const FILES: Record<string, string> = {
   'src/api/orders.ts': "import { price } from '../core/price';\nimport { find } from '../db/orders';\n\nexport const order = price + find;\n",
   'src/api/refunds.ts': "import { price } from '../core/price';\n\nexport const refund = -price;\n",
-  'src/core/price.ts': 'export const price = 100;\n',
-  'src/core/report.ts': "import { order } from '../api/orders';\n\nexport const report = order;\n",
+  'src/core/price.ts': '// A price never goes to console.log: the handlers print it.\nexport const price = 100;\n',
+  'src/core/report.ts': "import { order } from '../api/orders';\n\nexport const report = order;\nconsole.log(report);\n",
   'src/db/orders.ts': "import { price } from '../core/price';\n\nexport const find = price;\n",
 };
 
@@ -68,6 +71,16 @@ export async function scenario(page: Page): Promise<void> {
     const full = await lawcheck(repo, ['check', '--full', '--base', 'HEAD', '--json']);
     const findings = (JSON.parse(full.stdout) as { findings: { code: string }[] }).findings;
     assert.deepEqual([full.code, findings.filter((f) => f.code === 'forbidden-use')], [0, []], 'the lists of step 6 hold today');
+
+    const tried = /^\$ lawcheck try ([a-z-]+) '([^']+)'$/.exec(page.text('block 2 under "8. Write the rules"'));
+    assert.ok(tried, 'the rule is tried on a quoted pattern');
+    write(repo, `.lawcheck/rules/${tried[1]}.mjs`, page.text('block 1 under "8. Write the rules"') + '\n');
+    write(repo, '.lawcheck/law.yaml', law.replace('\ntypes:\n', `\nrules:\n  ${tried[1]}:\n    why: Only the handlers write to the terminal.\n\ntypes:\n`));
+    assert.match(read(repo, 'src/core/price.ts'), /^\/\/ .*console\.log/, 'the comment names the call the rule looks for');
+    const counted = await lawcheck(repo, ['try', tried[1]!, tried[2]!]);
+    assert.deepEqual([counted.code, counted.stdout], [1, page.text('block 3 under "8. Write the rules"') + '\n'], 'the rule reads the tree: the call is a finding and the comment is not');
+    write(repo, '.lawcheck/law.yaml', law);
+    rmSync(join(repo, `.lawcheck/rules/${tried[1]}.mjs`));
 
     const probe = /^\$ lawcheck (check (\S+))$/.exec(page.text('block 1 under "Prove each restriction bites"'));
     assert.ok(probe, 'the probe is checked by its path');

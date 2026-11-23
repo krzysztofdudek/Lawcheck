@@ -16,7 +16,7 @@ The outputs below come from a repository with five files:
 
 Run `lawcheck --version` and `lawcheck prime`. When the shell finds no `lawcheck`, tell the user to install it with `npm install --global lawcheck@alpha`, and stop. When `prime` prints a law, a law already governs this folder: do not start a second one. Tell the user that the law stands and that `lawcheck prime` says how to change it, and stop.
 
-Change no file outside `.lawcheck/`. Commit nothing unless the user asks. Keep to the budgets of this page: at most four questions to the user, at most three script rules, and no reviewer rule unless the user asks for one.
+Change no file outside `.lawcheck/`. Commit nothing unless the user asks. Keep to the budgets of this page: at most four questions to the user, and no reviewer rule unless the user asks for one. Script rules have no fixed number: each one needs its evidence, as step 8 says.
 
 ## 2. Read what is written down
 
@@ -123,14 +123,52 @@ A use is a candidate to forbid only when the code or its documents give a reason
 
 In the example, `core -> api` is a `cycle` with `api -> core`, and it is `few`: one file of `core` makes it, where two files of `api` use `core`.
 
-For each candidate, take its files and lines from the table, and the three ways of [A boundary the code already breaks](#a-boundary-the-code-already-breaks). Pick at most four, `written` first, then `cycle`, `direction` and `few`. Each one you pick is a question for the user in step 10: the user decides whether the code keeps that use, not you. Put the rest in the summary under "could be tightened later", one line each. Never propose a boundary that has no reason in the code and no word from the user.
+For each candidate, take its files and lines from the table, and the three ways of [A boundary the code already breaks](#a-boundary-the-code-already-breaks). Pick at most four, `written` first, then `cycle`, `direction` and `few`, or three when step 8 leaves rules with findings, since those share one question. Each one you pick is a question for the user in step 10: the user decides whether the code keeps that use, not you. Put the rest in the summary under "could be tightened later", one line each. Never propose a boundary that has no reason in the code and no word from the user.
 
 ## 8. Write the rules
 
-Write at most three [script rules](script-rules.md). A rule comes from a rule of step 2 that a script can judge, such as "no `console.log` in the core". Write each rule, then count its findings with `lawcheck try <rule> '<pattern>'`:
+Write a [script rule](script-rules.md) for each rule that has evidence, and for no other. The evidence is a rule of step 2 that a script can judge, such as "no `console.log` in the core", or a convention that every file the rule would bind keeps today. Never invent a rule. The law with its rules still fits `lawcheck prime` unshortened. Write each rule in `.lawcheck/rules/<id>.mjs`, with its entry and `why` under `rules` in the law:
 
-- zero findings, from a written rule: add it, enforced;
-- findings, or a rule that only a habit of the files suggests: it is a question for step 10, with `status: advisory` and its count of debt as one answer, and leaving it out as another.
+- A rule about code, such as a call, an import or a construct, reads the file's syntax tree with `await file.tree()`. The tree tells a call from the same word in a comment or a string, so the comment is no finding ([Script rules](script-rules.md#the-syntax-tree)).
+- A rule about text, such as a header or a licence line, may read `file.lines`.
+- A file in a language with no reader has no tree, so a rule about code reports nothing there. Say so in the summary.
+
+This rule finds a call of `console` in the files it judges, and not the word in a comment:
+
+```js
+export async function check({ files: [file] }) {
+  const { root } = await file.tree();
+  if (root === null) return [];
+  const findings = [];
+  const stack = [root];
+  while (stack.length > 0) {
+    const node = stack.pop();
+    const callee = node.type === 'call_expression' ? node.children.find((child) => child.field === 'function') : undefined;
+    const name = callee === undefined ? '' : file.text.slice(callee.start, callee.end);
+    if (name.startsWith('console.')) findings.push({ line: node.line, message: `writes to the terminal with ${name}` });
+    stack.push(...node.children);
+  }
+  return findings;
+}
+```
+
+Count its findings with `lawcheck try <rule> '<pattern>'`. In the example repository, the rule is `no-console`, with the `why` "Only the handlers write to the terminal." `src/core/price.ts` names `console.log` in a comment, and `src/core/report.ts` calls it on line 4:
+
+```text
+$ lawcheck try no-console 'src/core/**'
+```
+
+```output
+lawcheck: try no-console (script rule, enforced)  1 finding in 1 of 2 files
+
+src/core/report.ts:4  error[no-console]  writes to the terminal with console.log
+  why:  Only the handlers write to the terminal.
+```
+
+Then decide by the count:
+
+- zero findings: add the rule, enforced;
+- findings: the rule waits for the user. All such rules go into one question of step 10, which lists each rule with its count of findings. For each one the user answers: keep it enforced, so its findings become debt; make it `status: advisory`, so they are warnings; or leave it out.
 
 Add no [reviewer rule](reviewer-rules.md). Each file it judges costs one model call, and without a reviewer in `.lawcheck/config.yaml` a plain check and CI fail with `not-reviewed`. You may offer one reviewer rule as text. Add it only when the user says yes and names the reviewer, because `.lawcheck/config.yaml` is the user's.
 
@@ -147,7 +185,7 @@ Write one message in plain words. Say what a type is the first time you use the 
 - each rule with its reason;
 - the debt: how many findings `lawcheck check --full --base HEAD` lists outside the change;
 - what Lawcheck does not check here: the unresolved uses per language, the languages with no reader, the files with no type;
-- the open decisions of steps 7 and 8, numbered, one boundary or one rule per question, each with its options and what each option changes.
+- the open decisions of steps 7 and 8, numbered, one boundary per question and one question for all the rules with findings, each with its options and what each option changes.
 
 Ask all the questions in that one message, as its last part: no next step and no offer after them. End your turn, and wait for the answers. A session started with a prompt, such as `claude -p`, has a person too, who answers in the next prompt. Apply each answer as [A boundary the code already breaks](#a-boundary-the-code-already-breaks) says, and prove each new restriction as in step 9. A "no" leaves the law as it is and puts the candidate under "could be tightened later". With no candidate from step 7 and no question from step 8, skip the questions and go to step 11. Only when the user said that no one will answer, add what holds with zero findings and list each question in the final message.
 
@@ -256,8 +294,8 @@ Each probe must fail with exit 1 and a finding of the expected code or rule. A p
 
 - Edit the code, or add a waiver.
 - Write `.lawcheck/config.yaml` unasked.
-- Invent a type or a boundary that the folders, the documents or the user do not give.
-- Go past the budgets: four questions, three script rules, no reviewer rule unasked.
+- Invent a type, a boundary or a rule that the folders, the documents or the user do not give.
+- Go past the budgets: four questions, no reviewer rule unasked, no script rule without its evidence.
 - Commit or push unasked.
 - Write into `law.yaml` or `.lawcheck/rules/` anything the user has not said yes to, apart from what holds today with zero findings.
 
