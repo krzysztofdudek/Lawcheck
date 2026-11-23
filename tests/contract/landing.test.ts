@@ -110,6 +110,8 @@ test('test 781: the check of the built landing page passes a page with its head,
   assert.deepEqual(built({ ...GOOD, 'index.html': index.replace('>1.2.3<', '>1.2<') }), ['index.html does not show the version 1.2.3']);
   assert.deepEqual(built({ ...GOOD, '404.html': '<h1>x</h1><script type="module" src="/app.js"></script>' }), ['404.html has no link to /', '404.html loads the app, which would replace its text']);
   assert.deepEqual(built({ ...GOOD, 'vercel.json': '{' }), ['vercel.json is missing or does not parse']);
+  assert.deepEqual(built({ ...GOOD, 'index.html': index.replace(/<meta name="twitter:card"[^>]*>/, '') }), ['index.html: twitter:card is [], not summary_large_image once']);
+  assert.deepEqual(built({ ...GOOD, 'og.png': png(1200, 600) }), ['og.png is 1200 by 600, not 1200 by 630']);
   assert.deepEqual(built({ 'index.html': index }), ['og.png is missing', '404.html is missing', 'robots.txt does not name the sitemap', 'sitemap.xml does not hold https://lawcheck.dev/', 'vercel.json is missing or does not parse']);
 });
 
@@ -162,6 +164,8 @@ test('test 891: the check of the built documentation names a page without the ca
     assert.equal(found.length, 6);
     assert.ok(found.every((line) => line.startsWith('concepts.html: ')));
     assert.deepEqual(docsCardProblems(dir, join(ROOT, 'brand/mark.svg')).slice(0, 1), ['og.png is not a PNG file']);
+    for (const name of ['install.html', 'concepts.html']) rmSync(join(dir, name));
+    assert.deepEqual(docsCardProblems(dir, join(ROOT, 'site/landing/public/og.png')), [`${dir} has no page with an og:url`]);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
