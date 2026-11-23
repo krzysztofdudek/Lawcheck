@@ -22,7 +22,7 @@ export const RULES_DIR = '.lawcheck/rules/';
 export class Internal extends Error {}
 
 export class Stop extends Error {
-  constructor(readonly errors: ErrorItem[]) {
+  constructor(readonly errors: ErrorItem[], readonly calls = 0) {
     super(errors[0]?.message ?? 'stopped');
   }
 }
@@ -345,11 +345,11 @@ export function touchesLaw(path: string): boolean {
   return path === LAW || path === CONFIG || path.startsWith(RULES_DIR);
 }
 
-export async function stopped<T>(body: () => Promise<T> | T): Promise<T | { errors: ErrorItem[] }> {
+export async function stopped<T>(body: () => Promise<T> | T): Promise<T | { errors: ErrorItem[]; calls?: number }> {
   try {
     return await body();
   } catch (error) {
-    if (error instanceof Stop) return { errors: error.errors };
+    if (error instanceof Stop) return error.calls === 0 ? { errors: error.errors } : { errors: error.errors, calls: error.calls };
     if (error instanceof Unwritable) return { errors: [{ code: 'file-unwritable', file: error.path, line: null, message: `cannot be written (${error.cause})`, ...(error.next === null ? {} : { next: error.next }) }] };
     if (error instanceof VerdictsUnreadable) {
       const next = error.cause.startsWith('it holds more') ? FULL_NEXT : undefined;

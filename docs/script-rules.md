@@ -137,7 +137,7 @@ The first call of `uses()` in a run reads the uses of every file the rule judges
 `check` returns a list of [findings](concepts.md#finding), or a promise of one. A finding has these fields:
 
 - `message` is a non-empty string of at most 4,096 characters. Lawcheck turns a line break in it into a space.
-- `line` is optional. Its value is an integer from 1 to the number of lines of the file. A finding without `line` is about the whole file. A `line` of `null`, a string such as `'2'` or a bigint makes the rule `rule-crashed`, with a message that names the value.
+- `line` is optional. Its value is an integer from 1 to the number of lines of the file. A finding without `line`, or with a `line` of `null`, is about the whole file. A `line` that is any other value than an integer in that range, such as a string like `'2'`, a bigint or `1.5`, makes the rule `rule-crashed`, with a message that names the value.
 - `file` is optional. Its one allowed value is the `path` of the call.
 
 Lawcheck ignores other fields. A rule that returns an empty list reports no finding. All the rules of one run may return 200,000 findings together, with 16 MiB of messages. A run past either limit stops with `too-many-findings`. The error names each rule with the number of findings it returned.

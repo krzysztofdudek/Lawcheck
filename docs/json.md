@@ -1,6 +1,6 @@
 # JSON documents
 
-With `--json`, every command prints one JSON document to standard output and nothing else. The first field of every document is `schema`. It names the document and its version. The form of a document whose name ends in `/0` may change between versions. `lawcheck-error/1` is stable.
+With `--json`, every command prints one JSON document to standard output and nothing else. The first field of every document is `schema`. It names the document and its version. The form of a document whose name ends in `/0` may change between versions. `lawcheck-error/1` is stable: a later version keeps the name, the type and the meaning of each of its fields, and may add a field. A program that reads it skips the fields it does not know.
 
 A field that holds no value is null and stays in the document. Two cases differ:
 
@@ -128,6 +128,7 @@ Every command but `doctor` prints this document when it ends with exit 2.
 | `errors.line` | the line, or null |
 | `errors.message` | what is wrong |
 | `errors.why` | the line that explains the code |
+| `calls_made` | the requests this run sent to the reviewer before it ended; present only when it sent any, and then after `errors` |
 | `next` | the next step for the first error |
 | `next.command` | the command alone, where the step is one command, else null |
 | `next.text` | the step in words |

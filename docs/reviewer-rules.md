@@ -42,7 +42,9 @@ The reviewer answers with one JSON object:
 
 A pass is `{"verdict": "pass", "findings": []}`. A finding whose `line` is null is about the whole file.
 
-Lawcheck first reads the whole answer as JSON. When the answer does not parse, Lawcheck reads the first fenced code block in it. As a last resort, it takes the last object in the text that holds a `verdict`.
+Lawcheck first reads the whole answer as JSON. When the answer does not parse, Lawcheck reads the first fenced code block in it. As a last resort, it takes the last object in the text that holds a `verdict`. An object that sits inside another object with a `verdict` does not count as one.
+
+When the answer holds more than one object with a `verdict` and one of them is a `fail`, the answer is a `fail`, whichever of the objects comes first. When the object the steps above take is a `fail`, Lawcheck reads that one. Otherwise it reads the last `fail` in the answer. A model that quotes a pass from the file after its own fail therefore cannot turn the fail into a pass. The price is that a model that quotes a fail in a sentence after a pass makes the file fail, with the findings of the quoted fail. When that fail is itself a bad answer, such as a fail with no finding, the answer is bad.
 
 An answer is bad when Lawcheck finds in it no object with a `verdict` of `pass` or `fail`. An object with such a verdict is bad in these cases:
 
@@ -116,7 +118,7 @@ $ lawcheck check --review --max-calls 3 --base main
 
 `reviewer.max_calls` sets the most requests that one run may send to the reviewer. A request that Lawcheck sends again counts as one more request. A run that needs more requests than that limit sends none. It stops with [`too-many-reviews`](codes.md#too-many-reviews).
 
-Without `--review`, `lawcheck check` sends no request to a reviewer.
+Without `--review`, `lawcheck check` sends no request to a reviewer. `lawcheck doctor` opens no connection to one either, with one exception: when the provider is `ollama` and the law holds a reviewer rule, it sends `GET <address>/api/version` to the server, with a time limit of 5 seconds. The request carries no prompt and no text of your repository. `lawcheck doctor --reviewer` sends a test prompt ([Reviewers and keys](providers.md#checking-the-setup)).
 
 A request that fails stops the run with [`reviewer-unreachable`](codes.md#reviewer-unreachable). The passes that the run recorded before that request stay in `.lawcheck/verdicts`. When you run the same command again, Lawcheck asks the reviewer only about the reviews still missing.
 

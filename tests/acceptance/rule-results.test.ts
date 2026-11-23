@@ -7,7 +7,6 @@ const BREACH = 'console.log(1)\n';
 const finding = (place: string) => `${place}  error[no-console]  writes to the terminal with console.log`;
 
 const lineCases: [string, string, string][] = [
-  ['null', "[{ message: 'x', line: null }]", 'returns a finding whose line is null, not an integer for src/core/x.ts'],
   ["the string '2'", "[{ message: 'x', line: '2' }]", 'returns a finding whose line is the string "2", not an integer for src/core/x.ts'],
   ['the bigint 2n', "[{ message: 'x', line: 2n }]", 'returns a finding whose line is the bigint 2n, not an integer for src/core/x.ts'],
   ['1.5', "[{ message: 'x', line: 1.5 }]", 'returns a finding whose line is the number 1.5, not an integer for src/core/x.ts'],
@@ -26,6 +25,24 @@ for (const [what, value, message] of lineCases) {
     });
   });
 }
+
+test('S2-4: a line that is null is a finding about the whole file, as an absent line is', async () => {
+  await withSample(async (s) => {
+    write(s, 'src/core/x.ts', 'a\nb\n');
+    write(s, 'src/core/empty.ts', '');
+    const outputs: string[] = [];
+    for (const line of [', line: null', '']) {
+      setRule(s, 'no-console', `export function check() { return [{ message: 'x'${line} }]; }\n`);
+      const run = await check(s);
+      assert.equal(run.code, 1, run.stdout);
+      outputs.push(run.stdout);
+    }
+    assert.equal(outputs[0], outputs[1]);
+    const lines = outputs[0]!.split('\n');
+    assert.ok(lines.includes('src/core/x.ts  error[no-console]  x'), outputs[0]);
+    assert.ok(lines.includes('src/core/empty.ts  error[no-console]  x'), outputs[0]);
+  });
+});
 
 test('S2-4: a line in an empty file names the empty file', async () => {
   await withSample(async (s) => {

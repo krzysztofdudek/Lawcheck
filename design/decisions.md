@@ -240,3 +240,20 @@ Why: a waiver that covered the statement it ends would need the statement's exte
 `init` writes the law as before when git ignores `.lawcheck/law.yaml`, and exits 0. It then adds a `note:` line to its text output, and in `--json` it starts `next.text` with the same warning; the document keeps its fields. `doctor` shows its `law` check as `note`, with a `next:` line, when git does not list `.lawcheck/law.yaml`. A law that git tracks and `.gitignore` also names is listed, so it gets no note. When `.lawcheck` is a symbolic link to a folder, both pass as before with no note: git lists no file beyond a link, and `git check-ignore` refuses such a path.
 
 Why: a law that git ignores works on the machine that made it and is in no commit, so every other checkout, and CI, has no law and checks nothing. Refusing in `init` would take away a repository's own choice and a global exclude the user may have for good reasons, and a new field would change the schema of `lawcheck-init/0` for a warning. `next.text` is the one field of the document that a person or an agent acts on.
+## 174. A script rule's `line` of null means no line
+
+A finding that a script rule returns with `line: null` is about the whole file, as one without `line` is. Any other value that is not an integer from 1 to the number of lines, such as the string `'2'`, a bigint or `1.5`, still makes the rule `rule-crashed`, and the message names the value and says it is not an integer. The reviewer's answer already reads a `line` of null this way.
+
+Why: a rule author who writes `line: null` means no line, and a crash with a message about a range tells them nothing they can act on. The refusal of every other value stays because the line selects which waiver applies, and a wrong line would drop or keep a finding for the wrong reason. This was taken as a technical choice on 2026-11-23, and the owner may reverse it.
+
+## 175. Two verdict objects that disagree read as the fail
+
+When the answer of a reviewer holds more than one object with a `verdict` and one of them is a `fail`, the answer is a fail, whatever else the answer holds and in whatever order: the object that the reading of the answer takes when that object is a fail, else the last of the fails. The first rule keeps the findings of a fail in a fenced block when the model quotes another fail after it. An object inside another object with a `verdict` does not count. A whole answer that is one verdict object, and the same verdict twice, read as before.
+
+Why: a file can ask the reviewer to quote a pass, and a reviewer that reports the attempt and quotes what the file asked for would turn its own fail into a pass if the last object won. The price is a fail that a model quotes in a sentence after a pass, which fails the file with findings the user did not expect. A pass that was wrongly kept is silent and a fail that was wrongly given is visible and one more review away from correction, so the choice errs toward the visible one. This was taken as a technical choice on 2026-11-23, and the owner may reverse it.
+
+## 176. An error after reviewer requests names how many were sent
+
+The first line of a `check` or `try` that ends with exit 2 after it sent requests to a reviewer ends with the count, as the lines of PASS and FAIL do: `lawcheck: ERROR  1 error, 2 reviewer calls`. The JSON document `lawcheck-error/1` gains the key `calls_made` after `errors`, only when the count is above 0. A run that stops before its first request, and one that stops on `file-unwritable`, name no count.
+
+Why: a run that fails after calls has spent what the user pays for, and the same count stands in the other two forms. The key is added to `lawcheck-error/1` and the schema is not raised to `/2`, because a document of a run with no request stays byte for byte as it was, and a reader that ignores keys it does not know reads the new one as it read the old. `file-unwritable` is left out because the run is cut off while other requests may still be in flight, so a count taken then would be too low. This was taken as a technical choice on 2026-11-23, and the owner may reverse it.

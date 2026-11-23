@@ -256,7 +256,7 @@ export async function tryRule(args: Arguments, context: CheckContext, json: bool
     const answered = await call(asks, provider!, NO_RECORD, { cap, parallel: config.parallel, timeoutSeconds: config.timeout });
     if (answered.failed.length > 0) {
       const again = 'run the same command again; try keeps no answer, so it makes every call again';
-      throw new Stop(answered.failed.map((f) => ({ code: f.code, file: f.ask.file, line: null, message: f.message, next: f.fix === undefined ? again : `${f.fix}, then ${again}` })));
+      throw new Stop(answered.failed.map((f) => ({ code: f.code, file: f.ask.file, line: null, message: f.message, next: f.fix === undefined ? again : `${f.fix}, then ${again}` })), answered.sent);
     }
     result.calls = answered.sent;
     for (const { ask, findings, answer } of answered.answered) {
@@ -275,7 +275,7 @@ export async function tryRule(args: Arguments, context: CheckContext, json: bool
     result.runs.sort((a, b) => comparePaths(a.file, b.file) || a.attempt - b.attempt);
     return result;
   });
-  if ('errors' in outcome) return errorResult(outcome.errors, json, 'try');
+  if ('errors' in outcome) return errorResult(outcome.errors, json, 'try', outcome.calls);
   for (const run of outcome.runs) run.findings.sort((a, b) => (a.line ?? 0) - (b.line ?? 0));
   const findings = outcome.runs.reduce((sum, run) => sum + run.findings.length, 0);
   const code = outcome.dryRun || findings === 0 ? 0 : 1;

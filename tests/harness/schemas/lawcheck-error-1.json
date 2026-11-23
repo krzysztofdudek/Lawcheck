@@ -22,6 +22,7 @@
         }
       }
     },
+    "calls_made": { "type": "integer", "minimum": 1 },
     "next": {
       "type": "object",
       "additionalProperties": false,

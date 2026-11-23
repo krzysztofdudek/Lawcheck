@@ -50,7 +50,7 @@ export interface CheckContext {
   runtime?: Runtime;
 }
 
-export type CheckOutcome = { errors: ErrorItem[] } | { report: Report };
+export type CheckOutcome = { errors: ErrorItem[]; calls?: number } | { report: Report };
 
 export async function check(options: CheckOptions, context: CheckContext): Promise<CheckOutcome> {
   return stopped(async () => {
@@ -230,19 +230,20 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
       const room = error instanceof VerdictsFull ? `; ${roomOf()}` : '';
       return { errors: [{ code: 'file-unwritable', file: error.path, line: null, message: `cannot be written (${error.cause}), so the answers of the reviewer calls this run made are lost${room}`, ...(error.next === null ? {} : { next: error.next }) }] };
     }
+    callsMade = result.sent;
     if (result.failed.length > 0) {
       const again = 'run the same command again; what was answered is kept, so it asks only the rest';
       return {
         errors: result.failed.map((f) => ({ code: f.code, file: f.ask.file, line: null, message: f.message, ...(f.fix === undefined ? {} : { next: `${f.fix}, then ${again}` }) })),
+        calls: callsMade,
       };
     }
     for (const answered of result.answered) {
       let chars = 0;
       for (const finding of answered.findings) chars += points(finding.message);
-      if (budget.addAt(answered.findings.length, chars)) return { errors: [tooManyAt(answered.ask.file, budget)] };
+      if (budget.addAt(answered.findings.length, chars)) return { errors: [tooManyAt(answered.ask.file, budget)], calls: callsMade };
       reviewerRaw(answered.ask.file, answered.ask.rule, answered.findings);
     }
-    callsMade = result.sent;
     passesRecorded = writer.added;
     missing = [];
   }

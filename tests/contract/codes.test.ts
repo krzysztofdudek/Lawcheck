@@ -714,7 +714,7 @@ async function reproduce(spec: Case, dir: string, fake: Fake): Promise<string[]>
     const count = document.errors?.length ?? 0;
     if (ready.first !== undefined) {
       if (out.split('\n')[0] !== ready.first) say(`the first line is "${out.split('\n')[0]}", not "${ready.first}"`);
-    } else if (!out.startsWith(`lawcheck: ERROR  ${count} error${count === 1 ? '' : 's'}\n`) && !out.startsWith('error[usage]')) say(`the first line is not the error count of the JSON (${count})`);
+    } else if (!out.startsWith(`lawcheck: ERROR  ${count} error${count === 1 ? '' : 's'}${document.calls_made === undefined ? '' : `, ${document.calls_made} reviewer call${document.calls_made === 1 ? '' : 's'}`}\n`) && !out.startsWith('error[usage]')) say(`the first line is not the error count of the JSON (${count})`);
     if (!out.includes(`error[${spec.code}]`)) say(`no error[${spec.code}] line in text`);
     if (!out.includes(`  why:  ${doc.why}`)) say(`the why line of the codes page is missing`);
     if (document.schema !== 'lawcheck-error/1' || !document.errors.some((e: { code: string; why: string }) => e.code === spec.code && e.why === doc.why)) say(`the JSON has no ${spec.code} error with the why of the codes page`);

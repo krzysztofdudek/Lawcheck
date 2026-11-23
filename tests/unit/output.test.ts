@@ -57,6 +57,14 @@ test('reviewer-slice §8: the reviewer calls end the first line, in both forms, 
   assert.deepEqual(document.next, { command: 'c', text: 'c  (1 reviewer call)' });
 });
 
+test('S3-9: an error that follows reviewer calls says how many, after the count of errors and before next', () => {
+  const calls = [{ code: 'reviewer-unreachable', file: 'src/a.ts', line: null, message: 'm', next: 'again' }];
+  assert.equal(renderErrors(calls, false, 'check', Infinity, 1).split('\n')[0], 'lawcheck: ERROR  1 error, 1 reviewer call');
+  assert.equal(JSON.parse(renderErrors(calls, true, 'check', Infinity, 3)).calls_made, 3);
+  assert.equal('calls_made' in JSON.parse(renderErrors(calls, true, 'check', Infinity, 0)), false);
+  assert.deepEqual(Object.keys(JSON.parse(renderErrors(calls, true, 'check', Infinity, 3))), ['schema', 'errors', 'calls_made', 'next']);
+});
+
 test('check-slice §6: an error may carry its own next', () => {
   const text = renderErrors([{ code: 'too-many-reviews', file: null, line: null, message: 'm', next: 'ask first' }], false);
   assert.ok(text.endsWith('\nnext: ask first\n'));

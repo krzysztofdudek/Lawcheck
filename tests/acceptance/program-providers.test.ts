@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { plural } from '../../dist/output.js';
 import { counted, gitAlone, whyOf, writeFakeProgram } from './fake-reviewer.ts';
 import { alive, F, F_PATH, lawcheck, pathWith, PROMPT_F, run, SECOND, startLawcheck, withR, write } from './helpers.ts';
 import { fakeWrites, platformSkip, waitUntil } from '../harness/tool.ts';
@@ -92,6 +93,8 @@ const configOf = (provider: string, extra = '') => ({
   onMain: (r: string) => write(r, '.lawcheck/config.yaml', `reviewer:\n  provider: ${provider}\n${extra}`),
 });
 
+const after = (text: string, calls: number) => text.replace('ERROR  1 error\n', `ERROR  1 error, ${plural(calls, 'reviewer call')}\n`);
+
 function stopped(error: string, code: 'reviewer-unreachable' | 'reviewer-bad-answer', next: string): string {
   return `lawcheck: ERROR  1 error\n\n${error}\n  why:  ${whyOf(code)}\n\nnext: ${next}\n`;
 }
@@ -139,7 +142,7 @@ async function programCases(program: Program): Promise<void> {
         withR(async (r, dir) => {
           write(r, F_PATH, F);
           const result = await run(r, null, ['--review', '--base', 'main'], fakeEnv(program, dir, mode));
-          assert.equal(result.stdout, stopped(UNREACHABLE(message), 'reviewer-unreachable', `${next}, ${AGAIN}`));
+          assert.equal(result.stdout, after(stopped(UNREACHABLE(message), 'reviewer-unreachable', `${next}, ${AGAIN}`), 1));
           assert.equal(result.stderr, called);
           assert.equal(result.code, 2);
           assert.equal(counted(join(dir, 'asked.txt')), mode === 'expired' ? 0 : 1);
@@ -154,7 +157,7 @@ async function programCases(program: Program): Promise<void> {
         const shown = Date.now();
         const result = await running.ended;
         const next = `raise reviewer.timeout in .lawcheck/config.yaml, or check that ${program.name} answers when started by hand, ${AGAIN}`;
-        assert.equal(result.stdout, stopped(UNREACHABLE(`${program.name} gave no answer within 1 seconds`), 'reviewer-unreachable', next));
+        assert.equal(result.stdout, after(stopped(UNREACHABLE(`${program.name} gave no answer within 1 seconds`), 'reviewer-unreachable', next), 1));
         assert.equal(result.code, 2);
         const seen = record(dir);
         assert.ok(shown - seen.at < PROGRAM_TIMEOUT_RUN_MS, `${shown - seen.at} ms from the start of ${program.name} to the error line, where the kill grace alone is 5 seconds`);
@@ -233,7 +236,7 @@ async function programCases(program: Program): Promise<void> {
               const result = await run(r, null, ['--review', '--base', 'main'], env);
               const lines = result.stdout.split('\n');
               assert.ok(lines[2]!.startsWith('src/core/refund.ts  error[reviewer-bad-answer]  clear-errors: the answer is no verdict twice ('), result.stdout.slice(0, 500));
-              assert.equal(result.stdout, stopped(lines[2]!, 'reviewer-bad-answer', 'run the same command again; what was answered is kept, so it asks only the rest'));
+              assert.equal(result.stdout, after(stopped(lines[2]!, 'reviewer-bad-answer', 'run the same command again; what was answered is kept, so it asks only the rest'), 2));
               assert.equal(result.stderr, called);
               assert.equal(result.code, 2);
               assert.equal(counted(join(dir, 'asked.txt')), 2);
@@ -247,7 +250,7 @@ async function programCases(program: Program): Promise<void> {
             write(r, F_PATH, F);
             const result = await run(r, null, ['--review', '--base', 'main'], fakeEnv(program, dir, 'huge'));
             const message = `${program.name} wrote more than 4 MiB on standard output, so its answer is not read`;
-            assert.equal(result.stdout, stopped(UNREACHABLE(message), 'reviewer-unreachable', `check that the program ${binaryOf(dir, program)} is ${program.name}, ${AGAIN}`));
+            assert.equal(result.stdout, after(stopped(UNREACHABLE(message), 'reviewer-unreachable', `check that the program ${binaryOf(dir, program)} is ${program.name}, ${AGAIN}`), 1));
             assert.equal(result.code, 2);
             assert.equal(counted(join(dir, 'asked.txt')), 1);
           }, configOf(program.provider)),
@@ -263,7 +266,7 @@ async function programCases(program: Program): Promise<void> {
           withR(async (r, dir) => {
             write(r, 'src/core/big.ts', '// filler\n'.repeat(7000));
             const result = await run(r, null, ['--review', '--base', 'main'], fakeEnv(program, dir, 'expired'));
-            assert.equal(result.stdout, stopped('src/core/big.ts  error[reviewer-unreachable]  clear-errors: expired', 'reviewer-unreachable', `${told}, ${AGAIN}`));
+            assert.equal(result.stdout, after(stopped('src/core/big.ts  error[reviewer-unreachable]  clear-errors: expired', 'reviewer-unreachable', `${told}, ${AGAIN}`), 1));
             assert.equal(result.code, 2);
           }, configOf(program.provider, '  max_chars: 120000\n')),
       ],
@@ -295,7 +298,7 @@ async function programCases(program: Program): Promise<void> {
             const message = `a folder for ${program.name} cannot be made in ${missing} (ENOENT)`;
             const first = program.lists ? `${program.name} could not list its MCP servers: ${message}` : message;
             const fix = 'set TMPDIR (TEMP on Windows) to a folder that exists and can be written';
-            assert.equal(result.stdout, stopped(UNREACHABLE(first), 'reviewer-unreachable', `${fix}, then run the same command again; try keeps no answer, so it makes every call again`));
+            assert.equal(result.stdout, after(stopped(UNREACHABLE(first), 'reviewer-unreachable', `${fix}, then run the same command again; try keeps no answer, so it makes every call again`), 1));
             assert.equal(result.code, 2);
           }, configOf(program.provider)),
       ],
@@ -347,7 +350,7 @@ async function programCases(program: Program): Promise<void> {
             withR(async (r, dir) => {
               write(r, F_PATH, F);
               const result = await run(r, null, ['--review', '--base', 'main'], fakeEnv(program, dir, 'list-fails'));
-              assert.equal(result.stdout, stopped(UNREACHABLE(`${program.name} could not list its MCP servers: no config`), 'reviewer-unreachable', `run ${program.name} mcp list --json and fix what it says, ${AGAIN}`));
+              assert.equal(result.stdout, after(stopped(UNREACHABLE(`${program.name} could not list its MCP servers: no config`), 'reviewer-unreachable', `run ${program.name} mcp list --json and fix what it says, ${AGAIN}`), 1));
               assert.equal(counted(join(dir, 'asked.txt')), 0);
             }, configOf(program.provider)),
         ],
@@ -361,7 +364,7 @@ async function programCases(program: Program): Promise<void> {
           const secrets = Object.fromEntries(SIGN_IN_KEYS[program.name]!.map((variable) => [variable, `canary-${randomBytes(9).toString('hex')}`]));
           const masked = SIGN_IN_KEYS[program.name]!.map(() => '[key]').join(' and ');
           const failed = await run(r, null, ['--review', '--base', 'main'], fakeEnv(program, dir, 'echo-error', secrets));
-          assert.equal(failed.stdout, stopped(UNREACHABLE(`Invalid API key: ${masked}`), 'reviewer-unreachable', `${told}, ${AGAIN}`));
+          assert.equal(failed.stdout, after(stopped(UNREACHABLE(`Invalid API key: ${masked}`), 'reviewer-unreachable', `${told}, ${AGAIN}`), 1));
           const answered = await run(r, null, ['--review', '--base', 'main', '--json'], fakeEnv(program, dir, 'echo-answer', secrets));
           assert.equal(answered.code, 1, answered.stdout);
           const messages = JSON.parse(answered.stdout).findings.filter((f: { code: string }) => f.code === 'clear-errors').map((f: { message: string }) => f.message);
@@ -377,7 +380,7 @@ async function programCases(program: Program): Promise<void> {
             write(r, F_PATH, F);
             const result = await run(r, null, ['--review', '--base', 'main'], fakeEnv(program, dir, 'late', { [`FAKE_${upper}_LIST_DELAY`]: String(LIST_DELAY_MS), [`FAKE_${upper}_DELAY`]: String(LATE_ANSWER_MS) }));
             const next = `raise reviewer.timeout in .lawcheck/config.yaml, or check that ${program.name} answers when started by hand, ${AGAIN}`;
-            assert.equal(result.stdout, stopped(UNREACHABLE(`${program.name} gave no answer within ${SHARED_TIMEOUT_S} seconds`), 'reviewer-unreachable', next));
+            assert.equal(result.stdout, after(stopped(UNREACHABLE(`${program.name} gave no answer within ${SHARED_TIMEOUT_S} seconds`), 'reviewer-unreachable', next), 1));
             assert.equal(result.code, 2);
           }, configOf(program.provider, `  timeout: ${SHARED_TIMEOUT_S}\n`)),
       ]);
@@ -390,7 +393,7 @@ async function programCases(program: Program): Promise<void> {
             write(r, F_PATH, F);
             const result = await run(r, null, ['--review', '--base', 'main'], fakeEnv(program, dir, 'answer', { FAKE_CODEX_MCP: '[{"name":"odd.name","enabled":true}]' }));
             const message = 'codex would start the MCP server "odd.name", and a server whose name holds another character than a letter, a digit, _ or - cannot be switched off for one call';
-            assert.equal(result.stdout, stopped(UNREACHABLE(message), 'reviewer-unreachable', `rename the server in ~/.codex/config.toml, or set enabled = false under [mcp_servers."odd.name"], ${AGAIN}`));
+            assert.equal(result.stdout, after(stopped(UNREACHABLE(message), 'reviewer-unreachable', `rename the server in ~/.codex/config.toml, or set enabled = false under [mcp_servers."odd.name"], ${AGAIN}`), 1));
             assert.equal(counted(join(dir, 'asked.txt')), 0);
           }, configOf(program.provider)),
       ]);

@@ -2,7 +2,7 @@
 
 Each code that Lawcheck prints has a heading of its own on this page. Under it stand four parts: what the code means, its typical cause, the step that clears it and an example. If a run stops with `error[type-overlap]`, you find the step under `## type-overlap`.
 
-The table below gives each code one of two kinds, exit 2 or finding. With a code of the kind exit 2, Lawcheck stops the run before it gives a PASS or a FAIL. Lawcheck then exits with code 2. Its output ends on one `next:` line that says what to fix.
+The table below gives each code one of two kinds, exit 2 or finding. With a code of the kind exit 2, Lawcheck stops the run before it gives a PASS or a FAIL. Lawcheck then exits with code 2. Its output ends on one `next:` line that says what to fix. When the run had sent requests to a reviewer before it stopped on a reviewer's failure, a bad answer or too many findings, the first line ends with their count, as in `lawcheck: ERROR  1 error, 2 reviewer calls`, and with `--json` the document says it in `calls_made`. A request that Lawcheck sends again counts as one more. An error that stops the run before its first request names no count, and neither does `file-unwritable`.
 
 A code of the kind finding names a [finding](concepts.md#finding) in the report of `check`. The report opens with the PASS or FAIL of the run. Each finding below it starts a line of its own.
 
@@ -862,7 +862,7 @@ Run the same command again. The next run of `check` sends only the calls that th
 
 ```text
 $ lawcheck check --review --base main
-lawcheck: ERROR  1 error
+lawcheck: ERROR  1 error, 2 reviewer calls
 
 src/core/refund.ts  error[reviewer-bad-answer]  clear-errors: the answer is no verdict twice (the answer holds no JSON object with a verdict; then the answer holds no JSON object with a verdict)
   why:  an answer that is no verdict cannot be recorded

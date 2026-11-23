@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { plural } from '../../dist/output.js';
 import { defaultAnswer, FAILED_MESSAGE, openai, withFake } from './fake-reviewer.ts';
 import {
   append,
@@ -21,6 +22,7 @@ import {
   REVIEWER_LAW,
   run,
   SECOND,
+  setRule,
   THIRD,
   withR,
   write,
@@ -297,6 +299,62 @@ test('test 56: a bad answer is asked once more, then fails the run', async () =>
     },
     (request) => (request.index === 0 ? openai('fine') : openai(defaultAnswer(request.prompt))),
   );
+});
+
+test('S3-9: a run that ends with exit 2 after reviewer calls says how many it made, in the text and in the JSON', async () => {
+  const replies: [string, () => (request: { index: number; prompt: string }) => unknown][] = [
+    ['a bad answer twice', () => () => openai('fine')],
+    ['a server error', () => () => ({ status: 500, body: 'oops' })],
+  ];
+  for (const [what, reply] of replies) {
+    await withFake(
+      async (fake) => {
+        await withR(async (r) => {
+          write(r, F_PATH, F);
+          const text = await run(r, fake, ['--review', '--base', 'main']);
+          assert.equal(text.code, 2, what);
+          assert.ok(fake.requests.length >= 1, what);
+          assert.equal(text.stdout.split('\n')[0], `lawcheck: ERROR  1 error, ${plural(fake.requests.length, 'reviewer call')}`, what);
+          const before = fake.requests.length;
+          const json = await run(r, fake, ['--review', '--base', 'main', '--json']);
+          const document = JSON.parse(json.stdout);
+          assert.equal(document.schema, 'lawcheck-error/1', what);
+          assert.equal(document.calls_made, fake.requests.length - before, what);
+          assert.deepEqual(Object.keys(document), ['schema', 'errors', 'calls_made', 'next'], what);
+        });
+      },
+      reply(),
+    );
+  }
+});
+
+test('S3-9: a run that reviewer findings take past the limit of findings says how many reviewer calls it made', async () => {
+  await withFake(async (fake) => {
+    await withR(async (r) => {
+      write(r, F_PATH, F);
+      setRule(r, 'no-console', `export function check({ files }) { return files.some((f) => f.path === '${F_PATH}') ? Array.from({ length: 199999 }, () => ({ file: '${F_PATH}', message: 'm' })) : []; }\n`);
+      const result = await run(r, fake, ['--review', '--base', 'main', '--json']);
+      assert.equal(result.code, 2, result.stdout);
+      const document = JSON.parse(result.stdout);
+      assert.deepEqual(document.errors.map((e: { code: string }) => e.code), ['too-many-findings'], result.stdout);
+      assert.ok(fake.requests.length >= 1, result.stdout);
+      assert.equal(document.calls_made, fake.requests.length);
+    });
+  });
+});
+
+test('S3-9: an error that comes before any reviewer call says nothing of calls', async () => {
+  await withFake(async (fake) => {
+    await withR(async (r) => {
+      write(r, F_PATH, F);
+      const result = await run(r, fake, ['--review', '--base', 'main', '--json'], { LAWCHECK_REVIEWER_ENDPOINT: undefined });
+      assert.equal(result.code, 2, result.stdout);
+      assert.equal(fake.requests.length, 0);
+      assert.deepEqual(Object.keys(JSON.parse(result.stdout)), ['schema', 'errors', 'next']);
+      const text = await run(r, fake, ['--review', '--base', 'main'], { LAWCHECK_REVIEWER_ENDPOINT: undefined });
+      assert.equal(text.stdout.split('\n')[0], 'lawcheck: ERROR  1 error');
+    });
+  });
 });
 
 test('test 779: --strict names a missing review of old code, and the command of its next line asks about that old code, so a second strict run passes', async () => {

@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { defaultAnswer, FAILED_MESSAGE, withFake } from './fake-reviewer.ts';
+import { plural } from '../../dist/output.js';
 import { D, D_PATH, F, F_PATH, F_PRIME, git, lawcheck, LAW, PROMPT_F, REVIEWER_CONFIG, setRule, withR, withSample, write } from './helpers.ts';
 
 
@@ -268,6 +269,24 @@ test('test 125: what stops a reviewer rule before the first call', async () => {
         assert.match(result.stdout, /^src\/core\/refund\.ts {2}error\[reviewer-unreachable\] .*500/m);
         assert.ok(result.stdout.endsWith(`\nnext: wait until the reviewer at ${fake.url} works again, then run the same command again; try keeps no answer, so it makes every call again\n`), result.stdout);
         assert.equal(result.code, 2);
+      });
+    },
+    () => ({ status: 500, body: '{}' }),
+  );
+});
+
+test('S3-9: a try that ends with exit 2 after reviewer calls says how many it made, in the text and in the JSON', async () => {
+  await withFake(
+    async (fake) => {
+      await withR(async (r) => {
+        write(r, F_PATH, F);
+        const text = await tryIn(r, ['clear-errors', F_PATH], { LAWCHECK_REVIEWER_ENDPOINT: fake.url });
+        assert.equal(text.code, 2);
+        assert.ok(fake.requests.length >= 1);
+        assert.equal(text.stdout.split('\n')[0], `lawcheck: ERROR  1 error, ${plural(fake.requests.length, 'reviewer call')}`);
+        const before = fake.requests.length;
+        const json = await tryIn(r, ['clear-errors', F_PATH, '--json'], { LAWCHECK_REVIEWER_ENDPOINT: fake.url });
+        assert.equal(JSON.parse(json.stdout).calls_made, fake.requests.length - before);
       });
     },
     () => ({ status: 500, body: '{}' }),

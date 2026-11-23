@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { plural } from '../../dist/output.js';
 import { anthropic, defaultAnswer, google, ollama, openai, startFake, whyOf, withFake, writeFakeProgram } from './fake-reviewer.ts';
 import type { Fake, Recorded, Reply } from './fake-reviewer.ts';
 import { F, F_PATH, lawcheck, pathWith, PROMPT_F, run, SECOND, withR, write } from './helpers.ts';
@@ -16,6 +17,8 @@ const PASSED = 'lawcheck: PASS  1 changed file (against main), 1 waiver, 1 revie
 function stopped(error: string, code: 'reviewer-unreachable' | 'reviewer-bad-answer', next: string): string {
   return `lawcheck: ERROR  1 error\n\n${error}\n  why:  ${whyOf(code)}\n\nnext: ${next}\n`;
 }
+
+const after = (text: string, calls: number) => text.replace('ERROR  1 error\n', `ERROR  1 error, ${plural(calls, 'reviewer call')}\n`);
 
 const failedWith = (message: string, fix: string) => stopped(`${UNREACHABLE}clear-errors: ${message}`, 'reviewer-unreachable', `${fix}, ${AGAIN}`);
 
@@ -193,7 +196,7 @@ const keyFixOf = (http: Http, fake: Fake) =>
 function badTwice(result: { stdout: string; code: number | null }, fake: Fake) {
   const line = result.stdout.split('\n')[2]!;
   assert.ok(line.startsWith('src/core/refund.ts  error[reviewer-bad-answer]  clear-errors: the answer is no verdict twice ('), result.stdout.slice(0, 500));
-  assert.equal(result.stdout, stopped(line, 'reviewer-bad-answer', 'run the same command again; what was answered is kept, so it asks only the rest'));
+  assert.equal(result.stdout, after(stopped(line, 'reviewer-bad-answer', 'run the same command again; what was answered is kept, so it asks only the rest'), fake.requests.length));
   assert.equal(result.code, 2);
   assert.equal(fake.requests.length, 2);
 }
@@ -224,7 +227,7 @@ const CASES: Case[] = [
     name: 'HTTP 500',
     respond: () => () => ({ status: 500, body: 'oops' }),
     expect: (result, fake, http) => {
-      assert.equal(result.stdout, failedWith('HTTP 500 Internal Server Error', `wait until the reviewer at ${baseOf(http, fake)} works again`));
+      assert.equal(result.stdout, after(failedWith('HTTP 500 Internal Server Error', `wait until the reviewer at ${baseOf(http, fake)} works again`), fake.requests.length));
       assert.equal(result.code, 2);
       assert.equal(fake.requests.length, 1);
     },
@@ -233,7 +236,7 @@ const CASES: Case[] = [
     name: 'HTTP 401 with the error of the vendor',
     respond: (http) => () => ({ status: 401, body: http.error }),
     expect: (result, fake, http) => {
-      assert.equal(result.stdout, failedWith('HTTP 401 Unauthorized: bad key', keyFixOf(http, fake)));
+      assert.equal(result.stdout, after(failedWith('HTTP 401 Unauthorized: bad key', keyFixOf(http, fake)), fake.requests.length));
       assert.equal(result.code, 2);
       assert.equal(fake.requests.length, 1);
     },
@@ -252,7 +255,7 @@ const CASES: Case[] = [
     name: 'a redirect',
     respond: () => () => ({ status: 307, headers: { location: 'http://127.0.0.1:9/v1' }, body: '' }),
     expect: (result, fake) => {
-      assert.equal(result.stdout, failedWith('HTTP 307 Temporary Redirect', 'set LAWCHECK_REVIEWER_ENDPOINT to the address that answers without a redirect'));
+      assert.equal(result.stdout, after(failedWith('HTTP 307 Temporary Redirect', 'set LAWCHECK_REVIEWER_ENDPOINT to the address that answers without a redirect'), fake.requests.length));
       assert.equal(fake.requests.length, 1);
     },
   },
@@ -260,7 +263,7 @@ const CASES: Case[] = [
     name: 'an HTML page',
     respond: () => () => ({ status: 200, headers: { 'content-type': 'text/html' }, body: '<html><body>Sign in</body></html>' }),
     expect: (result, fake, http) => {
-      assert.equal(result.stdout, failedWith('HTTP 200, and the reply is no JSON', `check that ${baseOf(http, fake)} is the address of the provider's API`));
+      assert.equal(result.stdout, after(failedWith('HTTP 200, and the reply is no JSON', `check that ${baseOf(http, fake)} is the address of the provider's API`), fake.requests.length));
       assert.equal(fake.requests.length, 1);
     },
   },
@@ -272,7 +275,7 @@ const CASES: Case[] = [
         const base = baseOf(http, fake);
         const line = result.stdout.split('\n')[2]!;
         assert.ok(line.startsWith(`${UNREACHABLE}clear-errors: the connection to ${base} ended before the reply did (`), result.stdout);
-        assert.equal(result.stdout, stopped(line, 'reviewer-unreachable', `start the reviewer at ${base}, or set LAWCHECK_REVIEWER_ENDPOINT to the address where it runs, ${AGAIN}`));
+        assert.equal(result.stdout, after(stopped(line, 'reviewer-unreachable', `start the reviewer at ${base}, or set LAWCHECK_REVIEWER_ENDPOINT to the address where it runs, ${AGAIN}`), fake.requests.length));
         assert.equal(result.code, 2);
         assert.equal(fake.requests.length, 2);
       },
@@ -282,7 +285,7 @@ const CASES: Case[] = [
     name: 'a reply over 4 MiB',
     respond: (http) => () => http.reply('x'.repeat(4 * 1024 * 1024)),
     expect: (result, fake, http) => {
-      assert.equal(result.stdout, failedWith('the reply holds more than 4 MiB, so it is not read', `check that ${baseOf(http, fake)} is the address of the provider's API`));
+      assert.equal(result.stdout, after(failedWith('the reply holds more than 4 MiB, so it is not read', `check that ${baseOf(http, fake)} is the address of the provider's API`), fake.requests.length));
       assert.equal(result.code, 2);
       assert.equal(fake.requests.length, 1);
     },
@@ -292,7 +295,7 @@ const CASES: Case[] = [
     respond: () => () => ({ hang: true }),
     extra: '  timeout: 1\n',
     expect: (result, fake, http) => {
-      assert.equal(result.stdout, failedWith('the reviewer gave no answer within 1 seconds', `raise reviewer.timeout in .lawcheck/config.yaml, or check that the reviewer at ${baseOf(http, fake)} works`));
+      assert.equal(result.stdout, after(failedWith('the reviewer gave no answer within 1 seconds', `raise reviewer.timeout in .lawcheck/config.yaml, or check that the reviewer at ${baseOf(http, fake)} works`), fake.requests.length));
       assert.ok(result.ms < HTTP_TIMEOUT_RUN_MS, `${result.ms} ms`);
       assert.equal(fake.requests.length, 1);
     },
@@ -328,7 +331,7 @@ async function answers(http: Http): Promise<void> {
     await withR(async (r) => {
       write(r, F_PATH, F);
       const result = await run(r, null, ['--review', '--base', 'main'], { ...http.env(gone), LAWCHECK_REVIEWER_ENDPOINT: base });
-      assert.equal(result.stdout, failedWith(`nothing answers at ${base}: the connection was refused (ECONNREFUSED)`, `start the reviewer at ${base}, or set LAWCHECK_REVIEWER_ENDPOINT to the address where it runs`), http.provider);
+      assert.equal(result.stdout, after(failedWith(`nothing answers at ${base}: the connection was refused (ECONNREFUSED)`, `start the reviewer at ${base}, or set LAWCHECK_REVIEWER_ENDPOINT to the address where it runs`), 2), http.provider);
       assert.equal(result.code, 2);
     }, configOf(http.provider));
   }
@@ -464,7 +467,7 @@ test('test 405: a key under a provider name goes to that provider alone', async 
             write(r, F_PATH, F);
             const keys = { LAWCHECK_REVIEWER_KEY: 'k1', ANTHROPIC_API_KEY: 'k3', OPENAI_API_KEY: 'k2', GOOGLE_API_KEY: 'k4' };
             const result = await run(r, fake, ['--review', '--base', 'main'], keys);
-            assert.equal(result.stdout, failedWith('HTTP 307 Temporary Redirect', 'set LAWCHECK_REVIEWER_ENDPOINT to the address that answers without a redirect'));
+            assert.equal(result.stdout, after(failedWith('HTTP 307 Temporary Redirect', 'set LAWCHECK_REVIEWER_ENDPOINT to the address that answers without a redirect'), fake.requests.length));
             assert.equal(result.code, 2);
             assert.equal(second.requests.length, 0);
             assert.equal(fake.requests.length, 1);
@@ -503,10 +506,10 @@ test('test 411: the timeout bounds a request and its resend', async () => {
           const result = await run(r, fake, ['--review', '--base', 'main']);
           assert.equal(result.code, 2, `${name}: ${result.stdout}`);
           if (name === '429') {
-            assert.equal(result.stdout, failedWith('HTTP 429 Too Many Requests', "wait until the provider's rate limit allows another call"));
+            assert.equal(result.stdout, after(failedWith('HTTP 429 Too Many Requests', "wait until the provider's rate limit allows another call"), fake.requests.length));
             assert.equal(fake.requests.length, 1);
           } else {
-            assert.equal(result.stdout, failedWith('the reviewer gave no answer within 3 seconds', `raise reviewer.timeout in .lawcheck/config.yaml, or check that the reviewer at ${fake.url} works`));
+            assert.equal(result.stdout, after(failedWith('the reviewer gave no answer within 3 seconds', `raise reviewer.timeout in .lawcheck/config.yaml, or check that the reviewer at ${fake.url} works`), fake.requests.length));
             assert.equal(fake.requests.length, 2);
             const resend = fake.requests[1]!;
             assert.ok(resend.end - resend.start < RESEND_LEFT_BOUND_MS, `the resend lasted ${resend.end - resend.start} ms with 0.5 seconds left`);
