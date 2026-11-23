@@ -14,7 +14,7 @@ permissions:
 
 env:
   # The host of the documentation: lawcheck.dev until the domain switch, docs.lawcheck.dev from it on. site/theme/brand.ts reads this line for the canonical address of every page, the sitemap and robots.txt.
-  DOCS_HOST: lawcheck.dev
+  DOCS_HOST: docs.lawcheck.dev
 
 concurrency:
   group: pages
