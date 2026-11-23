@@ -58,7 +58,7 @@ export function failure(name: string, ended: Ended, first: string | null = null)
     lastLine(ended.stderr) ??
     lastLine(ended.stdout) ??
     (ended.signal === null ? `${name} exited with ${ended.code}` : `${name} was ended by ${ended.signal}`);
-  return { failure: [...hide(reason)].slice(0, FAILURE_LENGTH).join(''), resend: false, fix: `do what ${name} says, such as signing in or naming a model it has` };
+  return { failure: [...hide(reason)].slice(0, FAILURE_LENGTH).join(''), resend: false, fix: `ask the user to do what ${name} says, such as signing in or setting reviewer.model in .lawcheck/config.yaml to a model ${name} has` };
 }
 
 export function plainOutput(name: string): (ended: Ended) => Asked {
