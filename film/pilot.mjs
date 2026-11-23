@@ -8,8 +8,11 @@ export const PILOT = join(HERE, 'pilot.json');
 
 const USES = /\b(?:import|export)\b[^;"']*?\bfrom\s*["']([^"']+)["']|\bimport\s*["']([^"']+)["']|\b(?:import|require)\s*\(\s*["']([^"']+)["']/g;
 
+const METADATA = /^(?:\.DS_Store|\._.*)$/;
+
 function filesBelow(folder, prefix = '') {
   return readdirSync(folder, { withFileTypes: true })
+    .filter((entry) => !METADATA.test(entry.name))
     .flatMap((entry) => {
       const path = prefix === '' ? entry.name : `${prefix}/${entry.name}`;
       return entry.isDirectory() ? filesBelow(join(folder, entry.name), path) : [path];
@@ -78,6 +81,23 @@ export function pilotOf(takes) {
   };
 }
 
+export function differences(have, want) {
+  const lines = [];
+  const rows = (pilot) => new Map(pilot.sessions.map((row) => [row.id, row]));
+  const [kept, recounted] = [rows(have), rows(want)];
+  for (const id of [...new Set([...kept.keys(), ...recounted.keys()])].sort()) {
+    const [old, now] = [kept.get(id), recounted.get(id)];
+    if (old === undefined) lines.push(`session ${id} is not in film/pilot.json`);
+    else if (now === undefined) lines.push(`session ${id} has no record in the folder`);
+    else {
+      const fields = Object.keys({ ...old, ...now }).filter((field) => JSON.stringify(old[field]) !== JSON.stringify(now[field]));
+      if (fields.length > 0) lines.push(`session ${id} differs in ${fields.join(', ')}`);
+    }
+  }
+  for (const field of ['prompt', 'recordHash', 'summary']) if (JSON.stringify(have[field]) !== JSON.stringify(want[field])) lines.push(`${field} differs`);
+  return lines;
+}
+
 if (process.argv[1] !== undefined && fileURLToPath(import.meta.url) === process.argv[1]) {
   const [command, takes] = process.argv.slice(2);
   if ((command !== 'write' && command !== 'check') || takes === undefined) {
@@ -93,7 +113,8 @@ if (process.argv[1] !== undefined && fileURLToPath(import.meta.url) === process.
   const summary = JSON.parse(text).summary;
   process.stdout.write(`recount: arm a ${summary.a.imported} of ${summary.a.sessions} imported src/api into src/core, arm b ${summary.b.imported} of ${summary.b.sessions}\n`);
   if (have !== text) {
-    process.stdout.write('film/pilot.json differs from a recount of the records\n');
+    const lines = differences(JSON.parse(have), JSON.parse(text));
+    process.stdout.write(`film/pilot.json differs from a recount of the records${lines.length === 0 ? ' in its formatting' : ''}\n${lines.map((line) => `${line}\n`).join('')}`);
     process.exit(1);
   }
   process.stdout.write('film/pilot.json equals a recount of the records\n');

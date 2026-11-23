@@ -5,7 +5,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { ROOT } from '../harness/sets.ts';
-import { apiImports, fingerprint, pilotOf, rowOf, summaryOf } from '../../film/pilot.mjs';
+import { apiImports, differences, fingerprint, pilotOf, rowOf, summaryOf } from '../../film/pilot.mjs';
 
 interface Row {
   id: string;
@@ -70,6 +70,15 @@ test('test 742: a record is hashed by every file in it, and an import of src/api
     assert.equal(fingerprint(one), first);
     writeFileSync(join(one, 'extra.txt'), '');
     assert.notEqual(fingerprint(one), first);
+    rmSync(join(one, 'extra.txt'));
+    for (const path of ['.DS_Store', 'files/.DS_Store', 'files/src/._a.ts', 'files/src/core/.DS_Store', 'files/src/core/._a.ts']) writeFileSync(join(one, path), 'metadata of the Finder');
+    assert.equal(fingerprint(one), first);
+    assert.deepEqual(apiImports(one), ['src/core/a.ts:1', 'src/core/b.ts:1', 'src/core/b.ts:4', 'src/core/c.ts:1', 'src/core/c.ts:2', 'src/core/c.ts:3']);
+    for (const path of ['.hidden', 'DS_Store', '.DS_Store.txt']) {
+      writeFileSync(join(one, path), '');
+      assert.notEqual(fingerprint(one), first, path);
+      rmSync(join(one, path));
+    }
     assert.equal(rowOf(one).record, fingerprint(one));
   } finally {
     rmSync(root, { recursive: true, force: true });
@@ -85,6 +94,9 @@ test('test 742: node film/pilot.mjs recounts a folder of records, says that film
     const run = spawnSync(process.execPath, [join(ROOT, 'film/pilot.mjs'), 'check', root], { encoding: 'utf8' });
     assert.equal(run.status, 1, run.stderr);
     assert.ok(run.stdout.includes('recount: arm a 1 of 1 imported src/api into src/core, arm b 0 of 1\nfilm/pilot.json differs from a recount of the records\n'), run.stdout);
+    assert.ok(run.stdout.includes('session a01 differs in '), run.stdout);
+    assert.ok(run.stdout.includes('session a02 has no record in the folder\n'), run.stdout);
+    assert.deepEqual(differences({ prompt: 'p', sessions: [{ id: 'a01', record: '1' }, { id: 'a02', record: '2' }] }, { prompt: 'p', sessions: [{ id: 'a01', record: '1' }, { id: 'a02', record: '3' }, { id: 'a03', record: '4' }] }), ['session a02 differs in record', 'session a03 is not in film/pilot.json']);
     const usage = spawnSync(process.execPath, [join(ROOT, 'film/pilot.mjs'), 'check'], { encoding: 'utf8' });
     assert.equal(usage.status, 2);
     assert.ok(usage.stderr.startsWith('usage: node film/pilot.mjs'), usage.stderr);
