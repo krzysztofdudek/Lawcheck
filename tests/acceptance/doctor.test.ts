@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { withFake, openai } from './fake-reviewer.ts';
 import { writeFakeClaude } from './fake-reviewer.ts';
@@ -289,6 +289,25 @@ test('test 881: a configuration file a reader consults and cannot read gets a li
     assert.match(line(result.stdout, 'readers'), /^ok {2}readers {2}uses are read in 1 file: typescript 1; the 13 grammars load$/);
     assert.deepEqual(detailsOf(result.stdout), []);
     assert.equal(result.code, 0);
+  });
+});
+
+const CS_PROJECT = '<Project Sdk="Microsoft.NET.Sdk"></Project>\n';
+
+test('test 884: doctor reads the uses of a C# file with a list in force and writes no reader cache, where a check after it writes one', async () => {
+  await inTemp(async (dir) => {
+    const repo = newRepository(dir, {
+      '.lawcheck/law.yaml': 'lawcheck: 0.1.0\n\ntypes:\n  ui:\n    paths: ["ui/**/*.cs"]\n    may_use: [ui]\n  data:\n    paths: ["data/**/*.cs"]\n',
+      'Shop.csproj': CS_PROJECT,
+      'data/Price.cs': 'namespace Shop.Data;\npublic class Price {}\n',
+      'ui/View.cs': 'using Shop.Data;\nnamespace Shop.Ui;\npublic class View { public Price P; }\n',
+    });
+    const cache = join(repo, '.lawcheck', '.local');
+    const result = await doctor(repo);
+    assert.match(line(result.stdout, 'readers'), /^ok {2}readers {2}uses are read in 1 file: csharp 1; /);
+    assert.equal(existsSync(cache), false);
+    await lawcheck(repo, ['check', '--full']);
+    assert.equal(existsSync(join(cache, 'readers')), true);
   });
 });
 
