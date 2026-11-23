@@ -3,7 +3,7 @@ import { platformSkip } from '../harness/tool.ts';
 import assert from 'node:assert/strict';
 import { chmodSync, symlinkSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
-import { check, LAW, NO_TODO, setRule, withSample, write } from './helpers.ts';
+import { check, LAW, lawcheck, NO_TODO, setRule, withSample, write } from './helpers.ts';
 
 function law(s: string, text: string): void {
   write(s, '.lawcheck/law.yaml', text);
@@ -169,5 +169,100 @@ test('check-slice §6: a law that cannot be read is law-invalid', async (t) => {
     } finally {
       chmodSync(join(s, '.lawcheck/law.yaml'), 0o644);
     }
+  });
+});
+
+const REQUIRED = LAW.replace('rules:\n', 'required: ["src/**", "tools/**"]\n\nrules:\n');
+const IGNORED = (patterns: string) => REQUIRED.replace('rules:\n', `ignored: [${patterns}]\n\nrules:\n`);
+const HELPER = 'export const help = 1;\n';
+const UNTYPED_WHY = '  why:  a file that no type takes is judged by no rule, so a folder under required may hold none';
+
+test('test 830: a file an agent adds under required that no type takes fails check with untyped-file, and the same file under ignored passes', async () => {
+  await withSample(
+    async (s) => {
+      write(s, 'src/gen/helpers.js', HELPER);
+      const run = await check(s);
+      assert.equal(
+        run.stdout,
+        [
+          'lawcheck: FAIL  1 error in 1 changed file (against main)',
+          '',
+          'src/gen/helpers.js  error[untyped-file]  the file lies under required (src/**) and no type of the law takes it',
+          UNTYPED_WHY,
+          '',
+          "next: give src/gen/helpers.js a type: move it where a type's paths take it, or add a type for it to .lawcheck/law.yaml",
+          '',
+        ].join('\n'),
+      );
+      assert.equal(run.code, 1);
+      const json = await check(s, '--base', 'main', '--json');
+      const document = JSON.parse(json.stdout);
+      assert.deepEqual(document.findings, [
+        { code: 'untyped-file', rule: null, severity: 'error', blocking: true, debt: false, file: 'src/gen/helpers.js', type: '', message: 'the file lies under required (src/**) and no type of the law takes it', why: UNTYPED_WHY.slice('  why:  '.length) },
+      ]);
+      assert.equal(json.code, 1);
+      const named = await lawcheck(s, ['check', 'src/gen/helpers.js']);
+      assert.equal(named.stdout.split('\n')[0], 'lawcheck: FAIL  1 error in 1 named file');
+      assert.equal(named.code, 1);
+    },
+    { onMain: (m) => write(m, '.lawcheck/law.yaml', REQUIRED) },
+  );
+  await withSample(
+    async (s) => {
+      write(s, 'src/gen/helpers.js', HELPER);
+      const run = await check(s);
+      assert.equal(run.stdout, 'lawcheck: PASS  1 changed file (against main)\n');
+      assert.equal(run.code, 0);
+    },
+    { onMain: (m) => write(m, '.lawcheck/law.yaml', IGNORED('"src/gen/**"')) },
+  );
+  await withSample(async (s) => {
+    write(s, 'src/gen/helpers.js', HELPER);
+    const run = await check(s);
+    assert.equal(run.stdout, 'lawcheck: PASS  1 changed file (against main)\n', 'the control: without required the file passes in silence, as before');
+    assert.equal(run.code, 0);
+  });
+});
+
+test('test 831: untyped-file in debt, a binary file, a file a type takes by path and not by content, a typed file under ignored, and what explain and prime say', async () => {
+  await withSample(
+    async (s) => {
+      const full = await check(s, '--full', '--base', 'main');
+      assert.deepEqual(
+        full.stdout.split('\n').filter((line) => line.includes('[untyped-file]')),
+        ['src/gen/helpers.js  warning[untyped-file]  the file lies under required (src/**) and no type of the law takes it', 'tools/notes.mjs  warning[untyped-file]  the file lies under required (tools/**) and no type of the law takes it'],
+      );
+      assert.ok(!full.stdout.includes('src/gen/logo.png'));
+      assert.ok(!full.stdout.includes('src/core/price.ts'), 'the file under ignored is judged by no rule');
+      assert.equal(full.code, 0);
+      const strict = await check(s, '--strict', '--base', 'main');
+      assert.ok(strict.stdout.includes('src/gen/helpers.js  error[untyped-file]'), strict.stdout);
+      assert.equal(strict.code, 1);
+      const helper = await lawcheck(s, ['explain', 'src/gen/helpers.js']);
+      assert.equal(helper.stdout, "src/gen/helpers.js\n  type:  none: no type's paths match it, so no rule judges it; it lies under required (src/**), so check reports it as untyped-file\n");
+      const notes = await lawcheck(s, ['explain', 'tools/notes.mjs']);
+      assert.equal(notes.stdout, 'tools/notes.mjs\n  type:  none: it matches the paths of script but not their content, so no rule judges it; it lies under required (tools/**), so check reports it as untyped-file\n');
+      const price = await lawcheck(s, ['explain', 'src/core/price.ts']);
+      assert.equal(price.stdout, 'src/core/price.ts\n  type:  none: it lies under ignored (src/core/price.ts), which the law leaves out\n');
+      const absent = await lawcheck(s, ['explain', 'src/gen/next.js']);
+      assert.equal(absent.stdout, "src/gen/next.js  (does not exist yet)\n  type:  none: no type's paths match it, so no rule judges it; it lies under required (src/**), so check reports it as untyped-file\n");
+      const prime = await lawcheck(s, ['prime']);
+      assert.ok(prime.stdout.includes('\nThe law here: 4 types, 2 rules\nEvery file under src/**, tools/** needs a type; a file with none is untyped-file\nLeft out of the law: src/core/price.ts\n'), prime.stdout);
+      assert.ok(prime.stdout.includes('\n- adding a pattern to ignored, or taking one from required\n'), prime.stdout);
+    },
+    {
+      onMain: (m) => {
+        write(m, '.lawcheck/law.yaml', IGNORED('"src/core/price.ts"'));
+        write(m, 'src/gen/helpers.js', HELPER);
+        write(m, 'src/gen/logo.png', Buffer.from([0x89, 0x50, 0x4e, 0x47, 0, 1, 2]));
+        write(m, 'tools/notes.mjs', "console.log('no shebang');\n");
+      },
+    },
+  );
+  await withSample(async (s) => {
+    write(s, '.lawcheck/law.yaml', IGNORED('"src/gen/**"'));
+    const run = await check(s);
+    assert.equal(run.stdout.split('\n')[2], 'note: this change edits the law that judges it: changes required; changes ignored');
+    assert.equal(run.code, 0);
   });
 });

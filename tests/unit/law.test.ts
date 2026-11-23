@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { parseLaw, nearestKey } from '../../dist/law.js';
+import { parseLaw, nearestKey, patternFor } from '../../dist/law.js';
 
 const SAMPLE = readFileSync(new URL('../sample/.lawcheck/law.yaml', import.meta.url), 'utf8');
 
@@ -36,6 +36,34 @@ test('check-slice §2: the keys this slice leaves out are unknown keys', () => {
     assert.equal(found.length, 1, key);
     assert.match(found[0]!.message, /^unknown key/);
   }
+});
+
+const FOLDERS = SAMPLE.replace('rules:\n', 'required: ["src/**", "!src/**/*.md"]\nignored: ["src/gen/**"]\n\nrules:\n');
+
+test('test 830: required and ignored take lists of patterns at the top of the law, and a law without them requires and leaves out nothing', () => {
+  const { law, problems: found } = parseLaw(FOLDERS);
+  assert.deepEqual(found, []);
+  assert.deepEqual(law!.required.patterns, ['src/**', '!src/**/*.md']);
+  assert.deepEqual(law!.ignored.patterns, ['src/gen/**']);
+  assert.equal(law!.required.matches('src/a/b.js'), true);
+  assert.equal(law!.required.matches('src/a/b.md'), false);
+  assert.equal(law!.required.matches('lib/b.js'), false);
+  assert.equal(law!.ignored.matches('src/gen/x.ts'), true);
+  assert.equal(patternFor(law!.required, 'src/a/b.js'), 'src/**');
+  assert.equal(patternFor(law!.required, 'src/a/b.md'), null);
+  const plain = parseLaw(SAMPLE).law!;
+  assert.deepEqual([plain.required.patterns, plain.ignored.patterns], [[], []]);
+  assert.equal(plain.required.matches('src/a/b.js'), false);
+  assert.equal(parseLaw(SAMPLE.replace('rules:\n', 'required: []\n\nrules:\n')).law!.required.matches('src/a.ts'), false);
+});
+
+test('test 830: required and ignored of the wrong kind, with a pattern that does not compile, or with only exclusions are law-invalid at their line', () => {
+  const at = (key: string, value: string) => problems(SAMPLE.replace('rules:\n', `${key}: ${value}\n\nrules:\n`));
+  assert.deepEqual(at('required', '"src/**"'), [{ line: 3, message: "'required' takes a sequence of strings, not a string" }]);
+  assert.deepEqual(at('ignored', '{ a: 1 }'), [{ line: 3, message: "'ignored' takes a sequence of strings, not a mapping" }]);
+  assert.deepEqual(at('required', '["!src/x.ts"]'), [{ line: 3, message: "'required' holds no pattern without '!'" }]);
+  assert.deepEqual(at('ignored', '["src//x"]'), [{ line: 3, message: "the pattern 'src//x' of 'ignored' holds an empty segment" }]);
+  assert.deepEqual(at('requird', '["src/**"]'), [{ line: 3, message: "unknown key 'requird' at the top of the law (did you mean 'required'?)" }]);
 });
 
 test('check-slice §2: values of the wrong kind', () => {

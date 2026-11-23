@@ -358,6 +358,15 @@ const CASES: Case[] = [
     },
   },
   {
+    id: 'untyped-file',
+    code: 'untyped-file',
+    setup: (dir) => {
+      const s = makeSample(dir, { onMain: (m) => write(m, '.lawcheck/law.yaml', LAW.replace('rules:\n', 'required: ["src/**"]\n\nrules:\n')) });
+      write(s, 'src/gen/helpers.js', 'export const help = 1;\n');
+      return { cwd: s, argv: CHECK, exit: 1, exact: ['src/gen/helpers.js  error[untyped-file]  the file lies under required (src/**) and no type of the law takes it', '  why:  a file that no type takes is judged by no rule, so a folder under required may hold none'] };
+    },
+  },
+  {
     id: 'uses-not-read, the law on main',
     code: 'uses-not-read',
     setup: (dir) => {
@@ -795,7 +804,7 @@ const GROUPS: Record<string, string[]> = {
   files: ['law-invalid', 'config-invalid', 'rule-missing-file', 'rule-file-without-entry', 'type-overlap'],
   run: ['base-unreachable', 'rule-crashed', 'parser-failed', 'internal', 'link-outside-root', 'path-unsupported', 'runner-failed'],
   reviewer: ['reviewer-not-configured', 'too-many-reviews', 'reviewer-unreachable', 'reviewer-bad-answer', 'not-reviewed', 'too-large-to-review'],
-  findings: ['forbidden-use', 'uses-not-read', 'waiver-', 'doctor,'],
+  findings: ['forbidden-use', 'uses-not-read', 'untyped-file', 'waiver-', 'doctor,'],
 };
 
 const inGroup = (group: string): Case[] => CASES.filter((c) => GROUPS[group]!.some((prefix) => c.id.startsWith(prefix)));
