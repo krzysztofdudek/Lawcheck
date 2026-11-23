@@ -311,7 +311,7 @@ section {
   background-repeat: no-repeat;
   background-attachment: local, local, scroll, scroll;
   --lc-cover: var(--lc-code);
-  --lc-edge: color-mix(in srgb, var(--lc-brand) 45%, transparent);
+  --lc-edge: var(--lc-brand-dim);
 }
 
 .table {
