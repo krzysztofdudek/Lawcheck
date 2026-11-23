@@ -24,6 +24,10 @@ A change that moves a type under another parent is now named in the note about a
 
 `lawcheck docs languages` now says that a C# file uses a type of another project only when its project holds a `ProjectReference` to that project. Without one, the use is unresolved and no `may_use` list judges it. The page also lists the forms of each language that no reader reads.
 
+`lawcheck init` in a repository whose `.gitignore` names `.lawcheck` still writes the law, and now says that git ignores it, so no commit carries it and no other checkout has it. The output gains a `note:` line, and in `--json` the `next.text` starts with the same warning. `lawcheck doctor` shows its `law` check as `note` and names `git check-ignore -v .lawcheck/law.yaml`, which finds the line to remove. In alpha.4, both passed and said nothing.
+
+The pages of `lawcheck docs` said that a file git ignores has no type. That holds only for a file git does not track. A file git tracks keeps its type and is judged even when `.gitignore` names it, as `lawcheck explain` shows. The pages now say so.
+
 ## [0.1.0-alpha.4] - 2026-11-23
 
 A script rule that uses the network now gets an error from the call itself, on every Node. On Node 24, alpha.3 let the call through. On Node 25 and later, alpha.3 passed Node's refusal to the callback, the `error` event or the promise, so a rule that handled the refusal there passed. The rule runner of alpha.4 closes the network before the rule loads. A rule that connects, listens on a port, sends over UDP, looks up a name in DNS or calls `fetch` gets the error. A rule that does not catch it is `rule-crashed`, with the message `uses the network, which is closed to script rules`.
