@@ -161,9 +161,16 @@ export interface ReadInput {
   ownerOf: (path: string) => string | undefined;
   read: { path: string; view: ScriptView | null }[];
   grammarDir?: string;
+  cacheWrites?: boolean;
 }
 
-export type ReadOutcome = { uses: Map<string, Use[]>; skipped: Skipped[] } | { error: ErrorItem };
+export type ReadOutcome = { uses: Map<string, Use[]>; skipped: Skipped[]; unreadable: UnreadableConfig[] } | { error: ErrorItem };
+
+export interface UnreadableConfig {
+  file: string;
+  line: number | null;
+  message: string;
+}
 
 // A file past the limit of a file whose uses are read: one the run judges (uses), or one read only for what it declares.
 export interface Skipped {
@@ -192,7 +199,8 @@ function readerFailure(language: string, path: string, error: unknown): Stop {
 export async function readUses(input: ReadInput, runes: Runes = RUNES): Promise<ReadOutcome> {
   try {
     const skipped: Skipped[] = [];
-    return { uses: await readAll(input, runes, skipped), skipped };
+    const unreadable: UnreadableConfig[] = [];
+    return { uses: await readAll(input, runes, skipped, unreadable), skipped, unreadable };
   } catch (error) {
     if (error instanceof Stop) return { error: error.item };
     if (error instanceof Unreadable) return { error: unreadableError(error) };
@@ -244,11 +252,12 @@ class DeclaredCache {
     private readonly root: string,
     private readonly host: Host,
     private readonly runes: Runes,
+    private readonly writes: boolean,
   ) {
     this.dir = join(root, LOCAL, 'readers');
   }
 
-  static open(root: string, files: string[], host: Host, runes: Runes): DeclaredCache | null {
+  static open(root: string, files: string[], host: Host, runes: Runes, writes: boolean): DeclaredCache | null {
     if (host.grammarDigestForLanguage === undefined) return null;
     // A file system that ignores case shows the files git lists under .lawcheck/.LOCAL at .lawcheck/.local.
     if (files.some((path) => path.toLowerCase() === LOCAL || path.toLowerCase().startsWith(`${LOCAL}/`))) return null;
@@ -264,7 +273,7 @@ class DeclaredCache {
     } catch {
       return null;
     }
-    return new DeclaredCache(root, host, runes);
+    return new DeclaredCache(root, host, runes, writes);
   }
 
   key(language: string, path: string, content: string): string | null {
@@ -330,6 +339,7 @@ class DeclaredCache {
 
   // A run that read every file keeps only its own entries, so a pack holds at most one entry for each file of its group; a run a reader failure stopped keeps the entries it did not reach as well.
   write(complete: boolean): void {
+    if (!this.writes) return;
     for (const [group, kept] of this.kept) {
       const loaded = this.loaded.get(group) ?? new Map<string, Declared>();
       if (!this.missed.has(group) && (!complete || kept.size === loaded.size)) continue;
@@ -360,7 +370,7 @@ class DeclaredCache {
   }
 }
 
-async function readAll(input: ReadInput, runes: Runes, skipped: Skipped[]): Promise<Map<string, Use[]>> {
+async function readAll(input: ReadInput, runes: Runes, skipped: Skipped[], unreadable: UnreadableConfig[]): Promise<Map<string, Use[]>> {
   const out = new Map<string, Use[]>();
   const parses = new Map<string, Parse>();
   for (const { path, view } of input.read) {
@@ -395,7 +405,7 @@ async function readAll(input: ReadInput, runes: Runes, skipped: Skipped[]): Prom
   const detected = new Map<string, DetectedDep[]>();
   const csharp = new Map<string, CsharpExtract>();
   const globals = new Map<string, GlobalFacts>();
-  const cache = groups.size > 0 ? DeclaredCache.open(input.root, input.files, host, runes) : null;
+  const cache = groups.size > 0 ? DeclaredCache.open(input.root, input.files, host, runes, input.cacheWrites !== false) : null;
 
   for (const parse of [...parses.values()].sort((a, b) => comparePaths(a.path, b.path))) {
     step(parse.uses ? `reading the uses of ${parse.path}` : `reading what ${parse.path} declares`);
@@ -506,7 +516,12 @@ async function readAll(input: ReadInput, runes: Runes, skipped: Skipped[]): Prom
   const resolver = runes.makeResolver({
     ownerIndex,
     symbolTable,
-    resolvePathToFile: runes.makeResolvePathToFile(input.root, input.ownerOf, undefined, { files: view }),
+    resolvePathToFile: runes.makeResolvePathToFile(input.root, input.ownerOf, undefined, {
+      files: view,
+      onDiagnostic: (diagnostic) => {
+        if (diagnostic.code === 'config-unreadable') unreadable.push({ file: diagnostic.file, line: diagnostic.line ?? null, message: diagnostic.message });
+      },
+    }),
     ...(reach === undefined ? {} : { reach }),
   });
 

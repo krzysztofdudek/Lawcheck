@@ -17,7 +17,8 @@ import { checkAnswer } from './prompt.js';
 import { createProvider } from './providers/index.js';
 import { hide } from './keys.js';
 import type { Env, Provider } from './providers/index.js';
-import { LANGUAGES, loadGrammars, readerOf, siblingsOf } from './readers.js';
+import { LANGUAGES, loadGrammars, ownersOf, readerOf, readUses, siblingsOf } from './readers.js';
+import type { ScriptView } from './readers.js';
 import { belowPart, configErrors, findRoot, lawsBelow, lawErrors, onceReader, ruleFileErrors, Stop, theChange, touchesLaw, typingErrors } from './setup.js';
 import type { Change, Kinds, Read } from './setup.js';
 import type { TypedFile } from './types.js';
@@ -34,6 +35,7 @@ export interface Check {
   id: string;
   state: State;
   message: string;
+  details?: string[];
   next: Next | null;
 }
 
@@ -93,8 +95,8 @@ export async function runChecks(inputs: Inputs): Promise<Check[]> {
   const checks = new Map<string, Check>();
   const found: Found = { root: findRoot(inputs.cwd), law: null, kinds: null, files: [], read: null, config: null, typed: [], change: null };
   const passed = (id: string) => (id === 'law-file' ? found.root !== null : ['ok', 'note'].includes(checks.get(id)?.state ?? ''));
-  const set = (id: string, state: State, message: string, nextStep: Next | null = null): void => {
-    checks.set(id, { id, state, message, next: nextStep });
+  const set = (id: string, state: State, message: string, nextStep: Next | null = null, details: string[] = []): void => {
+    checks.set(id, { id, state, message, ...(details.length === 0 ? {} : { details }), next: nextStep });
   };
 
   const steps: Record<string, () => Promise<void> | void> = {
@@ -219,6 +221,7 @@ export async function runChecks(inputs: Inputs): Promise<Check[]> {
       const siblings = siblingsOf(found.files);
       const languages = new Map<string, number>();
       const unread: string[] = [];
+      const toRead: { path: string; view: ScriptView | null }[] = [];
       for (const file of found.typed) {
         if (listInForce(file.type) === null) continue;
         const reader = readerOf(file.path, file.text, siblings);
@@ -226,20 +229,45 @@ export async function runChecks(inputs: Inputs): Promise<Check[]> {
           unread.push(file.path);
           continue;
         }
+        toRead.push({ path: file.path, view: reader.view });
         const language = reader.view?.language ?? extensionOf(file.path).slice(1);
         languages.set(language, (languages.get(language) ?? 0) + 1);
       }
+      let configs: { file: string; message: string }[] = [];
+      if (toRead.length > 0) {
+        const { bytes, ownerOf } = ownersOf(found.files, found.read ?? onceReader(found.root!), found.typed);
+        const outcome = await readUses({
+          root: found.root!,
+          files: found.files,
+          bytes,
+          ownerOf,
+          read: toRead,
+          cacheWrites: false,
+          ...(inputs.grammarDir === undefined ? {} : { grammarDir: inputs.grammarDir }),
+        });
+        if ('error' in outcome) {
+          const first = firstOf([outcome.error]);
+          return set('readers', 'fail', first.message, first.next);
+        }
+        configs = outcome.unreadable;
+      }
+      const messages: string[] = [];
+      let fix: string | null = null;
       if (unread.length > 0) {
         const counts = new Map<string, number>();
         for (const path of unread) counts.set(extensionOf(path), (counts.get(extensionOf(path)) ?? 0) + 1);
         const parts = [...counts.keys()].sort().map((extension) => `${counts.get(extension)} ${extension}`);
-        return set(
-          'readers',
-          'note',
-          `${plural(unread.length, 'file')} ${unread.length === 1 ? 'is' : 'are'} not read for uses: ${parts.join(', ')}, so check warns uses-not-read`,
-          next('lawcheck docs languages'),
-        );
+        messages.push(`${plural(unread.length, 'file')} ${unread.length === 1 ? 'is' : 'are'} not read for uses: ${parts.join(', ')}, so check warns uses-not-read`);
+        fix = 'lawcheck docs languages';
       }
+      if (configs.length > 0) {
+        const read = [...languages.values()].reduce((sum, count) => sum + count, 0);
+        const parts = [...languages.keys()].sort().map((language) => `${language} ${languages.get(language)}`);
+        if (unread.length === 0) messages.push(`uses are read in ${plural(read, 'file')}${parts.length === 0 ? '' : `: ${parts.join(', ')}`}; ${grammars}`);
+        messages.push(`${plural(configs.length, 'configuration file')} could not be read, so the uses that go through ${configs.length === 1 ? 'it' : 'them'} are not followed`);
+        fix = `fix ${configs.length === 1 ? configs[0]!.file : 'the files named above'} so that ${configs.length === 1 ? 'it parses' : 'they parse'}, then run lawcheck doctor again`;
+      }
+      if (messages.length > 0) return set('readers', 'note', messages.join('; '), next(fix!), configs.map((config) => config.message));
       const read = [...languages.values()].reduce((sum, count) => sum + count, 0);
       const parts = [...languages.keys()].sort().map((language) => `${language} ${languages.get(language)}`);
       set('readers', 'ok', `uses are read in ${plural(read, 'file')}${parts.length === 0 ? '' : `: ${parts.join(', ')}`}; ${grammars}`);
@@ -296,6 +324,7 @@ export function doctorText(checks: Check[], refused: string | null = null): stri
   const lines = [refused === null ? first : `lawcheck: ERROR  ${refused}`, ''];
   for (const check of checks) {
     lines.push(`${check.state}  ${check.id}  ${shown(check.message)}`);
+    for (const detail of check.details ?? []) lines.push(`  ${shown(detail)}`);
     if ((check.state === 'note' || check.state === 'fail') && check.next !== null) lines.push(`  next: ${shown(check.next.text)}`);
   }
   return lines.join('\n') + '\n';

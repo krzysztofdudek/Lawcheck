@@ -246,6 +246,52 @@ test('test 137: types, unread files and a broken grammar', async () => {
   });
 });
 
+const UI_LAW = 'lawcheck: 0.1.0\n\ntypes:\n  ui:\n    paths: ["src/ui/**"]\n    may_use: [ui]\n  data:\n    paths: ["src/data/**"]\n';
+const UI_FILES = {
+  '.lawcheck/law.yaml': UI_LAW,
+  'src/data/d.ts': 'export const d = 1;\n',
+  'src/ui/a.ts': 'import { d } from "@/data/d";\nexport const x = d;\n',
+};
+const TSCONFIG = '{"compilerOptions": {"baseUrl": ".", "paths": {"@/*": ["src/*"]}}}\n';
+
+function detailsOf(stdout: string): string[] {
+  const lines = stdout.split('\n');
+  const at = lines.findIndex((l) => /^(ok|note|fail|skip) {2}readers {2}/.test(l));
+  const out: string[] = [];
+  for (let i = at + 1; i < lines.length && lines[i]!.startsWith('  ') && !lines[i]!.startsWith('  next:'); i++) out.push(lines[i]!);
+  return out;
+}
+
+test('test 881: a configuration file a reader consults and cannot read gets a line of doctor naming it, the same with a base and without, and no line where every file parses', async () => {
+  await inTemp(async (dir) => {
+    const repo = newRepository(dir, { ...UI_FILES, 'tsconfig.json': "{'compilerOptions': {}}\n" });
+    const without = await doctor(repo);
+    const withBase = await doctor(repo, ['--base', 'main']);
+    for (const result of [without, withBase]) {
+      assert.match(line(result.stdout, 'readers'), /^note {2}readers {2}uses are read in 1 file: typescript 1; the 13 grammars load; 1 configuration file could not be read, so the uses that go through it are not followed$/);
+      assert.equal(detailsOf(result.stdout).length, 1, result.stdout);
+      assert.match(detailsOf(result.stdout)[0]!, /^ {2}tsconfig\.json does not parse \(line 1, column 2\); /);
+      assert.equal(result.stdout.split('\n')[result.stdout.split('\n').indexOf(line(result.stdout, 'readers')) + 2], '  next: fix tsconfig.json so that it parses, then run lawcheck doctor again');
+      assert.equal(result.code, 0);
+    }
+    assert.deepEqual(detailsOf(without.stdout), detailsOf(withBase.stdout));
+    const json = JSON.parse((await doctor(repo, ['--json'])).stdout);
+    const readers = json.checks.find((c: { id: string }) => c.id === 'readers');
+    assert.equal(readers.state, 'note');
+    assert.equal(readers.details.length, 1);
+    assert.match(readers.details[0], /^tsconfig\.json does not parse/);
+    assert.match(readers.next.text, /^fix tsconfig\.json so that it parses, then run lawcheck doctor again$/);
+    assert.ok(json.checks.filter((c: { id: string }) => c.id !== 'readers').every((c: object) => !('details' in c)));
+  });
+  await inTemp(async (dir) => {
+    const repo = newRepository(dir, { ...UI_FILES, 'tsconfig.json': TSCONFIG });
+    const result = await doctor(repo, ['--base', 'main']);
+    assert.match(line(result.stdout, 'readers'), /^ok {2}readers {2}uses are read in 1 file: typescript 1; the 13 grammars load$/);
+    assert.deepEqual(detailsOf(result.stdout), []);
+    assert.equal(result.code, 0);
+  });
+});
+
 test('test 138: a base that names no commit', async () => {
   await withSample(async (s) => {
     const result = await doctor(s, ['--base', 'nope']);

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { chmodSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -245,7 +245,7 @@ async function withRoot<T>(body: (root: string) => Promise<T>, law = true): Prom
 
 const ownerOfGroup = (files: Record<string, string>) => (path: string) => (files[path] === undefined ? undefined : /\/app[/.]/.test(path) ? 'app' : /\/domain[/.]/.test(path) ? 'domain' : '#untyped');
 
-async function readGroups(root: string, files: Record<string, string>, runes: any = counted().runes, listed: string[] = []) {
+async function readGroups(root: string, files: Record<string, string>, runes: any = counted().runes, listed: string[] = [], extra: Partial<Parameters<typeof readUses>[0]> = {}) {
   const paths = [...Object.keys(files), ...listed].sort();
   const siblings = siblingsOf(paths);
   const outcome = await readUses(
@@ -255,6 +255,7 @@ async function readGroups(root: string, files: Record<string, string>, runes: an
       bytes: (path: string) => enc.encode(files[path] ?? ''),
       ownerOf: ownerOfGroup(files),
       read: JUDGED.filter((path) => files[path] !== undefined).map((path) => ({ path, view: (readerOf(path, files[path]!, siblings) as any).view })),
+      ...extra,
     },
     runes,
   );
@@ -289,6 +290,21 @@ test('test 790: a second read parses only the files whose uses it reads, takes w
     const packs = PACKS.map((group) => packOf(root, group));
     const warm = counted();
     assert.deepEqual(await readGroups(root, GROUP_FILES, warm.runes), reference);
+    assert.deepEqual(warm.parsed, JUDGED);
+    assert.deepEqual(PACKS.map((group) => packOf(root, group)), packs);
+  });
+});
+
+test('test 882: a read that is told not to write the cache reads the packs there are, writes none and no folder, and gives the uses of a read that writes', async () => {
+  const reference = await uncached(GROUP_FILES);
+  await withRoot(async (root) => {
+    const cold = counted();
+    assert.deepEqual(await readGroups(root, GROUP_FILES, cold.runes, [], { cacheWrites: false }), reference);
+    assert.equal(existsSync(join(root, '.lawcheck', '.local')), false);
+    await readGroups(root, GROUP_FILES);
+    const packs = PACKS.map((group) => packOf(root, group));
+    const warm = counted();
+    assert.deepEqual(await readGroups(root, GROUP_FILES, warm.runes, [], { cacheWrites: false }), reference);
     assert.deepEqual(warm.parsed, JUDGED);
     assert.deepEqual(PACKS.map((group) => packOf(root, group)), packs);
   });
@@ -496,6 +512,26 @@ test('test 790: a C# file read only for what it declares stays in the reach of t
       assert.deepEqual(uses, [['a/Use.cs', [{ line: 2, answer: { kind: 'file', file: 'c/Thing.cs' } }]]], run);
     }
   });
+});
+
+test('test 880: a configuration file the resolver consults and cannot read comes back with the reads, once, at its line, and a file that parses, or one no use consults, comes back with nothing', async () => {
+  const files = { 'src/a.ts': 'import { b } from "@/b";\nimport { c } from "@/c";\n', 'src/b.ts': 'export const b = 1;\n', 'src/c.ts': 'export const c = 1;\n' };
+  const broken = await readUses(input({ ...files, 'tsconfig.json': "{'compilerOptions': {}}" }, ['src/a.ts']));
+  assert.ok('uses' in broken);
+  assert.equal(broken.unreadable.length, 1);
+  assert.equal(broken.unreadable[0]!.file, 'tsconfig.json');
+  assert.equal(broken.unreadable[0]!.line, 1);
+  assert.ok(broken.unreadable[0]!.message.startsWith('tsconfig.json does not parse'), broken.unreadable[0]!.message);
+  const parsed = await readUses(input({ ...files, 'tsconfig.json': '{"compilerOptions": {"baseUrl": ".", "paths": {"@/*": ["src/*"]}}}' }, ['src/a.ts']));
+  assert.ok('uses' in parsed);
+  assert.deepEqual(parsed.unreadable, []);
+  assert.deepEqual(parsed.uses.get('src/a.ts')!.map((use) => use.answer), [
+    { kind: 'file', file: 'src/b.ts' },
+    { kind: 'file', file: 'src/c.ts' },
+  ]);
+  const unconsulted = await readUses(input({ 'src/a.py': 'x = 1\n', 'tsconfig.json': "{'compilerOptions': {}}" }, ['src/a.py']));
+  assert.ok('uses' in unconsulted);
+  assert.deepEqual(unconsulted.unreadable, []);
 });
 
 test('dependency-slice §6: a grammar that cannot be loaded stops the run without a place, and no file after it is read', async () => {
