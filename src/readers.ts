@@ -483,13 +483,14 @@ async function readAll(input: ReadInput, runes: Runes, skipped: Skipped[], unrea
   step(`resolving the uses${asked}`);
   cache?.write(true);
 
+  const reachOf = () => runes.buildCsharpReachability(input.root, [...globals.keys()], { files: view });
   let reach: ReturnType<typeof buildCsharpReachability> | undefined;
   if (globals.size > 0) {
     let scopes: ReturnType<typeof buildCsharpProjectScopes>;
     try {
       const facts = [...globals].map(([path, global]) => ({ path, ...global }));
       scopes = runes.buildCsharpProjectScopes(input.root, facts, { files: view });
-      reach = runes.buildCsharpReachability(input.root, [...globals.keys()], { files: view });
+      reach = reachOf();
     } catch (error) {
       if (error instanceof Unreadable) throw error;
       throw new Stop({
@@ -518,17 +519,19 @@ async function readAll(input: ReadInput, runes: Runes, skipped: Skipped[], unrea
   }
 
   const ownerIndex = { ownerOf: input.ownerOf };
-  const resolver = runes.makeResolver({
-    ownerIndex,
-    symbolTable,
-    resolvePathToFile: runes.makeResolvePathToFile(input.root, input.ownerOf, undefined, {
-      files: view,
-      onDiagnostic: (diagnostic) => {
-        if (diagnostic.code === 'config-unreadable') unreadable.push({ file: diagnostic.file, line: diagnostic.line ?? null, message: diagnostic.message });
-      },
-    }),
-    ...(reach === undefined ? {} : { reach }),
-  });
+  const resolverOf = () =>
+    runes.makeResolver({
+      ownerIndex,
+      symbolTable,
+      resolvePathToFile: runes.makeResolvePathToFile(input.root, input.ownerOf, undefined, {
+        files: view,
+        onDiagnostic: (diagnostic) => {
+          if (diagnostic.code === 'config-unreadable') unreadable.push({ file: diagnostic.file, line: diagnostic.line ?? null, message: diagnostic.message });
+        },
+      }),
+      ...(reach === undefined ? {} : { reach }),
+    });
+  let resolver = resolverOf();
 
   for (const path of [...out.keys()].sort(comparePaths)) {
     const parse = parses.get(path);
@@ -542,6 +545,9 @@ async function readAll(input: ReadInput, runes: Runes, skipped: Skipped[], unrea
       } catch (error) {
         if (input.ownFailures === true && error instanceof Unreadable) {
           out.delete(path);
+          // Runes keeps what the resolver and the reach of C# have read, and a read that throws part-way leaves the entry it was making half built, so a later file would take its uses from it as if the read had ended; the files after this one get new ones.
+          if (reach !== undefined) reach = reachOf();
+          resolver = resolverOf();
           break;
         }
         throw readerFailure(parse.view.language, path, error);
