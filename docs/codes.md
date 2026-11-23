@@ -33,7 +33,7 @@ Two words recur below. The root is the folder that holds `.lawcheck/`. A rule bi
 | `link-outside-root` | exit 2 | a script rule is to run, and a link git tracks leads outside the work tree | a script rule reads nothing outside the work tree, and a link that leads out of it would let it |
 | `path-unsupported` | exit 2 | a script rule is to run, and the path of the root or of Lawcheck holds a `*` or a backslash | a script rule reads nothing outside the root and Lawcheck's folder, and the runner can keep that only on such a path |
 | `runner-failed` | exit 2 | the process that runs script rules does not start | a runner that does not start says nothing about the rules |
-| `rule-crashed` | exit 2 | a script rule does not load, throws, returns no list of findings, returns a message over 4,096 characters, or passes 30 seconds | a broken rule says nothing about the code |
+| `rule-crashed` | exit 2 | a script rule does not load, throws, returns no list of findings, returns a message over 4,096 characters, or passes 30 seconds; or a reviewer rule's companion fails the same way or returns a path that is no file to send | a broken rule says nothing about the code |
 | `too-many-findings` | exit 2 | a run's findings pass 200,000, or 16,777,216 characters of message | a run holds every finding in memory, so it may hold only so many |
 | `rules-too-slow` | exit 2 | the script rules of a run take over 600 seconds | a run that never ends gives no answer |
 | `parser-failed` | exit 2 | Lawcheck cannot load a grammar, or a reader fails on a file | a file whose uses were not read is not taken to use nothing |
@@ -635,7 +635,7 @@ next: reinstall Lawcheck, then run lawcheck check
 
 **Meaning**
 
-A script rule failed to give its findings. Lawcheck stops the run. The error names the rule's file, the judged file and the cause.
+A script rule failed to give its findings, or the companion of a reviewer rule failed to give its paths. Lawcheck stops the run. The error names the file of the rule or of the companion, the judged file and the cause.
 
 **Typical cause**
 
@@ -649,9 +649,11 @@ The rule does one of these:
 
 A rule that imports a package installed above the root does not load.
 
+A companion crashes in the same cases. It also crashes when it returns a path that names no file git lists, or a binary file ([Files for each judged file](reviewer-rules.md#files-for-each-judged-file)).
+
 **Fix**
 
-Run `lawcheck try <rule> <path>` with the rule and the file that the error names. Edit `.lawcheck/rules/<rule>.mjs` until `try` ends without an error. For a package above the root, install the package in a `node_modules` folder below the root, as the `next:` line says.
+Run `lawcheck try <rule> <path>` with the rule and the file that the error names. Edit `.lawcheck/rules/<rule>.mjs` until `try` ends without an error. For a package above the root, install the package in a `node_modules` folder below the root, as the `next:` line says. For a companion, edit its module in `.lawcheck/rules/lib/`, or add the file it names, until `lawcheck try <rule> <path> --dry-run` ends without an error; the dry run calls no reviewer.
 
 **Example**
 

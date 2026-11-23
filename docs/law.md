@@ -16,6 +16,7 @@ Lawcheck looks for the file in the current directory, then in each directory abo
 | `why` | rule | one line, required |
 | `status` | rule | `enforced` or `advisory` |
 | `context` | rule | paths |
+| `companion` | rule | a path |
 | `about` | type | one line |
 | `paths` | type | patterns, required |
 | `content` | type | a regular expression |
@@ -37,7 +38,7 @@ A YAML alias, such as `*base`, stands for the value that an anchor, such as `&ba
 
 Lawcheck stops with `law-invalid` when a type holds itself through an alias. For example, a subtype `again: *source` under `source: &source` makes `source` hold itself.
 
-The law below uses every key of the table except `required`, `ignored`, `context`, `may_use` and `waivers`:
+The law below uses every key of the table except `required`, `ignored`, `context`, `companion`, `may_use` and `waivers`:
 
 ```yaml
 lawcheck: 0.1.0
@@ -104,6 +105,10 @@ A non-empty `required` needs at least one pattern without `!`. A wrong pattern i
 ### context
 
 `context` is a list of paths from the root, for a reviewer rule alone. On a script rule, `context` is `law-invalid`. Each path names a file that git lists and that is not binary. The reviewer gets each of these files with every file it judges for the rule (`lawcheck docs reviewer-rules`).
+
+### companion
+
+`companion` is the path of an ES module in `.lawcheck/rules/lib/`, for a reviewer rule alone. On a script rule, `companion` is `law-invalid`, and so is a path outside that folder, a path that git does not list, and a binary file. For each file that the rule judges, the module returns the paths of the files that go into that file's prompt, after the files of `context`. With `companion: .lawcheck/rules/lib/spec-of-test.mjs`, a rule can send each test with the spec it covers (`lawcheck docs reviewer-rules`).
 
 ## types
 
@@ -201,6 +206,6 @@ Lawcheck stops with exit 2 and one of two codes when the rule files do not match
 - `rule-missing-file`, for a rule with neither file, or with a reviewer file that holds only whitespace;
 - `rule-file-without-entry`, for a rule with both files, and for any other file in `.lawcheck/rules/` outside `.lawcheck/rules/lib/`.
 
-A script rule keeps the code it imports in `.lawcheck/rules/lib/`. Lawcheck sees only the files that git lists, so a rule file that git does not track and `.gitignore` names counts as missing.
+A script rule keeps the code it imports in `.lawcheck/rules/lib/`, and the companion of a reviewer rule lies there too. Lawcheck sees only the files that git lists, so a rule file that git does not track and `.gitignore` names counts as missing.
 
 Next: [Settings](config.md)

@@ -230,6 +230,7 @@ For a rule, these fields follow `schema` and `subject`:
 | `why` | the rule's `why` |
 | `file` | the rule file, such as `.lawcheck/rules/no-console.mjs` |
 | `context` | the paths of its `context`, or null |
+| `companion` | the path of its `companion`, or null |
 | `reviewed` | for a reviewer rule, how many of its files have a verdict; null for a script rule |
 
 `id` is the rule. `types` names each type that lists it. `files` names the files it binds: each file whose type, or a type above it, lists the rule.
