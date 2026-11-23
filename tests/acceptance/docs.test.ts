@@ -11,7 +11,7 @@ import { WHY } from '../../dist/output.js';
 import { example } from '../harness/examples.ts';
 
 const LIST = [
-  'lawcheck docs: 36 topics; lawcheck docs <topic> prints one',
+  'lawcheck docs: 37 topics; lawcheck docs <topic> prints one',
   '',
   'Start',
   '  index  Lawcheck',
@@ -28,6 +28,7 @@ const LIST = [
   '  write-a-script-rule  Write a script rule',
   '  write-a-reviewer-rule  Write a reviewer rule',
   '  adopt-in-an-existing-repository  Bring a law into an existing repository',
+  '  agent-setup  Let a coding agent write the first law',
   '  claude-code  Lawcheck in Claude Code',
   '  other-agents  Other coding agents',
   '  ci  CI and git hooks',
@@ -118,7 +119,7 @@ test('test 128: the list of topics, its JSON, and one page, outside git', async 
 });
 
 test('test 129: every page holds what section 7 asks, and its examples are real', async () => {
-  assert.equal(TOPICS.length, 36);
+  assert.equal(TOPICS.length, 37);
   for (const { id, title } of TOPICS) {
     const text = page(id);
     assert.equal(text.split('\n')[0], `# ${title}`, id);

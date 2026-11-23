@@ -11,6 +11,7 @@
   { "id": "write-a-script-rule", "title": "Write a script rule", "section": "Guides" },
   { "id": "write-a-reviewer-rule", "title": "Write a reviewer rule", "section": "Guides" },
   { "id": "adopt-in-an-existing-repository", "title": "Bring a law into an existing repository", "section": "Guides" },
+  { "id": "agent-setup", "title": "Let a coding agent write the first law", "section": "Guides" },
   { "id": "claude-code", "title": "Lawcheck in Claude Code", "section": "Guides" },
   { "id": "other-agents", "title": "Other coding agents", "section": "Guides" },
   { "id": "ci", "title": "CI and git hooks", "section": "Guides" },

@@ -10,6 +10,7 @@ Each line ends the sentence of the title. Its link opens the step where that pat
 - [confirm that the setup works](install.md#check-the-install)
 - [remove Lawcheck](install.md#remove-it)
 - [see a first finding in my own repository](quick-start.md#_1-start-the-law)
+- [let my coding agent write the first law of my repository](agent-setup.md)
 - [fix the line a failing check names](quick-start.md#_5-check)
 - [learn the words these pages use](concepts.md)
 - [choose between Lawcheck and a tool I already use](other-tools.md)
