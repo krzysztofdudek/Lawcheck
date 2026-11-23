@@ -92,7 +92,7 @@ export default defineConfig({
     notFound: { title: 'This page is not in the documentation', quote: '', linkLabel: 'Documentation home', linkText: 'Documentation home' },
     sidebar: [...new Set(topics.map((t) => t.section))].map((section) => ({
       text: section,
-      items: topics.filter((t) => t.section === section).map((t) => ({ text: t.title, link: `/${t.id}` })),
+      items: topics.filter((t) => t.section === section).map((t) => ({ text: t.title, link: t.id === 'index' ? '/' : `/${t.id}` })),
     })),
   },
 });
