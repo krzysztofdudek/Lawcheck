@@ -347,3 +347,43 @@ test("test 774: a rule's uses are read once for every file it judges, each targe
   assert.deepEqual(await second.serve('uses', second.file('domain/b.py')), { uses: null, absent: 'reader-failed' });
   assert.deepEqual(await second.serve('uses', second.file('domain/c.py')), { uses: [], absent: null });
 });
+
+function times(paths: string[]): number {
+  const count = new Map<string, number>();
+  for (const path of paths) count.set(path, (count.get(path) ?? 0) + 1);
+  return Math.max(...count.values());
+}
+
+test('R-120: a reader that fails on a file the rule judges fails that file, and the others of its group get their uses from one more read, not from a read of the whole group each', async () => {
+  const files = { 'j/A.java': '', 'j/B.java': '', 'j/C.java': '', 'j/D.java': '', 'j/E.java': '' };
+  const paths = Object.keys(files);
+  const failing = fake({ failUses: 'j/B.java' });
+  const serve = ruleReads({ root: '/nowhere', files: paths, bytes: (path) => enc.encode(files[path as keyof typeof files]), ownerOf: () => 'owner', typeOf: () => null }, failing.runes)(paths.map((path) => ({ path, text: '' })));
+  const answers = [];
+  for (const path of paths) answers.push(`${path} ${JSON.stringify(await serve('uses', { path, text: '' }))}`);
+  assert.deepEqual(answers, [
+    'j/A.java {"uses":[],"absent":null}',
+    'j/B.java {"uses":null,"absent":"reader-failed"}',
+    'j/C.java {"uses":[],"absent":null}',
+    'j/D.java {"uses":[],"absent":null}',
+    'j/E.java {"uses":[],"absent":null}',
+  ]);
+  assert.ok(times(failing.record.parsed) <= 2, failing.record.parsed.join(' '));
+});
+
+test('R-120: a reader that fails on a file read only for what it declares fails every file of its group, the files of another language keep their uses, and no file is read more than twice', async () => {
+  const files = { 'a.ts': '', 'j/A.java': '', 'j/B.java': '', 'j/C.java': '', 'j/D.java': '' };
+  const paths = Object.keys(files);
+  const bound = ['a.ts', 'j/A.java', 'j/B.java', 'j/C.java'];
+  const failing = fake({ failDeclarations: 'j/D.java' });
+  const serve = ruleReads({ root: '/nowhere', files: paths, bytes: (path) => enc.encode(files[path as keyof typeof files]), ownerOf: () => 'owner', typeOf: () => null }, failing.runes)(bound.map((path) => ({ path, text: '' })));
+  const answers = [];
+  for (const path of bound) answers.push(`${path} ${JSON.stringify(await serve('uses', { path, text: '' }))}`);
+  assert.deepEqual(answers, [
+    'a.ts {"uses":[],"absent":null}',
+    'j/A.java {"uses":null,"absent":"reader-failed"}',
+    'j/B.java {"uses":null,"absent":"reader-failed"}',
+    'j/C.java {"uses":null,"absent":"reader-failed"}',
+  ]);
+  assert.ok(times(failing.record.parsed) <= 2, failing.record.parsed.join(' '));
+});

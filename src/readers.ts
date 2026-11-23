@@ -498,30 +498,59 @@ export function ruleReads(input: RuleReadsInput, runes: Runes = RUNES): (bound: 
     }
   };
 
-  const read = async (files: RuleFileText[]): Promise<Map<string, UsesAnswer>> => {
-    const views = files.flatMap((file) => {
-      const reader = readerOf(file.path, file.text, siblings, runes);
-      return reader.reader ? [{ path: file.path, view: reader.view }] : [];
-    });
-    const out = new Map<string, UsesAnswer>();
-    if (views.length === 0) return out;
-    const outcome = await readUses({ root: input.root, files: input.files, bytes: input.bytes, ownerOf: input.ownerOf, read: views, ...(input.grammarDir === undefined ? {} : { grammarDir: input.grammarDir }) }, runes);
-    if ('error' in outcome) return out;
-    for (const skipped of outcome.skipped) if (skipped.uses) out.set(skipped.path, { uses: null, absent: 'too-large' });
-    for (const [path, uses] of outcome.uses) {
-      out.set(path, { uses: uses.map(({ line, answer }) => (answer.kind === 'file' ? { line, ...answer, type: input.typeOf(answer.file) } : { line, ...answer })), absent: null });
+  const failed: UsesAnswer = { uses: null, absent: 'reader-failed' };
+  const tooLarge = (view: ScriptView | null) => view !== null && Buffer.byteLength(view.content, 'utf8') > USES_FILE_BYTES;
+
+  // Reading each file alone after a failure would parse a whole name-binding group once per file, so a failure on a judged file takes that file out of the batch, and any other failure splits the batch by language or group and fails the part that shares it.
+  const read = async (judged: { path: string; view: ScriptView | null }[], out: Map<string, UsesAnswer>, split: boolean): Promise<void> => {
+    let left = judged;
+    while (left.length > 0) {
+      const outcome = await readUses({ root: input.root, files: input.files, bytes: input.bytes, ownerOf: input.ownerOf, read: left, ...(input.grammarDir === undefined ? {} : { grammarDir: input.grammarDir }) }, runes);
+      if (!('error' in outcome)) {
+        for (const [path, uses] of outcome.uses) {
+          out.set(path, { uses: uses.map(({ line, answer }) => (answer.kind === 'file' ? { line, ...answer, type: input.typeOf(answer.file) } : { line, ...answer })), absent: null });
+        }
+        return;
+      }
+      const at = outcome.error.file;
+      if (at !== null && left.some((one) => one.path === at)) {
+        out.set(at, failed);
+        left = left.filter((one) => one.path !== at);
+        continue;
+      }
+      const parts = new Map<string, typeof left>();
+      for (const one of left) {
+        const language = one.view?.language ?? '';
+        const key = GROUPS[language] ?? language;
+        parts.set(key, [...(parts.get(key) ?? []), one]);
+      }
+      if (!split || parts.size === 1) {
+        for (const one of left) out.set(one.path, failed);
+        return;
+      }
+      for (const part of parts.values()) await read(part, out, false);
+      return;
     }
-    return out;
   };
 
   return (bound) => {
     let all: Promise<Map<string, UsesAnswer>> | null = null;
+    const readBound = async () => {
+      const out = new Map<string, UsesAnswer>();
+      const judged = bound.flatMap((file) => {
+        const reader = readerOf(file.path, file.text, siblings, runes);
+        return reader.reader && !tooLarge(reader.view) ? [{ path: file.path, view: reader.view }] : [];
+      });
+      await read(judged, out, true);
+      return out;
+    };
     return async (what, file) => {
       if (what === 'tree') return tree(file);
-      if (!readerOf(file.path, file.text, siblings, runes).reader) return { uses: null, absent: 'no-reader' };
-      all ??= read(bound);
-      // A file whose uses the shared read could not give, because the reader failed on another file, is read alone.
-      return (await all).get(file.path) ?? (await read([file])).get(file.path) ?? { uses: null, absent: 'reader-failed' };
+      const reader = readerOf(file.path, file.text, siblings, runes);
+      if (!reader.reader) return { uses: null, absent: 'no-reader' };
+      if (tooLarge(reader.view)) return { uses: null, absent: 'too-large' };
+      all ??= readBound();
+      return (await all).get(file.path) ?? failed;
     };
   };
 }
