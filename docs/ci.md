@@ -118,7 +118,7 @@ echo node_modules/ >> .gitignore
 
 ### 5. Give the base on another CI service
 
-A [plain `lawcheck check`](concepts.md#plain-check) takes its base from `--base`, then from `LAWCHECK_BASE`, then from `origin/HEAD`. A CI job often has none of the three. Lawcheck then stops before it judges a file:
+A check of the change takes its base from `--base`, then from `LAWCHECK_BASE`, then from `origin/HEAD`. A CI job often has none of the three. Lawcheck then stops before it judges a file:
 
 ```text
 $ lawcheck check

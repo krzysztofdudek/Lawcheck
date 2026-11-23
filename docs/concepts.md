@@ -111,7 +111,7 @@ Example: on a branch where you edited one file, the first line of `lawcheck chec
 
 ## Plain check
 
-A plain check is a run of `lawcheck check` that judges the change alone. It reads the passes in `.lawcheck/verdicts`. It calls no reviewer. A file outside the change never fails a plain check.
+A plain check is a run of `lawcheck check` that judges the change alone. It reads the passes in `.lawcheck/verdicts`. It calls no reviewer. Only a file in the change fails a plain check with exit 1. A file outside the change can stop one with exit 2: [type-overlap](codes.md#type-overlap), [file-unreadable](codes.md#file-unreadable) or [link-outside-root](codes.md#link-outside-root).
 
 A run is not a plain check when:
 

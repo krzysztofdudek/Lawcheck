@@ -370,7 +370,7 @@ Give yourself read permission on the file, or put a regular file at the path.
 
 The user decides how to make room, as the `next:` line says. `lawcheck prime` tells a coding agent to edit `.lawcheck/verdicts` only on the user's word.
 
-One way is to delete `.lawcheck/verdicts`. A review of every file of the law takes as many reviewer calls as the message counts. The passes of that review fill a new file. If the passes that the files of this tree need are close to the passes that the old file holds, the new file is about as large as the old one. In that case, deleting the file frees little room. You can narrow the `paths` of the types that list the reviewer rules. Then fewer files need a pass.
+One way is to delete `.lawcheck/verdicts`. A review of every file of the law takes as many reviewer calls as the third of the three counts above. The passes of that review fill a new file. If the passes that the files of this tree need are close to the passes that the old file holds, the new file is about as large as the old one. In that case, deleting the file frees little room. You can narrow the `paths` of the types that list the reviewer rules. Then fewer files need a pass.
 
 **Example**
 
@@ -1196,7 +1196,7 @@ A note is a line that starts with `note:`, under the first line of `check` or `i
 
 | Text | When | Fix |
 |---|---|---|
-| `note: the law changed in this change; lawcheck check --full ...` | a [plain `check`](concepts.md#plain-check) judges a change that edits `.lawcheck/law.yaml`, `.lawcheck/config.yaml` or a file of `.lawcheck/rules/` | run the `check --full` command of the note to see what the new law finds in the rest of the code |
+| `note: the law changed in this change; lawcheck check --full ...` | a `check` with no path and no `--full` judges a change that edits `.lawcheck/law.yaml`, `.lawcheck/config.yaml` or a file of `.lawcheck/rules/` | run the `check --full` command of the note to see what the new law finds in the rest of the code |
 | `note: this change edits the law that judges it: ...` | the same change; the note lists what it changes in the law, such as types, rules, `may_use` and the waivers it adds | read the list before you accept the change |
 | `note: the paths of a type reach into ...` | the paths of a type reach into a submodule or a repository of its own, and Lawcheck judges no file there | run Lawcheck in that repository with its own law |
 | `note: <path> lies in ...` | a path named to `check` lies in a submodule or a repository of its own | run Lawcheck in that repository |

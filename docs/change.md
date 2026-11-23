@@ -1,6 +1,6 @@
 # What a check judges
 
-A law written for code that already breaks it would fail every build on the first day. `lawcheck check` judges the files of the [change](concepts.md#change). A [plain check](concepts.md#plain-check) calls no reviewer. Old code fails nothing until someone changes it.
+A law written for code that already breaks it would fail every build on the first day. `lawcheck check` judges the files of the [change](concepts.md#change). Old code fails nothing until someone changes it.
 
 ## The base
 
@@ -61,13 +61,13 @@ Lawcheck prints the debt block after the findings of the change. The block has i
 
 ## The limits of a plain check
 
-A plain check judges only the files that differ from the base. Three kinds of change can alter a judgment without changing the file judged:
+A [plain check](concepts.md#plain-check) calls no reviewer. It judges only the files that differ from the base. Three kinds of change can alter a judgment without changing the file judged:
 
 - a change of the law: `.lawcheck/law.yaml`, `.lawcheck/config.yaml` or a rule file;
 - a file whose new text gives it another type: the judgment of each file that uses it can change;
 - a file that the language readers consult, such as `tsconfig.json`, `package.json`, `go.mod`, `Cargo.toml`, `composer.json` or a C# project file.
 
-Each of these passes a plain check. Lawcheck judges the files they affect the next time those files change. A file outside the change never fails a plain check.
+Each of these passes a plain check. Lawcheck judges the files they affect the next time those files change. Only a file in the change fails a plain check with exit 1. A file outside the change can stop one with exit 2: [type-overlap](codes.md#type-overlap), [file-unreadable](codes.md#file-unreadable) or [link-outside-root](codes.md#link-outside-root).
 
 To judge every file after such a change, run `lawcheck check --full`. Lawcheck lists what it finds outside the change as debt. Debt blocks nothing. `check` and `doctor` say when the change touches the law.
 

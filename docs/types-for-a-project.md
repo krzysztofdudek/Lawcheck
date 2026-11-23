@@ -1,6 +1,6 @@
 # Types for an existing project
 
-You end with a law whose [types](concepts.md#type) cover the folders of an existing project. No file falls in two types. A type with a `content` expression takes only the files whose text matches that expression. For any path, `lawcheck explain` prints its type and the reason.
+You end with a law whose [types](concepts.md#type) cover the folders of an existing project. No file falls in two types, and one type of the law takes its files by their text, through a `content` expression. For any path, `lawcheck explain` prints its type and the reason.
 
 The outputs below come from a repository with `scripts/release.mjs` and five files under `src/`:
 
