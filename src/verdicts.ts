@@ -24,6 +24,7 @@ export interface KeyInput {
   filePath: string;
   fileText: string;
   waived: number[];
+  companion?: { path: string; text: string } | null;
 }
 
 const lf = (text: string) => text.replace(/\r\n/g, '\n');
@@ -32,7 +33,7 @@ function sameLines(a: number[], b: number[]): boolean {
   return a.length === b.length && a.every((line, index) => line === b[index]);
 }
 
-// The file's text fixes <waived> wherever the file's own waivers of the rule count, so there the key keeps its eight parts and every pass recorded before the ninth stays valid. A ninth part only when <waived> is not empty would give a type with waivers: false the key of the pass recorded while the waiver counted.
+// A rule without a companion keeps the key it had before companions existed, so its recorded passes stay valid. The file's text fixes <waived> wherever the file's own waivers of the rule count, so there the key keeps its eight parts and every pass recorded before the ninth stays valid. A ninth part only when <waived> is not empty would give a type with waivers: false the key of the pass recorded while the waiver counted.
 export function reviewKey(input: KeyInput): string {
   const parts: unknown[] = [
     VERDICT_FORMAT,
@@ -44,6 +45,7 @@ export function reviewKey(input: KeyInput): string {
     input.filePath,
     lf(input.fileText),
   ];
+  if (input.companion != null) parts.push(['companion', input.companion.path, lf(input.companion.text)]);
   const own = waivedLines(parseWaivers(splitLines(input.fileText), new Set([input.ruleId])).waivers, input.ruleId);
   if (!sameLines(own, input.waived)) parts.push(input.waived);
   return createHash('sha256').update(JSON.stringify(parts), 'utf8').digest('hex').slice(0, 32);

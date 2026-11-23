@@ -364,7 +364,10 @@ export async function stopped<T>(body: () => Promise<T> | T): Promise<T | { erro
 export interface ReviewerRule {
   text: string;
   context: { path: string; text: string }[];
+  companion: { path: string; text: string } | null;
 }
+
+export const RULES_LIB = `${RULES_DIR}lib/`;
 
 export interface Kinds {
   errors: ErrorItem[];
@@ -402,6 +405,7 @@ export function ruleKinds(law: Law, files: string[], read: Read): Kinds {
     if (hasScript) {
       out.scripts.add(rule.id);
       if (rule.context !== null) invalid(rule.contextLine!, `the script rule '${rule.id}' takes no 'context'; only a reviewer rule does`);
+      if (rule.companion !== null) invalid(rule.companion.line, `the script rule '${rule.id}' takes no 'companion'; only a reviewer rule does`);
       continue;
     }
     let text: string | null = null;
@@ -431,7 +435,23 @@ export function ruleKinds(law: Law, files: string[], read: Read): Kinds {
       if (isBinary(bytes)) invalid(item.line, `'context' of rule '${rule.id}' names '${item.path}', which is binary`);
       else context.push({ path: item.path, text: decode(bytes) });
     }
-    if (text !== null) out.reviewers.set(rule.id, { text, context });
+    let companion: ReviewerRule['companion'] = null;
+    if (rule.companion !== null) {
+      const { path, line } = rule.companion;
+      const named = `'companion' of rule '${rule.id}' names '${path}'`;
+      if (!path.startsWith(RULES_LIB) || !path.endsWith('.mjs')) invalid(line, `${named}, which is no .mjs file in ${RULES_LIB}`);
+      else if (!present.has(path)) invalid(line, `${named}, which is no file git lists here`);
+      else {
+        try {
+          const bytes = read(path);
+          if (isBinary(bytes)) invalid(line, `${named}, which is binary`);
+          else companion = { path, text: decode(bytes) };
+        } catch (error) {
+          out.errors.push(unreadable(path, error));
+        }
+      }
+    }
+    if (text !== null) out.reviewers.set(rule.id, { text, context, companion });
   }
   for (const file of files) {
     if (!file.startsWith(RULES_DIR) || file.startsWith(`${RULES_DIR}lib/`) || expected.has(file)) continue;

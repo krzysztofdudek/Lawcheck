@@ -1,8 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { rmSync } from 'node:fs';
+import { existsSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { FAILED_MESSAGE, withFake } from './fake-reviewer.ts';
+import { MiB, sparse, textHead } from '../limits/support.ts';
 import {
   append,
   F,
@@ -435,4 +436,244 @@ test('reviewer-slice §8: the line on standard error before the first call', asy
       assert.equal(result.stderr, 'lawcheck: 2 reviewer calls to openai-compatible\n');
     });
   });
+});
+
+const PAIR = '.lawcheck/rules/lib/spec-of.mjs';
+const PAIR_SOURCE = "export function companion({ file }) {\n  return [file.path.replace('src/core/', 'docs/specs/').replace(/\\.ts$/, '.md')];\n}\n";
+const WITH_PAIR = replaceOnce(REVIEWER_LAW, '    context: ["docs/errors.md"]\n', `    context: ["docs/errors.md"]\n    companion: ${PAIR}\n`);
+const PRICE_SPEC = 'The price is the net times 1.23.\n';
+const TAX_SPEC = 'The rate is 0.23.\n';
+
+function withPair(source = PAIR_SOURCE): (r: string) => void {
+  return (r) => {
+    write(r, '.lawcheck/law.yaml', WITH_PAIR);
+    write(r, PAIR, source);
+    write(r, 'docs/specs/price.md', PRICE_SPEC);
+    write(r, 'docs/specs/tax.md', TAX_SPEC);
+  };
+}
+
+function promptFor(fake: { requests: { prompt: string }[] }, path: string): string {
+  const found = fake.requests.filter((request) => request.prompt.includes(`\n<file path="${path}">\n`));
+  assert.equal(found.length, 1, `one prompt for ${path}`);
+  return found[0]!.prompt;
+}
+
+function contextPaths(prompt: string): string[] {
+  return [...prompt.matchAll(/\n<context path="([^"]+)">\n/g)].map((match) => match[1]!);
+}
+
+test("test 900: a reviewer rule's companion names, for each judged file, files that go into that file's prompt only, numbered like context files", async () => {
+  await withFake(async (fake) => {
+    await withR(
+      async (r) => {
+        const result = await run(r, fake, ['--full', '--review', '--base', 'main']);
+        assert.ok(!result.stdout.includes('error[rule-crashed]'), result.stdout);
+        assert.equal(fake.requests.length, 2, result.stdout);
+        const price = promptFor(fake, 'src/core/price.ts');
+        const tax = promptFor(fake, 'src/core/tax.ts');
+        assert.deepEqual(contextPaths(price), ['docs/errors.md', 'docs/specs/price.md']);
+        assert.deepEqual(contextPaths(tax), ['docs/errors.md', 'docs/specs/tax.md']);
+        assert.ok(price.includes('\n</context>\n\n<context path="docs/specs/price.md">\n1| The price is the net times 1.23.\n</context>\n\n<file path="src/core/price.ts">\n'), price);
+        assert.ok(tax.includes('\n<context path="docs/specs/tax.md">\n1| The rate is 0.23.\n</context>\n\n<file path="src/core/tax.ts">\n'), tax);
+        const explained = await lawcheck(r, ['explain', 'src/core/price.ts']);
+        assert.match(explained.stdout, /\n {4}clear-errors {2}reviewer {2}enforced {2}from library {2}reviewed {2}/, explained.stdout);
+        const rule = await lawcheck(r, ['explain', '--rule', 'clear-errors']);
+        assert.ok(rule.stdout.split('\n').includes(`  companion:  ${PAIR}`), rule.stdout);
+        assert.ok(rule.stdout.split('\n').includes('  binds:  2 files; 2 have a verdict for their content'), rule.stdout);
+        assert.equal(JSON.parse((await lawcheck(r, ['explain', '--rule', 'clear-errors', '--json'])).stdout).companion, PAIR);
+        assert.equal(JSON.parse((await lawcheck(r, ['explain', '--rule', 'no-console', '--json'])).stdout).companion, null);
+        const tried = await lawcheck(r, ['try', 'clear-errors', 'src/core/tax.ts'], { LAWCHECK_REVIEWER_ENDPOINT: fake.url });
+        assert.equal(tried.code, 0, tried.stdout);
+        assert.equal(fake.requests[2]!.prompt, tax);
+      },
+      { onMain: withPair() },
+    );
+  });
+  await withFake(async (fake) => {
+    await withR(
+      async (r) => {
+        const result = await run(r, fake, ['--full', '--review', '--base', 'main']);
+        assert.equal(fake.requests.length, 2, result.stdout);
+        assert.deepEqual(contextPaths(promptFor(fake, 'src/core/price.ts')), ['docs/errors.md', 'docs/specs/price.md', 'src/cli/main.ts']);
+        assert.deepEqual(contextPaths(promptFor(fake, 'src/core/tax.ts')), ['docs/errors.md', 'src/cli/main.ts']);
+      },
+      {
+        onMain: withPair(
+          [
+            'export async function companion({ file, repo }) {',
+            '  const { root } = await file.tree();',
+            '  const { uses } = await file.uses();',
+            "  const own = root !== null && uses !== null && file.text.includes('console') ? [file.path.replace('src/core/', 'docs/specs/').replace(/\\.ts$/, '.md')] : [];",
+            "  return [...own, ...own, file.path, 'docs/errors.md', ...repo.filesOf('command')];",
+            '}',
+            '',
+          ].join('\n'),
+        ),
+      },
+    );
+  });
+});
+
+test('test 901: the companion runs in the closed runner of script rules, and a change to it or to a file it returned makes the verdicts it fed stale', async () => {
+  const crashed = (stdout: string) => errorsOf(stdout).filter((line) => line.startsWith(`${PAIR}  error[rule-crashed]  `));
+  const closed: [string, string, string][] = [
+    ['the network', "export async function companion() { await fetch('http://127.0.0.1:9/'); return []; }\n", 'uses the network, which is closed to script rules'],
+    ['a write', "import { writeFileSync } from 'node:fs';\nexport function companion() { writeFileSync('out.txt', 'x'); return []; }\n", ', and a rule may write no file'],
+    ['a program', "import { execFileSync } from 'node:child_process';\nexport function companion() { execFileSync('git', ['--version']); return []; }\n", 'starts a program, and a rule may start none'],
+  ];
+  await withFake(async (fake) => {
+    await Promise.all(
+      closed.map(([name, source, cause]) =>
+        withR(
+          async (r) => {
+            const result = await run(r, fake, ['--full', '--review', '--base', 'main']);
+            assert.equal(result.code, 2, `${name}: ${result.stdout}`);
+            assert.equal(crashed(result.stdout).length, 1, `${name}: ${result.stdout}`);
+            assert.ok(crashed(result.stdout)[0]!.includes(cause), `${name}: ${result.stdout}`);
+            assert.ok(!existsSync(join(r, 'out.txt')), name);
+          },
+          { onMain: withPair(source) },
+        ),
+      ),
+    );
+    assert.equal(fake.requests.length, 0);
+  });
+  await withFake(async (fake) => {
+    await withR(
+      async (r) => {
+        const first = await run(r, fake, ['--full', '--review', '--base', 'main']);
+        assert.equal(fake.requests.length, 2, first.stdout);
+        git(r, 'add', '-A');
+        git(r, 'commit', '-q', '-m', 'reviewed');
+        const notReviewed = (stdout: string) => findingLines(stdout).filter((line) => line.includes('[not-reviewed]')).map((line) => line.split('  ')[0]);
+        const cases: [string, (r: string) => void, string[]][] = [
+          ['nothing', () => undefined, []],
+          ['the file the companion returned for price.ts', (r) => append(r, 'docs/specs/price.md', 'Round to cents.\n'), ['src/core/price.ts']],
+          ['the file the companion returned for tax.ts', (r) => append(r, 'docs/specs/tax.md', 'Round to cents.\n'), ['src/core/tax.ts']],
+          ['the companion', (r) => append(r, PAIR, 'export const unused = 1;\n'), ['src/core/price.ts', 'src/core/tax.ts']],
+          ['the fixed context', (r) => append(r, 'docs/errors.md', 'More.\n'), ['src/core/price.ts', 'src/core/tax.ts']],
+        ];
+        for (const [name, change, expected] of cases) {
+          change(r);
+          const result = await run(r, null, ['--full', '--base', 'main']);
+          assert.deepEqual(notReviewed(result.stdout), expected, `${name}: ${result.stdout}`);
+          git(r, 'checkout', '-q', '--', '.');
+        }
+        assert.equal(fake.requests.length, 2);
+        sparse(r, '.lawcheck/verdicts', textHead(read(r, '.lawcheck/verdicts')), 16 * MiB + 1);
+        const full = await run(r, null, ['--full', '--base', 'main']);
+        assert.equal(full.code, 2, full.stdout);
+        assert.ok(full.stdout.includes('the file cannot be read (it holds more than 16 MiB); of its 2 passes the files of this tree need 2,'), full.stdout);
+      },
+      { onMain: withPair() },
+    );
+  });
+});
+
+test('test 902: the prompt size limit counts the companion files, and a returned path that is no file to send is a stated error', async () => {
+  await withR(
+    async (r) => {
+      const sizeOf = async () => {
+        const dry = await lawcheck(r, ['try', 'clear-errors', 'src/core/price.ts', '--dry-run']);
+        return Number(/a prompt of (\d+) characters/.exec(dry.stdout)![1]);
+      };
+      const withSpec = await sizeOf();
+      write(r, 'docs/specs/price.md', PRICE_SPEC + 'x'.repeat(500) + '\n');
+      const larger = await sizeOf();
+      assert.equal(larger, withSpec + 504);
+      write(r, '.lawcheck/config.yaml', `${REVIEWER_CONFIG}  max_chars: ${larger - 1}\n`);
+      const result = await run(r, null, ['--full', '--base', 'main']);
+      assert.ok(
+        findingLines(result.stdout).includes(`src/core/price.ts  warning[too-large-to-review]  the prompt for clear-errors holds ${larger} characters; reviewer.max_chars is ${larger - 1}`),
+        result.stdout,
+      );
+      assert.ok(!findingLines(result.stdout).some((line) => line.startsWith('src/core/tax.ts  warning[too-large-to-review]')), result.stdout);
+    },
+    { onMain: withPair() },
+  );
+  const stated: [string, string, (r: string) => void, string][] = [
+    ['a missing file', "export function companion() { return ['docs/specs/nope.md']; }\n", () => undefined, "returns 'docs/specs/nope.md' for src/core/price.ts, which is no file git lists here"],
+    [
+      'a file git ignores',
+      "export function companion() { return ['docs/specs/local.md']; }\n",
+      (r) => {
+        write(r, 'docs/specs/local.md', 'local\n');
+        write(r, '.gitignore', 'docs/specs/local.md\n');
+      },
+      "returns 'docs/specs/local.md' for src/core/price.ts, which is no file git lists here",
+    ],
+    ['a binary file', "export function companion() { return ['docs/specs/blob.bin']; }\n", (r) => write(r, 'docs/specs/blob.bin', Buffer.from([0x61, 0x00, 0x62])), "returns 'docs/specs/blob.bin' for src/core/price.ts, which is binary"],
+    ['no list', "export function companion() { return 'docs/specs/price.md'; }\n", () => undefined, 'returns no list of paths for src/core/price.ts'],
+    ['a path that is no string', 'export function companion() { return [1]; }\n', () => undefined, 'returns a path that is no string for src/core/price.ts'],
+    ['no function companion', 'export function check() { return []; }\n', () => undefined, 'fails to load: the module exports no function companion'],
+  ];
+  await withFake(async (fake) => {
+    await Promise.all(
+      stated.map(([name, source, more, message]) =>
+        withR(
+          async (r) => {
+            const result = await run(r, fake, ['--full', '--review', '--base', 'main']);
+            assert.equal(result.code, 2, `${name}: ${result.stdout}`);
+            assert.deepEqual(errorsOf(result.stdout), [`${PAIR}  error[rule-crashed]  ${message}`], `${name}: ${result.stdout}`);
+          },
+          {
+            onMain: (r) => {
+              withPair(source)(r);
+              more(r);
+            },
+          },
+        ),
+      ),
+    );
+    assert.equal(fake.requests.length, 0);
+  });
+});
+
+test("test 903: the companion key of the law: on a reviewer rule alone, and naming a module of .lawcheck/rules/lib/ that git lists", async () => {
+  const cases: [string, (r: string) => void, string][] = [
+    ['on a script rule', (r) => write(r, '.lawcheck/law.yaml', replaceOnce(WITH_PAIR, '    status: advisory\n', `    status: advisory\n    companion: ${PAIR}\n`)), `.lawcheck/law.yaml:9  error[law-invalid]  the script rule 'no-todo' takes no 'companion'; only a reviewer rule does`],
+    ['a missing module', (r) => rmSync(join(r, PAIR)), `.lawcheck/law.yaml:12  error[law-invalid]  'companion' of rule 'clear-errors' names '${PAIR}', which is no file git lists here`],
+    [
+      'a module outside lib',
+      (r) => {
+        write(r, 'tools/spec-of.mjs', PAIR_SOURCE);
+        write(r, '.lawcheck/law.yaml', WITH_PAIR.replace(PAIR, 'tools/spec-of.mjs'));
+      },
+      ".lawcheck/law.yaml:12  error[law-invalid]  'companion' of rule 'clear-errors' names 'tools/spec-of.mjs', which is no .mjs file in .lawcheck/rules/lib/",
+    ],
+    ['a list', (r) => write(r, '.lawcheck/law.yaml', WITH_PAIR.replace(`companion: ${PAIR}`, `companion: [${PAIR}]`)), ".lawcheck/law.yaml:12  error[law-invalid]  'companion' of rule 'clear-errors' takes a string, not a sequence"],
+  ];
+  await Promise.all(
+    cases.map(([name, change, expected]) =>
+      withR(
+        async (r) => {
+          const result = await run(r, null, ['--base', 'main']);
+          assert.equal(result.code, 2, `${name}: ${result.stdout}`);
+          assert.deepEqual(errorsOf(result.stdout), [expected], `${name}: ${result.stdout}`);
+        },
+        {
+          onMain: (r) => {
+            withPair()(r);
+            change(r);
+          },
+        },
+      ),
+    ),
+  );
+  await withR(
+    async (r) => {
+      write(r, '.lawcheck/law.yaml', WITH_PAIR);
+      write(r, PAIR, PAIR_SOURCE);
+      const result = await run(r, null, ['--base', 'main']);
+      assert.ok(result.stdout.split('\n').includes('note: this change edits the law that judges it: changes the companion of the rule clear-errors; adds .lawcheck/rules/lib/spec-of.mjs'), result.stdout);
+    },
+    {
+      onMain: (r) => {
+        withPair()(r);
+        write(r, '.lawcheck/law.yaml', REVIEWER_LAW);
+        rmSync(join(r, PAIR));
+      },
+    },
+  );
 });

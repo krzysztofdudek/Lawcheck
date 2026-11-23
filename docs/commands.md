@@ -262,7 +262,7 @@ For a file without a type, `explain` gives the reason. These are some of the rea
 
 When a pattern of `required` matches a file with no type, `explain` adds that `check` reports it as `untyped-file`.
 
-`explain` runs no rule and writes nothing. It takes one subject: a path, `--type` or `--rule`.
+`explain` runs no rule and writes nothing. It runs only the companion of a reviewer rule, because the state of that rule's reviews depends on the files the companion returns. It takes one subject: a path, `--type` or `--rule`.
 
 Run `explain` before you create a file, to see the law the file will get. Run it on a file you have, to find why it has its type.
 
@@ -303,6 +303,7 @@ For an id that the law does not have, the command ends with `usage`. When a type
 
 - its kind, script or reviewer, with its `status` and `why`;
 - its rule file, and the files its `context` names, which Lawcheck sends the reviewer with each file it judges;
+- its `companion`, the module that names files for each judged file;
 - the types that list it, and the files of those types and their subtypes;
 - for a reviewer rule, how many of those files have a verdict.
 

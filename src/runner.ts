@@ -33,14 +33,20 @@ interface TreeNode {
 }
 
 type Incoming =
-  | { kind: 'load'; file: string; filesOf: Map<string, string[]> }
+  | { kind: 'load'; file: string; filesOf: Map<string, string[]>; entry?: Entry }
   | { kind: 'call'; file: CallFile }
   | { kind: 'answer'; id: number; value: unknown }
   | { kind: 'finish' };
 
 type RuleFile = CallFile & { tree(): Promise<unknown>; uses(): Promise<unknown> };
 
-type Check = (input: { files: RuleFile[]; repo: { filesOf(typeId: string): string[] } }) => unknown;
+type Repo = { filesOf(typeId: string): string[] };
+
+type Entry = 'check' | 'companion';
+
+type Check = (input: { files: RuleFile[]; repo: Repo }) => unknown;
+
+type Companion = (input: { file: RuleFile; repo: Repo }) => unknown;
 
 // Started without a channel, the runner only shows that Node can start it: the tool does this to learn why a runner did not start.
 if (process.send === undefined) process.exit(0);
@@ -77,7 +83,8 @@ function closeNetwork(): void {
 closeNetwork();
 
 let check: Check | null = null;
-let repo: { filesOf(typeId: string): string[] } | null = null;
+let companion: Companion | null = null;
+let repo: Repo | null = null;
 let loaded = false;
 let reported = false;
 
@@ -179,7 +186,7 @@ function send(message: unknown): void {
   }
 }
 
-async function load(file: string, filesOf: Map<string, string[]>): Promise<void> {
+async function load(file: string, filesOf: Map<string, string[]>, entry: Entry): Promise<void> {
   repo = {
     filesOf(typeId: string): string[] {
       const list = filesOf.get(typeId);
@@ -187,7 +194,7 @@ async function load(file: string, filesOf: Map<string, string[]>): Promise<void>
       return [...list];
     },
   };
-  let module: { check?: unknown };
+  let module: { check?: unknown; companion?: unknown };
   try {
     module = await import(pathToFileURL(file).href);
   } catch (error) {
@@ -197,11 +204,12 @@ async function load(file: string, filesOf: Map<string, string[]>): Promise<void>
   await turn();
   loaded = true;
   if (reported) return;
-  if (typeof module.check !== 'function') {
-    send({ kind: 'load-failed', message: 'the module exports no function check' });
+  if (typeof module[entry] !== 'function') {
+    send({ kind: 'load-failed', message: `the module exports no function ${entry}` });
     return;
   }
-  check = module.check as Check;
+  if (entry === 'check') check = module.check as Check;
+  else companion = module.companion as Companion;
   send({ kind: 'loaded' });
 }
 
@@ -257,8 +265,8 @@ async function call(file: CallFile): Promise<void> {
   const state = { ended: false, asks: [] as Promise<unknown>[] };
   const argument: RuleFile = { ...file, tree: asking('tree', state, (answer) => treeOf(answer as TreeAnswer)), uses: asking('uses', state, (answer) => answer) };
   try {
-    value = await check!({ files: [argument], repo: repo! });
-    over = oversized(value);
+    value = companion === null ? await check!({ files: [argument], repo: repo! }) : await companion({ file: argument, repo: repo! });
+    over = companion === null ? oversized(value) : null;
     // An answer the rule did not wait for still comes before the result, so the tool never meets an ask of a call it has closed.
     for (let at = 0; at < state.asks.length; at++) await state.asks[at];
   } catch (error) {
@@ -274,7 +282,7 @@ async function call(file: CallFile): Promise<void> {
 
 process.on('message', (message: Incoming) => {
   own ??= handles();
-  if (message.kind === 'load') void load(message.file, message.filesOf);
+  if (message.kind === 'load') void load(message.file, message.filesOf, message.entry === 'companion' ? 'companion' : 'check');
   else if (message.kind === 'finish') void finish();
   else if (message.kind === 'answer') {
     answers.get(message.id)?.(message.value);

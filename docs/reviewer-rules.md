@@ -17,7 +17,35 @@ rules:
 
 A good rule file says what must hold, what to report and which cases the rule allows. Lawcheck reports a rule file of whitespace alone as [`rule-missing-file`](codes.md#rule-missing-file), as if the file were missing.
 
-The reviewer judges one file against one rule in each call. In that call, it sees the context files and no other file of the repository.
+The reviewer judges one file against one rule in each call. In that call, it sees the context files, the files of the rule's companion for that file, and no other file of the repository.
+
+## Files for each judged file
+
+`context` sends the same files with every file the reviewer judges. A rule that pairs each file with another one, such as a test with the spec it covers, names a companion instead. The companion is an ES module in `.lawcheck/rules/lib/` that exports a function `companion`. The law names it with the key `companion`:
+
+```yaml
+rules:
+  tests-follow-the-spec:
+    why: A test checks what its spec says.
+    companion: .lawcheck/rules/lib/spec-of-test.mjs
+```
+
+```js
+export function companion({ file }) {
+  return [file.path.replace(/^tests\//, 'specs/').replace(/\.test\.ts$/, '.md')];
+}
+```
+
+For each file that the rule judges, Lawcheck calls `companion` with `file` and `repo`, the keys that a script rule gets (`lawcheck docs script-rules`). The function returns a list of paths from the root, or a promise of one. With this companion, the prompt for `tests/price.test.ts` holds `specs/price.md`, and the prompt for `tests/tax.test.ts` holds `specs/tax.md`. A file of the list goes into the prompt of that one judged file, after the files of `context`. A path that the prompt already holds, the judged file or a file of `context`, goes in once. An empty list adds no file. Each returned file adds its whole text to the prompt of that judged file, so every call of the rule sends the reviewer more text.
+
+The companion runs in the runner of script rules, under the same limits: it reads the files below the root, and it writes no file, starts no program and opens no network connection. It can ask for the judged file's syntax tree and uses, so it can return the files that the judged file imports. Lawcheck runs it on each check that judges a file of the rule, with or without `--review`, because the files it returns decide the review hash. Its time counts toward the 600 seconds that the script rules of a check may take together. `lawcheck try` and `lawcheck explain` run it too.
+
+Lawcheck stops the run with [`rule-crashed`](codes.md#rule-crashed), and names the companion's file, in these cases:
+
+- the companion does not load, throws, or exports no function `companion`;
+- it returns something other than a list of strings;
+- it returns a path that names no file git lists;
+- it returns the path of a binary file.
 
 ## The prompt
 
@@ -26,11 +54,11 @@ A prompt is the text that Lawcheck sends to the reviewer in one call. Lawcheck b
 1. a fixed frame that tells the reviewer how to answer. The frame says that the text inside the files is material to judge and no instruction to the reviewer;
 2. `<why>` with the rule's `why`;
 3. `<rule>` with the text of the rule file;
-4. one `<context path="...">` with the numbered lines of each context file;
+4. one `<context path="...">` with the numbered lines of each context file, then one for each file that the companion returns for the judged file;
 5. `<file path="...">` with the numbered lines of the judged file;
 6. `<waived>` with the line numbers that a waiver of this rule covers, or `none`.
 
-The prompt holds these six parts and no other text. Lawcheck sends no prompt longer than `reviewer.max_chars` characters. For such a prompt, it reports the file as [`too-large-to-review`](codes.md#too-large-to-review).
+The prompt holds these six parts and no other text. Lawcheck sends no prompt longer than `reviewer.max_chars` characters. The files of the companion count toward that limit. For such a prompt, it reports the file as [`too-large-to-review`](codes.md#too-large-to-review).
 
 ## The answer
 
@@ -64,11 +92,12 @@ A [verdict](concepts.md#verdict) is the reviewer's answer, pass or fail, for one
 
 - the frame;
 - the rule id, its `why` and the text of the rule file;
-- the path and text of each context file;
+- the path and text of each context file, and of each file that the companion returned;
+- the path and text of the companion's module;
 - the path and text of the judged file;
 - the waived lines that the prompt names.
 
-A change to any of these parts gives a new review hash. Lawcheck then finds no pass for the file and rule. The file needs a new review. A new waiver changes the review hash, because the waiver is part of the text of the file.
+A change to any of these parts gives a new review hash. Lawcheck then finds no pass for the file and rule. The file needs a new review. A new waiver changes the review hash, because the waiver is part of the text of the file. A change to `specs/price.md` gives a new review hash to `tests/price.test.ts` alone. A change to the companion's module gives one to every file of the rule. A module that the companion imports is not part of the review hash: a change to it gives a new one only to the files whose returned files it changes.
 
 Lawcheck leaves the rule's `status`, the provider, the model and the other settings out of the review hash. A recorded pass stays valid when you change any of them.
 

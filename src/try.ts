@@ -15,9 +15,9 @@ import { createProvider } from './providers/index.js';
 import { call, NO_RECORD, preflight, remaining } from './review.js';
 import type { Ask } from './review.js';
 import { ownersOf, ruleReads } from './readers.js';
-import { crashNext, FindingBudget, linksOut, rulesDeadline, runnerProblem, runRule } from './rules.js';
-import type { RawFinding } from './rules.js';
-import { tooManyFindings } from './check.js';
+import { contextOf, crashNext, FindingBudget, linksOut, resolveCompanions, rulesDeadline, runnerProblem, runRule } from './rules.js';
+import type { Companions, RawFinding } from './rules.js';
+import { runnerErrors, tooManyFindings } from './check.js';
 import type { RuleFile } from './rules.js';
 import { fromCwd, loadConfig, loadLaw, loadRuleFiles, locate, nearPart, repoPath, requireGit, RULES_DIR, stopped, Stop, typeAll, usage } from './setup.js';
 import type { Read } from './setup.js';
@@ -214,10 +214,18 @@ export async function tryRule(args: Arguments, context: CheckContext, json: bool
     }
 
     const reviewer = kinds.reviewers.get(id)!;
+    let companions: Companions = new Map();
+    if (reviewer.companion !== null) {
+      const errors = runnerErrors(root);
+      if (errors.length > 0) throw new Stop(errors);
+      const resolved = await resolveCompanions({ root, files, read, filesOf: filesOfTypes(typed, law), serve: ruleReads({ root, files, ...ownersOf(files, read, typed) }) }, kinds.reviewers, [{ rule: id, files: ruleFiles }]);
+      if ('errors' in resolved) throw new Stop(resolved.errors);
+      companions = resolved.companions;
+    }
     const prompts = ruleFiles.map((file) => {
       const covered = waiversOf.get(file.path)!.filter((w) => w.rule === id && w.covers !== null).map((w) => w.covers!);
       const waived = [...new Set(covered)].sort((a, b) => a - b);
-      const prompt = buildPrompt({ why: rule.why, ruleText: reviewer.text, context: reviewer.context, filePath: file.path, fileText: file.text, waived });
+      const prompt = buildPrompt({ why: rule.why, ruleText: reviewer.text, context: contextOf(reviewer, companions, id, file.path), filePath: file.path, fileText: file.text, waived });
       return { file, prompt, characters: size(prompt), waived: new Set(waived) };
     });
     const attempts = result.times;
