@@ -925,35 +925,51 @@ function skillFiles(dir = SKILL): string[] {
 
 function namedParts(text: string): { parts: string[]; steps: number[]; links: string[] } {
   const parts = [...text.matchAll(/\bparts? ((?:"[^"\n]+"(?:, | and | or )?)+)/g)].flatMap((match) => [...match[1]!.matchAll(/"([^"\n]+)"/g)].map((quoted) => quoted[1]!));
-  const steps = [...text.matchAll(/\bsteps? (\d+)\b/g)].map((match) => Number(match[1]));
+  const steps = [...text.matchAll(/\bsteps? (\d+(?:(?:, | and | or )\d+)*)\b/g)].flatMap((match) => [...match[1]!.matchAll(/\d+/g)].map((number) => Number(number[0])));
   const links = [...text.matchAll(/\]\(([^)#:]+\.md)\)/g)].map((match) => match[1]!);
   return { parts, steps, links };
 }
 
-test('test 904: every part and step of the setup page that a file of the setup skill names is in docs/agent-setup.md, every file it links exists, and every file format it gives says first that nothing in it is law', () => {
-  const page = readFileSync(join(ROOT, 'docs', 'agent-setup.md'), 'utf8');
-  const headings = page.split('\n').filter((line) => line.startsWith('## ')).map((line) => line.slice(3));
+function skillProblems(name: string, text: string, headings: string[], exists: (link: string) => boolean): string[] {
+  const { parts, steps, links } = namedParts(text);
+  const problems: string[] = [];
+  for (const part of parts) if (!headings.includes(part)) problems.push(`${name} names the part "${part}", and docs/agent-setup.md has no such heading`);
+  for (const step of steps) if (!headings.some((heading) => heading.startsWith(`${step}. `))) problems.push(`${name} names step ${step}, and docs/agent-setup.md has no such step`);
+  for (const link of links) if (!exists(link)) problems.push(`${name} links ${link}, which does not exist`);
+  for (const format of text.matchAll(/^````markdown\n([^]*?)\n````$/gm)) {
+    const paragraphs = format[1]!.split('\n\n');
+    if (!paragraphs[0]!.startsWith('# ') || !(paragraphs[1] ?? '').includes('Nothing in this file is law')) problems.push(`${name}: a file format does not say in its first paragraph that nothing in it is law`);
+  }
+  return problems;
+}
+
+const headingsOf = (page: string): string[] => page.split('\n').filter((line) => line.startsWith('## ')).map((line) => line.slice(3));
+
+test('test 904: every part and step of the setup page that a file of the setup skill names is in docs/agent-setup.md, every file it links exists, and a file format it gives says first that nothing in it is law', () => {
+  const headings = headingsOf(readFileSync(join(ROOT, 'docs', 'agent-setup.md'), 'utf8'));
   const files = skillFiles();
   assert.ok(files.some((file) => file.endsWith(`${sep}SKILL.md`)));
-  const main = readFileSync(join(SKILL, 'SKILL.md'), 'utf8');
-  assert.match(main, /^---\nname: setup\ndescription: .+\n---\n/);
+  assert.match(readFileSync(join(SKILL, 'SKILL.md'), 'utf8'), /^---\nname: setup\ndescription: .+\n---\n/);
   let named = 0;
   for (const file of files) {
     const text = readFileSync(file, 'utf8');
-    const { parts, steps, links } = namedParts(text);
-    named += parts.length;
-    for (const part of parts) assert.ok(headings.includes(part), `${relative(ROOT, file)} names the part "${part}", and docs/agent-setup.md has no such heading`);
-    for (const step of steps) assert.ok(headings.some((heading) => heading.startsWith(`${step}. `)), `${relative(ROOT, file)} names step ${step}, and docs/agent-setup.md has no such step`);
-    for (const link of links) assert.ok(existsSync(join(dirname(file), link)), `${relative(ROOT, file)} links ${link}, which does not exist`);
-    for (const format of text.matchAll(/^````markdown\n([^]*?)\n````$/gm)) {
-      const paragraphs = format[1]!.split('\n\n');
-      assert.ok(paragraphs[0]!.startsWith('# ') && paragraphs[1]!.includes('Nothing in this file is law'), `${relative(ROOT, file)}: a file format says in its first paragraph that nothing in it is law`);
-    }
+    named += namedParts(text).parts.length;
+    assert.deepEqual(skillProblems(relative(ROOT, file), text, headings, (link) => existsSync(join(dirname(file), link))), []);
   }
   assert.ok(named >= 3, 'the skill names the parts of the page it uses');
 });
 
-test('test 904: control, the names of parts and steps are found in every form the skill writes them, and a missing heading is named', () => {
+test('test 904: control, the names of parts and steps are found in every form the skill writes them, and a missing heading, step, link or marking is named', () => {
   const found = namedParts('the page\'s part "Never" holds. Through the page\'s parts "A" and "B", and parts "C", "D" or "E". After step 11 of the page; steps 2 and 7. See [x](references/advice.md) and [y](https://example.com/z.md).');
-  assert.deepEqual(found, { parts: ['Never', 'A', 'B', 'C', 'D', 'E'], steps: [11, 2], links: ['references/advice.md'] });
+  assert.deepEqual(found, { parts: ['Never', 'A', 'B', 'C', 'D', 'E'], steps: [11, 2, 7], links: ['references/advice.md'] });
+  const headings = headingsOf('# Page\n\n## 1. Before anything\n\n## Never\n');
+  assert.deepEqual(skillProblems('a.md', 'The part "Never" after step 1, see [x](here.md).', headings, () => true), []);
+  const format = (marked: string): string => `\`\`\`\`markdown\n# A proposal\n\nWritten by a coding agent. ${marked}\n\n## 1. An item\n\`\`\`\``;
+  assert.deepEqual(skillProblems('a.md', format('Nothing in this file is law.'), headings, () => true), []);
+  assert.deepEqual(skillProblems('a.md', 'The part "Gone" after step 9, see [x](missing.md).\n\n' + format('It is advice.'), headings, () => false), [
+    'a.md names the part "Gone", and docs/agent-setup.md has no such heading',
+    'a.md names step 9, and docs/agent-setup.md has no such step',
+    'a.md links missing.md, which does not exist',
+    'a.md: a file format does not say in its first paragraph that nothing in it is law',
+  ]);
 });

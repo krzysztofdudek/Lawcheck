@@ -1,6 +1,6 @@
 ---
 name: setup
-description: Sets up Lawcheck in a repository. The agent writes the first law from the code as it is, counts which folders use which, and asks the user before it forbids anything. Use when the user asks to set up or install Lawcheck here, to write or start a law, or to add architecture rules or boundaries to this repository; and when the user asks for advice on the architecture, a target architecture or a plan to rebuild toward one.
+description: Sets up Lawcheck in a repository. The agent writes the first law from the code as it is, counts which folders use which, and asks the user before it forbids a use that the code already makes. Use when the user asks to set up or install Lawcheck here, to write or start a law, or to add architecture rules or boundaries to this repository; and when the user asks for advice on the architecture, a target architecture or a plan to rebuild toward one.
 ---
 
 # Set up Lawcheck

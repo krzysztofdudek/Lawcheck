@@ -116,7 +116,7 @@ In a repository with no law, type this in a session:
 /lawcheck:setup
 ```
 
-Or ask in your own words, such as "Set up Lawcheck in this repository". The agent follows [Let a coding agent write the first law](agent-setup.md). It describes the folders as types, writes down which type uses which today, and asks you before it forbids anything that the code already does. It changes only `.lawcheck/` and commits nothing. At the end of its turn the plugin tells you that the agent changed `.lawcheck/law.yaml` ([The end of a turn](plugin.md#the-end-of-a-turn)).
+Or ask in your own words, such as "Set up Lawcheck in this repository". The agent follows [Let a coding agent write the first law](agent-setup.md). It describes the folders as types, writes down which type uses which today, and asks you before it forbids a use that the code already makes. It changes only `.lawcheck/` and commits nothing. At the end of its turn the plugin tells you that the agent changed `.lawcheck/law.yaml` ([The end of a turn](plugin.md#the-end-of-a-turn)).
 
 ## If it goes wrong
 
