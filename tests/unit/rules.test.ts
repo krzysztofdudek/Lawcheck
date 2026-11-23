@@ -14,6 +14,12 @@ test('check-slice §3: a valid answer becomes findings with the call path', () =
   });
 });
 
+test('S2-4: a line that is null is a finding about the whole file, with no line', () => {
+  assert.deepEqual(validate('r', [{ message: 'x', line: null }], FILE), { findings: [{ rule: 'r', file: 'src/a.ts', message: 'x' }] });
+  const empty = { path: 'src/a.ts', type: { id: 'source' }, rules: [], text: '', lines: [] } as never;
+  assert.deepEqual(validate('r', [{ message: 'x', line: null }], empty), { findings: [{ rule: 'r', file: 'src/a.ts', message: 'x' }] });
+});
+
 test('check-slice §3: every broken answer is named', () => {
   const broken = [{}, null, 'x', [null], [[]], [{ line: 1 }], [{ message: '' }], [{ message: 'x', file: 'b.ts' }], [{ message: 'x', line: 0 }], [{ message: 'x', line: 3 }], [{ message: 'x', line: 1.5 }], [{ message: 'x', line: NaN }], [{ message: 'x', line: '1' }]];
   for (const value of broken) assert.ok('problem' in validate('r', value, FILE), JSON.stringify(value));
