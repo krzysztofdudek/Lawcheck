@@ -38,12 +38,12 @@ export function parseArguments(argv: string[]): { options: CheckOptions } | { pr
 
 function checkOptions(args: Arguments): { options: CheckOptions } | { problem: string } {
   const review = args.flags.has('--review');
-  if (args.words.length > 0 && ['--full', '--strict', '--base', '--review', '--again', '--max-calls', '--sarif'].some((flag) => args.flags.has(flag))) {
+  if (args.words.length > 0 && ['--full', '--strict', '--base', '--law-from', '--review', '--again', '--max-calls', '--sarif'].some((flag) => args.flags.has(flag))) {
     return { problem: 'paths go with --json alone' };
   }
   if (!review && args.flags.has('--again')) return { problem: 'the flag --again works only with --review' };
   if (!review && args.flags.has('--max-calls')) return { problem: 'the flag --max-calls works only with --review' };
-  return { options: { full: args.flags.has('--full') || args.flags.has('--strict'), strict: args.flags.has('--strict'), base: text(args, '--base'), review, again: args.flags.has('--again'), maxCalls: number(args, '--max-calls'), paths: args.words } };
+  return { options: { full: args.flags.has('--full') || args.flags.has('--strict'), strict: args.flags.has('--strict'), base: text(args, '--base'), lawFrom: text(args, '--law-from'), review, again: args.flags.has('--again'), maxCalls: number(args, '--max-calls'), paths: args.words } };
 }
 
 // GitHub places a result by its path from the top of the repository, and the report names each file from the folder that holds .lawcheck.

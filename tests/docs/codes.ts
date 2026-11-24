@@ -11,6 +11,7 @@ const BY: Record<string, string[]> = {
   'tests 232, 233, 236, 241 and 277: file-too-large, text-too-large, too-many-findings, file-unwritable and memory-too-large, in text and in JSON, and the commands their next lines name': ['file-too-large', 'text-too-large', 'too-many-findings', 'file-unwritable', 'memory-too-large'],
   'test 239: stopped, in text and in JSON, and the command its next line names': ['stopped'],
   'check-slice §6: file-unreadable, in text and in JSON, and its next line gets further': ['file-unreadable'],
+  'test 1075: law-from-unreachable, in text and in JSON, and its next line': ['law-from-unreachable'],
 };
 
 const NIGHTLY = 'tests/limits/large.nightly.test.ts > ';

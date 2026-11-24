@@ -20,7 +20,7 @@ test('check-slice §6: a command that throws ends in exit 2 with internal', asyn
 });
 
 test('check-slice §4: arguments', () => {
-  const plain = { full: false, strict: false, base: null, review: false, again: false, maxCalls: null, paths: [] };
+  const plain = { full: false, strict: false, base: null, lawFrom: null, review: false, again: false, maxCalls: null, paths: [] };
   assert.deepEqual(parseArguments(['check']), { options: plain });
   assert.deepEqual(parseArguments(['check', '--json', '--base', 'main', '--full']), { options: { ...plain, full: true, base: 'main' } });
   assert.deepEqual(parseArguments(['check', '--strict']), { options: { ...plain, full: true, strict: true } });
@@ -33,7 +33,7 @@ test('check-slice §4: arguments', () => {
 
 test('commands-slice §2: version and help exit 0', async () => {
   assert.deepEqual(await main(['--version'], context), { code: 0, stdout: '0.1.0-alpha.4\n' });
-  for (const [argv, first] of [[['--help'], 'usage: lawcheck <command> [<arguments>] [--json]'], [['check', '--help'], 'usage: lawcheck check [--full] [--strict] [--base <ref>] [--review [--again] [--max-calls <n>]] [--sarif <file>] [--json]']] as const) {
+  for (const [argv, first] of [[['--help'], 'usage: lawcheck <command> [<arguments>] [--json]'], [['check', '--help'], 'usage: lawcheck check [--full] [--strict] [--base <ref>] [--law-from <ref>] [--review [--again] [--max-calls <n>]] [--sarif <file>] [--json]']] as const) {
     const result = await main([...argv], context);
     assert.equal(result.code, 0);
     assert.equal(result.stdout.split('\n')[0], first);

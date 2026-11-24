@@ -222,10 +222,13 @@ function isLink(root: string, path: string): boolean {
   }
 }
 
-export function ruleFileErrors(root: string, law: Law): RuleFiles & { errors: ErrorItem[] } {
+export function workFiles(root: string): { listed: Set<string>; files: string[]; read: Read } {
   const listed = listedPaths(root);
-  const files = listFiles(root, listed);
-  const read = onceReader(root);
+  return { listed, files: listFiles(root, listed), read: onceReader(root) };
+}
+
+export function ruleFileErrors(root: string, law: Law): RuleFiles & { errors: ErrorItem[] } {
+  const { listed, files, read } = workFiles(root);
   const kinds = ruleKinds(law, files, read, (path) => isLink(root, path));
   return { listed, files, read, kinds, errors: kinds.errors.length > 0 ? kinds.errors : kinds.unreadable };
 }

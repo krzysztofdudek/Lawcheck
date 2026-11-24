@@ -195,8 +195,7 @@ export async function scenario(page: Page): Promise<void> {
     assert.deepEqual([loosened.code, loosened.stdout], [0, output(page, 'block 1 under "A change to the law"')], 'the first check of a change that loosens the law');
     git(clone, 'add', '-A');
     git(clone, 'commit', '-q', '-m', 'law');
-    git(clone, 'checkout', 'origin/main', '--', '.lawcheck/law.yaml', '.lawcheck/rules');
-    const second = await lawcheck(clone, args(page.text('block 3 under "5. Give the base on another CI service"')));
+    const second = await lawcheck(clone, [...args(page.text('block 3 under "5. Give the base on another CI service"')), '--law-from', 'origin/main']);
     assert.equal(second.code, 1, 'the check with the law of the base fails');
     assert.match(second.stdout, /^src\/core\/total\.ts:2  error\[no-console\]/m);
   });
