@@ -88,6 +88,8 @@ A rule file that is a symbolic link now gets its own `rule-missing-file` message
 
 On Windows, `lawcheck explain` no longer refuses with `usage` a name that holds at most 255 UTF-16 units but more than 255 bytes, such as 86 characters of three bytes each. It counted bytes everywhere, so a file that exists on Windows was refused as one that cannot exist. The limit of a path on Windows is 32,767 units, not 4,095 bytes. Linux and macOS keep their limits.
 
+On Windows, when `lawcheck` is killed while a program reviewer runs, it no longer ends a process it did not start. In alpha.4 it could end a process that Windows had given the id of the reviewer program after that program ended, with everything that process started. When the list of running processes came late, it could also end the child of an older process that once held that id.
+
 ## [0.1.0-alpha.4] - 2026-11-23
 
 A script rule that uses the network now gets an error from the call itself, on every Node. On Node 24, alpha.3 let the call through. On Node 25 and later, alpha.3 passed Node's refusal to the callback, the `error` event or the promise, so a rule that handled the refusal there passed. The rule runner of alpha.4 closes the network before the rule loads. A rule that connects, listens on a port, sends over UDP, looks up a name in DNS or calls `fetch` gets the error. A rule that does not catch it is `rule-crashed`, with the message `uses the network, which is closed to script rules`.
