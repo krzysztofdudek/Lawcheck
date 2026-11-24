@@ -1259,17 +1259,11 @@
         "tests/guard/guard.test.ts",
         "tests/limits/memory.test.ts",
         "tests/limits/sizes.test.ts",
+        "tests/limits/writes.test.ts",
         "tests/properties/names.test.ts",
         "tests/unit/providers-anthropic.test.ts",
         "tests/unit/providers-codex.test.ts",
-        "tests/unit/providers-copilot-cli.test.ts",
-        "tests/environments/systems.test.ts",
-        "tests/security/links.test.ts",
-        "tests/environments/refusal.test.ts",
-        "tests/acceptance/changes.test.ts",
-        "tests/unit/check.test.ts",
-        "tests/unit/setup.test.ts",
-        "tests/unit/runner.test.ts"
+        "tests/unit/providers-program.test.ts"
       ],
       [
         "tests/environments/hook-shapes.test.ts",
@@ -1278,10 +1272,17 @@
         "tests/security/runner.test.ts",
         "tests/acceptance/hostile.test.ts",
         "tests/acceptance/plugin.test.ts",
+        "tests/unit/providers-copilot-cli.test.ts",
         "tests/unit/providers-gemini-cli.test.ts",
         "tests/unit/providers-index.test.ts",
         "tests/unit/providers-openai-compatible.test.ts",
-        "tests/unit/providers-program.test.ts"
+        "tests/environments/systems.test.ts",
+        "tests/security/links.test.ts",
+        "tests/environments/refusal.test.ts",
+        "tests/acceptance/changes.test.ts",
+        "tests/unit/check.test.ts",
+        "tests/unit/setup.test.ts",
+        "tests/unit/runner.test.ts"
       ]
     ]
   }
