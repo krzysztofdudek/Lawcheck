@@ -316,9 +316,9 @@ With a topic, the document holds `id`, `title` and `text`. `text` holds the Mark
 
 ## SARIF 2.1.0
 
-With `--sarif <file>`, `check` also writes its findings to that file in SARIF 2.1.0, the format GitHub code scanning reads ([CI and git hooks](ci.md#_3-show-the-findings-in-github-code-scanning)). `check` writes the file when it ends with exit 0 or 1. With exit 2 it writes none, since a file with no result would tell code scanning that every open alert was fixed. A file already at that path stays as it was. A file it cannot write stops the run with `file-unwritable` and exit 2. Lawcheck writes an API key of the reviewer as `[key]` in the file, as in the JSON.
+With `--sarif <file>`, `check` also writes its findings to that file in SARIF 2.1.0 for GitHub code scanning ([CI and git hooks](ci.md#_3-show-the-findings-in-github-code-scanning)). `check` writes the file when it ends with exit 0 or 1. With exit 2 it writes none, since a file with no result would tell code scanning that every open alert was fixed. A file already at that path stays as it was. A file it cannot write stops the run with `file-unwritable` and exit 2. Lawcheck writes an API key of the reviewer as `[key]` in the file, as in the JSON.
 
-The workflow of [CI and git hooks](ci.md#_2-add-the-workflow) passes `--sarif` to its first check alone, the one with the law of the branch. The second check, with the law of the base, would write its findings over the first, so its findings stay in the log of the job.
+Code scanning takes each upload of a branch as the whole analysis and closes as fixed every alert that the upload lacks. A check of the change holds no finding of a file it leaves alone, so the workflow of [CI and git hooks](ci.md#_3-show-the-findings-in-github-code-scanning) writes the file from `check --full`, which holds the findings of every file. Debt fails nothing without `--strict`, so the exit code stays that of the change. The second check, with the law of the base, writes no file, since its findings would replace those of the first.
 
 The file validates against the SARIF 2.1.0 schema of OASIS. It holds one run, and the run holds one result for each item of `findings` of `lawcheck-check/0`, in the same order, the debt of `--full` included.
 

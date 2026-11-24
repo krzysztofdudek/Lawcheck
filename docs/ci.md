@@ -373,7 +373,7 @@ lawcheck-quality:
 
 ### 3. Show the findings in GitHub code scanning
 
-In [the workflow](#_2-add-the-workflow), add `security-events: write` to `permissions` and `--sarif "$RUNNER_TEMP/lawcheck.sarif"` to the first two `lawcheck check` lines. Then add this step ([SARIF 2.1.0](json.md#sarif-2-1-0)):
+In [the workflow](#_2-add-the-workflow), add `security-events: write` to `permissions`. Add `--sarif "$RUNNER_TEMP/lawcheck.sarif"` to the check with `--full`, and `--full --sarif "$RUNNER_TEMP/lawcheck.sarif"` to the first check with `--base "$base"`. Code scanning closes every alert that an upload lacks, so the file holds the findings of every file. Then add this step ([SARIF 2.1.0](json.md#sarif-2-1-0)):
 
 <!-- example: sarif-upload -->
 ```yaml
@@ -385,7 +385,7 @@ In [the workflow](#_2-add-the-workflow), add `security-events: write` to `permis
     category: lawcheck
 ```
 
-The step runs after exit 1 too. After exit 2, Lawcheck writes no file and the step fails. A private repository needs GitHub Code Security and `actions: read`.
+It runs after exit 1 too. After exit 2, Lawcheck writes no file and the step fails. A private repository needs GitHub Code Security and `actions: read`.
 
 ## A change to the law
 
@@ -499,7 +499,5 @@ A pull request of a fork runs the same script rules ([Pull requests from a fork]
 - Lawcheck prints `base-unreachable` when the job did not fetch the base branch, or when the clone is shallow. A shallow clone holds only the last commits, without the merge base. The `next:` line gives the `git fetch` command that fetches the history.
   The command is written for a POSIX shell. It quotes a remote or branch name that holds a character the shell reads, such as `;` or `$`. For a name that git refuses as a branch name, or that holds a line break, the line names no branch: on a shallow clone it gives `git fetch --unshallow`, and otherwise no command.
 - In a container, `no-git` means that another user owns the checkout. Git refuses to work in such a folder. The `next:` line gives the `git config` command that adds the folder to the git setting `safe.directory`. The command quotes the path for `sh`.
-- The log of a job that passed shows a warning. A warning leaves the exit code at 0. A CI job fails only on an exit code other than 0. Only the log shows the warning, unless the job annotates the pull request ([Findings in the pull request](#findings-in-the-pull-request)).
-- `lawcheck doctor` fails in a job that reads the committed verdicts, where `lawcheck check` passes: [Run doctor on a machine, not in the job](#_4-run-doctor-on-a-machine-not-in-the-job).
 
 Next: [A law shared by a team](team.md)

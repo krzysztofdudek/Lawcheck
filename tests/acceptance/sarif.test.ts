@@ -139,7 +139,7 @@ function readLog(path: string): Log {
   return JSON.parse(text) as Log;
 }
 
-test('test 1015: check --sarif writes SARIF 2.1.0 that both schemas and GitHub accept, one result per finding with its file, line and rule, and prints what it prints without it', async () => {
+test('test 1030: check --sarif writes SARIF 2.1.0 that both schemas and GitHub accept, one result per finding with its file, line and rule, and prints what it prints without it', async () => {
   await inTemp(async (dir) => {
     const repo = newRepository(dir, { ...FILES, 'src/core/old.ts': "export const old = () => console.log('old');\n" });
     git(repo, 'checkout', '-q', '-b', 'work');
@@ -195,7 +195,7 @@ test('test 1015: check --sarif writes SARIF 2.1.0 that both schemas and GitHub a
   });
 });
 
-test('test 1016: check --sarif names each file from the top of the repository when the law sits below it', async () => {
+test('test 1031: check --sarif names each file from the top of the repository when the law sits below it', async () => {
   await inTemp(async (dir) => {
     const files = Object.fromEntries(Object.entries(FILES).map(([path, text]) => [`pkg/${path}`, text]));
     const repo = newRepository(dir, files);
@@ -211,7 +211,7 @@ test('test 1016: check --sarif names each file from the top of the repository wh
   });
 });
 
-test('test 1017: check --sarif writes no file when the check has no result, stops with file-unwritable when it cannot write, takes no paths, and its usage line names it', async () => {
+test('test 1032: check --sarif writes no file when the check ends with no conclusion, stops with file-unwritable when it cannot write, takes no paths, and its usage line names it', async () => {
   await inTemp(async (dir) => {
     const repo = newRepository(dir, FILES);
     git(repo, 'checkout', '-q', '-b', 'work');

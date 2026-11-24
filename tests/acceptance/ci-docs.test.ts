@@ -271,41 +271,51 @@ test('S7-13: the recipes of docs/ci.md turn --json into GitHub annotations and a
   });
 });
 
-test('test 1018: the code scanning recipe of docs/ci.md writes the SARIF file from the first check of the workflow, run as written, and uploads it when the check fails too', async () => {
+test('test 1033: the code scanning recipe of docs/ci.md writes the SARIF file of every file from the first check, run as written on a pull request and on a push, and uploads it when the check fails too', async () => {
   assert.ok(sections().includes('### 3. Show the findings in GitHub code scanning'));
   const upload = (parse(example('sarif-upload')) as (Step & { if?: string })[])[0]!;
   assert.equal(upload.uses, 'github/codeql-action/upload-sarif@v4');
   assert.equal(upload.if, '${{ !cancelled() }}', 'the step runs after a check that failed with exit 1');
   assert.deepEqual(upload.with, { sarif_file: '${{ runner.temp }}/lawcheck.sarif', category: 'lawcheck' });
-  for (const what of ['add `security-events: write` to `permissions`', 'to the first two `lawcheck check` lines', 'After exit 2, Lawcheck writes no file', 'GitHub Code Security and `actions: read`']) assert.ok(page.includes(what), what);
+  const SARIF = '--sarif "$RUNNER_TEMP/lawcheck.sarif"';
+  for (const what of ['add `security-events: write` to `permissions`', `Add \`${SARIF}\` to the check with \`--full\`, and \`--full ${SARIF}\` to the first check with \`--base "$base"\``, 'closes every alert that an upload lacks', 'After exit 2, Lawcheck writes no file', 'GitHub Code Security and `actions: read`']) assert.ok(page.includes(what), what);
   assert.equal(workflow.permissions.contents, 'read', 'the permission the upload step adds to');
 
   const check = steps.find((step) => step.run?.includes('lawcheck check') === true)!;
-  let added = 0;
+  let full = 0;
+  let first = 0;
   const script = check.run!
     .split('\n')
-    .map((line) => (added < 2 && /npx --no-install lawcheck check /.test(line) ? (added++, `${line} --sarif "$RUNNER_TEMP/lawcheck.sarif"`) : line))
+    .map((line) => {
+      if (/npx --no-install lawcheck check --full$/.test(line)) return (full++, `${line} ${SARIF}`);
+      if (first === 0 && /npx --no-install lawcheck check --base "\$base"$/.test(line)) return (first++, `${line} --full ${SARIF}`);
+      return line;
+    })
     .join('\n');
-  assert.equal(added, 2);
-  assert.ok(script.includes('lawcheck check --full --sarif "$RUNNER_TEMP/lawcheck.sarif"\n'), 'the root commit writes the file');
-  assert.ok(script.includes('lawcheck check --base "$base" --sarif "$RUNNER_TEMP/lawcheck.sarif"\n'), 'the first check writes the file');
+  assert.deepEqual([full, first], [1, 1], 'the page names the two lines the workflow holds');
   await inTemp(async (dir) => {
-    const work = clone(dir, { '.gitignore': 'node_modules/\n', '.lawcheck/law.yaml': ANNOTATED_LAW, '.lawcheck/rules/no-console.mjs': NO_CONSOLE, '.lawcheck/rules/no-todo.mjs': NO_TODO });
-    write(work, 'src/core/total.ts', 'export function total(price: number): number {\n  console.log(price);\n  return price;\n}\n');
+    const work = clone(dir, { '.gitignore': 'node_modules/\n', '.lawcheck/law.yaml': ANNOTATED_LAW, '.lawcheck/rules/no-console.mjs': NO_CONSOLE, '.lawcheck/rules/no-todo.mjs': NO_TODO, 'src/core/old.ts': "export const old = () => console.log('old');\n" });
     standIn(work);
     const runnerTemp = join(dir, 'runner-temp');
     write(runnerTemp, '.keep', '');
     write(dir, 'check.sh', `${script}\n`);
-    const env = { ...GIT_ENV, npm_config_update_notifier: 'false', EVENT: 'pull_request', BASE_REF: 'main', RUNNER_TEMP: runnerTemp };
-    const job = spawnSync('sh', ['-e', join(dir, 'check.sh')], { cwd: work, env, encoding: 'utf8' });
-    assert.equal(job.status, 1, job.stdout + job.stderr);
-    const log = JSON.parse(readFileSync(join(runnerTemp, 'lawcheck.sarif'), 'utf8')) as { version: string; runs: { results: { ruleId: string; locations: { physicalLocation: { artifactLocation: { uri: string }; region: { startLine: number } } }[] }[] }[] };
-    assert.equal(log.version, '2.1.0');
-    assert.deepEqual(
-      log.runs[0]!.results.map((result) => [result.ruleId, result.locations[0]!.physicalLocation.artifactLocation.uri, result.locations[0]!.physicalLocation.region.startLine]),
-      [['no-console', 'src/core/total.ts', 2]],
-      'the file the upload step reads holds the finding that fails the job',
-    );
+    const results = () =>
+      (JSON.parse(readFileSync(join(runnerTemp, 'lawcheck.sarif'), 'utf8')) as { runs: { results: { ruleId: string; level: string; locations: { physicalLocation: { artifactLocation: { uri: string }; region: { startLine: number } } }[] }[] }[] }).runs[0]!.results.map((result) => [result.ruleId, result.level, result.locations[0]!.physicalLocation.artifactLocation.uri, result.locations[0]!.physicalLocation.region.startLine]);
+    const job = (env: NodeJS.ProcessEnv) => spawnSync('sh', ['-e', join(dir, 'check.sh')], { cwd: work, env: { ...GIT_ENV, npm_config_update_notifier: 'false', RUNNER_TEMP: runnerTemp, ...env }, encoding: 'utf8' });
+    const OLD = ['no-console', 'warning', 'src/core/old.ts', 1];
+
+    write(work, 'src/core/total.ts', 'export function total(price: number): number {\n  console.log(price);\n  return price;\n}\n');
+    const pull = job({ EVENT: 'pull_request', BASE_REF: 'main' });
+    assert.equal(pull.status, 1, pull.stdout + pull.stderr);
+    assert.deepEqual(results(), [['no-console', 'error', 'src/core/total.ts', 2], OLD], 'a pull request uploads the finding that fails the job, then the debt of the file it leaves alone');
+
+    write(work, 'src/core/total.ts', 'export const total = (price: number): number => price;\n');
+    git(work, 'add', '-A');
+    git(work, 'commit', '-q', '-m', 'total');
+    const before = git(work, 'rev-parse', 'origin/main').trim();
+    const push = job({ EVENT: 'push', BEFORE: before });
+    assert.equal(push.status, 0, `a push whose change is clean passes, debt or not\n${push.stdout}${push.stderr}`);
+    assert.deepEqual(results(), [OLD], 'a push that leaves the file with a finding alone still uploads that finding, so code scanning keeps its alert open');
   });
 });
 
