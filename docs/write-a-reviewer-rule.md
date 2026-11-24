@@ -13,7 +13,7 @@ export function refund(paid: boolean): number {
 }
 ```
 
-A test server that answers as Ollama does gave the answers below. A real model words its [findings](concepts.md#finding) in its own way.
+A test server that answers as Ollama does gave the answers below. Ollama is a program that runs language models on your own machine. A real model words its [findings](concepts.md#finding) in its own way.
 
 ## 1. Write the rule file
 
@@ -54,7 +54,7 @@ types:
 | another server that answers chat completions as OpenAI does | `openai-compatible`, with its address in `LAWCHECK_REVIEWER_ENDPOINT` | `LAWCHECK_REVIEWER_KEY` in the environment, when the server needs a key |
 | Claude Code, Codex, Gemini CLI or Copilot CLI, signed in | `claude-code`, `codex`, `gemini-cli` or `copilot-cli` | the program's own sign-in |
 
-These steps use Ollama. Lawcheck calls it on `localhost:11434`, or at the address in `LAWCHECK_REVIEWER_ENDPOINT`. Create `.lawcheck/config.yaml`, with the name of a model the server has pulled:
+These steps use Ollama. Lawcheck calls it on `localhost:11434`, or at the address in `LAWCHECK_REVIEWER_ENDPOINT`. Create `.lawcheck/config.yaml`, with the name of a model that the Ollama server has downloaded (`ollama pull`):
 
 ```yaml
 reviewer:
@@ -168,7 +168,7 @@ note: the law changed in this change; lawcheck check --full --base main shows wh
 note: this change edits the law that judges it: adds the rule clear-errors; adds .lawcheck/rules/clear-errors.md; adds .lawcheck/config.yaml
 ```
 
-Lawcheck wrote the pass to `.lawcheck/verdicts`. It wrote `.lawcheck/.gitattributes` beside it. With that file, git merges the passes of two branches without a conflict.
+Lawcheck wrote the pass to `.lawcheck/verdicts`. It wrote `.lawcheck/.gitattributes` beside it. With `.gitattributes`, git merges the passes of two branches without a conflict.
 
 ## 11. Commit the verdicts
 
@@ -197,9 +197,9 @@ A [plain check](concepts.md#plain-check) reads the pass from `.lawcheck/verdicts
 
 - Lawcheck prints [`reviewer-unreachable`](codes.md#reviewer-unreachable): the server is down, the key is wrong, or the program is not signed in. The message names the cause. Fix the cause and run the same command again. `check --review` keeps the answers it got before the failure, so the second run asks the reviewer only about the files it has no answer for.
 - The reviewer failed a file you believe is right. Lawcheck keeps the fail on this machine. It shows the fail again without a call, until the file or the rule changes. With `--again`, Lawcheck asks the reviewer once more: `lawcheck check --review --again --base main`.
-- Lawcheck prints [`too-large-to-review`](codes.md#too-large-to-review): the prompt of a file holds more characters than the setting `reviewer.max_chars` allows. Its default is 50,000. Lawcheck never sends such a prompt. Split the file, or raise `max_chars` in `.lawcheck/config.yaml`.
+- Lawcheck prints [`too-large-to-review`](codes.md#too-large-to-review): the prompt of a file holds more characters than the setting `reviewer.max_chars` allows. Its default is 50,000. Lawcheck sends no prompt that long. Split the file, or raise `max_chars` in `.lawcheck/config.yaml`.
 - Lawcheck prints [`reviewer-bad-answer`](codes.md#reviewer-bad-answer): the model gave no verdict twice. Reword the rule file, or try another model.
 - Lawcheck prints [`too-many-reviews`](codes.md#too-many-reviews): the run needs more calls than the setting `reviewer.max_calls` allows (100 by default). Lawcheck then makes none of them. [A slow check](slow-check.md) shows how to cap the calls.
-- Lawcheck keeps every recorded pass after you change the model or the provider. It records a pass under a key made from the file and the rule. The key holds no provider and no model. Check the new setup with `lawcheck doctor --reviewer`.
+- Lawcheck keeps every recorded pass after you change the model or the provider. It records a pass under a [review hash](reviewer-rules.md#verdicts) made from the file and the rule. The hash holds no provider and no model. Check the new setup with `lawcheck doctor --reviewer`.
 
 Next: [Bring a law into an existing repository](adopt-in-an-existing-repository.md)

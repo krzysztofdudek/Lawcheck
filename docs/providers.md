@@ -1,6 +1,6 @@
 # Reviewers and keys
 
-A [reviewer rule](concepts.md#reviewer-rule) needs a model to judge each file. The provider is the service, or the program on your machine, that runs that model. You name one of nine providers in `.lawcheck/config.yaml` ([Settings](config.md)). The five HTTP providers need the setting `model`. For the four programs, `model` is optional.
+A [reviewer rule](concepts.md#reviewer-rule) needs a model to judge each file. The provider is the service, or the program on your machine, that runs that model. You name one of nine providers in `.lawcheck/config.yaml` ([Settings](config.md)). Five of them are services that Lawcheck calls over HTTP, and they need the setting `model`. The other four are programs on your machine, and for them `model` is optional.
 
 Lawcheck takes the API key of a provider from an environment variable, never from a file. Each section below names the variables of its provider.
 
@@ -26,7 +26,7 @@ Lawcheck sends `POST <address>/models/<model>:generateContent`. The default `<ad
 
 ## openai-compatible
 
-This provider calls a server that answers the chat completions API of OpenAI. Lawcheck takes the address of that server from `LAWCHECK_REVIEWER_ENDPOINT`, which holds an `http:` or `https:` address ([Over HTTP](#over-http)). Without that variable, a review stops with [`reviewer-unreachable`](codes.md#reviewer-unreachable). Lawcheck sends the server the same request as for `openai`. If the environment holds `LAWCHECK_REVIEWER_KEY`, Lawcheck sends it as `authorization: Bearer <key>`. This provider never reads `OPENAI_API_KEY`.
+This provider calls a server that answers the chat completions API of OpenAI. Lawcheck takes the address of that server from `LAWCHECK_REVIEWER_ENDPOINT`. The variable holds an `http:` or `https:` address ([Over HTTP](#over-http)). Without that variable, a review stops with [`reviewer-unreachable`](codes.md#reviewer-unreachable). Lawcheck sends the server the same request as for `openai`. If the environment holds `LAWCHECK_REVIEWER_KEY`, Lawcheck sends it as `authorization: Bearer <key>`. This provider never reads `OPENAI_API_KEY`.
 
 ## ollama
 
@@ -36,7 +36,7 @@ Lawcheck sends `POST <address>/api/chat` with no API key. The default `<address>
 - `format: json`;
 - `options`, which holds the temperature.
 
-Lawcheck reads the answer from `message.content`. The setting `model` names a model that the server has downloaded. A call to `ollama` is cut off after 300 seconds, unless the setting `timeout` gives another limit.
+Lawcheck reads the answer from `message.content`. The setting `model` names a model that the server has downloaded. Lawcheck cuts off a call to `ollama` after 300 seconds, unless the setting `timeout` gives another limit.
 
 For a server on another machine, set the provider in `.lawcheck/config.yaml` and the address in `LAWCHECK_REVIEWER_ENDPOINT`:
 
@@ -78,7 +78,7 @@ reviewer:
 
 ## gemini-cli
 
-Lawcheck runs `gemini` in plan mode, with text output. For the call, it turns off the extensions and every MCP server. Lawcheck writes a policy file that denies the program every tool. The policy file lies in a temporary folder apart from the empty folder where the program runs.
+Lawcheck runs `gemini` with `--approval-mode plan` and with text output. For the call, it turns off the extensions and every MCP server. Lawcheck writes a policy file that denies the program every tool. The policy file lies in a temporary folder. The program runs in another folder, which is empty.
 
 The program uses its own sign-in, or one of the variables `GEMINI_API_KEY` and `GOOGLE_API_KEY`.
 
@@ -99,11 +99,11 @@ Lawcheck runs `copilot mcp list --json` once a run. For the call, it switches of
 
 The VS Code Copilot extension holds a `copilot` program that only offers to install the CLI. Lawcheck skips a `copilot` inside the folder of that extension.
 
-The program uses its own sign-in, or one of the variables `COPILOT_GITHUB_TOKEN`, `GH_TOKEN`, `GITHUB_TOKEN`, `COPILOT_PROVIDER_API_KEY`, `COPILOT_PROVIDER_API_KEY_COMMAND` and `COPILOT_PROVIDER_BEARER_TOKEN`. `COPILOT_PROVIDER_API_KEY_COMMAND` holds a command that prints a key, so Lawcheck does not hide its value as a key ([Text that leaves the machine](#text-that-leaves-the-machine)).
+The program uses its own sign-in, or one of the variables `COPILOT_GITHUB_TOKEN`, `GH_TOKEN`, `GITHUB_TOKEN`, `COPILOT_PROVIDER_API_KEY`, `COPILOT_PROVIDER_API_KEY_COMMAND` and `COPILOT_PROVIDER_BEARER_TOKEN`. `COPILOT_PROVIDER_API_KEY_COMMAND` holds a command that prints a key, and not a key. So Lawcheck does not hide its value as a key ([Text that leaves the machine](#text-that-leaves-the-machine)).
 
 ## Over HTTP
 
-With `LAWCHECK_REVIEWER_ENDPOINT` set, Lawcheck sends the requests of all five HTTP providers to its address, in place of their own. The variable holds an `http:` or `https:` address. Lawcheck refuses an address with a user, a password, a query or a fragment. Lawcheck drops the `/` at the end of the address, if there is one. Then it adds the path of the provider:
+With `LAWCHECK_REVIEWER_ENDPOINT` set, Lawcheck sends the requests of all five HTTP providers to the address in that variable, in place of their own. The variable holds an `http:` or `https:` address. Lawcheck refuses an address with a user, a password, a query or a fragment. Lawcheck drops the `/` at the end of the address, if there is one. Then it adds the path of the provider:
 
 - `openai` and `openai-compatible` add `/chat/completions`. A server that answers under `/v1` takes an address that ends with `/v1`;
 - `anthropic` adds `/messages`, as it does to its own `api.anthropic.com/v1`, over encrypted HTTP;
@@ -122,7 +122,7 @@ Lawcheck finds the program on `PATH`. It starts the program with no shell, in a 
 
 Lawcheck passes `--model` if the config sets `model`. Without `model`, the program runs its own default model. For a program, `timeout` defaults to 300 seconds and `parallel` to 1. Lawcheck refuses a `temperature` for a program, since each program sets its own.
 
-Lawcheck counts an exit code other than 0 as a failed call. It takes the last line of the program's standard error as the message of that failure. After the timeout, Lawcheck ends the program and every process it started.
+Lawcheck counts an exit code other than 0 as a failed call. It takes the last line of the program's standard error as the message of that failure. After the timeout, Lawcheck ends the program and every process the program started.
 
 The program gets your environment with two changes:
 
@@ -134,19 +134,19 @@ The program gets your environment with two changes:
 Lawcheck sends an API key only to the address that the key belongs to:
 
 - with `LAWCHECK_REVIEWER_ENDPOINT` set, `anthropic`, `openai` and `google` send `LAWCHECK_REVIEWER_KEY` alone;
-- without it, each sends its own variable, else `LAWCHECK_REVIEWER_KEY`, to its own address;
+- without that variable, each of the three sends its own variable to its own address, or else `LAWCHECK_REVIEWER_KEY`;
 - `openai-compatible` never reads `OPENAI_API_KEY`;
 - `ollama` reads no key.
 
 An empty variable counts as absent.
 
-A pass is a [verdict](concepts.md#verdict) of pass. Lawcheck records each pass in `.lawcheck/verdicts`. A recorded pass stays valid when you change the provider or the model, because its review hash holds neither ([Reviewer rules](reviewer-rules.md#verdicts)).
+A pass is a [verdict](concepts.md#verdict) of pass. Lawcheck records each pass in `.lawcheck/verdicts`. A recorded pass stays valid when you change the provider or the model. The pass holds a review hash, and that hash covers neither of the two ([Reviewer rules](reviewer-rules.md#verdicts)).
 
 Check a new setup with `lawcheck doctor --reviewer` ([Checking the setup](#checking-the-setup)).
 
 ## Text that leaves the machine
 
-Three commands send text to a reviewer: `lawcheck check --review`, `lawcheck try` on a reviewer rule, and `lawcheck doctor --reviewer`. `lawcheck doctor` without the flag sends no prompt. With the provider `ollama` and a reviewer rule in the law, it sends `GET <address>/api/version` to the server, with a time limit of 5 seconds, to learn whether the server answers. In any other run, Lawcheck opens no connection to a reviewer and starts no reviewer program.
+Three commands send text to a reviewer: `lawcheck check --review`, `lawcheck try` on a reviewer rule, and `lawcheck doctor --reviewer`. `lawcheck doctor` without the flag sends no prompt. It opens a connection in one case: the provider is `ollama` and the law has a reviewer rule. It then sends `GET <address>/api/version` to the server, with a time limit of 5 seconds, to learn whether the server answers. In any other run, Lawcheck opens no connection to a reviewer and starts no reviewer program.
 
 Each call of these commands sends one prompt ([Reviewer rules](reviewer-rules.md#the-prompt)). The prompt holds five parts:
 
@@ -171,7 +171,7 @@ Lawcheck hides two kinds of API key:
 - the value of `LAWCHECK_REVIEWER_KEY`;
 - each key that the configured provider would send or pass on.
 
-It writes such a key as `[key]` wherever it shows text from outside itself:
+Lawcheck writes each of those keys as `[key]` wherever it shows text from outside itself:
 
 - a reply;
 - a program's output;
@@ -182,7 +182,7 @@ It writes such a key as `[key]` wherever it shows text from outside itself:
 
 Lawcheck shows two kinds of API key as they are: the key in a variable of another provider, and a key shorter than 8 characters. It replaces each exact copy of a hidden key. Lawcheck leaves a prefix of the key, and a copy in percent encoding, unchanged.
 
-A line of `.lawcheck/verdicts` holds a review hash and a rule id ([Reviewer rules](reviewer-rules.md#verdicts)). A person who can commit to the repository can write such a line. Under a law without `signers`, Lawcheck reads that line as a pass. Under a law with `signers`, a pass counts only with the signature of a signer the law names. The signing key in `LAWCHECK_SIGNING_KEY` stays on the machine: Lawcheck writes it as `[key]` wherever it would show it, and gives it to no reviewer program ([Signed passes](reviewer-rules.md#signed-passes)).
+A line of `.lawcheck/verdicts` holds a review hash and a rule id ([Reviewer rules](reviewer-rules.md#verdicts)). A person who can commit to the repository can write such a line. Under a law without [`signers`](reviewer-rules.md#signed-passes), Lawcheck reads that line as a pass. Under a law with `signers`, a pass counts only with the signature of a signer the law names. The signing key in `LAWCHECK_SIGNING_KEY` stays on the machine. Lawcheck writes it as `[key]` wherever it would show it. It gives that key to no reviewer program ([Signed passes](reviewer-rules.md#signed-passes)).
 
 Lawcheck keeps the reviewer's messages of a failed review on this machine, in `.lawcheck/.local/failures/`.
 

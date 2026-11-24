@@ -13,15 +13,19 @@ The plugin runs on Linux, macOS and Windows. It needs `node` and `git` on the `P
 
 A hook is a command that Claude Code runs at an event. The plugin's hooks run Lawcheck on your machine at the start of a session, after each edit and before the agent finishes ([The four hooks](#the-four-hooks)).
 
-The hooks run code of the repository on your machine. That code is the repository's [script rules](concepts.md#script-rule), and with some `runner` settings a program that the repository names. Use the plugin only in a repository whose code you would run yourself.
+The hooks run code of the repository on your machine. That code is the repository's [script rules](concepts.md#script-rule). With some `runner` settings, it is also a program that the repository names. Use the plugin only in a repository whose code you would run yourself.
 
 A script rule is a JavaScript module that the repository holds in `.lawcheck/rules/`. Lawcheck runs the script rules on each check, after an edit and before the agent finishes. A script rule may read the files below the folder that holds `.lawcheck/`. It cannot open a network connection ([Script rules](script-rules.md)).
 
 With a `runner` setting other than `global`, the package manager starts Lawcheck from the repository's own files ([Settings](config.md#runner)). These files can name a program of the repository, such as `yarnPath` in `.yarnrc.yml` or a committed `node_modules/.bin/lawcheck`. The hook then runs the program that those files name.
 
-The same plugin works in Codex ([Lawcheck in Codex](codex-cli.md)). Its hooks there run on the same events. `apply_patch` stands for the three tools, and two variables stand for the settings. The plugin works in GitHub Copilot CLI too ([Lawcheck in GitHub Copilot CLI](copilot-cli.md)). There `create` and `edit` stand for the three tools, and the same two variables stand for the settings. The output of a hook in Copilot CLI has no field for a message to you, so the plugin asks the agent to tell you its messages.
+The same plugin works in Codex ([Lawcheck in Codex](codex-cli.md)). Its hooks there run on the same events as in Claude Code. In Codex, the tool `apply_patch` takes the place of `Write`, `Edit` and `NotebookEdit`. Codex gives a plugin no settings. The variables `LAWCHECK_PLUGIN_CHECK_AFTER_EDIT` and `LAWCHECK_PLUGIN_CHECK_BEFORE_STOP` take the place of the settings `check_after_edit` and `check_before_stop` ([The settings](#the-settings)).
 
-Cursor loads the plugin for Claude Code through its support for Claude Code plugins, and no session of Cursor has run it ([Lawcheck in Cursor](cursor.md)). For another coding agent, write in its instructions file that it runs `lawcheck prime` at the start of a session and `lawcheck check` after each change ([Other coding agents](other-agents.md)).
+The plugin works in GitHub Copilot CLI too ([Lawcheck in GitHub Copilot CLI](copilot-cli.md)). In Copilot CLI, the tools `create`, `edit`, `str_replace_editor` and `apply_patch` take the place of `Write`, `Edit` and `NotebookEdit`. The variables `LAWCHECK_PLUGIN_CHECK_AFTER_EDIT` and `LAWCHECK_PLUGIN_CHECK_BEFORE_STOP` take the place of the settings there too. The output of a hook in Copilot CLI has no field for a message to you. The plugin therefore asks the agent to pass its messages on to you.
+
+Cursor loads the plugin for Claude Code through its support for Claude Code plugins. No session of Cursor has run it ([Lawcheck in Cursor](cursor.md)).
+
+For another coding agent, write two lines in its instructions file. The agent runs `lawcheck prime` at the start of a session. It runs `lawcheck check` after each change ([Other coding agents](other-agents.md)).
 
 ## The four hooks
 
@@ -42,7 +46,7 @@ Each hook looks for `.lawcheck/law.yaml` in the folder where it starts, then in 
 
 The hook starts `lawcheck prime` with the command of the `runner` setting. The agent gets what `prime` prints.
 
-When the law has a reviewer rule and `.lawcheck/config.yaml` sets no reviewer, `prime` says so to the agent. The hook also sends you a message, once per session:
+A law can have a [reviewer rule](concepts.md#reviewer-rule) while `.lawcheck/config.yaml` sets no reviewer. In that case `prime` tells the agent so. The hook also sends you a message, once per session:
 
 ```text
 Lawcheck: this repository has a reviewer rule, and .lawcheck/config.yaml sets no reviewer, so a plain lawcheck check and CI fail on every file a reviewer rule judges. Setting reviewer.provider and reviewer.model there is the user's decision; lawcheck docs providers lists the choices.
@@ -60,7 +64,7 @@ If `prime` does not run, the hook gives the agent three things:
 
 ## UserPromptSubmit
 
-The hook writes a note that records `HEAD`, the files that differ from it and the untracked files, with the waiver lines of those files. The `Stop` hook reads this note to find the files that the turn changed. The agent gets nothing from this hook.
+The hook writes a note when the user sends a prompt. The note records `HEAD`, the files that differ from it and the untracked files. For each of those files, it also records the lines that hold a [waiver](concepts.md#waiver). The `Stop` hook reads this note to find the files that the turn changed. The agent gets nothing from this hook.
 
 The user can stop a turn, or an error can end it, before the `Stop` hook runs. The note of that turn then stays in place. The next `Stop` hook checks the files of both turns together.
 
@@ -74,7 +78,7 @@ The hook runs `lawcheck check ./<file>` on the file that `Write`, `Edit` or `Not
 |---|---|
 | 0 | nothing, warnings included |
 | 1 | the output, under a line that names the file and says it breaks the law of this repository |
-| 2 | the output, under a line that says Lawcheck could not check the file. The hook does not hand over the same output of one law twice in a row. A law the user is still editing reaches the agent once. After an edit that Lawcheck could check under the same law, with exit 0 or 1, the same output reaches the agent again |
+| 2 | the output, under a line that says Lawcheck could not check the file. The hook does not hand the agent the same output of one law twice in a row. A broken law that the user is still editing therefore reaches the agent once. Once an edit under that law ends with exit 0 or 1, that output can reach the agent again |
 
 If the check runs past its deadline, the agent gets one line that says so. If Lawcheck does not run for another reason, such as a missing program, the agent gets nothing.
 
@@ -89,7 +93,7 @@ The files of the turn are the files that changed since the user's prompt, and th
 
 When the hook lets the agent finish, it also tells the user what the turn did to the law and its waivers ([The end of a turn](#the-end-of-a-turn)).
 
-This check judges the files of the turn by name, with no base. It calls no reviewer, since the hook never passes `--review`. A check of named files reports a missing review as a warning. An agent can therefore finish while a CI job fails on the same branch. The job can fail on `not-reviewed`, or on a file that the turn did not touch.
+This check judges the files of the turn by name, with no [base](concepts.md#base). It calls no reviewer, because the hook never passes `--review`. A check of named files reports a missing review as a warning. An agent can therefore finish while a CI job fails on the same branch. The job can fail on `not-reviewed`, or on a file that the turn did not touch.
 
 ### Three returns at most
 
@@ -105,11 +109,11 @@ An agent that cannot fix a breach can add a waiver, or change the law, and finis
 Lawcheck: in this turn the agent added 1 waiver (no-console at src/core/shipping.ts:1) and changed .lawcheck/law.yaml. Read them before you accept the turn.
 ```
 
-The message names each waiver that the turn added, by the rule after the marker and by its line. The hook compares the text from `lawcheck-waive` to the end of each line with the same file at the start of the turn. A waiver that the file held before the turn is not named, whether the file was committed then or only changed on disk. The hook reads the marker as text in every file of the turn. So it also names a marker that `check` does not count, such as one in a file with no type.
+The message names each waiver that the turn added, by the rule after the marker and by its line. To find them, the hook takes the text of each line from `lawcheck-waive` to its end. It compares that text with the same file at the start of the turn. The message leaves out a waiver that the file held before the turn. It does so whether the file was committed then or only changed on disk. The hook reads the marker as plain text in every file of the turn. The message therefore also names a marker that `check` does not count, such as one in a file with no type.
 
-The message also names each changed or deleted file of the turn among these: `.lawcheck/law.yaml`, `.lawcheck/config.yaml` and the files in `.lawcheck/rules/`. It shows five waivers and five files, and the count of the rest. A turn that deletes `.lawcheck/law.yaml` leaves no law to check against. The hook then runs no check, and its message names the law as deleted.
+The message also names each changed or deleted file of the turn among these: `.lawcheck/law.yaml`, `.lawcheck/config.yaml` and the files in `.lawcheck/rules/`. It shows five waivers and five files, and gives the count of the rest. A turn that deletes `.lawcheck/law.yaml` leaves no law to check against. The hook then runs no check, and its message names the law as deleted.
 
-The message goes to you and never to the agent, and it does not send the agent back. The hook sends it once, when it lets the agent finish. A stop that sends the agent back does not send it. A turn with no note from `UserPromptSubmit` gets no such message, because the hook does not know what the files held at its start. `lawcheck check` against a base names the waivers of the whole change ([What a check judges](change.md#waivers-a-change-adds)).
+The message goes to you and never to the agent. It does not send the agent back. The hook sends the message once, when it lets the agent finish. A stop that sends the agent back does not send the message. A turn with no note from `UserPromptSubmit` gets no such message. Without the note, the hook does not know what the files held at the start of the turn. `lawcheck check` against a base names the waivers of the whole change ([What a check judges](change.md#waivers-a-change-adds)).
 
 ## The text the agent gets
 
@@ -138,16 +142,16 @@ A hook that fails inside its own code prints `Lawcheck plugin:` and the cause on
 
 ## The setup skill
 
-The plugin holds one skill, `lawcheck:setup`. Only you start it, by typing `/lawcheck:setup`. The agent never starts it by itself: when you ask for a law in other words, it tells you to type the command. The skill runs `lawcheck docs agent-setup` and follows that page, so its steps match the Lawcheck you installed. The agent asks its questions with the question tool of Claude Code. Its last message names the next step. In a repository that already has a law, `/lawcheck:setup` alone says so and changes nothing.
+The plugin holds one skill, `lawcheck:setup`. Only you start it, by typing `/lawcheck:setup`. The agent never starts it by itself. When you ask for a law in other words, the agent tells you to type the command. The skill runs `lawcheck docs agent-setup` and follows that page. Its steps therefore match the Lawcheck you installed. The agent asks its questions with the question tool of Claude Code. Its last message names the next step. In a repository that already has a law, `/lawcheck:setup` alone says so and changes nothing.
 
 Two more parts of the skill run only when you ask for them, in the words you type with the command:
 
-- **Advice**, such as `/lawcheck:setup what could be better here?`: the agent writes at most three boundaries or rules that the code does not hold today into `.lawcheck/advice.md`. Each one has its evidence from this repository, the files and uses that break it, counted by Lawcheck, and the lines of law it would add. The agent then asks which of them to make law. An item you decline stays in the file under `Declined`, with your reason, and the agent does not propose it again.
-- **A target**, such as `/lawcheck:setup the domain should not use the database`: the agent writes the law the code should reach into `.lawcheck/target.md`, counts the uses of the code that it forbids today, and lays out at most seven steps, each one change of the law that `lawcheck check` passes on the day it goes in. The agent then asks whether to make the first step law.
+- **Advice**, such as `/lawcheck:setup what could be better here?`: the agent writes at most three boundaries or rules that the code does not hold today into `.lawcheck/advice.md`. Each item gives its evidence from this repository. It lists the files and [uses](concepts.md#use) that break it, as Lawcheck counts them. It also shows the lines of law it would add. The agent then asks which items to make law. An item you decline stays in the file under `Declined`, with your reason. The agent does not propose that item again.
+- **A target**, such as `/lawcheck:setup the domain should not use the database`: the agent writes into `.lawcheck/target.md` the law that the code should reach. It counts the uses in today's code that this law forbids. The agent lays out at most seven steps, each one change of the law that `lawcheck check` passes on the day it goes in. It then asks whether to make the first step law.
 
-Nothing in either file is law, and no command of Lawcheck reads them. A line goes into `.lawcheck/law.yaml` only when you say yes to that item or that step, and a yes to the whole plan writes no law. In a repository with no law, the skill writes the law first and starts the advice or the target after `lawcheck check` passes it. The agent changes no code and commits neither file: you decide whether they stay in git as the team's plan. The skill never offers advice or a target on its own.
+Nothing in either file is law, and no command of Lawcheck reads them. The items of the advice, or the steps of the target, make up a plan. A line goes into `.lawcheck/law.yaml` only when you say yes to that item or that step, and a yes to the whole plan writes no law. In a repository with no law, the skill writes the law first. It starts the advice or the target after `lawcheck check` passes that law. The agent changes no code and commits neither file. You decide whether the two files stay in git as the plan of your team. The skill never offers advice or a target on its own.
 
-The page is part of Lawcheck, and the plugin does not hold Lawcheck. A Lawcheck older than the plugin has no page `agent-setup`, and the skill then asks you to update Lawcheck.
+The page `agent-setup` comes with Lawcheck, and the plugin does not hold Lawcheck. A Lawcheck older than the plugin lacks that page. The skill then asks you to update Lawcheck.
 
 ## The settings
 
