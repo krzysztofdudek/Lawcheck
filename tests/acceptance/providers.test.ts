@@ -471,18 +471,32 @@ async function waitFor(condition: () => boolean, ms: number): Promise<boolean> {
   return condition();
 }
 
+const FAKE_START_TIMEOUTS_S = [1, 3, 6];
+
 test('test 67: claude-code past its timeout, and the tool killed', async () => {
   const killedGrace = process.platform === 'win32' ? WINDOWS_KILLED_GRACE_MS : KILLED_GRACE_MS;
-  await withR(async (r, dir) => {
-    write(r, F_PATH, F);
-    const result = await run(r, null, ['--review', '--base', 'main'], claudeEnv(dir, 'sleep'));
-    assert.equal(result.code, 2);
-    assert.ok(errorLine(result.stdout, UNREACHABLE), result.stdout);
-    assert.ok(result.ms < CLAUDE_TIMEOUT_RUN_MS, `${result.ms} ms`);
-    const seen = record(dir);
-    assert.ok(await waitFor(() => !alive(seen.pid), LEFTOVER_GRACE_MS), 'the fake claude is alive');
-    assert.ok(await waitFor(() => !alive(seen.child!), LEFTOVER_GRACE_MS), 'its child is alive');
-  }, config(CLAUDE_CONFIG + '  timeout: 1\n'));
+  // The deadline of a call runs while the program starts, and the fake writes its record only once it runs: on a slow Windows runner a deadline of 1 second falls first, the tool times out as it should, and there is no record to read. Only a record proves the kill, so a run without one is tried again with a longer deadline, and a test that never gets one says what each run saw.
+  const unstarted: string[] = [];
+  let killed = false;
+  for (const timeout of FAKE_START_TIMEOUTS_S) {
+    await withR(async (r, dir) => {
+      write(r, F_PATH, F);
+      const result = await run(r, null, ['--review', '--base', 'main'], claudeEnv(dir, 'sleep'));
+      assert.equal(result.code, 2);
+      assert.ok(errorLine(result.stdout, UNREACHABLE), result.stdout);
+      assert.ok(result.ms < CLAUDE_TIMEOUT_RUN_MS, `${result.ms} ms`);
+      if (!existsSync(join(dir, 'record.json'))) {
+        unstarted.push(`timeout ${timeout} s, ${result.ms} ms: ${result.stdout.trim()}; the folder holds ${readdirSync(dir).join(', ')}`);
+        return;
+      }
+      const seen = record(dir);
+      assert.ok(await waitFor(() => !alive(seen.pid), LEFTOVER_GRACE_MS), 'the fake claude is alive');
+      assert.ok(await waitFor(() => !alive(seen.child!), LEFTOVER_GRACE_MS), 'its child is alive');
+      killed = true;
+    }, config(CLAUDE_CONFIG + `  timeout: ${timeout}\n`));
+    if (killed) break;
+  }
+  assert.ok(killed, `the fake claude wrote no record before the deadline in any run, so no kill could be seen:\n${unstarted.join('\n')}`);
   await withR(async (r, dir) => {
     write(r, F_PATH, F);
     const child = startLawcheck(r, ['check', '--review', '--base', 'main'], { env: claudeEnv(dir, 'sleep') });
