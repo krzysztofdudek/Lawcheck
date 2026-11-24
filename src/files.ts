@@ -10,7 +10,11 @@ import { step } from './progress.js';
 
 export class NoGit extends Error {}
 
-export class GitFailed extends Error {}
+export class GitFailed extends Error {
+  constructor(message: string, readonly status: number | null = null, readonly printed = '') {
+    super(message);
+  }
+}
 
 interface GitResult {
   status: number;
@@ -113,7 +117,7 @@ function firstPrinted(result: GitResult): string {
 }
 
 function failed(args: string[], result: GitResult): GitFailed {
-  return new GitFailed(`git ${args.join(' ')} exited with ${result.status}: ${firstPrinted(result)}`);
+  return new GitFailed(`git ${args.join(' ')} exited with ${result.status}: ${firstPrinted(result)}`, result.status, firstPrinted(result));
 }
 
 export function splitZ(output: Buffer): string[] {

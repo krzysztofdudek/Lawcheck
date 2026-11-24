@@ -88,13 +88,36 @@ function isPunct(t: Token | undefined, v: string): boolean {
   return t?.type === 'punct' && t.value === v;
 }
 
+// Skips the type after 'as' or 'satisfies', and nothing past it: a token that is no part of a type, such as the '||' of `0 as number || 90_000`, stays, so the value reads as unreadable.
 function skipAsConst(tokens: Token[], at: number): number {
   let k = at;
-  if (tokens[k]?.type === 'name' && (tokens[k]!.value === 'as' || tokens[k]!.value === 'satisfies')) {
-    k++;
-    while (k < tokens.length && !isPunct(tokens[k], ';') && !isPunct(tokens[k], ',') && !isPunct(tokens[k], '}') && !isPunct(tokens[k], ']')) k++;
+  if (tokens[k]?.type !== 'name' || (tokens[k]!.value !== 'as' && tokens[k]!.value !== 'satisfies')) return k;
+  k++;
+  const closers: { [open: string]: string } = { '<': '>', '[': ']', '{': '}', '(': ')' };
+  const lone = (j: number): boolean => !isPunct(tokens[j - 1], tokens[j]!.value) && !isPunct(tokens[j + 1], tokens[j]!.value);
+  let expectType = true;
+  while (k < tokens.length) {
+    const t = tokens[k]!;
+    if (expectType && (t.type === 'name' || t.type === 'string' || t.type === 'other' || (t.type === 'template' && !t.dynamic))) { k++; expectType = false; continue; }
+    if (t.type === 'punct' && t.value in closers && (expectType || t.value !== '(')) {
+      let depth = 0;
+      let j = k;
+      for (; j < tokens.length; j++) {
+        const u = tokens[j]!;
+        if (u.type === 'punct' && u.value in closers) depth++;
+        else if (u.type === 'punct' && Object.values(closers).includes(u.value) && !(u.value === '>' && isPunct(tokens[j - 1], '='))) depth--;
+        if (depth === 0) break;
+      }
+      if (depth !== 0) return k;
+      k = j + 1;
+      expectType = false;
+      continue;
+    }
+    if (!expectType && isPunct(t, '.') && tokens[k + 1]?.type === 'name') { k += 2; continue; }
+    if (!expectType && (isPunct(t, '|') || isPunct(t, '&')) && lone(k)) { k++; expectType = true; continue; }
+    break;
   }
-  return k;
+  return expectType ? at : k;
 }
 
 function numberOf(raw: string): number | null {

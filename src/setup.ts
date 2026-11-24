@@ -1,4 +1,4 @@
-import { realpathSync, statSync } from 'node:fs';
+import { lstatSync, realpathSync } from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { changedPaths, comparePaths, defaultBase, fetchCommand, GitFailed, gitNext, hasHead, fetchesEveryBranch, isShallow, listedPaths, listFiles, mergeBase, nestedReason, NoGit, remoteNames, repositoryHolding, resolveCommit, workTreeProblem } from './files.js';
 import { CONFIG, ConfigTooLarge, readConfig } from './config.js';
@@ -17,6 +17,8 @@ import { createProvider } from './providers/index.js';
 export const WRITTEN = new Set([VERDICTS, ATTRIBUTES]);
 import { CONFIG_BYTES, count, LAW_BYTES, mib, readBounded, readError, readFailure, readWhole, RUN_TEXT_BYTES, TextTooLarge } from './limits.js';
 
+const GIT_FATAL = 128;
+
 export const LAW = '.lawcheck/law.yaml';
 export const RULES_DIR = '.lawcheck/rules/';
 
@@ -28,9 +30,11 @@ export class Stop extends Error {
   }
 }
 
-function isFile(path: string): boolean {
+// A folder or a link to nothing at the law's place is a law that cannot be read, which the run then says; taking it for no law sends init and doctor to each other.
+function holdsLaw(path: string): boolean {
   try {
-    return statSync(path).isFile();
+    lstatSync(path);
+    return true;
   } catch (error) {
     return (error as NodeJS.ErrnoException).code === 'EACCES';
   }
@@ -39,7 +43,7 @@ function isFile(path: string): boolean {
 export function findRoot(cwd: string): string | null {
   let dir = resolve(cwd);
   for (;;) {
-    if (isFile(join(dir, LAW))) return realpathSync(dir);
+    if (holdsLaw(join(dir, LAW))) return realpathSync(dir);
     const parent = dirname(dir);
     if (parent === dir) return null;
     dir = parent;
@@ -206,11 +210,19 @@ export interface RuleFiles {
   kinds: Kinds;
 }
 
+function isLink(root: string, path: string): boolean {
+  try {
+    return lstatSync(onDisk(root, path)).isSymbolicLink();
+  } catch {
+    return false;
+  }
+}
+
 export function ruleFileErrors(root: string, law: Law): RuleFiles & { errors: ErrorItem[] } {
   const listed = listedPaths(root);
   const files = listFiles(root, listed);
   const read = onceReader(root);
-  const kinds = ruleKinds(law, files, read);
+  const kinds = ruleKinds(law, files, read, (path) => isLink(root, path));
   return { listed, files, read, kinds, errors: kinds.errors.length > 0 ? kinds.errors : kinds.unreadable };
 }
 
@@ -346,6 +358,13 @@ export function touchesLaw(path: string): boolean {
   return path === LAW || path === CONFIG || path.startsWith(RULES_DIR);
 }
 
+// git's own exit for a repository it cannot read, as with a corrupt index; any other exit of git is a call Lawcheck got wrong.
+export function damagedRepository(error: GitFailed): ErrorItem | null {
+  if (error.status !== GIT_FATAL) return null;
+  const printed = error.printed === '' ? 'git ended with its fatal exit' : error.printed;
+  return { code: 'no-git', file: null, line: null, message: `git cannot read this repository: ${printed}`, next: 'repair the repository, so that git status works here, then run lawcheck check' };
+}
+
 export async function stopped<T>(body: () => Promise<T> | T): Promise<T | { errors: ErrorItem[]; calls?: number }> {
   try {
     return await body();
@@ -357,7 +376,11 @@ export async function stopped<T>(body: () => Promise<T> | T): Promise<T | { erro
       return { errors: [{ code: 'file-unreadable', file: VERDICTS, line: null, message: `the file cannot be read (${error.cause})`, ...(next === undefined ? {} : { next }) }] };
     }
     if (error instanceof NoGit) return { errors: [{ code: 'no-git', file: null, line: null, message: error.message }] };
-    if (error instanceof GitFailed) throw new Internal(error.message);
+    if (error instanceof GitFailed) {
+      const damaged = damagedRepository(error);
+      if (damaged === null) throw new Internal(error.message);
+      return { errors: [damaged] };
+    }
     throw error;
   }
 }
@@ -377,7 +400,7 @@ export interface Kinds {
   reviewers: Map<string, ReviewerRule>;
 }
 
-export function ruleKinds(law: Law, files: string[], read: Read): Kinds {
+export function ruleKinds(law: Law, files: string[], read: Read, isLink: (path: string) => boolean = () => false): Kinds {
   const present = new Set(files);
   const expected = new Set<string>();
   const out: Kinds = { errors: [], unreadable: [], scripts: new Set(), reviewers: new Map() };
@@ -390,7 +413,17 @@ export function ruleKinds(law: Law, files: string[], read: Read): Kinds {
     const hasScript = present.has(script);
     const hasProse = present.has(prose);
     if (!hasScript && !hasProse) {
-      out.errors.push({ code: 'rule-missing-file', file: LAW, line: rule.line, message: `the rule '${rule.id}' has neither ${script} nor ${prose}` });
+      const link = [script, prose].find(isLink);
+      if (link === undefined) out.errors.push({ code: 'rule-missing-file', file: LAW, line: rule.line, message: `the rule '${rule.id}' has neither ${script} nor ${prose}` });
+      else {
+        out.errors.push({
+          code: 'rule-missing-file',
+          file: LAW,
+          line: rule.line,
+          message: `the rule '${rule.id}' has neither ${script} nor ${prose} as a file: ${link} is a symbolic link, and Lawcheck reads no rule through one`,
+          next: `ask the user to replace the symbolic link ${link} with the rule file itself, then run lawcheck check`,
+        });
+      }
       continue;
     }
     if (hasScript && hasProse) {

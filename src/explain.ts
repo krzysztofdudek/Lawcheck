@@ -1,5 +1,5 @@
 import { lstatSync } from 'node:fs';
-import { bytesOfName, onDisk } from './names.js';
+import { cannotExist, onDisk } from './names.js';
 import { documentOf, errorResult, text as flagText, usageError } from './args.js';
 import type { Arguments, CheckContext, Result } from './args.js';
 import type { ReviewerConfig } from './config.js';
@@ -108,8 +108,7 @@ function usesOf(ctx: Ctx, type: TypeDef, path: string, text: string): FileAnswer
   if (listInForce(type) === null) return null;
   const reader = readerOf(path, text, siblingsOf(ctx.files));
   if (!reader.reader) return { read: false, language: null };
-  const dot = path.lastIndexOf('.');
-  return { read: true, language: reader.view?.language ?? path.slice(dot + 1) };
+  return { read: true, language: reader.view?.language ?? null };
 }
 
 // A companion is code of the repository, so explain runs it, in the runner of script rules, only for a rule that has one.
@@ -309,7 +308,7 @@ export function fileText(answer: FileAnswer): string {
   lines.push(`  matched:  ${[...matched, ...not].join(', ')}`);
   if (answer.then !== null) lines.push(`  then:  ${answer.then}`);
   lines.push(mayUseLine(type));
-  if (answer.uses !== null) lines.push(`  uses:  ${answer.uses.read ? `read as ${answer.uses.language}` : 'not read: Lawcheck has no reader for this file'}`);
+  if (answer.uses !== null) lines.push(`  uses:  ${answer.uses.read ? (answer.uses.language === null ? 'none: the file has no script block' : `read as ${answer.uses.language}`) : 'not read: Lawcheck has no reader for this file'}`);
   lines.push(...ruleLines(answer.rules));
   if (answer.exists) {
     if (answer.waivers.length === 0) lines.push('  waivers:  none');
@@ -566,8 +565,7 @@ function tooLong(word: string): Stop {
 
 function givenPath(root: string, cwd: string, word: string): string {
   const given = fromCwd(root, cwd, word);
-  // A name over 255 bytes or a path over 4,095 can exist on no system Lawcheck runs on, though Windows answers that such a file is missing. An escaped name is measured by the bytes it stands for.
-  if (given.split('/').some((part) => bytesOfName(part).length > 255) || Buffer.byteLength(onDisk(root, given)) > 4095) throw tooLong(word);
+  if (cannotExist(root, given)) throw tooLong(word);
   return given;
 }
 

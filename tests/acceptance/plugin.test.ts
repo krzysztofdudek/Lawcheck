@@ -65,8 +65,9 @@ test('test 152: the files of the plugin', () => {
   expectedPlugin.version = manifest.version;
   assert.deepEqual(plugin, expectedPlugin);
   const marketplace = JSON.parse(readFileSync(join(ROOT, '.claude-plugin', 'marketplace.json'), 'utf8'));
-  const expectedMarketplace = JSON.parse(specBlock('marketplace-manifest').replace('"<description>"', JSON.stringify(expectedPlugin.description)));
+  const expectedMarketplace = JSON.parse(specBlock('marketplace-manifest'));
   assert.deepEqual(marketplace, expectedMarketplace);
+  assert.equal(marketplace.plugins[0].description, plugin.description.replace('with Write, Edit or NotebookEdit', '(with Write, Edit or NotebookEdit in Claude Code, with apply_patch in Codex)'));
   assert.deepEqual(JSON.parse(readFileSync(join(PLUGIN, 'hooks', 'hooks.json'), 'utf8')), JSON.parse(specBlock('hooks-manifest')));
   const files = walk(PLUGIN).sort();
   const modules = files.filter((file) => file.endsWith('.mjs'));
@@ -212,6 +213,40 @@ test('test 158: every runner starts the same Lawcheck with its own words', async
     nothing(await session.stop(), 'make stop');
     assert.deepEqual(bench.runners(), []);
     assert.deepEqual(bench.log(), []);
+  });
+});
+
+// Yarn 1 ends a failing yarn run with an info Visit line on standard output, where a passing run ends with Done in.
+function yarnOne(bench: Bench): void {
+  bench.script('yarn', [
+    "process.stdout.write('yarn run v1.22.22\\n$ /x/node_modules/.bin/lawcheck\\n');",
+    `const r = spawnSync(process.execPath, [${JSON.stringify(join(bench.bin, 'lawcheck'))}, ...process.argv.slice(4)], { stdio: ['ignore', 'pipe', 'inherit'] });`,
+    'process.stdout.write(r.stdout);',
+    "process.stdout.write(r.status === 0 ? 'Done in 0.10s.\\n' : 'info Visit https://yarnpkg.com/en/docs/cli/run for documentation about this command.\\n');",
+    'process.exit(r.status ?? 2);',
+  ]);
+}
+
+test('R-109: test 158, with runner yarn on Yarn 1 a failing check reaches the agent as it does with the global runner, in the edit, the fitted edit and the stop', async () => {
+  await withBench(async (bench, dir) => {
+    yarnOne(bench);
+    const cmd = 'yarn run lawcheck';
+    const s = makeSample(dir);
+    write(s, '.lawcheck/config.yaml', 'runner: yarn\n');
+    const session = new Session(bench, s);
+    await session.prompt();
+    write(s, D_PATH, D);
+    json(await session.stop(), handBack(`${stopHeader(cmd)}\n\n${D_OUTPUT}`), 'stop');
+    json(await session.edit(D_PATH), edited(`${editHeader(D_PATH, cmd)}\n\n${D_OUTPUT}`), 'edit');
+    const body = Array.from({ length: 400 }, (_, i) => `${String(i + 1).padStart(3, '0')} ${'x'.repeat(56)}`);
+    const printed = ['lawcheck: FAIL  400 errors in 1 named file', '', ...body, '', 'next: fix a.ts:1'];
+    writeFileSync(join(dir, 'long.txt'), printed.join('\n') + '\n');
+    bench.script('lawcheck', [`process.stdout.write(readFileSync(${JSON.stringify(join(dir, 'long.txt'))}));`, 'process.exitCode = 1;']);
+    const text: string = (await session.edit(D_PATH)).json.hookSpecificOutput.additionalContext;
+    const lines = text.split('\n');
+    assert.equal(lines[lines.length - 1], 'next: fix a.ts:1');
+    assert.match(lines[lines.length - 2]!, /^\.\.\. \d+ more lines? not shown; run the command yourself to see them all$/);
+    assert.ok(!text.includes('info Visit'), text);
   });
 });
 
