@@ -245,7 +245,7 @@ async function stop(input, deadline) {
   return handBack;
 }
 
-// An agent with no field for the user is sent back once per turn to tell the user the message of the end of the turn (the owner's ruling wtyczki-odsylaja-agenta-raz); the prompt event of the next turn writes a state without the mark.
+// Copilot CLI ends a turn by itself only after 8 hand-backs in a row, so without the mark a message that comes back on every stop would send the agent back until then.
 function relay(input, text) {
   const file = stateFile(sessionOf(input));
   const state = readState(file);
