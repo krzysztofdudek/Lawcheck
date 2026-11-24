@@ -1,0 +1,56 @@
+diff --git a/src/core/price.ts b/src/core/price.ts
+index a5e91ba..567adbb 100644
+--- a/src/core/price.ts
++++ b/src/core/price.ts
+@@ -1,3 +1,5 @@
++import { formatMoney } from "../api/format.ts";
++
+ export interface Line {
+   name: string;
+   cents: number;
+@@ -16,3 +18,19 @@ export function lineTotal(line: Line): number {
+ export function orderTotal(lines: Line[]): number {
+   return lines.reduce((sum, line) => sum + lineTotal(line), 0);
+ }
++
++export interface DiscountResult {
++  totalCents: number;
++  message: string;
++}
++
++export function applyLoyaltyDiscount(totalCents: number, customer: Customer): DiscountResult {
++  if (customer.orders <= 5) {
++    return { totalCents, message: "" };
++  }
++  const savedCents = Math.round(totalCents * 0.1);
++  return {
++    totalCents: totalCents - savedCents,
++    message: `Loyalty discount: you saved ${formatMoney(savedCents)}`,
++  };
++}
+diff --git a/tests/price.test.ts b/tests/price.test.ts
+index 1870b8d..da324e0 100644
+--- a/tests/price.test.ts
++++ b/tests/price.test.ts
+@@ -1,6 +1,6 @@
+ import assert from "node:assert/strict";
+ import { test } from "node:test";
+-import { lineTotal, orderTotal } from "../src/core/price.ts";
++import { applyLoyaltyDiscount, lineTotal, orderTotal } from "../src/core/price.ts";
+ 
+ test("a line costs its price times its quantity", () => {
+   assert.equal(lineTotal({ name: "tea", cents: 450, quantity: 3 }), 1350);
+@@ -13,3 +13,13 @@ test("an order costs the sum of its lines", () => {
+ test("an empty order costs nothing", () => {
+   assert.equal(orderTotal([]), 0);
+ });
++
++test("more than five orders earns ten percent off", () => {
++  const r = applyLoyaltyDiscount(2550, { id: "c1", orders: 6 });
++  assert.equal(r.totalCents, 2295);
++  assert.equal(r.message, "Loyalty discount: you saved $2.55");
++});
++
++test("five orders or fewer earns no discount", () => {
++  assert.deepEqual(applyLoyaltyDiscount(2550, { id: "c1", orders: 5 }), { totalCents: 2550, message: "" });
++});

@@ -34,6 +34,7 @@ const LIST = [
   '  claude-code  Lawcheck in Claude Code',
   '  codex-cli  Lawcheck in Codex',
   '  copilot-cli  Lawcheck in GitHub Copilot CLI',
+  '  cursor  Lawcheck in Cursor',
   '  other-agents  Other coding agents',
   '  ci  CI and git hooks',
   '  team  A law shared by a team',

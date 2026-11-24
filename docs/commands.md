@@ -166,7 +166,7 @@ More: lawcheck docs
 ## check
 
 ```text
-usage: lawcheck check [--full] [--strict] [--base <ref>] [--review [--again] [--max-calls <n>]] [--json]
+usage: lawcheck check [--full] [--strict] [--base <ref>] [--review [--again] [--max-calls <n>]] [--sarif <file>] [--json]
        lawcheck check <path or pattern>... [--json]
 ```
 
@@ -224,6 +224,10 @@ With `--review`, Lawcheck asks the reviewer about each pair of a file and a revi
 ### --max-calls `<n>`
 
 `--max-calls` works with `--review` alone. It sets the most requests this run may send, in place of `reviewer.max_calls` ([Settings](config.md)). A run that needs more requests stops with `too-many-reviews` before its first call.
+
+### --sarif `<file>`
+
+`--sarif` writes the findings to the file in SARIF 2.1.0 as well, for GitHub code scanning ([CI and git hooks](ci.md#_3-show-the-findings-in-github-code-scanning)). The text output, the JSON and the exit code stay as they are. A check that ends with exit 2 writes no file. A file that cannot be written stops the run with `file-unwritable`. [JSON documents](json.md#sarif-2-1-0) lists what the file holds. A check of named files does not take `--sarif`.
 
 ### --json
 

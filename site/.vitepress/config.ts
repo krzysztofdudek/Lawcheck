@@ -7,6 +7,7 @@ import topics from '../../docs/topics.json' with { type: 'json' };
 import { brandStyles, dropEmptyIcons, CANONICAL, codeThemeOfBrand, fontPreloads, GITHUB, LINK, manifest, REPOSITORY, themeColor, viteShared } from '../theme/brand.ts';
 import { cardHead } from '../theme/card.mjs';
 import { describe } from '../theme/describe.ts';
+import { chapterOf } from '../theme/film.ts';
 
 const HOME_TITLE = 'Lawcheck documentation';
 const HOME_DESCRIPTION = 'The documentation of Lawcheck: install, quick start, guides for Claude Code, other agents and CI, every command, and what each code in the output means.';
@@ -93,6 +94,8 @@ export default defineConfig({
     pageData.headers = (outlines.get(id) ?? []).map(({ title, link }) => ({ level: 2, title, slug: link.slice(1), link, children: [] }));
     pageData.title = title;
     pageData.description = description;
+    const chapter = chapterOf(id);
+    if (chapter) pageData.frontmatter.chapter = chapter;
     if (home) pageData.titleTemplate = false;
   },
   transformHead({ pageData, assets }) {

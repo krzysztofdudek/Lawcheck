@@ -2,7 +2,7 @@
 
 Gemini CLI and other coding agents work with Lawcheck through one line in their instructions file. That line tells the agent to run `lawcheck prime` at the start of every session. The text that `lawcheck prime` prints is the primer. The primer lists the types and rules of the [law](concepts.md#law). It tells the agent to check its code with `lawcheck check` after each change.
 
-Lawcheck has a plugin for Claude Code, Codex and GitHub Copilot CLI ([Lawcheck in Claude Code](claude-code.md), [Lawcheck in Codex](codex-cli.md), [Lawcheck in GitHub Copilot CLI](copilot-cli.md)). With the agents of this page, Lawcheck checks an edit only when the agent runs `lawcheck check`.
+Lawcheck has a plugin for Claude Code, Codex and GitHub Copilot CLI ([Lawcheck in Claude Code](claude-code.md), [Lawcheck in Codex](codex-cli.md), [Lawcheck in GitHub Copilot CLI](copilot-cli.md)), and Cursor runs the one of Claude Code ([Lawcheck in Cursor](cursor.md)). With the agents of this page, Lawcheck checks an edit only when the agent runs `lawcheck check`.
 
 The outputs below come from a repository with this law. Its [script rule](concepts.md#script-rule) `no-console` is the rule of [The first type and the first rule](first-law.md):
 
@@ -58,7 +58,7 @@ Only on the user's word
 
 You may, unasked
 - add a type for a new kind of file, or make a type finer
-- write a rule the user asked for, and try it first: lawcheck try <rule> <files>
+- write a rule the user asked for, and try it first: lawcheck try <rule> <files>; before a script rule reads the syntax tree, run lawcheck explain <path> --tree on a real file of that language
 
 The law here: 2 types, 1 rule
 library  src/core/**  The code every command shares.  rules: no-console

@@ -1,0 +1,12 @@
+{
+  "id": "fu-check",
+  "chapter": "forbid-a-use",
+  "take": "fu01",
+  "args": [
+    "check",
+    "--base",
+    "origin/main"
+  ],
+  "exit": 0,
+  "lawcheck": "0.1.0-alpha.4"
+}

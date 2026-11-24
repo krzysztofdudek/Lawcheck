@@ -399,7 +399,7 @@ function claudeEnv(dir: string, mode: string, extra: NodeJS.ProcessEnv = {}): No
 }
 
 function record(dir: string) {
-  return JSON.parse(readFileSync(join(dir, 'record.json'), 'utf8')) as { args: string[]; cwd: string; listing: string[]; stdin: string; pid: number; child?: number };
+  return JSON.parse(readFileSync(join(dir, 'record.json'), 'utf8')) as { at: number; args: string[]; cwd: string; listing: string[]; stdin: string; pid: number; child?: number };
 }
 
 const CLAUDE_CONFIG = 'reviewer:\n  provider: claude-code\n  model: test-model\n';
@@ -551,13 +551,17 @@ test('R-74: doctor tells the guard to start no list of processes, and a review t
       assert.equal(toldToList(told), null, existsSync(told) ? readFileSync(told, 'utf8') : '');
       const review = await lawcheckAt(copy.cli, r, ['check', '--review', '--base', 'main'], env);
       assert.equal(review.stdout, SECOND);
-      assert.notEqual(toldToList(told), null);
+      const asked = toldToList(told);
+      assert.notEqual(asked, null);
+      assert.ok(asked! <= record(dir).at, `the tool told the guard at ${asked}, after claude started at ${record(dir).at}`);
     }, config(CLAUDE_CONFIG));
   });
 });
 
 // Longer than a start of the fake claude through cmd.exe on a loaded Windows runner, and shorter than the 10 seconds the tool waited for the guard's list before df614fb.
 const UNLISTED_TIMEOUT_S = 8;
+// The timeout above counts from the call, so a wait before it shows only in the time from the tool's telling to the fake's start, which takes some hundreds of milliseconds.
+const UNLISTED_START_MS = 3_000;
 
 test('R-69: a call of a program reviewer waits for no list of the guard: with a guard that never lists, the program starts and answers within reviewer.timeout of the tool telling the guard to list', async () => {
   await withCopy(async (copy) => {
@@ -571,8 +575,8 @@ test('R-69: a call of a program reviewer waits for no list of the guard: with a 
       assert.equal(review.code, 1);
       const asked = toldToList(told);
       assert.notEqual(asked, null);
-      const waited = (JSON.parse(readFileSync(join(dir, 'record.json'), 'utf8')) as { at: number }).at - asked!;
-      assert.ok(waited < UNLISTED_TIMEOUT_S * 1000, `claude started ${waited} ms after the tool told the guard to list`);
+      const waited = record(dir).at - asked!;
+      assert.ok(waited < UNLISTED_START_MS, `claude started ${waited} ms after the tool told the guard to list`);
     }, config(CLAUDE_CONFIG + `  timeout: ${UNLISTED_TIMEOUT_S}\n`));
   });
 });

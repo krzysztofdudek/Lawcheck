@@ -366,7 +366,7 @@ note: this change edits the law that judges it: edits .lawcheck/law.yaml without
 ```
 usage: lawcheck init [--json]
 usage: lawcheck prime [--json]
-usage: lawcheck check [--full] [--strict] [--base <ref>] [--review [--again] [--max-calls <n>]] [--json]
+usage: lawcheck check [--full] [--strict] [--base <ref>] [--review [--again] [--max-calls <n>]] [--sarif <file>] [--json]
 usage: lawcheck explain (<path> [--tree] | --type <id> | --rule <id>) [--json]
 usage: lawcheck try <rule> [<path or pattern>...] [--times <n>] [--dry-run] [--max-calls <n>] [--json]
 usage: lawcheck docs [<topic>] [--json]
@@ -393,7 +393,7 @@ Only on the user's word
 
 You may, unasked
 - add a type for a new kind of file, or make a type finer
-- write a rule the user asked for, and try it first: lawcheck try <rule> <files>
+- write a rule the user asked for, and try it first: lawcheck try <rule> <files>; before a script rule reads the syntax tree, run lawcheck explain <path> --tree on a real file of that language
 
 The law here: 4 types, 2 rules
 source  src/**/*.ts, !src/**/*.d.ts  Everything that ships.  rules: no-todo

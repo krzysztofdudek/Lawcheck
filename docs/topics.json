@@ -15,6 +15,7 @@
   { "id": "claude-code", "title": "Lawcheck in Claude Code", "section": "Guides" },
   { "id": "codex-cli", "title": "Lawcheck in Codex", "section": "Guides" },
   { "id": "copilot-cli", "title": "Lawcheck in GitHub Copilot CLI", "section": "Guides" },
+  { "id": "cursor", "title": "Lawcheck in Cursor", "section": "Guides" },
   { "id": "other-agents", "title": "Other coding agents", "section": "Guides" },
   { "id": "ci", "title": "CI and git hooks", "section": "Guides" },
   { "id": "team", "title": "A law shared by a team", "section": "Guides" },
