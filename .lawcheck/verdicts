@@ -80,6 +80,10 @@ f9a6abd6308326c78a75c3541f39b29d docs-state-facts
 19b8b2a593d2998c464b1512fc8423f4 docs-state-facts
 05826a704ae28f2588fe5799f4152fa9 docs-state-facts
 d6e800ca455b32d3ec015d1ac23b5114 docs-state-facts
+0cbd99f7ce0a229142dd81021e94fcc9 docs-state-facts
+957dae830393f0df8f20ca910452249f docs-state-facts
+c6d8141e8803034e2f270659edd2264f docs-state-facts
+d7bef1ad1edc2c409184c7c9f71c8331 docs-state-facts
 62e11f4a15ebd3322f59adae74248611 comments-say-why
 ac2ac03e03e868e4de776b3688d64a9d next-keeps-the-users-word
 90996f3e2d7f66b4a579e4f5dcc47f7c docs-state-facts
@@ -130,6 +134,11 @@ cd1882b1a04aab71f2a2bebe50ec4bea docs-state-facts
 e2cab2abb317c39f572d58e3c603748c errors-name-the-fix
 ea3a317240c9247d9b693d25f4f4103d errors-name-the-fix
 fc2dc5c8fd19b2afeda53cae6b7c678f docs-state-facts
+6718e407c0ed563934dbc6989c6e2ac8 docs-state-facts
+92fc71dc977e904553b62d0b71483b5d docs-state-facts
+1ab7889f90177c31aca0916a44f3c14e errors-name-the-fix
+528b05ebf8c38aa77cacc643c940c902 comments-say-why
+ce1fd372d346a16a79f4c871415a7604 next-keeps-the-users-word
 0d679017bc68a7692224a31891016488 next-keeps-the-users-word
 1a3594e1f055def1cba8382364b22786 next-keeps-the-users-word
 5b632602eda91e8bff706ea71fafdfc4 docs-state-facts
@@ -168,3 +177,7 @@ b8dfe76fa7d7c117bff39f458f30945e docs-state-facts
 d5ee41ca1bd6d2bd3f3cad04a022bd2f errors-name-the-fix
 d9bf5c902387a2b5ab316d32d80a5694 docs-state-facts
 f636d8818dd708a4869e4b9914223237 comments-say-why
+4ab40b57fee4b4382705ddba565196ca docs-state-facts
+168347f23ea27bf7afd2f26fb4f2ba3e errors-name-the-fix
+28861453a439e3e48b32e8bafe859431 comments-say-why
+cd7eb854fa4b9689f491a857fe0b251d next-keeps-the-users-word

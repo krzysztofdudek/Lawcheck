@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import { example } from '../harness/examples.ts';
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { cpSync, existsSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { append, check, findingLines, git, inTemp, LANGUAGES_SAMPLE, lawcheck, lawcheckAt, makeR, makeSample, makeU, ROOT, startLawcheck, withCopy, write } from './helpers.ts';
@@ -342,6 +343,90 @@ test('test 776: a plain check and --full give a rule the same tree and uses for 
     assert.equal(full.size, 29);
     for (const path of changed) assert.equal(plain.get(path), full.get(path), path);
     assert.equal(new Set(full.values()).size, 29);
+  });
+});
+
+const NODES_RULE = `import { createHash } from 'node:crypto';
+
+export async function check({ files: [file] }) {
+  const { language, root, absent } = await file.tree();
+  const nodes = [];
+  const stack = root === null ? [] : [[root, null]];
+  while (stack.length > 0) {
+    const [node, parent] = stack.pop();
+    const { children, ...keys } = node;
+    const at = nodes.push({ ...keys, parent }) - 1;
+    for (let i = children.length - 1; i >= 0; i--) stack.push([children[i], at]);
+  }
+  return [{ message: createHash('sha256').update(JSON.stringify({ language, absent, nodes: root === null ? null : nodes })).digest('hex') }];
+}
+`;
+
+// One file of each language, a C header whose language its folder decides, a Vue file and a file with no reader: each starts the tool twice, so the set stays small.
+const TREE_FILES = [
+  'c/app/service.h',
+  'c/domain/order.c',
+  'cpp/domain/order.cpp',
+  'cs/domain/Order.cs',
+  'go/domain/order.go',
+  'java/src/main/java/com/acme/domain/Order.java',
+  'js/domain/total.js',
+  'kotlin/src/main/kotlin/com/acme/k/domain/Order.kt',
+  'php/src/domain/Order.php',
+  'py/shop/domain/order.py',
+  'ruby/domain/order.rb',
+  'rust/src/domain/mod.rs',
+  'ts/domain/order.ts',
+  'ts/domain/schema.json',
+  'ts/domain/widget.tsx',
+  'vue/domain/Card.vue',
+];
+
+const TREE_LINE = /^((?:  )+)(?:(\w+): )?(\S+)  line (\d+)(?:  ".*")?$/;
+
+test('test 950: explain --tree prints the tree of a file in each of the twelve languages, and its JSON gives the nodes that tree() gives a rule for the same file', async () => {
+  await inTemp(async (dir) => {
+    const l = makeL(dir);
+    withRuleOnL(l, 'nodes', NODES_RULE);
+    const run = await lawcheck(l, ['check', '--json']);
+    assert.equal(run.stderr, '');
+    const said = new Map<string, string>(JSON.parse(run.stdout).findings.filter((f: any) => f.rule === 'nodes').map((f: any) => [f.file, f.message]));
+    assert.equal(said.size, 29);
+    const languages = new Set<string>();
+    for (const path of TREE_FILES) {
+      const hash = said.get(path);
+      const json = await lawcheck(l, ['explain', path, '--tree', '--json']);
+      assert.equal(json.code, 0, path);
+      const document = JSON.parse(json.stdout);
+      assert.deepEqual(Object.keys(document), ['schema', 'subject', 'path', 'language', 'absent', 'nodes'], path);
+      assert.deepEqual([document.schema, document.subject, document.path], ['lawcheck-explain/0', 'tree', path]);
+      const { language, absent, nodes } = document;
+      assert.equal(createHash('sha256').update(JSON.stringify({ language, absent, nodes })).digest('hex'), hash, path);
+      const text = await lawcheck(l, ['explain', path, '--tree']);
+      assert.equal(text.code, 0, path);
+      if (nodes === null) {
+        assert.equal(text.stdout, `${path}  no tree: no-reader, no reader reads the language of this file, or a Vue or Svelte file has no script block\n`);
+        continue;
+      }
+      languages.add(language);
+      const named = nodes.filter((node: any) => node.named);
+      const depth = (at: number): number => {
+        let count = 0;
+        for (let up = nodes[at].parent; up !== null; up = nodes[up].parent) if (nodes[up].named) count++;
+        return count;
+      };
+      const [head, ...shown] = text.stdout.slice(0, -1).split('\n');
+      assert.equal(head, `${path}  ${language}  ${nodes.length} nodes, ${named.length} named`);
+      assert.deepEqual(
+        shown.map((line) => {
+          const [, indent, field, type, at] = TREE_LINE.exec(line) ?? [line];
+          return `${indent?.length} ${field ?? null} ${type} ${at}`;
+        }),
+        nodes.flatMap((node: any, at: number) => (node.named ? [`${2 + 2 * depth(at)} ${node.field} ${node.type} ${node.line}`] : [])),
+        path,
+      );
+    }
+    assert.deepEqual([...languages].sort(), ['c', 'cpp', 'csharp', 'go', 'java', 'javascript', 'kotlin', 'php', 'python', 'ruby', 'rust', 'tsx', 'typescript']);
   });
 });
 

@@ -531,7 +531,7 @@ test('test 166 and 167: the hand-back, and the guard', async () => {
   });
 });
 
-test('test 950: a prompt event for the turn that is still open keeps its returns and its last output', async () => {
+test('test 954: a prompt event for the turn that is still open keeps its returns and its last output', async () => {
   await withBench(async (bench, dir) => {
     const s = makeSample(dir);
     const session = new Session(bench, s);
@@ -554,7 +554,7 @@ test('test 950: a prompt event for the turn that is still open keeps its returns
   });
 });
 
-test('test 951: a prompt event with another prompt id while the turn is open starts the count again', async () => {
+test('test 955: a prompt event with another prompt id while the turn is open starts the count again', async () => {
   await withBench(async (bench, dir) => {
     const s = makeSample(dir);
     const session = new Session(bench, s);
