@@ -1320,6 +1320,13 @@ test('test 923: in Codex, the two switches are variables of the environment, and
   });
 });
 
+test('test 925: in Codex, the message for a folder with no law names $lawcheck:setup, the command Codex has', async () => {
+  await withBench(async (bench, dir) => {
+    const repo = newRepository(dir);
+    json(await new CodexSession(bench, repo).start('startup'), started(NO_ROOT.replace('/lawcheck:setup', '$lawcheck:setup')), 'a repository without a law');
+  });
+});
+
 test('test 924: a host the hook does not know fails the hook with one line', async () => {
   await withBench(async (bench, dir) => {
     const input = JSON.stringify({ session_id: 's1', cwd: dir, hook_event_name: 'Stop' });
