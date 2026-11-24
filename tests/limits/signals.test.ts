@@ -277,3 +277,40 @@ test('R-157: a guard that cannot be started ends the run as internal with exit 2
     assert.equal(result.code, 2);
   });
 });
+
+// The hook writes the guard's line about a reviewer program's folder a second late, so a call that made the folder before its line was written would leave it to a kill in that second. It comes before HOLD_PROGRAM_FOLDER, which imports syncBuiltinESMExports and calls it for both.
+const LATE_FOLDER_LINE = [
+  "import childProcess from 'node:child_process';",
+  'const spawn = childProcess.spawn;',
+  "const late = (chunks) => chunks.some((chunk) => String(chunk.chunk ?? chunk).includes('lawcheck-claude-'));",
+  'childProcess.spawn = (file, args, options) => {',
+  '  const child = spawn(file, args, options);',
+  "  if ((args ?? []).some((arg) => String(arg).endsWith('guard.js'))) {",
+  '    const write = child.stdin._write;',
+  '    const writev = child.stdin._writev;',
+  '    child.stdin._write = function (chunk, encoding, done) { if (late([chunk])) setTimeout(() => write.call(this, chunk, encoding, done), 1000); else write.call(this, chunk, encoding, done); };',
+  '    child.stdin._writev = function (chunks, done) { if (late(chunks)) setTimeout(() => writev.call(this, chunks, done), 1000); else writev.call(this, chunks, done); };',
+  '  }',
+  '  return child;',
+  '};',
+  '',
+].join('\n');
+
+test('R-158: a run killed with SIGKILL right after the folder of a reviewer program is made leaves nothing in the temporary directory, also when the line that tells the guard of the folder is written a second late, since the call makes the folder only once the line is written', async () => {
+  await withR(
+    async (r, dir) => {
+      const hook = join(dir, 'hold.mjs');
+      const made = join(dir, 'made');
+      writeFileSync(hook, LATE_FOLDER_LINE + HOLD_PROGRAM_FOLDER);
+      write(r, F_PATH, F);
+      const bin = writeFakeClaude(join(dir, 'bin'));
+      const running = startLawcheck(r, ['check', '--review', '--base', 'main'], { env: { PATH: pathWith(bin), LAWCHECK_TEST_MADE: made }, node: ['--import', pathToFileURL(hook).href], outside: ['made'] });
+      await until(() => existsSync(made), 'the folder of the reviewer program');
+      running.kill('SIGKILL');
+      const result = await running.ended;
+      assert.equal(result.signal, 'SIGKILL');
+      assert.equal(result.stdout, '');
+    },
+    { onMain: (r: string) => write(r, '.lawcheck/config.yaml', 'reviewer:\n  provider: claude-code\n  model: test-model\n') },
+  );
+});
