@@ -1,4 +1,4 @@
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -214,43 +214,64 @@ function environment(home) {
   return { ...env, ...IDENTITY, HOME: home, USERPROFILE: home, LANG: 'C.UTF-8', GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: join(home, '.gitconfig') };
 }
 
-export function runOf(root, edit, id, cli) {
+function shopOf(root, edit, id, folder) {
   const run = edit.runs[id];
-  const folder = mkdtempSync(join(tmpdir(), 'lawcheck-film-'));
-  try {
-    const home = join(folder, 'home');
-    mkdirSync(home);
-    writeFileSync(join(home, '.gitconfig'), '');
-    const env = environment(home);
-    const git = (cwd, ...args) => {
-      const result = spawnSync('git', args, { cwd, env, encoding: 'utf8' });
-      if (result.status !== 0) throw new Error(`git ${args.join(' ')} ended with ${result.status}: ${result.stderr.trim()}`);
-    };
-    let shop;
-    if (run.chapter !== undefined) {
-      const takeOf = (page) => join(root, 'film', 'takes', (edit.chapters ?? []).find((chapter) => chapter.page === page)?.take ?? '');
-      shop = makeChapter(folder, run.chapter, env, { root, takeOf }).work;
-      if (run.branch !== undefined) gitIn(env)(shop, 'checkout', '-q', run.branch);
-    } else {
-      const seed = join(folder, 'seed');
-      cpSync(join(root, 'film', 'fixture', 'shop'), seed, { recursive: true });
-      if (run.law !== undefined) {
-        mkdirSync(join(seed, '.lawcheck'));
-        cpSync(join(root, run.law), join(seed, '.lawcheck', 'law.yaml'));
-      }
-      git(seed, 'init', '-q', '-b', 'main');
-      git(seed, 'add', '-A');
-      git(seed, 'commit', '-q', '-m', 'shop');
-      git(folder, 'clone', '-q', '--bare', 'seed', 'origin.git');
-      git(folder, 'clone', '-q', 'origin.git', 'shop');
-      shop = join(folder, 'shop');
-      git(shop, 'checkout', '-q', '-b', 'loyalty-discount');
+  const home = join(folder, 'home');
+  mkdirSync(home);
+  writeFileSync(join(home, '.gitconfig'), '');
+  const env = environment(home);
+  const git = (cwd, ...args) => {
+    const result = spawnSync('git', args, { cwd, env, encoding: 'utf8' });
+    if (result.status !== 0) throw new Error(`git ${args.join(' ')} ended with ${result.status}: ${result.stderr.trim()}`);
+  };
+  let shop;
+  if (run.chapter !== undefined) {
+    const takeOf = (page) => join(root, 'film', 'takes', (edit.chapters ?? []).find((chapter) => chapter.page === page)?.take ?? '');
+    shop = makeChapter(folder, run.chapter, env, { root, takeOf }).work;
+    if (run.branch !== undefined) gitIn(env)(shop, 'checkout', '-q', run.branch);
+  } else {
+    const seed = join(folder, 'seed');
+    cpSync(join(root, 'film', 'fixture', 'shop'), seed, { recursive: true });
+    if (run.law !== undefined) {
+      mkdirSync(join(seed, '.lawcheck'));
+      cpSync(join(root, run.law), join(seed, '.lawcheck', 'law.yaml'));
     }
-    if (run.take !== undefined) cpSync(join(root, 'film', 'takes', run.take, 'files'), shop, { recursive: true });
-    const result = spawnSync(process.execPath, [cli, ...run.args], { cwd: shop, env, encoding: 'utf8', timeout: 60000 });
-    return { exit: result.status, output: result.stdout, error: result.stderr };
+    git(seed, 'init', '-q', '-b', 'main');
+    git(seed, 'add', '-A');
+    git(seed, 'commit', '-q', '-m', 'shop');
+    git(folder, 'clone', '-q', '--bare', 'seed', 'origin.git');
+    git(folder, 'clone', '-q', 'origin.git', 'shop');
+    shop = join(folder, 'shop');
+    git(shop, 'checkout', '-q', '-b', 'loyalty-discount');
+  }
+  if (run.take !== undefined) cpSync(join(root, 'film', 'takes', run.take, 'files'), shop, { recursive: true });
+  return { shop, env, args: run.args };
+}
+
+function runAsync(cli, { shop, env, args }) {
+  return new Promise((resolve) => {
+    const child = spawn(process.execPath, [cli, ...args], { cwd: shop, env, timeout: 60000 });
+    let output = '';
+    let error = '';
+    child.stdout.setEncoding('utf8').on('data', (text) => (output += text));
+    child.stderr.setEncoding('utf8').on('data', (text) => (error += text));
+    child.on('close', (code) => resolve({ exit: code, output, error }));
+  });
+}
+
+// The shops are all made before the first run starts, so the runs overlap whatever the load: each waits for its own process, and they are most of the time of this check.
+export async function runsOf(root, edit, cli) {
+  const folders = [];
+  try {
+    const shops = Object.keys(edit.runs).map((id) => {
+      const folder = mkdtempSync(join(tmpdir(), 'lawcheck-film-'));
+      folders.push(folder);
+      return [id, shopOf(root, edit, id, folder)];
+    });
+    const done = await Promise.all(shops.map(([, shop]) => runAsync(cli, shop)));
+    return new Map(shops.map(([id], index) => [id, done[index]]));
   } finally {
-    rmSync(folder, { recursive: true, force: true });
+    for (const folder of folders) rmSync(folder, { recursive: true, force: true });
   }
 }
 
@@ -298,7 +319,8 @@ if (process.argv[1] !== undefined && fileURLToPath(import.meta.url) === process.
     process.exit(2);
   }
   const edit = readEdit(ROOT);
-  const run = (id) => runOf(ROOT, edit, id, cli);
+  const runs = await runsOf(ROOT, edit, cli);
+  const run = (id) => runs.get(id);
   if (writing) {
     const version = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')).version;
     write(ROOT, edit, run, version);

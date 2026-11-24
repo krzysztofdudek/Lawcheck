@@ -8,7 +8,7 @@ import { ROOT, startProgram, testFolder } from '../harness/tool.ts';
 import { judge, judgeChapter } from '../../film/accept.mjs';
 import { fingerprint } from '../../film/pilot.mjs';
 import { trimRecord, trimTranscript } from '../../film/trim.mjs';
-import { decodeTerminal, privateProblems, privateSummary, privateWords, readingProblems, stalenessProblems, truthProblems, versionProblems } from '../../film/check.mjs';
+import { decodeTerminal, privateProblems, privateSummary, privateWords, readingProblems, runsOf, stalenessProblems, truthProblems, versionProblems } from '../../film/check.mjs';
 import { vttOf } from '../../film/build.mjs';
 import { readEdit, wrap, words } from '../../film/edit.mjs';
 
@@ -251,6 +251,32 @@ test('test 820: a transcript keeps the session and turns every other line into i
     assert.equal(fingerprint(join(folder.dir, 'trimmed')), fingerprint(full));
     assert.equal(readFileSync(join(folder.dir, 'trimmed', 'files', 'transcript.jsonl'), 'utf8'), 'a file of the session is kept whole\n');
     assert.ok(!readFileSync(join(folder.dir, 'trimmed', 'transcript.jsonl'), 'utf8').includes('orbstack'));
+  } finally {
+    folder.remove();
+  }
+});
+
+test('test 1054: control, the runs of Lawcheck that node film/check.mjs compares with the film are all alive at once, so the check takes the time of its slowest run and not the sum of all of them', async () => {
+  const folder = testFolder('lawcheck-film-overlap-');
+  try {
+    const log = join(folder.dir, 'alive.log');
+    writeFileSync(log, '');
+    const cli = join(folder.dir, 'barrier.mjs');
+    const script = [
+      "import { appendFileSync, readFileSync } from 'node:fs';",
+      "const [log, count] = process.argv.slice(2);",
+      "appendFileSync(log, `${Date.now()}\\n`);",
+      "const alive = () => readFileSync(log, 'utf8').split('\\n').filter((line) => line !== '');",
+      "const until = Number(alive()[0]) + 10000;",
+      "while (alive().length < Number(count) && Date.now() < until) await new Promise((resolve) => setTimeout(resolve, 10));",
+      "process.stdout.write(alive().length >= Number(count) ? 'together\\n' : 'alone\\n');",
+    ];
+    writeFileSync(cli, `${script.join('\n')}\n`);
+    const edit = clone(readEdit(ROOT));
+    const count = Object.keys(edit.runs).length;
+    for (const run of Object.values(edit.runs) as { args: string[] }[]) run.args = [log, String(count)];
+    const runs = await runsOf(ROOT, edit, cli);
+    assert.deepEqual([...runs.values()].map((run) => run.output), Array(count).fill('together\n'));
   } finally {
     folder.remove();
   }
