@@ -130,7 +130,7 @@ For each candidate, take its files and lines from the table, and the three ways 
 
 Write a [script rule](script-rules.md) for each rule that has evidence, and for no other. The evidence is a rule of step 2 that a script can judge, such as "no `console.log` in the core", or a convention that every file the rule would bind keeps today. A written rule counts whether or not the code keeps it today, and its findings go to the question of step 10. Only a convention needs every file to keep it. Never invent a rule. The law with its rules still fits `lawcheck prime` unshortened. Write each rule in `.lawcheck/rules/<id>.mjs`, with its entry and `why` under `rules` in the law. Then put its id in the `rules` of every type whose files it judges: a rule that no type lists judges no file.
 
-- A rule about code, such as a call, an import or a construct, reads the file's syntax tree with `await file.tree()`. The tree tells a call from the same word in a comment or a string, so the comment is no finding ([Script rules](script-rules.md#the-syntax-tree)).
+- A rule about code, such as a call, an import or a construct, reads the file's syntax tree with `await file.tree()`. The tree tells a call from the same word in a comment or a string, so the comment is no finding ([Script rules](script-rules.md#the-syntax-tree)). Before you write a rule that reads the syntax tree, run `lawcheck explain <path> --tree` on a real file of that language, and write the rule from the node types and fields it prints, since they differ between languages.
 - A rule about text, such as a header or a licence line, may read `file.lines`.
 - A file in a language with no reader has no tree, so a rule about code reports nothing there. Say so in the summary.
 
