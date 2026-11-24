@@ -57,6 +57,8 @@ In Codex, the same plugin installs with `codex plugin marketplace add krzysztofd
 
 In GitHub Copilot CLI, the same plugin installs with `copilot plugin marketplace add krzysztofdudek/Lawcheck` and `copilot plugin install lawcheck@lawcheck-marketplace`. Its check after an edit sees the files of `create` and `edit`, and a file the agent writes through the shell waits for the check before the agent finishes. Copilot CLI gives a plugin no way to write to you, so the plugin asks the agent to tell you its messages, such as a check that still fails at the end of a turn. `lawcheck docs copilot-cli` has the steps.
 
+In Cursor, the plugin for Claude Code runs as it is. Cursor loads the plugins that Claude Code installed, so the two commands above install it for both. Cursor's command-line agent runs the hook at the start of a session and the one after an edit from the plugin alone. It runs the hook at the prompt and the one before the agent finishes only when `.cursor/hooks.json` holds an entry for the event, and without them there is no check before the agent finishes. The two entries are `{"version": 1, "hooks": {"beforeSubmitPrompt": [{"command": "echo {}"}], "stop": [{"command": "echo {}"}]}}`. Cursor shows the user no message from a hook, so the plugin asks the agent to tell you its messages once. I read Cursor's documentation and the code of its command-line agent, and ran the plugin's hooks on the inputs they give. I ran no session of Cursor with the plugin, because that needs a Cursor account. `lawcheck docs cursor` says what each hook does there and what I did not check.
+
 Any other agent gets one line in its instructions file:
 
 ```text

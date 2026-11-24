@@ -1,0 +1,9 @@
+{
+  "id": "b04-prime",
+  "law": "film/fixture/law/law.yaml",
+  "args": [
+    "prime"
+  ],
+  "exit": 0,
+  "lawcheck": "0.1.0-alpha.4"
+}

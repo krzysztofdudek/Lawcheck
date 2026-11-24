@@ -197,6 +197,8 @@ src/core/price.ts:2  warning[no-fetch]  calls fetch outside the api layer
 
 ## 13. Read the syntax tree
 
+Before you write a rule that reads the syntax tree, run `lawcheck explain <path> --tree` on a real file of the rule's language, and write the rule from the node types and fields it prints, since they differ between languages. A rule that guesses a node type finds nothing.
+
 The rule reads lines, so it also reports `fetch(` in a comment or a string. Add `src/core/cart.ts`, whose first line is a comment:
 
 ```ts

@@ -43,6 +43,7 @@ It runs `npm test`, the suite guard of the base, and prints the pack a reviewer 
 The release workflow needs a green Nightly on the tagged commit. CI runs `npm run real` and `claude plugin validate` on every push to `main` and every pull request. These steps run by hand before the tag ([decision 58](design/decisions.md#58-acceptance-tests-that-run-outside-npm-test)):
 
 - `npm run agent-trial`, the trial of the plugin with a live agent, on the host;
-- a person reads the README and the plugin's files for their wording and for names of other tools.
+- a person reads the README and the plugin's files for their wording and for names of other tools;
+- when `node film/check.mjs` failed on a change since the last release, the loop is rendered again with `node film/render.mjs` ([film/README.md](film/README.md)).
 
 The tests with a live model, `npm run stability` and `node tests/live/run.ts`, run too when the prompt, the providers or the plugin changed since their last result ([decision 75](design/decisions.md#75-when-the-tests-with-a-live-model-run)).

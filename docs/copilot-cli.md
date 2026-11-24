@@ -136,4 +136,4 @@ On 2026-11-24 the plugin ran in real sessions of GitHub Copilot CLI 1.0.105. Cop
 - The agent gets the message that `lawcheck prime` did not run because `lawcheck was not found`. The plugin found no Lawcheck through the command of the `runner` setting, which is `lawcheck` on your `PATH` by default. Install Lawcheck as [Install Lawcheck](#_1-install-lawcheck) says, then start a new session.
 - The agent ended its turn, and CI fails. The plugin judges the files of the turn alone, with no [base](concepts.md#base). It never passes `--review`. CI judges the whole [change](concepts.md#change) and fails on `not-reviewed` ([CI and git hooks](ci.md)).
 
-Next: [Other coding agents](other-agents.md)
+Next: [Lawcheck in Cursor](cursor.md)

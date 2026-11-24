@@ -46,6 +46,8 @@ export const NOT_TESTS: string[] = [
   'film/fixture/shop/tests/format.test.ts',
   'film/fixture/shop/tests/orders.test.ts',
   'film/fixture/shop/tests/price.test.ts',
+  'film/takes/a09/files/tests/price.test.ts',
+  'film/takes/fu01/files/tests/loyalty.test.ts',
 ];
 
 const rel = (path: string) => relative(ROOT, path).split(sep).join('/');

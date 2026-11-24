@@ -1,0 +1,61 @@
+{
+  "id": "sr01",
+  "page": "write-a-script-rule",
+  "recorded": "2026-11-24T04:19:03.435Z",
+  "prompt": "Add a script rule no-fetch: no file of core calls fetch(). Read the syntax tree, so a comment is not a finding.",
+  "complete": true,
+  "commands": [
+    {
+      "command": "stty cols 88 rows 26 && clear",
+      "seconds": 0.3,
+      "ended": true,
+      "exit": 0
+    },
+    {
+      "command": "claude -p \"Add a script rule no-fetch: no file of core calls fetch(). Read the syntax tree, so a comment is not a finding.\"",
+      "seconds": 11.89,
+      "ended": true,
+      "exit": 0
+    },
+    {
+      "command": "lawcheck explain --rule no-fetch",
+      "seconds": 0.302,
+      "ended": true,
+      "exit": 0
+    },
+    {
+      "command": "lawcheck try no-fetch",
+      "seconds": 0.302,
+      "ended": true,
+      "exit": 1
+    },
+    {
+      "command": "lawcheck docs write-a-script-rule",
+      "seconds": 0.301,
+      "ended": true,
+      "exit": 0
+    }
+  ],
+  "changed": [
+    ".lawcheck/law.yaml",
+    ".lawcheck/rules/no-fetch.mjs"
+  ],
+  "candidate": {
+    "commit": "c8821fa78c031df6d56050a9dd920c67c9aa45ea",
+    "lawcheck": "0.1.0-alpha.4"
+  },
+  "versions": {
+    "claude_code": "2.1.330 (Claude Code)",
+    "node": "v24.22.3",
+    "models": [
+      "claude-sonnet-5-5"
+    ],
+    "effort": "medium",
+    "plugin": [
+      {
+        "version": "0.1.0-alpha.4",
+        "commit": "946e98dc9ada95f7682c8afd09d6f8eecc438a7c"
+      }
+    ]
+  }
+}

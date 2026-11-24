@@ -96,6 +96,7 @@ export const WHY: Record<string, string> = {
   'too-many-reviews': 'reviewer.max_calls bounds what one run spends',
   'reviewer-unreachable': "without the reviewer's answer a reviewer rule says nothing",
   'reviewer-bad-answer': 'an answer that is no verdict cannot be recorded',
+  'not-a-signer': 'a pass counts only with the signature of a signer the law names',
   'forbidden-use': "a type's may_use names every type its files may use",
   'uses-not-read': 'a restriction that cannot be checked is not shown as kept',
   'untyped-file': 'a file that no type takes is judged by no rule, so a folder under required may hold none',

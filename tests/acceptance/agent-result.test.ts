@@ -4,7 +4,10 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { ARM_EVENTS, breachOf, checksIn, errorOf, isFixed, makeRepository, readTranscript, removeSessionState, ROOT, runsLawcheck, settleFolder } from '../agent/run.ts';
-import type { RunEntry } from '../agent/run.ts';
+import type { CheckRun, RunEntry } from '../agent/run.ts';
+import { startTool } from '../harness/start.ts';
+import { memoryError } from '../../dist/cli.js';
+import { renderErrors } from '../../dist/output.js';
 import { apiImports, armState, breachIn, CLAUDE_REPOSITORY, FILM, FILM_REPOSITORY, hostBreach, hostErrorOf, PROMPT, PROOF, repositoryFor, stopsOf, verdictOf } from '../agent/trial.ts';
 import type { HostEntry } from '../agent/trial.ts';
 import { readCodex } from '../agent/codex.ts';
@@ -80,6 +83,7 @@ test('plugin-slice §10: step 8, a run that is an error keeps its transcript and
   });
 });
 
+const TARGET = 'src/core/discount.js';
 const RESULT = join(ROOT, 'tests', 'agent', 'result.json');
 const ENTRY_KEYS = ['run', 'error', 'breach', 'fixed', 'checks', 'log', 'files', 'seconds', 'reply'];
 const CHECK_KEYS = ['clean', 'law_untouched', 'no_waiver', 'intent'];
@@ -131,6 +135,38 @@ test('test 181: the committed result of the trial', async () => {
     assert.equal(record.counted, 10, arm);
     assert.ok(record.fixed >= 8, `${arm}: ${record.fixed} fixed`);
   }
+});
+
+const shortOf = (errors: Parameters<typeof renderErrors>[0]) => ({ code: 2, json: JSON.parse(renderErrors(errors, true)) });
+const SYSTEM_SHORT = memoryError('system', 'reading the tree', null, 'check');
+
+test('test 181: the replay checks a recorded run again only when check ended because the system had less than 128 MiB left, so a run that is not clean stays red and no other exit 2 is hidden', async () => {
+  const result = JSON.parse(readFileSync(RESULT, 'utf8'));
+  const recorded: RunEntry = result.arms.edit.list.find((entry: RunEntry) => entry.checks !== null && entry.fixed);
+  const broken = { ...recorded.files, [TARGET]: recorded.files[TARGET]!.replace("new ShopError('INVALID_PERCENT', ", 'new Error(') };
+  assert.notEqual(broken[TARGET], recorded.files[TARGET]);
+  const replay = (files: Record<string, string | null>, planted: { code: number; json: unknown }[]) =>
+    inTemp(async (dir) => {
+      const work = makeRepository(dir);
+      for (const [path, text] of Object.entries(files)) writeFileSync(join(work, path), text!);
+      let calls = 0;
+      const check: CheckRun = async (at, env) => (calls < planted.length ? planted[calls++]! : (calls++, await startTool(at, ['check', '--json'], env).ended));
+      const checks = await checksIn(work, check, 0);
+      return { checks, calls };
+    });
+  assert.deepEqual(await replay(recorded.files, [shortOf([SYSTEM_SHORT])]), { checks: recorded.checks, calls: 2 });
+  assert.deepEqual(await replay(recorded.files, [shortOf([SYSTEM_SHORT]), shortOf([SYSTEM_SHORT])]), { checks: recorded.checks, calls: 3 });
+  const notClean = await replay(broken, [shortOf([SYSTEM_SHORT])]);
+  assert.equal(notClean.checks.clean, false);
+  assert.equal(notClean.calls, 2);
+  const others = [
+    [memoryError('file', 'reading the uses of src/core/discount.js', TARGET, 'check')],
+    [memoryError('run', 'reading the tree', null, 'check')],
+    [SYSTEM_SHORT, { code: 'file-unreadable', file: TARGET, line: null, message: 'the file cannot be read (EACCES)' }],
+    [{ code: 'rule-crashed', file: null, line: null, message: 'the script rule coded-errors throws' }],
+  ];
+  for (const errors of others) assert.deepEqual(await replay(recorded.files, [shortOf(errors)]), { checks: { ...recorded.checks, clean: false }, calls: 1 }, errors.map((e) => e.code).join(', '));
+  await assert.rejects(replay(recorded.files, Array.from({ length: 5 }, () => shortOf([SYSTEM_SHORT]))), /memory-too-large of the system on each of 5 tries/);
 });
 
 const hookLine = (caller: string, exit: number, errors: string[]) => ({ caller, args: ['check', './src/core/loyalty.ts'], exit, errors });
