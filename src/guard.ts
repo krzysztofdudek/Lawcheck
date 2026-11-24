@@ -10,6 +10,8 @@ const windows = process.platform === 'win32';
 // The longest the guard waits for a list of its own: a PowerShell that hangs would keep the guard, and the folders it is to remove, for ever.
 const LIST_MS = 10_000;
 const INPUT_MS = 500;
+// The list the guard held when it found the tool gone. One printed during the wait of INPUT_MS may show a stranger that took a root's id after the kill, and taken as the earlier list it would pass for the root, so the guard would end that stranger and what it made.
+let atEnd: string | undefined;
 // On Windows a program left by one that has ended can be found only through the list of processes, and PowerShell takes seconds to start on a busy machine. While a group is registered, or once the tool has said it starts programs, one PowerShell keeps that list fresh, so the guard ends the tree from a list begun after the kill without starting another PowerShell.
 let watcher: ChildProcess | null = null;
 let table = '';
@@ -182,7 +184,7 @@ async function endWatched(): Promise<void> {
   // With no call of a program reviewer open, only rule runners are left, which end with the tool in its job and start no program under Node's permission model, so a list could end nothing.
   if (groups.size === 0) return;
   const learned = Date.now();
-  const before = table;
+  const before = atEnd ?? table;
   const fresh = (await listSince(learned, LIST_MS)) ?? listNow();
   // On Windows the tool starts the guard before it calls a program reviewer (startListing), so no process of a group's tree was made before the guard; and none was made before the time the tool took just before it started the group's root, which tells the root from an earlier holder of its id when no earlier list shows the root.
   // Of two calls that got the same id, the later one's program holds it, and what was made below it before that program is not known to be the tool's.
@@ -236,6 +238,7 @@ if (process.platform === 'win32') {
       process.kill(tool, 0);
     } catch {
       clearInterval(poll);
+      atEnd = table;
       setTimeout(endAll, INPUT_MS);
     }
   }, 250);
