@@ -321,6 +321,33 @@ test('test 1090: a narrated sentence that cites only its own caption or subtitle
   ]);
 });
 
+test('test 1091: a narrated sentence, a caption or a subtitle that names a version, a pre-release or a model in words is refused, as one that names it in digits is', () => {
+  const edit = readEdit(ROOT);
+  assert.deepEqual(versionProblems(edit), []);
+  const other = clone(edit);
+  const quick = other.chapters[0].timeline;
+  const said = ['The release is zero point one.', 'It is alpha five of the tool.', 'Sonnet five writes the rule.', 'Claude five writes the rule.', 'It needs version two.', 'The tag reads one dot two dot three.', 'Lawcheck is at twenty-one point four.'];
+  said.forEach((text, index) => {
+    quick[index]!.narration = [{ text, shows: ['x'] }];
+  });
+  quick[0]!.caption = 'Zero point one';
+  quick[1]!.subtitle = 'Alpha five installs it.';
+  assert.deepEqual(versionProblems(other), [
+    'q1-1: "Zero point one" shows a number with a point, said in words: Zero point one',
+    'q2-1: "Alpha five installs it." shows a pre-release said in words: Alpha five',
+    'q1, narration: "The release is zero point one." says a number with a point, said in words: zero point one',
+    'q2, narration: "It is alpha five of the tool." says a pre-release said in words: alpha five',
+    'q3, narration: "Sonnet five writes the rule." says the name of a model: Sonnet',
+    'q4, narration: "Claude five writes the rule." says a model named with its number in words: Claude five',
+    'q5, narration: "It needs version two." says a version said in words: version two',
+    'q6, narration: "The tag reads one dot two dot three." says a number with a point, said in words: one dot two',
+    'q7, narration: "Lawcheck is at twenty-one point four." says a number with a point, said in words: twenty-one point four',
+  ]);
+  const plain = clone(edit);
+  plain.chapters[0].timeline[0].narration = [{ text: 'One point of failure is left.', shows: ['x'] }, { text: 'Claude Code reads the tag at alpha.', shows: ['x'] }];
+  assert.deepEqual(versionProblems(plain), []);
+});
+
 function silence(seconds: number): Buffer {
   const rate = 8000;
   const data = Buffer.alloc(Math.round(seconds * rate) * 2);

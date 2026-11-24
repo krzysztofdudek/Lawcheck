@@ -266,6 +266,16 @@ const VERSIONED = [
   [/\b(?:sonnet|opus|haiku|fable)\b|\bclaude-[a-z]+-\d/gi, 'the name of a model'],
 ];
 
+const COUNT = '(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred)(?:-(?:one|two|three|four|five|six|seven|eight|nine))?';
+
+// Prose that is spoken has no digits, so a version or a model is said in words.
+const SPOKEN = [
+  [new RegExp(`\\b${COUNT}\\s+(?:point|dot)\\s+${COUNT}\\b`, 'gi'), 'a number with a point, said in words'],
+  [new RegExp(`\\b(?:alpha|beta|rc|release candidate)\\s+${COUNT}\\b`, 'gi'), 'a pre-release said in words'],
+  [new RegExp(`\\b(?:version|v)\\s+${COUNT}\\b`, 'gi'), 'a version said in words'],
+  [new RegExp(`\\bclaude\\s+${COUNT}\\b`, 'gi'), 'a model named with its number in words'],
+];
+
 export function versionProblems(edit) {
   const problems = [];
   for (const timeline of timelinesOf(edit)) {
@@ -273,10 +283,13 @@ export function versionProblems(edit) {
       for (const text of [...screen.screen.blocks.flatMap(stringsOf), screen.segment.caption ?? '', screen.segment.subtitle ?? '']) {
         for (const [pattern, what] of VERSIONED) for (const match of text.matchAll(pattern)) problems.push(`${screen.id}: ${JSON.stringify(text)} shows ${what}: ${match[0]}`);
       }
+      for (const text of [screen.segment.caption ?? '', screen.segment.subtitle ?? '']) {
+        for (const [pattern, what] of SPOKEN) for (const match of text.matchAll(pattern)) problems.push(`${screen.id}: ${JSON.stringify(text)} shows ${what}: ${match[0]}`);
+      }
     }
     for (const segment of timeline.segments) {
       for (const line of segment.narration ?? []) {
-        for (const [pattern, what] of VERSIONED) for (const match of line.text.matchAll(pattern)) problems.push(`${segment.id}, narration: ${JSON.stringify(line.text)} says ${what}: ${match[0]}`);
+        for (const [pattern, what] of [...VERSIONED, ...SPOKEN]) for (const match of line.text.matchAll(pattern)) problems.push(`${segment.id}, narration: ${JSON.stringify(line.text)} says ${what}: ${match[0]}`);
       }
     }
   }
@@ -391,7 +404,7 @@ if (process.argv[1] !== undefined && fileURLToPath(import.meta.url) === process.
   report('staleness', stale, `${Object.keys(edit.runs).length} runs of this build print what the film shows`);
   report('reading time', reading, `the loop lasts ${lengthOf(edit.loop)} s, ${(edit.chapters ?? []).map((chapter) => `the chapter ${chapter.page} ${lengthOf(chapter.timeline)} s`).join(', ')}, and every screen stands long enough to be read`);
   report('narration', narration.problems, `all ${narration.sentences} narrated sentences end as spoken sentences, say their numbers in words and cite what their frame or page shows`);
-  report('versions', versions, 'no screen, caption, subtitle or narrated sentence shows a version or the name of a model');
+  report('versions', versions, 'no screen, caption, subtitle or narrated sentence shows or says a version or the name of a model, in digits or in words');
   report('private', secret, privateSummary(privateWords()));
   const problems = truth.problems.length + stale.length + reading.length + secret.length + versions.length + narration.problems.length;
   process.stdout.write(problems === 0 ? 'film/check.mjs: PASS\n' : `film/check.mjs: FAIL  ${problems} problems\n`);

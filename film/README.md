@@ -81,7 +81,7 @@ No video, image or recording is committed here. `claude plugin marketplace add` 
 - a take differs from the record that `pilot.json` counts or the hash its chapter records, or `accept.mjs` refuses it;
 - this build of Lawcheck prints something else on the files of a take than the film shows;
 - a screen stands less than one second plus one second for every three new words, its subtitle counted, the loop lasts more than 30 seconds, or a chapter lasts less than 40 or more than 60;
-- a screen, a caption, a subtitle or a narrated sentence shows a number with a point, a version after `@`, a version written as `v` and a number, or the name of a model;
+- a screen, a caption, a subtitle or a narrated sentence shows a number with a point, a version after `@`, a version written as `v` and a number, or the name of a model, and a caption, a subtitle or a narrated sentence says one in words (`zero point one`, `alpha five`, `version two`, `Claude five`);
 - a segment of a chapter has no narration, or a narrated sentence ends without `.`, `!`, `?` or `…`, holds two sentences, has a digit, cites nothing, cites a string that its frame or its page does not show, or cites only its caption or subtitle without a tie that its source backs;
 - a file of `takes/` holds a home folder other than `/home/dev`, a key, a token, an e-mail address, the word orbstack, a host name under ts.net, the word tailnet, the word clientbox, a path under /mnt/mac, or a word listed in the variable `LAWCHECK_FILM_PRIVATE`, separated by commas. Set it to the names only the recording machine knows, such as its tailnet's name, before you add a take. A run without it, such as the one in CI, says that those names were not looked for.
 
