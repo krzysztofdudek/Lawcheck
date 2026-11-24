@@ -1,6 +1,6 @@
+import { createHook } from 'node:async_hooks';
 import { syncBuiltinESMExports } from 'node:module';
 import { pathToFileURL } from 'node:url';
-import { MESSAGE_CHARS, points, RUN_FINDINGS, RUN_MESSAGE_CHARS } from './limits.js';
 
 interface CallFile {
   path: string;
@@ -32,8 +32,14 @@ interface TreeNode {
   children: TreeNode[];
 }
 
+interface Limits {
+  messageChars: number;
+  findings: number;
+  chars: number;
+}
+
 type Incoming =
-  | { kind: 'load'; file: string; filesOf: Map<string, string[]>; entry?: Entry }
+  | { kind: 'load'; file: string; filesOf: Map<string, string[]>; entry?: Entry; limits: Limits }
   | { kind: 'call'; file: CallFile }
   | { kind: 'answer'; id: number; value: unknown }
   | { kind: 'finish' };
@@ -112,9 +118,31 @@ function keepTimersReferenced(): void {
 }
 keepTimersReferenced();
 
+// process.getActiveResourcesInfo() does not list a pending Atomics.waitAsync either, so the runner counts the waits a rule leaves pending.
+let waits = 0;
+function countAsyncWaits(): void {
+  const original = Atomics.waitAsync;
+  Object.defineProperty(Atomics, 'waitAsync', {
+    value: function waitAsync(...args: Parameters<typeof Atomics.waitAsync>) {
+      const result = original(...args);
+      if (result.async) {
+        waits++;
+        void result.value.then(() => {
+          waits--;
+        });
+      }
+      return result;
+    },
+    writable: true,
+    configurable: true,
+  });
+}
+countAsyncWaits();
+
 let check: Check | null = null;
 let companion: Companion | null = null;
 let repo: Repo | null = null;
+let limits: Limits | null = null;
 let loaded = false;
 let reported = false;
 
@@ -131,9 +159,25 @@ process.on('uncaughtException', failed);
 // How long the runner waits once, after the last call, for the timers and other work the rule left behind, as docs/script-rules.md says.
 const SETTLE_MS = 2_000;
 
+// process.getActiveResourcesInfo() does not list the jobs that node:crypto sends to the thread pool, such as pbkdf2, scrypt and randomBytes, so the runner counts the requests that have not run their callback. Promises are left out of the hook, which keeps it from slowing a rule.
+const requests = new Set<number>();
+createHook({
+  trackPromises: false,
+  init: (id, type) => {
+    if (/request$/i.test(type)) requests.add(id);
+  },
+  before: (id) => {
+    requests.delete(id);
+  },
+  destroy: (id) => {
+    requests.delete(id);
+  },
+}).enable();
+
 function counts(): Map<string, number> {
   const out = new Map<string, number>();
   for (const kind of process.getActiveResourcesInfo()) out.set(kind, (out.get(kind) ?? 0) + 1);
+  if (requests.size > 0) out.set('pooled', requests.size);
   return out;
 }
 
@@ -148,6 +192,7 @@ function handles(): Map<string, number> {
 }
 
 function leftBehind(): boolean {
+  if (waits > 0) return true;
   for (const [kind, count] of counts()) if (count > (own?.get(kind) ?? 0)) return true;
   return false;
 }
@@ -216,7 +261,8 @@ function send(message: unknown): void {
   }
 }
 
-async function load(file: string, filesOf: Map<string, string[]>, entry: Entry): Promise<void> {
+async function load(file: string, filesOf: Map<string, string[]>, entry: Entry, given: Limits): Promise<void> {
+  limits = given;
   repo = {
     filesOf(typeId: string): string[] {
       const list = filesOf.get(typeId);
@@ -243,6 +289,19 @@ async function load(file: string, filesOf: Map<string, string[]>, entry: Entry):
   send({ kind: 'loaded' });
 }
 
+// The count of points in src/limits.ts, since a message's limit counts code points and the runner imports nothing of Lawcheck.
+function points(text: string): number {
+  let count = text.length;
+  for (let i = 1; i < text.length; i++) {
+    const low = text.charCodeAt(i);
+    if (low >= 0xdc00 && low <= 0xdfff) {
+      const high = text.charCodeAt(i - 1);
+      if (high >= 0xd800 && high <= 0xdbff) count--;
+    }
+  }
+  return count;
+}
+
 // A list or a message past its limit is answered by its size alone, so it never crosses the channel whole.
 function oversized(value: unknown): { kind: string; count: number; chars?: number } | null {
   if (!Array.isArray(value)) return null;
@@ -251,10 +310,10 @@ function oversized(value: unknown): { kind: string; count: number; chars?: numbe
     const message = typeof item === 'object' && item !== null ? (item as { message?: unknown }).message : undefined;
     if (typeof message !== 'string') continue;
     const length = points(message);
-    if (length > MESSAGE_CHARS) return { kind: 'too-long', count: length };
+    if (length > limits!.messageChars) return { kind: 'too-long', count: length };
     chars += length;
   }
-  if (value.length > RUN_FINDINGS || chars > RUN_MESSAGE_CHARS) return { kind: 'too-many', count: value.length, chars };
+  if (value.length > limits!.findings || chars > limits!.chars) return { kind: 'too-many', count: value.length, chars };
   return null;
 }
 
@@ -289,6 +348,16 @@ function asking(what: 'tree' | 'uses', call: { ended: boolean; asks: Promise<unk
   };
 }
 
+// The tool reads the message, the file and the line of a finding and nothing else, so the other fields stay in the runner: a rule can pile any size into one, and only the message is held to a limit.
+function read(value: unknown): unknown {
+  if (!Array.isArray(value)) return value;
+  return value.map((item: unknown) => {
+    if (typeof item !== 'object' || item === null || Array.isArray(item)) return item;
+    const { message, file, line } = item as { message?: unknown; file?: unknown; line?: unknown };
+    return { message, file, line };
+  });
+}
+
 async function call(file: CallFile): Promise<void> {
   let value: unknown;
   let over: ReturnType<typeof oversized>;
@@ -297,6 +366,7 @@ async function call(file: CallFile): Promise<void> {
   try {
     value = companion === null ? await check!({ files: [argument], repo: repo! }) : await companion({ file: argument, repo: repo! });
     over = companion === null ? oversized(value) : null;
+    if (companion === null && over === null) value = read(value);
     // An answer the rule did not wait for still comes before the result, so the tool never meets an ask of a call it has closed.
     for (let at = 0; at < state.asks.length; at++) await state.asks[at];
   } catch (error) {
@@ -307,12 +377,12 @@ async function call(file: CallFile): Promise<void> {
   }
   await turn();
   if (reported) return;
-  send(over ?? { kind: 'result', value });
+  send({ ...(over ?? { kind: 'result', value }), left: leftBehind() });
 }
 
 process.on('message', (message: Incoming) => {
   own ??= handles();
-  if (message.kind === 'load') void load(message.file, message.filesOf, message.entry === 'companion' ? 'companion' : 'check');
+  if (message.kind === 'load') void load(message.file, message.filesOf, message.entry === 'companion' ? 'companion' : 'check', message.limits);
   else if (message.kind === 'finish') void finish();
   else if (message.kind === 'answer') {
     answers.get(message.id)?.(message.value);

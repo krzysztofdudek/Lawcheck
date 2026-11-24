@@ -5,13 +5,13 @@ import { join } from 'node:path';
 import { documentOf, noWords, usageError } from './args.js';
 import { CONFIG, readConfig, RUNNER_COMMANDS, runnerOf } from './config.js';
 import type { Runner } from './config.js';
-import type { Arguments, Result } from './args.js';
-import type { CheckContext } from './check.js';
+import type { Arguments, CheckContext, Result } from './args.js';
+import { walk } from './law.js';
 import type { Law, TypeDef } from './law.js';
 import { plural, renderErrors, shown } from './output.js';
-import { findRoot, LAW, loadLaw, loadRuleFiles, requireGit, stopped } from './setup.js';
+import { findRoot, LAW, loadLaw, loadRuleFiles, requireGit, ruleKind, stopped } from './setup.js';
 import type { Kinds } from './setup.js';
-import { listInForce } from './uses.js';
+import { mayUsePart } from './uses.js';
 
 const PLAIN_PLAN = 'the file types and the rules each type keeps';
 const PLAN_WITH_USES = 'the file types, the rules each type keeps, and which types may use which';
@@ -42,7 +42,7 @@ export function firstPart(reviewers: boolean, mayUse: boolean, folders = false, 
     '',
     'You may, unasked',
     '- add a type for a new kind of file, or make a type finer',
-    `- write a rule the user asked for, and try it first: lawcheck try <rule> <files>${reviewers ? '; a reviewer rule pays one call per file, so add --dry-run first' : ''}`,
+    `- write a rule the user asked for, and try it first: lawcheck try <rule> <files>; before a script rule reads the syntax tree, run lawcheck explain <path> --tree on a real file of that language${reviewers ? '; a reviewer rule pays one call per file, so add --dry-run first' : ''}`,
     '',
   ].join('\n');
 }
@@ -51,7 +51,7 @@ export const FIRST_PART = firstPart(true, true);
 
 export const NO_LAW = [
   'Lawcheck is installed, and this directory has no law (.lawcheck/law.yaml here or above).',
-  'Run lawcheck init only when the user asks for a law here.',
+  'Start one only when the user asks for a law here, and then follow lawcheck docs agent-setup.',
   '',
 ].join('\n');
 
@@ -70,24 +70,6 @@ export function length(text: string): number {
 export function cut(text: string): string {
   const points = [...text];
   return points.length > 60 ? points.slice(0, 59).join('') + '…' : text;
-}
-
-export function mayUsePart(type: TypeDef, gap = ' '): string | null {
-  const inForce = listInForce(type);
-  if (inForce === null) return null;
-  const list = inForce.list.length === 0 ? 'nothing' : inForce.list.join(', ');
-  return inForce.from === type ? list : `${list}${gap}(from ${inForce.from.id})`;
-}
-
-export function walk(types: TypeDef[], visit: (type: TypeDef, depth: number) => void, depth = 0): void {
-  for (const type of types) {
-    visit(type, depth);
-    walk(type.types, visit, depth + 1);
-  }
-}
-
-export function ruleKind(kinds: Kinds, id: string): 'script' | 'reviewer' {
-  return kinds.scripts.has(id) ? 'script' : 'reviewer';
 }
 
 function typeLine(type: TypeDef, depth: number, step: number): string {

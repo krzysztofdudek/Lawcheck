@@ -1,4 +1,4 @@
-export const NO_LAW = 'The Lawcheck plugin is on, and this directory has no law (.lawcheck/law.yaml here or above).\nStart one with lawcheck init only when the user asks for it.';
+export const noLaw = (setup) => `The Lawcheck plugin is on, and this directory has no law (.lawcheck/law.yaml here or above).\nWrite no law on your own. The user starts one by typing ${setup}; when the user asks for a law, tell them to type it.`;
 
 // The line lawcheck prime prints when the law has a reviewer rule and .lawcheck/config.yaml sets no reviewer; an older Lawcheck prints none.
 export const PRIME_NO_REVIEWER = '- not-reviewed: no reviewer is set in .lawcheck/config.yaml';
@@ -23,8 +23,9 @@ export function editLate(command, seconds) {
   return `Lawcheck: ${command} did not finish within ${seconds} seconds, so the hook stopped it.`;
 }
 
-export function editBreaks(rel, command) {
-  return `Lawcheck: after this edit, ${rel} breaks the law of this repository. ${command} printed:`;
+export function editBreaks(rels, command) {
+  if (rels.length === 1) return `Lawcheck: after this edit, ${rels[0]} breaks the law of this repository. ${command} printed:`;
+  return `Lawcheck: after this edit, the files it wrote break the law of this repository. ${command} printed:`;
 }
 
 export function editError(command) {
@@ -72,6 +73,14 @@ export function turnMessage(waivers, law, gone) {
   return `Lawcheck: in this turn the agent ${parts.join(' and ')}. Read them before you accept the turn.`;
 }
 
+export function tellAtEnd(text) {
+  return `Lawcheck: before you finish, tell the user this message, word for word, then finish:\n\n${text}`;
+}
+
+export function tellAtStart(text) {
+  return `Lawcheck: in your first answer, tell the user this message, word for word:\n\n${text}`;
+}
+
 export function moreLines(count) {
   return `... ${count} more ${count === 1 ? 'line' : 'lines'} not shown; run the command yourself to see them all`;
 }
@@ -92,6 +101,10 @@ export function noResult(ended) {
 
 export function unknownEvent(event) {
   return `unknown event '${event}'; the events are session-start, prompt, edit, stop`;
+}
+
+export function unknownHost(words) {
+  return `unknown arguments '${words}' after the event; the hook takes --host claude-code, --host codex or --host copilot there`;
 }
 
 export function notJson(problem) {

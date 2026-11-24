@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { CONFIG } from './config.js';
 import { git, mergeBase, resolveCommit, splitZ } from './files.js';
+import { bytesOfName } from './names.js';
 import { parseLaw } from './law.js';
 import type { Law, TypeDef } from './law.js';
 import { LAW, RULES_DIR } from './setup.js';
@@ -78,6 +79,7 @@ function ofLaw(before: Law, after: Law): string[] {
   const sorted = (ids: Iterable<string>) => [...ids].sort();
   items.push(...ofFolders('required', before.required.patterns, after.required.patterns));
   items.push(...ofFolders('ignored', before.ignored.patterns, after.ignored.patterns));
+  items.push(...ofSigners(before.signers ?? new Map(), after.signers ?? new Map()));
   for (const id of sorted(was.keys())) if (!is.has(id)) items.push(`removes the type ${id}`);
   for (const id of sorted(is.keys())) if (!was.has(id)) items.push(`adds the type ${id}`);
   for (const id of sorted(before.rules.keys())) if (!after.rules.has(id)) items.push(`removes the rule ${id}`);
@@ -111,6 +113,17 @@ function ofLaw(before: Law, after: Law): string[] {
     if (old.waivers !== now.waivers) items.push(`changes the waivers of the type ${id}`);
   }
   return items;
+}
+
+function ofSigners(before: Map<string, string>, after: Map<string, string>): string[] {
+  const names = [...new Set([...before.keys(), ...after.keys()])].sort();
+  return names.flatMap((name) => {
+    const was = before.get(name);
+    const is = after.get(name);
+    if (was === undefined) return [`adds the signer ${name}`];
+    if (is === undefined) return [`removes the signer ${name}`];
+    return was === is ? [] : [`changes the key of the signer ${name}`];
+  });
 }
 
 function ofFolders(key: string, before: string[], after: string[]): string[] {
@@ -161,13 +174,51 @@ function forkOf(root: string, base: string): string | null {
   return commit === null ? null : mergeBase(root, commit);
 }
 
-export function atBase(root: string, base: string): ((path: string) => Buffer | null) | null {
-  const fork = forkOf(root, base);
-  return fork === null ? null : (path) => blobAt(root, fork, path);
+const HEADER = /^[0-9a-f]{40}(?:[0-9a-f]{24})? (\S+) (\d+)$/;
+
+// One cat-file reads every path, where two processes for each path cost a few milliseconds a file. cat-file reads one name a line and drops a carriage return before the line break, so a path with either is read alone.
+function blobsAt(root: string, commit: string, paths: string[]): Map<string, Buffer | null> {
+  const out = new Map<string, Buffer | null>();
+  const batch: { path: string; bytes: Buffer }[] = [];
+  for (const path of paths) {
+    const bytes = bytesOfName(path);
+    if (bytes.includes(0x0a) || bytes.includes(0x0d)) out.set(path, blobAt(root, commit, path));
+    else batch.push({ path, bytes });
+  }
+  if (batch.length === 0) return out;
+  const result = git(root, ['cat-file', '--batch'], {}, Buffer.concat(batch.flatMap(({ bytes }) => [Buffer.from(`${commit}:./`), bytes, Buffer.from('\n')])));
+  const read = result.stdout;
+  let at = 0;
+  for (const { path } of batch) {
+    const end = result.status === 0 ? read.indexOf(0x0a, at) : -1;
+    if (end < 0) {
+      out.set(path, blobAt(root, commit, path));
+      continue;
+    }
+    const header = HEADER.exec(read.subarray(at, end).toString('latin1'));
+    at = end + 1;
+    if (header === null) {
+      out.set(path, null);
+      continue;
+    }
+    const size = Number(header[2]);
+    out.set(path, header[1] === 'blob' ? read.subarray(at, at + size) : null);
+    at += size + 1;
+  }
+  return out;
 }
 
+export function atBase(root: string, base: string): ((paths: string[]) => Map<string, Buffer | null>) | null {
+  const fork = forkOf(root, base);
+  return fork === null ? null : (paths) => blobsAt(root, fork, paths);
+}
+
+const LOOSENS = /^(?:removes the (?:rule|type|signer) |adds the signer |changes the key of the signer |makes the rule \S+ advisory$|takes the rule \S+ off the type |adds .* to ignored$|takes .* off required$)/;
+
+// The line shows five items, so past five the items that loosen the law go first and are never left in the count.
 export function lawChangeLine(items: string[]): string {
-  const shown = items.slice(0, LINE_ITEMS).join('; ');
+  const ordered = items.length > LINE_ITEMS ? [...items.filter((item) => LOOSENS.test(item)), ...items.filter((item) => !LOOSENS.test(item))] : items;
+  const shown = ordered.slice(0, LINE_ITEMS).join('; ');
   const rest = items.length - LINE_ITEMS;
   return `note: this change edits the law that judges it: ${shown}${rest > 0 ? `; and ${rest} more` : ''}`;
 }

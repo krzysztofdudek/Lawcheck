@@ -53,6 +53,37 @@ export async function check({ files: [file] }) {
 }
 ```
 
+The node types and fields come from the grammar of each language, and they differ between languages: a call is a `call_expression` in TypeScript and a `call` in Python. Before you write a rule that reads the tree, print the tree of a real file of the rule's language. This is `src/run.ts`:
+
+```ts
+const note = "eval(x)"; // eval(y)
+eval(note);
+```
+
+```text
+$ lawcheck explain src/run.ts --tree
+```
+
+```output
+src/run.ts  typescript  20 nodes, 12 named
+  program  line 1
+    lexical_declaration  line 1
+      variable_declarator  line 1
+        name: identifier  line 1  "note"
+        value: string  line 1
+          string_fragment  line 1  "eval(x)"
+    comment  line 1  "// eval(y)"
+    expression_statement  line 2
+      call_expression  line 2
+        function: identifier  line 2  "eval"
+        arguments: arguments  line 2
+          identifier  line 2  "note"
+```
+
+Each line below the first is a named node, under its parent: its field before a colon, its type and its line. A node with no named node below it also shows its text, cut at 40 characters. The rule above follows this tree: it takes the child in the field `function` of a `call_expression`. The `comment` holds `eval(y)` as text, so the rule reports nothing there.
+
+`explain --tree` leaves out the nodes that are not named, such as `const` and `;`. It stops at 12 levels and at 200 nodes, and says how many named nodes it left out. With `--json`, it gives every node with the keys below, and `parent` in place of `children`: the index of the node's parent in the list, or null for the root. To see the tree of one construct, write it in a small file and explain that file. The file need not be tracked by git. For a file with no tree, `explain --tree` prints the reason that `absent` gives below.
+
 `await file.tree()` gives an object with three keys:
 
 | Key | Value |
@@ -140,7 +171,7 @@ The first call of `uses()` by a rule reads, at once, the uses of every file the 
 - `line` is optional. Its value is an integer from 1 to the number of lines of the file. A finding without `line`, or with a `line` of `null`, is about the whole file. A `line` that is any other value than an integer in that range, such as a string like `'2'`, a bigint or `1.5`, makes the rule `rule-crashed`, with a message that names the value.
 - `file` is optional. Its one allowed value is the `path` of the call.
 
-Lawcheck ignores other fields. A rule that returns an empty list reports no finding. All the rules of one run may return 200,000 findings together, with 16 MiB of messages. A run past either limit stops with `too-many-findings`. The error names each rule with the number of findings it returned.
+Lawcheck ignores other fields, whatever they hold. A rule that returns an empty list reports no finding. All the rules of one run may return 200,000 findings together, with 16 MiB of messages. A run past either limit stops with `too-many-findings`. The error names each rule with the number of findings it returned.
 
 ## Calls
 
@@ -204,9 +235,11 @@ Lawcheck reports `rule-crashed` and exits with code 2 when the rule:
 - returns something other than a list of findings as above. A list with a message over 4,096 characters counts as such a return. So does a function, or another value that Lawcheck cannot pass out of the rule's process;
 - takes more than 30 seconds to load, or more than 30 seconds for one call;
 - ends its process before it answers, or sends a message that Lawcheck did not ask for;
-- leaves a promise rejected with no handler, or a timer that throws, while its process runs. The message of `rule-crashed` then names no judged file. A failure during the load adds the words `in its load`. After the last call, Lawcheck waits once, at most 2 seconds, for what the rule left running. A timer counts whether or not the rule unrefs it.
+- leaves a promise rejected with no handler, or a timer that throws, while its process runs. The message of `rule-crashed` then names no judged file. A failure during the load adds the words `in its load`. After the last call, Lawcheck waits once, at most 2 seconds, for what the rule left running. A timer counts whether or not the rule unrefs it, and so does a job of `node:crypto`, such as pbkdf2 or scrypt, whose callback has not run.
 
 In the other cases, the message of `rule-crashed` names the judged file, or the load. A rule may throw a value with no string form, such as an object with no prototype. The message then holds the error JavaScript gives for it. A proxy whose every trap throws something other than an error raises no such error. For such a value, the message reads `a value with no string form`. Lawcheck names each crashed rule once in a run.
+
+When a call leaves a timer or other work running, and the rule's process later ends or goes 30 seconds without answering, the message ends with the words "after a call that left work running" and names no judged file, provided the last call that answered left work running. The work may belong to an earlier call, and the file judged at that moment is not the cause. When the last call that answered left nothing running, the message names the file judged at that moment, even if an earlier call left work that has since ended. The same rule crashes with the same message when it judges one file and when it judges many.
 
 When Node cannot start the rule runner at all, Lawcheck stops with `runner-failed` and names no rule. The message holds Node's own error line. To fix it, reinstall Lawcheck.
 

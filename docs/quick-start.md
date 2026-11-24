@@ -1,6 +1,6 @@
 # Quick start
 
-Lawcheck checks your code against the architecture and rules you write down, and tells your coding agent which line breaks which rule. In five steps you write a law with one type and one `may_use` line. After you break it with one import, `lawcheck check` names the line. You need no model and no key.
+Lawcheck checks code against your written architecture and names the file and line that break it, so you catch drift in Claude Code hooks and CI. It reads the uses of 12 languages. In five steps you write a law with one type and one `may_use` line. After you break it with one import, `lawcheck check` names the line. You need no model and no key.
 
 Before you start the law, install Lawcheck as [Install](install.md) says. Start in a new repository. Then each output you get matches the one on this page:
 
@@ -96,6 +96,8 @@ You can fix the line in two ways:
 
 - move the printing out of `src/core/receipt.ts`;
 - give `src/cli/` a type of its own, then decide in the law whether `core` may use that type.
+
+In your own repository, your coding agent can write the first law for you: tell it "Run `lawcheck docs agent-setup` and follow it." ([Let a coding agent write the first law](agent-setup.md)).
 
 ## Can go wrong
 

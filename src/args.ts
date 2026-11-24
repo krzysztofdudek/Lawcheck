@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { renderErrors } from './output.js';
 import type { ErrorItem } from './output.js';
+import type { Runtime } from './environment.js';
 
 export interface Result {
   code: number;
@@ -27,14 +28,14 @@ export function documentOf(value: unknown): string {
 export const COMMANDS = ['init', 'prime', 'check', 'explain', 'try', 'docs', 'doctor'] as const;
 export type CommandName = (typeof COMMANDS)[number];
 
-type Value = 'ref' | 'digits' | 'id';
+type Value = 'ref' | 'digits' | 'id' | 'path';
 type Flags = Record<string, 'switch' | Value>;
 
 const FLAGS: Record<CommandName, Flags> = {
   init: { '--json': 'switch' },
   prime: { '--json': 'switch' },
-  check: { '--full': 'switch', '--strict': 'switch', '--base': 'ref', '--review': 'switch', '--again': 'switch', '--max-calls': 'digits', '--json': 'switch' },
-  explain: { '--type': 'id', '--rule': 'id', '--json': 'switch' },
+  check: { '--full': 'switch', '--strict': 'switch', '--base': 'ref', '--review': 'switch', '--again': 'switch', '--max-calls': 'digits', '--sarif': 'path', '--json': 'switch' },
+  explain: { '--type': 'id', '--rule': 'id', '--tree': 'switch', '--json': 'switch' },
   try: { '--times': 'digits', '--dry-run': 'switch', '--max-calls': 'digits', '--json': 'switch' },
   docs: { '--json': 'switch' },
   doctor: { '--base': 'ref', '--reviewer': 'switch', '--json': 'switch' },
@@ -70,7 +71,7 @@ export const USAGE: Record<CommandName, string> = {
     '',
   ].join('\n'),
   check: [
-    'usage: lawcheck check [--full] [--strict] [--base <ref>] [--review [--again] [--max-calls <n>]] [--json]',
+    'usage: lawcheck check [--full] [--strict] [--base <ref>] [--review [--again] [--max-calls <n>]] [--sarif <file>] [--json]',
     '       lawcheck check <path or pattern>... [--json]',
     '',
     'Checks the files of this change, or the files named, against .lawcheck/law.yaml.',
@@ -82,17 +83,19 @@ export const USAGE: Record<CommandName, string> = {
     '  --review           ask the reviewer for the reviews that have no verdict',
     '  --again            with --review, ask again where a failure is cached',
     '  --max-calls <n>    with --review, the most requests this run sends',
+    '  --sarif <file>     also write the findings to this file as SARIF 2.1.0',
     '  --json             print one JSON document',
     '',
     'Exit 0: no error. Exit 1: the code breaks the law. Exit 2: no conclusion.',
     '',
   ].join('\n'),
   explain: [
-    'usage: lawcheck explain (<path> | --type <id> | --rule <id>) [--json]',
+    'usage: lawcheck explain (<path> [--tree] | --type <id> | --rule <id>) [--json]',
     '',
     'Says why a file has the law it has, or explains a type or a rule. Runs no rule and writes nothing.',
     '',
     '  <path>       a file, a file that does not exist yet, or a directory',
+    '  --tree       with a file, print its syntax tree as a script rule gets it',
     '  --type <id>  a type of the law, with its files',
     '  --rule <id>  a rule of the law, with the files it binds',
     '  --json       print one JSON document',
@@ -143,7 +146,7 @@ export type Read = { arguments: Arguments } | { problem: string; command: Comman
 const LIST = COMMANDS.join(', ');
 
 function what(kind: Value): string {
-  return kind === 'ref' ? 'a ref' : kind === 'digits' ? 'a number' : 'an id';
+  return kind === 'ref' ? 'a ref' : kind === 'digits' ? 'a number' : kind === 'path' ? 'a path' : 'an id';
 }
 
 export function readArguments(argv: string[]): Read {
@@ -191,4 +194,11 @@ export function text(args: Arguments, flag: string): string | null {
 export function noWords(args: Arguments): string | null {
   const word = args.words[0];
   return word === undefined ? null : `unexpected argument '${word}'; ${args.command} takes no arguments`;
+}
+
+export interface CheckContext {
+  cwd: string;
+  env: NodeJS.ProcessEnv;
+  warn?: (line: string) => void;
+  runtime?: Runtime;
 }

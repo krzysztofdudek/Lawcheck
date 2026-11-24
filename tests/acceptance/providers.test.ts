@@ -1,13 +1,14 @@
 import { test } from 'node:test';
 import { fakeWrites, LIMITS_VARIABLE, platformSkip } from '../harness/tool.ts';
-import { CLAUDE_TIMEOUT_RUN_MS, FAKE_STARTED_MS, KILLED_GRACE_MS, LEFTOVER_GRACE_MS, TEST_RULE_MS } from '../numbers.ts';
+import { CLAUDE_TIMEOUT_RUN_MS, FAKE_STARTED_MS, KILLED_GRACE_MS, LEFTOVER_GRACE_MS, TEST_RULE_MS, WINDOWS_KILLED_GRACE_MS } from '../numbers.ts';
 import { LIMITS } from '../../dist/rules.js';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { anthropic, defaultAnswer, gitAlone, openai, startFake, withFake, writeFakeClaude } from './fake-reviewer.ts';
-import { alive, append, F, F_PATH, findingLines, pathWith, PROMPT_F, read, REVIEWER_CONFIG, REVIEWER_LAW, run, SECOND, startLawcheck, withR, write } from './helpers.ts';
+import { alive, append, F, F_PATH, findingLines, lawcheckAt, pathWith, PROMPT_F, read, REVIEWER_CONFIG, REVIEWER_LAW, run, SECOND, startLawcheck, withCopy, withR, write } from './helpers.ts';
+import type { Copy } from './helpers.ts';
 
 const UNREACHABLE = 'src/core/refund.ts  error[reviewer-unreachable]  ';
 
@@ -397,7 +398,7 @@ function claudeEnv(dir: string, mode: string, extra: NodeJS.ProcessEnv = {}): No
 }
 
 function record(dir: string) {
-  return JSON.parse(readFileSync(join(dir, 'record.json'), 'utf8')) as { args: string[]; cwd: string; listing: string[]; stdin: string; pid: number; child?: number };
+  return JSON.parse(readFileSync(join(dir, 'record.json'), 'utf8')) as { at: number; args: string[]; cwd: string; listing: string[]; stdin: string; pid: number; child?: number };
 }
 
 const CLAUDE_CONFIG = 'reviewer:\n  provider: claude-code\n  model: test-model\n';
@@ -470,6 +471,7 @@ async function waitFor(condition: () => boolean, ms: number): Promise<boolean> {
 }
 
 test('test 67: claude-code past its timeout, and the tool killed', async () => {
+  const killedGrace = process.platform === 'win32' ? WINDOWS_KILLED_GRACE_MS : KILLED_GRACE_MS;
   await withR(async (r, dir) => {
     write(r, F_PATH, F);
     const result = await run(r, null, ['--review', '--base', 'main'], claudeEnv(dir, 'sleep'));
@@ -488,9 +490,9 @@ test('test 67: claude-code past its timeout, and the tool killed', async () => {
       const seen = record(dir);
       child.kill('SIGKILL');
       const killedAt = Date.now();
-      assert.ok(await waitFor(() => !alive(seen.pid) && !alive(seen.child!), KILLED_GRACE_MS), `both are gone: ${survivors(seen)}`);
-      assert.ok(Date.now() - killedAt <= KILLED_GRACE_MS);
-      assert.ok(await waitFor(() => !existsSync(seen.cwd), KILLED_GRACE_MS), `${seen.cwd} is left`);
+      assert.ok(await waitFor(() => !alive(seen.pid) && !alive(seen.child!), killedGrace), `both are gone: ${survivors(seen)}`);
+      assert.ok(Date.now() - killedAt <= killedGrace);
+      assert.ok(await waitFor(() => !existsSync(seen.cwd), killedGrace), `${seen.cwd} is left`);
       assert.equal((await child.ended).signal, 'SIGKILL');
     } finally {
       child.kill('SIGKILL');
@@ -507,13 +509,75 @@ test('test 67: claude-code past its timeout, and the tool killed', async () => {
         child.kill(signal);
         const { code } = await child.ended;
         if (platformSkip('exit 2 after SIGTERM and SIGINT') === null) assert.equal(code, 2, signal);
-        assert.ok(await waitFor(() => !alive(seen.pid) && !alive(seen.child!), KILLED_GRACE_MS), `${signal}: both are gone`);
-        assert.ok(await waitFor(() => !existsSync(seen.cwd), KILLED_GRACE_MS), `${signal}: ${seen.cwd} is left`);
+        assert.ok(await waitFor(() => !alive(seen.pid) && !alive(seen.child!), killedGrace), `${signal}: both are gone`);
+        assert.ok(await waitFor(() => !existsSync(seen.cwd), killedGrace), `${signal}: ${seen.cwd} is left`);
       } finally {
         child.kill('SIGKILL');
       }
     }, config(CLAUDE_CONFIG));
   }
+});
+
+// In this copy of the tool the guard writes each line the tool sends it, with the time it came, and lists nothing, and the tool starts the guard's list on every system: what the tool tells the guard on Windows shows everywhere, and a wait for the guard's list never ends by itself.
+function silentGuard(copy: Copy, told: string): void {
+  const rules = join(copy.dir, 'dist', 'programs.js');
+  const sound = readFileSync(rules, 'utf8');
+  const windowsOnly = "if (process.platform !== 'win32' || listing || !existsSync(tmpdir()))";
+  assert.ok(sound.includes(windowsOnly));
+  writeFileSync(rules, sound.replace(windowsOnly, 'if (listing || !existsSync(tmpdir()))'));
+  writeFileSync(
+    join(copy.dir, 'dist', 'guard.js'),
+    `import { appendFileSync } from 'node:fs';\nlet pending = '';\nprocess.stdin.setEncoding('utf8');\nprocess.stdin.on('data', (chunk) => {\n  pending += chunk;\n  for (let end = pending.indexOf('\\n'); end >= 0; end = pending.indexOf('\\n')) {\n    appendFileSync(${JSON.stringify(told)}, Date.now() + ' ' + pending.slice(0, end) + '\\n');\n    pending = pending.slice(end + 1);\n  }\n});\n`,
+  );
+}
+
+function toldToList(told: string): number | null {
+  if (!existsSync(told)) return null;
+  const line = readFileSync(told, 'utf8').split('\n').find((said) => said.endsWith(' +w'));
+  return line === undefined ? null : Number(line.split(' ')[0]);
+}
+
+test('R-74: doctor tells the guard to start no list of processes, and a review tells it before its call', async () => {
+  await withCopy(async (copy) => {
+    await withR(async (r, dir) => {
+      write(r, F_PATH, F);
+      const told = join(dir, 'told.txt');
+      fakeWrites(dir, ['told.txt']);
+      silentGuard(copy, told);
+      const env = claudeEnv(dir, 'answer');
+      const doctor = await lawcheckAt(copy.cli, r, ['doctor', '--base', 'main'], env);
+      assert.match(doctor.stdout, /claude-code can be called/);
+      assert.equal(toldToList(told), null, existsSync(told) ? readFileSync(told, 'utf8') : '');
+      const review = await lawcheckAt(copy.cli, r, ['check', '--review', '--base', 'main'], env);
+      assert.equal(review.stdout, SECOND);
+      const asked = toldToList(told);
+      assert.notEqual(asked, null);
+      assert.ok(asked! <= record(dir).at, `the tool told the guard at ${asked}, after claude started at ${record(dir).at}`);
+    }, config(CLAUDE_CONFIG));
+  });
+});
+
+// Longer than a start of the fake claude through cmd.exe on a loaded Windows runner, and shorter than the 10 seconds the tool waited for the guard's list before df614fb.
+const UNLISTED_TIMEOUT_S = 8;
+// The timeout above counts from the call, so a wait before it shows only in the time from the tool's telling to the fake's start, which takes some hundreds of milliseconds.
+const UNLISTED_START_MS = 3_000;
+
+test('R-69: a call of a program reviewer waits for no list of the guard: with a guard that never lists, the program starts and answers within reviewer.timeout of the tool telling the guard to list', async () => {
+  await withCopy(async (copy) => {
+    await withR(async (r, dir) => {
+      write(r, F_PATH, F);
+      const told = join(dir, 'told.txt');
+      fakeWrites(dir, ['told.txt']);
+      silentGuard(copy, told);
+      const review = await lawcheckAt(copy.cli, r, ['check', '--review', '--base', 'main'], claudeEnv(dir, 'answer'));
+      assert.equal(review.stdout, SECOND);
+      assert.equal(review.code, 1);
+      const asked = toldToList(told);
+      assert.notEqual(asked, null);
+      const waited = record(dir).at - asked!;
+      assert.ok(waited < UNLISTED_START_MS, `claude started ${waited} ms after the tool told the guard to list`);
+    }, config(CLAUDE_CONFIG + `  timeout: ${UNLISTED_TIMEOUT_S}\n`));
+  });
 });
 
 test('R-88: the test entry of the tool refuses a limit as long as the one the tool ships, and no program the tool starts sees its variable', async () => {

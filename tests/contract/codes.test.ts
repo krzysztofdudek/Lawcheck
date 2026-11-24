@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { generateKeyPairSync } from 'node:crypto';
 import { chmodSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { delimiter, join } from 'node:path';
 import { openai, startFake, type Fake } from '../acceptance/fake-reviewer.ts';
@@ -24,6 +25,7 @@ import {
   makeU,
   newRepository,
   REVIEWER_CONFIG,
+  REVIEWER_LAW,
   SAMPLE,
   setRule,
   startLawcheck,
@@ -49,6 +51,9 @@ const VALUE_FLAGS = new Set(['--base', '--max-calls', '--times', '--type', '--ru
 const TOPICS = readdirSync(new URL('../../docs/', import.meta.url)).map((f) => f.replace(/\.md$/, ''));
 const REVIEW = ['--review', '--base', 'main'];
 const CALL = 'lawcheck: 1 reviewer call to openai-compatible\n';
+const SIGNER = generateKeyPairSync('ed25519');
+const SIGNER_D = SIGNER.privateKey.export({ format: 'jwk' }).d!;
+const SIGNER_X = SIGNER.publicKey.export({ format: 'jwk' }).x!;
 
 interface Follow {
   fix?: () => void | Promise<void>;
@@ -155,15 +160,6 @@ const CASES: Case[] = [
   },
   { id: 'not-initialized, doctor', code: 'not-initialized', setup: (dir) => ({ cwd: lawIn(dir), argv: ['doctor'], report: 'doctor', leads: 'init' }) },
   {
-    id: 'not-initialized, doctor, law.yaml is a directory',
-    code: 'not-initialized',
-    setup: (dir) => {
-      const repo = lawIn(dir);
-      mkdirSync(join(repo, '.lawcheck/law.yaml'), { recursive: true });
-      return { cwd: repo, argv: ['doctor'], report: 'doctor', leads: 'init' };
-    },
-  },
-  {
     id: 'already-initialized',
     code: 'already-initialized',
     setup: (dir) => ({ cwd: makeSample(dir), argv: ['init'], leads: 'doctor' }),
@@ -199,6 +195,24 @@ const CASES: Case[] = [
   inS('law-invalid, check', 'law-invalid', CHECK, withLaw('lawcheck: 0.1.0\nrulez: {}\n')),
   inS('law-invalid, explain', 'law-invalid', EXPLAIN, withLaw('lawcheck: 0.1.0\nrulez: {}\n')),
   inS('law-invalid, try', 'law-invalid', TRY, withLaw('lawcheck: 0.1.0\nrulez: {}\n')),
+  {
+    id: 'law-invalid, check, law.yaml is a directory',
+    code: 'law-invalid',
+    setup: (dir) => {
+      const repo = lawIn(dir);
+      mkdirSync(join(repo, '.lawcheck/law.yaml'), { recursive: true });
+      return {
+        cwd: repo,
+        argv: ['check'],
+        follow: {
+          fix: () => {
+            rmSync(join(repo, '.lawcheck/law.yaml'), { recursive: true });
+            installLaw(repo);
+          },
+        },
+      };
+    },
+  },
   inS('config-invalid, check', 'config-invalid', CHECK, (s) => write(s, '.lawcheck/config.yaml', 'bogus: 1\n')),
   inS('config-invalid, explain', 'config-invalid', EXPLAIN, (s) => write(s, '.lawcheck/config.yaml', 'bogus: 1\n')),
   inS('rule-missing-file, check', 'rule-missing-file', CHECK, (s) => rmSync(join(s, '.lawcheck/rules/no-todo.mjs'))),
@@ -277,6 +291,15 @@ const CASES: Case[] = [
       write(r, F_PATH, F);
       rmSync(join(r, '.lawcheck/config.yaml'));
       return { cwd: r, argv: ['check', ...REVIEW], follow: { fix: () => write(r, '.lawcheck/config.yaml', REVIEWER_CONFIG), env: { LAWCHECK_REVIEWER_ENDPOINT: fake.url } } };
+    },
+  },
+  {
+    id: 'not-a-signer',
+    code: 'not-a-signer',
+    setup: (dir, fake) => {
+      const r = makeR(dir, { onMain: (m) => write(m, '.lawcheck/law.yaml', `${REVIEWER_LAW}\nsigners:\n  alice: ${SIGNER_X}\n`) });
+      write(r, F_PATH, F);
+      return { cwd: r, argv: ['check', ...REVIEW], env: { LAWCHECK_REVIEWER_ENDPOINT: fake.url }, follow: { env: { LAWCHECK_SIGNING_KEY: SIGNER_D } } };
     },
   },
   reviewer('too-many-reviews', 'too-many-reviews', ['check', ...REVIEW, '--max-calls', '0'], () => undefined, () => undefined),
@@ -803,7 +826,7 @@ const GROUPS: Record<string, string[]> = {
   front: ['usage', 'not-initialized', 'already-initialized', 'no-git', 'unsupported-environment'],
   files: ['law-invalid', 'config-invalid', 'rule-missing-file', 'rule-file-without-entry', 'type-overlap'],
   run: ['base-unreachable', 'rule-crashed', 'parser-failed', 'internal', 'link-outside-root', 'path-unsupported', 'runner-failed'],
-  reviewer: ['reviewer-not-configured', 'too-many-reviews', 'reviewer-unreachable', 'reviewer-bad-answer', 'not-reviewed', 'too-large-to-review'],
+  reviewer: ['reviewer-not-configured', 'too-many-reviews', 'reviewer-unreachable', 'reviewer-bad-answer', 'not-a-signer', 'not-reviewed', 'too-large-to-review'],
   findings: ['forbidden-use', 'uses-not-read', 'untyped-file', 'waiver-', 'doctor,'],
 };
 
@@ -830,9 +853,8 @@ test('check-slice §6: law-invalid, config-invalid, rule-missing-file, rule-file
 
 test('check-slice §6: base-unreachable, rule-crashed, parser-failed, internal, link-outside-root, path-unsupported and runner-failed, in text and in JSON, and the commands their next lines name', async (t) => {
   const noStar = platformSkip('path-unsupported');
-  const noCr = platformSkip('runner-failed');
-  assert.deepEqual(await runCases(inGroup('run').filter((c) => (noStar === null || c.id !== 'path-unsupported') && (noCr === null || c.id !== 'runner-failed'))), []);
-  for (const skip of [noStar, noCr]) if (skip !== null) t.diagnostic(skip);
+  assert.deepEqual(await runCases(inGroup('run').filter((c) => noStar === null || c.id !== 'path-unsupported')), []);
+  if (noStar !== null) t.diagnostic(noStar);
 });
 
 test('check-slice §6: the reviewer codes, in text and in JSON, and the commands their next lines name', async () => {

@@ -2,10 +2,12 @@
 import Lockup from '../theme/Lockup.vue';
 import CopyCommand from './CopyCommand.vue';
 import Film from './Film.vue';
+import Tutorial from './Tutorial.vue';
 import { data } from './facts.data.ts';
 
 const c = data.copy;
 const released = c.footer.released.replace('{version}', data.head.version).replace('{date}', data.head.date);
+const ahead = c.footer.ahead.replace('{version}', data.head.version);
 </script>
 
 <template>
@@ -24,11 +26,12 @@ const released = c.footer.released.replace('{version}', data.head.version).repla
         <div class="hero-text">
           <h1>{{ c.h1 }}</h1>
           <p class="lead" v-html="data.hero.promise" />
+          <p class="who" v-html="data.hero.who" />
         </div>
         <Film class="hero-film" :still="data.hero.still" />
         <div class="hero-install">
           <CopyCommand :command="data.hero.install" :copy="c.install.copy" :copied="c.install.copied" />
-          <a class="quick" :href="c.install.quickStart.href">{{ c.install.quickStart.text }}</a>
+          <a class="button quick" :href="c.install.quickStart.href">{{ c.install.quickStart.text }}</a>
           <ul class="facts">
             <li v-html="data.hero.support" />
             <li v-html="data.hero.alpha" />
@@ -40,6 +43,7 @@ const released = c.footer.released.replace('{version}', data.head.version).repla
       <section class="wrap problem" aria-labelledby="problem">
         <h2 id="problem">{{ c.problem }}</h2>
         <p v-html="data.problem" />
+        <p v-html="data.advice" />
       </section>
 
       <section class="wrap" aria-labelledby="law">
@@ -72,6 +76,8 @@ const released = c.footer.released.replace('{version}', data.head.version).repla
         <p><a :href="data.holds.link.href">{{ data.holds.link.text }}</a></p>
       </section>
 
+      <Tutorial v-if="data.tutorial.chapters.length > 0" :copy="c.tutorial" :chapters="data.tutorial.chapters" />
+
       <section class="wrap" aria-labelledby="tools">
         <h2 id="tools">{{ data.tools.heading }}</h2>
         <div class="table" tabindex="0" role="region" aria-labelledby="tools">
@@ -103,6 +109,9 @@ const released = c.footer.released.replace('{version}', data.head.version).repla
         <CopyCommand :command="data.tryIt.install" :copy="c.install.copy" :copied="c.install.copied" />
         <p v-html="data.tryIt.plugin" />
         <CopyCommand :command="data.tryIt.pluginCommands" :copy="c.install.copy" :copied="c.install.copied" />
+        <p v-html="data.tryIt.codex" />
+        <p v-html="data.tryIt.copilot" />
+        <p v-html="data.tryIt.cursor" />
         <p v-html="data.tryIt.quickStart" />
         <p class="links">
           <a class="button" :href="c.next.button.href">{{ c.next.button.text }}</a>
@@ -116,6 +125,7 @@ const released = c.footer.released.replace('{version}', data.head.version).repla
     <div class="wrap foot-inner">
       <a class="home" href="/"><Lockup /></a>
       <p>{{ released }}</p>
+      <p v-if="data.head.ahead">{{ ahead }}</p>
       <ul class="foot-links">
         <li><a :href="c.footer.docs.href">{{ c.footer.docs.text }}</a></li>
         <li><a :href="c.footer.changelog.href">{{ c.footer.changelog.text }}</a></li>

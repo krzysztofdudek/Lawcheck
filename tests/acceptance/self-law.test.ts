@@ -1,14 +1,16 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
+import { rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { parse } from 'yaml';
 import { git, GIT_ENV, inTemp, lawcheck, read, ROOT, write } from './helpers.ts';
+import { judge, loadConfig, render } from '../guard/guard.ts';
 
 const ADVISORY = new Set(['errors-name-the-fix', 'docs-state-facts']);
 const WAIVERS: { file: string; rule: string; reason: string }[] = [];
 const UNRESOLVED = [{ file: 'scripts/grammars.ts', what: '..', answer: 'none', reason: 'unfollowed' }];
-const UNSORTED = new Set(['args', 'check', 'cli', 'config', 'docs', 'doctor', 'environment', 'explain', 'files', 'glob', 'guard', 'init', 'keys', 'law', 'lawchange', 'limits', 'main', 'names', 'output', 'prime', 'programs', 'progress', 'prompt', 'readers', 'review', 'rules', 'runner', 'setup', 'try', 'types', 'uses', 'verdicts', 'waivers', 'work'].map((name) => `src/${name}.ts`).concat(['src/bin.cts'], ['anthropic', 'claude-code', 'codex', 'copilot-cli', 'gemini-cli', 'google', 'http', 'index', 'ollama', 'openai', 'openai-compatible', 'program'].map((name) => `src/providers/${name}.ts`)));
+const UNSORTED = new Set(['args', 'check', 'cli', 'config', 'docs', 'doctor', 'environment', 'explain', 'files', 'glob', 'guard', 'init', 'keys', 'law', 'lawchange', 'limits', 'main', 'names', 'output', 'prime', 'programs', 'progress', 'prompt', 'readers', 'review', 'rules', 'setup', 'try', 'types', 'uses', 'verdicts', 'waivers', 'work'].map((name) => `src/${name}.ts`).concat(['src/bin.cts'], ['anthropic', 'claude-code', 'codex', 'copilot-cli', 'gemini-cli', 'google', 'http', 'index', 'ollama', 'openai', 'openai-compatible', 'program'].map((name) => `src/providers/${name}.ts`)));
 
 interface Finding {
   code: string;
@@ -111,5 +113,79 @@ test('question 160: a committed break of each script rule and a forbidden use ar
       'src/steps/cycle.ts: warning[not-reviewed] ' + word,
       'src/steps/cycle.ts:1 warning[no-import-cycles] imports src/steps/break.ts, which imports this file back; move what both need into a module that imports neither',
     ].sort());
+  });
+});
+
+const LAYERING = [
+  'lawcheck: 0.1.0',
+  '',
+  'types:',
+  '  commands:',
+  '    paths: ["src/{check,docs,doctor,explain,init,prime,try}.ts"]',
+  '    may_use: [review, providers, rule-runs, provider-contract, rest]',
+  '  review:',
+  '    paths: ["src/review.ts"]',
+  '    may_use: [rule-runs, provider-contract, rest]',
+  '  providers:',
+  '    paths: ["src/providers/**"]',
+  '    may_use: [providers, provider-contract, rest]',
+  '  rule-runs:',
+  '    paths: ["src/rules.ts"]',
+  '  provider-contract:',
+  '    paths: ["src/provider.ts"]',
+  '  rest:',
+  '    paths: ["**", "!src/{check,docs,doctor,explain,init,prime,provider,review,rules,try}.ts", "!src/providers/**"]',
+  '',
+].join('\n');
+
+test('R-5: no command imports another, the call loop of the reviewer takes the contract of a provider and no provider, and no provider uses the runs of script rules', async () => {
+  await inTemp(async (dir) => {
+    const repo = cloneOfHead(dir);
+    rmSync(join(repo, '.lawcheck/rules'), { recursive: true, force: true });
+    write(repo, '.lawcheck/law.yaml', LAYERING);
+    git(repo, 'add', '-A');
+    git(repo, 'commit', '-q', '-m', 'the layers of R-5');
+    const run = await lawcheck(repo, ['check', '--full', '--base', 'HEAD', '--json']);
+    assert.equal(run.stderr, '');
+    assert.equal(run.code, 0, run.stdout);
+    const report = JSON.parse(run.stdout) as Report;
+    const found = report.findings.filter((f) => f.code === 'forbidden-use').map((f) => `${f.file}:${f.line ?? ''} ${f.message}`).sort();
+    assert.deepEqual(found, []);
+  });
+});
+
+test('R-81: src/runner.ts has the type rule-runner, so the runner of script rules using a module of Lawcheck is a forbidden-use', async () => {
+  await inTemp(async (dir) => {
+    const repo = cloneOfHead(dir);
+    write(repo, 'src/runner.ts', `import { count } from './limits.js';\n${read(repo, 'src/runner.ts')}`);
+    git(repo, 'commit', '-q', '-a', '-m', 'the runner uses the limits');
+    const { found } = await blocking(repo);
+    assert.deepEqual(found.filter((line) => line.includes('[forbidden-use]')), ['src/runner.ts:1 warning[forbidden-use] rule-runner may not use src/limits.ts, which has no type; its may_use is []']);
+  });
+});
+
+test("R-10: a commit that takes the rules off a type of Lawcheck's own law and breaks them passes the check, and the suite guard refuses it until a fresh reviewer's row approves the change of the law", async () => {
+  await inTemp(async (dir) => {
+    const repo = cloneOfHead(dir);
+    const law = read(repo, '.lawcheck/law.yaml');
+    const widened = law.replace(/(\n {2}build-scripts:\n(?: {4}.*\n)*?) {4}rules: \[layer-imports, comments-say-why\]\n/, '$1    rules: []\n');
+    assert.notEqual(widened, law);
+    write(repo, '.lawcheck/law.yaml', widened);
+    write(repo, 'scripts/sneak.ts', "import { parse } from 'yaml';\nexport const read = parse;\n");
+    git(repo, 'add', '-A');
+    git(repo, 'commit', '-q', '-m', 'the law and the code in one commit');
+    const run = await lawcheck(repo, ['check', '--base', 'HEAD~1', '--json']);
+    assert.equal(run.stderr, '');
+    assert.equal(run.code, 0, run.stdout);
+    assert.equal((JSON.parse(run.stdout) as Report).result, 'pass');
+    const refused = judge(repo, 'HEAD~1', 'HEAD', loadConfig());
+    assert.equal(refused.passed, false, render(refused));
+    assert.deepEqual(refused.findings.filter((f) => !f.cleared).map((f) => `${f.kind} ${f.subject}`), ['law-changed .lawcheck/law.yaml']);
+    const today = new Date().toISOString().slice(0, 10);
+    write(repo, 'tests/weakenings.md', `${read(repo, 'tests/weakenings.md')}| ${today} | .lawcheck/law.yaml | law-changed | build-scripts keeps no rule | .lawcheck/law.yaml | reviewer the fresh reviewer of this change |\n`);
+    git(repo, 'commit', '-q', '-a', '-m', 'the row of the change of the law');
+    const cleared = judge(repo, 'HEAD~2', 'HEAD', loadConfig());
+    assert.equal(cleared.passed, true, render(cleared));
+    assert.deepEqual(cleared.findings.map((f) => `${f.cleared ? 'cleared' : 'refused'} ${f.kind} ${f.subject}`), ['cleared law-changed .lawcheck/law.yaml']);
   });
 });

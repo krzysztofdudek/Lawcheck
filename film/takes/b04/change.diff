@@ -1,0 +1,52 @@
+diff --git a/src/api/format.ts b/src/api/format.ts
+index 4ecc707..d1afefc 100644
+--- a/src/api/format.ts
++++ b/src/api/format.ts
+@@ -1,6 +1 @@
+-export function formatMoney(cents: number): string {
+-  const sign = cents < 0 ? "-" : "";
+-  const whole = Math.floor(Math.abs(cents) / 100);
+-  const rest = String(Math.abs(cents) % 100).padStart(2, "0");
+-  return `${sign}$${whole}.${rest}`;
+-}
++export { formatMoney } from "../core/money.ts";
+diff --git a/src/core/loyalty.ts b/src/core/loyalty.ts
+new file mode 100644
+index 0000000..2a70248
+--- /dev/null
++++ b/src/core/loyalty.ts
+@@ -0,0 +1,22 @@
++import { formatMoney } from "./money.ts";
++
++export const LOYALTY_MIN_ORDERS = 5;
++export const LOYALTY_PERCENT = 10;
++
++export interface LoyaltyResult {
++  total: number;
++  saved: number;
++  message: string;
++}
++
++export function applyLoyaltyDiscount(totalCents: number, orders: number): LoyaltyResult {
++  if (orders <= LOYALTY_MIN_ORDERS) {
++    return { total: totalCents, saved: 0, message: "" };
++  }
++  const saved = Math.round((totalCents * LOYALTY_PERCENT) / 100);
++  return {
++    total: totalCents - saved,
++    saved,
++    message: `Loyalty discount: you saved ${formatMoney(saved)}`,
++  };
++}
+diff --git a/src/core/money.ts b/src/core/money.ts
+new file mode 100644
+index 0000000..4ecc707
+--- /dev/null
++++ b/src/core/money.ts
+@@ -0,0 +1,6 @@
++export function formatMoney(cents: number): string {
++  const sign = cents < 0 ? "-" : "";
++  const whole = Math.floor(Math.abs(cents) / 100);
++  const rest = String(Math.abs(cents) % 100).padStart(2, "0");
++  return `${sign}$${whole}.${rest}`;
++}

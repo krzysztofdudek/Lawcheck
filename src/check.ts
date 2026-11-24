@@ -1,7 +1,7 @@
 import { join } from 'node:path';
-import { comparePaths, nestedReason, nestedRepositories, repositoryHolding, trackedLinks, workTreeTop } from './files.js';
+import { comparePaths, nestedReason, nestedRepositories, repositoryHolding } from './files.js';
 import { compilePattern } from './glob.js';
-import { hide } from './keys.js';
+import { hide, SIGNING_KEY } from './keys.js';
 import type { ReviewerConfig } from './config.js';
 import { patternFor, takesWaivers } from './law.js';
 import type { Law } from './law.js';
@@ -15,17 +15,17 @@ import type { ScriptView } from './readers.js';
 import { atBase, lawChangeLine, lawChanges } from './lawchange.js';
 import { call, preflight } from './review.js';
 import type { Ask } from './review.js';
-import { contextOf, crashNext, FindingBudget, linksOut, resolveCompanions, rulesDeadline, runAll, runnerProblem, runRule, slowMessage } from './rules.js';
+import { contextOf, crashNext, FindingBudget, resolveCompanions, rulesDeadline, runAll, runnerErrors, runRule, slowMessage, tooManyFindings } from './rules.js';
 import type { CompanionRun, RawFinding, RuleOutcome } from './rules.js';
 import { decode, filesOfTypes, isBinary, splitLines } from './types.js';
-import { bytesOf, selectTargets } from './try.js';
-import { fromCwd, loadConfig, loadLaw, loadRuleFiles, locate, requireGit, RULES_DIR, LAW, Stop, stopped, theChange, touchesLaw, typingErrors } from './setup.js';
+import { bytesOf, fromCwd, loadConfig, loadLaw, loadRuleFiles, locate, requireGit, RULES_DIR, LAW, selectTargets, Stop, stopped, theChange, touchesLaw, typingErrors } from './setup.js';
 import type { Kinds, Read, ReviewerRule } from './setup.js';
 import { judgeUses, listInForce, notRead } from './uses.js';
 import type { Forbidden, NotRead, Target } from './uses.js';
 import type { TypedFile } from './types.js';
-import type { Runtime } from './environment.js';
-import { countPasses, FULL_NEXT, readFailure, readVerdicts, reviewKey, Unwritable, VERDICTS, VerdictsFull, VerdictsUnreadable, VerdictWriter } from './verdicts.js';
+import type { CheckContext } from './args.js';
+import { countPasses, FULL_NEXT, readFailure, readPasses, reviewKey, signingKey, Unwritable, VERDICTS, VerdictsFull, VerdictsUnreadable, VerdictWriter } from './verdicts.js';
+import type { Passes, Signer } from './verdicts.js';
 import { addedWaivers, parseWaivers, waive, waivedLines } from './waivers.js';
 import { count, mib, points, RUN_FINDINGS, RUN_MESSAGE_CHARS, USES_FILE_BYTES } from './limits.js';
 import { step } from './progress.js';
@@ -41,13 +41,6 @@ export interface CheckOptions {
   again?: boolean;
   maxCalls?: number | null;
   paths?: string[];
-}
-
-export interface CheckContext {
-  cwd: string;
-  env: NodeJS.ProcessEnv;
-  warn?: (line: string) => void;
-  runtime?: Runtime;
 }
 
 export type CheckOutcome = { errors: ErrorItem[]; calls?: number } | { report: Report };
@@ -79,16 +72,6 @@ interface Front {
   typed: TypedFile[];
   untyped: string[];
   chosen: string[] | null;
-}
-
-function linkError(link: { path: string; target: string }): ErrorItem {
-  return { code: 'link-outside-root', file: link.path, line: null, message: `the link leads to ${link.target}, outside the git work tree and Lawcheck's folder, and a script rule could read through it` };
-}
-
-export function runnerErrors(root: string): ErrorItem[] {
-  const unsupported = runnerProblem(root);
-  if (unsupported !== null) return [{ code: 'path-unsupported', file: null, line: null, message: unsupported }];
-  return linksOut(root, workTreeTop(root), trackedLinks(root)).map(linkError);
 }
 
 async function checkAt(root: string, options: CheckOptions, context: CheckContext, front: Front): Promise<CheckOutcome> {
@@ -174,9 +157,9 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
   const cap = options.maxCalls ?? config.maxCalls;
 
   const roomOf = () => verdictRoom(root, law, typed, kinds, companionRun);
-  let verdicts: Set<string>;
+  let verdicts: Passes;
   try {
-    verdicts = readVerdicts(root);
+    verdicts = readPasses(root, law.signers);
   } catch (error) {
     if (!(error instanceof VerdictsUnreadable) || !error.cause.startsWith('it holds more')) throw error;
     const room = await roomOf();
@@ -232,9 +215,10 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
   let missing = asks;
   if (options.review && asks.length > 0) {
     const provider = createProvider(config, context.env);
-    const blocked = preflight(provider, config, cap, asks.length, review);
-    if (blocked.length > 0) return { errors: blocked };
-    const writer = new VerdictWriter(root);
+    const signing = law.signers === null ? { signer: null } : signerOf(law.signers, context.env, review);
+    const blocked = [...preflight(provider, config, cap, asks.length, review), ...('problem' in signing ? [signing.problem] : [])];
+    if (blocked.length > 0 || 'problem' in signing) return { errors: blocked };
+    const writer = new VerdictWriter(root, signing.signer);
     try {
       writer.ready(asks.map((ask) => ask.rule));
     } catch (error) {
@@ -275,7 +259,7 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
     missing = [];
   }
   for (const ask of missing) {
-    const message = `${ask.rule} has no verdict for this content`;
+    const message = verdicts.uncounted(`${ask.key} ${ask.rule}`) ? `${ask.rule} has a pass for this content that no signer of the law signed` : `${ask.rule} has no verdict for this content`;
     if (budget.addAt(1, points(message))) return { errors: [tooManyAt(ask.file, budget)] };
     builtIn.push({ code: 'not-reviewed', rule: ask.rule, file: ask.file, message });
   }
@@ -310,15 +294,29 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
   return { report };
 }
 
+// A run that records a pass the law would not count pays for calls that leave every file not-reviewed, so the key is checked before the first call.
+function signerOf(signers: ReadonlyMap<string, string>, env: NodeJS.ProcessEnv, review: string): { signer: Signer } | { problem: ErrorItem } {
+  const refused = (message: string, next: string): { problem: ErrorItem } => ({ problem: { code: 'not-a-signer', file: null, line: null, message, next: `${next}, then run ${review}` } });
+  const setIt = `ask the user to set ${SIGNING_KEY} to the signing key of a signer that .lawcheck/law.yaml names`;
+  const text = env[SIGNING_KEY] ?? '';
+  if (text === '') return refused(`the law names signers and ${SIGNING_KEY} is not set, so this run could record no pass that counts`, setIt);
+  const own = signingKey(text);
+  if (own === null) return refused(`${SIGNING_KEY} holds no Ed25519 signing key: it takes 43 characters of base64url`, setIt);
+  const name = [...signers].find(([, key]) => key === own.publicKey)?.[0];
+  if (name === undefined) return refused(`the key in ${SIGNING_KEY} belongs to no signer of the law; its public key is ${own.publicKey}`, `ask the user whether to add a signer with this public key to signers in .lawcheck/law.yaml, or to set ${SIGNING_KEY} to the key of a signer the law names`);
+  return { signer: { name, key: own.key } };
+}
+
 // A waiver is read only in a file whose type takes waivers, so a marker in a file no type takes, or one under ignored, waives nothing and is not named; the law-change note names the pattern that put the file there.
 function addedInChange(root: string, base: string, run: TypedFile[], changed: Set<string>, waiversOf: Map<string, { waivers: Waiver[] }>, ruleIds: Set<string>): Set<Waiver> | null {
   const read = atBase(root, base);
   if (read === null) return null;
   const added = new Set<Waiver>();
-  for (const file of run) {
+  const waived = run.filter((file) => waiversOf.get(file.path)!.waivers.length > 0 && changed.has(file.path));
+  const atFork = read(waived.map((file) => file.path));
+  for (const file of waived) {
     const now = waiversOf.get(file.path)!.waivers;
-    if (now.length === 0 || !changed.has(file.path)) continue;
-    const bytes = read(file.path);
+    const bytes = atFork.get(file.path) ?? null;
     const lines = bytes === null || isBinary(bytes) ? [] : splitLines(decode(bytes));
     for (const waiver of addedWaivers(now, file.lines, parseWaivers(lines, ruleIds).waivers, lines)) added.add(waiver);
   }
@@ -377,16 +375,6 @@ async function verdictRoom(root: string, law: Law, typed: TypedFile[], kinds: Ki
   }
   const counted = countPasses(root, needed);
   return `of its ${count(counted.held)} ${counted.held === 1 ? 'pass' : 'passes'} the files of this tree need ${count(counted.needed)}, and a review of every file of this law would take ${plural(needed.size, 'reviewer call')}`;
-}
-
-export function tooManyFindings(budget: FindingBudget): ErrorItem[] {
-  const all = `the rules of a run may return ${count(RUN_FINDINGS)} findings with ${count(RUN_MESSAGE_CHARS)} characters of message in all, and they returned ${count(budget.total)} with ${count(budget.chars)}`;
-  const items: ErrorItem[] = [];
-  for (const [rule, own] of budget.byRule) {
-    if (own.count === 0) continue;
-    items.push({ code: 'too-many-findings', file: `${RULES_DIR}${rule}.mjs`, line: null, message: `returns ${count(own.count)} findings with ${count(own.chars)} characters of message in this run; ${all}` });
-  }
-  return items;
 }
 
 function tooManyAt(path: string, budget: FindingBudget): ErrorItem {
@@ -559,7 +547,9 @@ function judge(
     for (const waiver of valid) {
       waivers.push({ file: file.path, line: waiver.line, rule: waiver.rule, debt: isDebt, waived: waiver.waived, reason: waiver.reason, added: added === null ? null : added.has(waiver) });
       if (waiver.waived === 0 && !reviewers.has(waiver.rule)) {
-        place({ code: 'waiver-unused', rule: null, severity: 'warning', debt: isDebt, file: file.path, line: waiver.line, type: file.type.id, message: `the waiver of '${waiver.rule}' drops no finding`, why: WHY['waiver-unused']! });
+        const taken = valid.find((other) => other !== waiver && other.rule === waiver.rule && other.covers === waiver.covers && other.waived > 0);
+        const because = taken === undefined ? '' : `; the waiver on line ${taken.line} already drops the findings of that line`;
+        place({ code: 'waiver-unused', rule: null, severity: 'warning', debt: isDebt, file: file.path, line: waiver.line, type: file.type.id, message: `the waiver of '${waiver.rule}' drops no finding${because}`, why: WHY['waiver-unused']! });
       }
     }
   }

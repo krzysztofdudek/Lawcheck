@@ -1,6 +1,7 @@
 import type { ReviewerConfig } from '../config.js';
 import { findProgram, variableOf } from '../programs.js';
-import type { Env, Provider } from './index.js';
+import type { Env } from './index.js';
+import type { Provider } from '../provider.js';
 import { plainOutput, programProvider } from './program.js';
 import type { Prepared } from './program.js';
 

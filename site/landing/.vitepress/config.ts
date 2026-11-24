@@ -4,6 +4,7 @@ import { defineConfig } from 'vitepress';
 import type { HeadConfig } from 'vitepress';
 import { brandStyles, dropEmptyIcons, CANONICAL, fontPreloads, GITHUB, manifest, NPM, REPOSITORY, themeColor, viteShared } from '../../theme/brand.ts';
 import { cardHead } from '../../theme/card.mjs';
+import { writeChapterFiles } from '../../theme/film.ts';
 import { copyOf, head, pageUrl } from '../facts.ts';
 
 const page = head();
@@ -72,7 +73,8 @@ export default defineConfig({
       ['script', { type: 'application/ld+json' }, JSON.stringify(structured)],
     ];
   },
-  buildEnd(site) {
+  async buildEnd(site) {
+    await writeChapterFiles(join(site.outDir, 'film'));
     writeFileSync(join(site.outDir, '404.html'), pageNotFound(readFileSync(join(site.outDir, 'index.html'), 'utf8')));
     copyFileSync(join(REPOSITORY, 'brand', 'icon.svg'), join(site.outDir, 'icon.svg'));
     dropEmptyIcons(site.outDir);

@@ -1,0 +1,85 @@
+{
+  "id": "ci01",
+  "page": "ci",
+  "recorded": "2026-11-24T05:34:25.931Z",
+  "prompt": "Add the CI job of lawcheck docs ci to this repository.",
+  "complete": true,
+  "commands": [
+    {
+      "command": "stty cols 88 rows 26 && clear",
+      "seconds": 0.303,
+      "ended": true,
+      "exit": 0
+    },
+    {
+      "command": "claude -p \"Add the CI job of lawcheck docs ci to this repository.\"",
+      "seconds": 12.59,
+      "ended": true,
+      "exit": 0
+    }
+  ],
+  "changed": [
+    ".github/workflows/lawcheck.yml"
+  ],
+  "candidate": {
+    "commit": "c8821fa78c031df6d56050a9dd920c67c9aa45ea",
+    "lawcheck": "0.1.0-alpha.4"
+  },
+  "versions": {
+    "claude_code": "2.1.330 (Claude Code)",
+    "node": "v24.22.3",
+    "models": [
+      "claude-sonnet-5-5"
+    ],
+    "effort": "medium",
+    "plugin": [
+      {
+        "version": "0.1.0-alpha.4",
+        "commit": "4198f623ebd88b4b4cf31175387221ac704da33a"
+      }
+    ]
+  },
+  "offline": {
+    "network": "off",
+    "keys": [],
+    "complete": true,
+    "commands": [
+      {
+        "command": "stty cols 88 rows 26 && clear",
+        "seconds": 0.306,
+        "ended": true,
+        "exit": 0
+      },
+      {
+        "command": "npx --no-install lawcheck check --base origin/main",
+        "seconds": 0.309,
+        "ended": true,
+        "exit": 0
+      },
+      {
+        "command": "git switch discount",
+        "seconds": 0.308,
+        "ended": true,
+        "exit": 0
+      },
+      {
+        "command": "npx --no-install lawcheck check --base origin/main",
+        "seconds": 0.31,
+        "ended": true,
+        "exit": 1
+      },
+      {
+        "command": "echo $?",
+        "seconds": 0.31,
+        "ended": true,
+        "exit": 0
+      },
+      {
+        "command": "npx --no-install lawcheck docs ci",
+        "seconds": 0.309,
+        "ended": true,
+        "exit": 0
+      }
+    ]
+  }
+}

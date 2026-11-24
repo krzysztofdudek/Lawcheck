@@ -19,7 +19,7 @@ A script rule is a JavaScript module that the repository holds in `.lawcheck/rul
 
 With a `runner` setting other than `global`, the package manager starts Lawcheck from the repository's own files ([Settings](config.md#runner)). These files can name a program of the repository, such as `yarnPath` in `.yarnrc.yml` or a committed `node_modules/.bin/lawcheck`. The hook then runs the program that those files name.
 
-Lawcheck has no plugin for another coding agent. For such an agent, write in its instructions file that it runs `lawcheck prime` at the start of a session and `lawcheck check` after each change ([Other coding agents](other-agents.md)).
+The same plugin works in Codex. Its hooks there run on the same events, `apply_patch` stands for the three tools, and two variables stand for the settings ([Lawcheck in Codex](codex-cli.md)). It works in GitHub Copilot CLI too, where `create` and `edit` stand for the three tools, the same two variables stand for the settings, and the agent tells you what the plugin has for you ([Lawcheck in GitHub Copilot CLI](copilot-cli.md)). Cursor runs the plugin as it is ([Lawcheck in Cursor](cursor.md)). For another coding agent, write in its instructions file that it runs `lawcheck prime` at the start of a session and `lawcheck check` after each change ([Other coding agents](other-agents.md)).
 
 ## The four hooks
 
@@ -46,7 +46,7 @@ When the law has a reviewer rule and `.lawcheck/config.yaml` sets no reviewer, `
 Lawcheck: this repository has a reviewer rule, and .lawcheck/config.yaml sets no reviewer, so a plain lawcheck check and CI fail on every file a reviewer rule judges. Setting reviewer.provider and reviewer.model there is the user's decision; lawcheck docs providers lists the choices.
 ```
 
-Without a law, the agent gets two lines. The first says that the plugin is on and the folder has no law. The second tells the agent to start a law with `lawcheck init` only when the user asks for it.
+Without a law, the agent gets two lines. The first says that the plugin is on and the folder has no law. The second tells the agent to write no law on its own, and to tell the user to type `/lawcheck:setup` when the user asks for one ([The setup skill](#the-setup-skill)).
 
 When the `runner` setting holds a value outside the five of [Settings](config.md#runner), the hook tells the agent to read `.lawcheck/law.yaml` and to tell the user that the setting is wrong.
 
@@ -131,6 +131,19 @@ The user gets a message each time the agent finishes, as long as its case holds.
 - the check still fails past the limits of [Three returns at most](#three-returns-at-most).
 
 A hook that fails inside its own code prints `Lawcheck plugin:` and the cause on standard error. It then exits 1. A hook exits 0 in every other case.
+
+## The setup skill
+
+The plugin holds one skill, `lawcheck:setup`. Only you start it, by typing `/lawcheck:setup`. The agent never starts it by itself: when you ask for a law in other words, it tells you to type the command. The skill runs `lawcheck docs agent-setup` and follows that page, so its steps match the Lawcheck you installed. The agent asks its questions with the question tool of Claude Code. Its last message names the next step. In a repository that already has a law, `/lawcheck:setup` alone says so and changes nothing.
+
+Two more parts of the skill run only when you ask for them, in the words you type with the command:
+
+- **Advice**, such as `/lawcheck:setup what could be better here?`: the agent writes at most three boundaries or rules that the code does not hold today into `.lawcheck/advice.md`. Each one has its evidence from this repository, the files and uses that break it, counted by Lawcheck, and the lines of law it would add. The agent then asks which of them to make law. An item you decline stays in the file under `Declined`, with your reason, and the agent does not propose it again.
+- **A target**, such as `/lawcheck:setup the domain should not use the database`: the agent writes the law the code should reach into `.lawcheck/target.md`, counts the uses of the code that it forbids today, and lays out at most seven steps, each one change of the law that `lawcheck check` passes on the day it goes in. The agent then asks whether to make the first step law.
+
+Nothing in either file is law, and no command of Lawcheck reads them. A line goes into `.lawcheck/law.yaml` only when you say yes to that item or that step, and a yes to the whole plan writes no law. In a repository with no law, the skill writes the law first and starts the advice or the target after `lawcheck check` passes it. The agent changes no code and commits neither file: you decide whether they stay in git as the team's plan. The skill never offers advice or a target on its own.
+
+The page is part of Lawcheck, and the plugin does not hold Lawcheck. A Lawcheck older than the plugin has no page `agent-setup`, and the skill then asks you to update Lawcheck.
 
 ## The settings
 

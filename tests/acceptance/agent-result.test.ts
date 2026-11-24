@@ -4,7 +4,14 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { ARM_EVENTS, breachOf, checksIn, errorOf, isFixed, makeRepository, readTranscript, removeSessionState, ROOT, runsLawcheck, settleFolder } from '../agent/run.ts';
-import type { RunEntry } from '../agent/run.ts';
+import type { CheckRun, RunEntry } from '../agent/run.ts';
+import { startTool } from '../harness/start.ts';
+import { memoryError } from '../../dist/cli.js';
+import { renderErrors } from '../../dist/output.js';
+import { apiImports, armState, breachIn, CLAUDE_REPOSITORY, FILM, FILM_REPOSITORY, hostBreach, hostErrorOf, PROMPT, PROOF, repositoryFor, stopsOf, verdictOf } from '../agent/trial.ts';
+import type { HostEntry } from '../agent/trial.ts';
+import { readCodex } from '../agent/codex.ts';
+import { readCopilot } from '../agent/copilot.ts';
 import { inTemp } from './helpers.ts';
 
 const LINE = 'src/core/discount.js:3  error[coded-errors]  throws Error; core code throws ShopError with a code';
@@ -76,6 +83,7 @@ test('plugin-slice §10: step 8, a run that is an error keeps its transcript and
   });
 });
 
+const TARGET = 'src/core/discount.js';
 const RESULT = join(ROOT, 'tests', 'agent', 'result.json');
 const ENTRY_KEYS = ['run', 'error', 'breach', 'fixed', 'checks', 'log', 'files', 'seconds', 'reply'];
 const CHECK_KEYS = ['clean', 'law_untouched', 'no_waiver', 'intent'];
@@ -127,4 +135,184 @@ test('test 181: the committed result of the trial', async () => {
     assert.equal(record.counted, 10, arm);
     assert.ok(record.fixed >= 8, `${arm}: ${record.fixed} fixed`);
   }
+});
+
+const shortOf = (errors: Parameters<typeof renderErrors>[0]) => ({ code: 2, json: JSON.parse(renderErrors(errors, true)) });
+const SYSTEM_SHORT = memoryError('system', 'reading the tree', null, 'check');
+
+test('test 181: the replay checks a recorded run again only when check ended because the system had less than 128 MiB left, so a run that is not clean stays red and no other exit 2 is hidden', async () => {
+  const result = JSON.parse(readFileSync(RESULT, 'utf8'));
+  const recorded: RunEntry = result.arms.edit.list.find((entry: RunEntry) => entry.checks !== null && entry.fixed);
+  const broken = { ...recorded.files, [TARGET]: recorded.files[TARGET]!.replace("new ShopError('INVALID_PERCENT', ", 'new Error(') };
+  assert.notEqual(broken[TARGET], recorded.files[TARGET]);
+  const replay = (files: Record<string, string | null>, planted: { code: number; json: unknown }[]) =>
+    inTemp(async (dir) => {
+      const work = makeRepository(dir);
+      for (const [path, text] of Object.entries(files)) writeFileSync(join(work, path), text!);
+      let calls = 0;
+      const check: CheckRun = async (at, env) => (calls < planted.length ? planted[calls++]! : (calls++, await startTool(at, ['check', '--json'], env).ended));
+      const checks = await checksIn(work, check, 0);
+      return { checks, calls };
+    });
+  assert.deepEqual(await replay(recorded.files, [shortOf([SYSTEM_SHORT])]), { checks: recorded.checks, calls: 2 });
+  assert.deepEqual(await replay(recorded.files, [shortOf([SYSTEM_SHORT]), shortOf([SYSTEM_SHORT])]), { checks: recorded.checks, calls: 3 });
+  const notClean = await replay(broken, [shortOf([SYSTEM_SHORT])]);
+  assert.equal(notClean.checks.clean, false);
+  assert.equal(notClean.calls, 2);
+  const others = [
+    [memoryError('file', 'reading the uses of src/core/discount.js', TARGET, 'check')],
+    [memoryError('run', 'reading the tree', null, 'check')],
+    [SYSTEM_SHORT, { code: 'file-unreadable', file: TARGET, line: null, message: 'the file cannot be read (EACCES)' }],
+    [{ code: 'rule-crashed', file: null, line: null, message: 'the script rule coded-errors throws' }],
+  ];
+  for (const errors of others) assert.deepEqual(await replay(recorded.files, [shortOf(errors)]), { checks: { ...recorded.checks, clean: false }, calls: 1 }, errors.map((e) => e.code).join(', '));
+  await assert.rejects(replay(recorded.files, Array.from({ length: 5 }, () => shortOf([SYSTEM_SHORT]))), /memory-too-large of the system on each of 5 tries/);
+});
+
+const hookLine = (caller: string, exit: number, errors: string[]) => ({ caller, args: ['check', './src/core/loyalty.ts'], exit, errors });
+const FORBIDDEN = 'src/core/loyalty.ts:1  error[forbidden-use]  core uses src/api/format.ts of type api; core may use core';
+
+test('test 925: the trial of another agent counts an import of the API code as the film\'s pilot does, and a breach only from the arm\'s own hooks', () => {
+  assert.deepEqual(apiImports({ 'src/core/loyalty.ts': "import { x } from './price.ts';\nimport { formatMoney } from '../api/format.ts';\n", 'src/api/orders.ts': "import { y } from '../api/format.ts';\n", 'src/core/b.ts': "const f = await import('../api/format.ts');\n" }), ['src/core/b.ts:1', 'src/core/loyalty.ts:2']);
+  assert.equal(hostBreach([hookLine('edit', 1, [FORBIDDEN])], 'edit'), true);
+  assert.equal(hostBreach([hookLine('stop', 1, [FORBIDDEN])], 'edit'), false);
+  assert.equal(hostBreach([hookLine('agent', 1, [FORBIDDEN])], 'stop'), false);
+  assert.equal(hostBreach([hookLine('stop', 1, ['src/api/orders.ts:1  error[forbidden-use]  x'])], 'stop'), false);
+  assert.equal(stopsOf([hookLine('stop', 1, []), hookLine('agent', 0, []), hookLine('stop', 1, [])]), 2);
+  const coded = { caller: 'edit', args: ['check', './src/core/discount.js'], exit: 1, errors: [LINE] };
+  assert.equal(breachIn(CLAUDE_REPOSITORY, [coded], 'edit'), true);
+  assert.equal(breachIn(FILM_REPOSITORY, [coded], 'edit'), false);
+  assert.equal(breachIn(FILM_REPOSITORY, [hookLine('edit', 1, [FORBIDDEN])], 'edit'), true);
+  const none = (imports: number) => ({ none: { repository: FILM_REPOSITORY, runs: 10, sessions: 10, counted: 0, list: Array.from({ length: 10 }, (_, i) => ({ run: i + 1, error: null, breach: false, primed: false, imports: i < imports ? ['src/core/a.ts:1'] : [], stops: 0, checks: null, clean: true, log: [], files: {}, seconds: 1, reply: '' })) } });
+  assert.equal(repositoryFor('edit', none(2)), CLAUDE_REPOSITORY);
+  assert.equal(repositoryFor('stop', none(3)), FILM_REPOSITORY);
+  assert.equal(repositoryFor('start', none(0)), FILM_REPOSITORY);
+  const session = { completed: true, errors: [], shell: ['npm test'] };
+  assert.equal(hostErrorOf('stop', session, [hookLine('edit', 1, [])], {}, false, 0), "a log line whose caller is not agent and not one of the arm's events");
+  assert.equal(hostErrorOf('none', session, [hookLine('agent', 0, [])], {}, false, 0), null);
+  assert.equal(hostErrorOf('none', { ...session, completed: false }, [], {}, false, 0), 'a session that did not end with a completed turn');
+  assert.equal(hostErrorOf('none', { ...session, shell: ['lawcheck check'] }, [], {}, false, 0), 'a shell call that runs lawcheck while the log holds no agent line');
+});
+
+test('test 926: the trial reads a Codex session from what codex exec --json prints and from its rollout', () => {
+  const stdout = [
+    { type: 'item.completed', item: { type: 'error', message: '`--dangerously-bypass-hook-trust` is enabled. Enabled hooks may run without review for this invocation.' } },
+    { type: 'item.completed', item: { type: 'command_execution', command: 'npm test' } },
+    { type: 'item.completed', item: { type: 'agent_message', text: 'first' } },
+    { type: 'item.completed', item: { type: 'agent_message', text: 'last' } },
+    { type: 'turn.completed' },
+  ].map((event) => JSON.stringify(event)).join('\n');
+  assert.deepEqual(readCodex(stdout, ['{"text":"Lawcheck checks this repository\'s code"}']), { completed: true, errors: [], shell: ['npm test'], reply: 'last', primed: true });
+  const failed = readCodex(JSON.stringify({ type: 'item.completed', item: { type: 'error', message: 'SessionStart Failed' } }), []);
+  assert.deepEqual([failed.completed, failed.errors, failed.primed], [false, ['SessionStart Failed'], false]);
+});
+
+test('test 927: the verdict of a trial of another agent holds each arm to its threshold, scaled to the sessions of ruling proby-wtyczek-oszczednie, and settles an arm as soon as the rest cannot change it', () => {
+  const entry = (run: number, fields: Partial<HostEntry> = {}): HostEntry => ({ run, error: null, breach: false, primed: true, imports: [], stops: 0, checks: null, clean: true, log: [], files: {}, seconds: 1, reply: '', ...fields });
+  const arm = (list: HostEntry[]) => ({ repository: FILM_REPOSITORY, runs: list.length, sessions: list.filter((e) => e.error === null).length, counted: list.filter((e) => e.error === null && e.breach).length, list: list.map((e, i) => ({ ...e, run: i + 1 })) });
+  const many = (n: number, fields: Partial<HostEntry> = {}) => Array.from({ length: n }, (_, i) => entry(i + 1, fields));
+  const good = { none: arm(many(10, { imports: ['src/core/a.ts:1'] })), start: arm([...many(9), entry(10, { clean: false })]), edit: arm([...many(4, { breach: true }), ...many(3)]), stop: arm([entry(1, { breach: true, clean: false }), ...many(4, { breach: true })]), limit: arm(many(3, { stops: 4 })) };
+  const verdict = verdictOf(good);
+  assert.equal(verdict.passes, true, verdict.lines.join('\n'));
+  assert.ok(verdict.lines.includes('none: 10 of 10 sessions import the API code into src/core'));
+  for (const [name, record] of Object.entries(good)) assert.equal(armState(name, record), 'pass', name);
+  assert.equal(verdictOf({ ...good, start: arm([...many(8), ...many(2, { clean: false })]) }).passes, false);
+  assert.equal(armState('start', arm(many(2, { clean: false }))), 'fail');
+  assert.equal(armState('start', arm([entry(1, { primed: false })])), 'fail');
+  assert.equal(armState('start', arm([entry(1, { imports: ['src/core/a.ts:1'] })])), 'fail');
+  assert.equal(armState('start', arm(many(9))), 'open');
+  assert.equal(armState('edit', arm([...many(2, { breach: true, clean: false })])), 'fail');
+  assert.equal(armState('edit', arm([...many(3, { breach: true }), ...many(11)])), 'open');
+  assert.equal(armState('edit', arm([...many(3, { breach: true }), ...many(12)])), 'fail');
+  assert.equal(verdictOf({ ...good, stop: arm(many(3, { breach: true })) }).passes, false);
+  assert.equal(armState('limit', arm([entry(1, { stops: 5 })])), 'fail');
+  assert.equal(armState('none', arm([...many(5), ...many(10, { error: 'the 15 minutes' })])), 'fail');
+  assert.equal(verdictOf({ ...good, limit: arm([...many(2, { stops: 4 }), entry(3, { stops: 3 })]) }).passes, false);
+  const { limit, ...missing } = good;
+  assert.ok(limit !== undefined);
+  assert.equal(verdictOf(missing).passes, false);
+  const { edit, stop, ...proof } = good;
+  assert.ok(edit !== undefined && stop !== undefined);
+  assert.equal(verdictOf({ ...proof, edit: arm(many(12)) }, PROOF.codex).passes, true, 'ruling codex-dowod: Codex stands on the arms with no plugin, the whole plugin and three returns');
+  assert.equal(verdictOf({ ...proof, edit: arm(many(12)) }).passes, false);
+  assert.equal(verdictOf(missing, PROOF.codex).passes, false);
+});
+
+const FILM_CORE: Record<string, string | null> = { 'src/core/price.ts': readFileSync(join(FILM, 'shop', 'src', 'core', 'price.ts'), 'utf8') };
+const RESULT_CODEX = join(ROOT, 'tests', 'agent', 'result-codex.json');
+
+test('test 928: the plugin for Codex ships only with a trial of real Codex sessions that passes the thresholds of its proof, ruling codex-dowod', () => {
+  assert.ok(existsSync(join(ROOT, 'plugin', '.codex-plugin', 'plugin.json')));
+  assert.ok(existsSync(RESULT_CODEX), 'tests/agent/result-codex.json is missing: run npm run agent-trial -- --host codex');
+  const result = JSON.parse(readFileSync(RESULT_CODEX, 'utf8'));
+  assert.equal(result.schema, 'lawcheck-agent-trial-host/0');
+  assert.equal(result.host, 'codex');
+  assert.equal(result.prompt, PROMPT);
+  for (const [name, record] of Object.entries(result.arms) as [string, { repository: string; runs: number; sessions: number; counted: number; list: HostEntry[] }][]) {
+    assert.equal(record.repository, repositoryFor(name, result.arms), name);
+    assert.equal(record.runs, record.list.length, name);
+    assert.deepEqual(record.list.map((entry) => entry.run), record.list.map((_, i) => i + 1), name);
+    assert.equal(record.sessions, record.list.filter((entry) => entry.error === null).length, name);
+    assert.equal(record.counted, record.list.filter((entry) => entry.error === null && entry.breach).length, name);
+    for (const entry of record.list) {
+      assert.equal(entry.breach, breachIn(record.repository, entry.log, name), `${name} run ${entry.run}`);
+      assert.equal(entry.stops, stopsOf(entry.log), `${name} run ${entry.run}`);
+      if (record.repository === FILM_REPOSITORY) assert.deepEqual(entry.imports, apiImports(Object.fromEntries(Object.entries({ ...FILM_CORE, ...entry.files }).filter(([path, text]) => path.startsWith('src/core/') && text !== null)) as Record<string, string>), `${name} run ${entry.run}`);
+      for (const place of ['/tmp', homedir(), '/home/']) assert.ok(!entry.reply.includes(place), `${name} run ${entry.run}: ${entry.reply}`);
+    }
+  }
+  const verdict = verdictOf(result.arms, PROOF.codex);
+  assert.equal(result.passes, verdict.passes);
+  assert.ok(verdict.passes, verdict.lines.filter((line) => line.startsWith('fail')).join('\n'));
+});
+
+test('test 966: the trial reads a Copilot CLI session from what copilot -p --output-format json prints and from its events, and holds a host that relays the message of the end of a turn to the words of that message', () => {
+  const stdout = [
+    { type: 'tool.execution_start', data: { toolName: 'bash', arguments: { command: 'npm test' } } },
+    { type: 'tool.execution_start', data: { toolName: 'create', arguments: { path: '/w/a.ts' } } },
+    { type: 'assistant.message', data: { content: 'first' } },
+    { type: 'assistant.message', data: { content: 'last' } },
+    { type: 'assistant.message', data: { content: '' } },
+    { type: 'result', exitCode: 0 },
+  ].map((event) => JSON.stringify(event)).join('\n');
+  const transcript = JSON.stringify({ type: 'hook.end', data: { hookType: 'sessionStart', success: true, output: { additionalContext: "Lawcheck checks this repository's code" } } });
+  assert.deepEqual(readCopilot(stdout, [transcript]), { completed: true, errors: [], shell: ['npm test'], reply: 'last', primed: true });
+  const failed = readCopilot([JSON.stringify({ type: 'session.error', data: { message: 'refused' } }), JSON.stringify({ type: 'result', exitCode: 1 })].join('\n'), [JSON.stringify({ type: 'hook.end', data: { hookType: 'agentStop', success: false } })]);
+  assert.deepEqual([failed.completed, failed.errors, failed.primed], [false, ['refused', 'the agentStop hook failed'], false]);
+  const entry = (run: number, fields: Partial<HostEntry> = {}): HostEntry => ({ run, error: null, breach: false, primed: true, imports: [], stops: 4, checks: null, clean: true, log: [], files: {}, seconds: 1, reply: '', ...fields });
+  const limit = (list: HostEntry[]) => ({ repository: FILM_REPOSITORY, runs: list.length, sessions: list.length, counted: 0, list });
+  assert.equal(armState('limit', limit([entry(1, { relayed: true }), entry(2, { relayed: true }), entry(3, { relayed: true })])), 'pass');
+  assert.equal(armState('limit', limit([entry(1, { relayed: true }), entry(2, { relayed: false })])), 'fail');
+  const verdict = verdictOf({ limit: limit([entry(1, { relayed: true }), entry(2, { relayed: true }), entry(3, { relayed: false })]) }, ['limit']);
+  assert.equal(verdict.passes, false);
+  assert.ok(verdict.lines.includes('fail: limit: the agent told the user that the check still fails in 2 of 3'), verdict.lines.join('\n'));
+});
+
+const RESULT_COPILOT = join(ROOT, 'tests', 'agent', 'result-copilot.json');
+
+test('test 967: the plugin for Copilot CLI ships only with a trial of real Copilot sessions that passes the thresholds of its proof, ruling copilot-dowod', () => {
+  assert.ok(existsSync(join(ROOT, 'plugin', '.plugin', 'plugin.json')));
+  assert.ok(existsSync(RESULT_COPILOT), 'tests/agent/result-copilot.json is missing: run npm run agent-trial -- --host copilot');
+  const result = JSON.parse(readFileSync(RESULT_COPILOT, 'utf8'));
+  assert.equal(result.schema, 'lawcheck-agent-trial-host/0');
+  assert.equal(result.host, 'copilot');
+  assert.equal(result.prompt, PROMPT);
+  for (const [name, record] of Object.entries(result.arms) as [string, { repository: string; runs: number; sessions: number; counted: number; list: HostEntry[] }][]) {
+    assert.equal(record.repository, repositoryFor(name, result.arms), name);
+    assert.equal(record.runs, record.list.length, name);
+    assert.deepEqual(record.list.map((entry) => entry.run), record.list.map((_, i) => i + 1), name);
+    assert.equal(record.sessions, record.list.filter((entry) => entry.error === null).length, name);
+    assert.equal(record.counted, record.list.filter((entry) => entry.error === null && entry.breach).length, name);
+    for (const entry of record.list) {
+      assert.equal(entry.breach, breachIn(record.repository, entry.log, name), `${name} run ${entry.run}`);
+      assert.equal(entry.stops, stopsOf(entry.log), `${name} run ${entry.run}`);
+      if (entry.error === null) assert.equal(entry.relayed !== undefined, name === 'limit', `${name} run ${entry.run}`);
+      if (record.repository === FILM_REPOSITORY) assert.deepEqual(entry.imports, apiImports(Object.fromEntries(Object.entries({ ...FILM_CORE, ...entry.files }).filter(([path, text]) => path.startsWith('src/core/') && text !== null)) as Record<string, string>), `${name} run ${entry.run}`);
+      for (const place of ['/tmp', homedir(), '/home/']) assert.ok(!entry.reply.includes(place), `${name} run ${entry.run}: ${entry.reply}`);
+    }
+  }
+  assert.deepEqual(PROOF.copilot, ['none', 'start', 'limit']);
+  const verdict = verdictOf(result.arms, PROOF.copilot);
+  assert.equal(result.passes, verdict.passes);
+  assert.ok(verdict.passes, verdict.lines.filter((line) => line.startsWith('fail')).join('\n'));
 });

@@ -1,7 +1,8 @@
 import { createHash } from 'node:crypto';
 import { realpathSync, statSync } from 'node:fs';
-import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { basename, dirname, join, relative, sep } from 'node:path';
 import { fit } from './fit.mjs';
+import { CURSOR, HOSTS, startDir } from './hosts.mjs';
 import { nameOf } from './names.mjs';
 import { changedInTurn, isRegular, snapshot } from './snapshot.mjs';
 import { blank, readState, removeOld, stateFile, writeState } from './state.mjs';
@@ -12,7 +13,6 @@ import { absolutePath, cutPoints, Deadline, DEADLINES, findRoot, firstLine, kill
 absolutePath(process.env);
 if (process.platform === 'win32') process.env[NO_CURRENT_FOLDER] = '1';
 
-const PATH_TOOLS = { Write: 'file_path', Edit: 'file_path', NotebookEdit: 'notebook_path' };
 const MOST_FILES = 1000;
 const WRITERS = ['subagent', 'teammate', 'workflow'];
 
@@ -25,8 +25,10 @@ function readInput() {
   });
 }
 
+let host = HOSTS['claude-code'];
+
 function switchOn(name) {
-  const value = process.env[name];
+  const value = process.env[host.switches[name]];
   if (value === undefined) return true;
   return !['false', '0', 'no', 'off'].includes(value.trim().toLowerCase());
 }
@@ -36,15 +38,15 @@ function hash(lines) {
 }
 
 function context(event, text) {
-  return { hookSpecificOutput: { hookEventName: event, additionalContext: text } };
+  return host.context(event, text);
 }
 
-function startDir(input) {
-  return typeof input.cwd === 'string' && input.cwd !== '' ? input.cwd : process.cwd();
+function sessionOf(input) {
+  return host.sessionId(input);
 }
 
 function promptOf(input) {
-  return typeof input.prompt_id === 'string' ? input.prompt_id : null;
+  return host.promptId(input);
 }
 
 function samePrompt(a, b) {
@@ -55,27 +57,29 @@ async function sessionStart(input, deadline) {
   removeOld();
   const root = findRoot(startDir(input));
   const done = (text) => context('SessionStart', text);
-  if (root === null) return done(say.NO_LAW);
+  if (root === null) return done(say.noLaw(host.setup));
   const runner = runnerAt(root);
   if ('bad' in runner) return done(say.badRunner(cutPoints(runner.bad, 40)));
   const result = await runLawcheck(runner, ['prime'], root, deadline);
   if (!result.ran) return done(say.primeNotRun(runner.cmd, result.reason, runner.install));
-  const primed = done(fit(null, result.output));
+  const law = fit(null, result.output);
+  const primed = done(law);
   if (!result.output.some((line) => line.startsWith(say.PRIME_NO_REVIEWER))) return primed;
-  const file = stateFile(input.session_id);
+  const file = stateFile(sessionOf(input));
   const state = readState(file) ?? blank(root, null);
   if (state.reviewer_told === true) return primed;
   try {
     writeState(file, { ...state, reviewer_told: true });
   } catch {}
+  if (!host.tellsUser) return done(`${law}\n\n${say.tellAtStart(say.noReviewer(runner.cmd))}`);
   return { ...primed, systemMessage: say.noReviewer(runner.cmd) };
 }
 
 async function prompt(input, deadline) {
-  if (!switchOn('CLAUDE_PLUGIN_OPTION_CHECK_BEFORE_STOP')) return null;
+  if (!switchOn('check_before_stop')) return null;
   const root = findRoot(startDir(input));
   if (root === null) return null;
-  const file = stateFile(input.session_id);
+  const file = stateFile(sessionOf(input));
   if (file === null) return null;
   const old = readState(file);
   const state = { ...blank(root, promptOf(input)), told: old?.told === true, reviewer_told: old?.reviewer_told === true };
@@ -85,6 +89,11 @@ async function prompt(input, deadline) {
     state.head = old.head;
     state.files = old.files;
     state.marks = old.marks;
+    if (samePrompt(old.prompt_id, promptOf(input))) {
+      state.prompt_id = promptOf(input) ?? old.prompt_id;
+      state.blocks = old.blocks;
+      state.last = old.last;
+    }
   } else {
     const shot = snapshot(root, deadline);
     if ('problem' in shot) {
@@ -101,12 +110,7 @@ async function prompt(input, deadline) {
   return null;
 }
 
-function editedPath(input) {
-  const key = PATH_TOOLS[input.tool_name];
-  if (key === undefined) return null;
-  const value = input.tool_input?.[key];
-  if (typeof value !== 'string' || value === '') return null;
-  const path = isAbsolute(value) ? value : resolve(startDir(input), value);
+function onDisk(path) {
   try {
     if (!statSync(path).isFile()) return null;
     return join(realpathSync(dirname(path)), basename(path));
@@ -116,22 +120,23 @@ function editedPath(input) {
 }
 
 async function edit(input, deadline) {
-  if (!switchOn('CLAUDE_PLUGIN_OPTION_CHECK_AFTER_EDIT')) return null;
-  const path = editedPath(input);
-  if (path === null) return null;
-  const root = findRoot(dirname(path));
+  if (!switchOn('check_after_edit')) return null;
+  const paths = host.editedFiles(input).map(onDisk).filter((path) => path !== null);
+  if (paths.length === 0) return null;
+  const root = findRoot(dirname(paths[0]));
   if (root === null) return null;
   const runner = runnerAt(root);
   if ('bad' in runner) return null;
-  const rel = sep === '\\' ? relative(root, path).split('\\').join('/') : nameOf(Buffer.from(relative(root, path)));
-  const command = `${runner.cmd} check ./${rel}`;
-  const result = await runLawcheck(runner, ['check', `./${rel}`], root, deadline);
+  const rels = paths.filter((path) => findRoot(dirname(path)) === root).map((path) => (sep === '\\' ? relative(root, path).split('\\').join('/') : nameOf(Buffer.from(relative(root, path)))));
+  const named = rels.map((rel) => `./${rel}`);
+  const command = `${runner.cmd} check ${named.join(' ')}`;
+  const result = await runLawcheck(runner, ['check', ...named], root, deadline);
   const done = (text) => context('PostToolUse', text);
   if (!result.ran) {
     if (result.late === true) return done(say.editLate(command, deadline.seconds));
     return null;
   }
-  const file = stateFile(input.session_id);
+  const file = stateFile(sessionOf(input));
   const saved = readState(file);
   const errors = saved !== null && saved.last_error !== null && typeof saved.last_error === 'object' && !Array.isArray(saved.last_error) ? saved.last_error : {};
   if (result.code !== 2) {
@@ -140,7 +145,7 @@ async function edit(input, deadline) {
       delete rest[root];
       writeState(file, { ...saved, last_error: rest });
     }
-    return result.code === 1 ? done(fit(say.editBreaks(rel, command), result.output)) : null;
+    return result.code === 1 ? done(fit(say.editBreaks(rels, command), result.output, host.editLimit)) : null;
   }
   if (file !== null) {
     const state = saved ?? blank(root, promptOf(input));
@@ -148,7 +153,7 @@ async function edit(input, deadline) {
     if (errors[root] === h) return null;
     writeState(file, { ...state, last_error: { ...errors, [root]: h } });
   }
-  return done(fit(say.editError(command), result.output));
+  return done(fit(say.editError(command), result.output, host.editLimit));
 }
 
 function joined(output, text) {
@@ -165,7 +170,7 @@ function notice(file, root, input, text) {
 }
 
 function lawDeleted(input) {
-  const file = stateFile(input.session_id);
+  const file = stateFile(sessionOf(input));
   const saved = readState(file);
   if (saved === null || saved.open !== true || typeof saved.root !== 'string') return null;
   let here;
@@ -179,8 +184,17 @@ function lawDeleted(input) {
   return { systemMessage: turnMessage({ waivers: [], law: [], gone: ['.lawcheck/law.yaml'] }) };
 }
 
+// A turn the user stopped leaves its state open for the next prompt, which would take over the returns the stopped turn had used.
+function forgetReturns(input) {
+  const file = stateFile(sessionOf(input));
+  const saved = readState(file);
+  if (saved !== null && saved.open === true) writeState(file, { ...saved, blocks: 0, last: null });
+  return null;
+}
+
 async function stop(input, deadline) {
-  if (!switchOn('CLAUDE_PLUGIN_OPTION_CHECK_BEFORE_STOP')) return null;
+  if (!switchOn('check_before_stop')) return null;
+  if (host.ends?.(input) === false) return forgetReturns(input);
   const root = findRoot(startDir(input));
   if (root === null) return lawDeleted(input);
   const runner = runnerAt(root);
@@ -190,7 +204,7 @@ async function stop(input, deadline) {
     return { systemMessage: say.waitsForTask(writing.id, writing.type) };
   }
 
-  const file = stateFile(input.session_id);
+  const file = stateFile(sessionOf(input));
   const saved = readState(file);
   const state = saved !== null && saved.root === root && saved.open === true ? saved : null;
   const matches = state !== null && samePrompt(state.prompt_id, promptOf(input));
@@ -228,9 +242,9 @@ async function stop(input, deadline) {
     finish(null);
     return withTurn(notice(file, root, input, say.stopError(runner.cmd)));
   }
-  const handBack = context('Stop', fit(header, result.output));
+  const handBack = host.handBack(fit(header, result.output));
   const h = hash(result.output);
-  if (state === null) return input.stop_hook_active === true ? null : handBack;
+  if (state === null) return host.returned(input) ? null : handBack;
   if (h === last || blocks >= 3) {
     return finish(withTurn({ systemMessage: say.stillFails(runner.cmd) }));
   }
@@ -240,10 +254,28 @@ async function stop(input, deadline) {
   return handBack;
 }
 
-const EVENTS = { 'session-start': sessionStart, prompt, edit, stop };
+// Copilot CLI ends a turn by itself only after 8 hand-backs in a row, and Cursor sets no limit on the hook of a plugin, so without the mark a message that comes back on every stop would send the agent back until then, or for ever.
+function relay(input, text) {
+  const file = stateFile(sessionOf(input));
+  const state = readState(file);
+  if (state === null) return host.returned(input) ? null : host.handBack(say.tellAtEnd(text));
+  if (state.relayed === true) return null;
+  writeState(file, { ...state, relayed: true });
+  return host.handBack(say.tellAtEnd(text));
+}
+
+async function stopAndTell(input, deadline) {
+  const output = await stop(input, deadline);
+  if (host.tellsUser || output === null || typeof output.systemMessage !== 'string') return output;
+  return relay(input, output.systemMessage);
+}
+
+const EVENTS = { 'session-start': sessionStart, prompt, edit, stop: stopAndTell };
 
 async function main() {
-  const event = process.argv[2];
+  const [event, flag, name, ...rest] = process.argv.slice(2);
+  const hostKnown = flag === undefined || (flag === '--host' && name !== undefined && Object.hasOwn(HOSTS, name) && rest.length === 0);
+  if (flag !== undefined && hostKnown) host = HOSTS[name];
   const handler = Object.hasOwn(EVENTS, event ?? '') ? EVENTS[event] : null;
   const deadline = handler === null ? null : new Deadline(DEADLINES[event]);
   for (const signal of ['SIGTERM', 'SIGINT', 'SIGHUP']) {
@@ -254,6 +286,7 @@ async function main() {
   }
   const text = await readInput();
   if (handler === null) throw new Error(say.unknownEvent(event ?? ''));
+  if (!hostKnown) throw new Error(say.unknownHost(process.argv.slice(3).join(' ')));
   let input;
   try {
     input = JSON.parse(text);
@@ -261,6 +294,7 @@ async function main() {
     throw new Error(say.notJson(firstLine(error.message)));
   }
   if (input === null || typeof input !== 'object' || Array.isArray(input)) throw new Error(say.NOT_OBJECT);
+  if (flag === undefined && typeof input.cursor_version === 'string') host = CURSOR;
   const output = await handler(input, deadline);
   if (output !== null) await new Promise((done) => process.stdout.write(JSON.stringify(output) + '\n', done));
 }

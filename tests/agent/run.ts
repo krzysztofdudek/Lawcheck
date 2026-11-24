@@ -3,6 +3,7 @@ import { accessSync, constants, cpSync, existsSync, mkdirSync, mkdtempSync, read
 import { tmpdir } from 'node:os';
 import { delimiter, dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { MEMORY_RESERVE_BYTES, mib } from '../../dist/limits.js';
 import { startTool } from '../harness/start.ts';
 
 export const ROOT = fileURLToPath(new URL('../..', import.meta.url));
@@ -62,7 +63,7 @@ export const GIT_IDENTITY: NodeJS.ProcessEnv = {
   GIT_CONFIG_GLOBAL: '/dev/null',
 };
 
-function gitIn(cwd: string, args: string[], env: NodeJS.ProcessEnv = {}): string {
+export function gitIn(cwd: string, args: string[], env: NodeJS.ProcessEnv = {}): string {
   const result = spawnSync('git', args, { cwd, env: { ...process.env, ...GIT_IDENTITY, ...env }, encoding: 'utf8', maxBuffer: 1 << 30 });
   if (result.status !== 0) throw new Error(`git ${args.join(' ')} failed: ${(result.stderr || result.stdout).split('\n')[0]}`);
   return result.stdout;
@@ -104,10 +105,34 @@ export function filesOf(work: string): Record<string, string | null> {
   return files;
 }
 
-export async function checksIn(work: string): Promise<Checks> {
+export type CheckRun = (work: string, env: NodeJS.ProcessEnv) => Promise<{ code: number | null; json: any }>;
+
+const runCheck: CheckRun = (work, env) => startTool(work, ['check', '--json'], env).ended;
+
+export const SYSTEM_SHORT_TRIES = 5;
+const SYSTEM_SHORT_WAIT_MS = 2000;
+
+// The one exit 2 that says nothing about the files: the machine had too little memory left (MEMORY_RESERVE_BYTES of src/limits.ts), which a busy CI runner can hit at any moment.
+function systemShort(run: { code: number | null; json: any }): boolean {
+  const errors = run.json?.errors;
+  if (run.code !== 2 || run.json?.schema !== 'lawcheck-error/1' || !Array.isArray(errors) || errors.length !== 1) return false;
+  const [error] = errors;
+  return error.code === 'memory-too-large' && error.file === null && typeof error.message === 'string' && error.message.startsWith(`the system had less than ${mib(MEMORY_RESERVE_BYTES)} of memory left while `);
+}
+
+async function cleanIn(work: string, env: NodeJS.ProcessEnv, check: CheckRun, waitMs: number): Promise<boolean> {
+  for (let tries = 1; ; tries++) {
+    const run = await check(work, env);
+    if (!systemShort(run)) return run.code === 0;
+    if (tries === SYSTEM_SHORT_TRIES) throw new Error(`check ended with memory-too-large of the system on each of ${tries} tries, so this machine cannot judge whether the files are clean`);
+    await new Promise((resolve) => setTimeout(resolve, waitMs));
+  }
+}
+
+export async function checksIn(work: string, check: CheckRun = runCheck, waitMs = SYSTEM_SHORT_WAIT_MS): Promise<Checks> {
   const env = { ...process.env, ...GIT_IDENTITY };
   delete env.LAWCHECK_BASE;
-  const clean = (await startTool(work, ['check', '--json'], env).ended).code === 0;
+  const clean = await cleanIn(work, env, check, waitMs);
   const changed = changedFiles(work);
   const lawUntouched = !changed.some((path) => path.startsWith('.lawcheck/'));
   const noWaiver = !changed.some((path) => {
@@ -129,7 +154,7 @@ export function removeSessionState(home: string, sessionId: unknown): void {
   for (const plugin of readdirSync(data)) rmSync(join(data, plugin, 'sessions', `${sessionId}.json`), { force: true });
 }
 
-function stop(message: string): never {
+export function stop(message: string): never {
   process.stderr.write(`agent-trial: ${message}\n`);
   process.exit(2);
 }
@@ -169,7 +194,7 @@ function readOptions(argv: string[]): Options {
   return options;
 }
 
-function onPath(program: string): string[] {
+export function onPath(program: string): string[] {
   const found: string[] = [];
   for (const dir of (process.env.PATH ?? '').split(delimiter)) {
     if (dir === '') continue;
@@ -181,7 +206,7 @@ function onPath(program: string): string[] {
   return found;
 }
 
-function newest(dir: string): number {
+export function newest(dir: string): number {
   let latest = 0;
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const path = join(dir, entry.name);
@@ -200,7 +225,7 @@ function armPlugin(folder: string, arm: string): string {
   return copy;
 }
 
-function points(text: string, max: number): string {
+export function points(text: string, max: number): string {
   return [...text].slice(0, max).join('');
 }
 
@@ -298,17 +323,18 @@ function runClaude(work: string, plugin: string, options: Options, env: NodeJS.P
   });
 }
 
-function readLog(file: string): LogLine[] {
+export function readLog(file: string): LogLine[] {
   if (!existsSync(file)) return [];
   return readFileSync(file, 'utf8').split('\n').filter((line) => line.trim() !== '').map((line) => JSON.parse(line));
 }
 
-function replacePaths(text: string, paths: string[]): string {
+export function replacePaths(text: string, paths: string[]): string {
   let out = text;
   for (const path of [...new Set(paths)].sort((a, b) => b.length - a.length)) out = out.split(path).join('<work>');
   return out;
 }
 
+// The steps that the test names of tests/acceptance/agent-result.test.ts cite, in the order a run takes them: 1 a fresh repository from the fixture, 2 the arm's plugin and the run of claude, 3 the transcript saved, 4 errorOf says whether the run is an error, 5 breachOf says whether the arm's own hook reported the breach, 6 checksIn judges the files of a counted run, 7 the entry is built, 8 settleFolder keeps the transcript and the log of an error run and removes the rest.
 async function oneRun(arm: string, number: number, options: Options, pathDirs: string[]): Promise<{ entry: RunEntry; model: string | null }> {
   const begin = Date.now();
   const folder = mkdtempSync(join(tmpdir(), 'lawcheck-trial-'));
@@ -375,7 +401,12 @@ function describe(arm: string, entry: RunEntry): string {
 }
 
 async function main(): Promise<void> {
-  const options = readOptions(process.argv.slice(2));
+  const host = process.argv.indexOf('--host');
+  if (host >= 0 && process.argv[host + 1] !== 'claude-code') {
+    const { hostTrial } = await import('./trial.ts');
+    return hostTrial(process.argv.slice(2));
+  }
+  const options = readOptions(process.argv.slice(2).filter((word, i, all) => word !== '--host' && all[i - 1] !== '--host'));
   if (!existsSync(CLI) || statSync(CLI).mtimeMs < newest(join(ROOT, 'src'))) stop('build first, in the dev container: npm run build');
   const claude = onPath('claude')[0];
   if (claude === undefined) stop('claude is not on the PATH');

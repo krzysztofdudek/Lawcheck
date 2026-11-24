@@ -35,10 +35,10 @@ function kinds(scripts: string[]) {
 const law = parseLaw(LAW).law!;
 const part = (text: string) => text.slice(text.indexOf('\nThe law here: ') + 1).split('\n');
 
-test('commands-slice §4: the first part is 1,455 characters without reviewer rules or may_use, and 1,721 with both', () => {
-  assert.equal(length(FIRST_PART), 1455);
+test('commands-slice §4: the first part is 1,567 characters without reviewer rules or may_use, and 1,863 with both', () => {
+  assert.equal(length(FIRST_PART), 1567);
   assert.equal(FIRST_PART.split('\n').length, 20);
-  assert.equal(length(firstPart(true, true)), 1751);
+  assert.equal(length(firstPart(true, true)), 1863);
   assert.equal(firstPart(true, true).split('\n').length, 24);
   assert.ok(firstPart(true, false).includes('- not-reviewed: '));
   assert.ok(!firstPart(true, false).includes('may use'));

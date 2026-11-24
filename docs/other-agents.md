@@ -1,8 +1,8 @@
 # Other coding agents
 
-Codex, Copilot CLI, Gemini CLI and other coding agents work with Lawcheck through one line in their instructions file. That line tells the agent to run `lawcheck prime` at the start of every session. The text that `lawcheck prime` prints is the primer. The primer lists the types and rules of the [law](concepts.md#law). It tells the agent to check its code with `lawcheck check` after each change.
+Gemini CLI and other coding agents work with Lawcheck through one line in their instructions file. That line tells the agent to run `lawcheck prime` at the start of every session. The text that `lawcheck prime` prints is the primer. The primer lists the types and rules of the [law](concepts.md#law). It tells the agent to check its code with `lawcheck check` after each change.
 
-Lawcheck has a plugin for Claude Code alone ([The Claude Code plugin](plugin.md)). With the agents of this page, Lawcheck checks an edit only when the agent runs `lawcheck check`.
+Lawcheck has a plugin for Claude Code, Codex and GitHub Copilot CLI ([Lawcheck in Claude Code](claude-code.md), [Lawcheck in Codex](codex-cli.md), [Lawcheck in GitHub Copilot CLI](copilot-cli.md)), and Cursor runs the one of Claude Code ([Lawcheck in Cursor](cursor.md)). With the agents of this page, Lawcheck checks an edit only when the agent runs `lawcheck check`.
 
 The outputs below come from a repository with this law. Its [script rule](concepts.md#script-rule) `no-console` is the rule of [The first type and the first rule](first-law.md):
 
@@ -58,7 +58,7 @@ Only on the user's word
 
 You may, unasked
 - add a type for a new kind of file, or make a type finer
-- write a rule the user asked for, and try it first: lawcheck try <rule> <files>
+- write a rule the user asked for, and try it first: lawcheck try <rule> <files>; before a script rule reads the syntax tree, run lawcheck explain <path> --tree on a real file of that language
 
 The law here: 2 types, 1 rule
 library  src/core/**  The code every command shares.  rules: no-console
@@ -83,7 +83,7 @@ When git ignores `.lawcheck/law.yaml`, no commit carries the law. The primer the
 
 The primer holds at most 8,000 characters. For a large law, Lawcheck shortens the part about the law. The last line then names the commands that show a type or a rule in full.
 
-Without a law, `lawcheck prime` prints two lines that say the folder has no law. It exits 0.
+Without a law, `lawcheck prime` prints two lines and exits 0. They say that the folder has no law, and that the agent starts one only when you ask, by the steps of [Let a coding agent write the first law](agent-setup.md).
 
 ## 3. See a failed check as the agent does
 
@@ -107,6 +107,16 @@ The check exits 1. The primer tells the agent that exit 1 means "fix the code". 
 ## 4. Check in CI what the agent skips
 
 An agent can skip the check that the primer asks for after each change. Run the same check in a CI job or a git hook ([CI and git hooks](ci.md)). That check finds the errors of a change before you merge it, whether the agent checked the change or not.
+
+## 5. Let the agent write the first law
+
+In a repository with no law, tell the agent this line:
+
+```text
+Run `lawcheck docs agent-setup` and follow it.
+```
+
+The agent describes the folders as types, writes down which type uses which today, and asks you before it forbids a use that the code already makes. It changes only `.lawcheck/` ([Let a coding agent write the first law](agent-setup.md)).
 
 ## If it goes wrong
 

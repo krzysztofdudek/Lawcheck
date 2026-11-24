@@ -173,7 +173,7 @@ test('question 160: programs-own-the-process, the process members of a program u
       ['export const m = () => `home ${process.env.HOME}`;', 'uses process.env outside the programs; take it from the context the program passes'],
     ],
     'src/runner.ts': [["process.stdout.write('a program may');"], ["console.log('a program may');"]],
-  }, {}, typed('runner'));
+  });
 });
 
 test('question 160: modules-only-declare, a statement at load, a variable, an empty Set or Map and a Sync call at load are found; declarations pass', async () => {
@@ -248,7 +248,7 @@ test('question 160: modules-only-declare, a statement at load, a variable, an em
       ['}'],
     ],
     'src/runner.ts': [["console.log('a program may');"], ['let state = 0;']],
-  }, {}, typed('runner'));
+  });
 });
 
 test('question 160: no-import-cycles, a circle of value imports is found on each file of it; a type-only import closes no circle', async () => {

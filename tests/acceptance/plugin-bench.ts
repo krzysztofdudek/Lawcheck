@@ -144,6 +144,152 @@ export class Session {
   }
 }
 
+// The inputs Codex 0.171.0 gave the hooks of a plugin in one real session, one per line: the session start, the prompt, an edit by apply_patch, the stop, a second edit and the stop after the hand-back.
+export const CODEX_INPUTS: Record<string, unknown>[] = readFileSync(join(ROOT, 'tests', 'agent', 'samples', 'codex-hooks.jsonl'), 'utf8').trim().split('\n').map((line) => JSON.parse(line));
+
+export function patchOf(lines: string[]): string {
+  return ['*** Begin Patch', ...lines, '*** End Patch', ''].join('\n');
+}
+
+export class CodexSession {
+  turns = 0;
+  readonly bench: Bench;
+  readonly cwd: string;
+  readonly id: string;
+  readonly env: NodeJS.ProcessEnv;
+
+  constructor(bench: Bench, cwd: string, id = 'c1', env: NodeJS.ProcessEnv = {}) {
+    this.bench = bench;
+    this.cwd = cwd;
+    this.id = id;
+    this.env = env;
+  }
+
+  input(event: string, fields: Record<string, unknown> = {}): string {
+    const recorded = CODEX_INPUTS.find((input) => input.hook_event_name === EVENT_NAMES[event]);
+    if (recorded === undefined) throw new Error(`no recorded Codex input for ${event}`);
+    const turn = event === 'session-start' ? {} : { turn_id: `t${Math.max(this.turns, 1)}` };
+    return JSON.stringify({ ...recorded, session_id: this.id, cwd: this.cwd, ...turn, ...fields });
+  }
+
+  run(event: string, fields: Record<string, unknown> = {}, env: NodeJS.ProcessEnv = {}): Promise<HookRun> {
+    return hook(this.bench, event, this.input(event, fields), { ...this.env, ...env }, undefined, { host: 'codex' });
+  }
+
+  start(source = 'startup'): Promise<HookRun> {
+    return this.run('session-start', { source });
+  }
+
+  prompt(env: NodeJS.ProcessEnv = {}): Promise<HookRun> {
+    this.turns++;
+    return this.run('prompt', { prompt: 'go' }, env);
+  }
+
+  patch(lines: string[], env: NodeJS.ProcessEnv = {}): Promise<HookRun> {
+    return this.run('edit', { tool_name: 'apply_patch', tool_input: { command: patchOf(lines) } }, env);
+  }
+
+  stop(fields: Record<string, unknown> = {}, env: NodeJS.ProcessEnv = {}): Promise<HookRun> {
+    return this.run('stop', { stop_hook_active: false, last_assistant_message: 'done', ...fields }, env);
+  }
+}
+
+// The inputs Copilot CLI 1.0.105 gave the hooks of the plugin's own manifest in real sessions, one per line: the session start, the prompt, a create, the stop, the prompt the hand-back opens, a second create, the stop after the hand-back, then a view and an edit of a later session.
+export const COPILOT_INPUTS: Record<string, unknown>[] = readFileSync(join(ROOT, 'tests', 'agent', 'samples', 'copilot-hooks.jsonl'), 'utf8').trim().split('\n').map((line) => JSON.parse(line));
+
+const COPILOT_SHAPE: Record<string, string> = { 'session-start': 'source', prompt: 'prompt', edit: 'toolName', stop: 'stopReason' };
+
+export class CopilotSession {
+  readonly bench: Bench;
+  readonly cwd: string;
+  readonly id: string;
+  readonly env: NodeJS.ProcessEnv;
+
+  constructor(bench: Bench, cwd: string, id = 'k1', env: NodeJS.ProcessEnv = {}) {
+    this.bench = bench;
+    this.cwd = cwd;
+    this.id = id;
+    this.env = env;
+  }
+
+  input(event: string, fields: Record<string, unknown> = {}): string {
+    const recorded = COPILOT_INPUTS.find((input) => Object.hasOwn(input, COPILOT_SHAPE[event]!));
+    if (recorded === undefined) throw new Error(`no recorded Copilot input for ${event}`);
+    return JSON.stringify({ ...recorded, sessionId: this.id, cwd: this.cwd, ...fields });
+  }
+
+  run(event: string, fields: Record<string, unknown> = {}, env: NodeJS.ProcessEnv = {}): Promise<HookRun> {
+    return hook(this.bench, event, this.input(event, fields), { ...this.env, ...env }, undefined, { host: 'copilot' });
+  }
+
+  start(source = 'new'): Promise<HookRun> {
+    return this.run('session-start', { source });
+  }
+
+  prompt(env: NodeJS.ProcessEnv = {}, text = 'go'): Promise<HookRun> {
+    return this.run('prompt', { prompt: text }, env);
+  }
+
+  write(tool: string, path: string, env: NodeJS.ProcessEnv = {}): Promise<HookRun> {
+    const args = tool === 'create' ? { path: join(this.cwd, path), file_text: '' } : { path: join(this.cwd, path), old_str: 'a', new_str: 'b' };
+    return this.run('edit', { toolName: tool, toolArgs: args, toolResult: { resultType: 'success', textResultForLlm: 'done' } }, env);
+  }
+
+  stop(fields: Record<string, unknown> = {}, env: NodeJS.ProcessEnv = {}): Promise<HookRun> {
+    return this.run('stop', { stop_hook_active: false, ...fields }, env);
+  }
+}
+
+const CURSOR_EVENTS: Record<string, string> = { 'session-start': 'sessionStart', prompt: 'beforeSubmitPrompt', edit: 'postToolUse', stop: 'stop' };
+
+// The inputs of the hooks that Cursor runs for the Claude Code plugin, with the fields that Cursor's documentation of its hooks and the hooks of Cursor Agent CLI 2026.11.22 give them. No session of Cursor recorded them. Cursor runs a plugin's hooks from the plugin's folder, so the hook starts there; only the stop runs from the workspace, and only the edit input holds a cwd.
+export class CursorSession {
+  turns = 0;
+  readonly bench: Bench;
+  readonly cwd: string;
+  readonly id: string;
+  readonly env: NodeJS.ProcessEnv;
+
+  constructor(bench: Bench, cwd: string, id = 'u1', env: NodeJS.ProcessEnv = {}) {
+    this.bench = bench;
+    this.cwd = cwd;
+    this.id = id;
+    this.env = env;
+  }
+
+  input(event: string, fields: Record<string, unknown> = {}): string {
+    const own: Record<string, Record<string, unknown>> = {
+      'session-start': { is_background_agent: false, composer_mode: 'agent' },
+      prompt: { prompt: 'go', attachments: [] },
+      edit: { tool_name: 'Write', tool_use_id: 'call_1', tool_output: '{}', duration: 12, cwd: this.cwd },
+      stop: { status: 'completed', loop_count: 0 },
+    };
+    const turn = event === 'session-start' ? {} : { conversation_id: this.id, generation_id: `g${Math.max(this.turns, 1)}` };
+    return JSON.stringify({ ...turn, session_id: this.id, hook_event_name: CURSOR_EVENTS[event], cursor_version: '2026.11.22-e9042b2', workspace_roots: [this.cwd], user_email: null, transcript_path: null, ...own[event], ...fields });
+  }
+
+  run(event: string, fields: Record<string, unknown> = {}, env: NodeJS.ProcessEnv = {}): Promise<HookRun> {
+    return hook(this.bench, event, this.input(event, fields), { ...this.env, ...env }, undefined, { cwd: event === 'stop' ? this.cwd : PLUGIN });
+  }
+
+  start(): Promise<HookRun> {
+    return this.run('session-start');
+  }
+
+  prompt(env: NodeJS.ProcessEnv = {}): Promise<HookRun> {
+    this.turns++;
+    return this.run('prompt', {}, env);
+  }
+
+  edit(path: string, tool = 'Write', fields: Record<string, unknown> = {}, env: NodeJS.ProcessEnv = {}): Promise<HookRun> {
+    return this.run('edit', { tool_name: tool, tool_input: { file_path: join(this.cwd, path), content: '' }, ...fields }, env);
+  }
+
+  stop(fields: Record<string, unknown> = {}, env: NodeJS.ProcessEnv = {}): Promise<HookRun> {
+    return this.run('stop', fields, env);
+  }
+}
+
 export async function withBench<T>(body: (bench: Bench, dir: string) => Promise<T>): Promise<T> {
   return inTemp((dir) => body(new Bench(dir), dir));
 }

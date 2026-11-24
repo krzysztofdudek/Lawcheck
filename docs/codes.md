@@ -41,6 +41,7 @@ Two words recur below. The root is the folder that holds `.lawcheck/`. A rule bi
 | `too-many-reviews` | exit 2 | a run needs more reviewer calls than `--max-calls` or `reviewer.max_calls` allows | reviewer.max_calls bounds what one run spends |
 | `reviewer-unreachable` | exit 2 | Lawcheck cannot call the reviewer, or a request fails | without the reviewer's answer a reviewer rule says nothing |
 | `reviewer-bad-answer` | exit 2 | the reviewer's answer is no verdict twice, or once when the run has no call left to ask again | an answer that is no verdict cannot be recorded |
+| `not-a-signer` | exit 2 | a run asks for reviews, the law names signers, and `LAWCHECK_SIGNING_KEY` holds no key of one of them | a pass counts only with the signature of a signer the law names |
 | `memory-too-large` | exit 2 | the run passes its memory | a run past its memory would be ended by the system |
 | `step-too-slow` | exit 2 | one step of a run takes more than 30 seconds | a step that never ends gives no answer, so one step of a run has a limit of time |
 | `stopped` | exit 2 | SIGINT, SIGTERM or SIGHUP ended the run | a run stopped before its end says nothing about the code |
@@ -206,7 +207,7 @@ The cause is one of these:
 
 **Fix**
 
-Run Lawcheck inside a git work tree, with git on the `PATH`. For a repository another user owns, run the `git config --global --add safe.directory` command of the `next:` line.
+Run Lawcheck inside a git work tree, with git on the `PATH`. For a repository another user owns, run the `git config --global --add safe.directory` command of the `next:` line. For a repository that git cannot read, such as one with a corrupt `.git/index`, repair it until `git status` works there.
 
 **Example**
 
@@ -234,11 +235,12 @@ The law holds one of these:
 - a wrong value or id;
 - a name in a type's `rules` or `may_use` that the law does not have;
 - a pattern or `content` expression that does not parse;
-- a file named in a rule's `context` that git does not list.
+- a file named in a rule's `context` that git does not list;
+- a place that is no file where the law belongs, such as a folder named `.lawcheck/law.yaml`, or a symbolic link to nothing.
 
 **Fix**
 
-Edit the law at the line the error names. `lawcheck docs law` lists every key.
+Edit the law at the line the error names. `lawcheck docs law` lists every key. When `.lawcheck/law.yaml` is no file, move what stands there away and put the law in a file of that name.
 
 **Example**
 
@@ -293,11 +295,12 @@ A rule of the law has neither its script `.lawcheck/rules/<id>.mjs` nor its prom
 The cause is one of these:
 
 - you add a rule to the law before you write its file;
-- you delete or rename the file of a rule, and the rule stays in the law.
+- you delete or rename the file of a rule, and the rule stays in the law;
+- the file of a rule is a symbolic link, which Lawcheck does not follow, and the message names it.
 
 **Fix**
 
-Write `.lawcheck/rules/<id>.mjs` for a [script rule](concepts.md#script-rule), or `.lawcheck/rules/<id>.md` for a [reviewer rule](concepts.md#reviewer-rule). You can take the rule out of the law instead.
+Write `.lawcheck/rules/<id>.mjs` for a [script rule](concepts.md#script-rule), or `.lawcheck/rules/<id>.md` for a [reviewer rule](concepts.md#reviewer-rule). You can take the rule out of the law instead. Where the message names a symbolic link, replace the link with the file it leads to.
 
 **Example**
 
@@ -452,6 +455,7 @@ Lawcheck cannot write a file or a folder that it must write. The error names tha
 The cause is one of these:
 
 - a file stands where Lawcheck makes a folder, such as a file named `.lawcheck`;
+- a folder stands where Lawcheck writes a file, such as `.lawcheck/.gitignore`;
 - the folder is read-only;
 - the disk is full;
 - `.lawcheck/verdicts` would grow past 16 MiB;
@@ -872,6 +876,36 @@ src/core/refund.ts  error[reviewer-bad-answer]  clear-errors: the answer is no v
 next: run the same command again; what was answered is kept, so it asks only the rest
 ```
 
+## not-a-signer
+
+**Meaning**
+
+The law names signers, so a pass counts only when one of them signed it ([Signed passes](reviewer-rules.md#signed-passes)). This run asks the reviewer, and it holds no signing key of a signer of the law. Lawcheck sends no call, since no pass that it recorded would count.
+
+**Typical cause**
+
+The cause is one of these:
+
+- `LAWCHECK_SIGNING_KEY` is not set on this machine or in this job;
+- `LAWCHECK_SIGNING_KEY` holds something other than a key of 43 characters of base64url;
+- the key belongs to no signer of the law, and the message names its public key.
+
+**Fix**
+
+Set `LAWCHECK_SIGNING_KEY` to your signing key, then run the same command again. A key whose public key the law does not name needs its signer in `signers` first, and who signs is the user's decision.
+
+**Example**
+
+```text
+$ lawcheck check --review --base main
+lawcheck: ERROR  1 error
+
+error[not-a-signer]  the law names signers and LAWCHECK_SIGNING_KEY is not set, so this run could record no pass that counts
+  why:  a pass counts only with the signature of a signer the law names
+
+next: ask the user to set LAWCHECK_SIGNING_KEY to the signing key of a signer that .lawcheck/law.yaml names, then run lawcheck check --review --base main
+```
+
 ## memory-too-large
 
 **Meaning**
@@ -891,7 +925,7 @@ The cause is one of these:
 
 The `next:` line names the step for the case. A type with a `may_use` list on it, or on a type above it, is a type whose files Lawcheck reads for their uses ([`may_use`](law.md#may-use)).
 
-Lawcheck also reads for their uses the files of a script rule that calls `uses()`, and of a reviewer rule whose companion calls it ([The uses](script-rules.md#the-uses)). The error then names that rule, and the `next:` line names the types whose files the rule judges, or says to keep the rule from calling `uses()` on the file. A rule that calls `tree()` makes Lawcheck read the tree of the file, and the error names the rule and `tree()` the same way. A law with no `may_use` list can end this way too.
+Lawcheck also reads for their uses the files of a script rule that calls `uses()`, and of a reviewer rule whose companion calls it ([The uses](script-rules.md#the-uses)). The error then names that rule, and the `next:` line names the types whose files the rule judges, or says to keep the rule from calling `uses()` on the file. A rule that calls `tree()` makes Lawcheck read the tree of the file, and the error names the rule and `tree()` the same way. A law with no `may_use` list can end this way too. Lawcheck reads the uses of a file once per run, for the rule that asks first. When two rules call `uses()` on the same file, the error names the one whose request came first, and two runs of the same check can name different rules. After you keep one rule from that file, the next run names the other.
 
 - For one file that Lawcheck reads for its uses, leave the file out of every such type with a `!` pattern.
 - For one file that Lawcheck reads only for the names it declares, as in the Example, keep the file out of the files that git lists. In Java, Kotlin, C#, Ruby and Rust, Lawcheck reads those names from every file that git lists, with a type or without one ([Languages and uses](languages.md)). Run `git rm --cached` on the file and add a line for it to `.gitignore`.
@@ -1003,10 +1037,11 @@ A reviewer rule has no verdict for the current content of a file. A `check` with
 
 **Typical cause**
 
-You changed a file that a reviewer rule binds, or the rule's prompt, its `why` or a file of its `context`. After that change, the review is missing for one of two reasons:
+You changed a file that a reviewer rule binds, or the rule's prompt, its `why` or a file of its `context`. After that change, the review is missing for one of these reasons:
 
 - `check --review` did not run;
-- the review ran, and the commit holds the old `.lawcheck/verdicts`.
+- the review ran, and the commit holds the old `.lawcheck/verdicts`;
+- the law names signers, and the line of the review carries no signature of one of them. The message then says `has a pass for this content that no signer of the law signed`.
 
 **Fix**
 
@@ -1234,8 +1269,8 @@ A note is a line that starts with `note:`, under the first line of `check` or `i
 
 | Text | When | Fix |
 |---|---|---|
-| `note: the law changed in this change; lawcheck check --full ...` | a `check` with no path and no `--full` judges a change that edits `.lawcheck/law.yaml`, `.lawcheck/config.yaml` or a file of `.lawcheck/rules/` | run the `check --full` command of the note to see what the new law finds in the rest of the code |
-| `note: this change edits the law that judges it: ...` | the same change; the note lists what it changes in the law, such as types, rules, `may_use` and the patterns of `required` and `ignored` | read the list before you accept the change |
+| `note: the law changed in this change; lawcheck check --full ...` | a `check` with no path and no `--full`, against a base, judges a change that edits `.lawcheck/law.yaml`, `.lawcheck/config.yaml` or a file of `.lawcheck/rules/` | run the `check --full` command of the note to see what the new law finds in the rest of the code |
+| `note: this change edits the law that judges it: ...` | a `check` against a base, with or without `--full`, judges a change that edits the law; the note lists what it changes in the law, such as types, rules, `may_use` and the patterns of `required` and `ignored` | read the list before you accept the change |
 | `note: this change adds <n> waivers: ...` | a `check` against a base, where a changed file holds a waiver that it did not hold at the base | read each waiver and its reason before you accept the change |
 | `note: the paths of a type reach into ...` | the paths of a type reach into a submodule or a repository of its own, and Lawcheck judges no file there | run Lawcheck in that repository with its own law |
 | `note: <path> lies in ...` | a path named to `check` lies in a submodule or a repository of its own | run Lawcheck in that repository |

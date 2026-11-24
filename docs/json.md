@@ -1,6 +1,6 @@
 # JSON documents
 
-With `--json`, every command prints one JSON document to standard output and nothing else. The first field of every document is `schema`. It names the document and its version. The form of a document whose name ends in `/0` may change between versions. `lawcheck-error/1` is stable: a later version keeps the name, the type and the meaning of each of its fields, and may add a field. A program that reads it skips the fields it does not know.
+With `--json`, every command prints one JSON document to standard output and nothing else. The first field of every document is `schema`. It names the document and its version. The form of a document whose name ends in `/0` may change between versions. `lawcheck-error/1` has a fixed form: each of its fields keeps its name, its type and its meaning, and a version can add a field. A program that reads it skips the fields it does not know.
 
 A field that holds no value is null and stays in the document. Two cases differ:
 
@@ -70,7 +70,7 @@ This page names a field of a list's items by its path. `findings.code` is the `c
 |---|---|
 | `result` | `fail` when a finding has severity error, else `pass`; a finding of debt has severity error only under `--strict` |
 | `scope` | what the check judged |
-| `scope.mode` | `change` for a check of the change with no path and no `--full`, `full` with `--full`, `paths` for named files |
+| `scope.mode` | `change` for a [check of the change](concepts.md#check-of-the-change), `full` with `--full`, `paths` for named files |
 | `scope.base` | the base as given, or null without one |
 | `scope.files` | the count of changed files, or under `paths` of the named files |
 | `scope.law_changed` | true when the change touches `.lawcheck/law.yaml`, `.lawcheck/config.yaml` or a rule file |
@@ -158,11 +158,11 @@ Every command but `doctor` prints this document when it ends with exit 2.
 
 ## lawcheck-explain/0
 
-`explain` prints this document, with exit 0. `subject` says which of the four forms follows: `file`, `directory`, `type` or `rule`.
+`explain` prints this document, with exit 0. `subject` says which of the five forms follows: `file`, `directory`, `type`, `rule` or `tree`.
 
 | Field | Value |
 |---|---|
-| `subject` | `file`, `directory`, `type` or `rule` |
+| `subject` | `file`, `directory`, `type`, `rule` or `tree` |
 
 For a file, these fields follow `schema` and `subject`:
 
@@ -187,7 +187,7 @@ For a file, these fields follow `schema` and `subject`:
 | `may_use.from` | the type above whose list holds, or null for the file's own type |
 | `uses` | whether its uses are read, or null when no list is in force |
 | `uses.read` | true when a reader reads the file |
-| `uses.language` | the reader's language, or null |
+| `uses.language` | the reader's language, or null when no reader reads the file, and for a `.vue` or `.svelte` file with no script block, which uses nothing |
 | `rules` | every rule of the chain |
 | `rules.id` | the rule |
 | `rules.kind` | `script` or `reviewer` |
@@ -234,6 +234,25 @@ For a rule, these fields follow `schema` and `subject`:
 | `reviewed` | for a reviewer rule, how many of its files have a verdict; null for a script rule |
 
 `id` is the rule. `types` names each type that lists it. `files` names the files it binds: each file whose type, or a type above it, lists the rule.
+
+For a tree, from `explain <path> --tree --json`, these fields follow `schema` and `subject`:
+
+| Field | Value |
+|---|---|
+| `path` | the path from the root |
+| `language` | the language the reader parsed, such as `typescript`; null for a file with no reader |
+| `absent` | null, or why the tree is absent: `no-reader`, `too-large` or `reader-failed` |
+| `nodes` | every node of the tree, each before its children, in the order of the text; null when the tree is absent |
+| `nodes.type` | the node's type in the grammar |
+| `nodes.named` | false for a keyword or a punctuation mark, true for the other nodes |
+| `nodes.field` | the name its parent gives the node, or null |
+| `nodes.start` | where the node starts in the file's text |
+| `nodes.end` | where the node ends in the file's text |
+| `nodes.line` | the line of `start`, counted from 1 |
+| `nodes.column` | the column of `start` in its line, counted from 0 in UTF-16 code units |
+| `nodes.parent` | the index of the node's parent in `nodes`, or null for the root |
+
+A script rule that walks `await file.tree()` from the root, each node before its children, meets the same nodes in the same order, with the same keys but `children` in place of `parent`.
 
 ## lawcheck-try/0
 
@@ -294,5 +313,30 @@ With a topic, the document holds `id`, `title` and `text`. `text` holds the Mark
 | `checks.next` | the next step for a `note` or `fail`, or null |
 | `checks.next.command` | the command alone, such as `lawcheck init`, where the step is one, else null |
 | `checks.next.text` | the step in words |
+
+## SARIF 2.1.0
+
+With `--sarif <file>`, `check` also writes its findings to that file in SARIF 2.1.0 for GitHub code scanning ([CI and git hooks](ci.md#_3-show-the-findings-in-github-code-scanning)). `check` writes the file when it ends with exit 0 or 1. With exit 2 it writes none, since a file with no result would tell code scanning that every open alert was fixed. A file already at that path stays as it was. A file it cannot write stops the run with `file-unwritable` and exit 2. Lawcheck writes an API key of the reviewer as `[key]` in the file, as in the JSON.
+
+Code scanning takes each upload of a branch as the whole analysis and closes as fixed every alert that the upload lacks. A check of the change holds no finding of a file it leaves alone, so the workflow of [CI and git hooks](ci.md#_3-show-the-findings-in-github-code-scanning) writes the file from `check --full`, which holds the findings of every file. Debt fails nothing without `--strict`, so the exit code stays that of the change. The second check, with the law of the base, writes no file, since its findings would replace those of the first.
+
+The file validates against the SARIF 2.1.0 schema of OASIS. It holds one run, and the run holds one result for each item of `findings` of `lawcheck-check/0`, in the same order, the debt of `--full` included.
+
+| Field | Value |
+|---|---|
+| `version` | `2.1.0` |
+| `runs.tool.driver.name` | `Lawcheck` |
+| `runs.tool.driver.semanticVersion` | the version that `lawcheck --version` prints |
+| `runs.tool.driver.rules` | one item for each code that the results hold, sorted by `id` |
+| `runs.tool.driver.rules.id` | the code, as in `findings.code` |
+| `runs.tool.driver.rules.shortDescription.text` | the `why` of the code's first finding; `fullDescription.text` holds the same |
+| `runs.tool.driver.rules.help.text` | the `why`, then the command that tells more: `lawcheck explain --rule <id>` for a rule, `lawcheck docs codes` for a code of Lawcheck |
+| `runs.results.ruleId` | `findings.code` |
+| `runs.results.ruleIndex` | the place of the code in `rules`, from 0 |
+| `runs.results.level` | `findings.severity`: `error` or `warning` |
+| `runs.results.message.text` | `findings.message` |
+| `runs.results.locations.physicalLocation.artifactLocation.uri` | the path of the file from the top of the git work tree, which is where GitHub looks for it; each byte other than a letter, a digit, `-`, `.`, `_`, `~` and `/` is written as `%` and two hexadecimal digits |
+| `runs.results.locations.physicalLocation.artifactLocation.uriBaseId` | `%SRCROOT%` |
+| `runs.results.locations.physicalLocation.region.startLine` | `findings.line`, or 1 for a finding about the whole file |
 
 Next: [The Claude Code plugin](plugin.md)

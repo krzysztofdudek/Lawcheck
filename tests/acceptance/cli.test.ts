@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { rmSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   append,
@@ -10,6 +11,7 @@ import {
   findingLines,
   git,
   inTemp,
+  LAW,
   lawcheck,
   NOTHING_CHANGED,
   withSample,
@@ -193,7 +195,7 @@ test('test 44: version and help', async () => {
     const version = await lawcheck(dir, ['--version']);
     assert.equal(version.stdout, '0.1.0-alpha.4\n');
     assert.equal(version.code, 0);
-    for (const [args, first] of [[['--help'], 'usage: lawcheck <command> [<arguments>] [--json]'], [['check', '--help'], 'usage: lawcheck check [--full] [--strict] [--base <ref>] [--review [--again] [--max-calls <n>]] [--json]']] as const) {
+    for (const [args, first] of [[['--help'], 'usage: lawcheck <command> [<arguments>] [--json]'], [['check', '--help'], 'usage: lawcheck check [--full] [--strict] [--base <ref>] [--review [--again] [--max-calls <n>]] [--sarif <file>] [--json]']] as const) {
       const run = await lawcheck(dir, [...args]);
       assert.equal(run.stdout.split('\n')[0], first);
       assert.equal(run.code, 0);
@@ -268,5 +270,20 @@ test('test 777: --strict fails on the debt that --full lists, as an error where 
       assert.equal(named.code, 2, flags.join(' '));
       assert.match(named.stdout, /error\[usage\]  paths go with --json alone/);
     }
+  });
+});
+
+test('R-19: next.command of an error document is the command of a next line that is one command, and null where the line has other steps first', async () => {
+  const nextOf = async (cwd: string, args: string[]) => JSON.parse((await lawcheck(cwd, [...args, '--json'])).stdout).next as { command: string | null; text: string };
+  await withSample(async (s) => {
+    assert.deepEqual(await nextOf(s, ['check', '--nosuch']), { command: 'lawcheck check --help', text: 'run lawcheck check as its usage line says: lawcheck check --help' });
+    assert.deepEqual(await nextOf(s, ['init']), { command: 'lawcheck doctor', text: 'lawcheck doctor  (shows how the law here stands)' });
+    assert.deepEqual(await nextOf(s, ['check', '--base', 'nosuch']), { command: null, text: 'pass --base with a branch or a commit that exists here' });
+    write(s, 'pkg/.lawcheck/law.yaml', LAW);
+    git(s, 'rm', '-q', '-r', '--cached', '.lawcheck');
+    rmSync(join(s, '.lawcheck'), { recursive: true });
+    git(s, 'add', '-A');
+    git(s, 'commit', '-q', '-m', 'move the law');
+    assert.deepEqual(await nextOf(s, ['check']), { command: null, text: 'cd pkg, where a law is, then run lawcheck check' });
   });
 });

@@ -5,8 +5,25 @@ import { join } from 'node:path';
 import { defaultAnswer, openai, withFake } from '../acceptance/fake-reviewer.ts';
 import { D, D_PATH, F, F_PATH, F_PRIME, KEY_F, KEY_F_PRIME, REVIEWER_LAW, withR, withSample, write } from '../acceptance/helpers.ts';
 import { errorLines, MiB, run, sparse, textHead } from './support.ts';
+import { LOCK_HELD_LOOK_MS } from '../numbers.ts';
 
 const REVIEW = ['check', '--review', '--base', 'main'];
+
+const LOCK_TOUCH_MS = 250;
+
+// The review calls a verdicts lock stale ten seconds after its folder's time (LOCK_WAIT_MS in src/verdicts.ts), however long its holder lives, so a test that holds the lock while a slow review gets to it touches the folder as it waits.
+function keepLock(lock: string): () => void {
+  const timer = setInterval(() => {
+    try {
+      const now = new Date();
+      utimesSync(lock, now, now);
+    } catch {
+      // The test has let go of the lock.
+    }
+  }, LOCK_TOUCH_MS);
+  timer.unref();
+  return () => clearInterval(timer);
+}
 
 function unwritable(path: string, message: string): string {
   return [
@@ -203,8 +220,8 @@ test('test 271: a review whose passes would push .lawcheck/verdicts past 16 MiB 
   }
 });
 
-// The test is the other run: it holds the lock while it reads the verdicts file and writes it back with a line of its own, as a run does. Holding it, it gives the review three seconds to write; with the lock the review waits, without it the review writes in between and the test's write loses that line.
-test('test 253: two runs that write the verdicts file at once keep the lines of both', async () => {
+// The test is the other run: it holds the lock while it reads the verdicts file and writes it back with a line of its own, as a run does. It writes once the review has reached the lock, however long the review takes to get there; held there, the review calls no reviewer until the test lets go, while a review the lock does not hold calls the fake within moments and writes in between, and the test's write loses that line.
+test('R-76: test 253, two runs that write the verdicts file at once keep the lines of both, the second writing only once the first waits at the lock', async () => {
   await withFake(async (fake) => {
     await withR(async (r) => {
       write(r, F_PATH, F_PRIME);
@@ -214,12 +231,17 @@ test('test 253: two runs that write the verdicts file at once keep the lines of 
       mkdirSync(lock, { recursive: true });
       writeFileSync(join(local, '.gitignore'), '*\n');
       writeFileSync(join(lock, 'pid'), String(process.pid));
+      const madeAt = statSync(lock).mtimeMs;
+      const letGo = keepLock(lock);
       const before = existsSync(verdicts) ? readFileSync(verdicts, 'utf8') : '';
       const review = run(r, REVIEW, { env: { LAWCHECK_REVIEWER_ENDPOINT: fake.url }, budget: 'LIMITS_RUN_MS', writes: [/^\.lawcheck\/\.local(\/|$)/] });
-      let ended = false;
-      void review.then(() => (ended = true));
-      const deadline = Date.now() + 3000;
-      while (!ended && Date.now() < deadline) await new Promise((done) => setTimeout(done, 20));
+      await heldAtLock(local, review);
+      const until = Date.now() + LOCK_HELD_LOOK_MS;
+      while (fake.requests.length === 0 && Date.now() < until) await new Promise((done) => setTimeout(done, 20));
+      assert.equal(fake.requests.length, 0, 'the review called the reviewer while the test held the lock');
+      const touched = statSync(lock).mtimeMs > madeAt;
+      letGo();
+      assert.ok(touched, 'the lock kept the time it was made at, so a review that came ten seconds late would have taken it');
       const other = `${'0'.repeat(32)} clear-errors\n`;
       writeFileSync(verdicts, before + other);
       rmSync(lock, { recursive: true, force: true });
@@ -252,7 +274,7 @@ async function heldAtLock(local: string, review: Promise<unknown>): Promise<void
   }
 }
 
-// As in test 253 the test is a second run holding the lock; it adds three passes, so the review's own pass would take the file past 16 MiB at the moment it writes.
+// As in R-76 the test is a second run holding the lock; it adds three passes, so the review's own pass would take the file past 16 MiB at the moment it writes.
 test('test 272: R-84, a pass that would take the verdicts file past 16 MiB when it is written is refused, even after the check before the calls', async () => {
   await withFake(async (fake) => {
     await withR(async (r) => {

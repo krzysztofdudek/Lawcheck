@@ -13,6 +13,7 @@ Lawcheck looks for the file in the current directory, then in each directory abo
 | `ignored` | top | patterns of files that the law leaves out |
 | `rules` | top | rule id to rule |
 | `types` | top | type id to root type |
+| `signers` | top | signer name to public key |
 | `why` | rule | one line, required |
 | `status` | rule | `enforced` or `advisory` |
 | `context` | rule | paths |
@@ -38,7 +39,7 @@ A YAML alias, such as `*base`, stands for the value that an anchor, such as `&ba
 
 Lawcheck stops with `law-invalid` when a type holds itself through an alias. For example, a subtype `again: *source` under `source: &source` makes `source` hold itself.
 
-The law below uses every key of the table except `required`, `ignored`, `context`, `companion`, `may_use` and `waivers`:
+The law below uses every key of the table except `required`, `ignored`, `signers`, `context`, `companion`, `may_use` and `waivers`:
 
 ```yaml
 lawcheck: 0.1.0
@@ -152,6 +153,10 @@ Lawcheck does not judge a use of a binary file, nor a file's use of itself. It r
 
 With `waivers: false`, Lawcheck reads a waiver marker in the type's files as plain text. That way, a documentation page or a test whose text quotes the marker can have a type and waive nothing. Without the key, a type takes the value of its parent. In a type at the top of `types` without the key, Lawcheck reads waivers.
 
+## signers
+
+`signers` maps the name of each signer to an Ed25519 public key of 43 characters of base64url. A name is kebab-case, as an id is. When the law names signers, a pass of a reviewer rule counts only when one of them signed it ([Signed passes](reviewer-rules.md#signed-passes)). Lawcheck stops with `law-invalid` when `signers` names no signer, and when a key has another form.
+
 ## Ids
 
 A rule id and a type id are kebab-case: lower-case letters and digits, in words joined by `-`. The pattern is `[a-z0-9]+(-[a-z0-9]+)*`. Each type id may appear once in the whole tree of types. A key that YAML reads as no string, such as `true` or `12`, is `law-invalid`. Write such a key in quotes.
@@ -206,6 +211,6 @@ Lawcheck stops with exit 2 and one of two codes when the rule files do not match
 - `rule-missing-file`, for a rule with neither file, or with a reviewer file that holds only whitespace;
 - `rule-file-without-entry`, for a rule with both files, and for any other file in `.lawcheck/rules/` outside `.lawcheck/rules/lib/`.
 
-A script rule keeps the code it imports in `.lawcheck/rules/lib/`, and the companion of a reviewer rule lies there too. Lawcheck sees only the files that git lists, so a rule file that git does not track and `.gitignore` names counts as missing.
+A script rule keeps the code it imports in `.lawcheck/rules/lib/`, and the companion of a reviewer rule lies there too. Lawcheck sees only the files that git lists, so a rule file that git does not track and `.gitignore` names counts as missing. A rule file that is a symbolic link counts as missing too, because Lawcheck reads no rule through a link; the error says so and names the link.
 
 Next: [Settings](config.md)

@@ -109,10 +109,16 @@ The plugin reads the `runner` setting without a YAML parser. It takes the first 
 
 Yarn 1 prints lines of its own around the output of `yarn run`. To read the JSON of `--json`, start Lawcheck with `yarn --silent run lawcheck`. The flag `--silent` leaves those lines out.
 
-Yarn 4 holds back a package published less than a day ago. Lawcheck reads the code of each language with the package `@chrisdudek/runes`, which these pages call Runes. On the first day after a release of Lawcheck or of Runes, `yarn add` ends with `YN0016` and `quarantined`. With this line in `.yarnrc.yml`, Yarn installs both packages on that first day:
+Yarn 4.15.0 and later hold back a package published less than a day ago. Lawcheck reads the code of each language with the package `@chrisdudek/runes`, which these pages call Runes. On the first day after a release of Lawcheck or of Runes, `yarn add` ends with `YN0016` and `quarantined`. With this line in `.yarnrc.yml`, Yarn installs both packages on that first day. Yarn 4.10.1 to 4.14.1 hold nothing back and accept the line. Yarn 4.0.0 to 4.9.4 do not know it and stop every command with `Usage Error`, so leave it out there.
 
 ```text
 npmPreapprovedPackages: [lawcheck, "@chrisdudek/runes"]
+```
+
+pnpm 11 and later also hold back a package published less than a day ago, and they do not stop the install. `pnpm add --save-dev lawcheck@alpha` installs the newest version that is at least a day old, so on the first day after a release you get the release before it. Runes is held back in the same way. With this line in `pnpm-workspace.yaml`, pnpm installs both new versions on that first day:
+
+```text
+minimumReleaseAgeExclude: [lawcheck, "@chrisdudek/runes"]
 ```
 
 Git ignores `.lawcheck/config.local.yaml`, because `.lawcheck/.gitignore` names it. No command of Lawcheck reads that file.
@@ -125,6 +131,7 @@ Git ignores `.lawcheck/config.local.yaml`, because `.lawcheck/.gitignore` names 
 | `GITHUB_BASE_REF`, `CI_MERGE_REQUEST_TARGET_BRANCH_NAME`, `CI_COMMIT_BEFORE_SHA`, `SYSTEM_PULLREQUEST_TARGETBRANCH` | take the one that the CI service sets as the base of the change, when neither `--base` nor `LAWCHECK_BASE` is given (`lawcheck docs ci`) |
 | `LAWCHECK_REVIEWER_ENDPOINT` | sends the requests of the HTTP providers to this address, which `openai-compatible` needs: `http:` or `https:`, with no user, password, query or fragment |
 | `LAWCHECK_REVIEWER_KEY` | sends it as the key of `openai-compatible`, and of `anthropic`, `openai` and `google` when their own variable is unset or `LAWCHECK_REVIEWER_ENDPOINT` is set |
+| `LAWCHECK_SIGNING_KEY` | signs each pass that `check --review` records, when the law names signers ([Signed passes](reviewer-rules.md#signed-passes)); Lawcheck hides it as a key and passes it to no program |
 | `ANTHROPIC_API_KEY` | sends it as the key of `anthropic`, and passes it to `claude` |
 | `OPENAI_API_KEY` | sends it as the key of `openai`, and passes it to `codex` |
 | `GOOGLE_API_KEY` | sends it as the key of `google`, and passes it to `gemini` |
@@ -138,7 +145,7 @@ Git ignores `.lawcheck/config.local.yaml`, because `.lawcheck/.gitignore` names 
 | `COPILOT_PROVIDER_API_KEY` | passes it to `copilot` |
 | `COPILOT_PROVIDER_API_KEY_COMMAND` | passes it to `copilot`; it holds a command, so Lawcheck does not hide its value as a key |
 | `COPILOT_PROVIDER_BEARER_TOKEN` | passes it to `copilot` |
-| `CI` | treats the run as a CI job, where a check of the change with no base and no `--full` is `base-unreachable`; set to 0, false, no or off, it means no job. Without `CI`, a CI service's own variable, such as `GITHUB_ACTIONS`, marks the job |
+| `CI` | treats the run as a CI job, where a [check of the change](concepts.md#check-of-the-change) with no base is `base-unreachable`; set to 0, false, no or off, it means no job. Without `CI`, a CI service's own variable, such as `GITHUB_ACTIONS`, marks the job |
 | `PATH` | finds `git` and the reviewer programs there, and leaves out relative and empty entries |
 | `NODE_OPTIONS` | refuses every command when it holds `--permission`, under which Lawcheck cannot read its own files |
 | `TMPDIR` | makes the folder of a reviewer program there; `TEMP` on Windows |

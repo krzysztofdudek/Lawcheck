@@ -1,0 +1,86 @@
+{
+  "id": "fu01",
+  "page": "forbid-a-use",
+  "arm": "b",
+  "recorded": "2026-11-24T04:25:17.394Z",
+  "prompt": "Add a loyalty discount in src/core: a customer with more than five orders gets ten percent off. Return the new total and a message that shows the saved amount as money, the way the receipts do.",
+  "complete": true,
+  "commands": [
+    {
+      "command": "stty cols 88 rows 26 && clear",
+      "seconds": 0.301,
+      "ended": true,
+      "exit": 0
+    },
+    {
+      "command": "claude -p \"Add a loyalty discount in src/core: a customer with more than five orders gets ten percent off. Return the new total and a message that shows the saved amount as money, the way the receipts do.\"",
+      "seconds": 16.148,
+      "ended": true,
+      "exit": 0
+    },
+    {
+      "command": "npm test",
+      "seconds": 0.307,
+      "ended": true,
+      "exit": 0
+    },
+    {
+      "command": "git add --all",
+      "seconds": 0.301,
+      "ended": true,
+      "exit": 0
+    },
+    {
+      "command": "git diff --staged",
+      "seconds": 0.301,
+      "ended": true,
+      "exit": 0
+    },
+    {
+      "command": "lawcheck check",
+      "seconds": 0.301,
+      "ended": true,
+      "exit": 0
+    },
+    {
+      "command": "lawcheck check --base origin/main",
+      "seconds": 0.301,
+      "ended": true,
+      "exit": 0
+    }
+  ],
+  "changed": [
+    "src/api/format.ts",
+    "src/core/loyalty.ts",
+    "src/core/money.ts",
+    "tests/loyalty.test.ts"
+  ],
+  "tests": {
+    "exit": 0,
+    "tests": 10,
+    "pass": 10,
+    "fail": 0
+  },
+  "check": {
+    "exit": 0,
+    "first": "lawcheck: PASS  4 changed files (against origin/main)"
+  },
+  "candidate": {
+    "commit": "c8821fa78c031df6d56050a9dd920c67c9aa45ea",
+    "lawcheck": "0.1.0-alpha.4"
+  },
+  "versions": {
+    "claude_code": "2.1.330 (Claude Code)",
+    "node": "v24.22.3",
+    "models": [
+      "claude-sonnet-5-5"
+    ],
+    "effort": "medium",
+    "plugin": [
+      {
+        "version": "0.1.0-alpha.4",
+        "commit": "b68ac6e94d27e248262a485858a8a1268c2c7e3d"
+      }
+    ]
+  }
+}

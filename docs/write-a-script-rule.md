@@ -67,6 +67,8 @@ export function check({ files }) {
 
 A second rule imports `./lib/lines.mjs` in the same way. [Script rules](script-rules.md) says what `check` receives and what a finding holds.
 
+A rule about code can read the file's syntax tree instead of its lines. Before you write such a rule, run `lawcheck explain <path> --tree` on a file of the rule's language. It prints the node types and fields of that language's grammar, which differ between languages ([The syntax tree](script-rules.md#the-syntax-tree)).
+
 ## 4. See the files the rule binds
 
 A rule [binds](concepts.md#rule) the files of the types that list it.
@@ -195,6 +197,8 @@ src/core/price.ts:2  warning[no-fetch]  calls fetch outside the api layer
 
 ## 13. Read the syntax tree
 
+Before you write a rule that reads the syntax tree, run `lawcheck explain <path> --tree` on a real file of the rule's language, and write the rule from the node types and fields it prints, since they differ between languages. A rule that guesses a node type finds nothing.
+
 The rule reads lines, so it also reports `fetch(` in a comment or a string. Add `src/core/cart.ts`, whose first line is a comment:
 
 ```ts
@@ -247,5 +251,6 @@ The finding in `src/core/cart.ts` is on line 3, the call. Line 1, the comment, h
 - The rule finds nothing in a file where you expected a finding: the file has no type that lists the rule. `lawcheck explain <path>` shows its rules.
 - `lawcheck try no-fetch` stops with [`usage`](codes.md#usage): no file has a type that lists the rule. Name the files, or list the rule on a type as in [Add the rule to the law](#_1-add-the-rule-to-the-law).
 - `lawcheck check` without a path passes on code that breaks a new rule: without a path or `--full`, it judges the changed files only. `lawcheck check --full` lists the rest as debt.
+- A rule that reads the tree finds nothing where you expected a finding: the rule names a node type or a field that the grammar of the file's language does not have. `lawcheck explain <path> --tree` prints the types and fields of that file's nodes.
 
 Next: [Write a reviewer rule](write-a-reviewer-rule.md)

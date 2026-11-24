@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
 import { rmSync } from 'node:fs';
-import { killTree, powershell, PROCESS_TABLE, toEnd } from './programs.js';
+import { createdIn, killTree, powershell, PROCESS_TABLE, toEnd } from './programs.js';
 
 const pids = new Set<number>();
 const windows = process.platform === 'win32';
@@ -127,7 +127,8 @@ async function endWatched(): Promise<boolean> {
   const before = table;
   const fresh = await listSince(learned, 10_000);
   if (fresh === null) return false;
-  for (const pid of toEnd(before, fresh, [...groups])) {
+  // On Windows the tool starts the guard before it calls a program reviewer (startListing), so no process of a group's tree was made before the guard.
+  for (const pid of toEnd(before, fresh, [...groups], createdIn(fresh).get(process.pid))) {
     try {
       process.kill(pid, 'SIGKILL');
     } catch {

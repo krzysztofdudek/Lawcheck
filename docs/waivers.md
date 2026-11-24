@@ -13,7 +13,7 @@ A waiver is the text `lawcheck-waive <rule id> -- <reason>`, anywhere in a line.
 - Lawcheck takes the first `lawcheck-waive` in a line as the marker. It reads a second one on the same line as plain text.
 - Whitespace, the rule id, whitespace, `--` and the reason follow the marker.
 - Lawcheck first cuts a closing `*/` or `-->` off the end of the line. With that cut, `<!-- lawcheck-waive no-console -- reason -->` works.
-- The reason is the rest of the line after `--`. Lawcheck trims the whitespace at both ends of it. A waiver needs a reason.
+- The reason is the rest of the line after `--`. Lawcheck trims the whitespace at both ends of it. A waiver needs a reason: a reason of nothing but whitespace and invisible format characters, such as a zero-width space, is none.
 - A type can set `waivers: false` (`lawcheck docs law`). In a file of such a type, Lawcheck reads the marker as plain text.
 
 ## The lines a waiver covers
@@ -25,7 +25,7 @@ A waiver with a letter or a digit before the marker on its line covers its own l
 console.log('released');
 ```
 
-Waivers on several lines that stand alone, one above the other, all cover the line below them. If two waivers of one rule cover the same line, one of them drops the findings: the waiver on the line itself, or else the nearest waiver above it. A waiver at the end of a file covers nothing.
+Waivers on several lines that stand alone, one above the other, all cover the line below them. If two waivers of one rule cover the same line, one of them drops the findings: the waiver on the line itself, or else the nearest waiver above it. Lawcheck reports each of the others as `waiver-unused` and names the waiver that drops the findings. A waiver at the end of a file covers nothing.
 
 A waiver drops every finding of its rule on the line it covers. No waiver can drop a finding about the whole file, because such a finding has no line.
 
@@ -62,7 +62,7 @@ A waiver at the end of the last line, after `} from '../cli/main.js';` or after 
 | Code | When | Severity |
 |---|---|---|
 | `waiver-unknown-rule` | no rule id of the law follows the marker: it is missing, names no rule, or the word runs on, as in `lawcheck-waive-file` | error |
-| `waiver-without-reason` | the rule is known, and no `--` follows it, or nothing follows the `--` | error |
+| `waiver-without-reason` | the rule is known, and no `--` follows it, or nothing but whitespace and invisible format characters follows the `--` | error |
 | `waiver-unused` | a counted waiver dropped no finding | warning |
 
 A waiver with either of the first two codes waives nothing. Lawcheck reports all three codes at the waiver's line, where no waiver can drop them. Outside the change, Lawcheck reports these findings as warnings, because they are [debt](concepts.md#debt).

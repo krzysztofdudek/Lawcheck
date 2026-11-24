@@ -6,11 +6,11 @@ import { join } from 'node:path';
 import { parse } from 'yaml';
 import { ROOT } from '../harness/sets.ts';
 import { ALLOWED_NAMES } from './allowed-names.ts';
-import { phoneProblems, problems } from '../../site/landing/check.mjs';
+import { phoneProblems, problems, tutorialProblems } from '../../site/landing/check.mjs';
 import { problems as docsCardProblems } from '../../site/check-docs-card.mjs';
 import { CARD, cardHead, cardProblems, pngProblems } from '../../site/theme/card.mjs';
 import { CATEGORY, FINDING, og } from '../../site/theme/og.mjs';
-import { Fragments } from '../../site/landing/fragments.ts';
+import { Fragments, isAhead } from '../../site/landing/fragments.ts';
 
 const ALLOWED = new Set(Object.values(ALLOWED_NAMES).flat());
 const TAKEN = ['governance', 'trust', 'control', 'confidence', 'AI-native', 'guardrails'];
@@ -115,6 +115,37 @@ test('test 781: the check of the built landing page passes a page with its head,
   assert.deepEqual(built({ 'index.html': index }), ['og.png is missing', '404.html is missing', 'robots.txt does not name the sitemap', 'sitemap.xml does not hold https://lawcheck.dev/', 'vercel.json is missing or does not parse']);
 });
 
+const CHAPTERS = [
+  { page: 'quick-start', files: { mp4: { name: 'quick-start.mp4' }, vtt: { name: 'quick-start.vtt' }, jpg: { name: 'quick-start.jpg' } } },
+  { page: 'ci', files: { mp4: { name: 'ci.mp4' }, vtt: { name: 'ci.vtt' }, jpg: { name: 'ci.jpg' } } },
+];
+const card = (page: string): string => `<li id="tutorial-${page}" class="chapter"><button type="button" class="button chapter-play">Play</button><a href="https://docs.lawcheck.dev/${page}.html">Read the page</a></li>`;
+const TUTORIAL = `<section id="tutorial" class="wrap tutorial"><ol class="chapters">${CHAPTERS.map((chapter) => card(chapter.page)).join('')}</ol></section>`;
+
+function tutorialOf(index: string, chapters: unknown[], present: string[]): string[] {
+  const dir = mkdtempSync(join(tmpdir(), 'lawcheck-tutorial-'));
+  try {
+    mkdirSync(join(dir, 'film'));
+    for (const name of present) writeFileSync(join(dir, 'film', name), 'x');
+    return tutorialProblems(index, dir, chapters);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+test('test 1034: the check of the built landing page wants the section #tutorial with one card per listed chapter, in order, each with its files, its link and a Play button, and nothing of a chapter loaded before a click, and wants no such section when no chapter is listed (control)', () => {
+  const files = CHAPTERS.flatMap((chapter) => Object.values(chapter.files).map((file) => file.name));
+  assert.deepEqual(tutorialOf(TUTORIAL, CHAPTERS, files), []);
+  assert.deepEqual(tutorialOf('<main></main>', [], []), []);
+  assert.deepEqual(tutorialOf(TUTORIAL, [], []), ['index.html shows the tutorial, and film/published.json lists no chapter']);
+  assert.deepEqual(tutorialOf('<main></main>', CHAPTERS, files), ['index.html has 0 sections with the id tutorial, not one', 'the tutorial shows the chapters [], and film/published.json lists [quick-start, ci]', 'the card of the chapter quick-start has no link to its page', 'the card of the chapter ci has no link to its page', 'the tutorial has 0 Play buttons, not 2']);
+  assert.deepEqual(tutorialOf(`<section id="tutorial">${card('ci')}${card('quick-start')}</section>`, CHAPTERS, files), ['the tutorial shows the chapters [ci, quick-start], and film/published.json lists [quick-start, ci]']);
+  assert.deepEqual(tutorialOf(TUTORIAL, CHAPTERS, files.filter((name) => name !== 'ci.vtt')), ['film/ci.vtt of the chapter ci is missing']);
+  assert.deepEqual(tutorialOf(TUTORIAL.replace('<a href="https://docs.lawcheck.dev/ci.html">', '<a href="https://docs.lawcheck.dev/index.html">'), CHAPTERS, files), ['the card of the chapter ci has no link to its page']);
+  assert.deepEqual(tutorialOf(TUTORIAL.replace('class="button chapter-play"', 'class="chapter-play"'), CHAPTERS, files), ['the tutorial has 1 Play buttons, not 2']);
+  assert.deepEqual(tutorialOf(`${TUTORIAL}<video poster="/film/ci.jpg"></video>`, CHAPTERS, files), ['index.html loads a video, a track or an image of a chapter before a click']);
+});
+
 test('test 782: the landing page finds a paragraph, a sentence and a code block by its heading and its opening words, so one that is gone or one that starts like another stops the build, as a missing heading or table row does (control)', () => {
   const dir = mkdtempSync(join(tmpdir(), 'lawcheck-fragments-'));
   try {
@@ -202,4 +233,19 @@ test('test 892: the check of the built landing page passes a stylesheet that sta
   assert.deepEqual(sheetProblems(SHEET.replace('max-width:860px', 'max-width:300px')), [320, 360, 390].flatMap((width) => [`at ${width} px .pair keeps 2 columns (minmax(0,5fr) minmax(0,7fr)), so its blocks stand side by side on a phone`, `at ${width} px .cards keeps 3 columns (repeat(3,minmax(0,1fr))), so its blocks stand side by side on a phone`]));
   assert.deepEqual(sheetProblems(SHEET.replace('max-width:860px', 'min-width:861px')), sheetProblems(SHEET.replace('max-width:860px', 'max-width:300px')));
   assert.deepEqual(sheetProblems(null), ['assets has no stylesheet']);
+});
+
+test('test 1009: the finding on the card and in its alt text is the whole line that README.md shows, and the alt text says it is the first line of a finding (issue 244)', () => {
+  const line = `${FINDING.place}  ${FINDING.code}  ${FINDING.text}`;
+  assert.ok(read('README.md').split('\n').includes(line), 'a whole line of README.md');
+  assert.ok(CARD.alt.includes(`${FINDING.place} ${FINDING.code}, ${FINDING.text}.`), 'the alt text holds the line to its end');
+  assert.ok(CARD.alt.includes('the first line of one finding'), 'the alt text says that more of the finding follows');
+});
+
+test('test 1007: the landing page says its build is ahead of its release while CHANGELOG.md holds text under Unreleased, and says nothing when that section is empty or gone (control)', () => {
+  assert.equal(isAhead(['# Changelog', '', '## [Unreleased]', '', 'A new flag.', '', '## [1.2.3] - 2026-01-01', '', 'Old text.'].join('\n')), true);
+  assert.equal(isAhead(['# Changelog', '', '## [Unreleased]', '', '## [1.2.3] - 2026-01-01', '', 'Old text.'].join('\n')), false);
+  assert.equal(isAhead(['# Changelog', '', '## [Unreleased]', ''].join('\n')), false);
+  assert.equal(isAhead(['# Changelog', '', '## [1.2.3] - 2026-01-01', '', 'Old text.'].join('\n')), false);
+  assert.equal(isAhead('## [Unreleased]\nA new flag.'), true);
 });

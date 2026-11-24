@@ -1,22 +1,22 @@
 import { execFileSync } from 'node:child_process';
 import type { ChildProcessWithoutNullStreams } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { existsSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { killGroup, releaseFolder, releaseGroup, startListing, watchFolder, watchGroup } from '../rules.js';
-import { findProgram, startProgram } from '../programs.js';
+import { findProgram, guardedFolder, killGroup, releaseFolder, releaseGroup, startListing, startProgram, watchGroup } from '../programs.js';
 import { MAX_REPLY_BYTES } from './http.js';
 import { variable } from './index.js';
-import type { Asked, Env, Provider } from './index.js';
-import { hide } from '../keys.js';
+import type { Env } from './index.js';
+import type { Asked, Provider } from '../provider.js';
+import { hide, SIGNING_KEY } from '../keys.js';
 
 const KILL_AFTER_MS = 5000;
 const CLOSE_GRACE_MS = 2000;
 const FAILURE_LENGTH = 300;
 const STDERR_KEPT = 64 * 1024;
 
-export const LAWCHECK_VARIABLES = ['LAWCHECK_REVIEWER_ENDPOINT', 'LAWCHECK_REVIEWER_KEY'];
+export const LAWCHECK_VARIABLES = ['LAWCHECK_REVIEWER_ENDPOINT', 'LAWCHECK_REVIEWER_KEY', SIGNING_KEY];
 
 // A sign-in variable that holds a command which prints a key, not a key.
 const NOT_KEYS = ['COPILOT_PROVIDER_API_KEY_COMMAND'];
@@ -85,7 +85,6 @@ export function programProvider(program: Program, env: Env, timeoutSeconds: numb
   return {
     keys: (SIGN_IN_VARIABLES[program.name] ?? []).filter((name) => !NOT_KEYS.includes(name)).map((name) => variable(env, name)).filter((key): key is string => key !== null),
     ready() {
-      startListing();
       binary = find(env);
       return binary === null ? missing : null;
     },
@@ -174,16 +173,14 @@ function run(program: Program, binary: string, extra: string[], prompt: string, 
     };
     let dir: string;
     try {
-      dir = mkdtempSync(join(tmpdir(), `lawcheck-${program.name}-`));
+      dir = guardedFolder(`lawcheck-${program.name}-`);
     } catch (error) {
       return settle(folderFailure(program.name, error));
     }
-    watchFolder(dir);
     let aside: string | null = null;
     if (program.aside !== undefined) {
       try {
-        aside = mkdtempSync(join(tmpdir(), `lawcheck-${program.name}-aside-`));
-        watchFolder(aside);
+        aside = guardedFolder(`lawcheck-${program.name}-aside-`);
         for (const [name, text] of Object.entries(program.aside)) writeFileSync(join(aside, name), text);
       } catch (error) {
         releaseFolder(dir);

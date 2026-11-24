@@ -5,6 +5,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fork, spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
+import { memoryError } from '../../dist/cli.js';
+import { attach, lastStep, progressBuffer } from '../../dist/progress.js';
 import { RUNNER, runRule } from '../../dist/rules.js';
 
 function file(path: string, lines: string[]) {
@@ -212,7 +214,7 @@ test('S2-6: an immediate that the runner still has pending when the first messag
           return queue.shift() as { kind: string };
         };
         assert.equal((await next()).kind, 'ready');
-        child.send({ kind: 'load', file: ruleFile, filesOf: new Map() });
+        child.send({ kind: 'load', file: ruleFile, filesOf: new Map(), limits: { messageChars: 4096, findings: 200_000, chars: 16 * 1024 * 1024 } });
         assert.equal((await next()).kind, 'loaded');
         child.send({ kind: 'call', file: { path: 'a.ts', type: null, text: 'x\n', lines: ['x'] } });
         assert.equal((await next()).kind, 'result');
@@ -373,4 +375,17 @@ export function check() {
   const outcome = (await outcomeOf(source)) as { findings: { message: string }[] };
   assert.ok('findings' in outcome, JSON.stringify(outcome));
   assert.equal(outcome.findings[0]!.message, `unref true, setTimeout true, setImmediate true, setInterval true, wait true; ${typeof EventSource} ${'EventSource' in globalThis}`);
+});
+
+test('R-108: the step of a run that judges files for a script rule names that rule, so memory-too-large names it with a next line that fits', async () => {
+  const progress = progressBuffer();
+  attach(progress);
+  await withRule('export function check() { return []; }\n', async (root, ruleFile) => {
+    await runRule({ root, rule: 'no-console', ruleFile, files: [file('a.ts', ['x'])], filesOf });
+  });
+  const last = lastStep(progress);
+  assert.equal(last.what, 'judging the files for the script rule no-console');
+  const error = memoryError('run', last.what, last.file, 'check');
+  assert.equal(error.message, 'the run passed the 1536 MiB of memory it may hold while judging the files for the script rule no-console');
+  assert.equal(error.next, 'narrow the types whose files the script rule no-console judges in .lawcheck/law.yaml, or run Lawcheck where it may hold more memory, then run lawcheck check again');
 });

@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { main, memoryError, parseArguments, readerGone } from '../../dist/cli.js';
+import { attach, lastStep, progressBuffer, step } from '../../dist/progress.js';
 
 const context = { cwd: '/', env: {} };
 
@@ -32,7 +33,7 @@ test('check-slice §4: arguments', () => {
 
 test('commands-slice §2: version and help exit 0', async () => {
   assert.deepEqual(await main(['--version'], context), { code: 0, stdout: '0.1.0-alpha.4\n' });
-  for (const [argv, first] of [[['--help'], 'usage: lawcheck <command> [<arguments>] [--json]'], [['check', '--help'], 'usage: lawcheck check [--full] [--strict] [--base <ref>] [--review [--again] [--max-calls <n>]] [--json]']] as const) {
+  for (const [argv, first] of [[['--help'], 'usage: lawcheck <command> [<arguments>] [--json]'], [['check', '--help'], 'usage: lawcheck check [--full] [--strict] [--base <ref>] [--review [--again] [--max-calls <n>]] [--sarif <file>] [--json]']] as const) {
     const result = await main([...argv], context);
     assert.equal(result.code, 0);
     assert.equal(result.stdout.split('\n')[0], first);
@@ -56,4 +57,22 @@ test('R-121: memory-too-large names a step that fits what the run was reading: a
   assert.equal(next('file', 'reading what A.cs declares for the script rule no-todo', 'A.cs'), `keep A.cs out of the files git lists here (git rm --cached, and a line in .gitignore), since Lawcheck reads it for what it declares, ${again}`);
   assert.equal(next('run', 'resolving the uses for the script rule no-todo', null), `narrow the types whose files the script rule no-todo judges in .lawcheck/law.yaml, or run Lawcheck where it may hold more memory, ${again}`);
   assert.equal(next('run', 'resolving the uses', null), `narrow the types whose may_use is in force in .lawcheck/law.yaml, or run Lawcheck where it may hold more memory, ${again}`);
+});
+
+test('test 277: memory-too-large names the whole rule and file of a step whose path is long, and past the longest path the rule still', () => {
+  const progress = progressBuffer();
+  attach(progress);
+  const rule = 'no-console-in-core';
+  const next = () => {
+    const last = lastStep(progress);
+    return memoryError('file', last.what, last.file, 'check').next;
+  };
+  for (const length of [205, 240, 4_096, 32_767]) {
+    const path = `src/${'a'.repeat(length - 7)}.ts`;
+    step(`reading the uses of ${path} for the script rule ${rule}`, path);
+    assert.equal(next(), `leave ${path} out of the types whose files the script rule ${rule} judges, or keep the rule from calling uses() on it, then run lawcheck check again`, `a path of ${length}`);
+  }
+  const path = `src/${'a'.repeat(40_000)}.ts`;
+  step(`reading the tree of ${path} for the companion of the reviewer rule ${rule}`, path);
+  assert.match(next()!, new RegExp(`out of the types whose files the reviewer rule ${rule} judges, or keep its companion from calling tree\\(\\) on it, then run lawcheck check again$`));
 });

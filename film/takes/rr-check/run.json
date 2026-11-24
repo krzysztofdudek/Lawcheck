@@ -1,0 +1,12 @@
+{
+  "id": "rr-check",
+  "chapter": "write-a-reviewer-rule",
+  "take": "rr01",
+  "args": [
+    "check",
+    "--base",
+    "main"
+  ],
+  "exit": 0,
+  "lawcheck": "0.1.0-alpha.4"
+}

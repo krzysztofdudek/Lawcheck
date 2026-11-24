@@ -23,7 +23,7 @@ function firstPart(reviewers: boolean, mayUse: boolean): string {
 const FULL = firstPart(true, true);
 const R_PART = block('prime-r-part');
 const U_TYPES = block('prime-u-types');
-const NO_LAW = 'Lawcheck is installed, and this directory has no law (.lawcheck/law.yaml here or above).\nRun lawcheck init only when the user asks for a law here.\n';
+const NO_LAW = 'Lawcheck is installed, and this directory has no law (.lawcheck/law.yaml here or above).\nStart one only when the user asks for a law here, and then follow lawcheck docs agent-setup.\n';
 const SHORTENED = 'shortened to fit; lawcheck explain --type <id> shows a type in full, lawcheck explain --rule <id> a rule';
 const TEST_17 = [
   'lawcheck: ERROR  1 error',
@@ -38,15 +38,15 @@ const TEST_17 = [
 const points = (text: string) => [...text].length;
 
 test('test 100: prime in S, its JSON, and from a subdirectory', async () => {
-  assert.equal(points(FIRST_PART), 1455);
-  assert.equal(points(FULL), 1751);
+  assert.equal(points(FIRST_PART), 1567);
+  assert.equal(points(FULL), 1863);
   assert.equal(FULL.split('\n').length, 24);
   await withSample(async (s) => {
     const run = await lawcheck(s, ['prime']);
     assert.equal(run.stdout, PRIME_S);
     assert.equal(run.code, 0);
     const json = await lawcheck(s, ['prime', '--json']);
-    assert.deepEqual(JSON.parse(json.stdout), { schema: 'lawcheck-prime/0', text: PRIME_S, step: 1, characters: 1920 });
+    assert.deepEqual(JSON.parse(json.stdout), { schema: 'lawcheck-prime/0', text: PRIME_S, step: 1, characters: 2032 });
     assert.equal(json.code, 0);
     const below = await lawcheck(join(s, 'src/core'), ['prime']);
     assert.equal(below.stdout, PRIME_S);
@@ -66,6 +66,13 @@ test('test 101: prime in R and in U', async () => {
     lines.splice(lines.indexOf('The law here: 4 types, 2 rules') + 1, 4, ...U_TYPES);
     assert.equal(run.stdout, lines.join('\n'));
     assert.equal(run.code, 0);
+  });
+});
+
+test('test 1021: prime names lawcheck explain <path> --tree where it speaks of script rules', async () => {
+  await withSample(async (s) => {
+    const run = await lawcheck(s, ['prime']);
+    assert.ok(run.stdout.includes('lawcheck try <rule> <files>; before a script rule reads the syntax tree, run lawcheck explain <path> --tree on a real file of that language'));
   });
 });
 
