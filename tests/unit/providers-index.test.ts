@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DEFAULT_CONFIG } from '../../dist/config.js';
 import { createProvider, endpointOf, ownKey, variable } from '../../dist/providers/index.js';
+import { hide, useKeys } from '../../dist/keys.js';
 
 test('test 64: the endpoint: http or https, trailing slashes removed, empty counts as absent', () => {
   assert.equal(endpointOf({}), null);
@@ -48,4 +49,27 @@ test('test 404: a key under a provider name goes only to its own address', () =>
   assert.deepEqual([wrong.problem, wrong.fix, wrong.keyed], ['LAWCHECK_REVIEWER_ENDPOINT is no http: or https: address', 'set LAWCHECK_REVIEWER_ENDPOINT to an http: or https: address with no user, password, query or fragment', null]);
   const broken = keyed({ OWN_KEY: 'a\nb' });
   assert.deepEqual([broken.problem, broken.fix, broken.keyed], ['OWN_KEY holds a character an HTTP header cannot carry', 'set OWN_KEY to the key alone, with no space or line break', null]);
+});
+
+test('R-45: the endpoint says in its own words what is wrong with it, and a trailing # or ? is a fragment or a query', () => {
+  const problem = (value: string) => endpointOf({ LAWCHECK_REVIEWER_ENDPOINT: value });
+  assert.deepEqual(problem('not a url'), { problem: 'LAWCHECK_REVIEWER_ENDPOINT is no URL' });
+  assert.deepEqual(problem('ftp://h/v1'), { problem: 'LAWCHECK_REVIEWER_ENDPOINT is no http: or https: address' });
+  const holding = { problem: 'LAWCHECK_REVIEWER_ENDPOINT holds a user or a password; the key goes in LAWCHECK_REVIEWER_KEY' };
+  assert.deepEqual(problem('http://user@h/v1'), holding);
+  assert.deepEqual(problem('http://:secret@h/v1'), holding);
+  const query = { problem: 'LAWCHECK_REVIEWER_ENDPOINT holds a query or a fragment; it takes the base address alone' };
+  for (const value of ['http://h/v1?x=1', 'http://h/v1?', 'http://h/v1#top', 'http://h/v1#']) assert.deepEqual(problem(value), query, value);
+  assert.deepEqual(problem('https://h/v1/'), { url: 'https://h/v1' });
+});
+
+test('R-45: a provider that is created has its keys hidden from then on, and none is created without a name', () => {
+  useKeys({});
+  assert.equal(hide('error sk-created-key-1234 here'), 'error sk-created-key-1234 here');
+  assert.equal(createProvider(DEFAULT_CONFIG, { OPENAI_API_KEY: 'sk-ignored-key-5678' }), null);
+  assert.equal(hide('error sk-ignored-key-5678 here'), 'error sk-ignored-key-5678 here');
+  const provider = createProvider({ ...DEFAULT_CONFIG, provider: 'openai', model: 'm' }, { OPENAI_API_KEY: 'sk-created-key-1234' });
+  assert.deepEqual(provider!.keys, ['sk-created-key-1234']);
+  assert.equal(hide('error sk-created-key-1234 here'), 'error [key] here');
+  useKeys({});
 });

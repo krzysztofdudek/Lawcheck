@@ -80,6 +80,182 @@
     "killedBy": "R-97: a pass recorded while the waiver counted is no pass once the type sets waivers: false, in check, check of a named file, explain and --review"
   },
   {
+    "id": "glob-problem-text",
+    "promise": "R-40",
+    "file": "src/glob.ts",
+    "find": "return 'nests a brace';",
+    "replace": "return 'nests braces';",
+    "killedBy": "R-40: patternProblem says in its own words what is wrong, for each fault"
+  },
+  {
+    "id": "glob-reaches-match",
+    "promise": "R-40",
+    "file": "src/glob.ts",
+    "find": "(kind === MATCH ? [state] : [])",
+    "replace": "(kind !== MATCH ? [state] : [])",
+    "killedBy": "R-40: reaches says whether some path that starts with the prefix matches, the matching path itself included"
+  },
+  {
+    "id": "glob-last-any-state",
+    "promise": "R-40",
+    "file": "src/glob.ts",
+    "find": "const ANY = 3;",
+    "replace": "const ANY = 4;",
+    "killedBy": "R-40: a ** that is the last segment does not match the directory, with or without its slash"
+  },
+  {
+    "id": "doctor-law-change-count",
+    "promise": "R-39",
+    "file": "src/doctor.ts",
+    "find": "touched.length > 3 ? ",
+    "replace": "touched.length > 4 ? ",
+    "killedBy": "R-39: a change that touches the law names the first three files in order and counts the rest, and the command keeps the base only when one was passed"
+  },
+  {
+    "id": "doctor-runner-program",
+    "promise": "R-39",
+    "file": "src/doctor.ts",
+    "find": "npx: 'npx'",
+    "replace": "npx: 'pnpx'",
+    "killedBy": "R-39: the config check names a config that is wrong, and the program of each runner, found on the PATH or not"
+  },
+  {
+    "id": "doctor-reviewer-unset",
+    "promise": "R-39",
+    "file": "src/doctor.ts",
+    "find": "'no reviewer is set, so --reviewer has nothing to call'",
+    "replace": "'no reviewer is set'",
+    "killedBy": "R-39: the reviewer check says why it cannot call a reviewer, and what a call answered"
+  },
+  {
+    "id": "init-law-below-message",
+    "promise": "R-41",
+    "file": "src/init.ts",
+    "find": "'a law already governs a directory below this one'",
+    "replace": "'a law governs a directory below this one'",
+    "killedBy": "R-41: init where a law already governs names the law in the words of its own, in text and in JSON, from the top and from a folder below it"
+  },
+  {
+    "id": "init-link-to-file",
+    "promise": "R-41",
+    "file": "src/init.ts",
+    "find": "'it is a symbolic link to a file, so the folder .lawcheck cannot be made'",
+    "replace": "'it is a link to a file, so the folder .lawcheck cannot be made'",
+    "killedBy": "R-41: init where .lawcheck is a link to a file or to nothing says which and what to do"
+  },
+  {
+    "id": "init-unwritable-code",
+    "promise": "R-41",
+    "file": "src/init.ts",
+    "find": "message: `cannot be written (${code})`",
+    "replace": "message: `cannot be written`",
+    "killedBy": "R-41: a file that cannot be made is file-unwritable, with the code of the failure and the place"
+  },
+  {
+    "id": "types-ignored-file",
+    "promise": "R-44",
+    "file": "src/types.ts",
+    "find": "if (law.ignored.matches(path)) continue;",
+    "replace": "if (law.ignored.matches(path) && false) continue;",
+    "killedBy": "R-44: a file the law ignores is never read or typed, and a binary file is neither typed nor untyped"
+  },
+  {
+    "id": "types-overlap-untyped",
+    "promise": "R-44",
+    "file": "src/types.ts",
+    "find": "if (required && !overlapped) untyped.push(path);",
+    "replace": "if (required) untyped.push(path);",
+    "killedBy": "R-44: a file that matches two types of one level is an overlap, named with its types, and is neither typed nor untyped"
+  },
+  {
+    "id": "types-text-limit-stops",
+    "promise": "R-44",
+    "file": "src/types.ts",
+    "find": "if (error instanceof TextTooLarge) break;",
+    "replace": "if (error instanceof TextTooLarge) continue;",
+    "killedBy": "R-44: files that cannot be read are listed in the order given, and a run past its text limit stops there"
+  },
+  {
+    "id": "providers-fragment-alone",
+    "promise": "R-45",
+    "file": "src/providers/index.ts",
+    "find": "parsed.hash !== '' || /[?#]/.test(value)",
+    "replace": "parsed.hash !== '' && /[?#]/.test(value)",
+    "killedBy": "R-45: the endpoint says in its own words what is wrong with it, and a trailing # or ? is a fragment or a query"
+  },
+  {
+    "id": "providers-keys-hidden",
+    "promise": "R-45",
+    "file": "src/providers/index.ts",
+    "find": "if (provider !== null) addKeys(provider.keys);",
+    "replace": "if (provider !== null) addKeys([]);",
+    "killedBy": "R-45: a provider that is created has its keys hidden from then on, and none is created without a name"
+  },
+  {
+    "id": "setup-run-text-limit",
+    "promise": "R-43",
+    "file": "src/setup.ts",
+    "find": "if (total > RUN_TEXT_BYTES) throw new TextTooLarge(path, total);",
+    "replace": "if (total > RUN_TEXT_BYTES * 2) throw new TextTooLarge(path, total);",
+    "killedBy": "R-43: a file read twice is counted once, a binary one stays binary, a failure stays the same failure, and a run reads at most 128 MiB"
+  },
+  {
+    "id": "setup-ci-services",
+    "promise": "R-43",
+    "file": "src/setup.ts",
+    "find": "'TF_BUILD', 'JENKINS_URL', 'BUILDKITE'",
+    "replace": "'TF_BUILD', 'BUILDKITE'",
+    "killedBy": "R-43: the CI services Lawcheck knows are the ones that set a variable, and CI itself says no with any word of no"
+  },
+  {
+    "id": "setup-rule-without-file",
+    "promise": "R-43",
+    "file": "src/setup.ts",
+    "find": "has neither ${script} nor ${prose}` });",
+    "replace": "has no file` });",
+    "killedBy": "R-43: the files of the rules are sorted into scripts and reviewer rules, and each fault of a rule has its code, place and words"
+  },
+  {
+    "id": "setup-empty-path",
+    "promise": "R-43",
+    "file": "src/setup.ts",
+    "find": "usage('an empty path names no file')",
+    "replace": "usage('an empty path')",
+    "killedBy": "R-43: a path from the root of the law names a file, and the root itself, and nothing outside it"
+  },
+  {
+    "id": "setup-folder-prefix",
+    "promise": "R-43",
+    "file": "src/setup.ts",
+    "find": "(path === '.' || file.startsWith(`${path}/`))",
+    "replace": "(path === '.' || file.startsWith(path))",
+    "killedBy": "R-43: the targets of a command pick the files they name, as a pattern, a file or a folder, in the order of the paths, and say what is wrong with one that picks none"
+  },
+  {
+    "id": "runner-wasi-text",
+    "promise": "R-42",
+    "file": "src/runner.ts",
+    "find": "return 'starts WASI, and a rule may not';",
+    "replace": "return 'starts WASI';",
+    "killedBy": "R-42: what a rule throws is told in the words of the runner, by the permission the error names"
+  },
+  {
+    "id": "runner-companion-entry",
+    "promise": "R-42",
+    "file": "src/runner.ts",
+    "find": "message.entry === 'companion' ? 'companion' : 'check'",
+    "replace": "message.entry === 'companion' ? 'check' : 'check'",
+    "killedBy": "R-42: a module that lacks the function asked of it fails to load, whichever of check and companion that is, and a companion answers with paths"
+  },
+  {
+    "id": "runner-tcp-bind6",
+    "promise": "R-42",
+    "file": "src/runner.ts",
+    "find": "['open', 'bind', 'bind6', 'listen', 'connect', 'connect6']",
+    "replace": "['open', 'bind', 'listen', 'connect', 'connect6']",
+    "killedBy": "R-42: a rule reaches the network by none of the doors the runner shuts, and the error it meets says so"
+  },
+  {
     "id": "explain-tree-arguments",
     "promise": "I-args-1",
     "file": "src/explain.ts",
@@ -94,5 +270,13 @@
     "find": "strict: args.flags.has('--strict'), base:",
     "replace": "strict: args.flags.has('--strict') && JSON.parse('') === 1, base:",
     "killedBy": "I-args-1: tokens of the tool and junk give usage or a run, never internal, and change nothing in git"
+  },
+  {
+    "id": "runner-surrogate-count",
+    "promise": "R-42",
+    "file": "src/runner.ts",
+    "find": "low <= 0xdfff",
+    "replace": "low < 0xdfff",
+    "killedBy": "R-42: a message holds at most 4,096 code points, a pair of surrogates counts as one, and any other surrogate counts by itself"
   }
 ]
