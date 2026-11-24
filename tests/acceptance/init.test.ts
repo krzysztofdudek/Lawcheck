@@ -202,11 +202,12 @@ test('R-3: init above a sample repository with a law of its own refuses and writ
     const repo = newRepository(dir, { 'src/a.ts': 'export const a = 1;\n', 'tests/sample/src/b.ts': 'export const b = 1;\n', 'tests/sample/.lawcheck/law.yaml': law('src/**/*.ts') });
     const init = await lawcheck(repo, ['init']);
     assert.match(init.stdout, /^tests\/sample\/\.lawcheck\/law\.yaml {2}error\[already-initialized\]  a law already governs a directory below this one$/m);
+    assert.match(init.stdout, /^ {2}next: to govern this folder instead, write \.lawcheck\/law\.yaml here by hand  \(lawcheck docs first-law shows how\)$/m);
     assert.equal(init.code, 2);
     assert.equal(existsSync(join(repo, '.lawcheck')), false);
     const doctor = await lawcheck(repo, ['doctor']);
     assert.match(doctor.stdout, /^fail {2}law {2}no \.lawcheck\/law\.yaml in this directory or any above it; the laws below it are in tests\/sample$/m);
-    assert.match(doctor.stdout, /^ {2}next: cd tests\/sample, where a law is, then run lawcheck doctor again$/m);
+    assert.match(doctor.stdout, /^ {2}next: cd tests\/sample, where a law is, then run lawcheck doctor again; to govern this folder instead, write \.lawcheck\/law\.yaml here by hand  \(lawcheck docs first-law shows how\)$/m);
     assert.ok(!/lawcheck init/.test(doctor.stdout), doctor.stdout);
     write(repo, '.lawcheck/law.yaml', law('src/**/*.ts'));
     const top = await lawcheck(repo, ['check', '--full']);
