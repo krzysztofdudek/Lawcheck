@@ -45,16 +45,24 @@ function processEnd(error: any, oomKills: number | null): string {
   return '';
 }
 
-// The kernel counts in memory.events every process of a cgroup it killed for lack of memory, as in a container at its memory limit.
-function oomKills(): number | null {
+// The kernel counts in memory.events every process of a cgroup it killed for lack of memory, as in a container at its memory limit. The count is the cgroup's total for its whole life, so a run reports the kills since it started.
+export function oomKills(proc = '/proc/self/cgroup', root = '/sys/fs/cgroup'): number | null {
   try {
-    const own = /^0::(\/.*)$/m.exec(readFileSync('/proc/self/cgroup', 'utf8'))?.[1];
+    const own = /^0::(\/.*)$/m.exec(readFileSync(proc, 'utf8'))?.[1];
     if (own === undefined) return null;
-    const found = /^oom_kill (\d+)$/m.exec(readFileSync(join('/sys/fs/cgroup', own, 'memory.events'), 'utf8'));
+    const found = /^oom_kill (\d+)$/m.exec(readFileSync(join(root, own, 'memory.events'), 'utf8'));
     return found === null ? null : Number(found[1]);
   } catch {
     return null;
   }
+}
+
+export function killsSince(read: () => number | null): () => number | null {
+  const before = read();
+  return () => {
+    const now = read();
+    return before === null || now === null ? null : Math.max(0, now - before);
+  };
 }
 
 function clip(text: string, lines: number): string[] {
@@ -199,7 +207,7 @@ export async function judgeRun(source: AsyncIterable<{ type: string; data: any }
 
 export default async function* reporter(source: AsyncIterable<{ type: string; data: any }>): AsyncGenerator<string> {
   const started = Number(process.env.LAWCHECK_STARTED);
-  const verdict = await judgeRun(source, { system: process.platform as System, started: Number.isFinite(started) && started > 0 ? started : null, target: Number(process.env.LAWCHECK_TARGET_MS), oomKills });
+  const verdict = await judgeRun(source, { system: process.platform as System, started: Number.isFinite(started) && started > 0 ? started : null, target: Number(process.env.LAWCHECK_TARGET_MS), oomKills: killsSince(oomKills) });
   if (verdict.red) process.exitCode = 1;
   yield verdict.text;
 }

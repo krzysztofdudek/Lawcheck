@@ -14,6 +14,7 @@ import { tmpdir } from 'node:os';
 import { CLI, CouldNotRun, withoutTypeStrippingWarning, expectBroken, fakeWrites, HOOK, PLATFORM_SKIPS, platformSkip, ROOT, startHook, startProgram, startShell, startTool, testFolder, unpackTarball } from '../harness/tool.ts';
 import { promiseOf } from '../harness/promises.ts';
 import { gitChanges, gitState } from '../harness/state.ts';
+import { judgeRun, killsSince, oomKills } from '../harness/reporter.ts';
 import { GIT_ENV } from '../acceptance/helpers.ts';
 import type { Expect, Shell } from '../harness/tool.ts';
 
@@ -265,6 +266,70 @@ test('harness-8: a run may change nothing outside its repository: not its tempor
     fakeWrites(dir, ['record.json']);
     assert.equal((await tool(dir, "writeFileSync('../record.json', 'x');", ['check'], {}, repo)).code, 0);
   });
+});
+
+test('harness-8: a file written beside a repository that lies below the test folder is outside the repository, and a changed mode alone is a change', async () => {
+  await inTemp(async (dir) => {
+    mkdirSync(join(dir, 'a'));
+    const repo = repository(join(dir, 'a'));
+    assert.match((await expectBroken('harness-8', () => tool(dir, "writeFileSync('../other.txt', 'x');", ['check'], {}, repo))).message, /a\/other\.txt/);
+    rmSync(join(dir, 'a', 'other.txt'));
+    const kept = join(dir, 'mode.txt');
+    writeFileSync(kept, 'x\n');
+    process.getBuiltinModule('node:fs').chmodSync(kept, 0o644);
+    assert.match((await expectBroken('harness-8', () => tool(dir, "process.getBuiltinModule('node:fs').chmodSync('../../mode.txt', 0o444);", ['check'], {}, repo))).message, /mode\.txt/);
+  });
+});
+
+async function* stream(...list: { type: string; data: object }[]): AsyncGenerator<{ type: string; data: object }> {
+  for (const event of list) yield event;
+}
+
+const failedFile = (error: object) => stream({ type: 'test:fail', data: { name: 'test 5: a test', file: join(ROOT, 'tests', 'unit', 'x.test.ts'), nesting: 0, details: { duration_ms: 1, error } } });
+const ended = { code: 'ERR_TEST_FAILURE', message: 'test failed' };
+
+test('test 1004: the reporter says how the process of a test file ended, and counts the processes the kernel killed for lack of memory only after a SIGKILL', async () => {
+  const got = async (error: object, kills: number | null): Promise<string> => {
+    const text = (await judgeRun(failedFile(error), { system: 'linux', started: null, target: 0, oomKills: () => kills })).text;
+    return /^got {6}(.*)$/m.exec(text)![1]!;
+  };
+  const killed = { ...ended, signal: 'SIGKILL' };
+  assert.equal(await got(killed, 2), 'test failed: SIGKILL ended the process of the test file, and memory.events of this cgroup counts 2 processes the kernel killed for lack of memory');
+  assert.equal(await got(killed, 1), 'test failed: SIGKILL ended the process of the test file, and memory.events of this cgroup counts 1 process the kernel killed for lack of memory');
+  assert.equal(await got(killed, 0), 'test failed: SIGKILL ended the process of the test file');
+  assert.equal(await got(killed, null), 'test failed: SIGKILL ended the process of the test file');
+  assert.equal(await got({ ...ended, signal: 'SIGTERM' }, 2), 'test failed: SIGTERM ended the process of the test file');
+  assert.equal(await got({ ...ended, failureType: 'testCodeFailure', exitCode: 3 }, 2), 'test failed: the process of the test file exited with 3');
+  assert.equal(await got({ ...ended, failureType: 'testCodeFailure', exitCode: 0 }, 2), 'test failed');
+  assert.equal(await got({ code: 'ERR_ASSERTION', message: 'a is not b', signal: 'SIGKILL' }, 2), 'a is not b');
+  let read = 0;
+  const passing = stream({ type: 'test:pass', data: { name: 'test 5: a test', file: join(ROOT, 'tests', 'unit', 'x.test.ts'), nesting: 0, details: { duration_ms: 1 } } });
+  assert.equal((await judgeRun(passing, { system: 'linux', started: null, target: 0, oomKills: () => ++read })).red, false);
+  assert.equal(read, 0);
+});
+
+test('test 1004: the count of killed processes is read from memory.events of the cgroup the process names, and a run reports only the kills since it started', async () => {
+  await inTemp(async (dir) => {
+    const proc = join(dir, 'cgroup');
+    mkdirSync(join(dir, 'sys', 'job'), { recursive: true });
+    const events = join(dir, 'sys', 'job', 'memory.events');
+    writeFileSync(proc, '0::/job\n');
+    writeFileSync(events, 'low 0\nhigh 0\nmax 4\noom 3\noom_kill 3\n');
+    assert.equal(oomKills(proc, join(dir, 'sys')), 3);
+    writeFileSync(events, 'low 0\nmax 4\n');
+    assert.equal(oomKills(proc, join(dir, 'sys')), null);
+    writeFileSync(proc, '12:memory:/job\n');
+    assert.equal(oomKills(proc, join(dir, 'sys')), null);
+    assert.equal(oomKills(join(dir, 'missing'), join(dir, 'sys')), null);
+  });
+  const totals = [5, 8];
+  const since = killsSince(() => totals.shift() ?? null);
+  assert.equal(since(), 3);
+  assert.equal(killsSince(() => null)(), null);
+  const later = [4, null];
+  assert.equal(killsSince(() => (later.length > 0 ? later.shift()! : null))(), null);
+  const reset = [9, 2];
+  assert.equal(killsSince(() => reset.shift() ?? null)(), 0);
 });
 
 test('question 95: harness: two runs at once in one repository are checked together when the last ends', async () => {
