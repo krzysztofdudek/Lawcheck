@@ -80,6 +80,8 @@ f9a6abd6308326c78a75c3541f39b29d docs-state-facts
 19b8b2a593d2998c464b1512fc8423f4 docs-state-facts
 05826a704ae28f2588fe5799f4152fa9 docs-state-facts
 d6e800ca455b32d3ec015d1ac23b5114 docs-state-facts
+62e11f4a15ebd3322f59adae74248611 comments-say-why
+ac2ac03e03e868e4de776b3688d64a9d next-keeps-the-users-word
 12f61d548e9e9935f391873a49ce8e92 comments-say-why
 14fe2a6075d9c7b5477f3faade0795b2 next-keeps-the-users-word
 226c79a8017457819fe20b90a9c9a475 next-keeps-the-users-word
@@ -135,3 +137,6 @@ ca9d20694eaa93d0d1f798350532918b docs-state-facts
 d3444607d7ebe5fe39c3917a12abc480 docs-state-facts
 d3afe888d266b29aa593a56fd7a724a6 comments-say-why
 ea84d4fdf2effdbdb136936f1f277e82 errors-name-the-fix
+1ab7889f90177c31aca0916a44f3c14e errors-name-the-fix
+528b05ebf8c38aa77cacc643c940c902 comments-say-why
+ce1fd372d346a16a79f4c871415a7604 next-keeps-the-users-word
