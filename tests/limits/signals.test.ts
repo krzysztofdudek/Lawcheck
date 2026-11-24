@@ -228,3 +228,31 @@ test('R-113: a run killed with SIGKILL right after the folder of a reviewer prog
     { onMain: (r: string) => write(r, '.lawcheck/config.yaml', 'reviewer:\n  provider: claude-code\n  model: test-model\n') },
   );
 });
+
+// On Windows Node holds a second write to a pipe in one turn of the loop until a later turn reports the first done. This hook hands every write to a pipe to the system only on the next turn, so on any system a line the tool writes just before it makes a folder is still in the tool when the kill lands.
+const LATE_WRITES = [
+  "import net from 'node:net';",
+  'const later = (write) => function (...args) { setImmediate(() => write.apply(this, args)); };',
+  'net.Socket.prototype._write = later(net.Socket.prototype._write);',
+  'net.Socket.prototype._writev = later(net.Socket.prototype._writev);',
+  '',
+].join('\n');
+
+test('test 1340: R-113, a run killed with SIGKILL right after the folder of a reviewer program is made leaves nothing in the temporary directory, also when its writes to a pipe reach the system only on a later turn of its loop', async () => {
+  await withR(
+    async (r, dir) => {
+      const hook = join(dir, 'hold.mjs');
+      const made = join(dir, 'made');
+      writeFileSync(hook, LATE_WRITES + HOLD_PROGRAM_FOLDER);
+      write(r, F_PATH, F);
+      const bin = writeFakeClaude(join(dir, 'bin'));
+      const running = startLawcheck(r, ['check', '--review', '--base', 'main'], { env: { PATH: pathWith(bin), LAWCHECK_TEST_MADE: made }, node: ['--import', pathToFileURL(hook).href], outside: ['made'] });
+      await until(() => existsSync(made), 'the folder of the reviewer program');
+      running.kill('SIGKILL');
+      const result = await running.ended;
+      assert.equal(result.signal, 'SIGKILL');
+      assert.equal(result.stdout, '');
+    },
+    { onMain: (r: string) => write(r, '.lawcheck/config.yaml', 'reviewer:\n  provider: claude-code\n  model: test-model\n') },
+  );
+});
