@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
 import { rmSync } from 'node:fs';
 import { createdIn, killTree, powershell, PROCESS_TABLE, toEnd } from './programs.js';
@@ -120,13 +120,12 @@ function listSince(since: number, ms: number): Promise<string | null> {
   });
 }
 
-// False when no list came, and the trees are then ended without one.
-async function endWatched(): Promise<boolean> {
-  if (groups.size === 0) return true;
+// Windows may have given a root's id to another process, so the guard never ends a tree by a root's id: it ends only what toEnd finds in a list begun after the kill, and takes that list itself when the watcher gives none in time.
+async function endWatched(): Promise<void> {
+  if (groups.size === 0) return;
   const learned = Date.now();
   const before = table;
-  const fresh = await listSince(learned, 10_000);
-  if (fresh === null) return false;
+  const fresh = (await listSince(learned, 10_000)) ?? listNow();
   // On Windows the tool starts the guard before it calls a program reviewer (startListing), so no process of a group's tree was made before the guard.
   for (const pid of toEnd(before, fresh, [...groups], createdIn(fresh).get(process.pid))) {
     try {
@@ -135,7 +134,10 @@ async function endWatched(): Promise<boolean> {
       // The process has already ended.
     }
   }
-  return true;
+}
+
+function listNow(): string {
+  return spawnSync(powershell(), ['-NoProfile', '-NonInteractive', '-Command', PROCESS_TABLE], { encoding: 'utf8', windowsHide: true }).stdout ?? '';
 }
 
 function endAll(): void {
@@ -148,8 +150,8 @@ function endAll(): void {
       // The runner has already ended.
     }
   }
-  void endWatched().then((found) => {
-    for (const pid of groups) killTree(pid, 'SIGKILL', !found);
+  if (!windows) for (const pid of groups) killTree(pid, 'SIGKILL');
+  void (windows ? endWatched() : Promise.resolve()).then(() => {
     for (const folder of folders) rmSync(folder, { recursive: true, force: true, maxRetries: 10 });
     stopWatching(() => process.exit(0));
   });
