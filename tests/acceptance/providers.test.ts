@@ -4,7 +4,7 @@ import { CLAUDE_TIMEOUT_RUN_MS, FAKE_STARTED_MS, KILLED_GRACE_MS, LEFTOVER_GRACE
 import { LIMITS } from '../../dist/rules.js';
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { anthropic, defaultAnswer, gitAlone, openai, startFake, withFake, writeFakeClaude } from './fake-reviewer.ts';
 import { alive, append, F, F_PATH, findingLines, lawcheckAt, pathWith, PROMPT_F, read, REVIEWER_CONFIG, REVIEWER_LAW, run, SECOND, startLawcheck, withCopy, withR, write } from './helpers.ts';
@@ -631,6 +631,63 @@ test('test 1008: on Windows the guard of a killed tool ends what a root left, an
       }
     });
   }
+});
+
+const IDLE = "setInterval(() => {}, 1000)";
+
+test('test 1010: on Windows the guard of a killed tool stops its own PowerShell that hangs, ends within a bound and removes the folders it was told of', async (t) => {
+  const skip = platformSkip('the whole test');
+  if (skip !== null) return t.skip(skip);
+  await withCopy(async (copy) => {
+    const guardFile = join(copy.dir, 'dist', 'guard.js');
+    const waited = 'listSince(learned, 10_000)';
+    const listing = "spawnSync(powershell(), ['-NoProfile', '-NonInteractive', '-Command', PROCESS_TABLE]";
+    const sound = readFileSync(guardFile, 'utf8');
+    assert.ok(sound.includes(waited) && sound.includes(listing));
+    // The watcher gives no list in time, and the guard's own list is a program that never answers.
+    writeFileSync(guardFile, sound.replace(waited, 'listSince(learned, 0)').replace(listing, `spawnSync(process.execPath, ['-e', '${IDLE}']`));
+    const folder = join(copy.dir, 'call folder');
+    mkdirSync(folder);
+    const idle = spawn(process.execPath, ['-e', IDLE], { stdio: 'ignore', windowsHide: true });
+    try {
+      const guard = spawn(process.execPath, [guardFile], { cwd: dirname(guardFile), stdio: ['pipe', 'ignore', 'ignore'], detached: true });
+      let exited = false;
+      guard.on('exit', () => (exited = true));
+      guard.stdin!.end(`+g${idle.pid}\n+d${folder}\n`);
+      assert.ok(await waitFor(() => exited, GUARD_ENDS_MS), 'the guard is still running');
+      assert.ok(!existsSync(folder), 'the call\'s folder is still there');
+      assert.ok(alive(idle.pid!), 'a process of the tool was ended from no list');
+    } finally {
+      idle.kill('SIGKILL');
+    }
+  });
+});
+
+test('test 1011: on Windows the guard of a killed tool leaves alive a process that holds the id of a rule runner, with a list of processes that does not show the runner', async (t) => {
+  const skip = platformSkip('the whole test');
+  if (skip !== null) return t.skip(skip);
+  await withCopy(async (copy) => {
+    const guardFile = join(copy.dir, 'dist', 'guard.js');
+    // The runner ended with the tool, and a process that started before the guard's list holds its id now.
+    const stranger = await startScript(copy.dir, 'holder.mjs', HOLDER, false);
+    try {
+      const guard = spawn(process.execPath, [guardFile], { cwd: dirname(guardFile), stdio: ['pipe', 'ignore', 'ignore'], detached: true });
+      let exited = false;
+      guard.on('exit', () => (exited = true));
+      guard.stdin!.end(`+${stranger.pid}\n`);
+      assert.ok(await waitFor(() => exited, GUARD_ENDS_MS), 'the guard is still running');
+      assert.ok(alive(stranger.pid), 'the process that holds the runner\'s id was ended');
+      assert.ok(alive(stranger.child), 'the child of the process that holds the runner\'s id was ended');
+    } finally {
+      for (const pid of [stranger.pid, stranger.child]) {
+        try {
+          process.kill(pid, 'SIGKILL');
+        } catch {
+          // Already ended.
+        }
+      }
+    }
+  });
 });
 
 test('R-88: the test entry of the tool refuses a limit as long as the one the tool ships, and no program the tool starts sees its variable', async () => {
