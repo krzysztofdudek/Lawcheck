@@ -189,10 +189,11 @@ ${clips.map((clip) => `      <audio id="voice-${clip.id}" class="clip" src="asse
 `;
 }
 
-export function build(out, root = ROOT, voice = undefined) {
+export function build(out, root = ROOT, voice = undefined, pages = undefined) {
   const edit = readEdit(root);
+  const wanted = (page) => pages === undefined || pages.includes(page);
   if (voice !== undefined) {
-    const problems = voiceProblems(edit, voice);
+    const problems = voiceProblems({ ...edit, chapters: (edit.chapters ?? []).filter((chapter) => wanted(chapter.page)) }, voice);
     if (problems.length > 0) throw new Error(problems.join('\n'));
   }
   const tokens = JSON.parse(readFileSync(join(root, 'brand', 'tokens.json'), 'utf8'));
@@ -208,11 +209,11 @@ export function build(out, root = ROOT, voice = undefined) {
     for (const screen of screens) writeFileSync(join(project, 'compositions', `${screen.id}.html`), sceneHtml(screen, edit, tokens, mark));
     writeFileSync(join(project, 'compositions', 'captions.html'), captionsHtml(timeline.segments, edit));
     writeFileSync(join(project, 'compositions', 'corner.html'), cornerHtml(edit, mark));
-    const clips = voice === undefined || timeline.chapter === undefined ? [] : voiceClips(edit, name, voice);
+    const clips = voice === undefined || timeline.chapter === undefined || !wanted(name) ? [] : voiceClips(edit, name, voice);
     if (clips.length > 0) mkdirSync(join(project, 'assets', 'voice'), { recursive: true });
     for (const clip of clips) cpSync(clip.file, join(project, 'assets', 'voice', `${clip.id}.wav`));
     writeFileSync(join(project, 'index.html'), indexHtml(name, screens, edit, lengthOf(timeline.segments), style, timeline.chapter !== undefined, clips));
-    if (timeline.chapter !== undefined) writeFileSync(join(project, `${name}.vtt`), vttOf(cuesOf(edit, timeline.chapter, voice)));
+    if (timeline.chapter !== undefined) writeFileSync(join(project, `${name}.vtt`), vttOf(cuesOf(edit, timeline.chapter, wanted(name) ? voice : undefined)));
     cpSync(join(FILM, 'hyperframes', 'SPEC.md'), join(project, 'SPEC.md'));
     made.push({ name, project, seconds: lengthOf(timeline.segments), screens: screens.length, chapter: timeline.chapter !== undefined, voiced: clips.length });
   }
