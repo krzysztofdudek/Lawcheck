@@ -767,10 +767,10 @@ test('test 1046: on Windows a program call that ends normally ends nothing by th
   });
 });
 
-// PowerShell starts a program that keeps running again and again until Windows gives one the id of a process that has ended. It keeps a handle on every program it ends, so their ids stay taken and the free ids run out sooner.
-function reuse(target: number): string {
+// PowerShell, held to the first processor with everything it starts, starts older, which makes a child and ends, and then a program that keeps running again and again until Windows gives one older's id. Windows keeps a list of free ids for each processor, and an ended process's id goes back to the list of the processor that freed it. PowerShell keeps a handle on every program it ends, so their ids stay taken. It prints older's id, older's child and the program that took the id.
+function reuse(older: string): string {
   const ping = join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'PING.EXE');
-  return `$psi = New-Object System.Diagnostics.ProcessStartInfo '${ping}', '-n 120 127.0.0.1'; $psi.UseShellExecute = $false; $psi.CreateNoWindow = $true; $kept = New-Object System.Collections.ArrayList; $end = (Get-Date).AddSeconds(${REUSE_S}); $n = 0; while ((Get-Date) -lt $end) { $p = [System.Diagnostics.Process]::Start($psi); $n++; if ($p.Id -eq ${target}) { "$($p.Id) $n"; exit 0 }; $p.Kill(); [void]$kept.Add($p) }; "missed after $n programs"; exit 1`;
+  return `[System.Diagnostics.Process]::GetCurrentProcess().ProcessorAffinity = [IntPtr]1; $o = New-Object System.Diagnostics.ProcessStartInfo '${process.execPath}', '"${older}"'; $o.UseShellExecute = $false; $o.CreateNoWindow = $true; $o.RedirectStandardOutput = $true; $h = [System.Diagnostics.Process]::Start($o); $child = $h.StandardOutput.ReadLine(); $h.WaitForExit(); $target = $h.Id; $h.Dispose(); $psi = New-Object System.Diagnostics.ProcessStartInfo '${ping}', '-n 120 127.0.0.1'; $psi.UseShellExecute = $false; $psi.CreateNoWindow = $true; $kept = New-Object System.Collections.ArrayList; $end = (Get-Date).AddSeconds(${REUSE_S}); $n = 0; while ((Get-Date) -lt $end) { $p = [System.Diagnostics.Process]::Start($psi); $n++; if ($p.Id -eq $target) { "$target $child $($p.Id)"; exit 0 }; $p.Kill(); [void]$kept.Add($p) }; "missed $target after $n programs, the last $(($kept | Select-Object -Last 3 | ForEach-Object { $_.Id }) -join ' ')"; try { Stop-Process -Id $child -Force } catch {}; exit 1`;
 }
 
 const REUSE_S = 40;
@@ -782,16 +782,15 @@ test('test 1048: on Windows the tool that ends a running program\'s tree leaves 
     const left: number[] = [];
     try {
       // older made its child and ended, and the child keeps older's id as its parent's.
-      const older = await startScript(copy.dir, 'older.mjs', LEAVE, true);
-      left.push(older.child);
-      const found = spawnSync(powershell(), ['-NoProfile', '-NonInteractive', '-Command', reuse(older.pid)], { encoding: 'utf8', windowsHide: true, timeout: (REUSE_S + 20) * 1000 });
-      const [program] = (found.stdout ?? '').trim().split(' ').map(Number);
+      writeFileSync(join(copy.dir, 'older.mjs'), LEAVE);
+      const found = spawnSync(powershell(), ['-NoProfile', '-NonInteractive', '-Command', reuse(join(copy.dir, 'older.mjs'))], { encoding: 'utf8', windowsHide: true, timeout: (REUSE_S + 20) * 1000 });
+      const [, child, program] = (found.stdout ?? '').trim().split(' ').map(Number);
       assert.equal(found.status, 0, `no program was given the id of older: ${found.stdout}${found.stderr}`);
-      left.push(program!);
-      assert.ok(alive(program!) && alive(older.child), 'the program given older\'s id, or older\'s child, is not running');
+      left.push(child!, program!);
+      assert.ok(alive(program!) && alive(child!), 'the program given older\'s id, or older\'s child, is not running');
       assert.ok(killGroup(program!, 'SIGKILL', true), 'the running program was not ended');
       assert.ok(await waitFor(() => !alive(program!), LEFTOVER_GRACE_MS), 'the running program is alive');
-      assert.ok(!(await waitFor(() => !alive(older.child), LEFTOVER_GRACE_MS)), 'the child older made before the program took its id was ended');
+      assert.ok(!(await waitFor(() => !alive(child!), LEFTOVER_GRACE_MS)), 'the child older made before the program took its id was ended');
     } finally {
       for (const pid of left) {
         try {
