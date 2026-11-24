@@ -230,7 +230,7 @@ function noCopyLeft(s: string): void {
   assert.deepEqual(existsSync(local) ? readdirSync(local) : [], [], 'the copy of the rules is gone');
 }
 
-test('test 1051: T7, a change that takes a rule off a type and breaks it passes by its own law and fails with --law-from, in text and in JSON', async () => {
+test('test 1071: T7, a change that takes a rule off a type and breaks it passes by its own law and fails with --law-from, in text and in JSON', async () => {
   await withSample(async (s) => {
     edit(s, '        rules: [no-console]\n', '        rules: []\n');
     write(s, 'src/core/total.ts', "export const total = 1;\nconsole.log(total);\n");
@@ -263,7 +263,7 @@ test('test 1051: T7, a change that takes a rule off a type and breaks it passes 
   });
 });
 
-test('test 1052: T7, under --law-from the script rules and their helpers are those of the commit, and a rule the change adds neither runs nor stops the run', async () => {
+test('test 1072: T7, under --law-from the script rules and their helpers are those of the commit, and a rule the change adds neither runs nor stops the run', async () => {
   const helper = "export const CALL = /\\bconsole\\.(\\w+)/;\n";
   const rule = "import { CALL } from './lib/call.mjs';\nexport function check({ files }) {\n  return files.flatMap((file) => file.lines.flatMap((text, index) => (CALL.test(text) ? [{ file: file.path, line: index + 1, message: 'writes to the terminal' }] : [])));\n}\n";
   await withSample(
@@ -285,7 +285,7 @@ test('test 1052: T7, under --law-from the script rules and their helpers are tho
   );
 });
 
-test('test 1053: T7, a pass recorded under the text of the change for a reviewer rule of a reviewer rule does not count for the text of --law-from, and the next line records one that does', async () => {
+test('test 1073: T7, a pass recorded under the text of the change for a reviewer rule of a reviewer rule does not count for the text of --law-from, and the next line records one that does', async () => {
   await withFake(async (fake) => {
     await withR(async (r) => {
       write(r, '.lawcheck/rules/clear-errors.md', 'Anything goes.\n');
@@ -307,7 +307,7 @@ test('test 1053: T7, a pass recorded under the text of the change for a reviewer
   });
 });
 
-test('test 1054: --law-from with a ref that names no commit, or a commit that holds no law, or a law that is not valid, stops with exit 2; with paths it is a usage error', async () => {
+test('test 1074: --law-from with a ref that names no commit, or a commit that holds no law, or a law that is not valid, stops with exit 2; with paths it is a usage error', async () => {
   await withSample(async (s) => {
     const none = await check(s, '--base', 'main', '--law-from', 'nope');
     assert.deepEqual(none.stdout.split('\n'), [

@@ -863,7 +863,7 @@ test('check-slice §6: base-unreachable, rule-crashed, parser-failed, internal, 
   if (noStar !== null) t.diagnostic(noStar);
 });
 
-test('test 1055: law-from-unreachable, in text and in JSON, and its next line', async () => {
+test('test 1075: law-from-unreachable, in text and in JSON, and its next line', async () => {
   assert.deepEqual(await runCases(inGroup('lawFrom')), []);
 });
 
