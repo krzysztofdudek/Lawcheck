@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import { createHash } from 'node:crypto';
 import assert from 'node:assert/strict';
-import { appendFileSync, cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { appendFileSync, cpSync, existsSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { GIT_ENV } from '../acceptance/helpers.ts';
 import { ROOT, startProgram, testFolder } from '../harness/tool.ts';
@@ -401,6 +401,41 @@ test('test 1059: a chapter\'s build mixes the voice of each narrated frame from 
     ];
     assert.deepEqual(voiceProblems(edit, voice), problems);
     assert.throws(() => build(join(folder.dir, 'dist'), ROOT, voice), { message: problems.join('\n') });
+  } finally {
+    folder.remove();
+  }
+});
+
+test('test 1092: node film/render.mjs --only <page> --voice renders that page while the voice of another chapter is stale, and refuses while the voice of that page is stale', async () => {
+  const folder = testFolder('lawcheck-film-');
+  try {
+    for (const path of ['film', 'brand', 'docs', 'README.md', 'package.json']) cpSync(join(ROOT, path), join(folder.dir, path), { recursive: true, filter: (from) => !/[\\/]film[\\/]dist$/.test(from) });
+    for (const link of ['node_modules', 'dist']) symlinkSync(join(ROOT, link), join(folder.dir, link), process.platform === 'win32' ? 'junction' : 'dir');
+    const edit = readEdit(ROOT);
+    const voice = join(folder.dir, 'voice');
+    const segments: Record<string, { key: string }> = {};
+    for (const chapter of edit.chapters) {
+      mkdirSync(join(voice, chapter.page), { recursive: true });
+      for (const segment of chapter.timeline) {
+        writeFileSync(join(voice, chapter.page, `${segment.id}.wav`), silence(1));
+        segments[`${chapter.page}/${segment.id}`] = { key: voiceKey(edit, segment) };
+      }
+    }
+    const calls = join(folder.dir, 'calls.txt');
+    const fake = join(folder.dir, 'hyperframes.mjs');
+    writeFileSync(fake, "import { appendFileSync, writeFileSync } from 'node:fs';\nappendFileSync(process.env.FAKE_CALLS, `${process.cwd()}\\n`);\nwriteFileSync(process.argv[process.argv.indexOf('-o') + 1], 'x');\n");
+    const render = (page: string) => startProgram(join(folder.dir, 'film', 'render.mjs'), ['--draft', '--out', join(folder.dir, 'out'), '--only', page, '--voice', voice], folder.dir, { ...GIT_ENV, LAWCHECK_FILM_PRIVATE: ' , ', HYPERFRAMES_CLI: `node ${fake}`, FAKE_CALLS: calls }, { outside: [/^calls\.txt$/, /^out(\/|$)/, /^film\/dist(\/|$)/] }).ended;
+    segments['ci/c1'] = { key: 'spoken from other words' };
+    writeFileSync(join(voice, 'voice.json'), JSON.stringify({ segments }));
+    const own = await render('quick-start');
+    assert.ok(!own.stderr.includes('voice'), own.stderr);
+    assert.ok(own.stderr.includes('film/render.mjs: ffmpeg '), own.stderr);
+    assert.deepEqual(readFileSync(calls, 'utf8').trim().split('\n').map((line) => line.replaceAll('\\', '/').split('/').slice(-2).join('/')), ['dist/quick-start']);
+    rmSync(calls);
+    const other = await render('ci');
+    assert.equal(other.code, 2);
+    assert.equal(other.stderr, 'film/render.mjs: the voice of ci c1 was spoken from other words or settings; node film/voice.mjs speaks it again\n');
+    assert.ok(!existsSync(calls));
   } finally {
     folder.remove();
   }
