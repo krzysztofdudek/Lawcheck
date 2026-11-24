@@ -265,10 +265,11 @@ test('test 1054: control, the runs of Lawcheck that node film/check.mjs compares
     const script = [
       "import { appendFileSync, readFileSync } from 'node:fs';",
       "const [log, count] = process.argv.slice(2);",
-      "appendFileSync(log, 'alive\\n');",
-      "const until = Date.now() + 2000;",
-      "while (readFileSync(log, 'utf8').split('\\n').filter((line) => line === 'alive').length < Number(count) && Date.now() < until) await new Promise((resolve) => setTimeout(resolve, 10));",
-      "process.stdout.write(readFileSync(log, 'utf8').split('\\n').filter((line) => line === 'alive').length >= Number(count) ? 'together\\n' : 'alone\\n');",
+      "appendFileSync(log, `${Date.now()}\\n`);",
+      "const alive = () => readFileSync(log, 'utf8').split('\\n').filter((line) => line !== '');",
+      "const until = Number(alive()[0]) + 10000;",
+      "while (alive().length < Number(count) && Date.now() < until) await new Promise((resolve) => setTimeout(resolve, 10));",
+      "process.stdout.write(alive().length >= Number(count) ? 'together\\n' : 'alone\\n');",
     ];
     writeFileSync(cli, `${script.join('\n')}\n`);
     const edit = clone(readEdit(ROOT));
