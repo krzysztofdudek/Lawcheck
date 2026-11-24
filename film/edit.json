@@ -1235,7 +1235,7 @@
               ]
             },
             {
-              "text": "No file of core calls fetch.",
+              "text": "No file of core may call fetch.",
               "shows": [
                 "no file of core calls fetch()."
               ]
@@ -1636,7 +1636,7 @@
               ]
             },
             {
-              "text": "Every error a caller sees says what happened and what to do next.",
+              "text": "Every error a caller sees must say what happened and what to do next.",
               "shows": [
                 "every error message a caller can see says what happened and what the caller can do next."
               ]
@@ -1875,10 +1875,11 @@
           "subtitle": "The next check reads that record and calls no model.",
           "narration": [
             {
-              "text": "The next check reads that record and calls no model.",
+              "text": "The next check reads the saved verdict and calls no model.",
+              "page": "write-a-reviewer-rule",
               "shows": [
-                "The next check reads that record and calls no model.",
-                "lawcheck check --base main"
+                "Lawcheck records the [verdict](concepts.md#verdict) of the reviewer",
+                "reads that verdict in place of a call to the model."
               ]
             }
           ],
