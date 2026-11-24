@@ -38,7 +38,7 @@ codex plugin marketplace add krzysztofdudek/Lawcheck
 codex plugin add lawcheck@lawcheck-marketplace
 ```
 
-Then start `codex` in the repository, type `/hooks` and trust the four hooks of Lawcheck. Codex runs no hook of a plugin until you trust it, and it says nothing about a hook it skips. After an update of the plugin that changes a hook, Codex asks for that trust again.
+Then start `codex` in the repository, type `/hooks` and trust the four hooks of Lawcheck. Codex runs no hook of a plugin until you trust it, and it says nothing about a hook it skips. After an update of the plugin that changes a hook, trust that hook again in `/hooks`.
 
 The hooks need `node` and `git` on the `PATH`. The hooks after an edit and before the end of a turn run `lawcheck check`, which runs the repository's script rules on your machine with your rights. A script rule is code of the repository, as its tests are. Use the plugin only in a repository whose code you would run yourself.
 
@@ -102,7 +102,7 @@ LAWCHECK_PLUGIN_CHECK_AFTER_EDIT=false codex
 
 ## What this integration does not do
 
-- It runs no hook until you trust it in `/hooks`, and it does so again after an update that changes a hook.
+- Codex runs none of its hooks until you trust them in `/hooks`, and a hook that an update changes needs your trust again.
 - It checks no file after an edit that a shell command wrote. The check before the end of the turn judges that file.
 - It has no settings in Codex. Two variables of the environment switch its checks off.
 - It is not in Codex's own directory of plugins. It comes from the marketplace of the Lawcheck repository.
@@ -111,12 +111,12 @@ LAWCHECK_PLUGIN_CHECK_AFTER_EDIT=false codex
 
 ## The trial
 
-On 2026-11-23 the plugin ran in real sessions of Codex CLI 0.171.0. Codex sent its model calls to an endpoint that answered with Claude Sonnet 5.5. Each session got one prompt in one small shop: add a discount to the core code and show the saved amount as money. `tests/agent/result-codex.json` in the repository holds every session.
+On 2026-11-23 the plugin ran in real sessions of Codex CLI 0.171.0. Codex sent its model calls to an endpoint that answered with Claude Sonnet 5.5. 24 of the 38 sessions got one prompt in one small shop: add a discount to the core code and show the saved amount as money. `tests/agent/result-codex.json` in the repository holds every session.
 
 - With the whole plugin, the law reached the agent in 10 of 10 sessions. No session imported the API code into the core, and 10 of 10 ended with passing tests and a passing `lawcheck check`.
 - Without a law and without the plugin, 0 of 10 sessions imported the API code into the core.
-- With a `lawcheck` that fails every check, the plugin sent the agent back three times and then let it finish, in 3 of 3 sessions.
-- With the hook after an edit alone, no agent broke the law in 12 sessions, so those sessions show nothing about a fix. A test of the repository plants a breach and checks that the hook before the end of the turn sends the agent back.
+- With a `lawcheck` that fails every check, the plugin sent the agent back three times and then let it finish, in 3 of 3 sessions the trial counted. The trial left out a fourth session, in which the agent started `lawcheck` from the shell and the trial's log shows no such call.
+- In the shop no session imported the API code into the core, so the other 14 sessions ran in a second repository with its own task. With the hook after an edit alone, no agent broke the law there in 12 sessions, and with the hook before the end of a turn alone none did in 2. Those sessions show nothing about a fix. A test of the repository plants a breach and checks that the hook before the end of the turn sends the agent back.
 
 ## If it goes wrong
 
