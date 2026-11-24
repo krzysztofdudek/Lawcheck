@@ -1,0 +1,12 @@
+{
+  "id": "b04-check",
+  "take": "b04",
+  "law": "film/fixture/law/law.yaml",
+  "args": [
+    "check",
+    "--base",
+    "origin/main"
+  ],
+  "exit": 0,
+  "lawcheck": "0.1.0-alpha.4"
+}

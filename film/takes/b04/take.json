@@ -1,0 +1,74 @@
+{
+  "id": "b04",
+  "arm": "b",
+  "recorded": "2026-11-23T12:37:28.387Z",
+  "prompt": "Add a loyalty discount in src/core: a customer with more than five orders gets ten percent off. Return the new total and a message that shows the saved amount as money, the way the receipts do.",
+  "complete": true,
+  "commands": [
+    {
+      "command": "stty cols 88 rows 26 && clear",
+      "seconds": 0.309,
+      "ended": true
+    },
+    {
+      "command": "claude -p \"Add a loyalty discount in src/core: a customer with more than five orders gets ten percent off. Return the new total and a message that shows the saved amount as money, the way the receipts do.\"",
+      "seconds": 12.545,
+      "ended": true
+    },
+    {
+      "command": "npm test",
+      "seconds": 0.311,
+      "ended": true
+    },
+    {
+      "command": "git add --all",
+      "seconds": 0.306,
+      "ended": true
+    },
+    {
+      "command": "git diff --staged",
+      "seconds": 0.307,
+      "ended": true
+    },
+    {
+      "command": "lawcheck check",
+      "seconds": 0.303,
+      "ended": true
+    },
+    {
+      "command": "lawcheck check --base origin/main",
+      "seconds": 0.306,
+      "ended": true
+    }
+  ],
+  "changed": [
+    "src/api/format.ts",
+    "src/core/loyalty.ts",
+    "src/core/money.ts"
+  ],
+  "tests": {
+    "exit": 0,
+    "tests": 8,
+    "pass": 8,
+    "fail": 0
+  },
+  "check": {
+    "exit": 0,
+    "first": "lawcheck: PASS  3 changed files (against origin/main)"
+  },
+  "versions": {
+    "lawcheck": "0.1.0-alpha.4",
+    "claude_code": "2.1.330 (Claude Code)",
+    "node": "v24.22.3",
+    "models": [
+      "claude-sonnet-5-5"
+    ],
+    "effort": "medium",
+    "plugin": [
+      {
+        "version": "0.1.0-alpha.4",
+        "commit": "c59c9a4e3eff764d9385fa5eefac3d1ea182ac9f"
+      }
+    ]
+  }
+}

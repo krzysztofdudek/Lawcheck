@@ -1,0 +1,669 @@
+{
+  "edit": "lawcheck-film-edit/1",
+  "frame": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30,
+    "columns": 48
+  },
+  "takes": {
+    "without": "a09",
+    "with": "b04"
+  },
+  "runs": {
+    "a09-check": {
+      "take": "a09",
+      "law": "film/fixture/law/law.yaml",
+      "args": [
+        "check"
+      ]
+    },
+    "b04-check": {
+      "take": "b04",
+      "law": "film/fixture/law/law.yaml",
+      "args": [
+        "check",
+        "--base",
+        "origin/main"
+      ]
+    },
+    "b04-prime": {
+      "law": "film/fixture/law/law.yaml",
+      "args": [
+        "prime"
+      ]
+    }
+  },
+  "loop": [
+    {
+      "id": "l1",
+      "start": 0,
+      "end": 7.4,
+      "caption": "Claude Code's change. Tests pass.",
+      "screens": [
+        {
+          "at": 0,
+          "blocks": [
+            {
+              "kind": "file",
+              "label": {
+                "text": "src/core/price.ts",
+                "from": {
+                  "take": "a09",
+                  "file": "change.diff"
+                }
+              },
+              "lines": [
+                {
+                  "mark": true,
+                  "text": "+import { formatMoney } from \"../api/format.ts\";",
+                  "from": {
+                    "take": "a09",
+                    "file": "change.diff"
+                  }
+                }
+              ]
+            },
+            {
+              "kind": "terminal",
+              "lines": [
+                {
+                  "prompt": true,
+                  "text": "npm test",
+                  "from": {
+                    "take": "a09",
+                    "file": "terminal.jsonl"
+                  }
+                },
+                {
+                  "text": "ℹ pass 10",
+                  "color": "blue",
+                  "from": {
+                    "take": "a09",
+                    "file": "terminal.jsonl"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "l2",
+      "start": 7.4,
+      "end": 12.4,
+      "caption": "Lawcheck. Architecture checks for coding agents.",
+      "screens": [
+        {
+          "at": 0,
+          "blocks": [
+            {
+              "kind": "file",
+              "label": {
+                "text": ".lawcheck/law.yaml",
+                "from": {
+                  "take": "b04",
+                  "file": "transcript.jsonl"
+                }
+              },
+              "lines": [
+                {
+                  "text": "  core:",
+                  "from": {
+                    "take": "b04",
+                    "file": "law.yaml",
+                    "line": 7
+                  }
+                },
+                {
+                  "text": "    paths: [\"src/core/**\"]",
+                  "from": {
+                    "take": "b04",
+                    "file": "law.yaml",
+                    "line": 9
+                  }
+                },
+                {
+                  "mark": true,
+                  "text": "    may_use: [core]",
+                  "from": {
+                    "take": "b04",
+                    "file": "law.yaml",
+                    "line": 10
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "l3",
+      "start": 12.4,
+      "end": 19.8,
+      "caption": "Lawcheck names the line and the rule",
+      "screens": [
+        {
+          "at": 0,
+          "blocks": [
+            {
+              "kind": "terminal",
+              "lines": [
+                {
+                  "prompt": true,
+                  "text": "lawcheck check",
+                  "from": {
+                    "run": "a09-check",
+                    "command": true
+                  }
+                },
+                {
+                  "more": true
+                },
+                {
+                  "text": "src/core/price.ts:1  error[forbidden-use]  core may not use api (src/api/format.ts); its may_use is [core]",
+                  "from": {
+                    "run": "a09-check"
+                  }
+                },
+                {
+                  "more": true
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "l4",
+      "start": 19.8,
+      "end": 26.2,
+      "caption": "Same prompt, law and plugin",
+      "screens": [
+        {
+          "at": 0,
+          "blocks": [
+            {
+              "kind": "panel",
+              "label": "The agent wrote",
+              "lines": [
+                {
+                  "text": "`formatMoney` was in `src/api/format.ts`, and the law only lets `core` use `core`, so `core` couldn't import it.",
+                  "from": {
+                    "take": "b04",
+                    "file": "transcript.jsonl"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "l5",
+      "start": 26.2,
+      "end": 28.9,
+      "screens": [
+        {
+          "at": 0,
+          "blocks": [
+            {
+              "kind": "terminal",
+              "lines": [
+                {
+                  "prompt": true,
+                  "text": "npm install --global lawcheck@alpha",
+                  "from": {
+                    "repo": "README.md"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "film": [
+    {
+      "id": "n1",
+      "start": 0,
+      "end": 5.7,
+      "caption": "A prompt for Claude Code",
+      "narration": "Claude Code gets a prompt for a loyalty discount.",
+      "screens": [
+        {
+          "at": 0,
+          "blocks": [
+            {
+              "kind": "terminal",
+              "lines": [
+                {
+                  "prompt": true,
+                  "text": "claude -p \"Add a loyalty discount in src/core:",
+                  "from": {
+                    "take": "a09",
+                    "file": "take.json"
+                  }
+                },
+                {
+                  "more": true
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "n2",
+      "start": 5.7,
+      "end": 17.1,
+      "caption": "Tests pass. Core imports the API.",
+      "narration": "Ten tests pass. Line one of a business logic file imports a helper from the HTTP handlers. The agent says so near the end of its report.",
+      "screens": [
+        {
+          "at": 0,
+          "blocks": [
+            {
+              "kind": "file",
+              "label": {
+                "text": "src/core/price.ts",
+                "from": {
+                  "take": "a09",
+                  "file": "change.diff"
+                }
+              },
+              "lines": [
+                {
+                  "mark": true,
+                  "text": "+import { formatMoney } from \"../api/format.ts\";",
+                  "from": {
+                    "take": "a09",
+                    "file": "change.diff"
+                  }
+                }
+              ]
+            },
+            {
+              "kind": "terminal",
+              "lines": [
+                {
+                  "prompt": true,
+                  "text": "npm test",
+                  "from": {
+                    "take": "a09",
+                    "file": "terminal.jsonl"
+                  }
+                },
+                {
+                  "text": "ℹ pass 10",
+                  "color": "blue",
+                  "from": {
+                    "take": "a09",
+                    "file": "terminal.jsonl"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "at": 6.7,
+          "blocks": [
+            {
+              "kind": "panel",
+              "label": "The agent wrote",
+              "lines": [
+                {
+                  "text": "`formatMoney` lives in `src/api`, so `src/core` now imports from `src/api`, which runs against the usual layering.",
+                  "from": {
+                    "take": "a09",
+                    "file": "transcript.jsonl"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "n3",
+      "start": 17.1,
+      "end": 26.5,
+      "narration": "Twenty sessions got the same prompt and no law. Eight of them made this import.",
+      "screens": [
+        {
+          "at": 0,
+          "blocks": [
+            {
+              "kind": "card",
+              "lines": [
+                {
+                  "text": "8 of 20 sessions without a law made this import.",
+                  "pilot": "a"
+                }
+              ],
+              "small": {
+                "text": "One demo repository, one prompt, Claude Code 2.1.330, Sonnet 5.5 at medium.",
+                "pilot": "versions"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "n4",
+      "start": 26.5,
+      "end": 33.9,
+      "caption": "Lawcheck. Architecture checks for coding agents.",
+      "narration": "Lawcheck checks code against a law in the repository. This law says the business logic may use only itself.",
+      "screens": [
+        {
+          "at": 0,
+          "blocks": [
+            {
+              "kind": "file",
+              "label": {
+                "text": ".lawcheck/law.yaml",
+                "from": {
+                  "take": "b04",
+                  "file": "transcript.jsonl"
+                }
+              },
+              "lines": [
+                {
+                  "text": "  core:",
+                  "from": {
+                    "take": "b04",
+                    "file": "law.yaml",
+                    "line": 7
+                  }
+                },
+                {
+                  "text": "    about: The business logic.",
+                  "from": {
+                    "take": "b04",
+                    "file": "law.yaml",
+                    "line": 8
+                  }
+                },
+                {
+                  "text": "    paths: [\"src/core/**\"]",
+                  "from": {
+                    "take": "b04",
+                    "file": "law.yaml",
+                    "line": 9
+                  }
+                },
+                {
+                  "mark": true,
+                  "text": "    may_use: [core]",
+                  "from": {
+                    "take": "b04",
+                    "file": "law.yaml",
+                    "line": 10
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "n5",
+      "start": 33.9,
+      "end": 42.6,
+      "narration": "The first session had no law. Lawcheck checks its code against this one. It names the file, the line and the use the law forbids.",
+      "screens": [
+        {
+          "at": 0,
+          "blocks": [
+            {
+              "kind": "terminal",
+              "lines": [
+                {
+                  "prompt": true,
+                  "text": "lawcheck check",
+                  "from": {
+                    "run": "a09-check",
+                    "command": true
+                  }
+                },
+                {
+                  "text": "lawcheck: FAIL  1 error in 2 changed files (against origin/main)",
+                  "from": {
+                    "run": "a09-check"
+                  }
+                },
+                {
+                  "text": "",
+                  "from": {
+                    "run": "a09-check"
+                  }
+                },
+                {
+                  "text": "src/core/price.ts:1  error[forbidden-use]  core may not use api (src/api/format.ts); its may_use is [core]",
+                  "from": {
+                    "run": "a09-check"
+                  }
+                },
+                {
+                  "more": true
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "n6",
+      "start": 42.6,
+      "end": 62,
+      "caption": "Same prompt, law and plugin",
+      "narration": "Same prompt, now with the law and the Lawcheck plugin. When the session starts, the plugin gives the agent the law. The agent moves the helper into the business logic. The check passes. The eight tests that were already there pass too.",
+      "screens": [
+        {
+          "at": 0,
+          "blocks": [
+            {
+              "kind": "panel",
+              "label": "What the agent got",
+              "lines": [
+                {
+                  "text": "The law here: 2 types, 0 rules",
+                  "from": {
+                    "take": "b04",
+                    "file": "transcript.jsonl"
+                  },
+                  "now": "b04-prime"
+                },
+                {
+                  "text": "api  src/api/**  The HTTP handlers.",
+                  "from": {
+                    "take": "b04",
+                    "file": "transcript.jsonl"
+                  },
+                  "now": "b04-prime"
+                },
+                {
+                  "text": "core  src/core/**  The business logic.  may use: core",
+                  "from": {
+                    "take": "b04",
+                    "file": "transcript.jsonl"
+                  },
+                  "now": "b04-prime"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "at": 8,
+          "blocks": [
+            {
+              "kind": "panel",
+              "label": "The agent wrote",
+              "lines": [
+                {
+                  "text": "`formatMoney` was in `src/api/format.ts`, and the law only lets `core` use `core`, so `core` couldn't import it.",
+                  "from": {
+                    "take": "b04",
+                    "file": "transcript.jsonl"
+                  }
+                },
+                {
+                  "text": "I moved it to `src/core/money.ts`.",
+                  "from": {
+                    "take": "b04",
+                    "file": "transcript.jsonl"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "at": 15,
+          "blocks": [
+            {
+              "kind": "terminal",
+              "lines": [
+                {
+                  "text": "lawcheck: PASS  3 changed files (against origin/main)",
+                  "from": {
+                    "take": "b04",
+                    "file": "terminal.jsonl"
+                  },
+                  "now": "b04-check"
+                },
+                {
+                  "text": "ℹ pass 8",
+                  "color": "blue",
+                  "from": {
+                    "take": "b04",
+                    "file": "terminal.jsonl"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "n7",
+      "start": 62,
+      "end": 71,
+      "narration": "Sixty sessions ran with the law and the plugin. None made the import. That is one small repository, one prompt and one model.",
+      "screens": [
+        {
+          "at": 0,
+          "blocks": [
+            {
+              "kind": "card",
+              "lines": [
+                {
+                  "text": "0 of 60 sessions with the law and the plugin made the import.",
+                  "pilot": "b"
+                }
+              ],
+              "small": {
+                "text": "One demo repository, one prompt, Claude Code 2.1.330, Sonnet 5.5 at medium.",
+                "pilot": "versions"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "n8",
+      "start": 71,
+      "end": 76.4,
+      "narration": "A CI job runs this command. The job needs no model and no key.",
+      "screens": [
+        {
+          "at": 0,
+          "blocks": [
+            {
+              "kind": "terminal",
+              "lines": [
+                {
+                  "prompt": true,
+                  "text": "lawcheck check --base origin/main",
+                  "from": {
+                    "run": "b04-check",
+                    "command": true
+                  }
+                },
+                {
+                  "text": "lawcheck: PASS  3 changed files (against origin/main)",
+                  "from": {
+                    "take": "b04",
+                    "file": "terminal.jsonl"
+                  },
+                  "now": "b04-check"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "n9",
+      "start": 76.4,
+      "end": 85.8,
+      "caption": "Alpha. MIT license.",
+      "narration": "When the check fails, the plugin sends the agent back, three times at most. Then it lets the agent finish. The user gets this line. Lawcheck is an alpha. The license is MIT.",
+      "screens": [
+        {
+          "at": 0,
+          "blocks": [
+            {
+              "kind": "panel",
+              "label": "From the documentation",
+              "lines": [
+                {
+                  "text": "lawcheck: the turn ended while lawcheck check still fails on the files that changed in it; lawcheck check shows why.",
+                  "from": {
+                    "repo": "docs/claude-code.md"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "at": 7.4,
+          "blocks": [
+            {
+              "kind": "lockup"
+            },
+            {
+              "kind": "terminal",
+              "lines": [
+                {
+                  "prompt": true,
+                  "text": "npm install --global lawcheck@alpha",
+                  "from": {
+                    "repo": "README.md"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
