@@ -1,10 +1,10 @@
 import { test } from 'node:test';
 import { exampleText } from '../harness/examples.ts';
 import assert from 'node:assert/strict';
-import { symlinkSync } from 'node:fs';
+import { symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { withFake } from './fake-reviewer.ts';
-import { F, F_PATH, F_PRIME, lawcheck, PRICING, read, REVIEWER_CONFIG, run, setRule, withR, withSample, withU, write } from './helpers.ts';
+import { F, F_PATH, F_PRIME, inTemp, lawcheck, lawcheckAt, newRepository, PRICING, read, REVIEWER_CONFIG, run, setRule, withCopy, withR, withSample, withU, write } from './helpers.ts';
 
 const PRICE = exampleText('explain-price');
 const RELEASE = exampleText('explain-release');
@@ -284,5 +284,126 @@ test('test 115: explain and prime run no rule and send no request', async () => 
       },
       { onMain: (r) => setRule(r, 'no-console', "throw new Error('broken at load');\n") },
     );
+  });
+});
+
+const RUN_TS = 'const note = "eval(x)"; // eval(y)\neval(note);\n';
+
+test('test 951: explain --tree prints the named nodes of a file with their field, line and the text of a node with no named node below, and --json gives every node with its parent', async () => {
+  await inTemp(async (dir) => {
+    const repo = newRepository(dir, { '.lawcheck/law.yaml': 'lawcheck: 0.1.0\n', 'src/run.ts': RUN_TS });
+    const expected = [
+      'src/run.ts  typescript  20 nodes, 12 named',
+      '  program  line 1',
+      '    lexical_declaration  line 1',
+      '      variable_declarator  line 1',
+      '        name: identifier  line 1  "note"',
+      '        value: string  line 1',
+      '          string_fragment  line 1  "eval(x)"',
+      '    comment  line 1  "// eval(y)"',
+      '    expression_statement  line 2',
+      '      call_expression  line 2',
+      '        function: identifier  line 2  "eval"',
+      '        arguments: arguments  line 2',
+      '          identifier  line 2  "note"',
+      '',
+    ].join('\n');
+    await same(repo, ['src/run.ts', '--tree'], expected);
+    await same(join(repo, 'src'), ['run.ts', '--tree'], expected);
+    write(repo, 'src/scratch.ts', RUN_TS);
+    await same(repo, ['src/scratch.ts', '--tree'], expected.replace('src/run.ts', 'src/scratch.ts'));
+    const json = await explain(repo, 'src/run.ts', '--tree', '--json');
+    assert.equal(json.code, 0);
+    const document = JSON.parse(json.stdout);
+    assert.deepEqual({ ...document, nodes: document.nodes.slice(0, 3) }, {
+      schema: 'lawcheck-explain/0',
+      subject: 'tree',
+      path: 'src/run.ts',
+      language: 'typescript',
+      absent: null,
+      nodes: [
+        { type: 'program', named: true, field: null, start: 0, end: RUN_TS.length, line: 1, column: 0, parent: null },
+        { type: 'lexical_declaration', named: true, field: null, start: 0, end: 23, line: 1, column: 0, parent: 0 },
+        { type: 'const', named: false, field: 'kind', start: 0, end: 5, line: 1, column: 0, parent: 1 },
+      ],
+    });
+    assert.equal(document.nodes.length, 20);
+    const call = document.nodes.findIndex((node: any) => node.type === 'call_expression');
+    assert.deepEqual(document.nodes.filter((node: any) => node.parent === call).map((node: any) => [node.field, node.type, RUN_TS.slice(node.start, node.end)]), [['function', 'identifier', 'eval'], ['arguments', 'arguments', '(note)']]);
+  });
+});
+
+test('test 952: explain --tree of a file with no tree prints why, as tree() gives it, and a path that is no text file is a usage error', async () => {
+  await inTemp(async (dir) => {
+    const repo = newRepository(dir, {
+      '.lawcheck/law.yaml': 'lawcheck: 0.1.0\n',
+      'src/run.ts': RUN_TS,
+      'src/notes.md': '# Notes\n',
+      'src/big.ts': `// ${'x'.repeat(512 * 1024)}\n`,
+    });
+    write(repo, 'src/logo.ts', new Uint8Array([0, 1, 2, 3]));
+    symlinkSync('run.ts', join(repo, 'src', 'link.ts'));
+    const absent = async (cli: string | null, path: string, line: string, language: string | null, reason: string) => {
+      const args = ['explain', path, '--tree'];
+      const text = cli === null ? await lawcheck(repo, args) : await lawcheckAt(cli, repo, args);
+      assert.deepEqual([text.code, text.stdout], [0, line + '\n'], path);
+      const json = cli === null ? await lawcheck(repo, [...args, '--json']) : await lawcheckAt(cli, repo, [...args, '--json']);
+      assert.deepEqual([json.code, JSON.parse(json.stdout)], [0, { schema: 'lawcheck-explain/0', subject: 'tree', path, language, absent: reason, nodes: null }], path);
+    };
+    await absent(null, 'src/notes.md', 'src/notes.md  no tree: no-reader, no reader reads the language of this file, or a Vue or Svelte file has no script block', null, 'no-reader');
+    await absent(null, 'src/big.ts', 'src/big.ts  typescript  no tree: too-large, the parsed text holds more than 512 KiB', 'typescript', 'too-large');
+    await withCopy(async (copy) => {
+      writeFileSync(join(copy.dir, 'dist', 'grammars', 'tree-sitter-typescript.wasm'), 'x');
+      await absent(copy.cli, 'src/run.ts', 'src/run.ts  typescript  no tree: reader-failed, Lawcheck could not load the grammar of typescript, or the parser failed on the file', 'typescript', 'reader-failed');
+    });
+    for (const [args, message] of [
+      [['--tree'], 'explain --tree takes the path of one file'],
+      [['--tree', '--type', 'source'], 'explain --tree takes the path of one file'],
+      [['src', '--tree'], "explain --tree takes a file, and 'src' is a folder"],
+      [['src/gone.ts', '--tree'], "the file 'src/gone.ts' does not exist, so it has no tree"],
+      [['src/link.ts', '--tree'], "'src/link.ts' is a symbolic link, and a rule never judges one, so it has no tree"],
+      [['src/logo.ts', '--tree'], "'src/logo.ts' is binary, and a rule never judges a binary file, so it has no tree"],
+    ] as const) {
+      const result = await explain(repo, ...args);
+      assert.equal(result.code, 2, args.join(' '));
+      assert.equal(result.stdout.split('\n')[2], `error[usage]  ${message}`, args.join(' '));
+    }
+  });
+});
+
+test('test 953: explain --tree stops at a depth and a count of lines and says what it left out, and --json gives every node of a tree thousands of nodes deep and of a file just under 512 KiB', async () => {
+  await inTemp(async (dir) => {
+    const statement = (i: number) => `export const a${i} = f(${i}, [1, 2]);\n`;
+    let wide = '';
+    let statements = 0;
+    while (wide.length + statement(statements).length <= 512 * 1024) wide += statement(statements++);
+    const repo = newRepository(dir, {
+      '.lawcheck/law.yaml': 'lawcheck: 0.1.0\n',
+      'src/deep.ts': `export const a = ${'['.repeat(14)}1${']'.repeat(14)};\n`,
+      'src/long.ts': Array.from({ length: 300 }, (_, i) => `export const a${i} = ${i};\n`).join(''),
+      'src/sum.ts': `export const s = ${Array.from({ length: 5000 }, () => '1').join(' + ')};\n`,
+      'src/wide.ts': wide,
+    });
+    const deep = await explain(repo, 'src/deep.ts', '--tree');
+    assert.equal(deep.code, 0);
+    const lines = deep.stdout.slice(0, -1).split('\n');
+    assert.equal(lines.at(-1), `${' '.repeat(24)}array  line 1  ... 7 named nodes below`);
+    assert.equal(Math.max(...lines.slice(1).map((line) => line.length - line.trimStart().length)), 24);
+    const long = await explain(repo, 'src/long.ts', '--tree');
+    const longLines = long.stdout.slice(0, -1).split('\n');
+    assert.equal(longLines[0], 'src/long.ts  typescript  2701 nodes, 1501 named');
+    assert.equal(longLines.length, 202);
+    assert.equal(longLines.at(-1), '  ... 1301 more named nodes; --json gives every node');
+    const json = await explain(repo, 'src/sum.ts', '--tree', '--json');
+    assert.equal(json.code, 0, json.stdout.slice(0, 500));
+    const nodes = JSON.parse(json.stdout).nodes;
+    assert.equal(nodes.filter((node: any) => node.type === 'binary_expression').length, 4999);
+    assert.ok(nodes.every((node: any, at: number) => (at === 0 ? node.parent === null : node.parent < at)));
+    const sum = await explain(repo, 'src/sum.ts', '--tree');
+    assert.equal(sum.code, 0);
+    assert.ok(sum.stdout.split('\n').length <= 203, sum.stdout.slice(0, 500));
+    const all = await explain(repo, 'src/wide.ts', '--tree', '--json');
+    assert.equal(all.code, 0, all.stdout.slice(0, 500));
+    assert.equal(JSON.parse(all.stdout).nodes.length, 1 + 21 * statements);
   });
 });
