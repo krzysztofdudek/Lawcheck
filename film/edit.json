@@ -35,14 +35,14 @@
     },
     "qs-check": {
       "chapter": "quick-start",
-      "take": "qs02",
+      "take": "qs03",
       "args": [
         "check"
       ]
     },
     "sr-try": {
       "chapter": "write-a-script-rule",
-      "take": "sr01",
+      "take": "sr02",
       "args": [
         "try",
         "no-fetch"
@@ -50,7 +50,7 @@
     },
     "rr-check": {
       "chapter": "write-a-reviewer-rule",
-      "take": "rr01",
+      "take": "rr02",
       "args": [
         "check",
         "--base",
@@ -59,7 +59,7 @@
     },
     "fu-check": {
       "chapter": "forbid-a-use",
-      "take": "fu01",
+      "take": "fu09",
       "args": [
         "check",
         "--base",
@@ -75,7 +75,7 @@
     },
     "ci-refund": {
       "chapter": "ci",
-      "take": "ci01",
+      "take": "ci02",
       "args": [
         "check",
         "--base",
@@ -84,7 +84,7 @@
     },
     "ci-discount": {
       "chapter": "ci",
-      "take": "ci01",
+      "take": "ci02",
       "branch": "discount",
       "args": [
         "check",
@@ -135,7 +135,7 @@
                   }
                 },
                 {
-                  "text": "ℹ pass 10",
+                  "text": "\u2139 pass 10",
                   "color": "blue",
                   "from": {
                     "take": "a09",
@@ -290,7 +290,7 @@
   "voice": {
     "name": "Lektor",
     "language": "en",
-    "speed": 1.0,
+    "speed": 1,
     "pause": 0.35,
     "lead": 0.4,
     "tail": 0.3
@@ -298,8 +298,8 @@
   "chapters": [
     {
       "page": "quick-start",
-      "take": "qs02",
-      "record": "d8fb541a153cd16023b6a5994e8e9c82902b3bba0d15c4d92668aaee3a869bab",
+      "take": "qs03",
+      "record": "e804069c0de17c151e7b10997ef9f32df3f082c6e2e98ac7b62fe536e9dcb701",
       "timeline": [
         {
           "id": "q1",
@@ -337,24 +337,24 @@
                       "prompt": true,
                       "text": "npm install --global lawcheck@alpha",
                       "from": {
-                        "take": "qs02",
+                        "take": "qs03",
                         "file": "terminal.jsonl"
                       }
                     },
                     {
-                      "text": "added 4 packages in 959ms",
+                      "text": "added 4 packages in 703ms",
                       "from": {
-                        "take": "qs02",
+                        "take": "qs03",
                         "file": "terminal.jsonl"
                       }
                     }
                   ]
                 }
               ],
-              "at": 0.0
+              "at": 0
             }
           ],
-          "start": 0.0,
+          "start": 0,
           "end": 7.1
         },
         {
@@ -385,7 +385,7 @@
                       "prompt": true,
                       "text": "git init shop",
                       "from": {
-                        "take": "qs02",
+                        "take": "qs03",
                         "file": "terminal.jsonl"
                       }
                     },
@@ -393,7 +393,7 @@
                       "prompt": true,
                       "text": "cd shop",
                       "from": {
-                        "take": "qs02",
+                        "take": "qs03",
                         "file": "terminal.jsonl"
                       }
                     }
@@ -404,7 +404,7 @@
                   "label": {
                     "text": "src/cli/print.ts",
                     "from": {
-                      "take": "qs02",
+                      "take": "qs03",
                       "file": "terminal.jsonl"
                     }
                   },
@@ -412,7 +412,7 @@
                     {
                       "text": "export function print(text: string): void {",
                       "from": {
-                        "take": "qs02",
+                        "take": "qs03",
                         "file": "files/src/cli/print.ts",
                         "line": 1
                       },
@@ -421,7 +421,7 @@
                     {
                       "text": "  console.log(text);",
                       "from": {
-                        "take": "qs02",
+                        "take": "qs03",
                         "file": "files/src/cli/print.ts",
                         "line": 2
                       },
@@ -430,7 +430,7 @@
                     {
                       "text": "}",
                       "from": {
-                        "take": "qs02",
+                        "take": "qs03",
                         "file": "files/src/cli/print.ts",
                         "line": 3
                       },
@@ -439,7 +439,7 @@
                   ]
                 }
               ],
-              "at": 0.0
+              "at": 0
             }
           ],
           "start": 7.1,
@@ -487,25 +487,25 @@
                       "prompt": true,
                       "text": "lawcheck init",
                       "from": {
-                        "take": "qs02",
+                        "take": "qs03",
                         "file": "terminal.jsonl"
                       }
                     },
                     {
                       "text": "lawcheck: created .lawcheck/law.yaml and .lawcheck/.gitignore",
                       "from": {
-                        "take": "qs02",
+                        "take": "qs03",
                         "file": "terminal.jsonl"
                       }
                     }
                   ]
                 }
               ],
-              "at": 0.0
+              "at": 0
             }
           ],
           "start": 16.2,
-          "end": 23.0
+          "end": 23
         },
         {
           "id": "q4",
@@ -541,7 +541,7 @@
                   "label": {
                     "text": ".lawcheck/law.yaml",
                     "from": {
-                      "take": "qs02",
+                      "take": "qs03",
                       "file": "terminal.jsonl"
                     }
                   },
@@ -549,7 +549,7 @@
                     {
                       "text": "types:",
                       "from": {
-                        "take": "qs02",
+                        "take": "qs03",
                         "file": "files/.lawcheck/law.yaml",
                         "line": 3
                       },
@@ -558,7 +558,7 @@
                     {
                       "text": "  core:",
                       "from": {
-                        "take": "qs02",
+                        "take": "qs03",
                         "file": "files/.lawcheck/law.yaml",
                         "line": 4
                       },
@@ -567,7 +567,7 @@
                     {
                       "text": "    about: Prices and orders, with no input or output.",
                       "from": {
-                        "take": "qs02",
+                        "take": "qs03",
                         "file": "files/.lawcheck/law.yaml",
                         "line": 5
                       },
@@ -576,7 +576,7 @@
                     {
                       "text": "    paths: [\"src/core/**\"]",
                       "from": {
-                        "take": "qs02",
+                        "take": "qs03",
                         "file": "files/.lawcheck/law.yaml",
                         "line": 6
                       },
@@ -585,7 +585,7 @@
                     {
                       "text": "    may_use: [core]",
                       "from": {
-                        "take": "qs02",
+                        "take": "qs03",
                         "file": "files/.lawcheck/law.yaml",
                         "line": 7
                       },
@@ -595,10 +595,10 @@
                   ]
                 }
               ],
-              "at": 0.0
+              "at": 0
             }
           ],
-          "start": 23.0,
+          "start": 23,
           "end": 34.8
         },
         {
@@ -643,7 +643,7 @@
                   "label": {
                     "text": "src/core/receipt.ts",
                     "from": {
-                      "take": "qs02",
+                      "take": "qs03",
                       "file": "terminal.jsonl"
                     }
                   },
@@ -651,7 +651,7 @@
                     {
                       "text": "import { print } from \"../cli/print.js\";",
                       "from": {
-                        "take": "qs02",
+                        "take": "qs03",
                         "file": "files/src/core/receipt.ts",
                         "line": 1
                       },
@@ -661,7 +661,7 @@
                     {
                       "text": "",
                       "from": {
-                        "take": "qs02",
+                        "take": "qs03",
                         "file": "files/src/core/receipt.ts",
                         "line": 2
                       },
@@ -670,7 +670,7 @@
                     {
                       "text": "export function receipt(sum: number): void {",
                       "from": {
-                        "take": "qs02",
+                        "take": "qs03",
                         "file": "files/src/core/receipt.ts",
                         "line": 3
                       },
@@ -679,7 +679,7 @@
                     {
                       "text": "  print(`total: ${sum}`);",
                       "from": {
-                        "take": "qs02",
+                        "take": "qs03",
                         "file": "files/src/core/receipt.ts",
                         "line": 4
                       },
@@ -688,7 +688,7 @@
                     {
                       "text": "}",
                       "from": {
-                        "take": "qs02",
+                        "take": "qs03",
                         "file": "files/src/core/receipt.ts",
                         "line": 5
                       },
@@ -697,7 +697,7 @@
                   ]
                 }
               ],
-              "at": 0.0
+              "at": 0
             }
           ],
           "start": 34.8,
@@ -738,14 +738,14 @@
                       "prompt": true,
                       "text": "lawcheck check",
                       "from": {
-                        "take": "qs02",
+                        "take": "qs03",
                         "file": "terminal.jsonl"
                       }
                     },
                     {
                       "text": "lawcheck: FAIL  1 error in 4 files (no base: every file counts as changed)",
                       "from": {
-                        "take": "qs02",
+                        "take": "qs03",
                         "file": "terminal.jsonl"
                       },
                       "now": "qs-check"
@@ -753,7 +753,7 @@
                     {
                       "text": "src/core/receipt.ts:1  error[forbidden-use]  core may not use src/cli/print.ts, which has no type; its may_use is [core]",
                       "from": {
-                        "take": "qs02",
+                        "take": "qs03",
                         "file": "terminal.jsonl"
                       },
                       "now": "qs-check",
@@ -762,7 +762,7 @@
                   ]
                 }
               ],
-              "at": 0.0
+              "at": 0
             }
           ],
           "start": 46.3,
@@ -793,14 +793,14 @@
                       "prompt": true,
                       "text": "lawcheck docs quick-start",
                       "from": {
-                        "take": "qs02",
+                        "take": "qs03",
                         "file": "terminal.jsonl"
                       }
                     }
                   ]
                 }
               ],
-              "at": 0.0
+              "at": 0
             }
           ],
           "start": 55.8,
@@ -810,8 +810,8 @@
     },
     {
       "page": "forbid-a-use",
-      "take": "fu01",
-      "record": "49de4ae5b2ce924d81f6734cdb520199e898ee6dd0775f15a7fd8c45f512898b",
+      "take": "fu09",
+      "record": "a86e930bc362773aaf4b488bee5de40cb4d4f8001011a977cc10501106cf7183",
       "timeline": [
         {
           "id": "f1",
@@ -867,10 +867,10 @@
                   ]
                 }
               ],
-              "at": 0.0
+              "at": 0
             }
           ],
-          "start": 0.0,
+          "start": 0,
           "end": 16.2
         },
         {
@@ -928,7 +928,7 @@
                       }
                     },
                     {
-                      "text": "ℹ pass 10",
+                      "text": "\u2139 pass 10",
                       "color": "blue",
                       "from": {
                         "take": "a09",
@@ -938,7 +938,7 @@
                   ]
                 }
               ],
-              "at": 0.0
+              "at": 0
             }
           ],
           "start": 16.2,
@@ -979,7 +979,7 @@
                   "label": {
                     "text": ".lawcheck/law.yaml",
                     "from": {
-                      "take": "fu01",
+                      "take": "fu09",
                       "file": "transcript.jsonl"
                     }
                   },
@@ -1020,7 +1020,7 @@
                   ]
                 }
               ],
-              "at": 0.0
+              "at": 0
             }
           ],
           "start": 26.4,
@@ -1084,7 +1084,7 @@
                   ]
                 }
               ],
-              "at": 0.0
+              "at": 0
             }
           ],
           "start": 32.3,
@@ -1111,7 +1111,7 @@
                 {
                   "text": "Add a loyalty discount in src/core",
                   "from": {
-                    "take": "fu01",
+                    "take": "fu09",
                     "file": "take.json"
                   }
                 }
@@ -1126,14 +1126,14 @@
                 {
                   "text": "+++ b/src/core/money.ts",
                   "from": {
-                    "take": "fu01",
+                    "take": "fu09",
                     "file": "change.diff"
                   }
                 },
                 {
                   "text": "+export { formatMoney } from \"../core/money.ts\";",
                   "from": {
-                    "take": "fu01",
+                    "take": "fu09",
                     "file": "change.diff"
                   }
                 }
@@ -1154,9 +1154,9 @@
                   "label": "The agent wrote",
                   "lines": [
                     {
-                      "text": "The law only lets core use core, so `loyalty.ts` couldn't import it from `api`.",
+                      "text": "it lived in `src/api/format.ts`, and the law doesn't let `core` import from `api`.",
                       "from": {
-                        "take": "fu01",
+                        "take": "fu09",
                         "file": "transcript.jsonl"
                       }
                     }
@@ -1168,7 +1168,7 @@
                     {
                       "text": "lawcheck: PASS  4 changed files (against origin/main)",
                       "from": {
-                        "take": "fu01",
+                        "take": "fu09",
                         "file": "terminal.jsonl"
                       },
                       "now": "fu-check"
@@ -1176,7 +1176,7 @@
                   ]
                 }
               ],
-              "at": 0.0
+              "at": 0
             }
           ],
           "start": 42.2,
@@ -1214,18 +1214,18 @@
                   ]
                 }
               ],
-              "at": 0.0
+              "at": 0
             }
           ],
           "start": 51.1,
-          "end": 55.3
+          "end": 55.5
         }
       ]
     },
     {
       "page": "write-a-script-rule",
-      "take": "sr01",
-      "record": "3c991b62f4e6b836dd7e3b22092f0da818ac7a5166853bf5e3fe5a8b82bec102",
+      "take": "sr02",
+      "record": "96ea80bc8d210bf2b7ecb9b639acbc791c5b8c8ddfc2dd64b3ace6e8e6df57a9",
       "timeline": [
         {
           "id": "s1",
@@ -1270,7 +1270,7 @@
                   "label": {
                     "text": "src/core/cart.ts",
                     "from": {
-                      "take": "sr01",
+                      "take": "sr02",
                       "file": "terminal.jsonl"
                     }
                   },
@@ -1303,10 +1303,10 @@
                   ]
                 }
               ],
-              "at": 0.0
+              "at": 0
             }
           ],
-          "start": 0.0,
+          "start": 0,
           "end": 15.2
         },
         {
@@ -1323,7 +1323,7 @@
                 {
                   "text": "Add a script rule no-fetch",
                   "from": {
-                    "take": "sr01",
+                    "take": "sr02",
                     "file": "take.json"
                   }
                 }
@@ -1352,14 +1352,14 @@
                       "prompt": true,
                       "text": "claude -p \"Add a script rule no-fetch: no file of core calls fetch(). Read the syntax tree, so a comment is not a finding.\"",
                       "from": {
-                        "take": "sr01",
+                        "take": "sr02",
                         "file": "take.json"
                       }
                     }
                   ]
                 }
               ],
-              "at": 0.0
+              "at": 0
             }
           ],
           "start": 15.2,
@@ -1379,7 +1379,7 @@
                 {
                   "text": "+++ b/.lawcheck/rules/no-fetch.mjs",
                   "from": {
-                    "take": "sr01",
+                    "take": "sr02",
                     "file": "change.diff"
                   }
                 }
@@ -1401,28 +1401,31 @@
                   "label": {
                     "text": ".lawcheck/rules/no-fetch.mjs",
                     "from": {
-                      "take": "sr01",
+                      "take": "sr02",
                       "file": "take.json"
                     }
                   },
                   "lines": [
                     {
-                      "text": "export async function check({ files: [file] }) {",
+                      "text": "export async function check({ files }) {",
                       "from": {
-                        "take": "sr01",
+                        "take": "sr02",
                         "file": "files/.lawcheck/rules/no-fetch.mjs",
                         "line": 1
                       },
                       "number": 1
                     },
                     {
-                      "text": "  const { root } = await file.tree();",
+                      "more": true
+                    },
+                    {
+                      "text": "    const { root } = await file.tree();",
                       "from": {
-                        "take": "sr01",
+                        "take": "sr02",
                         "file": "files/.lawcheck/rules/no-fetch.mjs",
-                        "line": 2
+                        "line": 4
                       },
-                      "number": 2,
+                      "number": 4,
                       "mark": true
                     },
                     {
@@ -1431,7 +1434,7 @@
                   ]
                 }
               ],
-              "at": 0.0
+              "at": 0
             }
           ],
           "start": 24.1,
@@ -1449,9 +1452,9 @@
               ],
               "ties": [
                 {
-                  "text": "why: Only the api layer talks to the network.",
+                  "text": "why: Core does no network calls; only the api layer talks to the network.",
                   "from": {
-                    "take": "sr01",
+                    "take": "sr02",
                     "file": "files/.lawcheck/law.yaml"
                   }
                 }
@@ -1460,7 +1463,7 @@
             {
               "text": "Only the API layer talks to the network.",
               "shows": [
-                "why: Only the api layer talks to the network."
+                "only the api layer talks to the network."
               ]
             },
             {
@@ -1479,7 +1482,7 @@
                   "label": {
                     "text": ".lawcheck/law.yaml",
                     "from": {
-                      "take": "sr01",
+                      "take": "sr02",
                       "file": "take.json"
                     }
                   },
@@ -1487,7 +1490,7 @@
                     {
                       "text": "rules:",
                       "from": {
-                        "take": "sr01",
+                        "take": "sr02",
                         "file": "files/.lawcheck/law.yaml",
                         "line": 3
                       },
@@ -1496,16 +1499,16 @@
                     {
                       "text": "  no-fetch:",
                       "from": {
-                        "take": "sr01",
+                        "take": "sr02",
                         "file": "files/.lawcheck/law.yaml",
                         "line": 4
                       },
                       "number": 4
                     },
                     {
-                      "text": "    why: Only the api layer talks to the network.",
+                      "text": "    why: Core does no network calls; only the api layer talks to the network.",
                       "from": {
-                        "take": "sr01",
+                        "take": "sr02",
                         "file": "files/.lawcheck/law.yaml",
                         "line": 5
                       },
@@ -1513,11 +1516,31 @@
                     },
                     {
                       "more": true
+                    }
+                  ]
+                }
+              ],
+              "at": 0
+            },
+            {
+              "blocks": [
+                {
+                  "kind": "file",
+                  "label": {
+                    "text": ".lawcheck/law.yaml",
+                    "from": {
+                      "take": "sr02",
+                      "file": "take.json"
+                    }
+                  },
+                  "lines": [
+                    {
+                      "more": true
                     },
                     {
                       "text": "  core:",
                       "from": {
-                        "take": "sr01",
+                        "take": "sr02",
                         "file": "files/.lawcheck/law.yaml",
                         "line": 11
                       },
@@ -1529,7 +1552,7 @@
                     {
                       "text": "    rules: [no-fetch]",
                       "from": {
-                        "take": "sr01",
+                        "take": "sr02",
                         "file": "files/.lawcheck/law.yaml",
                         "line": 15
                       },
@@ -1539,11 +1562,11 @@
                   ]
                 }
               ],
-              "at": 0.0
+              "at": 10
             }
           ],
           "start": 31.3,
-          "end": 41.5
+          "end": 44.1
         },
         {
           "id": "s5",
@@ -1589,22 +1612,22 @@
                       "prompt": true,
                       "text": "lawcheck try no-fetch",
                       "from": {
-                        "take": "sr01",
+                        "take": "sr02",
                         "file": "terminal.jsonl"
                       }
                     },
                     {
                       "text": "lawcheck: try no-fetch (script rule, enforced)  1 finding in 1 of 2 files",
                       "from": {
-                        "take": "sr01",
+                        "take": "sr02",
                         "file": "terminal.jsonl"
                       },
                       "now": "sr-try"
                     },
                     {
-                      "text": "src/core/cart.ts:3  error[no-fetch]  calls fetch outside the api layer",
+                      "text": "src/core/cart.ts:3  error[no-fetch]  calls fetch in core",
                       "from": {
-                        "take": "sr01",
+                        "take": "sr02",
                         "file": "terminal.jsonl"
                       },
                       "now": "sr-try",
@@ -1613,11 +1636,11 @@
                   ]
                 }
               ],
-              "at": 0.0
+              "at": 0
             }
           ],
-          "start": 41.5,
-          "end": 51.1
+          "start": 44.1,
+          "end": 53.9
         },
         {
           "id": "s6",
@@ -1644,25 +1667,25 @@
                       "prompt": true,
                       "text": "lawcheck docs write-a-script-rule",
                       "from": {
-                        "take": "sr01",
+                        "take": "sr02",
                         "file": "terminal.jsonl"
                       }
                     }
                   ]
                 }
               ],
-              "at": 0.0
+              "at": 0
             }
           ],
-          "start": 51.1,
-          "end": 55.3
+          "start": 53.9,
+          "end": 58.1
         }
       ]
     },
     {
       "page": "write-a-reviewer-rule",
-      "take": "rr01",
-      "record": "a2e7ec39fb38db10e200cef32e9698282ece52485c0874389a77de1855245056",
+      "take": "rr02",
+      "record": "24114a9ed568c70d6115082482e4797b3b95a66f0e8d243caf615b7125e6d6de",
       "timeline": [
         {
           "id": "r1",
@@ -1707,7 +1730,7 @@
                   "label": {
                     "text": "src/core/refund.ts",
                     "from": {
-                      "take": "rr01",
+                      "take": "rr02",
                       "file": "terminal.jsonl"
                     }
                   },
@@ -1728,7 +1751,7 @@
                   "label": {
                     "text": ".lawcheck/config.yaml",
                     "from": {
-                      "take": "rr01",
+                      "take": "rr02",
                       "file": "terminal.jsonl"
                     }
                   },
@@ -1753,10 +1776,10 @@
                   ]
                 }
               ],
-              "at": 0.0
+              "at": 0
             }
           ],
-          "start": 0.0,
+          "start": 0,
           "end": 13.6
         },
         {
@@ -1787,14 +1810,14 @@
                       "prompt": true,
                       "text": "claude -p \"Add a reviewer rule clear-errors for core: every error message a caller can see says what happened and what the caller can do next.\"",
                       "from": {
-                        "take": "rr01",
+                        "take": "rr02",
                         "file": "take.json"
                       }
                     }
                   ]
                 }
               ],
-              "at": 0.0
+              "at": 0
             }
           ],
           "start": 13.6,
@@ -1828,7 +1851,7 @@
                   "label": {
                     "text": ".lawcheck/rules/clear-errors.md",
                     "from": {
-                      "take": "rr01",
+                      "take": "rr02",
                       "file": "take.json"
                     }
                   },
@@ -1836,7 +1859,7 @@
                     {
                       "text": "Every error message a caller can see says what happened and what the caller can do next.",
                       "from": {
-                        "take": "rr01",
+                        "take": "rr02",
                         "file": "files/.lawcheck/rules/clear-errors.md",
                         "line": 1
                       },
@@ -1849,7 +1872,7 @@
                   "label": {
                     "text": ".lawcheck/law.yaml",
                     "from": {
-                      "take": "rr01",
+                      "take": "rr02",
                       "file": "take.json"
                     }
                   },
@@ -1857,7 +1880,7 @@
                     {
                       "text": "    rules: [clear-errors]",
                       "from": {
-                        "take": "rr01",
+                        "take": "rr02",
                         "file": "files/.lawcheck/law.yaml",
                         "line": 15
                       },
@@ -1867,7 +1890,7 @@
                   ]
                 }
               ],
-              "at": 0.0
+              "at": 0
             }
           ],
           "start": 21.5,
@@ -1894,7 +1917,7 @@
               "text": "The error does not say what happened, or what the caller can do next.",
               "shows": [
                 "does not say what happened",
-                "or what the caller can do next."
+                "gives the caller no next step."
               ]
             }
           ],
@@ -1908,14 +1931,14 @@
                       "prompt": true,
                       "text": "lawcheck try clear-errors src/core/refund.ts",
                       "from": {
-                        "take": "rr01",
+                        "take": "rr02",
                         "file": "terminal.jsonl"
                       }
                     },
                     {
-                      "text": "src/core/refund.ts:2  error[clear-errors]  The thrown error 'failed' does not say what happened (refund of an unpaid order was rejected) or what the caller can do next.",
+                      "text": "src/core/refund.ts:2  error[clear-errors]  The thrown error 'failed' does not say what happened (an unpaid refund was attempted) and gives the caller no next step.",
                       "from": {
-                        "take": "rr01",
+                        "take": "rr02",
                         "file": "terminal.jsonl"
                       },
                       "mark": true
@@ -1923,7 +1946,7 @@
                   ]
                 }
               ],
-              "at": 0.0
+              "at": 0
             }
           ],
           "start": 28.4,
@@ -1969,7 +1992,7 @@
                     {
                       "text": "+  if (!paid) throw new Error('The order is not paid yet; take the payment before a refund.');",
                       "from": {
-                        "take": "rr01",
+                        "take": "rr02",
                         "file": "terminal.jsonl"
                       },
                       "mark": true,
@@ -1984,25 +2007,25 @@
                       "prompt": true,
                       "text": "lawcheck check --review --base main",
                       "from": {
-                        "take": "rr01",
+                        "take": "rr02",
                         "file": "terminal.jsonl"
                       }
                     },
                     {
                       "text": "lawcheck: PASS  4 changed files (against main), 1 reviewer call",
                       "from": {
-                        "take": "rr01",
+                        "take": "rr02",
                         "file": "terminal.jsonl"
                       }
                     }
                   ]
                 }
               ],
-              "at": 0.0
+              "at": 0
             }
           ],
           "start": 37.3,
-          "end": 49.2
+          "end": 49.3
         },
         {
           "id": "r6",
@@ -2028,14 +2051,14 @@
                       "prompt": true,
                       "text": "lawcheck check --base main",
                       "from": {
-                        "take": "rr01",
+                        "take": "rr02",
                         "file": "terminal.jsonl"
                       }
                     },
                     {
                       "text": "lawcheck: PASS  6 changed files (against main)",
                       "from": {
-                        "take": "rr01",
+                        "take": "rr02",
                         "file": "terminal.jsonl"
                       },
                       "now": "rr-check"
@@ -2043,11 +2066,11 @@
                   ]
                 }
               ],
-              "at": 0.0
+              "at": 0
             }
           ],
-          "start": 49.2,
-          "end": 54.8
+          "start": 49.3,
+          "end": 54.9
         },
         {
           "id": "r7",
@@ -2074,25 +2097,25 @@
                       "prompt": true,
                       "text": "lawcheck docs write-a-reviewer-rule",
                       "from": {
-                        "take": "rr01",
+                        "take": "rr02",
                         "file": "terminal.jsonl"
                       }
                     }
                   ]
                 }
               ],
-              "at": 0.0
+              "at": 0
             }
           ],
-          "start": 54.8,
-          "end": 59.7
+          "start": 54.9,
+          "end": 59.8
         }
       ]
     },
     {
       "page": "ci",
-      "take": "ci01",
-      "record": "866106988e17a5035a82cf4b824cb9c116526e049147de18523f343e26123e75",
+      "take": "ci02",
+      "record": "f422bb01ca7a612279e4a65973e7384747ae2b34dfc75f5a5ecd7460a293d7b0",
       "timeline": [
         {
           "id": "c1",
@@ -2131,17 +2154,17 @@
                       "prompt": true,
                       "text": "claude -p \"Add the CI job of lawcheck docs ci to this repository.\"",
                       "from": {
-                        "take": "ci01",
+                        "take": "ci02",
                         "file": "take.json"
                       }
                     }
                   ]
                 }
               ],
-              "at": 0.0
+              "at": 0
             }
           ],
-          "start": 0.0,
+          "start": 0,
           "end": 10.9
         },
         {
@@ -2158,7 +2181,7 @@
                 {
                   "text": "+++ b/.github/workflows/lawcheck.yml",
                   "from": {
-                    "take": "ci01",
+                    "take": "ci02",
                     "file": "change.diff"
                   }
                 }
@@ -2180,7 +2203,7 @@
                   "label": {
                     "text": ".github/workflows/lawcheck.yml",
                     "from": {
-                      "take": "ci01",
+                      "take": "ci02",
                       "file": "take.json"
                     }
                   },
@@ -2188,7 +2211,7 @@
                     {
                       "text": "      - name: Check the change",
                       "from": {
-                        "take": "ci01",
+                        "take": "ci02",
                         "file": "files/.github/workflows/lawcheck.yml",
                         "line": 21
                       },
@@ -2201,7 +2224,7 @@
                     {
                       "text": "          npx --no-install lawcheck check --base \"$base\"",
                       "from": {
-                        "take": "ci01",
+                        "take": "ci02",
                         "file": "files/.github/workflows/lawcheck.yml",
                         "line": 39
                       },
@@ -2214,11 +2237,70 @@
                   ]
                 }
               ],
-              "at": 0.0
+              "at": 0
             }
           ],
           "start": 10.9,
-          "end": 21.5
+          "end": 21.3
+        },
+        {
+          "id": "c2b",
+          "caption": "A second check with the base's law",
+          "narration": [
+            {
+              "text": "Then it checks again with the law of the base branch.",
+              "shows": [
+                "Checking again with the law of $base",
+                "--law-from \"$base\""
+              ]
+            }
+          ],
+          "screens": [
+            {
+              "blocks": [
+                {
+                  "kind": "file",
+                  "label": {
+                    "text": ".github/workflows/lawcheck.yml",
+                    "from": {
+                      "take": "ci02",
+                      "file": "take.json"
+                    }
+                  },
+                  "lines": [
+                    {
+                      "more": true
+                    },
+                    {
+                      "text": "            echo \"Checking again with the law of $base\"",
+                      "from": {
+                        "take": "ci02",
+                        "file": "files/.github/workflows/lawcheck.yml",
+                        "line": 41
+                      },
+                      "number": 41
+                    },
+                    {
+                      "text": "            npx --no-install lawcheck check --base \"$base\" --law-from \"$base\"",
+                      "from": {
+                        "take": "ci02",
+                        "file": "files/.github/workflows/lawcheck.yml",
+                        "line": 42
+                      },
+                      "number": 42,
+                      "mark": true
+                    },
+                    {
+                      "more": true
+                    }
+                  ]
+                }
+              ],
+              "at": 0
+            }
+          ],
+          "start": 21.3,
+          "end": 27.3
         },
         {
           "id": "c3",
@@ -2241,7 +2323,7 @@
                 {
                   "text": "off",
                   "from": {
-                    "take": "ci01",
+                    "take": "ci02",
                     "file": "take.json",
                     "line": 16
                   }
@@ -2265,7 +2347,7 @@
                     {
                       "text": "npx --no-install lawcheck check --base origin/main",
                       "from": {
-                        "take": "ci01",
+                        "take": "ci02",
                         "file": "terminal-2.jsonl"
                       },
                       "prompt": true
@@ -2273,7 +2355,7 @@
                     {
                       "text": "lawcheck: PASS  7 changed files (against origin/main)",
                       "from": {
-                        "take": "ci01",
+                        "take": "ci02",
                         "file": "terminal-2.jsonl"
                       },
                       "now": "ci-refund"
@@ -2281,11 +2363,11 @@
                   ]
                 }
               ],
-              "at": 0.0
+              "at": 0
             }
           ],
-          "start": 21.5,
-          "end": 32.1
+          "start": 27.3,
+          "end": 38
         },
         {
           "id": "c4",
@@ -2313,7 +2395,7 @@
           ],
           "screens": [
             {
-              "at": 0.0,
+              "at": 0,
               "blocks": [
                 {
                   "kind": "terminal",
@@ -2321,7 +2403,7 @@
                     {
                       "text": "git switch discount",
                       "from": {
-                        "take": "ci01",
+                        "take": "ci02",
                         "file": "terminal-2.jsonl"
                       },
                       "prompt": true
@@ -2329,7 +2411,7 @@
                     {
                       "text": "npx --no-install lawcheck check --base origin/main",
                       "from": {
-                        "take": "ci01",
+                        "take": "ci02",
                         "file": "terminal-2.jsonl"
                       },
                       "prompt": true
@@ -2337,7 +2419,7 @@
                     {
                       "text": "lawcheck: FAIL  1 error in 2 changed files (against origin/main)",
                       "from": {
-                        "take": "ci01",
+                        "take": "ci02",
                         "file": "terminal-2.jsonl"
                       },
                       "now": "ci-discount"
@@ -2345,7 +2427,7 @@
                     {
                       "text": "src/core/discount.ts:1  error[forbidden-use]  core may not use api (src/api/orders.ts); its may_use is [core]",
                       "from": {
-                        "take": "ci01",
+                        "take": "ci02",
                         "file": "terminal-2.jsonl"
                       },
                       "now": "ci-discount",
@@ -2356,13 +2438,13 @@
               ]
             }
           ],
-          "start": 32.1,
-          "end": 43.3
+          "start": 38,
+          "end": 49.2
         },
         {
           "id": "c5",
-          "start": 43.3,
-          "end": 46.5,
+          "start": 49.2,
+          "end": 52.4,
           "caption": "Exit code 1 fails the job",
           "narration": [
             {
@@ -2375,7 +2457,7 @@
           ],
           "screens": [
             {
-              "at": 0.0,
+              "at": 0,
               "blocks": [
                 {
                   "kind": "terminal",
@@ -2383,7 +2465,7 @@
                     {
                       "text": "echo $?",
                       "from": {
-                        "take": "ci01",
+                        "take": "ci02",
                         "file": "terminal-2.jsonl"
                       },
                       "prompt": true
@@ -2391,7 +2473,7 @@
                     {
                       "text": "1",
                       "from": {
-                        "take": "ci01",
+                        "take": "ci02",
                         "file": "terminal-2.jsonl"
                       }
                     }
@@ -2425,7 +2507,7 @@
                     {
                       "text": "npx --no-install lawcheck docs ci",
                       "from": {
-                        "take": "ci01",
+                        "take": "ci02",
                         "file": "terminal-2.jsonl"
                       },
                       "prompt": true
@@ -2433,11 +2515,11 @@
                   ]
                 }
               ],
-              "at": 0.0
+              "at": 0
             }
           ],
-          "start": 46.5,
-          "end": 51.7
+          "start": 52.4,
+          "end": 57.6
         }
       ]
     }

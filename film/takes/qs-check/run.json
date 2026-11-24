@@ -1,7 +1,7 @@
 {
   "id": "qs-check",
   "chapter": "quick-start",
-  "take": "qs02",
+  "take": "qs03",
   "args": [
     "check"
   ],

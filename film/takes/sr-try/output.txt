@@ -1,4 +1,4 @@
 lawcheck: try no-fetch (script rule, enforced)  1 finding in 1 of 2 files
 
-src/core/cart.ts:3  error[no-fetch]  calls fetch outside the api layer
-  why:  Only the api layer talks to the network.
+src/core/cart.ts:3  error[no-fetch]  calls fetch in core
+  why:  Core does no network calls; only the api layer talks to the network.
