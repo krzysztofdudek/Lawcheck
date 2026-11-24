@@ -2,7 +2,16 @@
 
 Lawcheck checks code against your written architecture and names the file and line that break it, so you catch drift in Claude Code hooks and CI. It reads the uses of 12 languages. In five steps you write a law with one type and one `may_use` line. After you break it with one import, `lawcheck check` names the line. You need no model and no key.
 
-Before you start the law, install Lawcheck as [Install](install.md) says. Start in a new repository. Then each output you get matches the one on this page:
+Install Lawcheck from npm. It needs Node 24 or later and git 2.34 or later. `lawcheck --version` then prints the version you installed:
+
+```text
+$ npm install --global lawcheck@alpha
+$ lawcheck --version
+```
+
+To install Lawcheck in one project, or with pnpm, Yarn or Bun, read [Install](install.md).
+
+Start in a new repository. Then each output you get matches the one on this page:
 
 ```text
 $ git init shop
@@ -60,6 +69,8 @@ types:
 ```
 
 With this line, a file of `core` may use other files of `core` and no other file of the repository. `src/cli/print.ts` has no type, so no `may_use` list can allow a use of it.
+
+This page ends on a rule about which layer may import which. For a first rule about the text of a file, such as no `console.log` in one folder, read [The first type and the first rule](first-law.md).
 
 ## 4. Write a file that breaks it
 
