@@ -129,8 +129,8 @@ async function cleanIn(work: string, env: NodeJS.ProcessEnv, check: CheckRun, wa
   }
 }
 
-export async function checksIn(work: string, check: CheckRun = runCheck, waitMs = SYSTEM_SHORT_WAIT_MS): Promise<Checks> {
-  const env = { ...process.env, ...GIT_IDENTITY };
+export async function checksIn(work: string, check: CheckRun = runCheck, waitMs = SYSTEM_SHORT_WAIT_MS, outer: NodeJS.ProcessEnv = process.env): Promise<Checks> {
+  const env = { ...outer, ...GIT_IDENTITY };
   delete env.LAWCHECK_BASE;
   const clean = await cleanIn(work, env, check, waitMs);
   const changed = changedFiles(work);
