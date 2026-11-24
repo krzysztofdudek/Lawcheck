@@ -108,7 +108,7 @@ function isHex(c: number): boolean {
 
 interface Span {
   end: number;
-  verdict: boolean;
+  verdicts: number;
 }
 
 // What a JSON object that starts at a `{` turns out to be: a span that parses, or none.
@@ -171,9 +171,9 @@ class Spans {
       object: boolean;
       expect: 'key' | 'colon' | 'value' | 'next';
       first: boolean;
-      verdict: boolean;
+      verdicts: number;
     }
-    const stack: Frame[] = [{ start, object: true, expect: 'key', first: true, verdict: false }];
+    const stack: Frame[] = [{ start, object: true, expect: 'key', first: true, verdicts: 0 }];
     let i = start + 1;
     const fail = () => {
       for (const frame of stack) if (frame.object) this.known.set(frame.start, null);
@@ -199,7 +199,7 @@ class Spans {
         const end = this.string(i);
         if (end < 0) return fail();
         const key = text.slice(i, end);
-        if (key === '"verdict"' || (key.includes('\\') && JSON.parse(key) === 'verdict')) top.verdict = true;
+        if (key === '"verdict"' || (key.includes('\\') && JSON.parse(key) === 'verdict')) top.verdicts++;
         i = end;
         top.expect = 'colon';
         continue;
@@ -239,12 +239,12 @@ class Spans {
           valueDone();
           continue;
         }
-        stack.push({ start: i, object: true, expect: 'key', first: true, verdict: false });
+        stack.push({ start: i, object: true, expect: 'key', first: true, verdicts: 0 });
         i++;
         continue;
       }
       if (c === 0x5b) {
-        stack.push({ start: i, object: false, expect: 'value', first: true, verdict: false });
+        stack.push({ start: i, object: false, expect: 'value', first: true, verdicts: 0 });
         i++;
         continue;
       }
@@ -258,37 +258,53 @@ class Spans {
     }
   }
 
-  private close(stack: { start: number; object: boolean; verdict: boolean }[], i: number): number {
+  private close(stack: { start: number; object: boolean; verdicts: number }[], i: number): number {
     const frame = stack.pop()!;
-    if (frame.object) this.known.set(frame.start, { end: i, verdict: frame.verdict });
+    if (frame.object) this.known.set(frame.start, { end: i, verdicts: frame.verdicts });
     return i + 1;
   }
 }
 
 // The verdict objects of an answer in the order they stand: among the spans that start with `{`, end at their matching `}`, parse, and are objects with the key verdict, those that no other such span holds. A span that parses as JSON ends at its matching brace, so reading each start as JSON finds the same spans.
-function verdictObjects(answer: string): Record<string, unknown>[] {
+interface VerdictObject {
+  object: Record<string, unknown>;
+  twice: boolean;
+}
+
+function verdictObjects(answer: string): VerdictObject[] {
   const spans = new Spans(answer);
-  const found: Record<string, unknown>[] = [];
+  const found: VerdictObject[] = [];
   for (let start = answer.indexOf('{'); start >= 0; start = answer.indexOf('{', start + 1)) {
     const span = spans.at(start);
-    if (span === null || !span.verdict) continue;
+    if (span === null || span.verdicts === 0) continue;
     const object = parsed(answer.slice(start, span.end + 1));
     if (object === null) continue;
-    found.push(object);
+    found.push({ object, twice: span.verdicts > 1 });
     start = span.end;
   }
   return found;
 }
 
-export function takeAnswer(answer: string): Record<string, unknown> | null {
+function taken(answer: string): { object: Record<string, unknown> | null; found: VerdictObject[] | null } {
   const whole = parsed(answer.trim());
-  if (whole !== null) return whole;
+  if (whole !== null) return { object: whole, found: null };
   const found = verdictObjects(answer);
   const inFence = fenced(answer);
   const object = inFence === null ? null : parsed(inFence);
-  const chosen = object ?? found[found.length - 1] ?? null;
-  if (chosen !== null && chosen.verdict === 'fail') return chosen;
-  return found.findLast((candidate) => candidate.verdict === 'fail') ?? chosen;
+  const chosen = object ?? found[found.length - 1]?.object ?? null;
+  if (chosen !== null && chosen.verdict === 'fail') return { object: chosen, found };
+  return { object: found.findLast((candidate) => candidate.object.verdict === 'fail')?.object ?? chosen, found };
+}
+
+export function takeAnswer(answer: string): Record<string, unknown> | null {
+  return taken(answer).object;
+}
+
+// JSON.parse keeps the last of two equal keys, so an object that holds a fail and then a pass under the same key would read as the pass; and a verdict that is neither word beside a pass may be a fail the model misspelled.
+function doubtedPass(found: VerdictObject[]): string | null {
+  if (found.some((candidate) => candidate.twice)) return 'an object of the answer holds the key verdict twice';
+  const other = found.find((candidate) => candidate.object.verdict !== 'pass' && candidate.object.verdict !== 'fail');
+  return other === undefined ? null : `a pass stands beside the verdict ${JSON.stringify(other.object.verdict)}, which is not "pass" or "fail"`;
 }
 
 export function checkFindings(findings: unknown, lineCount: number): AnswerFinding[] | { problem: string } {
@@ -307,10 +323,14 @@ export function checkFindings(findings: unknown, lineCount: number): AnswerFindi
 }
 
 export function checkAnswer(answer: string, lineCount: number): Checked {
-  const object = takeAnswer(answer);
+  const { object, found } = taken(answer);
   if (object === null) return { problem: 'the answer holds no JSON object with a verdict' };
   const verdict = object.verdict;
   if (verdict !== 'pass' && verdict !== 'fail') return { problem: `the verdict is ${JSON.stringify(verdict)}, not "pass" or "fail"` };
+  if (verdict === 'pass') {
+    const doubt = doubtedPass(found ?? verdictObjects(answer));
+    if (doubt !== null) return { problem: doubt };
+  }
   const findings = checkFindings(object.findings === undefined ? [] : object.findings, lineCount);
   if (!Array.isArray(findings)) return findings;
   if (verdict === 'pass' && findings.length > 0) return { problem: 'a pass comes with findings' };
