@@ -11,7 +11,7 @@ import { trimRecord, trimTranscript } from '../../film/trim.mjs';
 import { decodeTerminal, narrationProblems, privateProblems, privateSummary, privateWords, readingProblems, stalenessProblems, truthProblems, versionProblems } from '../../film/check.mjs';
 import { build, vttOf } from '../../film/build.mjs';
 import { readEdit, wrap, words } from '../../film/edit.mjs';
-import { joinWav, voiceKey, voiceProblems, wavSeconds } from '../../film/voice.mjs';
+import { joinWav, sentenceSpans, voiceKey, voiceProblems, wavSeconds } from '../../film/voice.mjs';
 
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 
@@ -425,6 +425,19 @@ test('test 1070: the subtitles of each chapter are the narrated sentences of fil
     near(cues[0].end, at + 0.2);
     near(cues[1].start, at + 0.2 + edit.voice.pause);
     near(cues[1].end, at + 0.2 + edit.voice.pause + 0.25);
+
+    const pause = edit.voice.pause;
+    const padded = joinWav([joinWav([silence(0.05), sound(0.3), silence(0.05)], 0), joinWav([silence(0.05), sound(0.2), silence(0.05)], 0)], pause);
+    const spans = sentenceSpans(padded, 2, pause);
+    near(spans[0].start, 0);
+    near(spans[0].end, 0.35);
+    near(spans[1].start, 0.45 + pause);
+    near(spans[1].end, 0.7 + pause);
+    const breath = joinWav([joinWav([sound(0.3), silence(pause / 2), sound(0.3)], 0), sound(0.4)], pause);
+    near(sentenceSpans(breath, 2, pause)[0].end, 0.6 + pause / 2);
+    near(sentenceSpans(breath, 2, pause)[1].start, 0.6 + pause * 1.5);
+    const hold = joinWav([joinWav([sound(0.3), silence(pause + 0.1), sound(0.3)], 0), sound(0.4)], pause);
+    assert.equal(sentenceSpans(hold, 2, pause), undefined, 'a pause inside a sentence as long as the one between sentences is not taken for a sentence break');
 
     const other = clone(edit);
     other.chapters[0].timeline[0].narration[0].text = 'Lawcheck installs with two npm commands.';
