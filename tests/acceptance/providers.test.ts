@@ -654,15 +654,20 @@ test('test 1010: on Windows the guard of a killed tool stops its own PowerShell 
     const folder = join(copy.dir, 'call folder');
     mkdirSync(folder);
     const idle = spawn(process.execPath, ['-e', IDLE], { stdio: 'ignore', windowsHide: true });
+    const guard = spawn(process.execPath, [guardFile], { cwd: dirname(guardFile), stdio: ['pipe', 'ignore', 'ignore'], detached: true });
+    let exited = false;
+    guard.on('exit', () => (exited = true));
     try {
-      const guard = spawn(process.execPath, [guardFile], { cwd: dirname(guardFile), stdio: ['pipe', 'ignore', 'ignore'], detached: true });
-      let exited = false;
-      guard.on('exit', () => (exited = true));
       guard.stdin!.end(`+g${idle.pid}\n+d${folder}\n`);
       assert.ok(await waitFor(() => exited, GUARD_ENDS_MS), 'the guard is still running');
       assert.ok(!existsSync(folder), 'the call\'s folder is still there');
       assert.ok(alive(idle.pid!), 'a process of the tool was ended from no list');
     } finally {
+      // A guard still running holds the copy, which then cannot be removed, and keeps this file from ending; the program it waits on holds the copy too.
+      if (!exited) {
+        killGroup(guard.pid!, 'SIGKILL');
+        await waitFor(() => exited, LEFTOVER_GRACE_MS);
+      }
       idle.kill('SIGKILL');
     }
   });
