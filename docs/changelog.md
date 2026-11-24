@@ -64,7 +64,7 @@ The Lawcheck plugin now works in Codex CLI and GitHub Copilot CLI. In both, the 
 - In Copilot CLI, `copilot plugin marketplace add krzysztofdudek/Lawcheck` and `copilot plugin install lawcheck@lawcheck-marketplace` install it. The check after an edit sees the files of `create` and `edit`. Copilot CLI gives a plugin no way to write to you, so at the end of a turn the plugin sends the agent back once to tell you its message, such as a check that still fails or a waiver the agent added. `lawcheck docs copilot-cli` has the steps.
 
 The documentation site is now at https://docs.lawcheck.dev, and https://lawcheck.dev introduces Lawcheck. A page that alpha.4 named at `lawcheck.dev/<page>` redirects to the same page at the new address. The README of the npm package names the new address.
-The docs site shows a chapter of the tutorial above five pages: Quick start, Forbid one layer to use another, Write a script rule, Write a reviewer rule, and CI and git hooks. A chapter is a recording of under a minute, with subtitles and no sound, in which Claude Code and Lawcheck do the steps of its page in a small repository. `lawcheck docs` prints the same pages as before.
+The docs site shows a chapter of the tutorial above five pages: Quick start, Forbid one layer to use another, Write a script rule, Write a reviewer rule, and CI and git hooks. A chapter is a recording of under a minute, with subtitles and no sound, of the steps of its page done in a small repository, by hand in the quick start and with Claude Code in the other four. `lawcheck docs` prints the same pages as before.
 
 ### Before you upgrade
 
