@@ -102,5 +102,29 @@
     "find": "const ANY = 3;",
     "replace": "const ANY = 4;",
     "killedBy": "R-40: a ** that is the last segment does not match the directory, with or without its slash"
+  },
+  {
+    "id": "doctor-law-change-count",
+    "promise": "R-39",
+    "file": "src/doctor.ts",
+    "find": "touched.length > 3 ? ",
+    "replace": "touched.length > 4 ? ",
+    "killedBy": "R-39: a change that touches the law names the first three files in order and counts the rest, and the command keeps the base only when one was passed"
+  },
+  {
+    "id": "doctor-runner-program",
+    "promise": "R-39",
+    "file": "src/doctor.ts",
+    "find": "npx: 'npx'",
+    "replace": "npx: 'pnpx'",
+    "killedBy": "R-39: the config check names a config that is wrong, and the program of each runner, found on the PATH or not"
+  },
+  {
+    "id": "doctor-reviewer-unset",
+    "promise": "R-39",
+    "file": "src/doctor.ts",
+    "find": "'no reviewer is set, so --reviewer has nothing to call'",
+    "replace": "'no reviewer is set'",
+    "killedBy": "R-39: the reviewer check says why it cannot call a reviewer, and what a call answered"
   }
 ]
