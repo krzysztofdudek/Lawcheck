@@ -362,6 +362,26 @@ export async function check({ files: [file] }) {
 }
 `;
 
+// One file of each language, a C header whose language its folder decides, a Vue file and a file with no reader: each starts the tool twice, so the set stays small.
+const TREE_FILES = [
+  'c/app/service.h',
+  'c/domain/order.c',
+  'cpp/domain/order.cpp',
+  'cs/domain/Order.cs',
+  'go/domain/order.go',
+  'java/src/main/java/com/acme/domain/Order.java',
+  'js/domain/total.js',
+  'kotlin/src/main/kotlin/com/acme/k/domain/Order.kt',
+  'php/src/domain/Order.php',
+  'py/shop/domain/order.py',
+  'ruby/domain/order.rb',
+  'rust/src/domain/mod.rs',
+  'ts/domain/order.ts',
+  'ts/domain/schema.json',
+  'ts/domain/widget.tsx',
+  'vue/domain/Card.vue',
+];
+
 const TREE_LINE = /^((?:  )+)(?:(\w+): )?(\S+)  line (\d+)(?:  ".*")?$/;
 
 test('test 950: explain --tree prints the tree of a file in each of the twelve languages, and its JSON gives the nodes that tree() gives a rule for the same file', async () => {
@@ -373,7 +393,8 @@ test('test 950: explain --tree prints the tree of a file in each of the twelve l
     const said = new Map<string, string>(JSON.parse(run.stdout).findings.filter((f: any) => f.rule === 'nodes').map((f: any) => [f.file, f.message]));
     assert.equal(said.size, 29);
     const languages = new Set<string>();
-    for (const [path, hash] of said) {
+    for (const path of TREE_FILES) {
+      const hash = said.get(path);
       const json = await lawcheck(l, ['explain', path, '--tree', '--json']);
       assert.equal(json.code, 0, path);
       const document = JSON.parse(json.stdout);
