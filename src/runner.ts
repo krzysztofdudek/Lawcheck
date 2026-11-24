@@ -1,6 +1,5 @@
 import { syncBuiltinESMExports } from 'node:module';
 import { pathToFileURL } from 'node:url';
-import { MESSAGE_CHARS, points, RUN_FINDINGS, RUN_MESSAGE_CHARS } from './limits.js';
 
 interface CallFile {
   path: string;
@@ -32,8 +31,14 @@ interface TreeNode {
   children: TreeNode[];
 }
 
+interface Limits {
+  messageChars: number;
+  findings: number;
+  chars: number;
+}
+
 type Incoming =
-  | { kind: 'load'; file: string; filesOf: Map<string, string[]>; entry?: Entry }
+  | { kind: 'load'; file: string; filesOf: Map<string, string[]>; entry?: Entry; limits: Limits }
   | { kind: 'call'; file: CallFile }
   | { kind: 'answer'; id: number; value: unknown }
   | { kind: 'finish' };
@@ -136,6 +141,7 @@ countAsyncWaits();
 let check: Check | null = null;
 let companion: Companion | null = null;
 let repo: Repo | null = null;
+let limits: Limits | null = null;
 let loaded = false;
 let reported = false;
 
@@ -238,7 +244,8 @@ function send(message: unknown): void {
   }
 }
 
-async function load(file: string, filesOf: Map<string, string[]>, entry: Entry): Promise<void> {
+async function load(file: string, filesOf: Map<string, string[]>, entry: Entry, given: Limits): Promise<void> {
+  limits = given;
   repo = {
     filesOf(typeId: string): string[] {
       const list = filesOf.get(typeId);
@@ -265,6 +272,19 @@ async function load(file: string, filesOf: Map<string, string[]>, entry: Entry):
   send({ kind: 'loaded' });
 }
 
+// The count of points in src/limits.ts, since a message's limit counts code points and the runner imports nothing of Lawcheck.
+function points(text: string): number {
+  let count = text.length;
+  for (let i = 1; i < text.length; i++) {
+    const low = text.charCodeAt(i);
+    if (low >= 0xdc00 && low <= 0xdfff) {
+      const high = text.charCodeAt(i - 1);
+      if (high >= 0xd800 && high <= 0xdbff) count--;
+    }
+  }
+  return count;
+}
+
 // A list or a message past its limit is answered by its size alone, so it never crosses the channel whole.
 function oversized(value: unknown): { kind: string; count: number; chars?: number } | null {
   if (!Array.isArray(value)) return null;
@@ -273,10 +293,10 @@ function oversized(value: unknown): { kind: string; count: number; chars?: numbe
     const message = typeof item === 'object' && item !== null ? (item as { message?: unknown }).message : undefined;
     if (typeof message !== 'string') continue;
     const length = points(message);
-    if (length > MESSAGE_CHARS) return { kind: 'too-long', count: length };
+    if (length > limits!.messageChars) return { kind: 'too-long', count: length };
     chars += length;
   }
-  if (value.length > RUN_FINDINGS || chars > RUN_MESSAGE_CHARS) return { kind: 'too-many', count: value.length, chars };
+  if (value.length > limits!.findings || chars > limits!.chars) return { kind: 'too-many', count: value.length, chars };
   return null;
 }
 
@@ -334,7 +354,7 @@ async function call(file: CallFile): Promise<void> {
 
 process.on('message', (message: Incoming) => {
   own ??= handles();
-  if (message.kind === 'load') void load(message.file, message.filesOf, message.entry === 'companion' ? 'companion' : 'check');
+  if (message.kind === 'load') void load(message.file, message.filesOf, message.entry === 'companion' ? 'companion' : 'check', message.limits);
   else if (message.kind === 'finish') void finish();
   else if (message.kind === 'answer') {
     answers.get(message.id)?.(message.value);

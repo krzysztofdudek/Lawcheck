@@ -4,7 +4,7 @@ const NODE = 'node:*';
 const ROWS = {
   source: [],
   cli: ['node:fs', 'node:path', 'node:url'],
-  'rule-runner': ['node:url'],
+  'rule-runner': ['node:module', 'node:url'],
   guard: ['node:fs'],
   core: ['yaml', 'node:crypto'],
   output: [],

@@ -378,7 +378,7 @@ export function runRule(run: RuleRun): Promise<RuleOutcome> {
     };
 
     const load = () =>
-      ask({ kind: 'load', file: run.ruleFile, filesOf: run.filesOf, entry: run.entry ?? 'check' }, (message) => {
+      ask({ kind: 'load', file: run.ruleFile, filesOf: run.filesOf, entry: run.entry ?? 'check', limits: { messageChars: MESSAGE_CHARS, findings: RUN_FINDINGS, chars: RUN_MESSAGE_CHARS } }, (message) => {
         if (message.kind === 'load-failed') return end({ crash: `fails to load: ${message.message}` });
         if (message.kind === 'uncloneable') return end({ crash: `fails to load: ${message.message}` });
         if (message.kind !== 'loaded') return end({ crash: `writes to the runner's channel ${stage}` });

@@ -9,7 +9,7 @@ import { git, GIT_ENV, inTemp, lawcheck, read, ROOT, write } from './helpers.ts'
 const ADVISORY = new Set(['errors-name-the-fix', 'docs-state-facts']);
 const WAIVERS: { file: string; rule: string; reason: string }[] = [];
 const UNRESOLVED = [{ file: 'scripts/grammars.ts', what: '..', answer: 'none', reason: 'unfollowed' }];
-const UNSORTED = new Set(['args', 'check', 'cli', 'config', 'docs', 'doctor', 'environment', 'explain', 'files', 'glob', 'guard', 'init', 'keys', 'law', 'lawchange', 'limits', 'main', 'names', 'output', 'prime', 'programs', 'progress', 'prompt', 'readers', 'review', 'rules', 'runner', 'setup', 'try', 'types', 'uses', 'verdicts', 'waivers', 'work'].map((name) => `src/${name}.ts`).concat(['src/bin.cts'], ['anthropic', 'claude-code', 'codex', 'copilot-cli', 'gemini-cli', 'google', 'http', 'index', 'ollama', 'openai', 'openai-compatible', 'program'].map((name) => `src/providers/${name}.ts`)));
+const UNSORTED = new Set(['args', 'check', 'cli', 'config', 'docs', 'doctor', 'environment', 'explain', 'files', 'glob', 'guard', 'init', 'keys', 'law', 'lawchange', 'limits', 'main', 'names', 'output', 'prime', 'programs', 'progress', 'prompt', 'readers', 'review', 'rules', 'setup', 'try', 'types', 'uses', 'verdicts', 'waivers', 'work'].map((name) => `src/${name}.ts`).concat(['src/bin.cts'], ['anthropic', 'claude-code', 'codex', 'copilot-cli', 'gemini-cli', 'google', 'http', 'index', 'ollama', 'openai', 'openai-compatible', 'program'].map((name) => `src/providers/${name}.ts`)));
 
 interface Finding {
   code: string;
