@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
-import { execFileSync, spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { appendFileSync, chmodSync } from 'node:fs';
 import { join } from 'node:path';
 import { anthropic, defaultAnswer, withFake } from '../acceptance/fake-reviewer.ts';
-import { CLI, git, GIT_ENV, inTemp, lawcheck, newRepository, NO_CONSOLE, write } from '../acceptance/helpers.ts';
+import { atOnce, CLI, git, GIT_ENV, inTemp, lawcheck, newRepository, NO_CONSOLE, write } from '../acceptance/helpers.ts';
 import { SCENARIO } from '../contract/docs-blocks.ts';
 import type { Claims, Page } from '../contract/docs-blocks.ts';
 
@@ -78,6 +78,21 @@ const args = (block: string): string[] => {
 };
 const output = (page: Page, key: string): string => page.text(key) + '\n';
 
+// A program run without blocking the other sections: its exit code and what it wrote.
+const started = (program: string, programArgs: string[], cwd: string, env: NodeJS.ProcessEnv): Promise<{ status: number | null; stdout: string; stderr: string }> =>
+  new Promise((done, failed) => {
+    const child = spawn(program, programArgs, { cwd, env, stdio: ['ignore', 'pipe', 'pipe'] });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.setEncoding('utf8').on('data', (text: string) => void (stdout += text));
+    child.stderr.setEncoding('utf8').on('data', (text: string) => void (stderr += text));
+    child.on('error', failed);
+    child.on('close', (status) => done({ status, stdout, stderr }));
+  });
+
+// The sections of the scenario share no folder, so a few run at once, as the other tests that run the tool per case do.
+const SECTIONS_AT_ONCE = 3;
+
 // The words of a command line as sh splits them, for the lines of these blocks: no variable, no escape.
 const words = (line: string): string[] => [...line.matchAll(/"([^"]*)"|(\S+)/g)].map((m) => m[1] ?? m[2]!);
 
@@ -100,134 +115,125 @@ function job(dir: string, files: Record<string, string>): string {
 }
 
 export async function scenario(page: Page): Promise<void> {
-  const T: string[] = []; const t0 = Date.now(); const mark = (n: string) => T.push(`${n} ${Date.now() - t0}`);
-  mark('s1');
-  await inTemp(async (dir) => {
-    const origin = newRepository(join(dir, 'origin'), { '.lawcheck/law.yaml': LAW, '.lawcheck/rules/no-console.mjs': NO_CONSOLE, '.gitignore': 'node_modules/\n' });
-    git(origin, 'checkout', '-q', '-b', 'work');
-    write(origin, 'src/core/total.ts', TOTAL);
-    git(origin, 'add', '-A');
-    git(origin, 'commit', '-q', '-m', 'total');
-    const services: [step: string, clone: string[], env: NodeJS.ProcessEnv][] = [
-      ['6. Give the base on GitLab CI', ['--single-branch', '--branch', 'work'], { GITLAB_CI: 'true', CI_MERGE_REQUEST_TARGET_BRANCH_NAME: 'main' }],
-      ['7. Give the base on Azure Pipelines', ['--branch', 'work'], { TF_BUILD: 'True', SYSTEM_PULLREQUEST_TARGETBRANCH: 'refs/heads/main' }],
-      ['7. Give the base on Azure Pipelines', ['--branch', 'work'], { TF_BUILD: 'True', SYSTEM_PULLREQUEST_TARGETBRANCH: 'main' }],
-    ];
-    for (const [at, [step, options, env]] of services.entries()) {
-      const clone = join(dir, `job-${at}`);
-      git(dir, 'clone', '-q', ...options, origin, clone);
-      if (step.includes('GitLab')) assert.throws(() => git(clone, 'rev-parse', '--verify', '-q', 'origin/main'), 'the job fetched its own branch alone');
+  const sections: [name: string, section: () => Promise<void>][] = [
+    ['the jobs of GitLab CI and Azure Pipelines', () => inTemp(async (dir) => {
+      const origin = newRepository(join(dir, 'origin'), { '.lawcheck/law.yaml': LAW, '.lawcheck/rules/no-console.mjs': NO_CONSOLE, '.gitignore': 'node_modules/\n' });
+      git(origin, 'checkout', '-q', '-b', 'work');
+      write(origin, 'src/core/total.ts', TOTAL);
+      git(origin, 'add', '-A');
+      git(origin, 'commit', '-q', '-m', 'total');
+      const services: [step: string, clone: string[], env: NodeJS.ProcessEnv][] = [
+        ['6. Give the base on GitLab CI', ['--single-branch', '--branch', 'work'], { GITLAB_CI: 'true', CI_MERGE_REQUEST_TARGET_BRANCH_NAME: 'main' }],
+        ['7. Give the base on Azure Pipelines', ['--branch', 'work'], { TF_BUILD: 'True', SYSTEM_PULLREQUEST_TARGETBRANCH: 'refs/heads/main' }],
+        ['7. Give the base on Azure Pipelines', ['--branch', 'work'], { TF_BUILD: 'True', SYSTEM_PULLREQUEST_TARGETBRANCH: 'main' }],
+      ];
+      await atOnce(services, services.length, ([step], at) => `${step} (${at})`, async ([step, options, env], at) => {
+        const clone = join(dir, `job-${at}`);
+        git(dir, 'clone', '-q', '--shared', ...options, origin, clone);
+        if (step.includes('GitLab')) assert.throws(() => git(clone, 'rev-parse', '--verify', '-q', 'origin/main'), 'the job fetched its own branch alone');
+        standIn(clone);
+        // A script file inside the clone would count as a changed file.
+        const script = join(dir, `job-${at}.sh`);
+        write(dir, `job-${at}.sh`, page.text(`block 1 under "${step}"`) + '\n');
+        const job = await started('sh', [script], clone, { ...GIT_ENV, npm_config_update_notifier: 'false', ...env });
+        assert.equal(job.status, 1, `${step}\n${job.stdout}${job.stderr}`);
+        assert.equal(job.stdout.split('\n')[0], 'lawcheck: FAIL  1 error in 1 changed file (against origin/main)', step);
+        assert.match(job.stdout, /^src\/core\/total\.ts:2  error\[no-console\]/m, step);
+      });
+    })],
+
+    ['the cache folders kept out of the change by .git/info/exclude', async () => {
+      const exclude = /^echo (\S+) >> (\S+)$/.exec(page.text('block 1 under "4. Keep cache folders out of the change"'));
+      assert.ok(exclude, 'the block appends one line to a file');
+      await inTemp(async (dir) => {
+        const repo = newRepository(dir, { '.lawcheck/law.yaml': 'lawcheck: 0.1.0\n\ntypes:\n  source:\n    paths: ["src/**/*.ts"]\n', 'src/price.ts': 'export const price = 1;\n' });
+        git(repo, 'checkout', '-q', '-b', 'work');
+        write(repo, '.npm/_cacache/index-v5/00/index', 'a cache entry\n');
+        const cached = await lawcheck(repo, ['check', '--base', 'main']);
+        assert.deepEqual([cached.code, cached.stdout], [0, 'lawcheck: PASS  1 changed file (against main)\n'], 'the cache folder counts as changed');
+        appendFileSync(join(repo, exclude[2]!), `${exclude[1]}\n`);
+        const excluded = await lawcheck(repo, ['check', '--base', 'main']);
+        assert.deepEqual([excluded.code, excluded.stdout], [0, 'lawcheck: PASS  nothing changed against main\n'], 'the excluded cache folder is not in the change');
+      });
+    }],
+
+    ['node_modules kept out of the change by .gitignore', async () => {
+      const ignore = /^echo (\S+) >> (\S+)$/.exec(page.text('block 2 under "4. Keep cache folders out of the change"'));
+      assert.ok(ignore, 'the block appends one line to a file');
+      await inTemp(async (dir) => {
+        const repo = newRepository(dir, { '.lawcheck/law.yaml': 'lawcheck: 0.1.0\n\ntypes:\n  source:\n    paths: ["src/**/*.ts"]\n', 'src/price.ts': 'export const price = 1;\n', '.gitignore': '.env\n' });
+        git(repo, 'checkout', '-q', '-b', 'work');
+        write(repo, 'node_modules/left-pad/index.js', 'module.exports = 1;\n');
+        write(repo, 'node_modules/left-pad/package.json', '{"name":"left-pad"}\n');
+        const installed = await lawcheck(repo, ['check', '--base', 'main']);
+        assert.deepEqual([installed.code, installed.stdout], [0, 'lawcheck: PASS  2 changed files (against main)\n'], 'the files of node_modules count as changed');
+        appendFileSync(join(repo, ignore[2]!), `${ignore[1]}\n`);
+        const ignored = await lawcheck(repo, ['check', '--base', 'main']);
+        assert.deepEqual([ignored.code, ignored.stdout], [0, 'lawcheck: PASS  1 changed file (against main)\n'], 'only the edited .gitignore is in the change');
+      });
+    }],
+
+    ['the pre-commit hook', () => inTemp(async (dir) => {
+      const clone = job(dir, { '.gitignore': 'node_modules/\n' });
+      write(clone, '.githooks/pre-commit', page.text('example pre-commit-hook') + '\n');
       standIn(clone);
-      // A script file inside the clone would count as a changed file.
-      const script = join(dir, `job-${at}.sh`);
-      write(dir, `job-${at}.sh`, page.text(`block 1 under "${step}"`) + '\n');
-      const job = spawnSync('sh', [script], { cwd: clone, env: { ...GIT_ENV, npm_config_update_notifier: 'false', ...env }, encoding: 'utf8' });
-      assert.equal(job.status, 1, `${step}\n${job.stdout}${job.stderr}`);
-      assert.equal(job.stdout.split('\n')[0], 'lawcheck: FAIL  1 error in 1 changed file (against origin/main)', step);
-      assert.match(job.stdout, /^src\/core\/total\.ts:2  error\[no-console\]/m, step);
-    }
-  });
-
-  mark('s2');
-  const exclude = /^echo (\S+) >> (\S+)$/.exec(page.text('block 1 under "4. Keep cache folders out of the change"'));
-  assert.ok(exclude, 'the block appends one line to a file');
-  mark('s3');
-  await inTemp(async (dir) => {
-    const repo = newRepository(dir, { '.lawcheck/law.yaml': 'lawcheck: 0.1.0\n\ntypes:\n  source:\n    paths: ["src/**/*.ts"]\n', 'src/price.ts': 'export const price = 1;\n' });
-    git(repo, 'checkout', '-q', '-b', 'work');
-    write(repo, '.npm/_cacache/index-v5/00/index', 'a cache entry\n');
-    const cached = await lawcheck(repo, ['check', '--base', 'main']);
-    assert.deepEqual([cached.code, cached.stdout], [0, 'lawcheck: PASS  1 changed file (against main)\n'], 'the cache folder counts as changed');
-    appendFileSync(join(repo, exclude[2]!), `${exclude[1]}\n`);
-    const excluded = await lawcheck(repo, ['check', '--base', 'main']);
-    assert.deepEqual([excluded.code, excluded.stdout], [0, 'lawcheck: PASS  nothing changed against main\n'], 'the excluded cache folder is not in the change');
-  });
-
-  mark('s4');
-  const ignore = /^echo (\S+) >> (\S+)$/.exec(page.text('block 2 under "4. Keep cache folders out of the change"'));
-  assert.ok(ignore, 'the block appends one line to a file');
-  mark('s5');
-  await inTemp(async (dir) => {
-    const repo = newRepository(dir, { '.lawcheck/law.yaml': 'lawcheck: 0.1.0\n\ntypes:\n  source:\n    paths: ["src/**/*.ts"]\n', 'src/price.ts': 'export const price = 1;\n', '.gitignore': '.env\n' });
-    git(repo, 'checkout', '-q', '-b', 'work');
-    write(repo, 'node_modules/left-pad/index.js', 'module.exports = 1;\n');
-    write(repo, 'node_modules/left-pad/package.json', '{"name":"left-pad"}\n');
-    const installed = await lawcheck(repo, ['check', '--base', 'main']);
-    assert.deepEqual([installed.code, installed.stdout], [0, 'lawcheck: PASS  2 changed files (against main)\n'], 'the files of node_modules count as changed');
-    appendFileSync(join(repo, ignore[2]!), `${ignore[1]}\n`);
-    const ignored = await lawcheck(repo, ['check', '--base', 'main']);
-    assert.deepEqual([ignored.code, ignored.stdout], [0, 'lawcheck: PASS  1 changed file (against main)\n'], 'only the edited .gitignore is in the change');
-  });
-
-  mark('s6');
-  await inTemp(async (dir) => {
-    const clone = job(dir, { '.gitignore': 'node_modules/\n' });
-    write(clone, '.githooks/pre-commit', page.text('example pre-commit-hook') + '\n');
-    standIn(clone);
-    const run = (block: string): string => {
-      const [program, ...args] = words(page.text(block).slice(2));
-      return execFileSync(program!, args, { cwd: clone, env: { ...GIT_ENV, npm_config_update_notifier: 'false' }, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
-    };
-    run('block 1 under "2. Make it executable"');
-    run('block 1 under "3. Make git read the folder"');
-    write(clone, 'src/core/total.ts', TOTAL);
-    git(clone, 'add', 'src/core/total.ts');
-    const refused = (() => {
-      try {
-        run('block 1 under "4. Commit a breach"');
-      } catch (error) {
-        return error as { status: number; stdout: string; stderr: string };
+      const run = async (block: string): Promise<{ status: number | null; stdout: string; stderr: string }> => {
+        const [program, ...args] = words(page.text(block).slice(2));
+        return started(program!, args, clone, { ...GIT_ENV, npm_config_update_notifier: 'false' });
+      };
+      for (const block of ['block 1 under "2. Make it executable"', 'block 1 under "3. Make git read the folder"']) {
+        const made = await run(block);
+        assert.equal(made.status, 0, `${block}\n${made.stdout}${made.stderr}`);
       }
-      return null;
-    })();
-    assert.ok(refused, 'the hook refuses the commit');
-    assert.equal(refused.status, 1);
-    assert.equal(refused.stdout + refused.stderr, page.text('block 2 under "4. Commit a breach"') + '\n');
-    assert.equal(git(clone, 'rev-list', '--count', 'origin/main..HEAD').trim(), '0', 'git keeps the commit out');
-  });
+      write(clone, 'src/core/total.ts', TOTAL);
+      git(clone, 'add', 'src/core/total.ts');
+      const refused = await run('block 1 under "4. Commit a breach"');
+      assert.equal(refused.status, 1, 'the hook refuses the commit');
+      assert.equal(refused.stdout + refused.stderr, page.text('block 2 under "4. Commit a breach"') + '\n');
+      assert.equal(git(clone, 'rev-list', '--count', 'origin/main..HEAD').trim(), '0', 'git keeps the commit out');
+    })],
 
-  mark('s7');
-  await inTemp(async (dir) => {
-    const clone = job(dir, {});
-    write(clone, 'src/core/total.ts', TOTAL);
-    const step = '5. Give the base on another CI service';
-    const none = await lawcheck(clone, args(page.text(`block 1 under "${step}"`)), { CI: 'true' });
-    assert.deepEqual([none.code, none.stdout], [2, output(page, `block 2 under "${step}"`)], 'a CI job with no base');
-    const given = await lawcheck(clone, args(page.text(`block 3 under "${step}"`)), { CI: 'true' });
-    assert.deepEqual([given.code, given.stdout], [1, output(page, `block 4 under "${step}"`)], 'the base given');
+    ['the base on another CI service, and a change to the law', () => inTemp(async (dir) => {
+      const clone = job(dir, {});
+      write(clone, 'src/core/total.ts', TOTAL);
+      const step = '5. Give the base on another CI service';
+      const none = await lawcheck(clone, args(page.text(`block 1 under "${step}"`)), { CI: 'true' });
+      assert.deepEqual([none.code, none.stdout], [2, output(page, `block 2 under "${step}"`)], 'a CI job with no base');
+      const given = await lawcheck(clone, args(page.text(`block 3 under "${step}"`)), { CI: 'true' });
+      assert.deepEqual([given.code, given.stdout], [1, output(page, `block 4 under "${step}"`)], 'the base given');
 
-    git(clone, 'checkout', '-q', '-b', 'law', 'origin/main');
-    write(clone, '.lawcheck/law.yaml', LAW.replace('    rules: [no-console]\n', ''));
-    write(clone, 'src/core/total.ts', TOTAL);
-    const loosened = await lawcheck(clone, args(page.text('block 3 under "5. Give the base on another CI service"')));
-    assert.deepEqual([loosened.code, loosened.stdout], [0, output(page, 'block 1 under "A change to the law"')], 'the first check of a change that loosens the law');
-    git(clone, 'add', '-A');
-    git(clone, 'commit', '-q', '-m', 'law');
-    const second = await lawcheck(clone, [...args(page.text('block 3 under "5. Give the base on another CI service"')), '--law-from', 'origin/main']);
-    assert.equal(second.code, 1, 'the check with the law of the base fails');
-    assert.match(second.stdout, /^src\/core\/total\.ts:2  error\[no-console\]/m);
-  });
+      git(clone, 'checkout', '-q', '-b', 'law', 'origin/main');
+      write(clone, '.lawcheck/law.yaml', LAW.replace('    rules: [no-console]\n', ''));
+      write(clone, 'src/core/total.ts', TOTAL);
+      const loosened = await lawcheck(clone, args(page.text('block 3 under "5. Give the base on another CI service"')));
+      assert.deepEqual([loosened.code, loosened.stdout], [0, output(page, 'block 1 under "A change to the law"')], 'the first check of a change that loosens the law');
+      git(clone, 'add', '-A');
+      git(clone, 'commit', '-q', '-m', 'law');
+      const second = await lawcheck(clone, [...args(page.text('block 3 under "5. Give the base on another CI service"')), '--law-from', 'origin/main']);
+      assert.equal(second.code, 1, 'the check with the law of the base fails');
+      assert.match(second.stdout, /^src\/core\/total\.ts:2  error\[no-console\]/m);
+    })],
 
-  mark('s8');
-  const record = args(page.text('block 1 under "1. Record the reviews before you push"'));
-  mark('s9');
-  await withFake(async (fake) => {
-    await inTemp(async (dir) => {
-      const clone = job(dir, { '.lawcheck/law.yaml': REVIEWED, '.lawcheck/rules/clear-errors.md': 'Every error message a caller can see says what happened and what the caller can do next.\n', '.lawcheck/config.yaml': 'reviewer:\n  provider: anthropic\n  model: your-model-id\n' });
-      write(clone, 'src/core/refund.ts', REFUND);
-      const plain = record.filter((word) => word !== '--review');
-      const missing = await lawcheck(clone, plain, { CI: 'true' });
-      assert.deepEqual([missing.code, missing.stdout], [1, output(page, 'block 1 under "Reviewer rules in CI"')], 'the job with no verdict');
-      const recorded = await lawcheck(clone, record, { LAWCHECK_REVIEWER_ENDPOINT: fake.base, LAWCHECK_REVIEWER_KEY: 'fake-key' });
-      assert.deepEqual([recorded.code, recorded.stdout], [0, output(page, 'block 2 under "1. Record the reviews before you push"')], 'the review');
-      git(clone, 'add', 'src/core/refund.ts', '.lawcheck/verdicts', '.lawcheck/.gitattributes');
-      git(clone, 'commit', '-q', '-m', 'refund');
-      const calls = fake.requests.length;
-      const passed = await lawcheck(clone, plain, { CI: 'true' });
-      assert.deepEqual([passed.code, passed.stdout], [0, output(page, 'block 1 under "2. Commit the verdicts"')], 'the job after the commit');
-      assert.equal(fake.requests.length, calls, 'the job calls no reviewer');
-    });
-  }, (request) => anthropic(defaultAnswer(request.prompt)));
-  mark('end');
-  assert.fail('PROBE ci ' + T.join(' | '));
+    ['the reviews recorded before the push', async () => {
+      const record = args(page.text('block 1 under "1. Record the reviews before you push"'));
+      await withFake(async (fake) => {
+        await inTemp(async (dir) => {
+          const clone = job(dir, { '.lawcheck/law.yaml': REVIEWED, '.lawcheck/rules/clear-errors.md': 'Every error message a caller can see says what happened and what the caller can do next.\n', '.lawcheck/config.yaml': 'reviewer:\n  provider: anthropic\n  model: your-model-id\n' });
+          write(clone, 'src/core/refund.ts', REFUND);
+          const plain = record.filter((word) => word !== '--review');
+          const missing = await lawcheck(clone, plain, { CI: 'true' });
+          assert.deepEqual([missing.code, missing.stdout], [1, output(page, 'block 1 under "Reviewer rules in CI"')], 'the job with no verdict');
+          const recorded = await lawcheck(clone, record, { LAWCHECK_REVIEWER_ENDPOINT: fake.base, LAWCHECK_REVIEWER_KEY: 'fake-key' });
+          assert.deepEqual([recorded.code, recorded.stdout], [0, output(page, 'block 2 under "1. Record the reviews before you push"')], 'the review');
+          git(clone, 'add', 'src/core/refund.ts', '.lawcheck/verdicts', '.lawcheck/.gitattributes');
+          git(clone, 'commit', '-q', '-m', 'refund');
+          const calls = fake.requests.length;
+          const passed = await lawcheck(clone, plain, { CI: 'true' });
+          assert.deepEqual([passed.code, passed.stdout], [0, output(page, 'block 1 under "2. Commit the verdicts"')], 'the job after the commit');
+          assert.equal(fake.requests.length, calls, 'the job calls no reviewer');
+        });
+      }, (request) => anthropic(defaultAnswer(request.prompt)));
+    }],
+  ];
+  await atOnce(sections, SECTIONS_AT_ONCE, ([name]) => name, ([, section]) => section());
 }
