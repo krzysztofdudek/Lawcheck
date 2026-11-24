@@ -83,3 +83,26 @@ test('R-108: a field of a finding that a rule piles up is never read, so the run
     assert.equal(result.code, 1);
   });
 });
+
+test('test 1301: a rule that prints 120 MB over 100 calls holds none of it in its runner, which grows by less than 64 MiB, and Lawcheck\'s standard error gets every line', async () => {
+  await withSample(async (s) => {
+    const rule = [
+      'const before = process.memoryUsage().rss;',
+      'export function check() {',
+      '  const grew = process.memoryUsage().rss - before;',
+      "  const line = 'noise '.repeat(100);",
+      '  for (let i = 0; i < 2000; i++) console.log(line);',
+      '  return [{ message: `grew by ${Math.round(grew / 1048576)} MiB` }];',
+      '}',
+      '',
+    ].join('\n');
+    setRule(s, 'no-console', rule);
+    for (let i = 0; i < 100; i++) write(s, `src/core/f${String(i).padStart(3, '0')}.ts`, `export const a = ${i};\n`);
+    const result = await run(s, ['check', '--base', 'main', '--json'], { stderr: /^noise / });
+    const grew = (JSON.parse(result.stdout).findings as { message: string }[]).map((finding) => Number(/^grew by (-?\d+) MiB$/.exec(finding.message)?.[1]));
+    assert.equal(grew.length, 100);
+    assert.ok(Math.max(...grew) < 64, `the runner grew by up to ${Math.max(...grew)} MiB while the rule printed`);
+    assert.equal(result.code, 1);
+    assert.equal(result.stderr, `${'noise '.repeat(100)}\n`.repeat(200_000));
+  });
+});
