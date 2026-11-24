@@ -133,7 +133,7 @@ Lawcheck sends the agent back before the end of its turn in Claude Code, Codex a
 | You want the law checked inside the turn, on the files of the turn, with at most three returns | the Lawcheck plugin, in Claude Code, Codex or Copilot CLI |
 | Your hook runs the tests, and the law holds your layers | both: your hook runs the tests, and the plugin checks the law |
 | You work in Cursor, and you want the agent sent back after each edit | a Cursor hook of your own, since no session of Cursor has run the Lawcheck plugin; Lawcheck can add the law in CI |
-| You work in another agent that has hooks, and you want the agent sent back after each edit | the agent's own hook with the linter of each language, since the Lawcheck plugin runs only in Claude Code, Codex, Copilot CLI and Cursor; Lawcheck can add the law in CI |
+| You work in another agent that has hooks, and you want the agent sent back after each edit | the agent's own hook with the linter of each language, since the Lawcheck plugin runs only in Claude Code, Codex and Copilot CLI, and loads in Cursor; Lawcheck can add the law in CI |
 | You work in another agent, and the law holds rules that no linter knows, such as `may_use` across languages | a hook you write that runs `lawcheck check` before the agent finishes, and the same check in CI |
 
 Next: [I want to](i-want-to.md)
