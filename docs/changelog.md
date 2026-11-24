@@ -54,7 +54,7 @@ A plain `lawcheck check` no longer misses a file edited in the same second as th
 
 The Lawcheck plugin now works in Codex CLI. `codex plugin marketplace add krzysztofdudek/Lawcheck` and `codex plugin add lawcheck@lawcheck-marketplace` install it, and Codex runs its hooks after you trust them in `/hooks`. The agent gets the law when a session starts, a check after each `apply_patch`, and up to three returns before it finishes, as in Claude Code. A file the agent writes through the shell gets no check after the edit, and the check before the end of the turn catches it. `LAWCHECK_PLUGIN_CHECK_AFTER_EDIT` and `LAWCHECK_PLUGIN_CHECK_BEFORE_STOP` switch the two checks off. In alpha.4 Codex got the law only through a line in its instructions file. `lawcheck docs codex-cli` has the steps.
 
-The documentation site is now at https://docs.lawcheck.dev, and https://lawcheck.dev introduces Lawcheck. A page that alpha.4 named at `https://lawcheck.dev/<page>` redirects to the same page at the new address. The README of the npm package names the new address.
+The documentation site is now at https://docs.lawcheck.dev, and https://lawcheck.dev introduces Lawcheck. A page that alpha.4 named at `lawcheck.dev/<page>` redirects to the same page at the new address. The README of the npm package names the new address.
 
 ### Before you upgrade
 
