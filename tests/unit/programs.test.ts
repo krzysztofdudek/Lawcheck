@@ -141,3 +141,9 @@ test('R-34: the guard kills from its list only a process whose id and time of ma
   assert.deepEqual(stillListed(before, '', [100]), []);
   assert.deepEqual(stillListed(before, reused, [200]), [200]);
 });
+
+test('R-64: of the earlier list the guard kills below a root only what was made after the process above it, never the children of an older process that held the root\'s id', () => {
+  const before = ['100 1 500', '101 100 501', '102 101 502', '400 100 300', '401 400 310', '103 101 499', ''].join('\r\n');
+  assert.deepEqual(stillListed(before, before, [100]).sort((a, b) => a - b), [100, 101, 102]);
+  assert.deepEqual(toEnd(before, before, [100]).sort((a, b) => a - b), [100, 101, 102]);
+});
