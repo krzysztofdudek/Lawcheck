@@ -12,7 +12,7 @@ import { DEADLINES_VARIABLE, fakeWrites, platformSkip, startHook, startProgram, 
 import { fakeGit, installedLawcheck, removeFakeGit } from '../harness/fakes.ts';
 import { PAST_USER_SET_MS, TEST_HOOK_DEADLINES, USER_SET_DEADLINE_S } from '../numbers.ts';
 import { DEADLINES } from '../../plugin/hooks/start.mjs';
-import { Bench, deadlineScenario, edited, ended, GIT_DIR, hook, json, NODE_DIR, nothing, PLUGIN, Session, startAndPromptScenario, SYSTEM_ENV, where, withBench } from './plugin-bench.ts';
+import { Bench, CodexSession, deadlineScenario, edited, ended, EVENT_NAMES, GIT_DIR, hook, json, NODE_DIR, nothing, patchOf, PLUGIN, Session, startAndPromptScenario, SYSTEM_ENV, where, withBench } from './plugin-bench.ts';
 import type { HookRun } from './plugin-bench.ts';
 
 const BROKEN_LAW = LAW.replace('status: advisory', 'statuss: advisory');
@@ -70,7 +70,7 @@ test('test 152: the files of the plugin', () => {
   assert.deepEqual(JSON.parse(readFileSync(join(PLUGIN, 'hooks', 'hooks.json'), 'utf8')), JSON.parse(specBlock('hooks-manifest')));
   const files = walk(PLUGIN).sort();
   const modules = files.filter((file) => file.endsWith('.mjs'));
-  assert.deepEqual(files.filter((file) => !file.endsWith('.mjs')), ['.claude-plugin/plugin.json', 'LICENSE', 'hooks/hooks.json']);
+  assert.deepEqual(files.filter((file) => !file.endsWith('.mjs')), ['.claude-plugin/plugin.json', '.codex-plugin/plugin.json', 'LICENSE', 'hooks/codex.json', 'hooks/hooks.json']);
   assert.ok(modules.includes('hooks/lawcheck-hook.mjs'));
   for (const file of modules) {
     assert.equal(dirname(file), 'hooks', file);
@@ -1049,5 +1049,110 @@ test('S6-10: with the law below the top of the work tree, the check before finis
     assert.equal(run.code, 0, run.stderr);
     assert.equal(run.json?.hookSpecificOutput?.hookEventName, 'Stop', run.stdout);
     assert.deepEqual(bench.checks(), [['check', `./${D_PATH}`]]);
+  });
+});
+
+const blocked = (text: string) => ({ decision: 'block', reason: text });
+const editsHeader = (paths: string[], cmd = 'lawcheck') => `Lawcheck: after this edit, the files it wrote break the law of this repository. ${cmd} check ${paths.map((path) => `./${path}`).join(' ')} printed:`;
+
+test('test 920: the files of the plugin for Codex', () => {
+  const manifest = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
+  const claude = JSON.parse(readFileSync(join(PLUGIN, '.claude-plugin', 'plugin.json'), 'utf8'));
+  const codex = JSON.parse(readFileSync(join(PLUGIN, '.codex-plugin', 'plugin.json'), 'utf8'));
+  const { userConfig, description, ...shared } = claude;
+  assert.ok(userConfig !== undefined && description !== undefined);
+  assert.deepEqual(codex, { ...shared, version: manifest.version, description: description.replace('with Write, Edit or NotebookEdit', 'with apply_patch'), hooks: './hooks/codex.json' });
+  const claudeHooks = JSON.parse(readFileSync(join(PLUGIN, 'hooks', 'hooks.json'), 'utf8')).hooks;
+  const codexHooks = JSON.parse(readFileSync(join(PLUGIN, 'hooks', 'codex.json'), 'utf8')).hooks;
+  assert.deepEqual(Object.keys(codexHooks), Object.keys(claudeHooks));
+  for (const [name, groups] of Object.entries(codexHooks) as [string, any[]][]) {
+    const event = Object.keys(EVENT_NAMES).find((key) => EVENT_NAMES[key] === name)!;
+    const ours = claudeHooks[name][0].hooks[0];
+    assert.deepEqual(groups, [{ ...(name === 'PostToolUse' ? { matcher: 'apply_patch' } : {}), hooks: [{ type: 'command', command: `node "\${CLAUDE_PLUGIN_ROOT}/hooks/lawcheck-hook.mjs" ${event} --host codex`, timeout: ours.timeout }] }], name);
+  }
+});
+
+test('test 921: in Codex, the session start, the hand-back by decision block, three returns per turn, and the message to the user', async () => {
+  await withBench(async (bench, dir) => {
+    const s = makeSample(dir);
+    const primed = (await lawcheck(s, ['prime'])).stdout.replace(/\n$/, '');
+    const session = new CodexSession(bench, s);
+    for (const source of ['startup', 'resume', 'clear', 'compact']) json(await session.start(source), started(primed), source);
+    nothing(await session.prompt(), 'the prompt');
+    assert.equal(bench.state('c1').prompt_id, 't1');
+    write(s, D_PATH, D);
+    json(await session.stop(), blocked(`${stopHeader()}\n\n${D_OUTPUT}`), 'the first stop');
+    json(await session.stop({ stop_hook_active: true }), withD(released()), 'the same output after the hand-back');
+    await session.prompt();
+    const runs: HookRun[] = [];
+    for (let i = 0; i < 4; i++) {
+      append(s, D_PATH, 'console.log(1);\n');
+      runs.push(await session.stop({ stop_hook_active: i > 0 }));
+    }
+    for (const run of runs.slice(0, 3)) assert.equal(run.json?.decision, 'block', run.stdout);
+    json(runs[3]!, released(), 'the fourth stop of the turn');
+    await session.prompt();
+    append(s, D_PATH, 'console.log(1);\n');
+    assert.equal((await session.stop()).json?.decision, 'block', 'a new turn sends the agent back again');
+    assert.equal(bench.state('c1').blocks, 1);
+  });
+});
+
+test('test 922: in Codex, the edit hook checks the files an apply_patch leaves on disk', async () => {
+  await withBench(async (bench, dir) => {
+    const s = makeSample(dir);
+    const session = new CodexSession(bench, s);
+    write(s, D_PATH, D);
+    json(await session.patch([`*** Add File: ${D_PATH}`, '+export const d = 1;']), edited(`${editHeader(D_PATH)}\n\n${D_OUTPUT}`), 'a file added');
+    json(await session.patch([`*** Update File: ${join(s, D_PATH)}`, '@@', '+// more']), edited(`${editHeader(D_PATH)}\n\n${D_OUTPUT}`), 'a file updated, by its absolute path');
+    json(await session.patch(['*** Update File: src/core/old.ts', `*** Move to: ${D_PATH}`, '@@', '+// moved']), edited(`${editHeader(D_PATH)}\n\n${D_OUTPUT}`), 'a file moved');
+    append(s, 'src/cli/main.ts', '// end\n');
+    const both = await session.patch(['*** Update File: src/cli/main.ts', '@@', '+// end', `*** Update File: ${D_PATH}`, '@@', '+// more']);
+    assert.equal(both.code, 0, both.stderr);
+    assert.ok(String(both.json?.hookSpecificOutput?.additionalContext).startsWith(`${editsHeader(['src/cli/main.ts', D_PATH])}\n\n`), both.stdout);
+    assert.deepEqual(bench.checks(), [...Array.from({ length: 3 }, () => ['check', `./${D_PATH}`]), ['check', './src/cli/main.ts', `./${D_PATH}`]]);
+    bench.clearLog();
+    nothing(await session.patch(['*** Delete File: src/core/tax.ts']), 'a file deleted');
+    nothing(await session.patch(['*** Update File: src/core/gone.ts', '@@', '+x']), 'a file that is not on disk');
+    nothing(await session.run('edit', { tool_name: 'Bash', tool_input: { command: patchOf([`*** Update File: ${D_PATH}`]) } }), 'a shell command');
+    nothing(await session.run('edit', { tool_name: 'apply_patch', tool_input: { command: 7 } }), 'a patch that is no text');
+    const lawless = newRepository(join(dir, 'lawless'));
+    write(lawless, 'src/a.ts', 'console.log(1);\n');
+    nothing(await new CodexSession(bench, lawless).patch(['*** Add File: src/a.ts', '+console.log(1);']), 'no law');
+    assert.deepEqual(bench.log(), []);
+  });
+});
+
+test('test 923: in Codex, the two switches are variables of the environment, and Claude Code keeps its settings', async () => {
+  await withBench(async (bench, dir) => {
+    const s = makeSample(dir);
+    write(s, D_PATH, D);
+    const session = new CodexSession(bench, s);
+    const patch = [`*** Update File: ${D_PATH}`, '@@', '+// more'];
+    for (const value of ['false', '0', 'No', ' off ']) nothing(await session.patch(patch, { LAWCHECK_PLUGIN_CHECK_AFTER_EDIT: value }), value);
+    assert.deepEqual(bench.log(), []);
+    json(await session.patch(patch, { CLAUDE_PLUGIN_OPTION_CHECK_AFTER_EDIT: 'false' }), edited(`${editHeader(D_PATH)}\n\n${D_OUTPUT}`), 'the setting of Claude Code');
+    nothing(await new Session(bench, s).edit(D_PATH, 'Write', {}, { CLAUDE_PLUGIN_OPTION_CHECK_AFTER_EDIT: 'false', LAWCHECK_PLUGIN_CHECK_AFTER_EDIT: 'true' }), 'Claude Code reads its own setting');
+  });
+  await withBench(async (bench, dir) => {
+    const s = makeSample(dir);
+    const session = new CodexSession(bench, s);
+    const off = { LAWCHECK_PLUGIN_CHECK_BEFORE_STOP: 'off' };
+    nothing(await session.prompt(off));
+    write(s, D_PATH, D);
+    nothing(await session.stop({}, off));
+    assert.deepEqual(bench.sessions(), []);
+    assert.deepEqual(bench.log(), []);
+  });
+});
+
+test('test 924: a host the hook does not know fails the hook with one line', async () => {
+  await withBench(async (bench, dir) => {
+    const input = JSON.stringify({ session_id: 's1', cwd: dir, hook_event_name: 'Stop' });
+    for (const host of ['cursor', 'Codex']) {
+      const run = await hook(bench, 'stop', input, {}, undefined, { host, stderr: `Lawcheck plugin: unknown arguments '--host ${host}' after the event; the hook takes --host claude-code or --host codex there\n` });
+      assert.equal(run.stdout, '', host);
+      assert.equal(run.code, 1, host);
+    }
   });
 });

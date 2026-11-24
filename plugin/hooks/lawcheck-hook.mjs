@@ -1,7 +1,8 @@
 import { createHash } from 'node:crypto';
 import { realpathSync, statSync } from 'node:fs';
-import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { basename, dirname, join, relative, sep } from 'node:path';
 import { fit } from './fit.mjs';
+import { HOSTS, startDir } from './hosts.mjs';
 import { nameOf } from './names.mjs';
 import { changedInTurn, isRegular, snapshot } from './snapshot.mjs';
 import { blank, readState, removeOld, stateFile, writeState } from './state.mjs';
@@ -12,7 +13,6 @@ import { absolutePath, cutPoints, Deadline, DEADLINES, findRoot, firstLine, kill
 absolutePath(process.env);
 if (process.platform === 'win32') process.env[NO_CURRENT_FOLDER] = '1';
 
-const PATH_TOOLS = { Write: 'file_path', Edit: 'file_path', NotebookEdit: 'notebook_path' };
 const MOST_FILES = 1000;
 const WRITERS = ['subagent', 'teammate', 'workflow'];
 
@@ -25,8 +25,10 @@ function readInput() {
   });
 }
 
+let host = HOSTS['claude-code'];
+
 function switchOn(name) {
-  const value = process.env[name];
+  const value = process.env[host.switches[name]];
   if (value === undefined) return true;
   return !['false', '0', 'no', 'off'].includes(value.trim().toLowerCase());
 }
@@ -39,12 +41,8 @@ function context(event, text) {
   return { hookSpecificOutput: { hookEventName: event, additionalContext: text } };
 }
 
-function startDir(input) {
-  return typeof input.cwd === 'string' && input.cwd !== '' ? input.cwd : process.cwd();
-}
-
 function promptOf(input) {
-  return typeof input.prompt_id === 'string' ? input.prompt_id : null;
+  return host.promptId(input);
 }
 
 function samePrompt(a, b) {
@@ -72,7 +70,7 @@ async function sessionStart(input, deadline) {
 }
 
 async function prompt(input, deadline) {
-  if (!switchOn('CLAUDE_PLUGIN_OPTION_CHECK_BEFORE_STOP')) return null;
+  if (!switchOn('check_before_stop')) return null;
   const root = findRoot(startDir(input));
   if (root === null) return null;
   const file = stateFile(input.session_id);
@@ -106,12 +104,7 @@ async function prompt(input, deadline) {
   return null;
 }
 
-function editedPath(input) {
-  const key = PATH_TOOLS[input.tool_name];
-  if (key === undefined) return null;
-  const value = input.tool_input?.[key];
-  if (typeof value !== 'string' || value === '') return null;
-  const path = isAbsolute(value) ? value : resolve(startDir(input), value);
+function onDisk(path) {
   try {
     if (!statSync(path).isFile()) return null;
     return join(realpathSync(dirname(path)), basename(path));
@@ -121,16 +114,17 @@ function editedPath(input) {
 }
 
 async function edit(input, deadline) {
-  if (!switchOn('CLAUDE_PLUGIN_OPTION_CHECK_AFTER_EDIT')) return null;
-  const path = editedPath(input);
-  if (path === null) return null;
-  const root = findRoot(dirname(path));
+  if (!switchOn('check_after_edit')) return null;
+  const paths = host.editedFiles(input).map(onDisk).filter((path) => path !== null);
+  if (paths.length === 0) return null;
+  const root = findRoot(dirname(paths[0]));
   if (root === null) return null;
   const runner = runnerAt(root);
   if ('bad' in runner) return null;
-  const rel = sep === '\\' ? relative(root, path).split('\\').join('/') : nameOf(Buffer.from(relative(root, path)));
-  const command = `${runner.cmd} check ./${rel}`;
-  const result = await runLawcheck(runner, ['check', `./${rel}`], root, deadline);
+  const rels = paths.filter((path) => findRoot(dirname(path)) === root).map((path) => (sep === '\\' ? relative(root, path).split('\\').join('/') : nameOf(Buffer.from(relative(root, path)))));
+  const named = rels.map((rel) => `./${rel}`);
+  const command = `${runner.cmd} check ${named.join(' ')}`;
+  const result = await runLawcheck(runner, ['check', ...named], root, deadline);
   const done = (text) => context('PostToolUse', text);
   if (!result.ran) {
     if (result.late === true) return done(say.editLate(command, deadline.seconds));
@@ -145,7 +139,7 @@ async function edit(input, deadline) {
       delete rest[root];
       writeState(file, { ...saved, last_error: rest });
     }
-    return result.code === 1 ? done(fit(say.editBreaks(rel, command), result.output)) : null;
+    return result.code === 1 ? done(fit(say.editBreaks(rels, command), result.output)) : null;
   }
   if (file !== null) {
     const state = saved ?? blank(root, promptOf(input));
@@ -185,7 +179,7 @@ function lawDeleted(input) {
 }
 
 async function stop(input, deadline) {
-  if (!switchOn('CLAUDE_PLUGIN_OPTION_CHECK_BEFORE_STOP')) return null;
+  if (!switchOn('check_before_stop')) return null;
   const root = findRoot(startDir(input));
   if (root === null) return lawDeleted(input);
   const runner = runnerAt(root);
@@ -233,7 +227,7 @@ async function stop(input, deadline) {
     finish(null);
     return withTurn(notice(file, root, input, say.stopError(runner.cmd)));
   }
-  const handBack = context('Stop', fit(header, result.output));
+  const handBack = host.handBack(fit(header, result.output));
   const h = hash(result.output);
   if (state === null) return input.stop_hook_active === true ? null : handBack;
   if (h === last || blocks >= 3) {
@@ -248,7 +242,9 @@ async function stop(input, deadline) {
 const EVENTS = { 'session-start': sessionStart, prompt, edit, stop };
 
 async function main() {
-  const event = process.argv[2];
+  const [event, flag, name, ...rest] = process.argv.slice(2);
+  const hostKnown = flag === undefined || (flag === '--host' && name !== undefined && Object.hasOwn(HOSTS, name) && rest.length === 0);
+  if (flag !== undefined && hostKnown) host = HOSTS[name];
   const handler = Object.hasOwn(EVENTS, event ?? '') ? EVENTS[event] : null;
   const deadline = handler === null ? null : new Deadline(DEADLINES[event]);
   for (const signal of ['SIGTERM', 'SIGINT', 'SIGHUP']) {
@@ -259,6 +255,7 @@ async function main() {
   }
   const text = await readInput();
   if (handler === null) throw new Error(say.unknownEvent(event ?? ''));
+  if (!hostKnown) throw new Error(say.unknownHost(process.argv.slice(3).join(' ')));
   let input;
   try {
     input = JSON.parse(text);
