@@ -9,6 +9,7 @@ const runners = new Map<number, number>();
 const windows = process.platform === 'win32';
 // The longest the guard waits for a list of its own: a PowerShell that hangs would keep the guard, and the folders it is to remove, for ever.
 const LIST_MS = 10_000;
+const INPUT_MS = 500;
 // On Windows a program left by one that has ended can be found only through the list of processes, and PowerShell takes seconds to start on a busy machine. While a group is registered, or once the tool has said it starts programs, one PowerShell keeps that list fresh, so the guard ends the tree from a list begun after the kill without starting another PowerShell.
 let watcher: ChildProcess | null = null;
 let table = '';
@@ -227,14 +228,15 @@ function endAll(): void {
 
 process.stdin.on('close', endAll);
 
-// On Windows the guard's input did not close when the tool was killed while claude ran, so the guard also watches the tool itself.
+// On Windows the guard's input did not close when the tool was killed while claude ran, so the guard also watches the tool itself. The tool's last line, about a program it had just started, may still wait in the input when this finds the tool gone, and Node reads the input only after this returns, so the guard ends the trees after INPUT_MS in which it reads what the input holds.
 if (process.platform === 'win32') {
   const tool = process.ppid;
-  setInterval(() => {
+  const poll = setInterval(() => {
     try {
       process.kill(tool, 0);
     } catch {
-      endAll();
+      clearInterval(poll);
+      setTimeout(endAll, INPUT_MS);
     }
   }, 250);
 }
