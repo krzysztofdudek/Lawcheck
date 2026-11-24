@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createPublicKey, generateKeyPairSync, sign, verify } from 'node:crypto';
 import type { KeyObject } from 'node:crypto';
-import { existsSync, rmSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { FAILED_MESSAGE, withFake } from './fake-reviewer.ts';
 import { MiB, sparse, textHead } from '../limits/support.ts';
@@ -858,5 +858,30 @@ test("R-38: the law's signers: a mapping of kebab-case names to Ed25519 public k
         { onMain: (r) => write(r, '.lawcheck/law.yaml', law) },
       ),
     ),
+  );
+});
+
+test('R-38: the signing key shows as [key] in the text and the JSON of a signed review, even when the reviewer answers with it, and no file of the repository holds it', async () => {
+  const alice = signerKeys();
+  await withFake(
+    async (fake) => {
+      await withR(
+        async (r) => {
+          write(r, F_PATH, F_PRIME);
+          for (const json of [false, true]) {
+            const result = await run(r, fake, ['--review', '--base', 'main', ...(json ? ['--json'] : [])], { LAWCHECK_SIGNING_KEY: alice.d });
+            assert.equal(result.code, 2, result.stdout);
+            assert.ok(result.stdout.includes('the key [key] is refused'), result.stdout);
+            assert.ok(!`${result.stdout}${result.stderr}`.includes(alice.d), `${result.stdout}${result.stderr}`);
+          }
+          assert.ok(fake.requests.length > 0);
+          const held = readdirSync(r, { recursive: true, withFileTypes: true }).filter((entry) => entry.isFile() && !join(entry.parentPath, entry.name).startsWith(join(r, '.git/'))).map((entry) => join(entry.parentPath, entry.name)).filter((path) => readFileSync(path, 'latin1').includes(alice.d));
+          assert.deepEqual(held, []);
+          assert.ok(existsSync(join(r, '.lawcheck/.local')), 'the review wrote its folder');
+        },
+        { onMain: (m) => write(m, '.lawcheck/law.yaml', withSigners(REVIEWER_LAW, { alice: alice.x })) },
+      );
+    },
+    () => ({ status: 400, body: JSON.stringify({ error: { message: `the key ${alice.d} is refused` } }) }),
   );
 });
