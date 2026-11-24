@@ -14,6 +14,7 @@ Every command below runs inside the dev container, except `npm run agent-trial` 
 | `npm run build && node tests/real/speed.ts` | builds, then checks one changed file in guava and in Newtonsoft.Json with the reader cache and without it: the outputs must be the same, and the median of five checks with the cache must stay under `ONE_FILE_CHECK_MS`; needs the network |
 | `npm run stability` | builds, then asks a real reviewer the same questions ten times and writes `tests/stability/result.json`; needs `LAWCHECK_STABILITY_MODEL` and a reviewer that answers |
 | `npm run agent-trial` | the trial of the plugin with a live agent, run on the host through `claude`; writes `tests/agent/result.json` |
+| `npm run agent-trial -- --host codex` | the trial of the plugin in Codex, in a container with the `codex` program; `LAWCHECK_TRIAL_BASE_URL` and `LAWCHECK_TRIAL_API_KEY` name a Responses API endpoint, else it takes the sign-in of `~/.codex`; writes `tests/agent/result-codex.json` |
 | `node tests/live/run.ts` | the attack files through the real reviewer, `claude-code` on the host; writes `tests/live/result.json` |
 
 CI runs `npm run real` in its job `real`; `npm run agent-trial` runs by hand before a release ([decision 58](../design/decisions.md#58-acceptance-tests-that-run-outside-npm-test)). `npm run stability` and `node tests/live/run.ts` run when the prompt, the providers or the plugin changed since their last result ([decision 75](../design/decisions.md#75-when-the-tests-with-a-live-model-run)).
