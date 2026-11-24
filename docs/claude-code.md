@@ -128,4 +128,4 @@ Ask for more in the words you type with the command. With `/lawcheck:setup what 
 - More than 1,000 files changed in a turn. The plugin skips the check before the end of the turn and prints one line that says so.
 - A background subagent, teammate or workflow is still running. The plugin holds back the check before the end of the turn. It runs that check when the agent next finishes a turn after the background work has ended.
 
-Next: [Other coding agents](other-agents.md)
+Next: [Lawcheck in Codex](codex-cli.md)

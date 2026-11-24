@@ -30,6 +30,7 @@ const LIST = [
   '  adopt-in-an-existing-repository  Bring a law into an existing repository',
   '  agent-setup  Let a coding agent write the first law',
   '  claude-code  Lawcheck in Claude Code',
+  '  codex-cli  Lawcheck in Codex',
   '  other-agents  Other coding agents',
   '  ci  CI and git hooks',
   '  team  A law shared by a team',
