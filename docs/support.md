@@ -16,7 +16,7 @@ Lawcheck 0.1.0-alpha.4 runs on Node 24 or later with git 2.34 or later, on Linux
 
 Lawcheck installs as a package of the project or as a global package. The `runner` setting in `.lawcheck/config.yaml` names the command that starts it ([Settings](config.md)).
 
-The long test run is started by hand before a release. In it, the tests install the package in a new project with npm, pnpm, Yarn 1, Yarn 4 and Bun. For Yarn 4, they install it once with each of the two settings of `nodeLinker` in the table below. The tests then run `doctor`, `check` and `try` through the command of the `runner` setting:
+The long test run is started by hand before a release. In it, the tests install the package in a new project with npm, pnpm, Yarn 1, Yarn 4 and Bun. For Yarn 4, they install it once with each of the two linker settings in the table below. The tests then run `doctor`, `check` and `try` through the command of the `runner` setting:
 
 | Package manager | Lawcheck starts as | `runner` |
 |---|---|---|
