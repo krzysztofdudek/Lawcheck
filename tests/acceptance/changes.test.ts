@@ -213,6 +213,30 @@ test('test 13: an edit that keeps the size, made in the second git last wrote th
   });
 });
 
+// A clean filter stores other bytes than the file holds, as Git LFS does; Lawcheck runs no filter, so such a file not older than the index, as every file of a fresh checkout is, would read as changed.
+test('test 13: a file under a clean filter, in the second git last wrote the index, is in the change only when its time or size differs', async () => {
+  await withSample(async (s) => {
+    const second = Math.floor(Date.now() / 1000) - 60;
+    const file = join(s, 'src/core/tax.ts');
+    git(s, 'config', 'filter.up.clean', 'tr a-z A-Z');
+    git(s, 'config', 'filter.up.smudge', 'tr A-Z a-z');
+    git(s, 'config', 'core.trustctime', 'false');
+    mkdirSync(join(s, '.git', 'info'), { recursive: true });
+    writeFileSync(join(s, '.git', 'info', 'attributes'), 'src/core/tax.ts filter=up\n');
+    git(s, 'rm', '-q', '--cached', 'src/core/tax.ts');
+    git(s, 'add', 'src/core/tax.ts');
+    git(s, 'commit', '-q', '-m', 'filtered');
+    utimesSync(file, second, second);
+    git(s, 'update-index', '--refresh');
+    utimesSync(join(s, '.git', 'index'), second, second);
+    assert.equal(git(s, 'diff', '--name-only', 'HEAD'), '');
+    assert.equal((await check(s, '--base', 'HEAD')).stdout, 'lawcheck: PASS  nothing changed against HEAD\n');
+    write(s, 'src/core/tax.ts', `${read(s, 'src/core/tax.ts')}console.log(rate);\n`);
+    const run = await check(s, '--base', 'HEAD');
+    assert.equal(run.stdout.split('\n')[0], 'lawcheck: FAIL  1 error, 1 warning in 1 changed file (against HEAD)');
+  });
+});
+
 test('check-slice §4: every git command runs with GIT_OPTIONAL_LOCKS=0, in the order of the table', async (t) => {
   const skip = platformSkip('the whole test');
   if (skip !== null) return t.skip(skip);
