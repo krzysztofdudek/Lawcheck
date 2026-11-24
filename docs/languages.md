@@ -58,7 +58,7 @@ A project with no `ProjectReference` to another project does not reach it. A use
 
 ## The reader cache
 
-Lawcheck keeps what each file of the four groups declares in `.lawcheck/.local/readers/`, one file per group. A later run parses again only the files whose uses it reads and the files that changed since the last run. In a Java repository of 3,267 files, a check of one changed file takes about 0.3 seconds with the cache and 6 seconds without it. In a C# repository of 951 files, it takes about 0.3 seconds with the cache and 4 seconds without it.
+Lawcheck keeps what each file of the four groups declares in `.lawcheck/.local/readers/`, one file per group. A later run parses again only the files whose uses it reads and the files that changed since the last run. In a Java repository of 3,267 files, a check of one changed file takes about 0.5 seconds with the cache and 7 seconds without it. In a C# repository of 951 files, it takes about 0.3 seconds with the cache and 4 seconds without it.
 
 Lawcheck finds an entry of the cache by a hash of the path, the text and the grammar of a file, and of the versions of Lawcheck and Runes. Lawcheck uses the entry only while all five stay as they were. A check with the cache gives the same output and exit code as a check without it. A damaged cache file counts as empty. So does a cache file larger than 64 MiB. The run then writes the file again.
 
