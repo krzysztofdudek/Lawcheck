@@ -266,7 +266,8 @@ export function outputOf(stdout, runner) {
   const at = lines.findIndex((line) => line.startsWith('lawcheck: ') || line.startsWith('Lawcheck '));
   if (at < 0) return [];
   const kept = lines.slice(at);
-  if (runner === 'yarn' && kept.length > 1 && kept[kept.length - 1].startsWith('Done in ')) kept.pop();
+  // Yarn 1 ends a passing run with Done in and a failing one with info Visit, both on standard output.
+  if (runner === 'yarn' && kept.length > 1 && (kept[kept.length - 1].startsWith('Done in ') || kept[kept.length - 1].startsWith('info Visit '))) kept.pop();
   return kept;
 }
 

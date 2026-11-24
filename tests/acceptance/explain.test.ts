@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { withFake } from './fake-reviewer.ts';
-import { F, F_PATH, F_PRIME, inTemp, lawcheck, lawcheckAt, newRepository, PRICING, read, REVIEWER_CONFIG, ROOT, run, setRule, withCopy, withR, withSample, withU, write } from './helpers.ts';
+import { F, F_PATH, F_PRIME, inTemp, LAW, lawcheck, lawcheckAt, newRepository, PRICING, read, REVIEWER_CONFIG, ROOT, run, setRule, withCopy, withR, withSample, withU, write } from './helpers.ts';
 
 const PRICE = exampleText('explain-price');
 const RELEASE = exampleText('explain-release');
@@ -408,7 +408,7 @@ test('test 953: explain --tree stops at a depth and a count of lines and says wh
   });
 });
 
-test('test 954: explain --tree answers with exit 0 under a broken law, which every other explain refuses with exit 2, as the exit-code table of docs/commands.md says', async () => {
+test('test 1007: explain --tree answers with exit 0 under a broken law, which every other explain refuses with exit 2, as the exit-code table of docs/commands.md says', async () => {
   await inTemp(async (dir) => {
     const repo = newRepository(dir, { '.lawcheck/law.yaml': 'lawcheck: 0.1.0\nnot a law: [\n', 'src/run.ts': RUN_TS });
     const tree = await explain(repo, 'src/run.ts', '--tree');
@@ -418,4 +418,22 @@ test('test 954: explain --tree answers with exit 0 under a broken law, which eve
     const table = readFileSync(join(ROOT, 'docs', 'commands.md'), 'utf8').split('### Exit codes of explain')[1]!.split('\n## ')[0]!;
     assert.match(table, /^\| 2 \| no answer: the law is broken \(`--tree` reads no law, so it answers under a broken law\), /m);
   });
+});
+
+test('S5-12: explain says a .vue or .svelte file with no script block holds no script, and names no language of its own', async () => {
+  const law = LAW.replace('"src/**/*.ts", "!src/**/*.d.ts"]\n    rules: [no-todo]', '"src/**/*.{ts,vue,svelte}", "!src/**/*.d.ts"]\n    rules: [no-todo]\n    may_use: [source]');
+  await withSample(
+    async (s) => {
+      for (const [path, text] of [['empty.vue', '<template><div/></template>\n'], ['empty.svelte', '<p>x</p>\n'], ['script.vue', '<script lang="ts">\nimport "./a";\n</script>\n']] as const) {
+        write(s, `src/core/${path}`, text);
+      }
+      const uses = async (path: string) => (await explain(s, `src/core/${path}`)).stdout.split('\n').find((line) => line.startsWith('  uses:'));
+      assert.equal(await uses('empty.vue'), '  uses:  none: the file has no script block');
+      assert.equal(await uses('empty.svelte'), '  uses:  none: the file has no script block');
+      assert.equal(await uses('script.vue'), '  uses:  read as typescript');
+      const asJson = JSON.parse((await explain(s, 'src/core/empty.vue', '--json')).stdout);
+      assert.deepEqual(asJson.uses, { read: true, language: null });
+    },
+    { onMain: (s) => write(s, '.lawcheck/law.yaml', law) },
+  );
 });

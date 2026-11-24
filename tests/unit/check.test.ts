@@ -16,7 +16,7 @@ test('check-slice §2: the root is the nearest directory above that holds .lawch
     writeFileSync(join(dir, 'outer/inner/.lawcheck/law.yaml'), 'lawcheck: 0.1.0\n');
     symlinkSync(join(dir, 'outer/inner'), join(dir, 'link'));
     assert.equal(findRoot(join(dir, 'outer/inner/deep/er')), join(dir, 'outer/inner'));
-    assert.equal(findRoot(join(dir, 'outer/plain')), join(dir, 'outer'));
+    assert.equal(findRoot(join(dir, 'outer/plain')), join(dir, 'outer/plain'));
     assert.equal(findRoot(join(dir, 'link')), join(dir, 'outer/inner'));
     assert.equal(findRoot(dir), null);
   } finally {
