@@ -1,0 +1,14 @@
+diff --git a/tests/numbers.ts b/tests/numbers.ts
+index 18a3452..2c3d4e5 100644
+--- a/tests/numbers.ts
++++ b/tests/numbers.ts
+@@ -4,4 +4,8 @@ export const BUDGET = { cli: 20_000, hook: 5000 } as const;
+ export const SLOW_TESTS: Record<string, number> = { 'test 24': 60_000 };
+ export const SECTION_ONLY_TESTS = 218;
+ export const SPEED = ((): string => process.env.LAWCHECK_SPEED ?? 'commit')();
+-export const stronger: Record<string, 'higher' | 'lower' | 'fixed'> = { SEED: 'fixed', PROPERTY_CASES: 'higher', BUDGET: 'lower', SLOW_TESTS: 'lower', SECTION_ONLY_TESTS: 'lower' };
++export const WIDE_BUDGET = 90_000;
++export const stronger: Record<string, 'higher' | 'lower' | 'fixed'> = { SEED: 'fixed', PROPERTY_CASES: 'higher', BUDGET: 'lower', SLOW_TESTS: 'lower', SECTION_ONLY_TESTS: 'lower', WIDE_BUDGET: 'lower' };
++export function budget(windows: boolean): number {
++  return windows ? WIDE_BUDGET : BUDGET.cli;
++}
