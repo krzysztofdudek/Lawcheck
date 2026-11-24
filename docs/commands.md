@@ -328,7 +328,7 @@ For an id that the law does not have, the command ends with `usage`. When a rule
 | Code | Meaning |
 |---|---|
 | 0 | the answer is printed, for a file with a type overlap too |
-| 2 | no answer: the law is broken, the subject is not one, or a folder, a type or a rule meets a type overlap |
+| 2 | no answer: the law is broken (`--tree` reads no law, so it answers under a broken law), the subject is not one, or a folder, a type or a rule meets a type overlap |
 
 ## try
 

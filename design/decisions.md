@@ -377,6 +377,12 @@ The hook after an edit looks for `.lawcheck/law.yaml` from the folder of the edi
 
 Why: the plugin cannot tell a sample from a package of a monorepo, and the nearest law is what `lawcheck check` uses when the user runs it in that folder, so the hook says what the user would see there. Test R-4 holds both cases: a file in the sample goes to the sample's law, a file outside it to the law of the repository.
 
+## 195. The landing page says when its build is ahead of its release
+
+The landing page takes its sentences from README.md and docs/ of the commit it is built from, and shows the version in package.json. When the Unreleased section of CHANGELOG.md holds text, the footer adds a line: this build also shows text for the next release, so a flag or command it names may not be in the shown version yet. A release deploys from its tagged commit, where Unreleased is empty and the line is absent.
+
+Why: a build of `main` between two releases showed `--strict` under the version alpha.4, which has no such flag, and a reader who tried it got an error. The page cannot read the tag in a shallow clone, so the line follows the CHANGELOG, which every release empties.
+
 ## Decision (number at merge). `check --sarif` writes SARIF 2.1.0 for GitHub code scanning
 
 `lawcheck check --sarif <file>` writes the findings of the run to that file in SARIF 2.1.0, beside the text or the JSON on standard output, which stay byte for byte as they are. The file holds one run with one result per item of `findings`, the debt of `--full` included. A result's `ruleId` is the finding's `code`, its `level` is the severity, and its location is the file's path from the top of the git work tree, written as a URI with `%SRCROOT%` as its base, with `startLine` set to the finding's line. A finding about the whole file gets line 1. `rules` lists only the codes the results hold, each with the `why` of its first finding. The file carries no fingerprints. `check` writes the file only when it ends with exit 0 or 1, and a file it cannot write stops the run with `file-unwritable`. A check of named files refuses the flag with the same usage error as the other flags of a change. The tests validate the file against the OASIS schema and against the copy GitHub's upload action validates with, both kept unchanged in `tests/acceptance/sarif/` with their licences.
