@@ -141,7 +141,7 @@
     "file": "src/init.ts",
     "find": "'it is a symbolic link to a file, so the folder .lawcheck cannot be made'",
     "replace": "'it is a link to a file, so the folder .lawcheck cannot be made'",
-    "killedBy": "R-41: init where .lawcheck is a file, or a link to a file or to nothing, says which and what to do"
+    "killedBy": "R-41: init where .lawcheck is a link to a file or to nothing says which and what to do"
   },
   {
     "id": "init-unwritable-code",
