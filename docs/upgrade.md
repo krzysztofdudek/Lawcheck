@@ -1,6 +1,6 @@
 # Upgrade Lawcheck
 
-Lawcheck 0.1.0-alpha.4 judges the code as 0.1.0-alpha.3 does, except a script rule that uses the network. From alpha.3 and from 0.1.0-alpha.2, the upgrade is [Before you upgrade](#before-you-upgrade) and the first three steps. From alpha.2, `lawcheck docs` also lists 36 pages in place of 12. Its text list groups the pages under five section lines, so a script that reads that list meets lines it did not see before. From 0.1.0-alpha.1, read the whole page.
+Lawcheck 0.1.0-alpha.4 judges the code as 0.1.0-alpha.3 does, except a script rule that uses the network. From alpha.3 and from 0.1.0-alpha.2, the upgrade is [Before you upgrade](#before-you-upgrade) and the first three steps. From alpha.2, the list of `lawcheck docs` also grows from 12 pages to the 40 of this version. Its text list groups the pages under five section lines, so a script that reads that list meets lines it did not see before. From 0.1.0-alpha.1, read the whole page.
 
 Lawcheck finds the [uses](concepts.md#use) of each file through a parsing library named Runes. Lawcheck 0.1.0-alpha.2 depends on Runes 1.2.0. alpha.2 finds uses that 0.1.0-alpha.1 missed, such as a `vi.mock` of a file of another layer. Lawcheck judges those uses against `may_use`. A branch that passed on alpha.1 can then fail on alpha.4, at a line that the branch did not touch.
 

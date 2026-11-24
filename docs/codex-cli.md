@@ -38,7 +38,7 @@ codex plugin marketplace add krzysztofdudek/Lawcheck
 codex plugin add lawcheck@lawcheck-marketplace
 ```
 
-Then start `codex` in the repository, type `/hooks` and trust the four hooks of Lawcheck. Codex runs no hook of a plugin until you trust it, and it says nothing about a hook it skips. After an update of the plugin that changes a hook, trust that hook again in `/hooks`.
+Then start `codex` in the repository, type `/hooks` and trust the four hooks of Lawcheck. Codex runs no hook of a plugin until you trust it. When hooks wait for your review at the start of a session, Codex prints a warning that tells you to open `/hooks` ([Codex's page on hooks](https://learn.chatgpt.com/docs/hooks), read on 2026-11-24). After an update of the plugin that changes a hook, or a script that a hook runs, trust that hook again in `/hooks`.
 
 The hooks need `node` and `git` on the `PATH`. The hooks after an edit and before the end of a turn run `lawcheck check`, which runs the repository's script rules on your machine with your rights. A script rule is code of the repository, as its tests are. Use the plugin only in a repository whose code you would run yourself.
 
