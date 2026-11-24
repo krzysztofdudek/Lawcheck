@@ -1,6 +1,7 @@
 ---
 name: setup
-description: Sets up Lawcheck in a repository. The agent writes the first law from the code as it is, counts which folders use which, and asks the user before it forbids a use that the code already makes. Use when the user asks to set up or install Lawcheck here, to write or start a law, or to add architecture rules or boundaries to this repository; and when the user asks for advice on the architecture, a target architecture or a plan to rebuild toward one.
+description: Writes the first Lawcheck law of this repository from the code as it is, and asks the user before it forbids a use the code already makes. Only the user starts it, by typing /lawcheck:setup.
+disable-model-invocation: true
 ---
 
 # Set up Lawcheck
@@ -18,7 +19,7 @@ The page's step 10 may ask the user questions. That message stops after the last
 
 | The user | Do |
 |---|---|
-| asks to set up Lawcheck or for a law, or types `/lawcheck:setup`, with no law here | the page, all of it |
+| types `/lawcheck:setup`, with no law here | the page, all of it |
 | asks what could be better, for advice or for recommendations | the page when there is no law, then [references/advice.md](references/advice.md) |
 | asks for a target architecture, a redesign, a plan to rebuild, or says where the code should get to | the page when there is no law, then [references/target.md](references/target.md) |
 | asks for both | the page when there is no law, then advice, then target |

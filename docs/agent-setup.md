@@ -1,6 +1,6 @@
 # Let a coding agent write the first law
 
-Tell your coding agent: "Run `lawcheck docs agent-setup` and follow it." In Claude Code with the [plugin](plugin.md), type `/lawcheck:setup`, or ask for a law in your own words. The agent describes the folders of your repository as [types](concepts.md#type) and writes down which type uses which today. It asks you before it forbids a use that the code already makes. It changes only `.lawcheck/`, commits nothing, and ends with a [law](concepts.md#law) that `lawcheck check` passes and a count of the old code that breaks it.
+Tell your coding agent: "Run `lawcheck docs agent-setup` and follow it." In Claude Code with the [plugin](plugin.md), type `/lawcheck:setup`. The agent does not start it by itself. The agent describes the folders of your repository as [types](concepts.md#type) and writes down which type uses which today. It asks you before it forbids a use that the code already makes. It changes only `.lawcheck/`, commits nothing, and ends with a [law](concepts.md#law) that `lawcheck check` passes and a count of the old code that breaks it.
 
 The rest of this page is for the agent. Do the steps in order. The parts below the steps hold what several steps use, under fixed headings.
 

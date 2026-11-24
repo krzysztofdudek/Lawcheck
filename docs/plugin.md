@@ -46,7 +46,7 @@ When the law has a reviewer rule and `.lawcheck/config.yaml` sets no reviewer, `
 Lawcheck: this repository has a reviewer rule, and .lawcheck/config.yaml sets no reviewer, so a plain lawcheck check and CI fail on every file a reviewer rule judges. Setting reviewer.provider and reviewer.model there is the user's decision; lawcheck docs providers lists the choices.
 ```
 
-Without a law, the agent gets two lines. The first says that the plugin is on and the folder has no law. The second tells the agent to start a law only when the user asks for it, with the skill `lawcheck:setup` ([The setup skill](#the-setup-skill)).
+Without a law, the agent gets two lines. The first says that the plugin is on and the folder has no law. The second tells the agent to write no law on its own, and to tell the user to type `/lawcheck:setup` when the user asks for one ([The setup skill](#the-setup-skill)).
 
 When the `runner` setting holds a value outside the five of [Settings](config.md#runner), the hook tells the agent to read `.lawcheck/law.yaml` and to tell the user that the setting is wrong.
 
@@ -134,7 +134,7 @@ A hook that fails inside its own code prints `Lawcheck plugin:` and the cause on
 
 ## The setup skill
 
-The plugin holds one skill, `lawcheck:setup`. You start it with `/lawcheck:setup`, or by asking for a law in your own words, such as "Set up Lawcheck in this repository". The skill runs `lawcheck docs agent-setup` and follows that page, so its steps match the Lawcheck you installed. The agent asks its questions with the question tool of Claude Code. Its last message names the next step. In a repository that already has a law, the skill says so and changes nothing.
+The plugin holds one skill, `lawcheck:setup`. Only you start it, by typing `/lawcheck:setup`. The agent never starts it by itself: when you ask for a law in other words, it tells you to type the command. The skill runs `lawcheck docs agent-setup` and follows that page, so its steps match the Lawcheck you installed. The agent asks its questions with the question tool of Claude Code. Its last message names the next step. In a repository that already has a law, the skill says so and changes nothing.
 
 The page is part of Lawcheck, and the plugin does not hold Lawcheck. A Lawcheck older than the plugin has no page `agent-setup`, and the skill then asks you to update Lawcheck.
 

@@ -17,7 +17,7 @@ import type { HookRun } from './plugin-bench.ts';
 
 const BROKEN_LAW = LAW.replace('status: advisory', 'statuss: advisory');
 
-const NO_ROOT = 'The Lawcheck plugin is on, and this directory has no law (.lawcheck/law.yaml here or above).\nStart one only when the user asks for it, with the skill lawcheck:setup, which follows lawcheck docs agent-setup.';
+const NO_ROOT = 'The Lawcheck plugin is on, and this directory has no law (.lawcheck/law.yaml here or above).\nWrite no law on your own. The user starts one by typing /lawcheck:setup; when the user asks for a law, tell them to type it.';
 const D_OUTPUT = [
   'lawcheck: FAIL  1 error, 1 warning in 1 named file, 1 waiver',
   '',
@@ -949,7 +949,7 @@ test('test 905: every part and step of the setup page that a file of the setup s
   const headings = headingsOf(readFileSync(join(ROOT, 'docs', 'agent-setup.md'), 'utf8'));
   const files = skillFiles();
   assert.ok(files.some((file) => file.endsWith(`${sep}SKILL.md`)));
-  assert.match(readFileSync(join(SKILL, 'SKILL.md'), 'utf8'), /^---\nname: setup\ndescription: .+\n---\n/);
+  assert.match(readFileSync(join(SKILL, 'SKILL.md'), 'utf8'), /^---\nname: setup\ndescription: .+\ndisable-model-invocation: true\n---\n/);
   let named = 0;
   for (const file of files) {
     const text = readFileSync(file, 'utf8');
