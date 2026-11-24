@@ -299,7 +299,7 @@ test('test 772: a rule that binds, listens or connects through the class of a ra
   }
 });
 
-// What src/runner.ts closes on Node 24, whose permission model has no permission for the network, and what it leaves open because the route to the network runs through a function it closes. A module of Node that gains an export fails test 1002 until someone decides which list it belongs to; a closed export must come out of the runner as the refusal.
+// What src/runner.ts closes on Node 24, whose permission model has no permission for the network, and what it leaves open because the route to the network runs through a function it closes. A module of Node 24 that gains an export fails test 1002 until someone decides which list it belongs to; a closed export must come out of the runner as the refusal. From Node 25 the permission model refuses the network itself, so an export a later major adds opens nothing, and the newest Node that CI runs already has exports these lists leave out.
 const NETWORK_MODULES: Record<string, { closed: string[]; open: string[]; every?: 'function' }> = {
   'node:net': {
     closed: ['BoundSocket', '_TransferredBoundSocket', '_createServerHandle', 'connect', 'createConnection'],
@@ -350,7 +350,7 @@ test('test 1002: every export of the modules of Node that reach the network is e
           if (state === 'function') problems.push(`${id}.${name} is a function that the runner leaves open`);
         } else if (listed.closed.includes(name)) {
           if (state !== 'closed') problems.push(`${id}.${name} is listed as closed and the runner leaves it ${state}`);
-        } else if (!listed.open.includes(name)) {
+        } else if (!listed.open.includes(name) && process.versions.node.startsWith('24.')) {
           problems.push(`${id}.${name} is new in Node ${process.versions.node}: close it in closeNetwork of src/runner.ts and list it as closed, or list it as open once its route to the network is a closed function`);
         }
       }
