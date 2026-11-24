@@ -120,7 +120,7 @@ echo node_modules/ >> .gitignore
 
 ### 5. Give the base on another CI service
 
-A check of the change takes its base from `--base`, then from `LAWCHECK_BASE`, then from the variables of the CI service below, then from `origin/HEAD`. Lawcheck reads the variables of a service only when that service's own variable is set and `CI` is not `false`, `no`, `0` or `off`. The base is `origin/` and the branch name. For Azure Pipelines, Lawcheck first removes the prefix `refs/heads/`.
+A [check of the change](concepts.md#check-of-the-change) takes its base from `--base`, then from `LAWCHECK_BASE`, then from the variables of the CI service below, then from `origin/HEAD`. Lawcheck reads the variables of a service only when that service's own variable is set and `CI` is not `false`, `no`, `0` or `off`. The base is `origin/` and the branch name. For Azure Pipelines, Lawcheck first removes the prefix `refs/heads/`.
 
 | CI service | Variable | What it holds |
 |---|---|---|
@@ -138,7 +138,7 @@ $ lawcheck check
 ```output
 lawcheck: ERROR  1 error
 
-error[base-unreachable]  no base in this CI job: no --base, no LAWCHECK_BASE, no variable of the CI service for a pull request or push, and no origin/HEAD, and a plain check without one would count every file as changed
+error[base-unreachable]  no base in this CI job: no --base, no LAWCHECK_BASE, no variable of the CI service for a pull request or push, and no origin/HEAD, and a check of the change without one would count every file as changed
   why:  without its base a change cannot be told from debt
 
 next: pass --base origin/<the branch the change goes into> or set LAWCHECK_BASE, with the history fetched (fetch-depth: 0 in actions/checkout, GIT_DEPTH: 0 in GitLab CI, fetchDepth: 0 in Azure Pipelines); or judge every file with lawcheck check --full
@@ -272,7 +272,7 @@ Keep the workflow on `pull_request`. The event `pull_request_target` runs in the
 
 When the change touches a file that a reviewer rule binds, the job fails with `not-reviewed`. A contributor without the key of the provider cannot record the review: `lawcheck check --review` needs it. The contributor can leave the pull request failing and say so. A maintainer then records the reviews:
 
-1. Fetch the branch and read the change, `package.json` and the lockfile included. The check of step 2 gives the reviewer's key to the Lawcheck that they install.
+1. Fetch the branch and read the change, `package.json` and the lockfile included. The check of step 2 gives the reviewer's key and `LAWCHECK_SIGNING_KEY` to the Lawcheck that they install.
 2. On a machine where you would run the tests of the pull request, run `lawcheck check --review --base origin/main`. The check runs the script rules of the fork.
 3. Commit `.lawcheck/verdicts` and `.lawcheck/.gitattributes`, and push the commit to the contributor's branch. GitHub allows that when the contributor lets maintainers edit the pull request.
 
@@ -280,7 +280,9 @@ A contributor who has the key records the reviews as [Record the reviews before 
 
 ### The job trusts the verdicts
 
-`.lawcheck/verdicts` is a file of the pull request. A line in it is a pass for the file and rule it names, whoever wrote it and whether a reviewer was asked. The check reads the line and cannot tell where it came from. A contributor can record the reviews with a reviewer of their own, or copy a line, and the job passes. CI therefore trusts the author of the pull request on reviews, as it does on `.lawcheck/` ([A change to the law](#a-change-to-the-law)). Have a code owner read each change to `.lawcheck/verdicts`, or record the reviews yourself as above.
+`.lawcheck/verdicts` is a file of the pull request. Under a law without `signers`, a line in it is a pass for the file and rule it names, whoever wrote it and whether a reviewer was asked. A contributor can record the reviews with a reviewer of their own, and the job passes. CI therefore trusts the author of the pull request on reviews, as it does on `.lawcheck/` ([A change to the law](#a-change-to-the-law)).
+
+To stop trusting the author on reviews, name signers in the law ([Signed passes](reviewer-rules.md#signed-passes)). The job then counts only the passes a signer signed, and its second check reads the law of the base, so a pull request that adds a signer or drops `signers` fails it. A maintainer who is a signer records the reviews of a fork as [A contributor with no reviewer](#a-contributor-with-no-reviewer) says. A job that records reviews needs a signing key as a secret and its own signer, and anyone who can push a branch can make it sign a pass.
 
 ## Findings in the pull request
 
@@ -387,7 +389,7 @@ On `pull_request`, GitHub runs the workflow file of the pull request itself. The
 
 Lawcheck guards none of those files. On GitHub, a required review by a code owner can guard these paths:
 
-- `.lawcheck/`, since a person with push access can write a pass into `.lawcheck/verdicts`;
+- `.lawcheck/`, since a person with push access can change `.lawcheck/config.yaml` and, under a law without `signers`, write a pass into `.lawcheck/verdicts`;
 - `.github/workflows/`;
 - `package.json` and the lockfile;
 - every file a rule imports or reads.

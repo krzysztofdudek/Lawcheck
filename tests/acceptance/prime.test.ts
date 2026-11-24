@@ -69,7 +69,7 @@ test('test 101: prime in R and in U', async () => {
   });
 });
 
-test('test 1021: prime names lawcheck explain <path> --tree where it speaks of script rules, with or without reviewer rules', async () => {
+test('test 1021: prime names lawcheck explain <path> --tree where it speaks of script rules', async () => {
   await withSample(async (s) => {
     const run = await lawcheck(s, ['prime']);
     assert.ok(run.stdout.includes('lawcheck try <rule> <files>; before a script rule reads the syntax tree, run lawcheck explain <path> --tree on a real file of that language'));

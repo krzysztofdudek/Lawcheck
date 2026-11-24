@@ -212,6 +212,7 @@
   ],
   "src/lawchange.ts": [
     "tests/acceptance/law-change.test.ts",
+    "tests/acceptance/reviewer-law.test.ts",
     "tests/unit/lawchange.test.ts"
   ],
   "src/limits.ts": [
@@ -403,6 +404,7 @@
     "tests/unit/uses.test.ts"
   ],
   "src/verdicts.ts": [
+    "tests/acceptance/reviewer-law.test.ts",
     "tests/acceptance/reviewer.test.ts",
     "tests/limits/reviews.test.ts",
     "tests/unit/verdicts.test.ts"

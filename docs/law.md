@@ -13,6 +13,7 @@ Lawcheck looks for the file in the current directory, then in each directory abo
 | `ignored` | top | patterns of files that the law leaves out |
 | `rules` | top | rule id to rule |
 | `types` | top | type id to root type |
+| `signers` | top | signer name to public key |
 | `why` | rule | one line, required |
 | `status` | rule | `enforced` or `advisory` |
 | `context` | rule | paths |
@@ -38,7 +39,7 @@ A YAML alias, such as `*base`, stands for the value that an anchor, such as `&ba
 
 Lawcheck stops with `law-invalid` when a type holds itself through an alias. For example, a subtype `again: *source` under `source: &source` makes `source` hold itself.
 
-The law below uses every key of the table except `required`, `ignored`, `context`, `companion`, `may_use` and `waivers`:
+The law below uses every key of the table except `required`, `ignored`, `signers`, `context`, `companion`, `may_use` and `waivers`:
 
 ```yaml
 lawcheck: 0.1.0
@@ -151,6 +152,10 @@ Lawcheck does not judge a use of a binary file, nor a file's use of itself. It r
 ### waivers
 
 With `waivers: false`, Lawcheck reads a waiver marker in the type's files as plain text. That way, a documentation page or a test whose text quotes the marker can have a type and waive nothing. Without the key, a type takes the value of its parent. In a type at the top of `types` without the key, Lawcheck reads waivers.
+
+## signers
+
+`signers` maps the name of each signer to an Ed25519 public key of 43 characters of base64url. A name is kebab-case, as an id is. When the law names signers, a pass of a reviewer rule counts only when one of them signed it ([Signed passes](reviewer-rules.md#signed-passes)). Lawcheck stops with `law-invalid` when `signers` names no signer, and when a key has another form.
 
 ## Ids
 
