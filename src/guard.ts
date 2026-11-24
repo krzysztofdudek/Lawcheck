@@ -12,9 +12,9 @@ const LIST_MS = 10_000;
 const INPUT_MS = 500;
 // On Windows a program left by one that has ended can be found only through the list of processes, and PowerShell takes seconds to start on a busy machine. While a group is registered, or once the tool has said it starts programs, one PowerShell keeps that list fresh, so the guard ends the tree from a list begun after the kill without starting another PowerShell.
 let watcher: ChildProcess | null = null;
-// The earlier list: once the guard has found the tool gone, it keeps the list it held then. One printed during the wait of INPUT_MS may show a stranger that took a root's id after the kill, which as the earlier list would pass for the root, and the guard would end that stranger and what it made.
+// The earlier list is the newest list the guard held when it last found the tool running, so its snapshot ended before the kill. A list printed after the kill, before the poll finds the tool gone or during the wait of INPUT_MS, may show a stranger that took a root's id after the kill, which as the earlier list would pass for the root, and the guard would end that stranger and what it made.
 let table = '';
-let toolGone = false;
+let latest = '';
 let listed = false;
 let onListed: (() => void) | null = null;
 // A list is printed after its snapshot ends, so one that comes after the kill may show the processes as they were before it; each list starts with the time its snapshot began, and the guard ends a tree only from a list begun once it knew of the kill.
@@ -84,7 +84,7 @@ function watch(): void {
     const start = partial.lastIndexOf('\n--', end - 1);
     const [begun, ...rows] = partial.slice(start < 0 ? 0 : start + 3, end).trimStart().split('\n');
     const list = rows.join('\n');
-    if (!toolGone) table = list;
+    latest = list;
     partial = partial.slice(end + 3);
     listed = true;
     onListed?.();
@@ -237,9 +237,9 @@ if (process.platform === 'win32') {
   const poll = setInterval(() => {
     try {
       process.kill(tool, 0);
+      table = latest;
     } catch {
       clearInterval(poll);
-      toolGone = true;
       setTimeout(endAll, INPUT_MS);
     }
   }, 250);
