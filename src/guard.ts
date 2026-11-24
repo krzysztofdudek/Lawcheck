@@ -1,10 +1,11 @@
 import { spawn, spawnSync } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readdirSync, rm, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { createdIn, killTree, powershell, PROCESS_TABLE, ticksAt, toEnd, variableOf, withTemp } from './programs.js';
 
-const pids = new Set<number>();
+// The count of runners holding each id: two runners may get the same id one after the other, and the earlier one may be released after the later one started.
+const runners = new Map<number, number>();
 const windows = process.platform === 'win32';
 // The longest the guard waits for a list of its own: a PowerShell that hangs would keep the guard, and the folders it is to remove, for ever.
 const LIST_MS = 10_000;
@@ -18,19 +19,48 @@ const waitingForList: { since: number; done: (list: string | null) => void }[] =
 // Once the tool has said it is about to call a program, the list runs until the tool ends, so it is running when a call starts.
 let held = false;
 
-// PowerShell writes the test files of its script policy into its temporary directory while it starts, and the guard's PowerShell may still be starting when the run that set that directory has ended. So it gets a folder of its own under LOCALAPPDATA, where it keeps its other startup data anyway, and the guard removes that folder when it ends, with whatever a PowerShell stopped while starting left there.
+// PowerShell writes the test files of its script policy into its temporary directory while it starts, and the guard's PowerShell may still be starting when the run that set that directory has ended. So it gets a folder of its own under LOCALAPPDATA, where it keeps its other startup data anyway, and the guard removes that folder when it ends, with whatever a PowerShell stopped while starting left there. A guard that is killed, or ends by an error, removes nothing, so the folder's name holds the guard's id, and a later guard removes the folders of guards that no longer run.
 let shellTemp: string | null | undefined;
+const SHELL_FOLDER = /^lawcheck-guard-(\d+)-/;
 
 function shellEnv(): NodeJS.ProcessEnv | undefined {
   if (shellTemp === undefined) {
     const local = variableOf(process.env, 'LOCALAPPDATA');
     try {
-      shellTemp = local === undefined ? null : mkdtempSync(join(local, 'Temp', 'lawcheck-guard-'));
+      if (local === undefined) shellTemp = null;
+      else {
+        const temp = join(local, 'Temp');
+        removeLeft(temp);
+        shellTemp = mkdtempSync(join(temp, `lawcheck-guard-${process.pid}-`));
+      }
     } catch {
       shellTemp = null;
     }
   }
   return shellTemp === null ? undefined : withTemp(process.env, shellTemp);
+}
+
+function removeLeft(temp: string): void {
+  let names: string[];
+  try {
+    names = readdirSync(temp);
+  } catch {
+    return;
+  }
+  for (const name of names) {
+    const owner = SHELL_FOLDER.exec(name);
+    // A folder with this guard's id was left by an earlier guard that held it, since this guard makes its own after this.
+    if (owner !== null && (Number(owner[1]) === process.pid || !running(Number(owner[1])))) rm(join(temp, name), { recursive: true, force: true, maxRetries: 10 }, () => undefined);
+  }
+}
+
+function running(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === 'EPERM';
+  }
 }
 
 function watch(): void {
@@ -92,8 +122,9 @@ process.stdin.on('data', (chunk: string) => {
       calls.splice(calls.indexOf(started), 1);
       if (calls.length === 0) groups.delete(pid);
     } else if (group) continue;
-    else if (adding) pids.add(pid);
-    else pids.delete(pid);
+    else if (adding) runners.set(pid, (runners.get(pid) ?? 0) + 1);
+    else if ((runners.get(pid) ?? 0) > 1) runners.set(pid, runners.get(pid)! - 1);
+    else runners.delete(pid);
     if (group && adding) watch();
     if (group && !adding && groups.size === 0 && !held) stopWatching();
   }
@@ -147,7 +178,8 @@ function listSince(since: number, ms: number): Promise<string | null> {
 
 // Windows may have given a root's id to another process, so the guard never ends a tree or a runner by its id: it ends only what toEnd finds in a list begun after the kill, and takes that list itself when the watcher gives none in time.
 async function endWatched(): Promise<void> {
-  if (groups.size === 0 && pids.size === 0) return;
+  // With no call of a program reviewer open, only rule runners are left, which end with the tool in its job and start no program under Node's permission model, so a list could end nothing.
+  if (groups.size === 0) return;
   const learned = Date.now();
   const before = table;
   const fresh = (await listSince(learned, LIST_MS)) ?? listNow();
@@ -157,7 +189,7 @@ async function endWatched(): Promise<void> {
     const known = calls.filter((started) => started !== undefined);
     return known.length === 0 ? [] : [[pid, ticksAt(Math.max(...known))]];
   }));
-  for (const pid of toEnd(before, fresh, [...groups.keys(), ...pids], createdIn(fresh).get(process.pid), since)) {
+  for (const pid of toEnd(before, fresh, [...groups.keys(), ...runners.keys()], createdIn(fresh).get(process.pid), since)) {
     try {
       process.kill(pid, 'SIGKILL');
     } catch {
@@ -175,7 +207,7 @@ function endAll(): void {
   if (ended) return;
   ended = true;
   if (!windows) {
-    for (const pid of pids) {
+    for (const pid of runners.keys()) {
       try {
         process.kill(pid, 'SIGKILL');
       } catch {

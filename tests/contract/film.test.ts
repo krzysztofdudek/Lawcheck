@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import { createHash } from 'node:crypto';
 import assert from 'node:assert/strict';
-import { appendFileSync, cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { appendFileSync, cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { GIT_ENV } from '../acceptance/helpers.ts';
 import { ROOT, startProgram, testFolder } from '../harness/tool.ts';
@@ -294,6 +294,62 @@ test('test 1058: every narrated sentence of a chapter ends as a spoken sentence,
   ]);
 });
 
+test('test 1090: a narrated sentence that cites only its own caption or subtitle names a tie to a docs page, a recorded output or a take, and each tie is read against its source', () => {
+  const edit = readEdit(ROOT);
+  assert.deepEqual(narrationProblems(ROOT, edit).problems, []);
+  const lines = (from: typeof edit) => from.chapters.flatMap((chapter: { timeline: { id: string; narration?: { text: string; ties?: unknown[] }[] }[] }) => chapter.timeline.flatMap((segment) => (segment.narration ?? []).map((line) => ({ segment, line }))));
+  assert.equal(lines(edit).filter(({ line }) => line.ties !== undefined).length, 15);
+  const other = clone(edit);
+  const at = (text: string) => lines(other).find(({ line }) => line.text === text)!.line as { text: string; ties?: Record<string, unknown>[] };
+  delete at('Lawcheck installs with one npm command.').ties;
+  at('Lawcheck init writes an empty law.').ties![0]!.text = 'created .lawcheck/other.yaml';
+  at('Forbid one layer to use another.').ties![0]!.from = { repo: 'film/edit.json' };
+  at('Write a script rule.').ties![0]!.from = { repo: 'docs/missing.md' };
+  at('Claude Code gets a prompt for a script rule.').ties = [{ text: 'Add a script rule no-fetch' }];
+  at('The agent writes the rule.').ties![0]!.from = { take: 'sr01', file: 'change.diff', run: 'sr-try' };
+  at('The agent writes the workflow.').ties = [];
+  at('Write a reviewer rule.').ties![0]!.from = { run: 'sr-try' };
+  assert.deepEqual(narrationProblems(ROOT, other).problems, [
+    'q1, narrated sentence 1: "Lawcheck installs with one npm command." cites only its caption or subtitle, and names no tie to a docs page, a recorded output or a command that backs it',
+    'q3, narrated sentence 1, tie 1: "created .lawcheck/other.yaml" is not in docs/quick-start.md',
+    'f1, narrated sentence 1, tie 1: film/edit.json holds the caption and the subtitle themselves, so it ties nothing',
+    's1, narrated sentence 1, tie 1: docs/missing.md does not exist',
+    's2, narrated sentence 1, tie 1: a tie holds a text and a from that names a repo file, a run, or a take with a file',
+    's3, narrated sentence 1, tie 1: a tie holds a text and a from that names a repo file, a run, or a take with a file',
+    'r1, narrated sentence 1, tie 1: "# Write a reviewer rule" is not in film/takes/sr-try/output.txt',
+    'c2, narrated sentence 1: "The agent writes the workflow." cites only its caption or subtitle, and names no tie to a docs page, a recorded output or a command that backs it',
+  ]);
+});
+
+test('test 1091: a narrated sentence, a caption or a subtitle that names a version, a pre-release or a model in words is refused, as one that names it in digits is', () => {
+  const edit = readEdit(ROOT);
+  assert.deepEqual(versionProblems(edit), []);
+  const other = clone(edit);
+  const quick = other.chapters[0].timeline;
+  const said = ['The release is zero point one.', 'It is alpha five of the tool.', 'Sonnet five writes the rule.', 'Claude five writes the rule.', 'It needs version two.', 'The tag reads one dot two dot three.', 'Lawcheck is at twenty-one point four.'];
+  said.forEach((text, index) => {
+    quick[index]!.narration = [{ text, shows: ['x'] }];
+  });
+  other.chapters[1].timeline[0].narration = [{ text: 'Lawcheck one point oh is out.', shows: ['x'] }];
+  quick[0]!.caption = 'Zero point one';
+  quick[1]!.subtitle = 'Alpha five installs it.';
+  assert.deepEqual(versionProblems(other), [
+    'q1-1: "Zero point one" shows a number with a point, said in words: Zero point one',
+    'q2-1: "Alpha five installs it." shows a pre-release said in words: Alpha five',
+    'q1, narration: "The release is zero point one." says a number with a point, said in words: zero point one',
+    'q2, narration: "It is alpha five of the tool." says a pre-release said in words: alpha five',
+    'q3, narration: "Sonnet five writes the rule." says the name of a model: Sonnet',
+    'q4, narration: "Claude five writes the rule." says a model named with its number in words: Claude five',
+    'q5, narration: "It needs version two." says a version said in words: version two',
+    'q6, narration: "The tag reads one dot two dot three." says a number with a point, said in words: one dot two',
+    'q7, narration: "Lawcheck is at twenty-one point four." says a number with a point, said in words: twenty-one point four',
+    'f1, narration: "Lawcheck one point oh is out." says a number with a point, said in words: one point oh',
+  ]);
+  const plain = clone(edit);
+  plain.chapters[0].timeline[0].narration = [{ text: 'One point of failure is left.', shows: ['x'] }, { text: 'Claude Code reads the tag at alpha.', shows: ['x'] }];
+  assert.deepEqual(versionProblems(plain), []);
+});
+
 function silence(seconds: number): Buffer {
   const rate = 8000;
   const data = Buffer.alloc(Math.round(seconds * rate) * 2);
@@ -472,6 +528,42 @@ test('test 1054: control, the runs of Lawcheck that node film/check.mjs compares
     for (const run of Object.values(edit.runs) as { args: string[] }[]) run.args = [log, String(count)];
     const runs = await runsOf(ROOT, edit, cli);
     assert.deepEqual([...runs.values()].map((run) => run.output), Array(count).fill('together\n'));
+  } finally {
+    folder.remove();
+  }
+});
+
+test('test 1092: node film/render.mjs --only <page> --voice renders that page while the voice of another chapter is stale, and refuses while the voice of that page is stale', async () => {
+  const folder = testFolder('lawcheck-film-');
+  try {
+    for (const path of ['film', 'brand', 'docs', 'README.md', 'package.json']) cpSync(join(ROOT, path), join(folder.dir, path), { recursive: true, filter: (from) => !/[\\/]film[\\/]dist$/.test(from) });
+    writeFileSync(join(folder.dir, 'film', 'check.mjs'), '');
+    const edit = readEdit(ROOT);
+    const voice = join(folder.dir, 'voice');
+    const segments: Record<string, { key: string }> = {};
+    for (const chapter of edit.chapters) {
+      mkdirSync(join(voice, chapter.page), { recursive: true });
+      for (const segment of chapter.timeline) {
+        writeFileSync(join(voice, chapter.page, `${segment.id}.wav`), silence(1));
+        segments[`${chapter.page}/${segment.id}`] = { key: voiceKey(edit, segment) };
+      }
+    }
+    const calls = join(folder.dir, 'calls.txt');
+    const fake = join(folder.dir, 'hyperframes.mjs');
+    writeFileSync(fake, "import { appendFileSync, writeFileSync } from 'node:fs';\nappendFileSync(process.env.FAKE_CALLS, `${process.cwd()}\\n`);\nwriteFileSync(process.argv[process.argv.indexOf('-o') + 1], 'x');\n");
+    const render = (page: string) => startProgram(join(folder.dir, 'film', 'render.mjs'), ['--draft', '--out', join(folder.dir, 'out'), '--only', page, '--voice', voice], folder.dir, { ...GIT_ENV, LAWCHECK_FILM_PRIVATE: ' , ', HYPERFRAMES_CLI: `node ${fake}`, FAKE_CALLS: calls }, { outside: [/^calls\.txt$/, /^out(\/|$)/, /^film\/dist(\/|$)/] }).ended;
+    segments['ci/c1'] = { key: 'spoken from other words' };
+    rmSync(join(voice, 'forbid-a-use', 'f2.wav'));
+    writeFileSync(join(voice, 'voice.json'), JSON.stringify({ segments }));
+    const own = await render('quick-start');
+    assert.ok(!own.stderr.includes('voice'), own.stderr);
+    assert.ok(own.stderr.includes('film/render.mjs: ffmpeg '), own.stderr);
+    assert.deepEqual(readFileSync(calls, 'utf8').trim().split('\n').map((line) => line.replaceAll('\\', '/').split('/').slice(-2).join('/')), ['dist/quick-start']);
+    rmSync(calls);
+    const other = await render('ci');
+    assert.equal(other.code, 2);
+    assert.equal(other.stderr, 'film/render.mjs: the voice of ci c1 was spoken from other words or settings; node film/voice.mjs speaks it again\n');
+    assert.ok(!existsSync(calls));
   } finally {
     folder.remove();
   }
