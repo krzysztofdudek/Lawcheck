@@ -124,7 +124,7 @@ The first alpha ships all nine reviewer providers. This is the owner's decision.
 
 ## 91. Windows blocks a release
 
-A red run of the suite on Windows blocked the alpha exactly as a red run on Linux or macOS did. This is the owner's decision. The release workflow holds every release to it, since it needs a green Nightly, and the Nightly runs on all three systems.
+A red run of the suite on Windows blocked the alpha exactly as a red run on Linux or macOS did. This is the owner's decision. The release workflow holds every release to it, since it needs two green Nightlies, and the Nightly runs on all three systems.
 
 Why: three systems are one gate.
 

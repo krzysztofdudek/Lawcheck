@@ -7,14 +7,14 @@ Lawcheck 0.1.0-alpha.4 runs on Node 24 or later with git 2.34 or later, on Linux
 | Program or system | Lawcheck needs | What the tests run it on |
 |---|---|---|
 | Node | 24 or later, as `engines` in `package.json` says | every push: Node 24.0.0, the newest Node 24 and the newest Node on Linux, and the newest Node 24 on Windows and macOS |
-| git | 2.34 or later | every night: the git of Ubuntu 22.04, Debian 12, Ubuntu 24.04 and Debian sid |
-| Linux | a system that runs Node 24 | every push, on the newest Ubuntu machine of GitHub Actions; every night, in the Node 24 images of Debian and Alpine |
+| git | 2.34 or later | in the Nightly, which runs by hand before a release: the git of Ubuntu 22.04, Debian 12, Ubuntu 24.04 and Debian sid |
+| Linux | a system that runs Node 24 | every push, on the newest Ubuntu machine of GitHub Actions; in the Nightly, in the Node 24 images of Debian and Alpine |
 | macOS | a version that runs Node 24 | every push, on the newest macOS machine of GitHub Actions |
 | Windows | a version that runs Node 24 | every push, on the newest Windows machine of GitHub Actions |
 
 ## Package managers
 
-Lawcheck installs as a package of the project or as a global package. The `runner` setting in `.lawcheck/config.yaml` names the command that starts it ([Settings](config.md)). Every night, the tests install the package in a new project with npm, pnpm, Yarn 1, both kinds of Yarn 4 and Bun. The tests then run `doctor`, `check` and `try` through the command of the `runner` setting:
+Lawcheck installs as a package of the project or as a global package. The `runner` setting in `.lawcheck/config.yaml` names the command that starts it ([Settings](config.md)). In the Nightly, the tests install the package in a new project with npm, pnpm, Yarn 1, both kinds of Yarn 4 and Bun. The tests then run `doctor`, `check` and `try` through the command of the `runner` setting:
 
 | Package manager | Lawcheck starts as | `runner` |
 |---|---|---|
