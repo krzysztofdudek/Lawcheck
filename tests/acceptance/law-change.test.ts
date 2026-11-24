@@ -356,3 +356,47 @@ test('test 1074: --law-from with a ref that names no commit, or a commit that ho
     assert.equal(paths.code, 2);
   });
 });
+
+test('test 1110: T7, under --law-from a commit in which git lists a file in .lawcheck/node_modules or .lawcheck/.local stops with law-from-packages, and the same commit without those files fails by the rule of the base', async () => {
+  const rule = "import { CALL } from 'callpkg';\nexport function check({ files }) {\n  return files.flatMap((file) => file.lines.flatMap((text, index) => (CALL.test(text) ? [{ file: file.path, line: index + 1, message: 'writes to the terminal' }] : [])));\n}\n";
+  const callpkg = (s: string, folder: string, call: string) => {
+    write(s, `${folder}/callpkg/package.json`, '{ "name": "callpkg", "type": "module", "exports": "./index.js" }\n');
+    write(s, `${folder}/callpkg/index.js`, `export const CALL = ${call};\n`);
+  };
+  for (const [top, folder] of [['.lawcheck/node_modules', '.lawcheck/node_modules'], ['.lawcheck/.local', '.lawcheck/.local/node_modules']] as const) {
+    await withSample(
+      async (s) => {
+        write(s, 'src/core/total.ts', "export const total = 1;\nconsole.log(total);\n");
+        callpkg(s, folder, '/a^/');
+        git(s, 'add', '-A');
+        git(s, 'add', '-f', folder);
+        git(s, 'commit', '-q', '-m', 'plant');
+        const wanted = [
+          'lawcheck: ERROR  1 error',
+          '',
+          `${folder}/callpkg/index.js  error[law-from-packages]  git lists this file in ${top}, and 1 more file there, and a package that a rule of 'main' imports cannot come from the change`,
+          '  why:  a change judged by the law of a commit cannot supply the code that law runs',
+          '',
+          `next: take ${top} out of git, such as with git rm -r --cached ${top}, and name it in .gitignore`,
+          '',
+        ];
+        const planted = await check(s, '--base', 'main', '--law-from', 'main');
+        assert.deepEqual(planted.stdout.split('\n'), wanted, top);
+        assert.equal(planted.code, 2, top);
+        assert.deepEqual(readdirSync(join(s, '.lawcheck')).filter((name) => name === '.local').flatMap(() => readdirSync(join(s, '.lawcheck/.local'))).filter((name) => name.startsWith('law-from-')), [], top);
+        const json = JSON.parse((await check(s, '--base', 'main', '--law-from', 'main', '--json')).stdout);
+        assert.deepEqual(json.errors.map((e: { code: string; file: string }) => [e.code, e.file]), [['law-from-packages', `${folder}/callpkg/index.js`]], top);
+        callpkg(s, folder, '/nothing/');
+        git(s, 'commit', '-q', '-am', 'change the plant');
+        assert.equal((await check(s, '--base', 'main', '--law-from', 'main')).stdout, wanted.join('\n'), `a changed file in ${top}`);
+        git(s, 'rm', '-r', '-q', folder);
+        git(s, 'commit', '-q', '-m', 'without the plant');
+        const clean = await check(s, '--base', 'main', '--law-from', 'main');
+        assert.deepEqual(findingLines(clean.stdout), ['src/core/total.ts:2  error[no-console]  writes to the terminal'], top);
+        assert.equal(clean.code, 1, top);
+        assert.deepEqual(readdirSync(join(s, '.lawcheck')).filter((name) => name === '.local').flatMap(() => readdirSync(join(s, '.lawcheck/.local'))).filter((name) => name.startsWith('law-from-')), [], top);
+      },
+      { onMain: (s) => { write(s, '.git/info/exclude', 'node_modules/\n'); callpkg(s, 'node_modules', '/\\bconsole\\.(\\w+)/'); setRule(s, 'no-console', rule); } },
+    );
+  }
+});

@@ -2,7 +2,7 @@ import { lstatSync, mkdirSync, readFileSync, rmdirSync, writeFileSync } from 'no
 import { dirname, join } from 'node:path';
 import { CONFIG, DEFAULT_CONFIG, parseConfig } from './config.js';
 import type { ReviewerConfig } from './config.js';
-import { git, mergeBase, resolveCommit, splitZ } from './files.js';
+import { comparePaths, git, mergeBase, resolveCommit, splitZ } from './files.js';
 import { keyEnvironment } from './keys.js';
 import { CONFIG_BYTES, count, LAW_BYTES, mib } from './limits.js';
 import { bytesOfName } from './names.js';
@@ -301,6 +301,24 @@ export function kindsAt(at: LawAt, workFiles: string[], read: Read): { files: st
   const said = `, in the law of '${at.ref}' that --law-from names`;
   if (kinds.errors.length > 0) throw new Stop(kinds.errors.map((error) => ({ ...error, message: `${error.message}${said}` })));
   return { files, read: readAt, kinds };
+}
+
+const PACKAGE_FOLDERS = ['.lawcheck/node_modules', LOCAL];
+
+// A rule loaded from the copy in .lawcheck/.local finds a package it imports by name in the node_modules folders above that copy, so the change may hold none of them. Git keeps the case of a path, and a file system that ignores case finds it all the same.
+export function packagesOfChange(listed: Iterable<string>, ref: string): void {
+  const found = new Map<string, string[]>();
+  for (const path of listed) {
+    const lower = path.toLowerCase();
+    const folder = PACKAGE_FOLDERS.find((top) => lower === top || lower.startsWith(`${top}/`));
+    if (folder !== undefined) found.set(folder, [...(found.get(folder) ?? []), path]);
+  }
+  const errors = PACKAGE_FOLDERS.filter((folder) => found.has(folder)).map((folder): ErrorItem => {
+    const [first, ...rest] = found.get(folder)!.sort(comparePaths);
+    const more = rest.length === 0 ? '' : `, and ${count(rest.length)} more file${rest.length === 1 ? '' : 's'} there`;
+    return { code: 'law-from-packages', file: first!, line: null, message: `git lists this file in ${folder}${more}, and a package that a rule of '${ref}' imports cannot come from the change`, next: `take ${folder} out of git, such as with git rm -r --cached ${folder}, and name it in .gitignore` };
+  });
+  if (errors.length > 0) throw new Stop(errors);
 }
 
 const SAFE_PART = /^(?!\.{1,2}$)[^/\\]+$/;

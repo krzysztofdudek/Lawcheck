@@ -31,6 +31,7 @@ Two words recur below. The root is the folder that holds `.lawcheck/`. A rule bi
 | `type-overlap` | exit 2 | two types of one level match one file | a file has one type, so the rules that bind it are never in doubt |
 | `base-unreachable` | exit 2 | the base names no commit, shares no history with `HEAD`, or the repository has no commit; or a CI job has no base | without its base a change cannot be told from debt |
 | `law-from-unreachable` | exit 2 | `--law-from` names no commit here, or a commit with no `.lawcheck/law.yaml` at the place of the root | a change judged by the law of a commit needs that law |
+| `law-from-packages` | exit 2 | under `--law-from`, git lists a file in `.lawcheck/node_modules` or `.lawcheck/.local` | a change judged by the law of a commit cannot supply the code that law runs |
 | `link-outside-root` | exit 2 | a script rule or a companion is to run, and a link git tracks leads outside the work tree | a script rule reads nothing outside the work tree, and a link that leads out of it would let it |
 | `path-unsupported` | exit 2 | a script rule or a companion is to run, and the path of the root or of Lawcheck holds a `*` or a backslash | a script rule reads nothing outside the root and Lawcheck's folder, and the runner can keep that only on such a path |
 | `runner-failed` | exit 2 | the process that runs script rules does not start | a runner that does not start says nothing about the rules |
@@ -586,6 +587,36 @@ error[law-from-unreachable]  the ref 'nope' that --law-from names is no commit h
   why:  a change judged by the law of a commit needs that law
 
 next: pass --law-from with a commit here that holds .lawcheck/law.yaml, such as the base of the change
+```
+
+## law-from-packages
+
+**Meaning**
+
+`check --law-from` loads the script rules of the commit it names from a copy in `.lawcheck/.local/`. A package that such a rule imports by name comes from the `node_modules` folders above that copy, `.lawcheck/.local/node_modules` and `.lawcheck/node_modules` among them. A file in either folder that git lists comes from the change, so the change could hand the rule its own package. Lawcheck runs no rule and names the first such file of each folder.
+
+**Typical cause**
+
+The cause is one of these:
+
+- a pull request that commits a package in `.lawcheck/node_modules`, where a rule finds it before the one the install step put in `node_modules`;
+- a project that installs the packages of its rules in `.lawcheck/` and whose `.gitignore` does not name `node_modules/`;
+- a file added with `git add -f` in `.lawcheck/.local/`, which holds Lawcheck's own files.
+
+**Fix**
+
+Take the folder out of git with `git rm -r --cached <folder>`, which keeps the files on disk, and name it in `.gitignore`. Install the packages of the rules in the `node_modules` of the project.
+
+**Example**
+
+```text
+$ lawcheck check --base main --law-from main
+lawcheck: ERROR  1 error
+
+.lawcheck/node_modules/callpkg/index.js  error[law-from-packages]  git lists this file in .lawcheck/node_modules, and a package that a rule of 'main' imports cannot come from the change
+  why:  a change judged by the law of a commit cannot supply the code that law runs
+
+next: take .lawcheck/node_modules out of git, such as with git rm -r --cached .lawcheck/node_modules, and name it in .gitignore
 ```
 
 ## link-outside-root
