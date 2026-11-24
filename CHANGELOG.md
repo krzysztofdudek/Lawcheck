@@ -62,6 +62,8 @@ The documentation site is now at https://docs.lawcheck.dev, and https://lawcheck
 
 `lawcheck init` in a repository whose `.gitignore` names `.lawcheck` still writes the law, and now says that git ignores it, so no commit carries it and no other checkout has it. The output gains a `note:` line, and in `--json` the `next.text` starts with the same warning. `lawcheck doctor` shows its `law` check as `note` and names `git check-ignore -v .lawcheck/law.yaml`, which finds the line to remove. `lawcheck prime` now says the same, so an agent tells you in every session, not only in the one that ran `lawcheck init`. In alpha.4, none of the three said anything.
 
+`lawcheck init` at the top of a repository that has a law only in a folder below, such as a sample repository under `tests/`, still refuses, and now says that you start a law at the top by writing `.lawcheck/law.yaml` there by hand, with `lawcheck docs first-law` showing how. `lawcheck doctor` says the same under its line about the laws below. In alpha.4, both sent you only to the folder below.
+
 The pages of `lawcheck docs` said that a file git ignores has no type. That holds only for a file git does not track. A file git tracks keeps its type and is judged even when `.gitignore` names it, as `lawcheck explain` shows. The pages now say so.
 
 A script rule may return `line: null` for a finding about the whole file. In alpha.4 the rule was `rule-crashed`. A string such as `'2'`, a bigint or `1.5` still crashes the rule, with a message that names the value.
