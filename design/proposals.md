@@ -21,7 +21,7 @@ core:
 
 The key lists names, and `*` in a name matches any run of characters (`node:*`, `@aws-sdk/*`). A type without the key takes the list of the nearest type above it, as with `may_use`. With no list in force, no outside use is judged, as today. With one, an outside use whose name no entry matches is `forbidden-use`, such as `core may not use node:fs, which is outside the repository; its may_use_outside is [yaml, node:crypto]`. `prime` and `explain` print the list next to `may_use`.
 
-What it costs a user: one more key in the law. Each name is written in the form its language's reader gives, so `docs/languages.md` needs a table of those forms. A package used through subpaths needs two entries, such as `lodash` and `lodash/*`. A law without the key works as before.
+What it costs a user: one more key in the law. Each name is written in the form its language's reader gives, so `docs/languages.md` needs a table of those forms. A package used through subpaths needs two entries, such as `lodash` and `lodash/*`. A law without the key works as before. Every earlier Lawcheck stops with `law-invalid` on a law that uses the key, since it refuses a key of a type it does not know (`TYPE_KEYS` in `src/law.ts`), so a team moves each machine and its CI to the new version before it writes the key. An entry cannot take a name out of a pattern: a type that may import every `node:` module but `node:child_process` lists the others one by one.
 
 ### B. Named groups of outside modules in `may_use`
 
@@ -35,7 +35,7 @@ types:
 
 A top-level key `outside` names groups of outside modules, and `may_use` lists a group's id next to the type ids. An outside use is judged only when a group takes its name. A use that no group takes stays free.
 
-What it costs a user: one list holds both kinds of use, and a group written once serves every type. A team can only guard doors it names, though. To say that `core` imports nothing from outside but `yaml`, it needs a group `everything: ["*"]` and a rule for which group takes a name that two groups match. Group ids and type ids share one set of names.
+What it costs a user: one list holds both kinds of use, and a group written once serves every type. A team can only guard doors it names, though. To say that `core` imports nothing from outside but `yaml`, it needs a group `everything: ["*"]` and a rule for which group takes a name that two groups match. Group ids and type ids share one set of names. As with A, every earlier Lawcheck stops with `law-invalid` on a law that uses the key `outside` (`TOP_KEYS` in `src/law.ts`).
 
 ### C. No new key: the name reaches script rules
 
@@ -45,7 +45,7 @@ What it costs a user: every team writes and keeps that rule, and its messages. `
 
 ### Recommendation
 
-A, built after alpha.5. An agent reads the list at the start of a session through `prime`, before it writes the import, and a breach is the same `forbidden-use` that a wrong use of a type gives. Lawcheck's own rule `layer-imports` then becomes lists in the law.
+A, built after alpha.5. An agent reads the list at the start of a session through `prime`, before it writes the import, and a breach is the same `forbidden-use` that a wrong use of a type gives. The rows of Lawcheck's own rule `layer-imports` then become lists in the law. Its doors stay in a script rule: a door says that only one file of `src` imports a module, such as `node:child_process` in `src/adapters/processes.ts`, and a list of A can say it only by naming every other `node:` module in place of `node:*`.
 
 ## A change judged by the law of its base
 
