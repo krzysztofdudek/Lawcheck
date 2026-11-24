@@ -294,11 +294,12 @@ A rule of the law has neither its script `.lawcheck/rules/<id>.mjs` nor its prom
 The cause is one of these:
 
 - you add a rule to the law before you write its file;
-- you delete or rename the file of a rule, and the rule stays in the law.
+- you delete or rename the file of a rule, and the rule stays in the law;
+- the file of a rule is a symbolic link, which Lawcheck does not follow, and the message names it.
 
 **Fix**
 
-Write `.lawcheck/rules/<id>.mjs` for a [script rule](concepts.md#script-rule), or `.lawcheck/rules/<id>.md` for a [reviewer rule](concepts.md#reviewer-rule). You can take the rule out of the law instead.
+Write `.lawcheck/rules/<id>.mjs` for a [script rule](concepts.md#script-rule), or `.lawcheck/rules/<id>.md` for a [reviewer rule](concepts.md#reviewer-rule). You can take the rule out of the law instead. Where the message names a symbolic link, replace the link with the file it leads to.
 
 **Example**
 

@@ -1,10 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { chmodSync, existsSync, mkdirSync, symlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { withFake } from '../acceptance/fake-reviewer.ts';
-import { F, F_PATH, inTemp, newRepository, withR, withSample, write } from '../acceptance/helpers.ts';
+import { F, F_PATH, git, inTemp, newRepository, withR, withSample, write } from '../acceptance/helpers.ts';
 import { platformSkip } from '../harness/tool.ts';
 import { errorLines, run } from './support.ts';
 
@@ -154,6 +154,26 @@ test('S5-5: init where .lawcheck/.gitignore is a folder writes nothing and names
     );
     assert.equal(result.code, 2);
     assert.equal(existsSync(join(repo, '.lawcheck/law.yaml')), false);
+  });
+});
+
+test('S1-8: a rule file that is a symbolic link is named as one, since Lawcheck reads no rule through a link, and the rule is not said to have no file', async (t) => {
+  const skipped = platformSkip('the whole test');
+  if (skipped !== null) return t.skip(skipped);
+  await withSample(async (s) => {
+    rmSync(join(s, '.lawcheck/rules/no-todo.mjs'));
+    symlinkSync('no-console.mjs', join(s, '.lawcheck/rules/no-todo.mjs'));
+    git(s, 'add', '-A');
+    git(s, 'commit', '-q', '-m', 'link');
+    const result = await run(s, ['check', '--base', 'main']);
+    const line = errorLines(result.stdout)[0]!;
+    assert.match(line, /^\.lawcheck\/law\.yaml:\d+ {2}error\[rule-missing-file\] {2}/);
+    assert.equal(
+      line.split('  ').slice(2).join('  '),
+      "the rule 'no-todo' has neither .lawcheck/rules/no-todo.mjs nor .lawcheck/rules/no-todo.md as a file: .lawcheck/rules/no-todo.mjs is a symbolic link, and Lawcheck reads no rule through one",
+    );
+    assert.match(result.stdout, /\nnext: ask the user to replace the symbolic link \.lawcheck\/rules\/no-todo\.mjs with the rule file itself, then run lawcheck check\n/);
+    assert.equal(result.code, 2);
   });
 });
 

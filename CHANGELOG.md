@@ -63,6 +63,8 @@ A `check` or `try` that ends with exit 2 after it sent requests to a reviewer no
 
 `init` no longer reports `kept .lawcheck/.gitignore` when that path is a folder or a symbolic link to nothing: it stops with `file-unwritable` and writes nothing. When `.lawcheck/law.yaml` is a folder or a symbolic link to nothing, `doctor` and `check` now say `law-invalid` with the cause, such as `EISDIR` for a folder. In alpha.4 `doctor` said there was no law and sent you to `lawcheck init`, and `init` sent you back to `lawcheck doctor`.
 
+A rule file that is a symbolic link now gets its own `rule-missing-file` message, which names the link and says that Lawcheck reads no rule through one. In alpha.4 the message said that the rule had neither file, though the link stood there, and `.lawcheck/law.yaml` and `.lawcheck/config.yaml` as links are still read.
+
 ## [0.1.0-alpha.4] - 2026-11-23
 
 A script rule that uses the network now gets an error from the call itself, on every Node. On Node 24, alpha.3 let the call through. On Node 25 and later, alpha.3 passed Node's refusal to the callback, the `error` event or the promise, so a rule that handled the refusal there passed. The rule runner of alpha.4 closes the network before the rule loads. A rule that connects, listens on a port, sends over UDP, looks up a name in DNS or calls `fetch` gets the error. A rule that does not catch it is `rule-crashed`, with the message `uses the network, which is closed to script rules`.

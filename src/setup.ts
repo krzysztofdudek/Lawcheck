@@ -209,11 +209,19 @@ export interface RuleFiles {
   kinds: Kinds;
 }
 
+function isLink(root: string, path: string): boolean {
+  try {
+    return lstatSync(onDisk(root, path)).isSymbolicLink();
+  } catch {
+    return false;
+  }
+}
+
 export function ruleFileErrors(root: string, law: Law): RuleFiles & { errors: ErrorItem[] } {
   const listed = listedPaths(root);
   const files = listFiles(root, listed);
   const read = onceReader(root);
-  const kinds = ruleKinds(law, files, read);
+  const kinds = ruleKinds(law, files, read, (path) => isLink(root, path));
   return { listed, files, read, kinds, errors: kinds.errors.length > 0 ? kinds.errors : kinds.unreadable };
 }
 
@@ -391,7 +399,7 @@ export interface Kinds {
   reviewers: Map<string, ReviewerRule>;
 }
 
-export function ruleKinds(law: Law, files: string[], read: Read): Kinds {
+export function ruleKinds(law: Law, files: string[], read: Read, isLink: (path: string) => boolean = () => false): Kinds {
   const present = new Set(files);
   const expected = new Set<string>();
   const out: Kinds = { errors: [], unreadable: [], scripts: new Set(), reviewers: new Map() };
@@ -404,7 +412,17 @@ export function ruleKinds(law: Law, files: string[], read: Read): Kinds {
     const hasScript = present.has(script);
     const hasProse = present.has(prose);
     if (!hasScript && !hasProse) {
-      out.errors.push({ code: 'rule-missing-file', file: LAW, line: rule.line, message: `the rule '${rule.id}' has neither ${script} nor ${prose}` });
+      const link = [script, prose].find(isLink);
+      if (link === undefined) out.errors.push({ code: 'rule-missing-file', file: LAW, line: rule.line, message: `the rule '${rule.id}' has neither ${script} nor ${prose}` });
+      else {
+        out.errors.push({
+          code: 'rule-missing-file',
+          file: LAW,
+          line: rule.line,
+          message: `the rule '${rule.id}' has neither ${script} nor ${prose} as a file: ${link} is a symbolic link, and Lawcheck reads no rule through one`,
+          next: `ask the user to replace the symbolic link ${link} with the rule file itself, then run lawcheck check`,
+        });
+      }
       continue;
     }
     if (hasScript && hasProse) {
