@@ -54,7 +54,7 @@ export function parseWaivers(lines: string[], rules: Set<string>): { waivers: Wa
     const rest = withoutClosing(after.slice(id[0].length));
     const dashes = rest.match(/^\s+--/u);
     const reason = dashes === null ? '' : rest.slice(dashes[0].length).trim();
-    if (reason === '') {
+    if (/^[\s\p{Cf}]*$/u.test(reason)) {
       problems.push({ code: 'waiver-without-reason', line, message: `the waiver of '${rule}' gives no reason after --` });
       return;
     }

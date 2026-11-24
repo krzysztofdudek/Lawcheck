@@ -237,6 +237,18 @@ test('test 13: a file under a clean filter, in the second git last wrote the ind
     utimesSync(join(s, '.git', 'index'), ahead, ahead);
     assert.equal(git(s, 'diff', '--name-only', 'HEAD'), '');
     assert.equal((await check(s, '--base', 'HEAD')).stdout, 'lawcheck: PASS  nothing changed against HEAD\n', 'a check in the second a checkout ended');
+    write(s, 'src/core/tax.ts', read(s, 'src/core/tax.ts').replace('0.23', '0.24'));
+    utimesSync(file, ahead, ahead);
+    assert.equal(git(s, 'diff', '--name-only', 'HEAD'), 'src/core/tax.ts\n', 'git reads the file by its content in the second it wrote the index');
+    assert.equal((await check(s, '--base', 'HEAD')).stdout, 'lawcheck: PASS  nothing changed against HEAD\n', 'an edit that keeps the size, at the time of the index entry, is not in the change');
+    const price = join(s, 'src/core/price.ts');
+    utimesSync(price, ahead + 0.5, ahead + 0.5);
+    git(s, 'update-index', 'src/core/price.ts');
+    const belowSecond = !/mtime: \d+:0\n/.test(git(s, 'ls-files', '--debug', 'src/core/price.ts'));
+    utimesSync(file, ahead + 0.5, ahead + 0.5);
+    const edited = (await check(s, '--base', 'HEAD')).stdout;
+    if (belowSecond) assert.match(edited, /^lawcheck: (PASS|FAIL) {2}.*1 changed file/, 'an edit that keeps the size, a half second after the index entry, is in the change when git compares below the second');
+    else assert.equal(edited, 'lawcheck: PASS  nothing changed against HEAD\n', 'the same edit is not in the change when git compares whole seconds');
     write(s, 'src/core/tax.ts', `${read(s, 'src/core/tax.ts')}console.log(rate);\n`);
     const run = await check(s, '--base', 'HEAD');
     assert.equal(run.stdout.split('\n')[0], 'lawcheck: FAIL  1 error, 1 warning in 1 changed file (against HEAD)');
