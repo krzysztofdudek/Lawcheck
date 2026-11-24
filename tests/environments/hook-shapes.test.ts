@@ -39,7 +39,7 @@ const SHAPES_AT_ONCE = 5;
 
 async function inEveryShape(body: (bench: Bench, shape: Shape) => Promise<void>): Promise<string[]> {
   const places = SHAPES.flatMap((shape) => STARTS.map((start) => ({ shape, start })));
-  const found = await atOnce(places, SHAPES_AT_ONCE, ({ shape, start }) =>
+  const found = await atOnce(places, SHAPES_AT_ONCE, ({ shape, start }) => `${shape.name}, ${start.name}`, ({ shape, start }) =>
     inTemp(async (dir) => {
       const placed = shape.make(dir, {});
       const env = hookEnv(dir, [binWithLawcheck(dir), GIT_DIR, NODE_DIR]);

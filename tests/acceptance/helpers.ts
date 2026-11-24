@@ -98,10 +98,11 @@ export async function inTemp<T>(body: (dir: string) => Promise<T> | T): Promise<
   }
 }
 
-// The results of work on each item, in the order of the items, with at most `limit` items in work at a time; the first failure stops the items not yet started and is thrown once those in work have ended.
-export async function atOnce<T, R>(items: T[], limit: number, work: (item: T, at: number) => Promise<R>): Promise<R[]> {
+// The results of work on each item, in the order of the items, with at most `limit` items in work at a time; the first failure stops the items not yet started and is thrown once those in work have ended, under the name of its item, since items in work at once end in no fixed order.
+export async function atOnce<T, R>(items: T[], limit: number, name: (item: T) => string, work: (item: T, at: number) => Promise<R>): Promise<R[]> {
+  if (!Number.isInteger(limit) || limit < 1) throw new Error(`atOnce takes a limit of 1 or more, not ${limit}`);
   const results: R[] = new Array(items.length);
-  const failures: unknown[] = [];
+  const failures: Error[] = [];
   let next = 0;
   await Promise.all(
     Array.from({ length: Math.min(limit, items.length) }, async () => {
@@ -109,7 +110,7 @@ export async function atOnce<T, R>(items: T[], limit: number, work: (item: T, at
         try {
           results[at] = await work(items[at]!, at);
         } catch (error) {
-          failures.push(error);
+          failures.push(new Error(`${name(items[at]!)}: ${error instanceof Error ? error.message : String(error)}`, { cause: error }));
         }
       }
     }),

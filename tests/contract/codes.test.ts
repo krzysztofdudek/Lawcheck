@@ -808,18 +808,19 @@ async function reproduce(spec: Case, dir: string, fake: Fake): Promise<string[]>
   return problems;
 }
 
-// A case that registers a copy of the tool in CLEANUP shares that list with the others, so only the groups that register none run at once.
+// A case that registers a copy of the tool in CLEANUP shares that list with the others, so only the groups that register none run at once, and there the list is never emptied while a case runs, so a registration cannot be lost.
 async function runCases(cases: Case[], limit = 1): Promise<string[]> {
-  const found = await atOnce(cases, limit, async (spec) => {
+  CLEANUP.length = 0;
+  const found = await atOnce(cases, limit, (spec) => spec.id, async (spec) => {
     const fake = await startFake();
-    CLEANUP.length = 0;
+    if (limit === 1) CLEANUP.length = 0;
     try {
       return await inTemp((dir) => reproduce(spec, dir, fake));
     } finally {
       await fake.close();
       const shared = limit > 1 && CLEANUP.length > 0;
-      for (const remove of CLEANUP) remove();
-      if (shared) throw new Error(`${spec.id} registers a copy of the tool in CLEANUP, which cases that run at once share`);
+      for (const remove of CLEANUP.splice(0)) remove();
+      if (shared) throw new Error('a case of this group registers a copy of the tool in CLEANUP, which cases that run at once share');
     }
   });
   return found.flat();

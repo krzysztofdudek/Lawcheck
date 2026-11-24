@@ -131,26 +131,26 @@ async function withLaw(law: string, rules: number, body: (repo: string) => Promi
 
 test('test 254: R-28, a law may hold 10,000 rules, 1,000 types and 1 MiB, and past each it is file-too-large', async () => {
   // Each law is alone in a folder of its own, so the laws are checked a few at a time, the one of ten thousand rules beside the small ones.
-  const jobs: (() => Promise<void>)[] = [];
-  jobs.push(() => withLaw(lawOf(10_000, 1_000), 10_000, async (repo) => {
+  const jobs: [string, () => Promise<void>][] = [];
+  jobs.push(['10,000 rules and 1,000 types', () => withLaw(lawOf(10_000, 1_000), 10_000, async (repo) => {
     const at = await run(repo, ['check'], { budget: 'LIMITS_RUN_MS' });
     assert.equal(at.stdout, 'lawcheck: PASS  10001 files (no base: every file counts as changed)\n');
     assert.equal(at.code, 0);
-  }));
+  })]);
   // The law of 10,001 rules has no rule files: the tool counts the rules of the law before it looks for their files, and a count that came after them would print 10,001 rule-missing-file errors in place of the one line.
-  const cases: [string, number, string][] = [
-    [lawOf(10_001, 1), 0, '.lawcheck/law.yaml:2  error[file-too-large]  the law holds 10,001 rules, more than the 10,000 a law may hold'],
-    [lawOf(1, 1_001), 1, '.lawcheck/law.yaml:5  error[file-too-large]  the law holds 1,001 types, more than the 1,000 a law may hold'],
-    [lawOf(1, 1, MiB + 1), 1, '.lawcheck/law.yaml:1  error[file-too-large]  the law holds 1,048,577 bytes, more than the 1 MiB a law may hold'],
+  const cases: [string, string, number, string][] = [
+    ['10,001 rules', lawOf(10_001, 1), 0, '.lawcheck/law.yaml:2  error[file-too-large]  the law holds 10,001 rules, more than the 10,000 a law may hold'],
+    ['1,001 types', lawOf(1, 1_001), 1, '.lawcheck/law.yaml:5  error[file-too-large]  the law holds 1,001 types, more than the 1,000 a law may hold'],
+    ['1 MiB and a byte', lawOf(1, 1, MiB + 1), 1, '.lawcheck/law.yaml:1  error[file-too-large]  the law holds 1,048,577 bytes, more than the 1 MiB a law may hold'],
   ];
-  for (const [law, rules, line] of cases) {
-    jobs.push(() => withLaw(law, rules, async (repo) => {
+  for (const [name, law, rules, line] of cases) {
+    jobs.push([name, () => withLaw(law, rules, async (repo) => {
       const beyond = await run(repo, ['check'], { budget: 'LIMITS_RUN_MS' });
       assert.deepEqual(errorLines(beyond.stdout), [line]);
       assert.equal(beyond.code, 2);
-    }));
+    })]);
   }
-  jobs.push(() => withLaw(lawOf(1, 1, MiB + 1), 1, async (repo) => {
+  jobs.push(['the whole output of 1 MiB and a byte', () => withLaw(lawOf(1, 1, MiB + 1), 1, async (repo) => {
     const beyond = await run(repo, ['check']);
     assert.equal(
       beyond.stdout,
@@ -164,12 +164,12 @@ test('test 254: R-28, a law may hold 10,000 rules, 1,000 types and 1 MiB, and pa
         '',
       ].join('\n'),
     );
-  }));
-  jobs.push(() => withLaw(lawOf(1, 1, MiB), 1, async (repo) => {
+  })]);
+  jobs.push(['1 MiB', () => withLaw(lawOf(1, 1, MiB), 1, async (repo) => {
     const at = await run(repo, ['check']);
     assert.equal(at.code, 0, at.stdout);
-  }));
-  await atOnce(jobs, LAWS_AT_ONCE, (job) => job());
+  })]);
+  await atOnce(jobs, LAWS_AT_ONCE, ([name]) => name, ([, job]) => job());
 });
 
 test('test 262: a text file may hold 1,048,576 lines, and one more line is file-too-large', async () => {
