@@ -8,7 +8,7 @@ import { git, GIT_ENV, inTemp, lawcheck, read, ROOT, write } from './helpers.ts'
 import { judge, loadConfig, render } from '../guard/guard.ts';
 
 const ADVISORY = new Set(['errors-name-the-fix', 'docs-state-facts']);
-// The suite guard reads every test file of both trees with one git process each, which is most of this test's time on a slow runner, and the verdict on the law file depends on none of them; the clone keeps only what the guard reads by name.
+// The suite guard reads every test file of both trees with one git process each, which is most of this test's time on a slow runner. The tests are left out before the commits it judges, so no test changes between them and the verdict on the law file depends on none of them; the clone keeps the guard, which judges by the base's own copy, the harness, and the ledgers the guard reads on every run.
 const KEPT_FOR_THE_GUARD = new Set(['guard', 'harness', 'sabotage', 'numbers.ts', 'run.ts', 'weakenings.md']);
 const WAIVERS: { file: string; rule: string; reason: string }[] = [];
 const UNRESOLVED = [{ file: 'scripts/grammars.ts', what: '..', answer: 'none', reason: 'unfollowed' }];
