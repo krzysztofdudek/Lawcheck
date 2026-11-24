@@ -22,11 +22,11 @@ const PRIVATE = [
   [/\bgh[pousr]_\w{20,}/g, 'a GitHub token'],
   [/\beyJ[\w-]{20,}\.[\w-]{20,}/g, 'a signed token'],
   [/[\w.%+-]+@[\w-]+(?:\.[\w-]+)*\.[a-z]{2,}/gi, 'an e-mail address'],
-  [/orbstack/gi, 'the name of the virtual machine that recorded it'],
-  [/\b[\w.-]+\.ts\.net\b/gi, 'a host name of a tailnet'],
+  [/orbstack/gi, 'the word orbstack'],
+  [/\b[\w.-]+\.ts\.net\b/gi, 'a host name under ts.net'],
   [/\btailnet\b/gi, 'the word tailnet'],
-  [/clientbox/gi, 'the name of the folder shared with the owner\'s computer'],
-  [/\/mnt\/mac\b/gi, 'a path of the owner\'s computer'],
+  [/clientbox/gi, 'the word clientbox'],
+  [/\/mnt\/mac\b/gi, 'a path under /mnt/mac'],
 ];
 // Names that only the recording machine knows, such as its tailnet's name, come from the environment so that this file does not publish them.
 const PRIVATE_WORDS = 'LAWCHECK_FILM_PRIVATE';
@@ -307,7 +307,7 @@ if (process.argv[1] !== undefined && fileURLToPath(import.meta.url) === process.
   report('staleness', stale, `${Object.keys(edit.runs).length} runs of this build print what the film shows`);
   report('reading time', reading, `the loop lasts ${lengthOf(edit.loop)} s, ${(edit.chapters ?? []).map((chapter) => `the chapter ${chapter.page} ${lengthOf(chapter.timeline)} s`).join(', ')}, and every screen stands long enough to be read`);
   report('versions', versions, 'no screen, caption or subtitle shows a version or the name of a model');
-  report('private', secret, `no file of film/takes holds a home folder, a key, a token, an e-mail address, a name of the recording machine or a name listed in ${PRIVATE_WORDS}`);
+  report('private', secret, `no file of film/takes holds a home folder, a key, a token, an e-mail address, orbstack, a ts.net host, the word tailnet, clientbox, /mnt/mac or a name listed in ${PRIVATE_WORDS}`);
   const problems = truth.problems.length + stale.length + reading.length + secret.length + versions.length;
   process.stdout.write(problems === 0 ? 'film/check.mjs: PASS\n' : `film/check.mjs: FAIL  ${problems} problems\n`);
   process.exit(problems === 0 ? 0 : 1);

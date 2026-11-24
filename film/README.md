@@ -38,7 +38,7 @@ No video, image or recording is committed here. `claude plugin marketplace add` 
 - a take differs from the record that `pilot.json` counts, or `accept.mjs` refuses it;
 - this build of Lawcheck prints something else on the files of a take than the film shows;
 - a screen stands less than one second plus one second for every three new words, or the loop lasts more than 30 seconds;
-- a file of `takes/` holds a home folder other than `/home/dev`, a key, a token, an e-mail address, the name of the recording machine's virtual machine, a tailnet host name or the word tailnet, the name of the folder shared with my computer or a path of it, or a word listed in the variable `LAWCHECK_FILM_PRIVATE`, separated by commas. Set it to the names only the recording machine knows, such as its tailnet's name, before you add a take.
+- a file of `takes/` holds a home folder other than `/home/dev`, a key, a token, an e-mail address, the word orbstack, a host name under ts.net, the word tailnet, the word clientbox, a path under /mnt/mac, or a word listed in the variable `LAWCHECK_FILM_PRIVATE`, separated by commas. Set it to the names only the recording machine knows, such as its tailnet's name, before you add a take.
 
 ## When the output of Lawcheck changes
 

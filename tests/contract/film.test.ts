@@ -121,11 +121,11 @@ test('test 820: control, a home folder, a key, an e-mail address and each name o
     writeFileSync(join(folder.dir, 'film/takes/x/host.txt'), 'Linux 7.2.12-OrbStack-1\nhttps://box.example-tail.ts.net:443/\non the tailnet\n~/ClientBox/x and /mnt/mac/Users\n/home/me/repos\nthe host shop-name-7\n');
     assert.deepEqual(privateProblems(folder.dir, ['shop-name-7']), [
       'film/takes/x/host.txt holds a home folder other than /home/dev: /home/me',
-      'film/takes/x/host.txt holds the name of the virtual machine that recorded it: OrbStack',
-      'film/takes/x/host.txt holds a host name of a tailnet: box.example-tail.ts.net',
+      'film/takes/x/host.txt holds the word orbstack: OrbStack',
+      'film/takes/x/host.txt holds a host name under ts.net: box.example-tail.ts.net',
       'film/takes/x/host.txt holds the word tailnet: tailnet',
-      'film/takes/x/host.txt holds the name of the folder shared with the owner\'s computer: ClientBox',
-      'film/takes/x/host.txt holds a path of the owner\'s computer: /mnt/mac',
+      'film/takes/x/host.txt holds the word clientbox: ClientBox',
+      'film/takes/x/host.txt holds a path under /mnt/mac: /mnt/mac',
       'film/takes/x/host.txt holds a name listed in LAWCHECK_FILM_PRIVATE: shop-name-7',
       'film/takes/x/notes.txt holds a home folder other than /home/dev: /home/someone',
       'film/takes/x/notes.txt holds an Anthropic key: sk-ant-api03-abcdefgh',
