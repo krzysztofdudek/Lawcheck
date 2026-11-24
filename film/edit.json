@@ -310,6 +310,14 @@
               "text": "Lawcheck installs with one npm command.",
               "shows": [
                 "Lawcheck installs with one npm command."
+              ],
+              "ties": [
+                {
+                  "text": "npm install --global lawcheck@alpha",
+                  "from": {
+                    "repo": "docs/install.md"
+                  }
+                }
               ]
             },
             {
@@ -446,6 +454,20 @@
               "text": "Lawcheck init writes an empty law.",
               "shows": [
                 "Lawcheck init writes an empty law."
+              ],
+              "ties": [
+                {
+                  "text": "lawcheck: created .lawcheck/law.yaml and .lawcheck/.gitignore",
+                  "from": {
+                    "repo": "docs/quick-start.md"
+                  }
+                },
+                {
+                  "text": "Nothing is checked yet: the law has no types.",
+                  "from": {
+                    "repo": "docs/quick-start.md"
+                  }
+                }
               ]
             },
             {
@@ -602,6 +624,14 @@
               "text": "The command layer has no type.",
               "shows": [
                 "which has no type."
+              ],
+              "ties": [
+                {
+                  "text": "which has no type",
+                  "from": {
+                    "run": "qs-check"
+                  }
+                }
               ]
             }
           ],
@@ -791,6 +821,14 @@
               "text": "Forbid one layer to use another.",
               "shows": [
                 "Forbid one layer to use another"
+              ],
+              "ties": [
+                {
+                  "text": "# Forbid one layer to use another",
+                  "from": {
+                    "repo": "docs/forbid-a-use.md"
+                  }
+                }
               ]
             },
             {
@@ -915,6 +953,14 @@
               "text": "One line of the law forbids that.",
               "shows": [
                 "One line of the law forbids that."
+              ],
+              "ties": [
+                {
+                  "text": "may_use: [core]",
+                  "from": {
+                    "repo": "docs/forbid-a-use.md"
+                  }
+                }
               ]
             },
             {
@@ -1053,12 +1099,44 @@
               "text": "The same prompt runs with the law and the plugin.",
               "shows": [
                 "Same prompt, law and plugin"
+              ],
+              "ties": [
+                {
+                  "text": "Add a loyalty discount in src/core",
+                  "from": {
+                    "take": "a09",
+                    "file": "take.json"
+                  }
+                },
+                {
+                  "text": "Add a loyalty discount in src/core",
+                  "from": {
+                    "take": "fu01",
+                    "file": "take.json"
+                  }
+                }
               ]
             },
             {
               "text": "The agent keeps the helper in core.",
               "shows": [
                 "the agent keeps the helper in core."
+              ],
+              "ties": [
+                {
+                  "text": "+++ b/src/core/money.ts",
+                  "from": {
+                    "take": "fu01",
+                    "file": "change.diff"
+                  }
+                },
+                {
+                  "text": "+export { formatMoney } from \"../core/money.ts\";",
+                  "from": {
+                    "take": "fu01",
+                    "file": "change.diff"
+                  }
+                }
               ]
             },
             {
@@ -1158,6 +1236,14 @@
               "text": "Write a script rule.",
               "shows": [
                 "Write a script rule"
+              ],
+              "ties": [
+                {
+                  "text": "# Write a script rule",
+                  "from": {
+                    "repo": "docs/write-a-script-rule.md"
+                  }
+                }
               ]
             },
             {
@@ -1232,6 +1318,15 @@
               "text": "Claude Code gets a prompt for a script rule.",
               "shows": [
                 "Claude Code gets a prompt for a script rule."
+              ],
+              "ties": [
+                {
+                  "text": "Add a script rule no-fetch",
+                  "from": {
+                    "take": "sr01",
+                    "file": "take.json"
+                  }
+                }
               ]
             },
             {
@@ -1279,6 +1374,15 @@
               "text": "The agent writes the rule.",
               "shows": [
                 "The agent writes the rule."
+              ],
+              "ties": [
+                {
+                  "text": "+++ b/.lawcheck/rules/no-fetch.mjs",
+                  "from": {
+                    "take": "sr01",
+                    "file": "change.diff"
+                  }
+                }
               ]
             },
             {
@@ -1342,6 +1446,15 @@
               "text": "The law gets the rule and its reason.",
               "shows": [
                 "The law gets the rule and its reason"
+              ],
+              "ties": [
+                {
+                  "text": "why: Only the api layer talks to the network.",
+                  "from": {
+                    "take": "sr01",
+                    "file": "files/.lawcheck/law.yaml"
+                  }
+                }
               ]
             },
             {
@@ -1449,6 +1562,20 @@
               "text": "The comment on line one is not a finding.",
               "shows": [
                 "leaves the comment"
+              ],
+              "ties": [
+                {
+                  "text": "src/core/cart.ts:3  error[no-fetch]",
+                  "from": {
+                    "run": "sr-try"
+                  }
+                },
+                {
+                  "text": "1 finding in 1 of 2 files",
+                  "from": {
+                    "run": "sr-try"
+                  }
+                }
               ]
             }
           ],
@@ -1546,6 +1673,14 @@
               "text": "Write a reviewer rule.",
               "shows": [
                 "Write a reviewer rule"
+              ],
+              "ties": [
+                {
+                  "text": "# Write a reviewer rule",
+                  "from": {
+                    "repo": "docs/write-a-reviewer-rule.md"
+                  }
+                }
               ]
             },
             {
@@ -2018,6 +2153,15 @@
               "text": "The agent writes the workflow.",
               "shows": [
                 "The agent writes the workflow."
+              ],
+              "ties": [
+                {
+                  "text": "+++ b/.github/workflows/lawcheck.yml",
+                  "from": {
+                    "take": "ci01",
+                    "file": "change.diff"
+                  }
+                }
               ]
             },
             {
@@ -2086,6 +2230,22 @@
               "shows": [
                 "Network off, no key",
                 "with the network off and no key."
+              ],
+              "ties": [
+                {
+                  "text": "It needs no API key",
+                  "from": {
+                    "repo": "docs/ci.md"
+                  }
+                },
+                {
+                  "text": "off",
+                  "from": {
+                    "take": "ci01",
+                    "file": "take.json",
+                    "line": 16
+                  }
+                }
               ]
             },
             {

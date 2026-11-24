@@ -189,6 +189,22 @@ export function readingProblems(edit) {
   return problems;
 }
 
+// A sentence that cites only its own caption or subtitle traces to nothing but words of the edit, so each such sentence names the source that backs those words.
+function tieProblems(root, edit, where, quoted, ties) {
+  if (!Array.isArray(ties) || ties.length === 0) return [`${where}: ${quoted} cites only its caption or subtitle, and names no tie to a docs page, a recorded output or a command that backs it`];
+  const problems = [];
+  ties.forEach((tie, index) => {
+    const at = `${where}, tie ${index + 1}`;
+    const from = tie?.from;
+    const named = from !== null && typeof from === 'object' && [typeof from.repo === 'string', typeof from.run === 'string', typeof from.take === 'string' && typeof from.file === 'string'].filter(Boolean).length === 1;
+    if (typeof tie?.text !== 'string' || tie.text === '' || !named) problems.push(`${at}: a tie holds a text and a from that names a repo file, a run, or a take with a file`);
+    else if (from.repo === 'film/edit.json') problems.push(`${at}: film/edit.json holds the caption and the subtitle themselves, so it ties nothing`);
+    else if (from.repo !== undefined && !existsSync(join(root, from.repo))) problems.push(`${at}: ${from.repo} does not exist`);
+    else problems.push(...itemProblems(root, edit, at, { text: tie.text, from }));
+  });
+  return problems;
+}
+
 const SPOKEN_END = /[.!?…]["”’)]*$/;
 const SENTENCE_INSIDE = /[.!?…]["”’)]*\s+\S/;
 
@@ -211,6 +227,7 @@ export function narrationProblems(root = ROOT, edit = readEdit(root)) {
         continue;
       }
       const shown = screensOf([segment]).flatMap((screen) => screen.text);
+      const framed = segment.screens.flatMap((screen) => screen.blocks.flatMap(stringsOf));
       lines.forEach((line, index) => {
         sentences++;
         const where = `${segment.id}, narrated sentence ${index + 1}`;
@@ -232,6 +249,8 @@ export function narrationProblems(root = ROOT, edit = readEdit(root)) {
             if (!page.includes(cited)) problems.push(`${where}: ${quoted} cites ${JSON.stringify(cited)}, which is not in docs/${line.page}.md`);
           } else if (!shown.some((text) => text.includes(cited))) problems.push(`${where}: ${quoted} cites ${JSON.stringify(cited)}, which is not on its frame`);
         }
+        const onFrame = (cited) => framed.some((text) => text.includes(cited));
+        if (page === undefined && line.shows.every((cited) => shown.some((text) => text.includes(cited))) && !line.shows.some(onFrame)) problems.push(...tieProblems(root, edit, where, quoted, line.ties));
       });
     }
   }
@@ -247,6 +266,16 @@ const VERSIONED = [
   [/\b(?:sonnet|opus|haiku|fable)\b|\bclaude-[a-z]+-\d/gi, 'the name of a model'],
 ];
 
+const COUNT = '(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred)(?:-(?:one|two|three|four|five|six|seven|eight|nine))?';
+
+// Prose that is spoken has no digits, so a version or a model is said in words.
+const SPOKEN = [
+  [new RegExp(`\\b${COUNT}\\s+(?:point|dot)\\s+(?:${COUNT}|oh)\\b`, 'gi'), 'a number with a point, said in words'],
+  [new RegExp(`\\b(?:alpha|beta|rc|release candidate)\\s+${COUNT}\\b`, 'gi'), 'a pre-release said in words'],
+  [new RegExp(`\\b(?:version|v)\\s+${COUNT}\\b`, 'gi'), 'a version said in words'],
+  [new RegExp(`\\bclaude\\s+${COUNT}\\b`, 'gi'), 'a model named with its number in words'],
+];
+
 export function versionProblems(edit) {
   const problems = [];
   for (const timeline of timelinesOf(edit)) {
@@ -254,10 +283,13 @@ export function versionProblems(edit) {
       for (const text of [...screen.screen.blocks.flatMap(stringsOf), screen.segment.caption ?? '', screen.segment.subtitle ?? '']) {
         for (const [pattern, what] of VERSIONED) for (const match of text.matchAll(pattern)) problems.push(`${screen.id}: ${JSON.stringify(text)} shows ${what}: ${match[0]}`);
       }
+      for (const text of [screen.segment.caption ?? '', screen.segment.subtitle ?? '']) {
+        for (const [pattern, what] of SPOKEN) for (const match of text.matchAll(pattern)) problems.push(`${screen.id}: ${JSON.stringify(text)} shows ${what}: ${match[0]}`);
+      }
     }
     for (const segment of timeline.segments) {
       for (const line of segment.narration ?? []) {
-        for (const [pattern, what] of VERSIONED) for (const match of line.text.matchAll(pattern)) problems.push(`${segment.id}, narration: ${JSON.stringify(line.text)} says ${what}: ${match[0]}`);
+        for (const [pattern, what] of [...VERSIONED, ...SPOKEN]) for (const match of line.text.matchAll(pattern)) problems.push(`${segment.id}, narration: ${JSON.stringify(line.text)} says ${what}: ${match[0]}`);
       }
     }
   }
@@ -394,7 +426,7 @@ if (process.argv[1] !== undefined && fileURLToPath(import.meta.url) === process.
   report('staleness', stale, `${Object.keys(edit.runs).length} runs of this build print what the film shows`);
   report('reading time', reading, `the loop lasts ${lengthOf(edit.loop)} s, ${(edit.chapters ?? []).map((chapter) => `the chapter ${chapter.page} ${lengthOf(chapter.timeline)} s`).join(', ')}, and every screen stands long enough to be read`);
   report('narration', narration.problems, `all ${narration.sentences} narrated sentences end as spoken sentences, say their numbers in words and cite what their frame or page shows`);
-  report('versions', versions, 'no screen, caption, subtitle or narrated sentence shows a version or the name of a model');
+  report('versions', versions, 'no screen, caption, subtitle or narrated sentence shows or says a version or the name of a model, in digits or in words');
   report('private', secret, privateSummary(privateWords()));
   const problems = truth.problems.length + stale.length + reading.length + secret.length + versions.length + narration.problems.length;
   process.stdout.write(problems === 0 ? 'film/check.mjs: PASS\n' : `film/check.mjs: FAIL  ${problems} problems\n`);

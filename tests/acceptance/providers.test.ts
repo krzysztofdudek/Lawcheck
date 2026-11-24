@@ -5,7 +5,7 @@ import { LIMITS } from '../../dist/rules.js';
 import { killGroup, powershell } from '../../dist/programs.js';
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { anthropic, defaultAnswer, gitAlone, openai, startFake, withFake, writeFakeClaude } from './fake-reviewer.ts';
 import { alive, append, F, F_PATH, findingLines, lawcheckAt, pathWith, PROMPT_F, read, REVIEWER_CONFIG, REVIEWER_LAW, run, SECOND, startLawcheck, withCopy, withR, write } from './helpers.ts';
@@ -654,15 +654,20 @@ test('test 1010: on Windows the guard of a killed tool stops its own PowerShell 
     const folder = join(copy.dir, 'call folder');
     mkdirSync(folder);
     const idle = spawn(process.execPath, ['-e', IDLE], { stdio: 'ignore', windowsHide: true });
+    const guard = spawn(process.execPath, [guardFile], { cwd: dirname(guardFile), stdio: ['pipe', 'ignore', 'ignore'], detached: true });
+    let exited = false;
+    guard.on('exit', () => (exited = true));
     try {
-      const guard = spawn(process.execPath, [guardFile], { cwd: dirname(guardFile), stdio: ['pipe', 'ignore', 'ignore'], detached: true });
-      let exited = false;
-      guard.on('exit', () => (exited = true));
       guard.stdin!.end(`+g${idle.pid}\n+d${folder}\n`);
       assert.ok(await waitFor(() => exited, GUARD_ENDS_MS), 'the guard is still running');
       assert.ok(!existsSync(folder), 'the call\'s folder is still there');
       assert.ok(alive(idle.pid!), 'a process of the tool was ended from no list');
     } finally {
+      // A guard still running holds the copy, which then cannot be removed, and keeps this file from ending; the program it waits on holds the copy too.
+      if (!exited) {
+        killGroup(guard.pid!, 'SIGKILL');
+        await waitFor(() => exited, LEFTOVER_GRACE_MS);
+      }
       idle.kill('SIGKILL');
     }
   });
@@ -691,6 +696,172 @@ test('test 1011: on Windows the guard of a killed tool leaves alive a process th
           // Already ended.
         }
       }
+    }
+  });
+});
+
+test('test 1094: on Windows the guard of a killed tool that called no program reviewer takes no list of processes', async (t) => {
+  const skip = platformSkip('the whole test');
+  if (skip !== null) return t.skip(skip);
+  await withCopy(async (copy) => {
+    const guardFile = join(copy.dir, 'dist', 'guard.js');
+    const listing = "spawnSync(powershell(), ['-NoProfile', '-NonInteractive', '-Command', PROCESS_TABLE]";
+    const sound = readFileSync(guardFile, 'utf8');
+    assert.ok(sound.includes(listing), 'the guard has no list of its own to replace');
+    const listed = join(copy.dir, 'listed');
+    // The guard's own list only leaves a mark that it was taken.
+    writeFileSync(guardFile, sound.replace(listing, `spawnSync(process.execPath, ['-e', ${JSON.stringify(`require('node:fs').writeFileSync(${JSON.stringify(listed)}, '')`)}]`));
+    const runner = spawn(process.execPath, ['-e', IDLE], { stdio: 'ignore', windowsHide: true });
+    const guard = spawn(process.execPath, [guardFile], { cwd: dirname(guardFile), stdio: ['pipe', 'ignore', 'ignore'], detached: true });
+    let exited = false;
+    guard.on('exit', () => (exited = true));
+    try {
+      guard.stdin!.end(`+${runner.pid}\n`);
+      assert.ok(await waitFor(() => exited, GUARD_ENDS_MS), 'the guard is still running');
+      assert.ok(!existsSync(listed), 'the guard took a list of processes for a run that had only rule runners');
+      assert.ok(alive(runner.pid!), 'the guard ended a process by a rule runner\'s id');
+    } finally {
+      if (!exited) {
+        killGroup(guard.pid!, 'SIGKILL');
+        await waitFor(() => exited, LEFTOVER_GRACE_MS);
+      }
+      runner.kill('SIGKILL');
+    }
+  });
+});
+
+test('test 1055: on Windows the guard of a killed tool whose watcher gives no list and whose own list hangs removes the call\'s folders within WINDOWS_KILLED_GRACE_MS of the kill', async (t) => {
+  const skip = platformSkip('the whole test');
+  if (skip !== null) return t.skip(skip);
+  await withCopy(async (copy) => {
+    const guardFile = join(copy.dir, 'dist', 'guard.js');
+    const watching = "watcher = spawn(powershell(), ['-NoProfile', '-NonInteractive', '-Command', ";
+    const listing = "spawnSync(powershell(), ['-NoProfile', '-NonInteractive', '-Command', PROCESS_TABLE]";
+    const sound = readFileSync(guardFile, 'utf8');
+    assert.ok(sound.includes(watching) && sound.includes(listing), 'the guard has no watcher or no list of its own to replace');
+    // Neither the watcher nor the guard's own list ever answers, so the guard waits out both of its limits.
+    writeFileSync(guardFile, sound.replace(watching, `watcher = spawn(process.execPath, ['-e', '${IDLE}', `).replace(listing, `spawnSync(process.execPath, ['-e', '${IDLE}']`));
+    const folder = join(copy.dir, 'call folder');
+    mkdirSync(folder);
+    const idle = spawn(process.execPath, ['-e', IDLE], { stdio: 'ignore', windowsHide: true });
+    const guard = spawn(process.execPath, [guardFile], { cwd: dirname(guardFile), stdio: ['pipe', 'ignore', 'ignore'], detached: true });
+    let exited = false;
+    guard.on('exit', () => (exited = true));
+    try {
+      const killed = Date.now();
+      guard.stdin!.end(`+g${idle.pid}\n+d${folder}\n`);
+      assert.ok(await waitFor(() => !existsSync(folder), WINDOWS_KILLED_GRACE_MS), `the call's folder is still there ${WINDOWS_KILLED_GRACE_MS} ms after the kill`);
+      assert.ok(Date.now() - killed <= WINDOWS_KILLED_GRACE_MS, `the call's folder was removed ${Date.now() - killed} ms after the kill`);
+    } finally {
+      if (!exited) {
+        killGroup(guard.pid!, 'SIGKILL');
+        await waitFor(() => exited, LEFTOVER_GRACE_MS);
+      }
+      idle.kill('SIGKILL');
+    }
+  });
+});
+
+test('test 1056: on Windows a guard removes the folder that a killed guard made for its PowerShell, and keeps the folder of a guard that runs', async (t) => {
+  const skip = platformSkip('the whole test');
+  if (skip !== null) return t.skip(skip);
+  await withCopy(async (copy) => {
+    const guardFile = join(copy.dir, 'dist', 'guard.js');
+    const local = join(copy.dir, 'local');
+    const temp = join(local, 'Temp');
+    mkdirSync(temp, { recursive: true });
+    const env: NodeJS.ProcessEnv = Object.fromEntries(Object.entries(process.env).filter(([name]) => name.toUpperCase() !== 'LOCALAPPDATA'));
+    env.LOCALAPPDATA = local;
+    const made = () => readdirSync(temp).filter((name) => name.startsWith('lawcheck-guard-'));
+    const guards: { child: ReturnType<typeof spawn>; exited: boolean }[] = [];
+    const start = (listing = true) => {
+      const child = spawn(process.execPath, [guardFile], { cwd: dirname(guardFile), env, stdio: ['pipe', 'ignore', 'ignore'], detached: true });
+      const guard = { child, exited: false };
+      child.on('exit', () => (guard.exited = true));
+      guards.push(guard);
+      // The tool is about to call a program, so the guard starts its PowerShell.
+      if (listing) child.stdin!.write('+w\n');
+      return guard;
+    };
+    const of = (pid: number) => made().filter((name) => name.startsWith(`lawcheck-guard-${pid}-`));
+    const stranger = spawn(process.execPath, ['-e', IDLE], { stdio: 'ignore', windowsHide: true });
+    try {
+      const killed = start();
+      assert.ok(await waitFor(() => made().length === 1, GUARD_ENDS_MS), 'the guard made no folder for its PowerShell');
+      const [left] = made();
+      killed.child.kill('SIGKILL');
+      assert.ok(await waitFor(() => killed.exited, LEFTOVER_GRACE_MS), 'the killed guard is still running');
+      assert.ok(existsSync(join(temp, left!)), 'the killed guard removed its folder');
+      const later = start();
+      assert.ok(await waitFor(() => !made().includes(left!), GUARD_ENDS_MS), 'the folder of the killed guard is still there');
+      assert.equal(made().length, 1, `the folder of the guard that runs is not the one left: ${made().join(', ')}`);
+      later.child.stdin!.end();
+      assert.ok(await waitFor(() => later.exited, GUARD_ENDS_MS), 'the later guard is still running');
+      assert.deepEqual(made(), [], 'the later guard left its own folder');
+      // Windows gives an ended guard's id to a new process: to a process that is no guard, or to the next guard.
+      const held = join(temp, `lawcheck-guard-${stranger.pid}-left`);
+      mkdirSync(held);
+      const running = start();
+      assert.ok(await waitFor(() => of(running.child.pid!).length === 1, GUARD_ENDS_MS), 'the running guard made no folder for its PowerShell');
+      const next = start(false);
+      const earlier = join(temp, `lawcheck-guard-${next.child.pid}-left`);
+      mkdirSync(earlier);
+      next.child.stdin!.write('+w\n');
+      assert.ok(await waitFor(() => of(next.child.pid!).length === 1 && !existsSync(earlier), GUARD_ENDS_MS), `the folder an earlier holder of the guard's id left is still there: ${made().join(', ')}`);
+      assert.equal(of(running.child.pid!).length, 1, 'a guard removed the folder of a guard that runs');
+      assert.ok(existsSync(held), 'a guard removed a folder whose id a process that runs holds');
+      next.child.stdin!.end();
+      running.child.stdin!.end();
+      assert.ok(await waitFor(() => next.exited && running.exited, GUARD_ENDS_MS), 'a guard that was told the tool ended is still running');
+      rmSync(held, { recursive: true });
+      assert.deepEqual(made(), [], 'a guard left its own folder');
+    } finally {
+      for (const guard of guards) {
+        if (guard.exited) continue;
+        killGroup(guard.child.pid!, 'SIGKILL');
+        await waitFor(() => guard.exited, LEFTOVER_GRACE_MS);
+      }
+      stranger.kill('SIGKILL');
+    }
+  });
+});
+
+test('test 1057: outside Windows the guard of a killed tool ends a rule runner by its id when an earlier runner that had the same id was released after the later one started', async (t) => {
+  const skip = platformSkip('the whole test');
+  if (skip !== null) return t.skip(skip);
+  await withCopy(async (copy) => {
+    const guardFile = join(copy.dir, 'dist', 'guard.js');
+    const runner = spawn(process.execPath, ['-e', IDLE], { stdio: 'ignore' });
+    const guard = spawn(process.execPath, [guardFile], { cwd: dirname(guardFile), stdio: ['pipe', 'ignore', 'ignore'], detached: true });
+    try {
+      // The earlier runner ended, the later one got its id, and only then was the earlier one released.
+      guard.stdin!.end(`+${runner.pid}\n+${runner.pid}\n-${runner.pid}\n`);
+      assert.ok(await waitFor(() => !alive(runner.pid!), GUARD_ENDS_MS), 'the later runner is alive');
+    } finally {
+      guard.kill('SIGKILL');
+      runner.kill('SIGKILL');
+    }
+  });
+});
+
+test('test 1093: the guard of a killed tool ends no process by the id of a rule runner released as often as it was registered', async () => {
+  await withCopy(async (copy) => {
+    const guardFile = join(copy.dir, 'dist', 'guard.js');
+    const stranger = spawn(process.execPath, ['-e', IDLE], { stdio: 'ignore', windowsHide: true });
+    const guard = spawn(process.execPath, [guardFile], { cwd: dirname(guardFile), stdio: ['pipe', 'ignore', 'ignore'], detached: true });
+    let exited = false;
+    guard.on('exit', () => (exited = true));
+    try {
+      // Two runners got the stranger's id one after the other, and both were released before the tool was killed.
+      guard.stdin!.end(`+${stranger.pid}\n+${stranger.pid}\n-${stranger.pid}\n-${stranger.pid}\n`);
+      assert.ok(await waitFor(() => exited, GUARD_ENDS_MS), 'the guard is still running');
+      assert.ok(alive(stranger.pid!), 'the guard ended a process by the id of runners that were released');
+    } finally {
+      if (!exited) {
+        killGroup(guard.pid!, 'SIGKILL');
+        await waitFor(() => exited, LEFTOVER_GRACE_MS);
+      }
+      stranger.kill('SIGKILL');
     }
   });
 });
