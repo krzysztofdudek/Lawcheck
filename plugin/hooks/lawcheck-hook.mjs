@@ -38,7 +38,11 @@ function hash(lines) {
 }
 
 function context(event, text) {
-  return { hookSpecificOutput: { hookEventName: event, additionalContext: text } };
+  return host.context(event, text);
+}
+
+function sessionOf(input) {
+  return host.sessionId(input);
 }
 
 function promptOf(input) {
@@ -58,14 +62,16 @@ async function sessionStart(input, deadline) {
   if ('bad' in runner) return done(say.badRunner(cutPoints(runner.bad, 40)));
   const result = await runLawcheck(runner, ['prime'], root, deadline);
   if (!result.ran) return done(say.primeNotRun(runner.cmd, result.reason, runner.install));
-  const primed = done(fit(null, result.output));
+  const law = fit(null, result.output);
+  const primed = done(law);
   if (!result.output.some((line) => line.startsWith(say.PRIME_NO_REVIEWER))) return primed;
-  const file = stateFile(input.session_id);
+  const file = stateFile(sessionOf(input));
   const state = readState(file) ?? blank(root, null);
   if (state.reviewer_told === true) return primed;
   try {
     writeState(file, { ...state, reviewer_told: true });
   } catch {}
+  if (!host.tellsUser) return done(`${law}\n\n${say.tellAtStart(say.noReviewer(runner.cmd))}`);
   return { ...primed, systemMessage: say.noReviewer(runner.cmd) };
 }
 
@@ -73,7 +79,7 @@ async function prompt(input, deadline) {
   if (!switchOn('check_before_stop')) return null;
   const root = findRoot(startDir(input));
   if (root === null) return null;
-  const file = stateFile(input.session_id);
+  const file = stateFile(sessionOf(input));
   if (file === null) return null;
   const old = readState(file);
   const state = { ...blank(root, promptOf(input)), told: old?.told === true, reviewer_told: old?.reviewer_told === true };
@@ -130,7 +136,7 @@ async function edit(input, deadline) {
     if (result.late === true) return done(say.editLate(command, deadline.seconds));
     return null;
   }
-  const file = stateFile(input.session_id);
+  const file = stateFile(sessionOf(input));
   const saved = readState(file);
   const errors = saved !== null && saved.last_error !== null && typeof saved.last_error === 'object' && !Array.isArray(saved.last_error) ? saved.last_error : {};
   if (result.code !== 2) {
@@ -139,7 +145,7 @@ async function edit(input, deadline) {
       delete rest[root];
       writeState(file, { ...saved, last_error: rest });
     }
-    return result.code === 1 ? done(fit(say.editBreaks(rels, command), result.output)) : null;
+    return result.code === 1 ? done(fit(say.editBreaks(rels, command), result.output, host.editLimit)) : null;
   }
   if (file !== null) {
     const state = saved ?? blank(root, promptOf(input));
@@ -147,7 +153,7 @@ async function edit(input, deadline) {
     if (errors[root] === h) return null;
     writeState(file, { ...state, last_error: { ...errors, [root]: h } });
   }
-  return done(fit(say.editError(command), result.output));
+  return done(fit(say.editError(command), result.output, host.editLimit));
 }
 
 function joined(output, text) {
@@ -164,7 +170,7 @@ function notice(file, root, input, text) {
 }
 
 function lawDeleted(input) {
-  const file = stateFile(input.session_id);
+  const file = stateFile(sessionOf(input));
   const saved = readState(file);
   if (saved === null || saved.open !== true || typeof saved.root !== 'string') return null;
   let here;
@@ -189,7 +195,7 @@ async function stop(input, deadline) {
     return { systemMessage: say.waitsForTask(writing.id, writing.type) };
   }
 
-  const file = stateFile(input.session_id);
+  const file = stateFile(sessionOf(input));
   const saved = readState(file);
   const state = saved !== null && saved.root === root && saved.open === true ? saved : null;
   const matches = state !== null && samePrompt(state.prompt_id, promptOf(input));
@@ -239,7 +245,23 @@ async function stop(input, deadline) {
   return handBack;
 }
 
-const EVENTS = { 'session-start': sessionStart, prompt, edit, stop };
+// Copilot CLI ends a turn by itself only after 8 hand-backs in a row, so without the mark a message that comes back on every stop would send the agent back until then.
+function relay(input, text) {
+  const file = stateFile(sessionOf(input));
+  const state = readState(file);
+  if (state === null) return input.stop_hook_active === true ? null : host.handBack(say.tellAtEnd(text));
+  if (state.relayed === true) return null;
+  writeState(file, { ...state, relayed: true });
+  return host.handBack(say.tellAtEnd(text));
+}
+
+async function stopAndTell(input, deadline) {
+  const output = await stop(input, deadline);
+  if (host.tellsUser || output === null || typeof output.systemMessage !== 'string') return output;
+  return relay(input, output.systemMessage);
+}
+
+const EVENTS = { 'session-start': sessionStart, prompt, edit, stop: stopAndTell };
 
 async function main() {
   const [event, flag, name, ...rest] = process.argv.slice(2);

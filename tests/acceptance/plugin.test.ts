@@ -13,7 +13,7 @@ import { DEADLINES_VARIABLE, fakeWrites, platformSkip, startHook, startProgram, 
 import { fakeGit, installedLawcheck, removeFakeGit } from '../harness/fakes.ts';
 import { PAST_USER_SET_MS, TEST_HOOK_DEADLINES, USER_SET_DEADLINE_S } from '../numbers.ts';
 import { DEADLINES } from '../../plugin/hooks/start.mjs';
-import { Bench, CodexSession, deadlineScenario, edited, ended, EVENT_NAMES, GIT_DIR, hook, json, NODE_DIR, nothing, patchOf, PLUGIN, Session, startAndPromptScenario, SYSTEM_ENV, where, withBench } from './plugin-bench.ts';
+import { Bench, CodexSession, CopilotSession, deadlineScenario, edited, ended, EVENT_NAMES, GIT_DIR, hook, json, NODE_DIR, nothing, patchOf, PLUGIN, Session, startAndPromptScenario, SYSTEM_ENV, where, withBench } from './plugin-bench.ts';
 import type { HookRun } from './plugin-bench.ts';
 
 const BROKEN_LAW = LAW.replace('status: advisory', 'statuss: advisory');
@@ -68,11 +68,11 @@ test('test 152: the files of the plugin', () => {
   const marketplace = JSON.parse(readFileSync(join(ROOT, '.claude-plugin', 'marketplace.json'), 'utf8'));
   const expectedMarketplace = JSON.parse(specBlock('marketplace-manifest'));
   assert.deepEqual(marketplace, expectedMarketplace);
-  assert.equal(marketplace.plugins[0].description, plugin.description.replace('with Write, Edit or NotebookEdit', '(with Write, Edit or NotebookEdit in Claude Code, with apply_patch in Codex)'));
+  assert.equal(marketplace.plugins[0].description, plugin.description.replace('with Write, Edit or NotebookEdit', '(with Write, Edit or NotebookEdit in Claude Code, with apply_patch in Codex, with create or edit in Copilot CLI)').replace('Its skill, /lawcheck:setup, writes', 'Its skill writes').replace(/\.$/, '; you start it with /lawcheck:setup in Claude Code and in Copilot CLI, and with $lawcheck:setup in Codex.'));
   assert.deepEqual(JSON.parse(readFileSync(join(PLUGIN, 'hooks', 'hooks.json'), 'utf8')), JSON.parse(specBlock('hooks-manifest')));
   const files = walk(PLUGIN).sort();
   const modules = files.filter((file) => file.endsWith('.mjs'));
-  assert.deepEqual(files.filter((file) => !file.endsWith('.mjs')), ['.claude-plugin/plugin.json', '.codex-plugin/plugin.json', 'LICENSE', 'hooks/codex.json', 'hooks/hooks.json', 'skills/setup/SKILL.md', 'skills/setup/agents/openai.yaml', 'skills/setup/references/advice.md', 'skills/setup/references/target.md']);
+  assert.deepEqual(files.filter((file) => !file.endsWith('.mjs')), ['.claude-plugin/plugin.json', '.codex-plugin/plugin.json', '.plugin/plugin.json', 'LICENSE', 'hooks/codex.json', 'hooks/copilot.json', 'hooks/hooks.json', 'skills/setup/SKILL.md', 'skills/setup/agents/openai.yaml', 'skills/setup/references/advice.md', 'skills/setup/references/target.md']);
   assert.ok(modules.includes('hooks/lawcheck-hook.mjs'));
   for (const file of modules) {
     assert.equal(dirname(file), 'hooks', file);
@@ -1408,7 +1408,7 @@ test('test 924: a host the hook does not know fails the hook with one line', asy
   await withBench(async (bench, dir) => {
     const input = JSON.stringify({ session_id: 's1', cwd: dir, hook_event_name: 'Stop' });
     for (const host of ['cursor', 'Codex']) {
-      const run = await hook(bench, 'stop', input, {}, undefined, { host, stderr: `Lawcheck plugin: unknown arguments '--host ${host}' after the event; the hook takes --host claude-code or --host codex there\n` });
+      const run = await hook(bench, 'stop', input, {}, undefined, { host, stderr: `Lawcheck plugin: unknown arguments '--host ${host}' after the event; the hook takes --host claude-code, --host codex or --host copilot there\n` });
       assert.equal(run.stdout, '', host);
       assert.equal(run.code, 1, host);
     }
@@ -1427,4 +1427,172 @@ test('R-4: the check after an edit judges a file of a folder that holds a law of
     nothing(await session.edit('src/top.ts', 'Write'), 'judged by the law of the repository, which has no rule');
     assert.deepEqual(bench.log().at(-1), { args: ['check', './src/top.ts'], cwd: repo });
   });
+});
+
+const COPILOT_EVENTS: Record<string, string> = { sessionStart: 'session-start', userPromptSubmitted: 'prompt', postToolUse: 'edit', agentStop: 'stop' };
+const copilotContext = (text: string) => ({ additionalContext: text });
+const toldAtEnd = (text: string) => blocked(`Lawcheck: before you finish, tell the user this message, word for word, then finish:\n\n${text}`);
+
+test('test 960: the files of the plugin for Copilot CLI', () => {
+  const manifest = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
+  const claude = JSON.parse(readFileSync(join(PLUGIN, '.claude-plugin', 'plugin.json'), 'utf8'));
+  const copilot = JSON.parse(readFileSync(join(PLUGIN, '.plugin', 'plugin.json'), 'utf8'));
+  const { userConfig, description, ...shared } = claude;
+  assert.ok(userConfig !== undefined && description !== undefined);
+  assert.deepEqual(copilot, { ...shared, version: manifest.version, description: description.replace('with Write, Edit or NotebookEdit', 'with create or edit'), hooks: 'hooks/copilot.json' });
+  const claudeHooks = JSON.parse(readFileSync(join(PLUGIN, 'hooks', 'hooks.json'), 'utf8')).hooks;
+  const settings = JSON.parse(readFileSync(join(PLUGIN, 'hooks', 'copilot.json'), 'utf8'));
+  assert.deepEqual(Object.keys(settings), ['version', 'hooks']);
+  assert.equal(settings.version, 1);
+  assert.deepEqual(Object.keys(settings.hooks), Object.keys(COPILOT_EVENTS));
+  for (const [name, entries] of Object.entries(settings.hooks) as [string, any[]][]) {
+    const event = COPILOT_EVENTS[name]!;
+    const ours = claudeHooks[EVENT_NAMES[event]!][0].hooks[0];
+    const matcher = name === 'postToolUse' ? { matcher: '^(create|edit|str_replace_editor|apply_patch)$' } : {};
+    assert.deepEqual(entries, [{ type: 'command', ...matcher, exec: 'node', args: ['${PLUGIN_ROOT}/hooks/lawcheck-hook.mjs', event, '--host', 'copilot'], timeoutSec: ours.timeout }], name);
+  }
+});
+
+test('test 961: in Copilot, the session start gives the law as additionalContext, and the hand-back is decision block with three returns per turn', async () => {
+  await withBench(async (bench, dir) => {
+    const s = makeSample(dir);
+    const primed = (await lawcheck(s, ['prime'])).stdout.replace(/\n$/, '');
+    const session = new CopilotSession(bench, s);
+    for (const source of ['new', 'startup', 'resume']) json(await session.start(source), copilotContext(primed), source);
+    nothing(await session.prompt(), 'the prompt');
+    assert.equal(bench.state('k1').prompt_id, null);
+    write(s, D_PATH, D);
+    json(await session.stop(), blocked(`${stopHeader()}\n\n${D_OUTPUT}`), 'the first stop');
+    nothing(await session.prompt({}, 'the reason of the hand-back'), 'the prompt event the hand-back opens');
+    assert.equal(bench.state('k1').blocks, 1, 'the hand-back keeps the count of its turn');
+    const runs: HookRun[] = [];
+    for (let i = 0; i < 3; i++) {
+      append(s, D_PATH, 'console.log(1);\n');
+      runs.push(await session.stop({ stop_hook_active: true }));
+      await session.prompt({}, 'the reason of the hand-back');
+    }
+    for (const run of runs.slice(0, 2)) assert.equal(run.json?.decision, 'block', run.stdout);
+    json(runs[2]!, toldAtEnd(withD(released()).systemMessage), 'the fourth stop of the turn sends the agent back to tell the user');
+  });
+});
+
+test('test 962: in Copilot, the message of the end of a turn goes to the user through the agent, once per turn', async () => {
+  await withBench(async (bench, dir) => {
+    const s = makeSample(dir);
+    const session = new CopilotSession(bench, s);
+    nothing(await session.prompt());
+    write(s, D_PATH, D);
+    json(await session.stop(), blocked(`${stopHeader()}\n\n${D_OUTPUT}`), 'the first stop');
+    json(await session.stop({ stop_hook_active: true }), toldAtEnd(withD(released()).systemMessage), 'the same output: the agent goes back once to tell the user');
+    assert.equal(bench.state('k1').relayed, true);
+    assert.equal(bench.state('k1').open, false);
+    nothing(await session.stop({ stop_hook_active: true }), 'the stop after the message, with no prompt event between');
+    nothing(await session.prompt({}, 'the reason of the hand-back'), 'the prompt event the message opens');
+    nothing(await session.stop({ stop_hook_active: true }), 'the stop after the message: the agent changed no file');
+    nothing(await session.prompt(), 'the next prompt of the user');
+    append(s, D_PATH, 'console.log(1);\n');
+    assert.equal((await session.stop()).json?.decision, 'block', 'a new turn sends the agent back again');
+  });
+  await withBench(async (bench, dir) => {
+    const s = makeSample(dir);
+    bench.remove('lawcheck');
+    const session = new CopilotSession(bench, s, 'k2');
+    nothing(await session.prompt());
+    write(s, D_PATH, D);
+    json(await session.stop(), toldAtEnd(`Lawcheck: the check at the end of the turn did not run: lawcheck was not found.\n${D_WAIVER}`), 'a check that did not run');
+    const lost = new CopilotSession(bench, s, '../k3');
+    json(await lost.stop(), toldAtEnd('Lawcheck: the check at the end of the turn did not run: lawcheck was not found.'), 'a session id the plugin keeps no state for');
+    nothing(await lost.stop({ stop_hook_active: true }), 'the stop after it');
+  });
+});
+
+test('test 963: in Copilot, the session start asks the agent to tell the user once that no reviewer is set', async () => {
+  await withBench(async (bench, dir) => {
+    const r = makeR(dir);
+    rmSync(join(r, '.lawcheck/config.yaml'));
+    const primed = (await lawcheck(r, ['prime'])).stdout.replace(/\n$/, '');
+    const notice = "Lawcheck: this repository has a reviewer rule, and .lawcheck/config.yaml sets no reviewer, so a plain lawcheck check and CI fail on every file a reviewer rule judges. Setting reviewer.provider and reviewer.model there is the user's decision; lawcheck docs providers lists the choices.";
+    const session = new CopilotSession(bench, r);
+    json(await session.start(), copilotContext(`${primed}\n\nLawcheck: in your first answer, tell the user this message, word for word:\n\n${notice}`), 'the first start');
+    json(await session.start('resume'), copilotContext(primed), 'the same session again');
+  });
+});
+
+test('test 964: in Copilot, the edit hook checks the file that create, edit or str_replace_editor wrote, and the text fits in 10,000 bytes', async () => {
+  await withBench(async (bench, dir) => {
+    const s = makeSample(dir);
+    const session = new CopilotSession(bench, s);
+    write(s, D_PATH, D);
+    const found = copilotContext(`${editHeader(D_PATH)}\n\n${D_OUTPUT}`);
+    json(await session.write('create', D_PATH), found, 'create');
+    json(await session.write('edit', D_PATH), found, 'edit');
+    const by = (toolName: string, toolArgs: unknown) => session.run('edit', { toolName, toolArgs });
+    json(await by('edit', { path: D_PATH, old_str: 'a', new_str: 'b' }), found, 'a path relative to the session folder');
+    json(await by('edit', JSON.stringify({ path: join(s, D_PATH), old_str: 'a', new_str: 'b' })), found, 'arguments as a JSON text');
+    json(await by('str_replace_editor', { command: 'str_replace', path: join(s, D_PATH), old_str: 'a', new_str: 'b' }), found, 'str_replace_editor');
+    json(await by('apply_patch', patchOf([`*** Update File: ${D_PATH}`, '@@', '+// more'])), found, 'apply_patch');
+    assert.equal(bench.checks().length, 6);
+    bench.clearLog();
+    nothing(await by('str_replace_editor', { command: 'view', path: join(s, D_PATH) }), 'str_replace_editor view');
+    nothing(await by('view', { path: join(s, D_PATH) }), 'view');
+    nothing(await by('bash', { command: `echo > ${D_PATH}` }), 'bash');
+    nothing(await by('edit', { path: join(s, 'src/core/gone.ts') }), 'a file that is not on disk');
+    nothing(await by('edit', 7), 'arguments that are no object');
+    const lawless = newRepository(join(dir, 'lawless'));
+    write(lawless, 'src/a.ts', 'console.log(1);\n');
+    nothing(await new CopilotSession(bench, lawless).write('create', 'src/a.ts'), 'no law');
+    assert.deepEqual(bench.log(), []);
+    const body = Array.from({ length: 400 }, (_, i) => `${String(i + 1).padStart(3, '0')} ${'\u017c'.repeat(40)}`);
+    const printed = ['lawcheck: FAIL  400 errors in 1 named file', '', ...body, '', 'next: fix a.ts:1'];
+    writeFileSync(join(dir, 'long.txt'), printed.join('\n') + '\n');
+    bench.script('lawcheck', [`process.stdout.write(readFileSync(${JSON.stringify(join(dir, 'long.txt'))}));`, 'process.exitCode = 1;']);
+    const long = await session.write('edit', D_PATH);
+    const text: string = long.json.additionalContext;
+    const bytes = Buffer.byteLength(text, 'utf8');
+    assert.ok(bytes <= 10000, String(bytes));
+    const lines = text.split('\n');
+    const kept = lines.slice(3, -2);
+    assert.deepEqual(kept, printed.slice(1, 1 + kept.length));
+    assert.ok(bytes + 1 + Buffer.byteLength(printed[1 + kept.length]!, 'utf8') > 9999, 'the next line would not fit');
+    assert.equal(lines[lines.length - 1], 'next: fix a.ts:1');
+  });
+});
+
+test('test 965: in Copilot, the two switches are variables of the environment', async () => {
+  await withBench(async (bench, dir) => {
+    const s = makeSample(dir);
+    write(s, D_PATH, D);
+    const session = new CopilotSession(bench, s);
+    for (const value of ['false', '0', 'No', ' off ']) nothing(await session.write('edit', D_PATH, { LAWCHECK_PLUGIN_CHECK_AFTER_EDIT: value }), value);
+    assert.deepEqual(bench.log(), []);
+    const off = { LAWCHECK_PLUGIN_CHECK_BEFORE_STOP: 'off' };
+    nothing(await session.prompt(off));
+    nothing(await session.stop({}, off));
+    assert.deepEqual(bench.sessions(), []);
+    assert.deepEqual(bench.log(), []);
+  });
+});
+
+test('test 1013: in Copilot, the message for a folder with no law names /lawcheck:setup, the command Copilot has', async () => {
+  await withBench(async (bench, dir) => {
+    const repo = newRepository(dir);
+    json(await new CopilotSession(bench, repo).start(), copilotContext(NO_ROOT), 'a repository without a law');
+  });
+});
+
+const COPILOT_SKILL_FLAG = /^---\nname: setup\ndescription: .+\ndisable-model-invocation: true\n---\n/;
+
+test('test 1014: the setup skill of the plugin for Copilot CLI never starts on its own: it sits in the skills folder Copilot reads, with the flag Copilot honors', () => {
+  const copilot = JSON.parse(readFileSync(join(PLUGIN, '.plugin', 'plugin.json'), 'utf8'));
+  assert.equal('skills' in copilot, false, 'the manifest moves no skill out of skills/');
+  assert.match(SKILL_TEXT('SKILL.md'), COPILOT_SKILL_FLAG);
+  assert.match(copilot.description, /Its skill, \/lawcheck:setup,/);
+  assert.deepEqual(readdirSync(join(PLUGIN, 'skills')), ['setup']);
+});
+
+test('test 1014: control, a skill file without the flag, or with it outside the frontmatter, is caught', () => {
+  const text = SKILL_TEXT('SKILL.md');
+  assert.doesNotMatch(text.replace('disable-model-invocation: true\n', ''), COPILOT_SKILL_FLAG);
+  assert.doesNotMatch(text.replace('disable-model-invocation: true\n---\n', '---\ndisable-model-invocation: true\n'), COPILOT_SKILL_FLAG);
+  assert.doesNotMatch(text.replace('disable-model-invocation: true', 'disable-model-invocation: false'), COPILOT_SKILL_FLAG);
 });

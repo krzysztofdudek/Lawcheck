@@ -149,6 +149,8 @@ async function programCases(program: Program): Promise<void> {
         }, configOf(program.provider, extra)),
     ];
     const told = `ask the user to do what ${program.name} says, such as signing in or setting reviewer.model in .lawcheck/config.yaml to a model ${program.name} has`;
+    // A program that lists its MCP servers spends one start of itself of the timeout on the list before the call; under a machine load of about 11 that start took more than the second the others get, and the call ended in the list (issue 142). SHARED_TIMEOUT_S holds the list inside the timeout, so the call is what times out.
+    const pastSeconds = program.lists ? SHARED_TIMEOUT_S : 1;
     const pastTimeout = (): Promise<void> =>
       withR(async (r, dir) => {
         write(r, F_PATH, F);
@@ -157,13 +159,13 @@ async function programCases(program: Program): Promise<void> {
         const shown = Date.now();
         const result = await running.ended;
         const next = `check that ${program.name} answers when started by hand, or ask the user to raise reviewer.timeout in .lawcheck/config.yaml, ${AGAIN}`;
-        assert.equal(result.stdout, after(stopped(UNREACHABLE(`${program.name} gave no answer within 1 seconds`), 'reviewer-unreachable', next), 1));
+        assert.equal(result.stdout, after(stopped(UNREACHABLE(`${program.name} gave no answer within ${pastSeconds} seconds`), 'reviewer-unreachable', next), 1));
         assert.equal(result.code, 2);
         const seen = record(dir);
-        assert.ok(shown - seen.at < PROGRAM_TIMEOUT_RUN_MS, `${shown - seen.at} ms from the start of ${program.name} to the error line, where the kill grace alone is 5 seconds`);
+        assert.ok(shown - seen.at < PROGRAM_TIMEOUT_RUN_MS + (pastSeconds - 1) * 1000, `${shown - seen.at} ms from the start of ${program.name} to the error line, where the kill grace alone is 5 seconds after a timeout of ${pastSeconds}`);
         assert.ok(await waitUntil(() => !alive(seen.pid) && !alive(seen.child!), 'LEFTOVER_GRACE_MS'), 'the fake or its child is alive');
         assert.ok(await waitUntil(() => !existsSync(seen.cwd), 'LEFTOVER_GRACE_MS'), seen.cwd);
-      }, configOf(program.provider, '  timeout: 1\n'));
+      }, configOf(program.provider, `  timeout: ${pastSeconds}\n`));
     const heldOutput = (): Promise<void> =>
       withR(async (r, dir) => {
         if (platformSkip('a child that left the group') !== null) return;

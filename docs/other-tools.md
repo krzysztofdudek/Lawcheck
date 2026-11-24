@@ -122,7 +122,7 @@ The Lawcheck plugin adds the law to the session ([The Claude Code plugin](plugin
 
 A hook of your own can run `lawcheck check <file>` too. Lawcheck exits 1 when the file breaks the law. It exits 2 when the law or the setup has an error. Claude Code blocks on exit 2 of a hook, so your hook turns the exit 1 of Lawcheck into exit 2. For an exit 2 of Lawcheck, your hook decides for itself what to do. Each of the two checks of the plugin has its own setting: `check_after_edit` and `check_before_stop`. You can turn off the check that your hook replaces.
 
-Cursor, Copilot, Codex and Gemini CLI have hooks on similar events. In each of them, exit 2 from a hook blocks the action. Lawcheck ships a plugin for Claude Code alone. In the other agents, a hook you write runs `lawcheck check`. Without such a hook, the agent checks only when it follows its instructions file. A CI job catches what the agent skips.
+Cursor, Copilot, Codex and Gemini CLI have hooks on similar events. In each of them, exit 2 from a hook blocks the action. Lawcheck ships a plugin for Claude Code, Codex and Copilot CLI. In the other agents, a hook you write runs `lawcheck check`. Without such a hook, the agent checks only when it follows its instructions file. A CI job catches what the agent skips.
 
 Lawcheck sends the agent back after each edit and before the end of its turn in Claude Code alone. In another agent, a hook of that agent that runs the linter of each language fits that loop better. Lawcheck can add the law in a CI job.
 
