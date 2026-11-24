@@ -1,7 +1,7 @@
 import { fork, spawnSync } from 'node:child_process';
 import { availableParallelism } from 'node:os';
-import { fileURLToPath } from 'node:url';
-import { dirname, join, sep } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { dirname, isAbsolute, join, relative, sep } from 'node:path';
 import { realpathSync } from 'node:fs';
 import type { TypeDef } from './law.js';
 import { releaseProcess, watchProcess } from './programs.js';
@@ -11,7 +11,7 @@ import type { Readable } from 'node:stream';
 import { count, MESSAGE_CHARS, points, readError, RULES_RUN_MS, RUN_FINDINGS, RUN_MESSAGE_CHARS } from './limits.js';
 import type { Reads, Serve } from './readers.js';
 import type { ErrorItem } from './output.js';
-import { RULES_DIR } from './setup.js';
+import { RULES_DIR, RULES_LIB } from './setup.js';
 import type { Read, ReviewerRule } from './setup.js';
 import { trackedLinks, workTreeTop } from './files.js';
 import { decode, isBinary } from './types.js';
@@ -90,7 +90,15 @@ export interface RawFinding {
   message: string;
 }
 
-export type RuleOutcome = { findings: RawFinding[]; paths?: Map<string, string[]> } | { crash: string } | { broken: string } | { slow: string };
+export interface MissingImport {
+  specifier: string;
+  url: string | null;
+  parent: string | null;
+}
+
+export type Crash = { crash: string; missing?: MissingImport };
+
+export type RuleOutcome = { findings: RawFinding[]; paths?: Map<string, string[]> } | Crash | { broken: string } | { slow: string };
 
 export function rulesDeadline(): { signal: AbortSignal; clear(): void } {
   const controller = new AbortController();
@@ -144,6 +152,14 @@ interface Message {
   left?: boolean;
   what?: unknown;
   id?: unknown;
+  missing?: unknown;
+}
+
+function missingImport(value: unknown): MissingImport | undefined {
+  if (typeof value !== 'object' || value === null) return undefined;
+  const { specifier, url, parent } = value as Record<string, unknown>;
+  if (typeof specifier !== 'string' || (url !== null && typeof url !== 'string') || (parent !== null && typeof parent !== 'string')) return undefined;
+  return { specifier, url, parent };
 }
 
 function backgroundCrash(message: Message): RuleOutcome {
@@ -387,7 +403,10 @@ export function runRule(run: RuleRun): Promise<RuleOutcome> {
 
     const load = () =>
       ask({ kind: 'load', file: run.ruleFile, filesOf: run.filesOf, entry: run.entry ?? 'check', limits: { messageChars: MESSAGE_CHARS, findings: RUN_FINDINGS, chars: RUN_MESSAGE_CHARS } }, (message) => {
-        if (message.kind === 'load-failed') return end({ crash: `fails to load: ${message.message}` });
+        if (message.kind === 'load-failed') {
+          const missing = missingImport(message.missing);
+          return end({ crash: `fails to load: ${message.message}`, ...(missing === undefined ? {} : { missing }) });
+        }
         if (message.kind === 'uncloneable') return end({ crash: `fails to load: ${message.message}` });
         if (message.kind !== 'loaded') return end({ crash: `writes to the runner's channel ${stage}` });
         callNext(0);
@@ -422,9 +441,79 @@ export function runRule(run: RuleRun): Promise<RuleOutcome> {
 }
 
 // A rule whose load read a package in a node_modules outside the root needs that package installed below the root, not a change of its file.
-export function crashNext(crash: string): string | undefined {
+export function crashNext(crash: string, again = 'lawcheck check'): string | undefined {
   const found = /^fails to load: reads .*[\\/]node_modules[\\/]((?:@[^\\/\s]+[\\/])?[^\\/\s]+)/.exec(crash);
-  return found === null ? undefined : `install ${found[1]!.replace(/\\/g, '/')} in a node_modules below the root, then run lawcheck check`;
+  return found === null ? undefined : `install ${found[1]!.replace(/\\/g, '/')} in a node_modules below the root, then run ${again}`;
+}
+
+export interface CopyOfRules {
+  folder: string;
+  ref: string;
+  again: string;
+}
+
+// Under --law-from a rule loads from a copy of the commit's rules that the run then removes, so a crash names its files as the commit holds them, and its fix belongs to that commit: the work tree's rule may load well.
+export function crashError(file: string, outcome: Crash, copy?: CopyOfRules): ErrorItem {
+  if (copy === undefined) {
+    const next = crashNext(outcome.crash);
+    return { code: 'rule-crashed', file, line: null, message: outcome.crash, ...(next === undefined ? {} : { next }) };
+  }
+  const tops = copyTops(copy.folder);
+  const missing = outcome.missing;
+  const target = missing === undefined ? null : inCopy(tops, missing.url);
+  const module = missing === undefined ? null : inCopy(tops, missing.parent);
+  if (missing !== undefined && target !== null && module !== null && !target.startsWith(RULES_DIR)) {
+    return {
+      code: 'rule-crashed',
+      file,
+      line: null,
+      message: `fails to load: ${module} of '${copy.ref}' imports '${missing.specifier}', which leads to ${target}, outside ${RULES_DIR}, and under --law-from a rule of '${copy.ref}' loads only the files of ${RULES_DIR} of '${copy.ref}'`,
+      next: `on '${copy.ref}', copy what ${module} needs of ${target} into ${RULES_LIB} and import it from there by a relative path, then run ${copy.again}`,
+    };
+  }
+  const message = outsideCopy(outcome.crash, tops);
+  return { code: 'rule-crashed', file, line: null, message, next: crashNext(message, copy.again) ?? `fix ${file} on '${copy.ref}', then run ${copy.again}` };
+}
+
+// Node names a module by its real path, which differs from the copy's path when the root lies below a link, as the temporary folders of macOS do.
+function copyTops(folder: string): string[] {
+  try {
+    const real = realpathSync(folder);
+    return real === folder ? [folder] : [folder, real];
+  } catch {
+    return [folder];
+  }
+}
+
+function inCopy(tops: string[], url: string | null): string | null {
+  if (url === null) return null;
+  let path: string;
+  try {
+    path = fileURLToPath(url);
+  } catch {
+    return null;
+  }
+  for (const top of tops) {
+    const inside = relative(top, path);
+    if (inside !== '' && !inside.startsWith('..') && !isAbsolute(inside)) return inside.split(sep).join('/');
+  }
+  return null;
+}
+
+function outsideCopy(text: string, tops: string[]): string {
+  const escape = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  let out = text;
+  for (const top of tops) {
+    out = out.replace(new RegExp(`${escape(top + sep)}([^'"\\s]*)`, 'g'), (_, rest: string) => rest.split(sep).join('/'));
+    out = out.replace(new RegExp(`${escape(`${pathToFileURL(top).href}/`)}([^'"\\s]*)`, 'g'), (_, rest: string) => {
+      try {
+        return decodeURI(rest);
+      } catch {
+        return rest;
+      }
+    });
+  }
+  return out;
 }
 
 export async function runAll<T>(tasks: (() => Promise<T>)[], limit = availableParallelism()): Promise<T[]> {
@@ -455,6 +544,7 @@ export interface CompanionRun {
   filesOf: Map<string, string[]>;
   serve: Reads;
   signal?: AbortSignal;
+  copy?: CopyOfRules;
 }
 
 // The prompt already holds the judged file and the rule's context, so a path the module returns again adds nothing to it.
@@ -501,8 +591,7 @@ export async function resolveCompanions(run: CompanionRun, reviewers: Map<string
     const module = reviewer.companion!.path;
     if ('broken' in outcome) return { errors: [{ code: 'runner-failed', file: null, line: null, message: outcome.broken }] };
     if ('crash' in outcome) {
-      const next = crashNext(outcome.crash);
-      errors.push({ code: 'rule-crashed', file: module, line: null, message: outcome.crash, ...(next === undefined ? {} : { next }) });
+      errors.push(crashError(module, outcome, run.copy));
       continue;
     }
     if ('slow' in outcome) {

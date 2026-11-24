@@ -16,8 +16,8 @@ import { atBase, kindsAt, lawAt, lawChangeLine, lawChanges, packagesOfChange, wr
 import type { LawAt } from './lawchange.js';
 import { call, preflight } from './review.js';
 import type { Ask } from './review.js';
-import { contextOf, crashNext, FindingBudget, resolveCompanions, rulesDeadline, runAll, runnerErrors, runRule, slowMessage, tooManyFindings } from './rules.js';
-import type { CompanionRun, RawFinding, RuleOutcome } from './rules.js';
+import { contextOf, crashError, FindingBudget, resolveCompanions, rulesDeadline, runAll, runnerErrors, runRule, slowMessage, tooManyFindings } from './rules.js';
+import type { CompanionRun, CopyOfRules, RawFinding, RuleOutcome } from './rules.js';
 import { decode, filesOfTypes, isBinary, splitLines } from './types.js';
 import { bytesOf, fromCwd, loadConfig, loadLaw, loadRuleFiles, locate, requireGit, RULES_DIR, LAW, selectTargets, Stop, stopped, theChange, touchesLaw, typingErrors, workFiles } from './setup.js';
 import type { Kinds, Read, ReviewerRule } from './setup.js';
@@ -63,11 +63,16 @@ export async function check(options: CheckOptions, context: CheckContext): Promi
     const loads = kinds.scripts.size > 0 || [...kinds.reviewers.values()].some((reviewer) => reviewer.companion !== null);
     const copy = from !== null && loads ? writeRules(root, from) : null;
     try {
-      return await checkAt(root, options, context, { law, config, listed, files, read, kinds, typed, untyped, chosen, elsewhere, modules: copy?.folder ?? root });
+      const ofCopy: CopyOfRules | undefined = copy === null ? undefined : { folder: copy.folder, ref: from!.ref, again: againCommand(options) };
+      return await checkAt(root, options, context, { law, config, listed, files, read, kinds, typed, untyped, chosen, elsewhere, modules: copy?.folder ?? root, copy: ofCopy });
     } finally {
       copy?.release();
     }
   });
+}
+
+function againCommand(options: CheckOptions): string {
+  return `lawcheck check${options.full ? ' --full' : ''}${options.strict === true ? ' --strict' : ''}${options.review === true ? ' --review' : ''}${options.base === null ? '' : ` --base ${hide(options.base)}`} --law-from ${hide(options.lawFrom!)}`;
 }
 
 function rulesOf(root: string, from: LawAt): { listed: Set<string>; files: string[]; read: Read; kinds: Kinds } {
@@ -88,6 +93,7 @@ interface Front {
   untyped: string[];
   chosen: string[] | null;
   modules: string;
+  copy?: CopyOfRules;
 }
 
 async function checkAt(root: string, options: CheckOptions, context: CheckContext, front: Front): Promise<CheckOutcome> {
@@ -122,10 +128,7 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
   const raw: RawFinding[] = [];
   for (const { rule, outcome } of outcomes) {
     if ('broken' in outcome) return { errors: [{ code: 'runner-failed', file: null, line: null, message: outcome.broken }] };
-    if ('crash' in outcome) {
-      const next = crashNext(outcome.crash);
-      crashes.push({ code: 'rule-crashed', file: `${RULES_DIR}${rule}.mjs`, line: null, message: outcome.crash, ...(next === undefined ? {} : { next }) });
-    } else if ('slow' in outcome) crashes.push({ code: 'rules-too-slow', file: `${RULES_DIR}${rule}.mjs`, line: null, message: outcome.slow });
+    if ('crash' in outcome) crashes.push(crashError(`${RULES_DIR}${rule}.mjs`, outcome, front.copy)); else if ('slow' in outcome) crashes.push({ code: 'rules-too-slow', file: `${RULES_DIR}${rule}.mjs`, line: null, message: outcome.slow });
     else for (const finding of outcome.findings) raw.push(finding);
   }
   if (crashes.length > 0) {
@@ -136,7 +139,7 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
     deadline.clear();
     return { errors: tooManyFindings(budget) };
   }
-  const companionRun = { root, modules: front.modules, files, read, filesOf, serve: reads, signal: deadline.signal };
+  const companionRun = { root, modules: front.modules, files, read, filesOf, serve: reads, signal: deadline.signal, copy: front.copy };
   const resolved = await resolveCompanions(companionRun, kinds.reviewers, paired);
   deadline.clear();
   if ('errors' in resolved) return { errors: resolved.errors };

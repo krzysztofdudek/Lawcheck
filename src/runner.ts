@@ -1,5 +1,5 @@
 import { createHook } from 'node:async_hooks';
-import { syncBuiltinESMExports } from 'node:module';
+import { registerHooks, syncBuiltinESMExports } from 'node:module';
 import { pathToFileURL } from 'node:url';
 
 interface CallFile {
@@ -139,6 +139,27 @@ function countAsyncWaits(): void {
 }
 countAsyncWaits();
 
+// Node's error for a module it cannot find names the file it looked for, not the import that led there, so the runner keeps the import and the module that wrote it.
+const missing = new WeakMap<object, { specifier: string; parent: string | null }>();
+registerHooks({
+  resolve(specifier, context, next) {
+    try {
+      return next(specifier, context);
+    } catch (error) {
+      if (typeof error === 'object' && error !== null && (error as { code?: unknown }).code === 'ERR_MODULE_NOT_FOUND' && !missing.has(error)) missing.set(error, { specifier, parent: context.parentURL ?? null });
+      throw error;
+    }
+  },
+});
+
+function missingOf(error: unknown): { specifier: string; url: string | null; parent: string | null } | undefined {
+  if (typeof error !== 'object' || error === null) return undefined;
+  const kept = missing.get(error);
+  if (kept === undefined) return undefined;
+  const url = (error as { url?: unknown }).url;
+  return { ...kept, url: typeof url === 'string' ? url : null };
+}
+
 let check: Check | null = null;
 let companion: Companion | null = null;
 let repo: Repo | null = null;
@@ -274,7 +295,8 @@ async function load(file: string, filesOf: Map<string, string[]>, entry: Entry, 
   try {
     module = await import(pathToFileURL(file).href);
   } catch (error) {
-    send({ kind: 'load-failed', message: text(error) });
+    const lost = missingOf(error);
+    send({ kind: 'load-failed', message: text(error), ...(lost === undefined ? {} : { missing: lost }) });
     return;
   }
   await turn();
