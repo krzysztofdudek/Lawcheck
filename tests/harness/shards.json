@@ -697,7 +697,7 @@
         "tests/unit/law.test.ts > may_use: ids of types anywhere in the law, each once": 20,
         "tests/unit/law.test.ts > may_use values that are law-invalid, at the item or at the key": 21,
         "tests/unit/law.test.ts > the codes of the dependency slice are reserved": 16,
-        "tests/unit/prime.test.ts > the first part is 1,455 characters without reviewer rules or may_use, and 1,721 with both": 27,
+        "tests/unit/prime.test.ts > the first part is 1,455 characters without reviewer rules or may_use, and 1,751 with both": 27,
         "tests/unit/prime.test.ts > a text longer than 60 characters is cut to 59 and an ellipsis, counted in code points": 14,
         "tests/unit/prime.test.ts > step 1 holds everything": 19,
         "tests/unit/prime.test.ts > each step is taken when the one before it does not fit": 1672,
@@ -1259,17 +1259,11 @@
         "tests/guard/guard.test.ts",
         "tests/limits/memory.test.ts",
         "tests/limits/sizes.test.ts",
+        "tests/limits/writes.test.ts",
         "tests/properties/names.test.ts",
         "tests/unit/providers-anthropic.test.ts",
         "tests/unit/providers-codex.test.ts",
-        "tests/unit/providers-copilot-cli.test.ts",
-        "tests/environments/systems.test.ts",
-        "tests/security/links.test.ts",
-        "tests/environments/refusal.test.ts",
-        "tests/acceptance/changes.test.ts",
-        "tests/unit/check.test.ts",
-        "tests/unit/setup.test.ts",
-        "tests/unit/runner.test.ts"
+        "tests/unit/providers-program.test.ts"
       ],
       [
         "tests/environments/hook-shapes.test.ts",
@@ -1278,10 +1272,17 @@
         "tests/security/runner.test.ts",
         "tests/acceptance/hostile.test.ts",
         "tests/acceptance/plugin.test.ts",
+        "tests/unit/providers-copilot-cli.test.ts",
         "tests/unit/providers-gemini-cli.test.ts",
         "tests/unit/providers-index.test.ts",
         "tests/unit/providers-openai-compatible.test.ts",
-        "tests/unit/providers-program.test.ts"
+        "tests/environments/systems.test.ts",
+        "tests/security/links.test.ts",
+        "tests/environments/refusal.test.ts",
+        "tests/acceptance/changes.test.ts",
+        "tests/unit/check.test.ts",
+        "tests/unit/setup.test.ts",
+        "tests/unit/runner.test.ts"
       ]
     ]
   }

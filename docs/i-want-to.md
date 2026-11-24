@@ -75,7 +75,8 @@ Each line ends the sentence of the title. Its link opens the step where that pat
 - [send the agent back while the files it changed for my prompt break the law](claude-code.md#_5-see-the-check-before-the-agent-finishes)
 - [switch off one of the plugin's checks](claude-code.md#_6-switch-off-one-of-the-checks)
 - [use Lawcheck with Codex](codex-cli.md#_1-install-lawcheck)
-- [use Lawcheck with Copilot CLI, Gemini CLI or another agent](other-agents.md#_1-add-one-line-to-the-instructions-file)
+- [use Lawcheck with GitHub Copilot CLI](copilot-cli.md#_1-install-lawcheck)
+- [use Lawcheck with Gemini CLI or another agent](other-agents.md#_1-add-one-line-to-the-instructions-file)
 - [see what the agent leaves to my word](other-agents.md#_2-see-what-the-agent-reads)
 - [see how the agent reads a failed check](other-agents.md#_3-see-a-failed-check-as-the-agent-does)
 

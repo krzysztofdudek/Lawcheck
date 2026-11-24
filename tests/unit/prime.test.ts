@@ -35,7 +35,7 @@ function kinds(scripts: string[]) {
 const law = parseLaw(LAW).law!;
 const part = (text: string) => text.slice(text.indexOf('\nThe law here: ') + 1).split('\n');
 
-test('commands-slice §4: the first part is 1,455 characters without reviewer rules or may_use, and 1,721 with both', () => {
+test('commands-slice §4: the first part is 1,455 characters without reviewer rules or may_use, and 1,751 with both', () => {
   assert.equal(length(FIRST_PART), 1455);
   assert.equal(FIRST_PART.split('\n').length, 20);
   assert.equal(length(firstPart(true, true)), 1751);

@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { parse } from 'yaml';
 import { example } from '../harness/examples.ts';
 import { openai, withFake } from './fake-reviewer.ts';
-import { CLI, git, GIT_ENV, inTemp, lawcheck, newRepository, NO_CONSOLE, NO_TODO, write } from './helpers.ts';
+import { append, CLI, findingLines, git, GIT_ENV, inTemp, lawcheck, newRepository, NO_CONSOLE, NO_TODO, withR, write } from './helpers.ts';
 
 interface Step {
   uses?: string;
@@ -292,5 +292,20 @@ test('S7-16: the CI page says doctor is for a machine, and in a job that reads t
       const at = lines.indexOf(shown[0]!);
       assert.ok(at >= 0 && lines[at + 1] === shown[1], doctor.stdout);
     });
+  });
+});
+
+test('S7-14: the CI page says a missing review fails only a changed file, and a check of a change that leaves the bound files alone passes with none', async () => {
+  assert.ok(page.includes('A file that the change leaves alone is not asked about'));
+  await withR(async (r) => {
+    const untouched = await lawcheck(r, ['check', '--base', 'main']);
+    assert.equal(untouched.stdout, 'lawcheck: PASS  nothing changed against main\n');
+    write(r, 'README.md', '# changed\n');
+    const elsewhere = await lawcheck(r, ['check', '--base', 'main']);
+    assert.ok(!elsewhere.stdout.includes('not-reviewed'), elsewhere.stdout);
+    append(r, 'src/core/tax.ts', '// changed\n');
+    const bound = await lawcheck(r, ['check', '--base', 'main']);
+    assert.ok(findingLines(bound.stdout).includes('src/core/tax.ts  error[not-reviewed]  clear-errors has no verdict for this content'), bound.stdout);
+    assert.ok(!bound.stdout.includes('src/core/price.ts  error[not-reviewed]'), bound.stdout);
   });
 });

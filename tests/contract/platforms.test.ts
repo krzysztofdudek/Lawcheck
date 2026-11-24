@@ -254,3 +254,12 @@ test('question 95: per push, Linux runs the whole commit set, and Windows and ma
     assert.ok(files.length > 0 && files.length < commitFiles.length, `${system}: ${files.length} of ${commitFiles.length} files`);
   }
 });
+
+test('R-96: the test of a reader that stops early runs per push on macOS as well as on Windows, since macOS reports the pipe its reader closed as ENOTCONN', () => {
+  const entries = entriesOf('tests/limits/writes.test.ts', (name) => name.startsWith('test 240: S8-8, a reader that stops early'));
+  assert.equal(entries.length, 1);
+  assert.deepEqual([...entries[0]!.systems].sort(), ['darwin', 'win32']);
+  const catalogue = PLATFORM_BEHAVIOURS as Record<string, { systems: readonly string[]; behaviour: string }>;
+  assert.ok(entries[0]!.behaviours.some((b) => catalogue[b]!.systems.includes('darwin') && /ENOTCONN/.test(catalogue[b]!.behaviour)), 'a behaviour that names ENOTCONN and holds on macOS');
+  assert.ok(!wholeSkip(entries[0]!, 'darwin'));
+});

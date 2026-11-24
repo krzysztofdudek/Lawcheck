@@ -49,6 +49,11 @@ a:hover {
   color: var(--lc-brand-hover);
 }
 
+main a:not(.button) {
+  padding: 4px 5px;
+  margin: 0 -5px;
+}
+
 :focus-visible {
   outline: 2px solid var(--lc-brand);
   outline-offset: 2px;
@@ -188,7 +193,7 @@ section {
   display: inline-flex;
   align-items: center;
   min-height: 44px;
-  font-weight: 600;
+  margin-bottom: 8px;
 }
 
 .facts {
@@ -438,6 +443,9 @@ th.group {
 }
 
 .foot .home {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
   text-decoration: none;
 }
 

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import * as numbers from '../numbers.ts';
 import { ROOT } from '../harness/sets.ts';
@@ -10,10 +10,39 @@ const numeric = (value: unknown): boolean => typeof value === 'number' || (typeo
 const written = (text: string, name: string): boolean =>
   text.includes(`test(${JSON.stringify(name).replace(/^"|"$/g, "'")}`) || text.includes(`test('${name}'`) || text.includes(`test('${name.replace(/'/g, "\\'")}'`) || text.includes(`test(${JSON.stringify(name)}`);
 
+// The names of the files and folders of tests/ and docs/, with and without their extension: where a loop reads the names of its cases from the disk.
+const ON_DISK = new Set<string>();
+function visit(dir: string): void {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.name === 'node_modules') continue;
+    ON_DISK.add(entry.name);
+    ON_DISK.add(entry.name.replace(/\.[^.]+$/, ''));
+    if (entry.isDirectory()) visit(join(dir, entry.name));
+  }
+}
+visit(join(ROOT, 'tests'));
+visit(join(ROOT, 'docs'));
+
+// A text that stands for a ${...} of a test name is written in the file as a string, or names a file or folder that the loop reads from the disk.
+function standsFor(text: string, value: string): boolean {
+  const unquoted = (() => {
+    try {
+      const parsed: unknown = JSON.parse(value);
+      return typeof parsed === 'string' ? parsed : null;
+    } catch {
+      return null;
+    }
+  })();
+  const spellings = [value, value.replace(/\\/g, '\\\\'), ...(unquoted === null ? [] : [unquoted, unquoted.replace(/\\/g, '\\\\')])];
+  return spellings.some((spelling) => ["'", '"', '`'].some((quote) => text.includes(`${quote}${spelling}${quote}`))) || ON_DISK.has(value);
+}
+
 const templated = (text: string, name: string): boolean =>
   [...text.matchAll(/test\(`((?:[^`\\]|\\.)*)`/g)].some(([, body]) => {
     const parts = body!.split(/\$\{[^}]*\}/);
-    return parts.length > 1 && new RegExp(`^${parts.map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('.+')}$`, 's').test(name);
+    if (parts.length < 2) return false;
+    const found = new RegExp(`^${parts.map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('(.+?)')}$`, 's').exec(name);
+    return found !== null && found.slice(1).every((value) => standsFor(text, value));
   });
 
 test('question 95: every number of tests/numbers.ts says which way is stronger, and nothing else does', () => {
@@ -67,4 +96,21 @@ test('R-115: a test with no entry in SLOW_TESTS has 90 seconds on Windows and 20
   assert.equal(testBudget!(small!, 'win32'), 90_000, small);
   const large = Object.keys(numbers.SLOW_TESTS).find((key) => (numbers.slowBudget(key, 'win32') ?? 0) > 90_000)!;
   assert.equal(testBudget!(large, 'win32'), numbers.slowBudget(large, 'win32'), large);
+});
+
+test('R-117: a key of SLOW_TESTS whose name a template builds needs each text in place of a ${...} to be written in the file or to name a file the loop reads, so a case or a provider that is gone leaves the key refused', () => {
+  const guard = readFileSync(join(ROOT, 'tests/guard/guard.test.ts'), 'utf8');
+  const secrets = readFileSync(join(ROOT, 'tests/security/secrets.test.ts'), 'utf8');
+  assert.equal(templated(guard, 'question 95: the suite guard, case no-such-case'), false);
+  assert.equal(templated(secrets, 'S3-2: a key in the environment of claude-code appears in no output, file or temporary file, with claude in mode nobody (I-secret-1)'), false);
+  assert.equal(templated(secrets, 'S3-2: the key of nobody appears in no output, file, temporary file or request but its own header, for a reply that is pass (I-secret-1)'), false);
+  assert.equal(templated(guard, 'question 95: the suite guard, case refused-platform-test-narrowed'), true);
+  assert.equal(templated(secrets, 'S3-2: the key of anthropic appears in no output, file, temporary file or request but its own header, for a reply that is 429 then pass (I-secret-1)'), true);
+  assert.equal(templated(readFileSync(join(ROOT, 'tests/security/key-forms.test.ts'), 'utf8'), 'S3-2: claude-code with the key "k\\"e\\\\y-1x" in its environment: the answer is read, and the key is replaced in its message (I-secret-1)'), true);
+  const stale = Object.keys(numbers.SLOW_TESTS).filter((key) => {
+    const [file, name] = key.split(' > ');
+    const text = readFileSync(join(ROOT, file!), 'utf8');
+    return !written(text, name!) && !templated(text, name!);
+  });
+  assert.deepEqual(stale, []);
 });
