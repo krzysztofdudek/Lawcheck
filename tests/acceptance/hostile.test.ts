@@ -226,6 +226,18 @@ for (const [what, law] of CYCLES) {
   });
 }
 
+test('R-29: explain --type says that a type switches waivers off, in the text and in the JSON, and a type with waivers on prints no such line', async () => {
+  await withSample(async (s) => {
+    write(s, '.lawcheck/law.yaml', LAW.replace('  source:\n    about: Everything that ships.\n', '  source:\n    about: Everything that ships.\n    waivers: false\n'));
+    const off = await lawcheck(s, ['explain', '--type', 'library']);
+    assert.ok(off.stdout.split('\n').includes('  waivers:  not read; a waiver marker in its files is text'), off.stdout);
+    assert.equal(JSON.parse((await lawcheck(s, ['explain', '--type', 'library', '--json'])).stdout).waivers, false);
+    const on = await lawcheck(s, ['explain', '--type', 'script']);
+    assert.ok(!on.stdout.includes('  waivers:'), on.stdout);
+    assert.equal(JSON.parse((await lawcheck(s, ['explain', '--type', 'script', '--json'])).stdout).waivers, true);
+  });
+});
+
 test('S5-10: a number past 9007199254740991 is usage, and an empty path names no file', async () => {
   await withSample(async (s) => {
     const big = await lawcheck(s, ['try', 'no-console', 'src', '--times', '99999999999999999999']);
