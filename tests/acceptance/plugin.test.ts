@@ -1717,7 +1717,7 @@ test('test 974: in Cursor, the message of the end of a turn reaches the user thr
   });
 });
 
-test('test 975: in Cursor, the prompt event of each follow-up message keeps the three returns of the turn', async () => {
+test('test 975: in Cursor, a prompt event between the follow-up messages keeps the three returns of the turn', async () => {
   await withBench(async (bench, dir) => {
     const s = makeSample(dir);
     const session = new CursorSession(bench, s);
