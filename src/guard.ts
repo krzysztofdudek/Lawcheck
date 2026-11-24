@@ -4,7 +4,8 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { createdIn, killTree, powershell, PROCESS_TABLE, ticksAt, toEnd, variableOf, withTemp } from './programs.js';
 
-const pids = new Set<number>();
+// The count of runners holding each id: two runners may get the same id one after the other, and the earlier one may be released after the later one started.
+const runners = new Map<number, number>();
 const windows = process.platform === 'win32';
 // The longest the guard waits for a list of its own: a PowerShell that hangs would keep the guard, and the folders it is to remove, for ever.
 const LIST_MS = 10_000;
@@ -92,8 +93,9 @@ process.stdin.on('data', (chunk: string) => {
       calls.splice(calls.indexOf(started), 1);
       if (calls.length === 0) groups.delete(pid);
     } else if (group) continue;
-    else if (adding) pids.add(pid);
-    else pids.delete(pid);
+    else if (adding) runners.set(pid, (runners.get(pid) ?? 0) + 1);
+    else if ((runners.get(pid) ?? 0) > 1) runners.set(pid, runners.get(pid)! - 1);
+    else runners.delete(pid);
     if (group && adding) watch();
     if (group && !adding && groups.size === 0 && !held) stopWatching();
   }
@@ -147,7 +149,7 @@ function listSince(since: number, ms: number): Promise<string | null> {
 
 // Windows may have given a root's id to another process, so the guard never ends a tree or a runner by its id: it ends only what toEnd finds in a list begun after the kill, and takes that list itself when the watcher gives none in time.
 async function endWatched(): Promise<void> {
-  if (groups.size === 0 && pids.size === 0) return;
+  if (groups.size === 0 && runners.size === 0) return;
   const learned = Date.now();
   const before = table;
   const fresh = (await listSince(learned, LIST_MS)) ?? listNow();
@@ -157,7 +159,7 @@ async function endWatched(): Promise<void> {
     const known = calls.filter((started) => started !== undefined);
     return known.length === 0 ? [] : [[pid, ticksAt(Math.max(...known))]];
   }));
-  for (const pid of toEnd(before, fresh, [...groups.keys(), ...pids], createdIn(fresh).get(process.pid), since)) {
+  for (const pid of toEnd(before, fresh, [...groups.keys(), ...runners.keys()], createdIn(fresh).get(process.pid), since)) {
     try {
       process.kill(pid, 'SIGKILL');
     } catch {
@@ -175,7 +177,7 @@ function endAll(): void {
   if (ended) return;
   ended = true;
   if (!windows) {
-    for (const pid of pids) {
+    for (const pid of runners.keys()) {
       try {
         process.kill(pid, 'SIGKILL');
       } catch {
