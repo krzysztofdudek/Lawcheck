@@ -1194,6 +1194,16 @@ test('test 906: the setup page says that generated code typed code uses gets a t
   assert.ok(!/ignored. is only for generated or vendored code, and/.test(page), 'ignored is not offered for code that typed code uses');
 });
 
+test('test 1019: the setup page at step 8 tells the agent to run lawcheck explain <path> --tree on a real file before it writes a rule that reads the syntax tree, and to write the rule from the node types and fields it prints', () => {
+  const setup = sectionOf(readFileSync(join(ROOT, 'docs', 'agent-setup.md'), 'utf8'), '8. Write the rules');
+  assert.ok(setup.includes('Before you write a rule that reads the syntax tree, run `lawcheck explain <path> --tree` on a real file of that language, and write the rule from the node types and fields it prints, since they differ between languages.'));
+});
+
+test('test 1020: step 13 of the script-rule guide tells the agent to run lawcheck explain <path> --tree on a real file before it writes a rule that reads the syntax tree, and to write the rule from the node types and fields it prints', () => {
+  const guide = sectionOf(readFileSync(join(ROOT, 'docs', 'write-a-script-rule.md'), 'utf8'), '13. Read the syntax tree');
+  assert.ok(guide.includes('Before you write a rule that reads the syntax tree, run `lawcheck explain <path> --tree` on a real file of the rule\'s language, and write the rule from the node types and fields it prints, since they differ between languages.'));
+});
+
 test('test 906: control, a part that lacks a sentence is named, and a sentence in another part does not count', () => {
   const page = '# P\n\n## 8. Rules\n\nA written rule counts.\n\n## Never\n\nA written rule counts whether or not the code keeps it.\n';
   assert.deepEqual(missingSentences(page, [['221', '8. Rules', 'whether or not the code keeps it']]), ['issue 221: the part "8. Rules" lacks "whether or not the code keeps it"']);

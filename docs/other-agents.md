@@ -58,7 +58,7 @@ Only on the user's word
 
 You may, unasked
 - add a type for a new kind of file, or make a type finer
-- write a rule the user asked for, and try it first: lawcheck try <rule> <files>
+- write a rule the user asked for, and try it first: lawcheck try <rule> <files>; before a script rule reads the syntax tree, run lawcheck explain <path> --tree on a real file of that language
 
 The law here: 2 types, 1 rule
 library  src/core/**  The code every command shares.  rules: no-console
