@@ -1,6 +1,6 @@
 import { realpathSync, statSync } from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
-import { changedPaths, defaultBase, fetchCommand, GitFailed, gitNext, hasHead, fetchesEveryBranch, isShallow, listedPaths, listFiles, mergeBase, NoGit, remoteNames, resolveCommit, workTreeProblem } from './files.js';
+import { changedPaths, defaultBase, fetchCommand, GitFailed, gitNext, hasHead, fetchesEveryBranch, isShallow, lawLeftOut, listedPaths, listFiles, mergeBase, NoGit, remoteNames, resolveCommit, workTreeProblem } from './files.js';
 import { CONFIG, ConfigTooLarge, readConfig } from './config.js';
 import { canonicalName, onDisk } from './names.js';
 import type { ReviewerConfig } from './config.js';
@@ -97,6 +97,8 @@ export function belowPart(folders: string[]): string {
 export function notInitialized(cwd?: string): ErrorItem {
   const below = cwd === undefined ? [] : lawsBelow(cwd);
   const message = `no ${LAW} in this directory or any above it`;
+  const left = cwd === undefined ? null : lawLeftOut(cwd, LAW);
+  if (left !== null) return { code: 'not-initialized', file: null, line: null, message: `${message}, though git's index lists ${left.path}: the sparse checkout leaves it out of the work tree`, next: left.next, command: left.command };
   if (below.length === 0) return { code: 'not-initialized', file: null, line: null, message };
   return { code: 'not-initialized', file: null, line: null, message: message + belowPart(below), next: `cd ${below[0]}, where a law is, then run lawcheck check` };
 }

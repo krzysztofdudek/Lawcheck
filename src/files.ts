@@ -133,7 +133,34 @@ export function workTreeProblem(root: string): string | null {
   const result = git(root, args);
   const word = loose.decode(result.stdout).trim();
   if (result.status === 0 && word === 'true') return null;
+  if (result.status === 0 && word === 'false') return 'git does not see a work tree here: this is a bare repository or the inside of a .git folder, which has no files';
   return `git does not see a work tree here: ${firstPrinted(result)}`;
+}
+
+export interface LeftOut {
+  path: string;
+  next: string;
+  command: string;
+}
+
+// A law that the index lists and a sparse checkout left out of the work tree, found from the folder upward to the top of the repository.
+export function lawLeftOut(cwd: string, law: string): LeftOut | null {
+  try {
+    for (let at = resolve(cwd); ; at = dirname(at)) {
+      const listed = git(at, ['ls-files', '-z', '-t', '--full-name', '--', law]);
+      const end = listed.stdout.indexOf(0);
+      if (listed.status === 0 && end > 2) {
+        const entry = nameOf(listed.stdout.subarray(0, end));
+        if (!entry.startsWith('S ')) return null;
+        const path = entry.slice(2);
+        const command = `git sparse-checkout add ${quoted(path.slice(0, path.lastIndexOf('/')))}`;
+        return { path, command, next: `let the sparse checkout take the folder of the law: ${command}, then run lawcheck check` };
+      }
+      if (existsSync(join(at, '.git')) || dirname(at) === at) return null;
+    }
+  } catch {
+    return null;
+  }
 }
 
 function quoted(path: string): string {
