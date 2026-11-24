@@ -103,7 +103,9 @@ The pages Settings, Supported environments and Install now say what pnpm 11 and 
 
 A rule file that is a symbolic link now gets its own `rule-missing-file` message, which names the link and says that Lawcheck reads no rule through one. In alpha.4 the message said that the rule had neither file, though the link stood there, and `.lawcheck/law.yaml` and `.lawcheck/config.yaml` as links are still read.
 
-On Windows, a review no longer stops with `EPERM` on `.lawcheck/.local/verdicts.lock` as another run lets it go, and `lawcheck explain` no longer refuses with `usage` a name of up to 255 UTF-16 units but over 255 bytes: the limit there is 32,767 units, not 4,095 bytes.
+On Windows, a review no longer stops with `EPERM` on `.lawcheck/.local/verdicts.lock` as another run frees it.
+
+On Windows, `lawcheck explain` no longer refuses with `usage` a name of up to 255 UTF-16 units but over 255 bytes. A path may hold 32,767 units, not 4,095 bytes.
 
 ## [0.1.0-alpha.4] - 2026-11-23
 
