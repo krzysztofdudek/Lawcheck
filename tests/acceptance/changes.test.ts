@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import { fakeWrites, platformSkip } from '../harness/tool.ts';
-import { chmodSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, readFileSync, utimesSync, writeFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -192,6 +192,57 @@ test('check-slice §4: a file staged and then put back is not in the change', as
   });
 });
 
+// git reads a file whose time is not older than the index by its content; the second the index was written is set here, as a commit or git add a moment before the edit would leave it.
+test('test 13: an edit that keeps the size, made in the second git last wrote the index, is in the change', async () => {
+  await withSample(async (s) => {
+    const second = Math.floor(Date.now() / 1000) - 60;
+    const file = join(s, 'src/core/price.ts');
+    git(s, 'config', 'core.trustctime', 'false');
+    utimesSync(file, second, second);
+    git(s, 'update-index', '--refresh');
+    const before = read(s, 'src/core/price.ts');
+    const after = before.replace("'pricing'", "'Pricing'");
+    assert.equal(after.length, before.length);
+    write(s, 'src/core/price.ts', after);
+    utimesSync(file, second, second);
+    utimesSync(join(s, '.git', 'index'), second, second);
+    const run = await check(s);
+    assert.equal(run.stdout.split('\n')[0], 'lawcheck: FAIL  1 error in 1 changed file (against main)');
+    assert.equal(run.code, 1);
+    assert.equal(git(s, 'diff', '--name-only', 'main'), 'src/core/price.ts\n');
+  });
+});
+
+// A clean filter stores other bytes than the file holds, as Git LFS does; Lawcheck runs no filter, so such a file not older than the index, as every file of a fresh checkout is, would read as changed.
+test('test 13: a file under a clean filter, in the second git last wrote the index, is in the change only when its time or size differs', async () => {
+  await withSample(async (s) => {
+    const second = Math.floor(Date.now() / 1000) - 60;
+    const file = join(s, 'src/core/tax.ts');
+    git(s, 'config', 'filter.up.clean', 'tr a-z A-Z');
+    git(s, 'config', 'filter.up.smudge', 'tr A-Z a-z');
+    git(s, 'config', 'core.trustctime', 'false');
+    mkdirSync(join(s, '.git', 'info'), { recursive: true });
+    writeFileSync(join(s, '.git', 'info', 'attributes'), 'src/core/tax.ts filter=up\n');
+    git(s, 'rm', '-q', '--cached', 'src/core/tax.ts');
+    git(s, 'add', 'src/core/tax.ts');
+    git(s, 'commit', '-q', '-m', 'filtered');
+    utimesSync(file, second, second);
+    git(s, 'update-index', '--refresh');
+    utimesSync(join(s, '.git', 'index'), second, second);
+    assert.equal(git(s, 'diff', '--name-only', 'HEAD'), '');
+    assert.equal((await check(s, '--base', 'HEAD')).stdout, 'lawcheck: PASS  nothing changed against HEAD\n');
+    const ahead = Math.floor(Date.now() / 1000) + 30;
+    utimesSync(file, ahead, ahead);
+    git(s, 'update-index', '--refresh');
+    utimesSync(join(s, '.git', 'index'), ahead, ahead);
+    assert.equal(git(s, 'diff', '--name-only', 'HEAD'), '');
+    assert.equal((await check(s, '--base', 'HEAD')).stdout, 'lawcheck: PASS  nothing changed against HEAD\n', 'a check in the second a checkout ended');
+    write(s, 'src/core/tax.ts', `${read(s, 'src/core/tax.ts')}console.log(rate);\n`);
+    const run = await check(s, '--base', 'HEAD');
+    assert.equal(run.stdout.split('\n')[0], 'lawcheck: FAIL  1 error, 1 warning in 1 changed file (against HEAD)');
+  });
+});
+
 test('check-slice §4: every git command runs with GIT_OPTIONAL_LOCKS=0, in the order of the table', async (t) => {
   const skip = platformSkip('the whole test');
   if (skip !== null) return t.skip(skip);
@@ -224,7 +275,7 @@ test('check-slice §4: every git command runs with GIT_OPTIONAL_LOCKS=0, in the 
       'ls-files -z --stage',
       'rev-parse --verify --quiet --end-of-options main^{commit}',
       'merge-base HEAD <sha>',
-      '--literal-pathspecs ls-tree -z <sha> -- src/core/discount.ts',
+      'cat-file --batch',
     ]);
   });
 });
