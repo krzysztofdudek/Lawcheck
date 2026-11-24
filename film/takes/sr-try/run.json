@@ -1,0 +1,11 @@
+{
+  "id": "sr-try",
+  "chapter": "write-a-script-rule",
+  "take": "sr01",
+  "args": [
+    "try",
+    "no-fetch"
+  ],
+  "exit": 1,
+  "lawcheck": "0.1.0-alpha.4"
+}

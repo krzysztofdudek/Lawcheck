@@ -1,0 +1,10 @@
+{
+  "id": "a09-check",
+  "take": "a09",
+  "law": "film/fixture/law/law.yaml",
+  "args": [
+    "check"
+  ],
+  "exit": 1,
+  "lawcheck": "0.1.0-alpha.4"
+}

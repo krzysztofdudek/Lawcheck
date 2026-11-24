@@ -1,0 +1,18 @@
+{
+  "page": "quick-start",
+  "lawcheck": "registry",
+  "plugin": false,
+  "empty": true,
+  "commands": [
+    "npm install --global lawcheck@alpha",
+    "git init shop",
+    "cd shop",
+    "mkdir -p src/cli src/core",
+    "cat > src/cli/print.ts << 'EOF'\nexport function print(text: string): void {\n  console.log(text);\n}\nEOF",
+    "lawcheck init",
+    "cat > .lawcheck/law.yaml << 'EOF'\nlawcheck: 0.1.0\n\ntypes:\n  core:\n    about: Prices and orders, with no input or output.\n    paths: [\"src/core/**\"]\n    may_use: [core]\nEOF",
+    "cat > src/core/receipt.ts << 'EOF'\nimport { print } from \"../cli/print.js\";\n\nexport function receipt(sum: number): void {\n  print(`total: ${sum}`);\n}\nEOF",
+    "lawcheck check",
+    "lawcheck docs quick-start"
+  ]
+}

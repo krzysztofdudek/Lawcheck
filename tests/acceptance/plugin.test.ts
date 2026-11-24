@@ -14,7 +14,7 @@ import { fakeGit, installedLawcheck, removeFakeGit } from '../harness/fakes.ts';
 import { PAST_USER_SET_MS, TEST_HOOK_DEADLINES, USER_SET_DEADLINE_S } from '../numbers.ts';
 import { LIMIT } from '../../plugin/hooks/fit.mjs';
 import { DEADLINES, LINE_LIMIT } from '../../plugin/hooks/start.mjs';
-import { Bench, CodexSession, CopilotSession, deadlineScenario, edited, ended, EVENT_NAMES, GIT_DIR, hook, json, NODE_DIR, nothing, patchOf, PLUGIN, Session, startAndPromptScenario, SYSTEM_ENV, where, withBench } from './plugin-bench.ts';
+import { Bench, CodexSession, CopilotSession, CursorSession, deadlineScenario, edited, ended, EVENT_NAMES, GIT_DIR, hook, json, NODE_DIR, nothing, patchOf, PLUGIN, Session, startAndPromptScenario, SYSTEM_ENV, where, withBench } from './plugin-bench.ts';
 import type { HookRun } from './plugin-bench.ts';
 
 const BROKEN_LAW = LAW.replace('status: advisory', 'statuss: advisory');
@@ -1194,6 +1194,16 @@ test('test 906: the setup page says that generated code typed code uses gets a t
   assert.ok(!/ignored. is only for generated or vendored code, and/.test(page), 'ignored is not offered for code that typed code uses');
 });
 
+test('test 1019: the setup page at step 8 tells the agent to run lawcheck explain <path> --tree on a real file before it writes a rule that reads the syntax tree, and to write the rule from the node types and fields it prints', () => {
+  const setup = sectionOf(readFileSync(join(ROOT, 'docs', 'agent-setup.md'), 'utf8'), '8. Write the rules');
+  assert.ok(setup.includes('Before you write a rule that reads the syntax tree, run `lawcheck explain <path> --tree` on a real file of that language, and write the rule from the node types and fields it prints, since they differ between languages.'));
+});
+
+test('test 1020: step 13 of the script-rule guide tells the agent to run lawcheck explain <path> --tree on a real file before it writes a rule that reads the syntax tree, and to write the rule from the node types and fields it prints', () => {
+  const guide = sectionOf(readFileSync(join(ROOT, 'docs', 'write-a-script-rule.md'), 'utf8'), '13. Read the syntax tree');
+  assert.ok(guide.includes('Before you write a rule that reads the syntax tree, run `lawcheck explain <path> --tree` on a real file of the rule\'s language, and write the rule from the node types and fields it prints, since they differ between languages.'));
+});
+
 test('test 906: control, a part that lacks a sentence is named, and a sentence in another part does not count', () => {
   const page = '# P\n\n## 8. Rules\n\nA written rule counts.\n\n## Never\n\nA written rule counts whether or not the code keeps it.\n';
   assert.deepEqual(missingSentences(page, [['221', '8. Rules', 'whether or not the code keeps it']]), ['issue 221: the part "8. Rules" lacks "whether or not the code keeps it"']);
@@ -1617,4 +1627,131 @@ test('test 1014: control, a skill file without the flag, or with it outside the 
   assert.doesNotMatch(text.replace('disable-model-invocation: true\n', ''), COPILOT_SKILL_FLAG);
   assert.doesNotMatch(text.replace('disable-model-invocation: true\n---\n', '---\ndisable-model-invocation: true\n'), COPILOT_SKILL_FLAG);
   assert.doesNotMatch(text.replace('disable-model-invocation: true', 'disable-model-invocation: false'), COPILOT_SKILL_FLAG);
+});
+
+const relayed = (text: string) => ({ decision: 'block', reason: `Lawcheck: before you finish, tell the user this message, word for word, then finish:\n\n${text}` });
+
+test('test 970: the hooks of the Claude Code plugin hold only what Cursor maps, and Cursor names the edit tool Write', () => {
+  const hooks = JSON.parse(readFileSync(join(PLUGIN, 'hooks', 'hooks.json'), 'utf8')).hooks;
+  assert.deepEqual(Object.keys(hooks), ['SessionStart', 'UserPromptSubmit', 'PostToolUse', 'Stop']);
+  const matcher = new RegExp(hooks.PostToolUse[0].matcher);
+  assert.ok(matcher.test('Write'), 'Cursor gives a file edit the tool name Write');
+  for (const [name, groups] of Object.entries(hooks) as [string, any[]][]) {
+    for (const group of groups) for (const entry of group.hooks) assert.deepEqual([name, entry.type, entry.command, entry.args.length > 0 && entry.args[0].startsWith('${CLAUDE_PLUGIN_ROOT}/hooks/')], [name, 'command', 'node', true]);
+  }
+});
+
+test('test 971: in Cursor, the session start and the prompt, run from the plugin\'s folder, find the law in the workspace the input names', async () => {
+  await withBench(async (bench, dir) => {
+    const s = makeSample(dir);
+    const primed = (await lawcheck(s, ['prime'])).stdout.replace(/\n$/, '');
+    const session = new CursorSession(bench, s);
+    json(await session.start(), started(primed), 'the session start');
+    nothing(await session.prompt(), 'the prompt');
+    assert.equal(bench.state('u1').open, true);
+    const lawless = newRepository(join(dir, 'lawless'));
+    json(await new CursorSession(bench, lawless, 'u2').start(), started(NO_ROOT), 'a workspace with no law');
+  });
+});
+
+test('test 972: in Cursor, the edit hook checks a file the Write tool wrote, and leaves other tools alone', async () => {
+  await withBench(async (bench, dir) => {
+    const s = makeSample(dir);
+    const session = new CursorSession(bench, s);
+    write(s, D_PATH, D);
+    json(await session.edit(D_PATH), edited(`${editHeader(D_PATH)}\n\n${D_OUTPUT}`), 'a file written');
+    assert.deepEqual(bench.checks(), [['check', `./${D_PATH}`]]);
+    bench.clearLog();
+    nothing(await session.run('edit', { tool_name: 'Shell', tool_input: { command: 'cat > src/core/discount.ts', cwd: s } }), 'a shell command');
+    nothing(await session.edit('src/core/gone.ts'), 'a file that is not on disk');
+    assert.deepEqual(bench.log(), []);
+  });
+});
+
+test('test 973: in Cursor, the stop hook sends the agent back by decision block, three returns per turn, and a stop that is not completed does nothing', async () => {
+  await withBench(async (bench, dir) => {
+    const s = makeSample(dir);
+    const session = new CursorSession(bench, s);
+    nothing(await session.prompt(), 'the prompt');
+    write(s, D_PATH, D);
+    nothing(await session.stop({ status: 'aborted' }), 'the user stopped the agent');
+    nothing(await session.stop({ status: 'error' }), 'the agent ended with an error');
+    assert.deepEqual(bench.log(), []);
+    json(await session.stop(), blocked(`${stopHeader()}\n\n${D_OUTPUT}`), 'the first stop');
+    const runs: HookRun[] = [];
+    for (let i = 1; i < 5; i++) {
+      append(s, D_PATH, 'console.log(1);\n');
+      runs.push(await session.stop({ loop_count: i }));
+    }
+    for (const run of runs.slice(0, 2)) assert.equal(run.json?.decision, 'block', run.stdout);
+    assert.equal(bench.state('u1').blocks, 3);
+    json(runs[2]!, relayed(withD(released()).systemMessage), 'the fourth stop of the turn tells the user that the check still fails');
+    nothing(runs[3]!, 'a stop after that tells nothing more');
+  });
+});
+
+test('test 974: in Cursor, the message of the end of a turn reaches the user through the agent once, and with no state a follow-up is not sent back again', async () => {
+  const legacy = "console.log('x'); // lawcheck-waive no-console -- a legacy call\n";
+  await withBench(async (bench, dir) => {
+    const s = makeSample(dir);
+    const session = new CursorSession(bench, s);
+    await session.prompt();
+    write(s, 'src/core/shipping.ts', legacy);
+    json(await session.stop(), relayed('Lawcheck: in this turn the agent added 1 waiver (no-console at src/core/shipping.ts:1). Read them before you accept the turn.'), 'the turn that adds a waiver');
+    nothing(await session.stop({ loop_count: 1 }), 'the stop after the follow-up');
+  });
+  await withBench(async (bench, dir) => {
+    const s = makeSample(dir);
+    const session = new CursorSession(bench, s);
+    write(s, D_PATH, D);
+    json(await session.stop(), blocked(`${stopHeader()}\n\n${D_OUTPUT}`), 'a turn the prompt hook never saw');
+    nothing(await session.stop({ loop_count: 1 }), 'the follow-up of that turn');
+  });
+  await withBench(async (bench, dir) => {
+    const r = makeR(dir);
+    rmSync(join(r, '.lawcheck/config.yaml'));
+    const primed = (await lawcheck(r, ['prime'])).stdout.replace(/\n$/, '');
+    const said = "Lawcheck: this repository has a reviewer rule, and .lawcheck/config.yaml sets no reviewer, so a plain lawcheck check and CI fail on every file a reviewer rule judges. Setting reviewer.provider and reviewer.model there is the user's decision; lawcheck docs providers lists the choices.";
+    json(await new CursorSession(bench, r).start(), started(`${primed}\n\nLawcheck: in your first answer, tell the user this message, word for word:\n\n${said}`), 'the start with no reviewer');
+    json(await new CursorSession(bench, r).start(), started(primed), 'the same session again');
+  });
+});
+
+test('test 975: in Cursor, a prompt event between the follow-up messages keeps the three returns of the turn', async () => {
+  await withBench(async (bench, dir) => {
+    const s = makeSample(dir);
+    const session = new CursorSession(bench, s);
+    nothing(await session.prompt(), 'the prompt of the user');
+    write(s, D_PATH, D);
+    json(await session.stop(), blocked(`${stopHeader()}\n\n${D_OUTPUT}`), 'the first stop');
+    const runs: HookRun[] = [];
+    for (let i = 1; i < 4; i++) {
+      append(s, D_PATH, 'console.log(1);\n');
+      nothing(await session.prompt(), 'the prompt of a follow-up message');
+      runs.push(await session.stop({ loop_count: i }));
+    }
+    for (const run of runs.slice(0, 2)) assert.equal(run.json?.decision, 'block', run.stdout);
+    assert.equal(bench.state('u1').blocks, 3);
+    json(runs[2]!, relayed(withD(released()).systemMessage), 'the fourth stop of the turn');
+  });
+});
+
+test('test 976: in Cursor, a turn the user stopped leaves its returns behind, and the next turn has its three', async () => {
+  await withBench(async (bench, dir) => {
+    const s = makeSample(dir);
+    const session = new CursorSession(bench, s);
+    nothing(await session.prompt(), 'the prompt');
+    write(s, D_PATH, D);
+    assert.equal((await session.stop()).json?.decision, 'block');
+    append(s, D_PATH, 'console.log(1);\n');
+    assert.equal((await session.stop({ loop_count: 1 })).json?.decision, 'block');
+    assert.equal(bench.state('u1').blocks, 2);
+    nothing(await session.stop({ status: 'aborted', loop_count: 2 }), 'the user stops the agent');
+    assert.equal(bench.state('u1').blocks, 0);
+    assert.equal(bench.state('u1').open, true, 'the note of the turn stays, as after a turn that ended with no stop');
+    nothing(await session.prompt(), 'the prompt of the next turn');
+    append(s, D_PATH, 'console.log(2);\n');
+    assert.equal((await session.stop()).json?.decision, 'block');
+    assert.equal(bench.state('u1').blocks, 1);
+  });
 });

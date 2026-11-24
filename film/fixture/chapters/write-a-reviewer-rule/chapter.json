@@ -1,0 +1,19 @@
+{
+  "page": "write-a-reviewer-rule",
+  "lawcheck": "global",
+  "plugin": true,
+  "law": "film/fixture/law/law.yaml",
+  "branches": [{ "name": "refund", "overlays": ["write-a-reviewer-rule/refund"] }],
+  "start": "refund",
+  "aside": "write-a-reviewer-rule/fix",
+  "prompt": "Add a reviewer rule clear-errors for core: every error message a caller can see says what happened and what the caller can do next.",
+  "commands": [
+    "claude -p \"{prompt}\"",
+    "lawcheck try clear-errors src/core/refund.ts",
+    "cp -r ../aside/. .",
+    "git diff src/core/refund.ts",
+    "lawcheck check --review --base main",
+    "lawcheck check --base main",
+    "lawcheck docs write-a-reviewer-rule"
+  ]
+}
