@@ -989,7 +989,7 @@ const SENTENCES: [string, string, string][] = [
   ['222', 'Never', 'The exception subtype that the user chose in step 10 is not "out of its type"'],
   ['225', '1. Before anything', 'not in PowerShell: PowerShell has no `cmp`, and its `cp` is another command.'],
   ['225', '10. Explain, and ask', 'A boundary question offers the three ways of [A boundary the code already breaks](#a-boundary-the-code-already-breaks), never only yes or no.'],
-  ['225', '6. Write the lists that hold today', 'A parent type with no list restricts no file that only the parent takes: a new file in `internal/usecase/` passes unchecked'],
+  ['225', '6. Write the lists that hold today', 'A parent type with no list restricts no file that only the parent takes: a new file in its folder, outside the folders of its subtypes, passes unchecked'],
 ];
 
 const missingSentences = (page: string, wanted: [string, string, string][]): string[] => wanted.filter(([, heading, sentence]) => !sectionOf(page, heading).includes(sentence)).map(([issue, heading, sentence]) => `issue ${issue}: the part "${heading}" lacks "${sentence}"`);
