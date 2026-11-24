@@ -1,6 +1,6 @@
 # Script rules
 
-A to-do comment without an issue number stays in the code for years. A [script rule](concepts.md#script-rule) finds it. The rule is an ES module in `.lawcheck/rules/<id>.mjs` that exports a function `check`. The law names the rule in `.lawcheck/law.yaml`, with its `why` and its `status` (`lawcheck docs law` has the keys). The folder that holds `.lawcheck/` is the [root of the law](concepts.md#law). This page calls it the root for short. Every path in the tables below starts there.
+A to-do comment without an issue number stays in the code for years. A [script rule](concepts.md#script-rule) can find one. The rule is a JavaScript module (an ES module) in `.lawcheck/rules/<id>.mjs`. It exports a function `check`. The law names the rule in `.lawcheck/law.yaml`, with its `why` and its `status` (`lawcheck docs law` has the keys). The folder that holds `.lawcheck/` is the [root of the law](concepts.md#law). This page calls it the root for short. Every path in the tables below starts there.
 
 ```js
 export function check({ files }) {
@@ -20,18 +20,20 @@ export function check({ files }) {
 
 | Key | Value |
 |---|---|
-| `files` | a list that holds the one file of the call |
+| `files` | a list that holds the one file of the call; the file has the keys below |
 | `path` | the file's path from the root, as Lawcheck prints it |
 | `type` | the file's type id; under `lawcheck try`, null for a file with no type |
 | `text` | the file's text |
 | `lines` | the text split at `\n` and `\r\n` |
 | `tree()` | a promise of the file's [syntax tree](#the-syntax-tree) |
 | `uses()` | a promise of the file's [uses](#the-uses), the ones that `may_use` judges |
-| `repo.filesOf(typeId)` | the sorted paths of every file of that type and its subtypes, at once; an unknown id throws |
+| `repo.filesOf(typeId)` | the sorted paths of every file of that type and its subtypes, returned directly and not as a promise; an unknown id throws |
 
-Lawcheck reads the tree and the uses only when the rule calls `tree()` or `uses()`. A rule that calls neither makes Lawcheck parse nothing for it. A second call in the same call of `check` gives the same promise. On a file kept from an earlier call, `tree()` rejects with `tree() was called after its call of check ended`, and `uses()` with the same message about `uses()`.
+Lawcheck reads the tree and the uses only when the rule calls `tree()` or `uses()`. For a rule that calls neither, Lawcheck parses nothing. Within one call of `check`, a second call of `tree()` or `uses()` returns the promise of the first. A rule may keep a file from an earlier call of `check`. On that file, `tree()` rejects with `tree() was called after its call of check ended`. `uses()` rejects with the same message, with `uses()` in place of `tree()`.
 
-In `path`, Lawcheck writes a backslash, a line feed, a carriage return and a byte that is not UTF-8 as `\\`, `\n`, `\r` and `\xHH`. Such a `path` no longer names the file on disk, so read the file's text from `text`. A final line end adds no empty line to `lines`. For an empty file, `lines` is an empty list.
+In `path`, Lawcheck writes a backslash, a line feed, a carriage return and a byte that is not UTF-8 as `\\`, `\n`, `\r` and `\xHH`. A `path` written that way no longer names the file on disk, so read the file's text from `text`.
+
+A final line end adds no empty line to `lines`. For an empty file, `lines` is an empty list.
 
 ## The syntax tree
 
@@ -53,7 +55,7 @@ export async function check({ files: [file] }) {
 }
 ```
 
-The node types and fields come from the grammar of each language, and they differ between languages: a call is a `call_expression` in TypeScript and a `call` in Python. Before you write a rule that reads the tree, print the tree of a real file of the rule's language. This is `src/run.ts`:
+The tree is made of nodes. Each node is one piece of the code, such as a call, a name or a string. The grammar of each language sets the types and the fields of its nodes, so they differ between languages. A call is a `call_expression` in TypeScript and a `call` in Python. Before you write a rule that reads the tree, print the tree of a real file in the rule's language. This is `src/run.ts`:
 
 ```ts
 const note = "eval(x)"; // eval(y)
@@ -80,15 +82,17 @@ src/run.ts  typescript  20 nodes, 12 named
           identifier  line 2  "note"
 ```
 
-Each line below the first is a named node, under its parent: its field before a colon, its type and its line. A node with no named node below it also shows its text, cut at 40 characters. The rule above follows this tree: it takes the child in the field `function` of a `call_expression`. The `comment` holds `eval(y)` as text, so the rule reports nothing there.
+`explain --tree` prints only the named nodes. A named node is any node other than a keyword or a punctuation mark, such as a call or a string. A keyword or a punctuation mark, such as `const` or `;`, is not named. Each line below the first is one named node, under its parent. The line shows the node's field and a colon, then its type and its line. The field is the name that the parent gives the node, such as `function`, and some nodes have none. A node with no named node below it also shows its text, cut at 40 characters.
 
-`explain --tree` leaves out the nodes that are not named, such as `const` and `;`. It stops at 12 levels and at 200 nodes, and says how many named nodes it left out. With `--json`, it gives every node, with the keys below. In place of `children`, each node there has `parent`: the index of its parent in the list, or null for the root. To see the tree of one construct, write it in a small file and explain that file. The file need not be tracked by git. For a file with no tree, `explain --tree` prints the reason that `absent` gives below.
+The rule above follows this tree. It takes the child in the field `function` of a `call_expression`. The `comment` holds `eval(y)` as text, so the rule reports nothing there.
+
+`explain --tree` stops at 12 levels and at 200 nodes. It says how many named nodes it left out. With `--json`, it gives every node, named or not, with the keys below. In place of `children`, each node in that output has `parent`: the index of its parent in the list, or null for the root. To see the tree of one construct, write it in a small file and explain that file. Git need not track the file. For a file with no tree, `explain --tree` prints the reason that the key `absent` gives below.
 
 `await file.tree()` gives an object with three keys:
 
 | Key | Value |
 |---|---|
-| `language` | the language the reader parsed, such as `typescript` or `tsx`; null for a file with no reader |
+| `language` | the language the [reader](concepts.md#use) parsed, such as `typescript` or `tsx`; null for a file with no reader |
 | `root` | the root node, or null when the tree is absent |
 | `absent` | null, or why the tree is absent |
 
@@ -104,23 +108,25 @@ Each node has these keys:
 | `column` | the column of `start` in its line, counted from 0 in UTF-16 code units, as JavaScript counts a string |
 | `children` | the node's children, in the order of the text |
 
-A node of type `ERROR` holds text that the grammar cannot read. Where the text lacks a token, the parser can add a node whose `start` equals its `end`. A Vue or Svelte file gets the tree of its script blocks. Lawcheck parses that file with every character outside the blocks turned into a space, so `start` and `end` still point into `text`.
+A node of type `ERROR` holds text that the grammar cannot read. Where the text lacks a token, such as a closing bracket, the parser can add an empty node: its `start` equals its `end`.
 
-The tree depends on the file's path and text. A header of C or C++ also depends on the other files of its folder, which decide its language ([Languages and uses](languages.md)). A plain check and `--full` give a rule the same tree for the same file.
+A Vue or Svelte file gets the tree of its script blocks. Lawcheck parses that file with every character outside the blocks turned into a space. `start` and `end` therefore still point into `text`.
+
+The tree of a file depends on its path and its text. The tree of a C or C++ header also depends on the other files of its folder: they decide whether Lawcheck reads it as C or as C++ ([Languages and uses](languages.md)). A [plain check](concepts.md#plain-check) and `--full` give a rule the same tree for the same file.
 
 The tree is absent in three cases:
 
 | `absent` | When |
 |---|---|
 | `no-reader` | no reader reads the file's language ([Languages and uses](languages.md)), or a Vue or Svelte file has no script block |
-| `too-large` | the parsed text holds more than 512 KiB, the limit of a file whose uses are read |
+| `too-large` | the parsed text holds more than 512 KiB; Lawcheck reads the uses of no file larger than that either |
 | `reader-failed` | Lawcheck cannot load the grammar of the language, or the parser fails on the file |
 
 An absent tree stops nothing. The rule decides what to report for that file.
 
 ### The grammars
 
-The node types and fields come from the grammar of each language. Lawcheck ships the grammars of Runes 1.2.0:
+The node types and fields come from the grammar of each language. Lawcheck depends on the package Runes for its grammars. This version ships the grammars of Runes 1.2.0:
 
 | `language` | Version of the grammar |
 |---|---|
@@ -137,7 +143,7 @@ The node types and fields come from the grammar of each language. Lawcheck ships
 | `php` | a commit after 0.24.2, not released |
 | `ruby` | a commit after 0.23.1, not released |
 
-Lawcheck sets the keys of the result and of a node. A version of Lawcheck that changes them says so in the changelog, under "Before you upgrade". The grammar sets the node types, the fields and the nesting. A new version of Lawcheck can take a new Runes with new grammars. The same code can then give other node types, other fields or other nesting. The changelog names each version of Lawcheck that changes a grammar, and this table shows the grammar versions.
+Lawcheck sets the keys of the object that `tree()` gives and the keys of each node. A version of Lawcheck that changes them says so in the changelog, under "Before you upgrade". The grammar sets the node types, the fields and the nesting. A new version of Lawcheck can take a new Runes with new grammars. Your rule can then see other node types, other fields or other nesting for the same code. The changelog names each version of Lawcheck that changes a grammar. This table shows the grammar versions.
 
 ## The uses
 
@@ -148,47 +154,49 @@ Lawcheck sets the keys of the result and of a node. A version of Lawcheck that c
 | `uses` | the uses the reader found, in the order of the file, or null when they are absent |
 | `absent` | null, or why the uses are absent: `no-reader`, `too-large` or `reader-failed`, as for the tree |
 
-A Vue or Svelte file with no script block has no uses, so its list is empty, while its tree is absent with `no-reader`.
+A Vue or Svelte file with no script block gets an empty list of uses. Its tree is absent with `no-reader`.
 
-Each use has `line` and `kind`. These are the same uses that `may_use` judges ([Languages and uses](languages.md)):
+The list holds the uses that `may_use` judges ([Languages and uses](languages.md)). Each use has the keys `line` and `kind`:
 
 | `kind` | Other keys | Meaning |
 |---|---|---|
-| `file` | `file`, `type` | the use reaches a file of the repository; `file` is that file's path, written as `path` is, and `type` its type id, or null for a file with no type |
+| `file` | `file`, `type` | the use reaches a file of the repository. `file` is that file's path, written as `path` is. `type` is the file's type id, or null for a file with no type |
 | `outside` | none | the use leaves the repository, such as an import of a package |
-| `ambiguous` | `what`, `candidates` | the use could name several files; `candidates` lists them |
+| `ambiguous` | `what`, `candidates` | the use could point to any of several files; `candidates` lists them |
 | `none` | `what`, `reason`, `candidates` | the readers found no file; `reason` is `unfollowed`, `unowned` or null, as in [Unresolved uses](languages.md#unresolved-uses) |
 
-The list holds what `may_use` skips: a use of the file itself, and a use of a binary file.
+The list also holds two kinds of use that `may_use` skips: a use of the file itself, and a use of a binary file.
 
-The first call of `uses()` by a rule reads the uses of every file that the rule judges in that run, at once. Lawcheck reads the uses of each file once in a run. A file whose uses another rule already asked for is not read again, and every rule gets the same answer for it. The uses of a file do not depend on the other files of the run, so a plain check and `--full` give a rule the same uses.
+The first call of `uses()` by a rule makes Lawcheck read the uses of every file that the rule judges in that run, in one pass. Lawcheck reads the uses of each file once in a run. If another rule already asked for the uses of a file, Lawcheck does not read that file again. Every rule gets the same uses for a file. The uses of a file do not depend on the other files of the run. A plain check and `--full` therefore give a rule the same uses.
 
-A file of Java, Kotlin, C#, Ruby or Rust needs the declarations of every file of its language. In a large repository, that first call can then take seconds. A failure of the reader reaches these files:
+To read the uses of a file of Java, Kotlin, C#, Ruby or Rust, Lawcheck reads what every file of that language declares. In a large repository, the first call of `uses()` can then take seconds.
+
+When the reader fails, these files get `reader-failed`:
 
 - When the reader fails on a file the rule judges, that file gets `reader-failed`. Lawcheck reads the other files again without it.
-- When the reader fails on anything else, such as a file the rule does not judge, every file that depends on it gets `reader-failed`.
-- When a grammar does not load, every file of its language fails.
-- When the reader fails on a file of Java, Kotlin, C#, Ruby or Rust that Lawcheck reads only for what it declares, every file of that language fails. Java and Kotlin count as one language here.
+- When the reader fails on anything else, such as a file the rule does not judge, every file whose uses depend on that thing gets `reader-failed`.
+- When a grammar does not load, every file of its language gets `reader-failed`.
+- When the reader fails on a file of Java, Kotlin, C#, Ruby or Rust that Lawcheck reads only for what it declares, every file of that language gets `reader-failed`. Java and Kotlin count as one language here.
 
 ## The return value
 
 `check` returns a list of [findings](concepts.md#finding), or a promise of one. A finding has these fields:
 
 - `message` is a non-empty string of at most 4,096 characters. Lawcheck turns a line break in it into a space.
-- `line` is optional. Its value is an integer from 1 to the number of lines of the file. A finding without `line`, or with a `line` of `null`, is about the whole file. A `line` that is any other value than an integer in that range, such as a string like `'2'`, a bigint or `1.5`, makes the rule `rule-crashed`, with a message that names the value.
+- `line` is optional. When present, it is an integer from 1 to the number of lines of the file. A finding without `line`, or with a `line` of `null`, is about the whole file. Any other value of `line` makes the rule [`rule-crashed`](#rule-crashed), such as a string like `'2'`, a bigint or `1.5`. The message names the value.
 - `file` is optional. Its one allowed value is the `path` of the call.
 
-Lawcheck ignores other fields, whatever they hold. A rule that returns an empty list reports no finding. All the rules of one run may return 200,000 findings together, with 16 MiB of messages. A run past either limit stops with `too-many-findings`. The error names each rule with the number of findings it returned.
+Lawcheck ignores other fields, whatever they hold. A rule that returns an empty list reports no finding. Together, the rules of one run may return at most 200,000 findings and 16 MiB of messages. A run past either limit stops with `too-many-findings`. The error names each rule with the number of findings it returned.
 
 ## Calls
 
-Lawcheck calls `check` once for each file of the run whose type, or a type above it, lists the rule. It makes the calls in path order, one call at a time. A [plain `lawcheck check`](concepts.md#plain-check) passes the rule the files of the [change](concepts.md#change). With `--full`, Lawcheck passes it every file that the rule binds, changed or not. Keep nothing between calls in a rule. A rule that counts the files it has seen reaches one count in a plain check and another with `--full`, so its findings differ between the two.
+Lawcheck calls `check` once for each file of the run whose type, or a type above it, lists the rule. It makes the calls in path order, one call at a time. A [plain `lawcheck check`](concepts.md#plain-check) passes the rule the files of the [change](concepts.md#change). With `--full`, Lawcheck passes it every file that the rule binds, changed or not. Keep no state in a rule from one call to the next. For example, a rule that counts the files it has seen reaches one count in a plain check and another with `--full`. Its findings then differ between the two.
 
 Lawcheck does not load a rule that has no file to judge in the run.
 
 ## The runner
 
-Lawcheck runs each script rule in a Node process of its own. This page calls that process the rule runner. Lawcheck's own folder is the folder where the `lawcheck` package is installed. The rule runner starts in this state:
+Lawcheck runs each script rule in a Node process of its own. This page calls that process the rule runner. Lawcheck's own folder is the folder where npm installed the `lawcheck` package. The rule runner starts in this state:
 
 - Node's flag `--permission` limits its reads to the root and to Lawcheck's own folder;
 - `process.env` is empty, because the rule runner gets none of the caller's variables;
@@ -196,7 +204,7 @@ Lawcheck runs each script rule in a Node process of its own. This page calls tha
 
 Lawcheck writes what the rule prints, on either stream, to its own standard error.
 
-A rule has 30 seconds to load and 30 seconds for each call. A rule that takes longer is `rule-crashed`. All script rules of one run have 600 seconds together. The time Lawcheck takes to read a tree or the uses counts toward the 600 seconds of the run, and not toward the 30 seconds of any call. A rule that asks while Lawcheck reads for another rule does not lose that time either. A run that goes past the 600 seconds stops with `rules-too-slow`. Lawcheck reports that code at the file that each unfinished rule was judging.
+A rule has 30 seconds to load and 30 seconds for each call. A rule that takes longer is `rule-crashed`. All script rules of one run have 600 seconds together. The time Lawcheck takes to read a tree or the uses counts toward the 600 seconds of the run. It does not count toward the 30 seconds of any call. A rule can ask for a tree or the uses while Lawcheck reads for another rule, and that wait does not count toward its 30 seconds either. A run that goes past the 600 seconds stops with `rules-too-slow`. Lawcheck reports that code at the file that each unfinished rule was judging.
 
 The rule runner refuses these actions:
 
@@ -231,7 +239,7 @@ The rule runner does not shut a rule off from your machine. A rule can still do 
 
 A rule file is code of the repository. It runs with your rights, as the tests do. Run `lawcheck check` and `lawcheck try` only where you would run the tests of the change.
 
-Lawcheck stops the run with `path-unsupported` when the path of the root, or of Lawcheck's own folder, holds a `*`. Node's permission model reads that `*` as a wildcard, which would let a rule read the folders beside the root. Outside Windows, a backslash in either path stops the run too, because the rule runner cannot load a rule from such a path.
+Lawcheck stops the run with `path-unsupported` when the path of the root, or of Lawcheck's own folder, holds a `*`. Node's permission model reads that `*` as a wildcard, and a rule could then read the folders beside the root. Outside Windows, a backslash in either path stops the run too, because the rule runner cannot load a rule from a path with a backslash.
 
 ## rule-crashed
 
@@ -239,18 +247,20 @@ Lawcheck reports `rule-crashed` and exits with code 2 when the rule:
 
 - does not load, or exports no function `check`;
 - throws or rejects;
-- returns something other than a list of findings as above. A list with a message over 4,096 characters counts as such a return. So does a function, or another value that Lawcheck cannot pass out of the rule's process;
+- returns something other than a list of findings as above. A list with a message over 4,096 characters counts as a wrong return. So does a function, or another value that Lawcheck cannot pass out of the rule's process;
 - takes more than 30 seconds to load, or more than 30 seconds for one call;
 - ends its process before it answers, or sends a message that Lawcheck did not ask for;
 - leaves a promise rejected with no handler, or a timer that throws, while its process runs.
 
-A crash of the last kind names no judged file. When it comes during the load, the message adds the words `in its load`. After the last call, Lawcheck waits once, at most 2 seconds, for the work the rule left running. A timer counts as such work, whether or not the rule unrefs it. A job of `node:crypto` whose callback has not run counts too, such as a call of pbkdf2 or scrypt.
+A rejected promise with no handler, or a timer that throws, gives a `rule-crashed` that names no judged file. When either comes during the load, the message adds the words `in its load`.
 
-In the other cases, the message of `rule-crashed` names the judged file, or the load. Lawcheck names each crashed rule once in a run.
+After the last call, Lawcheck waits once, at most 2 seconds, for the work the rule left running. A timer counts as such work, whether or not the rule called its `unref()`. A job of `node:crypto` whose callback has not run counts too, such as a call of pbkdf2 or scrypt.
 
-A rule may throw a value that JavaScript cannot turn into text, such as an object with no prototype, which has no method that gives its text. The message then holds the error that JavaScript raises for that value. A proxy can answer that attempt by throwing a value that is not an error, such as a string. For such a value, the message reads `a value with no string form`.
+For every other kind of crash in the list above, the message of `rule-crashed` names the judged file, or the load. Lawcheck names each crashed rule once in a run.
 
-A call can leave work running, such as a timer, and the rule's process can then end or go 30 seconds without an answer. The message of that crash depends on the last call that answered:
+A rule may throw a value that JavaScript cannot turn into text. An object with no prototype is one: it has no method that gives its text. The message of `rule-crashed` then holds the error that JavaScript raises when it tries. A proxy object can answer that try by throwing a value that is not an error, such as a string. In that case the message reads `a value with no string form`.
+
+A call can leave work running, such as a timer. The rule's process can then end, or go 30 seconds without an answer. The message of that crash depends on the last call that answered:
 
 - When that call left work running, the message ends with the words "after a call that left work running" and names no judged file. The work may come from an earlier call, so the file judged at that moment is not the cause.
 - When that call left nothing running, the message names the file judged at that moment. An earlier call may have left work that ended before then.

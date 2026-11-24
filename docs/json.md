@@ -1,6 +1,6 @@
 # JSON documents
 
-With `--json`, every command prints one JSON document to standard output and nothing else. The first field of every document is `schema`. It names the document and its version. The form of a document whose name ends in `/0` may change between versions. `lawcheck-error/1` has a fixed form: each of its fields keeps its name, its type and its meaning, and a version can add a field. A program that reads it skips the fields it does not know.
+With `--json`, every command prints one JSON document to standard output and nothing else. The first field of every document is `schema`. It names the document and its version. The form of a document whose name ends in `/0` may change between versions. `lawcheck-error/1` has a fixed form. Each of its fields keeps its name, its type and its meaning. A later version can add a field. A program that reads `lawcheck-error/1` skips the fields it does not know.
 
 A field that holds no value is null and stays in the document. Two cases differ:
 
@@ -210,7 +210,7 @@ For a directory, these fields follow `schema` and `subject`:
 | `types.type` | the type, or null |
 | `types.files` | its count of files |
 
-For a type, the document holds `chain`, `about`, `may_use`, `rules` (without `review`) and `files` after `schema` and `subject`, with the meanings above. It holds four fields of its own:
+For a type, these fields follow `schema` and `subject`: `chain`, `about`, `may_use`, `rules` (without `review`) and `files`. They have the meanings above. The document of a type also holds four fields of its own:
 
 | Field | Value |
 |---|---|
@@ -252,7 +252,7 @@ For a tree, from `explain <path> --tree --json`, these fields follow `schema` an
 | `nodes.column` | the column of `start` in its line, counted from 0 in UTF-16 code units |
 | `nodes.parent` | the index of the node's parent in `nodes`, or null for the root |
 
-A script rule that walks `await file.tree()` from the root, each node before its children, meets the same nodes in the same order, with the same keys but `children` in place of `parent`.
+A script rule can walk `await file.tree()` from the root, each node before its children. It then meets the nodes of `nodes`, in the same order. Each node has the same keys, with `children` in place of `parent`.
 
 ## lawcheck-try/0
 
@@ -316,11 +316,11 @@ With a topic, the document holds `id`, `title` and `text`. `text` holds the Mark
 
 ## SARIF 2.1.0
 
-With `--sarif <file>`, `check` also writes its findings to that file in SARIF 2.1.0 for GitHub code scanning ([CI and git hooks](ci.md#_3-show-the-findings-in-github-code-scanning)). `check` writes the file when it ends with exit 0 or 1. With exit 2 it writes none, since a file with no result would tell code scanning that every open alert was fixed. A file already at that path stays as it was. A file it cannot write stops the run with `file-unwritable` and exit 2. Lawcheck writes an API key of the reviewer as `[key]` in the file, as in the JSON.
+SARIF 2.1.0 is the format of findings that GitHub code scanning reads. With `--sarif <file>`, `check` also writes its findings to that file in this format ([CI and git hooks](ci.md#_3-show-the-findings-in-github-code-scanning)). `check` writes the file when it ends with exit 0 or 1. With exit 2, it writes no file. A file already at that path then stays as it was. A file with no result would tell code scanning that every open alert was fixed. When `check` cannot write the file, it stops with `file-unwritable` and exit 2. Lawcheck writes an API key of the reviewer as `[key]` in the file, as in the JSON.
 
-Code scanning takes each upload of a branch as the whole analysis and closes as fixed every alert that the upload lacks. A check of the change holds no finding of a file it leaves alone, so the workflow of [CI and git hooks](ci.md#_3-show-the-findings-in-github-code-scanning) writes the file from `check --full`, which holds the findings of every file. Debt fails nothing without `--strict`, so the exit code stays that of the change. The second check, with the law of the base, writes no file, since its findings would replace those of the first.
+Code scanning takes each upload of a branch as the whole analysis. It closes as fixed every alert that the upload lacks. A [check of the change](concepts.md#check-of-the-change) holds no finding of a file outside the change. The workflow of [CI and git hooks](ci.md#_3-show-the-findings-in-github-code-scanning) therefore writes the file from `check --full`, which holds the findings of every file. Without `--strict`, [debt](concepts.md#debt) fails nothing, so the exit code stays that of the change. That workflow also runs a second check with the law of the base. The second check writes no file, since its findings would replace those of the first.
 
-The file validates against the SARIF 2.1.0 schema of OASIS. It holds one run, and the run holds one result for each item of `findings` of `lawcheck-check/0`, in the same order, the debt of `--full` included.
+The file validates against the SARIF 2.1.0 schema of OASIS. It holds one run. The run holds one result for each item of `findings` in `lawcheck-check/0`, in the same order. The results include the debt of `--full`.
 
 | Field | Value |
 |---|---|
