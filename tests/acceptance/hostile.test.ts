@@ -201,6 +201,31 @@ test('S4-9: a file in UTF-16 holds NUL bytes, so it is binary and has no type, a
   });
 });
 
+const CYCLES: [string, string][] = [
+  ['a type that holds itself through an alias', 'lawcheck: 0.1.0\ntypes: &t\n  a:\n    paths: ["src/**"]\n    types: *t\n'],
+  ['a type that holds itself two levels down', 'lawcheck: 0.1.0\ntypes:\n  a: &a\n    paths: ["src/**"]\n    types:\n      b: *a\n'],
+  ['a list of paths that holds itself', 'lawcheck: 0.1.0\ntypes:\n  a:\n    paths: &p [*p]\n'],
+  ['a list of rules that holds itself', 'lawcheck: 0.1.0\ntypes:\n  a:\n    paths: ["src/**"]\n    rules: &r [*r]\n'],
+  ['a may_use list that holds itself', 'lawcheck: 0.1.0\ntypes:\n  a:\n    paths: ["src/**"]\n    may_use: &m [*m]\n'],
+  ['a rule that holds the rules', 'lawcheck: 0.1.0\nrules: &r\n  a:\n    why: x\n    context: *r\ntypes:\n  a:\n    paths: ["src/**"]\n'],
+  ['the version', 'lawcheck: &l [*l]\ntypes:\n  a:\n    paths: ["src/**"]\n'],
+  ['a list of ignored paths that holds itself', 'lawcheck: 0.1.0\nignored: &i [*i]\ntypes:\n  a:\n    paths: ["src/**"]\n'],
+];
+
+for (const [what, law] of CYCLES) {
+  test(`R-27: a law with ${what} is law-invalid at a line of the law, and never internal`, async () => {
+    await withSample(async (s) => {
+      write(s, '.lawcheck/law.yaml', law);
+      for (const args of [['check', '--full'], ['explain', 'src/core/tax.ts']]) {
+        const run = await lawcheck(s, args);
+        assert.equal(run.code, 2, args.join(' '));
+        assert.match(run.stdout, /^\.lawcheck\/law\.yaml:\d+  error\[law-invalid\]  /m, args.join(' '));
+        assert.doesNotMatch(run.stdout, /internal/, args.join(' '));
+      }
+    });
+  });
+}
+
 test('S5-10: a number past 9007199254740991 is usage, and an empty path names no file', async () => {
   await withSample(async (s) => {
     const big = await lawcheck(s, ['try', 'no-console', 'src', '--times', '99999999999999999999']);
