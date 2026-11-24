@@ -16,6 +16,8 @@ import { createProvider } from './providers/index.js';
 export const WRITTEN = new Set([VERDICTS, ATTRIBUTES]);
 import { CONFIG_BYTES, count, LAW_BYTES, mib, readBounded, readError, readFailure, readWhole, RUN_TEXT_BYTES, TextTooLarge } from './limits.js';
 
+const GIT_FATAL = 128;
+
 export const LAW = '.lawcheck/law.yaml';
 export const RULES_DIR = '.lawcheck/rules/';
 
@@ -345,6 +347,13 @@ export function touchesLaw(path: string): boolean {
   return path === LAW || path === CONFIG || path.startsWith(RULES_DIR);
 }
 
+// git's own exit for a repository it cannot read, as with a corrupt index; any other exit of git is a call Lawcheck got wrong.
+export function damagedRepository(error: GitFailed): ErrorItem | null {
+  if (error.status !== GIT_FATAL) return null;
+  const printed = error.printed === '' ? 'git ended with its fatal exit' : error.printed;
+  return { code: 'no-git', file: null, line: null, message: `git cannot read this repository: ${printed}`, next: 'repair the repository, so that git status works here, then run lawcheck check' };
+}
+
 export async function stopped<T>(body: () => Promise<T> | T): Promise<T | { errors: ErrorItem[]; calls?: number }> {
   try {
     return await body();
@@ -356,7 +365,11 @@ export async function stopped<T>(body: () => Promise<T> | T): Promise<T | { erro
       return { errors: [{ code: 'file-unreadable', file: VERDICTS, line: null, message: `the file cannot be read (${error.cause})`, ...(next === undefined ? {} : { next }) }] };
     }
     if (error instanceof NoGit) return { errors: [{ code: 'no-git', file: null, line: null, message: error.message }] };
-    if (error instanceof GitFailed) throw new Internal(error.message);
+    if (error instanceof GitFailed) {
+      const damaged = damagedRepository(error);
+      if (damaged === null) throw new Internal(error.message);
+      return { errors: [damaged] };
+    }
     throw error;
   }
 }

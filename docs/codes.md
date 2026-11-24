@@ -206,7 +206,7 @@ The cause is one of these:
 
 **Fix**
 
-Run Lawcheck inside a git work tree, with git on the `PATH`. For a repository another user owns, run the `git config --global --add safe.directory` command of the `next:` line.
+Run Lawcheck inside a git work tree, with git on the `PATH`. For a repository another user owns, run the `git config --global --add safe.directory` command of the `next:` line. For a repository that git cannot read, such as one with a corrupt `.git/index`, repair it until `git status` works there.
 
 **Example**
 

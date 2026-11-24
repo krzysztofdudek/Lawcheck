@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { chmodSync, existsSync, symlinkSync } from 'node:fs';
+import { chmodSync, existsSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { withFake } from '../acceptance/fake-reviewer.ts';
 import { F, F_PATH, inTemp, newRepository, withR, withSample, write } from '../acceptance/helpers.ts';
@@ -35,6 +35,29 @@ test('test 244: S1-7, a folder that cannot be read is file-unreadable for the ty
     } finally {
       chmodSync(join(s, '.lawcheck'), 0o755);
     }
+  });
+});
+
+test('S1-7: a corrupt .git/index is no-git with git\'s sentence and a step that repairs the repository, for check, doctor, explain and try', async () => {
+  await withSample(async (s) => {
+    writeFileSync(join(s, '.git/index'), 'garbage\n');
+    const sentence = 'git cannot read this repository: fatal: .git/index: index file smaller than expected';
+    for (const [args, command] of [
+      [['check', '--base', 'main'], 'check'],
+      [['explain', 'src/core/price.ts'], 'explain'],
+      [['try', 'no-console', 'src/core/price.ts'], 'try'],
+    ] as const) {
+      const result = await run(s, [...args]);
+      assert.equal(result.code, 2, args.join(' '));
+      assert.equal(
+        result.stdout,
+        ['lawcheck: ERROR  1 error', '', `error[no-git]  ${sentence}`, '  why:  the files and the change come from git', '', `next: repair the repository, so that git status works here, then run lawcheck ${command}${command === 'check' ? '' : ' again'}`, ''].join('\n'),
+        args.join(' '),
+      );
+    }
+    const doctor = await run(s, ['doctor']);
+    assert.equal(doctor.code, 2);
+    assert.ok(doctor.stdout.includes(`fail  law  ${sentence}\n  next: repair the repository, so that git status works here, then run lawcheck doctor again\n`), doctor.stdout);
   });
 });
 
