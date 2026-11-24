@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import { fakeWrites, LIMITS_VARIABLE, platformSkip } from '../harness/tool.ts';
-import { CLAUDE_TIMEOUT_RUN_MS, FAKE_STARTED_MS, KILLED_GRACE_MS, LEFTOVER_GRACE_MS, TEST_RULE_MS } from '../numbers.ts';
+import { CLAUDE_TIMEOUT_RUN_MS, FAKE_STARTED_MS, KILLED_GRACE_MS, LEFTOVER_GRACE_MS, TEST_RULE_MS, WINDOWS_KILLED_GRACE_MS } from '../numbers.ts';
 import { LIMITS } from '../../dist/rules.js';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
@@ -471,6 +471,7 @@ async function waitFor(condition: () => boolean, ms: number): Promise<boolean> {
 }
 
 test('test 67: claude-code past its timeout, and the tool killed', async () => {
+  const killedGrace = process.platform === 'win32' ? WINDOWS_KILLED_GRACE_MS : KILLED_GRACE_MS;
   await withR(async (r, dir) => {
     write(r, F_PATH, F);
     const result = await run(r, null, ['--review', '--base', 'main'], claudeEnv(dir, 'sleep'));
@@ -489,9 +490,9 @@ test('test 67: claude-code past its timeout, and the tool killed', async () => {
       const seen = record(dir);
       child.kill('SIGKILL');
       const killedAt = Date.now();
-      assert.ok(await waitFor(() => !alive(seen.pid) && !alive(seen.child!), KILLED_GRACE_MS), `both are gone: ${survivors(seen)}`);
-      assert.ok(Date.now() - killedAt <= KILLED_GRACE_MS);
-      assert.ok(await waitFor(() => !existsSync(seen.cwd), KILLED_GRACE_MS), `${seen.cwd} is left`);
+      assert.ok(await waitFor(() => !alive(seen.pid) && !alive(seen.child!), killedGrace), `both are gone: ${survivors(seen)}`);
+      assert.ok(Date.now() - killedAt <= killedGrace);
+      assert.ok(await waitFor(() => !existsSync(seen.cwd), killedGrace), `${seen.cwd} is left`);
       assert.equal((await child.ended).signal, 'SIGKILL');
     } finally {
       child.kill('SIGKILL');
@@ -508,8 +509,8 @@ test('test 67: claude-code past its timeout, and the tool killed', async () => {
         child.kill(signal);
         const { code } = await child.ended;
         if (platformSkip('exit 2 after SIGTERM and SIGINT') === null) assert.equal(code, 2, signal);
-        assert.ok(await waitFor(() => !alive(seen.pid) && !alive(seen.child!), KILLED_GRACE_MS), `${signal}: both are gone`);
-        assert.ok(await waitFor(() => !existsSync(seen.cwd), KILLED_GRACE_MS), `${signal}: ${seen.cwd} is left`);
+        assert.ok(await waitFor(() => !alive(seen.pid) && !alive(seen.child!), killedGrace), `${signal}: both are gone`);
+        assert.ok(await waitFor(() => !existsSync(seen.cwd), killedGrace), `${signal}: ${seen.cwd} is left`);
       } finally {
         child.kill('SIGKILL');
       }

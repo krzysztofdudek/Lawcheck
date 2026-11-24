@@ -22,6 +22,8 @@ export const LOOP_TARGET_MS = 30_000;
 export const COMMIT_TARGET_MS = 600_000;
 export const LEFTOVER_GRACE_MS = 2_000;
 export const KILLED_GRACE_MS = 5_000;
+// Test 67 on Windows: the guard ends a killed tool's orphans from the first list of processes begun after the kill and waits up to 10 seconds for one, and PowerShell's first list came up to 6.2 seconds after it started on a Windows runner (R-67).
+export const WINDOWS_KILLED_GRACE_MS = 15_000;
 
 // The whole-repository runs of tests/real on hono and gson, and one check --review of the stability fixture, 30 reviewer calls through a real model.
 export const REAL_RUN_BUDGET_MS = 300_000;
@@ -659,6 +661,7 @@ export const stronger: Record<string, 'higher' | 'lower' | 'fixed'> = {
   COMMIT_TARGET_MS: 'lower',
   LEFTOVER_GRACE_MS: 'lower',
   KILLED_GRACE_MS: 'lower',
+  WINDOWS_KILLED_GRACE_MS: 'lower',
   REAL_RUN_BUDGET_MS: 'lower',
   STABILITY_RUN_BUDGET_MS: 'lower',
   ONE_FILE_CHECK_MS: 'lower',
