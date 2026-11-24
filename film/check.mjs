@@ -189,6 +189,56 @@ export function readingProblems(edit) {
   return problems;
 }
 
+const SPOKEN_END = /[.!?…]["”’)]*$/;
+const SENTENCE_INSIDE = /[.!?…]["”’)]*\s+\S/;
+
+export function narrationProblems(root = ROOT, edit = readEdit(root)) {
+  const problems = [];
+  const pages = new Map();
+  const pageText = (page) => {
+    if (!pages.has(page)) {
+      const path = join(root, 'docs', `${page}.md`);
+      pages.set(page, existsSync(path) ? readFileSync(path, 'utf8') : undefined);
+    }
+    return pages.get(page);
+  };
+  let sentences = 0;
+  for (const chapter of edit.chapters ?? []) {
+    for (const segment of chapter.timeline) {
+      const lines = segment.narration ?? [];
+      if (lines.length === 0) {
+        problems.push(`${segment.id}: the chapter ${chapter.page} narrates nothing over this frame`);
+        continue;
+      }
+      const shown = screensOf([segment]).flatMap((screen) => screen.text);
+      lines.forEach((line, index) => {
+        sentences++;
+        const where = `${segment.id}, narrated sentence ${index + 1}`;
+        const quoted = JSON.stringify(line.text);
+        if (!SPOKEN_END.test(line.text)) problems.push(`${where}: ${quoted} does not end with . ! ? or …`);
+        else if (SENTENCE_INSIDE.test(line.text)) problems.push(`${where}: ${quoted} holds more than one sentence`);
+        if (/\d/.test(line.text)) problems.push(`${where}: ${quoted} has a digit; a number is spoken in words`);
+        if (!Array.isArray(line.shows) || line.shows.length === 0) {
+          problems.push(`${where}: ${quoted} names nothing on its frame or its page that it follows`);
+          return;
+        }
+        const page = line.page === undefined ? undefined : pageText(line.page);
+        if (line.page !== undefined && page === undefined) {
+          problems.push(`${where}: ${quoted} cites the page docs/${line.page}.md, which does not exist`);
+          return;
+        }
+        for (const cited of line.shows) {
+          if (page !== undefined) {
+            if (!page.includes(cited)) problems.push(`${where}: ${quoted} cites ${JSON.stringify(cited)}, which is not in docs/${line.page}.md`);
+          } else if (!shown.some((text) => text.includes(cited))) problems.push(`${where}: ${quoted} cites ${JSON.stringify(cited)}, which is not on its frame`);
+        }
+      });
+    }
+  }
+  if ((edit.chapters ?? []).length > 0 && typeof edit.voice?.name !== 'string') problems.push('the edit names no voice for the narration');
+  return { problems, sentences };
+}
+
 // A film that names a release, a version of a tool or a model is wrong after the next release.
 const VERSIONED = [
   [/\d+\.\d+/g, 'a number with a point, as a version has'],
@@ -203,6 +253,11 @@ export function versionProblems(edit) {
     for (const screen of screensOf(timeline.segments)) {
       for (const text of [...screen.screen.blocks.flatMap(stringsOf), screen.segment.caption ?? '', screen.segment.subtitle ?? '']) {
         for (const [pattern, what] of VERSIONED) for (const match of text.matchAll(pattern)) problems.push(`${screen.id}: ${JSON.stringify(text)} shows ${what}: ${match[0]}`);
+      }
+    }
+    for (const segment of timeline.segments) {
+      for (const line of segment.narration ?? []) {
+        for (const [pattern, what] of VERSIONED) for (const match of line.text.matchAll(pattern)) problems.push(`${segment.id}, narration: ${JSON.stringify(line.text)} says ${what}: ${match[0]}`);
       }
     }
   }
@@ -309,15 +364,17 @@ if (process.argv[1] !== undefined && fileURLToPath(import.meta.url) === process.
   const reading = readingProblems(edit);
   const secret = privateProblems(ROOT);
   const versions = versionProblems(edit);
+  const narration = narrationProblems(ROOT, edit);
   const report = (name, problems, good) => {
     process.stdout.write(problems.length === 0 ? `${name}: ${good}\n` : problems.map((problem) => `${name}: ${problem}\n`).join(''));
   };
   report('truth', truth.problems, `all ${truth.strings} strings on screen come from their take, run or page`);
   report('staleness', stale, `${Object.keys(edit.runs).length} runs of this build print what the film shows`);
   report('reading time', reading, `the loop lasts ${lengthOf(edit.loop)} s, ${(edit.chapters ?? []).map((chapter) => `the chapter ${chapter.page} ${lengthOf(chapter.timeline)} s`).join(', ')}, and every screen stands long enough to be read`);
-  report('versions', versions, 'no screen, caption or subtitle shows a version or the name of a model');
+  report('narration', narration.problems, `all ${narration.sentences} narrated sentences end as spoken sentences, say their numbers in words and cite what their frame or page shows`);
+  report('versions', versions, 'no screen, caption, subtitle or narrated sentence shows a version or the name of a model');
   report('private', secret, privateSummary(privateWords()));
-  const problems = truth.problems.length + stale.length + reading.length + secret.length + versions.length;
+  const problems = truth.problems.length + stale.length + reading.length + secret.length + versions.length + narration.problems.length;
   process.stdout.write(problems === 0 ? 'film/check.mjs: PASS\n' : `film/check.mjs: FAIL  ${problems} problems\n`);
   process.exit(problems === 0 ? 0 : 1);
 }

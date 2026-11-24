@@ -287,6 +287,14 @@
       ]
     }
   ],
+  "voice": {
+    "name": "Lektor",
+    "language": "en",
+    "speed": 1.0,
+    "pause": 0.35,
+    "lead": 0.4,
+    "tail": 0.3
+  },
   "chapters": [
     {
       "page": "quick-start",
@@ -297,6 +305,20 @@
           "id": "q1",
           "caption": "Quick start",
           "subtitle": "Lawcheck installs with one npm command.",
+          "narration": [
+            {
+              "text": "Lawcheck installs with one npm command.",
+              "shows": [
+                "Lawcheck installs with one npm command."
+              ]
+            },
+            {
+              "text": "It adds four packages.",
+              "shows": [
+                "added 4 packages"
+              ]
+            }
+          ],
           "screens": [
             {
               "blocks": [
@@ -330,6 +352,21 @@
         {
           "id": "q2",
           "caption": "A new repository",
+          "narration": [
+            {
+              "text": "Git starts a new repository named shop.",
+              "shows": [
+                "git init shop"
+              ]
+            },
+            {
+              "text": "In it, one file holds a function that prints text.",
+              "shows": [
+                "src/cli/print.ts",
+                "export function print(text: string): void {"
+              ]
+            }
+          ],
           "screens": [
             {
               "blocks": [
@@ -404,6 +441,20 @@
           "id": "q3",
           "caption": "An empty law",
           "subtitle": "Lawcheck init writes an empty law.",
+          "narration": [
+            {
+              "text": "Lawcheck init writes an empty law.",
+              "shows": [
+                "Lawcheck init writes an empty law."
+              ]
+            },
+            {
+              "text": "The law is one file in the dot lawcheck folder.",
+              "shows": [
+                ".lawcheck/law.yaml"
+              ]
+            }
+          ],
           "screens": [
             {
               "blocks": [
@@ -438,6 +489,28 @@
           "id": "q4",
           "caption": "One type and one may_use line",
           "subtitle": "Core may use only core.",
+          "narration": [
+            {
+              "text": "The law gets one type, core.",
+              "shows": [
+                "One type",
+                "core:"
+              ]
+            },
+            {
+              "text": "It holds prices and orders, with no input or output.",
+              "shows": [
+                "about: Prices and orders, with no input or output."
+              ]
+            },
+            {
+              "text": "One line says core may use only core.",
+              "shows": [
+                "may_use: [core]",
+                "Core may use only core."
+              ]
+            }
+          ],
           "screens": [
             {
               "blocks": [
@@ -510,6 +583,28 @@
           "id": "q5",
           "caption": "A file that breaks it",
           "subtitle": "It imports the command layer, which has no type.",
+          "narration": [
+            {
+              "text": "Then a file in core breaks it.",
+              "shows": [
+                "src/core/receipt.ts",
+                "A file that breaks it"
+              ]
+            },
+            {
+              "text": "Line one imports print from the command layer.",
+              "shows": [
+                "import { print } from \"../cli/print.js\";",
+                "It imports the command layer"
+              ]
+            },
+            {
+              "text": "The command layer has no type.",
+              "shows": [
+                "which has no type."
+              ]
+            }
+          ],
           "screens": [
             {
               "blocks": [
@@ -581,6 +676,28 @@
         {
           "id": "q6",
           "caption": "Lawcheck names the line",
+          "narration": [
+            {
+              "text": "Lawcheck check fails with one error.",
+              "shows": [
+                "lawcheck check",
+                "FAIL  1 error"
+              ]
+            },
+            {
+              "text": "It names line one of the receipt file.",
+              "shows": [
+                "Lawcheck names the line",
+                "src/core/receipt.ts:1"
+              ]
+            },
+            {
+              "text": "Core may not use a file with no type.",
+              "shows": [
+                "core may not use src/cli/print.ts, which has no type"
+              ]
+            }
+          ],
           "screens": [
             {
               "blocks": [
@@ -624,6 +741,15 @@
         {
           "id": "q7",
           "subtitle": "The quick start has these steps as text.",
+          "narration": [
+            {
+              "text": "The quick start has these steps as text.",
+              "shows": [
+                "The quick start has these steps as text.",
+                "lawcheck docs quick-start"
+              ]
+            }
+          ],
           "screens": [
             {
               "blocks": [
@@ -660,6 +786,32 @@
         {
           "id": "f1",
           "caption": "Forbid one layer to use another",
+          "narration": [
+            {
+              "text": "Forbid one layer to use another.",
+              "shows": [
+                "Forbid one layer to use another"
+              ]
+            },
+            {
+              "text": "Claude Code gets a prompt for a loyalty discount in core.",
+              "shows": [
+                "Add a loyalty discount in src/core"
+              ]
+            },
+            {
+              "text": "A customer with more than five orders gets ten percent off.",
+              "shows": [
+                "a customer with more than five orders gets ten percent off"
+              ]
+            },
+            {
+              "text": "The new total comes with a message that shows the saved amount as money.",
+              "shows": [
+                "Return the new total and a message that shows the saved amount as money"
+              ]
+            }
+          ],
           "screens": [
             {
               "blocks": [
@@ -687,6 +839,22 @@
           "id": "f2",
           "caption": "Tests pass. Core imports the API.",
           "subtitle": "With no law, line one of a business logic file imports from the HTTP handlers.",
+          "narration": [
+            {
+              "text": "With no law, the ten tests pass.",
+              "shows": [
+                "With no law",
+                "pass 10"
+              ]
+            },
+            {
+              "text": "But line one of a business logic file imports from the HTTP handlers.",
+              "shows": [
+                "line one of a business logic file imports from the HTTP handlers.",
+                "import { formatMoney } from \"../api/format.ts\";"
+              ]
+            }
+          ],
           "screens": [
             {
               "blocks": [
@@ -742,6 +910,21 @@
           "id": "f3",
           "caption": "One line: core may use only core",
           "subtitle": "One line of the law forbids that.",
+          "narration": [
+            {
+              "text": "One line of the law forbids that.",
+              "shows": [
+                "One line of the law forbids that."
+              ]
+            },
+            {
+              "text": "Core may use only core.",
+              "shows": [
+                "core may use only core",
+                "may_use: [core]"
+              ]
+            }
+          ],
           "screens": [
             {
               "blocks": [
@@ -800,6 +983,28 @@
         {
           "id": "f4",
           "caption": "Lawcheck names the line and the rule",
+          "narration": [
+            {
+              "text": "Lawcheck check fails on the two changed files.",
+              "shows": [
+                "lawcheck check",
+                "1 error in 2 changed files"
+              ]
+            },
+            {
+              "text": "It names line one and the rule.",
+              "shows": [
+                "Lawcheck names the line and the rule",
+                "src/core/price.ts:1  error[forbidden-use]"
+              ]
+            },
+            {
+              "text": "Core may not use the API.",
+              "shows": [
+                "core may not use api"
+              ]
+            }
+          ],
           "screens": [
             {
               "blocks": [
@@ -843,6 +1048,26 @@
           "id": "f5",
           "caption": "Same prompt, law and plugin",
           "subtitle": "With the law and the plugin, the agent keeps the helper in core.",
+          "narration": [
+            {
+              "text": "Now the same prompt runs with the law and the plugin.",
+              "shows": [
+                "Same prompt, law and plugin"
+              ]
+            },
+            {
+              "text": "The agent keeps the helper in core.",
+              "shows": [
+                "the agent keeps the helper in core."
+              ]
+            },
+            {
+              "text": "The check passes.",
+              "shows": [
+                "lawcheck: PASS"
+              ]
+            }
+          ],
           "screens": [
             {
               "blocks": [
@@ -882,6 +1107,15 @@
         {
           "id": "f6",
           "subtitle": "The guide has these steps as text.",
+          "narration": [
+            {
+              "text": "The guide has these steps as text.",
+              "shows": [
+                "The guide has these steps as text.",
+                "lawcheck docs forbid-a-use"
+              ]
+            }
+          ],
           "screens": [
             {
               "blocks": [
@@ -919,6 +1153,29 @@
           "id": "s1",
           "caption": "Write a script rule",
           "subtitle": "Line three calls fetch. Line one names it in a comment.",
+          "narration": [
+            {
+              "text": "Write a script rule.",
+              "shows": [
+                "Write a script rule"
+              ]
+            },
+            {
+              "text": "In this cart file, line three calls fetch.",
+              "shows": [
+                "src/core/cart.ts",
+                "Line three calls fetch.",
+                "return (await fetch('/cart')).json();"
+              ]
+            },
+            {
+              "text": "Line one only names it, in a comment.",
+              "shows": [
+                "Line one names it in a comment.",
+                "// Orders reach the network through fetch() in src/api, never here."
+              ]
+            }
+          ],
           "screens": [
             {
               "blocks": [
@@ -970,6 +1227,26 @@
           "id": "s2",
           "caption": "A prompt for Claude Code",
           "subtitle": "Claude Code gets a prompt for a script rule.",
+          "narration": [
+            {
+              "text": "Claude Code gets a prompt for a script rule.",
+              "shows": [
+                "Claude Code gets a prompt for a script rule."
+              ]
+            },
+            {
+              "text": "No file of core calls fetch.",
+              "shows": [
+                "no file of core calls fetch()."
+              ]
+            },
+            {
+              "text": "A comment is not a finding.",
+              "shows": [
+                "so a comment is not a finding."
+              ]
+            }
+          ],
           "screens": [
             {
               "blocks": [
@@ -997,6 +1274,21 @@
           "id": "s3",
           "caption": "The rule reads the syntax tree",
           "subtitle": "The agent writes the rule. It reads the syntax tree of the file.",
+          "narration": [
+            {
+              "text": "The agent writes the rule.",
+              "shows": [
+                "The agent writes the rule."
+              ]
+            },
+            {
+              "text": "It reads the syntax tree of the file.",
+              "shows": [
+                "It reads the syntax tree of the file.",
+                "const { root } = await file.tree();"
+              ]
+            }
+          ],
           "screens": [
             {
               "blocks": [
@@ -1045,6 +1337,27 @@
           "id": "s4",
           "caption": "The law lists the rule on core",
           "subtitle": "The law gets the rule and its reason, and core lists it.",
+          "narration": [
+            {
+              "text": "The law gets the rule and its reason.",
+              "shows": [
+                "The law gets the rule and its reason"
+              ]
+            },
+            {
+              "text": "Only the API layer talks to the network.",
+              "shows": [
+                "why: Only the api layer talks to the network."
+              ]
+            },
+            {
+              "text": "Core lists the rule.",
+              "shows": [
+                "core lists it",
+                "rules: [no-fetch]"
+              ]
+            }
+          ],
           "screens": [
             {
               "blocks": [
@@ -1123,6 +1436,22 @@
           "id": "s5",
           "caption": "One finding",
           "subtitle": "Lawcheck try reports line three and leaves the comment.",
+          "narration": [
+            {
+              "text": "Lawcheck try reports one finding, on line three.",
+              "shows": [
+                "lawcheck try no-fetch",
+                "1 finding",
+                "src/core/cart.ts:3"
+              ]
+            },
+            {
+              "text": "The comment on line one is not a finding.",
+              "shows": [
+                "leaves the comment"
+              ]
+            }
+          ],
           "screens": [
             {
               "blocks": [
@@ -1166,6 +1495,15 @@
         {
           "id": "s6",
           "subtitle": "The guide has these steps as text.",
+          "narration": [
+            {
+              "text": "The guide has these steps as text.",
+              "shows": [
+                "The guide has these steps as text.",
+                "lawcheck docs write-a-script-rule"
+              ]
+            }
+          ],
           "screens": [
             {
               "blocks": [
@@ -1203,6 +1541,29 @@
           "id": "r1",
           "caption": "Write a reviewer rule",
           "subtitle": "The error says only failed. The reviewer is Claude Code, with no key.",
+          "narration": [
+            {
+              "text": "Write a reviewer rule.",
+              "shows": [
+                "Write a reviewer rule"
+              ]
+            },
+            {
+              "text": "In this refund file, the error says only failed.",
+              "shows": [
+                "src/core/refund.ts",
+                "The error says only failed.",
+                "throw new Error('failed');"
+              ]
+            },
+            {
+              "text": "The reviewer is Claude Code, with no key.",
+              "shows": [
+                "The reviewer is Claude Code, with no key.",
+                "provider: claude-code"
+              ]
+            }
+          ],
           "screens": [
             {
               "blocks": [
@@ -1266,6 +1627,21 @@
         {
           "id": "r2",
           "caption": "A prompt for Claude Code",
+          "narration": [
+            {
+              "text": "Claude Code gets a prompt for the rule.",
+              "shows": [
+                "A prompt for Claude Code",
+                "Add a reviewer rule clear-errors for core"
+              ]
+            },
+            {
+              "text": "Every error a caller sees says what happened and what to do next.",
+              "shows": [
+                "every error message a caller can see says what happened and what the caller can do next."
+              ]
+            }
+          ],
           "screens": [
             {
               "blocks": [
@@ -1293,6 +1669,22 @@
           "id": "r3",
           "caption": "The rule, in plain words",
           "subtitle": "The agent writes the rule and lists it on core.",
+          "narration": [
+            {
+              "text": "The agent writes the rule in plain words.",
+              "shows": [
+                "The rule, in plain words",
+                ".lawcheck/rules/clear-errors.md"
+              ]
+            },
+            {
+              "text": "The law lists it on core.",
+              "shows": [
+                "lists it on core.",
+                "rules: [clear-errors]"
+              ]
+            }
+          ],
           "screens": [
             {
               "blocks": [
@@ -1349,6 +1741,28 @@
         {
           "id": "r4",
           "caption": "The model's finding",
+          "narration": [
+            {
+              "text": "Lawcheck try runs it on the refund file.",
+              "shows": [
+                "lawcheck try clear-errors src/core/refund.ts"
+              ]
+            },
+            {
+              "text": "The model finds line two.",
+              "shows": [
+                "The model's finding",
+                "src/core/refund.ts:2"
+              ]
+            },
+            {
+              "text": "The error does not say what happened, or what the caller can do next.",
+              "shows": [
+                "does not say what happened",
+                "or what the caller can do next."
+              ]
+            }
+          ],
           "screens": [
             {
               "blocks": [
@@ -1384,6 +1798,33 @@
           "id": "r5",
           "caption": "The review passes",
           "subtitle": "With a clearer message, the review passes.",
+          "narration": [
+            {
+              "text": "The new message says the order is not paid yet.",
+              "shows": [
+                "The order is not paid yet"
+              ]
+            },
+            {
+              "text": "It says to take the payment before a refund.",
+              "shows": [
+                "take the payment before a refund."
+              ]
+            },
+            {
+              "text": "With a clearer message, the review passes.",
+              "shows": [
+                "With a clearer message, the review passes.",
+                "lawcheck: PASS"
+              ]
+            },
+            {
+              "text": "It took one reviewer call.",
+              "shows": [
+                "1 reviewer call"
+              ]
+            }
+          ],
           "screens": [
             {
               "blocks": [
@@ -1432,6 +1873,15 @@
           "id": "r6",
           "caption": "No model on the next check",
           "subtitle": "The next check reads that record and calls no model.",
+          "narration": [
+            {
+              "text": "The next check reads that record and calls no model.",
+              "shows": [
+                "The next check reads that record and calls no model.",
+                "lawcheck check --base main"
+              ]
+            }
+          ],
           "screens": [
             {
               "blocks": [
@@ -1466,6 +1916,15 @@
         {
           "id": "r7",
           "subtitle": "The guide has these steps as text.",
+          "narration": [
+            {
+              "text": "The guide has these steps as text.",
+              "shows": [
+                "The guide has these steps as text.",
+                "lawcheck docs write-a-reviewer-rule"
+              ]
+            }
+          ],
           "screens": [
             {
               "blocks": [
@@ -1503,6 +1962,29 @@
           "id": "c1",
           "caption": "CI and git hooks",
           "subtitle": "Claude Code gets a prompt for the CI job of the documentation.",
+          "narration": [
+            {
+              "text": "A CI job can run lawcheck check on each pull request.",
+              "page": "ci",
+              "shows": [
+                "A CI job can run `lawcheck check` on each pull request."
+              ]
+            },
+            {
+              "text": "A git hook can run it on each commit or push.",
+              "page": "ci",
+              "shows": [
+                "A git hook can run it on each commit or push"
+              ]
+            },
+            {
+              "text": "Claude Code gets a prompt to add that job from the docs.",
+              "shows": [
+                "Claude Code gets a prompt for the CI job of the documentation.",
+                "Add the CI job of lawcheck docs ci to this repository."
+              ]
+            }
+          ],
           "screens": [
             {
               "blocks": [
@@ -1530,6 +2012,21 @@
           "id": "c2",
           "caption": "The workflow's check step",
           "subtitle": "The agent writes the workflow. Its check step runs lawcheck check against the base branch.",
+          "narration": [
+            {
+              "text": "The agent writes the workflow.",
+              "shows": [
+                "The agent writes the workflow."
+              ]
+            },
+            {
+              "text": "Its check step runs lawcheck check against the base branch.",
+              "shows": [
+                "Its check step runs lawcheck check against the base branch.",
+                "lawcheck check --base \"$base\""
+              ]
+            }
+          ],
           "screens": [
             {
               "blocks": [
@@ -1582,6 +2079,22 @@
           "id": "c3",
           "caption": "Network off, no key",
           "subtitle": "Here the job's command runs on this machine with the network off and no key. On the branch with the reviewer rule, it passes.",
+          "narration": [
+            {
+              "text": "Here the job's command runs with the network off and no key.",
+              "shows": [
+                "Network off, no key",
+                "with the network off and no key."
+              ]
+            },
+            {
+              "text": "On the branch with the reviewer rule, it passes.",
+              "shows": [
+                "On the branch with the reviewer rule, it passes.",
+                "lawcheck: PASS"
+              ]
+            }
+          ],
           "screens": [
             {
               "blocks": [
@@ -1615,6 +2128,28 @@
         },
         {
           "id": "c4",
+          "narration": [
+            {
+              "text": "On the discount branch, the check fails.",
+              "shows": [
+                "git switch discount",
+                "lawcheck: FAIL"
+              ]
+            },
+            {
+              "text": "Line one of the discount file uses the API.",
+              "shows": [
+                "src/core/discount.ts:1",
+                "(src/api/orders.ts)"
+              ]
+            },
+            {
+              "text": "Core may not use it.",
+              "shows": [
+                "core may not use api"
+              ]
+            }
+          ],
           "screens": [
             {
               "at": 0.0,
@@ -1668,6 +2203,15 @@
           "start": 43.3,
           "end": 46.5,
           "caption": "Exit code 1 fails the job",
+          "narration": [
+            {
+              "text": "Exit code one fails the job.",
+              "shows": [
+                "Exit code 1 fails the job",
+                "echo $?"
+              ]
+            }
+          ],
           "screens": [
             {
               "at": 0.0,
@@ -1699,6 +2243,15 @@
         {
           "id": "c6",
           "subtitle": "The page has the whole job as text.",
+          "narration": [
+            {
+              "text": "The page has the whole job as text.",
+              "shows": [
+                "The page has the whole job as text.",
+                "npx --no-install lawcheck docs ci"
+              ]
+            }
+          ],
           "screens": [
             {
               "blocks": [

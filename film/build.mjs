@@ -3,6 +3,7 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { css } from '../brand/css.mjs';
 import { FILM, lengthOf, piecesOf, readEdit, ROOT, screensOf, timelinesOf } from './edit.mjs';
+import { voiceClips, voiceProblems } from './voice.mjs';
 const GSAP = 'https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/gsap.min.js';
 
 const escape = (text) => text.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
@@ -134,7 +135,7 @@ export function vttOf(segments) {
   return `WEBVTT\n\n${cues.join('\n')}`;
 }
 
-function indexHtml(name, screens, edit, seconds, style, chapter) {
+function indexHtml(name, screens, edit, seconds, style, chapter, clips) {
   const frame = `data-width="${edit.frame.width}" data-height="${edit.frame.height}"`;
   const hosts = screens.map((screen) => `<div id="${screen.id}" data-composition-id="${screen.id}" data-composition-src="compositions/${screen.id}.html" data-start="${screen.start}" data-duration="${(screen.end - screen.start).toFixed(2)}" data-track-index="1" data-track-kind="graphics" ${frame}></div>`);
   return `<!doctype html>
@@ -154,7 +155,7 @@ ${style}
       ${hosts.join('\n      ')}
       <div id="captions" data-composition-id="captions" data-composition-src="compositions/captions.html" data-start="0" data-duration="${seconds}" data-track-index="2" data-track-kind="captions" ${frame}></div>
       <div id="corner" data-composition-id="corner" data-composition-src="compositions/corner.html" data-start="0" data-duration="${seconds}" data-track-index="3" data-track-kind="graphics" ${frame}></div>
-    </div>
+${clips.map((clip) => `      <audio id="voice-${clip.id}" class="clip" src="assets/voice/${clip.id}.wav" data-start="${clip.start}" data-duration="${clip.seconds.toFixed(2)}" data-track-index="4" data-volume="1"></audio>\n`).join('')}    </div>
     <script>
       window.__timelines["main"] = gsap.timeline({ paused: true });
     </script>
@@ -163,8 +164,12 @@ ${style}
 `;
 }
 
-export function build(out, root = ROOT) {
+export function build(out, root = ROOT, voice = undefined) {
   const edit = readEdit(root);
+  if (voice !== undefined) {
+    const problems = voiceProblems(edit, voice);
+    if (problems.length > 0) throw new Error(problems.join('\n'));
+  }
   const tokens = JSON.parse(readFileSync(join(root, 'brand', 'tokens.json'), 'utf8'));
   const mark = readFileSync(join(root, 'brand', 'mark.svg'), 'utf8').trim();
   const style = `${css(tokens)}\n${readFileSync(join(FILM, 'hyperframes', 'film.css'), 'utf8')}`.split('\n').map((line) => (line === '' ? '' : `      ${line}`)).join('\n');
@@ -178,20 +183,25 @@ export function build(out, root = ROOT) {
     for (const screen of screens) writeFileSync(join(project, 'compositions', `${screen.id}.html`), sceneHtml(screen, edit, tokens, mark));
     writeFileSync(join(project, 'compositions', 'captions.html'), captionsHtml(timeline.segments, edit));
     writeFileSync(join(project, 'compositions', 'corner.html'), cornerHtml(edit, mark));
-    writeFileSync(join(project, 'index.html'), indexHtml(name, screens, edit, lengthOf(timeline.segments), style, timeline.chapter !== undefined));
+    const clips = voice === undefined || timeline.chapter === undefined ? [] : voiceClips(edit, name, voice);
+    if (clips.length > 0) mkdirSync(join(project, 'assets', 'voice'), { recursive: true });
+    for (const clip of clips) cpSync(clip.file, join(project, 'assets', 'voice', `${clip.id}.wav`));
+    writeFileSync(join(project, 'index.html'), indexHtml(name, screens, edit, lengthOf(timeline.segments), style, timeline.chapter !== undefined, clips));
     if (timeline.chapter !== undefined) writeFileSync(join(project, `${name}.vtt`), vttOf(timeline.segments));
     cpSync(join(FILM, 'hyperframes', 'SPEC.md'), join(project, 'SPEC.md'));
-    made.push({ name, project, seconds: lengthOf(timeline.segments), screens: screens.length, chapter: timeline.chapter !== undefined });
+    made.push({ name, project, seconds: lengthOf(timeline.segments), screens: screens.length, chapter: timeline.chapter !== undefined, voiced: clips.length });
   }
   return made;
 }
 
 if (process.argv[1] !== undefined && fileURLToPath(import.meta.url) === process.argv[1]) {
   const args = process.argv.slice(2);
-  if (args.length > 0 && (args[0] !== '--out' || args[1] === undefined || args.length > 2)) {
-    process.stderr.write('usage: node film/build.mjs [--out <folder>]\n');
+  const value = (flag) => (args.includes(flag) ? args[args.indexOf(flag) + 1] : undefined);
+  if (args.length % 2 !== 0 || args.some((arg, index) => index % 2 === 0 && arg !== '--out' && arg !== '--voice') || args.some((arg, index) => index % 2 === 1 && arg.startsWith('--'))) {
+    process.stderr.write('usage: node film/build.mjs [--out <folder>] [--voice <folder that film/voice.mjs wrote>]\n');
     process.exit(2);
   }
-  const out = resolve(args[1] ?? join(FILM, 'dist'));
-  for (const made of build(out)) process.stdout.write(`film/build.mjs: ${made.name}: ${made.screens} screens, ${made.seconds} s, in ${made.project}\n`);
+  const out = resolve(value('--out') ?? join(FILM, 'dist'));
+  const voice = value('--voice') === undefined ? undefined : resolve(value('--voice'));
+  for (const made of build(out, ROOT, voice)) process.stdout.write(`film/build.mjs: ${made.name}: ${made.screens} screens, ${made.seconds} s${made.voiced > 0 ? `, ${made.voiced} narrated frames` : ''}, in ${made.project}\n`);
 }

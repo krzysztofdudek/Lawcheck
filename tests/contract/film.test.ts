@@ -11,7 +11,7 @@ import { trimRecord, trimTranscript } from '../../film/trim.mjs';
 import { decodeTerminal, narrationProblems, privateProblems, privateSummary, privateWords, readingProblems, stalenessProblems, truthProblems, versionProblems } from '../../film/check.mjs';
 import { build, vttOf } from '../../film/build.mjs';
 import { readEdit, wrap, words } from '../../film/edit.mjs';
-import { voiceKey, voiceProblems, wavSeconds } from '../../film/voice.mjs';
+import { joinWav, voiceKey, voiceProblems, wavSeconds } from '../../film/voice.mjs';
 
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 
@@ -313,7 +313,7 @@ function silence(seconds: number): Buffer {
   return Buffer.concat([head, data]);
 }
 
-test('test 1052: a chapter\'s build mixes the voice of each narrated frame from its start, and a voice spoken from other words, a missing voice and a voice longer than its frame are each refused', () => {
+test('test 1052: a chapter\'s build mixes the voice of each narrated frame from its start, its sentences joined by one pause, and a voice spoken from other words, a missing voice and a voice longer than its frame are each refused', () => {
   const folder = testFolder('lawcheck-film-');
   try {
     const edit = readEdit(ROOT);
@@ -328,6 +328,7 @@ test('test 1052: a chapter\'s build mixes the voice of each narrated frame from 
     }
     writeFileSync(join(voice, 'voice.json'), JSON.stringify({ segments }));
     assert.equal(wavSeconds(silence(2.5)), 2.5);
+    assert.equal(wavSeconds(joinWav([silence(1), silence(0.5), silence(0.25)], 0.5)), 2.75);
     assert.deepEqual(voiceProblems(edit, voice), []);
     build(join(folder.dir, 'dist'), ROOT, voice);
     const index = readFileSync(join(folder.dir, 'dist', 'quick-start', 'index.html'), 'utf8');
