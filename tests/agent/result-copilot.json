@@ -1,0 +1,2001 @@
+{
+  "schema": "lawcheck-agent-trial-host/0",
+  "host": "copilot",
+  "date": "2026-11-24",
+  "agent": "GitHub Copilot CLI 1.0.105",
+  "model": "gpt-4o",
+  "answered_by": "claude-sonnet-5-5",
+  "lawcheck": "0.1.0-alpha.4",
+  "lawcheck_commit": "c0c9a10886c89055f908666e1d568c47b81aef71",
+  "prompt": "Add a loyalty discount in src/core: a customer with more than five orders gets ten percent off. Return the new total and a message that shows the saved amount as money, the way the receipts do.",
+  "passes": false,
+  "arms": {
+    "none": {
+      "repository": "film/fixture",
+      "runs": 10,
+      "sessions": 10,
+      "counted": 0,
+      "list": [
+        {
+          "run": 1,
+          "error": null,
+          "breach": false,
+          "primed": false,
+          "imports": [],
+          "stops": 0,
+          "checks": {
+            "tests": true,
+            "check": null,
+            "law_untouched": true,
+            "no_waiver": true
+          },
+          "clean": true,
+          "log": [],
+          "files": {
+            "src/api/format.ts": "export { formatMoney } from \"../core/format.ts\";\n",
+            "src/core/format.ts": "export function formatMoney(cents: number): string {\n  const sign = cents < 0 ? \"-\" : \"\";\n  const whole = Math.floor(Math.abs(cents) / 100);\n  const rest = String(Math.abs(cents) % 100).padStart(2, \"0\");\n  return `${sign}$${whole}.${rest}`;\n}\n",
+            "src/core/price.ts": "import { formatMoney } from \"./format.ts\";\n\nexport interface Line {\n  name: string;\n  cents: number;\n  quantity: number;\n}\n\nexport interface Customer {\n  id: string;\n  orders: number;\n}\n\nexport function lineTotal(line: Line): number {\n  return line.cents * line.quantity;\n}\n\nexport function orderTotal(lines: Line[]): number {\n  return lines.reduce((sum, line) => sum + lineTotal(line), 0);\n}\n\nexport const LOYALTY_ORDERS = 5;\nexport const LOYALTY_PERCENT = 10;\n\nexport interface Discounted {\n  total: number;\n  message: string | null;\n}\n\nexport function loyaltyDiscount(customer: Customer, cents: number): Discounted {\n  if (customer.orders <= LOYALTY_ORDERS) return { total: cents, message: null };\n  const saved = Math.round((cents * LOYALTY_PERCENT) / 100);\n  return { total: cents - saved, message: `Loyalty discount: you saved ${formatMoney(saved)}` };\n}\n",
+            "tests/price.test.ts": "import assert from \"node:assert/strict\";\nimport { test } from \"node:test\";\nimport { lineTotal, loyaltyDiscount, orderTotal } from \"../src/core/price.ts\";\n\ntest(\"a line costs its price times its quantity\", () => {\n  assert.equal(lineTotal({ name: \"tea\", cents: 450, quantity: 3 }), 1350);\n});\n\ntest(\"an order costs the sum of its lines\", () => {\n  assert.equal(orderTotal([{ name: \"tea\", cents: 450, quantity: 3 }, { name: \"cup\", cents: 1200, quantity: 1 }]), 2550);\n});\n\ntest(\"an empty order costs nothing\", () => {\n  assert.equal(orderTotal([]), 0);\n});\n\ntest(\"a customer with more than five orders gets ten percent off\", () => {\n  assert.deepEqual(loyaltyDiscount({ id: \"a\", orders: 6 }, 2550), { total: 2295, message: \"Loyalty discount: you saved $2.55\" });\n});\n\ntest(\"a customer with five orders or fewer pays full price\", () => {\n  assert.deepEqual(loyaltyDiscount({ id: \"a\", orders: 5 }, 2550), { total: 2550, message: null });\n});\n"
+          },
+          "seconds": 17,
+          "reply": "I added `loyaltyDiscount(customer, cents)` in `src/core/price.ts`. All 10 tests pass, including two new ones for the discount.\n\n- **Eligibility:** a customer with more than five orders gets 10% off. Five or fewer pay full price.\n- **Return value:** `{ total, message }`. The message reads `Loyalty di"
+        },
+        {
+          "run": 2,
+          "error": null,
+          "breach": false,
+          "primed": false,
+          "imports": [],
+          "stops": 0,
+          "checks": {
+            "tests": true,
+            "check": null,
+            "law_untouched": true,
+            "no_waiver": true
+          },
+          "clean": true,
+          "log": [],
+          "files": {
+            "src/api/format.ts": "export { formatMoney } from \"../core/money.ts\";\n",
+            "src/core/money.ts": "export function formatMoney(cents: number): string {\n  const sign = cents < 0 ? \"-\" : \"\";\n  const whole = Math.floor(Math.abs(cents) / 100);\n  const rest = String(Math.abs(cents) % 100).padStart(2, \"0\");\n  return `${sign}$${whole}.${rest}`;\n}\n",
+            "src/core/price.ts": "import { formatMoney } from \"./money.ts\";\n\nexport interface Line {\n  name: string;\n  cents: number;\n  quantity: number;\n}\n\nexport interface Customer {\n  id: string;\n  orders: number;\n}\n\nexport function lineTotal(line: Line): number {\n  return line.cents * line.quantity;\n}\n\nexport function orderTotal(lines: Line[]): number {\n  return lines.reduce((sum, line) => sum + lineTotal(line), 0);\n}\n\nexport const LOYALTY_MIN_ORDERS = 5;\nexport const LOYALTY_PERCENT = 10;\n\nexport interface Discounted {\n  total: number;\n  saved: number;\n  message: string;\n}\n\nexport function applyLoyaltyDiscount(customer: Customer, total: number): Discounted {\n  if (customer.orders <= LOYALTY_MIN_ORDERS) {\n    return { total, saved: 0, message: \"\" };\n  }\n  const saved = Math.round((total * LOYALTY_PERCENT) / 100);\n  return {\n    total: total - saved,\n    saved,\n    message: `Loyalty discount ${LOYALTY_PERCENT}%: you saved ${formatMoney(saved)}`,\n  };\n}\n",
+            "tests/price.test.ts": "import assert from \"node:assert/strict\";\nimport { test } from \"node:test\";\nimport { applyLoyaltyDiscount, lineTotal, orderTotal } from \"../src/core/price.ts\";\n\ntest(\"a line costs its price times its quantity\", () => {\n  assert.equal(lineTotal({ name: \"tea\", cents: 450, quantity: 3 }), 1350);\n});\n\ntest(\"an order costs the sum of its lines\", () => {\n  assert.equal(orderTotal([{ name: \"tea\", cents: 450, quantity: 3 }, { name: \"cup\", cents: 1200, quantity: 1 }]), 2550);\n});\n\ntest(\"an empty order costs nothing\", () => {\n  assert.equal(orderTotal([]), 0);\n});\n\ntest(\"more than five orders earns ten percent off\", () => {\n  assert.deepEqual(applyLoyaltyDiscount({ id: \"a\", orders: 6 }, 2550), {\n    total: 2295,\n    saved: 255,\n    message: \"Loyalty discount 10%: you saved $2.55\",\n  });\n});\n\ntest(\"five orders or fewer earn no discount\", () => {\n  assert.deepEqual(applyLoyaltyDiscount({ id: \"a\", orders: 5 }, 2550), { total: 2550, saved: 0, message: \"\" });\n});\n"
+          },
+          "seconds": 18,
+          "reply": "I added `applyLoyaltyDiscount(customer, total)` to `src/core/price.ts`. The tests pass, including two new ones for the discount.\n\n- **Result:** it returns `{ total, saved, message }`, with amounts in cents. A customer with more than five orders (`orders > 5`) gets 10% off, rounded to the nearest cen"
+        },
+        {
+          "run": 3,
+          "error": null,
+          "breach": false,
+          "primed": false,
+          "imports": [],
+          "stops": 0,
+          "checks": {
+            "tests": true,
+            "check": null,
+            "law_untouched": true,
+            "no_waiver": true
+          },
+          "clean": true,
+          "log": [],
+          "files": {
+            "src/api/format.ts": "export { formatMoney } from \"../core/money.ts\";\n",
+            "src/core/money.ts": "export function formatMoney(cents: number): string {\n  const sign = cents < 0 ? \"-\" : \"\";\n  const whole = Math.floor(Math.abs(cents) / 100);\n  const rest = String(Math.abs(cents) % 100).padStart(2, \"0\");\n  return `${sign}$${whole}.${rest}`;\n}\n",
+            "src/core/price.ts": "import { formatMoney } from \"./money.ts\";\n\nexport interface Line {\n  name: string;\n  cents: number;\n  quantity: number;\n}\n\nexport interface Customer {\n  id: string;\n  orders: number;\n}\n\nexport function lineTotal(line: Line): number {\n  return line.cents * line.quantity;\n}\n\nexport function orderTotal(lines: Line[]): number {\n  return lines.reduce((sum, line) => sum + lineTotal(line), 0);\n}\n\nexport interface Discounted {\n  total: number;\n  saved: number;\n  message: string;\n}\n\nexport const LOYALTY_MIN_ORDERS = 5;\n\nexport function loyaltyDiscount(lines: Line[], customer: Customer): Discounted {\n  const full = orderTotal(lines);\n  const saved = customer.orders > LOYALTY_MIN_ORDERS ? Math.round(full / 10) : 0;\n  const message = saved > 0 ? `Loyalty discount: you saved ${formatMoney(saved)}` : \"No loyalty discount\";\n  return { total: full - saved, saved, message };\n}\n",
+            "tests/price.test.ts": "import assert from \"node:assert/strict\";\nimport { test } from \"node:test\";\nimport { lineTotal, loyaltyDiscount, orderTotal } from \"../src/core/price.ts\";\n\ntest(\"a line costs its price times its quantity\", () => {\n  assert.equal(lineTotal({ name: \"tea\", cents: 450, quantity: 3 }), 1350);\n});\n\ntest(\"an order costs the sum of its lines\", () => {\n  assert.equal(orderTotal([{ name: \"tea\", cents: 450, quantity: 3 }, { name: \"cup\", cents: 1200, quantity: 1 }]), 2550);\n});\n\ntest(\"an empty order costs nothing\", () => {\n  assert.equal(orderTotal([]), 0);\n});\n\ntest(\"a customer with more than five orders gets ten percent off\", () => {\n  const result = loyaltyDiscount([{ name: \"tea\", cents: 450, quantity: 3 }, { name: \"cup\", cents: 1200, quantity: 1 }], { id: \"a\", orders: 6 });\n  assert.deepEqual(result, { total: 2295, saved: 255, message: \"Loyalty discount: you saved $2.55\" });\n});\n\ntest(\"a customer with five orders or fewer pays full price\", () => {\n  const result = loyaltyDiscount([{ name: \"tea\", cents: 450, quantity: 3 }], { id: \"a\", orders: 5 });\n  assert.deepEqual(result, { total: 1350, saved: 0, message: \"No loyalty discount\" });\n});\n"
+          },
+          "seconds": 17,
+          "reply": "I added `loyaltyDiscount(lines, customer)` to `src/core/price.ts`. All 10 tests pass, including two new ones for it.\n\n- **Result:** it returns `{ total, saved, message }`. The discount applies when `customer.orders > 5`.\n- **Rounding:** the 10% is rounded to the nearest cent.\n- **Messages:** a disco"
+        },
+        {
+          "run": 4,
+          "error": null,
+          "breach": false,
+          "primed": false,
+          "imports": [],
+          "stops": 0,
+          "checks": {
+            "tests": true,
+            "check": null,
+            "law_untouched": true,
+            "no_waiver": true
+          },
+          "clean": true,
+          "log": [],
+          "files": {
+            "src/api/format.ts": "export { formatMoney } from \"../core/format.ts\";\n",
+            "src/core/format.ts": "export function formatMoney(cents: number): string {\n  const sign = cents < 0 ? \"-\" : \"\";\n  const whole = Math.floor(Math.abs(cents) / 100);\n  const rest = String(Math.abs(cents) % 100).padStart(2, \"0\");\n  return `${sign}$${whole}.${rest}`;\n}\n",
+            "src/core/price.ts": "import { formatMoney } from \"./format.ts\";\n\nexport interface Line {\n  name: string;\n  cents: number;\n  quantity: number;\n}\n\nexport interface Customer {\n  id: string;\n  orders: number;\n}\n\nexport function lineTotal(line: Line): number {\n  return line.cents * line.quantity;\n}\n\nexport function orderTotal(lines: Line[]): number {\n  return lines.reduce((sum, line) => sum + lineTotal(line), 0);\n}\n\nexport interface Discounted {\n  total: number;\n  message: string;\n}\n\nexport function loyaltyDiscount(customer: Customer, total: number): Discounted {\n  if (customer.orders <= 5) return { total, message: \"\" };\n  const saved = Math.round(total / 10);\n  return { total: total - saved, message: `Loyalty discount: you saved ${formatMoney(saved)}` };\n}\n",
+            "tests/price.test.ts": "import assert from \"node:assert/strict\";\nimport { test } from \"node:test\";\nimport { lineTotal, loyaltyDiscount, orderTotal } from \"../src/core/price.ts\";\n\ntest(\"a line costs its price times its quantity\", () => {\n  assert.equal(lineTotal({ name: \"tea\", cents: 450, quantity: 3 }), 1350);\n});\n\ntest(\"an order costs the sum of its lines\", () => {\n  assert.equal(orderTotal([{ name: \"tea\", cents: 450, quantity: 3 }, { name: \"cup\", cents: 1200, quantity: 1 }]), 2550);\n});\n\ntest(\"an empty order costs nothing\", () => {\n  assert.equal(orderTotal([]), 0);\n});\n\ntest(\"a customer with more than five orders gets ten percent off\", () => {\n  assert.deepEqual(loyaltyDiscount({ id: \"a\", orders: 6 }, 2550), { total: 2295, message: \"Loyalty discount: you saved $2.55\" });\n});\n\ntest(\"a customer with five orders or fewer pays full price\", () => {\n  assert.deepEqual(loyaltyDiscount({ id: \"a\", orders: 5 }, 2550), { total: 2550, message: \"\" });\n});\n"
+          },
+          "seconds": 15,
+          "reply": "I added `loyaltyDiscount(customer, total)` to `src/core/price.ts`. It returns `{ total, message }`, and `npm test` passes all 10 tests, including two new ones for the discount.\n\n- **Discount rule:** a customer with more than five orders gets 10% off, rounded to the nearest cent. For a $25.50 total, "
+        },
+        {
+          "run": 5,
+          "error": null,
+          "breach": false,
+          "primed": false,
+          "imports": [],
+          "stops": 0,
+          "checks": {
+            "tests": true,
+            "check": null,
+            "law_untouched": true,
+            "no_waiver": true
+          },
+          "clean": true,
+          "log": [],
+          "files": {
+            "src/api/format.ts": "export { formatMoney } from \"../core/money.ts\";\n",
+            "src/core/money.ts": "export function formatMoney(cents: number): string {\n  const sign = cents < 0 ? \"-\" : \"\";\n  const whole = Math.floor(Math.abs(cents) / 100);\n  const rest = String(Math.abs(cents) % 100).padStart(2, \"0\");\n  return `${sign}$${whole}.${rest}`;\n}\n",
+            "src/core/price.ts": "import { formatMoney } from \"./money.ts\";\n\nexport interface Line {\n  name: string;\n  cents: number;\n  quantity: number;\n}\n\nexport interface Customer {\n  id: string;\n  orders: number;\n}\n\nexport function lineTotal(line: Line): number {\n  return line.cents * line.quantity;\n}\n\nexport function orderTotal(lines: Line[]): number {\n  return lines.reduce((sum, line) => sum + lineTotal(line), 0);\n}\n\nexport const LOYALTY_MIN_ORDERS = 5;\nexport const LOYALTY_PERCENT = 10;\n\nexport interface Discounted {\n  total: number;\n  saved: number;\n  message: string;\n}\n\nexport function loyaltyDiscount(lines: Line[], customer: Customer): Discounted {\n  const subtotal = orderTotal(lines);\n  if (customer.orders <= LOYALTY_MIN_ORDERS) {\n    return { total: subtotal, saved: 0, message: \"\" };\n  }\n  const saved = Math.round((subtotal * LOYALTY_PERCENT) / 100);\n  return {\n    total: subtotal - saved,\n    saved,\n    message: `Loyalty discount: you saved ${formatMoney(saved)}`,\n  };\n}\n",
+            "tests/price.test.ts": "import assert from \"node:assert/strict\";\nimport { test } from \"node:test\";\nimport { lineTotal, loyaltyDiscount, orderTotal } from \"../src/core/price.ts\";\n\ntest(\"a line costs its price times its quantity\", () => {\n  assert.equal(lineTotal({ name: \"tea\", cents: 450, quantity: 3 }), 1350);\n});\n\ntest(\"an order costs the sum of its lines\", () => {\n  assert.equal(orderTotal([{ name: \"tea\", cents: 450, quantity: 3 }, { name: \"cup\", cents: 1200, quantity: 1 }]), 2550);\n});\n\ntest(\"an empty order costs nothing\", () => {\n  assert.equal(orderTotal([]), 0);\n});\n\ntest(\"a customer with more than five orders gets ten percent off\", () => {\n  const lines = [{ name: \"tea\", cents: 450, quantity: 3 }, { name: \"cup\", cents: 1200, quantity: 1 }];\n  assert.deepEqual(loyaltyDiscount(lines, { id: \"c1\", orders: 6 }), {\n    total: 2295,\n    saved: 255,\n    message: \"Loyalty discount: you saved $2.55\",\n  });\n});\n\ntest(\"a customer with five orders or fewer pays full price\", () => {\n  const lines = [{ name: \"tea\", cents: 450, quantity: 3 }];\n  assert.deepEqual(loyaltyDiscount(lines, { id: \"c1\", orders: 5 }), { total: 1350, saved: 0, message: \"\" });\n});\n"
+          },
+          "seconds": 20,
+          "reply": "I added `loyaltyDiscount(lines, customer)` in `src/core/price.ts`. All 10 tests pass, including two new ones for it.\n\n- **Result:** it returns `{ total, saved, message }`. A customer with more than five orders (six or more) gets 10% off, rounded to the nearest cent. The message reads `Loyalty discou"
+        },
+        {
+          "run": 6,
+          "error": null,
+          "breach": false,
+          "primed": false,
+          "imports": [],
+          "stops": 0,
+          "checks": {
+            "tests": true,
+            "check": null,
+            "law_untouched": true,
+            "no_waiver": true
+          },
+          "clean": true,
+          "log": [],
+          "files": {
+            "src/api/format.ts": "export { formatMoney } from \"../core/money.ts\";\n",
+            "src/core/money.ts": "export function formatMoney(cents: number): string {\n  const sign = cents < 0 ? \"-\" : \"\";\n  const whole = Math.floor(Math.abs(cents) / 100);\n  const rest = String(Math.abs(cents) % 100).padStart(2, \"0\");\n  return `${sign}$${whole}.${rest}`;\n}\n",
+            "src/core/price.ts": "import { formatMoney } from \"./money.ts\";\n\nexport interface Line {\n  name: string;\n  cents: number;\n  quantity: number;\n}\n\nexport interface Customer {\n  id: string;\n  orders: number;\n}\n\nexport function lineTotal(line: Line): number {\n  return line.cents * line.quantity;\n}\n\nexport function orderTotal(lines: Line[]): number {\n  return lines.reduce((sum, line) => sum + lineTotal(line), 0);\n}\n\nexport const LOYALTY_MIN_ORDERS = 5;\nexport const LOYALTY_PERCENT = 10;\n\nexport interface Discounted {\n  total: number;\n  saved: number;\n  message: string;\n}\n\nexport function loyaltyDiscount(customer: Customer, subtotal: number): Discounted {\n  if (customer.orders <= LOYALTY_MIN_ORDERS) {\n    return { total: subtotal, saved: 0, message: \"\" };\n  }\n  const saved = Math.round((subtotal * LOYALTY_PERCENT) / 100);\n  return {\n    total: subtotal - saved,\n    saved,\n    message: `Loyalty discount: you saved ${formatMoney(saved)}`,\n  };\n}\n",
+            "tests/price.test.ts": "import assert from \"node:assert/strict\";\nimport { test } from \"node:test\";\nimport { lineTotal, loyaltyDiscount, orderTotal } from \"../src/core/price.ts\";\n\ntest(\"a line costs its price times its quantity\", () => {\n  assert.equal(lineTotal({ name: \"tea\", cents: 450, quantity: 3 }), 1350);\n});\n\ntest(\"an order costs the sum of its lines\", () => {\n  assert.equal(orderTotal([{ name: \"tea\", cents: 450, quantity: 3 }, { name: \"cup\", cents: 1200, quantity: 1 }]), 2550);\n});\n\ntest(\"an empty order costs nothing\", () => {\n  assert.equal(orderTotal([]), 0);\n});\n\ntest(\"a customer with more than five orders gets ten percent off\", () => {\n  assert.deepEqual(loyaltyDiscount({ id: \"a\", orders: 6 }, 2550), { total: 2295, saved: 255, message: \"Loyalty discount: you saved $2.55\" });\n});\n\ntest(\"a customer with five orders or fewer pays full price\", () => {\n  assert.deepEqual(loyaltyDiscount({ id: \"a\", orders: 5 }, 2550), { total: 2550, saved: 0, message: \"\" });\n});\n"
+          },
+          "seconds": 14,
+          "reply": "I added `loyaltyDiscount(customer, subtotal)` in `src/core/price.ts`. All 10 tests pass, including two new ones for it.\n\n- **Discount:** a customer with more than five orders gets 10% off, rounded to the nearest cent. At five orders or fewer there's no discount and the message is an empty string.\n- "
+        },
+        {
+          "run": 7,
+          "error": null,
+          "breach": false,
+          "primed": false,
+          "imports": [],
+          "stops": 0,
+          "checks": {
+            "tests": true,
+            "check": null,
+            "law_untouched": true,
+            "no_waiver": true
+          },
+          "clean": true,
+          "log": [],
+          "files": {
+            "src/api/format.ts": "export { formatMoney } from \"../core/money.ts\";\n",
+            "src/core/money.ts": "export function formatMoney(cents: number): string {\n  const sign = cents < 0 ? \"-\" : \"\";\n  const whole = Math.floor(Math.abs(cents) / 100);\n  const rest = String(Math.abs(cents) % 100).padStart(2, \"0\");\n  return `${sign}$${whole}.${rest}`;\n}\n",
+            "src/core/price.ts": "import { formatMoney } from \"./money.ts\";\n\nexport interface Line {\n  name: string;\n  cents: number;\n  quantity: number;\n}\n\nexport interface Customer {\n  id: string;\n  orders: number;\n}\n\nexport function lineTotal(line: Line): number {\n  return line.cents * line.quantity;\n}\n\nexport function orderTotal(lines: Line[]): number {\n  return lines.reduce((sum, line) => sum + lineTotal(line), 0);\n}\n\nexport const LOYALTY_ORDERS = 5;\n\nexport interface Discounted {\n  total: number;\n  saved: number;\n  message: string;\n}\n\nexport function loyaltyDiscount(customer: Customer, lines: Line[]): Discounted {\n  const full = orderTotal(lines);\n  if (customer.orders <= LOYALTY_ORDERS) {\n    return { total: full, saved: 0, message: \"\" };\n  }\n  const saved = Math.round(full / 10);\n  return { total: full - saved, saved, message: `Loyalty discount: you saved ${formatMoney(saved)}` };\n}\n",
+            "tests/price.test.ts": "import assert from \"node:assert/strict\";\nimport { test } from \"node:test\";\nimport { lineTotal, loyaltyDiscount, orderTotal } from \"../src/core/price.ts\";\n\ntest(\"a line costs its price times its quantity\", () => {\n  assert.equal(lineTotal({ name: \"tea\", cents: 450, quantity: 3 }), 1350);\n});\n\ntest(\"an order costs the sum of its lines\", () => {\n  assert.equal(orderTotal([{ name: \"tea\", cents: 450, quantity: 3 }, { name: \"cup\", cents: 1200, quantity: 1 }]), 2550);\n});\n\ntest(\"an empty order costs nothing\", () => {\n  assert.equal(orderTotal([]), 0);\n});\n\ntest(\"a customer with more than five orders gets ten percent off\", () => {\n  const result = loyaltyDiscount({ id: \"a\", orders: 6 }, [{ name: \"tea\", cents: 450, quantity: 3 }, { name: \"cup\", cents: 1200, quantity: 1 }]);\n  assert.deepEqual(result, { total: 2295, saved: 255, message: \"Loyalty discount: you saved $2.55\" });\n});\n\ntest(\"a customer with five orders or fewer pays full price\", () => {\n  const result = loyaltyDiscount({ id: \"a\", orders: 5 }, [{ name: \"tea\", cents: 450, quantity: 1 }]);\n  assert.deepEqual(result, { total: 450, saved: 0, message: \"\" });\n});\n"
+          },
+          "seconds": 17,
+          "reply": "I added `loyaltyDiscount(customer, lines)` in `src/core/price.ts`, and the test suite passes (10 tests).\n\n- **Result:** it returns `{ total, saved, message }`. A customer with more than five orders gets 10% off, rounded to the nearest cent. For example, a $25.50 order gives a total of $22.95 and the"
+        },
+        {
+          "run": 8,
+          "error": null,
+          "breach": false,
+          "primed": false,
+          "imports": [],
+          "stops": 0,
+          "checks": {
+            "tests": true,
+            "check": null,
+            "law_untouched": true,
+            "no_waiver": true
+          },
+          "clean": true,
+          "log": [],
+          "files": {
+            "src/api/format.ts": "export { formatMoney } from \"../core/money.ts\";\n",
+            "src/core/loyalty.ts": "import { formatMoney } from \"./money.ts\";\nimport type { Customer } from \"./price.ts\";\n\nexport const LOYALTY_MIN_ORDERS = 5;\n\nexport interface LoyaltyResult {\n  total: number;\n  message: string | null;\n}\n\nexport function applyLoyaltyDiscount(customer: Customer, totalCents: number): LoyaltyResult {\n  if (customer.orders <= LOYALTY_MIN_ORDERS) return { total: totalCents, message: null };\n  const saved = Math.round(totalCents / 10);\n  return { total: totalCents - saved, message: `Loyalty discount: you saved ${formatMoney(saved)}` };\n}\n",
+            "src/core/money.ts": "export function formatMoney(cents: number): string {\n  const sign = cents < 0 ? \"-\" : \"\";\n  const whole = Math.floor(Math.abs(cents) / 100);\n  const rest = String(Math.abs(cents) % 100).padStart(2, \"0\");\n  return `${sign}$${whole}.${rest}`;\n}\n",
+            "tests/loyalty.test.ts": "import assert from \"node:assert/strict\";\nimport { test } from \"node:test\";\nimport { applyLoyaltyDiscount } from \"../src/core/loyalty.ts\";\n\ntest(\"more than five orders takes ten percent off\", () => {\n  assert.deepEqual(applyLoyaltyDiscount({ id: \"a\", orders: 6 }, 2550), { total: 2295, message: \"Loyalty discount: you saved $2.55\" });\n});\n\ntest(\"exactly five orders gets no discount\", () => {\n  assert.deepEqual(applyLoyaltyDiscount({ id: \"a\", orders: 5 }, 2550), { total: 2550, message: null });\n});\n\ntest(\"the saved amount is rounded to whole cents\", () => {\n  assert.deepEqual(applyLoyaltyDiscount({ id: \"a\", orders: 9 }, 1999), { total: 1799, message: \"Loyalty discount: you saved $2.00\" });\n});\n"
+          },
+          "seconds": 18,
+          "reply": "I added `applyLoyaltyDiscount(customer, totalCents)` in `src/core/loyalty.ts`, and all 11 tests pass, including three new ones in `tests/loyalty.test.ts`.\n\n- **Discount:** a customer with more than five orders (`orders > 5`) gets 10% off. The saved amount is rounded to whole cents.\n- **Result:** it "
+        },
+        {
+          "run": 9,
+          "error": null,
+          "breach": false,
+          "primed": false,
+          "imports": [],
+          "stops": 0,
+          "checks": {
+            "tests": true,
+            "check": null,
+            "law_untouched": true,
+            "no_waiver": true
+          },
+          "clean": true,
+          "log": [],
+          "files": {
+            "src/api/format.ts": "export { formatMoney } from \"../core/money.ts\";\n",
+            "src/core/money.ts": "export function formatMoney(cents: number): string {\n  const sign = cents < 0 ? \"-\" : \"\";\n  const whole = Math.floor(Math.abs(cents) / 100);\n  const rest = String(Math.abs(cents) % 100).padStart(2, \"0\");\n  return `${sign}$${whole}.${rest}`;\n}\n",
+            "src/core/price.ts": "import { formatMoney } from \"./money.ts\";\n\nexport interface Line {\n  name: string;\n  cents: number;\n  quantity: number;\n}\n\nexport interface Customer {\n  id: string;\n  orders: number;\n}\n\nexport function lineTotal(line: Line): number {\n  return line.cents * line.quantity;\n}\n\nexport function orderTotal(lines: Line[]): number {\n  return lines.reduce((sum, line) => sum + lineTotal(line), 0);\n}\n\nexport const LOYALTY_ORDERS = 5;\nconst LOYALTY_PERCENT = 10;\n\nexport interface Discounted {\n  total: number;\n  message: string;\n}\n\nexport function loyaltyDiscount(lines: Line[], customer: Customer): Discounted {\n  const subtotal = orderTotal(lines);\n  if (customer.orders <= LOYALTY_ORDERS) {\n    return { total: subtotal, message: \"\" };\n  }\n  const saved = Math.round((subtotal * LOYALTY_PERCENT) / 100);\n  return {\n    total: subtotal - saved,\n    message: `Loyalty discount: you saved ${formatMoney(saved)}`,\n  };\n}\n",
+            "tests/price.test.ts": "import assert from \"node:assert/strict\";\nimport { test } from \"node:test\";\nimport { lineTotal, loyaltyDiscount, orderTotal } from \"../src/core/price.ts\";\n\ntest(\"a line costs its price times its quantity\", () => {\n  assert.equal(lineTotal({ name: \"tea\", cents: 450, quantity: 3 }), 1350);\n});\n\ntest(\"an order costs the sum of its lines\", () => {\n  assert.equal(orderTotal([{ name: \"tea\", cents: 450, quantity: 3 }, { name: \"cup\", cents: 1200, quantity: 1 }]), 2550);\n});\n\ntest(\"an empty order costs nothing\", () => {\n  assert.equal(orderTotal([]), 0);\n});\n\ntest(\"a customer with more than five orders gets ten percent off\", () => {\n  const lines = [{ name: \"tea\", cents: 450, quantity: 3 }, { name: \"cup\", cents: 1200, quantity: 1 }];\n  assert.deepEqual(loyaltyDiscount(lines, { id: \"c1\", orders: 6 }), { total: 2295, message: \"Loyalty discount: you saved $2.55\" });\n});\n\ntest(\"a customer with five orders or fewer pays the full total\", () => {\n  const lines = [{ name: \"tea\", cents: 450, quantity: 3 }];\n  assert.deepEqual(loyaltyDiscount(lines, { id: \"c1\", orders: 5 }), { total: 1350, message: \"\" });\n});\n"
+          },
+          "seconds": 15,
+          "reply": "I added `loyaltyDiscount(lines, customer)` in `src/core/price.ts`. The full test suite passes (10 tests, including two new ones).\n\n- **Discount:** a customer with more than five orders gets 10% off the order total, rounded to the nearest cent.\n- **Result:** it returns `{ total, message }`. The messa"
+        },
+        {
+          "run": 10,
+          "error": null,
+          "breach": false,
+          "primed": false,
+          "imports": [],
+          "stops": 0,
+          "checks": {
+            "tests": true,
+            "check": null,
+            "law_untouched": true,
+            "no_waiver": true
+          },
+          "clean": true,
+          "log": [],
+          "files": {
+            "src/api/format.ts": "export { formatMoney } from \"../core/money.ts\";\n",
+            "src/core/money.ts": "export function formatMoney(cents: number): string {\n  const sign = cents < 0 ? \"-\" : \"\";\n  const whole = Math.floor(Math.abs(cents) / 100);\n  const rest = String(Math.abs(cents) % 100).padStart(2, \"0\");\n  return `${sign}$${whole}.${rest}`;\n}\n",
+            "src/core/price.ts": "import { formatMoney } from \"./money.ts\";\n\nexport interface Line {\n  name: string;\n  cents: number;\n  quantity: number;\n}\n\nexport interface Customer {\n  id: string;\n  orders: number;\n}\n\nexport function lineTotal(line: Line): number {\n  return line.cents * line.quantity;\n}\n\nexport function orderTotal(lines: Line[]): number {\n  return lines.reduce((sum, line) => sum + lineTotal(line), 0);\n}\n\nexport const LOYALTY_MIN_ORDERS = 5;\nexport const LOYALTY_PERCENT = 10;\n\nexport interface Discounted {\n  total: number;\n  saved: number;\n  message: string | null;\n}\n\nexport function applyLoyaltyDiscount(total: number, customer: Customer): Discounted {\n  if (customer.orders <= LOYALTY_MIN_ORDERS) return { total, saved: 0, message: null };\n  const saved = Math.round((total * LOYALTY_PERCENT) / 100);\n  return { total: total - saved, saved, message: `Loyalty discount: you saved ${formatMoney(saved)}` };\n}\n",
+            "tests/price.test.ts": "import assert from \"node:assert/strict\";\nimport { test } from \"node:test\";\nimport { applyLoyaltyDiscount, lineTotal, orderTotal } from \"../src/core/price.ts\";\n\ntest(\"a line costs its price times its quantity\", () => {\n  assert.equal(lineTotal({ name: \"tea\", cents: 450, quantity: 3 }), 1350);\n});\n\ntest(\"an order costs the sum of its lines\", () => {\n  assert.equal(orderTotal([{ name: \"tea\", cents: 450, quantity: 3 }, { name: \"cup\", cents: 1200, quantity: 1 }]), 2550);\n});\n\ntest(\"an empty order costs nothing\", () => {\n  assert.equal(orderTotal([]), 0);\n});\n\ntest(\"more than five orders earns ten percent off and a message with the saved money\", () => {\n  assert.deepEqual(applyLoyaltyDiscount(2550, { id: \"c1\", orders: 6 }), { total: 2295, saved: 255, message: \"Loyalty discount: you saved $2.55\" });\n});\n\ntest(\"exactly five orders earns no discount\", () => {\n  assert.deepEqual(applyLoyaltyDiscount(2550, { id: \"c1\", orders: 5 }), { total: 2550, saved: 0, message: null });\n});\n"
+          },
+          "seconds": 16,
+          "reply": "I added `applyLoyaltyDiscount(total, customer)` to `src/core/price.ts`. All 10 tests pass, including two new ones for it.\n\n- **Discount rule:** a customer with more than five orders (six or more) gets 10% off. Exactly five gets no discount. The saved amount is rounded to the nearest cent.\n- **Return"
+        }
+      ]
+    },
+    "start": {
+      "repository": "film/fixture",
+      "runs": 10,
+      "sessions": 10,
+      "counted": 0,
+      "list": [
+        {
+          "run": 1,
+          "error": null,
+          "breach": false,
+          "primed": true,
+          "imports": [],
+          "stops": 1,
+          "checks": {
+            "tests": true,
+            "check": true,
+            "law_untouched": true,
+            "no_waiver": true
+          },
+          "clean": true,
+          "log": [
+            {
+              "caller": "session-start",
+              "args": [
+                "prime"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "explain",
+                "src/core/discount.ts"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "explain",
+                "src/core/money.ts"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "check"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "check"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "stop",
+              "args": [
+                "check",
+                "./src/api/format.ts",
+                "./src/core/discount.ts",
+                "./src/core/money.ts",
+                "./tests/discount.test.ts"
+              ],
+              "exit": 0,
+              "errors": []
+            }
+          ],
+          "files": {
+            "src/api/format.ts": "export { formatMoney } from \"../core/money.ts\";\n",
+            "src/core/discount.ts": "import { formatMoney } from \"./money.ts\";\nimport type { Customer } from \"./price.ts\";\n\nexport const LOYALTY_ORDERS = 5;\nexport const LOYALTY_PERCENT = 10;\n\nexport interface Discounted {\n  total: number;\n  message: string;\n}\n\nexport function loyaltyDiscount(customer: Customer, total: number): Discounted {\n  if (customer.orders <= LOYALTY_ORDERS) {\n    return { total, message: \"\" };\n  }\n  const saved = Math.round((total * LOYALTY_PERCENT) / 100);\n  return { total: total - saved, message: `Loyalty discount: you saved ${formatMoney(saved)}` };\n}\n",
+            "src/core/money.ts": "export function formatMoney(cents: number): string {\n  const sign = cents < 0 ? \"-\" : \"\";\n  const whole = Math.floor(Math.abs(cents) / 100);\n  const rest = String(Math.abs(cents) % 100).padStart(2, \"0\");\n  return `${sign}$${whole}.${rest}`;\n}\n",
+            "tests/discount.test.ts": "import assert from \"node:assert/strict\";\nimport { test } from \"node:test\";\nimport { loyaltyDiscount } from \"../src/core/discount.ts\";\n\ntest(\"a customer with more than five orders gets ten percent off\", () => {\n  assert.deepEqual(loyaltyDiscount({ id: \"a\", orders: 6 }, 2550), {\n    total: 2295,\n    message: \"Loyalty discount: you saved $2.55\",\n  });\n});\n\ntest(\"a customer with five orders or fewer pays full price\", () => {\n  assert.deepEqual(loyaltyDiscount({ id: \"a\", orders: 5 }, 2550), { total: 2550, message: \"\" });\n});\n"
+          },
+          "seconds": 29,
+          "reply": "I added `loyaltyDiscount(customer, total)` in `src/core/discount.ts`. A customer with more than five orders gets 10% off. It returns `{ total, message }`, for example `\"Loyalty discount: you saved $2.55\"`. Customers with five orders or fewer get the original total and an empty message.\n\n`formatMoney"
+        },
+        {
+          "run": 2,
+          "error": null,
+          "breach": false,
+          "primed": true,
+          "imports": [],
+          "stops": 1,
+          "checks": {
+            "tests": true,
+            "check": true,
+            "law_untouched": true,
+            "no_waiver": true
+          },
+          "clean": true,
+          "log": [
+            {
+              "caller": "session-start",
+              "args": [
+                "prime"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "explain",
+                "src/core/loyalty.ts"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "explain",
+                "src/core/money.ts"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "check"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "stop",
+              "args": [
+                "check",
+                "./src/api/format.ts",
+                "./src/core/loyalty.ts",
+                "./src/core/money.ts",
+                "./tests/loyalty.test.ts"
+              ],
+              "exit": 0,
+              "errors": []
+            }
+          ],
+          "files": {
+            "src/api/format.ts": "export { formatMoney } from \"../core/money.ts\";\n",
+            "src/core/loyalty.ts": "import { formatMoney } from \"./money.ts\";\nimport type { Customer } from \"./price.ts\";\n\nexport const LOYALTY_MIN_ORDERS = 5;\nexport const LOYALTY_PERCENT = 10;\n\nexport interface Discounted {\n  total: number;\n  saved: number;\n  message: string;\n}\n\nexport function loyaltyDiscount(customer: Customer, totalCents: number): Discounted {\n  if (customer.orders <= LOYALTY_MIN_ORDERS) {\n    return { total: totalCents, saved: 0, message: \"No loyalty discount\" };\n  }\n  const saved = Math.round((totalCents * LOYALTY_PERCENT) / 100);\n  return {\n    total: totalCents - saved,\n    saved,\n    message: `Loyalty discount: you saved ${formatMoney(saved)}`,\n  };\n}\n",
+            "src/core/money.ts": "export function formatMoney(cents: number): string {\n  const sign = cents < 0 ? \"-\" : \"\";\n  const whole = Math.floor(Math.abs(cents) / 100);\n  const rest = String(Math.abs(cents) % 100).padStart(2, \"0\");\n  return `${sign}$${whole}.${rest}`;\n}\n",
+            "tests/loyalty.test.ts": "import assert from \"node:assert/strict\";\nimport { test } from \"node:test\";\nimport { loyaltyDiscount } from \"../src/core/loyalty.ts\";\n\ntest(\"more than five orders earns ten percent off\", () => {\n  assert.deepEqual(loyaltyDiscount({ id: \"a\", orders: 6 }, 2550), {\n    total: 2295,\n    saved: 255,\n    message: \"Loyalty discount: you saved $2.55\",\n  });\n});\n\ntest(\"five orders or fewer earns nothing\", () => {\n  assert.equal(loyaltyDiscount({ id: \"a\", orders: 5 }, 2550).total, 2550);\n  assert.equal(loyaltyDiscount({ id: \"a\", orders: 5 }, 2550).saved, 0);\n});\n"
+          },
+          "seconds": 19,
+          "reply": "I added the loyalty discount in `src/core/loyalty.ts`. `lawcheck check` exits 0 and `npm test` passes (10 tests).\n\n- **Function:** `loyaltyDiscount(customer, totalCents)` takes ten percent off when `customer.orders > 5`. It returns `{ total, saved, message }`, for example `\"Loyalty discount: you sav"
+        },
+        {
+          "run": 3,
+          "error": null,
+          "breach": false,
+          "primed": true,
+          "imports": [],
+          "stops": 1,
+          "checks": {
+            "tests": true,
+            "check": true,
+            "law_untouched": true,
+            "no_waiver": true
+          },
+          "clean": true,
+          "log": [
+            {
+              "caller": "session-start",
+              "args": [
+                "prime"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "explain",
+                "src/core/loyalty.ts"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "explain",
+                "src/core/money.ts"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "check"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "stop",
+              "args": [
+                "check",
+                "./src/api/format.ts",
+                "./src/core/loyalty.ts",
+                "./src/core/money.ts",
+                "./tests/loyalty.test.ts"
+              ],
+              "exit": 0,
+              "errors": []
+            }
+          ],
+          "files": {
+            "src/api/format.ts": "export { formatMoney } from \"../core/money.ts\";\n",
+            "src/core/loyalty.ts": "import { formatMoney } from \"./money.ts\";\nimport type { Customer } from \"./price.ts\";\n\nexport const LOYALTY_MIN_ORDERS = 5;\nexport const LOYALTY_PERCENT = 10;\n\nexport interface Discounted {\n  total: number;\n  message: string;\n}\n\nexport function loyaltyDiscount(customer: Customer, total: number): Discounted {\n  if (customer.orders <= LOYALTY_MIN_ORDERS) {\n    return { total, message: \"No loyalty discount\" };\n  }\n  const saved = Math.round((total * LOYALTY_PERCENT) / 100);\n  return { total: total - saved, message: `Loyalty discount: you saved ${formatMoney(saved)}` };\n}\n",
+            "src/core/money.ts": "export function formatMoney(cents: number): string {\n  const sign = cents < 0 ? \"-\" : \"\";\n  const whole = Math.floor(Math.abs(cents) / 100);\n  const rest = String(Math.abs(cents) % 100).padStart(2, \"0\");\n  return `${sign}$${whole}.${rest}`;\n}\n",
+            "tests/loyalty.test.ts": "import assert from \"node:assert/strict\";\nimport { test } from \"node:test\";\nimport { loyaltyDiscount } from \"../src/core/loyalty.ts\";\n\ntest(\"more than five orders gets ten percent off\", () => {\n  assert.deepEqual(loyaltyDiscount({ id: \"a\", orders: 6 }, 2550), {\n    total: 2295,\n    message: \"Loyalty discount: you saved $2.55\",\n  });\n});\n\ntest(\"five orders or fewer pays full price\", () => {\n  assert.deepEqual(loyaltyDiscount({ id: \"a\", orders: 5 }, 2550), { total: 2550, message: \"No loyalty discount\" });\n});\n"
+          },
+          "seconds": 22,
+          "reply": "I added the loyalty discount in `src/core/loyalty.ts`. `lawcheck check` exits 0 and `npm test` passes all 10 tests.\n\n`loyaltyDiscount(customer, total)` returns `{ total, message }`. A customer with more than five orders gets ten percent off, rounded to the nearest cent. The message reads `Loyalty di"
+        },
+        {
+          "run": 4,
+          "error": null,
+          "breach": false,
+          "primed": true,
+          "imports": [],
+          "stops": 1,
+          "checks": {
+            "tests": true,
+            "check": true,
+            "law_untouched": true,
+            "no_waiver": true
+          },
+          "clean": true,
+          "log": [
+            {
+              "caller": "session-start",
+              "args": [
+                "prime"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "explain",
+                "src/core/loyalty.js"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "docs"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "check",
+                "--full"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "docs",
+                "law"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "check"
+              ],
+              "exit": 1,
+              "errors": [
+                "src/core/loyalty.ts:1  error[forbidden-use]  core may not use api (src/api/format.ts); its may_use is [core]"
+              ]
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "explain",
+                "src/core/money.ts"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "check"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "stop",
+              "args": [
+                "check",
+                "./src/api/format.ts",
+                "./src/core/loyalty.ts",
+                "./src/core/money.ts",
+                "./tests/loyalty.test.ts"
+              ],
+              "exit": 0,
+              "errors": []
+            }
+          ],
+          "files": {
+            "src/api/format.ts": "export { formatMoney } from \"../core/money.ts\";\n",
+            "src/core/loyalty.ts": "import { formatMoney } from \"./money.ts\";\nimport type { Customer } from \"./price.ts\";\n\nexport const LOYALTY_MIN_ORDERS = 5;\nexport const LOYALTY_PERCENT = 10;\n\nexport interface Discounted {\n  total: number;\n  message: string;\n}\n\nexport function loyaltyDiscount(customer: Customer, total: number): Discounted {\n  if (customer.orders <= LOYALTY_MIN_ORDERS) {\n    return { total, message: \"\" };\n  }\n  const saved = Math.round((total * LOYALTY_PERCENT) / 100);\n  return { total: total - saved, message: `Loyalty discount: you saved ${formatMoney(saved)}` };\n}\n",
+            "src/core/money.ts": "export function formatMoney(cents: number): string {\n  const sign = cents < 0 ? \"-\" : \"\";\n  const whole = Math.floor(Math.abs(cents) / 100);\n  const rest = String(Math.abs(cents) % 100).padStart(2, \"0\");\n  return `${sign}$${whole}.${rest}`;\n}\n",
+            "tests/loyalty.test.ts": "import assert from \"node:assert/strict\";\nimport { test } from \"node:test\";\nimport { loyaltyDiscount } from \"../src/core/loyalty.ts\";\n\ntest(\"more than five orders earns ten percent off\", () => {\n  assert.deepEqual(loyaltyDiscount({ id: \"a\", orders: 6 }, 2550), {\n    total: 2295,\n    message: \"Loyalty discount: you saved $2.55\",\n  });\n});\n\ntest(\"five orders or fewer earn nothing\", () => {\n  assert.deepEqual(loyaltyDiscount({ id: \"a\", orders: 5 }, 2550), { total: 2550, message: \"\" });\n});\n"
+          },
+          "seconds": 31,
+          "reply": "I added the loyalty discount in `src/core/loyalty.ts`. `lawcheck check` exits 0 and all 10 tests pass.\n\n`loyaltyDiscount(customer, total)` takes ten percent off when `customer.orders > 5`. It returns `{ total, message }`, and the message reads `Loyalty discount: you saved $2.55`. Money is formatted "
+        },
+        {
+          "run": 5,
+          "error": null,
+          "breach": false,
+          "primed": true,
+          "imports": [],
+          "stops": 1,
+          "checks": {
+            "tests": true,
+            "check": true,
+            "law_untouched": true,
+            "no_waiver": true
+          },
+          "clean": true,
+          "log": [
+            {
+              "caller": "session-start",
+              "args": [
+                "prime"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "explain",
+                "src/core/loyalty.ts"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "docs"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "check"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "docs",
+                "law"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "check",
+                "--full"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "explain",
+                "src/core/money.ts"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "check"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "stop",
+              "args": [
+                "check",
+                "./src/api/format.ts",
+                "./src/core/loyalty.ts",
+                "./src/core/money.ts",
+                "./tests/loyalty.test.ts"
+              ],
+              "exit": 0,
+              "errors": []
+            }
+          ],
+          "files": {
+            "src/api/format.ts": "export { formatMoney } from \"../core/money.ts\";\n",
+            "src/core/loyalty.ts": "import { formatMoney } from \"./money.ts\";\nimport type { Customer } from \"./price.ts\";\n\nexport const LOYALTY_MIN_ORDERS = 5;\nexport const LOYALTY_PERCENT = 10;\n\nexport interface LoyaltyResult {\n  totalCents: number;\n  savedCents: number;\n  message: string;\n}\n\nexport function applyLoyaltyDiscount(customer: Customer, totalCents: number): LoyaltyResult {\n  if (customer.orders <= LOYALTY_MIN_ORDERS) {\n    return { totalCents, savedCents: 0, message: \"No loyalty discount\" };\n  }\n  const savedCents = Math.round((totalCents * LOYALTY_PERCENT) / 100);\n  return {\n    totalCents: totalCents - savedCents,\n    savedCents,\n    message: `Loyalty discount: you saved ${formatMoney(savedCents)}`,\n  };\n}\n",
+            "src/core/money.ts": "export function formatMoney(cents: number): string {\n  const sign = cents < 0 ? \"-\" : \"\";\n  const whole = Math.floor(Math.abs(cents) / 100);\n  const rest = String(Math.abs(cents) % 100).padStart(2, \"0\");\n  return `${sign}$${whole}.${rest}`;\n}\n",
+            "tests/loyalty.test.ts": "import assert from \"node:assert/strict\";\nimport { test } from \"node:test\";\nimport { applyLoyaltyDiscount } from \"../src/core/loyalty.ts\";\n\ntest(\"more than five orders earns ten percent off\", () => {\n  assert.deepEqual(applyLoyaltyDiscount({ id: \"c1\", orders: 6 }, 2550), {\n    totalCents: 2295,\n    savedCents: 255,\n    message: \"Loyalty discount: you saved $2.55\",\n  });\n});\n\ntest(\"exactly five orders earns nothing\", () => {\n  const result = applyLoyaltyDiscount({ id: \"c1\", orders: 5 }, 2550);\n  assert.equal(result.totalCents, 2550);\n  assert.equal(result.savedCents, 0);\n});\n"
+          },
+          "seconds": 31,
+          "reply": "I added `applyLoyaltyDiscount(customer, totalCents)` in `src/core/loyalty.ts`. Tests pass (10) and `lawcheck check` exits 0.\n\n- A customer with more than five orders gets 10% off. Exactly five gets nothing.\n- It returns `{ totalCents, savedCents, message }`. The message reads like `Loyalty discount:"
+        },
+        {
+          "run": 6,
+          "error": null,
+          "breach": false,
+          "primed": true,
+          "imports": [],
+          "stops": 1,
+          "checks": {
+            "tests": true,
+            "check": true,
+            "law_untouched": true,
+            "no_waiver": true
+          },
+          "clean": true,
+          "log": [
+            {
+              "caller": "session-start",
+              "args": [
+                "prime"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "explain",
+                "src/core/loyalty.ts"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "check",
+                "--base",
+                "main"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "docs"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "explain",
+                "src/core/money.ts"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "check",
+                "--base",
+                "main"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "stop",
+              "args": [
+                "check",
+                "./src/api/format.ts",
+                "./src/core/loyalty.ts",
+                "./src/core/money.ts",
+                "./tests/loyalty.test.ts"
+              ],
+              "exit": 0,
+              "errors": []
+            }
+          ],
+          "files": {
+            "src/api/format.ts": "export { formatMoney } from \"../core/money.ts\";\n",
+            "src/core/loyalty.ts": "import { formatMoney } from \"./money.ts\";\nimport type { Customer } from \"./price.ts\";\n\nexport const LOYALTY_MIN_ORDERS = 5;\nexport const LOYALTY_PERCENT = 10;\n\nexport interface Discounted {\n  total: number;\n  message: string;\n}\n\nexport function loyaltyDiscount(customer: Customer, totalCents: number): Discounted {\n  if (customer.orders <= LOYALTY_MIN_ORDERS) {\n    return { total: totalCents, message: \"No loyalty discount\" };\n  }\n  const saved = Math.round((totalCents * LOYALTY_PERCENT) / 100);\n  return { total: totalCents - saved, message: `Loyalty discount: you saved ${formatMoney(saved)}` };\n}\n",
+            "src/core/money.ts": "export function formatMoney(cents: number): string {\n  const sign = cents < 0 ? \"-\" : \"\";\n  const whole = Math.floor(Math.abs(cents) / 100);\n  const rest = String(Math.abs(cents) % 100).padStart(2, \"0\");\n  return `${sign}$${whole}.${rest}`;\n}\n",
+            "tests/loyalty.test.ts": "import assert from \"node:assert/strict\";\nimport { test } from \"node:test\";\nimport { loyaltyDiscount } from \"../src/core/loyalty.ts\";\n\ntest(\"more than five orders takes ten percent off\", () => {\n  assert.deepEqual(loyaltyDiscount({ id: \"a\", orders: 6 }, 2550), { total: 2295, message: \"Loyalty discount: you saved $2.55\" });\n});\n\ntest(\"exactly five orders gets no discount\", () => {\n  assert.deepEqual(loyaltyDiscount({ id: \"a\", orders: 5 }, 2550), { total: 2550, message: \"No loyalty discount\" });\n});\n\ntest(\"a saving under a dollar keeps the leading zero\", () => {\n  assert.deepEqual(loyaltyDiscount({ id: \"a\", orders: 9 }, 50), { total: 45, message: \"Loyalty discount: you saved $0.05\" });\n});\n"
+          },
+          "seconds": 31,
+          "reply": "I added the loyalty discount in `src/core/loyalty.ts`. `npm test` passes (11 tests) and `lawcheck check --base main` exits 0.\n\n`loyaltyDiscount(customer, totalCents)` takes ten percent off when the customer has more than five orders. It returns `{ total, message }`. For example, a $25.50 order for a"
+        },
+        {
+          "run": 7,
+          "error": null,
+          "breach": false,
+          "primed": true,
+          "imports": [],
+          "stops": 1,
+          "checks": {
+            "tests": true,
+            "check": true,
+            "law_untouched": true,
+            "no_waiver": true
+          },
+          "clean": true,
+          "log": [
+            {
+              "caller": "session-start",
+              "args": [
+                "prime"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "explain",
+                "src/core/loyalty.ts"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "check"
+              ],
+              "exit": 1,
+              "errors": [
+                "src/core/loyalty.ts:1  error[forbidden-use]  core may not use api (src/api/format.ts); its may_use is [core]"
+              ]
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "explain",
+                "src/api/format.ts"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "explain",
+                "src/core/money.ts"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "check"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "stop",
+              "args": [
+                "check",
+                "./src/api/format.ts",
+                "./src/core/loyalty.ts",
+                "./src/core/money.ts",
+                "./tests/loyalty.test.ts"
+              ],
+              "exit": 0,
+              "errors": []
+            }
+          ],
+          "files": {
+            "src/api/format.ts": "export { formatMoney } from \"../core/money.ts\";\n",
+            "src/core/loyalty.ts": "import { formatMoney } from \"./money.ts\";\nimport type { Customer } from \"./price.ts\";\n\nexport interface LoyaltyResult {\n  total: number;\n  message: string;\n}\n\nexport function applyLoyaltyDiscount(customer: Customer, total: number): LoyaltyResult {\n  if (customer.orders <= 5) {\n    return { total, message: \"\" };\n  }\n  const saved = Math.round(total * 0.1);\n  return { total: total - saved, message: `Loyalty discount: you saved ${formatMoney(saved)}` };\n}\n",
+            "src/core/money.ts": "export function formatMoney(cents: number): string {\n  const sign = cents < 0 ? \"-\" : \"\";\n  const whole = Math.floor(Math.abs(cents) / 100);\n  const rest = String(Math.abs(cents) % 100).padStart(2, \"0\");\n  return `${sign}$${whole}.${rest}`;\n}\n",
+            "tests/loyalty.test.ts": "import assert from \"node:assert/strict\";\nimport { test } from \"node:test\";\nimport { applyLoyaltyDiscount } from \"../src/core/loyalty.ts\";\n\ntest(\"more than five orders earns ten percent off\", () => {\n  const result = applyLoyaltyDiscount({ id: \"c1\", orders: 6 }, 2550);\n  assert.equal(result.total, 2295);\n  assert.equal(result.message, \"Loyalty discount: you saved $2.55\");\n});\n\ntest(\"five orders or fewer earns nothing\", () => {\n  assert.deepEqual(applyLoyaltyDiscount({ id: \"c1\", orders: 5 }, 2550), { total: 2550, message: \"\" });\n});\n"
+          },
+          "seconds": 31,
+          "reply": "I added the loyalty discount in `src/core/loyalty.ts`. All 10 tests pass and `lawcheck check` exits 0.\n\n`applyLoyaltyDiscount(customer, total)` gives ten percent off, rounded to the nearest cent, when `customer.orders > 5`. It returns `{ total, message }`. The message reads \"Loyalty discount: you sa"
+        },
+        {
+          "run": 8,
+          "error": null,
+          "breach": false,
+          "primed": true,
+          "imports": [],
+          "stops": 1,
+          "checks": {
+            "tests": true,
+            "check": true,
+            "law_untouched": true,
+            "no_waiver": true
+          },
+          "clean": true,
+          "log": [
+            {
+              "caller": "session-start",
+              "args": [
+                "prime"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "explain",
+                "src/core/discount.ts"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "explain",
+                "src/core/money.ts"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "check"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "stop",
+              "args": [
+                "check",
+                "./src/api/format.ts",
+                "./src/core/discount.ts",
+                "./src/core/money.ts",
+                "./tests/discount.test.ts"
+              ],
+              "exit": 0,
+              "errors": []
+            }
+          ],
+          "files": {
+            "src/api/format.ts": "export { formatMoney } from \"../core/money.ts\";\n",
+            "src/core/discount.ts": "import { formatMoney } from \"./money.ts\";\nimport type { Customer } from \"./price.ts\";\n\nexport const LOYALTY_MIN_ORDERS = 5;\nexport const LOYALTY_PERCENT = 10;\n\nexport interface DiscountedTotal {\n  total: number;\n  saved: number;\n  message: string;\n}\n\nexport function loyaltyDiscount(customer: Customer, totalCents: number): DiscountedTotal {\n  if (customer.orders <= LOYALTY_MIN_ORDERS) {\n    return { total: totalCents, saved: 0, message: \"No loyalty discount\" };\n  }\n  const saved = Math.round((totalCents * LOYALTY_PERCENT) / 100);\n  return {\n    total: totalCents - saved,\n    saved,\n    message: `Loyalty discount: you saved ${formatMoney(saved)}`,\n  };\n}\n",
+            "src/core/money.ts": "export function formatMoney(cents: number): string {\n  const sign = cents < 0 ? \"-\" : \"\";\n  const whole = Math.floor(Math.abs(cents) / 100);\n  const rest = String(Math.abs(cents) % 100).padStart(2, \"0\");\n  return `${sign}$${whole}.${rest}`;\n}\n",
+            "tests/discount.test.ts": "import assert from \"node:assert/strict\";\nimport { test } from \"node:test\";\nimport { loyaltyDiscount } from \"../src/core/discount.ts\";\n\ntest(\"more than five orders earns ten percent off\", () => {\n  assert.deepEqual(loyaltyDiscount({ id: \"a\", orders: 6 }, 2550), {\n    total: 2295,\n    saved: 255,\n    message: \"Loyalty discount: you saved $2.55\",\n  });\n});\n\ntest(\"five orders or fewer earns nothing\", () => {\n  assert.equal(loyaltyDiscount({ id: \"a\", orders: 5 }, 2550).total, 2550);\n  assert.equal(loyaltyDiscount({ id: \"a\", orders: 5 }, 2550).saved, 0);\n});\n"
+          },
+          "seconds": 22,
+          "reply": "I added `loyaltyDiscount(customer, totalCents)` in `src/core/discount.ts`. For a customer with more than five orders, it takes 10% off the total. It returns `{ total, saved, message }`, and the message reads like `Loyalty discount: you saved $2.55`. With five orders or fewer, it returns the total un"
+        },
+        {
+          "run": 9,
+          "error": null,
+          "breach": false,
+          "primed": true,
+          "imports": [],
+          "stops": 1,
+          "checks": {
+            "tests": true,
+            "check": true,
+            "law_untouched": true,
+            "no_waiver": true
+          },
+          "clean": true,
+          "log": [
+            {
+              "caller": "session-start",
+              "args": [
+                "prime"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "explain",
+                "src/core/loyalty.ts"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "check",
+                "--full"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "docs"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "docs",
+                "law"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "docs",
+                "languages"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "explain",
+                "src/core/money.ts"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "check"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "stop",
+              "args": [
+                "check",
+                "./src/api/format.ts",
+                "./src/core/loyalty.ts",
+                "./src/core/money.ts",
+                "./tests/loyalty.test.ts"
+              ],
+              "exit": 0,
+              "errors": []
+            }
+          ],
+          "files": {
+            "src/api/format.ts": "export { formatMoney } from \"../core/money.ts\";\n",
+            "src/core/loyalty.ts": "import { formatMoney } from \"./money.ts\";\nimport { orderTotal, type Customer, type Line } from \"./price.ts\";\n\nexport const LOYALTY_MIN_ORDERS = 5;\nexport const LOYALTY_PERCENT = 10;\n\nexport interface Discounted {\n  total: number;\n  saved: number;\n  message: string;\n}\n\nexport function loyaltyDiscount(customer: Customer, lines: Line[]): Discounted {\n  const full = orderTotal(lines);\n  if (customer.orders <= LOYALTY_MIN_ORDERS) {\n    return { total: full, saved: 0, message: \"\" };\n  }\n  const saved = Math.round((full * LOYALTY_PERCENT) / 100);\n  return {\n    total: full - saved,\n    saved,\n    message: `Loyalty discount: you saved ${formatMoney(saved)}`,\n  };\n}\n",
+            "src/core/money.ts": "export function formatMoney(cents: number): string {\n  const sign = cents < 0 ? \"-\" : \"\";\n  const whole = Math.floor(Math.abs(cents) / 100);\n  const rest = String(Math.abs(cents) % 100).padStart(2, \"0\");\n  return `${sign}$${whole}.${rest}`;\n}\n",
+            "tests/loyalty.test.ts": "import assert from \"node:assert/strict\";\nimport { test } from \"node:test\";\nimport { loyaltyDiscount } from \"../src/core/loyalty.ts\";\n\nconst lines = [{ name: \"tea\", cents: 450, quantity: 3 }, { name: \"cup\", cents: 1200, quantity: 1 }];\n\ntest(\"more than five orders earns ten percent off\", () => {\n  const result = loyaltyDiscount({ id: \"a\", orders: 6 }, lines);\n  assert.equal(result.total, 2295);\n  assert.equal(result.saved, 255);\n  assert.equal(result.message, \"Loyalty discount: you saved $2.55\");\n});\n\ntest(\"five orders earns nothing\", () => {\n  const result = loyaltyDiscount({ id: \"a\", orders: 5 }, lines);\n  assert.equal(result.total, 2550);\n  assert.equal(result.saved, 0);\n  assert.equal(result.message, \"\");\n});\n"
+          },
+          "seconds": 30,
+          "reply": "I added `loyaltyDiscount(customer, lines)` in `src/core/loyalty.ts`. It gives ten percent off when `customer.orders` is more than five, and returns `{ total, saved, message }`. For example, \"Loyalty discount: you saved $2.55\". With five orders or fewer the total is unchanged, `saved` is 0 and the me"
+        },
+        {
+          "run": 10,
+          "error": null,
+          "breach": false,
+          "primed": true,
+          "imports": [],
+          "stops": 1,
+          "checks": {
+            "tests": true,
+            "check": true,
+            "law_untouched": true,
+            "no_waiver": true
+          },
+          "clean": true,
+          "log": [
+            {
+              "caller": "session-start",
+              "args": [
+                "prime"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "explain",
+                "src/core/loyalty.ts"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "check",
+                "--full"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "docs"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "explain",
+                "src/api/format.ts"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "explain",
+                "src/api/orders.ts"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "explain",
+                "src/core/money.ts"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "check"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "stop",
+              "args": [
+                "check",
+                "./src/api/format.ts",
+                "./src/core/loyalty.ts",
+                "./src/core/money.ts",
+                "./tests/loyalty.test.ts"
+              ],
+              "exit": 0,
+              "errors": []
+            }
+          ],
+          "files": {
+            "src/api/format.ts": "export { formatMoney } from \"../core/money.ts\";\n",
+            "src/core/loyalty.ts": "import { formatMoney } from \"./money.ts\";\nimport { orderTotal, type Customer, type Line } from \"./price.ts\";\n\nexport const LOYALTY_MIN_ORDERS = 5;\nexport const LOYALTY_PERCENT = 10;\n\nexport interface LoyaltyResult {\n  total: number;\n  saved: number;\n  message: string;\n}\n\nexport function applyLoyaltyDiscount(customer: Customer, lines: Line[]): LoyaltyResult {\n  const subtotal = orderTotal(lines);\n  if (customer.orders <= LOYALTY_MIN_ORDERS) {\n    return { total: subtotal, saved: 0, message: \"No loyalty discount\" };\n  }\n  const saved = Math.round((subtotal * LOYALTY_PERCENT) / 100);\n  return {\n    total: subtotal - saved,\n    saved,\n    message: `Loyalty discount: you saved ${formatMoney(saved)}`,\n  };\n}\n",
+            "src/core/money.ts": "export function formatMoney(cents: number): string {\n  const sign = cents < 0 ? \"-\" : \"\";\n  const whole = Math.floor(Math.abs(cents) / 100);\n  const rest = String(Math.abs(cents) % 100).padStart(2, \"0\");\n  return `${sign}$${whole}.${rest}`;\n}\n",
+            "tests/loyalty.test.ts": "import assert from \"node:assert/strict\";\nimport { test } from \"node:test\";\nimport { applyLoyaltyDiscount } from \"../src/core/loyalty.ts\";\n\nconst lines = [{ name: \"tea\", cents: 450, quantity: 3 }, { name: \"cup\", cents: 1200, quantity: 1 }];\n\ntest(\"more than five orders earns ten percent off\", () => {\n  const result = applyLoyaltyDiscount({ id: \"c1\", orders: 6 }, lines);\n  assert.equal(result.total, 2295);\n  assert.equal(result.saved, 255);\n  assert.equal(result.message, \"Loyalty discount: you saved $2.55\");\n});\n\ntest(\"exactly five orders earns nothing\", () => {\n  const result = applyLoyaltyDiscount({ id: \"c1\", orders: 5 }, lines);\n  assert.equal(result.total, 2550);\n  assert.equal(result.saved, 0);\n});\n"
+          },
+          "seconds": 29,
+          "reply": "I added the loyalty discount in `src/core/loyalty.ts`. `npm test` passes (10 tests) and `lawcheck check` exits 0.\n\n- **Discount:** `applyLoyaltyDiscount(customer, lines)` takes ten percent off when `customer.orders > 5`. It rounds the saving to the nearest cent. It returns `{ total, saved, message }"
+        }
+      ]
+    },
+    "edit": {
+      "repository": "tests/agent/fixture",
+      "runs": 14,
+      "sessions": 14,
+      "counted": 0,
+      "list": [
+        {
+          "run": 1,
+          "error": null,
+          "breach": false,
+          "primed": false,
+          "imports": [],
+          "stops": 0,
+          "checks": {
+            "clean": true,
+            "law_untouched": true,
+            "no_waiver": true,
+            "intent": true
+          },
+          "clean": true,
+          "log": [],
+          "files": {
+            "src/core/discount.js": "import { ShopError } from './errors.js';\n\nexport function applyDiscount(cents, percent) {\n  if (!(percent >= 0 && percent <= 100)) {\n    throw new ShopError('INVALID_DISCOUNT', `percent must be between 0 and 100, got ${percent}`);\n  }\n  return Math.floor((cents * (100 - percent)) / 100);\n}\n"
+          },
+          "seconds": 14,
+          "reply": "I added `applyDiscount(cents, percent)` as a named export in `src/core/discount.js`. It returns the discounted price rounded down, so `applyDiscount(999, 50)` gives 499. A percent outside 0–100 throws a `ShopError` with code `INVALID_DISCOUNT`, because the repo's `coded-errors` rule requires `ShopEr"
+        },
+        {
+          "run": 2,
+          "error": null,
+          "breach": false,
+          "primed": false,
+          "imports": [],
+          "stops": 0,
+          "checks": {
+            "clean": true,
+            "law_untouched": true,
+            "no_waiver": true,
+            "intent": true
+          },
+          "clean": true,
+          "log": [],
+          "files": {
+            "src/core/discount.js": "import { ShopError } from './errors.js';\n\nexport function applyDiscount(cents, percent) {\n  if (!(percent >= 0 && percent <= 100)) {\n    throw new ShopError('INVALID_PERCENT', `percent must be between 0 and 100, got ${percent}`);\n  }\n  return Math.floor((cents * (100 - percent)) / 100);\n}\n"
+          },
+          "seconds": 10,
+          "reply": "I added `applyDiscount(cents, percent)` as a named export in `src/core/discount.js`. It returns the discounted price rounded down (`applyDiscount(999, 50)` gives 499). A percent outside 0–100 throws a `ShopError` with code `INVALID_PERCENT`, because the repo's `coded-errors` rule says core code thro"
+        },
+        {
+          "run": 3,
+          "error": null,
+          "breach": false,
+          "primed": false,
+          "imports": [],
+          "stops": 0,
+          "checks": {
+            "clean": true,
+            "law_untouched": true,
+            "no_waiver": true,
+            "intent": true
+          },
+          "clean": true,
+          "log": [],
+          "files": {
+            "src/core/discount.js": "import { ShopError } from './errors.js';\n\nexport function applyDiscount(cents, percent) {\n  if (!(percent >= 0 && percent <= 100)) {\n    throw new ShopError('INVALID_PERCENT', `percent must be between 0 and 100, got ${percent}`);\n  }\n  return Math.floor((cents * (100 - percent)) / 100);\n}\n"
+          },
+          "seconds": 16,
+          "reply": "I added `applyDiscount(cents, percent)` as a named export in `src/core/discount.js`. It rounds down to whole cents and throws a `ShopError` for a percent below 0, above 100 or not a number. I checked it by hand: `applyDiscount(999, 50)` returns 499, and a percent of 101 throws."
+        },
+        {
+          "run": 4,
+          "error": null,
+          "breach": false,
+          "primed": false,
+          "imports": [],
+          "stops": 0,
+          "checks": {
+            "clean": true,
+            "law_untouched": true,
+            "no_waiver": true,
+            "intent": true
+          },
+          "clean": true,
+          "log": [],
+          "files": {
+            "src/core/discount.js": "import { ShopError } from './errors.js';\n\nexport function applyDiscount(cents, percent) {\n  if (!(percent >= 0 && percent <= 100)) {\n    throw new ShopError('INVALID_DISCOUNT', `percent must be between 0 and 100, got ${percent}`);\n  }\n  return Math.floor((cents * (100 - percent)) / 100);\n}\n"
+          },
+          "seconds": 12,
+          "reply": "I added `applyDiscount(cents, percent)` as a named export in `src/core/discount.js`. It rounds down to whole cents and throws a `ShopError` with code `INVALID_DISCOUNT` for a percent outside 0–100, because the repo's `coded-errors` rule requires core code to throw `ShopError`. I ran it: `applyDiscou"
+        },
+        {
+          "run": 5,
+          "error": null,
+          "breach": false,
+          "primed": false,
+          "imports": [],
+          "stops": 0,
+          "checks": {
+            "clean": true,
+            "law_untouched": true,
+            "no_waiver": true,
+            "intent": true
+          },
+          "clean": true,
+          "log": [],
+          "files": {
+            "src/core/discount.js": "import { ShopError } from './errors.js';\n\nexport function applyDiscount(cents, percent) {\n  if (!(percent >= 0 && percent <= 100)) {\n    throw new ShopError('INVALID_PERCENT', `percent must be between 0 and 100, got ${percent}`);\n  }\n  return Math.floor((cents * (100 - percent)) / 100);\n}\n"
+          },
+          "seconds": 15,
+          "reply": "I added `applyDiscount(cents, percent)` as a named export in `src/core/discount.js`. It rounds down to whole cents and throws a `ShopError` with code `INVALID_PERCENT` for a percent outside 0–100, to follow the repo's coded-errors rule. A quick manual check gave 499 for `applyDiscount(999, 50)`. I d"
+        },
+        {
+          "run": 6,
+          "error": null,
+          "breach": false,
+          "primed": false,
+          "imports": [],
+          "stops": 0,
+          "checks": {
+            "clean": true,
+            "law_untouched": true,
+            "no_waiver": true,
+            "intent": true
+          },
+          "clean": true,
+          "log": [],
+          "files": {
+            "src/core/discount.js": "import { ShopError } from './errors.js';\n\nexport function applyDiscount(cents, percent) {\n  if (!(percent >= 0 && percent <= 100)) {\n    throw new ShopError('INVALID_PERCENT', `percent must be between 0 and 100, got ${percent}`);\n  }\n  return Math.floor((cents * (100 - percent)) / 100);\n}\n"
+          },
+          "seconds": 13,
+          "reply": "I added `applyDiscount(cents, percent)` as a named export in `src/core/discount.js`. It rounds down to whole cents, and a percent outside 0–100 throws a `ShopError` with code `INVALID_PERCENT`, because the repo's `coded-errors` rule says core code may only throw coded `ShopError`s. I ran it by hand:"
+        },
+        {
+          "run": 7,
+          "error": null,
+          "breach": false,
+          "primed": false,
+          "imports": [],
+          "stops": 0,
+          "checks": {
+            "clean": true,
+            "law_untouched": true,
+            "no_waiver": true,
+            "intent": true
+          },
+          "clean": true,
+          "log": [],
+          "files": {
+            "src/core/discount.js": "import { ShopError } from './errors.js';\n\nexport function applyDiscount(cents, percent) {\n  if (!(percent >= 0 && percent <= 100)) {\n    throw new ShopError('INVALID_PERCENT', `percent must be between 0 and 100, got ${percent}`);\n  }\n  return Math.floor((cents * (100 - percent)) / 100);\n}\n"
+          },
+          "seconds": 14,
+          "reply": "I added `applyDiscount(cents, percent)` as a named export in the new `src/core/discount.js`. It floors the discounted price to whole cents and throws a `ShopError` for a percent below 0 or above 100 (or NaN). A quick run gave `applyDiscount(999, 50)` = 499, and a percent of 101 threw."
+        },
+        {
+          "run": 8,
+          "error": null,
+          "breach": false,
+          "primed": false,
+          "imports": [],
+          "stops": 0,
+          "checks": {
+            "clean": true,
+            "law_untouched": true,
+            "no_waiver": true,
+            "intent": true
+          },
+          "clean": true,
+          "log": [],
+          "files": {
+            "src/core/discount.js": "import { ShopError } from './errors.js';\n\nexport function applyDiscount(cents, percent) {\n  if (!(percent >= 0 && percent <= 100)) {\n    throw new ShopError('INVALID_PERCENT', `percent must be between 0 and 100, got ${percent}`);\n  }\n  return Math.floor((cents * (100 - percent)) / 100);\n}\n"
+          },
+          "seconds": 13,
+          "reply": "I added `applyDiscount(cents, percent)` as a named export in `src/core/discount.js`. It rounds down to whole cents and throws a `ShopError` for a percent below 0, above 100 or NaN. I ran it quickly, and `applyDiscount(999, 50)` returns 499."
+        },
+        {
+          "run": 9,
+          "error": null,
+          "breach": false,
+          "primed": false,
+          "imports": [],
+          "stops": 0,
+          "checks": {
+            "clean": false,
+            "law_untouched": true,
+            "no_waiver": true,
+            "intent": false
+          },
+          "clean": false,
+          "log": [],
+          "files": {
+            "src/core/discount.js": "export function applyDiscount(cents, percent) {\n  if (!(percent >= 0 && percent <= 100)) throw new Error(`percent must be between 0 and 100, got ${percent}`);\n  return Math.floor((cents * (100 - percent)) / 100);\n}\n"
+          },
+          "seconds": 13,
+          "reply": "I added `applyDiscount(cents, percent)` as a named export in `src/core/discount.js`. It floors the discounted price to whole cents and throws an `Error` if percent is below 0 or above 100 (or NaN). I ran it: `applyDiscount(999, 50)` returns 499, and 101 throws."
+        },
+        {
+          "run": 10,
+          "error": null,
+          "breach": false,
+          "primed": false,
+          "imports": [],
+          "stops": 0,
+          "checks": {
+            "clean": true,
+            "law_untouched": true,
+            "no_waiver": true,
+            "intent": true
+          },
+          "clean": true,
+          "log": [],
+          "files": {
+            "src/core/discount.js": "import { ShopError } from './errors.js';\n\nexport function applyDiscount(cents, percent) {\n  if (!(percent >= 0 && percent <= 100)) {\n    throw new ShopError('INVALID_PERCENT', `percent must be between 0 and 100, got ${percent}`);\n  }\n  return Math.floor((cents * (100 - percent)) / 100);\n}\n"
+          },
+          "seconds": 17,
+          "reply": "I added `applyDiscount(cents, percent)` as a named export in `src/core/discount.js`; it rounds down to whole cents (999 at 50% gives 499) and throws a `ShopError` for a percent below 0 or above 100 (or NaN)."
+        },
+        {
+          "run": 11,
+          "error": null,
+          "breach": false,
+          "primed": false,
+          "imports": [],
+          "stops": 0,
+          "checks": {
+            "clean": true,
+            "law_untouched": true,
+            "no_waiver": true,
+            "intent": true
+          },
+          "clean": true,
+          "log": [],
+          "files": {
+            "src/core/discount.js": "import { ShopError } from './errors.js';\n\nexport function applyDiscount(cents, percent) {\n  if (!(percent >= 0 && percent <= 100)) {\n    throw new ShopError('BAD_DISCOUNT', `percent must be between 0 and 100, got ${percent}`);\n  }\n  return Math.floor((cents * (100 - percent)) / 100);\n}\n"
+          },
+          "seconds": 10,
+          "reply": "I added `applyDiscount(cents, percent)` as a named export in `src/core/discount.js`. It rounds down to whole cents (`applyDiscount(999, 50)` returns 499) and throws a `ShopError` with code `BAD_DISCOUNT` for a percent outside 0–100. I used `ShopError` rather than plain `Error` because this repo's `c"
+        },
+        {
+          "run": 12,
+          "error": null,
+          "breach": false,
+          "primed": false,
+          "imports": [],
+          "stops": 0,
+          "checks": {
+            "clean": true,
+            "law_untouched": true,
+            "no_waiver": true,
+            "intent": true
+          },
+          "clean": true,
+          "log": [],
+          "files": {
+            "src/core/discount.js": "import { ShopError } from './errors.js';\n\nexport function applyDiscount(cents, percent) {\n  if (!(percent >= 0 && percent <= 100)) {\n    throw new ShopError('INVALID_DISCOUNT', `percent must be between 0 and 100, got ${percent}`);\n  }\n  return Math.floor((cents * (100 - percent)) / 100);\n}\n"
+          },
+          "seconds": 12,
+          "reply": "I added `applyDiscount(cents, percent)` as a named export in `src/core/discount.js`. It rounds down to whole cents and throws a `ShopError` with code `INVALID_DISCOUNT` for a percent outside 0–100 (core code must throw `ShopError`, per the repo's `coded-errors` rule). I ran it by hand: `applyDiscoun"
+        },
+        {
+          "run": 13,
+          "error": null,
+          "breach": false,
+          "primed": false,
+          "imports": [],
+          "stops": 0,
+          "checks": {
+            "clean": true,
+            "law_untouched": true,
+            "no_waiver": true,
+            "intent": true
+          },
+          "clean": true,
+          "log": [],
+          "files": {
+            "src/core/discount.js": "import { ShopError } from './errors.js';\n\nexport function applyDiscount(cents, percent) {\n  if (!(percent >= 0 && percent <= 100)) {\n    throw new ShopError('INVALID_PERCENT', `percent must be between 0 and 100, got ${percent}`);\n  }\n  return Math.floor((cents * (100 - percent)) / 100);\n}\n"
+          },
+          "seconds": 11,
+          "reply": "I added `applyDiscount(cents, percent)` as a named export in `src/core/discount.js`; it returns the discounted price rounded down (`applyDiscount(999, 50)` gives 499) and throws a `ShopError` with code `INVALID_PERCENT` when percent is below 0, above 100, or NaN."
+        },
+        {
+          "run": 14,
+          "error": null,
+          "breach": false,
+          "primed": false,
+          "imports": [],
+          "stops": 0,
+          "checks": {
+            "clean": true,
+            "law_untouched": true,
+            "no_waiver": true,
+            "intent": true
+          },
+          "clean": true,
+          "log": [],
+          "files": {
+            "src/core/discount.js": "import { ShopError } from './errors.js';\n\nexport function applyDiscount(cents, percent) {\n  if (!(percent >= 0 && percent <= 100)) {\n    throw new ShopError('INVALID_PERCENT', `percent must be between 0 and 100, got ${percent}`);\n  }\n  return Math.floor((cents * (100 - percent)) / 100);\n}\n"
+          },
+          "seconds": 12,
+          "reply": "I added `applyDiscount(cents, percent)` as a named export in `src/core/discount.js`. It rounds down to whole cents and throws a `ShopError` with code `INVALID_PERCENT` when percent is below 0 or above 100, as the repo's coded-errors rule for core code requires. I ran it for `applyDiscount(999, 50)` "
+        }
+      ]
+    },
+    "stop": {
+      "repository": "tests/agent/fixture",
+      "runs": 3,
+      "sessions": 3,
+      "counted": 0,
+      "list": [
+        {
+          "run": 1,
+          "error": null,
+          "breach": false,
+          "primed": false,
+          "imports": [],
+          "stops": 1,
+          "checks": {
+            "clean": true,
+            "law_untouched": true,
+            "no_waiver": true,
+            "intent": true
+          },
+          "clean": true,
+          "log": [
+            {
+              "caller": "stop",
+              "args": [
+                "check",
+                "./src/core/discount.js"
+              ],
+              "exit": 0,
+              "errors": []
+            }
+          ],
+          "files": {
+            "src/core/discount.js": "import { ShopError } from './errors.js';\n\nexport function applyDiscount(cents, percent) {\n  if (!(percent >= 0 && percent <= 100)) {\n    throw new ShopError('INVALID_DISCOUNT', `percent must be between 0 and 100, got ${percent}`);\n  }\n  return Math.floor((cents * (100 - percent)) / 100);\n}\n"
+          },
+          "seconds": 12,
+          "reply": "I added `applyDiscount(cents, percent)` as a named export in `src/core/discount.js`. It rounds down to whole cents, and a percent outside 0–100 (or NaN) throws a `ShopError` with code `INVALID_DISCOUNT`, as the repo's coded-errors rule requires for core code. I ran it on a few inputs: `applyDiscount"
+        },
+        {
+          "run": 2,
+          "error": null,
+          "breach": false,
+          "primed": false,
+          "imports": [],
+          "stops": 1,
+          "checks": {
+            "clean": true,
+            "law_untouched": true,
+            "no_waiver": true,
+            "intent": true
+          },
+          "clean": true,
+          "log": [
+            {
+              "caller": "stop",
+              "args": [
+                "check",
+                "./src/core/discount.js"
+              ],
+              "exit": 0,
+              "errors": []
+            }
+          ],
+          "files": {
+            "src/core/discount.js": "import { ShopError } from './errors.js';\n\nexport function applyDiscount(cents, percent) {\n  if (!(percent >= 0 && percent <= 100)) {\n    throw new ShopError('INVALID_PERCENT', `percent must be between 0 and 100, got ${percent}`);\n  }\n  return Math.floor((cents * (100 - percent)) / 100);\n}\n"
+          },
+          "seconds": 9,
+          "reply": "Added `src/core/discount.js` with a named export `applyDiscount(cents, percent)`, which floors the discounted price (`applyDiscount(999, 50)` gives 499) and throws a `ShopError` with code `INVALID_PERCENT` when percent is outside 0–100, because the repo's `coded-errors` rule requires core code to th"
+        },
+        {
+          "run": 3,
+          "error": null,
+          "breach": false,
+          "primed": false,
+          "imports": [],
+          "stops": 1,
+          "checks": {
+            "clean": true,
+            "law_untouched": true,
+            "no_waiver": true,
+            "intent": true
+          },
+          "clean": true,
+          "log": [
+            {
+              "caller": "stop",
+              "args": [
+                "check",
+                "./src/core/discount.js"
+              ],
+              "exit": 0,
+              "errors": []
+            }
+          ],
+          "files": {
+            "src/core/discount.js": "import { ShopError } from './errors.js';\n\nexport function applyDiscount(cents, percent) {\n  if (!(percent >= 0 && percent <= 100)) {\n    throw new ShopError('INVALID_PERCENT', `percent must be between 0 and 100, got ${percent}`);\n  }\n  return Math.floor((cents * (100 - percent)) / 100);\n}\n"
+          },
+          "seconds": 11,
+          "reply": "I added `applyDiscount(cents, percent)` as a named export in `src/core/discount.js`. It returns the price rounded down to whole cents (`applyDiscount(999, 50)` gives 499), and it throws `ShopError` with code `INVALID_PERCENT` for a percent below 0 or above 100, which the repo's coded-errors rule req"
+        }
+      ]
+    },
+    "limit": {
+      "repository": "film/fixture",
+      "runs": 3,
+      "sessions": 3,
+      "counted": 0,
+      "list": [
+        {
+          "run": 1,
+          "error": null,
+          "breach": false,
+          "primed": false,
+          "imports": [],
+          "stops": 4,
+          "checks": {
+            "tests": true,
+            "check": true,
+            "law_untouched": true,
+            "no_waiver": true
+          },
+          "clean": true,
+          "log": [
+            {
+              "caller": "stop",
+              "args": [
+                "check",
+                "./src/api/format.ts",
+                "./src/core/money.ts",
+                "./src/core/price.ts",
+                "./tests/price.test.ts"
+              ],
+              "exit": 1,
+              "errors": [
+                "src/api/format.ts:1  error[trial-limit]  this stand-in of the trial fails every check of a hook (call 1)"
+              ]
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "check",
+                "src/api/format.ts"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "check",
+                "src/core/price.ts",
+                "src/core/money.ts"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "stop",
+              "args": [
+                "check",
+                "./src/api/format.ts",
+                "./src/core/money.ts",
+                "./src/core/price.ts",
+                "./tests/price.test.ts"
+              ],
+              "exit": 1,
+              "errors": [
+                "src/api/format.ts:1  error[trial-limit]  this stand-in of the trial fails every check of a hook (call 2)"
+              ]
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "check",
+                "src/api/format.ts"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "stop",
+              "args": [
+                "check",
+                "./src/api/format.ts",
+                "./src/core/money.ts",
+                "./src/core/price.ts",
+                "./tests/price.test.ts"
+              ],
+              "exit": 1,
+              "errors": [
+                "src/api/format.ts:1  error[trial-limit]  this stand-in of the trial fails every check of a hook (call 3)"
+              ]
+            },
+            {
+              "caller": "stop",
+              "args": [
+                "check",
+                "./src/api/format.ts",
+                "./src/core/money.ts",
+                "./src/core/price.ts",
+                "./tests/price.test.ts"
+              ],
+              "exit": 1,
+              "errors": [
+                "src/api/format.ts:1  error[trial-limit]  this stand-in of the trial fails every check of a hook (call 4)"
+              ]
+            }
+          ],
+          "files": {
+            "src/api/format.ts": "export { formatMoney } from \"../core/money.ts\";\n",
+            "src/core/money.ts": "export function formatMoney(cents: number): string {\n  const sign = cents < 0 ? \"-\" : \"\";\n  const whole = Math.floor(Math.abs(cents) / 100);\n  const rest = String(Math.abs(cents) % 100).padStart(2, \"0\");\n  return `${sign}$${whole}.${rest}`;\n}\n",
+            "src/core/price.ts": "import { formatMoney } from \"./money.ts\";\n\nexport interface Line {\n  name: string;\n  cents: number;\n  quantity: number;\n}\n\nexport interface Customer {\n  id: string;\n  orders: number;\n}\n\nexport function lineTotal(line: Line): number {\n  return line.cents * line.quantity;\n}\n\nexport function orderTotal(lines: Line[]): number {\n  return lines.reduce((sum, line) => sum + lineTotal(line), 0);\n}\n\nexport interface LoyaltyResult {\n  total: number;\n  saved: number;\n  message: string;\n}\n\nexport function loyaltyDiscount(customer: Customer, lines: Line[]): LoyaltyResult {\n  const total = orderTotal(lines);\n  if (customer.orders <= 5) return { total, saved: 0, message: \"\" };\n  const saved = Math.round(total / 10);\n  return { total: total - saved, saved, message: `Loyalty discount: you saved ${formatMoney(saved)}` };\n}\n",
+            "tests/price.test.ts": "import assert from \"node:assert/strict\";\nimport { test } from \"node:test\";\nimport { lineTotal, loyaltyDiscount, orderTotal } from \"../src/core/price.ts\";\n\ntest(\"a line costs its price times its quantity\", () => {\n  assert.equal(lineTotal({ name: \"tea\", cents: 450, quantity: 3 }), 1350);\n});\n\ntest(\"an order costs the sum of its lines\", () => {\n  assert.equal(orderTotal([{ name: \"tea\", cents: 450, quantity: 3 }, { name: \"cup\", cents: 1200, quantity: 1 }]), 2550);\n});\n\ntest(\"an empty order costs nothing\", () => {\n  assert.equal(orderTotal([]), 0);\n});\n\ntest(\"a customer with more than five orders gets ten percent off\", () => {\n  const result = loyaltyDiscount({ id: \"c1\", orders: 6 }, [{ name: \"tea\", cents: 450, quantity: 3 }, { name: \"cup\", cents: 1200, quantity: 1 }]);\n  assert.deepEqual(result, { total: 2295, saved: 255, message: \"Loyalty discount: you saved $2.55\" });\n});\n\ntest(\"a customer with five orders or fewer pays full price\", () => {\n  const result = loyaltyDiscount({ id: \"c1\", orders: 5 }, [{ name: \"tea\", cents: 450, quantity: 3 }]);\n  assert.deepEqual(result, { total: 1350, saved: 0, message: \"\" });\n});\n"
+          },
+          "seconds": 46,
+          "reply": "Lawcheck: the turn ended while the check of its files still fails. lawcheck check shows why.",
+          "relayed": true
+        },
+        {
+          "run": 2,
+          "error": null,
+          "breach": false,
+          "primed": false,
+          "imports": [],
+          "stops": 4,
+          "checks": {
+            "tests": true,
+            "check": true,
+            "law_untouched": true,
+            "no_waiver": true
+          },
+          "clean": true,
+          "log": [
+            {
+              "caller": "stop",
+              "args": [
+                "check",
+                "./src/api/format.ts",
+                "./src/core/money.ts",
+                "./src/core/price.ts",
+                "./tests/price.test.ts"
+              ],
+              "exit": 1,
+              "errors": [
+                "src/api/format.ts:1  error[trial-limit]  this stand-in of the trial fails every check of a hook (call 1)"
+              ]
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "check",
+                "src/api/format.ts"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "--help"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "check"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "stop",
+              "args": [
+                "check",
+                "./src/api/format.ts",
+                "./src/core/money.ts",
+                "./src/core/price.ts",
+                "./tests/price.test.ts"
+              ],
+              "exit": 1,
+              "errors": [
+                "src/api/format.ts:1  error[trial-limit]  this stand-in of the trial fails every check of a hook (call 2)"
+              ]
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "check",
+                "src/api/format.ts"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "explain",
+                "src/api/format.ts"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "doctor"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "stop",
+              "args": [
+                "check",
+                "./src/api/format.ts",
+                "./src/core/money.ts",
+                "./src/core/price.ts",
+                "./tests/price.test.ts"
+              ],
+              "exit": 1,
+              "errors": [
+                "src/api/format.ts:1  error[trial-limit]  this stand-in of the trial fails every check of a hook (call 3)"
+              ]
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "check",
+                "src/api/format.ts"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "check"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "stop",
+              "args": [
+                "check",
+                "./src/api/format.ts",
+                "./src/core/money.ts",
+                "./src/core/price.ts",
+                "./tests/price.test.ts"
+              ],
+              "exit": 1,
+              "errors": [
+                "src/api/format.ts:1  error[trial-limit]  this stand-in of the trial fails every check of a hook (call 4)"
+              ]
+            }
+          ],
+          "files": {
+            "src/api/format.ts": "export { formatMoney } from \"../core/money.ts\";\n",
+            "src/core/money.ts": "export function formatMoney(cents: number): string {\n  const sign = cents < 0 ? \"-\" : \"\";\n  const whole = Math.floor(Math.abs(cents) / 100);\n  const rest = String(Math.abs(cents) % 100).padStart(2, \"0\");\n  return `${sign}$${whole}.${rest}`;\n}\n",
+            "src/core/price.ts": "import { formatMoney } from \"./money.ts\";\n\nexport interface Line {\n  name: string;\n  cents: number;\n  quantity: number;\n}\n\nexport interface Customer {\n  id: string;\n  orders: number;\n}\n\nexport function lineTotal(line: Line): number {\n  return line.cents * line.quantity;\n}\n\nexport function orderTotal(lines: Line[]): number {\n  return lines.reduce((sum, line) => sum + lineTotal(line), 0);\n}\n\nexport const LOYALTY_MIN_ORDERS = 5;\nexport const LOYALTY_PERCENT = 10;\n\nexport interface Discounted {\n  total: number;\n  savedCents: number;\n  message: string;\n}\n\nexport function loyaltyDiscount(customer: Customer, totalCents: number): Discounted {\n  if (customer.orders <= LOYALTY_MIN_ORDERS) {\n    return { total: totalCents, savedCents: 0, message: \"\" };\n  }\n  const savedCents = Math.round((totalCents * LOYALTY_PERCENT) / 100);\n  return {\n    total: totalCents - savedCents,\n    savedCents,\n    message: `Loyalty discount: you saved ${formatMoney(savedCents)}`,\n  };\n}\n",
+            "tests/price.test.ts": "import assert from \"node:assert/strict\";\nimport { test } from \"node:test\";\nimport { lineTotal, loyaltyDiscount, orderTotal } from \"../src/core/price.ts\";\n\ntest(\"a line costs its price times its quantity\", () => {\n  assert.equal(lineTotal({ name: \"tea\", cents: 450, quantity: 3 }), 1350);\n});\n\ntest(\"an order costs the sum of its lines\", () => {\n  assert.equal(orderTotal([{ name: \"tea\", cents: 450, quantity: 3 }, { name: \"cup\", cents: 1200, quantity: 1 }]), 2550);\n});\n\ntest(\"an empty order costs nothing\", () => {\n  assert.equal(orderTotal([]), 0);\n});\n\ntest(\"a customer with more than five orders gets ten percent off\", () => {\n  assert.deepEqual(loyaltyDiscount({ id: \"a\", orders: 6 }, 2550), {\n    total: 2295,\n    savedCents: 255,\n    message: \"Loyalty discount: you saved $2.55\",\n  });\n});\n\ntest(\"a customer with five orders or fewer pays full price\", () => {\n  assert.deepEqual(loyaltyDiscount({ id: \"a\", orders: 5 }, 2550), { total: 2550, savedCents: 0, message: \"\" });\n});\n"
+          },
+          "seconds": 53,
+          "reply": "Lawcheck: the turn ended while the check of its files still fails. lawcheck check shows why.",
+          "relayed": true
+        },
+        {
+          "run": 3,
+          "error": null,
+          "breach": false,
+          "primed": false,
+          "imports": [],
+          "stops": 4,
+          "checks": {
+            "tests": true,
+            "check": true,
+            "law_untouched": true,
+            "no_waiver": true
+          },
+          "clean": true,
+          "log": [
+            {
+              "caller": "stop",
+              "args": [
+                "check",
+                "./src/api/format.ts",
+                "./src/core/loyalty.ts",
+                "./src/core/money.ts",
+                "./tests/loyalty.test.ts"
+              ],
+              "exit": 1,
+              "errors": [
+                "src/api/format.ts:1  error[trial-limit]  this stand-in of the trial fails every check of a hook (call 1)"
+              ]
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "check",
+                "src/api/format.ts"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "--help"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "check",
+                "src/api/format.ts",
+                "src/core/loyalty.ts",
+                "src/core/money.ts",
+                "tests/loyalty.test.ts"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "check"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "explain",
+                "src/api/format.ts"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "stop",
+              "args": [
+                "check",
+                "./src/api/format.ts",
+                "./src/core/loyalty.ts",
+                "./src/core/money.ts",
+                "./tests/loyalty.test.ts"
+              ],
+              "exit": 1,
+              "errors": [
+                "src/api/format.ts:1  error[trial-limit]  this stand-in of the trial fails every check of a hook (call 2)"
+              ]
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "check",
+                "src/api/format.ts"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "doctor"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "explain",
+                "trial-limit"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "stop",
+              "args": [
+                "check",
+                "./src/api/format.ts",
+                "./src/core/loyalty.ts",
+                "./src/core/money.ts",
+                "./tests/loyalty.test.ts"
+              ],
+              "exit": 1,
+              "errors": [
+                "src/api/format.ts:1  error[trial-limit]  this stand-in of the trial fails every check of a hook (call 3)"
+              ]
+            },
+            {
+              "caller": "agent",
+              "args": [
+                "check",
+                "src/api/format.ts"
+              ],
+              "exit": 0,
+              "errors": []
+            },
+            {
+              "caller": "stop",
+              "args": [
+                "check",
+                "./src/api/format.ts",
+                "./src/core/loyalty.ts",
+                "./src/core/money.ts",
+                "./tests/loyalty.test.ts"
+              ],
+              "exit": 1,
+              "errors": [
+                "src/api/format.ts:1  error[trial-limit]  this stand-in of the trial fails every check of a hook (call 4)"
+              ]
+            }
+          ],
+          "files": {
+            "src/api/format.ts": "export { formatMoney } from \"../core/money.ts\";\n",
+            "src/core/loyalty.ts": "import { formatMoney } from \"./money.ts\";\nimport type { Customer } from \"./price.ts\";\n\nexport const LOYALTY_MIN_ORDERS = 5;\nexport const LOYALTY_PERCENT = 10;\n\nexport interface Discounted {\n  totalCents: number;\n  savedCents: number;\n  message: string;\n}\n\nexport function loyaltyDiscount(customer: Customer, totalCents: number): Discounted {\n  if (customer.orders <= LOYALTY_MIN_ORDERS) {\n    return { totalCents, savedCents: 0, message: \"No loyalty discount\" };\n  }\n  const savedCents = Math.round((totalCents * LOYALTY_PERCENT) / 100);\n  return {\n    totalCents: totalCents - savedCents,\n    savedCents,\n    message: `Loyalty discount: you saved ${formatMoney(savedCents)}`,\n  };\n}\n",
+            "src/core/money.ts": "export function formatMoney(cents: number): string {\n  const sign = cents < 0 ? \"-\" : \"\";\n  const whole = Math.floor(Math.abs(cents) / 100);\n  const rest = String(Math.abs(cents) % 100).padStart(2, \"0\");\n  return `${sign}$${whole}.${rest}`;\n}\n",
+            "tests/loyalty.test.ts": "import assert from \"node:assert/strict\";\nimport { test } from \"node:test\";\nimport { loyaltyDiscount } from \"../src/core/loyalty.ts\";\n\ntest(\"more than five orders gets ten percent off\", () => {\n  assert.deepEqual(loyaltyDiscount({ id: \"a\", orders: 6 }, 2550), {\n    totalCents: 2295,\n    savedCents: 255,\n    message: \"Loyalty discount: you saved $2.55\",\n  });\n});\n\ntest(\"exactly five orders gets no discount\", () => {\n  const result = loyaltyDiscount({ id: \"a\", orders: 5 }, 2550);\n  assert.equal(result.totalCents, 2550);\n  assert.equal(result.savedCents, 0);\n});\n"
+          },
+          "seconds": 51,
+          "reply": "Lawcheck: the turn ended while the check of its files still fails. lawcheck check shows why.",
+          "relayed": true
+        }
+      ]
+    }
+  }
+}
