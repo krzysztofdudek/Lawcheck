@@ -700,7 +700,7 @@ test('test 1011: on Windows the guard of a killed tool leaves alive a process th
   });
 });
 
-test('test 1054: on Windows the guard of a killed tool that called no program reviewer takes no list of processes', async (t) => {
+test('test 1094: on Windows the guard of a killed tool that called no program reviewer takes no list of processes', async (t) => {
   const skip = platformSkip('the whole test');
   if (skip !== null) return t.skip(skip);
   await withCopy(async (copy) => {
