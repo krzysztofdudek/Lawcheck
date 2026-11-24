@@ -748,6 +748,99 @@ test('test 851: the end of a turn that added a waiver or changed the law tells t
   });
 });
 
+test('R-152: the end of a turn that deleted a file of the law names it, .lawcheck/law.yaml itself included, and a deleted rule file sends the agent back to fix the law', async () => {
+  const told = (text: string) => ({ systemMessage: `Lawcheck: in this turn the agent ${text}. Read them before you accept the turn.` });
+  await withBench(async (bench, dir) => {
+    const s = makeSample(dir);
+    write(s, '.lawcheck/config.yaml', 'runner: global\n');
+    git(s, 'add', '-A');
+    git(s, 'commit', '-q', '-m', 'config');
+    const session = new Session(bench, s);
+    await session.prompt();
+    rmSync(join(s, '.lawcheck/config.yaml'));
+    json(await session.stop(), told('deleted .lawcheck/config.yaml'), 'a deleted config');
+    nothing(await session.stop(), 'a second stop of the same turn');
+    await session.prompt();
+    rmSync(join(s, '.lawcheck/rules/no-todo.mjs'));
+    append(s, 'src/cli/main.ts', '// end\n');
+    const back = await session.stop();
+    assert.ok(back.json?.hookSpecificOutput?.additionalContext.startsWith(`${stopErrorHeader()}\n\nlawcheck: ERROR  `), back.stdout);
+    assert.match(back.json.hookSpecificOutput.additionalContext, /rule-missing-file/);
+    write(s, '.lawcheck/law.yaml', LAW.replace('  no-todo:\n    why: A TODO without an issue number gets forgotten.\n    status: advisory\n', '').replaceAll('    rules: [no-todo]\n', ''));
+    const after = await session.stop();
+    assert.deepEqual(after.json, told('changed .lawcheck/law.yaml and deleted .lawcheck/rules/no-todo.mjs'), after.stdout + after.stderr);
+  });
+  await withBench(async (bench, dir) => {
+    const s = makeSample(dir);
+    const session = new Session(bench, join(s, 'src'));
+    await session.prompt();
+    rmSync(join(s, '.lawcheck/law.yaml'));
+    json(await session.stop(), told('deleted .lawcheck/law.yaml'), 'the law deleted');
+    nothing(await session.stop(), 'a second stop');
+    await session.prompt();
+    nothing(await session.stop(), 'the next turn, with no law');
+    assert.deepEqual(bench.checks(), []);
+  });
+});
+
+test('R-153: when the state folder holds a folder in place of the state file, the session start still gives the primer and tells the user that no reviewer is set', async () => {
+  await withBench(async (bench, dir) => {
+    const r = makeR(dir);
+    rmSync(join(r, '.lawcheck/config.yaml'));
+    const primed = (await lawcheck(r, ['prime'])).stdout.replace(/\n$/, '');
+    mkdirSync(join(bench.data, 'sessions', 's1.json', 'held'), { recursive: true });
+    const run = await new Session(bench, r).start();
+    assert.equal(run.stderr, '');
+    json(run, { ...started(primed), systemMessage: "Lawcheck: this repository has a reviewer rule, and .lawcheck/config.yaml sets no reviewer, so a plain lawcheck check and CI fail on every file a reviewer rule judges. Setting reviewer.provider and reviewer.model there is the user's decision; lawcheck docs providers lists the choices." });
+  });
+});
+
+test('R-154: a prompt whose snapshot fails keeps what the session was told, so a notice told once does not come back', async () => {
+  await withBench(async (bench, dir) => {
+    const s = makeSample(dir);
+    bench.remove('lawcheck');
+    const session = new Session(bench, s);
+    await session.prompt();
+    append(s, 'src/cli/main.ts', '// end\n');
+    json(await session.stop(), { systemMessage: 'Lawcheck: the check at the end of the turn did not run: lawcheck was not found.' });
+    nothing(await session.prompt({ PATH: bench.bin }), 'a prompt where git cannot start');
+    assert.equal(bench.state().told, true);
+    assert.equal(bench.state().open, false);
+    append(s, 'src/cli/main.ts', '// more\n');
+    nothing(await session.stop(), 'told already');
+  });
+});
+
+test('R-155: the message about no reviewer names the docs command of the runner the repository sets', async () => {
+  await withBench(async (bench, dir) => {
+    bench.runner('pnpm', 2);
+    const r = makeR(dir);
+    write(r, '.lawcheck/config.yaml', 'runner: pnpm\n');
+    const run = await new Session(bench, r).start();
+    assert.equal(run.code, 0, run.stderr);
+    assert.equal(run.json?.systemMessage, "Lawcheck: this repository has a reviewer rule, and .lawcheck/config.yaml sets no reviewer, so a plain pnpm exec lawcheck check and CI fail on every file a reviewer rule judges. Setting reviewer.provider and reviewer.model there is the user's decision; pnpm exec lawcheck docs providers lists the choices.");
+  });
+});
+
+test('R-156: a law error reaches the agent once per root, so an edit that passes in another root does not hand it over again', async () => {
+  await withBench(async (bench, dir) => {
+    const a = makeSample(join(dir, 'a'));
+    const b = makeSample(join(dir, 'b'));
+    write(a, '.lawcheck/law.yaml', BROKEN_LAW);
+    const session = new Session(bench, a);
+    const inB = () => session.run('edit', { tool_name: 'Write', tool_input: { file_path: join(b, 'src/cli/main.ts') }, tool_response: {} });
+    json(await session.edit('.lawcheck/law.yaml'), edited(`${editErrorHeader('.lawcheck/law.yaml')}\n\n${TEST17_CHECK}`), 'the first break');
+    append(b, 'src/cli/main.ts', '// end\n');
+    nothing(await inB(), 'an edit that passes in the other root');
+    append(a, 'src/cli/main.ts', '// end\n');
+    nothing(await session.edit('src/cli/main.ts'), 'the same break, after an edit in the other root');
+    write(a, '.lawcheck/law.yaml', LAW);
+    nothing(await session.edit('.lawcheck/law.yaml'), 'the law fixed');
+    write(a, '.lawcheck/law.yaml', BROKEN_LAW);
+    json(await session.edit('.lawcheck/law.yaml'), edited(`${editErrorHeader('.lawcheck/law.yaml')}\n\n${TEST17_CHECK}`), 'the same break after a pass in its own root');
+  });
+});
+
 test('test 176: a background agent keeps the turn open and says so; a background shell does not', async () => {
   await withBench(async (bench, dir) => {
     const s = makeSample(dir);

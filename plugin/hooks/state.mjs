@@ -62,10 +62,6 @@ export function writeState(file, state) {
   renameSync(temporary, file);
 }
 
-export function deleteState(file) {
-  if (file !== null) rmSync(file, { force: true });
-}
-
 export function blank(root, promptId) {
   return { root, prompt_id: promptId, open: false, started: 0, head: null, files: {}, blocks: 0, last: null, last_error: null, told: false };
 }
