@@ -1,13 +1,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { rmSync } from 'node:fs';
+import { readdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { parse } from 'yaml';
 import { git, GIT_ENV, inTemp, lawcheck, read, ROOT, write } from './helpers.ts';
 import { judge, loadConfig, render } from '../guard/guard.ts';
 
 const ADVISORY = new Set(['errors-name-the-fix', 'docs-state-facts']);
+// The suite guard reads every test file of both trees with one git process each, which is most of this test's time on a slow runner, and the verdict on the law file depends on none of them; the clone keeps only what the guard reads by name.
+const KEPT_FOR_THE_GUARD = new Set(['guard', 'harness', 'sabotage', 'numbers.ts', 'run.ts', 'weakenings.md']);
 const WAIVERS: { file: string; rule: string; reason: string }[] = [];
 const UNRESOLVED = [{ file: 'scripts/grammars.ts', what: '..', answer: 'none', reason: 'unfollowed' }];
 const UNSORTED = new Set(['args', 'check', 'cli', 'config', 'docs', 'doctor', 'environment', 'explain', 'files', 'glob', 'guard', 'init', 'keys', 'law', 'lawchange', 'limits', 'main', 'names', 'output', 'prime', 'programs', 'progress', 'prompt', 'readers', 'review', 'rules', 'setup', 'try', 'types', 'uses', 'verdicts', 'waivers', 'work'].map((name) => `src/${name}.ts`).concat(['src/bin.cts'], ['anthropic', 'claude-code', 'codex', 'copilot-cli', 'gemini-cli', 'google', 'http', 'index', 'ollama', 'openai', 'openai-compatible', 'program'].map((name) => `src/providers/${name}.ts`)));
@@ -167,6 +169,9 @@ test('R-81: src/runner.ts has the type rule-runner, so the runner of script rule
 test("R-10: a commit that takes the rules off a type of Lawcheck's own law and breaks them passes the check, and the suite guard refuses it until a fresh reviewer's row approves the change of the law", async () => {
   await inTemp(async (dir) => {
     const repo = cloneOfHead(dir);
+    for (const name of readdirSync(join(repo, 'tests')).filter((n) => !KEPT_FOR_THE_GUARD.has(n))) rmSync(join(repo, 'tests', name), { recursive: true });
+    git(repo, 'add', '-A');
+    git(repo, 'commit', '-q', '-m', 'the tests left out');
     const law = read(repo, '.lawcheck/law.yaml');
     const widened = law.replace(/(\n {2}build-scripts:\n(?: {4}.*\n)*?) {4}rules: \[layer-imports, comments-say-why\]\n/, '$1    rules: []\n');
     assert.notEqual(widened, law);
