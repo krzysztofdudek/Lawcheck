@@ -299,6 +299,33 @@ function stop(path: string, message: string, next: string): string {
   return ['lawcheck: ERROR  1 error', '', `${path}  error[file-unwritable]  ${message}`, '  why:  what Lawcheck cannot write is lost, so the run cannot say it is done', '', `next: ${next}`, ''].join('\n');
 }
 
+// As in test 1230 the test holds the delete of the lock pending, here until the review has given up waiting, as a program that keeps the old lock open would.
+test('test 1261: on Windows a review whose lock stays in a pending delete through the 10 seconds it waits stops with EPERM and says a program still holds the lock open', async (t) => {
+  const skip = platformSkip('the whole test');
+  if (skip !== null) return t.skip(skip);
+  await withFake(async (fake) => {
+    await withR(async (r) => {
+      write(r, F_PATH, F_PRIME);
+      const local = join(r, '.lawcheck/.local');
+      const lock = join(local, 'verdicts.lock');
+      mkdirSync(lock, { recursive: true });
+      writeFileSync(join(local, '.gitignore'), '*\n');
+      const held = openSync(lock, 'r');
+      let result: Awaited<ReturnType<typeof run>>;
+      try {
+        closeSync(openSync(lock, constants.O_RDONLY | O_TEMPORARY));
+        assert.ok(readdirSync(local).includes('verdicts.lock'), 'the lock was deleted at once, so its delete is not pending');
+        result = await run(r, REVIEW, { env: { LAWCHECK_REVIEWER_ENDPOINT: fake.url }, budget: 'LIMITS_RUN_MS', writes: [/^\.lawcheck\/\.local(\/|$)/] });
+      } finally {
+        closeSync(held);
+      }
+      assert.equal(result.stdout, stop('.lawcheck/.local/verdicts.lock', 'cannot be written (EPERM)', 'a program still holds .lawcheck/.local/verdicts.lock open, such as another Lawcheck run or a virus scanner: run lawcheck check again once it is closed'));
+      assert.equal(result.code, 2);
+      assert.equal(fake.requests.length, 0);
+    });
+  });
+});
+
 // (AD) is the right to add a subfolder: denied to everyone on .lawcheck/.local alone, it lets the review make files there, so the probe of the folder passes, and refuses the folder of the lock, whose name then is not listed, as a pending delete's is.
 test('test 1260: on Windows a review whose .lawcheck/.local lets it make files but not folders stops at the lock with EPERM at once, with no call', async (t) => {
   const skip = platformSkip('the whole test');
