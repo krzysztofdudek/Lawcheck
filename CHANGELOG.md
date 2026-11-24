@@ -47,6 +47,7 @@ Every message the Claude Code plugin sends you, and every text it gives the agen
 The npm package and the Claude Code plugin now include the MIT licence of cross-spawn, whose escaping of arguments for `cmd.exe` they use on Windows.
 A plain `lawcheck check` no longer misses a file edited in the same second as the last commit or `git add`, when the edit keeps the file's size. In alpha.4 the check printed `PASS  nothing changed` while `git status` showed the file as modified.
 
+The Lawcheck plugin now works in Codex CLI. `codex plugin marketplace add krzysztofdudek/Lawcheck` and `codex plugin add lawcheck@lawcheck-marketplace` install it, and Codex runs its hooks after you trust them in `/hooks`. The agent gets the law when a session starts, a check after each `apply_patch`, and up to three returns before it finishes, as in Claude Code. A file the agent writes through the shell gets no check after the edit, and the check before the end of the turn catches it. `LAWCHECK_PLUGIN_CHECK_AFTER_EDIT` and `LAWCHECK_PLUGIN_CHECK_BEFORE_STOP` switch the two checks off. In alpha.4 Codex got the law only through a line in its instructions file. `lawcheck docs codex-cli` has the steps.
 ### Before you upgrade
 
 `scope.law_changes` in `lawcheck check --json` no longer lists the waivers a change adds. A script that read them there reads the items of `waivers` whose `added` is true.
