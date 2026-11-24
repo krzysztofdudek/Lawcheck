@@ -46,7 +46,7 @@ After a review passes, Lawcheck removes its file from `failures/`. If you delete
 | Where | What it holds | Written by |
 |---|---|---|
 | `CLAUDE_PLUGIN_DATA`, or a folder `lawcheck-plugin-<user id>` in the system's temporary directory | one small file per Claude Code session; each session start removes the files older than 7 days | the Claude Code plugin ([The Claude Code plugin](plugin.md)) |
-| a folder in the system's temporary directory named `lawcheck-`, the program's name, a dash and 6 random characters, such as `lawcheck-claude-` and 6 characters for `claude-code` | the working folder of one call to a reviewer program; `gemini-cli` gets a second folder, ending `-aside-` and 6 characters, for its policy file | `check --review` and `try`, which remove both after the call |
+| a folder in the system's temporary directory named `lawcheck-`, the program's name, a dash and 12 random characters, such as `lawcheck-claude-` and 12 characters for `claude-code` | the working folder of one call to a reviewer program; `gemini-cli` gets a second folder, ending `-aside-` and 12 characters, for its policy file | `check --review` and `try`, which remove both after the call |
 | a folder `lawcheck-index-` and 12 random characters in the system's temporary directory | a copy of git's index, so that reading the change leaves the real index untouched | `check` and `doctor`, when they compare with a base; they remove it right after they read the change |
 
 Outside `.lawcheck/`, Lawcheck reads three things:
