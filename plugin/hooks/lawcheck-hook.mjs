@@ -180,8 +180,17 @@ function lawDeleted(input) {
   return { systemMessage: turnMessage({ waivers: [], law: [], gone: ['.lawcheck/law.yaml'] }) };
 }
 
+// A turn the user stopped leaves its state open for the next prompt, which would take over the returns the stopped turn had used.
+function forgetReturns(input) {
+  const file = stateFile(input.session_id);
+  const saved = readState(file);
+  if (saved !== null && saved.open === true) writeState(file, { ...saved, blocks: 0, last: null });
+  return null;
+}
+
 async function stop(input, deadline) {
-  if (!switchOn('check_before_stop') || host.ends?.(input) === false) return null;
+  if (!switchOn('check_before_stop')) return null;
+  if (host.ends?.(input) === false) return forgetReturns(input);
   const root = findRoot(startDir(input));
   if (root === null) return lawDeleted(input);
   const runner = runnerAt(root);

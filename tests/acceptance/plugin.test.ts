@@ -1279,3 +1279,42 @@ test('test 974: in Cursor, the message of the end of a turn reaches the user thr
     json(await new CursorSession(bench, r).start(), started(primed), 'the same session again');
   });
 });
+
+test('test 975: in Cursor, the prompt event of each follow-up message keeps the three returns of the turn', async () => {
+  await withBench(async (bench, dir) => {
+    const s = makeSample(dir);
+    const session = new CursorSession(bench, s);
+    nothing(await session.prompt(), 'the prompt of the user');
+    write(s, D_PATH, D);
+    json(await session.stop(), blocked(`${stopHeader()}\n\n${D_OUTPUT}`), 'the first stop');
+    const runs: HookRun[] = [];
+    for (let i = 1; i < 4; i++) {
+      append(s, D_PATH, 'console.log(1);\n');
+      nothing(await session.prompt(), 'the prompt of a follow-up message');
+      runs.push(await session.stop({ loop_count: i }));
+    }
+    for (const run of runs.slice(0, 2)) assert.equal(run.json?.decision, 'block', run.stdout);
+    assert.equal(bench.state('u1').blocks, 3);
+    json(runs[2]!, relayed(withD(released()).systemMessage), 'the fourth stop of the turn');
+  });
+});
+
+test('test 976: in Cursor, a turn the user stopped leaves its returns behind, and the next turn has its three', async () => {
+  await withBench(async (bench, dir) => {
+    const s = makeSample(dir);
+    const session = new CursorSession(bench, s);
+    nothing(await session.prompt(), 'the prompt');
+    write(s, D_PATH, D);
+    assert.equal((await session.stop()).json?.decision, 'block');
+    append(s, D_PATH, 'console.log(1);\n');
+    assert.equal((await session.stop({ loop_count: 1 })).json?.decision, 'block');
+    assert.equal(bench.state('u1').blocks, 2);
+    nothing(await session.stop({ status: 'aborted', loop_count: 2 }), 'the user stops the agent');
+    assert.equal(bench.state('u1').blocks, 0);
+    assert.equal(bench.state('u1').open, true, 'the note of the turn stays, as after a turn that ended with no stop');
+    nothing(await session.prompt(), 'the prompt of the next turn');
+    append(s, D_PATH, 'console.log(2);\n');
+    assert.equal((await session.stop()).json?.decision, 'block');
+    assert.equal(bench.state('u1').blocks, 1);
+  });
+});
