@@ -45,6 +45,8 @@ const EXPECT: { [name: string]: Expect } = {
   'refused-test-names-larger-budget': { refused: ['threshold-lowered'] },
   'refused-test-names-new-number-budget': { refused: ['threshold-lowered'] },
   'refused-test-gains-budget': { refused: ['threshold-lowered'] },
+  'refused-test-switches-to-new-number': { refused: ['threshold-lowered'] },
+  'refused-harness-switches-to-new-number': { refused: ['harness-changed', 'threshold-lowered'] },
   'refused-ratchet-grew': { refused: ['ratchet-grew'] },
   'refused-number-unclassified': { refused: ['number-unclassified'] },
   'refused-owner-row-from-branch': { refused: ['guard-changed'] },
@@ -110,6 +112,8 @@ const EXPECT: { [name: string]: Expect } = {
   'accepted-new-test': { cleared: [] },
   'accepted-new-test-names-budget': { cleared: [] },
   'accepted-test-names-smaller-budget': { cleared: [] },
+  'accepted-test-switches-to-smaller-new-number': { cleared: [] },
+  'accepted-test-imports-new-number-unused': { cleared: [] },
   'accepted-test-moved': { cleared: [] },
   'accepted-docs-example-ruling': { cleared: ['docs-example-changed'] },
 };
