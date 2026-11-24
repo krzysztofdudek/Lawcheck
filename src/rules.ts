@@ -11,7 +11,7 @@ import type { Readable } from 'node:stream';
 import { count, MESSAGE_CHARS, points, readError, RULES_RUN_MS, RUN_FINDINGS, RUN_MESSAGE_CHARS } from './limits.js';
 import type { Reads, Serve } from './readers.js';
 import type { ErrorItem } from './output.js';
-import { RULES_DIR } from './setup.js';
+import { RULES_DIR, RULES_LIB } from './setup.js';
 import type { Read, ReviewerRule } from './setup.js';
 import { trackedLinks, workTreeTop } from './files.js';
 import { decode, isBinary } from './types.js';
@@ -468,7 +468,7 @@ export function crashError(file: string, outcome: Crash, copy?: CopyOfRules): Er
       file,
       line: null,
       message: `fails to load: ${module} of '${copy.ref}' imports '${missing.specifier}', which leads to ${target}, outside ${RULES_DIR}, and under --law-from a rule of '${copy.ref}' loads only the files of ${RULES_DIR} of '${copy.ref}'`,
-      next: `on '${copy.ref}', copy what ${module} needs of ${target} into ${RULES_DIR} and import it from there by a relative path, then run ${copy.again}`,
+      next: `on '${copy.ref}', copy what ${module} needs of ${target} into ${RULES_LIB} and import it from there by a relative path, then run ${copy.again}`,
     };
   }
   const message = outsideCopy(outcome.crash, tops);
