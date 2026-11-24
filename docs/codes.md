@@ -703,7 +703,7 @@ next: reinstall Lawcheck, then run lawcheck check
 
 **Meaning**
 
-A script rule failed to give its findings, or the companion of a reviewer rule failed to give its paths. Lawcheck stops the run. The error names the file of the rule or of the companion, the judged file and the cause. For a throw, the cause is the first line of what the rule threw, cut at 4,096 characters with the count of the rest, as in `… (cut: 96,178 more characters)`.
+A script rule failed to give its findings, or the companion of a reviewer rule failed to give its paths. Lawcheck stops the run. The error names the file of the rule or of the companion, the judged file and the cause. For a throw, the cause is the first line of what the rule threw, cut at 4,096 characters with the count of the rest, as in `… (cut: 96,178 more characters)`, or `an error with no message`. A finding whose message is no string names the value, as in `returns a finding whose message is the number 42, not a string`.
 
 **Typical cause**
 

@@ -264,8 +264,22 @@ const NO_STRING_FORM = 'a value with no string form';
 const SHOWN_CHARS = 4096;
 
 function firstLine(message: string): string {
-  const end = message.indexOf('\n');
-  return end < 0 ? message : message.slice(0, end).replace(/\r$/, '');
+  let start = 0;
+  for (;;) {
+    const end = message.indexOf('\n', start);
+    const line = (end < 0 ? message.slice(start) : message.slice(start, end)).replace(/\r$/, '');
+    if (line !== '' || end < 0) return line;
+    start = end + 1;
+  }
+}
+
+function messageOf(error: unknown): string {
+  if (error instanceof Error) return String(error.message);
+  if (typeof error === 'object' && error !== null) {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === 'string' && message !== '') return message;
+  }
+  return String(error);
 }
 
 function shown(line: string): string {
@@ -285,8 +299,9 @@ function text(error: unknown): string {
   try {
     const named = refused(error);
     if (named !== null) return named;
-    const message = error instanceof Error ? String(error.message) : String(error);
-    return shown(firstLine(message));
+    const line = firstLine(messageOf(error));
+    if (line !== '') return shown(line);
+    return error instanceof Error ? 'an error with no message' : 'a value whose text is empty';
   } catch (reason) {
     try {
       if (reason instanceof Error) return shown(firstLine(String(reason.message)));
