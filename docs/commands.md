@@ -61,7 +61,7 @@ usage: lawcheck init [--json]
 - `.lawcheck/law.yaml`, with an empty law and a short example in comments;
 - `.lawcheck/.gitignore`, with the lines `.local/` and `config.local.yaml`.
 
-`init` overwrites no file. It writes no `.lawcheck/config.yaml`. In a folder below the top of the git work tree, `init` starts a law that covers only the files below that folder. Its output says so in a note. `init` refuses with `already-initialized` in two cases: a law governs this folder from here or from above, or git lists a law below this folder. An extra word after `init` ends it with `usage`. When `.lawcheck` is a file, or a symbolic link to a file or to nothing, `init` stops with `file-unwritable`, names `.lawcheck` and writes nothing.
+`init` overwrites no file. It writes no `.lawcheck/config.yaml`. In a folder below the top of the git work tree, `init` starts a law that covers only the files below that folder. Its output says so in a note. `init` refuses with `already-initialized` in two cases: a law governs this folder from here or from above, or git lists a law below this folder. An extra word after `init` ends it with `usage`. When `.lawcheck` is a file, or a symbolic link to a file or to nothing, `init` stops with `file-unwritable`, names `.lawcheck` and writes nothing. It stops the same way, naming `.lawcheck/.gitignore`, when that is a folder or a symbolic link to nothing. When `.lawcheck/law.yaml` is a folder or a symbolic link to nothing, `init` says `already-initialized`, and `doctor` and `check` say `law-invalid`.
 
 When git ignores `.lawcheck/law.yaml`, because `.gitignore` names `.lawcheck`, `init` still writes the files and exits 0. It adds a `note:` line under the first line: no commit carries the law, so no other checkout has it. The note gives `git check-ignore -v .lawcheck/law.yaml`, which shows the line to remove. With `--json`, `next.text` starts with the same warning.
 
@@ -284,7 +284,7 @@ src/core/report.ts
 
 The path names a file, a file that does not exist yet, a folder, or `.` for the current folder. For a new file, the first line ends with `(does not exist yet)`. For a folder, `explain` counts its files of each type. On a file system that ignores case, `explain` answers for the spelling that git lists.
 
-Each name in the path may hold at most 255 bytes. The whole path on disk, with the folders above the root of the law, may hold at most 4,095 bytes. A longer name or path ends the command with `usage`.
+On Linux and macOS, each name in the path may hold at most 255 bytes, and the whole path on disk, with the folders above the root of the law, at most 4,095 bytes. On Windows, each name may hold at most 255 UTF-16 units and the whole path at most 32,767, so a name of 86 characters of three bytes each, which is 258 bytes, is a name there. A longer name or path ends the command with `usage`.
 
 ### --tree
 

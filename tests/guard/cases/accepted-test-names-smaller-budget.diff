@@ -1,0 +1,13 @@
+diff --git a/tests/limits/large.test.ts b/tests/limits/large.test.ts
+index 67a118a..ce009eb 100644
+--- a/tests/limits/large.test.ts
++++ b/tests/limits/large.test.ts
+@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
+ import { run } from '../harness/run.ts';
+ 
+ test('test 4: a large run ends in time', async () => {
+-  const result = await run(['check'], { budget: 'LIMITS_RUN_MS' });
++  const result = await run(['check'], { budget: 'RUN_BUDGET_MS' });
+   assert.ok(result);
+ });
+ 

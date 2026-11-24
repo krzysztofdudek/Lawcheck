@@ -187,7 +187,7 @@ For a file, these fields follow `schema` and `subject`:
 | `may_use.from` | the type above whose list holds, or null for the file's own type |
 | `uses` | whether its uses are read, or null when no list is in force |
 | `uses.read` | true when a reader reads the file |
-| `uses.language` | the reader's language, or null |
+| `uses.language` | the reader's language, or null when no reader reads the file, and for a `.vue` or `.svelte` file with no script block, which uses nothing |
 | `rules` | every rule of the chain |
 | `rules.id` | the rule |
 | `rules.kind` | `script` or `reviewer` |

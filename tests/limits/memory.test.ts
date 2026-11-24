@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { availableNow, memoryCase, runBound, withCache } from '../../dist/limits.js';
-import { withSample, write } from '../acceptance/helpers.ts';
+import { setRule, withSample, write } from '../acceptance/helpers.ts';
 import { errorLines, MiB, run } from './support.ts';
 
 const GiB = 1024 * MiB;
@@ -72,4 +72,14 @@ test('test 277: a file read only for what it declares that takes too much memory
     },
     { onMain: csLaw },
   );
+});
+
+test('R-108: a field of a finding that a rule piles up is never read, so the run holds none of it and ends with the rule\'s finding, not as memory-too-large', async () => {
+  await withSample(async (s) => {
+    setRule(s, 'no-console', "export function check() { return [{ message: 'm', pad: 'x'.repeat(530e6) }]; }\n");
+    write(s, 'src/core/pad.ts', 'export const pad = 1;\n');
+    const result = await run(s, ['check', '--base', 'main'], { budget: 'LIMITS_RUN_MS' });
+    assert.deepEqual(errorLines(result.stdout), ['src/core/pad.ts  error[no-console]  m']);
+    assert.equal(result.code, 1);
+  });
 });

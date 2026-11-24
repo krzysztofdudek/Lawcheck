@@ -206,7 +206,7 @@ The cause is one of these:
 
 **Fix**
 
-Run Lawcheck inside a git work tree, with git on the `PATH`. For a repository another user owns, run the `git config --global --add safe.directory` command of the `next:` line.
+Run Lawcheck inside a git work tree, with git on the `PATH`. For a repository another user owns, run the `git config --global --add safe.directory` command of the `next:` line. For a repository that git cannot read, such as one with a corrupt `.git/index`, repair it until `git status` works there.
 
 **Example**
 
@@ -234,11 +234,12 @@ The law holds one of these:
 - a wrong value or id;
 - a name in a type's `rules` or `may_use` that the law does not have;
 - a pattern or `content` expression that does not parse;
-- a file named in a rule's `context` that git does not list.
+- a file named in a rule's `context` that git does not list;
+- a place that is no file where the law belongs, such as a folder named `.lawcheck/law.yaml`, or a symbolic link to nothing.
 
 **Fix**
 
-Edit the law at the line the error names. `lawcheck docs law` lists every key.
+Edit the law at the line the error names. `lawcheck docs law` lists every key. When `.lawcheck/law.yaml` is no file, move what stands there away and put the law in a file of that name.
 
 **Example**
 
@@ -293,11 +294,12 @@ A rule of the law has neither its script `.lawcheck/rules/<id>.mjs` nor its prom
 The cause is one of these:
 
 - you add a rule to the law before you write its file;
-- you delete or rename the file of a rule, and the rule stays in the law.
+- you delete or rename the file of a rule, and the rule stays in the law;
+- the file of a rule is a symbolic link, which Lawcheck does not follow, and the message names it.
 
 **Fix**
 
-Write `.lawcheck/rules/<id>.mjs` for a [script rule](concepts.md#script-rule), or `.lawcheck/rules/<id>.md` for a [reviewer rule](concepts.md#reviewer-rule). You can take the rule out of the law instead.
+Write `.lawcheck/rules/<id>.mjs` for a [script rule](concepts.md#script-rule), or `.lawcheck/rules/<id>.md` for a [reviewer rule](concepts.md#reviewer-rule). You can take the rule out of the law instead. Where the message names a symbolic link, replace the link with the file it leads to.
 
 **Example**
 
@@ -452,6 +454,7 @@ Lawcheck cannot write a file or a folder that it must write. The error names tha
 The cause is one of these:
 
 - a file stands where Lawcheck makes a folder, such as a file named `.lawcheck`;
+- a folder stands where Lawcheck writes a file, such as `.lawcheck/.gitignore`;
 - the folder is read-only;
 - the disk is full;
 - `.lawcheck/verdicts` would grow past 16 MiB;
