@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { append, D, D_PATH, GIT_ENV, inTemp, newRepository, setRule, withSample, write } from '../acceptance/helpers.ts';
 import { CLI, platformSkip, startByHand, startProgram } from '../harness/tool.ts';
+import { assertSameText } from './support.ts';
 
 const LOST = /^error\[file-unwritable\]  standard output cannot be written \(([A-Z]+)\), so the result is lost\n$/;
 
@@ -111,11 +112,7 @@ test('test 1353: a caller that takes standard error only after the result is wri
       const result = await startProgram(LATE_READER, [CLI, 'result', 'check', '--base', 'main', '--json'], s, GIT_ENV, { stderr: /^noise / }).ended;
       assert.equal(JSON.parse(result.stdout).findings.length, 10);
       assert.equal(result.code, 1);
-      // Twelve megabytes that differ are told by their numbers; a comparison of the two texts would print them.
-      const whole = line.repeat(20_000);
-      let same = 0;
-      while (same < result.stderr.length && result.stderr[same] === whole[same]) same++;
-      assert.ok(result.stderr === whole, `standard error holds ${result.stderr.length} of ${whole.length} characters and ${result.stderr.split('\n').length - 1} of 20000 lines, and is the text the rule printed up to character ${same}`);
+      assertSameText(result.stderr, line.repeat(20_000), 'standard error');
     },
     { onMain: (s) => setRule(s, 'no-console', flood) },
   );
