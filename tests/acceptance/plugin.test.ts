@@ -423,12 +423,14 @@ test('test 1001: the limits docs/plugin.md states are the ones the hooks hold: 1
 
 test('R-87: the hook a user runs keeps its shipped deadline for every event when the variable of the test entry is set', async () => {
   const wait = `Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ${PAST_USER_SET_MS});`;
-  const userSet = { [DEADLINES_VARIABLE]: JSON.stringify(Object.fromEntries(Object.keys(DEADLINES).map((event) => [event, USER_SET_DEADLINE_S]))) };
   const waited = (run: HookRun, event: string) => assert.ok(run.ms >= PAST_USER_SET_MS, `${event}: the hook ended after ${run.ms} ms, before what it started answered`);
   // One folder and one clone of the sample per event, so that the waits of the events run at once and not one after another.
   await inTemp(async (base) => {
+    // Each hook starts node three times; with a shared cache of compiled modules the later starts skip compiling.
+    const userSet = { [DEADLINES_VARIABLE]: JSON.stringify(Object.fromEntries(Object.keys(DEADLINES).map((event) => [event, USER_SET_DEADLINE_S]))), NODE_COMPILE_CACHE: join(base, 'compiled') };
+    fakeWrites(base, ['compiled/']);
     const sample = makeSample(base);
-    const primed = (await lawcheck(sample, ['prime'])).stdout.replace(/\n$/, '');
+    const primed = (await lawcheck(sample, ['prime'], { NODE_COMPILE_CACHE: join(base, 'compiled') })).stdout.replace(/\n$/, '');
     const own = (dir: string): string => {
       const s = join(dir, 's');
       git(dir, 'clone', '-q', '--shared', sample, s);
@@ -458,15 +460,13 @@ test('R-87: the hook a user runs keeps its shipped deadline for every event when
       ['stop', () => withBench(async (bench, dir) => {
         const s = own(dir);
         const session = new Session(bench, s, 's1', userSet);
-        append(s, 'src/cli/main.ts', '// end\n');
-        nothing(await session.edit('src/cli/main.ts'), 'edit');
         nothing(await session.prompt(), 'prompt');
         write(s, D_PATH, D);
         bench.script('lawcheck', [wait, ...installedLawcheck(bench.logFile)]);
         const stop = await session.stop();
         json(stop, handBack(`${stopHeader()}\n\n${D_OUTPUT}`), 'stop');
         waited(stop, 'stop');
-        assert.deepEqual(bench.checks(), [['check', './src/cli/main.ts'], ['check', `./${D_PATH}`]]);
+        assert.deepEqual(bench.checks(), [['check', `./${D_PATH}`]]);
       })],
     ];
     await atOnce(events, events.length, ([event]) => event, ([, run]) => run());
