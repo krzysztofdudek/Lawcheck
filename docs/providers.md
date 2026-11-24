@@ -36,7 +36,7 @@ Lawcheck sends `POST <address>/api/chat` with no API key. The default `<address>
 - `format: json`;
 - `options`, which holds the temperature.
 
-Lawcheck reads the answer from `message.content`. The setting `model` names a model that the server has downloaded. A call may take 300 seconds, unless the setting `timeout` gives another limit.
+Lawcheck reads the answer from `message.content`. The setting `model` names a model that the server has downloaded. A call to `ollama` is cut off after 300 seconds, unless the setting `timeout` gives another limit.
 
 For a server on another machine, set the provider in `.lawcheck/config.yaml` and the address in `LAWCHECK_REVIEWER_ENDPOINT`:
 
