@@ -158,7 +158,7 @@ const requests = new Set<number>();
 createHook({
   trackPromises: false,
   init: (id, type) => {
-    if (type.endsWith('REQUEST')) requests.add(id);
+    if (/request$/i.test(type)) requests.add(id);
   },
   before: (id) => {
     requests.delete(id);
@@ -171,7 +171,7 @@ createHook({
 function counts(): Map<string, number> {
   const out = new Map<string, number>();
   for (const kind of process.getActiveResourcesInfo()) out.set(kind, (out.get(kind) ?? 0) + 1);
-  if (requests.size > 0) out.set('Request', requests.size);
+  if (requests.size > 0) out.set('pooled', requests.size);
   return out;
 }
 
