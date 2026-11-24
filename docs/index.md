@@ -60,6 +60,7 @@ Lawcheck sends code to a model only when you ask the model to judge a rule writt
 ## Read next
 
 - [Quick start](quick-start.md) takes a new repository to its first finding in five steps. You need no model and no key.
+- [Let a coding agent write the first law](agent-setup.md) has your agent describe your repository as types and ask you before it forbids a use that the code already makes.
 - [The first type and the first rule](first-law.md) writes a [script rule](concepts.md#script-rule) and shows the check that fails on its first finding.
 - [Concepts](concepts.md) defines the twelve words these pages use, each with one example.
 - [Lawcheck and the tools you already use](other-tools.md) compares Lawcheck with a rules file, an architecture linter, a review bot and a hook of your own.

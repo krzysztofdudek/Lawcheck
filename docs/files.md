@@ -1,6 +1,6 @@
 # Files Lawcheck reads and writes
 
-Lawcheck keeps its files in the folder `.lawcheck/`. The folder that holds it is the root, where each path of the law starts. You write the law, the settings and the rules. Lawcheck writes the other three: the [verdicts](concepts.md#verdict) of reviewer rules, a merge setting for them, and a local folder that git ignores.
+Lawcheck keeps its files in the folder `.lawcheck/`. The folder that holds it is the root, where each path of the law starts. You write the law, the settings and the rules. Lawcheck writes the other three: the [verdicts](concepts.md#verdict) of reviewer rules, a merge setting for them, and a local folder that git ignores. A coding agent may write two proposals there when you ask for them, advice and a target architecture, and Lawcheck reads neither.
 
 ## The folder .lawcheck
 
@@ -12,6 +12,8 @@ Lawcheck keeps its files in the folder `.lawcheck/`. The folder that holds it is
 | `.lawcheck/verdicts` | the passes of reviewer rules, one line per pass: 32 hexadecimal characters, a space and the rule's id, sorted | `lawcheck check --review` | yes, so that CI reads the passes and calls no reviewer |
 | `.lawcheck/.gitattributes` | the line `verdicts merge=union`, so a merge of two branches keeps the passes of both | `lawcheck check --review`, when it records a pass and the line is missing | yes |
 | `.lawcheck/.gitignore` | `.local/` and `config.local.yaml` | `lawcheck init`, when the file is absent | yes |
+| `.lawcheck/advice.md` | advice on the architecture: at most three boundaries or rules the code does not hold today, each with its evidence and count; nothing in it is law | a coding agent in the setup skill of the Claude Code plugin, when you ask for advice ([The setup skill](plugin.md#the-setup-skill)); no command of Lawcheck reads it | your choice: as the team's plan, or not at all |
+| `.lawcheck/target.md` | a target architecture: the target law, the distance of the code from it, and the steps to reach it; nothing in it is law | a coding agent in the setup skill of the Claude Code plugin, when you ask for a target ([The setup skill](plugin.md#the-setup-skill)); no command of Lawcheck reads it | your choice: as the team's plan, or not at all |
 | `.lawcheck/.local` | the failure cache, a lock and temporary files of the verdicts, and the reader cache | `lawcheck check --review`; `lawcheck check` writes the reader cache | no |
 
 `init` writes this `.gitignore`:
