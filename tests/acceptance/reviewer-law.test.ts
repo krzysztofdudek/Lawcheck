@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, rmSync } from 'node:fs';
+import { createPublicKey, generateKeyPairSync, sign, verify } from 'node:crypto';
+import type { KeyObject } from 'node:crypto';
+import { existsSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { FAILED_MESSAGE, withFake } from './fake-reviewer.ts';
 import { MiB, sparse, textHead } from '../limits/support.ts';
@@ -675,5 +677,211 @@ test("test 903: the companion key of the law: on a reviewer rule alone, and nami
         rmSync(join(r, PAIR));
       },
     },
+  );
+});
+
+const SIGNED_PASS = 'lawcheck-signed-pass/1';
+const PAIR_F_PRIME = `${KEY_F_PRIME} clear-errors`;
+const NO_SIGNER_F = 'src/core/refund.ts  error[not-reviewed]  clear-errors has a pass for this content that no signer of the law signed';
+
+function signerKeys(): { d: string; x: string; key: KeyObject } {
+  const pair = generateKeyPairSync('ed25519');
+  return { d: pair.privateKey.export({ format: 'jwk' }).d!, x: pair.publicKey.export({ format: 'jwk' }).x!, key: pair.privateKey };
+}
+
+function signedLine(pair: string, name: string, key: KeyObject): string {
+  return `${pair} ${name} ${sign(null, Buffer.from(`${SIGNED_PASS} ${pair}`), key).toString('base64url')}`;
+}
+
+function verifies(line: string, x: string): boolean {
+  const [hash, rule, , signature] = line.split(' ');
+  const key = createPublicKey({ key: { kty: 'OKP', crv: 'Ed25519', x }, format: 'jwk' });
+  return verify(null, Buffer.from(`${SIGNED_PASS} ${hash} ${rule}`), key, Buffer.from(signature!, 'base64url'));
+}
+
+const withSigners = (law: string, signers: Record<string, string>) => `${law}\nsigners:\n${Object.entries(signers).map(([name, x]) => `  ${name}: ${x}\n`).join('')}`;
+
+test('R-38: when the law names signers, a pass line that no signer of the law signed is no review, in check, check of a named file, explain and --strict', async () => {
+  const alice = signerKeys();
+  const mallory = signerKeys();
+  const forged: [string, string][] = [
+    ['an unsigned line', PAIR_F_PRIME],
+    ['a line signed by a key the law does not name', signedLine(PAIR_F_PRIME, 'mallory', mallory.key)],
+    ["a line that names alice and carries mallory's signature", signedLine(PAIR_F_PRIME, 'alice', mallory.key)],
+    ["alice's signature of another pass", `${PAIR_F_PRIME} alice ${signedLine(`${KEY_PRICE} clear-errors`, 'alice', alice.key).split(' ')[3]}`],
+  ];
+  await Promise.all(
+    forged.map(([name, line]) =>
+      withR(
+        async (r) => {
+          write(r, F_PATH, F_PRIME);
+          append(r, '.lawcheck/verdicts', `${line}\n`);
+          const plain = await run(r, null, ['--base', 'main']);
+          assert.deepEqual(notReviewedOf(plain.stdout), [NO_SIGNER_F], `${name}: ${plain.stdout}`);
+          assert.equal(plain.code, 1, `${name}: ${plain.stdout}`);
+          const named = await run(r, null, [F_PATH]);
+          assert.deepEqual(findingLines(named.stdout), [NO_SIGNER_F.replace('error[', 'warning[')], `${name}: ${named.stdout}`);
+          const strict = await run(r, null, ['--strict', '--base', 'main']);
+          assert.ok(notReviewedOf(strict.stdout).includes(NO_SIGNER_F), `${name}: ${strict.stdout}`);
+          assert.equal(strict.code, 1, `${name}: ${strict.stdout}`);
+          const file = await lawcheck(r, ['explain', F_PATH]);
+          assert.match(reviewOfF(file.stdout), /^ {4}clear-errors {2}reviewer {2}enforced {2}from library {2}not reviewed {2}/, `${name}: ${file.stdout}`);
+        },
+        { onMain: (r) => write(r, '.lawcheck/law.yaml', withSigners(REVIEWER_LAW, { alice: alice.x })) },
+      ),
+    ),
+  );
+  await withR(
+    async (r) => {
+      write(r, F_PATH, F_PRIME);
+      append(r, '.lawcheck/verdicts', `${signedLine(PAIR_F_PRIME, 'alice', alice.key)}\n`);
+      const plain = await run(r, null, ['--base', 'main']);
+      assert.equal(plain.stdout.split('\n')[0], 'lawcheck: PASS  2 changed files (against main), 1 waiver', plain.stdout);
+      assert.equal(plain.code, 0, plain.stdout);
+      const file = await lawcheck(r, ['explain', F_PATH]);
+      assert.match(reviewOfF(file.stdout), /^ {4}clear-errors {2}reviewer {2}enforced {2}from library {2}reviewed {2}/, file.stdout);
+    },
+    { onMain: (r) => write(r, '.lawcheck/law.yaml', withSigners(REVIEWER_LAW, { bob: mallory.x, alice: alice.x })) },
+  );
+});
+
+test('R-38: check --review records a pass, signed, only with the signing key of a signer the law names, and asks the reviewer nothing without one', async () => {
+  const alice = signerKeys();
+  const mallory = signerKeys();
+  await withFake(async (fake) => {
+    await withR(
+      async (r) => {
+        write(r, F_PATH, F_PRIME);
+        append(r, '.lawcheck/verdicts', `${PAIR_F_PRIME}\n`);
+        const before = read(r, '.lawcheck/verdicts');
+        const cases: [string, NodeJS.ProcessEnv, string][] = [
+          ['no key', {}, 'error[not-a-signer]  the law names signers and LAWCHECK_SIGNING_KEY is not set, so this run could record no pass that counts'],
+          ['a key that is no key', { LAWCHECK_SIGNING_KEY: 'not a key at all' }, 'error[not-a-signer]  LAWCHECK_SIGNING_KEY holds no Ed25519 signing key: it takes 43 characters of base64url'],
+          ['a key of no signer', { LAWCHECK_SIGNING_KEY: mallory.d }, `error[not-a-signer]  the key in LAWCHECK_SIGNING_KEY belongs to no signer of the law; its public key is ${mallory.x}`],
+        ];
+        for (const [name, env, error] of cases) {
+          const refused = await run(r, fake, ['--review', '--base', 'main'], env);
+          assert.equal(refused.code, 2, `${name}: ${refused.stdout}`);
+          assert.deepEqual(errorsOf(refused.stdout), [error], `${name}: ${refused.stdout}`);
+          assert.ok(!refused.stdout.includes(mallory.d), `${name}: ${refused.stdout}`);
+          assert.equal(fake.requests.length, 0, name);
+          assert.equal(read(r, '.lawcheck/verdicts'), before, name);
+        }
+        const signed = await run(r, fake, ['--review', '--base', 'main'], { LAWCHECK_SIGNING_KEY: alice.d });
+        assert.equal(signed.code, 0, signed.stdout);
+        assert.equal(fake.requests.length, 1, 'the unsigned line asks the reviewer again');
+        const lines = read(r, '.lawcheck/verdicts').split('\n').filter((line) => line.startsWith(`${PAIR_F_PRIME} `));
+        assert.equal(lines.length, 1, read(r, '.lawcheck/verdicts'));
+        assert.match(lines[0]!, /^[0-9a-f]{32} clear-errors alice [A-Za-z0-9_-]{86}$/);
+        assert.ok(verifies(lines[0]!, alice.x), lines[0]);
+        const plain = await run(r, null, ['--base', 'main']);
+        assert.equal(plain.code, 0, plain.stdout);
+        const again = await run(r, fake, ['--review', '--base', 'main'], { LAWCHECK_SIGNING_KEY: alice.d });
+        assert.equal(again.code, 0, again.stdout);
+        assert.equal(fake.requests.length, 1, 'a signed pass needs no second call');
+      },
+      { onMain: (r) => write(r, '.lawcheck/law.yaml', withSigners(REVIEWER_LAW, { alice: alice.x })) },
+    );
+  });
+});
+
+test("R-38: a pull request that takes the signers out of its law, or adds its own, passes its check and fails the check with the law of the base, as the workflow of docs/ci.md runs it", async () => {
+  const alice = signerKeys();
+  const mallory = signerKeys();
+  const changes: [string, string, string, string][] = [
+    ['signers taken out', REVIEWER_LAW, PAIR_F_PRIME, 'removes the signer alice'],
+    ['its own signer added', withSigners(REVIEWER_LAW, { alice: alice.x, mallory: mallory.x }), signedLine(PAIR_F_PRIME, 'mallory', mallory.key), 'adds the signer mallory'],
+  ];
+  await Promise.all(
+    changes.map(([name, law, line, told]) =>
+      withR(
+        async (r) => {
+          write(r, F_PATH, F_PRIME);
+          write(r, '.lawcheck/law.yaml', law);
+          append(r, '.lawcheck/verdicts', `${line}\n`);
+          git(r, 'add', '-A');
+          git(r, 'commit', '-q', '-m', 'the pull request');
+          const own = await run(r, null, ['--base', 'main']);
+          assert.equal(own.code, 0, `${name}: ${own.stdout}`);
+          assert.ok(own.stdout.split('\n').includes(`note: this change edits the law that judges it: ${told}`), `${name}: ${own.stdout}`);
+          git(r, 'checkout', 'main', '--', '.lawcheck/law.yaml');
+          const ofBase = await run(r, null, ['--base', 'main']);
+          assert.deepEqual(notReviewedOf(ofBase.stdout), [NO_SIGNER_F], `${name}: ${ofBase.stdout}`);
+          assert.equal(ofBase.code, 1, `${name}: ${ofBase.stdout}`);
+          git(r, 'checkout', 'HEAD', '--', '.lawcheck/law.yaml');
+        },
+        { onMain: (r) => write(r, '.lawcheck/law.yaml', withSigners(REVIEWER_LAW, { alice: alice.x })) },
+      ),
+    ),
+  );
+});
+
+test('R-38: a law that names no signers reads and writes the verdicts as before, counts a signed line as a pass, and leaves LAWCHECK_SIGNING_KEY unused', async () => {
+  const alice = signerKeys();
+  await withFake(async (fake) => {
+    await withR(async (r) => {
+      write(r, F_PATH, F_PRIME);
+      const recorded = await run(r, fake, ['--review', '--base', 'main'], { LAWCHECK_SIGNING_KEY: alice.d });
+      assert.equal(recorded.code, 0, recorded.stdout);
+      assert.equal(read(r, '.lawcheck/verdicts'), `${PAIR_F_PRIME}\n`);
+      write(r, '.lawcheck/verdicts', `${signedLine(PAIR_F_PRIME, 'alice', alice.key)}\n`);
+      const plain = await run(r, null, ['--base', 'main']);
+      assert.equal(plain.code, 0, plain.stdout);
+      assert.equal(fake.requests.length, 1);
+    });
+  });
+});
+
+test("R-38: the law's signers: a mapping of kebab-case names to Ed25519 public keys of 43 characters of base64url", async () => {
+  const alice = signerKeys();
+  const cases: [string, string, string][] = [
+    ['a list', `${REVIEWER_LAW}\nsigners: [${alice.x}]\n`, "'signers' takes a mapping, not a sequence"],
+    ['empty', `${REVIEWER_LAW}\nsigners: {}\n`, "'signers' names no signer"],
+    ['a name in capitals', withSigners(REVIEWER_LAW, { Alice: alice.x }), "the signer name 'Alice' is not kebab-case"],
+    ['a key of 44 characters', withSigners(REVIEWER_LAW, { alice: `${alice.x}A` }), "the key of signer 'alice' is no Ed25519 public key: it takes 43 characters of base64url"],
+    ['a key in base64 with padding', withSigners(REVIEWER_LAW, { alice: Buffer.from(alice.x, 'base64url').toString('base64') }), "the key of signer 'alice' is no Ed25519 public key: it takes 43 characters of base64url"],
+    ['a key of 43 characters that are no 32 bytes', withSigners(REVIEWER_LAW, { alice: `${alice.x.slice(0, 42)}B` }), "the key of signer 'alice' is no Ed25519 public key: it takes 43 characters of base64url"],
+    ['a number', `${REVIEWER_LAW}\nsigners:\n  alice: 12\n`, "the key of signer 'alice' takes a string, not a number"],
+    ['misspelled', `${REVIEWER_LAW}\nsigner:\n  alice: ${alice.x}\n`, "unknown key 'signer' at the top of the law (did you mean 'signers'?)"],
+  ];
+  await Promise.all(
+    cases.map(([name, law, message]) =>
+      withR(
+        async (r) => {
+          const result = await run(r, null, ['--base', 'main']);
+          assert.equal(result.code, 2, `${name}: ${result.stdout}`);
+          const errors = errorsOf(result.stdout);
+          assert.equal(errors.length, 1, `${name}: ${result.stdout}`);
+          assert.match(errors[0]!, /^\.lawcheck\/law\.yaml:\d+  error\[law-invalid\]  /, `${name}: ${errors[0]}`);
+          assert.ok(errors[0]!.endsWith(message), `${name}: ${errors[0]}`);
+        },
+        { onMain: (r) => write(r, '.lawcheck/law.yaml', law) },
+      ),
+    ),
+  );
+});
+
+test('R-38: the signing key shows as [key] in the text and the JSON of a signed review, even when the reviewer answers with it, and no file of the repository holds it', async () => {
+  const alice = signerKeys();
+  await withFake(
+    async (fake) => {
+      await withR(
+        async (r) => {
+          write(r, F_PATH, F_PRIME);
+          for (const json of [false, true]) {
+            const result = await run(r, fake, ['--review', '--base', 'main', ...(json ? ['--json'] : [])], { LAWCHECK_SIGNING_KEY: alice.d });
+            assert.equal(result.code, 2, result.stdout);
+            assert.ok(result.stdout.includes('the key [key] is refused'), result.stdout);
+            assert.ok(!`${result.stdout}${result.stderr}`.includes(alice.d), `${result.stdout}${result.stderr}`);
+          }
+          assert.ok(fake.requests.length > 0);
+          const held = readdirSync(r, { recursive: true, withFileTypes: true }).filter((entry) => entry.isFile() && !join(entry.parentPath, entry.name).startsWith(join(r, '.git/'))).map((entry) => join(entry.parentPath, entry.name)).filter((path) => readFileSync(path, 'latin1').includes(alice.d));
+          assert.deepEqual(held, []);
+          assert.ok(existsSync(join(r, '.lawcheck/.local')), 'the review wrote its folder');
+        },
+        { onMain: (m) => write(m, '.lawcheck/law.yaml', withSigners(REVIEWER_LAW, { alice: alice.x })) },
+      );
+    },
+    () => ({ status: 400, body: JSON.stringify({ error: { message: `the key ${alice.d} is refused` } }) }),
   );
 });
