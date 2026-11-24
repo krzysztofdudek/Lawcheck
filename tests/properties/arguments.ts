@@ -10,7 +10,7 @@ import { tool } from './support.ts';
 import type { Speed } from './support.ts';
 
 const WORDS = ['init', 'prime', 'check', 'explain', 'try', 'docs', 'doctor', 'help', 'fix'];
-const FLAGS = ['--json', '--full', '--base', '--review', '--again', '--max-calls', '--type', '--rule', '--times', '--dry-run', '--reviewer', '--help', '--version', '--base=main', '-h', '--', '-'];
+const FLAGS = ['--json', '--full', '--base', '--review', '--again', '--max-calls', '--type', '--rule', '--times', '--dry-run', '--tree', '--strict', '--reviewer', '--help', '--version', '--base=main', '-h', '--', '-'];
 const VALUES = ['main', 'HEAD', 'nope', '0', '1', '-1', '99999999999999999999', '', 'src', 'src/**', 'src/core/price.ts', "src/{a", '../x', '/', 'no-console', 'library', 'languages', 'waivers', 'a\nb', '\u001b[2K', '::error::x', '\\', 'src/core/new\\nline.ts', 'x'.repeat(300)];
 const token = fc.oneof({ weight: 2, arbitrary: fc.constantFrom(...WORDS) }, { weight: 3, arbitrary: fc.constantFrom(...FLAGS) }, { weight: 3, arbitrary: fc.constantFrom(...VALUES) }, { weight: 3, arbitrary: fc.string({ maxLength: 6 }) });
 const argv = fc.tuple(fc.constantFrom(...WORDS.slice(0, 7)), fc.array(token, { maxLength: 5 }), fc.boolean()).map(([first, rest, json]) => [first, ...rest, ...(json ? ['--json'] : [])]);
@@ -40,7 +40,7 @@ export function argumentsProperties(speed: Speed): Record<string, () => unknown>
       await tool(
         speed,
         argv,
-        { classes: { 'a value of a flag': (a) => a.some((t, i) => i > 0 && VALUES.includes(t)), junk: (a) => a.some((t) => !WORDS.includes(t) && !FLAGS.includes(t) && !VALUES.includes(t)), '--json': (a) => a.includes('--json') } },
+        { classes: { 'a value of a flag': (a) => a.some((t, i) => i > 0 && VALUES.includes(t)), junk: (a) => a.some((t) => !WORDS.includes(t) && !FLAGS.includes(t) && !VALUES.includes(t)), '--json': (a) => a.includes('--json'), 'explain with --tree': (a) => a[0] === 'explain' && a.includes('--tree'), 'check with --strict': (a) => a[0] === 'check' && a.includes('--strict') }, least: { 'explain with --tree': 0.02, 'check with --strict': 0.02 }, examples: [['explain', '--tree', '--type', 'library'], ['explain', '--tree', 'src/core/price.ts', '--rule', 'no-console'], ['check', '--strict', 'src'], ['check', '--strict', '--json']] },
         async (a) => {
           const run = await lawcheck(s, a);
           assert.ok(run.code === 0 || run.code === 1 || run.code === 2, `${JSON.stringify(a)}: ${run.code}`);
@@ -76,7 +76,7 @@ export function argumentsProperties(speed: Speed): Record<string, () => unknown>
       const id = fc.oneof({ weight: 2, arbitrary: fc.constant('x'.repeat(5000)) }, { weight: 3, arbitrary: fc.constantFrom('s1', '../x', '', 'a b', 'ż', 'y'.repeat(129)) }, { weight: 1, arbitrary: fc.string({ maxLength: 10 }) }, { weight: 1, arbitrary: fc.integer() });
       const field = fc.oneof(fc.constantFrom(s, '/', join(s, 'src'), join(s, D_PATH), join(s, 'src/core/new\nline.ts'), 'relative/path.ts', ''), fc.anything());
       const object = fc
-        .record({ session_id: id, prompt_id: fc.oneof(fc.constant('p1'), fc.anything()), turn_id: fc.oneof(fc.constant('t1'), fc.anything()), cwd: field, tool_name: fc.constantFrom('Write', 'Edit', 'NotebookEdit', 'apply_patch', 'Bash', 7), tool_input: fc.oneof(fc.record({ file_path: field, notebook_path: field, command: fc.oneof(field.map((path) => `*** Begin Patch\n*** Update File: ${String(path)}\n*** End Patch\n`), fc.anything()) }), fc.anything()), stop_hook_active: fc.oneof(fc.boolean(), fc.anything()), background_tasks: fc.oneof(fc.constant([]), fc.anything()) }, { requiredKeys: ['session_id'] })
+        .record({ session_id: id, sessionId: id, prompt_id: fc.oneof(fc.constant('p1'), fc.anything()), turn_id: fc.oneof(fc.constant('t1'), fc.anything()), cwd: field, toolName: fc.constantFrom('create', 'edit', 'str_replace_editor', 'apply_patch', 'view', 7), toolArgs: fc.oneof(fc.record({ path: field, command: fc.constantFrom('view', 'str_replace') }), field.map((path) => `*** Begin Patch\n*** Update File: ${String(path)}\n*** End Patch\n`), fc.anything()), tool_name: fc.constantFrom('Write', 'Edit', 'NotebookEdit', 'apply_patch', 'Bash', 7), tool_input: fc.oneof(fc.record({ file_path: field, notebook_path: field, command: fc.oneof(field.map((path) => `*** Begin Patch\n*** Update File: ${String(path)}\n*** End Patch\n`), fc.anything()) }), fc.anything()), stop_hook_active: fc.oneof(fc.boolean(), fc.anything()), background_tasks: fc.oneof(fc.constant([]), fc.anything()) }, { requiredKeys: ['session_id'] })
         .map((v) => JSON.stringify(v));
       const input = fc.oneof(
         { weight: 3, arbitrary: object },
@@ -85,7 +85,7 @@ export function argumentsProperties(speed: Speed): Record<string, () => unknown>
       );
       await tool(
         speed,
-        fc.tuple(fc.constantFrom(...EVENTS), input, fc.constantFrom('', 'runner: global\n', '\ufeffrunner: global\n', 'runner: bogus\n', '\ufeffrunner: bogus\n', '\ufeffrunner: global  # pinned\r\n'), fc.constantFrom(undefined, 'codex')),
+        fc.tuple(fc.constantFrom(...EVENTS), input, fc.constantFrom('', 'runner: global\n', '\ufeffrunner: global\n', 'runner: bogus\n', '\ufeffrunner: bogus\n', '\ufeffrunner: global  # pinned\r\n'), fc.constantFrom(undefined, 'codex', 'copilot')),
         { classes: { 'a config with a byte-order mark': ([, , config]) => config.startsWith('\ufeff'), 'an object': ([, i]) => i.startsWith('{"'), 'no JSON object': ([, i]) => !i.startsWith('{"'), 'a byte-order mark at the start of the input': ([, i]) => i.startsWith('\ufeff'), 'a session id of 5,000 characters to a hook that keeps state': ([event, i]) => event !== 'session-start' && i.includes('x'.repeat(5000)) } },
         async ([event, i, config, host]) => {
           write(s, '.lawcheck/config.yaml', config);
@@ -109,7 +109,7 @@ export function argumentsProperties(speed: Speed): Record<string, () => unknown>
           assert.equal(run.stderr, '');
           if (run.stdout === '') return;
           const document = JSON.parse(run.stdout);
-          assert.ok(typeof document.systemMessage === 'string' || typeof document.hookSpecificOutput?.additionalContext === 'string' || (host === 'codex' && document.decision === 'block' && typeof document.reason === 'string'), run.stdout);
+          assert.ok(typeof document.systemMessage === 'string' || typeof document.hookSpecificOutput?.additionalContext === 'string' || (host !== undefined && document.decision === 'block' && typeof document.reason === 'string') || (host === 'copilot' && typeof document.additionalContext === 'string'), run.stdout);
         },
       );
     } finally {

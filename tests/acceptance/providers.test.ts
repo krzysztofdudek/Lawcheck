@@ -520,7 +520,7 @@ test('test 67: claude-code past its timeout, and the tool killed', async () => {
 
 // In this copy of the tool the guard writes each line the tool sends it, with the time it came, and lists nothing, and the tool starts the guard's list on every system: what the tool tells the guard on Windows shows everywhere, and a wait for the guard's list never ends by itself.
 function silentGuard(copy: Copy, told: string): void {
-  const rules = join(copy.dir, 'dist', 'rules.js');
+  const rules = join(copy.dir, 'dist', 'programs.js');
   const sound = readFileSync(rules, 'utf8');
   const windowsOnly = "if (process.platform !== 'win32' || listing || !existsSync(tmpdir()))";
   assert.ok(sound.includes(windowsOnly));

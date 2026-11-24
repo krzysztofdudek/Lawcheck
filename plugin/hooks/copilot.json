@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      { "type": "command", "exec": "node", "args": ["${PLUGIN_ROOT}/hooks/lawcheck-hook.mjs", "session-start", "--host", "copilot"], "timeoutSec": 30 }
+    ],
+    "userPromptSubmitted": [
+      { "type": "command", "exec": "node", "args": ["${PLUGIN_ROOT}/hooks/lawcheck-hook.mjs", "prompt", "--host", "copilot"], "timeoutSec": 20 }
+    ],
+    "postToolUse": [
+      { "type": "command", "matcher": "^(create|edit|str_replace_editor|apply_patch)$", "exec": "node", "args": ["${PLUGIN_ROOT}/hooks/lawcheck-hook.mjs", "edit", "--host", "copilot"], "timeoutSec": 30 }
+    ],
+    "agentStop": [
+      { "type": "command", "exec": "node", "args": ["${PLUGIN_ROOT}/hooks/lawcheck-hook.mjs", "stop", "--host", "copilot"], "timeoutSec": 150 }
+    ]
+  }
+}

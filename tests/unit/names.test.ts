@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { bytesOfName, nameOf, quotedLine } from '../../dist/names.js';
+import { bytesOfName, cannotExist, nameOf, quotedLine } from '../../dist/names.js';
 
 const cases: [string, number[], string][] = [
   ['an overlong two-byte form of NUL', [0x61, 0xc0, 0x80], 'a\\xc0\\x80'],
@@ -26,4 +26,24 @@ for (const [what, bytes, name] of cases) {
 test('S1-14: a path for --stdin-paths is C-quoted from the top of the work tree, whatever bytes it holds', () => {
   assert.equal(quotedLine('pkg/', Buffer.from('src/"q.ts')).toString('latin1'), '"pkg/src/\\"q.ts"\n');
   assert.equal(quotedLine('', Buffer.from([0x61, 0x0a, 0x0d, 0x5c, 0xff, 0x09])).toString('latin1'), '"a\\012\\015\\\\\\377\\011"\n');
+});
+
+test('R-93: a name counts in bytes on Linux and macOS and in UTF-16 units on Windows, so 86 CJK characters exist on Windows only, and 85 exist everywhere', () => {
+  const cjk = (n: number) => `src/${'\u4e2d'.repeat(n)}`;
+  for (const platform of ['linux', 'darwin', 'win32'] as const) {
+    assert.equal(cannotExist('/r', cjk(85), platform), false, platform);
+    assert.equal(cannotExist('/r', `src/${'a'.repeat(255)}`, platform), false, platform);
+    assert.equal(cannotExist('/r', `src/${'a'.repeat(256)}`, platform), true, platform);
+  }
+  assert.equal(cannotExist('/r', cjk(86), 'linux'), true);
+  assert.equal(cannotExist('/r', cjk(86), 'darwin'), true);
+  assert.equal(cannotExist('/r', cjk(86), 'win32'), false);
+  assert.equal(cannotExist('/r', `src/${'\u{1f600}'.repeat(128)}`, 'win32'), true, 'an emoji is two UTF-16 units');
+});
+
+test('R-93: a path counts in bytes up to 4,095 on Linux and macOS, and in UTF-16 units up to 32,767 on Windows', () => {
+  const deep = (n: number) => `${'d/'.repeat(n)}f`;
+  assert.equal(cannotExist('/r', deep(2200), 'linux'), true);
+  assert.equal(cannotExist('/r', deep(2200), 'win32'), false);
+  assert.equal(cannotExist('/r', deep(17000), 'win32'), true);
 });

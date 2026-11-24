@@ -1,4 +1,4 @@
-import type { Resend } from './index.js';
+import type { Resend } from '../provider.js';
 import { hide } from '../keys.js';
 
 export type Posted = { body: unknown } | { failure: string; resend: Resend; fix: string };
