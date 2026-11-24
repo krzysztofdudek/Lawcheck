@@ -8,6 +8,10 @@
     "docs/codes.md",
     "docs/json.md"
   ],
+  "promiseTables": {
+    "docs/codes.md": "Code",
+    "docs/json.md": "Field"
+  },
   "rulings": "design/decisions.md",
   "docs": [
     "docs/**/*.md",
@@ -93,6 +97,7 @@
   "stronger": "stronger",
   "ratchets": [
     "tests/contract/pending-next.json",
+    "tests/contract/shared-numbers.json",
     {
       "file": "tests/harness/skips.ts",
       "lists": [

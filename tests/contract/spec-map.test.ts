@@ -1,6 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { invariantsOf, loadInputs, problemsOf, rowsOf, scanTests, sectionLabels, sourcesOf, type Inputs } from './spec-map.ts';
+import { readFileSync } from 'node:fs';
+import { invariantsOf, loadInputs, problemsOf, rowsOf, scanTests, sectionLabels, sharedNumberProblems, sharedNumbers, sourcesOf, type Inputs, type SharedNumber } from './spec-map.ts';
+import { leadingRows } from '../guard/guard.ts';
+import { testIds } from '../harness/promises.ts';
 import { SECTION_ONLY_TESTS } from '../numbers.ts';
 import { namesProblems, tieProblems } from './tie.ts';
 
@@ -234,4 +237,46 @@ test('R-49: control, an assertion that cannot fail is named, and so is an assert
   for (const line of harmless) assert.deepEqual(scanTests('tests/unit/a.test.ts', code(line)).problems, [], line);
   const good = ["test('test 1: a', () => { assert.equal(f(), 1); });", "test('test 1: a', () => { try { assert.equal(f(), 1); } catch (e) { throw e; } });", "test('test 1: a', () => { assert.equal(f(1), f(2)); });", "test('test 1: a', () => { assert.ok(f()); });"];
   for (const line of good) assert.deepEqual(scanTests('tests/unit/a.test.ts', code(line)).problems, [], line);
+});
+
+test('question 79: the spec map, the suite guard and the platform selection read the same test numbers from every form of a name the spec map accepts', () => {
+  const forms: [string, string[]][] = [
+    ['test 3: a', ['3']],
+    ['tests 3 and 4: a', ['3', '4']],
+    ['tests 3, 4: a', ['3', '4']],
+    ['tests 3,4: a', ['3', '4']],
+    ['tests 3, 4 and 5: a', ['3', '4', '5']],
+    ['tests 3, 4, and 5: a', ['3', '4', '5']],
+    ['tests 3,  4  and  5: a', ['3', '4', '5']],
+    ['test 3: S1-1, a finding after it', ['3']],
+  ];
+  for (const [name, numbers] of forms) {
+    assert.deepEqual(sourcesOf(name).rows.map(String), numbers, `the spec map reads ${name}`);
+    assert.deepEqual([...leadingRows(name)], numbers, `the suite guard reads ${name}`);
+    assert.deepEqual(testIds(name).filter((id) => id.startsWith('test ')), numbers.map((n) => `test ${n}`), `the platform selection reads ${name}`);
+  }
+});
+
+const shared = (...files: [string, string][]): { path: string; text: string }[] => files.map(([path, name]) => ({ path, text: code(`test('${name}', () => { assert.equal(compute(1), 1); });`) }));
+
+test('question 79: a test number that leads names in two files outside tests/unit is refused unless a committed list holds it, and the list holds only what is still shared', () => {
+  const twins = shared(['tests/acceptance/a.test.ts', 'test 7: a'], ['tests/limits/b.test.ts', 'tests 7 and 8: b'], ['tests/unit/c.test.ts', 'test 7: c'], ['tests/acceptance/d.test.ts', 'test 9: d']);
+  const listed: SharedNumber[] = [{ number: 7, file: 'tests/acceptance/a.test.ts' }, { number: 7, file: 'tests/limits/b.test.ts' }];
+  assert.deepEqual(sharedNumbers(twins), listed);
+  assert.deepEqual(sharedNumberProblems(twins, listed), []);
+  assert.deepEqual(sharedNumberProblems(twins, []), [
+    'test 7 leads names in tests/acceptance/a.test.ts and in tests/limits/b.test.ts; a new acceptance test takes a number no test uses yet',
+    'test 7 leads names in tests/limits/b.test.ts and in tests/acceptance/a.test.ts; a new acceptance test takes a number no test uses yet',
+  ]);
+  const third = [...twins, ...shared(['tests/security/e.test.ts', 'test 7: e'])];
+  assert.deepEqual(sharedNumberProblems(third, listed), ['test 7 leads names in tests/security/e.test.ts and in tests/acceptance/a.test.ts, tests/limits/b.test.ts; a new acceptance test takes a number no test uses yet']);
+  assert.deepEqual(sharedNumberProblems(twins.slice(0, 1), listed), [
+    'tests/contract/shared-numbers.json lists test 7 in tests/acceptance/a.test.ts, where it is no longer shared: remove the entry',
+    'tests/contract/shared-numbers.json lists test 7 in tests/limits/b.test.ts, where it is no longer shared: remove the entry',
+  ]);
+});
+
+test('question 79: every test number that leads names in two files outside tests/unit is on the committed list of shared numbers, and the list holds nothing else', () => {
+  const listed = JSON.parse(readFileSync(new URL('./shared-numbers.json', import.meta.url), 'utf8')) as SharedNumber[];
+  assert.deepEqual(sharedNumberProblems(loadInputs(REPO, SECTION_ONLY_TESTS).tests, listed), []);
 });

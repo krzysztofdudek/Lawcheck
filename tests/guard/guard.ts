@@ -2,7 +2,8 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { changes, git, resolve, Tree, type Change } from './git.ts';
 import { matchesAny, globToRegExp } from './glob.ts';
-import { fencedBlocks, invariantRows, readWeakenings, RECORD_HEADER, rulings, type Record, type Row } from './markdown.ts';
+import { fencedBlocks, invariantRows, readWeakenings, RECORD_HEADER, rulings, tableRows, type Record, type Row } from './markdown.ts';
+import { leadingTestNumbers } from './names.ts';
 import { namePattern, readSource, tokenize, type Marker } from './source.ts';
 import { codeOf, readConstants, type Value } from './constants.ts';
 
@@ -10,6 +11,7 @@ export type Config = {
   weakenings: string;
   tests: string[];
   specs: string[];
+  promiseTables: { [file: string]: string };
   rulings: string;
   docs: string[];
   numbers: string;
@@ -136,10 +138,9 @@ function count<T>(items: T[], key: (item: T) => string): Map<string, number> {
   return out;
 }
 
-// The test numbers a name leads with, 'test 12' or 'tests 306 and 307', as testIds of tests/harness/promises.ts reads them; the platform selection and the anchors of a removed test both read them here.
-function leadingRows(name: string): Set<string> {
-  const rows = /^tests? (\d+(?:(?:, | and )\d+)*)/.exec(name);
-  return new Set(rows === null ? [] : rows[1]!.split(/, | and /));
+// The test numbers a name leads with, 'test 12' or 'tests 306 and 307'; tests/contract/spec-map.ts and testIds of tests/harness/promises.ts read them through the same function.
+export function leadingRows(name: string): Set<string> {
+  return new Set(leadingTestNumbers(name));
 }
 
 // Older rows of tests/weakenings.md and older sabotage entries write a test number as 'row N'; the key of both spellings stays 'row N'.
@@ -333,6 +334,20 @@ export function judge(repo: string, baseRev: string, headRev: string, config: Co
     add({ kind: 'promise-changed', subject: key, where: findRowFile(before, config, key), detail: snapAfter.invariants.has(key) ? `promise reworded: ${texts[0]} -> ${snapAfter.invariants.get(key)![0]}` : `promise removed: ${texts[0]}`, promise: key });
   }
 
+  const promiseRows = (tree: Tree): Map<string, { text: string; line: number }> => {
+    const out = new Map<string, { text: string; line: number }>();
+    for (const [file, header] of Object.entries(config.promiseTables ?? {})) {
+      for (const row of tableRows(tree.read(file) ?? '', header)) out.set(`${file} ${row.key}`, { text: row.text, line: row.line });
+    }
+    return out;
+  };
+  const rowsNow = promiseRows(after);
+  for (const [key, old] of promiseRows(before)) {
+    const now = rowsNow.get(key);
+    if (now?.text === old.text) continue;
+    add({ kind: 'promise-changed', subject: key, where: `${key.split(' row ')[0]}:${old.line}`, detail: now ? `a row of a table of promises changed: ${old.text} -> ${now.text}` : `a row of a table of promises removed: ${old.text}`, state: now?.text ?? 'removed' });
+  }
+
   const blockChanges = (files: string[], kind: 'promise-changed' | 'docs-example-changed'): void => {
     for (const file of files) {
       const old = fencedBlocks(before.read(file) ?? '');
@@ -379,28 +394,44 @@ export function judge(repo: string, baseRev: string, headRev: string, config: Co
   const numbersOld = before.read(config.numbers);
   if (numbersOld !== null && numbersText !== null && codeOf(numbersOld) !== codeOf(numbersText)) add({ kind: 'threshold-lowered', subject: config.numbers, where, detail: "its code changed: what is not a number the guard reads, such as a function that picks a budget, can raise a budget that no number shows" });
 
-  const budgetsOf = (text: string, values: ReturnType<typeof numbers>): number => {
-    let top = 0;
-    for (const t of tokenize(text)) {
-      if (t.type !== 'string' && !(t.type === 'template' && !t.dynamic)) continue;
-      const named = values.values.get(t.value);
-      if (named?.kind === 'number' && t.value.endsWith('_MS') && values.direction(t.value) === 'lower') top = Math.max(top, named.value);
+  const budgetsOf = (text: string, values: ReturnType<typeof numbers>): number[] => {
+    const found: number[] = [];
+    const tokens = tokenize(text);
+    const literal = (t: (typeof tokens)[number] | undefined): t is Extract<(typeof tokens)[number], { type: 'string' | 'template' }> => t !== undefined && (t.type === 'string' || (t.type === 'template' && !t.dynamic));
+    for (let k = 0; k < tokens.length; k++) {
+      const t = tokens[k]!;
+      if (!literal(t)) continue;
+      let name = t.value;
+      while (tokens[k + 1]?.type === 'punct' && tokens[k + 1]!.value === '+' && literal(tokens[k + 2])) {
+        name += (tokens[k + 2] as { value: string }).value;
+        k += 2;
+      }
+      const named = values.values.get(name);
+      if (named?.kind === 'number' && name.endsWith('_MS') && values.direction(name) === 'lower') found.push(named.value);
     }
-    return top;
+    return found;
   };
   const defaultRun = (() => { const v = numbersBefore.values.get('RUN_BUDGET_MS'); return v?.kind === 'number' ? v.value : 0; })();
-  const namedBudgets = (tree: Tree, file: string, table: ReturnType<typeof numbers>, src: ReturnType<typeof readSource> | undefined): Map<string, number> => {
-    const out = new Map<string, number>();
+  const namedBudgets = (tree: Tree, file: string, table: ReturnType<typeof numbers>, src: ReturnType<typeof readSource> | undefined): Map<string, number[]> => {
+    const out = new Map<string, number[]>();
     const text = tree.read(file) ?? '';
     if (src) {
       let outside = text;
       for (const t of src.tests) {
-        out.set(t.id, Math.max(out.get(t.id) ?? -1, budgetsOf(t.body, table)));
+        out.set(t.id, [...(out.get(t.id) ?? []), ...budgetsOf(t.body, table)]);
         outside = outside.replace(t.body, '');
       }
       out.set('', budgetsOf(outside, table));
     } else out.set('', budgetsOf(text, table));
     return out;
+  };
+  const risen = (now: number[], was: number[]): { from: number; to: number } | null => {
+    const n = Math.max(now.length, was.length);
+    const ranked = (list: number[]): number[] => [...list, ...Array.from({ length: n - list.length }, () => defaultRun)].sort((x, y) => y - x);
+    const after = ranked(now);
+    const before = ranked(was);
+    for (let k = 0; k < n; k++) if (after[k]! > before[k]!) return { from: before[k]!, to: after[k]! };
+    return null;
   };
   const budgetFiles = [...after.list()].filter((p) => p !== config.numbers && p.startsWith('tests/') && /\.ts$/.test(p) && !matchesAny(p, config.paths.guard)).sort();
   for (const file of budgetFiles) {
@@ -409,12 +440,12 @@ export function judge(repo: string, baseRev: string, headRev: string, config: Co
     const src = afterSources.get(file);
     const nowByTest = namedBudgets(after, file, numbersAfter, src);
     const wasByTest = namedBudgets(before, from, numbersBefore, src ? beforeSources.get(from) ?? readSource(before.read(from) ?? '') : undefined);
+    const gone = [...wasByTest].filter(([id]) => id !== '' && !nowByTest.has(id));
     for (const [id, now] of nowByTest) {
       const was = wasByTest.get(id);
-      if (was === undefined || now <= 0) continue;
-      const floor = was > 0 ? was : defaultRun;
-      if (now > floor) {
-        add({ kind: 'threshold-lowered', subject: file, where: file, detail: `${id ? `the test ${JSON.stringify(id)}` : 'the file outside its tests'} names a larger budget: ${floor} ms -> ${now} ms, a time of ${config.numbers} that a test or the harness picks` });
+      const rise = was !== undefined ? risen(now, was) : id !== '' && gone.length > 0 && gone.every(([, list]) => risen(now, list) !== null) ? risen(now, gone[0]![1]) : null;
+      if (rise) {
+        add({ kind: 'threshold-lowered', subject: file, where: file, detail: `${id ? `the test ${JSON.stringify(id)}` : 'the file outside its tests'} names a larger budget${was === undefined ? ' than any test this change removes from the file' : ''}: ${rise.from} ms -> ${rise.to} ms, a time of ${config.numbers} that a test or the harness picks` });
         break;
       }
     }
@@ -566,7 +597,7 @@ export function judge(repo: string, baseRev: string, headRev: string, config: Co
     if (script) return JSON.stringify(sAfter?.[script[1]!] ?? null);
     return after.blob(w.subject) ?? 'deleted';
   };
-  for (const w of weakenings) if (ownWord(w.kind)) w.state = stateOf(w);
+  for (const w of weakenings) if (ownWord(w.kind)) w.state ??= stateOf(w);
   const approvalOf = (kind: string, what: string): string => approvalHash(weakenings.filter((w) => w.kind === kind && whatMatches(what, w.subject, kind)));
   const context: AnchorContext = { before: snapBefore, after: snapAfter, diff, config };
   const recordState = added.map((record) => ({
@@ -781,6 +812,11 @@ function commonDir(paths: string[]): string {
   return first.slice(0, n).join('/') || '.';
 }
 
+function groupGlob(paths: string[]): string {
+  const dir = commonDir(paths);
+  return dir === '.' ? '**' : `${dir}/**`;
+}
+
 function groupRefused(refused: Finding[]): Finding[][] {
   const groups = new Map<string, Finding[]>();
   const out: Finding[][] = [];
@@ -811,7 +847,8 @@ export function render(report: Report): string {
     if (group.length === 1) out.push(`REFUSED  ${f.kind}  ${f.subject}`, `where    ${f.where}`, `what     ${f.detail}`);
     else out.push(`REFUSED  ${f.kind}  ${group.length} paths under ${commonDir(group.map((g) => g.subject))}`, `where    ${listed(group.map((g) => g.where))}`, `what     ${[...new Set(group.map((g) => g.detail))].join('; ')}`);
     for (const why of f.why) if (why !== f.detail) out.push(`why      ${why}`);
-    const needs = group.length === 1 ? f.needs : f.needs?.replace(` ${f.subject.replace(/\|/g, '\\|')} `, ` ${commonDir(group.map((g) => g.subject))}/** `).replace(/approves [0-9a-f]{16}/, `approves ${approvalHash(group)}`);
+    const folder = group.length === 1 ? '' : groupGlob(group.map((g) => g.subject));
+    const needs = group.length === 1 ? f.needs : f.needs?.replace(` ${f.subject.replace(/\|/g, '\\|')} `, ` ${folder} `).replace(/approves [0-9a-f]{16}/, `approves ${approvalHash(report.findings.filter((x) => x.kind === f.kind && whatMatches(folder, x.subject, f.kind)))}`);
     if (needs) out.push(f.needsBase ? 'needs    the owner\'s row in tests/weakenings.md on the base, landed there first in a change of its own:' : 'needs    a row added to tests/weakenings.md in this change:', `         ${needs}`, `anchor   ${f.anchors}`);
     else out.push('needs    nothing passes it: undo it');
     out.push('');
