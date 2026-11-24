@@ -1,7 +1,7 @@
 import { join } from 'node:path';
 import { comparePaths, nestedReason, nestedRepositories, repositoryHolding } from './files.js';
 import { compilePattern } from './glob.js';
-import { hide } from './keys.js';
+import { hide, SIGNING_KEY } from './keys.js';
 import type { ReviewerConfig } from './config.js';
 import { patternFor, takesWaivers } from './law.js';
 import type { Law } from './law.js';
@@ -24,7 +24,8 @@ import { judgeUses, listInForce, notRead } from './uses.js';
 import type { Forbidden, NotRead, Target } from './uses.js';
 import type { TypedFile } from './types.js';
 import type { CheckContext } from './args.js';
-import { countPasses, FULL_NEXT, readFailure, readVerdicts, reviewKey, Unwritable, VERDICTS, VerdictsFull, VerdictsUnreadable, VerdictWriter } from './verdicts.js';
+import { countPasses, FULL_NEXT, readFailure, readPasses, reviewKey, signingKey, Unwritable, VERDICTS, VerdictsFull, VerdictsUnreadable, VerdictWriter } from './verdicts.js';
+import type { Passes, Signer } from './verdicts.js';
 import { addedWaivers, parseWaivers, waive, waivedLines } from './waivers.js';
 import { count, mib, points, RUN_FINDINGS, RUN_MESSAGE_CHARS, USES_FILE_BYTES } from './limits.js';
 import { step } from './progress.js';
@@ -156,9 +157,9 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
   const cap = options.maxCalls ?? config.maxCalls;
 
   const roomOf = () => verdictRoom(root, law, typed, kinds, companionRun);
-  let verdicts: Set<string>;
+  let verdicts: Passes;
   try {
-    verdicts = readVerdicts(root);
+    verdicts = readPasses(root, law.signers);
   } catch (error) {
     if (!(error instanceof VerdictsUnreadable) || !error.cause.startsWith('it holds more')) throw error;
     const room = await roomOf();
@@ -214,9 +215,10 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
   let missing = asks;
   if (options.review && asks.length > 0) {
     const provider = createProvider(config, context.env);
-    const blocked = preflight(provider, config, cap, asks.length, review);
-    if (blocked.length > 0) return { errors: blocked };
-    const writer = new VerdictWriter(root);
+    const signing = law.signers === null ? { signer: null } : signerOf(law.signers, context.env, review);
+    const blocked = [...preflight(provider, config, cap, asks.length, review), ...('problem' in signing ? [signing.problem] : [])];
+    if (blocked.length > 0 || 'problem' in signing) return { errors: blocked };
+    const writer = new VerdictWriter(root, signing.signer);
     try {
       writer.ready(asks.map((ask) => ask.rule));
     } catch (error) {
@@ -257,7 +259,7 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
     missing = [];
   }
   for (const ask of missing) {
-    const message = `${ask.rule} has no verdict for this content`;
+    const message = verdicts.uncounted(`${ask.key} ${ask.rule}`) ? `${ask.rule} has a pass for this content that no signer of the law signed` : `${ask.rule} has no verdict for this content`;
     if (budget.addAt(1, points(message))) return { errors: [tooManyAt(ask.file, budget)] };
     builtIn.push({ code: 'not-reviewed', rule: ask.rule, file: ask.file, message });
   }
@@ -290,6 +292,19 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
   notes.push(...front.elsewhere);
   report.note = notes.length === 0 ? null : notes.join('\n');
   return { report };
+}
+
+// A run that records a pass the law would not count pays for calls that leave every file not-reviewed, so the key is checked before the first call.
+function signerOf(signers: ReadonlyMap<string, string>, env: NodeJS.ProcessEnv, review: string): { signer: Signer } | { problem: ErrorItem } {
+  const refused = (message: string, next: string): { problem: ErrorItem } => ({ problem: { code: 'not-a-signer', file: null, line: null, message, next: `${next}, then run ${review}` } });
+  const setIt = `ask the user to set ${SIGNING_KEY} to the signing key of a signer that .lawcheck/law.yaml names`;
+  const text = env[SIGNING_KEY] ?? '';
+  if (text === '') return refused(`the law names signers and ${SIGNING_KEY} is not set, so this run could record no pass that counts`, setIt);
+  const own = signingKey(text);
+  if (own === null) return refused(`${SIGNING_KEY} holds no Ed25519 signing key: it takes 43 characters of base64url`, setIt);
+  const name = [...signers].find(([, key]) => key === own.publicKey)?.[0];
+  if (name === undefined) return refused(`the key in ${SIGNING_KEY} belongs to no signer of the law; its public key is ${own.publicKey}`, `ask the user whether to add a signer with this public key to signers in .lawcheck/law.yaml, or to set ${SIGNING_KEY} to the key of a signer the law names`);
+  return { signer: { name, key: own.key } };
 }
 
 // A waiver is read only in a file whose type takes waivers, so a marker in a file no type takes, or one under ignored, waives nothing and is not named; the law-change note names the pattern that put the file there.
