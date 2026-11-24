@@ -379,6 +379,47 @@ export function judge(repo: string, baseRev: string, headRev: string, config: Co
   const numbersOld = before.read(config.numbers);
   if (numbersOld !== null && numbersText !== null && codeOf(numbersOld) !== codeOf(numbersText)) add({ kind: 'threshold-lowered', subject: config.numbers, where, detail: "its code changed: what is not a number the guard reads, such as a function that picks a budget, can raise a budget that no number shows" });
 
+  const budgetsOf = (text: string, values: ReturnType<typeof numbers>): number => {
+    let top = 0;
+    for (const t of tokenize(text)) {
+      if (t.type !== 'string' && !(t.type === 'template' && !t.dynamic)) continue;
+      const named = values.values.get(t.value);
+      if (named?.kind === 'number' && t.value.endsWith('_MS') && values.direction(t.value) === 'lower') top = Math.max(top, named.value);
+    }
+    return top;
+  };
+  const defaultRun = (() => { const v = numbersBefore.values.get('RUN_BUDGET_MS'); return v?.kind === 'number' ? v.value : 0; })();
+  const namedBudgets = (tree: Tree, file: string, table: ReturnType<typeof numbers>, src: ReturnType<typeof readSource> | undefined): Map<string, number> => {
+    const out = new Map<string, number>();
+    const text = tree.read(file) ?? '';
+    if (src) {
+      let outside = text;
+      for (const t of src.tests) {
+        out.set(t.id, Math.max(out.get(t.id) ?? -1, budgetsOf(t.body, table)));
+        outside = outside.replace(t.body, '');
+      }
+      out.set('', budgetsOf(outside, table));
+    } else out.set('', budgetsOf(text, table));
+    return out;
+  };
+  const budgetFiles = [...after.list()].filter((p) => p !== config.numbers && p.startsWith('tests/') && /\.ts$/.test(p) && !matchesAny(p, config.paths.guard)).sort();
+  for (const file of budgetFiles) {
+    const from = renamedFrom.get(file) ?? file;
+    if (before.read(from) === null) continue;
+    const src = afterSources.get(file);
+    const nowByTest = namedBudgets(after, file, numbersAfter, src);
+    const wasByTest = namedBudgets(before, from, numbersBefore, src ? beforeSources.get(from) ?? readSource(before.read(from) ?? '') : undefined);
+    for (const [id, now] of nowByTest) {
+      const was = wasByTest.get(id);
+      if (was === undefined || now <= 0) continue;
+      const floor = was > 0 ? was : defaultRun;
+      if (now > floor) {
+        add({ kind: 'threshold-lowered', subject: file, where: file, detail: `${id ? `the test ${JSON.stringify(id)}` : 'the file outside its tests'} names a larger budget: ${floor} ms -> ${now} ms, a time of ${config.numbers} that a test or the harness picks` });
+        break;
+      }
+    }
+  }
+
   const listBefore = readList(before.read(config.sabotage));
   const listAfter = readList(after.read(config.sabotage));
   if (listAfter === null) add({ kind: 'list-unreadable', subject: config.sabotage, where: config.sabotage, detail: 'the sabotage list is not a JSON array' });
@@ -514,7 +555,7 @@ export function judge(repo: string, baseRev: string, headRev: string, config: Co
   const ownWord = (kind: string): boolean => (config.approvers[kind] ?? []).includes('owner') && !(config.approvers[kind] ?? []).some((r) => r !== 'owner');
   const stateOf = (w: Weakening): string => {
     if (w.kind === 'threshold-lowered' && w.subject === config.numbers) return after.blob(w.subject) ?? 'deleted';
-    if (w.kind === 'threshold-lowered') return `${describeValue(numbersAfter.values.get(w.subject))} ${numbersAfter.direction(w.subject) ?? 'no direction'}`;
+    if (w.kind === 'threshold-lowered' && (numbersBefore.values.has(w.subject) || numbersAfter.values.has(w.subject))) return `${describeValue(numbersAfter.values.get(w.subject))} ${numbersAfter.direction(w.subject) ?? 'no direction'}`;
     if (w.kind === 'promise-changed') {
       const row = snapAfter.invariants.get(w.subject);
       if (w.subject.startsWith('I-')) return row ? row.join('\n') : 'removed';
