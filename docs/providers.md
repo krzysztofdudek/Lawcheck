@@ -26,7 +26,7 @@ Lawcheck sends `POST <address>/models/<model>:generateContent`. The default `<ad
 
 ## openai-compatible
 
-This provider calls a server that answers the chat completions API of OpenAI. Lawcheck takes the address of that server from `LAWCHECK_REVIEWER_ENDPOINT`, such as `http://gpu-box:8000/v1`. Without that variable, a review stops with [`reviewer-unreachable`](codes.md#reviewer-unreachable). Lawcheck sends the server the same request as for `openai`. If the environment holds `LAWCHECK_REVIEWER_KEY`, Lawcheck sends it as `authorization: Bearer <key>`. This provider never reads `OPENAI_API_KEY`.
+This provider calls a server that answers the chat completions API of OpenAI. Lawcheck takes the address of that server from `LAWCHECK_REVIEWER_ENDPOINT`, which holds an `http:` or `https:` address ([Over HTTP](#over-http)). Without that variable, a review stops with [`reviewer-unreachable`](codes.md#reviewer-unreachable). Lawcheck sends the server the same request as for `openai`. If the environment holds `LAWCHECK_REVIEWER_KEY`, Lawcheck sends it as `authorization: Bearer <key>`. This provider never reads `OPENAI_API_KEY`.
 
 ## ollama
 
@@ -105,10 +105,10 @@ The program uses its own sign-in, or one of the variables `COPILOT_GITHUB_TOKEN`
 
 With `LAWCHECK_REVIEWER_ENDPOINT` set, Lawcheck sends the requests of all five HTTP providers to its address, in place of their own. The variable holds an `http:` or `https:` address. Lawcheck refuses an address with a user, a password, a query or a fragment. Lawcheck drops the `/` at the end of the address, if there is one. Then it adds the path of the provider:
 
-- `openai` and `openai-compatible` add `/chat/completions`. A server that answers under `/v1` takes an address such as `http://gpu-box:8000/v1`;
+- `openai` and `openai-compatible` add `/chat/completions`. A server that answers under `/v1` takes an address that ends with `/v1`;
 - `anthropic` adds `/messages`, as it does to its own `api.anthropic.com/v1`, over encrypted HTTP;
 - `google` adds `/models/<model>:generateContent`;
-- `ollama` adds `/api/chat`. Its address is the server alone, such as `http://gpu-box:11434`.
+- `ollama` adds `/api/chat`. Its address is the server alone, as in the example of [ollama](#ollama).
 
 Each request carries two things: the prompt as one user message, and the temperature.
 

@@ -229,7 +229,7 @@ With `--strict`, `check` judges every file as `--full` does, and holds the debt 
 
 A rule of that commit judges the commit's text of `.lawcheck/law.yaml`, `.lawcheck/config.yaml` and `.lawcheck/rules/`, and the work tree's text of every other file. Lawcheck loads the script rules from a copy of the commit's `.lawcheck/rules/` in `.lawcheck/.local/`. It removes the copy when the run ends. A rule imports the helpers of that copy by a relative path.
 
-The copy also holds the commit's `package.json` and `.lawcheck/package.json`. So the commit decides what a rule gets when it imports the project's own `name`, through the `exports` of those files, or a name that starts with `#`, through their `imports`. A file they point to outside `.lawcheck/rules/` is not in the copy. The rule then stops with `rule-crashed`, which names the import and the file it leads to.
+The copy also holds the commit's `package.json` and `.lawcheck/package.json`. So the commit decides what a rule gets when it imports the project's own `name`, through the exports of those files, or a name that starts with `#`, through their `imports`. A file they point to outside `.lawcheck/rules/` is not in the copy. The rule then stops with `rule-crashed`, which names the import and the file it leads to.
 
 Any other package that a rule imports by name comes from the work tree's `node_modules`. A file that a rule reads by its path is the work tree's, `.lawcheck/` included. When git lists a file in `.lawcheck/node_modules` or `.lawcheck/.local`, such a package could come from the change, so the run stops with `law-from-packages`.
 
