@@ -767,10 +767,10 @@ test('test 1046: on Windows a program call that ends normally ends nothing by th
   });
 });
 
-// PowerShell, held to the first processor with everything it starts, starts older, which makes a child and ends, and then a program that keeps running again and again until Windows gives one older's id. Windows keeps a list of free ids for each processor, and an ended process's id goes back to the list of the processor that freed it. PowerShell keeps a handle on every program it ends, so their ids stay taken. It prints older's id, older's child and the program that took the id.
-function reuse(older: string): string {
+// PowerShell, held to the first processor with everything it starts, starts older, which makes a child and ends, and then a program that keeps running again and again until Windows gives one older's id. Windows keeps a list of free ids for each processor, and an ended process's id goes back to the list of the processor that freed it. PowerShell keeps a handle on every program it ends, so their ids stay taken. It writes older's id, older's child, the program that took the id and how many programs it started to a file, since that program would hold an output of PowerShell open for as long as it runs.
+function reuse(older: string, out: string): string {
   const ping = join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'PING.EXE');
-  return `[System.Diagnostics.Process]::GetCurrentProcess().ProcessorAffinity = [IntPtr]1; $o = New-Object System.Diagnostics.ProcessStartInfo '${process.execPath}', '"${older}"'; $o.UseShellExecute = $false; $o.CreateNoWindow = $true; $o.RedirectStandardOutput = $true; $h = [System.Diagnostics.Process]::Start($o); $child = $h.StandardOutput.ReadLine(); $h.WaitForExit(); $target = $h.Id; $h.Dispose(); $psi = New-Object System.Diagnostics.ProcessStartInfo '${ping}', '-n 120 127.0.0.1'; $psi.UseShellExecute = $false; $psi.CreateNoWindow = $true; $kept = New-Object System.Collections.ArrayList; $end = (Get-Date).AddSeconds(${REUSE_S}); $n = 0; while ((Get-Date) -lt $end) { $p = [System.Diagnostics.Process]::Start($psi); $n++; if ($p.Id -eq $target) { "$target $child $($p.Id)"; exit 0 }; $p.Kill(); [void]$kept.Add($p) }; "missed $target after $n programs, the last $(($kept | Select-Object -Last 3 | ForEach-Object { $_.Id }) -join ' ')"; try { Stop-Process -Id $child -Force } catch {}; exit 1`;
+  return `[System.Diagnostics.Process]::GetCurrentProcess().ProcessorAffinity = [IntPtr]1; $o = New-Object System.Diagnostics.ProcessStartInfo '${process.execPath}', '"${older}"'; $o.UseShellExecute = $false; $o.CreateNoWindow = $true; $o.RedirectStandardOutput = $true; $h = [System.Diagnostics.Process]::Start($o); $child = $h.StandardOutput.ReadLine(); $h.WaitForExit(); $target = $h.Id; $h.Dispose(); $psi = New-Object System.Diagnostics.ProcessStartInfo '${ping}', '-n 120 127.0.0.1'; $psi.UseShellExecute = $false; $psi.CreateNoWindow = $true; $kept = New-Object System.Collections.ArrayList; $end = (Get-Date).AddSeconds(${REUSE_S}); $n = 0; while ((Get-Date) -lt $end) { $p = [System.Diagnostics.Process]::Start($psi); $n++; if ($p.Id -eq $target) { Set-Content -LiteralPath '${out}' -Value "$target $child $($p.Id) $n"; exit 0 }; $p.Kill(); [void]$kept.Add($p) }; Set-Content -LiteralPath '${out}' -Value "missed $target after $n programs, the last $(($kept | Select-Object -Last 3 | ForEach-Object { $_.Id }) -join ' ')"; try { Stop-Process -Id $child -Force } catch {}; exit 1`;
 }
 
 const REUSE_S = 40;
@@ -783,9 +783,12 @@ test('test 1048: on Windows the tool that ends a running program\'s tree leaves 
     try {
       // older made its child and ended, and the child keeps older's id as its parent's.
       writeFileSync(join(copy.dir, 'older.mjs'), LEAVE);
-      const found = spawnSync(powershell(), ['-NoProfile', '-NonInteractive', '-Command', reuse(join(copy.dir, 'older.mjs'))], { encoding: 'utf8', windowsHide: true, timeout: (REUSE_S + 20) * 1000 });
-      const [, child, program] = (found.stdout ?? '').trim().split(' ').map(Number);
-      assert.equal(found.status, 0, `no program was given the id of older: ${found.stdout}${found.stderr}`);
+      const out = join(copy.dir, 'reused.txt');
+      const found = spawnSync(powershell(), ['-NoProfile', '-NonInteractive', '-Command', reuse(join(copy.dir, 'older.mjs'), out)], { stdio: 'ignore', windowsHide: true, timeout: (REUSE_S + 20) * 1000 });
+      const said = existsSync(out) ? readFileSync(out, 'utf8').trim() : '';
+      assert.ok(found.status === 0 && found.error === undefined, `no program was given the id of older: ${found.error?.message ?? `exit ${found.status}`}, ${said}`);
+      const [, child, program, tries] = said.split(' ').map(Number);
+      t.diagnostic(`older's id went to the program started ${tries}th`);
       left.push(child!, program!);
       assert.ok(alive(program!) && alive(child!), 'the program given older\'s id, or older\'s child, is not running');
       assert.ok(killGroup(program!, 'SIGKILL', true), 'the running program was not ended');
