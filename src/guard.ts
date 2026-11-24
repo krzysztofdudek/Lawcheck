@@ -1,7 +1,8 @@
 import { spawn, spawnSync } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
-import { rmSync } from 'node:fs';
-import { createdIn, killTree, powershell, PROCESS_TABLE, ticksAt, toEnd } from './programs.js';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
+import { createdIn, killTree, powershell, PROCESS_TABLE, ticksAt, toEnd, variableOf, withTemp } from './programs.js';
 
 const pids = new Set<number>();
 const windows = process.platform === 'win32';
@@ -17,9 +18,24 @@ const waitingForList: { since: number; done: (list: string | null) => void }[] =
 // Once the tool has said it is about to call a program, the list runs until the tool ends, so it is running when a call starts.
 let held = false;
 
+// PowerShell writes the test files of its script policy into its temporary directory while it starts, and the guard's PowerShell may still be starting when the run that set that directory has ended. So it gets a folder of its own under LOCALAPPDATA, where it keeps its other startup data anyway, and the guard removes that folder when it ends, with whatever a PowerShell stopped while starting left there.
+let shellTemp: string | null | undefined;
+
+function shellEnv(): NodeJS.ProcessEnv | undefined {
+  if (shellTemp === undefined) {
+    const local = variableOf(process.env, 'LOCALAPPDATA');
+    try {
+      shellTemp = local === undefined ? null : mkdtempSync(join(local, 'Temp', 'lawcheck-guard-'));
+    } catch {
+      shellTemp = null;
+    }
+  }
+  return shellTemp === null ? undefined : withTemp(process.env, shellTemp);
+}
+
 function watch(): void {
   if (!windows || watcher !== null) return;
-  watcher = spawn(powershell(), ['-NoProfile', '-NonInteractive', '-Command', `while ($true) { [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds(); ${PROCESS_TABLE}; '--'; Start-Sleep -Milliseconds 250 }`], { stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true });
+  watcher = spawn(powershell(), ['-NoProfile', '-NonInteractive', '-Command', `while ($true) { [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds(); ${PROCESS_TABLE}; '--'; Start-Sleep -Milliseconds 250 }`], { stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true, env: shellEnv() });
   const current = watcher;
   const gone = () => {
     if (watcher !== current) return;
@@ -142,7 +158,7 @@ async function endWatched(): Promise<void> {
 }
 
 function listNow(): string {
-  const listed = spawnSync(powershell(), ['-NoProfile', '-NonInteractive', '-Command', PROCESS_TABLE], { encoding: 'utf8', windowsHide: true, timeout: LIST_MS, killSignal: 'SIGKILL' });
+  const listed = spawnSync(powershell(), ['-NoProfile', '-NonInteractive', '-Command', PROCESS_TABLE], { encoding: 'utf8', windowsHide: true, timeout: LIST_MS, killSignal: 'SIGKILL', env: shellEnv() });
   return listed.error === undefined ? (listed.stdout ?? '') : '';
 }
 
@@ -161,7 +177,10 @@ function endAll(): void {
   }
   void (windows ? endWatched() : Promise.resolve()).then(() => {
     for (const folder of folders) rmSync(folder, { recursive: true, force: true, maxRetries: 10 });
-    stopWatching(() => process.exit(0));
+    stopWatching(() => {
+      if (typeof shellTemp === 'string') rmSync(shellTemp, { recursive: true, force: true, maxRetries: 10 });
+      process.exit(0);
+    });
   });
 }
 
