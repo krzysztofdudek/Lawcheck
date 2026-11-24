@@ -2,7 +2,7 @@
 
 A file of the domain layer imports a file of the command layer. The law forbids that [use](concepts.md#use). A type's `may_use` list names the types its files may use. A file's list in force is the list of its own type, or of the nearest type above it that has one. `lawcheck check` reads the uses of each judged file that has a list in force. It reports each use that the list does not allow as `forbidden-use`.
 
-A reader is the part of Lawcheck that parses the files of one language and reports their uses. The readers come from Runes. Runes is the parsing library that Lawcheck depends on. Each reader loads a grammar. A grammar is a file that describes the syntax of one language. Lawcheck's installation holds 13 grammars.
+A reader is the part of Lawcheck that parses the files of one language and reports their uses. Each reader is a part of Runes, a parsing library that the package manager installs with Lawcheck. Each reader loads a grammar. A grammar is a file that describes the syntax of one language. Lawcheck's installation holds 13 grammars.
 
 ## The languages whose uses are read
 
