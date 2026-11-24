@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { realpathSync, statSync } from 'node:fs';
 import { basename, dirname, join, relative, sep } from 'node:path';
 import { fit } from './fit.mjs';
-import { HOSTS, startDir } from './hosts.mjs';
+import { CURSOR, HOSTS, startDir } from './hosts.mjs';
 import { nameOf } from './names.mjs';
 import { changedInTurn, isRegular, snapshot } from './snapshot.mjs';
 import { blank, readState, removeOld, stateFile, writeState } from './state.mjs';
@@ -58,7 +58,8 @@ async function sessionStart(input, deadline) {
   if ('bad' in runner) return done(say.badRunner(cutPoints(runner.bad, 40)));
   const result = await runLawcheck(runner, ['prime'], root, deadline);
   if (!result.ran) return done(say.primeNotRun(runner.cmd, result.reason, runner.install));
-  const primed = done(fit(null, result.output));
+  const law = fit(null, result.output);
+  const primed = done(law);
   if (!result.output.some((line) => line.startsWith(say.PRIME_NO_REVIEWER))) return primed;
   const file = stateFile(input.session_id);
   const state = readState(file) ?? blank(root, null);
@@ -66,6 +67,7 @@ async function sessionStart(input, deadline) {
   try {
     writeState(file, { ...state, reviewer_told: true });
   } catch {}
+  if (!host.tellsUser) return done(`${law}\n\n${say.tellAtStart(say.noReviewer(runner.cmd))}`);
   return { ...primed, systemMessage: say.noReviewer(runner.cmd) };
 }
 
@@ -174,7 +176,7 @@ function lawDeleted(input) {
 }
 
 async function stop(input, deadline) {
-  if (!switchOn('check_before_stop')) return null;
+  if (!switchOn('check_before_stop') || host.ends?.(input) === false) return null;
   const root = findRoot(startDir(input));
   if (root === null) return lawDeleted(input);
   const runner = runnerAt(root);
@@ -224,7 +226,7 @@ async function stop(input, deadline) {
   }
   const handBack = host.handBack(fit(header, result.output));
   const h = hash(result.output);
-  if (state === null) return input.stop_hook_active === true ? null : handBack;
+  if (state === null) return host.returned(input) ? null : handBack;
   if (h === last || blocks >= 3) {
     return finish(withTurn({ systemMessage: say.stillFails(runner.cmd) }));
   }
@@ -234,7 +236,23 @@ async function stop(input, deadline) {
   return handBack;
 }
 
-const EVENTS = { 'session-start': sessionStart, prompt, edit, stop };
+// An agent with no field for the user is sent back once per turn to tell the user the message of the end of the turn (the owner's ruling wtyczki-odsylaja-agenta-raz); the prompt event of the next turn writes a state without the mark.
+function relay(input, text) {
+  const file = stateFile(input.session_id);
+  const state = readState(file);
+  if (state === null) return host.returned(input) ? null : host.handBack(say.tellAtEnd(text));
+  if (state.relayed === true) return null;
+  writeState(file, { ...state, relayed: true });
+  return host.handBack(say.tellAtEnd(text));
+}
+
+async function stopAndTell(input, deadline) {
+  const output = await stop(input, deadline);
+  if (host.tellsUser || output === null || typeof output.systemMessage !== 'string') return output;
+  return relay(input, output.systemMessage);
+}
+
+const EVENTS = { 'session-start': sessionStart, prompt, edit, stop: stopAndTell };
 
 async function main() {
   const [event, flag, name, ...rest] = process.argv.slice(2);
@@ -258,6 +276,7 @@ async function main() {
     throw new Error(say.notJson(firstLine(error.message)));
   }
   if (input === null || typeof input !== 'object' || Array.isArray(input)) throw new Error(say.NOT_OBJECT);
+  if (flag === undefined && typeof input.cursor_version === 'string') host = CURSOR;
   const output = await handler(input, deadline);
   if (output !== null) await new Promise((done) => process.stdout.write(JSON.stringify(output) + '\n', done));
 }

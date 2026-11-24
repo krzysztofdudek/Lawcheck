@@ -194,6 +194,56 @@ export class CodexSession {
   }
 }
 
+const CURSOR_EVENTS: Record<string, string> = { 'session-start': 'sessionStart', prompt: 'beforeSubmitPrompt', edit: 'postToolUse', stop: 'stop' };
+
+// The inputs of the hooks that Cursor runs for the Claude Code plugin, with the fields that Cursor's documentation of its hooks and the hooks of Cursor Agent CLI 2026.11.22 give them. No session of Cursor recorded them. Cursor runs a plugin's hooks from the plugin's folder, so the hook starts there; only the stop runs from the workspace, and only the edit input holds a cwd.
+export class CursorSession {
+  turns = 0;
+  readonly bench: Bench;
+  readonly cwd: string;
+  readonly id: string;
+  readonly env: NodeJS.ProcessEnv;
+
+  constructor(bench: Bench, cwd: string, id = 'u1', env: NodeJS.ProcessEnv = {}) {
+    this.bench = bench;
+    this.cwd = cwd;
+    this.id = id;
+    this.env = env;
+  }
+
+  input(event: string, fields: Record<string, unknown> = {}): string {
+    const own: Record<string, Record<string, unknown>> = {
+      'session-start': { is_background_agent: false, composer_mode: 'agent' },
+      prompt: { prompt: 'go', attachments: [] },
+      edit: { tool_name: 'Write', tool_use_id: 'call_1', tool_output: '{}', duration: 12, cwd: this.cwd },
+      stop: { status: 'completed', loop_count: 0 },
+    };
+    const turn = event === 'session-start' ? {} : { conversation_id: this.id, generation_id: `g${Math.max(this.turns, 1)}` };
+    return JSON.stringify({ ...turn, session_id: this.id, hook_event_name: CURSOR_EVENTS[event], cursor_version: '2026.11.22-e9042b2', workspace_roots: [this.cwd], user_email: null, transcript_path: null, ...own[event], ...fields });
+  }
+
+  run(event: string, fields: Record<string, unknown> = {}, env: NodeJS.ProcessEnv = {}): Promise<HookRun> {
+    return hook(this.bench, event, this.input(event, fields), { ...this.env, ...env }, undefined, { cwd: event === 'stop' ? this.cwd : PLUGIN });
+  }
+
+  start(): Promise<HookRun> {
+    return this.run('session-start');
+  }
+
+  prompt(env: NodeJS.ProcessEnv = {}): Promise<HookRun> {
+    this.turns++;
+    return this.run('prompt', {}, env);
+  }
+
+  edit(path: string, tool = 'Write', fields: Record<string, unknown> = {}, env: NodeJS.ProcessEnv = {}): Promise<HookRun> {
+    return this.run('edit', { tool_name: tool, tool_input: { file_path: join(this.cwd, path), content: '' }, ...fields }, env);
+  }
+
+  stop(fields: Record<string, unknown> = {}, env: NodeJS.ProcessEnv = {}): Promise<HookRun> {
+    return this.run('stop', fields, env);
+  }
+}
+
 export async function withBench<T>(body: (bench: Bench, dir: string) => Promise<T>): Promise<T> {
   return inTemp((dir) => body(new Bench(dir), dir));
 }
