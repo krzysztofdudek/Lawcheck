@@ -108,7 +108,7 @@ With `LAWCHECK_REVIEWER_ENDPOINT` set, Lawcheck sends the requests of all five H
 - `openai` and `openai-compatible` add `/chat/completions`. A server that answers under `/v1` takes an address that ends with `/v1`;
 - `anthropic` adds `/messages`, as it does to its own `api.anthropic.com/v1`, over encrypted HTTP;
 - `google` adds `/models/<model>:generateContent`;
-- `ollama` adds `/api/chat`. Its address is the server alone, as in the example of [ollama](#ollama).
+- `ollama` adds `/api/chat`. Its address is the server alone, such as `http://localhost:11434`.
 
 Each request carries two things: the prompt as one user message, and the temperature.
 

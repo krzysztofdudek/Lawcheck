@@ -63,7 +63,7 @@ usage: lawcheck init [--json]
 
 `init` overwrites no file. It writes no `.lawcheck/config.yaml`. In a folder below the top of the git work tree, `init` starts a law that covers only the files below that folder. Its output says so in a note. An extra word after `init` ends it with `usage`.
 
-`init` refuses with `already-initialized` in two cases: a law governs this folder from here or from above, or git lists a law below this folder. A place that holds no file of its own kind stops `init` too:
+`init` refuses with `already-initialized` in two cases: a law governs this folder from here or from above, or git lists a law below this folder. `init` also stops when a path it writes holds the wrong kind of entry:
 
 - `.lawcheck` is a file, or a symbolic link to a file or to nothing: `init` stops with `file-unwritable`, names `.lawcheck` and writes nothing;
 - `.lawcheck/.gitignore` is a folder or a symbolic link to nothing: `init` stops the same way and names `.lawcheck/.gitignore`;
@@ -310,7 +310,7 @@ src/core/report.ts
 
 ### `<path>`
 
-The path names a file, a file that does not exist yet, a folder, or `.` for the current folder. For a new file, the first line ends with `(does not exist yet)`. `explain` takes one path and no pattern. When no file has the path you give, `explain` reads each `*`, `?`, `[`, `]`, `{` and `}` in it as a plain character of a file name, and a last line says so. For a folder, `explain` counts its files of each type. On a file system that ignores case, `explain` answers for the spelling that git lists.
+The path names a file, a file that does not exist yet, a folder, or `.` for the current folder. For a new file, the first line ends with `(does not exist yet)`. `explain` takes one path and no pattern, so it reads each `*`, `?`, `[`, `]`, `{` and `}` in the path as a plain character of a file name. When no file has that path, a last line says so. For a folder, `explain` counts its files of each type. On a file system that ignores case, `explain` answers for the spelling that git lists.
 
 On Linux and macOS, each name in the path may hold at most 255 bytes. The whole path on disk, with the folders above the root of the law, may hold at most 4,095 bytes. On Windows, the limits count UTF-16 units, as JavaScript counts the length of a string. Each name there may hold at most 255 of them, and the whole path at most 32,767. A name of 86 characters of three bytes each holds 258 bytes, so Windows takes it and Linux and macOS do not. A longer name or path ends the command with `usage`.
 

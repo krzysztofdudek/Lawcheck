@@ -118,7 +118,7 @@ A change can also pass its own check by adding a [waiver](concepts.md#waiver) on
 note: this change adds 1 waiver: no-console at src/core/shipping.ts:1
 ```
 
-Lawcheck reads each changed file at the merge base of `HEAD` and the base. It compares the waivers of the two texts by rule and by reason. A waiver that the base already holds is not named, even when the change moves it to another line. A file that the change moves to a new path has no waivers at that path in the base, so each of its waivers counts as added. The note shows five waivers and the count of the rest. In `--json`, each item of `waivers` has `added` ([JSON documents](json.md)). The note never changes the exit code.
+Lawcheck reads each changed file at the merge base of `HEAD` and the base. The law-change notes compare the law with the same commit. Lawcheck compares the waivers of the two texts by rule and by reason. A waiver that the base already holds is not named, even when the change moves it to another line. A file that the change moves to a new path has no waivers at that path in the base, so each of its waivers counts as added. The note shows five waivers and the count of the rest. In `--json`, each item of `waivers` has `added` ([JSON documents](json.md)). The note never changes the exit code.
 
 Lawcheck names only the waivers it counts: those with a known rule and a reason, in a file whose type reads waivers. A marker in a file that no type takes waives nothing, so the note leaves it out. When a change puts a file under `ignored` to hide it from the law, the second law-change note names the pattern.
 

@@ -19,7 +19,7 @@ A script rule is a JavaScript module that the repository holds in `.lawcheck/rul
 
 With a `runner` setting other than `global`, the package manager starts Lawcheck from the repository's own files ([Settings](config.md#runner)). These files can name a program of the repository, such as `yarnPath` in `.yarnrc.yml` or a committed `node_modules/.bin/lawcheck`. The hook then runs the program that those files name.
 
-The same plugin works in Codex ([Lawcheck in Codex](codex-cli.md)). Its hooks there run on the same events. `apply_patch` stands for the three tools, and two variables stand for the settings. The plugin works in GitHub Copilot CLI too ([Lawcheck in GitHub Copilot CLI](copilot-cli.md)). There `create` and `edit` stand for the three tools, and the same two variables stand for the settings. Copilot CLI shows you no text from a hook, so the plugin asks the agent to tell you its messages.
+The same plugin works in Codex ([Lawcheck in Codex](codex-cli.md)). Its hooks there run on the same events. `apply_patch` stands for the three tools, and two variables stand for the settings. The plugin works in GitHub Copilot CLI too ([Lawcheck in GitHub Copilot CLI](copilot-cli.md)). There `create` and `edit` stand for the three tools, and the same two variables stand for the settings. The output of a hook in Copilot CLI has no field for a message to you, so the plugin asks the agent to tell you its messages.
 
 Cursor runs the plugin for Claude Code ([Lawcheck in Cursor](cursor.md)). Its check before the agent finishes needs two entries in `.cursor/hooks.json`. For another coding agent, write in its instructions file that it runs `lawcheck prime` at the start of a session and `lawcheck check` after each change ([Other coding agents](other-agents.md)).
 

@@ -33,7 +33,7 @@ Yarn 4.15.0 and later hold back a package published less than a day ago. On the 
 
 ## The environments Lawcheck refuses
 
-Every command but `docs` and `doctor` stops with the code `unsupported-environment` and exit 2 ([unsupported-environment](codes.md#unsupported-environment)). `doctor` prints the same first line. Its `node` or `git` check fails with that message. With an old Node, `doctor` runs its other checks as usual. With an old git, every check that needs git, itself or through another check, shows `skip`. The `law` and `config` checks then say `needs git`.
+Every command but `docs` and `doctor` stops with the code `unsupported-environment` and exit 2 ([unsupported-environment](codes.md#unsupported-environment)). `doctor` prints the same first line. Its `node` or `git` check fails with that message. With an old Node, `doctor` runs its other checks as usual. With an old git, every check that needs git, itself or through another check, shows `skip`. The `law`, `config` and `base` checks then say `needs git`.
 
 | Environment | Message | Fix |
 |---|---|---|
