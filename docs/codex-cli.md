@@ -116,7 +116,7 @@ On 2026-11-23 the plugin ran in real sessions of Codex CLI 0.171.0. Codex sent i
 - With the whole plugin, the law reached the agent in 10 of 10 sessions. No session imported the API code into the core, and 10 of 10 ended with passing tests and a passing `lawcheck check`.
 - Without a law and without the plugin, 0 of 10 sessions imported the API code into the core.
 - With a `lawcheck` that fails every check, the plugin sent the agent back three times and then let it finish, in 3 of 3 sessions the trial counted. The trial left out a fourth session, in which the agent started `lawcheck` from the shell and the trial's log shows no such call.
-- In the shop no session imported the API code into the core, so the other 14 sessions ran in a second repository with its own task. With the hook after an edit alone, no agent broke the law there in 12 sessions, and with the hook before the end of a turn alone none did in 2. Those sessions show nothing about a fix. A test of the repository plants a breach and checks that the hook before the end of the turn sends the agent back.
+- In the shop no session imported the API code into the core, so the other 14 sessions ran in a second repository with its own task. With the hook after an edit alone, no agent broke the law there in 12 sessions, and with the hook before the end of a turn alone none did in 2. So these sessions show nothing about a fix. A test of the repository plants a breach and checks that the hook before the end of the turn sends the agent back.
 
 ## If it goes wrong
 
