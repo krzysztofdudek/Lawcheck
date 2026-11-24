@@ -299,6 +299,38 @@ function stop(path: string, message: string, next: string): string {
   return ['lawcheck: ERROR  1 error', '', `${path}  error[file-unwritable]  ${message}`, '  why:  what Lawcheck cannot write is lost, so the run cannot say it is done', '', `next: ${next}`, ''].join('\n');
 }
 
+// The test is another run that holds the lock with its own live pid and keeps the folder's time fresh, so the review never finds the lock stale and waits its whole 10 seconds.
+test('test 1262: a review that waits its 10 seconds at a lock another live run holds stops and says that run holds it, to let it end or to end it', async () => {
+  await withFake(async (fake) => {
+    await withR(async (r) => {
+      write(r, F_PATH, F_PRIME);
+      const local = join(r, '.lawcheck/.local');
+      const lock = join(local, 'verdicts.lock');
+      mkdirSync(lock, { recursive: true });
+      writeFileSync(join(local, '.gitignore'), '*\n');
+      writeFileSync(join(lock, 'pid'), String(process.pid));
+      const letGo = keepLock(lock);
+      let result: Awaited<ReturnType<typeof run>>;
+      try {
+        result = await run(r, REVIEW, { env: { LAWCHECK_REVIEWER_ENDPOINT: fake.url }, budget: 'LIMITS_RUN_MS', writes: [/^\.lawcheck\/\.local(\/|$)/] });
+      } finally {
+        letGo();
+      }
+      assert.equal(
+        result.stdout,
+        stop(
+          '.lawcheck/.local/verdicts.lock',
+          'cannot be written (EBUSY, held by another Lawcheck run through the 10 seconds this run waited)',
+          'let the other Lawcheck run in this repository end, or end it, then run lawcheck check again',
+        ),
+      );
+      assert.equal(result.code, 2);
+      assert.equal(fake.requests.length, 0);
+      assert.ok(existsSync(join(lock, 'pid')), 'the review removed a lock another live run holds');
+    });
+  });
+});
+
 // As in test 1230 the test holds the delete of the lock pending, here until the review has given up waiting, as a program that keeps the old lock open would.
 test('test 1261: on Windows a review whose lock stays in a pending delete through the 10 seconds it waits stops with EPERM and says a program still holds the lock open', async (t) => {
   const skip = platformSkip('the whole test');
