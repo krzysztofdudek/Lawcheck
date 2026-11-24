@@ -59,7 +59,9 @@ When a reviewer's answer holds two verdict objects and one of them is a `fail`, 
 
 A `check` or `try` that ends with exit 2 after it sent requests to a reviewer now says how many. The first line ends with the count, such as `lawcheck: ERROR  1 error, 2 reviewer calls`, and the JSON document `lawcheck-error/1` gains `calls_made` when the count is above 0. A program that checks the document against a schema that refuses unknown keys has to allow `calls_made`.
 
-`check`, `explain`, `try` and `doctor` in a repository that git cannot read, such as one with a corrupt `.git/index`, now end with `no-git`, the line git printed and the step `repair the repository, so that git status works here`. In alpha.4 they ended with `internal`, which asks you to report a fault of Lawcheck. Under `doctor`, the check that met the failure shows `fail` with the same line.
+`check`, `explain`, `try` and `doctor` in a repository that git cannot read, such as one with a corrupt `.git/index`, now end with `no-git`, the line git printed and the step to repair the repository until `git status` works. In alpha.4 they ended with `internal`, which asks you to report a fault of Lawcheck. Under `doctor`, the check that met the failure shows `fail` with the same line.
+
+`init` no longer reports `kept .lawcheck/.gitignore` when that path is a folder or a symbolic link to nothing: it stops with `file-unwritable` and writes nothing. When `.lawcheck/law.yaml` is a folder or a symbolic link to nothing, `doctor` and `check` now say `law-invalid` with the cause, such as `EISDIR` for a folder. In alpha.4 `doctor` said there was no law and sent you to `lawcheck init`, and `init` sent you back to `lawcheck doctor`.
 
 ## [0.1.0-alpha.4] - 2026-11-23
 

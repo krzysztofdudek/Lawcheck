@@ -234,11 +234,12 @@ The law holds one of these:
 - a wrong value or id;
 - a name in a type's `rules` or `may_use` that the law does not have;
 - a pattern or `content` expression that does not parse;
-- a file named in a rule's `context` that git does not list.
+- a file named in a rule's `context` that git does not list;
+- a place that is no file where the law belongs, such as a folder named `.lawcheck/law.yaml`, or a symbolic link to nothing.
 
 **Fix**
 
-Edit the law at the line the error names. `lawcheck docs law` lists every key.
+Edit the law at the line the error names. `lawcheck docs law` lists every key. When `.lawcheck/law.yaml` is no file, move what stands there away and put the law in a file of that name.
 
 **Example**
 
@@ -452,6 +453,7 @@ Lawcheck cannot write a file or a folder that it must write. The error names tha
 The cause is one of these:
 
 - a file stands where Lawcheck makes a folder, such as a file named `.lawcheck`;
+- a folder stands where Lawcheck writes a file, such as `.lawcheck/.gitignore`;
 - the folder is read-only;
 - the disk is full;
 - `.lawcheck/verdicts` would grow past 16 MiB;

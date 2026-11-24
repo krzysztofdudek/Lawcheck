@@ -1,4 +1,4 @@
-import { realpathSync, statSync } from 'node:fs';
+import { lstatSync, realpathSync } from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { changedPaths, defaultBase, fetchCommand, GitFailed, gitNext, hasHead, fetchesEveryBranch, isShallow, listedPaths, listFiles, mergeBase, NoGit, remoteNames, resolveCommit, workTreeProblem } from './files.js';
 import { CONFIG, ConfigTooLarge, readConfig } from './config.js';
@@ -29,9 +29,11 @@ export class Stop extends Error {
   }
 }
 
-function isFile(path: string): boolean {
+// A folder or a link to nothing at the law's place is a law that cannot be read, which the run then says; taking it for no law sends init and doctor to each other.
+function holdsLaw(path: string): boolean {
   try {
-    return statSync(path).isFile();
+    lstatSync(path);
+    return true;
   } catch (error) {
     return (error as NodeJS.ErrnoException).code === 'EACCES';
   }
@@ -40,7 +42,7 @@ function isFile(path: string): boolean {
 export function findRoot(cwd: string): string | null {
   let dir = resolve(cwd);
   for (;;) {
-    if (isFile(join(dir, LAW))) return realpathSync(dir);
+    if (holdsLaw(join(dir, LAW))) return realpathSync(dir);
     const parent = dirname(dir);
     if (parent === dir) return null;
     dir = parent;

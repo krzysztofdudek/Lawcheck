@@ -62,6 +62,22 @@ function notAFolder(path: string): string | null {
   return link ? 'it is a symbolic link to a file, so the folder .lawcheck cannot be made' : 'it is a file, so the folder .lawcheck cannot be made';
 }
 
+function notAFile(path: string, place: string): string | null {
+  try {
+    lstatSync(path);
+  } catch {
+    return null;
+  }
+  let stat: ReturnType<typeof statSync>;
+  try {
+    stat = statSync(path);
+  } catch {
+    return `it is a symbolic link to a place that does not exist, so the file ${place} cannot be written`;
+  }
+  if (stat.isFile()) return null;
+  return `it is ${stat.isDirectory() ? 'a folder' : 'no regular file'}, so the file ${place} cannot be written`;
+}
+
 export function writeNew(path: string, content: string, place = path): boolean {
   let fd: number;
   try {
@@ -101,6 +117,8 @@ export async function init(args: Arguments, context: CheckContext, json: boolean
     if (obstacle !== null) {
       throw new Stop([{ code: 'file-unwritable', file: '.lawcheck', line: null, message: obstacle, next: 'move .lawcheck out of the way, then run lawcheck init again' }]);
     }
+    const blocked = notAFile(join(cwd, IGNORE), IGNORE);
+    if (blocked !== null) throw new Stop([{ code: 'file-unwritable', file: IGNORE, line: null, message: blocked, next: `move ${IGNORE} out of the way, then run lawcheck init again` }]);
     try {
       mkdirSync(join(cwd, '.lawcheck'), { recursive: true });
     } catch (error) {

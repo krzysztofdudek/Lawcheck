@@ -292,3 +292,11 @@ Why: the uses of a file do not depend on the batch that reads them (decision 162
 When a git command that Lawcheck runs ends with exit 128, git's own exit for a repository it cannot read, the run ends with `no-git`. The message holds the line git printed, and the `next:` line sends the user to repair the repository until `git status` works. A corrupt `.git/index` is the case that was found. Any other exit of a git command, and a git that ends by a signal, stays `internal`, since it means Lawcheck sent git a call that git does not take.
 
 Why: `docs/codes.md` already names a damaged repository as a cause of `no-git`, and `internal` asks the user to report a fault of Lawcheck, which this is not. Under `doctor`, the check that met the failure shows `fail` with the same message and step, and the run ends with exit 2 as for any failed check.
+
+## Decision (number at merge). A law that cannot be read is a law, so init and doctor do not send the user in a circle
+
+Whatever stands at `.lawcheck/law.yaml` makes that folder the root of the law: a file, a folder, a symbolic link to nothing. The run then says `law-invalid` with the cause, such as `the law cannot be read (EISDIR)`, as it does for a law in a folder it cannot search. `init` finds that law and ends with `already-initialized`, `doctor` shows the `law` check as `fail` with the same cause. Only a missing entry, or one below a path that is no folder, is no law.
+
+`init` also stops with `file-unwritable` when `.lawcheck/.gitignore` is a folder or a symbolic link to nothing, before it writes any file. A regular file or a link to a regular file there is kept as before.
+
+Why: with a folder as the law, `init` said `already-initialized` and sent the user to `doctor`, which said there was no law and sent the user to `init`. A `kept` file that is a folder leaves `.local/` and `config.local.yaml` unignored without a word.
