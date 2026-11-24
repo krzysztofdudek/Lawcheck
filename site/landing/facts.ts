@@ -125,7 +125,7 @@ export async function facts() {
     },
     pilot: readme(fragments.paragraph('README.md', 'Lawcheck', 'On 2026-11-23 I gave Claude Code')),
     problem: readme(fragments.paragraph('README.md', 'Lawcheck', 'I build software')),
-    advice: ['A rules file is advice', 'Lawcheck checks your code against', 'Your linter can hold a layer rule', 'Lawcheck adds what it leaves to you'].map((start) => readme(fragments.sentence('README.md', 'Lawcheck', start))).join(' '),
+    advice: ['A rules file is advice', 'Lawcheck checks your code against', 'Your linter can hold a layer rule', 'Lawcheck adds what the linter leaves to you'].map((start) => readme(fragments.sentence('README.md', 'Lawcheck', start))).join(' '),
     law: {
       heading: fragments.heading('docs/index.md', 'A law and a finding'),
       intro: readme(fragments.paragraph('README.md', 'Lawcheck', 'The law is a file')),
