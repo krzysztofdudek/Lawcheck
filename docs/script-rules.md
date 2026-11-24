@@ -187,7 +187,7 @@ Lawcheck runs each script rule in a Node process of its own. This page calls tha
 - `process.env` is empty, because the rule runner gets none of the caller's variables;
 - its working directory is the root.
 
-Lawcheck writes what the rule prints, on either stream, to its own standard error.
+Lawcheck writes what the rule prints, on either stream, to its own standard error. A print waits until Lawcheck has taken it, so the rule runner holds none of what the rule prints, however much that is. The time a print waits counts toward the rule's 30 seconds.
 
 A rule has 30 seconds to load and 30 seconds for each call. A rule that takes longer is `rule-crashed`. All script rules of one run have 600 seconds together. The time Lawcheck takes to read a tree or the uses counts toward the 600 seconds of the run, and not toward the 30 seconds of any call. A rule that asks while Lawcheck reads for another rule does not lose that time either. A run that goes past the 600 seconds stops with `rules-too-slow`. Lawcheck reports that code at the file that each unfinished rule was judging.
 

@@ -62,6 +62,9 @@ process.send = undefined;
 // macOS adds __CF_USER_TEXT_ENCODING to every process it starts, even one started with an empty environment.
 for (const name of Object.keys(process.env)) delete process.env[name];
 
+// Node makes a pipe of standard output and standard error blocking on Windows only; elsewhere a print that does not fit in the pipe waits in the runner, so a rule that prints faster than the tool relays piles up gigabytes there, out of the memory guard's sight.
+for (const stream of [process.stdout, process.stderr]) (stream as unknown as { _handle?: { setBlocking?(blocking: boolean): unknown } })._handle?.setBlocking?.(true);
+
 // Node 24's permission model has no permission for the network; Node 25 and later refuse it themselves. Before the rule loads, the runner replaces with one refusal the functions of node:net, node:dgram and node:dns that reach the network, the globals and the export of node:http that open a connection, and the methods by which the classes of a TCP handle and of a pipe handle bind, listen and connect. A rule reaches those classes through the handle of a socket, as a TLS socket with no socket of its own makes one, and a pipe handle opens no network on its own, so its open stays for the runner's standard streams.
 function closeNetwork(): void {
   function closed(): never {
