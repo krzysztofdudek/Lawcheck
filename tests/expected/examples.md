@@ -488,7 +488,7 @@ next: fix src/core/price.ts:2
 {
   "name": "lawcheck-marketplace",
   "owner": { "name": "Krzysztof Dudek" },
-  "description": "Architecture checks for coding agents: the Lawcheck plugin for Claude Code.",
+  "description": "Architecture checks for coding agents: the Lawcheck plugin for Claude Code and Codex.",
   "plugins": [ { "name": "lawcheck", "source": "./plugin", "description": "<description>" } ]
 }
 ```

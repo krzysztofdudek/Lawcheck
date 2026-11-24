@@ -130,6 +130,7 @@ export async function facts() {
       quickStart: readme(fragments.sentence('README.md', 'Try it', 'The quick start takes')),
       plugin: readme(fragments.paragraph('README.md', 'Your coding agent', 'In Claude Code, install the plugin')),
       pluginCommands: fragments.code('README.md', 'Your coding agent', 'claude plugin').code,
+      codex: ['In Codex, the same plugin installs', 'Codex runs its hooks only after'].map((start) => readme(fragments.sentence('README.md', 'Your coding agent', start))).join(' '),
     },
   };
 }

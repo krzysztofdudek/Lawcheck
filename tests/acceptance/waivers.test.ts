@@ -1,6 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { append, check, D, D_PATH, E_PATH, findingLines, withSample, withU, write } from './helpers.ts';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { fakeWrites } from '../harness/tool.ts';
+import { append, check, D, D_PATH, E_PATH, findingLines, lawcheck, withSample, withU, write } from './helpers.ts';
 
 function withLine(at: number, line: string): string {
   const lines = D.split('\n');
@@ -189,4 +192,25 @@ test('S4-5: a waiver after the last line of a multi-line import does not cover t
     assert.deepEqual(findingLines(run.stdout), []);
     assert.equal(run.code, 0);
   });
+});
+
+test('test 850: the base text of the changed files that hold a waiver is read by as many git processes for twenty files as for two', async () => {
+  const starts = async (count: number) =>
+    withSample(
+      async (s, dir) => {
+        for (let i = 0; i < count; i++) append(s, `src/core/old${i}.ts`, '// more\n');
+        write(s, SHIPPING, LEGACY);
+        const trace = join(dir, 'trace.log');
+        fakeWrites(dir, ['trace.log']);
+        const run = await lawcheck(s, ['check', '--base', 'main'], { GIT_TRACE: trace });
+        assert.equal(run.stdout, `lawcheck: PASS  ${count + 1} changed files (against main), ${count + 1} waivers\n${ADDED(1)}\n`);
+        return readFileSync(trace, 'utf8').split('\n').filter((line) => /trace: (built-in|exec|run_command): /.test(line)).length;
+      },
+      {
+        onMain: (s) => {
+          for (let i = 0; i < count; i++) write(s, `src/core/old${i}.ts`, LEGACY);
+        },
+      },
+    );
+  assert.equal(await starts(20), await starts(2));
 });
