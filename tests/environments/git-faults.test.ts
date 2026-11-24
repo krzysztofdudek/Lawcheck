@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { copySample, D, D_PATH, git, GIT_ENV, inTemp, lawcheck, makeSample, TEST4, write } from '../acceptance/helpers.ts';
 
@@ -91,5 +91,66 @@ test('S1-10: a base taken from a dangling origin/HEAD says where it came from, a
     assert.equal(run.stdout.split('\n')[2], "error[base-unreachable]  the base 'upstream/main', which origin/HEAD names, names no commit here");
     assert.equal(nextLine(run.stdout), 'pass --base with a branch or a commit that exists here, or point origin/HEAD at one with git remote set-head origin --auto');
     assert.equal(run.code, 2);
+  });
+});
+
+test('S1-15: a sparse checkout that leaves .lawcheck out says the index holds the law, and the sparse-checkout command it names lets check through', async () => {
+  await inTemp(async (dir) => {
+    const s = makeSample(dir);
+    git(s, 'sparse-checkout', 'init', '--no-cone');
+    git(s, 'sparse-checkout', 'set', 'src/**', 'tools/**');
+    const run = await lawcheck(s, ['check', '--base', 'main']);
+    assert.equal(run.stdout.split('\n')[2], "error[not-initialized]  no .lawcheck/law.yaml in this directory or any above it, though git's index lists .lawcheck/law.yaml: the sparse checkout leaves it out of the work tree");
+    assert.equal(nextLine(run.stdout), 'let the sparse checkout take the folder of the law: git sparse-checkout add .lawcheck, then run lawcheck check');
+    assert.equal(run.code, 2);
+    const json = JSON.parse((await lawcheck(s, ['check', '--base', 'main', '--json'])).stdout);
+    assert.equal(json.next.command, 'git sparse-checkout add .lawcheck');
+    const doctor = await lawcheck(s, ['doctor']);
+    assert.match(doctor.stdout, /\nfail {2}law {2}no \.lawcheck\/law\.yaml in this directory or any above it, though git's index lists \.lawcheck\/law\.yaml: the sparse checkout leaves it out of the work tree\n {2}next: let the sparse checkout take the folder of the law: git sparse-checkout add \.lawcheck, then run lawcheck doctor again\n/);
+    git(s, 'sparse-checkout', 'add', '.lawcheck');
+    assert.equal((await lawcheck(s, ['check', '--base', 'main'])).code, 0);
+  });
+});
+
+test('S1-15: from a folder below the top, the sparse-checkout command runs at the top, where git takes it', async () => {
+  await inTemp(async (dir) => {
+    const s = makeSample(dir);
+    git(s, 'sparse-checkout', 'init', '--no-cone');
+    git(s, 'sparse-checkout', 'set', 'src/**', 'tools/**');
+    const below = join(s, 'src', 'core');
+    const json = JSON.parse((await lawcheck(below, ['check', '--base', 'main', '--json'])).stdout);
+    assert.deepEqual(json.next, { command: 'git -C ../.. sparse-checkout add .lawcheck', text: 'let the sparse checkout take the folder of the law: git -C ../.. sparse-checkout add .lawcheck, then run lawcheck check' });
+    git(below, '-C', '../..', 'sparse-checkout', 'add', '.lawcheck');
+    assert.equal((await lawcheck(below, ['check', '--base', 'main'])).code, 0);
+  });
+});
+
+test('S1-15: a folder with no law that git does not list keeps the plain not-initialized, and a missing file that is no sparse choice does too', async () => {
+  await inTemp(async (dir) => {
+    const s = makeSample(dir);
+    rmSync(join(s, '.lawcheck', 'law.yaml'));
+    const run = await lawcheck(s, ['check', '--base', 'main']);
+    assert.equal(run.stdout.split('\n')[2], 'error[not-initialized]  no .lawcheck/law.yaml in this directory or any above it');
+    assert.equal(nextLine(run.stdout), 'write .lawcheck/law.yaml at the root of the code to check, then run lawcheck check');
+    const bare = join(dir, 'plain');
+    mkdirSync(bare);
+    const none = await lawcheck(bare, ['check']);
+    assert.equal(none.stdout.split('\n')[2], 'error[not-initialized]  no .lawcheck/law.yaml in this directory or any above it');
+  });
+});
+
+test('S1-15: no-git in a bare repository says what a bare repository is, and not the word git printed', async () => {
+  await inTemp(async (dir) => {
+    const bare = join(dir, 'bare.git');
+    git(dir, 'init', '-q', '--bare', bare);
+    mkdirSync(join(bare, '.lawcheck'));
+    writeFileSync(join(bare, '.lawcheck', 'law.yaml'), 'lawcheck: 0.1.0\n');
+    for (const args of [['check', '--full'], ['init'], ['doctor']]) {
+      const run = await lawcheck(bare, args);
+      const said = run.stdout.split('\n').find((line) => line.includes('git does not see a work tree here'));
+      assert.ok(said !== undefined, `${args[0]}: ${run.stdout}`);
+      assert.ok(said.endsWith(': this is a bare repository or the inside of a .git folder, which has no files'), `${args[0]}: ${said}`);
+      assert.equal(run.code, 2, args[0]);
+    }
   });
 });

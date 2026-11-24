@@ -532,7 +532,9 @@ function judge(
     for (const waiver of valid) {
       waivers.push({ file: file.path, line: waiver.line, rule: waiver.rule, debt: isDebt, waived: waiver.waived, reason: waiver.reason, added: added === null ? null : added.has(waiver) });
       if (waiver.waived === 0 && !reviewers.has(waiver.rule)) {
-        place({ code: 'waiver-unused', rule: null, severity: 'warning', debt: isDebt, file: file.path, line: waiver.line, type: file.type.id, message: `the waiver of '${waiver.rule}' drops no finding`, why: WHY['waiver-unused']! });
+        const taken = valid.find((other) => other !== waiver && other.rule === waiver.rule && other.covers === waiver.covers && other.waived > 0);
+        const because = taken === undefined ? '' : `; the waiver on line ${taken.line} already drops the findings of that line`;
+        place({ code: 'waiver-unused', rule: null, severity: 'warning', debt: isDebt, file: file.path, line: waiver.line, type: file.type.id, message: `the waiver of '${waiver.rule}' drops no finding${because}`, why: WHY['waiver-unused']! });
       }
     }
   }

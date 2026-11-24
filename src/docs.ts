@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { documentOf, usageError } from './args.js';
 import type { Arguments, CheckContext, Result } from './args.js';
 import { nearestKey } from './law.js';
+import { renderErrors } from './output.js';
 
 export interface Topic {
   id: string;
@@ -12,12 +13,23 @@ export interface Topic {
 
 export const DOCS_DIR = fileURLToPath(new URL('../docs/', import.meta.url));
 
+class Missing extends Error {}
+
+function packaged(file: string): string {
+  try {
+    return readFileSync(`${DOCS_DIR}${file}`, 'utf8');
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    throw new Missing(`${file} is missing from this installation of Lawcheck`);
+  }
+}
+
 export function topics(): Topic[] {
-  return JSON.parse(readFileSync(`${DOCS_DIR}topics.json`, 'utf8')) as Topic[];
+  return JSON.parse(packaged('topics.json')) as Topic[];
 }
 
 export function page(id: string): string {
-  return readFileSync(`${DOCS_DIR}${id}.md`, 'utf8');
+  return packaged(`${id}.md`);
 }
 
 export function topicList(list: Topic[]): string {
@@ -40,7 +52,16 @@ export function forTerminal(text: string, ids: string[]): string {
     .join('\n');
 }
 
-export async function docs(args: Arguments, _context: CheckContext, json: boolean): Promise<Result> {
+export async function docs(args: Arguments, context: CheckContext, json: boolean): Promise<Result> {
+  try {
+    return await show(args, context, json);
+  } catch (error) {
+    if (!(error instanceof Missing)) throw error;
+    return { code: 2, stdout: renderErrors([{ code: 'internal', file: null, line: null, message: error.message, next: 'reinstall Lawcheck, then run lawcheck check' }], json, 'docs') };
+  }
+}
+
+async function show(args: Arguments, _context: CheckContext, json: boolean): Promise<Result> {
   if (args.words.length > 1) return usageError('docs takes one topic at most', json, 'docs');
   const list = topics();
   const id = args.words[0];

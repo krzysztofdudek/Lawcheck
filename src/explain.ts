@@ -313,6 +313,8 @@ export function fileText(answer: FileAnswer): string {
   if (answer.exists) {
     if (answer.waivers.length === 0) lines.push('  waivers:  none');
     else lines.push('  waivers:', ...answer.waivers.map((w) => `    ${shown(answer.path)}:${w.line}  ${w.rule}  ${shown(w.reason)}`));
+  } else if (/[*?[\]{}]/.test(answer.path)) {
+    lines.push('  pattern:  none; explain takes one path, so * ? [ ] { } in it are letters of a name and select nothing');
   }
   return lines.join('\n') + '\n';
 }
