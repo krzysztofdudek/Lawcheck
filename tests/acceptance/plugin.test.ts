@@ -70,7 +70,7 @@ test('test 152: the files of the plugin', () => {
   assert.deepEqual(JSON.parse(readFileSync(join(PLUGIN, 'hooks', 'hooks.json'), 'utf8')), JSON.parse(specBlock('hooks-manifest')));
   const files = walk(PLUGIN).sort();
   const modules = files.filter((file) => file.endsWith('.mjs'));
-  assert.deepEqual(files.filter((file) => !file.endsWith('.mjs')), ['.claude-plugin/plugin.json', 'LICENSE', 'hooks/hooks.json', 'skills/setup/SKILL.md', 'skills/setup/references/advice.md', 'skills/setup/references/target.md']);
+  assert.deepEqual(files.filter((file) => !file.endsWith('.mjs')), ['.claude-plugin/plugin.json', 'LICENSE', 'hooks/hooks.json', 'skills/setup/SKILL.md']);
   assert.ok(modules.includes('hooks/lawcheck-hook.mjs'));
   for (const file of modules) {
     assert.equal(dirname(file), 'hooks', file);
@@ -972,4 +972,44 @@ test('test 905: control, the names of parts and steps are found in every form th
     'a.md links missing.md, which does not exist',
     'a.md: a file format does not say in its first paragraph that nothing in it is law',
   ]);
+});
+
+function sectionOf(page: string, heading: string): string {
+  const lines = page.split('\n');
+  const start = lines.findIndex((line) => line === `## ${heading}`);
+  assert.ok(start >= 0, `docs/agent-setup.md has no part "${heading}"`);
+  const end = lines.findIndex((line, i) => i > start && line.startsWith('## '));
+  return lines.slice(start, end < 0 ? undefined : end).join('\n');
+}
+
+const SENTENCES: [string, string, string][] = [
+  ['220', '4. Describe the files as types', 'Generated or vendored code that typed code uses gets a type of its own, with no `may_use` list, and never a place under `ignored`'],
+  ['221', '8. Write the rules', 'A written rule counts whether or not the code keeps it today, and its findings go to the question of step 10.'],
+  ['222', 'Never', 'Bind a rule to fewer types than the written rule names, to avoid a finding.'],
+  ['222', 'Never', 'The exception subtype that the user chose in step 10 is not "out of its type"'],
+  ['225', '1. Before anything', 'not in PowerShell: PowerShell has no `cmp`, and its `cp` is another command.'],
+  ['225', '10. Explain, and ask', 'A boundary question offers the three ways of [A boundary the code already breaks](#a-boundary-the-code-already-breaks), never only yes or no.'],
+  ['225', '6. Write the lists that hold today', 'A parent type with no list restricts no file that only the parent takes: a new file in its folder, outside the folders of its subtypes, passes unchecked'],
+];
+
+const missingSentences = (page: string, wanted: [string, string, string][]): string[] => wanted.filter(([, heading, sentence]) => !sectionOf(page, heading).includes(sentence)).map(([issue, heading, sentence]) => `issue ${issue}: the part "${heading}" lacks "${sentence}"`);
+
+test('test 906: the setup page says that generated code typed code uses gets a type, that a written rule counts whether or not the code keeps it, that a rule is never bound to fewer types than it names, that PowerShell has no cmp, that step 10 offers three ways, and that a parent type with no list passes a new file unchecked', () => {
+  const page = readFileSync(join(ROOT, 'docs', 'agent-setup.md'), 'utf8');
+  assert.deepEqual(missingSentences(page, SENTENCES), []);
+  assert.ok(!/\bcmp\b[^.]*\bdiffer/.test(page), 'the shell sentence no longer says that cp and cmp differ in PowerShell');
+  assert.ok(!/ignored. is only for generated or vendored code, and/.test(page), 'ignored is not offered for code that typed code uses');
+});
+
+test('test 906: control, a part that lacks a sentence is named, and a sentence in another part does not count', () => {
+  const page = '# P\n\n## 8. Rules\n\nA written rule counts.\n\n## Never\n\nA written rule counts whether or not the code keeps it.\n';
+  assert.deepEqual(missingSentences(page, [['221', '8. Rules', 'whether or not the code keeps it']]), ['issue 221: the part "8. Rules" lacks "whether or not the code keeps it"']);
+  assert.deepEqual(missingSentences(page, [['221', 'Never', 'whether or not the code keeps it']]), []);
+});
+
+test('test 907: the setup skill and its references hold no instruction for a file this version never writes', () => {
+  const files = skillFiles();
+  assert.deepEqual(files.map((file) => relative(SKILL, file)), ['SKILL.md']);
+  for (const file of files) assert.doesNotMatch(readFileSync(file, 'utf8'), /advice\.md|target\.md|rules of a proposal|\.lawcheck\/(advice|target)/i, relative(ROOT, file));
+  assert.doesNotMatch(readFileSync(join(ROOT, 'docs', 'agent-setup.md'), 'utf8'), /advice\.md|target\.md/);
 });
