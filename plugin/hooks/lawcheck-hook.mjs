@@ -236,7 +236,7 @@ async function stop(input, deadline) {
   return handBack;
 }
 
-// An agent with no field for the user is sent back once per turn to tell the user the message of the end of the turn (the owner's ruling wtyczki-odsylaja-agenta-raz); the prompt event of the next turn writes a state without the mark.
+// Cursor has no field in which a message of a hook reaches the user, so the agent is sent back once per turn to say it; the prompt event of the next turn writes a state without the mark.
 function relay(input, text) {
   const file = stateFile(input.session_id);
   const state = readState(file);

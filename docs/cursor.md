@@ -49,7 +49,7 @@ These were checked:
 
 - Cursor's documentation of its hooks: it loads Claude Code hooks, maps `SessionStart`, `UserPromptSubmit`, `PostToolUse` and `Stop` to the four events above, maps the Claude Code tool `Edit` to its own `Write`, and treats a `Stop` hook's `decision` of `block` with a `reason` as a message sent as the next one. It lists a `cwd` for the input of the edit and none for the session start and `beforeSubmitPrompt`.
 - The code of Cursor's command-line agent, version 2026.11.22, read on disk with no account. It loads the plugins in `~/.claude/plugins/installed_plugins.json` that `enabledPlugins` does not switch off. It reads `.claude-plugin/plugin.json` and the `hooks/hooks.json` of the plugin, joins each `command` and its `args`, and sets `CLAUDE_PLUGIN_ROOT` for the hook. It runs a plugin's hooks from the plugin's folder, except `stop`, which runs from the workspace. Every input names the workspace in `workspace_roots`. The input of a `Write` holds `file_path`. The input of `stop` holds `status` and `loop_count`, and no `stop_hook_active`. Its output handling reads `hookSpecificOutput` with `additionalContext` for the first three events, and has no place for a message to the user, other than the one of a hook that blocks a prompt or a tool.
-- Lawcheck's tests run the plugin's hooks on inputs with these fields, and the hooks give the outputs of this page.
+- The hooks of the plugin, run on inputs with these fields, give the outputs of this page. The inputs are built from the documentation and the code above, not recorded from a session.
 
 These were not checked:
 
