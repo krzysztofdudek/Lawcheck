@@ -185,7 +185,8 @@ export function validate(rule: string, value: unknown, file: RuleFile): { findin
   for (const item of value as unknown[]) {
     if (typeof item !== 'object' || item === null || Array.isArray(item)) return { problem: 'a finding that is no object' };
     const { message, file: path, line } = item as { message?: unknown; file?: unknown; line?: unknown };
-    if (typeof message !== 'string' || message === '') return { problem: 'a finding without a message' };
+    if (message === undefined || message === null || message === '') return { problem: 'a finding without a message' };
+    if (typeof message !== 'string') return { problem: `a finding whose message is ${valueName(message)}, not a string` };
     if (path !== undefined && path !== file.path) return { problem: `a finding about '${String(path)}'` };
     if (line !== undefined && line !== null) {
       if (!Number.isInteger(line)) return { problem: `a finding whose line is ${valueName(line)}, not an integer` };

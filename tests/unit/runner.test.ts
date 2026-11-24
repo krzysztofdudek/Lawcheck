@@ -276,7 +276,7 @@ test('R-42: what a check returns that is no list of findings is named, and so is
   for (const value of ['{}', '5', 'null', 'undefined', "'abc'"]) assert.equal(await returned(value), 'returns no list for a.ts', value);
   assert.equal(await returned('[null]'), 'returns a finding that is no object for a.ts');
   assert.equal(await returned('[5]'), 'returns a finding that is no object for a.ts');
-  assert.equal(await returned('[{ message: 5 }]'), 'returns a finding without a message for a.ts');
+  assert.equal(await returned('[{ message: 5 }]'), 'returns a finding whose message is the number 5, not a string for a.ts');
   assert.equal(await returned("[{ message: 'a', line: 'x' }]"), 'returns a finding whose line is the string "x", not an integer for a.ts');
   assert.equal(await returned("[{ message: 'a' }]"), undefined);
 });

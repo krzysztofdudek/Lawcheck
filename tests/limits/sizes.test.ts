@@ -338,3 +338,45 @@ test('test 275: a file past the uses limit outside the change is debt, and one r
     );
   }
 });
+
+const CRASHED = '.lawcheck/rules/no-console.mjs  error[rule-crashed]  ';
+const shown = (text: string, more: number) => `${text}… (cut: ${more.toLocaleString('en-US')} more characters)`;
+
+test('test 1300: an error of 50 MB that a rule throws is cut at 4,096 characters of its first line, with the count left out, in check, check --json, try and try --json', async () => {
+  await withSample(async (s) => {
+    setRule(s, 'no-console', "export function check() { throw new Error('x'.repeat(50 * 1024 * 1024)); }\n");
+    write(s, 'src/core/a.ts', 'export const a = 1;\n');
+    const message = `throws on src/core/a.ts: ${shown('x'.repeat(4096), 50 * 1024 * 1024 - 4096)}`;
+    for (const args of [['check', '--base', 'main'], ['try', 'no-console', 'src/core/a.ts']]) {
+      const text = await run(s, args);
+      assert.deepEqual([text.code, errorLines(text.stdout)], [2, [`${CRASHED}${message}`]]);
+      assert.ok(text.stdout.length < 6000, `${args[0]} printed ${text.stdout.length} characters`);
+      const json = await run(s, [...args, '--json']);
+      assert.deepEqual([json.code, JSON.parse(json.stdout).errors.map((error: { message: string }) => error.message)], [2, [message]]);
+      assert.ok(json.stdout.length < 6000, `${args[0]} --json printed ${json.stdout.length} characters`);
+    }
+  });
+});
+
+const longLine = `line too long: ${'é'.repeat(100_000)}`;
+const cutCases: [string, string, string][] = [
+  ['a throw', "export function check({ files: [f] }) { for (const l of f.lines) if (l.length > 1000) throw new Error('line too long: ' + l); return []; }\n", 'throws on src/core/a.ts: '],
+  ['a rejection', "export async function check({ files: [f] }) { await null; for (const l of f.lines) if (l.length > 1000) throw new Error('line too long: ' + l); return []; }\n", 'throws on src/core/a.ts: '],
+  ['a rejection nobody handles', "export function check({ files: [f] }) { for (const l of f.lines) if (l.length > 1000) Promise.reject(new Error('line too long: ' + l)); return []; }\n", 'fails in the background: '],
+  ['a throw in the load', `throw new Error('${longLine}\\nsecond line');\nexport function check() { return []; }\n`, 'fails to load: '],
+];
+
+for (const [what, source, start] of cutCases) {
+  test(`test 1300: ${what} with a line of 100,000 characters is cut at 4,096 characters, and a line at the limit is shown whole`, async () => {
+    await withSample(async (s) => {
+      setRule(s, 'no-console', source);
+      write(s, 'src/core/a.ts', `${longLine.slice('line too long: '.length)}\n`);
+      const long = await run(s, ['check', '--base', 'main']);
+      assert.deepEqual([long.code, errorLines(long.stdout)], [2, [`${CRASHED}${start}${shown(longLine.slice(0, 4096), longLine.length - 4096)}`]]);
+      const atLimit = longLine.slice(0, 4096);
+      setRule(s, 'no-console', source.replace("'line too long: ' + l", "('line too long: ' + l).slice(0, 4096)").replace(longLine, atLimit));
+      const whole = await run(s, ['check', '--base', 'main']);
+      assert.deepEqual([whole.code, errorLines(whole.stdout)], [2, [`${CRASHED}${start}${atLimit}`]]);
+    });
+  });
+}
