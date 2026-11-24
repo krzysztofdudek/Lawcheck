@@ -1,9 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { copySample, D, D_PATH, git, GIT_ENV, inTemp, lawcheck, makeSample, TEST4, write } from '../acceptance/helpers.ts';
+import { copySample, D, D_PATH, git, GIT_ENV, inTemp, lawcheck, makeSample, ROOT, TEST4, write } from '../acceptance/helpers.ts';
 
 function nextLine(stdout: string): string {
   return stdout.split('\n').find((line) => line.startsWith('next: ') || line.startsWith('  next: '))?.trim().slice('next: '.length) ?? '';
@@ -152,5 +152,32 @@ test('S1-15: no-git in a bare repository says what a bare repository is, and not
       assert.ok(said.endsWith(': this is a bare repository or the inside of a .git folder, which has no files'), `${args[0]}: ${said}`);
       assert.equal(run.code, 2, args[0]);
     }
+  });
+});
+test('R-71: a git cell that fails shows every failing test of the run with its whole detail, however long, and the end of the log when no test failed', async () => {
+  await inTemp(async (dir) => {
+    copyFileSync(join(ROOT, 'tests/environments/matrix/failing-tests.sh'), join(dir, 'failing-tests.sh'));
+    const detail = (name: string, lines: number, last: string) => [`✖ ${name} (12.3ms)`, '  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:', ...Array.from({ length: lines }, (_, i) => `  line ${i + 1} of the difference`), `  ${last}`, '      at async TestContext.<anonymous> (file:///cell/repo/tests/acceptance/x.test.ts:1:1)', ''];
+    const log = [
+      '▶ a passing group',
+      '✖ the first test that fails (12.3ms)',
+      '✖ the second test that fails (4.1ms)',
+      'ℹ tests 12',
+      'ℹ pass 10',
+      'ℹ fail 2',
+      '',
+      '✖ failing tests:',
+      '',
+      ...detail('the first test that fails', 300, 'the last line of the first detail'),
+      ...detail('the second test that fails', 5, 'the last line of the second detail'),
+    ].join('\n');
+    write(dir, 'cell-tests.log', `${log}\n`);
+    const shown = execFileSync(SHELL[0], [...SHELL[1], 'sh failing-tests.sh cell-tests.log'], { cwd: dir, encoding: 'utf8' });
+    assert.ok(shown.includes('line 300 of the difference'), 'the 300th line of the first detail');
+    assert.ok(shown.includes('the last line of the first detail'));
+    assert.ok(shown.includes('the last line of the second detail'));
+    write(dir, 'crash.log', `${Array.from({ length: 400 }, (_, i) => `output ${i + 1}`).join('\n')}\nthe process was killed\n`);
+    const crashed = execFileSync(SHELL[0], [...SHELL[1], 'sh failing-tests.sh crash.log'], { cwd: dir, encoding: 'utf8' });
+    assert.ok(crashed.includes('the process was killed') && crashed.includes('output 300'), crashed);
   });
 });
