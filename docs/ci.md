@@ -120,7 +120,7 @@ echo node_modules/ >> .gitignore
 
 ### 5. Give the base on another CI service
 
-A check of the change takes its base from `--base`, then from `LAWCHECK_BASE`, then from the variables of the CI service below, then from `origin/HEAD`. Lawcheck reads the variables of a service only when that service's own variable is set and `CI` is not `false`, `no`, `0` or `off`. The base is `origin/` and the branch name. For Azure Pipelines, Lawcheck first removes the prefix `refs/heads/`.
+A [check of the change](concepts.md#check-of-the-change) takes its base from `--base`, then from `LAWCHECK_BASE`, then from the variables of the CI service below, then from `origin/HEAD`. Lawcheck reads the variables of a service only when that service's own variable is set and `CI` is not `false`, `no`, `0` or `off`. The base is `origin/` and the branch name. For Azure Pipelines, Lawcheck first removes the prefix `refs/heads/`.
 
 | CI service | Variable | What it holds |
 |---|---|---|
@@ -138,7 +138,7 @@ $ lawcheck check
 ```output
 lawcheck: ERROR  1 error
 
-error[base-unreachable]  no base in this CI job: no --base, no LAWCHECK_BASE, no variable of the CI service for a pull request or push, and no origin/HEAD, and a plain check without one would count every file as changed
+error[base-unreachable]  no base in this CI job: no --base, no LAWCHECK_BASE, no variable of the CI service for a pull request or push, and no origin/HEAD, and a check of the change without one would count every file as changed
   why:  without its base a change cannot be told from debt
 
 next: pass --base origin/<the branch the change goes into> or set LAWCHECK_BASE, with the history fetched (fetch-depth: 0 in actions/checkout, GIT_DEPTH: 0 in GitLab CI, fetchDepth: 0 in Azure Pipelines); or judge every file with lawcheck check --full

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import plainAssert from 'node:assert';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync as existsSyncOf } from 'node:fs';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { outputProblem } from '../harness/invariants.ts';
@@ -14,6 +14,9 @@ import { tmpdir } from 'node:os';
 import { CLI, CouldNotRun, withoutTypeStrippingWarning, expectBroken, fakeWrites, HOOK, PLATFORM_SKIPS, platformSkip, ROOT, startHook, startProgram, startShell, startTool, testFolder, unpackTarball } from '../harness/tool.ts';
 import { promiseOf } from '../harness/promises.ts';
 import { gitChanges, gitState } from '../harness/state.ts';
+import { judgeRun, killsSince, oomKills } from '../harness/reporter.ts';
+import { count, findTest, readEntries, sabotage } from '../sabotage/run.ts';
+import type { Entry, Tools } from '../sabotage/run.ts';
 import { GIT_ENV } from '../acceptance/helpers.ts';
 import type { Expect, Shell } from '../harness/tool.ts';
 
@@ -100,7 +103,7 @@ test('harness-1: an exit code outside 0, 1 and 2, or a death by signal, fails th
   });
 });
 
-test('harness-1: a signal the test sends ends the run as the spec says, and SIGKILL alone may end it by the signal', async () => {
+test('harness-1: a signal the test sends ends the run as docs/codes.md says (stopped, exit 2) and as decision 56 says (a hook, exit 0), and SIGKILL alone may end it by the signal', async () => {
   if (platformSkip('the answer to a caught signal') !== null) return;
   await inTemp(async (dir) => {
     const ready = "process.stdout.write('ready\\n'); setInterval(() => {}, 1000);";
@@ -265,6 +268,70 @@ test('harness-8: a run may change nothing outside its repository: not its tempor
     fakeWrites(dir, ['record.json']);
     assert.equal((await tool(dir, "writeFileSync('../record.json', 'x');", ['check'], {}, repo)).code, 0);
   });
+});
+
+test('harness-8: a file written beside a repository that lies below the test folder is outside the repository, and a changed mode alone is a change', async () => {
+  await inTemp(async (dir) => {
+    mkdirSync(join(dir, 'a'));
+    const repo = repository(join(dir, 'a'));
+    assert.match((await expectBroken('harness-8', () => tool(dir, "writeFileSync('../other.txt', 'x');", ['check'], {}, repo))).message, /a\/other\.txt/);
+    rmSync(join(dir, 'a', 'other.txt'));
+    const kept = join(dir, 'mode.txt');
+    writeFileSync(kept, 'x\n');
+    process.getBuiltinModule('node:fs').chmodSync(kept, 0o644);
+    assert.match((await expectBroken('harness-8', () => tool(dir, "process.getBuiltinModule('node:fs').chmodSync('../../mode.txt', 0o444);", ['check'], {}, repo))).message, /mode\.txt/);
+  });
+});
+
+async function* stream(...list: { type: string; data: object }[]): AsyncGenerator<{ type: string; data: object }> {
+  for (const event of list) yield event;
+}
+
+const failedFile = (error: object) => stream({ type: 'test:fail', data: { name: 'test 5: a test', file: join(ROOT, 'tests', 'unit', 'x.test.ts'), nesting: 0, details: { duration_ms: 1, error } } });
+const ended = { code: 'ERR_TEST_FAILURE', message: 'test failed' };
+
+test('test 1004: the reporter says how the process of a test file ended, and counts the processes the kernel killed for lack of memory only after a SIGKILL', async () => {
+  const got = async (error: object, kills: number | null): Promise<string> => {
+    const text = (await judgeRun(failedFile(error), { system: 'linux', started: null, target: 0, oomKills: () => kills })).text;
+    return /^got {6}(.*)$/m.exec(text)![1]!;
+  };
+  const killed = { ...ended, signal: 'SIGKILL' };
+  assert.equal(await got(killed, 2), 'test failed: SIGKILL ended the process of the test file, and memory.events of this cgroup counts 2 processes the kernel killed for lack of memory');
+  assert.equal(await got(killed, 1), 'test failed: SIGKILL ended the process of the test file, and memory.events of this cgroup counts 1 process the kernel killed for lack of memory');
+  assert.equal(await got(killed, 0), 'test failed: SIGKILL ended the process of the test file');
+  assert.equal(await got(killed, null), 'test failed: SIGKILL ended the process of the test file');
+  assert.equal(await got({ ...ended, signal: 'SIGTERM' }, 2), 'test failed: SIGTERM ended the process of the test file');
+  assert.equal(await got({ ...ended, failureType: 'testCodeFailure', exitCode: 3 }, 2), 'test failed: the process of the test file exited with 3');
+  assert.equal(await got({ ...ended, failureType: 'testCodeFailure', exitCode: 0 }, 2), 'test failed');
+  assert.equal(await got({ code: 'ERR_ASSERTION', message: 'a is not b', signal: 'SIGKILL' }, 2), 'a is not b');
+  let read = 0;
+  const passing = stream({ type: 'test:pass', data: { name: 'test 5: a test', file: join(ROOT, 'tests', 'unit', 'x.test.ts'), nesting: 0, details: { duration_ms: 1 } } });
+  assert.equal((await judgeRun(passing, { system: 'linux', started: null, target: 0, oomKills: () => ++read })).red, false);
+  assert.equal(read, 0);
+});
+
+test('test 1004: the count of killed processes is read from memory.events of the cgroup the process names, and a run reports only the kills since it started', async () => {
+  await inTemp(async (dir) => {
+    const proc = join(dir, 'cgroup');
+    mkdirSync(join(dir, 'sys', 'job'), { recursive: true });
+    const events = join(dir, 'sys', 'job', 'memory.events');
+    writeFileSync(proc, '0::/job\n');
+    writeFileSync(events, 'low 0\nhigh 0\nmax 4\noom 3\noom_kill 3\n');
+    assert.equal(oomKills(proc, join(dir, 'sys')), 3);
+    writeFileSync(events, 'low 0\nmax 4\n');
+    assert.equal(oomKills(proc, join(dir, 'sys')), null);
+    writeFileSync(proc, '12:memory:/job\n');
+    assert.equal(oomKills(proc, join(dir, 'sys')), null);
+    assert.equal(oomKills(join(dir, 'missing'), join(dir, 'sys')), null);
+  });
+  const totals = [5, 8];
+  const since = killsSince(() => totals.shift() ?? null);
+  assert.equal(since(), 3);
+  assert.equal(killsSince(() => null)(), null);
+  const later = [4, null];
+  assert.equal(killsSince(() => (later.length > 0 ? later.shift()! : null))(), null);
+  const reset = [9, 2];
+  assert.equal(killsSince(() => reset.shift() ?? null)(), 0);
 });
 
 test('question 95: harness: two runs at once in one repository are checked together when the last ends', async () => {
@@ -546,4 +613,58 @@ test('question 95: tests/run.ts --skip <id> leaves the tests of that id out of t
   const refused = ran('--skip', 'nothing');
   assert.equal(refused.status, 2, refused.stdout + refused.stderr);
   assert.match(refused.stderr + refused.stdout, /--skip takes a test id/);
+});
+
+const LIST = join(ROOT, 'tests', 'sabotage', 'list.json');
+const ENTRY = { id: 'one', promise: 'test 1', file: 'src/a.ts', find: 'v = 1', replace: 'v = 2', killedBy: 'test 7: a' };
+
+test('test 1003: tests/sabotage/list.json reads as entries with every field, each finds its text once in its file and names a test that exists', () => {
+  const entries = readEntries(readFileSync(LIST, 'utf8'));
+  assert.ok(entries.length > 0);
+  const problems: string[] = [];
+  for (const entry of entries) {
+    const text = readFileSync(join(ROOT, entry.file), 'utf8');
+    if (count(text, entry.find) !== 1) problems.push(`${entry.id}: its find text occurs ${count(text, entry.find)} times in ${entry.file}, not once`);
+    if (findTest(ROOT, entry.killedBy) === null) problems.push(`${entry.id}: no test is named '${entry.killedBy}'`);
+  }
+  assert.deepEqual(problems, []);
+});
+
+test('test 1003: the list is refused when it is no array, holds an empty field, uses an id twice or replaces a text with itself', () => {
+  const refused = (value: unknown, message: RegExp) => assert.throws(() => readEntries(JSON.stringify(value)), message);
+  refused({}, /not a JSON array/);
+  refused([{ ...ENTRY, replace: '' }], /entry 1 has no replace/);
+  refused([{ ...ENTRY, find: undefined }], /entry 1 has no find/);
+  refused([ENTRY, { ...ENTRY, replace: 'v = 3' }], /used twice/);
+  refused([{ ...ENTRY, replace: 'v = 1' }], /replaces its text with itself/);
+  assert.equal(readEntries(JSON.stringify([ENTRY])).length, 1);
+});
+
+test('test 1003: after a break is undone the sabotage run builds the unbroken code again before it runs the baseline of the next entry', async () => {
+  await inTemp(async (dir) => {
+    const root = join(dir, 'repo');
+    mkdirSync(join(root, 'src'), { recursive: true });
+    mkdirSync(join(root, 'tests'), { recursive: true });
+    writeFileSync(join(root, 'src', 'a.ts'), 'export const v = 1;\n');
+    writeFileSync(join(root, 'tests', 'a.test.ts'), "import { test } from 'node:test';\ntest('test 7: a', () => {});\ntest('test 8: b', () => {});\n");
+    let built = '';
+    const builds: string[] = [];
+    const tools: Tools = {
+      copyWorkingTree: (from, to) => cpSync(from, to, { recursive: true }),
+      linkShared: () => undefined,
+      build: (at) => {
+        built = readFileSync(join(at, 'src', 'a.ts'), 'utf8');
+        builds.push(built.trim());
+        return { ok: true, output: '' };
+      },
+      runTests: () => {
+        const state = built === 'export const v = 1;\n' ? 'ok' : 'not ok';
+        return { tap: `${state} 1 - test 7: a\n${state} 2 - test 8: b\n`, status: 0 };
+      },
+    };
+    const entries: Entry[] = [ENTRY, { ...ENTRY, id: 'two', replace: 'v = 3', killedBy: 'test 8: b' }];
+    const outcomes = sabotage(root, entries, () => undefined, tools);
+    assert.deepEqual(outcomes.map((o) => `${o.entry.id} ${o.result}`), ['one killed', 'two killed']);
+    assert.deepEqual(builds, ['export const v = 1;', 'export const v = 2;', 'export const v = 1;', 'export const v = 3;']);
+  });
 });

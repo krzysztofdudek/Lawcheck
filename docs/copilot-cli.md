@@ -106,10 +106,15 @@ LAWCHECK_PLUGIN_CHECK_AFTER_EDIT=false copilot
 
 `LAWCHECK_PLUGIN_CHECK_BEFORE_STOP=false` switches off the check before the agent finishes, and the messages at the end of a turn with it. The plugin reads `false`, `0`, `no` and `off` as off, in upper or lower case. [The Claude Code plugin](plugin.md) says what each hook does, and in which cases it prints nothing.
 
+## 7. Write the first law
+
+The plugin holds one skill, `lawcheck:setup`. It writes the first law of a repository with you and changes nothing outside `.lawcheck/`. Only you start it, by typing `/lawcheck:setup` in Copilot CLI, with what you want after it. The skill's file sets `disable-model-invocation: true`, which Copilot CLI honors, so Copilot never starts it from your prompt on its own. In a folder with no law, the agent tells you to type the command instead of writing a law. [The setup skill](plugin.md#the-setup-skill) says what the skill does, including advice on the architecture and a target architecture, which you ask for in the words you type after the command. The agent asks its questions in a message, and its last message names the next step.
+
 ## What this integration does not do
 
 - It writes nothing to you itself. It asks the agent to tell you, which costs one more answer of the model, and the agent may put the message in its own words.
 - It checks no file after an edit that a shell command wrote. The check before the end of the turn judges that file.
+- It has no switch for the setup skill: it starts only when you type `/lawcheck:setup`. That Copilot CLI honors the flag comes from its changelog, which says so since version 1.0.74; the skill was not started in a Copilot CLI session.
 - It has no settings in Copilot CLI. Two variables of the environment switch its checks off.
 - It is not in Copilot's own directory of plugins. It comes from the marketplace of the Lawcheck repository.
 - It does not run in Copilot in VS Code or in the Copilot coding agent on GitHub. The coding agent installs no plugins.

@@ -65,6 +65,7 @@ function claudeContext(event, text) {
 
 export const HOSTS = {
   'claude-code': {
+    setup: '/lawcheck:setup',
     sessionId: (input) => input.session_id,
     context: claudeContext,
     tellsUser: true,
@@ -74,6 +75,7 @@ export const HOSTS = {
     switches: { check_after_edit: 'CLAUDE_PLUGIN_OPTION_CHECK_AFTER_EDIT', check_before_stop: 'CLAUDE_PLUGIN_OPTION_CHECK_BEFORE_STOP' },
   },
   codex: {
+    setup: '$lawcheck:setup',
     sessionId: (input) => input.session_id,
     context: claudeContext,
     tellsUser: true,
@@ -83,6 +85,7 @@ export const HOSTS = {
     switches: { check_after_edit: 'LAWCHECK_PLUGIN_CHECK_AFTER_EDIT', check_before_stop: 'LAWCHECK_PLUGIN_CHECK_BEFORE_STOP' },
   },
   copilot: {
+    setup: '/lawcheck:setup',
     sessionId: (input) => input.sessionId,
     context: (event, text) => ({ additionalContext: text }),
     tellsUser: false,
