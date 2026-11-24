@@ -1,9 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { copySample, D, D_PATH, git, GIT_ENV, inTemp, lawcheck, makeSample, TEST4, write } from '../acceptance/helpers.ts';
+import { copySample, D, D_PATH, git, GIT_ENV, inTemp, lawcheck, makeSample, ROOT, TEST4, write } from '../acceptance/helpers.ts';
 
 function nextLine(stdout: string): string {
   return stdout.split('\n').find((line) => line.startsWith('next: ') || line.startsWith('  next: '))?.trim().slice('next: '.length) ?? '';
@@ -91,5 +91,93 @@ test('S1-10: a base taken from a dangling origin/HEAD says where it came from, a
     assert.equal(run.stdout.split('\n')[2], "error[base-unreachable]  the base 'upstream/main', which origin/HEAD names, names no commit here");
     assert.equal(nextLine(run.stdout), 'pass --base with a branch or a commit that exists here, or point origin/HEAD at one with git remote set-head origin --auto');
     assert.equal(run.code, 2);
+  });
+});
+
+test('S1-15: a sparse checkout that leaves .lawcheck out says the index holds the law, and the sparse-checkout command it names lets check through', async () => {
+  await inTemp(async (dir) => {
+    const s = makeSample(dir);
+    git(s, 'sparse-checkout', 'init', '--no-cone');
+    git(s, 'sparse-checkout', 'set', 'src/**', 'tools/**');
+    const run = await lawcheck(s, ['check', '--base', 'main']);
+    assert.equal(run.stdout.split('\n')[2], "error[not-initialized]  no .lawcheck/law.yaml in this directory or any above it, though git's index lists .lawcheck/law.yaml: the sparse checkout leaves it out of the work tree");
+    assert.equal(nextLine(run.stdout), 'let the sparse checkout take the folder of the law: git sparse-checkout add .lawcheck, then run lawcheck check');
+    assert.equal(run.code, 2);
+    const json = JSON.parse((await lawcheck(s, ['check', '--base', 'main', '--json'])).stdout);
+    assert.equal(json.next.command, 'git sparse-checkout add .lawcheck');
+    const doctor = await lawcheck(s, ['doctor']);
+    assert.match(doctor.stdout, /\nfail {2}law {2}no \.lawcheck\/law\.yaml in this directory or any above it, though git's index lists \.lawcheck\/law\.yaml: the sparse checkout leaves it out of the work tree\n {2}next: let the sparse checkout take the folder of the law: git sparse-checkout add \.lawcheck, then run lawcheck doctor again\n/);
+    git(s, 'sparse-checkout', 'add', '.lawcheck');
+    assert.equal((await lawcheck(s, ['check', '--base', 'main'])).code, 0);
+  });
+});
+
+test('S1-15: from a folder below the top, the sparse-checkout command runs at the top, where git takes it', async () => {
+  await inTemp(async (dir) => {
+    const s = makeSample(dir);
+    git(s, 'sparse-checkout', 'init', '--no-cone');
+    git(s, 'sparse-checkout', 'set', 'src/**', 'tools/**');
+    const below = join(s, 'src', 'core');
+    const json = JSON.parse((await lawcheck(below, ['check', '--base', 'main', '--json'])).stdout);
+    assert.deepEqual(json.next, { command: 'git -C ../.. sparse-checkout add .lawcheck', text: 'let the sparse checkout take the folder of the law: git -C ../.. sparse-checkout add .lawcheck, then run lawcheck check' });
+    git(below, '-C', '../..', 'sparse-checkout', 'add', '.lawcheck');
+    assert.equal((await lawcheck(below, ['check', '--base', 'main'])).code, 0);
+  });
+});
+
+test('S1-15: a folder with no law that git does not list keeps the plain not-initialized, and a missing file that is no sparse choice does too', async () => {
+  await inTemp(async (dir) => {
+    const s = makeSample(dir);
+    rmSync(join(s, '.lawcheck', 'law.yaml'));
+    const run = await lawcheck(s, ['check', '--base', 'main']);
+    assert.equal(run.stdout.split('\n')[2], 'error[not-initialized]  no .lawcheck/law.yaml in this directory or any above it');
+    assert.equal(nextLine(run.stdout), 'write .lawcheck/law.yaml at the root of the code to check, then run lawcheck check');
+    const bare = join(dir, 'plain');
+    mkdirSync(bare);
+    const none = await lawcheck(bare, ['check']);
+    assert.equal(none.stdout.split('\n')[2], 'error[not-initialized]  no .lawcheck/law.yaml in this directory or any above it');
+  });
+});
+
+test('S1-15: no-git in a bare repository says what a bare repository is, and not the word git printed', async () => {
+  await inTemp(async (dir) => {
+    const bare = join(dir, 'bare.git');
+    git(dir, 'init', '-q', '--bare', bare);
+    mkdirSync(join(bare, '.lawcheck'));
+    writeFileSync(join(bare, '.lawcheck', 'law.yaml'), 'lawcheck: 0.1.0\n');
+    for (const args of [['check', '--full'], ['init'], ['doctor']]) {
+      const run = await lawcheck(bare, args);
+      const said = run.stdout.split('\n').find((line) => line.includes('git does not see a work tree here'));
+      assert.ok(said !== undefined, `${args[0]}: ${run.stdout}`);
+      assert.ok(said.endsWith(': this is a bare repository or the inside of a .git folder, which has no files'), `${args[0]}: ${said}`);
+      assert.equal(run.code, 2, args[0]);
+    }
+  });
+});
+test('R-71: a git cell that fails shows every failing test of the run with its whole detail, however long, and the end of the log when no test failed', async () => {
+  await inTemp(async (dir) => {
+    copyFileSync(join(ROOT, 'tests/environments/matrix/failing-tests.sh'), join(dir, 'failing-tests.sh'));
+    const detail = (name: string, lines: number, last: string) => [`✖ ${name} (12.3ms)`, '  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:', ...Array.from({ length: lines }, (_, i) => `  line ${i + 1} of the difference`), `  ${last}`, '      at async TestContext.<anonymous> (file:///cell/repo/tests/acceptance/x.test.ts:1:1)', ''];
+    const log = [
+      '▶ a passing group',
+      '✖ the first test that fails (12.3ms)',
+      '✖ the second test that fails (4.1ms)',
+      'ℹ tests 12',
+      'ℹ pass 10',
+      'ℹ fail 2',
+      '',
+      '✖ failing tests:',
+      '',
+      ...detail('the first test that fails', 300, 'the last line of the first detail'),
+      ...detail('the second test that fails', 5, 'the last line of the second detail'),
+    ].join('\n');
+    write(dir, 'cell-tests.log', `${log}\n`);
+    const shown = execFileSync(SHELL[0], [...SHELL[1], 'sh failing-tests.sh cell-tests.log'], { cwd: dir, encoding: 'utf8' });
+    assert.ok(shown.includes('line 300 of the difference'), 'the 300th line of the first detail');
+    assert.ok(shown.includes('the last line of the first detail'));
+    assert.ok(shown.includes('the last line of the second detail'));
+    write(dir, 'crash.log', `${Array.from({ length: 400 }, (_, i) => `output ${i + 1}`).join('\n')}\nthe process was killed\n`);
+    const crashed = execFileSync(SHELL[0], [...SHELL[1], 'sh failing-tests.sh crash.log'], { cwd: dir, encoding: 'utf8' });
+    assert.ok(crashed.includes('the process was killed') && crashed.includes('output 300'), crashed);
   });
 });
