@@ -52,11 +52,15 @@ export function screensOf(timeline) {
     segment.screens.forEach((screen, index) => {
       const start = segment.start + screen.at;
       const end = index + 1 < segment.screens.length ? segment.start + segment.screens[index + 1].at : segment.end;
-      const text = [...screen.blocks.flatMap(stringsOf), ...(segment.caption ? [segment.caption] : [])];
+      const text = [...screen.blocks.flatMap(stringsOf), ...(segment.caption ? [segment.caption] : []), ...(segment.subtitle ? [segment.subtitle] : [])];
       screens.push({ id: `${segment.id}-${index + 1}`, segment, screen, start, end, text });
     });
   }
   return screens;
+}
+
+export function timelinesOf(edit) {
+  return [{ name: 'loop', segments: edit.loop }, ...(edit.chapters ?? []).map((chapter) => ({ name: chapter.page, segments: chapter.timeline, chapter }))];
 }
 
 export function lengthOf(timeline) {
@@ -71,4 +75,40 @@ export function widthOf(block, columns) {
 
 export function piecesOf(block, line, columns) {
   return wrap(plain(`${line.prompt ? '$ ' : ''}${line.text}`), widthOf(block, columns));
+}
+
+const COLORS = ['black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white'];
+
+export function decodeTerminal(jsonl) {
+  const [, ...events] = jsonl.split('\n').filter((line) => line !== '');
+  const stream = events.map((line) => JSON.parse(line)[1]).join('').replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, '');
+  const lines = [];
+  let line = [];
+  let color = null;
+  for (let i = 0; i < stream.length; i++) {
+    const char = stream[i];
+    if (char === '\x1b') {
+      const csi = /^\x1b\[([0-9;?]*)([@-~])/.exec(stream.slice(i, i + 32));
+      if (csi === null) {
+        i += 1;
+        continue;
+      }
+      if (csi[2] === 'm') {
+        for (const code of (csi[1] === '' ? '0' : csi[1]).split(';').map(Number)) {
+          if (code === 0 || code === 39) color = null;
+          else if (code >= 30 && code <= 37) color = COLORS[code - 30];
+          else if (code >= 90 && code <= 97) color = COLORS[code - 90];
+        }
+      }
+      i += csi[0].length - 1;
+    } else if (char === '\n') {
+      lines.push(line);
+      line = [];
+    } else if (char === '\r') {
+      if (stream[i + 1] !== '\n') line = [];
+    } else if (char === '\b') line.pop();
+    else if (char >= ' ') line.push({ char, color });
+  }
+  lines.push(line);
+  return lines.map((cells) => ({ text: cells.map((cell) => cell.char).join(''), colors: cells.map((cell) => cell.color) }));
 }

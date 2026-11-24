@@ -1,5 +1,6 @@
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { copyFileSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build } from './build.mjs';
@@ -40,13 +41,9 @@ export function palette(tokens) {
   return Buffer.concat([Buffer.from('P6\n16 16\n255\n'), Buffer.from(all.flat())]);
 }
 
-export function render(out, quality) {
-  const edit = readEdit(ROOT);
-  const tokens = JSON.parse(readFileSync(join(ROOT, 'brand', 'tokens.json'), 'utf8'));
-  const cli = process.env.HYPERFRAMES_CLI?.split(' ') ?? HYPERFRAMES;
-  run(process.execPath, [join(FILM, 'check.mjs')], ROOT);
-  mkdirSync(out, { recursive: true });
-  const [loop] = build(join(FILM, 'dist'), ROOT).filter((made) => made.name === 'loop');
+const sha256 = (path) => createHash('sha256').update(readFileSync(path)).digest('hex');
+
+function renderLoop(loop, out, quality, edit, tokens, cli) {
   const mp4 = join(out, 'loop.mp4');
   const webm = join(out, 'loop.webm');
   const gif = join(out, 'loop.gif');
@@ -57,14 +54,55 @@ export function render(out, quality) {
   run('ffmpeg', ['-v', 'error', '-y', '-i', mp4, '-i', colors, '-lavfi', `fps=${GIF.fps},scale=${GIF.width}:-1:flags=lanczos[frames];[frames][1:v]paletteuse=dither=none`, '-loop', '0', gif], out);
   const size = statSync(gif).size;
   if (size > GIF.limitBytes) fail(`${gif} is ${size} bytes, over ${GIF.limitBytes}`);
-  return { mp4, webm, gif, seconds: loop.seconds, size };
+  return { name: 'loop', files: [mp4, webm, gif], seconds: loop.seconds, size };
+}
+
+// A chapter is a video, its subtitles and a still for the moment before it plays; the still is the middle of its first screen.
+function renderChapter(chapter, out, quality, edit, cli) {
+  const mp4 = join(out, `${chapter.name}.mp4`);
+  const vtt = join(out, `${chapter.name}.vtt`);
+  const poster = join(out, `${chapter.name}.jpg`);
+  run(cli[0], [...cli.slice(1), 'render', '--quality', quality, '--fps', String(edit.frame.fps), '-o', mp4], chapter.project);
+  copyFileSync(join(chapter.project, `${chapter.name}.vtt`), vtt);
+  const timeline = edit.chapters.find((entry) => entry.page === chapter.name).timeline;
+  const first = timeline[0].screens.length > 1 ? timeline[0].start + timeline[0].screens[1].at : timeline[0].end;
+  run('ffmpeg', ['-v', 'error', '-y', '-ss', String(first / 2), '-i', mp4, '-frames:v', '1', '-q:v', '3', poster], out);
+  return { name: chapter.name, files: [mp4, vtt, poster], seconds: chapter.seconds };
+}
+
+export function render(out, quality, only = ['loop', 'chapters']) {
+  const edit = readEdit(ROOT);
+  const tokens = JSON.parse(readFileSync(join(ROOT, 'brand', 'tokens.json'), 'utf8'));
+  const cli = process.env.HYPERFRAMES_CLI?.split(' ') ?? HYPERFRAMES;
+  run(process.execPath, [join(FILM, 'check.mjs')], ROOT);
+  mkdirSync(out, { recursive: true });
+  const projects = build(join(FILM, 'dist'), ROOT);
+  const made = [];
+  for (const project of projects) {
+    if (project.chapter ? only.includes('chapters') || only.includes(project.name) : only.includes('loop')) {
+      made.push(project.chapter ? renderChapter(project, out, quality, edit, cli) : renderLoop(project, out, quality, edit, tokens, cli));
+    }
+  }
+  const chapters = made.filter((item) => item.name !== 'loop').map((item) => ({
+    page: item.name,
+    number: edit.chapters.findIndex((chapter) => chapter.page === item.name) + 1,
+    seconds: item.seconds,
+    transcript: edit.chapters.find((chapter) => chapter.page === item.name).timeline.flatMap((segment) => (segment.subtitle === undefined ? [] : [segment.subtitle])),
+    files: Object.fromEntries(item.files.map((path) => [path.split('.').pop(), { name: path.split('/').pop(), sha256: sha256(path), bytes: statSync(path).size }])),
+  }));
+  if (chapters.length > 0) writeFileSync(join(out, 'chapters.json'), `${JSON.stringify({ chapters }, null, 2)}\n`);
+  return made;
 }
 
 if (process.argv[1] !== undefined && fileURLToPath(import.meta.url) === process.argv[1]) {
   const args = process.argv.slice(2);
   const at = args.indexOf('--out');
+  const pick = args.indexOf('--only');
   const quality = args.includes('--draft') ? 'draft' : 'delivery';
-  if (at < 0 || args[at + 1] === undefined || args.some((arg, index) => arg.startsWith('--') && arg !== '--out' && arg !== '--draft' && index !== at + 1)) fail('usage: node film/render.mjs --out <folder outside the repository> [--draft]');
-  const made = render(resolve(args[at + 1]), quality);
-  process.stdout.write(`film/render.mjs: the loop of ${made.seconds} s in ${made.mp4}, ${made.webm} and ${made.gif} (${(made.size / 1e6).toFixed(2)} MB)\n`);
+  const known = new Set(['--out', '--draft', '--only']);
+  if (at < 0 || args[at + 1] === undefined || (pick >= 0 && args[pick + 1] === undefined) || args.some((arg, index) => arg.startsWith('--') && !known.has(arg) && index !== at + 1 && index !== pick + 1)) fail('usage: node film/render.mjs --out <folder outside the repository> [--draft] [--only loop|chapters|<page>,...]');
+  const only = pick >= 0 ? args[pick + 1].split(',') : ['loop', 'chapters'];
+  for (const made of render(resolve(args[at + 1]), quality, only)) {
+    process.stdout.write(`film/render.mjs: ${made.name === 'loop' ? 'the loop' : `the chapter ${made.name}`} of ${made.seconds} s in ${made.files.join(', ')}${made.size === undefined ? '' : ` (${(made.size / 1e6).toFixed(2)} MB)`}\n`);
+  }
 }

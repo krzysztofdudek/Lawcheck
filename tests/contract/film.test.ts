@@ -8,14 +8,15 @@ import { ROOT, startProgram, testFolder } from '../harness/tool.ts';
 import { judge } from '../../film/accept.mjs';
 import { fingerprint } from '../../film/pilot.mjs';
 import { trimRecord, trimTranscript } from '../../film/trim.mjs';
-import { decodeTerminal, privateProblems, readingProblems, stalenessProblems, truthProblems } from '../../film/check.mjs';
+import { decodeTerminal, privateProblems, readingProblems, stalenessProblems, truthProblems, versionProblems } from '../../film/check.mjs';
+import { vttOf } from '../../film/build.mjs';
 import { readEdit, wrap, words } from '../../film/edit.mjs';
 
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 
 function copyOfFilm(): { dir: string; remove(): void } {
   const folder = testFolder('lawcheck-film-');
-  for (const path of ['film/edit.json', 'film/pilot.json', 'film/takes', 'film/fixture', 'README.md', 'docs/claude-code.md']) cpSync(join(ROOT, path), join(folder.dir, path), { recursive: true });
+  for (const path of ['film/edit.json', 'film/pilot.json', 'film/takes', 'film/fixture', 'README.md', 'docs']) cpSync(join(ROOT, path), join(folder.dir, path), { recursive: true });
   return folder;
 }
 
@@ -33,7 +34,7 @@ test('test 820: every string the film puts on screen comes from its take, its ru
 test('test 820: node film/check.mjs runs this build of Lawcheck on the files of the takes and finds the output the film shows', async () => {
   const run = await startProgram(join(ROOT, 'film', 'check.mjs'), [], ROOT, GIT_ENV).ended;
   assert.equal(run.code, 0, run.stdout);
-  assert.ok(run.stdout.includes('staleness: 3 runs of this build print what the film shows\n'), run.stdout);
+  assert.ok(run.stdout.includes(`staleness: ${Object.keys(readEdit(ROOT).runs).length} runs of this build print what the film shows\n`), run.stdout);
   assert.ok(run.stdout.endsWith('film/check.mjs: PASS\n'), run.stdout);
 });
 
@@ -48,13 +49,11 @@ test('test 820: control, a changed word, a wrong line, a color the terminal did 
     l1.screens[0].blocks[1].lines[1].color = 'green';
     l2.screens[0].blocks[0].lines[0].from.line = 8;
     l3.screens[0].blocks[0].lines[2].text = 'src/core/price.ts:2  error[forbidden-use]';
-    broken.film.find((segment: { id: string }) => segment.id === 'n3').screens[0].blocks[0].lines[0].text = '9 of 20 sessions made this import.';
     assert.deepEqual(truthProblems(folder.dir, broken).problems, [
       'l1, screen 1: "+import { formatMoney } from \\"../core/format.ts\\";" is not in film/takes/a09/change.diff',
       'l1, screen 1: "ℹ pass 10" is shown green, and film/takes/a09/terminal.jsonl printed it blue',
       'l2, screen 1: "  core:" is not line 8 of film/takes/b04/law.yaml',
       'l3, screen 1: "src/core/price.ts:2  error[forbidden-use]" is not in film/takes/a09-check/output.txt',
-      'n3, screen 1: "9 of 20 sessions made this import." does not start with "8 of 20 ", the count of arm a in film/pilot.json',
     ]);
     const now = clone(edit);
     now.loop[3].screens[0].blocks[0].lines[0].now = 'b04-prime';
@@ -91,7 +90,7 @@ test('test 820: control, a run whose output or exit changed is named with its fi
   }
 });
 
-test('test 820: control, a screen too short for its new words, a screen with too many words and a loop past 30 seconds are each caught, and a long line wraps at a gap of its columns', () => {
+test('test 820: control, a screen too short for its new words, a screen with too many words, a loop past 30 seconds and a chapter shorter than 40 seconds are each caught, and a long line wraps at a gap of its columns', () => {
   const edit = readEdit(ROOT);
   const short = clone(edit);
   short.loop[0].end = 5;
@@ -101,9 +100,12 @@ test('test 820: control, a screen too short for its new words, a screen with too
   long.loop[4].end = 31;
   assert.deepEqual(readingProblems(long), ['the loop lasts 31 s, outside 15 to 30 s']);
   const crowded = clone(edit);
-  const lines = crowded.film.find((segment: { id: string }) => segment.id === 'n5').screens[0].blocks[0].lines;
-  lines.push({ text: '  why:  a type\'s may_use names every type its files may use', from: { run: 'a09-check' } });
-  assert.ok(readingProblems(crowded).some((problem) => /^n5-1: 4[6-9] words on screen at once, over 45$/.test(problem)), readingProblems(crowded).join('\n'));
+  const lines = crowded.loop[2].screens[0].blocks[0].lines;
+  for (let i = 0; i < 3; i++) lines.push({ text: '  why:  a type\'s may_use names every type its files may use', from: { run: 'a09-check' } });
+  assert.ok(readingProblems(crowded).some((problem) => /^l3-1: \d+ words on screen at once, over 45$/.test(problem)), readingProblems(crowded).join('\n'));
+  const brief = clone(edit);
+  brief.chapters = [{ page: 'quick-start', take: 'x', record: 'x', timeline: [{ id: 'x1', start: 0, end: 30, screens: [{ at: 0, blocks: [] }] }] }];
+  assert.deepEqual(readingProblems(brief), ['the chapter quick-start lasts 30 s, outside 40 to 60 s']);
   assert.deepEqual(words('src/core/price.ts:1  error[forbidden-use]'), ['src', 'core', 'price', 'ts', '1', 'error', 'forbidden', 'use']);
   assert.deepEqual(words('$ ℹ pass 10 couldn\'t'), ['pass', '10', 'couldn\'t']);
   assert.deepEqual(wrap('src/core/price.ts:1  error[forbidden-use]  core may not use api (src/api/format.ts); its may_use is [core]', 48), ['src/core/price.ts:1  error[forbidden-use]', 'core may not use api (src/api/format.ts); its', 'may_use is [core]']);
@@ -167,12 +169,21 @@ test('test 820: control, each reason film/accept.mjs refuses a take for is caugh
   }
 });
 
-test('test 820: control, the small line of a card that names other versions than every session of film/pilot.json is caught', () => {
+test('test 820: control, a version, a version after @ and the name of a model on a screen, in a caption or in a subtitle are each caught, and a chapter\'s subtitles become one cue per segment', () => {
   const edit = readEdit(ROOT);
+  assert.deepEqual(versionProblems(edit), []);
   const other = clone(edit);
-  const card = other.film.find((segment: { id: string }) => segment.id === 'n3').screens[0].blocks[0];
-  card.small.text = card.small.text.replace('2.1.330', '2.1.331');
-  assert.deepEqual(truthProblems(ROOT, other).problems, [`n3, screen 1: ${JSON.stringify(card.small.text)} does not say "Claude Code 2.1.330, Sonnet 5.5 at medium", the versions of every session of film/pilot.json`]);
+  other.loop[0].caption = 'Claude Code 2.1.330, Sonnet at medium';
+  other.loop[1].subtitle = 'The law of lawcheck 0.1.0.';
+  other.loop[4].screens[0].blocks[0].lines[0].text = 'uses: actions/checkout@v4';
+  assert.deepEqual(versionProblems(other), [
+    'l1-1: "Claude Code 2.1.330, Sonnet at medium" shows a number with a point, as a version has: 2.1',
+    'l1-1: "Claude Code 2.1.330, Sonnet at medium" shows the name of a model: Sonnet',
+    'l2-1: "The law of lawcheck 0.1.0." shows a number with a point, as a version has: 0.1',
+    'l5-1: "uses: actions/checkout@v4" shows a version after @: @v4',
+    'l5-1: "uses: actions/checkout@v4" shows a version as v and a number: v4',
+  ]);
+  assert.equal(vttOf([{ start: 0, end: 4.5, subtitle: 'One.' }, { start: 4.5, end: 6 }, { start: 6, end: 61.25, subtitle: 'Two.' }]), 'WEBVTT\n\n00:00:00.000 --> 00:00:04.500\nOne.\n\n00:00:06.000 --> 00:01:01.250\nTwo.\n');
 });
 
 test('test 820: a transcript keeps the session and turns every other line into its kind and SHA-256, the same twice over, and a record hashes the same full and trimmed', () => {

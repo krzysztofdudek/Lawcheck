@@ -2,9 +2,7 @@ import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { css } from '../brand/css.mjs';
-import { FILM, lengthOf, piecesOf, readEdit, ROOT, screensOf } from './edit.mjs';
-
-export const TIMELINES = ['loop', 'film'];
+import { FILM, lengthOf, piecesOf, readEdit, ROOT, screensOf, timelinesOf } from './edit.mjs';
 const GSAP = 'https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/gsap.min.js';
 
 const escape = (text) => text.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
@@ -125,7 +123,18 @@ function cornerHtml(edit, mark) {
 `;
 }
 
-function indexHtml(name, screens, edit, seconds, style) {
+function stamp(seconds) {
+  const millis = Math.round(seconds * 1000);
+  const part = (value, size) => String(value).padStart(size, '0');
+  return `${part(Math.floor(millis / 3600000), 2)}:${part(Math.floor(millis / 60000) % 60, 2)}:${part(Math.floor(millis / 1000) % 60, 2)}.${part(millis % 1000, 3)}`;
+}
+
+export function vttOf(segments) {
+  const cues = segments.filter((segment) => segment.subtitle !== undefined).map((segment) => `${stamp(segment.start)} --> ${stamp(segment.end)}\n${segment.subtitle}\n`);
+  return `WEBVTT\n\n${cues.join('\n')}`;
+}
+
+function indexHtml(name, screens, edit, seconds, style, chapter) {
   const frame = `data-width="${edit.frame.width}" data-height="${edit.frame.height}"`;
   const hosts = screens.map((screen) => `<div id="${screen.id}" data-composition-id="${screen.id}" data-composition-src="compositions/${screen.id}.html" data-start="${screen.start}" data-duration="${(screen.end - screen.start).toFixed(2)}" data-track-index="1" data-track-kind="graphics" ${frame}></div>`);
   return `<!doctype html>
@@ -139,7 +148,7 @@ function indexHtml(name, screens, edit, seconds, style) {
 ${style}
     </style>
   </head>
-  <body>
+  <body${chapter ? ' class="chapter"' : ''}>
     <div id="root" data-composition-id="main" data-start="0" data-duration="${seconds}" ${frame}>
       <div class="ground"></div>
       ${hosts.join('\n      ')}
@@ -161,16 +170,18 @@ export function build(out, root = ROOT) {
   const style = `${css(tokens)}\n${readFileSync(join(FILM, 'hyperframes', 'film.css'), 'utf8')}`.split('\n').map((line) => (line === '' ? '' : `      ${line}`)).join('\n');
   rmSync(out, { recursive: true, force: true });
   const made = [];
-  for (const name of TIMELINES) {
+  for (const timeline of timelinesOf(edit)) {
+    const name = timeline.name;
     const project = join(out, name);
     mkdirSync(join(project, 'compositions'), { recursive: true });
-    const screens = screensOf(edit[name]);
+    const screens = screensOf(timeline.segments);
     for (const screen of screens) writeFileSync(join(project, 'compositions', `${screen.id}.html`), sceneHtml(screen, edit, tokens, mark));
-    writeFileSync(join(project, 'compositions', 'captions.html'), captionsHtml(edit[name], edit));
+    writeFileSync(join(project, 'compositions', 'captions.html'), captionsHtml(timeline.segments, edit));
     writeFileSync(join(project, 'compositions', 'corner.html'), cornerHtml(edit, mark));
-    writeFileSync(join(project, 'index.html'), indexHtml(name, screens, edit, lengthOf(edit[name]), style));
+    writeFileSync(join(project, 'index.html'), indexHtml(name, screens, edit, lengthOf(timeline.segments), style, timeline.chapter !== undefined));
+    if (timeline.chapter !== undefined) writeFileSync(join(project, `${name}.vtt`), vttOf(timeline.segments));
     cpSync(join(FILM, 'hyperframes', 'SPEC.md'), join(project, 'SPEC.md'));
-    made.push({ name, project, seconds: lengthOf(edit[name]), screens: screens.length });
+    made.push({ name, project, seconds: lengthOf(timeline.segments), screens: screens.length, chapter: timeline.chapter !== undefined });
   }
   return made;
 }

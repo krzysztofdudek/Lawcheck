@@ -1,0 +1,17 @@
+{
+  "page": "quick-start",
+  "lawcheck": "registry",
+  "plugin": false,
+  "start": "main",
+  "prompt": "Describe this repository in .lawcheck/law.yaml: one type for the HTTP handlers in src/api and one for the business logic in src/core.",
+  "commands": [
+    "npm install --global lawcheck@alpha",
+    "claude plugin marketplace add krzysztofdudek/Lawcheck",
+    "claude plugin install lawcheck@lawcheck-marketplace",
+    "lawcheck init",
+    "claude -p \"{prompt}\"",
+    "lawcheck explain src/core/price.ts",
+    "lawcheck check",
+    "lawcheck docs quick-start"
+  ]
+}

@@ -3,13 +3,15 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { judge } from './accept.mjs';
-import { lengthOf, readEdit, ROOT, screensOf, words } from './edit.mjs';
+import { judge, judgeChapter } from './accept.mjs';
+import { decodeTerminal, lengthOf, readEdit, ROOT, screensOf, stringsOf, timelinesOf, words } from './edit.mjs';
 import { fingerprint } from './pilot.mjs';
+import { gitIn, makeChapter } from './shop.mjs';
 
-const COLORS = ['black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white'];
+export { decodeTerminal };
+
 const LOOP_SECONDS = [15, 30];
-const FILM_SECONDS = 90;
+const CHAPTER_SECONDS = [40, 60];
 const SCREEN_WORDS = 45;
 const IDENTITY = { GIT_AUTHOR_NAME: 'Dev', GIT_AUTHOR_EMAIL: 'dev@example.com', GIT_COMMITTER_NAME: 'Dev', GIT_COMMITTER_EMAIL: 'dev@example.com' };
 // A variable that names a CI system or a Lawcheck setting would change the base or the output of a run.
@@ -29,40 +31,6 @@ const PRIVATE = [
 // Names that only the recording machine knows, such as its tailnet's name, come from the environment so that this file does not publish them.
 const PRIVATE_WORDS = 'LAWCHECK_FILM_PRIVATE';
 const ADDRESSES = new Set(['dev@example.com', 'noreply@anthropic.com']);
-
-export function decodeTerminal(jsonl) {
-  const [, ...events] = jsonl.split('\n').filter((line) => line !== '');
-  const stream = events.map((line) => JSON.parse(line)[1]).join('').replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, '');
-  const lines = [];
-  let line = [];
-  let color = null;
-  for (let i = 0; i < stream.length; i++) {
-    const char = stream[i];
-    if (char === '\x1b') {
-      const csi = /^\x1b\[([0-9;?]*)([@-~])/.exec(stream.slice(i, i + 32));
-      if (csi === null) {
-        i += 1;
-        continue;
-      }
-      if (csi[2] === 'm') {
-        for (const code of (csi[1] === '' ? '0' : csi[1]).split(';').map(Number)) {
-          if (code === 0 || code === 39) color = null;
-          else if (code >= 30 && code <= 37) color = COLORS[code - 30];
-          else if (code >= 90 && code <= 97) color = COLORS[code - 90];
-        }
-      }
-      i += csi[0].length - 1;
-    } else if (char === '\n') {
-      lines.push(line);
-      line = [];
-    } else if (char === '\r') {
-      if (stream[i + 1] !== '\n') line = [];
-    } else if (char === '\b') line.pop();
-    else if (char >= ' ') line.push({ char, color });
-  }
-  lines.push(line);
-  return lines.map((cells) => ({ text: cells.map((cell) => cell.char).join(''), colors: cells.map((cell) => cell.color) }));
-}
 
 function leaves(value, into = []) {
   if (typeof value === 'string') into.push(value);
@@ -89,7 +57,7 @@ export function sourceOf(root, edit, from) {
   const path = join(root, name);
   if (!existsSync(path)) return { name, lines: [] };
   const text = readFileSync(path, 'utf8');
-  if (from.file === 'terminal.jsonl') return { name, lines: decodeTerminal(text) };
+  if (/^terminal.*\.jsonl$/.test(from.file)) return { name, lines: decodeTerminal(text) };
   if (from.file.endsWith('.jsonl')) return { name, lines: text.split('\n').filter((line) => line.trim() !== '').flatMap((line) => leaves(JSON.parse(line))).flatMap(linesOfText) };
   if (from.file.endsWith('.json')) return { name, lines: leaves(JSON.parse(text)).flatMap(linesOfText) };
   return { name, lines: linesOfText(text) };
@@ -118,20 +86,6 @@ function itemProblems(root, edit, where, item) {
   return [];
 }
 
-function pilotProblems(root, where, item) {
-  const pilot = JSON.parse(readFileSync(join(root, 'film', 'pilot.json'), 'utf8'));
-  if (item.pilot === 'versions') {
-    const claude = new Set(pilot.sessions.map((row) => row.versions.claude_code.split(' ')[0]));
-    const models = new Set(pilot.sessions.flatMap((row) => row.versions.models).map((model) => model.replace(/^claude-([a-z]+)-(\d+)-(\d+)$/, (_, name, major, minor) => `${name[0].toUpperCase()}${name.slice(1)} ${major}.${minor}`)));
-    const efforts = new Set(pilot.sessions.map((row) => row.versions.effort));
-    const want = `Claude Code ${[...claude].join(', ')}, ${[...models].join(', ')} at ${[...efforts].join(', ')}`;
-    return claude.size === 1 && models.size === 1 && efforts.size === 1 && item.text.includes(want) ? [] : [`${where}: ${JSON.stringify(item.text)} does not say ${JSON.stringify(want)}, the versions of every session of film/pilot.json`];
-  }
-  const count = pilot.summary[item.pilot];
-  const want = `${count.imported} of ${count.sessions} `;
-  return item.text.startsWith(want) ? [] : [`${where}: ${JSON.stringify(item.text)} does not start with ${JSON.stringify(want)}, the count of arm ${item.pilot} in film/pilot.json`];
-}
-
 function takeProblems(root, edit) {
   const problems = [];
   const pilot = JSON.parse(readFileSync(join(root, 'film', 'pilot.json'), 'utf8'));
@@ -148,14 +102,25 @@ function takeProblems(root, edit) {
     if (!verdict.accepted) problems.push(`the take ${id} is refused by film/accept.mjs: ${verdict.reasons.join('; ')}`);
     if (verdict.arm !== (role === 'without' ? 'a' : 'b')) problems.push(`the take ${id} is of arm ${verdict.arm}, and the edit uses it as the session ${role} Lawcheck`);
   }
+  for (const chapter of edit.chapters ?? []) {
+    const folder = join(root, 'film', 'takes', chapter.take);
+    if (!existsSync(join(folder, 'take.json'))) {
+      problems.push(`the take ${chapter.take} of the chapter ${chapter.page} has no folder film/takes/${chapter.take}`);
+      continue;
+    }
+    if (fingerprint(folder) !== chapter.record) problems.push(`film/takes/${chapter.take} is not the take the chapter ${chapter.page} records: its hash differs`);
+    const verdict = judgeChapter(folder);
+    if (verdict.page !== chapter.page) problems.push(`the take ${chapter.take} is a take of ${verdict.page}, and the edit uses it for the chapter ${chapter.page}`);
+    if (!verdict.accepted) problems.push(`the take ${chapter.take} is refused by film/accept.mjs: ${verdict.reasons.join('; ')}`);
+  }
   return problems;
 }
 
 export function truthProblems(root = ROOT, edit = readEdit(root)) {
   const problems = takeProblems(root, edit);
   let strings = 0;
-  for (const timeline of ['loop', 'film']) {
-    for (const segment of edit[timeline]) {
+  for (const timeline of timelinesOf(edit)) {
+    for (const segment of timeline.segments) {
       segment.screens.forEach((screen, index) => {
         const where = `${segment.id}, screen ${index + 1}`;
         for (const block of screen.blocks) {
@@ -166,8 +131,7 @@ export function truthProblems(root = ROOT, edit = readEdit(root)) {
           for (const item of [...(block.lines ?? []), ...(block.small === undefined ? [] : [block.small])]) {
             if (item.more) continue;
             strings++;
-            if (item.pilot !== undefined) problems.push(...pilotProblems(root, where, item));
-            else if (item.from === undefined) problems.push(`${where}: ${JSON.stringify(item.text)} names no source`);
+            if (item.from === undefined) problems.push(`${where}: ${JSON.stringify(item.text)} names no source`);
             else problems.push(...itemProblems(root, edit, where, item));
           }
         }
@@ -198,12 +162,12 @@ export function privateProblems(root = ROOT, words = (process.env[PRIVATE_WORDS]
 
 export function readingProblems(edit) {
   const problems = [];
-  for (const timeline of ['loop', 'film']) {
-    const seconds = lengthOf(edit[timeline]);
-    if (timeline === 'loop' && (seconds < LOOP_SECONDS[0] || seconds > LOOP_SECONDS[1])) problems.push(`the loop lasts ${seconds} s, outside ${LOOP_SECONDS[0]} to ${LOOP_SECONDS[1]} s`);
-    if (timeline === 'film' && seconds > FILM_SECONDS) problems.push(`the narrated film lasts ${seconds} s, over ${FILM_SECONDS} s`);
+  for (const timeline of timelinesOf(edit)) {
+    const seconds = lengthOf(timeline.segments);
+    const [least, most] = timeline.name === 'loop' ? LOOP_SECONDS : CHAPTER_SECONDS;
+    if (seconds < least || seconds > most) problems.push(`${timeline.name === 'loop' ? 'the loop' : `the chapter ${timeline.name}`} lasts ${seconds} s, outside ${least} to ${most} s`);
     let before = new Set();
-    for (const screen of screensOf(edit[timeline])) {
+    for (const screen of screensOf(timeline.segments)) {
       const all = screen.text.flatMap(words);
       const fresh = all.filter((word) => !before.has(word)).length;
       const needed = 1 + fresh / 3;
@@ -214,6 +178,26 @@ export function readingProblems(edit) {
     }
   }
   return problems;
+}
+
+// A film that names a release, a version of a tool or a model is wrong after the next release.
+const VERSIONED = [
+  [/\d+\.\d+/g, 'a number with a point, as a version has'],
+  [/@v?\d/gi, 'a version after @'],
+  [/\bv\d+\b/gi, 'a version as v and a number'],
+  [/\b(?:sonnet|opus|haiku|fable)\b|\bclaude-[a-z]+-\d/gi, 'the name of a model'],
+];
+
+export function versionProblems(edit) {
+  const problems = [];
+  for (const timeline of timelinesOf(edit)) {
+    for (const screen of screensOf(timeline.segments)) {
+      for (const text of [...screen.screen.blocks.flatMap(stringsOf), screen.segment.caption ?? '', screen.segment.subtitle ?? '']) {
+        for (const [pattern, what] of VERSIONED) for (const match of text.matchAll(pattern)) problems.push(`${screen.id}: ${JSON.stringify(text)} shows ${what}: ${match[0]}`);
+      }
+    }
+  }
+  return [...new Set(problems)];
 }
 
 function environment(home) {
@@ -233,19 +217,26 @@ export function runOf(root, edit, id, cli) {
       const result = spawnSync('git', args, { cwd, env, encoding: 'utf8' });
       if (result.status !== 0) throw new Error(`git ${args.join(' ')} ended with ${result.status}: ${result.stderr.trim()}`);
     };
-    const seed = join(folder, 'seed');
-    cpSync(join(root, 'film', 'fixture', 'shop'), seed, { recursive: true });
-    if (run.law !== undefined) {
-      mkdirSync(join(seed, '.lawcheck'));
-      cpSync(join(root, run.law), join(seed, '.lawcheck', 'law.yaml'));
+    let shop;
+    if (run.chapter !== undefined) {
+      const takeOf = (page) => join(root, 'film', 'takes', (edit.chapters ?? []).find((chapter) => chapter.page === page)?.take ?? '');
+      shop = makeChapter(folder, run.chapter, env, { root, takeOf }).work;
+      if (run.branch !== undefined) gitIn(env)(shop, 'checkout', '-q', run.branch);
+    } else {
+      const seed = join(folder, 'seed');
+      cpSync(join(root, 'film', 'fixture', 'shop'), seed, { recursive: true });
+      if (run.law !== undefined) {
+        mkdirSync(join(seed, '.lawcheck'));
+        cpSync(join(root, run.law), join(seed, '.lawcheck', 'law.yaml'));
+      }
+      git(seed, 'init', '-q', '-b', 'main');
+      git(seed, 'add', '-A');
+      git(seed, 'commit', '-q', '-m', 'shop');
+      git(folder, 'clone', '-q', '--bare', 'seed', 'origin.git');
+      git(folder, 'clone', '-q', 'origin.git', 'shop');
+      shop = join(folder, 'shop');
+      git(shop, 'checkout', '-q', '-b', 'loyalty-discount');
     }
-    git(seed, 'init', '-q', '-b', 'main');
-    git(seed, 'add', '-A');
-    git(seed, 'commit', '-q', '-m', 'shop');
-    git(folder, 'clone', '-q', '--bare', 'seed', 'origin.git');
-    git(folder, 'clone', '-q', 'origin.git', 'shop');
-    const shop = join(folder, 'shop');
-    git(shop, 'checkout', '-q', '-b', 'loyalty-discount');
     if (run.take !== undefined) cpSync(join(root, 'film', 'takes', run.take, 'files'), shop, { recursive: true });
     const result = spawnSync(process.execPath, [cli, ...run.args], { cwd: shop, env, encoding: 'utf8', timeout: 60000 });
     return { exit: result.status, output: result.stdout, error: result.stderr };
@@ -308,14 +299,16 @@ if (process.argv[1] !== undefined && fileURLToPath(import.meta.url) === process.
   const stale = stalenessProblems(ROOT, edit, run);
   const reading = readingProblems(edit);
   const secret = privateProblems(ROOT);
+  const versions = versionProblems(edit);
   const report = (name, problems, good) => {
     process.stdout.write(problems.length === 0 ? `${name}: ${good}\n` : problems.map((problem) => `${name}: ${problem}\n`).join(''));
   };
   report('truth', truth.problems, `all ${truth.strings} strings on screen come from their take, run or page`);
   report('staleness', stale, `${Object.keys(edit.runs).length} runs of this build print what the film shows`);
-  report('reading time', reading, `the loop lasts ${lengthOf(edit.loop)} s and the narrated film ${lengthOf(edit.film)} s, and every screen stands long enough to be read`);
+  report('reading time', reading, `the loop lasts ${lengthOf(edit.loop)} s, ${(edit.chapters ?? []).map((chapter) => `the chapter ${chapter.page} ${lengthOf(chapter.timeline)} s`).join(', ')}, and every screen stands long enough to be read`);
+  report('versions', versions, 'no screen, caption or subtitle shows a version or the name of a model');
   report('private', secret, `no file of film/takes holds a home folder, a key, a token, an e-mail address, a name of the recording machine or a name listed in ${PRIVATE_WORDS}`);
-  const problems = truth.problems.length + stale.length + reading.length + secret.length;
+  const problems = truth.problems.length + stale.length + reading.length + secret.length + versions.length;
   process.stdout.write(problems === 0 ? 'film/check.mjs: PASS\n' : `film/check.mjs: FAIL  ${problems} problems\n`);
   process.exit(problems === 0 ? 0 : 1);
 }

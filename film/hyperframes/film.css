@@ -156,3 +156,13 @@ body {
   font-weight: 600;
   color: var(--lc-text);
 }
+
+.chapter .stage {
+  top: 170px;
+  bottom: 190px;
+}
+
+.chapter .caption {
+  top: 56px;
+  bottom: auto;
+}

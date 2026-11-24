@@ -1,0 +1,18 @@
+{
+  "page": "forbid-a-use",
+  "arm": "b",
+  "lawcheck": "global",
+  "plugin": true,
+  "law": "film/fixture/law/law.yaml",
+  "branches": [{ "name": "loyalty-discount" }],
+  "start": "loyalty-discount",
+  "prompt": "Add a loyalty discount in src/core: a customer with more than five orders gets ten percent off. Return the new total and a message that shows the saved amount as money, the way the receipts do.",
+  "commands": [
+    "claude -p \"{prompt}\"",
+    "npm test",
+    "git add --all",
+    "git diff --staged",
+    "lawcheck check",
+    "lawcheck check --base origin/main"
+  ]
+}
