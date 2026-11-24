@@ -448,3 +448,9 @@ Of the four hooks, Cursor's command-line agent 2026.11.22 runs `sessionStart` an
 What no one checked: a session of Cursor with the plugin, which needs a Cursor account (the owner's ruling cursor-jak-claude: no trial, and the docs say what was checked and what was not), the Cursor editor, Windows and the marketplace commands of Cursor. `docs/cursor.md`, the README, the landing and the CHANGELOG say so, and the scenario of `tests/docs/cursor.ts` holds those sentences, with tests 970 to 976 for the hook. The tests build the inputs of the hooks from the fields that Cursor's documentation and code give them, and no session recorded them.
 
 Why: the owner treats Cursor as compatible with Claude Code plugins, and the code of Cursor Agent CLI loads them, so a second plugin would copy files that Cursor already reads. The changes to the hook are the ones that code shows Cursor to need, and no change to the plugin's files that Claude Code reads.
+
+## 205. On Windows the guard never ends a tree by its root's id
+
+When the tool is killed on Windows, the guard ends a program's tree only from a list of processes begun after the kill. It ends the processes that list shows below the root that were made after the guard, and, where another process now holds the root's id, only those made before that process. It runs no `taskkill /T` on a root's id. When no list comes within its 10 seconds, it takes one itself with PowerShell and ends from it the same processes. When PowerShell gives no list at all, the guard ends none of the tree.
+
+Why: the root ends with the tool, so by the time the guard acts, Windows may have given the root's id to another process. `taskkill /T` on that id ends that process and everything it started. A search by parent id alone also finds the children of an older process that held the id before the root. An orphan of a killed run left alive is a smaller harm than a process ended that Lawcheck did not start.
