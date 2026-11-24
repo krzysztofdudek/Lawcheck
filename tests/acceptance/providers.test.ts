@@ -2,10 +2,10 @@ import { test } from 'node:test';
 import { fakeWrites, LIMITS_VARIABLE, platformSkip } from '../harness/tool.ts';
 import { CLAUDE_TIMEOUT_RUN_MS, FAKE_STARTED_MS, KILLED_GRACE_MS, LEFTOVER_GRACE_MS, TEST_RULE_MS, WINDOWS_KILLED_GRACE_MS } from '../numbers.ts';
 import { LIMITS } from '../../dist/rules.js';
-import { killGroup, powershell } from '../../dist/programs.js';
+import { killGroup, powershell, ticksAt } from '../../dist/programs.js';
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { anthropic, defaultAnswer, gitAlone, openai, startFake, withFake, writeFakeClaude } from './fake-reviewer.ts';
 import { alive, append, F, F_PATH, findingLines, lawcheckAt, pathWith, PROMPT_F, read, REVIEWER_CONFIG, REVIEWER_LAW, run, SECOND, startLawcheck, withCopy, withR, write } from './helpers.ts';
@@ -1026,8 +1026,21 @@ test('test 1049: a program call that ends normally ends its process group no lat
 // The tool's side of two program calls that got the same id: the earlier call's program has ended, the later call's program runs, and the earlier call is released after the later call was told to the guard.
 const TWICE = "import { releaseGroup, startListing, watchGroup } from './dist/programs.js';\nstartListing();\nprocess.stdout.write('ready\\n');\nlet pending = '';\nprocess.stdin.setEncoding('utf8').on('data', (chunk) => {\n  pending += chunk;\n  for (let end = pending.indexOf('\\n'); end >= 0; end = pending.indexOf('\\n')) {\n    const [pid, started] = pending.slice(0, end).split(' ').map(Number);\n    pending = pending.slice(end + 1);\n    watchGroup(pid, started - 1, () => false);\n    watchGroup(pid, started);\n    releaseGroup(pid, false, started - 1);\n    process.stdout.write('told\\n');\n  }\n});\n";
 
+// The list of processes the guard reads, which leaves a file in the folder for each list that shows the process whose id the file names, holding that process's row, once the list's rows are out.
+function markedTable(watched: string, lists: string): string {
+  return `$rows = @(Get-CimInstance Win32_Process | ForEach-Object { "$($_.ProcessId) $($_.ParentProcessId) $($_.CreationDate.ToUniversalTime().Ticks)" }); $rows; if (Test-Path -LiteralPath '${watched}') { $id = "$(Get-Content -LiteralPath '${watched}') "; $row = $rows | Where-Object { $_.StartsWith($id) } | Select-Object -First 1; if ($row) { Set-Content -LiteralPath (Join-Path '${lists}' ([DateTime]::UtcNow.Ticks)) -Value $row } }`;
+}
+
 test('test 1050: two program calls that get the same id each keep their own entry in the guard: the release of the earlier one neither ends the later one\'s program nor takes it from the guard of a killed tool', async () => {
   await withCopy(async (copy) => {
+    const programsFile = join(copy.dir, 'dist', 'programs.js');
+    const table = /export const PROCESS_TABLE = .*;\n/;
+    const programs = readFileSync(programsFile, 'utf8');
+    assert.ok(table.test(programs), 'programs.js has no PROCESS_TABLE for this test to mark the lists of');
+    const watched = join(copy.dir, 'watched');
+    const lists = join(copy.dir, 'lists');
+    mkdirSync(lists);
+    writeFileSync(programsFile, programs.replace(table, () => `export const PROCESS_TABLE = ${JSON.stringify(markedTable(watched, lists))};\n`));
     writeFileSync(join(copy.dir, 'tool.mjs'), TWICE);
     const left: number[] = [];
     const tool = spawn(process.execPath, [join(copy.dir, 'tool.mjs')], { cwd: copy.dir, stdio: ['pipe', 'pipe', 'ignore'], windowsHide: true });
@@ -1038,11 +1051,17 @@ test('test 1050: two program calls that get the same id each keep their own entr
       const started = Date.now();
       const program = await startGroup(copy.dir, 'program.mjs', HOLDER);
       left.push(program.pid, program.child);
+      writeFileSync(`${watched}.part`, String(program.pid));
+      renameSync(`${watched}.part`, watched);
       tool.stdin!.write(`${program.pid} ${started}\n`);
       assert.ok(await waitFor(() => said.includes('told'), GUARD_ENDS_MS), 'the tool did not tell its guard');
       assert.ok(!(await waitFor(() => !alive(program.pid) || !alive(program.child), LEFTOVER_GRACE_MS)), 'the release of the earlier call ended the later call\'s program');
+      // On Windows the guard ends a root that outlives the tool only when a list it read before it learned of the kill shows the root (decision 205), and its first list can come seconds after it starts. A second list that shows the program begins after the first one was printed, so the guard has read a list that shows it.
+      const shown = () => readdirSync(lists).sort();
+      const seen = () => (shown().length === 0 ? 'no list of the guard showed it' : `the guard's list showed it as ${readFileSync(join(lists, shown()[0]!), 'utf8').trim()} (id, parent, made in ticks), and the tool gave ${ticksAt(started)}`);
+      if (process.platform === 'win32') assert.ok(await waitFor(() => shown().length >= 2, GUARD_ENDS_MS), `the guard read no list that shows the later call's program before the kill: ${seen()}`);
       tool.kill('SIGKILL');
-      assert.ok(await waitFor(() => !alive(program.pid), GUARD_ENDS_MS), 'the guard of the killed tool left the later call\'s program alive');
+      assert.ok(await waitFor(() => !alive(program.pid), GUARD_ENDS_MS), `the guard of the killed tool left the later call's program alive${process.platform === 'win32' ? `: ${seen()}` : ''}`);
       assert.ok(await waitFor(() => !alive(program.child), GUARD_ENDS_MS), 'the guard of the killed tool left the later call\'s child alive');
     } finally {
       tool.kill('SIGKILL');
