@@ -98,6 +98,26 @@ export async function inTemp<T>(body: (dir: string) => Promise<T> | T): Promise<
   }
 }
 
+// The results of work on each item, in the order of the items, with at most `limit` items in work at a time; the first failure stops the items not yet started and is thrown once those in work have ended.
+export async function atOnce<T, R>(items: T[], limit: number, work: (item: T, at: number) => Promise<R>): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  const failures: unknown[] = [];
+  let next = 0;
+  await Promise.all(
+    Array.from({ length: Math.min(limit, items.length) }, async () => {
+      for (let at = next++; at < items.length && failures.length === 0; at = next++) {
+        try {
+          results[at] = await work(items[at]!, at);
+        } catch (error) {
+          failures.push(error);
+        }
+      }
+    }),
+  );
+  if (failures.length > 0) throw failures[0];
+  return results;
+}
+
 export function copySample(target: string): void {
   mkdirSync(target, { recursive: true });
   cpSync(SAMPLE, target, { recursive: true });
