@@ -130,7 +130,7 @@ Each use has `line` and `kind`. These are the same uses that `may_use` judges ([
 
 The list holds what `may_use` skips: a use of the file itself, and a use of a binary file.
 
-The first call of `uses()` in a run reads the uses of every file the rule judges in that run, at once. A file of Java, Kotlin, C#, Ruby or Rust needs the declarations of every file of its language, so that first call can take seconds in a large repository. When the reader fails on a file the rule judges, that file gets `reader-failed`, and Lawcheck reads the other files again without it. A failure on anything else gives `reader-failed` to every file that depends on it. A grammar that does not load fails every file of its language. A file of Java, Kotlin, C#, Ruby or Rust that Lawcheck reads only for what it declares fails every file of its language, and Java and Kotlin count as one language here. The uses of a file do not depend on the other files of the run, so a plain check and `--full` give a rule the same uses.
+The first call of `uses()` by a rule reads, at once, the uses of every file the rule judges in that run. Lawcheck reads the uses of each file once in a run, so a file whose uses another rule already asked for is not read again, and every rule gets the same answer for it. A file of Java, Kotlin, C#, Ruby or Rust needs the declarations of every file of its language, so that first call can take seconds in a large repository. When the reader fails on a file the rule judges, that file gets `reader-failed`, and Lawcheck reads the other files again without it. A failure on anything else gives `reader-failed` to every file that depends on it. A grammar that does not load fails every file of its language. A file of Java, Kotlin, C#, Ruby or Rust that Lawcheck reads only for what it declares fails every file of its language, and Java and Kotlin count as one language here. The uses of a file do not depend on the other files of the run, so a plain check and `--full` give a rule the same uses.
 
 ## The return value
 
@@ -158,7 +158,7 @@ Lawcheck runs each script rule in a Node process of its own. This page calls tha
 
 Lawcheck writes what the rule prints, on either stream, to its own standard error.
 
-A rule has 30 seconds to load and 30 seconds for each call. A rule that takes longer is `rule-crashed`. All script rules of one run have 600 seconds together. The time Lawcheck takes to read a tree or the uses counts toward the 600 seconds of the run, and not toward the 30 seconds of a call. A run that goes past the 600 seconds stops with `rules-too-slow`. Lawcheck reports that code at the file that each unfinished rule was judging.
+A rule has 30 seconds to load and 30 seconds for each call. A rule that takes longer is `rule-crashed`. All script rules of one run have 600 seconds together. The time Lawcheck takes to read a tree or the uses counts toward the 600 seconds of the run, and not toward the 30 seconds of any call. A rule that asks while Lawcheck reads for another rule does not lose that time either. A run that goes past the 600 seconds stops with `rules-too-slow`. Lawcheck reports that code at the file that each unfinished rule was judging.
 
 The rule runner refuses these actions:
 
@@ -204,7 +204,7 @@ Lawcheck reports `rule-crashed` and exits with code 2 when the rule:
 - returns something other than a list of findings as above. A list with a message over 4,096 characters counts as such a return. So does a function, or another value that Lawcheck cannot pass out of the rule's process;
 - takes more than 30 seconds to load, or more than 30 seconds for one call;
 - ends its process before it answers, or sends a message that Lawcheck did not ask for;
-- leaves a promise rejected with no handler, or a timer that throws, while its process runs. The message of `rule-crashed` then names no judged file. A failure during the load adds the words `in its load`. After the last call, Lawcheck waits once, at most 2 seconds, for what the rule left running.
+- leaves a promise rejected with no handler, or a timer that throws, while its process runs. The message of `rule-crashed` then names no judged file. A failure during the load adds the words `in its load`. After the last call, Lawcheck waits once, at most 2 seconds, for what the rule left running. A timer counts whether or not the rule unrefs it.
 
 In the other cases, the message of `rule-crashed` names the judged file, or the load. A rule may throw a value with no string form, such as an object with no prototype. The message then holds the error JavaScript gives for it. A proxy whose every trap throws something other than an error raises no such error. For such a value, the message reads `a value with no string form`. Lawcheck names each crashed rule once in a run.
 

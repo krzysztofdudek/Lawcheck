@@ -51,6 +51,8 @@ The Lawcheck plugin now works in Codex CLI. `codex plugin marketplace add krzysz
 The pages of `lawcheck docs` said that a file git ignores has no type. That holds only for a file git does not track. A file git tracks keeps its type and is judged even when `.gitignore` names it, as `lawcheck explain` shows. The pages now say so.
 A script rule may return `line: null` for a finding about the whole file. In alpha.4 the rule was `rule-crashed`. A string such as `'2'`, a bigint or `1.5` still crashes the rule, with a message that names the value.
 
+A script rule whose timer throws after the rule's last result is now `rule-crashed` also when the rule unrefs the timer, with `unref()` or with `ref: false` of `node:timers/promises`. In alpha.4 such a rule passed, because Lawcheck did not wait for an unreferenced timer.
+
 When a reviewer's answer holds two verdict objects and one of them is a `fail`, the answer is that fail. In alpha.4 the last object won, so a fail followed by a quoted pass read as a pass.
 
 A `check` or `try` that ends with exit 2 after it sent requests to a reviewer now says how many. The first line ends with the count, such as `lawcheck: ERROR  1 error, 2 reviewer calls`, and the JSON document `lawcheck-error/1` gains `calls_made` when the count is above 0. A program that checks the document against a schema that refuses unknown keys has to allow `calls_made`.

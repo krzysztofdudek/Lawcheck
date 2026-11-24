@@ -746,3 +746,155 @@ test('R-120: a reader that fails on a file read only for what it declares fails 
   ]);
   assert.ok(times(failing.record.parsed) <= 2, failing.record.parsed.join(' '));
 });
+
+test('R-122: the uses of a file are read once in a run, however many rules ask for them, at once or one after another, and every rule gets the same answer', async () => {
+  const use = (line: number, specifier: string) => ({ line, candidates: [{ kind: 'path', specifier } as Hint] });
+  const classifyUse = (): Kind => ({ kind: 'resolved', owner: 'app', resolvedFile: 'app/x.py' });
+  const { runes } = fake({ uses: { 'domain/a.py': [use(1, 'app')], 'j/A.java': [use(2, 'app')] }, classifyUse });
+  const extracted: string[] = [];
+  const counting = {
+    ...runes,
+    extractorForLanguage: (language: string) => {
+      const extractor = runes.extractorForLanguage(language);
+      return { ...extractor, uses: (file: { path: string }) => (extracted.push(file.path), extractor.uses(file)) };
+    },
+  };
+  const files = { 'app/x.py': '', 'domain/a.py': '', 'domain/b.py': '', 'domain/c.py': '', 'j/A.java': '', 'j/B.java': '' };
+  const paths = Object.keys(files).sort();
+  const reads = ruleReads({ root: '/nowhere', files: paths, bytes: (path) => enc.encode(files[path as keyof typeof files]), ownerOf: () => 'owner', typeOf: (path) => (path.startsWith('app/') ? 'app' : null) }, counting);
+  const bound = (list: string[]) => list.map((path) => ({ path, text: '' }));
+  const file = (path: string) => ({ path, text: '' });
+  const first = bound(['domain/a.py', 'domain/b.py', 'j/A.java']);
+  const one = reads(first);
+  const two = reads(first);
+  const [fromOne, fromTwo] = await Promise.all([one('uses', file('domain/a.py')), two('uses', file('j/A.java'))]);
+  const three = reads(bound(['domain/a.py', 'domain/b.py', 'domain/c.py', 'j/A.java', 'j/B.java']));
+  const answers = [fromOne, fromTwo, await three('uses', file('domain/a.py')), await three('uses', file('j/A.java')), await three('uses', file('j/B.java')), await two('uses', file('domain/a.py'))];
+  const reached = { kind: 'file', file: 'app/x.py', type: 'app' };
+  assert.deepEqual(answers, [
+    { uses: [{ line: 1, ...reached }], absent: null },
+    { uses: [{ line: 2, ...reached }], absent: null },
+    { uses: [{ line: 1, ...reached }], absent: null },
+    { uses: [{ line: 2, ...reached }], absent: null },
+    { uses: [], absent: null },
+    { uses: [{ line: 1, ...reached }], absent: null },
+  ]);
+  assert.deepEqual(extracted.sort(), ['domain/a.py', 'domain/b.py', 'domain/c.py', 'j/A.java', 'j/B.java']);
+});
+
+test('R-125: the reads of a run take turns, so each parse runs under the step that names its own file and the rule that asked for it', async () => {
+  const buffer = progressBuffer();
+  attach(buffer);
+  const seen: string[] = [];
+  const { runes } = fake({});
+  const waiting = {
+    ...runes,
+    createHost: () => {
+      const host = runes.createHost();
+      return {
+        ...host,
+        withParsedFile: async (path: string, content: string, fn: (tree: unknown) => unknown) => {
+          await new Promise((done) => setImmediate(done));
+          seen.push(`${path} under ${lastStep(buffer).what}`);
+          return host.withParsedFile(path, content, fn);
+        },
+      };
+    },
+  };
+  const files = ['a.py', 'b.py'];
+  const reads = ruleReads({ root: '/nowhere', files, bytes: () => enc.encode(''), ownerOf: () => 'owner', typeOf: () => null }, waiting);
+  const file = (path: string) => ({ path, text: '' });
+  await Promise.all([reads([file('a.py')], 'the script rule one')('tree', file('a.py')), reads([file('b.py')], 'the script rule two')('uses', file('b.py'))]);
+  assert.deepEqual(seen.sort(), ['a.py under reading the tree of a.py for the script rule one', 'b.py under reading the uses of b.py for the script rule two']);
+});
+
+test('R-126: a use that reaches a file that cannot be read fails only the file that holds it, so every rule gets for any other file the uses that file gets alone, whichever rule asks first', async () => {
+  const use = (line: number, specifier: string) => ({ line, candidates: [{ kind: 'path', specifier } as Hint] });
+  const classifyUse = (_candidates: Hint[], from: string): Kind => {
+    if (from === 'domain/y.py') throw new Unreadable('domain/z.py', 'EACCES');
+    return { kind: 'resolved', owner: 'app', resolvedFile: 'app/w.py' };
+  };
+  const { runes } = fake({ uses: { 'domain/x.py': [use(1, 'app')], 'domain/y.py': [use(1, 'z')] }, classifyUse });
+  const files = ['app/w.py', 'domain/x.py', 'domain/y.py', 'domain/z.py'];
+  const file = (path: string) => ({ path, text: '' });
+  const reached = { uses: [{ line: 1, kind: 'file', file: 'app/w.py', type: 'app' }], absent: null };
+  const failed = { uses: null, absent: 'reader-failed' };
+  for (const first of ['both', 'alone']) {
+    const reads = ruleReads({ root: '/nowhere', files, bytes: () => enc.encode(''), ownerOf: () => 'owner', typeOf: (path) => (path.startsWith('app/') ? 'app' : null) }, runes);
+    const both = reads([file('domain/x.py'), file('domain/y.py')]);
+    const alone = reads([file('domain/x.py')]);
+    const asked = first === 'both' ? [both('uses', file('domain/x.py')), alone('uses', file('domain/x.py'))] : [alone('uses', file('domain/x.py')), both('uses', file('domain/x.py'))];
+    const [fromFirst, fromSecond] = await Promise.all(asked);
+    assert.deepEqual([first, fromFirst, fromSecond, await both('uses', file('domain/y.py'))], [first, reached, reached, failed]);
+  }
+});
+
+test('R-127: a use that reaches a file that cannot be read leaves the resolver nothing half built, so a later file of the same read that reaches it too fails as it does alone, whichever rule asks first', async () => {
+  const files: Record<string, string> = {
+    'pkgs/b/index.ts': 'export const s = 1;\n',
+    'pkgs/b/package.json': '{ "name": "shared", "main": "index.ts" }',
+    'pkgs/z/index.ts': 'export const o = 1;\n',
+    'pkgs/z/package.json': '{ "name": "other", "main": "index.ts" }',
+    'src/x.ts': "import { s } from 'shared';\n",
+    'src/y.ts': "import { s } from 'shared';\n",
+  };
+  const paths = Object.keys(files).sort();
+  const file = (path: string) => ({ path, text: files[path]! });
+  const readsOf = (unreadable: string | null) =>
+    ruleReads({
+      root: '/nowhere',
+      files: paths,
+      bytes: (path) => {
+        if (path === unreadable) throw new Unreadable(path, 'EACCES');
+        return enc.encode(files[path]!);
+      },
+      ownerOf: (path) => (files[path] === undefined ? undefined : 'owner'),
+      typeOf: (path) => (path.startsWith('pkgs/b/') ? 'shared' : null),
+    });
+  const readable = readsOf(null)([file('src/x.ts'), file('src/y.ts')]);
+  assert.deepEqual(await readable('uses', file('src/y.ts')), { uses: [{ line: 1, kind: 'file', file: 'pkgs/b/index.ts', type: 'shared' }], absent: null });
+  const failed = { uses: null, absent: 'reader-failed' };
+  for (const first of ['both', 'alone']) {
+    const reads = readsOf('pkgs/z/package.json');
+    const both = reads([file('src/x.ts'), file('src/y.ts')]);
+    const alone = reads([file('src/y.ts')]);
+    const asked = first === 'both' ? [both('uses', file('src/y.ts')), alone('uses', file('src/y.ts'))] : [alone('uses', file('src/y.ts')), both('uses', file('src/y.ts'))];
+    const [fromFirst, fromSecond] = await Promise.all(asked);
+    assert.deepEqual([first, fromFirst, fromSecond, await both('uses', file('src/x.ts'))], [first, failed, failed, failed]);
+  }
+});
+
+test('R-128: a C# use that reaches a project file that cannot be read leaves the reach of the projects nothing half built, so a later file of the same read that reaches it too fails as it does alone, whichever rule asks first', async () => {
+  const files: Record<string, string> = {
+    'app/App.csproj': '<Project Sdk="Microsoft.NET.Sdk"><ItemGroup><PackageReference Include="Lib" /></ItemGroup></Project>\n',
+    'app/X.cs': 'using LibNs;\nnamespace AppNs { class X { Thing t; } }\n',
+    'app/Y.cs': 'using LibNs;\nnamespace AppNs { class Y { Thing t; } }\n',
+    'b/B.fsproj': '<Project Sdk="Microsoft.NET.Sdk"></Project>\n',
+    'lib/Lib.csproj': '<Project Sdk="Microsoft.NET.Sdk"></Project>\n',
+    'lib/Thing.cs': 'namespace LibNs { public class Thing {} }\n',
+  };
+  const paths = Object.keys(files).sort();
+  const file = (path: string) => ({ path, text: files[path]! });
+  const readsOf = (unreadable: string | null) =>
+    ruleReads({
+      root: '/nowhere',
+      files: paths,
+      bytes: (path) => {
+        if (path === unreadable) throw new Unreadable(path, 'EACCES');
+        return enc.encode(files[path]!);
+      },
+      ownerOf: (path) => (files[path] === undefined ? undefined : 'owner'),
+      typeOf: (path) => (path.startsWith('lib/') ? 'lib' : null),
+    });
+  const readable = readsOf(null)([file('app/X.cs'), file('app/Y.cs')]);
+  assert.deepEqual(await readable('uses', file('app/Y.cs')), { uses: [{ line: 2, kind: 'file', file: 'lib/Thing.cs', type: 'lib' }], absent: null });
+  const failed = { uses: null, absent: 'reader-failed' };
+  for (const first of ['both', 'alone']) {
+    const reads = readsOf('b/B.fsproj');
+    const both = reads([file('app/X.cs'), file('app/Y.cs')]);
+    const alone = reads([file('app/Y.cs')]);
+    const asked = first === 'both' ? [both('uses', file('app/Y.cs')), alone('uses', file('app/Y.cs'))] : [alone('uses', file('app/Y.cs')), both('uses', file('app/Y.cs'))];
+    const [fromFirst, fromSecond] = await Promise.all(asked);
+    assert.deepEqual([first, fromFirst, fromSecond, await both('uses', file('app/X.cs'))], [first, failed, failed, failed]);
+  }
+});

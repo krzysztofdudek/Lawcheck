@@ -11,7 +11,7 @@ import { safeText } from './output.js';
 import { hide } from './keys.js';
 import type { Readable } from 'node:stream';
 import { count, MESSAGE_CHARS, points, readError, RULES_RUN_MS, RUN_FINDINGS, RUN_MESSAGE_CHARS } from './limits.js';
-import type { Serve } from './readers.js';
+import type { Reads, Serve } from './readers.js';
 import type { ErrorItem } from './output.js';
 import type { Read, ReviewerRule } from './setup.js';
 import { decode, isBinary } from './types.js';
@@ -309,6 +309,24 @@ function closeHandle(handle: unknown): void {
   else held.close?.();
 }
 
+// The tool reads what a rule asks for in its own thread, where it cannot take another rule's ask, and so cannot stop that rule's clock, until the read ends; the time any read takes therefore counts toward no call.
+let reads = 0;
+let readSince = 0;
+let readMs = 0;
+
+function readTime(): number {
+  return readMs + (reads > 0 ? Date.now() - readSince : 0);
+}
+
+async function reading<T>(work: () => Promise<T>): Promise<T> {
+  if (reads++ === 0) readSince = Date.now();
+  try {
+    return await work();
+  } finally {
+    if (--reads === 0) readMs += Date.now() - readSince;
+  }
+}
+
 export function runRule(run: RuleRun): Promise<RuleOutcome> {
   const timeoutMs = run.timeoutMs ?? LIMITS.ruleMs;
   const budget = run.budget ?? new FindingBudget();
@@ -332,6 +350,7 @@ export function runRule(run: RuleRun): Promise<RuleOutcome> {
     let timer: NodeJS.Timeout | undefined;
     let left = timeoutMs;
     let since = 0;
+    let readAt = 0;
     let waiting: ((message: Message) => void) | null = null;
     let current: { file: RuleFile; serving: number; asked: Set<string> } | null = null;
     let stage = 'in its load';
@@ -358,9 +377,16 @@ export function runRule(run: RuleRun): Promise<RuleOutcome> {
       if (child.exitCode !== null || child.signalCode !== null) bounded();
       else child.once('exit', bounded);
     };
+    const spent = () => Date.now() - since - (readTime() - readAt);
     const arm = () => {
       since = Date.now();
-      timer = setTimeout(() => end({ crash: `passes ${timeoutMs / 1000} seconds ${stage}` }), left);
+      readAt = readTime();
+      timer = setTimeout(() => {
+        const used = spent();
+        if (used >= left) return end({ crash: `passes ${timeoutMs / 1000} seconds ${stage}` });
+        left -= used;
+        arm();
+      }, Math.max(left, 0));
     };
     const ask = (request: unknown, onAnswer: (message: Message) => void) => {
       left = timeoutMs;
@@ -422,9 +448,9 @@ export function runRule(run: RuleRun): Promise<RuleOutcome> {
       call.asked.add(message.what);
       if (call.serving++ === 0) {
         clearTimeout(timer);
-        left -= Date.now() - since;
+        left -= spent();
       }
-      run.serve(message.what, call.file).then(
+      reading(() => run.serve!(message.what as 'tree' | 'uses', call.file)).then(
         (value) => {
           if (settled || current !== call) return;
           child.send({ kind: 'answer', id: message.id, value }, (error) => {
@@ -468,7 +494,7 @@ export function runRule(run: RuleRun): Promise<RuleOutcome> {
       if (waiting === null || !known) return end({ crash: `writes to the runner's channel ${stage}` });
       waiting(message as Message);
     });
-    timer = setTimeout(() => end({ crash: `passes ${timeoutMs / 1000} seconds ${stage}` }), timeoutMs);
+    arm();
   });
 }
 
@@ -503,7 +529,7 @@ export interface CompanionRun {
   files: string[];
   read: Read;
   filesOf: Map<string, string[]>;
-  serve: (bound: RuleFile[]) => Serve;
+  serve: Reads;
   signal?: AbortSignal;
 }
 
@@ -539,7 +565,7 @@ export async function resolveCompanions(run: CompanionRun, reviewers: Map<string
   const outcomes = await runAll(
     wanted.map(({ rule, files }) => async () => {
       const module = reviewers.get(rule)!.companion!.path;
-      return { rule, files, outcome: signal.aborted ? { slow: slowMessage('not started') } : await runRule({ root: run.root, rule, ruleFile: join(run.root, module), files, filesOf: run.filesOf, signal, serve: run.serve(files), entry: 'companion' }) };
+      return { rule, files, outcome: signal.aborted ? { slow: slowMessage('not started') } : await runRule({ root: run.root, rule, ruleFile: join(run.root, module), files, filesOf: run.filesOf, signal, serve: run.serve(files, `the companion of the reviewer rule ${rule}`), entry: 'companion' }) };
     }),
   );
   own?.clear();
