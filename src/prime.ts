@@ -1,5 +1,6 @@
 import { CONFIG_BYTES, readWhole } from './limits.js';
 import { decode } from './types.js';
+import { lstatSync } from 'node:fs';
 import { join } from 'node:path';
 import { documentOf, noWords, usageError } from './args.js';
 import { CONFIG, readConfig, RUNNER_COMMANDS, runnerOf } from './config.js';
@@ -8,7 +9,7 @@ import type { Arguments, Result } from './args.js';
 import type { CheckContext } from './check.js';
 import type { Law, TypeDef } from './law.js';
 import { plural, renderErrors, shown } from './output.js';
-import { findRoot, loadLaw, loadRuleFiles, requireGit, stopped } from './setup.js';
+import { findRoot, LAW, loadLaw, loadRuleFiles, requireGit, stopped } from './setup.js';
 import type { Kinds } from './setup.js';
 import { listInForce } from './uses.js';
 
@@ -35,7 +36,7 @@ export function firstPart(reviewers: boolean, mayUse: boolean, folders = false, 
     '- a waiver comment: lawcheck-waive <rule> -- <reason> (lawcheck docs waivers), or taking a rule off a type',
     '- deleting a rule, or changing its status or its why',
     ...(mayUse ? ['- widening may_use'] : []),
-    ...(folders ? ['- adding a pattern to ignored, or taking one from required'] : []),
+    ...(folders ? ['- adding a pattern to ignored, or taking one from required'] : mayUse ? ['- adding a pattern to ignored'] : []),
     ...(reviewers ? ['- lawcheck check --review --again, or --max-calls above reviewer.max_calls'] : []),
     '- any edit of .lawcheck/verdicts or of .lawcheck/config.yaml',
     '',
@@ -53,6 +54,8 @@ export const NO_LAW = [
   'Start one only when the user asks for a law here, and then follow lawcheck docs agent-setup.',
   '',
 ].join('\n');
+
+export const GIT_IGNORES_LAW = 'Git ignores .lawcheck/law.yaml, so no commit carries the law and no other checkout has it; tell the user once, and git check-ignore -v .lawcheck/law.yaml shows the line that ignores it';
 
 export const BUDGET = 8000;
 const MORE = 'More: lawcheck docs';
@@ -131,10 +134,11 @@ function rootLine(type: TypeDef): string {
   return parts.join('  ');
 }
 
-function header(law: Law): string {
+function header(law: Law, ignoredByGit: boolean): string {
   let count = 0;
   walk(law.types, () => count++);
   const lines = [`The law here: ${plural(count, 'type')}, ${plural(law.rules.size, 'rule')}`];
+  if (ignoredByGit) lines.push(GIT_IGNORES_LAW);
   if (law.required.patterns.length > 0) lines.push(`Every file under ${shown(law.required.patterns.join(', '))} needs a type; a file with none is untyped-file`);
   if (law.ignored.patterns.length > 0) lines.push(`Left out of the law: ${shown(law.ignored.patterns.join(', '))}`);
   return lines.join('\n');
@@ -170,8 +174,8 @@ export function withStart(first: string, start: string): string {
   return first.slice(0, end) + start + first.slice(end);
 }
 
-export function primeText(law: Law, kinds: Kinds, budget = BUDGET, start = '', noReviewer = false): { text: string; step: number } {
-  const head = '\n' + header(law);
+export function primeText(law: Law, kinds: Kinds, budget = BUDGET, start = '', noReviewer = false, ignoredByGit = false): { text: string; step: number } {
+  const head = '\n' + header(law, ignoredByGit);
   let mayUse = false;
   walk(law.types, (type) => {
     if (type.mayUse !== null) mayUse = true;
@@ -217,13 +221,14 @@ export async function prime(args: Arguments, context: CheckContext, json: boolea
   const outcome = await stopped(() => {
     requireGit(root);
     const law = loadLaw(root);
-    const { kinds } = loadRuleFiles(root, law);
-    return { law, kinds };
+    const { kinds, files } = loadRuleFiles(root, law);
+    // git lists nothing beyond a symbolic link, so a .lawcheck that is one says nothing of what git ignores.
+    return { law, kinds, ignoredByGit: !files.includes(LAW) && !lstatSync(join(root, '.lawcheck')).isSymbolicLink() };
   });
   if ('errors' in outcome) {
     if (json) return { code: 2, stdout: renderErrors(outcome.errors, true, 'prime') };
     return { code: 2, stdout: withStart(FIRST_PART, startPart(root)) + '\n' + renderErrors(outcome.errors, false, 'prime', 20) };
   }
-  const { text, step } = primeText(outcome.law, outcome.kinds, BUDGET, startPart(root), reviewerUnset(root));
+  const { text, step } = primeText(outcome.law, outcome.kinds, BUDGET, startPart(root), reviewerUnset(root), outcome.ignoredByGit);
   return answer(text, step);
 }
