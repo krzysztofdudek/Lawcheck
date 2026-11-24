@@ -211,6 +211,6 @@ Lawcheck stops with exit 2 and one of two codes when the rule files do not match
 - `rule-missing-file`, for a rule with neither file, or with a reviewer file that holds only whitespace;
 - `rule-file-without-entry`, for a rule with both files, and for any other file in `.lawcheck/rules/` outside `.lawcheck/rules/lib/`.
 
-A script rule keeps the code it imports in `.lawcheck/rules/lib/`, and the companion of a reviewer rule lies there too. Lawcheck sees only the files that git lists, so a rule file that git does not track and `.gitignore` names counts as missing.
+A script rule keeps the code it imports in `.lawcheck/rules/lib/`, and the companion of a reviewer rule lies there too. Lawcheck sees only the files that git lists, so a rule file that git does not track and `.gitignore` names counts as missing. A rule file that is a symbolic link counts as missing too, because Lawcheck reads no rule through a link; the error says so and names the link.
 
 Next: [Settings](config.md)

@@ -41,6 +41,10 @@ const EXPECT: { [name: string]: Expect } = {
   'refused-number-unreadable': { refused: ['number-unreadable', 'threshold-lowered'] },
   'refused-numbers-code-changed': { refused: ['threshold-lowered'] },
   'refused-numbers-budget-through-new-number': { refused: ['threshold-lowered'] },
+  'refused-numbers-value-after-as': { refused: ['number-unreadable', 'threshold-lowered', 'threshold-lowered'] },
+  'refused-test-names-larger-budget': { refused: ['threshold-lowered'] },
+  'refused-test-names-new-number-budget': { refused: ['threshold-lowered'] },
+  'refused-test-gains-budget': { refused: ['threshold-lowered'] },
   'refused-ratchet-grew': { refused: ['ratchet-grew'] },
   'refused-number-unclassified': { refused: ['number-unclassified'] },
   'refused-owner-row-from-branch': { refused: ['guard-changed'] },
@@ -104,13 +108,19 @@ const EXPECT: { [name: string]: Expect } = {
   'accepted-self-law-shrinks': { cleared: [] },
   'accepted-platform-skip-removed': { cleared: ['harness-changed'] },
   'accepted-new-test': { cleared: [] },
+  'accepted-new-test-names-budget': { cleared: [] },
+  'accepted-test-names-smaller-budget': { cleared: [] },
   'accepted-test-moved': { cleared: [] },
   'accepted-docs-example-ruling': { cleared: ['docs-example-changed'] },
 };
 
 function caseBase(name: string): { [path: string]: string } {
   const rows = join(CASES, `${name}.base.md`);
-  return existsSync(rows) ? { ...BASE, 'tests/weakenings.md': BASE['tests/weakenings.md'] + readFileSync(rows, 'utf8') } : BASE;
+  const files = join(CASES, `${name}.base.json`);
+  const withRows = existsSync(rows) ? { ...BASE, 'tests/weakenings.md': BASE['tests/weakenings.md'] + readFileSync(rows, 'utf8') } : BASE;
+  if (!existsSync(files)) return withRows;
+  const lines = JSON.parse(readFileSync(files, 'utf8')) as { [path: string]: string[] };
+  return { ...withRows, ...Object.fromEntries(Object.entries(lines).map(([path, text]) => [path, text.join('\n')])) };
 }
 
 function judgeCase(name: string): Report {
@@ -126,6 +136,7 @@ function judgeCase(name: string): Report {
 test('question 95: the suite guard, every case on disk has an expectation, and every expectation a case', () => {
   const onDisk = readdirSync(CASES).filter((f) => f.endsWith('.diff')).map((f) => f.slice(0, -5)).sort();
   for (const rows of readdirSync(CASES).filter((f) => f.endsWith('.base.md'))) assert.ok(onDisk.includes(rows.slice(0, -8)), rows);
+  for (const files of readdirSync(CASES).filter((f) => f.endsWith('.base.json'))) assert.ok(onDisk.includes(files.slice(0, -10)), files);
   assert.deepEqual(onDisk, Object.keys(EXPECT).sort());
   assert.ok(onDisk.filter((n) => n.startsWith('refused-')).length >= 30);
 });

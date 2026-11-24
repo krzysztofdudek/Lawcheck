@@ -309,6 +309,62 @@ The plugin for an agent other than Claude Code ships only with a trial of real s
 
 Why: one hook keeps one meaning of each case on every agent; a second hook per agent would drift from the first. Codex 0.171.0 passes the names of Claude Code's input (`session_id`, `cwd`, `tool_name`, `tool_input`, `stop_hook_active`), so the description of an agent stays small. The thresholds and arms come from the design of the plugins for other agents, and the trial of Claude Code keeps its own arms and `tests/agent/result.json`. Krzysztof, 2026-11-23 (translated from Polish), on the plugins for Codex, Copilot and Cursor: "All of them".
 
+## 184. explain --tree lists the nodes in a flat list, each with the index of its parent
+
+`lawcheck explain <path> --tree` prints the syntax tree of a file as a script rule gets it from `tree()`: the same reader, the same grammar and the same nodes. The text output shows the named nodes, one line each with the field, the type, the line and, for a node with no named node below it, the first 40 characters of its text; it stops at 12 levels and at 200 nodes and counts what it left out. `--json` gives every node with the keys of a node of `tree()`, but in one list in preorder, where `parent` is the index of the parent and replaces `children`. The command reads no law, and a file that git does not track has a tree too.
+
+Why: node types and fields differ between grammars (`call_expression` in TypeScript, `call` in Python), so an agent that writes a rule from memory names types the grammar does not have, and the rule finds nothing without saying so. A nested JSON tree would break on real code: a generated sum of 5,000 terms is a binary expression 5,000 levels deep, and the output's nested writer fails with a stack overflow between 1,000 and 3,000 levels, while pretty-printing a tree 1,000 levels deep already takes 22 MB of indentation. A flat list stays three levels deep at any depth, its size grows with the count of nodes, and a rule's tree turns into it by one walk in preorder, which the tests do. The tree depends on the path and the text, and for a header of C or C++ on the files git lists in its folder, never on the law, so a broken law or a scratch file that is not committed does not stop an agent from looking. Text past 40 characters, levels past 12 and nodes past 200 would bury the shape an agent needs; `--json` has them all.
+
+## 185. A repository that develops Lawcheck starts its own build with `runner: npx`
+
+The `runner` setting keeps its five values. A repository whose `package.json` names the build it makes as its `lawcheck` program writes `runner: npx`, and the plugin then starts that build. `npx --no-install lawcheck` runs the program that the `bin` of the project's own `package.json` names, from the root and from any folder below it, when no `node_modules/.bin/lawcheck` exists. It does not look at the `name` of the package. With the default `global` runner the plugin looks for a `lawcheck` on the `PATH`, finds none or an installed one, and says nothing. A test in `tests/environments/own-build.nightly.test.ts` runs both with the npm that the machine has.
+
+Why: `npx` already starts such a build, so a sixth value, such as a path to `dist/cli.js`, would add a setting, its checks and its page for a case that has a way. It would not be safer either: with `runner: npx` the repository already decides which program runs, as [Settings](../docs/config.md#runner) says of every value but `global`. The case is rare: a contributor to Lawcheck itself, who builds before every check. The decision holds while npm keeps that behaviour of `npx`.
+
+## 186. Lines end at a line feed, a file with a NUL is binary, and a file with no reader counts whatever its name
+
+Lawcheck ends a line at a line feed, with or without a carriage return before it, and never at a lone carriage return. A use in a file with lone CR line ends is on the line that holds its start in that count, so an import that an editor shows on line 3 is reported on line 1. A file with a byte of value 0 in its first 8,000 bytes is binary, has no type and is judged by no rule, and a file in UTF-16 holds such bytes. `uses-not-read` counts each file of a typed folder that no reader takes by its extension, `tsconfig.json` and `package.json` among them.
+
+Why: a finding's line, a waiver's line, the `lines` of a rule's file and the numbered lines of a reviewer's prompt are one count, and promise I-lines-1 says every finding's line lies inside the file's `lines`. A reader that numbered by its own count would put a finding on a line the file does not have. Runes counts a lone CR as a line end, so Lawcheck maps its line back to its own. The NUL test is the one git applies when it calls a file binary. A file that git shows as binary is binary here, and a UTF-16 file would need its encoding found and converted in every reader, rule and prompt, for a file a repository of code almost never holds. A list of file names that `uses-not-read` leaves out would be a second definition of what a use is, beside the readers; the warning never fails a run, and a `!` pattern in the type's `paths` clears it (docs/codes.md). `docs/languages.md` and `docs/law.md` state all three behaviours, and the tests named S4-9 hold the first two.
+
+## 187. A pass beside a fail that does not parse is a bad answer
+
+A pass is a bad answer when the answer holds a `"verdict": "fail"` that no verdict object of the answer holds, which is the text of an object that does not parse, such as one with a trailing comma. The key and the word may be written with `\u` escapes, as JSON allows. A pass whose own object holds such text inside it, in a nested object that parses or in a string, stays a pass, since the object read holds it. A fail stays a fail beside it, and a lone fail that does not parse stays "the answer holds no JSON object with a verdict". The bad answer is asked once more, as every bad answer is.
+
+Why: a fail that does not parse is no verdict object, so neither rule of the decision "A pass beside a doubtful verdict is a bad answer" saw it, and `{"verdict": "fail", "findings": [{"line": 1, "message": "m"}],} {"verdict": "pass", "findings": []}` read as a pass. A file under review can ask the model to write that answer, and a model can write the trailing comma by habit. The text is looked for by its key and word, not parsed again, so a fail spelled another way, such as `"Fail"` in an object that does not parse, is not caught. The price is one more request for a pass that stands beside prose quoting a fail that does not parse.
+
+## 188. A fatal exit of git is no-git, not internal
+
+When a git command that Lawcheck runs ends with exit 128, git's own exit for a repository it cannot read, the run ends with `no-git`. The message holds the line git printed, and the `next:` line sends the user to repair the repository until `git status` works. A corrupt `.git/index` is the case that was found. Any other exit of a git command, and a git that ends by a signal, stays `internal`, since it means Lawcheck sent git a call that git does not take.
+
+Why: `docs/codes.md` already names a damaged repository as a cause of `no-git`, and `internal` asks the user to report a fault of Lawcheck, which this is not. Under `doctor`, the check that met the failure shows `fail` with the same message and step, and the run ends with exit 2 as for any failed check.
+
+## 189. A law that cannot be read is a law, so init and doctor do not send the user in a circle
+
+Whatever stands at `.lawcheck/law.yaml` makes that folder the root of the law: a file, a folder, a symbolic link to nothing. The run then says `law-invalid` with the cause, such as `the law cannot be read (EISDIR)`, as it does for a law in a folder it cannot search. `init` finds that law and ends with `already-initialized`, `doctor` shows the `law` check as `fail` with the same cause. Only a missing entry, or one below a path that is no folder, is no law.
+
+`init` also stops with `file-unwritable` when `.lawcheck/.gitignore` is a folder or a symbolic link to nothing, before it writes any file. A regular file or a link to a regular file there is kept as before.
+
+Why: with a folder as the law, `init` said `already-initialized` and sent the user to `doctor`, which said there was no law and sent the user to `init`. A `kept` file that is a folder leaves `.local/` and `config.local.yaml` unignored without a word.
+
+## 190. A rule file is never read through a symbolic link, though the law and the config are
+
+`.lawcheck/law.yaml` and `.lawcheck/config.yaml` are read through a link, and an error about either quotes none of the file. A rule file under `.lawcheck/rules/` is not: a link there counts as no file, and the error `rule-missing-file` names the link and says that Lawcheck reads no rule through one.
+
+Why: the text of a reviewer rule goes into every prompt, and a script rule runs. A link that a repository commits could lead to a file outside the work tree, such as a key in the home folder, and its text would reach the reviewer. The law and the config send no text to a reviewer, and their errors hide the text. Only the message was false, since it said the rule had neither file.
+
+## 191. A name or path is refused as too long by what its system counts
+
+`explain` refuses a name or a path that cannot exist, and it measures it as the system does: bytes on Linux and macOS (255 for a name, 4,095 for a path), UTF-16 units on Windows (255 and 32,767). A name that exists on a system is never refused as one that cannot.
+
+Why: Windows answers that a name that is too long is missing, not too long, so Lawcheck measures it before it asks. Counting bytes there refused a real name of 86 CJK characters, which is 258 bytes and 86 units.
+
+## 192. The primer names the runner's command once
+
+When `runner` in `.lawcheck/config.yaml` is not `global`, `prime` ends its first line with `Start it here as: <the runner's command>` and writes every other command of its text as `lawcheck <command>`, as it does for the global runner. It does not put the runner's words before each command.
+
+Why: the text is fitted to one budget and checked line by line, and the plugin and the docs hand an agent the same lines whatever the runner, so one line says how to start the tool and the agent reads `lawcheck` in every other line as that command. The words of `npx --no-install` before each of the commands in the text would give one text per runner and leave the types and rules the primer lists less of the budget. What is given up: an agent that reads one line alone sees `lawcheck check`, not `npx --no-install lawcheck check`; the first line of the same text tells it how to start the tool.
+
 ## Decision (number at merge). Signed passes
 
 The law may name signers, each a kebab-case name with an Ed25519 public key of 43 characters of base64url. Under such a law, `check --review` signs each pass with the key in `LAWCHECK_SIGNING_KEY` and writes the line `<hash> <rule> <signer> <signature>`, whose signature covers the text `lawcheck-signed-pass/1 <hash> <rule>`. A pass counts in `check` and in `explain` only when its line names a signer of the law and that signer's key verifies the signature, so a pass stops counting when its signer leaves the law or gets another key. A review that would record passes without the key of a signer stops with `not-a-signer` before its first call. `--review` asks again about a pass that does not count, and it signs only the answers it gets. A law without `signers` writes the lines of alpha.4 and counts every line of a file and rule, signed or not, so no verdicts file of alpha.4 changes its meaning. Lawcheck writes the signing key as `[key]`, and no reviewer program gets the variable. [verdict-provenance.md](verdict-provenance.md) weighs this choice against a CI job that asks the reviewer itself and against a line that names its reviewer.

@@ -160,15 +160,6 @@ const CASES: Case[] = [
   },
   { id: 'not-initialized, doctor', code: 'not-initialized', setup: (dir) => ({ cwd: lawIn(dir), argv: ['doctor'], report: 'doctor', leads: 'init' }) },
   {
-    id: 'not-initialized, doctor, law.yaml is a directory',
-    code: 'not-initialized',
-    setup: (dir) => {
-      const repo = lawIn(dir);
-      mkdirSync(join(repo, '.lawcheck/law.yaml'), { recursive: true });
-      return { cwd: repo, argv: ['doctor'], report: 'doctor', leads: 'init' };
-    },
-  },
-  {
     id: 'already-initialized',
     code: 'already-initialized',
     setup: (dir) => ({ cwd: makeSample(dir), argv: ['init'], leads: 'doctor' }),
@@ -204,6 +195,24 @@ const CASES: Case[] = [
   inS('law-invalid, check', 'law-invalid', CHECK, withLaw('lawcheck: 0.1.0\nrulez: {}\n')),
   inS('law-invalid, explain', 'law-invalid', EXPLAIN, withLaw('lawcheck: 0.1.0\nrulez: {}\n')),
   inS('law-invalid, try', 'law-invalid', TRY, withLaw('lawcheck: 0.1.0\nrulez: {}\n')),
+  {
+    id: 'law-invalid, check, law.yaml is a directory',
+    code: 'law-invalid',
+    setup: (dir) => {
+      const repo = lawIn(dir);
+      mkdirSync(join(repo, '.lawcheck/law.yaml'), { recursive: true });
+      return {
+        cwd: repo,
+        argv: ['check'],
+        follow: {
+          fix: () => {
+            rmSync(join(repo, '.lawcheck/law.yaml'), { recursive: true });
+            installLaw(repo);
+          },
+        },
+      };
+    },
+  },
   inS('config-invalid, check', 'config-invalid', CHECK, (s) => write(s, '.lawcheck/config.yaml', 'bogus: 1\n')),
   inS('config-invalid, explain', 'config-invalid', EXPLAIN, (s) => write(s, '.lawcheck/config.yaml', 'bogus: 1\n')),
   inS('rule-missing-file, check', 'rule-missing-file', CHECK, (s) => rmSync(join(s, '.lawcheck/rules/no-todo.mjs'))),

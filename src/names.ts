@@ -88,6 +88,15 @@ export function canonicalName(word: string): string {
   return nameOf(bytesOfName(word));
 }
 
+// A name that exists on one system is never refused as one that cannot. Windows answers that a name or path that is too long is missing, so the refusal is made here. Linux and macOS cap a name at 255 bytes and a path at 4,095; Windows caps a name at 255 UTF-16 units, so 86 CJK characters (258 bytes) exist there, and a path at 32,767. An escaped name is measured by the bytes it stands for.
+export function cannotExist(root: string, given: string, platform: NodeJS.Platform = process.platform): boolean {
+  const windows = platform === 'win32';
+  const units = (bytes: Uint8Array) => (windows ? Buffer.from(bytes).toString('utf8').length : bytes.length);
+  if (given.split('/').some((part) => units(bytesOfName(part)) > 255)) return true;
+  const path = onDisk(root, given);
+  return units(typeof path === 'string' ? Buffer.from(path, 'utf8') : path) > (windows ? 32767 : 4095);
+}
+
 export function onDisk(root: string, name: string): string | Buffer {
   if (sep === '\\' || !name.includes('\\')) return join(root, name);
   return Buffer.concat([Buffer.from(join(root, '/'), 'utf8'), bytesOfName(name)]);
