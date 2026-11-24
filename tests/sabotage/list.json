@@ -190,5 +190,37 @@
     "find": "if (provider !== null) addKeys(provider.keys);",
     "replace": "if (provider !== null) addKeys([]);",
     "killedBy": "R-45: a provider that is created has its keys hidden from then on, and none is created without a name"
+  },
+  {
+    "id": "setup-run-text-limit",
+    "promise": "R-43",
+    "file": "src/setup.ts",
+    "find": "if (total > RUN_TEXT_BYTES) throw new TextTooLarge(path, total);",
+    "replace": "if (total > RUN_TEXT_BYTES * 2) throw new TextTooLarge(path, total);",
+    "killedBy": "R-43: a file read twice is counted once, a binary one stays binary, a failure stays the same failure, and a run reads at most 128 MiB"
+  },
+  {
+    "id": "setup-ci-services",
+    "promise": "R-43",
+    "file": "src/setup.ts",
+    "find": "'TF_BUILD', 'JENKINS_URL', 'BUILDKITE'",
+    "replace": "'TF_BUILD', 'BUILDKITE'",
+    "killedBy": "R-43: the CI services Lawcheck knows are the ones that set a variable, and CI itself says no with any word of no"
+  },
+  {
+    "id": "setup-rule-without-file",
+    "promise": "R-43",
+    "file": "src/setup.ts",
+    "find": "has neither ${script} nor ${prose}",
+    "replace": "has no file",
+    "killedBy": "R-43: the files of the rules are sorted into scripts and reviewer rules, and each fault of a rule has its code, place and words"
+  },
+  {
+    "id": "setup-empty-path",
+    "promise": "R-43",
+    "file": "src/setup.ts",
+    "find": "usage('an empty path names no file')",
+    "replace": "usage('an empty path')",
+    "killedBy": "R-43: a path from the root of the law names a file, and the root itself, and nothing outside it"
   }
 ]
