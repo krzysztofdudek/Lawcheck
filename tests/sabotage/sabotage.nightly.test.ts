@@ -23,15 +23,20 @@ function sabotage(entries: unknown[]): { status: number | null; stdout: string; 
   }
 }
 
+function redFirst(run: { stdout: string; stderr: string }): string {
+  const red = run.stdout.split('\n').filter((line) => line !== '' && !line.endsWith('| killed |') && !line.startsWith('| Entry |') && !line.startsWith('|---'));
+  return [...red, '', run.stderr.trimEnd().split('\n').filter((line) => !line.startsWith('killed ')).join('\n'), '', run.stdout].join('\n');
+}
+
 const limit = readEntries(readFileSync(LIST, 'utf8')).find((e) => e.id === 'limit-50')!;
 
 test('question 95: the sabotage list, every break of the list turns its test red', () => {
   const entries = readEntries(readFileSync(LIST, 'utf8'));
   const run = spawnSync(process.execPath, [RUN], { cwd: ROOT, encoding: 'utf8' });
-  assert.equal(run.status, 0, run.stdout + run.stderr);
+  assert.equal(run.status, 0, redFirst(run));
   const lines = run.stdout.trimEnd().split('\n');
   assert.equal(lines.at(-1), `sabotage: PASS  every one of ${entries.length} breaks turned its test red`);
-  for (const e of entries) assert.ok(lines.includes(`| ${e.id} | ${e.promise} | ${e.file} | ${e.killedBy} | killed |`), run.stdout);
+  for (const e of entries) assert.ok(lines.includes(`| ${e.id} | ${e.promise} | ${e.file} | ${e.killedBy} | killed |`), redFirst(run));
 });
 
 test('question 95: the sabotage list, a break its test does not catch fails the run', () => {
