@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
-import { D, D_PATH, inTemp, LAW, write } from '../acceptance/helpers.ts';
+import { atOnce, D, D_PATH, inTemp, LAW, write } from '../acceptance/helpers.ts';
 import { binWithLawcheck, hookEnv, NODE_DIR, runHook, SHAPES, STARTS, WINDOWS } from './shapes.ts';
 import type { Placed, Shape } from './shapes.ts';
 
@@ -34,23 +34,25 @@ interface Bench {
   input(fields?: Record<string, unknown>): Record<string, unknown>;
 }
 
+// Each shape and start runs hooks in processes of its own, and one after another they were most of the time of these tests on a loaded machine.
+const SHAPES_AT_ONCE = 5;
+
 async function inEveryShape(body: (bench: Bench, shape: Shape) => Promise<void>): Promise<string[]> {
-  const problems: string[] = [];
-  for (const shape of SHAPES) {
-    for (const start of STARTS) {
-      await inTemp(async (dir) => {
-        const placed = shape.make(dir, {});
-        const env = hookEnv(dir, [binWithLawcheck(dir), GIT_DIR, NODE_DIR]);
-        const input = (fields: Record<string, unknown> = {}) => ({ session_id: 's1', prompt_id: 'p1', cwd: start.cwd(placed), ...fields });
-        try {
-          await body({ placed, env, input }, shape);
-        } catch (error) {
-          problems.push(`${shape.name}, ${start.name}: ${(error as Error).message}`);
-        }
-      });
-    }
-  }
-  return problems;
+  const places = SHAPES.flatMap((shape) => STARTS.map((start) => ({ shape, start })));
+  const found = await atOnce(places, SHAPES_AT_ONCE, ({ shape, start }) => `${shape.name}, ${start.name}`, ({ shape, start }) =>
+    inTemp(async (dir) => {
+      const placed = shape.make(dir, {});
+      const env = hookEnv(dir, [binWithLawcheck(dir), GIT_DIR, NODE_DIR]);
+      const input = (fields: Record<string, unknown> = {}) => ({ session_id: 's1', prompt_id: 'p1', cwd: start.cwd(placed), ...fields });
+      try {
+        await body({ placed, env, input }, shape);
+        return [];
+      } catch (error) {
+        return [`${shape.name}, ${start.name}: ${(error as Error).message}`];
+      }
+    }),
+  );
+  return found.flat();
 }
 
 test('S6-1: the check before finishing hands back a breach written in the turn, in every repository shape', async () => {
