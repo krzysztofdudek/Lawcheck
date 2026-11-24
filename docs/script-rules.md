@@ -126,7 +126,7 @@ An absent tree stops nothing. The rule decides what to report for that file.
 
 ### The grammars
 
-The node types and fields come from the grammar of each language. Lawcheck depends on the package Runes for its grammars. This version ships the grammars of Runes 1.2.0:
+The node types and fields come from the grammar of each language. Lawcheck takes its grammars from the package Runes. Lawcheck ships the grammars of Runes 1.2.0:
 
 | `language` | Version of the grammar |
 |---|---|

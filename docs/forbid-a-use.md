@@ -12,7 +12,7 @@ The build writes `src/generated/schema.ts`, into a folder that `.gitignore` name
 
 ## 1. Give core a may_use list
 
-The `may_use` list of a type names other types. The files of the type may [use](concepts.md#use) the files of the types on the list. The files of a type may use each other only when its list names the type itself. Add the list to `core` in `.lawcheck/law.yaml`:
+`may_use` names the types whose files a type's files may [use](concepts.md#use). The files of a type may use each other only when its list names the type itself. Add the list to `core` in `.lawcheck/law.yaml`:
 
 ```yaml
 lawcheck: 0.1.0
