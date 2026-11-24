@@ -1,0 +1,45 @@
+name: lawcheck
+on:
+  pull_request:
+  merge_group:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm install
+      - name: Check the change
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          MERGE_BASE: ${{ github.event.merge_group.base_sha }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          case "$EVENT" in
+            pull_request) base="origin/$BASE_REF" ;;
+            merge_group) base="$MERGE_BASE" ;;
+            *)
+              base="$BEFORE"
+              git rev-parse --verify --quiet "$base^{commit}" > /dev/null || base=$(git rev-parse --verify --quiet HEAD^ || true) ;;
+          esac
+          if [ -z "$base" ]; then
+            npx --no-install lawcheck check --full
+            exit
+          fi
+          npx --no-install lawcheck check --base "$base"
+          if git cat-file -e "$base:./.lawcheck/law.yaml" 2> /dev/null; then
+            echo "Checking again with the law of $base"
+            rm -rf .lawcheck/rules
+            git ls-tree -r -z --name-only "$base" -- .lawcheck/law.yaml .lawcheck/rules | xargs -0 git checkout "$base" --
+            npx --no-install lawcheck check --base "$base"
+          fi

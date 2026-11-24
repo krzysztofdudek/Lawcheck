@@ -87,10 +87,11 @@ The second line says what the change does to the law that judges it. A pull requ
 - a rule made advisory or enforced, taken off a type or put on one;
 - a changed `why`, `context`, `about`, `paths`, `content`, `may_use` or `waivers`;
 - a pattern added to `required` or `ignored`, or taken off one, such as `adds src/gen/** to ignored`;
+- a signer added or removed, or the key of a signer changed, such as `adds the signer mallory`;
 - a type moved under another parent, or to the top of `types`;
 - a file of `.lawcheck/rules/`, or `.lawcheck/config.yaml`, added, removed or changed. The line names such a file by its path and not by what it does.
 
-The line shows five items and the count of the rest. When a change has more than five, the line shows first the items that loosen the law: a rule or a type removed, a rule made advisory or taken off a type, a pattern added to `ignored` or taken off `required`. In `--json`, `scope.law_changes` lists every item. The line never changes the exit code of the run, whatever it lists. `lawcheck docs ci` gives a job that checks the change a second time with the law of the base.
+The line shows five items and the count of the rest. When a change has more than five, the line shows first the items that loosen the law: a rule or a type removed, a rule made advisory or taken off a type, a pattern added to `ignored` or taken off `required`, a signer added or removed, the key of a signer changed. In `--json`, `scope.law_changes` lists every item. The line never changes the exit code of the run, whatever it lists. `lawcheck docs ci` gives a job that checks the change a second time with the law of the base.
 
 `lawcheck doctor` reports the same in its `law-change` check. No line of `check` or `doctor` reports the other two kinds of change.
 

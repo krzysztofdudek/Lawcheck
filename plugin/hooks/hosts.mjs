@@ -4,8 +4,11 @@ const PATH_TOOLS = { Write: 'file_path', Edit: 'file_path', NotebookEdit: 'noteb
 // The headers of apply_patch that name a file the patch leaves on disk; a deleted file and the old name of a moved one are gone after it.
 const PATCH_FILE = /^\*\*\* (?:Add File|Update File|Move to): (.+)$/;
 
+// Cursor runs a plugin's hooks from the plugin's own folder and gives the session start and the prompt no cwd, so the workspace it names stands in.
 function startDir(input) {
-  return typeof input.cwd === 'string' && input.cwd !== '' ? input.cwd : process.cwd();
+  if (typeof input.cwd === 'string' && input.cwd !== '') return input.cwd;
+  const root = Array.isArray(input.workspace_roots) ? input.workspace_roots[0] : undefined;
+  return typeof root === 'string' && root !== '' ? root : process.cwd();
 }
 
 function fromStart(input, value) {
@@ -69,6 +72,7 @@ export const HOSTS = {
     sessionId: (input) => input.session_id,
     context: claudeContext,
     tellsUser: true,
+    returned: (input) => input.stop_hook_active === true,
     promptId: (input) => stringOr(input.prompt_id),
     editedFiles: claudeFiles,
     handBack: (text) => ({ hookSpecificOutput: { hookEventName: 'Stop', additionalContext: text } }),
@@ -79,6 +83,7 @@ export const HOSTS = {
     sessionId: (input) => input.session_id,
     context: claudeContext,
     tellsUser: true,
+    returned: (input) => input.stop_hook_active === true,
     promptId: (input) => stringOr(input.turn_id),
     editedFiles: patchFiles,
     handBack: (text) => ({ decision: 'block', reason: text }),
@@ -89,6 +94,7 @@ export const HOSTS = {
     sessionId: (input) => input.sessionId,
     context: (event, text) => ({ additionalContext: text }),
     tellsUser: false,
+    returned: (input) => input.stop_hook_active === true,
     promptId: () => null,
     editedFiles: copilotFiles,
     handBack: (text) => ({ decision: 'block', reason: text }),
@@ -96,6 +102,20 @@ export const HOSTS = {
     // Copilot CLI caps the text of postToolUse hooks at 10 KB, so the text after an edit is held to 10,000 bytes of UTF-8.
     editLimit: { most: 10000, size: (text) => Buffer.byteLength(text, 'utf8') },
   },
+};
+
+// Cursor runs the hooks of the Claude Code plugin as they are, with no --host, so the hook knows Cursor by cursor_version in its input and HOSTS does not list it. Cursor sends no stop_hook_active: loop_count counts the follow-ups of a turn, and a stop whose status is not completed is the user's stop or an error.
+export const CURSOR = {
+  setup: '/lawcheck:setup',
+  sessionId: (input) => input.session_id,
+  context: claudeContext,
+  tellsUser: false,
+  returned: (input) => typeof input.loop_count === 'number' && input.loop_count > 0,
+  ends: (input) => input.status === undefined || input.status === 'completed',
+  promptId: () => null,
+  editedFiles: claudeFiles,
+  handBack: (text) => ({ decision: 'block', reason: text }),
+  switches: { check_after_edit: 'CLAUDE_PLUGIN_OPTION_CHECK_AFTER_EDIT', check_before_stop: 'CLAUDE_PLUGIN_OPTION_CHECK_BEFORE_STOP' },
 };
 
 export { startDir };

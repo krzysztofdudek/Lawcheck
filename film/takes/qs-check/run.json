@@ -1,0 +1,10 @@
+{
+  "id": "qs-check",
+  "chapter": "quick-start",
+  "take": "qs02",
+  "args": [
+    "check"
+  ],
+  "exit": 1,
+  "lawcheck": "0.1.0-alpha.4"
+}

@@ -42,7 +42,7 @@ export function firstPart(reviewers: boolean, mayUse: boolean, folders = false, 
     '',
     'You may, unasked',
     '- add a type for a new kind of file, or make a type finer',
-    `- write a rule the user asked for, and try it first: lawcheck try <rule> <files>${reviewers ? '; a reviewer rule pays one call per file, so add --dry-run first' : ''}`,
+    `- write a rule the user asked for, and try it first: lawcheck try <rule> <files>; before a script rule reads the syntax tree, run lawcheck explain <path> --tree on a real file of that language${reviewers ? '; a reviewer rule pays one call per file, so add --dry-run first' : ''}`,
     '',
   ].join('\n');
 }

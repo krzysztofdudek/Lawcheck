@@ -2,6 +2,7 @@
 import Lockup from '../theme/Lockup.vue';
 import CopyCommand from './CopyCommand.vue';
 import Film from './Film.vue';
+import Tutorial from './Tutorial.vue';
 import { data } from './facts.data.ts';
 
 const c = data.copy;
@@ -75,6 +76,8 @@ const ahead = c.footer.ahead.replace('{version}', data.head.version);
         <p><a :href="data.holds.link.href">{{ data.holds.link.text }}</a></p>
       </section>
 
+      <Tutorial v-if="data.tutorial.chapters.length > 0" :copy="c.tutorial" :chapters="data.tutorial.chapters" />
+
       <section class="wrap" aria-labelledby="tools">
         <h2 id="tools">{{ data.tools.heading }}</h2>
         <div class="table" tabindex="0" role="region" aria-labelledby="tools">
@@ -108,6 +111,7 @@ const ahead = c.footer.ahead.replace('{version}', data.head.version);
         <CopyCommand :command="data.tryIt.pluginCommands" :copy="c.install.copy" :copied="c.install.copied" />
         <p v-html="data.tryIt.codex" />
         <p v-html="data.tryIt.copilot" />
+        <p v-html="data.tryIt.cursor" />
         <p v-html="data.tryIt.quickStart" />
         <p class="links">
           <a class="button" :href="c.next.button.href">{{ c.next.button.text }}</a>

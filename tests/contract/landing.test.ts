@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { parse } from 'yaml';
 import { ROOT } from '../harness/sets.ts';
 import { ALLOWED_NAMES } from './allowed-names.ts';
-import { phoneProblems, problems } from '../../site/landing/check.mjs';
+import { phoneProblems, problems, tutorialProblems } from '../../site/landing/check.mjs';
 import { problems as docsCardProblems } from '../../site/check-docs-card.mjs';
 import { CARD, cardHead, cardProblems, pngProblems } from '../../site/theme/card.mjs';
 import { CATEGORY, FINDING, og } from '../../site/theme/og.mjs';
@@ -113,6 +113,37 @@ test('test 781: the check of the built landing page passes a page with its head,
   assert.deepEqual(built({ ...GOOD, 'index.html': index.replace(/<meta name="twitter:card"[^>]*>/, '') }), ['index.html: twitter:card is [], not summary_large_image once']);
   assert.deepEqual(built({ ...GOOD, 'og.png': png(1200, 600) }), ['og.png is 1200 by 600, not 1200 by 630']);
   assert.deepEqual(built({ 'index.html': index }), ['og.png is missing', '404.html is missing', 'robots.txt does not name the sitemap', 'sitemap.xml does not hold https://lawcheck.dev/', 'vercel.json is missing or does not parse']);
+});
+
+const CHAPTERS = [
+  { page: 'quick-start', files: { mp4: { name: 'quick-start.mp4' }, vtt: { name: 'quick-start.vtt' }, jpg: { name: 'quick-start.jpg' } } },
+  { page: 'ci', files: { mp4: { name: 'ci.mp4' }, vtt: { name: 'ci.vtt' }, jpg: { name: 'ci.jpg' } } },
+];
+const card = (page: string): string => `<li id="tutorial-${page}" class="chapter"><button type="button" class="button chapter-play">Play</button><a href="https://docs.lawcheck.dev/${page}.html">Read the page</a></li>`;
+const TUTORIAL = `<section id="tutorial" class="wrap tutorial"><ol class="chapters">${CHAPTERS.map((chapter) => card(chapter.page)).join('')}</ol></section>`;
+
+function tutorialOf(index: string, chapters: unknown[], present: string[]): string[] {
+  const dir = mkdtempSync(join(tmpdir(), 'lawcheck-tutorial-'));
+  try {
+    mkdirSync(join(dir, 'film'));
+    for (const name of present) writeFileSync(join(dir, 'film', name), 'x');
+    return tutorialProblems(index, dir, chapters);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+test('test 1034: the check of the built landing page wants the section #tutorial with one card per listed chapter, in order, each with its files, its link and a Play button, and nothing of a chapter loaded before a click, and wants no such section when no chapter is listed (control)', () => {
+  const files = CHAPTERS.flatMap((chapter) => Object.values(chapter.files).map((file) => file.name));
+  assert.deepEqual(tutorialOf(TUTORIAL, CHAPTERS, files), []);
+  assert.deepEqual(tutorialOf('<main></main>', [], []), []);
+  assert.deepEqual(tutorialOf(TUTORIAL, [], []), ['index.html shows the tutorial, and film/published.json lists no chapter']);
+  assert.deepEqual(tutorialOf('<main></main>', CHAPTERS, files), ['index.html has 0 sections with the id tutorial, not one', 'the tutorial shows the chapters [], and film/published.json lists [quick-start, ci]', 'the card of the chapter quick-start has no link to its page', 'the card of the chapter ci has no link to its page', 'the tutorial has 0 Play buttons, not 2']);
+  assert.deepEqual(tutorialOf(`<section id="tutorial">${card('ci')}${card('quick-start')}</section>`, CHAPTERS, files), ['the tutorial shows the chapters [ci, quick-start], and film/published.json lists [quick-start, ci]']);
+  assert.deepEqual(tutorialOf(TUTORIAL, CHAPTERS, files.filter((name) => name !== 'ci.vtt')), ['film/ci.vtt of the chapter ci is missing']);
+  assert.deepEqual(tutorialOf(TUTORIAL.replace('<a href="https://docs.lawcheck.dev/ci.html">', '<a href="https://docs.lawcheck.dev/index.html">'), CHAPTERS, files), ['the card of the chapter ci has no link to its page']);
+  assert.deepEqual(tutorialOf(TUTORIAL.replace('class="button chapter-play"', 'class="chapter-play"'), CHAPTERS, files), ['the tutorial has 1 Play buttons, not 2']);
+  assert.deepEqual(tutorialOf(`${TUTORIAL}<video poster="/film/ci.jpg"></video>`, CHAPTERS, files), ['index.html loads a video, a track or an image of a chapter before a click']);
 });
 
 test('test 782: the landing page finds a paragraph, a sentence and a code block by its heading and its opening words, so one that is gone or one that starts like another stops the build, as a missing heading or table row does (control)', () => {

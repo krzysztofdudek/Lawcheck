@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { isTranscript, trimTranscript } from './trim.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 export const PILOT = join(HERE, 'pilot.json');
@@ -23,7 +24,10 @@ function filesBelow(folder, prefix = '') {
 const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
 
 export function fingerprint(folder) {
-  const lines = filesBelow(folder).map((path) => `${sha256(readFileSync(join(folder, path)))}  ${path}\n`);
+  const lines = filesBelow(folder).map((path) => {
+    const bytes = readFileSync(join(folder, path));
+    return `${sha256(!path.includes('/') && isTranscript(path) ? Buffer.from(trimTranscript(bytes.toString('utf8'))) : bytes)}  ${path}\n`;
+  });
   return sha256(lines.join(''));
 }
 
@@ -75,7 +79,7 @@ export function pilotOf(takes) {
   if (prompts.size !== 1) throw new Error(`the records hold ${prompts.size} prompts, not one`);
   return {
     prompt: [...prompts][0],
-    recordHash: 'SHA-256 of the lines "<SHA-256 of a file>  <path>" of every file of a record, sorted by path, each line ending in a newline',
+    recordHash: 'SHA-256 of the lines "<SHA-256 of a file>  <path>" of every file of a record, sorted by path, each line ending in a newline, with each transcript taken as node film/trim.mjs writes it',
     summary: summaryOf(rows),
     sessions: rows,
   };
