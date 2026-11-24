@@ -23,7 +23,7 @@ Then start a new agent session in Cursor. Cursor loads the plugin while the sett
 
 The hooks need `node` and `git` on the `PATH`. The hooks after an edit and before the end of a turn run `lawcheck check`, which runs the repository's script rules on your machine with your rights. A script rule is code of the repository, as its tests are. Use the plugin only in a repository whose code you would run yourself.
 
-## 3. Add two entries for the other hooks
+## 3. Which hooks run in Cursor is not known
 
 No session of Cursor has run the plugin, so this page does not say which hooks of the plugin run in Cursor or what they need. [Lawcheck in Claude Code](claude-code.md) says what each hook does where it was run.
 
