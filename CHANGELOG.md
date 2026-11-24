@@ -44,6 +44,8 @@ When git ignores `.lawcheck/law.yaml`, `lawcheck prime` now says that no commit 
 
 A script rule whose callback throws after a `node:crypto` job, such as `pbkdf2` or `scrypt`, that ends after the rule's last result is now `rule-crashed`, as a rule whose timer throws is. In alpha.4 such a rule passed or failed depending on how many other files the run judged.
 
+A script rule that leaves a timer behind, such as `setTimeout(() => process.exit(1), 20)`, is no longer blamed on the next file it judges. When the rule's process ends, or goes 30 seconds without answering, after a call that left work running, `rule-crashed` now says `after a call that left work running` and names no file. In alpha.4 the message named the file judged at that moment, so the same rule was blamed on a different file, or on none, depending on which other files the run judged.
+
 In the Claude Code plugin, a law error that the agent was shown once comes back after an edit that Lawcheck could check. In alpha.4, a law broken, fixed and broken again the same way within one prompt reached the agent only the first time.
 
 Every message the Claude Code plugin sends you, and every text it gives the agent after an edit or at the end of a turn, now starts with `Lawcheck:`. In alpha.4 some started with `lawcheck:`, as the tool's own output does, and one read `lawcheck: lawcheck check could not judge`. A hook that fails now prints `Lawcheck plugin:` before the cause. A reason that ends in a full stop no longer gets a second one, the text the agent gets says `... 1 more line not shown` for one line, and `lawcheck prime` says `1 more root type`.

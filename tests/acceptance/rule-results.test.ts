@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { LEFT_RUNNING_EXTRA_MS, NOTHING_LEFT_EXTRA_MS } from '../numbers.ts';
-import { append, check, git, setRule, withSample, write } from './helpers.ts';
+import { LEFT_RUNNING_EXTRA_MS, NOTHING_LEFT_EXTRA_MS, TEST_RULE_MS } from '../numbers.ts';
+import { append, check, git, setRule, startLawcheck, withSample, write } from './helpers.ts';
 
 const BREACH = 'console.log(1)\n';
 const finding = (place: string) => `${place}  error[no-console]  writes to the terminal with console.log`;
@@ -91,6 +91,34 @@ for (const [what, source] of inThePool) {
     }
   });
 }
+
+const leftRunning: [string, string, string][] = [
+  ['a process.exit', "setTimeout(() => process.exit(1), 20);", 'ends before answering after a call that left work running'],
+  ['a loop that never ends', "setTimeout(() => { while (true) {} }, 20);", `passes ${TEST_RULE_MS / 1000} seconds after a call that left work running`],
+];
+
+for (const [what, left, message] of leftRunning) {
+  test(`R-107: ${what} that the call on one file leaves on a timer is not blamed on the next file`, async () => {
+    const rule = `export async function check({ files }) { if (files[0].path === 'src/core/a.ts') { ${left} } else await new Promise((r) => setTimeout(r, 200)); return []; }\n`;
+    for (const args of [['--full'], ['src/core/a.ts']]) {
+      await withSample(async (s) => {
+        setRule(s, 'no-console', rule);
+        for (const file of ['a', 'b']) write(s, `src/core/${file}.ts`, 'export const x = 1;\n');
+        const run = await startLawcheck(s, ['check', ...args], { limits: { ruleMs: TEST_RULE_MS } }).ended;
+        assert.deepEqual([run.code, run.stdout.split('\n')[2]], [2, `.lawcheck/rules/no-console.mjs  error[rule-crashed]  ${message}`], args.join(' '));
+      });
+    }
+  });
+}
+
+test('R-107: a call that leaves nothing running is named when the runner ends in it', async () => {
+  await withSample(async (s) => {
+    setRule(s, 'no-console', "export function check({ files }) { if (files[0].path === 'src/core/b.ts') process.exit(1); return []; }\n");
+    for (const file of ['a', 'b']) write(s, `src/core/${file}.ts`, 'export const x = 1;\n');
+    const run = await check(s, '--full');
+    assert.deepEqual([run.code, run.stdout.split('\n')[2]], [2, '.lawcheck/rules/no-console.mjs  error[rule-crashed]  ends before answering on src/core/b.ts']);
+  });
+});
 
 const unreferenced: [string, string][] = [
   ['a timer', "export function check() { setTimeout(() => { throw new Error('unref'); }, 50).unref(); return []; }\n"],

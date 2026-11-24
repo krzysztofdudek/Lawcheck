@@ -346,7 +346,7 @@ async function call(file: CallFile): Promise<void> {
   }
   await turn();
   if (reported) return;
-  send(over ?? { kind: 'result', value });
+  send({ ...(over ?? { kind: 'result', value }), left: leftBehind() });
 }
 
 process.on('message', (message: Incoming) => {

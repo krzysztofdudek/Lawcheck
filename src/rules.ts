@@ -225,6 +225,7 @@ interface Message {
   load?: boolean;
   count?: number;
   chars?: number;
+  left?: boolean;
   what?: unknown;
   id?: unknown;
 }
@@ -354,6 +355,8 @@ export function runRule(run: RuleRun): Promise<RuleOutcome> {
     let waiting: ((message: Message) => void) | null = null;
     let current: { file: RuleFile; serving: number; asked: Set<string> } | null = null;
     let stage = 'in its load';
+    let leftover = false;
+    const where = () => (leftover ? 'after a call that left work running' : stage);
     const findings: RawFinding[] = [];
     const paths = new Map<string, string[]>();
 
@@ -383,7 +386,7 @@ export function runRule(run: RuleRun): Promise<RuleOutcome> {
       readAt = readTime();
       timer = setTimeout(() => {
         const used = spent();
-        if (used >= left) return end({ crash: `passes ${timeoutMs / 1000} seconds ${stage}` });
+        if (used >= left) return end({ crash: `passes ${timeoutMs / 1000} seconds ${where()}` });
         left -= used;
         arm();
       }, Math.max(left, 0));
@@ -398,7 +401,7 @@ export function runRule(run: RuleRun): Promise<RuleOutcome> {
         onAnswer(message);
       };
       child.send(request as object, (error) => {
-        if (error && !settled) end({ crash: `ends before answering ${stage}` });
+        if (error && !settled) end({ crash: `ends before answering ${where()}` });
       });
     };
     const callNext = (index: number) => {
@@ -415,6 +418,7 @@ export function runRule(run: RuleRun): Promise<RuleOutcome> {
       current = { file, serving: 0, asked: new Set() };
       const payload = { path: file.path, type: file.type?.id ?? null, text: file.text, lines: file.lines };
       ask({ kind: 'call', file: payload }, (message) => {
+        if (message.left === true) leftover = true;
         if (message.kind === 'threw') return end({ crash: `throws on ${file.path}: ${message.message}` });
         if (message.kind === 'uncloneable') {
           return end({ crash: `returns a value the channel cannot carry for ${file.path}: ${message.message}` });
@@ -454,7 +458,7 @@ export function runRule(run: RuleRun): Promise<RuleOutcome> {
         (value) => {
           if (settled || current !== call) return;
           child.send({ kind: 'answer', id: message.id, value }, (error) => {
-            if (error && !settled) end({ crash: `ends before answering ${stage}` });
+            if (error && !settled) end({ crash: `ends before answering ${where()}` });
           });
           if (--call.serving === 0) arm();
         },
@@ -476,7 +480,7 @@ export function runRule(run: RuleRun): Promise<RuleOutcome> {
     child.on('error', (error) => end(started ? error : { broken: `the runner of script rules did not start: ${error.message}` }));
     child.on('exit', (code, signal) => {
       if (settled) return;
-      if (started) return end({ crash: `ends before answering ${stage}` });
+      if (started) return end({ crash: `ends before answering ${where()}` });
       end({ broken: whyNotStarted(run.root, `it ended with ${code ?? signal} before it started`) });
     });
     // A rule can send a handle through the channel, its own standard error among them, with a message or with one of Node's internal messages, and the tool's copy would keep that pipe open.
