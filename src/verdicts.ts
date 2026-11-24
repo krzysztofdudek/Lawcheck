@@ -305,7 +305,10 @@ function locked<T>(local: string, work: () => T): T {
         rmSync(lock, { recursive: true, force: true });
         continue;
       }
-      if (Date.now() > deadline) throw new Unwritable(`${LOCAL}/verdicts.lock`, pending ? 'EPERM' : 'EBUSY');
+      if (Date.now() > deadline) {
+        if (pending) throw new Unwritable(`${LOCAL}/verdicts.lock`, 'EPERM', `a program still holds ${LOCAL}/verdicts.lock open, such as another Lawcheck run or a virus scanner: run lawcheck check again once it is closed`);
+        throw new Unwritable(`${LOCAL}/verdicts.lock`, 'EBUSY');
+      }
       Atomics.wait(pause, 0, 0, 5);
     }
   }
