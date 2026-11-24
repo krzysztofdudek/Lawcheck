@@ -68,16 +68,32 @@ export function start(): void {
     for (const child of gits) child.kill('SIGKILL');
     process.exit(code);
   };
+  // Outside Windows Node writes to a pipe without waiting for its reader, and what that reader has not taken is lost when the process exits. So a run exits only once its standard error has taken every line passed on to it. A run that fail() ends does not wait: its worker still runs, and would write a second result with another code.
+  let unwritten = 0;
+  let ended: number | null = null;
+  let stopped = false;
+  const passOn = (text: string) => {
+    unwritten++;
+    process.stderr.write(text, () => {
+      unwritten--;
+      if (unwritten === 0 && ended !== null) exit(ended);
+    });
+  };
+  const end = (code: number) => {
+    if (unwritten === 0 || stopped) return exit(code);
+    ended = code;
+  };
   const writeOut = (bytes: Uint8Array | string, code: number) => {
     writing = true;
     process.stdout.on('error', () => undefined);
     process.stdout.write(bytes, (error) => {
-      if (!error || readerGone(error)) return exit(code);
+      if (!error || readerGone(error)) return end(code);
       const cause = (error as NodeJS.ErrnoException).code ?? 'an error';
       process.stderr.write(`error[file-unwritable]  standard output cannot be written (${cause}), so the result is lost\n`, () => exit(2));
     });
   };
   const fail = (item: ErrorItem) => {
+    stopped = true;
     if (writing) {
       process.stderr.write(safeText(`error[${item.code}]  ${hide(item.message)}\n`), () => exit(2));
       return;
@@ -86,7 +102,11 @@ export function start(): void {
     writeOut(json ? safeJson(hiddenJson(text)) : safeText(text), 2);
   };
   for (const signal of ['SIGTERM', 'SIGINT', 'SIGHUP'] as const) {
-    process.on(signal, () => fail({ code: 'stopped', file: null, line: null, message: `stopped by ${signal}` }));
+    process.on(signal, () => {
+      // The result is written whole, so its code stands; only lines that rules printed are left behind.
+      if (ended !== null) return exit(ended);
+      fail({ code: 'stopped', file: null, line: null, message: `stopped by ${signal}` });
+    });
   }
   const progress = progressBuffer();
   const { port1, port2 } = new MessageChannel();
@@ -163,8 +183,8 @@ export function start(): void {
   }, MEMORY_CHECK_MS);
   memory.unref();
   worker.on('message', (message: FromWork) => {
-    if (message.kind === 'warn') process.stderr.write(safeText(message.line) + '\n');
-    else if (message.kind === 'stderr') process.stderr.write(message.text);
+    if (message.kind === 'warn') passOn(safeText(message.line) + '\n');
+    else if (message.kind === 'stderr') passOn(message.text);
     else writeOut(message.stdout, message.code);
   });
   worker.on('error', (error) => fail(internal(error)));
