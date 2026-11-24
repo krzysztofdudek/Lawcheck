@@ -774,15 +774,17 @@ test('test 1056: on Windows a guard removes the folder that a killed guard made 
     env.LOCALAPPDATA = local;
     const made = () => readdirSync(temp).filter((name) => name.startsWith('lawcheck-guard-'));
     const guards: { child: ReturnType<typeof spawn>; exited: boolean }[] = [];
-    const start = () => {
+    const start = (listing = true) => {
       const child = spawn(process.execPath, [guardFile], { cwd: dirname(guardFile), env, stdio: ['pipe', 'ignore', 'ignore'], detached: true });
       const guard = { child, exited: false };
       child.on('exit', () => (guard.exited = true));
       guards.push(guard);
       // The tool is about to call a program, so the guard starts its PowerShell.
-      child.stdin!.write('+w\n');
+      if (listing) child.stdin!.write('+w\n');
       return guard;
     };
+    const of = (pid: number) => made().filter((name) => name.startsWith(`lawcheck-guard-${pid}-`));
+    const stranger = spawn(process.execPath, ['-e', IDLE], { stdio: 'ignore', windowsHide: true });
     try {
       const killed = start();
       assert.ok(await waitFor(() => made().length === 1, GUARD_ENDS_MS), 'the guard made no folder for its PowerShell');
@@ -796,12 +798,30 @@ test('test 1056: on Windows a guard removes the folder that a killed guard made 
       later.child.stdin!.end();
       assert.ok(await waitFor(() => later.exited, GUARD_ENDS_MS), 'the later guard is still running');
       assert.deepEqual(made(), [], 'the later guard left its own folder');
+      // Windows gives an ended guard's id to a new process: to a process that is no guard, or to the next guard.
+      const held = join(temp, `lawcheck-guard-${stranger.pid}-left`);
+      mkdirSync(held);
+      const running = start();
+      assert.ok(await waitFor(() => of(running.child.pid!).length === 1, GUARD_ENDS_MS), 'the running guard made no folder for its PowerShell');
+      const next = start(false);
+      const earlier = join(temp, `lawcheck-guard-${next.child.pid}-left`);
+      mkdirSync(earlier);
+      next.child.stdin!.write('+w\n');
+      assert.ok(await waitFor(() => of(next.child.pid!).length === 1 && !existsSync(earlier), GUARD_ENDS_MS), `the folder an earlier holder of the guard's id left is still there: ${made().join(', ')}`);
+      assert.equal(of(running.child.pid!).length, 1, 'a guard removed the folder of a guard that runs');
+      assert.ok(existsSync(held), 'a guard removed a folder whose id a process that runs holds');
+      next.child.stdin!.end();
+      running.child.stdin!.end();
+      assert.ok(await waitFor(() => next.exited && running.exited, GUARD_ENDS_MS), 'a guard that was told the tool ended is still running');
+      rmSync(held, { recursive: true });
+      assert.deepEqual(made(), [], 'a guard left its own folder');
     } finally {
       for (const guard of guards) {
         if (guard.exited) continue;
         killGroup(guard.child.pid!, 'SIGKILL');
         await waitFor(() => guard.exited, LEFTOVER_GRACE_MS);
       }
+      stranger.kill('SIGKILL');
     }
   });
 });
