@@ -102,6 +102,29 @@ function jobSystems(job: Job): string[] {
   return SYSTEM_OF.filter(([pattern]) => oses.some((os) => pattern.test(os))).map(([, system]) => system);
 }
 
+// The systems the nightly names, where its commit set runs, that no job of the group runs on.
+function missingSystems(workflow: Workflow, group: string): string[] {
+  const on = new Set<string>();
+  for (const job of Object.values(workflow.jobs)) if (named({ jobs: { job } }).includes(group)) for (const system of jobSystems(job)) on.add(system);
+  return wholeSetSystems(workflow).filter((system) => !on.has(system));
+}
+
+test('R-70: the nightly job of the shipped deadlines and rule limit runs on every system the nightly runs its commit set on', () => {
+  assert.deepEqual(missingSystems(read('nightly.yml'), 'deadlines'), []);
+});
+
+test('R-70: a system removed from the job of the shipped deadlines, or the job removed, is named (control)', () => {
+  const noMac = read('nightly.yml');
+  noMac.jobs.deadlines!.strategy!.matrix!.os = ['ubuntu-latest', 'windows-latest'];
+  assert.deepEqual(missingSystems(noMac, 'deadlines'), ['darwin']);
+  const linuxOnly = read('nightly.yml');
+  linuxOnly.jobs.deadlines!.strategy!.matrix!.os = ['ubuntu-latest'];
+  assert.deepEqual(missingSystems(linuxOnly, 'deadlines'), ['darwin', 'win32']);
+  const gone = read('nightly.yml');
+  delete gone.jobs.deadlines;
+  assert.deepEqual(missingSystems(gone, 'deadlines'), ['darwin', 'linux', 'win32']);
+});
+
 // The parts of nightly files that PLATFORM_SKIPS skips on Windows or macOS, where no job of the nightly and weekly workflows runs the file's group on that system, so the entry never applies.
 function unreadNightlySkips(workflows: Workflow[]): string[] {
   const systems = new Map<string, Set<string>>();

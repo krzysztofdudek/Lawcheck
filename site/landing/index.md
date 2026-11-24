@@ -18,6 +18,7 @@ next:
   npm: lawcheck on npm
 footer:
   released: "Lawcheck {version}, released {date}. MIT license."
+  ahead: "This build of the page also shows text for the next release, so a flag or command named here may not be in {version} yet."
   docs: { text: Documentation, page: index }
   changelog: { text: Changelog, page: changelog }
   security: Security policy

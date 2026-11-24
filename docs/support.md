@@ -27,7 +27,7 @@ Lawcheck installs as a package of the project or as a global package. The `runne
 
 Yarn 1 prints lines of its own around the output of `yarn run`. To read `--json`, run `yarn --silent run lawcheck`.
 
-Yarn 4 holds back a package published less than a day ago. On the first day after a release, `yarn add` of Lawcheck ends with `YN0016` and `quarantined`. [Settings](config.md) gives the line of `.yarnrc.yml` that lets the install through.
+Yarn 4.15.0 and later hold back a package published less than a day ago. On the first day after a release, `yarn add` of Lawcheck ends with `YN0016` and `quarantined`. [Settings](config.md) gives the line of `.yarnrc.yml` that lets the install through, and says which Yarn 4 versions reject it. pnpm 11 and later do not stop the install on that day. `pnpm add` of Lawcheck installs the release before it, and Settings gives the line of `pnpm-workspace.yaml` that takes the new one.
 
 ## The environments Lawcheck refuses
 

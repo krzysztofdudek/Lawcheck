@@ -1,5 +1,7 @@
 # Lawcheck in Claude Code
 
+The Lawcheck plugin for Claude Code gives the agent your law, checks each file it edits and checks the files of a turn before the turn ends.
+
 An agent writes `console.log` into `src/core/total.ts`. The [law](concepts.md#law) of the repository forbids that call there. With the Lawcheck plugin, the agent sees the [finding](concepts.md#finding) after its edit. A turn is the work the agent does for one message of yours. Before the agent ends its turn, the plugin sends it back to work while the files it changed in the turn break the law. At the start of a session, the plugin gives the agent a summary of the law.
 
 The outputs below come from a repository with this law. Its [script rule](concepts.md#script-rule) `no-console` is the rule of [The first type and the first rule](first-law.md). The file `src/core/total.ts` has the [type](concepts.md#type) `library`:

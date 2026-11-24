@@ -54,6 +54,8 @@ Add Lawcheck as a development dependency. You then start it through the package 
 
 With `--no-install`, npx runs the copy installed in the project. It downloads nothing. A plain `npx lawcheck` downloads a copy when the project has none.
 
+On the first day after a release, Yarn 4.15.0 and later refuse to install the new version, and pnpm 11 and later install the one before it. [Settings](config.md#runner) gives the line that lets the new version through.
+
 ## The runner setting
 
 `lawcheck init` makes the folder `.lawcheck/`, as the quick start shows in [Start the law](quick-start.md#_1-start-the-law). After it, write the value of `runner` from the table into `.lawcheck/config.yaml`:

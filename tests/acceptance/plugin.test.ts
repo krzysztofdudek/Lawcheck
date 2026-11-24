@@ -66,8 +66,9 @@ test('test 152: the files of the plugin', () => {
   expectedPlugin.version = manifest.version;
   assert.deepEqual(plugin, expectedPlugin);
   const marketplace = JSON.parse(readFileSync(join(ROOT, '.claude-plugin', 'marketplace.json'), 'utf8'));
-  const expectedMarketplace = JSON.parse(specBlock('marketplace-manifest').replace('"<description>"', JSON.stringify(expectedPlugin.description)));
+  const expectedMarketplace = JSON.parse(specBlock('marketplace-manifest'));
   assert.deepEqual(marketplace, expectedMarketplace);
+  assert.equal(marketplace.plugins[0].description, plugin.description.replace('with Write, Edit or NotebookEdit', '(with Write, Edit or NotebookEdit in Claude Code, with apply_patch in Codex)'));
   assert.deepEqual(JSON.parse(readFileSync(join(PLUGIN, 'hooks', 'hooks.json'), 'utf8')), JSON.parse(specBlock('hooks-manifest')));
   const files = walk(PLUGIN).sort();
   const modules = files.filter((file) => file.endsWith('.mjs'));
@@ -213,6 +214,40 @@ test('test 158: every runner starts the same Lawcheck with its own words', async
     nothing(await session.stop(), 'make stop');
     assert.deepEqual(bench.runners(), []);
     assert.deepEqual(bench.log(), []);
+  });
+});
+
+// Yarn 1 ends a failing yarn run with an info Visit line on standard output, where a passing run ends with Done in.
+function yarnOne(bench: Bench): void {
+  bench.script('yarn', [
+    "process.stdout.write('yarn run v1.22.22\\n$ /x/node_modules/.bin/lawcheck\\n');",
+    `const r = spawnSync(process.execPath, [${JSON.stringify(join(bench.bin, 'lawcheck'))}, ...process.argv.slice(4)], { stdio: ['ignore', 'pipe', 'inherit'] });`,
+    'process.stdout.write(r.stdout);',
+    "process.stdout.write(r.status === 0 ? 'Done in 0.10s.\\n' : 'info Visit https://yarnpkg.com/en/docs/cli/run for documentation about this command.\\n');",
+    'process.exit(r.status ?? 2);',
+  ]);
+}
+
+test('R-109: test 158, with runner yarn on Yarn 1 a failing check reaches the agent as it does with the global runner, in the edit, the fitted edit and the stop', async () => {
+  await withBench(async (bench, dir) => {
+    yarnOne(bench);
+    const cmd = 'yarn run lawcheck';
+    const s = makeSample(dir);
+    write(s, '.lawcheck/config.yaml', 'runner: yarn\n');
+    const session = new Session(bench, s);
+    await session.prompt();
+    write(s, D_PATH, D);
+    json(await session.stop(), handBack(`${stopHeader(cmd)}\n\n${D_OUTPUT}`), 'stop');
+    json(await session.edit(D_PATH), edited(`${editHeader(D_PATH, cmd)}\n\n${D_OUTPUT}`), 'edit');
+    const body = Array.from({ length: 400 }, (_, i) => `${String(i + 1).padStart(3, '0')} ${'x'.repeat(56)}`);
+    const printed = ['lawcheck: FAIL  400 errors in 1 named file', '', ...body, '', 'next: fix a.ts:1'];
+    writeFileSync(join(dir, 'long.txt'), printed.join('\n') + '\n');
+    bench.script('lawcheck', [`process.stdout.write(readFileSync(${JSON.stringify(join(dir, 'long.txt'))}));`, 'process.exitCode = 1;']);
+    const text: string = (await session.edit(D_PATH)).json.hookSpecificOutput.additionalContext;
+    const lines = text.split('\n');
+    assert.equal(lines[lines.length - 1], 'next: fix a.ts:1');
+    assert.match(lines[lines.length - 2]!, /^\.\.\. \d+ more lines? not shown; run the command yourself to see them all$/);
+    assert.ok(!text.includes('info Visit'), text);
   });
 });
 
@@ -529,6 +564,48 @@ test('test 166 and 167: the hand-back, and the guard', async () => {
     const otherPrompt = await session.run('stop', { prompt_id: 'p-other', stop_hook_active: false, background_tasks: [] });
     assert.equal(otherPrompt.json?.hookSpecificOutput?.hookEventName, 'Stop', otherPrompt.stdout);
     assert.equal(bench.state().blocks, 1);
+  });
+});
+
+test('test 954: a prompt event for the turn that is still open keeps its returns and its last output', async () => {
+  await withBench(async (bench, dir) => {
+    const s = makeSample(dir);
+    const session = new Session(bench, s);
+    await session.prompt();
+    write(s, D_PATH, D);
+    for (let i = 0; i < 3; i++) {
+      append(s, D_PATH, 'console.log(1);\n');
+      assert.equal((await session.stop()).json?.hookSpecificOutput?.hookEventName, 'Stop');
+    }
+    const kept = bench.state();
+    assert.equal(kept.blocks, 3);
+    nothing(await session.run('prompt', { prompt: 'the reason of the hand-back' }), 'the same turn again');
+    const again = bench.state();
+    assert.equal(again.blocks, 3);
+    assert.equal(again.last, kept.last);
+    assert.equal(again.started, kept.started);
+    append(s, D_PATH, 'console.log(1);\n');
+    json(await session.stop(), withD(released()), 'the fourth stop lets the agent finish');
+    assert.equal(bench.state().open, false);
+  });
+});
+
+test('test 955: a prompt event with another prompt id while the turn is open starts the count again', async () => {
+  await withBench(async (bench, dir) => {
+    const s = makeSample(dir);
+    const session = new Session(bench, s);
+    await session.prompt();
+    write(s, D_PATH, D);
+    for (let i = 0; i < 3; i++) {
+      append(s, D_PATH, 'console.log(1);\n');
+      await session.stop();
+    }
+    assert.equal(bench.state().blocks, 3);
+    nothing(await session.prompt(), 'a new prompt');
+    assert.equal(bench.state().blocks, 0);
+    assert.equal(bench.state().last, null);
+    append(s, D_PATH, 'console.log(1);\n');
+    assert.equal((await session.stop()).json?.hookSpecificOutput?.hookEventName, 'Stop');
   });
 });
 
@@ -1335,5 +1412,19 @@ test('test 924: a host the hook does not know fails the hook with one line', asy
       assert.equal(run.stdout, '', host);
       assert.equal(run.code, 1, host);
     }
+  });
+});
+
+test('R-4: the check after an edit judges a file of a folder that holds a law of its own by that law, as docs/plugin.md says, and not by the law of the repository the session runs in', async () => {
+  await withBench(async (bench, dir) => {
+    const TOP_LAW = 'lawcheck: 0.1.0\n\ntypes:\n  everything:\n    about: Every TypeScript file.\n    paths: ["**/*.ts"]\n';
+    const repo = makeSample(dir, { under: 'tests/fixture', top: (r) => write(r, '.lawcheck/law.yaml', TOP_LAW) });
+    write(repo, `tests/fixture/${D_PATH}`, D);
+    const session = new Session(bench, repo);
+    json(await session.edit(`tests/fixture/${D_PATH}`, 'Write'), edited(`${editHeader(D_PATH)}\n\n${D_OUTPUT}`), 'judged by the law of the fixture');
+    assert.deepEqual(bench.log().at(-1), { args: ['check', `./${D_PATH}`], cwd: join(repo, 'tests/fixture') });
+    write(repo, 'src/top.ts', 'console.log(1);\n');
+    nothing(await session.edit('src/top.ts', 'Write'), 'judged by the law of the repository, which has no rule');
+    assert.deepEqual(bench.log().at(-1), { args: ['check', './src/top.ts'], cwd: repo });
   });
 });
