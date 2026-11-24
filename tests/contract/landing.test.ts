@@ -203,3 +203,10 @@ test('test 892: the check of the built landing page passes a stylesheet that sta
   assert.deepEqual(sheetProblems(SHEET.replace('max-width:860px', 'min-width:861px')), sheetProblems(SHEET.replace('max-width:860px', 'max-width:300px')));
   assert.deepEqual(sheetProblems(null), ['assets has no stylesheet']);
 });
+
+test('test 1009: the finding on the card and in its alt text is the whole line that README.md shows, and the alt text says it is the first line of a finding (issue 244)', () => {
+  const line = `${FINDING.place}  ${FINDING.code}  ${FINDING.text}`;
+  assert.ok(read('README.md').split('\n').includes(line), 'a whole line of README.md');
+  assert.ok(CARD.alt.includes(`${FINDING.place} ${FINDING.code}, ${FINDING.text}.`), 'the alt text holds the line to its end');
+  assert.ok(CARD.alt.includes('the first line of one finding'), 'the alt text says that more of the finding follows');
+});
