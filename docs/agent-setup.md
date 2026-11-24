@@ -16,7 +16,7 @@ The outputs below come from a repository with five files:
 
 Run `lawcheck --version` and `lawcheck prime`. When the shell finds no `lawcheck`, tell the user to install it with `npm install --global lawcheck@alpha`, and stop. When `prime` prints a law, a law already governs this folder: do not start a second one. Tell the user that the law stands and that `lawcheck prime` says how to change it, and stop.
 
-Change no file outside `.lawcheck/`. Commit nothing unless the user asks. Keep to the budgets of this page: at most four questions to the user, and no reviewer rule unless the user asks for one. Script rules have no fixed number: each one needs its evidence, as step 8 says.
+Change no file outside `.lawcheck/`. Commit nothing unless the user asks. The shell commands of this page are for a POSIX shell, such as bash. On Windows, run them in Git Bash or WSL, not in PowerShell, whose `cp` and `cmp` differ. Keep to the budgets of this page: at most four questions to the user, and no reviewer rule unless the user asks for one. Script rules have no fixed number: each one needs its evidence, as step 8 says.
 
 ## 2. Read what is written down
 
@@ -35,15 +35,15 @@ Run `lawcheck init`, then write the types into `.lawcheck/law.yaml`:
 - Take the names from the folders, the README and the instruction files, never from a textbook. A pattern's name, such as "hexagonal" or "clean architecture", is no reason for a type.
 - Write at most twelve types at the top. Each one is a folder, or a kind of file, that the repository already sets apart. A small library with its code in one folder gets two or three types, such as the code and its tests. A repository of several parts, such as a backend and a frontend, gets a type at the top for each part, and a subtype for each folder of that part whose files do one job, such as the routes, the models and the data access. Do not stop at one type per part: the uses between those folders are what step 5 measures.
 - Give each type one `about` sentence that says what its files do. Read two or three of its files first, so the sentence is true of them.
-- Decide for tests, generated code, vendored code and build scripts yourself, and say each decision in the summary: a type of its own, or no type and why. Put generated code inside a code folder under `ignored`, so no type takes it ([The law file](law.md#ignored)).
-- Put the code files under `required`, by folder and extension, such as `src/**/*.ts`. A code file in a new folder there is then `untyped-file` until a type takes it ([The law file](law.md#required)). A stylesheet or a JSON file that no type takes must stay out of `required`: the law starts with no `untyped-file` finding.
+- Decide for tests, generated code, vendored code and build scripts yourself, and say each decision in the summary: a type of its own, or no type and why. Put generated or vendored code inside a code folder under `ignored`, so no type takes it, and name each pattern of `ignored` to the user ([The law file](law.md#ignored)). `ignored` holds nothing else.
+- Put the code files under `required`, by folder and extension, such as `src/**/*.ts`. A code file in a new folder there is then `untyped-file` until a type takes it ([The law file](law.md#required)). A stylesheet or a JSON file that no type takes must stay out of `required`: the law starts with no `untyped-file` finding. Put a folder under `required` only when a type takes a new file there by a pattern, such as `src/api/**`. A type that names single files takes no new file, so a new file beside them would be `untyped-file` with no type to give it: leave that folder out of `required`, or give it a type whose paths take the folder.
 - A file that a parent type takes, and that other types use, gets a subtype of its own. A `may_use` list that names a parent allows every subtype below it, so it would open the whole parent.
 
-Check the coverage with `lawcheck explain .`. At least nine in ten files of the languages Lawcheck reads have a type ([Languages and uses](languages.md)). Name each file left without a type in the summary.
+Check the coverage with `lawcheck explain .`, in every run. At least nine in ten files of the languages Lawcheck reads have a type ([Languages and uses](languages.md)). Name each file left without a type in the summary.
 
 ## 5. Measure the uses between types
 
-Write the candidate: the law of step 4 with `may_use` naming the type itself on every type, subtypes included. Measure it as [Measure a law that is not in force](#measure-a-law-that-is-not-in-force) says. Each row of the output is one pair of types and the files and uses that cross between them. This table is the architecture the code has today.
+Do this step in every run, even where you think you know the uses: the table is the evidence for steps 6 and 7. Write the candidate: the law of step 4 with `may_use` naming the type itself on every type, subtypes included. Measure it as [Measure a law that is not in force](#measure-a-law-that-is-not-in-force) says. Each row of the output is one pair of types and the files and uses that cross between them. This table is the architecture the code has today.
 
 The candidate for the example repository:
 
@@ -127,7 +127,7 @@ For each candidate, take its files and lines from the table, and the three ways 
 
 ## 8. Write the rules
 
-Write a [script rule](script-rules.md) for each rule that has evidence, and for no other. The evidence is a rule of step 2 that a script can judge, such as "no `console.log` in the core", or a convention that every file the rule would bind keeps today. Never invent a rule. The law with its rules still fits `lawcheck prime` unshortened. Write each rule in `.lawcheck/rules/<id>.mjs`, with its entry and `why` under `rules` in the law:
+Write a [script rule](script-rules.md) for each rule that has evidence, and for no other. The evidence is a rule of step 2 that a script can judge, such as "no `console.log` in the core", or a convention that every file the rule would bind keeps today. Never invent a rule. The law with its rules still fits `lawcheck prime` unshortened. Write each rule in `.lawcheck/rules/<id>.mjs`, with its entry and `why` under `rules` in the law. Then put its id in the `rules` of every type whose files it judges: a rule that no type lists judges no file.
 
 - A rule about code, such as a call, an import or a construct, reads the file's syntax tree with `await file.tree()`. The tree tells a call from the same word in a comment or a string, so the comment is no finding ([Script rules](script-rules.md#the-syntax-tree)).
 - A rule about text, such as a header or a licence line, may read `file.lines`.
@@ -191,13 +191,14 @@ Ask all the questions in that one message, as its last part: no next step and no
 
 ## 11. Finish
 
-Check that all three hold:
+Check that all four hold:
 
 - `lawcheck check --full --base HEAD` exits 0;
 - `lawcheck doctor` exits 0;
-- `git status --short` lists files under `.lawcheck/` and nothing else.
+- `git status --short` lists files under `.lawcheck/` and nothing else;
+- the temporary folder of the measurement is deleted, with `rm -r` and its path.
 
-End with one message to the user that stands on its own, also when an earlier message said part of it. It gives:
+End with one message to the user that stands on its own. Write each part out again, also when an earlier message said it: never point back to that message. It gives:
 
 - what the law holds: how many types and rules, in plain words, and that it lives in `.lawcheck/law.yaml`;
 - the debt: the count of findings outside the change, or that there is none;
@@ -257,7 +258,7 @@ $ cp .lawcheck/law.yaml "$KEEP/law.yaml" && cp "$KEEP/candidate.yaml" .lawcheck/
 
 Each row names the type of the file, the type it uses, and the count of files and uses. A row with three files or fewer lists each use by file and line. A use of a file with no type shows as `no type:` and the file. A line `not read:` names a type whose files Lawcheck cannot read for uses.
 
-Lines that start with an error code mean the candidate is no valid law. Fix the candidate, never the code. Delete the folder when you are done.
+Lines that start with an error code mean the candidate is no valid law. Fix the candidate, never the code. Keep the folder for later measurements, and delete it in step 11.
 
 ## A boundary the code already breaks
 
@@ -293,6 +294,7 @@ Each probe must fail with exit 1 and a finding of the expected code or rule. A p
 ## Never
 
 - Edit the code, or add a waiver.
+- Move a file into `ignored`, or out of its type, to avoid a finding. `ignored` is only for generated or vendored code, and you name each of its patterns to the user.
 - Write `.lawcheck/config.yaml` unasked.
 - Invent a type, a boundary or a rule that the folders, the documents or the user do not give.
 - Go past the budgets: four questions, no reviewer rule unasked, no script rule without its evidence.
