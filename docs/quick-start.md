@@ -97,6 +97,8 @@ You can fix the line in two ways:
 - move the printing out of `src/core/receipt.ts`;
 - give `src/cli/` a type of its own, then decide in the law whether `core` may use that type.
 
+In your own repository, your coding agent can write the first law for you: tell it "Run `lawcheck docs agent-setup` and follow it." ([Let a coding agent write the first law](agent-setup.md)).
+
 ## Can go wrong
 
 - `lawcheck init` prints `error[no-git]`: the folder is no git work tree. Run `git init` there, or go to your repository.

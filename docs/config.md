@@ -145,7 +145,7 @@ Git ignores `.lawcheck/config.local.yaml`, because `.lawcheck/.gitignore` names 
 | `COPILOT_PROVIDER_API_KEY` | passes it to `copilot` |
 | `COPILOT_PROVIDER_API_KEY_COMMAND` | passes it to `copilot`; it holds a command, so Lawcheck does not hide its value as a key |
 | `COPILOT_PROVIDER_BEARER_TOKEN` | passes it to `copilot` |
-| `CI` | treats the run as a CI job, where a check of the change with no base and no `--full` is `base-unreachable`; set to 0, false, no or off, it means no job. Without `CI`, a CI service's own variable, such as `GITHUB_ACTIONS`, marks the job |
+| `CI` | treats the run as a CI job, where a [check of the change](concepts.md#check-of-the-change) with no base is `base-unreachable`; set to 0, false, no or off, it means no job. Without `CI`, a CI service's own variable, such as `GITHUB_ACTIONS`, marks the job |
 | `PATH` | finds `git` and the reviewer programs there, and leaves out relative and empty entries |
 | `NODE_OPTIONS` | refuses every command when it holds `--permission`, under which Lawcheck cannot read its own files |
 | `TMPDIR` | makes the folder of a reviewer program there; `TEMP` on Windows |

@@ -23,7 +23,7 @@ function firstPart(reviewers: boolean, mayUse: boolean): string {
 const FULL = firstPart(true, true);
 const R_PART = block('prime-r-part');
 const U_TYPES = block('prime-u-types');
-const NO_LAW = 'Lawcheck is installed, and this directory has no law (.lawcheck/law.yaml here or above).\nRun lawcheck init only when the user asks for a law here.\n';
+const NO_LAW = 'Lawcheck is installed, and this directory has no law (.lawcheck/law.yaml here or above).\nStart one only when the user asks for a law here, and then follow lawcheck docs agent-setup.\n';
 const SHORTENED = 'shortened to fit; lawcheck explain --type <id> shows a type in full, lawcheck explain --rule <id> a rule';
 const TEST_17 = [
   'lawcheck: ERROR  1 error',
