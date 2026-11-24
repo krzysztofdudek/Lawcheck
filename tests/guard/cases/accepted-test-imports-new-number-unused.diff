@@ -1,0 +1,23 @@
+diff --git a/tests/acceptance/killed.test.ts b/tests/acceptance/killed.test.ts
+index f95fe95..d969b46 100644
+--- a/tests/acceptance/killed.test.ts
++++ b/tests/acceptance/killed.test.ts
+@@ -1,6 +1,6 @@
+ import { test } from 'node:test';
+ import assert from 'node:assert/strict';
+-import { KILLED_GRACE_MS } from '../numbers.ts';
++import { KILLED_GRACE_MS, WINDOWS_KILLED_GRACE_MS } from '../numbers.ts';
+ import { waitFor } from '../harness/wait.ts';
+ 
+ test('test 67: the tool killed', async () => {
+diff --git a/tests/numbers.ts b/tests/numbers.ts
+index 3a91aa3..9252c5d 100644
+--- a/tests/numbers.ts
++++ b/tests/numbers.ts
+@@ -7,4 +7,5 @@ export const SPEED = ((): string => process.env.LAWCHECK_SPEED ?? 'commit')();
+ export const RUN_BUDGET_MS = 20_000;
+ export const KILLED_GRACE_MS = 5_000;
+ export const LEFTOVER_GRACE_MS = 10_000;
+-export const stronger: Record<string, 'higher' | 'lower' | 'fixed'> = { SEED: 'fixed', PROPERTY_CASES: 'higher', BUDGET: 'lower', SLOW_TESTS: 'lower', SECTION_ONLY_TESTS: 'lower', RUN_BUDGET_MS: 'lower', KILLED_GRACE_MS: 'lower', LEFTOVER_GRACE_MS: 'lower' };
++export const WINDOWS_KILLED_GRACE_MS = 15_000;
++export const stronger: Record<string, 'higher' | 'lower' | 'fixed'> = { SEED: 'fixed', PROPERTY_CASES: 'higher', BUDGET: 'lower', SLOW_TESTS: 'lower', SECTION_ONLY_TESTS: 'lower', RUN_BUDGET_MS: 'lower', KILLED_GRACE_MS: 'lower', LEFTOVER_GRACE_MS: 'lower', WINDOWS_KILLED_GRACE_MS: 'lower' };
