@@ -366,7 +366,7 @@ note: this change edits the law that judges it: edits .lawcheck/law.yaml without
 ```
 usage: lawcheck init [--json]
 usage: lawcheck prime [--json]
-usage: lawcheck check [--full] [--strict] [--base <ref>] [--review [--again] [--max-calls <n>]] [--sarif <file>] [--json]
+usage: lawcheck check [--full] [--strict] [--base <ref>] [--law-from <ref>] [--review [--again] [--max-calls <n>]] [--sarif <file>] [--json]
 usage: lawcheck explain (<path> [--tree] | --type <id> | --rule <id>) [--json]
 usage: lawcheck try <rule> [<path or pattern>...] [--times <n>] [--dry-run] [--max-calls <n>] [--json]
 usage: lawcheck docs [<topic>] [--json]

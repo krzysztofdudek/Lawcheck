@@ -93,6 +93,14 @@ The second line says what the change does to the law that judges it. A pull requ
 
 The line shows five items and the count of the rest. When a change has more than five, the line shows first the items that loosen the law: a rule or a type removed, a rule made advisory or taken off a type, a pattern added to `ignored` or taken off `required`, a signer added or removed, the key of a signer changed. In `--json`, `scope.law_changes` lists every item. The line never changes the exit code of the run, whatever it lists. `lawcheck docs ci` gives a job that checks the change a second time with the law of the base.
 
+## The law of the base
+
+`lawcheck check --base main --law-from main` judges the change by the law of `main`: its `.lawcheck/law.yaml`, `.lawcheck/config.yaml` and `.lawcheck/rules/`, read from git ([`--law-from`](commands.md#law-from-ref)). The files judged are those of the work tree, and the change is the same as without the flag. A change that takes a rule off a type and breaks that rule fails this check with exit 1. The JSON document and the exit codes are those of any check. When the change edits the law, the first note is left out, and the second names the commit whose law judged it:
+
+```text
+note: this change edits its own law, and the law of main judged it: takes the rule no-console off the type library
+```
+
 `lawcheck doctor` reports the same in its `law-change` check. No line of `check` or `doctor` reports the other two kinds of change.
 
 ## Waivers a change adds

@@ -139,7 +139,7 @@ function prScenarios(cell: Cell): Outcome[] {
       same(found[0], `lawcheck: PASS  2 changed files (against ${against})`, 'the first check passes', problems);
       if (!found.includes(`${NOTE_LAW}takes the rule no-console off the type library`)) problems.push(`the law-change line is missing: ${result.stdout}`);
       const label = found.indexOf(AGAIN(against).trim());
-      if (label < 0 || found[label + 1] !== `lawcheck: FAIL  1 error in 1 changed file (against ${against})`) problems.push(`the second check is not labelled and failing: ${result.stdout}`);
+      if (label < 0 || found[label + 1] !== `lawcheck: FAIL  1 error in 2 changed files (against ${against})`) problems.push(`the second check is not labelled and failing: ${result.stdout}`);
     }),
   );
   out.push(
@@ -253,7 +253,7 @@ function pushScenarios(cell: Cell): Outcome[] {
         same(result.code, 1, 'the exit code', problems);
         const found = result.stdout.split('\n');
         if (!found.includes(`${NOTE_LAW}takes the rule no-console off the type library`)) problems.push(`the law-change line is missing: ${result.stdout}`);
-        if (!found.includes(`lawcheck: FAIL  1 error in 1 changed file (against ${parent})`)) problems.push(`the second check did not fail: ${result.stdout}`);
+        if (!found.includes(`lawcheck: FAIL  1 error in 2 changed files (against ${parent})`)) problems.push(`the second check did not fail: ${result.stdout}`);
       },
     ),
   );
@@ -375,7 +375,7 @@ function subfolder(cell: Cell): Outcome[] {
       const found = result.stdout.split('\n');
       same(found[0], 'lawcheck: PASS  2 changed files (against origin/main)', 'the first check passes', problems);
       if (!found.includes('Checking again with the law of origin/main')) problems.push(`the second check did not run: ${result.stdout}`);
-      if (!found.includes('lawcheck: FAIL  1 error in 1 changed file (against origin/main)')) problems.push(`the second check did not fail: ${result.stdout}`);
+      if (!found.includes('lawcheck: FAIL  1 error in 2 changed files (against origin/main)')) problems.push(`the second check did not fail: ${result.stdout}`);
     }),
   ];
 }

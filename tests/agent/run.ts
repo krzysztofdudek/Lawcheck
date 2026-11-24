@@ -88,9 +88,12 @@ export function makeRepository(folder: string): string {
   return work;
 }
 
+// check is given this base by name: a CI job's own, such as GITHUB_BASE_REF of a pull request into another branch, names a branch that the repository of makeRepository does not have.
+const BASE = 'origin/main';
+
 export function changedFiles(work: string): string[] {
   const listed = [
-    ...gitIn(work, ['diff', '-z', '--name-only', '--no-renames', 'origin/main', '--']).split('\0'),
+    ...gitIn(work, ['diff', '-z', '--name-only', '--no-renames', BASE, '--']).split('\0'),
     ...gitIn(work, ['ls-files', '-z', '--others', '--exclude-standard']).split('\0'),
   ];
   return [...new Set(listed.filter((path) => path !== ''))].sort();
@@ -129,9 +132,8 @@ async function cleanIn(work: string, env: NodeJS.ProcessEnv, check: CheckRun, wa
   }
 }
 
-export async function checksIn(work: string, check: CheckRun = runCheck, waitMs = SYSTEM_SHORT_WAIT_MS): Promise<Checks> {
-  const env = { ...process.env, ...GIT_IDENTITY };
-  delete env.LAWCHECK_BASE;
+export async function checksIn(work: string, check: CheckRun = runCheck, waitMs = SYSTEM_SHORT_WAIT_MS, outer: NodeJS.ProcessEnv = process.env): Promise<Checks> {
+  const env = { ...outer, ...GIT_IDENTITY, LAWCHECK_BASE: BASE };
   const clean = await cleanIn(work, env, check, waitMs);
   const changed = changedFiles(work);
   const lawUntouched = !changed.some((path) => path.startsWith('.lawcheck/'));
