@@ -1,0 +1,27 @@
+name: Probe 348
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: First and second start of a fresh file
+        run: |
+          d=$(mktemp -d)
+          NODE=$(which node)
+          for i in 1 2 3 4 5; do
+            printf '#!/bin/sh\nexit 0\n' > $d/sh$i; chmod +x $d/sh$i
+            printf '#!%s\nprocess.exit(0)\n' "$NODE" > $d/js$i; chmod +x $d/js$i
+          done
+          for i in 1 2 3 4 5; do echo "fresh sh $i"; /usr/bin/time -p $d/sh$i; echo "again sh $i"; /usr/bin/time -p $d/sh$i; done 2>&1 | grep -E "fresh|again|real"
+          for i in 1 2 3 4 5; do echo "fresh js $i"; /usr/bin/time -p $d/js$i; echo "again js $i"; /usr/bin/time -p $d/js$i; done 2>&1 | grep -E "fresh|again|real"
+          echo "copy of node"; /usr/bin/time -p cp "$NODE" $d/git 2>&1 | grep real
+          echo "fresh copy first start"; /usr/bin/time -p $d/git -e "" 2>&1 | grep real
+          echo "copy second start"; /usr/bin/time -p $d/git -e "" 2>&1 | grep real
+          echo "node itself"; /usr/bin/time -p node -e "" 2>&1 | grep real
+          for i in 1 2 3 4 5 6; do echo "git init/add/commit"; ( cd $(mktemp -d) && /usr/bin/time -p sh -c 'git init -q -b main && echo x > a && git add -A && git -c user.name=a -c user.email=a@b commit -q -m x' ) 2>&1 | grep real; done
