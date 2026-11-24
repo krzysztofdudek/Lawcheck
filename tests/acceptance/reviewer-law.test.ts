@@ -736,7 +736,7 @@ test('R-38: when the law names signers, a pass line that no signer of the law si
       write(r, F_PATH, F_PRIME);
       append(r, '.lawcheck/verdicts', `${signedLine(PAIR_F_PRIME, 'alice', alice.key)}\n`);
       const plain = await run(r, null, ['--base', 'main']);
-      assert.equal(plain.stdout.split('\n')[0], 'lawcheck: PASS  1 changed file (against main), 1 waiver', plain.stdout);
+      assert.equal(plain.stdout.split('\n')[0], 'lawcheck: PASS  2 changed files (against main), 1 waiver', plain.stdout);
       assert.equal(plain.code, 0, plain.stdout);
       const file = await lawcheck(r, ['explain', F_PATH]);
       assert.match(reviewOfF(file.stdout), /^ {4}clear-errors {2}reviewer {2}enforced {2}from library {2}reviewed {2}/, file.stdout);

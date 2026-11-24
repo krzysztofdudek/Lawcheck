@@ -79,6 +79,7 @@ function ofLaw(before: Law, after: Law): string[] {
   const sorted = (ids: Iterable<string>) => [...ids].sort();
   items.push(...ofFolders('required', before.required.patterns, after.required.patterns));
   items.push(...ofFolders('ignored', before.ignored.patterns, after.ignored.patterns));
+  items.push(...ofSigners(before.signers ?? new Map(), after.signers ?? new Map()));
   for (const id of sorted(was.keys())) if (!is.has(id)) items.push(`removes the type ${id}`);
   for (const id of sorted(is.keys())) if (!was.has(id)) items.push(`adds the type ${id}`);
   for (const id of sorted(before.rules.keys())) if (!after.rules.has(id)) items.push(`removes the rule ${id}`);
@@ -112,6 +113,17 @@ function ofLaw(before: Law, after: Law): string[] {
     if (old.waivers !== now.waivers) items.push(`changes the waivers of the type ${id}`);
   }
   return items;
+}
+
+function ofSigners(before: Map<string, string>, after: Map<string, string>): string[] {
+  const names = [...new Set([...before.keys(), ...after.keys()])].sort();
+  return names.flatMap((name) => {
+    const was = before.get(name);
+    const is = after.get(name);
+    if (was === undefined) return [`adds the signer ${name}`];
+    if (is === undefined) return [`removes the signer ${name}`];
+    return was === is ? [] : [`changes the key of the signer ${name}`];
+  });
 }
 
 function ofFolders(key: string, before: string[], after: string[]): string[] {
@@ -201,7 +213,7 @@ export function atBase(root: string, base: string): ((paths: string[]) => Map<st
   return fork === null ? null : (paths) => blobsAt(root, fork, paths);
 }
 
-const LOOSENS = /^(?:removes the (?:rule|type) |makes the rule \S+ advisory$|takes the rule \S+ off the type |adds .* to ignored$|takes .* off required$)/;
+const LOOSENS = /^(?:removes the (?:rule|type|signer) |adds the signer |changes the key of the signer |makes the rule \S+ advisory$|takes the rule \S+ off the type |adds .* to ignored$|takes .* off required$)/;
 
 // The line shows five items, so past five the items that loosen the law go first and are never left in the count.
 export function lawChangeLine(items: string[]): string {

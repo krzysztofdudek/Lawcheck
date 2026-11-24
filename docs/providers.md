@@ -180,7 +180,7 @@ It writes such a key as `[key]` wherever it shows text from outside itself:
 
 Lawcheck shows two kinds of API key as they are: the key in a variable of another provider, and a key shorter than 8 characters. It replaces each exact copy of a hidden key. Lawcheck leaves a prefix of the key, and a copy in percent encoding, unchanged.
 
-A line of `.lawcheck/verdicts` holds a review hash and a rule id ([Reviewer rules](reviewer-rules.md#verdicts)). A person who can commit to the repository can write such a line. Lawcheck reads that line as a pass.
+A line of `.lawcheck/verdicts` holds a review hash and a rule id ([Reviewer rules](reviewer-rules.md#verdicts)). A person who can commit to the repository can write such a line. Under a law without `signers`, Lawcheck reads that line as a pass. Under a law with `signers`, a pass counts only with the signature of a signer the law names. The signing key in `LAWCHECK_SIGNING_KEY` stays on the machine: Lawcheck writes it as `[key]` wherever it would show it, and gives it to no reviewer program ([Signed passes](reviewer-rules.md#signed-passes)).
 
 Lawcheck keeps the reviewer's messages of a failed review on this machine, in `.lawcheck/.local/failures/`.
 

@@ -28,12 +28,15 @@ export function hidden(text: string, keys: string[]): string {
 // The environment key goes to whichever HTTP provider is configured, so it is hidden in every run; the configured provider adds the keys it would send or pass on once the config is read.
 export const KEY_VARIABLES = ['LAWCHECK_REVIEWER_KEY'];
 
+// The private key that signs the passes a review records, when the law names signers.
+export const SIGNING_KEY = 'LAWCHECK_SIGNING_KEY';
+
 let known: string[] = [];
 let environment: Record<string, string | undefined> = {};
 
 export function useKeys(env: Record<string, string | undefined>): void {
   environment = env;
-  known = KEY_VARIABLES.map((name) => env[name] ?? '').filter((key) => key !== '');
+  known = [...KEY_VARIABLES, SIGNING_KEY].map((name) => env[name] ?? '').filter((key) => key !== '');
 }
 
 export function keyEnvironment(): Record<string, string | undefined> {

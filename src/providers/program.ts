@@ -9,14 +9,14 @@ import { findProgram, startProgram } from '../programs.js';
 import { MAX_REPLY_BYTES } from './http.js';
 import { variable } from './index.js';
 import type { Asked, Env, Provider } from './index.js';
-import { hide } from '../keys.js';
+import { hide, SIGNING_KEY } from '../keys.js';
 
 const KILL_AFTER_MS = 5000;
 const CLOSE_GRACE_MS = 2000;
 const FAILURE_LENGTH = 300;
 const STDERR_KEPT = 64 * 1024;
 
-export const LAWCHECK_VARIABLES = ['LAWCHECK_REVIEWER_ENDPOINT', 'LAWCHECK_REVIEWER_KEY'];
+export const LAWCHECK_VARIABLES = ['LAWCHECK_REVIEWER_ENDPOINT', 'LAWCHECK_REVIEWER_KEY', SIGNING_KEY];
 
 // A sign-in variable that holds a command which prints a key, not a key.
 const NOT_KEYS = ['COPILOT_PROVIDER_API_KEY_COMMAND'];

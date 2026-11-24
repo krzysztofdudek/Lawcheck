@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { generateKeyPairSync } from 'node:crypto';
 import { chmodSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { delimiter, join } from 'node:path';
 import { openai, startFake, type Fake } from '../acceptance/fake-reviewer.ts';
@@ -24,6 +25,7 @@ import {
   makeU,
   newRepository,
   REVIEWER_CONFIG,
+  REVIEWER_LAW,
   SAMPLE,
   setRule,
   startLawcheck,
@@ -49,6 +51,9 @@ const VALUE_FLAGS = new Set(['--base', '--max-calls', '--times', '--type', '--ru
 const TOPICS = readdirSync(new URL('../../docs/', import.meta.url)).map((f) => f.replace(/\.md$/, ''));
 const REVIEW = ['--review', '--base', 'main'];
 const CALL = 'lawcheck: 1 reviewer call to openai-compatible\n';
+const SIGNER = generateKeyPairSync('ed25519');
+const SIGNER_D = SIGNER.privateKey.export({ format: 'jwk' }).d!;
+const SIGNER_X = SIGNER.publicKey.export({ format: 'jwk' }).x!;
 
 interface Follow {
   fix?: () => void | Promise<void>;
@@ -277,6 +282,15 @@ const CASES: Case[] = [
       write(r, F_PATH, F);
       rmSync(join(r, '.lawcheck/config.yaml'));
       return { cwd: r, argv: ['check', ...REVIEW], follow: { fix: () => write(r, '.lawcheck/config.yaml', REVIEWER_CONFIG), env: { LAWCHECK_REVIEWER_ENDPOINT: fake.url } } };
+    },
+  },
+  {
+    id: 'not-a-signer',
+    code: 'not-a-signer',
+    setup: (dir, fake) => {
+      const r = makeR(dir, { onMain: (m) => write(m, '.lawcheck/law.yaml', `${REVIEWER_LAW}\nsigners:\n  alice: ${SIGNER_X}\n`) });
+      write(r, F_PATH, F);
+      return { cwd: r, argv: ['check', ...REVIEW], env: { LAWCHECK_REVIEWER_ENDPOINT: fake.url }, follow: { env: { LAWCHECK_SIGNING_KEY: SIGNER_D } } };
     },
   },
   reviewer('too-many-reviews', 'too-many-reviews', ['check', ...REVIEW, '--max-calls', '0'], () => undefined, () => undefined),
@@ -803,7 +817,7 @@ const GROUPS: Record<string, string[]> = {
   front: ['usage', 'not-initialized', 'already-initialized', 'no-git', 'unsupported-environment'],
   files: ['law-invalid', 'config-invalid', 'rule-missing-file', 'rule-file-without-entry', 'type-overlap'],
   run: ['base-unreachable', 'rule-crashed', 'parser-failed', 'internal', 'link-outside-root', 'path-unsupported', 'runner-failed'],
-  reviewer: ['reviewer-not-configured', 'too-many-reviews', 'reviewer-unreachable', 'reviewer-bad-answer', 'not-reviewed', 'too-large-to-review'],
+  reviewer: ['reviewer-not-configured', 'too-many-reviews', 'reviewer-unreachable', 'reviewer-bad-answer', 'not-a-signer', 'not-reviewed', 'too-large-to-review'],
   findings: ['forbidden-use', 'uses-not-read', 'untyped-file', 'waiver-', 'doctor,'],
 };
 
