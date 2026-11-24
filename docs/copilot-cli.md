@@ -67,7 +67,7 @@ next: fix src/core/total.ts:2
 
 The plugin checks the file after `create`, `edit`, `str_replace_editor` and `apply_patch`. Copilot CLI takes at most 10 KB of such text, so the plugin cuts a long output to that size and says how many lines it left out.
 
-The check after an edit does not see a file that the agent writes through the shell, such as with a here-document. In the trial below, the agent wrote every file that way. The check before the end of the turn judges every file of the turn, so it catches such a file.
+The check after an edit does not see a file that the agent writes through the shell, such as with a here-document. Copilot's agent often writes files that way: in the 24 sessions of the trial below that had the check after an edit, it wrote every file with a shell command, so that check never ran. The check before the end of the turn judges every file of the turn, so it catches such a file.
 
 ## 5. See the check before the agent finishes
 

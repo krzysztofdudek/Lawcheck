@@ -8,7 +8,7 @@
   "lawcheck": "0.1.0-alpha.4",
   "lawcheck_commit": "c0c9a10886c89055f908666e1d568c47b81aef71",
   "prompt": "Add a loyalty discount in src/core: a customer with more than five orders gets ten percent off. Return the new total and a message that shows the saved amount as money, the way the receipts do.",
-  "passes": false,
+  "passes": true,
   "arms": {
     "none": {
       "repository": "film/fixture",

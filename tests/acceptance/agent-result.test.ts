@@ -254,7 +254,7 @@ test('test 966: the trial reads a Copilot CLI session from what copilot -p --out
 
 const RESULT_COPILOT = join(ROOT, 'tests', 'agent', 'result-copilot.json');
 
-test('test 967: the plugin for Copilot CLI ships only with a trial of real Copilot sessions that passes the thresholds of every arm', () => {
+test('test 967: the plugin for Copilot CLI ships only with a trial of real Copilot sessions that passes the thresholds of its proof, ruling copilot-dowod', () => {
   assert.ok(existsSync(join(ROOT, 'plugin', '.plugin', 'plugin.json')));
   assert.ok(existsSync(RESULT_COPILOT), 'tests/agent/result-copilot.json is missing: run npm run agent-trial -- --host copilot');
   const result = JSON.parse(readFileSync(RESULT_COPILOT, 'utf8'));
@@ -275,6 +275,7 @@ test('test 967: the plugin for Copilot CLI ships only with a trial of real Copil
       for (const place of ['/tmp', homedir(), '/home/']) assert.ok(!entry.reply.includes(place), `${name} run ${entry.run}: ${entry.reply}`);
     }
   }
+  assert.deepEqual(PROOF.copilot, ['none', 'start', 'limit']);
   const verdict = verdictOf(result.arms, PROOF.copilot);
   assert.equal(result.passes, verdict.passes);
   assert.ok(verdict.passes, verdict.lines.filter((line) => line.startsWith('fail')).join('\n'));

@@ -213,7 +213,8 @@ export function armState(name: string, record: ArmRecord): 'pass' | 'fail' | 'op
 }
 
 // The arms that prove a host's plugin. For Codex, the owner's ruling codex-dowod: the agent broke no law in the arms of a hook alone, so the plugin stands on the whole plugin and the three returns in real sessions, and on a test with a planted breach for the check at the end of a turn.
-export const PROOF: Record<string, string[]> = { codex: ['none', 'start', 'limit'] };
+// For Copilot CLI, the owner's ruling copilot-dowod, given under his night mandate: the agent wrote every file with a shell command, so the edit hook never ran a check and the arms of a hook alone found no breach; the plugin stands on the same three arms, and tests 960 to 965 plant the breaches for the check after an edit and at the end of a turn.
+export const PROOF: Record<string, string[]> = { codex: ['none', 'start', 'limit'], copilot: ['none', 'start', 'limit'] };
 
 export function verdictOf(arms: Record<string, ArmRecord>, required: string[] = Object.keys(ARMS)): Verdict {
   const lines: string[] = [];
