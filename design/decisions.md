@@ -490,7 +490,7 @@ What this does not give: GitHub redirects `krzysztofdudek.github.io/Lawcheck/<pa
 
 Why: the owner chose to serve the documentation from Vercel beside the landing page, so each old address lands on its page through redirects that the repository holds, which GitHub Pages cannot do. A page of `docs/topics.json` needs no edit of the redirects. The headers carry no Content-Security-Policy, because the policy of the landing page was not tried on the pages of the documentation.
 
-## Decision (number at merge). On Windows the guard of a killed tool with no program call open takes no list of processes
+## 211. On Windows the guard of a killed tool with no program call open takes no list of processes
 
 When the tool is killed on Windows while no call of a program reviewer is open, as in a run that calls none, the guard removes the folders it was told of and exits without starting PowerShell, and ends no process.
 
