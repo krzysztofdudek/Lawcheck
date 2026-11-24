@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import { createHash } from 'node:crypto';
 import assert from 'node:assert/strict';
-import { appendFileSync, cpSync, existsSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { appendFileSync, cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { GIT_ENV } from '../acceptance/helpers.ts';
 import { ROOT, startProgram, testFolder } from '../harness/tool.ts';
@@ -537,7 +537,7 @@ test('test 1092: node film/render.mjs --only <page> --voice renders that page wh
   const folder = testFolder('lawcheck-film-');
   try {
     for (const path of ['film', 'brand', 'docs', 'README.md', 'package.json']) cpSync(join(ROOT, path), join(folder.dir, path), { recursive: true, filter: (from) => !/[\\/]film[\\/]dist$/.test(from) });
-    for (const link of ['node_modules', 'dist']) symlinkSync(join(ROOT, link), join(folder.dir, link), process.platform === 'win32' ? 'junction' : 'dir');
+    writeFileSync(join(folder.dir, 'film', 'check.mjs'), '');
     const edit = readEdit(ROOT);
     const voice = join(folder.dir, 'voice');
     const segments: Record<string, { key: string }> = {};
