@@ -110,6 +110,10 @@ The change is the set of files that differ from the merge base of `HEAD` and the
 
 Example: on a branch where you edited one file, the first line of `lawcheck check --base main` ends with `1 changed file (against main)`.
 
+## Check of the change
+
+A check of the change is a run of `lawcheck check` that names no path and does not use `--full`. It takes a [base](#base) and judges the files of the [change](#change). `lawcheck check --base main` and `lawcheck check --review --base main` are both checks of the change. A [plain check](#plain-check) is a check of the change that does not use `--review`.
+
 ## Plain check
 
 A plain check is a run of `lawcheck check` that judges the change alone. It reads the passes in `.lawcheck/verdicts`. It calls no reviewer. Only a file in the change fails a plain check with exit 1. A file outside the change can still stop one with exit 2, for example with [type-overlap](codes.md#type-overlap), [file-unreadable](codes.md#file-unreadable), [file-too-large](codes.md#file-too-large), [text-too-large](codes.md#text-too-large), [parser-failed](codes.md#parser-failed) or [link-outside-root](codes.md#link-outside-root).

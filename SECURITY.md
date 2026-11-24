@@ -12,6 +12,7 @@ A report is in scope when Lawcheck breaks one of these promises. Each one has a 
 
 - A script rule reads nothing outside the root and Lawcheck's folder, and reaches nothing outside the git work tree through a link git tracks (`I-runner-1`).
 - No command starts a program that the repository's git config or attributes name (`I-git-1`).
+- A script rule opens no network connection, listens on no port and sends no UDP packet. On Node 24, whose permission model has no network permission, the runner closes the routes to the network that Node has today. From Node 25, Node refuses them itself. A route that a later Node 24 release adds stays open until CI finds it: a test fails when a release adds an export to a module that reaches the network ([docs/script-rules.md](docs/script-rules.md)).
 - No program Lawcheck starts comes from the repository through a relative or empty `PATH` entry (`I-start-1`).
 - The reviewer key appears nowhere but in the header of its own request (`I-secret-1`). A key goes only to the address it was given for, and requests follow no redirect ([docs/providers.md](docs/providers.md)).
 - An error about a law or a config read through a symbolic link quotes none of the file (`I-secret-2`).

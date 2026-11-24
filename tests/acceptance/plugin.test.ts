@@ -1,23 +1,25 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { appendFileSync, chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { delimiter, dirname, join, relative, sep } from 'node:path';
 import { withFake } from './fake-reviewer.ts';
-import { alive, append, D, D_PATH, F, F_PATH, git, GIT_ENV, inTemp, LAW, lawcheck, makeR, makeSample, newRepository, ROOT, write } from './helpers.ts';
+import { alive, append, CLI, D, D_PATH, F, F_PATH, git, GIT_ENV, inTemp, LAW, lawcheck, makeR, makeSample, newRepository, read, ROOT, write } from './helpers.ts';
+import { FILES as SETUP_FILES } from '../docs/agent-setup.ts';
 import type { Expect, Run, Running } from './helpers.ts';
 import { example } from '../harness/examples.ts';
 import { DEADLINES_VARIABLE, fakeWrites, platformSkip, startHook, startProgram, testFolder } from '../harness/tool.ts';
 import { fakeGit, installedLawcheck, removeFakeGit } from '../harness/fakes.ts';
 import { PAST_USER_SET_MS, TEST_HOOK_DEADLINES, USER_SET_DEADLINE_S } from '../numbers.ts';
-import { DEADLINES } from '../../plugin/hooks/start.mjs';
+import { LIMIT } from '../../plugin/hooks/fit.mjs';
+import { DEADLINES, LINE_LIMIT } from '../../plugin/hooks/start.mjs';
 import { Bench, CodexSession, CopilotSession, deadlineScenario, edited, ended, EVENT_NAMES, GIT_DIR, hook, json, NODE_DIR, nothing, patchOf, PLUGIN, Session, startAndPromptScenario, SYSTEM_ENV, where, withBench } from './plugin-bench.ts';
 import type { HookRun } from './plugin-bench.ts';
 
 const BROKEN_LAW = LAW.replace('status: advisory', 'statuss: advisory');
 
-const NO_ROOT = 'The Lawcheck plugin is on, and this directory has no law (.lawcheck/law.yaml here or above).\nStart one with lawcheck init only when the user asks for it.';
+const NO_ROOT = 'The Lawcheck plugin is on, and this directory has no law (.lawcheck/law.yaml here or above).\nWrite no law on your own. The user starts one by typing /lawcheck:setup; when the user asks for a law, tell them to type it.';
 const D_OUTPUT = [
   'lawcheck: FAIL  1 error, 1 warning in 1 named file, 1 waiver',
   '',
@@ -67,11 +69,11 @@ test('test 152: the files of the plugin', () => {
   const marketplace = JSON.parse(readFileSync(join(ROOT, '.claude-plugin', 'marketplace.json'), 'utf8'));
   const expectedMarketplace = JSON.parse(specBlock('marketplace-manifest'));
   assert.deepEqual(marketplace, expectedMarketplace);
-  assert.equal(marketplace.plugins[0].description, plugin.description.replace('with Write, Edit or NotebookEdit', '(with Write, Edit or NotebookEdit in Claude Code, with apply_patch in Codex, with create or edit in Copilot CLI)'));
+  assert.equal(marketplace.plugins[0].description, plugin.description.replace('with Write, Edit or NotebookEdit', '(with Write, Edit or NotebookEdit in Claude Code, with apply_patch in Codex, with create or edit in Copilot CLI)').replace('Its skill, /lawcheck:setup, writes', 'Its skill writes').replace(/\.$/, '; you start it with /lawcheck:setup in Claude Code and in Copilot CLI, and with $lawcheck:setup in Codex.'));
   assert.deepEqual(JSON.parse(readFileSync(join(PLUGIN, 'hooks', 'hooks.json'), 'utf8')), JSON.parse(specBlock('hooks-manifest')));
   const files = walk(PLUGIN).sort();
   const modules = files.filter((file) => file.endsWith('.mjs'));
-  assert.deepEqual(files.filter((file) => !file.endsWith('.mjs')), ['.claude-plugin/plugin.json', '.codex-plugin/plugin.json', '.plugin/plugin.json', 'LICENSE', 'hooks/codex.json', 'hooks/copilot.json', 'hooks/hooks.json']);
+  assert.deepEqual(files.filter((file) => !file.endsWith('.mjs')), ['.claude-plugin/plugin.json', '.codex-plugin/plugin.json', '.plugin/plugin.json', 'LICENSE', 'hooks/codex.json', 'hooks/copilot.json', 'hooks/hooks.json', 'skills/setup/SKILL.md', 'skills/setup/agents/openai.yaml', 'skills/setup/references/advice.md', 'skills/setup/references/target.md']);
   assert.ok(modules.includes('hooks/lawcheck-hook.mjs'));
   for (const file of modules) {
     assert.equal(dirname(file), 'hooks', file);
@@ -396,6 +398,27 @@ test('plugin-slice §5: the plugin ships deadlines of 25 seconds for session-sta
   const hooks = JSON.parse(readFileSync(join(PLUGIN, 'hooks', 'hooks.json'), 'utf8')).hooks as Record<string, { hooks: { args: string[]; timeout: number }[] }[]>;
   const timeouts = Object.fromEntries(Object.values(hooks).flatMap((groups) => groups.flatMap((group) => group.hooks.map((entry) => [entry.args.at(-1)!, entry.timeout - less]))));
   assert.deepEqual(timeouts, DEADLINES);
+});
+
+test('test 1001: the limits docs/plugin.md states are the ones the hooks hold: 1,000 files, three hand-backs, 7 days of state, 9,000 characters and 2,000 characters a line', () => {
+  const page = readFileSync(join(ROOT, 'docs', 'plugin.md'), 'utf8');
+  const source = (name: string): string => readFileSync(join(PLUGIN, 'hooks', name), 'utf8');
+  const stated = (pattern: RegExp): number => {
+    const found = pattern.exec(page);
+    assert.ok(found, `docs/plugin.md has no sentence that matches ${pattern}`);
+    const words: Record<string, number> = { one: 1, two: 2, three: 3, four: 4, five: 5 };
+    return words[found[1]!] ?? Number(found[1]!.replace(/,/g, ''));
+  };
+  const held = (name: string, pattern: RegExp): number => {
+    const found = pattern.exec(source(name));
+    assert.ok(found, `plugin/hooks/${name} has no code that matches ${pattern}`);
+    return found.slice(1).map(Number).reduce((product, factor) => product * factor, 1);
+  };
+  assert.equal(stated(/the turn changed more than ([\d,]+) files/), held('lawcheck-hook.mjs', /^const MOST_FILES = (\d+);$/m));
+  assert.equal(stated(/sends the agent back at most (\w+) times in a turn/), held('lawcheck-hook.mjs', /blocks >= (\d+)\)/));
+  assert.equal(stated(/older than (\d+) days/) * 24 * 60 * 60 * 1000, held('state.mjs', /^const WEEK = (\d+) \* (\d+) \* (\d+) \* (\d+) \* (\d+);$/m));
+  assert.equal(stated(/at most ([\d,]+) characters/), LIMIT);
+  assert.equal(stated(/each line longer than ([\d,]+) characters/), LINE_LIMIT);
 });
 
 test('R-87: the hook a user runs keeps its shipped deadline for every event when the variable of the test entry is set', async () => {
@@ -1087,6 +1110,219 @@ test('S6-10: with the law below the top of the work tree, the check before finis
   });
 });
 
+const SKILL = join(PLUGIN, 'skills', 'setup');
+
+function skillFiles(dir = SKILL): string[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => (entry.isDirectory() ? skillFiles(join(dir, entry.name)) : entry.name.endsWith('.md') ? [join(dir, entry.name)] : []));
+}
+
+function namedParts(text: string): { parts: string[]; steps: number[]; links: string[] } {
+  const parts = [...text.matchAll(/\bparts? ((?:"[^"\n]+"(?:, | and | or )?)+)/g)].flatMap((match) => [...match[1]!.matchAll(/"([^"\n]+)"/g)].map((quoted) => quoted[1]!));
+  const steps = [...text.matchAll(/\bsteps? (\d+(?:(?:, | and | or )\d+)*)\b/g)].flatMap((match) => [...match[1]!.matchAll(/\d+/g)].map((number) => Number(number[0])));
+  const links = [...text.matchAll(/\]\(([^)#:]+\.md)\)/g)].map((match) => match[1]!);
+  return { parts, steps, links };
+}
+
+function skillProblems(name: string, text: string, headings: string[], exists: (link: string) => boolean): string[] {
+  const { parts, steps, links } = namedParts(text);
+  const problems: string[] = [];
+  for (const part of parts) if (!headings.includes(part)) problems.push(`${name} names the part "${part}", and docs/agent-setup.md has no such heading`);
+  for (const step of steps) if (!headings.some((heading) => heading.startsWith(`${step}. `))) problems.push(`${name} names step ${step}, and docs/agent-setup.md has no such step`);
+  for (const link of links) if (!exists(link)) problems.push(`${name} links ${link}, which does not exist`);
+  for (const format of text.matchAll(/^````markdown\n([^]*?)\n````$/gm)) {
+    const paragraphs = format[1]!.split('\n\n');
+    if (!paragraphs[0]!.startsWith('# ') || !(paragraphs[1] ?? '').includes('Nothing in this file is law')) problems.push(`${name}: a file format does not say in its first paragraph that nothing in it is law`);
+  }
+  return problems;
+}
+
+const headingsOf = (page: string): string[] => page.split('\n').filter((line) => line.startsWith('## ')).map((line) => line.slice(3));
+
+test('test 905: every part and step of the setup page that a file of the setup skill names is in docs/agent-setup.md, every file it links exists, and a file format it gives says first that nothing in it is law', () => {
+  const headings = headingsOf(readFileSync(join(ROOT, 'docs', 'agent-setup.md'), 'utf8'));
+  const files = skillFiles();
+  assert.ok(files.some((file) => file.endsWith(`${sep}SKILL.md`)));
+  assert.match(readFileSync(join(SKILL, 'SKILL.md'), 'utf8'), /^---\nname: setup\ndescription: .+\ndisable-model-invocation: true\n---\n/);
+  let named = 0;
+  for (const file of files) {
+    const text = readFileSync(file, 'utf8');
+    named += namedParts(text).parts.length;
+    assert.deepEqual(skillProblems(relative(ROOT, file), text, headings, (link) => existsSync(join(dirname(file), link))), []);
+  }
+  assert.ok(named >= 3, 'the skill names the parts of the page it uses');
+});
+
+test('test 905: control, the names of parts and steps are found in every form the skill writes them, and a missing heading, step, link or marking is named', () => {
+  const found = namedParts('the page\'s part "Never" holds. Through the page\'s parts "A" and "B", and parts "C", "D" or "E". After step 11 of the page; steps 2 and 7. See [x](references/advice.md) and [y](https://example.com/z.md).');
+  assert.deepEqual(found, { parts: ['Never', 'A', 'B', 'C', 'D', 'E'], steps: [11, 2, 7], links: ['references/advice.md'] });
+  const headings = headingsOf('# Page\n\n## 1. Before anything\n\n## Never\n');
+  assert.deepEqual(skillProblems('a.md', 'The part "Never" after step 1, see [x](here.md).', headings, () => true), []);
+  const format = (marked: string): string => `\`\`\`\`markdown\n# A proposal\n\nWritten by a coding agent. ${marked}\n\n## 1. An item\n\`\`\`\``;
+  assert.deepEqual(skillProblems('a.md', format('Nothing in this file is law.'), headings, () => true), []);
+  assert.deepEqual(skillProblems('a.md', 'The part "Gone" after step 9, see [x](missing.md).\n\n' + format('It is advice.'), headings, () => false), [
+    'a.md names the part "Gone", and docs/agent-setup.md has no such heading',
+    'a.md names step 9, and docs/agent-setup.md has no such step',
+    'a.md links missing.md, which does not exist',
+    'a.md: a file format does not say in its first paragraph that nothing in it is law',
+  ]);
+});
+
+function sectionOf(page: string, heading: string): string {
+  const lines = page.split('\n');
+  const start = lines.findIndex((line) => line === `## ${heading}`);
+  assert.ok(start >= 0, `docs/agent-setup.md has no part "${heading}"`);
+  const end = lines.findIndex((line, i) => i > start && line.startsWith('## '));
+  return lines.slice(start, end < 0 ? undefined : end).join('\n');
+}
+
+const SENTENCES: [string, string, string][] = [
+  ['220', '4. Describe the files as types', 'Generated or vendored code that typed code uses gets a type of its own, with no `may_use` list, and never a place under `ignored`'],
+  ['221', '8. Write the rules', 'A written rule counts whether or not the code keeps it today, and its findings go to the question of step 10.'],
+  ['222', 'Never', 'Bind a rule to fewer types than the written rule names, to avoid a finding.'],
+  ['222', 'Never', 'The exception subtype that the user chose in step 10 is not "out of its type"'],
+  ['225', '1. Before anything', 'not in PowerShell: PowerShell has no `cmp`, and its `cp` is another command.'],
+  ['225', '10. Explain, and ask', 'A boundary question offers the three ways of [A boundary the code already breaks](#a-boundary-the-code-already-breaks), never only yes or no.'],
+  ['225', '6. Write the lists that hold today', 'A parent type with no list restricts no file that only the parent takes: a new file in its folder, outside the folders of its subtypes, passes unchecked'],
+];
+
+const missingSentences = (page: string, wanted: [string, string, string][]): string[] => wanted.filter(([, heading, sentence]) => !sectionOf(page, heading).includes(sentence)).map(([issue, heading, sentence]) => `issue ${issue}: the part "${heading}" lacks "${sentence}"`);
+
+test('test 906: the setup page says that generated code typed code uses gets a type, that a written rule counts whether or not the code keeps it, that a rule is never bound to fewer types than it names, that PowerShell has no cmp, that step 10 offers three ways, and that a parent type with no list passes a new file unchecked', () => {
+  const page = readFileSync(join(ROOT, 'docs', 'agent-setup.md'), 'utf8');
+  assert.deepEqual(missingSentences(page, SENTENCES), []);
+  assert.ok(!/\bcmp\b[^.]*\bdiffer/.test(page), 'the shell sentence no longer says that cp and cmp differ in PowerShell');
+  assert.ok(!/ignored. is only for generated or vendored code, and/.test(page), 'ignored is not offered for code that typed code uses');
+});
+
+test('test 906: control, a part that lacks a sentence is named, and a sentence in another part does not count', () => {
+  const page = '# P\n\n## 8. Rules\n\nA written rule counts.\n\n## Never\n\nA written rule counts whether or not the code keeps it.\n';
+  assert.deepEqual(missingSentences(page, [['221', '8. Rules', 'whether or not the code keeps it']]), ['issue 221: the part "8. Rules" lacks "whether or not the code keeps it"']);
+  assert.deepEqual(missingSentences(page, [['221', 'Never', 'whether or not the code keeps it']]), []);
+});
+
+const SKILL_TEXT = (path: string): string => readFileSync(join(SKILL, path), 'utf8');
+
+const formatsOf = (text: string): string[] => [...text.matchAll(/^````markdown\n([^]*?)\n````$/gm)].map((match) => match[1]!);
+
+const PROPOSALS: [string, string, string, string[]][] = [
+  ['references/advice.md', '.lawcheck/advice.md', 'Pick at most three', ['`written`', '`direction`', '`cycle`', '`few`', '`mixed`', '`convention`', '## Declined']],
+  ['references/target.md', '.lawcheck/target.md', 'Write at most seven steps.', ['`exception type`', '`forbid now`', '`fix first`', '## Aim', '## Target law', '## Distance today', '## Steps', '## Later', '## Not covered']],
+];
+
+test('test 908: the setup skill has advice and a target, each with its reference file and the one proposal file it writes, each format marked as no law, the skill starts them only on the user\'s words and offers neither at the end', () => {
+  assert.deepEqual(skillFiles().map((file) => relative(SKILL, file).split(sep).join('/')), ['SKILL.md', 'references/advice.md', 'references/target.md']);
+  const skill = SKILL_TEXT('SKILL.md');
+  assert.match(skill, /^---\nname: setup\ndescription: .+\ndisable-model-invocation: true\n---\n/);
+  assert.deepEqual(namedParts(skill).links, ['references/advice.md', 'references/target.md']);
+  for (const sentence of [
+    'Ask no question about which row.',
+    'No final message offers advice, a target or another run of the skill.',
+    'Read a file of `references/` only for the row that names it.',
+    'An item becomes law only on the user\'s yes to that item.',
+    'A yes to a whole proposal writes no law.',
+    '"Nothing in this file is law."',
+    'The name of a pattern, such as "layers", "hexagonal" or "clean architecture", is never evidence.',
+    'When the code gives no ground, say so in one sentence and write no file.',
+  ]) assert.ok(skill.includes(sentence), `SKILL.md lacks "${sentence}"`);
+  assert.doesNotMatch(skill, /gives neither|has none/);
+  for (const [file, proposal, budget, words] of PROPOSALS) {
+    const text = SKILL_TEXT(file);
+    const formats = formatsOf(text);
+    assert.equal(formats.length, 1, `${file} gives one file format`);
+    assert.ok(formats[0]!.split('\n\n')[1]!.startsWith('Written by a coding agent on <date>, at commit <commit>, with Lawcheck <version>. Nothing in this file is law'), file);
+    assert.ok(text.includes(`\`${proposal}\``), `${file} names ${proposal}`);
+    assert.ok(text.includes(budget), `${file} keeps its budget`);
+    for (const word of words) assert.ok(text.includes(word), `${file} lacks ${word}`);
+    assert.ok(text.includes('the page\'s parts "A boundary the code already breaks" and "Prove each restriction bites"'), `${file} makes an item law only through the page`);
+    assert.match(text, /\*\*No one will answer\*\*, and the user said so/, file);
+    assert.match(text, /It offers no (advice|target)\.$/m, file);
+  }
+  assert.ok(SKILL_TEXT('references/target.md').includes('**On a yes to the plan as a whole.** No law changes.'));
+  assert.ok(SKILL_TEXT('references/advice.md').includes('but into the temporary folder, never into `.lawcheck/rules/`'), 'a rule of the advice is measured from the temporary folder, never written as law');
+  for (const heading of ['The rules of a proposal', 'Measure for a proposal']) {
+    assert.ok(skill.includes(`\n## ${heading}\n`), `SKILL.md has the part "${heading}"`);
+    for (const [file] of PROPOSALS) assert.ok(SKILL_TEXT(file).includes(`"${heading}"`), `${file} names the part "${heading}" of SKILL.md`);
+  }
+  assert.doesNotMatch(readFileSync(join(ROOT, 'docs', 'agent-setup.md'), 'utf8'), /advice\.md|target\.md/, 'the page gives no step of the advice or the target, which only the skill gives');
+});
+
+test('test 908: control, a skill file with a second format, or a format that does not say first that it is no law, is caught', () => {
+  const marked = '````markdown\n# A\n\nWritten by a coding agent on <date>, at commit <commit>, with Lawcheck <version>. Nothing in this file is law.\n````';
+  assert.equal(formatsOf(marked).length, 1);
+  assert.equal(formatsOf(`${marked}\n\n${marked}`).length, 2);
+  assert.ok(!formatsOf(marked.replace('Nothing in this file is law', 'It is advice'))[0]!.split('\n\n')[1]!.includes('Nothing in this file is law'));
+});
+
+function skillBlocks(): { js: string; lines: string[] } {
+  const skill = SKILL_TEXT('SKILL.md');
+  const js = [...skill.matchAll(/^```js\n([^]*?)\n```$/gm)].map((match) => match[1]!);
+  const lines = [...skill.matchAll(/^```text\n\$ ([^\n]*)\n```$/gm)].map((match) => match[1]!);
+  assert.equal(js.length, 1, 'SKILL.md holds one script');
+  assert.equal(lines.length, 2, 'SKILL.md holds two shell commands');
+  return { js: js[0]!, lines };
+}
+
+const pageBlock = (heading: string): string => {
+  const section = sectionOf(readFileSync(join(ROOT, 'docs', 'agent-setup.md'), 'utf8'), heading);
+  return /```\w+\n([^]*?)\n```/.exec(section)![1]!;
+};
+
+function shell(dir: string, repo: string, keep: string, line: string): { code: number | null; stdout: string; stderr: string } {
+  const bin = join(dir, 'bin');
+  mkdirSync(bin, { recursive: true });
+  write(bin, 'lawcheck', `#!/bin/sh\nexec "${process.execPath}" "${CLI}" "$@"\n`);
+  chmodSync(join(bin, 'lawcheck'), 0o755);
+  write(dir, 'measure.sh', line + '\n');
+  const run = spawnSync('sh', [join(dir, 'measure.sh')], { cwd: repo, env: { ...GIT_ENV, KEEP: keep, PATH: `${bin}${delimiter}${process.env.PATH}` }, encoding: 'utf8' });
+  return { code: run.status, stdout: run.stdout, stderr: run.stderr };
+}
+
+const SETUP_LAW = 'lawcheck: 0.1.0\n\nrequired: ["src/**"]\n\ntypes:\n  api:\n    about: The HTTP handlers.\n    paths: ["src/api/**"]\n    may_use: [api, core, db]\n  core:\n    about: Prices and reports, with no input or output.\n    paths: ["src/core/**"]\n    may_use: [core, api]\n  db:\n    about: The database access.\n    paths: ["src/db/**"]\n    may_use: [db, core]\n';
+
+test('test 908: the measurement of a proposal prints the table and the total of the candidate, says when the candidate does not fit prime, counts a rule that is not law, and leaves the law and the rule files as they were', async () => {
+  const { js, lines } = skillBlocks();
+  await inTemp(async (dir) => {
+    const repo = newRepository(dir, SETUP_FILES);
+    assert.equal((await lawcheck(repo, ['init'])).code, 0);
+    write(repo, '.lawcheck/law.yaml', SETUP_LAW);
+    const keep = join(dir, 'keep');
+    write(keep, 'uses.mjs', pageBlock('Measure a law that is not in force') + '\n');
+    write(keep, 'total.mjs', js + '\n');
+
+    write(keep, 'candidate.yaml', SETUP_LAW.replace('may_use: [core, api]', 'may_use: [core]').replace('may_use: [db, core]', 'may_use: [db]'));
+    const target = shell(dir, repo, keep, lines[0]!);
+    assert.deepEqual([target.code, target.stdout, target.stderr], [0, 'core -> api  1 file  1 use\n  src/core/report.ts:1\ndb -> core  1 file  1 use\n  src/db/orders.ts:1\nunresolved uses: none\ntotal: 2 uses in 2 files\n', '']);
+    assert.equal(read(repo, '.lawcheck/law.yaml'), SETUP_LAW, 'the measurement puts the law back');
+    const report = JSON.parse(read(keep, 'report.json')) as { findings: { code: string; file: string }[] };
+    assert.deepEqual(report.findings.filter((finding) => finding.code === 'forbidden-use').map((finding) => finding.file).sort(), ['src/core/report.ts', 'src/db/orders.ts']);
+
+    write(keep, 'candidate.yaml', SETUP_LAW.replace('may_use: [core, api]', 'may_use: [core]'));
+    assert.equal(shell(dir, repo, keep, lines[0]!).stdout, 'core -> api  1 file  1 use\n  src/core/report.ts:1\nunresolved uses: none\ntotal: 1 use in 1 file\n');
+
+    write(keep, 'candidate.yaml', SETUP_LAW.replace('about: The database access.', `about: ${'The database access. '.repeat(500).trim()}`));
+    const long = shell(dir, repo, keep, lines[0]!);
+    assert.match(long.stdout, /\nprime: shortened\n$/);
+    assert.equal(long.code, 0, 'a measurement that went well exits 0, whether or not the candidate fits prime');
+    assert.equal(read(repo, '.lawcheck/law.yaml'), SETUP_LAW);
+
+    write(keep, 'candidate.yaml', 'lawcheck: 0.1.0\n\ntypes:\n  api:\n    paths: ["src/api/**"]\n    may_use: [nothing]\n');
+    const broken = shell(dir, repo, keep, lines[0]!);
+    assert.match(broken.stdout, /^law-invalid  \.lawcheck\/law\.yaml:/m);
+    assert.doesNotMatch(broken.stdout, /^total:/m, 'a candidate that is no law gives no total');
+    assert.equal(read(repo, '.lawcheck/law.yaml'), SETUP_LAW);
+
+    const rule = pageBlock('8. Write the rules');
+    write(keep, 'no-console.mjs', rule + '\n');
+    write(keep, 'candidate.yaml', SETUP_LAW.replace('\ntypes:\n', '\nrules:\n  no-console:\n    why: Only the handlers write to the terminal.\n\ntypes:\n'));
+    const tried = shell(dir, repo, keep, lines[1]!.replaceAll('<id>', 'no-console').replace('<pattern>', 'src/core/**'));
+    assert.match(tried.stdout, /^lawcheck: try no-console \(script rule, enforced\)  1 finding in 1 of 2 files$/m);
+    assert.match(tried.stdout, /^src\/core\/report\.ts:4  error\[no-console\]/m);
+    assert.equal(read(repo, '.lawcheck/law.yaml'), SETUP_LAW, 'the rule\'s measurement puts the law back');
+    assert.ok(!existsSync(join(repo, '.lawcheck', 'rules')), 'the rule\'s measurement leaves no rule file and no rules folder');
+    assert.equal(git(repo, 'status', '--short'), '?? .lawcheck/\n');
+  });
+});
+
 const blocked = (text: string) => ({ decision: 'block', reason: text });
 const editsHeader = (paths: string[], cmd = 'lawcheck') => `Lawcheck: after this edit, the files it wrote break the law of this repository. ${cmd} check ${paths.map((path) => `./${path}`).join(' ')} printed:`;
 
@@ -1096,7 +1332,9 @@ test('test 920: the files of the plugin for Codex', () => {
   const codex = JSON.parse(readFileSync(join(PLUGIN, '.codex-plugin', 'plugin.json'), 'utf8'));
   const { userConfig, description, ...shared } = claude;
   assert.ok(userConfig !== undefined && description !== undefined);
-  assert.deepEqual(codex, { ...shared, version: manifest.version, description: description.replace('with Write, Edit or NotebookEdit', 'with apply_patch'), hooks: './hooks/codex.json' });
+  assert.deepEqual(codex, { ...shared, version: manifest.version, description: description.replace('with Write, Edit or NotebookEdit', 'with apply_patch').replace('/lawcheck:setup', '$lawcheck:setup'), hooks: './hooks/codex.json' });
+  assert.match(codex.description, /\$lawcheck:setup/);
+  assert.equal(readFileSync(join(SKILL, 'agents', 'openai.yaml'), 'utf8'), 'policy:\n  allow_implicit_invocation: false\n');
   const claudeHooks = JSON.parse(readFileSync(join(PLUGIN, 'hooks', 'hooks.json'), 'utf8')).hooks;
   const codexHooks = JSON.parse(readFileSync(join(PLUGIN, 'hooks', 'codex.json'), 'utf8')).hooks;
   assert.deepEqual(Object.keys(codexHooks), Object.keys(claudeHooks));
@@ -1178,6 +1416,13 @@ test('test 923: in Codex, the two switches are variables of the environment, and
     nothing(await session.stop({}, off));
     assert.deepEqual(bench.sessions(), []);
     assert.deepEqual(bench.log(), []);
+  });
+});
+
+test('test 1015: in Codex, the message for a folder with no law names $lawcheck:setup, the command Codex has', async () => {
+  await withBench(async (bench, dir) => {
+    const repo = newRepository(dir);
+    json(await new CodexSession(bench, repo).start('startup'), started(NO_ROOT.replace('/lawcheck:setup', '$lawcheck:setup')), 'a repository without a law');
   });
 });
 
@@ -1348,4 +1593,28 @@ test('test 965: in Copilot, the two switches are variables of the environment', 
     assert.deepEqual(bench.sessions(), []);
     assert.deepEqual(bench.log(), []);
   });
+});
+
+test('test 1013: in Copilot, the message for a folder with no law names /lawcheck:setup, the command Copilot has', async () => {
+  await withBench(async (bench, dir) => {
+    const repo = newRepository(dir);
+    json(await new CopilotSession(bench, repo).start(), copilotContext(NO_ROOT), 'a repository without a law');
+  });
+});
+
+const COPILOT_SKILL_FLAG = /^---\nname: setup\ndescription: .+\ndisable-model-invocation: true\n---\n/;
+
+test('test 1014: the setup skill of the plugin for Copilot CLI never starts on its own: it sits in the skills folder Copilot reads, with the flag Copilot honors', () => {
+  const copilot = JSON.parse(readFileSync(join(PLUGIN, '.plugin', 'plugin.json'), 'utf8'));
+  assert.equal('skills' in copilot, false, 'the manifest moves no skill out of skills/');
+  assert.match(SKILL_TEXT('SKILL.md'), COPILOT_SKILL_FLAG);
+  assert.match(copilot.description, /Its skill, \/lawcheck:setup,/);
+  assert.deepEqual(readdirSync(join(PLUGIN, 'skills')), ['setup']);
+});
+
+test('test 1014: control, a skill file without the flag, or with it outside the frontmatter, is caught', () => {
+  const text = SKILL_TEXT('SKILL.md');
+  assert.doesNotMatch(text.replace('disable-model-invocation: true\n', ''), COPILOT_SKILL_FLAG);
+  assert.doesNotMatch(text.replace('disable-model-invocation: true\n---\n', '---\ndisable-model-invocation: true\n'), COPILOT_SKILL_FLAG);
+  assert.doesNotMatch(text.replace('disable-model-invocation: true', 'disable-model-invocation: false'), COPILOT_SKILL_FLAG);
 });

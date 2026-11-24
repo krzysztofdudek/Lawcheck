@@ -11,7 +11,18 @@ export const claims: Claims = {
 
 const read = (path: string): unknown => JSON.parse(readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8'));
 
+const SETUP_SENTENCES = [
+  '**Advice**, such as `/lawcheck:setup what could be better here?`: the agent writes at most three boundaries or rules that the code does not hold today into `.lawcheck/advice.md`.',
+  'lays out at most seven steps, each one change of the law that `lawcheck check` passes on the day it goes in.',
+  'Nothing in either file is law, and no command of Lawcheck reads them.',
+  'A line goes into `.lawcheck/law.yaml` only when you say yes to that item or that step, and a yes to the whole plan writes no law.',
+  'The skill never offers advice or a target on its own.',
+];
+
 export async function scenario(page: Page): Promise<void> {
+  const text = readFileSync(new URL('../../docs/plugin.md', import.meta.url), 'utf8');
+  const section = text.slice(text.indexOf('\n## The setup skill\n'), text.indexOf('\n## The settings\n'));
+  for (const sentence of SETUP_SENTENCES) assert.ok(section.includes(sentence), `the part "The setup skill" lacks "${sentence}"`);
   const marketplace = read('.claude-plugin/marketplace.json') as { name: string; plugins: { name: string; source: string }[] };
   const manifest = read('package.json') as { repository: { url: string } };
   const repository = /github\.com\/([^/]+\/[^/]+?)\.git$/.exec(manifest.repository.url)?.[1];

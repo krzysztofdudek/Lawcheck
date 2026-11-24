@@ -1237,8 +1237,8 @@ A note is a line that starts with `note:`, under the first line of `check` or `i
 
 | Text | When | Fix |
 |---|---|---|
-| `note: the law changed in this change; lawcheck check --full ...` | a `check` with no path and no `--full` judges a change that edits `.lawcheck/law.yaml`, `.lawcheck/config.yaml` or a file of `.lawcheck/rules/` | run the `check --full` command of the note to see what the new law finds in the rest of the code |
-| `note: this change edits the law that judges it: ...` | the same change; the note lists what it changes in the law, such as types, rules, `may_use` and the patterns of `required` and `ignored` | read the list before you accept the change |
+| `note: the law changed in this change; lawcheck check --full ...` | a `check` with no path and no `--full`, against a base, judges a change that edits `.lawcheck/law.yaml`, `.lawcheck/config.yaml` or a file of `.lawcheck/rules/` | run the `check --full` command of the note to see what the new law finds in the rest of the code |
+| `note: this change edits the law that judges it: ...` | a `check` against a base, with or without `--full`, judges a change that edits the law; the note lists what it changes in the law, such as types, rules, `may_use` and the patterns of `required` and `ignored` | read the list before you accept the change |
 | `note: this change adds <n> waivers: ...` | a `check` against a base, where a changed file holds a waiver that it did not hold at the base | read each waiver and its reason before you accept the change |
 | `note: the paths of a type reach into ...` | the paths of a type reach into a submodule or a repository of its own, and Lawcheck judges no file there | run Lawcheck in that repository with its own law |
 | `note: <path> lies in ...` | a path named to `check` lies in a submodule or a repository of its own | run Lawcheck in that repository |
