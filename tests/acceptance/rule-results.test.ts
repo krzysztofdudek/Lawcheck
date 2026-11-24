@@ -74,6 +74,24 @@ for (const [what, source, message] of background) {
   });
 }
 
+const inThePool: [string, string][] = [
+  ['a pbkdf2 job', "import { pbkdf2 } from 'node:crypto';\nexport function check() { pbkdf2('a', 'b', 300000, 64, 'sha512', () => { throw new Error('after the job'); }); return []; }\n"],
+  ['a scrypt job', "import { scrypt } from 'node:crypto';\nexport function check() { scrypt('a', 'b', 64, { N: 32768, maxmem: 64 * 1024 * 1024 }, () => { throw new Error('after the job'); }); return []; }\n"],
+];
+
+for (const [what, source] of inThePool) {
+  test(`R-26: a throw from the callback of ${what} that ends after the rule's last result is rule-crashed on one file and on two`, async () => {
+    for (const files of [['src/core/a.ts'], ['src/core/a.ts', 'src/core/b.ts']]) {
+      await withSample(async (s) => {
+        setRule(s, 'no-console', source);
+        for (const file of files) write(s, file, 'export const x = 1;\n');
+        const run = await check(s);
+        assert.deepEqual([run.code, run.stdout.split('\n')[2]], [2, '.lawcheck/rules/no-console.mjs  error[rule-crashed]  fails in the background: after the job'], `${files.length} files`);
+      });
+    }
+  });
+}
+
 const unreferenced: [string, string][] = [
   ['a timer', "export function check() { setTimeout(() => { throw new Error('unref'); }, 50).unref(); return []; }\n"],
   ['an interval', "export function check() { setInterval(() => { throw new Error('unref'); }, 50).unref(); return []; }\n"],

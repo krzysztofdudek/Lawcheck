@@ -1,3 +1,4 @@
+import { createHook } from 'node:async_hooks';
 import { syncBuiltinESMExports } from 'node:module';
 import { pathToFileURL } from 'node:url';
 import { MESSAGE_CHARS, points, RUN_FINDINGS, RUN_MESSAGE_CHARS } from './limits.js';
@@ -152,9 +153,25 @@ process.on('uncaughtException', failed);
 // How long the runner waits once, after the last call, for the timers and other work the rule left behind, as docs/script-rules.md says.
 const SETTLE_MS = 2_000;
 
+// process.getActiveResourcesInfo() does not list the jobs that node:crypto sends to the thread pool, such as pbkdf2, scrypt and randomBytes, so the runner counts the requests that have not run their callback. Promises are left out of the hook, which keeps it from slowing a rule.
+const requests = new Set<number>();
+createHook({
+  trackPromises: false,
+  init: (id, type) => {
+    if (type.endsWith('REQUEST')) requests.add(id);
+  },
+  before: (id) => {
+    requests.delete(id);
+  },
+  destroy: (id) => {
+    requests.delete(id);
+  },
+}).enable();
+
 function counts(): Map<string, number> {
   const out = new Map<string, number>();
   for (const kind of process.getActiveResourcesInfo()) out.set(kind, (out.get(kind) ?? 0) + 1);
+  if (requests.size > 0) out.set('Request', requests.size);
   return out;
 }
 
