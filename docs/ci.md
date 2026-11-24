@@ -1,6 +1,6 @@
 # CI and git hooks
 
-A CI job can run `lawcheck check` on each pull request, and a git hook on each commit or push ([Git hooks](#git-hooks)). For example, a pull request adds `console.log` to `src/core/`, where the [law](concepts.md#law) forbids that call. The job below fails on that call with exit 1.
+A CI job can run `lawcheck check` on each pull request. A git hook can run it on each commit or push ([Git hooks](#git-hooks)). For example, a pull request adds `console.log` to `src/core/`, where the [law](concepts.md#law) forbids that call. The job below fails on that call with exit 1.
 
 The job needs the git history of the branch back to its merge base with the target branch. It needs no API key, because Lawcheck judges [reviewer rules](concepts.md#reviewer-rule) by the reviews committed in `.lawcheck/verdicts`.
 
