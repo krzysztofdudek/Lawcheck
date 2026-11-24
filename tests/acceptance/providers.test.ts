@@ -998,6 +998,47 @@ test('test 1048: on Windows the guard of a killed tool ends what a program left,
   }
 });
 
+test('test 1120: on Windows the guard that finds the tool gone before it reads the tool\'s last line, about a program the tool had just started, still ends what that program left', async (t) => {
+  const skip = platformSkip('the whole test');
+  if (skip !== null) return t.skip(skip);
+  await withCopy(async (copy) => {
+    const guardFile = join(copy.dir, 'dist', 'guard.js');
+    const poll = 'setInterval(() => {';
+    const sound = readFileSync(guardFile, 'utf8');
+    assert.ok(sound.includes(poll) && sound.includes('process.kill(tool, 0)'), 'the guard has no poll of the tool for this test to hold');
+    const looking = join(copy.dir, 'looking');
+    // The guard's first look at the tool lasts until the tool has died, so the line the tool wrote in the meantime still waits unread in the guard's input when the guard finds the tool gone.
+    const hold = `\nif (!globalThis.lookedOnce) { globalThis.lookedOnce = true; markLooking(${JSON.stringify(looking)}, String(process.pid)); const until = Date.now() + ${GUARD_ENDS_MS}; while (Date.now() < until) { try { process.kill(tool, 0); } catch { break; } } }`;
+    writeFileSync(guardFile, `import { writeFileSync as markLooking } from 'node:fs';\n${sound.replace(poll, `${poll}${hold}`)}`);
+    writeFileSync(join(copy.dir, 'tool.mjs'), TOOL);
+    const left: number[] = [];
+    const tool = spawn(process.execPath, [join(copy.dir, 'tool.mjs')], { cwd: copy.dir, stdio: ['pipe', 'pipe', 'ignore'], windowsHide: true });
+    try {
+      const said: string[] = [];
+      tool.stdout!.setEncoding('utf8').on('data', (chunk: string) => said.push(...chunk.split('\n').filter(Boolean)));
+      assert.ok(await waitFor(() => said.includes('ready'), GUARD_ENDS_MS), 'the tool did not start its guard');
+      assert.ok(await waitFor(() => existsSync(looking) && readFileSync(looking, 'utf8') !== '', GUARD_ENDS_MS), 'the guard did not look at the tool');
+      left.push(Number(readFileSync(looking, 'utf8')));
+      const started = Date.now();
+      const program = await startScript(copy.dir, 'program.mjs', LEAVE, true);
+      left.push(program.child);
+      tool.stdin!.write(`${program.pid} ${started}\n`);
+      assert.ok(await waitFor(() => said.includes('told'), GUARD_ENDS_MS), 'the tool did not tell its guard');
+      tool.kill('SIGKILL');
+      assert.ok(await waitFor(() => !alive(program.child), GUARD_ENDS_MS), 'the child the program left is alive');
+    } finally {
+      tool.kill('SIGKILL');
+      for (const pid of left) {
+        try {
+          process.kill(pid, 'SIGKILL');
+        } catch {
+          // Already ended.
+        }
+      }
+    }
+  });
+});
+
 // A process group of its own: the program and the child it made, which stays in the program's group.
 async function startGroup(dir: string, name: string, text: string): Promise<{ pid: number; child: number }> {
   writeFileSync(join(dir, name), text);
