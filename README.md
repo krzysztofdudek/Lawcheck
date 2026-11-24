@@ -31,7 +31,7 @@ src/core/discount.ts:1  error[forbidden-use]  core may not use api (src/api/orde
 next: fix src/core/discount.ts:1
 ```
 
-A rules file is advice the agent reads, and nothing in the session checks the code against it. Lawcheck checks the files. In Claude Code, the Lawcheck plugin runs this check after each edit and before the agent ends its turn, and sends the agent back, up to three times, while the files of its turn break the law. Any other agent gets the law from `lawcheck prime`, through one line in its instructions file. A CI job checks the same law and needs no key and no network. An architecture test or the layer rule of a linter works in one language or one ecosystem, and one law covers the uses of twelve languages.
+A rules file is advice the agent reads, and nothing in the session checks the code against it. Lawcheck checks the files. In Claude Code and Codex, the Lawcheck plugin runs this check after each edit and before the agent ends its turn, and sends the agent back, up to three times, while the files of its turn break the law. Any other agent gets the law from `lawcheck prime`, through one line in its instructions file. A CI job checks the same law and needs no key and no network. An architecture test or the layer rule of a linter works in one language or one ecosystem, and one law covers the uses of twelve languages.
 
 ## Try it
 
@@ -52,6 +52,8 @@ claude plugin install lawcheck@lawcheck-marketplace
 ```
 
 The plugin gives the agent the law when a session starts. Its hooks run Lawcheck and your repository's rule scripts, so install the plugin where you would run the repository's tests. With a `runner` other than `global`, the hooks start the program your package manager finds through the repository's own files, such as `yarnPath` in `.yarnrc.yml` or a committed `node_modules/.bin/lawcheck`. `lawcheck docs plugin` says what each hook does.
+
+In Codex, the same plugin installs with `codex plugin marketplace add krzysztofdudek/Lawcheck` and `codex plugin add lawcheck@lawcheck-marketplace`. Codex runs its hooks only after you trust them in `/hooks`. Its check after an edit sees the files of `apply_patch`, and a file the agent writes through the shell waits for the check before the agent finishes. `lawcheck docs codex-cli` has the steps.
 
 Any other agent gets one line in its instructions file:
 

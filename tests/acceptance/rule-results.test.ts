@@ -95,6 +95,21 @@ for (const [what, source] of unreferenced) {
   });
 }
 
+test('I-rules-1: a throw after an Atomics.waitAsync that ends after the rule\'s last result is rule-crashed, and a wait nobody ends lets the rule pass', async () => {
+  await withSample(async (s) => {
+    setRule(s, 'no-console', "export function check() { void Atomics.waitAsync(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 50).value.then(() => { throw new Error('after the wait'); }); return []; }\n");
+    write(s, 'src/core/a.ts', 'export const x = 1;\n');
+    const run = await check(s);
+    assert.deepEqual([run.code, run.stdout.split('\n')[2]], [2, '.lawcheck/rules/no-console.mjs  error[rule-crashed]  fails in the background: after the wait']);
+  });
+  await withSample(async (s) => {
+    setRule(s, 'no-console', "export function check() { void Atomics.waitAsync(new Int32Array(new SharedArrayBuffer(4)), 0, 0).value.then(() => { throw new Error('never'); }); return []; }\n");
+    write(s, 'src/core/a.ts', 'export const x = 1;\n');
+    const run = await check(s);
+    assert.deepEqual([run.code, run.stdout.split('\n')[0]], [0, 'lawcheck: PASS  2 changed files (against main)']);
+  });
+});
+
 const noStringForm: [string, string, string][] = [
   ['an object without a prototype', 'Object.create(null)', 'Cannot convert object to primitive value'],
   ['an array holding a symbol', '[Symbol()]', 'Cannot convert a Symbol value to a string'],

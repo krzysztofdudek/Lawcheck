@@ -21,8 +21,8 @@ function state(repo: string): string {
 
 const EVENTS = ['session-start', 'prompt', 'edit', 'stop'];
 
-function runHook(event: string, input: string, env: NodeJS.ProcessEnv): Promise<{ code: number | null; stdout: string; stderr: string }> {
-  return startHook(event, input, env, { stderr: /^(Lawcheck plugin: [^\n]+\n)?$/ }).ended;
+function runHook(event: string, input: string, env: NodeJS.ProcessEnv, host?: string): Promise<{ code: number | null; stdout: string; stderr: string }> {
+  return startHook(event, input, env, { stderr: /^(Lawcheck plugin: [^\n]+\n)?$/, ...(host === undefined ? {} : { host }) }).ended;
 }
 
 // Each property by its name, for tests/properties/arguments.test.ts and arguments.nightly.test.ts to register with its name written out.
@@ -76,7 +76,7 @@ export function argumentsProperties(speed: Speed): Record<string, () => unknown>
       const id = fc.oneof({ weight: 2, arbitrary: fc.constant('x'.repeat(5000)) }, { weight: 3, arbitrary: fc.constantFrom('s1', '../x', '', 'a b', 'ż', 'y'.repeat(129)) }, { weight: 1, arbitrary: fc.string({ maxLength: 10 }) }, { weight: 1, arbitrary: fc.integer() });
       const field = fc.oneof(fc.constantFrom(s, '/', join(s, 'src'), join(s, D_PATH), join(s, 'src/core/new\nline.ts'), 'relative/path.ts', ''), fc.anything());
       const object = fc
-        .record({ session_id: id, prompt_id: fc.oneof(fc.constant('p1'), fc.anything()), cwd: field, tool_name: fc.constantFrom('Write', 'Edit', 'NotebookEdit', 'Bash', 7), tool_input: fc.oneof(fc.record({ file_path: field, notebook_path: field }), fc.anything()), stop_hook_active: fc.oneof(fc.boolean(), fc.anything()), background_tasks: fc.oneof(fc.constant([]), fc.anything()) }, { requiredKeys: ['session_id'] })
+        .record({ session_id: id, prompt_id: fc.oneof(fc.constant('p1'), fc.anything()), turn_id: fc.oneof(fc.constant('t1'), fc.anything()), cwd: field, tool_name: fc.constantFrom('Write', 'Edit', 'NotebookEdit', 'apply_patch', 'Bash', 7), tool_input: fc.oneof(fc.record({ file_path: field, notebook_path: field, command: fc.oneof(field.map((path) => `*** Begin Patch\n*** Update File: ${String(path)}\n*** End Patch\n`), fc.anything()) }), fc.anything()), stop_hook_active: fc.oneof(fc.boolean(), fc.anything()), background_tasks: fc.oneof(fc.constant([]), fc.anything()) }, { requiredKeys: ['session_id'] })
         .map((v) => JSON.stringify(v));
       const input = fc.oneof(
         { weight: 3, arbitrary: object },
@@ -85,11 +85,11 @@ export function argumentsProperties(speed: Speed): Record<string, () => unknown>
       );
       await tool(
         speed,
-        fc.tuple(fc.constantFrom(...EVENTS), input, fc.constantFrom('', 'runner: global\n', '\ufeffrunner: global\n', 'runner: bogus\n', '\ufeffrunner: bogus\n', '\ufeffrunner: global  # pinned\r\n')),
+        fc.tuple(fc.constantFrom(...EVENTS), input, fc.constantFrom('', 'runner: global\n', '\ufeffrunner: global\n', 'runner: bogus\n', '\ufeffrunner: bogus\n', '\ufeffrunner: global  # pinned\r\n'), fc.constantFrom(undefined, 'codex')),
         { classes: { 'a config with a byte-order mark': ([, , config]) => config.startsWith('\ufeff'), 'an object': ([, i]) => i.startsWith('{"'), 'no JSON object': ([, i]) => !i.startsWith('{"'), 'a byte-order mark at the start of the input': ([, i]) => i.startsWith('\ufeff'), 'a session id of 5,000 characters to a hook that keeps state': ([event, i]) => event !== 'session-start' && i.includes('x'.repeat(5000)) } },
-        async ([event, i, config]) => {
+        async ([event, i, config, host]) => {
           write(s, '.lawcheck/config.yaml', config);
-          const run = await runHook(event, i, env);
+          const run = await runHook(event, i, env, host);
           if (config.startsWith('\ufeff')) {
             const start = JSON.stringify({ session_id: 's1', cwd: s, hook_event_name: 'SessionStart', source: 'startup' });
             const marked = await runHook('session-start', start, env);
@@ -109,7 +109,7 @@ export function argumentsProperties(speed: Speed): Record<string, () => unknown>
           assert.equal(run.stderr, '');
           if (run.stdout === '') return;
           const document = JSON.parse(run.stdout);
-          assert.ok(typeof document.systemMessage === 'string' || typeof document.hookSpecificOutput?.additionalContext === 'string', run.stdout);
+          assert.ok(typeof document.systemMessage === 'string' || typeof document.hookSpecificOutput?.additionalContext === 'string' || (host === 'codex' && document.decision === 'block' && typeof document.reason === 'string'), run.stdout);
         },
       );
     } finally {
