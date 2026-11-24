@@ -31,12 +31,16 @@ interface Report {
   unresolved: { file: string; what: string; answer: string; reason: string | null }[];
 }
 
-function cloneOfHead(dir: string): string {
+function seeRepository(): void {
   try {
     execFileSync('git', ['rev-parse', '--git-dir'], { cwd: ROOT, env: GIT_ENV, stdio: 'ignore' });
   } catch {
     throw new Error('could not run: git cannot see the repository');
   }
+}
+
+function cloneOfHead(dir: string): string {
+  seeRepository();
   const repo = join(dir, 'clone');
   // --shared copies no object file: a checkout with thousands of loose objects spent most of the time of these tests on a loaded disk copying them.
   git(dir, 'clone', '-q', '--shared', ROOT, repo);
@@ -78,6 +82,7 @@ test('question 160: the committed tree has no finding of an enforced rule and no
 });
 
 test('question 160: the files of src that the law leaves without a type are only those it left out when it landed, so the list only shrinks', () => {
+  seeRepository();
   const law = git(ROOT, 'show', 'HEAD:.lawcheck/law.yaml');
   assert.deepEqual(exempted(law).filter((name) => !UNSORTED.has(name)), []);
   assert.ok(law.includes('"!src/{args,'));
