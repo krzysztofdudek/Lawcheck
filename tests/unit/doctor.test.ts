@@ -345,3 +345,18 @@ test('R-39: doctor given a word or a flag it does not know is a usage error of d
     assert.equal(result.stdout, "lawcheck: ERROR  1 error\n\nerror[usage]  unexpected argument 'extra'; doctor takes no arguments\n  why:  the tool does only what its usage line says\n\nnext: run lawcheck doctor as its usage line says: lawcheck doctor --help\n");
   });
 });
+
+test('R-39: a repository git cannot read fails the check that needed it, in the words of git, and the checks that wait for it are skipped', async () => {
+  await inTemp(async (dir) => {
+    const repo = newRepository(dir, { '.lawcheck/law.yaml': OWN_LAW, '.lawcheck/rules/r1.mjs': SCRIPT_RULE, 'src/a.ts': 'x\n' });
+    writeFileSync(join(repo, '.git/index'), 'garbage garbage garbage');
+    const checks = await plain(repo);
+    const next = { command: null, text: 'repair the repository, so that git status works here, then run lawcheck doctor again' };
+    for (const id of ['law', 'base']) {
+      const failed = check(checks, id)!;
+      assert.deepEqual([failed.state, failed.next], ['fail', next], id);
+      assert.match((failed as { message: string }).message, /^git cannot read this repository: fatal: /, id);
+    }
+    assert.deepEqual(checks.map((c) => `${c.id} ${(c as { state: string }).state}`), ['node ok', 'git ok', 'law fail', 'config ok', 'types skip', 'base fail', 'law-change skip', 'readers skip', 'reviewer skip']);
+  });
+});
