@@ -459,14 +459,8 @@ Why: the root ends with the tool, so by the time the guard acts, Windows may hav
 
 When the tool is killed on Windows, the guard ends a rule's runner the way it ends a program's tree: only if a list of processes begun after the kill shows the runner's id made at the same time as an earlier list showed it, together with what the list shows below it. It no longer ends a runner by its id. A runner that no earlier list showed is left alone. The guard's own call to PowerShell for a list stops after 10 seconds, and a list that did not come whole counts as no list: the guard then ends nothing from it, removes the call's folders and exits.
 
-Why: a runner is in the tool's job on Windows and ends with the tool, so by the time the guard acts Windows may have given its id to another process, and ending by id ends that process. A PowerShell that never answers would hold the guard, and the folders it is to remove, for ever; a process left alive is a smaller harm than a guard that never ends. The price is that a runner that survived the tool and that no list had shown yet stays alive. In a run that calls a program reviewer the lists begin just before its first call, so this needs a tool killed before the first list that came after the runner started; in a run that calls none no list ever runs, so the guard ends none of its runners, and only the tool's job ends them.
+Why: a runner is in the tool's job on Windows and ends with the tool, so by the time the guard acts Windows may have given its id to another process, and ending by id ends that process. A PowerShell that never answers would hold the guard, and the folders it is to remove, for ever; a process left alive is a smaller harm than a guard that never ends. The price is that a runner that survived the tool stays alive unless the tool was killed during a call of a program reviewer and a list had already shown the runner. The guard takes no list when no such call is open (the decision on a killed tool with no program call open), and the lists begin just before a run's first call. In a run that calls none, no list ever runs, so the guard ends none of its runners, and only the tool's job ends them.
 
-
-## Decision (number at merge). On Windows the guard of a killed tool with no program call open takes no list of processes
-
-When the tool is killed on Windows while no call of a program reviewer is open, as in a run that calls none, the guard removes the folders it was told of and exits without starting PowerShell, and ends no process.
-
-Why: only rule runners are left then. A runner is in the tool's job and ends with the tool, and a rule starts no program under Node's permission model, so nothing they started outlives the tool. A list could end nothing, and taking one only delayed the guard's end, and the removal of the folders, by up to 10 seconds.
 
 ## 207. On Windows a program is ended by its id only while it runs, and the guard knows when the tool started it
 
@@ -495,3 +489,9 @@ Why: this is the owner's decision (ruling nightly-recznie-przed-wydaniem). A run
 What this does not give: GitHub redirects `krzysztofdudek.github.io/Lawcheck/<path>` to `docs.lawcheck.dev/<path>` by itself and keeps the path, so `/<page>`, `/index` and `/index.html` take two hops there (GitHub's, then this project's), and `/` and `/<page>.html` take one. One hop for both forms would need each page to answer 200 on both addresses, and then one of them is not the address the page names.
 
 Why: the owner chose to serve the documentation from Vercel beside the landing page, so each old address lands on its page through redirects that the repository holds, which GitHub Pages cannot do. A page of `docs/topics.json` needs no edit of the redirects. The headers carry no Content-Security-Policy, because the policy of the landing page was not tried on the pages of the documentation.
+
+## Decision (number at merge). On Windows the guard of a killed tool with no program call open takes no list of processes
+
+When the tool is killed on Windows while no call of a program reviewer is open, as in a run that calls none, the guard removes the folders it was told of and exits without starting PowerShell, and ends no process.
+
+Why: only rule runners are left then. A runner is in the tool's job and ends with the tool, and a rule starts no program under Node's permission model, so nothing they started outlives the tool. A list could end nothing, and taking one only delayed the guard's end, and the removal of the folders, by up to 10 seconds.
