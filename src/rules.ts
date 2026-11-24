@@ -1,19 +1,19 @@
-import { fork, spawn, spawnSync } from 'node:child_process';
-import type { ChildProcess } from 'node:child_process';
-import { availableParallelism, tmpdir } from 'node:os';
+import { fork, spawnSync } from 'node:child_process';
+import { availableParallelism } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, sep } from 'node:path';
-import { randomBytes } from 'node:crypto';
-import { existsSync, mkdirSync, realpathSync, rmSync } from 'node:fs';
+import { realpathSync } from 'node:fs';
 import type { TypeDef } from './law.js';
-import { killTree } from './programs.js';
+import { releaseProcess, watchProcess } from './programs.js';
 import { safeText } from './output.js';
 import { hide } from './keys.js';
 import type { Readable } from 'node:stream';
 import { count, MESSAGE_CHARS, points, readError, RULES_RUN_MS, RUN_FINDINGS, RUN_MESSAGE_CHARS } from './limits.js';
 import type { Reads, Serve } from './readers.js';
 import type { ErrorItem } from './output.js';
+import { RULES_DIR } from './setup.js';
 import type { Read, ReviewerRule } from './setup.js';
+import { trackedLinks, workTreeTop } from './files.js';
 import { decode, isBinary } from './types.js';
 import { step } from './progress.js';
 
@@ -30,91 +30,6 @@ export const PACKAGE_DIR = realpathSync(dirname(dirname(RUNNER)));
 export const LIMITS = { ruleMs: 30_000 };
 // How long a run waits, after its runner has ended, for the runner's pipes to close. No program the tool starts can hold them, because every program but git starts on the worker thread, as the runners do, and git starts on the main thread only while the worker waits for it, so no other program starts while a runner's pipe ends can be inherited; starting another program on the main thread would break this on Windows. A rule starts no program, and the tool closes every handle a runner sends. A program from outside the tool can still hold a pipe, as a runner file put in place of this package's own can leave one; the bound keeps it from holding the run. The R-114 test's late writer, one Node start and 2 seconds, must fit inside the bound, and the tests of a handle sent through the channel tell the bound from an end at once.
 const DRAIN_MS = 10_000;
-const GUARD = fileURLToPath(new URL('./guard.js', import.meta.url));
-
-const live = new Set<ChildProcess>();
-const liveGroups = new Set<number>();
-const liveFolders = new Set<string>();
-let guard: ChildProcess | null = null;
-let listing = false;
-
-function startGuard(): void {
-  if (guard === null) {
-    guard = spawn(process.execPath, [GUARD], { cwd: dirname(GUARD), stdio: ['pipe', 'ignore', 'ignore'], detached: true });
-    guard.on('error', () => undefined);
-    guard.stdin!.on('error', () => undefined);
-    guard.unref();
-    (guard.stdin as unknown as { unref(): void }).unref();
-  }
-}
-
-// On Windows the guard finds what a program started only in PowerShell's list of processes, and PowerShell takes seconds to start on a busy machine, so the guard starts its list as soon as the tool is about to call a program; a call does not wait for it, since reviewer.timeout bounds the whole call, and the guard ends a killed tool's tree from a list begun after the kill. PowerShell makes a missing temporary directory, and without one no program starts, as a call's folder is made there, so the list is then not started.
-export function startListing(): void {
-  if (process.platform !== 'win32' || listing || !existsSync(tmpdir())) return;
-  listing = true;
-  startGuard();
-  guard!.stdin!.write('+w\n');
-}
-
-function watch(child: ChildProcess): void {
-  if (child.pid === undefined) return;
-  live.add(child);
-  startGuard();
-  guard!.stdin!.write(`+${child.pid}\n`);
-}
-
-export function killGroup(pid: number, signal: NodeJS.Signals): boolean {
-  return killTree(pid, signal);
-}
-
-export function watchGroup(pid: number): void {
-  liveGroups.add(pid);
-  startGuard();
-  guard!.stdin!.write(`+g${pid}\n`);
-}
-
-export function watchFolder(path: string): void {
-  if (/[\r\n]/.test(path)) return;
-  liveFolders.add(path);
-  startGuard();
-  guard!.stdin!.write(`+d${path}\n`);
-}
-
-// A folder made before the guard knows of it outlives a tool killed by SIGKILL in between, so the guard learns its name first and the folder is made after.
-export function guardedFolder(prefix: string): string {
-  for (let tries = 1; ; tries++) {
-    const path = join(tmpdir(), `${prefix}${randomBytes(6).toString('hex')}`);
-    watchFolder(path);
-    try {
-      mkdirSync(path, { mode: 0o700 });
-      return path;
-    } catch (error) {
-      if (liveFolders.delete(path)) guard?.stdin?.write(`-d${path}\n`);
-      if ((error as NodeJS.ErrnoException).code !== 'EEXIST' || tries === 10) throw error;
-    }
-  }
-}
-
-export function releaseFolder(path: string): void {
-  rmSync(path, { recursive: true, force: true, maxRetries: 10 });
-  if (liveFolders.delete(path)) guard?.stdin?.write(`-d${path}\n`);
-}
-
-export function releaseGroup(pid: number): void {
-  killGroup(pid, 'SIGKILL');
-  if (liveGroups.delete(pid)) guard?.stdin?.write(`-g${pid}\n`);
-}
-
-function release(child: ChildProcess): void {
-  if (live.delete(child)) guard?.stdin?.write(`-${child.pid}\n`);
-  child.kill('SIGKILL');
-}
-
-process.on('exit', () => {
-  for (const child of live) child.kill('SIGKILL');
-  for (const pid of liveGroups) killGroup(pid, 'SIGKILL');
-  for (const path of liveFolders) rmSync(path, { recursive: true, force: true, maxRetries: 10 });
-});
 
 // Node's permission model reads a * in --allow-fs-read as a wildcard over everything after it, and refuses to import a module whose file URL holds an encoded backslash.
 export function runnerProblem(root: string): string | null {
@@ -342,7 +257,7 @@ export function runRule(run: RuleRun): Promise<RuleOutcome> {
     });
     relay(child.stdout);
     relay(child.stderr);
-    watch(child);
+    watchProcess(child);
     let closed = false;
     child.once('close', () => {
       closed = true;
@@ -366,7 +281,7 @@ export function runRule(run: RuleRun): Promise<RuleOutcome> {
       settled = true;
       clearTimeout(timer);
       run.signal?.removeEventListener('abort', stop);
-      release(child);
+      releaseProcess(child);
       const settle = () => (outcome instanceof Error ? reject(outcome) : resolve(outcome));
       // Windows refuses to remove the root while the killed runner, which works in it, is still ending; and a runner that has ended can still hold what it printed in its pipes, which the tool relays before the run goes on. A pipe can outlive the runner, so the wait ends DRAIN_MS after the runner has ended.
       if (child.pid === undefined || closed) return settle();
@@ -471,7 +386,7 @@ export function runRule(run: RuleRun): Promise<RuleOutcome> {
     };
 
     const load = () =>
-      ask({ kind: 'load', file: run.ruleFile, filesOf: run.filesOf, entry: run.entry ?? 'check' }, (message) => {
+      ask({ kind: 'load', file: run.ruleFile, filesOf: run.filesOf, entry: run.entry ?? 'check', limits: { messageChars: MESSAGE_CHARS, findings: RUN_FINDINGS, chars: RUN_MESSAGE_CHARS } }, (message) => {
         if (message.kind === 'load-failed') return end({ crash: `fails to load: ${message.message}` });
         if (message.kind === 'uncloneable') return end({ crash: `fails to load: ${message.message}` });
         if (message.kind !== 'loaded') return end({ crash: `writes to the runner's channel ${stage}` });
@@ -610,4 +525,24 @@ export async function resolveCompanions(run: CompanionRun, reviewers: Map<string
 export function contextOf(reviewer: ReviewerRule, companions: Companions, rule: string, path: string): ContextFile[] {
   const added = companions.get(rule)?.get(path);
   return added === undefined || added.length === 0 ? reviewer.context : [...reviewer.context, ...added];
+}
+
+function linkError(link: { path: string; target: string }): ErrorItem {
+  return { code: 'link-outside-root', file: link.path, line: null, message: `the link leads to ${link.target}, outside the git work tree and Lawcheck's folder, and a script rule could read through it` };
+}
+
+export function runnerErrors(root: string): ErrorItem[] {
+  const unsupported = runnerProblem(root);
+  if (unsupported !== null) return [{ code: 'path-unsupported', file: null, line: null, message: unsupported }];
+  return linksOut(root, workTreeTop(root), trackedLinks(root)).map(linkError);
+}
+
+export function tooManyFindings(budget: FindingBudget): ErrorItem[] {
+  const all = `the rules of a run may return ${count(RUN_FINDINGS)} findings with ${count(RUN_MESSAGE_CHARS)} characters of message in all, and they returned ${count(budget.total)} with ${count(budget.chars)}`;
+  const items: ErrorItem[] = [];
+  for (const [rule, own] of budget.byRule) {
+    if (own.count === 0) continue;
+    items.push({ code: 'too-many-findings', file: `${RULES_DIR}${rule}.mjs`, line: null, message: `returns ${count(own.count)} findings with ${count(own.chars)} characters of message in this run; ${all}` });
+  }
+  return items;
 }

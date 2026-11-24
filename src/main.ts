@@ -1,11 +1,11 @@
 import { step } from './progress.js';
 import { check } from './check.js';
-import type { CheckContext, CheckOptions, CheckOutcome } from './check.js';
+import type { CheckOptions, CheckOutcome } from './check.js';
 import { firstLine } from './law.js';
 import { blocking, renderErrors, renderReport, safeJson, safeText } from './output.js';
 import { hiddenJson, useKeys } from './keys.js';
 import { COMMANDS, number, PROGRAM_USAGE, readArguments, text, usageError, USAGE, version } from './args.js';
-import type { Arguments, CommandName, Result } from './args.js';
+import type { Arguments, CheckContext, CommandName, Result } from './args.js';
 
 export { version };
 export type { Result };

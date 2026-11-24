@@ -206,7 +206,7 @@ test('S2-6: an immediate that the runner still has pending when the first messag
           return queue.shift() as { kind: string };
         };
         assert.equal((await next()).kind, 'ready');
-        child.send({ kind: 'load', file: ruleFile, filesOf: new Map() });
+        child.send({ kind: 'load', file: ruleFile, filesOf: new Map(), limits: { messageChars: 4096, findings: 200_000, chars: 16 * 1024 * 1024 } });
         assert.equal((await next()).kind, 'loaded');
         child.send({ kind: 'call', file: { path: 'a.ts', type: null, text: 'x\n', lines: ['x'] } });
         assert.equal((await next()).kind, 'result');

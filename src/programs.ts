@@ -1,7 +1,10 @@
 import { spawn, spawnSync } from 'node:child_process';
 import type { ChildProcess, SpawnOptions } from 'node:child_process';
-import { accessSync, constants, statSync } from 'node:fs';
-import { join, normalize, posix, win32 } from 'node:path';
+import { randomBytes } from 'node:crypto';
+import { accessSync, constants, existsSync, mkdirSync, rmSync, statSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join, normalize, posix, win32 } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 export type Env = Record<string, string | undefined>;
 
@@ -208,3 +211,89 @@ export function killTree(pid: number, signal: NodeJS.Signals, orphans = false): 
     return false;
   }
 }
+
+const GUARD = fileURLToPath(new URL('./guard.js', import.meta.url));
+
+const live = new Set<ChildProcess>();
+const liveGroups = new Set<number>();
+const liveFolders = new Set<string>();
+let guard: ChildProcess | null = null;
+let listing = false;
+
+function startGuard(): void {
+  if (guard === null) {
+    guard = spawn(process.execPath, [GUARD], { cwd: dirname(GUARD), stdio: ['pipe', 'ignore', 'ignore'], detached: true });
+    guard.on('error', () => undefined);
+    guard.stdin!.on('error', () => undefined);
+    guard.unref();
+    (guard.stdin as unknown as { unref(): void }).unref();
+  }
+}
+
+// On Windows the guard finds what a program started only in PowerShell's list of processes, and PowerShell takes seconds to start on a busy machine, so the guard starts its list as soon as the tool is about to call a program; a call does not wait for it, since reviewer.timeout bounds the whole call, and the guard ends a killed tool's tree from a list begun after the kill. PowerShell makes a missing temporary directory, and without one no program starts, as a call's folder is made there, so the list is then not started.
+export function startListing(): void {
+  if (process.platform !== 'win32' || listing || !existsSync(tmpdir())) return;
+  listing = true;
+  startGuard();
+  guard!.stdin!.write('+w\n');
+}
+
+export function watchProcess(child: ChildProcess): void {
+  if (child.pid === undefined) return;
+  live.add(child);
+  startGuard();
+  guard!.stdin!.write(`+${child.pid}\n`);
+}
+
+export function killGroup(pid: number, signal: NodeJS.Signals): boolean {
+  return killTree(pid, signal);
+}
+
+export function watchGroup(pid: number): void {
+  liveGroups.add(pid);
+  startGuard();
+  guard!.stdin!.write(`+g${pid}\n`);
+}
+
+export function watchFolder(path: string): void {
+  if (/[\r\n]/.test(path)) return;
+  liveFolders.add(path);
+  startGuard();
+  guard!.stdin!.write(`+d${path}\n`);
+}
+
+// A folder made before the guard knows of it outlives a tool killed by SIGKILL in between, so the guard learns its name first and the folder is made after.
+export function guardedFolder(prefix: string): string {
+  for (let tries = 1; ; tries++) {
+    const path = join(tmpdir(), `${prefix}${randomBytes(6).toString('hex')}`);
+    watchFolder(path);
+    try {
+      mkdirSync(path, { mode: 0o700 });
+      return path;
+    } catch (error) {
+      if (liveFolders.delete(path)) guard?.stdin?.write(`-d${path}\n`);
+      if ((error as NodeJS.ErrnoException).code !== 'EEXIST' || tries === 10) throw error;
+    }
+  }
+}
+
+export function releaseFolder(path: string): void {
+  rmSync(path, { recursive: true, force: true, maxRetries: 10 });
+  if (liveFolders.delete(path)) guard?.stdin?.write(`-d${path}\n`);
+}
+
+export function releaseGroup(pid: number): void {
+  killGroup(pid, 'SIGKILL');
+  if (liveGroups.delete(pid)) guard?.stdin?.write(`-g${pid}\n`);
+}
+
+export function releaseProcess(child: ChildProcess): void {
+  if (live.delete(child)) guard?.stdin?.write(`-${child.pid}\n`);
+  child.kill('SIGKILL');
+}
+
+process.on('exit', () => {
+  for (const child of live) child.kill('SIGKILL');
+  for (const pid of liveGroups) killGroup(pid, 'SIGKILL');
+  for (const path of liveFolders) rmSync(path, { recursive: true, force: true, maxRetries: 10 });
+});

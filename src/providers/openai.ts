@@ -1,6 +1,7 @@
 import type { ReviewerConfig } from '../config.js';
 import { ownKey } from './index.js';
-import type { Env, Provider } from './index.js';
+import type { Env } from './index.js';
+import type { Provider } from '../provider.js';
 import { chatCompletion } from './openai-compatible.js';
 
 const OWN_ENDPOINT = 'https://api.openai.com/v1';

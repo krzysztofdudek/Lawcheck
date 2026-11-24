@@ -126,3 +126,10 @@ export function notRead(unread: { path: string; type: TypeDef; debt: boolean }[]
   }
   return [...groups.values()].map(({ type, debt, paths }) => ({ type, debt, message: notReadMessage(type.id, paths) }));
 }
+
+export function mayUsePart(type: TypeDef, gap = ' '): string | null {
+  const inForce = listInForce(type);
+  if (inForce === null) return null;
+  const list = inForce.list.length === 0 ? 'nothing' : inForce.list.join(', ');
+  return inForce.from === type ? list : `${list}${gap}(from ${inForce.from.id})`;
+}

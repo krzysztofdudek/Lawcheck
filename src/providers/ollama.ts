@@ -1,7 +1,8 @@
 import type { ReviewerConfig } from '../config.js';
 import { get, post } from './http.js';
 import { ENDPOINT_FIX, endpointOf } from './index.js';
-import type { Env, Provider } from './index.js';
+import type { Env } from './index.js';
+import type { Provider } from '../provider.js';
 
 const OWN_ENDPOINT = 'http://localhost:11434';
 const PROBE_SECONDS = 5;
