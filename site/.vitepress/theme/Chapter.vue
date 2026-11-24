@@ -20,10 +20,10 @@ async function play(): Promise<void> {
   <section v-if="frontmatter.chapter" class="chapter" :aria-label="`Chapter ${frontmatter.chapter.number} of the tutorial`">
     <p class="chapter-head">
       <span class="chapter-name">Chapter {{ frontmatter.chapter.number }} of the tutorial</span>
-      <span class="chapter-length">{{ frontmatter.chapter.seconds }} s, no sound, with subtitles</span>
+      <span class="chapter-length">{{ frontmatter.chapter.seconds }} s, narrated, with subtitles</span>
     </p>
     <button v-if="!playing" type="button" class="chapter-play" @click="play">Play</button>
-    <video v-else ref="player" class="chapter-video" controls autoplay playsinline muted crossorigin="anonymous" :poster="frontmatter.chapter.poster" tabindex="0">
+    <video v-else ref="player" class="chapter-video" controls autoplay playsinline crossorigin="anonymous" :poster="frontmatter.chapter.poster" tabindex="0">
       <source :src="frontmatter.chapter.video" type="video/mp4" />
       <track kind="subtitles" srclang="en" label="English" :src="frontmatter.chapter.track" default />
     </video>
