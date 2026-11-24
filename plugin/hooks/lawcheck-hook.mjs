@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { realpathSync, statSync } from 'node:fs';
 import { basename, dirname, join, relative, sep } from 'node:path';
 import { fit } from './fit.mjs';
-import { HOSTS, startDir } from './hosts.mjs';
+import { CURSOR, HOSTS, startDir } from './hosts.mjs';
 import { nameOf } from './names.mjs';
 import { changedInTurn, isRegular, snapshot } from './snapshot.mjs';
 import { blank, readState, removeOld, stateFile, writeState } from './state.mjs';
@@ -184,8 +184,17 @@ function lawDeleted(input) {
   return { systemMessage: turnMessage({ waivers: [], law: [], gone: ['.lawcheck/law.yaml'] }) };
 }
 
+// A turn the user stopped leaves its state open for the next prompt, which would take over the returns the stopped turn had used.
+function forgetReturns(input) {
+  const file = stateFile(sessionOf(input));
+  const saved = readState(file);
+  if (saved !== null && saved.open === true) writeState(file, { ...saved, blocks: 0, last: null });
+  return null;
+}
+
 async function stop(input, deadline) {
   if (!switchOn('check_before_stop')) return null;
+  if (host.ends?.(input) === false) return forgetReturns(input);
   const root = findRoot(startDir(input));
   if (root === null) return lawDeleted(input);
   const runner = runnerAt(root);
@@ -235,7 +244,7 @@ async function stop(input, deadline) {
   }
   const handBack = host.handBack(fit(header, result.output));
   const h = hash(result.output);
-  if (state === null) return input.stop_hook_active === true ? null : handBack;
+  if (state === null) return host.returned(input) ? null : handBack;
   if (h === last || blocks >= 3) {
     return finish(withTurn({ systemMessage: say.stillFails(runner.cmd) }));
   }
@@ -245,11 +254,11 @@ async function stop(input, deadline) {
   return handBack;
 }
 
-// Copilot CLI ends a turn by itself only after 8 hand-backs in a row, so without the mark a message that comes back on every stop would send the agent back until then.
+// Copilot CLI ends a turn by itself only after 8 hand-backs in a row, and Cursor sets no limit on the hook of a plugin, so without the mark a message that comes back on every stop would send the agent back until then, or for ever.
 function relay(input, text) {
   const file = stateFile(sessionOf(input));
   const state = readState(file);
-  if (state === null) return input.stop_hook_active === true ? null : host.handBack(say.tellAtEnd(text));
+  if (state === null) return host.returned(input) ? null : host.handBack(say.tellAtEnd(text));
   if (state.relayed === true) return null;
   writeState(file, { ...state, relayed: true });
   return host.handBack(say.tellAtEnd(text));
@@ -285,6 +294,7 @@ async function main() {
     throw new Error(say.notJson(firstLine(error.message)));
   }
   if (input === null || typeof input !== 'object' || Array.isArray(input)) throw new Error(say.NOT_OBJECT);
+  if (flag === undefined && typeof input.cursor_version === 'string') host = CURSOR;
   const output = await handler(input, deadline);
   if (output !== null) await new Promise((done) => process.stdout.write(JSON.stringify(output) + '\n', done));
 }
