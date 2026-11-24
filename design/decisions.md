@@ -401,11 +401,18 @@ The guard reads each row of the code table of `docs/codes.md` and of the field t
 
 Why: the codes and the fields are what users and agents read in the output, so the owner decides their change as he decides a promise's. A budget compared by its largest time hid a call that rose beside a larger one, a call that fell to the default, a rename and a name built from parts. A report cut at 64 KiB on a pipe lost the reasons of a refusal in a CI log while the exit code stayed right, and a suggested row that the guard refused again sent the owner round the same loop. Two readers of one label had drifted, and with numbers taken from test names a reused number makes a removed test's anchor look unchanged while a twin still carries it. A strict rail cannot hold today, since ten numbers lead names in two or more files, so the list holds them and only shrinks.
 
-## 197. On Windows the orphans of a killed tool end from the first list of processes begun after the kill
+## 198. On Windows the orphans of a killed tool end from the first list of processes begun after the kill
 
 When the tool is killed on Windows while a program reviewer runs, the program's root ends with the tool, and what the root started lives on below the root's id. The guard ends those processes only from a list of processes that PowerShell began after the guard learned of the kill, and waits up to 10 seconds for one. When the kill comes while PowerShell still starts, that is its first list: on a Windows runner the first list came up to 6.2 seconds after the guard started it, so the orphans can live longer than 5 seconds after the kill. On Windows, test 67 and the harness's checks of a killed run (harness-6 and harness-8) give the tool `WINDOWS_KILLED_GRACE_MS`, 15 seconds: the guard's 10 seconds of waiting for a list, and 5 for the kill and the removal of the call's folder. On Linux and macOS they keep `KILLED_GRACE_MS`, 5 seconds.
 
 Why: Windows gives the id of an ended process to a new one soon, and a list is printed after its snapshot ends, so a list begun before the kill can name a process that has since ended and whose id a stranger now holds. Killing from it could end a process that is not the tool's. Node has no way to ask Windows for one process's time of making without PowerShell, and PowerShell is the slow part, so no faster list is at hand. The list starts when the tool is about to call a program (R-74 keeps `doctor` from starting it), and starting it earlier would start PowerShell for runs that call nothing.
+
+## 199. The suite guard reads a time named by its identifier, not only one named in a string
+
+A test or a helper that stops using one `*_MS` number of `tests/numbers.ts` and uses a new, larger one is `threshold-lowered` of its file, though no string names the number. The guard counts the uses of each such name outside `import` lines, per test and for the part of a file outside its tests. A name that is new in that place and holds more than the longest time whose uses fell is a rise. When no use fell, the new name is compared with the longest time the place named before and with `RUN_BUDGET_MS`. A new name that is not larger, and a name that is only imported, is no weakening.
+
+Why: on Windows test 67 and the harness moved from `KILLED_GRACE_MS`, 5 seconds, to `WINDOWS_KILLED_GRACE_MS`, 15 seconds, and the guard passed it, because it read only times named in strings. A time loosened through a name that is new needs the owner's row like one loosened through a number that is raised.
+
 
 ## Decision (number at merge). `check --sarif` writes SARIF 2.1.0 for GitHub code scanning
 
