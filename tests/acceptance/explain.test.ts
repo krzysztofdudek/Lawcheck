@@ -323,8 +323,8 @@ test('test 951: explain --tree prints the named nodes of a file with their field
       absent: null,
       nodes: [
         { type: 'program', named: true, field: null, start: 0, end: RUN_TS.length, line: 1, column: 0, parent: null },
-        { type: 'lexical_declaration', named: true, field: null, start: 0, end: 24, line: 1, column: 0, parent: 0 },
-        { type: 'const', named: false, field: null, start: 0, end: 5, line: 1, column: 0, parent: 1 },
+        { type: 'lexical_declaration', named: true, field: null, start: 0, end: 23, line: 1, column: 0, parent: 0 },
+        { type: 'const', named: false, field: 'kind', start: 0, end: 5, line: 1, column: 0, parent: 1 },
       ],
     });
     assert.equal(document.nodes.length, 20);
@@ -366,7 +366,7 @@ test('test 952: explain --tree of a file with no tree prints why, as tree() give
     ] as const) {
       const result = await explain(repo, ...args);
       assert.equal(result.code, 2, args.join(' '));
-      assert.equal(result.stdout.split('\n')[1], `error[usage]  ${message}`, args.join(' '));
+      assert.equal(result.stdout.split('\n')[2], `error[usage]  ${message}`, args.join(' '));
     }
   });
 });
