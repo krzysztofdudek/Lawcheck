@@ -3,18 +3,19 @@ import { bytesOfName, onDisk } from './names.js';
 import { documentOf, errorResult, text as flagText, usageError } from './args.js';
 import type { Arguments, CheckContext, Result } from './args.js';
 import type { ReviewerConfig } from './config.js';
-import { ignoresPath, nestedReason, repositoryHolding } from './files.js';
+import { ignoresPath, listedPaths, listFiles, nestedReason, repositoryHolding } from './files.js';
 import { compilePattern } from './glob.js';
 import { patternFor, takesWaivers, walk } from './law.js';
 import type { Law, TypeDef } from './law.js';
 import { plural, shown } from './output.js';
-import { readError } from './limits.js';
+import { readError, USES_FILE_BYTES } from './limits.js';
 import { step } from './progress.js';
 import { buildPrompt, FRAME, size } from './prompt.js';
-import { ownersOf, readerOf, ruleReads, siblingsOf } from './readers.js';
+import { NODE_INTS, ownersOf, readerOf, ruleReads, siblingsOf } from './readers.js';
+import type { Absent, FlatTree, TreeAnswer } from './readers.js';
 import { contextOf, resolveCompanions, runnerErrors } from './rules.js';
 import type { Companions, RuleFile } from './rules.js';
-import { loadConfig, loadLaw, loadRuleFiles, locate, fromCwd, nearPart, requireGit, ruleKind, RULES_DIR, stopped, typeAll, typingErrors, Stop, usage, WRITTEN } from './setup.js';
+import { loadConfig, loadLaw, loadRuleFiles, locate, fromCwd, nearPart, onceReader, requireGit, ruleKind, RULES_DIR, stopped, typeAll, typingErrors, Stop, usage, WRITTEN } from './setup.js';
 import type { Kinds, Read } from './setup.js';
 import { decode, filesOfTypes, isBinary, splitLines } from './types.js';
 import { listInForce, mayUsePart } from './uses.js';
@@ -456,14 +457,131 @@ function spelledAsListed(root: string, path: string, listed: Set<string>): strin
   return same.length === 1 ? same[0]! : path;
 }
 
+const TREE_DEPTH = 12;
+const TREE_LINES = 200;
+const LEAF_CHARS = 40;
+
+const NO_TREE: Record<Absent, (language: string | null) => string> = {
+  'no-reader': () => 'no reader reads the language of this file, or a Vue or Svelte file has no script block',
+  'too-large': () => `the parsed text holds more than ${USES_FILE_BYTES / 1024} KiB`,
+  'reader-failed': (language) => `Lawcheck could not load the grammar of ${language}, or the parser failed on the file`,
+};
+
+interface TreeNode {
+  type: string;
+  named: boolean;
+  field: string | null;
+  start: number;
+  end: number;
+  line: number;
+  column: number;
+  parent: number | null;
+}
+
+function nodesOf({ types, fields, nodes }: FlatTree): TreeNode[] {
+  const out: TreeNode[] = [];
+  for (let at = 0; at < nodes.length; at += NODE_INTS) {
+    const parent = nodes[at]!;
+    const field = nodes[at + 2]!;
+    out.push({ type: types[nodes[at + 1]!]!, named: nodes[at + 3] === 1, field: field < 0 ? null : fields[field]!, start: nodes[at + 4]!, end: nodes[at + 5]!, line: nodes[at + 6]!, column: nodes[at + 7]!, parent: parent < 0 ? null : parent });
+  }
+  return out;
+}
+
+function leafText(text: string): string {
+  const points = Array.from(text);
+  return `"${shown(points.length > LEAF_CHARS ? `${points.slice(0, LEAF_CHARS).join('')}...` : text)}"`;
+}
+
+// A tree can be thousands of nodes deep, so nothing here recurses: the nodes come in preorder, each after its parent.
+function treeText(path: string, text: string, language: string, nodes: TreeNode[]): string {
+  const up = new Int32Array(nodes.length).fill(-1);
+  const depth = new Int32Array(nodes.length);
+  const children = new Int32Array(nodes.length);
+  const below = new Int32Array(nodes.length);
+  nodes.forEach((node, at) => {
+    const parent = node.parent;
+    if (parent === null) return;
+    up[at] = nodes[parent]!.named ? parent : up[parent]!;
+    if (up[at]! >= 0) depth[at] = depth[up[at]!]! + 1;
+    if (node.named && up[at]! >= 0) children[up[at]!]!++;
+  });
+  for (let at = nodes.length - 1; at >= 0; at--) if (nodes[at]!.named && up[at]! >= 0) below[up[at]!]! += below[at]! + 1;
+  const named = nodes.filter((node) => node.named).length;
+  const lines = [`${shown(path)}  ${language}  ${plural(nodes.length, 'node')}, ${named} named`];
+  let seen = 0;
+  for (let at = 0; at < nodes.length; at++) {
+    const node = nodes[at]!;
+    if (!node.named) continue;
+    seen++;
+    if (depth[at]! >= TREE_DEPTH) continue;
+    if (lines.length > TREE_LINES) {
+      lines.push(`  ... ${named - seen + 1} more named nodes; --json gives every node`);
+      break;
+    }
+    const cut = depth[at] === TREE_DEPTH - 1 && below[at]! > 0;
+    const end = cut ? `  ... ${plural(below[at]!, 'named node')} below` : children[at] === 0 ? `  ${leafText(text.slice(node.start, node.end))}` : '';
+    lines.push(`${'  '.repeat(depth[at]! + 1)}${node.field === null ? '' : `${node.field}: `}${node.type}  line ${node.line}${end}`);
+  }
+  return lines.join('\n') + '\n';
+}
+
+async function treeAnswer(root: string, cwd: string, word: string, json: boolean): Promise<string> {
+  const listed = listedPaths(root);
+  const files = listFiles(root, listed);
+  const path = spelledAsListed(root, givenPath(root, cwd, word), listed);
+  let stat: ReturnType<typeof lstatSync> | null = null;
+  try {
+    stat = lstatSync(onDisk(root, path));
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === 'ENAMETOOLONG') throw tooLong(word);
+    if (code !== 'ENOENT' && code !== 'ENOTDIR') throw error;
+  }
+  if (stat === null) throw usage(`the file '${word}' does not exist, so it has no tree`);
+  if (stat.isDirectory()) throw usage(`explain --tree takes a file, and '${word}' is a folder`);
+  if (stat.isSymbolicLink() || behindLink(root, path)) throw usage(`'${word}' is a symbolic link, and a rule never judges one, so it has no tree`);
+  if (!stat.isFile()) throw usage(`'${word}' is no regular file, and a rule never judges one, so it has no tree`);
+  const read = onceReader(root);
+  let bytes: Uint8Array;
+  try {
+    bytes = read(path);
+  } catch (error) {
+    throw new Stop([readError(path, error)]);
+  }
+  if (isBinary(bytes)) throw usage(`'${word}' is binary, and a rule never judges a binary file, so it has no tree`);
+  const text = decode(bytes);
+  const answer = (await ruleReads({ root, files, ...ownersOf(files, read, []) })([])('tree', { path, text })) as TreeAnswer;
+  // A step that names no file: the JSON of a tree near 512 KiB grows the run by more than the memory one file's read may add, so under the read's step it ended with memory-too-large; the bound of the whole run still holds.
+  step(`printing the tree of ${path}`);
+  const nodes = answer.tree === null ? null : nodesOf(answer.tree);
+  if (json) return documentOf({ schema: 'lawcheck-explain/0', subject: 'tree', path, language: answer.language, absent: answer.absent, nodes });
+  if (answer.tree === null) return `${shown(path)}  ${answer.language === null ? '' : `${answer.language}  `}no tree: ${answer.absent}, ${NO_TREE[answer.absent](answer.language)}\n`;
+  return treeText(path, text, answer.language, nodes!);
+}
+
+function tooLong(word: string): Stop {
+  return usage(`the path '${word}' cannot exist here: it is longer than this system allows for a name or a path`);
+}
+
+function givenPath(root: string, cwd: string, word: string): string {
+  const given = fromCwd(root, cwd, word);
+  // A name over 255 bytes or a path over 4,095 can exist on no system Lawcheck runs on, though Windows answers that such a file is missing. An escaped name is measured by the bytes it stands for.
+  if (given.split('/').some((part) => bytesOfName(part).length > 255) || Buffer.byteLength(onDisk(root, given)) > 4095) throw tooLong(word);
+  return given;
+}
+
 export async function explain(args: Arguments, context: CheckContext, json: boolean): Promise<Result> {
   const typeId = flagText(args, '--type');
   const ruleId = flagText(args, '--rule');
   const given = args.words.length + (typeId === null ? 0 : 1) + (ruleId === null ? 0 : 1);
+  const tree = args.flags.has('--tree');
+  if (tree && (args.words.length !== 1 || given !== 1)) return usageError('explain --tree takes the path of one file', json, 'explain');
   if (given !== 1) return usageError('explain takes exactly one of a path, --type <id> and --rule <id>', json, 'explain');
   const outcome = await stopped(async () => {
     const root = locate(context.cwd);
     requireGit(root);
+    if (tree) return await treeAnswer(root, context.cwd, args.words[0]!, json);
     const law = loadLaw(root);
     if (typeId !== null && !law.byId.has(typeId)) throw usage(`the law has no type '${typeId}'${nearPart(typeId, [...law.byId.keys()])}`);
     if (ruleId !== null && !law.rules.has(ruleId)) throw usage(`the law has no rule '${ruleId}'${nearPart(ruleId, [...law.rules.keys()])}`);
@@ -472,19 +590,14 @@ export async function explain(args: Arguments, context: CheckContext, json: bool
     const ctx: Ctx = { root, law, config, listed, files, read, kinds };
     if (typeId !== null) return typeAnswer(ctx, typeId, json);
     if (ruleId !== null) return await ruleAnswer(ctx, ruleId, json);
-    const given = fromCwd(root, context.cwd, args.words[0]!);
-    // A name over 255 bytes or a path over 4,095 can exist on no system Lawcheck runs on, though Windows answers that such a file is missing. An escaped name is measured by the bytes it stands for.
-    if (given.split('/').some((part) => bytesOfName(part).length > 255) || Buffer.byteLength(onDisk(root, given)) > 4095) {
-      throw usage(`the path '${args.words[0]!}' cannot exist here: it is longer than this system allows for a name or a path`);
-    }
-    const path = spelledAsListed(root, given, listed);
+    const path = spelledAsListed(root, givenPath(root, context.cwd, args.words[0]!), listed);
     if (path === '.') return directory(ctx, path, json);
     let stat: ReturnType<typeof lstatSync> | null = null;
     try {
       stat = lstatSync(onDisk(root, path));
     } catch (error) {
       const code = (error as NodeJS.ErrnoException).code;
-      if (code === 'ENAMETOOLONG') throw usage(`the path '${args.words[0]!}' cannot exist here: it is longer than this system allows for a name or a path`);
+      if (code === 'ENAMETOOLONG') throw tooLong(args.words[0]!);
       if (code !== 'ENOENT' && code !== 'ENOTDIR') throw error;
     }
     if (stat !== null && stat.isDirectory()) return directory(ctx, path, json);

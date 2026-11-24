@@ -531,6 +531,48 @@ test('test 166 and 167: the hand-back, and the guard', async () => {
   });
 });
 
+test('test 954: a prompt event for the turn that is still open keeps its returns and its last output', async () => {
+  await withBench(async (bench, dir) => {
+    const s = makeSample(dir);
+    const session = new Session(bench, s);
+    await session.prompt();
+    write(s, D_PATH, D);
+    for (let i = 0; i < 3; i++) {
+      append(s, D_PATH, 'console.log(1);\n');
+      assert.equal((await session.stop()).json?.hookSpecificOutput?.hookEventName, 'Stop');
+    }
+    const kept = bench.state();
+    assert.equal(kept.blocks, 3);
+    nothing(await session.run('prompt', { prompt: 'the reason of the hand-back' }), 'the same turn again');
+    const again = bench.state();
+    assert.equal(again.blocks, 3);
+    assert.equal(again.last, kept.last);
+    assert.equal(again.started, kept.started);
+    append(s, D_PATH, 'console.log(1);\n');
+    json(await session.stop(), withD(released()), 'the fourth stop lets the agent finish');
+    assert.equal(bench.state().open, false);
+  });
+});
+
+test('test 955: a prompt event with another prompt id while the turn is open starts the count again', async () => {
+  await withBench(async (bench, dir) => {
+    const s = makeSample(dir);
+    const session = new Session(bench, s);
+    await session.prompt();
+    write(s, D_PATH, D);
+    for (let i = 0; i < 3; i++) {
+      append(s, D_PATH, 'console.log(1);\n');
+      await session.stop();
+    }
+    assert.equal(bench.state().blocks, 3);
+    nothing(await session.prompt(), 'a new prompt');
+    assert.equal(bench.state().blocks, 0);
+    assert.equal(bench.state().last, null);
+    append(s, D_PATH, 'console.log(1);\n');
+    assert.equal((await session.stop()).json?.hookSpecificOutput?.hookEventName, 'Stop');
+  });
+});
+
 test('test 168: a fix lets the agent finish, and an empty turn checks nothing', async () => {
   await withBench(async (bench, dir) => {
     const s = makeSample(dir);

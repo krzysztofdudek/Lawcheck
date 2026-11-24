@@ -240,7 +240,7 @@ With `--review`, Lawcheck asks the reviewer about each pair of a file and a revi
 ## explain
 
 ```text
-usage: lawcheck explain (<path> | --type <id> | --rule <id>) [--json]
+usage: lawcheck explain (<path> [--tree] | --type <id> | --rule <id>) [--json]
 ```
 
 `explain` says why a file has the law it has. For a file, it prints:
@@ -286,6 +286,12 @@ The path names a file, a file that does not exist yet, a folder, or `.` for the 
 
 Each name in the path may hold at most 255 bytes. The whole path on disk, with the folders above the root of the law, may hold at most 4,095 bytes. A longer name or path ends the command with `usage`.
 
+### --tree
+
+`--tree` prints the syntax tree of one file, as a script rule gets it from `await file.tree()` ([Script rules](script-rules.md#the-syntax-tree) has an example). The first line names the file, its language, the count of nodes and the count of named nodes. Each line below is a named node, indented under its parent, with its field, its type and its line. A node with no named node below it also shows its text. The output stops at 12 levels, where a line says how many named nodes lie below it, and at 200 nodes, where the last line says how many follow. With `--json`, the document holds every node.
+
+The tree depends on the file's path and text, so `--tree` also prints the tree of a file that git does not track and of a file with no type. It reads no law. A file with no tree gets one line with the reason, `no-reader`, `too-large` or `reader-failed`, and exit 0. A folder, a file that does not exist, a symbolic link and a binary file end the command with `usage`.
+
 ### --type `<id>`
 
 `--type` prints one type of the law:
@@ -311,7 +317,7 @@ For an id that the law does not have, the command ends with `usage`. When a rule
 
 ### --json
 
-`--json` prints the document `lawcheck-explain/0`, with every file. The text output lists 50 files.
+`--json` prints the document `lawcheck-explain/0`, with every file. The text output lists 50 files. With `--tree`, the document holds every node of the tree.
 
 ### Exit codes of explain
 
