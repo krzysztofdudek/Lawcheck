@@ -18,7 +18,7 @@ A rules file is prose that the agent reads at the start of a session. It can hol
 
 A rules file holds rules about how the agent works, such as "run the tests before you finish". Lawcheck judges files. The law has no place for a rule about the work.
 
-The agent reads the rules file. Claude Code does not check the code against it. On 2026-11-23, a search of the issue tracker of Claude Code found 204 [reports with the words "ignores CLAUDE.md"](https://github.com/anthropics/claude-code/issues?q=%22ignores+CLAUDE.md%22+is%3Aissue). [47 of them](https://github.com/anthropics/claude-code/issues?q=%22ignores+CLAUDE.md%22+is%3Aissue+created%3A%3E%3D2026-06-01) were opened in June 2026 or later. Each search shows the count now.
+The agent reads the rules file. Claude Code does not check the code against it. On 2026-11-24, the issue tracker of Claude Code held 297 issues that match [the query "ignores CLAUDE.md" is:issue created:<=2026-11-24](https://github.com/anthropics/claude-code/issues?q=%22ignores+CLAUDE.md%22+is%3Aissue+created%3A%3C%3D2026-11-24). [60 of them](https://github.com/anthropics/claude-code/issues?q=%22ignores+CLAUDE.md%22+is%3Aissue+created%3A2026-06-01..2026-11-24) were opened in June 2026 or later. Remove the date from the query to see the count today.
 
 You write the rules about files as a law. `lawcheck check` judges the code against the law. It prints each [finding](concepts.md#finding) with its file, its line and the rule it breaks. It exits 1 while the code breaks the law. `lawcheck prime` prints the law for the agent. Its text says which changes to the law the agent may make alone, and which need your word.
 
@@ -92,7 +92,7 @@ A script rule is code of your own repository. When Lawcheck runs one, the rule c
 
 Lawcheck needs no account. Its licence is MIT.
 
-Lawcheck writes no annotation into the pull request. A CI job shows its findings in the log. When the pull request edits the law that judges it, the log holds a note that says so. `--json` prints the findings as one document for a script of your own.
+Lawcheck writes no annotation into the pull request by itself. A review bot gives you comments on the lines of the pull request, and so does an architecture tool for your language that prints annotations. `lawcheck docs ci` has a script that turns `--json` into GitHub annotations. A CI job shows its findings in the log. When the pull request edits the law that judges it, the log holds a note that says so. `--json` prints the findings as one document for a script of your own.
 
 | Your case | Use |
 |---|---|
@@ -100,6 +100,7 @@ Lawcheck writes no annotation into the pull request. A CI job shows its findings
 | A rule must hold in every file of a kind, and the agent must hear it before it opens a pull request | Lawcheck |
 | Your code may not go to a hosted model | Lawcheck with uses and script rules, which send nothing, and reviewer rules through `ollama` on a machine you run |
 | You want both of the above | both: the bot reviews the pull request, and Lawcheck holds the law at each edit and in CI |
+| You want annotations on the lines of the pull request | a review bot, or an architecture tool of your language that prints annotations; for Lawcheck, the script in `lawcheck docs ci` |
 
 ## A hook you wrote in Claude Code
 

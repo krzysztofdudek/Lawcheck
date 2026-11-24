@@ -358,3 +358,9 @@ Why: the text of a reviewer rule goes into every prompt, and a script rule runs.
 `explain` refuses a name or a path that cannot exist, and it measures it as the system does: bytes on Linux and macOS (255 for a name, 4,095 for a path), UTF-16 units on Windows (255 and 32,767). A name that exists on a system is never refused as one that cannot.
 
 Why: Windows answers that a name that is too long is missing, not too long, so Lawcheck measures it before it asks. Counting bytes there refused a real name of 86 CJK characters, which is 258 bytes and 86 units.
+
+## Decision (number at merge). The landing page says when its build is ahead of its release
+
+The landing page takes its sentences from README.md and docs/ of the commit it is built from, and shows the version in package.json. When the Unreleased section of CHANGELOG.md holds text, the footer adds a line: this build also shows text for the next release, so a flag or command it names may not be in the shown version yet. A release deploys from its tagged commit, where Unreleased is empty and the line is absent.
+
+Why: a build of `main` between two releases showed `--strict` under the version alpha.4, which has no such flag, and a reader who tried it got an error. The page cannot read the tag in a shallow clone, so the line follows the CHANGELOG, which every release empties.
