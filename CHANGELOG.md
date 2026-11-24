@@ -33,7 +33,7 @@ Lawcheck follows [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
-- A check of one changed file in Java, Kotlin, C#, Ruby or Rust reads what the other files declare from a cache in `.lawcheck/.local/readers/` and parses again only the files that changed and the files whose uses it reads. Alpha.4 had no cache. The output is the same with the cache and without it.
+- A check of one changed file in Java, Kotlin, C#, Ruby or Rust reads what the other files declare from a cache in `.lawcheck/.local/readers/` and parses again only the files that changed and the files whose uses it reads. There was no cache in alpha.4. The output is the same with the cache and without it.
 - The note about a change to the law names a type moved under another parent, such as `moves the type library from source to script`, and each pattern a change adds to `required` or `ignored` or takes off. In alpha.4 a moved type gave `edits .lawcheck/law.yaml without changing a rule or a type`.
 - With a reviewer rule in the law and no reviewer in `.lawcheck/config.yaml`, `lawcheck prime` tells the agent that a plain check and CI fail on every file the rule judges, and the Claude Code plugin tells you once per session. In alpha.4 nothing said so until CI failed with `not-reviewed`.
 - The `next:` lines that told the agent to edit `.lawcheck/config.yaml` now tell it to ask you, as `lawcheck prime` does.
