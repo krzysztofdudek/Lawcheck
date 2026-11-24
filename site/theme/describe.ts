@@ -1,7 +1,7 @@
 const MAX = 160;
 const MIN = 70;
 
-const plain = (text: string): string =>
+export const plain = (text: string): string =>
   text
     .replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1')
     .replace(/`([^`]*)`/g, '$1')
