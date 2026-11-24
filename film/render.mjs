@@ -80,7 +80,7 @@ export function render(out, quality, only = ['loop', 'chapters'], voice = undefi
   mkdirSync(out, { recursive: true });
   let projects;
   try {
-    projects = build(join(FILM, 'dist'), ROOT, voice);
+    projects = build(join(FILM, 'dist'), ROOT, voice, chapters.map((chapter) => chapter.page));
   } catch (error) {
     fail(error.message);
   }
