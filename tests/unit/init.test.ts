@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import { GITIGNORE, lawText, writeNew } from '../../dist/init.js';
 import { parseLaw } from '../../dist/law.js';
 import { inTemp, lawcheck, makeSample, newRepository } from '../acceptance/helpers.ts';
+import { platformSkip } from '../harness/tool.ts';
 
 test('commands-slice §3: the law init writes reads as a law with no types and no rules', () => {
   const { law, problems } = parseLaw(lawText('0.1.0'));
@@ -80,15 +81,11 @@ test('R-41: init where .lawcheck is a file, or a link to a file or to nothing, s
     assert.equal(run.stdout, said('it is a file'));
     assert.equal(run.code, 2);
   });
+  if (platformSkip('a symbolic link') !== null) return;
   for (const [name, target, what] of [['a link to a file', 'target.txt', 'it is a symbolic link to a file'], ['a link to nothing', 'missing', 'it is a symbolic link to a place that does not exist']] as const) {
     await inTemp(async (dir) => {
       const repo = newRepository(dir, { 'target.txt': 'x\n' });
-      try {
-        symlinkSync(join(repo, target), join(repo, '.lawcheck'));
-      } catch (error) {
-        assert.equal(process.platform, 'win32', `${name}: ${String(error)}`);
-        return;
-      }
+      symlinkSync(join(repo, target), join(repo, '.lawcheck'));
       const run = await lawcheck(repo, ['init']);
       assert.equal(run.stdout, said(what), name);
       assert.equal(run.code, 2, name);

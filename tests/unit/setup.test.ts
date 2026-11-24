@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
@@ -10,6 +10,7 @@ import { NoGit, GitFailed } from '../../dist/files.js';
 import { FULL_NEXT, Unwritable, VerdictsUnreadable } from '../../dist/verdicts.js';
 import { TextTooLarge } from '../../dist/limits.js';
 import { GIT_ENV, git, inTemp, newRepository, write } from '../acceptance/helpers.ts';
+import { platformSkip } from '../harness/tool.ts';
 import { parseLaw } from '../../dist/law.js';
 import { isBinary } from '../../dist/types.js';
 
@@ -464,12 +465,8 @@ test('R-43: the law that cannot be read, is too large or does not parse is law-i
     assert.equal(linked(root, '.lawcheck/missing.yaml'), false);
     write(dir, 'elsewhere.yaml', 'lawcheck: 0.1.0\nbogus: 1\n');
     rmSync(join(root, '.lawcheck/law.yaml'));
-    try {
-      symlinkSync(join(dir, 'elsewhere.yaml'), join(root, '.lawcheck/law.yaml'));
-    } catch (error) {
-      assert.equal(process.platform, 'win32', String(error));
-      return;
-    }
+    if (platformSkip('a symbolic link') !== null) return;
+    symlinkSync(join(dir, 'elsewhere.yaml'), join(root, '.lawcheck/law.yaml'));
     assert.equal(linked(root, '.lawcheck/law.yaml'), true);
     assert.deepEqual(lawErrors(root), {
       errors: [{ code: 'law-invalid', file: '.lawcheck/law.yaml', line: null, message: '.lawcheck/law.yaml is read through a symbolic link and is not valid; the message of a linked file shows none of its text' }],
@@ -499,12 +496,8 @@ test('R-43: the config that is too large, does not parse or is linked is an erro
     useKeys({});
     write(dir, 'elsewhere.yaml', 'bogus: 1\n');
     rmSync(join(root, '.lawcheck/config.yaml'));
-    try {
-      symlinkSync(join(dir, 'elsewhere.yaml'), join(root, '.lawcheck/config.yaml'));
-    } catch (error) {
-      assert.equal(process.platform, 'win32', String(error));
-      return;
-    }
+    if (platformSkip('a symbolic link') !== null) return;
+    symlinkSync(join(dir, 'elsewhere.yaml'), join(root, '.lawcheck/config.yaml'));
     assert.deepEqual(configErrors(root), {
       errors: [{ code: 'config-invalid', file: '.lawcheck/config.yaml', line: null, message: '.lawcheck/config.yaml is read through a symbolic link and is not valid; the message of a linked file shows none of its text' }],
     });
@@ -525,16 +518,11 @@ test('R-43: the rule files of a repository are the files git lists, and a rule f
     assert.deepEqual(absent.errors.map((e) => e.code), ['rule-missing-file']);
     assert.throws(() => loadRuleFiles(missing, loadLaw(missing)), (error: unknown) => error instanceof Stop && error.errors[0]!.code === 'rule-missing-file');
     assert.throws(() => loadRuleFiles(missing, loadLaw(missing), false), (error: unknown) => error instanceof Stop && error.errors[0]!.code === 'rule-missing-file');
+    if (platformSkip('an unreadable file') !== null) return;
     const unreadable = newRepository(join(dir, 'unreadable'), { '.lawcheck/law.yaml': law('    context: ["docs/x.md"]\n'), '.lawcheck/rules/r1.md': 'Check.\n', 'src/a.ts': 'x\n', 'docs/x.md': 'x\n' });
     const denied = join(unreadable, 'docs/x.md');
     chmodSync(denied, 0o000);
     try {
-      try {
-        readFileSync(denied);
-        return;
-      } catch {
-        // the file is closed to this user, as the test needs
-      }
       const blocked = ruleFileErrors(unreadable, loadLaw(unreadable));
       assert.deepEqual(blocked.kinds.errors, []);
       assert.deepEqual(blocked.errors.map((e) => [e.code, e.file, e.message]), [['file-unreadable', 'docs/x.md', 'the file cannot be read (EACCES)']]);
@@ -766,7 +754,9 @@ test('R-43: the faults of the rule files come in the order of the rules and of t
   assert.deepEqual(mixed.reviewers.get('p1')!.context.map((c) => c.path), ['docs/a.md']);
 });
 
-test('R-43: a law file that this user may not look at is still the law of that folder, so the root is not taken from a folder above it', async () => {
+test('R-43: a law file that this user may not look at is still the law of that folder, so the root is not taken from a folder above it', async (t) => {
+  const skip = platformSkip('the whole test');
+  if (skip !== null) return t.skip(skip);
   await inTemp(async (dir) => {
     const top = join(dir, 'top');
     write(top, '.lawcheck/law.yaml', 'lawcheck: 0.1.0\n');
@@ -774,12 +764,7 @@ test('R-43: a law file that this user may not look at is still the law of that f
     write(inner, '.lawcheck/law.yaml', 'lawcheck: 0.1.0\n');
     chmodSync(join(inner, '.lawcheck'), 0o000);
     try {
-      try {
-        statSync(join(inner, '.lawcheck/law.yaml'));
-        return;
-      } catch (error) {
-        assert.equal((error as NodeJS.ErrnoException).code, 'EACCES');
-      }
+      assert.throws(() => statSync(join(inner, '.lawcheck/law.yaml')), (error: unknown) => (error as NodeJS.ErrnoException).code === 'EACCES');
       assert.equal(findRoot(inner), realpathSync(inner));
       assert.equal(findRoot(top), realpathSync(top));
     } finally {
