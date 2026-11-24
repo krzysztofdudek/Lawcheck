@@ -622,8 +622,8 @@ export const MATCH_BUDGET_MS = 100;
 export const PATTERN_RUN_BUDGET_MS = 8_000;
 // takeAnswer on one megabyte of `{` and on 50,000 nested objects (I-answer-1, S3-3); measured below 30 ms.
 export const ANSWER_BUDGET_MS = 1_000;
-// The same reading, without a clock that load can break (I-answer-1, S3-3): an answer 8 times as long may take at most this many times as long to read, the shortest of ANSWER_ROUNDS reads of each; a linear reader measures 8 to 12 on a loaded machine and 20 under the whole suite, a quadratic one 64 and more.
-export const ANSWER_GROWTH = 28;
+// The same reading, without a clock that load can break (I-answer-1, S3-3): an answer 16 times as long may take at most this many times as long to read, the shortest of ANSWER_ROUNDS reads of each; at load 36 a linear reader measured 16 to 25 and 38 at most beside the whole suite, and a quadratic one 107 and more at the lengths S3-3 reads.
+export const ANSWER_GROWTH = 64;
 export const ANSWER_ROUNDS = 12;
 // parseLaw on the generator's deepest text, 20,000 levels of brackets; measured at 57 ms in the dev container.
 export const LAW_PARSE_BUDGET_MS = 1_500;
