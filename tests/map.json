@@ -200,7 +200,10 @@
     "tests/security/secrets.test.ts"
   ],
   "src/law.ts": [
+    "tests/acceptance/doctor.test.ts",
+    "tests/acceptance/explain.test.ts",
     "tests/acceptance/law.test.ts",
+    "tests/acceptance/prime.test.ts",
     "tests/acceptance/reviewer-law.test.ts",
     "tests/acceptance/waiver-key.test.ts",
     "tests/properties/law.test.ts",
@@ -249,7 +252,9 @@
   "src/programs.ts": [
     "tests/acceptance/providers.test.ts",
     "tests/acceptance/rules.test.ts",
-    "tests/unit/programs.test.ts"
+    "tests/limits/rules-time.test.ts",
+    "tests/unit/programs.test.ts",
+    "tests/unit/runner.test.ts"
   ],
   "src/progress.ts": [
     "tests/limits/signals.test.ts",
@@ -259,6 +264,11 @@
     "tests/acceptance/reviewer.test.ts",
     "tests/properties/answer.test.ts",
     "tests/unit/prompt.test.ts"
+  ],
+  "src/provider.ts": [
+    "tests/acceptance/http-providers.test.ts",
+    "tests/acceptance/providers.test.ts",
+    "tests/unit/review.test.ts"
   ],
   "src/providers/anthropic.ts": [
     "tests/acceptance/http-providers.test.ts",
@@ -339,6 +349,8 @@
     "tests/limits/findings.test.ts",
     "tests/limits/rules-time.test.ts",
     "tests/properties/rules.test.ts",
+    "tests/security/links.test.ts",
+    "tests/security/runner.test.ts",
     "tests/unit/rules.test.ts",
     "tests/unit/runner.test.ts"
   ],
@@ -357,13 +369,15 @@
     "tests/acceptance/hostile.test.ts",
     "tests/acceptance/law-change.test.ts",
     "tests/acceptance/targets.test.ts",
+    "tests/acceptance/try.test.ts",
     "tests/environments/ci-shapes.test.ts",
     "tests/environments/git-faults.test.ts",
     "tests/environments/shapes.test.ts",
     "tests/limits/internals.test.ts",
     "tests/limits/reviews.test.ts",
     "tests/limits/sizes.test.ts",
-    "tests/unit/setup.test.ts"
+    "tests/unit/setup.test.ts",
+    "tests/unit/try.test.ts"
   ],
   "src/try.ts": [
     "tests/acceptance/hostile.test.ts",
@@ -380,7 +394,9 @@
     "tests/unit/types.test.ts"
   ],
   "src/uses.ts": [
+    "tests/acceptance/explain.test.ts",
     "tests/acceptance/languages.test.ts",
+    "tests/acceptance/prime.test.ts",
     "tests/acceptance/runes-limits.test.ts",
     "tests/acceptance/uses.test.ts",
     "tests/unit/uses.test.ts"

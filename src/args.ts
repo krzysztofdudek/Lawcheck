@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { renderErrors } from './output.js';
 import type { ErrorItem } from './output.js';
+import type { Runtime } from './environment.js';
 
 export interface Result {
   code: number;
@@ -191,4 +192,11 @@ export function text(args: Arguments, flag: string): string | null {
 export function noWords(args: Arguments): string | null {
   const word = args.words[0];
   return word === undefined ? null : `unexpected argument '${word}'; ${args.command} takes no arguments`;
+}
+
+export interface CheckContext {
+  cwd: string;
+  env: NodeJS.ProcessEnv;
+  warn?: (line: string) => void;
+  runtime?: Runtime;
 }

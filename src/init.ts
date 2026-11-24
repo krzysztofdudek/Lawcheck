@@ -1,8 +1,7 @@
 import { closeSync, lstatSync, mkdirSync, openSync, realpathSync, statSync, writeSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { documentOf, errorResult, noWords, usageError, version } from './args.js';
-import type { Arguments, Result } from './args.js';
-import type { CheckContext } from './check.js';
+import type { Arguments, CheckContext, Result } from './args.js';
 import { ignoresPath, listFiles, showPrefix, workTreeProblem } from './files.js';
 import { findRoot, LAW, stopped } from './setup.js';
 import { noGit, Stop } from './setup.js';
