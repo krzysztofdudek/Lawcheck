@@ -177,12 +177,13 @@ function listSince(since: number, ms: number): Promise<string | null> {
 }
 
 // Windows may have given a root's id to another process, so the guard never ends a tree or a runner by its id: it ends only what toEnd finds in a list begun after the kill, and takes that list itself when the watcher gives none in time.
-async function endWatched(): Promise<void> {
+async function endWatched(): Promise<boolean> {
   // With no call of a program reviewer open, only rule runners are left, which end with the tool in its job and start no program under Node's permission model, so a list could end nothing.
-  if (groups.size === 0) return;
+  if (groups.size === 0) return true;
   const learned = Date.now();
   const before = table;
-  const fresh = (await listSince(learned, LIST_MS)) ?? listNow();
+  const fresh = await listSince(learned, LIST_MS);
+  if (fresh === null) return false;
   // On Windows the tool starts the guard before it calls a program reviewer (startListing), so no process of a group's tree was made before the guard; and none was made before the time the tool took just before it started the group's root, which tells the root from an earlier holder of its id when no earlier list shows the root.
   // Of two calls that got the same id, the later one's program holds it, and what was made below it before that program is not known to be the tool's.
   const since = new Map([...groups].flatMap(([pid, calls]): [number, string][] => {
@@ -196,6 +197,7 @@ async function endWatched(): Promise<void> {
       // The process has already ended.
     }
   }
+  return true;
 }
 
 function listNow(): string {
@@ -216,7 +218,8 @@ function endAll(): void {
     }
     for (const pid of groups.keys()) killTree(pid, 'SIGKILL');
   }
-  void (windows ? endWatched() : Promise.resolve()).then(() => {
+  void (windows ? endWatched() : Promise.resolve(true)).then((found) => {
+    if (windows) for (const pid of groups.keys()) killTree(pid, 'SIGKILL', !found);
     for (const folder of folders) rmSync(folder, { recursive: true, force: true, maxRetries: 10 });
     stopWatching(() => {
       if (typeof shellTemp === 'string') rmSync(shellTemp, { recursive: true, force: true, maxRetries: 10 });
