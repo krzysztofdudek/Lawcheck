@@ -1,19 +1,19 @@
 # Bring a law into an existing repository
 
-Your code already breaks the [rule](concepts.md#rule) you are about to write. `lawcheck check` without `--full` passes the [change](concepts.md#change) that adds the [law](concepts.md#law). That change touches no file outside `.lawcheck/`. The next change that edits an old file then fails, on a line its author did not touch.
+Your code already breaks the [rule](concepts.md#rule) you are about to write. The [change](concepts.md#change) that adds the [law](concepts.md#law) touches no file outside `.lawcheck/`. So `lawcheck check` without `--full` passes that change. The next change that edits an old file fails, on a line its author did not touch.
 
 ## Start the rule enforced or advisory
 
-A rule is enforced unless its entry says `status: advisory`. An enforced rule fits when the old code holds few findings of the rule. `lawcheck check --base main` passes the change that adds the law, because that change holds only the files of `.lawcheck/`. Lawcheck fails no run on the old code until a change edits an old file. Lawcheck then fails that change on every finding in the file, on old lines as much as on new ones. Its author fixes them in the same change.
+A rule is enforced unless its entry says `status: advisory`. An enforced rule fits when the old code holds few findings of the rule. The change that adds the law holds only the files of `.lawcheck/`. So `lawcheck check --base main` passes it. Lawcheck fails no run on the old code until a change edits an old file. Lawcheck then fails that change on every finding in the file, on old lines as much as on new ones. The author of the change fixes them in the same change.
 
-An advisory rule fits when the old code holds many findings of the rule, or when other people edit the old files before you can fix them. The findings of an advisory rule are warnings. A warning never fails a change. The steps below take this path, from the advisory rule to the enforced one:
+An advisory rule fits when the old code holds many findings of the rule. It also fits when other people edit the old files before you can fix them. The findings of an advisory rule are warnings. A warning never fails a change. The steps below take this path, from the advisory rule to the enforced one:
 
 - the rule starts as advisory;
 - `lawcheck check --full` lists the old [findings](concepts.md#finding) as [debt](concepts.md#debt);
 - you fix the debt;
 - you make the rule enforced.
 
-A [`may_use`](law.md#may-use) list has no advisory status. The section [Bring in a may_use list](#bring-in-a-may-use-list) says how to close one on old code that breaks it.
+A [`may_use`](law.md#may-use) list has no advisory status. The section [Bring in a may_use list](#bring-in-a-may-use-list) says how to bring one in on old code that breaks it.
 
 The outputs below come from a repository whose `main` holds four files:
 
@@ -105,7 +105,7 @@ src/core/report.ts:2  warning[no-console]  writes to the terminal with console.l
 src/core/tax.ts:2  warning[no-console]  writes to the terminal with console.warn
 ```
 
-With `--full`, Lawcheck judges every other file too. Lawcheck lists a finding outside the change as debt. A finding of debt is a warning, whatever the status of the rule. The run passes, unless you pass `--strict`, which makes a finding of an `enforced` rule in old code an error. `--json` gives the count of debt in `summary.debt`. It marks each finding of debt with `"debt": true` ([JSON documents](json.md)).
+With `--full`, Lawcheck judges every file outside the change too. Lawcheck lists a finding outside the change as debt. A finding of debt is a warning, whatever the status of the rule. The run passes. With `--strict`, a finding of an `enforced` rule in old code is an error instead. `--json` gives the count of debt in `summary.debt`. It marks each finding of debt with `"debt": true` ([JSON documents](json.md)).
 
 ## 6. Merge the law
 
@@ -141,7 +141,7 @@ src/core/report.ts:2  warning[no-console]  writes to the terminal with console.l
   why:  Only the command layer writes to the terminal.
 ```
 
-The old line 2 is part of the change, because Lawcheck judges a changed file whole. Its finding is a warning, as the rule is advisory. The run passes.
+Lawcheck judges a changed file whole. So the old line 2 is part of the change. The rule is advisory, so the finding on line 2 is a warning. The run passes.
 
 ## 8. Pay the debt
 
@@ -208,14 +208,14 @@ From the merge of this change on, a `console` call in a changed file of `src/cor
 
 ## Bring in a may_use list
 
-A `may_use` list has no `status`. A use that the list forbids is a [`forbidden-use`](codes.md#forbidden-use), and in a changed file it is an error. A list put on a type whose old files already break it fails the next change of each of those files. Bring the list in with these steps:
+A `may_use` list has no `status`. A use that the list forbids is a [`forbidden-use`](codes.md#forbidden-use). In a changed file, a `forbidden-use` is an error. The old files of a type can already break a list you put on it. The next change of each of those files then fails. Bring the list in with these steps:
 
 1. On a branch, add the list to the law and run `lawcheck check --full`. Each `forbidden-use` in the debt is an old use that the list forbids.
 2. Put the list first on the types whose files hold none of those findings. From the merge on, a new use that breaks the list fails its change.
-3. On a type with old uses that the list forbids, put a waiver with its reason on each of those lines, such as `import '../cli/main.js'; // lawcheck-waive forbidden-use -- the report prints the banner until 2.0`. Then put the list on that type. Every use that a change adds is judged, and the old ones pass.
+3. On a type with old uses that the list forbids, put a waiver with its reason on each of those lines, such as `import '../cli/main.js'; // lawcheck-waive forbidden-use -- the report prints the banner until 2.0`. Then put the list on that type. Lawcheck judges every use that a change adds. The old uses pass.
 4. Pay the waivers back one at a time. Remove the use, then its waiver. A waiver left on a line whose use is gone is [`waiver-unused`](codes.md#waiver-unused).
 
-In `lawcheck check --full --json`, the list `waivers` holds every waiver of the repository, so the waivers of `forbidden-use` left in it are what the list still owes. [Waivers](waivers.md#forbidden-use) gives the form of a waiver.
+In `lawcheck check --full --json`, the list `waivers` holds every waiver of the repository. The waivers of `forbidden-use` in it are the old uses you still have to pay back. [Waivers](waivers.md#forbidden-use) gives the form of a waiver.
 
 ## If it goes wrong
 
@@ -230,7 +230,7 @@ src/core/report.ts:2  error[no-console]  writes to the terminal with console.log
 next: fix src/core/report.ts:2
 ```
 
-- A CI job with no [base](concepts.md#base) stops with [`base-unreachable`](codes.md#base-unreachable), because without a base Lawcheck cannot tell the change from debt. On a pull request in GitHub Actions, GitLab CI or Azure Pipelines, Lawcheck takes the base from the service's variables. On any other service, pass `--base`, or set `LAWCHECK_BASE` ([CI and git hooks](ci.md)).
+- A CI job with no [base](concepts.md#base) stops with [`base-unreachable`](codes.md#base-unreachable). Without a base, Lawcheck cannot tell the change from debt. On a pull request in GitHub Actions, GitLab CI or Azure Pipelines, Lawcheck takes the base from the service's variables. On any other service, pass `--base`, or set `LAWCHECK_BASE` ([CI and git hooks](ci.md)).
 - For every old file that a [reviewer rule](concepts.md#reviewer-rule) [binds](concepts.md#rule), Lawcheck lists a [`not-reviewed`](codes.md#not-reviewed) finding as debt. The reviewer is the model that judges a reviewer rule. `lawcheck check --full --review` asks the reviewer about each of those files, with one call per file and rule. The setting `reviewer.max_calls` caps the calls of one run. A run that needs more calls than the cap makes none.
 
 Next: [Let a coding agent write the first law](agent-setup.md)
