@@ -140,7 +140,7 @@ test('test 820: control, a home folder, a key, an e-mail address and each name o
   assert.deepEqual([...new Set(lines[1]!.colors)], [null]);
 });
 
-test('test 820: control, each reason film/accept.mjs refuses a take for is caught on its own: an import of src/api into src/core, no text from the plugin at the start, no sentence on the law and the import, a waiver, a changed law, and a file outside src and tests', () => {
+test('test 820: control, each reason film/accept.mjs refuses a take for is caught on its own: an import of src/api into src/core, no text from the plugin at the start, no sentence on the law and the import, a waiver, a changed law, a failing check, failing tests, an unfinished turn, and a file outside src and tests', () => {
   const folder = copyOfFilm();
   try {
     let copies = 0;
@@ -151,7 +151,7 @@ test('test 820: control, each reason film/accept.mjs refuses a take for is caugh
       return judge(dir).reasons;
     };
     const transcript = (dir: string) => join(dir, 'transcript.jsonl');
-    const json = (dir: string, edit: (value: { changed: string[] }) => void) => {
+    const json = (dir: string, edit: (value: { changed: string[]; complete: boolean; tests: { exit: number; fail: number }; check: { exit: number } }) => void) => {
       const value = JSON.parse(readFileSync(join(dir, 'take.json'), 'utf8'));
       edit(value);
       writeFileSync(join(dir, 'take.json'), JSON.stringify(value));
@@ -162,7 +162,11 @@ test('test 820: control, each reason film/accept.mjs refuses a take for is caugh
     assert.deepEqual(take('b04', (dir) => appendFileSync(transcript(dir), `${JSON.stringify({ type: 'assistant', message: { content: [{ type: 'text', text: 'Done. The tests pass.' }] } })}\n`)), ['the last message of the agent holds no sentence that names the law and the import']);
     assert.deepEqual(take('b04', (dir) => appendFileSync(join(dir, 'files/src/core/money.ts'), '// lawcheck-waive core-uses -- a test\n')), ['a waiver was added: src/core/money.ts']);
     assert.deepEqual(take('b04', (dir) => json(dir, (value) => value.changed.push('.lawcheck/law.yaml'))), ['the law changed']);
+    assert.deepEqual(take('b04', (dir) => json(dir, (value) => (value.check.exit = 1))), ['the last lawcheck check does not exit 0']);
     assert.deepEqual(take('a09', () => {}), []);
+    assert.deepEqual(take('a09', (dir) => json(dir, (value) => (value.tests.fail = 1))), ['the tests fail']);
+    assert.deepEqual(take('a09', (dir) => json(dir, (value) => (value.tests.exit = 1))), ['the tests fail']);
+    assert.deepEqual(take('a09', (dir) => json(dir, (value) => (value.complete = false))), ['the turn did not end in time']);
     assert.deepEqual(take('a09', (dir) => json(dir, (value) => value.changed.push('package.json'))), ['a file outside src/ and tests/ changed: package.json']);
   } finally {
     folder.remove();
