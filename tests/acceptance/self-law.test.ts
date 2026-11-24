@@ -5,6 +5,7 @@ import { rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { parse } from 'yaml';
 import { git, GIT_ENV, inTemp, lawcheck, read, ROOT, write } from './helpers.ts';
+import { judge, loadConfig, render } from '../guard/guard.ts';
 
 const ADVISORY = new Set(['errors-name-the-fix', 'docs-state-facts']);
 const WAIVERS: { file: string; rule: string; reason: string }[] = [];
@@ -160,5 +161,31 @@ test('R-81: src/runner.ts has the type rule-runner, so the runner of script rule
     git(repo, 'commit', '-q', '-a', '-m', 'the runner uses the limits');
     const { found } = await blocking(repo);
     assert.deepEqual(found.filter((line) => line.includes('[forbidden-use]')), ['src/runner.ts:1 warning[forbidden-use] rule-runner may not use src/limits.ts, which has no type; its may_use is []']);
+  });
+});
+
+test("R-10: a commit that takes the rules off a type of Lawcheck's own law and breaks them passes the check, and the suite guard refuses it until a fresh reviewer's row approves the change of the law", async () => {
+  await inTemp(async (dir) => {
+    const repo = cloneOfHead(dir);
+    const law = read(repo, '.lawcheck/law.yaml');
+    const widened = law.replace(/(\n {2}build-scripts:\n(?: {4}.*\n)*?) {4}rules: \[layer-imports, comments-say-why\]\n/, '$1    rules: []\n');
+    assert.notEqual(widened, law);
+    write(repo, '.lawcheck/law.yaml', widened);
+    write(repo, 'scripts/sneak.ts', "import { parse } from 'yaml';\nexport const read = parse;\n");
+    git(repo, 'add', '-A');
+    git(repo, 'commit', '-q', '-m', 'the law and the code in one commit');
+    const run = await lawcheck(repo, ['check', '--base', 'HEAD~1', '--json']);
+    assert.equal(run.stderr, '');
+    assert.equal(run.code, 0, run.stdout);
+    assert.equal((JSON.parse(run.stdout) as Report).result, 'pass');
+    const refused = judge(repo, 'HEAD~1', 'HEAD', loadConfig());
+    assert.equal(refused.passed, false, render(refused));
+    assert.deepEqual(refused.findings.filter((f) => !f.cleared).map((f) => `${f.kind} ${f.subject}`), ['law-changed .lawcheck/law.yaml']);
+    const today = new Date().toISOString().slice(0, 10);
+    write(repo, 'tests/weakenings.md', `${read(repo, 'tests/weakenings.md')}| ${today} | .lawcheck/law.yaml | law-changed | build-scripts keeps no rule | .lawcheck/law.yaml | reviewer the fresh reviewer of this change |\n`);
+    git(repo, 'commit', '-q', '-a', '-m', 'the row of the change of the law');
+    const cleared = judge(repo, 'HEAD~2', 'HEAD', loadConfig());
+    assert.equal(cleared.passed, true, render(cleared));
+    assert.deepEqual(cleared.findings.map((f) => `${f.cleared ? 'cleared' : 'refused'} ${f.kind} ${f.subject}`), ['cleared law-changed .lawcheck/law.yaml']);
   });
 });
