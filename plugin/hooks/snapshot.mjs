@@ -127,7 +127,7 @@ function committedInTurn(root, before, after, started, deadline) {
   return paths;
 }
 
-export function turnPaths(root, before, after, started, deadline) {
+export function changedInTurn(root, before, after, started, deadline) {
   try {
     const changed = new Set();
     if (before === null) {
@@ -144,7 +144,7 @@ export function turnPaths(root, before, after, started, deadline) {
       };
       for (const path of candidates) if (!changed.has(path) && blob(before, path) !== blob(after, path)) changed.add(path);
     }
-    return [...changed].filter((path) => isRegular(root, path)).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+    return [...changed].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
   } catch (error) {
     if (error instanceof NoSnapshot) return { problem: error.message };
     throw error;

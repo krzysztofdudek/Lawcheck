@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { join } from 'node:path';
-import { inTemp, lawcheck, newRepository, read, setRule, withR, withSample, withU, write } from './helpers.ts';
+import { git, inTemp, lawcheck, newRepository, read, setRule, withR, withSample, withU, write } from './helpers.ts';
 import { example, exampleText } from '../harness/examples.ts';
 
 const block = (id: string): string[] => example(id).split('\n');
@@ -14,7 +14,7 @@ function firstPart(reviewers: boolean, mayUse: boolean): string {
   if (mayUse) lines[0] = lines[0]!.replace('the file types and the rules each type keeps', 'the file types, the rules each type keeps, and which types may use which');
   if (reviewers) lines.splice(lines.indexOf('- A plain check judges only changed files. After you change the law or a rule file, run lawcheck check --full and tell the user how many findings it lists outside your change.'), 0, '- not-reviewed: fix every other finding first, then run lawcheck check --review');
   const at = lines.indexOf('- deleting a rule, or changing its status or its why') + 1;
-  const extra = [...(mayUse ? ['- widening may_use'] : []), ...(reviewers ? ['- lawcheck check --review --again, or --max-calls above reviewer.max_calls'] : [])];
+  const extra = [...(mayUse ? ['- widening may_use', '- adding a pattern to ignored'] : []), ...(reviewers ? ['- lawcheck check --review --again, or --max-calls above reviewer.max_calls'] : [])];
   lines.splice(at, 0, ...extra);
   if (reviewers) lines[lines.length - 2] += '; a reviewer rule pays one call per file, so add --dry-run first';
   return lines.join('\n');
@@ -39,8 +39,8 @@ const points = (text: string) => [...text].length;
 
 test('test 100: prime in S, its JSON, and from a subdirectory', async () => {
   assert.equal(points(FIRST_PART), 1455);
-  assert.equal(points(FULL), 1721);
-  assert.equal(FULL.split('\n').length, 23);
+  assert.equal(points(FULL), 1751);
+  assert.equal(FULL.split('\n').length, 24);
   await withSample(async (s) => {
     const run = await lawcheck(s, ['prime']);
     assert.equal(run.stdout, PRIME_S);
@@ -66,6 +66,28 @@ test('test 101: prime in R and in U', async () => {
     lines.splice(lines.indexOf('The law here: 4 types, 2 rules') + 1, 4, ...U_TYPES);
     assert.equal(run.stdout, lines.join('\n'));
     assert.equal(run.code, 0);
+  });
+});
+
+test('R-151: prime says that git ignores .lawcheck/law.yaml when no commit can carry the law, and says nothing of a law git tracks or does not ignore', async () => {
+  const said = 'Git ignores .lawcheck/law.yaml, so no commit carries the law and no other checkout has it; tell the user once, and git check-ignore -v .lawcheck/law.yaml shows the line that ignores it';
+  await inTemp(async (dir) => {
+    const repo = newRepository(dir, { '.gitignore': '.lawcheck\n' });
+    assert.equal((await lawcheck(repo, ['init'])).code, 0);
+    const run = await lawcheck(repo, ['prime']);
+    const lines = run.stdout.split('\n');
+    assert.equal(lines[lines.indexOf('The law here: 0 types, 0 rules') + 1], said, run.stdout);
+    assert.equal(run.code, 0);
+    const json = await lawcheck(repo, ['prime', '--json']);
+    assert.ok((JSON.parse(json.stdout) as { text: string }).text.includes(`\n${said}\n`), json.stdout);
+    write(repo, '.gitignore', '');
+    const seen = await lawcheck(repo, ['prime']);
+    assert.ok(!seen.stdout.includes('Git ignores'), seen.stdout);
+    git(repo, 'add', '-A');
+    git(repo, 'commit', '-q', '-m', 'law');
+    write(repo, '.gitignore', '.lawcheck\n');
+    const tracked = await lawcheck(repo, ['prime']);
+    assert.ok(!tracked.stdout.includes('Git ignores'), tracked.stdout);
   });
 });
 

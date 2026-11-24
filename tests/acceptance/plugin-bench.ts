@@ -213,7 +213,8 @@ export async function startAndPromptScenario(deadlines: Deadlines | null): Promi
     const prompted = await new Session(bench, s, 's1', env, options).prompt();
     within(prompted, prompt);
     nothing(prompted, 'prompt');
-    assert.deepEqual(bench.sessions(), []);
+    assert.deepEqual(bench.sessions(), ['s1.json']);
+    assert.equal(bench.state().open, false);
     assert.deepEqual(readFileSync(calls, 'utf8').trim().split('\n').map((line) => JSON.parse(line)), [{ words: ['rev-parse', '--verify', '--quiet', 'HEAD^{commit}'], value: '0' }]);
     removeFakeGit(bench.bin);
   });

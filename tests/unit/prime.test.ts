@@ -38,8 +38,8 @@ const part = (text: string) => text.slice(text.indexOf('\nThe law here: ') + 1).
 test('commands-slice §4: the first part is 1,455 characters without reviewer rules or may_use, and 1,721 with both', () => {
   assert.equal(length(FIRST_PART), 1455);
   assert.equal(FIRST_PART.split('\n').length, 20);
-  assert.equal(length(firstPart(true, true)), 1721);
-  assert.equal(firstPart(true, true).split('\n').length, 23);
+  assert.equal(length(firstPart(true, true)), 1751);
+  assert.equal(firstPart(true, true).split('\n').length, 24);
   assert.ok(firstPart(true, false).includes('- not-reviewed: '));
   assert.ok(!firstPart(true, false).includes('may use'));
   assert.ok(firstPart(false, true).includes('- widening may_use\n'));
@@ -119,6 +119,15 @@ test('commands-slice §4: the guard: type lines while they fit, then the rule li
   assert.ok(length(cutIds.text) <= target);
   assert.ok(part(cutIds.text).includes('... and 1 more root type'));
   assert.ok(part(cutIds.text).some((line) => /^rule-number-01, .*, and \d+ more$/.test(line)));
+});
+
+test('R-150: a law with may_use leaves adding a pattern to ignored to the user, as a law with required or ignored does, since a pattern of ignored takes a file out of the may_use list in force', () => {
+  assert.ok(firstPart(false, true).includes('\n- widening may_use\n- adding a pattern to ignored\n'), firstPart(false, true));
+  assert.ok(!firstPart(false, false).includes('ignored'));
+  const both = firstPart(false, true, true);
+  assert.equal(both.split('adding a pattern to ignored').length, 2);
+  assert.ok(both.includes('\n- adding a pattern to ignored, or taking one from required\n'));
+  assert.ok(firstPart(false, false, true).includes('\n- adding a pattern to ignored, or taking one from required\n'));
 });
 
 test('S6-5: with no reviewer set, the line on not-reviewed says so and leaves the setting to the user', () => {

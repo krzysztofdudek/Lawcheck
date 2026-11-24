@@ -8,9 +8,11 @@ if ! command -v git > /dev/null 2>&1; then
 fi
 say "git $(git --version)"
 id tester > /dev/null 2>&1 || useradd -m -u 4242 tester > /dev/null 2>&1 || adduser -D -u 4242 tester > /dev/null 2>&1
+started=$(date +%s)
 # The tests write their temporary folders below TMPDIR, and run as a user other than root so that a file mode can make a file unreadable.
 su tester -s /bin/sh -c "cd /cell/repo && HOME=/tmp/home TMPDIR=/tmp PATH=/cell/node:\$PATH node --test $*" > /tmp/cell-tests.log 2>&1
 code=$?
+say "tests took $(( $(date +%s) - started )) s"
 grep -E '^(✖|ℹ (tests|pass|fail|skipped))' /tmp/cell-tests.log | sed 's/^/cell: /'
 if [ $code -ne 0 ]; then grep -A30 '^✖' /tmp/cell-tests.log | head -120; fi
 say done
