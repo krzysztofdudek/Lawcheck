@@ -314,4 +314,29 @@ With a topic, the document holds `id`, `title` and `text`. `text` holds the Mark
 | `checks.next.command` | the command alone, such as `lawcheck init`, where the step is one, else null |
 | `checks.next.text` | the step in words |
 
+## SARIF 2.1.0
+
+With `--sarif <file>`, `check` also writes its findings to that file in SARIF 2.1.0 for GitHub code scanning ([CI and git hooks](ci.md#_3-show-the-findings-in-github-code-scanning)). `check` writes the file when it ends with exit 0 or 1. With exit 2 it writes none, since a file with no result would tell code scanning that every open alert was fixed. A file already at that path stays as it was. A file it cannot write stops the run with `file-unwritable` and exit 2. Lawcheck writes an API key of the reviewer as `[key]` in the file, as in the JSON.
+
+Code scanning takes each upload of a branch as the whole analysis and closes as fixed every alert that the upload lacks. A check of the change holds no finding of a file it leaves alone, so the workflow of [CI and git hooks](ci.md#_3-show-the-findings-in-github-code-scanning) writes the file from `check --full`, which holds the findings of every file. Debt fails nothing without `--strict`, so the exit code stays that of the change. The second check, with the law of the base, writes no file, since its findings would replace those of the first.
+
+The file validates against the SARIF 2.1.0 schema of OASIS. It holds one run, and the run holds one result for each item of `findings` of `lawcheck-check/0`, in the same order, the debt of `--full` included.
+
+| Field | Value |
+|---|---|
+| `version` | `2.1.0` |
+| `runs.tool.driver.name` | `Lawcheck` |
+| `runs.tool.driver.semanticVersion` | the version that `lawcheck --version` prints |
+| `runs.tool.driver.rules` | one item for each code that the results hold, sorted by `id` |
+| `runs.tool.driver.rules.id` | the code, as in `findings.code` |
+| `runs.tool.driver.rules.shortDescription.text` | the `why` of the code's first finding; `fullDescription.text` holds the same |
+| `runs.tool.driver.rules.help.text` | the `why`, then the command that tells more: `lawcheck explain --rule <id>` for a rule, `lawcheck docs codes` for a code of Lawcheck |
+| `runs.results.ruleId` | `findings.code` |
+| `runs.results.ruleIndex` | the place of the code in `rules`, from 0 |
+| `runs.results.level` | `findings.severity`: `error` or `warning` |
+| `runs.results.message.text` | `findings.message` |
+| `runs.results.locations.physicalLocation.artifactLocation.uri` | the path of the file from the top of the git work tree, which is where GitHub looks for it; each byte other than a letter, a digit, `-`, `.`, `_`, `~` and `/` is written as `%` and two hexadecimal digits |
+| `runs.results.locations.physicalLocation.artifactLocation.uriBaseId` | `%SRCROOT%` |
+| `runs.results.locations.physicalLocation.region.startLine` | `findings.line`, or 1 for a finding about the whole file |
+
 Next: [The Claude Code plugin](plugin.md)
