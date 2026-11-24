@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { symlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { withFake } from './fake-reviewer.ts';
-import { F, F_PATH, F_PRIME, lawcheck, PRICING, read, REVIEWER_CONFIG, run, setRule, withR, withSample, withU, write } from './helpers.ts';
+import { F, F_PATH, F_PRIME, LAW, lawcheck, PRICING, read, REVIEWER_CONFIG, run, setRule, withR, withSample, withU, write } from './helpers.ts';
 
 const PRICE = exampleText('explain-price');
 const RELEASE = exampleText('explain-release');
@@ -285,4 +285,22 @@ test('test 115: explain and prime run no rule and send no request', async () => 
       { onMain: (r) => setRule(r, 'no-console', "throw new Error('broken at load');\n") },
     );
   });
+});
+
+test('S5-12: explain says a .vue or .svelte file with no script block holds no script, and names no language of its own', async () => {
+  const law = LAW.replace('"src/**/*.ts", "!src/**/*.d.ts"]\n    rules: [no-todo]', '"src/**/*.{ts,vue,svelte}", "!src/**/*.d.ts"]\n    rules: [no-todo]\n    may_use: [source]');
+  await withSample(
+    async (s) => {
+      for (const [path, text] of [['empty.vue', '<template><div/></template>\n'], ['empty.svelte', '<p>x</p>\n'], ['script.vue', '<script lang="ts">\nimport "./a";\n</script>\n']] as const) {
+        write(s, `src/core/${path}`, text);
+      }
+      const uses = async (path: string) => (await explain(s, `src/core/${path}`)).stdout.split('\n').find((line) => line.startsWith('  uses:'));
+      assert.equal(await uses('empty.vue'), '  uses:  none: the file has no script block');
+      assert.equal(await uses('empty.svelte'), '  uses:  none: the file has no script block');
+      assert.equal(await uses('script.vue'), '  uses:  read as typescript');
+      const asJson = JSON.parse((await explain(s, 'src/core/empty.vue', '--json')).stdout);
+      assert.deepEqual(asJson.uses, { read: true, language: null });
+    },
+    { onMain: (s) => write(s, '.lawcheck/law.yaml', law) },
+  );
 });

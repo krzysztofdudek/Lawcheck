@@ -110,8 +110,7 @@ function usesOf(ctx: Ctx, type: TypeDef, path: string, text: string): FileAnswer
   if (listInForce(type) === null) return null;
   const reader = readerOf(path, text, siblingsOf(ctx.files));
   if (!reader.reader) return { read: false, language: null };
-  const dot = path.lastIndexOf('.');
-  return { read: true, language: reader.view?.language ?? path.slice(dot + 1) };
+  return { read: true, language: reader.view?.language ?? null };
 }
 
 // A companion is code of the repository, so explain runs it, in the runner of script rules, only for a rule that has one.
@@ -311,7 +310,7 @@ export function fileText(answer: FileAnswer): string {
   lines.push(`  matched:  ${[...matched, ...not].join(', ')}`);
   if (answer.then !== null) lines.push(`  then:  ${answer.then}`);
   lines.push(mayUseLine(type));
-  if (answer.uses !== null) lines.push(`  uses:  ${answer.uses.read ? `read as ${answer.uses.language}` : 'not read: Lawcheck has no reader for this file'}`);
+  if (answer.uses !== null) lines.push(`  uses:  ${answer.uses.read ? (answer.uses.language === null ? 'none: the file has no script block' : `read as ${answer.uses.language}`) : 'not read: Lawcheck has no reader for this file'}`);
   lines.push(...ruleLines(answer.rules));
   if (answer.exists) {
     if (answer.waivers.length === 0) lines.push('  waivers:  none');

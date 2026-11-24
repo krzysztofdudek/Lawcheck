@@ -40,6 +40,8 @@ When git ignores `.lawcheck/law.yaml`, `lawcheck prime` now says that no commit 
 
 `lawcheck docs write-a-script-rule` gains a last step that rewrites the rule with the syntax tree of the file, so a `fetch()` in a comment is no longer reported.
 
+`lawcheck explain` now says `uses:  none: the file has no script block` for a `.vue` or `.svelte` file that has no script. In alpha.4 it printed `uses:  read as vue`, though `vue` is not one of the languages Lawcheck reads. In `--json`, `uses.language` is `null` for such a file.
+
 In the Claude Code plugin, a law error that the agent was shown once comes back after an edit that Lawcheck could check. In alpha.4, a law broken, fixed and broken again the same way within one prompt reached the agent only the first time.
 
 Every message the Claude Code plugin sends you, and every text it gives the agent after an edit or at the end of a turn, now starts with `Lawcheck:`. In alpha.4 some started with `lawcheck:`, as the tool's own output does, and one read `lawcheck: lawcheck check could not judge`. A hook that fails now prints `Lawcheck plugin:` before the cause. A reason that ends in a full stop no longer gets a second one, the text the agent gets says `... 1 more line not shown` for one line, and `lawcheck prime` says `1 more root type`.
