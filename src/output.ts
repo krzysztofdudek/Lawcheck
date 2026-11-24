@@ -85,6 +85,7 @@ export const WHY: Record<string, string> = {
   'type-overlap': 'a file has one type, so the rules that bind it are never in doubt',
   'base-unreachable': 'without its base a change cannot be told from debt',
   'law-from-unreachable': 'a change judged by the law of a commit needs that law',
+  'law-from-packages': 'a change judged by the law of a commit cannot supply the code that law runs',
   'runner-failed': 'a runner that does not start says nothing about the rules',
   'rule-crashed': 'a broken rule says nothing about the code',
   'link-outside-root': 'a script rule reads nothing outside the work tree, and a link that leads out of it would let it',
