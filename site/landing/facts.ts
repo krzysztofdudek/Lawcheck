@@ -4,6 +4,7 @@ import { parse } from 'yaml';
 import topics from '../../docs/topics.json' with { type: 'json' };
 import { codeThemeOfBrand, GITHUB, LINK, manifest, NPM, REPOSITORY } from '../theme/brand.ts';
 import { chapters } from '../theme/film.ts';
+import { plain } from '../theme/describe.ts';
 import { Fragments, inline, isAhead } from './fragments.ts';
 
 type Link = { text: string; page: string };
@@ -49,7 +50,7 @@ export const support = (): string => fragments.sentence('docs/support.md', 'Supp
 
 export function head() {
   const copy = copyOf();
-  return { title: copy.title, description: copy.description, version: manifest.version, date: releaseDate(manifest.version), ahead: isAhead(fragments.read('CHANGELOG.md')), systems: /, on (.+)\.$/.exec(support())![1]! };
+  return { title: copy.title, description: plain(copy.description), version: manifest.version, date: releaseDate(manifest.version), ahead: isAhead(fragments.read('CHANGELOG.md')), systems: /, on (.+)\.$/.exec(support())![1]! };
 }
 
 export async function facts() {

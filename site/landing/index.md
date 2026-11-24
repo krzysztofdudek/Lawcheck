@@ -1,6 +1,6 @@
 ---
 title: "Lawcheck: architecture checks for coding agents"
-description: "Lawcheck checks imports across architecture layers in 12 languages, with no model, in Claude Code hooks and CI, even when agents skip CLAUDE.md or AGENTS.md."
+description: "Lawcheck checks imports across architecture layers in 12 languages, with no model, in Claude Code hooks and CI, even when agents skip `CLAUDE.md` or `AGENTS.md`."
 h1: Architecture checks for coding agents
 skip: Skip to content
 nav:
