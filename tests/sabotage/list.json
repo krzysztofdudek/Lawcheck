@@ -224,6 +224,14 @@
     "killedBy": "R-43: a path from the root of the law names a file, and the root itself, and nothing outside it"
   },
   {
+    "id": "setup-folder-prefix",
+    "promise": "R-43",
+    "file": "src/setup.ts",
+    "find": "(path === '.' || file.startsWith(`${path}/`))",
+    "replace": "(path === '.' || file.startsWith(path))",
+    "killedBy": "R-43: the targets of a command pick the files they name, as a pattern, a file or a folder, in the order of the paths, and say what is wrong with one that picks none"
+  },
+  {
     "id": "runner-wasi-text",
     "promise": "R-42",
     "file": "src/runner.ts",
