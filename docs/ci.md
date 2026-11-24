@@ -404,7 +404,7 @@ Lawcheck guards none of those files. On GitHub, a required review by a code owne
 - `package.json` and the lockfile;
 - every file a rule imports or reads.
 
-Keep a rule's helpers and settings under `.lawcheck/rules/`, and import them. The second check loads the base's copy of that folder. A file a rule reads by its path is the pull request's, in `.lawcheck/` too.
+Keep a rule's helpers and settings under `.lawcheck/rules/`, and import them. The second check loads the base's copy of that folder. A file a rule reads by its path, or a package it imports by name, is the pull request's, in `.lawcheck/` too.
 
 A pull request that removes a rule and adds code that the rule forbids fails the second check. Merge the change of the law first, in a pull request of its own.
 
