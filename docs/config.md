@@ -131,6 +131,7 @@ Git ignores `.lawcheck/config.local.yaml`, because `.lawcheck/.gitignore` names 
 | `GITHUB_BASE_REF`, `CI_MERGE_REQUEST_TARGET_BRANCH_NAME`, `CI_COMMIT_BEFORE_SHA`, `SYSTEM_PULLREQUEST_TARGETBRANCH` | take the one that the CI service sets as the base of the change, when neither `--base` nor `LAWCHECK_BASE` is given (`lawcheck docs ci`) |
 | `LAWCHECK_REVIEWER_ENDPOINT` | sends the requests of the HTTP providers to this address, which `openai-compatible` needs: `http:` or `https:`, with no user, password, query or fragment |
 | `LAWCHECK_REVIEWER_KEY` | sends it as the key of `openai-compatible`, and of `anthropic`, `openai` and `google` when their own variable is unset or `LAWCHECK_REVIEWER_ENDPOINT` is set |
+| `LAWCHECK_SIGNING_KEY` | signs each pass that `check --review` records, when the law names signers ([Signed passes](reviewer-rules.md#signed-passes)); Lawcheck hides it as a key and passes it to no program |
 | `ANTHROPIC_API_KEY` | sends it as the key of `anthropic`, and passes it to `claude` |
 | `OPENAI_API_KEY` | sends it as the key of `openai`, and passes it to `codex` |
 | `GOOGLE_API_KEY` | sends it as the key of `google`, and passes it to `gemini` |

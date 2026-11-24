@@ -1,4 +1,5 @@
-import { createHash, randomBytes } from 'node:crypto';
+import { createHash, createPrivateKey, createPublicKey, randomBytes, sign, verify } from 'node:crypto';
+import type { KeyObject } from 'node:crypto';
 import { closeSync, existsSync, mkdirSync, openSync, readdirSync, readSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { FILE_TEXT_BYTES, mib, readFailure as failureOfRead, readWhole } from './limits.js';
@@ -6,6 +7,7 @@ import { checkFindings } from './prompt.js';
 import { splitLines } from './types.js';
 import { parseWaivers, waivedLines } from './waivers.js';
 import { hide } from './keys.js';
+import { KEY_TEXT } from './law.js';
 import type { AnswerFinding } from './prompt.js';
 
 export const VERDICT_FORMAT = 'lawcheck-verdict/2';
@@ -13,7 +15,13 @@ export const VERDICTS = '.lawcheck/verdicts';
 export const ATTRIBUTES = '.lawcheck/.gitattributes';
 export const LOCAL = '.lawcheck/.local';
 const UNION = 'verdicts merge=union';
-const LINE = /^[0-9a-f]{32} [a-z0-9]+(-[a-z0-9]+)*$/;
+// A signature is 64 bytes in base64url without padding: the last of its 86 characters carries 2 bits and four zero bits, so one spelling per signature.
+const LINE = /^([0-9a-f]{32} [a-z0-9]+(?:-[a-z0-9]+)*)(?: ([a-z0-9]+(?:-[a-z0-9]+)*) ([A-Za-z0-9_-]{85}[AQgw]))?$/;
+export const SIGNED_PASS = 'lawcheck-signed-pass/1';
+const SIGNATURE_CHARS = 86;
+// The DER of a PKCS #8 and of an SPKI Ed25519 key before its 32 bytes (RFC 8410), so a key of 32 bytes needs no other format.
+const PKCS8_ED25519 = Buffer.from('302e020100300506032b657004220420', 'hex');
+const SPKI_ED25519 = Buffer.from('302a300506032b6570032100', 'hex');
 
 export interface KeyInput {
   frame: string;
@@ -55,6 +63,73 @@ export function verdictLines(text: string): string[] {
   return text.split('\n').map((line) => (line.endsWith('\r') ? line.slice(0, -1) : line)).filter((line) => LINE.test(line));
 }
 
+export interface Signer {
+  name: string;
+  key: KeyObject;
+}
+
+function signed(pair: string): Buffer {
+  return Buffer.from(`${SIGNED_PASS} ${pair}`, 'utf8');
+}
+
+export function signingKey(text: string): { key: KeyObject; publicKey: string } | null {
+  if (!KEY_TEXT.test(text)) return null;
+  const key = createPrivateKey({ key: Buffer.concat([PKCS8_ED25519, Buffer.from(text, 'base64url')]), format: 'der', type: 'pkcs8' });
+  return { key, publicKey: createPublicKey(key).export({ format: 'jwk' }).x! };
+}
+
+export class Passes {
+  private readonly counted = new Map<string, boolean>();
+  private readonly keys = new Map<string, KeyObject | null>();
+
+  constructor(
+    private readonly held: Map<string, [string, string][]>,
+    private readonly signers: ReadonlyMap<string, string> | null,
+  ) {}
+
+  has(pair: string): boolean {
+    const signatures = this.held.get(pair);
+    if (signatures === undefined) return false;
+    if (this.signers === null) return true;
+    let known = this.counted.get(pair);
+    if (known === undefined) {
+      known = signatures.some(([name, signature]) => this.verifies(pair, name, signature));
+      this.counted.set(pair, known);
+    }
+    return known;
+  }
+
+  uncounted(pair: string): boolean {
+    return this.held.has(pair) && !this.has(pair);
+  }
+
+  private verifies(pair: string, name: string, signature: string): boolean {
+    const key = this.keyOf(name);
+    if (key === null) return false;
+    try {
+      return verify(null, signed(pair), key, Buffer.from(signature, 'base64url'));
+    } catch {
+      return false;
+    }
+  }
+
+  private keyOf(name: string): KeyObject | null {
+    if (!this.keys.has(name)) {
+      const x = this.signers!.get(name);
+      let key: KeyObject | null = null;
+      if (x !== undefined) {
+        try {
+          key = createPublicKey({ key: Buffer.concat([SPKI_ED25519, Buffer.from(x, 'base64url')]), format: 'der', type: 'spki' });
+        } catch {
+          key = null;
+        }
+      }
+      this.keys.set(name, key);
+    }
+    return this.keys.get(name)!;
+  }
+}
+
 function readText(path: string): string | null {
   try {
     return new TextDecoder('utf-8', { ignoreBOM: true }).decode(readWhole(path, path));
@@ -77,6 +152,17 @@ export function readVerdicts(root: string): Set<string> {
   } catch (error) {
     throw new VerdictsUnreadable(failureOfRead(error));
   }
+}
+
+export function readPasses(root: string, signers: ReadonlyMap<string, string> | null): Passes {
+  const held = new Map<string, [string, string][]>();
+  for (const line of readVerdicts(root)) {
+    const [, pair, name, signature] = LINE.exec(line)!;
+    const signatures = held.get(pair!) ?? [];
+    if (name !== undefined) signatures.push([name, signature!]);
+    held.set(pair!, signatures);
+  }
+  return new Passes(held, signers);
 }
 
 export class Unwritable extends Error {
@@ -107,10 +193,10 @@ export function countPasses(root: string, needed: Set<string>): { held: number; 
   const chunk = Buffer.allocUnsafe(1 << 20);
   let rest = '';
   const take = (line: string) => {
-    const clean = line.endsWith('\r') ? line.slice(0, -1) : line;
-    if (!LINE.test(clean)) return;
+    const read = LINE.exec(line.endsWith('\r') ? line.slice(0, -1) : line);
+    if (read === null) return;
     held++;
-    if (needed.has(clean)) used++;
+    if (needed.has(read[1]!)) used++;
   };
   try {
     for (;;) {
@@ -257,7 +343,10 @@ export class VerdictWriter {
   private queue: Promise<unknown> = Promise.resolve();
   added = 0;
 
-  constructor(private readonly root: string) {}
+  constructor(
+    private readonly root: string,
+    private readonly signer: Signer | null = null,
+  ) {}
 
   // Every place a review writes is tried before the first call, so a run that cannot record an answer pays for none.
   // A verdicts file past the limit of a text file could be written but never read again, so the passes this run may add are counted before its first call.
@@ -268,7 +357,8 @@ export class VerdictWriter {
     } catch {
       size = 0;
     }
-    for (const rule of rules) size += 32 + 1 + rule.length + 1;
+    const signature = this.signer === null ? 0 : 1 + this.signer.name.length + 1 + SIGNATURE_CHARS;
+    for (const rule of rules) size += 32 + 1 + rule.length + signature + 1;
     if (size > FILE_TEXT_BYTES) throw tooFull();
     const local = ensureLocal(this.root);
     removeLeftovers(local);
@@ -289,7 +379,8 @@ export class VerdictWriter {
       const path = join(this.root, VERDICTS);
       locked(local, () => {
         const lines = new Set(verdictLines(writing(VERDICTS, () => readText(path)) ?? ''));
-        const line = `${key} ${rule}`;
+        const pair = `${key} ${rule}`;
+        const line = this.signer === null ? pair : `${pair} ${this.signer.name} ${sign(null, signed(pair), this.signer.key).toString('base64url')}`;
         if (!lines.has(line)) this.added++;
         lines.add(line);
         const sorted = [...lines].sort();

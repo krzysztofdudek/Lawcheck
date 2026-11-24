@@ -59,7 +59,7 @@ test("test 404: a program gets its own sign-in variables, and neither Lawcheck's
   for (const [program, variables] of Object.entries(own)) {
     assert.deepEqual(Object.keys(programEnv({ PATH: '/bin', COPILOT_MODEL: 'm', ...every }, program, 'linux')).sort(), ['COPILOT_MODEL', 'PATH', ...variables].sort(), program);
   }
-  assert.deepEqual(LAWCHECK_VARIABLES, ['LAWCHECK_REVIEWER_ENDPOINT', 'LAWCHECK_REVIEWER_KEY']);
+  assert.deepEqual(LAWCHECK_VARIABLES, ['LAWCHECK_REVIEWER_ENDPOINT', 'LAWCHECK_REVIEWER_KEY', 'LAWCHECK_SIGNING_KEY']);
   assert.deepEqual(programEnv({ Path: 'C:\\', openai_api_key: 'o', Lawcheck_Reviewer_Key: 'k', anthropic_api_key: 'a' }, 'claude', 'win32'), { Path: 'C:\\', anthropic_api_key: 'a' });
   assert.deepEqual(programEnv({ openai_api_key: 'o' }, 'claude', 'linux'), { openai_api_key: 'o' });
 });
