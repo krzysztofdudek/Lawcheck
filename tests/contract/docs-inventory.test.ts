@@ -236,7 +236,7 @@ test('test 1311: the Copilot CLI texts of the README, the docs home and other-to
   const callers = new Set(Object.values(record.arms).flatMap((arm) => arm.list.flatMap((session) => session.log.map((call) => call.caller))));
   assert.ok(callers.has('stop'), 'the record holds sessions in which the check before the end of a turn ran');
   assert.ok(!callers.has('edit'), 'no recorded Copilot CLI session ran the check after an edit');
-  assert.ok(readText('README.md').includes('its check after an edit never ran in the 24 recorded sessions'));
-  assert.ok(readText('docs/index.md').includes('Its check after an edit never ran in the 24 recorded sessions'));
+  assert.ok(readText('README.md').includes('its check after an edit never ran in the 24 recorded sessions that had that check'));
+  assert.ok(readText('docs/index.md').includes('Its check after an edit never ran in the 24 recorded sessions that had that check'));
   assert.ok(readText('docs/other-tools.md').includes('and in Copilot CLI before the agent ends its turn'));
 });

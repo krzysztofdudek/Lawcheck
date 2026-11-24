@@ -51,6 +51,6 @@ These were not checked:
 ## If it goes wrong
 
 - The agent gets no law at the start of a session. Check that `claude plugin list` names `lawcheck@lawcheck-marketplace`, that the setting of [Add the plugin](#_2-add-the-plugin) is on, and that `enabledPlugins` holds `true` for the plugin where [Add the plugin](#_2-add-the-plugin) says.
-- Nothing checks the files of a turn in Cursor. Run the same check in CI ([CI and git hooks](ci.md)).
+- The agent finishes while a file breaks the law. Run the same check in CI ([CI and git hooks](ci.md)).
 
 Next: [Other coding agents](other-agents.md)
