@@ -178,7 +178,7 @@ test('test 820: control, each reason film/accept.mjs refuses a take for is caugh
   }
 });
 
-test('test 820: control, each chapter\'s take is accepted, and a take is refused for a law that forbids or lists rules in the first chapter, a file outside the law, a rule that reads no syntax tree, a changed file of src, a review with no recorded pass, settings that name a key, a workflow that is not the page\'s, and a network that was on', () => {
+test('test 820: control, each chapter\'s take is accepted, and a take is refused for a file of the first chapter that is not its page\'s block, a check of the first chapter that does not fail, a rule that reads no syntax tree, a changed file of src, a review with no recorded pass, settings that name a key, a workflow that is not the page\'s, and a network that was on', () => {
   const folder = copyOfFilm();
   try {
     let copies = 0;
@@ -188,7 +188,7 @@ test('test 820: control, each chapter\'s take is accepted, and a take is refused
       change(dir);
       return judgeChapter(dir).reasons;
     };
-    const json = (dir: string, edit: (value: { changed: string[]; offline: { network: string } }) => void) => {
+    const json = (dir: string, edit: (value: { changed: string[]; commands: { command: string; exit: number }[]; offline: { network: string } }) => void) => {
       const value = JSON.parse(readFileSync(join(dir, 'take.json'), 'utf8'));
       edit(value);
       writeFileSync(join(dir, 'take.json'), JSON.stringify(value));
@@ -196,8 +196,8 @@ test('test 820: control, each chapter\'s take is accepted, and a take is refused
     const edit = readEdit(folder.dir);
     const takeOf = (page: string) => edit.chapters.find((chapter: { page: string }) => chapter.page === page).take;
     for (const chapter of edit.chapters) assert.deepEqual(take(chapter.take, () => {}), [], chapter.page);
-    assert.deepEqual(take(takeOf('quick-start'), (dir) => appendFileSync(join(dir, 'files/.lawcheck/law.yaml'), '    may_use: [core]\n')), ['a type of the law has may_use, rules or subtypes']);
-    assert.deepEqual(take(takeOf('quick-start'), (dir) => json(dir, (value) => value.changed.push('src/core/price.ts'))), ['a file outside .lawcheck/ changed: src/core/price.ts']);
+    assert.deepEqual(take(takeOf('quick-start'), (dir) => appendFileSync(join(dir, 'files/.lawcheck/law.yaml'), '    rules: [no-fetch]\n')), ['.lawcheck/law.yaml is not the block of docs/quick-start.md']);
+    assert.deepEqual(take(takeOf('quick-start'), (dir) => json(dir, (value) => value.commands.filter((mark) => mark.command === 'lawcheck check').forEach((mark) => (mark.exit = 0)))), ['lawcheck check does not fail with one forbidden-use at src/core/receipt.ts:1']);
     assert.deepEqual(take(takeOf('write-a-script-rule'), (dir) => writeFileSync(join(dir, 'files/.lawcheck/rules/no-fetch.mjs'), 'export function check() {\n  return [];\n}\n')), ['the rule does not ask for the syntax tree']);
     assert.deepEqual(take(takeOf('write-a-script-rule'), (dir) => json(dir, (value) => value.changed.push('src/core/cart.ts'))), ['the session changed src/core/cart.ts']);
     assert.deepEqual(take(takeOf('write-a-reviewer-rule'), (dir) => json(dir, (value) => (value.changed = value.changed.filter((path) => path !== '.lawcheck/verdicts')))), ['no pass was written to .lawcheck/verdicts']);

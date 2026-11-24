@@ -130,24 +130,26 @@ export function workflowOfDocs(root = ROOT) {
   return block === null ? null : block[1];
 }
 
+function blockAfter(page, heading, lang, root = ROOT) {
+  const text = readFileSync(join(root, 'docs', page), 'utf8');
+  const at = text.indexOf(heading);
+  const block = at < 0 ? null : new RegExp('```' + lang + '\n([\\s\\S]*?)```').exec(text.slice(at));
+  return block === null ? null : block[1];
+}
+
 function quickStart(folder, take, reasons) {
-  for (const command of ['npm install --global lawcheck@alpha', 'claude plugin marketplace add krzysztofdudek/Lawcheck', 'claude plugin install lawcheck@lawcheck-marketplace', 'lawcheck init']) {
+  for (const command of ['npm install --global lawcheck@alpha', 'lawcheck init']) {
     if (exitOf(take.commands, command) !== 0) reasons.push(`${command} exits ${exitOf(take.commands, command)}`);
   }
-  for (const path of ['.lawcheck/law.yaml', '.lawcheck/.gitignore']) if (!take.changed.includes(path)) reasons.push(`lawcheck init did not write ${path}`);
-  const text = readTaken(folder, '.lawcheck/law.yaml');
-  const law = text === null ? null : parse(text);
-  const types = law?.types ?? {};
-  if (Object.keys(types).sort().join(',') !== 'api,core') reasons.push(`the law has the types ${Object.keys(types).join(', ') || 'none'}, not api and core`);
-  else {
-    if (JSON.stringify(types.api.paths) !== '["src/api/**"]' || JSON.stringify(types.core.paths) !== '["src/core/**"]') reasons.push('the paths of api and core are not src/api/** and src/core/**');
-    if (Object.values(types).some((type) => type.may_use !== undefined || type.rules !== undefined || type.types !== undefined)) reasons.push('a type of the law has may_use, rules or subtypes');
-  }
-  if (law?.rules !== undefined) reasons.push('the law has rules');
-  if (!(outputOf(folder, 'lawcheck explain src/core/price.ts') ?? []).some((line) => /^\s+type:\s+core\b/.test(line))) reasons.push('lawcheck explain does not name the type core');
-  if (exitOf(take.commands, 'lawcheck check') !== 0) reasons.push(`lawcheck check exits ${exitOf(take.commands, 'lawcheck check')}`);
-  const outside = take.changed.filter((path) => !path.startsWith('.lawcheck/'));
-  if (outside.length > 0) reasons.push(`a file outside .lawcheck/ changed: ${outside.join(', ')}`);
+  const files = [
+    ['src/cli/print.ts', blockAfter('quick-start.md', 'Write the file of the command layer', 'ts')],
+    ['.lawcheck/law.yaml', blockAfter('quick-start.md', '## 3. Add one may_use line', 'yaml')],
+    ['src/core/receipt.ts', blockAfter('quick-start.md', '## 4. Write a file that breaks it', 'ts')],
+  ];
+  for (const [path, block] of files) if (block === null || readTaken(folder, path) !== block) reasons.push(`${path} is not the block of docs/quick-start.md`);
+  if (!take.changed.includes('.lawcheck/.gitignore')) reasons.push('lawcheck init did not write .lawcheck/.gitignore');
+  const found = findingsIn(outputOf(folder, 'lawcheck check'));
+  if (exitOf(take.commands, 'lawcheck check') !== 1 || found.length !== 1 || found[0].at !== 'src/core/receipt.ts:1' || found[0].code !== 'forbidden-use') reasons.push('lawcheck check does not fail with one forbidden-use at src/core/receipt.ts:1');
 }
 
 function scriptRule(folder, take, reasons) {

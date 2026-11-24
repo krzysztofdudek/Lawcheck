@@ -1,3 +1,6 @@
-lawcheck: PASS  2 changed files (against origin/main)
-note: the law changed in this change; lawcheck check --full shows what it finds in the rest of the code
-note: this change edits the law that judges it: adds .lawcheck/law.yaml
+lawcheck: FAIL  1 error in 4 files (no base: every file counts as changed)
+
+src/core/receipt.ts:1  error[forbidden-use]  core may not use src/cli/print.ts, which has no type; its may_use is [core]
+  why:  a type's may_use names every type its files may use
+
+next: fix src/core/receipt.ts:1

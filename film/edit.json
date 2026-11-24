@@ -33,17 +33,9 @@
         "prime"
       ]
     },
-    "qs-explain": {
-      "chapter": "quick-start",
-      "take": "qs01",
-      "args": [
-        "explain",
-        "src/core/price.ts"
-      ]
-    },
     "qs-check": {
       "chapter": "quick-start",
-      "take": "qs01",
+      "take": "qs02",
       "args": [
         "check"
       ]
@@ -298,8 +290,8 @@
   "chapters": [
     {
       "page": "quick-start",
-      "take": "qs01",
-      "record": "b86a0af6825c5fc7d958d176a018de2d099ce89c1d1a5443bc4fee2b7c1a2b37",
+      "take": "qs02",
+      "record": "d8fb541a153cd16023b6a5994e8e9c82902b3bba0d15c4d92668aaee3a869bab",
       "timeline": [
         {
           "id": "q1",
@@ -315,14 +307,14 @@
                       "prompt": true,
                       "text": "npm install --global lawcheck@alpha",
                       "from": {
-                        "take": "qs01",
+                        "take": "qs02",
                         "file": "terminal.jsonl"
                       }
                     },
                     {
-                      "text": "added 4 packages in 1s",
+                      "text": "added 4 packages in 959ms",
                       "from": {
-                        "take": "qs01",
+                        "take": "qs02",
                         "file": "terminal.jsonl"
                       }
                     }
@@ -333,12 +325,11 @@
             }
           ],
           "start": 0.0,
-          "end": 7.2
+          "end": 7.1
         },
         {
           "id": "q2",
-          "caption": "The Claude Code plugin",
-          "subtitle": "The plugin for Claude Code takes two more commands.",
+          "caption": "A new repository",
           "screens": [
             {
               "blocks": [
@@ -347,19 +338,58 @@
                   "lines": [
                     {
                       "prompt": true,
-                      "text": "claude plugin marketplace add krzysztofdudek/Lawcheck",
+                      "text": "git init shop",
                       "from": {
-                        "take": "qs01",
+                        "take": "qs02",
                         "file": "terminal.jsonl"
                       }
                     },
                     {
                       "prompt": true,
-                      "text": "claude plugin install lawcheck@lawcheck-marketplace",
+                      "text": "cd shop",
                       "from": {
-                        "take": "qs01",
+                        "take": "qs02",
                         "file": "terminal.jsonl"
                       }
+                    }
+                  ]
+                },
+                {
+                  "kind": "file",
+                  "label": {
+                    "text": "src/cli/print.ts",
+                    "from": {
+                      "take": "qs02",
+                      "file": "terminal.jsonl"
+                    }
+                  },
+                  "lines": [
+                    {
+                      "text": "export function print(text: string): void {",
+                      "from": {
+                        "take": "qs02",
+                        "file": "files/src/cli/print.ts",
+                        "line": 1
+                      },
+                      "number": 1
+                    },
+                    {
+                      "text": "  console.log(text);",
+                      "from": {
+                        "take": "qs02",
+                        "file": "files/src/cli/print.ts",
+                        "line": 2
+                      },
+                      "number": 2
+                    },
+                    {
+                      "text": "}",
+                      "from": {
+                        "take": "qs02",
+                        "file": "files/src/cli/print.ts",
+                        "line": 3
+                      },
+                      "number": 3
                     }
                   ]
                 }
@@ -367,13 +397,13 @@
               "at": 0.0
             }
           ],
-          "start": 7.2,
-          "end": 15.4
+          "start": 7.1,
+          "end": 16.2
         },
         {
           "id": "q3",
           "caption": "An empty law",
-          "subtitle": "In the repository, lawcheck init writes an empty law.",
+          "subtitle": "Lawcheck init writes an empty law.",
           "screens": [
             {
               "blocks": [
@@ -384,14 +414,14 @@
                       "prompt": true,
                       "text": "lawcheck init",
                       "from": {
-                        "take": "qs01",
+                        "take": "qs02",
                         "file": "terminal.jsonl"
                       }
                     },
                     {
                       "text": "lawcheck: created .lawcheck/law.yaml and .lawcheck/.gitignore",
                       "from": {
-                        "take": "qs01",
+                        "take": "qs02",
                         "file": "terminal.jsonl"
                       }
                     }
@@ -401,40 +431,13 @@
               "at": 0.0
             }
           ],
-          "start": 15.4,
-          "end": 22.0
+          "start": 16.2,
+          "end": 23.0
         },
         {
           "id": "q4",
-          "caption": "A prompt for Claude Code",
-          "subtitle": "Claude Code gets a prompt that asks for two types.",
-          "screens": [
-            {
-              "blocks": [
-                {
-                  "kind": "terminal",
-                  "lines": [
-                    {
-                      "prompt": true,
-                      "text": "claude -p \"Describe this repository in .lawcheck/law.yaml: one type for the HTTP handlers in src/api and one for the business logic in src/core.\"",
-                      "from": {
-                        "take": "qs01",
-                        "file": "take.json"
-                      }
-                    }
-                  ]
-                }
-              ],
-              "at": 0.0
-            }
-          ],
-          "start": 22.0,
-          "end": 33.9
-        },
-        {
-          "id": "q5",
-          "caption": "Two types in the law",
-          "subtitle": "The agent writes them into the law. Each type says what its files are and where they live.",
+          "caption": "One type and one may_use line",
+          "subtitle": "Core may use only core.",
           "screens": [
             {
               "blocks": [
@@ -443,66 +446,56 @@
                   "label": {
                     "text": ".lawcheck/law.yaml",
                     "from": {
-                      "take": "qs01",
-                      "file": "take.json"
+                      "take": "qs02",
+                      "file": "terminal.jsonl"
                     }
                   },
                   "lines": [
                     {
                       "text": "types:",
                       "from": {
-                        "take": "qs01",
+                        "take": "qs02",
                         "file": "files/.lawcheck/law.yaml",
                         "line": 3
-                      }
-                    },
-                    {
-                      "text": "  api:",
-                      "from": {
-                        "take": "qs01",
-                        "file": "files/.lawcheck/law.yaml",
-                        "line": 4
-                      }
-                    },
-                    {
-                      "text": "    about: The HTTP handlers.",
-                      "from": {
-                        "take": "qs01",
-                        "file": "files/.lawcheck/law.yaml",
-                        "line": 5
-                      }
-                    },
-                    {
-                      "text": "    paths: [\"src/api/**\"]",
-                      "from": {
-                        "take": "qs01",
-                        "file": "files/.lawcheck/law.yaml",
-                        "line": 6
-                      }
+                      },
+                      "number": 3
                     },
                     {
                       "text": "  core:",
                       "from": {
-                        "take": "qs01",
+                        "take": "qs02",
                         "file": "files/.lawcheck/law.yaml",
-                        "line": 7
-                      }
+                        "line": 4
+                      },
+                      "number": 4
                     },
                     {
-                      "text": "    about: The business logic.",
+                      "text": "    about: Prices and orders, with no input or output.",
                       "from": {
-                        "take": "qs01",
+                        "take": "qs02",
                         "file": "files/.lawcheck/law.yaml",
-                        "line": 8
-                      }
+                        "line": 5
+                      },
+                      "number": 5
                     },
                     {
                       "text": "    paths: [\"src/core/**\"]",
                       "from": {
-                        "take": "qs01",
+                        "take": "qs02",
                         "file": "files/.lawcheck/law.yaml",
-                        "line": 9
-                      }
+                        "line": 6
+                      },
+                      "number": 6
+                    },
+                    {
+                      "text": "    may_use: [core]",
+                      "from": {
+                        "take": "qs02",
+                        "file": "files/.lawcheck/law.yaml",
+                        "line": 7
+                      },
+                      "number": 7,
+                      "mark": true
                     }
                   ]
                 }
@@ -510,50 +503,71 @@
               "at": 0.0
             }
           ],
-          "start": 33.9,
-          "end": 40.8
+          "start": 23.0,
+          "end": 34.8
         },
         {
-          "id": "q6",
-          "caption": "The type of one file",
-          "subtitle": "Lawcheck explain names the type of a file.",
+          "id": "q5",
+          "caption": "A file that breaks it",
+          "subtitle": "It imports the command layer, which has no type.",
           "screens": [
             {
               "blocks": [
                 {
-                  "kind": "terminal",
+                  "kind": "file",
+                  "label": {
+                    "text": "src/core/receipt.ts",
+                    "from": {
+                      "take": "qs02",
+                      "file": "terminal.jsonl"
+                    }
+                  },
                   "lines": [
                     {
-                      "prompt": true,
-                      "text": "lawcheck explain src/core/price.ts",
+                      "text": "import { print } from \"../cli/print.js\";",
                       "from": {
-                        "take": "qs01",
-                        "file": "terminal.jsonl"
-                      }
-                    },
-                    {
-                      "text": "src/core/price.ts",
-                      "from": {
-                        "take": "qs01",
-                        "file": "terminal.jsonl"
-                      }
-                    },
-                    {
-                      "mark": true,
-                      "text": "  type:  core  (core)  The business logic.",
-                      "from": {
-                        "take": "qs01",
-                        "file": "terminal.jsonl"
+                        "take": "qs02",
+                        "file": "files/src/core/receipt.ts",
+                        "line": 1
                       },
-                      "now": "qs-explain"
+                      "number": 1,
+                      "mark": true
                     },
                     {
-                      "text": "  matched:  core by \"src/core/**\"",
+                      "text": "",
                       "from": {
-                        "take": "qs01",
-                        "file": "terminal.jsonl"
+                        "take": "qs02",
+                        "file": "files/src/core/receipt.ts",
+                        "line": 2
                       },
-                      "now": "qs-explain"
+                      "number": 2
+                    },
+                    {
+                      "text": "export function receipt(sum: number): void {",
+                      "from": {
+                        "take": "qs02",
+                        "file": "files/src/core/receipt.ts",
+                        "line": 3
+                      },
+                      "number": 3
+                    },
+                    {
+                      "text": "  print(`total: ${sum}`);",
+                      "from": {
+                        "take": "qs02",
+                        "file": "files/src/core/receipt.ts",
+                        "line": 4
+                      },
+                      "number": 4
+                    },
+                    {
+                      "text": "}",
+                      "from": {
+                        "take": "qs02",
+                        "file": "files/src/core/receipt.ts",
+                        "line": 5
+                      },
+                      "number": 5
                     }
                   ]
                 }
@@ -561,13 +575,12 @@
               "at": 0.0
             }
           ],
-          "start": 40.8,
-          "end": 47.0
+          "start": 34.8,
+          "end": 46.3
         },
         {
-          "id": "q7",
-          "caption": "Nothing is forbidden yet",
-          "subtitle": "The check passes. This law forbids nothing yet.",
+          "id": "q6",
+          "caption": "Lawcheck names the line",
           "screens": [
             {
               "blocks": [
@@ -578,17 +591,26 @@
                       "prompt": true,
                       "text": "lawcheck check",
                       "from": {
-                        "take": "qs01",
+                        "take": "qs02",
                         "file": "terminal.jsonl"
                       }
                     },
                     {
-                      "text": "lawcheck: PASS  2 changed files (against origin/main)",
+                      "text": "lawcheck: FAIL  1 error in 4 files (no base: every file counts as changed)",
                       "from": {
-                        "take": "qs01",
+                        "take": "qs02",
                         "file": "terminal.jsonl"
                       },
                       "now": "qs-check"
+                    },
+                    {
+                      "text": "src/core/receipt.ts:1  error[forbidden-use]  core may not use src/cli/print.ts, which has no type; its may_use is [core]",
+                      "from": {
+                        "take": "qs02",
+                        "file": "terminal.jsonl"
+                      },
+                      "now": "qs-check",
+                      "mark": true
                     }
                   ]
                 }
@@ -596,11 +618,11 @@
               "at": 0.0
             }
           ],
-          "start": 47.0,
-          "end": 54.6
+          "start": 46.3,
+          "end": 55.8
         },
         {
-          "id": "q8",
+          "id": "q7",
           "subtitle": "The quick start has these steps as text.",
           "screens": [
             {
@@ -615,7 +637,7 @@
                       "prompt": true,
                       "text": "lawcheck docs quick-start",
                       "from": {
-                        "take": "qs01",
+                        "take": "qs02",
                         "file": "terminal.jsonl"
                       }
                     }
@@ -625,8 +647,8 @@
               "at": 0.0
             }
           ],
-          "start": 54.6,
-          "end": 59.2
+          "start": 55.8,
+          "end": 59.6
         }
       ]
     },

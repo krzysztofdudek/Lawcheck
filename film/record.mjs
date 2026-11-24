@@ -340,23 +340,26 @@ async function recordChapter(options) {
   try {
     if (['global', 'project'].includes(chapter.lawcheck)) must(root, env, 'npm', ['install', '--global', '--no-audit', '--no-fund', options.pack]);
     const onMain = chapter.lawcheck === 'project' ? (seed) => must(seed, env, 'npm', ['install', '--save-dev', '--no-audit', '--no-fund', 'lawcheck@alpha']) : undefined;
-    const { work } = makeChapter(root, options.chapter, env, { root: dirname(FILM), onMain, takeOf: (page) => options.takes[page] ?? fail(`--take ${page}=<folder> names the take the branch builds on`) });
+    const start = chapter.empty ? join(root, 'start') : null;
+    if (start !== null) mkdirSync(start);
+    const work = start ?? makeChapter(root, options.chapter, env, { root: dirname(FILM), onMain, takeOf: (page) => options.takes[page] ?? fail(`--take ${page}=<folder> names the take the branch builds on`) }).work;
     if (chapter.lawcheck === 'project') must(work, env, 'npm', ['ci', '--no-audit', '--no-fund']);
     if (chapter.plugin && !chapter.commands.some((command) => command.startsWith('claude plugin install'))) {
       must(work, env, 'claude', ['plugin', 'marketplace', 'add', 'krzysztofdudek/Lawcheck']);
       must(work, env, 'claude', ['plugin', 'install', 'lawcheck@lawcheck-marketplace']);
     }
-    const start = must(work, env, 'git', ['rev-parse', 'HEAD']).trim();
+    const head = start === null ? must(work, env, 'git', ['rev-parse', 'HEAD']).trim() : null;
     mkdirSync(folder, { recursive: true });
     const commands = chapter.commands.map((command) => command.replace('{prompt}', chapter.prompt));
     const begin = Date.now();
     const session = await terminal(work, env, folder, commands);
+    const repository = start === null ? work : join(start, 'shop');
 
     const transcripts = transcriptsOf(home);
     for (const [index, file] of transcripts.entries()) writeFileSync(join(folder, transcripts.length === 1 ? 'transcript.jsonl' : `transcript-${index + 1}.jsonl`), readFileSync(file));
-    writeFileSync(join(folder, 'change.diff'), diffSince(work, env, start));
-    const changed = changedSince(work, env, start);
-    keepFiles(work, folder, changed);
+    const changed = head === null ? must(repository, env, 'git', ['ls-files', '-z', '--others', '--exclude-standard']).split('\0').filter((path) => path !== '').sort() : changedSince(work, env, head);
+    if (head !== null) writeFileSync(join(folder, 'change.diff'), diffSince(work, env, head));
+    keepFiles(repository, folder, changed);
     const take = {
       id: options.id,
       page: options.chapter,
@@ -375,8 +378,8 @@ async function recordChapter(options) {
       take.check = { exit: check.code, first: check.out.split('\n')[0] };
       cpSync(join(work, '.lawcheck', 'law.yaml'), join(folder, 'law.yaml'));
     }
-    take.candidate = { commit: options.commit, lawcheck: must(work, env, 'lawcheck', ['--version']).trim() };
-    take.versions = { claude_code: must(work, env, 'claude', ['--version']).trim(), node: process.version, models: modelsOf(transcripts), effort: 'medium', plugin: pluginsOf(home) };
+    take.candidate = { commit: options.commit, lawcheck: must(repository, env, 'lawcheck', ['--version']).trim() };
+    take.versions = { claude_code: must(repository, env, 'claude', ['--version']).trim(), node: process.version, models: modelsOf(transcripts), effort: 'medium', plugin: pluginsOf(home) };
     writeFileSync(join(folder, 'take.json'), JSON.stringify(take, null, 2) + '\n');
     process.stdout.write(`${options.id}: ${session.complete ? 'recorded' : 'a command did not end in time'}, ${changed.length} changed files; ${session.marks.slice(1).map((mark) => `exit ${mark.exit}`).join(', ')}\n`);
   } finally {

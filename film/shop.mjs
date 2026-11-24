@@ -22,11 +22,17 @@ function overlay(root, name, into) {
   cpSync(join(root, 'film', 'fixture', 'chapters', name), into, { recursive: true });
 }
 
-// The repository a chapter starts from: the shop, the chapter's law and files on main, its branches, and the one it starts on.
+// The repository a chapter starts from: the shop, the chapter's law and files on main, its branches, and the one it starts on; or, for a chapter that makes its repository as its page does, a new one with no commit.
 // `onMain` runs in the folder of main before its commit; `takeOf(page)` names the folder of the take a branch builds on.
 export function makeChapter(folder, page, env, { root = ROOT, onMain, takeOf } = {}) {
   const chapter = chapterOf(page, root);
   const git = gitIn(env);
+  if (chapter.empty) {
+    const work = join(folder, 'shop');
+    mkdirSync(work, { recursive: true });
+    git(work, 'init', '-q', '-b', 'main');
+    return { chapter, work };
+  }
   const seed = join(folder, 'seed');
   cpSync(join(root, 'film', 'fixture', 'shop'), seed, { recursive: true });
   if (chapter.law !== undefined) {
