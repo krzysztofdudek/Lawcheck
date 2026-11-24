@@ -271,7 +271,7 @@ test('S7-13: the recipes of docs/ci.md turn --json into GitHub annotations and a
   });
 });
 
-test('test 973: the code scanning recipe of docs/ci.md writes the SARIF file from the first check of the workflow, run as written, and uploads it when the check fails too', async () => {
+test('test 1018: the code scanning recipe of docs/ci.md writes the SARIF file from the first check of the workflow, run as written, and uploads it when the check fails too', async () => {
   assert.ok(sections().includes('### 3. Show the findings in GitHub code scanning'));
   const upload = (parse(example('sarif-upload')) as (Step & { if?: string })[])[0]!;
   assert.equal(upload.uses, 'github/codeql-action/upload-sarif@v4');
