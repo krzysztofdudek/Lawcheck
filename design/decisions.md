@@ -306,3 +306,9 @@ Why: with a folder as the law, `init` said `already-initialized` and sent the us
 `.lawcheck/law.yaml` and `.lawcheck/config.yaml` are read through a link, and an error about either quotes none of the file. A rule file under `.lawcheck/rules/` is not: a link there counts as no file, and the error `rule-missing-file` names the link and says that Lawcheck reads no rule through one.
 
 Why: the text of a reviewer rule goes into every prompt, and a script rule runs. A link that a repository commits could lead to a file outside the work tree, such as a key in the home folder, and its text would reach the reviewer. The law and the config send no text to a reviewer, and their errors hide the text. Only the message was false, since it said the rule had neither file.
+
+## Decision (number at merge). A name or path is refused as too long by what its system counts
+
+`explain` refuses a name or a path that cannot exist, and it measures it as the system does: bytes on Linux and macOS (255 for a name, 4,095 for a path), UTF-16 units on Windows (255 and 32,767). A name that exists on a system is never refused as one that cannot.
+
+Why: Windows answers that a name that is too long is missing, not too long, so Lawcheck measures it before it asks. Counting bytes there refused a real name of 86 CJK characters, which is 258 bytes and 86 units.

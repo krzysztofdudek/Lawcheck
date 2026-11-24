@@ -107,6 +107,19 @@ test('S5-6: explain of a path with a segment over 255 bytes is usage as test 245
   });
 });
 
+test('R-93: explain of a name of 86 CJK characters is usage where a name holds 255 bytes, and an answer on Windows, where it holds 255 UTF-16 units', async () => {
+  await withSample(async (s) => {
+    const name = `src/core/${'\u4e2d'.repeat(86)}.ts`;
+    const run = await lawcheck(s, ['explain', name]);
+    if (process.platform === 'win32') {
+      assert.equal(run.code, 0, run.stdout);
+      assert.ok(!run.stdout.includes('cannot exist'), run.stdout);
+    } else {
+      assert.deepEqual([run.code, run.stdout.split('\n')[2]], [2, `error[usage]  the path '${name}' cannot exist here: it is longer than this system allows for a name or a path`]);
+    }
+  });
+});
+
 test('S1-1: a law with src/**/*a*a*a*a*a*a*b.ts and a file named with 240 a ends within the budget', async () => {
   await withSample(async (s) => {
     write(s, '.lawcheck/law.yaml', LAW.replace('paths: ["src/core/**"]', 'paths: ["src/**/*a*a*a*a*a*a*b.ts"]'));

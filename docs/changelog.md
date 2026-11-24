@@ -65,6 +65,8 @@ A `check` or `try` that ends with exit 2 after it sent requests to a reviewer no
 
 A rule file that is a symbolic link now gets its own `rule-missing-file` message, which names the link and says that Lawcheck reads no rule through one. In alpha.4 the message said that the rule had neither file, though the link stood there, and `.lawcheck/law.yaml` and `.lawcheck/config.yaml` as links are still read.
 
+On Windows, `lawcheck explain` no longer refuses with `usage` a name that holds at most 255 UTF-16 units but more than 255 bytes, such as 86 characters of three bytes each. It counted bytes everywhere, so a file that exists on Windows was refused as one that cannot exist. The limit of a path on Windows is 32,767 units, not 4,095 bytes. Linux and macOS keep their limits.
+
 ## [0.1.0-alpha.4] - 2026-11-23
 
 A script rule that uses the network now gets an error from the call itself, on every Node. On Node 24, alpha.3 let the call through. On Node 25 and later, alpha.3 passed Node's refusal to the callback, the `error` event or the promise, so a rule that handled the refusal there passed. The rule runner of alpha.4 closes the network before the rule loads. A rule that connects, listens on a port, sends over UDP, looks up a name in DNS or calls `fetch` gets the error. A rule that does not catch it is `rule-crashed`, with the message `uses the network, which is closed to script rules`.
