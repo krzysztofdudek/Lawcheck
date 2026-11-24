@@ -53,7 +53,7 @@ async function sessionStart(input, deadline) {
   removeOld();
   const root = findRoot(startDir(input));
   const done = (text) => context('SessionStart', text);
-  if (root === null) return done(say.NO_LAW);
+  if (root === null) return done(say.noLaw(host.setup));
   const runner = runnerAt(root);
   if ('bad' in runner) return done(say.badRunner(cutPoints(runner.bad, 40)));
   const result = await runLawcheck(runner, ['prime'], root, deadline);

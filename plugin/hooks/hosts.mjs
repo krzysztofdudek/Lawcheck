@@ -39,12 +39,14 @@ function stringOr(value) {
 
 export const HOSTS = {
   'claude-code': {
+    setup: '/lawcheck:setup',
     promptId: (input) => stringOr(input.prompt_id),
     editedFiles: claudeFiles,
     handBack: (text) => ({ hookSpecificOutput: { hookEventName: 'Stop', additionalContext: text } }),
     switches: { check_after_edit: 'CLAUDE_PLUGIN_OPTION_CHECK_AFTER_EDIT', check_before_stop: 'CLAUDE_PLUGIN_OPTION_CHECK_BEFORE_STOP' },
   },
   codex: {
+    setup: '$lawcheck:setup',
     promptId: (input) => stringOr(input.turn_id),
     editedFiles: patchFiles,
     handBack: (text) => ({ decision: 'block', reason: text }),
