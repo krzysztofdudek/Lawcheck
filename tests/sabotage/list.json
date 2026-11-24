@@ -150,5 +150,29 @@
     "find": "message: `cannot be written (${code})`",
     "replace": "message: `cannot be written`",
     "killedBy": "R-41: a file that cannot be made is file-unwritable, with the code of the failure and the place"
+  },
+  {
+    "id": "types-ignored-file",
+    "promise": "R-44",
+    "file": "src/types.ts",
+    "find": "if (law.ignored.matches(path)) continue;",
+    "replace": "if (law.ignored.matches(path) && false) continue;",
+    "killedBy": "R-44: a file the law ignores is never read or typed, and a binary file is neither typed nor untyped"
+  },
+  {
+    "id": "types-overlap-untyped",
+    "promise": "R-44",
+    "file": "src/types.ts",
+    "find": "if (required && !overlapped) untyped.push(path);",
+    "replace": "if (required) untyped.push(path);",
+    "killedBy": "R-44: a file that matches two types of one level is an overlap, named with its types, and is neither typed nor untyped"
+  },
+  {
+    "id": "types-text-limit-stops",
+    "promise": "R-44",
+    "file": "src/types.ts",
+    "find": "if (error instanceof TextTooLarge) break;",
+    "replace": "if (error instanceof TextTooLarge) continue;",
+    "killedBy": "R-44: files that cannot be read are listed in the order given, and a run past its text limit stops there"
   }
 ]
