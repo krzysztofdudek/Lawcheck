@@ -614,8 +614,8 @@ const FIELDS = [
   '',
 ].join('\n');
 
-function tablesChange(codes: string, fields: string): Report {
-  const repo = baseRepo({ ...BASE, 'docs/codes.md': CODES, 'docs/json.md': FIELDS });
+function tablesChange(codes: string, fields: string, was = FIELDS): Report {
+  const repo = baseRepo({ ...BASE, 'docs/codes.md': CODES, 'docs/json.md': was });
   try {
     writeFileSync(join(repo.dir, 'docs/codes.md'), codes);
     writeFileSync(join(repo.dir, 'docs/json.md'), fields);
@@ -639,7 +639,7 @@ test('question 95: the suite guard, a changed or removed row of the code table o
   assert.match(finding.needs!, / \| owner \|$/);
   assert.deepEqual(promises(tablesChange(CODES.replace(/\| `no-git`.*\n/, ''), FIELDS)), ['docs/codes.md row no-git under "Codes"']);
   assert.deepEqual(promises(tablesChange(CODES, FIELDS.replace('| `result` | the result of two |', '| `result` | another result of two |'))), ['docs/json.md row result under "two/0"']);
-  assert.deepEqual(promises(tablesChange(CODES, FIELDS.replace('the path again', 'the same path'))), ['docs/json.md row path (2) under "one/0"']);
+  assert.deepEqual(promises(tablesChange(CODES, FIELDS.replace('the path again', 'the same path'))), ['docs/json.md row path under "one/0"']);
   assert.deepEqual(promises(tablesChange(CODES.replace('| a note | always | none |', '| a note | never | none |').replace('| `in-a-fence` | exit 2 |', '| `in-a-fence` | exit 1 |'), FIELDS)), ['docs/codes.md block 1 under "Notes"']);
 });
 
@@ -647,4 +647,36 @@ test('question 95: the suite guard, the approval hash of a changed row covers th
   const one = tablesChange(CODES.replace('the files come from git', 'git gives the files'), FIELDS);
   const two = tablesChange(CODES.replace('the files come from git', 'git gives the files and the change'), FIELDS);
   assert.notEqual(one.findings.find((f) => f.kind === 'promise-changed')!.approves, two.findings.find((f) => f.kind === 'promise-changed')!.approves);
+});
+
+const EXPLAIN = [
+  '# JSON',
+  '',
+  '## explain/0',
+  '',
+  '| Field | Value |',
+  '|---|---|',
+  '| `path` | the path of a file |',
+  '',
+  'Between the tables.',
+  '',
+  '| Field | Value |',
+  '|---|---|',
+  '| `path` | the path of a node |',
+  '',
+  'Again.',
+  '',
+  '| Field | Value |',
+  '|---|---|',
+  '| `path` | the path of a type |',
+  '',
+].join('\n');
+
+test('question 95: the suite guard, a table or a row added among rows with the same first cell and heading is no weakening, and a changed or removed one of them is', () => {
+  const inserted = EXPLAIN.replace('Between the tables.', 'Between the tables.\n\n| Field | Value |\n|---|---|\n| `path` | a path that is new |');
+  assert.deepEqual(promises(tablesChange(CODES, inserted, EXPLAIN)), []);
+  const first = EXPLAIN.replace('Between the tables.', 'A table before the second.\n\n| Field | Value |\n|---|---|\n| `extra` | a field that is new |\n| `path` | a path that is new |\n\nBetween the tables.');
+  assert.deepEqual(promises(tablesChange(CODES, first, EXPLAIN)), []);
+  assert.deepEqual(promises(tablesChange(CODES, EXPLAIN.replace('the path of a node', 'the path of a symbol'), EXPLAIN)), ['docs/json.md row path under "explain/0"']);
+  assert.deepEqual(promises(tablesChange(CODES, EXPLAIN.replace('| `path` | the path of a node |\n', ''), EXPLAIN)), ['docs/json.md row path under "explain/0"']);
 });

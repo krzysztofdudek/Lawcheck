@@ -43,14 +43,13 @@ export function tableRows(text: string, header: string): TableRow[] {
   let heading = '';
   let fence: string | null = null;
   let inside = false;
-  const seen = new Map<string, number>();
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]!;
     const marker = /^\s*(`{3,}|~{3,})/.exec(line)?.[1];
     if (fence !== null) { if (marker !== undefined && line.trim().startsWith(fence)) fence = null; continue; }
     if (marker !== undefined) { fence = marker; inside = false; continue; }
     const h = /^#{1,6}\s+(.*)$/.exec(line);
-    if (h) { heading = h[1]!.trim(); inside = false; seen.clear(); continue; }
+    if (h) { heading = h[1]!.trim(); inside = false; continue; }
     const row = cells(line);
     if (!row) { inside = false; continue; }
     if (!inside) {
@@ -58,10 +57,7 @@ export function tableRows(text: string, header: string): TableRow[] {
       if (next && isRule(next) && plain(row[0]!) === header) { inside = true; i++; }
       continue;
     }
-    const first = plain(row[0]!);
-    const n = (seen.get(first) ?? 0) + 1;
-    seen.set(first, n);
-    rows.push({ key: `row ${first}${n > 1 ? ` (${n})` : ''} under "${heading}"`, text: row.join(' | '), line: i + 1 });
+    rows.push({ key: `row ${plain(row[0]!)} under "${heading}"`, text: row.join(' | '), line: i + 1 });
   }
   return rows;
 }

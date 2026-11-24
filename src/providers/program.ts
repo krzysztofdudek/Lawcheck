@@ -4,11 +4,11 @@ import { randomUUID } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { guardedFolder, killGroup, releaseFolder, releaseGroup, startListing, watchGroup } from '../rules.js';
-import { findProgram, startProgram } from '../programs.js';
+import { findProgram, guardedFolder, killGroup, releaseFolder, releaseGroup, startListing, startProgram, watchGroup } from '../programs.js';
 import { MAX_REPLY_BYTES } from './http.js';
 import { variable } from './index.js';
-import type { Asked, Env, Provider } from './index.js';
+import type { Env } from './index.js';
+import type { Asked, Provider } from '../provider.js';
 import { hide } from '../keys.js';
 
 const KILL_AFTER_MS = 5000;

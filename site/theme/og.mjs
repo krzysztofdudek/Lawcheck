@@ -5,7 +5,7 @@ import { css } from '../../brand/css.mjs';
 export const WIDTH = 1200;
 export const HEIGHT = 630;
 export const CATEGORY = 'Architecture checks for coding agents';
-export const FINDING = { place: 'src/core/discount.ts:1', code: 'error[forbidden-use]', text: 'core may not use api (src/api/orders.ts)' };
+export const FINDING = { place: 'src/core/discount.ts:1', code: 'error[forbidden-use]', text: 'core may not use api (src/api/orders.ts); its may_use is [core]' };
 
 const mark = (file) => readFileSync(file, 'utf8').replace('<svg ', '<svg class="mark" ').replace('currentColor', 'var(--lc-brand)');
 
@@ -24,7 +24,7 @@ body { width: ${WIDTH}px; height: ${HEIGHT}px; padding: 72px 80px; display: flex
 .mark { height: 72px; width: auto; }
 .category { font-size: 72px; font-weight: 700; line-height: 1.1; letter-spacing: -0.02em; max-width: 960px; }
 .finding { background: var(--lc-code); border: 2px solid var(--lc-line-lit); border-radius: var(--lc-radius-frame); padding: 28px 36px; font-family: var(--lc-font-mono); font-size: 32px; line-height: 1.5; }
-.finding p { white-space: pre; }
+.finding p { white-space: pre-wrap; text-wrap: balance; }
 .fail { color: var(--lc-fail); }
 .muted { color: var(--lc-text-muted); }
 </style>
