@@ -118,6 +118,8 @@ In a repository with no law, type this in a session:
 
 Only you start it. When you ask for a law in other words, the agent tells you to type `/lawcheck:setup` and writes nothing. The skill follows [Let a coding agent write the first law](agent-setup.md). It describes the folders as types, writes down which type uses which today, and asks you before it forbids a use that the code already makes. It changes only `.lawcheck/` and commits nothing. At the end of its turn the plugin tells you that the agent changed `.lawcheck/law.yaml` ([The end of a turn](plugin.md#the-end-of-a-turn)).
 
+Ask for more in the words you type with the command. With `/lawcheck:setup what could be better here?`, the agent also writes advice: at most three boundaries or rules that the code does not hold today, each with its evidence and its count. With a target in your words, such as `/lawcheck:setup the domain should not use the database`, it writes the law the code should reach and the steps to get there. Both go to files beside the law, `.lawcheck/advice.md` and `.lawcheck/target.md`, and nothing in them is law until you say yes to one item or one step ([The setup skill](plugin.md#the-setup-skill)).
+
 ## If it goes wrong
 
 - The agent gets the message that `lawcheck prime` did not run because `lawcheck was not found`. The plugin found no Lawcheck through the command of the `runner` setting, which is `lawcheck` on your `PATH` by default. Install Lawcheck as [Install Lawcheck](#_1-install-lawcheck) says, then start a new session.

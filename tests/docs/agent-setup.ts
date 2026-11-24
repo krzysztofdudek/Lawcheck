@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { chmodSync, mkdirSync, rmSync } from 'node:fs';
+import { chmodSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { CLI, GIT_ENV, inTemp, lawcheck, newRepository, read, write } from '../acceptance/helpers.ts';
 import { SCENARIO } from '../contract/docs-blocks.ts';
@@ -45,6 +45,8 @@ function measure(page: Page, dir: string, repo: string, keep: string): { code: n
 }
 
 export async function scenario(page: Page): Promise<void> {
+  const intro = readFileSync(new URL('../../docs/agent-setup.md', import.meta.url), 'utf8').split('\n## ')[0]!;
+  assert.ok(intro.includes('Advice on the architecture, and a target architecture with a plan to reach it, come only with the setup skill of the Claude Code plugin ([The setup skill](plugin.md#the-setup-skill)).'), 'the page says that only the skill gives advice and a target');
   const candidate = page.text('block 1 under "5. Measure the uses between types"') + '\n';
   const law = page.text('block 1 under "6. Write the lists that hold today"') + '\n';
   assert.equal(withoutLists(candidate), withoutLists(law), 'step 6 changes only the may_use lists of the candidate');
