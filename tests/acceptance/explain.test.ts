@@ -1,10 +1,10 @@
 import { test } from 'node:test';
 import { exampleText } from '../harness/examples.ts';
 import assert from 'node:assert/strict';
-import { symlinkSync, writeFileSync } from 'node:fs';
+import { readFileSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { withFake } from './fake-reviewer.ts';
-import { F, F_PATH, F_PRIME, inTemp, lawcheck, lawcheckAt, newRepository, PRICING, read, REVIEWER_CONFIG, run, setRule, withCopy, withR, withSample, withU, write } from './helpers.ts';
+import { F, F_PATH, F_PRIME, inTemp, lawcheck, lawcheckAt, newRepository, PRICING, read, REVIEWER_CONFIG, ROOT, run, setRule, withCopy, withR, withSample, withU, write } from './helpers.ts';
 
 const PRICE = exampleText('explain-price');
 const RELEASE = exampleText('explain-release');
@@ -405,5 +405,17 @@ test('test 953: explain --tree stops at a depth and a count of lines and says wh
     const all = await explain(repo, 'src/wide.ts', '--tree', '--json');
     assert.equal(all.code, 0, all.stdout.slice(0, 500));
     assert.equal(JSON.parse(all.stdout).nodes.length, 1 + 21 * statements);
+  });
+});
+
+test('test 954: explain --tree answers with exit 0 under a broken law, which every other explain refuses with exit 2, as the exit-code table of docs/commands.md says', async () => {
+  await inTemp(async (dir) => {
+    const repo = newRepository(dir, { '.lawcheck/law.yaml': 'lawcheck: 0.1.0\nnot a law: [\n', 'src/run.ts': RUN_TS });
+    const tree = await explain(repo, 'src/run.ts', '--tree');
+    assert.equal(tree.code, 0, tree.stdout);
+    assert.match(tree.stdout, /^src\/run\.ts {2}typescript /);
+    for (const args of [['src/run.ts'], ['--type', 'source'], ['--rule', 'no-todo']]) assert.equal((await explain(repo, ...args)).code, 2, args.join(' '));
+    const table = readFileSync(join(ROOT, 'docs', 'commands.md'), 'utf8').split('### Exit codes of explain')[1]!.split('\n## ')[0]!;
+    assert.match(table, /^\| 2 \| no answer: the law is broken \(`--tree` reads no law, so it answers under a broken law\), /m);
   });
 });
