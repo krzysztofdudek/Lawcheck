@@ -49,7 +49,7 @@ export const agents = (): string => fragments.paragraph('README.md', 'Lawcheck',
 
 export function loopLabel(readme: string): string {
   const found = /^\[!\[([^\]]+)\]\(/m.exec(readme);
-  if (!found) throw new Error('site/landing: README.md shows no loop, an image link at its top, whose text the landing page gives the video');
+  if (!found) throw new Error('site/landing: README.md shows no loop, an image link at its top, whose text the landing page gives the video; node film/publish.mjs --release <tag> writes that link, and with --from <folder> it writes it for a preview');
   return found[1]!;
 }
 

@@ -22,7 +22,7 @@ The loop at the top of the README and in the hero of the landing page, and the f
 | `voice.mjs` | speaks the narration of each chapter with a speech service, one file per frame, into a folder outside the repository |
 | `build.mjs` | writes a HyperFrames project for the loop and for each chapter into `film/dist/`, each chapter's subtitles, which are its narrated sentences, and with `--voice <folder>` the narration that `voice.mjs` spoke |
 | `render.mjs` | checks, builds and renders the loop to MP4, WebM and GIF, and each chapter with its narration to MP4, WebVTT and a still, and lists them with their hashes in `chapters.json` |
-| `publish.mjs` | fills `published.json` from the attachments of a release and points the loop at the top of the README at that release |
+| `publish.mjs` | fills `published.json` from the attachments of a release and puts the loop of that release at the top of the README |
 | `published.json` | the loop and the chapters that a release holds as attachments, with the hash of each file; the landing page and the docs site show these |
 | `rebuild.sh` | the same in a clean container, from FFmpeg and Chromium up |
 | `hyperframes/` | the styles, the spec and the last review of the picture |
@@ -62,16 +62,16 @@ The voice is not committed: it is a recording. When the chapters are recorded ag
 
 ## Where the chapters live
 
-The rendered loop and chapters are attachments of a GitHub release, never files of this repository. `published.json` lists them with the release that holds them, the hash of each file and the subtitles as text. The build of the landing page downloads each file, checks its hash and serves it under `/film/`. The hero of the landing page plays the loop, and with no loop listed it shows the refusal `error[forbidden-use]`. The docs site shows a chapter above the page it teaches and plays it from there. The README shows `loop.gif` from the release that `published.json` names.
+The rendered loop and chapters are attachments of a GitHub release, never files of this repository. `published.json` lists them with the release that holds them, the hash of each file and the subtitles as text. The build of the landing page downloads each file, checks its hash and serves it under `/film/`. The hero of the landing page plays the loop, and with no loop listed it shows the refusal `error[forbidden-use]`. The docs site shows a chapter above the page it teaches and plays it from there. The README shows `loop.gif` from the release that `published.json` names, and no loop while it names none.
 
 A release that brings a new film, once the release workflow has made its GitHub release:
 
 1. renders the loop and the chapters with `node film/render.mjs --out <folder>`, which writes the files and `chapters.json`, and lists the loop in it;
 2. attaches every file of that folder to the release, `chapters.json` with them: `gh release upload <tag> <folder>/*`;
-3. runs `node film/publish.mjs --release <tag>`, which reads `chapters.json` from the release, downloads every file it lists and checks its hash, writes `published.json` with `release` set to the tag, and points the image at the top of the README at `loop.gif` of that release;
+3. runs `node film/publish.mjs --release <tag>`, which reads `chapters.json` from the release, downloads every file it lists and checks its hash, writes `published.json` with `release` set to the tag, and puts `loop.gif` of that release at the top of the README, under the heading;
 4. commits `published.json` and the README, and deploys the landing page and the docs again from that commit.
 
-`node film/publish.mjs --release <tag> --from <folder>` takes the files from a folder that `render.mjs` wrote instead, for a check before they are attached. `LAWCHECK_FILM_DIR=<folder>` makes both sites take the loop and the chapters from such a folder, for a preview before a release holds them.
+`node film/publish.mjs --release <tag> --from <folder>` takes the files from a folder that `render.mjs` wrote instead, for a check before they are attached. `LAWCHECK_FILM_DIR=<folder>` makes both sites take the loop and the chapters from such a folder, for a preview before a release holds them. The landing page takes the text of the loop from the README, so a preview with a loop needs the README that `publish.mjs` wrote.
 
 ## What is published of a session
 

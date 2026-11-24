@@ -8,6 +8,10 @@ export const GITHUB = 'https://github.com/krzysztofdudek/Lawcheck';
 const LOOP = /https:\/\/github\.com\/krzysztofdudek\/Lawcheck\/releases\/download\/[^/\s)]+\/loop\.gif/g;
 
 export const loopUrl = (release) => `${GITHUB}/releases/download/${release}/loop.gif`;
+const TITLE = '# Lawcheck\n\n';
+export const LOOP_TEXT = 'Claude Code imports the HTTP handlers into the business logic, and the tests pass. Lawcheck names the line. With the same prompt, the law and the plugin, the agent keeps the layers apart.';
+
+export const loopLine = (release) => `[![${LOOP_TEXT}](${loopUrl(release)})](https://lawcheck.dev)`;
 
 function fail(message) {
   process.stderr.write(`film/publish.mjs: ${message}\n`);
@@ -31,8 +35,10 @@ export async function publishedOf(release, read, where) {
 
 export function readmeWith(readme, release) {
   const found = readme.match(LOOP) ?? [];
-  if (found.length !== 1) throw new Error(`README.md names the loop ${found.length} times, and the release step points exactly one address at it`);
-  return readme.replace(LOOP, loopUrl(release));
+  if (found.length > 1) throw new Error(`README.md names the loop ${found.length} times, and the release step points one address at it`);
+  if (found.length === 1) return readme.replace(LOOP, loopUrl(release));
+  if (!readme.startsWith(TITLE)) throw new Error('README.md does not start with the heading "# Lawcheck", under which the release step puts the loop');
+  return `${TITLE}${loopLine(release)}\n\n${readme.slice(TITLE.length)}`;
 }
 
 export function fromFolder(folder) {

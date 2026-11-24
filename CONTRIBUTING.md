@@ -50,4 +50,4 @@ The tests with a live model, `npm run stability` and `node tests/live/run.ts`, r
 
 ## After the tag
 
-Once the release workflow has made the GitHub release, the film goes onto it: the loop and the chapters are attached, `node film/publish.mjs --release <tag>` lists them in `film/published.json` and points the loop at the top of the README at that release, and the landing page and the docs are deployed again ([film/README.md](film/README.md#where-the-chapters-live)).
+Once the release workflow has made the GitHub release, I attach the loop and the chapters of the film to it. Then I run `node film/publish.mjs --release <tag>`, which lists them in `film/published.json` and puts the loop of that release at the top of the README, and I deploy the landing page and the docs again ([film/README.md](film/README.md#where-the-chapters-live)).
