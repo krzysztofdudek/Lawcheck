@@ -334,18 +334,26 @@ export function judge(repo: string, baseRev: string, headRev: string, config: Co
     add({ kind: 'promise-changed', subject: key, where: findRowFile(before, config, key), detail: snapAfter.invariants.has(key) ? `promise reworded: ${texts[0]} -> ${snapAfter.invariants.get(key)![0]}` : `promise removed: ${texts[0]}`, promise: key });
   }
 
-  const promiseRows = (tree: Tree): Map<string, { text: string; line: number }> => {
-    const out = new Map<string, { text: string; line: number }>();
+  const promiseRows = (tree: Tree): Map<string, Array<{ text: string; line: number }>> => {
+    const out = new Map<string, Array<{ text: string; line: number }>>();
     for (const [file, header] of Object.entries(config.promiseTables ?? {})) {
-      for (const row of tableRows(tree.read(file) ?? '', header)) out.set(`${file} ${row.key}`, { text: row.text, line: row.line });
+      for (const row of tableRows(tree.read(file) ?? '', header)) out.set(`${file} ${row.key}`, [...(out.get(`${file} ${row.key}`) ?? []), { text: row.text, line: row.line }]);
     }
     return out;
   };
   const rowsNow = promiseRows(after);
-  for (const [key, old] of promiseRows(before)) {
-    const now = rowsNow.get(key);
-    if (now?.text === old.text) continue;
-    add({ kind: 'promise-changed', subject: key, where: `${key.split(' row ')[0]}:${old.line}`, detail: now ? `a row of a table of promises changed: ${old.text} -> ${now.text}` : `a row of a table of promises removed: ${old.text}`, state: now?.text ?? 'removed' });
+  for (const [key, olds] of promiseRows(before)) {
+    const unmatched = [...(rowsNow.get(key) ?? [])].map((r) => r.text);
+    const changed: Array<{ text: string; line: number }> = [];
+    for (const old of olds) {
+      const at = unmatched.indexOf(old.text);
+      if (at === -1) changed.push(old);
+      else unmatched.splice(at, 1);
+    }
+    const now = unmatched.sort().join('\n');
+    for (const old of changed) {
+      add({ kind: 'promise-changed', subject: key, where: `${key.split(' row ')[0]}:${old.line}`, detail: now ? `a row of a table of promises changed: ${old.text} -> ${now.replaceAll('\n', ' ; ')}` : `a row of a table of promises removed: ${old.text}`, state: `${old.text}\n=>\n${now || 'removed'}` });
+    }
   }
 
   const blockChanges = (files: string[], kind: 'promise-changed' | 'docs-example-changed'): void => {
