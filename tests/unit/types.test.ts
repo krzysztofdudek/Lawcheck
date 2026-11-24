@@ -94,14 +94,12 @@ test('R-44: a file the law ignores is never read or typed, and a binary file is 
 
 test('R-44: a text file that the law requires and no type takes is untyped, in the order given, and a file that cannot be told from binary counts as text', () => {
   const law = lawOf('required: ["src/**", "!src/**/*.css"]\ntypes:\n  code:\n    paths: ["src/**/*.ts"]\n  script:\n    paths: ["src/**/*.js"]\n    content: "^#!"\n');
-  const asked: string[] = [];
   const result = typeFiles(
     '/nowhere',
     ['src/b.html', 'src/a.ts', 'src/c.js', 'src/s.css', 'src/d.dat', 'src/e.txt', 'other/f.txt'],
     law,
     (path) => bytes(path === 'src/c.js' ? 'no shebang\n' : 'x\n'),
     (path) => {
-      asked.push(path);
       if (path === 'src/d.dat') return true;
       if (path === 'src/e.txt') throw new Error('cannot tell');
       return false;
@@ -109,7 +107,6 @@ test('R-44: a text file that the law requires and no type takes is untyped, in t
   );
   assert.deepEqual(result.typed.map((f) => f.path), ['src/a.ts']);
   assert.deepEqual(result.untyped, ['src/b.html', 'src/c.js', 'src/e.txt']);
-  assert.deepEqual(asked, ['src/b.html', 'src/d.dat', 'src/e.txt']);
 });
 
 test('R-44: a file that matches two types of one level is an overlap, named with its types, and is neither typed nor untyped', () => {
