@@ -1,10 +1,10 @@
 import { execFileSync } from 'node:child_process';
 import type { ChildProcessWithoutNullStreams } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { existsSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { findProgram, killGroup, releaseFolder, releaseGroup, startListing, startProgram, watchFolder, watchGroup } from '../programs.js';
+import { findProgram, guardedFolder, killGroup, releaseFolder, releaseGroup, startListing, startProgram, watchGroup } from '../programs.js';
 import { MAX_REPLY_BYTES } from './http.js';
 import { variable } from './index.js';
 import type { Env } from './index.js';
@@ -174,16 +174,14 @@ function run(program: Program, binary: string, extra: string[], prompt: string, 
     };
     let dir: string;
     try {
-      dir = mkdtempSync(join(tmpdir(), `lawcheck-${program.name}-`));
+      dir = guardedFolder(`lawcheck-${program.name}-`);
     } catch (error) {
       return settle(folderFailure(program.name, error));
     }
-    watchFolder(dir);
     let aside: string | null = null;
     if (program.aside !== undefined) {
       try {
-        aside = mkdtempSync(join(tmpdir(), `lawcheck-${program.name}-aside-`));
-        watchFolder(aside);
+        aside = guardedFolder(`lawcheck-${program.name}-aside-`);
         for (const [name, text] of Object.entries(program.aside)) writeFileSync(join(aside, name), text);
       } catch (error) {
         releaseFolder(dir);
