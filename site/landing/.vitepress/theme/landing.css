@@ -560,15 +560,15 @@ th.group {
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas:
       'text'
-      'film'
-      'install';
+      'install'
+      'film';
     min-height: 0;
     padding-top: 32px;
     padding-bottom: 8px;
   }
 
   .hero-film {
-    margin-bottom: 20px;
+    margin-top: 20px;
   }
 
   .film-frame {
@@ -615,5 +615,17 @@ th.group {
 
   .bar-inner .lc-lockup {
     gap: 8px;
+  }
+
+  .command {
+    flex-wrap: wrap;
+  }
+
+  .command pre {
+    flex-basis: 100%;
+  }
+
+  .command-copy {
+    margin-top: 0;
   }
 }

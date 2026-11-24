@@ -2,7 +2,7 @@
 
 A file of the domain layer imports a file of the command layer. The law forbids that [use](concepts.md#use). A type's `may_use` list names the types its files may use. A file's list in force is the list of its own type, or of the nearest type above it that has one. `lawcheck check` reads the uses of each judged file that has a list in force. It reports each use that the list does not allow as `forbidden-use`.
 
-A reader is the part of Lawcheck that parses the files of one language and reports their uses. The readers come from Runes. Runes is the parsing library that Lawcheck depends on. Each reader loads a grammar. A grammar is a file that describes the syntax of one language. Lawcheck's installation holds 13 grammars.
+A reader is the part of Lawcheck that parses the files of one language and reports their uses. Each reader is a part of Runes, a parsing library that the package manager installs with Lawcheck. Each reader loads a grammar. A grammar is a file that describes the syntax of one language. Lawcheck's installation holds 13 grammars.
 
 ## The languages whose uses are read
 
@@ -68,7 +68,7 @@ To clear the cache, delete `.lawcheck/.local/readers/`. The next run parses ever
 
 A reader resolves a use to the file that the use names. A use that the readers cannot resolve to a single file is unresolved. The readers report some uses as outside the repository, such as a use of the standard library or of an installed package. Lawcheck does not count those uses.
 
-An unresolved use never becomes a finding: Lawcheck neither allows nor forbids it. It never changes the exit code of a run.
+Lawcheck neither allows nor forbids an unresolved use, and the use changes no exit code by itself. One case differs: an `ambiguous` use whose every candidate the list in force forbids. Lawcheck counts that use as unresolved and also reports it as a [`forbidden-use`](codes.md#forbidden-use).
 
 The first line of `check` counts the unresolved uses in the files of the change. Under `--full`, the debt heading counts those of the other files. In `--json`, Lawcheck lists each one with the readers' answer:
 

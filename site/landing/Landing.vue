@@ -26,6 +26,7 @@ const ahead = c.footer.ahead.replace('{version}', data.head.version);
         <div class="hero-text">
           <h1>{{ c.h1 }}</h1>
           <p class="lead" v-html="data.hero.promise" />
+          <p v-html="data.hero.agents" />
           <p class="who" v-html="data.hero.who" />
         </div>
         <Film class="hero-film" :still="data.hero.still" />
@@ -35,7 +36,6 @@ const ahead = c.footer.ahead.replace('{version}', data.head.version);
           <ul class="facts">
             <li v-html="data.hero.support" />
             <li v-html="data.hero.alpha" />
-            <li v-html="data.hero.sends" />
           </ul>
         </div>
       </section>
@@ -106,9 +106,9 @@ const ahead = c.footer.ahead.replace('{version}', data.head.version);
 
       <section class="wrap next" aria-labelledby="try">
         <h2 id="try">{{ data.tryIt.heading }}</h2>
-        <CopyCommand :command="data.tryIt.install" :copy="c.install.copy" :copied="c.install.copied" />
+        <CopyCommand :command="data.tryIt.install" :copy="c.install.copyBoth" :copied="c.install.copied" />
         <p v-html="data.tryIt.plugin" />
-        <CopyCommand :command="data.tryIt.pluginCommands" :copy="c.install.copy" :copied="c.install.copied" />
+        <CopyCommand :command="data.tryIt.pluginCommands" :copy="c.install.copyPlugin" :copied="c.install.copied" />
         <p v-html="data.tryIt.codex" />
         <p v-html="data.tryIt.copilot" />
         <p v-html="data.tryIt.cursor" />

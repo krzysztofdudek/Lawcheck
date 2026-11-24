@@ -6,10 +6,14 @@ nav:
   docs: { text: Docs, page: index }
   github: GitHub
 install:
-  copy: Copy
+  copy: Copy the install command
+  copyBoth: Copy both commands
+  copyPlugin: Copy the plugin commands
   copied: Copied
   quickStart: { text: "Quick start: first finding in five steps", page: quick-start }
-problem: Tests pass. Core imports the API.
+problem: The agent imports the API into the core, and the tests pass
+where: Lawcheck checks in six places
+tryIt: Install Lawcheck and the plugin
 comparison: { text: The whole comparison, page: other-tools }
 holds: { page: adopt-in-an-existing-repository }
 tutorial:
@@ -25,7 +29,7 @@ next:
   npm: lawcheck on npm
 footer:
   released: "Lawcheck {version}, released {date}. MIT license."
-  ahead: "This build of the page also shows text for the next release, so a flag or command named here may not be in {version} yet."
+  ahead: "This page already describes the next release. The changelog lists under Unreleased what {version} does not have."
   docs: { text: Documentation, page: index }
   changelog: { text: Changelog, page: changelog }
   security: Security policy
