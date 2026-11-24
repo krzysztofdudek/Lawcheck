@@ -62,7 +62,7 @@ When a reviewer's answer holds two verdict objects and one of them is a `fail`, 
 
 A `check` or `try` that ends with exit 2 after it sent requests to a reviewer now says how many. The first line ends with the count, such as `lawcheck: ERROR  1 error, 2 reviewer calls`, and the JSON document `lawcheck-error/1` gains `calls_made` when the count is above 0. A program that checks the document against a schema that refuses unknown keys has to allow `calls_made`.
 
-On Windows, when `lawcheck` is killed while a program reviewer runs, it no longer ends a process it did not start. In alpha.4 it could end a process that Windows had given the id of the reviewer program after that program ended, with everything that process started. When PowerShell was slow to list the processes, it could also end the child of an older process that once held that id.
+On Windows, when `lawcheck` is killed while a program reviewer runs, it no longer ends a process it did not start. In alpha.4 it could end a process that Windows had given the id of the reviewer program after that program ended, with everything that process started. When PowerShell was slow to list the processes, it could also end the child of an older process that once held that id. The same holds for a rule's runner: in alpha.4 `lawcheck` ended it by its id, and a process that took that id after the runner ended was ended with it.
 
 ## [0.1.0-alpha.4] - 2026-11-23
 
