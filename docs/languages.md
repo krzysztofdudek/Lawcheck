@@ -60,7 +60,7 @@ A project with no `ProjectReference` to another project does not reach it. A use
 
 Lawcheck keeps what each file of the four groups declares in `.lawcheck/.local/readers/`, one file per group. A later run parses again only the files whose uses it reads and the files that changed since the last run. In a Java repository of 3,267 files, a check of one changed file takes about 0.3 seconds with the cache and 6 seconds without it. In a C# repository of 951 files, it takes about 0.3 seconds with the cache and 4 seconds without it.
 
-An entry of the cache records the path, the text and the grammar of a file, and the versions of Lawcheck and Runes. Lawcheck uses the entry only while all five stay as they were. A check with the cache gives the same output and exit code as a check without it. A damaged cache file counts as empty. So does a cache file larger than 64 MiB. The run then writes the file again.
+Lawcheck finds an entry of the cache by a hash of the path, the text and the grammar of a file, and of the versions of Lawcheck and Runes. Lawcheck uses the entry only while all five stay as they were. A check with the cache gives the same output and exit code as a check without it. A damaged cache file counts as empty. So does a cache file larger than 64 MiB. The run then writes the file again.
 
 Lawcheck neither reads nor writes the cache in these cases:
 
@@ -76,7 +76,7 @@ To clear the cache, delete `.lawcheck/.local/readers/`. The next run parses ever
 
 A reader resolves a use to the file that the use names. A use that the readers cannot resolve to a single file is unresolved. The readers report some uses as outside the repository, such as a use of the standard library or of an installed package. Lawcheck does not count those uses.
 
-Lawcheck neither allows nor forbids an unresolved use. By itself, the use changes no exit code. One case differs. A use is `ambiguous` when it could name several files. Those files are its candidates. When the list in force forbids every candidate, Lawcheck counts the use as unresolved. It also reports the use as a [`forbidden-use`](codes.md#forbidden-use).
+Lawcheck neither allows nor forbids an unresolved use. By itself, the use changes no exit code. One case differs. A use is `ambiguous` when it could name several files of different types, or files with a type and files without one. Those files are its candidates. Lawcheck counts an ambiguous use as unresolved. When the list in force forbids every candidate, Lawcheck also reports the use as a [`forbidden-use`](codes.md#forbidden-use).
 
 The first line of `check` counts the unresolved uses in the files of the [change](concepts.md#change). Under `--full`, the debt heading counts those of the other files. In `--json`, Lawcheck lists each one with the readers' answer:
 

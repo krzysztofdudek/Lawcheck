@@ -55,7 +55,7 @@ types:
 
 ## 3. Add one may_use line
 
-The `may_use` list of a type names other types. The files of the type may [use](concepts.md#use) the files of the types on the list. Add the line `may_use: [core]` to `core`. The whole law is then:
+The `may_use` list of a type names types. The files of the type may [use](concepts.md#use) the files of the types on the list. Add the line `may_use: [core]` to `core`. The whole law is then:
 
 ```yaml
 lawcheck: 0.1.0

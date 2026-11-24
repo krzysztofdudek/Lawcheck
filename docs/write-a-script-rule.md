@@ -244,7 +244,7 @@ The finding in `src/core/cart.ts` is on line 3, the call. Line 1, the comment, h
 
 ## If it goes wrong
 
-- Lawcheck prints `rule-crashed`, and the message says the rule cannot find a package: the rule imports a package that no `node_modules` below the [root of the law](concepts.md#law) holds. A rule may read files only below the root and in Lawcheck's own folder, where npm installed the `lawcheck` package. A monorepo can keep its packages in a `node_modules` above the root, and a rule cannot load them from there. Install the package below the root, or write the code in `.lawcheck/rules/lib/`.
+- Lawcheck prints `rule-crashed`, and the message says the rule cannot find a package: the rule imports a package that no `node_modules` below the [root of the law](concepts.md#law) holds. A rule may read files only below the root and in Lawcheck's own folder, the folder where the `lawcheck` package is installed. A monorepo can keep its packages in a `node_modules` above the root, and a rule cannot load them from there. Install the package below the root, or write the code in `.lawcheck/rules/lib/`.
 - Lawcheck prints `rule-crashed`, and the message holds `passes 30 seconds`: one call of `check` on one file took longer than 30 seconds. Loading the rule module has its own limit of 30 seconds. Make the rule do less work per file.
 - Lawcheck prints `rules-too-slow`: the script rules of one run took over 600 seconds together. List the rule on fewer types, or narrow their paths.
 - Lawcheck prints `rule-crashed` with `writes` or `reads` and a path: the rule wrote a file, or read outside the root. Lawcheck stopped it. A rule may write no file. It may read no file outside the root and Lawcheck's own folder.

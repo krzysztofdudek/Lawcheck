@@ -183,7 +183,7 @@ When the reader fails, these files get `reader-failed`:
 `check` returns a list of [findings](concepts.md#finding), or a promise of one. A finding has these fields:
 
 - `message` is a non-empty string of at most 4,096 characters. Lawcheck turns a line break in it into a space.
-- `line` is optional. When present, it is an integer from 1 to the number of lines of the file. A finding without `line`, or with a `line` of `null`, is about the whole file. Any other value of `line` makes the rule [`rule-crashed`](#rule-crashed), such as a string like `'2'`, a bigint or `1.5`. The message names the value.
+- `line` is optional. When present, it is an integer from 1 to the number of lines of the file. A finding without `line`, or with a `line` of `null`, is about the whole file. Any other value of `line`, such as a string like `'2'`, a bigint or `1.5`, makes the rule [`rule-crashed`](#rule-crashed). The message names the value.
 - `file` is optional. Its one allowed value is the `path` of the call.
 
 Lawcheck ignores other fields, whatever they hold. A rule that returns an empty list reports no finding. Together, the rules of one run may return at most 200,000 findings and 16 MiB of messages. A run past either limit stops with `too-many-findings`. The error names each rule with the number of findings it returned.
@@ -196,7 +196,7 @@ Lawcheck does not load a rule that has no file to judge in the run.
 
 ## The runner
 
-Lawcheck runs each script rule in a Node process of its own. This page calls that process the rule runner. Lawcheck's own folder is the folder where npm installed the `lawcheck` package. The rule runner starts in this state:
+Lawcheck runs each script rule in a Node process of its own. This page calls that process the rule runner. Lawcheck's own folder is the folder where the `lawcheck` package is installed. The rule runner starts in this state:
 
 - Node's flag `--permission` limits its reads to the root and to Lawcheck's own folder;
 - `process.env` is empty, because the rule runner gets none of the caller's variables;

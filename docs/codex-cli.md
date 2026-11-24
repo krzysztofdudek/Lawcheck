@@ -112,7 +112,7 @@ The plugin holds one skill, `lawcheck:setup`. A skill is a set of instructions t
 - It has no settings in Codex. Two environment variables switch its checks off.
 - It is not in Codex's own directory of plugins. It comes from the marketplace of the Lawcheck repository.
 - `codex exec` runs Codex with no interactive window. It does not print the plugin's messages for you. The agent still gets every text. In the Codex window, you see the messages under the turn.
-- The trial ran on Linux, in a container. It did not run on macOS or Windows.
+- [The trial](#the-trial) ran on Linux, in a container. It did not run on macOS or Windows.
 
 ## The trial
 

@@ -21,7 +21,7 @@ With a `runner` setting other than `global`, the package manager starts Lawcheck
 
 The same plugin works in Codex ([Lawcheck in Codex](codex-cli.md)). Its hooks there run on the same events as in Claude Code. In Codex, the tool `apply_patch` takes the place of `Write`, `Edit` and `NotebookEdit`. Codex gives a plugin no settings. The variables `LAWCHECK_PLUGIN_CHECK_AFTER_EDIT` and `LAWCHECK_PLUGIN_CHECK_BEFORE_STOP` take the place of the settings `check_after_edit` and `check_before_stop` ([The settings](#the-settings)).
 
-The plugin works in GitHub Copilot CLI too ([Lawcheck in GitHub Copilot CLI](copilot-cli.md)). In Copilot CLI, the tools `create` and `edit` take the place of `Write`, `Edit` and `NotebookEdit`. The variables `LAWCHECK_PLUGIN_CHECK_AFTER_EDIT` and `LAWCHECK_PLUGIN_CHECK_BEFORE_STOP` take the place of the settings there too. The output of a hook in Copilot CLI has no field for a message to you. The plugin therefore asks the agent to pass its messages on to you.
+The plugin works in GitHub Copilot CLI too ([Lawcheck in GitHub Copilot CLI](copilot-cli.md)). In Copilot CLI, the tools `create`, `edit`, `str_replace_editor` and `apply_patch` take the place of `Write`, `Edit` and `NotebookEdit`. The variables `LAWCHECK_PLUGIN_CHECK_AFTER_EDIT` and `LAWCHECK_PLUGIN_CHECK_BEFORE_STOP` take the place of the settings there too. The output of a hook in Copilot CLI has no field for a message to you. The plugin therefore asks the agent to pass its messages on to you.
 
 Cursor loads the plugin for Claude Code through its support for Claude Code plugins. No session of Cursor has run it ([Lawcheck in Cursor](cursor.md)).
 

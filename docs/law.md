@@ -119,9 +119,8 @@ A non-empty `required` needs at least one pattern without `!`. A pattern that br
 
 `companion` is the path of a JavaScript module (an ES module) in `.lawcheck/rules/lib/`. Only a reviewer rule takes it. For each file that the rule judges, the module returns a list of paths. The files of those paths go into the prompt for that file, after the files of `context`. With `companion: .lawcheck/rules/lib/spec-of-test.mjs`, a rule can send each test to the reviewer with the spec it covers (`lawcheck docs reviewer-rules`).
 
-Lawcheck stops with `law-invalid` when `companion` is one of these:
+On a script rule, `companion` is `law-invalid`. On a reviewer rule, `companion` is `law-invalid` when its path is one of these:
 
-- a key of a script rule;
 - a path outside `.lawcheck/rules/lib/`;
 - a path that git does not list;
 - the path of a binary file.

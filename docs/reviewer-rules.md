@@ -40,7 +40,7 @@ For each file that the rule judges, Lawcheck calls `companion` with the keys `fi
 
 Each file of the list goes into the [prompt](#the-prompt) of that one judged file, after the files of `context`. A path that the prompt already holds, such as the judged file or a file of `context`, goes in once. An empty list adds no file. Each returned file adds its whole text to the prompt, so every call of the rule sends the reviewer more text.
 
-Lawcheck runs the companion in the [rule runner](script-rules.md#the-runner). That is the Node process that runs script rules, and the companion keeps its limits. The companion can read the files below the root. It cannot write a file, start a program or open a network connection. It can ask for the syntax tree and the uses of the judged file. It can therefore return the files that the judged file imports.
+Lawcheck runs the companion in the [rule runner](script-rules.md#the-runner). That is the Node process that runs script rules, and the companion has the same limits as a script rule. The companion can read the files below the root. It cannot write a file, start a program or open a network connection. It can ask for the syntax tree and the uses of the judged file. It can therefore return the files that the judged file imports.
 
 The files the companion returns are part of the [review hash](#verdicts). Lawcheck therefore runs the companion on each check that judges a file of the rule, with or without `--review`. `lawcheck try` and `lawcheck explain` run it too. Its time counts toward the 600 seconds that all script rules of a check may take together.
 
