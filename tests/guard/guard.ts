@@ -411,18 +411,43 @@ export function judge(repo: string, baseRev: string, headRev: string, config: Co
     }
     return found;
   };
+  type Named = Map<string, { count: number; value: number }>;
+  const namesOf = (text: string, values: ReturnType<typeof numbers>): Named => {
+    const found: Named = new Map();
+    const tokens = tokenize(text);
+    for (let k = 0; k < tokens.length; k++) {
+      const t = tokens[k]!;
+      if (t.type !== 'name') continue;
+      if (t.value === 'import' && !(tokens[k - 1]?.type === 'punct' && tokens[k - 1]!.value === '.') && !(tokens[k + 1]?.type === 'punct' && ['(', '.'].includes(tokens[k + 1]!.value))) {
+        while (k < tokens.length && tokens[k]!.type !== 'string') k++;
+        continue;
+      }
+      const named = values.values.get(t.value);
+      if (named?.kind !== 'number' || !t.value.endsWith('_MS') || values.direction(t.value) !== 'lower') continue;
+      found.set(t.value, { count: (found.get(t.value)?.count ?? 0) + 1, value: named.value });
+    }
+    return found;
+  };
   const defaultRun = (() => { const v = numbersBefore.values.get('RUN_BUDGET_MS'); return v?.kind === 'number' ? v.value : 0; })();
-  const namedBudgets = (tree: Tree, file: string, table: ReturnType<typeof numbers>, src: ReturnType<typeof readSource> | undefined): Map<string, number[]> => {
-    const out = new Map<string, number[]>();
+  type Scope = { budgets: number[]; names: Named };
+  const namedBudgets = (tree: Tree, file: string, table: ReturnType<typeof numbers>, src: ReturnType<typeof readSource> | undefined): Map<string, Scope> => {
+    const out = new Map<string, Scope>();
     const text = tree.read(file) ?? '';
+    const joined = (x: Scope, y: Scope): Scope => {
+      const names: Named = new Map(x.names);
+      for (const [name, used] of y.names) names.set(name, { count: (names.get(name)?.count ?? 0) + used.count, value: used.value });
+      return { budgets: [...x.budgets, ...y.budgets], names };
+    };
+    const scope = (body: string): Scope => ({ budgets: budgetsOf(body, table), names: namesOf(body, table) });
     if (src) {
       let outside = text;
       for (const t of src.tests) {
-        out.set(t.id, [...(out.get(t.id) ?? []), ...budgetsOf(t.body, table)]);
+        const seen = out.get(t.id);
+        out.set(t.id, seen ? joined(seen, scope(t.body)) : scope(t.body));
         outside = outside.replace(t.body, '');
       }
-      out.set('', budgetsOf(outside, table));
-    } else out.set('', budgetsOf(text, table));
+      out.set('', scope(outside));
+    } else out.set('', scope(text));
     return out;
   };
   const risen = (now: number[], was: number[]): { from: number; to: number } | null => {
@@ -433,6 +458,13 @@ export function judge(repo: string, baseRev: string, headRev: string, config: Co
     for (let k = 0; k < n; k++) if (after[k]! > before[k]!) return { from: before[k]!, to: after[k]! };
     return null;
   };
+  const risenByName = (now: Named, was: Named): { from: number; to: number; name: string } | null => {
+    const dropped = [...was].filter(([name, w]) => (now.get(name)?.count ?? 0) < w.count).map(([, w]) => w.value);
+    const baseline = dropped.length > 0 ? Math.max(...dropped) : Math.max(defaultRun, ...[...was.values()].map((w) => w.value));
+    const added = [...now].filter(([name]) => !was.has(name)).sort(([, x], [, y]) => y.value - x.value)[0];
+    return added && added[1].value > baseline ? { from: baseline, to: added[1].value, name: added[0] } : null;
+  };
+  const rises = (now: Scope, was: Scope): { from: number; to: number; name?: string } | null => risen(now.budgets, was.budgets) ?? risenByName(now.names, was.names);
   const budgetFiles = [...after.list()].filter((p) => p !== config.numbers && p.startsWith('tests/') && /\.ts$/.test(p) && !matchesAny(p, config.paths.guard)).sort();
   for (const file of budgetFiles) {
     const from = renamedFrom.get(file) ?? file;
@@ -443,9 +475,9 @@ export function judge(repo: string, baseRev: string, headRev: string, config: Co
     const gone = [...wasByTest].filter(([id]) => id !== '' && !nowByTest.has(id));
     for (const [id, now] of nowByTest) {
       const was = wasByTest.get(id);
-      const rise = was !== undefined ? risen(now, was) : id !== '' && gone.length > 0 && gone.every(([, list]) => risen(now, list) !== null) ? risen(now, gone[0]![1]) : null;
+      const rise = was !== undefined ? rises(now, was) : id !== '' && gone.length > 0 && gone.every(([, list]) => rises(now, list) !== null) ? rises(now, gone[0]![1]) : null;
       if (rise) {
-        add({ kind: 'threshold-lowered', subject: file, where: file, detail: `${id ? `the test ${JSON.stringify(id)}` : 'the file outside its tests'} names a larger budget${was === undefined ? ' than any test this change removes from the file' : ''}: ${rise.from} ms -> ${rise.to} ms, a time of ${config.numbers} that a test or the harness picks` });
+        add({ kind: 'threshold-lowered', subject: file, where: file, detail: `${id ? `the test ${JSON.stringify(id)}` : 'the file outside its tests'} names a larger budget${was === undefined ? ' than any test this change removes from the file' : ''}: ${rise.from} ms -> ${rise.to} ms${rise.name ? ` (${rise.name})` : ''}, a time of ${config.numbers} that a test or the harness picks` });
         break;
       }
     }
