@@ -211,7 +211,7 @@ test('test 971: check --sarif names each file from the top of the repository whe
   });
 });
 
-test('test 972: check --sarif writes no file when the check has no result, stops with file-unwritable when it cannot write, and takes no paths', async () => {
+test('test 972: check --sarif writes no file when the check has no result, stops with file-unwritable when it cannot write, takes no paths, and its usage line names it', async () => {
   await inTemp(async (dir) => {
     const repo = newRepository(dir, FILES);
     git(repo, 'checkout', '-q', '-b', 'work');
@@ -240,6 +240,9 @@ test('test 972: check --sarif writes no file when the check has no result, stops
     const bare = await lawcheck(repo, ['check', '--sarif']);
     assert.equal(bare.code, 2);
     assert.match(bare.stdout, /^error\[usage\] {2}the flag --sarif takes a path$/m);
+    const help = await lawcheck(repo, ['check', '--help']);
+    assert.equal(help.stdout.split('\n')[0], 'usage: lawcheck check [--full] [--strict] [--base <ref>] [--review [--again] [--max-calls <n>]] [--sarif <file>] [--json]', 'the usage line names the flag');
+    assert.match(help.stdout, /^ {2}--sarif <file> {5}also write the findings to this file as SARIF 2\.1\.0$/m);
     assert.equal(existsSync(out), false);
   });
 });
