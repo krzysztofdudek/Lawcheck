@@ -115,6 +115,10 @@ export function ticksAt(ms: number): string {
   return String(BigInt(Math.floor(ms)) * 10000n + 621355968000000000n);
 }
 
+export function withTemp(env: Env, temp: string): Env {
+  return { ...Object.fromEntries(Object.entries(env).filter(([name]) => !/^(TMP|TEMP)$/i.test(name))), TMP: temp, TEMP: temp };
+}
+
 export function powershell(): string {
   return systemProgram('WindowsPowerShell\\v1.0\\powershell.exe');
 }
