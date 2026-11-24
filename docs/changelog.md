@@ -36,10 +36,6 @@ With a reviewer rule in the law and no reviewer in `.lawcheck/config.yaml`, `law
 
 The `next:` lines that told the agent to edit `.lawcheck/config.yaml` now tell it to ask you, since `lawcheck prime` leaves every edit of that file to you. This holds for the line after `config-invalid`, after a reviewer that gives no answer in time, after a model the provider does not find, after a reviewer program such as `claude` that fails, and in `lawcheck doctor` after a model that answers the test call wrong and after a `runner` whose program is not on the `PATH`.
 
-When git ignores `.lawcheck/law.yaml`, `lawcheck prime` now says that no commit carries the law, so an agent tells you in every session, not only in the one that ran `lawcheck init`. In alpha.4 only `init` and `lawcheck doctor` said it.
-
-`lawcheck docs write-a-script-rule` gains a last step that rewrites the rule with the syntax tree of the file, so a `fetch()` in a comment is no longer reported.
-
 `lawcheck explain` now says `uses:  none: the file has no script block` for a `.vue` or `.svelte` file that has no script. In alpha.4 it printed `uses:  read as vue`, though Lawcheck reads no language of that name. In `--json`, `uses.language` is `null` for such a file.
 
 A script rule whose callback throws after a `node:crypto` job, such as pbkdf2 or scrypt, that ends after the rule's last result is now `rule-crashed`, as a rule whose timer throws is. In alpha.4 such a rule passed or failed depending on how many other files the run judged.
@@ -47,8 +43,6 @@ A script rule whose callback throws after a `node:crypto` job, such as pbkdf2 or
 A script rule that leaves a timer behind, such as `setTimeout(() => process.exit(1), 20)`, is no longer blamed on the next file it judges. When the rule's process ends, or goes 30 seconds without answering, after a call that left work running, `rule-crashed` now ends with the words "after a call that left work running" and names no file. When the last call that answered left nothing running, the message names the file, even if an earlier call left work that has ended. In alpha.4 the message named the file judged at that moment, so the same rule was blamed on a different file, or on none, depending on which other files the run judged.
 
 A script rule that puts a large value in a field of a finding other than `message`, `file` and `line` no longer ends the run as `memory-too-large`. The run reads those three fields and ignores the rest, as the page on script rules says. A rule that put a function in such a field was `rule-crashed` in alpha.4; now the field is ignored. When a run does pass its memory while a script rule judges files, the error names that rule, and its `next:` line names the types whose files the rule judges. In alpha.4 it named the last git command, and told you to narrow the types with `may_use`.
-
-In the Claude Code plugin, a law error that the agent was shown once comes back after an edit that Lawcheck could check. In alpha.4, a law broken, fixed and broken again the same way within one prompt reached the agent only the first time.
 
 In the Claude Code plugin, a law error that the agent was shown once comes back after an edit under the same law that Lawcheck could check. In alpha.4, a law broken, fixed and broken again the same way within one prompt reached the agent only the first time.
 
