@@ -237,5 +237,11 @@ export async function scenario(page: Page): Promise<void> {
       });
     }],
   ];
-  await atOnce(sections, sections.length, ([name]) => name, ([, section]) => section());
+  const T: string[] = [];
+  const t0 = Date.now();
+  await atOnce(sections, sections.length, ([name]) => name, async ([name, section]) => {
+    await section();
+    T.push(`${name} ${Date.now() - t0}`);
+  });
+  assert.fail('PROBE ci ' + T.join(' | '));
 }
