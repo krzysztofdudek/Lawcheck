@@ -67,7 +67,7 @@ next: fix src/core/total.ts:2
 
 One `apply_patch` can write several files. The plugin then checks them all in one `lawcheck check`.
 
-The check after an edit does not see a file that the agent writes through the shell, such as with a here-document. Codex agents often write files that way. The check before the end of the turn judges every file of the turn, so it catches such a file.
+The check after an edit does not see a file that the agent writes through the shell, such as with a here-document. The check before the end of the turn judges every file of the turn, so it catches such a file.
 
 ## 5. See the check before the agent finishes
 

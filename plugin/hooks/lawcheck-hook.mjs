@@ -85,6 +85,11 @@ async function prompt(input, deadline) {
     state.head = old.head;
     state.files = old.files;
     state.marks = old.marks;
+    if (samePrompt(old.prompt_id, promptOf(input))) {
+      state.prompt_id = promptOf(input) ?? old.prompt_id;
+      state.blocks = old.blocks;
+      state.last = old.last;
+    }
   } else {
     const shot = snapshot(root, deadline);
     if ('problem' in shot) {

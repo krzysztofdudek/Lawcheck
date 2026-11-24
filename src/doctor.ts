@@ -8,7 +8,7 @@ import type { Arguments, Result } from './args.js';
 import type { CheckContext } from './check.js';
 import { CONFIG, runnerLine } from './config.js';
 import type { ReviewerConfig } from './config.js';
-import { gitNext, listFiles, NoGit, showPrefix, workTreeProblem } from './files.js';
+import { GitFailed, gitNext, listFiles, NoGit, showPrefix, workTreeProblem } from './files.js';
 import type { Law } from './law.js';
 import { commandIn, forCommand, nextOfErrors, placeOf, plural, shown, sortErrors } from './output.js';
 import type { ErrorItem } from './output.js';
@@ -19,7 +19,7 @@ import { hide } from './keys.js';
 import type { Env, Provider } from './providers/index.js';
 import { LANGUAGES, loadGrammars, ownersOf, readerOf, readUses, siblingsOf } from './readers.js';
 import type { ScriptView } from './readers.js';
-import { belowPart, configErrors, findRoot, LAW, lawsBelow, lawErrors, onceReader, ruleFileErrors, Stop, theChange, touchesLaw, typingErrors } from './setup.js';
+import { belowPart, configErrors, damagedRepository, findRoot, LAW, lawErrors, lawsBelow, notInitialized, onceReader, ruleFileErrors, Stop, theChange, touchesLaw, typingErrors } from './setup.js';
 import type { Change, Kinds, Read } from './setup.js';
 import type { TypedFile } from './types.js';
 import { extensionOf, listInForce } from './uses.js';
@@ -128,6 +128,8 @@ export async function runChecks(inputs: Inputs): Promise<Check[]> {
     },
     law: () => {
       if (found.root === null) {
+        const left = notInitialized(inputs.cwd);
+        if (left.command !== undefined) return set('law', 'fail', left.message, next(forCommand(left.next!, 'doctor'), left.command));
         const below = lawsBelow(inputs.cwd);
         if (below.length > 0) return set('law', 'fail', `no .lawcheck/law.yaml in this directory or any above it${belowPart(below)}`, next(`cd ${below[0]}, where a law is, then run lawcheck doctor again`));
         return set('law', 'fail', 'no .lawcheck/law.yaml in this directory or any above it', next('lawcheck init  (only when the user wants a law here)'));
@@ -313,7 +315,14 @@ export async function runChecks(inputs: Inputs): Promise<Check[]> {
       set(id, 'skip', `needs ${missing === 'law-file' ? 'law' : missing}`);
       continue;
     }
-    await steps[id]!();
+    try {
+      await steps[id]!();
+    } catch (error) {
+      const damaged = error instanceof GitFailed ? damagedRepository(error) : null;
+      if (damaged === null) throw error;
+      const first = firstOf([damaged]);
+      set(id, 'fail', first.message, first.next);
+    }
   }
   return IDS.map((id) => checks.get(id)!);
 }

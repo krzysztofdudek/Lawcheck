@@ -1,11 +1,14 @@
 import assert from 'node:assert/strict';
-import { git, inTemp, lawcheck, newRepository, write } from '../acceptance/helpers.ts';
+import { git, inTemp, lawcheck, newRepository, read, write } from '../acceptance/helpers.ts';
 import { SCENARIO } from '../contract/docs-blocks.ts';
 import type { Claims, Page } from '../contract/docs-blocks.ts';
 
 export const claims: Claims = {
   'block 1 under "Script rules"': SCENARIO,
   'block 1 under "The syntax tree"': SCENARIO,
+  'block 2 under "The syntax tree"': SCENARIO,
+  'block 3 under "The syntax tree"': SCENARIO,
+  'block 4 under "The syntax tree"': SCENARIO,
   'block 1 under "Trying a rule"': 'tests/acceptance/docs.test.ts > test 129: every page holds what section 7 asks, and its examples are real',
 };
 
@@ -39,5 +42,8 @@ export async function scenario(page: Page): Promise<void> {
       '  why:  eval runs text that nobody reviewed as code.',
       '',
     ].join('\n')]);
+    assert.equal(page.text('block 2 under "The syntax tree"') + '\n', read(repo, 'src/run.ts'));
+    const tree = await lawcheck(repo, page.text('block 3 under "The syntax tree"').replace(/^\$ lawcheck /, '').split(' '));
+    assert.deepEqual([tree.code, tree.stdout], [0, page.text('block 4 under "The syntax tree"') + '\n']);
   });
 }

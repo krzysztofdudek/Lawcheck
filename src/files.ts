@@ -11,7 +11,11 @@ import { step } from './progress.js';
 
 export class NoGit extends Error {}
 
-export class GitFailed extends Error {}
+export class GitFailed extends Error {
+  constructor(message: string, readonly status: number | null = null, readonly printed = '') {
+    super(message);
+  }
+}
 
 interface GitResult {
   status: number;
@@ -114,7 +118,7 @@ function firstPrinted(result: GitResult): string {
 }
 
 function failed(args: string[], result: GitResult): GitFailed {
-  return new GitFailed(`git ${args.join(' ')} exited with ${result.status}: ${firstPrinted(result)}`);
+  return new GitFailed(`git ${args.join(' ')} exited with ${result.status}: ${firstPrinted(result)}`, result.status, firstPrinted(result));
 }
 
 export function splitZ(output: Buffer): string[] {
@@ -133,7 +137,35 @@ export function workTreeProblem(root: string): string | null {
   const result = git(root, args);
   const word = loose.decode(result.stdout).trim();
   if (result.status === 0 && word === 'true') return null;
+  if (result.status === 0 && word === 'false') return 'git does not see a work tree here: this is a bare repository or the inside of a .git folder, which has no files';
   return `git does not see a work tree here: ${firstPrinted(result)}`;
+}
+
+export interface LeftOut {
+  path: string;
+  next: string;
+  command: string;
+}
+
+export function lawLeftOut(cwd: string, law: string): LeftOut | null {
+  try {
+    for (let at = resolve(cwd); ; at = dirname(at)) {
+      const listed = git(at, ['ls-files', '-z', '-t', '--full-name', '--', law]);
+      const end = listed.stdout.indexOf(0);
+      if (listed.status === 0 && end > 2) {
+        const entry = nameOf(listed.stdout.subarray(0, end));
+        if (!entry.startsWith('S ')) return null;
+        const path = entry.slice(2);
+        // Below the top, git sparse-checkout refuses a path in no-cone mode and reads it from the folder in cone mode.
+        const up = loose.decode(git(resolve(cwd), ['rev-parse', '--show-cdup']).stdout).trim().replace(/\/$/, '');
+        const command = `git ${up === '' ? '' : `-C ${quoted(up)} `}sparse-checkout add ${quoted(path.slice(0, path.lastIndexOf('/')))}`;
+        return { path, command, next: `let the sparse checkout take the folder of the law: ${command}, then run lawcheck check` };
+      }
+      if (existsSync(join(at, '.git')) || dirname(at) === at) return null;
+    }
+  } catch {
+    return null;
+  }
 }
 
 function quoted(path: string): string {

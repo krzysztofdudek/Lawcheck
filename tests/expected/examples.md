@@ -367,7 +367,7 @@ note: this change edits the law that judges it: edits .lawcheck/law.yaml without
 usage: lawcheck init [--json]
 usage: lawcheck prime [--json]
 usage: lawcheck check [--full] [--strict] [--base <ref>] [--review [--again] [--max-calls <n>]] [--json]
-usage: lawcheck explain (<path> | --type <id> | --rule <id>) [--json]
+usage: lawcheck explain (<path> [--tree] | --type <id> | --rule <id>) [--json]
 usage: lawcheck try <rule> [<path or pattern>...] [--times <n>] [--dry-run] [--max-calls <n>] [--json]
 usage: lawcheck docs [<topic>] [--json]
 usage: lawcheck doctor [--base <ref>] [--reviewer] [--json]
@@ -489,7 +489,7 @@ next: fix src/core/price.ts:2
   "name": "lawcheck-marketplace",
   "owner": { "name": "Krzysztof Dudek" },
   "description": "Architecture checks for coding agents: the Lawcheck plugin for Claude Code and Codex.",
-  "plugins": [ { "name": "lawcheck", "source": "./plugin", "description": "<description>" } ]
+  "plugins": [ { "name": "lawcheck", "source": "./plugin", "description": "Gives your coding agent the law of the repository at the start of every session, checks each file it writes (with Write, Edit or NotebookEdit in Claude Code, with apply_patch in Codex), and sends it back, up to three times, while the files that changed in its turn break the law. The hooks run Lawcheck and the repository's rule scripts, so use it where you would run the repository's tests." } ]
 }
 ```
 

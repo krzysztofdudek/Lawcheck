@@ -51,7 +51,7 @@ export function selectTargets(root: string, cwd: string, targets: string[], file
   const chosen = new Set<string>();
   const here = repoPath(root, realpathSync(resolve(cwd)));
   class None extends Error {}
-  const none = (word: string, why: string) => (lenient ? new None() : usage(`the target '${word}' selects no file: ${why}`));
+  const none = (word: string, why: string) => (lenient ? new None() : usage(why === 'matches no file' ? `the target '${word}' matches no file` : `the target '${word}' selects no file: ${why}`));
   for (const word of targets) {
     try {
       select(word);

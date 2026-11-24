@@ -214,3 +214,28 @@ test('test 850: the base text of the changed files that hold a waiver is read by
     );
   assert.equal(await starts(20), await starts(2));
 });
+
+test('S1-15: of two waivers of one rule that cover one line, the unused one names the waiver that takes the findings', async () => {
+  await withSample(async (s) => {
+    write(s, D_PATH, 'export function discount(net: number): number {\n  // lawcheck-waive no-console -- the first\n  // lawcheck-waive no-console -- the second\n  console.log(net);\n  return net;\n}\n');
+    const run = await check(s);
+    assert.equal(run.code, 0, run.stdout);
+    assert.deepEqual(findingLines(run.stdout), ["src/core/discount.ts:2  warning[waiver-unused]  the waiver of 'no-console' drops no finding; the waiver on line 3 already drops the findings of that line"]);
+    write(s, D_PATH, 'export function discount(net: number): number {\n  // lawcheck-waive no-console -- the first\n  console.log(net); // lawcheck-waive no-console -- the second\n  return net;\n}\n');
+    const own = await check(s);
+    assert.deepEqual(findingLines(own.stdout), ["src/core/discount.ts:2  warning[waiver-unused]  the waiver of 'no-console' drops no finding; the waiver on line 3 already drops the findings of that line"]);
+  });
+});
+
+test('S1-15: a reason of only invisible characters is no reason, and a reason with a visible word beside one is', async () => {
+  await withSample(async (s) => {
+    for (const invisible of ['\u200b', ' \u200b\u2060 ', '\ufeff', '\u200b\u200d']) {
+      write(s, D_PATH, `export function discount(net: number): number {\n  // lawcheck-waive no-console --${invisible}\n  console.log(net);\n  return net;\n}\n`);
+      const run = await check(s);
+      assert.equal(run.code, 1, JSON.stringify(invisible));
+      assert.deepEqual(findingLines(run.stdout).slice(0, 2), ["src/core/discount.ts:2  error[waiver-without-reason]  the waiver of 'no-console' gives no reason after --", 'src/core/discount.ts:3  error[no-console]  writes to the terminal with console.log'], JSON.stringify(invisible));
+    }
+    write(s, D_PATH, 'export function discount(net: number): number {\n  // lawcheck-waive no-console -- \u200bpricing reads it\n  console.log(net);\n  return net;\n}\n');
+    assert.equal((await check(s)).code, 0);
+  });
+});

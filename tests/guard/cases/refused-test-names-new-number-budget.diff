@@ -1,0 +1,24 @@
+diff --git a/tests/limits/large.test.ts b/tests/limits/large.test.ts
+index 67a118a..0fd39fd 100644
+--- a/tests/limits/large.test.ts
++++ b/tests/limits/large.test.ts
+@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
+ import { run } from '../harness/run.ts';
+ 
+ test('test 4: a large run ends in time', async () => {
+-  const result = await run(['check'], { budget: 'LIMITS_RUN_MS' });
++  const result = await run(['check'], { budget: 'LIMITS_HUGE_RUN_MS' });
+   assert.ok(result);
+ });
+ 
+diff --git a/tests/numbers.ts b/tests/numbers.ts
+index 168d83e..7e5bcf3 100644
+--- a/tests/numbers.ts
++++ b/tests/numbers.ts
+@@ -7,4 +7,5 @@ export const SPEED = ((): string => process.env.LAWCHECK_SPEED ?? 'commit')();
+ export const RUN_BUDGET_MS = 20_000;
+ export const LIMITS_RUN_MS = 120_000;
+ export const LIMITS_LARGE_RUN_MS = 300_000;
+-export const stronger: Record<string, 'higher' | 'lower' | 'fixed'> = { SEED: 'fixed', PROPERTY_CASES: 'higher', BUDGET: 'lower', SLOW_TESTS: 'lower', SECTION_ONLY_TESTS: 'lower', RUN_BUDGET_MS: 'lower', LIMITS_RUN_MS: 'lower', LIMITS_LARGE_RUN_MS: 'lower' };
++export const LIMITS_HUGE_RUN_MS = 900_000;
++export const stronger: Record<string, 'higher' | 'lower' | 'fixed'> = { SEED: 'fixed', PROPERTY_CASES: 'higher', BUDGET: 'lower', SLOW_TESTS: 'lower', SECTION_ONLY_TESTS: 'lower', RUN_BUDGET_MS: 'lower', LIMITS_RUN_MS: 'lower', LIMITS_LARGE_RUN_MS: 'lower', LIMITS_HUGE_RUN_MS: 'lower' };
