@@ -14,7 +14,7 @@ Keep Lawcheck as a dev dependency of the project. Then every job and every hook 
 $ npm install --save-dev lawcheck@alpha
 ```
 
-Commit `package.json`, and the lockfile if the project has one. The jobs and hooks below start Lawcheck with `npx --no-install lawcheck`, the copy that `npm install` put in `node_modules`. It downloads nothing.
+Commit `package.json`, and the lockfile if the project has one. The jobs and hooks below start Lawcheck with `npx --no-install lawcheck`. It starts the copy that `npm install` put in `node_modules`. It downloads nothing.
 
 `npx --no-install lawcheck` works with npm, pnpm, Yarn 1, Yarn 4 (`nodeLinker: node-modules` or `pnpm`) and Bun beside Node, and not with Yarn Plug'n'Play. The job needs Node 24 and git 2.34 or later. On an older Node or git, a command refuses in its first line with `unsupported-environment` ([Supported environments](support.md)).
 
@@ -240,7 +240,7 @@ The job of [Add the workflow](#_2-add-the-workflow) cannot push. Its permissions
 
 GitHub starts no workflow for a push that a job makes with its `GITHUB_TOKEN`. The job of [Add the workflow](#_2-add-the-workflow) therefore skips the commit with the verdicts and runs again on your next push.
 
-The step with the key runs the copy of Lawcheck that the change's own `package.json` and lockfile install. A pull request can therefore change the program that receives the key. Lawcheck passes none of its environment variables to a script rule, so the key is not in its `process.env`.
+The step with the key runs the copy of Lawcheck that the change's own `package.json` and lockfile install. A pull request can therefore change the program that receives the key. Lawcheck passes none of its environment variables to a script rule, so the key is not in the rule's `process.env`.
 
 A pull request of a fork has no secret for that step: see [Pull requests from a fork](#pull-requests-from-a-fork).
 

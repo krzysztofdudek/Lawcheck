@@ -719,7 +719,7 @@ A companion crashes in the same cases. It also crashes when it returns a path th
 
 **Fix**
 
-Under `--law-from <ref>`, the rule that crashed is the one of `<ref>`, and `lawcheck try` runs the work tree's rule, which may pass. The `next:` line says what to do instead. For a rule that imports a file outside `.lawcheck/rules/`, it names `.lawcheck/rules/lib/` on `<ref>` as the place for that file. Make the change on `<ref>`, then run the same command with `--law-from` again.
+Under `--law-from <ref>`, the rule that crashed is the one of `<ref>`, and `lawcheck try` runs the work tree's rule, which may pass. The `next:` line says what to do instead. For a rule that imports a file outside `.lawcheck/rules/`, it names `.lawcheck/rules/lib/` on `<ref>` as the place for that file. For a package above the root, it names a `node_modules` folder below the root, in the work tree. Do what it says, then run the same command with `--law-from` again.
 
 Without `--law-from`, run `lawcheck try <rule> <path>` with the rule and the file that the error names. Edit `.lawcheck/rules/<rule>.mjs` until `try` ends without an error. For a package above the root, install the package in a `node_modules` folder below the root, as the `next:` line says. For a companion, edit its module in `.lawcheck/rules/lib/`, or add the file it names, until `lawcheck try <rule> <path> --dry-run` ends without an error; the dry run calls no reviewer.
 
