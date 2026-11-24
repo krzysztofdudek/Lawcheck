@@ -70,7 +70,7 @@ console.log(`total: ${count(uses.length, 'use')} in ${count(new Set(uses.map((fi
 Write the candidate into that folder as `candidate.yaml`: the whole law, the same as `.lawcheck/law.yaml` except in its types and their `may_use` lists. Then run this as one shell command:
 
 ```text
-$ cp .lawcheck/law.yaml "$KEEP/law.yaml" && cp "$KEEP/candidate.yaml" .lawcheck/law.yaml; lawcheck check --full --base HEAD --json > "$KEEP/report.json"; lawcheck prime > "$KEEP/prime.txt"; cp "$KEEP/law.yaml" .lawcheck/law.yaml && cmp "$KEEP/law.yaml" .lawcheck/law.yaml; node "$KEEP/uses.mjs" < "$KEEP/report.json"; node "$KEEP/total.mjs" < "$KEEP/report.json"; grep -q 'shortened to fit' "$KEEP/prime.txt" && echo 'prime: shortened'
+$ cp .lawcheck/law.yaml "$KEEP/law.yaml" && cp "$KEEP/candidate.yaml" .lawcheck/law.yaml; lawcheck check --full --base HEAD --json > "$KEEP/report.json"; lawcheck prime > "$KEEP/prime.txt"; cp "$KEEP/law.yaml" .lawcheck/law.yaml && cmp "$KEEP/law.yaml" .lawcheck/law.yaml; node "$KEEP/uses.mjs" < "$KEEP/report.json"; node "$KEEP/total.mjs" < "$KEEP/report.json"; if grep -q 'shortened to fit' "$KEEP/prime.txt"; then echo 'prime: shortened'; fi
 ```
 
 It prints the table of the page's part, then one line `total:` with every use the candidate forbids and the files that make them, each file counted once. A last line `prime: shortened` means the candidate does not fit `lawcheck prime` unshortened. The file `$KEEP/report.json` keeps each use with its file, line and type, for a question the table does not answer. Lines that start with an error code mean the candidate is no valid law: fix the candidate, never the code.

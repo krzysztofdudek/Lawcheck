@@ -1139,6 +1139,12 @@ test('test 908: the setup skill has advice and a target, each with its reference
     assert.match(text, /It offers no (advice|target)\.$/m, file);
   }
   assert.ok(SKILL_TEXT('references/target.md').includes('**On a yes to the plan as a whole.** No law changes.'));
+  assert.ok(SKILL_TEXT('references/advice.md').includes('but into the temporary folder, never into `.lawcheck/rules/`'), 'a rule of the advice is measured from the temporary folder, never written as law');
+  for (const heading of ['The rules of a proposal', 'Measure for a proposal']) {
+    assert.ok(skill.includes(`\n## ${heading}\n`), `SKILL.md has the part "${heading}"`);
+    for (const [file] of PROPOSALS) assert.ok(SKILL_TEXT(file).includes(`"${heading}"`), `${file} names the part "${heading}" of SKILL.md`);
+  }
+  assert.doesNotMatch(readFileSync(join(ROOT, 'docs', 'agent-setup.md'), 'utf8'), /advice\.md|target\.md/, 'the page gives no step of the advice or the target, which only the skill gives');
 });
 
 test('test 908: control, a skill file with a second format, or a format that does not say first that it is no law, is caught', () => {
@@ -1186,7 +1192,7 @@ test('test 908: the measurement of a proposal prints the table and the total of 
 
     write(keep, 'candidate.yaml', SETUP_LAW.replace('may_use: [core, api]', 'may_use: [core]').replace('may_use: [db, core]', 'may_use: [db]'));
     const target = shell(dir, repo, keep, lines[0]!);
-    assert.deepEqual([target.stdout, target.stderr], ['core -> api  1 file  1 use\n  src/core/report.ts:1\ndb -> core  1 file  1 use\n  src/db/orders.ts:1\nunresolved uses: none\ntotal: 2 uses in 2 files\n', '']);
+    assert.deepEqual([target.code, target.stdout, target.stderr], [0, 'core -> api  1 file  1 use\n  src/core/report.ts:1\ndb -> core  1 file  1 use\n  src/db/orders.ts:1\nunresolved uses: none\ntotal: 2 uses in 2 files\n', '']);
     assert.equal(read(repo, '.lawcheck/law.yaml'), SETUP_LAW, 'the measurement puts the law back');
     const report = JSON.parse(read(keep, 'report.json')) as { findings: { code: string; file: string }[] };
     assert.deepEqual(report.findings.filter((finding) => finding.code === 'forbidden-use').map((finding) => finding.file).sort(), ['src/core/report.ts', 'src/db/orders.ts']);
@@ -1197,6 +1203,7 @@ test('test 908: the measurement of a proposal prints the table and the total of 
     write(keep, 'candidate.yaml', SETUP_LAW.replace('about: The database access.', `about: ${'The database access. '.repeat(500).trim()}`));
     const long = shell(dir, repo, keep, lines[0]!);
     assert.match(long.stdout, /\nprime: shortened\n$/);
+    assert.equal(long.code, 0, 'a measurement that went well exits 0, whether or not the candidate fits prime');
     assert.equal(read(repo, '.lawcheck/law.yaml'), SETUP_LAW);
 
     write(keep, 'candidate.yaml', 'lawcheck: 0.1.0\n\ntypes:\n  api:\n    paths: ["src/api/**"]\n    may_use: [nothing]\n');

@@ -37,7 +37,7 @@ Take `written` first, because the team already decided it. Then the smallest bil
 ## 4. The bill of each
 
 - A boundary: measure the law with that one change as the candidate. The rows that the law of today did not have are its bill: the files, the uses, and each use by file and line.
-- A script rule: write it as the page's step 8 says, and count its findings as "Measure for a proposal" counts a rule that is not law yet.
+- A script rule: write its code as the page's step 8 says, but into the temporary folder, never into `.lawcheck/rules/`, and count its findings as "Measure for a proposal" counts a rule that is not law yet.
 - Then the lines of law it adds, and the way of the page's part "A boundary the code already breaks" that fits. A boundary that a few files break fits "Forbid it now", with their count as debt. A boundary that many files break fits "Make the exception visible". A rule with findings starts as `status: advisory`.
 
 ## 5. The file
