@@ -66,7 +66,7 @@ test('R-41: init where a law already governs names the law in the words of its o
   await inTemp(async (dir) => {
     const repo = newRepository(dir, { 'packages/api/.lawcheck/law.yaml': 'lawcheck: 0.1.0\n' });
     const run = await lawcheck(repo, ['init']);
-    assert.equal(run.stdout, `lawcheck: ERROR  1 error\n\npackages/api/.lawcheck/law.yaml  error[already-initialized]  a law already governs a directory below this one\n${WHY}\n${NEXT_DOCTOR}`);
+    assert.equal(run.stdout, `lawcheck: ERROR  1 error\n\npackages/api/.lawcheck/law.yaml  error[already-initialized]  a law already governs a directory below this one\n${WHY}\nnext: to govern this folder instead, write .lawcheck/law.yaml here by hand  (lawcheck docs first-law shows how)\n`);
     assert.equal(run.code, 2);
   });
 });

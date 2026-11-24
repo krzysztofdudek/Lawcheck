@@ -364,14 +364,16 @@ test('R-43: a path from the root of the law names a file, and the root itself, a
   }
 });
 
-test('R-43: the root of the law is the nearest folder above with a law file, not a folder of that name', async () => {
+test('R-43: the root of the law is the nearest folder above that holds something at the place of the law file, so a folder there is a law that cannot be read, not no law', async () => {
   await inTemp(async (dir) => {
     const root = join(dir, 'root');
     write(root, '.lawcheck/law.yaml', 'lawcheck: 0.1.0\n');
     mkdirSync(join(root, 'a/b/c'), { recursive: true });
-    mkdirSync(join(root, 'a/.lawcheck/law.yaml'), { recursive: true });
     assert.equal(locate(join(root, 'a/b/c')), realpathSync(root));
-    assert.equal(locate(join(root, 'a')), realpathSync(root));
+    mkdirSync(join(root, 'a/.lawcheck/law.yaml'), { recursive: true });
+    assert.equal(locate(join(root, 'a')), realpathSync(join(root, 'a')));
+    assert.equal(locate(join(root, 'a/b/c')), realpathSync(join(root, 'a')));
+    assert.equal(locate(root), realpathSync(root));
     assert.throws(() => locate(join(dir, 'other')), (error: unknown) => error instanceof Stop && error.errors[0]!.code === 'not-initialized');
   });
 });
@@ -628,7 +630,7 @@ test('R-43: with no base at all, a plain check counts every file, and in a CI jo
           code: 'base-unreachable',
           file: null,
           line: null,
-          message: 'no base in this CI job: no --base, no LAWCHECK_BASE, no variable of the CI service for a pull request or push, and no origin/HEAD, and a plain check without one would count every file as changed',
+          message: 'no base in this CI job: no --base, no LAWCHECK_BASE, no variable of the CI service for a pull request or push, and no origin/HEAD, and a check of the change without one would count every file as changed',
           next: 'pass --base origin/<the branch the change goes into> or set LAWCHECK_BASE, with the history fetched (fetch-depth: 0 in actions/checkout, GIT_DEPTH: 0 in GitLab CI, fetchDepth: 0 in Azure Pipelines); or judge every file with lawcheck check --full',
         }]);
         return true;

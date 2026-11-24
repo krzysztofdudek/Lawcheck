@@ -108,7 +108,13 @@ test('R-39: a repository whose law is below it gets the laws named, and one whos
     const repo = newRepository(dir, { 'pkg/.lawcheck/law.yaml': 'lawcheck: 0.1.0\n', 'pkg2/.lawcheck/law.yaml': 'lawcheck: 0.1.0\n' });
     const checks = await plain(repo);
     assert.deepEqual(check(checks, 'git'), { id: 'git', state: 'ok', message: 'a git work tree', next: null });
-    assert.deepEqual(check(checks, 'law'), { id: 'law', state: 'fail', message: 'no .lawcheck/law.yaml in this directory or any above it; the laws below it are in pkg, pkg2', next: { command: null, text: 'cd pkg, where a law is, then run lawcheck doctor again' } });
+    assert.deepEqual(check(checks, 'law'), {
+      id: 'law',
+      state: 'fail',
+      message: 'no .lawcheck/law.yaml in this directory or any above it; the laws below it are in pkg, pkg2',
+      details: ['to govern this folder instead, write .lawcheck/law.yaml here by hand  (lawcheck docs first-law shows how)'],
+      next: { command: null, text: 'cd pkg, where a law is, then run lawcheck doctor again' },
+    });
     const single = newRepository(join(dir, 'single'), { 'only/.lawcheck/law.yaml': 'lawcheck: 0.1.0\n' });
     assert.equal(check(await plain(single), 'law')!.message, 'no .lawcheck/law.yaml in this directory or any above it; the laws below it are in only');
     const none = newRepository(join(dir, 'none'));
