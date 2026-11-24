@@ -33,6 +33,19 @@ test('test 276: R-83, the memory guard ends a run whose file grows by 384 MiB, a
   assert.equal(typeof availableNow('linux'), 'number');
 });
 
+test('R-79: the readings of a cgroup that charges slab, as the CI runner gives them, leave 450 MiB where only its page cache counted 127, and a kernel that charges no slab gives what the page cache alone gave', () => {
+  const lines = ['anon 583008256', 'file 133169152', 'kernel 357564416', 'shmem 0', 'inactive_file 133169152', 'active_file 0', 'slab_reclaimable 338690048', 'slab_unreclaimable 2097152', 'slab 339738624', ''];
+  const quiet = { rss: 200 * MiB, stepGrowth: 10 * MiB, available: 0, total: 16 * GiB };
+  const withoutSlab = lines.filter((line) => !line.startsWith('slab_reclaimable')).join('\n');
+  assert.equal(withCache(0, withoutSlab, 14 * GiB), 127 * MiB);
+  assert.equal(memoryCase({ ...quiet, available: withCache(0, withoutSlab, 14 * GiB) }), 'system');
+  assert.equal(withCache(0, lines.join('\n'), 14 * GiB), 450 * MiB);
+  assert.equal(memoryCase({ ...quiet, available: withCache(0, lines.join('\n'), 14 * GiB) }), null);
+  const nokmem = ['anon 583008256', 'file 133169152', 'kernel 0', 'shmem 0', 'inactive_file 133169152', 'active_file 0', 'slab_reclaimable 0', 'slab_unreclaimable 0', 'slab 0', ''].join('\n');
+  assert.equal(withCache(0, nokmem, 14 * GiB), 127 * MiB);
+  assert.equal(withCache(0, nokmem, 100 * MiB), 100 * MiB);
+});
+
 const csLaw = (s: string) => writeFileSync(join(s, '.lawcheck/law.yaml'), `${readFileSync(join(s, '.lawcheck/law.yaml'), 'utf8')}  cs:\n    paths: ["cs/app/**"]\n    may_use: [cs]\n`);
 
 test('test 277: a file read only for what it declares that takes too much memory names the step the user can take', async () => {

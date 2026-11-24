@@ -24,7 +24,7 @@ Lawcheck stops with `base-unreachable` and exit 2 in four cases:
 
 A shallow clone holds part of the history. In a shallow clone, or in a clone that did not fetch the base's branch, the message names the `git fetch` command that fetches the base.
 
-With no base, a check on a machine counts every file as changed. Its first line says so. In a CI job, a plain check with no base stops with `base-unreachable`, because without a base it cannot tell the change from [debt](concepts.md#debt). The `next:` line of that error names `--base`, `LAWCHECK_BASE` and `--full` (`lawcheck docs ci`). The history of the base still has to be in the clone: a shallow clone ends as `base-unreachable`, and the `next:` line names the `git fetch` that fixes it.
+With no base, a check on a machine counts every file as changed. Its first line says so. In a CI job, a [check of the change](concepts.md#check-of-the-change) with no base stops with `base-unreachable`, with `--review` too, because without a base it cannot tell the change from [debt](concepts.md#debt). The `next:` line of that error names `--base`, `LAWCHECK_BASE` and `--full` (`lawcheck docs ci`). The history of the base still has to be in the clone: a shallow clone ends as `base-unreachable`, and the `next:` line names the `git fetch` that fixes it.
 
 ## The change
 

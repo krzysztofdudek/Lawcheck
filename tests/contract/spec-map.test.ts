@@ -118,14 +118,14 @@ test('R-61: control, the tables are read strictly, and code fences hide nothing 
   const read = (text: string) => rowsOf({ path: 'spec/x.md', text });
   assert.ok(read(table('# | Do | See', ['| 1 | a | b |', '| 2a | c | d |'])).problems.some((p) => p.includes('"2a"')));
   assert.ok(read(table('# | Do | See', ['| 1 | a | b |', '| `2` | c | d |'])).problems.length > 0);
-  assert.ok(read(table('Step | Do | See', ['| 1 | a | b |', '| 2 | c | d |'])).problems.some((p) => p.includes('looks like an acceptance table')));
+  assert.ok(read(table('Step | Do | See', ['| 1 | a | b |', '| 2 | c | d |'])).problems.some((p) => p.includes('has only numbers in its first column')));
   for (const head of ['ID', 'No', 'Nr', 'Row', 'id']) {
     assert.deepEqual(read(table(`${head} | Do | See`, ['| 7 | a | b |'])).rows.map((r) => r.number), [7], head);
     assert.ok(read(table(`${head} | Do | See`, ['| 7 | a | b |', '| seven | c | d |'])).problems.length > 0, head);
     assert.ok(read(table(`${head} | Do | See`, ['| seven | a | b |'])).problems.length > 0, head);
   }
   assert.ok(read(table('Step | Do | See', ['| 1 | a | b |', '| 2a | c | d |'])).problems.some((p) => p.includes('mixes numbers and other text')));
-  assert.ok(read(table('Step | Do | See', ['| 1 | a | b |'])).problems.some((p) => p.includes('looks like an acceptance table')));
+  assert.ok(read(table('Step | Do | See', ['| 1 | a | b |'])).problems.some((p) => p.includes('has only numbers in its first column')));
   assert.deepEqual(read(['```', '| # | Do | See |', '|---|---|---|', '| 7 | a | b |', '```'].join('\n')), { rows: [], problems: [] });
   const bad = invariantsOf({ path: 'spec/x.md', text: table('Id | Promise | Test', ['| I-frame-1 | p | f.ts |', '| I-Frame-2 | p | f.ts |', '| I-3 | p | f.ts |']) });
   assert.deepEqual(bad.invariants.map((i) => i.id), ['I-frame-1']);
