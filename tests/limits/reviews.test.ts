@@ -1,4 +1,5 @@
 import { test } from 'node:test';
+import { execFileSync } from 'node:child_process';
 import assert from 'node:assert/strict';
 import { closeSync, constants, existsSync, mkdirSync, openSync, readdirSync, readFileSync, rmSync, statSync, utimesSync, watch, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -293,6 +294,37 @@ test('test 1230: a review waiting at the lock while Windows still holds the dele
     });
   });
 });
+
+function stop(path: string, message: string, next: string): string {
+  return ['lawcheck: ERROR  1 error', '', `${path}  error[file-unwritable]  ${message}`, '  why:  what Lawcheck cannot write is lost, so the run cannot say it is done', '', `next: ${next}`, ''].join('\n');
+}
+
+// (AD) is the right to add a subfolder: denied to everyone on .lawcheck/.local alone, it lets the review make files there, so the probe of the folder passes, and refuses the folder of the lock, whose name then is not listed, as a pending delete's is.
+test('test 1260: on Windows a review whose .lawcheck/.local lets it make files but not folders stops at the lock with EPERM at once, with no call', async (t) => {
+  const skip = platformSkip('the whole test');
+  if (skip !== null) return t.skip(skip);
+  await withFake(async (fake) => {
+    await withR(async (r) => {
+      write(r, F_PATH, F_PRIME);
+      const local = join(r, '.lawcheck/.local');
+      mkdirSync(join(local, 'failures'), { recursive: true });
+      writeFileSync(join(local, '.gitignore'), '*\n');
+      execFileSync('icacls', [local, '/deny', '*S-1-1-0:(AD)']);
+      let result: Awaited<ReturnType<typeof run>>;
+      try {
+        assert.throws(() => mkdirSync(join(local, 'verdicts.lock')), { code: 'EPERM' }, 'Windows let a folder be made where adding one is denied');
+        result = await run(r, REVIEW, { env: { LAWCHECK_REVIEWER_ENDPOINT: fake.url }, budget: 'LIMITS_RUN_MS', writes: [/^\.lawcheck\/\.local(\/|$)/] });
+      } finally {
+        execFileSync('icacls', [local, '/remove:d', '*S-1-1-0']);
+      }
+      assert.equal(result.stdout, stop('.lawcheck/.local/verdicts.lock', 'cannot be written (EPERM)', 'let Lawcheck make folders in .lawcheck/.local, then run lawcheck check again'));
+      assert.equal(result.code, 2);
+      assert.equal(fake.requests.length, 0);
+      assert.ok(result.ms < 5_000, `the review waited ${result.ms} ms for a folder it may not make`);
+    });
+  });
+});
+
 // The review makes `.lawcheck/.local/failures` after its check of the file's size and its probe of the folder, and just before it takes the lock; with the lock held by the test it waits there, so the folder's appearing is the event that shows the review is held.
 async function heldAtLock(local: string, review: Promise<unknown>): Promise<void> {
   const failures = join(local, 'failures');
