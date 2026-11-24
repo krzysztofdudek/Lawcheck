@@ -15,6 +15,7 @@ export const claims: Claims = {
   'block 1 under "5. See the check before the agent finishes"': SCENARIO,
   'block 2 under "5. See the check before the agent finishes"': SCENARIO,
   'block 1 under "6. Switch off one of the checks"': SCENARIO,
+  'block 1 under "7. Let the agent write the first law"': SCENARIO,
 };
 
 const read = (path: string): any => JSON.parse(readFileSync(new URL(`../../${path}`, import.meta.url), 'utf8'));
@@ -36,6 +37,10 @@ export async function scenario(page: Page): Promise<void> {
   const values = JSON.parse(configure[1]!) as Record<string, string>;
   assert.deepEqual(Object.keys(values), ['check_after_edit']);
   assert.ok(Object.hasOwn(read('plugin/.claude-plugin/plugin.json').userConfig, 'check_after_edit'));
+  const skill = readFileSync(new URL('../../plugin/skills/setup/SKILL.md', import.meta.url), 'utf8');
+  const step7 = readFileSync(new URL('../../docs/claude-code.md', import.meta.url), 'utf8').split('\n## 7. Let the agent write the first law\n')[1]!.split('\n## ')[0]!;
+  assert.ok(step7.includes('Both go to files beside the law, `.lawcheck/advice.md` and `.lawcheck/target.md`, and nothing in them is law until you say yes to one item or one step'), 'step 7 says where advice and a target go and that they are no law');
+  assert.equal(page.text('block 1 under "7. Let the agent write the first law"'), `/${plugin.name}:${/^name: (\S+)$/m.exec(skill)?.[1]}`, 'the command names the plugin and its skill');
 
   await withBench(async (bench, dir) => {
     const repo = newRepository(dir, { '.lawcheck/law.yaml': page.text('block 1 under "Lawcheck in Claude Code"'), '.lawcheck/rules/no-console.mjs': exampleText('first-law-rule'), 'src/core/price.ts': 'export const price = 1;\n' });

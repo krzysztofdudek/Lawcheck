@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { parse } from 'yaml';
 import { example } from '../harness/examples.ts';
 import { openai, withFake } from './fake-reviewer.ts';
-import { CLI, git, GIT_ENV, inTemp, lawcheck, newRepository, NO_CONSOLE, NO_TODO, write } from './helpers.ts';
+import { append, CLI, findingLines, git, GIT_ENV, inTemp, lawcheck, newRepository, NO_CONSOLE, NO_TODO, withR, write } from './helpers.ts';
 
 interface Step {
   uses?: string;
@@ -81,7 +81,7 @@ test('S7-2: S7-11, the hooks of docs/ci.md start Lawcheck through npx, name a ba
 test('S7-4: the page names the managers, the floors and the refusal of a plain check with no base in CI, and the code does what it says (report S8)', async () => {
   for (const what of ['Yarn 4 (`nodeLinker: node-modules` or `pnpm`)', 'Bun beside Node', "not with Yarn Plug'n'Play", 'Node 24 and git 2.34 or later', 'a command refuses in its first line', '`yarn install --immutable`', '`persist-credentials: false`', '`base-unreachable`', '`LAWCHECK_BASE`', '`--full`']) assert.ok(page.includes(what), what);
   const change = readFileSync(new URL('../../docs/change.md', import.meta.url), 'utf8');
-  for (const what of ['a check on a machine counts every file as changed', 'In a CI job, a plain check with no base stops with `base-unreachable`', 'checks the change a second time with the law of the base']) assert.ok(change.includes(what), what);
+  for (const what of ['a check on a machine counts every file as changed', 'In a CI job, a [check of the change](concepts.md#check-of-the-change) with no base stops with `base-unreachable`, with `--review` too', 'checks the change a second time with the law of the base']) assert.ok(change.includes(what), what);
   await inTemp(async (dir) => {
     const repo = newRepository(dir, { 'src/price.ts': 'export const price = 1;\n', '.lawcheck/law.yaml': 'lawcheck: 0.1.0\n\ntypes:\n  source:\n    about: Everything that ships.\n    paths: ["src/**/*.ts"]\n' });
     const machine = await lawcheck(repo, ['check']);
@@ -292,5 +292,20 @@ test('S7-16: the CI page says doctor is for a machine, and in a job that reads t
       const at = lines.indexOf(shown[0]!);
       assert.ok(at >= 0 && lines[at + 1] === shown[1], doctor.stdout);
     });
+  });
+});
+
+test('S7-14: the CI page says a missing review fails only a changed file, and a check of a change that leaves the bound files alone passes with none', async () => {
+  assert.ok(page.includes('A file that the change leaves alone is not asked about'));
+  await withR(async (r) => {
+    const untouched = await lawcheck(r, ['check', '--base', 'main']);
+    assert.equal(untouched.stdout, 'lawcheck: PASS  nothing changed against main\n');
+    write(r, 'README.md', '# changed\n');
+    const elsewhere = await lawcheck(r, ['check', '--base', 'main']);
+    assert.ok(!elsewhere.stdout.includes('not-reviewed'), elsewhere.stdout);
+    append(r, 'src/core/tax.ts', '// changed\n');
+    const bound = await lawcheck(r, ['check', '--base', 'main']);
+    assert.ok(findingLines(bound.stdout).includes('src/core/tax.ts  error[not-reviewed]  clear-errors has no verdict for this content'), bound.stdout);
+    assert.ok(!bound.stdout.includes('src/core/price.ts  error[not-reviewed]'), bound.stdout);
   });
 });

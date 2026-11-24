@@ -367,7 +367,7 @@ note: this change edits the law that judges it: edits .lawcheck/law.yaml without
 usage: lawcheck init [--json]
 usage: lawcheck prime [--json]
 usage: lawcheck check [--full] [--strict] [--base <ref>] [--review [--again] [--max-calls <n>]] [--json]
-usage: lawcheck explain (<path> | --type <id> | --rule <id>) [--json]
+usage: lawcheck explain (<path> [--tree] | --type <id> | --rule <id>) [--json]
 usage: lawcheck try <rule> [<path or pattern>...] [--times <n>] [--dry-run] [--max-calls <n>] [--json]
 usage: lawcheck docs [<topic>] [--json]
 usage: lawcheck doctor [--base <ref>] [--reviewer] [--json]
@@ -460,7 +460,7 @@ next: fix src/core/price.ts:2
 {
   "name": "lawcheck",
   "version": "0.1.0",
-  "description": "Gives your coding agent the law of the repository at the start of every session, checks each file it writes with Write, Edit or NotebookEdit, and sends it back, up to three times, while the files that changed in its turn break the law. The hooks run Lawcheck and the repository's rule scripts, so use it where you would run the repository's tests.",
+  "description": "Gives your coding agent the law of the repository at the start of every session, checks each file it writes with Write, Edit or NotebookEdit, and sends it back, up to three times, while the files that changed in its turn break the law. The hooks run Lawcheck and the repository's rule scripts, so use it where you would run the repository's tests. Its skill, /lawcheck:setup, writes the first law of a repository from its code and asks you before it forbids a use that the code already makes.",
   "author": { "name": "Krzysztof Dudek", "url": "https://github.com/krzysztofdudek" },
   "homepage": "https://github.com/krzysztofdudek/Lawcheck",
   "repository": "https://github.com/krzysztofdudek/Lawcheck.git",
@@ -488,8 +488,8 @@ next: fix src/core/price.ts:2
 {
   "name": "lawcheck-marketplace",
   "owner": { "name": "Krzysztof Dudek" },
-  "description": "Architecture checks for coding agents: the Lawcheck plugin for Claude Code and Codex.",
-  "plugins": [ { "name": "lawcheck", "source": "./plugin", "description": "<description>" } ]
+  "description": "Architecture checks for coding agents: the Lawcheck plugin for Claude Code, Codex and GitHub Copilot CLI.",
+  "plugins": [ { "name": "lawcheck", "source": "./plugin", "description": "Gives your coding agent the law of the repository at the start of every session, checks each file it writes (with Write, Edit or NotebookEdit in Claude Code, with apply_patch in Codex, with create or edit in Copilot CLI), and sends it back, up to three times, while the files that changed in its turn break the law. The hooks run Lawcheck and the repository's rule scripts, so use it where you would run the repository's tests. Its skill writes the first law of a repository from its code and asks you before it forbids a use that the code already makes; you start it with /lawcheck:setup in Claude Code and in Copilot CLI, and with $lawcheck:setup in Codex." } ]
 }
 ```
 

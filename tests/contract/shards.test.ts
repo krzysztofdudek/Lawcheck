@@ -400,7 +400,7 @@ test('question 95: the start of a run is read from the timestamp GitHub gives, a
   for (const value of ['', 'null', '1763257800', '2026-11-16', '2026-11-16T01:50:00+01:00', '2026-13-45T99:99:99Z']) assert.equal(parseRunStarted(value), null, JSON.stringify(value));
 });
 
-test('question 95: the ledger tie judges only the merged run of Linux, which runs the whole commit set; Windows and macOS are judged without it, whatever the environment held', async () => {
+test('question 95: the run-time tie of tests/contract/tie.ts judges only the merged run of Linux, which runs the whole commit set; Windows and macOS are judged without it, whatever the environment held', async () => {
   const seen: Record<string, string | undefined> = {};
   const before = process.env.LAWCHECK_TIE;
   process.env.LAWCHECK_TIE = '1';

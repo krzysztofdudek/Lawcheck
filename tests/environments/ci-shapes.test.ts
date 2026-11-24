@@ -46,7 +46,7 @@ const FETCH_ALL = 'fetch-depth: 0 in actions/checkout, GIT_DEPTH: 0 in GitLab CI
 const NO_BASE_IN_CI = [
   'lawcheck: ERROR  1 error',
   '',
-  'error[base-unreachable]  no base in this CI job: no --base, no LAWCHECK_BASE, no variable of the CI service for a pull request or push, and no origin/HEAD, and a plain check without one would count every file as changed',
+  'error[base-unreachable]  no base in this CI job: no --base, no LAWCHECK_BASE, no variable of the CI service for a pull request or push, and no origin/HEAD, and a check of the change without one would count every file as changed',
   '  why:  without its base a change cannot be told from debt',
   '',
   `next: pass --base origin/<the branch the change goes into> or set LAWCHECK_BASE, with the history fetched (${FETCH_ALL}); or judge every file with lawcheck check --full`,
@@ -110,7 +110,7 @@ test('S7-6: the variables of CI services count as CI, and CI set to an off word 
 test('S7-6: doctor agrees with check in a CI job with no base', async () => {
   await inTemp(async (dir) => {
     const run = await lawcheck(noBaseClone(dir), ['doctor'], CI);
-    assert.ok(run.stdout.includes('\nfail  base  no base in this CI job: no --base, no LAWCHECK_BASE, no variable of the CI service for a pull request or push, and no origin/HEAD, and a plain check without one would count every file as changed\n'), run.stdout);
+    assert.ok(run.stdout.includes('\nfail  base  no base in this CI job: no --base, no LAWCHECK_BASE, no variable of the CI service for a pull request or push, and no origin/HEAD, and a check of the change without one would count every file as changed\n'), run.stdout);
     assert.equal(run.code, 2);
   });
 });

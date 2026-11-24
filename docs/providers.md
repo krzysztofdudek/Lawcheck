@@ -8,11 +8,11 @@ In the requests below, `<address>` stands for the address of the provider's API.
 
 ## anthropic
 
-Lawcheck sends `POST <address>/messages`. The default `<address>` of `anthropic` is https://api.anthropic.com/v1. The API key goes in the header `x-api-key`, from `ANTHROPIC_API_KEY` or else from `LAWCHECK_REVIEWER_KEY`. The request carries the header `anthropic-version: 2023-06-01`. It asks for at most 8192 tokens. Lawcheck joins the text items of `content` in the reply into one answer.
+Lawcheck sends `POST <address>/messages`. The default `<address>` of `anthropic` is `api.anthropic.com/v1`, over encrypted HTTP. The API key goes in the header `x-api-key`, from `ANTHROPIC_API_KEY` or else from `LAWCHECK_REVIEWER_KEY`. The request carries the header `anthropic-version: 2023-06-01`. It asks for at most 8192 tokens. Lawcheck joins the text items of `content` in the reply into one answer.
 
 ## openai
 
-Lawcheck sends `POST <address>/chat/completions`. The default `<address>` of `openai` is https://api.openai.com/v1. The API key goes in the header `authorization: Bearer <key>`, from `OPENAI_API_KEY` or else from `LAWCHECK_REVIEWER_KEY`. The request asks for a JSON object through `response_format`. Lawcheck reads the answer from the message of the first choice.
+Lawcheck sends `POST <address>/chat/completions`. The default `<address>` of `openai` is `api.openai.com/v1`, over encrypted HTTP. The API key goes in the header `authorization: Bearer <key>`, from `OPENAI_API_KEY` or else from `LAWCHECK_REVIEWER_KEY`. The request asks for a JSON object through `response_format`. Lawcheck reads the answer from the message of the first choice.
 
 ```yaml
 reviewer:
@@ -22,11 +22,11 @@ reviewer:
 
 ## google
 
-Lawcheck sends `POST <address>/models/<model>:generateContent`. The default `<address>` of `google` is https://generativelanguage.googleapis.com/v1beta. The API key goes in the header `x-goog-api-key`, never in the address. Lawcheck takes the key from `GOOGLE_API_KEY` or else from `LAWCHECK_REVIEWER_KEY`. The request asks for `application/json`. Lawcheck joins the text parts of the first candidate into one answer. It leaves out the parts that the model marks as thought.
+Lawcheck sends `POST <address>/models/<model>:generateContent`. The default `<address>` of `google` is `generativelanguage.googleapis.com/v1beta`, over encrypted HTTP. The API key goes in the header `x-goog-api-key`, never in the address. Lawcheck takes the key from `GOOGLE_API_KEY` or else from `LAWCHECK_REVIEWER_KEY`. The request asks for `application/json`. Lawcheck joins the text parts of the first candidate into one answer. It leaves out the parts that the model marks as thought.
 
 ## openai-compatible
 
-This provider calls a server that answers the chat completions API of OpenAI. Lawcheck takes the address of that server from `LAWCHECK_REVIEWER_ENDPOINT`, such as http://gpu-box:8000/v1. Without that variable, a review stops with [`reviewer-unreachable`](codes.md#reviewer-unreachable). Lawcheck sends the server the same request as for `openai`. If the environment holds `LAWCHECK_REVIEWER_KEY`, Lawcheck sends it as `authorization: Bearer <key>`. This provider never reads `OPENAI_API_KEY`.
+This provider calls a server that answers the chat completions API of OpenAI. Lawcheck takes the address of that server from `LAWCHECK_REVIEWER_ENDPOINT`, such as `gpu-box:8000/v1`, over HTTP. Without that variable, a review stops with [`reviewer-unreachable`](codes.md#reviewer-unreachable). Lawcheck sends the server the same request as for `openai`. If the environment holds `LAWCHECK_REVIEWER_KEY`, Lawcheck sends it as `authorization: Bearer <key>`. This provider never reads `OPENAI_API_KEY`.
 
 ## ollama
 
@@ -103,10 +103,10 @@ The program uses its own sign-in, or one of the variables `COPILOT_GITHUB_TOKEN`
 
 With `LAWCHECK_REVIEWER_ENDPOINT` set, Lawcheck sends the requests of all five HTTP providers to its address, in place of their own. The variable holds an `http:` or `https:` address. Lawcheck refuses an address with a user, a password, a query or a fragment. Lawcheck drops the `/` at the end of the address, if there is one. Then it adds the path of the provider:
 
-- `openai` and `openai-compatible` add `/chat/completions`. A server that answers under `/v1` takes an address such as http://gpu-box:8000/v1;
-- `anthropic` adds `/messages`, as it does to its own https://api.anthropic.com/v1;
+- `openai` and `openai-compatible` add `/chat/completions`. A server that answers under `/v1` takes an address such as `gpu-box:8000/v1`, over HTTP;
+- `anthropic` adds `/messages`, as it does to its own `api.anthropic.com/v1`, over encrypted HTTP;
 - `google` adds `/models/<model>:generateContent`;
-- `ollama` adds `/api/chat`. Its address is the server alone, such as http://gpu-box:11434.
+- `ollama` adds `/api/chat`. Its address is the server alone, such as `gpu-box:11434`, over HTTP.
 
 Each request carries two things: the prompt as one user message, and the temperature.
 
@@ -180,7 +180,7 @@ It writes such a key as `[key]` wherever it shows text from outside itself:
 
 Lawcheck shows two kinds of API key as they are: the key in a variable of another provider, and a key shorter than 8 characters. It replaces each exact copy of a hidden key. Lawcheck leaves a prefix of the key, and a copy in percent encoding, unchanged.
 
-A line of `.lawcheck/verdicts` holds a review hash and a rule id ([Reviewer rules](reviewer-rules.md#verdicts)). A person who can commit to the repository can write such a line. Lawcheck reads that line as a pass.
+A line of `.lawcheck/verdicts` holds a review hash and a rule id ([Reviewer rules](reviewer-rules.md#verdicts)). A person who can commit to the repository can write such a line. Under a law without `signers`, Lawcheck reads that line as a pass. Under a law with `signers`, a pass counts only with the signature of a signer the law names. The signing key in `LAWCHECK_SIGNING_KEY` stays on the machine: Lawcheck writes it as `[key]` wherever it would show it, and gives it to no reviewer program ([Signed passes](reviewer-rules.md#signed-passes)).
 
 Lawcheck keeps the reviewer's messages of a failed review on this machine, in `.lawcheck/.local/failures/`.
 

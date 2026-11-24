@@ -82,7 +82,7 @@ An answer is bad when Lawcheck finds in it no object with a `verdict` of `pass` 
 - a finding with no message;
 - a finding with a line outside the file.
 
-A pass is bad too when the answer also holds an object whose `verdict` is neither `pass` nor `fail`, such as `"Fail"`, or an object with the key `verdict` twice. JSON keeps the last of two equal keys, so `{"verdict": "fail", ..., "verdict": "pass"}` would read as a pass.
+A pass is bad too when the answer also holds an object whose `verdict` is neither `pass` nor `fail`, such as `"Fail"`, or an object with the key `verdict` twice. JSON keeps the last of two equal keys, so `{"verdict": "fail", ..., "verdict": "pass"}` would read as a pass. A pass is bad as well when the answer holds a `"verdict": "fail"` outside every object that parses, such as a fail with a trailing comma: the fail may be the real verdict.
 
 After a bad answer, Lawcheck asks the reviewer once more, if the setting `reviewer.max_calls` leaves room for one more request ([Asking the reviewer](#asking-the-reviewer)). A second bad answer stops the run with [`reviewer-bad-answer`](codes.md#reviewer-bad-answer). The run stops with the same code after one bad answer when `reviewer.max_calls` leaves no room.
 
@@ -90,7 +90,7 @@ From a good answer, Lawcheck makes each finding a finding of the rule, at its li
 
 ## Verdicts
 
-A [verdict](concepts.md#verdict) is the reviewer's answer, pass or fail, for one file and one rule. Lawcheck records each pass as a line of `.lawcheck/verdicts`. A line holds the review hash and the rule id. The review hash is a hash of these parts:
+A [verdict](concepts.md#verdict) is the reviewer's answer, pass or fail, for one file and one rule. Lawcheck records each pass as a line of `.lawcheck/verdicts`. A line holds the review hash and the rule id. When the law names signers, the line also holds the signer's name and a signature ([Signed passes](#signed-passes)). The review hash is a hash of these parts:
 
 - the frame;
 - the rule id, its `why` and the text of the rule file;
@@ -113,6 +113,36 @@ Lawcheck keeps the lines of `.lawcheck/verdicts` sorted. Commit this file. A [pl
 Lawcheck writes `verdicts merge=union` into `.lawcheck/.gitattributes`. With that line, git merges `.lawcheck/verdicts` without a conflict when two branches both add lines to it.
 
 Lawcheck holds a lock in `.lawcheck/.local/` while it writes `.lawcheck/verdicts`. When two runs write at once, the file ends with the passes of both.
+
+## Signed passes
+
+A person who can push a branch can write a line into `.lawcheck/verdicts`. The review hash holds nothing secret, so a pull request can add passes for its own files. A reviewer that answers pass to everything records passes too. Under a law without signers, a check counts every such line as a review.
+
+When the law names signers, a pass counts only when a signer of the law signed it. Make a signing key on the machine, or in the job, that records the reviews. This command prints a new key on its first line and the key's public key on its second:
+
+```sh
+node -e "const k = require('node:crypto').generateKeyPairSync('ed25519'); console.log(k.privateKey.export({ format: 'jwk' }).d); console.log(k.publicKey.export({ format: 'jwk' }).x)"
+```
+
+Keep the first line secret, and set it as `LAWCHECK_SIGNING_KEY` where you run `lawcheck check --review`. Lawcheck writes it as `[key]` wherever it would show it, and it gives the variable to no reviewer program. Then name the signer with the second line in `.lawcheck/law.yaml`:
+
+```yaml
+signers:
+  alice: PMAs5_zHsaCR2qES93_G3eFFNwRUCQm6Qz8l5_SnIw8
+```
+
+Under a law with `signers`, a review works this way:
+
+- `lawcheck check --review` signs each pass it records with the key in `LAWCHECK_SIGNING_KEY`. When the variable is not set, or holds the key of no signer of the law, the run stops with [`not-a-signer`](codes.md#not-a-signer) before its first call.
+- A signed line holds the review hash, the rule id, the signer's name and the signature: `<hash> <rule> <signer> <signature>`. The signature is Ed25519 over the text `lawcheck-signed-pass/1 <hash> <rule>`, in base64url.
+- A pass counts when its line names a signer of the law and that signer's key verifies the signature. Lawcheck reports a file with no such line as `not-reviewed`. When the file and rule have a line that does not count, the message says `has a pass for this content that no signer of the law signed`.
+- `--review` asks the reviewer again about each pass that does not count. It signs the answers it gets, and never a line the file already held.
+
+A law without `signers` reads and writes `.lawcheck/verdicts` without signatures. It counts a signed line as a pass too.
+
+A signature proves that someone whose key the law names recorded the pass. A signer can run any reviewer, so name as signers only the people and the jobs that you trust with a review. A review of a pull request asks the reviewer that its `.lawcheck/config.yaml` names, with the Lawcheck that its `package.json` installs, so a signer reads both first. A job in CI runs the workflow of the branch it reviews, so anyone who can push a branch can make a job that holds the key sign any pass. A pull request from a fork gets no secret, so it cannot. In CI, the second check of the workflow reads the law of the base, so the signers of the base decide ([The job trusts the verdicts](ci.md#the-job-trusts-the-verdicts)).
+
+When you add `signers` to a law, the passes already in the file carry no signature, and they stop counting. A plain check judges the changed files, so each file needs one signed review when it next changes. `lawcheck check --strict --review` asks about every file at once. Lawcheck 0.1.0-alpha.4 and older stop on a law with `signers` with `law-invalid`, so every checkout and every job needs a later version first.
 
 ## The failure cache
 

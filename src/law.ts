@@ -1,4 +1,4 @@
-import { isAlias, isMap, isScalar, isSeq, LineCounter, parseDocument, visit } from 'yaml';
+import { isAlias, isMap, isScalar, isSeq, LineCounter, parseDocument, Scalar, visit } from 'yaml';
 import type { Document, Node as YamlNode, Pair, YAMLMap } from 'yaml';
 import { LAW_RULES, LAW_TYPES } from './limits.js';
 import { step } from './progress.js';
@@ -48,6 +48,7 @@ export interface Law {
   byId: Map<string, TypeDef>;
   required: Folders;
   ignored: Folders;
+  signers: Map<string, string> | null;
 }
 
 export interface LawProblem {
@@ -58,9 +59,11 @@ export interface LawProblem {
 
 const ID = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const VERSION = /^\d+\.\d+\.\d+$/;
-const TOP_KEYS = ['lawcheck', 'required', 'ignored', 'rules', 'types'];
+const TOP_KEYS = ['lawcheck', 'required', 'ignored', 'rules', 'types', 'signers'];
 const RULE_KEYS = ['why', 'status', 'context', 'companion'];
 const TYPE_KEYS = ['about', 'paths', 'content', 'rules', 'types', 'may_use', 'waivers'];
+// 32 bytes in base64url without padding: the last of the 43 characters carries 4 bits and two zero bits, so one spelling per key.
+export const KEY_TEXT = /^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$/;
 
 export function distance(a: string, b: string): number {
   const row = Array.from({ length: b.length + 1 }, (_, j) => j);
@@ -167,6 +170,7 @@ class Reader {
     let types: TypeDef[] = [];
     let required = NO_FOLDERS;
     let ignored = NO_FOLDERS;
+    let signers: Map<string, string> | null = null;
     let sawVersion = false;
     for (const pair of top.items) {
       const key = this.keyOf(pair);
@@ -196,6 +200,8 @@ class Reader {
           return { law: null, problems: this.problems };
         }
         types = this.readTypes(value as YAMLMap, null);
+      } else if (key === 'signers') {
+        signers = this.readSigners(value, line);
       } else {
         this.unknown(key, TOP_KEYS, line, 'at the top of the law');
       }
@@ -208,7 +214,27 @@ class Reader {
       if (!this.byId.has(type)) this.problem(line, `'may_use' of type '${owner}' names '${type}', which is no type of the law`);
     }
     if (this.problems.length > 0) return { law: null, problems: this.problems };
-    return { law: { rules: this.rules, types, byId: this.byId, required, ignored }, problems: [] };
+    return { law: { rules: this.rules, types, byId: this.byId, required, ignored, signers }, problems: [] };
+  }
+
+  private readSigners(value: YamlNode | null, line: number): Map<string, string> | null {
+    if (!this.mapping(value, line, "'signers'")) return null;
+    const map = value as YAMLMap;
+    if (map.items.length === 0) {
+      this.problem(line, "'signers' names no signer");
+      return null;
+    }
+    const signers = new Map<string, string>();
+    for (const pair of map.items) {
+      const name = this.keyOf(pair);
+      const at = this.lineOf(pair.key);
+      if (!ID.test(name)) this.problem(at, `the signer name '${name}' is not kebab-case`);
+      const key = this.string(this.resolve(pair.value), at, `the key of signer '${name}'`);
+      if (key === null) continue;
+      if (KEY_TEXT.test(key)) signers.set(name, key);
+      else this.problem(at, `the key of signer '${name}' is no Ed25519 public key: it takes 43 characters of base64url`);
+    }
+    return signers;
   }
 
   private readRules(map: YAMLMap): void {
@@ -406,7 +432,8 @@ class Reader {
       return null;
     }
     if (/[\r\n]/.test(text)) {
-      this.problem(line, `${what} holds a line break`);
+      const kept = isScalar(value) && (value.type === Scalar.BLOCK_FOLDED || value.type === Scalar.BLOCK_LITERAL) && !/[\r\n]/.test(text.replace(/\r?\n$/, ''));
+      this.problem(line, kept ? `${what} holds the line break that ends a block scalar; write the text on one line, or start the block with >- so that the break is dropped` : `${what} holds a line break`);
       return null;
     }
     return text;
@@ -464,4 +491,11 @@ export function takesWaivers(type: TypeDef | null): boolean {
 export function firstLine(error: unknown): string {
   const text = error instanceof Error ? error.message : String(error);
   return text.split(/\r?\n/)[0] ?? '';
+}
+
+export function walk(types: TypeDef[], visit: (type: TypeDef, depth: number) => void, depth = 0): void {
+  for (const type of types) {
+    visit(type, depth);
+    walk(type.types, visit, depth + 1);
+  }
 }

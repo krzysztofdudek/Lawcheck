@@ -1,5 +1,6 @@
 import type { ReviewerConfig } from '../config.js';
-import type { Asked, Env, Provider } from './index.js';
+import type { Env } from './index.js';
+import type { Asked, Provider } from '../provider.js';
 import { failure, programProvider } from './program.js';
 import type { Ended } from './program.js';
 

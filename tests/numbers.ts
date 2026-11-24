@@ -22,6 +22,8 @@ export const LOOP_TARGET_MS = 30_000;
 export const COMMIT_TARGET_MS = 600_000;
 export const LEFTOVER_GRACE_MS = 2_000;
 export const KILLED_GRACE_MS = 5_000;
+// Test 67 on Windows: the guard ends a killed tool's orphans from the first list of processes begun after the kill and waits up to 10 seconds for one, and PowerShell's first list came up to 6.2 seconds after it started on a Windows runner (R-67).
+export const WINDOWS_KILLED_GRACE_MS = 15_000;
 
 // The whole-repository runs of tests/real on hono and gson, and one check --review of the stability fixture, 30 reviewer calls through a real model.
 export const REAL_RUN_BUDGET_MS = 300_000;
@@ -66,6 +68,8 @@ export const RESEND_LEFT_BOUND_MS = 1_500;
 export const SHARED_TIMEOUT_S = 4;
 export const LIST_DELAY_MS = 2_000;
 export const LATE_ANSWER_MS = 3_000;
+// R-76: once the review has reached the lock of the verdicts file that the test holds, how long the test looks for a reviewer call, which a review the lock does not hold makes within moments.
+export const LOCK_HELD_LOOK_MS = 1_000;
 
 // The runs of the limits tests, tests/limits: a run at a limit of the table in docs/config.md; a nightly run of the large inputs; a nightly run that waits for the 600 seconds the script rules of a run may take; and the two seconds a run has to answer a signal.
 export const LIMITS_RUN_MS = 120_000;
@@ -357,7 +361,7 @@ export const SLOW_TESTS: Record<string, Slow> = {
   'tests/acceptance/package.test.ts > release-readiness §Package: package: nothing the tarball or the plugin ships holds a test entry, names one or its variable, or changes the shipped limits and deadlines': { fixed: 0, measured: { win32: 8_163 } },
   'tests/acceptance/uses.test.ts > test 83: a forbidden use outside the change is debt': { fixed: 0, measured: { win32: 8_107 } },
   'tests/acceptance/rule-results.test.ts > S2-6: a rule that leaves an interval of ten minutes judges 200 files within the time of a rule that leaves nothing, plus one wait of 2 seconds': { fixed: 2_000, measured: { win32: 8_035 } },
-  // The longest time of each test that passed a fifth of TEST_BUDGET_MS with no entry for win32 on the Windows runners of CI: the three-times jobs of the Nightlies 43899819915 to 44255743291 and of the Nightly that release run 44027365971 called, every round included, and the Windows commit jobs of CI runs 43918757215 to 44254948562 and of release runs 44027365971, 44159029678 and 44174812849. In round 1 of Nightly 44255743291 a stall of the machine took test 402 from about 6 to 31.9 seconds, so a test of 4 to 8 seconds is as exposed as one past 8. Fixed waits: R-87 of the rules waits PAST_USER_SET_MS, test 58 a reviewer.timeout of 1 second, R-110 the edit hook's test deadline of 3 seconds and half a second more, R-114 a write 2 seconds after the runner has ended, test 270 a worker held 2 seconds, test 253 a lock held up to 3 seconds, and the four tests of tests/security/secrets.test.ts whose reply is first a 429 each wait the 2 seconds before the resend (docs/providers.md).
+  // The longest time of each test that passed a fifth of TEST_BUDGET_MS with no entry for win32 on the Windows runners of CI: the three-times jobs of the Nightlies 43899819915 to 44255743291 and of the Nightly that release run 44027365971 called, every round included, and the Windows commit jobs of CI runs 43918757215 to 44254948562 and of release runs 44027365971, 44159029678 and 44174812849. In round 1 of Nightly 44255743291 a stall of the machine took test 402 from about 6 to 31.9 seconds, so a test of 4 to 8 seconds is as exposed as one past 8. Fixed waits: R-87 of the rules waits PAST_USER_SET_MS, test 58 a reviewer.timeout of 1 second, R-110 the edit hook's test deadline of 3 seconds and half a second more, R-114 a write 2 seconds after the runner has ended, test 270 a worker held 2 seconds, R-76 looks for a reviewer call for 1 second once the review has reached the lock, and the four tests of tests/security/secrets.test.ts whose reply is first a 429 each wait the 2 seconds before the resend (docs/providers.md).
   'tests/acceptance/http-providers.test.ts > test 402: ollama': { fixed: 0, measured: { win32: 31_906 } },
   'tests/acceptance/init.test.ts > test 99: JSON, usage, and already-initialized as a reserved rule id': { fixed: 0, measured: { win32: 19_941 } },
   'tests/acceptance/languages.test.ts > test 88: debt, every finding and unresolved use of L outside the change': { fixed: 0, measured: { win32: 18_315 } },
@@ -470,7 +474,6 @@ export const SLOW_TESTS: Record<string, Slow> = {
   'tests/acceptance/try.test.ts > test 117: directories, patterns and their union': { fixed: 0, measured: { win32: 5_789 } },
   'tests/security/secrets.test.ts > S3-2: a reply of anthropic that echoes the key shows it as [key] in every output and file, for no verdict holding the key (I-secret-1)': { fixed: 0, measured: { win32: 5_706 } },
   'tests/limits/findings.test.ts > test 268: a message of 4,096 characters outside the first plane is a finding, and one more character crashes the rule': { fixed: 0, measured: { win32: 5_658 } },
-  'tests/limits/reviews.test.ts > test 253: two runs that write the verdicts file at once keep the lines of both': { fixed: 3_000, measured: { win32: 5_624 } },
   'tests/acceptance/reviewer.test.ts > test 47: --review asks once, keeps the failure, and the next plain run reads it': { fixed: 0, measured: { win32: 5_619 } },
   'tests/security/secrets.test.ts > S3-2: the key of anthropic appears in no output, file, temporary file or request but its own header, for a reply that is bad answer twice (I-secret-1)': { fixed: 0, measured: { win32: 5_577 } },
   'tests/security/secrets.test.ts > S3-2: the key of anthropic appears in no output, file, temporary file or request but its own header, for a reply that is 500 HTML (I-secret-1)': { fixed: 0, measured: { win32: 5_563 } },
@@ -497,7 +500,6 @@ export const SLOW_TESTS: Record<string, Slow> = {
   'tests/acceptance/law-change.test.ts > test 303: S7-3, the line holds five changes and counts the rest; JSON lists all': { fixed: 0, measured: { win32: 5_194 } },
   'tests/acceptance/reviewer-law.test.ts > test 74: the new flags': { fixed: 0, measured: { win32: 5_194 } },
   'tests/acceptance/reviewer.test.ts > test 50: --full lists the missing reviews of the debt': { fixed: 0, measured: { win32: 5_188 } },
-  'tests/guard/guard.test.ts > question 95: the suite guard, case refused-finding-open-to-question': { fixed: 0, measured: { win32: 5_188 } },
   'tests/security/key-everywhere.test.ts > S3-2: a rule message that quotes a line holding the key shows [key], in text, JSON and try (I-secret-1)': { fixed: 0, measured: { win32: 5_183 } },
   'tests/environments/ci-shapes.test.ts > S7-6: --full needs no base, so it judges every file in CI as it does elsewhere': { fixed: 0, measured: { win32: 5_179 } },
   'tests/acceptance/waiver-key.test.ts > T6: a type with waivers: false reads a waiver marker in its files as text': { fixed: 0, measured: { win32: 5_175 } },
@@ -658,6 +660,7 @@ export const stronger: Record<string, 'higher' | 'lower' | 'fixed'> = {
   COMMIT_TARGET_MS: 'lower',
   LEFTOVER_GRACE_MS: 'lower',
   KILLED_GRACE_MS: 'lower',
+  WINDOWS_KILLED_GRACE_MS: 'lower',
   REAL_RUN_BUDGET_MS: 'lower',
   STABILITY_RUN_BUDGET_MS: 'lower',
   ONE_FILE_CHECK_MS: 'lower',
@@ -691,6 +694,7 @@ export const stronger: Record<string, 'higher' | 'lower' | 'fixed'> = {
   SHARED_TIMEOUT_S: 'fixed',
   LIST_DELAY_MS: 'fixed',
   LATE_ANSWER_MS: 'fixed',
+  LOCK_HELD_LOOK_MS: 'higher',
   HTTP_TIMEOUT_RUN_MS: 'lower',
   HELD_OUTPUT_RUN_MS: 'lower',
   RESEND_WAIT_MS: 'fixed',

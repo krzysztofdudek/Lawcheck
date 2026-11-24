@@ -28,7 +28,7 @@ export function readEntries(text: string): Entry[] {
   });
 }
 
-function findTest(dir: string, id: string): string | null {
+export function findTest(dir: string, id: string): string | null {
   for (const file of globSync('tests/**/*.test.ts', { cwd: dir }).sort()) {
     const path = file.replace(/\\/g, '/');
     if (readSource(readFileSync(join(dir, path), 'utf8')).tests.some((t) => t.id === id || (t.dynamic && namePattern(t.id, true).test(id)))) return path;
@@ -40,26 +40,41 @@ function said(verdict: Verdict): string {
   return verdict === 'did not run' ? 'did not run' : `is ${verdict}`;
 }
 
-function count(text: string, find: string): number {
+export function count(text: string, find: string): number {
   return text.split(find).length - 1;
 }
 
-export function sabotage(root: string, entries: Entry[], log: (line: string) => void = () => {}): Outcome[] {
+export interface Tools {
+  copyWorkingTree(root: string, dir: string): void;
+  linkShared(root: string, dir: string): void;
+  build(dir: string): { ok: boolean; output: string };
+  runTests(dir: string, file: string, patterns: RegExp[]): { tap: string; status: number | null };
+}
+
+const REAL: Tools = { copyWorkingTree, linkShared, build, runTests };
+
+export function sabotage(root: string, entries: Entry[], log: (line: string) => void = () => {}, tools: Tools = REAL): Outcome[] {
   const tmp = tempDir('sabotage');
   try {
-    copyWorkingTree(root, tmp.dir);
-    linkShared(root, tmp.dir);
-    const clean = build(tmp.dir);
+    tools.copyWorkingTree(root, tmp.dir);
+    tools.linkShared(root, tmp.dir);
+    const clean = tools.build(tmp.dir);
     if (!clean.ok) throw new Error(`the unbroken copy does not build:\n${clean.output.trimEnd().split('\n').slice(-20).join('\n')}`);
     const outcomes: Outcome[] = [];
     const baseline = new Map<string, Verdict>();
+    let dirty = false;
     for (const entry of entries) {
       const fail = (detail: string): void => { outcomes.push({ entry, result: 'error', detail }); log(`error     ${entry.id}: ${detail}`); };
       const testFile = findTest(tmp.dir, entry.killedBy);
       if (!testFile) { fail(`no test is named '${entry.killedBy}'`); continue; }
       const pattern = namePattern(entry.killedBy, false);
       if (!baseline.has(entry.killedBy)) {
-        baseline.set(entry.killedBy, verdictOf(readTap(runTests(tmp.dir, testFile, [pattern]).tap), pattern));
+        if (dirty) {
+          const again = tools.build(tmp.dir);
+          if (!again.ok) throw new Error(`the copy does not build again after the earlier break was undone:\n${again.output.trimEnd().split('\n').slice(-20).join('\n')}`);
+          dirty = false;
+        }
+        baseline.set(entry.killedBy, verdictOf(readTap(tools.runTests(tmp.dir, testFile, [pattern]).tap), pattern));
       }
       const before = baseline.get(entry.killedBy)!;
       if (before !== 'green') { fail(`'${entry.killedBy}' ${said(before)} on the unbroken code, so its red would prove nothing`); continue; }
@@ -75,9 +90,10 @@ export function sabotage(root: string, entries: Entry[], log: (line: string) => 
       if (hits !== 1) { fail(`its find text occurs ${hits} times in ${entry.file}, not once`); continue; }
       writeFileSync(path, original.replace(entry.find, () => entry.replace));
       try {
-        const broken = build(tmp.dir);
+        dirty = true;
+        const broken = tools.build(tmp.dir);
         if (!broken.ok) { fail(`the broken code does not build:\n${broken.output.trimEnd().split('\n').slice(-5).join('\n')}`); continue; }
-        const verdict = verdictOf(readTap(runTests(tmp.dir, testFile, [pattern]).tap), pattern);
+        const verdict = verdictOf(readTap(tools.runTests(tmp.dir, testFile, [pattern]).tap), pattern);
         if (verdict === 'red') { outcomes.push({ entry, result: 'killed', detail: `'${entry.killedBy}' is red` }); log(`killed    ${entry.id}`); }
         else { outcomes.push({ entry, result: 'SURVIVED', detail: `'${entry.killedBy}' ${said(verdict)} with the break in place` }); log(`SURVIVED  ${entry.id}`); }
       } finally {

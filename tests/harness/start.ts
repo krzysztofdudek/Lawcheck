@@ -5,7 +5,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, 
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { budgetNamed, KILLED_GRACE_MS, LEFTOVER_GRACE_MS, RUN_BUDGET_MS } from '../numbers.ts';
+import { budgetNamed, KILLED_GRACE_MS, LEFTOVER_GRACE_MS, RUN_BUDGET_MS, WINDOWS_KILLED_GRACE_MS } from '../numbers.ts';
 import { Broken, hasInternal, jsonProblem, outputProblem, stringsOf } from './invariants.ts';
 import { killAll, MARK, Tracker } from './processes.ts';
 import { harnessSkip } from './skips.ts';
@@ -25,6 +25,8 @@ export const DEADLINES_VARIABLE = 'LAWCHECK_TEST_DEADLINES';
 export const TOOL_WITH_LIMITS = join(ROOT_DIR, 'tests', 'harness', 'tool-with-limits.mjs');
 export const LIMITS_VARIABLE = 'LAWCHECK_TEST_LIMITS';
 const WINDOWS = process.platform === 'win32';
+// On Windows the guard ends a killed run's orphans and removes its folders only once a list of processes begun after the kill has come (R-67).
+const KILLED_GRACE = WINDOWS ? WINDOWS_KILLED_GRACE_MS : KILLED_GRACE_MS;
 
 export class CouldNotRun extends Error {
   constructor(missing: string) {
@@ -404,7 +406,7 @@ function launch(start: Start, expect: Expect): Running {
       for (const w of waiting.splice(0)) w.done(Object.assign([''], { index: -1, input: '' }) as RegExpExecArray);
       const problems: [string, string][] = [];
       const killed = sent !== null || overran;
-      const until = Date.now() + (killed ? KILLED_GRACE_MS : LEFTOVER_GRACE_MS);
+      const until = Date.now() + (killed ? KILLED_GRACE : LEFTOVER_GRACE_MS);
       const alone = scope.runs === 1;
       let left = tracker.alive(alone);
       while (left.length > 0 && Date.now() < until) {
@@ -412,11 +414,11 @@ function launch(start: Start, expect: Expect): Running {
         left = tracker.alive(alone);
       }
       if (left.length > 0) {
-        problems.push(['harness-6', `alive ${killed ? KILLED_GRACE_MS : LEFTOVER_GRACE_MS} ms after the run ended: ${tracker.describe(left)}`]);
+        problems.push(['harness-6', `alive ${killed ? KILLED_GRACE : LEFTOVER_GRACE_MS} ms after the run ended: ${tracker.describe(left)}`]);
         killAll(left);
       }
       if (overran) problems.push(['harness-6', `the run did not end within its budget of ${budget} ms`]);
-      const caught = sent !== null && CATCHABLE.includes(sent) && !harnessSkip('a signal the test sent ends the run as the spec says');
+      const caught = sent !== null && CATCHABLE.includes(sent) && !harnessSkip('a signal the test sent ends the run as docs/codes.md says (stopped, exit 2) and as decision 56 says (a hook, exit 0)');
       if (signal !== null && !overran && !(sent === 'SIGKILL' && signal === 'SIGKILL') && !(sent !== null && signal === sent && !caught)) problems.push(['harness-1', `the run died by ${signal}${caught ? `; a caught ${sent} ends the run with an exit code` : ''}`]);
       if (code !== null && ![0, 1, 2].includes(code)) problems.push(['harness-1', `exit code ${code}`]);
       if (caught && signal === null) {
@@ -462,7 +464,7 @@ function launch(start: Start, expect: Expect): Running {
       } else if (start.kind !== 'program' && stderr !== '' && !(byContract !== null && byContract.test(stderr))) {
         problems.push(['harness-4', `standard error is not empty: ${JSON.stringify(stderr.slice(0, 300))}`]);
       }
-      const leftTemp = await waitEmpty(own.temp, Date.now() + (killed ? KILLED_GRACE_MS : LEFTOVER_GRACE_MS));
+      const leftTemp = await waitEmpty(own.temp, Date.now() + (killed ? KILLED_GRACE : LEFTOVER_GRACE_MS));
       if (leftTemp.length > 0) problems.push(['harness-8', `the run left ${leftTemp.slice(0, 10).join(', ')} in its temporary directory`]);
       // Windows makes the folders of a profile (AppData\\Local\\Microsoft\\...) for a program that asks where one is, PowerShell among them; there only a file in the home counts.
       const written = [...tree(own.home).keys()].filter((path) => !WINDOWS || !path.endsWith('/'));

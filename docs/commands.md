@@ -61,7 +61,7 @@ usage: lawcheck init [--json]
 - `.lawcheck/law.yaml`, with an empty law and a short example in comments;
 - `.lawcheck/.gitignore`, with the lines `.local/` and `config.local.yaml`.
 
-`init` overwrites no file. It writes no `.lawcheck/config.yaml`. In a folder below the top of the git work tree, `init` starts a law that covers only the files below that folder. Its output says so in a note. `init` refuses with `already-initialized` in two cases: a law governs this folder from here or from above, or git lists a law below this folder. An extra word after `init` ends it with `usage`. When `.lawcheck` is a file, or a symbolic link to a file or to nothing, `init` stops with `file-unwritable`, names `.lawcheck` and writes nothing.
+`init` overwrites no file. It writes no `.lawcheck/config.yaml`. In a folder below the top of the git work tree, `init` starts a law that covers only the files below that folder. Its output says so in a note. `init` refuses with `already-initialized` in two cases: a law governs this folder from here or from above, or git lists a law below this folder. An extra word after `init` ends it with `usage`. When `.lawcheck` is a file, or a symbolic link to a file or to nothing, `init` stops with `file-unwritable`, names `.lawcheck` and writes nothing. It stops the same way, naming `.lawcheck/.gitignore`, when that is a folder or a symbolic link to nothing. When `.lawcheck/law.yaml` is a folder or a symbolic link to nothing, `init` says `already-initialized`, and `doctor` and `check` say `law-invalid`.
 
 When git ignores `.lawcheck/law.yaml`, because `.gitignore` names `.lawcheck`, `init` still writes the files and exits 0. It adds a `note:` line under the first line: no commit carries the law, so no other checkout has it. The note gives `git check-ignore -v .lawcheck/law.yaml`, which shows the line to remove. With `--json`, `next.text` starts with the same warning.
 
@@ -240,7 +240,7 @@ With `--review`, Lawcheck asks the reviewer about each pair of a file and a revi
 ## explain
 
 ```text
-usage: lawcheck explain (<path> | --type <id> | --rule <id>) [--json]
+usage: lawcheck explain (<path> [--tree] | --type <id> | --rule <id>) [--json]
 ```
 
 `explain` says why a file has the law it has. For a file, it prints:
@@ -282,9 +282,15 @@ src/core/report.ts
 
 ### `<path>`
 
-The path names a file, a file that does not exist yet, a folder, or `.` for the current folder. For a new file, the first line ends with `(does not exist yet)`. For a folder, `explain` counts its files of each type. On a file system that ignores case, `explain` answers for the spelling that git lists.
+The path names a file, a file that does not exist yet, a folder, or `.` for the current folder. For a new file, the first line ends with `(does not exist yet)`. `explain` takes one path and no pattern: `*`, `?`, `[`, `]`, `{` and `}` in a path that no file has are letters of a name, and a last line says so. For a folder, `explain` counts its files of each type. On a file system that ignores case, `explain` answers for the spelling that git lists.
 
-Each name in the path may hold at most 255 bytes. The whole path on disk, with the folders above the root of the law, may hold at most 4,095 bytes. A longer name or path ends the command with `usage`.
+On Linux and macOS, each name in the path may hold at most 255 bytes, and the whole path on disk, with the folders above the root of the law, at most 4,095 bytes. On Windows, each name may hold at most 255 UTF-16 units and the whole path at most 32,767, so a name of 86 characters of three bytes each, which is 258 bytes, is a name there. A longer name or path ends the command with `usage`.
+
+### --tree
+
+`--tree` prints the syntax tree of one file, as a script rule gets it from `await file.tree()` ([Script rules](script-rules.md#the-syntax-tree) has an example). The first line names the file, its language, the count of nodes and the count of named nodes. Each line below is a named node, indented under its parent, with its field, its type and its line. A node with no named node below it also shows its text. The output stops at 12 levels, where a line says how many named nodes lie below it, and at 200 nodes, where the last line says how many follow. With `--json`, the document holds every node.
+
+The tree depends on the file's path and text, so `--tree` also prints the tree of a file that git does not track and of a file with no type. It reads no law. A file with no tree gets one line with the reason, `no-reader`, `too-large` or `reader-failed`, and exit 0. A folder, a file that does not exist, a symbolic link and a binary file end the command with `usage`.
 
 ### --type `<id>`
 
@@ -311,14 +317,14 @@ For an id that the law does not have, the command ends with `usage`. When a rule
 
 ### --json
 
-`--json` prints the document `lawcheck-explain/0`, with every file. The text output lists 50 files.
+`--json` prints the document `lawcheck-explain/0`, with every file. The text output lists 50 files. With `--tree`, the document holds every node of the tree.
 
 ### Exit codes of explain
 
 | Code | Meaning |
 |---|---|
 | 0 | the answer is printed, for a file with a type overlap too |
-| 2 | no answer: the law is broken, the subject is not one, or a folder, a type or a rule meets a type overlap |
+| 2 | no answer: the law is broken (`--tree` reads no law, so it answers under a broken law), the subject is not one, or a folder, a type or a rule meets a type overlap |
 
 ## try
 
