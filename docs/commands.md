@@ -282,7 +282,7 @@ src/core/report.ts
 
 ### `<path>`
 
-The path names a file, a file that does not exist yet, a folder, or `.` for the current folder. For a new file, the first line ends with `(does not exist yet)`. For a folder, `explain` counts its files of each type. On a file system that ignores case, `explain` answers for the spelling that git lists.
+The path names a file, a file that does not exist yet, a folder, or `.` for the current folder. For a new file, the first line ends with `(does not exist yet)`. `explain` takes one path and no pattern: `*`, `?`, `[`, `]`, `{` and `}` in a path that no file has are letters of a name, and a last line says so. For a folder, `explain` counts its files of each type. On a file system that ignores case, `explain` answers for the spelling that git lists.
 
 On Linux and macOS, each name in the path may hold at most 255 bytes, and the whole path on disk, with the folders above the root of the law, at most 4,095 bytes. On Windows, each name may hold at most 255 UTF-16 units and the whole path at most 32,767, so a name of 86 characters of three bytes each, which is 258 bytes, is a name there. A longer name or path ends the command with `usage`.
 
@@ -324,7 +324,7 @@ For an id that the law does not have, the command ends with `usage`. When a rule
 | Code | Meaning |
 |---|---|
 | 0 | the answer is printed, for a file with a type overlap too |
-| 2 | no answer: the law is broken, the subject is not one, or a folder, a type or a rule meets a type overlap |
+| 2 | no answer: the law is broken (`--tree` reads no law, so it answers under a broken law), the subject is not one, or a folder, a type or a rule meets a type overlap |
 
 ## try
 

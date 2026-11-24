@@ -1,7 +1,10 @@
 import { spawn, spawnSync } from 'node:child_process';
 import type { ChildProcess, SpawnOptions } from 'node:child_process';
-import { accessSync, constants, statSync } from 'node:fs';
-import { join, normalize, posix, win32 } from 'node:path';
+import { randomBytes } from 'node:crypto';
+import { accessSync, constants, existsSync, mkdirSync, rmSync, statSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join, normalize, posix, win32 } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 export type Env = Record<string, string | undefined>;
 
@@ -120,21 +123,42 @@ export function createdIn(table: string): Map<number, string> {
 }
 
 // Windows gives an ended process's id to a new one soon, so of the groups' trees in an earlier list only the processes that a later list shows with the same id and the same time of making may be killed.
-export function stillListed(before: string, after: string, roots: number[]): number[] {
+export function stillListed(before: string, after: string, roots: number[], floor?: string): number[] {
   const known = createdIn(before);
   const now = createdIn(after);
-  const listed = [...new Set(roots.flatMap((pid) => [pid, ...descendantsIn(before, pid)]))];
+  const listed = [...new Set(roots.flatMap((pid) => [pid, ...madeBelow(before, pid, known.get(pid) ?? floor)]))];
   return listed.filter((pid) => known.has(pid) && now.get(pid) === known.get(pid));
 }
 
-// What the guard ends of the groups' trees when the tool has ended: what both lists show made at the same time, and what the list made after the end shows below a root. On Windows a root ends with the tool, which holds it in its job, and what the root started lives on below its id. Windows gives an ended process's id to a new one, so below a process only what was made after it counts, and below a root whose id a later process holds only what was made before that one.
-export function toEnd(before: string, after: string, roots: number[]): number[] {
+// A process keeps the id of a parent that has ended, and Windows gives that id to a new one, so below a process only what was made after it is its own.
+function madeBelow(table: string, root: number, rootMade: string | undefined): number[] {
+  const made = createdIn(table);
+  const children = childrenIn(table);
+  const found: number[] = [];
+  const queue: [number, string | undefined][] = [[root, rootMade]];
+  const seen = new Set([root]);
+  while (queue.length > 0) {
+    const [pid, parentMade] = queue.shift()!;
+    for (const child of children.get(pid) ?? []) {
+      const childMade = made.get(child);
+      if (seen.has(child)) continue;
+      if (parentMade !== undefined && childMade !== undefined && earlier(childMade, parentMade)) continue;
+      seen.add(child);
+      found.push(child);
+      queue.push([child, childMade]);
+    }
+  }
+  return found;
+}
+
+// What the guard ends of the groups' trees when the tool has ended: what both lists show made at the same time, and what the list made after the end shows below a root. On Windows a root ends with the tool, which holds it in its job, and what the root started lives on below its id. Windows gives an ended process's id to a new one, so below a process only what was made after it counts, and below a root whose id a later process holds only what was made before that one. floor is a time before every root was made: for a root the earlier list does not show, it stands in for the root's own time, and a process that holds the root's id then may be the root or a stranger, so nothing made after it is ended from the list.
+export function toEnd(before: string, after: string, roots: number[], floor?: string): number[] {
   const known = createdIn(before);
   const now = createdIn(after);
   const children = childrenIn(after);
-  const found = new Set(stillListed(before, after, roots));
+  const found = new Set(stillListed(before, after, roots, floor));
   for (const root of roots) {
-    const queue: [number, string | undefined][] = [[root, known.get(root) ?? now.get(root)]];
+    const queue: [number, string | undefined][] = [[root, known.get(root) ?? floor]];
     const seen = new Set([root]);
     while (queue.length > 0) {
       const [pid, made] = queue.shift()!;
@@ -143,7 +167,7 @@ export function toEnd(before: string, after: string, roots: number[]): number[] 
         const childMade = now.get(child);
         if (seen.has(child)) continue;
         if (made !== undefined && childMade !== undefined && earlier(childMade, made)) continue;
-        if (holder !== undefined && made !== undefined && holder !== made && childMade !== undefined && !earlier(childMade, holder)) continue;
+        if (holder !== undefined && holder !== made && childMade !== undefined && !earlier(childMade, holder)) continue;
         seen.add(child);
         found.add(child);
         queue.push([child, childMade]);
@@ -208,3 +232,89 @@ export function killTree(pid: number, signal: NodeJS.Signals, orphans = false): 
     return false;
   }
 }
+
+const GUARD = fileURLToPath(new URL('./guard.js', import.meta.url));
+
+const live = new Set<ChildProcess>();
+const liveGroups = new Set<number>();
+const liveFolders = new Set<string>();
+let guard: ChildProcess | null = null;
+let listing = false;
+
+function startGuard(): void {
+  if (guard === null) {
+    guard = spawn(process.execPath, [GUARD], { cwd: dirname(GUARD), stdio: ['pipe', 'ignore', 'ignore'], detached: true });
+    guard.on('error', () => undefined);
+    guard.stdin!.on('error', () => undefined);
+    guard.unref();
+    (guard.stdin as unknown as { unref(): void }).unref();
+  }
+}
+
+// On Windows the guard finds what a program started only in PowerShell's list of processes, and PowerShell takes seconds to start on a busy machine, so the guard starts its list as soon as the tool is about to call a program; a call does not wait for it, since reviewer.timeout bounds the whole call, and the guard ends a killed tool's tree from a list begun after the kill. PowerShell makes a missing temporary directory, and without one no program starts, as a call's folder is made there, so the list is then not started.
+export function startListing(): void {
+  if (process.platform !== 'win32' || listing || !existsSync(tmpdir())) return;
+  listing = true;
+  startGuard();
+  guard!.stdin!.write('+w\n');
+}
+
+export function watchProcess(child: ChildProcess): void {
+  if (child.pid === undefined) return;
+  live.add(child);
+  startGuard();
+  guard!.stdin!.write(`+${child.pid}\n`);
+}
+
+export function killGroup(pid: number, signal: NodeJS.Signals): boolean {
+  return killTree(pid, signal);
+}
+
+export function watchGroup(pid: number): void {
+  liveGroups.add(pid);
+  startGuard();
+  guard!.stdin!.write(`+g${pid}\n`);
+}
+
+export function watchFolder(path: string): void {
+  if (/[\r\n]/.test(path)) return;
+  liveFolders.add(path);
+  startGuard();
+  guard!.stdin!.write(`+d${path}\n`);
+}
+
+// A folder made before the guard knows of it outlives a tool killed by SIGKILL in between, so the guard learns its name first and the folder is made after.
+export function guardedFolder(prefix: string): string {
+  for (let tries = 1; ; tries++) {
+    const path = join(tmpdir(), `${prefix}${randomBytes(6).toString('hex')}`);
+    watchFolder(path);
+    try {
+      mkdirSync(path, { mode: 0o700 });
+      return path;
+    } catch (error) {
+      if (liveFolders.delete(path)) guard?.stdin?.write(`-d${path}\n`);
+      if ((error as NodeJS.ErrnoException).code !== 'EEXIST' || tries === 10) throw error;
+    }
+  }
+}
+
+export function releaseFolder(path: string): void {
+  rmSync(path, { recursive: true, force: true, maxRetries: 10 });
+  if (liveFolders.delete(path)) guard?.stdin?.write(`-d${path}\n`);
+}
+
+export function releaseGroup(pid: number): void {
+  killGroup(pid, 'SIGKILL');
+  if (liveGroups.delete(pid)) guard?.stdin?.write(`-g${pid}\n`);
+}
+
+export function releaseProcess(child: ChildProcess): void {
+  if (live.delete(child)) guard?.stdin?.write(`-${child.pid}\n`);
+  child.kill('SIGKILL');
+}
+
+process.on('exit', () => {
+  for (const child of live) child.kill('SIGKILL');
+  for (const pid of liveGroups) killGroup(pid, 'SIGKILL');
+  for (const path of liveFolders) rmSync(path, { recursive: true, force: true, maxRetries: 10 });
+});

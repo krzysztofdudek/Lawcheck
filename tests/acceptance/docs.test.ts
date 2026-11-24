@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { appendFileSync, cpSync, readFileSync, symlinkSync } from 'node:fs';
+import { appendFileSync, cpSync, mkdirSync, readdirSync, readFileSync, symlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { inTemp, lawcheck, lawcheckAt, ROOT } from './helpers.ts';
 import { parseLaw } from '../../dist/law.js';
@@ -10,8 +10,10 @@ import { parseArguments } from '../../dist/cli.js';
 import { WHY } from '../../dist/output.js';
 import { example } from '../harness/examples.ts';
 
+const DOC_PAGES = readdirSync(join(ROOT, 'docs')).filter((name) => name.endsWith('.md')).length;
+
 const LIST = [
-  'lawcheck docs: 37 topics; lawcheck docs <topic> prints one',
+  `lawcheck docs: ${DOC_PAGES} topics; lawcheck docs <topic> prints one`,
   '',
   'Start',
   '  index  Lawcheck',
@@ -28,8 +30,10 @@ const LIST = [
   '  write-a-script-rule  Write a script rule',
   '  write-a-reviewer-rule  Write a reviewer rule',
   '  adopt-in-an-existing-repository  Bring a law into an existing repository',
+  '  agent-setup  Let a coding agent write the first law',
   '  claude-code  Lawcheck in Claude Code',
   '  codex-cli  Lawcheck in Codex',
+  '  copilot-cli  Lawcheck in GitHub Copilot CLI',
   '  other-agents  Other coding agents',
   '  ci  CI and git hooks',
   '  team  A law shared by a team',
@@ -119,7 +123,7 @@ test('test 128: the list of topics, its JSON, and one page, outside git', async 
 });
 
 test('test 129: every page holds what section 7 asks, and its examples are real', async () => {
-  assert.equal(TOPICS.length, 37);
+  assert.equal(TOPICS.length, DOC_PAGES);
   for (const { id, title } of TOPICS) {
     const text = page(id);
     assert.equal(text.split('\n')[0], `# ${title}`, id);
@@ -204,4 +208,25 @@ test('test 417: lawcheck docs prints a link to another page as the command that 
 test('commands-slice §7: no page and no spec speaks of moving from another tool', () => {
   const texts = [...TOPICS.map(({ id }) => page(id)), ...['architecture', 'decisions', 'promises'].map((name) => readFileSync(new URL(`../../design/${name}.md`, import.meta.url), 'utf8'))];
   for (const text of texts) assert.doesNotMatch(text, /migrat|moving from|switch(ing)? from/i);
+});
+
+test('S5-16: a Lawcheck whose page or topic list is missing says so and sends the user to reinstall it, never ENOENT as an internal fault', async () => {
+  await inTemp(async (dir) => {
+    const copy = join(dir, 'lawcheck');
+    for (const entry of ['package.json', 'dist']) cpSync(join(ROOT, entry), join(copy, entry), { recursive: true });
+    symlinkSync(join(ROOT, 'node_modules'), join(copy, 'node_modules'), process.platform === 'win32' ? 'junction' : 'dir');
+    const cli = join(copy, 'dist', 'cli.js');
+    const noList = await lawcheckAt(cli, dir, ['docs'], {}, { internal: true });
+    assert.equal(noList.code, 2);
+    assert.equal(noList.stdout.split('\n')[2], 'error[internal]  topics.json is missing from this installation of Lawcheck');
+    assert.ok(noList.stdout.endsWith('\nnext: reinstall Lawcheck, then run lawcheck docs again\n'), noList.stdout);
+    mkdirSync(join(copy, 'docs'));
+    cpSync(join(ROOT, 'docs', 'topics.json'), join(copy, 'docs', 'topics.json'));
+    const noPage = await lawcheckAt(cli, dir, ['docs', 'law'], {}, { internal: true });
+    assert.equal(noPage.code, 2);
+    assert.equal(noPage.stdout.split('\n')[2], 'error[internal]  law.md is missing from this installation of Lawcheck');
+    assert.ok(!noPage.stdout.includes('ENOENT'), noPage.stdout);
+    const json = JSON.parse((await lawcheckAt(cli, dir, ['docs', 'law', '--json'], {}, { internal: true })).stdout);
+    assert.deepEqual(json.next, { command: null, text: 'reinstall Lawcheck, then run lawcheck docs again' });
+  });
 });

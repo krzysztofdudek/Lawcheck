@@ -1,10 +1,9 @@
 import { closeSync, lstatSync, mkdirSync, openSync, realpathSync, statSync, writeSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { documentOf, errorResult, noWords, usageError, version } from './args.js';
-import type { Arguments, Result } from './args.js';
-import type { CheckContext } from './check.js';
+import type { Arguments, CheckContext, Result } from './args.js';
 import { ignoresPath, listFiles, showPrefix, workTreeProblem } from './files.js';
-import { findRoot, LAW, stopped } from './setup.js';
+import { findRoot, LAW, stopped, WRITE_BY_HAND } from './setup.js';
 import { noGit, Stop } from './setup.js';
 
 export function lawText(packageVersion: string): string {
@@ -42,7 +41,7 @@ function already(place: string, below = false): Stop {
       file: place,
       line: null,
       message: below ? 'a law already governs a directory below this one' : 'a law already governs this directory',
-      next: 'lawcheck doctor  (shows how the law here stands)',
+      next: below ? WRITE_BY_HAND : 'lawcheck doctor  (shows how the law here stands)',
     },
   ]);
 }

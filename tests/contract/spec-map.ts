@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { COMMIT_GROUPS, NIGHTLY_GROUPS, setFiles } from '../harness/sets.ts';
 import { INVARIANTS } from '../harness/invariants.ts';
+import { leadingTestNumbers, TEST_NUMBERS } from '../guard/names.ts';
 
 export interface Row {
   number: number;
@@ -254,7 +255,7 @@ function blank(text: string): { code: string; literals: Map<number, Literal> } {
 }
 
 const LEAD = new RegExp(
-  '^(?:(tests? \\d+(?:(?:,\\s*|\\s+and\\s+|,\\s+and\\s+)\\d+)*)|(I-[a-z]+-\\d+|harness-(?:\\d+|count))|(S\\d+-\\d+|U-\\d+|R-\\d+|T[1-8])|([a-z][a-z/-]* §[\\w.]+)|(question \\d+)):',
+  `^(?:(${TEST_NUMBERS})|(I-[a-z]+-\\d+|harness-(?:\\d+|count))|(S\\d+-\\d+|U-\\d+|R-\\d+|T[1-8])|([a-z][a-z/-]* §[\\w.]+)|(question \\d+)):`,
 );
 
 export function leadsWithSource(name: string): boolean {
@@ -509,6 +510,40 @@ export function loadInputs(repo: URL, sectionOnly: number): Inputs {
   };
 }
 
+export interface SharedNumber {
+  number: number;
+  file: string;
+}
+
+export function sharedNumbers(tests: TextFile[]): SharedNumber[] {
+  const files = new Map<number, Set<string>>();
+  for (const file of tests) {
+    if (file.path.startsWith('tests/unit/')) continue;
+    for (const { name } of scanTests(file.path, file.text).tests) {
+      for (const n of leadingTestNumbers(name)) files.set(Number(n), (files.get(Number(n)) ?? new Set()).add(file.path));
+    }
+  }
+  return [...files]
+    .filter(([, of]) => of.size > 1)
+    .flatMap(([number, of]) => [...of].map((file) => ({ number, file })))
+    .sort((a, b) => a.number - b.number || (a.file < b.file ? -1 : 1));
+}
+
+export function sharedNumberProblems(tests: TextFile[], listed: SharedNumber[]): string[] {
+  const key = (e: SharedNumber): string => `${e.number} ${e.file}`;
+  const now = sharedNumbers(tests);
+  const known = new Set(listed.map(key));
+  const current = new Set(now.map(key));
+  const problems: string[] = [];
+  for (const e of now) {
+    if (!known.has(key(e))) problems.push(`test ${e.number} leads names in ${e.file} and in ${now.filter((o) => o.number === e.number && o.file !== e.file).map((o) => o.file).join(', ')}; a new acceptance test takes a number no test uses yet`);
+  }
+  for (const e of listed) {
+    if (!current.has(key(e))) problems.push(`tests/contract/shared-numbers.json lists test ${e.number} in ${e.file}, where it is no longer shared: remove the entry`);
+  }
+  return problems;
+}
+
 const SOURCE = {
   invariant: /\bI-[a-z]+-\d+\b/g,
   harness: /(?<![\w-])harness-(?:\d+|count)(?![\w-])/g,
@@ -518,9 +553,8 @@ const SOURCE = {
 };
 
 export function sourcesOf(name: string): { rows: number[]; invariants: string[]; harness: string[]; findings: string[]; sections: [string, string][]; questions: number[] } {
-  const lead = /^tests? (\d+(?:(?:,\s*|\s+and\s+|,\s+and\s+)\d+)*):/.exec(name);
   return {
-    rows: lead === null ? [] : lead[1]!.match(/\d+/g)!.map(Number),
+    rows: leadsWithSource(name) ? leadingTestNumbers(name).map(Number) : [],
     invariants: name.match(SOURCE.invariant) ?? [],
     harness: name.match(SOURCE.harness) ?? [],
     findings: name.match(SOURCE.finding) ?? [],

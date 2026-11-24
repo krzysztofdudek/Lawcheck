@@ -1,4 +1,4 @@
-import { isAlias, isMap, isScalar, isSeq, LineCounter, parseDocument, visit } from 'yaml';
+import { isAlias, isMap, isScalar, isSeq, LineCounter, parseDocument, Scalar, visit } from 'yaml';
 import type { Document, Node as YamlNode, Pair, YAMLMap } from 'yaml';
 import { LAW_RULES, LAW_TYPES } from './limits.js';
 import { step } from './progress.js';
@@ -406,7 +406,8 @@ class Reader {
       return null;
     }
     if (/[\r\n]/.test(text)) {
-      this.problem(line, `${what} holds a line break`);
+      const kept = isScalar(value) && (value.type === Scalar.BLOCK_FOLDED || value.type === Scalar.BLOCK_LITERAL) && !/[\r\n]/.test(text.replace(/\r?\n$/, ''));
+      this.problem(line, kept ? `${what} holds the line break that ends a block scalar; write the text on one line, or start the block with >- so that the break is dropped` : `${what} holds a line break`);
       return null;
     }
     return text;
@@ -464,4 +465,11 @@ export function takesWaivers(type: TypeDef | null): boolean {
 export function firstLine(error: unknown): string {
   const text = error instanceof Error ? error.message : String(error);
   return text.split(/\r?\n/)[0] ?? '';
+}
+
+export function walk(types: TypeDef[], visit: (type: TypeDef, depth: number) => void, depth = 0): void {
+  for (const type of types) {
+    visit(type, depth);
+    walk(type.types, visit, depth + 1);
+  }
 }

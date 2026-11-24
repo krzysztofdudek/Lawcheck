@@ -1,27 +1,24 @@
 import { lstatSync } from 'node:fs';
 import { cannotExist, onDisk } from './names.js';
 import { documentOf, errorResult, text as flagText, usageError } from './args.js';
-import type { Arguments, Result } from './args.js';
-import type { CheckContext } from './check.js';
+import type { Arguments, CheckContext, Result } from './args.js';
 import type { ReviewerConfig } from './config.js';
 import { ignoresPath, listedPaths, listFiles, nestedReason, repositoryHolding } from './files.js';
 import { compilePattern } from './glob.js';
-import { patternFor, takesWaivers } from './law.js';
+import { patternFor, takesWaivers, walk } from './law.js';
 import type { Law, TypeDef } from './law.js';
 import { plural, shown } from './output.js';
 import { readError, USES_FILE_BYTES } from './limits.js';
 import { step } from './progress.js';
-import { mayUsePart, ruleKind, walk } from './prime.js';
 import { buildPrompt, FRAME, size } from './prompt.js';
 import { NODE_INTS, ownersOf, readerOf, ruleReads, siblingsOf } from './readers.js';
 import type { Absent, FlatTree, TreeAnswer } from './readers.js';
-import { contextOf, resolveCompanions } from './rules.js';
+import { contextOf, resolveCompanions, runnerErrors } from './rules.js';
 import type { Companions, RuleFile } from './rules.js';
-import { runnerErrors } from './check.js';
-import { loadConfig, loadLaw, loadRuleFiles, locate, fromCwd, nearPart, onceReader, requireGit, RULES_DIR, stopped, typeAll, typingErrors, Stop, usage, WRITTEN } from './setup.js';
+import { loadConfig, loadLaw, loadRuleFiles, locate, fromCwd, nearPart, onceReader, requireGit, ruleKind, RULES_DIR, stopped, typeAll, typingErrors, Stop, usage, WRITTEN } from './setup.js';
 import type { Kinds, Read } from './setup.js';
 import { decode, filesOfTypes, isBinary, splitLines } from './types.js';
-import { listInForce } from './uses.js';
+import { listInForce, mayUsePart } from './uses.js';
 import { readFailure, readVerdicts, reviewKey } from './verdicts.js';
 import { parseWaivers, waivedLines } from './waivers.js';
 
@@ -316,6 +313,8 @@ export function fileText(answer: FileAnswer): string {
   if (answer.exists) {
     if (answer.waivers.length === 0) lines.push('  waivers:  none');
     else lines.push('  waivers:', ...answer.waivers.map((w) => `    ${shown(answer.path)}:${w.line}  ${w.rule}  ${shown(w.reason)}`));
+  } else if (/[*?[\]{}]/.test(answer.path)) {
+    lines.push('  pattern:  none; explain takes one path, so * ? [ ] { } in it are letters of a name and select nothing');
   }
   return lines.join('\n') + '\n';
 }

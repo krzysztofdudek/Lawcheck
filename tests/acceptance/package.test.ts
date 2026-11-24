@@ -24,7 +24,7 @@ test('release-readiness §Package: package: the tarball holds the licence, the r
   for (const path of ['LICENSE', 'README.md', 'package.json', 'dist/cli.js', 'dist/grammars/LICENSES.txt', ...Object.values(manifest.bin)]) {
     assert.ok(paths.includes(path), `${path} is missing from the tarball`);
   }
-  assert.equal(paths.filter((path) => /^docs\/[a-z-]+\.md$/.test(path)).length, 37);
+  assert.equal(paths.filter((path) => /^docs\/[a-z-]+\.md$/.test(path)).length, readdirSync(`${ROOT}docs`).filter((name) => /^[a-z-]+\.md$/.test(name)).length);
   assert.ok(paths.includes('docs/topics.json'), 'docs/topics.json is missing from the tarball');
   assert.equal(paths.filter((path) => /^dist\/grammars\/tree-sitter-.*\.wasm$/.test(path)).length, 13);
   const stray = paths.filter((path) => !/^(LICENSE|README\.md|package\.json|docs\/[a-z-]+\.md|docs\/topics\.json|dist\/[a-z-]+\.js|dist\/bin\.cjs|dist\/providers\/[a-z-]+\.js|dist\/grammars\/(LICENSES\.txt|tree-sitter-[a-z_]+\.wasm))$/.test(path));

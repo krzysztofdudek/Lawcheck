@@ -100,10 +100,15 @@ LAWCHECK_PLUGIN_CHECK_AFTER_EDIT=false codex
 
 `LAWCHECK_PLUGIN_CHECK_BEFORE_STOP=false` switches off the check before the agent finishes, and the message at the end of a turn with it. The plugin reads `false`, `0`, `no` and `off` as off, in upper or lower case. [The Claude Code plugin](plugin.md) says what each hook does, and in which cases it prints nothing.
 
+## 7. Write the first law
+
+The plugin holds one skill, `lawcheck:setup`. It writes the first law of a repository with you and changes nothing outside `.lawcheck/`. Only you start it, by typing `$lawcheck:setup` in Codex, with what you want after it. The plugin sets `allow_implicit_invocation: false` for the skill, so Codex never starts it from your prompt on its own. In a folder with no law, the agent tells you to type the command instead of writing a law. [The setup skill](plugin.md#the-setup-skill) says what the skill does, including advice on the architecture and a target architecture, which you ask for in the words you type after the command. The agent asks its questions in a message, and its last message names the next step.
+
 ## What this integration does not do
 
 - Codex runs none of its hooks until you trust them in `/hooks`, and a hook that an update changes needs your trust again.
 - It checks no file after an edit that a shell command wrote. The check before the end of the turn judges that file.
+- It has no switch for the setup skill: it starts only when you type `$lawcheck:setup`.
 - It has no settings in Codex. Two variables of the environment switch its checks off.
 - It is not in Codex's own directory of plugins. It comes from the marketplace of the Lawcheck repository.
 - `codex exec` does not print the plugin's messages for you. The agent still gets every text, and in the Codex window you see the messages under the turn.
@@ -124,4 +129,4 @@ On 2026-11-23 the plugin ran in real sessions of Codex CLI 0.171.0. Codex sent i
 - The agent gets the message that `lawcheck prime` did not run because `lawcheck was not found`. The plugin found no Lawcheck through the command of the `runner` setting, which is `lawcheck` on your `PATH` by default. Install Lawcheck as [Install Lawcheck](#_1-install-lawcheck) says, then start a new session.
 - The agent ended its turn, and CI fails. The plugin judges the files of the turn alone, with no [base](concepts.md#base). It never passes `--review`. CI judges the whole [change](concepts.md#change) and fails on `not-reviewed` ([CI and git hooks](ci.md)).
 
-Next: [Other coding agents](other-agents.md)
+Next: [Lawcheck in GitHub Copilot CLI](copilot-cli.md)

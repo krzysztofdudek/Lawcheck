@@ -4,22 +4,22 @@ import type { Runtime } from './environment.js';
 import { findProgram } from './programs.js';
 import { join } from 'node:path';
 import { documentOf, noWords, text as flagText, usageError } from './args.js';
-import type { Arguments, Result } from './args.js';
-import type { CheckContext } from './check.js';
+import type { Arguments, CheckContext, Result } from './args.js';
 import { CONFIG, runnerLine } from './config.js';
 import type { ReviewerConfig } from './config.js';
 import { GitFailed, gitNext, listFiles, NoGit, showPrefix, workTreeProblem } from './files.js';
+import { walk } from './law.js';
 import type { Law } from './law.js';
 import { commandIn, forCommand, nextOfErrors, placeOf, plural, shown, sortErrors } from './output.js';
 import type { ErrorItem } from './output.js';
-import { walk } from './prime.js';
 import { checkAnswer } from './prompt.js';
 import { createProvider } from './providers/index.js';
 import { hide } from './keys.js';
-import type { Env, Provider } from './providers/index.js';
+import type { Env } from './providers/index.js';
+import type { Provider } from './provider.js';
 import { LANGUAGES, loadGrammars, ownersOf, readerOf, readUses, siblingsOf } from './readers.js';
 import type { ScriptView } from './readers.js';
-import { belowPart, configErrors, damagedRepository, findRoot, LAW, lawsBelow, lawErrors, onceReader, ruleFileErrors, Stop, theChange, touchesLaw, typingErrors } from './setup.js';
+import { belowPart, configErrors, damagedRepository, findRoot, LAW, lawErrors, lawsBelow, notInitialized, onceReader, ruleFileErrors, Stop, theChange, touchesLaw, typingErrors, WRITE_BY_HAND } from './setup.js';
 import type { Change, Kinds, Read } from './setup.js';
 import type { TypedFile } from './types.js';
 import { extensionOf, listInForce } from './uses.js';
@@ -128,8 +128,10 @@ export async function runChecks(inputs: Inputs): Promise<Check[]> {
     },
     law: () => {
       if (found.root === null) {
+        const left = notInitialized(inputs.cwd);
+        if (left.command !== undefined) return set('law', 'fail', left.message, next(forCommand(left.next!, 'doctor'), left.command));
         const below = lawsBelow(inputs.cwd);
-        if (below.length > 0) return set('law', 'fail', `no .lawcheck/law.yaml in this directory or any above it${belowPart(below)}`, next(`cd ${below[0]}, where a law is, then run lawcheck doctor again`));
+        if (below.length > 0) return set('law', 'fail', `no .lawcheck/law.yaml in this directory or any above it${belowPart(below)}`, next(`cd ${below[0]}, where a law is, then run lawcheck doctor again`), [WRITE_BY_HAND]);
         return set('law', 'fail', 'no .lawcheck/law.yaml in this directory or any above it', next('lawcheck init  (only when the user wants a law here)'));
       }
       const read = lawErrors(found.root);

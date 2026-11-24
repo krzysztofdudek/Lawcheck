@@ -1,10 +1,10 @@
 import { test } from 'node:test';
 import { exampleText } from '../harness/examples.ts';
 import assert from 'node:assert/strict';
-import { symlinkSync, writeFileSync } from 'node:fs';
+import { readFileSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { withFake } from './fake-reviewer.ts';
-import { F, F_PATH, F_PRIME, inTemp, LAW, lawcheck, lawcheckAt, newRepository, PRICING, read, REVIEWER_CONFIG, run, setRule, withCopy, withR, withSample, withU, write } from './helpers.ts';
+import { F, F_PATH, F_PRIME, inTemp, LAW, lawcheck, lawcheckAt, newRepository, PRICING, read, REVIEWER_CONFIG, ROOT, run, setRule, withCopy, withR, withSample, withU, write } from './helpers.ts';
 
 const PRICE = exampleText('explain-price');
 const RELEASE = exampleText('explain-release');
@@ -408,6 +408,18 @@ test('test 953: explain --tree stops at a depth and a count of lines and says wh
   });
 });
 
+test('test 1012: explain --tree answers with exit 0 under a broken law, which every other explain refuses with exit 2, as the exit-code table of docs/commands.md says', async () => {
+  await inTemp(async (dir) => {
+    const repo = newRepository(dir, { '.lawcheck/law.yaml': 'lawcheck: 0.1.0\nnot a law: [\n', 'src/run.ts': RUN_TS });
+    const tree = await explain(repo, 'src/run.ts', '--tree');
+    assert.equal(tree.code, 0, tree.stdout);
+    assert.match(tree.stdout, /^src\/run\.ts {2}typescript /);
+    for (const args of [['src/run.ts'], ['--type', 'source'], ['--rule', 'no-todo']]) assert.equal((await explain(repo, ...args)).code, 2, args.join(' '));
+    const table = readFileSync(join(ROOT, 'docs', 'commands.md'), 'utf8').split('### Exit codes of explain')[1]!.split('\n## ')[0]!;
+    assert.match(table, /^\| 2 \| no answer: the law is broken \(`--tree` reads no law, so it answers under a broken law\), /m);
+  });
+});
+
 test('S5-12: explain says a .vue or .svelte file with no script block holds no script, and names no language of its own', async () => {
   const law = LAW.replace('"src/**/*.ts", "!src/**/*.d.ts"]\n    rules: [no-todo]', '"src/**/*.{ts,vue,svelte}", "!src/**/*.d.ts"]\n    rules: [no-todo]\n    may_use: [source]');
   await withSample(
@@ -424,4 +436,22 @@ test('S5-12: explain says a .vue or .svelte file with no script block holds no s
     },
     { onMain: (s) => write(s, '.lawcheck/law.yaml', law) },
   );
+});
+
+test('S5-16: explain of a path with glob characters that no file has says it selects nothing, and a file that holds them in its name is explained as any file', async () => {
+  await withSample(async (s) => {
+    const absent = await explain(s, 'src/core/*.ts');
+    assert.equal(absent.code, 0);
+    assert.deepEqual(absent.stdout.split('\n').slice(0, 2), ['src/core/*.ts  (does not exist yet)', '  type:  library  (source > library)  Code the commands call.']);
+    assert.ok(absent.stdout.endsWith('  pattern:  none; explain takes one path, so * ? [ ] { } in it are letters of a name and select nothing\n'), absent.stdout);
+    const plain = await explain(s, 'src/core/new.ts');
+    assert.ok(!plain.stdout.includes('pattern:'), plain.stdout);
+    if (process.platform !== 'win32') {
+      write(s, 'src/core/a[1].ts', 'export const a = 1;\n');
+      const present = await explain(s, 'src/core/a[1].ts');
+      assert.ok(present.stdout.startsWith('src/core/a[1].ts\n  type:  library'), present.stdout);
+      assert.ok(!present.stdout.includes('pattern:'), present.stdout);
+    }
+    assert.equal(JSON.parse((await explain(s, 'src/core/*.ts', '--json')).stdout).exists, false);
+  });
 });

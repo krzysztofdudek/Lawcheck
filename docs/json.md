@@ -1,6 +1,6 @@
 # JSON documents
 
-With `--json`, every command prints one JSON document to standard output and nothing else. The first field of every document is `schema`. It names the document and its version. The form of a document whose name ends in `/0` may change between versions. `lawcheck-error/1` is stable: a later version keeps the name, the type and the meaning of each of its fields, and may add a field. A program that reads it skips the fields it does not know.
+With `--json`, every command prints one JSON document to standard output and nothing else. The first field of every document is `schema`. It names the document and its version. The form of a document whose name ends in `/0` may change between versions. `lawcheck-error/1` has a fixed form: each of its fields keeps its name, its type and its meaning, and a version can add a field. A program that reads it skips the fields it does not know.
 
 A field that holds no value is null and stays in the document. Two cases differ:
 
