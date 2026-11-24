@@ -67,6 +67,7 @@ test('test 152: the files of the plugin', () => {
   const marketplace = JSON.parse(readFileSync(join(ROOT, '.claude-plugin', 'marketplace.json'), 'utf8'));
   const expectedMarketplace = JSON.parse(specBlock('marketplace-manifest'));
   assert.deepEqual(marketplace, expectedMarketplace);
+  assert.equal(marketplace.plugins[0].description, plugin.description.replace('with Write, Edit or NotebookEdit', '(with Write, Edit or NotebookEdit in Claude Code, with apply_patch in Codex)'));
   assert.deepEqual(JSON.parse(readFileSync(join(PLUGIN, 'hooks', 'hooks.json'), 'utf8')), JSON.parse(specBlock('hooks-manifest')));
   const files = walk(PLUGIN).sort();
   const modules = files.filter((file) => file.endsWith('.mjs'));
