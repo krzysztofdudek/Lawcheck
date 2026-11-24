@@ -1,4 +1,4 @@
-import { isAlias, isMap, isScalar, isSeq, LineCounter, parseDocument, visit } from 'yaml';
+import { isAlias, isMap, isScalar, isSeq, LineCounter, parseDocument, Scalar, visit } from 'yaml';
 import type { Document, Node as YamlNode, Pair, YAMLMap } from 'yaml';
 import { LAW_RULES, LAW_TYPES } from './limits.js';
 import { step } from './progress.js';
@@ -406,7 +406,7 @@ class Reader {
       return null;
     }
     if (/[\r\n]/.test(text)) {
-      const kept = isScalar(value) && (value.type === 'BLOCK_FOLDED' || value.type === 'BLOCK_LITERAL') && !/[\r\n]/.test(text.replace(/\r?\n$/, ''));
+      const kept = isScalar(value) && (value.type === Scalar.BLOCK_FOLDED || value.type === Scalar.BLOCK_LITERAL) && !/[\r\n]/.test(text.replace(/\r?\n$/, ''));
       this.problem(line, kept ? `${what} holds the line break that ends a block scalar; write the text on one line, or start the block with >- so that the break is dropped` : `${what} holds a line break`);
       return null;
     }
