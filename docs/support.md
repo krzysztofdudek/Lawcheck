@@ -35,7 +35,7 @@ pnpm 11 and later do not stop the install on the first day. On that day, `pnpm a
 
 ## The environments Lawcheck refuses
 
-Every command but `--version`, `--help`, `docs` and `doctor` stops with the code `unsupported-environment` and exit 2 ([unsupported-environment](codes.md#unsupported-environment)). `doctor` prints the same first line. Its `node` or `git` check fails with that message. With an old Node, `doctor` runs its other checks as usual. With an old git, each check that needs git shows `skip`. So does each check that needs one of those checks. The `law`, `config` and `base` checks then say `needs git`.
+Every command but `--version`, `--help`, `docs` and `doctor` stops with the code `unsupported-environment` and exit 2 ([unsupported-environment](codes.md#unsupported-environment)). `doctor` does not stop. It prints the same first line, runs its nine checks and exits 2, because its `node` or `git` check fails with that message. With an old Node, `doctor` runs its other checks as usual. With an old git, each check that needs git shows `skip`. So does each check that needs one of those checks. The `law`, `config` and `base` checks then say `needs git`.
 
 | Environment | Message | Fix |
 |---|---|---|
@@ -56,7 +56,7 @@ error[unsupported-environment]  Node 22.11.0 is older than 24, the oldest Node L
 next: install Node 24 or later, then run lawcheck check
 ```
 
-Node's permission model is the set of limits that `--permission` turns on. Under it, Node loads Lawcheck's entry file and refuses every module that the file imports. Lawcheck's entry file holds the check for the model, before the first import. If the model is on, Lawcheck prints the refusal above for every command, `--version`, `--help`, `docs` and `doctor` included.
+Node's permission model is the set of limits that `--permission` turns on. Under it, Node loads Lawcheck's entry file and refuses every module that the file imports. Lawcheck's entry file holds the check for the model, before the first import. If the model is on, Lawcheck prints the refusal above for every command, `--version`, `--help`, `docs` and `doctor` included. `doctor` then runs no check.
 
 That check runs only when Node 24.2 or later starts the entry file by the file's own path. A shim is the small script that npm installs to start a command. The Windows shims of npm start the entry file by its own path.
 

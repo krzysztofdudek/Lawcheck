@@ -118,7 +118,7 @@ This page names a field of a list's items by its path. `findings.code` is the `c
 
 ## lawcheck-error/1
 
-Every command but `doctor` prints this document when it ends with exit 2.
+Every command but `doctor` prints this document when it ends with exit 2. `doctor` prints it too when `NODE_OPTIONS` holds `--permission`.
 
 | Field | Value |
 |---|---|
@@ -300,7 +300,7 @@ With a topic, the document holds `id`, `title` and `text`. `text` holds the Mark
 
 ## lawcheck-doctor/0
 
-`doctor` prints this document, with exit 0 or 2.
+`doctor` prints this document, with exit 0 or 2, except when `NODE_OPTIONS` holds `--permission`: it then prints `lawcheck-error/1`.
 
 | Field | Value |
 |---|---|
