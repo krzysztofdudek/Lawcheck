@@ -71,7 +71,7 @@ test('test 152: the files of the plugin', () => {
   assert.deepEqual(JSON.parse(readFileSync(join(PLUGIN, 'hooks', 'hooks.json'), 'utf8')), JSON.parse(specBlock('hooks-manifest')));
   const files = walk(PLUGIN).sort();
   const modules = files.filter((file) => file.endsWith('.mjs'));
-  assert.deepEqual(files.filter((file) => !file.endsWith('.mjs')), ['.claude-plugin/plugin.json', '.codex-plugin/plugin.json', 'LICENSE', 'hooks/codex.json', 'hooks/hooks.json', 'skills/setup/SKILL.md', 'skills/setup/references/advice.md', 'skills/setup/references/target.md']);
+  assert.deepEqual(files.filter((file) => !file.endsWith('.mjs')), ['.claude-plugin/plugin.json', '.codex-plugin/plugin.json', 'LICENSE', 'hooks/codex.json', 'hooks/hooks.json', 'skills/setup/SKILL.md', 'skills/setup/agents/openai.yaml', 'skills/setup/references/advice.md', 'skills/setup/references/target.md']);
   assert.ok(modules.includes('hooks/lawcheck-hook.mjs'));
   for (const file of modules) {
     assert.equal(dirname(file), 'hooks', file);
@@ -1233,7 +1233,9 @@ test('test 920: the files of the plugin for Codex', () => {
   const codex = JSON.parse(readFileSync(join(PLUGIN, '.codex-plugin', 'plugin.json'), 'utf8'));
   const { userConfig, description, ...shared } = claude;
   assert.ok(userConfig !== undefined && description !== undefined);
-  assert.deepEqual(codex, { ...shared, version: manifest.version, description: description.replace('with Write, Edit or NotebookEdit', 'with apply_patch'), hooks: './hooks/codex.json' });
+  assert.deepEqual(codex, { ...shared, version: manifest.version, description: description.replace('with Write, Edit or NotebookEdit', 'with apply_patch').replace('/lawcheck:setup', '$lawcheck:setup'), hooks: './hooks/codex.json' });
+  assert.match(codex.description, /\$lawcheck:setup/);
+  assert.equal(readFileSync(join(SKILL, 'agents', 'openai.yaml'), 'utf8'), 'policy:\n  allow_implicit_invocation: false\n');
   const claudeHooks = JSON.parse(readFileSync(join(PLUGIN, 'hooks', 'hooks.json'), 'utf8')).hooks;
   const codexHooks = JSON.parse(readFileSync(join(PLUGIN, 'hooks', 'codex.json'), 'utf8')).hooks;
   assert.deepEqual(Object.keys(codexHooks), Object.keys(claudeHooks));
