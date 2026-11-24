@@ -35,6 +35,8 @@ export const GITIGNORE = '.local/\nconfig.local.yaml\n';
 const IGNORE = '.lawcheck/.gitignore';
 const NEXT = 'describe your first file type in .lawcheck/law.yaml  (lawcheck docs first-law shows how)';
 
+export const WRITE_BY_HAND = 'to govern this folder instead, write .lawcheck/law.yaml here by hand  (lawcheck docs first-law shows how)';
+
 function already(place: string, below = false): Stop {
   return new Stop([
     {
@@ -42,7 +44,7 @@ function already(place: string, below = false): Stop {
       file: place,
       line: null,
       message: below ? 'a law already governs a directory below this one' : 'a law already governs this directory',
-      next: 'lawcheck doctor  (shows how the law here stands)',
+      next: below ? WRITE_BY_HAND : 'lawcheck doctor  (shows how the law here stands)',
     },
   ]);
 }

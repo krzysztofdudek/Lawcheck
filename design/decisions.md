@@ -358,3 +358,27 @@ Why: the text of a reviewer rule goes into every prompt, and a script rule runs.
 `explain` refuses a name or a path that cannot exist, and it measures it as the system does: bytes on Linux and macOS (255 for a name, 4,095 for a path), UTF-16 units on Windows (255 and 32,767). A name that exists on a system is never refused as one that cannot.
 
 Why: Windows answers that a name that is too long is missing, not too long, so Lawcheck measures it before it asks. Counting bytes there refused a real name of 86 CJK characters, which is 258 bytes and 86 units.
+
+## 192. The primer names the runner's command once
+
+When `runner` in `.lawcheck/config.yaml` is not `global`, `prime` ends its first line with `Start it here as: <the runner's command>` and writes every other command of its text as `lawcheck <command>`, as it does for the global runner. It does not put the runner's words before each command.
+
+Why: the text is fitted to one budget and checked line by line, and the plugin and the docs hand an agent the same lines whatever the runner, so one line says how to start the tool and the agent reads `lawcheck` in every other line as that command. The words of `npx --no-install` before each of the commands in the text would give one text per runner and leave the types and rules the primer lists less of the budget. What is given up: an agent that reads one line alone sees `lawcheck check`, not `npx --no-install lawcheck check`; the first line of the same text tells it how to start the tool.
+
+## 193. init at the top refuses while git lists a law below, even one that serves as a sample
+
+`init` ends with `already-initialized` when git lists a `.lawcheck/law.yaml` below the folder, and it does not ask what that law is for. A repository that tracks a sample repository with its own law, such as one under `tests/`, gets the refusal at its top. `doctor` there names the laws below and sends the user into the folder of one; it does not offer `init`. The user writes `.lawcheck/law.yaml` at the top by hand ([The first type and the first rule](../docs/first-law.md)), and a run in the sample folder keeps using the sample's law.
+
+Why: to Lawcheck a sample and a package of a monorepo are the same thing, a folder with a law of its own, and `init` never starts a law above or below another ([Monorepo](../docs/monorepo.md)). A rule that left some laws out would be a list of paths that someone keeps up. A law written by hand is read like any other, so the refusal takes nothing from the user. Test R-3 holds the refusal, the line of `doctor` and the law written by hand.
+
+## 194. The check after an edit starts from the folder of the edited file, so a file of a sample repository below the root is judged by that sample's law
+
+The hook after an edit looks for `.lawcheck/law.yaml` from the folder of the edited file and upward, and the first law it finds judges the file ([The Claude Code plugin](../docs/plugin.md)). An agent that works in a repository and edits a file of a sample repository under `tests/` hears what the sample's law says about that file, not what the law of the repository says. The other hooks start from the folder of the session.
+
+Why: the plugin cannot tell a sample from a package of a monorepo, and the nearest law is what `lawcheck check` uses when the user runs it in that folder, so the hook says what the user would see there. Test R-4 holds both cases: a file in the sample goes to the sample's law, a file outside it to the law of the repository.
+
+## 195. The landing page says when its build is ahead of its release
+
+The landing page takes its sentences from README.md and docs/ of the commit it is built from, and shows the version in package.json. When the Unreleased section of CHANGELOG.md holds text, the footer adds a line: this build also shows text for the next release, so a flag or command it names may not be in the shown version yet. A release deploys from its tagged commit, where Unreleased is empty and the line is absent.
+
+Why: a build of `main` between two releases showed `--strict` under the version alpha.4, which has no such flag, and a reader who tried it got an error. The page cannot read the tag in a shallow clone, so the line follows the CHANGELOG, which every release empties.

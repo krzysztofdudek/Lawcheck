@@ -6,6 +6,7 @@ import { chmodSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { join } from 'node:path';
 import { alive, F, F_PATH, LAW, pathWith, programDir, setRule, startLawcheck, withR, withSample, write } from '../acceptance/helpers.ts';
+import { writeFakeClaude } from '../acceptance/fake-reviewer.ts';
 import { platformSkip } from '../harness/tool.ts';
 import type { Expect, Running } from '../harness/tool.ts';
 import { LIMITS_STOPPED_MS } from '../numbers.ts';
@@ -194,4 +195,36 @@ test('test 252: R-112, a run killed with SIGKILL while git reads its copy of the
     assert.equal(result.signal, 'SIGKILL');
     assert.equal(result.stdout, '');
   });
+});
+
+// The hook holds the worker right after a folder of a reviewer program is made, whether by mkdtemp or by mkdir, so the kill lands between the making of the folder and the end of the call.
+const HOLD_PROGRAM_FOLDER = [
+  "import fs from 'node:fs';",
+  "import { syncBuiltinESMExports } from 'node:module';",
+  'const hold = (path) => { if (String(path).includes("lawcheck-claude-")) { fs.writeFileSync(process.env.LAWCHECK_TEST_MADE, ""); Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 20000); } };',
+  'const mkdtemp = fs.mkdtempSync;',
+  'fs.mkdtempSync = (prefix, options) => { const made = mkdtemp(prefix, options); hold(made); return made; };',
+  'const mkdir = fs.mkdirSync;',
+  'fs.mkdirSync = (path, options) => { const made = mkdir(path, options); hold(path); return made; };',
+  'syncBuiltinESMExports();',
+  '',
+].join('\n');
+
+test('R-113: a run killed with SIGKILL right after the folder of a reviewer program is made leaves nothing in the temporary directory', async () => {
+  await withR(
+    async (r, dir) => {
+      const hook = join(dir, 'hold.mjs');
+      const made = join(dir, 'made');
+      writeFileSync(hook, HOLD_PROGRAM_FOLDER);
+      write(r, F_PATH, F);
+      const bin = writeFakeClaude(join(dir, 'bin'));
+      const running = startLawcheck(r, ['check', '--review', '--base', 'main'], { env: { PATH: pathWith(bin), LAWCHECK_TEST_MADE: made }, node: ['--import', pathToFileURL(hook).href], outside: ['made'] });
+      await until(() => existsSync(made), 'the folder of the reviewer program');
+      running.kill('SIGKILL');
+      const result = await running.ended;
+      assert.equal(result.signal, 'SIGKILL');
+      assert.equal(result.stdout, '');
+    },
+    { onMain: (r: string) => write(r, '.lawcheck/config.yaml', 'reviewer:\n  provider: claude-code\n  model: test-model\n') },
+  );
 });

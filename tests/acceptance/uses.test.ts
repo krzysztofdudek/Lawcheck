@@ -301,6 +301,25 @@ test('test 90: a grammar that cannot be loaded stops the run', async () => {
   }
 });
 
+test('S8-7: a missing grammar is named by its file and folder, and no line sends the user to a build only Lawcheck\'s developers run', async () => {
+  await withCopy(async (copy) => {
+    rmSync(join(copy.dir, 'dist', 'grammars', 'tree-sitter-typescript.wasm'));
+    await withU(async (u) => {
+      write(u, E_PATH, E);
+      const run = await lawcheckAt(copy.cli, u, ['check', '--base', 'main']);
+      const said = run.stdout.split('\n').find((line) => line.startsWith('error[parser-failed]  '));
+      assert.ok(said?.startsWith('error[parser-failed]  the grammar of typescript cannot be loaded: grammar tree-sitter-typescript.wasm not found in '), run.stdout);
+      assert.ok(!/buildGrammars|build it/.test(run.stdout), run.stdout);
+      assert.equal(run.code, 2);
+      const doctor = await lawcheckAt(copy.cli, u, ['doctor']);
+      const row = doctor.stdout.split('\n').find((line) => line.startsWith('fail  readers  '));
+      assert.ok(row?.startsWith('fail  readers  the grammar of typescript cannot be loaded: grammar tree-sitter-typescript.wasm not found in '), doctor.stdout);
+      assert.ok(!/buildGrammars|build it/.test(doctor.stdout), doctor.stdout);
+      assert.ok(doctor.stdout.includes('\n  next: reinstall Lawcheck; a grammar it ships cannot be loaded\n'), doctor.stdout);
+    });
+  });
+});
+
 test('test 91: may_use: [] forbids every file, the own type included', async () => {
   await withU(
     async (u) => {

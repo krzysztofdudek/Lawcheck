@@ -1,8 +1,8 @@
 # Lawcheck
 
-Architecture checks for coding agents. Lawcheck checks your code against the architecture and rules you write down, and tells your coding agent which line breaks which rule. It works for one developer and for a team: you commit the architecture and the rules in `.lawcheck/`, so each developer checks against the same law.
+Architecture checks for coding agents. Lawcheck checks code against your written architecture and names the file and line that break it, so drift stops in 12 languages, in Claude Code hooks and CI. It is for people who build with coding agents and want the layers they drew to hold, such as a page component that must not call the database. It works for one developer and for a team: you commit the architecture and the rules in `.lawcheck/`, so each developer checks against the same law.
 
-I build software with coding agents, and I read their code only where a mistake could cost a lot or could not be undone. In the code I do not read, an agent imports a handler into the business logic or calls the database past the persistence layer, and the tests pass. A rule in `CLAUDE.md` does not stop it: on 2026-11-23, a search of the issue tracker of Claude Code found 204 [reports with the words "ignores CLAUDE.md"](https://github.com/anthropics/claude-code/issues?q=%22ignores+CLAUDE.md%22+is%3Aissue); the search shows the count now.
+I build software with coding agents, and I read their code only where a mistake could cost a lot or could not be undone. In the code I do not read, an agent imports a handler into the business logic or calls the database past the persistence layer, and the tests pass. A rule in `CLAUDE.md` does not stop it: on 2026-11-24, the issues page of Claude Code showed 204 issues for [the query "ignores CLAUDE.md" is:issue created:<=2026-11-24](https://github.com/anthropics/claude-code/issues?q=%22ignores+CLAUDE.md%22+is%3Aissue+created%3A%3C%3D2026-11-24), and [47 of them](https://github.com/anthropics/claude-code/issues?q=%22ignores+CLAUDE.md%22+is%3Aissue+created%3A2026-06-01..2026-11-24) were opened in June 2026 or later. Remove the date from the query to see the count today.
 
 The law is a file in the repository. It names the kinds of files, which kind may use which, and the rules each kind follows:
 
@@ -67,11 +67,11 @@ That agent checks only when it follows the line, and nothing sends it back. A pr
 
 `lawcheck check --base origin/main` judges the files a branch changes. The branch commits the verdicts of the rules written in prose, so the job calls no model. `lawcheck docs ci` has the whole job.
 
-## What one law holds
+## One law holds uses, rules, debt and waivers
 
-- Uses. Lawcheck reads imports and other uses in twelve languages: TypeScript, JavaScript, Python, Go, Rust, Java, Kotlin, C#, C, C++, PHP and Ruby. Each use that `may_use` does not allow is a finding. A use Lawcheck cannot resolve is counted, and never a finding.
+- Uses. Lawcheck reads imports and other uses in twelve languages: TypeScript, JavaScript, Python, Go, Rust, Java, Kotlin, C#, C, C++, PHP and Ruby. Each use that `may_use` does not allow is a finding. Lawcheck counts a use it cannot resolve and never reports it as a finding.
 - Script rules. A rule is a JavaScript module that gets one file at a time and returns findings, each with its line when it has one. [Write the first one](docs/first-law.md).
-- Reviewer rules. A model judges a rule written in prose, one file at a time. Lawcheck records each pass, so an unchanged file is not sent again. You pick one of nine providers, among them a local Ollama and the `claude`, `codex`, `gemini` and `copilot` programs with their own sign-in.
+- Reviewer rules. A model judges a rule written in prose, one file at a time. Lawcheck records each pass, so it does not send an unchanged file again. You pick one of nine providers, among them a local Ollama and the `claude`, `codex`, `gemini` and `copilot` programs with their own sign-in.
 - Debt. `check` judges the files a change touches. `--full` lists the older breaches as debt. Debt is a warning and does not fail the run, unless you pass `--strict`.
 - Waivers. `lawcheck-waive <rule> -- <reason>` drops one rule on one line, and the reason stays in the code.
 
@@ -83,4 +83,4 @@ That agent checks only when it follows the line, and nothing sends it back. A pr
 
 ## More
 
-The documentation is at https://lawcheck.dev and in the terminal: `lawcheck docs`. Lawcheck's own law is in [.lawcheck/](.lawcheck): 10 rules over 20 types, and `npm test` checks the code against it. [The contributing guide](CONTRIBUTING.md) says how to report a bug, and [the security policy](SECURITY.md) how to report a vulnerability privately.
+The documentation is at https://docs.lawcheck.dev and in the terminal: `lawcheck docs`. Lawcheck's own law is in [.lawcheck/](.lawcheck): 10 rules over 20 types, and `npm test` checks the code against it. [The contributing guide](CONTRIBUTING.md) says how to report a bug, and [the security policy](SECURITY.md) how to report a vulnerability privately.

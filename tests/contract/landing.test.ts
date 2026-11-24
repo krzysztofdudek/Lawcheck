@@ -10,7 +10,7 @@ import { phoneProblems, problems } from '../../site/landing/check.mjs';
 import { problems as docsCardProblems } from '../../site/check-docs-card.mjs';
 import { CARD, cardHead, cardProblems, pngProblems } from '../../site/theme/card.mjs';
 import { CATEGORY, FINDING, og } from '../../site/theme/og.mjs';
-import { Fragments } from '../../site/landing/fragments.ts';
+import { Fragments, isAhead } from '../../site/landing/fragments.ts';
 
 const ALLOWED = new Set(Object.values(ALLOWED_NAMES).flat());
 const TAKEN = ['governance', 'trust', 'control', 'confidence', 'AI-native', 'guardrails'];
@@ -209,4 +209,12 @@ test('test 1009: the finding on the card and in its alt text is the whole line t
   assert.ok(read('README.md').split('\n').includes(line), 'a whole line of README.md');
   assert.ok(CARD.alt.includes(`${FINDING.place} ${FINDING.code}, ${FINDING.text}.`), 'the alt text holds the line to its end');
   assert.ok(CARD.alt.includes('the first line of one finding'), 'the alt text says that more of the finding follows');
+});
+
+test('test 1007: the landing page says its build is ahead of its release while CHANGELOG.md holds text under Unreleased, and says nothing when that section is empty or gone (control)', () => {
+  assert.equal(isAhead(['# Changelog', '', '## [Unreleased]', '', 'A new flag.', '', '## [1.2.3] - 2026-01-01', '', 'Old text.'].join('\n')), true);
+  assert.equal(isAhead(['# Changelog', '', '## [Unreleased]', '', '## [1.2.3] - 2026-01-01', '', 'Old text.'].join('\n')), false);
+  assert.equal(isAhead(['# Changelog', '', '## [Unreleased]', ''].join('\n')), false);
+  assert.equal(isAhead(['# Changelog', '', '## [1.2.3] - 2026-01-01', '', 'Old text.'].join('\n')), false);
+  assert.equal(isAhead('## [Unreleased]\nA new flag.'), true);
 });
