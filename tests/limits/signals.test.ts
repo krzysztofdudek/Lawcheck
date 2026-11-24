@@ -3,11 +3,11 @@ import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { chmodSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { join } from 'node:path';
-import { alive, F, F_PATH, LAW, pathWith, programDir, setRule, startLawcheck, withR, withSample, write } from '../acceptance/helpers.ts';
+import { alive, F, F_PATH, GIT_ENV, LAW, pathWith, programDir, setRule, startLawcheck, withR, withSample, write } from '../acceptance/helpers.ts';
 import { writeFakeClaude } from '../acceptance/fake-reviewer.ts';
-import { platformSkip } from '../harness/tool.ts';
+import { CLI, platformSkip, startProgram } from '../harness/tool.ts';
 import type { Expect, Running } from '../harness/tool.ts';
 import { LIMITS_STOPPED_MS } from '../numbers.ts';
 import { run } from './support.ts';
@@ -313,4 +313,50 @@ test('R-158: a run killed with SIGKILL right after the folder of a reviewer prog
     },
     { onMain: (r: string) => write(r, '.lawcheck/config.yaml', 'reviewer:\n  provider: claude-code\n  model: test-model\n') },
   );
+});
+
+const LATE_READER = fileURLToPath(new URL('./late-reader.mjs', import.meta.url));
+const NOISE_LINE = `${'noise '.repeat(100)}\n`;
+
+test('test 1354: a signal while a rule spins, after it printed megabytes its caller has not taken, ends the run as stopped without waiting for them', async (t) => {
+  const skipped = platformSkip('the whole test');
+  if (skipped !== null) return t.skip(skipped);
+  const spin = "export function check() { console.log('ready'); const line = 'noise '.repeat(100); for (let i = 0; i < 20000; i++) console.log(line); while (true) {} }\n";
+  for (const signal of SIGNALS) {
+    await withSample(
+      async (s) => {
+        write(s, 'src/core/discount.ts', 'export const d = 1;\n');
+        const running = startProgram(LATE_READER, [CLI, 'line', 'check', '--base', 'main'], s, GIT_ENV, { stderr: /^ready\n/ });
+        await running.output(/^ready$/m, 'stderr');
+        await stop(running, signal);
+        assert.ok((await running.ended).stderr.length < NOISE_LINE.length * 20_000, signal);
+      },
+      { onMain: (s) => setRule(s, 'no-console', spin) },
+    );
+  }
+});
+
+test('test 1354: a signal while Lawcheck waits for its caller to take standard error ends the run at once, with the code of the result it wrote', async (t) => {
+  const skipped = platformSkip('the whole test');
+  if (skipped !== null) return t.skip(skipped);
+  const flood = "export function check() { const line = 'noise '.repeat(100); for (let i = 0; i < 20000; i++) console.log(line); return [{ message: 'm' }]; }\n";
+  for (const signal of SIGNALS) {
+    await withSample(
+      async (s) => {
+        write(s, 'src/core/discount.ts', 'export const d = 1;\n');
+        const running = startProgram(LATE_READER, [CLI, 'exit', 'check', '--base', 'main', '--json'], s, GIT_ENV, { stderr: /^noise / });
+        await running.output(/\n\}\n$/, 'stdout');
+        const sent = Date.now();
+        running.kill(signal);
+        const result = await running.ended;
+        const ms = Date.now() - sent;
+        process.stdout.write(`# ${signal}: the run ended ${ms} ms after the signal\n`);
+        assert.equal(JSON.parse(result.stdout).findings.length, 1, signal);
+        assert.equal(result.code, 1, signal);
+        assert.ok(ms <= LIMITS_STOPPED_MS, `${signal}: ${ms} ms`);
+        assert.ok(result.stderr.length < NOISE_LINE.length * 20_000, signal);
+      },
+      { onMain: (s) => setRule(s, 'no-console', flood) },
+    );
+  }
 });
