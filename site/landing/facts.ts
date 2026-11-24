@@ -109,7 +109,7 @@ export async function facts() {
     },
     where: {
       heading: copy.where,
-      items: fragments.list('docs/index.md', 'Lawcheck checks in four places', 1).map(index),
+      items: fragments.list('docs/index.md', 'Lawcheck checks in six places', 1).map(index),
       other: ['Lawcheck sends the agent back', 'In Cursor, that return needs', 'No session of Cursor has run it'].map((start) => others(fragments.sentence('docs/other-tools.md', 'A hook you wrote in Claude Code', start))).join(' '),
     },
     holds: {
