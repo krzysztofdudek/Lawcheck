@@ -700,6 +700,36 @@ test('test 1011: on Windows the guard of a killed tool leaves alive a process th
   });
 });
 
+test('test 1054: on Windows the guard of a killed tool that called no program reviewer takes no list of processes', async (t) => {
+  const skip = platformSkip('the whole test');
+  if (skip !== null) return t.skip(skip);
+  await withCopy(async (copy) => {
+    const guardFile = join(copy.dir, 'dist', 'guard.js');
+    const listing = "spawnSync(powershell(), ['-NoProfile', '-NonInteractive', '-Command', PROCESS_TABLE]";
+    const sound = readFileSync(guardFile, 'utf8');
+    assert.ok(sound.includes(listing), 'the guard has no list of its own to replace');
+    const listed = join(copy.dir, 'listed');
+    // The guard's own list only leaves a mark that it was taken.
+    writeFileSync(guardFile, sound.replace(listing, `spawnSync(process.execPath, ['-e', ${JSON.stringify(`require('node:fs').writeFileSync(${JSON.stringify(listed)}, '')`)}]`));
+    const runner = spawn(process.execPath, ['-e', IDLE], { stdio: 'ignore', windowsHide: true });
+    const guard = spawn(process.execPath, [guardFile], { cwd: dirname(guardFile), stdio: ['pipe', 'ignore', 'ignore'], detached: true });
+    let exited = false;
+    guard.on('exit', () => (exited = true));
+    try {
+      guard.stdin!.end(`+${runner.pid}\n`);
+      assert.ok(await waitFor(() => exited, GUARD_ENDS_MS), 'the guard is still running');
+      assert.ok(!existsSync(listed), 'the guard took a list of processes for a run that had only rule runners');
+      assert.ok(alive(runner.pid!), 'the guard ended a process by a rule runner\'s id');
+    } finally {
+      if (!exited) {
+        killGroup(guard.pid!, 'SIGKILL');
+        await waitFor(() => exited, LEFTOVER_GRACE_MS);
+      }
+      runner.kill('SIGKILL');
+    }
+  });
+});
+
 test('test 1057: outside Windows the guard of a killed tool ends a rule runner by its id when an earlier runner that had the same id was released after the later one started', async (t) => {
   const skip = platformSkip('the whole test');
   if (skip !== null) return t.skip(skip);
