@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { example, exampleText } from '../harness/examples.ts';
 import { buildPrompt, checkAnswer, cleanMessage, FRAME, numbered, size, takeAnswer } from '../../dist/prompt.js';
-import { ANSWER_BUDGET_MS } from '../numbers.ts';
+import { ANSWER_GROWTH, ANSWER_ROUNDS } from '../numbers.ts';
 
 const R = new URL('../reviewer-sample/', import.meta.url);
 
@@ -99,23 +99,49 @@ function timed<T>(body: () => T): { value: T; ms: number } {
   return { value, ms: performance.now() - started };
 }
 
-test('S3-3: an answer of one megabyte of { before the verdict is read within the budget', () => {
-  const { value, ms } = timed(() => takeAnswer('{'.repeat(1 << 20) + '{"verdict":"pass","findings":[]}'));
-  assert.deepEqual(value, { verdict: 'pass', findings: [] });
-  assert.ok(ms <= ANSWER_BUDGET_MS, `took ${Math.round(ms)} ms`);
+// Promise I-answer-1 says the reading takes time linear in the answer. A limit in milliseconds breaks under load, so the reading of an answer 16 times as long is compared with the reading of the shorter one in the same run, each read in turn and the shortest of its times kept, so a stall that hits one read does not count. A linear reader takes about 16 times as long, a quadratic one about 256. Keep the answers this long: on shorter ones a quadratic reader whose inner loop is a fast scan, such as a search for a closing brace after every start, takes barely more than a linear one.
+function growthOfSixteenfold(build: (size: number) => string, read: (answer: string) => unknown, size: number): number {
+  const short = build(size);
+  const long = build(size * 16);
+  read(short);
+  read(long);
+  let shortest = Infinity;
+  let longest = Infinity;
+  for (let round = 0; round < ANSWER_ROUNDS; round++) {
+    shortest = Math.min(shortest, timed(() => read(short)).ms);
+    longest = Math.min(longest, timed(() => read(long)).ms);
+  }
+  return longest / shortest;
+}
+
+const MEGABYTE = 1 << 20;
+const VERDICT = '{"verdict":"pass","findings":[]}';
+const braces = (size: number): string => '{'.repeat(size) + VERDICT;
+const nested = (depth: number): string => '{"a":'.repeat(depth) + '{"verdict":"fail","findings":[{"line":1,"message":"m"}]}' + '}'.repeat(depth);
+
+test('S3-3: an answer of one megabyte of { before the verdict is read, and its time grows no faster than its length', () => {
+  const growth = growthOfSixteenfold(braces, takeAnswer, MEGABYTE >> 7);
+  assert.ok(growth <= ANSWER_GROWTH, `16 times the length took ${growth.toFixed(1)} times as long`);
+  assert.deepEqual(takeAnswer(braces(MEGABYTE)), { verdict: 'pass', findings: [] });
 });
 
-test('S3-3: an answer of 50,000 nested objects around the verdict is read within the budget', () => {
-  const depth = 50_000;
-  const { value, ms } = timed(() => takeAnswer('{"a":'.repeat(depth) + '{"verdict":"fail","findings":[{"line":1,"message":"m"}]}' + '}'.repeat(depth)));
-  assert.deepEqual(value, { verdict: 'fail', findings: [{ line: 1, message: 'm' }] });
-  assert.ok(ms <= ANSWER_BUDGET_MS, `took ${Math.round(ms)} ms`);
+test('S3-3: an answer of 50,000 nested objects around the verdict is read, and its time grows no faster than its depth', () => {
+  const growth = growthOfSixteenfold(nested, takeAnswer, 3_000);
+  assert.ok(growth <= ANSWER_GROWTH, `16 times the depth took ${growth.toFixed(1)} times as long`);
+  assert.deepEqual(takeAnswer(nested(50_000)), { verdict: 'fail', findings: [{ line: 1, message: 'm' }] });
 });
 
-test('S3-3: one megabyte of { with no verdict is a bad answer, within the budget', () => {
-  const { value, ms } = timed(() => checkAnswer('{'.repeat(1 << 20), 3));
-  assert.deepEqual(value, { problem: 'the answer holds no JSON object with a verdict' });
-  assert.ok(ms <= ANSWER_BUDGET_MS, `took ${Math.round(ms)} ms`);
+test('S3-3: one megabyte of { with no verdict is a bad answer, and its time grows no faster than its length', () => {
+  const growth = growthOfSixteenfold((size) => '{'.repeat(size), (answer) => checkAnswer(answer, 3), MEGABYTE >> 7);
+  assert.ok(growth <= ANSWER_GROWTH, `16 times the length took ${growth.toFixed(1)} times as long`);
+  assert.deepEqual(checkAnswer('{'.repeat(MEGABYTE), 3), { problem: 'the answer holds no JSON object with a verdict' });
+});
+
+test('S3-3: 50,000 nested objects that never close are a bad answer, and its time grows no faster than its depth', () => {
+  const open = (depth: number): string => '{"a":'.repeat(depth);
+  const growth = growthOfSixteenfold(open, takeAnswer, 1_400);
+  assert.ok(growth <= ANSWER_GROWTH, `16 times the depth took ${growth.toFixed(1)} times as long`);
+  assert.deepEqual(checkAnswer(open(50_000), 3), { problem: 'the answer holds no JSON object with a verdict' });
 });
 
 test('S3-3: a reviewer line of 1e400 is named as Infinity, not as null', () => {

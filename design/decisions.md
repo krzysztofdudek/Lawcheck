@@ -506,7 +506,7 @@ A ref that names no commit, and a commit with no `.lawcheck/law.yaml` at the roo
 
 Why: a change that takes a rule off a type and breaks it passed its own check with only a note (finding T7). The CI step that caught it changed the checkout, so a git hook or a local run could not use it; one option does the same without touching the checkout, and a pre-push hook can add it. Without the option a check behaves as before, so no change that grows the law and the code together starts to fail.
 
-## Decision (number at merge). The packages of a law judged by --law-from cannot come from the change
+## 213. The packages of a law judged by --law-from cannot come from the change
 
 Under `lawcheck check --law-from <ref>`, when git lists any file in `.lawcheck/node_modules` or `.lawcheck/.local`, the run stops with the new code `law-from-packages` before any rule runs. The error names the first such file of each folder, counts the others, and its `next:` line says to take the folder out of git and name it in `.gitignore`. The two folder names are compared as a file system that ignores case compares them, since macOS finds `.lawcheck/Node_Modules`, and `.lawcheck/node_moduleſ` with a long s, as `.lawcheck/node_modules`. The error names the folder as git lists it, so its `next:` line works on that folder. The test is what git lists, tracked or not ignored, whether the change added the file or the base already held it.
 
