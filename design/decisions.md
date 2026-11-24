@@ -289,7 +289,7 @@ Why: the uses of a file do not depend on the batch that reads them (decision 162
 
 ## Decision (number at merge). init at the top refuses while git lists a law below, even one that serves as a sample
 
-`init` ends with `already-initialized` when git lists a `.lawcheck/law.yaml` below the folder, and it does not ask what that law is for. A repository that tracks a sample repository with its own law, such as one under `tests/`, gets the refusal at its top. `doctor` there names the laws below and sends the user into the folder of one; it does not offer `init`. The user writes `.lawcheck/law.yaml` at the top by hand ([Write your first law](../docs/first-law.md)), and a run in the sample folder keeps using the sample's law.
+`init` ends with `already-initialized` when git lists a `.lawcheck/law.yaml` below the folder, and it does not ask what that law is for. A repository that tracks a sample repository with its own law, such as one under `tests/`, gets the refusal at its top. `doctor` there names the laws below and sends the user into the folder of one; it does not offer `init`. The user writes `.lawcheck/law.yaml` at the top by hand ([The first type and the first rule](../docs/first-law.md)), and a run in the sample folder keeps using the sample's law.
 
 Why: to Lawcheck a sample and a package of a monorepo are the same thing, a folder with a law of its own, and `init` never starts a law above or below another ([Monorepo](../docs/monorepo.md)). A rule that left some laws out would be a list of paths that someone keeps up. A law written by hand is read like any other, so the refusal takes nothing from the user. Test R-3 holds the refusal, the line of `doctor` and the law written by hand.
 
