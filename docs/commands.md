@@ -69,7 +69,7 @@ usage: lawcheck init [--json]
 - `.lawcheck/.gitignore` is a folder or a symbolic link to nothing: `init` stops the same way and names `.lawcheck/.gitignore`;
 - `.lawcheck/law.yaml` is a folder or a symbolic link to nothing: `init` says `already-initialized`, and `doctor` and `check` say `law-invalid`.
 
-When git ignores `.lawcheck/law.yaml`, because `.gitignore` names `.lawcheck`, `init` still writes the files and exits 0. It adds a `note:` line under the first line: no commit carries the law, so no other checkout has it. The note gives `git check-ignore -v .lawcheck/law.yaml`, which shows the line to remove. With `--json`, `next.text` starts with the same warning.
+When git ignores `.lawcheck/law.yaml`, because `.gitignore` names `.lawcheck`, `init` still writes the files and exits 0. It adds a `note:` line under the first line. The note says that no commit carries the law, so no other checkout has it. It gives `git check-ignore -v .lawcheck/law.yaml`, which shows the line to remove. With `--json`, `next.text` starts with that warning.
 
 Run `init` once per repository, at the root of the code you want to check. In a new repository:
 
@@ -130,7 +130,7 @@ usage: lawcheck prime [--json]
 - what the agent may do unasked;
 - the law in short.
 
-`prime` reads the law, the rule files and the `runner` setting. It writes nothing, and it does none of the work of a check:
+`prime` reads the law, the rule files and the [`runner`](config.md#runner) setting. It writes nothing, and it does none of the work of a check:
 
 - it runs no rule;
 - it reads no [use](concepts.md#use);
@@ -186,7 +186,9 @@ usage: lawcheck check [--full] [--strict] [--base <ref>] [--law-from <ref>] [--r
 - it applies the [verdicts](concepts.md#verdict) of [reviewer rules](concepts.md#reviewer-rule), and the [waivers](concepts.md#waiver);
 - it prints the [findings](concepts.md#finding).
 
-A [plain check](concepts.md#plain-check) judges the files of the [change](concepts.md#change) against a [base](concepts.md#base) ([What a check judges](change.md)). Without `--review`, `check` calls no reviewer. A cached failure is a failed review that Lawcheck keeps in `.lawcheck/.local/failures/`. A file gets `not-reviewed` when one of its reviewer rules has no verdict and no cached failure for it.
+A [plain check](concepts.md#plain-check) judges the files of the [change](concepts.md#change) against a [base](concepts.md#base) ([What a check judges](change.md)). Without `--review`, `check` calls no reviewer.
+
+A cached failure is a failed review that Lawcheck keeps in `.lawcheck/.local/failures/`. A file gets `not-reviewed` when one of its reviewer rules has no verdict and no cached failure for it.
 
 Without `--review`, `check` writes only the reader cache in `.lawcheck/.local/readers/`. `--review` also records passes and failures ([Files](files.md)).
 
@@ -215,9 +217,11 @@ With `--full`, `check` judges every file, the files outside the change included.
 
 ### --strict
 
-With `--strict`, `check` judges every file as `--full` does, and holds the debt to the standard of the change. A finding of debt is an error when the same finding inside the change would be one: a finding of an `enforced` rule, a `forbidden-use` or a waiver with no reason. A finding of an `advisory` rule stays a warning. The run exits 1 on such an error, and the first line counts it apart, as `2 errors in debt`. A run with no such debt passes. `--strict` includes `--full`, so giving both is the same as giving `--strict`. It takes the other flags of `check` and no paths.
+With `--strict`, `check` judges every file as `--full` does. It holds the debt to the standard of the change. A finding of debt is an error when the same finding inside the change would be one: a finding of an `enforced` rule, a `forbidden-use`, or a waiver with no reason. A finding of an `advisory` rule stays a warning.
 
-`--strict` needs a verdict for every file that an `enforced` [reviewer rule](concepts.md#reviewer-rule) binds, old files included. A file with no verdict is a `not-reviewed` error, and its first run can ask the reviewer about the whole repository. The `next:` line then names `lawcheck check --strict --review`, which asks about the old files too. A check with `--review` and without `--strict` leaves them out.
+The run exits 1 on an error in debt. The first line counts those errors apart, as `2 errors in debt`. A run with no such debt passes. `--strict` includes `--full`, so giving both is the same as giving `--strict`. `--strict` takes the other flags of `check`, and no paths.
+
+`--strict` needs a verdict for every file that an `enforced` [reviewer rule](concepts.md#reviewer-rule) binds, old files included. A file with no verdict is a `not-reviewed` error. The `next:` line then names `lawcheck check --strict --review`, which asks the reviewer about the old files too. Its first run can ask about every file of the repository. A check with `--review` and without `--strict` leaves the old files out.
 
 ### --base `<ref>`
 
@@ -229,11 +233,16 @@ With `--strict`, `check` judges every file as `--full` does, and holds the debt 
 
 A rule of that commit judges the commit's text of `.lawcheck/law.yaml`, `.lawcheck/config.yaml` and `.lawcheck/rules/`, and the work tree's text of every other file. Lawcheck loads the script rules from a copy of the commit's `.lawcheck/rules/` in `.lawcheck/.local/`. It removes the copy when the run ends. A rule imports the helpers of that copy by a relative path.
 
-The copy also holds the commit's `package.json` and `.lawcheck/package.json`. So the commit decides what a rule gets when it imports the project's own `name`, through the exports of those files, or a name that starts with `#`, through their `imports`. A file they point to outside `.lawcheck/rules/` is not in the copy. The rule then stops with `rule-crashed`, which names the import and the file it leads to.
+The copy also holds the commit's `package.json` and `.lawcheck/package.json`. The commit therefore decides what a rule gets for two kinds of import:
 
-Any other package that a rule imports by name comes from the work tree's `node_modules`. A file that a rule reads by its path is the work tree's, `.lawcheck/` included. When git lists a file in `.lawcheck/node_modules` or `.lawcheck/.local`, such a package could come from the change, so the run stops with `law-from-packages`.
+- an import of the project's own `name`, which the `exports` of those two files resolve;
+- an import of a name that starts with `#`, which their `imports` resolve.
 
-The verdicts come from `.lawcheck/verdicts` of the work tree. A pass counts only for the text of the reviewer rule it was recorded under. When the commit's law names signers, a pass also needs the signature of one of them. With `--review`, Lawcheck records passes under the commit's text.
+A file that those fields point to outside `.lawcheck/rules/` is not in the copy. An import of such a file stops the rule with `rule-crashed`. The message names the import and the file it leads to.
+
+Any other package that a rule imports by name comes from the work tree's `node_modules`. A file that a rule reads by its path is the work tree's, `.lawcheck/` included. When git lists a file in `.lawcheck/node_modules` or `.lawcheck/.local`, a package that a rule imports could come from the change. The run then stops with `law-from-packages`.
+
+The verdicts come from `.lawcheck/verdicts` of the work tree. A pass counts only for the text of the reviewer rule it was recorded under. When the commit's law names [signers](reviewer-rules.md#signed-passes), a pass also needs the signature of one of them. With `--review`, Lawcheck records passes under the commit's text.
 
 A ref that names no commit, or a commit with no `.lawcheck/law.yaml` at the place of the root, stops the run with `law-from-unreachable`. A law of that commit that is not valid stops it with `law-invalid`, and the message names the ref. A check of named files does not take `--law-from`.
 
@@ -290,7 +299,7 @@ For a file without a type, `explain` gives the reason. These are some of the rea
 
 When a pattern of `required` matches a file with no type, `explain` adds that `check` reports it as `untyped-file`.
 
-`explain` runs no rule and writes nothing. It runs only the companion of a reviewer rule, because the state of that rule's reviews depends on the files the companion returns. It takes one subject: a path, `--type` or `--rule`.
+`explain` runs no rule and writes nothing. The one exception is the [companion](reviewer-rules.md#files-for-each-judged-file) of a reviewer rule, the module that names files for each judged file. `explain` runs it, because the state of that rule's reviews depends on the files the companion returns. It takes one subject: a path, `--type` or `--rule`.
 
 Run `explain` before you create a file, to see the law the file will get. Run it on a file you have, to find why it has its type.
 
@@ -310,7 +319,7 @@ src/core/report.ts
 
 ### `<path>`
 
-The path names a file, a file that does not exist yet, a folder, or `.` for the current folder. For a new file, the first line ends with `(does not exist yet)`. `explain` takes one path and no pattern, so it reads each `*`, `?`, `[`, `]`, `{` and `}` in the path as a plain character of a file name. When no file has that path, a last line says so. For a folder, `explain` counts its files of each type. On a file system that ignores case, `explain` answers for the spelling that git lists.
+The path names a file, a file that does not exist yet, a folder, or `.` for the current folder. For a new file, the first line ends with `(does not exist yet)`. `explain` takes one path and no pattern. It reads each `*`, `?`, `[`, `]`, `{` and `}` in the path as a plain character of a file name. When no file has that path, a last line says so. For a folder, `explain` counts its files of each type. On a file system that ignores case, `explain` answers for the spelling that git lists.
 
 On Linux and macOS, each name in the path may hold at most 255 bytes. The whole path on disk, with the folders above the root of the law, may hold at most 4,095 bytes. On Windows, the limits count UTF-16 units, as JavaScript counts the length of a string. Each name there may hold at most 255 of them, and the whole path at most 32,767. A name of 86 characters of three bytes each holds 258 bytes, so Windows takes it and Linux and macOS do not. A longer name or path ends the command with `usage`.
 
@@ -383,11 +392,11 @@ src/cli/main.ts:1  error[no-console]  writes to the terminal with console.log
 
 ### `<path or pattern>...`
 
-The paths name the files to run the rule on, from the current folder: files, folders with every file below them, or patterns. `try` leaves binary files out. A target that selects no file ends it with `usage`. Without targets, `try` runs a script rule on every file whose type, or a type above it, lists the rule. For a reviewer rule, name at least one file, each by its path, because `try` refuses a folder or a pattern for such a rule.
+The paths name the files to run the rule on, from the current folder: files, folders with every file below them, or patterns. `try` leaves binary files out. A target that selects no file ends it with `usage`. Without targets, `try` runs a script rule on every file whose type, or a type above it, lists the rule. For a reviewer rule, name at least one file by its path. `try` refuses a folder or a pattern for a reviewer rule.
 
 ### --times `<n>`
 
-`--times` works with a reviewer rule alone. It asks the reviewer about each file n times, and n must be at least 1. With n of 2 or more, the first line counts the answers that fail and the answers that pass. Each file gets a line per answer, such as `src/core/refund.ts  answer 2 of 3: fail`.
+`--times` works with a reviewer rule alone. It asks the reviewer about each file n times. The number n must be at least 1. With n of 2 or more, the first line counts the answers that fail and the answers that pass. Each file gets a line per answer, such as `src/core/refund.ts  answer 2 of 3: fail`.
 
 ### --dry-run
 
@@ -415,7 +424,7 @@ The paths name the files to run the rule on, from the current folder: files, fol
 usage: lawcheck docs [<topic>] [--json]
 ```
 
-`docs` prints the pages of this reference in the terminal, and it works offline, outside git and without a law. Without a topic, it lists the topics under their sections. A link to another page prints as the command that prints that page, such as `Codes (lawcheck docs codes)`.
+`docs` prints the pages of this reference in the terminal. It works offline, outside git and without a law. Without a topic, it lists the topics under their sections. A link to another page prints as the command that prints that page, such as `Codes (lawcheck docs codes)`.
 
 Run `docs` on a machine without a browser, or to give an agent one page.
 
@@ -453,7 +462,9 @@ next: run lawcheck docs as its usage line says: lawcheck docs --help
 usage: lawcheck doctor [--base <ref>] [--reviewer] [--json]
 ```
 
-`doctor` says what is wrong with this setup, with one next step for each problem. It writes nothing. It works without a law, and outside git. It opens no connection unless you pass `--reviewer`, with one exception. With the provider `ollama` and a reviewer rule in the law, `doctor` asks the server for its version without the flag. On an environment that Lawcheck refuses, `doctor` starts with the same refusal as every other command. Its nine checks follow below that line, and a check that needs a failed one shows `skip` ([Supported environments](support.md#the-environments-lawcheck-refuses)). An extra word after `doctor` ends it with `usage`.
+`doctor` says what is wrong with this setup, with one next step for each problem. It writes nothing. It works without a law, and outside git. It opens no connection unless you pass `--reviewer`, with one exception. With the provider `ollama` and a reviewer rule in the law, `doctor` asks the server for its version without the flag.
+
+On an environment that Lawcheck refuses, `doctor` first prints the refusal that every other command prints. Its nine checks follow below that line. A check that needs a failed check shows `skip` ([Supported environments](support.md#the-environments-lawcheck-refuses)). An extra word after `doctor` ends it with `usage`.
 
 Run `doctor` after you install Lawcheck, after you change `.lawcheck/config.yaml`, and before you report a bug.
 
@@ -489,7 +500,7 @@ The `node` line names the version of the Node that runs Lawcheck, here 24.11.0. 
 | `readers` | the files whose uses are read, by language, the configuration files a reader could not read, and the 13 grammars, which it loads |
 | `reviewer` | the reviewer rules, and whether the reviewer can be called |
 
-The `readers` check reads the uses of the files whose `may_use` list is in force, as `check --full` does, so it takes about as long, and it writes no reader cache. When a reader consults a configuration file that does not parse, such as a `tsconfig.json` with a single-quoted key, the check shows `note`, and one line under it names each such file ([A configuration file a reader cannot read](languages.md#a-configuration-file-a-reader-cannot-read)). The lines are the same with `--base` and without it.
+The `readers` check reads the uses of the files whose `may_use` list is in force, as `check --full` does. It takes about as long, and it writes no reader cache. When a reader consults a configuration file that does not parse, such as a `tsconfig.json` with a single-quoted key, the check shows `note`. One line under it names each such file ([A configuration file a reader cannot read](languages.md#a-configuration-file-a-reader-cannot-read)). The lines are the same with `--base` and without it.
 
 Each check ends as `ok`, `note`, `fail` or `skip`. A check shows `skip`, with `needs <check>`, when a check it needs did not pass. Lawcheck prints a `next:` line under each `note` and each `fail`.
 

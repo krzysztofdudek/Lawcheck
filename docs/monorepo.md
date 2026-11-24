@@ -82,7 +82,7 @@ Run the check once in each folder that the message names. In a CI job, give each
 
 ## 5. Give a package its own runner
 
-Lawcheck reads the `.lawcheck/config.yaml` beside each law. A package installed with pnpm writes the `runner` setting into `packages/web/.lawcheck/config.yaml`:
+Lawcheck reads the `.lawcheck/config.yaml` beside each law. For a package installed with pnpm, write the `runner` setting into `packages/web/.lawcheck/config.yaml`:
 
 ```yaml
 runner: pnpm
@@ -117,7 +117,7 @@ To judge the files of `src/vendor`, start a law in that repository.
 
 - `lawcheck init` at the top refuses with `already-initialized`, because a law below covers a part of the tree. `lawcheck init` never starts a law above or below another law.
 - `lawcheck check ../../web/src/page.ts` ends with the code [`usage`](codes.md#usage), because the path lies outside the root of the law. Run the check in the folder of the other law.
-- A rule ends in `rule-crashed`, with a message that says the rule fails to load. The package manager put the package that the rule imports in the `node_modules` at the top of the repository. That folder lies above the root of the law. A rule may read nothing outside the root and Lawcheck's own folder. Install the package in a `node_modules` inside the package, as the `next:` line says ([Script rules](script-rules.md)).
+- A rule ends in `rule-crashed`, with a message that says the rule fails to load. The package manager put the package that the rule imports in the `node_modules` at the top of the repository. That folder lies above the root of the law. A rule may read nothing outside the root and Lawcheck's own folder, the folder where the `lawcheck` package is installed. Install the package in a `node_modules` inside the package, as the `next:` line says ([Script rules](script-rules.md)).
 - You start a Claude Code session at the top of the repository, where no law is. The check after an edit looks for the law from the folder of the edited file, so it finds the law of the package and runs. The check before the agent finishes looks for the law from the folder of the session. It finds no law there, and it does not run. Start the session in the folder of the package ([The Claude Code plugin](plugin.md)).
 
 Next: [A finding you believe is wrong](false-alarm.md)
