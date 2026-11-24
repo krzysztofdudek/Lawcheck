@@ -249,3 +249,27 @@ test('test 1007: the landing page says its build is ahead of its release while C
   assert.equal(isAhead(['# Changelog', '', '## [1.2.3] - 2026-01-01', '', 'Old text.'].join('\n')), false);
   assert.equal(isAhead('## [Unreleased]\nA new flag.'), true);
 });
+
+test('test 1140: the redirect file of the landing sends /docs, /docs/ and /docs/<page> of every page of docs/topics.json, with and without .html, in one permanent redirect to the same page of the documentation host', () => {
+  const file = JSON.parse(read('site/landing/public/vercel.json')) as { redirects: Array<{ source: string; destination: string; permanent: boolean }> };
+  const land = (path: string): string | undefined => {
+    for (const redirect of file.redirects) {
+      const named = redirect.source.match(/^\/:page\((.*)\)(\.html)?$|^\/docs\/:page\((.*)\)(\.html)?$/);
+      const body = named ? `/${redirect.source.startsWith('/docs/') ? 'docs/' : ''}(?<page>${named[1] ?? named[3]})${named[2] ?? named[4] ?? ''.replace('.', '\\.')}` : redirect.source;
+      const match = new RegExp(`^${body.replace(/\.html$/, '\\.html')}$`).exec(path);
+      if (match) {
+        assert.equal(redirect.permanent, true);
+        return redirect.destination.replace(':page', match.groups?.page ?? '');
+      }
+    }
+    return undefined;
+  };
+  assert.equal(land('/docs'), 'https://docs.lawcheck.dev/');
+  assert.equal(land('/docs/'), 'https://docs.lawcheck.dev/');
+  for (const page of pages) {
+    const target = page === 'index' ? 'https://docs.lawcheck.dev/' : `https://docs.lawcheck.dev/${page}.html`;
+    assert.equal(land(`/docs/${page}`), target, page);
+    assert.equal(land(`/docs/${page}.html`), target, `${page}.html`);
+  }
+  assert.equal(land('/docs/unknown-page'), undefined);
+});
