@@ -30,7 +30,7 @@ export async function scenario(page: Page): Promise<void> {
   assert.ok(new RegExp(hooks.PostToolUse[0].matcher).test('Write'), 'the page says the check after an edit runs for the tool Cursor calls Write');
   assert.ok(text.includes('Cursor calls the tool that writes a file `Write`'));
 
-  for (const sentence of ['at most three returns in a turn', 'Cursor shows the user no message that a hook sends', 'No session of Cursor ran the plugin.', 'Windows.', 'The Cursor editor.']) assert.ok(text.includes(sentence), sentence);
+  for (const sentence of ['at most three returns in a turn', 'Cursor shows the user no message that a hook of this plugin sends', 'No session of Cursor ran the plugin.', 'Windows.', 'The Cursor editor.']) assert.ok(text.includes(sentence), sentence);
   for (const heading of ['Three returns at most', 'The end of a turn', 'The notices the user gets', 'The settings', 'SessionStart']) assert.ok(read('docs/plugin.md').includes(`\n## ${heading}\n`) || read('docs/plugin.md').includes(`\n### ${heading}\n`), heading);
 
   const readme = read('README.md');
