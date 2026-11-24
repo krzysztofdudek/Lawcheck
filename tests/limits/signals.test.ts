@@ -256,3 +256,24 @@ test('test 1340: R-113, a run killed with SIGKILL right after the folder of a re
     { onMain: (r: string) => write(r, '.lawcheck/config.yaml', 'reviewer:\n  provider: claude-code\n  model: test-model\n') },
   );
 });
+
+// The hook makes the start of the guard fail in every thread, as a system out of processes or of file handles would.
+const GUARD_FAILS = [
+  "import childProcess from 'node:child_process';",
+  "import { syncBuiltinESMExports } from 'node:module';",
+  'const spawn = childProcess.spawn;',
+  "childProcess.spawn = (file, args, options) => { if ((args ?? []).some((arg) => String(arg).endsWith('guard.js'))) throw Object.assign(new Error('spawn EPERM'), { code: 'EPERM' }); return spawn(file, args, options); };",
+  'syncBuiltinESMExports();',
+  '',
+].join('\n');
+
+test('R-157: a guard that cannot be started ends the run as internal with exit 2, from the worker that told it, and not in a crash of the main thread that starts it', async () => {
+  await withSample(async (s, dir) => {
+    const hook = join(dir, 'fail.mjs');
+    writeFileSync(hook, GUARD_FAILS);
+    write(s, 'src/core/discount.ts', 'export const d = 1;\n');
+    const result = await startLawcheck(s, ['check', '--base', 'main'], { node: ['--import', pathToFileURL(hook).href], internal: true }).ended;
+    assert.equal(result.stdout, ['lawcheck: ERROR  1 error', '', 'error[internal]  spawn EPERM', '  why:  a fault of Lawcheck says nothing about the code', '', 'next: run lawcheck check again, and report the error if it stays', ''].join('\n'));
+    assert.equal(result.code, 2);
+  });
+});

@@ -5,6 +5,7 @@ import { accessSync, constants, existsSync, mkdirSync, rmSync, statSync } from '
 import { tmpdir } from 'node:os';
 import { dirname, join, normalize, posix, win32 } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { receiveMessageOnPort } from 'node:worker_threads';
 import type { MessagePort } from 'node:worker_threads';
 
 export type Env = Record<string, string | undefined>;
@@ -290,6 +291,8 @@ function tell(line: string, start = true): void {
   Atomics.store(mainThread.written, 0, 0);
   mainThread.port.postMessage({ line, start });
   while (Atomics.load(mainThread.written, 0) === 0) Atomics.wait(mainThread.written, 0, 0);
+  const failed = receiveMessageOnPort(mainThread.port)?.message as { message: string; code: string | undefined } | undefined;
+  if (failed !== undefined) throw Object.assign(new Error(failed.message), { code: failed.code });
 }
 
 export function guardThroughMainThread(port: MessagePort, written: SharedArrayBuffer): void {
@@ -302,9 +305,15 @@ export function serveGuard(port: MessagePort, written: SharedArrayBuffer): void 
     Atomics.store(flag, 0, 1);
     Atomics.notify(flag, 0);
   };
+  // A guard that cannot be started fails the call that told it, in the worker, as when the worker started the guard; thrown on the main thread it would end the tool with no result and exit 1.
   port.on('message', ({ line, start }: { line: string; start: boolean }) => {
     if (guard === null && !start) return done();
-    startGuard().stdin!.write(line, done);
+    try {
+      startGuard().stdin!.write(line, done);
+    } catch (error) {
+      port.postMessage({ message: error instanceof Error ? error.message : String(error), code: (error as NodeJS.ErrnoException).code });
+      done();
+    }
   });
   port.unref();
 }
