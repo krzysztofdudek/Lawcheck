@@ -1,6 +1,6 @@
 # Quick start
 
-Lawcheck checks your code against the architecture and rules you write down, and tells your coding agent which line breaks which rule. In five steps you write a law with one type and one `may_use` line. After you break it with one import, `lawcheck check` names the line. You need no model and no key.
+Lawcheck checks code against your written architecture and names the file and line that break it, so drift stops in 12 languages, in Claude Code hooks and CI. In five steps you write a law with one type and one `may_use` line. After you break it with one import, `lawcheck check` names the line. You need no model and no key.
 
 Before you start the law, install Lawcheck as [Install](install.md) says. Start in a new repository. Then each output you get matches the one on this page:
 

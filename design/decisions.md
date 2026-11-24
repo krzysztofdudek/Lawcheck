@@ -377,6 +377,12 @@ The hook after an edit looks for `.lawcheck/law.yaml` from the folder of the edi
 
 Why: the plugin cannot tell a sample from a package of a monorepo, and the nearest law is what `lawcheck check` uses when the user runs it in that folder, so the hook says what the user would see there. Test R-4 holds both cases: a file in the sample goes to the sample's law, a file outside it to the law of the repository.
 
+## 195. The landing page says when its build is ahead of its release
+
+The landing page takes its sentences from README.md and docs/ of the commit it is built from, and shows the version in package.json. When the Unreleased section of CHANGELOG.md holds text, the footer adds a line: this build also shows text for the next release, so a flag or command it names may not be in the shown version yet. A release deploys from its tagged commit, where Unreleased is empty and the line is absent.
+
+Why: a build of `main` between two releases showed `--strict` under the version alpha.4, which has no such flag, and a reader who tried it got an error. The page cannot read the tag in a shallow clone, so the line follows the CHANGELOG, which every release empties.
+
 ## Decision (number at merge). The suite guard reads the tables of the codes and fields, a budget is judged call by call, its report reaches a pipe, and a test number leads names in one file
 
 The three programs of the suite guard that print its report, `tests/guard/cli.ts`, `tests/guard/from-base.ts` and `tests/gate/run.ts`, set `process.exitCode` and let the process end, instead of calling `process.exit` after one large write. When the guard refuses several files of one kind under a folder for the same reasons, the row it suggests for `<folder>/**` carries the approval hash of every change of that kind the folder's path matches, refused or not, as the check of a row on the base computes it, so the row landed as printed passes. The one reader of the numbers a test name leads with is `leadingTestNumbers` in `tests/guard/names.ts`, and the spec map, the guard and the platform selection read them through it, so `tests 3, 4, and 5:` is read alike by all three. Outside `tests/unit/`, a test number leads names in one file; the pairs of number and file that already break this are listed in `tests/contract/shared-numbers.json`, which the guard's ratchet lets only shrink, and `tests/contract/spec-map.test.ts` fails on a pair that is not listed and on a listed pair that is no longer shared.

@@ -6,6 +6,7 @@ import { data } from './facts.data.ts';
 
 const c = data.copy;
 const released = c.footer.released.replace('{version}', data.head.version).replace('{date}', data.head.date);
+const ahead = c.footer.ahead.replace('{version}', data.head.version);
 </script>
 
 <template>
@@ -24,11 +25,12 @@ const released = c.footer.released.replace('{version}', data.head.version).repla
         <div class="hero-text">
           <h1>{{ c.h1 }}</h1>
           <p class="lead" v-html="data.hero.promise" />
+          <p class="who" v-html="data.hero.who" />
         </div>
         <Film class="hero-film" :still="data.hero.still" />
         <div class="hero-install">
           <CopyCommand :command="data.hero.install" :copy="c.install.copy" :copied="c.install.copied" />
-          <a class="quick" :href="c.install.quickStart.href">{{ c.install.quickStart.text }}</a>
+          <a class="button quick" :href="c.install.quickStart.href">{{ c.install.quickStart.text }}</a>
           <ul class="facts">
             <li v-html="data.hero.support" />
             <li v-html="data.hero.alpha" />
@@ -40,6 +42,7 @@ const released = c.footer.released.replace('{version}', data.head.version).repla
       <section class="wrap problem" aria-labelledby="problem">
         <h2 id="problem">{{ c.problem }}</h2>
         <p v-html="data.problem" />
+        <p v-html="data.advice" />
       </section>
 
       <section class="wrap" aria-labelledby="law">
@@ -117,6 +120,7 @@ const released = c.footer.released.replace('{version}', data.head.version).repla
     <div class="wrap foot-inner">
       <a class="home" href="/"><Lockup /></a>
       <p>{{ released }}</p>
+      <p v-if="data.head.ahead">{{ ahead }}</p>
       <ul class="foot-links">
         <li><a :href="c.footer.docs.href">{{ c.footer.docs.text }}</a></li>
         <li><a :href="c.footer.changelog.href">{{ c.footer.changelog.text }}</a></li>

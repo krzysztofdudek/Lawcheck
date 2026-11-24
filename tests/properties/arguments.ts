@@ -10,7 +10,7 @@ import { tool } from './support.ts';
 import type { Speed } from './support.ts';
 
 const WORDS = ['init', 'prime', 'check', 'explain', 'try', 'docs', 'doctor', 'help', 'fix'];
-const FLAGS = ['--json', '--full', '--base', '--review', '--again', '--max-calls', '--type', '--rule', '--times', '--dry-run', '--reviewer', '--help', '--version', '--base=main', '-h', '--', '-'];
+const FLAGS = ['--json', '--full', '--base', '--review', '--again', '--max-calls', '--type', '--rule', '--times', '--dry-run', '--tree', '--strict', '--reviewer', '--help', '--version', '--base=main', '-h', '--', '-'];
 const VALUES = ['main', 'HEAD', 'nope', '0', '1', '-1', '99999999999999999999', '', 'src', 'src/**', 'src/core/price.ts', "src/{a", '../x', '/', 'no-console', 'library', 'languages', 'waivers', 'a\nb', '\u001b[2K', '::error::x', '\\', 'src/core/new\\nline.ts', 'x'.repeat(300)];
 const token = fc.oneof({ weight: 2, arbitrary: fc.constantFrom(...WORDS) }, { weight: 3, arbitrary: fc.constantFrom(...FLAGS) }, { weight: 3, arbitrary: fc.constantFrom(...VALUES) }, { weight: 3, arbitrary: fc.string({ maxLength: 6 }) });
 const argv = fc.tuple(fc.constantFrom(...WORDS.slice(0, 7)), fc.array(token, { maxLength: 5 }), fc.boolean()).map(([first, rest, json]) => [first, ...rest, ...(json ? ['--json'] : [])]);
@@ -40,7 +40,7 @@ export function argumentsProperties(speed: Speed): Record<string, () => unknown>
       await tool(
         speed,
         argv,
-        { classes: { 'a value of a flag': (a) => a.some((t, i) => i > 0 && VALUES.includes(t)), junk: (a) => a.some((t) => !WORDS.includes(t) && !FLAGS.includes(t) && !VALUES.includes(t)), '--json': (a) => a.includes('--json') } },
+        { classes: { 'a value of a flag': (a) => a.some((t, i) => i > 0 && VALUES.includes(t)), junk: (a) => a.some((t) => !WORDS.includes(t) && !FLAGS.includes(t) && !VALUES.includes(t)), '--json': (a) => a.includes('--json'), 'explain with --tree': (a) => a[0] === 'explain' && a.includes('--tree'), 'check with --strict': (a) => a[0] === 'check' && a.includes('--strict') }, least: { 'explain with --tree': 0.02, 'check with --strict': 0.02 }, examples: [['explain', '--tree', '--type', 'library'], ['explain', '--tree', 'src/core/price.ts', '--rule', 'no-console'], ['check', '--strict', 'src'], ['check', '--strict', '--json']] },
         async (a) => {
           const run = await lawcheck(s, a);
           assert.ok(run.code === 0 || run.code === 1 || run.code === 2, `${JSON.stringify(a)}: ${run.code}`);
