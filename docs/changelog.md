@@ -40,6 +40,14 @@ When git ignores `.lawcheck/law.yaml`, `lawcheck prime` now says that no commit 
 
 `lawcheck docs write-a-script-rule` gains a last step that rewrites the rule with the syntax tree of the file, so a `fetch()` in a comment is no longer reported.
 
+`lawcheck explain` now says `uses:  none: the file has no script block` for a `.vue` or `.svelte` file that has no script. In alpha.4 it printed `uses:  read as vue`, though Lawcheck reads no language of that name. In `--json`, `uses.language` is `null` for such a file.
+
+A script rule whose callback throws after a `node:crypto` job, such as pbkdf2 or scrypt, that ends after the rule's last result is now `rule-crashed`, as a rule whose timer throws is. In alpha.4 such a rule passed or failed depending on how many other files the run judged.
+
+A script rule that leaves a timer behind, such as `setTimeout(() => process.exit(1), 20)`, is no longer blamed on the next file it judges. When the rule's process ends, or goes 30 seconds without answering, after a call that left work running, `rule-crashed` now ends with the words "after a call that left work running" and names no file. In alpha.4 the message named the file judged at that moment, so the same rule was blamed on a different file, or on none, depending on which other files the run judged.
+
+A script rule that puts a large value in a field of a finding other than `message`, `file` and `line` no longer ends the run as `memory-too-large`. The run reads those three fields and ignores the rest, as the page on script rules says. A rule that put a function in such a field was `rule-crashed` in alpha.4; now the field is ignored. When a run does pass its memory while a script rule judges files, the error names that rule, and its `next:` line names the types whose files the rule judges. In alpha.4 it named the last git command, and told you to narrow the types with `may_use`.
+
 In the Claude Code plugin, a law error that the agent was shown once comes back after an edit that Lawcheck could check. In alpha.4, a law broken, fixed and broken again the same way within one prompt reached the agent only the first time.
 
 Every message the Claude Code plugin sends you, and every text it gives the agent after an edit or at the end of a turn, now starts with `Lawcheck:`. In alpha.4 some started with `lawcheck:`, as the tool's own output does, and one read `lawcheck: lawcheck check could not judge`. A hook that fails now prints `Lawcheck plugin:` before the cause. A reason that ends in a full stop no longer gets a second one, the text the agent gets says `... 1 more line not shown` for one line, and `lawcheck prime` says `1 more root type`.
@@ -61,9 +69,21 @@ A script rule may return `line: null` for a finding about the whole file. In alp
 
 A script rule whose timer throws after the rule's last result is now `rule-crashed` also when the rule unrefs the timer, with `unref()` or with `ref: false` of `node:timers/promises`, and when the throw follows an asynchronous wait on shared memory that ends after that result. In alpha.4 such a rule passed, because Lawcheck waited neither for an unreferenced timer nor for such a wait.
 
-When a reviewer's answer holds two verdict objects and one of them is a `fail`, the answer is that fail. In alpha.4 the last object won, so a fail followed by a quoted pass read as a pass. A pass is now a bad answer when an object of the answer holds the key `verdict` twice, or when another object holds a verdict that is neither `pass` nor `fail`, such as `"Fail"`. In alpha.4 both read as a pass.
+When a reviewer's answer holds two verdict objects and one of them is a `fail`, the answer is that fail. In alpha.4 the last object won, so a fail followed by a quoted pass read as a pass. A pass is now a bad answer when an object of the answer holds the key `verdict` twice, when another object holds a verdict that is neither `pass` nor `fail`, such as `"Fail"`, or when the answer holds a `"verdict": "fail"` that is no JSON object, such as one with a trailing comma. In alpha.4 all three read as a pass.
 
 A `check` or `try` that ends with exit 2 after it sent requests to a reviewer now says how many. The first line ends with the count, such as `lawcheck: ERROR  1 error, 2 reviewer calls`, and the JSON document `lawcheck-error/1` gains `calls_made` when the count is above 0. A program that checks the document against a schema that refuses unknown keys has to allow `calls_made`.
+
+With `runner: yarn` on Yarn 1, a failing check no longer hands the agent Yarn's closing line, `info Visit https://yarnpkg.com/en/docs/cli/run for documentation about this command.`, after the `next:` line. In alpha.4 the plugin kept that line, and when the output was too long for the hook text it dropped the `next:` line and ended on the Yarn line.
+
+The pages Settings, Supported environments and Install now say what pnpm 11 and later do on the first day after a release. `pnpm add --save-dev lawcheck@alpha` does not stop. It installs the release before, and `@chrisdudek/runes` is held back in the same way. This line in `pnpm-workspace.yaml` installs the new versions: `minimumReleaseAgeExclude: [lawcheck, "@chrisdudek/runes"]`. The pages also name the Yarn versions. Yarn 4.15.0 and later refuse on that day, Yarn 4.10.1 to 4.14.1 hold nothing back, and Yarn 4.0.0 to 4.9.4 stop every command with `Usage Error` on the `npmPreapprovedPackages` line.
+
+`check`, `explain`, `try` and `doctor` in a repository that git cannot read, such as one with a corrupt `.git/index`, now end with `no-git`, the line git printed and the step to repair the repository until `git status` works. In alpha.4 they ended with `internal`, which asks you to report a fault of Lawcheck. Under `doctor`, the check that met the failure shows `fail` with the same line.
+
+`init` no longer reports `kept .lawcheck/.gitignore` when that path is a folder or a symbolic link to nothing: it stops with `file-unwritable` and writes nothing. When `.lawcheck/law.yaml` is a folder or a symbolic link to nothing, `doctor` and `check` now say `law-invalid` with the cause, such as `EISDIR` for a folder. In alpha.4 `doctor` said there was no law and sent you to `lawcheck init`, and `init` sent you back to `lawcheck doctor`.
+
+A rule file that is a symbolic link now gets its own `rule-missing-file` message, which names the link and says that Lawcheck reads no rule through one. In alpha.4 the message said that the rule had neither file, though the link stood there, and `.lawcheck/law.yaml` and `.lawcheck/config.yaml` as links are still read.
+
+On Windows, `lawcheck explain` no longer refuses with `usage` a name that holds at most 255 UTF-16 units but more than 255 bytes, such as 86 characters of three bytes each. It counted bytes everywhere, so a file that exists on Windows was refused as one that cannot exist. The limit of a path on Windows is 32,767 units, not 4,095 bytes. Linux and macOS keep their limits.
 
 ## [0.1.0-alpha.4] - 2026-11-23
 

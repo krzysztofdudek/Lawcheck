@@ -1,10 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { chmodSync, existsSync, symlinkSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { withFake } from '../acceptance/fake-reviewer.ts';
-import { F, F_PATH, inTemp, newRepository, withR, withSample, write } from '../acceptance/helpers.ts';
+import { F, F_PATH, git, inTemp, newRepository, withR, withSample, write } from '../acceptance/helpers.ts';
 import { platformSkip } from '../harness/tool.ts';
 import { errorLines, run } from './support.ts';
 
@@ -38,10 +38,37 @@ test('test 244: S1-7, a folder that cannot be read is file-unreadable for the ty
   });
 });
 
+test('S1-7: a corrupt .git/index is no-git with git\'s sentence and a step that repairs the repository, for check, doctor, explain and try', async () => {
+  await withSample(async (s) => {
+    writeFileSync(join(s, '.git/index'), 'garbage\n');
+    const sentence = 'git cannot read this repository: fatal: .git/index: index file smaller than expected';
+    for (const [args, command] of [
+      [['check', '--base', 'main'], 'check'],
+      [['explain', 'src/core/price.ts'], 'explain'],
+      [['try', 'no-console', 'src/core/price.ts'], 'try'],
+    ] as const) {
+      const result = await run(s, [...args]);
+      assert.equal(result.code, 2, args.join(' '));
+      assert.equal(
+        result.stdout,
+        ['lawcheck: ERROR  1 error', '', `error[no-git]  ${sentence}`, '  why:  the files and the change come from git', '', `next: repair the repository, so that git status works here, then run lawcheck ${command}${command === 'check' ? '' : ' again'}`, ''].join('\n'),
+        args.join(' '),
+      );
+    }
+    const doctor = await run(s, ['doctor']);
+    assert.equal(doctor.code, 2);
+    assert.ok(doctor.stdout.includes(`fail  law  ${sentence}\n  next: repair the repository, so that git status works here, then run lawcheck doctor again\n`), doctor.stdout);
+  });
+});
+
 test('test 245: S5-6, explain on a path that cannot exist is usage, not internal', async () => {
   await withSample(async (s) => {
     for (const path of [`src/core/${'a'.repeat(300)}.ts`, Array.from({ length: 2500 }, () => 'd').join('/')]) {
       const result = await run(s, ['explain', path]);
+      if (process.platform === 'win32' && !path.startsWith('src/')) {
+        assert.deepEqual([result.code, result.stdout.split('\n')[0]], [0, `${path}  (does not exist yet)`], path.slice(0, 20));
+        continue;
+      }
       assert.equal(
         result.stdout,
         [
@@ -84,6 +111,76 @@ test('test 241: S5-4, init where .lawcheck is a symbolic link to nothing names i
   });
 });
 
+
+async function lawIsNoFile(make: (path: string) => void, cause: string): Promise<void> {
+  await inTemp(async (dir) => {
+    const repo = newRepository(dir);
+    mkdirSync(join(repo, '.lawcheck'));
+    make(join(repo, '.lawcheck/law.yaml'));
+    const init = await run(repo, ['init']);
+    assert.equal(init.code, 2);
+    assert.deepEqual(errorLines(init.stdout), ['.lawcheck/law.yaml  error[already-initialized]  a law already governs this directory']);
+    assert.match(init.stdout, /\nnext: lawcheck doctor /);
+    const doctor = await run(repo, ['doctor']);
+    assert.equal(doctor.code, 2);
+    assert.ok(doctor.stdout.includes(`fail  law  .lawcheck/law.yaml:1  the law cannot be read (${cause})\n  next: fix .lawcheck/law.yaml, then run lawcheck doctor again\n`), doctor.stdout);
+    const checked = await run(repo, ['check']);
+    assert.equal(checked.code, 2);
+    assert.deepEqual(errorLines(checked.stdout), [`.lawcheck/law.yaml:1  error[law-invalid]  the law cannot be read (${cause})`]);
+  });
+}
+
+test('S5-5: .lawcheck/law.yaml is a folder, so init sends the user to doctor, and doctor and check say the law cannot be read', async () => {
+  await lawIsNoFile((path) => mkdirSync(path), 'EISDIR');
+});
+
+test('test 1005: S5-5, .lawcheck/law.yaml is a symbolic link to nothing, so init sends the user to doctor, and doctor and check say the law cannot be read', async (t) => {
+  const skipped = platformSkip('the whole test');
+  if (skipped !== null) return t.skip(skipped);
+  await lawIsNoFile((path) => symlinkSync(join(path, '../nowhere.yaml'), path), 'ENOENT');
+});
+
+test('S5-5: init where .lawcheck/.gitignore is a folder writes nothing and names it, and does not call it kept', async () => {
+  await inTemp(async (dir) => {
+    const repo = newRepository(dir);
+    mkdirSync(join(repo, '.lawcheck/.gitignore'), { recursive: true });
+    const result = await run(repo, ['init']);
+    assert.equal(
+      result.stdout,
+      [
+        'lawcheck: ERROR  1 error',
+        '',
+        '.lawcheck/.gitignore  error[file-unwritable]  it is a folder, so the file .lawcheck/.gitignore cannot be written',
+        '  why:  what Lawcheck cannot write is lost, so the run cannot say it is done',
+        '',
+        'next: move .lawcheck/.gitignore out of the way, then run lawcheck init again',
+        '',
+      ].join('\n'),
+    );
+    assert.equal(result.code, 2);
+    assert.equal(existsSync(join(repo, '.lawcheck/law.yaml')), false);
+  });
+});
+
+test('test 1006: S1-8, a rule file that is a symbolic link is named as one, since Lawcheck reads no rule through a link, and the rule is not said to have no file', async (t) => {
+  const skipped = platformSkip('the whole test');
+  if (skipped !== null) return t.skip(skipped);
+  await withSample(async (s) => {
+    rmSync(join(s, '.lawcheck/rules/no-todo.mjs'));
+    symlinkSync('no-console.mjs', join(s, '.lawcheck/rules/no-todo.mjs'));
+    git(s, 'add', '-A');
+    git(s, 'commit', '-q', '-m', 'link');
+    const result = await run(s, ['check', '--base', 'main']);
+    const line = errorLines(result.stdout)[0]!;
+    assert.match(line, /^\.lawcheck\/law\.yaml:\d+ {2}error\[rule-missing-file\] {2}/);
+    assert.equal(
+      line.split('  ').slice(2).join('  '),
+      "the rule 'no-todo' has neither .lawcheck/rules/no-todo.mjs nor .lawcheck/rules/no-todo.md as a file: .lawcheck/rules/no-todo.mjs is a symbolic link, and Lawcheck reads no rule through one",
+    );
+    assert.match(result.stdout, /\nnext: ask the user to replace the symbolic link \.lawcheck\/rules\/no-todo\.mjs with the rule file itself, then run lawcheck check\n/);
+    assert.equal(result.code, 2);
+  });
+});
 
 test('test 260: a named pipe is no regular file: explain names it, and as .lawcheck/verdicts it is file-unreadable, with no call', async (t) => {
   const skipped = platformSkip('the whole test');
