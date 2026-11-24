@@ -461,6 +461,12 @@
                   "from": {
                     "repo": "docs/quick-start.md"
                   }
+                },
+                {
+                  "text": "Nothing is checked yet: the law has no types.",
+                  "from": {
+                    "repo": "docs/quick-start.md"
+                  }
                 }
               ]
             },
@@ -1105,7 +1111,7 @@
                 {
                   "text": "Add a loyalty discount in src/core",
                   "from": {
-                    "take": "b04",
+                    "take": "fu01",
                     "file": "take.json"
                   }
                 }
@@ -1118,7 +1124,14 @@
               ],
               "ties": [
                 {
-                  "text": "+++ b/src/core/loyalty.ts",
+                  "text": "+++ b/src/core/money.ts",
+                  "from": {
+                    "take": "fu01",
+                    "file": "change.diff"
+                  }
+                },
+                {
+                  "text": "+export { formatMoney } from \"../core/money.ts\";",
                   "from": {
                     "take": "fu01",
                     "file": "change.diff"
@@ -1553,6 +1566,12 @@
               "ties": [
                 {
                   "text": "src/core/cart.ts:3  error[no-fetch]",
+                  "from": {
+                    "run": "sr-try"
+                  }
+                },
+                {
+                  "text": "1 finding in 1 of 2 files",
                   "from": {
                     "run": "sr-try"
                   }
