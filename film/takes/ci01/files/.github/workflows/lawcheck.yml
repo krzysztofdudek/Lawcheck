@@ -39,7 +39,5 @@ jobs:
           npx --no-install lawcheck check --base "$base"
           if git cat-file -e "$base:./.lawcheck/law.yaml" 2> /dev/null; then
             echo "Checking again with the law of $base"
-            rm -rf .lawcheck/rules
-            git ls-tree -r -z --name-only "$base" -- .lawcheck/law.yaml .lawcheck/rules | xargs -0 git checkout "$base" --
-            npx --no-install lawcheck check --base "$base"
+            npx --no-install lawcheck check --base "$base" --law-from "$base"
           fi
