@@ -192,7 +192,7 @@ test('test 252: kill -9 at a random moment of 50 reviews leaves a verdicts file 
           verdictLines(r);
         }
         const after = await run(r, ['check', '--review', '--base', 'main'], { env: { LAWCHECK_REVIEWER_ENDPOINT: fake.url }, budget: 'LIMITS_RUN_MS' });
-        assert.match(after.stdout, /^lawcheck: PASS  6[34] changed files \(against main\), 62 waivers(, \d+ reviewer calls?)?\n$/);
+        assert.match(after.stdout, /^lawcheck: PASS  6[34] changed files \(against main\), 62 waivers(, \d+ reviewer calls?)?\nnote: this change adds 62 waivers: clear-errors at src\/core\/refund0\.ts:3; clear-errors at src\/core\/refund1\.ts:3; clear-errors at src\/core\/refund10\.ts:3; clear-errors at src\/core\/refund11\.ts:3; clear-errors at src\/core\/refund12\.ts:3; and 57 more\n$/);
         assert.equal(after.code, 0);
         assert.equal(verdictLines(r).length, 62);
         const plain = await run(r, ['check', '--base', 'main']);
