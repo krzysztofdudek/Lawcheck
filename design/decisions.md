@@ -462,6 +462,12 @@ When the tool is killed on Windows, the guard ends a rule's runner the way it en
 Why: a runner is in the tool's job on Windows and ends with the tool, so by the time the guard acts Windows may have given its id to another process, and ending by id ends that process. A PowerShell that never answers would hold the guard, and the folders it is to remove, for ever; a process left alive is a smaller harm than a guard that never ends. The price is that a runner that survived the tool and that no list had shown yet stays alive; the runner is a child of the tool, so this needs a tool killed within the first moments of a run.
 
 
+## Decision (number at merge). On Windows the guard of a killed tool with no program call open takes no list of processes
+
+When the tool is killed on Windows while no call of a program reviewer is open, as in a run that calls none, the guard removes the folders it was told of and exits without starting PowerShell, and ends no process.
+
+Why: only rule runners are left then. A runner is in the tool's job and ends with the tool, and a rule starts no program under Node's permission model, so nothing they started outlives the tool. A list could end nothing, and taking one only delayed the guard's end, and the removal of the folders, by up to 10 seconds.
+
 ## 207. On Windows a program is ended by its id only while it runs, and the guard knows when the tool started it
 
 The tool on Windows ends a program reviewer's tree by the program's id only until it has seen the program exit: after that it runs no `taskkill /T` on the id, at the end of a call or when it exits. When it registers a program with the guard, the tool also gives the time it took from its clock just before it started the program, and the list of processes gives each process's time of making in UTC, so the two compare. Below a program that no earlier list shows, the guard ends only what was made at or after that time, and not only after the guard's own start. A process an earlier list shows with the program's id made before that time is an earlier holder of the id: the guard ends neither it nor what it made.

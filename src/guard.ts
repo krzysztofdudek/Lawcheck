@@ -149,7 +149,8 @@ function listSince(since: number, ms: number): Promise<string | null> {
 
 // Windows may have given a root's id to another process, so the guard never ends a tree or a runner by its id: it ends only what toEnd finds in a list begun after the kill, and takes that list itself when the watcher gives none in time.
 async function endWatched(): Promise<void> {
-  if (groups.size === 0 && runners.size === 0) return;
+  // With no call of a program reviewer open, only rule runners are left, which end with the tool in its job and start no program under Node's permission model, so a list could end nothing.
+  if (groups.size === 0) return;
   const learned = Date.now();
   const before = table;
   const fresh = (await listSince(learned, LIST_MS)) ?? listNow();
