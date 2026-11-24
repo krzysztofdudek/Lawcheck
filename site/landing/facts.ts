@@ -10,7 +10,7 @@ import { Fragments, inline, isAhead } from './fragments.ts';
 type Link = { text: string; page: string };
 export interface Copy {
   title: string;
-  description: string;
+  summary: string;
   h1: string;
   skip: string;
   nav: { docs: Link; github: string };
@@ -50,7 +50,7 @@ export const support = (): string => fragments.sentence('docs/support.md', 'Supp
 
 export function head() {
   const copy = copyOf();
-  return { title: copy.title, description: plain(copy.description), version: manifest.version, date: releaseDate(manifest.version), ahead: isAhead(fragments.read('CHANGELOG.md')), systems: /, on (.+)\.$/.exec(support())![1]! };
+  return { title: copy.title, description: plain(copy.summary), version: manifest.version, date: releaseDate(manifest.version), ahead: isAhead(fragments.read('CHANGELOG.md')), systems: /, on (.+)\.$/.exec(support())![1]! };
 }
 
 export async function facts() {
