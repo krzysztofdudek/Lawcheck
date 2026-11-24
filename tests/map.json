@@ -156,6 +156,7 @@
   "src/explain.ts": [
     "tests/acceptance/explain.test.ts",
     "tests/acceptance/hostile.test.ts",
+    "tests/acceptance/languages.test.ts",
     "tests/acceptance/waiver-key.test.ts",
     "tests/environments/systems.test.ts",
     "tests/limits/internals.test.ts",

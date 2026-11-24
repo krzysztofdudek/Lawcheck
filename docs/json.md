@@ -158,11 +158,11 @@ Every command but `doctor` prints this document when it ends with exit 2.
 
 ## lawcheck-explain/0
 
-`explain` prints this document, with exit 0. `subject` says which of the four forms follows: `file`, `directory`, `type` or `rule`.
+`explain` prints this document, with exit 0. `subject` says which of the five forms follows: `file`, `directory`, `type`, `rule` or `tree`.
 
 | Field | Value |
 |---|---|
-| `subject` | `file`, `directory`, `type` or `rule` |
+| `subject` | `file`, `directory`, `type`, `rule` or `tree` |
 
 For a file, these fields follow `schema` and `subject`:
 
@@ -187,7 +187,7 @@ For a file, these fields follow `schema` and `subject`:
 | `may_use.from` | the type above whose list holds, or null for the file's own type |
 | `uses` | whether its uses are read, or null when no list is in force |
 | `uses.read` | true when a reader reads the file |
-| `uses.language` | the reader's language, or null |
+| `uses.language` | the reader's language, or null when no reader reads the file, and for a `.vue` or `.svelte` file with no script block, which uses nothing |
 | `rules` | every rule of the chain |
 | `rules.id` | the rule |
 | `rules.kind` | `script` or `reviewer` |
@@ -234,6 +234,25 @@ For a rule, these fields follow `schema` and `subject`:
 | `reviewed` | for a reviewer rule, how many of its files have a verdict; null for a script rule |
 
 `id` is the rule. `types` names each type that lists it. `files` names the files it binds: each file whose type, or a type above it, lists the rule.
+
+For a tree, from `explain <path> --tree --json`, these fields follow `schema` and `subject`:
+
+| Field | Value |
+|---|---|
+| `path` | the path from the root |
+| `language` | the language the reader parsed, such as `typescript`; null for a file with no reader |
+| `absent` | null, or why the tree is absent: `no-reader`, `too-large` or `reader-failed` |
+| `nodes` | every node of the tree, each before its children, in the order of the text; null when the tree is absent |
+| `nodes.type` | the node's type in the grammar |
+| `nodes.named` | false for a keyword or a punctuation mark, true for the other nodes |
+| `nodes.field` | the name its parent gives the node, or null |
+| `nodes.start` | where the node starts in the file's text |
+| `nodes.end` | where the node ends in the file's text |
+| `nodes.line` | the line of `start`, counted from 1 |
+| `nodes.column` | the column of `start` in its line, counted from 0 in UTF-16 code units |
+| `nodes.parent` | the index of the node's parent in `nodes`, or null for the root |
+
+A script rule that walks `await file.tree()` from the root, each node before its children, meets the same nodes in the same order, with the same keys but `children` in place of `parent`.
 
 ## lawcheck-try/0
 
