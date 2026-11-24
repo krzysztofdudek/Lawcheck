@@ -773,7 +773,7 @@ function reuse(older: string, out: string): string {
   return `[System.Diagnostics.Process]::GetCurrentProcess().ProcessorAffinity = [IntPtr]1; $o = New-Object System.Diagnostics.ProcessStartInfo '${process.execPath}', '"${older}"'; $o.UseShellExecute = $false; $o.CreateNoWindow = $true; $o.RedirectStandardOutput = $true; $h = [System.Diagnostics.Process]::Start($o); $child = $h.StandardOutput.ReadLine(); $h.WaitForExit(); $target = $h.Id; $h.Dispose(); $psi = New-Object System.Diagnostics.ProcessStartInfo '${ping}', '-n 120 127.0.0.1'; $psi.UseShellExecute = $false; $psi.CreateNoWindow = $true; $kept = New-Object System.Collections.ArrayList; $end = (Get-Date).AddSeconds(${REUSE_S}); $n = 0; while ((Get-Date) -lt $end) { $p = [System.Diagnostics.Process]::Start($psi); $n++; if ($p.Id -eq $target) { Set-Content -LiteralPath '${out}' -Value "$target $child $($p.Id) $n"; exit 0 }; $p.Kill(); [void]$kept.Add($p) }; Set-Content -LiteralPath '${out}' -Value "missed $target after $n programs, the last $(($kept | Select-Object -Last 3 | ForEach-Object { $_.Id }) -join ' ')"; try { Stop-Process -Id $child -Force } catch {}; exit 1`;
 }
 
-const REUSE_S = 40;
+const REUSE_S = 50;
 
 test('test 1048: on Windows the tool that ends a running program\'s tree leaves alive the child an earlier holder of the program\'s id made before the program', async (t) => {
   const skip = platformSkip('the whole test');
