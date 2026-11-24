@@ -1220,7 +1220,8 @@ const PROPOSALS: [string, string, string, string[]][] = [
 ];
 
 test('test 908: the setup skill has advice and a target, each with its reference file and the one proposal file it writes, each format marked as no law, the skill starts them only on the user\'s words and offers neither at the end', () => {
-  assert.deepEqual(skillFiles().map((file) => relative(SKILL, file).split(sep).join('/')), ['SKILL.md', 'references/advice.md', 'references/target.md']);
+  // A folder comes in the order of its file system, which on Windows puts references before SKILL.md, so the names are sorted first.
+  assert.deepEqual(skillFiles().map((file) => relative(SKILL, file).split(sep).join('/')).sort(), ['SKILL.md', 'references/advice.md', 'references/target.md']);
   const skill = SKILL_TEXT('SKILL.md');
   assert.match(skill, /^---\nname: setup\ndescription: .+\ndisable-model-invocation: true\n---\n/);
   assert.deepEqual(namedParts(skill).links, ['references/advice.md', 'references/target.md']);

@@ -15,7 +15,7 @@ import type { MemoryCase } from './limits.js';
 import { renderErrors, safeJson, safeText } from './output.js';
 import type { ErrorItem } from './output.js';
 import { lastStep, progressBuffer } from './progress.js';
-import { absolutePath, NO_CURRENT_FOLDER } from './programs.js';
+import { absolutePath, NO_CURRENT_FOLDER, serveGuard } from './programs.js';
 
 // Each case names a step the user can take: a file whose uses are read leaves the types with may_use, or the types of the rule that read them; a file read only for what it declares leaves the files git lists; a run or a machine short of memory gets more of it.
 export function memoryError(found: Exclude<MemoryCase, null>, what: string, file: string | null, command: string): ErrorItem {
@@ -128,9 +128,12 @@ export function start(): void {
     });
   });
   port1.unref();
+  const lines = new MessageChannel();
+  const guardWritten = new SharedArrayBuffer(4);
+  serveGuard(lines.port1, guardWritten);
   const worker = new Worker(new URL('./work.js', import.meta.url), {
-    workerData: { argv, cwd: process.cwd(), progress, git: port2, gitFlag: gitFlag.buffer },
-    transferList: [port2],
+    workerData: { argv, cwd: process.cwd(), progress, git: port2, gitFlag: gitFlag.buffer, guard: lines.port2, guardWritten },
+    transferList: [port2, lines.port2],
     stdout: false,
     stderr: false,
   });
