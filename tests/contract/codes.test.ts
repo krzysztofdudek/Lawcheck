@@ -232,6 +232,15 @@ const CASES: Case[] = [
     setup: (dir) => ({ cwd: makeSample(dir), argv: ['check', '--base', 'main', '--law-from', 'nope'] }),
   },
   {
+    id: 'law-from-packages, check',
+    code: 'law-from-packages',
+    setup: (dir) => {
+      const cwd = makeSample(dir);
+      write(cwd, '.lawcheck/node_modules/callpkg/index.js', 'export const CALL = /a^/;\n');
+      return { cwd, argv: ['check', '--base', 'main', '--law-from', 'main'] };
+    },
+  },
+  {
     id: 'base-unreachable, doctor',
     code: 'base-unreachable',
     setup: (dir) => ({ cwd: makeSample(dir), argv: ['doctor', '--base', 'nope'], report: 'doctor', follow: { supply: ['--base', 'main'] } }),
@@ -838,6 +847,7 @@ const GROUPS: Record<string, string[]> = {
   reviewer: ['reviewer-not-configured', 'too-many-reviews', 'reviewer-unreachable', 'reviewer-bad-answer', 'not-a-signer', 'not-reviewed', 'too-large-to-review'],
   findings: ['forbidden-use', 'uses-not-read', 'untyped-file', 'waiver-', 'doctor,'],
   lawFrom: ['law-from-unreachable'],
+  lawFromPackages: ['law-from-packages'],
 };
 
 // Each case runs the tool in a process of its own a few times, and one case after another they were most of the time of these two tests on a loaded machine.
@@ -872,6 +882,10 @@ test('check-slice §6: base-unreachable, rule-crashed, parser-failed, internal, 
 
 test('test 1075: law-from-unreachable, in text and in JSON, and its next line', async () => {
   assert.deepEqual(await runCases(inGroup('lawFrom')), []);
+});
+
+test('test 1111: law-from-packages, in text and in JSON, and its next line', async () => {
+  assert.deepEqual(await runCases(inGroup('lawFromPackages')), []);
 });
 
 test('check-slice §6: the reviewer codes, in text and in JSON, and the commands their next lines name', async () => {

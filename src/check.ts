@@ -12,7 +12,7 @@ import type { AnswerFinding } from './prompt.js';
 import { createProvider } from './providers/index.js';
 import { ownersOf, readerOf, readUses, ruleReads, siblingsOf } from './readers.js';
 import type { ScriptView } from './readers.js';
-import { atBase, kindsAt, lawAt, lawChangeLine, lawChanges, writeRules } from './lawchange.js';
+import { atBase, kindsAt, lawAt, lawChangeLine, lawChanges, packagesOfChange, writeRules } from './lawchange.js';
 import type { LawAt } from './lawchange.js';
 import { call, preflight } from './review.js';
 import type { Ask } from './review.js';
@@ -72,6 +72,7 @@ export async function check(options: CheckOptions, context: CheckContext): Promi
 
 function rulesOf(root: string, from: LawAt): { listed: Set<string>; files: string[]; read: Read; kinds: Kinds } {
   const work = workFiles(root);
+  packagesOfChange(work.listed, from.ref);
   return { ...work, kinds: kindsAt(from, work.files, work.read).kinds };
 }
 

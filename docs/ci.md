@@ -393,9 +393,9 @@ note: the law changed in this change; lawcheck check --full --base origin/main s
 note: this change edits the law that judges it: takes the rule no-console off the type library
 ```
 
-The job you set up in [Add the workflow](#_2-add-the-workflow) then checks again with `--law-from "$base"`. It judges the pull request by the law of the base, read from git ([`--law-from`](commands.md#law-from-ref)). That second check fails with exit 1 at `src/core/total.ts:2`. [What a check judges](change.md) lists every change of the law that the note names.
+The job you set up in [Add the workflow](#_2-add-the-workflow) then checks again with `--law-from "$base"`. It judges the pull request by the base's law ([`--law-from`](commands.md#law-from-ref)). That second check fails with exit 1 at `src/core/total.ts:2`. [What a check judges](change.md) lists every change of the law that the note names.
 
-On `pull_request`, GitHub runs the workflow file of the pull request itself. The install step then reads the pull request's own `package.json`. In the second check, a rule of the base reads the pull request's copy of each file outside `.lawcheck/`. A pull request that edits those files can therefore skip the second check, or change what a rule reads.
+On `pull_request`, GitHub runs the pull request's own workflow file. The install step reads the pull request's `package.json`. In the second check, a rule of the base reads the pull request's copy of each file outside `.lawcheck/rules/`. A pull request that edits them can skip the second check, or change what a rule reads.
 
 Lawcheck guards none of those files. On GitHub, a required review by a code owner can guard these paths:
 
@@ -404,9 +404,9 @@ Lawcheck guards none of those files. On GitHub, a required review by a code owne
 - `package.json` and the lockfile;
 - every file a rule imports or reads.
 
-Keep a rule's helpers and settings under `.lawcheck/rules/`, and import them. The second check loads the base's copy of that folder. A file a rule reads by its path, or a package it imports by name, is the pull request's, in `.lawcheck/` too.
+Keep a rule's helpers and settings under `.lawcheck/rules/`, and import them: the second check loads the base's copy. A file a rule reads by its path, or a package it imports by name, is the pull request's; one in `.lawcheck/node_modules` or `.lawcheck/.local` stops that check with `law-from-packages`.
 
-A pull request that removes a rule and adds code that the rule forbids fails the second check. Merge the change of the law first, in a pull request of its own.
+A pull request that removes a rule and adds code that the rule forbids fails the second check. Merge the change of the law first, in its own pull request.
 
 ## Git hooks
 
