@@ -1203,6 +1203,9 @@ test('R-4: the check after an edit judges a file of a folder that holds a law of
     write(repo, 'src/top.ts', 'console.log(1);\n');
     nothing(await session.edit('src/top.ts', 'Write'), 'judged by the law of the repository, which has no rule');
     assert.deepEqual(bench.log().at(-1), { args: ['check', './src/top.ts'], cwd: repo });
+  });
+});
+
 const relayed = (text: string) => ({ decision: 'block', reason: `Lawcheck: before you finish, tell the user this message, word for word, then finish:\n\n${text}` });
 
 test('test 970: the hooks of the Claude Code plugin hold only what Cursor maps, and Cursor names the edit tool Write', () => {

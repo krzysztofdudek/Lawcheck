@@ -37,7 +37,7 @@ Cursor's command-line agent runs the hook at the prompt and the hook before the 
 }
 ```
 
-The entries do nothing but print `{}`. They make Cursor run the event, and Cursor then runs the plugin's hook for the event beside them.
+The entries do nothing but print `{}`. The entries make Cursor run the event, and Cursor then runs the plugin's hook for the event beside them.
 
 ## 4. What each hook does in Cursor
 
