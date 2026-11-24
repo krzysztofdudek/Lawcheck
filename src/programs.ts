@@ -258,7 +258,8 @@ export function killTree(pid: number, signal: NodeJS.Signals, orphans = false): 
 const GUARD = fileURLToPath(new URL('./guard.js', import.meta.url));
 
 const live = new Set<ChildProcess>();
-const liveGroups = new Map<number, () => boolean>();
+// One entry per call: Windows may give the id of a call's program, once it has ended, to the program of the next call before the first call is released.
+const liveGroups: { pid: number; started: number | undefined; running: () => boolean }[] = [];
 const liveFolders = new Set<string>();
 let guard: ChildProcess | null = null;
 let listing = false;
@@ -288,17 +289,31 @@ export function watchProcess(child: ChildProcess): void {
   guard!.stdin!.write(`+${child.pid}\n`);
 }
 
-// Windows gives the id of a program to a new process once the tool has seen the program end, and taskkill /T on that id would end that process and what it started, so there a group is ended by its id only while its program runs.
+// Once the tool has seen a program end, its id may be given to a new process: on Windows at once, and taskkill /T on it would end that process and what it started; elsewhere once no process of the group is left, and a kill of the group would end a new group of that number. So a group is ended by its id only while its program runs, and elsewhere once more when the tool sees the program end (programEnded).
 export function killGroup(pid: number, signal: NodeJS.Signals, running = true): boolean {
-  if (process.platform === 'win32' && !running) return false;
+  if (!running) return false;
   return killTree(pid, signal);
 }
 
 // started is the time just before the program was started, which the guard takes as a time before the program was made.
 export function watchGroup(pid: number, started?: number, running: () => boolean = () => true): void {
-  liveGroups.set(pid, running);
+  liveGroups.push({ pid, started, running });
   startGuard();
   guard!.stdin!.write(`+g${pid}${started === undefined ? '' : ` ${started}`}\n`);
+}
+
+function forgetGroup(pid: number, started?: number): void {
+  const at = liveGroups.findIndex((group) => group.pid === pid && group.started === started);
+  if (at < 0) return;
+  liveGroups.splice(at, 1);
+  guard?.stdin?.write(`-g${pid}${started === undefined ? '' : ` ${started}`}\n`);
+}
+
+// Outside Windows a group keeps its number while any process of it lives, and the system gives a free number again only after it has gone through the others, so at the moment the tool sees the program end the number is still the group's: the group is ended then, for what the program left in it, and the guard forgets it.
+export function programEnded(pid: number, started?: number): void {
+  if (process.platform === 'win32') return;
+  killTree(pid, 'SIGKILL');
+  forgetGroup(pid, started);
 }
 
 export function watchFolder(path: string): void {
@@ -328,9 +343,9 @@ export function releaseFolder(path: string): void {
   if (liveFolders.delete(path)) guard?.stdin?.write(`-d${path}\n`);
 }
 
-export function releaseGroup(pid: number, running = true): void {
+export function releaseGroup(pid: number, running = true, started?: number): void {
   killGroup(pid, 'SIGKILL', running);
-  if (liveGroups.delete(pid)) guard?.stdin?.write(`-g${pid}\n`);
+  forgetGroup(pid, started);
 }
 
 export function releaseProcess(child: ChildProcess): void {
@@ -340,6 +355,6 @@ export function releaseProcess(child: ChildProcess): void {
 
 process.on('exit', () => {
   for (const child of live) child.kill('SIGKILL');
-  for (const [pid, running] of liveGroups) killGroup(pid, 'SIGKILL', running());
+  for (const { pid, running } of liveGroups) killGroup(pid, 'SIGKILL', running());
   for (const path of liveFolders) rmSync(path, { recursive: true, force: true, maxRetries: 10 });
 });
