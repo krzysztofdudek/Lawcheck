@@ -75,6 +75,7 @@ These were not checked:
 - Windows. Cursor starts a hook there through the Windows shell, and the check did not follow how that shell expands `${CLAUDE_PLUGIN_ROOT}`.
 - The marketplace of Cursor, its commands and a team marketplace. The way above does not use them.
 - Cursor's cloud agents.
+- That Cursor starts the setup skill of the plugin with `/lawcheck:setup`, the command that the text at the start of a session names when the folder has no law.
 - That the agent follows the text that a hook gives it.
 
 ## If it goes wrong
