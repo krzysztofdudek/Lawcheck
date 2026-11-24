@@ -480,3 +480,30 @@ test('test 1112: T7, under --law-from a folder that a file system which ignores 
     });
   }
 });
+
+test('test 1181: T7, under --law-from a folder that HFS+ finds as .lawcheck/node_modules or .lawcheck/.local because it ignores a code point of the name, such as U+200C or U+FEFF, stops with law-from-packages, named as git lists it', async () => {
+  const cases = [
+    { folder: '.lawcheck/node_‌modules', said: '.lawcheck/node_‌modules' },
+    { folder: '.lawcheck‍/node_modules', said: '.lawcheck‍/node_modules' },
+    { folder: '.lawcheck/.﻿Local', said: '.lawcheck/.\\ufeffLocal' },
+    { folder: '.lawcheck/node‮_modules⁯', said: '.lawcheck/node\\u202e_modules\\u206f' },
+  ];
+  for (const { folder, said } of cases) {
+    await withSample(async (s) => {
+      write(s, `${folder}/callpkg/index.js`, 'export const CALL = /a^/;\n');
+      git(s, 'add', '-f', folder);
+      git(s, 'commit', '-q', '-m', 'plant');
+      const planted = await check(s, '--base', 'main', '--law-from', 'main');
+      assert.deepEqual(planted.stdout.split('\n'), [
+        'lawcheck: ERROR  1 error',
+        '',
+        `${said}/callpkg/index.js  error[law-from-packages]  git lists this file in ${said}, and a package that a rule of 'main' imports cannot come from the change`,
+        '  why:  a change judged by the law of a commit cannot supply the code that law runs',
+        '',
+        `next: take ${said} out of git, such as with git rm -r --cached ${said}, and name it in .gitignore`,
+        '',
+      ], said);
+      assert.equal(planted.code, 2, said);
+    });
+  }
+});
