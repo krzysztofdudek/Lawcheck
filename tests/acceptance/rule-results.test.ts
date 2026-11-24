@@ -111,6 +111,15 @@ for (const [what, left, message] of leftRunning) {
   });
 }
 
+test('R-107: a call that leaves nothing running, after one that left work that has ended, is named when the runner ends in it', async () => {
+  await withSample(async (s) => {
+    setRule(s, 'no-console', "export async function check({ files: [{ path }] }) { if (path === 'src/core/a.ts') setTimeout(() => {}, 20); if (path === 'src/core/b.ts') await new Promise((r) => setTimeout(r, 200)); if (path === 'src/core/c.ts') process.exit(1); return []; }\n");
+    for (const file of ['a', 'b', 'c']) write(s, `src/core/${file}.ts`, 'export const x = 1;\n');
+    const run = await check(s, '--full');
+    assert.deepEqual([run.code, run.stdout.split('\n')[2]], [2, '.lawcheck/rules/no-console.mjs  error[rule-crashed]  ends before answering on src/core/c.ts']);
+  });
+});
+
 test('R-107: a call that leaves nothing running is named when the runner ends in it', async () => {
   await withSample(async (s) => {
     setRule(s, 'no-console', "export function check({ files }) { if (files[0].path === 'src/core/b.ts') process.exit(1); return []; }\n");

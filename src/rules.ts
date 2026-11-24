@@ -421,7 +421,7 @@ export function runRule(run: RuleRun): Promise<RuleOutcome> {
       current = { file, serving: 0, asked: new Set() };
       const payload = { path: file.path, type: file.type?.id ?? null, text: file.text, lines: file.lines };
       ask({ kind: 'call', file: payload }, (message) => {
-        if (message.left === true) leftover = true;
+        leftover = message.left === true;
         if (message.kind === 'threw') return end({ crash: `throws on ${file.path}: ${message.message}` });
         if (message.kind === 'uncloneable') {
           return end({ crash: `returns a value the channel cannot carry for ${file.path}: ${message.message}` });
