@@ -55,6 +55,8 @@ The plugin gives the agent the law when a session starts. Its hooks run Lawcheck
 
 In Codex, the same plugin installs with `codex plugin marketplace add krzysztofdudek/Lawcheck` and `codex plugin add lawcheck@lawcheck-marketplace`. Codex runs its hooks only after you trust them in `/hooks`. Its check after an edit sees the files of `apply_patch`, and a file the agent writes through the shell waits for the check before the agent finishes. `lawcheck docs codex-cli` has the steps.
 
+In Cursor, the plugin for Claude Code runs as it is. Cursor loads the plugins that Claude Code installed, so the two commands above install it for both. Cursor shows the user no message from a hook, so the plugin asks the agent to tell you its messages once. I read Cursor's documentation and the code of its command-line agent, and ran the plugin's hooks on the inputs they give. I ran no session of Cursor with the plugin, because that needs a Cursor account. `lawcheck docs cursor` says what each hook does there and what I did not check.
+
 Any other agent gets one line in its instructions file:
 
 ```text

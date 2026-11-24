@@ -48,6 +48,9 @@ The npm package and the Claude Code plugin now include the MIT licence of cross-
 A plain `lawcheck check` no longer misses a file edited in the same second as the last commit or `git add`, when the edit keeps the file's size. In alpha.4 the check printed `PASS  nothing changed` while `git status` showed the file as modified.
 
 The Lawcheck plugin now works in Codex CLI. `codex plugin marketplace add krzysztofdudek/Lawcheck` and `codex plugin add lawcheck@lawcheck-marketplace` install it, and Codex runs its hooks after you trust them in `/hooks`. The agent gets the law when a session starts, a check after each `apply_patch`, and up to three returns before it finishes, as in Claude Code. A file the agent writes through the shell gets no check after the edit, and the check before the end of the turn catches it. `LAWCHECK_PLUGIN_CHECK_AFTER_EDIT` and `LAWCHECK_PLUGIN_CHECK_BEFORE_STOP` switch the two checks off. In alpha.4 Codex got the law only through a line in its instructions file. `lawcheck docs codex-cli` has the steps.
+
+Cursor now runs the Lawcheck plugin for Claude Code. Cursor loads the plugins that Claude Code installed, so `claude plugin marketplace add krzysztofdudek/Lawcheck` and `claude plugin install lawcheck@lawcheck-marketplace` install it for both. In Cursor the hooks find the law in the workspace that Cursor names, send the agent back with the message that Cursor sends as the next one, and ask the agent once to tell you the messages that Cursor has no place for. After you stop the agent, the hook before the end of a turn sends no return. No session of Cursor ran the plugin, because that needs a Cursor account; `lawcheck docs cursor` says what was checked and what was not.
+
 ### Before you upgrade
 
 `scope.law_changes` in `lawcheck check --json` no longer lists the waivers a change adds. A script that read them there reads the items of `waivers` whose `added` is true.

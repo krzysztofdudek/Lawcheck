@@ -131,6 +131,7 @@ export async function facts() {
       plugin: readme(fragments.paragraph('README.md', 'Your coding agent', 'In Claude Code, install the plugin')),
       pluginCommands: fragments.code('README.md', 'Your coding agent', 'claude plugin').code,
       codex: ['In Codex, the same plugin installs', 'Codex runs its hooks only after'].map((start) => readme(fragments.sentence('README.md', 'Your coding agent', start))).join(' '),
+      cursor: readme(fragments.paragraph('README.md', 'Your coding agent', 'In Cursor, the plugin for Claude Code')),
     },
   };
 }
