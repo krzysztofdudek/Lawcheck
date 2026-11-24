@@ -4,6 +4,7 @@ import { parse } from 'yaml';
 import topics from '../../docs/topics.json' with { type: 'json' };
 import { codeThemeOfBrand, GITHUB, LINK, manifest, NPM, REPOSITORY } from '../theme/brand.ts';
 import { chapters } from '../theme/film.ts';
+import { plain } from '../theme/describe.ts';
 import { Fragments, inline, isAhead } from './fragments.ts';
 
 type Link = { text: string; page: string };
@@ -41,11 +42,12 @@ export function releaseDate(version: string): string {
 }
 
 export const promise = (): string => fragments.sentence('README.md', 'Lawcheck', 'Lawcheck checks code against');
+export const agents = (): string => ['A coding agent can skip a rule', 'Lawcheck reads the uses of'].map((start) => fragments.sentence('README.md', 'Lawcheck', start)).join(' ');
 export const support = (): string => fragments.sentence('docs/support.md', 'Supported environments', `Lawcheck ${manifest.version} runs on`);
 
 export function head() {
   const copy = copyOf();
-  return { title: copy.title, description: promise(), version: manifest.version, date: releaseDate(manifest.version), ahead: isAhead(fragments.read('CHANGELOG.md')), systems: /, on (.+)\.$/.exec(support())![1]! };
+  return { title: copy.title, description: plain(agents()), version: manifest.version, date: releaseDate(manifest.version), ahead: isAhead(fragments.read('CHANGELOG.md')), systems: /, on (.+)\.$/.exec(support())![1]! };
 }
 
 export async function facts() {
@@ -87,11 +89,11 @@ export async function facts() {
     head: head(),
     hero: {
       promise: readme(promise()),
+      agents: readme(agents()),
       who: readme(fragments.sentence('README.md', 'Lawcheck', 'It is for people who build')),
       install,
       support: md('docs/support.md')(support()),
       alpha: readme(fragments.sentence('README.md', 'Try it', 'Lawcheck is an alpha')),
-      sends: readme(fragments.sentence('README.md', 'Try it', 'Lawcheck sends code')),
       still: { file: '.lawcheck/law.yaml', html: law.html },
     },
     problem: readme(fragments.paragraph('README.md', 'Lawcheck', 'I build software')),

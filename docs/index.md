@@ -36,6 +36,8 @@ next: fix src/core/receipt.ts:1
 
 The run exits 1. The [finding](concepts.md#finding) gives the file, the line, the code `forbidden-use` and the `may_use` list of `core`.
 
+<div id="where-it-checks"></div>
+
 ## Lawcheck checks in four places
 
 - [Claude Code](claude-code.md): the plugin checks each file the agent edits. Before the agent finishes its answer to your prompt, the plugin checks every file the agent changed for that prompt. While those files break the law, the plugin sends the agent back to work, up to three times.
