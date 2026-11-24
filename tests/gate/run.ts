@@ -90,5 +90,5 @@ if (process.argv[1] !== undefined && realMain(process.argv[1]) === import.meta.f
   const passed = guard.code === 0 && tests.code === 0;
   out.push(`gate: ${passed ? 'PASS' : 'FAIL'}  ${verdicts.join('; ')}`);
   process.stdout.write(`${out.join('\n')}\n`);
-  process.exit(passed ? 0 : 1);
+  process.exitCode = passed ? 0 : 1;
 }

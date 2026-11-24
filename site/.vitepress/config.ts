@@ -12,7 +12,7 @@ const HOME_TITLE = 'Lawcheck documentation';
 const HOME_DESCRIPTION = 'The documentation of Lawcheck: install, quick start, guides for Claude Code, other agents and CI, every command, and what each code in the output means.';
 
 // The landing page's description; a page of the docs may not repeat it.
-const PROMISE = manifest.description.slice(manifest.description.indexOf('. ') + 2);
+const PROMISE = manifest.description.slice(manifest.description.indexOf('. ') + 2).split(/(?<=[.!?])\s+/);
 
 const pageId = (relativePath: string): string => relativePath.replace(/\.md$/, '');
 const canonicalOf = (id: string): string => (id === 'index' ? CANONICAL.docs : `${CANONICAL.docs}${id}.html`);
@@ -88,7 +88,7 @@ export default defineConfig({
     if (!topic) return;
     const home = id === 'index';
     const title = home ? HOME_TITLE : topic.title;
-    const description = home ? HOME_DESCRIPTION : describe(readFileSync(join(REPOSITORY, 'docs', pageData.relativePath), 'utf8'), [PROMISE]);
+    const description = home ? HOME_DESCRIPTION : describe(readFileSync(join(REPOSITORY, 'docs', pageData.relativePath), 'utf8'), PROMISE);
     heads.set(id, { title: home ? title : `${title} | Lawcheck docs`, description });
     pageData.headers = (outlines.get(id) ?? []).map(({ title, link }) => ({ level: 2, title, slug: link.slice(1), link, children: [] }));
     pageData.title = title;

@@ -14,11 +14,14 @@ export interface Host {
   name: string;
   program: string;
   hooks: string;
+  model: string;
+  // A host with no field for the user: the words the agent's last answer holds once it tells the user that the check still fails.
+  relays?: string;
   events: Record<string, string>;
   version(env: NodeJS.ProcessEnv): string;
   install(home: string, market: string, env: NodeJS.ProcessEnv): void;
   args(prompt: string, model: string): string[];
-  env(home: string): NodeJS.ProcessEnv;
+  env(home: string, model: string): NodeJS.ProcessEnv;
   read(stdout: string, home: string): Session;
 }
 
@@ -69,6 +72,7 @@ export const CODEX: Host = {
   name: 'codex',
   program: 'codex',
   hooks: 'codex.json',
+  model: 'gpt-5.5',
   events: { 'session-start': 'SessionStart', prompt: 'UserPromptSubmit', edit: 'PostToolUse', stop: 'Stop' },
   version(env) {
     return spawnSync('codex', ['--version'], { encoding: 'utf8', env }).stdout.trim();

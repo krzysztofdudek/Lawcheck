@@ -30,9 +30,9 @@ if (process.argv[1] !== undefined && realMain(process.argv[1]) === import.meta.f
   try {
     const report = judge(args.repo, args.base, args.head, loadConfig());
     process.stdout.write(args.json ? `${JSON.stringify(report, null, 2)}\n` : render(report));
-    process.exit(report.passed ? 0 : 1);
+    process.exitCode = report.passed ? 0 : 1;
   } catch (error) {
     process.stderr.write(`suite guard: could not run: ${(error as Error).message}\n`);
-    process.exit(2);
+    process.exitCode = 2;
   }
 }

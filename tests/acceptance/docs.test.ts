@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { appendFileSync, cpSync, mkdirSync, readFileSync, symlinkSync } from 'node:fs';
+import { appendFileSync, cpSync, mkdirSync, readdirSync, readFileSync, symlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { inTemp, lawcheck, lawcheckAt, ROOT } from './helpers.ts';
 import { parseLaw } from '../../dist/law.js';
@@ -10,8 +10,10 @@ import { parseArguments } from '../../dist/cli.js';
 import { WHY } from '../../dist/output.js';
 import { example } from '../harness/examples.ts';
 
+const DOC_PAGES = readdirSync(join(ROOT, 'docs')).filter((name) => name.endsWith('.md')).length;
+
 const LIST = [
-  'lawcheck docs: 38 topics; lawcheck docs <topic> prints one',
+  `lawcheck docs: ${DOC_PAGES} topics; lawcheck docs <topic> prints one`,
   '',
   'Start',
   '  index  Lawcheck',
@@ -28,8 +30,10 @@ const LIST = [
   '  write-a-script-rule  Write a script rule',
   '  write-a-reviewer-rule  Write a reviewer rule',
   '  adopt-in-an-existing-repository  Bring a law into an existing repository',
+  '  agent-setup  Let a coding agent write the first law',
   '  claude-code  Lawcheck in Claude Code',
   '  codex-cli  Lawcheck in Codex',
+  '  copilot-cli  Lawcheck in GitHub Copilot CLI',
   '  cursor  Lawcheck in Cursor',
   '  other-agents  Other coding agents',
   '  ci  CI and git hooks',
@@ -120,11 +124,11 @@ test('test 128: the list of topics, its JSON, and one page, outside git', async 
 });
 
 test('test 129: every page holds what section 7 asks, and its examples are real', async () => {
-  assert.equal(TOPICS.length, 38);
+  assert.equal(TOPICS.length, DOC_PAGES);
   for (const { id, title } of TOPICS) {
     const text = page(id);
     assert.equal(text.split('\n')[0], `# ${title}`, id);
-    if (id !== 'codes') assert.ok([...text].length <= 30000, `${id} holds ${[...text].length} characters`);
+    if (id !== 'codes') assert.ok([...terminal(text)].length <= 30000, `lawcheck docs ${id} prints ${[...terminal(text)].length} characters`);
     for (const fence of fences(text)) {
       if (fence.info === 'yaml' && fence.lines[0]?.startsWith('lawcheck:')) {
         const read = parseLaw(fence.lines.join('\n'));

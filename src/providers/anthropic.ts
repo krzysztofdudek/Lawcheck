@@ -1,7 +1,8 @@
 import type { ReviewerConfig } from '../config.js';
 import { post } from './http.js';
 import { ownKey } from './index.js';
-import type { Env, Provider } from './index.js';
+import type { Env } from './index.js';
+import type { Provider } from '../provider.js';
 
 const OWN_ENDPOINT = 'https://api.anthropic.com/v1';
 

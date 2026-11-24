@@ -233,4 +233,4 @@ next: fix src/core/report.ts:2
 - A CI job with no [base](concepts.md#base) stops with [`base-unreachable`](codes.md#base-unreachable), because without a base Lawcheck cannot tell the change from debt. On a pull request in GitHub Actions, GitLab CI or Azure Pipelines, Lawcheck takes the base from the service's variables. On any other service, pass `--base`, or set `LAWCHECK_BASE` ([CI and git hooks](ci.md)).
 - For every old file that a [reviewer rule](concepts.md#reviewer-rule) [binds](concepts.md#rule), Lawcheck lists a [`not-reviewed`](codes.md#not-reviewed) finding as debt. The reviewer is the model that judges a reviewer rule. `lawcheck check --full --review` asks the reviewer about each of those files, with one call per file and rule. The setting `reviewer.max_calls` caps the calls of one run. A run that needs more calls than the cap makes none.
 
-Next: [Lawcheck in Claude Code](claude-code.md)
+Next: [Let a coding agent write the first law](agent-setup.md)

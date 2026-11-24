@@ -1,9 +1,10 @@
-import { lstatSync, realpathSync } from 'node:fs';
+import { lstatSync, realpathSync, statSync } from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
-import { changedPaths, defaultBase, fetchCommand, GitFailed, gitNext, hasHead, fetchesEveryBranch, isShallow, lawLeftOut, listedPaths, listFiles, mergeBase, NoGit, remoteNames, resolveCommit, workTreeProblem } from './files.js';
+import { changedPaths, comparePaths, defaultBase, fetchCommand, GitFailed, gitNext, hasHead, fetchesEveryBranch, isShallow, lawLeftOut, listedPaths, listFiles, mergeBase, nestedReason, NoGit, remoteNames, repositoryHolding, resolveCommit, workTreeProblem } from './files.js';
 import { CONFIG, ConfigTooLarge, readConfig } from './config.js';
 import { canonicalName, onDisk } from './names.js';
 import type { ReviewerConfig } from './config.js';
+import { compileList, patternProblem } from './glob.js';
 import { nearestKey, parseLaw } from './law.js';
 import type { Law } from './law.js';
 import type { ErrorItem } from './output.js';
@@ -92,6 +93,8 @@ export function lawsBelow(cwd: string): string[] {
     return [];
   }
 }
+
+export const WRITE_BY_HAND = 'to govern this folder instead, write .lawcheck/law.yaml here by hand  (lawcheck docs first-law shows how)';
 
 export function belowPart(folders: string[]): string {
   const shown = folders.slice(0, 3).join(', ') + (folders.length > 3 ? `, and ${folders.length - 3} more` : '');
@@ -285,7 +288,7 @@ export function theChange(root: string, files: string[], option: string | null, 
   if (base === null) {
     if (!full && inCI(env)) {
       throw unreachable(
-        'no base in this CI job: no --base, no LAWCHECK_BASE, no variable of the CI service for a pull request or push, and no origin/HEAD, and a plain check without one would count every file as changed',
+        'no base in this CI job: no --base, no LAWCHECK_BASE, no variable of the CI service for a pull request or push, and no origin/HEAD, and a check of the change without one would count every file as changed',
         `pass --base origin/<the branch the change goes into> or set LAWCHECK_BASE, with the history fetched (${FETCH_ALL}); or judge every file with lawcheck check --full`,
       );
     }
@@ -493,4 +496,77 @@ export function ruleKinds(law: Law, files: string[], read: Read, isLink: (path: 
     out.errors.push({ code: 'rule-file-without-entry', file, line: null, message: 'the file is no rule of the law and lies outside .lawcheck/rules/lib/' });
   }
   return out;
+}
+
+export function ruleKind(kinds: Kinds, id: string): 'script' | 'reviewer' {
+  return kinds.scripts.has(id) ? 'script' : 'reviewer';
+}
+
+export function isPattern(word: string): boolean {
+  return /[*?{]/.test(word);
+}
+
+export function listedFile(root: string, cwd: string, word: string, files: string[]): boolean {
+  try {
+    return files.includes(fromCwd(root, cwd, word));
+  } catch {
+    return false;
+  }
+}
+
+export function isDirectory(path: string | Buffer): boolean {
+  try {
+    return statSync(path).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+export function selectTargets(root: string, cwd: string, targets: string[], files: string[], binary: (path: string) => boolean, lenient = false, listed: Set<string> = new Set()): string[] {
+  const chosen = new Set<string>();
+  const here = repoPath(root, realpathSync(resolve(cwd)));
+  class None extends Error {}
+  const none = (word: string, why: string) => (lenient ? new None() : usage(why === 'matches no file' ? `the target '${word}' matches no file` : `the target '${word}' selects no file: ${why}`));
+  for (const word of targets) {
+    try {
+      select(word);
+    } catch (error) {
+      if (!(error instanceof None)) throw error;
+    }
+  }
+  return [...chosen].sort(comparePaths);
+
+  function select(word: string): void {
+    if (isPattern(word) && !listedFile(root, cwd, word, files)) {
+      const problem = patternProblem(word);
+      if (problem !== null) throw usage(`the pattern '${word}' ${problem}`);
+      const matches = compileList([here === '' ? word : `${here}/${word}`]);
+      const hits = files.filter((file) => matches(file) && !binary(file));
+      if (hits.length === 0) throw none(word, 'matches no file');
+      hits.forEach((file) => chosen.add(file));
+      return;
+    }
+    const path = fromCwd(root, cwd, word);
+    if (files.includes(path)) {
+      if (binary(path)) throw none(word, 'it is binary');
+      chosen.add(path);
+      return;
+    }
+    if (path === '.' || isDirectory(onDisk(root, path))) {
+      const hits = files.filter((file) => (path === '.' || file.startsWith(`${path}/`)) && !binary(file));
+      if (hits.length === 0) throw none(word, 'matches no file');
+      hits.forEach((file) => chosen.add(file));
+      return;
+    }
+    const nested = repositoryHolding(root, path, listed);
+    throw none(word, nested === null ? 'git ignores it or it does not exist' : nestedReason(nested));
+  }
+}
+
+export function bytesOf(read: Read, path: string): Uint8Array {
+  try {
+    return read(path);
+  } catch (error) {
+    throw new Stop([readError(path, error)]);
+  }
 }

@@ -121,19 +121,44 @@
 }
 
 .VPNavBarTitle .title {
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: center;
-  gap: 2px;
+  position: relative;
+  align-items: center;
 }
 
 .VPNavBarTitle .title > span:not(.lc-lockup) {
-  margin-left: 31px;
+  position: absolute;
+  left: 31px;
+  top: calc(50% + 15px);
   font-family: var(--lc-font-mono);
   font-size: 12px;
   font-weight: 500;
   line-height: 1.2;
   color: var(--vp-c-text-2);
+}
+
+@media (max-width: 400px) {
+  .VPNavBar .wrapper {
+    padding-left: 16px;
+  }
+}
+
+.vp-doc a:not(.header-anchor) {
+  padding: 4px 5px;
+  margin: 0 -5px;
+}
+
+.vp-doc .header-anchor {
+  min-width: 24px;
+  margin-left: calc(-0.87em - 10px);
+  text-align: right;
+}
+
+.VPSwitch.VPSwitchAppearance {
+  height: 24px;
+}
+
+.VPSwitch.VPSwitchAppearance .check {
+  top: 2px;
 }
 
 .DocSearch.DocSearch-Button .DocSearch-Button-Keys {

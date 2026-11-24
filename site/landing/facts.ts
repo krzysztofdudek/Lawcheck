@@ -3,7 +3,7 @@ import { createHighlighter } from 'shiki';
 import { parse } from 'yaml';
 import topics from '../../docs/topics.json' with { type: 'json' };
 import { codeThemeOfBrand, GITHUB, LINK, manifest, NPM, REPOSITORY } from '../theme/brand.ts';
-import { Fragments, inline } from './fragments.ts';
+import { Fragments, inline, isAhead } from './fragments.ts';
 
 type Link = { text: string; page: string };
 export interface Copy {
@@ -16,7 +16,7 @@ export interface Copy {
   comparison: Link;
   holds: { page: string };
   next: { button: Link; github: string; npm: string };
-  footer: { released: string; docs: Link; changelog: Link; security: string; github: string; npm: string; author: string };
+  footer: { released: string; ahead: string; docs: Link; changelog: Link; security: string; github: string; npm: string; author: string };
   notFound: { heading: string; text: string; docs: Link; home: string };
 }
 
@@ -38,12 +38,12 @@ export function releaseDate(version: string): string {
   return line.slice(line.lastIndexOf(' ') + 1);
 }
 
-export const promise = (): string => fragments.sentence('README.md', 'Lawcheck', 'Lawcheck checks your code');
+export const promise = (): string => fragments.sentence('README.md', 'Lawcheck', 'Lawcheck checks code against');
 export const support = (): string => fragments.sentence('docs/support.md', 'Supported environments', `Lawcheck ${manifest.version} runs on`);
 
 export function head() {
   const copy = copyOf();
-  return { title: copy.title, description: promise(), version: manifest.version, date: releaseDate(manifest.version), systems: /, on (.+)\.$/.exec(support())![1]! };
+  return { title: copy.title, description: promise(), version: manifest.version, date: releaseDate(manifest.version), ahead: isAhead(fragments.read('CHANGELOG.md')), systems: /, on (.+)\.$/.exec(support())![1]! };
 }
 
 export async function facts() {
@@ -61,18 +61,12 @@ export async function facts() {
   const link = (target: Link) => ({ text: target.text, href: pageUrl(target.page) });
 
   const law = code('README.md', 'Lawcheck', 'lawcheck: ');
-  const lawLines = law.text.split('\n');
-  const core = lawLines.findIndex((line) => line.trim() === 'core:');
-  const indent = lawLines[core]!.indexOf('core:');
-  const after = lawLines.slice(core + 1);
-  const end = after.findIndex((line) => line.length - line.trimStart().length <= indent);
-  const still = [lawLines[core]!, ...(end === -1 ? after : after.slice(0, end))].map((line) => line.slice(indent));
   const install = fragments.code('docs/install.md', 'Install globally', '$ npm install').code.replace(/^\$ /, '');
   const groups = ['`CLAUDE.md` and `AGENTS.md`', 'An architecture tool for one language', 'A review bot at the pull request', 'A hook you wrote in Claude Code'];
   const rowsOf: Record<string, string[]> = {
     '`CLAUDE.md` and `AGENTS.md`': ['Your rules say how the agent works: commands, branches, messages', 'Your rules are about files: which layer may import which, what a file of one kind must hold'],
     'An architecture tool for one language': ['One language, and the tool already holds your layers in the test suite or the linter', 'Two or more languages under one set of layers'],
-    'A review bot at the pull request': ['You want comments on the whole change, including on what no rule names', 'A rule must hold in every file of a kind, and the agent must hear it before it opens a pull request'],
+    'A review bot at the pull request': ['You want comments on the whole change, including on what no rule names', 'A rule must hold in every file of a kind, and the agent must hear it before it opens a pull request', 'You want annotations on the lines of the pull request'],
     'A hook you wrote in Claude Code': ['Your hook runs the linter and the tests, and the linter already holds your layers', 'You want the law checked inside the turn, on the files of the turn, with at most three returns'],
   };
   const tables = groups.map((group) => fragments.rows('docs/other-tools.md', group, 1, rowsOf[group]!));
@@ -91,13 +85,15 @@ export async function facts() {
     head: head(),
     hero: {
       promise: readme(promise()),
+      who: readme(fragments.sentence('README.md', 'Lawcheck', 'It is for people who build')),
       install,
       support: md('docs/support.md')(support()),
       alpha: readme(fragments.sentence('README.md', 'Try it', 'Lawcheck is an alpha')),
       sends: readme(fragments.sentence('README.md', 'Try it', 'Lawcheck sends code')),
-      still: { file: '.lawcheck/law.yaml', html: highlighter.codeToHtml(still.join('\n'), { lang: 'yaml', theme: 'lawcheck' }) },
+      still: { file: '.lawcheck/law.yaml', html: law.html },
     },
     problem: readme(fragments.paragraph('README.md', 'Lawcheck', 'I build software')),
+    advice: ['A rules file is advice', 'Lawcheck checks the files', 'An architecture test or the layer rule'].map((start) => readme(fragments.sentence('README.md', 'Lawcheck', start))).join(' '),
     law: {
       heading: fragments.heading('docs/index.md', 'A law and a finding'),
       intro: readme(fragments.paragraph('README.md', 'Lawcheck', 'The law is a file')),
@@ -106,13 +102,13 @@ export async function facts() {
       finding: code('README.md', 'Lawcheck', '$ lawcheck check').html,
     },
     where: {
-      heading: fragments.heading('docs/index.md', 'Where it checks'),
-      items: fragments.list('docs/index.md', 'Where it checks', 1).map(index),
+      heading: fragments.heading('docs/index.md', 'Lawcheck checks in four places'),
+      items: fragments.list('docs/index.md', 'Lawcheck checks in four places', 1).map(index),
       other: others(fragments.sentence('docs/other-tools.md', 'A hook you wrote in Claude Code', 'Lawcheck sends the agent back')),
     },
     holds: {
-      heading: fragments.heading('README.md', 'What one law holds'),
-      items: fragments.list('README.md', 'What one law holds', 1).map(readme),
+      heading: fragments.heading('README.md', 'One law holds uses, rules, debt and waivers'),
+      items: fragments.list('README.md', 'One law holds uses, rules, debt and waivers', 1).map(readme),
       link: { text: title(copy.holds.page), href: pageUrl(copy.holds.page) },
     },
     tools: {
@@ -131,6 +127,7 @@ export async function facts() {
       plugin: readme(fragments.paragraph('README.md', 'Your coding agent', 'In Claude Code, install the plugin')),
       pluginCommands: fragments.code('README.md', 'Your coding agent', 'claude plugin').code,
       codex: ['In Codex, the same plugin installs', 'Codex runs its hooks only after'].map((start) => readme(fragments.sentence('README.md', 'Your coding agent', start))).join(' '),
+      copilot: readme(fragments.sentence('README.md', 'Your coding agent', 'In GitHub Copilot CLI, the same plugin installs')),
       cursor: readme(fragments.paragraph('README.md', 'Your coding agent', 'In Cursor, the plugin for Claude Code')),
     },
   };

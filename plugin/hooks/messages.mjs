@@ -1,4 +1,4 @@
-export const NO_LAW = 'The Lawcheck plugin is on, and this directory has no law (.lawcheck/law.yaml here or above).\nStart one with lawcheck init only when the user asks for it.';
+export const noLaw = (setup) => `The Lawcheck plugin is on, and this directory has no law (.lawcheck/law.yaml here or above).\nWrite no law on your own. The user starts one by typing ${setup}; when the user asks for a law, tell them to type it.`;
 
 // The line lawcheck prime prints when the law has a reviewer rule and .lawcheck/config.yaml sets no reviewer; an older Lawcheck prints none.
 export const PRIME_NO_REVIEWER = '- not-reviewed: no reviewer is set in .lawcheck/config.yaml';
@@ -104,7 +104,7 @@ export function unknownEvent(event) {
 }
 
 export function unknownHost(words) {
-  return `unknown arguments '${words}' after the event; the hook takes --host claude-code or --host codex there`;
+  return `unknown arguments '${words}' after the event; the hook takes --host claude-code, --host codex or --host copilot there`;
 }
 
 export function notJson(problem) {

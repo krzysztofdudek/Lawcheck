@@ -194,6 +194,52 @@ export class CodexSession {
   }
 }
 
+// The inputs Copilot CLI 1.0.105 gave the hooks of the plugin's own manifest in real sessions, one per line: the session start, the prompt, a create, the stop, the prompt the hand-back opens, a second create, the stop after the hand-back, then a view and an edit of a later session.
+export const COPILOT_INPUTS: Record<string, unknown>[] = readFileSync(join(ROOT, 'tests', 'agent', 'samples', 'copilot-hooks.jsonl'), 'utf8').trim().split('\n').map((line) => JSON.parse(line));
+
+const COPILOT_SHAPE: Record<string, string> = { 'session-start': 'source', prompt: 'prompt', edit: 'toolName', stop: 'stopReason' };
+
+export class CopilotSession {
+  readonly bench: Bench;
+  readonly cwd: string;
+  readonly id: string;
+  readonly env: NodeJS.ProcessEnv;
+
+  constructor(bench: Bench, cwd: string, id = 'k1', env: NodeJS.ProcessEnv = {}) {
+    this.bench = bench;
+    this.cwd = cwd;
+    this.id = id;
+    this.env = env;
+  }
+
+  input(event: string, fields: Record<string, unknown> = {}): string {
+    const recorded = COPILOT_INPUTS.find((input) => Object.hasOwn(input, COPILOT_SHAPE[event]!));
+    if (recorded === undefined) throw new Error(`no recorded Copilot input for ${event}`);
+    return JSON.stringify({ ...recorded, sessionId: this.id, cwd: this.cwd, ...fields });
+  }
+
+  run(event: string, fields: Record<string, unknown> = {}, env: NodeJS.ProcessEnv = {}): Promise<HookRun> {
+    return hook(this.bench, event, this.input(event, fields), { ...this.env, ...env }, undefined, { host: 'copilot' });
+  }
+
+  start(source = 'new'): Promise<HookRun> {
+    return this.run('session-start', { source });
+  }
+
+  prompt(env: NodeJS.ProcessEnv = {}, text = 'go'): Promise<HookRun> {
+    return this.run('prompt', { prompt: text }, env);
+  }
+
+  write(tool: string, path: string, env: NodeJS.ProcessEnv = {}): Promise<HookRun> {
+    const args = tool === 'create' ? { path: join(this.cwd, path), file_text: '' } : { path: join(this.cwd, path), old_str: 'a', new_str: 'b' };
+    return this.run('edit', { toolName: tool, toolArgs: args, toolResult: { resultType: 'success', textResultForLlm: 'done' } }, env);
+  }
+
+  stop(fields: Record<string, unknown> = {}, env: NodeJS.ProcessEnv = {}): Promise<HookRun> {
+    return this.run('stop', { stop_hook_active: false, ...fields }, env);
+  }
+}
+
 const CURSOR_EVENTS: Record<string, string> = { 'session-start': 'sessionStart', prompt: 'beforeSubmitPrompt', edit: 'postToolUse', stop: 'stop' };
 
 // The inputs of the hooks that Cursor runs for the Claude Code plugin, with the fields that Cursor's documentation of its hooks and the hooks of Cursor Agent CLI 2026.11.22 give them. No session of Cursor recorded them. Cursor runs a plugin's hooks from the plugin's folder, so the hook starts there; only the stop runs from the workspace, and only the edit input holds a cwd.

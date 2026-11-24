@@ -1,0 +1,23 @@
+[
+  {"number": 24, "file": "tests/acceptance/rules.test.ts"},
+  {"number": 24, "file": "tests/deadlines/rule-limit.nightly.test.ts"},
+  {"number": 133, "file": "tests/acceptance/doctor.test.ts"},
+  {"number": 133, "file": "tests/acceptance/law.test.ts"},
+  {"number": 163, "file": "tests/acceptance/plugin.test.ts"},
+  {"number": 163, "file": "tests/deadlines/hook-deadlines.nightly.test.ts"},
+  {"number": 232, "file": "tests/contract/codes.test.ts"},
+  {"number": 232, "file": "tests/limits/sizes.test.ts"},
+  {"number": 233, "file": "tests/contract/codes.test.ts"},
+  {"number": 233, "file": "tests/limits/sizes.test.ts"},
+  {"number": 236, "file": "tests/contract/codes.test.ts"},
+  {"number": 236, "file": "tests/limits/findings.test.ts"},
+  {"number": 239, "file": "tests/contract/codes.test.ts"},
+  {"number": 239, "file": "tests/limits/signals.test.ts"},
+  {"number": 241, "file": "tests/acceptance/init.test.ts"},
+  {"number": 241, "file": "tests/contract/codes.test.ts"},
+  {"number": 241, "file": "tests/limits/internals.test.ts"},
+  {"number": 252, "file": "tests/limits/large.nightly.test.ts"},
+  {"number": 252, "file": "tests/limits/signals.test.ts"},
+  {"number": 277, "file": "tests/contract/codes.test.ts"},
+  {"number": 277, "file": "tests/limits/memory.test.ts"}
+]
