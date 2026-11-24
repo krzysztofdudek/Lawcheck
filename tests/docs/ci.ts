@@ -100,6 +100,8 @@ function job(dir: string, files: Record<string, string>): string {
 }
 
 export async function scenario(page: Page): Promise<void> {
+  const T: string[] = []; const t0 = Date.now(); const mark = (n: string) => T.push(`${n} ${Date.now() - t0}`);
+  mark('s1');
   await inTemp(async (dir) => {
     const origin = newRepository(join(dir, 'origin'), { '.lawcheck/law.yaml': LAW, '.lawcheck/rules/no-console.mjs': NO_CONSOLE, '.gitignore': 'node_modules/\n' });
     git(origin, 'checkout', '-q', '-b', 'work');
@@ -126,8 +128,10 @@ export async function scenario(page: Page): Promise<void> {
     }
   });
 
+  mark('s2');
   const exclude = /^echo (\S+) >> (\S+)$/.exec(page.text('block 1 under "4. Keep cache folders out of the change"'));
   assert.ok(exclude, 'the block appends one line to a file');
+  mark('s3');
   await inTemp(async (dir) => {
     const repo = newRepository(dir, { '.lawcheck/law.yaml': 'lawcheck: 0.1.0\n\ntypes:\n  source:\n    paths: ["src/**/*.ts"]\n', 'src/price.ts': 'export const price = 1;\n' });
     git(repo, 'checkout', '-q', '-b', 'work');
@@ -139,8 +143,10 @@ export async function scenario(page: Page): Promise<void> {
     assert.deepEqual([excluded.code, excluded.stdout], [0, 'lawcheck: PASS  nothing changed against main\n'], 'the excluded cache folder is not in the change');
   });
 
+  mark('s4');
   const ignore = /^echo (\S+) >> (\S+)$/.exec(page.text('block 2 under "4. Keep cache folders out of the change"'));
   assert.ok(ignore, 'the block appends one line to a file');
+  mark('s5');
   await inTemp(async (dir) => {
     const repo = newRepository(dir, { '.lawcheck/law.yaml': 'lawcheck: 0.1.0\n\ntypes:\n  source:\n    paths: ["src/**/*.ts"]\n', 'src/price.ts': 'export const price = 1;\n', '.gitignore': '.env\n' });
     git(repo, 'checkout', '-q', '-b', 'work');
@@ -153,6 +159,7 @@ export async function scenario(page: Page): Promise<void> {
     assert.deepEqual([ignored.code, ignored.stdout], [0, 'lawcheck: PASS  1 changed file (against main)\n'], 'only the edited .gitignore is in the change');
   });
 
+  mark('s6');
   await inTemp(async (dir) => {
     const clone = job(dir, { '.gitignore': 'node_modules/\n' });
     write(clone, '.githooks/pre-commit', page.text('example pre-commit-hook') + '\n');
@@ -179,6 +186,7 @@ export async function scenario(page: Page): Promise<void> {
     assert.equal(git(clone, 'rev-list', '--count', 'origin/main..HEAD').trim(), '0', 'git keeps the commit out');
   });
 
+  mark('s7');
   await inTemp(async (dir) => {
     const clone = job(dir, {});
     write(clone, 'src/core/total.ts', TOTAL);
@@ -200,7 +208,9 @@ export async function scenario(page: Page): Promise<void> {
     assert.match(second.stdout, /^src\/core\/total\.ts:2  error\[no-console\]/m);
   });
 
+  mark('s8');
   const record = args(page.text('block 1 under "1. Record the reviews before you push"'));
+  mark('s9');
   await withFake(async (fake) => {
     await inTemp(async (dir) => {
       const clone = job(dir, { '.lawcheck/law.yaml': REVIEWED, '.lawcheck/rules/clear-errors.md': 'Every error message a caller can see says what happened and what the caller can do next.\n', '.lawcheck/config.yaml': 'reviewer:\n  provider: anthropic\n  model: your-model-id\n' });
@@ -218,4 +228,6 @@ export async function scenario(page: Page): Promise<void> {
       assert.equal(fake.requests.length, calls, 'the job calls no reviewer');
     });
   }, (request) => anthropic(defaultAnswer(request.prompt)));
+  mark('end');
+  assert.fail('PROBE ci ' + T.join(' | '));
 }
