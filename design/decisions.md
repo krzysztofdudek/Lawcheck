@@ -496,7 +496,7 @@ When the tool is killed on Windows while no call of a program reviewer is open, 
 
 Why: only rule runners are left then. A runner is in the tool's job and ends with the tool, and a rule starts no program under Node's permission model, so nothing they started outlives the tool. A list could end nothing, and taking one only delayed the guard's end, and the removal of the folders, by up to 10 seconds.
 
-## Decision (number at merge). A change judged by the law of its base
+## 212. A change judged by the law of its base
 
 `lawcheck check --law-from <ref>` judges the change by the law of another commit (the owner's ruling law-from-w-alpha-5, option A of `design/proposals.md`). Lawcheck reads `.lawcheck/law.yaml`, `.lawcheck/config.yaml` and every file of `.lawcheck/rules/` of that commit through git, and the checkout stays as it is. The files judged, and the change itself, are those of the work tree. The workflow of `docs/ci.md` checks a second time with `--law-from "$base"`, in place of the shell lines that checked out the base's law and removed the branch's rules. It still runs that check only when the base holds a law, so the pull request that adds the first law passes.
 

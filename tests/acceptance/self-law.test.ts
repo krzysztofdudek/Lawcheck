@@ -31,19 +31,24 @@ interface Report {
   unresolved: { file: string; what: string; answer: string; reason: string | null }[];
 }
 
-function cloneOfHead(dir: string): string {
+function seeRepository(): void {
   try {
     execFileSync('git', ['rev-parse', '--git-dir'], { cwd: ROOT, env: GIT_ENV, stdio: 'ignore' });
   } catch {
     throw new Error('could not run: git cannot see the repository');
   }
+}
+
+function cloneOfHead(dir: string): string {
+  seeRepository();
   const repo = join(dir, 'clone');
-  git(dir, 'clone', '-q', '--no-hardlinks', ROOT, repo);
+  // --shared copies no object file: a checkout with thousands of loose objects spent most of the time of these tests on a loaded disk copying them.
+  git(dir, 'clone', '-q', '--shared', ROOT, repo);
   return repo;
 }
 
-function exempted(repo: string): string[] {
-  const law = parse(read(repo, '.lawcheck/law.yaml')) as { types: { source: { paths: string[] } } };
+function exempted(lawText: string): string[] {
+  const law = parse(lawText) as { types: { source: { paths: string[] } } };
   return law.types.source.paths
     .filter((pattern) => pattern.startsWith('!'))
     .flatMap((pattern) => {
@@ -76,17 +81,15 @@ test('question 160: the committed tree has no finding of an enforced rule and no
   });
 });
 
-test('question 160: the files of src that the law leaves without a type are only those it left out when it landed, so the list only shrinks', async () => {
-  await inTemp(async (dir) => {
-    const repo = cloneOfHead(dir);
-    assert.deepEqual(exempted(repo).filter((name) => !UNSORTED.has(name)), []);
-    const law = read(repo, '.lawcheck/law.yaml');
-    assert.ok(law.includes('"!src/{args,'));
-    assert.ok(law.includes('"!src/providers/{anthropic,'));
-    assert.equal(law.split('}.ts"]').length, 2);
-    write(repo, '.lawcheck/law.yaml', law.replace('"!src/{args,', '"!src/{args,law-set,').replace('{anthropic,', '{anthropic,sneak,').replace('}.ts"]', '}.ts", "!src/steps/**"]'));
-    assert.deepEqual(exempted(repo).filter((name) => !UNSORTED.has(name)), ['src/law-set.ts', 'src/providers/sneak.ts', 'src/steps/**']);
-  });
+test('question 160: the files of src that the law leaves without a type are only those it left out when it landed, so the list only shrinks', () => {
+  seeRepository();
+  const law = git(ROOT, 'show', 'HEAD:.lawcheck/law.yaml');
+  assert.deepEqual(exempted(law).filter((name) => !UNSORTED.has(name)), []);
+  assert.ok(law.includes('"!src/{args,'));
+  assert.ok(law.includes('"!src/providers/{anthropic,'));
+  assert.equal(law.split('}.ts"]').length, 2);
+  const widened = law.replace('"!src/{args,', '"!src/{args,law-set,').replace('{anthropic,', '{anthropic,sneak,').replace('}.ts"]', '}.ts", "!src/steps/**"]');
+  assert.deepEqual(exempted(widened).filter((name) => !UNSORTED.has(name)), ['src/law-set.ts', 'src/providers/sneak.ts', 'src/steps/**']);
 });
 
 test('question 160: a committed break of each script rule and a forbidden use are found by the same check', async () => {
