@@ -555,6 +555,8 @@ async function treeAnswer(root: string, cwd: string, word: string, json: boolean
   if (isBinary(bytes)) throw usage(`'${word}' is binary, and a rule never judges a binary file, so it has no tree`);
   const text = decode(bytes);
   const answer = (await ruleReads({ root, files, ...ownersOf(files, read, []) })([])('tree', { path, text })) as TreeAnswer;
+  // A step that names no file: the JSON of a tree near 512 KiB grows the run by more than the memory one file's read may add, so under the read's step it ended with memory-too-large; the bound of the whole run still holds.
+  step(`printing the tree of ${path}`);
   const nodes = answer.tree === null ? null : nodesOf(answer.tree);
   if (json) return documentOf({ schema: 'lawcheck-explain/0', subject: 'tree', path, language: answer.language, absent: answer.absent, nodes });
   if (answer.tree === null) return `${shown(path)}  ${answer.language === null ? '' : `${answer.language}  `}no tree: ${answer.absent}, ${NO_TREE[answer.absent](answer.language)}\n`;

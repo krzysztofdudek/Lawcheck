@@ -371,13 +371,18 @@ test('test 952: explain --tree of a file with no tree prints why, as tree() give
   });
 });
 
-test('test 953: explain --tree stops at a depth and a count of lines and says what it left out, and --json gives every node of a tree thousands of nodes deep', async () => {
+test('test 953: explain --tree stops at a depth and a count of lines and says what it left out, and --json gives every node of a tree thousands of nodes deep and of a file just under 512 KiB', async () => {
   await inTemp(async (dir) => {
+    const statement = (i: number) => `export const a${i} = f(${i}, [1, 2]);\n`;
+    let wide = '';
+    let statements = 0;
+    while (wide.length + statement(statements).length <= 512 * 1024) wide += statement(statements++);
     const repo = newRepository(dir, {
       '.lawcheck/law.yaml': 'lawcheck: 0.1.0\n',
       'src/deep.ts': `export const a = ${'['.repeat(14)}1${']'.repeat(14)};\n`,
       'src/long.ts': Array.from({ length: 300 }, (_, i) => `export const a${i} = ${i};\n`).join(''),
       'src/sum.ts': `export const s = ${Array.from({ length: 5000 }, () => '1').join(' + ')};\n`,
+      'src/wide.ts': wide,
     });
     const deep = await explain(repo, 'src/deep.ts', '--tree');
     assert.equal(deep.code, 0);
@@ -397,5 +402,8 @@ test('test 953: explain --tree stops at a depth and a count of lines and says wh
     const sum = await explain(repo, 'src/sum.ts', '--tree');
     assert.equal(sum.code, 0);
     assert.ok(sum.stdout.split('\n').length <= 203, sum.stdout.slice(0, 500));
+    const all = await explain(repo, 'src/wide.ts', '--tree', '--json');
+    assert.equal(all.code, 0, all.stdout.slice(0, 500));
+    assert.equal(JSON.parse(all.stdout).nodes.length, 1 + 21 * statements);
   });
 });
