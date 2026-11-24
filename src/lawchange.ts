@@ -290,7 +290,7 @@ export function lawAt(root: string, ref: string): LawAt {
 
 // What the law of the commit binds is judged on the work tree, so its rule files and the law's own files come from the commit and every other file from the work tree.
 export function kindsAt(at: LawAt, workFiles: string[], read: Read): { files: string[]; read: Read; kinds: Kinds } {
-  const files = [...workFiles.filter((path) => !touchesLaw(path)), ...at.files.keys()].sort();
+  const files = [...workFiles.filter((path) => !touchesLaw(path)), ...[...at.files].filter(([, bytes]) => bytes !== null).map(([path]) => path)].sort();
   const readAt: Read = (path) => {
     if (!touchesLaw(path)) return read(path);
     const bytes = at.files.get(path);

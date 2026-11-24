@@ -336,6 +336,21 @@ test('test 1074: --law-from with a ref that names no commit, or a commit that ho
     assert.match(invalid.stdout, /^\.lawcheck\/law\.yaml:\d+  error\[law-invalid\]  .*, in the law of 'broken' that --law-from names$/m);
     assert.equal(invalid.code, 2);
 
+    git(s, 'checkout', '-q', '-b', 'linked', 'main');
+    write(s, 'target', '../../tools/release.mjs');
+    const link = git(s, 'hash-object', '-w', 'target').trim();
+    rmSync(join(s, 'target'));
+    git(s, 'update-index', '--cacheinfo', `120000,${link},.lawcheck/rules/no-console.mjs`);
+    git(s, 'commit', '-q', '-m', 'a rule through a link');
+    git(s, 'checkout', '-q', '-f', 'work');
+    for (const change of ['nothing changed', 'a file for the rule']) {
+      if (change === 'a file for the rule') write(s, 'src/core/total.ts', "export const total = 1;\nconsole.log(total);\n");
+      const linked = await check(s, '--base', 'main', '--law-from', 'linked');
+      assert.equal(linked.stdout.split('\n')[2], ".lawcheck/law.yaml:4  error[rule-missing-file]  the rule 'no-console' has neither .lawcheck/rules/no-console.mjs nor .lawcheck/rules/no-console.md as a file: .lawcheck/rules/no-console.mjs is a symbolic link, and Lawcheck reads no rule through one, in the law of 'linked' that --law-from names", change);
+      assert.equal(linked.code, 2, change);
+    }
+    rmSync(join(s, 'src/core/total.ts'));
+
     const paths = await lawcheck(s, ['check', 'src/core/price.ts', '--law-from', 'main']);
     assert.equal(paths.stdout.split('\n')[2], 'error[usage]  paths go with --json alone');
     assert.equal(paths.code, 2);
