@@ -3,8 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { selectTargets } from '../../dist/try.js';
-import { Stop } from '../../dist/setup.js';
+import { selectTargets, Stop } from '../../dist/setup.js';
 
 const FILES = ['README.md', 'src/cli/main.ts', 'src/core/blob.bin', 'src/core/price.ts', 'src/core/tax.ts'];
 const binary = (path: string) => path.endsWith('.bin');

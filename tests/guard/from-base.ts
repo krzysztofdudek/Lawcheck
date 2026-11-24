@@ -52,9 +52,9 @@ if (process.argv[1] !== undefined && realMain(process.argv[1]) === import.meta.f
     const result = runFromBase(resolvePath(args.repo), args.base, args.head, args.json);
     process.stdout.write(result.stdout);
     process.stderr.write(result.stderr);
-    process.exit(result.code);
+    process.exitCode = result.code;
   } catch (error) {
     process.stderr.write(`suite guard: could not run: ${(error as Error).message}\n`);
-    process.exit(2);
+    process.exitCode = 2;
   }
 }

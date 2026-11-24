@@ -43,6 +43,8 @@ case $CELL in
   npm) quiet npm install --save-dev --no-audit --no-fund /cell/lawcheck.tgz || couldnot "npm install" ;;
   pnpm)
     command -v pnpm > /dev/null 2>&1 || quiet npm install --global --no-audit --no-fund pnpm || couldnot "npm install pnpm"
+    # pnpm 11 and later install the release before a package published less than a day ago; docs/config.md gives this setting for the first day after a release of Lawcheck or Runes.
+    printf 'minimumReleaseAgeExclude:\n  - lawcheck\n  - "@chrisdudek/runes"\n' > pnpm-workspace.yaml
     quiet pnpm add --save-dev /cell/lawcheck.tgz || couldnot "pnpm add" ;;
   yarn1)
     command -v yarn > /dev/null 2>&1 || quiet npm install --global --no-audit --no-fund yarn || couldnot "npm install yarn"

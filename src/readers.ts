@@ -439,7 +439,7 @@ async function readAll(input: ReadInput, runes: Runes, skipped: Skipped[], unrea
           code: 'parser-failed',
           file: null,
           line: null,
-          message: `the grammar of ${language} cannot be loaded: ${firstLine(error)}`,
+          message: grammarProblem(language, error),
           next: 'reinstall Lawcheck; a grammar it ships cannot be loaded',
         });
       }
@@ -573,6 +573,11 @@ export function ownLine(content: string): (line: number) => number {
 
 export const LANGUAGES = ['typescript', 'tsx', 'javascript', 'python', 'go', 'rust', 'java', 'kotlin', 'csharp', 'c', 'cpp', 'php', 'ruby'];
 
+// Runes tells the developer of Lawcheck to run its build, which no user of an installed Lawcheck can do.
+function grammarProblem(language: string, error: unknown): string {
+  return `the grammar of ${language} cannot be loaded: ${firstLine(error).replace(/[;,.]?\s*build it with buildGrammars[^]*$/, '')}`;
+}
+
 export async function loadGrammars(grammarDir: string = GRAMMARS, runes: Runes = RUNES): Promise<ErrorItem | null> {
   const host = runes.createHost(grammarDir);
   for (const language of LANGUAGES) {
@@ -583,7 +588,7 @@ export async function loadGrammars(grammarDir: string = GRAMMARS, runes: Runes =
         code: 'parser-failed',
         file: null,
         line: null,
-        message: `the grammar of ${language} cannot be loaded: ${firstLine(error)}`,
+        message: grammarProblem(language, error),
         next: 'reinstall Lawcheck; a grammar it ships cannot be loaded',
       };
     }

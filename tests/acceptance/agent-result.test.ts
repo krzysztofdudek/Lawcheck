@@ -8,6 +8,7 @@ import type { RunEntry } from '../agent/run.ts';
 import { apiImports, armState, breachIn, CLAUDE_REPOSITORY, FILM, FILM_REPOSITORY, hostBreach, hostErrorOf, PROMPT, PROOF, repositoryFor, stopsOf, verdictOf } from '../agent/trial.ts';
 import type { HostEntry } from '../agent/trial.ts';
 import { readCodex } from '../agent/codex.ts';
+import { readCopilot } from '../agent/copilot.ts';
 import { inTemp } from './helpers.ts';
 
 const LINE = 'src/core/discount.js:3  error[coded-errors]  throws Error; core code throws ShopError with a code';
@@ -225,6 +226,57 @@ test('test 928: the plugin for Codex ships only with a trial of real Codex sessi
     }
   }
   const verdict = verdictOf(result.arms, PROOF.codex);
+  assert.equal(result.passes, verdict.passes);
+  assert.ok(verdict.passes, verdict.lines.filter((line) => line.startsWith('fail')).join('\n'));
+});
+
+test('test 966: the trial reads a Copilot CLI session from what copilot -p --output-format json prints and from its events, and holds a host that relays the message of the end of a turn to the words of that message', () => {
+  const stdout = [
+    { type: 'tool.execution_start', data: { toolName: 'bash', arguments: { command: 'npm test' } } },
+    { type: 'tool.execution_start', data: { toolName: 'create', arguments: { path: '/w/a.ts' } } },
+    { type: 'assistant.message', data: { content: 'first' } },
+    { type: 'assistant.message', data: { content: 'last' } },
+    { type: 'assistant.message', data: { content: '' } },
+    { type: 'result', exitCode: 0 },
+  ].map((event) => JSON.stringify(event)).join('\n');
+  const transcript = JSON.stringify({ type: 'hook.end', data: { hookType: 'sessionStart', success: true, output: { additionalContext: "Lawcheck checks this repository's code" } } });
+  assert.deepEqual(readCopilot(stdout, [transcript]), { completed: true, errors: [], shell: ['npm test'], reply: 'last', primed: true });
+  const failed = readCopilot([JSON.stringify({ type: 'session.error', data: { message: 'refused' } }), JSON.stringify({ type: 'result', exitCode: 1 })].join('\n'), [JSON.stringify({ type: 'hook.end', data: { hookType: 'agentStop', success: false } })]);
+  assert.deepEqual([failed.completed, failed.errors, failed.primed], [false, ['refused', 'the agentStop hook failed'], false]);
+  const entry = (run: number, fields: Partial<HostEntry> = {}): HostEntry => ({ run, error: null, breach: false, primed: true, imports: [], stops: 4, checks: null, clean: true, log: [], files: {}, seconds: 1, reply: '', ...fields });
+  const limit = (list: HostEntry[]) => ({ repository: FILM_REPOSITORY, runs: list.length, sessions: list.length, counted: 0, list });
+  assert.equal(armState('limit', limit([entry(1, { relayed: true }), entry(2, { relayed: true }), entry(3, { relayed: true })])), 'pass');
+  assert.equal(armState('limit', limit([entry(1, { relayed: true }), entry(2, { relayed: false })])), 'fail');
+  const verdict = verdictOf({ limit: limit([entry(1, { relayed: true }), entry(2, { relayed: true }), entry(3, { relayed: false })]) }, ['limit']);
+  assert.equal(verdict.passes, false);
+  assert.ok(verdict.lines.includes('fail: limit: the agent told the user that the check still fails in 2 of 3'), verdict.lines.join('\n'));
+});
+
+const RESULT_COPILOT = join(ROOT, 'tests', 'agent', 'result-copilot.json');
+
+test('test 967: the plugin for Copilot CLI ships only with a trial of real Copilot sessions that passes the thresholds of its proof, ruling copilot-dowod', () => {
+  assert.ok(existsSync(join(ROOT, 'plugin', '.plugin', 'plugin.json')));
+  assert.ok(existsSync(RESULT_COPILOT), 'tests/agent/result-copilot.json is missing: run npm run agent-trial -- --host copilot');
+  const result = JSON.parse(readFileSync(RESULT_COPILOT, 'utf8'));
+  assert.equal(result.schema, 'lawcheck-agent-trial-host/0');
+  assert.equal(result.host, 'copilot');
+  assert.equal(result.prompt, PROMPT);
+  for (const [name, record] of Object.entries(result.arms) as [string, { repository: string; runs: number; sessions: number; counted: number; list: HostEntry[] }][]) {
+    assert.equal(record.repository, repositoryFor(name, result.arms), name);
+    assert.equal(record.runs, record.list.length, name);
+    assert.deepEqual(record.list.map((entry) => entry.run), record.list.map((_, i) => i + 1), name);
+    assert.equal(record.sessions, record.list.filter((entry) => entry.error === null).length, name);
+    assert.equal(record.counted, record.list.filter((entry) => entry.error === null && entry.breach).length, name);
+    for (const entry of record.list) {
+      assert.equal(entry.breach, breachIn(record.repository, entry.log, name), `${name} run ${entry.run}`);
+      assert.equal(entry.stops, stopsOf(entry.log), `${name} run ${entry.run}`);
+      if (entry.error === null) assert.equal(entry.relayed !== undefined, name === 'limit', `${name} run ${entry.run}`);
+      if (record.repository === FILM_REPOSITORY) assert.deepEqual(entry.imports, apiImports(Object.fromEntries(Object.entries({ ...FILM_CORE, ...entry.files }).filter(([path, text]) => path.startsWith('src/core/') && text !== null)) as Record<string, string>), `${name} run ${entry.run}`);
+      for (const place of ['/tmp', homedir(), '/home/']) assert.ok(!entry.reply.includes(place), `${name} run ${entry.run}: ${entry.reply}`);
+    }
+  }
+  assert.deepEqual(PROOF.copilot, ['none', 'start', 'limit']);
+  const verdict = verdictOf(result.arms, PROOF.copilot);
   assert.equal(result.passes, verdict.passes);
   assert.ok(verdict.passes, verdict.lines.filter((line) => line.startsWith('fail')).join('\n'));
 });

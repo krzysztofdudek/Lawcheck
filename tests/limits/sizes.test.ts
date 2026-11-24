@@ -239,6 +239,32 @@ test('test 273: a file whose uses take more memory than a run may hold ends the 
   );
 });
 
+test('R-105: memory-too-large names the whole path of a file whose path is longer than 256 characters, and its next line names that path', async () => {
+  const folders = Array.from({ length: 6 }, (_, i) => `${'d'.repeat(50)}${i}`);
+  const path = `src/core/${folders.join('/')}/big.ts`;
+  assert.ok(path.length > 256);
+  await withSample(
+    async (s) => {
+      write(s, path, 'a<a,'.repeat(16 * 1024));
+      const result = await run(s, ['check', '--base', 'main'], { budget: 'LIMITS_RUN_MS' });
+      assert.equal(
+        result.stdout,
+        [
+          'lawcheck: ERROR  1 error',
+          '',
+          `${path}  error[memory-too-large]  the run grew by more than the 384 MiB of memory one file may add while reading the uses of ${path}`,
+          '  why:  a run past its memory would be ended by the system',
+          '',
+          `next: leave ${path} out of the types whose may_use is in force, then run lawcheck check again`,
+          '',
+        ].join('\n'),
+      );
+      assert.equal(result.code, 2);
+    },
+    { onMain: MAY_USE },
+  );
+});
+
 const READS_USES = (s: string) => setRule(s, 'no-console', 'export async function check({ files: [file] }) { await file.uses(); return []; }\n');
 
 test('test 904: R-121, a file whose uses a script rule reads through uses() and that takes too much memory names a step for a law with no may_use', async () => {

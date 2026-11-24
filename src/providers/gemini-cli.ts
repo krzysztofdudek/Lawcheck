@@ -1,6 +1,7 @@
 import { join } from 'node:path';
 import type { ReviewerConfig } from '../config.js';
-import type { Env, Provider } from './index.js';
+import type { Env } from './index.js';
+import type { Provider } from '../provider.js';
 import { plainOutput, programProvider } from './program.js';
 
 export const POLICY_FILE = 'no-tools.toml';

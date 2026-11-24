@@ -35,6 +35,33 @@ export function invariantRows(text: string): Row[] {
   return rows;
 }
 
+export type TableRow = { key: string; text: string; line: number };
+
+export function tableRows(text: string, header: string): TableRow[] {
+  const rows: TableRow[] = [];
+  const lines = text.split('\n');
+  let heading = '';
+  let fence: string | null = null;
+  let inside = false;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!;
+    const marker = /^\s*(`{3,}|~{3,})/.exec(line)?.[1];
+    if (fence !== null) { if (marker !== undefined && line.trim().startsWith(fence)) fence = null; continue; }
+    if (marker !== undefined) { fence = marker; inside = false; continue; }
+    const h = /^#{1,6}\s+(.*)$/.exec(line);
+    if (h) { heading = h[1]!.trim(); inside = false; continue; }
+    const row = cells(line);
+    if (!row) { inside = false; continue; }
+    if (!inside) {
+      const next = cells(lines[i + 1] ?? '');
+      if (next && isRule(next) && plain(row[0]!) === header) { inside = true; i++; }
+      continue;
+    }
+    rows.push({ key: `row ${plain(row[0]!)} under "${heading}"`, text: row.join(' | '), line: i + 1 });
+  }
+  return rows;
+}
+
 export function rulings(text: string): Set<string> {
   const out = new Set<string>();
   for (const line of text.split('\n')) {

@@ -16,6 +16,7 @@ export const claims: Claims = {
   'block 3 under "Keys and values Lawcheck refuses"': SCENARIO,
   'block 1 under "runner"': READ,
   'block 2 under "runner"': SCENARIO,
+  'block 3 under "runner"': SCENARIO,
 };
 
 const REFUSED: [string, string, RegExp][] = [
@@ -41,4 +42,5 @@ export async function scenario(page: Page): Promise<void> {
   const runes = Object.keys(manifest.dependencies).filter((name) => name.endsWith('/runes'));
   assert.equal(runes.length, 1, 'the library of the readers');
   assert.deepEqual(parse(page.text('block 2 under "runner"')), { npmPreapprovedPackages: [manifest.name, runes[0]] });
+  assert.deepEqual(parse(page.text('block 3 under "runner"')), { minimumReleaseAgeExclude: [manifest.name, runes[0]] });
 }
