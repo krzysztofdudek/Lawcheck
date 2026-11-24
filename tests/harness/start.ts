@@ -416,7 +416,7 @@ function launch(start: Start, expect: Expect): Running {
         killAll(left);
       }
       if (overran) problems.push(['harness-6', `the run did not end within its budget of ${budget} ms`]);
-      const caught = sent !== null && CATCHABLE.includes(sent) && !harnessSkip('a signal the test sent ends the run as the spec says');
+      const caught = sent !== null && CATCHABLE.includes(sent) && !harnessSkip('a signal the test sent ends the run as docs/codes.md says (stopped, exit 2) and as decision 56 says (a hook, exit 0)');
       if (signal !== null && !overran && !(sent === 'SIGKILL' && signal === 'SIGKILL') && !(sent !== null && signal === sent && !caught)) problems.push(['harness-1', `the run died by ${signal}${caught ? `; a caught ${sent} ends the run with an exit code` : ''}`]);
       if (code !== null && ![0, 1, 2].includes(code)) problems.push(['harness-1', `exit code ${code}`]);
       if (caught && signal === null) {

@@ -309,6 +309,7 @@ function replacePaths(text: string, paths: string[]): string {
   return out;
 }
 
+// The steps that the test names of tests/acceptance/agent-result.test.ts cite, in the order a run takes them: 1 a fresh repository from the fixture, 2 the arm's plugin and the run of claude, 3 the transcript saved, 4 errorOf says whether the run is an error, 5 breachOf says whether the arm's own hook reported the breach, 6 checksIn judges the files of a counted run, 7 the entry is built, 8 settleFolder keeps the transcript and the log of an error run and removes the rest.
 async function oneRun(arm: string, number: number, options: Options, pathDirs: string[]): Promise<{ entry: RunEntry; model: string | null }> {
   const begin = Date.now();
   const folder = mkdtempSync(join(tmpdir(), 'lawcheck-trial-'));

@@ -100,7 +100,7 @@ test('harness-1: an exit code outside 0, 1 and 2, or a death by signal, fails th
   });
 });
 
-test('harness-1: a signal the test sends ends the run as the spec says, and SIGKILL alone may end it by the signal', async () => {
+test('harness-1: a signal the test sends ends the run as docs/codes.md says (stopped, exit 2) and as decision 56 says (a hook, exit 0), and SIGKILL alone may end it by the signal', async () => {
   if (platformSkip('the answer to a caught signal') !== null) return;
   await inTemp(async (dir) => {
     const ready = "process.stdout.write('ready\\n'); setInterval(() => {}, 1000);";
