@@ -270,7 +270,7 @@ const COUNT = '(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|t
 
 // Prose that is spoken has no digits, so a version or a model is said in words.
 const SPOKEN = [
-  [new RegExp(`\\b${COUNT}\\s+(?:point|dot)\\s+${COUNT}\\b`, 'gi'), 'a number with a point, said in words'],
+  [new RegExp(`\\b${COUNT}\\s+(?:point|dot)\\s+(?:${COUNT}|oh)\\b`, 'gi'), 'a number with a point, said in words'],
   [new RegExp(`\\b(?:alpha|beta|rc|release candidate)\\s+${COUNT}\\b`, 'gi'), 'a pre-release said in words'],
   [new RegExp(`\\b(?:version|v)\\s+${COUNT}\\b`, 'gi'), 'a version said in words'],
   [new RegExp(`\\bclaude\\s+${COUNT}\\b`, 'gi'), 'a model named with its number in words'],
