@@ -64,7 +64,7 @@ A `check` or `try` that ends with exit 2 after it sent requests to a reviewer no
 
 With `runner: yarn` on Yarn 1, a failing check no longer hands the agent Yarn's closing line, `info Visit https://yarnpkg.com/en/docs/cli/run for documentation about this command.`, after the `next:` line. In alpha.4 the plugin kept that line, and when the output was too long for the hook text it dropped the `next:` line and ended on the Yarn line.
 
-The pages Settings, Supported environments and Install now say what pnpm 11 and later do on the first day after a release. They refuse nothing: `pnpm add --save-dev lawcheck@alpha` installs the release before, and the same holds for `@chrisdudek/runes`. This line in `pnpm-workspace.yaml` installs the new versions: `minimumReleaseAgeExclude: [lawcheck, "@chrisdudek/runes"]`. Yarn 4 still refuses on that day and keeps its own line.
+The pages Settings, Supported environments and Install now say what pnpm 11 and later do on the first day after a release. `pnpm add --save-dev lawcheck@alpha` does not stop. It installs the release before, and `@chrisdudek/runes` is held back in the same way. This line in `pnpm-workspace.yaml` installs the new versions: `minimumReleaseAgeExclude: [lawcheck, "@chrisdudek/runes"]`. The pages also name the Yarn versions. Yarn 4.15.0 and later refuse on that day, Yarn 4.10.1 to 4.14.1 hold nothing back, and Yarn 4.0.0 to 4.9.4 stop every command with `Usage Error` on the `npmPreapprovedPackages` line.
 
 ## [0.1.0-alpha.4] - 2026-11-23
 

@@ -109,13 +109,13 @@ The plugin reads the `runner` setting without a YAML parser. It takes the first 
 
 Yarn 1 prints lines of its own around the output of `yarn run`. To read the JSON of `--json`, start Lawcheck with `yarn --silent run lawcheck`. The flag `--silent` leaves those lines out.
 
-Yarn 4 holds back a package published less than a day ago. Lawcheck reads the code of each language with the package `@chrisdudek/runes`, which these pages call Runes. On the first day after a release of Lawcheck or of Runes, `yarn add` ends with `YN0016` and `quarantined`. With this line in `.yarnrc.yml`, Yarn installs both packages on that first day:
+Yarn 4.15.0 and later hold back a package published less than a day ago. Lawcheck reads the code of each language with the package `@chrisdudek/runes`, which these pages call Runes. On the first day after a release of Lawcheck or of Runes, `yarn add` ends with `YN0016` and `quarantined`. With this line in `.yarnrc.yml`, Yarn installs both packages on that first day. Yarn 4.10.1 to 4.14.1 hold nothing back and accept the line. Yarn 4.0.0 to 4.9.4 do not know it and stop every command with `Usage Error`, so leave it out there.
 
 ```text
 npmPreapprovedPackages: [lawcheck, "@chrisdudek/runes"]
 ```
 
-pnpm 11 and later hold a package back the same way, and do not refuse. `pnpm add --save-dev lawcheck@alpha` installs the newest version that is a day old, so on the first day after a release you get the release before it, and Runes is held back too. With this line in `pnpm-workspace.yaml`, pnpm installs both new versions on that first day:
+pnpm 11 and later also hold back a package published less than a day ago, and they do not stop the install. `pnpm add --save-dev lawcheck@alpha` installs the newest version that is at least a day old, so on the first day after a release you get the release before it. Runes is held back in the same way. With this line in `pnpm-workspace.yaml`, pnpm installs both new versions on that first day:
 
 ```text
 minimumReleaseAgeExclude: [lawcheck, "@chrisdudek/runes"]
