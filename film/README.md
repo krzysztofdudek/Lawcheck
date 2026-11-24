@@ -48,7 +48,7 @@ Lawcheck's version, Claude Code's version and the model stay in `take.json`. No 
 
 ## The narration
 
-An agent writes the narration. Each segment of a chapter in `edit.json` has its `narration`: the sentences spoken while its frame stands. A sentence follows its frame and says nothing that the frame, its caption or its subtitle does not show. It cites what it follows in `shows`: strings of its frame, or, with `page`, strings of that page of `docs/`. `check.mjs` finds each cited string where the sentence says. A sentence ends with `.`, `!`, `?` or `…`, because the speech engine reads that as intonation, and says its numbers in words.
+An agent writes the narration. Each segment of a chapter in `edit.json` has its `narration`: the sentences spoken while its frame stands. A sentence follows its frame and says nothing that the frame, its caption or its subtitle does not show. It cites what it follows in `shows`: strings of its frame, or, with `page`, strings of that page of `docs/`. `check.mjs` finds each cited string where the sentence says. A sentence whose every cited string is only in its caption or its subtitle, and on no screen, names `ties`: each tie has a `text` and a `from`, a file of the repository, a run or a file of a take, and `check.mjs` finds the text in that source. `film/edit.json` ties nothing, since it holds the caption and the subtitle. A sentence ends with `.`, `!`, `?` or `…`, because the speech engine reads that as intonation, and says its numbers in words.
 
 `voice` in `edit.json` names the voice and how it speaks: the language, the speed, the pause between two sentences, and how long after the start of a frame the narration starts (`lead`) and how long before its end it stops (`tail`).
 
@@ -82,7 +82,7 @@ No video, image or recording is committed here. `claude plugin marketplace add` 
 - this build of Lawcheck prints something else on the files of a take than the film shows;
 - a screen stands less than one second plus one second for every three new words, its subtitle counted, the loop lasts more than 30 seconds, or a chapter lasts less than 40 or more than 60;
 - a screen, a caption, a subtitle or a narrated sentence shows a number with a point, a version after `@`, a version written as `v` and a number, or the name of a model;
-- a segment of a chapter has no narration, or a narrated sentence ends without `.`, `!`, `?` or `…`, holds two sentences, has a digit, cites nothing, or cites a string that its frame or its page does not show;
+- a segment of a chapter has no narration, or a narrated sentence ends without `.`, `!`, `?` or `…`, holds two sentences, has a digit, cites nothing, cites a string that its frame or its page does not show, or cites only its caption or subtitle without a tie that its source backs;
 - a file of `takes/` holds a home folder other than `/home/dev`, a key, a token, an e-mail address, the word orbstack, a host name under ts.net, the word tailnet, the word clientbox, a path under /mnt/mac, or a word listed in the variable `LAWCHECK_FILM_PRIVATE`, separated by commas. Set it to the names only the recording machine knows, such as its tailnet's name, before you add a take. A run without it, such as the one in CI, says that those names were not looked for.
 
 ## When the output of Lawcheck changes

@@ -189,6 +189,22 @@ export function readingProblems(edit) {
   return problems;
 }
 
+// A sentence that cites only its own caption or subtitle traces to nothing but words of the edit, so each such sentence names the source that backs those words.
+function tieProblems(root, edit, where, quoted, ties) {
+  if (!Array.isArray(ties) || ties.length === 0) return [`${where}: ${quoted} cites only its caption or subtitle, and names no tie to a docs page, a recorded output or a command that backs it`];
+  const problems = [];
+  ties.forEach((tie, index) => {
+    const at = `${where}, tie ${index + 1}`;
+    const from = tie?.from;
+    const named = from !== null && typeof from === 'object' && [typeof from.repo === 'string', typeof from.run === 'string', typeof from.take === 'string' && typeof from.file === 'string'].filter(Boolean).length === 1;
+    if (typeof tie?.text !== 'string' || tie.text === '' || !named) problems.push(`${at}: a tie holds a text and a from that names a repo file, a run, or a take with a file`);
+    else if (from.repo === 'film/edit.json') problems.push(`${at}: film/edit.json holds the caption and the subtitle themselves, so it ties nothing`);
+    else if (from.repo !== undefined && !existsSync(join(root, from.repo))) problems.push(`${at}: ${from.repo} does not exist`);
+    else problems.push(...itemProblems(root, edit, at, { text: tie.text, from }));
+  });
+  return problems;
+}
+
 const SPOKEN_END = /[.!?…]["”’)]*$/;
 const SENTENCE_INSIDE = /[.!?…]["”’)]*\s+\S/;
 
@@ -211,6 +227,7 @@ export function narrationProblems(root = ROOT, edit = readEdit(root)) {
         continue;
       }
       const shown = screensOf([segment]).flatMap((screen) => screen.text);
+      const framed = segment.screens.flatMap((screen) => screen.blocks.flatMap(stringsOf));
       lines.forEach((line, index) => {
         sentences++;
         const where = `${segment.id}, narrated sentence ${index + 1}`;
@@ -232,6 +249,8 @@ export function narrationProblems(root = ROOT, edit = readEdit(root)) {
             if (!page.includes(cited)) problems.push(`${where}: ${quoted} cites ${JSON.stringify(cited)}, which is not in docs/${line.page}.md`);
           } else if (!shown.some((text) => text.includes(cited))) problems.push(`${where}: ${quoted} cites ${JSON.stringify(cited)}, which is not on its frame`);
         }
+        const onFrame = (cited) => framed.some((text) => text.includes(cited));
+        if (page === undefined && line.shows.every((cited) => shown.some((text) => text.includes(cited))) && !line.shows.some(onFrame)) problems.push(...tieProblems(root, edit, where, quoted, line.ties));
       });
     }
   }

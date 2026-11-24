@@ -294,6 +294,33 @@ test('test 1058: every narrated sentence of a chapter ends as a spoken sentence,
   ]);
 });
 
+test('test 1090: a narrated sentence that cites only its own caption or subtitle names a tie to a docs page, a recorded output or a take, and each tie is read against its source', () => {
+  const edit = readEdit(ROOT);
+  assert.deepEqual(narrationProblems(ROOT, edit).problems, []);
+  const lines = (from: typeof edit) => from.chapters.flatMap((chapter: { timeline: { id: string; narration?: { text: string; ties?: unknown[] }[] }[] }) => chapter.timeline.flatMap((segment) => (segment.narration ?? []).map((line) => ({ segment, line }))));
+  assert.equal(lines(edit).filter(({ line }) => line.ties !== undefined).length, 15);
+  const other = clone(edit);
+  const at = (text: string) => lines(other).find(({ line }) => line.text === text)!.line as { text: string; ties?: Record<string, unknown>[] };
+  delete at('Lawcheck installs with one npm command.').ties;
+  at('Lawcheck init writes an empty law.').ties![0]!.text = 'created .lawcheck/other.yaml';
+  at('Forbid one layer to use another.').ties![0]!.from = { repo: 'film/edit.json' };
+  at('Write a script rule.').ties![0]!.from = { repo: 'docs/missing.md' };
+  at('Claude Code gets a prompt for a script rule.').ties = [{ text: 'Add a script rule no-fetch' }];
+  at('The agent writes the rule.').ties![0]!.from = { take: 'sr01', file: 'change.diff', run: 'sr-try' };
+  at('The agent writes the workflow.').ties = [];
+  at('Write a reviewer rule.').ties![0]!.from = { run: 'sr-try' };
+  assert.deepEqual(narrationProblems(ROOT, other).problems, [
+    'q1, narrated sentence 1: "Lawcheck installs with one npm command." cites only its caption or subtitle, and names no tie to a docs page, a recorded output or a command that backs it',
+    'q3, narrated sentence 1, tie 1: "created .lawcheck/other.yaml" is not in docs/quick-start.md',
+    'f1, narrated sentence 1, tie 1: film/edit.json holds the caption and the subtitle themselves, so it ties nothing',
+    's1, narrated sentence 1, tie 1: docs/missing.md does not exist',
+    's2, narrated sentence 1, tie 1: a tie holds a text and a from that names a repo file, a run, or a take with a file',
+    's3, narrated sentence 1, tie 1: a tie holds a text and a from that names a repo file, a run, or a take with a file',
+    'r1, narrated sentence 1, tie 1: "# Write a reviewer rule" is not in film/takes/sr-try/output.txt',
+    'c2, narrated sentence 1: "The agent writes the workflow." cites only its caption or subtitle, and names no tie to a docs page, a recorded output or a command that backs it',
+  ]);
+});
+
 function silence(seconds: number): Buffer {
   const rate = 8000;
   const data = Buffer.alloc(Math.round(seconds * rate) * 2);
