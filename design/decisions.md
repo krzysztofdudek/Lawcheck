@@ -332,3 +332,29 @@ Why: a finding's line, a waiver's line, the `lines` of a rule's file and the num
 A pass is a bad answer when the answer holds a `"verdict": "fail"` that no verdict object of the answer holds, which is the text of an object that does not parse, such as one with a trailing comma. The key and the word may be written with `\u` escapes, as JSON allows. A pass whose own object holds such text inside it, in a nested object that parses or in a string, stays a pass, since the object read holds it. A fail stays a fail beside it, and a lone fail that does not parse stays "the answer holds no JSON object with a verdict". The bad answer is asked once more, as every bad answer is.
 
 Why: a fail that does not parse is no verdict object, so neither rule of the decision "A pass beside a doubtful verdict is a bad answer" saw it, and `{"verdict": "fail", "findings": [{"line": 1, "message": "m"}],} {"verdict": "pass", "findings": []}` read as a pass. A file under review can ask the model to write that answer, and a model can write the trailing comma by habit. The text is looked for by its key and word, not parsed again, so a fail spelled another way, such as `"Fail"` in an object that does not parse, is not caught. The price is one more request for a pass that stands beside prose quoting a fail that does not parse.
+
+## 188. A fatal exit of git is no-git, not internal
+
+When a git command that Lawcheck runs ends with exit 128, git's own exit for a repository it cannot read, the run ends with `no-git`. The message holds the line git printed, and the `next:` line sends the user to repair the repository until `git status` works. A corrupt `.git/index` is the case that was found. Any other exit of a git command, and a git that ends by a signal, stays `internal`, since it means Lawcheck sent git a call that git does not take.
+
+Why: `docs/codes.md` already names a damaged repository as a cause of `no-git`, and `internal` asks the user to report a fault of Lawcheck, which this is not. Under `doctor`, the check that met the failure shows `fail` with the same message and step, and the run ends with exit 2 as for any failed check.
+
+## 189. A law that cannot be read is a law, so init and doctor do not send the user in a circle
+
+Whatever stands at `.lawcheck/law.yaml` makes that folder the root of the law: a file, a folder, a symbolic link to nothing. The run then says `law-invalid` with the cause, such as `the law cannot be read (EISDIR)`, as it does for a law in a folder it cannot search. `init` finds that law and ends with `already-initialized`, `doctor` shows the `law` check as `fail` with the same cause. Only a missing entry, or one below a path that is no folder, is no law.
+
+`init` also stops with `file-unwritable` when `.lawcheck/.gitignore` is a folder or a symbolic link to nothing, before it writes any file. A regular file or a link to a regular file there is kept as before.
+
+Why: with a folder as the law, `init` said `already-initialized` and sent the user to `doctor`, which said there was no law and sent the user to `init`. A `kept` file that is a folder leaves `.local/` and `config.local.yaml` unignored without a word.
+
+## 190. A rule file is never read through a symbolic link, though the law and the config are
+
+`.lawcheck/law.yaml` and `.lawcheck/config.yaml` are read through a link, and an error about either quotes none of the file. A rule file under `.lawcheck/rules/` is not: a link there counts as no file, and the error `rule-missing-file` names the link and says that Lawcheck reads no rule through one.
+
+Why: the text of a reviewer rule goes into every prompt, and a script rule runs. A link that a repository commits could lead to a file outside the work tree, such as a key in the home folder, and its text would reach the reviewer. The law and the config send no text to a reviewer, and their errors hide the text. Only the message was false, since it said the rule had neither file.
+
+## 191. A name or path is refused as too long by what its system counts
+
+`explain` refuses a name or a path that cannot exist, and it measures it as the system does: bytes on Linux and macOS (255 for a name, 4,095 for a path), UTF-16 units on Windows (255 and 32,767). A name that exists on a system is never refused as one that cannot.
+
+Why: Windows answers that a name that is too long is missing, not too long, so Lawcheck measures it before it asks. Counting bytes there refused a real name of 86 CJK characters, which is 258 bytes and 86 units.

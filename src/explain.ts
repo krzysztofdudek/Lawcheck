@@ -1,5 +1,5 @@
 import { lstatSync } from 'node:fs';
-import { bytesOfName, onDisk } from './names.js';
+import { cannotExist, onDisk } from './names.js';
 import { documentOf, errorResult, text as flagText, usageError } from './args.js';
 import type { Arguments, Result } from './args.js';
 import type { CheckContext } from './check.js';
@@ -568,8 +568,7 @@ function tooLong(word: string): Stop {
 
 function givenPath(root: string, cwd: string, word: string): string {
   const given = fromCwd(root, cwd, word);
-  // A name over 255 bytes or a path over 4,095 can exist on no system Lawcheck runs on, though Windows answers that such a file is missing. An escaped name is measured by the bytes it stands for.
-  if (given.split('/').some((part) => bytesOfName(part).length > 255) || Buffer.byteLength(onDisk(root, given)) > 4095) throw tooLong(word);
+  if (cannotExist(root, given)) throw tooLong(word);
   return given;
 }
 
