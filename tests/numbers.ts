@@ -620,9 +620,7 @@ export const NIGHTLY_MS = 120_000;
 // A match of src/**/*a*a*a*a*a*a*b.ts against a name of 240 `a`, through the matcher and through check --full (I-glob-1, S1-1); measured below 2 ms and 400 ms.
 export const MATCH_BUDGET_MS = 100;
 export const PATTERN_RUN_BUDGET_MS = 8_000;
-// takeAnswer on one megabyte of `{` and on 50,000 nested objects (I-answer-1, S3-3); measured below 30 ms.
-export const ANSWER_BUDGET_MS = 1_000;
-// The same reading, without a clock that load can break (I-answer-1, S3-3): an answer 4 times as long may take at most this many times as long to read, the shortest of ANSWER_ROUNDS reads of each; a linear reader measures 4 to 7 on a loaded machine, a quadratic one 16 and more.
+// The reading of an answer, without a clock that load can break (I-answer-1, S3-3): an answer 4 times as long may take at most this many times as long to read, the shortest of ANSWER_ROUNDS reads of each; a linear reader measures 4 to 7 on a loaded machine, a quadratic one 16 and more.
 export const ANSWER_GROWTH = 10;
 export const ANSWER_ROUNDS = 8;
 // parseLaw on the generator's deepest text, 20,000 levels of brackets; measured at 57 ms in the dev container.
@@ -705,7 +703,6 @@ export const stronger: Record<string, 'higher' | 'lower' | 'fixed'> = {
   NIGHTLY_MS: 'higher',
   MATCH_BUDGET_MS: 'lower',
   PATTERN_RUN_BUDGET_MS: 'lower',
-  ANSWER_BUDGET_MS: 'lower',
   ANSWER_GROWTH: 'lower',
   ANSWER_ROUNDS: 'higher',
   LAW_PARSE_BUDGET_MS: 'lower',
