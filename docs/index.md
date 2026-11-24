@@ -40,6 +40,7 @@ The run exits 1. The [finding](concepts.md#finding) gives the file, the line, th
 
 - [Claude Code](claude-code.md): the plugin checks each file the agent edits. Before the agent finishes its answer to your prompt, the plugin checks every file the agent changed for that prompt. While those files break the law, the plugin sends the agent back to work, up to three times.
 - [Codex](codex-cli.md): the same plugin checks each file the agent writes with `apply_patch`, and sends the agent back the same way before it finishes.
+- [GitHub Copilot CLI](copilot-cli.md): the same plugin checks each file the agent writes with `create` or `edit`, sends the agent back the same way, and asks the agent to tell you its messages.
 - [Any other agent](other-agents.md): one line in its instructions file tells the agent to run `lawcheck prime`. That command prints the law and the commands that check it.
 - [CI](ci.md): `lawcheck check --base origin/main` judges the files of the pull request. It needs no key and no network.
 
