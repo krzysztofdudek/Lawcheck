@@ -184,7 +184,7 @@ export async function tryRule(args: Arguments, context: CheckContext, json: bool
       const budget = new FindingBudget();
       const deadline = rulesDeadline();
       const reads = ruleReads({ root, files, ...ownersOf(files, read, typed) });
-      const ran = await runRule({ root, rule: id, ruleFile: join(root, `${RULES_DIR}${id}.mjs`), files: ruleFiles, filesOf: filesOfTypes(typed, law), budget, signal: deadline.signal, serve: reads(ruleFiles) });
+      const ran = await runRule({ root, rule: id, ruleFile: join(root, `${RULES_DIR}${id}.mjs`), files: ruleFiles, filesOf: filesOfTypes(typed, law), budget, signal: deadline.signal, serve: reads(ruleFiles, `the script rule ${id}`) });
       deadline.clear();
       if ('broken' in ran) throw new Stop([{ code: 'runner-failed', file: null, line: null, message: ran.broken }]);
       if ('crash' in ran) {

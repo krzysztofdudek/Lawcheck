@@ -945,7 +945,7 @@ function skillProblems(name: string, text: string, headings: string[], exists: (
 
 const headingsOf = (page: string): string[] => page.split('\n').filter((line) => line.startsWith('## ')).map((line) => line.slice(3));
 
-test('test 904: every part and step of the setup page that a file of the setup skill names is in docs/agent-setup.md, every file it links exists, and a file format it gives says first that nothing in it is law', () => {
+test('test 905: every part and step of the setup page that a file of the setup skill names is in docs/agent-setup.md, every file it links exists, and a file format it gives says first that nothing in it is law', () => {
   const headings = headingsOf(readFileSync(join(ROOT, 'docs', 'agent-setup.md'), 'utf8'));
   const files = skillFiles();
   assert.ok(files.some((file) => file.endsWith(`${sep}SKILL.md`)));
@@ -959,7 +959,7 @@ test('test 904: every part and step of the setup page that a file of the setup s
   assert.ok(named >= 3, 'the skill names the parts of the page it uses');
 });
 
-test('test 904: control, the names of parts and steps are found in every form the skill writes them, and a missing heading, step, link or marking is named', () => {
+test('test 905: control, the names of parts and steps are found in every form the skill writes them, and a missing heading, step, link or marking is named', () => {
   const found = namedParts('the page\'s part "Never" holds. Through the page\'s parts "A" and "B", and parts "C", "D" or "E". After step 11 of the page; steps 2 and 7. See [x](references/advice.md) and [y](https://example.com/z.md).');
   assert.deepEqual(found, { parts: ['Never', 'A', 'B', 'C', 'D', 'E'], steps: [11, 2, 7], links: ['references/advice.md'] });
   const headings = headingsOf('# Page\n\n## 1. Before anything\n\n## Never\n');

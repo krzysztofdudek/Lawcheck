@@ -111,7 +111,7 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
       rule,
       outcome: deadline.signal.aborted
         ? { slow: slowMessage('not started') }
-        : await runRule({ root, rule, ruleFile: join(root, `${RULES_DIR}${rule}.mjs`), files: bound, filesOf, budget, signal: deadline.signal, serve: reads(bound) }),
+        : await runRule({ root, rule, ruleFile: join(root, `${RULES_DIR}${rule}.mjs`), files: bound, filesOf, budget, signal: deadline.signal, serve: reads(bound, `the script rule ${rule}`) }),
     }));
   const paired = [...kinds.reviewers].filter(([, reviewer]) => reviewer.companion !== null).map(([rule]) => ({ rule, files: run.filter((file) => file.rules.includes(rule)) })).filter(({ files: bound }) => bound.length > 0);
   if (tasks.length > 0 || paired.length > 0) {

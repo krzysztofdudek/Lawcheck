@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import assert from 'node:assert/strict';
-import { D, D_PATH, git, inTemp, TEST4, withSample, write } from '../acceptance/helpers.ts';
+import { D, D_PATH, git, inTemp, setRule, TEST4, withSample, write } from '../acceptance/helpers.ts';
 import { errorLines, MiB, run, sparse, textHead } from './support.ts';
 
 const HUGE = 'src/core/huge.ts';
@@ -236,6 +236,31 @@ test('test 273: a file whose uses take more memory than a run may hold ends the 
       assert.equal(result.code, 2);
     },
     { onMain: MAY_USE },
+  );
+});
+
+const READS_USES = (s: string) => setRule(s, 'no-console', 'export async function check({ files: [file] }) { await file.uses(); return []; }\n');
+
+test('test 904: R-121, a file whose uses a script rule reads through uses() and that takes too much memory names a step for a law with no may_use', async () => {
+  await withSample(
+    async (s) => {
+      write(s, 'src/core/big.ts', 'a<a,'.repeat(16 * 1024));
+      const result = await run(s, ['check', '--base', 'main'], { budget: 'LIMITS_RUN_MS' });
+      assert.equal(
+        result.stdout,
+        [
+          'lawcheck: ERROR  1 error',
+          '',
+          'src/core/big.ts  error[memory-too-large]  the run grew by more than the 384 MiB of memory one file may add while reading the uses of src/core/big.ts for the script rule no-console',
+          '  why:  a run past its memory would be ended by the system',
+          '',
+          'next: leave src/core/big.ts out of the types whose files the script rule no-console judges, or keep the rule from calling uses() on it, then run lawcheck check again',
+          '',
+        ].join('\n'),
+      );
+      assert.equal(result.code, 2);
+    },
+    { onMain: READS_USES },
   );
 });
 
