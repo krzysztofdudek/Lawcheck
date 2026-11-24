@@ -395,7 +395,7 @@ note: this change edits the law that judges it: takes the rule no-console off th
 
 The job you set up in [Add the workflow](#_2-add-the-workflow) then checks again with `--law-from "$base"`. It judges the pull request by the base's law ([`--law-from`](commands.md#law-from-ref)). That second check fails with exit 1 at `src/core/total.ts:2`. [What a check judges](change.md) lists every change of the law that the note names.
 
-On `pull_request`, GitHub runs the pull request's own workflow file. The install step reads the pull request's `package.json`. In the second check, a rule of the base reads the pull request's copy of each file outside the base's law. A pull request that edits them can skip the second check, or change what a rule reads.
+On `pull_request`, GitHub runs the pull request's own workflow file. The install step reads the pull request's `package.json`. In the second check, a rule of the base judges the pull request's copy of each file outside the base's law. A pull request that edits them can skip the second check, or change what a rule reads.
 
 Lawcheck guards none of those files. On GitHub, a required review by a code owner can guard these paths:
 
