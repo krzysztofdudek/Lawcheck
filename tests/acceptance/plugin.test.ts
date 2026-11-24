@@ -1221,6 +1221,8 @@ test('test 908: the measurement of a proposal prints the table and the total of 
     assert.equal(read(repo, '.lawcheck/law.yaml'), SETUP_LAW, 'the rule\'s measurement puts the law back');
     assert.ok(!existsSync(join(repo, '.lawcheck', 'rules')), 'the rule\'s measurement leaves no rule file and no rules folder');
     assert.equal(git(repo, 'status', '--short'), '?? .lawcheck/\n');
+  });
+});
 
 const blocked = (text: string) => ({ decision: 'block', reason: text });
 const editsHeader = (paths: string[], cmd = 'lawcheck') => `Lawcheck: after this edit, the files it wrote break the law of this repository. ${cmd} check ${paths.map((path) => `./${path}`).join(' ')} printed:`;
