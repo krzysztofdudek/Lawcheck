@@ -9,6 +9,11 @@ on:
 permissions:
   contents: read
 
+# Two releases at once would each read and move the dist-tags, so the later one waits for the earlier. A run that waits is replaced, not queued, when a third tag is pushed behind it.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
   # The commit set at the tagged commit; a red job stops the publish.
   # ci.yml's merge jobs read the start of their run through the API, and a called workflow gets no permission its caller withholds.
@@ -183,11 +188,11 @@ jobs:
           fi
           npm publish "./release/lawcheck-${VERSION}.tgz" --ignore-scripts --provenance --access public --tag "${TAG}"
 
-  # latest names the newest alpha, and alpha stays a tag of its own. The publish sets latest to the alpha it publishes, and this job adds the dist-tag alpha to that version. npm runs dist-tag over OIDC from npm 11.21.0, and only when the trusted publisher of release.yml on npmjs.com has "Allow npm dist-tag" turned on. This job needs that setting to add alpha. A re-run of this job alone repeats only the dist-tag moves.
+  # latest names the newest alpha, and alpha stays a tag of its own. The publish sets latest to the alpha it publishes, and this job adds the dist-tag alpha to that version. npm runs dist-tag over OIDC from npm 11.21.0, and only when the trusted publisher of release.yml on npmjs.com has "Allow npm dist-tag" turned on. This job needs that setting to add alpha. A re-run of this job alone repeats only the move of alpha. The job also runs when the publish was skipped because npm already holds the version, so a re-run of all jobs after a good publish moves alpha too.
   alpha:
     name: npm alpha on the new alpha
     needs: [pack, publish]
-    if: needs.pack.outputs.disttag == 'alpha'
+    if: ${{ !cancelled() && needs.pack.result == 'success' && needs.pack.outputs.disttag == 'alpha' && (needs.publish.result == 'success' || needs.publish.result == 'skipped') }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -200,23 +205,42 @@ jobs:
       - name: Use npm that runs dist-tag over OIDC
         run: npm install --global --ignore-scripts npm@11.21.2
       # A re-run after a newer alpha must not move alpha back to this one.
-      # The registry takes about a minute to show a write, so a read that names an older version is read again every 10 seconds, for up to 5 minutes. A newer version fails at once.
+      # The registry takes about a minute to show a write, so a read that names an older version, or that the registry fails to answer, is read again every 10 seconds, for up to 5 minutes. A newer version fails at once.
+      # Versions are ordered as semver orders them: ~ in place of - makes sort -V rank X.Y.Z-alpha.N below X.Y.Z.
       - name: latest still names this version
         env:
           VERSION: ${{ needs.pack.outputs.version }}
         run: |
           set -euo pipefail
-          for _ in $(seq 30); do
-            LATEST=$(curl -fsS https://registry.npmjs.org/-/package/lawcheck/dist-tags | jq -r '.latest')
-            if [ "${LATEST}" = "${VERSION}" ]; then
-              exit 0
+          newest() {
+            for v in "$@"; do
+              if [ -n "${v}" ]; then
+                printf '%s %s\n' "${v//-/\~}" "${v}"
+              fi
+            done | sort -V -k1,1 | tail -n 1 | cut -d' ' -f2
+          }
+          LATEST=''
+          for i in $(seq 30); do
+            if TAGS=$(curl -fsS https://registry.npmjs.org/-/package/lawcheck/dist-tags); then
+              LATEST=$(jq -r '.latest // ""' <<< "${TAGS}")
+              if [ "${LATEST}" = "${VERSION}" ]; then
+                exit 0
+              fi
+              if [ "$(newest "${LATEST}" "${VERSION}")" = "${LATEST}" ]; then
+                break
+              fi
+            else
+              echo "Read ${i} of 30: the registry gave no answer."
             fi
-            if [ "$(printf '%s\n' "${LATEST}" "${VERSION}" | sort -V | tail -n 1)" = "${LATEST}" ]; then
-              break
+            if [ "${i}" -lt 30 ]; then
+              sleep 10
             fi
-            sleep 10
           done
-          echo "::error::The dist-tag latest of lawcheck names ${LATEST}, and this run releases ${VERSION}; alpha moves to the version that latest names, so it stays where it is."
+          if [ -z "${LATEST}" ]; then
+            echo "::error::The registry gave no dist-tags of lawcheck in 30 reads, so it is not known that latest names ${VERSION}."
+          else
+            echo "::error::The dist-tag latest of lawcheck names ${LATEST}, and this run releases ${VERSION}; alpha moves to the version that latest names, so it stays where it is."
+          fi
           exit 1
       - name: Move alpha to the new version
         env:
@@ -227,23 +251,42 @@ jobs:
           VERSION: ${{ needs.pack.outputs.version }}
         run: |
           set -euo pipefail
-          for _ in $(seq 30); do
-            TAGS=$(curl -fsS https://registry.npmjs.org/-/package/lawcheck/dist-tags)
-            ALPHA=$(jq -r '.alpha' <<< "${TAGS}")
-            LATEST=$(jq -r '.latest' <<< "${TAGS}")
-            if [ "${ALPHA}" = "${VERSION}" ] && [ "${LATEST}" = "${VERSION}" ]; then
-              echo "${TAGS}"
-              exit 0
+          newest() {
+            for v in "$@"; do
+              if [ -n "${v}" ]; then
+                printf '%s %s\n' "${v//-/\~}" "${v}"
+              fi
+            done | sort -V -k1,1 | tail -n 1 | cut -d' ' -f2
+          }
+          TAGS=''
+          for i in $(seq 30); do
+            if READ=$(curl -fsS https://registry.npmjs.org/-/package/lawcheck/dist-tags); then
+              TAGS="${READ}"
+              ALPHA=$(jq -r '.alpha // ""' <<< "${TAGS}")
+              LATEST=$(jq -r '.latest // ""' <<< "${TAGS}")
+              if [ "${ALPHA}" = "${VERSION}" ] && [ "${LATEST}" = "${VERSION}" ]; then
+                echo "${TAGS}"
+                exit 0
+              fi
+              if [ "$(newest "${ALPHA}" "${LATEST}" "${VERSION}")" != "${VERSION}" ]; then
+                break
+              fi
+            else
+              echo "Read ${i} of 30: the registry gave no answer."
             fi
-            if [ "$(printf '%s\n' "${ALPHA}" "${LATEST}" "${VERSION}" | sort -V | tail -n 1)" != "${VERSION}" ]; then
-              break
+            if [ "${i}" -lt 30 ]; then
+              sleep 10
             fi
-            sleep 10
           done
+          if [ -z "${TAGS}" ]; then
+            echo "::error::The registry gave no dist-tags of lawcheck in 30 reads, so it is not known that alpha and latest name ${VERSION}."
+            exit 1
+          fi
           echo "${TAGS}"
           for tag in alpha latest; do
-            if [ "$(jq -r --arg tag "${tag}" '.[$tag]' <<< "${TAGS}")" != "${VERSION}" ]; then
-              echo "::error::The dist-tag ${tag} of lawcheck does not name ${VERSION}."
+            SEEN=$(jq -r --arg tag "${tag}" '.[$tag] // "no version"' <<< "${TAGS}")
+            if [ "${SEEN}" != "${VERSION}" ]; then
+              echo "::error::The dist-tag ${tag} of lawcheck names ${SEEN}, not ${VERSION}."
               exit 1
             fi
           done

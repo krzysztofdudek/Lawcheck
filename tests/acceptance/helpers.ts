@@ -30,7 +30,7 @@ export const GIT_ENV: NodeJS.ProcessEnv = {
   GIT_CONFIG_VALUE_1: '0',
 };
 delete GIT_ENV.LAWCHECK_BASE;
-// CI services set CI or a variable of their own, and a plain check with no base refuses to run there (decision 87 of design/decisions.md); a test that wants CI sets one.
+// CI services set CI or a variable of their own, and a check of the change with no base refuses to run there (decision 87 of design/decisions.md); a test that wants CI sets one.
 for (const name of ['GITHUB_BASE_REF', 'CI_MERGE_REQUEST_TARGET_BRANCH_NAME', 'CI_COMMIT_BEFORE_SHA', 'SYSTEM_PULLREQUEST_TARGETBRANCH', 'CI', 'GITHUB_ACTIONS', 'GITLAB_CI', 'TF_BUILD', 'JENKINS_URL', 'BUILDKITE', 'CIRCLECI', 'TRAVIS', 'BITBUCKET_BUILD_NUMBER', 'TEAMCITY_VERSION', 'APPVEYOR', 'DRONE', 'CODEBUILD_BUILD_ID', 'BUILD_ID', 'WOODPECKER']) delete GIT_ENV[name];
 for (const name of ['LAWCHECK_REVIEWER_ENDPOINT', 'LAWCHECK_REVIEWER_KEY', 'ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'GOOGLE_API_KEY', 'LAWCHECK_STABILITY_MODEL', 'LAWCHECK_STABILITY_OUT', 'LAWCHECK_STABILITY_RUNS']) {
   delete GIT_ENV[name];
