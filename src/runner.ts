@@ -257,16 +257,36 @@ function refused(error: unknown): string | null {
 
 const NO_STRING_FORM = 'a value with no string form';
 
+// MESSAGE_CHARS of src/limits.ts, the limit of a finding's message, holds what a rule throws too, so a line of megabytes never crosses the channel.
+const SHOWN_CHARS = 4096;
+
+function firstLine(message: string): string {
+  const end = message.indexOf('\n');
+  return end < 0 ? message : message.slice(0, end).replace(/\r$/, '');
+}
+
+function shown(line: string): string {
+  const length = points(line);
+  if (length <= SHOWN_CHARS) return line;
+  let end = 0;
+  for (let taken = 0; taken < SHOWN_CHARS; taken++) {
+    const high = line.charCodeAt(end);
+    const low = line.charCodeAt(end + 1);
+    end += high >= 0xd800 && high <= 0xdbff && low >= 0xdc00 && low <= 0xdfff ? 2 : 1;
+  }
+  return `${line.slice(0, end)}… (cut: ${(length - SHOWN_CHARS).toLocaleString('en-US')} more characters)`;
+}
+
 // A value can have no string form (an object without a prototype, an array holding a symbol), so its text is the reason JavaScript gives for that.
 function text(error: unknown): string {
   try {
     const named = refused(error);
     if (named !== null) return named;
     const message = error instanceof Error ? String(error.message) : String(error);
-    return message.split(/\r?\n/)[0] ?? '';
+    return shown(firstLine(message));
   } catch (reason) {
     try {
-      if (reason instanceof Error) return String(reason.message).split(/\r?\n/)[0] ?? '';
+      if (reason instanceof Error) return shown(firstLine(String(reason.message)));
     } catch {
       return NO_STRING_FORM;
     }
