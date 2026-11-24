@@ -389,3 +389,23 @@ test('R-108: the step of a run that judges files for a script rule names that ru
   assert.equal(error.message, 'the run passed the 1536 MiB of memory it may hold while judging the files for the script rule no-console');
   assert.equal(error.next, 'narrow the types whose files the script rule no-console judges in .lawcheck/law.yaml, or run Lawcheck where it may hold more memory, then run lawcheck check again');
 });
+
+test('R-42: a message holds at most 4,096 code points, a pair of surrogates counts as one, and any other surrogate counts by itself', async () => {
+  const cases: [string, string, number][] = [
+    ['pairs of the lowest code point of the astral planes', "'\\u{10000}'.repeat(N)", 4096],
+    ['pairs of the highest code point', "'\\u{10FFFF}'.repeat(N)", 4096],
+    ['pairs of an emoji', "'\\u{1F600}'.repeat(N)", 4096],
+    ['low surrogates on their own', "'\\udc00'.repeat(N)", 4096],
+    ['a low surrogate after a letter', "'a\\udc00'.repeat(N / 2)", 4096],
+    ['a high surrogate before a letter', "'\\ud800a'.repeat(N / 2)", 4096],
+    ['letters', "'a'.repeat(N)", 4096],
+  ];
+  const message = (build: string, n: number) => outcomeOf(`export function check() { return [{ message: ${build.replace(/N/g, String(n))} }]; }\n`) as Promise<{ crash?: string; findings?: unknown[] }>;
+  for (const [what, build, limit] of cases) {
+    const fits = await message(build, limit);
+    assert.equal(fits.crash, undefined, `${what} at ${limit}: ${fits.crash}`);
+    assert.equal(fits.findings?.length, 1, what);
+    const over = await message(build, limit + 2);
+    assert.equal(over.crash, 'returns a message of 4,098 characters for a.ts, and a message holds at most 4,096', what);
+  }
+});

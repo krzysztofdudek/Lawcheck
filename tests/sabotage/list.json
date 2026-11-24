@@ -262,5 +262,13 @@
     "find": "strict: args.flags.has('--strict'), base:",
     "replace": "strict: args.flags.has('--strict') && JSON.parse('') === 1, base:",
     "killedBy": "I-args-1: tokens of the tool and junk give usage or a run, never internal, and change nothing in git"
+  },
+  {
+    "id": "runner-surrogate-count",
+    "promise": "R-42",
+    "file": "src/runner.ts",
+    "find": "low <= 0xdfff",
+    "replace": "low < 0xdfff",
+    "killedBy": "R-42: a message holds at most 4,096 code points, a pair of surrogates counts as one, and any other surrogate counts by itself"
   }
 ]
