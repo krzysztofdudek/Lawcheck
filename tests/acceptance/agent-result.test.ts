@@ -169,6 +169,33 @@ test('test 181: the replay checks a recorded run again only when check ended bec
   await assert.rejects(replay(recorded.files, Array.from({ length: 5 }, () => shortOf([SYSTEM_SHORT]))), /memory-too-large of the system on each of 5 tries/);
 });
 
+test('test 1100: the replay judges a recorded run against the main branch of its own repository, also in the CI job of a pull request into another branch, which that repository does not have, so a clean run stays clean there and a run that is not clean stays red for its breach', async () => {
+  const result = JSON.parse(readFileSync(RESULT, 'utf8'));
+  const recorded: RunEntry = result.arms.edit.list.find((entry: RunEntry) => entry.checks !== null && entry.fixed);
+  const broken = { ...recorded.files, [TARGET]: recorded.files[TARGET]!.replace("new ShopError('INVALID_PERCENT', ", 'new Error(') };
+  const replay = (files: Record<string, string | null>, job: NodeJS.ProcessEnv) =>
+    inTemp(async (dir) => {
+      const work = makeRepository(dir);
+      for (const [path, text] of Object.entries(files)) writeFileSync(join(work, path), text!);
+      const seen: { code: number | null; base: unknown; items: string[] }[] = [];
+      const check: CheckRun = async (at, env) => {
+        const run = await startTool(at, ['check', '--json'], env).ended;
+        const items: { code: string; file: string | null }[] = run.json?.findings ?? run.json?.errors ?? [];
+        seen.push({ code: run.code, base: run.json?.scope?.base ?? null, items: items.map((item) => `${item.code} ${item.file}`) });
+        return run;
+      };
+      const checks = await checksIn(work, check, 0, { ...process.env, ...job });
+      return { checks, seen };
+    });
+  const pullRequest = { CI: 'true', GITHUB_ACTIONS: 'true', GITHUB_BASE_REF: 'narration' };
+  for (const job of [pullRequest, { ...pullRequest, LAWCHECK_BASE: 'narration' }]) {
+    assert.deepEqual(await replay(recorded.files, job), { checks: recorded.checks, seen: [{ code: 0, base: 'origin/main', items: [] }] }, JSON.stringify(job));
+  }
+  const notClean = await replay(broken, pullRequest);
+  assert.equal(notClean.checks.clean, false);
+  assert.deepEqual(notClean.seen, [{ code: 1, base: 'origin/main', items: [`coded-errors ${TARGET}`] }]);
+});
+
 const hookLine = (caller: string, exit: number, errors: string[]) => ({ caller, args: ['check', './src/core/loyalty.ts'], exit, errors });
 const FORBIDDEN = 'src/core/loyalty.ts:1  error[forbidden-use]  core uses src/api/format.ts of type api; core may use core';
 
