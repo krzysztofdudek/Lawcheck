@@ -1112,6 +1112,8 @@ test('test 924: a host the hook does not know fails the hook with one line', asy
       assert.equal(run.stdout, '', host);
       assert.equal(run.code, 1, host);
     }
+  });
+});
 
 test('R-4: the check after an edit judges a file of a folder that holds a law of its own by that law, as docs/plugin.md says, and not by the law of the repository the session runs in', async () => {
   await withBench(async (bench, dir) => {
