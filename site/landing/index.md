@@ -12,6 +12,13 @@ install:
 problem: Tests pass. Core imports the API.
 comparison: { text: The whole comparison, page: other-tools }
 holds: { page: adopt-in-an-existing-repository }
+tutorial:
+  heading: The tutorial
+  chapter: "Chapter {n}"
+  length: "{seconds} s, with subtitles"
+  play: Play
+  read: Read the page
+  transcript: Transcript
 next:
   button: { text: Open the quick start, page: quick-start }
   github: Lawcheck on GitHub

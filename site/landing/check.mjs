@@ -1,6 +1,6 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { cardProblems, pngProblems } from '../theme/card.mjs';
 
 const CANONICAL = 'https://lawcheck.dev/';
@@ -9,7 +9,28 @@ const metaOf = (html, attribute, name) => [...html.matchAll(new RegExp(`<meta ${
 const count = (html, pattern) => (html.match(pattern) ?? []).length;
 const decode = (text) => text.replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
 
-export function problems(dir, version) {
+// The chapters of the tutorial are the ones film/published.json lists, or chapters.json of the folder LAWCHECK_FILM_DIR names; the section #tutorial stands in the page when there is at least one, and not at all when there is none.
+export function tutorialProblems(index, dir, chapters) {
+  const out = [];
+  const sections = count(index, /<section\b[^>]*\bid="tutorial"/g);
+  const cards = [...index.matchAll(/<li id="tutorial-([^"]+)"/g)].map((match) => match[1]);
+  if (chapters.length === 0) {
+    if (sections > 0 || cards.length > 0) out.push('index.html shows the tutorial, and film/published.json lists no chapter');
+    return out;
+  }
+  if (sections !== 1) out.push(`index.html has ${sections} sections with the id tutorial, not one`);
+  const pages = chapters.map((chapter) => chapter.page);
+  if (cards.join() !== pages.join()) out.push(`the tutorial shows the chapters [${cards.join(', ')}], and film/published.json lists [${pages.join(', ')}]`);
+  for (const chapter of chapters) {
+    for (const file of Object.values(chapter.files)) if (!existsSync(join(dir, 'film', file.name))) out.push(`film/${file.name} of the chapter ${chapter.page} is missing`);
+    if (!new RegExp(`<a href="[^"]*/${chapter.page}\\.html">`).test(index)) out.push(`the card of the chapter ${chapter.page} has no link to its page`);
+  }
+  if (count(index, /class="button chapter-play"/g) !== chapters.length) out.push(`the tutorial has ${count(index, /class="button chapter-play"/g)} Play buttons, not ${chapters.length}`);
+  if (/<(?:video|source|track|img)\b[^>]*\/film\//.test(index)) out.push('index.html loads a video, a track or an image of a chapter before a click');
+  return out;
+}
+
+export function problems(dir, version, chapters = []) {
   const out = [];
   const read = (name) => (existsSync(join(dir, name)) ? readFileSync(join(dir, name), 'utf8') : null);
   const index = read('index.html');
@@ -29,6 +50,7 @@ export function problems(dir, version) {
   if (card === null) out.push('og.png is missing');
   else out.push(...pngProblems(card));
   if (/noindex/i.test(index)) out.push('index.html says noindex');
+  out.push(...tutorialProblems(index, dir, chapters));
   if (!index.includes(`>${version}<`)) out.push(`index.html does not show the version ${version}`);
 
   const blocks = [...index.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map((match) => match[1]);
@@ -132,11 +154,13 @@ export function phoneProblems(dir) {
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   const [dir, manifest] = process.argv.slice(2);
   const { version } = JSON.parse(readFileSync(manifest, 'utf8'));
-  const found = [...problems(dir, version), ...phoneProblems(dir)];
+  const listed = process.env.LAWCHECK_FILM_DIR ? join(process.env.LAWCHECK_FILM_DIR, 'chapters.json') : fileURLToPath(new URL('../../film/published.json', import.meta.url));
+  const chapters = JSON.parse(readFileSync(listed, 'utf8')).chapters;
+  const found = [...problems(dir, version, chapters), ...phoneProblems(dir)];
   if (found.length > 0) {
     console.log(`landing: FAIL  ${found.length} problems in ${dir}`);
     for (const problem of found) console.log(`  ${problem}`);
     process.exit(1);
   }
-  console.log(`landing: PASS  ${dir} has one h1, its title, description, canonical address, Open Graph and its card, JSON-LD for ${version}, a 404 page, robots.txt, sitemap.xml and vercel.json, and no grid of more than one column at ${PHONE_WIDTHS.join(', ')} px`);
+  console.log(`landing: PASS  ${dir} has one h1, its title, description, canonical address, Open Graph and its card, JSON-LD for ${version}, a 404 page, robots.txt, sitemap.xml and vercel.json, ${chapters.length === 0 ? 'no tutorial section, since no chapter is listed' : `the section #tutorial with its ${chapters.length} chapters`}, and no grid of more than one column at ${PHONE_WIDTHS.join(', ')} px`);
 }

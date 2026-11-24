@@ -3,6 +3,7 @@ import { createHighlighter } from 'shiki';
 import { parse } from 'yaml';
 import topics from '../../docs/topics.json' with { type: 'json' };
 import { codeThemeOfBrand, GITHUB, LINK, manifest, NPM, REPOSITORY } from '../theme/brand.ts';
+import { chapters } from '../theme/film.ts';
 import { Fragments, inline, isAhead } from './fragments.ts';
 
 type Link = { text: string; page: string };
@@ -15,6 +16,7 @@ export interface Copy {
   problem: string;
   comparison: Link;
   holds: { page: string };
+  tutorial: { heading: string; chapter: string; length: string; play: string; read: string; transcript: string };
   next: { button: Link; github: string; npm: string };
   footer: { released: string; ahead: string; docs: Link; changelog: Link; security: string; github: string; npm: string; author: string };
   notFound: { heading: string; text: string; docs: Link; home: string };
@@ -110,6 +112,21 @@ export async function facts() {
       heading: fragments.heading('README.md', 'One law holds uses, rules, debt and waivers'),
       items: fragments.list('README.md', 'One law holds uses, rules, debt and waivers', 1).map(readme),
       link: { text: title(copy.holds.page), href: pageUrl(copy.holds.page) },
+    },
+    tutorial: {
+      chapters: chapters()
+        .toSorted((a, b) => a.number - b.number)
+        .map((chapter) => ({
+          page: chapter.page,
+          number: chapter.number,
+          docs: pageUrl(chapter.page),
+          title: title(chapter.page),
+          seconds: Math.round(chapter.seconds),
+          video: `/film/${chapter.files.mp4.name}`,
+          track: `/film/${chapter.files.vtt.name}`,
+          poster: `/film/${chapter.files.jpg.name}`,
+          transcript: chapter.transcript,
+        })),
     },
     tools: {
       heading: title('other-tools'),

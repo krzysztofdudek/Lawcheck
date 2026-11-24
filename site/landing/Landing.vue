@@ -2,6 +2,7 @@
 import Lockup from '../theme/Lockup.vue';
 import CopyCommand from './CopyCommand.vue';
 import Film from './Film.vue';
+import Tutorial from './Tutorial.vue';
 import { data } from './facts.data.ts';
 
 const c = data.copy;
@@ -74,6 +75,8 @@ const ahead = c.footer.ahead.replace('{version}', data.head.version);
         </ul>
         <p><a :href="data.holds.link.href">{{ data.holds.link.text }}</a></p>
       </section>
+
+      <Tutorial v-if="data.tutorial.chapters.length > 0" :copy="c.tutorial" :chapters="data.tutorial.chapters" />
 
       <section class="wrap" aria-labelledby="tools">
         <h2 id="tools">{{ data.tools.heading }}</h2>
