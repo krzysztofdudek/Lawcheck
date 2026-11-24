@@ -238,6 +238,8 @@ export interface LawAt {
   config: ReviewerConfig;
   // The files of the law at the commit, by their path from the root; null is a symbolic link, which Lawcheck reads no rule through.
   files: Map<string, Buffer | null>;
+  // The commit's package.json and .lawcheck/package.json, when they are files.
+  manifests: Map<string, Buffer>;
 }
 
 const FILE_MODES = new Set(['100644', '100755']);
@@ -247,8 +249,10 @@ function unreachableLaw(message: string): Stop {
   return new Stop([{ code: 'law-from-unreachable', file: null, line: null, message, next: LAW_FROM_NEXT }]);
 }
 
-function lawEntries(root: string, commit: string): Map<string, { mode: string; type: string; id: string }> {
-  const result = git(root, ['ls-tree', '-r', '-z', commit, '--', LAW, CONFIG, RULES_DIR.slice(0, -1)]);
+const MANIFESTS = ['package.json', '.lawcheck/package.json'];
+
+function lawEntries(root: string, commit: string, paths = [LAW, CONFIG, RULES_DIR.slice(0, -1)]): Map<string, { mode: string; type: string; id: string }> {
+  const result = git(root, ['ls-tree', '-r', '-z', commit, '--', ...paths]);
   const found = new Map<string, { mode: string; type: string; id: string }>();
   if (result.status !== 0) return found;
   for (const entry of splitZ(result.stdout)) {
@@ -285,7 +289,10 @@ export function lawAt(root: string, ref: string): LawAt {
     if (entry.mode === '120000') files.set(path, null);
     else if (blobs.get(path) != null) files.set(path, blobs.get(path)!);
   }
-  return { ref, law: parsed.law, config, files };
+  const manifests = new Map<string, Buffer>();
+  const manifestFiles = [...lawEntries(root, commit, MANIFESTS)].filter(([path, entry]) => MANIFESTS.includes(path) && entry.type === 'blob' && FILE_MODES.has(entry.mode)).map(([path]) => path);
+  for (const [path, bytes] of blobsAt(root, commit, manifestFiles)) if (bytes !== null) manifests.set(path, bytes);
+  return { ref, law: parsed.law, config, files, manifests };
 }
 
 // What the law of the commit binds is judged on the work tree, so its rule files and the law's own files come from the commit and every other file from the work tree.
@@ -305,9 +312,12 @@ export function kindsAt(at: LawAt, workFiles: string[], read: Read): { files: st
 
 const PACKAGE_FOLDERS = ['.lawcheck/node_modules', LOCAL];
 
+// HFS+ skips these code points when it compares names, by Apple's Technical Note TN1150, the same list git skips when it guards .git on macOS.
+const HFS_IGNORED = /[\u200c-\u200f\u202a-\u202e\u206a-\u206f\ufeff]/g;
+
 // A rule loaded from the copy in .lawcheck/.local finds a package it imports by name in the node_modules folders above that copy, so the change may hold none of them. Git keeps the case of a path, and a file system that ignores case finds it all the same: macOS finds .lawcheck/node_moduleſ, with a long s, as .lawcheck/node_modules, and only toUpperCase turns that s into an S.
 export function packagesOfChange(listed: Iterable<string>, ref: string): void {
-  const known = (folder: string) => PACKAGE_FOLDERS.indexOf(folder.toUpperCase().toLowerCase());
+  const known = (folder: string) => PACKAGE_FOLDERS.indexOf(folder.replace(HFS_IGNORED, '').toUpperCase().toLowerCase());
   const found = new Map<string, string[]>();
   for (const path of listed) {
     const folder = path.split('/').slice(0, 2).join('/');
@@ -324,6 +334,7 @@ export function packagesOfChange(listed: Iterable<string>, ref: string): void {
 const SAFE_PART = /^(?!\.{1,2}$)[^/\\]+$/;
 
 // A rule is loaded from a copy of the commit's .lawcheck/rules/ below the root, where the runner may read, so its imports of ./lib/ find the commit's helpers. The copy holds a .gitignore of its own, so git never lists it, and the guard removes it if the tool is killed.
+// Node resolves an import whose name is the name of the nearest package.json through that file's exports, and one that starts with # through its imports, before any node_modules, so the copy holds the commit's package.json, or an empty one, and its .lawcheck/package.json, and the work tree's are never the nearest.
 export function writeRules(root: string, at: LawAt): { folder: string; release(): void } {
   const local = join(root, LOCAL);
   const cannot = (cause: string) => new Unwritable(LOCAL, cause);
@@ -346,6 +357,12 @@ export function writeRules(root: string, at: LawAt): { folder: string; release()
   }
   try {
     writeFileSync(join(folder, '.gitignore'), '*\n');
+    writeFileSync(join(folder, 'package.json'), at.manifests.get('package.json') ?? '{}\n');
+    const own = at.manifests.get('.lawcheck/package.json');
+    if (own !== undefined) {
+      mkdirSync(join(folder, '.lawcheck'), { recursive: true });
+      writeFileSync(join(folder, '.lawcheck/package.json'), own);
+    }
     for (const [path, bytes] of at.files) {
       if (bytes === null || !path.startsWith(RULES_DIR) || !path.split('/').every((part) => SAFE_PART.test(part))) continue;
       const target = join(folder, path);
