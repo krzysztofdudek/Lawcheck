@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
+import { rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { parse } from 'yaml';
 import { git, GIT_ENV, inTemp, lawcheck, read, ROOT, write } from './helpers.ts';
@@ -111,5 +112,43 @@ test('question 160: a committed break of each script rule and a forbidden use ar
       'src/steps/cycle.ts: warning[not-reviewed] ' + word,
       'src/steps/cycle.ts:1 warning[no-import-cycles] imports src/steps/break.ts, which imports this file back; move what both need into a module that imports neither',
     ].sort());
+  });
+});
+
+const LAYERING = [
+  'lawcheck: 0.1.0',
+  '',
+  'types:',
+  '  commands:',
+  '    paths: ["src/{check,docs,doctor,explain,init,prime,try}.ts"]',
+  '    may_use: [review, providers, rule-runs, provider-contract, rest]',
+  '  review:',
+  '    paths: ["src/review.ts"]',
+  '    may_use: [rule-runs, provider-contract, rest]',
+  '  providers:',
+  '    paths: ["src/providers/**"]',
+  '    may_use: [providers, provider-contract, rest]',
+  '  rule-runs:',
+  '    paths: ["src/rules.ts"]',
+  '  provider-contract:',
+  '    paths: ["src/provider.ts"]',
+  '  rest:',
+  '    paths: ["**", "!src/{check,docs,doctor,explain,init,prime,provider,review,rules,try}.ts", "!src/providers/**"]',
+  '',
+].join('\n');
+
+test('R-5: no command imports another, the call loop of the reviewer takes the contract of a provider and no provider, and no provider uses the runs of script rules', async () => {
+  await inTemp(async (dir) => {
+    const repo = cloneOfHead(dir);
+    rmSync(join(repo, '.lawcheck/rules'), { recursive: true, force: true });
+    write(repo, '.lawcheck/law.yaml', LAYERING);
+    git(repo, 'add', '-A');
+    git(repo, 'commit', '-q', '-m', 'the layers of R-5');
+    const run = await lawcheck(repo, ['check', '--full', '--base', 'HEAD', '--json']);
+    assert.equal(run.stderr, '');
+    assert.equal(run.code, 0, run.stdout);
+    const report = JSON.parse(run.stdout) as Report;
+    const found = report.findings.filter((f) => f.code === 'forbidden-use').map((f) => `${f.file}:${f.line ?? ''} ${f.message}`).sort();
+    assert.deepEqual(found, []);
   });
 });
