@@ -257,7 +257,7 @@ test('test 820: a transcript keeps the session and turns every other line into i
   }
 });
 
-test('test 1051: every narrated sentence of a chapter ends as a spoken sentence, spells its numbers and cites what its frame or its page shows, and the version scan reads the narration', () => {
+test('test 1058: every narrated sentence of a chapter ends as a spoken sentence, spells its numbers and cites what its frame or its page shows, and the version scan reads the narration', () => {
   const edit = readEdit(ROOT);
   const narration = narrationProblems(ROOT, edit);
   assert.deepEqual(narration.problems, []);
@@ -313,7 +313,7 @@ function silence(seconds: number): Buffer {
   return Buffer.concat([head, data]);
 }
 
-test('test 1052: a chapter\'s build mixes the voice of each narrated frame from its start, its sentences joined by one pause, and a voice spoken from other words, a missing voice and a voice longer than its frame are each refused', () => {
+test('test 1059: a chapter\'s build mixes the voice of each narrated frame from its start, its sentences joined by one pause, and a voice spoken from other words, a missing voice and a voice longer than its frame are each refused', () => {
   const folder = testFolder('lawcheck-film-');
   try {
     const edit = readEdit(ROOT);

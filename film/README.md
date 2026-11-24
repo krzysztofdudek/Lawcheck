@@ -48,7 +48,7 @@ Lawcheck's version, Claude Code's version and the model stay in `take.json`. No 
 
 ## The narration
 
-Each segment of a chapter in `edit.json` has its `narration`: the sentences spoken while its frame stands. A sentence follows its frame and says nothing that the frame, its caption or its subtitle does not show. It cites what it follows in `shows`: strings of its frame, or, with `page`, strings of that page of `docs/`. `check.mjs` finds each cited string where the sentence says. A sentence ends with `.`, `!`, `?` or `…`, because the speech engine reads that as intonation, and says its numbers in words.
+An agent writes the narration. Each segment of a chapter in `edit.json` has its `narration`: the sentences spoken while its frame stands. A sentence follows its frame and says nothing that the frame, its caption or its subtitle does not show. It cites what it follows in `shows`: strings of its frame, or, with `page`, strings of that page of `docs/`. `check.mjs` finds each cited string where the sentence says. A sentence ends with `.`, `!`, `?` or `…`, because the speech engine reads that as intonation, and says its numbers in words.
 
 `voice` in `edit.json` names the voice and how it speaks: the language, the speed, the pause between two sentences, and how long after the start of a frame the narration starts (`lead`) and how long before its end it stops (`tail`).
 
