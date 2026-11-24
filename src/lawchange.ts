@@ -315,9 +315,13 @@ const PACKAGE_FOLDERS = ['.lawcheck/node_modules', LOCAL];
 // HFS+ skips these code points when it compares names, by Apple's Technical Note TN1150, the same list git skips when it guards .git on macOS.
 const HFS_IGNORED = /[\u200c-\u200f\u202a-\u202e\u206a-\u206f\ufeff]/g;
 
+// Windows drops the trailing dots and spaces of each part of a path, so it finds .lawcheck/node_modules. or .lawcheck/node_modules  as .lawcheck/node_modules. Git there refuses such a name by default (core.protectNTFS), but a commit made on another system, or with the setting off, may hold one.
+const WINDOWS_TRAILING = /[. ]+$/;
+
 // A rule loaded from the copy in .lawcheck/.local finds a package it imports by name in the node_modules folders above that copy, so the change may hold none of them. Git keeps the case of a path, and a file system that ignores case finds it all the same: macOS finds .lawcheck/node_moduleſ, with a long s, as .lawcheck/node_modules, and only toUpperCase turns that s into an S.
 export function packagesOfChange(listed: Iterable<string>, ref: string): void {
-  const known = (folder: string) => PACKAGE_FOLDERS.indexOf(folder.replace(HFS_IGNORED, '').toUpperCase().toLowerCase());
+  const index = (folder: string) => PACKAGE_FOLDERS.indexOf(folder.toUpperCase().toLowerCase());
+  const known = (folder: string) => Math.max(index(folder.replace(HFS_IGNORED, '')), index(folder.split('/').map((part) => part.replace(WINDOWS_TRAILING, '')).join('/')));
   const found = new Map<string, string[]>();
   for (const path of listed) {
     const folder = path.split('/').slice(0, 2).join('/');
