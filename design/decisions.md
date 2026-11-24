@@ -376,3 +376,9 @@ Why: to Lawcheck a sample and a package of a monorepo are the same thing, a fold
 The hook after an edit looks for `.lawcheck/law.yaml` from the folder of the edited file and upward, and the first law it finds judges the file ([The Claude Code plugin](../docs/plugin.md)). An agent that works in a repository and edits a file of a sample repository under `tests/` hears what the sample's law says about that file, not what the law of the repository says. The other hooks start from the folder of the session.
 
 Why: the plugin cannot tell a sample from a package of a monorepo, and the nearest law is what `lawcheck check` uses when the user runs it in that folder, so the hook says what the user would see there. Test R-4 holds both cases: a file in the sample goes to the sample's law, a file outside it to the law of the repository.
+
+## 195. The landing page says when its build is ahead of its release
+
+The landing page takes its sentences from README.md and docs/ of the commit it is built from, and shows the version in package.json. When the Unreleased section of CHANGELOG.md holds text, the footer adds a line: this build also shows text for the next release, so a flag or command it names may not be in the shown version yet. A release deploys from its tagged commit, where Unreleased is empty and the line is absent.
+
+Why: a build of `main` between two releases showed `--strict` under the version alpha.4, which has no such flag, and a reader who tried it got an error. The page cannot read the tag in a shallow clone, so the line follows the CHANGELOG, which every release empties.

@@ -10,7 +10,7 @@ import { phoneProblems, problems } from '../../site/landing/check.mjs';
 import { problems as docsCardProblems } from '../../site/check-docs-card.mjs';
 import { CARD, cardHead, cardProblems, pngProblems } from '../../site/theme/card.mjs';
 import { CATEGORY, FINDING, og } from '../../site/theme/og.mjs';
-import { Fragments } from '../../site/landing/fragments.ts';
+import { Fragments, isAhead } from '../../site/landing/fragments.ts';
 
 const ALLOWED = new Set(Object.values(ALLOWED_NAMES).flat());
 const TAKEN = ['governance', 'trust', 'control', 'confidence', 'AI-native', 'guardrails'];
@@ -202,4 +202,12 @@ test('test 892: the check of the built landing page passes a stylesheet that sta
   assert.deepEqual(sheetProblems(SHEET.replace('max-width:860px', 'max-width:300px')), [320, 360, 390].flatMap((width) => [`at ${width} px .pair keeps 2 columns (minmax(0,5fr) minmax(0,7fr)), so its blocks stand side by side on a phone`, `at ${width} px .cards keeps 3 columns (repeat(3,minmax(0,1fr))), so its blocks stand side by side on a phone`]));
   assert.deepEqual(sheetProblems(SHEET.replace('max-width:860px', 'min-width:861px')), sheetProblems(SHEET.replace('max-width:860px', 'max-width:300px')));
   assert.deepEqual(sheetProblems(null), ['assets has no stylesheet']);
+});
+
+test('test 1007: the landing page says its build is ahead of its release while CHANGELOG.md holds text under Unreleased, and says nothing when that section is empty or gone (control)', () => {
+  assert.equal(isAhead(['# Changelog', '', '## [Unreleased]', '', 'A new flag.', '', '## [1.2.3] - 2026-01-01', '', 'Old text.'].join('\n')), true);
+  assert.equal(isAhead(['# Changelog', '', '## [Unreleased]', '', '## [1.2.3] - 2026-01-01', '', 'Old text.'].join('\n')), false);
+  assert.equal(isAhead(['# Changelog', '', '## [Unreleased]', ''].join('\n')), false);
+  assert.equal(isAhead(['# Changelog', '', '## [1.2.3] - 2026-01-01', '', 'Old text.'].join('\n')), false);
+  assert.equal(isAhead('## [Unreleased]\nA new flag.'), true);
 });
