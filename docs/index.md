@@ -1,6 +1,6 @@
 # Lawcheck
 
-Architecture checks for coding agents. Lawcheck checks code against your written architecture and names the file and line that break it, so drift stops in 12 languages, in Claude Code hooks and CI.
+Architecture checks for coding agents. Lawcheck checks code against your written architecture and names the file and line that break it, so you catch drift in Claude Code hooks and CI. It reads the uses of 12 languages.
 
 ## A law and a finding
 
