@@ -196,7 +196,7 @@ The workflow `.github/workflows/lawcheck.yml` runs on Ubuntu ([Add the workflow]
 - On macOS, GitHub runs a script step with bash. The workflow needs no change there.
 - On Windows, the default shell of a script step is not bash. Add `shell: bash` to the step `Check the change`. GitHub then runs the script with the bash of Git for Windows.
 
-Lawcheck's tests run this workflow on Linux alone. Lawcheck itself runs on Linux, macOS and Windows ([Supported environments](support.md)).
+Lawcheck itself runs on Linux, macOS and Windows ([Supported environments](support.md)).
 
 ## Reviewer rules in CI
 
