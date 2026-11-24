@@ -36,6 +36,13 @@ export function findTest(dir: string, id: string): string | null {
   return null;
 }
 
+function whyRed(tap: string): string {
+  const lines = tap.split('\n');
+  const at = lines.findIndex((line) => /^ *not ok \d+ /.test(line));
+  const shown = (at < 0 ? lines.slice(-30) : lines.slice(at, at + 30)).map((line) => (line.length > 300 ? `${line.slice(0, 300)}...` : line));
+  return shown.join('\n').trimEnd();
+}
+
 function said(verdict: Verdict): string {
   return verdict === 'did not run' ? 'did not run' : `is ${verdict}`;
 }
@@ -62,6 +69,7 @@ export function sabotage(root: string, entries: Entry[], log: (line: string) => 
     if (!clean.ok) throw new Error(`the unbroken copy does not build:\n${clean.output.trimEnd().split('\n').slice(-20).join('\n')}`);
     const outcomes: Outcome[] = [];
     const baseline = new Map<string, Verdict>();
+    const baselineTap = new Map<string, string>();
     let dirty = false;
     for (const entry of entries) {
       const fail = (detail: string): void => { outcomes.push({ entry, result: 'error', detail }); log(`error     ${entry.id}: ${detail}`); };
@@ -74,10 +82,12 @@ export function sabotage(root: string, entries: Entry[], log: (line: string) => 
           if (!again.ok) throw new Error(`the copy does not build again after the earlier break was undone:\n${again.output.trimEnd().split('\n').slice(-20).join('\n')}`);
           dirty = false;
         }
-        baseline.set(entry.killedBy, verdictOf(readTap(tools.runTests(tmp.dir, testFile, [pattern]).tap), pattern));
+        const first = tools.runTests(tmp.dir, testFile, [pattern]).tap;
+        baseline.set(entry.killedBy, verdictOf(readTap(first), pattern));
+        baselineTap.set(entry.killedBy, first);
       }
       const before = baseline.get(entry.killedBy)!;
-      if (before !== 'green') { fail(`'${entry.killedBy}' ${said(before)} on the unbroken code, so its red would prove nothing`); continue; }
+      if (before !== 'green') { fail(`'${entry.killedBy}' ${said(before)} on the unbroken code, so its red would prove nothing${before === 'red' ? `\n${whyRed(baselineTap.get(entry.killedBy)!)}` : ''}`); continue; }
       const path = join(tmp.dir, entry.file);
       let original: string;
       try {
