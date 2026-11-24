@@ -298,3 +298,63 @@ test('test 772: a rule that binds, listens or connects through the class of a ra
     at.close();
   }
 });
+
+// What src/runner.ts closes on Node 24, whose permission model has no permission for the network, and what it leaves open because the route to the network runs through a function it closes. A module of Node that gains an export fails test 1002 until someone decides which list it belongs to; a closed export must come out of the runner as the refusal.
+const NETWORK_MODULES: Record<string, { closed: string[]; open: string[]; every?: 'function' }> = {
+  'node:net': {
+    closed: ['BoundSocket', '_TransferredBoundSocket', '_createServerHandle', 'connect', 'createConnection'],
+    open: ['BlockList', 'Server', 'Socket', 'SocketAddress', 'Stream', '_normalizeArgs', 'createServer', 'getDefaultAutoSelectFamily', 'getDefaultAutoSelectFamilyAttemptTimeout', 'isIP', 'isIPv4', 'isIPv6', 'setDefaultAutoSelectFamily', 'setDefaultAutoSelectFamilyAttemptTimeout'],
+  },
+  'node:dgram': { closed: [], open: [], every: 'function' },
+  'node:dns': { closed: [], open: [], every: 'function' },
+  'node:dns/promises': { closed: [], open: [], every: 'function' },
+  'node:http': {
+    closed: ['WebSocket'],
+    open: ['Agent', 'ClientRequest', 'CloseEvent', 'IncomingMessage', 'METHODS', 'MessageEvent', 'OutgoingMessage', 'STATUS_CODES', 'Server', 'ServerResponse', '_connectionListener', 'createServer', 'get', 'globalAgent', 'maxHeaderSize', 'request', 'setGlobalProxyFromEnv', 'setMaxIdleHTTPParsers', 'validateHeaderName', 'validateHeaderValue'],
+  },
+  'node:https': { closed: [], open: ['Agent', 'Server', 'createServer', 'get', 'globalAgent', 'request'] },
+  'node:http2': {
+    closed: [],
+    open: ['Http2ServerRequest', 'Http2ServerResponse', 'connect', 'constants', 'createSecureServer', 'createServer', 'getDefaultSettings', 'getPackedSettings', 'getUnpackedSettings', 'performServerHandshake', 'sensitiveHeaders'],
+  },
+  'node:tls': {
+    closed: [],
+    open: ['CLIENT_RENEG_LIMIT', 'CLIENT_RENEG_WINDOW', 'DEFAULT_CIPHERS', 'DEFAULT_ECDH_CURVE', 'DEFAULT_MAX_VERSION', 'DEFAULT_MIN_VERSION', 'SecureContext', 'Server', 'TLSSocket', 'checkServerIdentity', 'connect', 'convertALPNProtocols', 'createSecureContext', 'createServer', 'getCACertificates', 'getCertificateCompressionAlgorithms', 'getCiphers', 'rootCertificates', 'setDefaultCACertificates'],
+  },
+};
+
+test('test 1002: every export of the modules of Node that reach the network is either closed by the runner or listed as one whose route to the network runs through a closed function, so a new export of a Node minor fails here', async () => {
+  const states = `export function check() {
+  return ${JSON.stringify(Object.keys(NETWORK_MODULES))}.map((id) => {
+    const loaded = process.getBuiltinModule(id);
+    const found = Object.keys(loaded).sort().map((name) => name + '=' + (typeof loaded[name] !== 'function' ? 'value' : loaded[name].name === 'closed' ? 'closed' : 'function'));
+    return { message: id + ' ' + found.join(' ') };
+  });
+}
+`;
+  await inTemp(async (dir) => {
+    const s = makeSample(join(dir, 'repo'));
+    writeFileSync(join(s, 'src/core/discount.ts'), 'export const d = 1;\n');
+    setRule(s, 'no-console', states);
+    const run = await check(s);
+    const seen = new Map<string, Map<string, string>>();
+    for (const line of findingLines(run.stdout)) {
+      const [id, ...entries] = line.split('  ').slice(2).join('  ').split(' ');
+      seen.set(id!, new Map(entries.map((entry) => entry.split('=') as [string, string])));
+    }
+    assert.deepEqual([...seen.keys()].sort(), Object.keys(NETWORK_MODULES).sort(), run.stdout);
+    const problems: string[] = [];
+    for (const [id, listed] of Object.entries(NETWORK_MODULES)) {
+      for (const [name, state] of seen.get(id)!) {
+        if (listed.every === 'function') {
+          if (state === 'function') problems.push(`${id}.${name} is a function that the runner leaves open`);
+        } else if (listed.closed.includes(name)) {
+          if (state !== 'closed') problems.push(`${id}.${name} is listed as closed and the runner leaves it ${state}`);
+        } else if (!listed.open.includes(name)) {
+          problems.push(`${id}.${name} is new in Node ${process.versions.node}: close it in closeNetwork of src/runner.ts and list it as closed, or list it as open once its route to the network is a closed function`);
+        }
+      }
+    }
+    assert.deepEqual(problems, []);
+  });
+});
