@@ -129,7 +129,7 @@ The run stops with [`too-many-reviews`](codes.md#too-many-reviews) and sends not
 
 ## 6. Give the check its base
 
-A check of the change takes its base from `--base`, then from `LAWCHECK_BASE`, then from the variables of a CI service ([CI and git hooks](ci.md#_5-give-the-base-on-another-ci-service)), then from `origin/HEAD`. With none of these, a check on a machine counts every file as changed. It runs every rule on every file that has a type. With `--review`, it then asks the reviewer about each such file that has no pass. This repository has no remote and no `origin/HEAD`:
+A [check of the change](concepts.md#check-of-the-change) takes its base from `--base`, then from `LAWCHECK_BASE`, then from the variables of a CI service ([CI and git hooks](ci.md#_5-give-the-base-on-another-ci-service)), then from `origin/HEAD`. With none of these, a check on a machine counts every file as changed. It runs every rule on every file that has a type. With `--review`, it then asks the reviewer about each review that holds no pass and no cached failure. A review is one file against one reviewer rule. `--again` asks about a review that holds a cached failure too. This repository has no remote and no `origin/HEAD`:
 
 ```text
 $ lawcheck check

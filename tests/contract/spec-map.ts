@@ -105,7 +105,7 @@ export function rowsOf(file: TextFile): { rows: Row[]; problems: string[] } {
       });
       if (integers > 0 && integers < firsts.length && firsts.some((c) => /^I-[a-z]+-\d+$/.test(c))) problems.push(`${file.path}: the table "${head}" at line ${table.start} mixes numbered rows and invariant ids`);
     } else if (firsts.length >= 1 && integers === firsts.length) {
-      problems.push(`${file.path}: the table at line ${table.start} looks like an acceptance table under the header "${head}"; its header starts with # or its first column holds no numbers`);
+      problems.push(`${file.path}: the table at line ${table.start} has only numbers in its first column under the header "${head}", which no numbered table takes; a numbered table has the header # (or id, no, nr, row), and the first column of a table of design/promises.md holds promise ids`);
     } else if (integers > 0 && integers < firsts.length) {
       problems.push(`${file.path}: the first column of the table at line ${table.start} mixes numbers and other text`);
     }

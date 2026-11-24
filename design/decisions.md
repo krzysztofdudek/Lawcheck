@@ -108,7 +108,7 @@ Why: a file left out of the list is never judged and nothing says so, so a pull 
 
 ## 87. No base in CI
 
-In CI, a plain `check` that finds no base ends as `base-unreachable`, exit 2. Its `next:` line names `--base origin/<the branch the change goes into>`, `LAWCHECK_BASE` with the history fetched, or `lawcheck check --full`. A job is in CI when `CI` is set and is not empty, `0`, `false`, `no` or `off`; without `CI`, when the variable of a known CI service is set. Outside CI, a check with no base judges every file as changed.
+In CI, a check of the change, which is a `check` that names no path and does not use `--full`, with or without `--review`, and finds no base ends as `base-unreachable`, exit 2. Its `next:` line names `--base origin/<the branch the change goes into>`, `LAWCHECK_BASE` with the history fetched, or `lawcheck check --full`. A job is in CI when `CI` is set and is not empty, `0`, `false`, `no` or `off`; without `CI`, when the variable of a known CI service is set. Outside CI, a check with no base judges every file as changed.
 
 Why: in CI a missing base is a forgotten setting, and failing the whole repository would read as bad code.
 
@@ -412,6 +412,18 @@ Why: Windows gives the id of an ended process to a new one soon, and a list is p
 A test or a helper that stops using one `*_MS` number of `tests/numbers.ts` and uses a new, larger one is `threshold-lowered` of its file, though no string names the number. The guard counts the uses of each such name outside `import` lines, per test and for the part of a file outside its tests. A name that is new in that place and holds more than the longest time whose uses fell is a rise. When no use fell, the new name is compared with the longest time the place named before and with `RUN_BUDGET_MS`. A new name that is not larger, and a name that is only imported, is no weakening.
 
 Why: on Windows test 67 and the harness moved from `KILLED_GRACE_MS`, 5 seconds, to `WINDOWS_KILLED_GRACE_MS`, 15 seconds, and the guard passed it, because it read only times named in strings. A time loosened through a name that is new needs the owner's row like one loosened through a number that is raised.
+
+## 200. The check of Lawcheck's own law runs per push on Linux, and on all three systems in the nightly
+
+`tests/acceptance/self-law.test.ts` has no entry in `PLATFORM_TESTS`, so a push runs it on Linux alone, and the nightly runs it on Linux, macOS and Windows (R-80).
+
+Why: a test is listed for Windows or macOS when what it checks behaves differently there, and none of the behaviours of `PLATFORM_BEHAVIOURS` reaches this one. The test clones `HEAD` and runs `check --full` on the clone. The law reads text, `.gitattributes` sets `eol=lf` so the clone has the same bytes on every system, and the reviewer's verdicts hash the text with its line ends normalised to LF (`lf` in `src/verdicts.ts`). The runner of the script rules has its own platform tests, as test 26 has on Windows. What staying costs is a push that breaks the law only on Windows or macOS, which the nightly then finds.
+
+## 201. The places the harness leaves unread, and the path lists every rule runner holds
+
+The harness that compares what a run changes reads four things as unchanged by design, and a change there passes harness-7 and harness-8: the lock files of git (a name ending in `.lock`, in any folder of `.git`), the objects, logs and worktrees folders at the top of `.git`, a `.git` below the top of the repository (a nested repository), and every `node_modules`. The test of harness-7 that writes `.git/objects/stray` holds the objects case. A rule runner receives the sorted paths of every type, because `repo.filesOf(typeId)` of [docs/script-rules.md](docs/script-rules.md) answers for any type, and each runner holds them in its own memory: about 46 MiB at 150,000 files.
+
+Why: a lock is a file git makes and removes inside one command, and Lawcheck runs only commands that read, so a lock left by a run would stop the next write of git in that repository and nothing of Lawcheck's. Objects are content-addressed and only ever added, so a new one changes no file, ref or index. A nested `.git` and a `node_modules` are not the repository's own state: the `node_modules` of a test's repository is a link to the checkout's, and a walk into it would read a whole install on every run. What stays open is a run that writes into one of these four, and no test would say so. The path lists stay because a rule that asks for another type's files is part of the contract, and the 46 MiB of each runner at 150,000 files is inside the 1,536 MiB a run may hold (test 248 runs that size nightly). The cgroup's reclaimable slab that the memory guard counts as free (`withCache` in `src/limits.ts`) is held by the R-79 test.
 
 
 ## Decision (number at merge). `check --sarif` writes SARIF 2.1.0 for GitHub code scanning
