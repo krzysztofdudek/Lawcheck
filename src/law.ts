@@ -406,7 +406,8 @@ class Reader {
       return null;
     }
     if (/[\r\n]/.test(text)) {
-      this.problem(line, `${what} holds a line break`);
+      const kept = isScalar(value) && (value.type === 'BLOCK_FOLDED' || value.type === 'BLOCK_LITERAL') && !/[\r\n]/.test(text.replace(/\r?\n$/, ''));
+      this.problem(line, kept ? `${what} holds the line break that ends a block scalar; write the text on one line, or start the block with >- so that the break is dropped` : `${what} holds a line break`);
       return null;
     }
     return text;

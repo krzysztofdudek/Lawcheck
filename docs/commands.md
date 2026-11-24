@@ -282,7 +282,7 @@ src/core/report.ts
 
 ### `<path>`
 
-The path names a file, a file that does not exist yet, a folder, or `.` for the current folder. For a new file, the first line ends with `(does not exist yet)`. For a folder, `explain` counts its files of each type. On a file system that ignores case, `explain` answers for the spelling that git lists.
+The path names a file, a file that does not exist yet, a folder, or `.` for the current folder. For a new file, the first line ends with `(does not exist yet)`. `explain` takes one path and no pattern: `*`, `?`, `[`, `]`, `{` and `}` in a path that no file has are letters of a name, and a last line says so. For a folder, `explain` counts its files of each type. On a file system that ignores case, `explain` answers for the spelling that git lists.
 
 Each name in the path may hold at most 255 bytes. The whole path on disk, with the folders above the root of the law, may hold at most 4,095 bytes. A longer name or path ends the command with `usage`.
 

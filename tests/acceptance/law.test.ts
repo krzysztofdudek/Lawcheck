@@ -266,3 +266,22 @@ test('test 831: untyped-file in debt, a binary file, a file a type takes by path
     assert.equal(run.code, 0);
   });
 });
+
+test('S5-16: a folded or literal about of one line is refused for the break that ends the block, and the message says how to drop it', async () => {
+  const about = (style: string) => replaceOnce(LAW, '    about: Everything that ships.\n', `    about: ${style}\n      Everything that ships.\n`);
+  await withSample(async (s) => {
+    for (const style of ['>', '|']) {
+      law(s, about(style));
+      const run = await check(s);
+      assert.equal(run.code, 2, style);
+      assert.match(run.stdout.split('\n')[2]!, /^\.lawcheck\/law\.yaml:\d+ {2}error\[law-invalid\] {2}'about' of type 'source' holds the line break that ends a block scalar; write the text on one line, or start the block with >- so that the break is dropped$/, style);
+    }
+    law(s, about('>-'));
+    assert.equal((await check(s)).code, 0);
+    law(s, replaceOnce(LAW, '    about: Everything that ships.\n', '    about: >-\n      Everything\n      that ships.\n'));
+    assert.equal((await check(s)).code, 0);
+    law(s, replaceOnce(LAW, '    about: Everything that ships.\n', '    about: |\n      Every\n      thing.\n'));
+    const two = await check(s);
+    assert.match(two.stdout.split('\n')[2]!, /error\[law-invalid\] {2}'about' of type 'source' holds a line break$/);
+  });
+});

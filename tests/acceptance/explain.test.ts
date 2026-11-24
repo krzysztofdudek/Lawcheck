@@ -286,3 +286,21 @@ test('test 115: explain and prime run no rule and send no request', async () => 
     );
   });
 });
+
+test('S5-16: explain of a path with glob characters that no file has says it selects nothing, and a file that holds them in its name is explained as any file', async () => {
+  await withSample(async (s) => {
+    const absent = await explain(s, 'src/core/*.ts');
+    assert.equal(absent.code, 0);
+    assert.deepEqual(absent.stdout.split('\n').slice(0, 2), ['src/core/*.ts  (does not exist yet)', '  type:  library  (source > library)  Code the commands call.']);
+    assert.ok(absent.stdout.endsWith('  pattern:  none; explain takes one path, so * ? [ ] { } in it are letters of a name and select nothing\n'), absent.stdout);
+    const plain = await explain(s, 'src/core/new.ts');
+    assert.ok(!plain.stdout.includes('pattern:'), plain.stdout);
+    if (process.platform !== 'win32') {
+      write(s, 'src/core/a[1].ts', 'export const a = 1;\n');
+      const present = await explain(s, 'src/core/a[1].ts');
+      assert.ok(present.stdout.startsWith('src/core/a[1].ts\n  type:  library'), present.stdout);
+      assert.ok(!present.stdout.includes('pattern:'), present.stdout);
+    }
+    assert.equal(JSON.parse((await explain(s, 'src/core/*.ts', '--json')).stdout).exists, false);
+  });
+});
