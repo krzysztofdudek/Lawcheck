@@ -1,10 +1,13 @@
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
-import { rmSync } from 'node:fs';
-import { createdIn, killTree, powershell, PROCESS_TABLE, toEnd } from './programs.js';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
+import { createdIn, killTree, powershell, PROCESS_TABLE, ticksAt, toEnd, variableOf, withTemp } from './programs.js';
 
 const pids = new Set<number>();
 const windows = process.platform === 'win32';
+// The longest the guard waits for a list of its own: a PowerShell that hangs would keep the guard, and the folders it is to remove, for ever.
+const LIST_MS = 10_000;
 // On Windows a program left by one that has ended can be found only through the list of processes, and PowerShell takes seconds to start on a busy machine. While a group is registered, or once the tool has said it starts programs, one PowerShell keeps that list fresh, so the guard ends the tree from a list begun after the kill without starting another PowerShell.
 let watcher: ChildProcess | null = null;
 let table = '';
@@ -15,9 +18,24 @@ const waitingForList: { since: number; done: (list: string | null) => void }[] =
 // Once the tool has said it is about to call a program, the list runs until the tool ends, so it is running when a call starts.
 let held = false;
 
+// PowerShell writes the test files of its script policy into its temporary directory while it starts, and the guard's PowerShell may still be starting when the run that set that directory has ended. So it gets a folder of its own under LOCALAPPDATA, where it keeps its other startup data anyway, and the guard removes that folder when it ends, with whatever a PowerShell stopped while starting left there.
+let shellTemp: string | null | undefined;
+
+function shellEnv(): NodeJS.ProcessEnv | undefined {
+  if (shellTemp === undefined) {
+    const local = variableOf(process.env, 'LOCALAPPDATA');
+    try {
+      shellTemp = local === undefined ? null : mkdtempSync(join(local, 'Temp', 'lawcheck-guard-'));
+    } catch {
+      shellTemp = null;
+    }
+  }
+  return shellTemp === null ? undefined : withTemp(process.env, shellTemp);
+}
+
 function watch(): void {
   if (!windows || watcher !== null) return;
-  watcher = spawn(powershell(), ['-NoProfile', '-NonInteractive', '-Command', `while ($true) { [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds(); ${PROCESS_TABLE}; '--'; Start-Sleep -Milliseconds 250 }`], { stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true });
+  watcher = spawn(powershell(), ['-NoProfile', '-NonInteractive', '-Command', `while ($true) { [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds(); ${PROCESS_TABLE}; '--'; Start-Sleep -Milliseconds 250 }`], { stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true, env: shellEnv() });
   const current = watcher;
   const gone = () => {
     if (watcher !== current) return;
@@ -43,7 +61,8 @@ function watch(): void {
     }
   });
 }
-const groups = new Set<number>();
+// Each group's root, with the time the tool took just before it started the root, when it said one: one entry per call, as two calls may get the same id.
+const groups = new Map<number, (number | undefined)[]>();
 const folders = new Set<string>();
 let pending = '';
 
@@ -65,10 +84,16 @@ process.stdin.on('data', (chunk: string) => {
       continue;
     }
     const group = line[1] === 'g';
-    const pid = Number(line.slice(group ? 2 : 1));
-    const set = group ? groups : pids;
-    if (adding) set.add(pid);
-    else set.delete(pid);
+    const [pid, said] = line.slice(group ? 2 : 1).split(' ').map(Number) as [number, number | undefined];
+    const started = Number.isFinite(said) ? said : undefined;
+    const calls = groups.get(pid) ?? [];
+    if (group && adding) groups.set(pid, [...calls, started]);
+    else if (group && calls.includes(started)) {
+      calls.splice(calls.indexOf(started), 1);
+      if (calls.length === 0) groups.delete(pid);
+    } else if (group) continue;
+    else if (adding) pids.add(pid);
+    else pids.delete(pid);
     if (group && adding) watch();
     if (group && !adding && groups.size === 0 && !held) stopWatching();
   }
@@ -120,38 +145,51 @@ function listSince(since: number, ms: number): Promise<string | null> {
   });
 }
 
-// False when no list came, and the trees are then ended without one.
-async function endWatched(): Promise<boolean> {
-  if (groups.size === 0) return true;
+// Windows may have given a root's id to another process, so the guard never ends a tree or a runner by its id: it ends only what toEnd finds in a list begun after the kill, and takes that list itself when the watcher gives none in time.
+async function endWatched(): Promise<void> {
+  if (groups.size === 0 && pids.size === 0) return;
   const learned = Date.now();
   const before = table;
-  const fresh = await listSince(learned, 10_000);
-  if (fresh === null) return false;
-  // On Windows the tool starts the guard before it calls a program reviewer (startListing), so no process of a group's tree was made before the guard.
-  for (const pid of toEnd(before, fresh, [...groups], createdIn(fresh).get(process.pid))) {
+  const fresh = (await listSince(learned, LIST_MS)) ?? listNow();
+  // On Windows the tool starts the guard before it calls a program reviewer (startListing), so no process of a group's tree was made before the guard; and none was made before the time the tool took just before it started the group's root, which tells the root from an earlier holder of its id when no earlier list shows the root.
+  // Of two calls that got the same id, the later one's program holds it, and what was made below it before that program is not known to be the tool's.
+  const since = new Map([...groups].flatMap(([pid, calls]): [number, string][] => {
+    const known = calls.filter((started) => started !== undefined);
+    return known.length === 0 ? [] : [[pid, ticksAt(Math.max(...known))]];
+  }));
+  for (const pid of toEnd(before, fresh, [...groups.keys(), ...pids], createdIn(fresh).get(process.pid), since)) {
     try {
       process.kill(pid, 'SIGKILL');
     } catch {
       // The process has already ended.
     }
   }
-  return true;
+}
+
+function listNow(): string {
+  const listed = spawnSync(powershell(), ['-NoProfile', '-NonInteractive', '-Command', PROCESS_TABLE], { encoding: 'utf8', windowsHide: true, timeout: LIST_MS, killSignal: 'SIGKILL', env: shellEnv() });
+  return listed.error === undefined ? (listed.stdout ?? '') : '';
 }
 
 function endAll(): void {
   if (ended) return;
   ended = true;
-  for (const pid of pids) {
-    try {
-      process.kill(pid, 'SIGKILL');
-    } catch {
-      // The runner has already ended.
+  if (!windows) {
+    for (const pid of pids) {
+      try {
+        process.kill(pid, 'SIGKILL');
+      } catch {
+        // The runner has already ended.
+      }
     }
+    for (const pid of groups.keys()) killTree(pid, 'SIGKILL');
   }
-  void endWatched().then((found) => {
-    for (const pid of groups) killTree(pid, 'SIGKILL', !found);
+  void (windows ? endWatched() : Promise.resolve()).then(() => {
     for (const folder of folders) rmSync(folder, { recursive: true, force: true, maxRetries: 10 });
-    stopWatching(() => process.exit(0));
+    stopWatching(() => {
+      if (typeof shellTemp === 'string') rmSync(shellTemp, { recursive: true, force: true, maxRetries: 10 });
+      process.exit(0);
+    });
   });
 }
 
