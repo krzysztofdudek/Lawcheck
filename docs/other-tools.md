@@ -18,7 +18,7 @@ A rules file is prose that the agent reads at the start of a session. It can hol
 
 A rules file holds rules about how the agent works, such as "run the tests before you finish". Lawcheck judges files. The law has no place for a rule about the work.
 
-The agent reads the rules file. Claude Code does not check the code against it. On 2026-11-24, the issue tracker of Claude Code held 297 issues that match [the query "ignores CLAUDE.md" is:issue created:<=2026-11-24](https://github.com/anthropics/claude-code/issues?q=%22ignores+CLAUDE.md%22+is%3Aissue+created%3A%3C%3D2026-11-24). [60 of them](https://github.com/anthropics/claude-code/issues?q=%22ignores+CLAUDE.md%22+is%3Aissue+created%3A2026-06-01..2026-11-24) were opened in June 2026 or later. Remove the date from the query to see the count today.
+The agent reads the rules file. Claude Code does not check the code against it. On 2026-11-24, the issues page of Claude Code showed 204 issues for [the query "ignores CLAUDE.md" is:issue created:<=2026-11-24](https://github.com/anthropics/claude-code/issues?q=%22ignores+CLAUDE.md%22+is%3Aissue+created%3A%3C%3D2026-11-24). [47 of them](https://github.com/anthropics/claude-code/issues?q=%22ignores+CLAUDE.md%22+is%3Aissue+created%3A2026-06-01..2026-11-24) were opened in June 2026 or later. Remove the date from the query to see the count today.
 
 You write the rules about files as a law. `lawcheck check` judges the code against the law. It prints each [finding](concepts.md#finding) with its file, its line and the rule it breaks. It exits 1 while the code breaks the law. `lawcheck prime` prints the law for the agent. Its text says which changes to the law the agent may make alone, and which need your word.
 
