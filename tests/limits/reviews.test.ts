@@ -1,11 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, readFileSync, rmSync, statSync, utimesSync, watch, writeFileSync } from 'node:fs';
+import { closeSync, constants, existsSync, mkdirSync, openSync, readdirSync, readFileSync, rmSync, statSync, utimesSync, watch, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { defaultAnswer, openai, withFake } from '../acceptance/fake-reviewer.ts';
 import { D, D_PATH, F, F_PATH, F_PRIME, KEY_F, KEY_F_PRIME, REVIEWER_LAW, withR, withSample, write } from '../acceptance/helpers.ts';
 import { errorLines, MiB, run, sparse, textHead } from './support.ts';
 import { LOCK_HELD_LOOK_MS } from '../numbers.ts';
+import { platformSkip } from '../harness/tool.ts';
 
 const REVIEW = ['check', '--review', '--base', 'main'];
 
@@ -253,6 +254,45 @@ test('R-76: test 253, two runs that write the verdicts file at once keep the lin
   });
 });
 
+
+// _O_TEMPORARY of the C runtime of Windows: libuv opens a path with it for DELETE and deletes it when the handle closes, which Node gives no other way to do.
+const O_TEMPORARY = 0x40;
+
+// On Windows a folder whose delete is pending keeps its name until the last handle on it closes, and making a folder of that name is refused with EPERM. A run that lets go of the lock while a waiting run has the folder or its pid open leaves it so for a moment; the test holds that moment: it empties the lock, keeps one handle on it and deletes it through a second, so the name stays until the test closes the first.
+test('test 1230: a review waiting at the lock while Windows still holds the delete of the lock another run let go waits for the delete to end, and writes its pass', async (t) => {
+  const skip = platformSkip('the whole test');
+  if (skip !== null) return t.skip(skip);
+  await withFake(async (fake) => {
+    await withR(async (r) => {
+      write(r, F_PATH, F_PRIME);
+      const local = join(r, '.lawcheck/.local');
+      const lock = join(local, 'verdicts.lock');
+      mkdirSync(lock, { recursive: true });
+      writeFileSync(join(local, '.gitignore'), '*\n');
+      writeFileSync(join(lock, 'pid'), String(process.pid));
+      const letGo = keepLock(lock);
+      const review = run(r, REVIEW, { env: { LAWCHECK_REVIEWER_ENDPOINT: fake.url }, budget: 'LIMITS_RUN_MS', writes: [/^\.lawcheck\/\.local(\/|$)/] });
+      await heldAtLock(local, review);
+      letGo();
+      rmSync(join(lock, 'pid'));
+      const held = openSync(lock, 'r');
+      try {
+        closeSync(openSync(lock, constants.O_RDONLY | O_TEMPORARY));
+        assert.ok(readdirSync(local).includes('verdicts.lock'), 'the lock was deleted at once, so its delete is not pending');
+        assert.throws(() => mkdirSync(lock), { code: 'EPERM' }, 'Windows made a folder whose delete is pending');
+        const until = Date.now() + LOCK_HELD_LOOK_MS;
+        while (Date.now() < until) await new Promise((done) => setTimeout(done, 20));
+        assert.equal(fake.requests.length, 0, 'the review called the reviewer while the delete of the lock was pending');
+      } finally {
+        closeSync(held);
+      }
+      const result = await review;
+      assert.equal(result.code, 0, result.stdout);
+      assert.equal(fake.requests.length, 1);
+      assert.ok(readFileSync(join(r, '.lawcheck/verdicts'), 'utf8').split('\n').includes(`${KEY_F_PRIME} clear-errors`));
+    });
+  });
+});
 // The review makes `.lawcheck/.local/failures` after its check of the file's size and its probe of the folder, and just before it takes the lock; with the lock held by the test it waits there, so the folder's appearing is the event that shows the review is held.
 async function heldAtLock(local: string, review: Promise<unknown>): Promise<void> {
   const failures = join(local, 'failures');
