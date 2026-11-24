@@ -39,7 +39,7 @@ src/core/discount.ts:1  error[forbidden-use]  core may not use api (src/api/orde
 next: fix src/core/discount.ts:1
 ```
 
-A rules file is advice the agent reads, and nothing in the session checks the code against it. Lawcheck checks your code against the architecture and rules you write down, and tells your coding agent which line breaks which rule. In Claude Code and Codex, the Lawcheck plugin runs this check after each edit and before the agent ends its turn. In GitHub Copilot CLI, the plugin runs it before the agent ends its turn. In all three, the plugin sends the agent back, up to three times, while the files of its turn break the law. Any other agent gets the law from `lawcheck prime`, through one line in its instructions file. A CI job checks the same law and needs no key and no network. An architecture test or the layer rule of a linter works in one language or one ecosystem, and one law covers the uses of twelve languages.
+A rules file is advice the agent reads, and nothing in the session checks the code against it. Lawcheck checks your code against the architecture and rules you write down, and tells your coding agent which line breaks which rule. In Claude Code and Codex, the Lawcheck plugin runs this check after each edit and before the agent ends its turn. In GitHub Copilot CLI, the plugin runs it before the agent ends its turn. In all three, the plugin sends the agent back, up to three times, while the files of its turn break the law. Any other agent gets the law from `lawcheck prime`, through one line in its instructions file. A CI job checks the same law and needs no key and no network. Your linter can hold a layer rule too, in one language or one ecosystem. Lawcheck adds what it leaves to you: the check inside the agent's turn that sends the agent back, a first law the agent writes from your code, old breaches kept apart as debt, a note for each waiver and each edit of the law that a change brings, and one law over the uses of twelve languages.
 
 It works for one developer and for a team: you commit the architecture and the rules in `.lawcheck/`, so each developer checks against the same law.
 
@@ -52,7 +52,7 @@ npm install --global lawcheck@alpha
 lawcheck docs quick-start
 ```
 
-In your own repository, your agent can write the first law. Install the plugin below and type `/lawcheck:setup` (`$lawcheck:setup` in Codex). The agent describes your folders as types, writes down which type uses which today, and asks you before it forbids a use the code already makes. It changes only `.lawcheck/` and commits nothing.
+In your own repository, your agent can write the first law. Install the plugin below and type `/lawcheck:setup` (`$lawcheck:setup` in Codex). It starts from the rules you already wrote in `CLAUDE.md`, `AGENTS.md` and your linter's config. The agent describes your folders as types, writes down which type uses which today, and asks you before it forbids a use the code already makes. It changes only `.lawcheck/` and commits nothing.
 
 ## Your coding agent
 
@@ -89,7 +89,7 @@ That agent checks only when it follows the line, and nothing sends it back. A pr
 - Script rules. A rule is a JavaScript module that gets one file at a time and returns findings, each with its line when it has one. [Write the first one](docs/first-law.md).
 - Reviewer rules. A model judges a rule written in prose, one file at a time. Lawcheck records each pass, so it does not send an unchanged file again. You pick one of nine providers, among them a local Ollama and the `claude`, `codex`, `gemini` and `copilot` programs with their own sign-in.
 - Debt. `check` judges the files a change touches. `--full` lists the older breaches as debt. Debt is a warning and does not fail the run, unless you pass `--strict`.
-- Waivers. `lawcheck-waive <rule> -- <reason>` drops one rule on one line, and the reason stays in the code. `check` names each waiver a change adds, and the plugin tells you at the end of a turn in which the agent added one.
+- Waivers. `lawcheck-waive <rule> -- <reason>` drops one rule on one line, and the reason stays in the code. `check` names each waiver and each edit of the law that a change brings, and the plugin tells you at the end of a turn in which the agent added a waiver or changed the law.
 
 ## Limits
 

@@ -13,8 +13,14 @@
   "keywords": [
     "architecture",
     "linter",
+    "lint",
+    "eslint",
     "coding-agents",
     "claude-code",
+    "agents-md",
+    "claude-md",
+    "hooks",
+    "deterministic",
     "rules"
   ],
   "type": "module",
