@@ -165,9 +165,10 @@ test('R-39: the config check names a config that is wrong, and the program of ea
     assert.equal(check(await plain(bad), 'types')!.state, 'ok');
     const bin = join(dir, 'bin');
     mkdirSync(bin);
+    const shim = (program: string) => join(bin, process.platform === 'win32' ? `${program}.cmd` : program);
     for (const program of ['lawcheck', 'npx', 'pnpm', 'yarn', 'bun']) {
-      writeFileSync(join(bin, program), '#!/bin/sh\n');
-      chmodSync(join(bin, program), 0o755);
+      writeFileSync(shim(program), process.platform === 'win32' ? '@exit /b 0\r\n' : '#!/bin/sh\n');
+      chmodSync(shim(program), 0o755);
     }
     for (const [runner, program] of [['global', 'lawcheck'], ['npx', 'npx'], ['pnpm', 'pnpm'], ['yarn', 'yarn'], ['bun', 'bun']]) {
       const repo = newRepository(join(dir, runner!), { ...files, '.lawcheck/config.yaml': `runner: ${runner}\n` });
@@ -177,10 +178,10 @@ test('R-39: the config check names a config that is wrong, and the program of ea
         message: `.lawcheck/config.yaml: runner ${runner}, and ${program} is not on the PATH`,
         next: { command: null, text: `install ${program}, or ask the user to set runner to the way this repository starts Lawcheck, then run lawcheck doctor again` },
       });
-      assert.deepEqual(check(await plain(repo, { env: { PATH: bin } }), 'config'), { id: 'config', state: 'ok', message: `.lawcheck/config.yaml: no reviewer set; runner ${runner}, ${program} at ${join(bin, program!)}`, next: null });
+      assert.deepEqual(check(await plain(repo, { env: { PATH: bin } }), 'config'), { id: 'config', state: 'ok', message: `.lawcheck/config.yaml: no reviewer set; runner ${runner}, ${program} at ${shim(program!)}`, next: null });
     }
     const named = newRepository(join(dir, 'named'), { ...files, '.lawcheck/config.yaml': 'runner: npx\nreviewer:\n  provider: ollama\n  model: llama\n' });
-    assert.equal(check(await plain(named, { env: { PATH: bin } }), 'config')!.message, `.lawcheck/config.yaml: reviewer ollama, model llama; runner npx, npx at ${join(bin, 'npx')}`);
+    assert.equal(check(await plain(named, { env: { PATH: bin } }), 'config')!.message, `.lawcheck/config.yaml: reviewer ollama, model llama; runner npx, npx at ${shim('npx')}`);
     const unnamed = newRepository(join(dir, 'unnamed'), { ...files, '.lawcheck/config.yaml': 'reviewer:\n  provider: ollama\n  model: llama\n' });
     assert.equal(check(await plain(unnamed), 'config')!.message, '.lawcheck/config.yaml: reviewer ollama, model llama');
     assert.equal(check(await plain(newRepository(join(dir, 'absent'), files)), 'config')!.message, 'no .lawcheck/config.yaml; every setting has its default');
@@ -293,7 +294,6 @@ test('R-39: the reviewer check says why it cannot call a reviewer, and what a ca
         message: `1 reviewer rule; ollama cannot be called: ${fake.url}/api/version answered HTTP 404, so no Ollama server is there`,
         next: { command: null, text: 'set LAWCHECK_REVIEWER_ENDPOINT to the address of the Ollama server, then run lawcheck doctor' },
       });
-      fake.respond = () => ollama('{"verdict": "pass", "findings": []}');
       fake.respond = (request) => (request.path.endsWith('/api/version') ? { status: 200, body: '{"version":"0.1"}' } : ollama('{"verdict": "pass", "findings": []}'));
       assert.equal(check(await plain(r, { env, reviewer: true }), 'reviewer')!.message, '1 reviewer rule; ollama answered a test call');
     });
