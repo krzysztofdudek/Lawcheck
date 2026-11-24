@@ -78,5 +78,29 @@
     "find": "if (!sameLines(own, input.waived)) parts.push(input.waived);",
     "replace": "if (input.waived.length > 0) parts.push(input.waived);",
     "killedBy": "R-97: a pass recorded while the waiver counted is no pass once the type sets waivers: false, in check, check of a named file, explain and --review"
+  },
+  {
+    "id": "glob-problem-text",
+    "promise": "R-40",
+    "file": "src/glob.ts",
+    "find": "return 'nests a brace';",
+    "replace": "return 'nests braces';",
+    "killedBy": "R-40: patternProblem says in its own words what is wrong, for each fault"
+  },
+  {
+    "id": "glob-reaches-match",
+    "promise": "R-40",
+    "file": "src/glob.ts",
+    "find": "(kind === MATCH ? [state] : [])",
+    "replace": "(kind !== MATCH ? [state] : [])",
+    "killedBy": "R-40: reaches says whether some path that starts with the prefix matches, the matching path itself included"
+  },
+  {
+    "id": "glob-last-any-state",
+    "promise": "R-40",
+    "file": "src/glob.ts",
+    "find": "const ANY = 3;",
+    "replace": "const ANY = 4;",
+    "killedBy": "R-40: a ** that is the last segment does not match the directory, with or without its slash"
   }
 ]
