@@ -5,8 +5,6 @@ import { createdIn, killTree, powershell, PROCESS_TABLE, toEnd } from './program
 
 const pids = new Set<number>();
 const windows = process.platform === 'win32';
-// The longest the guard waits for a list of its own: a PowerShell that hangs would keep the guard, and the folders it is to remove, for ever.
-const LIST_MS = 10_000;
 // On Windows a program left by one that has ended can be found only through the list of processes, and PowerShell takes seconds to start on a busy machine. While a group is registered, or once the tool has said it starts programs, one PowerShell keeps that list fresh, so the guard ends the tree from a list begun after the kill without starting another PowerShell.
 let watcher: ChildProcess | null = null;
 let table = '';
@@ -122,14 +120,14 @@ function listSince(since: number, ms: number): Promise<string | null> {
   });
 }
 
-// Windows may have given a root's id to another process, so the guard never ends a tree or a runner by its id: it ends only what toEnd finds in a list begun after the kill, and takes that list itself when the watcher gives none in time.
+// Windows may have given a root's id to another process, so the guard never ends a tree by a root's id: it ends only what toEnd finds in a list begun after the kill, and takes that list itself when the watcher gives none in time.
 async function endWatched(): Promise<void> {
-  if (groups.size === 0 && pids.size === 0) return;
+  if (groups.size === 0) return;
   const learned = Date.now();
   const before = table;
-  const fresh = (await listSince(learned, LIST_MS)) ?? listNow();
+  const fresh = (await listSince(learned, 10_000)) ?? listNow();
   // On Windows the tool starts the guard before it calls a program reviewer (startListing), so no process of a group's tree was made before the guard.
-  for (const pid of toEnd(before, fresh, [...groups, ...pids], createdIn(fresh).get(process.pid))) {
+  for (const pid of toEnd(before, fresh, [...groups], createdIn(fresh).get(process.pid))) {
     try {
       process.kill(pid, 'SIGKILL');
     } catch {
@@ -139,23 +137,20 @@ async function endWatched(): Promise<void> {
 }
 
 function listNow(): string {
-  const listed = spawnSync(powershell(), ['-NoProfile', '-NonInteractive', '-Command', PROCESS_TABLE], { encoding: 'utf8', windowsHide: true, timeout: LIST_MS, killSignal: 'SIGKILL' });
-  return listed.error === undefined ? (listed.stdout ?? '') : '';
+  return spawnSync(powershell(), ['-NoProfile', '-NonInteractive', '-Command', PROCESS_TABLE], { encoding: 'utf8', windowsHide: true }).stdout ?? '';
 }
 
 function endAll(): void {
   if (ended) return;
   ended = true;
-  if (!windows) {
-    for (const pid of pids) {
-      try {
-        process.kill(pid, 'SIGKILL');
-      } catch {
-        // The runner has already ended.
-      }
+  for (const pid of pids) {
+    try {
+      process.kill(pid, 'SIGKILL');
+    } catch {
+      // The runner has already ended.
     }
-    for (const pid of groups) killTree(pid, 'SIGKILL');
   }
+  if (!windows) for (const pid of groups) killTree(pid, 'SIGKILL');
   void (windows ? endWatched() : Promise.resolve()).then(() => {
     for (const folder of folders) rmSync(folder, { recursive: true, force: true, maxRetries: 10 });
     stopWatching(() => process.exit(0));
