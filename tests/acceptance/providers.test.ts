@@ -844,6 +844,28 @@ test('test 1057: outside Windows the guard of a killed tool ends a rule runner b
   });
 });
 
+test('test 1093: the guard of a killed tool ends no process by the id of a rule runner released as often as it was registered', async () => {
+  await withCopy(async (copy) => {
+    const guardFile = join(copy.dir, 'dist', 'guard.js');
+    const stranger = spawn(process.execPath, ['-e', IDLE], { stdio: 'ignore', windowsHide: true });
+    const guard = spawn(process.execPath, [guardFile], { cwd: dirname(guardFile), stdio: ['pipe', 'ignore', 'ignore'], detached: true });
+    let exited = false;
+    guard.on('exit', () => (exited = true));
+    try {
+      // Two runners got the stranger's id one after the other, and both were released before the tool was killed.
+      guard.stdin!.end(`+${stranger.pid}\n+${stranger.pid}\n-${stranger.pid}\n-${stranger.pid}\n`);
+      assert.ok(await waitFor(() => exited, GUARD_ENDS_MS), 'the guard is still running');
+      assert.ok(alive(stranger.pid!), 'the guard ended a process by the id of runners that were released');
+    } finally {
+      if (!exited) {
+        killGroup(guard.pid!, 'SIGKILL');
+        await waitFor(() => exited, LEFTOVER_GRACE_MS);
+      }
+      stranger.kill('SIGKILL');
+    }
+  });
+});
+
 // The tool's side of a program call, without the call: it starts the guard and its list as before a call, then tells the guard of each program it is given, with the time that program was started.
 const TOOL = "import { startListing, watchGroup } from './dist/programs.js';\nstartListing();\nprocess.stdout.write('ready\\n');\nlet pending = '';\nprocess.stdin.setEncoding('utf8').on('data', (chunk) => {\n  pending += chunk;\n  for (let end = pending.indexOf('\\n'); end >= 0; end = pending.indexOf('\\n')) {\n    const [pid, started] = pending.slice(0, end).split(' ').map(Number);\n    pending = pending.slice(end + 1);\n    watchGroup(pid, started);\n    process.stdout.write('told\\n');\n  }\n});\n";
 
