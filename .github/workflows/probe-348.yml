@@ -23,5 +23,13 @@ jobs:
           cd $d
           for i in 1 2 3; do echo npx; /usr/bin/time -p npx --no-install lawcheck --version 2>&1 | grep -E "real|user"; done
           for i in 1 2 3; do echo cli; /usr/bin/time -p node "$OLDPWD/dist/cli.js" --version 2>&1 | grep -E "real|user"; done
-      - name: The two tests alone, one round
-        run: node tests/run.ts loop tests/contract/docs-examples.test.ts tests/acceptance/docs.test.ts tests/acceptance/plugin.test.ts
+      - name: With the compile cache
+        run: |
+          d=$(mktemp -d)
+          mkdir -p $d/node_modules/.bin $d/node_modules/lawcheck $d/cc
+          printf '{"name":"lawcheck","version":"0.0.0","bin":{"lawcheck":"cli.js"}}' > $d/node_modules/lawcheck/package.json
+          printf '#!/bin/sh\nexec "%s" "%s/dist/cli.js" "$@"\n' "$(which node)" "$PWD" > $d/node_modules/.bin/lawcheck; chmod +x $d/node_modules/.bin/lawcheck
+          export NODE_COMPILE_CACHE=$d/cc
+          cd $d
+          for i in 1 2 3 4; do echo npx-cache; /usr/bin/time -p npx --no-install lawcheck --version 2>&1 | grep -E "real|user"; done
+          for i in 1 2 3 4; do echo cli-cache; /usr/bin/time -p node "$OLDPWD/dist/cli.js" --version 2>&1 | grep -E "real|user"; done
