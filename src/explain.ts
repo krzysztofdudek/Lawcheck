@@ -19,7 +19,7 @@ import { loadConfig, loadLaw, loadRuleFiles, locate, fromCwd, nearPart, onceRead
 import type { Kinds, Read } from './setup.js';
 import { decode, filesOfTypes, isBinary, splitLines } from './types.js';
 import { listInForce, mayUsePart } from './uses.js';
-import { readFailure, readVerdicts, reviewKey } from './verdicts.js';
+import { readFailure, readPasses, reviewKey } from './verdicts.js';
 import { parseWaivers, waivedLines } from './waivers.js';
 
 type Review = 'reviewed' | 'failed' | 'too-large' | 'not-reviewed';
@@ -125,7 +125,7 @@ async function companionsFor(ctx: Ctx, rules: string[], files: RuleFile[]): Prom
 }
 
 function reviewState(ctx: Ctx, path: string, text: string, waivers: ReturnType<typeof parseWaivers>['waivers'], companions: Companions): (rule: string) => Review {
-  const verdicts = readVerdicts(ctx.root);
+  const verdicts = readPasses(ctx.root, ctx.law.signers);
   const lineCount = splitLines(text).length;
   return (id) => {
     const reviewer = ctx.kinds.reviewers.get(id)!;
@@ -406,7 +406,7 @@ async function ruleAnswer(ctx: Ctx, id: string, json: boolean): Promise<string> 
   const files = bound.map((file) => file.path);
   let reviewed: number | null = null;
   if (kind === 'reviewer') {
-    const verdicts = readVerdicts(ctx.root);
+    const verdicts = readPasses(ctx.root, ctx.law.signers);
     const reviewer = ctx.kinds.reviewers.get(id)!;
     const ruleIds = new Set([...ctx.law.rules.keys(), 'forbidden-use']);
     const companions = await companionsFor(ctx, [id], bound);
