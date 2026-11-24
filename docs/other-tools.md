@@ -1,6 +1,6 @@
 # Lawcheck and the tools you already use
 
-Your repository has an `AGENTS.md`, an ESLint rule for its layers, or a bot that reviews pull requests. This page compares Lawcheck with each of them. A table at the end of each part says which tool fits your case.
+Your repository may already have an `AGENTS.md`, ArchUnit, eslint-plugin-boundaries, import-linter, CodeRabbit or a hook of your own. This page compares Lawcheck with each of them. A table at the end of each part says which tool fits your case.
 
 Lawcheck checks your code against a [law](concepts.md#law) you write in `.lawcheck/law.yaml`. The law names the [types](concepts.md#type) of your files, which types each type may [use](concepts.md#use), and the [rules](concepts.md#rule) each type keeps.
 

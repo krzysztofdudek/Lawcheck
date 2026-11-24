@@ -333,7 +333,11 @@ export function checkFindings(findings: unknown, lineCount: number): AnswerFindi
     const { line, message } = item;
     if (typeof message !== 'string' || message.trim() === '') return { problem: 'a finding has no message' };
     if (line !== undefined && line !== null && !(Number.isInteger(line) && (line as number) >= 1 && (line as number) <= lineCount)) {
-      return { problem: `a finding is at line ${typeof line === 'number' ? String(line) : JSON.stringify(line)}, outside lines 1 to ${lineCount}` };
+      if (typeof line !== 'number' || (Number.isFinite(line) && !Number.isInteger(line))) {
+        const shownLine = JSON.stringify(line) ?? String(line);
+        return { problem: `a finding's line is ${shownLine.length > 20 ? `${shownLine.slice(0, 20)}…` : shownLine}, not a whole number` };
+      }
+      return { problem: `a finding is at line ${String(line)}, outside lines 1 to ${lineCount}` };
     }
     out.push({ line: line === undefined || line === null ? null : (line as number), message });
   }
