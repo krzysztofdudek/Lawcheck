@@ -1,16 +1,17 @@
 import { test } from 'node:test';
 import { createHash } from 'node:crypto';
 import assert from 'node:assert/strict';
-import { appendFileSync, cpSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { GIT_ENV } from '../acceptance/helpers.ts';
 import { ROOT, startProgram, testFolder } from '../harness/tool.ts';
 import { judge, judgeChapter } from '../../film/accept.mjs';
 import { fingerprint } from '../../film/pilot.mjs';
 import { trimRecord, trimTranscript } from '../../film/trim.mjs';
-import { decodeTerminal, privateProblems, privateSummary, privateWords, readingProblems, runsOf, stalenessProblems, truthProblems, versionProblems } from '../../film/check.mjs';
-import { vttOf } from '../../film/build.mjs';
+import { decodeTerminal, narrationProblems, privateProblems, privateSummary, privateWords, readingProblems, runsOf, stalenessProblems, truthProblems, versionProblems } from '../../film/check.mjs';
+import { build, vttOf } from '../../film/build.mjs';
 import { readEdit, wrap, words } from '../../film/edit.mjs';
+import { joinWav, sentenceSpans, voiceKey, voiceProblems, wavSeconds } from '../../film/voice.mjs';
 
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 
@@ -251,6 +252,200 @@ test('test 820: a transcript keeps the session and turns every other line into i
     assert.equal(fingerprint(join(folder.dir, 'trimmed')), fingerprint(full));
     assert.equal(readFileSync(join(folder.dir, 'trimmed', 'files', 'transcript.jsonl'), 'utf8'), 'a file of the session is kept whole\n');
     assert.ok(!readFileSync(join(folder.dir, 'trimmed', 'transcript.jsonl'), 'utf8').includes('orbstack'));
+  } finally {
+    folder.remove();
+  }
+});
+
+test('test 1058: every narrated sentence of a chapter ends as a spoken sentence, spells its numbers and cites what its frame or its page shows, and the version scan reads the narration', () => {
+  const edit = readEdit(ROOT);
+  const narration = narrationProblems(ROOT, edit);
+  assert.deepEqual(narration.problems, []);
+  assert.ok(narration.sentences >= 60, `${narration.sentences} sentences`);
+  assert.deepEqual(versionProblems(edit), []);
+  const other = clone(edit);
+  const quick = other.chapters[0].timeline;
+  const ci = other.chapters[4].timeline;
+  quick[0].narration[0].text = 'Lawcheck installs with one npm command';
+  quick[0].narration[1].text = 'It adds 4 packages.';
+  quick[1].narration[0].shows = ['git init farm'];
+  quick[2].narration[1] = { text: 'The law is one file. It is empty.', shows: ['.lawcheck/law.yaml'] };
+  quick[3].narration[0].shows = [];
+  delete quick[4].narration;
+  ci[0].narration[0].shows = ['A CI job runs every night.'];
+  ci[0].narration[1].page = 'cee-eye';
+  ci[1].narration[0].text = 'Claude Code 2.1.330 on Sonnet writes the workflow.';
+  delete other.voice;
+  assert.deepEqual(narrationProblems(ROOT, other).problems, [
+    'q1, narrated sentence 1: "Lawcheck installs with one npm command" does not end with . ! ? or …',
+    'q1, narrated sentence 2: "It adds 4 packages." has a digit; a number is spoken in words',
+    'q2, narrated sentence 1: "Git starts a new repository named shop." cites "git init farm", which is not on its frame',
+    'q3, narrated sentence 2: "The law is one file. It is empty." holds more than one sentence',
+    'q4, narrated sentence 1: "The law gets one type, core." names nothing on its frame or its page that it follows',
+    'q5: the chapter quick-start narrates nothing over this frame',
+    'c1, narrated sentence 1: "A CI job can run lawcheck check on each pull request." cites "A CI job runs every night.", which is not in docs/ci.md',
+    'c1, narrated sentence 2: "A git hook can run it on each commit or push." cites the page docs/cee-eye.md, which does not exist',
+    'c2, narrated sentence 1: "Claude Code 2.1.330 on Sonnet writes the workflow." has a digit; a number is spoken in words',
+    'the edit names no voice for the narration',
+  ]);
+  assert.deepEqual(versionProblems(other), [
+    'c2, narration: "Claude Code 2.1.330 on Sonnet writes the workflow." says a number with a point, as a version has: 2.1',
+    'c2, narration: "Claude Code 2.1.330 on Sonnet writes the workflow." says the name of a model: Sonnet',
+  ]);
+});
+
+function silence(seconds: number): Buffer {
+  const rate = 8000;
+  const data = Buffer.alloc(Math.round(seconds * rate) * 2);
+  const head = Buffer.alloc(44);
+  head.write('RIFF', 0);
+  head.writeUInt32LE(36 + data.length, 4);
+  head.write('WAVEfmt ', 8);
+  head.writeUInt32LE(16, 16);
+  head.writeUInt16LE(1, 20);
+  head.writeUInt16LE(1, 22);
+  head.writeUInt32LE(rate, 24);
+  head.writeUInt32LE(rate * 2, 28);
+  head.writeUInt16LE(2, 32);
+  head.writeUInt16LE(16, 34);
+  head.write('data', 36);
+  head.writeUInt32LE(data.length, 40);
+  return Buffer.concat([head, data]);
+}
+
+test('test 1059: a chapter\'s build mixes the voice of each narrated frame from its start, its sentences joined by one pause, and a voice spoken from other words, a missing voice and a voice longer than its frame are each refused', () => {
+  const folder = testFolder('lawcheck-film-');
+  try {
+    const edit = readEdit(ROOT);
+    const voice = join(folder.dir, 'voice');
+    const segments: Record<string, { key: string }> = {};
+    for (const chapter of edit.chapters) {
+      mkdirSync(join(voice, chapter.page), { recursive: true });
+      for (const segment of chapter.timeline) {
+        writeFileSync(join(voice, chapter.page, `${segment.id}.wav`), silence(1));
+        segments[`${chapter.page}/${segment.id}`] = { key: voiceKey(edit, segment) };
+      }
+    }
+    writeFileSync(join(voice, 'voice.json'), JSON.stringify({ segments }));
+    assert.equal(wavSeconds(silence(2.5)), 2.5);
+    assert.equal(wavSeconds(joinWav([silence(1), silence(0.5), silence(0.25)], 0.5)), 2.75);
+    assert.deepEqual(voiceProblems(edit, voice), []);
+    build(join(folder.dir, 'dist'), ROOT, voice);
+    const index = readFileSync(join(folder.dir, 'dist', 'quick-start', 'index.html'), 'utf8');
+    assert.ok(index.includes('<audio id="voice-q1" class="clip" src="assets/voice/q1.wav" data-start="0.4" data-duration="1.00" data-track-index="4" data-volume="1"></audio>'), index);
+    assert.ok(index.includes('<audio id="voice-q2" class="clip" src="assets/voice/q2.wav" data-start="7.5" data-duration="1.00" data-track-index="4" data-volume="1"></audio>'), index);
+    assert.equal(readFileSync(join(folder.dir, 'dist', 'quick-start', 'assets', 'voice', 'q1.wav')).length, silence(1).length);
+    assert.ok(!readFileSync(join(folder.dir, 'dist', 'loop', 'index.html'), 'utf8').includes('<audio'));
+    segments['quick-start/q2'] = { key: voiceKey({ ...edit, voice: { ...edit.voice, speed: 2 } }, edit.chapters[0].timeline[1]) };
+    writeFileSync(join(voice, 'voice.json'), JSON.stringify({ segments }));
+    writeFileSync(join(voice, 'quick-start', 'q7.wav'), silence(4));
+    rmSync(join(voice, 'quick-start', 'q3.wav'));
+    const problems = [
+      'the voice of quick-start q2 was spoken from other words or settings; node film/voice.mjs speaks it again',
+      'the narration of quick-start q3 has no voice; node film/voice.mjs speaks it',
+      'the voice of quick-start q7 lasts 4.00 s, and its frame leaves it 3.10 s',
+    ];
+    assert.deepEqual(voiceProblems(edit, voice), problems);
+    assert.throws(() => build(join(folder.dir, 'dist'), ROOT, voice), { message: problems.join('\n') });
+  } finally {
+    folder.remove();
+  }
+});
+
+function sound(seconds: number): Buffer {
+  const wav = silence(seconds);
+  for (let at = 44; at < wav.length; at += 2) wav.writeInt16LE(1000, at);
+  return wav;
+}
+
+function cuesOfVtt(text: string): { start: number; end: number; text: string }[] {
+  const seconds = (stamp: string): number => {
+    const [h, m, s] = stamp.split(':');
+    return Number(h) * 3600 + Number(m) * 60 + Number(s);
+  };
+  return text.trim().split('\n\n').slice(1).map((block) => {
+    const [times, ...lines] = block.split('\n');
+    const [start, end] = times.split(' --> ');
+    return { start: seconds(start), end: seconds(end), text: lines.join('\n') };
+  });
+}
+
+function subtitleProblems(edit: ReturnType<typeof readEdit>, dist: string): string[] {
+  const problems: string[] = [];
+  for (const chapter of edit.chapters) {
+    const said: string[] = chapter.timeline.flatMap((segment: { narration?: { text: string }[] }) => (segment.narration ?? []).map((line) => line.text));
+    const shown = cuesOfVtt(readFileSync(join(dist, chapter.page, `${chapter.page}.vtt`), 'utf8')).map((cue) => cue.text);
+    for (let at = 0; at < Math.max(said.length, shown.length); at++) {
+      if (said[at] !== shown[at]) problems.push(`${chapter.page}, cue ${at + 1}: the narration says ${JSON.stringify(said[at])}, the subtitle shows ${JSON.stringify(shown[at])}`);
+    }
+  }
+  return problems;
+}
+
+test('test 1070: the subtitles of each chapter are the narrated sentences of film/edit.json, in their order and as written, each cue inside its frame and, with the voice, from where its sentence starts to where it ends, and a changed, a missing or a swapped sentence is told', () => {
+  const folder = testFolder('lawcheck-film-');
+  try {
+    const edit = readEdit(ROOT);
+    const plain = join(folder.dir, 'plain');
+    build(plain, ROOT);
+    assert.deepEqual(subtitleProblems(edit, plain), []);
+    for (const chapter of edit.chapters) {
+      const cues = cuesOfVtt(readFileSync(join(plain, chapter.page, `${chapter.page}.vtt`), 'utf8'));
+      assert.equal(cues.length, chapter.timeline.reduce((sum: number, segment: { narration?: unknown[] }) => sum + (segment.narration ?? []).length, 0), chapter.page);
+      let from = 0;
+      for (const cue of cues) {
+        assert.ok(cue.start >= from - 1e-9 && cue.end > cue.start, `${chapter.page}: ${cue.text} runs ${cue.start} to ${cue.end} after ${from}`);
+        from = cue.end;
+      }
+      for (const segment of chapter.timeline) {
+        const inside = cues.filter((cue) => segment.narration.some((line: { text: string }) => line.text === cue.text));
+        assert.ok(inside.every((cue) => cue.start >= segment.start + edit.voice.lead - 1e-3 && cue.end <= segment.end - edit.voice.tail + 1e-3), `${chapter.page} ${segment.id}`);
+      }
+    }
+
+    const voice = join(folder.dir, 'voice');
+    const segments: Record<string, { key: string }> = {};
+    for (const chapter of edit.chapters) {
+      mkdirSync(join(voice, chapter.page), { recursive: true });
+      for (const segment of chapter.timeline) {
+        writeFileSync(join(voice, chapter.page, `${segment.id}.wav`), joinWav(segment.narration.map((_: unknown, index: number) => sound(0.2 + 0.05 * index)), edit.voice.pause));
+        segments[`${chapter.page}/${segment.id}`] = { key: voiceKey(edit, segment) };
+      }
+    }
+    writeFileSync(join(voice, 'voice.json'), JSON.stringify({ segments }));
+    assert.deepEqual(voiceProblems(edit, voice), []);
+    const spoken = join(folder.dir, 'spoken');
+    build(spoken, ROOT, voice);
+    assert.deepEqual(subtitleProblems(edit, spoken), []);
+    const first = edit.chapters[0].timeline[0];
+    const cues = cuesOfVtt(readFileSync(join(spoken, 'quick-start', 'quick-start.vtt'), 'utf8'));
+    const at = first.start + edit.voice.lead;
+    const near = (a: number, b: number): void => assert.ok(Math.abs(a - b) < 2e-3, `${a} is not ${b}`);
+    near(cues[0].start, at);
+    near(cues[0].end, at + 0.2);
+    near(cues[1].start, at + 0.2 + edit.voice.pause);
+    near(cues[1].end, at + 0.2 + edit.voice.pause + 0.25);
+
+    const pause = edit.voice.pause;
+    const padded = joinWav([joinWav([silence(0.05), sound(0.3), silence(0.05)], 0), joinWav([silence(0.05), sound(0.2), silence(0.05)], 0)], pause);
+    const spans = sentenceSpans(padded, 2, pause);
+    near(spans[0].start, 0);
+    near(spans[0].end, 0.35);
+    near(spans[1].start, 0.45 + pause);
+    near(spans[1].end, 0.7 + pause);
+    const breath = joinWav([joinWav([sound(0.3), silence(pause / 2), sound(0.3)], 0), sound(0.4)], pause);
+    near(sentenceSpans(breath, 2, pause)[0].end, 0.6 + pause / 2);
+    near(sentenceSpans(breath, 2, pause)[1].start, 0.6 + pause * 1.5);
+    const hold = joinWav([joinWav([sound(0.3), silence(pause + 0.1), sound(0.3)], 0), sound(0.4)], pause);
+    assert.equal(sentenceSpans(hold, 2, pause), undefined, 'a pause inside a sentence as long as the one between sentences is not taken for a sentence break');
+
+    const other = clone(edit);
+    other.chapters[0].timeline[0].narration[0].text = 'Lawcheck installs with two npm commands.';
+    assert.equal(subtitleProblems(other, spoken).length, 1);
+    other.chapters[0].timeline[0].narration.reverse();
+    assert.equal(subtitleProblems(other, spoken).length, 2);
+    other.chapters[0].timeline[0].narration.pop();
+    assert.ok(subtitleProblems(other, spoken).length >= 2);
   } finally {
     folder.remove();
   }
