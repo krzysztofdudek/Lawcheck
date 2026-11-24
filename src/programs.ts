@@ -5,6 +5,8 @@ import { accessSync, constants, existsSync, mkdirSync, rmSync, statSync } from '
 import { tmpdir } from 'node:os';
 import { dirname, join, normalize, posix, win32 } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { receiveMessageOnPort } from 'node:worker_threads';
+import type { MessagePort } from 'node:worker_threads';
 
 export type Env = Record<string, string | undefined>;
 
@@ -266,9 +268,10 @@ const live = new Set<ChildProcess>();
 const liveGroups: { pid: number; started: number | undefined; running: () => boolean }[] = [];
 const liveFolders = new Set<string>();
 let guard: ChildProcess | null = null;
+let mainThread: { port: MessagePort; written: Int32Array } | null = null;
 let listing = false;
 
-function startGuard(): void {
+function startGuard(): ChildProcess {
   if (guard === null) {
     guard = spawn(process.execPath, [GUARD], { cwd: dirname(GUARD), stdio: ['pipe', 'ignore', 'ignore'], detached: true });
     guard.on('error', () => undefined);
@@ -276,21 +279,56 @@ function startGuard(): void {
     guard.unref();
     (guard.stdin as unknown as { unref(): void }).unref();
   }
+  return guard;
+}
+
+// On Windows Node holds a second write to a pipe in one turn of the loop until the first is reported done, which happens on a later turn, so a line written just before a folder is made can still be in the tool when SIGKILL ends it, and the guard never learns of the folder. A thread cannot wait for its own write, so the worker hands each line to the main thread, which owns the guard, and goes on only once the main thread has written it.
+function tell(line: string, start = true): void {
+  if (mainThread === null) {
+    if (guard !== null || start) startGuard().stdin!.write(line);
+    return;
+  }
+  Atomics.store(mainThread.written, 0, 0);
+  mainThread.port.postMessage({ line, start });
+  while (Atomics.load(mainThread.written, 0) === 0) Atomics.wait(mainThread.written, 0, 0);
+  const failed = receiveMessageOnPort(mainThread.port)?.message as { message: string; code: string | undefined } | undefined;
+  if (failed !== undefined) throw Object.assign(new Error(failed.message), { code: failed.code });
+}
+
+export function guardThroughMainThread(port: MessagePort, written: SharedArrayBuffer): void {
+  mainThread = { port, written: new Int32Array(written) };
+}
+
+export function serveGuard(port: MessagePort, written: SharedArrayBuffer): void {
+  const flag = new Int32Array(written);
+  const done = () => {
+    Atomics.store(flag, 0, 1);
+    Atomics.notify(flag, 0);
+  };
+  // A guard that cannot be started fails the call that told it, in the worker, as when the worker started the guard; thrown on the main thread it would end the tool with no result and exit 1.
+  port.on('message', ({ line, start }: { line: string; start: boolean }) => {
+    if (guard === null && !start) return done();
+    try {
+      startGuard().stdin!.write(line, done);
+    } catch (error) {
+      port.postMessage({ message: error instanceof Error ? error.message : String(error), code: (error as NodeJS.ErrnoException).code });
+      done();
+    }
+  });
+  port.unref();
 }
 
 // On Windows the guard finds what a program started only in PowerShell's list of processes, and PowerShell takes seconds to start on a busy machine, so the guard starts its list as soon as the tool is about to call a program; a call does not wait for it, since reviewer.timeout bounds the whole call, and the guard ends a killed tool's tree from a list begun after the kill. PowerShell makes a missing temporary directory, and without one no program starts, as a call's folder is made there, so the list is then not started.
 export function startListing(): void {
   if (process.platform !== 'win32' || listing || !existsSync(tmpdir())) return;
   listing = true;
-  startGuard();
-  guard!.stdin!.write('+w\n');
+  tell('+w\n');
 }
 
 export function watchProcess(child: ChildProcess): void {
   if (child.pid === undefined) return;
   live.add(child);
-  startGuard();
-  guard!.stdin!.write(`+${child.pid}\n`);
+  tell(`+${child.pid}\n`);
 }
 
 // Once the tool has seen a program end, its id may be given to a new process: on Windows at once, and taskkill /T on it would end that process and what it started; elsewhere once no process of the group is left, and a kill of the group would end a new group of that number. So a group is ended by its id only while its program runs, and elsewhere once more when the tool sees the program end (programEnded).
@@ -302,15 +340,14 @@ export function killGroup(pid: number, signal: NodeJS.Signals, running = true): 
 // started is the time just before the program was started, which the guard takes as a time before the program was made.
 export function watchGroup(pid: number, started?: number, running: () => boolean = () => true): void {
   liveGroups.push({ pid, started, running });
-  startGuard();
-  guard!.stdin!.write(`+g${pid}${started === undefined ? '' : ` ${started}`}\n`);
+  tell(`+g${pid}${started === undefined ? '' : ` ${started}`}\n`);
 }
 
 function forgetGroup(pid: number, started?: number): void {
   const at = liveGroups.findIndex((group) => group.pid === pid && group.started === started);
   if (at < 0) return;
   liveGroups.splice(at, 1);
-  guard?.stdin?.write(`-g${pid}${started === undefined ? '' : ` ${started}`}\n`);
+  tell(`-g${pid}${started === undefined ? '' : ` ${started}`}\n`, false);
 }
 
 // Outside Windows a group keeps its number while any process of it lives, and the system gives a free number again only after it has gone through the others, so at the moment the tool sees the program end the number is still the group's: the group is ended then, for what the program left in it, and the guard forgets it.
@@ -323,8 +360,7 @@ export function programEnded(pid: number, started?: number): void {
 export function watchFolder(path: string): void {
   if (/[\r\n]/.test(path)) return;
   liveFolders.add(path);
-  startGuard();
-  guard!.stdin!.write(`+d${path}\n`);
+  tell(`+d${path}\n`);
 }
 
 // A folder made before the guard knows of it outlives a tool killed by SIGKILL in between, so the guard learns its name first and the folder is made after.
@@ -336,7 +372,7 @@ export function guardedFolder(prefix: string, parent = tmpdir()): string {
       mkdirSync(path, { mode: 0o700 });
       return path;
     } catch (error) {
-      if (liveFolders.delete(path)) guard?.stdin?.write(`-d${path}\n`);
+      if (liveFolders.delete(path)) tell(`-d${path}\n`, false);
       if ((error as NodeJS.ErrnoException).code !== 'EEXIST' || tries === 10) throw error;
     }
   }
@@ -344,7 +380,7 @@ export function guardedFolder(prefix: string, parent = tmpdir()): string {
 
 export function releaseFolder(path: string): void {
   rmSync(path, { recursive: true, force: true, maxRetries: 10 });
-  if (liveFolders.delete(path)) guard?.stdin?.write(`-d${path}\n`);
+  if (liveFolders.delete(path)) tell(`-d${path}\n`, false);
 }
 
 export function releaseGroup(pid: number, running = true, started?: number): void {
@@ -353,7 +389,7 @@ export function releaseGroup(pid: number, running = true, started?: number): voi
 }
 
 export function releaseProcess(child: ChildProcess): void {
-  if (live.delete(child)) guard?.stdin?.write(`-${child.pid}\n`);
+  if (live.delete(child)) tell(`-${child.pid}\n`, false);
   child.kill('SIGKILL');
 }
 

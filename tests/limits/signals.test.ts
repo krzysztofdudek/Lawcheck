@@ -3,11 +3,11 @@ import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { chmodSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { join } from 'node:path';
-import { alive, F, F_PATH, LAW, pathWith, programDir, setRule, startLawcheck, withR, withSample, write } from '../acceptance/helpers.ts';
+import { alive, F, F_PATH, GIT_ENV, LAW, pathWith, programDir, setRule, startLawcheck, withR, withSample, write } from '../acceptance/helpers.ts';
 import { writeFakeClaude } from '../acceptance/fake-reviewer.ts';
-import { platformSkip } from '../harness/tool.ts';
+import { CLI, platformSkip, startProgram } from '../harness/tool.ts';
 import type { Expect, Running } from '../harness/tool.ts';
 import { LIMITS_STOPPED_MS } from '../numbers.ts';
 import { run } from './support.ts';
@@ -227,4 +227,136 @@ test('R-113: a run killed with SIGKILL right after the folder of a reviewer prog
     },
     { onMain: (r: string) => write(r, '.lawcheck/config.yaml', 'reviewer:\n  provider: claude-code\n  model: test-model\n') },
   );
+});
+
+// On Windows Node holds a second write to a pipe in one turn of the loop until a later turn reports the first done. This hook hands every write to a pipe to the system only on the next turn, so on any system a line the tool writes just before it makes a folder is still in the tool when the kill lands.
+const LATE_WRITES = [
+  "import net from 'node:net';",
+  'const later = (write) => function (...args) { setImmediate(() => write.apply(this, args)); };',
+  'net.Socket.prototype._write = later(net.Socket.prototype._write);',
+  'net.Socket.prototype._writev = later(net.Socket.prototype._writev);',
+  '',
+].join('\n');
+
+test('test 1340: R-113, a run killed with SIGKILL right after the folder of a reviewer program is made leaves nothing in the temporary directory, also when its writes to a pipe reach the system only on a later turn of its loop', async () => {
+  await withR(
+    async (r, dir) => {
+      const hook = join(dir, 'hold.mjs');
+      const made = join(dir, 'made');
+      writeFileSync(hook, LATE_WRITES + HOLD_PROGRAM_FOLDER);
+      write(r, F_PATH, F);
+      const bin = writeFakeClaude(join(dir, 'bin'));
+      const running = startLawcheck(r, ['check', '--review', '--base', 'main'], { env: { PATH: pathWith(bin), LAWCHECK_TEST_MADE: made }, node: ['--import', pathToFileURL(hook).href], outside: ['made'] });
+      await until(() => existsSync(made), 'the folder of the reviewer program');
+      running.kill('SIGKILL');
+      const result = await running.ended;
+      assert.equal(result.signal, 'SIGKILL');
+      assert.equal(result.stdout, '');
+    },
+    { onMain: (r: string) => write(r, '.lawcheck/config.yaml', 'reviewer:\n  provider: claude-code\n  model: test-model\n') },
+  );
+});
+
+// The hook makes the start of the guard fail in every thread, as a system out of processes or of file handles would.
+const GUARD_FAILS = [
+  "import childProcess from 'node:child_process';",
+  "import { syncBuiltinESMExports } from 'node:module';",
+  'const spawn = childProcess.spawn;',
+  "childProcess.spawn = (file, args, options) => { if ((args ?? []).some((arg) => String(arg).endsWith('guard.js'))) throw Object.assign(new Error('spawn EPERM'), { code: 'EPERM' }); return spawn(file, args, options); };",
+  'syncBuiltinESMExports();',
+  '',
+].join('\n');
+
+test('R-157: a guard that cannot be started ends the run as internal with exit 2, from the worker that told it, and not in a crash of the main thread that starts it', async () => {
+  await withSample(async (s, dir) => {
+    const hook = join(dir, 'fail.mjs');
+    writeFileSync(hook, GUARD_FAILS);
+    write(s, 'src/core/discount.ts', 'export const d = 1;\n');
+    const result = await startLawcheck(s, ['check', '--base', 'main'], { node: ['--import', pathToFileURL(hook).href], internal: true }).ended;
+    assert.equal(result.stdout, ['lawcheck: ERROR  1 error', '', 'error[internal]  spawn EPERM', '  why:  a fault of Lawcheck says nothing about the code', '', 'next: run lawcheck check again, and report the error if it stays', ''].join('\n'));
+    assert.equal(result.code, 2);
+  });
+});
+
+// The hook writes the guard's line about a reviewer program's folder a second late, so a call that made the folder before its line was written would leave it to a kill in that second. It comes before HOLD_PROGRAM_FOLDER, which imports syncBuiltinESMExports and calls it for both.
+const LATE_FOLDER_LINE = [
+  "import childProcess from 'node:child_process';",
+  'const spawn = childProcess.spawn;',
+  "const late = (chunks) => chunks.some((chunk) => String(chunk.chunk ?? chunk).includes('lawcheck-claude-'));",
+  'childProcess.spawn = (file, args, options) => {',
+  '  const child = spawn(file, args, options);',
+  "  if ((args ?? []).some((arg) => String(arg).endsWith('guard.js'))) {",
+  '    const write = child.stdin._write;',
+  '    const writev = child.stdin._writev;',
+  '    child.stdin._write = function (chunk, encoding, done) { if (late([chunk])) setTimeout(() => write.call(this, chunk, encoding, done), 1000); else write.call(this, chunk, encoding, done); };',
+  '    child.stdin._writev = function (chunks, done) { if (late(chunks)) setTimeout(() => writev.call(this, chunks, done), 1000); else writev.call(this, chunks, done); };',
+  '  }',
+  '  return child;',
+  '};',
+  '',
+].join('\n');
+
+test('R-158: a run killed with SIGKILL right after the folder of a reviewer program is made leaves nothing in the temporary directory, also when the line that tells the guard of the folder is written a second late, since the call makes the folder only once the line is written', async () => {
+  await withR(
+    async (r, dir) => {
+      const hook = join(dir, 'hold.mjs');
+      const made = join(dir, 'made');
+      writeFileSync(hook, LATE_FOLDER_LINE + HOLD_PROGRAM_FOLDER);
+      write(r, F_PATH, F);
+      const bin = writeFakeClaude(join(dir, 'bin'));
+      const running = startLawcheck(r, ['check', '--review', '--base', 'main'], { env: { PATH: pathWith(bin), LAWCHECK_TEST_MADE: made }, node: ['--import', pathToFileURL(hook).href], outside: ['made'] });
+      await until(() => existsSync(made), 'the folder of the reviewer program');
+      running.kill('SIGKILL');
+      const result = await running.ended;
+      assert.equal(result.signal, 'SIGKILL');
+      assert.equal(result.stdout, '');
+    },
+    { onMain: (r: string) => write(r, '.lawcheck/config.yaml', 'reviewer:\n  provider: claude-code\n  model: test-model\n') },
+  );
+});
+
+const LATE_READER = fileURLToPath(new URL('./late-reader.mjs', import.meta.url));
+const NOISE_LINE = `${'noise '.repeat(100)}\n`;
+
+test('test 1354: a signal while a rule spins, after it printed megabytes its caller has not taken, ends the run as stopped without waiting for them', async (t) => {
+  const skipped = platformSkip('the whole test');
+  if (skipped !== null) return t.skip(skipped);
+  const spin = "export function check() { console.log('ready'); const line = 'noise '.repeat(100); for (let i = 0; i < 20000; i++) console.log(line); while (true) {} }\n";
+  for (const signal of SIGNALS) {
+    await withSample(
+      async (s) => {
+        write(s, 'src/core/discount.ts', 'export const d = 1;\n');
+        const running = startProgram(LATE_READER, [CLI, 'line', 'check', '--base', 'main'], s, GIT_ENV, { stderr: /^ready\n/ });
+        await running.output(/^ready$/m, 'stderr');
+        await stop(running, signal);
+        assert.ok((await running.ended).stderr.length < NOISE_LINE.length * 20_000, signal);
+      },
+      { onMain: (s) => setRule(s, 'no-console', spin) },
+    );
+  }
+});
+
+test('test 1354: a signal while Lawcheck waits for its caller to take standard error ends the run at once, with the code of the result it wrote', async (t) => {
+  const skipped = platformSkip('the whole test');
+  if (skipped !== null) return t.skip(skipped);
+  const flood = "export function check() { const line = 'noise '.repeat(100); for (let i = 0; i < 20000; i++) console.log(line); return [{ message: 'm' }]; }\n";
+  for (const signal of SIGNALS) {
+    await withSample(
+      async (s) => {
+        write(s, 'src/core/discount.ts', 'export const d = 1;\n');
+        const running = startProgram(LATE_READER, [CLI, 'exit', 'check', '--base', 'main', '--json'], s, GIT_ENV, { stderr: /^noise / });
+        await running.output(/\n\}\n$/, 'stdout');
+        const sent = Date.now();
+        running.kill(signal);
+        const result = await running.ended;
+        const ms = Date.now() - sent;
+        process.stdout.write(`# ${signal}: the run ended ${ms} ms after the signal\n`);
+        assert.equal(JSON.parse(result.stdout).findings.length, 1, signal);
+        assert.equal(result.code, 1, signal);
+        assert.ok(ms <= LIMITS_STOPPED_MS, `${signal}: ${ms} ms`);
+        assert.ok(result.stderr.length < NOISE_LINE.length * 20_000, signal);
+      },
+      { onMain: (s) => setRule(s, 'no-console', flood) },
+    );
+  }
 });

@@ -1,3 +1,4 @@
+import assert from 'node:assert/strict';
 import { closeSync, ftruncateSync, mkdirSync, openSync, writeSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { GIT_ENV } from '../acceptance/helpers.ts';
@@ -39,6 +40,14 @@ export function textHead(firstLine: string): string {
   let head = firstLine;
   while (head.length < 8000) head += line;
   return head;
+}
+
+// Megabytes that differ are told by their numbers; a comparison of the two texts would print them and show nothing.
+export function assertSameText(actual: string, expected: string, what: string): void {
+  if (actual === expected) return;
+  let same = 0;
+  while (same < actual.length && actual[same] === expected[same]) same++;
+  assert.fail(`${what} holds ${actual.length} of ${expected.length} characters and ${actual.split('\n').length - 1} of ${expected.split('\n').length - 1} lines, and is the expected text up to character ${same}`);
 }
 
 export function errorLines(stdout: string): string[] {

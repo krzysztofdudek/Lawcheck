@@ -2,9 +2,10 @@ import { parentPort, workerData } from 'node:worker_threads';
 import type { MessagePort } from 'node:worker_threads';
 import { gitThroughMainThread } from './files.js';
 import { main } from './main.js';
+import { guardThroughMainThread } from './programs.js';
 import { alive, attach, step } from './progress.js';
 
-const { argv, cwd, progress, git, gitFlag } = workerData as { argv: string[]; cwd: string; progress: SharedArrayBuffer; git: MessagePort; gitFlag: SharedArrayBuffer };
+const { argv, cwd, progress, git, gitFlag, guard, guardWritten } = workerData as { argv: string[]; cwd: string; progress: SharedArrayBuffer; git: MessagePort; gitFlag: SharedArrayBuffer; guard: MessagePort; guardWritten: SharedArrayBuffer };
 attach(progress);
 // The worker's own standard error reaches the main thread by another channel than its result, so a line written just before the end could be lost; on the channel of the result it comes first.
 process.stderr.write = ((chunk: string | Uint8Array, ...rest: unknown[]) => {
@@ -14,6 +15,7 @@ process.stderr.write = ((chunk: string | Uint8Array, ...rest: unknown[]) => {
   return true;
 }) as typeof process.stderr.write;
 gitThroughMainThread(git, gitFlag);
+guardThroughMainThread(guard, guardWritten);
 step('starting');
 setInterval(alive, 1000).unref();
 const warn = (line: string) => parentPort!.postMessage({ kind: 'warn', line });

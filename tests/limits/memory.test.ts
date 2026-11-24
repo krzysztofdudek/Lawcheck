@@ -4,7 +4,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { availableNow, memoryCase, runBound, withCache } from '../../dist/limits.js';
 import { setRule, withSample, write } from '../acceptance/helpers.ts';
-import { errorLines, MiB, run } from './support.ts';
+import { assertSameText, errorLines, MiB, run } from './support.ts';
 
 const GiB = 1024 * MiB;
 
@@ -103,6 +103,6 @@ test('test 1301: a rule that prints 120 MB over 100 calls holds none of it in it
     assert.equal(grew.length, 100);
     assert.ok(Math.max(...grew) < 64, `the runner grew by up to ${Math.max(...grew)} MiB while the rule printed`);
     assert.equal(result.code, 1);
-    assert.equal(result.stderr, `${'noise '.repeat(100)}\n`.repeat(200_000));
+    assertSameText(result.stderr, `${'noise '.repeat(100)}\n`.repeat(200_000), 'standard error');
   });
 });
