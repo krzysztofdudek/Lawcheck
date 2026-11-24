@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { closeSync, existsSync, mkdirSync, mkdtempSync, openSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -41,6 +41,10 @@ const EXPECT: { [name: string]: Expect } = {
   'refused-number-unreadable': { refused: ['number-unreadable', 'threshold-lowered'] },
   'refused-numbers-code-changed': { refused: ['threshold-lowered'] },
   'refused-numbers-budget-through-new-number': { refused: ['threshold-lowered'] },
+  'refused-numbers-value-after-as': { refused: ['number-unreadable', 'threshold-lowered', 'threshold-lowered'] },
+  'refused-test-names-larger-budget': { refused: ['threshold-lowered'] },
+  'refused-test-names-new-number-budget': { refused: ['threshold-lowered'] },
+  'refused-test-gains-budget': { refused: ['threshold-lowered'] },
   'refused-ratchet-grew': { refused: ['ratchet-grew'] },
   'refused-number-unclassified': { refused: ['number-unclassified'] },
   'refused-owner-row-from-branch': { refused: ['guard-changed'] },
@@ -104,13 +108,19 @@ const EXPECT: { [name: string]: Expect } = {
   'accepted-self-law-shrinks': { cleared: [] },
   'accepted-platform-skip-removed': { cleared: ['harness-changed'] },
   'accepted-new-test': { cleared: [] },
+  'accepted-new-test-names-budget': { cleared: [] },
+  'accepted-test-names-smaller-budget': { cleared: [] },
   'accepted-test-moved': { cleared: [] },
   'accepted-docs-example-ruling': { cleared: ['docs-example-changed'] },
 };
 
 function caseBase(name: string): { [path: string]: string } {
   const rows = join(CASES, `${name}.base.md`);
-  return existsSync(rows) ? { ...BASE, 'tests/weakenings.md': BASE['tests/weakenings.md'] + readFileSync(rows, 'utf8') } : BASE;
+  const files = join(CASES, `${name}.base.json`);
+  const withRows = existsSync(rows) ? { ...BASE, 'tests/weakenings.md': BASE['tests/weakenings.md'] + readFileSync(rows, 'utf8') } : BASE;
+  if (!existsSync(files)) return withRows;
+  const lines = JSON.parse(readFileSync(files, 'utf8')) as { [path: string]: string[] };
+  return { ...withRows, ...Object.fromEntries(Object.entries(lines).map(([path, text]) => [path, text.join('\n')])) };
 }
 
 function judgeCase(name: string): Report {
@@ -126,6 +136,7 @@ function judgeCase(name: string): Report {
 test('question 95: the suite guard, every case on disk has an expectation, and every expectation a case', () => {
   const onDisk = readdirSync(CASES).filter((f) => f.endsWith('.diff')).map((f) => f.slice(0, -5)).sort();
   for (const rows of readdirSync(CASES).filter((f) => f.endsWith('.base.md'))) assert.ok(onDisk.includes(rows.slice(0, -8)), rows);
+  for (const files of readdirSync(CASES).filter((f) => f.endsWith('.base.json'))) assert.ok(onDisk.includes(files.slice(0, -10)), files);
   assert.deepEqual(onDisk, Object.keys(EXPECT).sort());
   assert.ok(onDisk.filter((n) => n.startsWith('refused-')).length >= 30);
 });
@@ -323,14 +334,18 @@ test('question 95: the suite guard, a number with no direction in tests/numbers.
   }
 });
 
-function guardRepo(headGuardPatch: (text: string) => string): { dir: string; done: () => void } {
+function ownGuard(): { [path: string]: string } {
   const own: { [path: string]: string } = {};
   for (const file of readdirSync(HERE)) {
     if (!file.endsWith('.ts') || file.endsWith('.test.ts')) continue;
     own[`tests/guard/${file}`] = readFileSync(join(HERE, file), 'utf8');
   }
   own['tests/guard/config.json'] = `${JSON.stringify({ ...JSON.parse(readFileSync(join(HERE, 'config.json'), 'utf8')), ratchets: [RATCHET] }, null, 2)}\n`;
-  const files = { ...BASE, ...own };
+  return own;
+}
+
+function guardRepo(headGuardPatch: (text: string) => string): { dir: string; done: () => void } {
+  const files = { ...BASE, ...ownGuard() };
   delete files['tests/guard/check.ts'];
   const repo = baseRepo(files);
   applyCase(repo, join(CASES, 'refused-expected-no-record.diff'));
@@ -424,4 +439,240 @@ test('question 95: the suite guard, the command exits 2 with a reason when it ca
   } finally {
     repo.done();
   }
+});
+
+const WORKFLOWS = ['ci', 'weekly', 'nightly'];
+
+function workflowRepo(ledger: string): ReturnType<typeof baseRepo> {
+  const files = { ...BASE, 'tests/weakenings.md': BASE['tests/weakenings.md']! + ledger };
+  for (const name of WORKFLOWS) files[`.github/workflows/${name}.yml`] = `name: ${name}\non: [push]\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm test\n`;
+  const repo = baseRepo(files);
+  for (const name of WORKFLOWS) writeFileSync(join(repo.dir, `.github/workflows/${name}.yml`), `name: ${name}\non: [push]\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm ci\n      - run: npm test\n`);
+  sh(repo.dir, ['commit', '-q', '-a', '-m', 'the workflows change']);
+  return repo;
+}
+
+test('R-116: the row the guard suggests for several refused files of a folder, landed on the base as printed, passes them, though another file of the folder is refused for another reason', () => {
+  const heldRow = '| 2026-11-17 | .github/workflows/nightly.yml | ci-changed | an earlier change of this file | .github/workflows/nightly.yml; approves 0123456789abcdef | owner |\n';
+  const suggested: string[] = [];
+  const first = workflowRepo(heldRow);
+  try {
+    const report = judge(first.dir, 'main', 'work', fixtureConfig(), '2026-11-15');
+    assert.deepEqual(report.findings.map((f) => [f.kind, f.subject, f.cleared]), [...WORKFLOWS].sort().map((name) => ['ci-changed', `.github/workflows/${name}.yml`, false]));
+    const text = render(report);
+    for (const line of text.split('\n')) if (line.trim().startsWith('| 2026-11-15 |')) suggested.push(line.trim().replace('<why the suite may get weaker here>', 'the workflows install first').replace('<anchor>', '.github/workflows/ci.yml'));
+    assert.equal(suggested.length, 2, text);
+    assert.ok(suggested.some((row) => row.includes('| .github/workflows/** |')), text);
+  } finally {
+    first.done();
+  }
+  const landed = workflowRepo(`${heldRow}${suggested.join('\n')}\n`);
+  try {
+    const report = judge(landed.dir, 'main', 'work', fixtureConfig(), '2026-11-15');
+    assert.deepEqual(report.findings.filter((f) => !f.cleared).map((f) => [f.subject, f.why]), []);
+    assert.equal(report.passed, true, render(report));
+  } finally {
+    landed.done();
+  }
+});
+
+function manyExpected(files: { [path: string]: string }): { dir: string; root: string; done: () => void } {
+  const repo = baseRepo({ ...files, ...Object.fromEntries(Array.from({ length: 400 }, (_, i) => [`tests/real/case-${i}.expected`, 'a\n'])) });
+  for (let i = 0; i < 400; i++) writeFileSync(join(repo.dir, `tests/real/case-${i}.expected`), 'b\n');
+  sh(repo.dir, ['commit', '-q', '-a', '-m', 'four hundred expected outputs change']);
+  return repo;
+}
+
+function toFileAndToPipe(entry: string, repo: { dir: string; root: string }): { file: string; pipe: string } {
+  const args = [entry, '--repo', repo.dir, '--base', 'main', '--head', 'work', '--json'];
+  const target = join(repo.root, 'report.json');
+  const fd = openSync(target, 'w');
+  try {
+    spawnSync(process.execPath, args, { env: GIT_ENV, stdio: ['ignore', fd, 'pipe'] });
+  } finally {
+    closeSync(fd);
+  }
+  const piped = spawnSync(process.execPath, args, { env: GIT_ENV, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+  return { file: readFileSync(target, 'utf8'), pipe: piped.stdout };
+}
+
+test('R-118: the report of the guard reaches a pipe whole, as it reaches a file, from the command and from the base\'s copy of it', () => {
+  const direct = manyExpected(BASE);
+  try {
+    const out = toFileAndToPipe(join(HERE, 'cli.ts'), direct);
+    assert.ok(out.file.length > 200_000, `the report is ${out.file.length} bytes`);
+    assert.equal(out.pipe.length, out.file.length);
+    assert.equal(out.pipe, out.file);
+  } finally {
+    direct.done();
+  }
+  const copied = manyExpected({ ...BASE, ...ownGuard() });
+  try {
+    const out = toFileAndToPipe(join(HERE, 'from-base.ts'), copied);
+    assert.ok(out.file.length > 200_000, `the report is ${out.file.length} bytes`);
+    assert.equal(out.pipe, out.file);
+  } finally {
+    copied.done();
+  }
+});
+
+const BUDGET_NUMBERS = [
+  'export const SEED = 20261115;',
+  'export const RUN_BUDGET_MS = 20_000;',
+  'export const LEFTOVER_GRACE_MS = 2_000;',
+  'export const LIMITS_RUN_MS = 120_000;',
+  'export const LIMITS_LARGE_RUN_MS = 300_000;',
+  'export const LIMITS_RULES_RUN_MS = 400_000;',
+  "export const stronger: Record<string, 'higher' | 'lower' | 'fixed'> = { SEED: 'fixed', RUN_BUDGET_MS: 'lower', LEFTOVER_GRACE_MS: 'lower', LIMITS_RUN_MS: 'lower', LIMITS_LARGE_RUN_MS: 'lower', LIMITS_RULES_RUN_MS: 'lower' };",
+  '',
+].join('\n');
+
+function budgetChange(before: string[], after: string[]): Report {
+  const file = (tests: string[]): string => ["import { test } from 'node:test';", "import { run } from '../harness/run.ts';", '', ...tests, ''].join('\n');
+  const repo = baseRepo({ ...BASE, 'tests/numbers.ts': BUDGET_NUMBERS, 'tests/limits/large.test.ts': file(before) });
+  try {
+    writeFileSync(join(repo.dir, 'tests/limits/large.test.ts'), file(after));
+    sh(repo.dir, ['commit', '-q', '--allow-empty', '-a', '-m', 'the budgets change']);
+    return judge(repo.dir, 'main', 'work', fixtureConfig(), '2026-11-15');
+  } finally {
+    repo.done();
+  }
+}
+
+const call = (budget: string | null, title = 'test 4: a large run ends in time'): string[] => [`test('${title}', async () => {`, `  await run(['check']${budget === null ? '' : `, { budget: ${budget} }`});`, '});', ''];
+const raised = (report: Report): string[] => report.findings.filter((f) => f.kind === 'threshold-lowered').map((f) => f.detail);
+
+test('question 95: the suite guard, a time a test names rises when one call of it names a larger time, though the test names a larger one elsewhere', () => {
+  const both = (first: string): string[] => ["test('test 4: two runs end in time', async () => {", `  await run(['check'], { budget: ${first} });`, "  await run(['check'], { budget: 'LIMITS_RULES_RUN_MS' });", '});', ''];
+  assert.deepEqual(raised(budgetChange(both("'LIMITS_RUN_MS'"), both("'LIMITS_RUN_MS'"))), []);
+  assert.deepEqual(raised(budgetChange(both("'LIMITS_RUN_MS'"), both("'LIMITS_LARGE_RUN_MS'"))), ['the test "test 4: two runs end in time" names a larger budget: 120000 ms -> 300000 ms, a time of tests/numbers.ts that a test or the harness picks']);
+  assert.deepEqual(raised(budgetChange(both("'LIMITS_LARGE_RUN_MS'"), both("'LIMITS_RUN_MS'"))), []);
+});
+
+test('question 95: the suite guard, a test renamed with a larger time is a rise, and a new test or a rename with the same time is not', () => {
+  const renamed = budgetChange(call("'LIMITS_RUN_MS'"), call("'LIMITS_LARGE_RUN_MS'", 'test 4: a large run ends in time, renamed'));
+  assert.deepEqual(raised(renamed), ['the test "test 4: a large run ends in time, renamed" names a larger budget than any test this change removes from the file: 120000 ms -> 300000 ms, a time of tests/numbers.ts that a test or the harness picks']);
+  assert.deepEqual(raised(budgetChange(call("'LIMITS_RUN_MS'"), call("'LIMITS_RUN_MS'", 'test 4: a large run ends in time, renamed'))), []);
+  assert.deepEqual(raised(budgetChange(call("'LIMITS_RUN_MS'"), call("'LIMITS_RUN_MS'", 'test 4: a large run ends in time, renamed').concat(call("'LIMITS_RUN_MS'", 'test 5: another')))), []);
+  assert.deepEqual(raised(budgetChange(call("'LIMITS_RUN_MS'"), [...call("'LIMITS_RUN_MS'"), ...call("'LIMITS_LARGE_RUN_MS'", 'test 6: a new test')])), []);
+});
+
+test('question 95: the suite guard, a call that drops its named time falls to the default and is a rise, and a call that drops a time past the default is not', () => {
+  assert.deepEqual(raised(budgetChange(call("'LEFTOVER_GRACE_MS'"), call(null))), ['the test "test 4: a large run ends in time" names a larger budget: 2000 ms -> 20000 ms, a time of tests/numbers.ts that a test or the harness picks']);
+  assert.deepEqual(raised(budgetChange(call("'LIMITS_RUN_MS'"), call(null))), []);
+  assert.deepEqual(raised(budgetChange(call(null), call(null))), []);
+});
+
+test('question 95: the suite guard, a time named from parts of a string is read as the name they make', () => {
+  assert.deepEqual(raised(budgetChange(call("'LIMITS_RUN_MS'"), call("'LIMITS_' + 'LARGE_RUN_MS'"))), ['the test "test 4: a large run ends in time" names a larger budget: 120000 ms -> 300000 ms, a time of tests/numbers.ts that a test or the harness picks']);
+  assert.deepEqual(raised(budgetChange(call("'LIMITS_RUN_MS'"), call("`LIMITS_` + `LARGE_` + 'RUN_MS'"))), ['the test "test 4: a large run ends in time" names a larger budget: 120000 ms -> 300000 ms, a time of tests/numbers.ts that a test or the harness picks']);
+  assert.deepEqual(raised(budgetChange(call("'LIMITS_LARGE_RUN_MS'"), call("'LIMITS_' + 'RUN_MS'"))), []);
+});
+
+const CODES = [
+  '# Codes',
+  '',
+  '| Code | Kind | When | Why |',
+  '|---|---|---|---|',
+  '| `usage` | exit 2 | the command line breaks its usage line | the tool does only what its usage line says |',
+  '| `no-git` | exit 2 | git cannot give the files | the files come from git |',
+  '',
+  '## Notes',
+  '',
+  '| Text | When | Fix |',
+  '|---|---|---|',
+  '| a note | always | none |',
+  '',
+  '```',
+  '| Code | Kind |',
+  '|---|---|',
+  '| `in-a-fence` | exit 2 |',
+  '```',
+  '',
+].join('\n');
+
+const FIELDS = [
+  '# JSON',
+  '',
+  '## one/0',
+  '',
+  '| Field | Value |',
+  '|---|---|',
+  '| `result` | pass or fail |',
+  '| `path` | the path |',
+  '| `path` | the path again |',
+  '',
+  '## two/0',
+  '',
+  '| Field | Value |',
+  '|---|---|',
+  '| `result` | the result of two |',
+  '',
+].join('\n');
+
+function tablesChange(codes: string, fields: string, was = FIELDS): Report {
+  const repo = baseRepo({ ...BASE, 'docs/codes.md': CODES, 'docs/json.md': was });
+  try {
+    writeFileSync(join(repo.dir, 'docs/codes.md'), codes);
+    writeFileSync(join(repo.dir, 'docs/json.md'), fields);
+    sh(repo.dir, ['commit', '-q', '--allow-empty', '-a', '-m', 'the tables change']);
+    return judge(repo.dir, 'main', 'work', fixtureConfig(), '2026-11-15');
+  } finally {
+    repo.done();
+  }
+}
+
+const promises = (report: Report): string[] => report.findings.filter((f) => f.kind === 'promise-changed').map((f) => f.subject);
+
+test('question 95: the suite guard, a changed or removed row of the code table of docs/codes.md or of a field table of docs/json.md is promise-changed, the owner\'s kind, and an added row is not', () => {
+  assert.deepEqual(promises(tablesChange(CODES, FIELDS)), []);
+  assert.deepEqual(promises(tablesChange(CODES.replace('| `no-git` | exit 2 | git cannot give the files | the files come from git |', '$&\n| `new-code` | exit 2 | a new one | because |'), FIELDS.replace('| `result` | pass or fail |', '| `result` | pass or fail |\n| `extra` | an added field |'))), []);
+  const changed = tablesChange(CODES.replace('the command line breaks its usage line', 'the command line is wrong'), FIELDS);
+  assert.deepEqual(promises(changed), ['docs/codes.md row usage under "Codes"']);
+  const finding = changed.findings.find((f) => f.kind === 'promise-changed')!;
+  assert.equal(finding.cleared, false);
+  assert.equal(finding.needsBase, true);
+  assert.match(finding.needs!, / \| owner \|$/);
+  assert.deepEqual(promises(tablesChange(CODES.replace(/\| `no-git`.*\n/, ''), FIELDS)), ['docs/codes.md row no-git under "Codes"']);
+  assert.deepEqual(promises(tablesChange(CODES, FIELDS.replace('| `result` | the result of two |', '| `result` | another result of two |'))), ['docs/json.md row result under "two/0"']);
+  assert.deepEqual(promises(tablesChange(CODES, FIELDS.replace('the path again', 'the same path'))), ['docs/json.md row path under "one/0"']);
+  assert.deepEqual(promises(tablesChange(CODES.replace('| a note | always | none |', '| a note | never | none |').replace('| `in-a-fence` | exit 2 |', '| `in-a-fence` | exit 1 |'), FIELDS)), ['docs/codes.md block 1 under "Notes"']);
+});
+
+test('question 95: the suite guard, the approval hash of a changed row covers the row as it is now', () => {
+  const one = tablesChange(CODES.replace('the files come from git', 'git gives the files'), FIELDS);
+  const two = tablesChange(CODES.replace('the files come from git', 'git gives the files and the change'), FIELDS);
+  assert.notEqual(one.findings.find((f) => f.kind === 'promise-changed')!.approves, two.findings.find((f) => f.kind === 'promise-changed')!.approves);
+});
+
+const EXPLAIN = [
+  '# JSON',
+  '',
+  '## explain/0',
+  '',
+  '| Field | Value |',
+  '|---|---|',
+  '| `path` | the path of a file |',
+  '',
+  'Between the tables.',
+  '',
+  '| Field | Value |',
+  '|---|---|',
+  '| `path` | the path of a node |',
+  '',
+  'Again.',
+  '',
+  '| Field | Value |',
+  '|---|---|',
+  '| `path` | the path of a type |',
+  '',
+].join('\n');
+
+test('question 95: the suite guard, a table or a row added among rows with the same first cell and heading is no weakening, and a changed or removed one of them is', () => {
+  const inserted = EXPLAIN.replace('Between the tables.', 'Between the tables.\n\n| Field | Value |\n|---|---|\n| `path` | a path that is new |');
+  assert.deepEqual(promises(tablesChange(CODES, inserted, EXPLAIN)), []);
+  const first = EXPLAIN.replace('Between the tables.', 'A table before the second.\n\n| Field | Value |\n|---|---|\n| `extra` | a field that is new |\n| `path` | a path that is new |\n\nBetween the tables.');
+  assert.deepEqual(promises(tablesChange(CODES, first, EXPLAIN)), []);
+  assert.deepEqual(promises(tablesChange(CODES, EXPLAIN.replace('the path of a node', 'the path of a symbol'), EXPLAIN)), ['docs/json.md row path under "explain/0"']);
+  assert.deepEqual(promises(tablesChange(CODES, EXPLAIN.replace('| `path` | the path of a node |\n', ''), EXPLAIN)), ['docs/json.md row path under "explain/0"']);
 });

@@ -73,6 +73,14 @@ export function turnMessage(waivers, law, gone) {
   return `Lawcheck: in this turn the agent ${parts.join(' and ')}. Read them before you accept the turn.`;
 }
 
+export function tellAtEnd(text) {
+  return `Lawcheck: before you finish, tell the user this message, word for word, then finish:\n\n${text}`;
+}
+
+export function tellAtStart(text) {
+  return `Lawcheck: in your first answer, tell the user this message, word for word:\n\n${text}`;
+}
+
 export function moreLines(count) {
   return `... ${count} more ${count === 1 ? 'line' : 'lines'} not shown; run the command yourself to see them all`;
 }
@@ -96,7 +104,7 @@ export function unknownEvent(event) {
 }
 
 export function unknownHost(words) {
-  return `unknown arguments '${words}' after the event; the hook takes --host claude-code or --host codex there`;
+  return `unknown arguments '${words}' after the event; the hook takes --host claude-code, --host codex or --host copilot there`;
 }
 
 export function notJson(problem) {

@@ -1,27 +1,24 @@
 import { lstatSync } from 'node:fs';
-import { bytesOfName, onDisk } from './names.js';
+import { cannotExist, onDisk } from './names.js';
 import { documentOf, errorResult, text as flagText, usageError } from './args.js';
-import type { Arguments, Result } from './args.js';
-import type { CheckContext } from './check.js';
+import type { Arguments, CheckContext, Result } from './args.js';
 import type { ReviewerConfig } from './config.js';
 import { ignoresPath, listedPaths, listFiles, nestedReason, repositoryHolding } from './files.js';
 import { compilePattern } from './glob.js';
-import { patternFor, takesWaivers } from './law.js';
+import { patternFor, takesWaivers, walk } from './law.js';
 import type { Law, TypeDef } from './law.js';
 import { plural, shown } from './output.js';
 import { readError, USES_FILE_BYTES } from './limits.js';
 import { step } from './progress.js';
-import { mayUsePart, ruleKind, walk } from './prime.js';
 import { buildPrompt, FRAME, size } from './prompt.js';
 import { NODE_INTS, ownersOf, readerOf, ruleReads, siblingsOf } from './readers.js';
 import type { Absent, FlatTree, TreeAnswer } from './readers.js';
-import { contextOf, resolveCompanions } from './rules.js';
+import { contextOf, resolveCompanions, runnerErrors } from './rules.js';
 import type { Companions, RuleFile } from './rules.js';
-import { runnerErrors } from './check.js';
-import { loadConfig, loadLaw, loadRuleFiles, locate, fromCwd, nearPart, onceReader, requireGit, RULES_DIR, stopped, typeAll, typingErrors, Stop, usage, WRITTEN } from './setup.js';
+import { loadConfig, loadLaw, loadRuleFiles, locate, fromCwd, nearPart, onceReader, requireGit, ruleKind, RULES_DIR, stopped, typeAll, typingErrors, Stop, usage, WRITTEN } from './setup.js';
 import type { Kinds, Read } from './setup.js';
 import { decode, filesOfTypes, isBinary, splitLines } from './types.js';
-import { listInForce } from './uses.js';
+import { listInForce, mayUsePart } from './uses.js';
 import { readFailure, readVerdicts, reviewKey } from './verdicts.js';
 import { parseWaivers, waivedLines } from './waivers.js';
 
@@ -111,8 +108,7 @@ function usesOf(ctx: Ctx, type: TypeDef, path: string, text: string): FileAnswer
   if (listInForce(type) === null) return null;
   const reader = readerOf(path, text, siblingsOf(ctx.files));
   if (!reader.reader) return { read: false, language: null };
-  const dot = path.lastIndexOf('.');
-  return { read: true, language: reader.view?.language ?? path.slice(dot + 1) };
+  return { read: true, language: reader.view?.language ?? null };
 }
 
 // A companion is code of the repository, so explain runs it, in the runner of script rules, only for a rule that has one.
@@ -312,11 +308,13 @@ export function fileText(answer: FileAnswer): string {
   lines.push(`  matched:  ${[...matched, ...not].join(', ')}`);
   if (answer.then !== null) lines.push(`  then:  ${answer.then}`);
   lines.push(mayUseLine(type));
-  if (answer.uses !== null) lines.push(`  uses:  ${answer.uses.read ? `read as ${answer.uses.language}` : 'not read: Lawcheck has no reader for this file'}`);
+  if (answer.uses !== null) lines.push(`  uses:  ${answer.uses.read ? (answer.uses.language === null ? 'none: the file has no script block' : `read as ${answer.uses.language}`) : 'not read: Lawcheck has no reader for this file'}`);
   lines.push(...ruleLines(answer.rules));
   if (answer.exists) {
     if (answer.waivers.length === 0) lines.push('  waivers:  none');
     else lines.push('  waivers:', ...answer.waivers.map((w) => `    ${shown(answer.path)}:${w.line}  ${w.rule}  ${shown(w.reason)}`));
+  } else if (/[*?[\]{}]/.test(answer.path)) {
+    lines.push('  pattern:  none; explain takes one path, so * ? [ ] { } in it are letters of a name and select nothing');
   }
   return lines.join('\n') + '\n';
 }
@@ -569,8 +567,7 @@ function tooLong(word: string): Stop {
 
 function givenPath(root: string, cwd: string, word: string): string {
   const given = fromCwd(root, cwd, word);
-  // A name over 255 bytes or a path over 4,095 can exist on no system Lawcheck runs on, though Windows answers that such a file is missing. An escaped name is measured by the bytes it stands for.
-  if (given.split('/').some((part) => bytesOfName(part).length > 255) || Buffer.byteLength(onDisk(root, given)) > 4095) throw tooLong(word);
+  if (cannotExist(root, given)) throw tooLong(word);
   return given;
 }
 

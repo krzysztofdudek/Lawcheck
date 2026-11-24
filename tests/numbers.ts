@@ -500,7 +500,6 @@ export const SLOW_TESTS: Record<string, Slow> = {
   'tests/acceptance/law-change.test.ts > test 303: S7-3, the line holds five changes and counts the rest; JSON lists all': { fixed: 0, measured: { win32: 5_194 } },
   'tests/acceptance/reviewer-law.test.ts > test 74: the new flags': { fixed: 0, measured: { win32: 5_194 } },
   'tests/acceptance/reviewer.test.ts > test 50: --full lists the missing reviews of the debt': { fixed: 0, measured: { win32: 5_188 } },
-  'tests/guard/guard.test.ts > question 95: the suite guard, case refused-finding-open-to-question': { fixed: 0, measured: { win32: 5_188 } },
   'tests/security/key-everywhere.test.ts > S3-2: a rule message that quotes a line holding the key shows [key], in text, JSON and try (I-secret-1)': { fixed: 0, measured: { win32: 5_183 } },
   'tests/environments/ci-shapes.test.ts > S7-6: --full needs no base, so it judges every file in CI as it does elsewhere': { fixed: 0, measured: { win32: 5_179 } },
   'tests/acceptance/waiver-key.test.ts > T6: a type with waivers: false reads a waiver marker in its files as text': { fixed: 0, measured: { win32: 5_175 } },

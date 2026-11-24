@@ -1,9 +1,10 @@
-import { realpathSync, statSync } from 'node:fs';
+import { lstatSync, realpathSync, statSync } from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
-import { changedPaths, defaultBase, fetchCommand, GitFailed, gitNext, hasHead, fetchesEveryBranch, isShallow, listedPaths, listFiles, mergeBase, NoGit, remoteNames, resolveCommit, workTreeProblem } from './files.js';
+import { changedPaths, comparePaths, defaultBase, fetchCommand, GitFailed, gitNext, hasHead, fetchesEveryBranch, isShallow, lawLeftOut, listedPaths, listFiles, mergeBase, nestedReason, NoGit, remoteNames, repositoryHolding, resolveCommit, workTreeProblem } from './files.js';
 import { CONFIG, ConfigTooLarge, readConfig } from './config.js';
 import { canonicalName, onDisk } from './names.js';
 import type { ReviewerConfig } from './config.js';
+import { compileList, patternProblem } from './glob.js';
 import { nearestKey, parseLaw } from './law.js';
 import type { Law } from './law.js';
 import type { ErrorItem } from './output.js';
@@ -16,6 +17,8 @@ import { createProvider } from './providers/index.js';
 export const WRITTEN = new Set([VERDICTS, ATTRIBUTES]);
 import { CONFIG_BYTES, count, LAW_BYTES, mib, readBounded, readError, readFailure, readWhole, RUN_TEXT_BYTES, TextTooLarge } from './limits.js';
 
+const GIT_FATAL = 128;
+
 export const LAW = '.lawcheck/law.yaml';
 export const RULES_DIR = '.lawcheck/rules/';
 
@@ -27,9 +30,11 @@ export class Stop extends Error {
   }
 }
 
-function isFile(path: string): boolean {
+// A folder or a link to nothing at the law's place is a law that cannot be read, which the run then says; taking it for no law sends init and doctor to each other.
+function holdsLaw(path: string): boolean {
   try {
-    return statSync(path).isFile();
+    lstatSync(path);
+    return true;
   } catch (error) {
     return (error as NodeJS.ErrnoException).code === 'EACCES';
   }
@@ -38,7 +43,7 @@ function isFile(path: string): boolean {
 export function findRoot(cwd: string): string | null {
   let dir = resolve(cwd);
   for (;;) {
-    if (isFile(join(dir, LAW))) return realpathSync(dir);
+    if (holdsLaw(join(dir, LAW))) return realpathSync(dir);
     const parent = dirname(dir);
     if (parent === dir) return null;
     dir = parent;
@@ -89,6 +94,8 @@ export function lawsBelow(cwd: string): string[] {
   }
 }
 
+export const WRITE_BY_HAND = 'to govern this folder instead, write .lawcheck/law.yaml here by hand  (lawcheck docs first-law shows how)';
+
 export function belowPart(folders: string[]): string {
   const shown = folders.slice(0, 3).join(', ') + (folders.length > 3 ? `, and ${folders.length - 3} more` : '');
   return `; the laws below it are in ${shown}`;
@@ -97,6 +104,8 @@ export function belowPart(folders: string[]): string {
 export function notInitialized(cwd?: string): ErrorItem {
   const below = cwd === undefined ? [] : lawsBelow(cwd);
   const message = `no ${LAW} in this directory or any above it`;
+  const left = cwd === undefined ? null : lawLeftOut(cwd, LAW);
+  if (left !== null) return { code: 'not-initialized', file: null, line: null, message: `${message}, though git's index lists ${left.path}: the sparse checkout leaves it out of the work tree`, next: left.next, command: left.command };
   if (below.length === 0) return { code: 'not-initialized', file: null, line: null, message };
   return { code: 'not-initialized', file: null, line: null, message: message + belowPart(below), next: `cd ${below[0]}, where a law is, then run lawcheck check` };
 }
@@ -205,11 +214,19 @@ export interface RuleFiles {
   kinds: Kinds;
 }
 
+function isLink(root: string, path: string): boolean {
+  try {
+    return lstatSync(onDisk(root, path)).isSymbolicLink();
+  } catch {
+    return false;
+  }
+}
+
 export function ruleFileErrors(root: string, law: Law): RuleFiles & { errors: ErrorItem[] } {
   const listed = listedPaths(root);
   const files = listFiles(root, listed);
   const read = onceReader(root);
-  const kinds = ruleKinds(law, files, read);
+  const kinds = ruleKinds(law, files, read, (path) => isLink(root, path));
   return { listed, files, read, kinds, errors: kinds.errors.length > 0 ? kinds.errors : kinds.unreadable };
 }
 
@@ -345,6 +362,13 @@ export function touchesLaw(path: string): boolean {
   return path === LAW || path === CONFIG || path.startsWith(RULES_DIR);
 }
 
+// git's own exit for a repository it cannot read, as with a corrupt index; any other exit of git is a call Lawcheck got wrong.
+export function damagedRepository(error: GitFailed): ErrorItem | null {
+  if (error.status !== GIT_FATAL) return null;
+  const printed = error.printed === '' ? 'git ended with its fatal exit' : error.printed;
+  return { code: 'no-git', file: null, line: null, message: `git cannot read this repository: ${printed}`, next: 'repair the repository, so that git status works here, then run lawcheck check' };
+}
+
 export async function stopped<T>(body: () => Promise<T> | T): Promise<T | { errors: ErrorItem[]; calls?: number }> {
   try {
     return await body();
@@ -356,7 +380,11 @@ export async function stopped<T>(body: () => Promise<T> | T): Promise<T | { erro
       return { errors: [{ code: 'file-unreadable', file: VERDICTS, line: null, message: `the file cannot be read (${error.cause})`, ...(next === undefined ? {} : { next }) }] };
     }
     if (error instanceof NoGit) return { errors: [{ code: 'no-git', file: null, line: null, message: error.message }] };
-    if (error instanceof GitFailed) throw new Internal(error.message);
+    if (error instanceof GitFailed) {
+      const damaged = damagedRepository(error);
+      if (damaged === null) throw new Internal(error.message);
+      return { errors: [damaged] };
+    }
     throw error;
   }
 }
@@ -376,7 +404,7 @@ export interface Kinds {
   reviewers: Map<string, ReviewerRule>;
 }
 
-export function ruleKinds(law: Law, files: string[], read: Read): Kinds {
+export function ruleKinds(law: Law, files: string[], read: Read, isLink: (path: string) => boolean = () => false): Kinds {
   const present = new Set(files);
   const expected = new Set<string>();
   const out: Kinds = { errors: [], unreadable: [], scripts: new Set(), reviewers: new Map() };
@@ -389,7 +417,17 @@ export function ruleKinds(law: Law, files: string[], read: Read): Kinds {
     const hasScript = present.has(script);
     const hasProse = present.has(prose);
     if (!hasScript && !hasProse) {
-      out.errors.push({ code: 'rule-missing-file', file: LAW, line: rule.line, message: `the rule '${rule.id}' has neither ${script} nor ${prose}` });
+      const link = [script, prose].find(isLink);
+      if (link === undefined) out.errors.push({ code: 'rule-missing-file', file: LAW, line: rule.line, message: `the rule '${rule.id}' has neither ${script} nor ${prose}` });
+      else {
+        out.errors.push({
+          code: 'rule-missing-file',
+          file: LAW,
+          line: rule.line,
+          message: `the rule '${rule.id}' has neither ${script} nor ${prose} as a file: ${link} is a symbolic link, and Lawcheck reads no rule through one`,
+          next: `ask the user to replace the symbolic link ${link} with the rule file itself, then run lawcheck check`,
+        });
+      }
       continue;
     }
     if (hasScript && hasProse) {
@@ -458,4 +496,77 @@ export function ruleKinds(law: Law, files: string[], read: Read): Kinds {
     out.errors.push({ code: 'rule-file-without-entry', file, line: null, message: 'the file is no rule of the law and lies outside .lawcheck/rules/lib/' });
   }
   return out;
+}
+
+export function ruleKind(kinds: Kinds, id: string): 'script' | 'reviewer' {
+  return kinds.scripts.has(id) ? 'script' : 'reviewer';
+}
+
+export function isPattern(word: string): boolean {
+  return /[*?{]/.test(word);
+}
+
+export function listedFile(root: string, cwd: string, word: string, files: string[]): boolean {
+  try {
+    return files.includes(fromCwd(root, cwd, word));
+  } catch {
+    return false;
+  }
+}
+
+export function isDirectory(path: string | Buffer): boolean {
+  try {
+    return statSync(path).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+export function selectTargets(root: string, cwd: string, targets: string[], files: string[], binary: (path: string) => boolean, lenient = false, listed: Set<string> = new Set()): string[] {
+  const chosen = new Set<string>();
+  const here = repoPath(root, realpathSync(resolve(cwd)));
+  class None extends Error {}
+  const none = (word: string, why: string) => (lenient ? new None() : usage(why === 'matches no file' ? `the target '${word}' matches no file` : `the target '${word}' selects no file: ${why}`));
+  for (const word of targets) {
+    try {
+      select(word);
+    } catch (error) {
+      if (!(error instanceof None)) throw error;
+    }
+  }
+  return [...chosen].sort(comparePaths);
+
+  function select(word: string): void {
+    if (isPattern(word) && !listedFile(root, cwd, word, files)) {
+      const problem = patternProblem(word);
+      if (problem !== null) throw usage(`the pattern '${word}' ${problem}`);
+      const matches = compileList([here === '' ? word : `${here}/${word}`]);
+      const hits = files.filter((file) => matches(file) && !binary(file));
+      if (hits.length === 0) throw none(word, 'matches no file');
+      hits.forEach((file) => chosen.add(file));
+      return;
+    }
+    const path = fromCwd(root, cwd, word);
+    if (files.includes(path)) {
+      if (binary(path)) throw none(word, 'it is binary');
+      chosen.add(path);
+      return;
+    }
+    if (path === '.' || isDirectory(onDisk(root, path))) {
+      const hits = files.filter((file) => (path === '.' || file.startsWith(`${path}/`)) && !binary(file));
+      if (hits.length === 0) throw none(word, 'matches no file');
+      hits.forEach((file) => chosen.add(file));
+      return;
+    }
+    const nested = repositoryHolding(root, path, listed);
+    throw none(word, nested === null ? 'git ignores it or it does not exist' : nestedReason(nested));
+  }
+}
+
+export function bytesOf(read: Read, path: string): Uint8Array {
+  try {
+    return read(path);
+  } catch (error) {
+    throw new Stop([readError(path, error)]);
+  }
 }

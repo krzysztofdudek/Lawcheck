@@ -5,7 +5,7 @@ import { checkAnswer } from './prompt.js';
 import { step } from './progress.js';
 import type { AnswerFinding } from './prompt.js';
 import { hide } from './keys.js';
-import type { Provider } from './providers/index.js';
+import type { Provider } from './provider.js';
 export interface Recorder {
   pass(key: string, rule: string): Promise<void>;
   failure(key: string, rule: string, findings: AnswerFinding[]): Promise<void>;

@@ -1,92 +1,24 @@
-import { realpathSync, statSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { documentOf, errorResult, number, usageError } from './args.js';
-import type { Arguments, Result } from './args.js';
-import type { CheckContext } from './check.js';
-import { comparePaths, nestedReason, repositoryHolding, trackedLinks, workTreeTop } from './files.js';
+import type { Arguments, CheckContext, Result } from './args.js';
+import { comparePaths, trackedLinks, workTreeTop } from './files.js';
 import { onDisk } from './names.js';
-import { compileList, patternProblem } from './glob.js';
 import { CODES, plural, shown } from './output.js';
 import { takesWaivers } from './law.js';
 import type { ErrorItem } from './output.js';
-import { ruleKind } from './prime.js';
 import { buildPrompt, cleanMessage, size } from './prompt.js';
 import { createProvider } from './providers/index.js';
 import { call, NO_RECORD, preflight, remaining } from './review.js';
 import type { Ask } from './review.js';
 import { ownersOf, ruleReads } from './readers.js';
-import { contextOf, crashNext, FindingBudget, linksOut, resolveCompanions, rulesDeadline, runnerProblem, runRule } from './rules.js';
+import { contextOf, crashNext, FindingBudget, linksOut, resolveCompanions, rulesDeadline, runnerErrors, runnerProblem, runRule, tooManyFindings } from './rules.js';
 import type { Companions, RawFinding } from './rules.js';
-import { runnerErrors, tooManyFindings } from './check.js';
 import type { RuleFile } from './rules.js';
-import { fromCwd, loadConfig, loadLaw, loadRuleFiles, locate, nearPart, repoPath, requireGit, RULES_DIR, stopped, Stop, typeAll, usage } from './setup.js';
-import type { Read } from './setup.js';
-import { readError } from './limits.js';
+import { bytesOf, fromCwd, isDirectory, isPattern, listedFile, loadConfig, loadLaw, loadRuleFiles, locate, nearPart, requireGit, ruleKind, RULES_DIR, selectTargets, stopped, Stop, typeAll, usage } from './setup.js';
 import { decode, filesOfTypes, isBinary, splitLines } from './types.js';
 import { parseWaivers, waive } from './waivers.js';
 
 const LIMIT = 50;
-
-function isPattern(word: string): boolean {
-  return /[*?{]/.test(word);
-}
-
-function listedFile(root: string, cwd: string, word: string, files: string[]): boolean {
-  try {
-    return files.includes(fromCwd(root, cwd, word));
-  } catch {
-    return false;
-  }
-}
-
-function isDirectory(path: string | Buffer): boolean {
-  try {
-    return statSync(path).isDirectory();
-  } catch {
-    return false;
-  }
-}
-
-export function selectTargets(root: string, cwd: string, targets: string[], files: string[], binary: (path: string) => boolean, lenient = false, listed: Set<string> = new Set()): string[] {
-  const chosen = new Set<string>();
-  const here = repoPath(root, realpathSync(resolve(cwd)));
-  class None extends Error {}
-  const none = (word: string, why: string) => (lenient ? new None() : usage(`the target '${word}' selects no file: ${why}`));
-  for (const word of targets) {
-    try {
-      select(word);
-    } catch (error) {
-      if (!(error instanceof None)) throw error;
-    }
-  }
-  return [...chosen].sort(comparePaths);
-
-  function select(word: string): void {
-    if (isPattern(word) && !listedFile(root, cwd, word, files)) {
-      const problem = patternProblem(word);
-      if (problem !== null) throw usage(`the pattern '${word}' ${problem}`);
-      const matches = compileList([here === '' ? word : `${here}/${word}`]);
-      const hits = files.filter((file) => matches(file) && !binary(file));
-      if (hits.length === 0) throw none(word, 'matches no file');
-      hits.forEach((file) => chosen.add(file));
-      return;
-    }
-    const path = fromCwd(root, cwd, word);
-    if (files.includes(path)) {
-      if (binary(path)) throw none(word, 'it is binary');
-      chosen.add(path);
-      return;
-    }
-    if (path === '.' || isDirectory(onDisk(root, path))) {
-      const hits = files.filter((file) => (path === '.' || file.startsWith(`${path}/`)) && !binary(file));
-      if (hits.length === 0) throw none(word, 'matches no file');
-      hits.forEach((file) => chosen.add(file));
-      return;
-    }
-    const nested = repositoryHolding(root, path, listed);
-    throw none(word, nested === null ? 'git ignores it or it does not exist' : nestedReason(nested));
-  }
-}
 
 interface Found {
   line?: number;
@@ -115,14 +47,6 @@ interface Outcome {
   runs: Run[];
   calls: number;
   maxChars: number;
-}
-
-export function bytesOf(read: Read, path: string): Uint8Array {
-  try {
-    return read(path);
-  } catch (error) {
-    throw new Stop([readError(path, error)]);
-  }
 }
 
 export async function tryRule(args: Arguments, context: CheckContext, json: boolean): Promise<Result> {

@@ -54,7 +54,7 @@ export function installFolder(dir: string): void {
   copyFileSync(join(MATRIX, 'install-cell.sh'), join(dir, 'install-cell.sh'));
 }
 
-// The folder a git cell mounts: this Node, the checkout with dist and node_modules, and the cell script.
+// The folder a git cell mounts: this Node, the checkout with dist and node_modules, and the cell scripts.
 export function gitFolder(dir: string): void {
   // The cell runs the tests as a user other than root, who must enter the folder mkdtemp made for its owner alone.
   chmodSync(dir, 0o755);
@@ -65,6 +65,7 @@ export function gitFolder(dir: string): void {
   mkdirSync(repo);
   for (const entry of ['package.json', 'dist', 'node_modules', 'tests', 'docs', 'plugin']) cpSync(join(ROOT, entry), join(repo, entry), { recursive: true, verbatimSymlinks: true });
   copyFileSync(join(MATRIX, 'git-cell.sh'), join(dir, 'git-cell.sh'));
+  copyFileSync(join(MATRIX, 'failing-tests.sh'), join(dir, 'failing-tests.sh'));
 }
 
 // The security tests of every commit, which read git's answers as closely as the acceptance tests of check do.

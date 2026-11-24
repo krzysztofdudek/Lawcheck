@@ -97,12 +97,30 @@ test('S5-6: explain of a path with a segment over 255 bytes is usage as test 245
     assert.deepEqual([run.code, run.stderr, run.stdout.split('\n')[2]], [2, '', `error[usage]  the path '${long}' cannot exist here: it is longer than this system allows for a name or a path`]);
     const longer = `src/${'b/'.repeat(2500)}c.ts`;
     const deep = await lawcheck(s, ['explain', longer, '--json']);
-    assert.equal(deep.code, 2, deep.stdout);
-    assert.equal(JSON.parse(deep.stdout).errors[0].code, 'usage');
+    if (process.platform === 'win32') {
+      assert.equal(deep.code, 0, deep.stdout);
+      assert.deepEqual([JSON.parse(deep.stdout).path, JSON.parse(deep.stdout).exists], [longer, false]);
+    } else {
+      assert.equal(deep.code, 2, deep.stdout);
+      assert.equal(JSON.parse(deep.stdout).errors[0].code, 'usage');
+    }
     if (platformSkip('an escaped segment') === null) {
       const escaped = `src/core/${'a\\n'.repeat(100)}.ts`;
       const short = await lawcheck(s, ['explain', escaped]);
       assert.deepEqual([short.code, short.stderr, short.stdout.split('\n')[0]], [0, '', `${escaped}  (does not exist yet)`]);
+    }
+  });
+});
+
+test('R-93: explain of a name of 86 CJK characters is usage where a name holds 255 bytes, and an answer on Windows, where it holds 255 UTF-16 units', async () => {
+  await withSample(async (s) => {
+    const name = `src/core/${'\u4e2d'.repeat(86)}.ts`;
+    const run = await lawcheck(s, ['explain', name]);
+    if (process.platform === 'win32') {
+      assert.equal(run.code, 0, run.stdout);
+      assert.ok(!run.stdout.includes('cannot exist'), run.stdout);
+    } else {
+      assert.deepEqual([run.code, run.stdout.split('\n')[2]], [2, `error[usage]  the path '${name}' cannot exist here: it is longer than this system allows for a name or a path`]);
     }
   });
 });
@@ -198,6 +216,43 @@ test('S4-9: a file in UTF-16 holds NUL bytes, so it is binary and has no type, a
     assert.deepEqual([run.code, run.stdout], [0, 'lawcheck: PASS  1 changed file (against main)\n']);
     const explained = await lawcheck(s, ['explain', 'src/core/wide.ts']);
     assert.equal(explained.stdout, 'src/core/wide.ts\n  type:  none: it is binary, which has no type\n');
+  });
+});
+
+const CYCLES: [string, string][] = [
+  ['a type that holds itself through an alias', 'lawcheck: 0.1.0\ntypes: &t\n  a:\n    paths: ["src/**"]\n    types: *t\n'],
+  ['a type that holds itself two levels down', 'lawcheck: 0.1.0\ntypes:\n  a: &a\n    paths: ["src/**"]\n    types:\n      b: *a\n'],
+  ['a list of paths that holds itself', 'lawcheck: 0.1.0\ntypes:\n  a:\n    paths: &p [*p]\n'],
+  ['a list of rules that holds itself', 'lawcheck: 0.1.0\ntypes:\n  a:\n    paths: ["src/**"]\n    rules: &r [*r]\n'],
+  ['a may_use list that holds itself', 'lawcheck: 0.1.0\ntypes:\n  a:\n    paths: ["src/**"]\n    may_use: &m [*m]\n'],
+  ['a rule that holds the rules', 'lawcheck: 0.1.0\nrules: &r\n  a:\n    why: x\n    context: *r\ntypes:\n  a:\n    paths: ["src/**"]\n'],
+  ['the version', 'lawcheck: &l [*l]\ntypes:\n  a:\n    paths: ["src/**"]\n'],
+  ['a list of ignored paths that holds itself', 'lawcheck: 0.1.0\nignored: &i [*i]\ntypes:\n  a:\n    paths: ["src/**"]\n'],
+];
+
+for (const [what, law] of CYCLES) {
+  test(`R-27: a law with ${what} is law-invalid at a line of the law, and never internal`, async () => {
+    await withSample(async (s) => {
+      write(s, '.lawcheck/law.yaml', law);
+      for (const args of [['check', '--full'], ['explain', 'src/core/tax.ts']]) {
+        const run = await lawcheck(s, args);
+        assert.equal(run.code, 2, args.join(' '));
+        assert.match(run.stdout, /^\.lawcheck\/law\.yaml:\d+  error\[law-invalid\]  /m, args.join(' '));
+        assert.doesNotMatch(run.stdout, /internal/, args.join(' '));
+      }
+    });
+  });
+}
+
+test('R-29: explain --type says that a type switches waivers off, in the text and in the JSON, and a type with waivers on prints no such line', async () => {
+  await withSample(async (s) => {
+    write(s, '.lawcheck/law.yaml', LAW.replace('  source:\n    about: Everything that ships.\n', '  source:\n    about: Everything that ships.\n    waivers: false\n'));
+    const off = await lawcheck(s, ['explain', '--type', 'library']);
+    assert.ok(off.stdout.split('\n').includes('  waivers:  not read; a waiver marker in its files is text'), off.stdout);
+    assert.equal(JSON.parse((await lawcheck(s, ['explain', '--type', 'library', '--json'])).stdout).waivers, false);
+    const on = await lawcheck(s, ['explain', '--type', 'script']);
+    assert.ok(!on.stdout.includes('  waivers:'), on.stdout);
+    assert.equal(JSON.parse((await lawcheck(s, ['explain', '--type', 'script', '--json'])).stdout).waivers, true);
   });
 });
 

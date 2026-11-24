@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { leadingTestNumbers } from '../guard/names.ts';
 import { INVARIANTS } from './invariants.ts';
 import type { Behaviour } from './sets.ts';
 
@@ -46,8 +47,7 @@ export const PLATFORM_PROMISES: Record<string, { systems: ('win32' | 'darwin')[]
 
 export function testIds(name: string): string[] {
   const ids: string[] = [];
-  const rows = /^tests? (\d+(?:(?:, | and )\d+)*)/.exec(name);
-  if (rows !== null) for (const n of rows[1]!.split(/, | and /)) ids.push(`test ${n}`);
+  for (const n of leadingTestNumbers(name)) ids.push(`test ${n}`);
   for (const m of name.matchAll(/(?<![\w-])(I-[a-z][a-z0-9]*-\d+|S\d+-\d+|U-\d+|R-\d+|T[1-8]|harness-(?:\d+|count))(?![\w-])/g)) ids.push(m[1]!);
   return [...new Set(ids)];
 }

@@ -315,7 +315,93 @@ Why: one hook keeps one meaning of each case on every agent; a second hook per a
 
 Why: node types and fields differ between grammars (`call_expression` in TypeScript, `call` in Python), so an agent that writes a rule from memory names types the grammar does not have, and the rule finds nothing without saying so. A nested JSON tree would break on real code: a generated sum of 5,000 terms is a binary expression 5,000 levels deep, and the output's nested writer fails with a stack overflow between 1,000 and 3,000 levels, while pretty-printing a tree 1,000 levels deep already takes 22 MB of indentation. A flat list stays three levels deep at any depth, its size grows with the count of nodes, and a rule's tree turns into it by one walk in preorder, which the tests do. The tree depends on the path and the text, and for a header of C or C++ on the files git lists in its folder, never on the law, so a broken law or a scratch file that is not committed does not stop an agent from looking. Text past 40 characters, levels past 12 and nodes past 200 would bury the shape an agent needs; `--json` has them all.
 
-## Decision (number at merge). On Windows the orphans of a killed tool end from the first list of processes begun after the kill
+## 185. A repository that develops Lawcheck starts its own build with `runner: npx`
+
+The `runner` setting keeps its five values. A repository whose `package.json` names the build it makes as its `lawcheck` program writes `runner: npx`, and the plugin then starts that build. `npx --no-install lawcheck` runs the program that the `bin` of the project's own `package.json` names, from the root and from any folder below it, when no `node_modules/.bin/lawcheck` exists. It does not look at the `name` of the package. With the default `global` runner the plugin looks for a `lawcheck` on the `PATH`, finds none or an installed one, and says nothing. A test in `tests/environments/own-build.nightly.test.ts` runs both with the npm that the machine has.
+
+Why: `npx` already starts such a build, so a sixth value, such as a path to `dist/cli.js`, would add a setting, its checks and its page for a case that has a way. It would not be safer either: with `runner: npx` the repository already decides which program runs, as [Settings](../docs/config.md#runner) says of every value but `global`. The case is rare: a contributor to Lawcheck itself, who builds before every check. The decision holds while npm keeps that behaviour of `npx`.
+
+## 186. Lines end at a line feed, a file with a NUL is binary, and a file with no reader counts whatever its name
+
+Lawcheck ends a line at a line feed, with or without a carriage return before it, and never at a lone carriage return. A use in a file with lone CR line ends is on the line that holds its start in that count, so an import that an editor shows on line 3 is reported on line 1. A file with a byte of value 0 in its first 8,000 bytes is binary, has no type and is judged by no rule, and a file in UTF-16 holds such bytes. `uses-not-read` counts each file of a typed folder that no reader takes by its extension, `tsconfig.json` and `package.json` among them.
+
+Why: a finding's line, a waiver's line, the `lines` of a rule's file and the numbered lines of a reviewer's prompt are one count, and promise I-lines-1 says every finding's line lies inside the file's `lines`. A reader that numbered by its own count would put a finding on a line the file does not have. Runes counts a lone CR as a line end, so Lawcheck maps its line back to its own. The NUL test is the one git applies when it calls a file binary. A file that git shows as binary is binary here, and a UTF-16 file would need its encoding found and converted in every reader, rule and prompt, for a file a repository of code almost never holds. A list of file names that `uses-not-read` leaves out would be a second definition of what a use is, beside the readers; the warning never fails a run, and a `!` pattern in the type's `paths` clears it (docs/codes.md). `docs/languages.md` and `docs/law.md` state all three behaviours, and the tests named S4-9 hold the first two.
+
+## 187. A pass beside a fail that does not parse is a bad answer
+
+A pass is a bad answer when the answer holds a `"verdict": "fail"` that no verdict object of the answer holds, which is the text of an object that does not parse, such as one with a trailing comma. The key and the word may be written with `\u` escapes, as JSON allows. A pass whose own object holds such text inside it, in a nested object that parses or in a string, stays a pass, since the object read holds it. A fail stays a fail beside it, and a lone fail that does not parse stays "the answer holds no JSON object with a verdict". The bad answer is asked once more, as every bad answer is.
+
+Why: a fail that does not parse is no verdict object, so neither rule of the decision "A pass beside a doubtful verdict is a bad answer" saw it, and `{"verdict": "fail", "findings": [{"line": 1, "message": "m"}],} {"verdict": "pass", "findings": []}` read as a pass. A file under review can ask the model to write that answer, and a model can write the trailing comma by habit. The text is looked for by its key and word, not parsed again, so a fail spelled another way, such as `"Fail"` in an object that does not parse, is not caught. The price is one more request for a pass that stands beside prose quoting a fail that does not parse.
+
+## 188. A fatal exit of git is no-git, not internal
+
+When a git command that Lawcheck runs ends with exit 128, git's own exit for a repository it cannot read, the run ends with `no-git`. The message holds the line git printed, and the `next:` line sends the user to repair the repository until `git status` works. A corrupt `.git/index` is the case that was found. Any other exit of a git command, and a git that ends by a signal, stays `internal`, since it means Lawcheck sent git a call that git does not take.
+
+Why: `docs/codes.md` already names a damaged repository as a cause of `no-git`, and `internal` asks the user to report a fault of Lawcheck, which this is not. Under `doctor`, the check that met the failure shows `fail` with the same message and step, and the run ends with exit 2 as for any failed check.
+
+## 189. A law that cannot be read is a law, so init and doctor do not send the user in a circle
+
+Whatever stands at `.lawcheck/law.yaml` makes that folder the root of the law: a file, a folder, a symbolic link to nothing. The run then says `law-invalid` with the cause, such as `the law cannot be read (EISDIR)`, as it does for a law in a folder it cannot search. `init` finds that law and ends with `already-initialized`, `doctor` shows the `law` check as `fail` with the same cause. Only a missing entry, or one below a path that is no folder, is no law.
+
+`init` also stops with `file-unwritable` when `.lawcheck/.gitignore` is a folder or a symbolic link to nothing, before it writes any file. A regular file or a link to a regular file there is kept as before.
+
+Why: with a folder as the law, `init` said `already-initialized` and sent the user to `doctor`, which said there was no law and sent the user to `init`. A `kept` file that is a folder leaves `.local/` and `config.local.yaml` unignored without a word.
+
+## 190. A rule file is never read through a symbolic link, though the law and the config are
+
+`.lawcheck/law.yaml` and `.lawcheck/config.yaml` are read through a link, and an error about either quotes none of the file. A rule file under `.lawcheck/rules/` is not: a link there counts as no file, and the error `rule-missing-file` names the link and says that Lawcheck reads no rule through one.
+
+Why: the text of a reviewer rule goes into every prompt, and a script rule runs. A link that a repository commits could lead to a file outside the work tree, such as a key in the home folder, and its text would reach the reviewer. The law and the config send no text to a reviewer, and their errors hide the text. Only the message was false, since it said the rule had neither file.
+
+## 191. A name or path is refused as too long by what its system counts
+
+`explain` refuses a name or a path that cannot exist, and it measures it as the system does: bytes on Linux and macOS (255 for a name, 4,095 for a path), UTF-16 units on Windows (255 and 32,767). A name that exists on a system is never refused as one that cannot.
+
+Why: Windows answers that a name that is too long is missing, not too long, so Lawcheck measures it before it asks. Counting bytes there refused a real name of 86 CJK characters, which is 258 bytes and 86 units.
+
+## 192. The primer names the runner's command once
+
+When `runner` in `.lawcheck/config.yaml` is not `global`, `prime` ends its first line with `Start it here as: <the runner's command>` and writes every other command of its text as `lawcheck <command>`, as it does for the global runner. It does not put the runner's words before each command.
+
+Why: the text is fitted to one budget and checked line by line, and the plugin and the docs hand an agent the same lines whatever the runner, so one line says how to start the tool and the agent reads `lawcheck` in every other line as that command. The words of `npx --no-install` before each of the commands in the text would give one text per runner and leave the types and rules the primer lists less of the budget. What is given up: an agent that reads one line alone sees `lawcheck check`, not `npx --no-install lawcheck check`; the first line of the same text tells it how to start the tool.
+
+## 193. init at the top refuses while git lists a law below, even one that serves as a sample
+
+`init` ends with `already-initialized` when git lists a `.lawcheck/law.yaml` below the folder, and it does not ask what that law is for. A repository that tracks a sample repository with its own law, such as one under `tests/`, gets the refusal at its top. `doctor` there names the laws below and sends the user into the folder of one; it does not offer `init`. The user writes `.lawcheck/law.yaml` at the top by hand ([The first type and the first rule](../docs/first-law.md)), and a run in the sample folder keeps using the sample's law.
+
+Why: to Lawcheck a sample and a package of a monorepo are the same thing, a folder with a law of its own, and `init` never starts a law above or below another ([Monorepo](../docs/monorepo.md)). A rule that left some laws out would be a list of paths that someone keeps up. A law written by hand is read like any other, so the refusal takes nothing from the user. Test R-3 holds the refusal, the line of `doctor` and the law written by hand.
+
+## 194. The check after an edit starts from the folder of the edited file, so a file of a sample repository below the root is judged by that sample's law
+
+The hook after an edit looks for `.lawcheck/law.yaml` from the folder of the edited file and upward, and the first law it finds judges the file ([The Claude Code plugin](../docs/plugin.md)). An agent that works in a repository and edits a file of a sample repository under `tests/` hears what the sample's law says about that file, not what the law of the repository says. The other hooks start from the folder of the session.
+
+Why: the plugin cannot tell a sample from a package of a monorepo, and the nearest law is what `lawcheck check` uses when the user runs it in that folder, so the hook says what the user would see there. Test R-4 holds both cases: a file in the sample goes to the sample's law, a file outside it to the law of the repository.
+
+## 195. The landing page says when its build is ahead of its release
+
+The landing page takes its sentences from README.md and docs/ of the commit it is built from, and shows the version in package.json. When the Unreleased section of CHANGELOG.md holds text, the footer adds a line: this build also shows text for the next release, so a flag or command it names may not be in the shown version yet. A release deploys from its tagged commit, where Unreleased is empty and the line is absent.
+
+Why: a build of `main` between two releases showed `--strict` under the version alpha.4, which has no such flag, and a reader who tried it got an error. The page cannot read the tag in a shallow clone, so the line follows the CHANGELOG, which every release empties.
+
+## 196. The plugin in GitHub Copilot CLI
+
+Copilot CLI reads `plugin/.plugin/plugin.json` before `plugin/.claude-plugin/plugin.json`, so it takes its own manifest, which points to `plugin/hooks/copilot.json`. There each hook runs `node` with its arguments and `${PLUGIN_ROOT}`, on Copilot's own events, `sessionStart`, `userPromptSubmitted`, `postToolUse` and `agentStop`, with the timeouts of `hooks.json` as `timeoutSec`, since Copilot's default is 30 seconds. The hook takes `--host copilot`. Copilot names the session in `sessionId` and gives no id of the turn. Its edit tools `create`, `edit` and `str_replace_editor` name the file in `toolArgs.path`, and `apply_patch` carries a patch, read as for Codex. The text for the agent is a top-level `additionalContext`, the hand-back is `{"decision": "block", "reason": ...}`, and the text after an edit is held to 10,000 bytes of UTF-8, under the 10 KB that Copilot takes. Copilot sets `CLAUDE_PLUGIN_DATA` for a plugin's hooks, so the state file sits where it sits in Claude Code, and the two switches are the variables of Codex.
+
+Copilot CLI gives a hook no field for the user. By the owner's ruling wtyczki-odsylaja-agenta-raz, every message the plugin has for the user at the end of a turn goes back to the agent once per turn as a hand-back that asks it to tell the user the message word for word: the check that still fails, the waivers and the law the turn changed, a check that did not run. The state of the session marks the message as told, and a prompt event of the next turn writes a state without the mark. When the plugin keeps no state for the session, it tells the agent only on a stop that is not itself a stop after a hand-back. The hand-back opens a prompt event with its reason as the prompt, so the turn it opens has its own snapshot, and the stop after the message checks only what the agent changed while it told the user. The message that no reviewer is set joins the text of the session start, with a line that asks the agent to tell the user in its first answer.
+
+The trial runs Copilot CLI 1.0.105 with `COPILOT_PROVIDER_BASE_URL`, `COPILOT_PROVIDER_WIRE_MODEL` set to the model of the trial and `COPILOT_PROVIDER_MODEL_ID` set to `claude-sonnet-4`, because Copilot gives a model with no id of its catalog only the shell. Its arm with the failing `lawcheck` also counts the sessions whose last answer holds the words `still fail`, and needs them all.
+
+Why: one hook keeps one meaning of each case on every agent, as for Codex. A message the user never sees is the hole the ruling closes, at the cost of one more answer of the model per turn that has one. In the trial, Copilot ran a plugin's `postToolUse` hook after every tool, its `matcher` notwithstanding, so the hook still picks the edit tools by name.
+
+## 197. The suite guard reads the tables of the codes and fields, a budget is judged call by call, its report reaches a pipe, and a test number leads names in one file
+
+The three programs of the suite guard that print its report, `tests/guard/cli.ts`, `tests/guard/from-base.ts` and `tests/gate/run.ts`, set `process.exitCode` and let the process end, instead of calling `process.exit` after one large write. When the guard refuses several files of one kind under a folder for the same reasons, the row it suggests for `<folder>/**` carries the approval hash of every change of that kind the folder's path matches, refused or not, as the check of a row on the base computes it, so the row landed as printed passes. The one reader of the numbers a test name leads with is `leadingTestNumbers` in `tests/guard/names.ts`, and the spec map, the guard and the platform selection read them through it, so `tests 3, 4, and 5:` is read alike by all three. Outside `tests/unit/`, a test number leads names in one file; the pairs of number and file that already break this are listed in `tests/contract/shared-numbers.json`, which the guard's ratchet lets only shrink, and `tests/contract/spec-map.test.ts` fails on a pair that is not listed and on a listed pair that is no longer shared.
+
+The guard reads each row of the code table of `docs/codes.md` and of the field tables of `docs/json.md` by its first cell, under its heading, as a promise, matching the rows of one first cell and heading by their text, so no table or row added among them is read as a change: a changed or removed row is `promise-changed`, the owner's kind, and an added row is no weakening. It judges the times a test names from `tests/numbers.ts` one by one, from the largest down, padded with `RUN_BUDGET_MS`, and reads a name written as literals joined with `+`; a new test in a file that loses a test in the same change may not name a larger time than each removed test.
+
+Why: the codes and the fields are what users and agents read in the output, so the owner decides their change as he decides a promise's. A budget compared by its largest time hid a call that rose beside a larger one, a call that fell to the default, a rename and a name built from parts. A report cut at 64 KiB on a pipe lost the reasons of a refusal in a CI log while the exit code stayed right, and a suggested row that the guard refused again sent the owner round the same loop. Two readers of one label had drifted, and with numbers taken from test names a reused number makes a removed test's anchor look unchanged while a twin still carries it. A strict rail cannot hold today, since ten numbers lead names in two or more files, so the list holds them and only shrinks.
+
+## 197. On Windows the orphans of a killed tool end from the first list of processes begun after the kill
 
 When the tool is killed on Windows while a program reviewer runs, the program's root ends with the tool, and what the root started lives on below the root's id. The guard ends those processes only from a list of processes that PowerShell began after the guard learned of the kill, and waits up to 10 seconds for one. When the kill comes while PowerShell still starts, that is its first list: on a Windows runner the first list came up to 6.2 seconds after the guard started it, so the orphans can live longer than 5 seconds after the kill. On Windows, test 67 and the harness's checks of a killed run (harness-6 and harness-8) give the tool `WINDOWS_KILLED_GRACE_MS`, 15 seconds: the guard's 10 seconds of waiting for a list, and 5 for the kill and the removal of the call's folder. On Linux and macOS they keep `KILLED_GRACE_MS`, 5 seconds.
 
