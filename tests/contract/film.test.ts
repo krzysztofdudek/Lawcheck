@@ -8,7 +8,7 @@ import { ROOT, startProgram, testFolder } from '../harness/tool.ts';
 import { judge, judgeChapter } from '../../film/accept.mjs';
 import { fingerprint } from '../../film/pilot.mjs';
 import { trimRecord, trimTranscript } from '../../film/trim.mjs';
-import { decodeTerminal, privateProblems, readingProblems, stalenessProblems, truthProblems, versionProblems } from '../../film/check.mjs';
+import { decodeTerminal, privateProblems, privateSummary, privateWords, readingProblems, stalenessProblems, truthProblems, versionProblems } from '../../film/check.mjs';
 import { vttOf } from '../../film/build.mjs';
 import { readEdit, wrap, words } from '../../film/edit.mjs';
 
@@ -32,8 +32,9 @@ test('test 820: every string the film puts on screen comes from its take, its ru
 });
 
 test('test 820: node film/check.mjs runs this build of Lawcheck on the files of the takes and finds the output the film shows', async () => {
-  const run = await startProgram(join(ROOT, 'film', 'check.mjs'), [], ROOT, GIT_ENV).ended;
+  const run = await startProgram(join(ROOT, 'film', 'check.mjs'), [], ROOT, { ...GIT_ENV, LAWCHECK_FILM_PRIVATE: ' , ' }).ended;
   assert.equal(run.code, 0, run.stdout);
+  assert.ok(run.stdout.includes('private: no file of film/takes holds a home folder, a key, a token, an e-mail address, orbstack, a ts.net host, the word tailnet, clientbox or /mnt/mac; LAWCHECK_FILM_PRIVATE is empty, so the names only the recording machine knows were not looked for\n'), run.stdout);
   assert.ok(run.stdout.includes(`staleness: ${Object.keys(readEdit(ROOT).runs).length} runs of this build print what the film shows\n`), run.stdout);
   assert.ok(run.stdout.endsWith('film/check.mjs: PASS\n'), run.stdout);
 });
@@ -119,6 +120,10 @@ test('test 820: control, a home folder, a key, an e-mail address and each name o
     mkdirSync(join(folder.dir, 'film/takes/x'));
     writeFileSync(join(folder.dir, 'film/takes/x/notes.txt'), 'cwd /home/someone/shop and /home/dev/runs/x/home/.claude\nkey sk-ant-api03-abcdefgh\nmail someone@example.org and dev@example.com\n');
     writeFileSync(join(folder.dir, 'film/takes/x/host.txt'), 'Linux 7.2.12-OrbStack-1\nhttps://box.example-tail.ts.net:443/\non the tailnet\n~/ClientBox/x and /mnt/mac/Users\n/home/me/repos\nthe host shop-name-7\n');
+    assert.deepEqual(privateWords(' shop-name-7 ,, other '), ['shop-name-7', 'other']);
+    assert.ok(privateSummary([]).endsWith('; LAWCHECK_FILM_PRIVATE is empty, so the names only the recording machine knows were not looked for'));
+    assert.ok(privateSummary(['shop-name-7']).endsWith(' or a name listed in LAWCHECK_FILM_PRIVATE'));
+    assert.doesNotMatch(privateSummary(['shop-name-7']), /shop-name-7|not looked for/);
     assert.deepEqual(privateProblems(folder.dir, ['shop-name-7']), [
       'film/takes/x/host.txt holds a home folder other than /home/dev: /home/me',
       'film/takes/x/host.txt holds the word orbstack: OrbStack',

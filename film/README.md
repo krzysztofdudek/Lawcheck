@@ -70,7 +70,7 @@ No video, image or recording is committed here. `claude plugin marketplace add` 
 - this build of Lawcheck prints something else on the files of a take than the film shows;
 - a screen stands less than one second plus one second for every three new words, its subtitle counted, the loop lasts more than 30 seconds, or a chapter lasts less than 40 or more than 60;
 - a screen, a caption or a subtitle shows a number with a point, a version after `@`, a version written as `v` and a number, or the name of a model;
-- a file of `takes/` holds a home folder other than `/home/dev`, a key, a token, an e-mail address, the word orbstack, a host name under ts.net, the word tailnet, the word clientbox, a path under /mnt/mac, or a word listed in the variable `LAWCHECK_FILM_PRIVATE`, separated by commas. Set it to the names only the recording machine knows, such as its tailnet's name, before you add a take.
+- a file of `takes/` holds a home folder other than `/home/dev`, a key, a token, an e-mail address, the word orbstack, a host name under ts.net, the word tailnet, the word clientbox, a path under /mnt/mac, or a word listed in the variable `LAWCHECK_FILM_PRIVATE`, separated by commas. Set it to the names only the recording machine knows, such as its tailnet's name, before you add a take. A run without it, such as the one in CI, says that those names were not looked for.
 
 ## When the output of Lawcheck changes
 

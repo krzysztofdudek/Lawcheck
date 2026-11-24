@@ -141,9 +141,18 @@ export function truthProblems(root = ROOT, edit = readEdit(root)) {
   return { problems, strings };
 }
 
-export function privateProblems(root = ROOT, words = (process.env[PRIVATE_WORDS] ?? '').split(',')) {
+export function privateWords(value = process.env[PRIVATE_WORDS]) {
+  return (value ?? '').split(',').map((word) => word.trim()).filter((word) => word !== '');
+}
+
+export function privateSummary(words) {
+  const listed = words.length === 0 ? `; ${PRIVATE_WORDS} is empty, so the names only the recording machine knows were not looked for` : ` or a name listed in ${PRIVATE_WORDS}`;
+  return `no file of film/takes holds a home folder, a key, a token, an e-mail address, orbstack, a ts.net host, the word tailnet, clientbox or /mnt/mac${listed}`;
+}
+
+export function privateProblems(root = ROOT, words = privateWords()) {
   const problems = [];
-  const patterns = [...PRIVATE, ...words.map((word) => word.trim()).filter((word) => word !== '').map((word) => [new RegExp(word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), `a name listed in ${PRIVATE_WORDS}`])];
+  const patterns = [...PRIVATE, ...privateWords(words.join(',')).map((word) => [new RegExp(word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), `a name listed in ${PRIVATE_WORDS}`])];
   const walk = (folder, prefix) => {
     for (const entry of readdirSync(folder, { withFileTypes: true }).sort((a, b) => (a.name < b.name ? -1 : 1))) {
       const path = `${prefix}/${entry.name}`;
@@ -307,7 +316,7 @@ if (process.argv[1] !== undefined && fileURLToPath(import.meta.url) === process.
   report('staleness', stale, `${Object.keys(edit.runs).length} runs of this build print what the film shows`);
   report('reading time', reading, `the loop lasts ${lengthOf(edit.loop)} s, ${(edit.chapters ?? []).map((chapter) => `the chapter ${chapter.page} ${lengthOf(chapter.timeline)} s`).join(', ')}, and every screen stands long enough to be read`);
   report('versions', versions, 'no screen, caption or subtitle shows a version or the name of a model');
-  report('private', secret, `no file of film/takes holds a home folder, a key, a token, an e-mail address, orbstack, a ts.net host, the word tailnet, clientbox, /mnt/mac or a name listed in ${PRIVATE_WORDS}`);
+  report('private', secret, privateSummary(privateWords()));
   const problems = truth.problems.length + stale.length + reading.length + secret.length + versions.length;
   process.stdout.write(problems === 0 ? 'film/check.mjs: PASS\n' : `film/check.mjs: FAIL  ${problems} problems\n`);
   process.exit(problems === 0 ? 0 : 1);
