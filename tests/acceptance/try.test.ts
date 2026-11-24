@@ -339,3 +339,43 @@ test('test 127: JSON of a script rule', async () => {
     assert.equal(result.code, 1);
   });
 });
+
+test('S5-10: a reviewer that answers a line as a string is told its line is no whole number, and the numbers outside the file keep their words', async () => {
+  const answer = (line: unknown) => `{"verdict":"fail","findings":[{"line":${JSON.stringify(line)},"message":"x"}]}`;
+  for (const [line, said] of [
+    ['2', `a finding's line is "2", not a whole number`],
+    [1.5, "a finding's line is 1.5, not a whole number"],
+    [99, 'a finding is at line 99, outside lines 1 to'],
+  ] as [unknown, string][]) {
+    await withFake(
+      async (fake) => {
+        await withR(async (r) => {
+          write(r, F_PATH, F);
+          const tried = await tryIn(r, ['clear-errors', F_PATH], { LAWCHECK_REVIEWER_ENDPOINT: fake.url });
+          assert.equal(tried.code, 2, tried.stdout);
+          const found = tried.stdout.split('\n').find((l) => l.startsWith('src/core/refund.ts  error[reviewer-bad-answer]  '));
+          assert.ok(found?.includes(said), `${JSON.stringify(line)}: ${tried.stdout}`);
+        });
+      },
+      () => ({ body: JSON.stringify({ choices: [{ message: { role: 'assistant', content: answer(line) } }] }) }),
+    );
+  }
+});
+
+test('S5-10: a target that matches no file says so once, and a rule that asks for more calls than the limit never calls an unreachable reviewer', async () => {
+  await withSample(async (s) => {
+    const none = await tryIn(s, ['no-console', 'src/**/*.zzz']);
+    assert.equal(none.stdout.split('\n')[2], "error[usage]  the target 'src/**/*.zzz' matches no file");
+    const folder = await tryIn(s, ['no-console', 'tools/empty']);
+    assert.match(folder.stdout.split('\n')[2]!, /^error\[usage\]  the target 'tools\/empty' selects no file: git ignores it or it does not exist$/);
+  });
+  await withR(async (r) => {
+    const env = { LAWCHECK_REVIEWER_ENDPOINT: 'http://127.0.0.1:1/v1' };
+    const capped = await lawcheck(r, ['check', '--full', '--review', '--max-calls', '1'], env);
+    assert.equal(capped.code, 2, capped.stdout);
+    assert.deepEqual(capped.stdout.split('\n').filter((line) => line.includes('error[')), ['error[too-many-reviews]  this run needs 2 reviewer calls and may send 1']);
+    assert.equal(capped.stderr, '');
+    const one = await tryIn(r, ['clear-errors', 'src/core/tax.ts'], env);
+    assert.ok(one.stderr.startsWith('lawcheck: 1 reviewer call to '), one.stderr);
+  });
+});
