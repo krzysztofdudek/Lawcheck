@@ -5,6 +5,7 @@ import { createHash } from 'node:crypto';
 import { cpSync, existsSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { append, check, findingLines, git, inTemp, LANGUAGES_SAMPLE, lawcheck, lawcheckAt, makeR, makeSample, makeU, ROOT, startLawcheck, withCopy, write } from './helpers.ts';
+import type { Run } from './helpers.ts';
 
 const FINDINGS = example('dependency-l-findings').split('\n');
 
@@ -382,6 +383,8 @@ const TREE_FILES = [
   'vue/domain/Card.vue',
 ];
 
+const TREE_RUNS_AT_ONCE = 6;
+
 const TREE_LINE = /^((?:  )+)(?:(\w+): )?(\S+)  line (\d+)(?:  ".*")?$/;
 
 test('test 950: explain --tree prints the tree of a file in each of the twelve languages, and its JSON gives the nodes that tree() gives a rule for the same file', async () => {
@@ -392,17 +395,31 @@ test('test 950: explain --tree prints the tree of a file in each of the twelve l
     assert.equal(run.stderr, '');
     const said = new Map<string, string>(JSON.parse(run.stdout).findings.filter((f: any) => f.rule === 'nodes').map((f: any) => [f.file, f.message]));
     assert.equal(said.size, 29);
+    // Each run loads the tool in a process of its own, and one after another they were most of this test's time on a loaded machine; six paths at once keep it to a share of that.
+    const runs = new Map<string, { json: Run; text: Run }>();
+    const queue = [...TREE_FILES];
+    const failures: unknown[] = [];
+    await Promise.all(
+      Array.from({ length: TREE_RUNS_AT_ONCE }, async () => {
+        for (let path = queue.shift(); path !== undefined && failures.length === 0; path = queue.shift()) {
+          const [json, text] = await Promise.allSettled([lawcheck(l, ['explain', path, '--tree', '--json']), lawcheck(l, ['explain', path, '--tree'])]);
+          if (json.status === 'rejected') failures.push(json.reason);
+          else if (text.status === 'rejected') failures.push(text.reason);
+          else runs.set(path, { json: json.value, text: text.value });
+        }
+      }),
+    );
+    if (failures.length > 0) throw failures[0];
     const languages = new Set<string>();
     for (const path of TREE_FILES) {
       const hash = said.get(path);
-      const json = await lawcheck(l, ['explain', path, '--tree', '--json']);
+      const { json, text } = runs.get(path)!;
       assert.equal(json.code, 0, path);
       const document = JSON.parse(json.stdout);
       assert.deepEqual(Object.keys(document), ['schema', 'subject', 'path', 'language', 'absent', 'nodes'], path);
       assert.deepEqual([document.schema, document.subject, document.path], ['lawcheck-explain/0', 'tree', path]);
       const { language, absent, nodes } = document;
       assert.equal(createHash('sha256').update(JSON.stringify({ language, absent, nodes })).digest('hex'), hash, path);
-      const text = await lawcheck(l, ['explain', path, '--tree']);
       assert.equal(text.code, 0, path);
       if (nodes === null) {
         assert.equal(text.stdout, `${path}  no tree: no-reader, no reader reads the language of this file, or a Vue or Svelte file has no script block\n`);
