@@ -48,7 +48,7 @@ The git settings of a repository can name programs that git starts while it read
 
 Settings you pass to git yourself, through `GIT_CONFIG_PARAMETERS` or `git -c` in an alias, take effect. If one of your own settings names a program, git can start that program.
 
-Git reads some files through a filter, such as the files of Git LFS. Lawcheck compares such a file as its bytes on disk. Those bytes differ from what git stores for it. git reads the file only when its time or size differs from git's index, or when the file is not older than the index. The file then counts as changed.
+Git reads some files through a filter, such as the files of Git LFS. Lawcheck compares such a file as its bytes on disk. git stores other bytes for such a file, and reads the file only when its time or size differs from git's index, or when the file is not older than the index. The file then counts as changed.
 
 ## --full and debt
 
