@@ -58,6 +58,29 @@ export function joinWav(buffers, pause) {
   return Buffer.concat([riff, head, first.format, chunk, data]);
 }
 
+// joinWav puts exactly `pause` seconds of digital silence between two sentences, so a run of zero samples that long marks where one sentence ends and the next begins; any other count of runs means the file was not made that way.
+export function sentenceSpans(buffer, count, pause) {
+  const { data, byteRate, blockAlign } = wavParts(buffer);
+  const gap = Math.round((pause * byteRate) / blockAlign) * blockAlign;
+  const runs = [];
+  let from = -1;
+  for (let at = 0; at <= data.length; at += blockAlign) {
+    let quiet = at < data.length;
+    for (let i = 0; quiet && i < blockAlign; i++) if (data[at + i] !== 0) quiet = false;
+    if (quiet && from < 0) from = at;
+    if (!quiet && from >= 0) {
+      if (at - from >= gap && from > 0 && at < data.length) runs.push([from, at]);
+      from = -1;
+    }
+  }
+  if (runs.length !== count - 1) return undefined;
+  const seconds = data.length / byteRate;
+  return Array.from({ length: count }, (_, index) => ({
+    start: index === 0 ? 0 : runs[index - 1][1] / byteRate,
+    end: index === count - 1 ? seconds : runs[index][0] / byteRate,
+  }));
+}
+
 export function windowOf(edit, segment) {
   return segment.end - segment.start - edit.voice.lead - edit.voice.tail;
 }

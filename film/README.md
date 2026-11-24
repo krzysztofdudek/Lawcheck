@@ -20,7 +20,7 @@ The loop at the top of the README and the five chapters of the tutorial on the d
 | `edit.json` | the screens of the loop and of each chapter: times, blocks, the source of each string, captions, subtitles and the narration, with the voice that speaks it |
 | `check.mjs` | the truth and staleness check |
 | `voice.mjs` | speaks the narration of each chapter with a speech service, one file per frame, into a folder outside the repository |
-| `build.mjs` | writes a HyperFrames project for the loop and for each chapter into `film/dist/`, each chapter's subtitles, and with `--voice <folder>` the narration that `voice.mjs` spoke |
+| `build.mjs` | writes a HyperFrames project for the loop and for each chapter into `film/dist/`, each chapter's subtitles, which are its narrated sentences, and with `--voice <folder>` the narration that `voice.mjs` spoke |
 | `render.mjs` | checks, builds and renders the loop to MP4, WebM and GIF, and each chapter with its narration to MP4, WebVTT and a still |
 | `published.json` | the chapters that a release holds as attachments, with the hash of each file; the docs site shows these |
 | `rebuild.sh` | the same in a clean container, from FFmpeg and Chromium up |
@@ -54,6 +54,8 @@ Each segment of a chapter in `edit.json` has its `narration`: the sentences spok
 
 1. `LAWCHECK_FILM_VOICE=<address> node film/voice.mjs --out <folder>` speaks every frame whose words or voice changed. The address is that of a speech service with the audio API of OpenAI, such as VoiceStudio, and it never enters the repository. Each sentence is spoken alone and the sentences of a frame are joined with the pause, because the engine sometimes runs two sentences into one breath. It writes `<folder>/<page>/<segment>.wav` and `voice.json`, transcribes each file back and prints each frame whose transcript has other words, and fails when a frame's voice is longer than the frame leaves it. `--only <page>` or `--only <page>/<segment>` speaks those again.
 2. `node film/render.mjs --out <folder> --voice <folder>` mixes the voice of each frame in from `lead` after the frame starts. It refuses a voice spoken from other words or settings than the edit holds now, a frame with no voice, and a voice that does not fit its frame. It refuses to render a narrated chapter without `--voice`.
+
+The `.vtt` subtitles of a chapter are made from the narrated sentences, so they cannot differ from what is said: one cue per sentence, in order. The `subtitle` of a segment is no longer what a viewer reads; it only counts as text of the frame for what a sentence cites and for the reading time. With `--voice`, a cue runs from where its sentence starts to where it ends in the voice file, found by the silence of exactly one pause that joins two sentences; without it, or when a file does not split into its sentences, the room the frame leaves the voice is shared by the length of the sentences.
 
 The voice is not committed: it is a recording. When the chapters are recorded again, a segment that keeps its narration keeps its words, and `voice.mjs` speaks again only what changed.
 
