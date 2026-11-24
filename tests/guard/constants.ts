@@ -29,6 +29,36 @@ export function readConstants(text: string): Map<string, Value> {
   return out;
 }
 
+// What is left of the file once the exported constants whose values it reads are taken out: the code, which can raise a budget that no value shows, as a function that picks among the numbers does.
+export function codeOf(text: string): string {
+  const tokens = tokenize(text);
+  const strings = stringConstants(tokens);
+  const kept: string[] = [];
+  for (let k = 0; k < tokens.length; k++) {
+    const t = tokens[k]!;
+    const decl = tokens[k + 1];
+    if (t.type === 'name' && t.value === 'export' && decl?.type === 'name' && ['const', 'let', 'var'].includes(decl.value) && tokens[k + 2]?.type === 'name') {
+      let m = k + 3;
+      if (isPunct(tokens[m], ':')) while (m < tokens.length && !isPunct(tokens[m], '=')) m++;
+      if (isPunct(tokens[m], '=')) {
+        const parsed = value(text, tokens, m + 1, strings);
+        if (readable(parsed.value)) {
+          k = (isPunct(tokens[parsed.next], ';') ? parsed.next + 1 : parsed.next) - 1;
+          continue;
+        }
+      }
+    }
+    kept.push(`${t.type} ${t.value}`);
+  }
+  return kept.join('\n');
+}
+
+function readable(tree: Tree): boolean {
+  if (tree.kind === 'unreadable') return false;
+  if (tree.kind === 'object') return tree.entries.every(([key, child]) => !key.startsWith('?') && readable(child));
+  return true;
+}
+
 // A list may name a string constant of its own file in place of a literal, as PLATFORM_SKIPS names its shared reasons.
 function stringConstants(tokens: Token[]): Map<string, string> {
   const out = new Map<string, string>();

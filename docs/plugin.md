@@ -72,7 +72,7 @@ The hook runs `lawcheck check ./<file>` on the file that `Write`, `Edit` or `Not
 |---|---|
 | 0 | nothing, warnings included |
 | 1 | the output, under a line that names the file and says it breaks the law of this repository |
-| 2 | the output, under a line that says Lawcheck could not check the file; the hook does not hand over the same output twice in a row, so a law the user is still editing reaches the agent once. After an edit that Lawcheck could check, with exit 0 or 1, the same output reaches the agent again |
+| 2 | the output, under a line that says Lawcheck could not check the file; the hook does not hand over the same output of one law twice in a row, so a law the user is still editing reaches the agent once. After an edit under the same law that Lawcheck could check, with exit 0 or 1, the same output reaches the agent again |
 
 If the check runs past its deadline, the agent gets one line that says so. If Lawcheck does not run for another reason, such as a missing program, the agent gets nothing.
 
@@ -103,7 +103,7 @@ An agent that cannot fix a breach can add a waiver, or change the law, and finis
 Lawcheck: in this turn the agent added 1 waiver (no-console at src/core/shipping.ts:1) and changed .lawcheck/law.yaml. Read them before you accept the turn.
 ```
 
-The message names each waiver that the turn added, by the rule after the marker and its line. The hook compares the text from `lawcheck-waive` to the end of each line with the same file at the start of the turn. A waiver that the file held before the turn is not named, whether the file was committed then or only changed on disk. The hook reads the marker as text in every file of the turn, so it also names a marker that `check` does not count, such as one in a file with no type. The message also names each file of the turn that is `.lawcheck/law.yaml`, `.lawcheck/config.yaml` or a file in `.lawcheck/rules/`. It shows five of each and the count of the rest.
+The message names each waiver that the turn added, by the rule after the marker and its line. The hook compares the text from `lawcheck-waive` to the end of each line with the same file at the start of the turn. A waiver that the file held before the turn is not named, whether the file was committed then or only changed on disk. The hook reads the marker as text in every file of the turn, so it also names a marker that `check` does not count, such as one in a file with no type. The message also names each file of the turn that is `.lawcheck/law.yaml`, `.lawcheck/config.yaml` or a file in `.lawcheck/rules/`, as changed or as deleted. It shows five of each and the count of the rest. A turn that deletes `.lawcheck/law.yaml` leaves no law to check against, so the hook runs no check and sends only this message, naming the law as deleted.
 
 The message goes to you and never to the agent, and it does not send the agent back. It comes once, at the stop that ends the turn. A stop that sends the agent back says nothing of it. A turn with no note from `UserPromptSubmit` gets no such message, because the hook does not know what the files held at its start. `lawcheck check` against a base names the waivers of the whole change ([What a check judges](change.md#waivers-a-change-adds)).
 

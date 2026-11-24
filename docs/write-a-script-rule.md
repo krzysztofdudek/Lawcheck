@@ -8,6 +8,8 @@ The outputs below come from a repository with three files under `src/`:
 - the second line of `src/core/price.ts` calls `fetch()` too;
 - `src/core/tax.ts` makes no such call.
 
+Step 13 adds a fourth file.
+
 The law gives `src/**/*.ts` the type `source`. Its subtypes are `api` for `src/api/` and `core` for `src/core/` ([Types for an existing project](types-for-a-project.md)).
 
 ## 1. Add the rule to the law
@@ -190,6 +192,51 @@ src/core/price.ts:2  warning[no-fetch]  calls fetch outside the api layer
 ```
 
 `try` exits 1 on a finding, an advisory one included.
+
+## 13. Read the syntax tree
+
+The rule reads lines, so it also reports `fetch(` in a comment or a string. Add `src/core/cart.ts`, whose first line is a comment:
+
+```ts
+// Orders reach the network through fetch() in src/api, never here.
+export async function total() {
+  return (await fetch('/cart')).json();
+}
+```
+
+The rule of step 3 reports line 1 and line 3 of this file. Write `.lawcheck/rules/no-fetch.mjs` again. This time it reads the [syntax tree](script-rules.md#the-syntax-tree) of the file and reports only a call whose function is `fetch`:
+
+```js
+export async function check({ files: [file] }) {
+  const { root } = await file.tree();
+  if (root === null) return [];
+  const findings = [];
+  const stack = [root];
+  while (stack.length > 0) {
+    const node = stack.pop();
+    const callee = node.type === 'call_expression' ? node.children.find((child) => child.field === 'function') : undefined;
+    if (callee && file.text.slice(callee.start, callee.end) === 'fetch') findings.push({ line: node.line, message: 'calls fetch outside the api layer' });
+    stack.push(...node.children);
+  }
+  return findings;
+}
+```
+
+A comment is a node of type `comment`, so the rule never reports it. A file with no tree, such as a file in a language Lawcheck does not read, gets no finding. The rule no longer imports `./lib/lines.mjs`, and another rule can still import it.
+
+```text
+$ lawcheck try no-fetch
+```
+
+```output
+lawcheck: try no-fetch (script rule, advisory)  2 findings in 2 of 3 files
+
+src/core/cart.ts:3  warning[no-fetch]  calls fetch outside the api layer
+  why:  Only the api layer talks to the network.
+src/core/price.ts:2  warning[no-fetch]  calls fetch outside the api layer
+```
+
+The finding in `src/core/cart.ts` is on line 3, the call. Line 1, the comment, has none.
 
 ## If it goes wrong
 

@@ -77,7 +77,9 @@ The part `Only on the user's word` lists the changes that the agent leaves to yo
 - deleting a rule, or changing its `status` or its `why`;
 - an edit of `.lawcheck/verdicts` or of `.lawcheck/config.yaml`.
 
-For a law with `may_use`, the part holds one more change: widening a `may_use` list.
+For a law with `may_use`, the part holds two more changes: widening a `may_use` list, and adding a pattern to `ignored`, which takes a file out of the list in force. For a law with `required` or `ignored`, it holds adding a pattern to `ignored` and taking one from `required`.
+
+When git ignores `.lawcheck/law.yaml`, no commit carries the law. The primer then says so under its line `The law here`, and asks the agent to tell you once.
 
 The primer holds at most 8,000 characters. For a large law, Lawcheck shortens the part about the law. The last line then names the commands that show a type or a rule in full.
 
