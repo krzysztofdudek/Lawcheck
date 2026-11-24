@@ -330,6 +330,7 @@ test('test 1091: a narrated sentence, a caption or a subtitle that names a versi
   said.forEach((text, index) => {
     quick[index]!.narration = [{ text, shows: ['x'] }];
   });
+  other.chapters[1].timeline[0].narration = [{ text: 'Lawcheck one point oh is out.', shows: ['x'] }];
   quick[0]!.caption = 'Zero point one';
   quick[1]!.subtitle = 'Alpha five installs it.';
   assert.deepEqual(versionProblems(other), [
@@ -342,6 +343,7 @@ test('test 1091: a narrated sentence, a caption or a subtitle that names a versi
     'q5, narration: "It needs version two." says a version said in words: version two',
     'q6, narration: "The tag reads one dot two dot three." says a number with a point, said in words: one dot two',
     'q7, narration: "Lawcheck is at twenty-one point four." says a number with a point, said in words: twenty-one point four',
+    'f1, narration: "Lawcheck one point oh is out." says a number with a point, said in words: one point oh',
   ]);
   const plain = clone(edit);
   plain.chapters[0].timeline[0].narration = [{ text: 'One point of failure is left.', shows: ['x'] }, { text: 'Claude Code reads the tag at alpha.', shows: ['x'] }];
