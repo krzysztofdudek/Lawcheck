@@ -397,7 +397,7 @@ The job of [Add the workflow](#_2-add-the-workflow) then checks again with `--la
 
 On `pull_request`, GitHub runs the pull request's own workflow file, and the install step reads its `package.json`. In the second check, a rule of the base judges the pull request's copy of each file outside the base's law. A pull request that edits them can skip the second check, or change what a rule reads.
 
-Lawcheck guards none of those files. Under `--law-from`, the check of the base's law is not a security boundary on its own. File systems that fold names, such as HFS+ on old Macs, or Windows, which drops trailing dots and spaces, are not covered in full, and `.lawcheck/` needs a code owner. On GitHub, a required review by a code owner can guard these paths:
+Lawcheck guards none of those files. Under `--law-from`, the check of the base's law is not a security boundary on its own. File systems that fold names, such as the older file system of macOS, or Windows, which drops trailing dots and spaces, are not covered in full, and `.lawcheck/` needs a code owner. On GitHub, a required review by a code owner can guard these paths:
 
 - `.lawcheck/`, since a person with push access can change `.lawcheck/config.yaml` and, under a law without `signers`, write a pass into `.lawcheck/verdicts`;
 - `.github/workflows/`;
