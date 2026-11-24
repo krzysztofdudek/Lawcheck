@@ -75,3 +75,22 @@ test('S3-4: a verdict other than pass or fail beside a pass is a bad answer, in 
   assert.deepEqual(checkAnswer(`${other} then ${FAIL}`, 5), FAILED);
   assert.deepEqual(checkAnswer(`note {"verdict": "pass", "findings": [], "example": ${other}}`, 5), { verdict: 'pass', findings: [] });
 });
+
+test('S3-4: a fail that is no JSON object beside a pass is a bad answer, in either order, never a pass', () => {
+  const broken = '{"verdict": "fail", "findings": [{"line": 1, "message": "m"}],}';
+  const bad = { problem: 'a pass stands beside a verdict "fail" that is no JSON object' };
+  assert.deepEqual(checkAnswer(`${broken} ${PASS}`, 5), bad);
+  assert.deepEqual(checkAnswer(`${PASS} ${broken}`, 5), bad);
+  assert.deepEqual(checkAnswer('```json\n' + PASS + '\n```\nnot ' + broken, 5), bad);
+  assert.deepEqual(checkAnswer(`{"answer": ${broken}} ${PASS}`, 5), bad);
+  assert.deepEqual(checkAnswer(`${broken.replace('"verdict"', '"\\u0076erdict"')} ${PASS}`, 5), bad);
+  assert.deepEqual(checkAnswer(broken, 5), { problem: 'the answer holds no JSON object with a verdict' });
+  assert.deepEqual(checkAnswer(`${broken} ${FAIL}`, 5), FAILED);
+});
+
+test('S3-4: a fail inside the verdict object that is read, or inside the string of one, leaves a pass a pass', () => {
+  const broken = '{"verdict": "fail", "findings": [],}';
+  assert.deepEqual(checkAnswer(`${PASS} and ${PASS}`, 5), { verdict: 'pass', findings: [] });
+  assert.deepEqual(checkAnswer(`note {"verdict": "pass", "findings": [], "example": ${broken}}`, 5), { verdict: 'pass', findings: [] });
+  assert.deepEqual(checkAnswer(`{"verdict": "pass", "findings": [], "note": ${JSON.stringify(broken)}}`, 5), { verdict: 'pass', findings: [] });
+});
