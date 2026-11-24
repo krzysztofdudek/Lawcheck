@@ -71,7 +71,7 @@ Cursor now runs the Lawcheck plugin for Claude Code. Cursor loads the plugins th
 
 The documentation site is now at https://docs.lawcheck.dev, and https://lawcheck.dev introduces Lawcheck. A page that alpha.4 named at `lawcheck.dev/<page>` redirects to the same page at the new address, and the README of the npm package names it.
 
-The docs site shows a chapter of the tutorial above each of five pages: Quick start, Forbid one layer to use another, Write a script rule, Write a reviewer rule, and CI and git hooks. A chapter is a recording of under a minute, with a spoken narration and subtitles, in which Claude Code and Lawcheck do the steps of its page in a small repository. https://lawcheck.dev lists the same chapters in a section named The tutorial, each with its own address, such as `#tutorial-write-a-script-rule`.
+The docs site shows a chapter of the tutorial above each of five pages: Quick start, Forbid one layer to use another, Write a script rule, Write a reviewer rule, and CI and git hooks. A chapter is a narrated recording of under a minute, with subtitles, in which Claude Code and Lawcheck do the steps of its page in a small repository. https://lawcheck.dev lists the same chapters in a section named The tutorial, each with its own address, such as `#tutorial-write-a-script-rule`.
 
 ### Before you upgrade
 
