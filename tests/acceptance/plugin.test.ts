@@ -11,7 +11,8 @@ import { example } from '../harness/examples.ts';
 import { DEADLINES_VARIABLE, fakeWrites, platformSkip, startHook, startProgram, testFolder } from '../harness/tool.ts';
 import { fakeGit, installedLawcheck, removeFakeGit } from '../harness/fakes.ts';
 import { PAST_USER_SET_MS, TEST_HOOK_DEADLINES, USER_SET_DEADLINE_S } from '../numbers.ts';
-import { DEADLINES } from '../../plugin/hooks/start.mjs';
+import { LIMIT } from '../../plugin/hooks/fit.mjs';
+import { DEADLINES, LINE_LIMIT } from '../../plugin/hooks/start.mjs';
 import { Bench, deadlineScenario, edited, ended, GIT_DIR, hook, json, NODE_DIR, nothing, PLUGIN, Session, startAndPromptScenario, SYSTEM_ENV, where, withBench } from './plugin-bench.ts';
 import type { HookRun } from './plugin-bench.ts';
 
@@ -361,6 +362,27 @@ test('plugin-slice §5: the plugin ships deadlines of 25 seconds for session-sta
   const hooks = JSON.parse(readFileSync(join(PLUGIN, 'hooks', 'hooks.json'), 'utf8')).hooks as Record<string, { hooks: { args: string[]; timeout: number }[] }[]>;
   const timeouts = Object.fromEntries(Object.values(hooks).flatMap((groups) => groups.flatMap((group) => group.hooks.map((entry) => [entry.args.at(-1)!, entry.timeout - less]))));
   assert.deepEqual(timeouts, DEADLINES);
+});
+
+test('test 1001: the limits docs/plugin.md states are the ones the hooks hold: 1,000 files, three hand-backs, 7 days of state, 9,000 characters and 2,000 characters a line', () => {
+  const page = readFileSync(join(ROOT, 'docs', 'plugin.md'), 'utf8');
+  const source = (name: string): string => readFileSync(join(PLUGIN, 'hooks', name), 'utf8');
+  const stated = (pattern: RegExp): number => {
+    const found = pattern.exec(page);
+    assert.ok(found, `docs/plugin.md has no sentence that matches ${pattern}`);
+    const words: Record<string, number> = { one: 1, two: 2, three: 3, four: 4, five: 5 };
+    return words[found[1]!] ?? Number(found[1]!.replace(/,/g, ''));
+  };
+  const held = (name: string, pattern: RegExp): number => {
+    const found = pattern.exec(source(name));
+    assert.ok(found, `plugin/hooks/${name} has no code that matches ${pattern}`);
+    return found.slice(1).map(Number).reduce((product, factor) => product * factor, 1);
+  };
+  assert.equal(stated(/the turn changed more than ([\d,]+) files/), held('lawcheck-hook.mjs', /^const MOST_FILES = (\d+);$/m));
+  assert.equal(stated(/sends the agent back at most (\w+) times in a turn/), held('lawcheck-hook.mjs', /blocks >= (\d+)\)/));
+  assert.equal(stated(/older than (\d+) days/) * 24 * 60 * 60 * 1000, held('state.mjs', /^const WEEK = (\d+) \* (\d+) \* (\d+) \* (\d+) \* (\d+);$/m));
+  assert.equal(stated(/at most ([\d,]+) characters/), LIMIT);
+  assert.equal(stated(/each line longer than ([\d,]+) characters/), LINE_LIMIT);
 });
 
 test('R-87: the hook a user runs keeps its shipped deadline for every event when the variable of the test entry is set', async () => {
