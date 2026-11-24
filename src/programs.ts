@@ -107,7 +107,17 @@ export function startProgram(program: string, args: string[], options: SpawnOpti
   return spawn(shell, ['/d', '/s', '/c', cmdLine(program, args)], { ...windows, windowsVerbatimArguments: true });
 }
 
-export const PROCESS_TABLE = 'Get-CimInstance Win32_Process | ForEach-Object { "$($_.ProcessId) $($_.ParentProcessId) $($_.CreationDate.Ticks)" }';
+// The time of making is in UTC ticks, so the guard can compare it with a time the tool took from its clock (ticksAt).
+export const PROCESS_TABLE = 'Get-CimInstance Win32_Process | ForEach-Object { "$($_.ProcessId) $($_.ParentProcessId) $($_.CreationDate.ToUniversalTime().Ticks)" }';
+
+// .NET ticks are 100 ns since 0001-01-01, and 621355968000000000 of them come before 1970-01-01.
+export function ticksAt(ms: number): string {
+  return String(BigInt(Math.floor(ms)) * 10000n + 621355968000000000n);
+}
+
+export function withTemp(env: Env, temp: string): Env {
+  return { ...Object.fromEntries(Object.entries(env).filter(([name]) => !/^(TMP|TEMP)$/i.test(name))), TMP: temp, TEMP: temp };
+}
 
 export function powershell(): string {
   return systemProgram('WindowsPowerShell\\v1.0\\powershell.exe');
@@ -123,10 +133,17 @@ export function createdIn(table: string): Map<number, string> {
 }
 
 // Windows gives an ended process's id to a new one soon, so of the groups' trees in an earlier list only the processes that a later list shows with the same id and the same time of making may be killed.
-export function stillListed(before: string, after: string, roots: number[], floor?: string): number[] {
+export function stillListed(before: string, after: string, roots: number[], floor?: string, since: Map<number, string> = new Map()): number[] {
   const known = createdIn(before);
   const now = createdIn(after);
-  const listed = [...new Set(roots.flatMap((pid) => [pid, ...madeBelow(before, pid, known.get(pid) ?? floor)]))];
+  const listed = [
+    ...new Set(
+      roots.flatMap((pid) => {
+        const made = rootMade(known, pid, floor, since);
+        return [...(made === known.get(pid) ? [pid] : []), ...madeBelow(before, pid, made)];
+      }),
+    ),
+  ];
   return listed.filter((pid) => known.has(pid) && now.get(pid) === known.get(pid));
 }
 
@@ -152,13 +169,14 @@ function madeBelow(table: string, root: number, rootMade: string | undefined): n
 }
 
 // What the guard ends of the groups' trees when the tool has ended: what both lists show made at the same time, and what the list made after the end shows below a root. On Windows a root ends with the tool, which holds it in its job, and what the root started lives on below its id. Windows gives an ended process's id to a new one, so below a process only what was made after it counts, and below a root whose id a later process holds only what was made before that one. floor is a time before every root was made: for a root the earlier list does not show, it stands in for the root's own time, and a process that holds the root's id then may be the root or a stranger, so nothing made after it is ended from the list.
-export function toEnd(before: string, after: string, roots: number[], floor?: string): number[] {
+// since gives, for a root the tool told the time of, a time before the root was made: a process an earlier list shows with the root's id made before it is an earlier holder of that id, and below the root nothing made before it is the root's.
+export function toEnd(before: string, after: string, roots: number[], floor?: string, since: Map<number, string> = new Map()): number[] {
   const known = createdIn(before);
   const now = createdIn(after);
   const children = childrenIn(after);
-  const found = new Set(stillListed(before, after, roots, floor));
+  const found = new Set(stillListed(before, after, roots, floor, since));
   for (const root of roots) {
-    const queue: [number, string | undefined][] = [[root, known.get(root) ?? floor]];
+    const queue: [number, string | undefined][] = [[root, rootMade(known, root, floor, since)]];
     const seen = new Set([root]);
     while (queue.length > 0) {
       const [pid, made] = queue.shift()!;
@@ -175,6 +193,14 @@ export function toEnd(before: string, after: string, roots: number[], floor?: st
     }
   }
   return [...found];
+}
+
+function rootMade(known: Map<number, string>, root: number, floor: string | undefined, since: Map<number, string>): string | undefined {
+  const made = known.get(root);
+  const started = since.get(root);
+  if (made !== undefined && (started === undefined || !earlier(made, started))) return made;
+  if (floor === undefined || started === undefined) return started ?? floor;
+  return earlier(floor, started) ? started : floor;
 }
 
 function earlier(a: string, b: string): boolean {
@@ -236,7 +262,7 @@ export function killTree(pid: number, signal: NodeJS.Signals, orphans = false): 
 const GUARD = fileURLToPath(new URL('./guard.js', import.meta.url));
 
 const live = new Set<ChildProcess>();
-const liveGroups = new Set<number>();
+const liveGroups = new Map<number, () => boolean>();
 const liveFolders = new Set<string>();
 let guard: ChildProcess | null = null;
 let listing = false;
@@ -266,14 +292,17 @@ export function watchProcess(child: ChildProcess): void {
   guard!.stdin!.write(`+${child.pid}\n`);
 }
 
-export function killGroup(pid: number, signal: NodeJS.Signals): boolean {
+// Windows gives the id of a program to a new process once the tool has seen the program end, and taskkill /T on that id would end that process and what it started, so there a group is ended by its id only while its program runs.
+export function killGroup(pid: number, signal: NodeJS.Signals, running = true): boolean {
+  if (process.platform === 'win32' && !running) return false;
   return killTree(pid, signal);
 }
 
-export function watchGroup(pid: number): void {
-  liveGroups.add(pid);
+// started is the time just before the program was started, which the guard takes as a time before the program was made.
+export function watchGroup(pid: number, started?: number, running: () => boolean = () => true): void {
+  liveGroups.set(pid, running);
   startGuard();
-  guard!.stdin!.write(`+g${pid}\n`);
+  guard!.stdin!.write(`+g${pid}${started === undefined ? '' : ` ${started}`}\n`);
 }
 
 export function watchFolder(path: string): void {
@@ -303,8 +332,8 @@ export function releaseFolder(path: string): void {
   if (liveFolders.delete(path)) guard?.stdin?.write(`-d${path}\n`);
 }
 
-export function releaseGroup(pid: number): void {
-  killGroup(pid, 'SIGKILL');
+export function releaseGroup(pid: number, running = true): void {
+  killGroup(pid, 'SIGKILL', running);
   if (liveGroups.delete(pid)) guard?.stdin?.write(`-g${pid}\n`);
 }
 
@@ -315,6 +344,6 @@ export function releaseProcess(child: ChildProcess): void {
 
 process.on('exit', () => {
   for (const child of live) child.kill('SIGKILL');
-  for (const pid of liveGroups) killGroup(pid, 'SIGKILL');
+  for (const [pid, running] of liveGroups) killGroup(pid, 'SIGKILL', running());
   for (const path of liveFolders) rmSync(path, { recursive: true, force: true, maxRetries: 10 });
 });

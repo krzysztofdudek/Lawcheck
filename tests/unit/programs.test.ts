@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { chmodSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createdIn, descendantsIn, findProgram, killTree, startProgram, stillListed, toEnd } from '../../dist/programs.js';
+import { createdIn, descendantsIn, findProgram, killTree, startProgram, stillListed, ticksAt, toEnd } from '../../dist/programs.js';
 
 function inDir(body: (dir: string) => void | Promise<void>): Promise<void> {
   const dir = realpathSync(mkdtempSync(join(tmpdir(), 'lawcheck-programs-')));
@@ -154,4 +154,18 @@ test('R-64: of the earlier list the guard kills below a root only what was made 
   const before = ['100 1 500', '101 100 501', '102 101 502', '400 100 300', '401 400 310', '103 101 499', ''].join('\r\n');
   assert.deepEqual(stillListed(before, before, [100]).sort((a, b) => a - b), [100, 101, 102]);
   assert.deepEqual(toEnd(before, before, [100]).sort((a, b) => a - b), [100, 101, 102]);
+});
+
+test('test 1047: below a root whose start the tool gave, the guard ends nothing made before that start, and a process an earlier list shows with the root\'s id made before it is an earlier holder of that id', () => {
+  const since = new Map([[100, '480']]);
+  assert.deepEqual(toEnd('', ['50 1 400', '70 100 460', '101 100 501', ''].join('\r\n'), [100], '400', since), [101]);
+  const holder = ['100 1 300', '70 100 350', ''].join('\r\n');
+  const after = ['70 100 350', '101 100 501', ''].join('\r\n');
+  assert.deepEqual(toEnd(holder, after, [100], '400', since), [101]);
+  assert.deepEqual(stillListed(holder, holder, [100], '400', since), []);
+  const own = ['100 1 500', '101 100 501', ''].join('\r\n');
+  assert.deepEqual(toEnd(own, own, [100], '400', since).sort((a, b) => a - b), [100, 101]);
+  assert.equal(ticksAt(0), '621355968000000000');
+  // new DateTime(2000, 1, 1, 0, 0, 0, DateTimeKind.Utc).Ticks in .NET.
+  assert.equal(ticksAt(Date.UTC(2000, 0, 1)), '630822816000000000');
 });

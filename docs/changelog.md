@@ -103,7 +103,9 @@ A rule file that is a symbolic link now gets its own `rule-missing-file` message
 
 On Windows, `lawcheck explain` no longer refuses with `usage` a name that holds at most 255 UTF-16 units but more than 255 bytes, such as 86 characters of three bytes each. The limit of a path on Windows is 32,767 units, not 4,095 bytes. Linux and macOS keep their limits.
 
-On Windows, when `lawcheck` is killed while a program reviewer runs, it no longer ends a process that Windows gave the reviewer program's id after that program ended, or what that process started. In alpha.4 it ended them. When the list of running processes came late, alpha.4 could also end the child of an older process that once held that id. The same holds for a rule's runner: in alpha.4 `lawcheck` ended it by its id, and a process that took that id after the runner ended was ended with it.
+On Windows, when `lawcheck` is killed while a program reviewer runs, it no longer ends a process that Windows gave the reviewer program's id after that program ended, or what that process started. In alpha.4 it ended them. When the list of running processes came late, or `lawcheck` was killed before it had one, alpha.4 could also end the child of an older process that once held that id. The same holds for a rule's runner: in alpha.4 `lawcheck` ended it by its id, and a process that took that id after the runner ended was ended with it.
+
+On Windows, a call to a program reviewer that ends normally no longer ends anything by the program's id. In alpha.4, every such call ended the tree of whatever process held that id after the program had exited, so a process that Windows had just given that id was ended with what it started.
 
 ## [0.1.0-alpha.4] - 2026-11-23
 
