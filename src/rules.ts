@@ -15,6 +15,7 @@ import type { Reads, Serve } from './readers.js';
 import type { ErrorItem } from './output.js';
 import type { Read, ReviewerRule } from './setup.js';
 import { decode, isBinary } from './types.js';
+import { step } from './progress.js';
 
 export interface RuleFile {
   path: string;
@@ -404,6 +405,7 @@ export function runRule(run: RuleRun): Promise<RuleOutcome> {
         if (error && !settled) end({ crash: `ends before answering ${where()}` });
       });
     };
+    const judging = () => step(`judging the files for the ${run.entry === 'companion' ? 'companion of the reviewer rule' : 'script rule'} ${run.rule}`);
     const callNext = (index: number) => {
       const file = run.files[index];
       if (file === undefined) {
@@ -415,6 +417,7 @@ export function runRule(run: RuleRun): Promise<RuleOutcome> {
         return;
       }
       stage = `on ${file.path}`;
+      judging();
       current = { file, serving: 0, asked: new Set() };
       const payload = { path: file.path, type: file.type?.id ?? null, text: file.text, lines: file.lines };
       ask({ kind: 'call', file: payload }, (message) => {
@@ -457,6 +460,7 @@ export function runRule(run: RuleRun): Promise<RuleOutcome> {
       reading(() => run.serve!(message.what as 'tree' | 'uses', call.file)).then(
         (value) => {
           if (settled || current !== call) return;
+          judging();
           child.send({ kind: 'answer', id: message.id, value }, (error) => {
             if (error && !settled) end({ crash: `ends before answering ${where()}` });
           });

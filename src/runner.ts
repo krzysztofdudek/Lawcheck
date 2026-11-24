@@ -328,6 +328,16 @@ function asking(what: 'tree' | 'uses', call: { ended: boolean; asks: Promise<unk
   };
 }
 
+// The tool reads the message, the file and the line of a finding and nothing else, so the other fields stay in the runner: a rule can pile any size into one, and only the message is held to a limit.
+function read(value: unknown): unknown {
+  if (!Array.isArray(value)) return value;
+  return value.map((item: unknown) => {
+    if (typeof item !== 'object' || item === null || Array.isArray(item)) return item;
+    const { message, file, line } = item as { message?: unknown; file?: unknown; line?: unknown };
+    return { message, file, line };
+  });
+}
+
 async function call(file: CallFile): Promise<void> {
   let value: unknown;
   let over: ReturnType<typeof oversized>;
@@ -336,6 +346,7 @@ async function call(file: CallFile): Promise<void> {
   try {
     value = companion === null ? await check!({ files: [argument], repo: repo! }) : await companion({ file: argument, repo: repo! });
     over = companion === null ? oversized(value) : null;
+    if (companion === null && over === null) value = read(value);
     // An answer the rule did not wait for still comes before the result, so the tool never meets an ask of a call it has closed.
     for (let at = 0; at < state.asks.length; at++) await state.asks[at];
   } catch (error) {

@@ -10,7 +10,7 @@ import { LIMITS } from '../../dist/rules.js';
 
 const ORIGINAL = NO_CONSOLE.replace('export function check', 'function original');
 
-test('test 21: each broken answer crashes the rule', async () => {
+test('test 21: each broken answer crashes the rule, and a function in a field of a finding that the tool does not read breaks nothing', async () => {
   const cases: [string, string][] = [
     ['throws', "export function check() { throw new Error('broken'); }\n"],
     ['returns {}', 'export function check() { return {}; }\n'],
@@ -19,7 +19,7 @@ test('test 21: each broken answer crashes the rule', async () => {
     ['line 0', "export function check() { return [{ message: 'x', line: 0 }]; }\n"],
     ['line NaN', "export function check() { return [{ message: 'x', line: NaN }]; }\n"],
     ['line 7', "export function check() { return [{ message: 'x', line: 7 }]; }\n"],
-    ['a function in a finding', "export function check() { return [{ message: 'x', extra: () => 1 }]; }\n"],
+    ['a function as the file of a finding', "export function check() { return [{ message: 'x', file: () => 1 }]; }\n"],
     ['process.exit(0)', 'export function check() { process.exit(0); }\n'],
     ['no check exported', 'export function other() { return []; }\n'],
   ];
@@ -30,6 +30,11 @@ test('test 21: each broken answer crashes the rule', async () => {
       }),
     ),
   );
+  await withRule("export function check() { return [{ message: 'x', extra: () => 1 }]; }\n", async (s) => {
+    const run = await check(s);
+    assert.equal(run.code, 1);
+    assert.ok(run.stdout.includes('error[no-console]  x'), run.stdout);
+  });
 });
 
 test('test 22: one line per broken rule', async () => {
