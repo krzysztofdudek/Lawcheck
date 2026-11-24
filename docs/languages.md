@@ -68,7 +68,7 @@ To clear the cache, delete `.lawcheck/.local/readers/`. The next run parses ever
 
 A reader resolves a use to the file that the use names. A use that the readers cannot resolve to a single file is unresolved. The readers report some uses as outside the repository, such as a use of the standard library or of an installed package. Lawcheck does not count those uses.
 
-An unresolved use never becomes a finding: Lawcheck neither allows nor forbids it. It never changes the exit code of a run.
+Lawcheck neither allows nor forbids an unresolved use, and the use changes no exit code by itself. One case differs: an `ambiguous` use whose every candidate the list in force forbids. Lawcheck counts that use as unresolved and also reports it as a [`forbidden-use`](codes.md#forbidden-use).
 
 The first line of `check` counts the unresolved uses in the files of the change. Under `--full`, the debt heading counts those of the other files. In `--json`, Lawcheck lists each one with the readers' answer:
 

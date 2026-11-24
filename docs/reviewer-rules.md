@@ -36,9 +36,11 @@ export function companion({ file }) {
 }
 ```
 
-For each file that the rule judges, Lawcheck calls `companion` with `file` and `repo`, the keys that a script rule gets (`lawcheck docs script-rules`). The function returns a list of paths from the root, or a promise of one. With this companion, the prompt for `tests/price.test.ts` holds `specs/price.md`, and the prompt for `tests/tax.test.ts` holds `specs/tax.md`. A file of the list goes into the prompt of that one judged file, after the files of `context`. A path that the prompt already holds, the judged file or a file of `context`, goes in once. An empty list adds no file. Each returned file adds its whole text to the prompt of that judged file, so every call of the rule sends the reviewer more text.
+For each file that the rule judges, Lawcheck calls `companion` with `file` and `repo`, the keys that a script rule gets (`lawcheck docs script-rules`). The function returns a list of paths from the root, or a promise of one. With this companion, the prompt for `tests/price.test.ts` holds `specs/price.md`, and the prompt for `tests/tax.test.ts` holds `specs/tax.md`.
 
-The companion runs in the runner of script rules, under the same limits: it reads the files below the root, and it writes no file, starts no program and opens no network connection. It can ask for the judged file's syntax tree and uses, so it can return the files that the judged file imports. Lawcheck runs it on each check that judges a file of the rule, with or without `--review`, because the files it returns decide the review hash. Its time counts toward the 600 seconds that the script rules of a check may take together. `lawcheck try` and `lawcheck explain` run it too.
+A file of the list goes into the prompt of that one judged file, after the files of `context`. A path that the prompt already holds, such as the judged file or a file of `context`, goes in once. An empty list adds no file. Each returned file adds its whole text to the prompt, so every call of the rule sends the reviewer more text.
+
+The companion runs in the runner of script rules, under the same limits. It reads the files below the root. It writes no file, starts no program and opens no network connection. It can ask for the judged file's syntax tree and uses, so it can return the files that the judged file imports. The files it returns decide the review hash. So Lawcheck runs it on each check that judges a file of the rule, with or without `--review`. Its time counts toward the 600 seconds that the script rules of a check may take together. `lawcheck try` and `lawcheck explain` run it too.
 
 Lawcheck stops the run with [`rule-crashed`](codes.md#rule-crashed), and names the companion's file, in these cases:
 
@@ -82,7 +84,11 @@ An answer is bad when Lawcheck finds in it no object with a `verdict` of `pass` 
 - a finding with no message;
 - a finding with a line outside the file.
 
-A pass is bad too when the answer also holds an object whose `verdict` is neither `pass` nor `fail`, such as `"Fail"`, or an object with the key `verdict` twice. JSON keeps the last of two equal keys, so `{"verdict": "fail", ..., "verdict": "pass"}` would read as a pass. A pass is bad as well when the answer holds a `"verdict": "fail"` outside every object that parses, such as a fail with a trailing comma: the fail may be the real verdict.
+A pass is bad too when the answer also holds one of these:
+
+- an object whose `verdict` is neither `pass` nor `fail`, such as `"Fail"`;
+- an object with the key `verdict` twice. JSON keeps the last of two equal keys, so `{"verdict": "fail", ..., "verdict": "pass"}` would read as a pass;
+- a `"verdict": "fail"` outside every object that parses, such as a fail with a trailing comma. That fail may be the real verdict.
 
 After a bad answer, Lawcheck asks the reviewer once more, if the setting `reviewer.max_calls` leaves room for one more request ([Asking the reviewer](#asking-the-reviewer)). A second bad answer stops the run with [`reviewer-bad-answer`](codes.md#reviewer-bad-answer). The run stops with the same code after one bad answer when `reviewer.max_calls` leaves no room.
 
@@ -99,7 +105,7 @@ A [verdict](concepts.md#verdict) is the reviewer's answer, pass or fail, for one
 - the path and text of the judged file;
 - the waived lines that the prompt names.
 
-A change to any of these parts gives a new review hash. Lawcheck then finds no pass for the file and rule. The file needs a new review. A new waiver changes the review hash, because the waiver is part of the text of the file. A change to `specs/price.md` gives a new review hash to `tests/price.test.ts` alone. A change to the companion's module gives one to every file of the rule. A module that the companion imports is not part of the review hash: a change to it gives a new one only to the files whose returned files it changes.
+A change to any of these parts gives a new review hash. Lawcheck then finds no pass for the file and rule, and the file needs a new review. A new waiver changes the review hash, because the waiver is part of the text of the file. A change to `specs/price.md` gives a new review hash to `tests/price.test.ts` alone. A change to the companion's module gives one to every file of the rule. A module that the companion imports is not part of the review hash. A change to that module gives a new hash only to the files whose returned files it changes.
 
 Lawcheck leaves the rule's `status`, the provider, the model and the other settings out of the review hash. A recorded pass stays valid when you change any of them.
 
@@ -140,7 +146,9 @@ Under a law with `signers`, a review works this way:
 
 A law without `signers` reads and writes `.lawcheck/verdicts` without signatures. It counts a signed line as a pass too.
 
-A signature proves that someone whose key the law names recorded the pass. A signer can run any reviewer, so name as signers only the people and the jobs that you trust with a review. A review of a pull request asks the reviewer that its `.lawcheck/config.yaml` names, with the Lawcheck that its `package.json` installs, so a signer reads both first. A job in CI runs the workflow of the branch it reviews, so anyone who can push a branch can make a job that holds the key sign any pass. A pull request from a fork gets no secret, so it cannot. In CI, the second check of the workflow reads the law of the base, so the signers of the base decide ([The job trusts the verdicts](ci.md#the-job-trusts-the-verdicts)).
+A signature proves that someone whose key the law names recorded the pass. A signer can run any reviewer, so name as signers only the people and the jobs that you trust with a review. A review of a pull request asks the reviewer that the pull request's `.lawcheck/config.yaml` names. It runs the Lawcheck that the pull request's `package.json` installs. So a signer reads both files first.
+
+A job in CI runs the workflow of the branch it reviews. Anyone who can push a branch can then make a job that holds the key sign any pass. A pull request from a fork gets no secret, so it cannot. In CI, the second check of the workflow reads the law of the base, so the signers of the base decide ([The job trusts the verdicts](ci.md#the-job-trusts-the-verdicts)).
 
 When you add `signers` to a law, the passes already in the file carry no signature, and they stop counting. A plain check judges the changed files, so each file needs one signed review when it next changes. `lawcheck check --strict --review` asks about every file at once. Lawcheck 0.1.0-alpha.4 and older stop on a law with `signers` with `law-invalid`, so every checkout and every job needs a later version first.
 

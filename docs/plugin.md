@@ -19,7 +19,9 @@ A script rule is a JavaScript module that the repository holds in `.lawcheck/rul
 
 With a `runner` setting other than `global`, the package manager starts Lawcheck from the repository's own files ([Settings](config.md#runner)). These files can name a program of the repository, such as `yarnPath` in `.yarnrc.yml` or a committed `node_modules/.bin/lawcheck`. The hook then runs the program that those files name.
 
-The same plugin works in Codex. Its hooks there run on the same events, `apply_patch` stands for the three tools, and two variables stand for the settings ([Lawcheck in Codex](codex-cli.md)). It works in GitHub Copilot CLI too, where `create` and `edit` stand for the three tools, the same two variables stand for the settings, and the agent tells you what the plugin has for you ([Lawcheck in GitHub Copilot CLI](copilot-cli.md)). Cursor runs the plugin as it is ([Lawcheck in Cursor](cursor.md)). For another coding agent, write in its instructions file that it runs `lawcheck prime` at the start of a session and `lawcheck check` after each change ([Other coding agents](other-agents.md)).
+The same plugin works in Codex ([Lawcheck in Codex](codex-cli.md)). Its hooks there run on the same events. `apply_patch` stands for the three tools, and two variables stand for the settings. The plugin works in GitHub Copilot CLI too ([Lawcheck in GitHub Copilot CLI](copilot-cli.md)). There `create` and `edit` stand for the three tools, and the same two variables stand for the settings. Copilot CLI shows you no text from a hook, so the plugin asks the agent to tell you its messages.
+
+Cursor runs the plugin for Claude Code ([Lawcheck in Cursor](cursor.md)). Its check before the agent finishes needs two entries in `.cursor/hooks.json`. For another coding agent, write in its instructions file that it runs `lawcheck prime` at the start of a session and `lawcheck check` after each change ([Other coding agents](other-agents.md)).
 
 ## The four hooks
 
@@ -72,7 +74,7 @@ The hook runs `lawcheck check ./<file>` on the file that `Write`, `Edit` or `Not
 |---|---|
 | 0 | nothing, warnings included |
 | 1 | the output, under a line that names the file and says it breaks the law of this repository |
-| 2 | the output, under a line that says Lawcheck could not check the file; the hook does not hand over the same output of one law twice in a row, so a law the user is still editing reaches the agent once. After an edit under the same law that Lawcheck could check, with exit 0 or 1, the same output reaches the agent again |
+| 2 | the output, under a line that says Lawcheck could not check the file. The hook does not hand over the same output of one law twice in a row. A law the user is still editing reaches the agent once. After an edit that Lawcheck could check under the same law, with exit 0 or 1, the same output reaches the agent again |
 
 If the check runs past its deadline, the agent gets one line that says so. If Lawcheck does not run for another reason, such as a missing program, the agent gets nothing.
 
@@ -103,9 +105,11 @@ An agent that cannot fix a breach can add a waiver, or change the law, and finis
 Lawcheck: in this turn the agent added 1 waiver (no-console at src/core/shipping.ts:1) and changed .lawcheck/law.yaml. Read them before you accept the turn.
 ```
 
-The message names each waiver that the turn added, by the rule after the marker and its line. The hook compares the text from `lawcheck-waive` to the end of each line with the same file at the start of the turn. A waiver that the file held before the turn is not named, whether the file was committed then or only changed on disk. The hook reads the marker as text in every file of the turn, so it also names a marker that `check` does not count, such as one in a file with no type. The message also names each file of the turn that is `.lawcheck/law.yaml`, `.lawcheck/config.yaml` or a file in `.lawcheck/rules/`, as changed or as deleted. It shows five of each and the count of the rest. A turn that deletes `.lawcheck/law.yaml` leaves no law to check against, so the hook runs no check and sends only this message, naming the law as deleted.
+The message names each waiver that the turn added, by the rule after the marker and by its line. The hook compares the text from `lawcheck-waive` to the end of each line with the same file at the start of the turn. A waiver that the file held before the turn is not named, whether the file was committed then or only changed on disk. The hook reads the marker as text in every file of the turn. So it also names a marker that `check` does not count, such as one in a file with no type.
 
-The message goes to you and never to the agent, and it does not send the agent back. It comes once, at the stop that ends the turn. A stop that sends the agent back says nothing of it. A turn with no note from `UserPromptSubmit` gets no such message, because the hook does not know what the files held at its start. `lawcheck check` against a base names the waivers of the whole change ([What a check judges](change.md#waivers-a-change-adds)).
+The message also names each changed or deleted file of the turn among these: `.lawcheck/law.yaml`, `.lawcheck/config.yaml` and the files in `.lawcheck/rules/`. It shows five waivers and five files, and the count of the rest. A turn that deletes `.lawcheck/law.yaml` leaves no law to check against. The hook then runs no check, and its message names the law as deleted.
+
+The message goes to you and never to the agent, and it does not send the agent back. The hook sends it once, when it lets the agent finish. A stop that sends the agent back does not send it. A turn with no note from `UserPromptSubmit` gets no such message, because the hook does not know what the files held at its start. `lawcheck check` against a base names the waivers of the whole change ([What a check judges](change.md#waivers-a-change-adds)).
 
 ## The text the agent gets
 

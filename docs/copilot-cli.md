@@ -86,7 +86,7 @@ next: fix src/core/total.ts:2
 
 The plugin sends the agent back at most three times in one turn. It does not send the agent back twice in a row for the same output.
 
-Copilot CLI gives a plugin no place to write to you. So when the plugin lets the agent finish while the check still fails, it sends the agent back once more, with this text:
+The output of a hook in Copilot CLI has no field for a message to you. A command hook can print progress lines to the timeline while it runs ([Copilot CLI's reference of hooks](https://docs.github.com/en/copilot/reference/hooks-configuration), read on 2026-11-24), and the plugin prints none. So when the plugin lets the agent finish while the check still fails, it sends the agent back once more, with this text:
 
 ```output
 Lawcheck: before you finish, tell the user this message, word for word, then finish:

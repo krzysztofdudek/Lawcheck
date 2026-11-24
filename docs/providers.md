@@ -26,7 +26,7 @@ Lawcheck sends `POST <address>/models/<model>:generateContent`. The default `<ad
 
 ## openai-compatible
 
-This provider calls a server that answers the chat completions API of OpenAI. Lawcheck takes the address of that server from `LAWCHECK_REVIEWER_ENDPOINT`, such as `gpu-box:8000/v1`, over HTTP. Without that variable, a review stops with [`reviewer-unreachable`](codes.md#reviewer-unreachable). Lawcheck sends the server the same request as for `openai`. If the environment holds `LAWCHECK_REVIEWER_KEY`, Lawcheck sends it as `authorization: Bearer <key>`. This provider never reads `OPENAI_API_KEY`.
+This provider calls a server that answers the chat completions API of OpenAI. Lawcheck takes the address of that server from `LAWCHECK_REVIEWER_ENDPOINT`, such as `http://gpu-box:8000/v1`. Without that variable, a review stops with [`reviewer-unreachable`](codes.md#reviewer-unreachable). Lawcheck sends the server the same request as for `openai`. If the environment holds `LAWCHECK_REVIEWER_KEY`, Lawcheck sends it as `authorization: Bearer <key>`. This provider never reads `OPENAI_API_KEY`.
 
 ## ollama
 
@@ -93,20 +93,22 @@ Lawcheck runs `copilot --silent` and turns off six things for the call:
 - access to the temporary folder;
 - the automatic update.
 
-Lawcheck runs `copilot mcp list --json` once a run. It switches off each server that this list names. `copilot` may keep a history of its sessions. Lawcheck changes none of the settings of that history.
+Lawcheck runs `copilot mcp list --json` once a run. For the call, it switches off each server that this list shows as on.
+
+`copilot` may save each review in its own history of sessions. Lawcheck passes no flag about that history, so the settings of `copilot` decide whether it keeps one.
 
 The VS Code Copilot extension holds a `copilot` program that only offers to install the CLI. Lawcheck skips a `copilot` inside the folder of that extension.
 
-The program uses its own sign-in, or one of the variables `COPILOT_GITHUB_TOKEN`, `GH_TOKEN`, `GITHUB_TOKEN` and `COPILOT_PROVIDER_`.
+The program uses its own sign-in, or one of the variables `COPILOT_GITHUB_TOKEN`, `GH_TOKEN`, `GITHUB_TOKEN`, `COPILOT_PROVIDER_API_KEY`, `COPILOT_PROVIDER_API_KEY_COMMAND` and `COPILOT_PROVIDER_BEARER_TOKEN`. `COPILOT_PROVIDER_API_KEY_COMMAND` holds a command that prints a key, so Lawcheck does not hide its value as a key ([Text that leaves the machine](#text-that-leaves-the-machine)).
 
 ## Over HTTP
 
 With `LAWCHECK_REVIEWER_ENDPOINT` set, Lawcheck sends the requests of all five HTTP providers to its address, in place of their own. The variable holds an `http:` or `https:` address. Lawcheck refuses an address with a user, a password, a query or a fragment. Lawcheck drops the `/` at the end of the address, if there is one. Then it adds the path of the provider:
 
-- `openai` and `openai-compatible` add `/chat/completions`. A server that answers under `/v1` takes an address such as `gpu-box:8000/v1`, over HTTP;
+- `openai` and `openai-compatible` add `/chat/completions`. A server that answers under `/v1` takes an address such as `http://gpu-box:8000/v1`;
 - `anthropic` adds `/messages`, as it does to its own `api.anthropic.com/v1`, over encrypted HTTP;
 - `google` adds `/models/<model>:generateContent`;
-- `ollama` adds `/api/chat`. Its address is the server alone, such as `gpu-box:11434`, over HTTP.
+- `ollama` adds `/api/chat`. Its address is the server alone, such as `http://gpu-box:11434`.
 
 Each request carries two things: the prompt as one user message, and the temperature.
 
@@ -144,7 +146,7 @@ Check a new setup with `lawcheck doctor --reviewer` ([Checking the setup](#check
 
 ## Text that leaves the machine
 
-Three commands send text to a reviewer: `lawcheck check --review`, `lawcheck try` on a reviewer rule, and `lawcheck doctor --reviewer`. `lawcheck doctor` without the flag sends no prompt, but with the provider `ollama` and a reviewer rule in the law it sends `GET <address>/api/version` to the server, with a time limit of 5 seconds, to learn whether the server answers. In any other run, Lawcheck opens no connection to a reviewer and starts no reviewer program.
+Three commands send text to a reviewer: `lawcheck check --review`, `lawcheck try` on a reviewer rule, and `lawcheck doctor --reviewer`. `lawcheck doctor` without the flag sends no prompt. With the provider `ollama` and a reviewer rule in the law, it sends `GET <address>/api/version` to the server, with a time limit of 5 seconds, to learn whether the server answers. In any other run, Lawcheck opens no connection to a reviewer and starts no reviewer program.
 
 Each call of these commands sends one prompt ([Reviewer rules](reviewer-rules.md#the-prompt)). The prompt holds five parts:
 
@@ -206,7 +208,7 @@ $ lawcheck doctor
 $ lawcheck doctor --reviewer
 ```
 
-`lawcheck doctor` says whether Lawcheck can call the provider. It asks the provider for no review. For `ollama`, it sends `GET <address>/api/version` to the server, with a time limit of 5 seconds, when the law holds a reviewer rule, and names the address it reached. For every other provider it opens no connection.
+`lawcheck doctor` says whether Lawcheck can call the provider. It asks the provider for no review. For `ollama`, when the law holds a reviewer rule, it sends `GET <address>/api/version` to the server, with a time limit of 5 seconds. It then names the address it reached. For every other provider it opens no connection.
 
 `lawcheck doctor --reviewer` sends one test request. `reviewer.max_calls` does not count it. The command says whether the reviewer answered with a verdict. A failed check ends with a `next:` line that names what to set or start.
 
