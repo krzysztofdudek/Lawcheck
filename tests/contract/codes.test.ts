@@ -6,6 +6,7 @@ import { delimiter, join } from 'node:path';
 import { openai, startFake, type Fake } from '../acceptance/fake-reviewer.ts';
 import { platformSkip } from '../harness/tool.ts';
 import {
+  atOnce,
   copySample,
   D,
   D_PATH,
@@ -224,6 +225,20 @@ const CASES: Case[] = [
     id: 'base-unreachable, check',
     code: 'base-unreachable',
     setup: (dir) => ({ cwd: makeSample(dir), argv: ['check', '--base', 'nope'], follow: { supply: ['--base', 'main'] } }),
+  },
+  {
+    id: 'law-from-unreachable, check',
+    code: 'law-from-unreachable',
+    setup: (dir) => ({ cwd: makeSample(dir), argv: ['check', '--base', 'main', '--law-from', 'nope'] }),
+  },
+  {
+    id: 'law-from-packages, check',
+    code: 'law-from-packages',
+    setup: (dir) => {
+      const cwd = makeSample(dir);
+      write(cwd, '.lawcheck/node_modules/callpkg/index.js', 'export const CALL = /a^/;\n');
+      return { cwd, argv: ['check', '--base', 'main', '--law-from', 'main'] };
+    },
   },
   {
     id: 'base-unreachable, doctor',
@@ -807,19 +822,22 @@ async function reproduce(spec: Case, dir: string, fake: Fake): Promise<string[]>
   return problems;
 }
 
-async function runCases(cases: Case[]): Promise<string[]> {
-  const problems: string[] = [];
-  for (const spec of cases) {
+// A case that registers a copy of the tool in CLEANUP shares that list with the others, so only the groups that register none run at once, and there the list is never emptied while a case runs, so a registration cannot be lost.
+async function runCases(cases: Case[], limit = 1): Promise<string[]> {
+  CLEANUP.length = 0;
+  const found = await atOnce(cases, limit, (spec) => spec.id, async (spec) => {
     const fake = await startFake();
-    CLEANUP.length = 0;
+    if (limit === 1) CLEANUP.length = 0;
     try {
-      await inTemp(async (dir) => void problems.push(...(await reproduce(spec, dir, fake))));
+      return await inTemp((dir) => reproduce(spec, dir, fake));
     } finally {
       await fake.close();
-      for (const remove of CLEANUP) remove();
+      const shared = limit > 1 && CLEANUP.length > 0;
+      for (const remove of CLEANUP.splice(0)) remove();
+      if (shared) throw new Error('a case of this group registers a copy of the tool in CLEANUP, which cases that run at once share');
     }
-  }
-  return problems;
+  });
+  return found.flat();
 }
 
 const GROUPS: Record<string, string[]> = {
@@ -828,7 +846,12 @@ const GROUPS: Record<string, string[]> = {
   run: ['base-unreachable', 'rule-crashed', 'parser-failed', 'internal', 'link-outside-root', 'path-unsupported', 'runner-failed'],
   reviewer: ['reviewer-not-configured', 'too-many-reviews', 'reviewer-unreachable', 'reviewer-bad-answer', 'not-a-signer', 'not-reviewed', 'too-large-to-review'],
   findings: ['forbidden-use', 'uses-not-read', 'untyped-file', 'waiver-', 'doctor,'],
+  lawFrom: ['law-from-unreachable'],
+  lawFromPackages: ['law-from-packages'],
 };
+
+// Each case runs the tool in a process of its own a few times, and one case after another they were most of the time of these two tests on a loaded machine.
+const CASES_AT_ONCE = 6;
 
 const inGroup = (group: string): Case[] => CASES.filter((c) => GROUPS[group]!.some((prefix) => c.id.startsWith(prefix)));
 
@@ -848,7 +871,7 @@ test('check-slice §6: usage, not-initialized, already-initialized, no-git and u
 });
 
 test('check-slice §6: law-invalid, config-invalid, rule-missing-file, rule-file-without-entry and type-overlap, in text and in JSON, and the commands their next lines name', async () => {
-  assert.deepEqual(await runCases(inGroup('files')), []);
+  assert.deepEqual(await runCases(inGroup('files'), CASES_AT_ONCE), []);
 });
 
 test('check-slice §6: base-unreachable, rule-crashed, parser-failed, internal, link-outside-root, path-unsupported and runner-failed, in text and in JSON, and the commands their next lines name', async (t) => {
@@ -857,12 +880,20 @@ test('check-slice §6: base-unreachable, rule-crashed, parser-failed, internal, 
   if (noStar !== null) t.diagnostic(noStar);
 });
 
+test('test 1075: law-from-unreachable, in text and in JSON, and its next line', async () => {
+  assert.deepEqual(await runCases(inGroup('lawFrom')), []);
+});
+
+test('test 1111: law-from-packages, in text and in JSON, and its next line', async () => {
+  assert.deepEqual(await runCases(inGroup('lawFromPackages')), []);
+});
+
 test('check-slice §6: the reviewer codes, in text and in JSON, and the commands their next lines name', async () => {
   assert.deepEqual(await runCases(inGroup('reviewer')), []);
 });
 
 test('check-slice §6: the findings, with their exit codes and the exact text the spec fixes, and the notes of doctor', async () => {
-  assert.deepEqual(await runCases(inGroup('findings')), []);
+  assert.deepEqual(await runCases(inGroup('findings'), CASES_AT_ONCE), []);
 });
 
 test('tests 232, 233, 236, 241 and 277: file-too-large, text-too-large, too-many-findings, file-unwritable and memory-too-large, in text and in JSON, and the commands their next lines name', async () => {

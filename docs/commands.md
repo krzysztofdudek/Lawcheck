@@ -166,7 +166,7 @@ More: lawcheck docs
 ## check
 
 ```text
-usage: lawcheck check [--full] [--strict] [--base <ref>] [--review [--again] [--max-calls <n>]] [--sarif <file>] [--json]
+usage: lawcheck check [--full] [--strict] [--base <ref>] [--law-from <ref>] [--review [--again] [--max-calls <n>]] [--sarif <file>] [--json]
        lawcheck check <path or pattern>... [--json]
 ```
 
@@ -212,6 +212,14 @@ With `--strict`, `check` judges every file as `--full` does, and holds the debt 
 ### --base `<ref>`
 
 `--base` names the base of the change: a branch, a tag or a commit. Without the flag, Lawcheck takes `LAWCHECK_BASE`, then the variable that a CI service sets for the target branch of a pull request or for the commit before a push, then `origin/HEAD`. [CI and git hooks](ci.md#_5-give-the-base-on-another-ci-service) lists the variables. With none of these, a plain check on a machine counts every file as changed. In a CI job, a plain check with none of them stops with `base-unreachable`, unless you pass `--full`.
+
+### --law-from `<ref>`
+
+`--law-from` judges the change by the law of another commit, such as the base. Lawcheck reads `.lawcheck/law.yaml`, `.lawcheck/config.yaml` and `.lawcheck/rules/` of that commit from git, and changes nothing in the checkout. The files it judges are those of the work tree. A change that takes a rule off a type and breaks that rule then fails ([A change to the law](ci.md#a-change-to-the-law)).
+
+A rule of that commit reads the work tree's copy of every file outside `.lawcheck/`. Lawcheck loads its script rules from a copy of the commit's `.lawcheck/rules/` in `.lawcheck/.local/`, and removes the copy when the run ends. A rule imports the helpers of that copy by a relative path. A package it imports by name, from `node_modules`, and a file it reads by path are the work tree's, `.lawcheck/` included. When git lists a file in `.lawcheck/node_modules` or `.lawcheck/.local`, where such a package could come from the change, the run stops with `law-from-packages`. The verdicts come from `.lawcheck/verdicts` of the work tree. A pass counts only for the text of the reviewer rule it was recorded under, and only with a signer of the commit's law, when that law names signers. With `--review`, Lawcheck records passes under the commit's text.
+
+A ref that names no commit, or a commit with no `.lawcheck/law.yaml` at the place of the root, stops the run with `law-from-unreachable`. A law of that commit that is not valid stops it with `law-invalid`, and the message names the ref. A check of named files does not take `--law-from`.
 
 ### --review
 

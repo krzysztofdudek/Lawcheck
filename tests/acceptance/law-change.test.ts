@@ -1,8 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, rmSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { append, check, E, E_PATH, LAW, lawcheck, read, setRule, withR, withSample, withU, write } from './helpers.ts';
+import { append, check, E, E_PATH, findingLines, git, LAW, lawcheck, read, run as runR, setRule, withR, withSample, withU, write } from './helpers.ts';
+import { withFake } from './fake-reviewer.ts';
 
 const GENERIC = 'note: the law changed in this change; lawcheck check --full --base main shows what it finds in the rest of the code';
 const PREFIX = 'note: this change edits the law that judges it: ';
@@ -219,4 +220,211 @@ test('R-104: a type moved under another parent is named, though its own keys sta
     assert.deepEqual(secondLines(run.stdout), [GENERIC, `${PREFIX}moves the type script from the top of types to source`]);
     assert.equal(run.code, 0);
   });
+});
+
+const MAIN_RULE = readFileSync(new URL('../reviewer-sample/.lawcheck/rules/clear-errors.md', import.meta.url), 'utf8').trim();
+const FROM = 'note: this change edits its own law, and the law of main judged it: ';
+
+function noCopyLeft(s: string): void {
+  const local = join(s, '.lawcheck/.local');
+  assert.deepEqual(existsSync(local) ? readdirSync(local) : [], [], 'the copy of the rules is gone');
+}
+
+test('test 1071: T7, a change that takes a rule off a type and breaks it passes by its own law and fails with --law-from, in text and in JSON', async () => {
+  await withSample(async (s) => {
+    edit(s, '        rules: [no-console]\n', '        rules: []\n');
+    write(s, 'src/core/total.ts', "export const total = 1;\nconsole.log(total);\n");
+    const own = await check(s);
+    assert.equal(own.code, 0, own.stdout);
+    const run = await check(s, '--base', 'main', '--law-from', 'main');
+    assert.deepEqual(run.stdout.split('\n'), [
+      'lawcheck: FAIL  1 error in 2 changed files (against main)',
+      FROM + 'takes the rule no-console off the type library',
+      '',
+      'src/core/total.ts:2  error[no-console]  writes to the terminal with console.log',
+      '  why:  Only the command layer writes to the terminal.',
+      '',
+      'next: fix src/core/total.ts:2',
+      '',
+    ]);
+    assert.equal(run.code, 1);
+    noCopyLeft(s);
+    const json = await check(s, '--base', 'main', '--law-from', 'main', '--json');
+    const document = JSON.parse(json.stdout);
+    assert.deepEqual(document.scope, { mode: 'change', base: 'main', files: 2, law_changed: true, law_changes: ['takes the rule no-console off the type library'] });
+    assert.deepEqual(document.findings.map((f: { code: string; file: string; line: number }) => [f.code, f.file, f.line]), [['no-console', 'src/core/total.ts', 2]]);
+    assert.equal(json.code, 1);
+    git(s, 'add', '-A');
+    git(s, 'commit', '-q', '-m', 'loosen');
+    const committed = await check(s, '--base', 'main', '--law-from', 'main');
+    assert.equal(committed.code, 1, 'the commit of the same change fails the same way');
+    const ownAgain = await lawcheck(s, ['check', '--base', 'main', '--law-from', 'HEAD']);
+    assert.equal(ownAgain.code, 0, 'the law of the branch, named by its commit, judges as the work tree does');
+  });
+});
+
+test('test 1072: T7, under --law-from the script rules and their helpers are those of the commit, and a rule the change adds neither runs nor stops the run', async () => {
+  const helper = "export const CALL = /\\bconsole\\.(\\w+)/;\n";
+  const rule = "import { CALL } from './lib/call.mjs';\nexport function check({ files }) {\n  return files.flatMap((file) => file.lines.flatMap((text, index) => (CALL.test(text) ? [{ file: file.path, line: index + 1, message: 'writes to the terminal' }] : [])));\n}\n";
+  await withSample(
+    async (s) => {
+      write(s, '.lawcheck/rules/lib/call.mjs', 'export const CALL = /a^/;\n');
+      setRule(s, 'extra', "throw new Error('the rule of the change ran');\n");
+      edit(s, '  no-todo:\n', '  extra:\n    why: A rule of the change.\n  no-todo:\n');
+      edit(s, '        rules: [no-console]\n', '        rules: [no-console, extra]\n');
+      write(s, 'src/core/total.ts', "export const total = 1;\nconsole.log(total);\n");
+      const run = await check(s, '--base', 'main', '--law-from', 'main');
+      assert.deepEqual(findingLines(run.stdout), ['src/core/total.ts:2  error[no-console]  writes to the terminal']);
+      assert.equal(run.code, 1, run.stdout);
+      noCopyLeft(s);
+      const own = await check(s);
+      assert.equal(own.code, 2, 'by its own law the change runs its own rule');
+      assert.match(own.stdout, /error\[rule-crashed\]/);
+    },
+    { onMain: (s) => { write(s, '.lawcheck/rules/lib/call.mjs', helper); setRule(s, 'no-console', rule); } },
+  );
+});
+
+test('test 1073: T7, a pass recorded under the text of the change for a reviewer rule of a reviewer rule does not count for the text of --law-from, and the next line records one that does', async () => {
+  await withFake(async (fake) => {
+    await withR(async (r) => {
+      write(r, '.lawcheck/rules/clear-errors.md', 'Anything goes.\n');
+      append(r, 'src/core/tax.ts', '// taxed\n');
+      const own = await runR(r, fake, ['--review', '--base', 'main']);
+      assert.equal(own.code, 0, own.stdout);
+      const plain = await runR(r, null, ['--base', 'main']);
+      assert.equal(plain.code, 0, plain.stdout);
+      const from = await runR(r, null, ['--base', 'main', '--law-from', 'main']);
+      assert.deepEqual(findingLines(from.stdout).filter((line) => line.includes('[not-reviewed]')), ['src/core/tax.ts  error[not-reviewed]  clear-errors has no verdict for this content']);
+      assert.ok(from.stdout.split('\n').includes('next: lawcheck check --review --base main --law-from main  (1 reviewer call)'), from.stdout);
+      assert.equal(from.code, 1);
+      const recorded = await runR(r, fake, ['--review', '--base', 'main', '--law-from', 'main']);
+      assert.equal(recorded.code, 0, recorded.stdout);
+      assert.ok(fake.requests.at(-1)!.prompt.includes(MAIN_RULE) && !fake.requests.at(-1)!.prompt.includes('Anything goes.'), 'the request carries the text of main');
+      const both = await runR(r, null, ['--base', 'main', '--law-from', 'main']);
+      assert.equal(both.code, 0, both.stdout);
+    });
+  });
+});
+
+test('test 1074: --law-from with a ref that names no commit, or a commit that holds no law, or a law that is not valid, stops with exit 2; with paths it is a usage error', async () => {
+  await withSample(async (s) => {
+    const none = await check(s, '--base', 'main', '--law-from', 'nope');
+    assert.deepEqual(none.stdout.split('\n'), [
+      'lawcheck: ERROR  1 error',
+      '',
+      "error[law-from-unreachable]  the ref 'nope' that --law-from names is no commit here",
+      '  why:  a change judged by the law of a commit needs that law',
+      '',
+      'next: pass --law-from with a commit here that holds .lawcheck/law.yaml, such as the base of the change',
+      '',
+    ]);
+    assert.equal(none.code, 2);
+    const json = JSON.parse((await check(s, '--base', 'main', '--law-from', 'nope', '--json')).stdout);
+    assert.deepEqual(json.errors.map((e: { code: string }) => e.code), ['law-from-unreachable']);
+
+    git(s, 'branch', 'bare', git(s, 'commit-tree', git(s, 'hash-object', '-w', '-t', 'tree', '--stdin').trim(), '-m', 'empty').trim());
+    const empty = await check(s, '--base', 'main', '--law-from', 'bare');
+    assert.equal(empty.stdout.split('\n')[2], "error[law-from-unreachable]  the commit 'bare' that --law-from names holds no .lawcheck/law.yaml");
+    assert.equal(empty.code, 2);
+
+    git(s, 'checkout', '-q', '-b', 'broken', 'main');
+    write(s, '.lawcheck/law.yaml', LAW.replace('rules: [no-console]', 'rules: [nope]'));
+    git(s, 'commit', '-q', '-am', 'broken law');
+    git(s, 'checkout', '-q', 'work');
+    const invalid = await check(s, '--base', 'main', '--law-from', 'broken');
+    assert.match(invalid.stdout, /^\.lawcheck\/law\.yaml:\d+  error\[law-invalid\]  .*, in the law of 'broken' that --law-from names$/m);
+    assert.equal(invalid.code, 2);
+
+    git(s, 'checkout', '-q', '-b', 'linked', 'main');
+    write(s, 'target', '../../tools/release.mjs');
+    const link = git(s, 'hash-object', '-w', 'target').trim();
+    rmSync(join(s, 'target'));
+    git(s, 'update-index', '--cacheinfo', `120000,${link},.lawcheck/rules/no-console.mjs`);
+    git(s, 'commit', '-q', '-m', 'a rule through a link');
+    git(s, 'checkout', '-q', '-f', 'work');
+    for (const change of ['nothing changed', 'a file for the rule']) {
+      if (change === 'a file for the rule') write(s, 'src/core/total.ts', "export const total = 1;\nconsole.log(total);\n");
+      const linked = await check(s, '--base', 'main', '--law-from', 'linked');
+      assert.equal(linked.stdout.split('\n')[2], ".lawcheck/law.yaml:4  error[rule-missing-file]  the rule 'no-console' has neither .lawcheck/rules/no-console.mjs nor .lawcheck/rules/no-console.md as a file: .lawcheck/rules/no-console.mjs is a symbolic link, and Lawcheck reads no rule through one, in the law of 'linked' that --law-from names", change);
+      assert.equal(linked.code, 2, change);
+    }
+    rmSync(join(s, 'src/core/total.ts'));
+
+    const paths = await lawcheck(s, ['check', 'src/core/price.ts', '--law-from', 'main']);
+    assert.equal(paths.stdout.split('\n')[2], 'error[usage]  paths go with --json alone');
+    assert.equal(paths.code, 2);
+  });
+});
+
+test('test 1110: T7, under --law-from a commit in which git lists a file in .lawcheck/node_modules or .lawcheck/.local stops with law-from-packages, and the same commit without those files fails by the rule of the base', async () => {
+  const rule = "import { CALL } from 'callpkg';\nexport function check({ files }) {\n  return files.flatMap((file) => file.lines.flatMap((text, index) => (CALL.test(text) ? [{ file: file.path, line: index + 1, message: 'writes to the terminal' }] : [])));\n}\n";
+  const callpkg = (s: string, folder: string, call: string) => {
+    write(s, `${folder}/callpkg/package.json`, '{ "name": "callpkg", "type": "module", "exports": "./index.js" }\n');
+    write(s, `${folder}/callpkg/index.js`, `export const CALL = ${call};\n`);
+  };
+  for (const [top, folder] of [['.lawcheck/node_modules', '.lawcheck/node_modules'], ['.lawcheck/.local', '.lawcheck/.local/node_modules']] as const) {
+    await withSample(
+      async (s) => {
+        write(s, 'src/core/total.ts', "export const total = 1;\nconsole.log(total);\n");
+        callpkg(s, folder, '/a^/');
+        git(s, 'add', '-A');
+        git(s, 'add', '-f', folder);
+        git(s, 'commit', '-q', '-m', 'plant');
+        const wanted = [
+          'lawcheck: ERROR  1 error',
+          '',
+          `${folder}/callpkg/index.js  error[law-from-packages]  git lists this file in ${top}, and 1 more file there, and a package that a rule of 'main' imports cannot come from the change`,
+          '  why:  a change judged by the law of a commit cannot supply the code that law runs',
+          '',
+          `next: take ${top} out of git, such as with git rm -r --cached ${top}, and name it in .gitignore`,
+          '',
+        ];
+        const planted = await check(s, '--base', 'main', '--law-from', 'main');
+        assert.deepEqual(planted.stdout.split('\n'), wanted, top);
+        assert.equal(planted.code, 2, top);
+        assert.deepEqual(readdirSync(join(s, '.lawcheck')).filter((name) => name === '.local').flatMap(() => readdirSync(join(s, '.lawcheck/.local'))).filter((name) => name.startsWith('law-from-')), [], top);
+        const json = JSON.parse((await check(s, '--base', 'main', '--law-from', 'main', '--json')).stdout);
+        assert.deepEqual(json.errors.map((e: { code: string; file: string }) => [e.code, e.file]), [['law-from-packages', `${folder}/callpkg/index.js`]], top);
+        callpkg(s, folder, '/nothing/');
+        git(s, 'commit', '-q', '-am', 'change the plant');
+        assert.equal((await check(s, '--base', 'main', '--law-from', 'main')).stdout, wanted.join('\n'), `a changed file in ${top}`);
+        git(s, 'rm', '-r', '-q', folder);
+        git(s, 'commit', '-q', '-m', 'without the plant');
+        const clean = await check(s, '--base', 'main', '--law-from', 'main');
+        assert.deepEqual(findingLines(clean.stdout), ['src/core/total.ts:2  error[no-console]  writes to the terminal'], top);
+        assert.equal(clean.code, 1, top);
+        assert.deepEqual(readdirSync(join(s, '.lawcheck')).filter((name) => name === '.local').flatMap(() => readdirSync(join(s, '.lawcheck/.local'))).filter((name) => name.startsWith('law-from-')), [], top);
+      },
+      { onMain: (s) => { write(s, '.git/info/exclude', 'node_modules/\n'); callpkg(s, 'node_modules', '/\\bconsole\\.(\\w+)/'); setRule(s, 'no-console', rule); } },
+    );
+  }
+});
+
+test('test 1112: T7, under --law-from a folder that a file system which ignores case finds as .lawcheck/node_modules or .lawcheck/.local, in another case or with a long s, stops with law-from-packages, named as git lists it, and its next line clears it', async () => {
+  for (const folder of ['.lawcheck/Node_Moduleſ', '.lawcheck/.Local']) {
+    await withSample(async (s) => {
+      write(s, `${folder}/callpkg/index.js`, 'export const CALL = /a^/;\n');
+      git(s, 'add', '-f', folder);
+      git(s, 'commit', '-q', '-m', 'plant');
+      const planted = await check(s, '--base', 'main', '--law-from', 'main');
+      assert.deepEqual(planted.stdout.split('\n'), [
+        'lawcheck: ERROR  1 error',
+        '',
+        `${folder}/callpkg/index.js  error[law-from-packages]  git lists this file in ${folder}, and a package that a rule of 'main' imports cannot come from the change`,
+        '  why:  a change judged by the law of a commit cannot supply the code that law runs',
+        '',
+        `next: take ${folder} out of git, such as with git rm -r --cached ${folder}, and name it in .gitignore`,
+        '',
+      ], folder);
+      assert.equal(planted.code, 2, folder);
+      git(s, 'rm', '-r', '-q', '--cached', folder);
+      append(s, '.gitignore', `\n${folder}/\n`);
+      git(s, 'add', '.gitignore');
+      git(s, 'commit', '-q', '-m', 'ignore the plant');
+      const cleared = await check(s, '--base', 'main', '--law-from', 'main');
+      assert.ok(!cleared.stdout.includes('law-from-packages'), `${folder}: ${cleared.stdout}`);
+      assert.equal(cleared.code, 0, `${folder}: ${cleared.stdout}`);
+    });
+  }
 });

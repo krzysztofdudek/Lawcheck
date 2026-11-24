@@ -12,13 +12,14 @@ import type { AnswerFinding } from './prompt.js';
 import { createProvider } from './providers/index.js';
 import { ownersOf, readerOf, readUses, ruleReads, siblingsOf } from './readers.js';
 import type { ScriptView } from './readers.js';
-import { atBase, lawChangeLine, lawChanges } from './lawchange.js';
+import { atBase, kindsAt, lawAt, lawChangeLine, lawChanges, packagesOfChange, writeRules } from './lawchange.js';
+import type { LawAt } from './lawchange.js';
 import { call, preflight } from './review.js';
 import type { Ask } from './review.js';
 import { contextOf, crashNext, FindingBudget, resolveCompanions, rulesDeadline, runAll, runnerErrors, runRule, slowMessage, tooManyFindings } from './rules.js';
 import type { CompanionRun, RawFinding, RuleOutcome } from './rules.js';
 import { decode, filesOfTypes, isBinary, splitLines } from './types.js';
-import { bytesOf, fromCwd, loadConfig, loadLaw, loadRuleFiles, locate, requireGit, RULES_DIR, LAW, selectTargets, Stop, stopped, theChange, touchesLaw, typingErrors } from './setup.js';
+import { bytesOf, fromCwd, loadConfig, loadLaw, loadRuleFiles, locate, requireGit, RULES_DIR, LAW, selectTargets, Stop, stopped, theChange, touchesLaw, typingErrors, workFiles } from './setup.js';
 import type { Kinds, Read, ReviewerRule } from './setup.js';
 import { judgeUses, listInForce, notRead } from './uses.js';
 import type { Forbidden, NotRead, Target } from './uses.js';
@@ -37,6 +38,7 @@ export interface CheckOptions {
   full: boolean;
   strict?: boolean;
   base: string | null;
+  lawFrom?: string | null;
   review?: boolean;
   again?: boolean;
   maxCalls?: number | null;
@@ -49,16 +51,29 @@ export async function check(options: CheckOptions, context: CheckContext): Promi
   return stopped(async () => {
     const root = locate(context.cwd);
     requireGit(root);
-    const law = loadLaw(root);
-    const config = loadConfig(root);
-    const { listed, files, read, kinds } = loadRuleFiles(root, law, false);
+    const from = typeof options.lawFrom === 'string' ? lawAt(root, options.lawFrom) : null;
+    const law = from === null ? loadLaw(root) : from.law;
+    const config = from === null ? loadConfig(root) : from.config;
+    const { listed, files, read, kinds } = from === null ? loadRuleFiles(root, law, false) : rulesOf(root, from);
     const named = options.paths !== undefined && options.paths.length > 0;
     const chosen = named ? selectTargets(root, context.cwd, options.paths!, files, (path) => isBinary(bytesOf(read, path)), true) : null;
     const { typed, untyped, errors } = typingErrors(root, law, files, read, kinds.unreadable);
     if (errors.length > 0) throw new Stop(errors);
     const elsewhere = named ? inOtherRepositories(root, context.cwd, options.paths!, chosen!, listed) : [];
-    return checkAt(root, options, context, { law, config, listed, files, read, kinds, typed, untyped, chosen, elsewhere });
+    const loads = kinds.scripts.size > 0 || [...kinds.reviewers.values()].some((reviewer) => reviewer.companion !== null);
+    const copy = from !== null && loads ? writeRules(root, from) : null;
+    try {
+      return await checkAt(root, options, context, { law, config, listed, files, read, kinds, typed, untyped, chosen, elsewhere, modules: copy?.folder ?? root });
+    } finally {
+      copy?.release();
+    }
   });
+}
+
+function rulesOf(root: string, from: LawAt): { listed: Set<string>; files: string[]; read: Read; kinds: Kinds } {
+  const work = workFiles(root);
+  packagesOfChange(work.listed, from.ref);
+  return { ...work, kinds: kindsAt(from, work.files, work.read).kinds };
 }
 
 interface Front {
@@ -72,6 +87,7 @@ interface Front {
   typed: TypedFile[];
   untyped: string[];
   chosen: string[] | null;
+  modules: string;
 }
 
 async function checkAt(root: string, options: CheckOptions, context: CheckContext, front: Front): Promise<CheckOutcome> {
@@ -94,7 +110,7 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
       rule,
       outcome: deadline.signal.aborted
         ? { slow: slowMessage('not started') }
-        : await runRule({ root, rule, ruleFile: join(root, `${RULES_DIR}${rule}.mjs`), files: bound, filesOf, budget, signal: deadline.signal, serve: reads(bound, `the script rule ${rule}`) }),
+        : await runRule({ root, rule, ruleFile: join(front.modules, `${RULES_DIR}${rule}.mjs`), files: bound, filesOf, budget, signal: deadline.signal, serve: reads(bound, `the script rule ${rule}`) }),
     }));
   const paired = [...kinds.reviewers].filter(([, reviewer]) => reviewer.companion !== null).map(([rule]) => ({ rule, files: run.filter((file) => file.rules.includes(rule)) })).filter(({ files: bound }) => bound.length > 0);
   if (tasks.length > 0 || paired.length > 0) {
@@ -120,7 +136,7 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
     deadline.clear();
     return { errors: tooManyFindings(budget) };
   }
-  const companionRun = { root, files, read, filesOf, serve: reads, signal: deadline.signal };
+  const companionRun = { root, modules: front.modules, files, read, filesOf, serve: reads, signal: deadline.signal };
   const resolved = await resolveCompanions(companionRun, kinds.reviewers, paired);
   deadline.clear();
   if ('errors' in resolved) return { errors: resolved.errors };
@@ -153,7 +169,7 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
     for (const waiver of parsed.waivers) chars += points(waiver.reason);
     if (budget.addAt(parsed.problems.length + parsed.waivers.length, chars)) return { errors: [tooManyAt(file.path, budget)] };
   }
-  const review = `lawcheck check${options.strict === true ? ' --strict' : ''} --review${options.base === null ? '' : ` --base ${hide(options.base)}`}`;
+  const review = `lawcheck check${options.strict === true ? ' --strict' : ''} --review${options.base === null ? '' : ` --base ${hide(options.base)}`}${typeof options.lawFrom === 'string' ? ` --law-from ${hide(options.lawFrom)}` : ''}`;
   const cap = options.maxCalls ?? config.maxCalls;
 
   const roomOf = () => verdictRoom(root, law, typed, kinds, companionRun);
@@ -277,10 +293,11 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
   const notes: string[] = [];
   if (lawChanged) {
     const told = lawChanges(root, base!, files, changed);
-    if (!options.full) notes.push(`note: the law changed in this change; lawcheck check --full${options.base === null ? '' : ` --base ${options.base}`} shows what it finds in the rest of the code`);
+    const from = typeof options.lawFrom === 'string' ? options.lawFrom : null;
+    if (!options.full && from === null) notes.push(`note: the law changed in this change; lawcheck check --full${options.base === null ? '' : ` --base ${options.base}`} shows what it finds in the rest of the code`);
     if (told.length > 0) {
       report.lawChanges = told;
-      notes.push(lawChangeLine(told));
+      notes.push(lawChangeLine(told, from === null ? 'this change edits the law that judges it' : `this change edits its own law, and the law of ${from} judged it`));
     }
   }
   const addedLine = addedWaiversLine(report.waivers);
