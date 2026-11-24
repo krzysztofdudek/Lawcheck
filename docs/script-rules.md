@@ -208,7 +208,7 @@ Lawcheck reports `rule-crashed` and exits with code 2 when the rule:
 
 In the other cases, the message of `rule-crashed` names the judged file, or the load. A rule may throw a value with no string form, such as an object with no prototype. The message then holds the error JavaScript gives for it. A proxy whose every trap throws something other than an error raises no such error. For such a value, the message reads `a value with no string form`. Lawcheck names each crashed rule once in a run.
 
-When a call leaves a timer or other work running, and the rule's process later ends or goes 30 seconds without answering, the message ends with the words "after a call that left work running" and names no judged file. The work may belong to any earlier call, and the file judged at that moment is not the cause. The same rule crashes with the same message when it judges one file and when it judges many.
+When a call leaves a timer or other work running, and the rule's process later ends or goes 30 seconds without answering, the message ends with the words "after a call that left work running" and names no judged file, provided the call before the crash left work running too. The work may belong to an earlier call, and the file judged at that moment is not the cause. When the call that ends the process left nothing running, the message names that file, even if an earlier call left work that has since ended. The same rule crashes with the same message when it judges one file and when it judges many.
 
 When Node cannot start the rule runner at all, Lawcheck stops with `runner-failed` and names no rule. The message holds Node's own error line. To fix it, reinstall Lawcheck.
 
