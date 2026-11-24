@@ -116,7 +116,7 @@ echo node_modules/ >> .gitignore
 
 ### 5. Give the base on another CI service
 
-A [check of the change](concepts.md#check-of-the-change) takes its base from `--base`, then from `LAWCHECK_BASE`, then from the variables of the CI service below, then from `origin/HEAD`. Lawcheck reads them only when the service's own variable, such as `GITHUB_ACTIONS`, is set. With `CI` set to an empty value, `0`, `false`, `no` or `off`, in any letter case, it reads none. The base is `origin/` and the branch name. For Azure Pipelines, Lawcheck first removes the prefix `refs/heads/`.
+A [check of the change](concepts.md#check-of-the-change) takes its base from `--base`, then from `LAWCHECK_BASE`, then from the variables of the CI service below, then from `origin/HEAD`. Lawcheck reads them only when the service's own variable, such as `GITHUB_ACTIONS`, is set. With `CI` set to `false`, `no`, `0`, `off` or an empty value, it reads none. The base is `origin/` and the branch name. For Azure Pipelines, Lawcheck first removes the prefix `refs/heads/`.
 
 | CI service | Variable | What it holds |
 |---|---|---|
@@ -155,7 +155,7 @@ src/core/total.ts:2  error[no-console]  writes to the terminal with console.log
 next: fix src/core/total.ts:2
 ```
 
-Lawcheck treats a run as a CI job when the variable `CI` is set to anything but an empty value, `0`, `false`, `no` or `off`, in any letter case. Without `CI`, Lawcheck treats the run as a job when a variable of a CI service is set, such as `GITHUB_ACTIONS`, `GITLAB_CI` or `TF_BUILD`. With `CI` set to one of those five values, Lawcheck treats the run as no CI job, even when such a variable is set.
+Lawcheck treats a run as a CI job when `CI` is set to anything but `false`, `no`, `0`, `off` or an empty value, in any letter case. Without `CI`, a variable of a CI service, such as `GITHUB_ACTIONS` or `TF_BUILD`, marks the job. With `CI` at one of those values, no such variable counts.
 
 ### 6. Give the base on GitLab CI
 
