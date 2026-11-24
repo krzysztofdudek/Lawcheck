@@ -169,7 +169,7 @@ The list also holds two kinds of use that `may_use` skips: a use of the file its
 
 The first call of `uses()` by a rule makes Lawcheck read the uses of every file that the rule judges in that run, in one pass. Lawcheck reads the uses of each file once in a run. If another rule already asked for the uses of a file, Lawcheck does not read that file again. Every rule gets the same uses for a file. The uses of a file do not depend on the other files of the run. A plain check and `--full` therefore give a rule the same uses.
 
-To read the uses of a file of Java, Kotlin, C#, Ruby or Rust, Lawcheck reads what every file of that language declares. In a large repository, the first call of `uses()` can then take seconds.
+To read the uses of a file of Java, Kotlin, C#, Ruby or Rust, Lawcheck reads what every file of that language declares. The first call of `uses()` therefore takes longer the more files of that language the repository holds.
 
 When the reader fails, these files get `reader-failed`:
 
