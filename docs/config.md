@@ -115,6 +115,12 @@ Yarn 4 holds back a package published less than a day ago. Lawcheck reads the co
 npmPreapprovedPackages: [lawcheck, "@chrisdudek/runes"]
 ```
 
+pnpm 11 and later hold a package back the same way, and do not refuse. `pnpm add --save-dev lawcheck@alpha` installs the newest version that is a day old, so on the first day after a release you get the release before it, and Runes is held back too. With this line in `pnpm-workspace.yaml`, pnpm installs both new versions on that first day:
+
+```text
+minimumReleaseAgeExclude: [lawcheck, "@chrisdudek/runes"]
+```
+
 Git ignores `.lawcheck/config.local.yaml`, because `.lawcheck/.gitignore` names it. No command of Lawcheck reads that file.
 
 ## Variables
