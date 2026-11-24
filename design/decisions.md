@@ -448,3 +448,9 @@ Of the four hooks, Cursor's command-line agent 2026.11.22 runs `sessionStart` an
 What no one checked: a session of Cursor with the plugin, which needs a Cursor account (the owner's ruling cursor-jak-claude: no trial, and the docs say what was checked and what was not), the Cursor editor, Windows and the marketplace commands of Cursor. `docs/cursor.md`, the README, the landing and the CHANGELOG say so, and the scenario of `tests/docs/cursor.ts` holds those sentences, with tests 970 to 976 for the hook. The tests build the inputs of the hooks from the fields that Cursor's documentation and code give them, and no session recorded them.
 
 Why: the owner treats Cursor as compatible with Claude Code plugins, and the code of Cursor Agent CLI loads them, so a second plugin would copy files that Cursor already reads. The changes to the hook are the ones that code shows Cursor to need, and no change to the plugin's files that Claude Code reads.
+
+## Decision (number at merge). The Nightly runs on demand, twice by hand before a release
+
+The Nightly has no schedule: nightly.yml starts only by a dispatch or a call. Before a release it runs twice by hand on the tagged commit, and both runs must be green. The release workflow counts the dispatched runs of nightly.yml on the tagged commit and stops the release below two green ones.
+
+Why: this is the owner's decision (ruling nightly-recznie-przed-wydaniem). A run every night spent runner time on commits that no release named, while the runs that decide a release are the ones on the tagged commit; two runs there draw two seeds and two orders, so a test with mixed results shows itself.
