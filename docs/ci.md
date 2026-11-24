@@ -272,7 +272,7 @@ Keep the workflow on `pull_request`. The event `pull_request_target` runs in the
 
 When the change touches a file that a reviewer rule binds, the job fails with `not-reviewed`. A contributor without the key of the provider cannot record the review: `lawcheck check --review` needs it. The contributor can leave the pull request failing and say so. A maintainer then records the reviews:
 
-1. Fetch the branch and read the change, `package.json` and the lockfile included. The check of step 2 gives the reviewer's key to the Lawcheck that they install.
+1. Fetch the branch and read the change, `package.json` and the lockfile included. The check of step 2 gives the reviewer's key and `LAWCHECK_SIGNING_KEY` to the Lawcheck that they install.
 2. On a machine where you would run the tests of the pull request, run `lawcheck check --review --base origin/main`. The check runs the script rules of the fork.
 3. Commit `.lawcheck/verdicts` and `.lawcheck/.gitattributes`, and push the commit to the contributor's branch. GitHub allows that when the contributor lets maintainers edit the pull request.
 
@@ -280,9 +280,9 @@ A contributor who has the key records the reviews as [Record the reviews before 
 
 ### The job trusts the verdicts
 
-`.lawcheck/verdicts` is a file of the pull request. Under a law without `signers`, a line in it is a pass for the file and rule it names, whoever wrote it and whether a reviewer was asked. The check reads the line and cannot tell where it came from. A contributor can record the reviews with a reviewer of their own, or copy a line, and the job passes. CI then trusts the author of the pull request on reviews, as it does on `.lawcheck/` ([A change to the law](#a-change-to-the-law)).
+`.lawcheck/verdicts` is a file of the pull request. Under a law without `signers`, a line in it is a pass for the file and rule it names, whoever wrote it and whether a reviewer was asked. The check reads the line and cannot tell where it came from. A contributor can record the reviews with a reviewer of their own, or copy a line, and the job passes. CI therefore trusts the author of the pull request on reviews, as it does on `.lawcheck/` ([A change to the law](#a-change-to-the-law)).
 
-To stop trusting the author on reviews, name signers in the law ([Signed passes](reviewer-rules.md#signed-passes)). The job then counts only the passes that a signer of the law signed. Its second check reads the law of the base, so a pull request that adds a signer of its own, or takes `signers` out of the law, fails that check. A maintainer who is a signer records the reviews of a fork as [A contributor with no reviewer](#a-contributor-with-no-reviewer) says, with `LAWCHECK_SIGNING_KEY` set. A job that records reviews itself needs `LAWCHECK_SIGNING_KEY` as a secret, and the law names it as a signer of its own.
+To stop trusting the author on reviews, name signers in the law ([Signed passes](reviewer-rules.md#signed-passes)). The job then counts only the passes that a signer of the law signed. Its second check reads the law of the base, so a pull request that adds a signer of its own, or takes `signers` out of the law, fails that check. A maintainer who is a signer records the reviews of a fork as [A contributor with no reviewer](#a-contributor-with-no-reviewer) says, with `LAWCHECK_SIGNING_KEY` set. A job that records reviews needs `LAWCHECK_SIGNING_KEY` as a secret and a signer of its own, and anyone who can push a branch can make it sign a pass.
 
 ## Findings in the pull request
 

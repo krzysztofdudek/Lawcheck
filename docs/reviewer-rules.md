@@ -140,7 +140,7 @@ Under a law with `signers`, a review works this way:
 
 A law without `signers` reads and writes `.lawcheck/verdicts` without signatures. It counts a signed line as a pass too.
 
-A signature proves that someone whose key the law names recorded the pass. A signer can run any reviewer, so name as signers only the people and the jobs that you trust with a review. In CI, the second check of the workflow reads the law of the base, so the signers of the base decide ([The job trusts the verdicts](ci.md#the-job-trusts-the-verdicts)).
+A signature proves that someone whose key the law names recorded the pass. A signer can run any reviewer, so name as signers only the people and the jobs that you trust with a review. A review of a pull request asks the reviewer that its `.lawcheck/config.yaml` names, with the Lawcheck that its `package.json` installs, so a signer reads both first. A job in CI runs the workflow of the branch it reviews, so anyone who can push a branch can make a job that holds the key sign any pass. A pull request from a fork gets no secret, so it cannot. In CI, the second check of the workflow reads the law of the base, so the signers of the base decide ([The job trusts the verdicts](ci.md#the-job-trusts-the-verdicts)).
 
 When you add `signers` to a law, the passes already in the file carry no signature, and they stop counting. A plain check judges the changed files, so each file needs one signed review when it next changes. `lawcheck check --strict --review` asks about every file at once. Lawcheck 0.1.0-alpha.4 and older stop on a law with `signers` with `law-invalid`, so every checkout and every job needs a later version first.
 
