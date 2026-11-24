@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { appendFileSync, cpSync, mkdirSync, readdirSync, readFileSync, symlinkSync } from 'node:fs';
 import { join } from 'node:path';
-import { inTemp, lawcheck, lawcheckAt, ROOT } from './helpers.ts';
+import { atOnce, inTemp, lawcheck, lawcheckAt, ROOT } from './helpers.ts';
 import { parseLaw } from '../../dist/law.js';
 import { parseConfig } from '../../dist/config.js';
 import { readArguments } from '../../dist/args.js';
@@ -103,23 +103,22 @@ function words(line: string): string[] {
   return out;
 }
 
+// The pages are independent runs of the tool outside git, so a few run at once.
+const PAGES_AT_ONCE = 6;
+
 test('test 128: the list of topics, its JSON, and one page, outside git', async () => {
   await inTemp(async (dir) => {
-    const list = await lawcheck(dir, ['docs']);
+    const [list, json] = await Promise.all([lawcheck(dir, ['docs']), lawcheck(dir, ['docs', '--json'])]);
     assert.equal(list.stdout, LIST.join('\n') + '\n');
     assert.equal(list.code, 0);
-    const json = await lawcheck(dir, ['docs', '--json']);
     assert.deepEqual(JSON.parse(json.stdout), { schema: 'lawcheck-docs/0', topics: TOPICS });
     assert.equal(json.code, 0);
-    const law = await lawcheck(dir, ['docs', 'law']);
-    assert.equal(law.stdout.split('\n')[0], '# The law file');
-    assert.equal(law.stdout, terminal(page('law')));
-    assert.equal(law.code, 0);
-    for (const { id } of TOPICS) {
+    await atOnce(TOPICS, PAGES_AT_ONCE, ({ id }) => id, async ({ id }) => {
       const result = await lawcheck(dir, ['docs', id], {}, [], { internal: id === 'codes' });
       assert.equal(result.stdout, terminal(page(id)), id);
       assert.equal(result.code, 0);
-    }
+      if (id === 'law') assert.equal(result.stdout.split('\n')[0], '# The law file');
+    });
   });
 });
 
