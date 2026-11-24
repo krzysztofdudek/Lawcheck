@@ -58,7 +58,7 @@ A script rule may return `line: null` for a finding about the whole file. In alp
 
 A script rule whose timer throws after the rule's last result is now `rule-crashed` also when the rule unrefs the timer, with `unref()` or with `ref: false` of `node:timers/promises`, and when the throw follows an asynchronous wait on shared memory that ends after that result. In alpha.4 such a rule passed, because Lawcheck waited neither for an unreferenced timer nor for such a wait.
 
-When a reviewer's answer holds two verdict objects and one of them is a `fail`, the answer is that fail. In alpha.4 the last object won, so a fail followed by a quoted pass read as a pass. A pass is now a bad answer when an object of the answer holds the key `verdict` twice, or when another object holds a verdict that is neither `pass` nor `fail`, such as `"Fail"`. In alpha.4 both read as a pass.
+When a reviewer's answer holds two verdict objects and one of them is a `fail`, the answer is that fail. In alpha.4 the last object won, so a fail followed by a quoted pass read as a pass. A pass is now a bad answer when an object of the answer holds the key `verdict` twice, when another object holds a verdict that is neither `pass` nor `fail`, such as `"Fail"`, or when the answer holds a `"verdict": "fail"` that is no JSON object, such as one with a trailing comma. In alpha.4 all three read as a pass.
 
 A `check` or `try` that ends with exit 2 after it sent requests to a reviewer now says how many. The first line ends with the count, such as `lawcheck: ERROR  1 error, 2 reviewer calls`, and the JSON document `lawcheck-error/1` gains `calls_made` when the count is above 0. A program that checks the document against a schema that refuses unknown keys has to allow `calls_made`.
 

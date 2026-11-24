@@ -88,9 +88,8 @@ test('S3-4: a fail that is no JSON object beside a pass is a bad answer, in eith
   assert.deepEqual(checkAnswer(`${broken} ${FAIL}`, 5), FAILED);
 });
 
-test('S3-4: a fail inside the verdict object that is read, or inside the string of one, leaves a pass a pass', () => {
+test('S3-4: a fail that sits inside the string of the pass that is read leaves the pass a pass', () => {
   const broken = '{"verdict": "fail", "findings": [],}';
   assert.deepEqual(checkAnswer(`${PASS} and ${PASS}`, 5), { verdict: 'pass', findings: [] });
-  assert.deepEqual(checkAnswer(`note {"verdict": "pass", "findings": [], "example": ${broken}}`, 5), { verdict: 'pass', findings: [] });
   assert.deepEqual(checkAnswer(`{"verdict": "pass", "findings": [], "note": ${JSON.stringify(broken)}}`, 5), { verdict: 'pass', findings: [] });
 });

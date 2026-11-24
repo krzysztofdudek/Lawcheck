@@ -269,6 +269,8 @@ class Spans {
 interface VerdictObject {
   object: Record<string, unknown>;
   twice: boolean;
+  start: number;
+  end: number;
 }
 
 function verdictObjects(answer: string): VerdictObject[] {
@@ -279,7 +281,7 @@ function verdictObjects(answer: string): VerdictObject[] {
     if (span === null || span.verdicts === 0) continue;
     const object = parsed(answer.slice(start, span.end + 1));
     if (object === null) continue;
-    found.push({ object, twice: span.verdicts > 1 });
+    found.push({ object, twice: span.verdicts > 1, start, end: span.end });
     start = span.end;
   }
   return found;
@@ -307,6 +309,22 @@ function doubtedPass(found: VerdictObject[]): string | null {
   return other === undefined ? null : `a pass stands beside the verdict ${JSON.stringify(other.object.verdict)}, which is not "pass" or "fail"`;
 }
 
+// A verdict key with the value "fail" that no verdict object of the answer holds stands in text that does not parse, such as an object with a trailing comma, so the answer may carry a fail that the reading never saw. The key and the word may be written with \u escapes, as JSON allows.
+function escaped(word: string): string {
+  return [...word].map((letter) => `(?:${letter}|\\\\u00${letter.charCodeAt(0).toString(16).replace(/[a-f]/g, (digit) => `[${digit}${digit.toUpperCase()}]`)})`).join('');
+}
+
+const FAIL_VERDICT = new RegExp(`"${escaped('verdict')}"\\s*:\\s*"${escaped('fail')}"`, 'g');
+
+function unreadFail(answer: string, found: VerdictObject[]): boolean {
+  let next = 0;
+  for (const match of answer.matchAll(FAIL_VERDICT)) {
+    while (next < found.length && found[next]!.end < match.index) next++;
+    if (next >= found.length || found[next]!.start > match.index) return true;
+  }
+  return false;
+}
+
 export function checkFindings(findings: unknown, lineCount: number): AnswerFinding[] | { problem: string } {
   if (!Array.isArray(findings)) return { problem: 'its findings are no list' };
   const out: AnswerFinding[] = [];
@@ -328,8 +346,10 @@ export function checkAnswer(answer: string, lineCount: number): Checked {
   const verdict = object.verdict;
   if (verdict !== 'pass' && verdict !== 'fail') return { problem: `the verdict is ${JSON.stringify(verdict)}, not "pass" or "fail"` };
   if (verdict === 'pass') {
-    const doubt = doubtedPass(found ?? verdictObjects(answer));
+    const objects = found ?? verdictObjects(answer);
+    const doubt = doubtedPass(objects);
     if (doubt !== null) return { problem: doubt };
+    if (unreadFail(answer, objects)) return { problem: 'a pass stands beside a verdict "fail" that is no JSON object' };
   }
   const findings = checkFindings(object.findings === undefined ? [] : object.findings, lineCount);
   if (!Array.isArray(findings)) return findings;
