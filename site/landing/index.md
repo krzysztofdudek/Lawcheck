@@ -12,6 +12,7 @@ install:
   copyPlugin: Copy the plugin commands
   copied: Copied
   quickStart: { text: "Quick start: first finding in five steps", page: quick-start }
+  setup: { text: "In your repository: let your agent write the law", page: agent-setup }
 problem: The agent imported the API into the core, and the tests passed
 where: Lawcheck checks in six places
 tryIt: Install Lawcheck and the plugin

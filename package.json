@@ -1,7 +1,7 @@
 {
   "name": "lawcheck",
   "version": "0.1.0-alpha.4",
-  "description": "Architecture checks for coding agents. Lawcheck checks code against your written architecture and names the file and line that break it, so you catch drift in Claude Code hooks and CI. It reads the uses of 12 languages.",
+  "description": "Architecture checks for coding agents. You write down which layer may import which, and Lawcheck names the file and line that break the rule, in the hooks of Claude Code, Codex and Copilot CLI and in CI. The check of imports is deterministic: it reads them in 12 languages with no model.",
   "license": "MIT",
   "author": "Krzysztof Dudek",
   "repository": {
@@ -13,8 +13,16 @@
   "keywords": [
     "architecture",
     "linter",
+    "lint",
+    "eslint",
     "coding-agents",
     "claude-code",
+    "agents-md",
+    "claude-md",
+    "hooks",
+    "deterministic",
+    "ast",
+    "tree-sitter",
     "rules"
   ],
   "type": "module",

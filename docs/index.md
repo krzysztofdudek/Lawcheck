@@ -1,6 +1,6 @@
 # Lawcheck
 
-Architecture checks for coding agents. Lawcheck checks code against your written architecture and names the file and line that break it, so you catch drift in Claude Code hooks and CI. It reads the uses of 12 languages.
+Architecture checks for coding agents. You write down which layer may import which, and Lawcheck names the file and line that break the rule, in the hooks of Claude Code, Codex and Copilot CLI and in CI. The check of imports is deterministic: it reads them in 12 languages with no model.
 
 ## A law and a finding
 
@@ -42,7 +42,7 @@ The run exits 1. The [finding](concepts.md#finding) gives the file, the line, th
 
 - [Claude Code](claude-code.md): the plugin checks each file the agent edits. Before the agent finishes its answer to your prompt, the plugin checks every file the agent changed for that prompt. While those files break the law, the plugin sends the agent back to work, up to three times.
 - [Codex](codex-cli.md): the same plugin checks each file the agent writes with `apply_patch`, and sends the agent back the same way before it finishes.
-- [GitHub Copilot CLI](copilot-cli.md): before the agent finishes, the plugin checks every file that changed in its turn, and sends the agent back the same way. Its check after an edit never ran in the 24 recorded sessions that had that check, because the agent wrote every file through the shell. The plugin asks the agent to tell you its messages.
+- [GitHub Copilot CLI](copilot-cli.md): before the agent finishes, the plugin checks every file that changed in its turn, and sends the agent back the same way. The plugin asks the agent to tell you its messages.
 - [Cursor](cursor.md): Cursor loads the plugin through its support for Claude Code plugins. No session of Cursor has run the plugin.
 - [Any other agent](other-agents.md): one line in its instructions file tells the agent to run `lawcheck prime`. That command prints the law and the commands that check it. Nothing sends that agent back.
 - [CI](ci.md): `lawcheck check --base origin/main` judges the files of the pull request. It needs no key and no network.

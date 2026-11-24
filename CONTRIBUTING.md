@@ -47,3 +47,7 @@ The Nightly does not run by itself. Before a release it runs twice by hand on th
 - when `node film/check.mjs` failed on a change since the last release, the loop is rendered again with `node film/render.mjs` ([film/README.md](film/README.md)).
 
 The tests with a live model, `npm run stability` and `node tests/live/run.ts`, run too when the prompt, the providers or the plugin changed since their last result ([decision 75](design/decisions.md#75-when-the-tests-with-a-live-model-run)).
+
+## After the tag
+
+Once the release workflow has made the GitHub release, I attach the loop and the chapters of the film to it. Then I run `node film/publish.mjs --release <tag>`, which lists them in `film/published.json` and puts the loop of that release at the top of the README, and I deploy the landing page and the docs again ([film/README.md](film/README.md#where-the-chapters-live)).
