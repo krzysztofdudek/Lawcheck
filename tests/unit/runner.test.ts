@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fork } from 'node:child_process';
+import { fork, spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { RUNNER, runRule } from '../../dist/rules.js';
 
@@ -24,6 +24,14 @@ async function withRule(source: string, body: (root: string, ruleFile: string) =
 }
 
 const filesOf = new Map([['source', ['a.ts', 'b.ts']]]);
+
+async function outcomeOf(source: string, run: { entry?: 'check' | 'companion'; files?: string[] } = {}): Promise<unknown> {
+  let outcome: unknown;
+  await withRule(source, async (root, ruleFile) => {
+    outcome = await runRule({ root, rule: 'r', ruleFile, files: (run.files ?? ['a.ts']).map((path) => file(path, ['x'])), filesOf, entry: run.entry });
+  });
+  return outcome;
+}
 
 test('check-slice §3: the runner makes one call per file, in order, and passes repo.filesOf', async () => {
   await withRule(
@@ -215,4 +223,154 @@ test('S2-6: an immediate that the runner still has pending when the first messag
       }
     },
   );
+});
+
+test('R-42: started with no channel, the runner ends with no output and the status 0, which is how the tool learns why one did not start', () => {
+  const run = spawnSync(process.execPath, [RUNNER], { env: {}, encoding: 'utf8', timeout: 20_000 });
+  assert.deepEqual([run.status, run.stdout, run.stderr], [0, '', '']);
+});
+
+test('R-42: what a rule throws is told in the words of the runner, by the permission the error names', async () => {
+  const said: [string, Record<string, unknown>, string][] = [
+    ['a read', { code: 'ERR_ACCESS_DENIED', permission: 'FileSystemRead', resource: '/etc/passwd' }, "reads /etc/passwd outside the root and Lawcheck's folder, and a rule may read nothing else"],
+    ['a read with no path', { code: 'ERR_ACCESS_DENIED', permission: 'FileSystemRead' }, "reads a path outside the root and Lawcheck's folder, and a rule may read nothing else"],
+    ['a read with an empty path', { code: 'ERR_ACCESS_DENIED', permission: 'FileSystemRead', resource: '' }, "reads a path outside the root and Lawcheck's folder, and a rule may read nothing else"],
+    ['a read with a path that is no text', { code: 'ERR_ACCESS_DENIED', permission: 'FileSystemRead', resource: 42 }, "reads a path outside the root and Lawcheck's folder, and a rule may read nothing else"],
+    ['a write', { code: 'ERR_ACCESS_DENIED', permission: 'FileSystemWrite', resource: '/x/out.txt' }, 'writes /x/out.txt, and a rule may write no file'],
+    ['a write with no path', { code: 'ERR_ACCESS_DENIED', permission: 'FileSystemWrite' }, 'writes a file, and a rule may write no file'],
+    ['a program', { code: 'ERR_ACCESS_DENIED', permission: 'ChildProcess' }, 'starts a program, and a rule may start none'],
+    ['a worker', { code: 'ERR_ACCESS_DENIED', permission: 'WorkerThreads' }, 'starts a worker thread, and a rule may start none'],
+    ['an add-on', { code: 'ERR_ACCESS_DENIED', permission: 'Addon' }, 'loads a native add-on, and a rule may load none'],
+    ['WASI', { code: 'ERR_ACCESS_DENIED', permission: 'WASI' }, 'starts WASI, and a rule may not'],
+    ['the network', { code: 'ERR_ACCESS_DENIED', permission: 'Net' }, 'uses the network, which is closed to script rules'],
+    ['a permission the runner does not know', { code: 'ERR_ACCESS_DENIED', permission: 'Camera' }, 'does what the runner does not allow (Camera)'],
+    ['sqlite', { code: 'ERR_UNKNOWN_BUILTIN_MODULE', message: 'No such built-in module: node:sqlite' }, 'imports node:sqlite, and a rule may not'],
+    ['another built-in module', { code: 'ERR_UNKNOWN_BUILTIN_MODULE', message: 'No such built-in module: node:nothing' }, 'No such built-in module: node:nothing'],
+    ['a message that ends like sqlite under another code', { code: 'ERR_OTHER', message: 'cannot load node:sqlite' }, 'cannot load node:sqlite'],
+    ['a plain error', {}, 'plain'],
+  ];
+  const outcomes = await Promise.all(said.map(([, fields]) => outcomeOf(`export function check() { throw Object.assign(new Error(${JSON.stringify(fields.message ?? 'plain')}), ${JSON.stringify(fields)}); }\n`)));
+  said.forEach(([what], index) => assert.deepEqual(outcomes[index], { crash: `throws on a.ts: ${said[index]![2]}` }, what));
+});
+
+test('R-42: a module that lacks the function asked of it fails to load, whichever of check and companion that is, and a companion answers with paths', async () => {
+  const checkOnly = 'export function check() { return []; }\n';
+  const companionOnly = "export function companion({ file }) { return [file.path + '.d.ts', 'other.ts']; }\n";
+  assert.deepEqual(await outcomeOf(checkOnly, { entry: 'companion' }), { crash: 'fails to load: the module exports no function companion' });
+  assert.deepEqual(await outcomeOf(companionOnly), { crash: 'fails to load: the module exports no function check' });
+  assert.deepEqual(await outcomeOf(companionOnly, { entry: 'check' }), { crash: 'fails to load: the module exports no function check' });
+  const answered = (await outcomeOf(companionOnly, { entry: 'companion', files: ['a.ts', 'b.ts'] })) as { findings: unknown[]; paths: Map<string, string[]> };
+  assert.deepEqual(answered.findings, []);
+  assert.deepEqual([...answered.paths], [['a.ts', ['a.ts.d.ts', 'other.ts']], ['b.ts', ['b.ts.d.ts', 'other.ts']]]);
+  assert.deepEqual(await outcomeOf('export function companion() { return 5; }\nexport function check() { return []; }\n', { entry: 'companion' }), { crash: 'returns no list of paths for a.ts' });
+  assert.deepEqual(await outcomeOf("export function companion() { return ['a', 7]; }\n", { entry: 'companion' }), { crash: 'returns a path that is no string for a.ts' });
+});
+
+test('R-42: what a check returns that is no list of findings is named, and so is an item that is no finding', async () => {
+  const returned = async (value: string) => ((await outcomeOf(`export function check() { return ${value}; }\n`)) as { crash?: string; findings?: unknown[] }).crash;
+  for (const value of ['{}', '5', 'null', 'undefined', "'abc'"]) assert.equal(await returned(value), 'returns no list for a.ts', value);
+  assert.equal(await returned('[null]'), 'returns a finding that is no object for a.ts');
+  assert.equal(await returned('[5]'), 'returns a finding that is no object for a.ts');
+  assert.equal(await returned('[{ message: 5 }]'), 'returns a finding without a message for a.ts');
+  assert.equal(await returned("[{ message: 'a', line: 'x' }]"), 'returns a finding whose line is the string "x", not an integer for a.ts');
+  assert.equal(await returned("[{ message: 'a' }]"), undefined);
+});
+
+test('R-42: a tree with several nodes below one comes back with its children in the order of the file', async () => {
+  await withRule("export async function check({ files: [file] }) { const { root } = await file.tree(); return [{ message: root.children.map((c) => c.type + ':' + c.start).join(',') }]; }\n", async (root, ruleFile) => {
+    const { serve } = serving(() => ({ language: 'typescript', tree: { types: ['program', 'a', 'b', 'c'], fields: [], nodes: Int32Array.of(-1, 0, -1, 1, 0, 9, 1, 0, 0, 1, -1, 1, 0, 3, 1, 0, 0, 2, -1, 1, 3, 6, 1, 3, 0, 3, -1, 1, 6, 9, 1, 6) }, absent: null }));
+    const outcome = await runRule({ root, rule: 'r', ruleFile, files: [file('a.ts', ['x'])], filesOf, serve });
+    assert.deepEqual(outcome, { findings: [{ rule: 'r', file: 'a.ts', message: 'a:0,b:3,c:6' }] });
+  });
+});
+
+test('R-42: a rule reaches the network by none of the doors the runner shuts, and the error it meets says so', async () => {
+  const source = `const net = process.getBuiltinModule('node:net');
+const tls = process.getBuiltinModule('node:tls');
+const http = process.getBuiltinModule('node:http');
+const dgram = process.getBuiltinModule('node:dgram');
+const dns = process.getBuiltinModule('node:dns');
+const met = (run) => {
+  try {
+    run();
+    return 'open';
+  } catch (error) {
+    return [error.message, error.code, error.permission].join('|');
+  }
+};
+export function check() {
+  const lines = [];
+  const socket = new tls.TLSSocket(null);
+  const tcp = socket._handle._parent;
+  for (const name of ['open', 'bind', 'bind6', 'listen', 'connect', 'connect6']) lines.push('tcp ' + name + ' ' + met(() => Object.getPrototypeOf(tcp)[name].call(tcp)));
+  socket.destroy();
+  const pipe = process.stdout._handle;
+  for (const name of ['bind', 'listen', 'connect']) lines.push('pipe ' + name + ' ' + met(() => Object.getPrototypeOf(pipe)[name].call(pipe)));
+  lines.push('net.connect ' + met(() => net.connect(1)));
+  lines.push('net.createConnection ' + met(() => net.createConnection(1)));
+  lines.push('net._createServerHandle ' + met(() => net._createServerHandle('127.0.0.1', 0)));
+  lines.push('BoundSocket ' + ('BoundSocket' in net ? met(() => new net.BoundSocket()) : 'absent'));
+  lines.push('_TransferredBoundSocket ' + ('_TransferredBoundSocket' in net ? met(() => new net._TransferredBoundSocket()) : 'absent'));
+  lines.push('Socket connect ' + met(() => new net.Socket().connect(1)));
+  lines.push('Server listen ' + met(() => new net.Server().listen(0)));
+  lines.push('Server _listen2 ' + met(() => net.Server.prototype._listen2.call({})));
+  lines.push('dgram ' + met(() => dgram.createSocket('udp4')));
+  lines.push('dns ' + met(() => dns.lookup('localhost', () => {})));
+  lines.push('http.WebSocket ' + ('WebSocket' in http ? met(() => new http.WebSocket('ws://127.0.0.1:1')) : 'absent'));
+  lines.push('fetch ' + met(() => fetch('http://127.0.0.1:1')));
+  lines.push('WebSocket ' + met(() => new WebSocket('ws://127.0.0.1:1')));
+  lines.push('EventSource ' + ('EventSource' in globalThis ? met(() => new EventSource('http://127.0.0.1:1')) : 'absent'));
+  return [{ message: lines.join(' # ') }];
+}
+`;
+  const outcome = (await outcomeOf(source)) as { findings: { message: string }[] };
+  assert.ok('findings' in outcome, JSON.stringify(outcome));
+  const closed = 'the network is closed to script rules|ERR_ACCESS_DENIED|Net';
+  const net = (await import('node:net')) as unknown as Record<string, unknown>;
+  const expected = [
+    ...['open', 'bind', 'bind6', 'listen', 'connect', 'connect6'].map((name) => `tcp ${name} ${closed}`),
+    ...['bind', 'listen', 'connect'].map((name) => `pipe ${name} ${closed}`),
+    `net.connect ${closed}`,
+    `net.createConnection ${closed}`,
+    `net._createServerHandle ${closed}`,
+    `BoundSocket ${'BoundSocket' in net ? closed : 'absent'}`,
+    `_TransferredBoundSocket ${'_TransferredBoundSocket' in net ? closed : 'absent'}`,
+    `Socket connect ${closed}`,
+    `Server listen ${closed}`,
+    `Server _listen2 ${closed}`,
+    `dgram ${closed}`,
+    `dns ${closed}`,
+    `http.WebSocket ${'WebSocket' in (await import('node:http')) ? closed : 'absent'}`,
+    `fetch ${closed}`,
+    `WebSocket ${closed}`,
+    `EventSource ${'EventSource' in globalThis ? closed : 'absent'}`,
+  ];
+  assert.deepEqual(outcome.findings[0]!.message.split(' # '), expected);
+});
+
+test('R-42: a rule may replace the timer functions the runner patched, and set what it likes on them', async () => {
+  const source = `const timers = process.getBuiltinModule('node:timers/promises');
+export function check() {
+  const timer = setTimeout(() => {}, 0);
+  const proto = Object.getPrototypeOf(timer);
+  clearTimeout(timer);
+  const names = [];
+  for (const [owner, name] of [[proto, 'unref'], [timers, 'setTimeout'], [timers, 'setImmediate'], [timers, 'setInterval'], [timers.scheduler, 'wait']]) {
+    const original = owner[name];
+    try {
+      owner[name] = function assigned() {};
+      owner[name] = original;
+      Object.defineProperty(owner, name, { value: function replaced() {}, writable: true, configurable: true });
+      owner[name] = original;
+      names.push(name + ' ' + (owner[name] === original));
+    } catch (error) {
+      names.push(name + ' ' + error.message);
+    }
+  }
+  return [{ message: names.join(', ') + '; ' + String(typeof EventSource) + ' ' + ('EventSource' in globalThis) }];
+}
+`;
+  const outcome = (await outcomeOf(source)) as { findings: { message: string }[] };
+  assert.ok('findings' in outcome, JSON.stringify(outcome));
+  assert.equal(outcome.findings[0]!.message, `unref true, setTimeout true, setImmediate true, setInterval true, wait true; ${typeof EventSource} ${'EventSource' in globalThis}`);
 });

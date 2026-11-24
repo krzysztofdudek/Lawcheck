@@ -222,5 +222,29 @@
     "find": "usage('an empty path names no file')",
     "replace": "usage('an empty path')",
     "killedBy": "R-43: a path from the root of the law names a file, and the root itself, and nothing outside it"
+  },
+  {
+    "id": "runner-wasi-text",
+    "promise": "R-42",
+    "file": "src/runner.ts",
+    "find": "return 'starts WASI, and a rule may not';",
+    "replace": "return 'starts WASI';",
+    "killedBy": "R-42: what a rule throws is told in the words of the runner, by the permission the error names"
+  },
+  {
+    "id": "runner-companion-entry",
+    "promise": "R-42",
+    "file": "src/runner.ts",
+    "find": "message.entry === 'companion' ? 'companion' : 'check'",
+    "replace": "message.entry === 'companion' ? 'check' : 'check'",
+    "killedBy": "R-42: a module that lacks the function asked of it fails to load, whichever of check and companion that is, and a companion answers with paths"
+  },
+  {
+    "id": "runner-tcp-bind6",
+    "promise": "R-42",
+    "file": "src/runner.ts",
+    "find": "['open', 'bind', 'bind6', 'listen', 'connect', 'connect6']",
+    "replace": "['open', 'bind', 'listen', 'connect', 'connect6']",
+    "killedBy": "R-42: a rule reaches the network by none of the doors the runner shuts, and the error it meets says so"
   }
 ]
