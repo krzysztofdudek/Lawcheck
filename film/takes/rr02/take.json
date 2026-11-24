@@ -1,0 +1,82 @@
+{
+  "id": "rr02",
+  "page": "write-a-reviewer-rule",
+  "recorded": "2026-11-24T15:58:27.503Z",
+  "prompt": "Add a reviewer rule clear-errors for core: every error message a caller can see says what happened and what the caller can do next.",
+  "complete": true,
+  "commands": [
+    {
+      "command": "stty cols 88 rows 26 && clear",
+      "seconds": 0.307,
+      "ended": true,
+      "exit": 0
+    },
+    {
+      "command": "claude -p \"Add a reviewer rule clear-errors for core: every error message a caller can see says what happened and what the caller can do next.\"",
+      "seconds": 13.974,
+      "ended": true,
+      "exit": 0
+    },
+    {
+      "command": "lawcheck try clear-errors src/core/refund.ts",
+      "seconds": 2.751,
+      "ended": true,
+      "exit": 1
+    },
+    {
+      "command": "cp -r ../aside/. .",
+      "seconds": 0.305,
+      "ended": true,
+      "exit": 0
+    },
+    {
+      "command": "git diff src/core/refund.ts",
+      "seconds": 0.302,
+      "ended": true,
+      "exit": 0
+    },
+    {
+      "command": "lawcheck check --review --base main",
+      "seconds": 2.456,
+      "ended": true,
+      "exit": 0
+    },
+    {
+      "command": "lawcheck check --base main",
+      "seconds": 0.301,
+      "ended": true,
+      "exit": 0
+    },
+    {
+      "command": "lawcheck docs write-a-reviewer-rule",
+      "seconds": 0.306,
+      "ended": true,
+      "exit": 0
+    }
+  ],
+  "changed": [
+    ".lawcheck/.gitattributes",
+    ".lawcheck/law.yaml",
+    ".lawcheck/rules/clear-errors.md",
+    ".lawcheck/verdicts",
+    "src/core/refund.ts"
+  ],
+  "candidate": {
+    "commit": "f7a57b7b2c638ffd2f4e5d8687e2b557bdbdbe8b",
+    "lawcheck": "0.1.0-alpha.4"
+  },
+  "versions": {
+    "claude_code": "2.1.330 (Claude Code)",
+    "node": "v24.22.3",
+    "models": [
+      "claude-sonnet-5-5"
+    ],
+    "effort": "medium",
+    "plugin": [
+      {
+        "version": "0.1.0-alpha.4",
+        "commit": "f7a57b7b2c638ffd2f4e5d8687e2b557bdbdbe8b"
+      }
+    ]
+  }
+}

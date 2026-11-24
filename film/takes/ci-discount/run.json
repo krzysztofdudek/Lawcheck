@@ -1,7 +1,7 @@
 {
   "id": "ci-discount",
   "chapter": "ci",
-  "take": "ci01",
+  "take": "ci02",
   "branch": "discount",
   "args": [
     "check",

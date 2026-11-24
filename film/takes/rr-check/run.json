@@ -1,7 +1,7 @@
 {
   "id": "rr-check",
   "chapter": "write-a-reviewer-rule",
-  "take": "rr01",
+  "take": "rr02",
   "args": [
     "check",
     "--base",

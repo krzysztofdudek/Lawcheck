@@ -1,7 +1,7 @@
 {
   "id": "ci-refund",
   "chapter": "ci",
-  "take": "ci01",
+  "take": "ci02",
   "args": [
     "check",
     "--base",
