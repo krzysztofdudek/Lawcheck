@@ -4,10 +4,11 @@ import { CLAUDE_TIMEOUT_RUN_MS, FAKE_STARTED_MS, KILLED_GRACE_MS, LEFTOVER_GRACE
 import { LIMITS } from '../../dist/rules.js';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { anthropic, defaultAnswer, gitAlone, openai, startFake, withFake, writeFakeClaude } from './fake-reviewer.ts';
-import { alive, append, F, F_PATH, findingLines, pathWith, PROMPT_F, read, REVIEWER_CONFIG, REVIEWER_LAW, run, SECOND, startLawcheck, withR, write } from './helpers.ts';
+import { alive, append, F, F_PATH, findingLines, lawcheckAt, pathWith, PROMPT_F, read, REVIEWER_CONFIG, REVIEWER_LAW, run, SECOND, startLawcheck, withCopy, withR, write } from './helpers.ts';
+import type { Copy } from './helpers.ts';
 
 const UNREACHABLE = 'src/core/refund.ts  error[reviewer-unreachable]  ';
 
@@ -514,6 +515,43 @@ test('test 67: claude-code past its timeout, and the tool killed', async () => {
       }
     }, config(CLAUDE_CONFIG));
   }
+});
+
+// In this copy of the tool the guard writes each line the tool sends it, with the time it came, and lists nothing, and the tool starts the guard's list on every system: what the tool tells the guard on Windows shows everywhere, and a wait for the guard's list never ends by itself.
+function silentGuard(copy: Copy, told: string): void {
+  const rules = join(copy.dir, 'dist', 'rules.js');
+  const sound = readFileSync(rules, 'utf8');
+  const windowsOnly = "if (process.platform !== 'win32' || listing || !existsSync(tmpdir()))";
+  assert.ok(sound.includes(windowsOnly));
+  writeFileSync(rules, sound.replace(windowsOnly, 'if (listing || !existsSync(tmpdir()))'));
+  writeFileSync(
+    join(copy.dir, 'dist', 'guard.js'),
+    `import { appendFileSync } from 'node:fs';\nlet pending = '';\nprocess.stdin.setEncoding('utf8');\nprocess.stdin.on('data', (chunk) => {\n  pending += chunk;\n  for (let end = pending.indexOf('\\n'); end >= 0; end = pending.indexOf('\\n')) {\n    appendFileSync(${JSON.stringify(told)}, Date.now() + ' ' + pending.slice(0, end) + '\\n');\n    pending = pending.slice(end + 1);\n  }\n});\n`,
+  );
+}
+
+function toldToList(told: string): number | null {
+  if (!existsSync(told)) return null;
+  const line = readFileSync(told, 'utf8').split('\n').find((said) => said.endsWith(' +w'));
+  return line === undefined ? null : Number(line.split(' ')[0]);
+}
+
+test('R-74: doctor tells the guard to start no list of processes, and a review tells it before its call', async () => {
+  await withCopy(async (copy) => {
+    await withR(async (r, dir) => {
+      write(r, F_PATH, F);
+      const told = join(dir, 'told.txt');
+      fakeWrites(dir, ['told.txt']);
+      silentGuard(copy, told);
+      const env = claudeEnv(dir, 'answer');
+      const doctor = await lawcheckAt(copy.cli, r, ['doctor', '--base', 'main'], env);
+      assert.match(doctor.stdout, /claude-code can be called/);
+      assert.equal(toldToList(told), null, existsSync(told) ? readFileSync(told, 'utf8') : '');
+      const review = await lawcheckAt(copy.cli, r, ['check', '--review', '--base', 'main'], env);
+      assert.equal(review.stdout, SECOND);
+      assert.notEqual(toldToList(told), null);
+    }, config(CLAUDE_CONFIG));
+  });
 });
 
 test('R-88: the test entry of the tool refuses a limit as long as the one the tool ships, and no program the tool starts sees its variable', async () => {

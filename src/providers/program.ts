@@ -85,7 +85,6 @@ export function programProvider(program: Program, env: Env, timeoutSeconds: numb
   return {
     keys: (SIGN_IN_VARIABLES[program.name] ?? []).filter((name) => !NOT_KEYS.includes(name)).map((name) => variable(env, name)).filter((key): key is string => key !== null),
     ready() {
-      startListing();
       binary = find(env);
       return binary === null ? missing : null;
     },
