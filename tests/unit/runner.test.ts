@@ -202,6 +202,7 @@ test('S2-6: an immediate that the runner still has pending when the first messag
       const pending = join(root, 'pending.mjs');
       writeFileSync(pending, "let spin = true;\nconst again = () => { if (spin) setImmediate(again); };\nagain();\nprocess.once('message', () => { spin = false; });\n");
       const child = fork(RUNNER, [], { execArgv: ['--import', pathToFileURL(pending).href], env: {}, cwd: root, serialization: 'advanced', stdio: ['ignore', 'pipe', 'pipe', 'ipc'] });
+      const exited = new Promise<void>((done) => child.once('exit', () => done()));
       try {
         const queue: unknown[] = [];
         let wake = () => {};
@@ -222,6 +223,8 @@ test('S2-6: an immediate that the runner still has pending when the first messag
         assert.deepEqual(await next(), { kind: 'background', message: 'later', load: false });
       } finally {
         child.kill('SIGKILL');
+        // Windows ends a killed process a moment after the kill and keeps its working folder until then, so the folder is removed once the runner has ended.
+        await exited;
       }
     },
   );

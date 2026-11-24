@@ -117,13 +117,18 @@ function lawOf(rules: number, types: number, padTo = 0): string {
   return law;
 }
 
-// The rule files are one file with the other names linked to it: ten thousand files with data of their own were most of the time of test 254 on a loaded disk.
+// The rule files are a few files with the other names linked to them: ten thousand files with data of their own were most of the time of test 254 on a loaded disk. NTFS gives a file at most 1,024 names, so each file takes the names of a thousand rules.
+const NAMES_A_FILE = 1_000;
+
 async function withLaw(law: string, rules: number, body: (repo: string) => Promise<void>): Promise<void> {
   await inTemp(async (dir) => {
     const repo = `${dir}/r`;
     write(repo, '.lawcheck/law.yaml', law);
-    if (rules > 0) write(repo, '.lawcheck/rules/r0.mjs', 'export function check() { return []; }\n');
-    for (let i = 1; i < rules; i++) linkSync(`${repo}/.lawcheck/rules/r0.mjs`, `${repo}/.lawcheck/rules/r${i}.mjs`);
+    for (let i = 0; i < rules; i++) {
+      const first = i - (i % NAMES_A_FILE);
+      if (i === first) write(repo, `.lawcheck/rules/r${i}.mjs`, 'export function check() { return []; }\n');
+      else linkSync(`${repo}/.lawcheck/rules/r${first}.mjs`, `${repo}/.lawcheck/rules/r${i}.mjs`);
+    }
     git(repo, 'init', '-q', '-b', 'main');
     await body(repo);
   });
@@ -253,6 +258,8 @@ test('R-105: memory-too-large names the whole path of a file whose path is longe
   assert.ok(path.length > 256);
   await withSample(
     async (s) => {
+      // git for Windows lists a path past 260 characters only with core.longpaths, which a Windows user with such paths sets; the test's git reads no system config.
+      git(s, 'config', 'core.longpaths', 'true');
       write(s, path, 'a<a,'.repeat(16 * 1024));
       const result = await run(s, ['check', '--base', 'main'], { budget: 'LIMITS_RUN_MS' });
       assert.equal(
