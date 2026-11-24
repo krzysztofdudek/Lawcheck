@@ -62,6 +62,9 @@ process.send = undefined;
 // macOS adds __CF_USER_TEXT_ENCODING to every process it starts, even one started with an empty environment.
 for (const name of Object.keys(process.env)) delete process.env[name];
 
+// Node makes a pipe of standard output and standard error blocking on Windows only; elsewhere a print that does not fit in the pipe waits in the runner, so a rule that prints faster than the tool relays piles up gigabytes there, out of the memory guard's sight.
+for (const stream of [process.stdout, process.stderr]) (stream as unknown as { _handle?: { setBlocking?(blocking: boolean): unknown } })._handle?.setBlocking?.(true);
+
 // Node 24's permission model has no permission for the network; Node 25 and later refuse it themselves. Before the rule loads, the runner replaces with one refusal the functions of node:net, node:dgram and node:dns that reach the network, the globals and the export of node:http that open a connection, and the methods by which the classes of a TCP handle and of a pipe handle bind, listen and connect. A rule reaches those classes through the handle of a socket, as a TLS socket with no socket of its own makes one, and a pipe handle opens no network on its own, so its open stays for the runner's standard streams.
 function closeNetwork(): void {
   function closed(): never {
@@ -257,16 +260,47 @@ function refused(error: unknown): string | null {
 
 const NO_STRING_FORM = 'a value with no string form';
 
+// MESSAGE_CHARS of src/limits.ts, the limit of a finding's message, holds what a rule throws too, so a line of megabytes never crosses the channel.
+const SHOWN_CHARS = 4096;
+
+function firstLine(message: string): string {
+  let start = 0;
+  for (;;) {
+    const end = message.indexOf('\n', start);
+    const line = (end < 0 ? message.slice(start) : message.slice(start, end)).replace(/\r$/, '');
+    if (line !== '' || end < 0) return line;
+    start = end + 1;
+  }
+}
+
+function messageOf(error: unknown): string {
+  if (error instanceof Error) return String(error.message);
+  if (typeof error === 'object' && error !== null) {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === 'string' && message !== '') return message;
+  }
+  return String(error);
+}
+
+function shown(line: string): string {
+  const length = points(line);
+  if (length <= SHOWN_CHARS) return line;
+  let end = 0;
+  for (let taken = 0; taken < SHOWN_CHARS; taken++) end += line.codePointAt(end)! > 0xffff ? 2 : 1;
+  return `${line.slice(0, end)}… (cut: ${(length - SHOWN_CHARS).toLocaleString('en-US')} more characters)`;
+}
+
 // A value can have no string form (an object without a prototype, an array holding a symbol), so its text is the reason JavaScript gives for that.
 function text(error: unknown): string {
   try {
     const named = refused(error);
     if (named !== null) return named;
-    const message = error instanceof Error ? String(error.message) : String(error);
-    return message.split(/\r?\n/)[0] ?? '';
+    const line = firstLine(messageOf(error));
+    if (line !== '') return shown(line);
+    return error instanceof Error ? 'an error with no message' : 'a value whose text is empty';
   } catch (reason) {
     try {
-      if (reason instanceof Error) return String(reason.message).split(/\r?\n/)[0] ?? '';
+      if (reason instanceof Error) return shown(firstLine(String(reason.message)));
     } catch {
       return NO_STRING_FORM;
     }

@@ -182,7 +182,7 @@ When the reader fails, these files get `reader-failed`:
 
 `check` returns a list of [findings](concepts.md#finding), or a promise of one. A finding has these fields:
 
-- `message` is a non-empty string of at most 4,096 characters. Lawcheck turns a line break in it into a space.
+- `message` is a non-empty string of at most 4,096 characters. Lawcheck turns a line break in it into a space. A finding with no `message`, or an empty one, makes the rule [`rule-crashed`](#rule-crashed). So does a `message` that is not a string, such as the number `42`, and the message of the crash then names that value.
 - `line` is optional. When present, it is an integer from 1 to the number of lines of the file. A finding without `line`, or with a `line` of `null`, is about the whole file. Any other value of `line`, such as a string like `'2'`, a bigint or `1.5`, makes the rule [`rule-crashed`](#rule-crashed). The message names the value.
 - `file` is optional. Its one allowed value is the `path` of the call.
 
@@ -202,7 +202,7 @@ Lawcheck runs each script rule in a Node process of its own. This page calls tha
 - `process.env` is empty, because the rule runner gets none of the caller's variables;
 - its working directory is the root.
 
-Lawcheck writes what the rule prints, on either stream, to its own standard error.
+Lawcheck writes what the rule prints, on either stream, to its own standard error. A print waits until Lawcheck has taken it, so the rule runner holds none of what the rule prints, however much that is. The time a print waits counts toward the rule's 30 seconds.
 
 A rule has 30 seconds to load and 30 seconds for each call. A rule that takes longer is `rule-crashed`. All script rules of one run have 600 seconds together. The time Lawcheck takes to read a tree or the uses counts toward the 600 seconds of the run. It does not count toward the 30 seconds of any call. A rule can ask for a tree or the uses while Lawcheck reads for another rule, and that wait does not count toward its 30 seconds either. A run that goes past the 600 seconds stops with `rules-too-slow`. Lawcheck reports that code at the file that each unfinished rule was judging.
 
@@ -257,6 +257,8 @@ A rejected promise with no handler, or a timer that throws, gives a `rule-crashe
 After the last call, Lawcheck waits once, at most 2 seconds, for the work the rule left running. A timer counts as such work, whether or not the rule called its `unref()`. A job of `node:crypto` whose callback has not run counts too, such as a call of pbkdf2 or scrypt.
 
 For every other kind of crash in the list above, the message of `rule-crashed` names the judged file, or the load. Lawcheck names each crashed rule once in a run.
+
+When the rule throws, rejects or fails in the background, the message of `rule-crashed` holds the first line of what the rule threw. It shows at most 4,096 characters of that line, the same limit as a finding's message. A longer line is cut there, and the message ends with the count of the characters left out, as in `… (cut: 96,178 more characters)`. When the first line is empty, the message holds the first line that has text. An error with no message reads "an error with no message". A thrown object that is not an error but holds a string `message`, such as `{ code: 'E_X', message: 'no config' }`, gives that message.
 
 A rule may throw a value that JavaScript cannot turn into text. An object with no prototype is one: it has no method that gives its text. The message of `rule-crashed` then holds the error that JavaScript raises when it tries. A proxy object can answer that try by throwing a value that is not an error, such as a string. In that case the message reads `a value with no string form`.
 
