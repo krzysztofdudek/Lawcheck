@@ -9,6 +9,22 @@ import { LOCK_HELD_LOOK_MS } from '../numbers.ts';
 
 const REVIEW = ['check', '--review', '--base', 'main'];
 
+const LOCK_TOUCH_MS = 250;
+
+// The review calls a verdicts lock stale ten seconds after its folder's time (LOCK_WAIT_MS in src/verdicts.ts), however long its holder lives, so a test that holds the lock while a slow review gets to it touches the folder as it waits.
+function keepLock(lock: string): () => void {
+  const timer = setInterval(() => {
+    try {
+      const now = new Date();
+      utimesSync(lock, now, now);
+    } catch {
+      // The test has let go of the lock.
+    }
+  }, LOCK_TOUCH_MS);
+  timer.unref();
+  return () => clearInterval(timer);
+}
+
 function unwritable(path: string, message: string): string {
   return [
     'lawcheck: ERROR  1 error',
@@ -215,12 +231,17 @@ test('R-76: test 253, two runs that write the verdicts file at once keep the lin
       mkdirSync(lock, { recursive: true });
       writeFileSync(join(local, '.gitignore'), '*\n');
       writeFileSync(join(lock, 'pid'), String(process.pid));
+      const madeAt = statSync(lock).mtimeMs;
+      const letGo = keepLock(lock);
       const before = existsSync(verdicts) ? readFileSync(verdicts, 'utf8') : '';
       const review = run(r, REVIEW, { env: { LAWCHECK_REVIEWER_ENDPOINT: fake.url }, budget: 'LIMITS_RUN_MS', writes: [/^\.lawcheck\/\.local(\/|$)/] });
       await heldAtLock(local, review);
       const until = Date.now() + LOCK_HELD_LOOK_MS;
       while (fake.requests.length === 0 && Date.now() < until) await new Promise((done) => setTimeout(done, 20));
       assert.equal(fake.requests.length, 0, 'the review called the reviewer while the test held the lock');
+      const touched = statSync(lock).mtimeMs > madeAt;
+      letGo();
+      assert.ok(touched, 'the lock kept the time it was made at, so a review that came ten seconds late would have taken it');
       const other = `${'0'.repeat(32)} clear-errors\n`;
       writeFileSync(verdicts, before + other);
       rmSync(lock, { recursive: true, force: true });
