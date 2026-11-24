@@ -1,0 +1,6 @@
+lawcheck: FAIL  1 error in 4 files (no base: every file counts as changed)
+
+src/core/receipt.ts:1  error[forbidden-use]  core may not use src/cli/print.ts, which has no type; its may_use is [core]
+  why:  a type's may_use names every type its files may use
+
+next: fix src/core/receipt.ts:1

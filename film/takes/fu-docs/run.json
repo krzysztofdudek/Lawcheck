@@ -1,0 +1,10 @@
+{
+  "id": "fu-docs",
+  "chapter": "forbid-a-use",
+  "args": [
+    "docs",
+    "forbid-a-use"
+  ],
+  "exit": 0,
+  "lawcheck": "0.1.0-alpha.4"
+}

@@ -1,0 +1,15 @@
+lawcheck: 0.1.0
+
+rules:
+  no-fetch:
+    why: Only the api layer talks to the network.
+
+types:
+  api:
+    about: The HTTP handlers.
+    paths: ["src/api/**"]
+  core:
+    about: The business logic.
+    paths: ["src/core/**"]
+    may_use: [core]
+    rules: [no-fetch]

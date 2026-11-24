@@ -1,0 +1,7 @@
+lawcheck: 0.1.0
+
+types:
+  core:
+    about: Prices and orders, with no input or output.
+    paths: ["src/core/**"]
+    may_use: [core]

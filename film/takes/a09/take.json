@@ -1,0 +1,55 @@
+{
+  "id": "a09",
+  "arm": "a",
+  "recorded": "2026-11-23T12:36:03.513Z",
+  "prompt": "Add a loyalty discount in src/core: a customer with more than five orders gets ten percent off. Return the new total and a message that shows the saved amount as money, the way the receipts do.",
+  "complete": true,
+  "commands": [
+    {
+      "command": "stty cols 88 rows 26 && clear",
+      "seconds": 0.305,
+      "ended": true
+    },
+    {
+      "command": "claude -p \"Add a loyalty discount in src/core: a customer with more than five orders gets ten percent off. Return the new total and a message that shows the saved amount as money, the way the receipts do.\"",
+      "seconds": 11.436,
+      "ended": true
+    },
+    {
+      "command": "npm test",
+      "seconds": 0.302,
+      "ended": true
+    },
+    {
+      "command": "git add --all",
+      "seconds": 0.305,
+      "ended": true
+    },
+    {
+      "command": "git diff --staged",
+      "seconds": 0.3,
+      "ended": true
+    }
+  ],
+  "changed": [
+    "src/core/price.ts",
+    "tests/price.test.ts"
+  ],
+  "tests": {
+    "exit": 0,
+    "tests": 10,
+    "pass": 10,
+    "fail": 0
+  },
+  "check": null,
+  "versions": {
+    "lawcheck": "0.1.0-alpha.4",
+    "claude_code": "2.1.330 (Claude Code)",
+    "node": "v24.22.3",
+    "models": [
+      "claude-sonnet-5-5"
+    ],
+    "effort": "medium",
+    "plugin": []
+  }
+}

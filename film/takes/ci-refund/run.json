@@ -1,0 +1,12 @@
+{
+  "id": "ci-refund",
+  "chapter": "ci",
+  "take": "ci01",
+  "args": [
+    "check",
+    "--base",
+    "origin/main"
+  ],
+  "exit": 0,
+  "lawcheck": "0.1.0-alpha.4"
+}

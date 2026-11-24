@@ -1,0 +1,16 @@
+{
+  "page": "write-a-script-rule",
+  "lawcheck": "global",
+  "plugin": true,
+  "law": "film/fixture/law/law.yaml",
+  "main": ["write-a-script-rule/main"],
+  "branches": [{ "name": "no-fetch" }],
+  "start": "no-fetch",
+  "prompt": "Add a script rule no-fetch: no file of core calls fetch(). Read the syntax tree, so a comment is not a finding.",
+  "commands": [
+    "claude -p \"{prompt}\"",
+    "lawcheck explain --rule no-fetch",
+    "lawcheck try no-fetch",
+    "lawcheck docs write-a-script-rule"
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "page": "ci",
+  "lawcheck": "project",
+  "plugin": true,
+  "law": "film/fixture/law/law.yaml",
+  "branches": [
+    { "name": "discount", "overlays": ["ci/discount"] },
+    { "name": "refund", "overlays": ["write-a-reviewer-rule/refund"], "take": "write-a-reviewer-rule" }
+  ],
+  "start": "refund",
+  "prompt": "Add the CI job of lawcheck docs ci to this repository.",
+  "commands": [
+    "claude -p \"{prompt}\""
+  ],
+  "offline": [
+    "npx --no-install lawcheck check --base origin/main",
+    "git switch discount",
+    "npx --no-install lawcheck check --base origin/main",
+    "echo $?",
+    "npx --no-install lawcheck docs ci"
+  ]
+}
