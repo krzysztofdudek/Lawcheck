@@ -126,5 +126,29 @@
     "find": "'no reviewer is set, so --reviewer has nothing to call'",
     "replace": "'no reviewer is set'",
     "killedBy": "R-39: the reviewer check says why it cannot call a reviewer, and what a call answered"
+  },
+  {
+    "id": "init-law-below-message",
+    "promise": "R-41",
+    "file": "src/init.ts",
+    "find": "'a law already governs a directory below this one'",
+    "replace": "'a law governs a directory below this one'",
+    "killedBy": "R-41: init where a law already governs names the law in the words of its own, in text and in JSON, from the top and from a folder below it"
+  },
+  {
+    "id": "init-link-to-file",
+    "promise": "R-41",
+    "file": "src/init.ts",
+    "find": "'it is a symbolic link to a file, so the folder .lawcheck cannot be made'",
+    "replace": "'it is a link to a file, so the folder .lawcheck cannot be made'",
+    "killedBy": "R-41: init where .lawcheck is a file, or a link to a file or to nothing, says which and what to do"
+  },
+  {
+    "id": "init-unwritable-code",
+    "promise": "R-41",
+    "file": "src/init.ts",
+    "find": "message: `cannot be written (${code})`",
+    "replace": "message: `cannot be written`",
+    "killedBy": "R-41: a file that cannot be made is file-unwritable, with the code of the failure and the place"
   }
 ]
