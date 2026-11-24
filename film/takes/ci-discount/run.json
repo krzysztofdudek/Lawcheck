@@ -1,0 +1,13 @@
+{
+  "id": "ci-discount",
+  "chapter": "ci",
+  "take": "ci01",
+  "branch": "discount",
+  "args": [
+    "check",
+    "--base",
+    "origin/main"
+  ],
+  "exit": 1,
+  "lawcheck": "0.1.0-alpha.4"
+}

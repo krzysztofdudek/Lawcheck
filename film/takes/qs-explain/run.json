@@ -1,0 +1,11 @@
+{
+  "id": "qs-explain",
+  "chapter": "quick-start",
+  "take": "qs01",
+  "args": [
+    "explain",
+    "src/core/price.ts"
+  ],
+  "exit": 0,
+  "lawcheck": "0.1.0-alpha.4"
+}

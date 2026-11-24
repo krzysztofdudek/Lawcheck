@@ -1,0 +1,3 @@
+lawcheck: PASS  7 changed files (against origin/main)
+note: the law changed in this change; lawcheck check --full --base origin/main shows what it finds in the rest of the code
+note: this change edits the law that judges it: adds the rule clear-errors; adds .lawcheck/rules/clear-errors.md; adds .lawcheck/config.yaml

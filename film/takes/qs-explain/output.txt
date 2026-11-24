@@ -1,0 +1,6 @@
+src/core/price.ts
+  type:  core  (core)  The business logic.
+  matched:  core by "src/core/**"
+  may use:  any file; no type on the way up has may_use
+  rules:  none
+  waivers:  none

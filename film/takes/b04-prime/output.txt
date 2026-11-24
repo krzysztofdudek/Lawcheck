@@ -13,6 +13,7 @@ Only on the user's word
 - a waiver comment: lawcheck-waive <rule> -- <reason> (lawcheck docs waivers), or taking a rule off a type
 - deleting a rule, or changing its status or its why
 - widening may_use
+- adding a pattern to ignored
 - any edit of .lawcheck/verdicts or of .lawcheck/config.yaml
 
 You may, unasked

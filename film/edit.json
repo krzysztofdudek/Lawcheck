@@ -32,6 +32,73 @@
       "args": [
         "prime"
       ]
+    },
+    "qs-explain": {
+      "chapter": "quick-start",
+      "take": "qs01",
+      "args": [
+        "explain",
+        "src/core/price.ts"
+      ]
+    },
+    "qs-check": {
+      "chapter": "quick-start",
+      "take": "qs01",
+      "args": [
+        "check"
+      ]
+    },
+    "sr-try": {
+      "chapter": "write-a-script-rule",
+      "take": "sr01",
+      "args": [
+        "try",
+        "no-fetch"
+      ]
+    },
+    "rr-check": {
+      "chapter": "write-a-reviewer-rule",
+      "take": "rr01",
+      "args": [
+        "check",
+        "--base",
+        "main"
+      ]
+    },
+    "fu-check": {
+      "chapter": "forbid-a-use",
+      "take": "fu01",
+      "args": [
+        "check",
+        "--base",
+        "origin/main"
+      ]
+    },
+    "fu-docs": {
+      "chapter": "forbid-a-use",
+      "args": [
+        "docs",
+        "forbid-a-use"
+      ]
+    },
+    "ci-refund": {
+      "chapter": "ci",
+      "take": "ci01",
+      "args": [
+        "check",
+        "--base",
+        "origin/main"
+      ]
+    },
+    "ci-discount": {
+      "chapter": "ci",
+      "take": "ci01",
+      "branch": "discount",
+      "args": [
+        "check",
+        "--base",
+        "origin/main"
+      ]
     }
   },
   "loop": [
@@ -228,5 +295,1415 @@
       ]
     }
   ],
-  "chapters": []
+  "chapters": [
+    {
+      "page": "quick-start",
+      "take": "qs01",
+      "record": "b86a0af6825c5fc7d958d176a018de2d099ce89c1d1a5443bc4fee2b7c1a2b37",
+      "timeline": [
+        {
+          "id": "q1",
+          "caption": "Quick start",
+          "subtitle": "Lawcheck installs with one npm command.",
+          "screens": [
+            {
+              "blocks": [
+                {
+                  "kind": "terminal",
+                  "lines": [
+                    {
+                      "prompt": true,
+                      "text": "npm install --global lawcheck@alpha",
+                      "from": {
+                        "take": "qs01",
+                        "file": "terminal.jsonl"
+                      }
+                    },
+                    {
+                      "text": "added 4 packages in 1s",
+                      "from": {
+                        "take": "qs01",
+                        "file": "terminal.jsonl"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "at": 0.0
+            }
+          ],
+          "start": 0.0,
+          "end": 7.2
+        },
+        {
+          "id": "q2",
+          "caption": "The Claude Code plugin",
+          "subtitle": "The plugin for Claude Code takes two more commands.",
+          "screens": [
+            {
+              "blocks": [
+                {
+                  "kind": "terminal",
+                  "lines": [
+                    {
+                      "prompt": true,
+                      "text": "claude plugin marketplace add krzysztofdudek/Lawcheck",
+                      "from": {
+                        "take": "qs01",
+                        "file": "terminal.jsonl"
+                      }
+                    },
+                    {
+                      "prompt": true,
+                      "text": "claude plugin install lawcheck@lawcheck-marketplace",
+                      "from": {
+                        "take": "qs01",
+                        "file": "terminal.jsonl"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "at": 0.0
+            }
+          ],
+          "start": 7.2,
+          "end": 15.4
+        },
+        {
+          "id": "q3",
+          "caption": "An empty law",
+          "subtitle": "In the repository, lawcheck init writes an empty law.",
+          "screens": [
+            {
+              "blocks": [
+                {
+                  "kind": "terminal",
+                  "lines": [
+                    {
+                      "prompt": true,
+                      "text": "lawcheck init",
+                      "from": {
+                        "take": "qs01",
+                        "file": "terminal.jsonl"
+                      }
+                    },
+                    {
+                      "text": "lawcheck: created .lawcheck/law.yaml and .lawcheck/.gitignore",
+                      "from": {
+                        "take": "qs01",
+                        "file": "terminal.jsonl"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "at": 0.0
+            }
+          ],
+          "start": 15.4,
+          "end": 22.0
+        },
+        {
+          "id": "q4",
+          "caption": "A prompt for Claude Code",
+          "subtitle": "Claude Code gets a prompt that asks for two types.",
+          "screens": [
+            {
+              "blocks": [
+                {
+                  "kind": "terminal",
+                  "lines": [
+                    {
+                      "prompt": true,
+                      "text": "claude -p \"Describe this repository in .lawcheck/law.yaml: one type for the HTTP handlers in src/api and one for the business logic in src/core.\"",
+                      "from": {
+                        "take": "qs01",
+                        "file": "take.json"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "at": 0.0
+            }
+          ],
+          "start": 22.0,
+          "end": 33.9
+        },
+        {
+          "id": "q5",
+          "caption": "Two types in the law",
+          "subtitle": "The agent writes them into the law. Each type says what its files are and where they live.",
+          "screens": [
+            {
+              "blocks": [
+                {
+                  "kind": "file",
+                  "label": {
+                    "text": ".lawcheck/law.yaml",
+                    "from": {
+                      "take": "qs01",
+                      "file": "take.json"
+                    }
+                  },
+                  "lines": [
+                    {
+                      "text": "types:",
+                      "from": {
+                        "take": "qs01",
+                        "file": "files/.lawcheck/law.yaml",
+                        "line": 3
+                      }
+                    },
+                    {
+                      "text": "  api:",
+                      "from": {
+                        "take": "qs01",
+                        "file": "files/.lawcheck/law.yaml",
+                        "line": 4
+                      }
+                    },
+                    {
+                      "text": "    about: The HTTP handlers.",
+                      "from": {
+                        "take": "qs01",
+                        "file": "files/.lawcheck/law.yaml",
+                        "line": 5
+                      }
+                    },
+                    {
+                      "text": "    paths: [\"src/api/**\"]",
+                      "from": {
+                        "take": "qs01",
+                        "file": "files/.lawcheck/law.yaml",
+                        "line": 6
+                      }
+                    },
+                    {
+                      "text": "  core:",
+                      "from": {
+                        "take": "qs01",
+                        "file": "files/.lawcheck/law.yaml",
+                        "line": 7
+                      }
+                    },
+                    {
+                      "text": "    about: The business logic.",
+                      "from": {
+                        "take": "qs01",
+                        "file": "files/.lawcheck/law.yaml",
+                        "line": 8
+                      }
+                    },
+                    {
+                      "text": "    paths: [\"src/core/**\"]",
+                      "from": {
+                        "take": "qs01",
+                        "file": "files/.lawcheck/law.yaml",
+                        "line": 9
+                      }
+                    }
+                  ]
+                }
+              ],
+              "at": 0.0
+            }
+          ],
+          "start": 33.9,
+          "end": 40.8
+        },
+        {
+          "id": "q6",
+          "caption": "The type of one file",
+          "subtitle": "Lawcheck explain names the type of a file.",
+          "screens": [
+            {
+              "blocks": [
+                {
+                  "kind": "terminal",
+                  "lines": [
+                    {
+                      "prompt": true,
+                      "text": "lawcheck explain src/core/price.ts",
+                      "from": {
+                        "take": "qs01",
+                        "file": "terminal.jsonl"
+                      }
+                    },
+                    {
+                      "text": "src/core/price.ts",
+                      "from": {
+                        "take": "qs01",
+                        "file": "terminal.jsonl"
+                      }
+                    },
+                    {
+                      "mark": true,
+                      "text": "  type:  core  (core)  The business logic.",
+                      "from": {
+                        "take": "qs01",
+                        "file": "terminal.jsonl"
+                      },
+                      "now": "qs-explain"
+                    },
+                    {
+                      "text": "  matched:  core by \"src/core/**\"",
+                      "from": {
+                        "take": "qs01",
+                        "file": "terminal.jsonl"
+                      },
+                      "now": "qs-explain"
+                    }
+                  ]
+                }
+              ],
+              "at": 0.0
+            }
+          ],
+          "start": 40.8,
+          "end": 47.0
+        },
+        {
+          "id": "q7",
+          "caption": "Nothing is forbidden yet",
+          "subtitle": "The check passes. This law forbids nothing yet.",
+          "screens": [
+            {
+              "blocks": [
+                {
+                  "kind": "terminal",
+                  "lines": [
+                    {
+                      "prompt": true,
+                      "text": "lawcheck check",
+                      "from": {
+                        "take": "qs01",
+                        "file": "terminal.jsonl"
+                      }
+                    },
+                    {
+                      "text": "lawcheck: PASS  2 changed files (against origin/main)",
+                      "from": {
+                        "take": "qs01",
+                        "file": "terminal.jsonl"
+                      },
+                      "now": "qs-check"
+                    }
+                  ]
+                }
+              ],
+              "at": 0.0
+            }
+          ],
+          "start": 47.0,
+          "end": 54.6
+        },
+        {
+          "id": "q8",
+          "subtitle": "The quick start has these steps as text.",
+          "screens": [
+            {
+              "blocks": [
+                {
+                  "kind": "lockup"
+                },
+                {
+                  "kind": "terminal",
+                  "lines": [
+                    {
+                      "prompt": true,
+                      "text": "lawcheck docs quick-start",
+                      "from": {
+                        "take": "qs01",
+                        "file": "terminal.jsonl"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "at": 0.0
+            }
+          ],
+          "start": 54.6,
+          "end": 59.2
+        }
+      ]
+    },
+    {
+      "page": "forbid-a-use",
+      "take": "fu01",
+      "record": "49de4ae5b2ce924d81f6734cdb520199e898ee6dd0775f15a7fd8c45f512898b",
+      "timeline": [
+        {
+          "id": "f1",
+          "caption": "Forbid one layer to use another",
+          "screens": [
+            {
+              "blocks": [
+                {
+                  "kind": "terminal",
+                  "lines": [
+                    {
+                      "prompt": true,
+                      "text": "claude -p \"Add a loyalty discount in src/core: a customer with more than five orders gets ten percent off. Return the new total and a message that shows the saved amount as money, the way the receipts do.\"",
+                      "from": {
+                        "take": "a09",
+                        "file": "take.json"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "at": 0.0
+            }
+          ],
+          "start": 0.0,
+          "end": 16.2
+        },
+        {
+          "id": "f2",
+          "caption": "Tests pass. Core imports the API.",
+          "subtitle": "With no law, line one of a business logic file imports from the HTTP handlers.",
+          "screens": [
+            {
+              "blocks": [
+                {
+                  "kind": "file",
+                  "label": {
+                    "text": "src/core/price.ts",
+                    "from": {
+                      "take": "a09",
+                      "file": "change.diff"
+                    }
+                  },
+                  "lines": [
+                    {
+                      "mark": true,
+                      "text": "+import { formatMoney } from \"../api/format.ts\";",
+                      "from": {
+                        "take": "a09",
+                        "file": "change.diff"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "kind": "terminal",
+                  "lines": [
+                    {
+                      "prompt": true,
+                      "text": "npm test",
+                      "from": {
+                        "take": "a09",
+                        "file": "terminal.jsonl"
+                      }
+                    },
+                    {
+                      "text": "ℹ pass 10",
+                      "color": "blue",
+                      "from": {
+                        "take": "a09",
+                        "file": "terminal.jsonl"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "at": 0.0
+            }
+          ],
+          "start": 16.2,
+          "end": 26.4
+        },
+        {
+          "id": "f3",
+          "caption": "One line: core may use only core",
+          "subtitle": "One line of the law forbids that.",
+          "screens": [
+            {
+              "blocks": [
+                {
+                  "kind": "file",
+                  "label": {
+                    "text": ".lawcheck/law.yaml",
+                    "from": {
+                      "take": "fu01",
+                      "file": "transcript.jsonl"
+                    }
+                  },
+                  "lines": [
+                    {
+                      "text": "  core:",
+                      "from": {
+                        "repo": "film/fixture/law/law.yaml",
+                        "line": 7
+                      },
+                      "number": 7
+                    },
+                    {
+                      "text": "    about: The business logic.",
+                      "from": {
+                        "repo": "film/fixture/law/law.yaml",
+                        "line": 8
+                      },
+                      "number": 8
+                    },
+                    {
+                      "text": "    paths: [\"src/core/**\"]",
+                      "from": {
+                        "repo": "film/fixture/law/law.yaml",
+                        "line": 9
+                      },
+                      "number": 9
+                    },
+                    {
+                      "text": "    may_use: [core]",
+                      "from": {
+                        "repo": "film/fixture/law/law.yaml",
+                        "line": 10
+                      },
+                      "number": 10,
+                      "mark": true
+                    }
+                  ]
+                }
+              ],
+              "at": 0.0
+            }
+          ],
+          "start": 26.4,
+          "end": 32.3
+        },
+        {
+          "id": "f4",
+          "caption": "Lawcheck names the line and the rule",
+          "screens": [
+            {
+              "blocks": [
+                {
+                  "kind": "terminal",
+                  "lines": [
+                    {
+                      "prompt": true,
+                      "text": "lawcheck check",
+                      "from": {
+                        "run": "a09-check",
+                        "command": true
+                      }
+                    },
+                    {
+                      "text": "lawcheck: FAIL  1 error in 2 changed files (against origin/main)",
+                      "from": {
+                        "run": "a09-check"
+                      }
+                    },
+                    {
+                      "text": "src/core/price.ts:1  error[forbidden-use]  core may not use api (src/api/format.ts); its may_use is [core]",
+                      "from": {
+                        "run": "a09-check"
+                      },
+                      "mark": true
+                    },
+                    {
+                      "more": true
+                    }
+                  ]
+                }
+              ],
+              "at": 0.0
+            }
+          ],
+          "start": 32.3,
+          "end": 42.2
+        },
+        {
+          "id": "f5",
+          "caption": "Same prompt, law and plugin",
+          "subtitle": "With the law and the plugin, the agent keeps the helper in core.",
+          "screens": [
+            {
+              "blocks": [
+                {
+                  "kind": "panel",
+                  "label": "The agent wrote",
+                  "lines": [
+                    {
+                      "text": "The law only lets core use core, so `loyalty.ts` couldn't import it from `api`.",
+                      "from": {
+                        "take": "fu01",
+                        "file": "transcript.jsonl"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "kind": "terminal",
+                  "lines": [
+                    {
+                      "text": "lawcheck: PASS  4 changed files (against origin/main)",
+                      "from": {
+                        "take": "fu01",
+                        "file": "terminal.jsonl"
+                      },
+                      "now": "fu-check"
+                    }
+                  ]
+                }
+              ],
+              "at": 0.0
+            }
+          ],
+          "start": 42.2,
+          "end": 51.1
+        },
+        {
+          "id": "f6",
+          "subtitle": "The guide has these steps as text.",
+          "screens": [
+            {
+              "blocks": [
+                {
+                  "kind": "lockup"
+                },
+                {
+                  "kind": "terminal",
+                  "lines": [
+                    {
+                      "prompt": true,
+                      "text": "lawcheck docs forbid-a-use",
+                      "from": {
+                        "run": "fu-docs",
+                        "command": true
+                      }
+                    }
+                  ]
+                }
+              ],
+              "at": 0.0
+            }
+          ],
+          "start": 51.1,
+          "end": 55.3
+        }
+      ]
+    },
+    {
+      "page": "write-a-script-rule",
+      "take": "sr01",
+      "record": "3c991b62f4e6b836dd7e3b22092f0da818ac7a5166853bf5e3fe5a8b82bec102",
+      "timeline": [
+        {
+          "id": "s1",
+          "caption": "Write a script rule",
+          "subtitle": "Line three calls fetch. Line one names it in a comment.",
+          "screens": [
+            {
+              "blocks": [
+                {
+                  "kind": "file",
+                  "label": {
+                    "text": "src/core/cart.ts",
+                    "from": {
+                      "take": "sr01",
+                      "file": "terminal.jsonl"
+                    }
+                  },
+                  "lines": [
+                    {
+                      "text": "// Orders reach the network through fetch() in src/api, never here.",
+                      "from": {
+                        "repo": "film/fixture/chapters/write-a-script-rule/main/src/core/cart.ts",
+                        "line": 1
+                      },
+                      "number": 1
+                    },
+                    {
+                      "text": "export async function total() {",
+                      "from": {
+                        "repo": "film/fixture/chapters/write-a-script-rule/main/src/core/cart.ts",
+                        "line": 2
+                      },
+                      "number": 2
+                    },
+                    {
+                      "text": "  return (await fetch('/cart')).json();",
+                      "from": {
+                        "repo": "film/fixture/chapters/write-a-script-rule/main/src/core/cart.ts",
+                        "line": 3
+                      },
+                      "number": 3,
+                      "mark": true
+                    }
+                  ]
+                }
+              ],
+              "at": 0.0
+            }
+          ],
+          "start": 0.0,
+          "end": 15.2
+        },
+        {
+          "id": "s2",
+          "caption": "A prompt for Claude Code",
+          "subtitle": "Claude Code gets a prompt for a script rule.",
+          "screens": [
+            {
+              "blocks": [
+                {
+                  "kind": "terminal",
+                  "lines": [
+                    {
+                      "prompt": true,
+                      "text": "claude -p \"Add a script rule no-fetch: no file of core calls fetch(). Read the syntax tree, so a comment is not a finding.\"",
+                      "from": {
+                        "take": "sr01",
+                        "file": "take.json"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "at": 0.0
+            }
+          ],
+          "start": 15.2,
+          "end": 24.1
+        },
+        {
+          "id": "s3",
+          "caption": "The rule reads the syntax tree",
+          "subtitle": "The agent writes the rule. It reads the syntax tree of the file.",
+          "screens": [
+            {
+              "blocks": [
+                {
+                  "kind": "file",
+                  "label": {
+                    "text": ".lawcheck/rules/no-fetch.mjs",
+                    "from": {
+                      "take": "sr01",
+                      "file": "take.json"
+                    }
+                  },
+                  "lines": [
+                    {
+                      "text": "export async function check({ files: [file] }) {",
+                      "from": {
+                        "take": "sr01",
+                        "file": "files/.lawcheck/rules/no-fetch.mjs",
+                        "line": 1
+                      },
+                      "number": 1
+                    },
+                    {
+                      "text": "  const { root } = await file.tree();",
+                      "from": {
+                        "take": "sr01",
+                        "file": "files/.lawcheck/rules/no-fetch.mjs",
+                        "line": 2
+                      },
+                      "number": 2,
+                      "mark": true
+                    },
+                    {
+                      "more": true
+                    }
+                  ]
+                }
+              ],
+              "at": 0.0
+            }
+          ],
+          "start": 24.1,
+          "end": 31.3
+        },
+        {
+          "id": "s4",
+          "caption": "The law lists the rule on core",
+          "subtitle": "The law gets the rule and its reason, and core lists it.",
+          "screens": [
+            {
+              "blocks": [
+                {
+                  "kind": "file",
+                  "label": {
+                    "text": ".lawcheck/law.yaml",
+                    "from": {
+                      "take": "sr01",
+                      "file": "take.json"
+                    }
+                  },
+                  "lines": [
+                    {
+                      "text": "rules:",
+                      "from": {
+                        "take": "sr01",
+                        "file": "files/.lawcheck/law.yaml",
+                        "line": 3
+                      },
+                      "number": 3
+                    },
+                    {
+                      "text": "  no-fetch:",
+                      "from": {
+                        "take": "sr01",
+                        "file": "files/.lawcheck/law.yaml",
+                        "line": 4
+                      },
+                      "number": 4
+                    },
+                    {
+                      "text": "    why: Only the api layer talks to the network.",
+                      "from": {
+                        "take": "sr01",
+                        "file": "files/.lawcheck/law.yaml",
+                        "line": 5
+                      },
+                      "number": 5
+                    },
+                    {
+                      "more": true
+                    },
+                    {
+                      "text": "  core:",
+                      "from": {
+                        "take": "sr01",
+                        "file": "files/.lawcheck/law.yaml",
+                        "line": 11
+                      },
+                      "number": 11
+                    },
+                    {
+                      "more": true
+                    },
+                    {
+                      "text": "    rules: [no-fetch]",
+                      "from": {
+                        "take": "sr01",
+                        "file": "files/.lawcheck/law.yaml",
+                        "line": 15
+                      },
+                      "number": 15,
+                      "mark": true
+                    }
+                  ]
+                }
+              ],
+              "at": 0.0
+            }
+          ],
+          "start": 31.3,
+          "end": 41.5
+        },
+        {
+          "id": "s5",
+          "caption": "One finding",
+          "subtitle": "Lawcheck try reports line three and leaves the comment.",
+          "screens": [
+            {
+              "blocks": [
+                {
+                  "kind": "terminal",
+                  "lines": [
+                    {
+                      "prompt": true,
+                      "text": "lawcheck try no-fetch",
+                      "from": {
+                        "take": "sr01",
+                        "file": "terminal.jsonl"
+                      }
+                    },
+                    {
+                      "text": "lawcheck: try no-fetch (script rule, enforced)  1 finding in 1 of 2 files",
+                      "from": {
+                        "take": "sr01",
+                        "file": "terminal.jsonl"
+                      },
+                      "now": "sr-try"
+                    },
+                    {
+                      "text": "src/core/cart.ts:3  error[no-fetch]  calls fetch outside the api layer",
+                      "from": {
+                        "take": "sr01",
+                        "file": "terminal.jsonl"
+                      },
+                      "now": "sr-try",
+                      "mark": true
+                    }
+                  ]
+                }
+              ],
+              "at": 0.0
+            }
+          ],
+          "start": 41.5,
+          "end": 51.1
+        },
+        {
+          "id": "s6",
+          "subtitle": "The guide has these steps as text.",
+          "screens": [
+            {
+              "blocks": [
+                {
+                  "kind": "lockup"
+                },
+                {
+                  "kind": "terminal",
+                  "lines": [
+                    {
+                      "prompt": true,
+                      "text": "lawcheck docs write-a-script-rule",
+                      "from": {
+                        "take": "sr01",
+                        "file": "terminal.jsonl"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "at": 0.0
+            }
+          ],
+          "start": 51.1,
+          "end": 55.3
+        }
+      ]
+    },
+    {
+      "page": "write-a-reviewer-rule",
+      "take": "rr01",
+      "record": "a2e7ec39fb38db10e200cef32e9698282ece52485c0874389a77de1855245056",
+      "timeline": [
+        {
+          "id": "r1",
+          "caption": "Write a reviewer rule",
+          "subtitle": "The error says only failed. The reviewer is Claude Code, with no key.",
+          "screens": [
+            {
+              "blocks": [
+                {
+                  "kind": "file",
+                  "label": {
+                    "text": "src/core/refund.ts",
+                    "from": {
+                      "take": "rr01",
+                      "file": "terminal.jsonl"
+                    }
+                  },
+                  "lines": [
+                    {
+                      "text": "  if (!paid) throw new Error('failed');",
+                      "from": {
+                        "repo": "film/fixture/chapters/write-a-reviewer-rule/refund/src/core/refund.ts",
+                        "line": 2
+                      },
+                      "number": 2,
+                      "mark": true
+                    }
+                  ]
+                },
+                {
+                  "kind": "file",
+                  "label": {
+                    "text": ".lawcheck/config.yaml",
+                    "from": {
+                      "take": "rr01",
+                      "file": "terminal.jsonl"
+                    }
+                  },
+                  "lines": [
+                    {
+                      "text": "reviewer:",
+                      "from": {
+                        "repo": "film/fixture/chapters/write-a-reviewer-rule/refund/.lawcheck/config.yaml",
+                        "line": 1
+                      },
+                      "number": 1
+                    },
+                    {
+                      "text": "  provider: claude-code",
+                      "from": {
+                        "repo": "film/fixture/chapters/write-a-reviewer-rule/refund/.lawcheck/config.yaml",
+                        "line": 2
+                      },
+                      "number": 2,
+                      "mark": true
+                    }
+                  ]
+                }
+              ],
+              "at": 0.0
+            }
+          ],
+          "start": 0.0,
+          "end": 13.6
+        },
+        {
+          "id": "r2",
+          "caption": "A prompt for Claude Code",
+          "screens": [
+            {
+              "blocks": [
+                {
+                  "kind": "terminal",
+                  "lines": [
+                    {
+                      "prompt": true,
+                      "text": "claude -p \"Add a reviewer rule clear-errors for core: every error message a caller can see says what happened and what the caller can do next.\"",
+                      "from": {
+                        "take": "rr01",
+                        "file": "take.json"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "at": 0.0
+            }
+          ],
+          "start": 13.6,
+          "end": 21.5
+        },
+        {
+          "id": "r3",
+          "caption": "The rule, in plain words",
+          "subtitle": "The agent writes the rule and lists it on core.",
+          "screens": [
+            {
+              "blocks": [
+                {
+                  "kind": "file",
+                  "label": {
+                    "text": ".lawcheck/rules/clear-errors.md",
+                    "from": {
+                      "take": "rr01",
+                      "file": "take.json"
+                    }
+                  },
+                  "lines": [
+                    {
+                      "text": "Every error message a caller can see says what happened and what the caller can do next.",
+                      "from": {
+                        "take": "rr01",
+                        "file": "files/.lawcheck/rules/clear-errors.md",
+                        "line": 1
+                      },
+                      "number": 1
+                    }
+                  ]
+                },
+                {
+                  "kind": "file",
+                  "label": {
+                    "text": ".lawcheck/law.yaml",
+                    "from": {
+                      "take": "rr01",
+                      "file": "take.json"
+                    }
+                  },
+                  "lines": [
+                    {
+                      "text": "    rules: [clear-errors]",
+                      "from": {
+                        "take": "rr01",
+                        "file": "files/.lawcheck/law.yaml",
+                        "line": 15
+                      },
+                      "number": 15,
+                      "mark": true
+                    }
+                  ]
+                }
+              ],
+              "at": 0.0
+            }
+          ],
+          "start": 21.5,
+          "end": 28.4
+        },
+        {
+          "id": "r4",
+          "caption": "The model's finding",
+          "screens": [
+            {
+              "blocks": [
+                {
+                  "kind": "terminal",
+                  "lines": [
+                    {
+                      "prompt": true,
+                      "text": "lawcheck try clear-errors src/core/refund.ts",
+                      "from": {
+                        "take": "rr01",
+                        "file": "terminal.jsonl"
+                      }
+                    },
+                    {
+                      "text": "src/core/refund.ts:2  error[clear-errors]  The thrown error 'failed' does not say what happened (refund of an unpaid order was rejected) or what the caller can do next.",
+                      "from": {
+                        "take": "rr01",
+                        "file": "terminal.jsonl"
+                      },
+                      "mark": true
+                    }
+                  ]
+                }
+              ],
+              "at": 0.0
+            }
+          ],
+          "start": 28.4,
+          "end": 37.3
+        },
+        {
+          "id": "r5",
+          "caption": "The review passes",
+          "subtitle": "With a clearer message, the review passes.",
+          "screens": [
+            {
+              "blocks": [
+                {
+                  "kind": "terminal",
+                  "lines": [
+                    {
+                      "text": "+  if (!paid) throw new Error('The order is not paid yet; take the payment before a refund.');",
+                      "from": {
+                        "take": "rr01",
+                        "file": "terminal.jsonl"
+                      },
+                      "mark": true,
+                      "color": "green"
+                    }
+                  ]
+                },
+                {
+                  "kind": "terminal",
+                  "lines": [
+                    {
+                      "prompt": true,
+                      "text": "lawcheck check --review --base main",
+                      "from": {
+                        "take": "rr01",
+                        "file": "terminal.jsonl"
+                      }
+                    },
+                    {
+                      "text": "lawcheck: PASS  4 changed files (against main), 1 reviewer call",
+                      "from": {
+                        "take": "rr01",
+                        "file": "terminal.jsonl"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "at": 0.0
+            }
+          ],
+          "start": 37.3,
+          "end": 49.2
+        },
+        {
+          "id": "r6",
+          "caption": "No model on the next check",
+          "subtitle": "The next check reads that record and calls no model.",
+          "screens": [
+            {
+              "blocks": [
+                {
+                  "kind": "terminal",
+                  "lines": [
+                    {
+                      "prompt": true,
+                      "text": "lawcheck check --base main",
+                      "from": {
+                        "take": "rr01",
+                        "file": "terminal.jsonl"
+                      }
+                    },
+                    {
+                      "text": "lawcheck: PASS  6 changed files (against main)",
+                      "from": {
+                        "take": "rr01",
+                        "file": "terminal.jsonl"
+                      },
+                      "now": "rr-check"
+                    }
+                  ]
+                }
+              ],
+              "at": 0.0
+            }
+          ],
+          "start": 49.2,
+          "end": 54.8
+        },
+        {
+          "id": "r7",
+          "subtitle": "The guide has these steps as text.",
+          "screens": [
+            {
+              "blocks": [
+                {
+                  "kind": "lockup"
+                },
+                {
+                  "kind": "terminal",
+                  "lines": [
+                    {
+                      "prompt": true,
+                      "text": "lawcheck docs write-a-reviewer-rule",
+                      "from": {
+                        "take": "rr01",
+                        "file": "terminal.jsonl"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "at": 0.0
+            }
+          ],
+          "start": 54.8,
+          "end": 59.7
+        }
+      ]
+    },
+    {
+      "page": "ci",
+      "take": "ci01",
+      "record": "2baa83744596286b4e46547fda3569e78096998eddd32360878ab0c5121a80a5",
+      "timeline": [
+        {
+          "id": "c1",
+          "caption": "CI and git hooks",
+          "subtitle": "Claude Code gets a prompt for the CI job of the documentation.",
+          "screens": [
+            {
+              "blocks": [
+                {
+                  "kind": "terminal",
+                  "lines": [
+                    {
+                      "prompt": true,
+                      "text": "claude -p \"Add the CI job of lawcheck docs ci to this repository.\"",
+                      "from": {
+                        "take": "ci01",
+                        "file": "take.json"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "at": 0.0
+            }
+          ],
+          "start": 0.0,
+          "end": 10.9
+        },
+        {
+          "id": "c2",
+          "caption": "The workflow's check step",
+          "subtitle": "The agent writes the workflow. Its check step runs lawcheck check against the base branch.",
+          "screens": [
+            {
+              "blocks": [
+                {
+                  "kind": "file",
+                  "label": {
+                    "text": ".github/workflows/lawcheck.yml",
+                    "from": {
+                      "take": "ci01",
+                      "file": "take.json"
+                    }
+                  },
+                  "lines": [
+                    {
+                      "text": "      - name: Check the change",
+                      "from": {
+                        "take": "ci01",
+                        "file": "files/.github/workflows/lawcheck.yml",
+                        "line": 21
+                      },
+                      "number": 21,
+                      "mark": true
+                    },
+                    {
+                      "more": true
+                    },
+                    {
+                      "text": "          npx --no-install lawcheck check --base \"$base\"",
+                      "from": {
+                        "take": "ci01",
+                        "file": "files/.github/workflows/lawcheck.yml",
+                        "line": 39
+                      },
+                      "number": 39,
+                      "mark": true
+                    },
+                    {
+                      "more": true
+                    }
+                  ]
+                }
+              ],
+              "at": 0.0
+            }
+          ],
+          "start": 10.9,
+          "end": 21.5
+        },
+        {
+          "id": "c3",
+          "caption": "Network off, no key",
+          "subtitle": "Here the job's command runs on this machine with the network off and no key. On the branch with the reviewer rule, it passes.",
+          "screens": [
+            {
+              "blocks": [
+                {
+                  "kind": "terminal",
+                  "lines": [
+                    {
+                      "text": "npx --no-install lawcheck check --base origin/main",
+                      "from": {
+                        "take": "ci01",
+                        "file": "terminal-2.jsonl"
+                      },
+                      "prompt": true
+                    },
+                    {
+                      "text": "lawcheck: PASS  7 changed files (against origin/main)",
+                      "from": {
+                        "take": "ci01",
+                        "file": "terminal-2.jsonl"
+                      },
+                      "now": "ci-refund"
+                    }
+                  ]
+                }
+              ],
+              "at": 0.0
+            }
+          ],
+          "start": 21.5,
+          "end": 32.1
+        },
+        {
+          "id": "c4",
+          "screens": [
+            {
+              "at": 0.0,
+              "blocks": [
+                {
+                  "kind": "terminal",
+                  "lines": [
+                    {
+                      "text": "git switch discount",
+                      "from": {
+                        "take": "ci01",
+                        "file": "terminal-2.jsonl"
+                      },
+                      "prompt": true
+                    },
+                    {
+                      "text": "npx --no-install lawcheck check --base origin/main",
+                      "from": {
+                        "take": "ci01",
+                        "file": "terminal-2.jsonl"
+                      },
+                      "prompt": true
+                    },
+                    {
+                      "text": "lawcheck: FAIL  1 error in 2 changed files (against origin/main)",
+                      "from": {
+                        "take": "ci01",
+                        "file": "terminal-2.jsonl"
+                      },
+                      "now": "ci-discount"
+                    },
+                    {
+                      "text": "src/core/discount.ts:1  error[forbidden-use]  core may not use api (src/api/orders.ts); its may_use is [core]",
+                      "from": {
+                        "take": "ci01",
+                        "file": "terminal-2.jsonl"
+                      },
+                      "now": "ci-discount",
+                      "mark": true
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "start": 32.1,
+          "end": 43.3
+        },
+        {
+          "id": "c5",
+          "start": 43.3,
+          "end": 46.5,
+          "caption": "Exit code 1 fails the job",
+          "screens": [
+            {
+              "at": 0.0,
+              "blocks": [
+                {
+                  "kind": "terminal",
+                  "lines": [
+                    {
+                      "text": "echo $?",
+                      "from": {
+                        "take": "ci01",
+                        "file": "terminal-2.jsonl"
+                      },
+                      "prompt": true
+                    },
+                    {
+                      "text": "1",
+                      "from": {
+                        "take": "ci01",
+                        "file": "terminal-2.jsonl"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "c6",
+          "subtitle": "The page has the whole job as text.",
+          "screens": [
+            {
+              "blocks": [
+                {
+                  "kind": "lockup"
+                },
+                {
+                  "kind": "terminal",
+                  "lines": [
+                    {
+                      "text": "npx --no-install lawcheck docs ci",
+                      "from": {
+                        "take": "ci01",
+                        "file": "terminal-2.jsonl"
+                      },
+                      "prompt": true
+                    }
+                  ]
+                }
+              ],
+              "at": 0.0
+            }
+          ],
+          "start": 46.5,
+          "end": 51.7
+        }
+      ]
+    }
+  ]
 }

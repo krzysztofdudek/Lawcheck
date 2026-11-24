@@ -1,0 +1,9 @@
+lawcheck: 0.1.0
+
+types:
+  api:
+    about: The HTTP handlers.
+    paths: ["src/api/**"]
+  core:
+    about: The business logic.
+    paths: ["src/core/**"]

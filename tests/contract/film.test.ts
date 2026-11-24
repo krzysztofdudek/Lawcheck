@@ -5,7 +5,7 @@ import { appendFileSync, cpSync, mkdirSync, readFileSync, writeFileSync } from '
 import { join } from 'node:path';
 import { GIT_ENV } from '../acceptance/helpers.ts';
 import { ROOT, startProgram, testFolder } from '../harness/tool.ts';
-import { judge } from '../../film/accept.mjs';
+import { judge, judgeChapter } from '../../film/accept.mjs';
 import { fingerprint } from '../../film/pilot.mjs';
 import { trimRecord, trimTranscript } from '../../film/trim.mjs';
 import { decodeTerminal, privateProblems, readingProblems, stalenessProblems, truthProblems, versionProblems } from '../../film/check.mjs';
@@ -168,6 +168,37 @@ test('test 820: control, each reason film/accept.mjs refuses a take for is caugh
     assert.deepEqual(take('a09', (dir) => json(dir, (value) => (value.tests.exit = 1))), ['the tests fail']);
     assert.deepEqual(take('a09', (dir) => json(dir, (value) => (value.complete = false))), ['the turn did not end in time']);
     assert.deepEqual(take('a09', (dir) => json(dir, (value) => value.changed.push('package.json'))), ['a file outside src/ and tests/ changed: package.json']);
+  } finally {
+    folder.remove();
+  }
+});
+
+test('test 820: control, each chapter\'s take is accepted, and a take is refused for a law that forbids or lists rules in the first chapter, a file outside the law, a rule that reads no syntax tree, a changed file of src, a review with no recorded pass, settings that name a key, a workflow that is not the page\'s, and a network that was on', () => {
+  const folder = copyOfFilm();
+  try {
+    let copies = 0;
+    const take = (id: string, change: (dir: string) => void): string[] => {
+      const dir = join(folder.dir, `${id}-copy-${++copies}`);
+      cpSync(join(folder.dir, 'film', 'takes', id), dir, { recursive: true });
+      change(dir);
+      return judgeChapter(dir).reasons;
+    };
+    const json = (dir: string, edit: (value: { changed: string[]; offline: { network: string } }) => void) => {
+      const value = JSON.parse(readFileSync(join(dir, 'take.json'), 'utf8'));
+      edit(value);
+      writeFileSync(join(dir, 'take.json'), JSON.stringify(value));
+    };
+    const edit = readEdit(folder.dir);
+    const takeOf = (page: string) => edit.chapters.find((chapter: { page: string }) => chapter.page === page).take;
+    for (const chapter of edit.chapters) assert.deepEqual(take(chapter.take, () => {}), [], chapter.page);
+    assert.deepEqual(take(takeOf('quick-start'), (dir) => appendFileSync(join(dir, 'files/.lawcheck/law.yaml'), '    may_use: [core]\n')), ['a type of the law has may_use, rules or subtypes']);
+    assert.deepEqual(take(takeOf('quick-start'), (dir) => json(dir, (value) => value.changed.push('src/core/price.ts'))), ['a file outside .lawcheck/ changed: src/core/price.ts']);
+    assert.deepEqual(take(takeOf('write-a-script-rule'), (dir) => writeFileSync(join(dir, 'files/.lawcheck/rules/no-fetch.mjs'), 'export function check() {\n  return [];\n}\n')), ['the rule does not ask for the syntax tree']);
+    assert.deepEqual(take(takeOf('write-a-script-rule'), (dir) => json(dir, (value) => value.changed.push('src/core/cart.ts'))), ['the session changed src/core/cart.ts']);
+    assert.deepEqual(take(takeOf('write-a-reviewer-rule'), (dir) => json(dir, (value) => (value.changed = value.changed.filter((path) => path !== '.lawcheck/verdicts')))), ['no pass was written to .lawcheck/verdicts']);
+    assert.deepEqual(take(takeOf('write-a-reviewer-rule'), (dir) => writeFileSync(join(dir, 'files/.lawcheck/config.yaml'), 'reviewer:\n  provider: anthropic\n')), ['the session changed .lawcheck/config.yaml', 'the settings do not name claude-code alone, with no key']);
+    assert.deepEqual(take(takeOf('ci'), (dir) => appendFileSync(join(dir, 'files/.github/workflows/lawcheck.yml'), '# changed\n')), ['.github/workflows/lawcheck.yml is not the block ci-workflow of docs/ci.md']);
+    assert.deepEqual(take(takeOf('ci'), (dir) => json(dir, (value) => (value.offline.network = 'on'))), ['the network was on']);
   } finally {
     folder.remove();
   }

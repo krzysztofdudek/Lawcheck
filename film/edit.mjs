@@ -84,30 +84,57 @@ export function decodeTerminal(jsonl) {
   const stream = events.map((line) => JSON.parse(line)[1]).join('').replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, '');
   const lines = [];
   let line = [];
+  let col = 0;
   let color = null;
+  const blank = () => ({ char: ' ', color: null });
+  const moveTo = (to) => {
+    while (line.length < to) line.push(blank());
+    col = to;
+  };
   for (let i = 0; i < stream.length; i++) {
     const char = stream[i];
     if (char === '\x1b') {
-      const csi = /^\x1b\[([0-9;?]*)([@-~])/.exec(stream.slice(i, i + 32));
+      const csi = /^\x1b\[([0-9;?<=>!]*)([@-~])/.exec(stream.slice(i, i + 32));
       if (csi === null) {
-        i += 1;
+        i += /^\x1b[()*+]/.test(stream.slice(i, i + 2)) ? 2 : 1;
         continue;
       }
+      const count = Number(csi[1] === '' ? 1 : csi[1]);
       if (csi[2] === 'm') {
         for (const code of (csi[1] === '' ? '0' : csi[1]).split(';').map(Number)) {
           if (code === 0 || code === 39) color = null;
           else if (code >= 30 && code <= 37) color = COLORS[code - 30];
           else if (code >= 90 && code <= 97) color = COLORS[code - 90];
         }
+      } else if (csi[2] === 'G') moveTo(count - 1);
+      else if (csi[2] === 'C') moveTo(col + count);
+      else if (csi[2] === 'A' && lines.length > 0) {
+        // Claude Code redraws a line above the cursor and writes only the cells that changed.
+        const up = lines.splice(Math.max(0, lines.length - count));
+        line = up[0];
+        col = 0;
       }
       i += csi[0].length - 1;
     } else if (char === '\n') {
       lines.push(line);
       line = [];
+      col = 0;
     } else if (char === '\r') {
-      if (stream[i + 1] !== '\n') line = [];
-    } else if (char === '\b') line.pop();
-    else if (char >= ' ') line.push({ char, color });
+      if (stream[i + 1] !== '\n' && stream[i + 1] !== '\r') {
+        line = [];
+        col = 0;
+      }
+    } else if (char === '\b') {
+      if (col === line.length) line.pop();
+      col = Math.max(0, col - 1);
+    } else if (char >= ' ') {
+      if (col < line.length) line[col] = { char, color };
+      else {
+        moveTo(col);
+        line.push({ char, color });
+      }
+      col++;
+    }
   }
   lines.push(line);
   return lines.map((cells) => ({ text: cells.map((cell) => cell.char).join(''), colors: cells.map((cell) => cell.color) }));

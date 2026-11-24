@@ -1,0 +1,85 @@
+{
+  "id": "qs01",
+  "page": "quick-start",
+  "recorded": "2026-11-24T03:49:54.837Z",
+  "prompt": "Describe this repository in .lawcheck/law.yaml: one type for the HTTP handlers in src/api and one for the business logic in src/core.",
+  "complete": true,
+  "commands": [
+    {
+      "command": "stty cols 88 rows 26 && clear",
+      "seconds": 0.301,
+      "ended": true,
+      "exit": 0
+    },
+    {
+      "command": "npm install --global lawcheck@alpha",
+      "seconds": 1.441,
+      "ended": true,
+      "exit": 0
+    },
+    {
+      "command": "claude plugin marketplace add krzysztofdudek/Lawcheck",
+      "seconds": 3.211,
+      "ended": true,
+      "exit": 0
+    },
+    {
+      "command": "claude plugin install lawcheck@lawcheck-marketplace",
+      "seconds": 0.401,
+      "ended": true,
+      "exit": 0
+    },
+    {
+      "command": "lawcheck init",
+      "seconds": 0.507,
+      "ended": true,
+      "exit": 0
+    },
+    {
+      "command": "claude -p \"Describe this repository in .lawcheck/law.yaml: one type for the HTTP handlers in src/api and one for the business logic in src/core.\"",
+      "seconds": 9.558,
+      "ended": true,
+      "exit": 0
+    },
+    {
+      "command": "lawcheck explain src/core/price.ts",
+      "seconds": 0.301,
+      "ended": true,
+      "exit": 0
+    },
+    {
+      "command": "lawcheck check",
+      "seconds": 0.301,
+      "ended": true,
+      "exit": 0
+    },
+    {
+      "command": "lawcheck docs quick-start",
+      "seconds": 0.301,
+      "ended": true,
+      "exit": 0
+    }
+  ],
+  "changed": [
+    ".lawcheck/.gitignore",
+    ".lawcheck/law.yaml"
+  ],
+  "candidate": {
+    "commit": "c8821fa78c031df6d56050a9dd920c67c9aa45ea",
+    "lawcheck": "0.1.0-alpha.4"
+  },
+  "versions": {
+    "claude_code": "2.1.330 (Claude Code)",
+    "node": "v24.22.3",
+    "models": [
+      "claude-sonnet-5-5"
+    ],
+    "effort": "medium",
+    "plugin": [
+      {
+        "version": "0.1.0-alpha.4",
+        "commit": "c8821fa78c031df6d56050a9dd920c67c9aa45ea"
+      }
+    ]
+  }
+}

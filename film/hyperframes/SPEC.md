@@ -1,12 +1,12 @@
 # Spec of the film
 
-`node film/build.mjs` writes two HyperFrames projects from `film/edit.json` into `film/dist/`: `loop` and `film`. Change the edit, the styles in `film.css` or the build, never the files in `film/dist/`, because the next build replaces them.
+`node film/build.mjs` writes HyperFrames projects from `film/edit.json` into `film/dist/`: `loop` and one for each chapter of the tutorial, named by its docs page. Change the edit, the styles in `film.css` or the build, never the files in `film/dist/`, because the next build replaces them.
 
-GOAL: after one silent loop, a developer who writes code with an agent has seen the import that slipped past the tests, the law that forbids it, the finding with its file and line, and the same prompt with the plugin.
+GOAL: after one silent loop, a developer who writes code with an agent has seen the import that slipped past the tests, the law that forbids it, the finding with its file and line, and the same prompt with the plugin. After one chapter, the developer can repeat its steps from the frames alone: each command, the prompt and the lines of a file stand on screen whole.
 
-OUTPUT: HyperFrames, 1920 x 1080, 30 fps. The loop is also a GIF of 1200 x 675 at 12 fps, with one palette made from `brand/tokens.json`.
+OUTPUT: HyperFrames, 1920 x 1080, 30 fps. The loop is also a GIF of 1200 x 675 at 12 fps, with one palette made from `brand/tokens.json`. A chapter is an MP4 with its subtitles in WebVTT and a still of its first screen.
 
-TIME: the loop is 28.9 s, 867 frames, with no sound. The narrated film is 85.8 s until the voice sets the length of each scene.
+TIME: the loop is 28.9 s, 867 frames, with no sound. A chapter lasts 40 to 60 s, with no sound.
 
 LOOK:
 
@@ -15,7 +15,7 @@ LOOK:
 - Gold (`brand`) marks one line per screen with an outline of 3 px, and the tick before a label.
 - Red and green appear only where the terminal of the take printed them. Lawcheck prints no color.
 - Terminal text, files and panels are JetBrains Mono at 52 px on a line of 72 px, at most 48 columns, in a box of `code` with a 2 px edge of `lineLit` and a radius of 28 px.
-- Captions are Inter 600 at 56 px, one line, centred above the bottom edge, never over the recording.
+- Captions are Inter 600 at 56 px, one line, centred above the bottom edge, never over the recording. In a chapter the caption names the step at the top, and the bottom 190 px stay empty for the subtitles a player draws.
 - Cards are Inter 600 at 76 px, with a small line of Inter 400 at 48 px and a gold bar of 120 x 4 px above.
 - The smallest text is 46 px on a line of 66 px, which is 12 px of line at a phone width of 358 px.
 
