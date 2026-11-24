@@ -4,7 +4,7 @@ import { chmodSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, 
 import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
-import { belowPart, configErrors, findRoot, fromCwd, Internal, lawErrors, linked, loadConfig, loadLaw, loadRuleFiles, locate, lawsBelow, nearPart, noGit, notInitialized, onceReader, ruleFileErrors, ruleKinds, Stop, stopped, theChange, CI_VARIABLES, inCI, touchesLaw, typeAll, typingErrors } from '../../dist/setup.js';
+import { belowPart, bytesOf, configErrors, findRoot, isDirectory, isPattern, listedFile, ruleKind, selectTargets, fromCwd, Internal, lawErrors, linked, loadConfig, loadLaw, loadRuleFiles, locate, lawsBelow, nearPart, noGit, notInitialized, onceReader, ruleFileErrors, ruleKinds, Stop, stopped, theChange, CI_VARIABLES, inCI, touchesLaw, typeAll, typingErrors } from '../../dist/setup.js';
 import { hide, useKeys } from '../../dist/keys.js';
 import { NoGit, GitFailed } from '../../dist/files.js';
 import { FULL_NEXT, Unwritable, VerdictsUnreadable } from '../../dist/verdicts.js';
@@ -786,5 +786,70 @@ test('R-43: a law file that this user may not look at is still the law of that f
     } finally {
       chmodSync(join(inner, '.lawcheck'), 0o755);
     }
+  });
+});
+
+test('R-43: the words of a target are told apart as a pattern, a listed file and a folder, and a rule is a script or a reviewer', async () => {
+  assert.equal(isPattern('src/*.ts'), true);
+  assert.equal(isPattern('src/a?.ts'), true);
+  assert.equal(isPattern('src/{a,b}.ts'), true);
+  assert.equal(isPattern('src/a.ts'), false);
+  assert.equal(isPattern('src/[a].ts'), false);
+  const kinds = ruleKinds(parseLaw('lawcheck: 0.1.0\nrules:\n  s:\n    why: x\n  r:\n    why: x\ntypes:\n  t:\n    paths: ["src/**"]\n').law!, ['.lawcheck/rules/s.mjs', '.lawcheck/rules/r.md'], () => Buffer.from('text\n'));
+  assert.equal(ruleKind(kinds, 's'), 'script');
+  assert.equal(ruleKind(kinds, 'r'), 'reviewer');
+  assert.equal(ruleKind(kinds, 'unknown'), 'reviewer');
+  await inTemp(async (dir) => {
+    write(dir, 'src/a.ts', 'a\n');
+    assert.equal(isDirectory(join(dir, 'src')), true);
+    assert.equal(isDirectory(join(dir, 'src/a.ts')), false);
+    assert.equal(isDirectory(join(dir, 'missing')), false);
+    assert.equal(listedFile(dir, dir, 'src/a.ts', ['src/a.ts']), true);
+    assert.equal(listedFile(dir, dir, 'src/b.ts', ['src/a.ts']), false);
+    assert.equal(listedFile(dir, join(dir, 'src'), 'a.ts', ['src/a.ts']), true);
+    assert.equal(listedFile(dir, dir, '../outside', ['src/a.ts']), false);
+    assert.deepEqual([...bytesOf(() => Buffer.from('ab'), 'x')], [97, 98]);
+    assert.throws(() => bytesOf(() => { throw Object.assign(new Error('x'), { code: 'EISDIR' }); }, 'src'), (error: unknown) => error instanceof Stop && error.errors[0]!.file === 'src' && error.errors[0]!.message === 'the file cannot be read (EISDIR)');
+  });
+});
+
+test('R-43: the targets of a command pick the files they name, as a pattern, a file or a folder, in the order of the paths, and say what is wrong with one that picks none', async () => {
+  await inTemp(async (dir) => {
+    const repo = join(dir, 'repo');
+    const files = ['README.md', 'docs/guide.md', 'docs/z.bin', 'src/a.ts', 'src/b.ts', 'src/core/c.ts', 'src/core/d.bin', 'src/{odd}.ts'];
+    for (const path of [...files, 'sub/inner.ts']) write(repo, path, 'x\n');
+    mkdirSync(join(repo, 'empty'));
+    mkdirSync(join(repo, 'sub/.git'), { recursive: true });
+    mkdirSync(join(repo, 'mod'));
+    const binary = (path: string) => path.endsWith('.bin');
+    const chosen = (targets: string[], cwd = repo, lenient = false, listed = new Set<string>()) => selectTargets(repo, cwd, targets, files, binary, lenient, listed);
+    const usage = (targets: string[], message: string, cwd = repo) => assert.throws(() => chosen(targets, cwd), (error: unknown) => error instanceof Stop && error.errors.length === 1 && error.errors[0]!.code === 'usage' && error.errors[0]!.message === message, `${targets}`);
+    assert.deepEqual(chosen([]), []);
+    assert.deepEqual(chosen(['src/b.ts', 'src/a.ts', 'src/a.ts']), ['src/a.ts', 'src/b.ts']);
+    assert.deepEqual(chosen(['src/*.ts']), ['src/a.ts', 'src/b.ts', 'src/{odd}.ts']);
+    assert.deepEqual(chosen(['src/{odd}.ts']), ['src/{odd}.ts']);
+    assert.deepEqual(chosen(['README.md', '**/c.ts']), ['README.md', 'src/core/c.ts']);
+    assert.deepEqual(chosen(['*.ts'], join(repo, 'src')), ['src/a.ts', 'src/b.ts', 'src/{odd}.ts']);
+    assert.deepEqual(chosen(['docs']), ['docs/guide.md']);
+    assert.deepEqual(chosen(['src/core/', 'docs']), ['docs/guide.md', 'src/core/c.ts']);
+    assert.deepEqual(chosen(['.']).filter((path) => path.startsWith('docs/') || path === 'README.md'), ['README.md', 'docs/guide.md']);
+    assert.equal(chosen(['.']).includes('docs/z.bin'), false);
+    assert.deepEqual(chosen(['..'], join(repo, 'src/core')), chosen(['src']));
+    assert.deepEqual(chosen(['../core'], join(repo, 'src/core')), ['src/core/c.ts']);
+    assert.deepEqual(chosen(['docs/guide.md', 'nothing*', 'docs/z.bin', 'empty', 'mod', 'sub/inner.ts', 'src/zzz.ts'], repo, true), ['docs/guide.md']);
+    assert.throws(() => selectTargets(repo, repo, ['*.nothing'], files, binary), (error: unknown) => error instanceof Stop && error.errors[0]!.message === "the target '*.nothing' matches no file");
+    usage(['*.nothing'], "the target '*.nothing' matches no file");
+    usage(['a//b*'], "the pattern 'a//b*' holds an empty segment");
+    usage(['src/***'], "the pattern 'src/***' holds ** beside other characters in one segment");
+    usage(['docs/z.bin'], "the target 'docs/z.bin' selects no file: it is binary");
+    usage(['empty'], "the target 'empty' matches no file");
+    usage(['src/core/*.bin'], "the target 'src/core/*.bin' matches no file");
+    usage(['**/*.bin'], "the target '**/*.bin' matches no file");
+    usage(['src/zzz.ts'], "the target 'src/zzz.ts' selects no file: git ignores it or it does not exist");
+    usage(['sub/inner.ts'], "the target 'sub/inner.ts' selects no file: it lies in sub, a repository of its own, which Lawcheck does not look into");
+    assert.throws(() => chosen(['mod/x.ts'], repo, false, new Set(['mod'])), (error: unknown) => error instanceof Stop && error.errors[0]!.message === "the target 'mod/x.ts' selects no file: it lies in mod, a submodule, which Lawcheck does not look into");
+    usage(['../x'], "the path '../x' lies outside the root of the law");
+    assert.throws(() => chosen(['src/*.ts', '../x*']), (error: unknown) => error instanceof Stop && error.errors[0]!.code === 'usage');
+    usage(['docs/*.md', 'zzz*'], "the target 'zzz*' matches no file");
   });
 });
