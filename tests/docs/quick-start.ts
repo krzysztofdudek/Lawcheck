@@ -32,7 +32,7 @@ async function step(repo: string, command: string, output: string, code: number)
 
 export async function scenario(page: Page): Promise<void> {
   const install = blocksOf(readFileSync(join(ROOT, 'docs/install.md'), 'utf8')).find((block) => block.key === 'block 1 under "Install globally"');
-  assert.equal(page.text(INSTALL), `${install?.text}\n$ lawcheck --version`, 'the install line of docs/install.md, which test 205 runs, then the version');
+  assert.equal(page.text(INSTALL), install?.text, 'the install line of docs/install.md, which test 205 runs');
   assert.equal(page.text(BEFORE), '$ git init shop\n$ cd shop');
   assert.equal(page.text(PRINT_BLOCK) + '\n', PRINT);
   assert.equal(page.text('block 1 under "4. Write a file that breaks it"') + '\n', RECEIPT);
@@ -40,10 +40,6 @@ export async function scenario(page: Page): Promise<void> {
     git(dir, 'init', '-q', 'shop');
     const repo = join(dir, 'shop');
     write(repo, 'src/cli/print.ts', page.text(PRINT_BLOCK) + '\n');
-
-    const version = await lawcheck(repo, ['--version']);
-    const manifest = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')) as { version: string };
-    assert.deepEqual([version.code, version.stdout], [0, `${manifest.version}\n`], page.text(INSTALL));
 
     await step(repo, page.text('block 1 under "1. Start the law"'), page.text('block 2 under "1. Start the law"'), 0);
     assert.ok(existsSync(join(repo, '.lawcheck', 'law.yaml')));

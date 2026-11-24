@@ -2,14 +2,13 @@
 
 Lawcheck checks code against your written architecture and names the file and line that break it, so you catch drift in Claude Code hooks and CI. It reads the uses of 12 languages. In five steps you write a law with one type and one `may_use` line. After you break it with one import, `lawcheck check` names the line. You need no model and no key.
 
-Install Lawcheck from npm. It needs Node 24 or later and git 2.34 or later. `lawcheck --version` then prints the version you installed:
+Install Lawcheck from npm. It needs Node 24 or later and git 2.34 or later:
 
 ```text
 $ npm install --global lawcheck@alpha
-$ lawcheck --version
 ```
 
-To install Lawcheck in one project, or with pnpm, Yarn or Bun, read [Install](install.md).
+`lawcheck --version` then prints the version you installed. To install Lawcheck in one project, or with pnpm, Yarn or Bun, read [Install](install.md).
 
 Start in a new repository. Then each output you get matches the one on this page:
 
