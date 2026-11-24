@@ -90,8 +90,7 @@ const started = (program: string, programArgs: string[], cwd: string, env: NodeJ
     child.on('close', (status) => done({ status, stdout, stderr }));
   });
 
-// The sections of the scenario share no folder, so a few run at once, the longest first, as the other tests that run the tool per case do.
-const SECTIONS_AT_ONCE = 4;
+// The sections of the scenario share no folder, so they run at once, as the other tests that run the tool per case do.
 
 // The words of a command line as sh splits them, for the lines of these blocks: no variable, no escape.
 const words = (line: string): string[] => [...line.matchAll(/"([^"]*)"|(\S+)/g)].map((m) => m[1] ?? m[2]!);
@@ -148,7 +147,7 @@ export async function scenario(page: Page): Promise<void> {
         ['7. Give the base on Azure Pipelines', ['--branch', 'work'], { TF_BUILD: 'True', SYSTEM_PULLREQUEST_TARGETBRANCH: 'refs/heads/main' }],
         ['7. Give the base on Azure Pipelines', ['--branch', 'work'], { TF_BUILD: 'True', SYSTEM_PULLREQUEST_TARGETBRANCH: 'main' }],
       ];
-      await atOnce(services, services.length, ([step], at) => `${step} (${at})`, async ([step, options, env], at) => {
+      await atOnce(services, services.length, ([step, , env]) => `${step} (${JSON.stringify(env)})`, async ([step, options, env], at) => {
         const clone = join(dir, `job-${at}`);
         git(dir, 'clone', '-q', '--shared', ...options, origin, clone);
         if (step.includes('GitLab')) assert.throws(() => git(clone, 'rev-parse', '--verify', '-q', 'origin/main'), 'the job fetched its own branch alone');
@@ -238,5 +237,5 @@ export async function scenario(page: Page): Promise<void> {
       });
     }],
   ];
-  await atOnce(sections, SECTIONS_AT_ONCE, ([name]) => name, ([, section]) => section());
+  await atOnce(sections, sections.length, ([name]) => name, ([, section]) => section());
 }
