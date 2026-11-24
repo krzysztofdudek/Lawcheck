@@ -195,3 +195,24 @@ test('test 99: JSON, usage, and already-initialized as a reserved rule id', asyn
     assert.equal(run.code, 2);
   });
 });
+
+test('R-3: init above a sample repository with a law of its own refuses and writes nothing, doctor sends the user into the sample, and a law written by hand at the top governs the top while the sample keeps its own', async () => {
+  const law = (path: string) => `lawcheck: 0.1.0\n\ntypes:\n  files:\n    about: The files of this folder.\n    paths: ["${path}"]\n`;
+  await inTemp(async (dir) => {
+    const repo = newRepository(dir, { 'src/a.ts': 'export const a = 1;\n', 'tests/sample/src/b.ts': 'export const b = 1;\n', 'tests/sample/.lawcheck/law.yaml': law('src/**/*.ts') });
+    const init = await lawcheck(repo, ['init']);
+    assert.match(init.stdout, /^tests\/sample\/\.lawcheck\/law\.yaml {2}error\[already-initialized\]  a law already governs a directory below this one$/m);
+    assert.equal(init.code, 2);
+    assert.equal(existsSync(join(repo, '.lawcheck')), false);
+    const doctor = await lawcheck(repo, ['doctor']);
+    assert.match(doctor.stdout, /^fail {2}law {2}no \.lawcheck\/law\.yaml in this directory or any above it; the laws below it are in tests\/sample$/m);
+    assert.match(doctor.stdout, /^ {2}next: cd tests\/sample, where a law is, then run lawcheck doctor again$/m);
+    assert.ok(!/lawcheck init/.test(doctor.stdout), doctor.stdout);
+    write(repo, '.lawcheck/law.yaml', law('src/**/*.ts'));
+    const top = await lawcheck(repo, ['check', '--full']);
+    assert.equal(top.code, 0, top.stdout);
+    const sample = await lawcheck(join(repo, 'tests/sample'), ['check', '--full']);
+    assert.equal(sample.code, 0, sample.stdout);
+    assert.match(top.stdout, /^lawcheck: PASS {2}\d+ files/);
+  });
+});
