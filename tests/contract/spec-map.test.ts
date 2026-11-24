@@ -239,7 +239,7 @@ test('R-49: control, an assertion that cannot fail is named, and so is an assert
   for (const line of good) assert.deepEqual(scanTests('tests/unit/a.test.ts', code(line)).problems, [], line);
 });
 
-test('question 79: the spec map, the suite guard and the platform selection read the same test numbers from every form of a name the spec map accepts', () => {
+test('question 95: the spec map, the suite guard and the platform selection read the same test numbers from every form of a name the spec map accepts', () => {
   const forms: [string, string[]][] = [
     ['test 3: a', ['3']],
     ['tests 3 and 4: a', ['3', '4']],
@@ -259,7 +259,7 @@ test('question 79: the spec map, the suite guard and the platform selection read
 
 const shared = (...files: [string, string][]): { path: string; text: string }[] => files.map(([path, name]) => ({ path, text: code(`test('${name}', () => { assert.equal(compute(1), 1); });`) }));
 
-test('question 79: a test number that leads names in two files outside tests/unit is refused unless a committed list holds it, and the list holds only what is still shared', () => {
+test('question 95: a test number that leads names in two files outside tests/unit is refused unless a committed list holds it, and the list holds only what is still shared', () => {
   const twins = shared(['tests/acceptance/a.test.ts', 'test 7: a'], ['tests/limits/b.test.ts', 'tests 7 and 8: b'], ['tests/unit/c.test.ts', 'test 7: c'], ['tests/acceptance/d.test.ts', 'test 9: d']);
   const listed: SharedNumber[] = [{ number: 7, file: 'tests/acceptance/a.test.ts' }, { number: 7, file: 'tests/limits/b.test.ts' }];
   assert.deepEqual(sharedNumbers(twins), listed);
@@ -276,7 +276,7 @@ test('question 79: a test number that leads names in two files outside tests/uni
   ]);
 });
 
-test('question 79: every test number that leads names in two files outside tests/unit is on the committed list of shared numbers, and the list holds nothing else', () => {
+test('question 95: every test number that leads names in two files outside tests/unit is on the committed list of shared numbers, and the list holds nothing else', () => {
   const listed = JSON.parse(readFileSync(new URL('./shared-numbers.json', import.meta.url), 'utf8')) as SharedNumber[];
   assert.deepEqual(sharedNumberProblems(loadInputs(REPO, SECTION_ONLY_TESTS).tests, listed), []);
 });
