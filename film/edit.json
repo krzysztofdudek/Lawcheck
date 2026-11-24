@@ -1050,7 +1050,7 @@
           "subtitle": "With the law and the plugin, the agent keeps the helper in core.",
           "narration": [
             {
-              "text": "Now the same prompt runs with the law and the plugin.",
+              "text": "The same prompt runs with the law and the plugin.",
               "shows": [
                 "Same prompt, law and plugin"
               ]
@@ -1169,7 +1169,7 @@
               ]
             },
             {
-              "text": "Line one only names it, in a comment.",
+              "text": "Line one names it in a comment.",
               "shows": [
                 "Line one names it in a comment.",
                 "// Orders reach the network through fetch() in src/api, never here."
