@@ -104,6 +104,7 @@ const released = c.footer.released.replace('{version}', data.head.version).repla
         <p v-html="data.tryIt.plugin" />
         <CopyCommand :command="data.tryIt.pluginCommands" :copy="c.install.copy" :copied="c.install.copied" />
         <p v-html="data.tryIt.codex" />
+        <p v-html="data.tryIt.copilot" />
         <p v-html="data.tryIt.quickStart" />
         <p class="links">
           <a class="button" :href="c.next.button.href">{{ c.next.button.text }}</a>
