@@ -234,7 +234,7 @@ test('test 150: prime names the command of the runner', async () => {
       const text = JSON.parse(result.stdout).text as string;
       const first = text.slice(0, text.indexOf('\nThe law here: '));
       assert.ok(first.includes('widening may_use\n- adding a pattern to ignored') && first.includes('--dry-run first'), first);
-      assert.equal(points(first), 1797);
+      assert.equal(points(first), 1909);
       assert.ok(first.split('\n')[0]!.endsWith(' Start it here as: bun x --no-install lawcheck'));
     },
     { onMain: (r) => write(r, '.lawcheck/law.yaml', lawFile(r, 'law.yaml').replace('        paths: ["src/core/**"]\n', '        paths: ["src/core/**"]\n        may_use: [library]\n')) },

@@ -2,10 +2,11 @@ import { test } from 'node:test';
 import { fakeWrites, LIMITS_VARIABLE, platformSkip } from '../harness/tool.ts';
 import { CLAUDE_TIMEOUT_RUN_MS, FAKE_STARTED_MS, KILLED_GRACE_MS, LEFTOVER_GRACE_MS, TEST_RULE_MS, WINDOWS_KILLED_GRACE_MS } from '../numbers.ts';
 import { LIMITS } from '../../dist/rules.js';
+import { killGroup, powershell } from '../../dist/programs.js';
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { spawn, spawnSync } from 'node:child_process';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { anthropic, defaultAnswer, gitAlone, openai, startFake, withFake, writeFakeClaude } from './fake-reviewer.ts';
 import { alive, append, F, F_PATH, findingLines, lawcheckAt, pathWith, PROMPT_F, read, REVIEWER_CONFIG, REVIEWER_LAW, run, SECOND, startLawcheck, withCopy, withR, write } from './helpers.ts';
 import type { Copy } from './helpers.ts';
@@ -577,6 +578,311 @@ test('R-69: a call of a program reviewer waits for no list of the guard: with a 
       const waited = record(dir).at - asked!;
       assert.ok(waited < UNLISTED_START_MS, `claude started ${waited} ms after the tool told the guard to list`);
     }, config(CLAUDE_CONFIG + `  timeout: ${UNLISTED_TIMEOUT_S}\n`));
+  });
+});
+
+// Each script prints the id of the program it starts. holder.mjs stays running with its child below it; leave.mjs ends and leaves its child running, detached, as cmd.exe leaves what it started on Windows.
+const HOLDER = "import { spawn } from 'node:child_process';\nconst c = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore' });\nprocess.stdout.write(String(c.pid) + '\\n');\nsetInterval(() => {}, 1000);\n";
+const LEAVE = "import { spawn } from 'node:child_process';\nconst c = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore', detached: true });\nc.unref();\nprocess.stdout.write(String(c.pid) + '\\n');\n";
+
+async function startScript(dir: string, name: string, text: string, ends: boolean): Promise<{ pid: number; child: number }> {
+  writeFileSync(join(dir, name), text);
+  const parent = spawn(process.execPath, [join(dir, name)], { stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true });
+  const closed = new Promise((done) => parent.on('close', done));
+  const child = await new Promise<number>((done) => parent.stdout!.setEncoding('utf8').once('data', (line: string) => done(Number(line.trim()))));
+  if (ends) await closed;
+  return { pid: parent.pid!, child };
+}
+
+// The guard may wait 10 seconds for its list and then take one itself, which PowerShell gave up to 6.2 seconds after its start on a Windows runner.
+const GUARD_ENDS_MS = 30_000;
+
+test('test 1008: on Windows the guard of a killed tool ends what a root left, and leaves alive a process that holds a root\'s id and the child of an older process whose parent id is a root\'s, whether its list of processes comes in time or not', async (t) => {
+  const skip = platformSkip('the whole test');
+  if (skip !== null) return t.skip(skip);
+  for (const late of [false, true]) {
+    await withCopy(async (copy) => {
+      const guardFile = join(copy.dir, 'dist', 'guard.js');
+      const waited = /listSince\(learned, \w+\)/;
+      const sound = readFileSync(guardFile, 'utf8');
+      assert.ok(waited.test(sound), 'the guard has no listSince(learned, …) for this test to cut short');
+      if (late) writeFileSync(guardFile, sound.replace(waited, 'listSince(learned, 0)'));
+      const left: number[] = [];
+      try {
+        // Both made before the guard, so neither is the tool's: Windows gave the id of a root that has ended to stranger, and older's child kept the id of a parent that ended before a root took it.
+        const stranger = await startScript(copy.dir, 'holder.mjs', HOLDER, false);
+        left.push(stranger.pid, stranger.child);
+        const older = await startScript(copy.dir, 'older.mjs', LEAVE, true);
+        left.push(older.child);
+        const guard = spawn(process.execPath, [guardFile], { cwd: dirname(guardFile), stdio: ['pipe', 'ignore', 'ignore'], detached: true });
+        let exited = false;
+        guard.on('exit', () => (exited = true));
+        const root = await startScript(copy.dir, 'root.mjs', LEAVE, true);
+        left.push(root.child);
+        guard.stdin!.end(`+g${stranger.pid}\n+g${older.pid}\n+g${root.pid}\n`);
+        assert.ok(await waitFor(() => exited, GUARD_ENDS_MS), `late ${late}: the guard is still running`);
+        assert.ok(await waitFor(() => !alive(root.child), LEFTOVER_GRACE_MS), `late ${late}: the child the root left is alive`);
+        assert.ok(alive(stranger.pid), `late ${late}: the process that holds a root's id was ended`);
+        assert.ok(alive(stranger.child), `late ${late}: the child of the process that holds a root's id was ended`);
+        assert.ok(alive(older.child), `late ${late}: the child of an older process whose parent id is a root's was ended`);
+      } finally {
+        for (const pid of left) {
+          try {
+            process.kill(pid, 'SIGKILL');
+          } catch {
+            // Already ended.
+          }
+        }
+      }
+    });
+  }
+});
+
+const IDLE = "setInterval(() => {}, 1000)";
+
+test('test 1010: on Windows the guard of a killed tool stops its own PowerShell that hangs, ends within a bound and removes the folders it was told of', async (t) => {
+  const skip = platformSkip('the whole test');
+  if (skip !== null) return t.skip(skip);
+  await withCopy(async (copy) => {
+    const guardFile = join(copy.dir, 'dist', 'guard.js');
+    const waited = /listSince\(learned, \w+\)/;
+    const listing = "spawnSync(powershell(), ['-NoProfile', '-NonInteractive', '-Command', PROCESS_TABLE]";
+    const sound = readFileSync(guardFile, 'utf8');
+    assert.ok(waited.test(sound) && sound.includes(listing), 'the guard has no listSince(learned, …) to cut short or no list of its own to replace');
+    // The watcher gives no list in time, and the guard's own list is a program that never answers.
+    writeFileSync(guardFile, sound.replace(waited, 'listSince(learned, 0)').replace(listing, `spawnSync(process.execPath, ['-e', '${IDLE}']`));
+    const folder = join(copy.dir, 'call folder');
+    mkdirSync(folder);
+    const idle = spawn(process.execPath, ['-e', IDLE], { stdio: 'ignore', windowsHide: true });
+    try {
+      const guard = spawn(process.execPath, [guardFile], { cwd: dirname(guardFile), stdio: ['pipe', 'ignore', 'ignore'], detached: true });
+      let exited = false;
+      guard.on('exit', () => (exited = true));
+      guard.stdin!.end(`+g${idle.pid}\n+d${folder}\n`);
+      assert.ok(await waitFor(() => exited, GUARD_ENDS_MS), 'the guard is still running');
+      assert.ok(!existsSync(folder), 'the call\'s folder is still there');
+      assert.ok(alive(idle.pid!), 'a process of the tool was ended from no list');
+    } finally {
+      idle.kill('SIGKILL');
+    }
+  });
+});
+
+test('test 1011: on Windows the guard of a killed tool leaves alive a process that holds the id of a rule runner, with a list of processes that does not show the runner', async (t) => {
+  const skip = platformSkip('the whole test');
+  if (skip !== null) return t.skip(skip);
+  await withCopy(async (copy) => {
+    const guardFile = join(copy.dir, 'dist', 'guard.js');
+    // The runner ended with the tool, and a process that started before the guard's list holds its id now.
+    const stranger = await startScript(copy.dir, 'holder.mjs', HOLDER, false);
+    try {
+      const guard = spawn(process.execPath, [guardFile], { cwd: dirname(guardFile), stdio: ['pipe', 'ignore', 'ignore'], detached: true });
+      let exited = false;
+      guard.on('exit', () => (exited = true));
+      guard.stdin!.end(`+${stranger.pid}\n`);
+      assert.ok(await waitFor(() => exited, GUARD_ENDS_MS), 'the guard is still running');
+      assert.ok(alive(stranger.pid), 'the process that holds the runner\'s id was ended');
+      assert.ok(alive(stranger.child), 'the child of the process that holds the runner\'s id was ended');
+    } finally {
+      for (const pid of [stranger.pid, stranger.child]) {
+        try {
+          process.kill(pid, 'SIGKILL');
+        } catch {
+          // Already ended.
+        }
+      }
+    }
+  });
+});
+
+// The tool's side of a program call, without the call: it starts the guard and its list as before a call, then tells the guard of each program it is given, with the time that program was started.
+const TOOL = "import { startListing, watchGroup } from './dist/programs.js';\nstartListing();\nprocess.stdout.write('ready\\n');\nlet pending = '';\nprocess.stdin.setEncoding('utf8').on('data', (chunk) => {\n  pending += chunk;\n  for (let end = pending.indexOf('\\n'); end >= 0; end = pending.indexOf('\\n')) {\n    const [pid, started] = pending.slice(0, end).split(' ').map(Number);\n    pending = pending.slice(end + 1);\n    watchGroup(pid, started);\n    process.stdout.write('told\\n');\n  }\n});\n";
+
+test('test 1045: on Windows the guard of a tool killed before its first list of processes ends what a program left, and leaves alive the child that an older holder of the program\'s id made after the guard started', async (t) => {
+  const skip = platformSkip('the whole test');
+  if (skip !== null) return t.skip(skip);
+  await withCopy(async (copy) => {
+    const guardFile = join(copy.dir, 'dist', 'guard.js');
+    const earlier = 'const before = table;';
+    const sound = readFileSync(guardFile, 'utf8');
+    assert.ok(sound.includes(earlier), 'the guard has no earlier list for this test to empty');
+    // The tool is killed before the guard's first list, so the guard has no earlier list.
+    writeFileSync(guardFile, sound.replace(earlier, "const before = '';"));
+    writeFileSync(join(copy.dir, 'tool.mjs'), TOOL);
+    const left: number[] = [];
+    const tool = spawn(process.execPath, [join(copy.dir, 'tool.mjs')], { cwd: copy.dir, stdio: ['pipe', 'pipe', 'ignore'], windowsHide: true });
+    try {
+      const said: string[] = [];
+      tool.stdout!.setEncoding('utf8').on('data', (chunk: string) => said.push(...chunk.split('\n').filter(Boolean)));
+      assert.ok(await waitFor(() => said.includes('ready'), GUARD_ENDS_MS), 'the tool did not start its guard');
+      // older held an id after the guard started, left a child below it and ended; the program the tool started next took that id.
+      const older = await startScript(copy.dir, 'older.mjs', LEAVE, true);
+      left.push(older.child);
+      const started = Date.now();
+      const program = await startScript(copy.dir, 'program.mjs', LEAVE, true);
+      left.push(program.child);
+      tool.stdin!.write(`${older.pid} ${started}\n${program.pid} ${started}\n`);
+      assert.ok(await waitFor(() => said.filter((line) => line === 'told').length === 2, GUARD_ENDS_MS), 'the tool did not tell its guard');
+      tool.kill('SIGKILL');
+      assert.ok(await waitFor(() => !alive(program.child), GUARD_ENDS_MS), 'the child the program left is alive');
+      assert.ok(!(await waitFor(() => !alive(older.child), LEFTOVER_GRACE_MS)), 'the child an older holder of the program\'s id made after the guard started was ended');
+    } finally {
+      tool.kill('SIGKILL');
+      for (const pid of left) {
+        try {
+          process.kill(pid, 'SIGKILL');
+        } catch {
+          // Already ended.
+        }
+      }
+    }
+  });
+});
+
+test('test 1046: on Windows a program call that ends normally ends nothing by the program\'s id once the program has ended, so a process given that id is left alive with its child', async (t) => {
+  const skip = platformSkip('the whole test');
+  if (skip !== null) return t.skip(skip);
+  await withCopy(async (copy) => {
+    await withR(async (r, dir) => {
+      write(r, F_PATH, F);
+      const stranger = await startScript(copy.dir, 'holder.mjs', HOLDER, false);
+      try {
+        const rules = join(copy.dir, 'dist', 'programs.js');
+        const tree = 'export function killTree(pid, signal, orphans = false) {';
+        const sound = readFileSync(rules, 'utf8');
+        assert.ok(sound.includes(tree), 'programs.js has no killTree for this test to point at the stranger');
+        // Once a process has ended, its id is the stranger's, as when Windows has given it to a new process.
+        writeFileSync(rules, sound.replace(tree, `${tree}\n  try {\n    process.kill(pid, 0);\n  } catch {\n    pid = ${stranger.pid};\n  }`));
+        const result = await lawcheckAt(copy.cli, r, ['check', '--review', '--base', 'main'], claudeEnv(dir, 'answer'));
+        assert.equal(result.stdout, SECOND);
+        assert.equal(result.code, 1);
+        assert.ok(alive(stranger.pid), 'the process given the program\'s id was ended');
+        assert.ok(alive(stranger.child), 'the child of the process given the program\'s id was ended');
+      } finally {
+        for (const pid of [stranger.pid, stranger.child]) {
+          try {
+            process.kill(pid, 'SIGKILL');
+          } catch {
+            // Already ended.
+          }
+        }
+      }
+    }, config(CLAUDE_CONFIG));
+  });
+});
+
+// PowerShell, held to the first processor with everything it starts, starts older, which makes a child and ends, and then a program that keeps running again and again until Windows gives one older's id. Windows keeps a list of free ids for each processor, and an ended process's id goes back to the list of the processor that freed it. PowerShell keeps a handle on every program it ends, so their ids stay taken. It writes older's id, older's child, the program that took the id and how many programs it started to a file, since that program would hold an output of PowerShell open for as long as it runs.
+function reuse(older: string, out: string): string {
+  const ping = join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'PING.EXE');
+  return `[System.Diagnostics.Process]::GetCurrentProcess().ProcessorAffinity = [IntPtr]1; $o = New-Object System.Diagnostics.ProcessStartInfo '${process.execPath}', '"${older}"'; $o.UseShellExecute = $false; $o.CreateNoWindow = $true; $o.RedirectStandardOutput = $true; $h = [System.Diagnostics.Process]::Start($o); $child = $h.StandardOutput.ReadLine(); $h.WaitForExit(); $target = $h.Id; $h.Dispose(); $psi = New-Object System.Diagnostics.ProcessStartInfo '${ping}', '-n 120 127.0.0.1'; $psi.UseShellExecute = $false; $psi.CreateNoWindow = $true; $kept = New-Object System.Collections.ArrayList; $end = (Get-Date).AddSeconds(${REUSE_S}); $n = 0; while ((Get-Date) -lt $end) { $p = [System.Diagnostics.Process]::Start($psi); $n++; if ($p.Id -eq $target) { Set-Content -LiteralPath '${out}' -Value "$target $child $($p.Id) $n"; exit 0 }; $p.Kill(); [void]$kept.Add($p) }; Set-Content -LiteralPath '${out}' -Value "missed $target after $n programs, the last $(($kept | Select-Object -Last 3 | ForEach-Object { $_.Id }) -join ' ')"; try { Stop-Process -Id $child -Force } catch {}; exit 1`;
+}
+
+const REUSE_S = 50;
+
+test('test 1048: on Windows the tool that ends a running program\'s tree leaves alive the child an earlier holder of the program\'s id made before the program', async (t) => {
+  const skip = platformSkip('the whole test');
+  if (skip !== null) return t.skip(skip);
+  await withCopy(async (copy) => {
+    const left: number[] = [];
+    try {
+      // older made its child and ended, and the child keeps older's id as its parent's.
+      writeFileSync(join(copy.dir, 'older.mjs'), LEAVE);
+      const out = join(copy.dir, 'reused.txt');
+      const found = spawnSync(powershell(), ['-NoProfile', '-NonInteractive', '-Command', reuse(join(copy.dir, 'older.mjs'), out)], { stdio: 'ignore', windowsHide: true, timeout: (REUSE_S + 20) * 1000 });
+      const said = existsSync(out) ? readFileSync(out, 'utf8').trim() : '';
+      assert.ok(found.status === 0 && found.error === undefined, `no program was given the id of older: ${found.error?.message ?? `exit ${found.status}`}, ${said}`);
+      const [, child, program, tries] = said.split(' ').map(Number);
+      t.diagnostic(`older's id went to the program started ${tries}th`);
+      left.push(child!, program!);
+      assert.ok(alive(program!) && alive(child!), 'the program given older\'s id, or older\'s child, is not running');
+      assert.ok(killGroup(program!, 'SIGKILL', true), 'the running program was not ended');
+      assert.ok(await waitFor(() => !alive(program!), LEFTOVER_GRACE_MS), 'the running program is alive');
+      assert.ok(!(await waitFor(() => !alive(child!), LEFTOVER_GRACE_MS)), 'the child older made before the program took its id was ended');
+    } finally {
+      for (const pid of left) {
+        try {
+          process.kill(pid, 'SIGKILL');
+        } catch {
+          // Already ended.
+        }
+      }
+    }
+  });
+});
+
+// A process group of its own: the program and the child it made, which stays in the program's group.
+async function startGroup(dir: string, name: string, text: string): Promise<{ pid: number; child: number }> {
+  writeFileSync(join(dir, name), text);
+  const leader = spawn(process.execPath, [join(dir, name)], { stdio: ['ignore', 'pipe', 'ignore'], detached: true, windowsHide: true });
+  leader.unref();
+  const child = await new Promise<number>((done) => leader.stdout!.setEncoding('utf8').once('data', (line: string) => done(Number(line.trim()))));
+  (leader.stdout as unknown as { unref(): void }).unref();
+  return { pid: leader.pid!, child };
+}
+
+test('test 1049: a program call that ends normally ends its process group no later than when the tool sees the program end, so a group given the number after that is left alive', async (t) => {
+  const skip = platformSkip('the whole test');
+  if (skip !== null) return t.skip(skip);
+  await withCopy(async (copy) => {
+    await withR(async (r, dir) => {
+      write(r, F_PATH, F);
+      const stranger = await startGroup(copy.dir, 'holder.mjs', HOLDER);
+      try {
+        const rules = join(copy.dir, 'dist', 'programs.js');
+        const group = /\n\s*try \{\n\s*process\.kill\(-pid, signal\);/;
+        const sound = readFileSync(rules, 'utf8');
+        assert.ok(group.test(sound), 'programs.js has no kill of a process group for this test to point at the stranger');
+        // The system gives a group's number to a new process only once no process of the group is left, and at the earliest some time after: the first look that finds the group empty is the moment the tool sees the program end, and from then on the number is the stranger's group.
+        writeFileSync(rules, sound.replace(group, (kill) => `\nif (globalThis.emptied?.has(pid)) pid = ${stranger.pid};\nelse {\n  try {\n    process.kill(-pid, 0);\n  } catch {\n    (globalThis.emptied ??= new Set()).add(pid);\n  }\n}${kill}`));
+        const result = await lawcheckAt(copy.cli, r, ['check', '--review', '--base', 'main'], claudeEnv(dir, 'answer'));
+        assert.equal(result.stdout, SECOND);
+        assert.equal(result.code, 1);
+        assert.ok(alive(stranger.pid), 'the group given the program\'s number was ended');
+        assert.ok(alive(stranger.child), 'the child in the group given the program\'s number was ended');
+      } finally {
+        for (const pid of [stranger.pid, stranger.child]) {
+          try {
+            process.kill(pid, 'SIGKILL');
+          } catch {
+            // Already ended.
+          }
+        }
+      }
+    }, config(CLAUDE_CONFIG));
+  });
+});
+
+// The tool's side of two program calls that got the same id: the earlier call's program has ended, the later call's program runs, and the earlier call is released after the later call was told to the guard.
+const TWICE = "import { releaseGroup, startListing, watchGroup } from './dist/programs.js';\nstartListing();\nprocess.stdout.write('ready\\n');\nlet pending = '';\nprocess.stdin.setEncoding('utf8').on('data', (chunk) => {\n  pending += chunk;\n  for (let end = pending.indexOf('\\n'); end >= 0; end = pending.indexOf('\\n')) {\n    const [pid, started] = pending.slice(0, end).split(' ').map(Number);\n    pending = pending.slice(end + 1);\n    watchGroup(pid, started - 1, () => false);\n    watchGroup(pid, started);\n    releaseGroup(pid, false, started - 1);\n    process.stdout.write('told\\n');\n  }\n});\n";
+
+test('test 1050: two program calls that get the same id each keep their own entry in the guard: the release of the earlier one neither ends the later one\'s program nor takes it from the guard of a killed tool', async () => {
+  await withCopy(async (copy) => {
+    writeFileSync(join(copy.dir, 'tool.mjs'), TWICE);
+    const left: number[] = [];
+    const tool = spawn(process.execPath, [join(copy.dir, 'tool.mjs')], { cwd: copy.dir, stdio: ['pipe', 'pipe', 'ignore'], windowsHide: true });
+    try {
+      const said: string[] = [];
+      tool.stdout!.setEncoding('utf8').on('data', (chunk: string) => said.push(...chunk.split('\n').filter(Boolean)));
+      assert.ok(await waitFor(() => said.includes('ready'), GUARD_ENDS_MS), 'the tool did not start its guard');
+      const started = Date.now();
+      const program = await startGroup(copy.dir, 'program.mjs', HOLDER);
+      left.push(program.pid, program.child);
+      tool.stdin!.write(`${program.pid} ${started}\n`);
+      assert.ok(await waitFor(() => said.includes('told'), GUARD_ENDS_MS), 'the tool did not tell its guard');
+      assert.ok(!(await waitFor(() => !alive(program.pid) || !alive(program.child), LEFTOVER_GRACE_MS)), 'the release of the earlier call ended the later call\'s program');
+      tool.kill('SIGKILL');
+      assert.ok(await waitFor(() => !alive(program.pid), GUARD_ENDS_MS), 'the guard of the killed tool left the later call\'s program alive');
+      assert.ok(await waitFor(() => !alive(program.child), GUARD_ENDS_MS), 'the guard of the killed tool left the later call\'s child alive');
+    } finally {
+      tool.kill('SIGKILL');
+      for (const pid of left) {
+        try {
+          process.kill(pid, 'SIGKILL');
+        } catch {
+          // Already ended.
+        }
+      }
+    }
   });
 });
 
