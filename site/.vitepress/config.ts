@@ -128,6 +128,8 @@ export default defineConfig({
     for (const [id, head] of heads) {
       if (head.title.length > 60) problems.push(`${id}: the title has ${head.title.length} characters, over 60`);
       if (head.description.length < 70 || head.description.length > 160) problems.push(`${id}: the description has ${head.description.length} characters, outside 70 to 160`);
+      // VitePress writes the description into <meta name="description"> without escaping it, so a double quote ends the attribute there.
+      if (head.description.includes('"')) problems.push(`${id}: the description holds a double quote, and a reader of the meta tag stops there`);
     }
     for (const name of readdirSync(site.outDir, { recursive: true, encoding: 'utf8' }).filter((path) => path.endsWith('.html') && path !== '404.html')) {
       const html = readFileSync(join(site.outDir, name), 'utf8');

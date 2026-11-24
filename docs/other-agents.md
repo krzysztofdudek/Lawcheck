@@ -2,7 +2,7 @@
 
 Gemini CLI and other coding agents work with Lawcheck through one line in their instructions file. That line tells the agent to run `lawcheck prime` at the start of every session. The text that `lawcheck prime` prints is the primer. The primer lists the types and rules of the [law](concepts.md#law). It tells the agent to check its code with `lawcheck check` after each change.
 
-Lawcheck has a plugin for Claude Code, Codex and GitHub Copilot CLI ([Lawcheck in Claude Code](claude-code.md), [Lawcheck in Codex](codex-cli.md), [Lawcheck in GitHub Copilot CLI](copilot-cli.md)), and Cursor runs the one of Claude Code ([Lawcheck in Cursor](cursor.md)). With the agents of this page, Lawcheck checks an edit only when the agent runs `lawcheck check`.
+Lawcheck has a plugin for Claude Code, Codex and GitHub Copilot CLI ([Lawcheck in Claude Code](claude-code.md), [Lawcheck in Codex](codex-cli.md), [Lawcheck in GitHub Copilot CLI](copilot-cli.md)). Cursor loads the one of Claude Code through its support for Claude Code plugins, and no session of Cursor has run it ([Lawcheck in Cursor](cursor.md)). With the agents of this page, Lawcheck checks an edit only when the agent runs `lawcheck check`.
 
 The outputs below come from a repository with this law. Its [script rule](concepts.md#script-rule) `no-console` is the rule of [The first type and the first rule](first-law.md):
 
@@ -77,13 +77,13 @@ The part `Only on the user's word` lists the changes that the agent leaves to yo
 - deleting a rule, or changing its `status` or its `why`;
 - an edit of `.lawcheck/verdicts` or of `.lawcheck/config.yaml`.
 
-For a law with `may_use`, the part holds two more changes: widening a `may_use` list, and adding a pattern to `ignored`, which takes a file out of the list in force. For a law with `required` or `ignored`, it holds adding a pattern to `ignored` and taking one from `required`.
+For a law with `may_use`, the part holds two more changes. One is widening a `may_use` list. The other is adding a pattern to [`ignored`](law.md#ignored), which takes a file out of the list in force. For a law with [`required`](law.md#required) or `ignored`, the part holds two changes: adding a pattern to `ignored`, and taking a pattern from `required`.
 
 When git ignores `.lawcheck/law.yaml`, no commit carries the law. The primer then says so under its line `The law here`, and asks the agent to tell you once.
 
 The primer holds at most 8,000 characters. For a large law, Lawcheck shortens the part about the law. The last line then names the commands that show a type or a rule in full.
 
-Without a law, `lawcheck prime` prints two lines and exits 0. They say that the folder has no law, and that the agent starts one only when you ask, by the steps of [Let a coding agent write the first law](agent-setup.md).
+Without a law, `lawcheck prime` prints two lines and exits 0. The first line says that the folder has no law. The second says that the agent starts a law only when you ask, by the steps of [Let a coding agent write the first law](agent-setup.md).
 
 ## 3. See a failed check as the agent does
 

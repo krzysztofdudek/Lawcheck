@@ -1,6 +1,6 @@
 # Concepts
 
-These pages use thirteen words, each with one meaning. Each word has a heading here, a short definition and one example.
+These pages use fourteen words, each with one meaning. Each word has a heading here, a short definition and one example.
 
 ## Law
 
@@ -20,19 +20,19 @@ types:
 
 ## Type
 
-A type is one kind of file. The patterns of its `paths` say which files it takes. An optional `content` expression narrows them to the files whose text matches it. A type can hold subtypes. Lawcheck tests a subtype on a file only after the file matched its parent. A file gets the deepest type that matches it. No rule judges a file that has no type. A law can name folders where every file needs a type ([`required`](law.md#required)).
+A type is one kind of file. The patterns of its `paths` say which files it takes. An optional `content` expression narrows them to the files whose text matches that expression. A type can hold subtypes. The type that holds a subtype is its parent. Lawcheck tests a subtype on a file only after the file matched its parent. A file gets the deepest type that matches it. No rule judges a file that has no type. A law can name folders where every file needs a type ([`required`](law.md#required)).
 
 Example: under the law above, `src/core/receipt.ts` has the type `core`. `lawcheck explain src/core/receipt.ts` shows it.
 
 ## Rule
 
-A rule is one requirement with an id and a `why`. When a type lists the rule, the rule binds the files of that type and of its subtypes: Lawcheck judges those files against it. Lawcheck prints the `why` beside each finding. A rule is `enforced` unless its entry in the law says `status: advisory`. The findings of an advisory rule are warnings.
+A rule is one requirement. It has an id, and its `why` gives the reason for it. A type lists the rules its files keep. A rule binds the files of each type that lists it, and the files of that type's subtypes. Lawcheck judges those files against the rule. Lawcheck prints the `why` beside each [finding](#finding). A rule is `enforced` unless its entry in the law says `status: advisory`. The findings of an advisory rule are warnings.
 
 Example: the rule `no-console`, with `why: Only the command layer writes to the terminal.`
 
 ## Script rule
 
-A script rule is a JavaScript module, `.lawcheck/rules/<id>.mjs`. Its function `check` receives the files and returns their findings. It needs no model and no key. Lawcheck runs it in a Node process of its own. That process may read files below the root of the law and in Lawcheck's own folder, and nowhere else.
+A script rule is a JavaScript module, `.lawcheck/rules/<id>.mjs`. Its function `check` receives the files and returns their findings. It needs no model and no key. Lawcheck runs it in a Node process of its own. That process is the rule runner. The rule runner may read files in two places: below the root of the law, and in Lawcheck's own folder. Lawcheck's own folder is the folder where the `lawcheck` package is installed. The rule runner may read no other file.
 
 Example: `.lawcheck/rules/no-console.mjs` returns `{ line: 1, message: 'writes to the terminal with console.log' }` for a file whose first line calls `console.log`.
 
@@ -44,7 +44,7 @@ Example: `.lawcheck/rules/clear-errors.md` says "Every error message a caller ca
 
 ## Use
 
-A use is a reference from one file to another file of the repository, such as an `import`. Lawcheck reads uses in TypeScript, JavaScript, Python, Go, Rust, Java, Kotlin, C#, C, C++, PHP and Ruby. The part of Lawcheck that reads the uses of one language is its reader. The `may_use` list of a type names the types its files may use. Lawcheck reports each use outside the list as the finding `forbidden-use`.
+A use is a reference from one file to another file of the repository, such as an `import`. Lawcheck reads uses in TypeScript, JavaScript, Python, Go, Rust, Java, Kotlin, C#, C, C++, PHP and Ruby. The part of Lawcheck that reads the uses of one language is the reader of that language. The `may_use` list of a type names the types its files may use. Lawcheck reports each use outside the list as the finding `forbidden-use`.
 
 Example: `import { print } from "../cli/print.js";` in `src/core/receipt.ts` is a use of `src/cli/print.ts`.
 
@@ -95,7 +95,7 @@ The base is the commit that a check compares your work with. Lawcheck takes it f
 3. in a CI job, the variable of the service that names the target branch of a pull request or the commit before a push;
 4. `origin/HEAD`.
 
-With no base, a check on your machine counts every file as changed. In a CI job with no base, `lawcheck check` stops with `base-unreachable`, unless you name a path or pass `--full`.
+With no base, a check on your machine counts every file as changed. In a CI job with no base, `lawcheck check` stops with `base-unreachable`. A run that names a path or passes `--full` does not stop.
 
 Example: `lawcheck check --base main`.
 
@@ -116,7 +116,7 @@ A check of the change is a run of `lawcheck check` that names no path and does n
 
 ## Plain check
 
-A plain check is a run of `lawcheck check` that judges the change alone. It reads the passes in `.lawcheck/verdicts`. It calls no reviewer. Only a file in the change fails a plain check with exit 1. A file outside the change can still stop one with exit 2, for example with [type-overlap](codes.md#type-overlap), [file-unreadable](codes.md#file-unreadable), [file-too-large](codes.md#file-too-large), [text-too-large](codes.md#text-too-large), [parser-failed](codes.md#parser-failed) or [link-outside-root](codes.md#link-outside-root).
+A plain check is a run of `lawcheck check` that judges the change alone. It reads the passes in `.lawcheck/verdicts`. It calls no reviewer. Only a file in the change fails a plain check with exit 1. A file outside the change can still stop the run with exit 2, for example with [type-overlap](codes.md#type-overlap), [file-unreadable](codes.md#file-unreadable), [file-too-large](codes.md#file-too-large), [text-too-large](codes.md#text-too-large), [parser-failed](codes.md#parser-failed) or [link-outside-root](codes.md#link-outside-root).
 
 A run is not a plain check when:
 
