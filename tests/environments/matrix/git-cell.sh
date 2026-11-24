@@ -1,5 +1,5 @@
 #!/bin/sh
-# One cell of the git matrix (test 207), run as root in a clean official image with /cell mounted read-only: /cell/node (the Node 24 that starts it), /cell/repo (a checkout with dist and node_modules) and this script.
+# One cell of the git matrix (test 207), run as root in a clean official image with /cell mounted read-only: /cell/node (the Node 24 that starts it), /cell/repo (a checkout with dist and node_modules), failing-tests.sh and this script.
 # Usage: git-cell.sh <test file>...
 set -u
 say() { printf 'cell: %s\n' "$*"; }
@@ -14,6 +14,6 @@ su tester -s /bin/sh -c "cd /cell/repo && HOME=/tmp/home TMPDIR=/tmp PATH=/cell/
 code=$?
 say "tests took $(( $(date +%s) - started )) s"
 grep -E '^(✖|ℹ (tests|pass|fail|skipped))' /tmp/cell-tests.log | sed 's/^/cell: /'
-if [ $code -ne 0 ]; then grep -A30 '^✖' /tmp/cell-tests.log | head -120; fi
+if [ $code -ne 0 ]; then sh /cell/failing-tests.sh /tmp/cell-tests.log; fi
 say done
 exit $code

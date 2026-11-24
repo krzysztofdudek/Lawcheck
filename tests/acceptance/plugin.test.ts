@@ -1192,6 +1192,17 @@ test('test 924: a host the hook does not know fails the hook with one line', asy
   });
 });
 
+test('R-4: the check after an edit judges a file of a folder that holds a law of its own by that law, as docs/plugin.md says, and not by the law of the repository the session runs in', async () => {
+  await withBench(async (bench, dir) => {
+    const TOP_LAW = 'lawcheck: 0.1.0\n\ntypes:\n  everything:\n    about: Every TypeScript file.\n    paths: ["**/*.ts"]\n';
+    const repo = makeSample(dir, { under: 'tests/fixture', top: (r) => write(r, '.lawcheck/law.yaml', TOP_LAW) });
+    write(repo, `tests/fixture/${D_PATH}`, D);
+    const session = new Session(bench, repo);
+    json(await session.edit(`tests/fixture/${D_PATH}`, 'Write'), edited(`${editHeader(D_PATH)}\n\n${D_OUTPUT}`), 'judged by the law of the fixture');
+    assert.deepEqual(bench.log().at(-1), { args: ['check', `./${D_PATH}`], cwd: join(repo, 'tests/fixture') });
+    write(repo, 'src/top.ts', 'console.log(1);\n');
+    nothing(await session.edit('src/top.ts', 'Write'), 'judged by the law of the repository, which has no rule');
+    assert.deepEqual(bench.log().at(-1), { args: ['check', './src/top.ts'], cwd: repo });
 const relayed = (text: string) => ({ decision: 'block', reason: `Lawcheck: before you finish, tell the user this message, word for word, then finish:\n\n${text}` });
 
 test('test 970: the hooks of the Claude Code plugin hold only what Cursor maps, and Cursor names the edit tool Write', () => {

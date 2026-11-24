@@ -56,7 +56,7 @@ The Lawcheck plugin now works in Codex CLI. `codex plugin marketplace add krzysz
 
 Cursor now runs the Lawcheck plugin for Claude Code. Cursor loads the plugins that Claude Code installed, so `claude plugin marketplace add krzysztofdudek/Lawcheck` and `claude plugin install lawcheck@lawcheck-marketplace` install it for both. Cursor's command-line agent runs the hook at the start of a session and the one after an edit from the plugin alone. It runs the hook at the prompt and the one before the end of a turn only when `.cursor/hooks.json` holds an entry for the event, so without `{"version": 1, "hooks": {"beforeSubmitPrompt": [{"command": "echo {}"}], "stop": [{"command": "echo {}"}]}}` there is no check before the agent finishes. With the entries, the hooks find the law in the workspace that Cursor names, send the agent back with the message that Cursor sends as the next one, and ask the agent once to tell you the messages that Cursor has no place for. After you stop the agent, the hook before the end of a turn sends no return and the next turn gets its three returns. No session of Cursor ran the plugin, because that needs a Cursor account; `lawcheck docs cursor` says what was checked and what was not.
 
-The documentation site is now at https://docs.lawcheck.dev, and https://lawcheck.dev introduces Lawcheck. A page that alpha.4 named at `https://lawcheck.dev/<page>` redirects to the same page at the new address. The README of the npm package names the new address.
+The documentation site is now at https://docs.lawcheck.dev, and https://lawcheck.dev introduces Lawcheck. A page that alpha.4 named at `lawcheck.dev/<page>` redirects to the same page at the new address. The README of the npm package names the new address.
 
 ### Before you upgrade
 
