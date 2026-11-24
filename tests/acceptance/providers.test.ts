@@ -730,6 +730,38 @@ test('test 1054: on Windows the guard of a killed tool that called no program re
   });
 });
 
+test('test 1055: on Windows the guard of a killed tool whose watcher gives no list and whose own list hangs removes the call\'s folders within WINDOWS_KILLED_GRACE_MS of the kill', async (t) => {
+  const skip = platformSkip('the whole test');
+  if (skip !== null) return t.skip(skip);
+  await withCopy(async (copy) => {
+    const guardFile = join(copy.dir, 'dist', 'guard.js');
+    const watching = "watcher = spawn(powershell(), ['-NoProfile', '-NonInteractive', '-Command', ";
+    const listing = "spawnSync(powershell(), ['-NoProfile', '-NonInteractive', '-Command', PROCESS_TABLE]";
+    const sound = readFileSync(guardFile, 'utf8');
+    assert.ok(sound.includes(watching) && sound.includes(listing), 'the guard has no watcher or no list of its own to replace');
+    // Neither the watcher nor the guard's own list ever answers, so the guard waits out both of its limits.
+    writeFileSync(guardFile, sound.replace(watching, `watcher = spawn(process.execPath, ['-e', '${IDLE}', `).replace(listing, `spawnSync(process.execPath, ['-e', '${IDLE}']`));
+    const folder = join(copy.dir, 'call folder');
+    mkdirSync(folder);
+    const idle = spawn(process.execPath, ['-e', IDLE], { stdio: 'ignore', windowsHide: true });
+    const guard = spawn(process.execPath, [guardFile], { cwd: dirname(guardFile), stdio: ['pipe', 'ignore', 'ignore'], detached: true });
+    let exited = false;
+    guard.on('exit', () => (exited = true));
+    try {
+      const killed = Date.now();
+      guard.stdin!.end(`+g${idle.pid}\n+d${folder}\n`);
+      assert.ok(await waitFor(() => !existsSync(folder), WINDOWS_KILLED_GRACE_MS), `the call's folder is still there ${WINDOWS_KILLED_GRACE_MS} ms after the kill`);
+      assert.ok(Date.now() - killed <= WINDOWS_KILLED_GRACE_MS, `the call's folder was removed ${Date.now() - killed} ms after the kill`);
+    } finally {
+      if (!exited) {
+        killGroup(guard.pid!, 'SIGKILL');
+        await waitFor(() => exited, LEFTOVER_GRACE_MS);
+      }
+      idle.kill('SIGKILL');
+    }
+  });
+});
+
 test('test 1057: outside Windows the guard of a killed tool ends a rule runner by its id when an earlier runner that had the same id was released after the later one started', async (t) => {
   const skip = platformSkip('the whole test');
   if (skip !== null) return t.skip(skip);
