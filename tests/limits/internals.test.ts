@@ -108,32 +108,33 @@ test('test 241: S5-4, init where .lawcheck is a symbolic link to nothing names i
 });
 
 
-for (const [what, make, cause] of [
-  ['a folder', (path: string) => mkdirSync(path), 'EISDIR'],
-  ['a symbolic link to nothing', (path: string) => symlinkSync(join(path, '../nowhere.yaml'), path), 'ENOENT'],
-] as const) {
-  test(`S5-5: .lawcheck/law.yaml is ${what}, so init sends the user to doctor, and doctor and check say the law cannot be read`, async (t) => {
-    if (cause === 'ENOENT') {
-      const skipped = platformSkip('the whole test');
-      if (skipped !== null) return t.skip(skipped);
-    }
-    await inTemp(async (dir) => {
-      const repo = newRepository(dir);
-      mkdirSync(join(repo, '.lawcheck'));
-      make(join(repo, '.lawcheck/law.yaml'));
-      const init = await run(repo, ['init']);
-      assert.equal(init.code, 2);
-      assert.deepEqual(errorLines(init.stdout), ['.lawcheck/law.yaml  error[already-initialized]  a law already governs this directory']);
-      assert.match(init.stdout, /\nnext: lawcheck doctor /);
-      const doctor = await run(repo, ['doctor']);
-      assert.equal(doctor.code, 2);
-      assert.ok(doctor.stdout.includes(`fail  law  .lawcheck/law.yaml:1  the law cannot be read (${cause})\n  next: fix .lawcheck/law.yaml, then run lawcheck doctor again\n`), doctor.stdout);
-      const checked = await run(repo, ['check']);
-      assert.equal(checked.code, 2);
-      assert.deepEqual(errorLines(checked.stdout), [`.lawcheck/law.yaml:1  error[law-invalid]  the law cannot be read (${cause})`]);
-    });
+async function lawIsNoFile(make: (path: string) => void, cause: string): Promise<void> {
+  await inTemp(async (dir) => {
+    const repo = newRepository(dir);
+    mkdirSync(join(repo, '.lawcheck'));
+    make(join(repo, '.lawcheck/law.yaml'));
+    const init = await run(repo, ['init']);
+    assert.equal(init.code, 2);
+    assert.deepEqual(errorLines(init.stdout), ['.lawcheck/law.yaml  error[already-initialized]  a law already governs this directory']);
+    assert.match(init.stdout, /\nnext: lawcheck doctor /);
+    const doctor = await run(repo, ['doctor']);
+    assert.equal(doctor.code, 2);
+    assert.ok(doctor.stdout.includes(`fail  law  .lawcheck/law.yaml:1  the law cannot be read (${cause})\n  next: fix .lawcheck/law.yaml, then run lawcheck doctor again\n`), doctor.stdout);
+    const checked = await run(repo, ['check']);
+    assert.equal(checked.code, 2);
+    assert.deepEqual(errorLines(checked.stdout), [`.lawcheck/law.yaml:1  error[law-invalid]  the law cannot be read (${cause})`]);
   });
 }
+
+test('S5-5: .lawcheck/law.yaml is a folder, so init sends the user to doctor, and doctor and check say the law cannot be read', async () => {
+  await lawIsNoFile((path) => mkdirSync(path), 'EISDIR');
+});
+
+test('test 951: S5-5, .lawcheck/law.yaml is a symbolic link to nothing, so init sends the user to doctor, and doctor and check say the law cannot be read', async (t) => {
+  const skipped = platformSkip('the whole test');
+  if (skipped !== null) return t.skip(skipped);
+  await lawIsNoFile((path) => symlinkSync(join(path, '../nowhere.yaml'), path), 'ENOENT');
+});
 
 test('S5-5: init where .lawcheck/.gitignore is a folder writes nothing and names it, and does not call it kept', async () => {
   await inTemp(async (dir) => {
@@ -157,7 +158,7 @@ test('S5-5: init where .lawcheck/.gitignore is a folder writes nothing and names
   });
 });
 
-test('S1-8: a rule file that is a symbolic link is named as one, since Lawcheck reads no rule through a link, and the rule is not said to have no file', async (t) => {
+test('test 952: S1-8, a rule file that is a symbolic link is named as one, since Lawcheck reads no rule through a link, and the rule is not said to have no file', async (t) => {
   const skipped = platformSkip('the whole test');
   if (skipped !== null) return t.skip(skipped);
   await withSample(async (s) => {
