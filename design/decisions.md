@@ -377,6 +377,12 @@ The hook after an edit looks for `.lawcheck/law.yaml` from the folder of the edi
 
 Why: the plugin cannot tell a sample from a package of a monorepo, and the nearest law is what `lawcheck check` uses when the user runs it in that folder, so the hook says what the user would see there. Test R-4 holds both cases: a file in the sample goes to the sample's law, a file outside it to the law of the repository.
 
+## 195. The landing page says when its build is ahead of its release
+
+The landing page takes its sentences from README.md and docs/ of the commit it is built from, and shows the version in package.json. When the Unreleased section of CHANGELOG.md holds text, the footer adds a line: this build also shows text for the next release, so a flag or command it names may not be in the shown version yet. A release deploys from its tagged commit, where Unreleased is empty and the line is absent.
+
+Why: a build of `main` between two releases showed `--strict` under the version alpha.4, which has no such flag, and a reader who tried it got an error. The page cannot read the tag in a shallow clone, so the line follows the CHANGELOG, which every release empties.
+
 ## Decision (number at merge). The plugin in GitHub Copilot CLI
 
 Copilot CLI reads `plugin/.plugin/plugin.json` before `plugin/.claude-plugin/plugin.json`, so it takes its own manifest, which points to `plugin/hooks/copilot.json`. There each hook runs `node` with its arguments and `${PLUGIN_ROOT}`, on Copilot's own events, `sessionStart`, `userPromptSubmitted`, `postToolUse` and `agentStop`, with the timeouts of `hooks.json` as `timeoutSec`, since Copilot's default is 30 seconds. The hook takes `--host copilot`. Copilot names the session in `sessionId` and gives no id of the turn. Its edit tools `create`, `edit` and `str_replace_editor` name the file in `toolArgs.path`, and `apply_patch` carries a patch, read as for Codex. The text for the agent is a top-level `additionalContext`, the hand-back is `{"decision": "block", "reason": ...}`, and the text after an edit is held to 10,000 bytes of UTF-8, under the 10 KB that Copilot takes. Copilot sets `CLAUDE_PLUGIN_DATA` for a plugin's hooks, so the state file sits where it sits in Claude Code, and the two switches are the variables of Codex.

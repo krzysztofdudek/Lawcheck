@@ -126,6 +126,14 @@ export class Fragments {
   }
 }
 
+export function isAhead(changelog: string): boolean {
+  const start = changelog.indexOf('## [Unreleased]');
+  if (start === -1) return false;
+  const rest = changelog.slice(start + '## [Unreleased]'.length);
+  const next = rest.search(/^## \[/m);
+  return (next === -1 ? rest : rest.slice(0, next)).trim() !== '';
+}
+
 const escape = (text: string): string => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 export function hrefOf(href: string, from: string, docs: string, github: string): string {
