@@ -106,9 +106,9 @@ const ahead = c.footer.ahead.replace('{version}', data.head.version);
 
       <section class="wrap next" aria-labelledby="try">
         <h2 id="try">{{ data.tryIt.heading }}</h2>
-        <CopyCommand :command="data.tryIt.install" :copy="c.install.copy" :copied="c.install.copied" />
+        <CopyCommand :command="data.tryIt.install" :copy="c.install.copyBoth" :copied="c.install.copied" />
         <p v-html="data.tryIt.plugin" />
-        <CopyCommand :command="data.tryIt.pluginCommands" :copy="c.install.copy" :copied="c.install.copied" />
+        <CopyCommand :command="data.tryIt.pluginCommands" :copy="c.install.copyPlugin" :copied="c.install.copied" />
         <p v-html="data.tryIt.codex" />
         <p v-html="data.tryIt.copilot" />
         <p v-html="data.tryIt.cursor" />

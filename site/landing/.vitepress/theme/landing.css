@@ -616,4 +616,16 @@ th.group {
   .bar-inner .lc-lockup {
     gap: 8px;
   }
+
+  .command {
+    flex-wrap: wrap;
+  }
+
+  .command pre {
+    flex-basis: 100%;
+  }
+
+  .command-copy {
+    margin-top: 0;
+  }
 }

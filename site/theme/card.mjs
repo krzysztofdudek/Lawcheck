@@ -5,7 +5,7 @@ export const CARD = {
   width: WIDTH,
   height: HEIGHT,
   maxBytes: 300 * 1024,
-  alt: `The Lawcheck mark and name, the line "${CATEGORY}", and the first line of one finding: ${FINDING.place} ${FINDING.code}, ${FINDING.text}.`,
+  alt: `Lawcheck's card shows "${CATEGORY}" over the first line of one finding: ${FINDING.place} ${FINDING.code}, ${FINDING.text}.`,
 };
 
 export const cardHead = () => [
