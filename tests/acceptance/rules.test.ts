@@ -10,7 +10,7 @@ import { LIMITS } from '../../dist/rules.js';
 
 const ORIGINAL = NO_CONSOLE.replace('export function check', 'function original');
 
-test('test 21: each broken answer crashes the rule, and a function in a field of a finding that the tool does not read breaks nothing', async () => {
+test('test 21: each broken answer crashes the rule', async () => {
   const cases: [string, string][] = [
     ['throws', "export function check() { throw new Error('broken'); }\n"],
     ['returns {}', 'export function check() { return {}; }\n'],
@@ -30,6 +30,9 @@ test('test 21: each broken answer crashes the rule, and a function in a field of
       }),
     ),
   );
+});
+
+test('R-108: a function in a field of a finding that the tool does not read breaks nothing', async () => {
   await withRule("export function check() { return [{ message: 'x', extra: () => 1 }]; }\n", async (s) => {
     const run = await check(s);
     assert.equal(run.code, 1);
