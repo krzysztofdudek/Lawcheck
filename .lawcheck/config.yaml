@@ -1,3 +1,4 @@
 reviewer:
   provider: claude-code
   model: claude-sonnet-5-5
+  max_chars: 100000

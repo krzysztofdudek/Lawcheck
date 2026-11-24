@@ -28,7 +28,8 @@ export const INSTALL_CELLS: Cell[] = [
   { image: 'node:22', manager: 'npm', expect: 'refuse', cause: 'node' },
 ];
 
-export const GIT_IMAGES = ['ubuntu:22.04', 'debian:12', 'ubuntu:24.04', 'debian:sid'];
+// The scm images of buildpack-deps are ubuntu:22.04, debian:12, ubuntu:24.04 and debian:sid with the git of each already installed, so a cell runs no apt-get: the one step of a cell that waits on the mirrors of the distributions.
+export const GIT_IMAGES = ['buildpack-deps:jammy-scm', 'buildpack-deps:bookworm-scm', 'buildpack-deps:noble-scm', 'buildpack-deps:sid-scm'];
 
 export interface CellRun {
   code: number | null;
