@@ -112,6 +112,27 @@ function keepTimersReferenced(): void {
 }
 keepTimersReferenced();
 
+// process.getActiveResourcesInfo() does not list a pending Atomics.waitAsync either, so the runner counts the waits a rule leaves pending.
+let waits = 0;
+function countAsyncWaits(): void {
+  const original = Atomics.waitAsync;
+  Object.defineProperty(Atomics, 'waitAsync', {
+    value: function waitAsync(...args: Parameters<typeof Atomics.waitAsync>) {
+      const result = original(...args);
+      if (result.async) {
+        waits++;
+        void result.value.then(() => {
+          waits--;
+        });
+      }
+      return result;
+    },
+    writable: true,
+    configurable: true,
+  });
+}
+countAsyncWaits();
+
 let check: Check | null = null;
 let companion: Companion | null = null;
 let repo: Repo | null = null;
@@ -148,6 +169,7 @@ function handles(): Map<string, number> {
 }
 
 function leftBehind(): boolean {
+  if (waits > 0) return true;
   for (const [kind, count] of counts()) if (count > (own?.get(kind) ?? 0)) return true;
   return false;
 }

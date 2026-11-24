@@ -519,6 +519,7 @@ export function startTool(cwd: string, args: string[], base: NodeJS.ProcessEnv, 
 export interface HookOptions extends Expect {
   hook?: string;
   cwd?: string;
+  host?: string;
   // Deadlines in seconds by event, each shorter than the one the plugin ships, for a test of what happens at a deadline.
   deadlines?: Record<string, number>;
 }
@@ -527,7 +528,8 @@ export function startHook(event: string, input: string, env: NodeJS.ProcessEnv, 
   if (options.deadlines !== undefined && options.hook !== undefined) throw new Error('harness: a hook started with deadlines of the test is the plugin\'s own hook');
   const hook = options.deadlines === undefined ? (options.hook ?? HOOK) : HOOK_WITH_DEADLINES;
   const all = options.deadlines === undefined ? env : { ...env, [DEADLINES_VARIABLE]: JSON.stringify(options.deadlines) };
-  return launch({ kind: 'hook', argv: [hook, event], cwd: options.cwd ?? ROOT_DIR, env: all, own: env, stdin: input, args: [event] }, options);
+  const args = options.host === undefined ? [event] : [event, '--host', options.host];
+  return launch({ kind: 'hook', argv: [hook, ...args], cwd: options.cwd ?? ROOT_DIR, env: all, own: env, stdin: input, args }, options);
 }
 
 const TOOL_FILES = [CLI, HOOK, HOOK_WITH_DEADLINES, TOOL_WITH_LIMITS, join(ROOT_DIR, 'plugin', 'hooks')];

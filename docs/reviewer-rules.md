@@ -82,6 +82,8 @@ An answer is bad when Lawcheck finds in it no object with a `verdict` of `pass` 
 - a finding with no message;
 - a finding with a line outside the file.
 
+A pass is bad too when the answer also holds an object whose `verdict` is neither `pass` nor `fail`, such as `"Fail"`, or an object with the key `verdict` twice. JSON keeps the last of two equal keys, so `{"verdict": "fail", ..., "verdict": "pass"}` would read as a pass.
+
 After a bad answer, Lawcheck asks the reviewer once more, if the setting `reviewer.max_calls` leaves room for one more request ([Asking the reviewer](#asking-the-reviewer)). A second bad answer stops the run with [`reviewer-bad-answer`](codes.md#reviewer-bad-answer). The run stops with the same code after one bad answer when `reviewer.max_calls` leaves no room.
 
 From a good answer, Lawcheck makes each finding a finding of the rule, at its line or on the whole file. Lawcheck drops each finding on a waived line. When a fail keeps no finding after that, Lawcheck counts the answer as a pass.
