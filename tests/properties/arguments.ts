@@ -26,11 +26,22 @@ function runHook(event: string, input: string, env: NodeJS.ProcessEnv, host?: st
   return startHook(event, input, env, { stderr: /^(Lawcheck plugin: [^\n]+\n)?$/, ...(host === undefined ? {} : { host }) }).ended;
 }
 
+// A path a hook can get is any JSON value, and String() throws on an object whose own toString is not a function, such as {"toString":1}; that object is written as its JSON then, so every shape fc.anything() draws still reaches the hook.
+export function patchText(path: unknown): string {
+  let shown: string;
+  try {
+    shown = String(path);
+  } catch {
+    shown = JSON.stringify(path);
+  }
+  return `*** Begin Patch\n*** Update File: ${shown}\n*** End Patch\n`;
+}
+
 export function hookInputs(s: string): { arbitrary: fc.Arbitrary<[string, string, string, string | undefined]>; claim: Claim<[string, string, string, string | undefined]> } {
   const id = fc.oneof({ weight: 2, arbitrary: fc.constant('x'.repeat(5000)) }, { weight: 3, arbitrary: fc.constantFrom('s1', '../x', '', 'a b', 'ż', 'y'.repeat(129)) }, { weight: 1, arbitrary: fc.string({ maxLength: 10 }) }, { weight: 1, arbitrary: fc.integer() });
   const field = fc.oneof(fc.constantFrom(s, '/', join(s, 'src'), join(s, D_PATH), join(s, 'src/core/new\nline.ts'), 'relative/path.ts', ''), fc.anything());
   const object = fc
-    .record({ session_id: id, sessionId: id, prompt_id: fc.oneof(fc.constant('p1'), fc.anything()), turn_id: fc.oneof(fc.constant('t1'), fc.anything()), cwd: field, toolName: fc.constantFrom('create', 'edit', 'str_replace_editor', 'apply_patch', 'view', 7), toolArgs: fc.oneof(fc.record({ path: field, command: fc.constantFrom('view', 'str_replace') }), field.map((path) => `*** Begin Patch\n*** Update File: ${String(path)}\n*** End Patch\n`), fc.anything()), tool_name: fc.constantFrom('Write', 'Edit', 'NotebookEdit', 'apply_patch', 'Bash', 7), tool_input: fc.oneof(fc.record({ file_path: field, notebook_path: field, command: fc.oneof(field.map((path) => `*** Begin Patch\n*** Update File: ${String(path)}\n*** End Patch\n`), fc.anything()) }), fc.anything()), stop_hook_active: fc.oneof(fc.boolean(), fc.anything()), background_tasks: fc.oneof(fc.constant([]), fc.anything()) }, { requiredKeys: ['session_id'] })
+    .record({ session_id: id, sessionId: id, prompt_id: fc.oneof(fc.constant('p1'), fc.anything()), turn_id: fc.oneof(fc.constant('t1'), fc.anything()), cwd: field, toolName: fc.constantFrom('create', 'edit', 'str_replace_editor', 'apply_patch', 'view', 7), toolArgs: fc.oneof(fc.record({ path: field, command: fc.constantFrom('view', 'str_replace') }), field.map((path) => patchText(path)), fc.anything()), tool_name: fc.constantFrom('Write', 'Edit', 'NotebookEdit', 'apply_patch', 'Bash', 7), tool_input: fc.oneof(fc.record({ file_path: field, notebook_path: field, command: fc.oneof(field.map((path) => patchText(path)), fc.anything()) }), fc.anything()), stop_hook_active: fc.oneof(fc.boolean(), fc.anything()), background_tasks: fc.oneof(fc.constant([]), fc.anything()) }, { requiredKeys: ['session_id'] })
     .map((v) => JSON.stringify(v));
   const input = fc.oneof(
     { weight: 3, arbitrary: object },
