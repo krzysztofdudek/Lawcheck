@@ -1,6 +1,6 @@
 # Concepts
 
-These pages use thirteen words, each with one meaning. Each word has a heading here, a short definition and one example.
+These pages use fourteen words, each with one meaning. Each word has a heading here, a short definition and one example.
 
 ## Law
 

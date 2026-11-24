@@ -2,7 +2,9 @@
 
 Each code that Lawcheck prints has a heading of its own on this page. Under it stand four parts: what the code means, its typical cause, the step that clears it and an example. If a run stops with `error[type-overlap]`, you find the step under `## type-overlap`.
 
-The table below gives each code one of two kinds, exit 2 or finding. With a code of the kind exit 2, Lawcheck stops the run before it gives a PASS or a FAIL. Lawcheck then exits with code 2. Its output ends on one `next:` line that says what to fix. When the run had sent requests to a reviewer before it stopped on a reviewer's failure, a bad answer or too many findings, the first line ends with their count, as in `lawcheck: ERROR  1 error, 2 reviewer calls`, and with `--json` the document says it in `calls_made`. A request that Lawcheck sends again counts as one more. An error that stops the run before its first request names no count, and neither does `file-unwritable`.
+The table below gives each code one of two kinds, exit 2 or finding. With a code of the kind exit 2, Lawcheck stops the run before it gives a PASS or a FAIL. Lawcheck then exits with code 2. Its output ends on one `next:` line that says what to fix.
+
+A run can stop this way after it has sent requests to a reviewer: on a reviewer's failure, on a bad answer or on too many findings. The first line then ends with the count of those requests, as in `lawcheck: ERROR  1 error, 2 reviewer calls`. With `--json`, the document gives the count in `calls_made`. A request that Lawcheck sends again counts as one more. An error that stops the run before its first request names no count, and neither does `file-unwritable`.
 
 A code of the kind finding names a [finding](concepts.md#finding) in the report of `check`. The report opens with the PASS or FAIL of the run. Each finding below it starts a line of its own.
 
@@ -11,7 +13,7 @@ Lawcheck prints a `why:` line under the first error or finding of each code. Its
 - for a rule of the law, it is the rule's own `why`;
 - for a built-in code, it is the Why column of the table below.
 
-Two words recur below. The root is the folder that holds `.lawcheck/`. A rule binds a file when the file's type, or a type above it, lists the rule.
+Three words recur below. The root is the folder that holds `.lawcheck/`. A rule binds a file when the file's type, or a type above it, lists the rule. A companion is a module of a reviewer rule that names, for each judged file, the other files that the reviewer gets with it ([Files for each judged file](reviewer-rules.md#files-for-each-judged-file)). A companion runs in the same runner as the script rules.
 
 | Code | Kind | When | Why |
 |---|---|---|---|
@@ -546,7 +548,7 @@ The step depends on the cause:
 - in a shallow clone, or in a clone without the branch, run the `git fetch` command of the `next:` line;
 - in GitHub Actions, set `fetch-depth: 0` in `actions/checkout` to fetch the whole history;
 - for the push of a new branch, pass `--base` with the branch that the new one came from;
-- in a CI job with no base, pass `--base` with the branch the change goes into, or set `LAWCHECK_BASE`; GitHub Actions, GitLab CI and Azure Pipelines set a variable for a pull request that Lawcheck reads, so a job on a pull request needs neither ([CI and git hooks](ci.md#_5-give-the-base-on-another-ci-service));
+- in a CI job with no base, pass `--base` with the branch the change goes into, or set `LAWCHECK_BASE`. GitHub Actions, GitLab CI and Azure Pipelines set a variable for a pull request that Lawcheck reads, so a job on a pull request needs neither ([CI and git hooks](ci.md#_5-give-the-base-on-another-ci-service));
 - in a repository with no commit, make the first commit, or name the files to check, as in `lawcheck check src/`.
 
 **Example**
@@ -595,7 +597,7 @@ next: pass --law-from with a commit here that holds .lawcheck/law.yaml, such as 
 
 **Meaning**
 
-`check --law-from` loads the script rules of the commit it names from a copy in `.lawcheck/.local/`. A package that such a rule imports by name comes from the `node_modules` folders above that copy, `.lawcheck/.local/node_modules` and `.lawcheck/node_modules` among them. A file in either folder that git lists comes from the change, so the change could hand the rule its own package. Lawcheck runs no rule and names the first such file of each folder.
+`check --law-from` loads the script rules of the commit it names from a copy in `.lawcheck/.local/`. A rule can import a package by its name. That package comes from the `node_modules` folders above the copy, and `.lawcheck/.local/node_modules` and `.lawcheck/node_modules` are two of them. A file in either folder that git lists comes from the change. So the change could hand the rule a package of its own. Lawcheck runs no rule and names the first such file of each folder.
 
 **Typical cause**
 
@@ -721,9 +723,14 @@ A companion crashes in the same cases. It also crashes when it returns a path th
 
 **Fix**
 
-Under `--law-from <ref>`, the rule that crashed is the one of `<ref>`, and `lawcheck try` runs the work tree's rule, which may pass. The `next:` line says what to do instead. For a rule that imports a file outside `.lawcheck/rules/`, it names `.lawcheck/rules/lib/` on `<ref>` as the place for that file. For a package above the root, it names a `node_modules` folder below the root, in the work tree. Do what it says, then run the same command with `--law-from` again.
+Under `--law-from <ref>`, the rule that crashed is the one of `<ref>`. `lawcheck try` runs the rule of the work tree, which may pass. So the `next:` line says what to do instead:
 
-Without `--law-from`, run `lawcheck try <rule> <path>` with the rule and the file that the error names. Edit `.lawcheck/rules/<rule>.mjs` until `try` ends without an error. For a package above the root, install the package in a `node_modules` folder below the root, as the `next:` line says. For a companion, edit its module in `.lawcheck/rules/lib/`, or add the file it names, until `lawcheck try <rule> <path> --dry-run` ends without an error; the dry run calls no reviewer.
+- for a rule that imports a file outside `.lawcheck/rules/`, it names `.lawcheck/rules/lib/` on `<ref>` as the place for that file;
+- for a package above the root, it names a `node_modules` folder below the root, in the work tree.
+
+Do what it says, then run the same command with `--law-from` again.
+
+Without `--law-from`, run `lawcheck try <rule> <path>` with the rule and the file that the error names. Edit `.lawcheck/rules/<rule>.mjs` until `try` ends without an error. For a package above the root, install the package in a `node_modules` folder below the root, as the `next:` line says. For a companion, edit its module in `.lawcheck/rules/lib/`, or add the file it names. Do that until `lawcheck try <rule> <path> --dry-run` ends without an error. The dry run calls no reviewer.
 
 **Example**
 
@@ -991,12 +998,14 @@ The cause is one of these:
 
 The `next:` line names the step for the case. A type with a `may_use` list on it, or on a type above it, is a type whose files Lawcheck reads for their uses ([`may_use`](law.md#may-use)).
 
-Lawcheck also reads for their uses the files of a script rule that calls `uses()`, and of a reviewer rule whose companion calls it ([The uses](script-rules.md#the-uses)). The error then names that rule, and the `next:` line names the types whose files the rule judges, or says to keep the rule from calling `uses()` on the file. A rule that calls `tree()` makes Lawcheck read the tree of the file, and the error names the rule and `tree()` the same way. A law with no `may_use` list can end this way too. Lawcheck reads the uses of a file once per run, for the rule that asks first. When two rules call `uses()` on the same file, the error names the one whose request came first, and two runs of the same check can name different rules. After you keep one rule from that file, the next run names the other.
-
 - For one file that Lawcheck reads for its uses, leave the file out of every such type with a `!` pattern.
 - For one file that Lawcheck reads only for the names it declares, as in the Example, keep the file out of the files that git lists. In Java, Kotlin, C#, Ruby and Rust, Lawcheck reads those names from every file that git lists, with a type or without one ([Languages and uses](languages.md)). Run `git rm --cached` on the file and add a line for it to `.gitignore`.
 - For a whole run over its memory, narrow the `paths` of those types, or run Lawcheck on a machine with more memory.
 - For a system short of memory, free memory on the machine.
+
+Lawcheck also reads for their uses the files of a script rule that calls `uses()`, and of a reviewer rule whose companion calls it ([The uses](script-rules.md#the-uses)). The error then names that rule. The `next:` line names the types whose files the rule judges, or says to keep the rule from calling `uses()` on the file. A rule that calls `tree()` makes Lawcheck read the tree of the file, and the error names the rule and `tree()` the same way. A law with no `may_use` list can end this way too.
+
+Lawcheck reads the uses of a file once per run, for the rule that asks first. When two rules call `uses()` on the same file, the error names the one whose request came first. Two runs of the same check can then name different rules. After you keep one rule from that file, the next run names the other.
 
 **Example**
 
@@ -1144,7 +1153,7 @@ Each of these steps clears it:
 - split the file;
 - give `reviewer.max_chars` a higher value in `.lawcheck/config.yaml`.
 
-The third step edits `.lawcheck/config.yaml`. `lawcheck prime` leaves that edit to the user's word.
+A higher `reviewer.max_chars` sends the reviewer longer prompts, so the third step is the user's decision. `lawcheck prime` lists any edit of `.lawcheck/config.yaml` among the steps a coding agent takes only on the user's word.
 
 **Example**
 
@@ -1365,7 +1374,7 @@ A control sequence is a run of characters that a terminal reads as a command, su
 | U+0080 to U+009F, U+2028, U+2029, and every format character of Unicode (category Cf, such as a zero-width space or a mark that changes the direction of text) except the joiners U+200C and U+200D | `\u` and four hexadecimal digits for each UTF-16 unit, such as `\u202e` |
 | a line that GitHub Actions or Azure Pipelines would read as a command | its first character as `\x3a` or `\x23` |
 
-Lawcheck writes every character outside the table as it is. A backslash stays a backslash.
+Lawcheck writes every character outside the table as it is, with one exception. In a file name, Lawcheck writes a backslash as `\\`, as in `src/a\\b.ts` ([The argument of check](script-rules.md#the-argument-of-check)). A backslash in any other text stays a backslash.
 
 In `--json`, Lawcheck keeps the text of a string as it is, with one exception. It writes these characters as JSON escapes: those below U+0020, U+007F to U+009F, U+2028, U+2029 and the format characters. The printed document holds none of them raw. A program that parses the document gets the text unchanged ([JSON documents](json.md)).
 

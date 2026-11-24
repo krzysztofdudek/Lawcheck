@@ -82,7 +82,7 @@ src/run.ts  typescript  20 nodes, 12 named
 
 Each line below the first is a named node, under its parent: its field before a colon, its type and its line. A node with no named node below it also shows its text, cut at 40 characters. The rule above follows this tree: it takes the child in the field `function` of a `call_expression`. The `comment` holds `eval(y)` as text, so the rule reports nothing there.
 
-`explain --tree` leaves out the nodes that are not named, such as `const` and `;`. It stops at 12 levels and at 200 nodes, and says how many named nodes it left out. With `--json`, it gives every node with the keys below, and `parent` in place of `children`: the index of the node's parent in the list, or null for the root. To see the tree of one construct, write it in a small file and explain that file. The file need not be tracked by git. For a file with no tree, `explain --tree` prints the reason that `absent` gives below.
+`explain --tree` leaves out the nodes that are not named, such as `const` and `;`. It stops at 12 levels and at 200 nodes, and says how many named nodes it left out. With `--json`, it gives every node, with the keys below. In place of `children`, each node there has `parent`: the index of its parent in the list, or null for the root. To see the tree of one construct, write it in a small file and explain that file. The file need not be tracked by git. For a file with no tree, `explain --tree` prints the reason that `absent` gives below.
 
 `await file.tree()` gives an object with three keys:
 
@@ -137,7 +137,7 @@ The node types and fields come from the grammar of each language. Lawcheck ships
 | `php` | a commit after 0.24.2, not released |
 | `ruby` | a commit after 0.23.1, not released |
 
-Lawcheck sets the keys of the result and of a node. A version of Lawcheck that changes them says so in the changelog, under "Before you upgrade". The grammar sets the node types, the fields and the nesting. A new version of Lawcheck can take a new Runes with new grammars, and the same code can then give other node types, other fields or other nesting. The changelog names each version of Lawcheck that changes a grammar, and this table shows the grammar versions.
+Lawcheck sets the keys of the result and of a node. A version of Lawcheck that changes them says so in the changelog, under "Before you upgrade". The grammar sets the node types, the fields and the nesting. A new version of Lawcheck can take a new Runes with new grammars. The same code can then give other node types, other fields or other nesting. The changelog names each version of Lawcheck that changes a grammar, and this table shows the grammar versions.
 
 ## The uses
 
@@ -161,7 +161,14 @@ Each use has `line` and `kind`. These are the same uses that `may_use` judges ([
 
 The list holds what `may_use` skips: a use of the file itself, and a use of a binary file.
 
-The first call of `uses()` by a rule reads, at once, the uses of every file the rule judges in that run. Lawcheck reads the uses of each file once in a run, so a file whose uses another rule already asked for is not read again, and every rule gets the same answer for it. A file of Java, Kotlin, C#, Ruby or Rust needs the declarations of every file of its language, so that first call can take seconds in a large repository. When the reader fails on a file the rule judges, that file gets `reader-failed`, and Lawcheck reads the other files again without it. A failure on anything else gives `reader-failed` to every file that depends on it. A grammar that does not load fails every file of its language. A file of Java, Kotlin, C#, Ruby or Rust that Lawcheck reads only for what it declares fails every file of its language, and Java and Kotlin count as one language here. The uses of a file do not depend on the other files of the run, so a plain check and `--full` give a rule the same uses.
+The first call of `uses()` by a rule reads the uses of every file that the rule judges in that run, at once. Lawcheck reads the uses of each file once in a run. A file whose uses another rule already asked for is not read again, and every rule gets the same answer for it. The uses of a file do not depend on the other files of the run, so a plain check and `--full` give a rule the same uses.
+
+A file of Java, Kotlin, C#, Ruby or Rust needs the declarations of every file of its language. In a large repository, that first call can then take seconds. A failure of the reader reaches these files:
+
+- When the reader fails on a file the rule judges, that file gets `reader-failed`. Lawcheck reads the other files again without it.
+- When the reader fails on anything else, such as a file the rule does not judge, every file that depends on it gets `reader-failed`.
+- When a grammar does not load, every file of its language fails.
+- When the reader fails on a file of Java, Kotlin, C#, Ruby or Rust that Lawcheck reads only for what it declares, every file of that language fails. Java and Kotlin count as one language here.
 
 ## The return value
 
@@ -235,11 +242,22 @@ Lawcheck reports `rule-crashed` and exits with code 2 when the rule:
 - returns something other than a list of findings as above. A list with a message over 4,096 characters counts as such a return. So does a function, or another value that Lawcheck cannot pass out of the rule's process;
 - takes more than 30 seconds to load, or more than 30 seconds for one call;
 - ends its process before it answers, or sends a message that Lawcheck did not ask for;
-- leaves a promise rejected with no handler, or a timer that throws, while its process runs. The message of `rule-crashed` then names no judged file. A failure during the load adds the words `in its load`. After the last call, Lawcheck waits once, at most 2 seconds, for what the rule left running. A timer counts whether or not the rule unrefs it, and so does a job of `node:crypto`, such as pbkdf2 or scrypt, whose callback has not run.
+- leaves a promise rejected with no handler, or a timer that throws, while its process runs.
 
-In the other cases, the message of `rule-crashed` names the judged file, or the load. For a throw, a rejection or a failure in the background, the message holds the first line of what the rule threw, up to 4,096 characters, the limit of a finding's message. A longer line is cut there and ends with the count of the rest, as in `… (cut: 96,178 more characters)`. A message whose first line is empty gives its first line with text. An error with no message reads "an error with no message". An object that is no error but holds a string `message`, such as `{ code: 'E_X', message: 'no config' }`, gives that message. A rule may throw a value with no string form, such as an object with no prototype. The message then holds the error JavaScript gives for it. A proxy whose every trap throws something other than an error raises no such error. For such a value, the message reads `a value with no string form`. Lawcheck names each crashed rule once in a run.
+A crash of the last kind names no judged file. When it comes during the load, the message adds the words `in its load`. After the last call, Lawcheck waits once, at most 2 seconds, for the work the rule left running. A timer counts as such work, whether or not the rule unrefs it. A job of `node:crypto` whose callback has not run counts too, such as a call of pbkdf2 or scrypt.
 
-When a call leaves a timer or other work running, and the rule's process later ends or goes 30 seconds without answering, the message ends with the words "after a call that left work running" and names no judged file, provided the last call that answered left work running. The work may belong to an earlier call, and the file judged at that moment is not the cause. When the last call that answered left nothing running, the message names the file judged at that moment, even if an earlier call left work that has since ended. The same rule crashes with the same message when it judges one file and when it judges many.
+In the other cases, the message of `rule-crashed` names the judged file, or the load. Lawcheck names each crashed rule once in a run.
+
+For a throw, a rejection or a failure in the background, the message holds the first line of what the rule threw, up to 4,096 characters, the limit of a finding's message. A longer line is cut there and ends with the count of the rest, as in `… (cut: 96,178 more characters)`. A message whose first line is empty gives its first line with text. An error with no message reads "an error with no message". An object that is no error but holds a string `message`, such as `{ code: 'E_X', message: 'no config' }`, gives that message.
+
+A rule may throw a value that JavaScript cannot turn into text, such as an object with no prototype, which has no method that gives its text. The message then holds the error that JavaScript raises for that value. A proxy can answer that attempt by throwing a value that is not an error, such as a string. For such a value, the message reads `a value with no string form`.
+
+A call can leave work running, such as a timer, and the rule's process can then end or go 30 seconds without an answer. The message of that crash depends on the last call that answered:
+
+- When that call left work running, the message ends with the words "after a call that left work running" and names no judged file. The work may come from an earlier call, so the file judged at that moment is not the cause.
+- When that call left nothing running, the message names the file judged at that moment. An earlier call may have left work that ended before then.
+
+The same rule crashes with the same message when it judges one file and when it judges many.
 
 When Node cannot start the rule runner at all, Lawcheck stops with `runner-failed` and names no rule. The message holds Node's own error line. To fix it, reinstall Lawcheck.
 
