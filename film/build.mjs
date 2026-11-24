@@ -189,7 +189,6 @@ ${clips.map((clip) => `      <audio id="voice-${clip.id}" class="clip" src="asse
 `;
 }
 
-// With pages, only the voice of those chapters is read and mixed in.
 export function build(out, root = ROOT, voice = undefined, pages = undefined) {
   const edit = readEdit(root);
   const wanted = (page) => pages === undefined || pages.includes(page);
@@ -214,7 +213,7 @@ export function build(out, root = ROOT, voice = undefined, pages = undefined) {
     if (clips.length > 0) mkdirSync(join(project, 'assets', 'voice'), { recursive: true });
     for (const clip of clips) cpSync(clip.file, join(project, 'assets', 'voice', `${clip.id}.wav`));
     writeFileSync(join(project, 'index.html'), indexHtml(name, screens, edit, lengthOf(timeline.segments), style, timeline.chapter !== undefined, clips));
-    if (timeline.chapter !== undefined) writeFileSync(join(project, `${name}.vtt`), vttOf(cuesOf(edit, timeline.chapter, voice)));
+    if (timeline.chapter !== undefined) writeFileSync(join(project, `${name}.vtt`), vttOf(cuesOf(edit, timeline.chapter, wanted(name) ? voice : undefined)));
     cpSync(join(FILM, 'hyperframes', 'SPEC.md'), join(project, 'SPEC.md'));
     made.push({ name, project, seconds: lengthOf(timeline.segments), screens: screens.length, chapter: timeline.chapter !== undefined, voiced: clips.length });
   }

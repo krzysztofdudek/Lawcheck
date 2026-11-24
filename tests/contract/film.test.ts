@@ -553,6 +553,7 @@ test('test 1092: node film/render.mjs --only <page> --voice renders that page wh
     writeFileSync(fake, "import { appendFileSync, writeFileSync } from 'node:fs';\nappendFileSync(process.env.FAKE_CALLS, `${process.cwd()}\\n`);\nwriteFileSync(process.argv[process.argv.indexOf('-o') + 1], 'x');\n");
     const render = (page: string) => startProgram(join(folder.dir, 'film', 'render.mjs'), ['--draft', '--out', join(folder.dir, 'out'), '--only', page, '--voice', voice], folder.dir, { ...GIT_ENV, LAWCHECK_FILM_PRIVATE: ' , ', HYPERFRAMES_CLI: `node ${fake}`, FAKE_CALLS: calls }, { outside: [/^calls\.txt$/, /^out(\/|$)/, /^film\/dist(\/|$)/] }).ended;
     segments['ci/c1'] = { key: 'spoken from other words' };
+    rmSync(join(voice, 'forbid-a-use', 'f2.wav'));
     writeFileSync(join(voice, 'voice.json'), JSON.stringify({ segments }));
     const own = await render('quick-start');
     assert.ok(!own.stderr.includes('voice'), own.stderr);
