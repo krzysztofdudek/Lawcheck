@@ -3,7 +3,7 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { css } from '../brand/css.mjs';
 import { FILM, lengthOf, piecesOf, readEdit, ROOT, screensOf, timelinesOf } from './edit.mjs';
-import { voiceClips, voiceProblems } from './voice.mjs';
+import { sentenceSpans, voiceClips, voiceProblems, wavSeconds, windowOf } from './voice.mjs';
 const GSAP = 'https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/gsap.min.js';
 
 const escape = (text) => text.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
@@ -135,6 +135,31 @@ export function vttOf(segments) {
   return `WEBVTT\n\n${cues.join('\n')}`;
 }
 
+// The subtitles are the narrated sentences themselves. With the voice, each cue runs where its sentence is spoken; without it, or when the file does not split into its sentences, the frame's room for the voice is shared by the length of the sentences.
+export function cuesOf(edit, chapter, voice) {
+  const cues = [];
+  for (const segment of chapter.timeline) {
+    const sentences = (segment.narration ?? []).map((line) => line.text);
+    if (sentences.length === 0) continue;
+    const lead = segment.start + edit.voice.lead;
+    let spans;
+    let room = windowOf(edit, segment);
+    if (voice !== undefined) {
+      const buffer = readFileSync(join(voice, chapter.page, `${segment.id}.wav`));
+      spans = sentenceSpans(buffer, sentences.length, edit.voice.pause);
+      room = wavSeconds(buffer);
+    }
+    const total = sentences.reduce((sum, text) => sum + text.length, 0);
+    let used = 0;
+    sentences.forEach((text, index) => {
+      const share = spans?.[index] ?? { start: (used / total) * room, end: ((used + text.length) / total) * room };
+      used += text.length;
+      cues.push({ start: lead + share.start, end: lead + share.end, subtitle: text });
+    });
+  }
+  return cues;
+}
+
 function indexHtml(name, screens, edit, seconds, style, chapter, clips) {
   const frame = `data-width="${edit.frame.width}" data-height="${edit.frame.height}"`;
   const hosts = screens.map((screen) => `<div id="${screen.id}" data-composition-id="${screen.id}" data-composition-src="compositions/${screen.id}.html" data-start="${screen.start}" data-duration="${(screen.end - screen.start).toFixed(2)}" data-track-index="1" data-track-kind="graphics" ${frame}></div>`);
@@ -189,7 +214,7 @@ export function build(out, root = ROOT, voice = undefined, pages = undefined) {
     if (clips.length > 0) mkdirSync(join(project, 'assets', 'voice'), { recursive: true });
     for (const clip of clips) cpSync(clip.file, join(project, 'assets', 'voice', `${clip.id}.wav`));
     writeFileSync(join(project, 'index.html'), indexHtml(name, screens, edit, lengthOf(timeline.segments), style, timeline.chapter !== undefined, clips));
-    if (timeline.chapter !== undefined) writeFileSync(join(project, `${name}.vtt`), vttOf(timeline.segments));
+    if (timeline.chapter !== undefined) writeFileSync(join(project, `${name}.vtt`), vttOf(cuesOf(edit, timeline.chapter, voice)));
     cpSync(join(FILM, 'hyperframes', 'SPEC.md'), join(project, 'SPEC.md'));
     made.push({ name, project, seconds: lengthOf(timeline.segments), screens: screens.length, chapter: timeline.chapter !== undefined, voiced: clips.length });
   }
