@@ -7,7 +7,7 @@ Lawcheck is TypeScript on Node 24, compiled from `src/` to `dist/`. Its runtime 
 ## One run, from the command line to the result
 
 1. `src/bin.cts` is the installed entry. It looks at Node's permission model before it imports anything of Lawcheck, because under that model every import of the tool's own modules fails. It is CommonJS, since Node 24.2 to 24.6 under the permission model cannot read `package.json`. Then it imports `src/cli.ts`.
-2. `src/cli.ts` runs on the main thread. It makes `PATH` absolute, answers `SIGTERM`, `SIGINT` and `SIGHUP`, and starts the command in a worker thread (`src/work.ts`). Every git command of the worker runs here, so a signal can end it while the worker waits for its answer. The main thread also watches two things. A step of the run that takes more than 30 seconds ends the run as `step-too-slow`. Memory that grows past its limit ends it as `memory-too-large`. The main thread writes the result to standard output and exits with its code.
+2. `src/cli.ts` runs on the main thread. It makes `PATH` absolute, answers `SIGTERM`, `SIGINT` and `SIGHUP`, and starts the command in a worker thread (`src/work.ts`). Every git command of the worker runs here, so a signal can end it while the worker waits for its answer. Every line the worker has for the guard is written here too, and the worker goes on only once it is written, because on Windows a thread's write to a pipe can still be waiting in the thread when the tool is killed. The main thread also watches two things. A step of the run that takes more than 30 seconds ends the run as `step-too-slow`. Memory that grows past its limit ends it as `memory-too-large`. The main thread writes the result to standard output and exits with its code.
 3. `src/main.ts` runs in the worker. It answers `--version` and `--help`, reads the arguments (`src/args.ts`), refuses an unsupported Node, Bun, Plug'n'Play or git (`src/environment.ts`), and calls the command. Any failure it did not expect becomes `internal`, exit 2.
 4. `src/check.ts` is the command `check`. Its steps:
    - `src/setup.ts` finds the root (the folder that holds `.lawcheck/law.yaml`), reads the law (`src/law.ts`) and `.lawcheck/config.yaml` (`src/config.ts`), and lists the files with git (`src/files.ts`);
@@ -27,7 +27,7 @@ Lawcheck is TypeScript on Node 24, compiled from `src/` to `dist/`. Its runtime 
 | File | What it holds |
 |---|---|
 | `src/bin.cts` | the installed entry and the refusal under Node's permission model |
-| `src/cli.ts` | the main thread: signals, the worker, git calls, the step and memory watch, the write of the result |
+| `src/cli.ts` | the main thread: signals, the worker, git calls, the lines for the guard, the step and memory watch, the write of the result |
 | `src/work.ts` | the worker that runs one command |
 | `src/main.ts` | the choice of command, the environment refusal, `internal` |
 | `src/args.ts` | the arguments of every command |
