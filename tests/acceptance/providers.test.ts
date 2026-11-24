@@ -554,6 +554,27 @@ test('R-74: doctor tells the guard to start no list of processes, and a review t
   });
 });
 
+// Longer than a start of the fake claude through cmd.exe on a loaded Windows runner, and shorter than the 10 seconds the tool waited for the guard's list before df614fb.
+const UNLISTED_TIMEOUT_S = 8;
+
+test('R-69: a call of a program reviewer waits for no list of the guard: with a guard that never lists, the program starts and answers within reviewer.timeout of the tool telling the guard to list', async () => {
+  await withCopy(async (copy) => {
+    await withR(async (r, dir) => {
+      write(r, F_PATH, F);
+      const told = join(dir, 'told.txt');
+      fakeWrites(dir, ['told.txt']);
+      silentGuard(copy, told);
+      const review = await lawcheckAt(copy.cli, r, ['check', '--review', '--base', 'main'], claudeEnv(dir, 'answer'));
+      assert.equal(review.stdout, SECOND);
+      assert.equal(review.code, 1);
+      const asked = toldToList(told);
+      assert.notEqual(asked, null);
+      const waited = (JSON.parse(readFileSync(join(dir, 'record.json'), 'utf8')) as { at: number }).at - asked!;
+      assert.ok(waited < UNLISTED_TIMEOUT_S * 1000, `claude started ${waited} ms after the tool told the guard to list`);
+    }, config(CLAUDE_CONFIG + `  timeout: ${UNLISTED_TIMEOUT_S}\n`));
+  });
+});
+
 test('R-88: the test entry of the tool refuses a limit as long as the one the tool ships, and no program the tool starts sees its variable', async () => {
   await withR(async (r, dir) => {
     write(r, F_PATH, F);
