@@ -41,7 +41,7 @@ These were checked:
 These were not checked:
 
 - No session of Cursor ran the plugin. An agent needs a Cursor account to run, and none was used.
-- Which hooks of the plugin run in Cursor, what each one gives the agent, and what the agent does with it.
+- The hooks of the plugin that run in Cursor, what each one gives the agent, and what the agent does with it.
 - The Cursor editor. The code read is the one of the command-line agent.
 - Windows.
 - The marketplace of Cursor, its commands and a team marketplace. The way above does not use them.
