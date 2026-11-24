@@ -122,7 +122,7 @@ On 2026-11-24 the plugin ran in real sessions of GitHub Copilot CLI 1.0.105. Cop
 - With the whole plugin, the law reached the agent in 10 of 10 sessions. No session imported the API code into the core, and 10 of 10 ended with passing tests and a passing `lawcheck check`.
 - Without a law and without the plugin, 0 of 10 sessions imported the API code into the core.
 - With a `lawcheck` that fails every check, the plugin sent the agent back three times, then once more to tell the user, and then let it finish, in 3 of 3 sessions. In 3 of 3 the agent's last answer was the message, word for word.
-- In the shop no session imported the API code into the core, so the other 17 sessions ran in a second repository with its own task. With the hook after an edit alone, no agent broke the law there in 14 sessions, and with the hook before the end of a turn alone none did in 3. So these sessions show nothing about a fix. A test of the repository plants a breach and checks that each of the two hooks sends the agent back.
+- In the shop no session imported the API code into the core, so the other 17 sessions ran in a second repository with its own task. With the hook after an edit alone, the agent broke the law there in 1 of 14 sessions, and the hook did not see it. With the hook before the end of a turn alone, no agent broke the law in 3 sessions. So these sessions show nothing about a fix. A test of the repository plants a breach and checks that each of the two hooks sends the agent back.
 - In the 24 sessions with the hook after an edit, the agent wrote every file with a shell command, so that hook never ran a check.
 
 ## If it goes wrong

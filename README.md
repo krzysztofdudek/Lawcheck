@@ -55,7 +55,7 @@ The plugin gives the agent the law when a session starts. Its hooks run Lawcheck
 
 In Codex, the same plugin installs with `codex plugin marketplace add krzysztofdudek/Lawcheck` and `codex plugin add lawcheck@lawcheck-marketplace`. Codex runs its hooks only after you trust them in `/hooks`. Its check after an edit sees the files of `apply_patch`, and a file the agent writes through the shell waits for the check before the agent finishes. `lawcheck docs codex-cli` has the steps.
 
-In GitHub Copilot CLI, the same plugin installs with `copilot plugin marketplace add krzysztofdudek/Lawcheck` and `copilot plugin install lawcheck@lawcheck-marketplace`. Copilot CLI gives a plugin no way to write to you, so the plugin asks the agent to tell you its messages, such as a check that still fails at the end of a turn. `lawcheck docs copilot-cli` has the steps.
+In GitHub Copilot CLI, the same plugin installs with `copilot plugin marketplace add krzysztofdudek/Lawcheck` and `copilot plugin install lawcheck@lawcheck-marketplace`. Its check after an edit sees the files of `create` and `edit`, and a file the agent writes through the shell waits for the check before the agent finishes. Copilot CLI gives a plugin no way to write to you, so the plugin asks the agent to tell you its messages, such as a check that still fails at the end of a turn. `lawcheck docs copilot-cli` has the steps.
 
 Any other agent gets one line in its instructions file:
 
