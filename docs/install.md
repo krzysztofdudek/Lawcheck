@@ -31,7 +31,7 @@ On a Node older than 24, npm and pnpm install Lawcheck and print a warning. Lawc
 - under Bun;
 - from Plug'n'Play.
 
-In those setups, every command but `--version`, `--help`, `docs` and `doctor` stops with `unsupported-environment` and exit 2. The first line of the error names the cause. Its `next:` line names the fix. `lawcheck doctor` prints the same first line, with its nine checks below it.
+In those setups, every command but `--version`, `--help`, `docs` and `doctor` stops with `unsupported-environment` and exit 2. The first line of the error names the cause. Its `next:` line names the fix. `lawcheck doctor` prints the same first line, with its nine checks below it, and exits 2.
 
 ## Install globally
 

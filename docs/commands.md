@@ -44,7 +44,7 @@ Lawcheck stops a command with exit 2 in the cases below. The error names the nex
 | a number with a character other than a digit | `usage` |
 | a word after `init`, `prime` or `doctor`, which take flags alone | `usage` |
 | no command, or a command Lawcheck does not have; the message names the seven commands | `usage` |
-| a Node, a git or a package manager that Lawcheck does not run on, for every command but `docs` and `doctor` | `unsupported-environment` ([Supported environments](support.md)) |
+| a Node, a git or a package manager that Lawcheck does not run on, for every command but `--version`, `--help`, `docs` and `doctor`; `doctor` prints the refusal, runs its nine checks and exits 2. With `--permission` in `NODE_OPTIONS`, those four stop too | `unsupported-environment` ([Supported environments](support.md)) |
 | a run stopped by `SIGTERM`, `SIGINT` or `SIGHUP` | `stopped` |
 | an output that Lawcheck cannot write; the error goes to standard error | `file-unwritable` |
 
@@ -464,7 +464,7 @@ usage: lawcheck doctor [--base <ref>] [--reviewer] [--json]
 
 `doctor` says what is wrong with this setup, with one next step for each problem. It writes nothing. It works without a law, and outside git. It opens no connection unless you pass `--reviewer`, with one exception. With the provider `ollama` and a reviewer rule in the law, `doctor` asks the server for its version without the flag.
 
-On an environment that Lawcheck refuses, `doctor` first prints the refusal that every other command prints. Its nine checks follow below that line. A check that needs a failed check shows `skip` ([Supported environments](support.md#the-environments-lawcheck-refuses)). An extra word after `doctor` ends it with `usage`.
+On an environment that Lawcheck refuses, `doctor` first prints the refusal that every other command prints. Its nine checks follow below that line, and it exits 2. Only `--permission` in `NODE_OPTIONS` stops `doctor` at the refusal, with no check. A check that needs a failed check shows `skip` ([Supported environments](support.md#the-environments-lawcheck-refuses)). An extra word after `doctor` ends it with `usage`.
 
 Run `doctor` after you install Lawcheck, after you change `.lawcheck/config.yaml`, and before you report a bug.
 
@@ -525,7 +525,7 @@ Each check ends as `ok`, `note`, `fail` or `skip`. A check shows `skip`, with `n
 | Code | Meaning |
 |---|---|
 | 0 | no check failed; notes are allowed |
-| 2 | a check failed |
+| 2 | a check failed, or `NODE_OPTIONS` holds `--permission` |
 
 `doctor` never exits 1.
 

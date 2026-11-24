@@ -104,7 +104,7 @@ src/core/price.test.ts:4  warning[forbidden-use]  core may not use cli (src/cli/
   why:  a type's may_use names every type its files may use
 ```
 
-alpha.1 prints `debt (outside this change): none` for the same repository. Debt never changes the exit code. The run exits 0.
+alpha.1 prints `debt (outside this change): none` for the same repository. Without `--strict`, debt does not change the exit code. The run exits 0.
 
 ## 5. Give the tests a type of their own
 

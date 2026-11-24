@@ -138,7 +138,7 @@ Lawcheck gives a type to each file git lists, except symbolic links and binary f
 
 ### Debt and the exit code
 
-A plain check judges the change. Each error it finds there fails the run with exit 1. With `--full`, `lawcheck check` judges every other file too. It lists what it finds outside the change as debt, below the findings of the change. Debt has no effect on the exit code. A new law therefore passes in a repository whose old code already breaks it. A rule can stay `advisory` until you fix its debt. [What a check judges](change.md) has the details.
+A plain check judges the change. Each error it finds there fails the run with exit 1. With `--full`, `lawcheck check` judges every other file too. It lists what it finds outside the change as debt, below the findings of the change. Debt does not change the exit code, unless you pass `--strict`: with it, a finding of an `enforced` rule in an old file fails the run. Without it, a new law passes in a repository whose old code already breaks it. A rule can stay `advisory` until you fix its debt. [What a check judges](change.md) has the details.
 
 ### A script rule or a reviewer rule
 
