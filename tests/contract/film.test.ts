@@ -351,3 +351,89 @@ test('test 1052: a chapter\'s build mixes the voice of each narrated frame from 
     folder.remove();
   }
 });
+
+function sound(seconds: number): Buffer {
+  const wav = silence(seconds);
+  for (let at = 44; at < wav.length; at += 2) wav.writeInt16LE(1000, at);
+  return wav;
+}
+
+function cuesOfVtt(text: string): { start: number; end: number; text: string }[] {
+  const seconds = (stamp: string): number => {
+    const [h, m, s] = stamp.split(':');
+    return Number(h) * 3600 + Number(m) * 60 + Number(s);
+  };
+  return text.trim().split('\n\n').slice(1).map((block) => {
+    const [times, ...lines] = block.split('\n');
+    const [start, end] = times.split(' --> ');
+    return { start: seconds(start), end: seconds(end), text: lines.join('\n') };
+  });
+}
+
+function subtitleProblems(edit: ReturnType<typeof readEdit>, dist: string): string[] {
+  const problems: string[] = [];
+  for (const chapter of edit.chapters) {
+    const said: string[] = chapter.timeline.flatMap((segment: { narration?: { text: string }[] }) => (segment.narration ?? []).map((line) => line.text));
+    const shown = cuesOfVtt(readFileSync(join(dist, chapter.page, `${chapter.page}.vtt`), 'utf8')).map((cue) => cue.text);
+    for (let at = 0; at < Math.max(said.length, shown.length); at++) {
+      if (said[at] !== shown[at]) problems.push(`${chapter.page}, cue ${at + 1}: the narration says ${JSON.stringify(said[at])}, the subtitle shows ${JSON.stringify(shown[at])}`);
+    }
+  }
+  return problems;
+}
+
+test('test 1070: the subtitles of each chapter are the narrated sentences of film/edit.json, in their order and as written, each cue inside its frame and, with the voice, from where its sentence starts to where it ends, and a changed, a missing or a swapped sentence is told', () => {
+  const folder = testFolder('lawcheck-film-');
+  try {
+    const edit = readEdit(ROOT);
+    const plain = join(folder.dir, 'plain');
+    build(plain, ROOT);
+    assert.deepEqual(subtitleProblems(edit, plain), []);
+    for (const chapter of edit.chapters) {
+      const cues = cuesOfVtt(readFileSync(join(plain, chapter.page, `${chapter.page}.vtt`), 'utf8'));
+      assert.equal(cues.length, chapter.timeline.reduce((sum: number, segment: { narration?: unknown[] }) => sum + (segment.narration ?? []).length, 0), chapter.page);
+      let from = 0;
+      for (const cue of cues) {
+        assert.ok(cue.start >= from - 1e-9 && cue.end > cue.start, `${chapter.page}: ${cue.text} runs ${cue.start} to ${cue.end} after ${from}`);
+        from = cue.end;
+      }
+      for (const segment of chapter.timeline) {
+        const inside = cues.filter((cue) => segment.narration.some((line: { text: string }) => line.text === cue.text));
+        assert.ok(inside.every((cue) => cue.start >= segment.start + edit.voice.lead - 1e-3 && cue.end <= segment.end - edit.voice.tail + 1e-3), `${chapter.page} ${segment.id}`);
+      }
+    }
+
+    const voice = join(folder.dir, 'voice');
+    const segments: Record<string, { key: string }> = {};
+    for (const chapter of edit.chapters) {
+      mkdirSync(join(voice, chapter.page), { recursive: true });
+      for (const segment of chapter.timeline) {
+        writeFileSync(join(voice, chapter.page, `${segment.id}.wav`), joinWav(segment.narration.map((_: unknown, index: number) => sound(0.2 + 0.05 * index)), edit.voice.pause));
+        segments[`${chapter.page}/${segment.id}`] = { key: voiceKey(edit, segment) };
+      }
+    }
+    writeFileSync(join(voice, 'voice.json'), JSON.stringify({ segments }));
+    assert.deepEqual(voiceProblems(edit, voice), []);
+    const spoken = join(folder.dir, 'spoken');
+    build(spoken, ROOT, voice);
+    assert.deepEqual(subtitleProblems(edit, spoken), []);
+    const first = edit.chapters[0].timeline[0];
+    const cues = cuesOfVtt(readFileSync(join(spoken, 'quick-start', 'quick-start.vtt'), 'utf8'));
+    const at = first.start + edit.voice.lead;
+    const near = (a: number, b: number): void => assert.ok(Math.abs(a - b) < 2e-3, `${a} is not ${b}`);
+    near(cues[0].start, at);
+    near(cues[0].end, at + 0.2);
+    near(cues[1].start, at + 0.2 + edit.voice.pause);
+    near(cues[1].end, at + 0.2 + edit.voice.pause + 0.25);
+
+    const other = clone(edit);
+    other.chapters[0].timeline[0].narration[0].text = 'Lawcheck installs with two npm commands.';
+    assert.equal(subtitleProblems(other, spoken).length, 1);
+    other.chapters[0].timeline[0].narration.reverse();
+    assert.equal(subtitleProblems(other, spoken).length, 2);
+    other.chapters[0].timeline[0].narration.pop();
+    assert.ok(subtitleProblems(other, spoken).length >= 2);
+  } finally {
+    folder.remove();
+  }
+});
