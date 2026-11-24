@@ -449,6 +449,7 @@ export type Companions = Map<string, Map<string, ContextFile[]>>;
 
 export interface CompanionRun {
   root: string;
+  modules?: string;
   files: string[];
   read: Read;
   filesOf: Map<string, string[]>;
@@ -488,7 +489,7 @@ export async function resolveCompanions(run: CompanionRun, reviewers: Map<string
   const outcomes = await runAll(
     wanted.map(({ rule, files }) => async () => {
       const module = reviewers.get(rule)!.companion!.path;
-      return { rule, files, outcome: signal.aborted ? { slow: slowMessage('not started') } : await runRule({ root: run.root, rule, ruleFile: join(run.root, module), files, filesOf: run.filesOf, signal, serve: run.serve(files, `the companion of the reviewer rule ${rule}`), entry: 'companion' }) };
+      return { rule, files, outcome: signal.aborted ? { slow: slowMessage('not started') } : await runRule({ root: run.root, rule, ruleFile: join(run.modules ?? run.root, module), files, filesOf: run.filesOf, signal, serve: run.serve(files, `the companion of the reviewer rule ${rule}`), entry: 'companion' }) };
     }),
   );
   own?.clear();

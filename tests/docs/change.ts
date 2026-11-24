@@ -9,6 +9,7 @@ export const claims: Claims = {
   'block 1 under "The base"': READ,
   'block 1 under "--full and debt"': READ,
   'block 1 under "The limits of a plain check"': SCENARIO,
+  'block 1 under "The law of the base"': SCENARIO,
   'block 1 under "Waivers a change adds"': 'tests/acceptance/waivers.test.ts > test 850: check names a waiver the change adds, in text and in JSON, and not one the base already holds',
 };
 
@@ -38,5 +39,8 @@ export async function scenario(page: Page): Promise<void> {
     const run = await lawcheck(repo, ['check', '--base', 'main']);
     assert.equal(run.code, 0, run.stdout);
     shows(run.stdout, page.text('block 1 under "The limits of a plain check"'));
+    const from = await lawcheck(repo, ['check', '--base', 'main', '--law-from', 'main']);
+    assert.equal(from.code, 0, from.stdout);
+    shows(from.stdout, page.text('block 1 under "The law of the base"'));
   });
 }

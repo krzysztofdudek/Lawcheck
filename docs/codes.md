@@ -30,6 +30,7 @@ Two words recur below. The root is the folder that holds `.lawcheck/`. A rule bi
 | `file-unwritable` | exit 2 | Lawcheck cannot write a file or folder it must write | what Lawcheck cannot write is lost, so the run cannot say it is done |
 | `type-overlap` | exit 2 | two types of one level match one file | a file has one type, so the rules that bind it are never in doubt |
 | `base-unreachable` | exit 2 | the base names no commit, shares no history with `HEAD`, or the repository has no commit; or a CI job has no base | without its base a change cannot be told from debt |
+| `law-from-unreachable` | exit 2 | `--law-from` names no commit here, or a commit with no `.lawcheck/law.yaml` at the place of the root | a change judged by the law of a commit needs that law |
 | `link-outside-root` | exit 2 | a script rule or a companion is to run, and a link git tracks leads outside the work tree | a script rule reads nothing outside the work tree, and a link that leads out of it would let it |
 | `path-unsupported` | exit 2 | a script rule or a companion is to run, and the path of the root or of Lawcheck holds a `*` or a backslash | a script rule reads nothing outside the root and Lawcheck's folder, and the runner can keep that only on such a path |
 | `runner-failed` | exit 2 | the process that runs script rules does not start | a runner that does not start says nothing about the rules |
@@ -555,6 +556,36 @@ error[base-unreachable]  the base 'nope' names no commit here
   why:  without its base a change cannot be told from debt
 
 next: pass --base with a branch or a commit that exists here
+```
+
+## law-from-unreachable
+
+**Meaning**
+
+`check --law-from` cannot read the law of the commit it names, so it cannot judge the change by that law.
+
+**Typical cause**
+
+The cause is one of these:
+
+- a ref that names no commit here, as in a clone that did not fetch that branch;
+- a commit from before the law, which holds no `.lawcheck/law.yaml`;
+- a law that sits in another folder at that commit than in the work tree.
+
+**Fix**
+
+Pass `--law-from` with a commit that holds the law, such as the base of the change. In a clone without the branch, fetch it first. The workflow of `lawcheck docs ci` checks with the law of the base only when the base holds `.lawcheck/law.yaml`, so the pull request that adds the law passes.
+
+**Example**
+
+```text
+$ lawcheck check --base main --law-from nope
+lawcheck: ERROR  1 error
+
+error[law-from-unreachable]  the ref 'nope' that --law-from names is no commit here
+  why:  a change judged by the law of a commit needs that law
+
+next: pass --law-from with a commit here that holds .lawcheck/law.yaml, such as the base of the change
 ```
 
 ## link-outside-root
@@ -1271,6 +1302,7 @@ A note is a line that starts with `note:`, under the first line of `check` or `i
 |---|---|---|
 | `note: the law changed in this change; lawcheck check --full ...` | a `check` with no path and no `--full`, against a base, judges a change that edits `.lawcheck/law.yaml`, `.lawcheck/config.yaml` or a file of `.lawcheck/rules/` | run the `check --full` command of the note to see what the new law finds in the rest of the code |
 | `note: this change edits the law that judges it: ...` | a `check` against a base, with or without `--full`, judges a change that edits the law; the note lists what it changes in the law, such as types, rules, `may_use` and the patterns of `required` and `ignored` | read the list before you accept the change |
+| `note: this change edits its own law, and the law of <ref> judged it: ...` | a `check --law-from <ref>` against a base judges a change that edits the law; it stands in place of the two notes above | read the list before you accept the change, since the law of the change did not judge it |
 | `note: this change adds <n> waivers: ...` | a `check` against a base, where a changed file holds a waiver that it did not hold at the base | read each waiver and its reason before you accept the change |
 | `note: the paths of a type reach into ...` | the paths of a type reach into a submodule or a repository of its own, and Lawcheck judges no file there | run Lawcheck in that repository with its own law |
 | `note: <path> lies in ...` | a path named to `check` lies in a submodule or a repository of its own | run Lawcheck in that repository |

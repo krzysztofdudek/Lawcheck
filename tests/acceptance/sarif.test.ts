@@ -241,7 +241,7 @@ test('test 1032: check --sarif writes no file when the check ends with no conclu
     assert.equal(bare.code, 2);
     assert.match(bare.stdout, /^error\[usage\] {2}the flag --sarif takes a path$/m);
     const help = await lawcheck(repo, ['check', '--help']);
-    assert.equal(help.stdout.split('\n')[0], 'usage: lawcheck check [--full] [--strict] [--base <ref>] [--review [--again] [--max-calls <n>]] [--sarif <file>] [--json]', 'the usage line names the flag');
+    assert.equal(help.stdout.split('\n')[0], 'usage: lawcheck check [--full] [--strict] [--base <ref>] [--law-from <ref>] [--review [--again] [--max-calls <n>]] [--sarif <file>] [--json]', 'the usage line names the flag');
     assert.match(help.stdout, /^ {2}--sarif <file> {5}also write the findings to this file as SARIF 2\.1\.0$/m);
     assert.equal(existsSync(out), false);
   });

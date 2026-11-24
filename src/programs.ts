@@ -284,9 +284,9 @@ export function watchFolder(path: string): void {
 }
 
 // A folder made before the guard knows of it outlives a tool killed by SIGKILL in between, so the guard learns its name first and the folder is made after.
-export function guardedFolder(prefix: string): string {
+export function guardedFolder(prefix: string, parent = tmpdir()): string {
   for (let tries = 1; ; tries++) {
-    const path = join(tmpdir(), `${prefix}${randomBytes(6).toString('hex')}`);
+    const path = join(parent, `${prefix}${randomBytes(6).toString('hex')}`);
     watchFolder(path);
     try {
       mkdirSync(path, { mode: 0o700 });
