@@ -231,6 +231,12 @@ test('test 13: a file under a clean filter, in the second git last wrote the ind
     utimesSync(join(s, '.git', 'index'), second, second);
     assert.equal(git(s, 'diff', '--name-only', 'HEAD'), '');
     assert.equal((await check(s, '--base', 'HEAD')).stdout, 'lawcheck: PASS  nothing changed against HEAD\n');
+    const ahead = Math.floor(Date.now() / 1000) + 30;
+    utimesSync(file, ahead, ahead);
+    git(s, 'update-index', '--refresh');
+    utimesSync(join(s, '.git', 'index'), ahead, ahead);
+    assert.equal(git(s, 'diff', '--name-only', 'HEAD'), '');
+    assert.equal((await check(s, '--base', 'HEAD')).stdout, 'lawcheck: PASS  nothing changed against HEAD\n', 'a check in the second a checkout ended');
     write(s, 'src/core/tax.ts', `${read(s, 'src/core/tax.ts')}console.log(rate);\n`);
     const run = await check(s, '--base', 'HEAD');
     assert.equal(run.stdout.split('\n')[0], 'lawcheck: FAIL  1 error, 1 warning in 1 changed file (against HEAD)');

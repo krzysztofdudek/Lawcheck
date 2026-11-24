@@ -251,7 +251,7 @@ function onIndexCopy<T>(root: string, keepTime: boolean, read: (env: NodeJS.Proc
       const copy = join(folder, 'index');
       const { atimeMs, mtimeMs } = statSync(resolved);
       copyFileSync(resolved, copy);
-      if (keepTime) utimesSync(copy, atimeMs / 1000, Math.floor(mtimeMs / 1000));
+      utimesSync(copy, atimeMs / 1000, keepTime ? Math.floor(mtimeMs / 1000) : Math.floor(Math.max(Date.now(), mtimeMs) / 1000) + 86_400);
     } catch {
       return read({});
     }
@@ -271,7 +271,7 @@ export function changedPaths(root: string, base: string): string[] {
   return [...byTimeWhenFiltered(root, diffArgs, splitZ(diff.stdout)), ...splitZ(others.stdout), ...hiddenEdits(root, base)];
 }
 
-// git runs no clean filter for Lawcheck, so it hashes a file of Git LFS or another filter as its bytes on disk, which are not the bytes it stores; read by its content because it is not older than the index, as after a checkout, such a file would count as changed. It counts as changed only when its time or size differs from the index, as the diff on a copy with a fresh time finds.
+// git runs no clean filter for Lawcheck, so it hashes a file of Git LFS or another filter as its bytes on disk, which are not the bytes it stores; read by its content because it is not older than the index, as after a checkout, such a file would count as changed. It counts as changed only when its time or size differs from the index, as the diff on a copy dated a day ahead finds: a copy with a fresh time is still in the second of a checkout that just ended, and git would read the file by its content again.
 function byTimeWhenFiltered(root: string, diffArgs: string[], listed: string[]): string[] {
   if (listed.length === 0 || !gitProgram) return listed;
   const drivers = new Set(filterKeys(gitProgram, root).filter((key) => !key.endsWith('.smudge')).map((key) => key.slice('filter.'.length, key.lastIndexOf('.'))));
