@@ -23,7 +23,7 @@ The same plugin works in Codex ([Lawcheck in Codex](codex-cli.md)). Its hooks th
 
 The plugin works in GitHub Copilot CLI too ([Lawcheck in GitHub Copilot CLI](copilot-cli.md)). In Copilot CLI, the tools `create` and `edit` take the place of `Write`, `Edit` and `NotebookEdit`. The variables `LAWCHECK_PLUGIN_CHECK_AFTER_EDIT` and `LAWCHECK_PLUGIN_CHECK_BEFORE_STOP` take the place of the settings there too. The output of a hook in Copilot CLI has no field for a message to you. The plugin therefore asks the agent to pass its messages on to you.
 
-Cursor runs the plugin for Claude Code ([Lawcheck in Cursor](cursor.md)). In Cursor, the check before the agent finishes needs two entries in `.cursor/hooks.json`.
+Cursor loads the plugin for Claude Code through its support for Claude Code plugins. No session of Cursor has run it ([Lawcheck in Cursor](cursor.md)).
 
 For another coding agent, write two lines in its instructions file. The agent runs `lawcheck prime` at the start of a session. It runs `lawcheck check` after each change ([Other coding agents](other-agents.md)).
 
