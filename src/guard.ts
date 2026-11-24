@@ -1,6 +1,6 @@
 import { spawn, spawnSync } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readdirSync, rm, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { createdIn, killTree, powershell, PROCESS_TABLE, ticksAt, toEnd, variableOf, withTemp } from './programs.js';
 
@@ -19,19 +19,47 @@ const waitingForList: { since: number; done: (list: string | null) => void }[] =
 // Once the tool has said it is about to call a program, the list runs until the tool ends, so it is running when a call starts.
 let held = false;
 
-// PowerShell writes the test files of its script policy into its temporary directory while it starts, and the guard's PowerShell may still be starting when the run that set that directory has ended. So it gets a folder of its own under LOCALAPPDATA, where it keeps its other startup data anyway, and the guard removes that folder when it ends, with whatever a PowerShell stopped while starting left there.
+// PowerShell writes the test files of its script policy into its temporary directory while it starts, and the guard's PowerShell may still be starting when the run that set that directory has ended. So it gets a folder of its own under LOCALAPPDATA, where it keeps its other startup data anyway, and the guard removes that folder when it ends, with whatever a PowerShell stopped while starting left there. A guard that is killed, or ends by an error, removes nothing, so the folder's name holds the guard's id, and a later guard removes the folders of guards that no longer run.
 let shellTemp: string | null | undefined;
+const SHELL_FOLDER = /^lawcheck-guard-(\d+)-/;
 
 function shellEnv(): NodeJS.ProcessEnv | undefined {
   if (shellTemp === undefined) {
     const local = variableOf(process.env, 'LOCALAPPDATA');
     try {
-      shellTemp = local === undefined ? null : mkdtempSync(join(local, 'Temp', 'lawcheck-guard-'));
+      if (local === undefined) shellTemp = null;
+      else {
+        const temp = join(local, 'Temp');
+        removeLeft(temp);
+        shellTemp = mkdtempSync(join(temp, `lawcheck-guard-${process.pid}-`));
+      }
     } catch {
       shellTemp = null;
     }
   }
   return shellTemp === null ? undefined : withTemp(process.env, shellTemp);
+}
+
+function removeLeft(temp: string): void {
+  let names: string[];
+  try {
+    names = readdirSync(temp);
+  } catch {
+    return;
+  }
+  for (const name of names) {
+    const owner = SHELL_FOLDER.exec(name);
+    if (owner !== null && !running(Number(owner[1]))) rm(join(temp, name), { recursive: true, force: true, maxRetries: 10 }, () => undefined);
+  }
+}
+
+function running(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === 'EPERM';
+  }
 }
 
 function watch(): void {
