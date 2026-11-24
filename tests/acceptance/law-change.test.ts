@@ -508,7 +508,7 @@ test('test 1180: T7, under --law-from a rule of the base whose import leads outs
       module: ruleFile,
       specifier: '#calls',
       target: '.lawcheck/calls.mjs',
-      fix: (s) => { write(s, '.lawcheck/package.json', '{ "imports": { "#calls": "./rules/lib/calls.mjs" } }\n'); calls(s, '.lawcheck/rules/lib/calls.mjs'); },
+      fix: (s) => { calls(s, '.lawcheck/rules/lib/calls.mjs'); setRule(s, 'no-console', rule('./lib/calls.mjs')); },
     },
     {
       name: 'a relative path',
@@ -534,7 +534,7 @@ test('test 1180: T7, under --law-from a rule of the base whose import leads outs
           `${ruleFile}  error[rule-crashed]  fails to load: ${module} of 'main' imports '${specifier}', which leads to ${target}, outside .lawcheck/rules/, and under --law-from a rule of 'main' loads only the files of .lawcheck/rules/ of 'main'`,
           '  why:  a broken rule says nothing about the code',
           '',
-          `next: on 'main', copy what ${module} needs of ${target} into .lawcheck/rules/ and import it from there by a relative path, then run lawcheck check --base main --law-from main`,
+          `next: on 'main', copy what ${module} needs of ${target} into .lawcheck/rules/lib/ and import it from there by a relative path, then run lawcheck check --base main --law-from main`,
           '',
         ], name);
         assert.equal(stopped.code, 2, name);
