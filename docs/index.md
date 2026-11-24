@@ -44,7 +44,7 @@ The run exits 1. The [finding](concepts.md#finding) gives the file, the line, th
 - [Codex](codex-cli.md): the same plugin checks each file the agent writes with `apply_patch`, and sends the agent back the same way before it finishes.
 - [GitHub Copilot CLI](copilot-cli.md): before the agent finishes, the plugin checks every file that changed in its turn, and sends the agent back the same way. Its check after an edit never ran in the 24 recorded sessions that had that check, because the agent wrote every file through the shell. The plugin asks the agent to tell you its messages.
 - [Cursor](cursor.md): Cursor loads the plugin through its support for Claude Code plugins. No session of Cursor has run the plugin.
-- [Any other agent](other-agents.md): one line in its instructions file tells the agent to run `lawcheck prime`. That command prints the law and the commands that check it.
+- [Any other agent](other-agents.md): one line in its instructions file tells the agent to run `lawcheck prime`. That command prints the law and the commands that check it. Nothing sends that agent back.
 - [CI](ci.md): `lawcheck check --base origin/main` judges the files of the pull request. It needs no key and no network.
 
 ## Try it

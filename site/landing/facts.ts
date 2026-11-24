@@ -10,6 +10,7 @@ import { Fragments, inline, isAhead } from './fragments.ts';
 type Link = { text: string; page: string };
 export interface Copy {
   title: string;
+  summary: string;
   h1: string;
   skip: string;
   nav: { docs: Link; github: string };
@@ -44,12 +45,12 @@ export function releaseDate(version: string): string {
 }
 
 export const promise = (): string => fragments.sentence('README.md', 'Lawcheck', 'Lawcheck checks code against');
-export const agents = (): string => ['A coding agent can skip a rule', 'Lawcheck reads the uses of'].map((start) => fragments.sentence('README.md', 'Lawcheck', start)).join(' ');
+export const agents = (): string => ['In a Claude Code session I recorded', 'Lawcheck reads the uses of'].map((start) => fragments.sentence('README.md', 'Lawcheck', start)).join(' ');
 export const support = (): string => fragments.sentence('docs/support.md', 'Supported environments', `Lawcheck ${manifest.version} runs on`);
 
 export function head() {
   const copy = copyOf();
-  return { title: copy.title, description: plain(agents()), version: manifest.version, date: releaseDate(manifest.version), ahead: isAhead(fragments.read('CHANGELOG.md')), systems: /, on (.+)\.$/.exec(support())![1]! };
+  return { title: copy.title, description: plain(copy.summary), version: manifest.version, date: releaseDate(manifest.version), ahead: isAhead(fragments.read('CHANGELOG.md')), systems: /, on (.+)\.$/.exec(support())![1]! };
 }
 
 export async function facts() {
@@ -70,9 +71,9 @@ export async function facts() {
   const install = fragments.code('docs/install.md', 'Install globally', '$ npm install').code.replace(/^\$ /, '');
   const groups = ['`CLAUDE.md` and `AGENTS.md`', 'An architecture tool for one language', 'A review bot at the pull request', 'A hook you wrote in Claude Code'];
   const rowsOf: Record<string, string[]> = {
-    '`CLAUDE.md` and `AGENTS.md`': ['Your rules say how the agent works: commands, branches, messages', 'Your rules are about files: which layer may import which, what a file of one kind must hold'],
+    '`CLAUDE.md` and `AGENTS.md`': ['Your rules say how the agent works, such as the command that runs the tests', 'Your rules are about files: which layer may import which, what a file of one kind must hold'],
     'An architecture tool for one language': ['One language, and the tool already holds your layers in the test suite or the linter', 'Two or more languages under one set of layers'],
-    'A review bot at the pull request': ['You want comments on the whole change, including on what no rule names', 'A rule must hold in every file of a kind, and the agent must hear it before it opens a pull request', 'Your architecture tool already prints annotations on the lines of the pull request, as `deptrac` does in GitHub Actions', 'You want annotations on the lines of the pull request, and no tool of yours prints them'],
+    'A review bot at the pull request': ['You want comments on the whole change, including on what no rule names', 'A rule must hold in every file of a kind, and the agent must hear it before it opens a pull request', 'Your architecture tool already prints annotations on the lines of the pull request, as `deptrac` does in GitHub Actions ([deptrac\'s page on formatters](https://deptrac.github.io/deptrac/formatters/), read on 2026-11-24)', 'You want annotations on the lines of the pull request, and no tool of yours prints them'],
     'A hook you wrote in Claude Code': ['Your hook runs the linter and the tests, and the linter already holds your layers', 'You want the law checked inside the turn, on the files of the turn, with at most three returns', 'You work in Cursor, and you want the agent sent back after each edit'],
   };
   const tables = groups.map((group) => fragments.rows('docs/other-tools.md', group, 1, rowsOf[group]!));
@@ -99,7 +100,7 @@ export async function facts() {
       still: { file: '.lawcheck/law.yaml', html: law.html },
     },
     problem: readme(fragments.paragraph('README.md', 'Lawcheck', 'I build software')),
-    advice: ['A rules file is advice', 'Lawcheck checks the files', 'An architecture test or the layer rule'].map((start) => readme(fragments.sentence('README.md', 'Lawcheck', start))).join(' '),
+    advice: ['A rules file is advice', 'Lawcheck checks your code against', 'An architecture test or the layer rule'].map((start) => readme(fragments.sentence('README.md', 'Lawcheck', start))).join(' '),
     law: {
       heading: fragments.heading('docs/index.md', 'A law and a finding'),
       intro: readme(fragments.paragraph('README.md', 'Lawcheck', 'The law is a file')),
