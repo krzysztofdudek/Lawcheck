@@ -2,7 +2,8 @@ import type { ReviewerConfig } from '../config.js';
 import { post } from './http.js';
 import type { Where } from './http.js';
 import { ENDPOINT_FIX, endpointOf, headerProblem, keyFix, variable } from './index.js';
-import type { Asked, Env, Provider } from './index.js';
+import type { Env } from './index.js';
+import type { Asked, Provider } from '../provider.js';
 
 export async function chatCompletion(url: string, key: string | null, config: ReviewerConfig, prompt: string, where: Where): Promise<Asked> {
   const headers: Record<string, string> = key === null ? {} : { authorization: `Bearer ${key}` };

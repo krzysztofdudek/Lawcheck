@@ -61,12 +61,6 @@ export async function facts() {
   const link = (target: Link) => ({ text: target.text, href: pageUrl(target.page) });
 
   const law = code('README.md', 'Lawcheck', 'lawcheck: ');
-  const lawLines = law.text.split('\n');
-  const core = lawLines.findIndex((line) => line.trim() === 'core:');
-  const indent = lawLines[core]!.indexOf('core:');
-  const after = lawLines.slice(core + 1);
-  const end = after.findIndex((line) => line.length - line.trimStart().length <= indent);
-  const still = [lawLines[core]!, ...(end === -1 ? after : after.slice(0, end))].map((line) => line.slice(indent));
   const install = fragments.code('docs/install.md', 'Install globally', '$ npm install').code.replace(/^\$ /, '');
   const groups = ['`CLAUDE.md` and `AGENTS.md`', 'An architecture tool for one language', 'A review bot at the pull request', 'A hook you wrote in Claude Code'];
   const rowsOf: Record<string, string[]> = {
@@ -96,7 +90,7 @@ export async function facts() {
       support: md('docs/support.md')(support()),
       alpha: readme(fragments.sentence('README.md', 'Try it', 'Lawcheck is an alpha')),
       sends: readme(fragments.sentence('README.md', 'Try it', 'Lawcheck sends code')),
-      still: { file: '.lawcheck/law.yaml', html: highlighter.codeToHtml(still.join('\n'), { lang: 'yaml', theme: 'lawcheck' }) },
+      still: { file: '.lawcheck/law.yaml', html: law.html },
     },
     problem: readme(fragments.paragraph('README.md', 'Lawcheck', 'I build software')),
     advice: ['A rules file is advice', 'Lawcheck checks the files', 'An architecture test or the layer rule'].map((start) => readme(fragments.sentence('README.md', 'Lawcheck', start))).join(' '),
@@ -133,6 +127,7 @@ export async function facts() {
       plugin: readme(fragments.paragraph('README.md', 'Your coding agent', 'In Claude Code, install the plugin')),
       pluginCommands: fragments.code('README.md', 'Your coding agent', 'claude plugin').code,
       codex: ['In Codex, the same plugin installs', 'Codex runs its hooks only after'].map((start) => readme(fragments.sentence('README.md', 'Your coding agent', start))).join(' '),
+      copilot: readme(fragments.sentence('README.md', 'Your coding agent', 'In GitHub Copilot CLI, the same plugin installs')),
     },
   };
 }

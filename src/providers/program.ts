@@ -4,11 +4,11 @@ import { randomUUID } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { guardedFolder, killGroup, releaseFolder, releaseGroup, startListing, watchGroup } from '../rules.js';
-import { findProgram, startProgram } from '../programs.js';
+import { findProgram, guardedFolder, killGroup, releaseFolder, releaseGroup, startListing, startProgram, watchGroup } from '../programs.js';
 import { MAX_REPLY_BYTES } from './http.js';
 import { variable } from './index.js';
-import type { Asked, Env, Provider } from './index.js';
+import type { Env } from './index.js';
+import type { Asked, Provider } from '../provider.js';
 import { hide, SIGNING_KEY } from '../keys.js';
 
 const KILL_AFTER_MS = 5000;
@@ -85,7 +85,6 @@ export function programProvider(program: Program, env: Env, timeoutSeconds: numb
   return {
     keys: (SIGN_IN_VARIABLES[program.name] ?? []).filter((name) => !NOT_KEYS.includes(name)).map((name) => variable(env, name)).filter((key): key is string => key !== null),
     ready() {
-      startListing();
       binary = find(env);
       return binary === null ? missing : null;
     },

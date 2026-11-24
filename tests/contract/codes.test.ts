@@ -853,9 +853,8 @@ test('check-slice §6: law-invalid, config-invalid, rule-missing-file, rule-file
 
 test('check-slice §6: base-unreachable, rule-crashed, parser-failed, internal, link-outside-root, path-unsupported and runner-failed, in text and in JSON, and the commands their next lines name', async (t) => {
   const noStar = platformSkip('path-unsupported');
-  const noCr = platformSkip('runner-failed');
-  assert.deepEqual(await runCases(inGroup('run').filter((c) => (noStar === null || c.id !== 'path-unsupported') && (noCr === null || c.id !== 'runner-failed'))), []);
-  for (const skip of [noStar, noCr]) if (skip !== null) t.diagnostic(skip);
+  assert.deepEqual(await runCases(inGroup('run').filter((c) => noStar === null || c.id !== 'path-unsupported')), []);
+  if (noStar !== null) t.diagnostic(noStar);
 });
 
 test('check-slice §6: the reviewer codes, in text and in JSON, and the commands their next lines name', async () => {

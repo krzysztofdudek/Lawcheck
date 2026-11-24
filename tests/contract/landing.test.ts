@@ -204,6 +204,13 @@ test('test 892: the check of the built landing page passes a stylesheet that sta
   assert.deepEqual(sheetProblems(null), ['assets has no stylesheet']);
 });
 
+test('test 1009: the finding on the card and in its alt text is the whole line that README.md shows, and the alt text says it is the first line of a finding (issue 244)', () => {
+  const line = `${FINDING.place}  ${FINDING.code}  ${FINDING.text}`;
+  assert.ok(read('README.md').split('\n').includes(line), 'a whole line of README.md');
+  assert.ok(CARD.alt.includes(`${FINDING.place} ${FINDING.code}, ${FINDING.text}.`), 'the alt text holds the line to its end');
+  assert.ok(CARD.alt.includes('the first line of one finding'), 'the alt text says that more of the finding follows');
+});
+
 test('test 1007: the landing page says its build is ahead of its release while CHANGELOG.md holds text under Unreleased, and says nothing when that section is empty or gone (control)', () => {
   assert.equal(isAhead(['# Changelog', '', '## [Unreleased]', '', 'A new flag.', '', '## [1.2.3] - 2026-01-01', '', 'Old text.'].join('\n')), true);
   assert.equal(isAhead(['# Changelog', '', '## [Unreleased]', '', '## [1.2.3] - 2026-01-01', '', 'Old text.'].join('\n')), false);

@@ -492,3 +492,10 @@ export function firstLine(error: unknown): string {
   const text = error instanceof Error ? error.message : String(error);
   return text.split(/\r?\n/)[0] ?? '';
 }
+
+export function walk(types: TypeDef[], visit: (type: TypeDef, depth: number) => void, depth = 0): void {
+  for (const type of types) {
+    visit(type, depth);
+    walk(type.types, visit, depth + 1);
+  }
+}

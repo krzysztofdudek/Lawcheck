@@ -1,10 +1,9 @@
 import { closeSync, lstatSync, mkdirSync, openSync, realpathSync, statSync, writeSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { documentOf, errorResult, noWords, usageError, version } from './args.js';
-import type { Arguments, Result } from './args.js';
-import type { CheckContext } from './check.js';
+import type { Arguments, CheckContext, Result } from './args.js';
 import { ignoresPath, listFiles, showPrefix, workTreeProblem } from './files.js';
-import { findRoot, LAW, stopped } from './setup.js';
+import { findRoot, LAW, stopped, WRITE_BY_HAND } from './setup.js';
 import { noGit, Stop } from './setup.js';
 
 export function lawText(packageVersion: string): string {
@@ -34,8 +33,6 @@ export function lawText(packageVersion: string): string {
 export const GITIGNORE = '.local/\nconfig.local.yaml\n';
 const IGNORE = '.lawcheck/.gitignore';
 const NEXT = 'describe your first file type in .lawcheck/law.yaml  (lawcheck docs first-law shows how)';
-
-export const WRITE_BY_HAND = 'to govern this folder instead, write .lawcheck/law.yaml here by hand  (lawcheck docs first-law shows how)';
 
 function already(place: string, below = false): Stop {
   return new Stop([
