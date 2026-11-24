@@ -108,7 +108,7 @@ Why: a file left out of the list is never judged and nothing says so, so a pull 
 
 ## 87. No base in CI
 
-In CI, a plain `check` that finds no base ends as `base-unreachable`, exit 2. Its `next:` line names `--base origin/<the branch the change goes into>`, `LAWCHECK_BASE` with the history fetched, or `lawcheck check --full`. A job is in CI when `CI` is set and is not empty, `0`, `false`, `no` or `off`; without `CI`, when the variable of a known CI service is set. Outside CI, a check with no base judges every file as changed.
+In CI, a check of the change, which is a `check` that names no path and does not use `--full`, with or without `--review`, and finds no base ends as `base-unreachable`, exit 2. Its `next:` line names `--base origin/<the branch the change goes into>`, `LAWCHECK_BASE` with the history fetched, or `lawcheck check --full`. A job is in CI when `CI` is set and is not empty, `0`, `false`, `no` or `off`; without `CI`, when the variable of a known CI service is set. Outside CI, a check with no base judges every file as changed.
 
 Why: in CI a missing base is a forgotten setting, and failing the whole repository would read as bad code.
 

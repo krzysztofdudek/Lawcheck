@@ -70,7 +70,7 @@ This page names a field of a list's items by its path. `findings.code` is the `c
 |---|---|
 | `result` | `fail` when a finding has severity error, else `pass`; a finding of debt has severity error only under `--strict` |
 | `scope` | what the check judged |
-| `scope.mode` | `change` for a check of the change with no path and no `--full`, `full` with `--full`, `paths` for named files |
+| `scope.mode` | `change` for a [check of the change](concepts.md#check-of-the-change), `full` with `--full`, `paths` for named files |
 | `scope.base` | the base as given, or null without one |
 | `scope.files` | the count of changed files, or under `paths` of the named files |
 | `scope.law_changed` | true when the change touches `.lawcheck/law.yaml`, `.lawcheck/config.yaml` or a rule file |
