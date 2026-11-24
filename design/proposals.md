@@ -76,3 +76,7 @@ What it costs a user: every team copies the shell lines of the step, and a hook 
 ### Recommendation
 
 A, built after alpha.5. Today's default stays, so no change that edits the law and the code together starts to fail. One option replaces shell lines that change the checkout, and a hook can use it.
+
+### Built
+
+The owner chose A for alpha.5. It is built as `check --law-from <ref>`, and the workflow of `docs/ci.md` uses it. The decision "A change judged by the law of its base" in `design/decisions.md` records what a rule of the commit reads and the errors of the option.

@@ -226,6 +226,11 @@ const CASES: Case[] = [
     setup: (dir) => ({ cwd: makeSample(dir), argv: ['check', '--base', 'nope'], follow: { supply: ['--base', 'main'] } }),
   },
   {
+    id: 'law-from-unreachable, check',
+    code: 'law-from-unreachable',
+    setup: (dir) => ({ cwd: makeSample(dir), argv: ['check', '--base', 'main', '--law-from', 'nope'] }),
+  },
+  {
     id: 'base-unreachable, doctor',
     code: 'base-unreachable',
     setup: (dir) => ({ cwd: makeSample(dir), argv: ['doctor', '--base', 'nope'], report: 'doctor', follow: { supply: ['--base', 'main'] } }),
@@ -828,6 +833,7 @@ const GROUPS: Record<string, string[]> = {
   run: ['base-unreachable', 'rule-crashed', 'parser-failed', 'internal', 'link-outside-root', 'path-unsupported', 'runner-failed'],
   reviewer: ['reviewer-not-configured', 'too-many-reviews', 'reviewer-unreachable', 'reviewer-bad-answer', 'not-a-signer', 'not-reviewed', 'too-large-to-review'],
   findings: ['forbidden-use', 'uses-not-read', 'untyped-file', 'waiver-', 'doctor,'],
+  lawFrom: ['law-from-unreachable'],
 };
 
 const inGroup = (group: string): Case[] => CASES.filter((c) => GROUPS[group]!.some((prefix) => c.id.startsWith(prefix)));
@@ -855,6 +861,10 @@ test('check-slice §6: base-unreachable, rule-crashed, parser-failed, internal, 
   const noStar = platformSkip('path-unsupported');
   assert.deepEqual(await runCases(inGroup('run').filter((c) => noStar === null || c.id !== 'path-unsupported')), []);
   if (noStar !== null) t.diagnostic(noStar);
+});
+
+test('test 1075: law-from-unreachable, in text and in JSON, and its next line', async () => {
+  assert.deepEqual(await runCases(inGroup('lawFrom')), []);
 });
 
 test('check-slice §6: the reviewer codes, in text and in JSON, and the commands their next lines name', async () => {

@@ -36,7 +36,7 @@ test('test 305: S7-4, the workflow of docs/ci.md runs on a pull request, a merge
   assert.deepEqual(Object.keys(workflow.on).sort(), ['merge_group', 'pull_request', 'push']);
   assert.deepEqual(workflow.on.push, { branches: ['main'] });
   for (const line of starts) {
-    assert.match(line, / check (--base "\$base"|--full)$/, `${line}: a check with no base fails a CI job`);
+    assert.match(line, / check (--base "\$base"( --law-from "\$base")?|--full)$/, `${line}: a check with no base fails a CI job`);
     assert.ok(!line.includes('github.base_ref'), `${line}: github.base_ref is empty on a push`);
   }
   const check = steps.find((step) => step.run?.includes('lawcheck check') === true)!;
@@ -55,8 +55,8 @@ test('test 305: S7-4, R-12, the checkout keeps the history and not the token', (
 test('test 305: S7-3, the workflow checks again with the law of the base on every event and says so, and the page says what that does not hold', () => {
   const check = steps.find((step) => step.run?.includes('lawcheck check') === true)!;
   assert.match(check.run!, /git cat-file -e "\$base:\.\/\.lawcheck\/law\.yaml"/, 'a law below the top of the repository is found with ./');
-  assert.match(check.run!, /git ls-tree -r -z --name-only "\$base" -- \.lawcheck\/law\.yaml \.lawcheck\/rules/);
-  assert.match(check.run!, /rm -rf \.lawcheck\/rules/, 'a rule the pull request adds is not in the second check');
+  assert.match(check.run!, /lawcheck check --base "\$base" --law-from "\$base"$/m, 'the second check reads the law of the base from git');
+  assert.ok(!/git (checkout|ls-tree)|rm -rf/.test(check.run!), 'the second check changes nothing in the checkout');
   assert.ok(!check.run!.includes('!= push'), 'a direct push is checked twice as well');
   assert.match(check.run!, /echo "Checking again with the law of \$base"/);
   assert.equal(starts.filter((line) => line.includes('check --base "$base"')).length, 2);
@@ -75,7 +75,7 @@ test('S7-2: S7-11, the hooks of docs/ci.md start Lawcheck through npx, name a ba
   }
   assert.ok(example('pre-push-hook').includes('while read -r local_ref local_sha remote_ref remote_sha'), 'a pre-push hook reads the refs git gives it');
   assert.ok(!example('pre-push-hook').includes('refs/heads/'), 'every ref but a tag is judged, HEAD included');
-  for (const what of ['core.hooksPath', 'never passes `--review`', 'never the index', '`--staged` is not built', 'cannot catch a loosened law', '`origin/main`', 'not of the commits pushed']) assert.ok(page.includes(what), what);
+  for (const what of ['core.hooksPath', 'never passes `--review`', 'never the index', '`--staged` is not built', 'To catch a loosened law', '`--law-from origin/main`', '`origin/main`', 'not of the commits pushed']) assert.ok(page.includes(what), what);
 });
 
 test('S7-4: the page names the managers, the floors and the refusal of a plain check with no base in CI, and the code does what it says (report S8)', async () => {

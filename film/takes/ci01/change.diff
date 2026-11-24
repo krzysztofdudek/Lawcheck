@@ -1,9 +1,9 @@
 diff --git a/.github/workflows/lawcheck.yml b/.github/workflows/lawcheck.yml
 new file mode 100644
-index 0000000..314125e
+index 0000000..71a6e61
 --- /dev/null
 +++ b/.github/workflows/lawcheck.yml
-@@ -0,0 +1,45 @@
+@@ -0,0 +1,43 @@
 +name: lawcheck
 +on:
 +  pull_request:
@@ -45,7 +45,5 @@ index 0000000..314125e
 +          npx --no-install lawcheck check --base "$base"
 +          if git cat-file -e "$base:./.lawcheck/law.yaml" 2> /dev/null; then
 +            echo "Checking again with the law of $base"
-+            rm -rf .lawcheck/rules
-+            git ls-tree -r -z --name-only "$base" -- .lawcheck/law.yaml .lawcheck/rules | xargs -0 git checkout "$base" --
-+            npx --no-install lawcheck check --base "$base"
++            npx --no-install lawcheck check --base "$base" --law-from "$base"
 +          fi

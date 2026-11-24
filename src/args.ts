@@ -34,7 +34,7 @@ type Flags = Record<string, 'switch' | Value>;
 const FLAGS: Record<CommandName, Flags> = {
   init: { '--json': 'switch' },
   prime: { '--json': 'switch' },
-  check: { '--full': 'switch', '--strict': 'switch', '--base': 'ref', '--review': 'switch', '--again': 'switch', '--max-calls': 'digits', '--sarif': 'path', '--json': 'switch' },
+  check: { '--full': 'switch', '--strict': 'switch', '--base': 'ref', '--law-from': 'ref', '--review': 'switch', '--again': 'switch', '--max-calls': 'digits', '--sarif': 'path', '--json': 'switch' },
   explain: { '--type': 'id', '--rule': 'id', '--tree': 'switch', '--json': 'switch' },
   try: { '--times': 'digits', '--dry-run': 'switch', '--max-calls': 'digits', '--json': 'switch' },
   docs: { '--json': 'switch' },
@@ -71,7 +71,7 @@ export const USAGE: Record<CommandName, string> = {
     '',
   ].join('\n'),
   check: [
-    'usage: lawcheck check [--full] [--strict] [--base <ref>] [--review [--again] [--max-calls <n>]] [--sarif <file>] [--json]',
+    'usage: lawcheck check [--full] [--strict] [--base <ref>] [--law-from <ref>] [--review [--again] [--max-calls <n>]] [--sarif <file>] [--json]',
     '       lawcheck check <path or pattern>... [--json]',
     '',
     'Checks the files of this change, or the files named, against .lawcheck/law.yaml.',
@@ -80,6 +80,7 @@ export const USAGE: Record<CommandName, string> = {
     '  --full             also judge the files outside the change, as debt',
     '  --strict           as --full, and debt fails the run as it would in the change',
     '  --base <ref>       the base of the change; else LAWCHECK_BASE, else origin/HEAD',
+    '  --law-from <ref>   judge by the law of this commit, read from git',
     '  --review           ask the reviewer for the reviews that have no verdict',
     '  --again            with --review, ask again where a failure is cached',
     '  --max-calls <n>    with --review, the most requests this run sends',

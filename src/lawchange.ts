@@ -1,11 +1,20 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { CONFIG } from './config.js';
+import { lstatSync, mkdirSync, readFileSync, rmdirSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { CONFIG, DEFAULT_CONFIG, parseConfig } from './config.js';
+import type { ReviewerConfig } from './config.js';
 import { git, mergeBase, resolveCommit, splitZ } from './files.js';
+import { keyEnvironment } from './keys.js';
+import { CONFIG_BYTES, count, LAW_BYTES, mib } from './limits.js';
 import { bytesOfName } from './names.js';
 import { parseLaw } from './law.js';
 import type { Law, TypeDef } from './law.js';
-import { LAW, RULES_DIR } from './setup.js';
+import type { ErrorItem } from './output.js';
+import { guardedFolder, releaseFolder } from './programs.js';
+import { createProvider } from './providers/index.js';
+import { LAW, RULES_DIR, ruleKinds, Stop, touchesLaw } from './setup.js';
+import type { Kinds, Read } from './setup.js';
+import { decode } from './types.js';
+import { LOCAL, Unwritable } from './verdicts.js';
 
 export const LINE_ITEMS = 5;
 
@@ -216,9 +225,129 @@ export function atBase(root: string, base: string): ((paths: string[]) => Map<st
 const LOOSENS = /^(?:removes the (?:rule|type|signer) |adds the signer |changes the key of the signer |makes the rule \S+ advisory$|takes the rule \S+ off the type |adds .* to ignored$|takes .* off required$)/;
 
 // The line shows five items, so past five the items that loosen the law go first and are never left in the count.
-export function lawChangeLine(items: string[]): string {
+export function lawChangeLine(items: string[], lead = 'this change edits the law that judges it'): string {
   const ordered = items.length > LINE_ITEMS ? [...items.filter((item) => LOOSENS.test(item)), ...items.filter((item) => !LOOSENS.test(item))] : items;
   const shown = ordered.slice(0, LINE_ITEMS).join('; ');
   const rest = items.length - LINE_ITEMS;
-  return `note: this change edits the law that judges it: ${shown}${rest > 0 ? `; and ${rest} more` : ''}`;
+  return `note: ${lead}: ${shown}${rest > 0 ? `; and ${rest} more` : ''}`;
 }
+
+export interface LawAt {
+  ref: string;
+  law: Law;
+  config: ReviewerConfig;
+  // The files of the law at the commit, by their path from the root; null is a symbolic link, which Lawcheck reads no rule through.
+  files: Map<string, Buffer | null>;
+}
+
+const FILE_MODES = new Set(['100644', '100755']);
+const LAW_FROM_NEXT = `pass --law-from with a commit here that holds ${LAW}, such as the base of the change`;
+
+function unreachableLaw(message: string): Stop {
+  return new Stop([{ code: 'law-from-unreachable', file: null, line: null, message, next: LAW_FROM_NEXT }]);
+}
+
+function lawEntries(root: string, commit: string): Map<string, { mode: string; type: string; id: string }> {
+  const result = git(root, ['ls-tree', '-r', '-z', commit, '--', LAW, CONFIG, RULES_DIR.slice(0, -1)]);
+  const found = new Map<string, { mode: string; type: string; id: string }>();
+  if (result.status !== 0) return found;
+  for (const entry of splitZ(result.stdout)) {
+    const tab = entry.indexOf('\t');
+    const [mode, type, id] = entry.slice(0, tab).split(' ');
+    if (tab > 0 && mode !== undefined && type !== undefined && id !== undefined) found.set(entry.slice(tab + 1), { mode, type, id });
+  }
+  return found;
+}
+
+export function lawAt(root: string, ref: string): LawAt {
+  const said = `, in the law of '${ref}' that --law-from names`;
+  const commit = resolveCommit(root, ref);
+  if (commit === null) throw unreachableLaw(`the ref '${ref}' that --law-from names is no commit here`);
+  const entries = lawEntries(root, commit);
+  const regular = [...entries].filter(([, entry]) => entry.type === 'blob' && FILE_MODES.has(entry.mode)).map(([path]) => path);
+  if (!regular.includes(LAW)) throw unreachableLaw(`the commit '${ref}' that --law-from names holds no ${LAW}`);
+  const blobs = blobsAt(root, commit, regular);
+  const lawBytes = blobs.get(LAW) ?? Buffer.alloc(0);
+  if (lawBytes.length > LAW_BYTES) throw new Stop([{ code: 'file-too-large', file: LAW, line: 1, message: `the law holds ${count(lawBytes.length)} bytes, more than the ${mib(LAW_BYTES)} a law may hold${said}` }]);
+  const parsed = parseLaw(decode(lawBytes));
+  if (parsed.law === null) throw new Stop(parsed.problems.map((p): ErrorItem => ({ code: p.tooLarge ? 'file-too-large' : 'law-invalid', file: LAW, line: p.line, message: `${p.message}${said}` })));
+  let config: ReviewerConfig = { ...DEFAULT_CONFIG };
+  const configBytes = blobs.get(CONFIG);
+  if (configBytes != null) {
+    if (configBytes.length > CONFIG_BYTES) throw new Stop([{ code: 'file-too-large', file: CONFIG, line: null, message: `the file holds ${count(configBytes.length)} bytes, more than the ${mib(CONFIG_BYTES)} the config may hold${said}` }]);
+    const read = parseConfig(decode(configBytes));
+    if ('problems' in read) throw new Stop(read.problems.map((p): ErrorItem => ({ code: 'config-invalid', file: CONFIG, line: p.line, message: `${p.message}${said}` })));
+    config = read.config;
+    if (config.provider !== null) createProvider(config, keyEnvironment());
+  }
+  const files = new Map<string, Buffer | null>();
+  for (const [path, entry] of entries) {
+    if (entry.mode === '120000') files.set(path, null);
+    else if (blobs.get(path) != null) files.set(path, blobs.get(path)!);
+  }
+  return { ref, law: parsed.law, config, files };
+}
+
+// What the law of the commit binds is judged on the work tree, so its rule files and the law's own files come from the commit and every other file from the work tree.
+export function kindsAt(at: LawAt, workFiles: string[], read: Read): { files: string[]; read: Read; kinds: Kinds } {
+  const files = [...workFiles.filter((path) => !touchesLaw(path)), ...[...at.files].filter(([, bytes]) => bytes !== null).map(([path]) => path)].sort();
+  const readAt: Read = (path) => {
+    if (!touchesLaw(path)) return read(path);
+    const bytes = at.files.get(path);
+    if (bytes == null) throw Object.assign(new Error(`no file ${path} at ${at.ref}`), { code: 'ENOENT' });
+    return bytes;
+  };
+  const kinds = ruleKinds(at.law, files, readAt, (path) => at.files.get(path) === null);
+  const said = `, in the law of '${at.ref}' that --law-from names`;
+  if (kinds.errors.length > 0) throw new Stop(kinds.errors.map((error) => ({ ...error, message: `${error.message}${said}` })));
+  return { files, read: readAt, kinds };
+}
+
+const SAFE_PART = /^(?!\.{1,2}$)[^/\\]+$/;
+
+// A rule is loaded from a copy of the commit's .lawcheck/rules/ below the root, where the runner may read, so its imports of ./lib/ find the commit's helpers. The copy holds a .gitignore of its own, so git never lists it, and the guard removes it if the tool is killed.
+export function writeRules(root: string, at: LawAt): { folder: string; release(): void } {
+  const local = join(root, LOCAL);
+  const cannot = (cause: string) => new Unwritable(LOCAL, cause);
+  let made = false;
+  try {
+    const top = lstatSync(join(root, '.lawcheck'));
+    if (!top.isDirectory()) throw cannot('.lawcheck is no folder');
+    mkdirSync(local, { recursive: false });
+    made = true;
+  } catch (error) {
+    if (error instanceof Unwritable) throw error;
+    if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw cannot((error as NodeJS.ErrnoException).code ?? 'an error');
+  }
+  if (!lstatSync(local).isDirectory()) throw cannot('it is no folder');
+  let folder: string;
+  try {
+    folder = guardedFolder('law-from-', local);
+  } catch (error) {
+    throw cannot((error as NodeJS.ErrnoException).code ?? 'an error');
+  }
+  try {
+    writeFileSync(join(folder, '.gitignore'), '*\n');
+    for (const [path, bytes] of at.files) {
+      if (bytes === null || !path.startsWith(RULES_DIR) || !path.split('/').every((part) => SAFE_PART.test(part))) continue;
+      const target = join(folder, path);
+      mkdirSync(dirname(target), { recursive: true });
+      writeFileSync(target, bytes);
+    }
+  } catch (error) {
+    release();
+    throw cannot((error as NodeJS.ErrnoException).code ?? 'an error');
+  }
+  return { folder, release };
+
+  function release(): void {
+    releaseFolder(folder);
+    if (!made) return;
+    try {
+      rmdirSync(local);
+    } catch {
+      // The reader cache may have written into the folder during the run, and then it stays.
+    }
+  }
+}
+
