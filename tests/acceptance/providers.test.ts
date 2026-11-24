@@ -1111,6 +1111,75 @@ test('test 1121: on Windows the guard that waits to read the tool\'s last line e
   });
 });
 
+test('test 1170: on Windows the guard that finds the tool gone only some time after the kill ends what a program left from a list it held while the tool ran, and leaves alive the child of a process that took the program\'s id in that time', async (t) => {
+  const skip = platformSkip('the whole test');
+  if (skip !== null) return t.skip(skip);
+  await withCopy(async (copy) => {
+    const guardFile = join(copy.dir, 'dist', 'guard.js');
+    const programsFile = join(copy.dir, 'dist', 'programs.js');
+    const closed = 'process.stdin.on(\'close\', endAll);';
+    const poll = 'const poll = setInterval(() => {';
+    const table = /export const PROCESS_TABLE = .*;\n/;
+    const sound = readFileSync(guardFile, 'utf8');
+    const programs = readFileSync(programsFile, 'utf8');
+    assert.ok(sound.includes(closed) && sound.includes(poll) && sound.includes('process.kill(tool, 0)'), 'the guard has no end on a closed input, or no poll of the tool, for this test to hold');
+    assert.ok(table.test(programs), 'programs.js has no PROCESS_TABLE for this test to plant an id in');
+    const planted = join(copy.dir, 'planted.txt');
+    const lists = join(copy.dir, 'lists');
+    mkdirSync(lists);
+    const ran = join(copy.dir, 'guard pid');
+    const go = join(copy.dir, 'go');
+    writeFileSync(programsFile, programs.replace(table, () => `export const PROCESS_TABLE = ${JSON.stringify(rewrittenTable(planted, lists))};\n`));
+    // The guard's input stays open when the tool is killed, as it did while claude ran, and its poll of the tool comes only once the test has seen it read lists that show the stranger: a look that finds the tool gone is put off as a poll of 250 ms can be, and a look that finds it running goes on as before.
+    const held = sound.replace(closed, '').replace(poll, () => `${poll}\n    if (!told(${JSON.stringify(go)})) { try { process.kill(tool, 0); } catch { return; } }`);
+    writeFileSync(guardFile, `import { existsSync as told, writeFileSync as mark } from 'node:fs';\nmark(${JSON.stringify(ran)}, String(process.pid));\n${held}`);
+    writeFileSync(join(copy.dir, 'tool.mjs'), TOOL);
+    const left: number[] = [];
+    let guard = 0;
+    const tool = spawn(process.execPath, [join(copy.dir, 'tool.mjs')], { cwd: copy.dir, stdio: ['pipe', 'pipe', 'ignore'], windowsHide: true });
+    let toolEnded = false;
+    tool.on('exit', () => (toolEnded = true));
+    try {
+      const said: string[] = [];
+      tool.stdout!.setEncoding('utf8').on('data', (chunk: string) => said.push(...chunk.split('\n').filter(Boolean)));
+      assert.ok(await waitFor(() => said.includes('ready'), GUARD_ENDS_MS), 'the tool did not start its guard');
+      assert.ok(await waitFor(() => existsSync(ran) && readFileSync(ran, 'utf8') !== '', GUARD_ENDS_MS), 'the guard did not start');
+      guard = Number(readFileSync(ran, 'utf8'));
+      const started = Date.now();
+      const program = await startScript(copy.dir, 'program.mjs', LEAVE, true);
+      left.push(program.child);
+      tool.stdin!.write(`${program.pid} ${started}\n`);
+      assert.ok(await waitFor(() => said.includes('told'), GUARD_ENDS_MS), 'the tool did not tell its guard');
+      // The guard holds a list taken while the tool ran, so it has something to keep.
+      assert.ok(await waitFor(() => readdirSync(lists).length >= 2, GUARD_ENDS_MS), 'the guard took no list of processes while the tool ran');
+      tool.kill('SIGKILL');
+      assert.ok(await waitFor(() => toolEnded, GUARD_ENDS_MS), 'the tool is still running');
+      // Windows gave the program's id to stranger after the kill and before the guard looked at the tool again, and stranger made a child.
+      const stranger = await startScript(copy.dir, 'stranger.mjs', HOLDER, false);
+      left.push(stranger.pid, stranger.child);
+      writeFileSync(`${planted}.part`, `${stranger.pid} ${program.pid} ${process.pid}\n${stranger.child} ${stranger.child} ${program.pid}\n`);
+      renameSync(`${planted}.part`, planted);
+      // A second list that shows stranger begins after the first one was printed, so the guard has read a list that shows it.
+      const showing = () => readdirSync(lists).filter((name) => name.startsWith('2 ')).length;
+      assert.ok(await waitFor(() => showing() >= 2, GUARD_ENDS_MS), 'no list of the guard showed the stranger');
+      writeFileSync(go, '');
+      assert.ok(await waitFor(() => !alive(guard), GUARD_ENDS_MS), 'the guard is still running');
+      assert.ok(!(await waitFor(() => !alive(stranger.child), LEFTOVER_GRACE_MS)), 'the child of the process that took the program\'s id after the kill, before the guard found the tool gone, was ended');
+      assert.ok(await waitFor(() => !alive(program.child), LEFTOVER_GRACE_MS), 'the child the program left is alive');
+    } finally {
+      tool.kill('SIGKILL');
+      if (guard !== 0 && alive(guard)) killGroup(guard, 'SIGKILL');
+      for (const pid of left) {
+        try {
+          process.kill(pid, 'SIGKILL');
+        } catch {
+          // Already ended.
+        }
+      }
+    }
+  });
+});
+
 // A process group of its own: the program and the child it made, which stays in the program's group.
 async function startGroup(dir: string, name: string, text: string): Promise<{ pid: number; child: number }> {
   writeFileSync(join(dir, name), text);
