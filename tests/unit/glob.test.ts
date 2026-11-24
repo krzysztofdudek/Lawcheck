@@ -64,3 +64,73 @@ test('S1-1: src/**/*a*a*a*a*a*a*b.ts against a name of 240 a ends within the bud
   assert.equal(pattern.test(`src/${'a'.repeat(240)}b.ts`), true);
   assert.equal(pattern.test(`src/core/${'a'.repeat(5)}b.ts`), false);
 });
+
+test('R-40: patternProblem says in its own words what is wrong, for each fault', () => {
+  const said: Record<string, string> = {
+    '': 'is empty',
+    '!': "is '!' alone",
+    'a/{b,{c}}': 'nests a brace',
+    '{{': 'nests a brace',
+    'a/b}': 'closes a brace it never opened',
+    'a/{}': 'holds an empty alternative',
+    'a/{b,}': 'holds an empty alternative',
+    'a/{,b}': 'holds an empty alternative',
+    'a/{b/c}': "holds a '/' inside a brace",
+    'a/{b': 'leaves a brace unclosed',
+    '/src': 'holds an empty segment',
+    'src/': 'holds an empty segment',
+    'a//b': 'holds an empty segment',
+    './a': "holds the segment '.'",
+    'a/../b': "holds the segment '..'",
+    'src/**core': 'holds ** beside other characters in one segment',
+    'src/core**': 'holds ** beside other characters in one segment',
+    '***': 'holds ** beside other characters in one segment',
+    '!/a': 'holds an empty segment',
+    '!{': 'leaves a brace unclosed',
+  };
+  for (const [pattern, problem] of Object.entries(said)) assert.equal(patternProblem(pattern), problem, pattern);
+  for (const pattern of ['!a', '!a/b', '!*', '{a}', 'a{b,c}d/e', '*', '?', 'a/*/b', '**/**/a']) assert.equal(patternProblem(pattern), null, pattern);
+});
+
+test('R-40: a ** that is the last segment does not match the directory, with or without its slash', () => {
+  assert.ok(!matches('src/core/**', 'src/core/'));
+  assert.ok(!matches('**', ''));
+  assert.ok(matches('**', 'a'));
+  assert.ok(matches('**', 'a/b/c'));
+});
+
+test('R-40: a comma and a closing brace outside braces are characters of the path, and a brace holds nothing past its end', () => {
+  assert.ok(matches('{a,b},c', 'a,c'));
+  assert.ok(matches('{a,b},c', 'b,c'));
+  assert.ok(!matches('{a,b},c', 'a'));
+  assert.ok(!matches('{a,b},c', 'c'));
+  assert.ok(matches('{a,b}}', 'a}'));
+  assert.ok(!matches('{a,b}}', 'a'));
+});
+
+test('R-40: reaches says whether some path that starts with the prefix matches, the matching path itself included', () => {
+  const reaches = (pattern: string, prefix: string) => compilePattern(pattern).reaches(prefix);
+  const cases: [string, string, boolean][] = [
+    ['a/b', '', true],
+    ['a/b', 'a/', true],
+    ['a/b', 'a/b', true],
+    ['a/b', 'a/b/', false],
+    ['a/b', 'c', false],
+    ['src/**', 'sr', true],
+    ['src/**', 'src/', true],
+    ['src/**', 'src/a/b/', true],
+    ['src/**', 'lib/', false],
+    ['a/{b,c}/d', 'a/c/', true],
+    ['a/{b,c}/d', 'a/c/d', true],
+    ['a/{b,c}/d', 'a/e', false],
+    ['*.ts', 'abc', true],
+    ['*.ts', 'a/', false],
+    ['**/b', 'x/y/', true],
+    ['**/b', 'x/y/b', true],
+    ['a/*/c', 'a/x/', true],
+    ['a/*/c', 'a/x/y', false],
+    ['a?c', 'ab', true],
+    ['a?c', 'a/', false],
+  ];
+  for (const [pattern, prefix, expected] of cases) assert.equal(reaches(pattern, prefix), expected, `${pattern} reaches ${JSON.stringify(prefix)}`);
+});

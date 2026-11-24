@@ -70,27 +70,34 @@ function renderChapter(chapter, out, quality, edit, cli) {
   return { name: chapter.name, files: [mp4, vtt, poster], seconds: chapter.seconds };
 }
 
-export function render(out, quality, only = ['loop', 'chapters']) {
+export function render(out, quality, only = ['loop', 'chapters'], voice = undefined) {
   const edit = readEdit(ROOT);
+  const chapters = (edit.chapters ?? []).filter((chapter) => only.includes('chapters') || only.includes(chapter.page));
+  if (voice === undefined && chapters.some((chapter) => chapter.timeline.some((segment) => (segment.narration ?? []).length > 0))) fail('the chapters are narrated: node film/voice.mjs --out <folder> speaks the narration, and --voice <folder> mixes it in');
   const tokens = JSON.parse(readFileSync(join(ROOT, 'brand', 'tokens.json'), 'utf8'));
   const cli = process.env.HYPERFRAMES_CLI?.split(' ') ?? HYPERFRAMES;
   run(process.execPath, [join(FILM, 'check.mjs')], ROOT);
   mkdirSync(out, { recursive: true });
-  const projects = build(join(FILM, 'dist'), ROOT);
+  let projects;
+  try {
+    projects = build(join(FILM, 'dist'), ROOT, voice, chapters.map((chapter) => chapter.page));
+  } catch (error) {
+    fail(error.message);
+  }
   const made = [];
   for (const project of projects) {
     if (project.chapter ? only.includes('chapters') || only.includes(project.name) : only.includes('loop')) {
       made.push(project.chapter ? renderChapter(project, out, quality, edit, cli) : renderLoop(project, out, quality, edit, tokens, cli));
     }
   }
-  const chapters = made.filter((item) => item.name !== 'loop').map((item) => ({
+  const rendered = made.filter((item) => item.name !== 'loop').map((item) => ({
     page: item.name,
     number: edit.chapters.findIndex((chapter) => chapter.page === item.name) + 1,
     seconds: item.seconds,
-    transcript: edit.chapters.find((chapter) => chapter.page === item.name).timeline.flatMap((segment) => (segment.subtitle === undefined ? [] : [segment.subtitle])),
+    transcript: edit.chapters.find((chapter) => chapter.page === item.name).timeline.flatMap((segment) => (segment.narration ?? []).map((line) => line.text)),
     files: Object.fromEntries(item.files.map((path) => [path.split('.').pop(), { name: path.split('/').pop(), sha256: sha256(path), bytes: statSync(path).size }])),
   }));
-  if (chapters.length > 0) writeFileSync(join(out, 'chapters.json'), `${JSON.stringify({ chapters }, null, 2)}\n`);
+  if (rendered.length > 0) writeFileSync(join(out, 'chapters.json'), `${JSON.stringify({ chapters: rendered }, null, 2)}\n`);
   return made;
 }
 
@@ -98,11 +105,12 @@ if (process.argv[1] !== undefined && fileURLToPath(import.meta.url) === process.
   const args = process.argv.slice(2);
   const at = args.indexOf('--out');
   const pick = args.indexOf('--only');
+  const sound = args.indexOf('--voice');
   const quality = args.includes('--draft') ? 'draft' : 'delivery';
-  const known = new Set(['--out', '--draft', '--only']);
-  if (at < 0 || args[at + 1] === undefined || (pick >= 0 && args[pick + 1] === undefined) || args.some((arg, index) => arg.startsWith('--') && !known.has(arg) && index !== at + 1 && index !== pick + 1)) fail('usage: node film/render.mjs --out <folder outside the repository> [--draft] [--only loop|chapters|<page>,...]');
+  const known = new Set(['--out', '--draft', '--only', '--voice']);
+  if (at < 0 || args[at + 1] === undefined || (pick >= 0 && args[pick + 1] === undefined) || (sound >= 0 && args[sound + 1] === undefined) || args.some((arg, index) => arg.startsWith('--') && !known.has(arg) && index !== at + 1 && index !== pick + 1 && index !== sound + 1)) fail('usage: node film/render.mjs --out <folder outside the repository> [--draft] [--only loop|chapters|<page>,...] [--voice <folder that film/voice.mjs wrote>]');
   const only = pick >= 0 ? args[pick + 1].split(',') : ['loop', 'chapters'];
-  for (const made of render(resolve(args[at + 1]), quality, only)) {
+  for (const made of render(resolve(args[at + 1]), quality, only, sound >= 0 ? resolve(args[sound + 1]) : undefined)) {
     process.stdout.write(`film/render.mjs: ${made.name === 'loop' ? 'the loop' : `the chapter ${made.name}`} of ${made.seconds} s in ${made.files.join(', ')}${made.size === undefined ? '' : ` (${(made.size / 1e6).toFixed(2)} MB)`}\n`);
   }
 }

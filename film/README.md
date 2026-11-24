@@ -1,6 +1,6 @@
 # The film
 
-The loop at the top of the README and the five chapters of the tutorial on the docs site show real Claude Code sessions in a small shop repository. Every string in the recording area comes from a file of a session, from a run of Lawcheck on that session's files, or from a page of this repository. Captions and subtitles have no such source, so the check does not hold them to one.
+The loop at the top of the README and the five chapters of the tutorial on the docs site show real Claude Code sessions in a small shop repository. Every string in the recording area comes from a file of a session, from a run of Lawcheck on that session's files, or from a page of this repository. Captions and subtitles have no such source, so the check does not hold them to one. The loop is silent. Each chapter is narrated in the voice Lektor, and every narrated sentence cites what its frame or a docs page shows.
 
 ## What is here
 
@@ -17,10 +17,11 @@ The loop at the top of the README and the five chapters of the tutorial on the d
 | `takes/a09`, `takes/b04` | the two sessions the film shows, trimmed, with the hashes that `pilot.json` counts |
 | `takes/a09-check`, `takes/b04-check`, `takes/b04-prime` | the output of Lawcheck on the files of those sessions |
 | `takes/<chapter take>`, `takes/<chapter run>` | the take of each chapter, trimmed, and the output of Lawcheck on its files |
-| `edit.json` | the screens of the loop and of each chapter: times, blocks, the source of each string, captions and subtitles |
+| `edit.json` | the screens of the loop and of each chapter: times, blocks, the source of each string, captions, subtitles and the narration, with the voice that speaks it |
 | `check.mjs` | the truth and staleness check |
-| `build.mjs` | writes a HyperFrames project for the loop and for each chapter into `film/dist/`, and each chapter's subtitles |
-| `render.mjs` | checks, builds and renders the loop to MP4, WebM and GIF, and each chapter to MP4, WebVTT and a still |
+| `voice.mjs` | speaks the narration of each chapter with a speech service, one file per frame, into a folder outside the repository |
+| `build.mjs` | writes a HyperFrames project for the loop and for each chapter into `film/dist/`, each chapter's subtitles, which are its narrated sentences, and with `--voice <folder>` the narration that `voice.mjs` spoke |
+| `render.mjs` | checks, builds and renders the loop to MP4, WebM and GIF, and each chapter with its narration to MP4, WebVTT and a still |
 | `published.json` | the chapters that a release holds as attachments, with the hash of each file; the docs site shows these |
 | `rebuild.sh` | the same in a clean container, from FFmpeg and Chromium up |
 | `hyperframes/` | the styles, the spec and the last review of the picture |
@@ -43,7 +44,20 @@ Each chapter of the tutorial is one recording of `record.mjs --chapter <page>` i
 
 and no file holds a waiver. A chapter starts from what the page before it teaches, not from the take before it, except that `ci` starts on the branch that the take of `write-a-reviewer-rule` left, with its recorded pass.
 
-Lawcheck's version, Claude Code's version and the model stay in `take.json`. No screen, caption or subtitle shows them, so a chapter stays true across releases.
+Lawcheck's version, Claude Code's version and the model stay in `take.json`. No screen, caption, subtitle or narrated sentence shows them, so a chapter stays true across releases.
+
+## The narration
+
+An agent writes the narration. Each segment of a chapter in `edit.json` has its `narration`: the sentences spoken while its frame stands. A sentence follows its frame and says nothing that the frame, its caption or its subtitle does not show. It cites what it follows in `shows`: strings of its frame, or, with `page`, strings of that page of `docs/`. `check.mjs` finds each cited string where the sentence says. A sentence whose every cited string is only in its caption or its subtitle, and on no screen, names `ties`: each tie has a `text` and a `from`, a file of the repository, a run or a file of a take, and `check.mjs` finds the text in that source. `film/edit.json` ties nothing, since it holds the caption and the subtitle. A sentence ends with `.`, `!`, `?` or `…`, because the speech engine reads that as intonation, and says its numbers in words.
+
+`voice` in `edit.json` names the voice and how it speaks: the language, the speed, the pause between two sentences, and how long after the start of a frame the narration starts (`lead`) and how long before its end it stops (`tail`).
+
+1. `LAWCHECK_FILM_VOICE=<address> node film/voice.mjs --out <folder>` speaks every frame whose words or voice changed. The address is that of a speech service with the audio API of OpenAI, such as VoiceStudio, and it never enters the repository. Each sentence is spoken alone and the sentences of a frame are joined with the pause, because the engine sometimes runs two sentences into one breath. It writes `<folder>/<page>/<segment>.wav` and `voice.json`, transcribes each file back and prints each frame whose transcript has other words, and fails when a frame's voice is longer than the frame leaves it. `--only <page>` or `--only <page>/<segment>` speaks those again.
+2. `node film/render.mjs --out <folder> --voice <folder>` mixes the voice of each frame in from `lead` after the frame starts. It refuses a voice spoken from other words or settings than the edit holds now, a frame with no voice, and a voice that does not fit its frame. With `--only <page>`, it reads the voice of that chapter alone, so a stale voice in another chapter does not stop it. It refuses to render a narrated chapter without `--voice`.
+
+The `.vtt` subtitles of a chapter are made from the narrated sentences, so they cannot differ from what is said: one cue per sentence, in order. The `subtitle` of a segment is no longer what a viewer reads; it only counts as text of the frame for what a sentence cites and for the reading time. With `--voice`, a cue runs from where its sentence starts to where it ends in the voice file, found by the silence of exactly one pause that joins two sentences; without it, or when a file does not split into its sentences, the room the frame leaves the voice is shared by the length of the sentences.
+
+The voice is not committed: it is a recording. When the chapters are recorded again, a segment that keeps its narration keeps its words, and `voice.mjs` speaks again only what changed.
 
 ## Where the chapters live
 
@@ -69,7 +83,8 @@ No video, image or recording is committed here. `claude plugin marketplace add` 
 - a take differs from the record that `pilot.json` counts or the hash its chapter records, or `accept.mjs` refuses it;
 - this build of Lawcheck prints something else on the files of a take than the film shows;
 - a screen stands less than one second plus one second for every three new words, its subtitle counted, the loop lasts more than 30 seconds, or a chapter lasts less than 40 or more than 60;
-- a screen, a caption or a subtitle shows a number with a point, a version after `@`, a version written as `v` and a number, or the name of a model;
+- a screen, a caption, a subtitle or a narrated sentence shows a number with a point, a version after `@`, a version written as `v` and a number, or the name of a model, and a caption, a subtitle or a narrated sentence says one in words (`zero point one`, `alpha five`, `version two`, `Claude five`);
+- a segment of a chapter has no narration, or a narrated sentence ends without `.`, `!`, `?` or `…`, holds two sentences, has a digit, cites nothing, cites a string that its frame or its page does not show, or cites only its caption or subtitle without a tie that its source backs;
 - a file of `takes/` holds a home folder other than `/home/dev`, a key, a token, an e-mail address, the word orbstack, a host name under ts.net, the word tailnet, the word clientbox, a path under /mnt/mac, or a word listed in the variable `LAWCHECK_FILM_PRIVATE`, separated by commas. Set it to the names only the recording machine knows, such as its tailnet's name, before you add a take. A run without it, such as the one in CI, says that those names were not looked for.
 
 ## When the output of Lawcheck changes
@@ -83,7 +98,7 @@ No video, image or recording is committed here. `claude plugin marketplace add` 
 One command builds the film from this folder in a clean container, and writes `loop.mp4`, `loop.webm` and `loop.gif`, and for each chapter its `.mp4`, `.vtt` and `.jpg` with `chapters.json`, into the folder you name:
 
 ```text
-docker run --rm -v "$PWD:/src:ro" -v "<a folder outside the repository>:/out" mcr.microsoft.com/devcontainers/javascript-node:24 sh /src/film/rebuild.sh
+docker run --rm -v "$PWD:/src:ro" -v "<a folder outside the repository>:/out" -v "<the folder voice.mjs wrote>:/voice:ro" mcr.microsoft.com/devcontainers/javascript-node:24 sh /src/film/rebuild.sh
 ```
 
-`rebuild.sh` installs FFmpeg and Chromium, copies the checkout without `node_modules` and `dist`, runs `npm ci` and `npm run build`, and then `node film/render.mjs`, which stops when `check.mjs` fails. HyperFrames has no Chrome of its own for Linux on ARM, so the container uses Debian's Chromium on every machine.
+`rebuild.sh` installs FFmpeg and Chromium, copies the checkout without `node_modules` and `dist`, runs `npm ci` and `npm run build`, and then `node film/render.mjs --voice /voice`, which stops when `check.mjs` fails or a narrated frame has no voice that fits it. HyperFrames has no Chrome of its own for Linux on ARM, so the container uses Debian's Chromium on every machine.

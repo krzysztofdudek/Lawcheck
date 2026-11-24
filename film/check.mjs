@@ -1,4 +1,4 @@
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -189,6 +189,75 @@ export function readingProblems(edit) {
   return problems;
 }
 
+// A sentence that cites only its own caption or subtitle traces to nothing but words of the edit, so each such sentence names the source that backs those words.
+function tieProblems(root, edit, where, quoted, ties) {
+  if (!Array.isArray(ties) || ties.length === 0) return [`${where}: ${quoted} cites only its caption or subtitle, and names no tie to a docs page, a recorded output or a command that backs it`];
+  const problems = [];
+  ties.forEach((tie, index) => {
+    const at = `${where}, tie ${index + 1}`;
+    const from = tie?.from;
+    const named = from !== null && typeof from === 'object' && [typeof from.repo === 'string', typeof from.run === 'string', typeof from.take === 'string' && typeof from.file === 'string'].filter(Boolean).length === 1;
+    if (typeof tie?.text !== 'string' || tie.text === '' || !named) problems.push(`${at}: a tie holds a text and a from that names a repo file, a run, or a take with a file`);
+    else if (from.repo === 'film/edit.json') problems.push(`${at}: film/edit.json holds the caption and the subtitle themselves, so it ties nothing`);
+    else if (from.repo !== undefined && !existsSync(join(root, from.repo))) problems.push(`${at}: ${from.repo} does not exist`);
+    else problems.push(...itemProblems(root, edit, at, { text: tie.text, from }));
+  });
+  return problems;
+}
+
+const SPOKEN_END = /[.!?…]["”’)]*$/;
+const SENTENCE_INSIDE = /[.!?…]["”’)]*\s+\S/;
+
+export function narrationProblems(root = ROOT, edit = readEdit(root)) {
+  const problems = [];
+  const pages = new Map();
+  const pageText = (page) => {
+    if (!pages.has(page)) {
+      const path = join(root, 'docs', `${page}.md`);
+      pages.set(page, existsSync(path) ? readFileSync(path, 'utf8') : undefined);
+    }
+    return pages.get(page);
+  };
+  let sentences = 0;
+  for (const chapter of edit.chapters ?? []) {
+    for (const segment of chapter.timeline) {
+      const lines = segment.narration ?? [];
+      if (lines.length === 0) {
+        problems.push(`${segment.id}: the chapter ${chapter.page} narrates nothing over this frame`);
+        continue;
+      }
+      const shown = screensOf([segment]).flatMap((screen) => screen.text);
+      const framed = segment.screens.flatMap((screen) => screen.blocks.flatMap(stringsOf));
+      lines.forEach((line, index) => {
+        sentences++;
+        const where = `${segment.id}, narrated sentence ${index + 1}`;
+        const quoted = JSON.stringify(line.text);
+        if (!SPOKEN_END.test(line.text)) problems.push(`${where}: ${quoted} does not end with . ! ? or …`);
+        else if (SENTENCE_INSIDE.test(line.text)) problems.push(`${where}: ${quoted} holds more than one sentence`);
+        if (/\d/.test(line.text)) problems.push(`${where}: ${quoted} has a digit; a number is spoken in words`);
+        if (!Array.isArray(line.shows) || line.shows.length === 0) {
+          problems.push(`${where}: ${quoted} names nothing on its frame or its page that it follows`);
+          return;
+        }
+        const page = line.page === undefined ? undefined : pageText(line.page);
+        if (line.page !== undefined && page === undefined) {
+          problems.push(`${where}: ${quoted} cites the page docs/${line.page}.md, which does not exist`);
+          return;
+        }
+        for (const cited of line.shows) {
+          if (page !== undefined) {
+            if (!page.includes(cited)) problems.push(`${where}: ${quoted} cites ${JSON.stringify(cited)}, which is not in docs/${line.page}.md`);
+          } else if (!shown.some((text) => text.includes(cited))) problems.push(`${where}: ${quoted} cites ${JSON.stringify(cited)}, which is not on its frame`);
+        }
+        const onFrame = (cited) => framed.some((text) => text.includes(cited));
+        if (page === undefined && line.shows.every((cited) => shown.some((text) => text.includes(cited))) && !line.shows.some(onFrame)) problems.push(...tieProblems(root, edit, where, quoted, line.ties));
+      });
+    }
+  }
+  if ((edit.chapters ?? []).length > 0 && typeof edit.voice?.name !== 'string') problems.push('the edit names no voice for the narration');
+  return { problems, sentences };
+}
+
 // A film that names a release, a version of a tool or a model is wrong after the next release.
 const VERSIONED = [
   [/\d+\.\d+/g, 'a number with a point, as a version has'],
@@ -197,12 +266,30 @@ const VERSIONED = [
   [/\b(?:sonnet|opus|haiku|fable)\b|\bclaude-[a-z]+-\d/gi, 'the name of a model'],
 ];
 
+const COUNT = '(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred)(?:-(?:one|two|three|four|five|six|seven|eight|nine))?';
+
+// Prose that is spoken has no digits, so a version or a model is said in words.
+const SPOKEN = [
+  [new RegExp(`\\b${COUNT}\\s+(?:point|dot)\\s+(?:${COUNT}|oh)\\b`, 'gi'), 'a number with a point, said in words'],
+  [new RegExp(`\\b(?:alpha|beta|rc|release candidate)\\s+${COUNT}\\b`, 'gi'), 'a pre-release said in words'],
+  [new RegExp(`\\b(?:version|v)\\s+${COUNT}\\b`, 'gi'), 'a version said in words'],
+  [new RegExp(`\\bclaude\\s+${COUNT}\\b`, 'gi'), 'a model named with its number in words'],
+];
+
 export function versionProblems(edit) {
   const problems = [];
   for (const timeline of timelinesOf(edit)) {
     for (const screen of screensOf(timeline.segments)) {
       for (const text of [...screen.screen.blocks.flatMap(stringsOf), screen.segment.caption ?? '', screen.segment.subtitle ?? '']) {
         for (const [pattern, what] of VERSIONED) for (const match of text.matchAll(pattern)) problems.push(`${screen.id}: ${JSON.stringify(text)} shows ${what}: ${match[0]}`);
+      }
+      for (const text of [screen.segment.caption ?? '', screen.segment.subtitle ?? '']) {
+        for (const [pattern, what] of SPOKEN) for (const match of text.matchAll(pattern)) problems.push(`${screen.id}: ${JSON.stringify(text)} shows ${what}: ${match[0]}`);
+      }
+    }
+    for (const segment of timeline.segments) {
+      for (const line of segment.narration ?? []) {
+        for (const [pattern, what] of [...VERSIONED, ...SPOKEN]) for (const match of line.text.matchAll(pattern)) problems.push(`${segment.id}, narration: ${JSON.stringify(line.text)} says ${what}: ${match[0]}`);
       }
     }
   }
@@ -214,43 +301,64 @@ function environment(home) {
   return { ...env, ...IDENTITY, HOME: home, USERPROFILE: home, LANG: 'C.UTF-8', GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: join(home, '.gitconfig') };
 }
 
-export function runOf(root, edit, id, cli) {
+function shopOf(root, edit, id, folder) {
   const run = edit.runs[id];
-  const folder = mkdtempSync(join(tmpdir(), 'lawcheck-film-'));
-  try {
-    const home = join(folder, 'home');
-    mkdirSync(home);
-    writeFileSync(join(home, '.gitconfig'), '');
-    const env = environment(home);
-    const git = (cwd, ...args) => {
-      const result = spawnSync('git', args, { cwd, env, encoding: 'utf8' });
-      if (result.status !== 0) throw new Error(`git ${args.join(' ')} ended with ${result.status}: ${result.stderr.trim()}`);
-    };
-    let shop;
-    if (run.chapter !== undefined) {
-      const takeOf = (page) => join(root, 'film', 'takes', (edit.chapters ?? []).find((chapter) => chapter.page === page)?.take ?? '');
-      shop = makeChapter(folder, run.chapter, env, { root, takeOf }).work;
-      if (run.branch !== undefined) gitIn(env)(shop, 'checkout', '-q', run.branch);
-    } else {
-      const seed = join(folder, 'seed');
-      cpSync(join(root, 'film', 'fixture', 'shop'), seed, { recursive: true });
-      if (run.law !== undefined) {
-        mkdirSync(join(seed, '.lawcheck'));
-        cpSync(join(root, run.law), join(seed, '.lawcheck', 'law.yaml'));
-      }
-      git(seed, 'init', '-q', '-b', 'main');
-      git(seed, 'add', '-A');
-      git(seed, 'commit', '-q', '-m', 'shop');
-      git(folder, 'clone', '-q', '--bare', 'seed', 'origin.git');
-      git(folder, 'clone', '-q', 'origin.git', 'shop');
-      shop = join(folder, 'shop');
-      git(shop, 'checkout', '-q', '-b', 'loyalty-discount');
+  const home = join(folder, 'home');
+  mkdirSync(home);
+  writeFileSync(join(home, '.gitconfig'), '');
+  const env = environment(home);
+  const git = (cwd, ...args) => {
+    const result = spawnSync('git', args, { cwd, env, encoding: 'utf8' });
+    if (result.status !== 0) throw new Error(`git ${args.join(' ')} ended with ${result.status}: ${result.stderr.trim()}`);
+  };
+  let shop;
+  if (run.chapter !== undefined) {
+    const takeOf = (page) => join(root, 'film', 'takes', (edit.chapters ?? []).find((chapter) => chapter.page === page)?.take ?? '');
+    shop = makeChapter(folder, run.chapter, env, { root, takeOf }).work;
+    if (run.branch !== undefined) gitIn(env)(shop, 'checkout', '-q', run.branch);
+  } else {
+    const seed = join(folder, 'seed');
+    cpSync(join(root, 'film', 'fixture', 'shop'), seed, { recursive: true });
+    if (run.law !== undefined) {
+      mkdirSync(join(seed, '.lawcheck'));
+      cpSync(join(root, run.law), join(seed, '.lawcheck', 'law.yaml'));
     }
-    if (run.take !== undefined) cpSync(join(root, 'film', 'takes', run.take, 'files'), shop, { recursive: true });
-    const result = spawnSync(process.execPath, [cli, ...run.args], { cwd: shop, env, encoding: 'utf8', timeout: 60000 });
-    return { exit: result.status, output: result.stdout, error: result.stderr };
+    git(seed, 'init', '-q', '-b', 'main');
+    git(seed, 'add', '-A');
+    git(seed, 'commit', '-q', '-m', 'shop');
+    git(folder, 'clone', '-q', '--bare', 'seed', 'origin.git');
+    git(folder, 'clone', '-q', 'origin.git', 'shop');
+    shop = join(folder, 'shop');
+    git(shop, 'checkout', '-q', '-b', 'loyalty-discount');
+  }
+  if (run.take !== undefined) cpSync(join(root, 'film', 'takes', run.take, 'files'), shop, { recursive: true });
+  return { shop, env, args: run.args };
+}
+
+function runAsync(cli, { shop, env, args }) {
+  return new Promise((resolve) => {
+    const child = spawn(process.execPath, [cli, ...args], { cwd: shop, env, timeout: 60000 });
+    let output = '';
+    let error = '';
+    child.stdout.setEncoding('utf8').on('data', (text) => (output += text));
+    child.stderr.setEncoding('utf8').on('data', (text) => (error += text));
+    child.on('close', (code) => resolve({ exit: code, output, error }));
+  });
+}
+
+// The shops are all made before the first run starts, so the runs overlap whatever the load: each waits for its own process, and they are most of the time of this check.
+export async function runsOf(root, edit, cli) {
+  const folders = [];
+  try {
+    const shops = Object.keys(edit.runs).map((id) => {
+      const folder = mkdtempSync(join(tmpdir(), 'lawcheck-film-'));
+      folders.push(folder);
+      return [id, shopOf(root, edit, id, folder)];
+    });
+    const done = await Promise.all(shops.map(([, shop]) => runAsync(cli, shop)));
+    return new Map(shops.map(([id], index) => [id, done[index]]));
   } finally {
-    rmSync(folder, { recursive: true, force: true });
+    for (const folder of folders) rmSync(folder, { recursive: true, force: true });
   }
 }
 
@@ -298,7 +406,8 @@ if (process.argv[1] !== undefined && fileURLToPath(import.meta.url) === process.
     process.exit(2);
   }
   const edit = readEdit(ROOT);
-  const run = (id) => runOf(ROOT, edit, id, cli);
+  const runs = await runsOf(ROOT, edit, cli);
+  const run = (id) => runs.get(id);
   if (writing) {
     const version = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')).version;
     write(ROOT, edit, run, version);
@@ -309,15 +418,17 @@ if (process.argv[1] !== undefined && fileURLToPath(import.meta.url) === process.
   const reading = readingProblems(edit);
   const secret = privateProblems(ROOT);
   const versions = versionProblems(edit);
+  const narration = narrationProblems(ROOT, edit);
   const report = (name, problems, good) => {
     process.stdout.write(problems.length === 0 ? `${name}: ${good}\n` : problems.map((problem) => `${name}: ${problem}\n`).join(''));
   };
   report('truth', truth.problems, `all ${truth.strings} strings on screen come from their take, run or page`);
   report('staleness', stale, `${Object.keys(edit.runs).length} runs of this build print what the film shows`);
   report('reading time', reading, `the loop lasts ${lengthOf(edit.loop)} s, ${(edit.chapters ?? []).map((chapter) => `the chapter ${chapter.page} ${lengthOf(chapter.timeline)} s`).join(', ')}, and every screen stands long enough to be read`);
-  report('versions', versions, 'no screen, caption or subtitle shows a version or the name of a model');
+  report('narration', narration.problems, `all ${narration.sentences} narrated sentences end as spoken sentences, say their numbers in words and cite what their frame or page shows`);
+  report('versions', versions, 'no screen, caption, subtitle or narrated sentence shows or says a version or the name of a model, in digits or in words');
   report('private', secret, privateSummary(privateWords()));
-  const problems = truth.problems.length + stale.length + reading.length + secret.length + versions.length;
+  const problems = truth.problems.length + stale.length + reading.length + secret.length + versions.length + narration.problems.length;
   process.stdout.write(problems === 0 ? 'film/check.mjs: PASS\n' : `film/check.mjs: FAIL  ${problems} problems\n`);
   process.exit(problems === 0 ? 0 : 1);
 }
