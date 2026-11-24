@@ -401,6 +401,58 @@ test('test 1110: T7, under --law-from a commit in which git lists a file in .law
   }
 });
 
+test('test 1160: T7, under --law-from a package.json of the change, .lawcheck/package.json or the root one, cannot change what an import of a rule of the base resolves to, by the name and exports of its package or by its # imports', async () => {
+  const rule = (from: string) => `import { CALL } from '${from}';\nexport function check({ files }) {\n  return files.flatMap((file) => file.lines.flatMap((text, index) => (CALL.test(text) ? [{ file: file.path, line: index + 1, message: 'writes to the terminal' }] : [])));\n}\n`;
+  const callpkg = (s: string) => {
+    write(s, '.git/info/exclude', 'node_modules/\n');
+    write(s, 'node_modules/callpkg/package.json', '{ "name": "callpkg", "type": "module", "exports": "./index.js" }\n');
+    write(s, 'node_modules/callpkg/index.js', 'export const CALL = /\\bconsole\\.(\\w+)/;\n');
+  };
+  const fake = 'export const CALL = /a^/;\n';
+  const cases: { name: string; base: (s: string) => void; plant: (s: string) => void }[] = [
+    {
+      name: 'the name and exports of .lawcheck/package.json',
+      base: (s) => { callpkg(s); setRule(s, 'no-console', rule('callpkg')); },
+      plant: (s) => { write(s, '.lawcheck/package.json', '{ "name": "callpkg", "exports": "./fake.mjs" }\n'); write(s, '.lawcheck/fake.mjs', fake); },
+    },
+    {
+      name: 'exports of .lawcheck/package.json into the rule of the change',
+      base: (s) => { callpkg(s); setRule(s, 'no-console', rule('callpkg')); },
+      plant: (s) => { write(s, '.lawcheck/package.json', '{ "name": "callpkg", "exports": "./rules/no-console.mjs" }\n'); setRule(s, 'no-console', `${fake}export function check() {\n  return [];\n}\n`); },
+    },
+    {
+      name: 'the name and exports of the root package.json',
+      base: (s) => { callpkg(s); setRule(s, 'no-console', rule('callpkg')); },
+      plant: (s) => { write(s, 'package.json', '{ "name": "callpkg", "exports": "./.lawcheck/fake.mjs" }\n'); write(s, '.lawcheck/fake.mjs', fake); },
+    },
+    {
+      name: 'the # imports of .lawcheck/package.json',
+      base: (s) => { write(s, '.lawcheck/package.json', '{ "imports": { "#call": "./rules/lib/call.mjs" } }\n'); write(s, '.lawcheck/rules/lib/call.mjs', 'export const CALL = /\\bconsole\\.(\\w+)/;\n'); setRule(s, 'no-console', rule('#call')); },
+      plant: (s) => { write(s, '.lawcheck/package.json', '{ "imports": { "#call": "./fake.mjs" } }\n'); write(s, '.lawcheck/fake.mjs', fake); },
+    },
+    {
+      name: 'the # imports of the root package.json',
+      base: (s) => { callpkg(s); write(s, 'package.json', '{ "private": true, "imports": { "#call": "callpkg" } }\n'); setRule(s, 'no-console', rule('#call')); },
+      plant: (s) => { write(s, 'package.json', '{ "private": true, "imports": { "#call": "./.lawcheck/fake.mjs" } }\n'); write(s, '.lawcheck/fake.mjs', fake); },
+    },
+  ];
+  for (const { name, base, plant } of cases) {
+    await withSample(
+      async (s) => {
+        write(s, 'src/core/total.ts', "export const total = 1;\nconsole.log(total);\n");
+        plant(s);
+        git(s, 'add', '-A');
+        git(s, 'commit', '-q', '-m', 'plant');
+        const run = await check(s, '--base', 'main', '--law-from', 'main');
+        assert.deepEqual(findingLines(run.stdout), ['src/core/total.ts:2  error[no-console]  writes to the terminal'], `${name}: ${run.stdout}`);
+        assert.equal(run.code, 1, name);
+        noCopyLeft(s);
+      },
+      { onMain: base },
+    );
+  }
+});
+
 test('test 1112: T7, under --law-from a folder that a file system which ignores case finds as .lawcheck/node_modules or .lawcheck/.local, in another case or with a long s, stops with law-from-packages, named as git lists it, and its next line clears it', async () => {
   for (const folder of ['.lawcheck/Node_Moduleſ', '.lawcheck/.Local']) {
     await withSample(async (s) => {
