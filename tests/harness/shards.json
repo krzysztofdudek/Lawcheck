@@ -697,7 +697,7 @@
         "tests/unit/law.test.ts > may_use: ids of types anywhere in the law, each once": 20,
         "tests/unit/law.test.ts > may_use values that are law-invalid, at the item or at the key": 21,
         "tests/unit/law.test.ts > the codes of the dependency slice are reserved": 16,
-        "tests/unit/prime.test.ts > the first part is 1,455 characters without reviewer rules or may_use, and 1,751 with both": 27,
+        "tests/unit/prime.test.ts > the first part is 1,567 characters without reviewer rules or may_use, and 1,863 with both": 27,
         "tests/unit/prime.test.ts > a text longer than 60 characters is cut to 59 and an ellipsis, counted in code points": 14,
         "tests/unit/prime.test.ts > step 1 holds everything": 19,
         "tests/unit/prime.test.ts > each step is taken when the one before it does not fit": 1672,
