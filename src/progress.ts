@@ -1,4 +1,6 @@
-const TEXT_BYTES = 1024;
+// Room for the longest path Windows allows, 32,767 UTF-16 units, each of which takes at most three bytes of UTF-8.
+const TEXT_UNITS = 33_000;
+const TEXT_BYTES = TEXT_UNITS * 3;
 const WHAT = 16;
 const FILE = WHAT + TEXT_BYTES;
 const SIZE = FILE + TEXT_BYTES;
@@ -8,10 +10,17 @@ let buffer: SharedArrayBuffer | null = null;
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
+// A longer text keeps its start and its end, where a step names the rule it reads for.
+function fit(text: string): string {
+  if (text.length <= TEXT_UNITS) return text;
+  const half = (TEXT_UNITS - 1) / 2;
+  return `${text.slice(0, Math.floor(half))}…${text.slice(text.length - Math.ceil(half))}`;
+}
+
 function write(into: SharedArrayBuffer, what: string, file: string): void {
   const sizes = new Int32Array(into, 8, 2);
-  sizes[0] = encoder.encodeInto(what.slice(0, TEXT_BYTES / 4), new Uint8Array(into, WHAT, TEXT_BYTES)).written;
-  sizes[1] = encoder.encodeInto(file.slice(0, TEXT_BYTES / 4), new Uint8Array(into, FILE, TEXT_BYTES)).written;
+  sizes[0] = encoder.encodeInto(fit(what), new Uint8Array(into, WHAT, TEXT_BYTES)).written;
+  sizes[1] = encoder.encodeInto(fit(file), new Uint8Array(into, FILE, TEXT_BYTES)).written;
 }
 
 // The main thread starts the watch when it starts the worker, which on a starved processor may take seconds to run its first line.

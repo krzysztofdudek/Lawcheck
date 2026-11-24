@@ -45,6 +45,7 @@ In the Claude Code plugin, a law error that the agent was shown once comes back 
 Every message the Claude Code plugin sends you, and every text it gives the agent after an edit or at the end of a turn, now starts with `Lawcheck:`. In alpha.4 some started with `lawcheck:`, as the tool's own output does, and one read `lawcheck: lawcheck check could not judge`. A hook that fails now prints `Lawcheck plugin:` before the cause. A reason that ends in a full stop no longer gets a second one, the text the agent gets says `... 1 more line not shown` for one line, and `lawcheck prime` says `1 more root type`.
 
 The npm package and the Claude Code plugin now include the MIT licence of cross-spawn, whose escaping of arguments for `cmd.exe` they use on Windows.
+A plain `lawcheck check` no longer misses a file edited in the same second as the last commit or `git add`, when the edit keeps the file's size. In alpha.4 the check printed `PASS  nothing changed` while `git status` showed the file as modified.
 
 The Lawcheck plugin now works in Codex CLI and GitHub Copilot CLI. In both, the agent gets the law when a session starts, a check after each edit, and up to three returns before it finishes, as in Claude Code. A file the agent writes through the shell gets no check after the edit, and the check before the end of the turn catches it. `LAWCHECK_PLUGIN_CHECK_AFTER_EDIT` and `LAWCHECK_PLUGIN_CHECK_BEFORE_STOP` switch the two checks off. In alpha.4 both agents got the law only through a line in their instructions file.
 
@@ -58,9 +59,9 @@ The Lawcheck plugin now works in Codex CLI and GitHub Copilot CLI. In both, the 
 The pages of `lawcheck docs` said that a file git ignores has no type. That holds only for a file git does not track. A file git tracks keeps its type and is judged even when `.gitignore` names it, as `lawcheck explain` shows. The pages now say so.
 A script rule may return `line: null` for a finding about the whole file. In alpha.4 the rule was `rule-crashed`. A string such as `'2'`, a bigint or `1.5` still crashes the rule, with a message that names the value.
 
-A script rule whose timer throws after the rule's last result is now `rule-crashed` also when the rule unrefs the timer, with `unref()` or with `ref: false` of `node:timers/promises`. In alpha.4 such a rule passed, because Lawcheck did not wait for an unreferenced timer.
+A script rule whose timer throws after the rule's last result is now `rule-crashed` also when the rule unrefs the timer, with `unref()` or with `ref: false` of `node:timers/promises`, and when the throw follows an asynchronous wait on shared memory that ends after that result. In alpha.4 such a rule passed, because Lawcheck waited neither for an unreferenced timer nor for such a wait.
 
-When a reviewer's answer holds two verdict objects and one of them is a `fail`, the answer is that fail. In alpha.4 the last object won, so a fail followed by a quoted pass read as a pass.
+When a reviewer's answer holds two verdict objects and one of them is a `fail`, the answer is that fail. In alpha.4 the last object won, so a fail followed by a quoted pass read as a pass. A pass is now a bad answer when an object of the answer holds the key `verdict` twice, or when another object holds a verdict that is neither `pass` nor `fail`, such as `"Fail"`. In alpha.4 both read as a pass.
 
 A `check` or `try` that ends with exit 2 after it sent requests to a reviewer now says how many. The first line ends with the count, such as `lawcheck: ERROR  1 error, 2 reviewer calls`, and the JSON document `lawcheck-error/1` gains `calls_made` when the count is above 0. A program that checks the document against a schema that refuses unknown keys has to allow `calls_made`.
 
