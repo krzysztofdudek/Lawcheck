@@ -106,16 +106,21 @@ test('test 205: the packed tarball, installed globally without the network, star
     const s = makeSample(dir);
     write(s, D_PATH, D);
     const version = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')).version;
+    // Git Bash's /tmp is the folder TMP names, and it warns on standard error when it cannot reach it; this folder is made once, before the first run, not a moment before each run as the harness's own.
+    const bashTemp = join(dir, 'bash-temp');
+    mkdirSync(bashTemp);
     for (const shell of SHELLS) {
       for (const [line, code, stdout] of [
         ['lawcheck --version', 0, `${version}\n`],
         ['lawcheck check --base main', 1, TEST4],
       ] as const) {
-        const run = await startShell(shell, line, s, GIT_ENV, { env: { PATH: [bin, GIT_ENV.PATH].join(delimiter) } }).ended;
+        const env = { PATH: [bin, GIT_ENV.PATH].join(delimiter), ...(shell === 'Git Bash' ? { TMP: bashTemp, TEMP: bashTemp } : {}) };
+        const run = await startShell(shell, line, s, GIT_ENV, { env }).ended;
         assert.equal(run.stdout, stdout, `${shell}: ${line}`);
         assert.equal(run.stderr, '', `${shell}: ${line}`);
         assert.equal(run.code, code, `${shell}: ${line}`);
       }
     }
+    assert.deepEqual(readdirSync(bashTemp), [], 'Git Bash and the lawcheck it started left nothing in the temporary folder');
   });
 });
