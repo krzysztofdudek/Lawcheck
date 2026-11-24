@@ -52,9 +52,9 @@ Lawcheck reads the [uses](concepts.md#use) of twelve languages: TypeScript, Java
 
 Lawcheck reads no uses in any other language, such as Swift. When a type has a `may_use` list and holds files of such a language, Lawcheck warns with [`uses-not-read`](languages.md#uses-not-read). A script rule or a [reviewer rule](concepts.md#reviewer-rule) judges the text of those files as it judges any other file. With Harmonize, you write architecture rules for Swift as tests. Semgrep and `ast-grep` match patterns of syntax in many languages, with no model of the dependencies between files.
 
-- A reader is the part of Lawcheck that reads the uses of one language. Lawcheck counts a use that its readers cannot resolve to one file. Such a use never becomes a finding ([Languages and uses](languages.md)).
+- A reader is the part of Lawcheck that reads the uses of one language. Lawcheck counts a use that its readers cannot resolve to one file. Such a use is a finding only when it could name several files and `may_use` forbids every one of them ([Languages and uses](languages.md)).
 - The same law holds reviewer rules, for a requirement a person would judge by reading.
-- A [plain check](concepts.md#plain-check) judges the [change](concepts.md#change). With `--full`, `lawcheck check` lists the findings outside the change as [debt](concepts.md#debt). Debt never changes the exit code, so you can start a law in a repository that already breaks it.
+- A [plain check](concepts.md#plain-check) judges the [change](concepts.md#change). With `--full`, `lawcheck check` lists the findings outside the change as [debt](concepts.md#debt). Debt changes the exit code only with `--strict`, so you can start a law in a repository that already breaks it.
 
 Lawcheck reads the uses written out in the code. It does not read an `import()` of a variable, `importlib.import_module`, or a class that the code finds by its name at run time. In Java, Kotlin, C#, Ruby and Rust, a check of one file reads the names, such as class names, that every file of its language declares in the repository. Such a run reads more files than the check names.
 
@@ -82,7 +82,7 @@ The services among them charge per person, per review or in credits.
 
 A review bot reads the whole pull request. It comments on the change as a whole, with your rules or without them. The reviewer of Lawcheck is the model that judges a reviewer rule. Each call sends it one file and one rule. A rule can name more files in its `context` key for the reviewer to read beside that file. The reviewer sees nothing else of the repository. A reviewer rule cannot judge a requirement that spans the files of a change, such as a new handler that comes with its test.
 
-Lawcheck checks before the pull request exists. In Claude Code, Codex and Copilot CLI, it checks after each edit and before the agent ends its turn. Lawcheck checks uses and script rules with no model. A second check of the same code prints the same output.
+Lawcheck checks before the pull request exists. In Claude Code and Codex, it checks after each edit and before the agent ends its turn, and in Copilot CLI before the agent ends its turn. Lawcheck checks uses and script rules with no model. A second check of the same code prints the same output.
 
 A reviewer rule needs a model. `lawcheck check --review` asks the model once for each file and each rule that binds it. You commit `.lawcheck/verdicts`, where Lawcheck records each pass as a [verdict](concepts.md#verdict). A later check reads the pass in place of a call. Lawcheck sends the file again only after the file, the rule, its `why` or its `context` changes. CI reads the committed verdicts, with no model and no key. When a changed file has no recorded pass of an enforced reviewer rule, CI fails the job with the error `not-reviewed`. You run `lawcheck check --review` before the push ([CI and git hooks](ci.md)).
 
@@ -123,16 +123,16 @@ The Lawcheck plugin adds the law to the session ([The Claude Code plugin](plugin
 
 A hook of your own can run `lawcheck check <file>` too. Lawcheck exits 1 when the file breaks the law. It exits 2 when the law or the setup has an error. Claude Code blocks on exit 2 of a hook, so your hook turns the exit 1 of Lawcheck into exit 2. For an exit 2 of Lawcheck, your hook decides for itself what to do. Each of the two checks of the plugin has its own setting: `check_after_edit` and `check_before_stop`. You can turn off the check that your hook replaces.
 
-Cursor, Copilot, Codex and Gemini CLI have hooks on similar events. In each of them, exit 2 from a hook blocks the action. Lawcheck ships a plugin for Claude Code, Codex and Copilot CLI, and Cursor runs the one for Claude Code. In the other agents, a hook you write runs `lawcheck check`. Without such a hook, the agent checks only when it follows its instructions file. A CI job catches what the agent skips.
+Cursor, Copilot, Codex and Gemini CLI have hooks on similar events. In each of them, exit 2 from a hook blocks the action. Lawcheck ships a plugin for Claude Code, Codex and Copilot CLI, and Cursor loads the one for Claude Code through its support for Claude Code plugins. In the other agents, a hook you write runs `lawcheck check`. Without such a hook, the agent checks only when it follows its instructions file. A CI job catches what the agent skips.
 
-Lawcheck sends the agent back before the end of its turn in Claude Code, Codex and Copilot CLI. In Cursor, that return needs two entries in `.cursor/hooks.json`. No session of Cursor has run it ([Lawcheck in Cursor](cursor.md)). In another agent, a hook of that agent that runs the linter of each language fits that loop better. Lawcheck can add the law in a CI job.
+Lawcheck sends the agent back before the end of its turn in Claude Code, Codex and Copilot CLI. No session of Cursor has run the plugin ([Lawcheck in Cursor](cursor.md)). In another agent, a hook of that agent that runs the linter of each language fits that loop better. Lawcheck can add the law in a CI job.
 
 | Your case | Use |
 |---|---|
 | Your hook runs the linter and the tests, and the linter already holds your layers | your hook |
 | You want the law checked inside the turn, on the files of the turn, with at most three returns | the Lawcheck plugin, in Claude Code, Codex or Copilot CLI |
 | Your hook runs the tests, and the law holds your layers | both: your hook runs the tests, and the plugin checks the law |
-| You work in Cursor, and you want the agent sent back after each edit | a Cursor hook of your own, since no session of Cursor has run the Lawcheck plugin and its return needs two entries in `.cursor/hooks.json`; Lawcheck can add the law in CI |
+| You work in Cursor, and you want the agent sent back after each edit | a Cursor hook of your own, since no session of Cursor has run the Lawcheck plugin; Lawcheck can add the law in CI |
 | You work in another agent that has hooks, and you want the agent sent back after each edit | the agent's own hook with the linter of each language, since the Lawcheck plugin runs only in Claude Code, Codex, Copilot CLI and Cursor; Lawcheck can add the law in CI |
 | You work in another agent, and the law holds rules that no linter knows, such as `may_use` across languages | a hook you write that runs `lawcheck check` before the agent finishes, and the same check in CI |
 
