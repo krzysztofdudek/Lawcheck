@@ -622,9 +622,9 @@ export const MATCH_BUDGET_MS = 100;
 export const PATTERN_RUN_BUDGET_MS = 8_000;
 // takeAnswer on one megabyte of `{` and on 50,000 nested objects (I-answer-1, S3-3); measured below 30 ms.
 export const ANSWER_BUDGET_MS = 1_000;
-// The same reading, without a clock that load can break (I-answer-1, S3-3): an answer 4 times as long may take at most this many times as long to read, the shortest of ANSWER_ROUNDS reads of each; a linear reader measures 4 to 7 on a loaded machine, a quadratic one 16 and more.
-export const ANSWER_GROWTH = 10;
-export const ANSWER_ROUNDS = 8;
+// The same reading, without a clock that load can break (I-answer-1, S3-3): an answer 8 times as long may take at most this many times as long to read, the shortest of ANSWER_ROUNDS reads of each; a linear reader measures 8 to 12 on a loaded machine and 20 under the whole suite, a quadratic one 64 and more.
+export const ANSWER_GROWTH = 28;
+export const ANSWER_ROUNDS = 12;
 // parseLaw on the generator's deepest text, 20,000 levels of brackets; measured at 57 ms in the dev container.
 export const LAW_PARSE_BUDGET_MS = 1_500;
 // What a rule that leaves an interval running may add to a run of 200 files: the one wait of 2 seconds after its last call (docs/script-rules.md), and 2 seconds for the noise of two runs.
