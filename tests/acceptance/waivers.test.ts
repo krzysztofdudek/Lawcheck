@@ -213,6 +213,7 @@ test('test 850: the base text of the changed files that hold a waiver is read by
       },
     );
   assert.equal(await starts(20), await starts(2));
+});
 
 test('S1-15: of two waivers of one rule that cover one line, the unused one names the waiver that takes the findings', async () => {
   await withSample(async (s) => {

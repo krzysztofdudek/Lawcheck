@@ -275,6 +275,8 @@ test('test 133: past five items, the law-change line shows first what loosens th
     assert.equal(run.stdout.split('\n')[2], 'note: this change edits the law that judges it: adds src/gen/** to ignored; takes the rule no-console off the type library; adds src/a/** to required; adds src/b/** to required; adds src/c/** to required; and 2 more');
     const json = JSON.parse((await check(s, '--base', 'main', '--json')).stdout);
     assert.deepEqual(json.scope.law_changes, [...required.map((p) => `adds ${p} to required`), 'adds src/gen/** to ignored', 'takes the rule no-console off the type library']);
+  });
+});
 
 test('S5-16: a folded or literal about of one line is refused for the break that ends the block, and the message says how to drop it', async () => {
   const about = (style: string) => replaceOnce(LAW, '    about: Everything that ships.\n', `    about: ${style}\n      Everything that ships.\n`);
