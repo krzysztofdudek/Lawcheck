@@ -97,12 +97,30 @@ test('S5-6: explain of a path with a segment over 255 bytes is usage as test 245
     assert.deepEqual([run.code, run.stderr, run.stdout.split('\n')[2]], [2, '', `error[usage]  the path '${long}' cannot exist here: it is longer than this system allows for a name or a path`]);
     const longer = `src/${'b/'.repeat(2500)}c.ts`;
     const deep = await lawcheck(s, ['explain', longer, '--json']);
-    assert.equal(deep.code, 2, deep.stdout);
-    assert.equal(JSON.parse(deep.stdout).errors[0].code, 'usage');
+    if (process.platform === 'win32') {
+      assert.equal(deep.code, 0, deep.stdout);
+      assert.deepEqual([JSON.parse(deep.stdout).path, JSON.parse(deep.stdout).exists], [longer, false]);
+    } else {
+      assert.equal(deep.code, 2, deep.stdout);
+      assert.equal(JSON.parse(deep.stdout).errors[0].code, 'usage');
+    }
     if (platformSkip('an escaped segment') === null) {
       const escaped = `src/core/${'a\\n'.repeat(100)}.ts`;
       const short = await lawcheck(s, ['explain', escaped]);
       assert.deepEqual([short.code, short.stderr, short.stdout.split('\n')[0]], [0, '', `${escaped}  (does not exist yet)`]);
+    }
+  });
+});
+
+test('R-93: explain of a name of 86 CJK characters is usage where a name holds 255 bytes, and an answer on Windows, where it holds 255 UTF-16 units', async () => {
+  await withSample(async (s) => {
+    const name = `src/core/${'\u4e2d'.repeat(86)}.ts`;
+    const run = await lawcheck(s, ['explain', name]);
+    if (process.platform === 'win32') {
+      assert.equal(run.code, 0, run.stdout);
+      assert.ok(!run.stdout.includes('cannot exist'), run.stdout);
+    } else {
+      assert.deepEqual([run.code, run.stdout.split('\n')[2]], [2, `error[usage]  the path '${name}' cannot exist here: it is longer than this system allows for a name or a path`]);
     }
   });
 });

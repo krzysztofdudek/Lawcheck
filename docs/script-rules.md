@@ -53,6 +53,37 @@ export async function check({ files: [file] }) {
 }
 ```
 
+The node types and fields come from the grammar of each language, and they differ between languages: a call is a `call_expression` in TypeScript and a `call` in Python. Before you write a rule that reads the tree, print the tree of a real file of the rule's language. This is `src/run.ts`:
+
+```ts
+const note = "eval(x)"; // eval(y)
+eval(note);
+```
+
+```text
+$ lawcheck explain src/run.ts --tree
+```
+
+```output
+src/run.ts  typescript  20 nodes, 12 named
+  program  line 1
+    lexical_declaration  line 1
+      variable_declarator  line 1
+        name: identifier  line 1  "note"
+        value: string  line 1
+          string_fragment  line 1  "eval(x)"
+    comment  line 1  "// eval(y)"
+    expression_statement  line 2
+      call_expression  line 2
+        function: identifier  line 2  "eval"
+        arguments: arguments  line 2
+          identifier  line 2  "note"
+```
+
+Each line below the first is a named node, under its parent: its field before a colon, its type and its line. A node with no named node below it also shows its text, cut at 40 characters. The rule above follows this tree: it takes the child in the field `function` of a `call_expression`. The `comment` holds `eval(y)` as text, so the rule reports nothing there.
+
+`explain --tree` leaves out the nodes that are not named, such as `const` and `;`. It stops at 12 levels and at 200 nodes, and says how many named nodes it left out. With `--json`, it gives every node with the keys below, and `parent` in place of `children`: the index of the node's parent in the list, or null for the root. To see the tree of one construct, write it in a small file and explain that file. The file need not be tracked by git. For a file with no tree, `explain --tree` prints the reason that `absent` gives below.
+
 `await file.tree()` gives an object with three keys:
 
 | Key | Value |
