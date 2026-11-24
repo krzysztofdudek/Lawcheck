@@ -315,10 +315,11 @@ function addedInChange(root: string, base: string, run: TypedFile[], changed: Se
   const read = atBase(root, base);
   if (read === null) return null;
   const added = new Set<Waiver>();
-  for (const file of run) {
+  const waived = run.filter((file) => waiversOf.get(file.path)!.waivers.length > 0 && changed.has(file.path));
+  const atFork = read(waived.map((file) => file.path));
+  for (const file of waived) {
     const now = waiversOf.get(file.path)!.waivers;
-    if (now.length === 0 || !changed.has(file.path)) continue;
-    const bytes = read(file.path);
+    const bytes = atFork.get(file.path) ?? null;
     const lines = bytes === null || isBinary(bytes) ? [] : splitLines(decode(bytes));
     for (const waiver of addedWaivers(now, file.lines, parseWaivers(lines, ruleIds).waivers, lines)) added.add(waiver);
   }

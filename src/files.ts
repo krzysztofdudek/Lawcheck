@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { copyFileSync, existsSync, lstatSync } from 'node:fs';
+import { copyFileSync, existsSync, lstatSync, statSync, utimesSync } from 'node:fs';
 import { devNull } from 'node:os';
 import { dirname, join, resolve, sep } from 'node:path';
 import { findProgram } from './programs.js';
@@ -259,8 +259,8 @@ export function mergeBase(root: string, commit: string): string | null {
   throw failed(args, result);
 }
 
-// git diff writes the index again when the times of its files no longer match it, whatever GIT_OPTIONAL_LOCKS says, so the change is read through a copy of the index.
-function onIndexCopy<T>(root: string, read: (env: NodeJS.ProcessEnv) => T): T {
+// git diff writes the index again when the times of its files no longer match it, whatever GIT_OPTIONAL_LOCKS says, so the change is read through a copy of the index. A copy that keeps the index's modification time, cut to the whole second, lets git read a file changed in the second the index was written by its content; on a copy with a fresh time git trusts a same-size edit of that second as unchanged.
+function onIndexCopy<T>(root: string, keepTime: boolean, read: (env: NodeJS.ProcessEnv) => T): T {
   const pathArgs = ['rev-parse', '--git-path', 'index'];
   const found = git(root, pathArgs);
   if (found.status !== 0) throw failed(pathArgs, found);
@@ -275,7 +275,10 @@ function onIndexCopy<T>(root: string, read: (env: NodeJS.ProcessEnv) => T): T {
   }
   try {
     try {
-      copyFileSync(resolved, join(folder, 'index'));
+      const copy = join(folder, 'index');
+      const { atimeMs, mtimeMs } = statSync(resolved);
+      copyFileSync(resolved, copy);
+      utimesSync(copy, atimeMs / 1000, keepTime ? Math.floor(mtimeMs / 1000) : Math.floor(Math.max(Date.now(), mtimeMs) / 1000) + 86_400);
     } catch {
       return read({});
     }
@@ -287,12 +290,29 @@ function onIndexCopy<T>(root: string, read: (env: NodeJS.ProcessEnv) => T): T {
 
 export function changedPaths(root: string, base: string): string[] {
   const diffArgs = ['diff', '--no-ext-diff', '--no-textconv', '--ignore-submodules=all', '-z', '--name-only', '--no-renames', '--relative', base, '--'];
-  const diff = onIndexCopy(root, (env) => git(root, diffArgs, env));
+  const diff = onIndexCopy(root, true, (env) => git(root, diffArgs, env));
   if (diff.status !== 0) throw failed(diffArgs, diff);
   const othersArgs = ['ls-files', '-z', '--others', '--exclude-standard'];
   const others = git(root, othersArgs);
   if (others.status !== 0) throw failed(othersArgs, others);
-  return [...splitZ(diff.stdout), ...splitZ(others.stdout), ...hiddenEdits(root, base)];
+  return [...byTimeWhenFiltered(root, diffArgs, splitZ(diff.stdout)), ...splitZ(others.stdout), ...hiddenEdits(root, base)];
+}
+
+// git runs no clean filter for Lawcheck, so it hashes a file of Git LFS or another filter as its bytes on disk, which are not the bytes it stores; read by its content because it is not older than the index, as after a checkout, such a file would count as changed. It counts as changed only when its time or size differs from the index, as the diff on a copy dated a day ahead finds: a copy with a fresh time is still in the second of a checkout that just ended, and git would read the file by its content again.
+function byTimeWhenFiltered(root: string, diffArgs: string[], listed: string[]): string[] {
+  if (listed.length === 0 || !gitProgram) return listed;
+  const drivers = new Set(filterKeys(gitProgram, root).filter((key) => !key.endsWith('.smudge')).map((key) => key.slice('filter.'.length, key.lastIndexOf('.'))));
+  if (drivers.size === 0) return listed;
+  const attrArgs = ['check-attr', '-z', '--stdin', 'filter'];
+  const attrs = git(root, attrArgs, {}, Buffer.concat(listed.flatMap((path) => [bytesOfName(path), Buffer.from([0])])));
+  if (attrs.status !== 0) throw failed(attrArgs, attrs);
+  const fields = attrs.stdout.toString('utf8').split('\0');
+  const filtered = listed.map((_, i) => drivers.has(fields[i * 3 + 2] ?? ''));
+  if (!filtered.includes(true)) return listed;
+  const fresh = onIndexCopy(root, false, (env) => git(root, diffArgs, env));
+  if (fresh.status !== 0) throw failed(diffArgs, fresh);
+  const byTime = new Set(splitZ(fresh.stdout));
+  return listed.filter((path, i) => !filtered[i] || byTime.has(path));
 }
 
 // git's diff trusts the index for a file marked assume-unchanged or skip-worktree (a sparse checkout sets the second), so an edit of one on disk is found by its content (stress finding S1-14).
