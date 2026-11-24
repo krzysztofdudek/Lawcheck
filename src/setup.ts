@@ -94,6 +94,8 @@ export function lawsBelow(cwd: string): string[] {
   }
 }
 
+export const WRITE_BY_HAND = 'to govern this folder instead, write .lawcheck/law.yaml here by hand  (lawcheck docs first-law shows how)';
+
 export function belowPart(folders: string[]): string {
   const shown = folders.slice(0, 3).join(', ') + (folders.length > 3 ? `, and ${folders.length - 3} more` : '');
   return `; the laws below it are in ${shown}`;

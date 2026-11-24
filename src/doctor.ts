@@ -19,7 +19,7 @@ import type { Env } from './providers/index.js';
 import type { Provider } from './provider.js';
 import { LANGUAGES, loadGrammars, ownersOf, readerOf, readUses, siblingsOf } from './readers.js';
 import type { ScriptView } from './readers.js';
-import { belowPart, configErrors, damagedRepository, findRoot, LAW, lawErrors, lawsBelow, notInitialized, onceReader, ruleFileErrors, Stop, theChange, touchesLaw, typingErrors } from './setup.js';
+import { belowPart, configErrors, damagedRepository, findRoot, LAW, lawErrors, lawsBelow, notInitialized, onceReader, ruleFileErrors, Stop, theChange, touchesLaw, typingErrors, WRITE_BY_HAND } from './setup.js';
 import type { Change, Kinds, Read } from './setup.js';
 import type { TypedFile } from './types.js';
 import { extensionOf, listInForce } from './uses.js';
@@ -131,7 +131,7 @@ export async function runChecks(inputs: Inputs): Promise<Check[]> {
         const left = notInitialized(inputs.cwd);
         if (left.command !== undefined) return set('law', 'fail', left.message, next(forCommand(left.next!, 'doctor'), left.command));
         const below = lawsBelow(inputs.cwd);
-        if (below.length > 0) return set('law', 'fail', `no .lawcheck/law.yaml in this directory or any above it${belowPart(below)}`, next(`cd ${below[0]}, where a law is, then run lawcheck doctor again`));
+        if (below.length > 0) return set('law', 'fail', `no .lawcheck/law.yaml in this directory or any above it${belowPart(below)}`, next(`cd ${below[0]}, where a law is, then run lawcheck doctor again`), [WRITE_BY_HAND]);
         return set('law', 'fail', 'no .lawcheck/law.yaml in this directory or any above it', next('lawcheck init  (only when the user wants a law here)'));
       }
       const read = lawErrors(found.root);
