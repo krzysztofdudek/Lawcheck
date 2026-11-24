@@ -152,3 +152,13 @@ test('R-5: no command imports another, the call loop of the reviewer takes the c
     assert.deepEqual(found, []);
   });
 });
+
+test('R-81: src/runner.ts has the type rule-runner, so the runner of script rules using a module of Lawcheck is a forbidden-use', async () => {
+  await inTemp(async (dir) => {
+    const repo = cloneOfHead(dir);
+    write(repo, 'src/runner.ts', `import { count } from './limits.js';\n${read(repo, 'src/runner.ts')}`);
+    git(repo, 'commit', '-q', '-a', '-m', 'the runner uses the limits');
+    const { found } = await blocking(repo);
+    assert.deepEqual(found.filter((line) => line.includes('[forbidden-use]')), ['src/runner.ts:1 warning[forbidden-use] rule-runner may not use src/limits.ts, which has no type; its may_use is []']);
+  });
+});
