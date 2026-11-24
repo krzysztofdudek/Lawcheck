@@ -44,7 +44,7 @@ Lawcheck stops a command with exit 2 in the cases below. The error names the nex
 | a number with a character other than a digit | `usage` |
 | a word after `init`, `prime` or `doctor`, which take flags alone | `usage` |
 | no command, or a command Lawcheck does not have; the message names the seven commands | `usage` |
-| a Node, a git or a package manager that Lawcheck does not run on, for every command but `docs` and `doctor` | `unsupported-environment` ([Supported environments](support.md)) |
+| a Node, a git or a package manager that Lawcheck does not run on, for every command but `docs` and `doctor`; `--version` and `--help` run there too | `unsupported-environment` ([Supported environments](support.md)) |
 | a run stopped by `SIGTERM`, `SIGINT` or `SIGHUP` | `stopped` |
 | an output that Lawcheck cannot write; the error goes to standard error | `file-unwritable` |
 

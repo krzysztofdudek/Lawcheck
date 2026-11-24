@@ -139,7 +139,7 @@ src/report.ts:1  warning[no-console]  writes to the terminal with console.log
   why:  Only the command layer writes to the terminal.
 ```
 
-The three changed files are the new files of `.lawcheck/`. Lawcheck counts them like any other file git lists. The note line says the change edits the law ([What a check judges](change.md)). Lawcheck lists a finding outside the change as debt. Lawcheck prints a finding of debt as a warning. So a finding of debt never fails the run.
+The three changed files are the new files of `.lawcheck/`. Lawcheck counts them like any other file git lists. The note line says the change edits the law ([What a check judges](change.md)). Lawcheck lists a finding outside the change as debt. Lawcheck prints a finding of debt as a warning. So a finding of debt does not fail the run, unless you pass `--strict`.
 
 ## 7. Try the rule on one file
 
