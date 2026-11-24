@@ -93,6 +93,7 @@
     "tests/acceptance/cli.test.ts",
     "tests/acceptance/docs.test.ts",
     "tests/acceptance/hostile.test.ts",
+    "tests/acceptance/sarif.test.ts",
     "tests/properties/arguments.test.ts",
     "tests/unit/args.test.ts"
   ],
@@ -224,6 +225,7 @@
   ],
   "src/main.ts": [
     "tests/acceptance/cli.test.ts",
+    "tests/acceptance/sarif.test.ts",
     "tests/limits/signals.test.ts",
     "tests/unit/cli.test.ts"
   ],
@@ -245,6 +247,9 @@
     "tests/limits/sizes.test.ts",
     "tests/limits/writes.test.ts",
     "tests/unit/output.test.ts"
+  ],
+  "src/output/sarif.ts": [
+    "tests/acceptance/sarif.test.ts"
   ],
   "src/prime.ts": [
     "tests/acceptance/prime.test.ts",

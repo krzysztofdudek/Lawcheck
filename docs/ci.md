@@ -86,8 +86,6 @@ Lawcheck exits with code 2 when it cannot judge the change, as with a law that i
 
 A team that has paid its debt can add `--strict` to the two `lawcheck check` lines of the script. A finding of an `enforced` rule in an old file then fails the job too, so the branch stays at zero debt ([`--strict`](commands.md#strict)).
 
-With `--json`, Lawcheck prints one JSON document. A script that annotates the pull request can read that document ([JSON documents](json.md)).
-
 ### 3. Install with pnpm or Yarn
 
 The workflow runs `npm install`, which works with a lockfile and without one. `npm ci` fails in a project that has no lockfile. For pnpm or Yarn 1, replace the step `npm install` with one of the two lines below. For Yarn 4, the line is `yarn install --immutable`.
@@ -173,8 +171,6 @@ In a merge request pipeline, GitLab sets `CI_MERGE_REQUEST_TARGET_BRANCH_NAME` t
 git fetch origin "+refs/heads/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME:refs/remotes/origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
 npx --no-install lawcheck check
 ```
-
-A pipeline of a branch with no merge request has no target branch. Lawcheck takes `CI_COMMIT_BEFORE_SHA` there, the commit before the push, which the full history holds. For the first push of a branch, that variable is all zeros, and Lawcheck stops with `base-unreachable`.
 
 ### 7. Give the base on Azure Pipelines
 
@@ -373,6 +369,22 @@ lawcheck-quality:
       codequality: gl-code-quality-report.json
 ```
 
+### 3. Show the findings in GitHub code scanning
+
+In [the workflow](#_2-add-the-workflow), add `security-events: write` to `permissions`. Add `--sarif "$RUNNER_TEMP/lawcheck.sarif"` to the check with `--full`, and `--full --sarif "$RUNNER_TEMP/lawcheck.sarif"` to the first check with `--base "$base"`. Code scanning closes every alert that an upload lacks, so the file holds the findings of every file. Then add this step ([SARIF 2.1.0](json.md#sarif-2-1-0)):
+
+<!-- example: sarif-upload -->
+```yaml
+- name: Upload to code scanning
+  if: ${{ !cancelled() }}
+  uses: github/codeql-action/upload-sarif@v4
+  with:
+    sarif_file: ${{ runner.temp }}/lawcheck.sarif
+    category: lawcheck
+```
+
+It runs after exit 1 too. After exit 2, Lawcheck writes no file and the step fails. A private repository needs GitHub Code Security and `actions: read`.
+
 ## A change to the law
 
 A pull request can change the law that judges it. The first check of the job judges with that changed law. For example, a pull request takes the [rule](concepts.md#rule) `no-console` off the [type](concepts.md#type) `library` and adds `console.log` to `src/core/total.ts`. The first check passes and prints:
@@ -485,7 +497,5 @@ A pull request of a fork runs the same script rules ([Pull requests from a fork]
 - Lawcheck prints `base-unreachable` when the job did not fetch the base branch, or when the clone is shallow. A shallow clone holds only the last commits, without the merge base. The `next:` line gives the `git fetch` command that fetches the history.
   The command is written for a POSIX shell. It quotes a remote or branch name that holds a character the shell reads, such as `;` or `$`. For a name that git refuses as a branch name, or that holds a line break, the line names no branch: on a shallow clone it gives `git fetch --unshallow`, and otherwise no command.
 - In a container, `no-git` means that another user owns the checkout. Git refuses to work in such a folder. The `next:` line gives the `git config` command that adds the folder to the git setting `safe.directory`. The command quotes the path for `sh`.
-- The log of a job that passed shows a warning. A warning leaves the exit code at 0. A CI job fails only on an exit code other than 0. Only the log shows the warning, unless the job annotates the pull request ([Findings in the pull request](#findings-in-the-pull-request)).
-- `lawcheck doctor` fails in a job that reads the committed verdicts, where `lawcheck check` passes: [Run doctor on a machine, not in the job](#_4-run-doctor-on-a-machine-not-in-the-job).
 
 Next: [A law shared by a team](team.md)
