@@ -1,6 +1,6 @@
 import { readFileSync, statSync } from 'node:fs';
 import { onDisk } from './names.mjs';
-import { blobsAt } from './snapshot.mjs';
+import { blobsAt, isRegular } from './snapshot.mjs';
 import { turnMessage as message } from './messages.mjs';
 import { plainText } from './start.mjs';
 
@@ -48,7 +48,8 @@ export function marksAtStart(root, files) {
 }
 
 export function turnChanges(root, state, paths, deadline) {
-  const law = paths.filter(isLaw);
+  const law = paths.filter((path) => isLaw(path) && isRegular(root, path));
+  const gone = paths.filter((path) => isLaw(path) && !isRegular(root, path));
   const now = new Map();
   for (const path of paths) {
     if (path.startsWith('.lawcheck/')) continue;
@@ -74,7 +75,7 @@ export function turnChanges(root, state, paths, deadline) {
       else waivers.push({ path, line, rule: /^\s+(\S+)/.exec(key.slice(MARKER.length))?.[1] ?? null });
     }
   }
-  return { waivers, law };
+  return { waivers, law, gone };
 }
 
 function listed(items) {
@@ -83,7 +84,8 @@ function listed(items) {
   return `${shown.join(', ')}${rest > 0 ? ` and ${rest} more` : ''}`;
 }
 
-export function turnMessage({ waivers, law }) {
+export function turnMessage({ waivers, law, gone }) {
   const named = waivers.map(({ path, line, rule }) => plainText(`${rule ?? MARKER} at ${path}:${line}`));
-  return message({ count: waivers.length, named: listed(named) }, law.length === 0 ? null : listed(law.map(plainText)));
+  const files = (list) => (list.length === 0 ? null : listed(list.map(plainText)));
+  return message({ count: waivers.length, named: listed(named) }, files(law), files(gone));
 }

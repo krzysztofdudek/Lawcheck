@@ -4,7 +4,7 @@ import { changes, git, resolve, Tree, type Change } from './git.ts';
 import { matchesAny, globToRegExp } from './glob.ts';
 import { fencedBlocks, invariantRows, readWeakenings, RECORD_HEADER, rulings, type Record, type Row } from './markdown.ts';
 import { namePattern, readSource, tokenize, type Marker } from './source.ts';
-import { readConstants, type Value } from './constants.ts';
+import { codeOf, readConstants, type Value } from './constants.ts';
 
 export type Config = {
   weakenings: string;
@@ -376,6 +376,9 @@ export function judge(repo: string, baseRev: string, headRev: string, config: Co
     else if (dir && (dir === 'fixed' ? now.value !== old.value : dir === 'higher' ? now.value < old.value : now.value > old.value)) add({ kind: 'threshold-lowered', subject: key, where, detail: `${old.value} -> ${now.value} (${dir === 'fixed' ? 'a fixed value' : `${dir} is stronger`})` });
   }
 
+  const numbersOld = before.read(config.numbers);
+  if (numbersOld !== null && numbersText !== null && codeOf(numbersOld) !== codeOf(numbersText)) add({ kind: 'threshold-lowered', subject: config.numbers, where, detail: "its code changed: what is not a number the guard reads, such as a function that picks a budget, can raise a budget that no number shows" });
+
   const listBefore = readList(before.read(config.sabotage));
   const listAfter = readList(after.read(config.sabotage));
   if (listAfter === null) add({ kind: 'list-unreadable', subject: config.sabotage, where: config.sabotage, detail: 'the sabotage list is not a JSON array' });
@@ -510,6 +513,7 @@ export function judge(repo: string, baseRev: string, headRev: string, config: Co
 
   const ownWord = (kind: string): boolean => (config.approvers[kind] ?? []).includes('owner') && !(config.approvers[kind] ?? []).some((r) => r !== 'owner');
   const stateOf = (w: Weakening): string => {
+    if (w.kind === 'threshold-lowered' && w.subject === config.numbers) return after.blob(w.subject) ?? 'deleted';
     if (w.kind === 'threshold-lowered') return `${describeValue(numbersAfter.values.get(w.subject))} ${numbersAfter.direction(w.subject) ?? 'no direction'}`;
     if (w.kind === 'promise-changed') {
       const row = snapAfter.invariants.get(w.subject);
