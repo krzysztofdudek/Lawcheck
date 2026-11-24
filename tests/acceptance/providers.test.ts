@@ -5,7 +5,7 @@ import { LIMITS } from '../../dist/rules.js';
 import { killGroup } from '../../dist/programs.js';
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { anthropic, defaultAnswer, gitAlone, openai, startFake, withFake, writeFakeClaude } from './fake-reviewer.ts';
 import { alive, append, F, F_PATH, findingLines, lawcheckAt, pathWith, PROMPT_F, read, REVIEWER_CONFIG, REVIEWER_LAW, run, SECOND, startLawcheck, withCopy, withR, write } from './helpers.ts';
@@ -1028,6 +1028,79 @@ test('test 1120: on Windows the guard that finds the tool gone before it reads t
       assert.ok(await waitFor(() => !alive(program.child), GUARD_ENDS_MS), 'the child the program left is alive');
     } finally {
       tool.kill('SIGKILL');
+      for (const pid of left) {
+        try {
+          process.kill(pid, 'SIGKILL');
+        } catch {
+          // Already ended.
+        }
+      }
+    }
+  });
+});
+
+// The list of processes the guard reads shows each process named in the file with the id and the parent written beside it, as when a process took the id of a program that had ended; each list that shows the file leaves a file of its own in the folder once its rows are out.
+function rewrittenTable(planted: string, lists: string): string {
+  return `$planted = @{}; if (Test-Path -LiteralPath '${planted}') { Get-Content -LiteralPath '${planted}' | ForEach-Object { $row = $_ -split ' '; $planted[$row[0]] = $row } }; Get-CimInstance Win32_Process | ForEach-Object { $id = "$($_.ProcessId)"; $parent = $_.ParentProcessId; if ($planted.ContainsKey($id)) { $parent = $planted[$id][2]; $id = $planted[$id][1] }; "$id $parent $($_.CreationDate.ToUniversalTime().Ticks)" }; if ($planted.Count -gt 0) { Set-Content -LiteralPath (Join-Path '${lists}' ([DateTime]::UtcNow.Ticks)) -Value '' }`;
+}
+
+// A tool that starts its guard on its own input, which the test holds, so the guard's input stays open when the tool is killed, as it did while claude ran.
+function keeper(guardFile: string): string {
+  return `import { spawn } from 'node:child_process';\nconst guard = spawn(process.execPath, [${JSON.stringify(guardFile)}], { cwd: ${JSON.stringify(dirname(guardFile))}, stdio: ['inherit', 'ignore', 'ignore'], detached: true });\nguard.unref();\nprocess.stdout.write(String(guard.pid) + '\\n');\nsetInterval(() => {}, 1000);\n`;
+}
+
+test('test 1121: on Windows the guard that waits to read the tool\'s last line ends what a program left from the list it held when it found the tool gone, and leaves alive the child of a process that took the program\'s id during that wait', async (t) => {
+  const skip = platformSkip('the whole test');
+  if (skip !== null) return t.skip(skip);
+  await withCopy(async (copy) => {
+    const guardFile = join(copy.dir, 'dist', 'guard.js');
+    const programsFile = join(copy.dir, 'dist', 'programs.js');
+    const found = 'clearInterval(poll);';
+    const wait = 'setTimeout(endAll, INPUT_MS);';
+    const table = /export const PROCESS_TABLE = .*;\n/;
+    const sound = readFileSync(guardFile, 'utf8');
+    const programs = readFileSync(programsFile, 'utf8');
+    assert.ok(sound.includes(found) && sound.includes(wait), 'the guard has no wait after it finds the tool gone for this test to hold');
+    assert.ok(table.test(programs), 'programs.js has no PROCESS_TABLE for this test to plant an id in');
+    const planted = join(copy.dir, 'planted.txt');
+    const lists = join(copy.dir, 'lists');
+    mkdirSync(lists);
+    const gone = join(copy.dir, 'gone');
+    const go = join(copy.dir, 'go');
+    writeFileSync(programsFile, programs.replace(table, () => `export const PROCESS_TABLE = ${JSON.stringify(rewrittenTable(planted, lists))};\n`));
+    // The guard's wait for its input lasts until the test has seen it read a list that shows the stranger.
+    writeFileSync(guardFile, `import { existsSync as told, writeFileSync as mark } from 'node:fs';\n${sound.replace(found, () => `${found} mark(${JSON.stringify(gone)}, '');`).replace(wait, () => `const waiting = setInterval(() => { if (told(${JSON.stringify(go)})) { clearInterval(waiting); endAll(); } }, 50);`)}`);
+    writeFileSync(join(copy.dir, 'keeper.mjs'), keeper(guardFile));
+    const left: number[] = [];
+    let guard = 0;
+    const tool = spawn(process.execPath, [join(copy.dir, 'keeper.mjs')], { cwd: copy.dir, stdio: ['pipe', 'pipe', 'ignore'], windowsHide: true });
+    try {
+      const said: string[] = [];
+      tool.stdout!.setEncoding('utf8').on('data', (chunk: string) => said.push(...chunk.split('\n').filter(Boolean)));
+      assert.ok(await waitFor(() => said.length > 0, GUARD_ENDS_MS), 'the tool did not start its guard');
+      guard = Number(said[0]);
+      tool.stdin!.write('+w\n');
+      const started = Date.now();
+      const program = await startScript(copy.dir, 'program.mjs', LEAVE, true);
+      left.push(program.child);
+      tool.stdin!.write(`+g${program.pid} ${started}\n`);
+      tool.kill('SIGKILL');
+      assert.ok(await waitFor(() => existsSync(gone), GUARD_ENDS_MS), 'the guard did not find the tool gone');
+      // Windows gave the program's id to stranger after the guard found the tool gone, and stranger made a child.
+      const stranger = await startScript(copy.dir, 'stranger.mjs', HOLDER, false);
+      left.push(stranger.pid, stranger.child);
+      writeFileSync(`${planted}.part`, `${stranger.pid} ${program.pid} ${process.pid}\n${stranger.child} ${stranger.child} ${program.pid}\n`);
+      renameSync(`${planted}.part`, planted);
+      // A second list that shows stranger begins after the first one was printed, so the guard has read a list that shows it.
+      assert.ok(await waitFor(() => readdirSync(lists).length >= 2, GUARD_ENDS_MS), 'no list of the guard showed the stranger');
+      writeFileSync(go, '');
+      assert.ok(await waitFor(() => !alive(guard), GUARD_ENDS_MS), 'the guard is still running');
+      assert.ok(!(await waitFor(() => !alive(stranger.child), LEFTOVER_GRACE_MS)), 'the child of the process that took the program\'s id after the guard found the tool gone was ended');
+      assert.ok(await waitFor(() => !alive(program.child), LEFTOVER_GRACE_MS), 'the child the program left is alive');
+    } finally {
+      tool.kill('SIGKILL');
+      tool.stdin!.destroy();
+      if (guard !== 0 && alive(guard)) killGroup(guard, 'SIGKILL');
       for (const pid of left) {
         try {
           process.kill(pid, 'SIGKILL');
