@@ -286,11 +286,7 @@ function shown(line: string): string {
   const length = points(line);
   if (length <= SHOWN_CHARS) return line;
   let end = 0;
-  for (let taken = 0; taken < SHOWN_CHARS; taken++) {
-    const high = line.charCodeAt(end);
-    const low = line.charCodeAt(end + 1);
-    end += high >= 0xd800 && high <= 0xdbff && low >= 0xdc00 && low <= 0xdfff ? 2 : 1;
-  }
+  for (let taken = 0; taken < SHOWN_CHARS; taken++) end += line.codePointAt(end)! > 0xffff ? 2 : 1;
   return `${line.slice(0, end)}… (cut: ${(length - SHOWN_CHARS).toLocaleString('en-US')} more characters)`;
 }
 
