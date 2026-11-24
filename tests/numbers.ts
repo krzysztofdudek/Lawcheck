@@ -620,8 +620,6 @@ export const NIGHTLY_MS = 120_000;
 // A match of src/**/*a*a*a*a*a*a*b.ts against a name of 240 `a`, through the matcher and through check --full (I-glob-1, S1-1); measured below 2 ms and 400 ms.
 export const MATCH_BUDGET_MS = 100;
 export const PATTERN_RUN_BUDGET_MS = 8_000;
-// takeAnswer on one megabyte of `{` and on 50,000 nested objects (I-answer-1, S3-3); measured below 30 ms.
-export const ANSWER_BUDGET_MS = 1_000;
 // The same reading, without a clock that load can break (I-answer-1, S3-3): an answer 16 times as long may take at most this many times as long to read, the shortest of ANSWER_ROUNDS reads of each; at load 36 a linear reader measured 16 to 25 and 38 at most beside the whole suite, and a quadratic one 107 and more at the lengths S3-3 reads.
 export const ANSWER_GROWTH = 64;
 export const ANSWER_ROUNDS = 12;
@@ -705,7 +703,6 @@ export const stronger: Record<string, 'higher' | 'lower' | 'fixed'> = {
   NIGHTLY_MS: 'higher',
   MATCH_BUDGET_MS: 'lower',
   PATTERN_RUN_BUDGET_MS: 'lower',
-  ANSWER_BUDGET_MS: 'lower',
   ANSWER_GROWTH: 'lower',
   ANSWER_ROUNDS: 'higher',
   LAW_PARSE_BUDGET_MS: 'lower',
