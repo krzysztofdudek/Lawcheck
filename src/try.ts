@@ -11,7 +11,7 @@ import { createProvider } from './providers/index.js';
 import { call, NO_RECORD, preflight, remaining } from './review.js';
 import type { Ask } from './review.js';
 import { ownersOf, ruleReads } from './readers.js';
-import { contextOf, crashNext, FindingBudget, linksOut, resolveCompanions, rulesDeadline, runnerErrors, runnerProblem, runRule, tooManyFindings } from './rules.js';
+import { contextOf, crashError, FindingBudget, linksOut, resolveCompanions, rulesDeadline, runnerErrors, runnerProblem, runRule, tooManyFindings } from './rules.js';
 import type { Companions, RawFinding } from './rules.js';
 import type { RuleFile } from './rules.js';
 import { bytesOf, fromCwd, isDirectory, isPattern, listedFile, loadConfig, loadLaw, loadRuleFiles, locate, nearPart, requireGit, ruleKind, RULES_DIR, selectTargets, stopped, Stop, typeAll, usage } from './setup.js';
@@ -111,10 +111,7 @@ export async function tryRule(args: Arguments, context: CheckContext, json: bool
       const ran = await runRule({ root, rule: id, ruleFile: join(root, `${RULES_DIR}${id}.mjs`), files: ruleFiles, filesOf: filesOfTypes(typed, law), budget, signal: deadline.signal, serve: reads(ruleFiles, `the script rule ${id}`) });
       deadline.clear();
       if ('broken' in ran) throw new Stop([{ code: 'runner-failed', file: null, line: null, message: ran.broken }]);
-      if ('crash' in ran) {
-        const next = crashNext(ran.crash);
-        throw new Stop([{ code: 'rule-crashed', file: `${RULES_DIR}${id}.mjs`, line: null, message: ran.crash, ...(next === undefined ? {} : { next }) }]);
-      }
+      if ('crash' in ran) throw new Stop([crashError(`${RULES_DIR}${id}.mjs`, ran)]);
       if ('slow' in ran) throw new Stop([{ code: 'rules-too-slow', file: `${RULES_DIR}${id}.mjs`, line: null, message: ran.slow }]);
       if (budget.passed()) throw new Stop(tooManyFindings(budget));
       const byFile = new Map<string, RawFinding[]>();
