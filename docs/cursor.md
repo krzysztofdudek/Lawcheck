@@ -1,6 +1,6 @@
 # Lawcheck in Cursor
 
-Cursor loads the plugins that Claude Code has installed, so Cursor loads the Lawcheck plugin through its support for Claude Code plugins. No session of Cursor has run the plugin yet. This page says how to install the plugin so that Cursor loads it, and what was checked and what was not.
+Cursor loads the plugins that Claude Code has installed, so Cursor loads the Lawcheck plugin through its support for Claude Code plugins. No session of Cursor has run the plugin. This page says how to install the plugin so that Cursor loads it, and what was checked and what was not.
 
 ## 1. Install Lawcheck
 

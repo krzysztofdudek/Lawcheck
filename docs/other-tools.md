@@ -125,7 +125,7 @@ A hook of your own can run `lawcheck check <file>` too. Lawcheck exits 1 when th
 
 Cursor, Copilot, Codex and Gemini CLI have hooks on similar events. In each of them, exit 2 from a hook blocks the action. Lawcheck ships a plugin for Claude Code, Codex and Copilot CLI, and Cursor loads the one for Claude Code through its support for Claude Code plugins. In the other agents, a hook you write runs `lawcheck check`. Without such a hook, the agent checks only when it follows its instructions file. A CI job catches what the agent skips.
 
-Lawcheck sends the agent back before the end of its turn in Claude Code, Codex and Copilot CLI. No session of Cursor has run the plugin yet ([Lawcheck in Cursor](cursor.md)). In another agent, a hook of that agent that runs the linter of each language fits that loop better. Lawcheck can add the law in a CI job.
+Lawcheck sends the agent back before the end of its turn in Claude Code, Codex and Copilot CLI. No session of Cursor has run the plugin ([Lawcheck in Cursor](cursor.md)). In another agent, a hook of that agent that runs the linter of each language fits that loop better. Lawcheck can add the law in a CI job.
 
 | Your case | Use |
 |---|---|

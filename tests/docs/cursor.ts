@@ -26,8 +26,8 @@ export async function scenario(page: Page): Promise<void> {
   for (const file of ['README.md', 'CHANGELOG.md', 'docs/changelog.md', 'docs/index.md', 'docs/other-tools.md', 'docs/other-agents.md', 'docs/plugin.md', 'docs/cursor.md']) assert.ok(!read(file).includes('.cursor/hooks.json'), `${file} claims nothing of the entries that Cursor's hooks need`);
 
   const readme = read('README.md');
-  assert.ok(readme.includes('No session of Cursor has run the plugin yet. `lawcheck docs cursor` says what was checked and what was not.'));
-  assert.ok(read('CHANGELOG.md').includes('No session of Cursor has run the plugin yet; `lawcheck docs cursor` says what was checked and what was not.'));
+  assert.ok(readme.includes('No session of Cursor has run the plugin. `lawcheck docs cursor` says what was checked and what was not.'));
+  assert.ok(read('CHANGELOG.md').includes('No session of Cursor has run the plugin; `lawcheck docs cursor` says what was checked and what was not.'));
   assert.ok(read('site/landing/facts.ts').includes("fragments.paragraph('README.md', 'Your coding agent', 'In Cursor, the plugin for Claude Code')"));
   assert.ok(read('site/landing/Landing.vue').includes('data.tryIt.cursor'));
 }

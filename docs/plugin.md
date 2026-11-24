@@ -21,7 +21,7 @@ With a `runner` setting other than `global`, the package manager starts Lawcheck
 
 The same plugin works in Codex ([Lawcheck in Codex](codex-cli.md)). Its hooks there run on the same events. `apply_patch` stands for the three tools, and two variables stand for the settings. The plugin works in GitHub Copilot CLI too ([Lawcheck in GitHub Copilot CLI](copilot-cli.md)). There `create` and `edit` stand for the three tools, and the same two variables stand for the settings. The output of a hook in Copilot CLI has no field for a message to you, so the plugin asks the agent to tell you its messages.
 
-Cursor loads the plugin for Claude Code through its support for Claude Code plugins, and no session of Cursor has run it yet ([Lawcheck in Cursor](cursor.md)). For another coding agent, write in its instructions file that it runs `lawcheck prime` at the start of a session and `lawcheck check` after each change ([Other coding agents](other-agents.md)).
+Cursor loads the plugin for Claude Code through its support for Claude Code plugins, and no session of Cursor has run it ([Lawcheck in Cursor](cursor.md)). For another coding agent, write in its instructions file that it runs `lawcheck prime` at the start of a session and `lawcheck check` after each change ([Other coding agents](other-agents.md)).
 
 ## The four hooks
 
