@@ -1,10 +1,17 @@
+import { writeFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { step } from './progress.js';
 import { check } from './check.js';
 import type { CheckContext, CheckOptions, CheckOutcome } from './check.js';
 import { firstLine } from './law.js';
-import { blocking, renderErrors, renderReport, safeJson, safeText } from './output.js';
-import { hiddenJson, useKeys } from './keys.js';
-import { COMMANDS, number, PROGRAM_USAGE, readArguments, text, usageError, USAGE, version } from './args.js';
+import { blocking, CODES, renderErrors, renderReport, safeJson, safeText } from './output.js';
+import type { Report } from './output.js';
+import { sarifLog } from './output/sarif.js';
+import { showPrefix } from './files.js';
+import { bytesOfName } from './names.js';
+import { locate } from './setup.js';
+import { hiddenJson, hide, useKeys } from './keys.js';
+import { COMMANDS, errorResult, number, PROGRAM_USAGE, readArguments, text, usageError, USAGE, version } from './args.js';
 import type { Arguments, CommandName, Result } from './args.js';
 
 export { version };
@@ -31,12 +38,25 @@ export function parseArguments(argv: string[]): { options: CheckOptions } | { pr
 
 function checkOptions(args: Arguments): { options: CheckOptions } | { problem: string } {
   const review = args.flags.has('--review');
-  if (args.words.length > 0 && ['--full', '--strict', '--base', '--review', '--again', '--max-calls'].some((flag) => args.flags.has(flag))) {
+  if (args.words.length > 0 && ['--full', '--strict', '--base', '--review', '--again', '--max-calls', '--sarif'].some((flag) => args.flags.has(flag))) {
     return { problem: 'paths go with --json alone' };
   }
   if (!review && args.flags.has('--again')) return { problem: 'the flag --again works only with --review' };
   if (!review && args.flags.has('--max-calls')) return { problem: 'the flag --max-calls works only with --review' };
   return { options: { full: args.flags.has('--full') || args.flags.has('--strict'), strict: args.flags.has('--strict'), base: text(args, '--base'), review, again: args.flags.has('--again'), maxCalls: number(args, '--max-calls'), paths: args.words } };
+}
+
+// GitHub places a result by its path from the top of the repository, and the report names each file from the folder that holds .lawcheck.
+function writeSarif(path: string, report: Report, cwd: string): ErrorItem | null {
+  const prefix = Buffer.from(showPrefix(locate(cwd)), 'utf8');
+  const findings = [...report.findings, ...report.debt].map((finding) => ({ ...finding, message: hide(finding.message), why: hide(finding.why) }));
+  const log = sarifLog(findings, CODES, { version: version(), pathBytes: (file) => Buffer.concat([prefix, bytesOfName(hide(file))]) });
+  try {
+    writeFileSync(resolve(cwd, path), safeJson(log));
+    return null;
+  } catch (error) {
+    return { code: 'file-unwritable', file: path, line: null, message: `cannot be written (${(error as NodeJS.ErrnoException).code ?? 'an error'})` };
+  }
 }
 
 function internal(error: unknown): ErrorItem {
@@ -72,9 +92,15 @@ async function run(argv: string[], context: CheckContext, command: Command): Pro
     if ('problem' in parsed) return usageError(parsed.problem, json, 'check');
     const outcome = await command(parsed.options, context);
     if ('errors' in outcome) return { code: 2, stdout: renderErrors(outcome.errors, json, 'check', Infinity, outcome.calls) };
+    const sarif = text(args, '--sarif');
+    if (sarif !== null) {
+      step('writing the SARIF file');
+      const unwritten = writeSarif(sarif, outcome.report, context.cwd);
+      if (unwritten !== null) return errorResult([unwritten], json, 'check', outcome.report.reviews?.calls_made ?? 0);
+    }
     step('writing the report');
-    const text = renderReport(outcome.report, json);
-    return { code: blocking(outcome.report).length > 0 ? 1 : 0, stdout: text };
+    const rendered = renderReport(outcome.report, json);
+    return { code: blocking(outcome.report).length > 0 ? 1 : 0, stdout: rendered };
   } catch (error) {
     return { code: 2, stdout: renderErrors([internal(error)], json, named) };
   }

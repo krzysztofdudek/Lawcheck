@@ -271,6 +271,44 @@ test('S7-13: the recipes of docs/ci.md turn --json into GitHub annotations and a
   });
 });
 
+test('test 973: the code scanning recipe of docs/ci.md writes the SARIF file from the first check of the workflow, run as written, and uploads it when the check fails too', async () => {
+  assert.ok(sections().includes('### 3. Show the findings in GitHub code scanning'));
+  const upload = (parse(example('sarif-upload')) as (Step & { if?: string })[])[0]!;
+  assert.equal(upload.uses, 'github/codeql-action/upload-sarif@v4');
+  assert.equal(upload.if, '${{ !cancelled() }}', 'the step runs after a check that failed with exit 1');
+  assert.deepEqual(upload.with, { sarif_file: '${{ runner.temp }}/lawcheck.sarif', category: 'lawcheck' });
+  for (const what of ['add `security-events: write` to `permissions`', 'to the first two `lawcheck check` lines', 'After exit 2, Lawcheck writes no file', 'GitHub Code Security and `actions: read`']) assert.ok(page.includes(what), what);
+  assert.equal(workflow.permissions.contents, 'read', 'the permission the upload step adds to');
+
+  const check = steps.find((step) => step.run?.includes('lawcheck check') === true)!;
+  let added = 0;
+  const script = check.run!
+    .split('\n')
+    .map((line) => (added < 2 && /npx --no-install lawcheck check /.test(line) ? (added++, `${line} --sarif "$RUNNER_TEMP/lawcheck.sarif"`) : line))
+    .join('\n');
+  assert.equal(added, 2);
+  assert.ok(script.includes('lawcheck check --full --sarif "$RUNNER_TEMP/lawcheck.sarif"\n'), 'the root commit writes the file');
+  assert.ok(script.includes('lawcheck check --base "$base" --sarif "$RUNNER_TEMP/lawcheck.sarif"\n'), 'the first check writes the file');
+  await inTemp(async (dir) => {
+    const work = clone(dir, { '.gitignore': 'node_modules/\n', '.lawcheck/law.yaml': ANNOTATED_LAW, '.lawcheck/rules/no-console.mjs': NO_CONSOLE, '.lawcheck/rules/no-todo.mjs': NO_TODO });
+    write(work, 'src/core/total.ts', 'export function total(price: number): number {\n  console.log(price);\n  return price;\n}\n');
+    standIn(work);
+    const runnerTemp = join(dir, 'runner-temp');
+    write(runnerTemp, '.keep', '');
+    write(dir, 'check.sh', `${script}\n`);
+    const env = { ...GIT_ENV, npm_config_update_notifier: 'false', EVENT: 'pull_request', BASE_REF: 'main', RUNNER_TEMP: runnerTemp };
+    const job = spawnSync('sh', ['-e', join(dir, 'check.sh')], { cwd: work, env, encoding: 'utf8' });
+    assert.equal(job.status, 1, job.stdout + job.stderr);
+    const log = JSON.parse(readFileSync(join(runnerTemp, 'lawcheck.sarif'), 'utf8')) as { version: string; runs: { results: { ruleId: string; locations: { physicalLocation: { artifactLocation: { uri: string }; region: { startLine: number } } }[] }[] }[] };
+    assert.equal(log.version, '2.1.0');
+    assert.deepEqual(
+      log.runs[0]!.results.map((result) => [result.ruleId, result.locations[0]!.physicalLocation.artifactLocation.uri, result.locations[0]!.physicalLocation.region.startLine]),
+      [['no-console', 'src/core/total.ts', 2]],
+      'the file the upload step reads holds the finding that fails the job',
+    );
+  });
+});
+
 test('S7-16: the CI page says doctor is for a machine, and in a job that reads the committed verdicts doctor fails where check passes', async () => {
   assert.ok(sections().includes('### 4. Run doctor on a machine, not in the job'));
   for (const what of ['`lawcheck doctor` fails with exit 2', 'Run `doctor` on your machine', 'Put it in a job only when that job holds the key and the address']) assert.ok(page.includes(what), what);

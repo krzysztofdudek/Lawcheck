@@ -371,6 +371,22 @@ lawcheck-quality:
       codequality: gl-code-quality-report.json
 ```
 
+### 3. Show the findings in GitHub code scanning
+
+In [the workflow](#_2-add-the-workflow), add `security-events: write` to `permissions` and `--sarif "$RUNNER_TEMP/lawcheck.sarif"` to the first two `lawcheck check` lines. Then add this step, which uploads the file ([SARIF 2.1.0](json.md#sarif-2-1-0)):
+
+<!-- example: sarif-upload -->
+```yaml
+- name: Upload to code scanning
+  if: ${{ !cancelled() }}
+  uses: github/codeql-action/upload-sarif@v4
+  with:
+    sarif_file: ${{ runner.temp }}/lawcheck.sarif
+    category: lawcheck
+```
+
+The step runs after exit 1 too. After exit 2, Lawcheck writes no file and the step fails. A private repository needs GitHub Code Security and `actions: read`.
+
 ## A change to the law
 
 A pull request can change the law that judges it. The first check of the job judges with that changed law. For example, a pull request takes the [rule](concepts.md#rule) `no-console` off the [type](concepts.md#type) `library` and adds `console.log` to `src/core/total.ts`. The first check passes and prints:
