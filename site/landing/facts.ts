@@ -12,8 +12,10 @@ export interface Copy {
   h1: string;
   skip: string;
   nav: { docs: Link; github: string };
-  install: { copy: string; copied: string; quickStart: Link };
+  install: { copy: string; copyBoth: string; copyPlugin: string; copied: string; quickStart: Link };
   problem: string;
+  where: string;
+  tryIt: string;
   comparison: Link;
   holds: { page: string };
   tutorial: { heading: string; chapter: string; length: string; play: string; read: string; transcript: string };
@@ -68,8 +70,8 @@ export async function facts() {
   const rowsOf: Record<string, string[]> = {
     '`CLAUDE.md` and `AGENTS.md`': ['Your rules say how the agent works: commands, branches, messages', 'Your rules are about files: which layer may import which, what a file of one kind must hold'],
     'An architecture tool for one language': ['One language, and the tool already holds your layers in the test suite or the linter', 'Two or more languages under one set of layers'],
-    'A review bot at the pull request': ['You want comments on the whole change, including on what no rule names', 'A rule must hold in every file of a kind, and the agent must hear it before it opens a pull request', 'You want annotations on the lines of the pull request'],
-    'A hook you wrote in Claude Code': ['Your hook runs the linter and the tests, and the linter already holds your layers', 'You want the law checked inside the turn, on the files of the turn, with at most three returns'],
+    'A review bot at the pull request': ['You want comments on the whole change, including on what no rule names', 'A rule must hold in every file of a kind, and the agent must hear it before it opens a pull request', 'Your architecture tool already prints annotations on the lines of the pull request, as `deptrac` does in GitHub Actions', 'You want annotations on the lines of the pull request, and no tool of yours prints them'],
+    'A hook you wrote in Claude Code': ['Your hook runs the linter and the tests, and the linter already holds your layers', 'You want the law checked inside the turn, on the files of the turn, with at most three returns', 'You work in Cursor, and you want the agent sent back after each edit'],
   };
   const tables = groups.map((group) => fragments.rows('docs/other-tools.md', group, 1, rowsOf[group]!));
 
@@ -87,7 +89,7 @@ export async function facts() {
     head: head(),
     hero: {
       promise: readme(promise()),
-      who: readme(fragments.sentence('README.md', 'Lawcheck', 'It is for people who build')),
+      who: readme(fragments.sentence('README.md', 'Lawcheck', 'It is for you if you build')),
       install,
       support: md('docs/support.md')(support()),
       alpha: readme(fragments.sentence('README.md', 'Try it', 'Lawcheck is an alpha')),
@@ -104,9 +106,9 @@ export async function facts() {
       finding: code('README.md', 'Lawcheck', '$ lawcheck check').html,
     },
     where: {
-      heading: fragments.heading('docs/index.md', 'Lawcheck checks in four places'),
+      heading: copy.where,
       items: fragments.list('docs/index.md', 'Lawcheck checks in four places', 1).map(index),
-      other: others(fragments.sentence('docs/other-tools.md', 'A hook you wrote in Claude Code', 'Lawcheck sends the agent back')),
+      other: ['Lawcheck sends the agent back', 'In Cursor, that return needs', 'No session of Cursor has run it'].map((start) => others(fragments.sentence('docs/other-tools.md', 'A hook you wrote in Claude Code', start))).join(' '),
     },
     holds: {
       heading: fragments.heading('README.md', 'One law holds uses, rules, debt and waivers'),
@@ -138,12 +140,12 @@ export async function facts() {
       items: fragments.list('README.md', 'Limits', 1).map(readme),
     },
     tryIt: {
-      heading: fragments.heading('README.md', 'Try it'),
+      heading: copy.tryIt,
       install: fragments.code('README.md', 'Try it', 'npm install').code,
-      quickStart: readme(fragments.sentence('README.md', 'Try it', 'The quick start takes')),
+      quickStart: readme(fragments.sentence('README.md', 'Try it', 'You reach a first finding')),
       plugin: readme(fragments.paragraph('README.md', 'Your coding agent', 'In Claude Code, install the plugin')),
       pluginCommands: fragments.code('README.md', 'Your coding agent', 'claude plugin').code,
-      codex: ['In Codex, the same plugin installs', 'Codex runs its hooks only after'].map((start) => readme(fragments.sentence('README.md', 'Your coding agent', start))).join(' '),
+      codex: ['In Codex, the same plugin installs', 'Codex runs the hooks of a plugin only after'].map((start) => readme(fragments.sentence('README.md', 'Your coding agent', start))).join(' '),
       copilot: readme(fragments.sentence('README.md', 'Your coding agent', 'In GitHub Copilot CLI, the same plugin installs')),
       cursor: readme(fragments.paragraph('README.md', 'Your coding agent', 'In Cursor, the plugin for Claude Code')),
     },
