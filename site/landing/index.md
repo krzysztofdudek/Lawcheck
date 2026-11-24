@@ -1,5 +1,6 @@
 ---
 title: "Lawcheck: architecture checks for coding agents"
+description: "Lawcheck checks imports across architecture layers in 12 languages, with no model, in Claude Code hooks and CI, even when agents skip CLAUDE.md or AGENTS.md."
 h1: Architecture checks for coding agents
 skip: Skip to content
 nav:
@@ -11,7 +12,7 @@ install:
   copyPlugin: Copy the plugin commands
   copied: Copied
   quickStart: { text: "Quick start: first finding in five steps", page: quick-start }
-problem: The agent imports the API into the core, and the tests pass
+problem: The agent imported the API into the core, and the tests passed
 where: Lawcheck checks in six places
 tryIt: Install Lawcheck and the plugin
 comparison: { text: The whole comparison, page: other-tools }
