@@ -112,6 +112,19 @@ test('S1-15: a sparse checkout that leaves .lawcheck out says the index holds th
   });
 });
 
+test('S1-15: from a folder below the top, the sparse-checkout command runs at the top, where git takes it', async () => {
+  await inTemp(async (dir) => {
+    const s = makeSample(dir);
+    git(s, 'sparse-checkout', 'init', '--no-cone');
+    git(s, 'sparse-checkout', 'set', 'src/**', 'tools/**');
+    const below = join(s, 'src', 'core');
+    const json = JSON.parse((await lawcheck(below, ['check', '--base', 'main', '--json'])).stdout);
+    assert.deepEqual(json.next, { command: 'git -C ../.. sparse-checkout add .lawcheck', text: 'let the sparse checkout take the folder of the law: git -C ../.. sparse-checkout add .lawcheck, then run lawcheck check' });
+    git(below, '-C', '../..', 'sparse-checkout', 'add', '.lawcheck');
+    assert.equal((await lawcheck(below, ['check', '--base', 'main'])).code, 0);
+  });
+});
+
 test('S1-15: a folder with no law that git does not list keeps the plain not-initialized, and a missing file that is no sparse choice does too', async () => {
   await inTemp(async (dir) => {
     const s = makeSample(dir);

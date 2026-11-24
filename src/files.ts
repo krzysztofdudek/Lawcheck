@@ -143,7 +143,6 @@ export interface LeftOut {
   command: string;
 }
 
-// A law that the index lists and a sparse checkout left out of the work tree, found from the folder upward to the top of the repository.
 export function lawLeftOut(cwd: string, law: string): LeftOut | null {
   try {
     for (let at = resolve(cwd); ; at = dirname(at)) {
@@ -153,7 +152,9 @@ export function lawLeftOut(cwd: string, law: string): LeftOut | null {
         const entry = nameOf(listed.stdout.subarray(0, end));
         if (!entry.startsWith('S ')) return null;
         const path = entry.slice(2);
-        const command = `git sparse-checkout add ${quoted(path.slice(0, path.lastIndexOf('/')))}`;
+        // Below the top, git sparse-checkout refuses a path in no-cone mode and reads it from the folder in cone mode.
+        const up = loose.decode(git(resolve(cwd), ['rev-parse', '--show-cdup']).stdout).trim().replace(/\/$/, '');
+        const command = `git ${up === '' ? '' : `-C ${quoted(up)} `}sparse-checkout add ${quoted(path.slice(0, path.lastIndexOf('/')))}`;
         return { path, command, next: `let the sparse checkout take the folder of the law: ${command}, then run lawcheck check` };
       }
       if (existsSync(join(at, '.git')) || dirname(at) === at) return null;
