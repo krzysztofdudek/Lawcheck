@@ -104,10 +104,14 @@ export function filesOf(work: string): Record<string, string | null> {
   return files;
 }
 
-export async function checksIn(work: string): Promise<Checks> {
+export type CheckRun = (work: string, env: NodeJS.ProcessEnv) => Promise<{ code: number | null; json: any }>;
+
+const runCheck: CheckRun = (work, env) => startTool(work, ['check', '--json'], env).ended;
+
+export async function checksIn(work: string, check: CheckRun = runCheck): Promise<Checks> {
   const env = { ...process.env, ...GIT_IDENTITY };
   delete env.LAWCHECK_BASE;
-  const clean = (await startTool(work, ['check', '--json'], env).ended).code === 0;
+  const clean = (await check(work, env)).code === 0;
   const changed = changedFiles(work);
   const lawUntouched = !changed.some((path) => path.startsWith('.lawcheck/'));
   const noWaiver = !changed.some((path) => {
