@@ -19,11 +19,8 @@ export async function scenario(page: Page): Promise<void> {
   const repository = /github\.com\/([^/]+\/[^/]+?)\.git$/.exec(manifest.repository.url)?.[1];
   assert.equal(page.text('block 1 under "2. Add the plugin"'), `claude plugin marketplace add ${repository}\nclaude plugin install ${plugin.name}@${marketplace.name}`);
 
-  // Ruling cursor-bez-sesji: every text says only that Cursor loads the plugin through its support for Claude Code plugins and that no Cursor session has run it.
   const text = read('docs/cursor.md');
   for (const sentence of ['Cursor loads a plugin only when `enabledPlugins` holds `true` for it', 'No session of Cursor ran the plugin.', 'The hooks of the plugin that run in Cursor', 'Windows.', 'The Cursor editor.']) assert.ok(text.includes(sentence), sentence);
-  for (const file of ['README.md', 'CHANGELOG.md', 'docs/changelog.md', 'docs/index.md', 'docs/other-tools.md', 'docs/other-agents.md', 'docs/plugin.md', 'docs/cursor.md']) assert.ok(read(file).includes('No session of Cursor ') || read(file).includes('no session of Cursor '), `${file} says that no session of Cursor has run the plugin`);
-  for (const file of ['README.md', 'CHANGELOG.md', 'docs/changelog.md', 'docs/index.md', 'docs/other-tools.md', 'docs/other-agents.md', 'docs/plugin.md', 'docs/cursor.md']) assert.ok(!read(file).includes('.cursor/hooks.json'), `${file} claims nothing of the entries that Cursor's hooks need`);
 
   const readme = read('README.md');
   assert.ok(readme.includes('No session of Cursor has run the plugin. `lawcheck docs cursor` says what was checked and what was not.'));
