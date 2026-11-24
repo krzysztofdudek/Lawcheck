@@ -124,7 +124,7 @@ The first alpha ships all nine reviewer providers. This is the owner's decision.
 
 ## 91. Windows blocks a release
 
-A red run of the suite on Windows blocked the alpha exactly as a red run on Linux or macOS did. This is the owner's decision. The release workflow holds every release to it, since it needs a green Nightly, and the Nightly runs on all three systems.
+A red run of the suite on Windows blocked the alpha exactly as a red run on Linux or macOS did. This is the owner's decision. The release workflow holds every release to it, since it needs two green Nightlies, and the Nightly runs on all three systems.
 
 Why: three systems are one gate.
 
@@ -473,3 +473,9 @@ Why: Windows frees a process's id once the tool has seen the process end, and ma
 On Linux and macOS the tool ends a program reviewer's process group by the program's id while the program runs, and once more at the moment it sees the program exit, for what the program left in its group. It then tells the guard to forget the group, and ends nothing by that number again: not when it cleans up the call, not when it exits, and the guard not when the tool is killed. The tool and the guard keep one entry for each call, with the time the tool took before it started the program, so two calls whose programs got the same id one after the other are released one at a time. Of two such entries, the guard on Windows takes the later time as the bound below the id.
 
 Why: the system does not give a group's number to a new process while any process of the group lives, and gives a free number again only after it has gone through the others. At the moment the tool sees the program exit the number is still the group's, or free for an instant; at the end of the call, after a wait for the program's output, a new group may hold it, and a kill would end that group. With one entry per id, the release of a call whose program had ended removed the entry of the next call, whose program Windows had given the same id, and a killed tool then left that program running. The guard takes the later of two times because what was made below the id before the later program may be an earlier holder's.
+
+## 209. The Nightly runs on demand, twice by hand before a release
+
+The Nightly has no schedule: nightly.yml starts only by a dispatch or a call. Before a release it runs twice by hand on the tagged commit, and both runs must be green. The release workflow counts the dispatched runs of nightly.yml on the tagged commit and stops the release below two green ones.
+
+Why: this is the owner's decision (ruling nightly-recznie-przed-wydaniem). A run every night spent runner time on commits that no release named, while the runs that decide a release are the ones on the tagged commit; two runs there draw two seeds and two orders, so a test with mixed results shows itself.
