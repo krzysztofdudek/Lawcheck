@@ -260,6 +260,26 @@ test('test 201: a runner Node cannot start with its flags is runner-failed, with
   });
 });
 
+// Node on Windows ends the lines it prints with CRLF; this runner says why it does not start in such a line on every system.
+const CRLF_RUNNER = "process.stderr.write('node: bad option: --no-such-flag\\r\\n');\nprocess.exit(9);\n";
+
+test('R-47: test 201, a runner that says why it did not start in a line ended with CRLF, as Node does on Windows, is runner-failed with its words, and the line reaches standard error with no carriage return', async () => {
+  await withCopy(async (copy) => {
+    const rules = join(copy.dir, 'dist', 'rules.js');
+    const sound = readFileSync(rules, 'utf8');
+    const named = "new URL('./runner.js', import.meta.url)";
+    assert.ok(sound.includes(named));
+    writeFileSync(join(copy.dir, 'dist', 'crlf-runner.js'), CRLF_RUNNER);
+    writeFileSync(rules, sound.replace(named, "new URL('./crlf-runner.js', import.meta.url)"));
+    await inTemp(async (dir) => {
+      const s = sampleWithD(dir);
+      const said = { stderr: /^(node: bad option: --no-such-flag\n)+$/ };
+      runnerFailed(await lawcheckAt(copy.cli, s, ['check', '--base', 'main'], {}, said), /did not start: node: bad option: --no-such-flag$/, 'check');
+      runnerFailed(await lawcheckAt(copy.cli, s, ['try', 'no-console', 'src/core/discount.ts'], {}, said), /did not start: node: bad option: --no-such-flag$/, 'try');
+    });
+  });
+});
+
 // The runner ends at once and leaves a program that holds its standard error and writes to it 2 seconds later, as a loaded machine may deliver what an ended runner printed; the program starts Node and then waits 2 seconds, longer than the one Node start per rule the tool still makes before it ends such a run, so the line arrives only if the run waits for the pipe. The program is detached because on Windows Node puts every other child in a job object that ends it the moment its parent ends.
 const LATE_RUNNER = "import { spawn } from 'node:child_process';\nspawn(process.execPath, ['-e', \"setTimeout(() => process.stderr.write('the runner said this late\\\\n'), 2000)\"], { stdio: ['ignore', 'ignore', 'inherit'], detached: true });\nprocess.exit(9);\n";
 
