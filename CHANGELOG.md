@@ -107,6 +107,8 @@ On Windows, when `lawcheck` is killed while a program reviewer runs, it no longe
 
 On Windows, a call to a program reviewer that ends normally no longer ends anything by the program's id. In alpha.4, every such call ended the tree of whatever process held that id after the program had exited, so a process that Windows had just given that id was ended with what it started.
 
+On Linux and macOS, a call to a program reviewer ends the program's process group at the moment the program exits, and never again by that number. In alpha.4 it ended the group a second time when it cleaned up the call, and by then the system could have given that number to a new group that `lawcheck` did not start. When two calls got the same program id one after the other, alpha.4 also forgot the later call's program as the earlier call ended, so a `lawcheck` killed during the later call left that program running.
+
 ## [0.1.0-alpha.4] - 2026-11-23
 
 A script rule that uses the network now gets an error from the call itself, on every Node. On Node 24, alpha.3 let the call through. On Node 25 and later, alpha.3 passed Node's refusal to the callback, the `error` event or the promise, so a rule that handled the refusal there passed. The rule runner of alpha.4 closes the network before the rule loads. A rule that connects, listens on a port, sends over UDP, looks up a name in DNS or calls `fetch` gets the error. A rule that does not catch it is `rule-crashed`, with the message `uses the network, which is closed to script rules`.

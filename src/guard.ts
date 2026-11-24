@@ -61,8 +61,8 @@ function watch(): void {
     }
   });
 }
-// Each group's root, with the time the tool took just before it started the root, when it said one.
-const groups = new Map<number, number | undefined>();
+// Each group's root, with the time the tool took just before it started the root, when it said one: one entry per call, as two calls may get the same id.
+const groups = new Map<number, (number | undefined)[]>();
 const folders = new Set<string>();
 let pending = '';
 
@@ -84,9 +84,14 @@ process.stdin.on('data', (chunk: string) => {
       continue;
     }
     const group = line[1] === 'g';
-    const [pid, started] = line.slice(group ? 2 : 1).split(' ').map(Number) as [number, number | undefined];
-    if (group && adding) groups.set(pid, Number.isFinite(started) ? started : undefined);
-    else if (group) groups.delete(pid);
+    const [pid, said] = line.slice(group ? 2 : 1).split(' ').map(Number) as [number, number | undefined];
+    const started = Number.isFinite(said) ? said : undefined;
+    const calls = groups.get(pid) ?? [];
+    if (group && adding) groups.set(pid, [...calls, started]);
+    else if (group && calls.includes(started)) {
+      calls.splice(calls.indexOf(started), 1);
+      if (calls.length === 0) groups.delete(pid);
+    } else if (group) continue;
     else if (adding) pids.add(pid);
     else pids.delete(pid);
     if (group && adding) watch();
@@ -147,7 +152,11 @@ async function endWatched(): Promise<void> {
   const before = table;
   const fresh = (await listSince(learned, LIST_MS)) ?? listNow();
   // On Windows the tool starts the guard before it calls a program reviewer (startListing), so no process of a group's tree was made before the guard; and none was made before the time the tool took just before it started the group's root, which tells the root from an earlier holder of its id when no earlier list shows the root.
-  const since = new Map([...groups].flatMap(([pid, started]): [number, string][] => (started === undefined ? [] : [[pid, ticksAt(started)]])));
+  // Of two calls that got the same id, the later one's program holds it, and what was made below it before that program is not known to be the tool's.
+  const since = new Map([...groups].flatMap(([pid, calls]): [number, string][] => {
+    const known = calls.filter((started) => started !== undefined);
+    return known.length === 0 ? [] : [[pid, ticksAt(Math.max(...known))]];
+  }));
   for (const pid of toEnd(before, fresh, [...groups.keys(), ...pids], createdIn(fresh).get(process.pid), since)) {
     try {
       process.kill(pid, 'SIGKILL');
