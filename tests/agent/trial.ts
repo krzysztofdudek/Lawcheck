@@ -5,6 +5,7 @@ import { delimiter, dirname, join } from 'node:path';
 import { startTool } from '../harness/start.ts';
 import { CODEX } from './codex.ts';
 import type { Host } from './codex.ts';
+import { COPILOT } from './copilot.ts';
 import { breachOf, checksIn, CLI, GIT_IDENTITY, gitIn, isFixed, makeRepository, newest, onPath, points, readLog, replacePaths, ROOT, runsLawcheck, settleFolder, stop } from './run.ts';
 import type { Checks, LogLine } from './run.ts';
 
@@ -13,7 +14,7 @@ const SHIM = join(ROOT, 'tests', 'harness', 'agent-shim.mjs');
 const LIMIT_SHIM = join(ROOT, 'tests', 'agent', 'limit-shim.mjs');
 const LIMIT_MS = 15 * 60 * 1000;
 const LARGEST_FILE = 50000;
-const HOSTS: Record<string, Host> = { codex: CODEX };
+const HOSTS: Record<string, Host> = { codex: CODEX, copilot: COPILOT };
 // A session the model's endpoint refused ends the trial, so a refused endpoint spends no further runs.
 const REFUSED = 'an error of the agent: ';
 let refused: string | null = null;
@@ -66,6 +67,7 @@ export interface HostEntry {
   files: Record<string, string | null>;
   seconds: number;
   reply: string;
+  relayed?: boolean;
 }
 
 export interface ArmRecord {
@@ -203,7 +205,7 @@ export function armState(name: string, record: ArmRecord): 'pass' | 'fail' | 'op
     if (fixed >= FIXED) return 'pass';
     return fixed + left < FIXED ? 'fail' : 'open';
   }
-  const bad = name === 'start' ? good.filter((entry) => !entry.primed || entry.imports.length > 0).length : good.filter((entry) => entry.stops !== 4).length;
+  const bad = name === 'start' ? good.filter((entry) => !entry.primed || entry.imports.length > 0).length : good.filter((entry) => entry.stops !== 4 || entry.relayed === false).length;
   const unclean = name === 'start' ? good.filter((entry) => entry.clean !== true).length : 0;
   if (bad > 0 || (name === 'start' && unclean > arm.target - START_CLEAN)) return 'fail';
   if (good.length >= arm.target) return 'pass';
@@ -246,6 +248,8 @@ export function verdictOf(arms: Record<string, ArmRecord>, required: string[] = 
     } else {
       say(good.length === arm.target, `${name}: ${good.length} of ${arm.target} sessions ran`);
       say(good.every((entry) => entry.stops === 4), `${name}: the agent went back exactly three times and the session ended in ${good.filter((entry) => entry.stops === 4).length} of ${good.length}`);
+      const told = good.filter((entry) => entry.relayed !== undefined);
+      if (told.length > 0) say(told.every((entry) => entry.relayed), `${name}: the agent told the user that the check still fails in ${told.filter((entry) => entry.relayed).length} of ${told.length}`);
     }
   }
   return { passes, lines };
@@ -262,7 +266,7 @@ interface Options {
 }
 
 function readOptions(argv: string[]): Options {
-  const options: Options = { host: CODEX, arms: Object.keys(ARMS), model: 'gpt-5.5', answeredBy: null, jobs: 1, keep: false, out: '' };
+  const options: Options = { host: CODEX, arms: Object.keys(ARMS), model: '', answeredBy: null, jobs: 1, keep: false, out: '' };
   for (let i = 0; i < argv.length; i++) {
     const flag = argv[i]!;
     if (flag === '--keep') {
@@ -286,6 +290,7 @@ function readOptions(argv: string[]): Options {
     else if (flag === '--out') options.out = value;
     else stop(`unknown flag ${flag}`);
   }
+  if (options.model === '') options.model = options.host.model;
   if (options.out === '') options.out = join(ROOT, 'tests', 'agent', `result-${options.host.name}.json`);
   return options;
 }
@@ -348,7 +353,7 @@ async function oneRun(options: Options, name: string, number: number, pathDirs: 
       PATH: [bin, ...pathDirs].join(delimiter),
       LAWCHECK_TRIAL_LOG: log,
       LAWCHECK_TRIAL_API_KEY: process.env.LAWCHECK_TRIAL_API_KEY,
-      ...options.host.env(home),
+      ...options.host.env(home, options.model),
     };
     for (const key of Object.keys(env)) if (env[key] === undefined) delete env[key];
     options.host.install(home, arm.events === null ? '' : marketFor(folder, options.host, arm), env);
@@ -379,6 +384,7 @@ async function oneRun(options: Options, name: string, number: number, pathDirs: 
       files,
       seconds: Math.round((Date.now() - begin) / 1000),
       reply: replacePaths(points(session.reply, 300), [work, real(work), folder, real(folder)]),
+      ...(options.host.relays === undefined || name !== 'limit' ? {} : { relayed: session.reply.toLowerCase().includes(options.host.relays) }),
     };
   } catch (thrown) {
     error = `the run could not start: ${points(String((thrown as Error)?.message ?? thrown).split('\n')[0]!, 200)}`;
