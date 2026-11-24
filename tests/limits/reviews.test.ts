@@ -1,11 +1,13 @@
 import { test } from 'node:test';
+import { execFileSync } from 'node:child_process';
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, readFileSync, rmSync, statSync, utimesSync, watch, writeFileSync } from 'node:fs';
+import { closeSync, constants, existsSync, mkdirSync, openSync, readdirSync, readFileSync, rmSync, statSync, utimesSync, watch, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { defaultAnswer, openai, withFake } from '../acceptance/fake-reviewer.ts';
 import { D, D_PATH, F, F_PATH, F_PRIME, KEY_F, KEY_F_PRIME, REVIEWER_LAW, withR, withSample, write } from '../acceptance/helpers.ts';
 import { errorLines, MiB, run, sparse, textHead } from './support.ts';
 import { LOCK_HELD_LOOK_MS } from '../numbers.ts';
+import { platformSkip } from '../harness/tool.ts';
 
 const REVIEW = ['check', '--review', '--base', 'main'];
 
@@ -249,6 +251,135 @@ test('R-76: test 253, two runs that write the verdicts file at once keep the lin
       assert.equal(result.code, 0, result.stdout);
       assert.equal(fake.requests.length, 1);
       assert.deepEqual(readFileSync(verdicts, 'utf8').split('\n').filter(Boolean).sort(), [other.trim(), `${KEY_F_PRIME} clear-errors`].sort());
+    });
+  });
+});
+
+
+// _O_TEMPORARY of the C runtime of Windows: libuv opens a path with it for DELETE and deletes it when the handle closes, which Node gives no other way to do.
+const O_TEMPORARY = 0x40;
+
+// On Windows a folder whose delete is pending keeps its name until the last handle on it closes, and making a folder of that name is refused with EPERM. A run that lets go of the lock while a waiting run has the folder or its pid open leaves it so for a moment; the test holds that moment: it empties the lock, keeps one handle on it and deletes it through a second, so the name stays until the test closes the first.
+test('test 1230: a review waiting at the lock while Windows still holds the delete of the lock another run let go waits for the delete to end, and writes its pass', async (t) => {
+  const skip = platformSkip('the whole test');
+  if (skip !== null) return t.skip(skip);
+  await withFake(async (fake) => {
+    await withR(async (r) => {
+      write(r, F_PATH, F_PRIME);
+      const local = join(r, '.lawcheck/.local');
+      const lock = join(local, 'verdicts.lock');
+      mkdirSync(lock, { recursive: true });
+      writeFileSync(join(local, '.gitignore'), '*\n');
+      writeFileSync(join(lock, 'pid'), String(process.pid));
+      const letGo = keepLock(lock);
+      const review = run(r, REVIEW, { env: { LAWCHECK_REVIEWER_ENDPOINT: fake.url }, budget: 'LIMITS_RUN_MS', writes: [/^\.lawcheck\/\.local(\/|$)/] });
+      await heldAtLock(local, review);
+      letGo();
+      rmSync(join(lock, 'pid'));
+      const held = openSync(lock, 'r');
+      try {
+        closeSync(openSync(lock, constants.O_RDONLY | O_TEMPORARY));
+        assert.ok(readdirSync(local).includes('verdicts.lock'), 'the lock was deleted at once, so its delete is not pending');
+        assert.throws(() => mkdirSync(lock), { code: 'EPERM' }, 'Windows made a folder whose delete is pending');
+        const until = Date.now() + LOCK_HELD_LOOK_MS;
+        while (Date.now() < until) await new Promise((done) => setTimeout(done, 20));
+        assert.equal(fake.requests.length, 0, 'the review called the reviewer while the delete of the lock was pending');
+      } finally {
+        closeSync(held);
+      }
+      const result = await review;
+      assert.equal(result.code, 0, result.stdout);
+      assert.equal(fake.requests.length, 1);
+      assert.ok(readFileSync(join(r, '.lawcheck/verdicts'), 'utf8').split('\n').includes(`${KEY_F_PRIME} clear-errors`));
+    });
+  });
+});
+
+function stop(path: string, message: string, next: string): string {
+  return ['lawcheck: ERROR  1 error', '', `${path}  error[file-unwritable]  ${message}`, '  why:  what Lawcheck cannot write is lost, so the run cannot say it is done', '', `next: ${next}`, ''].join('\n');
+}
+
+// The test is another run that holds the lock with its own live pid and keeps the folder's time fresh, so the review never finds the lock stale and waits its whole 10 seconds.
+test('test 1262: a review that waits its 10 seconds at a lock another live run holds stops and says that run holds it, to let it end or to end it', async () => {
+  await withFake(async (fake) => {
+    await withR(async (r) => {
+      write(r, F_PATH, F_PRIME);
+      const local = join(r, '.lawcheck/.local');
+      const lock = join(local, 'verdicts.lock');
+      mkdirSync(lock, { recursive: true });
+      writeFileSync(join(local, '.gitignore'), '*\n');
+      writeFileSync(join(lock, 'pid'), String(process.pid));
+      const letGo = keepLock(lock);
+      let result: Awaited<ReturnType<typeof run>>;
+      try {
+        result = await run(r, REVIEW, { env: { LAWCHECK_REVIEWER_ENDPOINT: fake.url }, budget: 'LIMITS_RUN_MS', writes: [/^\.lawcheck\/\.local(\/|$)/] });
+      } finally {
+        letGo();
+      }
+      assert.equal(
+        result.stdout,
+        stop(
+          '.lawcheck/.local/verdicts.lock',
+          'cannot be written (EBUSY, held by another Lawcheck run through the 10 seconds this run waited)',
+          'let the other Lawcheck run in this repository end, or end it, then run lawcheck check again',
+        ),
+      );
+      assert.equal(result.code, 2);
+      assert.equal(fake.requests.length, 0);
+      assert.ok(existsSync(join(lock, 'pid')), 'the review removed a lock another live run holds');
+    });
+  });
+});
+
+// As in test 1230 the test holds the delete of the lock pending, here until the review has given up waiting, as a program that keeps the old lock open would.
+test('test 1261: on Windows a review whose lock stays in a pending delete through the 10 seconds it waits stops with EPERM and says a program still holds the lock open', async (t) => {
+  const skip = platformSkip('the whole test');
+  if (skip !== null) return t.skip(skip);
+  await withFake(async (fake) => {
+    await withR(async (r) => {
+      write(r, F_PATH, F_PRIME);
+      const local = join(r, '.lawcheck/.local');
+      const lock = join(local, 'verdicts.lock');
+      mkdirSync(lock, { recursive: true });
+      writeFileSync(join(local, '.gitignore'), '*\n');
+      const held = openSync(lock, 'r');
+      let result: Awaited<ReturnType<typeof run>>;
+      try {
+        closeSync(openSync(lock, constants.O_RDONLY | O_TEMPORARY));
+        assert.ok(readdirSync(local).includes('verdicts.lock'), 'the lock was deleted at once, so its delete is not pending');
+        result = await run(r, REVIEW, { env: { LAWCHECK_REVIEWER_ENDPOINT: fake.url }, budget: 'LIMITS_RUN_MS', writes: [/^\.lawcheck\/\.local(\/|$)/] });
+      } finally {
+        closeSync(held);
+      }
+      assert.equal(result.stdout, stop('.lawcheck/.local/verdicts.lock', 'cannot be written (EPERM)', 'a program still holds .lawcheck/.local/verdicts.lock open, such as another Lawcheck run or a virus scanner: run lawcheck check again once it is closed'));
+      assert.equal(result.code, 2);
+      assert.equal(fake.requests.length, 0);
+    });
+  });
+});
+
+// (AD) is the right to add a subfolder: denied to everyone on .lawcheck/.local alone, it lets the review make files there, so the probe of the folder passes, and refuses the folder of the lock, whose name then is not listed, as a pending delete's is.
+test('test 1260: on Windows a review whose .lawcheck/.local lets it make files but not folders stops at the lock with EPERM at once, with no call', async (t) => {
+  const skip = platformSkip('the whole test');
+  if (skip !== null) return t.skip(skip);
+  await withFake(async (fake) => {
+    await withR(async (r) => {
+      write(r, F_PATH, F_PRIME);
+      const local = join(r, '.lawcheck/.local');
+      mkdirSync(join(local, 'failures'), { recursive: true });
+      writeFileSync(join(local, '.gitignore'), '*\n');
+      execFileSync('icacls', [local, '/deny', '*S-1-1-0:(AD)']);
+      let result: Awaited<ReturnType<typeof run>>;
+      try {
+        assert.throws(() => mkdirSync(join(local, 'verdicts.lock')), { code: 'EPERM' }, 'Windows let a folder be made where adding one is denied');
+        result = await run(r, REVIEW, { env: { LAWCHECK_REVIEWER_ENDPOINT: fake.url }, budget: 'LIMITS_RUN_MS', writes: [/^\.lawcheck\/\.local(\/|$)/] });
+      } finally {
+        execFileSync('icacls', [local, '/remove:d', '*S-1-1-0']);
+      }
+      assert.equal(result.stdout, stop('.lawcheck/.local/verdicts.lock', 'cannot be written (EPERM)', 'let Lawcheck make folders in .lawcheck/.local, then run lawcheck check again'));
+      assert.equal(result.code, 2);
+      assert.equal(fake.requests.length, 0);
+      assert.ok(result.ms < 5_000, `the review waited ${result.ms} ms for a folder it may not make`);
     });
   });
 });

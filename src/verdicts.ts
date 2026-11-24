@@ -272,21 +272,43 @@ function staleLock(lock: string): boolean {
   return false;
 }
 
+function listed(folder: string, name: string): boolean {
+  try {
+    return readdirSync(folder).includes(name);
+  } catch {
+    return false;
+  }
+}
+
 // Two runs at once each read the verdicts file, add their lines and replace it, so the replacing is done under a lock that a killed run leaves stale.
 function locked<T>(local: string, work: () => T): T {
   const lock = join(local, 'verdicts.lock');
   const deadline = Date.now() + LOCK_WAIT_MS;
+  let refused = false;
   for (;;) {
     try {
       mkdirSync(lock);
       break;
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw new Unwritable(`${LOCAL}/verdicts.lock`, (error as NodeJS.ErrnoException).code ?? 'an error');
-      if (staleLock(lock)) {
+      const code = (error as NodeJS.ErrnoException).code;
+      // Windows refuses with EPERM both a folder whose delete another run has begun and not ended, which keeps its name listed until then and is waited out as a held lock is, and a folder the rights of .lawcheck/.local deny, whose name is not listed; with no name listed the delete may have just ended, so the folder is tried once more before the run stops.
+      const windows = code === 'EPERM' && process.platform === 'win32';
+      const pending = windows && listed(local, 'verdicts.lock');
+      if (windows && !pending) {
+        if (refused) throw new Unwritable(`${LOCAL}/verdicts.lock`, 'EPERM', `let Lawcheck make folders in ${LOCAL}, then run lawcheck check again`);
+        refused = true;
+        continue;
+      }
+      refused = false;
+      if (code !== 'EEXIST' && !pending) throw new Unwritable(`${LOCAL}/verdicts.lock`, code ?? 'an error');
+      if (!pending && staleLock(lock)) {
         rmSync(lock, { recursive: true, force: true });
         continue;
       }
-      if (Date.now() > deadline) throw new Unwritable(`${LOCAL}/verdicts.lock`, 'EBUSY');
+      if (Date.now() > deadline) {
+        if (pending) throw new Unwritable(`${LOCAL}/verdicts.lock`, 'EPERM', `a program still holds ${LOCAL}/verdicts.lock open, such as another Lawcheck run or a virus scanner: run lawcheck check again once it is closed`);
+        throw new Unwritable(`${LOCAL}/verdicts.lock`, 'EBUSY, held by another Lawcheck run through the 10 seconds this run waited', 'let the other Lawcheck run in this repository end, or end it, then run lawcheck check again');
+      }
       Atomics.wait(pause, 0, 0, 5);
     }
   }
