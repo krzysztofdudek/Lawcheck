@@ -1,7 +1,7 @@
 import { spawn, spawnSync } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
 import { rmSync } from 'node:fs';
-import { createdIn, killTree, powershell, PROCESS_TABLE, toEnd } from './programs.js';
+import { createdIn, killTree, powershell, PROCESS_TABLE, ticksAt, toEnd } from './programs.js';
 
 const pids = new Set<number>();
 const windows = process.platform === 'win32';
@@ -45,7 +45,8 @@ function watch(): void {
     }
   });
 }
-const groups = new Set<number>();
+// Each group's root, with the time the tool took just before it started the root, when it said one.
+const groups = new Map<number, number | undefined>();
 const folders = new Set<string>();
 let pending = '';
 
@@ -67,10 +68,11 @@ process.stdin.on('data', (chunk: string) => {
       continue;
     }
     const group = line[1] === 'g';
-    const pid = Number(line.slice(group ? 2 : 1));
-    const set = group ? groups : pids;
-    if (adding) set.add(pid);
-    else set.delete(pid);
+    const [pid, started] = line.slice(group ? 2 : 1).split(' ').map(Number) as [number, number | undefined];
+    if (group && adding) groups.set(pid, Number.isFinite(started) ? started : undefined);
+    else if (group) groups.delete(pid);
+    else if (adding) pids.add(pid);
+    else pids.delete(pid);
     if (group && adding) watch();
     if (group && !adding && groups.size === 0 && !held) stopWatching();
   }
@@ -128,8 +130,9 @@ async function endWatched(): Promise<void> {
   const learned = Date.now();
   const before = table;
   const fresh = (await listSince(learned, LIST_MS)) ?? listNow();
-  // On Windows the tool starts the guard before it calls a program reviewer (startListing), so no process of a group's tree was made before the guard.
-  for (const pid of toEnd(before, fresh, [...groups, ...pids], createdIn(fresh).get(process.pid))) {
+  // On Windows the tool starts the guard before it calls a program reviewer (startListing), so no process of a group's tree was made before the guard; and none was made before the time the tool took just before it started the group's root, which tells the root from an earlier holder of its id when no earlier list shows the root.
+  const since = new Map([...groups].flatMap(([pid, started]): [number, string][] => (started === undefined ? [] : [[pid, ticksAt(started)]])));
+  for (const pid of toEnd(before, fresh, [...groups.keys(), ...pids], createdIn(fresh).get(process.pid), since)) {
     try {
       process.kill(pid, 'SIGKILL');
     } catch {
@@ -154,7 +157,7 @@ function endAll(): void {
         // The runner has already ended.
       }
     }
-    for (const pid of groups) killTree(pid, 'SIGKILL');
+    for (const pid of groups.keys()) killTree(pid, 'SIGKILL');
   }
   void (windows ? endWatched() : Promise.resolve()).then(() => {
     for (const folder of folders) rmSync(folder, { recursive: true, force: true, maxRetries: 10 });
