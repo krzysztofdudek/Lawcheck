@@ -38,8 +38,8 @@ child.stdout.on('data', (chunk) => {
   }
   setTimeout(take, 1000);
 });
-// On Windows Node writes to a pipe in the writer's own time, so Lawcheck gets to its result only once its standard error is taken, and the hold above would never end.
-if (takes === 'result' && process.platform === 'win32') take();
+// On Windows Node writes to a pipe in the writer's own time, so Lawcheck gets to its result only once its standard error is taken, and a hold until the result or the end would never end.
+if (takes !== 'line' && process.platform === 'win32') take();
 
 for (const signal of ['SIGTERM', 'SIGINT', 'SIGHUP']) process.on(signal, () => child.kill(signal));
 child.once('close', (code, signal) => process.exit(signal === null ? code : 70));

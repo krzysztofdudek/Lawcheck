@@ -68,7 +68,7 @@ export function start(): void {
     for (const child of gits) child.kill('SIGKILL');
     process.exit(code);
   };
-  // Outside Windows Node writes to a pipe without waiting for its reader, and what that reader has not taken is lost when the process exits. So a run exits only once its standard error has taken every line passed on to it, and a run that a signal stops does not wait.
+  // Outside Windows Node writes to a pipe without waiting for its reader, and what that reader has not taken is lost when the process exits. So a run exits only once its standard error has taken every line passed on to it. A run that fail() ends does not wait: its worker still runs, and would write a second result with another code.
   let unwritten = 0;
   let ended: number | null = null;
   let stopped = false;
@@ -93,6 +93,7 @@ export function start(): void {
     });
   };
   const fail = (item: ErrorItem) => {
+    stopped = true;
     if (writing) {
       process.stderr.write(safeText(`error[${item.code}]  ${hide(item.message)}\n`), () => exit(2));
       return;
@@ -102,7 +103,6 @@ export function start(): void {
   };
   for (const signal of ['SIGTERM', 'SIGINT', 'SIGHUP'] as const) {
     process.on(signal, () => {
-      stopped = true;
       // The result is written whole, so its code stands; only lines that rules printed are left behind.
       if (ended !== null) return exit(ended);
       fail({ code: 'stopped', file: null, line: null, message: `stopped by ${signal}` });

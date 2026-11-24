@@ -117,3 +117,18 @@ test('test 1353: a caller that takes standard error only after the result is wri
     { onMain: (s) => setRule(s, 'no-console', flood) },
   );
 });
+
+test('test 1355: a run that memory-too-large ends while its caller has not taken standard error exits at once with exit 2 and one result', async () => {
+  // 64 KiB of `a<a,` take more memory to read than one file may add, and the rule prints 12 MB before it asks for them.
+  const floodThenUses = "export async function check({ files: [file] }) { const line = 'noise '.repeat(100); for (let i = 0; i < 20000; i++) console.log(line); await file.uses(); return []; }\n";
+  await withSample(
+    async (s) => {
+      write(s, 'src/core/big.ts', 'a<a,'.repeat(16 * 1024));
+      const result = await startProgram(LATE_READER, [CLI, 'exit', 'check', '--base', 'main', '--json'], s, GIT_ENV, { stderr: /^noise /, budget: 'LIMITS_RUN_MS' }).ended;
+      const errors = JSON.parse(result.stdout).errors as { code: string; file: string | null }[];
+      assert.deepEqual(errors.map((error) => [error.code, error.file]), [['memory-too-large', 'src/core/big.ts']]);
+      assert.equal(result.code, 2);
+    },
+    { onMain: (s) => setRule(s, 'no-console', floodThenUses) },
+  );
+});
