@@ -358,3 +358,9 @@ Why: the text of a reviewer rule goes into every prompt, and a script rule runs.
 `explain` refuses a name or a path that cannot exist, and it measures it as the system does: bytes on Linux and macOS (255 for a name, 4,095 for a path), UTF-16 units on Windows (255 and 32,767). A name that exists on a system is never refused as one that cannot.
 
 Why: Windows answers that a name that is too long is missing, not too long, so Lawcheck measures it before it asks. Counting bytes there refused a real name of 86 CJK characters, which is 258 bytes and 86 units.
+
+## 192. The primer names the runner's command once
+
+When `runner` in `.lawcheck/config.yaml` is not `global`, `prime` ends its first line with `Start it here as: <the runner's command>` and writes every other command of its text as `lawcheck <command>`, as it does for the global runner. It does not put the runner's words before each command.
+
+Why: the text is fitted to one budget and checked line by line, and the plugin and the docs hand an agent the same lines whatever the runner, so one line says how to start the tool and the agent reads `lawcheck` in every other line as that command. The words of `npx --no-install` before each of the commands in the text would give one text per runner and leave the types and rules the primer lists less of the budget. What is given up: an agent that reads one line alone sees `lawcheck check`, not `npx --no-install lawcheck check`; the first line of the same text tells it how to start the tool.
