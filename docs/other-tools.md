@@ -1,6 +1,6 @@
 # Lawcheck and the tools you already use
 
-Your repository may already have an `AGENTS.md`, ArchUnit, eslint-plugin-boundaries, import-linter, CodeRabbit or a hook of your own. This page compares Lawcheck with each of them. A table at the end of each part says which tool fits your case.
+Lawcheck fits beside `AGENTS.md`, ArchUnit, eslint-plugin-boundaries, import-linter or CodeRabbit when one law checks several languages before the pull request. This page compares Lawcheck with each of them and with a hook of your own. A table at the end of each part says which tool fits your case.
 
 Lawcheck checks your code against a [law](concepts.md#law) you write in `.lawcheck/law.yaml`. The law names the [types](concepts.md#type) of your files, which types each type may [use](concepts.md#use), and the [rules](concepts.md#rule) each type keeps.
 
@@ -26,7 +26,7 @@ The rules file can bring Lawcheck to an agent other than Claude Code. One line i
 
 | Your case | Use |
 |---|---|
-| Your rules say how the agent works: commands, branches, messages | the rules file alone |
+| Your rules say how the agent works, such as the command that runs the tests | the rules file alone |
 | Your rules are about files: which layer may import which, what a file of one kind must hold | Lawcheck, with the law in `.lawcheck/` |
 | Your repository has both kinds | both: the rules file keeps the rules about the work, and the law keeps the rules about files |
 
@@ -100,7 +100,7 @@ Lawcheck writes no annotation into the pull request by itself. A review bot comm
 | A rule must hold in every file of a kind, and the agent must hear it before it opens a pull request | Lawcheck |
 | Your code may not go to a hosted model | Lawcheck with uses and script rules, which send nothing, and reviewer rules through `ollama` on a machine you run |
 | You want both of the above | both: the bot reviews the pull request, and Lawcheck holds the law at each edit and in CI |
-| Your architecture tool already prints annotations on the lines of the pull request, as `deptrac` does in GitHub Actions | that tool |
+| Your architecture tool already prints annotations on the lines of the pull request, as `deptrac` does in GitHub Actions ([deptrac's page on formatters](https://deptrac.github.io/deptrac/formatters/), read on 2026-11-24) | that tool |
 | You want annotations on the lines of the pull request, and no tool of yours prints them | a review bot; Lawcheck prints them only through the script in `lawcheck docs ci` |
 
 ## A hook you wrote in Claude Code
