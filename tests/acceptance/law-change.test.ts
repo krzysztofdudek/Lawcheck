@@ -400,3 +400,31 @@ test('test 1110: T7, under --law-from a commit in which git lists a file in .law
     );
   }
 });
+
+test('test 1112: T7, under --law-from a folder that a file system which ignores case finds as .lawcheck/node_modules or .lawcheck/.local, in another case or with a long s, stops with law-from-packages, named as git lists it, and its next line clears it', async () => {
+  for (const folder of ['.lawcheck/Node_Moduleſ', '.lawcheck/.Local']) {
+    await withSample(async (s) => {
+      write(s, `${folder}/callpkg/index.js`, 'export const CALL = /a^/;\n');
+      git(s, 'add', '-f', folder);
+      git(s, 'commit', '-q', '-m', 'plant');
+      const planted = await check(s, '--base', 'main', '--law-from', 'main');
+      assert.deepEqual(planted.stdout.split('\n'), [
+        'lawcheck: ERROR  1 error',
+        '',
+        `${folder}/callpkg/index.js  error[law-from-packages]  git lists this file in ${folder}, and a package that a rule of 'main' imports cannot come from the change`,
+        '  why:  a change judged by the law of a commit cannot supply the code that law runs',
+        '',
+        `next: take ${folder} out of git, such as with git rm -r --cached ${folder}, and name it in .gitignore`,
+        '',
+      ], folder);
+      assert.equal(planted.code, 2, folder);
+      git(s, 'rm', '-r', '-q', '--cached', folder);
+      append(s, '.gitignore', `\n${folder}/\n`);
+      git(s, 'add', '.gitignore');
+      git(s, 'commit', '-q', '-m', 'ignore the plant');
+      const cleared = await check(s, '--base', 'main', '--law-from', 'main');
+      assert.ok(!cleared.stdout.includes('law-from-packages'), `${folder}: ${cleared.stdout}`);
+      assert.equal(cleared.code, 0, `${folder}: ${cleared.stdout}`);
+    });
+  }
+});

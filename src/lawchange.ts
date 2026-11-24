@@ -305,15 +305,15 @@ export function kindsAt(at: LawAt, workFiles: string[], read: Read): { files: st
 
 const PACKAGE_FOLDERS = ['.lawcheck/node_modules', LOCAL];
 
-// A rule loaded from the copy in .lawcheck/.local finds a package it imports by name in the node_modules folders above that copy, so the change may hold none of them. Git keeps the case of a path, and a file system that ignores case finds it all the same.
+// A rule loaded from the copy in .lawcheck/.local finds a package it imports by name in the node_modules folders above that copy, so the change may hold none of them. Git keeps the case of a path, and a file system that ignores case finds it all the same: macOS finds .lawcheck/node_moduleſ, with a long s, as .lawcheck/node_modules, and only toUpperCase turns that s into an S.
 export function packagesOfChange(listed: Iterable<string>, ref: string): void {
+  const known = (folder: string) => PACKAGE_FOLDERS.indexOf(folder.toUpperCase().toLowerCase());
   const found = new Map<string, string[]>();
   for (const path of listed) {
-    const lower = path.toLowerCase();
-    const folder = PACKAGE_FOLDERS.find((top) => lower === top || lower.startsWith(`${top}/`));
-    if (folder !== undefined) found.set(folder, [...(found.get(folder) ?? []), path]);
+    const folder = path.split('/').slice(0, 2).join('/');
+    if (known(folder) >= 0) found.set(folder, [...(found.get(folder) ?? []), path]);
   }
-  const errors = PACKAGE_FOLDERS.filter((folder) => found.has(folder)).map((folder): ErrorItem => {
+  const errors = [...found.keys()].sort((a, b) => known(a) - known(b) || comparePaths(a, b)).map((folder): ErrorItem => {
     const [first, ...rest] = found.get(folder)!.sort(comparePaths);
     const more = rest.length === 0 ? '' : `, and ${count(rest.length)} more file${rest.length === 1 ? '' : 's'} there`;
     return { code: 'law-from-packages', file: first!, line: null, message: `git lists this file in ${folder}${more}, and a package that a rule of '${ref}' imports cannot come from the change`, next: `take ${folder} out of git, such as with git rm -r --cached ${folder}, and name it in .gitignore` };
