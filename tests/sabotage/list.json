@@ -174,5 +174,21 @@
     "find": "if (error instanceof TextTooLarge) break;",
     "replace": "if (error instanceof TextTooLarge) continue;",
     "killedBy": "R-44: files that cannot be read are listed in the order given, and a run past its text limit stops there"
+  },
+  {
+    "id": "providers-fragment-alone",
+    "promise": "R-45",
+    "file": "src/providers/index.ts",
+    "find": "parsed.hash !== '' || /[?#]/.test(value)",
+    "replace": "parsed.hash !== '' && /[?#]/.test(value)",
+    "killedBy": "R-45: the endpoint says in its own words what is wrong with it, and a trailing # or ? is a fragment or a query"
+  },
+  {
+    "id": "providers-keys-hidden",
+    "promise": "R-45",
+    "file": "src/providers/index.ts",
+    "find": "if (provider !== null) addKeys(provider.keys);",
+    "replace": "if (provider !== null) addKeys([]);",
+    "killedBy": "R-45: a provider that is created has its keys hidden from then on, and none is created without a name"
   }
 ]
