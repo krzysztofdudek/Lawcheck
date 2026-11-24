@@ -59,6 +59,8 @@ When a reviewer's answer holds two verdict objects and one of them is a `fail`, 
 
 A `check` or `try` that ends with exit 2 after it sent requests to a reviewer now says how many. The first line ends with the count, such as `lawcheck: ERROR  1 error, 2 reviewer calls`, and the JSON document `lawcheck-error/1` gains `calls_made` when the count is above 0. A program that checks the document against a schema that refuses unknown keys has to allow `calls_made`.
 
+With `runner: yarn` on Yarn 1, a failing check no longer hands the agent Yarn's closing line, `info Visit https://yarnpkg.com/en/docs/cli/run for documentation about this command.`, after the `next:` line. In alpha.4 the plugin kept that line, and when the output was too long for the hook text it dropped the `next:` line and ended on the Yarn line.
+
 ## [0.1.0-alpha.4] - 2026-11-23
 
 A script rule that uses the network now gets an error from the call itself, on every Node. On Node 24, alpha.3 let the call through. On Node 25 and later, alpha.3 passed Node's refusal to the callback, the `error` event or the promise, so a rule that handled the refusal there passed. The rule runner of alpha.4 closes the network before the rule loads. A rule that connects, listens on a port, sends over UDP, looks up a name in DNS or calls `fetch` gets the error. A rule that does not catch it is `rule-crashed`, with the message `uses the network, which is closed to script rules`.
