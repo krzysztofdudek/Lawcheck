@@ -21,6 +21,8 @@
     "claude-md",
     "hooks",
     "deterministic",
+    "ast",
+    "tree-sitter",
     "rules"
   ],
   "type": "module",
