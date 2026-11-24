@@ -281,12 +281,15 @@ function locked<T>(local: string, work: () => T): T {
       mkdirSync(lock);
       break;
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw new Unwritable(`${LOCAL}/verdicts.lock`, (error as NodeJS.ErrnoException).code ?? 'an error');
-      if (staleLock(lock)) {
+      const code = (error as NodeJS.ErrnoException).code;
+      // Windows refuses with EPERM to make a folder whose delete another run has begun and not ended, so that refusal is waited out as a held lock is.
+      const pending = code === 'EPERM' && process.platform === 'win32';
+      if (code !== 'EEXIST' && !pending) throw new Unwritable(`${LOCAL}/verdicts.lock`, code ?? 'an error');
+      if (!pending && staleLock(lock)) {
         rmSync(lock, { recursive: true, force: true });
         continue;
       }
-      if (Date.now() > deadline) throw new Unwritable(`${LOCAL}/verdicts.lock`, 'EBUSY');
+      if (Date.now() > deadline) throw new Unwritable(`${LOCAL}/verdicts.lock`, pending ? 'EPERM' : 'EBUSY');
       Atomics.wait(pause, 0, 0, 5);
     }
   }
