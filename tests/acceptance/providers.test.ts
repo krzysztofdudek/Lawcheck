@@ -598,9 +598,9 @@ test('test 1008: on Windows the guard of a killed tool ends what a root left, an
   for (const late of [false, true]) {
     await withCopy(async (copy) => {
       const guardFile = join(copy.dir, 'dist', 'guard.js');
-      const waited = 'listSince(learned, 10_000)';
+      const waited = /listSince\(learned, \w+\)/;
       const sound = readFileSync(guardFile, 'utf8');
-      assert.ok(sound.includes(waited));
+      assert.ok(waited.test(sound), 'the guard has no listSince(learned, …) for this test to cut short');
       if (late) writeFileSync(guardFile, sound.replace(waited, 'listSince(learned, 0)'));
       const left: number[] = [];
       try {
@@ -640,10 +640,10 @@ test('test 1010: on Windows the guard of a killed tool stops its own PowerShell 
   if (skip !== null) return t.skip(skip);
   await withCopy(async (copy) => {
     const guardFile = join(copy.dir, 'dist', 'guard.js');
-    const waited = 'listSince(learned, 10_000)';
+    const waited = /listSince\(learned, \w+\)/;
     const listing = "spawnSync(powershell(), ['-NoProfile', '-NonInteractive', '-Command', PROCESS_TABLE]";
     const sound = readFileSync(guardFile, 'utf8');
-    assert.ok(sound.includes(waited) && sound.includes(listing));
+    assert.ok(waited.test(sound) && sound.includes(listing), 'the guard has no listSince(learned, …) to cut short or no list of its own to replace');
     // The watcher gives no list in time, and the guard's own list is a program that never answers.
     writeFileSync(guardFile, sound.replace(waited, 'listSince(learned, 0)').replace(listing, `spawnSync(process.execPath, ['-e', '${IDLE}']`));
     const folder = join(copy.dir, 'call folder');
