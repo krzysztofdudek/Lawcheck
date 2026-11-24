@@ -54,10 +54,12 @@ The npm package and the Claude Code plugin now include the MIT licence of cross-
 
 A plain `lawcheck check` no longer misses a file edited in the same second as the last commit or `git add`, when the edit keeps the file's size. In alpha.4 the check printed `PASS  nothing changed` while `git status` showed the file as modified.
 
-The Lawcheck plugin now works in Codex CLI. `codex plugin marketplace add krzysztofdudek/Lawcheck` and `codex plugin add lawcheck@lawcheck-marketplace` install it, and Codex runs its hooks after you trust them in `/hooks`. The agent gets the law when a session starts, a check after each `apply_patch`, and up to three returns before it finishes, as in Claude Code. A file the agent writes through the shell gets no check after the edit, and the check before the end of the turn catches it. `LAWCHECK_PLUGIN_CHECK_AFTER_EDIT` and `LAWCHECK_PLUGIN_CHECK_BEFORE_STOP` switch the two checks off. In alpha.4 Codex got the law only through a line in its instructions file. `lawcheck docs codex-cli` has the steps.
+The Lawcheck plugin now works in Codex CLI and GitHub Copilot CLI. In both, the agent gets the law when a session starts, a check after each edit, and up to three returns before it finishes, as in Claude Code. A file the agent writes through the shell gets no check after the edit, and the check before the end of the turn catches it. `LAWCHECK_PLUGIN_CHECK_AFTER_EDIT` and `LAWCHECK_PLUGIN_CHECK_BEFORE_STOP` switch the two checks off. In alpha.4 both agents got the law only through a line in their instructions file.
+
+- In Codex, `codex plugin marketplace add krzysztofdudek/Lawcheck` and `codex plugin add lawcheck@lawcheck-marketplace` install the plugin, and Codex runs its hooks after you trust them in `/hooks`. The check after an edit sees the files of `apply_patch`. `lawcheck docs codex-cli` has the steps.
+- In Copilot CLI, `copilot plugin marketplace add krzysztofdudek/Lawcheck` and `copilot plugin install lawcheck@lawcheck-marketplace` install it. The check after an edit sees the files of `create` and `edit`. Copilot CLI gives a plugin no way to write to you, so at the end of a turn the plugin sends the agent back once to tell you its message, such as a check that still fails or a waiver the agent added. `lawcheck docs copilot-cli` has the steps.
 
 The documentation site is now at https://docs.lawcheck.dev, and https://lawcheck.dev introduces Lawcheck. A page that alpha.4 named at `lawcheck.dev/<page>` redirects to the same page at the new address. The README of the npm package names the new address.
-
 ### Before you upgrade
 
 `scope.law_changes` in `lawcheck check --json` no longer lists the waivers a change adds. A script that read them there reads the items of `waivers` whose `added` is true.

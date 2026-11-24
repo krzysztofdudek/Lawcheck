@@ -2,7 +2,7 @@ import { writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { step } from './progress.js';
 import { check } from './check.js';
-import type { CheckContext, CheckOptions, CheckOutcome } from './check.js';
+import type { CheckOptions, CheckOutcome } from './check.js';
 import { firstLine } from './law.js';
 import { blocking, CODES, renderErrors, renderReport, safeJson, safeText } from './output.js';
 import type { Report } from './output.js';
@@ -12,7 +12,7 @@ import { bytesOfName } from './names.js';
 import { locate } from './setup.js';
 import { hiddenJson, hide, useKeys } from './keys.js';
 import { COMMANDS, errorResult, number, PROGRAM_USAGE, readArguments, text, usageError, USAGE, version } from './args.js';
-import type { Arguments, CommandName, Result } from './args.js';
+import type { Arguments, CheckContext, CommandName, Result } from './args.js';
 
 export { version };
 export type { Result };

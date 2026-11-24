@@ -76,7 +76,7 @@ export function argumentsProperties(speed: Speed): Record<string, () => unknown>
       const id = fc.oneof({ weight: 2, arbitrary: fc.constant('x'.repeat(5000)) }, { weight: 3, arbitrary: fc.constantFrom('s1', '../x', '', 'a b', 'ż', 'y'.repeat(129)) }, { weight: 1, arbitrary: fc.string({ maxLength: 10 }) }, { weight: 1, arbitrary: fc.integer() });
       const field = fc.oneof(fc.constantFrom(s, '/', join(s, 'src'), join(s, D_PATH), join(s, 'src/core/new\nline.ts'), 'relative/path.ts', ''), fc.anything());
       const object = fc
-        .record({ session_id: id, prompt_id: fc.oneof(fc.constant('p1'), fc.anything()), turn_id: fc.oneof(fc.constant('t1'), fc.anything()), cwd: field, tool_name: fc.constantFrom('Write', 'Edit', 'NotebookEdit', 'apply_patch', 'Bash', 7), tool_input: fc.oneof(fc.record({ file_path: field, notebook_path: field, command: fc.oneof(field.map((path) => `*** Begin Patch\n*** Update File: ${String(path)}\n*** End Patch\n`), fc.anything()) }), fc.anything()), stop_hook_active: fc.oneof(fc.boolean(), fc.anything()), background_tasks: fc.oneof(fc.constant([]), fc.anything()) }, { requiredKeys: ['session_id'] })
+        .record({ session_id: id, sessionId: id, prompt_id: fc.oneof(fc.constant('p1'), fc.anything()), turn_id: fc.oneof(fc.constant('t1'), fc.anything()), cwd: field, toolName: fc.constantFrom('create', 'edit', 'str_replace_editor', 'apply_patch', 'view', 7), toolArgs: fc.oneof(fc.record({ path: field, command: fc.constantFrom('view', 'str_replace') }), field.map((path) => `*** Begin Patch\n*** Update File: ${String(path)}\n*** End Patch\n`), fc.anything()), tool_name: fc.constantFrom('Write', 'Edit', 'NotebookEdit', 'apply_patch', 'Bash', 7), tool_input: fc.oneof(fc.record({ file_path: field, notebook_path: field, command: fc.oneof(field.map((path) => `*** Begin Patch\n*** Update File: ${String(path)}\n*** End Patch\n`), fc.anything()) }), fc.anything()), stop_hook_active: fc.oneof(fc.boolean(), fc.anything()), background_tasks: fc.oneof(fc.constant([]), fc.anything()) }, { requiredKeys: ['session_id'] })
         .map((v) => JSON.stringify(v));
       const input = fc.oneof(
         { weight: 3, arbitrary: object },
@@ -85,7 +85,7 @@ export function argumentsProperties(speed: Speed): Record<string, () => unknown>
       );
       await tool(
         speed,
-        fc.tuple(fc.constantFrom(...EVENTS), input, fc.constantFrom('', 'runner: global\n', '\ufeffrunner: global\n', 'runner: bogus\n', '\ufeffrunner: bogus\n', '\ufeffrunner: global  # pinned\r\n'), fc.constantFrom(undefined, 'codex')),
+        fc.tuple(fc.constantFrom(...EVENTS), input, fc.constantFrom('', 'runner: global\n', '\ufeffrunner: global\n', 'runner: bogus\n', '\ufeffrunner: bogus\n', '\ufeffrunner: global  # pinned\r\n'), fc.constantFrom(undefined, 'codex', 'copilot')),
         { classes: { 'a config with a byte-order mark': ([, , config]) => config.startsWith('\ufeff'), 'an object': ([, i]) => i.startsWith('{"'), 'no JSON object': ([, i]) => !i.startsWith('{"'), 'a byte-order mark at the start of the input': ([, i]) => i.startsWith('\ufeff'), 'a session id of 5,000 characters to a hook that keeps state': ([event, i]) => event !== 'session-start' && i.includes('x'.repeat(5000)) } },
         async ([event, i, config, host]) => {
           write(s, '.lawcheck/config.yaml', config);
@@ -109,7 +109,7 @@ export function argumentsProperties(speed: Speed): Record<string, () => unknown>
           assert.equal(run.stderr, '');
           if (run.stdout === '') return;
           const document = JSON.parse(run.stdout);
-          assert.ok(typeof document.systemMessage === 'string' || typeof document.hookSpecificOutput?.additionalContext === 'string' || (host === 'codex' && document.decision === 'block' && typeof document.reason === 'string'), run.stdout);
+          assert.ok(typeof document.systemMessage === 'string' || typeof document.hookSpecificOutput?.additionalContext === 'string' || (host !== undefined && document.decision === 'block' && typeof document.reason === 'string') || (host === 'copilot' && typeof document.additionalContext === 'string'), run.stdout);
         },
       );
     } finally {
