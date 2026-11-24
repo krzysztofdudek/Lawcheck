@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import { fakeWrites, LIMITS_VARIABLE, platformSkip } from '../harness/tool.ts';
 import { CLAUDE_TIMEOUT_RUN_MS, FAKE_STARTED_MS, KILLED_GRACE_MS, LEFTOVER_GRACE_MS, TEST_RULE_MS, WINDOWS_KILLED_GRACE_MS } from '../numbers.ts';
 import { LIMITS } from '../../dist/rules.js';
-import { killGroup } from '../../dist/programs.js';
+import { killGroup, ticksAt } from '../../dist/programs.js';
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
@@ -471,18 +471,32 @@ async function waitFor(condition: () => boolean, ms: number): Promise<boolean> {
   return condition();
 }
 
+const FAKE_START_TIMEOUTS_S = [1, 3, 6];
+
 test('test 67: claude-code past its timeout, and the tool killed', async () => {
   const killedGrace = process.platform === 'win32' ? WINDOWS_KILLED_GRACE_MS : KILLED_GRACE_MS;
-  await withR(async (r, dir) => {
-    write(r, F_PATH, F);
-    const result = await run(r, null, ['--review', '--base', 'main'], claudeEnv(dir, 'sleep'));
-    assert.equal(result.code, 2);
-    assert.ok(errorLine(result.stdout, UNREACHABLE), result.stdout);
-    assert.ok(result.ms < CLAUDE_TIMEOUT_RUN_MS, `${result.ms} ms`);
-    const seen = record(dir);
-    assert.ok(await waitFor(() => !alive(seen.pid), LEFTOVER_GRACE_MS), 'the fake claude is alive');
-    assert.ok(await waitFor(() => !alive(seen.child!), LEFTOVER_GRACE_MS), 'its child is alive');
-  }, config(CLAUDE_CONFIG + '  timeout: 1\n'));
+  // The deadline of a call runs while the program starts, and the fake writes its record only once it runs: on a slow Windows runner a deadline of 1 second falls first, the tool times out as it should, and there is no record to read. Only a record proves the kill, so a run without one is tried again with a longer deadline, and a test that never gets one says what each run saw.
+  const unstarted: string[] = [];
+  let killed = false;
+  for (const timeout of FAKE_START_TIMEOUTS_S) {
+    await withR(async (r, dir) => {
+      write(r, F_PATH, F);
+      const result = await run(r, null, ['--review', '--base', 'main'], claudeEnv(dir, 'sleep'));
+      assert.equal(result.code, 2);
+      assert.ok(errorLine(result.stdout, UNREACHABLE), result.stdout);
+      assert.ok(result.ms < CLAUDE_TIMEOUT_RUN_MS, `${result.ms} ms`);
+      if (!existsSync(join(dir, 'record.json'))) {
+        unstarted.push(`timeout ${timeout} s, ${result.ms} ms: ${result.stdout.trim()}; the folder holds ${readdirSync(dir).join(', ')}`);
+        return;
+      }
+      const seen = record(dir);
+      assert.ok(await waitFor(() => !alive(seen.pid), LEFTOVER_GRACE_MS), 'the fake claude is alive');
+      assert.ok(await waitFor(() => !alive(seen.child!), LEFTOVER_GRACE_MS), 'its child is alive');
+      killed = true;
+    }, config(CLAUDE_CONFIG + `  timeout: ${timeout}\n`));
+    if (killed) break;
+  }
+  assert.ok(killed, `the fake claude wrote no record before the deadline in any run, so no kill could be seen:\n${unstarted.join('\n')}`);
   await withR(async (r, dir) => {
     write(r, F_PATH, F);
     const child = startLawcheck(r, ['check', '--review', '--base', 'main'], { env: claudeEnv(dir, 'sleep') });
@@ -1156,8 +1170,21 @@ test('test 1049: a program call that ends normally ends its process group no lat
 // The tool's side of two program calls that got the same id: the earlier call's program has ended, the later call's program runs, and the earlier call is released after the later call was told to the guard.
 const TWICE = "import { releaseGroup, startListing, watchGroup } from './dist/programs.js';\nstartListing();\nprocess.stdout.write('ready\\n');\nlet pending = '';\nprocess.stdin.setEncoding('utf8').on('data', (chunk) => {\n  pending += chunk;\n  for (let end = pending.indexOf('\\n'); end >= 0; end = pending.indexOf('\\n')) {\n    const [pid, started] = pending.slice(0, end).split(' ').map(Number);\n    pending = pending.slice(end + 1);\n    watchGroup(pid, started - 1, () => false);\n    watchGroup(pid, started);\n    releaseGroup(pid, false, started - 1);\n    process.stdout.write('told\\n');\n  }\n});\n";
 
+// The list of processes the guard reads, which leaves a file in the folder for each list that shows the process whose id the file names, holding that process's row, once the list's rows are out.
+function markedTable(watched: string, lists: string): string {
+  return `$rows = @(Get-CimInstance Win32_Process | ForEach-Object { "$($_.ProcessId) $($_.ParentProcessId) $($_.CreationDate.ToUniversalTime().Ticks)" }); $rows; if (Test-Path -LiteralPath '${watched}') { $id = "$(Get-Content -LiteralPath '${watched}') "; $row = $rows | Where-Object { $_.StartsWith($id) } | Select-Object -First 1; if ($row) { Set-Content -LiteralPath (Join-Path '${lists}' ([DateTime]::UtcNow.Ticks)) -Value $row } }`;
+}
+
 test('test 1050: two program calls that get the same id each keep their own entry in the guard: the release of the earlier one neither ends the later one\'s program nor takes it from the guard of a killed tool', async () => {
   await withCopy(async (copy) => {
+    const programsFile = join(copy.dir, 'dist', 'programs.js');
+    const table = /export const PROCESS_TABLE = .*;\n/;
+    const programs = readFileSync(programsFile, 'utf8');
+    assert.ok(table.test(programs), 'programs.js has no PROCESS_TABLE for this test to mark the lists of');
+    const watched = join(copy.dir, 'watched');
+    const lists = join(copy.dir, 'lists');
+    mkdirSync(lists);
+    writeFileSync(programsFile, programs.replace(table, () => `export const PROCESS_TABLE = ${JSON.stringify(markedTable(watched, lists))};\n`));
     writeFileSync(join(copy.dir, 'tool.mjs'), TWICE);
     const left: number[] = [];
     const tool = spawn(process.execPath, [join(copy.dir, 'tool.mjs')], { cwd: copy.dir, stdio: ['pipe', 'pipe', 'ignore'], windowsHide: true });
@@ -1168,11 +1195,17 @@ test('test 1050: two program calls that get the same id each keep their own entr
       const started = Date.now();
       const program = await startGroup(copy.dir, 'program.mjs', HOLDER);
       left.push(program.pid, program.child);
+      writeFileSync(`${watched}.part`, String(program.pid));
+      renameSync(`${watched}.part`, watched);
       tool.stdin!.write(`${program.pid} ${started}\n`);
       assert.ok(await waitFor(() => said.includes('told'), GUARD_ENDS_MS), 'the tool did not tell its guard');
       assert.ok(!(await waitFor(() => !alive(program.pid) || !alive(program.child), LEFTOVER_GRACE_MS)), 'the release of the earlier call ended the later call\'s program');
+      // On Windows the guard ends a root that outlives the tool only when a list it read before it learned of the kill shows the root (decision 205), and its first list can come seconds after it starts. A second list that shows the program begins after the first one was printed, so the guard has read a list that shows it.
+      const shown = () => readdirSync(lists).sort();
+      const seen = () => (shown().length === 0 ? 'no list of the guard showed it' : `the guard's list showed it as ${readFileSync(join(lists, shown()[0]!), 'utf8').trim()} (id, parent, made in ticks), and the tool gave ${ticksAt(started)}`);
+      if (process.platform === 'win32') assert.ok(await waitFor(() => shown().length >= 2, GUARD_ENDS_MS), `the guard read no list that shows the later call's program before the kill: ${seen()}`);
       tool.kill('SIGKILL');
-      assert.ok(await waitFor(() => !alive(program.pid), GUARD_ENDS_MS), 'the guard of the killed tool left the later call\'s program alive');
+      assert.ok(await waitFor(() => !alive(program.pid), GUARD_ENDS_MS), `the guard of the killed tool left the later call's program alive${process.platform === 'win32' ? `: ${seen()}` : ''}`);
       assert.ok(await waitFor(() => !alive(program.child), GUARD_ENDS_MS), 'the guard of the killed tool left the later call\'s child alive');
     } finally {
       tool.kill('SIGKILL');
