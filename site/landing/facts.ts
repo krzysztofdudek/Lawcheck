@@ -3,17 +3,18 @@ import { createHighlighter } from 'shiki';
 import { parse } from 'yaml';
 import topics from '../../docs/topics.json' with { type: 'json' };
 import { codeThemeOfBrand, GITHUB, LINK, manifest, NPM, REPOSITORY } from '../theme/brand.ts';
-import { chapters } from '../theme/film.ts';
+import { chapters, loop } from '../theme/film.ts';
 import { plain } from '../theme/describe.ts';
 import { Fragments, inline, isAhead } from './fragments.ts';
 
 type Link = { text: string; page: string };
 export interface Copy {
   title: string;
+  summary: string;
   h1: string;
   skip: string;
   nav: { docs: Link; github: string };
-  install: { copy: string; copyBoth: string; copyPlugin: string; copied: string; quickStart: Link };
+  install: { copy: string; copyBoth: string; copyPlugin: string; copied: string; quickStart: Link; setup: Link };
   problem: string;
   where: string;
   tryIt: string;
@@ -43,13 +44,35 @@ export function releaseDate(version: string): string {
   return line.slice(line.lastIndexOf(' ') + 1);
 }
 
-export const promise = (): string => fragments.sentence('README.md', 'Lawcheck', 'Lawcheck checks code against');
-export const agents = (): string => ['A coding agent can skip a rule', 'Lawcheck reads the uses of'].map((start) => fragments.sentence('README.md', 'Lawcheck', start)).join(' ');
+export const promise = (): string => ['You write down which layer', 'Lawcheck checks each file your agent edits'].map((start) => fragments.sentence('README.md', 'Lawcheck', start)).join(' ');
+export const agents = (): string => fragments.paragraph('README.md', 'Lawcheck', 'The check of imports is deterministic');
+
+export function loopLabel(readme: string): string {
+  const found = /^\[!\[([^\]]+)\]\(/m.exec(readme);
+  if (!found) throw new Error('site/landing: README.md shows no loop, an image link at its top, whose text the landing page gives the video; node film/publish.mjs --release <tag> writes that link, and with --from <folder> it writes it for a preview');
+  return found[1]!;
+}
+
+const LOOP_FILE = '/film/';
+
+export function heroLoop() {
+  const shown = loop();
+  if (!shown) return null;
+  return { webm: `${LOOP_FILE}${shown.files.webm.name}`, mp4: `${LOOP_FILE}${shown.files.mp4.name}`, label: loopLabel(fragments.read('README.md')) };
+}
+
+export function marked(html: string, text: string): string {
+  const lines = html.split('<span class="line">');
+  const at = lines.findIndex((line, index) => index > 0 && line.includes(text));
+  if (at < 0) throw new Error(`site/landing: the still of the hero has no line with ${text}`);
+  lines[at] = `<span class="line mark">${lines[at]!}`;
+  return lines.map((line, index) => (index === 0 || index === at ? line : `<span class="line">${line}`)).join('');
+}
 export const support = (): string => fragments.sentence('docs/support.md', 'Supported environments', `Lawcheck ${manifest.version} runs on`);
 
 export function head() {
   const copy = copyOf();
-  return { title: copy.title, description: plain(agents()), version: manifest.version, date: releaseDate(manifest.version), ahead: isAhead(fragments.read('CHANGELOG.md')), systems: /, on (.+)\.$/.exec(support())![1]! };
+  return { title: copy.title, description: plain(copy.summary), version: manifest.version, date: releaseDate(manifest.version), ahead: isAhead(fragments.read('CHANGELOG.md')), systems: /, on (.+)\.$/.exec(support())![1]! };
 }
 
 export async function facts() {
@@ -67,13 +90,14 @@ export async function facts() {
   const link = (target: Link) => ({ text: target.text, href: pageUrl(target.page) });
 
   const law = code('README.md', 'Lawcheck', 'lawcheck: ');
+  const refusal = code('README.md', 'Lawcheck', '$ lawcheck check');
   const install = fragments.code('docs/install.md', 'Install globally', '$ npm install').code.replace(/^\$ /, '');
   const groups = ['`CLAUDE.md` and `AGENTS.md`', 'An architecture tool for one language', 'A review bot at the pull request', 'A hook you wrote in Claude Code'];
   const rowsOf: Record<string, string[]> = {
-    '`CLAUDE.md` and `AGENTS.md`': ['Your rules say how the agent works: commands, branches, messages', 'Your rules are about files: which layer may import which, what a file of one kind must hold'],
+    '`CLAUDE.md` and `AGENTS.md`': ['Your rules say how the agent works, such as the command that runs the tests', 'Your rules are about files: which layer may import which, what a file of one kind must hold'],
     'An architecture tool for one language': ['One language, and the tool already holds your layers in the test suite or the linter', 'Two or more languages under one set of layers'],
-    'A review bot at the pull request': ['You want comments on the whole change, including on what no rule names', 'A rule must hold in every file of a kind, and the agent must hear it before it opens a pull request', 'Your architecture tool already prints annotations on the lines of the pull request, as `deptrac` does in GitHub Actions', 'You want annotations on the lines of the pull request, and no tool of yours prints them'],
-    'A hook you wrote in Claude Code': ['Your hook runs the linter and the tests, and the linter already holds your layers', 'You want the law checked inside the turn, on the files of the turn, with at most three returns', 'You work in Cursor, and you want the agent sent back after each edit'],
+    'A review bot at the pull request': ['You want comments on the whole change, including on what no rule names', 'A rule must hold in every file of a kind, and the agent must hear it before it opens a pull request', 'Your architecture tool already prints annotations on the lines of the pull request, as `deptrac` does in GitHub Actions ([deptrac\'s page on formatters](https://deptrac.github.io/deptrac/formatters/), read on 2026-11-24)', 'You want annotations on the lines of the pull request, and no tool of yours prints them'],
+    'A hook you wrote in Claude Code': ['Your hook runs the linter and the tests, and the linter already holds your layers', 'You want the law checked inside the turn, on the files of the turn, with at most three returns'],
   };
   const tables = groups.map((group) => fragments.rows('docs/other-tools.md', group, 1, rowsOf[group]!));
 
@@ -81,7 +105,7 @@ export async function facts() {
     copy: {
       ...copy,
       nav: { ...copy.nav, docs: link(copy.nav.docs) },
-      install: { ...copy.install, quickStart: link(copy.install.quickStart) },
+      install: { ...copy.install, quickStart: link(copy.install.quickStart), setup: link(copy.install.setup) },
       comparison: link(copy.comparison),
       next: { ...copy.next, button: link(copy.next.button) },
       footer: { ...copy.footer, docs: link(copy.footer.docs), changelog: link(copy.footer.changelog) },
@@ -96,21 +120,23 @@ export async function facts() {
       install,
       support: md('docs/support.md')(support()),
       alpha: readme(fragments.sentence('README.md', 'Try it', 'Lawcheck is an alpha')),
-      still: { file: '.lawcheck/law.yaml', html: law.html },
+      still: { file: 'terminal', html: marked(refusal.html, 'error[forbidden-use]') },
+      loop: heroLoop(),
     },
+    pilot: readme(fragments.paragraph('README.md', 'Lawcheck', 'On 2026-11-23 I gave Claude Code')),
     problem: readme(fragments.paragraph('README.md', 'Lawcheck', 'I build software')),
-    advice: ['A rules file is advice', 'Lawcheck checks the files', 'An architecture test or the layer rule'].map((start) => readme(fragments.sentence('README.md', 'Lawcheck', start))).join(' '),
+    advice: ['A rules file is advice', 'Lawcheck checks your code against', 'Your linter can hold a layer rule', 'Lawcheck adds what the linter leaves to you'].map((start) => readme(fragments.sentence('README.md', 'Lawcheck', start))).join(' '),
     law: {
       heading: fragments.heading('docs/index.md', 'A law and a finding'),
       intro: readme(fragments.paragraph('README.md', 'Lawcheck', 'The law is a file')),
       law: law.html,
       findingIntro: readme(fragments.paragraph('README.md', 'Lawcheck', 'An import of a handler')),
-      finding: code('README.md', 'Lawcheck', '$ lawcheck check').html,
+      finding: refusal.html,
     },
     where: {
       heading: copy.where,
       items: fragments.list('docs/index.md', 'Lawcheck checks in six places', 1).map(index),
-      other: ['Lawcheck sends the agent back', 'In Cursor, that return needs', 'No session of Cursor has run it'].map((start) => others(fragments.sentence('docs/other-tools.md', 'A hook you wrote in Claude Code', start))).join(' '),
+      other: others(fragments.sentence('docs/other-tools.md', 'A hook you wrote in Claude Code', 'Lawcheck sends the agent back')),
     },
     holds: {
       heading: fragments.heading('README.md', 'One law holds uses, rules, debt and waivers'),
@@ -145,11 +171,11 @@ export async function facts() {
       heading: copy.tryIt,
       install: fragments.code('README.md', 'Try it', 'npm install').code,
       quickStart: readme(fragments.sentence('README.md', 'Try it', 'You reach a first finding')),
+      setup: readme(fragments.paragraph('README.md', 'Try it', 'In your own repository, your agent')),
       plugin: readme(fragments.paragraph('README.md', 'Your coding agent', 'In Claude Code, install the plugin')),
       pluginCommands: fragments.code('README.md', 'Your coding agent', 'claude plugin').code,
       codex: ['In Codex, the same plugin installs', 'Codex runs the hooks of a plugin only after'].map((start) => readme(fragments.sentence('README.md', 'Your coding agent', start))).join(' '),
       copilot: readme(fragments.sentence('README.md', 'Your coding agent', 'In GitHub Copilot CLI, the same plugin installs')),
-      cursor: readme(fragments.paragraph('README.md', 'Your coding agent', 'In Cursor, the plugin for Claude Code')),
     },
   };
 }

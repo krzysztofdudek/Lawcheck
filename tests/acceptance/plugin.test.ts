@@ -1360,6 +1360,16 @@ test('test 908: the measurement of a proposal prints the table and the total of 
 const blocked = (text: string) => ({ decision: 'block', reason: text });
 const editsHeader = (paths: string[], cmd = 'lawcheck') => `Lawcheck: after this edit, the files it wrote break the law of this repository. ${cmd} check ${paths.map((path) => `./${path}`).join(' ')} printed:`;
 
+test('test 1352: package.json, the marketplace, its plugin entry and the three plugin manifests open with the same promise, and every plugin manifest names https://lawcheck.dev as its homepage', () => {
+  const read = (path: string) => JSON.parse(readFileSync(join(ROOT, path), 'utf8'));
+  const promise = 'Architecture checks for coding agents. You write down which layer may import which';
+  const marketplace = read('.claude-plugin/marketplace.json');
+  const manifests = ['plugin/.claude-plugin/plugin.json', 'plugin/.codex-plugin/plugin.json', 'plugin/.plugin/plugin.json'].map(read);
+  for (const description of [read('package.json').description, marketplace.description, marketplace.plugins[0].description, ...manifests.map((manifest) => manifest.description)]) assert.ok(description.startsWith(promise), description);
+  assert.equal(read('package.json').homepage, 'https://lawcheck.dev');
+  for (const manifest of manifests) assert.equal(manifest.homepage, 'https://lawcheck.dev');
+});
+
 test('test 920: the files of the plugin for Codex', () => {
   const manifest = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
   const claude = JSON.parse(readFileSync(join(PLUGIN, '.claude-plugin', 'plugin.json'), 'utf8'));

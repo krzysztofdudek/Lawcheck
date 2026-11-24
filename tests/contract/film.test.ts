@@ -12,6 +12,7 @@ import { decodeTerminal, narrationProblems, privateProblems, privateSummary, pri
 import { build, vttOf } from '../../film/build.mjs';
 import { readEdit, wrap, words } from '../../film/edit.mjs';
 import { joinWav, sentenceSpans, voiceKey, voiceProblems, wavSeconds } from '../../film/voice.mjs';
+import { fromFolder, loopLine, loopUrl, publish, readmeWith } from '../../film/publish.mjs';
 
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 
@@ -564,6 +565,56 @@ test('test 1092: node film/render.mjs --only <page> --voice renders that page wh
     assert.equal(other.code, 2);
     assert.equal(other.stderr, 'film/render.mjs: the voice of ci c1 was spoken from other words or settings; node film/voice.mjs speaks it again\n');
     assert.ok(!existsSync(calls));
+  } finally {
+    folder.remove();
+  }
+});
+
+test('test 1351: README.md shows the loop only of the release that film/published.json names; node film/publish.mjs fills film/published.json with the loop and the chapters of a release, each file checked against the list that film/render.mjs wrote, puts the loop under the heading of a README.md that shows none and points a README.md that shows one at that release; a missing file, a changed file, a list with no loop, a README with no heading and one with two loops are each refused', async () => {
+  const folder = testFolder('lawcheck-publish-');
+  try {
+    const root = join(folder.dir, 'repository');
+    const release = join(folder.dir, 'release');
+    mkdirSync(join(root, 'film'), { recursive: true });
+    mkdirSync(release);
+    const committed = readFileSync(join(ROOT, 'README.md'), 'utf8');
+    const listed = JSON.parse(readFileSync(join(ROOT, 'film', 'published.json'), 'utf8')) as { loop: { release: string } | null };
+    const anyLoop = /https:\/\/github\.com\/krzysztofdudek\/Lawcheck\/releases\/download\/[^/\s)]+\/loop\.gif/g;
+    assert.deepEqual(committed.match(anyLoop) ?? [], listed.loop === null ? [] : [loopUrl(listed.loop.release)], 'README.md shows the loop only of the release that film/published.json names');
+    const readme = listed.loop === null ? committed : committed.replace(`${loopLine(listed.loop.release)}\n\n`, '');
+    assert.ok(readme.startsWith('# Lawcheck\n\n') && !anyLoop.test(readme));
+    writeFileSync(join(root, 'README.md'), readme);
+    writeFileSync(join(root, 'film', 'published.json'), '{ "chapters": [], "loop": null }\n');
+    const file = (name: string, text: string) => {
+      writeFileSync(join(release, name), text);
+      return { name, sha256: createHash('sha256').update(text).digest('hex'), bytes: Buffer.byteLength(text) };
+    };
+    const loop = { seconds: 28.9, files: { mp4: file('loop.mp4', 'mp4'), webm: file('loop.webm', 'webm'), gif: file('loop.gif', 'gif') } };
+    const chapter = { page: 'ci', number: 5, seconds: 55, transcript: ['The job runs.'], files: { mp4: file('ci.mp4', 'video'), vtt: file('ci.vtt', 'WEBVTT'), jpg: file('ci.jpg', 'still') } };
+    writeFileSync(join(release, 'chapters.json'), JSON.stringify({ chapters: [chapter], loop }));
+
+    const published = await publish(root, 'v9.9.9', fromFolder(release), 'the release v9.9.9');
+    assert.deepEqual(published, { chapters: [{ ...chapter, release: 'v9.9.9' }], loop: { ...loop, release: 'v9.9.9' } });
+    assert.deepEqual(JSON.parse(readFileSync(join(root, 'film', 'published.json'), 'utf8')), published);
+    const withLoop = (release: string) => `# Lawcheck\n\n${loopLine(release)}\n\n${readme.slice('# Lawcheck\n\n'.length)}`;
+    assert.equal(loopLine('v9.9.9'), `[![Claude Code imports the HTTP handlers into the business logic, and the tests pass. Lawcheck names the line. With the same prompt, the law and the plugin, the agent keeps the layers apart.](${loopUrl('v9.9.9')})](https://lawcheck.dev)`);
+    assert.equal(readFileSync(join(root, 'README.md'), 'utf8'), withLoop('v9.9.9'), 'README.md gains the loop of the release under its heading, and nothing else of it changes');
+    await publish(root, 'v9.9.10', fromFolder(release), 'the release v9.9.10');
+    assert.equal(readFileSync(join(root, 'README.md'), 'utf8'), withLoop('v9.9.10'), 'a README.md that shows a loop is pointed at the new release');
+    assert.deepEqual(await publish(root, 'v9.9.9', fromFolder(release), 'the release v9.9.9'), published);
+
+    writeFileSync(join(release, 'ci.vtt'), 'WEBVTT changed');
+    await assert.rejects(publish(root, 'v9.9.9', fromFolder(release), 'the release v9.9.9'), { message: `ci.vtt of the release v9.9.9 has 14 bytes and the hash ${createHash('sha256').update('WEBVTT changed').digest('hex')}, and its chapters.json names 6 bytes and ${chapter.files.vtt.sha256}` });
+    rmSync(join(release, 'ci.vtt'));
+    await assert.rejects(publish(root, 'v9.9.9', fromFolder(release), 'the release v9.9.9'), { message: 'the release v9.9.9 holds no ci.vtt' });
+    writeFileSync(join(release, 'chapters.json'), JSON.stringify({ chapters: [chapter] }));
+    await assert.rejects(publish(root, 'v9.9.9', fromFolder(release), 'the release v9.9.9'), { message: 'the chapters.json of the release v9.9.9 holds no loop: render it with node film/render.mjs, which lists the loop beside the chapters' });
+    rmSync(join(release, 'chapters.json'));
+    await assert.rejects(publish(root, 'v9.9.9', fromFolder(release), 'the release v9.9.9'), { message: 'the release v9.9.9 holds no chapters.json, the list that node film/render.mjs writes' });
+    assert.throws(() => readmeWith('Lawcheck\n', 'v9.9.9'), { message: 'README.md does not start with the heading "# Lawcheck", under which the release step puts the loop' });
+    assert.throws(() => readmeWith(`${loopUrl('v1')} ${loopUrl('v2')}`, 'v9.9.9'), { message: 'README.md names the loop 2 times, and the release step points one address at it' });
+    assert.deepEqual(JSON.parse(readFileSync(join(root, 'film', 'published.json'), 'utf8')), published, 'a refused run writes nothing');
+    assert.equal(readFileSync(join(root, 'README.md'), 'utf8'), withLoop('v9.9.9'), 'a refused run leaves README.md as it was');
   } finally {
     folder.remove();
   }

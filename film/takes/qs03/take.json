@@ -1,0 +1,91 @@
+{
+  "id": "qs03",
+  "page": "quick-start",
+  "recorded": "2026-11-24T15:21:57.547Z",
+  "complete": true,
+  "commands": [
+    {
+      "command": "stty cols 88 rows 26 && clear",
+      "seconds": 0.303,
+      "ended": true,
+      "exit": 0
+    },
+    {
+      "command": "npm install --global lawcheck@alpha",
+      "seconds": 0.808,
+      "ended": true,
+      "exit": 0
+    },
+    {
+      "command": "git init shop",
+      "seconds": 0.306,
+      "ended": true,
+      "exit": 0
+    },
+    {
+      "command": "cd shop",
+      "seconds": 0.303,
+      "ended": true,
+      "exit": 0
+    },
+    {
+      "command": "mkdir -p src/cli src/core",
+      "seconds": 0.301,
+      "ended": true,
+      "exit": 0
+    },
+    {
+      "command": "cat > src/cli/print.ts << 'EOF'\nexport function print(text: string): void {\n  console.log(text);\n}\nEOF",
+      "seconds": 0.301,
+      "ended": true,
+      "exit": 0
+    },
+    {
+      "command": "lawcheck init",
+      "seconds": 0.3,
+      "ended": true,
+      "exit": 0
+    },
+    {
+      "command": "cat > .lawcheck/law.yaml << 'EOF'\nlawcheck: 0.1.0\n\ntypes:\n  core:\n    about: Prices and orders, with no input or output.\n    paths: [\"src/core/**\"]\n    may_use: [core]\nEOF",
+      "seconds": 0.305,
+      "ended": true,
+      "exit": 0
+    },
+    {
+      "command": "cat > src/core/receipt.ts << 'EOF'\nimport { print } from \"../cli/print.js\";\n\nexport function receipt(sum: number): void {\n  print(`total: ${sum}`);\n}\nEOF",
+      "seconds": 0.305,
+      "ended": true,
+      "exit": 0
+    },
+    {
+      "command": "lawcheck check",
+      "seconds": 0.411,
+      "ended": true,
+      "exit": 1
+    },
+    {
+      "command": "lawcheck docs quick-start",
+      "seconds": 0.301,
+      "ended": true,
+      "exit": 0
+    }
+  ],
+  "changed": [
+    ".lawcheck/.gitignore",
+    ".lawcheck/law.yaml",
+    "src/cli/print.ts",
+    "src/core/receipt.ts"
+  ],
+  "candidate": {
+    "commit": "f7a57b7b2c638ffd2f4e5d8687e2b557bdbdbe8b",
+    "lawcheck": "0.1.0-alpha.4"
+  },
+  "versions": {
+    "claude_code": "2.1.330 (Claude Code)",
+    "node": "v24.22.3",
+    "models": [],
+    "effort": "medium",
+    "plugin": []
+  }
+}

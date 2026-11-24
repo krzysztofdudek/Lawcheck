@@ -1,7 +1,7 @@
 {
   "id": "sr-try",
   "chapter": "write-a-script-rule",
-  "take": "sr01",
+  "take": "sr02",
   "args": [
     "try",
     "no-fetch"

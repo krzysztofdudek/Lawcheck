@@ -44,7 +44,7 @@ A reader reports no dynamic form of a use, such as `import()` of a variable, `im
 
 ## Languages that read other files' declarations
 
-In Java, Kotlin, C#, Ruby and Rust, a reader finds the file that a name points to by reading what other files declare. The readers take these languages in four groups: Java with Kotlin, C#, Ruby, and Rust. A run that reads the uses of one file of a group reads the declarations of every file of that group in the repository, with a type or without one. The first such run parses every file of the group. The runs after it take the declarations of an unchanged file from the [reader cache](#the-reader-cache). Lawcheck sets no limit of its own on the time it takes to parse a file with syntax errors under 512 KiB.
+In Java, Kotlin, C#, Ruby and Rust, a reader finds the file that a name points to by reading what other files declare. The readers take these languages in four groups: Java with Kotlin, C#, Ruby, and Rust. When a run reads the uses of one file of a group, it also reads the declarations of every file of that group in the repository. Files with a type and files without one count alike. The first such run parses every file of the group. The runs after it take the declarations of an unchanged file from the [reader cache](#the-reader-cache). Lawcheck sets no limit of its own on the time it takes to parse a file with syntax errors under 512 KiB.
 
 The readers of the other languages find the file of a use by its path. To do it, they read files such as `tsconfig.json`, `go.mod` and `composer.json`.
 
@@ -52,15 +52,23 @@ The Python reader looks for modules in the top folder of the repository, in a `s
 
 The Go reader follows `go.work` and a `replace` with a relative directory of the repository. It does not follow a `replace` that points outside the repository or names another version.
 
-The C# reader gives a file a use of a type of another project only when the file's project reaches that project. A project reaches another when its `.csproj`, or a `Directory.Build.props` above it, holds a `ProjectReference` to it, directly or through the projects in between. A project with no such reference does not reach the other. A use of a type of the other project is then unresolved, with the reason `unfollowed`. It is no `forbidden-use`, so a plain `check` passes, counts the use in the first line among the unresolved uses, and lists it in `--json`. To see a forbidden use between two C# projects, add the `ProjectReference` first. A project whose references the reader cannot read, such as a path that holds an unknown property, reaches every project. A `.cs` file under no `.csproj` sees every project too.
+The C# reader gives a file a use of a type of another project only when the file's project reaches that project. A project reaches another when its `.csproj`, or a `Directory.Build.props` above it, holds a `ProjectReference` to it, directly or through the projects in between. A project whose references the reader cannot read reaches every project. An example is a reference path that holds an unknown property. A `.cs` file under no `.csproj` sees every project too.
+
+A project with no `ProjectReference` to another project does not reach it. A use of a type of the other project is then unresolved, with the reason `unfollowed`. It is no `forbidden-use`, so a [plain check](concepts.md#plain-check) passes. The first line of the check counts the use among the unresolved uses. `--json` lists the use. To see a forbidden use between two C# projects, add the `ProjectReference` first.
 
 ## The reader cache
 
-Lawcheck keeps what each file of the four groups declares in `.lawcheck/.local/readers/`, one file per group. A later run parses again only the files whose uses it reads and the files that changed since the last run. In a Java repository of 3,267 files, a check of one changed file takes about 0.3 seconds with the cache and 6 seconds without it. In a C# repository of 951 files, it takes about 0.3 seconds with the cache and 4 seconds without it.
+Lawcheck keeps what each file of the four groups declares in `.lawcheck/.local/readers/`, one file per group. A later run parses again only the files whose uses it reads and the files that changed since the last run. In a Java repository of 3,267 files, a check of one changed file takes about 0.5 seconds with the cache and 7 seconds without it. In a C# repository of 951 files, it takes about 0.3 seconds with the cache and 4 seconds without it.
 
-An entry of the cache counts only for the same path, the same text, the same grammar and the same versions of Lawcheck and Runes. A check with the cache gives the same output and exit code as a check without it. A damaged cache file, or one larger than 64 MiB, counts as empty, and the run writes it again.
+Lawcheck finds an entry of the cache by a hash of the path, the text and the grammar of a file, and of the versions of Lawcheck and Runes. Lawcheck uses the entry only while all five stay as they were. A check with the cache gives the same output and exit code as a check without it. A damaged cache file counts as empty. So does a cache file larger than 64 MiB. The run then writes the file again.
 
-Lawcheck neither reads nor writes the cache when git lists a file under `.lawcheck/.local/`, in capital or small letters, such as `.lawcheck/.LOCAL/`, or when that folder or its `readers/` folder is a link or holds a repository of its own. So a commit cannot bring a cache in. When Lawcheck cannot write the folder, the run gives the same output and parses every file of the group again next time.
+Lawcheck neither reads nor writes the cache in these cases:
+
+- git lists a file under `.lawcheck/.local/`, in capital or small letters, such as `.lawcheck/.LOCAL/`;
+- `.lawcheck/.local/` or its `readers/` folder is a link;
+- one of those two folders holds a repository of its own.
+
+A commit therefore cannot bring a cache in. When Lawcheck cannot write the folder, the run gives the same output. The next run parses every file of the group again.
 
 To clear the cache, delete `.lawcheck/.local/readers/`. The next run parses every file of each group it reads.
 
@@ -68,16 +76,16 @@ To clear the cache, delete `.lawcheck/.local/readers/`. The next run parses ever
 
 A reader resolves a use to the file that the use names. A use that the readers cannot resolve to a single file is unresolved. The readers report some uses as outside the repository, such as a use of the standard library or of an installed package. Lawcheck does not count those uses.
 
-Lawcheck neither allows nor forbids an unresolved use, and the use changes no exit code by itself. One case differs: an `ambiguous` use whose every candidate the list in force forbids. Lawcheck counts that use as unresolved and also reports it as a [`forbidden-use`](codes.md#forbidden-use).
+Lawcheck neither allows nor forbids an unresolved use. By itself, the use changes no exit code. One case differs. A use is `ambiguous` when it could name several files of different types, or files with a type and files without one. Those files are its candidates. Lawcheck counts an ambiguous use as unresolved. When the list in force forbids every candidate, Lawcheck also reports the use as a [`forbidden-use`](codes.md#forbidden-use).
 
-The first line of `check` counts the unresolved uses in the files of the change. Under `--full`, the debt heading counts those of the other files. In `--json`, Lawcheck lists each one with the readers' answer:
+The first line of `check` counts the unresolved uses in the files of the [change](concepts.md#change). Under `--full`, the debt heading counts those of the other files. In `--json`, Lawcheck lists each one with the readers' answer:
 
 | Answer | Reason | Meaning |
 |---|---|---|
 | `none` | `unfollowed` | the use names a place of the repository that holds no file: a file the build writes and git ignores, an alias or a workspace package whose entry is build output, a name of the repository's own package that no file declares |
 | `none` | `unowned` | the use names a file that has no type; `candidates` names it |
 | `none` | none | the readers cannot say where it points, as in a Rust file of no Cargo package |
-| `ambiguous` | none | the use could name several files of different types, or typed and untyped files; `candidates` lists them. When the list in force forbids every one, the use is also a `forbidden-use`; otherwise Lawcheck does not judge it |
+| `ambiguous` | none | the use could name several files of different types, or typed and untyped files. `candidates` lists them. When the list in force forbids every one, the use is also a `forbidden-use`. Otherwise Lawcheck does not judge it |
 
 The readers count these uses as outside the repository:
 
@@ -86,7 +94,7 @@ The readers count these uses as outside the repository:
 - Go: an import path that no module of the repository holds;
 - Rust: a crate the repository does not hold (`std`, a registry dependency);
 - PHP: a class under no prefix of the repository's Composer maps;
-- Java and Kotlin: a name in a package the repository declares nothing in, a `java.lang` name, a Kotlin default import (`String`, `List`), and a simple name that the import of a whole package of that kind can give (`List` under `import java.util.*;`);
+- Java and Kotlin: a name in a package the repository declares nothing in, a `java.lang` name, a Kotlin default import (`String`, `List`), and a simple name that an import of a whole package from outside the repository can give (`List` under `import java.util.*;`);
 - C#: a name that only a namespace from elsewhere can give (`System.Text`);
 - C and C++: an `#include <...>` of a header the repository does not hold (`<stdio.h>`);
 - Ruby: a gem, the standard library and a constant the repository does not declare (`JSON`).
@@ -133,15 +141,17 @@ Lawcheck neither judges nor counts a use that a reader misses. It prints nothing
 | PHP | `use function`, `use const`, `require` of a path with no `__DIR__`, `new $var`, `class_alias`, a class name built from strings |
 | Ruby | `const_get`, `autoload` |
 
-Three of these forms still leave an unresolved use with the reason `unfollowed`, which `check` counts: a call of a Rust macro that `#[macro_export]` exports, a Java name that only a module import gives, and the C# nested type above.
+Three of these forms still leave an unresolved use with the reason `unfollowed`, and `check` counts that use. The three are a call of a Rust macro that `#[macro_export]` exports, a Java name that only a module import gives, and the C# nested type of the table.
 
-A Kotlin file with syntax errors is read in spans, so a use after the error can go missing.
+The Kotlin reader reads a file with syntax errors in spans. A use after an error can then go missing.
 
 ## A configuration file a reader cannot read
 
-A reader reads some configuration files to find the file that a use names: `tsconfig.json` and `jsconfig.json` for aliases, `package.json` for workspace packages, `composer.json` for the maps of PHP classes, `compile_commands.json` for include folders, and `pnpm-workspace.yaml` for packages. When such a file does not parse, the reader goes on without it. Every use that goes through the file is then unresolved, and a law that forbids such a use looks kept.
+A reader reads some configuration files to find the file that a use names: `tsconfig.json` and `jsconfig.json` for aliases, `package.json` for workspace packages, `composer.json` for the maps of PHP classes, `compile_commands.json` for include folders, and `pnpm-workspace.yaml` for packages. When such a file does not parse, the reader goes on without it. Every use that goes through the file is then unresolved. A law that forbids such a use then looks kept.
 
-`lawcheck doctor` reads the uses of the files whose `may_use` list is in force, and prints one line under its `readers` check for each configuration file that a reader consulted and could not read. The line names the file and, when the parser gives it, the line and column of the failure. The check then shows `note`, and `doctor` still exits 0. The lines are the same with `--base` and without it. `lawcheck check` prints nothing about the file. A file that no use needs gets no line. An alias written in a form the reader does not follow, such as a variable in `vite.config.ts`, is no file that failed to parse: `doctor` prints no line for it, and the uses through it are unresolved as [Forms the readers miss](#forms-the-readers-miss) says.
+`lawcheck doctor` reads the uses of the files whose `may_use` list is in force. Its `readers` check prints one line for each configuration file that a reader consulted and could not read. The line names the file. When the parser gives them, the line also names the line and the column of the failure. The check then shows `note`. `doctor` still exits 0. The lines are the same with `--base` and without it. `lawcheck check` prints nothing about the file. A file that no use needs gets no line.
+
+An alias written in a form the reader does not follow, such as a variable in `vite.config.ts`, is no file that failed to parse. `doctor` prints no line for it. The uses through that alias are unresolved, as [Forms the readers miss](#forms-the-readers-miss) says.
 
 ## uses-not-read
 
@@ -153,7 +163,7 @@ Lawcheck has no reader for some text files, such as `.json`. If such a file has 
 
 Lawcheck gives this warning once per type, at the type's line in the law. In the message, it counts the files by extension, such as `1 .json`. The warning never fails a run. A waiver cannot drop it. To clear it, narrow the type's `paths` to files with a reader, or give the other files a type without a list. `lawcheck doctor` counts these files in its `readers` check.
 
-Lawcheck does not read a file over 512 KiB for its uses. In Java, Kotlin, C#, Ruby and Rust, it does not read such a file for what it declares either. Lawcheck reports `uses-not-read` at the file's own path, whether the file has a type or not. That finding is an error in the change and a warning in [debt](concepts.md#debt).
+Lawcheck does not read a file over 512 KiB for its uses. In Java, Kotlin, C#, Ruby and Rust, it does not read such a file for what it declares either. Lawcheck reports `uses-not-read` at the file's own path, whether the file has a type or not. That finding is an error in the change. In [debt](concepts.md#debt), it is a warning.
 
 ## parser-failed
 

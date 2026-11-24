@@ -189,11 +189,17 @@ section {
   color: var(--lc-text);
 }
 
+.paths {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin: 0 0 8px;
+}
+
 .quick {
   display: inline-flex;
   align-items: center;
   min-height: 44px;
-  margin-bottom: 8px;
 }
 
 .facts {
@@ -210,6 +216,7 @@ section {
 
 .command {
   display: flex;
+  flex-wrap: wrap;
   align-items: stretch;
   margin: 0 0 12px;
   border: 1px solid var(--lc-line-lit);
@@ -218,7 +225,7 @@ section {
 }
 
 .command pre {
-  flex: 1;
+  flex: 1 1 auto;
   min-width: 0;
   margin: 0;
   padding: 12px 16px;
@@ -268,14 +275,26 @@ section {
   color: var(--lc-text-muted);
 }
 
+.film-loop {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  border: 1px solid var(--lc-line-lit);
+  border-radius: var(--lc-radius-frame);
+  background: var(--lc-code);
+}
+
 .film-code pre {
   margin: 0;
-  font-size: 18px;
-  line-height: 1.8;
+  font-size: 15px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
   background: none !important;
 }
 
-.film-code .line:last-child {
+.film-code .line.mark {
   outline: 2px solid var(--lc-brand);
   outline-offset: 4px;
   border-radius: 2px;

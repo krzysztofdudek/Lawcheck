@@ -1,13 +1,13 @@
 # The first type and the first rule
 
-You end with a law of one [type](concepts.md#type) and one [script rule](concepts.md#script-rule). A script rule is a JavaScript file of your repository. For each line of your files that breaks the rule, the script returns a [finding](concepts.md#finding). Three steps after `lawcheck init`, `lawcheck check` fails on the line of `src/report.ts` that calls `console.log`.
+At the end of this guide, you have a law of one [type](concepts.md#type) and one [script rule](concepts.md#script-rule). A script rule is a JavaScript file of your repository. For each line of your files that breaks the rule, the script returns a [finding](concepts.md#finding). Three steps after `lawcheck init`, `lawcheck check` fails on the line of `src/report.ts` that calls `console.log`.
 
 The outputs below come from a repository with two files on `main`:
 
 - `src/price.ts` writes nothing;
 - the first line of `src/report.ts` calls `console.log`.
 
-Its `.gitignore` names `node_modules/`. You work on a branch made from `main`.
+The `.gitignore` of the repository names `node_modules/`. You work on a branch made from `main`.
 
 ## 1. Start the law
 
@@ -28,7 +28,7 @@ next: describe your first file type in .lawcheck/law.yaml  (lawcheck docs first-
 
 ## 2. Write the rule file
 
-The rule file goes in `.lawcheck/rules/`. `init` makes no `rules/` folder, so you create it in this step:
+The rule file goes in `.lawcheck/rules/`. `init` makes no `rules/` folder. You create it in this step:
 
 ```text
 $ mkdir -p .lawcheck/rules
@@ -100,7 +100,7 @@ src/report.ts:1  error[no-console]  writes to the terminal with console.log
 next: fix src/report.ts:1
 ```
 
-The check fails and exits 1. Without a path, `lawcheck check` judges the files that differ from the [base](concepts.md#base). A check against `main` with no path passes, because `src/report.ts` is the same as on `main`. A check with `--full` lists the finding of that file as [debt](concepts.md#debt) ([See the debt](#_6-see-the-debt)).
+The check fails and exits 1. Without a path, `lawcheck check` judges the files that differ from the [base](concepts.md#base). `src/report.ts` is the same as on `main`. So a check against `main` with no path passes. A check with `--full` lists the finding of that file as [debt](concepts.md#debt) ([See the debt](#_6-see-the-debt)).
 
 ## 5. See what a file gets
 
@@ -139,7 +139,7 @@ src/report.ts:1  warning[no-console]  writes to the terminal with console.log
   why:  Only the command layer writes to the terminal.
 ```
 
-The three changed files are the new files of `.lawcheck/`. Lawcheck counts them like any other file git lists. The note line says the change edits the law ([What a check judges](change.md)). Lawcheck lists a finding outside the change as debt. A finding of debt never fails the run, because Lawcheck prints it as a warning.
+The three changed files are the new files of `.lawcheck/`. Lawcheck counts them like any other file git lists. The note line says the change edits the law ([What a check judges](change.md)). Lawcheck lists a finding outside the change as debt. Lawcheck prints a finding of debt as a warning. So a finding of debt does not fail the run, unless you pass `--strict`.
 
 ## 7. Try the rule on one file
 
@@ -189,7 +189,7 @@ src/report.ts:1  error[no-console]  writes to the terminal with console.log
 
 ## 10. Fix the debt, or start the rule advisory
 
-Fix `src/report.ts`: take out its call of `console.log`. After the fix, the rule needs no `status` line, because its default status is `enforced`. If the debt is too large to fix now, give the rule `status: advisory` instead. Lawcheck then prints its findings as warnings in every file. The run passes:
+Fix `src/report.ts`: take out its call of `console.log`. The default status of a rule is `enforced`. So after the fix, the rule needs no `status` line. If the debt is too large to fix now, give the rule `status: advisory` instead. Lawcheck then prints its findings as warnings in every file. The run passes:
 
 ```yaml
 lawcheck: 0.1.0

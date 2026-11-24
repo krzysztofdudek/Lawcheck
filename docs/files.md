@@ -1,6 +1,6 @@
 # Files Lawcheck reads and writes
 
-Lawcheck keeps its files in the folder `.lawcheck/`. The folder that holds it is the root, where each path of the law starts. You write the law, the settings and the rules. Lawcheck writes the other three: the [verdicts](concepts.md#verdict) of reviewer rules, a merge setting for them, and a local folder that git ignores. A coding agent may write two proposals there when you ask for them, advice and a target architecture, and Lawcheck reads neither.
+Lawcheck keeps its files in the folder `.lawcheck/`. The folder that holds it is the root, where each path of the law starts. You write the law, the settings and the rules. Lawcheck writes the other three: the [verdicts](concepts.md#verdict) of reviewer rules, a merge setting for them, and a local folder that git ignores. When you ask, a coding agent may write two proposals there: advice and a target architecture. Lawcheck reads neither of them.
 
 ## The folder .lawcheck
 
@@ -29,14 +29,14 @@ A type's `paths` can match the law, the config and the rule files. Lawcheck then
 
 ## The folder .lawcheck/.local
 
-`check --review` makes this folder, and so does a `check` that reads a file of Java, Kotlin, C#, Ruby or Rust for its uses. The folder holds its own `.gitignore` with the line `*`. Git ignores every file of the folder, even without `.lawcheck/.gitignore`.
+`check --review` makes this folder. A `check` that reads a file of Java, Kotlin, C#, Ruby or Rust for its uses makes it too. The folder holds its own `.gitignore` with the line `*`. Git ignores every file of the folder, even without `.lawcheck/.gitignore`.
 
 | File | What it holds |
 |---|---|
 | `failures/<hash>.json` | one failed review: the rule and its findings, with any key hidden as `[key]`; a later `check` reports it again without a call, and `check --review --again` asks again ([Reviewer rules](reviewer-rules.md)) |
-| `verdicts.lock` | a folder that one run holds while it writes `.lawcheck/verdicts`; a run that needs the lock removes one older than 10 seconds, or one of a run that ended |
+| `verdicts.lock` | a folder that one run holds while it writes `.lawcheck/verdicts`; a run that needs the lock removes a lock older than 10 seconds, or the lock of a run that ended |
 | `verdicts-<pid>-<hex>` | the new verdicts file before it replaces the old one |
-| `probe-<pid>-<hex>` | a test that the folder can be written, made and removed before the first call |
+| `probe-<pid>-<hex>` | a file that Lawcheck makes and removes before the first call, to test that it can write to the folder |
 | `readers/jvm`, `readers/csharp`, `readers/ruby`, `readers/rust` | the reader cache: what each file of the group declares, for the files of the last check ([Languages and uses](languages.md#the-reader-cache)) |
 
 After a review passes, Lawcheck removes its file from `failures/`. If you delete the `.local` folder, you lose the cached failures and the reader cache. The next `check --review` asks the reviewer for those reviews again, and the next `check` reads every file of a group again.
@@ -46,8 +46,8 @@ After a review passes, Lawcheck removes its file from `failures/`. If you delete
 | Where | What it holds | Written by |
 |---|---|---|
 | `CLAUDE_PLUGIN_DATA`, or a folder `lawcheck-plugin-<user id>` in the system's temporary directory | one small file per Claude Code session; each session start removes the files older than 7 days | the Claude Code plugin ([The Claude Code plugin](plugin.md)) |
-| a folder in the system's temporary directory named `lawcheck-`, the program's name, a dash and 6 random characters, such as `lawcheck-claude-` and 6 characters for `claude-code` | the working folder of one call to a reviewer program; `gemini-cli` gets a second folder, ending `-aside-` and 6 characters, for its policy file | `check --review` and `try`, which remove both after the call |
-| a folder `lawcheck-index-` and 12 random characters in the system's temporary directory | a copy of git's index, so that reading the change leaves the real index untouched | `check` and `doctor`, when they compare with a base, and they remove it at once |
+| a folder in the system's temporary directory named `lawcheck-`, the program's name, a dash and 12 random characters, such as `lawcheck-claude-` and 12 characters for `claude-code` | the working folder of one call to a reviewer program; `gemini-cli` gets a second folder, ending `-aside-` and 12 characters, for its policy file | `check --review` and `try`, which remove both after the call |
+| a folder `lawcheck-index-` and 12 random characters in the system's temporary directory | a copy of git's index, so that reading the change leaves the real index untouched | `check` and `doctor`, when they compare with a base; they remove it right after they read the change |
 
 Outside `.lawcheck/`, Lawcheck reads three things:
 

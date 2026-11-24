@@ -1,0 +1,40 @@
+diff --git a/.lawcheck/law.yaml b/.lawcheck/law.yaml
+index 67075b8..d2d3d74 100644
+--- a/.lawcheck/law.yaml
++++ b/.lawcheck/law.yaml
+@@ -1,5 +1,9 @@
+ lawcheck: 0.1.0
+ 
++rules:
++  no-fetch:
++    why: Core does no network calls; only the api layer talks to the network.
++
+ types:
+   api:
+     about: The HTTP handlers.
+@@ -8,3 +12,4 @@ types:
+     about: The business logic.
+     paths: ["src/core/**"]
+     may_use: [core]
++    rules: [no-fetch]
+diff --git a/.lawcheck/rules/no-fetch.mjs b/.lawcheck/rules/no-fetch.mjs
+new file mode 100644
+index 0000000..eff0dd5
+--- /dev/null
++++ b/.lawcheck/rules/no-fetch.mjs
+@@ -0,0 +1,15 @@
++export async function check({ files }) {
++  const findings = [];
++  for (const file of files) {
++    const { root } = await file.tree();
++    if (root === null) continue;
++    const stack = [root];
++    while (stack.length > 0) {
++      const node = stack.pop();
++      const callee = node.type === 'call_expression' ? node.children.find((child) => child.field === 'function') : undefined;
++      if (callee && file.text.slice(callee.start, callee.end) === 'fetch') findings.push({ line: node.line, message: 'calls fetch in core' });
++      stack.push(...node.children);
++    }
++  }
++  return findings;
++}

@@ -2,7 +2,7 @@
 
 ## Package managers
 
-Lawcheck installs with npm, pnpm, Yarn 1, Yarn 4 with `nodeLinker: node-modules` or `nodeLinker: pnpm`, and Bun with Node 24 on the `PATH`. Under Yarn Plug'n'Play, a Lawcheck installed in the project stops with `unsupported-environment`. In `.lawcheck/config.yaml`, set the `runner` setting to the package manager of your project. The Claude Code plugin then starts Lawcheck through it. `lawcheck prime` names that command to the agent. [Supported environments](support.md#package-managers) gives the command that starts Lawcheck under each package manager.
+Lawcheck installs with npm, pnpm, Yarn 1, Yarn 4 with `nodeLinker: node-modules` or `nodeLinker: pnpm`, and Bun with Node 24 on the `PATH`. Under Yarn Plug'n'Play, a Lawcheck installed in the project stops with `unsupported-environment`. In `.lawcheck/config.yaml`, set the `runner` setting to the package manager of your project. The Claude Code plugin then starts Lawcheck through that package manager. `lawcheck prime` names that command to the agent. [Supported environments](support.md#package-managers) gives the command that starts Lawcheck under each package manager.
 
 ## Windows and macOS
 
@@ -14,7 +14,7 @@ A [plain `lawcheck check`](concepts.md#plain-check) opens no connection and star
 
 ## A key in CI
 
-A CI job needs no key. A plain check calls no reviewer. It reads the passes in `.lawcheck/verdicts`, where each pass is the reviewer's [verdict](concepts.md#verdict) of pass for one file and one rule. Run `lawcheck check --review` on a machine with a reviewer, then commit that file. For a changed file with no recorded pass of an enforced reviewer rule, Lawcheck reports the error `not-reviewed`. [Reviewer rules](reviewer-rules.md#verdicts) says what a pass holds.
+A CI job needs no key. A plain check calls no reviewer. It reads the passes in `.lawcheck/verdicts`. A pass is the reviewer's [verdict](concepts.md#verdict) of pass for one file and one rule. Run `lawcheck check --review` on a machine with a reviewer, then commit `.lawcheck/verdicts`. For a changed file with no recorded pass of an enforced reviewer rule, Lawcheck reports the error `not-reviewed`. [Reviewer rules](reviewer-rules.md#verdicts) says what a pass holds.
 
 ## A script rule that reads other files
 
@@ -26,11 +26,11 @@ The reviewer sees one file per call and nothing else of the repository. To give 
 
 ## Old code that breaks the law
 
-A plain `lawcheck check` judges the files that differ from the base. Old code fails nothing until a change touches it. `lawcheck check --full` lists the findings in the rest of the code as [debt](concepts.md#debt). A finding of debt is a warning, which does not change the exit code unless you pass `--strict`. [What a check judges](change.md#full-and-debt) shows the output.
+A plain `lawcheck check` judges the files that differ from the [base](concepts.md#base). Old code fails nothing until a change touches it. `lawcheck check --full` lists the findings in the rest of the code as [debt](concepts.md#debt). A finding of debt is a warning. It changes the exit code only when you pass `--strict`. [What a check judges](change.md#full-and-debt) shows the output.
 
 ## A new model for the reviewer
 
-Lawcheck keeps every recorded pass when you change the provider or the model, because the key of a pass holds neither. A file needs a new review when one of these changes:
+When you change the provider or the model of the reviewer, Lawcheck keeps every recorded pass. The key of a pass holds neither the provider nor the model. A file needs a new review when one of these changes:
 
 - the judged file;
 - the rule's text or its `why`;
@@ -48,7 +48,7 @@ A submodule is a repository that git keeps inside another one at a fixed commit.
 
 ## Generated and vendored files
 
-Lawcheck never judges a file that git does not track and `.gitignore` names, because such a file has no type. A file that git tracks keeps its type even when `.gitignore` names it. Add the folder to `.gitignore` and run `git rm --cached -r` on it, or keep it out of the type with a `!` pattern in its `paths`. [The law file](law.md#patterns) gives the syntax of a pattern.
+Lawcheck never judges a file that git does not track and `.gitignore` names, because such a file has no type. A file that git tracks keeps its type even when `.gitignore` names it. To keep a tracked folder out, add it to `.gitignore` and run `git rm --cached -r` on it. You can also keep the folder out of its type with a `!` pattern in the type's `paths`. [The law file](law.md#patterns) gives the syntax of a pattern.
 
 ## Another coding agent
 

@@ -244,3 +244,26 @@ test('S2-6: a rule that leaves nothing running adds no wait: one file judged by 
     assert.ok(one.ms - none.ms <= NOTHING_LEFT_EXTRA_MS, `${one.ms} ms with the rule against ${none.ms} ms without`);
   });
 });
+
+const wordCases: [string, string, string][] = [
+  ['a message that is the number 42 is named by its kind, as a line is', 'export function check() { return [{ message: 42 }]; }\n', 'returns a finding whose message is the number 42, not a string for src/core/a.ts'],
+  ['a message that is the bigint 10n is named by its kind, as a line is', 'export function check() { return [{ message: 10n }]; }\n', 'returns a finding whose message is the bigint 10n, not a string for src/core/a.ts'],
+  ['a finding with no message still says it has none (control)', 'export function check() { return [{ line: 1 }]; }\n', 'returns a finding without a message for src/core/a.ts'],
+  ['an error with an empty message says that it has none', 'export function check() { throw new Error(); }\n', 'throws on src/core/a.ts: an error with no message'],
+  ['a rejection with an empty message says that it has none', 'export async function check() { await null; throw new TypeError(); }\n', 'throws on src/core/a.ts: an error with no message'],
+  ['a rejection nobody handles with an empty message says that it has none', 'export function check() { Promise.reject(new Error()); return []; }\n', 'fails in the background: an error with no message'],
+  ['an error whose first line is empty shows its first line with text', "export function check() { throw new Error('\\nthe second line'); }\n", 'throws on src/core/a.ts: the second line'],
+  ['a thrown object with a string message shows that message', "export function check() { throw { code: 'E_X', message: 'object with message' }; }\n", 'throws on src/core/a.ts: object with message'],
+  ['a thrown object with a message of two lines shows its first line', "export function check() { throw { message: 'first\\nsecond' }; }\n", 'throws on src/core/a.ts: first'],
+];
+
+for (const [what, source, message] of wordCases) {
+  test(`test 1302: ${what}`, async () => {
+    await withSample(async (s) => {
+      setRule(s, 'no-console', source);
+      write(s, 'src/core/a.ts', 'export const a = 1;\n');
+      const run = await check(s);
+      assert.deepEqual([run.code, run.stdout.split('\n')[2]], [2, `.lawcheck/rules/no-console.mjs  error[rule-crashed]  ${message}`]);
+    });
+  });
+}

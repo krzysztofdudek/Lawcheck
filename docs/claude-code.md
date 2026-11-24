@@ -1,8 +1,8 @@
 # Lawcheck in Claude Code
 
-The Lawcheck plugin for Claude Code gives the agent your law, checks each file it edits and checks the files of a turn before the turn ends.
+The Lawcheck plugin for Claude Code gives the agent your law. It checks each file the agent edits. A turn is the work the agent does for one message of yours. Before the agent ends a turn, the plugin checks the files of that turn.
 
-An agent writes `console.log` into `src/core/total.ts`. The [law](concepts.md#law) of the repository forbids that call there. With the Lawcheck plugin, the agent sees the [finding](concepts.md#finding) after its edit. A turn is the work the agent does for one message of yours. Before the agent ends its turn, the plugin sends it back to work while the files it changed in the turn break the law. At the start of a session, the plugin gives the agent a summary of the law.
+An agent writes `console.log` into `src/core/total.ts`. The [law](concepts.md#law) of the repository forbids that call there. With the Lawcheck plugin, the agent sees the [finding](concepts.md#finding) after its edit. While the files of its turn break the law, the plugin sends the agent back to work. At the start of a session, the plugin gives the agent a summary of the law.
 
 The outputs below come from a repository with this law. Its [script rule](concepts.md#script-rule) `no-console` is the rule of [The first type and the first rule](first-law.md). The file `src/core/total.ts` has the [type](concepts.md#type) `library`:
 
@@ -40,7 +40,7 @@ claude plugin marketplace add krzysztofdudek/Lawcheck
 claude plugin install lawcheck@lawcheck-marketplace
 ```
 
-Then start a new Claude Code session in the repository. The plugin works through hooks. A hook is a command that Claude Code runs at a set moment of a session, such as after an edit. The hooks need `node` and `git` on the `PATH`. The hooks after an edit and before the end of a turn run `lawcheck check`, which runs the repository's script rules on your machine with your rights. A script rule is code of the repository, as its tests are. Use the plugin only in a repository whose code you would run yourself.
+Then start a new Claude Code session in the repository. The plugin works through hooks. A hook is a command that Claude Code runs at a set moment of a session, such as after an edit. The hooks need `node` and `git` on the `PATH`. Two of the hooks, the one after an edit and the one before the end of a turn, run `lawcheck check`. That command runs the repository's script rules on your machine, with your rights. A script rule is code of the repository, as its tests are. Use the plugin only in a repository whose code you would run yourself.
 
 ## 3. Start a session
 
@@ -49,7 +49,7 @@ The plugin gives the agent the text that `lawcheck prime` prints, at these momen
 - when a session starts;
 - when you resume a session;
 - after `/clear`;
-- after Claude Code compacts the conversation.
+- after Claude Code compacts the conversation into a summary.
 
 The text says how to work in this repository, which steps need your word, and what the law holds, in short. [Other coding agents](other-agents.md) shows the whole text. You read the same text with:
 
@@ -89,7 +89,7 @@ src/core/total.ts:2  error[no-console]  writes to the terminal with console.log
 next: fix src/core/total.ts:2
 ```
 
-The plugin sends the agent back at most three times in one turn. It does not send the agent back twice in a row for the same output. When the plugin lets the agent finish while the check still fails, you see this line:
+The plugin sends the agent back at most three times in one turn. It does not send the agent back twice in a row for the same output. The plugin can let the agent finish while the check still fails. You then see this line:
 
 ```output
 Lawcheck: the turn ended while the check of its files still fails. lawcheck check shows why.
@@ -108,7 +108,7 @@ In a session, the command `/plugin configure lawcheck@lawcheck-marketplace` open
 $ echo '{"check_after_edit": "false"}' | claude plugin configure lawcheck@lawcheck-marketplace --values-stdin
 ```
 
-Then start Claude Code again. From then on, the plugin checks no file after an edit. The check before the agent ends its turn keeps running. [The Claude Code plugin](plugin.md) says what each hook does, and in which cases it prints nothing.
+Then start Claude Code again. From then on, the plugin checks no file after an edit. The check before the agent ends its turn keeps running. The page [The Claude Code plugin](plugin.md) says what each hook does. It also says in which cases a hook prints nothing.
 
 ## 7. Let the agent write the first law
 
@@ -118,16 +118,16 @@ In a repository with no law, type this in a session:
 /lawcheck:setup
 ```
 
-Only you start it. When you ask for a law in other words, the agent tells you to type `/lawcheck:setup` and writes nothing. The skill follows [Let a coding agent write the first law](agent-setup.md). It describes the folders as types, writes down which type uses which today, and asks you before it forbids a use that the code already makes. It changes only `.lawcheck/` and commits nothing. At the end of its turn the plugin tells you that the agent changed `.lawcheck/law.yaml` ([The end of a turn](plugin.md#the-end-of-a-turn)).
+The command starts the setup skill of the plugin. A skill is a set of instructions that the agent follows for one task. Only you start this skill. If you ask for a law in other words, the agent tells you to type `/lawcheck:setup` and writes nothing. The skill follows [Let a coding agent write the first law](agent-setup.md). It describes the folders as [types](concepts.md#type). It writes down which type uses which today. It asks you before it forbids a [use](concepts.md#use) that the code already makes. It changes only `.lawcheck/` and commits nothing. At the end of the turn, the plugin tells you that the agent changed `.lawcheck/law.yaml` ([The end of a turn](plugin.md#the-end-of-a-turn)).
 
-Ask for more in the words you type with the command. With `/lawcheck:setup what could be better here?`, the agent also writes advice: at most three boundaries or rules that the code does not hold today, each with its evidence and its count. With a target in your words, such as `/lawcheck:setup the domain should not use the database`, it writes the law the code should reach and the steps to get there. Both go to files beside the law, `.lawcheck/advice.md` and `.lawcheck/target.md`, and nothing in them is law until you say yes to one item or one step ([The setup skill](plugin.md#the-setup-skill)).
+You can ask for more in the words you type with the command. `/lawcheck:setup what could be better here?` asks for advice as well. The agent then writes at most three boundaries or rules that the code does not hold today. Each one comes with its evidence: the files and uses that break it, as Lawcheck counts them. You can also name a target in your words, such as `/lawcheck:setup the domain should not use the database`. The agent then writes the law the code should reach, and the steps to get there. Both go to files beside the law, `.lawcheck/advice.md` and `.lawcheck/target.md`, and nothing in them is law until you say yes to one item or one step ([The setup skill](plugin.md#the-setup-skill)).
 
 ## If it goes wrong
 
-- The agent gets the message that `lawcheck prime` did not run because `lawcheck was not found`. The plugin found no Lawcheck through the command of the `runner` setting, which is `lawcheck` on your `PATH` by default. Install Lawcheck as [Install Lawcheck](#_1-install-lawcheck) says, then start a new session.
-- The repository has no law. At the start of the session, the plugin gives the agent two lines: the folder has no `.lawcheck/law.yaml`, and the agent writes none on its own and starts one only when you type `/lawcheck:setup` ([Let the agent write the first law](#_7-let-the-agent-write-the-first-law)).
-- The agent ended its turn, and CI fails. The plugin judges the files of the turn alone, with no [base](concepts.md#base). It never passes `--review`. Its check therefore shows a missing review as a warning. CI judges the whole [change](concepts.md#change) and fails on `not-reviewed` ([CI and git hooks](ci.md)).
+- The agent gets the message that `lawcheck prime` did not run because `lawcheck was not found`. The plugin starts Lawcheck with the command of the `runner` setting, and it found no Lawcheck there. By default that command is `lawcheck` on your `PATH`. Install Lawcheck as [Install Lawcheck](#_1-install-lawcheck) says, then start a new session.
+- The repository has no law. At the start of the session, the plugin gives the agent two lines. The first says that the folder has no `.lawcheck/law.yaml`. The second tells the agent to write no law on its own: you start one by typing `/lawcheck:setup` ([Let the agent write the first law](#_7-let-the-agent-write-the-first-law)).
+- The agent ended its turn, and CI fails. The plugin judges the files of the turn alone, with no [base](concepts.md#base). It never passes `--review`. Its check therefore shows a missing review as a warning. CI judges the whole [change](concepts.md#change). It fails with `not-reviewed` when a reviewer rule has no verdict for a file ([CI and git hooks](ci.md)).
 - More than 1,000 files changed in a turn. The plugin skips the check before the end of the turn and prints one line that says so.
-- A background subagent, teammate or workflow is still running. The plugin holds back the check before the end of the turn. It runs that check when the agent next finishes a turn after the background work has ended.
+- A background subagent, teammate or workflow is still running. The plugin holds back the check before the end of the turn. It runs that check at the first end of a turn after the background work has ended.
 
 Next: [Lawcheck in Codex](codex-cli.md)

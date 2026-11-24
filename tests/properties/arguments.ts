@@ -13,7 +13,8 @@ const WORDS = ['init', 'prime', 'check', 'explain', 'try', 'docs', 'doctor', 'he
 const FLAGS = ['--json', '--full', '--base', '--review', '--again', '--max-calls', '--type', '--rule', '--times', '--dry-run', '--tree', '--strict', '--reviewer', '--help', '--version', '--base=main', '-h', '--', '-'];
 const VALUES = ['main', 'HEAD', 'nope', '0', '1', '-1', '99999999999999999999', '', 'src', 'src/**', 'src/core/price.ts', "src/{a", '../x', '/', 'no-console', 'library', 'languages', 'waivers', 'a\nb', '\u001b[2K', '::error::x', '\\', 'src/core/new\\nline.ts', 'x'.repeat(300)];
 const token = fc.oneof({ weight: 2, arbitrary: fc.constantFrom(...WORDS) }, { weight: 3, arbitrary: fc.constantFrom(...FLAGS) }, { weight: 3, arbitrary: fc.constantFrom(...VALUES) }, { weight: 3, arbitrary: fc.string({ maxLength: 6 }) });
-const argv = fc.tuple(fc.constantFrom(...WORDS.slice(0, 7)), fc.array(token, { maxLength: 5 }), fc.boolean()).map(([first, rest, json]) => [first, ...rest, ...(json ? ['--json'] : [])]);
+// A quarter of the cases get --tree and a quarter --strict right after the first word, so the classes 'explain with --tree' and 'check with --strict' are drawn about one case in 28 and the steering of the draw never misses them in its 1,000 tries; left to the tokens alone they came about one case in 170, and a run that missed one of them 1,000 times in a row ended below the 0.02 share it claims.
+const argv = fc.tuple(fc.constantFrom(...WORDS.slice(0, 7)), fc.constantFrom([], [], ['--tree'], ['--strict']), fc.array(token, { maxLength: 5 }), fc.boolean()).map(([first, own, rest, json]) => [first, ...own, ...rest, ...(json ? ['--json'] : [])]);
 
 function state(repo: string): string {
   return execFileSync('git', ['status', '--porcelain=v2', '-z', '--untracked-files=all'], { cwd: repo, env: GIT_ENV, encoding: 'latin1' }) + execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repo, env: GIT_ENV, encoding: 'utf8' });
@@ -25,11 +26,22 @@ function runHook(event: string, input: string, env: NodeJS.ProcessEnv, host?: st
   return startHook(event, input, env, { stderr: /^(Lawcheck plugin: [^\n]+\n)?$/, ...(host === undefined ? {} : { host }) }).ended;
 }
 
+// A path a hook can get is any JSON value, and String() throws on an object whose own toString is not a function, such as {"toString":1}; that object is written as its JSON then, so every shape fc.anything() draws still reaches the hook.
+export function patchText(path: unknown): string {
+  let shown: string;
+  try {
+    shown = String(path);
+  } catch {
+    shown = JSON.stringify(path);
+  }
+  return `*** Begin Patch\n*** Update File: ${shown}\n*** End Patch\n`;
+}
+
 export function hookInputs(s: string): { arbitrary: fc.Arbitrary<[string, string, string, string | undefined]>; claim: Claim<[string, string, string, string | undefined]> } {
   const id = fc.oneof({ weight: 2, arbitrary: fc.constant('x'.repeat(5000)) }, { weight: 3, arbitrary: fc.constantFrom('s1', '../x', '', 'a b', 'ż', 'y'.repeat(129)) }, { weight: 1, arbitrary: fc.string({ maxLength: 10 }) }, { weight: 1, arbitrary: fc.integer() });
   const field = fc.oneof(fc.constantFrom(s, '/', join(s, 'src'), join(s, D_PATH), join(s, 'src/core/new\nline.ts'), 'relative/path.ts', ''), fc.anything());
   const object = fc
-    .record({ session_id: id, sessionId: id, prompt_id: fc.oneof(fc.constant('p1'), fc.anything()), turn_id: fc.oneof(fc.constant('t1'), fc.anything()), cwd: field, toolName: fc.constantFrom('create', 'edit', 'str_replace_editor', 'apply_patch', 'view', 7), toolArgs: fc.oneof(fc.record({ path: field, command: fc.constantFrom('view', 'str_replace') }), field.map((path) => `*** Begin Patch\n*** Update File: ${String(path)}\n*** End Patch\n`), fc.anything()), tool_name: fc.constantFrom('Write', 'Edit', 'NotebookEdit', 'apply_patch', 'Bash', 7), tool_input: fc.oneof(fc.record({ file_path: field, notebook_path: field, command: fc.oneof(field.map((path) => `*** Begin Patch\n*** Update File: ${String(path)}\n*** End Patch\n`), fc.anything()) }), fc.anything()), stop_hook_active: fc.oneof(fc.boolean(), fc.anything()), background_tasks: fc.oneof(fc.constant([]), fc.anything()) }, { requiredKeys: ['session_id'] })
+    .record({ session_id: id, sessionId: id, prompt_id: fc.oneof(fc.constant('p1'), fc.anything()), turn_id: fc.oneof(fc.constant('t1'), fc.anything()), cwd: field, toolName: fc.constantFrom('create', 'edit', 'str_replace_editor', 'apply_patch', 'view', 7), toolArgs: fc.oneof(fc.record({ path: field, command: fc.constantFrom('view', 'str_replace') }), field.map((path) => patchText(path)), fc.anything()), tool_name: fc.constantFrom('Write', 'Edit', 'NotebookEdit', 'apply_patch', 'Bash', 7), tool_input: fc.oneof(fc.record({ file_path: field, notebook_path: field, command: fc.oneof(field.map((path) => patchText(path)), fc.anything()) }), fc.anything()), stop_hook_active: fc.oneof(fc.boolean(), fc.anything()), background_tasks: fc.oneof(fc.constant([]), fc.anything()) }, { requiredKeys: ['session_id'] })
     .map((v) => JSON.stringify(v));
   const input = fc.oneof(
     { weight: 3, arbitrary: object },

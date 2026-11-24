@@ -1,6 +1,6 @@
 # What a check judges
 
-`lawcheck check` judges the files of the [change](concepts.md#change). Old code fails nothing until someone changes it, so a law that old code breaks fails no build on the day you add it.
+`lawcheck check` judges the files of the [change](concepts.md#change). Old code fails nothing until someone changes it. A law that old code breaks therefore fails no build on the day you add it.
 
 ## The base
 
@@ -24,7 +24,9 @@ Lawcheck stops with `base-unreachable` and exit 2 in four cases:
 
 A shallow clone holds part of the history. In a shallow clone, or in a clone that did not fetch the base's branch, the message names the `git fetch` command that fetches the base.
 
-With no base, a check on a machine counts every file as changed. Its first line says so. In a CI job, a [check of the change](concepts.md#check-of-the-change) with no base stops with `base-unreachable`, with `--review` too. Without a base, it cannot tell the change from [debt](concepts.md#debt). The `next:` line of that error names `--base`, `LAWCHECK_BASE` and `--full` (`lawcheck docs ci`). The history of the base has to be in the clone as well. A shallow clone ends as `base-unreachable`, and the `next:` line names the `git fetch` that fixes it.
+With no base, a check on a machine counts every file as changed. The first line of its output says so. In a CI job, a [check of the change](concepts.md#check-of-the-change) with no base stops with `base-unreachable`, with `--review` too. Without a base, the check cannot tell the change from [debt](concepts.md#debt). The `next:` line of that error names `--base`, `LAWCHECK_BASE` and `--full` (`lawcheck docs ci`).
+
+The history of the base has to be in the clone as well. A check in a shallow clone ends as `base-unreachable`. Its `next:` line names the `git fetch` that fixes it.
 
 ## The change
 
@@ -36,7 +38,7 @@ The merge base of two commits is the newest commit that both histories hold. Law
 - a change of mode alone counts;
 - an edit of a file that you marked `assume-unchanged` or `skip-worktree` in git counts. `git diff` does not show such an edit.
 
-Lawcheck judges each changed file against the rules that bind it. A rule binds a file when the file's type, or a type above it, lists the rule. Lawcheck judges the whole file. An error on a line you did not touch fails the run too.
+Lawcheck judges each changed file against the rules that bind it. A rule binds a file when the file's type lists the rule, or when a type that the file's type sits under lists it. Lawcheck judges the whole file. An error on a line you did not touch fails the run too.
 
 The git settings of a repository can name programs that git starts while it reads the files. Lawcheck runs git with these programs turned off:
 
@@ -48,7 +50,7 @@ The git settings of a repository can name programs that git starts while it read
 
 Settings you pass to git yourself, through `GIT_CONFIG_PARAMETERS` or `git -c` in an alias, take effect. If one of your own settings names a program, git can start that program.
 
-Git reads some files through a filter, such as the files of Git LFS. Lawcheck compares such a file as its bytes on disk. For such a file, git stores other bytes than the ones on disk. So Lawcheck counts the file as changed when its time or size differs from git's index. An edit of such a file that keeps its size is in the change when git compares times below the second. When git compares whole seconds, an edit that keeps the size is not in the change if it comes in the same second as git last wrote that file to the index.
+Git reads some files through a filter, such as the files of Git LFS. Lawcheck compares such a file as its bytes on disk. For such a file, git stores other bytes than the ones on disk. So Lawcheck counts the file as changed when its time or size differs from what git's index records. The index is git's staging area. An edit of such a file that keeps its size is in the change when git compares times below the second. Git can also compare whole seconds only. Then an edit that keeps the size, in the same second as git last wrote that file to the index, is not in the change.
 
 ## --full and debt
 
@@ -56,11 +58,11 @@ Git reads some files through a filter, such as the files of Git LFS. Lawcheck co
 $ lawcheck check --full --base main
 ```
 
-With `--full`, Lawcheck judges every other file as well. The findings in those other files are debt. Without `--strict`, debt never changes the exit code, because each of its findings is a warning, whatever the status of its rule.
+With `--full`, Lawcheck judges every file outside the change as well. The findings in those files are debt. Each finding of debt is a warning, whatever the status of its rule. So without `--strict`, debt never changes the exit code.
 
 Lawcheck prints the debt block after the findings of the change. The block has its own count of findings, files, waivers and unresolved uses. In `--json` each finding of debt has `debt: true`.
 
-With `--strict`, Lawcheck judges every file as `--full` does. A finding of debt is then an error when the same finding inside the change would be one. A finding of an `enforced` rule in an old file is an error, and the run exits 1. A finding of an `advisory` rule stays a warning. So does a finding that is a warning in the change, such as `waiver-unused`. The first line of a run that fails only on debt counts it apart: `lawcheck: FAIL  3 changed files (against main), 2 errors in debt`. Use `--strict` where a team has paid its debt and wants the branch red until the next breach is cleaned up.
+With `--strict`, Lawcheck judges every file as `--full` does. A finding of debt is then an error when the same finding inside the change would be one. A finding of an `enforced` rule in an old file is an error. The run then exits 1. A finding of an `advisory` rule stays a warning. So does a finding that is a warning in the change, such as `waiver-unused`. A run can fail only on debt. Its first line then counts the errors in debt apart from the change: `lawcheck: FAIL  3 changed files (against main), 2 errors in debt`. Use `--strict` where a team has paid its debt. Each new breach then turns the branch red until someone fixes it.
 
 ## The limits of a plain check
 
@@ -81,7 +83,7 @@ note: the law changed in this change; lawcheck check --full --base main shows wh
 note: this change edits the law that judges it: takes the rule no-console off the type library
 ```
 
-The second note says what the change does to the law that judges it. A pull request can change that law. It can take a rule off a type, or make a rule script return nothing. Then the same pull request passes its own check. The note names each change that Lawcheck finds when it compares the law with the base:
+The second note says what the change does to the law that judges it. A pull request can change that law. It can take a rule off a type, or make a script rule return nothing. Such a pull request then passes its own check. The note names each change that Lawcheck finds when it compares the law with the base:
 
 - a type or a rule added or removed;
 - a rule made advisory or enforced, taken off a type or put on one;
@@ -102,13 +104,13 @@ In `--json`, `scope.law_changes` lists every item. The note never changes the ex
 
 ## The law of the base
 
-`lawcheck check --base main --law-from main` judges the change by the law of `main` ([`--law-from`](commands.md#law-from-ref)). That law is the `.lawcheck/law.yaml`, `.lawcheck/config.yaml` and `.lawcheck/rules/` of `main`, which Lawcheck reads from git. Lawcheck still judges the files of the work tree, and the change is the same as without the flag. A change that takes a rule off a type and breaks that rule fails this check with exit 1. The JSON document and the exit codes are those of any check. When the change edits the law, `check` leaves out the first law-change note. The second one names the commit whose law judged the change:
+`lawcheck check --base main --law-from main` judges the change by the law of `main` ([`--law-from`](commands.md#law-from-ref)). That law is the `.lawcheck/law.yaml`, `.lawcheck/config.yaml` and `.lawcheck/rules/` of `main`. Lawcheck reads them from git. Lawcheck still judges the files of the work tree. The change is the same as without the flag. A change that takes a rule off a type and breaks that rule fails this check with exit 1. The JSON document and the exit codes are those of any check. When the change edits the law, `check` leaves out the first law-change note. The second note names the commit whose law judged the change:
 
 ```text
 note: this change edits its own law, and the law of main judged it: takes the rule no-console off the type library
 ```
 
-`lawcheck doctor` reports the same in its `law-change` check. No line of `check` or `doctor` reports the other two kinds of change.
+`lawcheck doctor` reports the change of the law in its `law-change` check. No line of `check` or `doctor` reports the other two kinds of change of [The limits of a plain check](#the-limits-of-a-plain-check): a file that gets another type, and a file that the readers consult.
 
 ## Waivers a change adds
 
@@ -118,17 +120,17 @@ A change can also pass its own check by adding a [waiver](concepts.md#waiver) on
 note: this change adds 1 waiver: no-console at src/core/shipping.ts:1
 ```
 
-Lawcheck reads each changed file at the merge base of `HEAD` and the base. The law-change notes compare the law with the same commit. Lawcheck compares the waivers of the two texts by rule and by reason. A waiver that the base already holds is not named, even when the change moves it to another line. A file that the change moves to a new path has no waivers at that path in the base, so each of its waivers counts as added. The note shows five waivers and the count of the rest. In `--json`, each item of `waivers` has `added` ([JSON documents](json.md)). The note never changes the exit code.
+To find the added waivers, Lawcheck reads each changed file at the merge base of `HEAD` and the base. The law-change notes compare the law with that same commit. Lawcheck compares the waivers of the file at the merge base with those of the file in the work tree, by rule and by reason. The note does not name a waiver that the merge base already holds, even when the change moves it to another line. A file that the change moves to a new path has no waivers at that path in the merge base. So each of its waivers counts as added. The note shows five waivers and the count of the rest. In `--json`, each item of `waivers` has `added` ([JSON documents](json.md)). The note never changes the exit code.
 
-Lawcheck names only the waivers it counts: those with a known rule and a reason, in a file whose type reads waivers. A marker in a file that no type takes waives nothing, so the note leaves it out. When a change puts a file under `ignored` to hide it from the law, the second law-change note names the pattern.
+Lawcheck names only the waivers it counts: those with a known rule and a reason, in a file whose type reads waivers. A marker in a file that no type takes waives nothing. The note leaves such a marker out. When a change puts a file under `ignored` to hide it from the law, the second law-change note names the pattern.
 
 ## Files you name
 
 `lawcheck check <path or pattern>...` judges the files you name, changed or not, and no others. This form needs no base. It runs in CI, and in a repository with no commit.
 
-Lawcheck reads each path and pattern from the folder you run it in. A folder selects its files at any depth. A path that selects nothing, such as a missing file, a file that git does not track and `.gitignore` names or a binary file, adds nothing to the run. The root is the folder that holds `.lawcheck/`. A path outside the root stops the run with the error [`usage`](codes.md#usage). Write a file whose name starts with `-` with `./` before it, as in `./-x.ts`.
+Lawcheck reads each path and pattern relative to the folder you run it in. A folder selects its files at any depth. A path that selects nothing, such as a missing file, a file that git does not track and `.gitignore` names or a binary file, adds nothing to the run. The root is the folder that holds `.lawcheck/`. A path outside the root stops the run with the error [`usage`](codes.md#usage). Write a file whose name starts with `-` with `./` before it, as in `./-x.ts`.
 
-This form prints no debt, no law-change note and no note of added waivers. It takes one flag, `--json`. A missing review never makes this form exit 1, because `not-reviewed` and `too-large-to-review` are warnings in it. The Claude Code plugin checks files this way (`lawcheck docs plugin`).
+This form prints no debt, no law-change note and no note of added waivers. It takes one flag, `--json`. In this form, `not-reviewed` and `too-large-to-review` are warnings. So a missing review never makes this form exit 1. The Claude Code plugin checks files this way (`lawcheck docs plugin`).
 
 ## Exit codes
 

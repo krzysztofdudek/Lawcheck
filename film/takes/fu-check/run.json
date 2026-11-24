@@ -1,7 +1,7 @@
 {
   "id": "fu-check",
   "chapter": "forbid-a-use",
-  "take": "fu01",
+  "take": "fu09",
   "args": [
     "check",
     "--base",

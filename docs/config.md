@@ -17,6 +17,8 @@ An empty file, or a file that holds only comments, sets nothing.
 
 ## reviewer
 
+The five providers that call a model over HTTP are `anthropic`, `openai`, `google`, `openai-compatible` and `ollama`. The other four are programs that Lawcheck starts: `claude-code`, `codex`, `gemini-cli` and `copilot-cli`.
+
 | Key | Value | Default |
 |---|---|---|
 | `provider` | `anthropic`, `openai`, `google`, `openai-compatible`, `ollama`, `claude-code`, `codex`, `gemini-cli` or `copilot-cli` (`lawcheck docs providers`) | none: no reviewer |
@@ -26,8 +28,6 @@ An empty file, or a file that holds only comments, sets nothing.
 | `max_chars` | an integer, at least 1: the largest prompt sent, in characters | 50000 |
 | `parallel` | an integer, at least 1: requests in flight at once | 4; 1 for the four programs |
 | `max_calls` | an integer, at least 0: the most requests one run sends, a request sent again included | 100 |
-
-The five providers that call a model over HTTP are `anthropic`, `openai`, `google`, `openai-compatible` and `ollama`. The other four are programs that Lawcheck starts: `claude-code`, `codex`, `gemini-cli` and `copilot-cli`.
 
 This file sets every key:
 
@@ -103,19 +103,21 @@ The `runner` setting names the command that starts Lawcheck in this repository. 
 runner: pnpm  # pinned in package.json
 ```
 
-With `global`, the plugin runs the `lawcheck` program on your `PATH`. With any other value, the package manager takes the `lawcheck` program from the repository's own files. The repository then decides which code runs on your machine, with your rights, each time the plugin starts Lawcheck. Use the plugin in such a repository only when you would run its code yourself. `lawcheck doctor` fails its `config` check when the program of the `runner` setting, such as `pnpm`, is not on the `PATH`.
+With `global`, the plugin runs the `lawcheck` program on your `PATH`. With any other value, the package manager takes the `lawcheck` program from the repository's own files. The repository then decides which code runs on your machine, with your rights, each time the plugin starts Lawcheck. Use the plugin in such a repository only when you would run its code yourself.
 
-The plugin reads the `runner` setting without a YAML parser. It takes the first line that starts with `runner:` in its first column. The value is the rest of that line, trimmed, without a comment after a space or a tab. With no such line, the setting is `global`. Lawcheck stops with `config-invalid` on a value outside the five. It stops the same way when YAML reads a value other than the one the plugin took, as with `runner: "pnpm"` or a key in flow style. Write `runner: pnpm` on a line of its own, at the top level.
+`lawcheck doctor` fails its `config` check when the program of the `runner` setting, such as `pnpm`, is not on the `PATH`.
+
+The plugin reads the `runner` setting without a YAML parser. It takes the first line that starts with `runner:` in its first column. The value is the rest of that line, trimmed. A comment after a space or a tab is not part of the value. With no such line, the setting is `global`. Lawcheck stops with `config-invalid` on a value outside the five of the table. It stops the same way when YAML reads a value other than the one the plugin took, as with `runner: "pnpm"` or a key in flow style. Write `runner: pnpm` on a line of its own, at the top level.
 
 Yarn 1 prints lines of its own around the output of `yarn run`. To read the JSON of `--json`, start Lawcheck with `yarn --silent run lawcheck`. The flag `--silent` leaves those lines out.
 
-Yarn 4.15.0 and later hold back a package published less than a day ago. Lawcheck reads the code of each language with the package `@chrisdudek/runes`, which these pages call Runes. On the first day after a release of Lawcheck or of Runes, `yarn add` ends with `YN0016` and `quarantined`. With this line in `.yarnrc.yml`, Yarn installs both packages on that first day. Yarn 4.10.1 to 4.14.1 hold nothing back and accept the line. Yarn 4.0.0 to 4.9.4 do not know it and stop every command with `Usage Error`, so leave it out there.
+Yarn 4.15.0 and later hold back a package published less than a day ago. Lawcheck reads the code of each language with the package `@chrisdudek/runes`. These pages call that package Runes. On the first day after a release of Lawcheck or of Runes, `yarn add` ends with `YN0016` and `quarantined`. With this line in `.yarnrc.yml`, Yarn installs both packages on that first day. Yarn 4.10.1 to 4.14.1 hold nothing back and accept the line. Yarn 4.0.0 to 4.9.4 do not know the line and stop every command with `Usage Error`. Leave the line out for those versions.
 
 ```text
 npmPreapprovedPackages: [lawcheck, "@chrisdudek/runes"]
 ```
 
-pnpm 11 and later also hold back a package published less than a day ago, and they do not stop the install. `pnpm add --save-dev lawcheck@alpha` installs the newest version that is at least a day old, so on the first day after a release you get the release before it. Runes is held back in the same way. With this line in `pnpm-workspace.yaml`, pnpm installs both new versions on that first day:
+pnpm 11 and later also hold back a package published less than a day ago. They do not stop the install. `pnpm add --save-dev lawcheck@alpha` installs the newest version that is at least a day old. On the first day after a release, you therefore get the release before it. pnpm holds Runes back in the same way. With this line in `pnpm-workspace.yaml`, pnpm installs both new versions on that first day:
 
 ```text
 minimumReleaseAgeExclude: [lawcheck, "@chrisdudek/runes"]
@@ -145,7 +147,7 @@ Git ignores `.lawcheck/config.local.yaml`, because `.lawcheck/.gitignore` names 
 | `COPILOT_PROVIDER_API_KEY` | passes it to `copilot` |
 | `COPILOT_PROVIDER_API_KEY_COMMAND` | passes it to `copilot`; it holds a command, so Lawcheck does not hide its value as a key |
 | `COPILOT_PROVIDER_BEARER_TOKEN` | passes it to `copilot` |
-| `CI` | treats the run as a CI job, where a [check of the change](concepts.md#check-of-the-change) with no base is `base-unreachable`; set to 0, false, no or off, it means no job. Without `CI`, a CI service's own variable, such as `GITHUB_ACTIONS`, marks the job |
+| `CI` | treats the run as a CI job, where a [check of the change](concepts.md#check-of-the-change) with no base is `base-unreachable`; set to an empty value, 0, false, no or off, in any letter case, it means no job. Without `CI`, a CI service's own variable, such as `GITHUB_ACTIONS`, marks the job |
 | `PATH` | finds `git` and the reviewer programs there, and leaves out relative and empty entries |
 | `NODE_OPTIONS` | refuses every command when it holds `--permission`, under which Lawcheck cannot read its own files |
 | `TMPDIR` | makes the folder of a reviewer program there; `TEMP` on Windows |

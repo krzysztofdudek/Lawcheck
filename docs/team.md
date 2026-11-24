@@ -138,15 +138,15 @@ $ git commit --no-edit
 
 ## A change of the law
 
-A [change](concepts.md#change) that edits the law or a rule file changes the law that every developer checks against. `lawcheck check` says so in a note under its first line ([What a check judges](change.md)). The CI job checks such a change a second time, with the law of its base ([CI and git hooks](ci.md)). Lawcheck leaves the human review of such a change to your code host. On GitHub, a code owner for `.lawcheck/` and a required review make a person approve each change of the law.
+A [change](concepts.md#change) that edits the law or a rule file changes the law that every developer checks against. `lawcheck check` says so in a note under its first line ([What a check judges](change.md)). The CI job checks such a change a second time, with the law of its [base](concepts.md#base) ([CI and git hooks](ci.md)). Lawcheck leaves the human review of such a change to your code host. On GitHub, a code owner for `.lawcheck/` and a required review make a person approve each change of the law.
 
 ## If it goes wrong
 
 - `config-invalid` at the line of `keys` means that an API key sits in `.lawcheck/config.yaml`. Remove that line, and set the key in an environment variable.
-- A teammate's check shows `not-reviewed` for a file you reviewed. Check that you pushed `.lawcheck/verdicts`. The key `context` of a rule names files that the reviewer reads with each file it judges. If you did push, one of these changed after your review:
+- A teammate's check shows `not-reviewed` for a file you reviewed. Check that you pushed `.lawcheck/verdicts`. If you did push, one of these changed after your review:
   - the file;
   - the text or the `why` of the rule;
-  - a file that the rule's `context` names.
+  - a file that the rule's `context` names. The key `context` lists the files that the reviewer reads beside each file it judges.
 
   Run `lawcheck check --review` again, and commit `.lawcheck/verdicts`.
 - A review failed on your machine, and your teammate's check shows `not-reviewed` for that file. Lawcheck writes only passes into `.lawcheck/verdicts`. It keeps a failed review in `.lawcheck/.local/` on the machine that ran it.

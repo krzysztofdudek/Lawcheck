@@ -31,7 +31,7 @@ On a Node older than 24, npm and pnpm install Lawcheck and print a warning. Lawc
 - under Bun;
 - from Plug'n'Play.
 
-In those setups, every command but `--version`, `--help`, `docs` and `doctor` stops with `unsupported-environment` and exit 2. The first line of the error names the cause. Its `next:` line names the fix. `lawcheck doctor` prints the same first line, with its nine checks below it.
+In those setups, every command but `--version`, `--help`, `docs` and `doctor` stops with `unsupported-environment` and exit 2. The first line of the error names the cause. Its `next:` line names the fix. `lawcheck doctor` prints the same first line, with its nine checks below it, and exits 2.
 
 ## Install globally
 
@@ -39,7 +39,7 @@ In those setups, every command but `--version`, `--help`, `docs` and `doctor` st
 $ npm install --global lawcheck@alpha
 ```
 
-The program `lawcheck` is then on your `PATH`. The `runner` setting in `.lawcheck/config.yaml` says how to start Lawcheck. You leave it out, since its default, `global`, fits this install.
+The program `lawcheck` is then on your `PATH`. The `runner` setting in `.lawcheck/config.yaml` says how to start Lawcheck. Leave it out: its default, `global`, fits this install.
 
 ## Install in a project
 
@@ -54,7 +54,7 @@ Add Lawcheck as a development dependency. You then start it through the package 
 
 With `--no-install`, npx runs the copy installed in the project. It downloads nothing. A plain `npx lawcheck` downloads a copy when the project has none.
 
-On the first day after a release, Yarn 4.15.0 and later refuse to install the new version, and pnpm 11 and later install the one before it. [Settings](config.md#runner) gives the line that lets the new version through.
+On the first day after a release, Yarn 4.15.0 and later refuse to install the new version. On that day, pnpm 11 and later install the version before it. [Settings](config.md#runner) gives the line that lets the new version through.
 
 ## The runner setting
 
