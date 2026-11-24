@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { chmodSync, closeSync, cpSync, existsSync, mkdirSync, openSync, readFileSync, rmSync, statSync, truncateSync, writeFileSync, writeSync } from 'node:fs';
+import { chmodSync, closeSync, cpSync, existsSync, fsyncSync, mkdirSync, openSync, readFileSync, rmSync, statSync, truncateSync, writeFileSync, writeSync } from 'node:fs';
 import { fork } from 'node:child_process';
 import { availableParallelism } from 'node:os';
 import { join } from 'node:path';
@@ -31,10 +31,16 @@ function realText(repo: string, path: string, bytes: number): void {
   const chunk = line.repeat(Math.floor(MiB / line.length));
   const fd = openSync(full, 'w');
   try {
-    for (let written = 0; written < bytes; ) {
+    // The container is charged for pages not yet on the disk; on a runner whose disk is slower than these writes they filled its 1 GB and the kernel killed the test file, so each 16 MiB reaches the disk before the next is written.
+    for (let written = 0, unsynced = 0; written < bytes; ) {
       const part = chunk.slice(0, Math.min(chunk.length, bytes - written));
       writeSync(fd, part);
       written += part.length;
+      unsynced += part.length;
+      if (unsynced >= 16 * MiB || written >= bytes) {
+        fsyncSync(fd);
+        unsynced = 0;
+      }
     }
   } finally {
     closeSync(fd);
