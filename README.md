@@ -50,7 +50,7 @@ npm install --global lawcheck@alpha
 lawcheck docs quick-start
 ```
 
-In your own repository, your agent can write the first law. Install the plugin below and type `/lawcheck:setup` (`$lawcheck:setup` in Codex). It starts from the rules you already wrote in `CLAUDE.md`, `AGENTS.md` and your linter's config, and turns those of the "never import" and "never call" kinds into checks, such as no `console.log` in the core. The agent describes your folders as types, writes down which type uses which today, and asks you before it forbids a use the code already makes. It changes only `.lawcheck/` and commits nothing.
+In your own repository, your agent can write the first law. Install the Lawcheck plugin and type `/lawcheck:setup` (`$lawcheck:setup` in Codex). It starts from the rules you already wrote in `CLAUDE.md`, `AGENTS.md` and your linter's config, and turns those of the "never import" and "never call" kinds into checks, such as no `console.log` in the core. The agent describes your folders as types, writes down which type uses which today, and asks you before it forbids a use the code already makes. It changes only `.lawcheck/` and commits nothing.
 
 ## Your coding agent
 
