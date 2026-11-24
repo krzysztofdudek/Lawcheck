@@ -315,10 +315,11 @@ function addedInChange(root: string, base: string, run: TypedFile[], changed: Se
   const read = atBase(root, base);
   if (read === null) return null;
   const added = new Set<Waiver>();
-  for (const file of run) {
+  const waived = run.filter((file) => waiversOf.get(file.path)!.waivers.length > 0 && changed.has(file.path));
+  const atFork = read(waived.map((file) => file.path));
+  for (const file of waived) {
     const now = waiversOf.get(file.path)!.waivers;
-    if (now.length === 0 || !changed.has(file.path)) continue;
-    const bytes = read(file.path);
+    const bytes = atFork.get(file.path) ?? null;
     const lines = bytes === null || isBinary(bytes) ? [] : splitLines(decode(bytes));
     for (const waiver of addedWaivers(now, file.lines, parseWaivers(lines, ruleIds).waivers, lines)) added.add(waiver);
   }
@@ -559,7 +560,9 @@ function judge(
     for (const waiver of valid) {
       waivers.push({ file: file.path, line: waiver.line, rule: waiver.rule, debt: isDebt, waived: waiver.waived, reason: waiver.reason, added: added === null ? null : added.has(waiver) });
       if (waiver.waived === 0 && !reviewers.has(waiver.rule)) {
-        place({ code: 'waiver-unused', rule: null, severity: 'warning', debt: isDebt, file: file.path, line: waiver.line, type: file.type.id, message: `the waiver of '${waiver.rule}' drops no finding`, why: WHY['waiver-unused']! });
+        const taken = valid.find((other) => other !== waiver && other.rule === waiver.rule && other.covers === waiver.covers && other.waived > 0);
+        const because = taken === undefined ? '' : `; the waiver on line ${taken.line} already drops the findings of that line`;
+        place({ code: 'waiver-unused', rule: null, severity: 'warning', debt: isDebt, file: file.path, line: waiver.line, type: file.type.id, message: `the waiver of '${waiver.rule}' drops no finding${because}`, why: WHY['waiver-unused']! });
       }
     }
   }

@@ -1,0 +1,12 @@
+diff --git a/tests/limits/large.test.ts b/tests/limits/large.test.ts
+index 67a118a..2fe0bc3 100644
+--- a/tests/limits/large.test.ts
++++ b/tests/limits/large.test.ts
+@@ -8,6 +8,6 @@ test('test 4: a large run ends in time', async () => {
+ });
+ 
+ test('test 5: a small run ends in time', async () => {
+-  const result = await run(['check']);
++  const result = await run(['check'], { budget: 'LIMITS_RUN_MS' });
+   assert.ok(result);
+ });

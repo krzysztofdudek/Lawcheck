@@ -200,7 +200,7 @@ Lawcheck's tests run this workflow on Linux alone. Lawcheck itself runs on Linux
 
 ## Reviewer rules in CI
 
-Without `--review`, the job you set up in [Add the workflow](#_2-add-the-workflow) calls no reviewer and needs no API key. It reads the [verdicts](concepts.md#verdict) committed in `.lawcheck/verdicts`. When that file holds no pass for a file that a reviewer rule [binds](change.md#the-change), the check reports `not-reviewed`. The job then fails:
+Without `--review`, the job you set up in [Add the workflow](#_2-add-the-workflow) calls no reviewer and needs no API key. It reads the [verdicts](concepts.md#verdict) committed in `.lawcheck/verdicts`. When that file holds no pass for a changed file that a reviewer rule [binds](change.md#the-change), the check reports `not-reviewed`. A file that the change leaves alone is not asked about, so a pull request that touches none of the files a reviewer rule binds never fails for a missing review. The job then fails:
 
 ```output
 lawcheck: FAIL  1 error in 1 changed file (against origin/main)
@@ -373,7 +373,7 @@ lawcheck-quality:
 
 ### 3. Show the findings in GitHub code scanning
 
-In [the workflow](#_2-add-the-workflow), add `security-events: write` to `permissions` and `--sarif "$RUNNER_TEMP/lawcheck.sarif"` to the first two `lawcheck check` lines. Then add this step, which uploads the file ([SARIF 2.1.0](json.md#sarif-2-1-0)):
+In [the workflow](#_2-add-the-workflow), add `security-events: write` to `permissions` and `--sarif "$RUNNER_TEMP/lawcheck.sarif"` to the first two `lawcheck check` lines. Then add this step ([SARIF 2.1.0](json.md#sarif-2-1-0)):
 
 <!-- example: sarif-upload -->
 ```yaml

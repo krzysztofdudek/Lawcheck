@@ -1,6 +1,6 @@
 # What a check judges
 
-A law written for code that already breaks it would fail every build on the first day. `lawcheck check` judges the files of the [change](concepts.md#change). Old code fails nothing until someone changes it.
+`lawcheck check` judges the files of the [change](concepts.md#change). Old code fails nothing until someone changes it, so a law that old code breaks fails no build on the day you add it.
 
 ## The base
 
@@ -48,7 +48,7 @@ The git settings of a repository can name programs that git starts while it read
 
 Settings you pass to git yourself, through `GIT_CONFIG_PARAMETERS` or `git -c` in an alias, take effect. If one of your own settings names a program, git can start that program.
 
-Git reads some files through a filter, such as the files of Git LFS. Lawcheck compares such a file as its bytes on disk. If the file's time no longer matches git's index, the file can count as changed.
+Git reads some files through a filter, such as the files of Git LFS. Lawcheck compares such a file as its bytes on disk. git stores other bytes for such a file, so Lawcheck counts the file as changed when its time or size differs from git's index. An edit of such a file that keeps its size is in the change when git compares times below the second. When git compares whole seconds, an edit that keeps the size and comes in the same second as git last wrote that file to the index is not in the change.
 
 ## --full and debt
 
@@ -90,7 +90,7 @@ The second line says what the change does to the law that judges it. A pull requ
 - a type moved under another parent, or to the top of `types`;
 - a file of `.lawcheck/rules/`, or `.lawcheck/config.yaml`, added, removed or changed. The line names such a file by its path and not by what it does.
 
-The line shows five items and the count of the rest. In `--json`, `scope.law_changes` lists every item. The line never changes the exit code of the run, whatever it lists. `lawcheck docs ci` gives a job that checks the change a second time with the law of the base.
+The line shows five items and the count of the rest. When a change has more than five, the line shows first the items that loosen the law: a rule or a type removed, a rule made advisory or taken off a type, a pattern added to `ignored` or taken off `required`. In `--json`, `scope.law_changes` lists every item. The line never changes the exit code of the run, whatever it lists. `lawcheck docs ci` gives a job that checks the change a second time with the law of the base.
 
 `lawcheck doctor` reports the same in its `law-change` check. No line of `check` or `doctor` reports the other two kinds of change.
 

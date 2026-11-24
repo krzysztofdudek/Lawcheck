@@ -206,7 +206,7 @@ The cause is one of these:
 
 **Fix**
 
-Run Lawcheck inside a git work tree, with git on the `PATH`. For a repository another user owns, run the `git config --global --add safe.directory` command of the `next:` line.
+Run Lawcheck inside a git work tree, with git on the `PATH`. For a repository another user owns, run the `git config --global --add safe.directory` command of the `next:` line. For a repository that git cannot read, such as one with a corrupt `.git/index`, repair it until `git status` works there.
 
 **Example**
 
@@ -234,11 +234,12 @@ The law holds one of these:
 - a wrong value or id;
 - a name in a type's `rules` or `may_use` that the law does not have;
 - a pattern or `content` expression that does not parse;
-- a file named in a rule's `context` that git does not list.
+- a file named in a rule's `context` that git does not list;
+- a place that is no file where the law belongs, such as a folder named `.lawcheck/law.yaml`, or a symbolic link to nothing.
 
 **Fix**
 
-Edit the law at the line the error names. `lawcheck docs law` lists every key.
+Edit the law at the line the error names. `lawcheck docs law` lists every key. When `.lawcheck/law.yaml` is no file, move what stands there away and put the law in a file of that name.
 
 **Example**
 
@@ -293,11 +294,12 @@ A rule of the law has neither its script `.lawcheck/rules/<id>.mjs` nor its prom
 The cause is one of these:
 
 - you add a rule to the law before you write its file;
-- you delete or rename the file of a rule, and the rule stays in the law.
+- you delete or rename the file of a rule, and the rule stays in the law;
+- the file of a rule is a symbolic link, which Lawcheck does not follow, and the message names it.
 
 **Fix**
 
-Write `.lawcheck/rules/<id>.mjs` for a [script rule](concepts.md#script-rule), or `.lawcheck/rules/<id>.md` for a [reviewer rule](concepts.md#reviewer-rule). You can take the rule out of the law instead.
+Write `.lawcheck/rules/<id>.mjs` for a [script rule](concepts.md#script-rule), or `.lawcheck/rules/<id>.md` for a [reviewer rule](concepts.md#reviewer-rule). You can take the rule out of the law instead. Where the message names a symbolic link, replace the link with the file it leads to.
 
 **Example**
 
@@ -452,6 +454,7 @@ Lawcheck cannot write a file or a folder that it must write. The error names tha
 The cause is one of these:
 
 - a file stands where Lawcheck makes a folder, such as a file named `.lawcheck`;
+- a folder stands where Lawcheck writes a file, such as `.lawcheck/.gitignore`;
 - the folder is read-only;
 - the disk is full;
 - `.lawcheck/verdicts` would grow past 16 MiB;
@@ -891,7 +894,7 @@ The cause is one of these:
 
 The `next:` line names the step for the case. A type with a `may_use` list on it, or on a type above it, is a type whose files Lawcheck reads for their uses ([`may_use`](law.md#may-use)).
 
-Lawcheck also reads for their uses the files of a script rule that calls `uses()`, and of a reviewer rule whose companion calls it ([The uses](script-rules.md#the-uses)). The error then names that rule, and the `next:` line names the types whose files the rule judges, or says to keep the rule from calling `uses()` on the file. A rule that calls `tree()` makes Lawcheck read the tree of the file, and the error names the rule and `tree()` the same way. A law with no `may_use` list can end this way too.
+Lawcheck also reads for their uses the files of a script rule that calls `uses()`, and of a reviewer rule whose companion calls it ([The uses](script-rules.md#the-uses)). The error then names that rule, and the `next:` line names the types whose files the rule judges, or says to keep the rule from calling `uses()` on the file. A rule that calls `tree()` makes Lawcheck read the tree of the file, and the error names the rule and `tree()` the same way. A law with no `may_use` list can end this way too. Lawcheck reads the uses of a file once per run, for the rule that asks first. When two rules call `uses()` on the same file, the error names the one whose request came first, and two runs of the same check can name different rules. After you keep one rule from that file, the next run names the other.
 
 - For one file that Lawcheck reads for its uses, leave the file out of every such type with a `!` pattern.
 - For one file that Lawcheck reads only for the names it declares, as in the Example, keep the file out of the files that git lists. In Java, Kotlin, C#, Ruby and Rust, Lawcheck reads those names from every file that git lists, with a type or without one ([Languages and uses](languages.md)). Run `git rm --cached` on the file and add a line for it to `.gitignore`.
