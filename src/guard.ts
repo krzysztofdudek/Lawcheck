@@ -49,7 +49,8 @@ function removeLeft(temp: string): void {
   }
   for (const name of names) {
     const owner = SHELL_FOLDER.exec(name);
-    if (owner !== null && !running(Number(owner[1]))) rm(join(temp, name), { recursive: true, force: true, maxRetries: 10 }, () => undefined);
+    // A folder with this guard's id was left by an earlier guard that held it, since this guard makes its own after this.
+    if (owner !== null && (Number(owner[1]) === process.pid || !running(Number(owner[1])))) rm(join(temp, name), { recursive: true, force: true, maxRetries: 10 }, () => undefined);
   }
 }
 
