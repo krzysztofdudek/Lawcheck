@@ -72,7 +72,7 @@ test('R-41: init where a law already governs names the law in the words of its o
   });
 });
 
-test('R-41: init where .lawcheck is a file, or a link to a file or to nothing, says which and what to do', async () => {
+test('R-41: init where .lawcheck is a file says which and what to do', async () => {
   const said = (what: string) => `lawcheck: ERROR  1 error\n\n.lawcheck  error[file-unwritable]  ${what}, so the folder .lawcheck cannot be made\n  why:  what Lawcheck cannot write is lost, so the run cannot say it is done\n\nnext: move .lawcheck out of the way, then run lawcheck init again\n`;
   await inTemp(async (dir) => {
     const repo = newRepository(dir, { 'target.txt': 'x\n' });
@@ -81,7 +81,12 @@ test('R-41: init where .lawcheck is a file, or a link to a file or to nothing, s
     assert.equal(run.stdout, said('it is a file'));
     assert.equal(run.code, 2);
   });
-  if (platformSkip('a symbolic link') !== null) return;
+});
+
+test('R-41: init where .lawcheck is a link to a file or to nothing says which and what to do', async (t) => {
+  const skip = platformSkip('the whole test');
+  if (skip !== null) return t.skip(skip);
+  const said = (what: string) => `lawcheck: ERROR  1 error\n\n.lawcheck  error[file-unwritable]  ${what}, so the folder .lawcheck cannot be made\n  why:  what Lawcheck cannot write is lost, so the run cannot say it is done\n\nnext: move .lawcheck out of the way, then run lawcheck init again\n`;
   for (const [name, target, what] of [['a link to a file', 'target.txt', 'it is a symbolic link to a file'], ['a link to nothing', 'missing', 'it is a symbolic link to a place that does not exist']] as const) {
     await inTemp(async (dir) => {
       const repo = newRepository(dir, { 'target.txt': 'x\n' });

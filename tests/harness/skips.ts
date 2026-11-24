@@ -99,13 +99,13 @@ export const PLATFORM_SKIPS: PlatformSkip[] = [
   { file: 'tests/environments/systems.test.ts', test: 'test 202: control, where the file system tells case apart, SRC/core/price.ts is a file that does not exist yet', part: 'the whole test', platform: 'darwin', reason: 'the default file system of macOS ignores case' },
   { file: 'tests/environments/systems.test.ts', test: 'test 202: control, where the file system tells case apart, SRC/core/price.ts is a file that does not exist yet', part: 'the whole test', platform: 'win32', reason: 'the file systems of Windows ignore case' },
   { file: 'tests/security/old-git.test.ts', test: 'I-git-2: a check of a repository with a submodule sends no git command that git 2.34 refuses, and its link guard still reads the submodule', part: 'the whole test', platform: 'win32', reason: 'Node starts git on Windows only as an .exe or .com file, so a script cannot stand in for it' },
-  { file: 'tests/unit/init.test.ts', test: 'R-41: init where .lawcheck is a file, or a link to a file or to nothing, says which and what to do', part: 'a symbolic link', platform: 'win32', reason: LINKS },
-  { file: 'tests/unit/setup.test.ts', test: 'R-43: the law that cannot be read, is too large or does not parse is law-invalid or file-too-large, with its line, and a linked law shows none of its text', part: 'a symbolic link', platform: 'win32', reason: LINKS },
-  { file: 'tests/unit/setup.test.ts', test: 'R-43: the config that is too large, does not parse or is linked is an error of its own, and a reviewer in it is made so its keys are hidden', part: 'a symbolic link', platform: 'win32', reason: LINKS },
   { file: 'tests/unit/setup.test.ts', test: 'R-43: the rule files of a repository are the files git lists, and a rule file that cannot be read is named, with the errors of the law first', part: 'an unreadable file', platform: 'win32', reason: UNREADABLE_WINDOWS },
   { file: 'tests/unit/setup.test.ts', test: 'R-43: the rule files of a repository are the files git lists, and a rule file that cannot be read is named, with the errors of the law first', part: 'an unreadable file', platform: 'root', reason: UNREADABLE_ROOT },
   { file: 'tests/unit/setup.test.ts', test: 'R-43: a law file that this user may not look at is still the law of that folder, so the root is not taken from a folder above it', part: 'the whole test', platform: 'win32', reason: UNREADABLE_WINDOWS },
   { file: 'tests/unit/setup.test.ts', test: 'R-43: a law file that this user may not look at is still the law of that folder, so the root is not taken from a folder above it', part: 'the whole test', platform: 'root', reason: UNREADABLE_ROOT },
+  { file: 'tests/unit/init.test.ts', test: 'R-41: init where .lawcheck is a link to a file or to nothing says which and what to do', part: 'the whole test', platform: 'win32', reason: LINKS },
+  { file: 'tests/unit/setup.test.ts', test: 'R-43: a law that is a link to another file is law-invalid, and its message shows none of the text of that file', part: 'the whole test', platform: 'win32', reason: LINKS },
+  { file: 'tests/unit/setup.test.ts', test: 'R-43: a config that is a link to another file is config-invalid, and its message shows none of the text of that file', part: 'the whole test', platform: 'win32', reason: LINKS },
 ];
 
 export function applies(platform: SkipPlatform): boolean {

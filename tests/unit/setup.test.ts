@@ -429,7 +429,7 @@ test('R-43: a file read twice is counted once, a binary one stays binary, a fail
 
 const LAW_LINES = (count: number) => `lawcheck: 0.1.0\nrules:\n${Array.from({ length: count }, (_, i) => `  r${i}:\n    why: x\n`).join('')}`;
 
-test('R-43: the law that cannot be read, is too large or does not parse is law-invalid or file-too-large, with its line, and a linked law shows none of its text', async () => {
+test('R-43: the law that cannot be read, is too large or does not parse is law-invalid or file-too-large, with its line', async () => {
   await inTemp(async (dir) => {
     const root = join(dir, 'root');
     mkdirSync(root);
@@ -463,9 +463,16 @@ test('R-43: the law that cannot be read, is too large or does not parse is law-i
     assert.equal(loadLaw(root).types.length, 0);
     assert.equal(linked(root, '.lawcheck/law.yaml'), false);
     assert.equal(linked(root, '.lawcheck/missing.yaml'), false);
+  });
+});
+
+test('R-43: a law that is a link to another file is law-invalid, and its message shows none of the text of that file', async (t) => {
+  const skip = platformSkip('the whole test');
+  if (skip !== null) return t.skip(skip);
+  await inTemp(async (dir) => {
+    const root = join(dir, 'root');
+    mkdirSync(join(root, '.lawcheck'), { recursive: true });
     write(dir, 'elsewhere.yaml', 'lawcheck: 0.1.0\nbogus: 1\n');
-    rmSync(join(root, '.lawcheck/law.yaml'));
-    if (platformSkip('a symbolic link') !== null) return;
     symlinkSync(join(dir, 'elsewhere.yaml'), join(root, '.lawcheck/law.yaml'));
     assert.equal(linked(root, '.lawcheck/law.yaml'), true);
     assert.deepEqual(lawErrors(root), {
@@ -474,7 +481,7 @@ test('R-43: the law that cannot be read, is too large or does not parse is law-i
   });
 });
 
-test('R-43: the config that is too large, does not parse or is linked is an error of its own, and a reviewer in it is made so its keys are hidden', async () => {
+test('R-43: the config that is too large or does not parse is an error of its own, and a reviewer in it is made so its keys are hidden', async () => {
   await inTemp(async (dir) => {
     const root = join(dir, 'root');
     write(root, '.lawcheck/law.yaml', 'lawcheck: 0.1.0\n');
@@ -494,9 +501,16 @@ test('R-43: the config that is too large, does not parse or is linked is an erro
     assert.ok('config' in configErrors(root));
     assert.equal(hide('see sk-config-key-123456'), 'see [key]');
     useKeys({});
+  });
+});
+
+test('R-43: a config that is a link to another file is config-invalid, and its message shows none of the text of that file', async (t) => {
+  const skip = platformSkip('the whole test');
+  if (skip !== null) return t.skip(skip);
+  await inTemp(async (dir) => {
+    const root = join(dir, 'root');
+    write(root, '.lawcheck/law.yaml', 'lawcheck: 0.1.0\n');
     write(dir, 'elsewhere.yaml', 'bogus: 1\n');
-    rmSync(join(root, '.lawcheck/config.yaml'));
-    if (platformSkip('a symbolic link') !== null) return;
     symlinkSync(join(dir, 'elsewhere.yaml'), join(root, '.lawcheck/config.yaml'));
     assert.deepEqual(configErrors(root), {
       errors: [{ code: 'config-invalid', file: '.lawcheck/config.yaml', line: null, message: '.lawcheck/config.yaml is read through a symbolic link and is not valid; the message of a linked file shows none of its text' }],
