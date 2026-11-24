@@ -1,6 +1,6 @@
 # The film
 
-The loop at the top of the README and the five chapters of the tutorial on the docs site show real Claude Code sessions in a small shop repository. Every string in the recording area comes from a file of a session, from a run of Lawcheck on that session's files, or from a page of this repository. Captions and subtitles have no such source, so the check does not hold them to one. The loop is silent. Each chapter is narrated in the voice Lektor, and every narrated sentence cites what its frame or a docs page shows.
+The loop at the top of the README and in the hero of the landing page, and the five chapters of the tutorial on the docs site show real Claude Code sessions in a small shop repository. Every string in the recording area comes from a file of a session, from a run of Lawcheck on that session's files, or from a page of this repository. Captions and subtitles have no such source, so the check does not hold them to one. The loop is silent. Each chapter is narrated in the voice Lektor, and every narrated sentence cites what its frame or a docs page shows.
 
 ## What is here
 
@@ -21,8 +21,9 @@ The loop at the top of the README and the five chapters of the tutorial on the d
 | `check.mjs` | the truth and staleness check |
 | `voice.mjs` | speaks the narration of each chapter with a speech service, one file per frame, into a folder outside the repository |
 | `build.mjs` | writes a HyperFrames project for the loop and for each chapter into `film/dist/`, each chapter's subtitles, which are its narrated sentences, and with `--voice <folder>` the narration that `voice.mjs` spoke |
-| `render.mjs` | checks, builds and renders the loop to MP4, WebM and GIF, and each chapter with its narration to MP4, WebVTT and a still |
-| `published.json` | the chapters that a release holds as attachments, with the hash of each file; the docs site shows these |
+| `render.mjs` | checks, builds and renders the loop to MP4, WebM and GIF, and each chapter with its narration to MP4, WebVTT and a still, and lists them with their hashes in `chapters.json` |
+| `publish.mjs` | fills `published.json` from the attachments of a release and points the loop at the top of the README at that release |
+| `published.json` | the loop and the chapters that a release holds as attachments, with the hash of each file; the landing page and the docs site show these |
 | `rebuild.sh` | the same in a clean container, from FFmpeg and Chromium up |
 | `hyperframes/` | the styles, the spec and the last review of the picture |
 
@@ -61,13 +62,16 @@ The voice is not committed: it is a recording. When the chapters are recorded ag
 
 ## Where the chapters live
 
-The rendered chapters are attachments of a GitHub release, never files of this repository. `published.json` lists them with the release that holds them, the hash of each file and the subtitles as text. The build of the landing page downloads each file, checks its hash and serves it under `/film/`; the docs site shows a chapter above the page it teaches and plays it from there. A release that brings new chapters:
+The rendered loop and chapters are attachments of a GitHub release, never files of this repository. `published.json` lists them with the release that holds them, the hash of each file and the subtitles as text. The build of the landing page downloads each file, checks its hash and serves it under `/film/`. The hero of the landing page plays the loop, and with no loop listed it shows the refusal `error[forbidden-use]`. The docs site shows a chapter above the page it teaches and plays it from there. The README shows `loop.gif` from the release that `published.json` names.
 
-1. renders them with `node film/render.mjs --out <folder> --only chapters`, which writes the files and `chapters.json`;
-2. attaches the `.mp4`, `.vtt` and `.jpg` files to the release;
-3. copies the entries of `chapters.json` into `published.json`, each with `release` set to the release's tag, and deploys the landing page and the docs again.
+A release that brings a new film, once the release workflow has made its GitHub release:
 
-`LAWCHECK_FILM_DIR=<folder>` makes both sites take the chapters from a folder that `render.mjs` wrote, for a preview before a release holds them.
+1. renders the loop and the chapters with `node film/render.mjs --out <folder>`, which writes the files and `chapters.json`, and lists the loop in it;
+2. attaches every file of that folder to the release, `chapters.json` with them: `gh release upload <tag> <folder>/*`;
+3. runs `node film/publish.mjs --release <tag>`, which reads `chapters.json` from the release, downloads every file it lists and checks its hash, writes `published.json` with `release` set to the tag, and points the image at the top of the README at `loop.gif` of that release;
+4. commits `published.json` and the README, and deploys the landing page and the docs again from that commit.
+
+`node film/publish.mjs --release <tag> --from <folder>` takes the files from a folder that `render.mjs` wrote instead, for a check before they are attached. `LAWCHECK_FILM_DIR=<folder>` makes both sites take the loop and the chapters from such a folder, for a preview before a release holds them.
 
 ## What is published of a session
 

@@ -12,6 +12,7 @@ import { decodeTerminal, narrationProblems, privateProblems, privateSummary, pri
 import { build, vttOf } from '../../film/build.mjs';
 import { readEdit, wrap, words } from '../../film/edit.mjs';
 import { joinWav, sentenceSpans, voiceKey, voiceProblems, wavSeconds } from '../../film/voice.mjs';
+import { fromFolder, loopUrl, publish, readmeWith } from '../../film/publish.mjs';
 
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 
@@ -564,6 +565,47 @@ test('test 1092: node film/render.mjs --only <page> --voice renders that page wh
     assert.equal(other.code, 2);
     assert.equal(other.stderr, 'film/render.mjs: the voice of ci c1 was spoken from other words or settings; node film/voice.mjs speaks it again\n');
     assert.ok(!existsSync(calls));
+  } finally {
+    folder.remove();
+  }
+});
+
+test('test 1351: node film/publish.mjs fills film/published.json with the loop and the chapters of a release, each file checked against the list that film/render.mjs wrote, and points the loop at the top of README.md at that release; a missing file, a changed file, a list with no loop and a README with no loop or two are each refused', async () => {
+  const folder = testFolder('lawcheck-publish-');
+  try {
+    const root = join(folder.dir, 'repository');
+    const release = join(folder.dir, 'release');
+    mkdirSync(join(root, 'film'), { recursive: true });
+    mkdirSync(release);
+    const readme = readFileSync(join(ROOT, 'README.md'), 'utf8');
+    writeFileSync(join(root, 'README.md'), readme);
+    writeFileSync(join(root, 'film', 'published.json'), '{ "chapters": [], "loop": null }\n');
+    const file = (name: string, text: string) => {
+      writeFileSync(join(release, name), text);
+      return { name, sha256: createHash('sha256').update(text).digest('hex'), bytes: Buffer.byteLength(text) };
+    };
+    const loop = { seconds: 28.9, files: { mp4: file('loop.mp4', 'mp4'), webm: file('loop.webm', 'webm'), gif: file('loop.gif', 'gif') } };
+    const chapter = { page: 'ci', number: 5, seconds: 55, transcript: ['The job runs.'], files: { mp4: file('ci.mp4', 'video'), vtt: file('ci.vtt', 'WEBVTT'), jpg: file('ci.jpg', 'still') } };
+    writeFileSync(join(release, 'chapters.json'), JSON.stringify({ chapters: [chapter], loop }));
+
+    const published = await publish(root, 'v9.9.9', fromFolder(release), 'the release v9.9.9');
+    assert.deepEqual(published, { chapters: [{ ...chapter, release: 'v9.9.9' }], loop: { ...loop, release: 'v9.9.9' } });
+    assert.deepEqual(JSON.parse(readFileSync(join(root, 'film', 'published.json'), 'utf8')), published);
+    const pointed = readFileSync(join(root, 'README.md'), 'utf8');
+    assert.ok(pointed.includes(`](${loopUrl('v9.9.9')})`), 'README.md shows the loop of the release');
+    assert.equal(pointed.replace(loopUrl('v9.9.9'), ''), readme.replace(/https:\/\/github\.com\/krzysztofdudek\/Lawcheck\/releases\/download\/[^/]+\/loop\.gif/, ''), 'nothing else of README.md changes');
+
+    writeFileSync(join(release, 'ci.vtt'), 'WEBVTT changed');
+    await assert.rejects(publish(root, 'v9.9.9', fromFolder(release), 'the release v9.9.9'), { message: `ci.vtt of the release v9.9.9 has 14 bytes and the hash ${createHash('sha256').update('WEBVTT changed').digest('hex')}, and its chapters.json names 6 bytes and ${chapter.files.vtt.sha256}` });
+    rmSync(join(release, 'ci.vtt'));
+    await assert.rejects(publish(root, 'v9.9.9', fromFolder(release), 'the release v9.9.9'), { message: 'the release v9.9.9 holds no ci.vtt' });
+    writeFileSync(join(release, 'chapters.json'), JSON.stringify({ chapters: [chapter] }));
+    await assert.rejects(publish(root, 'v9.9.9', fromFolder(release), 'the release v9.9.9'), { message: 'the chapters.json of the release v9.9.9 holds no loop: render it with node film/render.mjs, which lists the loop beside the chapters' });
+    rmSync(join(release, 'chapters.json'));
+    await assert.rejects(publish(root, 'v9.9.9', fromFolder(release), 'the release v9.9.9'), { message: 'the release v9.9.9 holds no chapters.json, the list that node film/render.mjs writes' });
+    assert.throws(() => readmeWith('# Lawcheck\n', 'v9.9.9'), { message: 'README.md names the loop 0 times, and the release step points exactly one address at it' });
+    assert.throws(() => readmeWith(`${loopUrl('v1')} ${loopUrl('v2')}`, 'v9.9.9'), { message: 'README.md names the loop 2 times, and the release step points exactly one address at it' });
+    assert.deepEqual(JSON.parse(readFileSync(join(root, 'film', 'published.json'), 'utf8')), published, 'a refused run writes nothing');
   } finally {
     folder.remove();
   }

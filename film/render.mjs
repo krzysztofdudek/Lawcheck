@@ -90,14 +90,16 @@ export function render(out, quality, only = ['loop', 'chapters'], voice = undefi
       made.push(project.chapter ? renderChapter(project, out, quality, edit, cli) : renderLoop(project, out, quality, edit, tokens, cli));
     }
   }
+  const filesOf = (item) => Object.fromEntries(item.files.map((path) => [path.split('.').pop(), { name: path.split('/').pop(), sha256: sha256(path), bytes: statSync(path).size }]));
   const rendered = made.filter((item) => item.name !== 'loop').map((item) => ({
     page: item.name,
     number: edit.chapters.findIndex((chapter) => chapter.page === item.name) + 1,
     seconds: item.seconds,
     transcript: edit.chapters.find((chapter) => chapter.page === item.name).timeline.flatMap((segment) => (segment.narration ?? []).map((line) => line.text)),
-    files: Object.fromEntries(item.files.map((path) => [path.split('.').pop(), { name: path.split('/').pop(), sha256: sha256(path), bytes: statSync(path).size }])),
+    files: filesOf(item),
   }));
-  if (rendered.length > 0) writeFileSync(join(out, 'chapters.json'), `${JSON.stringify({ chapters: rendered }, null, 2)}\n`);
+  const loop = made.find((item) => item.name === 'loop');
+  if (rendered.length > 0 || loop !== undefined) writeFileSync(join(out, 'chapters.json'), `${JSON.stringify({ chapters: rendered, loop: loop === undefined ? null : { seconds: loop.seconds, files: filesOf(loop) } }, null, 2)}\n`);
   return made;
 }
 

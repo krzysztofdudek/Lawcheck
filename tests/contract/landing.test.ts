@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { parse } from 'yaml';
 import { ROOT } from '../harness/sets.ts';
 import { ALLOWED_NAMES } from './allowed-names.ts';
-import { phoneProblems, problems, tutorialProblems } from '../../site/landing/check.mjs';
+import { heroProblems, phoneProblems, problems, tutorialProblems } from '../../site/landing/check.mjs';
 import { problems as docsCardProblems } from '../../site/check-docs-card.mjs';
 import { CARD, cardHead, cardProblems, pngProblems } from '../../site/theme/card.mjs';
 import { CATEGORY, FINDING, og } from '../../site/theme/og.mjs';
@@ -80,6 +80,7 @@ const GOOD: Record<string, string | Buffer> = {
     cardTags(),
     '<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"WebSite"},{"@type":"SoftwareApplication","softwareVersion":"1.2.3"}]}</script>',
     '<h1>Architecture checks for coding agents</h1><a href="/changelog">1.2.3</a>',
+    '<figure id="film" class="film hero-film"><div class="film-frame"><pre><code><span class="line">src/core/discount.ts:1  error[forbidden-use]  core may not use api</span></code></pre></div></figure>',
   ].join('\n'),
   'og.png': png(1200, 630),
   '404.html': '<h1>This address has no page.</h1><a href="/">Lawcheck home</a>',
@@ -144,6 +145,33 @@ test('test 1034: the check of the built landing page wants the section #tutorial
   assert.deepEqual(tutorialOf(TUTORIAL.replace('<a href="https://docs.lawcheck.dev/ci.html">', '<a href="https://docs.lawcheck.dev/index.html">'), CHAPTERS, files), ['the card of the chapter ci has no link to its page']);
   assert.deepEqual(tutorialOf(TUTORIAL.replace('class="button chapter-play"', 'class="chapter-play"'), CHAPTERS, files), ['the tutorial has 1 Play buttons, not 2']);
   assert.deepEqual(tutorialOf(`${TUTORIAL}<video poster="/film/ci.jpg"></video>`, CHAPTERS, files), ['index.html loads a video, a track or an image of a chapter before a click']);
+});
+
+const LOOP = { seconds: 28.9, files: { mp4: { name: 'loop.mp4' }, webm: { name: 'loop.webm' }, gif: { name: 'loop.gif' } } };
+const STILL = '<figure id="film" class="film hero-film"><div class="film-frame"><span class="line mark">src/core/discount.ts:1  error[forbidden-use]  core may not use api</span></div></figure>';
+const PLAYER = '<figure id="film" class="film hero-film"><video class="film-loop" aria-label="Claude Code imports the HTTP handlers into the business logic." autoplay muted loop playsinline><source src="/film/loop.webm" type="video/webm"><source src="/film/loop.mp4" type="video/mp4"></video></figure>';
+
+function heroOf(index: string, loop: unknown, present: string[]): string[] {
+  const dir = mkdtempSync(join(tmpdir(), 'lawcheck-hero-'));
+  try {
+    mkdirSync(join(dir, 'film'));
+    for (const name of present) writeFileSync(join(dir, 'film', name), 'x');
+    return heroProblems(index, dir, loop);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+test('test 1350: the check of the built landing page wants the hero to play the loop film/published.json lists, from files the build downloaded and with a label, and to show the refusal error[forbidden-use] when no loop is listed (control)', () => {
+  assert.deepEqual(heroOf(STILL, null, []), []);
+  assert.deepEqual(heroOf(PLAYER, LOOP, ['loop.webm', 'loop.mp4']), []);
+  assert.deepEqual(heroOf('<main></main>', null, []), ['index.html has no figure with the id film in its hero']);
+  assert.deepEqual(heroOf(STILL.replace('error[forbidden-use]', 'may_use: [core]'), null, []), ['the still of the hero does not show error[forbidden-use]']);
+  assert.deepEqual(heroOf(PLAYER, null, []), ['the hero plays a video, and film/published.json lists no loop', 'the still of the hero does not show error[forbidden-use]']);
+  assert.deepEqual(heroOf(STILL, LOOP, ['loop.webm', 'loop.mp4']), ['the hero has no source /film/loop.webm', 'the hero has no source /film/loop.mp4', 'the video of the hero has no label']);
+  assert.deepEqual(heroOf(PLAYER, LOOP, ['loop.webm']), ['film/loop.mp4 of the loop is missing']);
+  assert.deepEqual(heroOf(PLAYER.replace(/ aria-label="[^"]*"/, ''), LOOP, ['loop.webm', 'loop.mp4']), ['the video of the hero has no label']);
+  assert.deepEqual(tutorialOf(PLAYER, [], []), [], 'the loop of the hero is no chapter loaded before a click');
 });
 
 test('test 782: the landing page finds a paragraph, a sentence and a code block by its heading and its opening words, so one that is gone or one that starts like another stops the build, as a missing heading or table row does (control)', () => {

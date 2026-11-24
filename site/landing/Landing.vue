@@ -29,10 +29,13 @@ const ahead = c.footer.ahead.replace('{version}', data.head.version);
           <p v-html="data.hero.agents" />
           <p class="who" v-html="data.hero.who" />
         </div>
-        <Film class="hero-film" :still="data.hero.still" />
+        <Film class="hero-film" :still="data.hero.still" :loop="data.hero.loop" />
         <div class="hero-install">
           <CopyCommand :command="data.hero.install" :copy="c.install.copy" :copied="c.install.copied" />
-          <a class="button quick" :href="c.install.quickStart.href">{{ c.install.quickStart.text }}</a>
+          <p class="paths">
+            <a class="button quick" :href="c.install.quickStart.href">{{ c.install.quickStart.text }}</a>
+            <a class="button quick" :href="c.install.setup.href">{{ c.install.setup.text }}</a>
+          </p>
           <ul class="facts">
             <li v-html="data.hero.support" />
             <li v-html="data.hero.alpha" />
@@ -42,6 +45,7 @@ const ahead = c.footer.ahead.replace('{version}', data.head.version);
 
       <section class="wrap problem" aria-labelledby="problem">
         <h2 id="problem">{{ c.problem }}</h2>
+        <p v-html="data.pilot" />
         <p v-html="data.problem" />
         <p v-html="data.advice" />
       </section>
@@ -111,8 +115,8 @@ const ahead = c.footer.ahead.replace('{version}', data.head.version);
         <CopyCommand :command="data.tryIt.pluginCommands" :copy="c.install.copyPlugin" :copied="c.install.copied" />
         <p v-html="data.tryIt.codex" />
         <p v-html="data.tryIt.copilot" />
-        <p v-html="data.tryIt.cursor" />
         <p v-html="data.tryIt.quickStart" />
+        <p v-html="data.tryIt.setup" />
         <p class="links">
           <a class="button" :href="c.next.button.href">{{ c.next.button.text }}</a>
           <a :href="data.links.github">{{ c.next.github }}</a>

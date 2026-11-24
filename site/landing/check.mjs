@@ -26,11 +26,30 @@ export function tutorialProblems(index, dir, chapters) {
     if (!new RegExp(`<a href="[^"]*/${chapter.page}\\.html">`).test(index)) out.push(`the card of the chapter ${chapter.page} has no link to its page`);
   }
   if (count(index, /class="button chapter-play"/g) !== chapters.length) out.push(`the tutorial has ${count(index, /class="button chapter-play"/g)} Play buttons, not ${chapters.length}`);
-  if (/<(?:video|source|track|img)\b[^>]*\/film\//.test(index)) out.push('index.html loads a video, a track or an image of a chapter before a click');
+  if (/<(?:video|source|track|img)\b[^>]*\/film\/(?!loop\.)/.test(index)) out.push('index.html loads a video, a track or an image of a chapter before a click');
   return out;
 }
 
-export function problems(dir, version, chapters = []) {
+// The hero plays the loop that film/published.json lists, from the files the build downloaded; with no loop listed, it shows the refusal.
+export function heroProblems(index, dir, loop) {
+  const out = [];
+  const hero = /<figure id="film"[\s\S]*?<\/figure>/.exec(index)?.[0] ?? '';
+  if (hero === '') return ['index.html has no figure with the id film in its hero'];
+  if (loop === null || loop === undefined) {
+    if (/<video\b/.test(hero)) out.push('the hero plays a video, and film/published.json lists no loop');
+    if (!hero.includes('error[forbidden-use]')) out.push('the still of the hero does not show error[forbidden-use]');
+    return out;
+  }
+  for (const kind of ['webm', 'mp4']) {
+    const name = loop.files[kind].name;
+    if (!hero.includes(`<source src="/film/${name}" type="video/${kind}">`)) out.push(`the hero has no source /film/${name}`);
+    if (!existsSync(join(dir, 'film', name))) out.push(`film/${name} of the loop is missing`);
+  }
+  if (!/<video\b[^>]*\baria-label="[^"]+"/.test(hero)) out.push('the video of the hero has no label');
+  return out;
+}
+
+export function problems(dir, version, chapters = [], loop = null) {
   const out = [];
   const read = (name) => (existsSync(join(dir, name)) ? readFileSync(join(dir, name), 'utf8') : null);
   const index = read('index.html');
@@ -51,6 +70,7 @@ export function problems(dir, version, chapters = []) {
   else out.push(...pngProblems(card));
   if (/noindex/i.test(index)) out.push('index.html says noindex');
   out.push(...tutorialProblems(index, dir, chapters));
+  out.push(...heroProblems(index, dir, loop));
   if (!index.includes(`>${version}<`)) out.push(`index.html does not show the version ${version}`);
 
   const blocks = [...index.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map((match) => match[1]);
@@ -155,12 +175,12 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
   const [dir, manifest] = process.argv.slice(2);
   const { version } = JSON.parse(readFileSync(manifest, 'utf8'));
   const listed = process.env.LAWCHECK_FILM_DIR ? join(process.env.LAWCHECK_FILM_DIR, 'chapters.json') : fileURLToPath(new URL('../../film/published.json', import.meta.url));
-  const chapters = JSON.parse(readFileSync(listed, 'utf8')).chapters;
-  const found = [...problems(dir, version, chapters), ...phoneProblems(dir)];
+  const { chapters, loop = null } = JSON.parse(readFileSync(listed, 'utf8'));
+  const found = [...problems(dir, version, chapters, loop), ...phoneProblems(dir)];
   if (found.length > 0) {
     console.log(`landing: FAIL  ${found.length} problems in ${dir}`);
     for (const problem of found) console.log(`  ${problem}`);
     process.exit(1);
   }
-  console.log(`landing: PASS  ${dir} has one h1, its title, description, canonical address, Open Graph and its card, JSON-LD for ${version}, a 404 page, robots.txt, sitemap.xml and vercel.json, ${chapters.length === 0 ? 'no tutorial section, since no chapter is listed' : `the section #tutorial with its ${chapters.length} chapters`}, and no grid of more than one column at ${PHONE_WIDTHS.join(', ')} px`);
+  console.log(`landing: PASS  ${dir} has one h1, its title, description, canonical address, Open Graph and its card, JSON-LD for ${version}, a 404 page, robots.txt, sitemap.xml and vercel.json, ${chapters.length === 0 ? 'no tutorial section, since no chapter is listed' : `the section #tutorial with its ${chapters.length} chapters`}, ${loop === null ? 'the refusal in the hero, since no loop is listed' : 'the loop in the hero'}, and no grid of more than one column at ${PHONE_WIDTHS.join(', ')} px`);
 }
