@@ -272,4 +272,8 @@ test('test 1140: the redirect file of the landing sends /docs, /docs/ and /docs/
     assert.equal(land(`/docs/${page}.html`), target, `${page}.html`);
   }
   assert.equal(land('/docs/unknown-page'), undefined);
+  for (const redirect of file.redirects) {
+    const listed = /\(([a-z0-9|-]+)\)/.exec(redirect.source)?.[1];
+    if (listed) assert.deepEqual(listed.split('|'), [...pages].filter((id) => id !== 'index'), redirect.source);
+  }
 });
