@@ -211,8 +211,8 @@
     "id": "setup-rule-without-file",
     "promise": "R-43",
     "file": "src/setup.ts",
-    "find": "has neither ${script} nor ${prose}",
-    "replace": "has no file",
+    "find": "has neither ${script} nor ${prose}` });",
+    "replace": "has no file` });",
     "killedBy": "R-43: the files of the rules are sorted into scripts and reviewer rules, and each fault of a rule has its code, place and words"
   },
   {
