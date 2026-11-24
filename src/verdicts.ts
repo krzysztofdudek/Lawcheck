@@ -307,7 +307,7 @@ function locked<T>(local: string, work: () => T): T {
       }
       if (Date.now() > deadline) {
         if (pending) throw new Unwritable(`${LOCAL}/verdicts.lock`, 'EPERM', `a program still holds ${LOCAL}/verdicts.lock open, such as another Lawcheck run or a virus scanner: run lawcheck check again once it is closed`);
-        throw new Unwritable(`${LOCAL}/verdicts.lock`, 'EBUSY');
+        throw new Unwritable(`${LOCAL}/verdicts.lock`, 'EBUSY, held by another Lawcheck run through the 10 seconds this run waited', 'let the other Lawcheck run in this repository end, or end it, then run lawcheck check again');
       }
       Atomics.wait(pause, 0, 0, 5);
     }

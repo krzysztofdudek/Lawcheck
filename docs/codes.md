@@ -461,6 +461,7 @@ The cause is one of these:
 - the folder is read-only;
 - the disk is full;
 - `.lawcheck/verdicts` would grow past 16 MiB;
+- another Lawcheck run holds `.lawcheck/.local/verdicts.lock` through the 10 seconds a run waits for it, or on Windows a program still holds it open;
 - a write to standard output fails, such as a write to a file on a full disk.
 
 A program that reads the output can close the pipe before Lawcheck has written all of it. Lawcheck gives no error in that case. It exits with the code that the run would give with the pipe open.
@@ -471,7 +472,8 @@ The step depends on the cause:
 
 - move a file that stands where Lawcheck makes a folder;
 - give yourself write permission on the file or the folder that the error names;
-- free space on a full disk.
+- free space on a full disk;
+- let the other Lawcheck run end, or end it, or close the program that holds the lock open.
 
 For a full `.lawcheck/verdicts`, the message gives the same three counts as for [file-unreadable](codes.md#file-unreadable). That section says what the counts mean and what deleting the file costs. The user decides how to make room.
 
