@@ -124,7 +124,7 @@ The first alpha ships all nine reviewer providers. This is the owner's decision.
 
 ## 91. Windows blocks a release
 
-A red run of the suite on Windows blocked the alpha exactly as a red run on Linux or macOS did. This is the owner's decision. The release workflow holds every release to it, since it needs a green Nightly, and the Nightly runs on all three systems.
+A red run of the suite on Windows blocked the alpha exactly as a red run on Linux or macOS did. This is the owner's decision. The release workflow holds every release to it, since it needs two green Nightlies, and the Nightly runs on all three systems.
 
 Why: three systems are one gate.
 
@@ -448,6 +448,47 @@ Of the four hooks, Cursor's command-line agent 2026.11.22 runs `sessionStart` an
 What no one checked: a session of Cursor with the plugin, which needs a Cursor account (the owner's ruling cursor-jak-claude: no trial, and the docs say what was checked and what was not), the Cursor editor, Windows and the marketplace commands of Cursor. `docs/cursor.md`, the README, the landing and the CHANGELOG say so, and the scenario of `tests/docs/cursor.ts` holds those sentences, with tests 970 to 976 for the hook. The tests build the inputs of the hooks from the fields that Cursor's documentation and code give them, and no session recorded them.
 
 Why: the owner treats Cursor as compatible with Claude Code plugins, and the code of Cursor Agent CLI loads them, so a second plugin would copy files that Cursor already reads. The changes to the hook are the ones that code shows Cursor to need, and no change to the plugin's files that Claude Code reads.
+
+## 205. On Windows the guard never ends a tree by its root's id
+
+When the tool is killed on Windows, the guard ends a program's tree only from a list of processes begun after the kill. It ends the processes that list shows below the root that were made after the guard, and, where another process now holds the root's id, only those made before that process. It runs no `taskkill /T` on a root's id. When no list comes within its 10 seconds, it takes one itself with PowerShell and ends from it the same processes. When PowerShell gives no list at all, the guard ends none of the tree.
+
+Why: the root ends with the tool, so by the time the guard acts, Windows may have given the root's id to another process. `taskkill /T` on that id ends that process and everything it started. A search by parent id alone also finds the children of an older process that held the id before the root. An orphan of a killed run left alive is a smaller harm than a process ended that Lawcheck did not start.
+
+## 206. On Windows the guard ends a rule runner only from a list of processes, and waits at most 10 seconds for a list of its own
+
+When the tool is killed on Windows, the guard ends a rule's runner the way it ends a program's tree: only if a list of processes begun after the kill shows the runner's id made at the same time as an earlier list showed it, together with what the list shows below it. It no longer ends a runner by its id. A runner that no earlier list showed is left alone. The guard's own call to PowerShell for a list stops after 10 seconds, and a list that did not come whole counts as no list: the guard then ends nothing from it, removes the call's folders and exits.
+
+Why: a runner is in the tool's job on Windows and ends with the tool, so by the time the guard acts Windows may have given its id to another process, and ending by id ends that process. A PowerShell that never answers would hold the guard, and the folders it is to remove, for ever; a process left alive is a smaller harm than a guard that never ends. The price is that a runner that survived the tool and that no list had shown yet stays alive; the runner is a child of the tool, so this needs a tool killed within the first moments of a run.
+
+
+## 207. On Windows a program is ended by its id only while it runs, and the guard knows when the tool started it
+
+The tool on Windows ends a program reviewer's tree by the program's id only until it has seen the program exit: after that it runs no `taskkill /T` on the id, at the end of a call or when it exits. When it registers a program with the guard, the tool also gives the time it took from its clock just before it started the program, and the list of processes gives each process's time of making in UTC, so the two compare. Below a program that no earlier list shows, the guard ends only what was made at or after that time, and not only after the guard's own start. A process an earlier list shows with the program's id made before that time is an earlier holder of the id: the guard ends neither it nor what it made.
+
+Why: Windows frees a process's id once the tool has seen the process end, and may give it to a new process at once. `taskkill /T` on that id ends that process and everything it started. When the tool is killed before the guard's first list, the guard's own start was the only bound it had on when a program was made, so the child that an older holder of the program's id made after the guard started and left below that id looked like the program's own. The tool's clock and the time Windows records for a new process can differ by a few milliseconds. If the tool's clock is ahead, a child the program makes within that difference of its start is left alive; if it is behind, a child an older holder of the id made within that difference before the program's start is ended. Both are far smaller windows than the guard's whole life, and a process left alive stays the smaller harm.
+
+## 208. Outside Windows a program's group is ended by its number at the moment its end is seen, and never after
+
+On Linux and macOS the tool ends a program reviewer's process group by the program's id while the program runs, and once more at the moment it sees the program exit, for what the program left in its group. It then tells the guard to forget the group, and ends nothing by that number again: not when it cleans up the call, not when it exits, and the guard not when the tool is killed. The tool and the guard keep one entry for each call, with the time the tool took before it started the program, so two calls whose programs got the same id one after the other are released one at a time. Of two such entries, the guard on Windows takes the later time as the bound below the id.
+
+Why: the system does not give a group's number to a new process while any process of the group lives, and gives a free number again only after it has gone through the others. At the moment the tool sees the program exit the number is still the group's, or free for an instant; at the end of the call, after a wait for the program's output, a new group may hold it, and a kill would end that group. With one entry per id, the release of a call whose program had ended removed the entry of the next call, whose program Windows had given the same id, and a killed tool then left that program running. The guard takes the later of two times because what was made below the id before the later program may be an earlier holder's.
+
+## 209. The Nightly runs on demand, twice by hand before a release
+
+The Nightly has no schedule: nightly.yml starts only by a dispatch or a call. Before a release it runs twice by hand on the tagged commit, and both runs must be green. The release workflow counts the dispatched runs of nightly.yml on the tagged commit and stops the release below two green ones.
+
+Why: this is the owner's decision (ruling nightly-recznie-przed-wydaniem). A run every night spent runner time on commits that no release named, while the runs that decide a release are the ones on the tagged commit; two runs there draw two seeds and two orders, so a test with mixed results shows itself.
+
+## 210. The documentation deploys to its own Vercel project, and its old addresses redirect there
+
+`.github/workflows/docs-vercel.yml` builds the documentation as `docs.yml` does and deploys it to the Vercel project `lawcheck-docs`, with the same shape as `landing.yml`: after a green Release run from the commit it released, or by hand, with a preview unless the `production` input is set. Its build job holds no token. Its deploy job runs in the GitHub environment `vercel` and runs the pinned Vercel CLI on the built folder, with the project in the variable `VERCEL_DOCS_PROJECT_ID` of that environment beside the landing page's `VERCEL_PROJECT_ID`. `node site/docs-vercel.mjs` checks that every page of `docs/topics.json` is in the build and writes `vercel.json` into it. That file redirects `/<page>` to `/<page>.html` and `/index` and `/index.html` to `/`, each with a permanent redirect (308), and sets `X-Content-Type-Options`, `Referrer-Policy` and `Permissions-Policy`. Tests 1051 to 1053 hold the redirects, the check and the workflow.
+
+`docs.yml` keeps deploying GitHub Pages, and Pages answers `docs.lawcheck.dev` until the DNS record of that address points at Vercel, so the address answers from one host at a time. The Pages site keeps `docs.lawcheck.dev` as its custom domain after the record moves, because GitHub's redirect of `krzysztofdudek.github.io/Lawcheck/<path>` comes from that setting. `docs.lawcheck.dev` is attached to `lawcheck-docs`. The landing project keeps its own redirects of `lawcheck.dev/<page>`, each one hop to `docs.lawcheck.dev/<page>.html`.
+
+What this does not give: GitHub redirects `krzysztofdudek.github.io/Lawcheck/<path>` to `docs.lawcheck.dev/<path>` by itself and keeps the path, so `/<page>`, `/index` and `/index.html` take two hops there (GitHub's, then this project's), and `/` and `/<page>.html` take one. One hop for both forms would need each page to answer 200 on both addresses, and then one of them is not the address the page names.
+
+Why: the owner chose to serve the documentation from Vercel beside the landing page, so each old address lands on its page through redirects that the repository holds, which GitHub Pages cannot do. A page of `docs/topics.json` needs no edit of the redirects. The headers carry no Content-Security-Policy, because the policy of the landing page was not tried on the pages of the documentation.
 
 ## Decision (number at merge). A change judged by the law of its base
 

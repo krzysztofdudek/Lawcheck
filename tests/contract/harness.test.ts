@@ -290,7 +290,12 @@ async function* stream(...list: { type: string; data: object }[]): AsyncGenerato
 const failedFile = (error: object) => stream({ type: 'test:fail', data: { name: 'test 5: a test', file: join(ROOT, 'tests', 'unit', 'x.test.ts'), nesting: 0, details: { duration_ms: 1, error } } });
 const ended = { code: 'ERR_TEST_FAILURE', message: 'test failed' };
 
-test('test 1004: the reporter says how the process of a test file ended, and counts the processes the kernel killed for lack of memory only after a SIGKILL', async () => {
+test('test 1004: the reporter says how the process of a test file ended, and counts the processes the kernel killed for lack of memory only after a SIGKILL', async (t) => {
+  const tie = process.env.LAWCHECK_TIE;
+  delete process.env.LAWCHECK_TIE;
+  t.after(() => {
+    if (tie !== undefined) process.env.LAWCHECK_TIE = tie;
+  });
   const got = async (error: object, kills: number | null): Promise<string> => {
     const text = (await judgeRun(failedFile(error), { system: 'linux', started: null, target: 0, oomKills: () => kills })).text;
     return /^got {6}(.*)$/m.exec(text)![1]!;

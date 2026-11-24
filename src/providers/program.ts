@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { findProgram, guardedFolder, killGroup, releaseFolder, releaseGroup, startListing, startProgram, watchGroup } from '../programs.js';
+import { findProgram, guardedFolder, killGroup, programEnded, releaseFolder, releaseGroup, startListing, startProgram, watchGroup } from '../programs.js';
 import { MAX_REPLY_BYTES } from './http.js';
 import { variable } from './index.js';
 import type { Env } from './index.js';
@@ -200,9 +200,11 @@ function run(program: Program, binary: string, extra: string[], prompt: string, 
     let graceTimer: NodeJS.Timeout | undefined;
 
     const call = randomUUID();
+    const started = Date.now();
     const child = startProgram(binary, program.args(aside, extra), { cwd: dir, env: { ...env, [CALL_VARIABLE]: call }, detached: true, stdio: ['pipe', 'pipe', 'pipe'] }) as ChildProcessWithoutNullStreams;
     const pid = child.pid;
-    if (pid !== undefined) watchGroup(pid);
+    const running = () => exited === null;
+    if (pid !== undefined) watchGroup(pid, started, running);
 
     const cleanup = () => {
       if (cleaned) return;
@@ -217,7 +219,7 @@ function run(program: Program, binary: string, extra: string[], prompt: string, 
           continue;
         }
       }
-      if (pid !== undefined) releaseGroup(pid);
+      if (pid !== undefined) releaseGroup(pid, running(), started);
       child.stdout.destroy();
       child.stderr.destroy();
       for (const folder of aside === null ? [dir] : [dir, aside]) {
@@ -247,9 +249,9 @@ function run(program: Program, binary: string, extra: string[], prompt: string, 
     const timer = setTimeout(() => {
       if (exited !== null) return finish();
       settle(timedOut(program.name, timeoutSeconds));
-      if (pid !== undefined) killGroup(pid, 'SIGTERM');
+      if (pid !== undefined) killGroup(pid, 'SIGTERM', running());
       killTimer = setTimeout(() => {
-        if (pid !== undefined) killGroup(pid, 'SIGKILL');
+        if (pid !== undefined) killGroup(pid, 'SIGKILL', running());
         cleanup();
       }, KILL_AFTER_MS);
       killTimer.unref();
@@ -261,7 +263,7 @@ function run(program: Program, binary: string, extra: string[], prompt: string, 
       if (outBytes > MAX_REPLY_BYTES) {
         tooLarge = true;
         out.length = 0;
-        if (pid !== undefined) killGroup(pid, 'SIGKILL');
+        if (pid !== undefined) killGroup(pid, 'SIGKILL', running());
         return;
       }
       out.push(chunk);
@@ -276,8 +278,8 @@ function run(program: Program, binary: string, extra: string[], prompt: string, 
     });
     child.on('exit', (code, signal) => {
       exited = { code, signal };
+      if (pid !== undefined) programEnded(pid, started);
       if (settled) return cleanup();
-      if (pid !== undefined) killGroup(pid, 'SIGKILL');
       if (closed) return finish();
       graceTimer ??= setTimeout(finish, CLOSE_GRACE_MS);
     });
