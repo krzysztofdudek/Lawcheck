@@ -28,13 +28,13 @@ export function documentOf(value: unknown): string {
 export const COMMANDS = ['init', 'prime', 'check', 'explain', 'try', 'docs', 'doctor'] as const;
 export type CommandName = (typeof COMMANDS)[number];
 
-type Value = 'ref' | 'digits' | 'id';
+type Value = 'ref' | 'digits' | 'id' | 'path';
 type Flags = Record<string, 'switch' | Value>;
 
 const FLAGS: Record<CommandName, Flags> = {
   init: { '--json': 'switch' },
   prime: { '--json': 'switch' },
-  check: { '--full': 'switch', '--strict': 'switch', '--base': 'ref', '--review': 'switch', '--again': 'switch', '--max-calls': 'digits', '--json': 'switch' },
+  check: { '--full': 'switch', '--strict': 'switch', '--base': 'ref', '--review': 'switch', '--again': 'switch', '--max-calls': 'digits', '--sarif': 'path', '--json': 'switch' },
   explain: { '--type': 'id', '--rule': 'id', '--tree': 'switch', '--json': 'switch' },
   try: { '--times': 'digits', '--dry-run': 'switch', '--max-calls': 'digits', '--json': 'switch' },
   docs: { '--json': 'switch' },
@@ -71,7 +71,7 @@ export const USAGE: Record<CommandName, string> = {
     '',
   ].join('\n'),
   check: [
-    'usage: lawcheck check [--full] [--strict] [--base <ref>] [--review [--again] [--max-calls <n>]] [--json]',
+    'usage: lawcheck check [--full] [--strict] [--base <ref>] [--review [--again] [--max-calls <n>]] [--sarif <file>] [--json]',
     '       lawcheck check <path or pattern>... [--json]',
     '',
     'Checks the files of this change, or the files named, against .lawcheck/law.yaml.',
@@ -83,6 +83,7 @@ export const USAGE: Record<CommandName, string> = {
     '  --review           ask the reviewer for the reviews that have no verdict',
     '  --again            with --review, ask again where a failure is cached',
     '  --max-calls <n>    with --review, the most requests this run sends',
+    '  --sarif <file>     also write the findings to this file as SARIF 2.1.0',
     '  --json             print one JSON document',
     '',
     'Exit 0: no error. Exit 1: the code breaks the law. Exit 2: no conclusion.',
@@ -145,7 +146,7 @@ export type Read = { arguments: Arguments } | { problem: string; command: Comman
 const LIST = COMMANDS.join(', ');
 
 function what(kind: Value): string {
-  return kind === 'ref' ? 'a ref' : kind === 'digits' ? 'a number' : 'an id';
+  return kind === 'ref' ? 'a ref' : kind === 'digits' ? 'a number' : kind === 'path' ? 'a path' : 'an id';
 }
 
 export function readArguments(argv: string[]): Read {

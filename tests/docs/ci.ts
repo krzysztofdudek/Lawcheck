@@ -9,6 +9,8 @@ import type { Claims, Page } from '../contract/docs-blocks.ts';
 
 const RECIPE = (kind: string) => `tests/environments/ci-recipes.nightly.test.ts > tests 306 and 307: S7-1, S7-2, S7-3, S7-4, the workflow and the hooks of docs/ci.md (design tests 15 and 16), run as written on ${kind}, as a pull request and as a push (network)`;
 
+const SARIF = 'tests/acceptance/ci-docs.test.ts > test 1033: the code scanning recipe of docs/ci.md writes the SARIF file of every file from the first check, run as written on a pull request and on a push, and uploads it when the check fails too';
+
 const ANNOTATE = 'tests/acceptance/ci-docs.test.ts > S7-13: the recipes of docs/ci.md turn --json into GitHub annotations and a GitLab code quality report, run as written';
 
 export const claims: Claims = {
@@ -33,6 +35,7 @@ export const claims: Claims = {
   'example annotations-step': ANNOTATE,
   'example code-quality-script': ANNOTATE,
   'example gitlab-code-quality-job': ANNOTATE,
+  'example sarif-upload': SARIF,
   'block 1 under "A change to the law"': SCENARIO,
   'example pre-commit-hook': SCENARIO,
   'block 1 under "2. Make it executable"': SCENARIO,
