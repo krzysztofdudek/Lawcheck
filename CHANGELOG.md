@@ -4,6 +4,10 @@ Lawcheck follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Before you upgrade
+
+- `scope.law_changes` in `lawcheck check --json` no longer says `changes may_use` for a `may_use` list that got wider, or `changes the waivers` for a type whose waivers count again. It says `widens may_use of the type library by command` or `widens may_use of the type library to any file`, and `reads waivers in the type library`. A script that finds these changes by the old words also looks for `widens may_use` and `reads waivers`.
+
 ### Notes of 0.1.0-alpha.5, corrected
 
 The notes of 0.1.0-alpha.5 are wrong in ten places. One is under Fixed below, and one under Security. These lines correct the other eight:
