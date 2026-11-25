@@ -1,6 +1,6 @@
 {
   "name": "lawcheck",
-  "version": "0.1.0-alpha.4",
+  "version": "0.1.0-alpha.5",
   "description": "Architecture checks for coding agents. You write down which layer may import which, and Lawcheck names the file and line that break the rule, in the hooks of Claude Code, Codex and Copilot CLI and in CI. The check of imports is deterministic: it reads them in 12 languages with no model.",
   "license": "MIT",
   "author": "Krzysztof Dudek",
