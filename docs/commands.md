@@ -429,6 +429,8 @@ usage: lawcheck docs [<topic>] [--json]
 
 `docs` prints the pages of this reference in the terminal. It works offline, outside git and without a law. Without a topic, it lists the topics under their sections. A link to another page prints as the command that prints that page, such as `Codes (lawcheck docs codes)`.
 
+A changelog longer than 30,000 characters prints its newest section whole, then each older release that still fits. It ends with a line that names the whole changelog.
+
 Run `docs` on a machine without a browser, or to give an agent one page.
 
 ### `<topic>`
@@ -450,7 +452,7 @@ next: run lawcheck docs as its usage line says: lawcheck docs --help
 
 ### --json
 
-`--json` prints the document `lawcheck-docs/0`. It holds the list, or one page as it is written.
+`--json` prints the document `lawcheck-docs/0`. It holds the list, or one page as it is written, whole.
 
 ### Exit codes of docs
 
