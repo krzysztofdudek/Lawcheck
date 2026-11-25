@@ -1,9 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parse } from 'yaml';
-import { COMMIT_GROUPS, nightly, NIGHTLY_GROUPS, ROOT, setFiles } from '../harness/sets.ts';
+import { COMMIT_GROUPS, EMPTY_GROUPS, nightly, NIGHTLY_GROUPS, ROOT, setFiles } from '../harness/sets.ts';
 import { PLATFORM_SKIPS } from '../harness/skips.ts';
 import { continueOnErrorProblems } from '../harness/workflows.ts';
 
@@ -32,34 +32,41 @@ function commitProblems(ci: Workflow, groups: string[]): string[] {
   return problems;
 }
 
-function nightlyProblems(workflows: Record<string, Workflow>, groups: string[]): string[] {
+// A group declared empty has no job, so no job stands green over no test; once it holds a test it leaves the declared-empty list (tests/contract/discovery.test.ts), and then it needs its one job.
+function nightlyProblems(workflows: Record<string, Workflow>, groups: string[], empty: string[] = []): string[] {
   const problems: string[] = [];
   const seen = new Map<string, string[]>();
   for (const [file, workflow] of Object.entries(workflows)) for (const group of named(workflow)) seen.set(group, [...(seen.get(group) ?? []), file]);
   for (const group of groups) {
     const files = seen.get(group) ?? [];
-    if (files.length !== 1) problems.push(`nightly group ${group} runs in ${files.length === 0 ? 'no workflow' : files.join(' and ')}, not in exactly one job`);
+    if (empty.includes(group)) {
+      if (files.length > 0) problems.push(`nightly group ${group} is declared empty in tests/harness/sets.ts and has a job in ${files.join(' and ')}`);
+    } else if (files.length !== 1) problems.push(`nightly group ${group} runs in ${files.length === 0 ? 'no workflow' : files.join(' and ')}, not in exactly one job`);
   }
   for (const group of seen.keys()) if (!groups.includes(group)) problems.push(`group ${group} is not a nightly group of tests/harness/sets.ts`);
   return problems;
 }
 
-const later = () => ({ nightly: read('nightly.yml'), weekly: read('weekly.yml') });
+// nightly.yml, and weekly.yml while a group runs weekly.
+const later = (): Record<string, Workflow> => Object.fromEntries(['nightly.yml', 'weekly.yml'].filter((name) => existsSync(join(WORKFLOWS, name))).map((name) => [name, read(name)]));
 
 test('question 95: the commit matrix of ci.yml and its other jobs run every commit group of tests/harness/sets.ts, and no other', () => {
   assert.deepEqual(commitProblems(read('ci.yml'), Object.keys(COMMIT_GROUPS)), []);
 });
 
-test('question 95: the nightly and weekly workflows run every nightly group of tests/harness/sets.ts in exactly one job, and no other', () => {
-  const workflows = later();
-  assert.deepEqual(nightlyProblems({ 'nightly.yml': workflows.nightly, 'weekly.yml': workflows.weekly }, Object.keys(NIGHTLY_GROUPS)), []);
+test('question 95: the nightly and weekly workflows run every nightly group of tests/harness/sets.ts that holds a test in exactly one job, and no other group', () => {
+  assert.deepEqual(nightlyProblems(later(), Object.keys(NIGHTLY_GROUPS), EMPTY_GROUPS.nightly), []);
+  assert.ok(Object.keys(NIGHTLY_GROUPS).some((group) => !EMPTY_GROUPS.nightly.includes(group)));
 });
 
 test('question 95: a group added to tests/harness/sets.ts and to no workflow is named, in each set (control)', () => {
   const named = { jobs: { a: { steps: [{ run: 'npm test -- --group core' }] } } };
   assert.deepEqual(commitProblems(named, ['core', 'planted']), ['ci.yml: no job runs commit group planted']);
-  const workflows = later();
-  assert.deepEqual(nightlyProblems({ 'nightly.yml': workflows.nightly, 'weekly.yml': workflows.weekly }, [...Object.keys(NIGHTLY_GROUPS), 'planted']), ['nightly group planted runs in no workflow, not in exactly one job']);
+  assert.deepEqual(nightlyProblems(later(), [...Object.keys(NIGHTLY_GROUPS), 'planted'], EMPTY_GROUPS.nightly), ['nightly group planted runs in no workflow, not in exactly one job']);
+  const filled = EMPTY_GROUPS.nightly[0]!;
+  assert.deepEqual(nightlyProblems(later(), Object.keys(NIGHTLY_GROUPS), EMPTY_GROUPS.nightly.filter((group) => group !== filled)), [`nightly group ${filled} runs in no workflow, not in exactly one job`]);
+  const jobbed = { ...later(), 'weekly.yml': { jobs: { a: { steps: [{ run: `node tests/run.ts nightly --group ${filled}` }] } } } };
+  assert.deepEqual(nightlyProblems(jobbed, Object.keys(NIGHTLY_GROUPS), EMPTY_GROUPS.nightly), [`nightly group ${filled} is declared empty in tests/harness/sets.ts and has a job in weekly.yml`]);
   assert.deepEqual(commitProblems(named, ['inputs']), ['ci.yml: no job runs commit group inputs', 'ci.yml: group core is not a commit group of tests/harness/sets.ts']);
 });
 
@@ -140,13 +147,13 @@ function unreadNightlySkips(workflows: Workflow[]): string[] {
 
 test('question 95: a nightly file with a part skipped on Windows or macOS runs on that system in the nightly, so the skip applies there', () => {
   assert.ok(PLATFORM_SKIPS.some((skip) => nightly(skip.file) && skip.platform === 'win32'));
-  assert.deepEqual(unreadNightlySkips([read('nightly.yml'), read('weekly.yml')]), []);
+  assert.deepEqual(unreadNightlySkips(Object.values(later())), []);
 });
 
 test('question 95: a nightly file skipped in part on Windows whose group runs on Linux alone is named (control)', () => {
   const narrowed = read('nightly.yml');
   narrowed.jobs.deadlines!.strategy!.matrix!.os = ['ubuntu-latest'];
-  assert.deepEqual(unreadNightlySkips([narrowed, read('weekly.yml')]), ['tests/deadlines/hook-deadlines.nightly.test.ts > test 163: the deadline, and a hook that is stopped, at the deadlines the plugin ships: a hook stopped by SIGTERM on win32']);
+  assert.deepEqual(unreadNightlySkips(Object.values({ ...later(), 'nightly.yml': narrowed })), ['tests/deadlines/hook-deadlines.nightly.test.ts > test 163: the deadline, and a hook that is stopped, at the deadlines the plugin ships: a hook stopped by SIGTERM on win32']);
 });
 
 // What decides the bytes of .grammars: the pinned packages, the script that builds and checks them, and the licenses it copies.
@@ -162,7 +169,7 @@ function grammarKeys(workflows: Record<string, Workflow>): string[] {
 }
 
 test('question 95: every grammar cache is keyed by every file that decides the bytes of .grammars', () => {
-  assert.deepEqual(grammarKeys({ 'ci.yml': read('ci.yml'), 'nightly.yml': read('nightly.yml'), 'weekly.yml': read('weekly.yml'), 'release.yml': read('release.yml') }), []);
+  assert.deepEqual(grammarKeys({ 'ci.yml': read('ci.yml'), ...later(), 'release.yml': read('release.yml') }), []);
 });
 
 const WORKFLOW_FILES = readdirSync(WORKFLOWS).filter((name) => /\.ya?ml$/.test(name)).sort();
