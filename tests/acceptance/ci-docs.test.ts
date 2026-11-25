@@ -200,6 +200,43 @@ function clone(dir: string, files: Record<string, string>): string {
   return work;
 }
 
+const OPEN_LAW = 'lawcheck: 0.1.0\n\nrules:\n  no-console:\n    why: Only the command layer writes to the terminal.\n\ntypes:\n  library:\n    paths: ["src/core/**"]\n    rules: []\n';
+const CLOSED_LAW = OPEN_LAW.replace('rules: []', 'rules: [no-console]');
+
+test('test 1411: the hooks of docs/ci.md, with the second check the page says to add, run every line, and either check alone stops the commit or the push', async () => {
+  const second = 'npx --no-install lawcheck check --base origin/main --law-from origin/main';
+  const commitHook = example('pre-commit-hook');
+  const pushHook = example('pre-push-hook');
+  const pushed = `refs/heads/work ${'1'.repeat(40)} refs/heads/work ${'0'.repeat(40)}\n`;
+  const hooks: [name: string, text: string, input: string][] = [
+    ['pre-commit', `${commitHook}\n${second}`, ''],
+    ['pre-push', pushHook.replace(/\ndone$/, `\n  ${second} || exit 1\ndone`), pushed],
+  ];
+  const cases: [what: string, lawOfBase: string, lawOfBranch: string, printed: number][] = [
+    ['the branch takes the rule off, so the added check alone fails', CLOSED_LAW, OPEN_LAW, 0],
+    ['the branch adds the rule, so the printed check alone fails', OPEN_LAW, CLOSED_LAW, 1],
+  ];
+  await atOnce(cases, cases.length, ([what]) => what, ([what, lawOfBase, lawOfBranch, printed]) => inTemp(async (dir) => {
+    const work = clone(dir, { '.gitignore': 'node_modules/\n', '.lawcheck/law.yaml': lawOfBase, '.lawcheck/rules/no-console.mjs': NO_CONSOLE });
+    standIn(work);
+    write(work, '.lawcheck/law.yaml', lawOfBranch);
+    write(work, 'src/core/total.ts', "console.log('total');\n");
+    const run = (name: string, text: string, input: string): { status: number | null; output: string } => {
+      write(work, `.githooks/${name}`, `${text}\n`);
+      const ran = spawnSync('sh', [`.githooks/${name}`], { cwd: work, env: { ...GIT_ENV, npm_config_update_notifier: 'false' }, input, encoding: 'utf8' });
+      return { status: ran.status, output: `${ran.stdout}${ran.stderr}` };
+    };
+    const alone = run('pre-commit', commitHook, '');
+    assert.equal(alone.status, printed, `${what}: the printed hook\n${alone.output}`);
+    for (const [name, text, input] of hooks) {
+      const both = run(name, text, input);
+      assert.equal(both.status, 1, `${what}: ${name} with both checks\n${both.output}`);
+      assert.match(both.output, /error\[no-console\]/, `${what}: ${name}`);
+    }
+  }));
+  for (const what of [`add the line \`${second}\``, 'In the pre-commit hook it goes last.', 'In the pre-push hook it goes before `done` and ends with `|| exit 1`.']) assert.ok(page.includes(what), what);
+});
+
 test('S7-9: the CI page covers the pull request of a fork: no secret, no pull_request_target, a contributor with no reviewer, and the verdicts that CI trusts; and a job with no key does what the page says', async () => {
   assert.ok(sections().includes('## Pull requests from a fork'));
   assert.ok(sections().includes('### A contributor with no reviewer'));
