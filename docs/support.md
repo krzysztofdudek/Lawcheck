@@ -6,7 +6,7 @@ Lawcheck 0.1.0-alpha.5 runs on Node 24 or later with git 2.34 or later, on Linux
 
 | Program or system | Lawcheck needs | What the tests run it on |
 |---|---|---|
-| Node | 24 or later, as `engines` in `package.json` says | every push: Node 24.0.0, the newest Node 24 and the newest Node on Linux, and the newest Node 24 on Windows and macOS |
+| Node | 24 or later, as `engines` in `package.json` says | every pull request: the newest Node 24 on Linux, Windows and macOS; every push to `main` and every release: also Node 24.0.0 and the newest Node on Linux |
 | git | 2.34 or later | in the long test run that a person starts by hand before a release: the git of Ubuntu 22.04, Debian 12, Ubuntu 24.04 and Debian sid |
 | Linux | a system that runs Node 24 | every push, on the newest Ubuntu machine of GitHub Actions; in the same long run, in the Node 24 images of Debian and Alpine |
 | macOS | a version that runs Node 24 | every push, on the newest macOS machine of GitHub Actions |

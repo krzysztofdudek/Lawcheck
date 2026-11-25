@@ -8,7 +8,7 @@ import { judgeRun } from '../harness/reporter.ts';
 import { startProgram, testFolder } from '../harness/tool.ts';
 import { continueOnErrorProblems } from '../harness/workflows.ts';
 import { groupDirs, perPushFiles, PLATFORM_TESTS, ROOT, setFiles } from '../harness/sets.ts';
-import { balance, matrix, measureShards, plannedWalls, planProblems, readPlan, repoPath, SYSTEMS, wallOf, type Plan, type Run } from '../harness/shards.ts';
+import { balance, matrix, measureShards, plannedWalls, planProblems, readPlan, repoPath, runsFor, SYSTEMS, wallOf, type Plan, type Run } from '../harness/shards.ts';
 
 
 test('question 95: every test file of each system\'s per-push set is in exactly one shard of tests/harness/shards.json', () => {
@@ -29,7 +29,9 @@ test('question 95: a plan that leaves a file out, names one twice, or names a fi
 
 type Step = { id?: string; shell?: string; 'working-directory'?: string; name?: string; uses?: string; if?: string; env?: Record<string, string>; run?: string; with?: Record<string, unknown>; 'continue-on-error'?: unknown };
 type CiJob = { 'continue-on-error'?: unknown; permissions?: Record<string, string>; needs?: string | string[]; if?: string; 'runs-on'?: string; outputs?: Record<string, string>; strategy?: { matrix?: { include?: unknown } }; steps?: Step[] };
-type Ci = { jobs: Record<string, CiJob> };
+type Ci = { concurrency?: unknown; jobs: Record<string, CiJob> };
+// One group per pull request, whose older run a new push cancels; every other run is a group of its own, so nothing cancels or holds back a run on main or a release's verify.
+const CONCURRENCY = { group: "ci-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}", 'cancel-in-progress': "${{ github.event_name == 'pull_request' }}" };
 const OS: Record<(typeof SYSTEMS)[number], RegExp> = { linux: /^ubuntu-/, win32: /^windows-/, darwin: /^macos-/ };
 const START_STEP = ['started=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" --jq .run_started_at) || started=', 'echo "at=$started" >> "$GITHUB_OUTPUT"'];
 const START_STEP_KEYS = ['env', 'id', 'name', 'run'];
@@ -41,11 +43,16 @@ const needsOf = (job: CiJob | undefined): string[] => [job?.needs ?? []].flat().
 function ciProblems(ci: Ci, plan: Plan): string[] {
   const problems: string[] = [];
   const build = ci.jobs.build;
-  const step = build?.steps?.find((s) => /^set -o pipefail\nnode tests\/harness\/shards\.ts matrix "\$RUNS" \| tee -a "\$GITHUB_OUTPUT"\n?$/.test(s.run ?? ''));
-  if (step === undefined || step.id === undefined || step.env?.RUNS === undefined) return ['ci.yml: no step of the build job prints the matrix of tests/harness/shards.json from its RUNS'];
+  const step = build?.steps?.find((s) => /^set -o pipefail\nnode tests\/harness\/shards\.ts matrix "\$RUNS" --event "\$EVENT" \| tee -a "\$GITHUB_OUTPUT"\n?$/.test(s.run ?? ''));
+  if (step === undefined || step.id === undefined || step.env?.RUNS === undefined || step.env.EVENT !== '${{ github.event_name }}') return ['ci.yml: no step of the build job prints the matrix of tests/harness/shards.json from its RUNS and the event of the run'];
   const runs = JSON.parse(step.env.RUNS) as Run[];
-  const { outputs, problems: planned } = matrix(plan, runs);
+  const { outputs, problems: planned } = matrix(plan, runs, 'push');
   problems.push(...planned.map((p) => `ci.yml: ${p}`));
+  for (const system of SYSTEMS) if (runs.some((run) => run.system === system) && !runsFor(runs, 'pull_request').some((run) => run.system === system)) problems.push(`ci.yml: no run of ${system} in a pull request`);
+  const nodes = (event: string) => runsFor(runs, event).filter((run) => run.system === 'linux').map((run) => run.node).sort();
+  if (JSON.stringify(nodes('push')) !== JSON.stringify(['24', '24.0.0', 'newest'])) problems.push(`ci.yml: a push to main and a release's verify run Linux on Node ${nodes('push').join(', ') || 'nothing'}, not on 24, 24.0.0 and newest`);
+  if (JSON.stringify(nodes('pull_request')) !== JSON.stringify(['24'])) problems.push(`ci.yml: a pull request runs Linux on Node ${nodes('pull_request').join(', ') || 'nothing'}, not on 24 alone`);
+  if (JSON.stringify(ci.concurrency) !== JSON.stringify(CONCURRENCY)) problems.push('ci.yml: its concurrency is not one group per pull request that cancels its older run, and a group of its own for every other run');
   for (const run of runs) {
     if (!(SYSTEMS as readonly string[]).includes(run.system)) continue;
     if (!OS[run.system].test(run.os)) problems.push(`ci.yml: the run ${run.os} Node ${run.node} is named ${run.system}`);
@@ -97,13 +104,53 @@ test('question 95: each of the three systems runs per push in the shards of test
   const plan = readPlan();
   assert.deepEqual(ciProblems(ci, plan), []);
   const runs = JSON.parse(ci.jobs.build!.steps!.find((s) => s.id === 'matrix')!.env!.RUNS!) as Run[];
-  const { outputs } = matrix(plan, runs);
-  for (const system of SYSTEMS) {
-    const count = plan.shards[system]!.length;
-    const mine = runs.filter((run) => run.system === system);
-    assert.ok(mine.length > 0, system);
-    assert.deepEqual(outputs[`shards_${system}`], mine.flatMap((run) => Array.from({ length: count }, (_, i) => ({ ...run, shard: i + 1, of: count }))), system);
+  for (const event of ['push', 'pull_request', 'workflow_dispatch', undefined]) {
+    const { outputs, problems } = matrix(plan, runs, event);
+    assert.deepEqual(problems, [], event);
+    for (const system of SYSTEMS) {
+      const count = plan.shards[system]!.length;
+      const mine = runs.filter((run) => run.system === system && (event !== 'pull_request' || run.pull_request !== false));
+      assert.ok(mine.length > 0, system);
+      assert.deepEqual(outputs[`runs_${system}`], mine, `${system} on ${event}`);
+      assert.deepEqual(outputs[`shards_${system}`], mine.flatMap((run) => Array.from({ length: count }, (_, i) => ({ ...run, shard: i + 1, of: count }))), `${system} on ${event}`);
+    }
   }
+});
+
+test('question 95: a pull request runs Linux on Node 24 alone, a push to main and a release\'s verify run it on Node 24.0.0, 24 and the newest, and a new push cancels the older run of a pull request only', () => {
+  const ci = ciFile();
+  const plan = readPlan();
+  const runs = JSON.parse(ci.jobs.build!.steps!.find((s) => s.id === 'matrix')!.env!.RUNS!) as Run[];
+  const linux = (event: string) => (matrix(plan, runs, event).outputs.runs_linux as Run[]).map((run) => run.node);
+  assert.deepEqual(linux('pull_request'), ['24']);
+  for (const event of ['push', 'workflow_dispatch']) assert.deepEqual(linux(event), ['24', '24.0.0', 'newest'], event);
+  for (const system of ['win32', 'darwin'] as const) for (const event of ['push', 'pull_request']) assert.deepEqual((matrix(plan, runs, event).outputs[`runs_${system}`] as Run[]).map((run) => run.node), ['24'], `${system} on ${event}`);
+  // release.yml calls ci.yml on the push of a tag, so the event its verify sees is push.
+  const release = parse(readFileSync(join(ROOT, '.github', 'workflows', 'release.yml'), 'utf8')) as { on: Record<string, unknown>; jobs: Record<string, { uses?: string }> };
+  assert.deepEqual(Object.keys(release.on), ['push']);
+  assert.equal(release.jobs.verify!.uses, './.github/workflows/ci.yml');
+  assert.deepEqual(ci.concurrency, CONCURRENCY);
+});
+
+test('question 95: a ci.yml that leaves a Node version out of main, runs more than Node 24 in a pull request, runs no Linux in one, cancels a run on main or does not pass the event is refused (control)', () => {
+  const plan = readPlan();
+  const changed = (edit: (ci: Ci) => void): string[] => { const ci = ciFile(); edit(ci); return ciProblems(ci, plan); };
+  const env = (ci: Ci) => ci.jobs.build!.steps!.find((s) => s.id === 'matrix')!.env!;
+  const runs = (ci: Ci, edit: (runs: Run[]) => Run[]) => { env(ci).RUNS = JSON.stringify(edit(JSON.parse(env(ci).RUNS!) as Run[])); };
+  assert.deepEqual(changed((ci) => runs(ci, (all) => all.filter((run) => run.node !== 'newest'))), ["ci.yml: a push to main and a release's verify run Linux on Node 24, 24.0.0, not on 24, 24.0.0 and newest"]);
+  assert.deepEqual(changed((ci) => runs(ci, (all) => all.filter((run) => run.node !== '24.0.0'))), ["ci.yml: a push to main and a release's verify run Linux on Node 24, newest, not on 24, 24.0.0 and newest"]);
+  assert.deepEqual(changed((ci) => runs(ci, (all) => all.map((run) => (run.node === '24.0.0' ? { os: run.os, node: run.node, system: run.system } : run)))), ['ci.yml: a pull request runs Linux on Node 24, 24.0.0, not on 24 alone']);
+  assert.deepEqual(changed((ci) => runs(ci, (all) => all.map((run) => (run.system === 'linux' ? { ...run, pull_request: false } : run)))), ['ci.yml: no run of linux in a pull request', 'ci.yml: a pull request runs Linux on Node nothing, not on 24 alone']);
+  assert.deepEqual(changed((ci) => runs(ci, (all) => all.map((run) => (run.system === 'darwin' ? { ...run, pull_request: false } : run)))), ['ci.yml: no run of darwin in a pull request']);
+  const cancels = 'ci.yml: its concurrency is not one group per pull request that cancels its older run, and a group of its own for every other run';
+  assert.deepEqual(changed((ci) => { ci.concurrency = { ...CONCURRENCY, 'cancel-in-progress': true }; }), [cancels]);
+  assert.deepEqual(changed((ci) => { ci.concurrency = { ...CONCURRENCY, group: 'ci-${{ github.ref }}' }; }), [cancels]);
+  assert.deepEqual(changed((ci) => { delete ci.concurrency; }), [cancels]);
+  const unpassed = ['ci.yml: no step of the build job prints the matrix of tests/harness/shards.json from its RUNS and the event of the run'];
+  assert.deepEqual(changed((ci) => { delete env(ci).EVENT; }), unpassed);
+  assert.deepEqual(changed((ci) => { env(ci).EVENT = 'push'; }), unpassed);
+  assert.deepEqual(changed((ci) => { const step = ci.jobs.build!.steps!.find((s) => s.id === 'matrix')!; step.run = step.run!.replace(' --event "$EVENT"', ''); }), unpassed);
+  assert.deepEqual(matrix(plan, (JSON.parse(env(ciFile()).RUNS!) as Run[]).map((run) => ({ ...run, pull_request: false })), 'pull_request').problems, SYSTEMS.map((system) => `no run of ${system} in a pull request`));
 });
 
 test('question 95: a ci.yml that drops the runs of a system, merges a system after another\'s shards, writes the shards by hand, or leaves a job out of the required check is refused (control)', () => {

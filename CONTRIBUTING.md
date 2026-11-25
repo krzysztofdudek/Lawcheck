@@ -20,7 +20,11 @@ All code runs in the dev container in `.devcontainer/`, except the steps below t
 
 `npm run build` compiles `src/` to `dist/` and copies the grammars from the installed Runes package. `npm test` builds again and runs the commit set, with no network and no key.
 
-Before you open a pull request, run the gate:
+Before you open a pull request, run the tests your change touches:
+
+    node tests/run.ts loop <test files>
+
+The whole commit set runs in CI on the pull request, so you do not run it here first. To repeat a red of CI on your machine, run the gate:
 
     npm run gate -- --base origin/main
 
@@ -34,7 +38,7 @@ It runs `npm test`, the suite guard of the base, and prints the pack a reviewer 
 
 ## What a change goes through
 
-1. CI runs the commit set on Linux, macOS and Windows.
+1. CI runs the commit set on Linux, macOS and Windows. A pull request runs it on Node 24, and a new push to it cancels the run of the push before. A push to `main` and a release also run Linux on Node 24.0.0 and on the newest Node.
 2. The suite guard of `main` judges the change. A row of the four kinds the owner approves (`promise-changed`, `guard-changed`, `ci-changed`, `threshold-lowered`) lands on `main` first, in a change of its own, and names the change it approves. Every other weakening it finds needs its row in `tests/weakenings.md`, in the same change.
 3. The change lands on `main` only after both are green.
 
