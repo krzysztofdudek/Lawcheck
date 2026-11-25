@@ -96,10 +96,11 @@ In a project, start Lawcheck through the package manager, as in `pnpm exec lawch
 
 ## 3. Update the Claude Code plugin
 
-If you do not use the Claude Code plugin, skip this step. The plugin of alpha.5 runs the same four hooks as the plugins of alpha.1 to alpha.4. It adds three things ([The Claude Code plugin](plugin.md)):
+If you do not use the Claude Code plugin, skip this step. The plugin of alpha.5 runs the same four hooks as the plugins of alpha.1 to alpha.4. It adds four things ([The Claude Code plugin](plugin.md)):
 
 - the skill `/lawcheck:setup`, which writes the first law of a repository with you;
 - one message to you at the end of a turn in which the agent added a waiver, or changed or deleted a file of the law;
+- one message to you in each session, when the law has a reviewer rule and `.lawcheck/config.yaml` sets no reviewer;
 - the word `Lawcheck:` at the start of each of its messages, where alpha.4 started some with `lawcheck:`.
 
 Install alpha.5 before you update the plugin ([Install the new version](#_1-install-the-new-version)). The skill follows the page `lawcheck docs agent-setup`, and alpha.4 has no such page. These two commands install the newest version of the plugin:
