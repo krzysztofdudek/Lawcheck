@@ -8,7 +8,7 @@ import { ROOT, startProgram, testFolder } from '../harness/tool.ts';
 import { judge, judgeChapter } from '../../film/accept.mjs';
 import { fingerprint } from '../../film/pilot.mjs';
 import { trimRecord, trimTranscript } from '../../film/trim.mjs';
-import { decodeTerminal, narrationProblems, privateProblems, privateSummary, privateWords, readingProblems, runsOf, stalenessProblems, truthProblems, versionProblems } from '../../film/check.mjs';
+import { decodeTerminal, narrationProblems, privateProblems, privateSummary, privateWords, readingProblems, readingWarnings, runsOf, stalenessProblems, truthProblems, versionProblems } from '../../film/check.mjs';
 import { build, vttOf } from '../../film/build.mjs';
 import { readEdit, wrap, words } from '../../film/edit.mjs';
 import { joinWav, sentenceSpans, voiceKey, voiceProblems, wavSeconds } from '../../film/voice.mjs';
@@ -93,7 +93,7 @@ test('test 820: control, a run whose output or exit changed is named with its fi
   }
 });
 
-test('test 820: control, a screen too short for its new words, a screen with too many words, a loop past 30 seconds and a chapter shorter than 40 seconds are each caught, and a long line wraps at a gap of its columns', () => {
+test('test 820: control, a screen too short for its new words, a screen with too many words, a loop past 30 seconds and a chapter shorter than 25 seconds are each caught, and a long line wraps at a gap of its columns', () => {
   const edit = readEdit(ROOT);
   const short = clone(edit);
   short.loop[0].end = 5;
@@ -107,8 +107,8 @@ test('test 820: control, a screen too short for its new words, a screen with too
   for (let i = 0; i < 3; i++) lines.push({ text: '  why:  a type\'s may_use names every type its files may use', from: { run: 'a09-check' } });
   assert.ok(readingProblems(crowded).some((problem) => /^l3-1: \d+ words on screen at once, over 45$/.test(problem)), readingProblems(crowded).join('\n'));
   const brief = clone(edit);
-  brief.chapters = [{ page: 'quick-start', take: 'x', record: 'x', timeline: [{ id: 'x1', start: 0, end: 30, screens: [{ at: 0, blocks: [] }] }] }];
-  assert.deepEqual(readingProblems(brief), ['the chapter quick-start lasts 30 s, outside 40 to 60 s']);
+  brief.chapters = [{ page: 'quick-start', take: 'x', record: 'x', timeline: [{ id: 'x1', start: 0, end: 24, screens: [{ at: 0, blocks: [] }] }] }];
+  assert.deepEqual(readingProblems(brief), ['the chapter quick-start lasts 24 s, outside 25 to 60 s']);
   assert.deepEqual(words('src/core/price.ts:1  error[forbidden-use]'), ['src', 'core', 'price', 'ts', '1', 'error', 'forbidden', 'use']);
   assert.deepEqual(words('$ ℹ pass 10 couldn\'t'), ['pass', '10', 'couldn\'t']);
   assert.deepEqual(wrap('src/core/price.ts:1  error[forbidden-use]  core may not use api (src/api/format.ts); its may_use is [core]', 48), ['src/core/price.ts:1  error[forbidden-use]', 'core may not use api (src/api/format.ts); its', 'may_use is [core]']);
@@ -116,13 +116,17 @@ test('test 820: control, a screen too short for its new words, a screen with too
   assert.deepEqual(wrap(`$ ${'x'.repeat(50)}`, 48), [`$ ${'x'.repeat(46)}`, 'xxxx']);
 });
 
-test('test 1356: the subtitle of a narrated segment does not count for the reading time of its screen, and the subtitle of a segment with no narration does', () => {
+test('test 1356: a narrated screen too short for its new words is a warning and no problem, its subtitle is not counted, and a screen with no narration is still refused with its subtitle counted', () => {
   const edit = readEdit(ROOT);
-  const segment = { id: 'x1', start: 0, end: 2, subtitle: 'Six more words nobody ever reads.', screens: [{ at: 0, blocks: [{ kind: 'card', lines: [{ text: 'one two three' }] }] }] };
+  const segment = { id: 'x1', start: 0, end: 1.5, subtitle: 'Six more words nobody ever reads.', screens: [{ at: 0, blocks: [{ kind: 'card', lines: [{ text: 'one two three' }] }] }] };
   const chapter = (timeline: unknown[]) => ({ ...clone(edit), chapters: [{ page: 'quick-start', take: 'x', record: 'x', timeline }] });
-  const length = 'the chapter quick-start lasts 2 s, outside 40 to 60 s';
-  assert.deepEqual(readingProblems(chapter([{ ...segment, narration: [{ text: 'One two three.', shows: ['one two three'] }] }])), [length]);
-  assert.deepEqual(readingProblems(chapter([segment])), [length, 'x1-1: 9 new words need 4.00 s on screen, and it stands 2.00 s']);
+  const length = 'the chapter quick-start lasts 1.5 s, outside 25 to 60 s';
+  const narrated = chapter([{ ...segment, narration: [{ text: 'One two three.', shows: ['one two three'] }] }]);
+  assert.deepEqual(readingProblems(narrated), [length]);
+  assert.deepEqual(readingWarnings(narrated), ['x1-1: 3 new words need 2.00 s on screen, and it stands 1.50 s']);
+  assert.deepEqual(readingProblems(chapter([segment])), [length, 'x1-1: 9 new words need 4.00 s on screen, and it stands 1.50 s']);
+  assert.deepEqual(readingWarnings(chapter([segment])), []);
+  assert.deepEqual(readingProblems(edit), []);
 });
 
 test('test 820: control, a home folder, a key, an e-mail address and each name of the recording machine in a take are caught, and the terminal decoder keeps the colors and drops what a spinner overwrote', () => {
@@ -399,7 +403,7 @@ test('test 1059: a chapter\'s build mixes the voice of each narrated frame from 
     build(join(folder.dir, 'dist'), ROOT, voice);
     const index = readFileSync(join(folder.dir, 'dist', 'quick-start', 'index.html'), 'utf8');
     assert.ok(index.includes('<audio id="voice-q1" class="clip" src="assets/voice/q1.wav" data-start="0.4" data-duration="1.00" data-track-index="4" data-volume="1"></audio>'), index);
-    assert.ok(index.includes('<audio id="voice-q2" class="clip" src="assets/voice/q2.wav" data-start="5.9" data-duration="1.00" data-track-index="4" data-volume="1"></audio>'), index);
+    assert.ok(index.includes('<audio id="voice-q2" class="clip" src="assets/voice/q2.wav" data-start="5.5" data-duration="1.00" data-track-index="4" data-volume="1"></audio>'), index);
     assert.equal(readFileSync(join(folder.dir, 'dist', 'quick-start', 'assets', 'voice', 'q1.wav')).length, silence(1).length);
     assert.ok(!readFileSync(join(folder.dir, 'dist', 'loop', 'index.html'), 'utf8').includes('<audio'));
     segments['quick-start/q2'] = { key: voiceKey({ ...edit, voice: { ...edit.voice, speed: 2 } }, edit.chapters[0].timeline[1]) };
@@ -409,7 +413,7 @@ test('test 1059: a chapter\'s build mixes the voice of each narrated frame from 
     const problems = [
       'the voice of quick-start q2 was spoken from other words or settings; node film/voice.mjs speaks it again',
       'the narration of quick-start q3 has no voice; node film/voice.mjs speaks it',
-      'the voice of quick-start q7 lasts 4.00 s, and its frame leaves it 2.90 s',
+      'the voice of quick-start q7 lasts 4.00 s, and its frame leaves it 2.50 s',
     ];
     assert.deepEqual(voiceProblems(edit, voice), problems);
     assert.throws(() => build(join(folder.dir, 'dist'), ROOT, voice), { message: problems.join('\n') });
