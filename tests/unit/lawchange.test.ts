@@ -22,6 +22,9 @@ test('S7-3: a literal backslash in a name is escaped, so a name never reads as a
 
 const SAID_TO_LOOSEN = [
   'removes the type library',
+  'widens may_use of the type library by command',
+  'widens may_use of the type library to any file',
+  'reads waivers in the type library',
   'removes the rule no-console',
   'removes the signer alice',
   'adds the signer mallory',
@@ -34,8 +37,6 @@ const SAID_TO_LOOSEN = [
   'takes !src/gen/keep/** off ignored',
 ];
 const MAY_LOOSEN = [
-  'changes may_use of the type library',
-  'changes the waivers of the type library',
   'changes the paths of the type library',
   'changes the content of the type library',
   'moves the type library from source to the top of types',
@@ -47,6 +48,8 @@ const MAY_LOOSEN = [
 ];
 const NOT_LOOSENING = [
   'adds the rule extra',
+  'changes may_use of the type library',
+  'changes the waivers of the type library',
   'makes the rule no-todo enforced',
   'puts the rule no-console on the type command',
   'changes the why of the rule no-console',
@@ -78,5 +81,5 @@ test('test 1370: S7-3, past five items, each item that loosens the law or may lo
 
 test('test 1370: S7-3, what the words say loosens the law goes before what may loosen it, and an added type comes after both', () => {
   const [certain, other] = ['takes the rule no-console off the type library', 'adds src/gen/** to ignored'];
-  assert.deepEqual(shownItems(['adds the type special', 'changes the paths of the type a', certain!, 'changes may_use of the type b', other!, 'adds the rule extra']), [certain, other, 'changes the paths of the type a', 'changes may_use of the type b', 'adds the type special']);
+  assert.deepEqual(shownItems(['adds the type special', 'changes the paths of the type a', certain!, 'changes the content of the type b', other!, 'adds the rule extra']), [certain, other, 'changes the paths of the type a', 'changes the content of the type b', 'adds the type special']);
 });

@@ -88,6 +88,8 @@ The second note says what the change does to the law that judges it. A pull requ
 - a type or a rule added or removed;
 - a rule made advisory or enforced, taken off a type or put on one;
 - a changed `why`, `context`, `about`, `paths`, `content`, `may_use` or `waivers`;
+- a `may_use` list that lets a type use more, such as `widens may_use of the type library by command`, or `widens may_use of the type library to any file` when no list is left in force;
+- a type whose waivers Lawcheck reads again, such as `reads waivers in the type library`;
 - a pattern added to `required` or `ignored`, or taken off one, such as `adds src/gen/** to ignored`;
 - a signer added or removed, or the key of a signer changed, such as `adds the signer mallory`;
 - a type moved under another parent, or to the top of `types`;
@@ -97,17 +99,18 @@ The note shows five items and the count of the rest. When a change has more than
 
 - a rule or a type removed;
 - a rule made advisory or taken off a type;
+- a `may_use` list widened, and waivers read again in a type;
 - a pattern added to `ignored` or taken off `required`, and a pattern that starts with `!` added to `required` or taken off `ignored`;
 - a signer added or removed, or the key of a signer changed.
 
 Next come the items that may loosen the law, since their words don't say which way the change went:
 
-- a changed `may_use`, `waivers`, `paths` or `content` of a type;
+- a changed `paths` or `content` of a type;
 - a type moved;
 - a file of `.lawcheck/rules/` changed or removed;
 - a `.lawcheck/law.yaml` that changed where Lawcheck can't read one of its two versions.
 
-A type added comes after them, since a type under another can have its own `may_use` or `waivers`. Every other item comes last.
+A type added comes after them, since a type under another can have its own `may_use` or `waivers`. Every other item comes last. That includes `changes may_use of the type library` and `changes the waivers of the type library`, which Lawcheck writes only for a change that lets the type use or waive nothing more.
 
 In `--json`, `scope.law_changes` lists every item. The note never changes the exit code of the run, whatever it lists. `lawcheck docs ci` gives a job that checks the change a second time with the law of the base.
 

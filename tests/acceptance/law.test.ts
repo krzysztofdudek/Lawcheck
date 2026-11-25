@@ -285,7 +285,7 @@ test('test 1371: past five items, a widened may_use is among the five the law-ch
       const required = ['src/a/**', 'src/b/**', 'src/c/**', 'src/d/**', 'src/e/**'];
       law(s, listed('[command]').replace('rules:\n', `required: [${required.map((p) => `"${p}"`).join(', ')}]\n\nrules:\n`));
       const run = await check(s);
-      assert.equal(run.stdout.split('\n')[2], 'note: this change edits the law that judges it: changes may_use of the type library; adds src/a/** to required; adds src/b/** to required; adds src/c/** to required; adds src/d/** to required; and 1 more');
+      assert.equal(run.stdout.split('\n')[2], 'note: this change edits the law that judges it: widens may_use of the type library by command; adds src/a/** to required; adds src/b/** to required; adds src/c/** to required; adds src/d/** to required; and 1 more');
     },
     { onMain: (s) => law(s, listed('[]')) },
   );

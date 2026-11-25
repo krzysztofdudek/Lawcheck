@@ -6,7 +6,7 @@ import { comparePaths, git, mergeBase, resolveCommit, splitZ } from './files.js'
 import { keyEnvironment } from './keys.js';
 import { CONFIG_BYTES, count, LAW_BYTES, mib } from './limits.js';
 import { bytesOfName } from './names.js';
-import { parseLaw } from './law.js';
+import { parseLaw, takesWaivers } from './law.js';
 import type { Law, TypeDef } from './law.js';
 import type { ErrorItem } from './output.js';
 import { guardedFolder, releaseFolder } from './programs.js';
@@ -14,6 +14,7 @@ import { createProvider } from './providers/index.js';
 import { LAW, RULES_DIR, ruleKinds, Stop, touchesLaw } from './setup.js';
 import type { Kinds, Read } from './setup.js';
 import { decode } from './types.js';
+import { allows, listInForce } from './uses.js';
 import { LOCAL, Unwritable } from './verdicts.js';
 
 export const LINE_ITEMS = 5;
@@ -117,11 +118,24 @@ function ofLaw(before: Law, after: Law): string[] {
     for (const rule of now.rules) if (!old.rules.includes(rule) && before.rules.has(rule)) items.push(`puts the rule ${rule} on the type ${id}`);
     if (!same(old.paths, now.paths)) items.push(`changes the paths of the type ${id}`);
     if (old.content?.source !== now.content?.source) items.push(`changes the content of the type ${id}`);
-    if (!same(old.mayUse, now.mayUse)) items.push(`changes may_use of the type ${id}`);
+    if (!same(old.mayUse, now.mayUse)) items.push(widened(old, now, is) ?? `changes may_use of the type ${id}`);
     if (old.about !== now.about) items.push(`changes the about of the type ${id}`);
-    if (old.waivers !== now.waivers) items.push(`changes the waivers of the type ${id}`);
+    if (old.waivers !== now.waivers) items.push(!takesWaivers(old) && takesWaivers(now) ? `reads waivers in the type ${id}` : `changes the waivers of the type ${id}`);
   }
   return items;
+}
+
+// The lists in force are compared, so a type that drops its own list is read by the list it then takes from above. A type that the old list already reached through a type above it is not new.
+function widened(old: TypeDef, now: TypeDef, types: Map<string, TypeDef>): string | null {
+  const was = listInForce(old)?.list;
+  const is = listInForce(now)?.list;
+  if (was === undefined) return null;
+  if (is === undefined) return `widens may_use of the type ${now.id} to any file`;
+  const more = is.filter((id) => {
+    const target = types.get(id);
+    return target === undefined ? !was.includes(id) : !allows(was, target);
+  });
+  return more.length > 0 ? `widens may_use of the type ${now.id} by ${more.join(', ')}` : null;
 }
 
 function ofSigners(before: Map<string, string>, after: Map<string, string>): string[] {
@@ -222,8 +236,8 @@ export function atBase(root: string, base: string): ((paths: string[]) => Map<st
   return fork === null ? null : (paths) => blobsAt(root, fork, paths);
 }
 
-const SAYS_LOOSENS = /^(?:removes the (?:rule|type|signer) |adds the signer |changes the key of the signer |makes the rule \S+ advisory$|takes the rule \S+ off the type |adds (?!!).* to ignored$|adds !.* to required$|takes (?!!).* off required$|takes !.* off ignored$)/;
-const MAY_LOOSEN = /^(?:changes (?:may_use|the waivers|the paths|the content) of the type |moves the type |(?:changes|removes) \.lawcheck\/(?:law\.yaml$|rules\/))/;
+const SAYS_LOOSENS = /^(?:removes the (?:rule|type|signer) |widens may_use of the type |reads waivers in the type |adds the signer |changes the key of the signer |makes the rule \S+ advisory$|takes the rule \S+ off the type |adds (?!!).* to ignored$|adds !.* to required$|takes (?!!).* off required$|takes !.* off ignored$)/;
+const MAY_LOOSEN = /^(?:changes the (?:paths|content) of the type |moves the type |(?:changes|removes) \.lawcheck\/(?:law\.yaml$|rules\/))/;
 // A type added under another may carry a may_use or waivers of its own, which its files take in place of the parent's.
 const ADDED_TYPE = /^adds the type /;
 const LOOSENS = [SAYS_LOOSENS, MAY_LOOSEN, ADDED_TYPE];
