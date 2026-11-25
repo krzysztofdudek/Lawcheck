@@ -149,7 +149,7 @@ A script rule fits what code can find in the text of a file: a call, a name, a l
 The plugin runs Lawcheck inside a Claude Code session at three moments:
 
 - at the start of the session, it gives the agent the output of `lawcheck prime`;
-- after each edit, it checks the edited file;
+- after each edit the agent makes with `Write`, `Edit` or `NotebookEdit`, it checks the edited file;
 - when the agent is about to finish its answer to your prompt, it checks the files the agent changed for that prompt. While they break the law, it sends the agent back, three times at most.
 
 [The Claude Code plugin](plugin.md) has every hook and setting.

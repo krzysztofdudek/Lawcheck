@@ -821,6 +821,40 @@ test("R-38: a pull request that takes the signers out of its law, or adds its ow
   );
 });
 
+test("R-38: under --law-from the base, a pull request that adds its own signer or takes the signers out cannot make its own passes count, and one that changes only the law passes with a note that names the change", async () => {
+  const alice = signerKeys();
+  const mallory = signerKeys();
+  const changes: [string, string, string, string][] = [
+    ['signers taken out', REVIEWER_LAW, PAIR_F_PRIME, 'removes the signer alice'],
+    ['its own signer added', withSigners(REVIEWER_LAW, { alice: alice.x, mallory: mallory.x }), signedLine(PAIR_F_PRIME, 'mallory', mallory.key), 'adds the signer mallory'],
+  ];
+  await Promise.all(
+    changes.map(([name, law, line, told]) =>
+      withR(
+        async (r) => {
+          write(r, '.lawcheck/law.yaml', law);
+          git(r, 'add', '-A');
+          git(r, 'commit', '-q', '-m', 'the law alone');
+          const lawOnly = await run(r, null, ['--base', 'main', '--law-from', 'main']);
+          assert.equal(lawOnly.code, 0, `${name}: ${lawOnly.stdout}`);
+          assert.deepEqual(lawOnly.stdout.split('\n').slice(0, 2), ['lawcheck: PASS  1 changed file (against main)', `note: this change edits its own law, and the law of main judged it: ${told}`], `${name}: ${lawOnly.stdout}`);
+          write(r, F_PATH, F_PRIME);
+          append(r, '.lawcheck/verdicts', `${line}\n`);
+          git(r, 'add', '-A');
+          git(r, 'commit', '-q', '-m', 'a judged file with a pass of its own');
+          const own = await run(r, null, ['--base', 'main']);
+          assert.equal(own.code, 0, `${name}: ${own.stdout}`);
+          const ofBase = await run(r, null, ['--base', 'main', '--law-from', 'main']);
+          assert.deepEqual(notReviewedOf(ofBase.stdout), [NO_SIGNER_F], `${name}: ${ofBase.stdout}`);
+          assert.equal(ofBase.code, 1, `${name}: ${ofBase.stdout}`);
+          assert.ok(ofBase.stdout.split('\n').includes(`note: this change edits its own law, and the law of main judged it: ${told}`), `${name}: ${ofBase.stdout}`);
+        },
+        { onMain: (r) => write(r, '.lawcheck/law.yaml', withSigners(REVIEWER_LAW, { alice: alice.x })) },
+      ),
+    ),
+  );
+});
+
 test('R-38: a law that names no signers reads and writes the verdicts as before, counts a signed line as a pass, and leaves LAWCHECK_SIGNING_KEY unused', async () => {
   const alice = signerKeys();
   await withFake(async (fake) => {
