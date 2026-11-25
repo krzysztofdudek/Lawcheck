@@ -20,6 +20,8 @@ Change no file outside `.lawcheck/`. Commit nothing unless the user asks.
 
 The shell commands of this page are for a POSIX shell, such as bash. On Windows, run them in Git Bash or WSL, not in PowerShell: PowerShell has no `cmp`, and its `cp` is another command.
 
+This page runs `lawcheck check --full` to prove a candidate law and to count the old code that breaks it. Each such run is a deliberate audit of the whole code, run on purpose during this setup. It is no step for each later change, and no step of CI. CI judges only the change on purpose, so that people see findings only about what they change.
+
 Keep to the budgets of this page: at most four questions to the user, and no [reviewer rule](concepts.md#reviewer-rule) unless the user asks for one. Script rules have no fixed number. Each one needs its evidence, as step 8 says.
 
 ## 2. Read what is written down

@@ -61,7 +61,7 @@ src/core/receipt.ts:1  error[forbidden-use]  core may not use src/cli/print.ts, 
 
 ## Debt
 
-Debt is what `lawcheck check --full` finds in the files outside the change. A finding of debt is a warning, whatever the status of its rule. Debt never changes the exit code, unless you pass `--strict`.
+Debt is what `lawcheck check --full` finds in the files outside the change. A finding of debt is a warning, whatever the status of its rule. Debt never changes the exit code, unless you pass `--strict`. `--full` is a deliberate audit of the whole code, which you run on purpose.
 
 Example: `debt (outside this change): 1 finding in 1 file`, after the findings of the change.
 
@@ -117,6 +117,8 @@ A check of the change is a run of `lawcheck check` that names no path and does n
 ## Plain check
 
 A plain check is a run of `lawcheck check` that judges the change alone. It reads the passes in `.lawcheck/verdicts`. It calls no reviewer. Only a file in the change fails a plain check with exit 1. A file outside the change can still stop the run with exit 2, for example with [type-overlap](codes.md#type-overlap), [file-unreadable](codes.md#file-unreadable), [file-too-large](codes.md#file-too-large), [text-too-large](codes.md#text-too-large), [parser-failed](codes.md#parser-failed) or [link-outside-root](codes.md#link-outside-root).
+
+CI judges only the change on purpose, so that people see findings only about what they change. The job of [CI and git hooks](ci.md#_2-add-the-workflow) therefore runs a plain check.
 
 A run is not a plain check when:
 
