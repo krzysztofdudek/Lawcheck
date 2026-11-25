@@ -39,6 +39,7 @@ const LIST = [
   '  cursor  Lawcheck in Cursor',
   '  other-agents  Other coding agents',
   '  ci  CI and git hooks',
+  '  ci-findings  Findings in the pull request',
   '  team  A law shared by a team',
   '  monorepo  A monorepo',
   '  false-alarm  A finding you believe is wrong',

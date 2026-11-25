@@ -16,6 +16,7 @@ interface Step {
 }
 
 const page = readFileSync(new URL('../../docs/ci.md', import.meta.url), 'utf8');
+const findings = readFileSync(new URL('../../docs/ci-findings.md', import.meta.url), 'utf8');
 const workflow = parse(example('ci-workflow')) as { on: Record<string, { branches?: string[] } | null>; permissions: Record<string, string>; jobs: { check: { steps: Step[] } } };
 const steps = workflow.jobs.check.steps;
 const runs = steps.flatMap((step) => (step.run === undefined ? [] : [step.run]));
@@ -179,8 +180,8 @@ types:
     rules: [no-console, no-todo]
 `;
 
-function sections(): string[] {
-  return page.split('\n').filter((line) => line.startsWith('#'));
+function sections(text = page): string[] {
+  return text.split('\n').filter((line) => line.startsWith('#'));
 }
 
 // A stand-in for the dev dependency, so npx --no-install starts the built tool with no network.
@@ -271,11 +272,13 @@ test('S7-9: the CI page covers the pull request of a fork: no secret, no pull_re
   });
 });
 
-test('S7-13: the recipes of docs/ci.md turn --json into GitHub annotations and a GitLab code quality report, run as written', async () => {
+test('S7-13: the recipes of docs/ci-findings.md turn --json into GitHub annotations and a GitLab code quality report, run as written', async () => {
   assert.ok(sections().includes('## Findings in the pull request'));
-  assert.ok(sections().includes('### 1. Annotate on GitHub'));
-  assert.ok(sections().includes('### 2. Report code quality on GitLab'));
-  for (const what of ['A job that passes prints its warnings in its log, and nowhere else', 'A plain check prints no debt either', '`summary.debt` of its JSON is 0', 'With `--full` or `--strict`, `findings` holds the debt with `debt: true`']) assert.ok(page.includes(what), what);
+  assert.ok(page.includes('[Findings in the pull request](ci-findings.md)'), 'the CI page links the page of the recipes');
+  assert.equal(sections(findings)[0], '# Findings in the pull request');
+  assert.ok(sections(findings).includes('## 1. Annotate on GitHub'));
+  assert.ok(sections(findings).includes('## 2. Report code quality on GitLab'));
+  for (const what of ['A job that passes prints its warnings in its log, and nowhere else', 'A plain check prints no debt either', '`summary.debt` of its JSON is 0', 'With `--full` or `--strict`, `findings` holds the debt with `debt: true`']) assert.ok(findings.includes(what), what);
   const todo = (name: string) => `export const ${name} = 1; // TODO tidy\n`;
   // The recipes run in three repositories, each in a folder of its own, so the three run at once.
   const recipes = () => inTemp(async (dir) => {
@@ -368,14 +371,14 @@ test('S7-13: the recipes of docs/ci.md turn --json into GitHub annotations and a
   await atOnce(repositories, repositories.length, ([what]) => what, ([, run]) => run());
 });
 
-test('test 1033: the code scanning recipe of docs/ci.md writes the SARIF file of every file from the first check, run as written on a pull request and on a push, and uploads it when the check fails too', async () => {
-  assert.ok(sections().includes('### 3. Show the findings in GitHub code scanning'));
+test('test 1033: the code scanning recipe of docs/ci-findings.md writes the SARIF file of every file from the first check, run as written on a pull request and on a push, and uploads it when the check fails too', async () => {
+  assert.ok(sections(findings).includes('## 3. Show the findings in GitHub code scanning'));
   const upload = (parse(example('sarif-upload')) as (Step & { if?: string })[])[0]!;
   assert.equal(upload.uses, 'github/codeql-action/upload-sarif@v4');
   assert.equal(upload.if, '${{ !cancelled() }}', 'the step runs after a check that failed with exit 1');
   assert.deepEqual(upload.with, { sarif_file: '${{ runner.temp }}/lawcheck.sarif', category: 'lawcheck' });
   const SARIF = '--sarif "$RUNNER_TEMP/lawcheck.sarif"';
-  for (const what of ['add `security-events: write` to `permissions`', `Add \`${SARIF}\` to the check with \`--full\`, and \`--full ${SARIF}\` to the first check with \`--base "$base"\``, 'closes every alert that an upload lacks', 'After exit 2, Lawcheck writes no file', 'GitHub Code Security and `actions: read`']) assert.ok(page.includes(what), what);
+  for (const what of ['add `security-events: write` to `permissions`', `Add \`${SARIF}\` to the check with \`--full\`, and \`--full ${SARIF}\` to the first check with \`--base "$base"\``, 'closes every alert that an upload lacks', 'After exit 2, Lawcheck writes no file', 'GitHub Code Security and `actions: read`']) assert.ok(findings.includes(what), what);
   assert.equal(workflow.permissions.contents, 'read', 'the permission the upload step adds to');
 
   const check = steps.find((step) => step.run?.includes('lawcheck check') === true)!;

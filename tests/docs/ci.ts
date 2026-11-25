@@ -10,11 +10,7 @@ import type { Claims, Page } from '../contract/docs-blocks.ts';
 
 const RECIPE = (kind: string) => `tests/environments/ci-recipes.nightly.test.ts > tests 306 and 307: S7-1, S7-2, S7-3, S7-4, the workflow and the hooks of docs/ci.md (design tests 15 and 16), run as written on ${kind}, as a pull request and as a push (network)`;
 
-const SARIF = 'tests/acceptance/ci-docs.test.ts > test 1033: the code scanning recipe of docs/ci.md writes the SARIF file of every file from the first check, run as written on a pull request and on a push, and uploads it when the check fails too';
-
 const CHOICES = 'tests/acceptance/ci-docs.test.ts > test 1410: the three choices of docs/ci.md for the law that judges a change, run as written in the step of the workflow, catch and miss what the page says, and the agent pages ask the user which one';
-
-const ANNOTATE = 'tests/acceptance/ci-docs.test.ts > S7-13: the recipes of docs/ci.md turn --json into GitHub annotations and a GitLab code quality report, run as written';
 
 export const claims: Claims = {
   'block 1 under "1. Install Lawcheck in the project"': 'tests/acceptance/ci-docs.test.ts > test 305: S7-1, the workflow of docs/ci.md installs the project with a command that works without a lockfile, and says how Lawcheck is installed',
@@ -34,11 +30,6 @@ export const claims: Claims = {
   'block 2 under "1. Record the reviews before you push"': SCENARIO,
   'block 1 under "2. Commit the verdicts"': SCENARIO,
   'example doctor-in-ci': 'tests/acceptance/ci-docs.test.ts > S7-16: the CI page says doctor is for a machine, and in a job that reads the committed verdicts doctor fails where check passes',
-  'example annotations-script': ANNOTATE,
-  'example annotations-step': ANNOTATE,
-  'example code-quality-script': ANNOTATE,
-  'example gitlab-code-quality-job': ANNOTATE,
-  'example sarif-upload': SARIF,
   'block 1 under "A change to the law"': SCENARIO,
   'example ci-law-own': CHOICES,
   'example ci-law-base': CHOICES,
