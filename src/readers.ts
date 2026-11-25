@@ -26,7 +26,8 @@ import { firstLine } from './law.js';
 import type { ErrorItem } from './output.js';
 import { decode, isBinary } from './types.js';
 import { step } from './progress.js';
-import { readError, USES_FILE_BYTES } from './limits.js';
+import { totalmem } from 'node:os';
+import { readError, treeMemoryBound, USES_FILE_BYTES } from './limits.js';
 import type { TypedFile } from './types.js';
 
 export type Reason = 'unfollowed' | 'unowned';
@@ -684,6 +685,7 @@ export interface RuleReadsInput extends Owners {
   root: string;
   files: string[];
   grammarDir?: string;
+  treeBytes?: number;
 }
 
 export interface RuleFileText {
@@ -700,7 +702,18 @@ export function ruleReads(input: RuleReadsInput, runes: Runes = RUNES): Reads {
   const siblings = siblingsOf(input.files);
   let host: Host | null = null;
 
+  // A tree depends on the path and the text of its file and on nothing of the rule that asks, so every rule of the run takes the tree of the first parse. A tree is found only under its own path and for the same text, and it is kept only while the kept trees stay within their bound; a failed parse is never kept.
+  const trees = new Map<string, { text: string; answer: TreeAnswer }>();
+  const bound = input.treeBytes ?? treeMemoryBound(totalmem());
+  let kept = 0;
+  const known = (file: RuleFileText): TreeAnswer | undefined => {
+    const held = trees.get(file.path);
+    return held !== undefined && held.text === file.text ? held.answer : undefined;
+  };
+
   const tree = async (file: RuleFileText, asker: string | undefined): Promise<TreeAnswer> => {
+    const held = known(file);
+    if (held !== undefined) return held;
     const reader = readerOf(file.path, file.text, siblings, runes);
     if (!reader.reader || reader.view === null) return { language: null, tree: null, absent: 'no-reader' };
     const { language, parsePath, content } = reader.view;
@@ -709,7 +722,13 @@ export function ruleReads(input: RuleReadsInput, runes: Runes = RUNES): Reads {
     step(`reading the tree of ${file.path}${asker === undefined ? '' : ` for ${asker}`}`, file.path);
     try {
       const override = getLanguageForExtension(extname(parsePath)) === language ? undefined : language;
-      return { language, tree: await host.withParsedFile(parsePath, content, flatten, override), absent: null };
+      const flat = await host.withParsedFile(parsePath, content, flatten, override);
+      const answer: TreeAnswer = { language, tree: flat, absent: null };
+      if (!trees.has(file.path) && kept + flat.nodes.byteLength <= bound) {
+        trees.set(file.path, { text: file.text, answer });
+        kept += flat.nodes.byteLength;
+      }
+      return answer;
     } catch {
       return { language, tree: null, absent: 'reader-failed' };
     }
@@ -780,7 +799,7 @@ export function ruleReads(input: RuleReadsInput, runes: Runes = RUNES): Reads {
       }
     };
     return async (what, file) => {
-      if (what === 'tree') return inTurn(() => tree(file, asker));
+      if (what === 'tree') return known(file) ?? inTurn(() => tree(file, asker));
       const reader = readerOf(file.path, file.text, siblings, runes);
       if (!reader.reader) return { uses: null, absent: 'no-reader' };
       if (tooLarge(reader.view)) return { uses: null, absent: 'too-large' };

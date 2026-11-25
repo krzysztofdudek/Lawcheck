@@ -542,5 +542,21 @@
     "find": "'--disable-builtin-mcps',",
     "replace": "'--enable-builtin-mcps',",
     "killedBy": "test 408: the arguments: silent, no questions, no instructions, no MCP server, no tool, no temporary folder"
+  },
+  {
+    "id": "tree-own-text",
+    "promise": "test 1395",
+    "file": "src/readers.ts",
+    "find": "held !== undefined && held.text === file.text ? held.answer",
+    "replace": "held !== undefined ? held.answer",
+    "killedBy": "test 1395: a tree is given only for its own path and its own text, so the same path with another text is parsed again and gets the tree of that text"
+  },
+  {
+    "id": "tree-kept",
+    "promise": "test 1395",
+    "file": "src/readers.ts",
+    "find": "trees.set(file.path, { text: file.text, answer });",
+    "replace": "void answer;",
+    "killedBy": "test 1395: every rule of a run that asks for the tree of a file gets the tree a fresh parse gives, and the file is parsed once in the run"
   }
 ]

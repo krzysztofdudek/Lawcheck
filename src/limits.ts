@@ -31,6 +31,11 @@ export function runBound(total: number): number {
   return Math.min(MEMORY_BYTES, Math.floor((total * MEMORY_SHARE) / MiB) * MiB);
 }
 
+// The most memory the syntax trees kept for the rules of one run may take: a third of what the run may hold. A tree past it is parsed again for each rule that asks.
+export function treeMemoryBound(total: number): number {
+  return Math.floor(runBound(total) / 3);
+}
+
 // The memory the system can still give: on Linux the kernel's estimate, or a container's limit less what its processes use; on Windows the physical memory that is free or on standby. macOS counts only the pages free this moment, which it keeps few, so there it gives no number.
 export function availableNow(platform: NodeJS.Platform = process.platform): number | null {
   if (platform === 'darwin') return null;
