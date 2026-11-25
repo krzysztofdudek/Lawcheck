@@ -540,6 +540,12 @@ Why: outside Windows Node writes to a pipe without waiting for its reader, and w
 
 Why: this is the owner's decision (ruling proba-agenta-zbedna). The owner called the trial pointless while the plugin works, and counts the pilot of 80 sessions in `film/pilot.json` and the test with a live reviewer, `node tests/live/run.ts`, as the proof of the plugin before a release.
 
+## 218. A pull request runs Node 24 alone, and a group with no test has no job
+
+CI runs Linux on Node 24.0.0 and on the newest Node only outside a pull request: on a push to `main`, in the verify of a release and in a run started by hand. A pull request runs the newest Node 24 on Linux, Windows and macOS. A new push to a pull request cancels the run of the push before it; no run on `main` and no verify of a release is cancelled or made to wait, since each is a concurrency group of its own. The nightly groups that `tests/harness/sets.ts` declares empty (security, docs, corpus, coverage, live, mutants) have no job, and `weekly.yml`, which held only the mutants job, is gone.
+
+Why: every push ran 28 jobs, 9 of them the Linux shards on three Node versions, against an account limit of about 20 jobs at once, and a pull request waited up to 143 minutes behind runs that a later push had already made useless. A fault that only Node 24.0.0 or the newest Node shows now turns `main` red after the merge, not the pull request; the release still cannot ship it, since its verify runs all three. The six jobs ran no test and stood green, which reads as a check that passed. A contract test refuses a job for a group declared empty, and asks for one as soon as the group leaves that list, which `tests/contract/discovery.test.ts` forces when the group gets its first test.
+
 ## Decision (number at merge). On Windows the guard ends nothing made below a program's id after it learned the tool had ended
 
 When the tool is killed on Windows and a list of processes begun after the kill no longer shows a program's root, the guard ends below the root's id only what was made before the moment it learned of the tool's end: the moment its poll found the tool gone, or the moment its input closed. This holds whether that list shows the id free or held by another process. It adds to decision 205, by which the guard ends below a root whose id another process holds only what was made before that process. A root that the list still shows, made at the same time as before, keeps its whole tree within the guard's reach. What a living process of the tree made after that moment is ended too.
