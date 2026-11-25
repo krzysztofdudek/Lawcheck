@@ -7,7 +7,7 @@ Lawcheck follows [Semantic Versioning](https://semver.org/).
 ### Before you upgrade
 
 - `scope.law_changes` in `lawcheck check --json` no longer says `changes may_use` for a `may_use` list that got wider, or `changes the waivers` for a type whose waivers count again. It says `widens may_use of the type library by command` or `widens may_use of the type library to any file`, and `reads waivers in the type library`. A script that finds these changes by the old words also looks for `widens may_use` and `reads waivers`.
-- Lawcheck now reads `.lawcheck/config.local.yaml` as the reviewer settings of one machine. Alpha.5 read no file of that name. `lawcheck check` stops with `config-invalid` on a `.lawcheck/config.local.yaml` that git tracks: take it out of git with `git rm --cached .lawcheck/config.local.yaml`, or move its settings into `.lawcheck/config.yaml`. An untracked one now sets the reviewer on its machine, and a key outside its `reviewer` section is `config-invalid`.
+- Lawcheck now reads `.lawcheck/config.local.yaml` as the reviewer settings of one machine. In alpha.5 no command read that file. `lawcheck check` stops with `config-invalid` on a `.lawcheck/config.local.yaml` that git tracks: take it out of git with `git rm --cached .lawcheck/config.local.yaml`, or move its settings into `.lawcheck/config.yaml`. An untracked one now sets the reviewer on its machine, and a key outside its `reviewer` section is `config-invalid`.
 
 ### Notes of 0.1.0-alpha.5, corrected
 
