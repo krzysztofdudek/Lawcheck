@@ -1,4 +1,224 @@
 {
-  "chapters": [],
-  "loop": null
+  "chapters": [
+    {
+      "page": "quick-start",
+      "number": 1,
+      "seconds": 59.6,
+      "transcript": [
+        "Lawcheck installs with one npm command.",
+        "It adds four packages.",
+        "Git starts a new repository named shop.",
+        "In it, one file holds a function that prints text.",
+        "Lawcheck init writes an empty law.",
+        "The law is one file in the dot lawcheck folder.",
+        "The law gets one type, core.",
+        "It holds prices and orders, with no input or output.",
+        "One line says core may use only core.",
+        "Then a file in core breaks it.",
+        "Line one imports print from the command layer.",
+        "The command layer has no type.",
+        "Lawcheck check fails with one error.",
+        "It names line one of the receipt file.",
+        "Core may not use a file with no type.",
+        "The quick start has these steps as text."
+      ],
+      "files": {
+        "mp4": {
+          "name": "quick-start.mp4",
+          "sha256": "a88dae110063998b4527f67499d357ae286d82f471eccc4448364af121f4cfc8",
+          "bytes": 1708926
+        },
+        "vtt": {
+          "name": "quick-start.vtt",
+          "sha256": "ffa3a8cfd0632217477c90cfee3384e1e5ab4271f986ed60bf6b56908a1e2ea1",
+          "bytes": 1124
+        },
+        "jpg": {
+          "name": "quick-start.jpg",
+          "sha256": "0bf10f416b87dee490617814e8ac9a3179293120520c3c9385916d6d14a8295e",
+          "bytes": 52364
+        }
+      },
+      "release": "v0.1.0-alpha.5"
+    },
+    {
+      "page": "forbid-a-use",
+      "number": 2,
+      "seconds": 55.5,
+      "transcript": [
+        "Forbid one layer to use another.",
+        "Claude Code gets a prompt for a loyalty discount in core.",
+        "A customer with more than five orders gets ten percent off.",
+        "The new total comes with a message that shows the saved amount as money.",
+        "With no law, the ten tests pass.",
+        "But line one of a business logic file imports from the HTTP handlers.",
+        "One line of the law forbids that.",
+        "Core may use only core.",
+        "Lawcheck check fails on the two changed files.",
+        "It names line one and the rule.",
+        "Core may not use the API.",
+        "The same prompt runs with the law and the plugin.",
+        "The agent keeps the helper in core.",
+        "The check passes.",
+        "The guide has these steps as text."
+      ],
+      "files": {
+        "mp4": {
+          "name": "forbid-a-use.mp4",
+          "sha256": "6d4008eda11b0c2710771d50036987f7645942be4147c9013a71e6ed812a703b",
+          "bytes": 1718730
+        },
+        "vtt": {
+          "name": "forbid-a-use.vtt",
+          "sha256": "bc8df846f58b5cda24c9fed733ae67ea1ab67769f07803c0b7ba3ed5e42971bf",
+          "bytes": 1101
+        },
+        "jpg": {
+          "name": "forbid-a-use.jpg",
+          "sha256": "ec910a52bce8c1ba4bc31f404c9be7517f10371e9defa1f8c470bbf24ccbd022",
+          "bytes": 119314
+        }
+      },
+      "release": "v0.1.0-alpha.5"
+    },
+    {
+      "page": "write-a-script-rule",
+      "number": 3,
+      "seconds": 58.1,
+      "transcript": [
+        "Write a script rule.",
+        "In this cart file, line three calls fetch.",
+        "Line one names it in a comment.",
+        "Claude Code gets a prompt for a script rule.",
+        "No file of core may call fetch.",
+        "A comment is not a finding.",
+        "The agent writes the rule.",
+        "It reads the syntax tree of the file.",
+        "The law gets the rule and its reason.",
+        "Only the API layer talks to the network.",
+        "Core lists the rule.",
+        "Lawcheck try reports one finding, on line three.",
+        "The comment on line one is not a finding.",
+        "The guide has these steps as text."
+      ],
+      "files": {
+        "mp4": {
+          "name": "write-a-script-rule.mp4",
+          "sha256": "cad7c97c0b7ae67c6c634f48f8dcb4f5dffcdf9be94318b5c0f620e8af149c5f",
+          "bytes": 1467046
+        },
+        "vtt": {
+          "name": "write-a-script-rule.vtt",
+          "sha256": "b71205540888fc807d7a46c95d298153ec7cdeeac3342406b4a4d4e5703721d6",
+          "bytes": 933
+        },
+        "jpg": {
+          "name": "write-a-script-rule.jpg",
+          "sha256": "4aa5c6e57e0461617064fc76700417e55984d567629779c094757ec629f59442",
+          "bytes": 95974
+        }
+      },
+      "release": "v0.1.0-alpha.5"
+    },
+    {
+      "page": "write-a-reviewer-rule",
+      "number": 4,
+      "seconds": 59.8,
+      "transcript": [
+        "Write a reviewer rule.",
+        "In this refund file, the error says only failed.",
+        "The reviewer is Claude Code, with no key.",
+        "Claude Code gets a prompt for the rule.",
+        "Every error a caller sees must say what happened and what to do next.",
+        "The agent writes the rule in plain words.",
+        "The law lists it on core.",
+        "Lawcheck try runs it on the refund file.",
+        "The model finds line two.",
+        "The error does not say what happened, or what the caller can do next.",
+        "The new message says the order is not paid yet.",
+        "It says to take the payment before a refund.",
+        "With a clearer message, the review passes.",
+        "It took one reviewer call.",
+        "The next check reads the saved verdict and calls no model.",
+        "The guide has these steps as text."
+      ],
+      "files": {
+        "mp4": {
+          "name": "write-a-reviewer-rule.mp4",
+          "sha256": "d3c845ea19ac7b7baf6136308a5716e91683898f335f8bedea19b05cf13b1e5e",
+          "bytes": 1794262
+        },
+        "vtt": {
+          "name": "write-a-reviewer-rule.vtt",
+          "sha256": "e4c173de333400e18bb98c43ea88c911c25f7c5579fc888de31796d96fefdac2",
+          "bytes": 1189
+        },
+        "jpg": {
+          "name": "write-a-reviewer-rule.jpg",
+          "sha256": "f374b1cd77ef2b9cc7a2eb056271130c077e28851dba96b9b536d2e54bdb78cb",
+          "bytes": 94035
+        }
+      },
+      "release": "v0.1.0-alpha.5"
+    },
+    {
+      "page": "ci",
+      "number": 5,
+      "seconds": 57.6,
+      "transcript": [
+        "A CI job can run lawcheck check on each pull request.",
+        "A git hook can run it on each commit or push.",
+        "Claude Code gets a prompt to add that job from the docs.",
+        "The agent writes the workflow.",
+        "Its check step runs lawcheck check against the base branch.",
+        "Then it checks again with the law of the base branch.",
+        "Here the job's command runs with the network off and no key.",
+        "On the branch with the reviewer rule, it passes.",
+        "On the discount branch, the check fails.",
+        "Line one of the discount file uses the API.",
+        "Core may not use it.",
+        "Exit code one fails the job.",
+        "The page has the whole job as text."
+      ],
+      "files": {
+        "mp4": {
+          "name": "ci.mp4",
+          "sha256": "55c9e07d3e173ae2b517e6872407ffb8ef10a9b3f647a763aa00d20bbd2a071b",
+          "bytes": 1552968
+        },
+        "vtt": {
+          "name": "ci.vtt",
+          "sha256": "4a86c9733125c85d502e3ffe1a73af68baa905f0670f2b54bf4917d5f4ea3289",
+          "bytes": 993
+        },
+        "jpg": {
+          "name": "ci.jpg",
+          "sha256": "0266f2aba5cca54af92acbfccc94ec17c653131b570bdcca3387c722c10cc2d6",
+          "bytes": 53635
+        }
+      },
+      "release": "v0.1.0-alpha.5"
+    }
+  ],
+  "loop": {
+    "seconds": 28.9,
+    "files": {
+      "mp4": {
+        "name": "loop.mp4",
+        "sha256": "a5d2b2efea676252bd152961cc729eef27b8b995154bfb57c04ad31e5e2bf162",
+        "bytes": 336695
+      },
+      "webm": {
+        "name": "loop.webm",
+        "sha256": "b03bc9e81a28aaef014668ce6abc84d58aae85629cfa67bdcf82d0b114adc6f5",
+        "bytes": 692239
+      },
+      "gif": {
+        "name": "loop.gif",
+        "sha256": "0a84caefdb8f33e7f38e8acb1ef9f90dffe7a30a1da3f76d888554a44987929f",
+        "bytes": 210805
+      }
+    },
+    "release": "v0.1.0-alpha.5"
+  }
 }

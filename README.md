@@ -1,5 +1,7 @@
 # Lawcheck
 
+[![Claude Code imports the HTTP handlers into the business logic, and the tests pass. Lawcheck names the line. With the same prompt, the law and the plugin, the agent keeps the layers apart.](https://github.com/krzysztofdudek/Lawcheck/releases/download/v0.1.0-alpha.5/loop.gif)](https://lawcheck.dev)
+
 Architecture checks for coding agents. You write down which layer may import which. Lawcheck checks each file your agent edits and names the file and line that break the rule.
 
 The check of imports is deterministic. It reads them in 12 languages with no model, and the same code gives the same result. Lawcheck sends code to a model only for a rule you write in prose.
