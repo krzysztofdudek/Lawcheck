@@ -22,7 +22,7 @@ Commit `package.json` and any lockfile. The jobs and hooks below start Lawcheck 
 
 ### 2. Add the workflow
 
-Write `.github/workflows/lawcheck.yml`. The workflow runs on pull requests, merge queues and pushes to `main`. As written, it checks the change twice: with the law of the branch, then with the law of the [base](concepts.md#base). Whether to keep both checks is [your team's choice](#which-law-judges-a-change). When the law sits below the top of the repository, give the workflow step `Check the change` the line `working-directory: <the folder that holds .lawcheck>`.
+Write `.github/workflows/lawcheck.yml`. The workflow runs on pull requests, merge queues and pushes to `main`. As written, it checks the change twice: with the law of the branch, then with the law of the [base](concepts.md#base). Your team [chooses whether to keep both](#the-law-that-judges-a-change). When the law sits below the top of the repository, give the workflow step `Check the change` the line `working-directory: <the folder that holds .lawcheck>`.
 
 <!-- example: ci-workflow -->
 ```yaml
@@ -116,7 +116,7 @@ echo node_modules/ >> .gitignore
 
 ### 5. Give the base on another CI service
 
-`--base` chooses which files are the change, and `--law-from` [which law judges them](#which-law-judges-a-change). `--law-from` has no default: without it, the law in the checkout judges. `--base` has one: without the flag, a [check of the change](concepts.md#check-of-the-change) takes its base from `LAWCHECK_BASE`, then from the variables of the CI service below, then from `origin/HEAD`. Lawcheck reads those variables only when the service's own variable, such as `GITHUB_ACTIONS`, is set. With `CI` set to `false`, `no`, `0`, `off` or an empty value, it reads none. The base is `origin/` and the branch name. For Azure Pipelines, Lawcheck first removes the prefix `refs/heads/`.
+`--base` chooses which files are the change, and `--law-from` [which law judges them](#the-law-that-judges-a-change). `--law-from` has no default: without it, the law in the checkout judges. `--base` has one: without the flag, a [check of the change](concepts.md#check-of-the-change) takes its base from `LAWCHECK_BASE`, then from the variables of the CI service below, then from `origin/HEAD`. Lawcheck reads those variables only when the service's own variable, such as `GITHUB_ACTIONS`, is set. With `CI` set to `false`, `no`, `0`, `off` or an empty value, it reads none. The base is `origin/` and the branch name. For Azure Pipelines, Lawcheck first removes the prefix `refs/heads/`.
 
 | CI service | Variable | What it holds |
 |---|---|---|
@@ -271,7 +271,7 @@ A contributor who has the key records the reviews as [Record the reviews before 
 
 `.lawcheck/verdicts` is a file of the pull request. Under a law without `signers`, each line is a pass for the file and rule it names, whoever wrote it and whether a reviewer was asked. CI therefore trusts the author of the pull request on reviews, as it does on `.lawcheck/` ([A change to the law](#a-change-to-the-law)).
 
-To stop trusting the author on reviews, name signers in the law ([Signed passes](reviewer-rules.md#signed-passes)). The job then counts only the passes a signer signed. A check with the base's law reads the base's signers, so a pull request that adds a signer or drops `signers` makes none of its own passes count there ([which law](#which-law-judges-a-change)). A maintainer who is a signer records the reviews of a fork as [A contributor with no reviewer](#a-contributor-with-no-reviewer) says. A job that records reviews needs a signing key as a secret and a signer of its own. Anyone who can push a branch can make that job sign a pass.
+To stop trusting the author on reviews, name signers in the law ([Signed passes](reviewer-rules.md#signed-passes)). The job then counts only the passes a signer signed. A check with the base's law reads the base's signers, so a pull request that adds a signer or drops `signers` makes none of its own passes count there ([the choice](#the-law-that-judges-a-change)). A maintainer who is a signer records the reviews of a fork as [A contributor with no reviewer](#a-contributor-with-no-reviewer) says. A job that records reviews needs a signing key as a secret and a signer of its own. Anyone who can push a branch can make that job sign a pass.
 
 ## Findings in the pull request
 
@@ -392,7 +392,7 @@ note: this change edits the law that judges it: takes the rule no-console off th
 
 With `--law-from "$base"`, the base's law judges the change, and the check fails with exit 1 at `src/core/total.ts:2` ([`--law-from`](commands.md#law-from-ref)). [What a check judges](change.md) lists every change of the law that the note names.
 
-### Which law judges a change
+### The law that judges a change
 
 Your team chooses one of three. A coding agent that writes this job asks you which first. The last five lines of the step `Check the change` run both checks. For one law alone, replace them with its lines. A root commit still runs with `--full`.
 

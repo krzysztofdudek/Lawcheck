@@ -231,7 +231,7 @@ The run exits 1 on an error in debt. The first line counts those errors apart, a
 
 ### --law-from `<ref>`
 
-`--law-from` judges the change by the law of another commit, such as the base. Lawcheck reads `.lawcheck/law.yaml`, `.lawcheck/config.yaml` and `.lawcheck/rules/` of that commit from git, and changes nothing in the checkout. The files it judges are those of the work tree. A change that takes a rule off a type and breaks that rule then fails ([A change to the law](ci.md#a-change-to-the-law)). Whether CI uses this flag is [your team's choice](ci.md#which-law-judges-a-change).
+`--law-from` judges the change by the law of another commit, such as the base. Lawcheck reads `.lawcheck/law.yaml`, `.lawcheck/config.yaml` and `.lawcheck/rules/` of that commit from git, and changes nothing in the checkout. The files it judges are those of the work tree. A change that takes a rule off a type and breaks that rule then fails ([A change to the law](ci.md#a-change-to-the-law)). In CI, using this flag is [your team's choice](ci.md#the-law-that-judges-a-change).
 
 A rule of that commit judges the commit's text of `.lawcheck/law.yaml`, `.lawcheck/config.yaml` and `.lawcheck/rules/`, and the work tree's text of every other file. Lawcheck loads the script rules from a copy of the commit's `.lawcheck/rules/` in `.lawcheck/.local/`. It removes the copy when the run ends. A rule imports the helpers of that copy by a relative path.
 

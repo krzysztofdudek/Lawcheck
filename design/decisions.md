@@ -597,3 +597,13 @@ CI judges the change alone, with the plain check of the job in `docs/ci.md`. `ch
 Why: people then see findings only about what they change. Without the sentence, the choice read as an accident, and the setup page, which runs `--full` several times, read as if every later change needed it.
 
 Two places run `--full` inside a job. A root commit has no base, so the script judges every file. The recipe for GitHub code scanning is optional and audits the whole code on each run: code scanning takes each upload as the whole analysis and closes every alert the upload lacks, so a file written from a check of the change would close the alerts of every file the change leaves alone. The page says that the recipe is that audit, and that the job without it judges only the change. The recipe was kept as it is rather than moved into a job someone starts by hand, since moved, its alerts would be only as fresh as the last audit.
+
+## Decision (number at merge). The law that judges a change in CI is the team's choice
+
+`docs/ci.md` gives three choices: the change's own law, the law of the base through `--law-from`, and both. It says what a choice of one law misses, and it tells a coding agent to ask the user before it writes the job. `docs/agent-setup.md` says the same for a CI job that the user asks for. Neither page picks one for the user.
+
+Why: each choice misses something or costs something, and which of those matters depends on how a team changes its law. With the change's own law, a change can loosen the law and break it at once, and can add a signer of its own. With the base's law, a change can tighten the law and break it at once, and can break the law file, after which every check by the base's law stops, the check of the fix included. Both catch all of these and cost a second run.
+
+The workflow on the page still runs both. The page needs one whole file that runs as it stands, the tutorial film shows that file line by line, and a job built from it misses nothing the other two would catch. Each other choice replaces the last five lines of its step, and a test runs all three as written. The lines for the base's law alone fall back to the change's own law when the base holds no law, since otherwise the pull request that adds the law would stop with `law-from-unreachable`.
+
+`--base` and `--law-from` stay apart: `--base` chooses the files of the change and has a default, and `--law-from` chooses the law and has none. No variable or setting turns `--law-from` on, so a job judges by the base's law only where its script says so.

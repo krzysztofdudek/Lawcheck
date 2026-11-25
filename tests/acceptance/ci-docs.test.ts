@@ -77,7 +77,7 @@ test('test 1410: the three choices of docs/ci.md for the law that judges a chang
   const commands = readFileSync(new URL('../../docs/commands.md', import.meta.url), 'utf8');
   for (const what of ['`--base` chooses which files are the change, and [`--law-from`](#law-from-ref) chooses which law judges them', 'It has a default: without the flag, Lawcheck takes `LAWCHECK_BASE`', '`--law-from` has no default']) assert.ok(commands.includes(what), what);
   const setup = readFileSync(new URL('../../docs/agent-setup.md', import.meta.url), 'utf8');
-  for (const what of ["ask the user which law judges a change in CI: the change's own law, the law of the base, or both", 'The choice is the user\'s, so take none by default', '(ci.md#which-law-judges-a-change)']) assert.ok(setup.includes(what), what);
+  for (const what of ["ask the user which law judges a change in CI: the change's own law, the law of the base, or both", 'The choice is the user\'s, so take none by default', '(ci.md#the-law-that-judges-a-change)']) assert.ok(setup.includes(what), what);
 
   const NO_RULE = ANNOTATED_LAW.replace('rules: [no-console, no-todo]', 'rules: []');
   const NO_TODO_RULE = ANNOTATED_LAW.replace('rules: [no-console, no-todo]', 'rules: [no-console]');
@@ -94,29 +94,30 @@ test('test 1410: the three choices of docs/ci.md for the law that judges a chang
     ['a change that breaks a rule file and nothing it binds', ANNOTATED_LAW, { '.lawcheck/rules/no-console.mjs': 'export async function check( {\n' }, { own: 0, base: 0, both: 0 }],
     ['the pull request that adds the law', null, { '.lawcheck/law.yaml': ANNOTATED_LAW, 'src/core/total.ts': call }, { own: 1, base: 1, both: 1 }],
   ];
-  await atOnce(cases, 4, ([what]) => what, ([what, lawOfBase, change, expected]) => inTemp(async (dir) => {
+  await atOnce(cases, cases.length, ([what]) => what, ([what, lawOfBase, change, expected]) => inTemp(async (dir) => {
     const work = clone(dir, lawOfBase === null ? { '.gitignore': 'node_modules/\n' } : { ...rules, '.lawcheck/law.yaml': lawOfBase });
     standIn(work);
     if (lawOfBase === null) for (const [path, text] of Object.entries(rules)) write(work, path, text);
     for (const [path, text] of Object.entries(change)) write(work, path, text);
     for (const [name, lines] of Object.entries(choices)) write(dir, `${name}.sh`, `${lines.join('\n')}\n`);
-    const job = (choice: Choice, env: NodeJS.ProcessEnv) => spawnSync('sh', ['-e', join(dir, `${choice}.sh`)], { cwd: work, env: { ...GIT_ENV, npm_config_update_notifier: 'false', CI: 'true', ...env }, encoding: 'utf8' });
+    const job = (choice: Choice, env: NodeJS.ProcessEnv): Promise<{ status: number | string | null; stdout: string; stderr: string }> =>
+      new Promise((done) => execFile('sh', ['-e', join(dir, `${choice}.sh`)], { cwd: work, env: { ...GIT_ENV, npm_config_update_notifier: 'false', CI: 'true', ...env }, encoding: 'utf8' }, (error, stdout, stderr) => done({ status: error === null ? 0 : (error.code ?? null), stdout, stderr })));
     for (const choice of Object.keys(choices) as Choice[]) {
-      const run = job(choice, { EVENT: 'pull_request', BASE_REF: 'main' });
+      const run = await job(choice, { EVENT: 'pull_request', BASE_REF: 'main' });
       assert.equal(run.status, expected[choice], `${what}, ${choice}\n${run.stdout}${run.stderr}`);
     }
     if (what === 'a change that tightens a rule and breaks it') {
       const before = git(work, 'rev-parse', 'HEAD').trim();
       git(work, 'add', '-A');
       git(work, 'commit', '-q', '-m', 'tighten');
-      assert.equal(job('base', { EVENT: 'push', BEFORE: before }).status, 0, 'the push of that change to main passes by the law before it');
+      assert.equal((await job('base', { EVENT: 'push', BEFORE: before })).status, 0, 'the push of that change to main passes by the law before it');
     }
     if (what === 'a change that breaks the law file') {
       git(work, 'add', '-A');
       git(work, 'commit', '-q', '-m', 'broken');
       git(work, 'update-ref', 'refs/remotes/origin/main', 'HEAD');
       write(work, '.lawcheck/law.yaml', ANNOTATED_LAW);
-      const fix = job('base', { EVENT: 'pull_request', BASE_REF: 'main' });
+      const fix = await job('base', { EVENT: 'pull_request', BASE_REF: 'main' });
       assert.equal(fix.status, 2, `the fix of a merged broken law fails by the base's law\n${fix.stdout}`);
       assert.match(fix.stdout, /error\[law-invalid\]/);
     }

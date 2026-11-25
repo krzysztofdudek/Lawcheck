@@ -71,7 +71,7 @@ Lawcheck sends code to a model only when you ask the model to judge a rule writt
 ## Limits
 
 - After it has sent the agent back three times, the plugin lets the agent finish. The plugin tells you that the check still fails ([The Claude Code plugin](plugin.md#three-returns-at-most)).
-- A pull request can edit the law that judges it. `check` prints what the pull request does to that law ([What a check judges](change.md#the-limits-of-a-plain-check)). The CI job of [CI and git hooks](ci.md#which-law-judges-a-change) can check it with the law of the [base](concepts.md#base). Which law judges a change in CI is your team's choice.
+- A pull request can edit the law that judges it. `check` prints what the pull request does to that law ([What a check judges](change.md#the-limits-of-a-plain-check)). The CI job of [CI and git hooks](ci.md#the-law-that-judges-a-change) can check it with the law of the [base](concepts.md#base). The law that judges a change in CI is your team's choice.
 - Lawcheck reads the forms of [use](concepts.md#use) that [Languages and uses](languages.md#the-languages-whose-uses-are-read) lists for each language. It does not read an `import()` of a variable, `importlib.import_module`, or a class that the code finds by its name at run time. It misses other forms too, such as a Java call written by its full name with no import. It neither judges nor counts a use that it does not read ([Forms the readers miss](languages.md#forms-the-readers-miss)).
 
 Next: [Install](install.md)
