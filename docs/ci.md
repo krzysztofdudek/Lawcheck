@@ -2,7 +2,9 @@
 
 A CI job can run `lawcheck check` on each pull request. A git hook can run it on each commit or push ([Git hooks](#git-hooks)). For example, a pull request adds `console.log` to `src/core/`, where the [law](concepts.md#law) forbids that call. The job below fails on that call with exit 1.
 
-The job needs the git history of the branch back to its merge base with the target branch. It needs no API key, because Lawcheck judges [reviewer rules](concepts.md#reviewer-rule) by the reviews committed in `.lawcheck/verdicts`.
+The job needs the git history of the branch back to its merge base with the target branch. It needs no API key.
+
+CI judges only the change on purpose, so that people see findings only about what they change. `--full` is a deliberate audit of the whole code.
 
 ## A CI job
 
@@ -69,7 +71,7 @@ jobs:
           fi
 ```
 
-The script of the step `Check the change` picks the base and passes it with `--base`. On a pull request, `lawcheck check` without `--base` would take the target branch from `GITHUB_BASE_REF` ([Give the base on another CI service](#_5-give-the-base-on-another-ci-service)). A merge queue and a push set no `GITHUB_BASE_REF`. The second check needs the base commit too. For a pull request, the base is the target branch under `origin/`. For a merge queue, it is the commit that the queue builds on. For a push, the script picks the base this way:
+The script of the step `Check the change` picks the base and passes it with `--base`. On a pull request, `lawcheck check` without `--base` would take the target branch from `GITHUB_BASE_REF` ([Give the base on another CI service](#_5-give-the-base-on-another-ci-service)). A merge queue and a push set no `GITHUB_BASE_REF`. For a pull request, the base is the target branch under `origin/`. For a merge queue, it is the commit that the queue builds on. For a push, the script picks the base this way:
 
 | The push | The base the script passes |
 |---|---|
@@ -77,8 +79,6 @@ The script of the step `Check the change` picks the base and passes it with `--b
 | a first push of a branch, whose "before" is all zeros | the parent of the last commit |
 | a force-push that removed the "before" commit | the parent of the last commit, so a force-push is judged by its last commit |
 | a root commit, which has no parent | none: the script runs the check with `--full` |
-
-The job judges only the change on purpose, so that people see findings only about what they change. `lawcheck check --full` is a deliberate audit of the whole code, which you run on purpose. The script runs it only for a root commit, which has no base. One optional recipe adds that audit to each run of the job ([Show the findings in GitHub code scanning](#_3-show-the-findings-in-github-code-scanning)).
 
 `persist-credentials: false` keeps the token of the job out of `.git/config`. A [script rule](concepts.md#script-rule) can read that file. Without the setting, a rule that the pull request adds could read the token.
 
@@ -142,7 +142,7 @@ error[base-unreachable]  no base in this CI job: no --base, no LAWCHECK_BASE, no
 next: pass --base origin/<the branch the change goes into> or set LAWCHECK_BASE, with the history fetched (fetch-depth: 0 in actions/checkout, GIT_DEPTH: 0 in GitLab CI, fetchDepth: 0 in Azure Pipelines); or judge every file with lawcheck check --full
 ```
 
-The `next:` line also names `lawcheck check --full`. That run is a deliberate audit of the whole code. To judge the change, give the job its base. Fetch the history with the setting that the `next:` line names for your CI service. Then pass the branch that the change goes into:
+Fetch the history with the setting that the `next:` line names for your CI service. Then pass the branch that the change goes into:
 
 ```text
 $ lawcheck check --base origin/main
@@ -196,7 +196,7 @@ Lawcheck itself runs on Linux, macOS and Windows.
 
 ## Reviewer rules in CI
 
-Without `--review`, the job you set up in [Add the workflow](#_2-add-the-workflow) calls no reviewer and needs no API key. It reads the [verdicts](concepts.md#verdict) committed in `.lawcheck/verdicts`. A file that the change leaves alone is not asked about. Lawcheck asks for a pass only for a changed file that a reviewer rule [binds](change.md#the-change). A pull request that touches no such file never fails for a missing review. When `.lawcheck/verdicts` holds no pass for such a file, the check reports `not-reviewed`, and the job fails:
+Without `--review`, the job you set up in [Add the workflow](#_2-add-the-workflow) calls no reviewer and needs no API key. It reads the [verdicts](concepts.md#verdict) committed in `.lawcheck/verdicts`. A file that the change leaves alone is not asked about. Lawcheck asks for a pass only for a changed file that a reviewer rule [binds](change.md#the-change). When `.lawcheck/verdicts` holds no pass for such a file, the check reports `not-reviewed`, and the job fails:
 
 ```output
 lawcheck: FAIL  1 error in 1 changed file (against origin/main)
@@ -373,9 +373,7 @@ lawcheck-quality:
 
 ### 3. Show the findings in GitHub code scanning
 
-This recipe is optional. With it, each run of the job also audits the whole code. Code scanning closes every alert that an upload lacks, so the SARIF file has to hold the findings of every file. A [check of the change](concepts.md#check-of-the-change) does not hold them, and `--full` does. Add the recipe only when you want that audit in code scanning. The exit code stays that of the change, because without `--strict` debt does not fail the check. The log of the job then lists the debt below the findings of the change.
-
-In [the workflow](#_2-add-the-workflow), add `security-events: write` to `permissions`. Add `--sarif "$RUNNER_TEMP/lawcheck.sarif"` to the check with `--full`, and `--full --sarif "$RUNNER_TEMP/lawcheck.sarif"` to the first check with `--base "$base"`. Then add this step ([SARIF 2.1.0](json.md#sarif-2-1-0)):
+In [the workflow](#_2-add-the-workflow), add `security-events: write` to `permissions`. Add `--sarif "$RUNNER_TEMP/lawcheck.sarif"` to the check with `--full`, and `--full --sarif "$RUNNER_TEMP/lawcheck.sarif"` to the first check with `--base "$base"`. Code scanning closes every alert that an upload lacks. With `--full`, the SARIF file holds the findings of every file. So this optional recipe makes each run an audit of the whole code. Then add this step ([SARIF 2.1.0](json.md#sarif-2-1-0)):
 
 <!-- example: sarif-upload -->
 ```yaml
