@@ -7,6 +7,7 @@ Lawcheck follows [Semantic Versioning](https://semver.org/).
 ### Before you upgrade
 
 - `scope.law_changes` in `lawcheck check --json` no longer says `changes may_use` for a `may_use` list that got wider, or `changes the waivers` for a type whose waivers count again. It says `widens may_use of the type library by command` or `widens may_use of the type library to any file`, and `reads waivers in the type library`. A script that finds these changes by the old words also looks for `widens may_use` and `reads waivers`.
+- Lawcheck now reads `.lawcheck/config.local.yaml` as the reviewer settings of one machine. Alpha.5 read no file of that name. `lawcheck check` stops with `config-invalid` on a `.lawcheck/config.local.yaml` that git tracks: take it out of git with `git rm --cached .lawcheck/config.local.yaml`, or move its settings into `.lawcheck/config.yaml`. An untracked one now sets the reviewer on its machine, and a key outside its `reviewer` section is `config-invalid`.
 
 ### Notes of 0.1.0-alpha.5, corrected
 
@@ -23,7 +24,7 @@ The notes of 0.1.0-alpha.5 are wrong in ten places. One is under Fixed below, an
 
 ### Added
 
-- One machine can use its own reviewer without a commit. Each key of the `reviewer` section has a variable, such as `LAWCHECK_REVIEWER_PROVIDER` and `LAWCHECK_REVIEWER_MODEL`, and `.lawcheck/config.local.yaml`, which git ignores, takes the same keys. A variable wins over `.lawcheck/config.local.yaml`, which wins over `.lawcheck/config.yaml`. `lawcheck doctor` and `lawcheck explain --rule` name the reviewer in force and the place of each value. A pass counts whatever reviewer recorded it. `lawcheck docs config` describes both places under "On one machine".
+- One machine can use its own reviewer without a commit. Each key of the `reviewer` section has a variable, such as `LAWCHECK_REVIEWER_PROVIDER` and `LAWCHECK_REVIEWER_MODEL`, and `.lawcheck/config.local.yaml`, which git ignores, takes the same keys. A variable wins over `.lawcheck/config.local.yaml`, which wins over `.lawcheck/config.yaml`. `lawcheck doctor` and `lawcheck explain --rule` name the reviewer in force and the place of each value. With `--json`, the rule document of `lawcheck explain` has the new field `reviewer`. A pass counts whatever reviewer recorded it. `lawcheck docs config` describes both places under "On one machine".
 
 ### Fixed
 
