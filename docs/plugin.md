@@ -142,7 +142,7 @@ A hook that fails inside its own code prints `Lawcheck plugin:` and the cause on
 
 ## The setup skill
 
-The plugin holds one skill, `lawcheck:setup`. The skill is early. The first law, the advice and the target have not yet passed their trials, in which a coding agent runs the skill on sample repositories. Only you start it, by typing `/lawcheck:setup`. The agent never starts it by itself. When you ask for a law in other words, the agent tells you to type the command. The skill runs `lawcheck docs agent-setup` and follows that page. Its steps therefore match the Lawcheck you installed. The agent asks its questions with the question tool of Claude Code. Its last message names the next step. In a repository that already has a law, `/lawcheck:setup` alone says so and changes nothing.
+The plugin holds one skill, `lawcheck:setup`. The skill is early. The law it writes can forbid correct new code, or leave out a boundary that your project wrote down. Its advice can miss a boundary between your packages. Its target can forbid more than you asked, or miss a problem you named. Read each type, list and rule it writes before you commit `.lawcheck/`. Only you start it, by typing `/lawcheck:setup`. The agent never starts it by itself. When you ask for a law in other words, the agent tells you to type the command. The skill runs `lawcheck docs agent-setup` and follows that page. Its steps therefore match the Lawcheck you installed. The agent asks its questions with the question tool of Claude Code. Its last message names the next step. In a repository that already has a law, `/lawcheck:setup` alone says so and changes nothing.
 
 Two more parts of the skill run only when you ask for them, in the words you type with the command:
 

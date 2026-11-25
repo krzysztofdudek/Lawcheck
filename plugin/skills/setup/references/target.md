@@ -90,7 +90,7 @@ Total: <N> uses in <M> files.
 - Adds: <N> uses in <M> files that the law before it allows
 - Code to change: <N> places in <M> files: <file:line, ...>
 - Changes: `.lawcheck/law.yaml`, and no other file
-- Done when: with this law in `.lawcheck/law.yaml`, `lawcheck check --full --base HEAD` exits 0 and prints `debt (outside this change): <N> findings in <M> files`
+- Done when: with this law in `.lawcheck/law.yaml`, `lawcheck check --full --base HEAD` exits 0 and prints a line that starts with `debt (outside this change): <N> findings in <M> files`
 - To make it law: type `/lawcheck:setup make step 1 of the target law`
 - Law after this step:
 
@@ -103,7 +103,7 @@ Total: <N> uses in <M> files.
 ## Not covered
 ````
 
-Under a heading with nothing in it, write "nothing". In the column `Where`, give up to three files and lines, and "and <n> more" for the rest. Every step has all seven lines and its law. The line "Done when" copies the line `debt (outside this change):` of that step's measurement, and says nothing about the code after a fix.
+Under a heading with nothing in it, write "nothing". In the column `Where`, give up to three files and lines, and "and <n> more" for the rest. Every step has all seven lines and its law. The line "Done when" copies the line `debt (outside this change):` of that step's measurement, and says nothing about the code after a fix. `lawcheck check` can print counts of waivers and unresolved uses after it on the same line, and the measurement leaves them out.
 
 Check four things before you write the file:
 
