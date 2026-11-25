@@ -1,5 +1,5 @@
 import { closeSync, constants, fstatSync, openSync, readFileSync, readSync } from 'node:fs';
-import { availableParallelism, freemem } from 'node:os';
+import { availableParallelism, freemem, totalmem } from 'node:os';
 import { join } from 'node:path';
 import type { ErrorItem } from './output.js';
 
@@ -51,6 +51,25 @@ function cpuShare(): string | null {
   } catch {
     return null;
   }
+}
+
+// The memory this process may use: the machine's, or the limit of its cgroup where that is less, as in a container started with a limit of memory. Node's count of the machine's memory leaves that limit out.
+export function memoryTotal(machine: number = totalmem(), limit: number = process.constrainedMemory()): number {
+  return limit > 0 && limit < machine ? limit : machine;
+}
+
+// The memory a run may spend on going faster: what the system can give now, less twice the reserve the memory guard keeps. Where the system gives no number, nothing holds the run back. A run in a small container so starts few runners, no parsing threads and keeps few trees, instead of filling its memory and giving them back.
+export function spare(available: number | null = availableNow()): number {
+  return available === null ? Infinity : Math.max(0, available - 2 * MEMORY_RESERVE_BYTES);
+}
+
+// What one busy runner of script rules holds, and one thread that parses, as measured on a repository of 4,133 files: the count of each is cut to fit a share of the spare memory.
+export const RUNNER_BYTES = 160 * MiB;
+export const PARSE_THREAD_BYTES = 96 * MiB;
+
+// The runners a run may have at once: half of its spare memory in runners, never more than its processors and never fewer than one.
+export function runnerLimit(processors: number = cores(), room: number = spare()): number {
+  return Math.max(1, Math.min(processors, Math.floor(room / 2 / RUNNER_BYTES)));
 }
 
 // The most memory the syntax trees kept for the rules of one run may take: a third of what the run may hold. A tree past it is parsed again for each rule that asks.

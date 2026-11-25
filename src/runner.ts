@@ -190,14 +190,21 @@ function sameShape(shape: Shape): boolean {
 
 // A runner can take several rules, one after another, and each rule gets its own copies of the modules it imports: the URL of a rule's module ends with ?rule=<id>, and so does every file it imports, so a helper two rules import keeps its state apart for each. A CommonJS module has one copy for each file whatever its URL, which the runner sees in the count of loaded ones (stateOf).
 const TAG = /[?&]rule=[^&#]*$/;
+// The ending goes after a query the import already has and before its fragment, so an import such as ./helper.mjs?v=2 has a copy for each rule too.
 function tagged(url: string, parent: string | undefined): string {
-  if (!url.startsWith('file:') || parent === undefined || url.includes('?') || url.includes('#')) return url;
+  if (!url.startsWith('file:') || parent === undefined) return url;
   const tag = TAG.exec(parent.split('#')[0]!);
-  return tag === null ? url : `${url}?${tag[0].slice(1)}`;
+  if (tag === null) return url;
+  const hash = url.indexOf('#');
+  const [address, fragment] = hash < 0 ? [url, ''] : [url.slice(0, hash), url.slice(hash)];
+  if (TAG.test(address)) return url;
+  return `${address}${address.includes('?') ? '&' : '?'}${tag[0].slice(1)}${fragment}`;
 }
 
 function untagged(url: string | null): string | null {
-  return url === null ? null : url.replace(TAG, '');
+  if (url === null) return null;
+  const hash = url.indexOf('#');
+  return hash < 0 ? url.replace(TAG, '') : url.slice(0, hash).replace(TAG, '') + url.slice(hash);
 }
 
 // The built-in modules a rule reached: a rule can change what one exports, and the next rule of the same runner would import the change.
@@ -310,9 +317,10 @@ async function finish(): Promise<void> {
   if (!reported) send({ kind: 'finished', clean: !leftBehind() && clean() });
 }
 
-// A runner takes the next rule only when this one left nothing a later rule could meet: no work still running, no change to a global, to a built-in module it reached or to process, no other working directory, no listener on process, no CommonJS module loaded, and nothing printed, since a line it left unfinished would join the next rule's.
+// A runner takes the next rule only when this one left nothing a later rule could meet: no work still running, no change to a global, to a built-in module it reached, to console, to process or to the functions of its two output streams, no callback that takes uncaught exceptions, no other working directory, no listener on process, no CommonJS module loaded, and nothing printed, since a line it left unfinished would join the next rule's.
 interface Trace {
   shapes: Shape[];
+  streams: Map<string | symbol, unknown>[];
   cwd: string;
   env: number;
   listeners: string;
@@ -320,6 +328,22 @@ interface Trace {
   printed: number;
 }
 let before: Trace | null = null;
+
+// A stream changes its own numbers and flags as it works, so of a stream only its own properties by name and its own functions are compared: a rule that replaces write on standard output or standard error sets one.
+function methodsOf(stream: object): Map<string | symbol, unknown> {
+  const out = new Map<string | symbol, unknown>();
+  for (const key of Reflect.ownKeys(stream)) {
+    const value = Reflect.getOwnPropertyDescriptor(stream, key)?.value;
+    out.set(key, typeof value === 'function' ? value : null);
+  }
+  return out;
+}
+
+function sameMethods(was: Map<string | symbol, unknown>, now: Map<string | symbol, unknown>): boolean {
+  if (was.size !== now.size) return false;
+  for (const [key, value] of was) if (!now.has(key) || now.get(key) !== value) return false;
+  return true;
+}
 
 function listeners(): string {
   return process.eventNames().map((name) => `${String(name)} ${process.listenerCount(name)}`).join(',');
@@ -334,13 +358,15 @@ function printed(): number {
 }
 
 function trace(): Trace {
-  return { shapes: [shapeOf(globalThis, true), shapeOf(process, true)], cwd: process.cwd(), env: Object.keys(process.env).length, listeners: listeners(), modules: modules(), printed: printed() };
+  return { shapes: [shapeOf(globalThis, true), shapeOf(process, true), shapeOf(console, false)], streams: [methodsOf(process.stdout), methodsOf(process.stderr)], cwd: process.cwd(), env: Object.keys(process.env).length, listeners: listeners(), modules: modules(), printed: printed() };
 }
 
 function clean(): boolean {
   try {
     if (before === null || process.cwd() !== before.cwd || Object.keys(process.env).length !== before.env || listeners() !== before.listeners || modules() !== before.modules || printed() !== before.printed) return false;
+    if (process.hasUncaughtExceptionCaptureCallback()) return false;
     for (const shape of [...before.shapes, ...reached.values()]) if (!sameShape(shape)) return false;
+    for (const [at, stream] of [process.stdout, process.stderr].entries()) if (!sameMethods(before.streams[at]!, methodsOf(stream))) return false;
     return true;
   } catch {
     return false;

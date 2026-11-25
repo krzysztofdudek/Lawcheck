@@ -42,7 +42,7 @@ export function attach(shared: SharedArrayBuffer): void {
   releases.clear();
 }
 
-// The reader of trees (src/readers.ts) says here whether it holds memory it can give back, the trees it keeps for the rules of the run and the threads that parse: 0 when it holds none, 1 while it does, and 2 once the thread that watches the run has asked for it. That thread reads the memory of the whole process and cannot tell which of several files parsed at once grows it, so while the reader holds such memory it asks for it and ends the run only after the reader has given it back, or has not in time.
+// The run says here whether it holds memory it can give back: the trees the reader keeps for the rules of the run and the threads that parse (src/readers.ts), and the runners of script rules past the first (src/rules.ts). The cell is 0 when it holds none, 1 while it does, and 2 once the thread that watches the run has asked for it. That thread reads the memory of the whole process and cannot tell which of several files parsed at once grows it, so while the reader holds such memory it asks for it and ends the run only after the reader has given it back, or has not in time.
 let watching = false;
 const releases = new Set<() => Promise<void>>();
 
@@ -52,12 +52,19 @@ function giveBack(cell: Int32Array): void {
   void Promise.all(all.map((release) => release().catch(() => undefined))).then(() => Atomics.store(cell, 0, 0));
 }
 
-export function holding(release: () => Promise<void>): void {
-  if (pool === null) return;
+// Returns the call that takes the release back, for a holder that has ended.
+export function holding(release: () => Promise<void>): () => void {
+  if (pool === null) return () => undefined;
   const cell = pool;
+  const drop = () => {
+    if (releases.delete(release) && releases.size === 0 && Atomics.compareExchange(cell, 0, 1, 0) === 1) Atomics.notify(cell, 0);
+  };
   releases.add(release);
-  if (Atomics.compareExchange(cell, 0, 0, 1) === 2) return giveBack(cell);
-  if (watching) return;
+  if (Atomics.compareExchange(cell, 0, 0, 1) === 2) {
+    giveBack(cell);
+    return drop;
+  }
+  if (watching) return drop;
   watching = true;
   const watch = (): void => {
     const waited = Atomics.waitAsync(cell, 0, 1);
@@ -72,6 +79,7 @@ export function holding(release: () => Promise<void>): void {
     else then();
   };
   watch();
+  return drop;
 }
 
 // For the thread that watches: 'asked' when this call asked the reader for its memory, 'ending' while an earlier ask stands, 'none' when the reader holds none.

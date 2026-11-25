@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { fork, spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { memoryError } from '../../dist/cli.js';
-import { attach, lastStep, progressBuffer } from '../../dist/progress.js';
+import { askPoolToEnd, attach, lastStep, progressBuffer } from '../../dist/progress.js';
 import { RUNNER, runRule, runRules } from '../../dist/rules.js';
 
 function file(path: string, lines: string[]) {
@@ -527,5 +527,83 @@ test('test 1398: the findings of a rule count toward the run once, whether it ra
     assert.deepEqual(outcomes[1], { crash: 'throws on b.ts: broke' });
     assert.deepEqual([budget.total, budget.chars, [...budget.byRule]], [3, 22, [['fine', { count: 2, chars: 6 }], ['throws', { count: 1, chars: 16 }]]]);
     void root;
+  });
+});
+
+test('test 1402: a rule that replaces a method of console or the write of an output stream, or sets a callback for uncaught exceptions, is the last rule of its runner, and the next rule meets none of it', async () => {
+  const sees = "export function check() { return [{ message: [process.pid, console.log.name, console.error.name, process.stdout.write.name, process.stderr.write.name, process.hasUncaughtExceptionCaptureCallback()].join(' ') }]; }\n";
+  const leaves: [string, string][] = [
+    ['a replaced console.log', 'console.log = function left() {};'],
+    ['a replaced console.error', 'console.error = function left() {};'],
+    ['a replaced write of standard output', 'process.stdout.write = function left() { return true; };'],
+    ['a replaced write of standard error', 'process.stderr.write = function left() { return true; };'],
+    ['a callback for uncaught exceptions', 'process.setUncaughtExceptionCaptureCallback(() => {});'],
+  ];
+  for (const [what, code] of leaves) {
+    await withRules({ 'before.mjs': SAYS_PID, 'leaves.mjs': `export function check() { ${code} return [{ message: String(process.pid) }]; }\n`, 'after.mjs': sees }, async (_root, task) => {
+      const [before, leaving, after] = (await runRules([task('before'), task('leaves'), task('after')], 1)).map((outcome) => messages(outcome));
+      assert.deepEqual(leaving, before, `${what}: the rule runs in the runner of the rule before it`);
+      const [pid, ...seen] = after![0]!.split(' ');
+      assert.notEqual(pid, before![0], `${what}: the next rule has a fresh runner`);
+      assert.deepEqual(seen, ['log', 'error', '', '', 'false'], what);
+    });
+  }
+});
+
+test('test 1402: two rules that import the same helper by a URL with a query or a fragment each get their own copy of it', async () => {
+  const rule = (specifier: string) => `import { next } from '${specifier}';\nexport function check() { return [{ message: \`\${process.pid} \${next()}\` }]; }\n`;
+  for (const specifier of ['./lib/count.mjs?v=2', './lib/count.mjs#part', './lib/count.mjs?v=2#part']) {
+    await withRules({ 'one.mjs': rule(specifier), 'two.mjs': rule(specifier), 'lib/count.mjs': "let count = 0;\nexport function next() { return `${++count} ${import.meta.url.slice(import.meta.url.indexOf('count.mjs') + 9)}`; }\n" }, async (_root, task) => {
+      const outcomes = await runRules([task('one', { files: ['a.ts', 'b.ts'] }), task('two', { files: ['a.ts', 'b.ts'] })], 1);
+      const said = outcomes.map((outcome) => messages(outcome));
+      const pid = said[0]![0]!.split(' ')[0];
+      const [query, fragment = ''] = specifier.slice('./lib/count.mjs'.length).split('#');
+      const ending = (id: string) => `${query === '' ? '?' : `${query}&`}rule=${id}${fragment === '' ? '' : `#${fragment}`}`;
+      assert.deepEqual(said, [[`${pid} 1 ${ending('one')}`, `${pid} 2 ${ending('one')}`], [`${pid} 1 ${ending('two')}`, `${pid} 2 ${ending('two')}`]], specifier);
+    });
+  }
+});
+
+test('test 1403: a rule that crashes as the first rule of a fresh runner runs once, and a rule that crashes after another rule of its runner runs again alone', async () => {
+  const crashes = "console.error('loaded in ' + process.pid);\nexport function check() { throw new Error('broke in ' + process.pid); }\n";
+  const fine = "export function check() { return []; }\n";
+  const write = process.stderr.write;
+  const printed: string[] = [];
+  process.stderr.write = ((chunk: string | Uint8Array) => {
+    printed.push(String(chunk));
+    return true;
+  }) as typeof process.stderr.write;
+  try {
+    await withRules({ 'crashes.mjs': crashes, 'fine.mjs': fine }, async (_root, task) => {
+      const [first] = (await runRules([task('crashes')], 1)) as { crash: string }[];
+      const loaded = /^loaded in (\d+)\n$/.exec(printed.join(''))?.[1];
+      assert.equal(first!.crash, `throws on a.ts: broke in ${loaded}`);
+      printed.length = 0;
+      const [, second] = (await runRules([task('fine'), task('crashes')], 1)) as { crash: string }[];
+      const shared = /^loaded in (\d+)\n$/.exec(printed.join(''))?.[1];
+      const alone = /^throws on a\.ts: broke in (\d+)$/.exec(second!.crash)?.[1];
+      assert.ok(shared !== undefined && alone !== undefined && shared !== alone, `printed ${printed.join('')}, crashed ${second!.crash}`);
+    });
+  } finally {
+    process.stderr.write = write;
+  }
+});
+
+test('test 1404: asked for memory by the thread that watches, the rules of a run go on one at a time, each in a runner that ends with it, and every rule still gives its findings once', async () => {
+  const buffer = progressBuffer();
+  attach(buffer);
+  const slow = "let calls = 0;\nexport async function check({ files: [file] }) { await new Promise((done) => setTimeout(done, 150)); return [{ message: `${process.pid} ${++calls} ${file.path}` }]; }\n";
+  const ids = ['r1', 'r2', 'r3', 'r4', 'r5', 'r6'];
+  await withRules(Object.fromEntries(ids.map((id) => [`${id}.mjs`, slow])), async (_root, task) => {
+    const running = runRules(ids.map((id) => task(id, { files: ['a.ts', 'b.ts'] })), 3);
+    await new Promise((done) => setTimeout(done, 400));
+    assert.equal(askPoolToEnd(buffer), 'asked');
+    const outcomes = await running;
+    const said = outcomes.map((outcome) => messages(outcome));
+    assert.deepEqual(said.map((own) => own.map((message) => message.split(' ').slice(1).join(' '))), ids.map(() => ['1 a.ts', '2 b.ts']));
+    assert.deepEqual(outcomes.map((outcome) => (outcome as any).findings.map((finding: any) => finding.rule)), ids.map((id) => [id, id]));
+    const runners = said.map((own) => own[0]!.split(' ')[0]);
+    assert.ok(new Set(runners.slice(3)).size === 3, `the rules that started after the ask ran in ${runners.slice(3).join(', ')}`);
+    assert.equal(askPoolToEnd(buffer), 'none');
   });
 });

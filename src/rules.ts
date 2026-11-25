@@ -9,14 +9,14 @@ import { releaseProcess, watchProcess } from './programs.js';
 import { safeText } from './output.js';
 import { hide } from './keys.js';
 import type { Readable } from 'node:stream';
-import { cores, count, MESSAGE_CHARS, points, readError, RULES_RUN_MS, RUN_FINDINGS, RUN_MESSAGE_CHARS } from './limits.js';
+import { count, MESSAGE_CHARS, points, runnerLimit, readError, RULES_RUN_MS, RUN_FINDINGS, RUN_MESSAGE_CHARS } from './limits.js';
 import type { Reads, Serve } from './readers.js';
 import type { ErrorItem } from './output.js';
 import { RULES_DIR, RULES_LIB } from './setup.js';
 import type { Read, ReviewerRule } from './setup.js';
 import { trackedLinks, workTreeTop } from './files.js';
 import { decode, isBinary } from './types.js';
-import { step } from './progress.js';
+import { holding, step } from './progress.js';
 
 export interface RuleFile {
   path: string;
@@ -218,6 +218,7 @@ export interface RuleRun {
   entry?: 'check' | 'companion';
   shared?: boolean;
   quiet?: boolean;
+  giveUp?: AbortSignal;
 }
 
 function pathsOf(value: unknown): string[] | { problem: string } {
@@ -310,7 +311,14 @@ export function runRule(run: RuleRun): Promise<RuleOutcome> {
 }
 
 // A rule runs in a runner of its own (held is null), or as the next rule of a runner that other rules of the run used before it. A runner is kept for the next rule only after findings and only when the runner says the rule left nothing behind; any other end kills it, as the end of a rule's own runner does.
-function drive(run: RuleRun, held: ChildProcess | null): Promise<{ outcome: RuleOutcome; runner: ChildProcess | null; timed?: boolean }> {
+interface Driven {
+  outcome: RuleOutcome;
+  runner: ChildProcess | null;
+  timed?: boolean;
+  gaveUp?: boolean;
+}
+
+function drive(run: RuleRun, held: ChildProcess | null): Promise<Driven> {
   const timeoutMs = run.timeoutMs ?? LIMITS.ruleMs;
   const budget = run.budget ?? new FindingBudget();
   const shared = run.shared === true;
@@ -325,6 +333,7 @@ function drive(run: RuleRun, held: ChildProcess | null): Promise<{ outcome: Rule
     let started = held !== null;
     let clean = false;
     let timed = false;
+    let gaveUp = false;
     let timer: NodeJS.Timeout | undefined;
     let left = timeoutMs;
     let since = 0;
@@ -342,6 +351,7 @@ function drive(run: RuleRun, held: ChildProcess | null): Promise<{ outcome: Rule
       settled = true;
       clearTimeout(timer);
       run.signal?.removeEventListener('abort', stop);
+      run.giveUp?.removeEventListener('abort', yielded);
       if (shared && clean && !(outcome instanceof Error) && 'findings' in outcome && !closed && child.connected) {
         child.off('close', onClose);
         child.off('error', onError);
@@ -351,7 +361,7 @@ function drive(run: RuleRun, held: ChildProcess | null): Promise<{ outcome: Rule
         return resolve({ outcome, runner: child });
       }
       releaseProcess(child);
-      const settle = () => (outcome instanceof Error ? reject(outcome) : resolve({ outcome, runner: null, timed }));
+      const settle = () => (outcome instanceof Error ? reject(outcome) : resolve({ outcome, runner: null, timed, gaveUp }));
       // Windows refuses to remove the root while the killed runner, which works in it, is still ending; and a runner that has ended can still hold what it printed in its pipes, which the tool relays before the run goes on. A pipe can outlive the runner, so the wait ends DRAIN_MS after the runner has ended.
       if (child.pid === undefined || closed) return settle();
       let drain: NodeJS.Timeout | undefined;
@@ -472,8 +482,14 @@ function drive(run: RuleRun, held: ChildProcess | null): Promise<{ outcome: Rule
       });
 
     const stop = () => end({ slow: slowMessage(`not finished ${stage}`) });
+    const yielded = () => {
+      gaveUp = true;
+      end({ slow: slowMessage(`not finished ${stage}`) });
+    };
     run.signal?.addEventListener('abort', stop, { once: true });
     if (run.signal?.aborted) stop();
+    run.giveUp?.addEventListener('abort', yielded, { once: true });
+    if (run.giveUp?.aborted) yielded();
     const onError = (error: Error) => end(started ? error : { broken: `the runner of script rules did not start: ${error.message}` });
     const onExit = (code: number | null, signal: NodeJS.Signals | null) => {
       if (settled) return;
@@ -515,19 +531,31 @@ export interface RuleTask {
 }
 
 // The rules of a run go through few runners, each taking one whole rule after another, so a run of many rules starts far fewer processes than it has rules. Findings are taken from a runner that rules share, and so is a rule that passed its time limit there, since no other rule runs in that runner while it does and a second run would make the user wait twice. After any other end the rule runs once more in a runner of its own, and that result stands, so a crash or a wrong return names its rule exactly as it does alone. The findings of a rule count toward the run only once the rule has ended.
-export async function runRules(tasks: RuleTask[], limit = cores()): Promise<RuleOutcome[]> {
+export async function runRules(tasks: RuleTask[], limit = runnerLimit()): Promise<RuleOutcome[]> {
   const results: RuleOutcome[] = new Array(tasks.length);
+  const again: number[] = [];
   let next = 0;
   let lanes = 0;
   let done = false;
   let more: NodeJS.Timeout | undefined;
   const all: Promise<void>[] = [];
   let failure: unknown = null;
-  const lane = async () => {
+  // When the run comes near the memory it may hold, the thread that watches asks for what can be given back (src/progress.ts). The runners hold most of it: each busy one keeps a heap of its own. From then on one rule runs at a time, each in a runner that ends with it, which is less than a run held before rules shared runners. The rules the other runners were judging start again later.
+  let frugal = false;
+  const working = new Map<number, AbortController>();
+  const drop = holding(async () => {
+    frugal = true;
+    clearTimeout(more);
+    const [, ...others] = [...working.keys()].sort((a, b) => a - b);
+    for (const id of others) working.get(id)!.abort();
+  });
+  const take = (): number | undefined => again.shift() ?? (next < tasks.length ? next++ : undefined);
+  const lane = async (id: number) => {
     let runner: ChildProcess | null = null;
+    const stop = new AbortController();
+    working.set(id, stop);
     try {
-      while (next < tasks.length) {
-        const index = next++;
+      for (let index = take(); index !== undefined; index = take()) {
         const { run, notStarted } = tasks[index]!;
         const early = notStarted?.() ?? null;
         if (early !== null) {
@@ -535,8 +563,17 @@ export async function runRules(tasks: RuleTask[], limit = cores()): Promise<Rule
           continue;
         }
         const own = new FindingBudget();
-        const tried: { outcome: RuleOutcome; runner: ChildProcess | null; timed?: boolean } = await drive({ ...run, budget: own, shared: true }, runner);
+        const fresh = runner === null;
+        const tried: Driven = await drive({ ...run, budget: own, shared: true, giveUp: stop.signal }, runner);
         runner = tried.runner;
+        if (tried.gaveUp === true) {
+          again.unshift(index);
+          return;
+        }
+        if (frugal && runner !== null) {
+          await closeRunner(runner);
+          runner = null;
+        }
         if ('findings' in tried.outcome) {
           const kept = tried.outcome.findings;
           let chars = 0;
@@ -546,19 +583,19 @@ export async function runRules(tasks: RuleTask[], limit = cores()): Promise<Rule
           budget.take(run.rule, into, kept);
           if (own.total > kept.length || own.chars > chars) budget.take(run.rule, into, { count: own.total - kept.length, chars: own.chars - chars });
           results[index] = { ...tried.outcome, findings: into };
-        } else if ('crash' in tried.outcome && tried.timed !== true && !run.signal?.aborted) results[index] = await runRule({ ...run, quiet: true });
+        } else if ('crash' in tried.outcome && !fresh && tried.timed !== true && !run.signal?.aborted) results[index] = await runRule({ ...run, quiet: true });
         else results[index] = tried.outcome;
       }
     } finally {
+      working.delete(id);
       if (runner !== null) await closeRunner(runner);
     }
   };
   const open = () => {
     for (let add = Math.max(lanes, 1); add > 0; add--) {
-      if (done || next >= tasks.length || lanes >= Math.min(limit, tasks.length)) return;
-      lanes++;
+      if (done || frugal || next >= tasks.length || lanes >= Math.min(limit, tasks.length)) return;
       all.push(
-        lane().catch((error: unknown) => {
+        lane(lanes++).catch((error: unknown) => {
           failure ??= error ?? new Error('a runner of script rules failed');
         }),
       );
@@ -568,9 +605,12 @@ export async function runRules(tasks: RuleTask[], limit = cores()): Promise<Rule
   open();
   try {
     for (let at = 0; at < all.length; at++) await all[at];
+    // A rule given up by a runner that ended for memory after the last runner had no rule left to take.
+    while (again.length > 0 && failure === null) await lane(lanes++);
   } finally {
     done = true;
     clearTimeout(more);
+    drop();
   }
   if (failure !== null) throw failure;
   return results;

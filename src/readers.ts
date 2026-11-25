@@ -27,8 +27,9 @@ import { alive, holding, step } from './progress.js';
 import { isMainThread, parentPort, Worker, workerData } from 'node:worker_threads';
 import * as TreeSitter from 'web-tree-sitter';
 import { createParserHost, fileSha256 } from '@chrisdudek/runes/ast';
-import { totalmem } from 'node:os';
-import { cores, readError, treeMemoryBound, USES_FILE_BYTES } from './limits.js';
+import { cores, memoryTotal, PARSE_THREAD_BYTES, readError, spare, treeMemoryBound, USES_FILE_BYTES } from './limits.js';
+import { setFlagsFromString } from 'node:v8';
+import { runInNewContext } from 'node:vm';
 import type { TypedFile } from './types.js';
 
 export type Reason = 'unfollowed' | 'unowned';
@@ -762,6 +763,16 @@ export type RuleUse = { line: number; type?: string | null } & Answer;
 export type UsesAnswer = { uses: RuleUse[]; absent: null } | { uses: null; absent: Absent };
 
 
+// The trees a run gives back are garbage until V8 collects them, and it would collect them only when it next needs room, while the thread that watches reads the memory of the process now. So the run collects at once. Node gives a program no call for that unless it starts with --expose-gc; set while it runs, the flag gives the call to a new context.
+function collect(): void {
+  try {
+    setFlagsFromString('--expose-gc');
+    (runInNewContext('gc') as () => void)();
+  } catch {
+    // Without the call the memory comes back when V8 next collects.
+  }
+}
+
 // How many files are parsed ahead of the one a rule asked for, and how many must be left to parse before the pool starts.
 const AHEAD = 32;
 const POOL_FROM = 8;
@@ -817,7 +828,8 @@ export function ruleReads(input: RuleReadsInput, runes: Runes = RUNES): Reads {
 
   // A tree depends on the path and the text of its file and on nothing of the rule that asks, so every rule of the run takes the tree of the first parse. A tree is found only under its own path and for the same text, and it is kept only while the kept trees stay within their bound; a failed parse is never kept.
   const trees = new Map<string, { text: string; answer: TreeAnswer }>();
-  const bound = input.treeBytes ?? treeMemoryBound(totalmem());
+  const room = spare();
+  const bound = input.treeBytes ?? Math.min(treeMemoryBound(memoryTotal()), Math.floor(room / 4));
   let kept = 0;
   const known = (file: RuleFileText): TreeAnswer | undefined => {
     const held = trees.get(file.path);
@@ -825,18 +837,19 @@ export function ruleReads(input: RuleReadsInput, runes: Runes = RUNES): Reads {
   };
 
   // When the run comes near the memory it may hold, the thread that watches asks for what the reader can give back: the kept trees and the threads of the pool. From then on the run keeps no tree and parses each file for the rule that asks, one at a time, as it did before trees were kept.
-  let room = bound;
+  let keeping = bound;
   const release = async (): Promise<void> => {
-    room = 0;
+    keeping = 0;
     full = true;
     kept = 0;
     trees.clear();
     await pool?.end();
+    collect();
   };
   const keep = (file: RuleFileText, language: string, flat: FlatTree): TreeAnswer => {
     const answer: TreeAnswer = { language, tree: flat, absent: null };
     if (trees.has(file.path)) return answer;
-    if (kept + flat.nodes.byteLength > room) full = true;
+    if (kept + flat.nodes.byteLength > keeping) full = true;
     else {
       if (trees.size === 0) holding(release);
       trees.set(file.path, { text: file.text, answer });
@@ -869,7 +882,7 @@ export function ruleReads(input: RuleReadsInput, runes: Runes = RUNES): Reads {
   };
 
   // A rule that asks for the tree of one of its files will most likely ask for the next ones, so a pool of threads parses those ahead, several at once, and every rule of the run takes them from there. The pool starts only when POOL_FROM files or more are left to parse, so the check of a few files starts no thread, and it parses nothing ahead once the kept trees have reached their bound. Only the readers of this package cross to a thread, so a run with other readers parses in its turn, and so does a run that has one processor.
-  const threads = input.threads ?? cores();
+  const threads = input.threads ?? Math.min(cores(), Math.floor(room / 4 / PARSE_THREAD_BYTES));
   const pool = runes === RUNES && threads > 1 ? new ParsePool(input.grammarDir ?? GRAMMARS, Math.min(threads, POOL_THREADS), () => holding(release)) : null;
   const parsing = new Map<string, { text: string; answer: Promise<TreeAnswer> }>();
   let full = false;

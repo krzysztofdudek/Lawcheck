@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { GRAMMARS, ownLine, readerOf, readUses, ruleReads, RUNES, siblingsOf, Unreadable } from '../../dist/readers.js';
 import { askPoolToEnd, attach, lastStep, progressBuffer } from '../../dist/progress.js';
-import { cores } from '../../dist/limits.js';
+import { cores, memoryTotal, runnerLimit, spare } from '../../dist/limits.js';
 
 type Hint = { kind: 'path'; specifier: string } | { kind: 'symbol'; symbolKey: string };
 type Kind =
@@ -1071,4 +1071,11 @@ test('test 1399: asked by the thread that watches, a run gives back the trees it
   assert.deepEqual(await reads([a], 'the script rule four')('tree', a), first);
   assert.deepEqual(parsed, ['a.ts', 'a.ts', 'a.ts']);
   assert.equal(askPoolToEnd(buffer), 'none');
+});
+
+test('test 1399: a run counts as its memory the limit of its cgroup where that is less than the machine, and spends on runners, threads and kept trees only what the system can give beyond twice the reserve', () => {
+  const MiB = 1024 * 1024;
+  assert.deepEqual([memoryTotal(32768 * MiB, 0), memoryTotal(32768 * MiB, 800 * MiB), memoryTotal(4096 * MiB, 2 ** 62)], [32768 * MiB, 800 * MiB, 4096 * MiB]);
+  assert.deepEqual([spare(null), spare(1000 * MiB), spare(256 * MiB), spare(100 * MiB)], [Infinity, 744 * MiB, 0, 0]);
+  assert.deepEqual([runnerLimit(8, Infinity), runnerLimit(8, 744 * MiB), runnerLimit(8, 0), runnerLimit(2, 4096 * MiB), runnerLimit(8, 1600 * MiB)], [8, 2, 1, 2, 5]);
 });
