@@ -598,6 +598,12 @@ Why: people then see findings only about what they change. Without the sentence,
 
 Two places run `--full` inside a job. A root commit has no base, so the script judges every file. The recipe for GitHub code scanning is optional and audits the whole code on each run: code scanning takes each upload as the whole analysis and closes every alert the upload lacks, so a file written from a check of the change would close the alerts of every file the change leaves alone. The page says that the recipe is that audit, and that the job without it judges only the change. The recipe was kept as it is rather than moved into a job someone starts by hand, since moved, its alerts would be only as fresh as the last audit.
 
+## 225. A cancelled run skips its merges, and its required check still runs
+
+In `.github/workflows/ci.yml` the three merge jobs run `if: ${{ !cancelled() }}` and the job `commit set` runs `if: always()`. A merge still runs when a shard of its run failed or was skipped, and is skipped when the whole run is cancelled. `commit set` runs in a cancelled run too, finds jobs that are not green and fails.
+
+Why: with `always()` on the merges, a run that a new push to a pull request cancelled still started its three merges and then `commit set`, and the run of the new push started no job until they ended. In one pull request a merge of the cancelled run waited for a runner for three minutes, and for 3 minutes 33 seconds nothing ran for the new push. `commit set` keeps `always()` because it is the one required check, and GitHub counts a skipped required check as passed. The cost: the new run still waits for that one short job of the cancelled run.
+
 ## Decision (number at merge). The law that judges a change in CI is the team's choice
 
 `docs/ci.md` gives three choices: the change's own law, the law of the base through `--law-from`, and both. It says what a choice of one law misses, and it tells a coding agent to ask the user before it writes the job. `docs/agent-setup.md` says the same for a CI job that the user asks for. Neither page picks one for the user.

@@ -76,7 +76,7 @@ function ciProblems(ci: Ci, plan: Plan): string[] {
     const merge = ci.jobs[`merge-${system}`];
     if (merge === undefined) { problems.push(`ci.yml: no job merge-${system}`); continue; }
     if (JSON.stringify(needsOf(merge)) !== JSON.stringify(['build', `shard-${system}`].sort())) problems.push(`ci.yml: merge-${system} waits for ${needsOf(merge).join(', ')}, not for the build and the shards of ${system} alone`);
-    if (merge.if !== 'always()') problems.push(`ci.yml: merge-${system} does not run when a shard failed, was cancelled or skipped`);
+    if (merge.if !== '${{ !cancelled() }}') problems.push(`ci.yml: merge-${system} does not run exactly when its run is not cancelled, so a failed shard goes unmerged or a cancelled run waits for its merge`);
     if (merge.strategy?.matrix?.include !== `\${{ fromJSON(needs.build.outputs.runs_${system}) }}`) problems.push(`ci.yml: merge-${system} does not merge each run of ${system}`);
     const merged = (merge.steps ?? []).find((s) => /^node tests\/harness\/merge\.ts shards --system \$\{\{ matrix\.system \}\}( |$)/.test(s.run ?? ''));
     const download = (merge.steps ?? []).find((s) => s.uses?.startsWith('actions/download-artifact@') && s.with?.pattern === 'shard-${{ matrix.os }}-${{ matrix.node }}-*' && s.with?.path === 'shards');
@@ -163,7 +163,8 @@ test('question 95: a ci.yml that drops the runs of a system, merges a system aft
   assert.deepEqual(changed((ci) => { ci.jobs['shard-win32']!.strategy!.matrix!.include = [{ os: 'windows-latest', node: '24', system: 'win32', shard: 1, of: 1 }]; }), ['ci.yml: shard-win32 does not run the shards the plan has for win32']);
   assert.deepEqual(changed((ci) => { delete ci.jobs['merge-darwin']; ci.jobs['commit-set']!.needs = needsOf(ci.jobs['commit-set']).filter((n) => n !== 'merge-darwin'); }), ['ci.yml: no job merge-darwin']);
   assert.deepEqual(changed((ci) => { ci.jobs['commit-set']!.needs = needsOf(ci.jobs['commit-set']).filter((n) => n !== 'shard-darwin'); }), [`ci.yml: commit-set waits for ${needsOf(ciFile().jobs['commit-set']).filter((n) => n !== 'shard-darwin').join(', ')}, not for every other job`]);
-  assert.deepEqual(changed((ci) => { ci.jobs['merge-win32']!.if = 'success()'; }), ['ci.yml: merge-win32 does not run when a shard failed, was cancelled or skipped']);
+  for (const when of ['success()', 'always()', undefined]) assert.deepEqual(changed((ci) => { ci.jobs['merge-win32']!.if = when; }), ['ci.yml: merge-win32 does not run exactly when its run is not cancelled, so a failed shard goes unmerged or a cancelled run waits for its merge'], `merge-win32 if ${when}`);
+  assert.deepEqual(changed((ci) => { ci.jobs['commit-set']!.if = '${{ !cancelled() }}'; }), ['ci.yml: commit-set does not run when a job failed, was cancelled or skipped']);
   assert.deepEqual(changed((ci) => { ci.jobs['shard-darwin']!.if = "github.event_name == 'push'"; }), ["ci.yml: shard-darwin runs only if github.event_name == 'push'"]);
   assert.deepEqual(changed((ci) => { const run = ci.jobs['merge-win32']!.steps!.find((s) => s.name === 'The shards as one run')!; run.run = run.run!.replace(/ --run-started "[^"]*"/, ''); }), ["ci.yml: merge-win32 does not time its run from the run's own start, run_started_at of the API, or lets a failed call fail the merge"]);
   assert.deepEqual(changed((ci) => { ci.jobs['merge-darwin']!.steps = ci.jobs['merge-darwin']!.steps!.filter((s) => s.id !== 'started'); }), ["ci.yml: merge-darwin does not time its run from the run's own start, run_started_at of the API, or lets a failed call fail the merge"]);
