@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { append, check, E, E_PATH, findingLines, git, LAW, lawcheck, read, run as runR, setRule, withR, withSample, withU, write } from './helpers.ts';
+import { append, atOnce, check, E, E_PATH, findingLines, git, LAW, lawcheck, read, run as runR, setRule, withR, withSample, withU, write } from './helpers.ts';
 import { withFake } from './fake-reviewer.ts';
 
 const GENERIC = 'note: the law changed in this change; lawcheck check --full --base main shows what it finds in the rest of the code';
@@ -363,8 +363,10 @@ test('test 1110: T7, under --law-from a commit in which git lists a file in .law
     write(s, `${folder}/callpkg/package.json`, '{ "name": "callpkg", "type": "module", "exports": "./index.js" }\n');
     write(s, `${folder}/callpkg/index.js`, `export const CALL = ${call};\n`);
   };
-  for (const [top, folder] of [['.lawcheck/node_modules', '.lawcheck/node_modules'], ['.lawcheck/.local', '.lawcheck/.local/node_modules']] as const) {
-    await withSample(
+  // Each folder has its own sample, so the two run at once.
+  const folders = [['.lawcheck/node_modules', '.lawcheck/node_modules'], ['.lawcheck/.local', '.lawcheck/.local/node_modules']] as const;
+  await atOnce([...folders], folders.length, ([top]) => top, ([top, folder]) =>
+    withSample(
       async (s) => {
         write(s, 'src/core/total.ts', "export const total = 1;\nconsole.log(total);\n");
         callpkg(s, folder, '/a^/');
@@ -397,8 +399,8 @@ test('test 1110: T7, under --law-from a commit in which git lists a file in .law
         assert.deepEqual(readdirSync(join(s, '.lawcheck')).filter((name) => name === '.local').flatMap(() => readdirSync(join(s, '.lawcheck/.local'))).filter((name) => name.startsWith('law-from-')), [], top);
       },
       { onMain: (s) => { write(s, '.git/info/exclude', 'node_modules/\n'); callpkg(s, 'node_modules', '/\\bconsole\\.(\\w+)/'); setRule(s, 'no-console', rule); } },
-    );
-  }
+    ),
+  );
 });
 
 test('test 1160: T7, under --law-from a package.json of the change, .lawcheck/package.json or the root one, cannot change what an import of a rule of the base resolves to, by the name and exports of its package or by its # imports', async () => {
@@ -519,8 +521,9 @@ test('test 1180: T7, under --law-from a rule of the base whose import leads outs
       fix: (s) => { calls(s, '.lawcheck/rules/lib/calls.mjs'); setRule(s, 'no-console', rule('./lib/calls.mjs')); },
     },
   ];
-  for (const { name, base, module, specifier, target, fix } of cases) {
-    await withSample(
+  // Each case has its own sample in its own folder, so the cases and the control run at once.
+  const withCase = ({ name, base, module, specifier, target, fix }: (typeof cases)[number]) =>
+    withSample(
       async (s) => {
         write(s, 'src/core/total.ts', 'export const total = 1;\nconsole.log(total);\n');
         git(s, 'add', '-A');
@@ -550,8 +553,7 @@ test('test 1180: T7, under --law-from a rule of the base whose import leads outs
       },
       { onMain: base },
     );
-  }
-  await withSample(
+  const control = () => withSample(
     async (s) => {
       write(s, 'src/core/total.ts', 'export const total = 1;\nconsole.log(total);\n');
       git(s, 'add', '-A');
@@ -571,6 +573,8 @@ test('test 1180: T7, under --law-from a rule of the base whose import leads outs
     },
     { onMain: (s) => setRule(s, 'no-console', rule('nopkg')) },
   );
+  const parts: [name: string, run: () => Promise<void>][] = [...cases.map((one): [string, () => Promise<void>] => [one.name, () => withCase(one)]), ['a package that is not there', control]];
+  await atOnce(parts, parts.length, ([name]) => name, ([, run]) => run());
 });
 
 test('test 1181: T7, under --law-from a folder that HFS+ finds as .lawcheck/node_modules or .lawcheck/.local because it ignores a code point of the name, such as U+200C or U+FEFF, stops with law-from-packages, named as git lists it', async () => {

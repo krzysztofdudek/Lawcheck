@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { delimiter, dirname, join } from 'node:path';
-import { alive, D, D_PATH, inTemp, makeSample, ROOT, write } from './helpers.ts';
+import { alive, atOnce, D, D_PATH, inTemp, makeSample, ROOT, write } from './helpers.ts';
 import type { Run, Running } from './helpers.ts';
 import { fakeWrites, platformSkip, startHook, waitUntil } from '../harness/tool.ts';
 import type { HookOptions } from '../harness/tool.ts';
@@ -324,7 +324,12 @@ function hangingLawcheck(bench: Bench, pids: string, trap: boolean): void {
   ]);
 }
 
-function hangBench(bench: Bench, dir: string) {
+function within(run: HookRun, seconds: number): void {
+  assert.ok(run.ms >= seconds * 1000, `the hook ended after ${run.ms} ms, before its deadline of ${seconds} seconds`);
+  assert.ok(run.ms < seconds * 1000 + HOOK_PAST_DEADLINE_MS, `the hook ended after ${run.ms} ms, past its deadline of ${seconds} seconds and ${HOOK_PAST_DEADLINE_MS} ms`);
+}
+
+function hangBench(dir: string) {
   const pids = join(dir, 'pids');
   fakeWrites(dir, ['pids']);
   const gone = async () => {
@@ -333,75 +338,93 @@ function hangBench(bench: Bench, dir: string) {
     assert.ok(await ended(a!, b!), `${a} ${b}`);
     rmSync(pids);
   };
-  const within = (run: HookRun, seconds: number) => {
-    assert.ok(run.ms >= seconds * 1000, `the hook ended after ${run.ms} ms, before its deadline of ${seconds} seconds`);
-    assert.ok(run.ms < seconds * 1000 + HOOK_PAST_DEADLINE_MS, `the hook ended after ${run.ms} ms, past its deadline of ${seconds} seconds and ${HOOK_PAST_DEADLINE_MS} ms`);
-  };
-  return { pids, gone, within };
+  return { pids, gone };
 }
 
-// docs/plugin.md: the session-start hook, whose lawcheck prime never answers, and the prompt hook, whose git never answers, each end at its own deadline. With deadlines given, the hooks run with them in place of the shipped ones.
+// docs/plugin.md: the session-start hook, whose lawcheck prime never answers, and the prompt hook, whose git never answers, each end at its own deadline. With deadlines given, the hooks run with them in place of the shipped ones. Each hook has its own bench and sample, so the two deadlines pass at once and not one after the other.
 export async function startAndPromptScenario(deadlines: Deadlines | null): Promise<void> {
   const start = deadlines?.['session-start'] ?? DEADLINES['session-start'];
   const prompt = deadlines?.prompt ?? DEADLINES.prompt;
-  await withBench(async (bench, dir) => {
-    const s = makeSample(dir);
-    const { pids, gone, within } = hangBench(bench, dir);
-    hangingLawcheck(bench, pids, false);
-    const options = deadlines === null ? {} : { deadlines };
-    const started = await new Session(bench, s, 's1', {}, options).start();
-    within(started, start);
-    json(started, { hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: `This repository has a Lawcheck law (.lawcheck/law.yaml), and lawcheck prime did not run: it did not finish within ${start} seconds.\nInstall it with npm i -g lawcheck@alpha, then start a new session. Until then, read .lawcheck/law.yaml for the law.` } });
-    await gone();
-    const calls = join(dir, 'git.log');
-    fakeWrites(dir, ['git.log']);
-    const env = fakeGit(bench.bin, where('git'), { hang: true, record: { file: calls, variable: 'GIT_OPTIONAL_LOCKS' } });
-    const prompted = await new Session(bench, s, 's1', env, options).prompt();
-    within(prompted, prompt);
-    nothing(prompted, 'prompt');
-    assert.deepEqual(bench.sessions(), ['s1.json']);
-    assert.equal(bench.state().open, false);
-    assert.deepEqual(readFileSync(calls, 'utf8').trim().split('\n').map((line) => JSON.parse(line)), [{ words: ['rev-parse', '--verify', '--quiet', 'HEAD^{commit}'], value: '0' }]);
-    removeFakeGit(bench.bin);
-  });
+  const options = deadlines === null ? {} : { deadlines };
+  const hooks: [event: string, run: () => Promise<void>][] = [
+    ['session-start', () => withBench(async (bench, dir) => {
+      const s = makeSample(dir);
+      const { pids, gone } = hangBench(dir);
+      hangingLawcheck(bench, pids, false);
+      const started = await new Session(bench, s, 's1', {}, options).start();
+      within(started, start);
+      json(started, { hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: `This repository has a Lawcheck law (.lawcheck/law.yaml), and lawcheck prime did not run: it did not finish within ${start} seconds.\nInstall it with npm i -g lawcheck@alpha, then start a new session. Until then, read .lawcheck/law.yaml for the law.` } });
+      await gone();
+    })],
+    ['prompt', () => withBench(async (bench, dir) => {
+      const s = makeSample(dir);
+      const calls = join(dir, 'git.log');
+      fakeWrites(dir, ['git.log']);
+      const env = fakeGit(bench.bin, where('git'), { hang: true, record: { file: calls, variable: 'GIT_OPTIONAL_LOCKS' } });
+      const prompted = await new Session(bench, s, 's1', env, options).prompt();
+      within(prompted, prompt);
+      nothing(prompted, 'prompt');
+      assert.deepEqual(bench.sessions(), ['s1.json']);
+      assert.equal(bench.state().open, false);
+      assert.deepEqual(readFileSync(calls, 'utf8').trim().split('\n').map((line) => JSON.parse(line)), [{ words: ['rev-parse', '--verify', '--quiet', 'HEAD^{commit}'], value: '0' }]);
+      removeFakeGit(bench.bin);
+    })],
+  ];
+  await atOnce(hooks, hooks.length, ([event]) => event, ([, run]) => run());
 }
 
 // Test 163: a stand-in lawcheck that never answers, run by the edit hook and by the stop hook to their deadlines, then by an edit hook stopped by SIGTERM. The edit hook's stand-in and its child stay alive on SIGTERM, so it ends only by the SIGKILL that follows. With deadlines given, the first two hooks run with them in place of the shipped ones; the third is the shipped hook, stopped once the stand-in has started, or after a fixed time.
 export async function deadlineScenario(deadlines: Deadlines | null, sigterm: 'started' | 'after 2 seconds'): Promise<void> {
   const edit = deadlines?.edit ?? DEADLINES.edit;
   const stop = deadlines?.stop ?? DEADLINES.stop;
-  await withBench(async (bench, dir) => {
-    const s = makeSample(dir);
-    write(s, D_PATH, D);
-    const { pids, gone, within } = hangBench(bench, dir);
-    hangingLawcheck(bench, pids, true);
-    const session = new Session(bench, s, 's1', {}, deadlines === null ? {} : { deadlines });
-    const late = await session.edit(D_PATH);
-    within(late, edit);
-    json(late, edited(`Lawcheck: lawcheck check ./${D_PATH} did not finish within ${edit} seconds, so the hook stopped it.`));
-    await gone();
-    hangingLawcheck(bench, pids, false);
-    rmSync(join(s, D_PATH));
-    await session.prompt();
-    write(s, D_PATH, D);
-    const stopped = await session.stop();
-    within(stopped, stop);
-    json(stopped, { systemMessage: `Lawcheck: the check at the end of the turn did not run: it did not finish within ${stop} seconds.` });
-    await gone();
-    if (platformSkip('a hook stopped by SIGTERM') !== null) return;
-    let sent = 0;
-    const term = await hook(bench, 'edit', session.input('edit', { tool_name: 'Write', tool_input: { file_path: join(s, D_PATH) } }), {}, (running) => {
-      const send = () => {
-        sent = Date.now();
-        running.kill('SIGTERM');
-      };
-      if (sigterm === 'after 2 seconds') setTimeout(send, HOOK_SIGTERM_AFTER_MS);
-      else void waitUntil(() => existsSync(pids), 'FAKE_STARTED_MS').then((seen) => (seen ? send() : undefined));
-    });
-    assert.ok(sent > 0, 'the stand-in lawcheck did not start, so no SIGTERM was sent');
-    assert.equal(term.code, 0);
-    assert.equal(term.stdout, '');
-    assert.ok(term.ms < (sigterm === 'after 2 seconds' ? HOOK_SIGTERM_AFTER_MS : 0) + STOPPED_HOOK_ENDS_MS, String(term.ms));
-    await gone();
-  });
+  const options = deadlines === null ? {} : { deadlines };
+  // Each hook has its own bench and sample, so the deadlines pass at once and not one after the other.
+  const hooks: [event: string, run: () => Promise<void>][] = [
+    ['edit', () => withBench(async (bench, dir) => {
+      const s = makeSample(dir);
+      write(s, D_PATH, D);
+      const { pids, gone } = hangBench(dir);
+      hangingLawcheck(bench, pids, true);
+      const late = await new Session(bench, s, 's1', {}, options).edit(D_PATH);
+      within(late, edit);
+      json(late, edited(`Lawcheck: lawcheck check ./${D_PATH} did not finish within ${edit} seconds, so the hook stopped it.`));
+      await gone();
+    })],
+    ['stop', () => withBench(async (bench, dir) => {
+      const s = makeSample(dir);
+      const { pids, gone } = hangBench(dir);
+      hangingLawcheck(bench, pids, false);
+      const session = new Session(bench, s, 's1', {}, options);
+      await session.prompt();
+      write(s, D_PATH, D);
+      const stopped = await session.stop();
+      within(stopped, stop);
+      json(stopped, { systemMessage: `Lawcheck: the check at the end of the turn did not run: it did not finish within ${stop} seconds.` });
+      await gone();
+    })],
+  ];
+  if (platformSkip('a hook stopped by SIGTERM') === null) {
+    hooks.push(['an edit stopped by SIGTERM', () => withBench(async (bench, dir) => {
+      const s = makeSample(dir);
+      write(s, D_PATH, D);
+      const { pids, gone } = hangBench(dir);
+      hangingLawcheck(bench, pids, false);
+      const session = new Session(bench, s, 's1', {}, options);
+      let sent = 0;
+      const term = await hook(bench, 'edit', session.input('edit', { tool_name: 'Write', tool_input: { file_path: join(s, D_PATH) } }), {}, (running) => {
+        const send = () => {
+          sent = Date.now();
+          running.kill('SIGTERM');
+        };
+        if (sigterm === 'after 2 seconds') setTimeout(send, HOOK_SIGTERM_AFTER_MS);
+        else void waitUntil(() => existsSync(pids), 'FAKE_STARTED_MS').then((seen) => (seen ? send() : undefined));
+      });
+      assert.ok(sent > 0, 'the stand-in lawcheck did not start, so no SIGTERM was sent');
+      assert.equal(term.code, 0);
+      assert.equal(term.stdout, '');
+      assert.ok(term.ms < (sigterm === 'after 2 seconds' ? HOOK_SIGTERM_AFTER_MS : 0) + STOPPED_HOOK_ENDS_MS, String(term.ms));
+      await gone();
+    })]);
+  }
+  await atOnce(hooks, hooks.length, ([event]) => event, ([, run]) => run());
 }

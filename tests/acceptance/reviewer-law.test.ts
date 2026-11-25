@@ -8,11 +8,13 @@ import { FAILED_MESSAGE, withFake } from './fake-reviewer.ts';
 import { MiB, sparse, textHead } from '../limits/support.ts';
 import {
   append,
+  atOnce,
   F,
   F_PATH,
   F_PRIME,
   findingLines,
   git,
+  inTemp,
   KEY_F_PRIME,
   KEY_PRICE,
   KEY_TAX,
@@ -524,7 +526,7 @@ test('test 901: the companion runs in the closed runner of script rules, and a c
     ['a write', "import { writeFileSync } from 'node:fs';\nexport function companion() { writeFileSync('out.txt', 'x'); return []; }\n", ', and a rule may write no file'],
     ['a program', "import { execFileSync } from 'node:child_process';\nexport function companion() { execFileSync('git', ['--version']); return []; }\n", 'starts a program, and a rule may start none'],
   ];
-  await withFake(async (fake) => {
+  const closedRunner = () => withFake(async (fake) => {
     await Promise.all(
       closed.map(([name, source, cause]) =>
         withR(
@@ -541,7 +543,7 @@ test('test 901: the companion runs in the closed runner of script rules, and a c
     );
     assert.equal(fake.requests.length, 0);
   });
-  await withFake(async (fake) => {
+  const stale = () => withFake(async (fake) => {
     await withR(
       async (r) => {
         const first = await run(r, fake, ['--full', '--review', '--base', 'main']);
@@ -556,12 +558,17 @@ test('test 901: the companion runs in the closed runner of script rules, and a c
           ['the companion', (r) => append(r, PAIR, 'export const unused = 1;\n'), ['src/core/price.ts', 'src/core/tax.ts']],
           ['the fixed context', (r) => append(r, 'docs/errors.md', 'More.\n'), ['src/core/price.ts', 'src/core/tax.ts']],
         ];
-        for (const [name, change, expected] of cases) {
-          change(r);
-          const result = await run(r, null, ['--full', '--base', 'main']);
-          assert.deepEqual(notReviewed(result.stdout), expected, `${name}: ${result.stdout}`);
-          git(r, 'checkout', '-q', '--', '.');
-        }
+        // Each case changes a clone of the reviewed repository in a folder of its own, so the cases run at once and none sees the change of another.
+        await atOnce(cases, cases.length, ([name]) => name, ([name, change, expected]) =>
+          inTemp(async (dir) => {
+            git(dir, 'clone', '-q', r, 'r');
+            const own = join(dir, 'r');
+            git(own, 'branch', '-q', 'main', 'origin/main');
+            change(own);
+            const result = await run(own, null, ['--full', '--base', 'main']);
+            assert.deepEqual(notReviewed(result.stdout), expected, `${name}: ${result.stdout}`);
+          }),
+        );
         assert.equal(fake.requests.length, 2);
         sparse(r, '.lawcheck/verdicts', textHead(read(r, '.lawcheck/verdicts')), 16 * MiB + 1);
         const full = await run(r, null, ['--full', '--base', 'main']);
@@ -571,6 +578,7 @@ test('test 901: the companion runs in the closed runner of script rules, and a c
       { onMain: withPair() },
     );
   });
+  await Promise.all([closedRunner(), stale()]);
 });
 
 test('test 902: the prompt size limit counts the companion files, and a returned path that is no file to send is a stated error', async () => {
@@ -710,39 +718,36 @@ test('R-38: when the law names signers, a pass line that no signer of the law si
     ["a line that names alice and carries mallory's signature", signedLine(PAIR_F_PRIME, 'alice', mallory.key)],
     ["alice's signature of another pass", `${PAIR_F_PRIME} alice ${signedLine(`${KEY_PRICE} clear-errors`, 'alice', alice.key).split(' ')[3]}`],
   ];
-  await Promise.all(
-    forged.map(([name, line]) =>
+  await Promise.all([
+    ...forged.map(([name, line]) =>
       withR(
         async (r) => {
           write(r, F_PATH, F_PRIME);
           append(r, '.lawcheck/verdicts', `${line}\n`);
-          const plain = await run(r, null, ['--base', 'main']);
+          // The four runs only read the repository, so they run at once.
+          const [plain, named, strict, file] = await Promise.all([run(r, null, ['--base', 'main']), run(r, null, [F_PATH]), run(r, null, ['--strict', '--base', 'main']), lawcheck(r, ['explain', F_PATH])]);
           assert.deepEqual(notReviewedOf(plain.stdout), [NO_SIGNER_F], `${name}: ${plain.stdout}`);
           assert.equal(plain.code, 1, `${name}: ${plain.stdout}`);
-          const named = await run(r, null, [F_PATH]);
           assert.deepEqual(findingLines(named.stdout), [NO_SIGNER_F.replace('error[', 'warning[')], `${name}: ${named.stdout}`);
-          const strict = await run(r, null, ['--strict', '--base', 'main']);
           assert.ok(notReviewedOf(strict.stdout).includes(NO_SIGNER_F), `${name}: ${strict.stdout}`);
           assert.equal(strict.code, 1, `${name}: ${strict.stdout}`);
-          const file = await lawcheck(r, ['explain', F_PATH]);
           assert.match(reviewOfF(file.stdout), /^ {4}clear-errors {2}reviewer {2}enforced {2}from library {2}not reviewed {2}/, `${name}: ${file.stdout}`);
         },
         { onMain: (r) => write(r, '.lawcheck/law.yaml', withSigners(REVIEWER_LAW, { alice: alice.x })) },
       ),
     ),
-  );
-  await withR(
-    async (r) => {
-      write(r, F_PATH, F_PRIME);
-      append(r, '.lawcheck/verdicts', `${signedLine(PAIR_F_PRIME, 'alice', alice.key)}\n`);
-      const plain = await run(r, null, ['--base', 'main']);
-      assert.equal(plain.stdout.split('\n')[0], 'lawcheck: PASS  2 changed files (against main), 1 waiver', plain.stdout);
-      assert.equal(plain.code, 0, plain.stdout);
-      const file = await lawcheck(r, ['explain', F_PATH]);
-      assert.match(reviewOfF(file.stdout), /^ {4}clear-errors {2}reviewer {2}enforced {2}from library {2}reviewed {2}/, file.stdout);
-    },
-    { onMain: (r) => write(r, '.lawcheck/law.yaml', withSigners(REVIEWER_LAW, { bob: mallory.x, alice: alice.x })) },
-  );
+    withR(
+      async (r) => {
+        write(r, F_PATH, F_PRIME);
+        append(r, '.lawcheck/verdicts', `${signedLine(PAIR_F_PRIME, 'alice', alice.key)}\n`);
+        const [plain, file] = await Promise.all([run(r, null, ['--base', 'main']), lawcheck(r, ['explain', F_PATH])]);
+        assert.equal(plain.stdout.split('\n')[0], 'lawcheck: PASS  2 changed files (against main), 1 waiver', plain.stdout);
+        assert.equal(plain.code, 0, plain.stdout);
+        assert.match(reviewOfF(file.stdout), /^ {4}clear-errors {2}reviewer {2}enforced {2}from library {2}reviewed {2}/, file.stdout);
+      },
+      { onMain: (r) => write(r, '.lawcheck/law.yaml', withSigners(REVIEWER_LAW, { bob: mallory.x, alice: alice.x })) },
+    ),
+  ]);
 });
 
 test('R-38: check --review records a pass, signed, only with the signing key of a signer the law names, and asks the reviewer nothing without one', async () => {

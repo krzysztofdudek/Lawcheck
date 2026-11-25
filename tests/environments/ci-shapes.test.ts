@@ -4,7 +4,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { appendFileSync, existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { D, D_PATH, findingLines, git, GIT_ENV, inTemp, lawcheck, LAW, makeSample, TEST4, write } from '../acceptance/helpers.ts';
+import { atOnce, D, D_PATH, findingLines, git, GIT_ENV, inTemp, lawcheck, LAW, makeSample, TEST4, write } from '../acceptance/helpers.ts';
 
 const AGAINST_ORIGIN = TEST4.replace('(against main)', '(against origin/main)');
 const CI = { CI: 'true' };
@@ -231,39 +231,58 @@ function fullClone(dir: string): string {
   return clone;
 }
 
+// Runs that only read one clone, a few at once: each is a start of the tool, and one after another they take a test past half its time on a slow runner.
+const RUNS_AT_ONCE = 4;
+
 test('test 778: a plain check in GitHub Actions, GitLab CI and Azure Pipelines takes its base from the variables of the pull request or push, after --base and LAWCHECK_BASE', async () => {
   await inTemp(async (dir) => {
     const clone = fullClone(dir);
-    for (const [service, env] of SERVICES) {
-      const run = await lawcheck(clone, ['check'], env);
-      assert.equal(run.stdout, AGAINST_ORIGIN, service);
-      assert.equal(run.code, 1, service);
-    }
     const tip = git(clone, 'rev-parse', 'origin/main').trim();
-    const push = await lawcheck(clone, ['check'], { GITLAB_CI: 'true', CI_COMMIT_BEFORE_SHA: tip });
-    assert.equal(push.stdout, AGAINST_ORIGIN.replace('origin/main', tip), 'a GitLab push names the commit before it');
     const bad = { GITHUB_ACTIONS: 'true', GITHUB_BASE_REF: 'nope' };
-    assert.equal((await lawcheck(clone, ['check', '--base', 'origin/main'], bad)).stdout, AGAINST_ORIGIN, '--base comes first');
-    assert.equal((await lawcheck(clone, ['check'], { ...bad, LAWCHECK_BASE: 'origin/main' })).stdout, AGAINST_ORIGIN, 'LAWCHECK_BASE comes before the variables');
-    const doctor = await lawcheck(clone, ['doctor'], SERVICES[0]![1]);
-    assert.match(doctor.stdout, /^ok {2}base {2}origin\/main, from GITHUB_BASE_REF; the change holds 1 file$/m);
-    const json = JSON.parse((await lawcheck(clone, ['check', '--json'], SERVICES[0]![1])).stdout);
-    assert.equal(json.scope.base, 'origin/main');
+    const runs: [what: string, run: () => Promise<void>][] = [
+      ...SERVICES.map(([service, env]): [string, () => Promise<void>] => [service, async () => {
+        const run = await lawcheck(clone, ['check'], env);
+        assert.equal(run.stdout, AGAINST_ORIGIN, service);
+        assert.equal(run.code, 1, service);
+      }]),
+      ['a GitLab push', async () => {
+        const push = await lawcheck(clone, ['check'], { GITLAB_CI: 'true', CI_COMMIT_BEFORE_SHA: tip });
+        assert.equal(push.stdout, AGAINST_ORIGIN.replace('origin/main', tip), 'a GitLab push names the commit before it');
+      }],
+      ['--base', async () => assert.equal((await lawcheck(clone, ['check', '--base', 'origin/main'], bad)).stdout, AGAINST_ORIGIN, '--base comes first')],
+      ['LAWCHECK_BASE', async () => assert.equal((await lawcheck(clone, ['check'], { ...bad, LAWCHECK_BASE: 'origin/main' })).stdout, AGAINST_ORIGIN, 'LAWCHECK_BASE comes before the variables')],
+      ['doctor', async () => {
+        const doctor = await lawcheck(clone, ['doctor'], SERVICES[0]![1]);
+        assert.match(doctor.stdout, /^ok {2}base {2}origin\/main, from GITHUB_BASE_REF; the change holds 1 file$/m);
+      }],
+      ['--json', async () => {
+        const json = JSON.parse((await lawcheck(clone, ['check', '--json'], SERVICES[0]![1])).stdout);
+        assert.equal(json.scope.base, 'origin/main');
+      }],
+    ];
+    await atOnce(runs, RUNS_AT_ONCE, ([what]) => what, ([, run]) => run());
   });
 });
 
 test('test 778: a variable of a CI service counts only in that service and not when CI is off, a push of zeros names no base, and a clone without the base branch says so', async () => {
-  await inTemp(async (dir) => {
+  const full = () => inTemp(async (dir) => {
     const clone = fullClone(dir);
-    const strayed = await lawcheck(clone, ['check'], { CI: 'true', GITHUB_BASE_REF: 'main', CI_MERGE_REQUEST_TARGET_BRANCH_NAME: 'main', SYSTEM_PULLREQUEST_TARGETBRANCH: 'main' });
-    assert.equal(strayed.stdout, NO_BASE_IN_CI, 'no service marker, no base from its variables');
-    const off = await lawcheck(clone, ['check'], { CI: 'false', GITHUB_ACTIONS: 'true', GITHUB_BASE_REF: 'main' });
-    assert.match(off.stdout, /^lawcheck: FAIL  .*\(no base: every file counts as changed\)/);
-    for (const env of [{ GITHUB_ACTIONS: 'true', GITHUB_BASE_REF: '' }, { GITLAB_CI: 'true', CI_COMMIT_BEFORE_SHA: '0'.repeat(40) }, { TF_BUILD: 'True' }]) {
-      assert.equal((await lawcheck(clone, ['check'], env)).stdout, NO_BASE_IN_CI, JSON.stringify(env));
-    }
+    const runs: [what: string, run: () => Promise<void>][] = [
+      ['no service marker', async () => {
+        const strayed = await lawcheck(clone, ['check'], { CI: 'true', GITHUB_BASE_REF: 'main', CI_MERGE_REQUEST_TARGET_BRANCH_NAME: 'main', SYSTEM_PULLREQUEST_TARGETBRANCH: 'main' });
+        assert.equal(strayed.stdout, NO_BASE_IN_CI, 'no service marker, no base from its variables');
+      }],
+      ['CI off', async () => {
+        const off = await lawcheck(clone, ['check'], { CI: 'false', GITHUB_ACTIONS: 'true', GITHUB_BASE_REF: 'main' });
+        assert.match(off.stdout, /^lawcheck: FAIL  .*\(no base: every file counts as changed\)/);
+      }],
+      ...[{ GITHUB_ACTIONS: 'true', GITHUB_BASE_REF: '' }, { GITLAB_CI: 'true', CI_COMMIT_BEFORE_SHA: '0'.repeat(40) }, { TF_BUILD: 'True' }].map((env): [string, () => Promise<void>] => [JSON.stringify(env), async () => {
+        assert.equal((await lawcheck(clone, ['check'], env)).stdout, NO_BASE_IN_CI, JSON.stringify(env));
+      }]),
+    ];
+    await atOnce(runs, RUNS_AT_ONCE, ([what]) => what, ([, run]) => run());
   });
-  await inTemp(async (dir) => {
+  const shallow = () => inTemp(async (dir) => {
     git(dir, 'clone', '-q', '--depth', '1', '--branch', 'work', origin(dir), 'clone');
     const clone = join(dir, 'clone');
     git(clone, 'update-ref', '--no-deref', '-d', 'refs/remotes/origin/HEAD');
@@ -273,6 +292,9 @@ test('test 778: a variable of a CI service counts only in that service and not w
     follow(nextLine(run.stdout), clone);
     assert.equal((await lawcheck(clone, ['check'], { GITHUB_ACTIONS: 'true', GITHUB_BASE_REF: 'main' })).stdout, AGAINST_ORIGIN);
   });
+  // The two clones lie in two folders of the test, so the harness judges the runs in each on their own.
+  const clones: [what: string, run: () => Promise<void>][] = [['a full clone', full], ['a shallow clone', shallow]];
+  await atOnce(clones, clones.length, ([what]) => what, ([, run]) => run());
 });
 
 const HOSTILE = [
@@ -288,13 +310,14 @@ test('test 890: a base that a CI variable names with a semicolon, a command subs
     const url = origin(dir);
     const tip = git(join(dir, 's'), 'rev-parse', 'main').trim();
     for (const [, name] of HOSTILE) git(join(dir, 's'), 'update-ref', `refs/heads/${name}`, tip);
-    for (const [what, name] of HOSTILE) {
-      git(dir, 'clone', '-q', '--depth', '1', '--branch', 'work', url, `clone ${what}`);
-      const clone = join(dir, `clone ${what}`);
+    // One folder of the test and one clone per name, all at once: the harness judges the runs of each clone on their own, and the fetch one clone runs is no change in another.
+    await atOnce([...HOSTILE], HOSTILE.length, ([what]) => what, ([what, name]) => inTemp(async (own) => {
+      git(own, 'clone', '-q', '--depth', '1', '--branch', 'work', url, `clone ${what}`);
+      const clone = join(own, `clone ${what}`);
       const env = { GITHUB_ACTIONS: 'true', GITHUB_BASE_REF: name };
-      const run = await lawcheck(clone, ['check'], env);
+      const [run, json] = await Promise.all([lawcheck(clone, ['check'], env), lawcheck(clone, ['check', '--json'], env)]);
       assert.equal(run.code, 2, what);
-      const command = JSON.parse((await lawcheck(clone, ['check', '--json'], env)).stdout).next.command as string | null;
+      const command = JSON.parse(json.stdout).next.command as string | null;
       assert.ok(command !== null && command.startsWith('git fetch --unshallow origin '), `${what}: ${command}`);
       assert.ok(nextLine(run.stdout).includes(`: ${command} (`), `${what}: the next line holds the command`);
       const shell = spawnSync('sh', ['-c', command], { cwd: clone, env: GIT_ENV, encoding: 'utf8' });
@@ -302,7 +325,7 @@ test('test 890: a base that a CI variable names with a semicolon, a command subs
       for (const canary of ['semicolon', 'substitution', 'backtick', 'ampersand']) assert.equal(existsSync(join(clone, `canary-${canary}`)), false, `${what}: the shell ran a second command`);
       assert.equal(git(clone, 'rev-parse', `refs/remotes/origin/${name}`).trim(), tip, `${what}: the shell fetched the ref`);
       assert.match((await lawcheck(clone, ['check'], env)).stdout, /^lawcheck: FAIL .*\(against origin\//, `${what}: the check finds its base after the fetch`);
-    }
+    }));
   });
 });
 
