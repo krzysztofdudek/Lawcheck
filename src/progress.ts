@@ -40,7 +40,7 @@ export function attach(shared: SharedArrayBuffer): void {
   pool = new Int32Array(shared, POOL, 1);
 }
 
-// The pool of threads that parses trees (src/trees.ts) says here whether it works: 0 when it does not, 1 while it does, and 2 once the thread that watches the run has asked it to end. That thread reads the memory of the whole process and cannot tell which of several files parsed at once grows it, so while the pool works it asks for its end and ends the run only after the pool has stopped, or has not in time.
+// The pool of threads that parses trees (src/readers.ts) says here whether it works: 0 when it does not, 1 while it does, and 2 once the thread that watches the run has asked it to end. That thread reads the memory of the whole process and cannot tell which of several files parsed at once grows it, so while the pool works it asks for its end and ends the run only after the pool has stopped, or has not in time.
 let watching = false;
 
 export function poolBusy(end: () => Promise<void>): void {
