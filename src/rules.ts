@@ -268,11 +268,11 @@ async function reading<T>(work: () => Promise<T>): Promise<T> {
   }
 }
 
-function startRunner(root: string, quiet = false): ChildProcess {
+function startRunner(run: { root: string }, quiet = false): ChildProcess {
   const child = fork(RUNNER, [], {
-    execArgv: runnerArgs(root),
+    execArgv: runnerArgs(run.root),
     env: {},
-    cwd: root,
+    cwd: run.root,
     serialization: 'advanced',
     stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
   });
@@ -315,7 +315,7 @@ function drive(run: RuleRun, held: ChildProcess | null): Promise<{ outcome: Rule
   const budget = run.budget ?? new FindingBudget();
   const shared = run.shared === true;
   return new Promise((resolve, reject) => {
-    const child = held ?? startRunner(run.root, run.quiet === true);
+    const child = held ?? startRunner(run, run.quiet === true);
     let closed = gone.has(child);
     const onClose = () => {
       closed = true;
