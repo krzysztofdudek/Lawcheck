@@ -1335,13 +1335,18 @@ test('test 908: the measurement of a proposal prints the table and the total of 
 
     write(keep, 'candidate.yaml', SETUP_LAW.replace('may_use: [core, api]', 'may_use: [core]').replace('may_use: [db, core]', 'may_use: [db]'));
     const target = shell(dir, repo, keep, lines[0]!);
-    assert.deepEqual([target.code, target.stdout, target.stderr], [0, 'core -> api  1 file  1 use\n  src/core/report.ts:1\ndb -> core  1 file  1 use\n  src/db/orders.ts:1\nunresolved uses: none\ntotal: 2 uses in 2 files\n', '']);
+    assert.deepEqual([target.code, target.stdout, target.stderr], [0, 'core -> api  1 file  1 use\n  src/core/report.ts:1\ndb -> core  1 file  1 use\n  src/db/orders.ts:1\nunresolved uses: none\ntotal: 2 uses in 2 files\ndebt (outside this change): 2 findings in 2 files\n', '']);
     assert.equal(read(repo, '.lawcheck/law.yaml'), SETUP_LAW, 'the measurement puts the law back');
+    write(repo, '.lawcheck/law.yaml', read(keep, 'candidate.yaml'));
+    const inForce = await lawcheck(repo, ['check', '--full', '--base', 'HEAD']);
+    write(repo, '.lawcheck/law.yaml', SETUP_LAW);
+    assert.equal(target.stdout.split('\n').at(-2), inForce.stdout.split('\n').find((line) => line.startsWith('debt (outside this change): ')), 'the debt line of the measurement is the line that the check prints with the candidate as the law');
     const report = JSON.parse(read(keep, 'report.json')) as { findings: { code: string; file: string }[] };
     assert.deepEqual(report.findings.filter((finding) => finding.code === 'forbidden-use').map((finding) => finding.file).sort(), ['src/core/report.ts', 'src/db/orders.ts']);
+    assert.match(read(keep, 'types.txt'), /^  api  2 files\n  core  2 files\n  db  1 file\n/m, 'the measurement keeps the count of files of each type of the candidate');
 
     write(keep, 'candidate.yaml', SETUP_LAW.replace('may_use: [core, api]', 'may_use: [core]'));
-    assert.equal(shell(dir, repo, keep, lines[0]!).stdout, 'core -> api  1 file  1 use\n  src/core/report.ts:1\nunresolved uses: none\ntotal: 1 use in 1 file\n');
+    assert.equal(shell(dir, repo, keep, lines[0]!).stdout, 'core -> api  1 file  1 use\n  src/core/report.ts:1\nunresolved uses: none\ntotal: 1 use in 1 file\ndebt (outside this change): 1 finding in 1 file\n');
 
     write(keep, 'candidate.yaml', SETUP_LAW.replace('about: The database access.', `about: ${'The database access. '.repeat(500).trim()}`));
     const long = shell(dir, repo, keep, lines[0]!);
