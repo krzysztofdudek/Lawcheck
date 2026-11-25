@@ -19,7 +19,7 @@ alpha.5 changes these results of alpha.4:
 | a file edited in the same second as the last commit or `git add`, with its size unchanged | outside the change of a [plain check](concepts.md#plain-check) | inside the change |
 | a plain check in a pull request job of GitHub Actions, GitLab CI or Azure Pipelines, with no `--base` and no `LAWCHECK_BASE` | the [base](concepts.md#base) is `origin/HEAD`, and a clone without one stops with `base-unreachable` | the base is the branch that the pull request goes into |
 
-The first row is the one that can fail a law that passed. In a repository where `cs/app/Ledger.cs` and `cs/infra/Ledger.cs` each hold a part of one C# class, and the `may_use` list of a third type allows neither of their types, alpha.5 prints this message for a file of the third type that names the class: `domain may not use Shop.Domain.Order+Ledger, which names one of cs/app/Ledger.cs (app) and cs/infra/Ledger.cs (infra); its may_use is [domain]`. alpha.4 passes the same file with `1 unresolved use` in its first line. A use with one allowed file among those it could name still passes in alpha.5.
+The first row is the one that can fail a law that passed. In a repository where `cs/app/Ledger.cs` and `cs/infra/Ledger.cs` each hold a part of one C# class, and the `may_use` list of a third type allows neither of their types, alpha.5 reports a `forbidden-use` in a file of the third type that names the class. Its message names both files with their types, as `cs/app/Ledger.cs (app)` and `cs/infra/Ledger.cs (infra)`. alpha.4 passes the same file with `1 unresolved use` in its first line. A use with one allowed file among those it could name still passes in alpha.5.
 
 From alpha.1, alpha.2 changed these results, and every later version keeps them:
 
