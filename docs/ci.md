@@ -16,13 +16,13 @@ Keep Lawcheck as a dev dependency of the project. Then every job and every hook 
 $ npm install --save-dev lawcheck@alpha
 ```
 
-Commit `package.json`, and the lockfile if the project has one. The jobs and hooks below start Lawcheck with `npx --no-install lawcheck`. It starts the copy that `npm install` put in `node_modules`. It downloads nothing.
+Commit `package.json` and any lockfile. The jobs and hooks below start Lawcheck with `npx --no-install lawcheck`. It starts the copy that `npm install` put in `node_modules` and downloads nothing.
 
 `npx --no-install lawcheck` works with npm, pnpm, Yarn 1, Yarn 4 (`nodeLinker: node-modules` or `pnpm`) and Bun beside Node, and not with Yarn Plug'n'Play. The job needs Node 24 and git 2.34 or later. On an older Node or git, a command refuses in its first line with `unsupported-environment` ([Supported environments](support.md)).
 
 ### 2. Add the workflow
 
-Write `.github/workflows/lawcheck.yml`. The workflow runs on pull requests, merge queues and pushes to `main`. Each run checks the change twice: with the law of the branch, then with the law of the [base](concepts.md#base). When the law sits below the top of the repository, give the workflow step `Check the change` the line `working-directory: <the folder that holds .lawcheck>`.
+Write `.github/workflows/lawcheck.yml`. The workflow runs on pull requests, merge queues and pushes to `main`. As written, it checks the change twice: with the law of the branch, then with the law of the [base](concepts.md#base). Your team [chooses whether to keep both](#the-law-that-judges-a-change). When the law sits below the top of the repository, give the workflow step `Check the change` the line `working-directory: <the folder that holds .lawcheck>`.
 
 <!-- example: ci-workflow -->
 ```yaml
@@ -71,7 +71,7 @@ jobs:
           fi
 ```
 
-The script of the step `Check the change` picks the base and passes it with `--base`. On a pull request, `lawcheck check` without `--base` would take the target branch from `GITHUB_BASE_REF` ([Give the base on another CI service](#_5-give-the-base-on-another-ci-service)). A merge queue and a push set no `GITHUB_BASE_REF`. For a pull request, the base is the target branch under `origin/`. For a merge queue, it is the commit that the queue builds on. For a push, the script picks the base this way:
+The step `Check the change` passes the base with `--base`, since a merge queue and a push set no `GITHUB_BASE_REF`. For a pull request, the base is the target branch under `origin/`. For a merge queue, it is the commit that the queue builds on. For a push, the script picks the base this way:
 
 | The push | The base the script passes |
 |---|---|
@@ -82,9 +82,9 @@ The script of the step `Check the change` picks the base and passes it with `--b
 
 `persist-credentials: false` keeps the token of the job out of `.git/config`. A [script rule](concepts.md#script-rule) can read that file. Without the setting, a rule that the pull request adds could read the token.
 
-Lawcheck exits with code 2 when it cannot judge the change, as with a law that is not valid (`law-invalid`) or a folder outside git (`no-git`). Exit 2 fails the job the same way as exit 1.
+Lawcheck exits with code 2 when it cannot judge the change, as with `law-invalid` or `no-git`. Exit 2 fails the job too.
 
-A team with no [debt](concepts.md#debt) left can add `--strict` to the two `lawcheck check` lines of the script ([`--strict`](commands.md#strict)). A finding of an `enforced` rule in an old file then fails the job too. The branch stays at zero debt.
+A team with no [debt](concepts.md#debt) left can add `--strict` to each `lawcheck check` line with `--base` ([`--strict`](commands.md#strict)). A finding of an `enforced` rule in an old file then fails the job too. The branch stays at zero debt.
 
 ### 3. Install with pnpm or Yarn
 
@@ -102,9 +102,7 @@ yarn install --frozen-lockfile
 
 ### 4. Keep cache folders out of the change
 
-A check counts each new file that git does not ignore as a changed file. A job that creates a folder in the checkout therefore adds its files to the change, unless git ignores the folder.
-
-The common case is `node_modules/`, when `.gitignore` does not name it: after `npm install` the check counts each file in it as changed. A cache folder such as `.npm/` counts the same way. Add such a folder to `.gitignore`, or add it to `.git/info/exclude` in the job:
+A check counts each new file that git does not ignore as a changed file. After `npm install`, that includes each file in `node_modules/` when `.gitignore` does not name it. A cache folder such as `.npm/` counts the same way. Add such a folder to `.gitignore`, or to `.git/info/exclude` in the job:
 
 ```sh
 echo .npm/ >> .git/info/exclude
@@ -118,7 +116,7 @@ echo node_modules/ >> .gitignore
 
 ### 5. Give the base on another CI service
 
-A [check of the change](concepts.md#check-of-the-change) takes its base from `--base`, then from `LAWCHECK_BASE`, then from the variables of the CI service below, then from `origin/HEAD`. Lawcheck reads them only when the service's own variable, such as `GITHUB_ACTIONS`, is set. With `CI` set to `false`, `no`, `0`, `off` or an empty value, it reads none. The base is `origin/` and the branch name. For Azure Pipelines, Lawcheck first removes the prefix `refs/heads/`.
+`--base` chooses which files are the change, and `--law-from` [which law judges them](#the-law-that-judges-a-change). `--law-from` has no default: without it, the law in the checkout judges. `--base` has one: without the flag, a [check of the change](concepts.md#check-of-the-change) takes its base from `LAWCHECK_BASE`, then from the variables of the CI service below, then from `origin/HEAD`. Lawcheck reads those variables only when the service's own variable, such as `GITHUB_ACTIONS`, is set. With `CI` set to `false`, `no`, `0`, `off` or an empty value, it reads none. The base is `origin/` and the branch name. For Azure Pipelines, Lawcheck first removes the prefix `refs/heads/`.
 
 | CI service | Variable | What it holds |
 |---|---|---|
@@ -161,9 +159,9 @@ Lawcheck treats a run as a CI job when `CI` is set to anything but `false`, `no`
 
 ### 6. Give the base on GitLab CI
 
-In a merge request pipeline, GitLab sets `CI_MERGE_REQUEST_TARGET_BRANCH_NAME` to the branch that the merge request goes into. GitLab may fetch only the job's own branch. The script below therefore fetches the target branch first. Lawcheck finds the base in the variable, so the check needs no flag.
+GitLab may fetch only the job's own branch, so the script below fetches the target branch first. In a merge request pipeline, Lawcheck finds the base in `CI_MERGE_REQUEST_TARGET_BRANCH_NAME`, so the check needs no flag.
 
-1. In `.gitlab-ci.yml`, give the job the variable `GIT_DEPTH: 0`. GitLab then fetches the whole history into the job.
+1. In `.gitlab-ci.yml`, set the variable `GIT_DEPTH: 0`, so GitLab fetches the whole history.
 2. Run the job in merge request pipelines. Give its `rules` the condition `if: $CI_PIPELINE_SOURCE == "merge_request_event"`.
 3. Give the job this script:
 
@@ -174,9 +172,9 @@ npx --no-install lawcheck check
 
 ### 7. Give the base on Azure Pipelines
 
-In a pull request build, Azure Pipelines sets `System.PullRequest.TargetBranch` to the branch that the pull request goes into. A script reads it as `SYSTEM_PULLREQUEST_TARGETBRANCH`. Its value is `refs/heads/main` for a repository that Azure hosts, and `main` for a GitHub repository. Lawcheck reads the variable and removes the prefix itself, so the check needs no flag.
+In a pull request build, `SYSTEM_PULLREQUEST_TARGETBRANCH` holds the target branch, as `refs/heads/main` for a repository that Azure hosts and as `main` for a GitHub one. Lawcheck reads both, so the check needs no flag.
 
-1. In `azure-pipelines.yml`, give the step `checkout: self` the setting `fetchDepth: 0`. The checkout then fetches the whole history of every branch into `origin/`.
+1. In `azure-pipelines.yml`, give the step `checkout: self` the setting `fetchDepth: 0`, so it fetches the whole history of every branch into `origin/`.
 2. Give the job this script:
 
 ```sh
@@ -187,16 +185,11 @@ Azure sets the variable only when a branch policy runs the build for the pull re
 
 ### 8. Run the job on macOS or Windows
 
-The workflow `.github/workflows/lawcheck.yml` runs on Ubuntu ([Add the workflow](#_2-add-the-workflow)). Its step `Check the change` holds a script for bash.
-
-- On macOS, GitHub runs a script step with bash. The workflow needs no change there.
-- On Windows, the default shell of a script step is not bash. Add `shell: bash` to the step `Check the change`. GitHub then runs the script with the bash of Git for Windows.
-
-Lawcheck itself runs on Linux, macOS and Windows.
+The workflow runs on Ubuntu. On macOS too, GitHub runs its step `Check the change` with bash. On Windows, whose default shell is not bash, add `shell: bash` to that step. GitHub then uses the bash of Git for Windows. Lawcheck itself runs on Linux, macOS and Windows.
 
 ## Reviewer rules in CI
 
-Without `--review`, the job you set up in [Add the workflow](#_2-add-the-workflow) calls no reviewer and needs no API key. It reads the [verdicts](concepts.md#verdict) committed in `.lawcheck/verdicts`. A file that the change leaves alone is not asked about. Lawcheck asks for a pass only for a changed file that a reviewer rule [binds](change.md#the-change). When `.lawcheck/verdicts` holds no pass for such a file, the check reports `not-reviewed`, and the job fails:
+Without `--review`, the workflow's job calls no reviewer and needs no API key. It reads the [verdicts](concepts.md#verdict) committed in `.lawcheck/verdicts`. A file that the change leaves alone is not asked about. Lawcheck asks for a pass only for a changed file that a reviewer rule [binds](change.md#the-change). When `.lawcheck/verdicts` holds no pass for such a file, the check reports `not-reviewed`, and the job fails:
 
 ```output
 lawcheck: FAIL  1 error in 1 changed file (against origin/main)
@@ -238,9 +231,9 @@ lawcheck: PASS  3 changed files (against origin/main)
 3. In that workflow step, run `npx --no-install lawcheck check --review --base "$base"`. Set `base` the way the step `Check the change` of [Add the workflow](#_2-add-the-workflow) sets it.
 4. Commit `.lawcheck/verdicts` and `.lawcheck/.gitattributes`. Then push that commit to the branch of the pull request.
 
-The job of [Add the workflow](#_2-add-the-workflow) cannot push. Its permissions hold `contents: read`. Its token can read the repository and cannot write to it. `persist-credentials: false` keeps the token out of the checkout. Run the review in a job of its own, whose permissions hold `contents: write`.
+The workflow's job cannot push: its permissions hold `contents: read`. Run the review in a job of its own, whose permissions hold `contents: write`.
 
-GitHub starts no workflow for a push that a job makes with its `GITHUB_TOKEN`. The job of [Add the workflow](#_2-add-the-workflow) therefore skips the commit with the verdicts and runs again on your next push.
+GitHub starts no workflow for a push that a job makes with its `GITHUB_TOKEN`. The workflow's job therefore skips the commit with the verdicts and runs again on your next push.
 
 The step with the key runs the copy of Lawcheck that the change's own `package.json` and lockfile install. A pull request can therefore change the program that receives the key. Lawcheck passes none of its environment variables to a script rule, so the key is not in the rule's `process.env`.
 
@@ -248,7 +241,7 @@ A pull request of a fork has no secret for that step: see [Pull requests from a 
 
 ### 4. Run doctor on a machine, not in the job
 
-`lawcheck doctor` checks that Lawcheck can call the reviewer: the key of the provider, and for `openai-compatible` the address in `LAWCHECK_REVIEWER_ENDPOINT`. The job of [Add the workflow](#_2-add-the-workflow) reads the committed verdicts and holds neither. In that job `lawcheck check` passes, and `lawcheck doctor` fails with exit 2:
+`lawcheck doctor` checks that Lawcheck can call the reviewer: the key of the provider, and for `openai-compatible` the address in `LAWCHECK_REVIEWER_ENDPOINT`. The workflow's job reads the committed verdicts and holds neither. In that job `lawcheck check` passes, and `lawcheck doctor` fails with exit 2:
 
 <!-- example: doctor-in-ci -->
 ```output
@@ -256,11 +249,11 @@ fail  reviewer  1 reviewer rule; openai-compatible cannot be called: openai-comp
   next: set LAWCHECK_REVIEWER_ENDPOINT to the base address of the server, such as http://localhost:8000/v1, then run lawcheck doctor
 ```
 
-Run `doctor` on your machine after you install Lawcheck and after you change `.lawcheck/config.yaml` ([doctor](commands.md#doctor)). Put it in a job only when that job holds the key and the address, as the job of step 3 does.
+Run `doctor` on your machine after you install Lawcheck or change `.lawcheck/config.yaml` ([doctor](commands.md#doctor)). Put it in a job only when that job holds the key and the address, as the job of step 3 does.
 
 ## Pull requests from a fork
 
-On `pull_request`, GitHub runs the workflow for a pull request of a fork with a read-only token and no secrets. The job of [Add the workflow](#_2-add-the-workflow) needs no secret, because `lawcheck check` reads the committed verdicts. The job therefore runs for a fork as for a branch of the repository.
+On `pull_request`, GitHub runs the workflow for a pull request of a fork with a read-only token and no secrets. The workflow's job needs no secret, because `lawcheck check` reads the committed verdicts, so it runs for a fork as for a branch of the repository.
 
 Keep the workflow on `pull_request`. The event `pull_request_target` runs in the base repository with its secrets. A job on that event that checks out the fork runs the script rules of the fork with those secrets ([Where a check may run](#where-a-check-may-run)).
 
@@ -276,9 +269,9 @@ A contributor who has the key records the reviews as [Record the reviews before 
 
 ### The job trusts the verdicts
 
-`.lawcheck/verdicts` is a file of the pull request. Under a law without `signers`, each line is a pass for the file and rule it names, whoever wrote it and whether a reviewer was asked. A contributor can record the reviews with a reviewer of their own, and the job passes. CI therefore trusts the author of the pull request on reviews, as it does on `.lawcheck/` ([A change to the law](#a-change-to-the-law)).
+`.lawcheck/verdicts` is a file of the pull request. Under a law without `signers`, each line is a pass for the file and rule it names, whoever wrote it and whether a reviewer was asked. CI therefore trusts the author of the pull request on reviews, as it does on `.lawcheck/` ([A change to the law](#a-change-to-the-law)).
 
-To stop trusting the author on reviews, name signers in the law ([Signed passes](reviewer-rules.md#signed-passes)). The job then counts only the passes a signer signed. Its second check reads the base's signers, so a pull request that adds a signer or drops `signers` makes none of its own passes count. A maintainer who is a signer records the reviews of a fork as [A contributor with no reviewer](#a-contributor-with-no-reviewer) says. A job that records reviews needs a signing key as a secret and a signer of its own. Anyone who can push a branch can make that job sign a pass.
+To stop trusting the author on reviews, name signers in the law ([Signed passes](reviewer-rules.md#signed-passes)). The job then counts only the passes a signer signed. A check with the base's law reads the base's signers, so a pull request that adds a signer or drops `signers` makes none of its own passes count there ([the choice](#the-law-that-judges-a-change)). A maintainer who is a signer records the reviews of a fork as [A contributor with no reviewer](#a-contributor-with-no-reviewer) says. A job that records reviews needs a signing key as a secret and a signer of its own. Anyone who can push a branch can make that job sign a pass.
 
 ## Findings in the pull request
 
@@ -286,11 +279,11 @@ A job that passes prints its warnings in its log, and nowhere else. A warning le
 
 A plain check prints no debt either. Its text names no finding of a file outside the change, and `summary.debt` of its JSON is 0. With `--full` or `--strict`, `findings` holds the debt with `debt: true`.
 
-`--json` gives every finding with its file and line ([JSON documents](json.md)). A short script turns that document into what the service shows on the changed lines.
+A short script turns the `--json` document ([JSON documents](json.md)) into what the service shows on the changed lines.
 
 ### 1. Annotate on GitHub
 
-Save this script as `.github/lawcheck-annotations.mjs`. It prints one workflow command for each finding: `error` for a finding that blocks, `warning` for the other findings of the change, and `notice` for debt. It also prints the `next:` line, because `--json` replaces the text output that holds it. GitHub places an annotation by its path from the top of the repository. The JSON gives each path from the folder that holds `.lawcheck`. The script asks git for that folder, so the annotations land on the right lines when the law sits below the top.
+Save this script as `.github/lawcheck-annotations.mjs`. It prints one workflow command for each finding: `error` for a finding that blocks, `warning` for the other findings of the change, and `notice` for debt. It also prints the `next:` line, because `--json` replaces the text output that holds it. The JSON gives each path from the folder that holds `.lawcheck`, so the script asks git for that folder. The annotations then land on the right lines when the law sits below the top.
 
 <!-- example: annotations-script -->
 ```js
@@ -325,7 +318,7 @@ check_and_annotate() {
 }
 ```
 
-The function writes the JSON outside the checkout, so the report is not a changed file. A check that ends with exit 2 prints `lawcheck-error/1`, and the script annotates its errors too. GitHub limits the annotations it shows for a step and for a job. The log keeps every line.
+The function writes the JSON outside the checkout, so the report is not a changed file. A check that ends with exit 2 prints `lawcheck-error/1`, and the script annotates its errors too. GitHub limits the annotations it shows per step and per job. The log keeps every line.
 
 ### 2. Report code quality on GitLab
 
@@ -349,7 +342,7 @@ const report = (document.findings ?? []).map((finding) => ({
 console.log(JSON.stringify(report, null, 2));
 ```
 
-The job below extends the job of [Give the base on GitLab CI](#_6-give-the-base-on-gitlab-ci). It keeps the exit code of the check, so the job still fails on an error. It keeps the report as an artifact after an error too. A check that ends with exit 2 has no findings, so the report is an empty list.
+The job below extends the job of [Give the base on GitLab CI](#_6-give-the-base-on-gitlab-ci). It keeps the exit code of the check, and keeps the report as an artifact after an error too. A check that ends with exit 2 has no findings, so the report is an empty list.
 
 <!-- example: gitlab-code-quality-job -->
 ```yaml
@@ -373,7 +366,7 @@ lawcheck-quality:
 
 ### 3. Show the findings in GitHub code scanning
 
-In [the workflow](#_2-add-the-workflow), add `security-events: write` to `permissions`. Add `--sarif "$RUNNER_TEMP/lawcheck.sarif"` to the check with `--full`, and `--full --sarif "$RUNNER_TEMP/lawcheck.sarif"` to the first check with `--base "$base"`. Code scanning closes every alert that an upload lacks. With `--full`, the SARIF file holds the findings of every file. So this optional recipe makes each run an audit of the whole code. Then add this step ([SARIF 2.1.0](json.md#sarif-2-1-0)):
+In [the workflow](#_2-add-the-workflow), add `security-events: write` to `permissions`. Add `--sarif "$RUNNER_TEMP/lawcheck.sarif"` to the check with `--full`, and `--full --sarif "$RUNNER_TEMP/lawcheck.sarif"` to the first check with `--base "$base"`. With the base's law alone, both checks with `--base` need them. Code scanning closes every alert that an upload lacks. With `--full`, the SARIF file holds the findings of every file. So this optional recipe makes each run an audit of the whole code. Then add this step ([SARIF 2.1.0](json.md#sarif-2-1-0)):
 
 <!-- example: sarif-upload -->
 ```yaml
@@ -389,7 +382,7 @@ The upload step runs after exit 1 too. After exit 2, Lawcheck writes no file and
 
 ## A change to the law
 
-A pull request can change the law that judges it. The first check of the job judges with that changed law. For example, a pull request takes the rule `no-console` off the [type](concepts.md#type) `library` and adds `console.log` to `src/core/total.ts`. The first check passes and prints:
+A pull request can change the law that judges it. For example, one takes the rule `no-console` off the [type](concepts.md#type) `library` and adds `console.log` to `src/core/total.ts`. A check by its own law passes and prints:
 
 ```output
 lawcheck: PASS  2 changed files (against origin/main)
@@ -397,9 +390,37 @@ note: the law changed in this change; lawcheck check --full --base origin/main s
 note: this change edits the law that judges it: takes the rule no-console off the type library
 ```
 
-The job of [Add the workflow](#_2-add-the-workflow) then checks again with `--law-from "$base"`. It judges the pull request by the base's law ([`--law-from`](commands.md#law-from-ref)). That second check fails with exit 1 at `src/core/total.ts:2`. [What a check judges](change.md) lists every change of the law that the note names.
+With `--law-from "$base"`, the base's law judges the change, and the check fails with exit 1 at `src/core/total.ts:2` ([`--law-from`](commands.md#law-from-ref)). [What a check judges](change.md) lists every change of the law that the note names.
 
-On `pull_request`, GitHub runs the pull request's own workflow file. The install step reads the pull request's `package.json`. In the second check, a rule of the base judges the pull request's copy of each file outside the base's law. A pull request that edits those files can skip the second check, or change what a rule reads.
+### The law that judges a change
+
+Your team chooses one of three. A coding agent that writes this job asks you which first. The last five lines of the step `Check the change` run both checks. For one law alone, replace them with its lines. A root commit still runs with `--full`.
+
+**The change's own law** catches code that breaks the law as the change leaves it, a new rule included. It catches a broken law file, and a broken rule file once the check runs it. It misses a change that loosens the law and breaks the old one: that passes, with a note. A change can also add its own signer, whose passes then count.
+
+<!-- example: ci-law-own -->
+```sh
+npx --no-install lawcheck check --base "$base"
+```
+
+**The base's law** catches both of those misses. It misses a change that adds or tightens a rule and breaks it, on its push to `main` too: the rule judges later changes. It also passes a change that breaks the law file or a rule file. Once a broken law file is merged, every later check by the base's law exits 2, the check of the fix too. The pull request that adds the law has no base law, so these lines check it by its own:
+
+<!-- example: ci-law-base -->
+```sh
+if git cat-file -e "$base:./.lawcheck/law.yaml" 2> /dev/null; then
+  npx --no-install lawcheck check --base "$base" --law-from "$base"
+else
+  npx --no-install lawcheck check --base "$base"
+fi
+```
+
+**Both laws**, the workflow as written, fail when either check fails, so each catches what the other misses. They cost a second run.
+
+With a check by the base's law, merge a change that loosens the law first, in its own pull request.
+
+### What no choice guards
+
+On `pull_request`, GitHub runs the pull request's own workflow file. The install step reads the pull request's `package.json`. Under `--law-from`, a rule of the base judges the pull request's copy of each file outside the base's law. A pull request that edits those files can skip that check, or change what a rule reads.
 
 Lawcheck guards none of those files. Under `--law-from`, the check of the base's law is not a security boundary on its own. Lawcheck covers only in part a file system that folds names, such as the older one of macOS. The same holds for Windows, which drops trailing dots and spaces. `.lawcheck/` needs a code owner. On GitHub, a required review by a code owner can guard these paths:
 
@@ -408,13 +429,11 @@ Lawcheck guards none of those files. Under `--law-from`, the check of the base's
 - `package.json` and the lockfile;
 - every file a rule imports or reads.
 
-Keep a rule's helpers and settings under `.lawcheck/rules/`, and import them: the second check loads the base's copy. A file a rule reads by its path, and a package from `node_modules`, come from the pull request. One in `.lawcheck/node_modules` or `.lawcheck/.local` stops the second check with `law-from-packages`.
-
-A pull request that removes a rule and adds code that the rule forbids fails the second check. Merge the change of the law first, in its own pull request.
+Keep a rule's helpers and settings under `.lawcheck/rules/`, and import them: under `--law-from`, Lawcheck loads the base's copy. A file a rule reads by its path, and a package from `node_modules`, come from the pull request. One in `.lawcheck/node_modules` or `.lawcheck/.local` stops that check with `law-from-packages`.
 
 ## Git hooks
 
-A git hook is a script that git runs before a commit or a push. The hooks below run `lawcheck check`. When the check fails, the hook stops the commit or the push. The outputs below come from a repository whose law gives `src/core/**` the script rule `no-console`.
+The hooks below run `lawcheck check`. A failed check stops the commit or the push. The outputs below come from a repository whose law gives `src/core/**` the script rule `no-console`.
 
 A hook checks the working tree against its merge base with `origin/main`, never the index. The index holds what `git add` staged for the next commit. Git can commit a staged file that breaks the law while the working tree holds the clean text. The hook lets that commit through. Lawcheck has no flag for the index, and refuses `--staged`.
 
@@ -492,11 +511,9 @@ A check runs the script rules that its checkout holds. A pull request from a str
 
 The script rules that a pull request holds are code of the pull request. Run its check only on a machine where you would run its tests.
 
-A pull request of a fork runs the same script rules ([Pull requests from a fork](#pull-requests-from-a-fork)).
-
 ## If it goes wrong
 
-- Lawcheck prints `base-unreachable` when the job did not fetch the base branch, or when the clone is shallow. A shallow clone holds only the last commits, without the merge base. The `next:` line gives the `git fetch` command for the history.
+- Lawcheck prints `base-unreachable` when the job did not fetch the base branch, or when the clone is shallow and so lacks the merge base. The `next:` line gives the `git fetch` command for the history.
   Lawcheck writes that command for a POSIX shell. It quotes a remote or branch name that holds a character the shell reads, such as `;` or `$`. For a name that git refuses as a branch name, or that holds a line break, the `next:` line names no branch. It gives `git fetch --unshallow` on a shallow clone, and no command on a full one.
 - In a container, `no-git` means that another user owns the checkout. Git refuses to work in such a folder. The `next:` line gives the `git config` command that adds it to the git setting `safe.directory`, with the path quoted for `sh`.
 

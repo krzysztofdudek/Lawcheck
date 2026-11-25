@@ -603,3 +603,13 @@ Two places run `--full` inside a job. A root commit has no base, so the script j
 In `.github/workflows/ci.yml` the three merge jobs run `if: ${{ !cancelled() }}` and the job `commit set` runs `if: always()`. A merge still runs when a shard of its run failed or was skipped, and is skipped when the whole run is cancelled. `commit set` runs in a cancelled run too, finds jobs that are not green and fails.
 
 Why: with `always()` on the merges, a run that a new push to a pull request cancelled still started its three merges and then `commit set`, and the run of the new push started no job until they ended. In one pull request a merge of the cancelled run waited for a runner for three minutes, and for 3 minutes 33 seconds nothing ran for the new push. `commit set` keeps `always()` because it is the one required check, and GitHub counts a skipped required check as passed. The cost: the new run still waits for that one short job of the cancelled run.
+
+## 226. The law that judges a change in CI is the team's choice
+
+`docs/ci.md` gives three choices: the change's own law, the law of the base through `--law-from`, and both. It says what a choice of one law misses, and it tells a coding agent to ask the user before it writes the job. `docs/agent-setup.md` says the same for a CI job that the user asks for. Neither page picks one for the user.
+
+Why: each choice misses something or costs something, and which of those matters depends on how a team changes its law. With the change's own law, a change can loosen the law and break it at once, and can add a signer of its own. With the base's law, a change can tighten the law and break it at once, and can break the law file, after which every check by the base's law stops, the check of the fix included. Both catch all of these and cost a second run.
+
+The workflow on the page still runs both. The page needs one whole file that runs as it stands, the tutorial film shows that file line by line, and a job built from it misses nothing the other two would catch. Each other choice replaces the last five lines of its step, and a test runs all three as written. The lines for the base's law alone fall back to the change's own law when the base holds no law, since otherwise the pull request that adds the law would stop with `law-from-unreachable`.
+
+`--base` and `--law-from` stay apart: `--base` chooses the files of the change and has a default, and `--law-from` chooses the law and has none. No variable or setting turns `--law-from` on, so a job judges by the base's law only where its script says so.

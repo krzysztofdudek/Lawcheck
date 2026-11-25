@@ -94,7 +94,7 @@ That agent checks only when it follows the line, and nothing sends it back. A pr
 ## Limits
 
 - After three returns the plugin lets the agent finish and tells you that the check still fails.
-- A pull request can edit its own law, so the job in `lawcheck docs ci` checks the change again with the law of the base.
+- A pull request can edit its own law. In CI, your team chooses which law judges it: the change's own, the base's or both (`lawcheck docs ci`).
 - Lawcheck does not read every form of use. It misses an `import()` of a variable, `importlib.import_module`, reflection, and a Java call written by its full name with no import, such as `com.shop.Util.run()`. It neither judges nor counts a use it does not read. `lawcheck docs languages` lists the forms for each language.
 
 ## More
