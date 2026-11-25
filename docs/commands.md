@@ -215,6 +215,8 @@ With paths or patterns, `check` judges only the files you name, changed or not. 
 
 With `--full`, `check` judges every file, the files outside the change included. It lists their findings as [debt](concepts.md#debt). Every finding of debt is a warning, so debt does not fail the check. `--strict` changes that.
 
+`--full` is a deliberate audit of the whole code, which you run on purpose. CI judges only the change on purpose, so that people see findings only about what they change ([CI and git hooks](ci.md#_2-add-the-workflow)).
+
 ### --strict
 
 With `--strict`, `check` judges every file as `--full` does. It holds the debt to the standard of the change. A finding of debt is an error when the same finding inside the change would be one: a finding of an `enforced` rule, a `forbidden-use`, or a waiver with no reason. A finding of an `advisory` rule stays a warning.

@@ -590,6 +590,14 @@ Why: sabotage held 35 entries in 14 of the 49 files of `src/`, and nothing said 
 
 The list reads the build, since the tests run `dist/`. It makes the same build once more with source maps, in a temporary folder, to name lines of `src/`, and refuses a `dist/` that differs from it. A copy of the build that a test runs from another folder counts by its name under `dist/` and its length. Four limits are written into the list itself: a line counts as reached when any part of it ran; a process that is killed writes no record; the run is on Linux, so a line that only Windows or macOS runs is listed; and the rule runner, which Lawcheck starts with an empty environment and no right to write, writes none, so `src/runner.ts` is counted only where a test loads it itself.
 
+## 224. CI judges only the change, and `--full` is a deliberate audit
+
+CI judges the change alone, with the plain check of the job in `docs/ci.md`. `check --full` is a deliberate audit of the whole code, run on purpose. It is not a step for every change, for a person or for CI. The pages that describe CI, the plain check and `--full` say so, and so do the setup page and the setup skill, which run `--full` to prove a candidate law.
+
+Why: people then see findings only about what they change. Without the sentence, the choice read as an accident, and the setup page, which runs `--full` several times, read as if every later change needed it.
+
+Two places run `--full` inside a job. A root commit has no base, so the script judges every file. The recipe for GitHub code scanning is optional and audits the whole code on each run: code scanning takes each upload as the whole analysis and closes every alert the upload lacks, so a file written from a check of the change would close the alerts of every file the change leaves alone. The page says that the recipe is that audit, and that the job without it judges only the change. The recipe was kept as it is rather than moved into a job someone starts by hand, since moved, its alerts would be only as fresh as the last audit.
+
 ## Decision (number at merge). A cancelled run skips its merges, and its required check still runs
 
 In `.github/workflows/ci.yml` the three merge jobs run `if: ${{ !cancelled() }}` and the job `commit set` runs `if: always()`. A merge still runs when a shard of its run failed or was skipped, and is skipped when the whole run is cancelled. `commit set` runs in a cancelled run too, finds jobs that are not green and fails.
