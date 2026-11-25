@@ -590,6 +590,16 @@ Why: sabotage held 35 entries in 14 of the 49 files of `src/`, and nothing said 
 
 The list reads the build, since the tests run `dist/`. It makes the same build once more with source maps, in a temporary folder, to name lines of `src/`, and refuses a `dist/` that differs from it. A copy of the build that a test runs from another folder counts by its name under `dist/` and its length. Four limits are written into the list itself: a line counts as reached when any part of it ran; a process that is killed writes no record; the run is on Linux, so a line that only Windows or macOS runs is listed; and the rule runner, which Lawcheck starts with an empty environment and no right to write, writes none, so `src/runner.ts` is counted only where a test loads it itself.
 
+## 227. The release gate moves from the release before, and each publish is followed by an install from npm
+
+Two checks stand around a release. Before the tag, the nightly test `tests/environments/upgrade.nightly.test.ts` installs the release before the candidate from npm, lets it work in two repositories, and then runs the candidate there. The candidate must ask the reviewer nothing for the passes and the kept failure it finds, leave `.lawcheck/verdicts` as it was, and print what it prints in the same repository without those files; the reader cache of the older release must change no output. After the publish, the job `published` of `release.yml` calls `published.yml`, which installs the new version from the registry on Linux, macOS and Windows and runs `tests/environments/published.ts`: the version, the page of the quick start, and its five steps with the outputs the page shows.
+
+- The release before is the version npm calls `latest`. Every alpha and every stable release moves that tag, and the gate runs before the candidate is published, so no file of the repository has to name a version. A prerelease that is not an alpha, such as a beta, is published under a tag of its own and leaves `latest` where it was, so the release after it is compared with the last alpha or stable release. On a run after the publish, `latest` is the candidate, and the test then compares it with itself.
+- The script reads the quick start inside the installed package, not the one of the checkout. The outputs it expects are then those of the version that runs, and the same script checks any version on npm when `published.yml` is started by hand.
+- A red `published` stops nothing, since `npm publish` cannot be taken back. It makes the release run red, and the fix is a new version.
+
+Why: no test ran a new version on the files an older one left, so a user of the older release would have been the first to learn that the new one does not read them. And `release.yml` tested the commit, packed it apart and published the tarball; nothing installed what the registry then served, with the dependencies npm resolves on that day.
+
 ## 224. CI judges only the change, and `--full` is a deliberate audit
 
 CI judges the change alone, with the plain check of the job in `docs/ci.md`. `check --full` is a deliberate audit of the whole code, run on purpose. It is not a step for every change, for a person or for CI. The pages that describe CI, the plain check and `--full` say so, and so do the setup page and the setup skill, which run `--full` to prove a candidate law.
