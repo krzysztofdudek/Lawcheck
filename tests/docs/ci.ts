@@ -12,6 +12,8 @@ const RECIPE = (kind: string) => `tests/environments/ci-recipes.nightly.test.ts 
 
 const SARIF = 'tests/acceptance/ci-docs.test.ts > test 1033: the code scanning recipe of docs/ci.md writes the SARIF file of every file from the first check, run as written on a pull request and on a push, and uploads it when the check fails too';
 
+const CHOICES = 'tests/acceptance/ci-docs.test.ts > test 1410: the three choices of docs/ci.md for the law that judges a change, run as written in the step of the workflow, catch and miss what the page says, and the agent pages ask the user which one';
+
 const ANNOTATE = 'tests/acceptance/ci-docs.test.ts > S7-13: the recipes of docs/ci.md turn --json into GitHub annotations and a GitLab code quality report, run as written';
 
 export const claims: Claims = {
@@ -38,6 +40,8 @@ export const claims: Claims = {
   'example gitlab-code-quality-job': ANNOTATE,
   'example sarif-upload': SARIF,
   'block 1 under "A change to the law"': SCENARIO,
+  'example ci-law-own': CHOICES,
+  'example ci-law-base': CHOICES,
   'example pre-commit-hook': SCENARIO,
   'block 1 under "2. Make it executable"': SCENARIO,
   'block 1 under "3. Make git read the folder"': SCENARIO,
