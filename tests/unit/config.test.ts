@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { DEFAULT_CONFIG, parseConfig, readConfig } from '../../dist/config.js';
+import { DEFAULT_CONFIG, parseConfig, readConfig, readSettings } from '../../dist/config.js';
 
 const BASE = 'reviewer:\n  provider: openai-compatible\n  model: test-model\n';
 
@@ -100,6 +100,51 @@ test('reviewer-slice §6: the file is read from the disk at the root, when it ex
     rmSync(join(root, '.lawcheck/config.yaml'));
     mkdirSync(join(root, '.lawcheck/config.yaml'));
     assert.ok('problems' in readConfig(root));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('test 1390: each key comes from its variable, then config.local.yaml, then config.yaml, and a place that names the provider takes no model or temperature from below', () => {
+  const root = mkdtempSync(join(tmpdir(), 'lawcheck-config-'));
+  const LOCAL = '.lawcheck/config.local.yaml';
+  try {
+    mkdirSync(join(root, '.lawcheck'));
+    writeFileSync(join(root, '.lawcheck/config.yaml'), 'reviewer:\n  provider: openai\n  model: m\n  temperature: 0.5\n  timeout: 10\n  max_calls: 3\n');
+    assert.deepEqual(readSettings(root, {}), {
+      config: { ...DEFAULT_CONFIG, provider: 'openai', model: 'm', temperature: 0.5, timeout: 10, maxCalls: 3 },
+      from: { provider: '.lawcheck/config.yaml', model: '.lawcheck/config.yaml', temperature: '.lawcheck/config.yaml', timeout: '.lawcheck/config.yaml', max_calls: '.lawcheck/config.yaml' },
+    });
+    writeFileSync(join(root, LOCAL), 'reviewer:\n  provider: copilot-cli\n  max_calls: 7\n');
+    assert.deepEqual(readSettings(root, { LAWCHECK_REVIEWER_PARALLEL: '2', LAWCHECK_REVIEWER_MAX_CHARS: '' }), {
+      config: { ...DEFAULT_CONFIG, provider: 'copilot-cli', model: null, temperature: null, timeout: 10, parallel: 2, maxCalls: 7 },
+      from: { provider: LOCAL, timeout: '.lawcheck/config.yaml', max_calls: LOCAL, parallel: 'LAWCHECK_REVIEWER_PARALLEL' },
+    });
+    const env = { LAWCHECK_REVIEWER_PROVIDER: 'ollama', LAWCHECK_REVIEWER_MODEL: 'e', LAWCHECK_REVIEWER_TEMPERATURE: '0.25', LAWCHECK_REVIEWER_TIMEOUT: '5', LAWCHECK_REVIEWER_MAX_CHARS: '9', LAWCHECK_REVIEWER_MAX_CALLS: '0' };
+    assert.deepEqual(readSettings(root, env), {
+      config: { provider: 'ollama', model: 'e', temperature: 0.25, timeout: 5, maxChars: 9, parallel: 4, maxCalls: 0 },
+      from: { provider: 'LAWCHECK_REVIEWER_PROVIDER', model: 'LAWCHECK_REVIEWER_MODEL', temperature: 'LAWCHECK_REVIEWER_TEMPERATURE', timeout: 'LAWCHECK_REVIEWER_TIMEOUT', max_chars: 'LAWCHECK_REVIEWER_MAX_CHARS', max_calls: 'LAWCHECK_REVIEWER_MAX_CALLS' },
+    });
+    // The text of another commit stands in for the config.yaml on disk.
+    assert.deepEqual(readSettings(root, {}, null), { config: { ...DEFAULT_CONFIG, provider: 'copilot-cli', timeout: 300, parallel: 1, temperature: null, maxCalls: 7 }, from: { provider: LOCAL, max_calls: LOCAL } });
+    for (const [variable, value, message] of [
+      ['LAWCHECK_REVIEWER_PROVIDER', 'copilot', /^the provider 'copilot' is unknown/],
+      ['LAWCHECK_REVIEWER_MODEL', ' ', /^LAWCHECK_REVIEWER_MODEL takes a non-empty string/],
+      ['LAWCHECK_REVIEWER_PARALLEL', '1.5', /^LAWCHECK_REVIEWER_PARALLEL takes an integer of at least 1, not 1\.5$/],
+      ['LAWCHECK_REVIEWER_MAX_CALLS', '1e3', /^LAWCHECK_REVIEWER_MAX_CALLS takes an integer of at least 0, not the string "1e3"$/],
+      ['LAWCHECK_REVIEWER_TEMPERATURE', '0.5', /^the provider copilot-cli takes no temperature/],
+    ] as [string, string, RegExp][]) {
+      const read = readSettings(root, { [variable]: value });
+      assert.ok('problems' in read, variable);
+      assert.deepEqual([read.problems.length, read.problems[0]!.file, read.problems[0]!.line], [1, null, null], variable);
+      assert.match(read.problems[0]!.message, message);
+    }
+    writeFileSync(join(root, LOCAL), 'reviewer:\n  provider: openai\nscripts: x\n');
+    const read = readSettings(root, {});
+    assert.deepEqual('problems' in read && read.problems.map((p) => [p.file, p.line, p.message]), [
+      [LOCAL, 3, "unknown key 'scripts' at the top of the config"],
+      [LOCAL, 1, "the provider 'openai' needs reviewer.model"],
+    ]);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

@@ -7,8 +7,8 @@ import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { anthropic, defaultAnswer, gitAlone, openai, startFake, withFake, writeFakeClaude } from './fake-reviewer.ts';
-import { alive, append, F, F_PATH, findingLines, lawcheckAt, pathWith, PROMPT_F, read, REVIEWER_CONFIG, REVIEWER_LAW, run, SECOND, startLawcheck, withCopy, withR, write } from './helpers.ts';
+import { anthropic, defaultAnswer, gitAlone, openai, startFake, withFake, writeFakeClaude, writeFakeProgram } from './fake-reviewer.ts';
+import { alive, append, F, F_PATH, findingLines, git, lawcheck, lawcheckAt, pathWith, PROMPT_F, read, REVIEWER_CONFIG, REVIEWER_LAW, run, SECOND, startLawcheck, withCopy, withR, write } from './helpers.ts';
 import type { Copy } from './helpers.ts';
 
 const UNREACHABLE = 'src/core/refund.ts  error[reviewer-unreachable]  ';
@@ -271,6 +271,162 @@ test('test 62: a prompt larger than reviewer.max_chars is never sent', async () 
       config(REVIEWER_CONFIG + '  max_chars: 2127\n'),
     );
   });
+});
+
+const LOCAL = '.lawcheck/config.local.yaml';
+
+// The committed config names claude-code, and git ignores config.local.yaml as after lawcheck init.
+function committed(text = CLAUDE_CONFIG) {
+  return {
+    onMain: (r: string) => {
+      write(r, '.lawcheck/config.yaml', text);
+      write(r, '.lawcheck/.gitignore', '.local/\nconfig.local.yaml\n');
+    },
+  };
+}
+
+function twoPrograms(dir: string, extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
+  const bin = join(dir, 'bin');
+  writeFakeProgram(bin, 'claude');
+  writeFakeProgram(bin, 'copilot');
+  fakeWrites(dir, ['claude.json', 'copilot.json']);
+  return { PATH: pathWith(bin), FAKE_CLAUDE_RECORD: join(dir, 'claude.json'), FAKE_COPILOT_RECORD: join(dir, 'copilot.json'), ...extra };
+}
+
+const argsOf = (dir: string, program: string): string[] => (JSON.parse(readFileSync(join(dir, `${program}.json`), 'utf8')) as { args: string[] }).args;
+const doctorLine = (stdout: string, id: string): string => stdout.split('\n').find((line) => new RegExp(`^(ok|note|fail|skip) {2}${id} {2}`).test(line)) ?? '';
+
+test('test 1390: config.local.yaml sets the reviewer over config.yaml, a variable sets it over both, and a key neither names comes from config.yaml', async () => {
+  await withFake(async (fake) => {
+    await withR(async (r, dir) => {
+      write(r, F_PATH, F);
+      write(r, LOCAL, 'reviewer:\n  provider: copilot-cli\n');
+      const local = await run(r, null, ['--review', '--base', 'main'], twoPrograms(dir), { stderr: 'lawcheck: 1 reviewer call to copilot-cli\n' });
+      assert.equal(local.stdout, SECOND);
+      assert.ok(!existsSync(join(dir, 'claude.json')), 'claude was called');
+      // The model test-model was written for claude-code, so copilot is started without it.
+      assert.ok(!argsOf(dir, 'copilot').includes('--model'), argsOf(dir, 'copilot').join(' '));
+      rmSync(join(dir, 'copilot.json'));
+
+      const env = twoPrograms(dir, { LAWCHECK_REVIEWER_PROVIDER: 'openai-compatible', LAWCHECK_REVIEWER_MODEL: 'env-model' });
+      // The answer of the first run is kept whatever reviewer gave it, so only --again asks the next one.
+      const kept = await run(r, fake, ['--review', '--base', 'main'], env);
+      assert.equal(kept.stdout, SECOND.replace(', 1 reviewer call', ''));
+      assert.equal(fake.requests.length, 0);
+      const fromEnv = await run(r, fake, ['--review', '--base', 'main', '--again'], env, { stderr: 'lawcheck: 1 reviewer call to openai-compatible\n' });
+      assert.equal(fake.requests.length, 1);
+      assert.equal(fake.requests[0]!.json.model, 'env-model');
+      assert.ok(!existsSync(join(dir, 'claude.json')) && !existsSync(join(dir, 'copilot.json')), 'a program was called');
+    }, committed());
+
+    await withR(async (r, dir) => {
+      write(r, F_PATH, F);
+      write(r, LOCAL, 'reviewer:\n  model: local-model\n');
+      const result = await run(r, null, ['--review', '--base', 'main'], twoPrograms(dir), { stderr: 'lawcheck: 1 reviewer call to claude-code\n' });
+      assert.deepEqual(argsOf(dir, 'claude'), CLAUDE_ARGS.map((arg) => (arg === 'test-model' ? 'local-model' : arg)));
+      rmSync(join(dir, 'claude.json'));
+      const model = await run(r, null, ['--review', '--base', 'main', '--again'], twoPrograms(dir, { LAWCHECK_REVIEWER_MODEL: 'env-model' }), { stderr: 'lawcheck: 1 reviewer call to claude-code\n' });
+      assert.deepEqual(argsOf(dir, 'claude'), CLAUDE_ARGS.map((arg) => (arg === 'test-model' ? 'env-model' : arg)), model.stdout);
+    }, committed());
+  });
+});
+
+test('test 1391: doctor and explain name the reviewer in force and the place of each value', async () => {
+  await withR(async (r, dir) => {
+    const plain = await lawcheck(r, ['doctor', '--base', 'main'], twoPrograms(dir));
+    assert.equal(doctorLine(plain.stdout, 'config'), 'ok  config  .lawcheck/config.yaml: reviewer claude-code, model test-model');
+    const rule = await lawcheck(r, ['explain', '--rule', 'clear-errors'], twoPrograms(dir));
+    assert.ok(rule.stdout.split('\n').includes('  judged by:  reviewer claude-code, model test-model'), rule.stdout);
+
+    // The file and the config line below are the two examples of docs/config.md, On one machine.
+    write(r, LOCAL, 'reviewer:\n  provider: copilot-cli\n  model: local-model\n  max_calls: 7\n');
+    const local = await lawcheck(r, ['doctor', '--base', 'main'], twoPrograms(dir));
+    assert.equal(doctorLine(local.stdout, 'config'), `ok  config  reviewer copilot-cli (${LOCAL}), model local-model (${LOCAL}), max_calls 7 (${LOCAL})`);
+    assert.match(doctorLine(local.stdout, 'reviewer'), /^ok {2}reviewer {2}1 reviewer rule; copilot-cli can be called/);
+    assert.equal(local.code, 0);
+
+    const env = twoPrograms(dir, { LAWCHECK_REVIEWER_MODEL: 'env-model', LAWCHECK_REVIEWER_TIMEOUT: '90' });
+    const both = await lawcheck(r, ['doctor', '--base', 'main'], env);
+    const inForce = `reviewer copilot-cli (${LOCAL}), model env-model (LAWCHECK_REVIEWER_MODEL), timeout 90 (LAWCHECK_REVIEWER_TIMEOUT), max_calls 7 (${LOCAL})`;
+    assert.equal(doctorLine(both.stdout, 'config'), `ok  config  ${inForce}`);
+    const explained = await lawcheck(r, ['explain', '--rule', 'clear-errors'], env);
+    assert.ok(explained.stdout.split('\n').includes(`  judged by:  ${inForce}`), explained.stdout);
+    const document = JSON.parse((await lawcheck(r, ['explain', '--rule', 'clear-errors', '--json'], env)).stdout);
+    assert.deepEqual(document.reviewer, { provider: 'copilot-cli', model: 'env-model', from: { provider: LOCAL, model: 'LAWCHECK_REVIEWER_MODEL', timeout: 'LAWCHECK_REVIEWER_TIMEOUT', max_calls: LOCAL } });
+  }, committed());
+
+  await withR(async (r, dir) => {
+    const env = twoPrograms(dir, { LAWCHECK_REVIEWER_PROVIDER: 'copilot-cli' });
+    const result = await lawcheck(r, ['doctor', '--base', 'main'], env);
+    assert.equal(doctorLine(result.stdout, 'config'), 'ok  config  no .lawcheck/config.yaml; reviewer copilot-cli (LAWCHECK_REVIEWER_PROVIDER)');
+    const primed = await lawcheck(r, ['prime'], env);
+    assert.ok(!primed.stdout.includes('no reviewer is set'), primed.stdout);
+    const unset = await lawcheck(r, ['prime'], twoPrograms(dir));
+    assert.ok(unset.stdout.includes('\n- not-reviewed: no reviewer is set in .lawcheck/config.yaml'), unset.stdout);
+    write(r, LOCAL, 'reviewer:\n  provider: claude-code\n');
+    const local = await lawcheck(r, ['prime'], twoPrograms(dir));
+    assert.ok(!local.stdout.includes('no reviewer is set'), local.stdout);
+  }, { onMain: (r: string) => { rmSync(join(r, '.lawcheck/config.yaml')); write(r, '.lawcheck/.gitignore', '.local/\nconfig.local.yaml\n'); } });
+});
+
+test('test 1392: a wrong value of config.local.yaml or of a variable is config-invalid at its place, and a config.local.yaml that git tracks is refused', async () => {
+  const errors = async (r: string, env: NodeJS.ProcessEnv) => {
+    const result = await run(r, null, ['--base', 'main', '--json'], env);
+    assert.equal(result.code, 2, result.stdout);
+    const document = JSON.parse(result.stdout) as { errors: { code: string; file: string | null; line: number | null; message: string }[]; next: { text: string } };
+    return document.errors.map((error) => ({ ...error, next: document.next }));
+  };
+  await withR(async (r, dir) => {
+    write(r, LOCAL, 'reviewer:\n  provider: copilot\n');
+    let [error] = await errors(r, twoPrograms(dir));
+    assert.deepEqual([error!.code, error!.file, error!.line], ['config-invalid', LOCAL, 2]);
+    assert.match(error!.message, /^the provider 'copilot' is unknown/);
+    assert.equal(error!.next.text, `ask the user to fix ${LOCAL}, then run lawcheck check`);
+
+    for (const [text, message] of [
+      ['runner: pnpm\n', `runner is not read from ${LOCAL}: the plugin takes it from .lawcheck/config.yaml alone`],
+      ['reviewer:\n  keys: x\n', /^a key never goes into \.lawcheck\/config\.local\.yaml; set LAWCHECK_REVIEWER_KEY/],
+      ['reviewer:\n  provider: openai\n', "the provider 'openai' needs reviewer.model"],
+      ['reviewer:\n  temperature: 0.5\n', 'the provider claude-code takes no temperature: the claude program runs at its own'],
+    ] as [string, string | RegExp][]) {
+      write(r, LOCAL, text);
+      [error] = await errors(r, twoPrograms(dir));
+      assert.equal(error!.file, LOCAL, text);
+      if (typeof message === 'string') assert.equal(error!.message, message);
+      else assert.match(error!.message, message);
+    }
+    rmSync(join(r, LOCAL));
+
+    [error] = await errors(r, twoPrograms(dir, { LAWCHECK_REVIEWER_TIMEOUT: 'soon' }));
+    assert.deepEqual([error!.code, error!.file, error!.line], ['config-invalid', null, null]);
+    assert.equal(error!.message, 'LAWCHECK_REVIEWER_TIMEOUT takes an integer of seconds from 1 to 86400, not the string "soon"');
+    assert.equal(error!.next.text, 'ask the user to set the variable as the message says or to unset it, then run lawcheck check');
+    [error] = await errors(r, twoPrograms(dir, { LAWCHECK_REVIEWER_PROVIDER: 'openai' }));
+    assert.equal(error!.message, "the provider 'openai' needs a model in LAWCHECK_REVIEWER_MODEL, since LAWCHECK_REVIEWER_PROVIDER names the provider");
+    const empty = await run(r, null, ['--base', 'main'], twoPrograms(dir, { LAWCHECK_REVIEWER_PROVIDER: '', LAWCHECK_REVIEWER_TIMEOUT: '' }));
+    assert.equal(empty.code, 0, empty.stdout);
+
+    write(r, LOCAL, 'reviewer:\n  provider: copilot-cli\n');
+    git(r, 'add', '-f', LOCAL);
+    [error] = await errors(r, twoPrograms(dir));
+    assert.deepEqual([error!.code, error!.file, error!.line], ['config-invalid', LOCAL, null]);
+    assert.equal(error!.message, `git tracks ${LOCAL}, and Lawcheck reads that file only as the settings of one machine`);
+    assert.equal(error!.next.text, `ask the user to take it out of git with git rm --cached ${LOCAL}, or to move its settings into .lawcheck/config.yaml, then run lawcheck check`);
+  }, committed());
+});
+
+test('test 1393: under --law-from the variables and config.local.yaml of the machine stand over the config.yaml of the commit, and a config.local.yaml the change adds to git is refused', async () => {
+  await withR(async (r, dir) => {
+    write(r, F_PATH, F);
+    write(r, '.lawcheck/config.yaml', 'reviewer:\n  provider: codex\n');
+    write(r, LOCAL, 'reviewer:\n  provider: copilot-cli\n');
+    const result = await run(r, null, ['--review', '--base', 'main', '--law-from', 'main'], twoPrograms(dir), { stderr: 'lawcheck: 1 reviewer call to copilot-cli\n' });
+    assert.ok(existsSync(join(dir, 'copilot.json')), result.stdout);
+    git(r, 'add', '-f', LOCAL);
+    const tracked = await run(r, null, ['--review', '--base', 'main', '--law-from', 'main'], twoPrograms(dir));
+    assert.ok(tracked.stdout.split('\n').some((line) => line.startsWith(`${LOCAL}  error[config-invalid]  git tracks ${LOCAL}`)), tracked.stdout);
+    assert.equal(tracked.code, 2);
+  }, committed());
 });
 
 test('test 63: no reviewer set', async () => {
