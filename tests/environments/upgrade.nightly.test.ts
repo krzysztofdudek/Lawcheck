@@ -9,7 +9,7 @@ import { CLI, F, F_PATH, F_PRIME, git, GIT_ENV, inTemp, LANGUAGES_SAMPLE, lawche
 const FAILING_PATH = 'src/core/charge.ts';
 const NAMED = ['cs/domain/Order.cs', 'java/src/main/java/com/acme/domain/Order.java', 'kotlin/src/main/kotlin/com/acme/k/domain/Order.kt', 'ruby/domain/order.rb', 'rust/src/domain/mod.rs'];
 
-// The release before the candidate is the version npm calls latest: every release moves that tag (the job publish of release.yml), and the release gate runs before the candidate is published.
+// The release before the candidate is the version npm calls latest: every alpha and every stable release moves that tag (the job publish of release.yml), and the release gate runs before the candidate is published.
 function installPrevious(dir: string): { cli: string; version: string } {
   const prefix = join(dir, 'previous');
   execFileSync('npm', ['install', '--prefix', prefix, '--no-audit', '--no-fund', 'lawcheck@latest'], {
