@@ -1,12 +1,27 @@
 # Upgrade Lawcheck
 
-Lawcheck 0.1.0-alpha.4 judges the code as 0.1.0-alpha.3 does, with one exception: a [script rule](concepts.md#script-rule) that uses the network. If you upgrade from alpha.3 or from 0.1.0-alpha.2, the upgrade is [Before you upgrade](#before-you-upgrade) and the first three steps. From alpha.2, the list of `lawcheck docs` also grows from 12 pages to the 40 of this version. The text form of that list groups the pages under five section lines. A script that reads the list meets those lines for the first time. If you upgrade from 0.1.0-alpha.1, read the whole page.
+Lawcheck 0.1.0-alpha.5 forbids one use that 0.1.0-alpha.4 passed: a use that could name several files, when the `may_use` list of the file's [type](concepts.md#type) forbids every one of them. alpha.4 counted such a [use](concepts.md#use) as unresolved. So a branch that passed on alpha.4 can fail on alpha.5, at a line that the branch did not touch. [Changes in the results](#changes-in-the-results) lists this change and five smaller ones.
 
-Lawcheck finds the [uses](concepts.md#use) of each file through a parsing library named Runes. Lawcheck 0.1.0-alpha.2 depends on Runes 1.2.0. alpha.2 finds uses that 0.1.0-alpha.1 missed, such as a `vi.mock` of a file of another layer. Lawcheck judges those uses against the `may_use` list of the file's [type](concepts.md#type). So a branch that passed on alpha.1 can fail on alpha.4, at a line that the branch did not touch.
+If you upgrade from alpha.4, the upgrade is [Before you upgrade](#before-you-upgrade) and the first four steps. From 0.1.0-alpha.3 or 0.1.0-alpha.2, read also the note on a [script rule](concepts.md#script-rule) that uses the network. From alpha.2, the list of `lawcheck docs` grows from 12 pages to the 40 of this version, and from alpha.4 it grows from 36. The text form of that list groups the pages under five section lines. A script that reads the list from alpha.2 meets those lines for the first time. If you upgrade from 0.1.0-alpha.1, read the whole page.
 
-At the end of this guide, alpha.4 runs. `lawcheck check --full` has listed the findings that alpha.4 adds. You have changed the law or the code so that the next change passes.
+At the end of this guide, alpha.5 runs. `lawcheck check --full` has listed the findings that alpha.5 adds. You have changed the law or the code so that the next change passes.
 
 ## Changes in the results
+
+alpha.5 changes these results of alpha.4:
+
+| In the repository | alpha.4 | alpha.5 |
+|---|---|---|
+| a use that could name several files, all of them forbidden by `may_use`, such as a C# partial class spread over two forbidden types | an unresolved use, and the check passes | a `forbidden-use` that names the files with their types |
+| a waiver whose reason holds only invisible characters, such as a zero-width space | a waiver | [`waiver-without-reason`](codes.md#waiver-without-reason), and the finding under the waiver counts again |
+| a rule whose id is `law-from-unreachable`, `law-from-packages` or `not-a-signer` | a rule | [`law-invalid`](codes.md#law-invalid), since the three ids are new codes of Lawcheck |
+| a script rule whose background work throws after the rule's last result, such as a timer it unrefs | a pass or a fail, by how many other files the run judged | [`rule-crashed`](codes.md#rule-crashed) |
+| a file edited in the same second as the last commit or `git add`, with its size unchanged | outside the change of a [plain check](concepts.md#plain-check) | inside the change |
+| a plain check in a pull request job of GitHub Actions, GitLab CI or Azure Pipelines, with no `--base` and no `LAWCHECK_BASE` | the [base](concepts.md#base) is `origin/HEAD`, and a clone without one stops with `base-unreachable` | the base is the branch that the pull request goes into |
+
+The first row is the one that can fail a law that passed. In a repository where `cs/app/Ledger.cs` and `cs/infra/Ledger.cs` each hold a part of one C# class, and the type `domain` may use neither `app` nor `infra`, alpha.5 prints this message for a file of `domain` that names the class: `domain may not use Shop.Domain.Order+Ledger, which names one of cs/app/Ledger.cs (app) and cs/infra/Ledger.cs (infra); its may_use is [domain]`. alpha.4 passes the same file with `1 unresolved use` in its first line. A use with one allowed file among those it could name still passes in alpha.5.
+
+Lawcheck finds the uses of each file through a parsing library named Runes. alpha.5 depends on Runes 1.2.0, as alpha.2, alpha.3 and alpha.4 do. From alpha.1, the readers of alpha.2 changed these results:
 
 | In the code | alpha.2 |
 |---|---|
@@ -25,20 +40,35 @@ At the end of this guide, alpha.4 runs. `lawcheck check --full` has listed the f
 | a C or C++ system header, a Ruby constant the repository does not declare, a Java or Kotlin member type inherited from a library | outside the repository, where alpha.1 counted an unresolved use |
 | an alias the readers cannot follow | an unresolved use, where alpha.1 dropped it |
 
-The release note of alpha.2 in the [Changelog](changelog.md) lists these changes in prose. alpha.3 judges the code as alpha.2 does. alpha.4 judges it as alpha.3 does, with one exception. A script rule that uses the network now gets an error from the call ([Before you upgrade](#before-you-upgrade)).
+Lawcheck judges those uses against the `may_use` list of the file's type. So a branch that passed on alpha.1 can fail on alpha.5 too, as in [A law that passed now fails](#a-law-that-passed-now-fails).
+
+The release notes in the [Changelog](changelog.md) list every change in prose. alpha.3 judges the code as alpha.2 does. alpha.4 judges it as alpha.3 does, with one exception. A script rule that uses the network gets an error from the call ([Before you upgrade](#before-you-upgrade)).
 
 ## Files that need no edit
 
-The law keeps its `lawcheck: 0.1.0` line. That line holds the version of the law's format. Lawcheck checks only the form of that version, and it does not compare the value with its own version ([The law file](law.md#lawcheck)). alpha.2, alpha.3 and alpha.4 read the rules and `.lawcheck/config.yaml` as alpha.1 does.
+The law keeps its `lawcheck: 0.1.0` line. That line holds the version of the law's format. Lawcheck checks only the form of that version, and it does not compare the value with its own version ([The law file](law.md#lawcheck)). alpha.2, alpha.3 and alpha.4 read the rules and `.lawcheck/config.yaml` as alpha.1 does. alpha.5 reads them as alpha.4 does, except a rule whose id is one of the three new codes.
 
-alpha.2, alpha.3 and alpha.4 send the [reviewer](concepts.md#reviewer-rule) the same prompt as alpha.1. Every pass in `.lawcheck/verdicts` stays valid ([Verdict](concepts.md#verdict)). The upgrade needs no new review.
+alpha.5 adds four keys to the law: `required`, `ignored` and `signers` at the top, and `companion` in a rule. Each one changes the results only in a law that uses it.
+
+alpha.5 sends the [reviewer](concepts.md#reviewer-rule) the same prompt as alpha.4, byte for byte, and gives each pass the same line in `.lawcheck/verdicts`. alpha.2, alpha.3 and alpha.4 send the same prompt as alpha.1. Every pass in the file stays valid ([Verdict](concepts.md#verdict)). The upgrade needs no new review. Under a law without `signers`, alpha.5 reads and writes the file as alpha.4 does ([Signed passes](reviewer-rules.md#signed-passes)).
+
+alpha.5 reads the reviewer's answer in a new way. An answer that holds a fail and a pass is a fail. In alpha.4 the last object of the answer won, so a fail followed by a quoted pass counted as a pass. The new reading applies to the reviews you ask for after the upgrade ([The answer](reviewer-rules.md#the-answer)).
+
+alpha.5 keeps a cache of what Java, Kotlin, C#, Ruby and Rust files declare in `.lawcheck/.local/readers/` ([The reader cache](languages.md#the-reader-cache)). The `.lawcheck/.gitignore` that `lawcheck init` wrote keeps `.lawcheck/.local/` out of git.
 
 ## Before you upgrade
 
-- A script rule that uses the network now gets an error from the call itself, on every version of Node. On Node 24, alpha.3 let the call through. On Node 25 and later, alpha.3 passed Node's refusal to the callback, the `error` event or the promise. A rule that does not catch the error at the call ends as [`rule-crashed`](codes.md#rule-crashed). The check then exits with code 2. Keep the data the rule needs in a file of the repository, and let the rule read that file.
-- From alpha.1, a file that alpha.1 passed can hold a use that alpha.2, alpha.3 and alpha.4 forbid. A [plain check](concepts.md#plain-check) fails on that file the first time a change touches it. Step 4, [List what the new version finds](#_4-list-what-the-new-version-finds), lists those files before a change touches them.
+- A file that alpha.4 passed can hold a use that alpha.5 forbids. A plain check fails on that file the first time a change touches it. Step 4, [List what the new version finds](#_4-list-what-the-new-version-finds), lists those files before a change touches them.
+- A rule whose id is `law-from-unreachable`, `law-from-packages` or `not-a-signer` stops alpha.5 with `law-invalid`, and the run exits with code 2. Give such a rule another id, and its file the same name, before you upgrade.
+- alpha.4 stops with `law-invalid` on a law that uses `required`, `ignored`, `signers` or a rule's `companion`. Install alpha.5 on every machine, CI job and git hook that checks the repository before you add one of them.
+- A script that reads `lawcheck check --json` no longer finds the waivers a change adds in `scope.law_changes`. It reads the items of `waivers` whose `added` is true ([JSON documents](json.md)).
+- A `check` or `try` that ends with exit 2 after it sent requests to a reviewer ends its first line with the count, such as `lawcheck: ERROR  1 error, 2 reviewer calls`. The document `lawcheck-error/1` gains `calls_made`. A program that checks the document against a schema that refuses unknown keys has to allow `calls_made`.
+- The workflow of `lawcheck docs ci` now runs its second check with `--law-from`. Before you replace the lines of your alpha.4 workflow with the new one, read [A change to the law](ci.md#a-change-to-the-law): a rule of the base that imports a file outside `.lawcheck/rules/` stops that check with `rule-crashed`.
+- `lawcheck doctor` now reads the uses of every file, so it takes about as long as `lawcheck check --full`. A CI job that runs `doctor` on every push takes that time on every push ([Run doctor on a machine, not in the job](ci.md#_4-run-doctor-on-a-machine-not-in-the-job)).
+- From alpha.3 or older, a script rule that uses the network gets an error from the call itself, on every version of Node. On Node 24, alpha.3 let the call through. On Node 25 and later, alpha.3 passed Node's refusal to the callback, the `error` event or the promise. A rule that does not catch the error at the call ends as `rule-crashed`. The check then exits with code 2. Keep the data the rule needs in a file of the repository, and let the rule read that file.
+- From alpha.1, a file that alpha.1 passed can hold a use that every later version forbids. Step 4 lists those files as well.
 - From alpha.1, the install grows by about 34 MB. The grammars that Runes 1.2.0 ships take that space. A grammar is the file that describes the syntax of one language.
-- CI and the git hooks run the version that the project's lockfile pins. Commit `package.json` and the lockfile with the upgrade. Then the CI job, the hooks and each machine's copy in the project run alpha.4.
+- CI and the git hooks run the version that the project's lockfile pins. Commit `package.json` and the lockfile with the upgrade. Then the CI job, the hooks and each machine's copy in the project run alpha.5.
 
 ## 1. Install the new version
 
@@ -66,18 +96,26 @@ In a project, start Lawcheck through the package manager, as in `pnpm exec lawch
 
 ## 3. Update the Claude Code plugin
 
-If you do not use the Claude Code plugin, skip this step. The plugins of alpha.2, alpha.3 and alpha.4 run the same hooks as the plugin of alpha.1. These two commands install the newest version of the plugin:
+If you do not use the Claude Code plugin, skip this step. The plugin of alpha.5 runs the same four hooks as the plugins of alpha.1 to alpha.4. It adds three things ([The Claude Code plugin](plugin.md)):
+
+- the skill `/lawcheck:setup`, which writes the first law of a repository with you;
+- one message to you at the end of a turn in which the agent added a waiver, or changed or deleted a file of the law;
+- the word `Lawcheck:` at the start of each of its messages, where alpha.4 started some with `lawcheck:`.
+
+Install alpha.5 before you update the plugin ([Install the new version](#_1-install-the-new-version)). The skill follows the page `lawcheck docs agent-setup`, and alpha.4 has no such page. These two commands install the newest version of the plugin:
 
 ```text
 claude plugin marketplace update lawcheck-marketplace
 claude plugin update lawcheck@lawcheck-marketplace
 ```
 
-Restart Claude Code. The plugin starts the Lawcheck that the `runner` setting names. After you install the new version ([Install the new version](#_1-install-the-new-version)), that Lawcheck is alpha.4.
+Restart Claude Code. The plugin starts the Lawcheck that the `runner` setting names. After step 1, that Lawcheck is alpha.5.
+
+The plugins for Codex and GitHub Copilot CLI are new in alpha.5, so there is no older one to update ([Lawcheck in Codex](codex-cli.md), [Lawcheck in GitHub Copilot CLI](copilot-cli.md)).
 
 ## 4. List what the new version finds
 
-The outputs below come from a repository with the law of the example on [Lawcheck](index.md). The upgrade happens on a branch made from `main`. In that repository, `src/core/price.test.ts` mocks a file of the type `cli`:
+The example below is a finding that alpha.2 added to alpha.1. A finding that alpha.5 adds to alpha.4 shows in the same list. The outputs come from a repository with the law of the example on [Lawcheck](index.md). The upgrade happens on a branch made from `main`. In that repository, `src/core/price.test.ts` mocks a file of the type `cli`:
 
 ```ts
 import { expect, test, vi } from 'vitest';
@@ -172,7 +210,7 @@ The branch did not touch line 4. That line holds the `vi.mock` call. alpha.1 pas
 
 ## If it goes wrong
 
-- `lawcheck --version` still prints the old version, such as `0.1.0-alpha.3`: the command started the other copy. Upgrade the copy that the `runner` setting names, or start Lawcheck with the command of that setting, as in `npx --no-install lawcheck --version`.
+- `lawcheck --version` still prints the old version, such as `0.1.0-alpha.4`: the command started the other copy. Upgrade the copy that the `runner` setting names, or start Lawcheck with the command of that setting, as in `npx --no-install lawcheck --version`.
 - CI reports fewer findings than your machine: the job runs the version of the committed lockfile. Commit `package.json` and the lockfile.
 - Lawcheck reports a forbidden use in a file that the upgrade did not touch, in a form you do not expect. `lawcheck explain <path>` shows the file's type and its `may_use` ([The commands](commands.md#explain)).
 
