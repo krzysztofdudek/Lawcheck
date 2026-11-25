@@ -262,7 +262,7 @@ With `--review`, Lawcheck asks the reviewer about each pair of a file and a revi
 
 ### --sarif `<file>`
 
-`--sarif` writes the findings to the file in SARIF 2.1.0 as well, for GitHub code scanning ([CI and git hooks](ci.md#_3-show-the-findings-in-github-code-scanning)). The text output, the JSON and the exit code stay as they are. A check that ends with exit 2 writes no file. A file that cannot be written stops the run with `file-unwritable`. [JSON documents](json.md#sarif-2-1-0) lists what the file holds. A check of named files does not take `--sarif`.
+`--sarif` writes the findings to the file in SARIF 2.1.0 as well, for GitHub code scanning ([Findings in the pull request](ci-findings.md#_3-show-the-findings-in-github-code-scanning)). The text output, the JSON and the exit code stay as they are. A check that ends with exit 2 writes no file. A file that cannot be written stops the run with `file-unwritable`. [JSON documents](json.md#sarif-2-1-0) lists what the file holds. A check of named files does not take `--sarif`.
 
 ### --json
 
