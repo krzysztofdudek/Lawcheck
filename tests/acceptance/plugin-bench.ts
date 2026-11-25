@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { delimiter, dirname, join } from 'node:path';
-import { alive, atOnce, D, D_PATH, inTemp, makeSample, ROOT, write } from './helpers.ts';
+import { alive, atOnce, D, D_PATH, git, inTemp, makeSample, ROOT, write } from './helpers.ts';
 import type { Run, Running } from './helpers.ts';
 import { fakeWrites, platformSkip, startHook, waitUntil } from '../harness/tool.ts';
 import type { HookOptions } from '../harness/tool.ts';
@@ -290,6 +290,22 @@ export class CursorSession {
   }
 }
 
+// Runs the parts of a test at once, each on a bench of its own with a copy of one sample: the sample is made once, since making it starts git several times, and a copy of its folder starts nothing.
+export async function withBenches(parts: [what: string, run: (bench: Bench, s: string, dir: string) => Promise<void>][]): Promise<void> {
+  await inTemp(async (base) => {
+    const sample = makeSample(base);
+    await atOnce(parts, parts.length, ([what]) => what, ([, run]) =>
+      withBench(async (bench, dir) => {
+        const s = join(dir, 's');
+        cpSync(sample, s, { recursive: true });
+        // git holds the inode and times of each file in its index, which a copy changes; refreshed here, the index is not rewritten by the first git command of a hook, which the harness would take for a change the run made.
+        git(s, 'update-index', '-q', '--refresh');
+        await run(bench, s, dir);
+      }),
+    );
+  });
+}
+
 export async function withBench<T>(body: (bench: Bench, dir: string) => Promise<T>): Promise<T> {
   return inTemp((dir) => body(new Bench(dir), dir));
 }
@@ -346,18 +362,16 @@ export async function startAndPromptScenario(deadlines: Deadlines | null): Promi
   const start = deadlines?.['session-start'] ?? DEADLINES['session-start'];
   const prompt = deadlines?.prompt ?? DEADLINES.prompt;
   const options = deadlines === null ? {} : { deadlines };
-  const hooks: [event: string, run: () => Promise<void>][] = [
-    ['session-start', () => withBench(async (bench, dir) => {
-      const s = makeSample(dir);
+  const hooks: [event: string, run: (bench: Bench, s: string, dir: string) => Promise<void>][] = [
+    ['session-start', async (bench, s, dir) => {
       const { pids, gone } = hangBench(dir);
       hangingLawcheck(bench, pids, false);
       const started = await new Session(bench, s, 's1', {}, options).start();
       within(started, start);
       json(started, { hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: `This repository has a Lawcheck law (.lawcheck/law.yaml), and lawcheck prime did not run: it did not finish within ${start} seconds.\nInstall it with npm i -g lawcheck@alpha, then start a new session. Until then, read .lawcheck/law.yaml for the law.` } });
       await gone();
-    })],
-    ['prompt', () => withBench(async (bench, dir) => {
-      const s = makeSample(dir);
+    }],
+    ['prompt', async (bench, s, dir) => {
       const calls = join(dir, 'git.log');
       fakeWrites(dir, ['git.log']);
       const env = fakeGit(bench.bin, where('git'), { hang: true, record: { file: calls, variable: 'GIT_OPTIONAL_LOCKS' } });
@@ -368,9 +382,9 @@ export async function startAndPromptScenario(deadlines: Deadlines | null): Promi
       assert.equal(bench.state().open, false);
       assert.deepEqual(readFileSync(calls, 'utf8').trim().split('\n').map((line) => JSON.parse(line)), [{ words: ['rev-parse', '--verify', '--quiet', 'HEAD^{commit}'], value: '0' }]);
       removeFakeGit(bench.bin);
-    })],
+    }],
   ];
-  await atOnce(hooks, hooks.length, ([event]) => event, ([, run]) => run());
+  await withBenches(hooks);
 }
 
 // Test 163: a stand-in lawcheck that never answers, run by the edit hook and by the stop hook to their deadlines, then by an edit hook stopped by SIGTERM. The edit hook's stand-in and its child stay alive on SIGTERM, so it ends only by the SIGKILL that follows. With deadlines given, the first two hooks run with them in place of the shipped ones; the third is the shipped hook, stopped once the stand-in has started, or after a fixed time.
@@ -379,9 +393,8 @@ export async function deadlineScenario(deadlines: Deadlines | null, sigterm: 'st
   const stop = deadlines?.stop ?? DEADLINES.stop;
   const options = deadlines === null ? {} : { deadlines };
   // Each hook has its own bench and sample, so the deadlines pass at once and not one after the other.
-  const hooks: [event: string, run: () => Promise<void>][] = [
-    ['edit', () => withBench(async (bench, dir) => {
-      const s = makeSample(dir);
+  const hooks: [event: string, run: (bench: Bench, s: string, dir: string) => Promise<void>][] = [
+    ['edit', async (bench, s, dir) => {
       write(s, D_PATH, D);
       const { pids, gone } = hangBench(dir);
       hangingLawcheck(bench, pids, true);
@@ -389,9 +402,8 @@ export async function deadlineScenario(deadlines: Deadlines | null, sigterm: 'st
       within(late, edit);
       json(late, edited(`Lawcheck: lawcheck check ./${D_PATH} did not finish within ${edit} seconds, so the hook stopped it.`));
       await gone();
-    })],
-    ['stop', () => withBench(async (bench, dir) => {
-      const s = makeSample(dir);
+    }],
+    ['stop', async (bench, s, dir) => {
       const { pids, gone } = hangBench(dir);
       hangingLawcheck(bench, pids, false);
       const session = new Session(bench, s, 's1', {}, options);
@@ -401,11 +413,10 @@ export async function deadlineScenario(deadlines: Deadlines | null, sigterm: 'st
       within(stopped, stop);
       json(stopped, { systemMessage: `Lawcheck: the check at the end of the turn did not run: it did not finish within ${stop} seconds.` });
       await gone();
-    })],
+    }],
   ];
   if (platformSkip('a hook stopped by SIGTERM') === null) {
-    hooks.push(['an edit stopped by SIGTERM', () => withBench(async (bench, dir) => {
-      const s = makeSample(dir);
+    hooks.push(['an edit stopped by SIGTERM', async (bench, s, dir) => {
       write(s, D_PATH, D);
       const { pids, gone } = hangBench(dir);
       hangingLawcheck(bench, pids, false);
@@ -424,7 +435,7 @@ export async function deadlineScenario(deadlines: Deadlines | null, sigterm: 'st
       assert.equal(term.stdout, '');
       assert.ok(term.ms < (sigterm === 'after 2 seconds' ? HOOK_SIGTERM_AFTER_MS : 0) + STOPPED_HOOK_ENDS_MS, String(term.ms));
       await gone();
-    })]);
+    }]);
   }
-  await atOnce(hooks, hooks.length, ([event]) => event, ([, run]) => run());
+  await withBenches(hooks);
 }
