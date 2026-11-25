@@ -140,7 +140,7 @@ $ git commit --no-edit
 
 ## A change of the law
 
-A [change](concepts.md#change) that edits the law or a rule file changes the law that every developer checks against. `lawcheck check` says so in a note under its first line ([What a check judges](change.md)). The CI job checks such a change a second time, with the law of its [base](concepts.md#base) ([CI and git hooks](ci.md)). Lawcheck leaves the human review of such a change to your code host. On GitHub, a code owner for `.lawcheck/` and a required review make a person approve each change of the law.
+A [change](concepts.md#change) that edits the law or a rule file changes the law that every developer checks against. `lawcheck check` says so in a note under its first line ([What a check judges](change.md)). A CI job can check such a change with the law of its [base](concepts.md#base), as your team chooses ([Which law judges a change](ci.md#which-law-judges-a-change)). Lawcheck leaves the human review of such a change to your code host. On GitHub, a code owner for `.lawcheck/` and a required review make a person approve each change of the law.
 
 ## If it goes wrong
 

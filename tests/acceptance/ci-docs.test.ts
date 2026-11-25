@@ -65,6 +65,64 @@ test('test 305: S7-3, the workflow checks again with the law of the base on ever
   assert.ok(!page.includes('has to pass both'), 'the page no longer says a pull request has to pass both laws');
 });
 
+test('test 1410: the three choices of docs/ci.md for the law that judges a change, run as written in the step of the workflow, catch and miss what the page says, and the agent pages ask the user which one', async () => {
+  const check = steps.find((step) => step.run?.includes('lawcheck check') === true)!.run!.trimEnd().split('\n');
+  const head = check.slice(0, -5);
+  assert.equal(check.at(-5), 'npx --no-install lawcheck check --base "$base"', 'the last five lines of the step are the two checks');
+  assert.ok(head.every((line) => !line.includes('--base')), 'no other line of the step checks the change');
+  const choices = { own: [...head, example('ci-law-own')], base: [...head, example('ci-law-base')], both: check };
+  for (const what of ['Your team chooses one of three', 'asks you which first', 'The last five lines of the step `Check the change` run both checks', "**The change's own law** catches", "**The base's law** catches", '**Both laws**, the workflow as written,', 'the check of the fix too']) assert.ok(page.includes(what), what);
+  const section = page.slice(page.indexOf('### 5. Give the base on another CI service'), page.indexOf('### 6. Give the base on GitLab CI'));
+  for (const what of ['`--base` chooses which files are the change, and `--law-from` [which law judges them]', '`--law-from` has no default', '`LAWCHECK_BASE`', '`origin/HEAD`']) assert.ok(section.includes(what), what);
+  const commands = readFileSync(new URL('../../docs/commands.md', import.meta.url), 'utf8');
+  for (const what of ['`--base` chooses which files are the change, and [`--law-from`](#law-from-ref) chooses which law judges them', 'It has a default: without the flag, Lawcheck takes `LAWCHECK_BASE`', '`--law-from` has no default']) assert.ok(commands.includes(what), what);
+  const setup = readFileSync(new URL('../../docs/agent-setup.md', import.meta.url), 'utf8');
+  for (const what of ["ask the user which law judges a change in CI: the change's own law, the law of the base, or both", 'The choice is the user\'s, so take none by default', '(ci.md#which-law-judges-a-change)']) assert.ok(setup.includes(what), what);
+
+  const NO_RULE = ANNOTATED_LAW.replace('rules: [no-console, no-todo]', 'rules: []');
+  const NO_TODO_RULE = ANNOTATED_LAW.replace('rules: [no-console, no-todo]', 'rules: [no-console]');
+  const TIGHTER = ANNOTATED_LAW.replace('    status: advisory\n', '');
+  const rules = { '.gitignore': 'node_modules/\n', '.lawcheck/rules/no-console.mjs': NO_CONSOLE, '.lawcheck/rules/no-todo.mjs': NO_TODO };
+  const call = "export const total = () => console.log('total');\n";
+  type Choice = keyof typeof choices;
+  const cases: [what: string, lawOfBase: string | null, change: Record<string, string>, expected: Record<Choice, number>][] = [
+    ['a change that loosens the law and breaks it', ANNOTATED_LAW, { '.lawcheck/law.yaml': NO_RULE, 'src/core/total.ts': call }, { own: 0, base: 1, both: 1 }],
+    ['a change that tightens a rule and breaks it', ANNOTATED_LAW, { '.lawcheck/law.yaml': TIGHTER, 'src/core/total.ts': 'export const total = 1; // TODO tidy\n' }, { own: 1, base: 0, both: 1 }],
+    ['a change that adds a rule and breaks it', NO_TODO_RULE.replace('rules: [no-console]', 'rules: []'), { '.lawcheck/law.yaml': NO_TODO_RULE, 'src/core/total.ts': call }, { own: 1, base: 0, both: 1 }],
+    ['a change that breaks the law file', ANNOTATED_LAW, { '.lawcheck/law.yaml': 'types: [broken\n' }, { own: 2, base: 0, both: 2 }],
+    ['a change that breaks a rule file the check runs', ANNOTATED_LAW, { '.lawcheck/rules/no-console.mjs': 'export async function check( {\n', 'src/core/total.ts': call }, { own: 2, base: 1, both: 2 }],
+    ['a change that breaks a rule file and nothing it binds', ANNOTATED_LAW, { '.lawcheck/rules/no-console.mjs': 'export async function check( {\n' }, { own: 0, base: 0, both: 0 }],
+    ['the pull request that adds the law', null, { '.lawcheck/law.yaml': ANNOTATED_LAW, 'src/core/total.ts': call }, { own: 1, base: 1, both: 1 }],
+  ];
+  await atOnce(cases, 4, ([what]) => what, ([what, lawOfBase, change, expected]) => inTemp(async (dir) => {
+    const work = clone(dir, lawOfBase === null ? { '.gitignore': 'node_modules/\n' } : { ...rules, '.lawcheck/law.yaml': lawOfBase });
+    standIn(work);
+    if (lawOfBase === null) for (const [path, text] of Object.entries(rules)) write(work, path, text);
+    for (const [path, text] of Object.entries(change)) write(work, path, text);
+    for (const [name, lines] of Object.entries(choices)) write(dir, `${name}.sh`, `${lines.join('\n')}\n`);
+    const job = (choice: Choice, env: NodeJS.ProcessEnv) => spawnSync('sh', ['-e', join(dir, `${choice}.sh`)], { cwd: work, env: { ...GIT_ENV, npm_config_update_notifier: 'false', CI: 'true', ...env }, encoding: 'utf8' });
+    for (const choice of Object.keys(choices) as Choice[]) {
+      const run = job(choice, { EVENT: 'pull_request', BASE_REF: 'main' });
+      assert.equal(run.status, expected[choice], `${what}, ${choice}\n${run.stdout}${run.stderr}`);
+    }
+    if (what === 'a change that tightens a rule and breaks it') {
+      const before = git(work, 'rev-parse', 'HEAD').trim();
+      git(work, 'add', '-A');
+      git(work, 'commit', '-q', '-m', 'tighten');
+      assert.equal(job('base', { EVENT: 'push', BEFORE: before }).status, 0, 'the push of that change to main passes by the law before it');
+    }
+    if (what === 'a change that breaks the law file') {
+      git(work, 'add', '-A');
+      git(work, 'commit', '-q', '-m', 'broken');
+      git(work, 'update-ref', 'refs/remotes/origin/main', 'HEAD');
+      write(work, '.lawcheck/law.yaml', ANNOTATED_LAW);
+      const fix = job('base', { EVENT: 'pull_request', BASE_REF: 'main' });
+      assert.equal(fix.status, 2, `the fix of a merged broken law fails by the base's law\n${fix.stdout}`);
+      assert.match(fix.stdout, /error\[law-invalid\]/);
+    }
+  }));
+});
+
 test('S7-2: S7-11, the hooks of docs/ci.md start Lawcheck through npx, name a base that exists in a clone, and never ask the reviewer', () => {
   for (const id of ['pre-commit-hook', 'pre-push-hook']) {
     const text = example(id);

@@ -227,11 +227,11 @@ The run exits 1 on an error in debt. The first line counts those errors apart, a
 
 ### --base `<ref>`
 
-`--base` names the base of the change: a branch, a tag or a commit. Without the flag, Lawcheck takes `LAWCHECK_BASE`, then the variable that a CI service sets for the target branch of a pull request or for the commit before a push, then `origin/HEAD`. [CI and git hooks](ci.md#_5-give-the-base-on-another-ci-service) lists the variables. With none of these, a plain check on a machine counts every file as changed. In a CI job, a plain check with none of them stops with `base-unreachable`, unless you pass `--full`.
+`--base` chooses which files are the change, and [`--law-from`](#law-from-ref) chooses which law judges them. `--base` takes a branch, a tag or a commit, the [base](concepts.md#base). It has a default: without the flag, Lawcheck takes `LAWCHECK_BASE`, then the variable that a CI service sets for the target branch of a pull request or for the commit before a push, then `origin/HEAD`. `--law-from` has no default: without it, the law in the checkout judges. [CI and git hooks](ci.md#_5-give-the-base-on-another-ci-service) lists the variables. With none of these, a plain check on a machine counts every file as changed. In a CI job, a plain check with none of them stops with `base-unreachable`, unless you pass `--full`.
 
 ### --law-from `<ref>`
 
-`--law-from` judges the change by the law of another commit, such as the base. Lawcheck reads `.lawcheck/law.yaml`, `.lawcheck/config.yaml` and `.lawcheck/rules/` of that commit from git, and changes nothing in the checkout. The files it judges are those of the work tree. A change that takes a rule off a type and breaks that rule then fails ([A change to the law](ci.md#a-change-to-the-law)).
+`--law-from` judges the change by the law of another commit, such as the base. Lawcheck reads `.lawcheck/law.yaml`, `.lawcheck/config.yaml` and `.lawcheck/rules/` of that commit from git, and changes nothing in the checkout. The files it judges are those of the work tree. A change that takes a rule off a type and breaks that rule then fails ([A change to the law](ci.md#a-change-to-the-law)). Whether CI uses this flag is [your team's choice](ci.md#which-law-judges-a-change).
 
 A rule of that commit judges the commit's text of `.lawcheck/law.yaml`, `.lawcheck/config.yaml` and `.lawcheck/rules/`, and the work tree's text of every other file. Lawcheck loads the script rules from a copy of the commit's `.lawcheck/rules/` in `.lawcheck/.local/`. It removes the copy when the run ends. A rule imports the helpers of that copy by a relative path.
 
