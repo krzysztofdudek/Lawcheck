@@ -208,7 +208,7 @@ test('test 1412: lawcheck check --help names what --base takes when it is left o
     const run = await lawcheck(dir, ['check', '--help']);
     assert.equal(run.code, 0);
     const lines = run.stdout.split('\n');
-    assert.equal(lines.find((line) => line.startsWith('  --base ')), '  --base <ref>       the base of the change; else LAWCHECK_BASE, the CI service\'s variable, or origin/HEAD');
+    assert.equal(lines.find((line) => line.startsWith('  --base ')), '  --base <ref>       the base of the change; else LAWCHECK_BASE, else a CI variable, else origin/HEAD');
     assert.equal(lines.find((line) => line.startsWith('  --law-from ')), '  --law-from <ref>   judge by the law of this commit, read from git; no default');
   });
 });
