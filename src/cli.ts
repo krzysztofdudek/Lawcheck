@@ -17,7 +17,7 @@ import type { ErrorItem } from './output.js';
 import { askPoolToEnd, lastStep, progressBuffer } from './progress.js';
 import { absolutePath, NO_CURRENT_FOLDER, serveGuard } from './programs.js';
 
-// How long the pool of parsing threads has to end once the memory guard asked it to, before the run ends as it would without a pool.
+// How long the reader of trees has to give back its kept trees and its threads once the memory guard asked, before the run ends as it would without them.
 const POOL_END_MS = 2_000;
 
 // Each case names a step the user can take: a file whose uses are read leaves the types with may_use, or the types of the rule that read them; a file read only for what it declares leaves the files git lists; a run or a machine short of memory gets more of it.
@@ -182,7 +182,7 @@ export function start(): void {
     }
     const found = memoryCase({ rss, stepGrowth: last.file === null ? null : rss - stepRss, available: availableNow(), total });
     if (found === null) return;
-    // While the pool parses several files at once, no step names the file that grows the run: the pool ends first, and the run ends only if its memory is still too large then, under a step that names one file.
+    // While the reader of trees keeps trees or parses several files at once on its threads, it gives that memory back first, and the run ends only if its memory is still too large then, under a step that names one file.
     const asked = askPoolToEnd(progress);
     if (asked === 'asked') poolAskedAt = Date.now();
     if (asked !== 'none' && Date.now() - poolAskedAt < POOL_END_MS) {

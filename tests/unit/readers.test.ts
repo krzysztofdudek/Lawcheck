@@ -1046,7 +1046,6 @@ test('test 1399: the thread that watches the run asks a working pool to end, and
   assert.match(lastStep(buffer).what, /^reading the tree of src\/f\d\d\.ts for the script rule one$/);
   const later = manyTexts(41).slice(40);
   assert.deepEqual(await reads(later, 'the script rule two')('tree', later[0]!), await pooledReads(later, 1)(later)('tree', later[0]!));
-  assert.equal(askPoolToEnd(buffer), 'none');
 });
 
 test('test 1399: a run uses as many processors as Node counts, or fewer where a cgroup gives it a smaller share of processor time, and never fewer than one', () => {
@@ -1054,4 +1053,22 @@ test('test 1399: a run uses as many processors as Node counts, or fewer where a 
     [cores(14, null), cores(14, 'max 100000\n'), cores(14, '100000 100000\n'), cores(14, '250000 100000\n'), cores(2, '800000 100000\n'), cores(14, '5000 100000'), cores(14, '-1 100000'), cores(14, 'nonsense'), cores(0, null)],
     [14, 14, 1, 3, 2, 1, 14, 14, 1],
   );
+});
+
+test('test 1399: asked by the thread that watches, a run gives back the trees it keeps, and from then on parses a file again for each rule that asks, with the same tree', async () => {
+  const buffer = progressBuffer();
+  attach(buffer);
+  const { parsed, runes } = countingParses();
+  const reads = treeReads(runes as typeof RUNES);
+  const a = { path: 'a.ts', text: TREE_TEXTS['a.ts']! };
+  const first = await reads([a], 'the script rule one')('tree', a);
+  assert.deepEqual(await reads([a], 'the script rule two')('tree', a), first);
+  assert.deepEqual(parsed, ['a.ts']);
+  assert.equal(askPoolToEnd(buffer), 'asked');
+  await new Promise((done) => setTimeout(done, 50));
+  assert.equal(askPoolToEnd(buffer), 'none');
+  assert.deepEqual(await reads([a], 'the script rule three')('tree', a), first);
+  assert.deepEqual(await reads([a], 'the script rule four')('tree', a), first);
+  assert.deepEqual(parsed, ['a.ts', 'a.ts', 'a.ts']);
+  assert.equal(askPoolToEnd(buffer), 'none');
 });
