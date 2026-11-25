@@ -429,6 +429,43 @@ test('test 1393: under --law-from the variables and config.local.yaml of the mac
   }, committed());
 });
 
+test('test 1394: under --law-from a config.local.yaml that the change brings is refused before a reviewer is called: one that git tracks under a name a file system that ignores case reads as it, and one inside a .lawcheck that is a repository of its own', async () => {
+  const lawFrom = async (r: string, dir: string) => {
+    const result = await run(r, null, ['--review', '--base', 'main', '--law-from', 'main'], twoPrograms(dir));
+    assert.ok(!existsSync(join(dir, 'claude.json')) && !existsSync(join(dir, 'copilot.json')), `a reviewer was called: ${result.stdout}`);
+    assert.equal(result.code, 2, result.stdout);
+    return result.stdout.split('\n');
+  };
+  for (const path of ['.lawcheck/Config.Local.yaml', '.lawcheck/config.local.yaml\u200c']) {
+    await withR(async (r, dir) => {
+      write(r, F_PATH, F);
+      write(r, path, 'reviewer:\n  provider: copilot-cli\n');
+      git(r, 'add', '-f', path);
+      git(r, 'commit', '-q', '-m', 'the change brings a config of one machine');
+      const lines = await lawFrom(r, dir);
+      assert.ok(lines.includes(`${path}  error[config-invalid]  git tracks this file, which a file system that ignores case reads as ${LOCAL}, and the settings of one machine cannot come from the change`), lines.join('\n'));
+      assert.ok(lines.includes(`next: ask the user to take ${path} out of git, such as with git rm --cached ${path}, then run lawcheck check`), lines.join('\n'));
+    }, committed());
+  }
+
+  await withR(async (r, dir) => {
+    write(r, F_PATH, F);
+    const inside = join(r, '.lawcheck');
+    git(r, 'rm', '-r', '-q', '--cached', '.lawcheck');
+    git(inside, 'init', '-q', '-b', 'main');
+    write(r, LOCAL, 'reviewer:\n  provider: copilot-cli\n');
+    git(inside, 'add', '-A');
+    git(inside, 'add', '-f', 'config.local.yaml');
+    git(inside, 'commit', '-q', '-m', 'a repository of its own');
+    git(r, 'add', '.lawcheck');
+    git(r, 'commit', '-q', '-m', 'the change makes .lawcheck a repository of its own');
+    assert.match(git(r, 'ls-files', '-s', '.lawcheck'), /^160000 /);
+    const lines = await lawFrom(r, dir);
+    assert.ok(lines.includes(`${LOCAL}  error[config-invalid]  this file lies in .lawcheck, which git lists as a link or a repository of its own, and the settings of one machine cannot come from the change`), lines.join('\n'));
+    assert.ok(lines.includes(`next: ask the user to remove ${LOCAL}, or to make .lawcheck a folder of this repository, then run lawcheck check`), lines.join('\n'));
+  }, committed());
+});
+
 test('test 63: no reviewer set', async () => {
   const noConfig = { onMain: (r: string) => rmSync(join(r, '.lawcheck/config.yaml')) };
   await withFake(async (fake) => {
