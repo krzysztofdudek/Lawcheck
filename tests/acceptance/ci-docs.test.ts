@@ -1,12 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
+import { execFile, spawnSync } from 'node:child_process';
 import { chmodSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parse } from 'yaml';
 import { example } from '../harness/examples.ts';
 import { openai, withFake } from './fake-reviewer.ts';
-import { append, CLI, findingLines, git, GIT_ENV, inTemp, lawcheck, newRepository, NO_CONSOLE, NO_TODO, withR, write } from './helpers.ts';
+import { append, atOnce, CLI, findingLines, git, GIT_ENV, inTemp, lawcheck, newRepository, NO_CONSOLE, NO_TODO, withR, write } from './helpers.ts';
 
 interface Step {
   uses?: string;
@@ -181,7 +181,8 @@ test('S7-13: the recipes of docs/ci.md turn --json into GitHub annotations and a
   assert.ok(sections().includes('### 2. Report code quality on GitLab'));
   for (const what of ['A job that passes prints its warnings in its log, and nowhere else', 'A plain check prints no debt either', '`summary.debt` of its JSON is 0', 'With `--full` or `--strict`, `findings` holds the debt with `debt: true`']) assert.ok(page.includes(what), what);
   const todo = (name: string) => `export const ${name} = 1; // TODO tidy\n`;
-  await inTemp(async (dir) => {
+  // The recipes run in three repositories, each in a folder of its own, so the three run at once.
+  const recipes = () => inTemp(async (dir) => {
     const work = clone(dir, { '.gitignore': 'node_modules/\n', '.lawcheck/law.yaml': ANNOTATED_LAW, '.lawcheck/rules/no-console.mjs': NO_CONSOLE, '.lawcheck/rules/no-todo.mjs': NO_TODO, 'src/core/old.ts': "export const old = () => console.log('old');\n" });
     write(work, 'src/core/total.ts', 'export function total(price: number): number {\n  console.log(price);\n  // TODO tidy\n  return price;\n}\n');
     standIn(work);
@@ -189,28 +190,26 @@ test('S7-13: the recipes of docs/ci.md turn --json into GitHub annotations and a
     write(work, 'scripts/lawcheck-code-quality.mjs', example('code-quality-script') + '\n');
     const env = { ...GIT_ENV, npm_config_update_notifier: 'false' };
     let scripts = 0;
-    const shell = (script: string, extra: NodeJS.ProcessEnv = {}) => {
+    const shell = (script: string, extra: NodeJS.ProcessEnv = {}): Promise<{ status: number | string | null; stdout: string; stderr: string }> => {
       const name = `script-${scripts++}.sh`;
       write(dir, name, `set -e\n${script}\n`);
-      return spawnSync('sh', [join(dir, name)], { cwd: work, env: { ...env, ...extra }, encoding: 'utf8' });
+      return new Promise((done) => execFile('sh', [join(dir, name)], { cwd: work, env: { ...env, ...extra }, encoding: 'utf8' }, (error, stdout, stderr) => done({ status: error === null ? 0 : (error.code ?? null), stdout, stderr })));
     };
     const annotate = (...args: string[]) => shell(`${example('annotations-step')}\ncheck_and_annotate ${args.join(' ')}`, { GITHUB_WORKSPACE: work });
 
-    const plain = annotate('--base', 'origin/main');
+    // The four steps and the plain check only read the repository, so they run at once; the check starts last, once every step has written its script, because the harness takes a file that appears in the folder during a run for a change the run made.
+    const [plain, full, strict, refused, plainRun] = await Promise.all([annotate('--base', 'origin/main'), annotate('--base', 'origin/main', '--full'), annotate('--base', 'origin/main', '--strict'), annotate('--base', 'origin/nope'), lawcheck(work, ['check', '--json', '--base', 'origin/main'])]);
     assert.equal(plain.status, 1, plain.stdout + plain.stderr);
     assert.equal(
       plain.stdout,
       ['::error title=no-console,file=src/core/total.ts,line=2::writes to the terminal with console.log', '::warning title=no-todo,file=src/core/total.ts,line=3::TODO without an issue number', 'next: fix src/core/total.ts:2', ''].join('\n'),
       'a finding that blocks is an error, an advisory one a warning, and the debt is not in a plain check',
     );
-    const plainJson = JSON.parse((await lawcheck(work, ['check', '--json', '--base', 'origin/main'])).stdout);
+    const plainJson = JSON.parse(plainRun.stdout);
     assert.equal(plainJson.summary.debt, 0, 'a plain check holds no debt');
     assert.equal(plainJson.findings.some((finding: { debt: boolean }) => finding.debt), false);
-    const full = annotate('--base', 'origin/main', '--full');
     assert.ok(full.stdout.includes('::notice title=no-console,file=src/core/old.ts,line=1::writes to the terminal with console.log\n'), 'debt is a notice with --full');
-    const strict = annotate('--base', 'origin/main', '--strict');
     assert.ok(strict.stdout.includes('::error title=no-console,file=src/core/old.ts,line=1::'), 'an enforced finding of debt is an error with --strict');
-    const refused = annotate('--base', 'origin/nope');
     assert.equal(refused.status, 2, 'the function keeps the exit code of the check');
     assert.match(refused.stdout, /^::error title=base-unreachable::the base 'origin\/nope' names no commit here\nnext: /, 'an error of exit 2 is annotated too');
 
@@ -223,7 +222,7 @@ test('S7-13: the recipes of docs/ci.md turn --json into GitHub annotations and a
 
     const job = (parse(example('gitlab-code-quality-job')) as { 'lawcheck-quality': { script: string[]; artifacts: { when: string; reports: { codequality: string } } } })['lawcheck-quality'];
     assert.equal(job.artifacts.when, 'always');
-    const run = shell(job.script.join('\n'), { GITLAB_CI: 'true', CI_MERGE_REQUEST_TARGET_BRANCH_NAME: 'main' });
+    const run = await shell(job.script.join('\n'), { GITLAB_CI: 'true', CI_MERGE_REQUEST_TARGET_BRANCH_NAME: 'main' });
     assert.equal(run.status, 1, run.stdout + run.stderr);
     const report = JSON.parse(readFileSync(join(work, job.artifacts.reports.codequality), 'utf8')) as { description: string; check_name: string; fingerprint: string; severity: string; location: { path: string; lines: { begin: number } } }[];
     assert.deepEqual(
@@ -241,7 +240,7 @@ test('S7-13: the recipes of docs/ci.md turn --json into GitHub annotations and a
     assert.deepEqual(entries.map((entry) => [entry.severity, entry.location.lines.begin]), [['info', 1], ['info', 2], ['info', 1], ['info', 1]], 'debt is info, and a finding of the whole file is on line 1');
     assert.equal(new Set(entries.map((entry) => entry.fingerprint)).size, 4, 'findings of one rule in one file differ by line and by message');
   });
-  await inTemp(async (dir) => {
+  const below = () => inTemp(async (dir) => {
     const repo = newRepository(dir, { '.gitignore': 'node_modules/\n', 'pkg/.lawcheck/law.yaml': ANNOTATED_LAW, 'pkg/.lawcheck/rules/no-console.mjs': NO_CONSOLE, 'pkg/.lawcheck/rules/no-todo.mjs': NO_TODO });
     git(repo, 'checkout', '-q', '-b', 'work');
     write(repo, 'pkg/src/core/total.ts', 'console.log(1);\n');
@@ -257,7 +256,7 @@ test('S7-13: the recipes of docs/ci.md turn --json into GitHub annotations and a
     const quality = spawnSync(process.execPath, [join(repo, 'scripts/lawcheck-code-quality.mjs')], { cwd: pkg, encoding: 'utf8', input: json });
     assert.equal((JSON.parse(quality.stdout) as { location: { path: string } }[])[0]!.location.path, 'pkg/src/core/total.ts', 'the GitLab report names the file from the top');
   });
-  await inTemp(async (dir) => {
+  const warning = () => inTemp(async (dir) => {
     const repo = newRepository(dir, { '.lawcheck/law.yaml': ANNOTATED_LAW.replace('rules: [no-console, no-todo]', 'rules: [no-todo]'), '.lawcheck/rules/no-console.mjs': NO_CONSOLE, '.lawcheck/rules/no-todo.mjs': NO_TODO, 'src/core/old.ts': todo('old') });
     git(repo, 'checkout', '-q', '-b', 'work');
     write(repo, 'src/core/new.ts', todo('added'));
@@ -269,6 +268,8 @@ test('S7-13: the recipes of docs/ci.md turn --json into GitHub annotations and a
     const full = JSON.parse((await lawcheck(repo, ['check', '--base', 'main', '--full', '--json'])).stdout);
     assert.deepEqual(full.findings.filter((finding: { debt: boolean }) => finding.debt).map((finding: { file: string }) => finding.file), ['src/core/old.ts']);
   });
+  const repositories: [what: string, run: () => Promise<void>][] = [['the recipes', recipes], ['a law below the top', below], ['a warning and debt', warning]];
+  await atOnce(repositories, repositories.length, ([what]) => what, ([, run]) => run());
 });
 
 test('test 1033: the code scanning recipe of docs/ci.md writes the SARIF file of every file from the first check, run as written on a pull request and on a push, and uploads it when the check fails too', async () => {

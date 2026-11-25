@@ -50,25 +50,27 @@ export async function scenario(page: Page): Promise<void> {
       write(repo, 'src/core/price.ts', 'export function price(cents: number): number {\n  return Math.max(cents, 0);\n}\n');
       write(repo, 'src/core/tax.ts', "import { price } from './price.js';\n\nexport function tax(cents: number): number {\n  return Math.round(price(cents) * 0.21);\n}\n");
       const env = { LAWCHECK_REVIEWER_ENDPOINT: fake.base };
-      await walk(page, repo, '1. See what the run judges', 1, env);
-      await walk(page, repo, '2. Check one file', 0, env);
-      await walk(page, repo, '3. Run each script rule alone', 0, env);
-      const [doctorArgv, ...rest] = commands(page.text('block 1 under "4. See which files are read for uses"'));
-      assert.equal(rest.length, 0);
-      const doctor = await lawcheck(repo, doctorArgv!.slice(1), env);
-      assert.equal(doctor.code, 0, doctor.stdout);
-      assert.deepEqual(doctor.stdout.split('\n').filter((line) => line.startsWith('ok  readers  ')), [page.text('block 2 under "4. See which files are read for uses"')]);
+      // The steps before the config changes only read the repository, and so do the steps after it, so each group runs at once.
+      const usesRead = async () => {
+        const [doctorArgv, ...rest] = commands(page.text('block 1 under "4. See which files are read for uses"'));
+        assert.equal(rest.length, 0);
+        const doctor = await lawcheck(repo, doctorArgv!.slice(1), env);
+        assert.equal(doctor.code, 0, doctor.stdout);
+        assert.deepEqual(doctor.stdout.split('\n').filter((line) => line.startsWith('ok  readers  ')), [page.text('block 2 under "4. See which files are read for uses"')]);
+      };
+      await Promise.all([walk(page, repo, '1. See what the run judges', 1, env), walk(page, repo, '2. Check one file', 0, env), walk(page, repo, '3. Run each script rule alone', 0, env), usesRead()]);
       write(repo, '.lawcheck/config.yaml', config);
-      await walk(page, repo, '5. Bound the reviewer', 2, env, 2);
+      const withoutBase = async () => {
+        const [noBase, ...more] = commands(page.text('block 3 under "6. Give the check its base"'));
+        assert.equal(more.length, 0);
+        const doctorWithout = await lawcheck(repo, noBase!.slice(1), env);
+        const lines = doctorWithout.stdout.split('\n');
+        const at = lines.findIndex((line) => /^\w+  base  /.test(line));
+        assert.ok(at >= 0, doctorWithout.stdout);
+        assert.equal(lines.slice(at, /^\s+next: /.test(lines[at + 1] ?? '') ? at + 2 : at + 1).join('\n'), page.text('block 4 under "6. Give the check its base"'), doctorWithout.stdout);
+      };
+      await Promise.all([walk(page, repo, '5. Bound the reviewer', 2, env, 2), walk(page, repo, '6. Give the check its base', 1, env), withoutBase()]);
       assert.equal(fake.requests.filter((request) => request.path === '/api/chat').length, 0, 'a run past its cap sends nothing');
-      await walk(page, repo, '6. Give the check its base', 1, env);
-      const [noBase, ...more] = commands(page.text('block 3 under "6. Give the check its base"'));
-      assert.equal(more.length, 0);
-      const doctorWithout = await lawcheck(repo, noBase!.slice(1), env);
-      const lines = doctorWithout.stdout.split('\n');
-      const at = lines.findIndex((line) => /^\w+  base  /.test(line));
-      assert.ok(at >= 0, doctorWithout.stdout);
-      assert.equal(lines.slice(at, /^\s+next: /.test(lines[at + 1] ?? '') ? at + 2 : at + 1).join('\n'), page.text('block 4 under "6. Give the check its base"'), doctorWithout.stdout);
     });
   }, (request) => (request.path === '/api/version' ? { body: '{"version":"0.12.6"}' } : { status: 500, body: '{}' }));
 }

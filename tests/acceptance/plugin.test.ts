@@ -14,7 +14,7 @@ import { fakeGit, installedLawcheck, removeFakeGit } from '../harness/fakes.ts';
 import { PAST_USER_SET_MS, TEST_HOOK_DEADLINES, USER_SET_DEADLINE_S } from '../numbers.ts';
 import { LIMIT } from '../../plugin/hooks/fit.mjs';
 import { DEADLINES, LINE_LIMIT } from '../../plugin/hooks/start.mjs';
-import { Bench, CodexSession, CopilotSession, CursorSession, deadlineScenario, edited, ended, EVENT_NAMES, GIT_DIR, hook, json, NODE_DIR, nothing, patchOf, PLUGIN, Session, startAndPromptScenario, SYSTEM_ENV, where, withBench } from './plugin-bench.ts';
+import { Bench, CodexSession, CopilotSession, CursorSession, deadlineScenario, edited, ended, EVENT_NAMES, GIT_DIR, hook, json, NODE_DIR, nothing, patchOf, PLUGIN, Session, startAndPromptScenario, SYSTEM_ENV, where, withBench, withBenches } from './plugin-bench.ts';
 import type { HookRun } from './plugin-bench.ts';
 
 const BROKEN_LAW = LAW.replace('status: advisory', 'statuss: advisory');
@@ -294,19 +294,28 @@ test('test 160: edits that pass, and inputs the hook leaves alone', async () => 
 });
 
 test('test 161: a broken law reaches the agent once', async () => {
-  await withBench(async (bench, dir) => {
-    const s = makeSample(dir);
-    write(s, '.lawcheck/law.yaml', BROKEN_LAW);
-    const session = new Session(bench, s);
-    json(await session.edit('.lawcheck/law.yaml'), edited(`${editErrorHeader('.lawcheck/law.yaml')}\n\n${TEST17_CHECK}`));
-    append(s, 'src/cli/main.ts', '// end\n');
-    nothing(await session.edit('src/cli/main.ts'), 'the same output');
-    write(s, '.lawcheck/law.yaml', LAW.replace('why: Only the command layer', 'whyy: Only the command layer'));
-    const other = await session.edit('.lawcheck/law.yaml');
-    assert.ok(other.json?.hookSpecificOutput?.additionalContext.startsWith(`${editErrorHeader('.lawcheck/law.yaml')}\n\nlawcheck: ERROR  `), other.stdout);
-    assert.match(other.json.hookSpecificOutput.additionalContext, /whyy/);
-    nothing(await session.edit('.lawcheck/law.yaml'), 'the second output again');
-  });
+  const told = edited(`${editErrorHeader('.lawcheck/law.yaml')}\n\n${TEST17_CHECK}`);
+  // Two sessions, each on its own bench and sample, at once: both start from the same broken law reaching the agent, so the five hooks need not wait for one another.
+  const sessions: [what: string, run: (bench: Bench, s: string, dir: string) => Promise<void>][] = [
+    ['the same output from another file', async (bench, s, dir) => {
+      write(s, '.lawcheck/law.yaml', BROKEN_LAW);
+      const session = new Session(bench, s);
+      json(await session.edit('.lawcheck/law.yaml'), told);
+      append(s, 'src/cli/main.ts', '// end\n');
+      nothing(await session.edit('src/cli/main.ts'), 'the same output');
+    }],
+    ['another break of the law', async (bench, s, dir) => {
+      write(s, '.lawcheck/law.yaml', BROKEN_LAW);
+      const session = new Session(bench, s);
+      json(await session.edit('.lawcheck/law.yaml'), told);
+      write(s, '.lawcheck/law.yaml', LAW.replace('why: Only the command layer', 'whyy: Only the command layer'));
+      const other = await session.edit('.lawcheck/law.yaml');
+      assert.ok(other.json?.hookSpecificOutput?.additionalContext.startsWith(`${editErrorHeader('.lawcheck/law.yaml')}\n\nlawcheck: ERROR  `), other.stdout);
+      assert.match(other.json.hookSpecificOutput.additionalContext, /whyy/);
+      nothing(await session.edit('.lawcheck/law.yaml'), 'the second output again');
+    }],
+  ];
+  await withBenches(sessions);
 });
 
 test('S6-3: a law error that a check the hook could run clears comes back to the agent when the law breaks the same way again', async () => {
@@ -1391,29 +1400,39 @@ test('test 920: the files of the plugin for Codex', () => {
 });
 
 test('test 921: in Codex, the session start, the hand-back by decision block, three returns per turn, and the message to the user', async () => {
-  await withBench(async (bench, dir) => {
-    const s = makeSample(dir);
-    const primed = (await lawcheck(s, ['prime'])).stdout.replace(/\n$/, '');
-    const session = new CodexSession(bench, s);
-    for (const source of ['startup', 'resume', 'clear', 'compact']) json(await session.start(source), started(primed), source);
-    nothing(await session.prompt(), 'the prompt');
-    assert.equal(bench.state('c1').prompt_id, 't1');
-    write(s, D_PATH, D);
-    json(await session.stop(), blocked(`${stopHeader()}\n\n${D_OUTPUT}`), 'the first stop');
-    json(await session.stop({ stop_hook_active: true }), withD(released()), 'the same output after the hand-back');
-    await session.prompt();
-    const runs: HookRun[] = [];
-    for (let i = 0; i < 4; i++) {
+  // Three sessions, each on its own bench and sample, at once: the session start, the first hand-back, and a turn sent back three times with the turn after it.
+  const sessions: [what: string, run: (bench: Bench, s: string, dir: string) => Promise<void>][] = [
+    ['the session start', async (bench, s, dir) => {
+      const primed = (await lawcheck(s, ['prime'])).stdout.replace(/\n$/, '');
+      const session = new CodexSession(bench, s);
+      for (const source of ['startup', 'resume', 'clear', 'compact']) json(await session.start(source), started(primed), source);
+    }],
+    ['the hand-back', async (bench, s, dir) => {
+      const session = new CodexSession(bench, s);
+      nothing(await session.prompt(), 'the prompt');
+      assert.equal(bench.state('c1').prompt_id, 't1');
+      write(s, D_PATH, D);
+      json(await session.stop(), blocked(`${stopHeader()}\n\n${D_OUTPUT}`), 'the first stop');
+      json(await session.stop({ stop_hook_active: true }), withD(released()), 'the same output after the hand-back');
+    }],
+    ['three returns per turn', async (bench, s, dir) => {
+      const session = new CodexSession(bench, s);
+      write(s, D_PATH, D);
+      await session.prompt();
+      const runs: HookRun[] = [];
+      for (let i = 0; i < 4; i++) {
+        append(s, D_PATH, 'console.log(1);\n');
+        runs.push(await session.stop({ stop_hook_active: i > 0 }));
+      }
+      for (const run of runs.slice(0, 3)) assert.equal(run.json?.decision, 'block', run.stdout);
+      json(runs[3]!, released(), 'the fourth stop of the turn');
+      await session.prompt();
       append(s, D_PATH, 'console.log(1);\n');
-      runs.push(await session.stop({ stop_hook_active: i > 0 }));
-    }
-    for (const run of runs.slice(0, 3)) assert.equal(run.json?.decision, 'block', run.stdout);
-    json(runs[3]!, released(), 'the fourth stop of the turn');
-    await session.prompt();
-    append(s, D_PATH, 'console.log(1);\n');
-    assert.equal((await session.stop()).json?.decision, 'block', 'a new turn sends the agent back again');
-    assert.equal(bench.state('c1').blocks, 1);
-  });
+      assert.equal((await session.stop()).json?.decision, 'block', 'a new turn sends the agent back again');
+      assert.equal(bench.state('c1').blocks, 1);
+    }],
+  ];
+  await withBenches(sessions);
 });
 
 test('test 922: in Codex, the edit hook checks the files an apply_patch leaves on disk', async () => {
@@ -1586,43 +1605,54 @@ test('test 963: in Copilot, the session start asks the agent to tell the user on
 });
 
 test('test 964: in Copilot, the edit hook checks the file that create, edit or str_replace_editor wrote, and the text fits in 10,000 bytes', async () => {
-  await withBench(async (bench, dir) => {
-    const s = makeSample(dir);
-    const session = new CopilotSession(bench, s);
-    write(s, D_PATH, D);
-    const found = copilotContext(`${editHeader(D_PATH)}\n\n${D_OUTPUT}`);
-    json(await session.write('create', D_PATH), found, 'create');
-    json(await session.write('edit', D_PATH), found, 'edit');
-    const by = (toolName: string, toolArgs: unknown) => session.run('edit', { toolName, toolArgs });
-    json(await by('edit', { path: D_PATH, old_str: 'a', new_str: 'b' }), found, 'a path relative to the session folder');
-    json(await by('edit', JSON.stringify({ path: join(s, D_PATH), old_str: 'a', new_str: 'b' })), found, 'arguments as a JSON text');
-    json(await by('str_replace_editor', { command: 'str_replace', path: join(s, D_PATH), old_str: 'a', new_str: 'b' }), found, 'str_replace_editor');
-    json(await by('apply_patch', patchOf([`*** Update File: ${D_PATH}`, '@@', '+// more'])), found, 'apply_patch');
-    assert.equal(bench.checks().length, 6);
-    bench.clearLog();
-    nothing(await by('str_replace_editor', { command: 'view', path: join(s, D_PATH) }), 'str_replace_editor view');
-    nothing(await by('view', { path: join(s, D_PATH) }), 'view');
-    nothing(await by('bash', { command: `echo > ${D_PATH}` }), 'bash');
-    nothing(await by('edit', { path: join(s, 'src/core/gone.ts') }), 'a file that is not on disk');
-    nothing(await by('edit', 7), 'arguments that are no object');
-    const lawless = newRepository(join(dir, 'lawless'));
-    write(lawless, 'src/a.ts', 'console.log(1);\n');
-    nothing(await new CopilotSession(bench, lawless).write('create', 'src/a.ts'), 'no law');
-    assert.deepEqual(bench.log(), []);
-    const body = Array.from({ length: 400 }, (_, i) => `${String(i + 1).padStart(3, '0')} ${'\u017c'.repeat(40)}`);
-    const printed = ['lawcheck: FAIL  400 errors in 1 named file', '', ...body, '', 'next: fix a.ts:1'];
-    writeFileSync(join(dir, 'long.txt'), printed.join('\n') + '\n');
-    bench.script('lawcheck', [`process.stdout.write(readFileSync(${JSON.stringify(join(dir, 'long.txt'))}));`, 'process.exitCode = 1;']);
-    const long = await session.write('edit', D_PATH);
-    const text: string = long.json.additionalContext;
-    const bytes = Buffer.byteLength(text, 'utf8');
-    assert.ok(bytes <= 10000, String(bytes));
-    const lines = text.split('\n');
-    const kept = lines.slice(3, -2);
-    assert.deepEqual(kept, printed.slice(1, 1 + kept.length));
-    assert.ok(bytes + 1 + Buffer.byteLength(printed[1 + kept.length]!, 'utf8') > 9999, 'the next line would not fit');
-    assert.equal(lines[lines.length - 1], 'next: fix a.ts:1');
-  });
+  // Three sessions, each on its own bench and sample, at once: the tools that wrote a file, the inputs the hook leaves alone, and the long text.
+  const sessions: [what: string, run: (bench: Bench, s: string, dir: string) => Promise<void>][] = [
+    ['a file written', async (bench, s, dir) => {
+      const session = new CopilotSession(bench, s);
+      write(s, D_PATH, D);
+      const found = copilotContext(`${editHeader(D_PATH)}\n\n${D_OUTPUT}`);
+      json(await session.write('create', D_PATH), found, 'create');
+      json(await session.write('edit', D_PATH), found, 'edit');
+      const by = (toolName: string, toolArgs: unknown) => session.run('edit', { toolName, toolArgs });
+      json(await by('edit', { path: D_PATH, old_str: 'a', new_str: 'b' }), found, 'a path relative to the session folder');
+      json(await by('edit', JSON.stringify({ path: join(s, D_PATH), old_str: 'a', new_str: 'b' })), found, 'arguments as a JSON text');
+      json(await by('str_replace_editor', { command: 'str_replace', path: join(s, D_PATH), old_str: 'a', new_str: 'b' }), found, 'str_replace_editor');
+      json(await by('apply_patch', patchOf([`*** Update File: ${D_PATH}`, '@@', '+// more'])), found, 'apply_patch');
+      assert.equal(bench.checks().length, 6);
+    }],
+    ['inputs the hook leaves alone', async (bench, s, dir) => {
+      const session = new CopilotSession(bench, s);
+      write(s, D_PATH, D);
+      const by = (toolName: string, toolArgs: unknown) => session.run('edit', { toolName, toolArgs });
+      nothing(await by('str_replace_editor', { command: 'view', path: join(s, D_PATH) }), 'str_replace_editor view');
+      nothing(await by('view', { path: join(s, D_PATH) }), 'view');
+      nothing(await by('bash', { command: `echo > ${D_PATH}` }), 'bash');
+      nothing(await by('edit', { path: join(s, 'src/core/gone.ts') }), 'a file that is not on disk');
+      nothing(await by('edit', 7), 'arguments that are no object');
+      const lawless = newRepository(join(dir, 'lawless'));
+      write(lawless, 'src/a.ts', 'console.log(1);\n');
+      nothing(await new CopilotSession(bench, lawless).write('create', 'src/a.ts'), 'no law');
+      assert.deepEqual(bench.log(), []);
+    }],
+    ['the long text', async (bench, s, dir) => {
+      const session = new CopilotSession(bench, s);
+      write(s, D_PATH, D);
+      const body = Array.from({ length: 400 }, (_, i) => `${String(i + 1).padStart(3, '0')} ${'\u017c'.repeat(40)}`);
+      const printed = ['lawcheck: FAIL  400 errors in 1 named file', '', ...body, '', 'next: fix a.ts:1'];
+      writeFileSync(join(dir, 'long.txt'), printed.join('\n') + '\n');
+      bench.script('lawcheck', [`process.stdout.write(readFileSync(${JSON.stringify(join(dir, 'long.txt'))}));`, 'process.exitCode = 1;']);
+      const long = await session.write('edit', D_PATH);
+      const text: string = long.json.additionalContext;
+      const bytes = Buffer.byteLength(text, 'utf8');
+      assert.ok(bytes <= 10000, String(bytes));
+      const lines = text.split('\n');
+      const kept = lines.slice(3, -2);
+      assert.deepEqual(kept, printed.slice(1, 1 + kept.length));
+      assert.ok(bytes + 1 + Buffer.byteLength(printed[1 + kept.length]!, 'utf8') > 9999, 'the next line would not fit');
+      assert.equal(lines[lines.length - 1], 'next: fix a.ts:1');
+    }],
+  ];
+  await withBenches(sessions);
 });
 
 test('test 965: in Copilot, the two switches are variables of the environment', async () => {
