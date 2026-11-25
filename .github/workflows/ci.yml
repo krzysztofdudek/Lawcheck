@@ -176,10 +176,11 @@ jobs:
           retention-days: 3
 
   # One system's shards judged as one run: every shard reported, the files they ran are the per-push set of the system each once, and the reporter judges the merged events as it judges a whole run. The merge reads only the recordings, so it runs on Linux for every system, without npm ci.
+  # !cancelled(), not always(): a failed shard still gets its merge, but under always() a run that a newer push cancels still starts its three merges, and the newer run waits until they end.
   merge-linux:
     name: commit ${{ matrix.system }} (${{ matrix.os }}, Node ${{ matrix.node }})
     needs: [build, shard-linux]
-    if: always()
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -222,7 +223,7 @@ jobs:
   merge-win32:
     name: commit ${{ matrix.system }} (${{ matrix.os }}, Node ${{ matrix.node }})
     needs: [build, shard-win32]
-    if: always()
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -264,7 +265,7 @@ jobs:
   merge-darwin:
     name: commit ${{ matrix.system }} (${{ matrix.os }}, Node ${{ matrix.node }})
     needs: [build, shard-darwin]
-    if: always()
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -390,6 +391,7 @@ jobs:
         run: node site/landing/check.mjs site/landing/.vitepress/dist package.json
 
   # The one required check: green only when every job above is green; a cancelled, skipped or missing job is red.
+  # It keeps always() in a cancelled run too: GitHub counts a skipped required check as passed.
   commit-set:
     name: commit set
     needs: [build, shard-linux, shard-win32, shard-darwin, merge-linux, merge-win32, merge-darwin, real, plugin, workflows, docs-site, landing]
