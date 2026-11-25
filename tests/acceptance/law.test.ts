@@ -278,6 +278,19 @@ test('test 133: past five items, the law-change line shows first what loosens th
   });
 });
 
+test('test 1371: past five items, a widened may_use is among the five the law-change line shows', async () => {
+  const listed = (list: string) => LAW.replace('        rules: [no-console]\n', `        rules: [no-console]\n        may_use: ${list}\n`);
+  await withSample(
+    async (s) => {
+      const required = ['src/a/**', 'src/b/**', 'src/c/**', 'src/d/**', 'src/e/**'];
+      law(s, listed('[command]').replace('rules:\n', `required: [${required.map((p) => `"${p}"`).join(', ')}]\n\nrules:\n`));
+      const run = await check(s);
+      assert.equal(run.stdout.split('\n')[2], 'note: this change edits the law that judges it: changes may_use of the type library; adds src/a/** to required; adds src/b/** to required; adds src/c/** to required; adds src/d/** to required; and 1 more');
+    },
+    { onMain: (s) => law(s, listed('[]')) },
+  );
+});
+
 test('S5-16: a folded or literal about of one line is refused for the break that ends the block, and the message says how to drop it', async () => {
   const about = (style: string) => replaceOnce(LAW, '    about: Everything that ships.\n', `    about: ${style}\n      Everything that ships.\n`);
   await withSample(async (s) => {
