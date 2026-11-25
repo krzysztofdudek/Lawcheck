@@ -1,6 +1,6 @@
 # Let a coding agent write the first law
 
-Your coding agent can write the first [law](concepts.md#law) of your repository. It asks you before it forbids a [use](concepts.md#use) that the code already makes. Tell your coding agent: "Run `lawcheck docs agent-setup` and follow it." With the plugin for [Claude Code](plugin.md#the-setup-skill) or [Copilot CLI](copilot-cli.md#_7-write-the-first-law), type `/lawcheck:setup` to start the setup skill. With the plugin for [Codex](codex-cli.md#_7-write-the-first-law), type `$lawcheck:setup`. The agent does not start the skill by itself. The agent describes the folders of your repository as [types](concepts.md#type). It writes down which type uses which today. It changes only `.lawcheck/` and commits nothing. It ends with a law that `lawcheck check` passes, and with a count of the old code that breaks that law. Advice on the architecture, and a target architecture with a plan to reach it, come only with the setup skill that the plugins for Claude Code, Codex and Copilot CLI carry ([The setup skill](plugin.md#the-setup-skill)).
+Your coding agent can write the first [law](concepts.md#law) of your repository. It asks you before it forbids a [use](concepts.md#use) that the code already makes. Tell your coding agent: "Run `lawcheck docs agent-setup` and follow it." With the plugin for [Claude Code](plugin.md#the-setup-skill) or [Copilot CLI](copilot-cli.md#_7-write-the-first-law), type `/lawcheck:setup` to start the setup skill. With the plugin for [Codex](codex-cli.md#_7-write-the-first-law), type `$lawcheck:setup`. The agent does not start the skill by itself. The setup skill is early. The first law, the advice and the target have not yet passed their trials, in which a coding agent runs the skill on sample repositories. The agent describes the folders of your repository as [types](concepts.md#type). It writes down which type may use which, in the direction the code already keeps. It changes only `.lawcheck/` and commits nothing. It ends with a law that `lawcheck check` passes, and with a count of the old code that breaks that law. Advice on the architecture, and a target architecture with a plan to reach it, come only with the setup skill that the plugins for Claude Code, Codex and Copilot CLI carry ([The setup skill](plugin.md#the-setup-skill)).
 
 The rest of this page is for the agent. Do the steps in order. The parts below the steps hold what several steps use, under fixed headings.
 
@@ -14,13 +14,20 @@ The outputs below come from a repository with five files:
 
 ## 1. Before anything
 
-Run `lawcheck --version` and `lawcheck prime`. When the shell finds no `lawcheck`, tell the user to install it with `npm install --global lawcheck@alpha`, and stop. When `prime` prints a law, a law already governs this folder: do not start a second one. Tell the user that the law stands and that `lawcheck prime` says how to change it, and stop.
+Run `lawcheck --version` and `lawcheck prime`. When the shell finds no `lawcheck`, give the user the two ways to install it, and let the user choose and run one:
+
+- `npm install --global lawcheck@alpha` puts one `lawcheck` program on this machine, for every repository.
+- `npm install --save-dev lawcheck@alpha` pins the version in this project's `package.json`, for the whole team and CI. Then run each `lawcheck` of this page as `npx --no-install lawcheck`, and write the line `runner: npx` into `.lawcheck/config.yaml` after `lawcheck init` ([Settings](config.md#runner)).
+
+Once the user says it is installed, go on with what the user asked for. Never ask the user to send the request again.
+
+When `prime` prints a law, a law already governs this folder: do not start a second one. Tell the user that the law stands and that `lawcheck prime` says how to change it, and stop.
 
 Change no file outside `.lawcheck/`, except for [a CI job the user asks for](#a-ci-job-the-user-asks-for). Commit nothing unless the user asks.
 
 The shell commands of this page are for a POSIX shell, such as bash. On Windows, run them in Git Bash or WSL, not in PowerShell: PowerShell has no `cmp`, and its `cp` is another command.
 
-This page runs `lawcheck check --full` to prove a candidate law and to count the old code that breaks it. Each such run is a deliberate audit of the whole code, run on purpose during this setup. It is no step for each later change, and no step of CI. CI judges only the change on purpose, so that people see findings only about what they change.
+Each `lawcheck check --full` of this page is a deliberate audit of the whole code, run on purpose to prove a candidate law and to count the old code that breaks it. It is no step for each later change, and no step of CI, which judges only the change on purpose.
 
 Keep to the budgets of this page: at most four questions to the user, and no [reviewer rule](concepts.md#reviewer-rule) unless the user asks for one. Script rules have no fixed number. Each one needs its evidence, as step 8 says.
 
@@ -32,22 +39,34 @@ List each rule someone already wrote about which code may use which, or about wh
 
 ## 3. Choose the root
 
-Put one law at the top of the repository. A rule between two packages works only when one law covers both. Read the workspace files to learn the packages: `workspaces` in `package.json`, `pnpm-workspace.yaml`, `go.work`, a Cargo workspace, `settings.gradle`, a `.sln`. Put a law in a package only when the user says that the packages of the repository have separate owners. Then tell the user what that costs. A check at the top of the repository stops with `not-initialized`. No restriction crosses between packages ([A monorepo](monorepo.md)).
+The root is the folder that holds `.lawcheck/`. The law judges only the files below it. Read the workspace files to learn the packages: `workspaces` in `package.json`, `pnpm-workspace.yaml`, `go.work`, a Cargo workspace, `settings.gradle`, a `.sln`. With one package whose code starts at the top, put the law at the top and ask nothing.
+
+With more than one package or project, or with all the code in one folder below the top, ask the user before `lawcheck init`. This is one of the four questions. Give these options, with what each changes:
+
+- **One law at the top.** One check covers every package. A `may_use` list can forbid a use between two packages.
+- **One law in each package.** Each package has its own law and its own check, for packages with separate owners. No restriction crosses between packages. A check at the top of the repository stops with `not-initialized` ([A monorepo](monorepo.md)).
+- **One law in one folder**, such as `backend/`. Lawcheck judges no file outside that folder.
+
+After the answer, run `lawcheck init` in each folder the user chose, and do steps 4 to 11 for each law. When the user said that no one will answer, put one law at the top, and say so in the final message.
 
 ## 4. Describe the files as types
 
 Run `lawcheck init`, then write the types into `.lawcheck/law.yaml`:
 
 - Take the names from the folders, the README and the instruction files, never from a textbook. A pattern's name, such as "hexagonal" or "clean architecture", is no reason for a type.
-- Write at most twelve types at the top. Each one is a folder, or a kind of file, that the repository already sets apart. A small library with its code in one folder gets two or three types, such as the code and its tests. A repository of several parts, such as a backend and a frontend, gets a type at the top for each part. Inside a part, each folder whose files do one job gets a subtype, such as the routes, the models and the data access. Do not stop at one type per part, because step 5 measures the uses between those folders.
+- Write at most twelve types at the top. A repository of several parts, such as a backend and a frontend, gets a type at the top for each part. Inside a part, each folder whose files do one job gets a subtype, such as the routes, the models and the data access. Do not stop at one type per part, because step 5 measures the uses between those folders.
+- A type takes a whole folder, its tests included. The tests and test helpers that sit in a folder of the code belong to that folder's type. Only tests in a folder of their own, such as `tests/` at the top, get a type of their own.
+- Never make a type of files from several folders, such as every test, every `__init__.py` or every helper. Never put folders of different jobs into one type, such as the controllers with the database code, or a folder of scripts with the build files of an app.
+- A parent type is a part of the repository, such as a package or an app. Never add a parent only to share a rule or a list: put the rule's id on each type instead.
+- Give no type to files that are not code in a language Lawcheck reads, such as images, data, notes or a shell script. Leave them out of `required`.
 - Give each type one `about` sentence that says what its files do. Read two or three of its files first, so the sentence is true of them.
-- Decide yourself for tests, generated code, vendored code and build scripts: a type of its own, or no type and why. Say each decision in the summary.
+- Decide yourself for generated code, vendored code and build scripts: a type of its own, or no type and why. Say each decision in the final message.
 - Generated or vendored code inside a code folder, that no typed code uses, goes under `ignored`, so no type takes it. Name each pattern of `ignored` to the user ([The law file](law.md#ignored)). `ignored` holds nothing else.
 - Generated or vendored code that typed code uses gets a type of its own, with no `may_use` list, and never a place under `ignored`. A `may_use` list can never allow a file with no type, so each use of such a file from a type with a list is a `forbidden-use`. Search the typed code for imports of each generated or vendored folder before you decide.
-- Put the code files under `required`, by folder and extension, such as `src/**/*.ts`. A code file in a new folder there is then `untyped-file` until a type takes it ([The law file](law.md#required)). The law starts with no `untyped-file` finding, so a stylesheet or a JSON file that no type takes stays out of `required`. Put a folder under `required` only when a type takes a new file there by a pattern, such as `src/api/**`. A type that names single files takes no new file. A new file beside those files would be `untyped-file`, and no type could take it. Leave that folder out of `required`, or give the folder a type whose paths take it.
+- Put the code files under `required`, by folder and extension, such as `src/**/*.ts`. A code file there that no type takes is then `untyped-file` ([The law file](law.md#required)). The law starts with no `untyped-file` finding. So leave out of `required` a stylesheet or a JSON file that no type takes, and a folder whose type names single files, because no type could take a new file there.
 - A file that a parent type takes, and that other types use, gets a subtype of its own. A `may_use` list that names a parent allows every subtype below it. Naming the parent to allow that one file would open the whole parent.
 
-Check how many files have a type with `lawcheck explain .`, in every run. At least nine in ten files of the languages Lawcheck reads have a type ([Languages and uses](languages.md)). Name each file left without a type in the summary.
+Check how many files have a type with `lawcheck explain .`, in every run. At least nine in ten files of the languages Lawcheck reads have a type ([Languages and uses](languages.md)). Name each file left without a type in the final message.
 
 ## 5. Measure the uses between types
 
@@ -92,11 +111,17 @@ unresolved uses: none
 
 ## 6. Write the lists that hold today
 
-Give each type a `may_use` list that names the type itself and every type that its rows of the table reach. This law has no `forbidden-use` finding. It already forbids every use between types that the code does not make today. Write it into `.lawcheck/law.yaml`. Then `lawcheck check --full --base HEAD` lists no `forbidden-use`.
+A list that names only today's rows fails the next correct change, such as new code that uses a lower or a shared type for the first time. So each list follows the direction of the code. A part is the types under one parent, or the types at the top when the repository has one part.
+
+1. Give each type of a part a level. A type that uses no other type of its part has level 0. Any other type has one level more than the highest level among the types it uses. Leave out the row of a cycle that fewer files make.
+2. Give each type a `may_use` list that names, in this order: the type itself, every type that its rows of the table reach, every type of its part on a lower level, and every shared type of its part. A shared type is one that half or more of the other types of its part use.
+3. A list never names a type that a rule of step 2 forbids it to use, unless a row of the table reaches that type. Such a row is a `written` candidate of step 7.
+
+In the example, `core` has level 0, because its one use of `api` is the smaller row of a cycle. The database code has level 1, and `api` has level 2. This law has no `forbidden-use` finding. Write it into `.lawcheck/law.yaml`. Then `lawcheck check --full --base HEAD` lists no `forbidden-use`.
 
 - A row to `no type:` names a file that a type of this law uses and that no type takes. Give that file a type in step 4. A list can never allow a file without a type.
-- A type whose list would name every other type, such as the tests or the entry point that wires the program, keeps no list. Say so in the summary.
-- A parent type with no list restricts no file that only the parent takes: a new file in its folder, outside the folders of its subtypes, passes unchecked, even when the subtypes have lists. Name each parent with no list in the summary, and say that what its own files may use is open.
+- A type whose list would name every other type, such as the tests or the entry point that wires the program, keeps no list. Say so in the final message.
+- A parent type with no list restricts no file that only the parent takes: a new file in its folder, outside the folders of its subtypes, passes unchecked, even when the subtypes have lists. Name each parent with no list in the final message, and say that what its own files may use is open.
 - A type in a language with no reader keeps no list, because Lawcheck cannot read its uses (`uses-not-read`).
 
 The law for the example repository:
@@ -132,15 +157,19 @@ A use is a candidate to forbid only when the code or its documents give a reason
 
 In the example, `core -> api` is a `cycle` with `api -> core`, and it is `few`: one file of `core` makes it, where two files of `api` use `core`.
 
-For each candidate, take its files and lines from the table, and the three ways of [A boundary the code already breaks](#a-boundary-the-code-already-breaks). Pick at most four candidates, in this order: `written`, then `cycle`, `direction` and `few`. Pick at most three when step 8 leaves rules with findings, because those rules share one question. Each candidate you pick is a question for the user in step 10. The user decides whether the code keeps that use, not you. Put the rest in the summary under "could be tightened later", one line each. Never propose a boundary that has no reason in the code and no word from the user.
+Each candidate you pick is a question for the user in step 10. The user decides whether the code keeps that use, not you. Every `written` candidate is a question: a document of the project forbids a use that the code makes. Never write such a use into a list without the user's answer.
+
+Pick the questions in this order: `written`, then `cycle`, `direction` and `few`. All the questions of this setup together are at most four: the question of step 3 counts, and so does the one question of step 8 for the rules with findings. With more `written` candidates than questions left, ask about those that the most files break. For each candidate, take its files and lines from the table, and the three ways of [A boundary the code already breaks](#a-boundary-the-code-already-breaks).
+
+Put the rest under "could be tightened later", one line each, with the two types, the count of uses and files, and one file and line, such as `core -> api: 1 use in 1 file, src/core/report.ts:1`. The questions and that list together hold at most five items. Never propose a boundary that has no reason in the code and no word from the user.
 
 ## 8. Write the rules
 
-Write a [script rule](script-rules.md) for each rule that has evidence, and for no other. The evidence is one of two things. One is a rule of step 2 that a script can judge, such as "no `console.log` in the core". The other is a convention that every file the rule would bind keeps today. A written rule counts whether or not the code keeps it today, and its findings go to the question of step 10. Only a convention needs every file to keep it. Never invent a rule. The law with its rules must still fit `lawcheck prime` unshortened. Write each rule in `.lawcheck/rules/<id>.mjs`, with its entry and `why` under `rules` in the law. Then put its id in the `rules` of every type whose files it judges. A rule that no type lists judges no file.
+Write a [script rule](script-rules.md) only for a rule of step 2 that a script can judge, such as "no `console.log` in the core". A written rule counts whether or not the code keeps it today, and its findings go to the question of step 10. A habit that the code keeps and no document of the project writes down is no rule. A correct new change breaks such a rule, such as a new command that prints. Never invent a rule. The law with its rules must still fit `lawcheck prime` unshortened. Write each rule in `.lawcheck/rules/<id>.mjs`, with its entry and `why` under `rules` in the law. The `why` gives the reason that the document gives: what the rule protects, or what breaks without it. A `why` such as "the code follows it today" gives no reason. Then put the rule's id in the `rules` of every type whose files it judges. A rule that no type lists judges no file.
 
-- A rule about code, such as a call, an import or a construct, reads the file's syntax tree with `await file.tree()` ([Script rules](script-rules.md#the-syntax-tree)). In the tree, a call is a node of its own. The same word in a comment or a string is not a call. So the rule reports nothing for that word in a comment or a string. Before you write a rule that reads the syntax tree, run `lawcheck explain <path> --tree` on a real file of that language, and write the rule from the node types and fields it prints, since they differ between languages.
+- A rule about code, such as a call, an import or a construct, reads the file's syntax tree with `await file.tree()` ([Script rules](script-rules.md#the-syntax-tree)). In the tree, a call is a node of its own, so the rule reports nothing for the same word in a comment or a string. Before you write a rule that reads the syntax tree, run `lawcheck explain <path> --tree` on a real file of that language, and write the rule from the node types and fields it prints, since they differ between languages.
 - A rule about text, such as a header or a licence line, may read `file.lines`.
-- A file in a language with no reader has no tree, so a rule about code reports nothing there. Say so in the summary.
+- A file in a language with no reader has no tree, so a rule about code reports nothing there. Say so in the final message.
 
 This rule finds a call of `console` in the files it judges, and not the word in a comment:
 
@@ -187,14 +216,7 @@ Do what [Prove each restriction bites](#prove-each-restriction-bites) says, for 
 
 ## 10. Explain, and ask
 
-Write one message in plain words. Say what a type is the first time you use the word. Give:
-
-- the types with their file counts;
-- who may use whom, as sentences, such as "the database code may use the core and nothing else";
-- each rule with its reason;
-- the debt: how many findings `lawcheck check --full --base HEAD` lists outside the change;
-- what Lawcheck does not check here: the unresolved uses per language, the languages with no reader, the files with no type, the parent types with no list;
-- the open decisions of steps 7 and 8, numbered. Each boundary gets a question of its own, and all the rules with findings share one question. Each question gives its options and what each option changes. A boundary question offers the three ways of [A boundary the code already breaks](#a-boundary-the-code-already-breaks), never only yes or no.
+Write one message, as [The words for the user](#the-words-for-the-user) says. Give the parts 1 to 5 of the final message of step 11. Then give the open decisions of steps 7 and 8, numbered. Each boundary gets a question of its own, and all the rules with findings share one question. Each question gives its options and what each option changes. A boundary question offers the three ways of [A boundary the code already breaks](#a-boundary-the-code-already-breaks), never only yes or no.
 
 Ask all the questions in that one message, as its last part, with no next step and no offer after them. End your turn, and wait for the answers. A session started with a prompt, such as `claude -p`, has a person too, who answers in the next prompt. Apply each answer as [A boundary the code already breaks](#a-boundary-the-code-already-breaks) says. Prove each new restriction as in step 9. The way "keep it allowed" leaves the law as it is, and puts the candidate under "could be tightened later". With no candidate from step 7 and no question from step 8, skip the questions and go to step 11. The user may say that no one will answer. Only then, add what holds with zero findings, and list each question in the final message.
 
@@ -204,18 +226,31 @@ Check that all four hold:
 
 - `lawcheck check --full --base HEAD` exits 0;
 - `lawcheck doctor` exits 0;
-- `git status --short` lists files under `.lawcheck/` and nothing else;
+- `git status --short` lists files under `.lawcheck/` and nothing else, apart from the files that the user's install of Lawcheck changed;
 - the temporary folder of the measurement is deleted, with `rm -r` and its path.
 
-End with one message to the user that stands on its own. Write each part out again, even when an earlier message said it. Never point back to that earlier message. The final message gives:
+End with one final message that stands on its own. It has the parts below, under these labels, every time: also after the user answered a question, or said "not now". Write each part out again, even when an earlier message said it. Never point back to an earlier message.
 
-- what the law holds: how many types and rules, in plain words, and that it lives in `.lawcheck/law.yaml`;
-- the debt: the count of findings outside the change, or that there is none;
-- what the user decided, and what you decided yourself;
-- what Lawcheck does not check here, and the list "could be tightened later";
-- one next step: commit `.lawcheck/` in a change of its own.
+1. **The law**: that it lives in `.lawcheck/law.yaml`, how many types and rules it has, each type with what its files do and their count, who may use whom in sentences, such as "the database code may use the core and nothing else", and each rule with its reason.
+2. **Debt**: the count of findings outside the change from `lawcheck check --full --base HEAD`, or "none".
+3. **You decided**: each answer of the user, or "nothing".
+4. **I decided**: each choice you took alone, such as the root, generated code or a type with no list.
+5. **Not checked**: the unresolved uses per language, the languages with no reader, the files with no type, the parent types with no list, the types with no probe, and the list "could be tightened later".
+6. **Next step**: commit `.lawcheck/` in a change of its own.
 
 Do not call the code or the law good or safe. Say what the check holds.
+
+## The words for the user
+
+Each message to the user may be read alone. In each message, explain a word of Lawcheck where you first use it:
+
+- the law: the file `.lawcheck/law.yaml`, which says which folders of the code may use which;
+- a type: a group of files of the law, most often one folder;
+- a use: an import, or another reference from one file to another;
+- debt: old code that breaks the law, which fails a check only when a change edits its file;
+- a script rule: a small program in `.lawcheck/rules/` that checks each file for one thing.
+
+Never write "probe" or "candidate" to the user. Write "a test file that breaks the rule" and "a draft of the law". Each sentence holds one idea and names one concrete thing: a number, a file, a command or a type. Write nothing to the user between tool calls. Write no sentence that only acknowledges an answer, only says what comes next, or only reassures.
 
 ## Measure a law that is not in force
 
@@ -273,7 +308,7 @@ Lines that start with an error code mean the candidate is no valid law. Fix the 
 
 A `may_use` list has no advisory status. A use that a list forbids is an error in every change that edits its file, on a line the author of that change may not have touched. So for each use the user may want to forbid, give three ways, and let the user choose:
 
-- **Keep it allowed.** The list keeps the type it uses, as the code does today. Nothing fails. Nothing stops a new use of the same kind, either. The summary lists it under "could be tightened later".
+- **Keep it allowed.** The list keeps the type it uses, as the code does today. Nothing fails. Nothing stops a new use of the same kind, either. The final message lists it under "could be tightened later".
 - **Forbid it now.** Take the type off the list. The files that use it become debt: `lawcheck check --full` lists them, and each one fails the first change that edits it until someone removes the use. Give the count of those files.
 - **Make the exception visible.** Give the files that break the boundary a subtype of their own, with their paths written out. The subtype's `may_use` list still allows the use. Its `about` says that files leave this type and none join it. The rest of the type gets the boundary right away. `lawcheck explain --type <id>` shows how many files are still in the exception.
 
@@ -298,7 +333,7 @@ src/db/lawcheck-probe.ts:1  error[forbidden-use]  db may not use api (src/api/or
 next: fix src/db/lawcheck-probe.ts:1
 ```
 
-Each probe must fail with exit 1 and a finding of the expected code or rule. A probe that passes shows a list or a rule that does not hold what you meant. Fix the law, then try again. A probe is always a new file: never edit a file of the repository for a probe, not even for a moment. Two kinds of type get no probe: a type whose paths take no new file, such as a type of one named file, and a type whose list names every type it could use. The summary names each type with no probe.
+Each probe must fail with exit 1 and a finding of the expected code or rule. A probe that passes shows a list or a rule that does not hold what you meant. Fix the law, then try again. A probe is always a new file: never edit a file of the repository for a probe, not even for a moment. Two kinds of type get no probe: a type whose paths take no new file, such as a type of one named file, and a type whose list names every type it could use. The final message names each type with no probe.
 
 ## A CI job the user asks for
 

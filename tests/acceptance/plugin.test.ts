@@ -1339,6 +1339,7 @@ test('test 908: the measurement of a proposal prints the table and the total of 
     assert.equal(read(repo, '.lawcheck/law.yaml'), SETUP_LAW, 'the measurement puts the law back');
     const report = JSON.parse(read(keep, 'report.json')) as { findings: { code: string; file: string }[] };
     assert.deepEqual(report.findings.filter((finding) => finding.code === 'forbidden-use').map((finding) => finding.file).sort(), ['src/core/report.ts', 'src/db/orders.ts']);
+    assert.match(read(keep, 'types.txt'), /^  api  2 files\n  core  2 files\n  db  1 file\n/m, 'the measurement keeps the count of files of each type of the candidate');
 
     write(keep, 'candidate.yaml', SETUP_LAW.replace('may_use: [core, api]', 'may_use: [core]'));
     assert.equal(shell(dir, repo, keep, lines[0]!).stdout, 'core -> api  1 file  1 use\n  src/core/report.ts:1\nunresolved uses: none\ntotal: 1 use in 1 file\n');
