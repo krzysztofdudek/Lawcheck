@@ -16,8 +16,8 @@ import { atBase, kindsAt, lawAt, lawChangeLine, lawChanges, localConfigOfChange,
 import type { LawAt } from './lawchange.js';
 import { call, preflight } from './review.js';
 import type { Ask } from './review.js';
-import { contextOf, crashError, FindingBudget, resolveCompanions, rulesDeadline, runAll, runnerErrors, runRule, slowMessage, tooManyFindings } from './rules.js';
-import type { CompanionRun, CopyOfRules, RawFinding, RuleOutcome } from './rules.js';
+import { contextOf, crashError, FindingBudget, resolveCompanions, rulesDeadline, runnerErrors, runRules, slowMessage, tooManyFindings } from './rules.js';
+import type { CompanionRun, CopyOfRules, RawFinding } from './rules.js';
 import { decode, filesOfTypes, isBinary, splitLines } from './types.js';
 import { bytesOf, fromCwd, loadConfig, loadLaw, loadRuleFiles, locate, requireGit, RULES_DIR, LAW, selectTargets, Stop, stopped, theChange, touchesLaw, typingErrors, workFiles } from './setup.js';
 import type { Kinds, Read, ReviewerRule } from './setup.js';
@@ -113,18 +113,20 @@ async function checkAt(root: string, options: CheckOptions, context: CheckContex
   const tasks = [...kinds.scripts]
     .map((rule) => ({ rule, files: run.filter((file) => file.rules.includes(rule)) }))
     .filter(({ files: bound }) => bound.length > 0)
-    .map(({ rule, files: bound }) => async (): Promise<{ rule: string; outcome: RuleOutcome }> => ({
+    .map(({ rule, files: bound }) => ({
       rule,
-      outcome: deadline.signal.aborted
-        ? { slow: slowMessage('not started') }
-        : await runRule({ root, rule, ruleFile: join(front.modules, `${RULES_DIR}${rule}.mjs`), files: bound, filesOf, budget, signal: deadline.signal, serve: reads(bound, `the script rule ${rule}`) }),
+      task: {
+        run: { root, rule, ruleFile: join(front.modules, `${RULES_DIR}${rule}.mjs`), files: bound, filesOf, budget, signal: deadline.signal, serve: reads(bound, `the script rule ${rule}`) },
+        notStarted: () => (deadline.signal.aborted ? { slow: slowMessage('not started') } : null),
+      },
     }));
   const paired = [...kinds.reviewers].filter(([, reviewer]) => reviewer.companion !== null).map(([rule]) => ({ rule, files: run.filter((file) => file.rules.includes(rule)) })).filter(({ files: bound }) => bound.length > 0);
   if (tasks.length > 0 || paired.length > 0) {
     const errors = runnerErrors(root);
     if (errors.length > 0) return { errors };
   }
-  const outcomes = await runAll(tasks);
+  const ran = await runRules(tasks.map(({ task }) => task));
+  const outcomes = tasks.map(({ rule }, at) => ({ rule, outcome: ran[at]! }));
   const crashes: ErrorItem[] = [];
   const raw: RawFinding[] = [];
   for (const { rule, outcome } of outcomes) {
