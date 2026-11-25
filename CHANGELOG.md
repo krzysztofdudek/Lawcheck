@@ -19,7 +19,7 @@ The notes of 0.1.0-alpha.5 are wrong in nine places. One is under Security below
 
 ### Security
 
-- The notes of 0.1.0-alpha.5 said that, with the second check of `lawcheck docs ci`, a pull request that adds a signer of its own or takes `signers` out fails. That check reads the signers of the base. A pass that the pull request signed with its own key, or left unsigned, is therefore `not-reviewed`, and the check fails on the file of that pass. A pull request that changes only `signers` passes both checks, and its note names the change, such as `adds the signer mallory`. Once it is merged, the passes of that signer count. Ask for a code owner's review of `.lawcheck/`, as `lawcheck docs ci` says under "A change to the law".
+- The notes of 0.1.0-alpha.5 said that, with the second check of `lawcheck docs ci`, a pull request that adds a signer of its own or takes `signers` out fails. That check reads the signers of the base. A pass that the pull request signed with its own key, or left unsigned, is therefore `not-reviewed`, and the check fails on the file of that pass. A pull request that changes only `signers` passes both checks, and its note names the change, such as `adds the signer mallory`. Once it is merged, the passes of that signer count. After the merge of a pull request that takes `signers` out, every pass in `.lawcheck/verdicts` counts, signed or not. Ask for a code owner's review of `.lawcheck/`, as `lawcheck docs ci` says under "A change to the law".
 
 ## [0.1.0-alpha.5] - 2026-11-25
 
