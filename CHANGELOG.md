@@ -25,7 +25,7 @@ The notes of 0.1.0-alpha.5 are wrong in ten places. One is under Fixed below, an
 ### Added
 
 - One machine can use its own reviewer without a commit. Each key of the `reviewer` section has a variable, such as `LAWCHECK_REVIEWER_PROVIDER` and `LAWCHECK_REVIEWER_MODEL`, and `.lawcheck/config.local.yaml`, which git ignores, takes the same keys. A variable wins over `.lawcheck/config.local.yaml`, which wins over `.lawcheck/config.yaml`. `lawcheck doctor` and `lawcheck explain --rule` name the reviewer in force and the place of each value. With `--json`, the rule document of `lawcheck explain` has the new field `reviewer`. A pass counts whatever reviewer recorded it. `lawcheck docs config` describes both places under "On one machine".
-- The law that judges a change in CI is now your team's choice: the change's own, the base's with `--law-from`, or both, as the workflow of `lawcheck docs ci` runs. The page says what one law alone misses. With the base's law alone, a change that breaks the law file passes, and once merged it stops every later check by that law, its fix too. `lawcheck docs ci` and `lawcheck docs agent-setup` tell a coding agent to ask you first.
+- The law that judges a change in CI is now your team's choice: the change's own, the base's with `--law-from`, or both, as the workflow of `lawcheck docs ci` runs. With the base's law alone, a change that breaks the law file passes, and once merged it stops every later check by that law, its fix too. A coding agent asks you which first, and a setup writes the job only if you ask.
 
 ### Fixed
 
