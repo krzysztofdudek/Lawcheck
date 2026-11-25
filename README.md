@@ -2,7 +2,7 @@
 
 [![Claude Code imports the HTTP handlers into the business logic, and the tests pass. Lawcheck names the line. With the same prompt, the law and the plugin, the agent keeps the layers apart.](https://github.com/krzysztofdudek/Lawcheck/releases/download/v0.1.0-alpha.5/loop.gif)](https://lawcheck.dev)
 
-Architecture checks for coding agents. You write down which layer may import which. Lawcheck checks each file your agent edits and names the file and line that break the rule.
+Architecture checks for coding agents. You write down which layer may import which, and Lawcheck names the file and line that break the rule, in the hooks of Claude Code, Codex and Copilot CLI and in CI.
 
 The check of imports is deterministic. It reads them in 12 languages with no model, and the same code gives the same result. Lawcheck sends code to a model only for a rule you write in prose.
 
@@ -39,7 +39,7 @@ src/core/discount.ts:1  error[forbidden-use]  core may not use api (src/api/orde
 next: fix src/core/discount.ts:1
 ```
 
-A rules file is advice the agent reads, and nothing in the session checks the code against it. Lawcheck checks your code against the architecture and rules you write down, and tells your coding agent which line breaks which rule. In Claude Code and Codex, the Lawcheck plugin runs this check after each edit and before the agent ends its turn. In GitHub Copilot CLI, the plugin runs it before the agent ends its turn. In all three, the plugin sends the agent back, up to three times, while the files of its turn break the law. Any other agent gets the law from `lawcheck prime`, through one line in its instructions file. A CI job checks the same law and needs no key and no network. Your linter can hold a layer rule too, in one language or one ecosystem. Lawcheck adds what the linter leaves to you: the check inside the agent's turn that sends the agent back, a first law the agent writes from your code, old breaches kept apart as debt, a note for each waiver and each edit of the law that a change brings, and one law over the uses of twelve languages.
+A rules file is advice the agent reads, and nothing in the session checks the code against it. Lawcheck checks your code against the architecture and rules you write down, and tells your coding agent which line breaks which rule. In Claude Code and Codex, the Lawcheck plugin runs this check after each edit the agent makes with an edit tool, and again before the agent ends its turn. A file the agent writes through the shell waits for that second check. In GitHub Copilot CLI, the plugin runs it before the agent ends its turn. In all three, the plugin sends the agent back, up to three times, while the files of its turn break the law. Any other agent gets the law from `lawcheck prime`, through one line in its instructions file. A CI job checks the same law and needs no key and no network. Your linter can hold a layer rule too, in one language or one ecosystem. Lawcheck adds what the linter leaves to you: the check inside the agent's turn that sends the agent back, a first law the agent writes from your code, a note on a change that adds a waiver or edits the law, and one law over the uses of twelve languages.
 
 It works for one developer and for a team: you commit the architecture and the rules in `.lawcheck/`, so each developer checks against the same law.
 
@@ -85,17 +85,17 @@ That agent checks only when it follows the line, and nothing sends it back. A pr
 
 ## One law holds uses, rules, debt and waivers
 
-- Uses. Lawcheck reads imports and other uses in twelve languages: TypeScript, JavaScript, Python, Go, Rust, Java, Kotlin, C#, C, C++, PHP and Ruby. Each use that `may_use` does not allow is a finding. Lawcheck counts a use it cannot resolve. Such a use is a finding only when it could name several files and `may_use` forbids every one of them.
+- Uses. Lawcheck reads imports and other uses in twelve languages: TypeScript, JavaScript, Python, Go, Rust, Java, Kotlin, C#, C, C++, PHP and Ruby. A use that Lawcheck resolves to a file `may_use` does not allow is a finding. Lawcheck counts a use it cannot resolve. Such a use is a finding only when it could name several files and `may_use` forbids every one of them. A form of use that no reader reads gives no finding and no count, and Limits names some.
 - Script rules. A rule is a JavaScript module that gets one file at a time and returns findings, each with its line when it has one. It can read the file's syntax tree in each of the twelve languages, so it holds what an import boundary cannot say, such as `fetch` called only in the API layer. [Write the first one](docs/first-law.md).
-- Reviewer rules. A model judges a rule written in prose, one file at a time. Lawcheck records each pass, so it does not send an unchanged file again. You pick one of nine providers, among them a local Ollama and the `claude`, `codex`, `gemini` and `copilot` programs with their own sign-in.
+- Reviewer rules. A model judges a rule written in prose, one file at a time. Lawcheck records each pass under a hash of what the model read, the file, the rule and its context files among them. A later check reads that pass in place of a call, and a change to any of them calls for a new review. You pick one of nine providers, among them a local Ollama and the `claude`, `codex`, `gemini` and `copilot` programs with their own sign-in.
 - Debt. `check` judges the files a change touches. `--full` lists the older breaches as debt. Debt is a warning and does not fail the run, unless you pass `--strict`.
-- Waivers. `lawcheck-waive <rule> -- <reason>` drops one rule on one line, and the reason stays in the code. `check` names each waiver and each edit of the law that a change brings, and the plugin tells you at the end of a turn in which the agent added a waiver or changed the law.
+- Waivers. `lawcheck-waive <rule> -- <reason>` drops one rule on one line, and the reason stays in the code. `check` prints a note on a change that adds a waiver or edits the law. Each note names up to five items and counts the rest, and `--json` lists them all. The plugin tells you at the end of a turn in which the agent added a waiver or changed the law.
 
 ## Limits
 
 - After three returns the plugin lets the agent finish and tells you that the check still fails.
 - A pull request can edit its own law, so the job in `lawcheck docs ci` checks the change again with the law of the base.
-- Lawcheck does not read an `import()` of a variable, `importlib.import_module` or reflection (`lawcheck docs languages`).
+- Lawcheck does not read every form of use. It misses an `import()` of a variable, `importlib.import_module`, reflection, and a Java call written by its full name with no import, such as `com.shop.Util.run()`. It neither judges nor counts a use it does not read. `lawcheck docs languages` lists the forms for each language.
 
 ## More
 

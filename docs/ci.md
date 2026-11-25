@@ -276,7 +276,7 @@ A contributor who has the key records the reviews as [Record the reviews before 
 
 `.lawcheck/verdicts` is a file of the pull request. Under a law without `signers`, each line is a pass for the file and rule it names, whoever wrote it and whether a reviewer was asked. A contributor can record the reviews with a reviewer of their own, and the job passes. CI therefore trusts the author of the pull request on reviews, as it does on `.lawcheck/` ([A change to the law](#a-change-to-the-law)).
 
-To stop trusting the author on reviews, name signers in the law ([Signed passes](reviewer-rules.md#signed-passes)). The job then counts only the passes a signer signed. Its second check reads the base's law, so a pull request that adds a signer or drops `signers` fails that check. A maintainer who is a signer records the reviews of a fork as [A contributor with no reviewer](#a-contributor-with-no-reviewer) says. A job that records reviews needs a signing key as a secret and a signer of its own. Anyone who can push a branch can make that job sign a pass.
+To stop trusting the author on reviews, name signers in the law ([Signed passes](reviewer-rules.md#signed-passes)). The job then counts only the passes a signer signed. Its second check reads the base's signers, so a pull request that adds a signer or drops `signers` makes none of its own passes count. A maintainer who is a signer records the reviews of a fork as [A contributor with no reviewer](#a-contributor-with-no-reviewer) says. A job that records reviews needs a signing key as a secret and a signer of its own. Anyone who can push a branch can make that job sign a pass.
 
 ## Findings in the pull request
 
@@ -414,7 +414,7 @@ A pull request that removes a rule and adds code that the rule forbids fails the
 
 A git hook is a script that git runs before a commit or a push. The hooks below run `lawcheck check`. When the check fails, the hook stops the commit or the push. The outputs below come from a repository whose law gives `src/core/**` the script rule `no-console`.
 
-A hook checks the working tree against its merge base with `origin/main`, never the index. The index holds what `git add` staged for the next commit. Git can commit a staged file that breaks the law while the working tree holds the clean text. The hook lets that commit through. Lawcheck has no flag for the index: `--staged` is not built.
+A hook checks the working tree against its merge base with `origin/main`, never the index. The index holds what `git add` staged for the next commit. Git can commit a staged file that breaks the law while the working tree holds the clean text. The hook lets that commit through. Lawcheck has no flag for the index, and refuses `--staged`.
 
 A hook never passes `--review`. It checks with the law of its own branch. To catch a loosened law, such as a rule taken off a type, add a second line with `--law-from origin/main`.
 

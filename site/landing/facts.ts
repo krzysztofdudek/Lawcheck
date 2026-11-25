@@ -44,7 +44,7 @@ export function releaseDate(version: string): string {
   return line.slice(line.lastIndexOf(' ') + 1);
 }
 
-export const promise = (): string => ['You write down which layer', 'Lawcheck checks each file your agent edits'].map((start) => fragments.sentence('README.md', 'Lawcheck', start)).join(' ');
+export const promise = (): string => fragments.sentence('README.md', 'Lawcheck', 'You write down which layer');
 export const agents = (): string => fragments.paragraph('README.md', 'Lawcheck', 'The check of imports is deterministic');
 
 export function loopLabel(readme: string): string {
@@ -135,7 +135,7 @@ export async function facts() {
     },
     where: {
       heading: copy.where,
-      items: fragments.list('docs/index.md', 'Lawcheck checks in six places', 1).map(index),
+      items: fragments.list('docs/index.md', 'Lawcheck in your agent and in CI', 1).map(index),
       other: others(fragments.sentence('docs/other-tools.md', 'A hook you wrote in Claude Code', 'Lawcheck sends the agent back')),
     },
     holds: {
