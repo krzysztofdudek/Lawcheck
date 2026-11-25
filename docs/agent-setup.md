@@ -16,7 +16,7 @@ The outputs below come from a repository with five files:
 
 Run `lawcheck --version` and `lawcheck prime`. When the shell finds no `lawcheck`, tell the user to install it with `npm install --global lawcheck@alpha`, and stop. When `prime` prints a law, a law already governs this folder: do not start a second one. Tell the user that the law stands and that `lawcheck prime` says how to change it, and stop.
 
-Change no file outside `.lawcheck/`. Commit nothing unless the user asks.
+Change no file outside `.lawcheck/`, except for [a CI job the user asks for](#a-ci-job-the-user-asks-for). Commit nothing unless the user asks.
 
 The shell commands of this page are for a POSIX shell, such as bash. On Windows, run them in Git Bash or WSL, not in PowerShell: PowerShell has no `cmp`, and its `cp` is another command.
 
@@ -299,6 +299,10 @@ next: fix src/db/lawcheck-probe.ts:1
 ```
 
 Each probe must fail with exit 1 and a finding of the expected code or rule. A probe that passes shows a list or a rule that does not hold what you meant. Fix the law, then try again. A probe is always a new file: never edit a file of the repository for a probe, not even for a moment. Two kinds of type get no probe: a type whose paths take no new file, such as a type of one named file, and a type whose list names every type it could use. The summary names each type with no probe.
+
+## A CI job the user asks for
+
+Write no CI job unless the user asks for one. When they do, write it after step 11. Run `lawcheck docs ci` before you write it. Then ask the user which law judges a change in CI: the change's own law, the law of the base, or both. Say what each choice catches and misses, as its part [The law that judges a change](ci.md#the-law-that-judges-a-change) says. The choice is the user's, so take none by default. Then write the job of that page with the lines for their choice.
 
 ## Never
 
