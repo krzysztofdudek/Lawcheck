@@ -349,6 +349,7 @@ For an id that the law does not have, the command ends with `usage`. When a type
 - its kind, script or reviewer, with its `status` and `why`;
 - its rule file, and the files its `context` names, which Lawcheck sends the reviewer with each file it judges;
 - its `companion`, the module that names files for each judged file;
+- for a reviewer rule, in the line `judged by:`, the reviewer in force, with the place of each value that a variable or `.lawcheck/config.local.yaml` sets ([On one machine](config.md#on-one-machine));
 - the types that list it, and the files of those types and their subtypes;
 - for a reviewer rule, how many of those files have a verdict.
 
@@ -493,7 +494,7 @@ The `node` line names the version of the Node that runs Lawcheck, here 24.11.0. 
 | `node` | the Node version, and Bun or Yarn Plug'n'Play |
 | `git` | git, its version, the work tree, and where the root lies in it |
 | `law` | `.lawcheck/law.yaml` and the rule files, and whether git lists the law (when git ignores `.lawcheck/law.yaml`, the check shows `note`) |
-| `config` | `.lawcheck/config.yaml`, and the program of the `runner` setting on the `PATH` |
+| `config` | `.lawcheck/config.yaml`, `.lawcheck/config.local.yaml` and the variables of the reviewer, with the place of each value they set ([On one machine](config.md#on-one-machine)), and the program of the `runner` setting on the `PATH` |
 | `types` | how many files have a type, and a type overlap |
 | `base` | the base, where it came from, and how many files the change holds |
 | `law-change` | whether the change touches the law |

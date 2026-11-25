@@ -106,7 +106,7 @@
     {
       "properties": { "subject": { "const": "rule" } },
       "additionalProperties": false,
-      "required": ["schema", "subject", "id", "kind", "status", "why", "file", "context", "companion", "types", "files", "reviewed"],
+      "required": ["schema", "subject", "id", "kind", "status", "why", "file", "context", "companion", "types", "files", "reviewed", "reviewer"],
       "properties": {
         "schema": true,
         "subject": true,
@@ -119,7 +119,22 @@
         "companion": { "type": ["string", "null"] },
         "types": { "$ref": "#/definitions/ids" },
         "files": { "type": "array", "items": { "type": "string" } },
-        "reviewed": { "anyOf": [{ "type": "integer", "minimum": 0 }, { "type": "null" }] }
+        "reviewed": { "anyOf": [{ "type": "integer", "minimum": 0 }, { "type": "null" }] },
+        "reviewer": {
+          "anyOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["provider", "model", "from"],
+              "properties": {
+                "provider": { "type": "string", "minLength": 1 },
+                "model": { "type": ["string", "null"] },
+                "from": { "type": "object", "additionalProperties": { "type": "string", "minLength": 1 } }
+              }
+            }
+          ]
+        }
       }
     },
     {

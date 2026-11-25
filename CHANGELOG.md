@@ -7,6 +7,7 @@ Lawcheck follows [Semantic Versioning](https://semver.org/).
 ### Before you upgrade
 
 - `scope.law_changes` in `lawcheck check --json` no longer says `changes may_use` for a `may_use` list that got wider, or `changes the waivers` for a type whose waivers count again. It says `widens may_use of the type library by command` or `widens may_use of the type library to any file`, and `reads waivers in the type library`. A script that finds these changes by the old words also looks for `widens may_use` and `reads waivers`.
+- Lawcheck now reads `.lawcheck/config.local.yaml` as the reviewer settings of one machine. In alpha.5 no command read that file. `lawcheck check` stops with `config-invalid` on a `.lawcheck/config.local.yaml` that git tracks: take it out of git with `git rm --cached .lawcheck/config.local.yaml`, or move its settings into `.lawcheck/config.yaml`. An untracked one now sets the reviewer on its machine, and a key outside its `reviewer` section is `config-invalid`.
 
 ### Notes of 0.1.0-alpha.5, corrected
 
@@ -20,6 +21,10 @@ The notes of 0.1.0-alpha.5 are wrong in ten places. One is under Fixed below, an
 - The setup skill proves a `may_use` list or a rule with a probe file that must fail. Two kinds of type get no probe: a type whose paths take no new file, and a type whose list names every type it could use. The notes said it checks each list.
 - The note of `lawcheck check` about the waivers a change adds names up to five of them and counts the rest. The note about a change to the law does the same with its items. It shows first only some of the items that loosen the law, such as a rule taken off a type, so a widened `may_use` list can stay in the count. `--json` lists them all. The notes said the note names each one.
 - `untyped-file` covers a file in a new folder only when a pattern of `required` matches it. Outside those patterns, a file that no type takes is still no finding. The notes said that code in a new folder beside the layers no longer escapes the law.
+
+### Added
+
+- One machine can use its own reviewer without a commit. Each key of the `reviewer` section has a variable, such as `LAWCHECK_REVIEWER_PROVIDER` and `LAWCHECK_REVIEWER_MODEL`, and `.lawcheck/config.local.yaml`, which git ignores, takes the same keys. A variable wins over `.lawcheck/config.local.yaml`, which wins over `.lawcheck/config.yaml`. `lawcheck doctor` and `lawcheck explain --rule` name the reviewer in force and the place of each value. With `--json`, the rule document of `lawcheck explain` has the new field `reviewer`. A pass counts whatever reviewer recorded it. `lawcheck docs config` describes both places under "On one machine".
 
 ### Fixed
 
