@@ -11,7 +11,7 @@ Lawcheck follows [Semantic Versioning](https://semver.org/).
 
 ### Notes of 0.1.0-alpha.5, corrected
 
-The notes of 0.1.0-alpha.5 are wrong in ten places. One is under Fixed below, and one under Security. These lines correct the other eight:
+The notes of 0.1.0-alpha.5 are wrong in eleven places. Two are under Fixed below, and one under Security. These lines correct the other eight:
 
 - The messages of the Claude Code plugin about a check, a waiver, a change to the law or a missing reviewer start with `Lawcheck:`. Three messages at the start of a session do not. In a folder with no law the message starts "The Lawcheck plugin is on". With a wrong `runner`, or when `lawcheck prime` did not run, it starts "This repository has a Lawcheck law". The notes said every message starts with `Lawcheck:`.
 - `lawcheck doctor` reads the uses of the files whose `may_use` list is in force, as `check --full` does. Under a law with no `may_use` it reads no use and names no configuration file. The notes said it reads the uses of every file.
@@ -38,14 +38,15 @@ The notes of 0.1.0-alpha.5 are wrong in ten places. One is under Fixed below, an
   - ask nothing, while it writes the first law, about a use that no written rule forbids;
   - write a script rule only with the file and line of the project's own text that states it;
   - end with a message that has the same labelled parts every time, also after you answer "not now", and give there the debt count of `lawcheck check --full`;
-  - in a target, give each step its whole law and the start of the debt line that `lawcheck check --full` prints once that law is in place.
+  - in a target, give each step its whole law and the start of the debt line that `lawcheck check --full` prints once that law is in place;
+  - in a target, make each step forbid its uses at once, so `lawcheck check --full` lists them as debt after your yes, unless you ask that edits to those files keep passing. In alpha.5 a step put those files into a subtype of their own by default.
 - When the shell finds no `lawcheck`, the setup skill and `lawcheck docs agent-setup` now tell the agent to give you two ways to install it: one program for every repository on your machine, or a version pinned in your project's `package.json`. In alpha.5 they gave only the first. Once you say it is installed, the agent is told to go on without asking you to send your request again.
 - `lawcheck docs agent-setup` and `lawcheck docs plugin` now say that the setup skill is early and what it can get wrong. Read each type, list and rule it writes before you commit `.lawcheck/`.
 - The scripts that show findings on a pull request have a page of their own, `lawcheck docs ci-findings`: annotations on GitHub, a code quality report on GitLab, and GitHub code scanning. In alpha.5 they were a section of `lawcheck docs ci`, which now links the new page.
 
 ### Fixed
 
-- In alpha.5 the setup skill wrote the test files that prove a list or a rule into your folders for a moment. Its steps now tell the agent to write them into a copy of the repository in a temporary folder.
+- In alpha.5 the setup skill wrote the test files that prove a list or a rule into your folders for a moment. Its steps now tell the agent to write them into a copy of the repository in a temporary folder. The notes of 0.1.0-alpha.5 said that it changes nothing outside `.lawcheck/`.
 - On Windows, after a run that was calling a program reviewer such as `claude-code` is killed, Lawcheck no longer ends a process that another program started under the reviewer program's id after Lawcheck saw that the run was gone. In alpha.5 it could, when that other program had already ended, or when Windows had given the id to a third process, by the time Lawcheck looked. The notes of 0.1.0-alpha.5 said that Lawcheck ends only the processes it started.
 - When a change to the law has more than five items, the note of `lawcheck check` now shows a widened `may_use` list before the items that can't loosen the law. In alpha.5 it could stay in the count. The note and `scope.law_changes` now name such a change `widens may_use of the type library by command`, where alpha.5 wrote `changes may_use of the type library` for a wider list and a narrower one alike. A type whose waivers count again is `reads waivers in the type library`. `lawcheck docs change` gives the full order, which also covers other changes that may loosen the law and patterns that start with `!`.
 - A line you add below the check in the pre-commit hook of `lawcheck docs ci` now runs. In alpha.5 it never did. If you use that hook, copy it again.
