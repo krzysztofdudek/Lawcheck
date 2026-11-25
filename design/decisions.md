@@ -630,7 +630,7 @@ Why not every rule of a thread in one realm with files spread across threads: a 
 
 What is left: a rule can change something the runner does not compare, such as state deep inside a built-in object, and a later rule of that runner could meet it. Nothing found so far does. The comparison is the place to add to when something does.
 
-Measured on vscode 1.96.0 (4,133 typed files) in a container limited to 3 processors, a check of one file: under 100 script rules 1.5 s and 4.1 s of processor time before, 0.48 s and 0.9 s after; under 8 rules 0.33 s and 0.69 s before, 0.29 s and 0.46 s after. The same JSON document comes out before and after.
+Measured on vscode 1.96.0 (4,133 typed files) in a container limited to 3 processors, a check of one file: under 100 script rules 1.4 s and 3.9 s of processor time before, 0.44 s and 0.8 s after; under 8 rules 0.33 s and 0.69 s before, 0.28 s and 0.45 s after. The same JSON document comes out before and after.
 
 ## Decision (number at merge). The trees script rules ask for are parsed on a pool of threads
 
@@ -640,4 +640,4 @@ The pool has at most 4 threads, since each holds a JavaScript realm and the gram
 
 The memory guard reads the memory of the whole process, so it cannot tell which of several files parsed at once grows it. While the run keeps trees or has threads, the guard asks the reader to give them back instead of ending the run, and waits up to 2 seconds for that. The run then keeps no tree and parses each file for the rule that asks, one at a time, as it did before trees were kept, so a run that comes near its memory ends only where it would have ended before. A parse that takes more than 5 seconds in the pool, and a thread that fails, end the pool too. Every file then goes through the tool's own parse, one at a time and under the step that names the file and the rule, where `memory-too-large` and `step-too-slow` name the file as before.
 
-Why: after the tree is parsed once, parsing was still most of `check --full`, and all of it ran on one thread. On vscode 1.96.0 with 8 script rules on each file, 3 of which read the tree, `check --full` took 30 s on 4 processors and 37 s on 1 before, and 5.8 s and 18.4 s after. Its processor time on 3 processors fell from 36 s to 21 s.
+Why: after the tree is parsed once, parsing was still most of `check --full`, and all of it ran on one thread. On vscode 1.96.0 with 8 script rules on each file, 3 of which read the tree, `check --full` took 30 s on 4 processors and 33 s on 1 before, and 5.8 s and 17.6 s after. Its processor time on 3 processors fell from 34 s to 20 s. Its peak memory rose from 0.45 GiB to 1.1 GiB, most of it the kept trees.
