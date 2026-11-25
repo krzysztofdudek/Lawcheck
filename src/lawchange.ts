@@ -1,6 +1,6 @@
 import { lstatSync, mkdirSync, readFileSync, rmdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { CONFIG } from './config.js';
+import { CONFIG, LOCAL_CONFIG } from './config.js';
 import type { ReviewerConfig } from './config.js';
 import { comparePaths, git, mergeBase, resolveCommit, splitZ } from './files.js';
 import { keyEnvironment } from './keys.js';
@@ -347,6 +347,22 @@ export function packagesOfChange(listed: Iterable<string>, ref: string): void {
     return { code: 'law-from-packages', file: first!, line: null, message: `git lists this file in ${folder}${more}, and a package that a rule of '${ref}' imports cannot come from the change`, next: `take ${folder} out of git, such as with git rm -r --cached ${folder}, and name it in .gitignore` };
   });
   if (errors.length > 0) throw new Stop(errors);
+}
+
+// Under --law-from, config.local.yaml is this machine's and stands over the commit's config.yaml, so the change may bring none. The one git tracks under its own name is refused wherever the config is read. Git keeps the case of a path, and a file system that ignores case reads .lawcheck/Config.Local.yaml as that file all the same. Git also lists a submodule or a link at .lawcheck as one path and tracks no file inside it.
+export function localConfigOfChange(root: string, listed: Iterable<string>): void {
+  const stop = (file: string, message: string, next: string): never => {
+    throw new Stop([{ code: 'config-invalid', file, line: null, message, next }]);
+  };
+  for (const path of listed) {
+    const name = path.replace(HFS_IGNORED, '').toUpperCase().toLowerCase();
+    if (name === '.lawcheck' && lstatSync(join(root, LOCAL_CONFIG), { throwIfNoEntry: false }) !== undefined) {
+      stop(LOCAL_CONFIG, `this file lies in ${path}, which git lists as a link or a repository of its own, and the settings of one machine cannot come from the change`, `ask the user to remove ${LOCAL_CONFIG}, or to make .lawcheck a folder of this repository, then run lawcheck check`);
+    }
+    if (name === LOCAL_CONFIG && path !== LOCAL_CONFIG && git(root, ['--literal-pathspecs', 'ls-files', '--error-unmatch', '--', path]).status === 0) {
+      stop(path, `git tracks this file, which a file system that ignores case reads as ${LOCAL_CONFIG}, and the settings of one machine cannot come from the change`, `ask the user to take ${path} out of git, such as with git rm --cached ${path}, then run lawcheck check`);
+    }
+  }
 }
 
 const SAFE_PART = /^(?!\.{1,2}$)[^/\\]+$/;
