@@ -114,7 +114,7 @@ note: this change edits its own law, and the law of main judged it: takes the ru
 
 ## Waivers a change adds
 
-A change can also pass its own check by adding a [waiver](concepts.md#waiver) on the line it breaks. `check` names each waiver that the change adds, in a note under the first line:
+A change can also pass its own check by adding a [waiver](concepts.md#waiver) on the line it breaks. `check` prints a note about the waivers that the change adds, under the first line:
 
 ```text
 note: this change adds 1 waiver: no-console at src/core/shipping.ts:1

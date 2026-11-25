@@ -9,22 +9,37 @@ permissions:
   contents: read
 
 jobs:
-  # The mutants group of tests/harness/sets.ts is declared empty, and tests/numbers.ts holds no mutant floor, so this job runs no test. Until the group holds one, the sabotage list stands in: the nightly set runs it, and it breaks the code on purpose, one entry at a time, and expects the named test to fail.
-  mutants:
-    name: weekly mutants
+  # An agent adds the marketplace from main on GitHub, so what it installs is compared with a checkout of main, also in a run dispatched on another branch.
+  plugin-install:
+    name: weekly plugin install (${{ matrix.agent }})
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - agent: claude
+            package: '@anthropic-ai/claude-code'
+          - agent: codex
+            package: '@openai/codex'
+          - agent: copilot
+            package: '@github/copilot'
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          path: main
+          persist-credentials: false
       - uses: actions/setup-node@v7
         with:
           node-version: 24
-          cache: npm
-      - run: npm ci
-      - run: npm run build
-      - name: All mutants, with the network closed
-        run: |
-          sudo unshare --net -- sh -c 'ip link set lo up && u=$1 g=$2 && shift 2 && exec setpriv --reuid="$u" --regid="$g" --clear-groups env -i "$@"' \
-            sh "$(id -u)" "$(id -g)" PATH="$PATH" HOME="$HOME" USER="$(id -un)" LOGNAME="$(id -un)" node tests/run.ts nightly --group mutants
+      - name: The newest ${{ matrix.agent }}
+        run: npm install --global ${{ matrix.package }}@latest
+      - name: The plugin from the marketplace, with no token and no model
+        run: node tests/harness/agent-install.ts ${{ matrix.agent }} main
 
   # The lines of src/ that the commit set reached in no process: a list to read on the run's page and in its artifact, with no threshold, so a red test does not fail the job (tests/coverage/run.ts).
   coverage:

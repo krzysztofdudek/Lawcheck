@@ -21,6 +21,8 @@ Every command below runs inside the dev container, except `npm run agent-trial` 
 
 CI runs `npm run real` in its job `real`; `npm run agent-trial` runs by hand, and no release of the Claude Code plugin waits for it ([decision 58](../design/decisions.md#58-acceptance-tests-that-run-outside-npm-test)). `npm run stability` and `node tests/live/run.ts` run when the prompt, the providers or the plugin changed since their last result ([decision 75](../design/decisions.md#75-when-the-tests-with-a-live-model-run)).
 
+The Weekly workflow installs the plugin from the marketplace in the newest Claude Code, Codex CLI and Copilot CLI with `harness/agent-install.ts`, and compares what each agent holds with `main`. It needs the network, those programs on `PATH`, and no sign-in ([design/decisions.md](../design/decisions.md), "The weekly run installs the plugin in the newest agents").
+
 ## The layers
 
 | Folder | What its tests hold |

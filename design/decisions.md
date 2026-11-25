@@ -540,6 +540,20 @@ Why: outside Windows Node writes to a pipe without waiting for its reader, and w
 
 Why: this is the owner's decision (ruling proba-agenta-zbedna). The owner called the trial pointless while the plugin works, and counts the pilot of 80 sessions in `film/pilot.json` and the test with a live reviewer, `node tests/live/run.ts`, as the proof of the plugin before a release.
 
+## 218. A pull request runs Node 24 alone, and a group with no test has no job
+
+CI runs Linux on Node 24.0.0 and on the newest Node only outside a pull request: on a push to `main`, in the verify of a release and in a run started by hand. A pull request runs the newest Node 24 on Linux, Windows and macOS. A new push to a pull request cancels the run of the push before it; no run on `main` and no verify of a release is cancelled or made to wait, since each is a concurrency group of its own. The nightly groups that `tests/harness/sets.ts` declares empty (security, docs, corpus, coverage, live, mutants) have no job, and `weekly.yml`, which held only the mutants job, is gone.
+
+Why: every push ran 28 jobs, 9 of them the Linux shards on three Node versions, against an account limit of about 20 jobs at once, and a pull request waited up to 143 minutes behind runs that a later push had already made useless. A fault that only Node 24.0.0 or the newest Node shows now turns `main` red after the merge, not the pull request; the release still cannot ship it, since its verify runs all three. The six jobs ran no test and stood green, which reads as a check that passed. A contract test refuses a job for a group declared empty, and asks for one as soon as the group leaves that list, which `tests/contract/discovery.test.ts` forces when the group gets its first test.
+
+## 219. The weekly run installs the plugin in the newest agents
+
+The job `weekly plugin install` of `.github/workflows/weekly.yml` runs three times, with the newest Claude Code, Codex CLI and GitHub Copilot CLI from npm. Each agent adds the marketplace `krzysztofdudek/Lawcheck` and installs `lawcheck@lawcheck-marketplace` from it. `tests/harness/agent-install.ts` compares what the agent then holds with a checkout of `main`: the version and the skill it lists, and every file of `plugin/` in the folder it installed. The hooks are compared by the agent's own list where it has one: `claude plugin details` in Claude Code and `hooks/list` of `codex app-server` in Codex. Copilot CLI has no command that lists hooks outside a session, so there the installed hook files are what is compared. Claude Code also runs `claude plugin validate` on `.` and on `./plugin`. Each agent starts with an empty home and with `PATH` and `HOME` as its only variables, so the run uses no token and calls no model. A red run means that the newest agent no longer takes the plugin, or that it changed how it lists it. It is the one job of `weekly.yml`: the file, gone with the `mutants` job under the decision "A pull request runs Node 24 alone, and a group with no test has no job", comes back for it, and the `mutants` job stays out.
+
+What this does not show: that an agent calls a hook in a session. That needs a model.
+
+Why: this is the owner's decision (ruling wtyczka-w-nowych-agentach). The agents release on their own days, so one of them can stop taking the plugin with no commit here. An exit code is not enough to see it: Claude Code 2.1.332 installs a plugin whose hooks file names an event it does not know, exits 0 and drops that hook.
+
 ## Decision (number at merge). The lines of src/ no test reaches are a list to read, with no threshold
 
 Once a week the Weekly workflow runs the commit set with Node's own record of what ran (`NODE_V8_COVERAGE`) and writes the lines of `src/` that ran in no process, by file, as `coverage-list.md`: on the page of the run and as an artifact. The job fails only when the list cannot be made. A red test does not fail it, and the list then says the run was red. No percentage is computed and nothing is compared with a floor.

@@ -38,9 +38,9 @@ The run exits 1. The [finding](concepts.md#finding) gives the file, the line, th
 
 <div id="where-it-checks"></div>
 
-## Lawcheck checks in six places
+## Lawcheck in your agent and in CI
 
-- [Claude Code](claude-code.md): the plugin checks each file the agent edits. Before the agent finishes its answer to your prompt, the plugin checks every file the agent changed for that prompt. While those files break the law, the plugin sends the agent back to work, up to three times.
+- [Claude Code](claude-code.md): the plugin checks each file the agent edits with `Write`, `Edit` or `NotebookEdit`. Before the agent finishes its answer to your prompt, the plugin checks every file the agent changed for that prompt. While those files break the law, the plugin sends the agent back to work, up to three times.
 - [Codex](codex-cli.md): the same plugin checks each file the agent writes with `apply_patch`, and sends the agent back the same way before it finishes.
 - [GitHub Copilot CLI](copilot-cli.md): before the agent finishes, the plugin checks every file that changed in its turn, and sends the agent back the same way. The plugin asks the agent to tell you its messages.
 - [Cursor](cursor.md): Cursor loads the plugin through its support for Claude Code plugins. No session of Cursor has run the plugin.
@@ -72,6 +72,6 @@ Lawcheck sends code to a model only when you ask the model to judge a rule writt
 
 - After it has sent the agent back three times, the plugin lets the agent finish. The plugin tells you that the check still fails ([The Claude Code plugin](plugin.md#three-returns-at-most)).
 - A pull request can edit the law that judges it. `check` prints what the pull request does to that law ([What a check judges](change.md#the-limits-of-a-plain-check)). The CI job of [CI and git hooks](ci.md#a-change-to-the-law) checks the pull request a second time, with the law of the [base](concepts.md#base).
-- Lawcheck reads the [uses](concepts.md#use) written out in the code. It does not read an `import()` of a variable, `importlib.import_module`, or a class that the code finds by its name at run time ([Languages and uses](languages.md#the-languages-whose-uses-are-read)).
+- Lawcheck reads the forms of [use](concepts.md#use) that [Languages and uses](languages.md#the-languages-whose-uses-are-read) lists for each language. It does not read an `import()` of a variable, `importlib.import_module`, or a class that the code finds by its name at run time. It misses other forms too, such as a Java call written by its full name with no import. It neither judges nor counts a use that it does not read ([Forms the readers miss](languages.md#forms-the-readers-miss)).
 
 Next: [Install](install.md)
