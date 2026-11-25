@@ -215,7 +215,7 @@ test('test 417: lawcheck docs prints a link to another page as the command that 
   });
 });
 
-test('test 1414: lawcheck docs changelog prints a changelog over 30000 characters as Unreleased whole and the newest releases that fit, ends with the line that names the whole changelog, and --json gives the page whole', async () => {
+test('test 1414: lawcheck docs changelog prints a changelog over 30000 characters as Unreleased whole and the newest releases that fit, ends with the line that names the whole changelog and the Next line of the page, and --json gives the page whole', async () => {
   await inTemp(async (dir) => {
     const copy = join(dir, 'lawcheck');
     for (const entry of ['package.json', 'dist', 'docs']) cpSync(join(ROOT, entry), join(copy, entry), { recursive: true });
@@ -230,7 +230,7 @@ test('test 1414: lawcheck docs changelog prints a changelog over 30000 character
     writeFileSync(join(copy, 'docs', 'changelog.md'), written);
     const cli = join(copy, 'dist', 'cli.js');
     const text = await lawcheckAt(cli, dir, ['docs', 'changelog']);
-    const whole = 'The older releases are not printed here. The whole changelog is in `docs/changelog.md` of the installed package and at https://docs.lawcheck.dev/changelog.html.\n';
+    const whole = 'The older releases are not printed here. The whole changelog is in `docs/changelog.md` of the installed package and at https://docs.lawcheck.dev/changelog.html.\n\nNext: Supported environments (lawcheck docs support)\n';
     assert.equal(text.stdout, terminal(head + unreleased + three) + whole);
     assert.equal(text.code, 0);
     assert.ok([...written].length > 30000 && [...text.stdout].length <= 30000, `${[...written].length} written, ${[...text.stdout].length} printed`);

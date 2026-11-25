@@ -29,7 +29,7 @@ The notes of 0.1.0-alpha.5 are wrong in ten places. One is under Fixed below, an
 
 ### Changed
 
-- `lawcheck docs changelog` prints at most 30,000 characters. A longer changelog prints its newest section whole, then the releases before it, newest first, until one does not fit, and ends with a line that names the whole changelog: `docs/changelog.md` in the installed package and https://docs.lawcheck.dev/changelog.html. `--json` gives the whole page.
+- `lawcheck docs changelog` prints at most 30,000 characters. A longer changelog prints its newest section whole, then the releases before it, newest first, until one does not fit, then a line that names the whole changelog: `docs/changelog.md` in the installed package and https://docs.lawcheck.dev/changelog.html. The line of the next page stays last. `--json` gives the whole page.
 
 ### Fixed
 

@@ -56,7 +56,7 @@ test('commands-slice §7: the package ships docs', () => {
   assert.ok(manifest.files.includes('docs'));
 });
 
-test('test 1413: a changelog over the limit prints its first section whole, then whole releases while they fit, then the line that names the whole changelog; one within the limit prints as written', () => {
+test('test 1413: a changelog over the limit prints its first section whole, then whole releases while they fit, then the line that names the whole changelog and the Next line of the page; one within the limit prints as written', () => {
   const whole = 'The older releases are not printed here. The whole changelog is in `docs/changelog.md` of the installed package and at https://docs.lawcheck.dev/changelog.html.';
   const head = '# Changelog\n\nIntro.\n\n';
   const unreleased = `## [Unreleased]\n\n### Added\n\n- ${'u'.repeat(300)}\n\n\`\`\`text\n## not a section\n\`\`\`\n\n`;
@@ -64,7 +64,7 @@ test('test 1413: a changelog over the limit prints its first section whole, then
   const two = `## [2] - 2026-01-02\n\n- ${'b'.repeat(100)}\n\n`;
   const one = `## [1] - 2026-01-01\n\n- ${'a'.repeat(400)}\n\nNext: [Supported environments](support.md)\n`;
   const text = head + unreleased + three + two + one;
-  const tail = `${whole}\n`;
+  const tail = `${whole}\n\nNext: [Supported environments](support.md)\n`;
   assert.equal(fitChangelog(text, [...text].length), text);
   assert.equal(fitChangelog(text, [...text].length - 1), head + unreleased + three + two + tail);
   assert.equal(fitChangelog(text, [...(head + unreleased + three + two + tail)].length - 1), head + unreleased + three + tail);
@@ -73,6 +73,8 @@ test('test 1413: a changelog over the limit prints its first section whole, then
   assert.equal(fitChangelog(long, 1000), head + unreleased + three + tail);
   // The first section is never cut, whatever the limit.
   assert.equal(fitChangelog(text, 10), head + unreleased + tail);
+  // A page with no Next line ends with the line that names the whole changelog.
+  assert.equal(fitChangelog(head + unreleased + three + two, 10), `${head}${unreleased}${whole}\n`);
   assert.equal(fitChangelog('# Changelog\n\n' + 'x'.repeat(50), 10), '# Changelog\n\n' + 'x'.repeat(50));
   // The limit counts characters, not UTF-16 units.
   const astral = '# Changelog\n\n## a\n\n' + '\u{1D4B3}'.repeat(20) + '\n\n## b\n';

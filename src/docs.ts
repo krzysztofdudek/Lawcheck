@@ -65,7 +65,9 @@ export function fitChangelog(text: string, limit: number = PRINTED_CHARS): strin
     if (/^\s*(```|~~~)/.test(line)) fenced = !fenced;
     else if (!fenced && line.startsWith('## ')) starts.push(at);
   });
-  const cut = (sections: number): string => `${lines.slice(0, starts[sections]).join('\n').replace(/\n*$/, '')}\n\n${WHOLE_CHANGELOG}\n`;
+  const next = /\n(Next: [^\n]+)\n*$/.exec(text);
+  const end = next === null ? '' : `\n${next[1]}\n`;
+  const cut = (sections: number): string => `${lines.slice(0, starts[sections]).join('\n').replace(/\n*$/, '')}\n\n${WHOLE_CHANGELOG}\n${end}`;
   if (starts.length < 2) return text;
   let kept = 1;
   while (kept + 1 < starts.length && [...cut(kept + 1)].length <= limit) kept += 1;
