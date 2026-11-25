@@ -429,7 +429,7 @@ usage: lawcheck docs [<topic>] [--json]
 
 `docs` prints the pages of this reference in the terminal. It works offline, outside git and without a law. Without a topic, it lists the topics under their sections. A link to another page prints as the command that prints that page, such as `Codes (lawcheck docs codes)`.
 
-A changelog longer than 30,000 characters prints its newest section whole, then each older release that still fits. It ends with a line that names the whole changelog.
+A changelog longer than 30,000 characters prints its newest section whole, then the releases before it, newest first, until one does not fit. It ends with a line that names the whole changelog.
 
 Run `docs` on a machine without a browser, or to give an agent one page.
 

@@ -137,7 +137,7 @@ test('test 129: every page holds what section 7 asks, and its examples are real'
   for (const { id, title } of TOPICS) {
     const text = page(id);
     assert.equal(text.split('\n')[0], `# ${title}`, id);
-    if (id !== 'codes') assert.ok([...printed(id)].length <= 30000, `lawcheck docs ${id} prints ${[...printed(id)].length} characters`);
+    if (id !== 'codes') assert.ok([...printed(id)].length <= 30000, `lawcheck docs ${id} prints ${[...printed(id)].length} characters${id === 'changelog' ? '; its first section is never cut, so that section alone must fit: rewrite it shorter and keep every fact' : ''}`);
     for (const fence of fences(text)) {
       if (fence.info === 'yaml' && fence.lines[0]?.startsWith('lawcheck:')) {
         const read = parseLaw(fence.lines.join('\n'));
