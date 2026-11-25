@@ -4,6 +4,10 @@ Lawcheck follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Before you upgrade
+
+- `scope.law_changes` in `lawcheck check --json` no longer says `changes may_use` for a `may_use` list that got wider, or `changes the waivers` for a type whose waivers count again. It says `widens may_use of the type library by command` or `widens may_use of the type library to any file`, and `reads waivers in the type library`. A script that finds these changes by the old words also looks for `widens may_use` and `reads waivers`.
+
 ### Notes of 0.1.0-alpha.5, corrected
 
 The notes of 0.1.0-alpha.5 are wrong in ten places. One is under Fixed below, and one under Security. These lines correct the other eight:
@@ -14,12 +18,13 @@ The notes of 0.1.0-alpha.5 are wrong in ten places. One is under Fixed below, an
 - With a reviewer rule and no reviewer set, alpha.4 already said so in `lawcheck doctor`, and a check on your machine failed with `not-reviewed`. The line in `lawcheck prime` and the message of the Claude Code plugin are what alpha.5 adds. The notes said that nothing in alpha.4 said so until CI failed.
 - In Copilot CLI the output of a hook has no field for a message to you. A hook can print progress lines to the timeline of the session, and the plugin prints none, so its messages reach you through the agent. The notes said that Copilot CLI gives a plugin no way to write to you.
 - The setup skill proves a `may_use` list or a rule with a probe file that must fail. Two kinds of type get no probe: a type whose paths take no new file, and a type whose list names every type it could use. The notes said it checks each list.
-- The note of `lawcheck check` about the waivers a change adds names up to five of them and counts the rest. The note about a change to the law does the same with its items, and shows first the ones that loosen the law. `--json` lists them all. The notes said the note names each one.
+- The note of `lawcheck check` about the waivers a change adds names up to five of them and counts the rest. The note about a change to the law does the same with its items. It shows first only some of the items that loosen the law, such as a rule taken off a type, so a widened `may_use` list can stay in the count. `--json` lists them all. The notes said the note names each one.
 - `untyped-file` covers a file in a new folder only when a pattern of `required` matches it. Outside those patterns, a file that no type takes is still no finding. The notes said that code in a new folder beside the layers no longer escapes the law.
 
 ### Fixed
 
 - On Windows, after a run that was calling a program reviewer such as `claude-code` is killed, Lawcheck no longer ends a process that another program started under the reviewer program's id after Lawcheck saw that the run was gone. In alpha.5 it could, when that other program had already ended, or when Windows had given the id to a third process, by the time Lawcheck looked. The notes of 0.1.0-alpha.5 said that Lawcheck ends only the processes it started.
+- When a change to the law has more than five items, the note of `lawcheck check` now shows a widened `may_use` list before the items that can't loosen the law. In alpha.5 it could stay in the count. The note and `scope.law_changes` now name such a change `widens may_use of the type library by command`, where alpha.5 wrote `changes may_use of the type library` for a wider list and a narrower one alike. A type whose waivers count again is `reads waivers in the type library`. `lawcheck docs change` gives the full order, which also covers other changes that may loosen the law and patterns that start with `!`.
 
 ### Security
 

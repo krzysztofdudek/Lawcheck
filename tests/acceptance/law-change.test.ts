@@ -168,6 +168,55 @@ test('test 317: S7-3, a waiver the change adds is named in the line, and one the
   );
 });
 
+test('test 1372: S7-3, a may_use or waivers change that lets a type use or waive more says so, and one that cannot keeps the plain words', async () => {
+  const LIBRARY = '        rules: [no-console]\n';
+  const SOURCE = '    rules: [no-todo]\n    types:';
+  const cases: [string, string, string, string, string][] = [
+    ['a type added to the list', LIBRARY, `${LIBRARY}        may_use: [library]\n`, `${LIBRARY}        may_use: [library, script]\n`, 'widens may_use of the type library by script'],
+    ['one type added and one taken off', LIBRARY, `${LIBRARY}        may_use: [library]\n`, `${LIBRARY}        may_use: [script]\n`, 'widens may_use of the type library by script'],
+    ['the only list removed', LIBRARY, `${LIBRARY}        may_use: []\n`, LIBRARY, 'widens may_use of the type library to any file'],
+    ['a type taken off the list', LIBRARY, `${LIBRARY}        may_use: [library, script]\n`, `${LIBRARY}        may_use: [library]\n`, 'changes may_use of the type library'],
+    ['a list where none was', LIBRARY, LIBRARY, `${LIBRARY}        may_use: [library]\n`, 'changes may_use of the type library'],
+    ['a type under one the list already names', LIBRARY, `${LIBRARY}        may_use: [source]\n`, `${LIBRARY}        may_use: [source, command]\n`, 'changes may_use of the type library'],
+    ['waivers read again', LIBRARY, `${LIBRARY}        waivers: false\n`, LIBRARY, 'reads waivers in the type library'],
+    ['waivers: true where they were read already', LIBRARY, LIBRARY, `${LIBRARY}        waivers: true\n`, 'changes the waivers of the type library'],
+  ];
+  for (const [name, from, before, after, item] of cases) {
+    await withSample(
+      async (s) => {
+        edit(s, before, after);
+        const json = await check(s, '--base', 'main', '--json');
+        assert.deepEqual(JSON.parse(json.stdout).scope.law_changes, [item], name);
+      },
+      from === before ? {} : { onMain: (s) => edit(s, from, before) },
+    );
+  }
+  const inherited = (own: string) => LAW.replace(SOURCE, `    rules: [no-todo]\n    may_use: [source, script]\n    types:`).replace(LIBRARY, `${LIBRARY}${own}`);
+  await withSample(
+    async (s) => {
+      write(s, '.lawcheck/law.yaml', inherited(''));
+      const json = await check(s, '--base', 'main', '--json');
+      assert.deepEqual(JSON.parse(json.stdout).scope.law_changes, ['widens may_use of the type library by source, script'], 'a type that drops its own list takes the wider one above it');
+    },
+    { onMain: (s) => write(s, '.lawcheck/law.yaml', inherited('        may_use: [library]\n')) },
+  );
+  const COMMAND = '      command:\n        about: The command layer.\n        paths: ["src/cli/**"]\n';
+  const listed = (list: string, top: boolean) => {
+    const law = LAW.replace(LIBRARY, `${LIBRARY}        may_use: ${list}\n`);
+    return top ? `${law.replace(COMMAND, '').replace('"!src/**/*.d.ts"]', '"!src/**/*.d.ts", "!src/cli/**"]')}  command:\n    about: The command layer.\n    paths: ["src/cli/**"]\n` : law;
+  };
+  for (const [name, list] of [['the list narrowed to a type that moved from under one it named', '[command]'], ['a type that moved from under one the list names, added to it', '[source, command]']] as const) {
+    await withSample(
+      async (s) => {
+        write(s, '.lawcheck/law.yaml', listed(list, true));
+        const json = await check(s, '--base', 'main', '--json');
+        assert.deepEqual(JSON.parse(json.stdout).scope.law_changes, ['moves the type command from source to the top of types', 'changes may_use of the type library', 'changes the paths of the type source'], name);
+      },
+      { onMain: (s) => write(s, '.lawcheck/law.yaml', listed('[source]', false)) },
+    );
+  }
+});
+
 test('test 318: S7-3, R-75, a changed waivers key is named by the type that writes it, and the types that inherit its value are not', async () => {
   await withSample(async (s) => {
     edit(s, '        rules: [no-console]\n', '        rules: [no-console]\n        waivers: false\n');
