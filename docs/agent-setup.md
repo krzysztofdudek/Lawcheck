@@ -302,7 +302,7 @@ Each probe must fail with exit 1 and a finding of the expected code or rule. A p
 
 ## A CI job the user asks for
 
-Write no CI job unless the user asks for one. When they do, write it after step 11. First run `lawcheck docs ci`. Then ask the user which law judges a change in CI: the change's own law, the law of the base, or both. Say what each choice catches and misses, as its part [The law that judges a change](ci.md#the-law-that-judges-a-change) says. The choice is the user's, so take none by default. Then write the job of that page with the lines for their choice.
+Write no CI job unless the user asks for one. When they do, write it after step 11. Run `lawcheck docs ci` before you write it. Then ask the user which law judges a change in CI: the change's own law, the law of the base, or both. Say what each choice catches and misses, as its part [The law that judges a change](ci.md#the-law-that-judges-a-change) says. The choice is the user's, so take none by default. Then write the job of that page with the lines for their choice.
 
 ## Never
 
