@@ -31,6 +31,7 @@ The notes of 0.1.0-alpha.5 are wrong in ten places. One is under Fixed below, an
 
 - On Windows, after a run that was calling a program reviewer such as `claude-code` is killed, Lawcheck no longer ends a process that another program started under the reviewer program's id after Lawcheck saw that the run was gone. In alpha.5 it could, when that other program had already ended, or when Windows had given the id to a third process, by the time Lawcheck looked. The notes of 0.1.0-alpha.5 said that Lawcheck ends only the processes it started.
 - When a change to the law has more than five items, the note of `lawcheck check` now shows a widened `may_use` list before the items that can't loosen the law. In alpha.5 it could stay in the count. The note and `scope.law_changes` now name such a change `widens may_use of the type library by command`, where alpha.5 wrote `changes may_use of the type library` for a wider list and a narrower one alike. A type whose waivers count again is `reads waivers in the type library`. `lawcheck docs change` gives the full order, which also covers other changes that may loosen the law and patterns that start with `!`.
+- A line you add below the check in the pre-commit hook of `lawcheck docs ci` now runs. In alpha.5 it never did. If you use that hook, copy it again.
 
 ### Security
 

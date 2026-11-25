@@ -437,7 +437,7 @@ The hooks below run `lawcheck check`. A failed check stops the commit or the pus
 
 A hook checks the working tree against its merge base with `origin/main`, never the index. The index holds what `git add` staged for the next commit. Git can commit a staged file that breaks the law while the working tree holds the clean text. The hook lets that commit through. Lawcheck has no flag for the index, and refuses `--staged`.
 
-A hook never passes `--review`. It checks with the law of its own branch. To catch a loosened law, such as a rule taken off a type, add the line `npx --no-install lawcheck check --base origin/main --law-from origin/main`. In the pre-commit hook it goes last. In the pre-push hook it goes before `done` and ends with `|| exit 1`.
+A hook never passes `--review`. It checks with the law of its own branch. To catch a loosened law, such as a rule taken off a type, add a second line with `--law-from origin/main`.
 
 ### 1. Write the pre-commit hook
 
@@ -449,8 +449,6 @@ Write the file `.githooks/pre-commit`:
 set -e
 npx --no-install lawcheck check --base origin/main
 ```
-
-`set -e` ends the hook at the first line that fails, so a line you add below cannot hide that failure.
 
 ### 2. Make it executable
 
@@ -501,7 +499,7 @@ while read -r local_ref local_sha remote_ref remote_sha; do
 done
 ```
 
-Make it executable with `chmod +x .githooks/pre-push`.
+Then run `chmod +x .githooks/pre-push`.
 
 ## Where a check may run
 

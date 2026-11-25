@@ -234,7 +234,7 @@ test('test 1411: the hooks of docs/ci.md, with the second check the page says to
       assert.match(both.output, /error\[no-console\]/, `${what}: ${name}`);
     }
   }));
-  for (const what of [`add the line \`${second}\``, 'In the pre-commit hook it goes last.', 'In the pre-push hook it goes before `done` and ends with `|| exit 1`.']) assert.ok(page.includes(what), what);
+  assert.ok(page.includes('add a second line with `--law-from origin/main`.'), 'the page still tells the reader to add the line');
 });
 
 test('S7-9: the CI page covers the pull request of a fork: no secret, no pull_request_target, a contributor with no reviewer, and the verdicts that CI trusts; and a job with no key does what the page says', async () => {
