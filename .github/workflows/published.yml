@@ -33,14 +33,14 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 24
-      # The registry takes about a minute to show a new version, so an install that fails is tried again every 10 seconds, for up to 5 minutes.
+      # The registry takes about a minute to show a new version, so an install that fails is tried again every 10 seconds, for up to 5 minutes. --prefer-online makes every try ask the registry: without it npm answers a later try from its cache of the first answer, which does not hold the version.
       - name: Install lawcheck from npm
         shell: bash
         env:
           VERSION: ${{ inputs.version }}
         run: |
           for i in $(seq 30); do
-            if npm install --global --no-audit --no-fund "lawcheck@${VERSION}"; then
+            if npm install --global --no-audit --no-fund --prefer-online "lawcheck@${VERSION}"; then
               exit 0
             fi
             echo "Install ${i} of 30 failed."
