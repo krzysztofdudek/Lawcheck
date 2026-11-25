@@ -19,9 +19,9 @@ alpha.5 changes these results of alpha.4:
 | a file edited in the same second as the last commit or `git add`, with its size unchanged | outside the change of a [plain check](concepts.md#plain-check) | inside the change |
 | a plain check in a pull request job of GitHub Actions, GitLab CI or Azure Pipelines, with no `--base` and no `LAWCHECK_BASE` | the [base](concepts.md#base) is `origin/HEAD`, and a clone without one stops with `base-unreachable` | the base is the branch that the pull request goes into |
 
-The first row is the one that can fail a law that passed. In a repository where `cs/app/Ledger.cs` and `cs/infra/Ledger.cs` each hold a part of one C# class, and the type `domain` may use neither `app` nor `infra`, alpha.5 prints this message for a file of `domain` that names the class: `domain may not use Shop.Domain.Order+Ledger, which names one of cs/app/Ledger.cs (app) and cs/infra/Ledger.cs (infra); its may_use is [domain]`. alpha.4 passes the same file with `1 unresolved use` in its first line. A use with one allowed file among those it could name still passes in alpha.5.
+The first row is the one that can fail a law that passed. In a repository where `cs/app/Ledger.cs` and `cs/infra/Ledger.cs` each hold a part of one C# class, and the `may_use` list of a third type allows neither of their types, alpha.5 prints this message for a file of the third type that names the class: `domain may not use Shop.Domain.Order+Ledger, which names one of cs/app/Ledger.cs (app) and cs/infra/Ledger.cs (infra); its may_use is [domain]`. alpha.4 passes the same file with `1 unresolved use` in its first line. A use with one allowed file among those it could name still passes in alpha.5.
 
-Lawcheck finds the uses of each file through a parsing library named Runes. alpha.5 depends on Runes 1.2.0, as alpha.2, alpha.3 and alpha.4 do. From alpha.1, the readers of alpha.2 changed these results:
+From alpha.1, alpha.2 changed these results, and every later version keeps them:
 
 | In the code | alpha.2 |
 |---|---|
@@ -67,7 +67,7 @@ alpha.5 keeps a cache of what Java, Kotlin, C#, Ruby and Rust files declare in `
 - `lawcheck doctor` now reads the uses of every file, so it takes about as long as `lawcheck check --full`. A CI job that runs `doctor` on every push takes that time on every push ([Run doctor on a machine, not in the job](ci.md#_4-run-doctor-on-a-machine-not-in-the-job)).
 - From alpha.3 or older, a script rule that uses the network gets an error from the call itself, on every version of Node. On Node 24, alpha.3 let the call through. On Node 25 and later, alpha.3 passed Node's refusal to the callback, the `error` event or the promise. A rule that does not catch the error at the call ends as `rule-crashed`. The check then exits with code 2. Keep the data the rule needs in a file of the repository, and let the rule read that file.
 - From alpha.1, a file that alpha.1 passed can hold a use that every later version forbids. Step 4 lists those files as well.
-- From alpha.1, the install grows by about 34 MB. The grammars that Runes 1.2.0 ships take that space. A grammar is the file that describes the syntax of one language.
+- From alpha.1, the install grows by about 34 MB. The grammars of the languages take that space. A grammar is the file that describes the syntax of one language.
 - CI and the git hooks run the version that the project's lockfile pins. Commit `package.json` and the lockfile with the upgrade. Then the CI job, the hooks and each machine's copy in the project run alpha.5.
 
 ## 1. Install the new version
