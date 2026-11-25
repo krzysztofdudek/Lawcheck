@@ -200,6 +200,21 @@ test('test 1372: S7-3, a may_use or waivers change that lets a type use or waive
     },
     { onMain: (s) => write(s, '.lawcheck/law.yaml', inherited('        may_use: [library]\n')) },
   );
+  const COMMAND = '      command:\n        about: The command layer.\n        paths: ["src/cli/**"]\n';
+  const listed = (list: string, top: boolean) => {
+    const law = LAW.replace(LIBRARY, `${LIBRARY}        may_use: ${list}\n`);
+    return top ? `${law.replace(COMMAND, '').replace('"!src/**/*.d.ts"]', '"!src/**/*.d.ts", "!src/cli/**"]')}  command:\n    about: The command layer.\n    paths: ["src/cli/**"]\n` : law;
+  };
+  for (const [name, list] of [['the list narrowed to a type that moved from under one it named', '[command]'], ['a type that moved from under one the list names, added to it', '[source, command]']] as const) {
+    await withSample(
+      async (s) => {
+        write(s, '.lawcheck/law.yaml', listed(list, true));
+        const json = await check(s, '--base', 'main', '--json');
+        assert.deepEqual(JSON.parse(json.stdout).scope.law_changes, ['moves the type command from source to the top of types', 'changes may_use of the type library', 'changes the paths of the type source'], name);
+      },
+      { onMain: (s) => write(s, '.lawcheck/law.yaml', listed('[source]', false)) },
+    );
+  }
 });
 
 test('test 318: S7-3, R-75, a changed waivers key is named by the type that writes it, and the types that inherit its value are not', async () => {

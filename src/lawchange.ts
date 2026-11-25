@@ -118,23 +118,21 @@ function ofLaw(before: Law, after: Law): string[] {
     for (const rule of now.rules) if (!old.rules.includes(rule) && before.rules.has(rule)) items.push(`puts the rule ${rule} on the type ${id}`);
     if (!same(old.paths, now.paths)) items.push(`changes the paths of the type ${id}`);
     if (old.content?.source !== now.content?.source) items.push(`changes the content of the type ${id}`);
-    if (!same(old.mayUse, now.mayUse)) items.push(widened(old, now, is) ?? `changes may_use of the type ${id}`);
+    if (!same(old.mayUse, now.mayUse)) items.push(widened(old, now, was, is) ?? `changes may_use of the type ${id}`);
     if (old.about !== now.about) items.push(`changes the about of the type ${id}`);
     if (old.waivers !== now.waivers) items.push(!takesWaivers(old) && takesWaivers(now) ? `reads waivers in the type ${id}` : `changes the waivers of the type ${id}`);
   }
   return items;
 }
 
-// The lists in force are compared, so a type that drops its own list is read by the list it then takes from above. A type that the old list already reached through a type above it is not new.
-function widened(old: TypeDef, now: TypeDef, types: Map<string, TypeDef>): string | null {
+// The lists in force are compared, so a type that drops its own list is read by the list it then takes from above. A type that the old list reached through a type above it, in either law, is not new: when it moved in the same change, its own item names the move.
+function widened(old: TypeDef, now: TypeDef, before: Map<string, TypeDef>, after: Map<string, TypeDef>): string | null {
   const was = listInForce(old)?.list;
   const is = listInForce(now)?.list;
   if (was === undefined) return null;
   if (is === undefined) return `widens may_use of the type ${now.id} to any file`;
-  const more = is.filter((id) => {
-    const target = types.get(id);
-    return target === undefined ? !was.includes(id) : !allows(was, target);
-  });
+  const reached = (target: TypeDef | undefined) => target !== undefined && allows(was, target);
+  const more = is.filter((id) => !reached(before.get(id)) && !reached(after.get(id)));
   return more.length > 0 ? `widens may_use of the type ${now.id} by ${more.join(', ')}` : null;
 }
 
