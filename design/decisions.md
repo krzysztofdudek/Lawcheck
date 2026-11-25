@@ -623,3 +623,11 @@ Why: each choice misses something or costs something, and which of those matters
 The workflow on the page still runs both. The page needs one whole file that runs as it stands, the tutorial film shows that file line by line, and a job built from it misses nothing the other two would catch. Each other choice replaces the last five lines of its step, and a test runs all three as written. The lines for the base's law alone fall back to the change's own law when the base holds no law, since otherwise the pull request that adds the law would stop with `law-from-unreachable`.
 
 `--base` and `--law-from` stay apart: `--base` chooses the files of the change and has a default, and `--law-from` chooses the law and has none. No variable or setting turns `--law-from` on, so a job judges by the base's law only where its script says so.
+
+## 228. The printed changelog is cut to the length of a page
+
+`lawcheck docs changelog` prints at most 30,000 characters, the bound of every printed page but `codes`. A longer changelog prints its first section whole, which is Unreleased in the repository and the newest release in a package. Then it prints each older release whole while the page stays within the bound, and stops at the first release that does not fit. One line then names the whole changelog: `docs/changelog.md` in the installed package and the page of the site. The page's last line, which names the next page, stays last, as on every other page. `CHANGELOG.md` and `docs/changelog.md` keep every release, and `--json` gives the page whole.
+
+Why: every change a user sees adds an entry, so the changelog passed the bound with the entries after alpha.5. The two ways to stay under it were both worse. Entries shortened to fit lose facts a user needs before an upgrade. A higher bound makes Claude Code return the output as a file with its first 2 KB, and the agent then reads the newest entries last or not at all. A reader of the changelog wants the newest release first, so the oldest releases are the part to leave out.
+
+What this does not give: the first section is never cut. A first section longer than the bound prints whole and breaks the bound, and test 129 then fails. That failure is the signal to rewrite the section, which the release does anyway.
