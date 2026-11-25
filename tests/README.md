@@ -9,6 +9,7 @@ Every command below runs inside the dev container, except `npm run agent-trial` 
 | `npm test` | builds, then runs the commit set: the tests CI runs on every push |
 | `npm run t -- <file or test id>` | the tests of the files you name, or of the source files you changed; `tests/map.json` maps each file of `src/` to its tests |
 | `npm run nightly` | builds, then runs the nightly set |
+| `npm run build && node tests/coverage/run.ts` | builds, then runs the commit set once and writes `coverage-list.md`: the lines of `src/` that ran in no process of the run; after `--out <file>` it takes the arguments of `tests/run.ts`, such as `loop src/glob.ts` |
 | `npm run gate -- --base origin/main` | `npm test`, then the suite guard of the base, and the reviewer's pack: test ids added, changed and removed, and which of them fail on the base |
 | `npm run real` | builds, then checks two real repositories, hono and gson, against their expected results; needs the network |
 | `npm run build && node tests/real/speed.ts` | builds, then checks one changed file in guava and in Newtonsoft.Json with the reader cache and without it: the outputs must be the same, and the median of five checks with the cache must stay under `ONE_FILE_CHECK_MS`; needs the network |
@@ -38,12 +39,20 @@ The Weekly workflow installs the plugin from the marketplace in the newest Claud
 | `deadlines/` | the shipped deadlines of rules and hooks, run nightly at their real length |
 | `docs/` | one file per page of `docs/`, named as the page, and `README.ts` for `README.md`: each fenced block of the page claimed by the file's scenario or by an existing test that checks it; `contract/docs-examples.test.ts` runs them and fails on a block no one claims |
 | `sabotage/` | breaks the code on purpose, one entry of `sabotage/list.json` at a time, and expects the test the entry names to fail |
+| `coverage/` | the code of the coverage list; it holds no tests, and `contract/coverage-list.test.ts` tests it |
 | `harness/` | the code that starts the tool in tests and checks every run |
 | `real/`, `stability/`, `agent/`, `live/` | the runs outside `npm test`, and their committed results: `real/` runs in its own CI job, the others by hand |
 
 The folders `sample/`, `reviewer-sample/`, `uses-sample/` and `languages-sample/` hold repositories that tests copy. They hold no tests of their own.
 
 Every run of the tool in a test passes the checks of `harness/invariants.ts`: `harness-1` to `harness-8` and `harness-count`. Among them, the exit code is 0, 1 or 2, standard error is empty unless the test expects text there, no process outlives the run, and git is unchanged.
+
+## Whether the tests hold the code
+
+Two things show a place where a fault would turn no test red, and neither is a threshold.
+
+- The coverage list names the lines of `src/` that ran in no process of the commit set. The Weekly workflow writes it once a week, on the page of its run and as the artifact `coverage-list`. A line on it is either dead or untested, and a person reads it to tell which. A line counts as reached when any part of it ran. The rule runner starts with an empty environment and no right to write, so the list says of `src/runner.ts` that it is counted only in part. A process that a test kills writes nothing.
+- The sabotage list, `sabotage/list.json`, plants one fault at a time and expects the test its entry names to turn red. A reached line can still be unheld: a test may run it and assert nothing about it. A new entry is shown with `node tests/sabotage/run.ts <entry id>`, which first runs the test on the unbroken code and takes only a green there.
 
 ## The labels in test names
 

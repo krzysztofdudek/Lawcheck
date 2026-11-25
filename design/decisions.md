@@ -581,3 +581,11 @@ Each key of the `reviewer` section is taken from the first place that sets it: i
 Why: a pass that held the model would make every pass of a developer with another reviewer `not-reviewed` in CI, so the setting of one machine would be of no use to a team. Who may record a pass is what `signers` decide (decision 202). `doctor` and `explain --rule` name the place of each value, because a variable left in a shell otherwise changes the reviewer without a word.
 
 `prime` and the plugin's message count a reviewer from any of the three places. Their wording still names `.lawcheck/config.yaml`, where a team sets the reviewer.
+
+## 223. The lines of src/ no test reaches are a list to read, with no threshold
+
+Once a week the Weekly workflow runs the commit set with Node's own record of what ran (`NODE_V8_COVERAGE`) and writes the lines of `src/` that ran in no process, by file, as `coverage-list.md`: on the page of the run and as an artifact. The job fails only when the list cannot be made. A red test does not fail it, and the list then says the run was red. No percentage is computed and nothing is compared with a floor.
+
+Why: sabotage held 35 entries in 14 of the 49 files of `src/`, and nothing said how much of the rest any test ran. Faults of the process guard on Windows were found by reviewers who read the code, not by tests. A floor in percent was left out on purpose: it is met most cheaply by a test that runs a line and asserts nothing. The list only points at places to read, and a place that matters gets a test and a sabotage entry, which does prove that a fault turns a test red.
+
+The list reads the build, since the tests run `dist/`. It makes the same build once more with source maps, in a temporary folder, to name lines of `src/`, and refuses a `dist/` that differs from it. A copy of the build that a test runs from another folder counts by its name under `dist/` and its length. Four limits are written into the list itself: a line counts as reached when any part of it ran; a process that is killed writes no record; the run is on Linux, so a line that only Windows or macOS runs is listed; and the rule runner, which Lawcheck starts with an empty environment and no right to write, writes none, so `src/runner.ts` is counted only where a test loads it itself.

@@ -278,5 +278,269 @@
     "find": "low <= 0xdfff",
     "replace": "low < 0xdfff",
     "killedBy": "R-42: a message holds at most 4,096 code points, a pair of surrogates counts as one, and any other surrogate counts by itself"
+  },
+  {
+    "id": "guard-runner-count",
+    "promise": "test 1057",
+    "file": "src/guard.ts",
+    "find": "else if ((runners.get(pid) ?? 0) > 1) runners.set(pid, runners.get(pid)! - 1);",
+    "replace": "else if ((runners.get(pid) ?? 0) > 2) runners.set(pid, runners.get(pid)! - 1);",
+    "killedBy": "test 1057: outside Windows the guard of a killed tool ends a rule runner by its id when an earlier runner that had the same id was released after the later one started"
+  },
+  {
+    "id": "guard-runner-released",
+    "promise": "test 1093",
+    "file": "src/guard.ts",
+    "find": "    else runners.delete(pid);",
+    "replace": "    else runners.set(pid, 1);",
+    "killedBy": "test 1093: the guard of a killed tool ends no process by the id of a rule runner released as often as it was registered"
+  },
+  {
+    "id": "guard-group-calls",
+    "promise": "test 1050",
+    "file": "src/guard.ts",
+    "find": "      if (calls.length === 0) groups.delete(pid);",
+    "replace": "      groups.delete(pid);",
+    "killedBy": "test 1050: two program calls that get the same id each keep their own entry in the guard: the release of the earlier one neither ends the later one's program nor takes it from the guard of a killed tool"
+  },
+  {
+    "id": "limit-step-memory",
+    "promise": "test 276",
+    "file": "src/limits.ts",
+    "find": "export const STEP_MEMORY_BYTES = 384 * MiB;",
+    "replace": "export const STEP_MEMORY_BYTES = 385 * MiB;",
+    "killedBy": "test 276: R-83, the memory guard ends a run whose file grows by 384 MiB, a run past its bound, and one the system has no room left for, counting a cgroup's page cache and reclaimable slab as left"
+  },
+  {
+    "id": "limit-memory-reserve",
+    "promise": "test 276",
+    "file": "src/limits.ts",
+    "find": "read.available < MEMORY_RESERVE_BYTES) return 'system';",
+    "replace": "read.available <= MEMORY_RESERVE_BYTES) return 'system';",
+    "killedBy": "test 276: R-83, the memory guard ends a run whose file grows by 384 MiB, a run past its bound, and one the system has no room left for, counting a cgroup's page cache and reclaimable slab as left"
+  },
+  {
+    "id": "limit-cgroup-slab",
+    "promise": "R-79",
+    "file": "src/limits.ts",
+    "find": "key === 'inactive_file' || key === 'slab_reclaimable'",
+    "replace": "key === 'inactive_file'",
+    "killedBy": "R-79: the readings of a cgroup that charges slab, as the CI runner gives them, leave 450 MiB where only its page cache counted 127, and a kernel that charges no slab gives what the page cache alone gave"
+  },
+  {
+    "id": "limit-file-bytes",
+    "promise": "test 232",
+    "file": "src/limits.ts",
+    "find": "if (size > limit) throw new FileTooLarge(path, size);",
+    "replace": "if (size >= limit) throw new FileTooLarge(path, size);",
+    "killedBy": "test 232: a text file of exactly 16 MiB is judged, and one byte more is file-too-large"
+  },
+  {
+    "id": "limit-file-lines",
+    "promise": "test 262",
+    "file": "src/limits.ts",
+    "find": "if (lines > FILE_LINES) throw new FileTooLarge(path, got, lines);",
+    "replace": "if (lines >= FILE_LINES) throw new FileTooLarge(path, got, lines);",
+    "killedBy": "test 262: a text file may hold 1,048,576 lines, and one more line is file-too-large"
+  },
+  {
+    "id": "check-max-chars",
+    "promise": "test 62",
+    "file": "src/check.ts",
+    "find": "if (characters > config.maxChars) {",
+    "replace": "if (characters >= config.maxChars) {",
+    "killedBy": "test 62: a prompt larger than reviewer.max_chars is never sent"
+  },
+  {
+    "id": "check-waiver-taken",
+    "promise": "S1-15",
+    "file": "src/check.ts",
+    "find": "other !== waiver && other.rule === waiver.rule && other.covers === waiver.covers && other.waived > 0",
+    "replace": "other !== waiver && other.rule === waiver.rule && other.covers !== waiver.covers && other.waived > 0",
+    "killedBy": "S1-15: of two waivers of one rule that cover one line, the unused one names the waiver that takes the findings"
+  },
+  {
+    "id": "check-nested-kind",
+    "promise": "S1-9",
+    "file": "src/check.ts",
+    "find": "submodule ? 'a submodule' : 'a repository of its own'",
+    "replace": "submodule ? 'a repository of its own' : 'a submodule'",
+    "killedBy": "S1-9: S5-8, a type that reaches into a submodule is named in a note, and explain and try give the true reason"
+  },
+  {
+    "id": "prime-cut-60",
+    "promise": "commands-slice §4",
+    "file": "src/prime.ts",
+    "find": "points.length > 60 ? points.slice(0, 59)",
+    "replace": "points.length > 61 ? points.slice(0, 59)",
+    "killedBy": "commands-slice §4: a text longer than 60 characters is cut to 59 and an ellipsis, counted in code points"
+  },
+  {
+    "id": "key-shortest",
+    "promise": "I-secret-1",
+    "file": "src/keys.ts",
+    "find": "[...key].length >= SHORTEST",
+    "replace": "[...key].length > SHORTEST",
+    "killedBy": "R-20: S3-2, a key of 8 characters is replaced; a key shorter than 8 is no secret (I-secret-1)"
+  },
+  {
+    "id": "git-oldest",
+    "promise": "test 200",
+    "file": "src/environment.ts",
+    "find": "if (major > oldestMajor || (major === oldestMajor && minor >= oldestMinor)) return null;",
+    "replace": "if (major >= oldestMajor) return null;",
+    "killedBy": "test 200: below git 2.34 every command but --version, --help and docs refuses in its first line, naming the version"
+  },
+  {
+    "id": "review-cap-resend",
+    "promise": "reviewer-slice §7",
+    "file": "src/review.ts",
+    "find": "asks.length - started) < options.cap;",
+    "replace": "asks.length - started) <= options.cap;",
+    "killedBy": "reviewer-slice §7: the cap counts every request and keeps room for the reviews not yet started"
+  },
+  {
+    "id": "law-change-rest",
+    "promise": "S7-3",
+    "file": "src/lawchange.ts",
+    "find": "const rest = items.length - LINE_ITEMS;",
+    "replace": "const rest = items.length - LINE_ITEMS - 1;",
+    "killedBy": "S7-3: the line holds five items and counts the rest"
+  },
+  {
+    "id": "http-reply-bytes",
+    "promise": "test 403",
+    "file": "src/providers/http.ts",
+    "find": "export const MAX_REPLY_BYTES = 4 * 1024 * 1024;",
+    "replace": "export const MAX_REPLY_BYTES = 5 * 1024 * 1024;",
+    "killedBy": "test 403: a reply over 4 MiB is not read"
+  },
+  {
+    "id": "endpoint-slashes",
+    "promise": "test 64",
+    "file": "src/providers/index.ts",
+    "find": "value.replace(/\\/+$/, '')",
+    "replace": "value.replace(/\\/$/, '')",
+    "killedBy": "test 64: the endpoint: http or https, trailing slashes removed, empty counts as absent"
+  },
+  {
+    "id": "program-last-line",
+    "promise": "test 406",
+    "file": "src/providers/program.ts",
+    "find": ".filter((line) => line.trim() !== '');",
+    "replace": ".filter((line) => line !== '');",
+    "killedBy": "test 406: the last non-empty line"
+  },
+  {
+    "id": "anthropic-texts-joined",
+    "promise": "test 65",
+    "file": "src/providers/anthropic.ts",
+    "find": "texts.join('')",
+    "replace": "texts.join('\\n')",
+    "killedBy": "test 65: the request, and the text items joined"
+  },
+  {
+    "id": "prompt-size-points",
+    "promise": "reviewer-slice §4",
+    "file": "src/prompt.ts",
+    "find": "for (const _ of prompt) count++;",
+    "replace": "count = prompt.length;",
+    "killedBy": "reviewer-slice §4: the size counts code points"
+  },
+  {
+    "id": "uses-subtype",
+    "promise": "dependency-slice §3.5",
+    "file": "src/uses.ts",
+    "find": "at = at.parent) if (list.includes(at.id)) return true;",
+    "replace": "at = null) if (list.includes(at.id)) return true;",
+    "killedBy": "dependency-slice §3.5: naming a type allows its subtypes, never its parent"
+  },
+  {
+    "id": "law-nearest-key",
+    "promise": "test 1361",
+    "file": "src/law.ts",
+    "find": "let bestDistance = 3;",
+    "replace": "let bestDistance = 4;",
+    "killedBy": "test 1361: a key two edits from a known key names it, and a key three edits away names none"
+  },
+  {
+    "id": "law-nearest-key-two",
+    "promise": "test 1361",
+    "file": "src/law.ts",
+    "find": "let bestDistance = 3;",
+    "replace": "let bestDistance = 2;",
+    "killedBy": "test 1361: a key two edits from a known key names it, and a key three edits away names none"
+  },
+  {
+    "id": "programs-own-parent",
+    "promise": "reviewer-slice §6",
+    "file": "src/programs.ts",
+    "find": "!Number.isInteger(parent) || child === parent) continue;",
+    "replace": "!Number.isInteger(parent)) continue;",
+    "killedBy": "reviewer-slice §6: the descendants of a process are read from the list of processes, its own id never among them"
+  },
+  {
+    "id": "names-surrogate",
+    "promise": "S1-2",
+    "file": "src/names.ts",
+    "find": "continued(1, 0x80, 0x9f) && continued(2) ? 3 : 0;",
+    "replace": "continued(1, 0x80, 0xbf) && continued(2) ? 3 : 0;",
+    "killedBy": "S1-2: a surrogate half is written as section 2 says, and maps back"
+  },
+  {
+    "id": "openai-compatible-answer",
+    "promise": "test 64",
+    "file": "src/providers/openai-compatible.ts",
+    "find": "return { answer: typeof content === 'string' ? content : '' };",
+    "replace": "return { answer: String(content ?? '') };",
+    "killedBy": "tests 404, 64: the request and the answer"
+  },
+  {
+    "id": "ollama-answer",
+    "promise": "test 402",
+    "file": "src/providers/ollama.ts",
+    "find": "return { answer: typeof content === 'string' ? content : '' };",
+    "replace": "return { answer: String(content ?? '') };",
+    "killedBy": "test 402: an answer that is absent or no string is empty"
+  },
+  {
+    "id": "google-thought",
+    "promise": "test 401",
+    "file": "src/providers/google.ts",
+    "find": " && part.thought !== true)",
+    "replace": ")",
+    "killedBy": "test 401: the request: the model in the path, the key in x-goog-api-key and never in the address"
+  },
+  {
+    "id": "claude-strict-mcp",
+    "promise": "test 66",
+    "file": "src/providers/claude-code.ts",
+    "find": "'--strict-mcp-config',",
+    "replace": "'--no-strict-mcp-config',",
+    "killedBy": "test 66: the arguments, with --model only when a model is set"
+  },
+  {
+    "id": "codex-ephemeral",
+    "promise": "test 406",
+    "file": "src/providers/codex.ts",
+    "find": "'--ephemeral',",
+    "replace": "'--persistent',",
+    "killedBy": "test 406: the arguments: codex exec with its tools off, the model only when set, and the prompt on standard input"
+  },
+  {
+    "id": "gemini-policy-denies",
+    "promise": "test 407",
+    "file": "src/providers/gemini-cli.ts",
+    "find": "decision = \"deny\"",
+    "replace": "decision = \"allow\"",
+    "killedBy": "test 407: the arguments: text output, no extensions, no MCP server, a policy that denies every tool"
+  },
+  {
+    "id": "copilot-builtin-mcps",
+    "promise": "test 408",
+    "file": "src/providers/copilot-cli.ts",
+    "find": "'--disable-builtin-mcps',",
+    "replace": "'--enable-builtin-mcps',",
+    "killedBy": "test 408: the arguments: silent, no questions, no instructions, no MCP server, no tool, no temporary folder"
   }
 ]

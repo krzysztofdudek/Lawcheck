@@ -40,3 +40,26 @@ jobs:
         run: npm install --global ${{ matrix.package }}@latest
       - name: The plugin from the marketplace, with no token and no model
         run: node tests/harness/agent-install.ts ${{ matrix.agent }} main
+
+  # The lines of src/ that the commit set reached in no process: a list to read on the run's page and in its artifact, with no threshold, so a red test does not fail the job (tests/coverage/run.ts).
+  coverage:
+    name: weekly coverage list
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: The commit set once, and the lines of src/ it did not reach, with the network closed
+        run: |
+          sudo unshare --net -- sh -c 'ip link set lo up && u=$1 g=$2 && shift 2 && exec setpriv --reuid="$u" --regid="$g" --clear-groups env -i "$@"' \
+            sh "$(id -u)" "$(id -g)" PATH="$PATH" HOME="$HOME" USER="$(id -un)" LOGNAME="$(id -un)" node tests/coverage/run.ts --out "$RUNNER_TEMP/coverage-list.md"
+      - name: The list on the page of the run
+        run: head -c 1000000 "$RUNNER_TEMP/coverage-list.md" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: coverage-list
+          path: ${{ runner.temp }}/coverage-list.md
