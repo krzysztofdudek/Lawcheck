@@ -11,6 +11,7 @@ Lawcheck keeps its files in the folder `.lawcheck/`. The folder that holds it is
 | `.lawcheck/rules/` | one file per rule, `<id>.mjs` for a script rule or `<id>.md` for a reviewer rule, and helpers of script rules in `rules/lib/` | you; `init` makes no `rules/` folder | yes |
 | `.lawcheck/verdicts` | the passes of reviewer rules, one line per pass: 32 hexadecimal characters, a space and the rule's id, sorted | `lawcheck check --review` | yes, so that CI reads the passes and calls no reviewer |
 | `.lawcheck/.gitattributes` | the line `verdicts merge=union`, so a merge of two branches keeps the passes of both | `lawcheck check --review`, when it records a pass and the line is missing | yes |
+| `.lawcheck/config.local.yaml` | the reviewer settings of one machine ([On one machine](config.md#on-one-machine)) | you; Lawcheck only reads it | no: git ignores it |
 | `.lawcheck/.gitignore` | `.local/` and `config.local.yaml` | `lawcheck init`, when the file is absent | yes |
 | `.lawcheck/advice.md` | advice on the architecture: at most three boundaries or rules the code does not hold today, each with its evidence and count; nothing in it is law | a coding agent in the setup skill of the Claude Code plugin, when you ask for advice ([The setup skill](plugin.md#the-setup-skill)); no command of Lawcheck reads it | your choice: as the team's plan, or not at all |
 | `.lawcheck/target.md` | a target architecture: the target law, the distance of the code from it, and the steps to reach it; nothing in it is law | a coding agent in the setup skill of the Claude Code plugin, when you ask for a target ([The setup skill](plugin.md#the-setup-skill)); no command of Lawcheck reads it | your choice: as the team's plan, or not at all |
@@ -23,7 +24,7 @@ Lawcheck keeps its files in the folder `.lawcheck/`. The folder that holds it is
 config.local.yaml
 ```
 
-Lawcheck 0.1.0-alpha.5 reads no `config.local.yaml`. The second line of this file keeps a file of that name out of git.
+The second line keeps `.lawcheck/config.local.yaml` out of git. That file holds the reviewer settings of one machine ([On one machine](config.md#on-one-machine)).
 
 A type's `paths` can match the law, the config and the rule files. Lawcheck then judges such a file against the rules of its type. `.lawcheck/verdicts` and `.lawcheck/.gitattributes` never get a type.
 

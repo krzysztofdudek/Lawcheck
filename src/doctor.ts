@@ -19,7 +19,7 @@ import type { Env } from './providers/index.js';
 import type { Provider } from './provider.js';
 import { LANGUAGES, loadGrammars, ownersOf, readerOf, readUses, siblingsOf } from './readers.js';
 import type { ScriptView } from './readers.js';
-import { belowPart, configErrors, damagedRepository, findRoot, LAW, lawErrors, lawsBelow, notInitialized, onceReader, ruleFileErrors, Stop, theChange, touchesLaw, typingErrors, WRITE_BY_HAND } from './setup.js';
+import { belowPart, configErrors, reviewerInForce, damagedRepository, findRoot, LAW, lawErrors, lawsBelow, notInitialized, onceReader, ruleFileErrors, Stop, theChange, touchesLaw, typingErrors, WRITE_BY_HAND } from './setup.js';
 import type { Change, Kinds, Read } from './setup.js';
 import type { TypedFile } from './types.js';
 import { extensionOf, listInForce } from './uses.js';
@@ -163,8 +163,11 @@ export async function runChecks(inputs: Inputs): Promise<Check[]> {
         return set('config', 'fail', first.message, first.next);
       }
       found.config = read.config;
-      const configured = read.config;
-      if (!existsSync(join(found.root!, CONFIG))) return set('config', 'ok', 'no .lawcheck/config.yaml; every setting has its default');
+      const overridden = Object.values(read.from).some((source) => source !== CONFIG);
+      const reviewer = reviewerInForce(read);
+      if (!existsSync(join(found.root!, CONFIG))) {
+        return set('config', 'ok', overridden ? `no .lawcheck/config.yaml; ${reviewer ?? 'no reviewer set'}` : 'no .lawcheck/config.yaml; every setting has its default');
+      }
       const named = runnerLine(readFileSync(join(found.root!, CONFIG), 'utf8'))?.value;
       const program = named === undefined ? undefined : RUNNER_PROGRAMS[named];
       const at = program === undefined ? null : findProgram(program, inputs.env);
@@ -172,8 +175,8 @@ export async function runChecks(inputs: Inputs): Promise<Check[]> {
         return set('config', 'fail', `.lawcheck/config.yaml: runner ${named}, and ${program} is not on the PATH`, next(`install ${program}, or ask the user to set runner to the way this repository starts Lawcheck, then run lawcheck doctor again`));
       }
       const runner = program === undefined ? '' : `; runner ${named}, ${program} at ${at}`;
-      if (configured.provider === null) return set('config', 'ok', `.lawcheck/config.yaml: no reviewer set${runner}`);
-      set('config', 'ok', `.lawcheck/config.yaml: reviewer ${configured.provider}${configured.model === null ? '' : `, model ${configured.model}`}${runner}`);
+      // With a value from a variable or config.local.yaml, each value names its place, so the line does not open with the name of one file.
+      set('config', 'ok', `${overridden ? '' : '.lawcheck/config.yaml: '}${reviewer ?? 'no reviewer set'}${runner}`);
     },
     types: () => {
       const { typed, errors } = typingErrors(found.root!, found.law!, found.files, found.read ?? onceReader(found.root!));

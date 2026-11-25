@@ -23,7 +23,7 @@ Five terms recur below. The root is the folder that holds `.lawcheck/`. A rule b
 | `already-initialized` | exit 2 | `init` finds a law here, above or below | a second law would split one repository's rules between two files |
 | `no-git` | exit 2 | git cannot give the files and the change here | the files and the change come from git |
 | `law-invalid` | exit 2 | Lawcheck cannot read or parse the law, or the law breaks its rules | a misspelled key changes the law without a word |
-| `config-invalid` | exit 2 | `.lawcheck/config.yaml` holds an unknown key or a wrong value | a misspelled setting changes the reviewer without a word |
+| `config-invalid` | exit 2 | `.lawcheck/config.yaml` or `.lawcheck/config.local.yaml` holds an unknown key or a wrong value, or the variable of a `reviewer` key holds a wrong value | a misspelled setting changes the reviewer without a word |
 | `rule-missing-file` | exit 2 | a rule has neither its `.mjs` nor its `.md` file | a rule without its file would never be checked |
 | `rule-file-without-entry` | exit 2 | a file in `.lawcheck/rules/` outside `lib/` is no rule of the law, or a rule has both files | a rule file that the law does not name never runs |
 | `file-unreadable` | exit 2 | Lawcheck cannot read a file it must read | a file that cannot be read cannot be typed or judged |
@@ -262,7 +262,7 @@ next: fix .lawcheck/law.yaml, then run lawcheck check
 
 **Meaning**
 
-Lawcheck cannot use `.lawcheck/config.yaml`. For a fault on one line, the error names that line, as in `.lawcheck/config.yaml:1`.
+Lawcheck cannot use `.lawcheck/config.yaml`. For a fault on one line, the error names that line, as in `.lawcheck/config.yaml:1`. The same code covers the settings of one machine: a fault in `.lawcheck/config.local.yaml` names that file and its line, and a wrong value of a variable such as `LAWCHECK_REVIEWER_TIMEOUT` names the variable ([On one machine](config.md#on-one-machine)).
 
 **Typical cause**
 
@@ -270,7 +270,8 @@ The config holds one of these:
 
 - an unknown key, such as bogus;
 - a wrong value;
-- a reviewer provider that Lawcheck cannot set up from the settings.
+- a reviewer provider that Lawcheck cannot set up from the settings;
+- a `.lawcheck/config.local.yaml` that git tracks.
 
 **Fix**
 

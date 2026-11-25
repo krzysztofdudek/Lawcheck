@@ -2,7 +2,7 @@ import { lstatSync } from 'node:fs';
 import { cannotExist, onDisk } from './names.js';
 import { documentOf, errorResult, text as flagText, usageError } from './args.js';
 import type { Arguments, CheckContext, Result } from './args.js';
-import type { ReviewerConfig } from './config.js';
+import type { ReviewerConfig, Sources } from './config.js';
 import { ignoresPath, listedPaths, listFiles, nestedReason, repositoryHolding } from './files.js';
 import { compilePattern } from './glob.js';
 import { patternFor, takesWaivers, walk } from './law.js';
@@ -15,7 +15,7 @@ import { NODE_INTS, ownersOf, readerOf, ruleReads, siblingsOf } from './readers.
 import type { Absent, FlatTree, TreeAnswer } from './readers.js';
 import { contextOf, resolveCompanions, runnerErrors } from './rules.js';
 import type { Companions, RuleFile } from './rules.js';
-import { loadConfig, loadLaw, loadRuleFiles, locate, fromCwd, nearPart, onceReader, requireGit, ruleKind, RULES_DIR, stopped, typeAll, typingErrors, Stop, usage, WRITTEN } from './setup.js';
+import { loadConfigured, reviewerInForce, loadLaw, loadRuleFiles, locate, fromCwd, nearPart, onceReader, requireGit, ruleKind, RULES_DIR, stopped, typeAll, typingErrors, Stop, usage, WRITTEN } from './setup.js';
 import type { Kinds, Read } from './setup.js';
 import { decode, filesOfTypes, isBinary, splitLines } from './types.js';
 import { listInForce, mayUsePart } from './uses.js';
@@ -67,6 +67,7 @@ interface Ctx {
   root: string;
   law: Law;
   config: ReviewerConfig;
+  from: Sources;
   listed: Set<string>;
   files: string[];
   read: Read;
@@ -419,12 +420,14 @@ async function ruleAnswer(ctx: Ctx, id: string, json: boolean): Promise<string> 
   const file = `${RULES_DIR}${id}.${kind === 'script' ? 'mjs' : 'md'}`;
   const context = rule.context === null ? null : rule.context.map((item) => item.path);
   const companion = rule.companion?.path ?? null;
+  const reviewer = kind !== 'reviewer' || ctx.config.provider === null ? null : { provider: ctx.config.provider, model: ctx.config.model, from: ctx.from };
   if (json) {
-    return documentOf({ schema: 'lawcheck-explain/0', subject: 'rule', id, kind, status: rule.status, why: rule.why, file, context, companion, types: onTypes, files, reviewed });
+    return documentOf({ schema: 'lawcheck-explain/0', subject: 'rule', id, kind, status: rule.status, why: rule.why, file, context, companion, types: onTypes, files, reviewed, reviewer });
   }
   const lines = [`rule ${id}  ${kind}  ${rule.status}`, `  why:  ${rule.why}`, `  file:  ${file}`];
   if (context !== null) lines.push(`  context:  ${context.join(', ')}`);
   if (companion !== null) lines.push(`  companion:  ${companion}`);
+  if (kind === 'reviewer') lines.push(`  judged by:  ${reviewerInForce(ctx) ?? 'no reviewer set'}`);
   if (onTypes.length === 0) {
     lines.push('  on types:  none; it judges no file until a type lists it', '  binds:  0 files');
     return lines.join('\n') + '\n';
@@ -585,9 +588,9 @@ export async function explain(args: Arguments, context: CheckContext, json: bool
     const law = loadLaw(root);
     if (typeId !== null && !law.byId.has(typeId)) throw usage(`the law has no type '${typeId}'${nearPart(typeId, [...law.byId.keys()])}`);
     if (ruleId !== null && !law.rules.has(ruleId)) throw usage(`the law has no rule '${ruleId}'${nearPart(ruleId, [...law.rules.keys()])}`);
-    const config = loadConfig(root);
+    const { config, from } = loadConfigured(root);
     const { listed, files, read, kinds } = loadRuleFiles(root, law);
-    const ctx: Ctx = { root, law, config, listed, files, read, kinds };
+    const ctx: Ctx = { root, law, config, from, listed, files, read, kinds };
     if (typeId !== null) return typeAnswer(ctx, typeId, json);
     if (ruleId !== null) return await ruleAnswer(ctx, ruleId, json);
     const path = spelledAsListed(root, givenPath(root, context.cwd, args.words[0]!), listed);

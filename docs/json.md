@@ -232,6 +232,10 @@ For a rule, these fields follow `schema` and `subject`:
 | `context` | the paths of its `context`, or null |
 | `companion` | the path of its `companion`, or null |
 | `reviewed` | for a reviewer rule, how many of its files have a verdict; null for a script rule |
+| `reviewer` | for a reviewer rule, the reviewer in force; null for a script rule and with no reviewer set |
+| `reviewer.provider` | the provider |
+| `reviewer.model` | the model, or null when a program runs its own default |
+| `reviewer.from` | for each key of the `reviewer` section that a place sets, that place: `.lawcheck/config.yaml`, `.lawcheck/config.local.yaml` or the name of a variable |
 
 `id` is the rule. `types` names each type that lists it. `files` names the files it binds: each file whose type, or a type above it, lists the rule.
 

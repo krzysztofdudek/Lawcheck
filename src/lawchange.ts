@@ -1,19 +1,20 @@
 import { lstatSync, mkdirSync, readFileSync, rmdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { CONFIG, DEFAULT_CONFIG, parseConfig } from './config.js';
+import { CONFIG, LOCAL_CONFIG } from './config.js';
 import type { ReviewerConfig } from './config.js';
 import { comparePaths, git, mergeBase, resolveCommit, splitZ } from './files.js';
 import { keyEnvironment } from './keys.js';
 import { CONFIG_BYTES, count, LAW_BYTES, mib } from './limits.js';
 import { bytesOfName } from './names.js';
-import { parseLaw } from './law.js';
+import { parseLaw, takesWaivers } from './law.js';
 import type { Law, TypeDef } from './law.js';
 import type { ErrorItem } from './output.js';
 import { guardedFolder, releaseFolder } from './programs.js';
 import { createProvider } from './providers/index.js';
-import { LAW, RULES_DIR, ruleKinds, Stop, touchesLaw } from './setup.js';
+import { configErrors, LAW, RULES_DIR, ruleKinds, Stop, touchesLaw } from './setup.js';
 import type { Kinds, Read } from './setup.js';
 import { decode } from './types.js';
+import { allows, listInForce } from './uses.js';
 import { LOCAL, Unwritable } from './verdicts.js';
 
 export const LINE_ITEMS = 5;
@@ -117,11 +118,22 @@ function ofLaw(before: Law, after: Law): string[] {
     for (const rule of now.rules) if (!old.rules.includes(rule) && before.rules.has(rule)) items.push(`puts the rule ${rule} on the type ${id}`);
     if (!same(old.paths, now.paths)) items.push(`changes the paths of the type ${id}`);
     if (old.content?.source !== now.content?.source) items.push(`changes the content of the type ${id}`);
-    if (!same(old.mayUse, now.mayUse)) items.push(`changes may_use of the type ${id}`);
+    if (!same(old.mayUse, now.mayUse)) items.push(widened(old, now, was, is) ?? `changes may_use of the type ${id}`);
     if (old.about !== now.about) items.push(`changes the about of the type ${id}`);
-    if (old.waivers !== now.waivers) items.push(`changes the waivers of the type ${id}`);
+    if (old.waivers !== now.waivers) items.push(!takesWaivers(old) && takesWaivers(now) ? `reads waivers in the type ${id}` : `changes the waivers of the type ${id}`);
   }
   return items;
+}
+
+// The lists in force are compared, so a type that drops its own list is read by the list it then takes from above. A type that the old list reached through a type above it, in either law, is not new: when it moved in the same change, its own item names the move.
+function widened(old: TypeDef, now: TypeDef, before: Map<string, TypeDef>, after: Map<string, TypeDef>): string | null {
+  const was = listInForce(old)?.list;
+  const is = listInForce(now)?.list;
+  if (was === undefined) return null;
+  if (is === undefined) return `widens may_use of the type ${now.id} to any file`;
+  const reached = (target: TypeDef | undefined) => target !== undefined && allows(was, target);
+  const more = is.filter((id) => !reached(before.get(id)) && !reached(after.get(id)));
+  return more.length > 0 ? `widens may_use of the type ${now.id} by ${more.join(', ')}` : null;
 }
 
 function ofSigners(before: Map<string, string>, after: Map<string, string>): string[] {
@@ -222,11 +234,20 @@ export function atBase(root: string, base: string): ((paths: string[]) => Map<st
   return fork === null ? null : (paths) => blobsAt(root, fork, paths);
 }
 
-const LOOSENS = /^(?:removes the (?:rule|type|signer) |adds the signer |changes the key of the signer |makes the rule \S+ advisory$|takes the rule \S+ off the type |adds .* to ignored$|takes .* off required$)/;
+const SAYS_LOOSENS = /^(?:removes the (?:rule|type|signer) |widens may_use of the type |reads waivers in the type |adds the signer |changes the key of the signer |makes the rule \S+ advisory$|takes the rule \S+ off the type |adds (?!!).* to ignored$|adds !.* to required$|takes (?!!).* off required$|takes !.* off ignored$)/;
+const MAY_LOOSEN = /^(?:changes the (?:paths|content) of the type |moves the type |(?:changes|removes) \.lawcheck\/(?:law\.yaml$|rules\/))/;
+// A type added under another may carry a may_use or waivers of its own, which its files take in place of the parent's.
+const ADDED_TYPE = /^adds the type /;
+const LOOSENS = [SAYS_LOOSENS, MAY_LOOSEN, ADDED_TYPE];
 
-// The line shows five items, so past five the items that loosen the law go first and are never left in the count.
+function rank(item: string): number {
+  const at = LOOSENS.findIndex((pattern) => pattern.test(item));
+  return at < 0 ? LOOSENS.length : at;
+}
+
+// The line shows five items, so past five they go in the order of LOOSENS. An item whose words name no direction may loosen the law, and it goes after those whose words do, so that it never pushes one of them into the count.
 export function lawChangeLine(items: string[], lead = 'this change edits the law that judges it'): string {
-  const ordered = items.length > LINE_ITEMS ? [...items.filter((item) => LOOSENS.test(item)), ...items.filter((item) => !LOOSENS.test(item))] : items;
+  const ordered = items.length > LINE_ITEMS ? [...items].sort((a, b) => rank(a) - rank(b)) : items;
   const shown = ordered.slice(0, LINE_ITEMS).join('; ');
   const rest = items.length - LINE_ITEMS;
   return `note: ${lead}: ${shown}${rest > 0 ? `; and ${rest} more` : ''}`;
@@ -275,15 +296,12 @@ export function lawAt(root: string, ref: string): LawAt {
   if (lawBytes.length > LAW_BYTES) throw new Stop([{ code: 'file-too-large', file: LAW, line: 1, message: `the law holds ${count(lawBytes.length)} bytes, more than the ${mib(LAW_BYTES)} a law may hold${said}` }]);
   const parsed = parseLaw(decode(lawBytes));
   if (parsed.law === null) throw new Stop(parsed.problems.map((p): ErrorItem => ({ code: p.tooLarge ? 'file-too-large' : 'law-invalid', file: LAW, line: p.line, message: `${p.message}${said}` })));
-  let config: ReviewerConfig = { ...DEFAULT_CONFIG };
   const configBytes = blobs.get(CONFIG);
-  if (configBytes != null) {
-    if (configBytes.length > CONFIG_BYTES) throw new Stop([{ code: 'file-too-large', file: CONFIG, line: null, message: `the file holds ${count(configBytes.length)} bytes, more than the ${mib(CONFIG_BYTES)} the config may hold${said}` }]);
-    const read = parseConfig(decode(configBytes));
-    if ('problems' in read) throw new Stop(read.problems.map((p): ErrorItem => ({ code: 'config-invalid', file: CONFIG, line: p.line, message: `${p.message}${said}` })));
-    config = read.config;
-    if (config.provider !== null) createProvider(config, keyEnvironment());
-  }
+  if (configBytes != null && configBytes.length > CONFIG_BYTES) throw new Stop([{ code: 'file-too-large', file: CONFIG, line: null, message: `the file holds ${count(configBytes.length)} bytes, more than the ${mib(CONFIG_BYTES)} the config may hold${said}` }]);
+  // The variables and config.local.yaml are this machine's, not the change's, so they stand over the commit's config.yaml as over the one on disk.
+  const configured = configErrors(root, { text: configBytes == null ? null : decode(configBytes), said });
+  if ('errors' in configured) throw new Stop(configured.errors);
+  const config = configured.config;
   const files = new Map<string, Buffer | null>();
   for (const [path, entry] of entries) {
     if (entry.mode === '120000') files.set(path, null);
@@ -329,6 +347,22 @@ export function packagesOfChange(listed: Iterable<string>, ref: string): void {
     return { code: 'law-from-packages', file: first!, line: null, message: `git lists this file in ${folder}${more}, and a package that a rule of '${ref}' imports cannot come from the change`, next: `take ${folder} out of git, such as with git rm -r --cached ${folder}, and name it in .gitignore` };
   });
   if (errors.length > 0) throw new Stop(errors);
+}
+
+// Under --law-from, config.local.yaml is this machine's and stands over the commit's config.yaml, so the change may bring none. The one git tracks under its own name is refused wherever the config is read. Git keeps the case of a path, and a file system that ignores case reads .lawcheck/Config.Local.yaml as that file all the same. Git also lists a submodule or a link at .lawcheck as one path and tracks no file inside it.
+export function localConfigOfChange(root: string, listed: Iterable<string>): void {
+  const stop = (file: string, message: string, next: string): never => {
+    throw new Stop([{ code: 'config-invalid', file, line: null, message, next }]);
+  };
+  for (const path of listed) {
+    const name = path.replace(HFS_IGNORED, '').toUpperCase().toLowerCase();
+    if (name === '.lawcheck' && lstatSync(join(root, LOCAL_CONFIG), { throwIfNoEntry: false }) !== undefined) {
+      stop(LOCAL_CONFIG, `this file lies in ${path}, which git lists as a link or a repository of its own, and the settings of one machine cannot come from the change`, `ask the user to remove ${LOCAL_CONFIG}, or to make .lawcheck a folder of this repository, then run lawcheck check`);
+    }
+    if (name === LOCAL_CONFIG && path !== LOCAL_CONFIG && git(root, ['--literal-pathspecs', 'ls-files', '--error-unmatch', '--', path]).status === 0) {
+      stop(path, `git tracks this file, which a file system that ignores case reads as ${LOCAL_CONFIG}, and the settings of one machine cannot come from the change`, `ask the user to take ${path} out of git, such as with git rm --cached ${path}, then run lawcheck check`);
+    }
+  }
 }
 
 const SAFE_PART = /^(?!\.{1,2}$)[^/\\]+$/;

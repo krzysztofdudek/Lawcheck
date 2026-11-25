@@ -169,3 +169,14 @@ test('test 1047: below a root whose start the tool gave, the guard ends nothing 
   // new DateTime(2000, 1, 1, 0, 0, 0, DateTimeKind.Utc).Ticks in .NET.
   assert.equal(ticksAt(Date.UTC(2000, 0, 1)), '630822816000000000');
 });
+
+test('test 1121: below a root the list made after the end no longer shows, the guard ends nothing made from the time it learned of the end, whether the root\'s id is free or a later process holds it', () => {
+  const before = ['100 1 500', '101 100 501', ''].join('\r\n');
+  const free = ['101 100 501', '102 101 650', '300 100 620', ''].join('\r\n');
+  const taken = ['101 100 501', '102 101 650', '300 100 620', '100 9 700', ''].join('\r\n');
+  assert.deepEqual(toEnd(before, free, [100], '400', new Map(), '600').sort((a, b) => a - b), [101, 102]);
+  assert.deepEqual(toEnd(before, taken, [100], '400', new Map(), '600').sort((a, b) => a - b), [101, 102]);
+  assert.deepEqual(toEnd('', taken, [100], '400', new Map([[100, '480']]), '600').sort((a, b) => a - b), [101, 102]);
+  const running = ['100 1 500', '101 100 501', '300 100 620', ''].join('\r\n');
+  assert.deepEqual(toEnd(before, running, [100], '400', new Map(), '600').sort((a, b) => a - b), [100, 101, 300]);
+});
