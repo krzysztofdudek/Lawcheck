@@ -4,7 +4,7 @@ A CI job can run `lawcheck check` on each pull request. A git hook can run it on
 
 The job needs the git history of the branch back to its merge base with the target branch. It needs no API key.
 
-CI judges only the change on purpose, so that people see findings only about what they change. `--full` is a deliberate audit of the whole code.
+CI judges only the change on purpose, so a pull request shows findings only about what it changes. `--full` is a deliberate audit of the whole code.
 
 ## A CI job
 
