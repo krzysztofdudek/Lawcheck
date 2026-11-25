@@ -1,50 +1,74 @@
 {
   "schema": "lawcheck-stability/1",
-  "date": "2026-11-13",
-  "lawcheck": "0.1.0",
-  "verdict_format": "lawcheck-verdict/1",
+  "date": "2026-11-25",
+  "lawcheck": "0.1.0-alpha.5",
+  "verdict_format": "lawcheck-verdict/2",
   "provider": "openai-compatible",
   "model": "claude-sonnet-5-5",
   "temperature_sent": 0,
-  "note": "This run measured the OpenAI-compatible interface of a gateway that drops temperature, so it holds at the gateway's default temperature. It used the earlier fixture of 24 files, whose borderline files the rule text settled, and four regular expressions match its 240 verdicts. The note was added by hand after the run; everything else is as the script wrote it.",
+  "note": null,
   "runs": 10,
   "agreement": {
     "all": {
-      "pairs": 24,
-      "agreeing": 24,
-      "share": 1
+      "pairs": 30,
+      "agreeing": 29,
+      "share": 0.967
     },
     "clear": {
-      "pairs": 16,
-      "agreeing": 16,
+      "pairs": 22,
+      "agreeing": 22,
       "share": 1
     },
     "borderline": {
       "pairs": 8,
-      "agreeing": 8,
-      "share": 1
+      "agreeing": 7,
+      "share": 0.875
     }
   },
   "pairwise_agreement": {
-    "all": 1,
+    "all": 0.982,
     "clear": 1,
-    "borderline": 1
+    "borderline": 0.933
   },
   "label_match": {
     "all": {
-      "verdicts": 240,
-      "matching": 240,
-      "share": 1
+      "verdicts": 300,
+      "matching": 286,
+      "share": 0.953
     },
     "clear": {
-      "verdicts": 160,
-      "matching": 160,
+      "verdicts": 220,
+      "matching": 220,
       "share": 1
     },
     "borderline": {
       "verdicts": 80,
-      "matching": 80,
-      "share": 1
+      "matching": 66,
+      "share": 0.825
+    }
+  },
+  "baseline": {
+    "pairwise_agreement": {
+      "all": 1,
+      "clear": 1,
+      "borderline": 1
+    },
+    "label_match": {
+      "all": {
+        "verdicts": 30,
+        "matching": 19,
+        "share": 0.633
+      },
+      "clear": {
+        "verdicts": 22,
+        "matching": 16,
+        "share": 0.727
+      },
+      "borderline": {
+        "verdicts": 8,
+        "matching": 3,
+        "share": 0.375
+      }
     }
   },
   "attempts": [
@@ -52,70 +76,70 @@
       "run": 1,
       "attempt": 1,
       "exit": 1,
-      "calls_made": 24,
+      "calls_made": 30,
       "errors": []
     },
     {
       "run": 2,
       "attempt": 1,
       "exit": 1,
-      "calls_made": 24,
+      "calls_made": 30,
       "errors": []
     },
     {
       "run": 3,
       "attempt": 1,
       "exit": 1,
-      "calls_made": 24,
+      "calls_made": 30,
       "errors": []
     },
     {
       "run": 4,
       "attempt": 1,
       "exit": 1,
-      "calls_made": 24,
+      "calls_made": 30,
       "errors": []
     },
     {
       "run": 5,
       "attempt": 1,
       "exit": 1,
-      "calls_made": 24,
+      "calls_made": 30,
       "errors": []
     },
     {
       "run": 6,
       "attempt": 1,
       "exit": 1,
-      "calls_made": 24,
+      "calls_made": 30,
       "errors": []
     },
     {
       "run": 7,
       "attempt": 1,
       "exit": 1,
-      "calls_made": 24,
+      "calls_made": 30,
       "errors": []
     },
     {
       "run": 8,
       "attempt": 1,
       "exit": 1,
-      "calls_made": 24,
+      "calls_made": 30,
       "errors": []
     },
     {
       "run": 9,
       "attempt": 1,
       "exit": 1,
-      "calls_made": 24,
+      "calls_made": 30,
       "errors": []
     },
     {
       "run": 10,
       "attempt": 1,
       "exit": 1,
-      "calls_made": 24,
+      "calls_made": 30,
       "errors": []
     }
   ],
@@ -148,7 +172,8 @@
         [],
         [],
         []
-      ]
+      ],
+      "baseline": "pass"
     },
     {
       "file": "src/handlers/create-order.ts",
@@ -178,7 +203,8 @@
         [],
         [],
         []
-      ]
+      ],
+      "baseline": "pass"
     },
     {
       "file": "src/handlers/order-total.ts",
@@ -199,12 +225,6 @@
       ],
       "messages": [
         [
-          "The handler loops over the order's lines to compute the total, which is domain logic that belongs in a service."
-        ],
-        [
-          "The handler loops over the order's lines to compute the total, which is domain logic that belongs in a service."
-        ],
-        [
           "The handler loops over the order's lines to compute the total, which is domain logic that belongs in a service function."
         ],
         [
@@ -214,13 +234,19 @@
           "The handler loops over the order's lines to compute the total, which is domain logic that belongs in a service."
         ],
         [
-          "The handler loops over the order's lines to compute the total, which is domain logic that belongs in a service, rather than building the response from what one service call returned."
+          "The handler loops over the order's lines to compute the total, which is domain logic that belongs in a service."
         ],
         [
-          "The handler loops over the order's lines to compute the total, which is domain logic that belongs in a service function."
+          "The handler loops over the order's lines to compute the total, which is domain logic that belongs in a service."
         ],
         [
-          "The handler loops over the order's lines to compute the total, which is domain logic that belongs in a service function."
+          "The handler loops over the order's lines to compute the total, which is domain logic that belongs in a service."
+        ],
+        [
+          "The handler loops over the order's lines to compute the total, which is domain logic that belongs in a service."
+        ],
+        [
+          "The handler loops over the order's lines to compute the total, which is domain logic that belongs in a service."
         ],
         [
           "The handler loops over the order's lines to compute the total, which is domain logic that belongs in a service function."
@@ -228,7 +254,8 @@
         [
           "The handler loops over the order's lines to compute the total, which is domain logic that belongs in a service."
         ]
-      ]
+      ],
+      "baseline": "fail"
     },
     {
       "file": "src/handlers/delete-user.ts",
@@ -252,36 +279,119 @@
           "The handler queries the database directly instead of calling a service function."
         ],
         [
-          "The handler talks to the database directly with db.query instead of calling one service function."
+          "Handler talks to the database directly with db.query instead of calling a service function."
         ],
         [
-          "The handler queries the database directly instead of calling a service function."
-        ],
-        [
-          "The handler queries the database directly instead of calling a service function."
+          "The handler talks to the database directly with db.query instead of calling a service function."
         ],
         [
           "The handler talks to the database directly with db.query instead of calling one service function."
         ],
         [
-          "The handler queries the database directly instead of calling a service function."
+          "The handler talks to the database directly with db.query instead of calling a service function."
         ],
         [
           "The handler queries the database directly instead of calling a service function."
         ],
         [
-          "The handler queries the database directly instead of calling a service function."
+          "Handler talks to the database directly with db.query instead of calling a service function."
+        ],
+        [
+          "Handler talks to the database directly with db.query instead of calling a service function."
         ],
         [
           "The handler queries the database directly instead of calling a service function."
         ],
         [
-          "The handler talks to the database directly with db.query instead of calling a single service function."
+          "Handler talks to the database directly with db.query instead of calling one service function."
         ]
-      ]
+      ],
+      "baseline": "fail"
     },
     {
-      "file": "src/handlers/list-users.ts",
+      "file": "src/handlers/update-tags.ts",
+      "rule": "handlers-are-thin",
+      "label": "pass",
+      "borderline": false,
+      "verdicts": [
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass"
+      ],
+      "messages": [
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        []
+      ],
+      "baseline": "fail"
+    },
+    {
+      "file": "src/handlers/checkout.ts",
+      "rule": "handlers-are-thin",
+      "label": "fail",
+      "borderline": false,
+      "verdicts": [
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail"
+      ],
+      "messages": [
+        [
+          "The handler calls more than one service function (carts.get here and orders.create on line 6) instead of a single service call, so the orchestration belongs in a service."
+        ],
+        [
+          "The handler calls more than one service function (carts.get on line 5, then orders.create on line 6) instead of a single service function."
+        ],
+        [
+          "The handler calls more than one service function (carts.get on this line, then orders.create on line 6) instead of a single service call."
+        ],
+        [
+          "The handler calls more than one service function (carts.get here and orders.create on line 6) instead of a single service call."
+        ],
+        [
+          "The handler calls more than one service function (carts.get on line 5 and orders.create on line 6) instead of a single service call that holds the checkout logic."
+        ],
+        [
+          "The handler calls more than one service function (carts.get and orders.create) instead of a single service call; the first service call is on this line and the second on line 6."
+        ],
+        [
+          "The handler calls more than one service function (carts.get here and orders.create on line 6) instead of a single service call."
+        ],
+        [
+          "Handler calls more than one service function (carts.get and orders.create); the first call is on this line and orchestration should live in a single service function."
+        ],
+        [
+          "The handler calls more than one service function (carts.get on line 5 and orders.create on line 6) instead of a single service call."
+        ],
+        [
+          "The handler calls more than one service function (carts.get and orders.create) instead of a single service call; the first such call is carts.get here."
+        ]
+      ],
+      "baseline": "pass"
+    },
+    {
+      "file": "src/handlers/search-users.ts",
       "rule": "handlers-are-thin",
       "label": "pass",
       "borderline": true,
@@ -308,10 +418,11 @@
         [],
         [],
         []
-      ]
+      ],
+      "baseline": "pass"
     },
     {
-      "file": "src/handlers/pay-invoice.ts",
+      "file": "src/handlers/get-order.ts",
       "rule": "handlers-are-thin",
       "label": "fail",
       "borderline": true,
@@ -329,36 +440,37 @@
       ],
       "messages": [
         [
-          "The handler decides a business condition (payments above 10000 need approval) instead of leaving that logic to the service."
+          "The handler decides a business condition (whether the order is cancelled) instead of leaving that logic to the service."
         ],
         [
-          "The handler decides a business condition (payments above 10000 need approval) instead of leaving that logic to the service."
+          "The handler decides a business condition by checking whether the order was cancelled and choosing a 410 response, which belongs in the service."
         ],
         [
-          "The handler decides a business condition (payments above 10000 need approval) instead of leaving that logic to the service."
+          "The handler decides a business condition by checking whether the order was cancelled, instead of leaving that decision to the service."
         ],
         [
-          "The handler decides a business condition (payments above 10000 need approval) instead of leaving that decision to the service."
+          "The handler decides a business condition (whether the order is cancelled) instead of leaving that decision to the service."
         ],
         [
-          "The handler decides a business condition (payments above 10000 need approval) instead of leaving that logic to the service."
+          "The handler decides a business condition by checking whether the order was cancelled and returning 410, which belongs in the service."
         ],
         [
-          "The handler decides a business condition (payments above 10000 need approval) instead of leaving that logic to the service."
+          "The handler decides a business condition (whether the order is cancelled) instead of leaving that decision to the service."
         ],
         [
-          "The handler decides a business condition (payments above 10000 need approval) instead of leaving that logic to the service."
+          "The handler decides a business condition by checking whether the order is cancelled and returning 410, a decision that belongs in the service."
         ],
         [
-          "The handler decides a business condition (payments above 10000 need approval) instead of leaving that logic to the service."
+          "The handler decides a business condition by checking whether the order's status is 'cancelled' and returning 410, which belongs in the service."
         ],
         [
-          "The handler decides a business condition (payments above 10000 need approval) instead of leaving that logic to the service."
+          "The handler decides a business condition by checking whether the order is cancelled and returning 410, which is logic that belongs in the service."
         ],
         [
-          "The handler decides a business condition (payments above 10000 need approval) instead of leaving that logic to the service."
+          "The handler decides a business condition (whether the order is cancelled) instead of leaving that decision to the service."
         ]
-      ]
+      ],
+      "baseline": "pass"
     },
     {
       "file": "src/services/invoices.ts",
@@ -388,7 +500,8 @@
         [],
         [],
         []
-      ]
+      ],
+      "baseline": "pass"
     },
     {
       "file": "src/services/rates.ts",
@@ -418,7 +531,8 @@
         [],
         [],
         []
-      ]
+      ],
+      "baseline": "pass"
     },
     {
       "file": "src/services/orders.ts",
@@ -439,36 +553,37 @@
       ],
       "messages": [
         [
-          "The thrown error 'failed' does not say what failed (the order could not be saved) and gives the caller no next step, such as retrying or checking the order."
-        ],
-        [
           "The thrown error 'failed' does not say what failed (the order could not be saved) and gives the caller no next step such as retrying or checking the order."
         ],
         [
-          "The thrown error 'failed' does not say what happened (the order could not be saved) and gives the caller no next step such as retrying or checking the order."
+          "The thrown error 'failed' does not say what failed (the order could not be saved) and gives the caller no next step such as retrying or contacting support."
         ],
         [
-          "The thrown error 'failed' does not say what happened (the order could not be saved) and gives the caller no next step such as retrying or checking the order data."
+          "The thrown error 'failed' does not say what failed (the order could not be saved) and gives the caller no next step, such as retrying or checking the order data."
         ],
         [
-          "The thrown error 'failed' does not say what happened (the order could not be saved) and gives the caller no next step such as retrying or checking the order."
-        ],
-        [
-          "The thrown error 'failed' does not say what happened (the order could not be saved) and gives the caller no next step, such as retrying or checking the order."
-        ],
-        [
-          "Thrown error 'failed' does not say what failed (the order could not be saved) and gives the caller no next step such as retrying or checking the order."
-        ],
-        [
-          "Thrown error 'failed' does not say what failed (the order could not be saved) and gives the caller no next step such as retrying or checking the order data."
+          "The thrown error 'failed' does not say what failed (the order could not be saved) and gives the caller no next step, such as retrying or checking the order data."
         ],
         [
           "The thrown error 'failed' does not say what failed (the order could not be saved) and gives the caller no next step such as retrying or checking the order."
         ],
         [
           "The thrown error 'failed' does not say what failed (the order could not be saved) and gives the caller no next step such as retrying or checking the order."
+        ],
+        [
+          "The thrown error 'failed' does not say what failed (the order could not be saved) and gives the caller no next step such as retrying or checking the order data."
+        ],
+        [
+          "The thrown error 'failed' does not say what failed (the order could not be saved) and gives the caller no next step such as retrying or checking the order."
+        ],
+        [
+          "The thrown error 'failed' does not say what failed (the order could not be saved) and gives the caller no next step such as retrying or checking the order."
+        ],
+        [
+          "The thrown error 'failed' does not say what failed (the order was not saved) and gives the caller no next step such as retrying or checking the order."
         ]
-      ]
+      ],
+      "baseline": "fail"
     },
     {
       "file": "src/services/users.ts",
@@ -489,39 +604,71 @@
       ],
       "messages": [
         [
-          "The returned error 'Invalid input' does not say what was wrong (the email lacks '@') and gives the caller no next step, such as providing a valid email address."
-        ],
-        [
           "The returned error 'Invalid input' does not say what was wrong (the email lacks an '@') and gives the caller no next step, such as supplying a valid email address."
         ],
         [
           "The returned error 'Invalid input' does not say what was wrong (the email lacks '@') and gives the caller no next step, such as providing a valid email address."
         ],
         [
+          "The returned error 'Invalid input' does not say what was wrong (the email lacks an '@') and gives the caller no next step, such as supplying a valid email address."
+        ],
+        [
+          "The returned error 'Invalid input' does not say what was wrong (the email lacks an '@') and gives no guidance on what the caller should do, such as providing a valid email address."
+        ],
+        [
+          "The returned error 'Invalid input' does not say what was wrong (the email lacks an '@') and gives the caller no next step, such as providing a valid email address."
+        ],
+        [
           "The returned error 'Invalid input' does not say what was wrong (the email lacks '@') and gives the caller no next step, such as providing a valid email address."
         ],
         [
-          "The returned error 'Invalid input' does not say what was wrong (the email lacks an '@') and gives the caller no next step, such as supplying a valid email address."
+          "The returned error 'Invalid input' does not say what was wrong (the email lacks an '@') and gives the caller no next step, such as entering a valid email address."
         ],
         [
           "The returned error 'Invalid input' does not say what was wrong (the email lacks an '@') and gives the caller no next step, such as supplying a valid email address."
-        ],
-        [
-          "The returned error 'Invalid input' does not say what was wrong (the email lacks an '@') and gives the caller no next step, such as supplying a valid email address."
-        ],
-        [
-          "The returned error 'Invalid input' does not say what was wrong (the email lacks an '@') and gives the caller no next step, such as supplying a valid email address."
-        ],
-        [
-          "The returned error 'Invalid input' does not say what was wrong (the email lacks '@') and gives the caller no next step, such as providing a valid email address."
         ],
         [
           "The returned error 'Invalid input' does not say what was wrong (the email lacks an '@') and gives no next step, such as providing a valid email address."
+        ],
+        [
+          "The returned error 'Invalid input' does not say what was wrong (the email lacks '@') and gives the caller no next step, such as providing a valid email address."
         ]
-      ]
+      ],
+      "baseline": "fail"
     },
     {
-      "file": "src/services/currency.ts",
+      "file": "src/services/sessions.ts",
+      "rule": "clear-errors",
+      "label": "pass",
+      "borderline": false,
+      "verdicts": [
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass",
+        "pass"
+      ],
+      "messages": [
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        []
+      ],
+      "baseline": "fail"
+    },
+    {
+      "file": "src/services/amounts.ts",
       "rule": "clear-errors",
       "label": "pass",
       "borderline": true,
@@ -548,10 +695,11 @@
         [],
         [],
         []
-      ]
+      ],
+      "baseline": "fail"
     },
     {
-      "file": "src/services/payments.ts",
+      "file": "src/services/exports.ts",
       "rule": "clear-errors",
       "label": "fail",
       "borderline": true,
@@ -569,36 +717,37 @@
       ],
       "messages": [
         [
-          "The thrown error says what happened (the gateway did not answer) but gives the caller no next step, such as retrying later or contacting support."
+          "The error says the report exceeds 10 MB but does not tell the caller what to do next, such as reducing the report size or splitting the export."
         ],
         [
-          "The thrown error says what happened (the gateway did not answer) but gives the caller no next step, such as retrying later or contacting support."
+          "The error says the report exceeds 10 MB but does not tell the caller what to do next, such as shrinking or splitting the report."
         ],
         [
-          "The thrown error says what happened (the gateway did not answer) but gives the caller no next step, such as retrying later or contacting support."
+          "Error says the report exceeds 10 MB but gives the caller no next step, such as shrinking or splitting the report."
         ],
         [
-          "The thrown error says what happened (the gateway did not answer) but gives the caller no next step, such as retrying later or contacting support."
+          "The error says the report is larger than 10 MB but does not tell the caller what to do next, such as shrinking or splitting the report."
         ],
         [
-          "The thrown error says what happened (the gateway did not answer) but gives the caller no next step, such as retrying later or contacting support."
+          "The error says the report is larger than 10 MB but does not tell the caller what to do next, such as shrinking or splitting the report."
         ],
         [
-          "The thrown error says what happened (the gateway did not answer) but gives the caller no next step, such as retrying later or contacting support."
+          "The error message says the report is larger than 10 MB but does not tell the caller what to do next, such as shrinking or splitting the report."
         ],
         [
-          "The thrown error says what happened (the gateway did not answer) but gives the caller no next step, such as retrying later or contacting support."
+          "The error says the report is larger than 10 MB but does not tell the caller what to do next, such as reducing or splitting the report."
         ],
         [
-          "The thrown error says what happened (the gateway did not answer) but gives the caller no next step, such as retrying later or contacting support."
+          "The error says the report exceeds 10 MB but does not tell the caller what to do next (e.g., reduce or split the report)."
         ],
         [
-          "The thrown error says what happened (the gateway did not answer) but gives the caller no next step, such as retrying later or contacting support."
+          "The thrown error says the report exceeds 10 MB but does not tell the caller what to do next, such as reducing the report size or splitting the export."
         ],
         [
-          "The thrown error says what happened (the gateway did not answer) but gives the caller no next step, such as retrying later or contacting support."
+          "The error says the report exceeds 10 MB but does not tell the caller what to do next, such as shrinking or splitting the report."
         ]
-      ]
+      ],
+      "baseline": "fail"
     },
     {
       "file": "src/domain/price.ts",
@@ -628,7 +777,8 @@
         [],
         [],
         []
-      ]
+      ],
+      "baseline": "pass"
     },
     {
       "file": "src/domain/discount.ts",
@@ -658,7 +808,8 @@
         [],
         [],
         []
-      ]
+      ],
+      "baseline": "pass"
     },
     {
       "file": "src/domain/due-date.ts",
@@ -682,33 +833,34 @@
           "`new Date()` reads the current clock inside domain code instead of receiving the date as an argument."
         ],
         [
-          "`new Date()` reads the current time from the clock instead of receiving it as an argument, so the result is not determined by the arguments alone."
-        ],
-        [
-          "`new Date()` reads the current time from the clock instead of receiving it as an argument, so the result differs between calls with the same input."
-        ],
-        [
-          "`new Date()` reads the current clock inside domain code instead of receiving the date as an argument, so the result changes between calls."
+          "`new Date()` reads the current time from the clock instead of receiving it as an argument, so dueDate() is not deterministic."
         ],
         [
           "`new Date()` reads the current clock inside domain code instead of receiving the date as an argument."
         ],
         [
-          "`new Date()` with no arguments reads the current clock inside domain code; the current time should be passed in as an argument."
+          "`new Date()` reads the current time from the clock instead of receiving it as an argument, so `dueDate` is not deterministic."
         ],
         [
-          "`new Date()` reads the current clock inside domain code instead of receiving the current time as an argument."
+          "`new Date()` reads the current time from the clock instead of receiving it as an argument, so the result is not determined by the arguments."
         ],
         [
-          "`new Date()` reads the current time from the clock instead of receiving it as an argument, so the result differs for the same input."
+          "`new Date()` reads the current time from the clock instead of receiving it as an argument, so dueDate() is not deterministic."
         ],
         [
-          "`new Date()` reads the current time from the clock instead of taking it as an argument, so `dueDate` is not deterministic."
+          "`new Date()` reads the current time from the clock instead of receiving it as an argument, so the result varies for the same input."
         ],
         [
-          "`new Date()` with no arguments reads the current clock, so the result depends on when it runs rather than on the function's arguments; the current time should be passed in as an argument."
+          "`new Date()` reads the current time from the clock instead of receiving it as an argument, so the result changes between calls."
+        ],
+        [
+          "`new Date()` with no arguments reads the current time from the clock instead of receiving it as an argument."
+        ],
+        [
+          "`new Date()` reads the current clock inside domain code instead of receiving the date as an argument."
         ]
-      ]
+      ],
+      "baseline": "fail"
     },
     {
       "file": "src/domain/token.ts",
@@ -729,69 +881,130 @@
       ],
       "messages": [
         [
-          "Calls Math.random() to read a random number inside domain code, so the same prefix gives different results; the random value should be passed in as an argument."
+          "Calls Math.random() to read a random number inside domain code, so the same input gives different outputs; the random value should be passed in as an argument."
         ],
         [
-          "Calls Math.random() to read random numbers inside domain code, so the same prefix gives different results instead of computing from its arguments alone."
+          "Calls Math.random() to read a random number inside domain code instead of taking it as an argument, so the same input gives different outputs."
         ],
         [
-          "Calls Math.random() to read a random number inside domain code, so the same input does not always give the same result."
+          "Calls Math.random() inside domain code, so the result is not determined by the arguments alone."
+        ],
+        [
+          "Calls Math.random() to read random numbers instead of receiving the random value as an argument, so the result is not deterministic."
+        ],
+        [
+          "Calls Math.random() to read a random number inside domain code, so the same prefix gives different results instead of computing from its arguments alone."
+        ],
+        [
+          "token() calls Math.random(), reading random numbers inside domain code, so the same input does not give the same output."
+        ],
+        [
+          "Calls Math.random() to read a random number inside domain code instead of receiving it as an argument, so the same input gives different outputs."
+        ],
+        [
+          "Calls Math.random() to read random numbers, so the same input does not always give the same output."
         ],
         [
           "Calls Math.random() to read a random number inside domain code, so the same input does not give the same output."
         ],
         [
-          "Calls Math.random() to read a random number inside domain code instead of receiving it as an argument."
-        ],
-        [
-          "Calls Math.random() to read a random number inside domain code instead of receiving it as an argument, so the function is not deterministic."
-        ],
-        [
-          "Calls Math.random() to read a random number inside domain code, so the same input does not always give the same result."
-        ],
-        [
-          "Calls Math.random() to read random numbers inside domain code, so the same input does not always give the same output."
-        ],
-        [
-          "Calls Math.random() to read a random number inside domain code, so the same prefix gives a different result each time."
-        ],
-        [
-          "Calls Math.random() to read a random number inside domain code, so the same input does not give the same output; pass the randomness in as an argument."
+          "Calls Math.random() inside domain code, so the same input gives different output; random values should be passed in as an argument."
         ]
-      ]
+      ],
+      "baseline": "fail"
     },
     {
-      "file": "src/domain/format-amount.ts",
+      "file": "src/domain/vat.ts",
+      "rule": "pure-domain",
+      "label": "fail",
+      "borderline": false,
+      "verdicts": [
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail"
+      ],
+      "messages": [
+        [
+          "Reads the environment (process.env.VAT_RATE) instead of receiving the VAT rate as an argument, so the result is not determined by the arguments alone."
+        ],
+        [
+          "Reads the environment (process.env.VAT_RATE) inside domain code instead of receiving the VAT rate as an argument."
+        ],
+        [
+          "Reads the environment (process.env.VAT_RATE) instead of receiving the VAT rate as an argument, so the result depends on external state."
+        ],
+        [
+          "Reads the environment (process.env.VAT_RATE) inside domain code instead of receiving the VAT rate as an argument."
+        ],
+        [
+          "Reads the environment (process.env.VAT_RATE) instead of receiving the VAT rate as an argument."
+        ],
+        [
+          "Reads the environment (process.env.VAT_RATE) inside domain code instead of receiving the VAT rate as an argument."
+        ],
+        [
+          "Reads the environment (process.env.VAT_RATE) inside domain code instead of receiving the VAT rate as an argument."
+        ],
+        [
+          "Reads the environment (process.env.VAT_RATE) inside domain code instead of receiving the VAT rate as an argument."
+        ],
+        [
+          "Reads the environment (process.env.VAT_RATE) inside domain code instead of receiving the VAT rate as an argument."
+        ],
+        [
+          "Reads the environment (process.env.VAT_RATE) inside domain code instead of receiving the rate as an argument."
+        ]
+      ],
+      "baseline": "pass"
+    },
+    {
+      "file": "src/domain/ledger.ts",
       "rule": "pure-domain",
       "label": "pass",
       "borderline": true,
       "verdicts": [
         "pass",
         "pass",
+        "fail",
+        "pass",
+        "fail",
+        "fail",
         "pass",
         "pass",
         "pass",
-        "pass",
-        "pass",
-        "pass",
-        "pass",
-        "pass"
+        "fail"
       ],
       "messages": [
         [],
         [],
+        [
+          "ledger.push mutates the caller's array argument, so the function writes outside itself instead of returning a new array."
+        ],
+        [],
+        [
+          "`ledger.push(entry)` writes into the caller's array, so the function mutates its argument instead of computing and returning a new value."
+        ],
+        [
+          "ledger.push(entry) mutates the caller's ledger argument in place, which is a write outside the function instead of a computed return value."
+        ],
         [],
         [],
         [],
-        [],
-        [],
-        [],
-        [],
-        []
-      ]
+        [
+          "`ledger.push(entry)` mutates the caller's array in place, so the function writes to state outside its own return value instead of returning a new ledger."
+        ]
+      ],
+      "baseline": "pass"
     },
     {
-      "file": "src/domain/expiry.ts",
+      "file": "src/domain/opening-hours.ts",
       "rule": "pure-domain",
       "label": "fail",
       "borderline": true,
@@ -809,36 +1022,42 @@
       ],
       "messages": [
         [
-          "The default `now: Date = new Date()` reads the system clock whenever the caller omits `now`, so the result is no longer decided by the arguments alone."
+          "Reads the host environment's time zone via Intl.DateTimeFormat().resolvedOptions().timeZone instead of receiving it as an argument.",
+          "Uses the module-level `zone`, which comes from the environment, so isOpen gives different answers for the same input on different machines."
         ],
         [
-          "The default value `now: Date = new Date()` reads the system clock when the caller omits `now`, so the result is not decided from the arguments alone."
+          "Reads the host's ambient time zone from the runtime environment via Intl.DateTimeFormat().resolvedOptions() instead of receiving it as an argument.",
+          "Formats the hour using the module-level `zone` taken from the environment, so isOpen gives different answers for the same input on different machines."
         ],
         [
-          "The default `now: Date = new Date()` reads the system clock whenever the caller omits `now`, so the result is no longer determined by the arguments alone."
+          "Reads the host environment's time zone via Intl.DateTimeFormat().resolvedOptions().timeZone instead of receiving it as an argument, so results vary by machine."
         ],
         [
-          "The default `now: Date = new Date()` reads the system clock when no argument is passed, so the result is not decided from the arguments alone."
+          "Reads the host environment's time zone via Intl.DateTimeFormat().resolvedOptions().timeZone, so the module's behavior depends on the machine it runs on rather than on its arguments.",
+          "Formats the hour using the module-level `zone` read from the environment, so the result for the same `at` varies with the host time zone."
         ],
         [
-          "The default value `new Date()` for `now` reads the system clock when the argument is omitted, so the function can give different answers for the same input."
+          "Reads the host environment's time zone via Intl.DateTimeFormat().resolvedOptions().timeZone, so isOpen's result depends on the environment rather than its arguments alone."
         ],
         [
-          "The default value `now: Date = new Date()` reads the system clock whenever the caller omits `now`, so the result is not decided from the arguments alone."
+          "Reads the host environment's time zone via Intl.DateTimeFormat().resolvedOptions().timeZone instead of receiving it as an argument, so results depend on where the code runs."
         ],
         [
-          "The default parameter `now: Date = new Date()` reads the system clock whenever the caller omits `now`, so the result is no longer decided from the arguments alone."
+          "Reads the host environment's time zone via Intl.DateTimeFormat().resolvedOptions().timeZone instead of receiving it as an argument.",
+          "Uses the module-level zone, derived from the environment, so isOpen gives different answers for the same input on different machines."
         ],
         [
-          "The default parameter `now: Date = new Date()` reads the system clock when the caller omits `now`, so the function can return different answers for the same arguments."
+          "Reads the host environment's time zone via Intl.DateTimeFormat().resolvedOptions().timeZone, so isOpen's result depends on where it runs rather than on its arguments."
         ],
         [
-          "The default parameter `now: Date = new Date()` reads the system clock whenever the caller omits `now`, so the result is no longer decided from the arguments alone."
+          "Reads the host environment's time zone through Intl.DateTimeFormat().resolvedOptions().timeZone instead of receiving it as an argument.",
+          "Uses the module-level `zone`, which comes from the environment, so isOpen gives different answers for the same input on different machines."
         ],
         [
-          "The default value `new Date()` for `now` reads the system clock whenever the caller omits the argument, so the result is no longer decided from the arguments alone."
+          "Reads the host environment's time zone via Intl.DateTimeFormat().resolvedOptions().timeZone, so results depend on the machine rather than on the arguments."
         ]
-      ]
+      ],
+      "baseline": "pass"
     },
     {
       "file": "src/util/retry.ts",
@@ -868,7 +1087,8 @@
         [],
         [],
         []
-      ]
+      ],
+      "baseline": "pass"
     },
     {
       "file": "src/util/slug.ts",
@@ -898,7 +1118,8 @@
         [],
         [],
         []
-      ]
+      ],
+      "baseline": "pass"
     },
     {
       "file": "src/util/sum.ts",
@@ -919,36 +1140,37 @@
       ],
       "messages": [
         [
-          "The comment \"add a and b\" only restates what the return statement below it does and gives no reason, constraint or trap."
+          "The comment 'add a and b' only restates what the return statement below it does and gives no reason, constraint, or trap."
         ],
         [
-          "The comment 'add a and b' only restates what the return statement below it does and gives no reason."
+          "The comment 'add a and b' only restates what the return statement below it does and gives no reason, constraint, or trap."
         ],
         [
-          "The comment \"add a and b\" only restates what the return statement below it does and gives no reason, constraint, or trap."
+          "The comment 'add a and b' only restates what the return statement below it does and gives no reason, constraint, or origin."
         ],
         [
-          "The comment \"add a and b\" only restates what the return statement below it does and gives no reason, constraint, or trap."
+          "The comment \"add a and b\" only restates what the return statement below it does and gives no reason or constraint."
         ],
         [
-          "The comment \"add a and b\" only restates what the return statement below it does and gives no reason, constraint or trap."
-        ],
-        [
-          "The comment \"add a and b\" only restates what the return statement below it does and gives no reason, constraint, or trap."
+          "The comment \"add a and b\" only restates what the return statement below it does and gives no reason."
         ],
         [
           "The comment \"add a and b\" only restates what the return statement below it does and gives no reason, constraint, or trap."
         ],
         [
-          "The comment \"add a and b\" only restates what the return statement below it does and gives no reason, constraint, or trap."
+          "The comment 'add a and b' only restates what the return statement below it does and gives no reason, constraint, or origin."
         ],
         [
-          "The comment \"add a and b\" only restates what the return statement below it does and gives no reason, constraint, or trap."
+          "The comment 'add a and b' only restates what the return statement below it already does and gives no reason or constraint."
         ],
         [
-          "The comment \"add a and b\" only restates what the return statement below it does and gives no reason, constraint, or trap."
+          "The comment 'add a and b' only restates what the return statement below it does and gives no reason, constraint, or origin."
+        ],
+        [
+          "The comment \"add a and b\" only restates what the return statement below it does and gives no reason, constraint, or origin."
         ]
-      ]
+      ],
+      "baseline": "fail"
     },
     {
       "file": "src/util/parse.ts",
@@ -969,52 +1191,53 @@
       ],
       "messages": [
         [
+          "Comment 'split the text into lines' only restates the split('\\n') call below it.",
+          "Comment 'drop the empty ones' only restates the filter on trimmed lines below it."
+        ],
+        [
           "Comment 'split the text into lines' only restates what the split call on the next line does.",
+          "Comment 'drop the empty ones' only restates what the filter on the next line does."
+        ],
+        [
+          "Comment 'split the text into lines' only restates what the split call on the next line does.",
+          "Comment 'drop the empty ones' only restates the filter that removes blank lines below it."
+        ],
+        [
+          "Comment 'split the text into lines' only restates what the split call on the next line does.",
+          "Comment 'drop the empty ones' only restates the filter on the following line without giving a reason."
+        ],
+        [
+          "Comment 'split the text into lines' only restates what the split call on the next line does.",
+          "Comment 'drop the empty ones' only restates the filter on the following line, giving no reason or constraint."
+        ],
+        [
+          "Comment 'split the text into lines' only restates what the split('\\n') call below does.",
           "Comment 'drop the empty ones' only restates the filter on the next line and gives no reason."
         ],
         [
-          "Comment 'split the text into lines' only restates what the split call on the next line does.",
-          "Comment 'drop the empty ones' only restates the filter on the next line and gives no reason."
-        ],
-        [
-          "Comment 'split the text into lines' only restates what the split call on the next line does.",
-          "Comment 'drop the empty ones' only restates the filter that follows and gives no reason for it."
-        ],
-        [
-          "Comment 'split the text into lines' only restates what the split call on the next line does.",
-          "Comment 'drop the empty ones' only restates the filter on the next line and gives no reason."
-        ],
-        [
-          "Comment 'split the text into lines' only restates what the split call on the next line does.",
-          "Comment 'drop the empty ones' only restates the filter on the following line without giving any reason."
+          "Comment only restates that the next line splits the text into lines, giving no reason.",
+          "Comment only restates that the filter drops empty lines, adding no why."
         ],
         [
           "Comment 'split the text into lines' only restates what the split('\\n') call below it does.",
-          "Comment 'drop the empty ones' only restates the filter on the next line and gives no reason."
+          "Comment 'drop the empty ones' only restates the filter on the next line and gives no reason or constraint."
         ],
         [
           "Comment 'split the text into lines' only restates what the split('\\n') call below does.",
           "Comment 'drop the empty ones' only restates the filter on the line below and gives no reason or constraint."
         ],
         [
-          "Comment 'split the text into lines' only restates what the split call below it does.",
-          "Comment 'drop the empty ones' only restates the filter on the line below it."
-        ],
-        [
           "Comment 'split the text into lines' only restates what the split('\\n') call below it does.",
-          "Comment 'drop the empty ones' only restates the filter on the next line and gives no reason."
-        ],
-        [
-          "Comment 'split the text into lines' only restates what the split call below it does.",
-          "Comment 'drop the empty ones' only restates the filter on the next line and gives no reason."
+          "Comment 'drop the empty ones' only restates the filter on the line below it and gives no reason."
         ]
-      ]
+      ],
+      "baseline": "fail"
     },
     {
-      "file": "src/util/timeout.ts",
+      "file": "src/util/round.ts",
       "rule": "comments-say-why",
       "label": "pass",
-      "borderline": true,
+      "borderline": false,
       "verdicts": [
         "pass",
         "pass",
@@ -1038,10 +1261,113 @@
         [],
         [],
         []
-      ]
+      ],
+      "baseline": "fail"
     },
     {
-      "file": "src/util/cache.ts",
+      "file": "src/util/increment.ts",
+      "rule": "comments-say-why",
+      "label": "fail",
+      "borderline": false,
+      "verdicts": [
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail"
+      ],
+      "messages": [
+        [
+          "The comment \"Add one to the count.\" only restates what `return count + 1` does and gives no reason, constraint, or origin."
+        ],
+        [
+          "The comment \"Add one to the count.\" only restates what `return count + 1` does and gives no reason, constraint, or trap."
+        ],
+        [
+          "The comment \"Add one to the count.\" only restates what `return count + 1` does and gives no reason, constraint, or origin."
+        ],
+        [
+          "The comment \"Add one to the count.\" only restates what `return count + 1` does and gives no reason, constraint, or origin."
+        ],
+        [
+          "The comment \"Add one to the count.\" only restates what the `return count + 1;` line below it does and gives no reason."
+        ],
+        [
+          "The comment \"Add one to the count.\" only restates what `return count + 1` does and gives no reason, constraint, or origin."
+        ],
+        [
+          "The comment \"Add one to the count.\" only restates what `return count + 1` does and gives no reason, constraint, or origin."
+        ],
+        [
+          "The comment \"Add one to the count.\" only restates what `return count + 1;` does and gives no reason, constraint, or trap."
+        ],
+        [
+          "The comment \"Add one to the count.\" only restates what `return count + 1` does and gives no reason, constraint, or origin."
+        ],
+        [
+          "The comment \"Add one to the count.\" only restates what `return count + 1` does and gives no reason, constraint, or origin."
+        ]
+      ],
+      "baseline": "pass"
+    },
+    {
+      "file": "src/util/handle.ts",
+      "rule": "comments-say-why",
+      "label": "pass",
+      "borderline": true,
+      "verdicts": [
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail",
+        "fail"
+      ],
+      "messages": [
+        [
+          "Comment merely restates the regex on line 2 (allowed characters and length) without explaining why the handle format is constrained."
+        ],
+        [
+          "Comment merely restates the regex on the next line (allowed characters and length) without explaining why the constraint exists."
+        ],
+        [
+          "Comment only restates what the regex below matches (lowercase letters, digits, dashes, 3-30 chars) without saying why."
+        ],
+        [
+          "Comment merely restates the regex on the next line (allowed characters and length) without explaining why these constraints exist."
+        ],
+        [
+          "Comment only restates the regex below (allowed characters and length) without saying why those constraints exist."
+        ],
+        [
+          "Comment merely restates what the HANDLE regex below matches, without giving any reason or external constraint."
+        ],
+        [
+          "Comment merely restates what the regex on the next line matches, without giving any reason or origin for the constraint."
+        ],
+        [
+          "Comment only restates what the regex on the next line matches (character set and length) without giving any reason or origin."
+        ],
+        [
+          "Comment merely restates the regex on line 2 (allowed characters and length) without explaining why these constraints exist."
+        ],
+        [
+          "Comment only restates what the regex on the next line matches (charset and length) without saying why the handle format is constrained."
+        ]
+      ],
+      "baseline": "fail"
+    },
+    {
+      "file": "src/util/clamp.ts",
       "rule": "comments-say-why",
       "label": "fail",
       "borderline": true,
@@ -1059,36 +1385,37 @@
       ],
       "messages": [
         [
-          "The comment only restates what the next line does (clear the cache when size reaches the max) and gives no reason, constraint, or trap."
+          "The doc comment only restates what the clamp function does (limits value to min..max) and gives no reason, constraint, or trap."
         ],
         [
-          "The comment only restates what the next line does (clear the cache when size reaches the max) and gives no reason, constraint, or trap."
+          "The doc comment only restates what the clamp function does (limits value to min..max) and gives no reason, constraint, or trap."
         ],
         [
-          "The comment only restates what the next line does (clears the cache when it is full) and gives no reason, constraint, or trap behind it."
+          "The doc comment only restates what the clamp function does (limits value to min..max) and gives no constraint, trap or origin."
         ],
         [
-          "The comment only restates what the next line does (clears the cache when it reaches MAX_ENTRIES) and gives no reason, constraint, or trap."
+          "The doc comment only restates what the clamp function does (limits value to min..max) and gives no reason, constraint, or trap."
         ],
         [
-          "The comment only restates what the next line does (clears the cache when it is full) and gives no reason, such as why the whole cache is cleared or why the limit is 1000."
+          "The doc comment only restates what the clamp function does (limits value to min..max) and gives no reason, constraint, or trap."
         ],
         [
-          "The comment only restates what the next line does (clearing the cache when it reaches the maximum size) and gives no reason, such as why clearing everything is acceptable or where the limit comes from."
+          "The doc comment only restates what the clamp function does (limit value to min..max), giving no constraint, trap, or origin."
         ],
         [
-          "The comment only restates what the next line does (clears the cache when it reaches the maximum size) and gives no reason, constraint or trap."
+          "The doc comment only restates what the clamp function does (limit value to min..max) and gives no constraint, trap, or origin."
         ],
         [
-          "The comment only restates what the next line does (clears the cache when it reaches MAX_ENTRIES) and gives no reason, constraint, or trap."
+          "The doc comment only restates what clamp does (limits value to min..max), which the name and code already show, and gives no why, constraint, or trap."
         ],
         [
-          "The comment only restates what the next line does (clears the cache when it reaches the maximum size) and gives no reason, constraint or trap."
+          "The doc comment only restates what the clamp function does (limit value to min..max), giving no reason, constraint, or trap."
         ],
         [
-          "The comment only restates that the cache is cleared when it is full, which the code on line 6 already shows, and gives no reason such as why clearing is chosen or where the limit comes from."
+          "The doc comment only restates what the clamp function does (limits value to min..max) and gives no reason, constraint, or trap."
         ]
-      ]
+      ],
+      "baseline": "pass"
     }
   ]
 }
