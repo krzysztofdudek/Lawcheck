@@ -30,6 +30,11 @@ test('check-slice §2: an unknown key names the nearest known key within two edi
   assert.equal(nearestKey('required', ['about', 'paths', 'content', 'rules', 'types']), null);
 });
 
+test('test 1361: a key two edits from a known key names it, and a key three edits away names none', () => {
+  assert.equal(nearestKey('pathzz', ['about', 'paths']), 'paths');
+  assert.equal(nearestKey('pathzzz', ['about', 'paths']), null);
+});
+
 test('check-slice §2: the keys this slice leaves out are unknown keys', () => {
   for (const key of ['required: [x]', 'ignored: [x]']) {
     const found = problems(SAMPLE.replace('    about: Executable helpers.\n', `    about: Executable helpers.\n    ${key}\n`));
