@@ -6,7 +6,7 @@ Lawcheck follows [Semantic Versioning](https://semver.org/).
 
 ### Notes of 0.1.0-alpha.5, corrected
 
-The notes of 0.1.0-alpha.5 say more than alpha.5 does in nine places. One is under Security below. In the other eight, alpha.5 works as these lines say:
+The notes of 0.1.0-alpha.5 are wrong in nine places. One is under Security below. These lines correct the other eight:
 
 - The messages of the Claude Code plugin about a check, a waiver, a change to the law or a missing reviewer start with `Lawcheck:`. Three messages at the start of a session do not. In a folder with no law the message starts "The Lawcheck plugin is on". With a wrong `runner`, or when `lawcheck prime` did not run, it starts "This repository has a Lawcheck law". The notes said every message starts with `Lawcheck:`.
 - `lawcheck doctor` reads the uses of the files whose `may_use` list is in force, as `check --full` does. Under a law with no `may_use` it reads no use and names no configuration file. The notes said it reads the uses of every file.
@@ -19,7 +19,7 @@ The notes of 0.1.0-alpha.5 say more than alpha.5 does in nine places. One is und
 
 ### Security
 
-- The notes of 0.1.0-alpha.5 said that, with the second check of `lawcheck docs ci`, a pull request that adds a signer of its own or takes `signers` out fails. That check reads the signers of the base. A pass that the pull request signed with its own key, or left unsigned, is therefore `not-reviewed`, and the check fails on the file of that pass. A pull request that changes only `signers` passes both checks, and its note names the change, such as `adds the signer mallory`. Once it is merged, the passes of that signer count. Ask for a code owner's review of `.lawcheck/`, as `lawcheck docs ci` says under "A change to the law".
+- The notes of 0.1.0-alpha.5 said that, with the second check of `lawcheck docs ci`, a pull request that adds a signer of its own or takes `signers` out fails. That check reads the signers of the base. A pass that the pull request signed with its own key, or left unsigned, is therefore `not-reviewed`, and the check fails on the file of that pass. A pull request that changes only `signers` passes both checks, and its note names the change, such as `adds the signer mallory`. Once it is merged, the passes of that signer count. After the merge of a pull request that takes `signers` out, every pass in `.lawcheck/verdicts` counts, signed or not. Ask for a code owner's review of `.lawcheck/`, as `lawcheck docs ci` says under "A change to the law".
 
 ## [0.1.0-alpha.5] - 2026-11-25
 

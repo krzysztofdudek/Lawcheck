@@ -75,7 +75,7 @@ test('S7-2: S7-11, the hooks of docs/ci.md start Lawcheck through npx, name a ba
   }
   assert.ok(example('pre-push-hook').includes('while read -r local_ref local_sha remote_ref remote_sha'), 'a pre-push hook reads the refs git gives it');
   assert.ok(!example('pre-push-hook').includes('refs/heads/'), 'every ref but a tag is judged, HEAD included');
-  for (const what of ['core.hooksPath', 'never passes `--review`', 'never the index', '`--staged` is not built', 'To catch a loosened law', '`--law-from origin/main`', '`origin/main`', 'not of the commits pushed']) assert.ok(page.includes(what), what);
+  for (const what of ['core.hooksPath', 'never passes `--review`', 'never the index', 'no flag for the index, and refuses `--staged`', 'To catch a loosened law', '`--law-from origin/main`', '`origin/main`', 'not of the commits pushed']) assert.ok(page.includes(what), what);
 });
 
 test('S7-4: the page names the managers, the floors and the refusal of a plain check with no base in CI, and the code does what it says (report S8)', async () => {

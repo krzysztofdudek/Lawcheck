@@ -414,7 +414,7 @@ A pull request that removes a rule and adds code that the rule forbids fails the
 
 A git hook is a script that git runs before a commit or a push. The hooks below run `lawcheck check`. When the check fails, the hook stops the commit or the push. The outputs below come from a repository whose law gives `src/core/**` the script rule `no-console`.
 
-A hook checks the working tree against its merge base with `origin/main`, never the index. The index holds what `git add` staged for the next commit. Git can commit a staged file that breaks the law while the working tree holds the clean text. The hook lets that commit through. Lawcheck has no flag for the index: `--staged` is not built.
+A hook checks the working tree against its merge base with `origin/main`, never the index. The index holds what `git add` staged for the next commit. Git can commit a staged file that breaks the law while the working tree holds the clean text. The hook lets that commit through. Lawcheck has no flag for the index, and refuses `--staged`.
 
 A hook never passes `--review`. It checks with the law of its own branch. To catch a loosened law, such as a rule taken off a type, add a second line with `--law-from origin/main`.
 
