@@ -5,7 +5,7 @@ import { createHash } from 'node:crypto';
 import { appendFileSync, chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { delimiter, dirname, join, relative, sep } from 'node:path';
 import { withFake } from './fake-reviewer.ts';
-import { alive, append, CLI, D, D_PATH, F, F_PATH, git, GIT_ENV, inTemp, LAW, lawcheck, makeR, makeSample, newRepository, read, ROOT, write } from './helpers.ts';
+import { alive, append, atOnce, CLI, D, D_PATH, F, F_PATH, git, GIT_ENV, inTemp, LAW, lawcheck, makeR, makeSample, newRepository, read, ROOT, write } from './helpers.ts';
 import { FILES as SETUP_FILES } from '../docs/agent-setup.ts';
 import type { Expect, Run, Running } from './helpers.ts';
 import { example } from '../harness/examples.ts';
@@ -422,30 +422,54 @@ test('test 1001: the limits docs/plugin.md states are the ones the hooks hold: 1
 });
 
 test('R-87: the hook a user runs keeps its shipped deadline for every event when the variable of the test entry is set', async () => {
-  await withBench(async (bench, dir) => {
-    const s = makeSample(dir);
-    const primed = (await lawcheck(s, ['prime'])).stdout.replace(/\n$/, '');
-    bench.script('lawcheck', [`Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ${PAST_USER_SET_MS});`, ...installedLawcheck(bench.logFile)]);
-    const session = new Session(bench, s, 's1', { [DEADLINES_VARIABLE]: JSON.stringify(Object.fromEntries(Object.keys(DEADLINES).map((event) => [event, USER_SET_DEADLINE_S]))) });
-    const waited = (run: HookRun, event: string) => assert.ok(run.ms >= PAST_USER_SET_MS, `${event}: the hook ended after ${run.ms} ms, before what it started answered`);
-    append(s, 'src/cli/main.ts', '// end\n');
-    const [start, edit] = await Promise.all([session.start(), session.edit('src/cli/main.ts')]);
-    json(start, started(primed), 'session-start');
-    waited(start, 'session-start');
-    nothing(edit, 'edit');
-    waited(edit, 'edit');
-    fakeWrites(bench.bin, ['fake-git-waited']);
-    const slowGit = fakeGit(bench.bin, where('git'), { firstWaitMs: PAST_USER_SET_MS });
-    const prompt = await session.prompt(slowGit);
-    nothing(prompt, 'prompt');
-    waited(prompt, 'prompt');
-    assert.equal(bench.state().open, true);
-    removeFakeGit(bench.bin);
-    write(s, D_PATH, D);
-    const stop = await session.stop();
-    json(stop, handBack(`${stopHeader()}\n\n${D_OUTPUT}`), 'stop');
-    waited(stop, 'stop');
-    assert.deepEqual(bench.checks(), [['check', './src/cli/main.ts'], ['check', `./${D_PATH}`]]);
+  const wait = `Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ${PAST_USER_SET_MS});`;
+  const waited = (run: HookRun, event: string) => assert.ok(run.ms >= PAST_USER_SET_MS, `${event}: the hook ended after ${run.ms} ms, before what it started answered`);
+  // One folder and one clone of the sample per event, so that the waits of the events run at once and not one after another.
+  await inTemp(async (base) => {
+    // Each hook starts node three times; with a shared cache of compiled modules the later starts skip compiling.
+    const userSet = { [DEADLINES_VARIABLE]: JSON.stringify(Object.fromEntries(Object.keys(DEADLINES).map((event) => [event, USER_SET_DEADLINE_S]))), NODE_COMPILE_CACHE: join(base, 'compiled') };
+    fakeWrites(base, ['compiled/']);
+    const sample = makeSample(base);
+    const primed = (await lawcheck(sample, ['prime'], { NODE_COMPILE_CACHE: join(base, 'compiled') })).stdout.replace(/\n$/, '');
+    const own = (dir: string): string => {
+      const s = join(dir, 's');
+      git(dir, 'clone', '-q', '--shared', sample, s);
+      return s;
+    };
+    const events: [event: string, run: () => Promise<void>][] = [
+      ['session-start and edit', () => withBench(async (bench, dir) => {
+        const s = own(dir);
+        bench.script('lawcheck', [wait, ...installedLawcheck(bench.logFile)]);
+        const session = new Session(bench, s, 's1', userSet);
+        append(s, 'src/cli/main.ts', '// end\n');
+        const [start, edit] = await Promise.all([session.start(), session.edit('src/cli/main.ts')]);
+        json(start, started(primed), 'session-start');
+        waited(start, 'session-start');
+        nothing(edit, 'edit');
+        waited(edit, 'edit');
+        assert.deepEqual(bench.checks(), [['check', './src/cli/main.ts']]);
+      })],
+      ['prompt', () => withBench(async (bench, dir) => {
+        const session = new Session(bench, own(dir), 's1', userSet);
+        fakeWrites(bench.bin, ['fake-git-waited']);
+        const prompt = await session.prompt(fakeGit(bench.bin, where('git'), { firstWaitMs: PAST_USER_SET_MS }));
+        nothing(prompt, 'prompt');
+        waited(prompt, 'prompt');
+        assert.equal(bench.state().open, true);
+      })],
+      ['stop', () => withBench(async (bench, dir) => {
+        const s = own(dir);
+        const session = new Session(bench, s, 's1', userSet);
+        nothing(await session.prompt(), 'prompt');
+        write(s, D_PATH, D);
+        bench.script('lawcheck', [wait, ...installedLawcheck(bench.logFile)]);
+        const stop = await session.stop();
+        json(stop, handBack(`${stopHeader()}\n\n${D_OUTPUT}`), 'stop');
+        waited(stop, 'stop');
+        assert.deepEqual(bench.checks(), [['check', `./${D_PATH}`]]);
+      })],
+    ];
+    await atOnce(events, events.length, ([event]) => event, ([, run]) => run());
   });
 });
 
