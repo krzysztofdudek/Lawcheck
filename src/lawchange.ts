@@ -6,7 +6,7 @@ import { comparePaths, git, mergeBase, resolveCommit, splitZ } from './files.js'
 import { keyEnvironment } from './keys.js';
 import { CONFIG_BYTES, count, LAW_BYTES, mib } from './limits.js';
 import { bytesOfName } from './names.js';
-import { parseLaw } from './law.js';
+import { parseLaw, takesWaivers } from './law.js';
 import type { Law, TypeDef } from './law.js';
 import type { ErrorItem } from './output.js';
 import { guardedFolder, releaseFolder } from './programs.js';
@@ -14,6 +14,7 @@ import { createProvider } from './providers/index.js';
 import { configErrors, LAW, RULES_DIR, ruleKinds, Stop, touchesLaw } from './setup.js';
 import type { Kinds, Read } from './setup.js';
 import { decode } from './types.js';
+import { allows, listInForce } from './uses.js';
 import { LOCAL, Unwritable } from './verdicts.js';
 
 export const LINE_ITEMS = 5;
@@ -117,11 +118,22 @@ function ofLaw(before: Law, after: Law): string[] {
     for (const rule of now.rules) if (!old.rules.includes(rule) && before.rules.has(rule)) items.push(`puts the rule ${rule} on the type ${id}`);
     if (!same(old.paths, now.paths)) items.push(`changes the paths of the type ${id}`);
     if (old.content?.source !== now.content?.source) items.push(`changes the content of the type ${id}`);
-    if (!same(old.mayUse, now.mayUse)) items.push(`changes may_use of the type ${id}`);
+    if (!same(old.mayUse, now.mayUse)) items.push(widened(old, now, was, is) ?? `changes may_use of the type ${id}`);
     if (old.about !== now.about) items.push(`changes the about of the type ${id}`);
-    if (old.waivers !== now.waivers) items.push(`changes the waivers of the type ${id}`);
+    if (old.waivers !== now.waivers) items.push(!takesWaivers(old) && takesWaivers(now) ? `reads waivers in the type ${id}` : `changes the waivers of the type ${id}`);
   }
   return items;
+}
+
+// The lists in force are compared, so a type that drops its own list is read by the list it then takes from above. A type that the old list reached through a type above it, in either law, is not new: when it moved in the same change, its own item names the move.
+function widened(old: TypeDef, now: TypeDef, before: Map<string, TypeDef>, after: Map<string, TypeDef>): string | null {
+  const was = listInForce(old)?.list;
+  const is = listInForce(now)?.list;
+  if (was === undefined) return null;
+  if (is === undefined) return `widens may_use of the type ${now.id} to any file`;
+  const reached = (target: TypeDef | undefined) => target !== undefined && allows(was, target);
+  const more = is.filter((id) => !reached(before.get(id)) && !reached(after.get(id)));
+  return more.length > 0 ? `widens may_use of the type ${now.id} by ${more.join(', ')}` : null;
 }
 
 function ofSigners(before: Map<string, string>, after: Map<string, string>): string[] {
@@ -222,11 +234,20 @@ export function atBase(root: string, base: string): ((paths: string[]) => Map<st
   return fork === null ? null : (paths) => blobsAt(root, fork, paths);
 }
 
-const LOOSENS = /^(?:removes the (?:rule|type|signer) |adds the signer |changes the key of the signer |makes the rule \S+ advisory$|takes the rule \S+ off the type |adds .* to ignored$|takes .* off required$)/;
+const SAYS_LOOSENS = /^(?:removes the (?:rule|type|signer) |widens may_use of the type |reads waivers in the type |adds the signer |changes the key of the signer |makes the rule \S+ advisory$|takes the rule \S+ off the type |adds (?!!).* to ignored$|adds !.* to required$|takes (?!!).* off required$|takes !.* off ignored$)/;
+const MAY_LOOSEN = /^(?:changes the (?:paths|content) of the type |moves the type |(?:changes|removes) \.lawcheck\/(?:law\.yaml$|rules\/))/;
+// A type added under another may carry a may_use or waivers of its own, which its files take in place of the parent's.
+const ADDED_TYPE = /^adds the type /;
+const LOOSENS = [SAYS_LOOSENS, MAY_LOOSEN, ADDED_TYPE];
 
-// The line shows five items, so past five the items that loosen the law go first and are never left in the count.
+function rank(item: string): number {
+  const at = LOOSENS.findIndex((pattern) => pattern.test(item));
+  return at < 0 ? LOOSENS.length : at;
+}
+
+// The line shows five items, so past five they go in the order of LOOSENS. An item whose words name no direction may loosen the law, and it goes after those whose words do, so that it never pushes one of them into the count.
 export function lawChangeLine(items: string[], lead = 'this change edits the law that judges it'): string {
-  const ordered = items.length > LINE_ITEMS ? [...items.filter((item) => LOOSENS.test(item)), ...items.filter((item) => !LOOSENS.test(item))] : items;
+  const ordered = items.length > LINE_ITEMS ? [...items].sort((a, b) => rank(a) - rank(b)) : items;
   const shown = ordered.slice(0, LINE_ITEMS).join('; ');
   const rest = items.length - LINE_ITEMS;
   return `note: ${lead}: ${shown}${rest > 0 ? `; and ${rest} more` : ''}`;
