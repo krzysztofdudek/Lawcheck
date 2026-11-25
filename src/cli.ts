@@ -19,6 +19,7 @@ import { absolutePath, NO_CURRENT_FOLDER, serveGuard } from './programs.js';
 
 // How long the reader of trees has to give back its kept trees and its threads once the memory guard asked, and the process to let that memory go, before the run ends as it would without them.
 const GIVE_BACK_MS = 3_000;
+const GIVE_BACK_GROWTH = 64 * 1024 * 1024;
 
 // Each case names a step the user can take: a file whose uses are read leaves the types with may_use, or the types of the rule that read them; a file read only for what it declares leaves the files git lists; a run or a machine short of memory gets more of it.
 export function memoryError(found: Exclude<MemoryCase, null>, what: string, file: string | null, command: string): ErrorItem {
@@ -184,16 +185,13 @@ export function start(): void {
     const found = memoryCase({ rss, stepGrowth: last.file === null ? null : rss - stepRss, available: availableNow(), total });
     if (found === null) return;
     // While the reader of trees keeps trees or parses several files at once on its threads, it gives that memory back first, and the run ends only if its memory is still too large then, under a step that names one file.
-    // The memory it gave back leaves the process a moment later, so for GIVE_BACK_MS after the ask the run ends only if it holds more than it held at the ask.
+    // The memory it gave back leaves the process a moment later, so for GIVE_BACK_MS after the ask the run ends only if it has grown by GIVE_BACK_GROWTH since the ask. A reader that grows inside one call keeps the command from answering the ask at all, and that growth ends the run within milliseconds, under the step that names the file.
     const asked = askPoolToEnd(progress);
     if (asked === 'asked') {
       poolAskedAt = Date.now();
       poolAskedRss = rss;
     }
-    if (Date.now() - poolAskedAt < GIVE_BACK_MS && (asked !== 'none' || rss <= poolAskedRss)) {
-      stepAt = -1;
-      return;
-    }
+    if (Date.now() - poolAskedAt < GIVE_BACK_MS && rss <= poolAskedRss + GIVE_BACK_GROWTH) return;
     clearInterval(memory);
     fail(memoryError(found, last.what, last.file, named ?? 'check'));
   }, MEMORY_CHECK_MS);
