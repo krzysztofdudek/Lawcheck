@@ -98,17 +98,24 @@ export interface Run {
   node: string;
   system: (typeof SYSTEMS)[number];
   offline?: boolean;
+  pull_request?: boolean;
+}
+
+// The runs of one event of ci.yml: a pull request leaves out the runs marked "pull_request": false, and every other event runs them all.
+export function runsFor(runs: Run[], event?: string): Run[] {
+  return event === 'pull_request' ? runs.filter((run) => run.pull_request !== false) : runs;
 }
 
 // The matrix of ci.yml, from the plan: each run of a system in the shards the plan has for that system, so a new plan changes no line of CI.
-export function matrix(plan: Plan, runs: Run[]): { outputs: Record<string, unknown[]>; problems: string[] } {
+export function matrix(plan: Plan, all: Run[], event?: string): { outputs: Record<string, unknown[]>; problems: string[] } {
   const outputs: Record<string, unknown[]> = {};
   const problems: string[] = [];
-  for (const run of runs) if (!(SYSTEMS as readonly string[]).includes(run.system)) problems.push(`the run ${run.os} Node ${run.node} names ${run.system}, which is not one of ${SYSTEMS.join(', ')}`);
+  const runs = runsFor(all, event);
+  for (const run of all) if (!(SYSTEMS as readonly string[]).includes(run.system)) problems.push(`the run ${run.os} Node ${run.node} names ${run.system}, which is not one of ${SYSTEMS.join(', ')}`);
   for (const system of SYSTEMS) {
     const mine = runs.filter((run) => run.system === system);
     const count = plan.shards[system]?.length ?? 0;
-    if (mine.length === 0) problems.push(`no run of ${system} per push`);
+    if (mine.length === 0) problems.push(event === 'pull_request' ? `no run of ${system} in a pull request` : `no run of ${system} per push`);
     if (count === 0) problems.push(`tests/harness/shards.json plans no shard for ${system}`);
     outputs[`runs_${system}`] = mine;
     outputs[`shards_${system}`] = mine.flatMap((run) => Array.from({ length: count }, (_, i) => ({ ...run, shard: i + 1, of: count })));
@@ -162,8 +169,8 @@ if (process.argv[1] !== undefined && realpathSync(process.argv[1]) === fileURLTo
   const [command, ...rest] = process.argv.slice(2);
   const refuse = (message = usage): never => { process.stderr.write(`${message}\n`); process.exit(2); };
   if (command === 'matrix') {
-    if (rest.length !== 1) refuse('usage: node tests/harness/shards.ts matrix <the runs of ci.yml as JSON>');
-    const { outputs, problems } = matrix(readPlan(), JSON.parse(rest[0]!) as Run[]);
+    if (!(rest.length === 1 || (rest.length === 3 && rest[1] === '--event' && rest[2] !== ''))) refuse('usage: node tests/harness/shards.ts matrix <the runs of ci.yml as JSON> [--event <the event of the run>]');
+    const { outputs, problems } = matrix(readPlan(), JSON.parse(rest[0]!) as Run[], rest[2]);
     if (problems.length > 0) refuse(problems.join('\n'));
     for (const [key, value] of Object.entries(outputs)) process.stdout.write(`${key}=${JSON.stringify(value)}\n`);
     process.exit(0);

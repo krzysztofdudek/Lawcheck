@@ -7,8 +7,8 @@ on:
 permissions:
   contents: read
 
-# The network is open in environments, which starts official images and fetches packages, and in repeat, deadlines, docs and corpus, which do not close it.
-# docs and corpus are declared empty in tests/harness/sets.ts, so their jobs run no test. Each docs page's scenario runs in every commit set (tests/contract/docs-examples.test.ts), and until corpus holds a test, the real job of ci.yml, which checks two real repositories on every push, stands in for it.
+# The network is open in environments, which starts official images and fetches packages, and in repeat and deadlines, which do not close it.
+# A group that tests/harness/sets.ts declares empty has no job here; it gets one when it gets its first test.
 # Every other job closes the network: a namespace with only a loopback device, as the runner's user with no supplementary group, and limits in a container run with --network none.
 jobs:
   # Three runs of the commit set on one commit, on each system: a test with mixed results is a flake, and a flake stops the release until it is fixed.
@@ -93,22 +93,6 @@ jobs:
             sh "$(id -u)" "$(id -g)" PATH="$PATH" HOME="$HOME" USER="$(id -un)" LOGNAME="$(id -un)" LAWCHECK_SEED="$LAWCHECK_SEED" \
             node tests/run.ts nightly --group properties
 
-  security:
-    name: nightly security
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: npm
-      - run: npm ci
-      - run: npm run build
-      - name: The security tests, with the network closed
-        run: |
-          sudo unshare --net -- sh -c 'ip link set lo up && u=$1 g=$2 && shift 2 && exec setpriv --reuid="$u" --regid="$g" --clear-groups env -i "$@"' \
-            sh "$(id -u)" "$(id -g)" PATH="$PATH" HOME="$HOME" USER="$(id -un)" LOGNAME="$(id -un)" node tests/run.ts nightly --group security
-
   # The large limits under 1 GB of memory and no swap, test 248 under 2 GB, two processors, a full disk of 8 MB at /full and no network. The install and the build run before, on the runner, because the container has no network.
   limits:
     name: nightly limits
@@ -186,19 +170,6 @@ jobs:
       - run: npm run build
       - run: node tests/run.ts nightly --group deadlines
 
-  docs:
-    name: nightly docs recipes
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: npm
-      - run: npm ci
-      - run: npm run build
-      - run: node tests/run.ts nightly --group docs
-
   sabotage:
     name: nightly sabotage list
     runs-on: ubuntu-latest
@@ -214,51 +185,3 @@ jobs:
         run: |
           sudo unshare --net -- sh -c 'ip link set lo up && u=$1 g=$2 && shift 2 && exec setpriv --reuid="$u" --regid="$g" --clear-groups env -i "$@"' \
             sh "$(id -u)" "$(id -g)" PATH="$PATH" HOME="$HOME" USER="$(id -un)" LOGNAME="$(id -un)" node tests/run.ts nightly --group sabotage
-
-  # The whole corpus of real repositories with planted uses; it fetches them, so it has the network.
-  corpus:
-    name: nightly corpus
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: npm
-      - run: npm ci
-      - run: npm run build
-      - run: node tests/run.ts nightly --group corpus
-
-  # The lines of src/ that no test executed: a reading list for reviewers, not a threshold.
-  coverage:
-    name: nightly coverage list
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: npm
-      - run: npm ci
-      - run: npm run build
-      - name: The coverage list, with the network closed
-        run: |
-          sudo unshare --net -- sh -c 'ip link set lo up && u=$1 g=$2 && shift 2 && exec setpriv --reuid="$u" --regid="$g" --clear-groups env -i "$@"' \
-            sh "$(id -u)" "$(id -g)" PATH="$PATH" HOME="$HOME" USER="$(id -un)" LOGNAME="$(id -un)" node tests/run.ts nightly --group coverage
-
-  # The live group of tests/harness/sets.ts is declared empty, so this job runs no test and checks no live result. Until a test holds one, decision 75 of design/decisions.md stands in: a person runs node tests/live/run.ts and npm run stability by hand when the prompt, the providers or the plugin change, and before every release.
-  live:
-    name: nightly live results current
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: npm
-      - run: npm ci
-      - run: npm run build
-      - name: The live results against their guarded paths, with the network closed
-        run: |
-          sudo unshare --net -- sh -c 'ip link set lo up && u=$1 g=$2 && shift 2 && exec setpriv --reuid="$u" --regid="$g" --clear-groups env -i "$@"' \
-            sh "$(id -u)" "$(id -g)" PATH="$PATH" HOME="$HOME" USER="$(id -un)" LOGNAME="$(id -un)" node tests/run.ts nightly --group live
