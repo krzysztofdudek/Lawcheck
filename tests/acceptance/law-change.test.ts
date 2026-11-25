@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { append, atOnce, check, E, E_PATH, findingLines, git, LAW, lawcheck, read, run as runR, setRule, withR, withSample, withU, write } from './helpers.ts';
 import { withFake } from './fake-reviewer.ts';
@@ -600,6 +600,48 @@ test('test 1181: T7, under --law-from a folder that HFS+ finds as .lawcheck/node
         '',
       ], said);
       assert.equal(planted.code, 2, said);
+    });
+  }
+});
+
+// Windows cannot hold two of these names side by side, and git there cannot list them from the work tree, so a name with a trailing dot or space reaches git from another system or through its index: the test lists it through the index, on every system alike, and leaves the work tree without it.
+function listedAs(s: string, dir: string, path: string, content: string): void {
+  const source = join(dir, 'planted.txt');
+  writeFileSync(source, content);
+  git(s, '-c', 'core.protectNTFS=false', 'update-index', '--add', '--cacheinfo', `100644,${git(s, 'hash-object', '-w', source).trim()},${path}`);
+  git(s, 'update-index', '--skip-worktree', path);
+}
+
+test('test 1210: T7, under --law-from a folder that Windows finds as .lawcheck/node_modules or .lawcheck/.local because it drops the trailing dots and spaces of each part of a path stops with law-from-packages, named as git lists it', async () => {
+  const cases = ['.lawcheck/node_modules.', '.lawcheck/node_modules ', '.lawcheck/node_modules. .', '.lawcheck/.local.', '.lawcheck./node_modules', '.lawcheck ./.local '];
+  for (const folder of cases) {
+    await withSample(async (s, dir) => {
+      listedAs(s, dir, `${folder}/callpkg/index.js`, 'export const CALL = /a^/;\n');
+      git(s, 'commit', '-q', '-m', 'plant');
+      const planted = await check(s, '--base', 'main', '--law-from', 'main');
+      assert.deepEqual(planted.stdout.split('\n'), [
+        'lawcheck: ERROR  1 error',
+        '',
+        `${folder}/callpkg/index.js  error[law-from-packages]  git lists this file in ${folder}, and a package that a rule of 'main' imports cannot come from the change`,
+        '  why:  a change judged by the law of a commit cannot supply the code that law runs',
+        '',
+        `next: take ${folder} out of git, such as with git rm -r --cached ${folder}, and name it in .gitignore`,
+        '',
+      ], JSON.stringify(folder));
+      assert.equal(planted.code, 2, JSON.stringify(folder));
+    });
+  }
+});
+
+test('test 1211: T7, under --law-from a folder whose name only starts like .lawcheck/node_modules or .lawcheck/.local, or holds a dot or a space that is not trailing, does not stop the run', async () => {
+  for (const folder of ['.lawcheck/node_modules.d', '.lawcheck/node_modules2', '.lawcheck/ node_modules', '.lawcheck/node_ modules', '.lawcheck/.local.d', '.lawcheck/.locale', '.lawcheck/.node_modules']) {
+    await withSample(async (s) => {
+      write(s, `${folder}/callpkg/index.js`, 'export const CALL = /a^/;\n');
+      git(s, 'add', '-f', folder);
+      git(s, 'commit', '-q', '-m', 'plant');
+      const run = await check(s, '--base', 'main', '--law-from', 'main');
+      assert.ok(!run.stdout.includes('law-from-packages'), `${JSON.stringify(folder)}: ${run.stdout}`);
+      assert.equal(run.code, 0, `${JSON.stringify(folder)}: ${run.stdout}`);
     });
   }
 });
