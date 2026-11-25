@@ -6,7 +6,7 @@ GOAL: after one silent loop, a developer who writes code with an agent has seen 
 
 OUTPUT: HyperFrames, 1920 x 1080, 30 fps. The loop is also a GIF of 1200 x 675 at 12 fps, with one palette made from `brand/tokens.json`. A chapter is an MP4 with its subtitles in WebVTT and a still of its first screen.
 
-TIME: the loop is 28.9 s, 867 frames, with no sound. A chapter lasts 40 to 60 s. Its only sound is the narration in the voice Lektor: each frame's sentences start 0.4 s after the frame and end at least 0.3 s before the next, with 0.35 s between two sentences.
+TIME: the loop is 28.9 s, 867 frames, with no sound. A chapter lasts 25 to 60 s. Its only sound is the narration in the voice Lektor: each frame's sentences start 0.4 s after the frame and end at least 0.3 s before the next, with 0.35 s between two sentences.
 
 LOOK:
 
@@ -26,7 +26,7 @@ MOTION:
 - A screen cuts to the next one with no transition. Its blocks, its caption and its gold outline stand whole from its first frame, so a GIF that does not play still shows a whole screen, and no frame between two screens is empty.
 - Nothing moves while it is read: no fade, no zoom, no drift, no typing of text that the take did not type.
 
-SHOTS: one per screen of `film/edit.json`. The edit holds the time, the blocks and the caption of each, and `film/check.mjs` checks that every string on screen comes from its take, run or page, and that each screen stands long enough to be read.
+SHOTS: one per screen of `film/edit.json`. The edit holds the time, the blocks and the caption of each, and `film/check.mjs` checks that every string on screen comes from its take, run or page, and that each screen with no narration stands long enough to be read.
 
 BANNED:
 

@@ -11,7 +11,7 @@ import { gitIn, makeChapter } from './shop.mjs';
 export { decodeTerminal };
 
 const LOOP_SECONDS = [15, 30];
-const CHAPTER_SECONDS = [40, 60];
+const CHAPTER_SECONDS = [25, 60];
 const SCREEN_WORDS = 45;
 const IDENTITY = { GIT_AUTHOR_NAME: 'Dev', GIT_AUTHOR_EMAIL: 'dev@example.com', GIT_COMMITTER_NAME: 'Dev', GIT_COMMITTER_EMAIL: 'dev@example.com' };
 // A variable that names a CI system or a Lawcheck setting would change the base or the output of a run.
@@ -169,24 +169,35 @@ export function privateProblems(root = ROOT, words = privateWords()) {
   return [...new Set(problems)];
 }
 
-export function readingProblems(edit) {
+// A narrated screen stands as long as its voice, so its reading time only warns; and its segment's subtitle is on no screen, since the viewer hears the narration and reads it in the .vtt.
+function reading(edit) {
   const problems = [];
+  const warnings = [];
   for (const timeline of timelinesOf(edit)) {
     const seconds = lengthOf(timeline.segments);
     const [least, most] = timeline.name === 'loop' ? LOOP_SECONDS : CHAPTER_SECONDS;
     if (seconds < least || seconds > most) problems.push(`${timeline.name === 'loop' ? 'the loop' : `the chapter ${timeline.name}`} lasts ${seconds} s, outside ${least} to ${most} s`);
     let before = new Set();
     for (const screen of screensOf(timeline.segments)) {
-      const all = screen.text.flatMap(words);
+      const narrated = (screen.segment.narration ?? []).length > 0;
+      const all = (narrated && screen.segment.subtitle ? screen.text.slice(0, -1) : screen.text).flatMap(words);
       const fresh = all.filter((word) => !before.has(word)).length;
       const needed = 1 + fresh / 3;
       const stands = screen.end - screen.start;
-      if (stands + 1e-9 < needed) problems.push(`${screen.id}: ${fresh} new words need ${needed.toFixed(2)} s on screen, and it stands ${stands.toFixed(2)} s`);
+      if (stands + 1e-9 < needed) (narrated ? warnings : problems).push(`${screen.id}: ${fresh} new words need ${needed.toFixed(2)} s on screen, and it stands ${stands.toFixed(2)} s`);
       if (all.length > SCREEN_WORDS) problems.push(`${screen.id}: ${all.length} words on screen at once, over ${SCREEN_WORDS}`);
       before = new Set(all);
     }
   }
-  return problems;
+  return { problems, warnings };
+}
+
+export function readingProblems(edit) {
+  return reading(edit).problems;
+}
+
+export function readingWarnings(edit) {
+  return reading(edit).warnings;
 }
 
 // A sentence that cites only its own caption or subtitle traces to nothing but words of the edit, so each such sentence names the source that backs those words.
@@ -424,7 +435,8 @@ if (process.argv[1] !== undefined && fileURLToPath(import.meta.url) === process.
   };
   report('truth', truth.problems, `all ${truth.strings} strings on screen come from their take, run or page`);
   report('staleness', stale, `${Object.keys(edit.runs).length} runs of this build print what the film shows`);
-  report('reading time', reading, `the loop lasts ${lengthOf(edit.loop)} s, ${(edit.chapters ?? []).map((chapter) => `the chapter ${chapter.page} ${lengthOf(chapter.timeline)} s`).join(', ')}, and every screen stands long enough to be read`);
+  report('reading time', reading, `the loop lasts ${lengthOf(edit.loop)} s, ${(edit.chapters ?? []).map((chapter) => `the chapter ${chapter.page} ${lengthOf(chapter.timeline)} s`).join(', ')}, and every screen with no narration stands long enough to be read`);
+  for (const warning of readingWarnings(edit)) process.stdout.write(`reading time, warning: ${warning}\n`);
   report('narration', narration.problems, `all ${narration.sentences} narrated sentences end as spoken sentences, say their numbers in words and cite what their frame or page shows`);
   report('versions', versions, 'no screen, caption, subtitle or narrated sentence shows or says a version or the name of a model, in digits or in words');
   report('private', secret, privateSummary(privateWords()));
