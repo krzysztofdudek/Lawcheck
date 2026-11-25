@@ -203,6 +203,16 @@ test('test 44: version and help', async () => {
   });
 });
 
+test('test 1412: lawcheck check --help names what --base takes when it is left out, in the order the check takes it, and says that --law-from has no default', async () => {
+  await inTemp(async (dir) => {
+    const run = await lawcheck(dir, ['check', '--help']);
+    assert.equal(run.code, 0);
+    const lines = run.stdout.split('\n');
+    assert.equal(lines.find((line) => line.startsWith('  --base ')), '  --base <ref>       the base of the change; else LAWCHECK_BASE, the CI service\'s variable, or origin/HEAD');
+    assert.equal(lines.find((line) => line.startsWith('  --law-from ')), '  --law-from <ref>   judge by the law of this commit, read from git; no default');
+  });
+});
+
 test('test 45: at most 50 finding lines', async () => {
   await withSample(async (s) => {
     write(s, 'src/core/many.ts', 'console.log(1);\n'.repeat(60));
