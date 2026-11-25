@@ -262,7 +262,7 @@ With `--review`, Lawcheck asks the reviewer about each pair of a file and a revi
 
 ### --sarif `<file>`
 
-`--sarif` writes the findings to the file in SARIF 2.1.0 as well, for GitHub code scanning ([CI and git hooks](ci.md#_3-show-the-findings-in-github-code-scanning)). The text output, the JSON and the exit code stay as they are. A check that ends with exit 2 writes no file. A file that cannot be written stops the run with `file-unwritable`. [JSON documents](json.md#sarif-2-1-0) lists what the file holds. A check of named files does not take `--sarif`.
+`--sarif` writes the findings to the file in SARIF 2.1.0 as well, for GitHub code scanning ([Findings in the pull request](ci-findings.md#_3-show-the-findings-in-github-code-scanning)). The text output, the JSON and the exit code stay as they are. A check that ends with exit 2 writes no file. A file that cannot be written stops the run with `file-unwritable`. [JSON documents](json.md#sarif-2-1-0) lists what the file holds. A check of named files does not take `--sarif`.
 
 ### --json
 
@@ -429,6 +429,8 @@ usage: lawcheck docs [<topic>] [--json]
 
 `docs` prints the pages of this reference in the terminal. It works offline, outside git and without a law. Without a topic, it lists the topics under their sections. A link to another page prints as the command that prints that page, such as `Codes (lawcheck docs codes)`.
 
+A changelog longer than 30,000 characters prints its newest section whole, then the releases before it, newest first, until one does not fit. A line then names the whole changelog, and the line of the next page stays last.
+
 Run `docs` on a machine without a browser, or to give an agent one page.
 
 ### `<topic>`
@@ -450,7 +452,7 @@ next: run lawcheck docs as its usage line says: lawcheck docs --help
 
 ### --json
 
-`--json` prints the document `lawcheck-docs/0`. It holds the list, or one page as it is written.
+`--json` prints the document `lawcheck-docs/0`. It holds the list, or one page as it is written, whole.
 
 ### Exit codes of docs
 

@@ -292,6 +292,15 @@ jobs:
             fi
           done
 
+  # What reached the registry is not the commit that verify tested: pack builds it apart, and npm installs it with the dependencies of that day. This job installs the published version from npm on three systems and takes a new user's first steps. It runs after the publish, which cannot be taken back, so a red here stops nothing: it says the release needs a fix. It also runs when the publish was skipped because npm already holds the version.
+  published:
+    name: the package from npm
+    needs: [pack, publish]
+    if: ${{ !cancelled() && needs.pack.result == 'success' && (needs.publish.result == 'success' || needs.publish.result == 'skipped') }}
+    uses: ./.github/workflows/published.yml
+    with:
+      version: ${{ needs.pack.outputs.version }}
+
   github-release:
     name: GitHub release
     needs: [pack, publish]

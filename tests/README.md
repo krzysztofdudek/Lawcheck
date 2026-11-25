@@ -21,6 +21,8 @@ Every command below runs inside the dev container, except `npm run agent-trial` 
 
 CI runs `npm run real` in its job `real`; `npm run agent-trial` runs by hand, and no release of the Claude Code plugin waits for it ([decision 58](../design/decisions.md#58-acceptance-tests-that-run-outside-npm-test)). `npm run stability` and `node tests/live/run.ts` run when the prompt, the providers or the plugin changed since their last result ([decision 75](../design/decisions.md#75-when-the-tests-with-a-live-model-run)).
 
+Two checks stand around a release ([design/decisions.md](../design/decisions.md), "The release gate moves from the release before, and each publish is followed by an install from npm"). The nightly test `environments/upgrade.nightly.test.ts` installs the release before from npm, lets it work in a repository, and runs the build of the checkout on what it left; it needs the network. After a publish, the release workflow installs the new version from npm on Linux, macOS and Windows and runs `node tests/environments/published.ts <version>`, the first steps of the quick start with the `lawcheck` on `PATH`. For a version already on npm, `gh workflow run published.yml -f version=<version>` runs the same.
+
 The Weekly workflow installs the plugin from the marketplace in the newest Claude Code, Codex CLI and Copilot CLI with `harness/agent-install.ts`, and compares what each agent holds with `main`. It needs the network, those programs on `PATH`, and no sign-in ([design/decisions.md](../design/decisions.md), "The weekly run installs the plugin in the newest agents").
 
 ## The layers

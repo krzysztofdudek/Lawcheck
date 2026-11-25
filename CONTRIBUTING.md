@@ -53,4 +53,6 @@ The tests with a live model, `npm run stability` and `node tests/live/run.ts`, r
 
 ## After the tag
 
+The release workflow installs the new version from npm on Linux, macOS and Windows and takes the first steps of the quick start with it. That job runs after the publish, so a red one stops nothing: the release then needs a fix in a new version.
+
 Once the release workflow has made the GitHub release, I attach the loop and the chapters of the film to it. Then I run `node film/publish.mjs --release <tag>`, which lists them in `film/published.json` and puts the loop of that release at the top of the README, and I deploy the landing page and the docs again ([film/README.md](film/README.md#where-the-chapters-live)).

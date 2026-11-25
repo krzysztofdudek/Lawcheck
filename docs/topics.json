@@ -18,6 +18,7 @@
   { "id": "cursor", "title": "Lawcheck in Cursor", "section": "Guides" },
   { "id": "other-agents", "title": "Other coding agents", "section": "Guides" },
   { "id": "ci", "title": "CI and git hooks", "section": "Guides" },
+  { "id": "ci-findings", "title": "Findings in the pull request", "section": "Guides" },
   { "id": "team", "title": "A law shared by a team", "section": "Guides" },
   { "id": "monorepo", "title": "A monorepo", "section": "Guides" },
   { "id": "false-alarm", "title": "A finding you believe is wrong", "section": "Guides" },
