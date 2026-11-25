@@ -14,7 +14,8 @@ const INPUT_MS = 500;
 let watcher: ChildProcess | null = null;
 // The earlier list: once the guard has found the tool gone, it keeps the list it held then. One printed during the wait of INPUT_MS may show a stranger that took a root's id after the kill, which as the earlier list would pass for the root, and the guard would end that stranger and what it made.
 let table = '';
-let toolGone = false;
+// When the poll found the tool gone, which toEnd takes as the time from which nothing made below an ended root's id is the root's.
+let toolGoneAt: number | undefined;
 let listed = false;
 let onListed: (() => void) | null = null;
 // A list is printed after its snapshot ends, so one that comes after the kill may show the processes as they were before it; each list starts with the time its snapshot began, and the guard ends a tree only from a list begun once it knew of the kill.
@@ -84,7 +85,7 @@ function watch(): void {
     const start = partial.lastIndexOf('\n--', end - 1);
     const [begun, ...rows] = partial.slice(start < 0 ? 0 : start + 3, end).trimStart().split('\n');
     const list = rows.join('\n');
-    if (!toolGone) table = list;
+    if (toolGoneAt === undefined) table = list;
     partial = partial.slice(end + 3);
     listed = true;
     onListed?.();
@@ -193,7 +194,7 @@ async function endWatched(): Promise<void> {
     const known = calls.filter((started) => started !== undefined);
     return known.length === 0 ? [] : [[pid, ticksAt(Math.max(...known))]];
   }));
-  for (const pid of toEnd(before, fresh, [...groups.keys(), ...runners.keys()], createdIn(fresh).get(process.pid), since)) {
+  for (const pid of toEnd(before, fresh, [...groups.keys(), ...runners.keys()], createdIn(fresh).get(process.pid), since, ticksAt(toolGoneAt ?? learned))) {
     try {
       process.kill(pid, 'SIGKILL');
     } catch {
@@ -239,7 +240,7 @@ if (process.platform === 'win32') {
       process.kill(tool, 0);
     } catch {
       clearInterval(poll);
-      toolGone = true;
+      toolGoneAt = Date.now();
       setTimeout(endAll, INPUT_MS);
     }
   }, 250);

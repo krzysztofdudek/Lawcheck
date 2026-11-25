@@ -172,7 +172,8 @@ function madeBelow(table: string, root: number, rootMade: string | undefined): n
 
 // What the guard ends of the groups' trees when the tool has ended: what both lists show made at the same time, and what the list made after the end shows below a root. On Windows a root ends with the tool, which holds it in its job, and what the root started lives on below its id. Windows gives an ended process's id to a new one, so below a process only what was made after it counts, and below a root whose id a later process holds only what was made before that one. floor is a time before every root was made: for a root the earlier list does not show, it stands in for the root's own time, and a process that holds the root's id then may be the root or a stranger, so nothing made after it is ended from the list.
 // since gives, for a root the tool told the time of, a time before the root was made: a process an earlier list shows with the root's id made before it is an earlier holder of that id, and below the root nothing made before it is the root's.
-export function toEnd(before: string, after: string, roots: number[], floor?: string, since: Map<number, string> = new Map()): number[] {
+// gone is the time the guard learned that the tool had ended. A root the list no longer shows has ended with the tool, so what was made below its id from that time on is a later holder's, also when that holder has ended since and the id is free or another process's.
+export function toEnd(before: string, after: string, roots: number[], floor?: string, since: Map<number, string> = new Map(), gone?: string): number[] {
   const known = createdIn(before);
   const now = createdIn(after);
   const children = childrenIn(after);
@@ -188,6 +189,7 @@ export function toEnd(before: string, after: string, roots: number[], floor?: st
         if (seen.has(child)) continue;
         if (made !== undefined && childMade !== undefined && earlier(childMade, made)) continue;
         if (holder !== undefined && holder !== made && childMade !== undefined && !earlier(childMade, holder)) continue;
+        if (pid === root && holder !== made && gone !== undefined && childMade !== undefined && !earlier(childMade, gone)) continue;
         seen.add(child);
         found.add(child);
         queue.push([child, childMade]);
