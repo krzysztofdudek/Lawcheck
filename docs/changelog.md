@@ -4,6 +4,10 @@ Lawcheck follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- On Windows, after a run that was calling a program reviewer such as `claude-code` is killed, Lawcheck no longer ends a process that another program started under the reviewer program's id after the kill. In alpha.5 it could, when that other program had already ended, or when Windows had given the id to a third process, by the time Lawcheck looked.
+
 ## [0.1.0-alpha.5] - 2026-11-25
 
 ### Before you upgrade
