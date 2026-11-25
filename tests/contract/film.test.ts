@@ -116,6 +116,15 @@ test('test 820: control, a screen too short for its new words, a screen with too
   assert.deepEqual(wrap(`$ ${'x'.repeat(50)}`, 48), [`$ ${'x'.repeat(46)}`, 'xxxx']);
 });
 
+test('test 1356: the subtitle of a narrated segment does not count for the reading time of its screen, and the subtitle of a segment with no narration does', () => {
+  const edit = readEdit(ROOT);
+  const segment = { id: 'x1', start: 0, end: 2, subtitle: 'Six more words nobody ever reads.', screens: [{ at: 0, blocks: [{ kind: 'card', lines: [{ text: 'one two three' }] }] }] };
+  const chapter = (timeline: unknown[]) => ({ ...clone(edit), chapters: [{ page: 'quick-start', take: 'x', record: 'x', timeline }] });
+  const length = 'the chapter quick-start lasts 2 s, outside 40 to 60 s';
+  assert.deepEqual(readingProblems(chapter([{ ...segment, narration: [{ text: 'One two three.', shows: ['one two three'] }] }])), [length]);
+  assert.deepEqual(readingProblems(chapter([segment])), [length, 'x1-1: 9 new words need 4.00 s on screen, and it stands 2.00 s']);
+});
+
 test('test 820: control, a home folder, a key, an e-mail address and each name of the recording machine in a take are caught, and the terminal decoder keeps the colors and drops what a spinner overwrote', () => {
   const folder = copyOfFilm();
   try {
@@ -390,7 +399,7 @@ test('test 1059: a chapter\'s build mixes the voice of each narrated frame from 
     build(join(folder.dir, 'dist'), ROOT, voice);
     const index = readFileSync(join(folder.dir, 'dist', 'quick-start', 'index.html'), 'utf8');
     assert.ok(index.includes('<audio id="voice-q1" class="clip" src="assets/voice/q1.wav" data-start="0.4" data-duration="1.00" data-track-index="4" data-volume="1"></audio>'), index);
-    assert.ok(index.includes('<audio id="voice-q2" class="clip" src="assets/voice/q2.wav" data-start="7.5" data-duration="1.00" data-track-index="4" data-volume="1"></audio>'), index);
+    assert.ok(index.includes('<audio id="voice-q2" class="clip" src="assets/voice/q2.wav" data-start="5.9" data-duration="1.00" data-track-index="4" data-volume="1"></audio>'), index);
     assert.equal(readFileSync(join(folder.dir, 'dist', 'quick-start', 'assets', 'voice', 'q1.wav')).length, silence(1).length);
     assert.ok(!readFileSync(join(folder.dir, 'dist', 'loop', 'index.html'), 'utf8').includes('<audio'));
     segments['quick-start/q2'] = { key: voiceKey({ ...edit, voice: { ...edit.voice, speed: 2 } }, edit.chapters[0].timeline[1]) };
@@ -400,7 +409,7 @@ test('test 1059: a chapter\'s build mixes the voice of each narrated frame from 
     const problems = [
       'the voice of quick-start q2 was spoken from other words or settings; node film/voice.mjs speaks it again',
       'the narration of quick-start q3 has no voice; node film/voice.mjs speaks it',
-      'the voice of quick-start q7 lasts 4.00 s, and its frame leaves it 3.10 s',
+      'the voice of quick-start q7 lasts 4.00 s, and its frame leaves it 2.90 s',
     ];
     assert.deepEqual(voiceProblems(edit, voice), problems);
     assert.throws(() => build(join(folder.dir, 'dist'), ROOT, voice), { message: problems.join('\n') });

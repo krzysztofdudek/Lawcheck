@@ -169,6 +169,7 @@ export function privateProblems(root = ROOT, words = privateWords()) {
   return [...new Set(problems)];
 }
 
+// A narrated segment's subtitle is on no screen: the viewer hears the narration and reads it in the .vtt, so only an unnarrated segment's subtitle counts as words to read.
 export function readingProblems(edit) {
   const problems = [];
   for (const timeline of timelinesOf(edit)) {
@@ -177,7 +178,8 @@ export function readingProblems(edit) {
     if (seconds < least || seconds > most) problems.push(`${timeline.name === 'loop' ? 'the loop' : `the chapter ${timeline.name}`} lasts ${seconds} s, outside ${least} to ${most} s`);
     let before = new Set();
     for (const screen of screensOf(timeline.segments)) {
-      const all = screen.text.flatMap(words);
+      const narrated = (screen.segment.narration ?? []).length > 0 && screen.segment.subtitle !== undefined;
+      const all = (narrated ? screen.text.slice(0, -1) : screen.text).flatMap(words);
       const fresh = all.filter((word) => !before.has(word)).length;
       const needed = 1 + fresh / 3;
       const stands = screen.end - screen.start;
