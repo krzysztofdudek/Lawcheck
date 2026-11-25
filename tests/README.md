@@ -18,7 +18,7 @@ Every command below runs inside the dev container, except `npm run agent-trial` 
 | `npm run agent-trial -- --host copilot --model gpt-4o` | the trial of the plugin in GitHub Copilot CLI, in a container with the `copilot` program; `LAWCHECK_TRIAL_BASE_URL` and `LAWCHECK_TRIAL_API_KEY` name an OpenAI-compatible endpoint, which gets `--model` as the name of its model, else it takes the sign-in of `COPILOT_GITHUB_TOKEN`; writes `tests/agent/result-copilot.json` |
 | `node tests/live/run.ts` | the attack files through the real reviewer, `claude-code` on the host; writes `tests/live/result.json` |
 
-CI runs `npm run real` in its job `real`; `npm run agent-trial` runs by hand before a release ([decision 58](../design/decisions.md#58-acceptance-tests-that-run-outside-npm-test)). `npm run stability` and `node tests/live/run.ts` run when the prompt, the providers or the plugin changed since their last result ([decision 75](../design/decisions.md#75-when-the-tests-with-a-live-model-run)).
+CI runs `npm run real` in its job `real`; `npm run agent-trial` runs by hand, and no release of the Claude Code plugin waits for it ([decision 58](../design/decisions.md#58-acceptance-tests-that-run-outside-npm-test)). `npm run stability` and `node tests/live/run.ts` run when the prompt, the providers or the plugin changed since their last result ([decision 75](../design/decisions.md#75-when-the-tests-with-a-live-model-run)).
 
 ## The layers
 
