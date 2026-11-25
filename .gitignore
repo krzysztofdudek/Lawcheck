@@ -3,3 +3,4 @@ dist/
 .grammars/
 site/.vitepress/cache/
 site/landing/.vitepress/cache/
+coverage-list.md
