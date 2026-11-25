@@ -56,7 +56,7 @@ Lawcheck reads no uses in any other language, such as Swift. When a type has a `
 - The same law holds reviewer rules, for a requirement a person would judge by reading.
 - A [plain check](concepts.md#plain-check) judges the [change](concepts.md#change). With `--full`, `lawcheck check` lists the findings outside the change as [debt](concepts.md#debt). Debt changes the exit code only with `--strict`, so you can start a law in a repository that already breaks it.
 
-Lawcheck reads the uses written out in the code. It does not read an `import()` of a variable, `importlib.import_module`, or a class that the code finds by its name at run time. In Java, Kotlin, C#, Ruby and Rust, a check of one file reads the names, such as class names, that every file of its language declares in the repository. Such a run reads more files than the check names.
+Lawcheck reads the forms of use that [Languages and uses](languages.md#the-languages-whose-uses-are-read) lists for each language. It does not read an `import()` of a variable, `importlib.import_module`, or a class that the code finds by its name at run time. It misses other forms too, such as a Java call written by its full name with no import, and it neither judges nor counts a use that it does not read ([Forms the readers miss](languages.md#forms-the-readers-miss)). In Java, Kotlin, C#, Ruby and Rust, a check of one file reads the names, such as class names, that every file of its language declares in the repository. Such a run reads more files than the check names.
 
 Lawcheck runs on Node 24 or later. A Java or Python build needs Node in its CI image ([Supported environments](support.md)).
 
@@ -82,7 +82,7 @@ The services among them charge per person, per review or in credits.
 
 A review bot reads the whole pull request. It comments on the change as a whole, with your rules or without them. The reviewer of Lawcheck is the model that judges a reviewer rule. Each call sends it one file and one rule. A rule can name more files in its `context` key for the reviewer to read beside that file. The reviewer sees nothing else of the repository. A reviewer rule cannot judge a requirement that spans the files of a change, such as a new handler that comes with its test.
 
-Lawcheck checks before the pull request exists. In Claude Code and Codex, it checks after each edit and before the agent ends its turn, and in Copilot CLI before the agent ends its turn. Lawcheck checks uses and script rules with no model. A second check of the same code prints the same output.
+Lawcheck checks before the pull request exists. In Claude Code and Codex, it checks after each edit the agent makes with an edit tool and before the agent ends its turn, and in Copilot CLI before the agent ends its turn. A file the agent writes through the shell waits for the check before the end of the turn. Lawcheck checks uses and script rules with no model. A second check of the same code prints the same output.
 
 A reviewer rule needs a model. `lawcheck check --review` asks the model once for each file and each rule that binds it. You commit `.lawcheck/verdicts`, where Lawcheck records each pass as a [verdict](concepts.md#verdict). A later check reads the pass in place of a call. Lawcheck sends the file again only after the file, the rule, its `why` or its `context` changes. CI reads the committed verdicts, with no model and no key. When a changed file has no recorded pass of an enforced reviewer rule, CI fails the job with the error `not-reviewed`. You run `lawcheck check --review` before the push ([CI and git hooks](ci.md)).
 
@@ -92,7 +92,7 @@ A script rule is code of your own repository. When Lawcheck runs one, the rule c
 
 Lawcheck needs no account. Its licence is MIT.
 
-Lawcheck writes no annotation into the pull request by itself. A review bot comments on the lines of the pull request. So does an architecture tool that prints annotations: `deptrac` prints them by default in GitHub Actions ([deptrac's page on formatters](https://deptrac.github.io/deptrac/formatters/), read on 2026-11-24). For Lawcheck, `lawcheck docs ci` has a script that turns `--json` into GitHub annotations. A CI job shows its findings in the log. When the pull request edits the law that judges it, the log holds a note that says so. `--json` prints the findings as one document for a script of your own.
+Lawcheck writes no annotation into the pull request by itself. A review bot comments on the lines of the pull request. So does an architecture tool that prints annotations: `deptrac` prints them by default in GitHub Actions ([deptrac's page on formatters](https://deptrac.github.io/deptrac/formatters/), read on 2026-11-24). For Lawcheck, `lawcheck docs ci` has a script that turns `--json` into GitHub annotations, and a step that uploads the file of `check --sarif` to GitHub code scanning. A CI job shows its findings in the log. When the pull request edits the law that judges it, the log holds a note that says so. `--json` prints the findings as one document for a script of your own.
 
 | Your case | Use |
 |---|---|
@@ -101,7 +101,7 @@ Lawcheck writes no annotation into the pull request by itself. A review bot comm
 | Your code may not go to a hosted model | Lawcheck with uses and script rules, which send nothing, and reviewer rules through `ollama` on a machine you run |
 | You want both of the above | both: the bot reviews the pull request, and Lawcheck holds the law at each edit and in CI |
 | Your architecture tool already prints annotations on the lines of the pull request, as `deptrac` does in GitHub Actions ([deptrac's page on formatters](https://deptrac.github.io/deptrac/formatters/), read on 2026-11-24) | that tool |
-| You want annotations on the lines of the pull request, and no tool of yours prints them | a review bot; Lawcheck prints them only through the script in `lawcheck docs ci` |
+| You want annotations on the lines of the pull request, and no tool of yours prints them | a review bot, or Lawcheck with the annotation script of `lawcheck docs ci` or with `check --sarif` and GitHub code scanning |
 
 ## A hook you wrote in Claude Code
 
