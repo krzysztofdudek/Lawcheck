@@ -16,7 +16,8 @@ Read this file only when the user asked for a target architecture, a redesign or
 - Start from the law that stands. Change only what the aim asks for, and only types and `may_use` lists. A script rule is advice, not a target.
 - Write the target law whole: the same as `.lawcheck/law.yaml` except in its types and their lists, so it can stand in the place of the law. It is written for where the files are today.
 - Every type of the target has files today, unless the user named its folder in the aim.
-- A list that the target changes follows the levels of the page's step 6: it still allows the lower and the shared types of its part, so a correct new use downward passes.
+- The types of the target are the units of the code, as the page's step 4 says. Merge into its unit each subtype of today's law that holds one file, or one subfolder of a unit such as its migrations or its models, unless the user named it. Never add such a subtype.
+- A list that the target changes names what its files use today, minus the uses that the aim forbids.
 - Each boundary that differs from the law of today names its evidence, of one kind:
   - `aim`: the user's words, quoted;
   - `written`: a rule that someone wrote in the repository, quoted with its file and line;
@@ -39,7 +40,8 @@ Each step is one change of `.lawcheck/law.yaml` that `lawcheck check` passes on 
 - Step 1 holds the first problem the user named. Then the smallest bill first.
 - A step only tightens: its law is the law of the step before plus its one change, and it takes away nothing an earlier step put in. The law of the last step is the target law.
 - Every step of the kind `forbid now` adds findings. A split of a type goes into the step of the first boundary that needs it, never into a step of its own.
-- Save the law of each step as `$KEEP/step-<n>.yaml` and measure it as the candidate. What the step adds is its `total:` minus the `total:` of the step before. Write that count into the step, and its files and lines.
+- Save the law of each step as `$KEEP/step-<n>.yaml` and measure it as the candidate. What the step adds is the count of findings of its line `debt (outside this change):`, minus that count of the step before. Write that count into the step, and its files and lines.
+- Every step carries its whole law in the file. A step you cannot write out with its law is no step: write fewer steps, and put the rest under `Later`.
 
 Each step has one kind, which is one of the ways of the page's part "A boundary the code already breaks":
 
@@ -87,7 +89,8 @@ Total: <N> uses in <M> files.
 - Evidence: <kind and citation>
 - Adds: <N> uses in <M> files that the law before it allows
 - Code to change: <N> places in <M> files: <file:line, ...>
-- Done when: with this law in `.lawcheck/law.yaml`, `lawcheck check --full --base HEAD` exits 0 and its debt lists these <N> uses; once the code changes, the same command lists none of them
+- Changes: `.lawcheck/law.yaml`, and no other file
+- Done when: with this law in `.lawcheck/law.yaml`, `lawcheck check --full --base HEAD` exits 0 and prints `debt (outside this change): <N> findings in <M> files`
 - To make it law: type `/lawcheck:setup make step 1 of the target law`
 - Law after this step:
 
@@ -100,13 +103,20 @@ Total: <N> uses in <M> files.
 ## Not covered
 ````
 
-Under a heading with nothing in it, write "nothing". In the column `Where`, give up to three files and lines, and "and <n> more" for the rest.
+Under a heading with nothing in it, write "nothing". In the column `Where`, give up to three files and lines, and "and <n> more" for the rest. Every step has all seven lines and its law. The line "Done when" copies the line `debt (outside this change):` of that step's measurement, and says nothing about the code after a fix.
+
+Check four things before you write the file:
+
+1. Each problem of the part `## Aim` counts more than 0 uses under the target law.
+2. Each step has its law, and the law of the last step is the target law.
+3. Each count of a line `- Adds:` is the difference of two debt lines.
+4. No type of the target is a subtype of one file or one subfolder.
 
 ## 6. Tell and ask
 
 Give the aim, the distance and the first step in plain words, with their counts. Then ask one question: make step 1 law now, or keep the proposal as it is.
 
-- **On a yes to a step.** Put the law of that step in place as the file writes it, then go through the page's parts "A boundary the code already breaks" and "Prove each restriction bites", and run `lawcheck check --full --base HEAD`, which exits 0. Tell the user its count of debt. A step of the kind `fix first` whose count is not zero yet writes no law: say so, and keep it. Measure the distance again, and write the file again without that step, with the new distance and the steps numbered again.
+- **On a yes to a step.** Put the law of that step in place as the file writes it, and change no file outside its line "Changes". Then go through the page's parts "A boundary the code already breaks" and "Prove each restriction bites", and run `lawcheck check --full --base HEAD`, which exits 0. Tell the user its count of debt. A step of the kind `fix first` whose count is not zero yet writes no law: say so, and keep it. Measure the distance again, and write the file again without that step, with the new distance and the steps numbered again.
 - **On a yes to the plan as a whole.** No law changes. The file stays as the plan of the team, and each step still needs its own yes.
 - **No one will answer**, and the user said so: write the file, give the aim, the distance and the steps in the final message, and change no law.
 - When the types and lists of `.lawcheck/law.yaml` equal the target law, delete the file and say so.
@@ -117,7 +127,7 @@ When the user asks how far the code is from the target, measure the target law o
 
 ## 8. The final message
 
-It stands on its own, also after the user said "not now". It has the parts of the page's step 11 for the law, then a part of its own under the label **The target**, apart from what the law holds:
+It stands on its own, also after the user said "not now" or "I'll think about it". It has every label of the page's step 11, in its order, from **The law** on. **The law** and **Debt** describe the law in force, which this session wrote or found. Then comes a part of its own under the label **The target**, apart from what the law holds:
 
 - where the file is, that nothing in it is law, and that the target is not in force;
 - the distance as a number of uses and files;

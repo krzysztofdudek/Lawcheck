@@ -8,7 +8,7 @@ Read this file only when the user asked for advice. The advice is at most three 
 - The law in `.lawcheck/law.yaml`, and what `lawcheck prime` prints of it.
 - The debt: what `lawcheck check --full --base HEAD` lists outside the change. A use the law already forbids is law, not advice.
 - The written rules that the page's step 2 finds, each with its file and line.
-- The lines of "could be tightened later", when this session wrote the law.
+- The questions that the first law asked in this conversation, and the user's answers. Never advise them again.
 - An existing `.lawcheck/advice.md`. Never propose an item under its `Declined` again. Measure each of its open items again before you keep it.
 
 ## 2. What can be a candidate
@@ -36,9 +36,14 @@ These are never candidates:
 
 With no candidate, stop here. Say in one sentence that the code gives no ground for advice, and say what you checked: the rows of the table, the cycles and the written rules. Write no file.
 
-A boundary between types comes first: `written`, then `cycle`, `direction`, `few` and `mixed`, the smallest bill first. A script rule comes only when no boundary is left. The bill is the fewest files that break the boundary, against the number of files that already keep it.
+A boundary between two whole types comes first, where the code leans almost all one way. Find these in the table, in this order:
 
-The user sees at most five suggestions in the whole conversation, as the skill says. So pick at most three, and fewer when the questions of the first law in this conversation already took some of the five. Give three more only when the user asks for more, never one that is already in the file.
+1. A pair of types with rows both ways: the boundary forbids the smaller row. It ranks by the files of the bigger row, against the files of the smaller one.
+2. A row that one to three files make, from a type of many files: the boundary forbids that row. It ranks by the files of that type that make no such use, its count of files in `lawcheck explain .` minus the files of the row.
+
+Take the most lopsided first, across every pair of the table: many files one way, and one to three the other. Then `written`, then `mixed`, which splits a type by its groups of files, such as hooks that use one type and components that use another. A script rule comes only when no boundary is left. The bill is the fewest files that break the boundary, against the number of files that already keep it.
+
+Pick at most three. The questions of the first law in this conversation and the items of the advice are at most five together, so pick fewer when the first law asked more than two, but at least one when a candidate is left. Give three more only when the user asks for more, never one that is already in the file.
 
 ## 4. The bill of each
 
@@ -81,7 +86,7 @@ Give each item in two sentences of plain words: what it would forbid, and what i
 
 ## 7. The final message
 
-It stands on its own, also after the user said "not now". It has the parts of the page's step 11 for the law, then a part of its own under the label **Advice**, apart from what the law holds:
+It stands on its own, also after the user said "not now". It has every label of the page's step 11, in its order, from **The law** on. **The law** and **Debt** describe the law in force, which this session wrote or found. Then comes a part of its own under the label **Advice**, apart from what the law holds:
 
 - each item with its count of uses and files and one file and line, and beside it what makes it law: the line "To make it law" of the file;
 - the items that became law on the user's word, or "none";
