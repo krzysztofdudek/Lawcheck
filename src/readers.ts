@@ -23,10 +23,10 @@ import { comparePaths } from './files.js';
 import { firstLine } from './law.js';
 import type { ErrorItem } from './output.js';
 import { decode, isBinary } from './types.js';
-import { step } from './progress.js';
-import { flatten, parserHost } from './flat.js';
-import type { FlatTree } from './flat.js';
-import { ALONE, ParsePool } from './trees.js';
+import { alive, poolBusy, poolIdle, step } from './progress.js';
+import { isMainThread, parentPort, Worker, workerData } from 'node:worker_threads';
+import * as TreeSitter from 'web-tree-sitter';
+import { createParserHost, fileSha256 } from '@chrisdudek/runes/ast';
 import { totalmem } from 'node:os';
 import { cores, readError, treeMemoryBound, USES_FILE_BYTES } from './limits.js';
 import type { TypedFile } from './types.js';
@@ -595,8 +595,154 @@ export async function loadGrammars(grammarDir: string = GRAMMARS, runes: Runes =
 
 export type Absent = 'too-large' | 'no-reader' | 'reader-failed';
 
-export { NODE_INTS } from './flat.js';
-export type { FlatTree } from './flat.js';
+// A tree crosses to the rule runner as numbers, NODE_INTS to a node in preorder (parent, type, field, named, start, end, line, column), so neither side recurses on a deep tree; src/runner.ts reads the same layout.
+export const NODE_INTS = 8;
+
+export interface FlatTree {
+  types: string[];
+  fields: string[];
+  nodes: Int32Array;
+}
+
+type Tree = ParsedFile['tree'];
+
+function parserHost(grammarDir: string) {
+  return createParserHost({
+    runtime: TreeSitter,
+    runtimeIdentity: () => fileSha256(fileURLToPath(import.meta.resolve('web-tree-sitter/web-tree-sitter.wasm'))),
+    grammarDirs: [grammarDir],
+  });
+}
+
+function flatten(tree: Tree): FlatTree {
+  const types = new Map<string, number>();
+  const fields = new Map<string, number>();
+  const id = (names: Map<string, number>, name: string) => {
+    let at = names.get(name);
+    if (at === undefined) names.set(name, (at = names.size));
+    return at;
+  };
+  let nodes = new Int32Array(NODE_INTS * 1024);
+  let count = 0;
+  const parents: number[] = [];
+  const cursor = tree.walk();
+  try {
+    for (;;) {
+      if ((count + 1) * NODE_INTS > nodes.length) {
+        const grown = new Int32Array(nodes.length * 2);
+        grown.set(nodes);
+        nodes = grown;
+      }
+      const field = cursor.currentFieldName;
+      const start = cursor.startPosition;
+      nodes.set(
+        [parents.at(-1) ?? -1, id(types, cursor.nodeType), field === null ? -1 : id(fields, field), cursor.nodeIsNamed ? 1 : 0, cursor.startIndex, cursor.endIndex, start.row + 1, start.column],
+        count * NODE_INTS,
+      );
+      const self = count++;
+      if (cursor.gotoFirstChild()) {
+        parents.push(self);
+        continue;
+      }
+      while (!cursor.gotoNextSibling()) {
+        if (!cursor.gotoParent()) return { types: [...types.keys()], fields: [...fields.keys()], nodes: nodes.slice(0, count * NODE_INTS) };
+        parents.pop();
+      }
+    }
+  } finally {
+    cursor.delete();
+  }
+}
+
+// What a parse of the pool gives when the pool has ended: the caller then parses the file itself, in its turn and under the step that names the file.
+const ALONE = Symbol('alone');
+
+// How long one file may take in the pool. A parse past it ends the pool, and the file is parsed again under its own step, where the limit of a step names it.
+const PARSE_MS = 5_000;
+
+interface Job {
+  id: number;
+  path: string;
+  content: string;
+  language?: string;
+  settle: (tree: FlatTree | null | typeof ALONE) => void;
+  timer?: NodeJS.Timeout;
+}
+
+// The threads that parse the trees of a run, at most as many as the machine gives cores. The memory guard of the tool reads the memory of the whole process, so it cannot tell which of several files parsed at once takes too much: while the pool works it asks the pool to end instead (src/progress.ts), and so does a parse that takes too long or a thread that fails. Every file then goes through the tool's own parse, one at a time, where a file that takes too much memory or time is named as before.
+class ParsePool {
+  ended = false;
+  started = false;
+  private readonly idle: Worker[] = [];
+  private readonly all = new Set<Worker>();
+  private readonly waiting: Job[] = [];
+  private readonly running = new Map<Worker, Job>();
+  private next = 0;
+
+  constructor(
+    private readonly grammarDir: string,
+    private readonly size = cores(),
+  ) {}
+
+  parse(path: string, content: string, language: string | undefined): Promise<FlatTree | null | typeof ALONE> {
+    if (this.ended) return Promise.resolve(ALONE);
+    return new Promise((settle) => {
+      this.waiting.push({ id: this.next++, path, content, ...(language === undefined ? {} : { language }), settle });
+      this.started = true;
+      poolBusy(() => this.end());
+      this.pump();
+    });
+  }
+
+  private pump(): void {
+    while (this.waiting.length > 0) {
+      const worker = this.idle.pop() ?? (this.all.size < this.size ? this.start() : null);
+      if (worker === null) return;
+      const job = this.waiting.shift()!;
+      this.running.set(worker, job);
+      job.timer = setTimeout(() => void this.end(), PARSE_MS);
+      worker.postMessage({ id: job.id, path: job.path, content: job.content, language: job.language });
+    }
+  }
+
+  private start(): Worker {
+    const worker = new Worker(new URL(import.meta.url), { workerData: { parseTrees: this.grammarDir }, stdout: false, stderr: false });
+    this.all.add(worker);
+    worker.on('message', (message: { id: number; tree: FlatTree | null }) => {
+      const job = this.running.get(worker);
+      if (job === undefined || job.id !== message.id) return;
+      clearTimeout(job.timer);
+      this.running.delete(worker);
+      this.idle.push(worker);
+      alive();
+      job.settle(message.tree);
+      if (this.running.size === 0 && this.waiting.length === 0) poolIdle();
+      else this.pump();
+    });
+    worker.on('error', () => void this.end());
+    worker.on('exit', () => {
+      if (!this.ended) void this.end();
+    });
+    // After the listeners, since a listener for messages holds the process again: an idle pool must not keep a finished command from ending.
+    worker.unref();
+    return worker;
+  }
+
+  // Ends every thread and gives each file still in the pool back to its caller.
+  async end(): Promise<void> {
+    if (this.ended) return;
+    this.ended = true;
+    const left = [...this.running.values(), ...this.waiting];
+    for (const job of left) clearTimeout(job.timer);
+    this.running.clear();
+    this.waiting.length = 0;
+    await Promise.all([...this.all].map((worker) => worker.terminate().catch(() => undefined)));
+    this.all.clear();
+    poolIdle();
+    for (const job of left) job.settle(ALONE);
+  }
+}
+
 
 export type TreeAnswer = { language: string; tree: FlatTree; absent: null } | { language: string | null; tree: null; absent: Absent };
 
@@ -814,4 +960,16 @@ export function ruleReads(input: RuleReadsInput, runes: Runes = RUNES): Reads {
       return (await answers.get(file.path)) ?? failed;
     };
   };
+}
+
+// This module is also the program of each thread of the pool: started with the folder of the grammars, it parses one file at a time, as the tool itself does, and gives the tree back without a copy.
+const parseTrees = isMainThread ? undefined : (workerData as { parseTrees?: string } | null)?.parseTrees;
+if (parseTrees !== undefined) {
+  const host = parserHost(parseTrees);
+  parentPort!.on('message', (job: { id: number; path: string; content: string; language?: string }) => {
+    host.withParsedFile(job.path, job.content, flatten, job.language).then(
+      (tree) => parentPort!.postMessage({ id: job.id, tree }, [tree.nodes.buffer as ArrayBuffer]),
+      () => parentPort!.postMessage({ id: job.id, tree: null }),
+    );
+  });
 }

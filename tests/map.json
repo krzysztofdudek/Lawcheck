@@ -177,10 +177,6 @@
     "tests/properties/names.test.ts",
     "tests/unit/files.test.ts"
   ],
-  "src/flat.ts": [
-    "tests/acceptance/languages.test.ts",
-    "tests/unit/readers.test.ts"
-  ],
   "src/glob.ts": [
     "tests/acceptance/hostile.test.ts",
     "tests/acceptance/law.test.ts",
@@ -254,10 +250,6 @@
   ],
   "src/output/sarif.ts": [
     "tests/acceptance/sarif.test.ts"
-  ],
-  "src/parse.ts": [
-    "tests/acceptance/languages.test.ts",
-    "tests/unit/readers.test.ts"
   ],
   "src/prime.ts": [
     "tests/acceptance/prime.test.ts",
@@ -394,10 +386,6 @@
     "tests/limits/sizes.test.ts",
     "tests/unit/setup.test.ts",
     "tests/unit/try.test.ts"
-  ],
-  "src/trees.ts": [
-    "tests/acceptance/languages.test.ts",
-    "tests/unit/readers.test.ts"
   ],
   "src/try.ts": [
     "tests/acceptance/hostile.test.ts",
