@@ -81,14 +81,14 @@ That agent checks only when it follows the line, and nothing sends it back. A pr
 
 ## In CI
 
-`lawcheck check --base origin/main` judges the files a branch changes. The branch commits the verdicts of the rules written in prose, so the job calls no model. `lawcheck docs ci` has the whole job.
+`lawcheck check --base origin/main` judges the files a branch changes. CI judges only the change on purpose, so that people see findings only about what they change. The branch commits the verdicts of the rules written in prose, so the job calls no model. `lawcheck docs ci` has the whole job.
 
 ## One law holds uses, rules, debt and waivers
 
 - Uses. Lawcheck reads imports and other uses in twelve languages: TypeScript, JavaScript, Python, Go, Rust, Java, Kotlin, C#, C, C++, PHP and Ruby. A use that Lawcheck resolves to a file `may_use` does not allow is a finding. Lawcheck counts a use it cannot resolve. Such a use is a finding only when it could name several files and `may_use` forbids every one of them. A form of use that no reader reads gives no finding and no count, and Limits names some.
 - Script rules. A rule is a JavaScript module that gets one file at a time and returns findings, each with its line when it has one. It can read the file's syntax tree in each of the twelve languages, so it holds what an import boundary cannot say, such as `fetch` called only in the API layer. [Write the first one](docs/first-law.md).
 - Reviewer rules. A model judges a rule written in prose, one file at a time. Lawcheck records each pass under a hash of what the model read, the file, the rule and its context files among them. A later check reads that pass in place of a call, and a change to any of them calls for a new review. You pick one of nine providers, among them a local Ollama and the `claude`, `codex`, `gemini` and `copilot` programs with their own sign-in.
-- Debt. `check` judges the files a change touches. `--full` lists the older breaches as debt. Debt is a warning and does not fail the run, unless you pass `--strict`.
+- Debt. `check` judges the files a change touches. `--full` is a deliberate audit of the whole code, run on purpose, and lists the older breaches as debt. Debt is a warning and does not fail the run, unless you pass `--strict`.
 - Waivers. `lawcheck-waive <rule> -- <reason>` drops one rule on one line, and the reason stays in the code. `check` prints a note on a change that adds a waiver or edits the law. Each note names up to five items and counts the rest, and `--json` lists them all. The plugin tells you at the end of a turn in which the agent added a waiver or changed the law.
 
 ## Limits
