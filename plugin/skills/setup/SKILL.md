@@ -55,6 +55,8 @@ Advice and a target are proposals. They hold in every line of both:
 
 ## Measure for a proposal
 
+Each `lawcheck check --full` here is a deliberate audit of the whole code, run on purpose to count or prove a candidate law. It is no step for each later change, and no step of CI.
+
 Make the temporary folder and save `uses.mjs` in it as the page's part "Measure a law that is not in force" says. Save this script there once, as `$KEEP/total.mjs`:
 
 ```js

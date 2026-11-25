@@ -58,6 +58,8 @@ Git reads some files through a filter, such as the files of Git LFS. Lawcheck co
 $ lawcheck check --full --base main
 ```
 
+`--full` is a deliberate audit of the whole code, which you run on purpose. [The CI job](ci.md#_2-add-the-workflow) judges only the change on purpose, so that people see findings only about what they change.
+
 With `--full`, Lawcheck judges every file outside the change as well. The findings in those files are debt. Each finding of debt is a warning, whatever the status of its rule. So without `--strict`, debt never changes the exit code.
 
 Lawcheck prints the debt block after the findings of the change. The block has its own count of findings, files, waivers and unresolved uses. In `--json` each finding of debt has `debt: true`.
