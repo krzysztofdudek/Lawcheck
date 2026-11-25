@@ -93,12 +93,21 @@ The second note says what the change does to the law that judges it. A pull requ
 - a type moved under another parent, or to the top of `types`;
 - a file of `.lawcheck/rules/`, or `.lawcheck/config.yaml`, added, removed or changed. The note names such a file by its path and not by what it does.
 
-The note shows five items and the count of the rest. When a change has more than five, the note first shows the items that loosen the law:
+The note shows five items and the count of the rest. When a change has more than five, the note first shows the items whose words say that the law got looser:
 
 - a rule or a type removed;
 - a rule made advisory or taken off a type;
-- a pattern added to `ignored` or taken off `required`;
+- a pattern added to `ignored` or taken off `required`, and a pattern that starts with `!` added to `required` or taken off `ignored`;
 - a signer added or removed, or the key of a signer changed.
+
+Next come the items that may loosen the law, since their words don't say which way the change went:
+
+- a changed `may_use`, `waivers`, `paths` or `content` of a type;
+- a type moved;
+- a file of `.lawcheck/rules/` changed or removed;
+- a `.lawcheck/law.yaml` that changed where Lawcheck can't read one of its two versions.
+
+A type added comes after them, since a type under another can have its own `may_use` or `waivers`. Every other item comes last.
 
 In `--json`, `scope.law_changes` lists every item. The note never changes the exit code of the run, whatever it lists. `lawcheck docs ci` gives a job that checks the change a second time with the law of the base.
 

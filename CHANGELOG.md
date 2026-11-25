@@ -14,8 +14,12 @@ The notes of 0.1.0-alpha.5 are wrong in nine places. One is under Security below
 - With a reviewer rule and no reviewer set, alpha.4 already said so in `lawcheck doctor`, and a check on your machine failed with `not-reviewed`. The line in `lawcheck prime` and the message of the Claude Code plugin are what alpha.5 adds. The notes said that nothing in alpha.4 said so until CI failed.
 - In Copilot CLI the output of a hook has no field for a message to you. A hook can print progress lines to the timeline of the session, and the plugin prints none, so its messages reach you through the agent. The notes said that Copilot CLI gives a plugin no way to write to you.
 - The setup skill proves a `may_use` list or a rule with a probe file that must fail. Two kinds of type get no probe: a type whose paths take no new file, and a type whose list names every type it could use. The notes said it checks each list.
-- The note of `lawcheck check` about the waivers a change adds names up to five of them and counts the rest. The note about a change to the law does the same with its items, and shows first the ones that loosen the law. `--json` lists them all. The notes said the note names each one.
+- The note of `lawcheck check` about the waivers a change adds names up to five of them and counts the rest. The note about a change to the law does the same with its items. It shows first only some of the items that loosen the law, such as a rule taken off a type, so a widened `may_use` list can stay in the count. `--json` lists them all. The notes said the note names each one.
 - `untyped-file` covers a file in a new folder only when a pattern of `required` matches it. Outside those patterns, a file that no type takes is still no finding. The notes said that code in a new folder beside the layers no longer escapes the law.
+
+### Fixed
+
+- When a change to the law has more than five items, the note of `lawcheck check` now shows a widened `may_use` list before the items that can't loosen the law. In alpha.5 it could stay in the count. `lawcheck docs change` gives the full order, which also covers other changes that may loosen the law and patterns that start with `!`.
 
 ### Security
 
