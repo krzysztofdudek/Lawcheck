@@ -10,6 +10,11 @@ on:
 permissions:
   contents: read
 
+# A push to a pull request cancels the older run of that pull request. Every other run is a group of its own, so nothing cancels or holds back a run on main or a release's verify.
+concurrency:
+  group: ci-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   # dist/ is built once, on Linux, and handed to the other jobs; the build copies the grammars from the installed Runes package, which checks each against its pinned sha256. dist/ built here is what the release packs, also on Linux.
   build:
@@ -28,19 +33,20 @@ jobs:
         with:
           node-version: 24
           cache: npm
-      # The runs of each system per push; tests/harness/shards.json gives each its shards, so a new plan changes no line here.
+      # The runs of each system; tests/harness/shards.json gives each its shards, so a new plan changes no line here. A run with "pull_request": false is left out of a pull request's run and is in every other: a push to main, a release's verify (the event there is the push of the tag) and a run started by hand.
       - name: The shards of each system
         id: matrix
         env:
+          EVENT: ${{ github.event_name }}
           RUNS: >-
             [{"os": "ubuntu-latest", "node": "24", "system": "linux", "offline": true},
-            {"os": "ubuntu-latest", "node": "24.0.0", "system": "linux"},
-            {"os": "ubuntu-latest", "node": "newest", "system": "linux"},
+            {"os": "ubuntu-latest", "node": "24.0.0", "system": "linux", "pull_request": false},
+            {"os": "ubuntu-latest", "node": "newest", "system": "linux", "pull_request": false},
             {"os": "windows-latest", "node": "24", "system": "win32"},
             {"os": "macos-latest", "node": "24", "system": "darwin"}]
         run: |
           set -o pipefail
-          node tests/harness/shards.ts matrix "$RUNS" | tee -a "$GITHUB_OUTPUT"
+          node tests/harness/shards.ts matrix "$RUNS" --event "$EVENT" | tee -a "$GITHUB_OUTPUT"
       - run: npm ci
       - run: npm run build
       - uses: actions/upload-artifact@v7
