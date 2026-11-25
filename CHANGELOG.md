@@ -17,6 +17,10 @@ The notes of 0.1.0-alpha.5 are wrong in ten places. One is under Fixed below, an
 - The note of `lawcheck check` about the waivers a change adds names up to five of them and counts the rest. The note about a change to the law does the same with its items, and shows first the ones that loosen the law. `--json` lists them all. The notes said the note names each one.
 - `untyped-file` covers a file in a new folder only when a pattern of `required` matches it. Outside those patterns, a file that no type takes is still no finding. The notes said that code in a new folder beside the layers no longer escapes the law.
 
+### Added
+
+- One machine can use its own reviewer without a commit. Each key of the `reviewer` section has a variable, such as `LAWCHECK_REVIEWER_PROVIDER` and `LAWCHECK_REVIEWER_MODEL`, and `.lawcheck/config.local.yaml`, which git ignores, takes the same keys. A variable wins over `.lawcheck/config.local.yaml`, which wins over `.lawcheck/config.yaml`. `lawcheck doctor` and `lawcheck explain --rule` name the reviewer in force and the place of each value. A pass counts whatever reviewer recorded it. `lawcheck docs config` describes both places under "On one machine".
+
 ### Fixed
 
 - On Windows, after a run that was calling a program reviewer such as `claude-code` is killed, Lawcheck no longer ends a process that another program started under the reviewer program's id after Lawcheck saw that the run was gone. In alpha.5 it could, when that other program had already ended, or when Windows had given the id to a third process, by the time Lawcheck looked. The notes of 0.1.0-alpha.5 said that Lawcheck ends only the processes it started.

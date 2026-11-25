@@ -7,6 +7,8 @@ import type { Claims, Page } from '../contract/docs-blocks.ts';
 
 const READ = 'tests/acceptance/docs.test.ts > test 129: every page holds what section 7 asks, and its examples are real';
 
+const MACHINE = 'tests/acceptance/providers.test.ts > test 1391: doctor and explain name the reviewer in force and the place of each value';
+
 export const claims: Claims = {
   'block 1 under "Settings"': READ,
   'block 1 under "reviewer"': READ,
@@ -14,6 +16,8 @@ export const claims: Claims = {
   'block 1 under "Keys and values Lawcheck refuses"': SCENARIO,
   'block 2 under "Keys and values Lawcheck refuses"': SCENARIO,
   'block 3 under "Keys and values Lawcheck refuses"': SCENARIO,
+  'block 1 under "On one machine"': MACHINE,
+  'block 2 under "On one machine"': MACHINE,
   'block 1 under "runner"': READ,
   'block 2 under "runner"': SCENARIO,
   'block 3 under "runner"': SCENARIO,

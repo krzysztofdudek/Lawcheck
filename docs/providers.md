@@ -2,6 +2,8 @@
 
 A [reviewer rule](concepts.md#reviewer-rule) needs a model to judge each file. The provider is the service, or the program on your machine, that runs that model. You name one of nine providers in `.lawcheck/config.yaml` ([Settings](config.md)). Five of them are services that Lawcheck calls over HTTP, and they need the setting `model`. The other four are programs on your machine, and for them `model` is optional.
 
+One machine can use another provider than the committed one, without a commit. Lawcheck takes each key of the `reviewer` section from its variable, such as `LAWCHECK_REVIEWER_PROVIDER` and `LAWCHECK_REVIEWER_MODEL`, then from `.lawcheck/config.local.yaml`, which git ignores, then from `.lawcheck/config.yaml` ([On one machine](config.md#on-one-machine)). `lawcheck doctor` names the provider in force and the place it came from.
+
 Lawcheck takes the API key of a provider from an environment variable, never from a file. Each section below names the variables of its provider.
 
 In the requests below, `<address>` stands for the address of the provider's API. With `LAWCHECK_REVIEWER_ENDPOINT` set, Lawcheck takes the address from that variable ([Over HTTP](providers.md#over-http)).

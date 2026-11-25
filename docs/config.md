@@ -1,6 +1,6 @@
 # Settings
 
-A [reviewer rule](concepts.md#reviewer-rule) needs a model to judge it. Lawcheck reads the API key of that model's service from an environment variable alone, so no API key goes into a committed file. The other settings live in `.lawcheck/config.yaml`, beside the law. You may leave the file out. Without it, every setting has its default, and Lawcheck has no reviewer. [Script rules](concepts.md#script-rule) need no settings.
+A [reviewer rule](concepts.md#reviewer-rule) needs a model to judge it. Lawcheck reads the API key of that model's service from an environment variable alone, so no API key goes into a committed file. The other settings live in `.lawcheck/config.yaml`, beside the law. You may leave the file out. Without it, every setting has its default, and Lawcheck has no reviewer. One machine can set its own reviewer without a commit ([On one machine](#on-one-machine)). [Script rules](concepts.md#script-rule) need no settings.
 
 ```yaml
 reviewer:
@@ -123,7 +123,50 @@ pnpm 11 and later also hold back a package published less than a day ago. They d
 minimumReleaseAgeExclude: [lawcheck, "@chrisdudek/runes"]
 ```
 
-Git ignores `.lawcheck/config.local.yaml`, because `.lawcheck/.gitignore` names it. No command of Lawcheck reads that file.
+## On one machine
+
+Two places set the reviewer on one machine, without a commit: the file `.lawcheck/config.local.yaml` and environment variables. Both take every key of the `reviewer` section.
+
+`.lawcheck/config.local.yaml` has the shape of `.lawcheck/config.yaml` and holds only the keys you change:
+
+```yaml
+reviewer:
+  provider: copilot-cli
+  model: local-model
+  max_calls: 7
+```
+
+The file takes the `reviewer` section alone. A `runner` there is `config-invalid`, because the plugin reads `runner` from `.lawcheck/config.yaml`. Git ignores the file, because `.lawcheck/.gitignore` names it. A `.lawcheck/` folder that `lawcheck init` did not make may have no such line: add the line `config.local.yaml` to `.lawcheck/.gitignore` there. When git tracks the file, Lawcheck stops with `config-invalid`.
+
+Each key has a variable:
+
+| Variable | Key |
+|---|---|
+| `LAWCHECK_REVIEWER_PROVIDER` | `provider` |
+| `LAWCHECK_REVIEWER_MODEL` | `model` |
+| `LAWCHECK_REVIEWER_TIMEOUT` | `timeout` |
+| `LAWCHECK_REVIEWER_TEMPERATURE` | `temperature` |
+| `LAWCHECK_REVIEWER_MAX_CHARS` | `max_chars` |
+| `LAWCHECK_REVIEWER_PARALLEL` | `parallel` |
+| `LAWCHECK_REVIEWER_MAX_CALLS` | `max_calls` |
+
+For each key, Lawcheck takes the first place that sets it: the variable, then `.lawcheck/config.local.yaml`, then `.lawcheck/config.yaml`, then the default. An empty variable counts as not set. A wrong value in either place is `config-invalid`, and the error names the file and its line, or the variable.
+
+A model and a temperature are written for one provider. A place that sets `provider` therefore takes no `model` and no `temperature` from a place below it. With `provider: copilot-cli` in `.lawcheck/config.local.yaml` and no `model` there, `copilot` runs its own default model, whatever model `.lawcheck/config.yaml` names.
+
+An API key goes in neither file. It stays in an environment variable ([Variables](#variables)).
+
+`lawcheck doctor` names the reviewer in force in its `config` line. When a variable or `.lawcheck/config.local.yaml` sets a value, the line gives the place of the provider, of the model and of each other value set there:
+
+```text
+ok  config  reviewer copilot-cli (.lawcheck/config.local.yaml), model env-model (LAWCHECK_REVIEWER_MODEL), timeout 90 (LAWCHECK_REVIEWER_TIMEOUT), max_calls 7 (.lawcheck/config.local.yaml)
+```
+
+`lawcheck explain --rule <id>` prints the same text in the line `judged by:` of a reviewer rule.
+
+A pass in `.lawcheck/verdicts` names no provider and no model. A pass that your reviewer records therefore counts on every machine and in CI, as a pass of the committed reviewer does. Lawcheck also keeps an answer when the reviewer changes: `check --review` asks the new reviewer only about content with no answer yet, and `check --review --again` asks it about everything. A law with `signers` decides whose passes count ([Signed passes](reviewer-rules.md#signed-passes)).
+
+Under `--law-from`, Lawcheck takes `.lawcheck/config.yaml` from the commit. The variables and `.lawcheck/config.local.yaml` of the machine still stand over it.
 
 ## Variables
 
@@ -131,6 +174,7 @@ Git ignores `.lawcheck/config.local.yaml`, because `.lawcheck/.gitignore` names 
 |---|---|
 | `LAWCHECK_BASE` | takes it as the base of the change when `--base` is not given (`lawcheck docs change`) |
 | `GITHUB_BASE_REF`, `CI_MERGE_REQUEST_TARGET_BRANCH_NAME`, `CI_COMMIT_BEFORE_SHA`, `SYSTEM_PULLREQUEST_TARGETBRANCH` | take the one that the CI service sets as the base of the change, when neither `--base` nor `LAWCHECK_BASE` is given (`lawcheck docs ci`) |
+| the seven variables of [On one machine](#on-one-machine), such as `LAWCHECK_REVIEWER_PROVIDER` | takes each as the value of its key of the `reviewer` section, over both config files |
 | `LAWCHECK_REVIEWER_ENDPOINT` | sends the requests of the HTTP providers to this address, which `openai-compatible` needs: `http:` or `https:`, with no user, password, query or fragment |
 | `LAWCHECK_REVIEWER_KEY` | sends it as the key of `openai-compatible`, and of `anthropic`, `openai` and `google` when their own variable is unset or `LAWCHECK_REVIEWER_ENDPOINT` is set |
 | `LAWCHECK_SIGNING_KEY` | signs each pass that `check --review` records, when the law names signers ([Signed passes](reviewer-rules.md#signed-passes)); Lawcheck hides it as a key and passes it to no program |

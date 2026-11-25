@@ -1,6 +1,6 @@
 import { lstatSync, mkdirSync, readFileSync, rmdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { CONFIG, DEFAULT_CONFIG, parseConfig } from './config.js';
+import { CONFIG } from './config.js';
 import type { ReviewerConfig } from './config.js';
 import { comparePaths, git, mergeBase, resolveCommit, splitZ } from './files.js';
 import { keyEnvironment } from './keys.js';
@@ -11,7 +11,7 @@ import type { Law, TypeDef } from './law.js';
 import type { ErrorItem } from './output.js';
 import { guardedFolder, releaseFolder } from './programs.js';
 import { createProvider } from './providers/index.js';
-import { LAW, RULES_DIR, ruleKinds, Stop, touchesLaw } from './setup.js';
+import { configErrors, LAW, RULES_DIR, ruleKinds, Stop, touchesLaw } from './setup.js';
 import type { Kinds, Read } from './setup.js';
 import { decode } from './types.js';
 import { LOCAL, Unwritable } from './verdicts.js';
@@ -275,15 +275,12 @@ export function lawAt(root: string, ref: string): LawAt {
   if (lawBytes.length > LAW_BYTES) throw new Stop([{ code: 'file-too-large', file: LAW, line: 1, message: `the law holds ${count(lawBytes.length)} bytes, more than the ${mib(LAW_BYTES)} a law may hold${said}` }]);
   const parsed = parseLaw(decode(lawBytes));
   if (parsed.law === null) throw new Stop(parsed.problems.map((p): ErrorItem => ({ code: p.tooLarge ? 'file-too-large' : 'law-invalid', file: LAW, line: p.line, message: `${p.message}${said}` })));
-  let config: ReviewerConfig = { ...DEFAULT_CONFIG };
   const configBytes = blobs.get(CONFIG);
-  if (configBytes != null) {
-    if (configBytes.length > CONFIG_BYTES) throw new Stop([{ code: 'file-too-large', file: CONFIG, line: null, message: `the file holds ${count(configBytes.length)} bytes, more than the ${mib(CONFIG_BYTES)} the config may hold${said}` }]);
-    const read = parseConfig(decode(configBytes));
-    if ('problems' in read) throw new Stop(read.problems.map((p): ErrorItem => ({ code: 'config-invalid', file: CONFIG, line: p.line, message: `${p.message}${said}` })));
-    config = read.config;
-    if (config.provider !== null) createProvider(config, keyEnvironment());
-  }
+  if (configBytes != null && configBytes.length > CONFIG_BYTES) throw new Stop([{ code: 'file-too-large', file: CONFIG, line: null, message: `the file holds ${count(configBytes.length)} bytes, more than the ${mib(CONFIG_BYTES)} the config may hold${said}` }]);
+  // The variables and config.local.yaml are this machine's, not the change's, so they stand over the commit's config.yaml as over the one on disk.
+  const configured = configErrors(root, { text: configBytes == null ? null : decode(configBytes), said });
+  if ('errors' in configured) throw new Stop(configured.errors);
+  const config = configured.config;
   const files = new Map<string, Buffer | null>();
   for (const [path, entry] of entries) {
     if (entry.mode === '120000') files.set(path, null);

@@ -262,7 +262,7 @@ next: fix .lawcheck/law.yaml, then run lawcheck check
 
 **Meaning**
 
-Lawcheck cannot use `.lawcheck/config.yaml`. For a fault on one line, the error names that line, as in `.lawcheck/config.yaml:1`.
+Lawcheck cannot use `.lawcheck/config.yaml`. For a fault on one line, the error names that line, as in `.lawcheck/config.yaml:1`. The same code covers the settings of one machine: a fault in `.lawcheck/config.local.yaml` names that file and its line, and a wrong value of a variable such as `LAWCHECK_REVIEWER_TIMEOUT` names the variable ([On one machine](config.md#on-one-machine)).
 
 **Typical cause**
 
@@ -270,7 +270,8 @@ The config holds one of these:
 
 - an unknown key, such as bogus;
 - a wrong value;
-- a reviewer provider that Lawcheck cannot set up from the settings.
+- a reviewer provider that Lawcheck cannot set up from the settings;
+- a `.lawcheck/config.local.yaml` that git tracks.
 
 **Fix**
 

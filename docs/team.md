@@ -30,6 +30,8 @@ reviewer:
 
 Lawcheck reads the API key from an environment variable alone. Each developer sets `ANTHROPIC_API_KEY` on their own machine. Lawcheck refuses a key written into `.lawcheck/config.yaml` with `config-invalid` ([Reviewers and keys](providers.md)).
 
+A developer who uses another reviewer sets it on their own machine, in `.lawcheck/config.local.yaml` or in variables ([On one machine](config.md#on-one-machine)). A pass that their reviewer records counts as any other pass.
+
 ## 2. See the files with no verdict
 
 On the branch `refund`, which adds `src/core/refund.ts`:

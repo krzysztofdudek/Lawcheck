@@ -1,9 +1,9 @@
 import { lstatSync, realpathSync, statSync } from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
-import { changedPaths, comparePaths, defaultBase, fetchCommand, GitFailed, gitNext, hasHead, fetchesEveryBranch, isShallow, lawLeftOut, listedPaths, listFiles, mergeBase, nestedReason, NoGit, remoteNames, repositoryHolding, resolveCommit, workTreeProblem } from './files.js';
-import { CONFIG, ConfigTooLarge, readConfig } from './config.js';
+import { changedPaths, comparePaths, defaultBase, fetchCommand, git, GitFailed, gitNext, hasHead, fetchesEveryBranch, isShallow, lawLeftOut, listedPaths, listFiles, mergeBase, nestedReason, NoGit, remoteNames, repositoryHolding, resolveCommit, workTreeProblem } from './files.js';
+import { CONFIG, ConfigTooLarge, LOCAL_CONFIG, readSettings } from './config.js';
 import { canonicalName, onDisk } from './names.js';
-import type { ReviewerConfig } from './config.js';
+import type { ReviewerConfig, Sources } from './config.js';
 import { compileList, patternProblem } from './glob.js';
 import { nearestKey, parseLaw } from './law.js';
 import type { Law } from './law.js';
@@ -184,27 +184,75 @@ export function loadLaw(root: string): Law {
   return read.law;
 }
 
-export function configErrors(root: string): { config: ReviewerConfig } | { errors: ErrorItem[] } {
-  let configured: ReturnType<typeof readConfig>;
+export interface Configured {
+  config: ReviewerConfig;
+  from: Sources;
+}
+
+function tracked(root: string, file: string): boolean {
   try {
-    configured = readConfig(root);
+    lstatSync(join(root, file));
+  } catch {
+    return false;
+  }
+  return git(root, ['ls-files', '--error-unmatch', '--', file]).status === 0;
+}
+
+// committed is the text of config.yaml in another commit, for a law judged by --law-from; said ends each message about that text.
+export function configErrors(root: string, committed?: { text: string | null; said: string }): Configured | { errors: ErrorItem[] } {
+  // A config.local.yaml in git would reach every checkout, and under --law-from a change could bring one that sets the reviewer over the law of the base.
+  if (tracked(root, LOCAL_CONFIG)) {
+    const message = `git tracks ${LOCAL_CONFIG}, and Lawcheck reads that file only as the settings of one machine`;
+    return { errors: [{ code: 'config-invalid', file: LOCAL_CONFIG, line: null, message, next: `ask the user to take it out of git with git rm --cached ${LOCAL_CONFIG}, or to move its settings into ${CONFIG}, then run lawcheck check` }] };
+  }
+  let configured: ReturnType<typeof readSettings>;
+  try {
+    configured = readSettings(root, keyEnvironment(), committed?.text);
   } catch (error) {
     if (!(error instanceof ConfigTooLarge)) throw error;
     const message = `the file holds ${count(error.bytes)} bytes, more than the ${mib(CONFIG_BYTES)} the config may hold`;
-    return { errors: [{ code: 'file-too-large', file: CONFIG, line: null, message, next: `make ${CONFIG} smaller than ${mib(CONFIG_BYTES)}, then run lawcheck check` }] };
+    return { errors: [{ code: 'file-too-large', file: error.file, line: null, message, next: `make ${error.file} smaller than ${mib(CONFIG_BYTES)}, then run lawcheck check` }] };
   }
   if ('problems' in configured) {
-    if (linked(root, CONFIG)) return { errors: [{ code: 'config-invalid', file: CONFIG, line: null, message: LINKED(CONFIG) }] };
-    return { errors: configured.problems.map((p) => ({ code: 'config-invalid', file: CONFIG, line: p.line, message: p.message })) };
+    const of = (file: string | null): string => (file === CONFIG && committed !== undefined ? committed.said : '');
+    const files = [...new Set(configured.problems.map((p) => p.file))];
+    const hidden = files.find((file) => file !== null && !(file === CONFIG && committed !== undefined) && linked(root, file));
+    if (hidden != null) return { errors: [{ code: 'config-invalid', file: hidden, line: null, message: LINKED(hidden) }] };
+    return {
+      errors: configured.problems.map((p): ErrorItem => {
+        const error: ErrorItem = { code: 'config-invalid', file: p.file, line: p.line, message: `${p.message}${of(p.file)}` };
+        if (p.file === LOCAL_CONFIG) error.next = `ask the user to fix ${LOCAL_CONFIG}, then run lawcheck check`;
+        if (p.file === null) error.next = `ask the user to set the variable as the message says or to unset it, then run lawcheck check`;
+        return error;
+      }),
+    };
   }
   if (configured.config.provider !== null) createProvider(configured.config, keyEnvironment());
-  return { config: configured.config };
+  return configured;
 }
 
 export function loadConfig(root: string): ReviewerConfig {
+  return loadConfigured(root).config;
+}
+
+export function loadConfigured(root: string): Configured {
   const read = configErrors(root);
   if ('errors' in read) throw new Stop(read.errors);
-  return read.config;
+  return read;
+}
+
+// The reviewer in force and where each of its values came from, as doctor and explain print it; the keys beyond provider and model are named only when a variable or config.local.yaml sets them.
+export function reviewerInForce({ config, from }: Configured): string | null {
+  if (config.provider === null) return null;
+  const overridden = Object.values(from).some((source) => source !== CONFIG);
+  const of = (key: keyof Sources): string => (overridden ? ` (${from[key]})` : '');
+  const parts = [`reviewer ${config.provider}${of('provider')}`];
+  if (config.model !== null) parts.push(`model ${config.model}${of('model')}`);
+  const values = { timeout: config.timeout, temperature: config.temperature, max_chars: config.maxChars, parallel: config.parallel, max_calls: config.maxCalls };
+  for (const key of ['timeout', 'temperature', 'max_chars', 'parallel', 'max_calls'] as const) {
+    if (from[key] !== undefined && from[key] !== CONFIG) parts.push(`${key} ${values[key]} (${from[key]})`);
+  }
+  return parts.join(', ');
 }
 
 export interface RuleFiles {

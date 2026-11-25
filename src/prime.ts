@@ -3,13 +3,13 @@ import { decode } from './types.js';
 import { lstatSync } from 'node:fs';
 import { join } from 'node:path';
 import { documentOf, noWords, usageError } from './args.js';
-import { CONFIG, readConfig, RUNNER_COMMANDS, runnerOf } from './config.js';
+import { CONFIG, RUNNER_COMMANDS, runnerOf } from './config.js';
 import type { Runner } from './config.js';
 import type { Arguments, CheckContext, Result } from './args.js';
 import { walk } from './law.js';
 import type { Law, TypeDef } from './law.js';
 import { plural, renderErrors, shown } from './output.js';
-import { findRoot, LAW, loadLaw, loadRuleFiles, requireGit, ruleKind, stopped } from './setup.js';
+import { configErrors, findRoot, LAW, loadLaw, loadRuleFiles, requireGit, ruleKind, stopped } from './setup.js';
 import type { Kinds } from './setup.js';
 import { mayUsePart } from './uses.js';
 
@@ -144,7 +144,7 @@ export function startPart(root: string): string {
 
 export function reviewerUnset(root: string): boolean {
   try {
-    const read = readConfig(root);
+    const read = configErrors(root);
     return 'config' in read && read.config.provider === null;
   } catch {
     return false;
