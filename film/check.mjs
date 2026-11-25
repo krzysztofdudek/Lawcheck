@@ -180,7 +180,7 @@ function reading(edit) {
     let before = new Set();
     for (const screen of screensOf(timeline.segments)) {
       const narrated = (screen.segment.narration ?? []).length > 0;
-      const all = (narrated && screen.segment.subtitle !== undefined ? screen.text.slice(0, -1) : screen.text).flatMap(words);
+      const all = (narrated && screen.segment.subtitle ? screen.text.slice(0, -1) : screen.text).flatMap(words);
       const fresh = all.filter((word) => !before.has(word)).length;
       const needed = 1 + fresh / 3;
       const stands = screen.end - screen.start;
