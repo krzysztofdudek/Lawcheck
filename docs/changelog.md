@@ -4,6 +4,8 @@ Lawcheck follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.1.0-alpha.5] - 2026-11-25
+
 ### Before you upgrade
 
 - A law that uses one of the new keys `signers`, `required` or `ignored`, or a rule that names a `companion`, stops alpha.4 with `law-invalid`. Install alpha.5 on every machine, CI job and git hook that checks the repository before you add one.
