@@ -446,7 +446,8 @@ Write the file `.githooks/pre-commit`:
 <!-- example: pre-commit-hook -->
 ```sh
 #!/bin/sh
-exec npx --no-install lawcheck check --base origin/main
+set -e
+npx --no-install lawcheck check --base origin/main
 ```
 
 ### 2. Make it executable
@@ -498,7 +499,7 @@ while read -r local_ref local_sha remote_ref remote_sha; do
 done
 ```
 
-Make it executable with `chmod +x .githooks/pre-push`.
+Then run `chmod +x .githooks/pre-push`.
 
 ## Where a check may run
 
