@@ -11,12 +11,12 @@
       "permanent": true
     },
     {
-      "source": "/:page(install|quick-start|concepts|other-tools|i-want-to|first-law|types-for-a-project|forbid-a-use|write-a-script-rule|write-a-reviewer-rule|adopt-in-an-existing-repository|agent-setup|claude-code|codex-cli|copilot-cli|cursor|other-agents|ci|team|monorepo|false-alarm|slow-check|commands|law|config|script-rules|reviewer-rules|providers|languages|waivers|change|json|plugin|files|codes|questions|changelog|support|upgrade)",
+      "source": "/:page(install|quick-start|concepts|other-tools|i-want-to|first-law|types-for-a-project|forbid-a-use|write-a-script-rule|write-a-reviewer-rule|adopt-in-an-existing-repository|agent-setup|claude-code|codex-cli|copilot-cli|cursor|other-agents|ci|ci-findings|team|monorepo|false-alarm|slow-check|commands|law|config|script-rules|reviewer-rules|providers|languages|waivers|change|json|plugin|files|codes|questions|changelog|support|upgrade)",
       "destination": "https://docs.lawcheck.dev/:page.html",
       "permanent": true
     },
     {
-      "source": "/:page(install|quick-start|concepts|other-tools|i-want-to|first-law|types-for-a-project|forbid-a-use|write-a-script-rule|write-a-reviewer-rule|adopt-in-an-existing-repository|agent-setup|claude-code|codex-cli|copilot-cli|cursor|other-agents|ci|team|monorepo|false-alarm|slow-check|commands|law|config|script-rules|reviewer-rules|providers|languages|waivers|change|json|plugin|files|codes|questions|changelog|support|upgrade).html",
+      "source": "/:page(install|quick-start|concepts|other-tools|i-want-to|first-law|types-for-a-project|forbid-a-use|write-a-script-rule|write-a-reviewer-rule|adopt-in-an-existing-repository|agent-setup|claude-code|codex-cli|copilot-cli|cursor|other-agents|ci|ci-findings|team|monorepo|false-alarm|slow-check|commands|law|config|script-rules|reviewer-rules|providers|languages|waivers|change|json|plugin|files|codes|questions|changelog|support|upgrade).html",
       "destination": "https://docs.lawcheck.dev/:page.html",
       "permanent": true
     },
@@ -41,12 +41,12 @@
       "permanent": true
     },
     {
-      "source": "/docs/:page(install|quick-start|concepts|other-tools|i-want-to|first-law|types-for-a-project|forbid-a-use|write-a-script-rule|write-a-reviewer-rule|adopt-in-an-existing-repository|agent-setup|claude-code|codex-cli|copilot-cli|cursor|other-agents|ci|team|monorepo|false-alarm|slow-check|commands|law|config|script-rules|reviewer-rules|providers|languages|waivers|change|json|plugin|files|codes|questions|changelog|support|upgrade)",
+      "source": "/docs/:page(install|quick-start|concepts|other-tools|i-want-to|first-law|types-for-a-project|forbid-a-use|write-a-script-rule|write-a-reviewer-rule|adopt-in-an-existing-repository|agent-setup|claude-code|codex-cli|copilot-cli|cursor|other-agents|ci|ci-findings|team|monorepo|false-alarm|slow-check|commands|law|config|script-rules|reviewer-rules|providers|languages|waivers|change|json|plugin|files|codes|questions|changelog|support|upgrade)",
       "destination": "https://docs.lawcheck.dev/:page.html",
       "permanent": true
     },
     {
-      "source": "/docs/:page(install|quick-start|concepts|other-tools|i-want-to|first-law|types-for-a-project|forbid-a-use|write-a-script-rule|write-a-reviewer-rule|adopt-in-an-existing-repository|agent-setup|claude-code|codex-cli|copilot-cli|cursor|other-agents|ci|team|monorepo|false-alarm|slow-check|commands|law|config|script-rules|reviewer-rules|providers|languages|waivers|change|json|plugin|files|codes|questions|changelog|support|upgrade).html",
+      "source": "/docs/:page(install|quick-start|concepts|other-tools|i-want-to|first-law|types-for-a-project|forbid-a-use|write-a-script-rule|write-a-reviewer-rule|adopt-in-an-existing-repository|agent-setup|claude-code|codex-cli|copilot-cli|cursor|other-agents|ci|ci-findings|team|monorepo|false-alarm|slow-check|commands|law|config|script-rules|reviewer-rules|providers|languages|waivers|change|json|plugin|files|codes|questions|changelog|support|upgrade).html",
       "destination": "https://docs.lawcheck.dev/:page.html",
       "permanent": true
     }

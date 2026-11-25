@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { appendFileSync, cpSync, mkdirSync, readdirSync, readFileSync, symlinkSync } from 'node:fs';
+import { appendFileSync, cpSync, mkdirSync, readdirSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { atOnce, inTemp, lawcheck, lawcheckAt, ROOT } from './helpers.ts';
 import { fakeWrites } from '../harness/tool.ts';
@@ -9,6 +9,7 @@ import { parseConfig } from '../../dist/config.js';
 import { readArguments } from '../../dist/args.js';
 import { parseArguments } from '../../dist/cli.js';
 import { WHY } from '../../dist/output.js';
+import { fitChangelog } from '../../dist/docs.js';
 import { example } from '../harness/examples.ts';
 
 const DOC_PAGES = readdirSync(join(ROOT, 'docs')).filter((name) => name.endsWith('.md')).length;
@@ -38,6 +39,7 @@ const LIST = [
   '  cursor  Lawcheck in Cursor',
   '  other-agents  Other coding agents',
   '  ci  CI and git hooks',
+  '  ci-findings  Findings in the pull request',
   '  team  A law shared by a team',
   '  monorepo  A monorepo',
   '  false-alarm  A finding you believe is wrong',
@@ -74,6 +76,11 @@ const terminal = (text: string): string => text.replace(/\[([^\]]+)\]\(([a-z-]+)
 
 function page(id: string): string {
   return readFileSync(new URL(`../../docs/${id}.md`, import.meta.url), 'utf8');
+}
+
+// What `lawcheck docs <id>` prints: the page with its links as commands, and the changelog cut as test 1414 holds.
+function printed(id: string): string {
+  return id === 'changelog' ? fitChangelog(terminal(page(id))) : terminal(page(id));
 }
 
 interface Fence {
@@ -119,7 +126,7 @@ test('test 128: the list of topics, its JSON, and one page, outside git', async 
     assert.equal(json.code, 0);
     await atOnce(TOPICS, PAGES_AT_ONCE, ({ id }) => id, async ({ id }) => {
       const result = await lawcheck(dir, ['docs', id], env, [], { internal: id === 'codes' });
-      assert.equal(result.stdout, terminal(page(id)), id);
+      assert.equal(result.stdout, printed(id), id);
       assert.equal(result.code, 0);
       if (id === 'law') assert.equal(result.stdout.split('\n')[0], '# The law file');
     });
@@ -131,7 +138,7 @@ test('test 129: every page holds what section 7 asks, and its examples are real'
   for (const { id, title } of TOPICS) {
     const text = page(id);
     assert.equal(text.split('\n')[0], `# ${title}`, id);
-    if (id !== 'codes') assert.ok([...terminal(text)].length <= 30000, `lawcheck docs ${id} prints ${[...terminal(text)].length} characters`);
+    if (id !== 'codes') assert.ok([...printed(id)].length <= 30000, `lawcheck docs ${id} prints ${[...printed(id)].length} characters${id === 'changelog' ? '; its first section is never cut, so that section alone must fit: rewrite it shorter and keep every fact' : ''}`);
     for (const fence of fences(text)) {
       if (fence.info === 'yaml' && fence.lines[0]?.startsWith('lawcheck:')) {
         const read = parseLaw(fence.lines.join('\n'));
@@ -206,6 +213,34 @@ test('test 417: lawcheck docs prints a link to another page as the command that 
     assert.equal(text.code, 0);
     const json = await lawcheckAt(cli, dir, ['docs', 'law', '--json']);
     assert.equal(JSON.parse(json.stdout).text, `${page('law')}\nSee [the codes](codes.md#law-invalid) and [the site](https://example.com/codes.md).\n`);
+  });
+});
+
+test('test 1414: lawcheck docs changelog prints a changelog over 30000 characters as Unreleased whole and the newest releases that fit, ends with the line that names the whole changelog and the Next line of the page, and --json gives the page whole', async () => {
+  await inTemp(async (dir) => {
+    const copy = join(dir, 'lawcheck');
+    for (const entry of ['package.json', 'dist', 'docs']) cpSync(join(ROOT, entry), join(copy, entry), { recursive: true });
+    symlinkSync(join(ROOT, 'node_modules'), join(copy, 'node_modules'), process.platform === 'win32' ? 'junction' : 'dir');
+    const entry = (letter: string, count: number): string => `- ${letter.repeat(99)}\n`.repeat(count);
+    const head = '# Changelog\n\nLawcheck follows [Semantic Versioning](https://semver.org/).\n\n';
+    const unreleased = `## [Unreleased]\n\n### Added\n\n${entry('u', 200)}- The codes are on [their page](codes.md).\n\n`;
+    const three = `## [0.3.0] - 2026-01-03\n\n### Fixed\n\n${entry('c', 80)}\n`;
+    const two = `## [0.2.0] - 2026-01-02\n\n### Fixed\n\n${entry('b', 80)}\n`;
+    const one = `## [0.1.0] - 2026-01-01\n\nThe first release.\n\nNext: [Supported environments](support.md)\n`;
+    const written = head + unreleased + three + two + one;
+    writeFileSync(join(copy, 'docs', 'changelog.md'), written);
+    const cli = join(copy, 'dist', 'cli.js');
+    const text = await lawcheckAt(cli, dir, ['docs', 'changelog']);
+    const whole = 'The older releases are not printed here. The whole changelog is in `docs/changelog.md` of the installed package and at https://docs.lawcheck.dev/changelog.html.\n\nNext: Supported environments (lawcheck docs support)\n';
+    assert.equal(text.stdout, terminal(head + unreleased + three) + whole);
+    assert.equal(text.code, 0);
+    assert.ok([...written].length > 30000 && [...text.stdout].length <= 30000, `${[...written].length} written, ${[...text.stdout].length} printed`);
+    assert.ok([...(head + unreleased + three + two)].length + [...whole].length > 30000, 'the release left out does not fit');
+    const json = await lawcheckAt(cli, dir, ['docs', 'changelog', '--json']);
+    assert.equal(JSON.parse(json.stdout).text, written);
+    writeFileSync(join(copy, 'docs', 'changelog.md'), head + unreleased + one);
+    const short = await lawcheckAt(cli, dir, ['docs', 'changelog']);
+    assert.equal(short.stdout, terminal(head + unreleased + one));
   });
 });
 

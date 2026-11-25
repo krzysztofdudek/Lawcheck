@@ -57,7 +57,7 @@ Advice and a target are proposals. They hold in every line of both:
 - Every count of files and uses comes from a measurement, as "Measure for a proposal" below says. Never count uses by reading the imports yourself.
 - An item becomes law only on the user's yes to that item. Then it goes through the page's parts "A boundary the code already breaks" and "Prove each restriction bites", and `lawcheck check --full --base HEAD` exits 0. An accepted item leaves the file, because the law holds it from then on. A yes to a whole proposal writes no law.
 - When the code gives no ground, say so in one sentence and write no file.
-- Change no file outside `.lawcheck/`. Until the user says yes to an item, change in `.lawcheck/` only the proposal file and what this session's run of the page wrote. The page's part "Never" holds here too.
+- Change no file outside `.lawcheck/`, except for a CI job the user asks for, as the page's part "A CI job the user asks for" says. Until the user says yes to an item, change in `.lawcheck/` only the proposal file and what this session's run of the page wrote. The page's part "Never" holds here too.
 - Commit nothing. The user decides whether the proposal stays in git as the team's plan, or goes.
 
 ## Measure for a proposal
