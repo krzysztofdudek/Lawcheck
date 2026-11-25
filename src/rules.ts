@@ -9,7 +9,7 @@ import { releaseProcess, watchProcess } from './programs.js';
 import { safeText } from './output.js';
 import { hide } from './keys.js';
 import type { Readable } from 'node:stream';
-import { count, MESSAGE_CHARS, points, readError, RULES_RUN_MS, RUN_FINDINGS, RUN_MESSAGE_CHARS } from './limits.js';
+import { cores, count, MESSAGE_CHARS, points, readError, RULES_RUN_MS, RUN_FINDINGS, RUN_MESSAGE_CHARS } from './limits.js';
 import type { Reads, Serve } from './readers.js';
 import type { ErrorItem } from './output.js';
 import { RULES_DIR, RULES_LIB } from './setup.js';
@@ -515,7 +515,7 @@ export interface RuleTask {
 }
 
 // The rules of a run go through few runners, each taking one whole rule after another, so a run of many rules starts far fewer processes than it has rules. Findings are taken from a runner that rules share, and so is a rule that passed its time limit there, since no other rule runs in that runner while it does and a second run would make the user wait twice. After any other end the rule runs once more in a runner of its own, and that result stands, so a crash or a wrong return names its rule exactly as it does alone. The findings of a rule count toward the run only once the rule has ended.
-export async function runRules(tasks: RuleTask[], limit = availableParallelism()): Promise<RuleOutcome[]> {
+export async function runRules(tasks: RuleTask[], limit = cores()): Promise<RuleOutcome[]> {
   const results: RuleOutcome[] = new Array(tasks.length);
   let next = 0;
   let lanes = 0;

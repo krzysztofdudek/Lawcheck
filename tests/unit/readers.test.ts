@@ -6,7 +6,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { GRAMMARS, ownLine, readerOf, readUses, ruleReads, RUNES, siblingsOf, Unreadable } from '../../dist/readers.js';
-import { attach, lastStep, progressBuffer } from '../../dist/progress.js';
+import { askPoolToEnd, attach, lastStep, progressBuffer } from '../../dist/progress.js';
+import { cores } from '../../dist/limits.js';
 
 type Hint = { kind: 'path'; specifier: string } | { kind: 'symbol'; symbolKey: string };
 type Kind =
@@ -987,4 +988,70 @@ test('test 1395: a parse that failed is not kept, so the next rule that asks has
   assert.deepEqual(await reads([a], 'the script rule two')('tree', a), await freshTree(a.path, a.text));
   assert.deepEqual(await reads([a], 'the script rule three')('tree', a), await freshTree(a.path, a.text));
   assert.deepEqual(parsed, ['a.ts', 'a.ts']);
+});
+
+function manyTexts(count: number): { path: string; text: string }[] {
+  return Array.from({ length: count }, (_, at) => ({ path: `src/f${String(at).padStart(2, '0')}.ts`, text: `export function f${at}(x: number) {\n  return [x, ${at}].map((y) => y + ${at});\n}\n`.repeat(1 + (at % 3)) }));
+}
+
+async function treesAlone(files: { path: string; text: string }[]): Promise<unknown[]> {
+  const serve = pooledReads(files, 1)([]);
+  const out: unknown[] = [];
+  for (const file of files) out.push(await serve('tree', file));
+  return out;
+}
+
+function pooledReads(files: { path: string; text: string }[], threads: number, treeBytes?: number) {
+  return ruleReads({ root: '/nowhere', files: files.map((file) => file.path), bytes: () => enc.encode(''), ownerOf: () => 'owner', typeOf: () => null, threads, ...(treeBytes === undefined ? {} : { treeBytes }) });
+}
+
+test('test 1399: the trees a pool of threads parses for the rules of a run are the trees the tool parses one file at a time, for every rule and in any order of asking', async () => {
+  const files = manyTexts(40);
+  const alone = await treesAlone(files);
+  assert.equal(new Set(alone.map((answer) => JSON.stringify([...(answer as any).tree.nodes]))).size > 1, true);
+  for (const threads of [2, 4]) {
+    const reads = pooledReads(files, threads);
+    const forward = reads(files, 'the script rule one');
+    const backward = reads(files, 'the script rule two');
+    const got = await Promise.all([...files.map((file) => forward('tree', file)), ...[...files].reverse().map((file) => backward('tree', file))]);
+    assert.deepEqual(got.slice(0, 40), alone, `${threads} threads, in order`);
+    assert.deepEqual(got.slice(40).reverse(), alone, `${threads} threads, from the last file`);
+    assert.deepEqual(await reads(files, 'the script rule three')('tree', files[7]!), alone[7]);
+  }
+});
+
+test('test 1399: when the kept trees have reached their bound, the pool still gives each rule the tree of its own file', async () => {
+  const files = manyTexts(24);
+  const alone = await treesAlone(files);
+  const reads = pooledReads(files, 3, (alone[0] as any).tree.nodes.byteLength * 2);
+  for (const rule of ['one', 'two']) {
+    const serve = reads(files, `the script rule ${rule}`);
+    for (const [at, file] of files.entries()) assert.deepEqual(await serve('tree', file), alone[at], `${rule} ${file.path}`);
+  }
+});
+
+test('test 1399: the thread that watches the run asks a working pool to end, and every file then gets its tree from the tool itself, under the step that names it', async () => {
+  const buffer = progressBuffer();
+  attach(buffer);
+  assert.equal(askPoolToEnd(buffer), 'none');
+  const files = manyTexts(40);
+  const alone = await treesAlone(files);
+  const reads = pooledReads(files, 2);
+  const serve = reads(files, 'the script rule one');
+  const asked = files.map((file) => serve('tree', file));
+  assert.equal(askPoolToEnd(buffer), 'asked');
+  assert.equal(askPoolToEnd(buffer), 'ending');
+  assert.deepEqual(await Promise.all(asked), alone);
+  assert.equal(askPoolToEnd(buffer), 'none');
+  assert.match(lastStep(buffer).what, /^reading the tree of src\/f\d\d\.ts for the script rule one$/);
+  const later = manyTexts(41).slice(40);
+  assert.deepEqual(await reads(later, 'the script rule two')('tree', later[0]!), await pooledReads(later, 1)(later)('tree', later[0]!));
+  assert.equal(askPoolToEnd(buffer), 'none');
+});
+
+test('test 1399: a run uses as many processors as Node counts, or fewer where a cgroup gives it a smaller share of processor time, and never fewer than one', () => {
+  assert.deepEqual(
+    [cores(14, null), cores(14, 'max 100000\n'), cores(14, '100000 100000\n'), cores(14, '250000 100000\n'), cores(2, '800000 100000\n'), cores(14, '5000 100000'), cores(14, '-1 100000'), cores(14, 'nonsense'), cores(0, null)],
+    [14, 14, 1, 3, 2, 1, 14, 14, 1],
+  );
 });

@@ -518,3 +518,23 @@ test('test 1396: three rules that ask for the tree of the same files each get th
     assert.deepEqual(await said(), expected(ofChanged, ofB));
   });
 });
+
+test('test 1401: on a check of many files, three rules that read the tree each get for every file the tree the rule gets when it is tried on that file alone', async () => {
+  await inTemp(async (dir) => {
+    const rules = ['one', 'two', 'three'];
+    const law = `lawcheck: 0.1.0\n\nrules:\n${rules.map((rule) => `  ${rule}:\n    why: The rule reads the tree of the file.\n`).join('')}\ntypes:\n  code:\n    paths: ["src/**"]\n    rules: [${rules.join(', ')}]\n`;
+    const sources = Object.fromEntries(Array.from({ length: 12 }, (_, at) => [`src/f${String(at).padStart(2, '0')}.ts`, `export function f${at}(x: number) {\n  return [x, ${at}];\n}\n`.repeat(1 + (at % 4))]));
+    const repo = newRepository(dir, { '.lawcheck/law.yaml': law, ...sources, ...Object.fromEntries(rules.map((rule) => [`.lawcheck/rules/${rule}.mjs`, SHARED_TREE_RULE])) });
+    const run = await lawcheck(repo, ['check', '--full', '--json']);
+    assert.equal(run.stderr, '');
+    const said = JSON.parse(run.stdout).findings.map((f: any) => `${f.rule}  ${f.file}  ${f.message}`).sort();
+    const expected: string[] = [];
+    for (const path of Object.keys(sources)) {
+      const [alone] = JSON.parse((await lawcheck(repo, ['try', 'one', path, '--json'])).stdout).runs[0].findings.map((f: any) => f.message);
+      assert.match(alone, new RegExp(`^\\d+ nodes to ${sources[path]!.length}, first export_statement `));
+      for (const rule of rules) expected.push(`${rule}  ${path}  ${alone}`);
+    }
+    assert.deepEqual(said, expected.sort());
+    assert.equal(new Set(expected.map((line) => line.split('  ')[2])).size, 12);
+  });
+});

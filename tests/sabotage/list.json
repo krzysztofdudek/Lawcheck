@@ -558,5 +558,29 @@
     "find": "trees.set(file.path, { text: file.text, answer });",
     "replace": "void answer;",
     "killedBy": "test 1395: every rule of a run that asks for the tree of a file gets the tree a fresh parse gives, and the file is parsed once in the run"
+  },
+  {
+    "id": "runner-clean",
+    "promise": "test 1397",
+    "file": "src/runner.ts",
+    "find": "clean: !leftBehind() && clean() }",
+    "replace": "clean: true }",
+    "killedBy": "test 1397: after a rule that leaves something a later rule could meet, the next rule gets a fresh runner and meets none of it"
+  },
+  {
+    "id": "runner-own-modules",
+    "promise": "test 1397",
+    "file": "src/runner.ts",
+    "find": "return tag === null ? url : `${url}?${tag[0].slice(1)}`;",
+    "replace": "return url;",
+    "killedBy": "test 1397: two rules that import the same helper each get their own copy of it, and the module of a rule has a URL that ends with its id and still names its file"
+  },
+  {
+    "id": "rules-again-alone",
+    "promise": "test 1398",
+    "file": "src/rules.ts",
+    "find": "else if ('crash' in tried.outcome && tried.timed !== true && !run.signal?.aborted) results[index] = await runRule({ ...run, quiet: true });",
+    "replace": "else if (false) results[index] = await runRule({ ...run, quiet: true });",
+    "killedBy": "test 1398: the findings of a rule count toward the run once, whether it ran in a shared runner or again alone"
   }
 ]

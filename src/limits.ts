@@ -1,5 +1,5 @@
 import { closeSync, constants, fstatSync, openSync, readFileSync, readSync } from 'node:fs';
-import { freemem } from 'node:os';
+import { availableParallelism, freemem } from 'node:os';
 import { join } from 'node:path';
 import type { ErrorItem } from './output.js';
 
@@ -29,6 +29,28 @@ export const MEMORY_CHECK_MS = 5;
 // The most memory a run may hold: MEMORY_BYTES, or less on a smaller machine.
 export function runBound(total: number): number {
   return Math.min(MEMORY_BYTES, Math.floor((total * MEMORY_SHARE) / MiB) * MiB);
+}
+
+// The processors this run may use at once: what Node counts, or fewer where a cgroup gives the process a smaller share of processor time, as a container started with a limit of processors does. Node's own count leaves that share out.
+export function cores(counted: number = availableParallelism(), share: string | null = cpuShare()): number {
+  const [quota, period] = (share ?? '').trim().split(/\s+/).map(Number);
+  if (quota === undefined || period === undefined || !(quota > 0) || !(period > 0)) return Math.max(1, counted);
+  return Math.max(1, Math.min(counted, Math.ceil(quota / period)));
+}
+
+function cpuShare(): string | null {
+  if (process.platform !== 'linux') return null;
+  try {
+    const own = /^0::(\/.*)$/m.exec(readFileSync('/proc/self/cgroup', 'utf8'));
+    if (own !== null) return readFileSync(join('/sys/fs/cgroup', own[1]!, 'cpu.max'), 'utf8');
+  } catch {
+    // A cgroup of the first version, or none: its two files below.
+  }
+  try {
+    return `${readFileSync('/sys/fs/cgroup/cpu/cpu.cfs_quota_us', 'utf8').trim()} ${readFileSync('/sys/fs/cgroup/cpu/cpu.cfs_period_us', 'utf8').trim()}`;
+  } catch {
+    return null;
+  }
 }
 
 // The most memory the syntax trees kept for the rules of one run may take: a third of what the run may hold. A tree past it is parsed again for each rule that asks.

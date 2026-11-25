@@ -29,7 +29,7 @@ export function check({ files }) {
 | `uses()` | a promise of the file's [uses](#the-uses), the ones that `may_use` judges |
 | `repo.filesOf(typeId)` | the sorted paths of every file of that type and its subtypes, returned directly and not as a promise; an unknown id throws |
 
-Lawcheck reads the tree and the uses only when the rule calls `tree()` or `uses()`. For a rule that calls neither, Lawcheck parses nothing. Within one call of `check`, a second call of `tree()` or `uses()` returns the promise of the first. A rule may keep a file from an earlier call of `check`. On that file, `tree()` rejects with `tree() was called after its call of check ended`. `uses()` rejects with the same message, with `uses()` in place of `tree()`.
+Lawcheck reads the tree and the uses only when the rule calls `tree()` or `uses()`. For a rule that calls neither, Lawcheck parses nothing. In one run Lawcheck parses a file once, and every rule that calls `tree()` on it gets that tree. On a check of many files it parses several files at once, on as many threads as the machine has processors. Within one call of `check`, a second call of `tree()` or `uses()` returns the promise of the first. A rule may keep a file from an earlier call of `check`. On that file, `tree()` rejects with `tree() was called after its call of check ended`. `uses()` rejects with the same message, with `uses()` in place of `tree()`.
 
 In `path`, Lawcheck writes a backslash, a line feed, a carriage return and a byte that is not UTF-8 as `\\`, `\n`, `\r` and `\xHH`. A `path` written that way no longer names the file on disk, so read the file's text from `text`.
 
@@ -196,13 +196,21 @@ Lawcheck does not load a rule that has no file to judge in the run.
 
 ## The runner
 
-Lawcheck runs each script rule in a Node process of its own. This page calls that process the rule runner. Lawcheck's own folder is the folder where the `lawcheck` package is installed. The rule runner starts in this state:
+Lawcheck runs script rules in Node processes. This page calls such a process the rule runner. Lawcheck's own folder is the folder where the `lawcheck` package is installed. The rule runner starts in this state:
 
 - Node's flag `--permission` limits its reads to the root and to Lawcheck's own folder;
 - `process.env` is empty, because the rule runner gets none of the caller's variables;
 - its working directory is the root.
 
-Lawcheck writes what the rule prints, on either stream, to its own standard error. A print waits until Lawcheck has taken it, so the rule runner holds none of what the rule prints, however much that is. The time a print waits counts toward the rule's 30 seconds. Lawcheck exits once its caller has taken every line from that stream, so a caller that reads it late loses none. A run that a signal, `memory-too-large` or `step-too-slow` ends does not wait for that.
+A check starts one rule runner. The runner takes one whole rule after another, and each rule judges all its files there, in order. While rules still wait, Lawcheck starts more runners, never more than the machine has processors. `lawcheck try` runs its rule in a runner of its own.
+
+A runner takes the next rule only when the rule before it left nothing that the next one could meet. A rule that leaves any of these is the last rule of its runner, and the next rule gets a fresh one: a timer or other work still running, a changed global or built-in object, a changed export of a built-in module, a variable in `process.env`, another working directory, a listener on the process object, a loaded CommonJS module, or a printed line. So a rule never sees what another rule did, as when each rule had a process of its own.
+
+Each rule loads its own copies of the modules it imports. Two rules that import the same helper each get that helper with its own state. To keep the copies apart, the URL of a rule's module and of each file it imports ends with `?rule=<id>`, so `import.meta.url` holds that ending. `fileURLToPath(import.meta.url)`, `import.meta.dirname`, `import.meta.filename` and `new URL('./x', import.meta.url)` give the same paths as without it.
+
+When a rule ends with anything but findings in a runner that other rules used, Lawcheck runs that rule once more in a runner of its own and reports the result of that run. This covers a throw, a wrong return, a failure in the background and a runner that ended. So `rule-crashed` names the rule that crashes alone, in the words below, and the other rules of the check are judged as usual. A rule that passes its 30 seconds is not run again.
+
+Lawcheck writes what the rule prints, on either stream, to its own standard error. It drops what a rule prints in that second run, because you have read it from the first. A print waits until Lawcheck has taken it, so the rule runner holds none of what the rule prints, however much that is. The time a print waits counts toward the rule's 30 seconds. Lawcheck exits once its caller has taken every line from that stream, so a caller that reads it late loses none. A run that a signal, `memory-too-large` or `step-too-slow` ends does not wait for that.
 
 A rule has 30 seconds to load and 30 seconds for each call. A rule that takes longer is `rule-crashed`. All script rules of one run have 600 seconds together. The time Lawcheck takes to read a tree or the uses counts toward the 600 seconds of the run. It does not count toward the 30 seconds of any call. A rule can ask for a tree or the uses while Lawcheck reads for another rule, and that wait does not count toward its 30 seconds either. A run that goes past the 600 seconds stops with `rules-too-slow`. Lawcheck reports that code at the file that each unfinished rule was judging.
 

@@ -14,8 +14,11 @@ import { availableNow, MEMORY_CHECK_MS, MEMORY_RESERVE_BYTES, memoryCase, mib, r
 import type { MemoryCase } from './limits.js';
 import { renderErrors, safeJson, safeText } from './output.js';
 import type { ErrorItem } from './output.js';
-import { lastStep, progressBuffer } from './progress.js';
+import { askPoolToEnd, lastStep, progressBuffer } from './progress.js';
 import { absolutePath, NO_CURRENT_FOLDER, serveGuard } from './programs.js';
+
+// How long the pool of parsing threads has to end once the memory guard asked it to, before the run ends as it would without a pool.
+const POOL_END_MS = 2_000;
 
 // Each case names a step the user can take: a file whose uses are read leaves the types with may_use, or the types of the rule that read them; a file read only for what it declares leaves the files git lists; a run or a machine short of memory gets more of it.
 export function memoryError(found: Exclude<MemoryCase, null>, what: string, file: string | null, command: string): ErrorItem {
@@ -168,6 +171,7 @@ export function start(): void {
   const total = totalmem();
   let stepAt = -1;
   let stepRss = 0;
+  let poolAskedAt = 0;
   const memory = setInterval(() => {
     if (writing) return;
     const rss = process.memoryUsage.rss();
@@ -178,6 +182,13 @@ export function start(): void {
     }
     const found = memoryCase({ rss, stepGrowth: last.file === null ? null : rss - stepRss, available: availableNow(), total });
     if (found === null) return;
+    // While the pool parses several files at once, no step names the file that grows the run: the pool ends first, and the run ends only if its memory is still too large then, under a step that names one file.
+    const asked = askPoolToEnd(progress);
+    if (asked === 'asked') poolAskedAt = Date.now();
+    if (asked !== 'none' && Date.now() - poolAskedAt < POOL_END_MS) {
+      stepAt = -1;
+      return;
+    }
     clearInterval(memory);
     fail(memoryError(found, last.what, last.file, named ?? 'check'));
   }, MEMORY_CHECK_MS);

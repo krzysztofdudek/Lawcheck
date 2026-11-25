@@ -4,8 +4,6 @@ import { dirname, extname, join, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { version as lawcheckVersion } from './args.js';
 import { LOCAL } from './verdicts.js';
-import * as TreeSitter from 'web-tree-sitter';
-import { createParserHost, fileSha256 } from '@chrisdudek/runes/ast';
 import { getLanguageForExtension, primaryExtensionForLanguage, relationLanguageForPath } from '@chrisdudek/runes/grammars';
 import {
   assembleCsharpCandidates,
@@ -26,8 +24,11 @@ import { firstLine } from './law.js';
 import type { ErrorItem } from './output.js';
 import { decode, isBinary } from './types.js';
 import { step } from './progress.js';
+import { flatten, parserHost } from './flat.js';
+import type { FlatTree } from './flat.js';
+import { ALONE, ParsePool } from './trees.js';
 import { totalmem } from 'node:os';
-import { readError, treeMemoryBound, USES_FILE_BYTES } from './limits.js';
+import { cores, readError, treeMemoryBound, USES_FILE_BYTES } from './limits.js';
 import type { TypedFile } from './types.js';
 
 export type Reason = 'unfollowed' | 'unowned';
@@ -73,12 +74,7 @@ export interface Runes {
 export const GRAMMARS = join(dirname(fileURLToPath(new URL('../package.json', import.meta.url))), 'dist', 'grammars');
 
 export const RUNES: Runes = {
-  createHost: (grammarDir) =>
-    createParserHost({
-      runtime: TreeSitter,
-      runtimeIdentity: () => fileSha256(fileURLToPath(import.meta.resolve('web-tree-sitter/web-tree-sitter.wasm'))),
-      grammarDirs: [grammarDir],
-    }),
+  createHost: parserHost,
   extractorForLanguage,
   extractCsharpRefs,
   assembleCsharpCandidates,
@@ -599,14 +595,8 @@ export async function loadGrammars(grammarDir: string = GRAMMARS, runes: Runes =
 
 export type Absent = 'too-large' | 'no-reader' | 'reader-failed';
 
-// A tree crosses to the rule runner as numbers, NODE_INTS to a node in preorder (parent, type, field, named, start, end, line, column), so neither side recurses on a deep tree; src/runner.ts reads the same layout.
-export const NODE_INTS = 8;
-
-export interface FlatTree {
-  types: string[];
-  fields: string[];
-  nodes: Int32Array;
-}
+export { NODE_INTS } from './flat.js';
+export type { FlatTree } from './flat.js';
 
 export type TreeAnswer = { language: string; tree: FlatTree; absent: null } | { language: string | null; tree: null; absent: Absent };
 
@@ -614,47 +604,10 @@ export type RuleUse = { line: number; type?: string | null } & Answer;
 
 export type UsesAnswer = { uses: RuleUse[]; absent: null } | { uses: null; absent: Absent };
 
-type Tree = ParsedFile['tree'];
 
-function flatten(tree: Tree): FlatTree {
-  const types = new Map<string, number>();
-  const fields = new Map<string, number>();
-  const id = (names: Map<string, number>, name: string) => {
-    let at = names.get(name);
-    if (at === undefined) names.set(name, (at = names.size));
-    return at;
-  };
-  let nodes = new Int32Array(NODE_INTS * 1024);
-  let count = 0;
-  const parents: number[] = [];
-  const cursor = tree.walk();
-  try {
-    for (;;) {
-      if ((count + 1) * NODE_INTS > nodes.length) {
-        const grown = new Int32Array(nodes.length * 2);
-        grown.set(nodes);
-        nodes = grown;
-      }
-      const field = cursor.currentFieldName;
-      const start = cursor.startPosition;
-      nodes.set(
-        [parents.at(-1) ?? -1, id(types, cursor.nodeType), field === null ? -1 : id(fields, field), cursor.nodeIsNamed ? 1 : 0, cursor.startIndex, cursor.endIndex, start.row + 1, start.column],
-        count * NODE_INTS,
-      );
-      const self = count++;
-      if (cursor.gotoFirstChild()) {
-        parents.push(self);
-        continue;
-      }
-      while (!cursor.gotoNextSibling()) {
-        if (!cursor.gotoParent()) return { types: [...types.keys()], fields: [...fields.keys()], nodes: nodes.slice(0, count * NODE_INTS) };
-        parents.pop();
-      }
-    }
-  } finally {
-    cursor.delete();
-  }
-}
+// How many files are parsed ahead of the one a rule asked for, and how many must be left to parse before the pool starts.
+const AHEAD = 32;
+const POOL_FROM = 8;
 
 export interface Owners {
   bytes: (path: string) => Uint8Array;
@@ -686,6 +639,7 @@ export interface RuleReadsInput extends Owners {
   files: string[];
   grammarDir?: string;
   treeBytes?: number;
+  threads?: number;
 }
 
 export interface RuleFileText {
@@ -711,27 +665,67 @@ export function ruleReads(input: RuleReadsInput, runes: Runes = RUNES): Reads {
     return held !== undefined && held.text === file.text ? held.answer : undefined;
   };
 
+  const keep = (file: RuleFileText, language: string, flat: FlatTree): TreeAnswer => {
+    const answer: TreeAnswer = { language, tree: flat, absent: null };
+    if (trees.has(file.path)) return answer;
+    if (kept + flat.nodes.byteLength > bound) full = true;
+    else {
+      trees.set(file.path, { text: file.text, answer });
+      kept += flat.nodes.byteLength;
+    }
+    return answer;
+  };
+
+  // What a file's tree is without a parse, or the text to parse.
+  const parsable = (file: RuleFileText): TreeAnswer | ScriptView => {
+    const reader = readerOf(file.path, file.text, siblings, runes);
+    if (!reader.reader || reader.view === null) return { language: null, tree: null, absent: 'no-reader' };
+    if (Buffer.byteLength(reader.view.content, 'utf8') > USES_FILE_BYTES) return { language: reader.view.language, tree: null, absent: 'too-large' };
+    return reader.view;
+  };
+  const override = (view: ScriptView) => (getLanguageForExtension(extname(view.parsePath)) === view.language ? undefined : view.language);
+
   const tree = async (file: RuleFileText, asker: string | undefined): Promise<TreeAnswer> => {
     const held = known(file);
     if (held !== undefined) return held;
-    const reader = readerOf(file.path, file.text, siblings, runes);
-    if (!reader.reader || reader.view === null) return { language: null, tree: null, absent: 'no-reader' };
-    const { language, parsePath, content } = reader.view;
-    if (Buffer.byteLength(content, 'utf8') > USES_FILE_BYTES) return { language, tree: null, absent: 'too-large' };
+    const view = parsable(file);
+    if ('absent' in view) return view;
     host ??= runes.createHost(input.grammarDir ?? GRAMMARS);
     step(`reading the tree of ${file.path}${asker === undefined ? '' : ` for ${asker}`}`, file.path);
     try {
-      const override = getLanguageForExtension(extname(parsePath)) === language ? undefined : language;
-      const flat = await host.withParsedFile(parsePath, content, flatten, override);
-      const answer: TreeAnswer = { language, tree: flat, absent: null };
-      if (!trees.has(file.path) && kept + flat.nodes.byteLength <= bound) {
-        trees.set(file.path, { text: file.text, answer });
-        kept += flat.nodes.byteLength;
-      }
-      return answer;
+      return keep(file, view.language, await host.withParsedFile(view.parsePath, view.content, flatten, override(view)));
     } catch {
-      return { language, tree: null, absent: 'reader-failed' };
+      return { language: view.language, tree: null, absent: 'reader-failed' };
     }
+  };
+
+  // A rule that asks for the tree of one of its files will most likely ask for the next ones, so a pool of threads parses those ahead, several at once, and every rule of the run takes them from there. The pool starts only when POOL_FROM files or more are left to parse, so the check of a few files starts no thread, and it parses nothing ahead once the kept trees have reached their bound. Only the readers of this package cross to a thread, so a run with other readers parses in its turn, and so does a run that has one processor.
+  const threads = input.threads ?? cores();
+  const pool = runes === RUNES && threads > 1 ? new ParsePool(input.grammarDir ?? GRAMMARS, threads) : null;
+  const parsing = new Map<string, { text: string; answer: Promise<TreeAnswer> }>();
+  let full = false;
+  const pooled = (file: RuleFileText, asker: string | undefined): Promise<TreeAnswer> => {
+    const going = parsing.get(file.path);
+    if (going !== undefined && going.text === file.text) return going.answer;
+    const view = parsable(file);
+    if ('absent' in view) return Promise.resolve(view);
+    const answer = pool!.parse(view.parsePath, view.content, override(view)).then((flat): TreeAnswer | Promise<TreeAnswer> => {
+      if (parsing.get(file.path)?.answer === answer) parsing.delete(file.path);
+      if (flat === ALONE) return inTurn(() => tree(file, asker));
+      return flat === null ? { language: view.language, tree: null, absent: 'reader-failed' } : keep(file, view.language, flat);
+    });
+    answer.catch(() => undefined);
+    if (going === undefined) parsing.set(file.path, { text: file.text, answer });
+    return answer;
+  };
+  const ahead = (file: RuleFileText, list: RuleFileText[], at: number): RuleFileText[] => {
+    const out = [file];
+    if (full) return out;
+    for (let next = at + 1; next < list.length && out.length < AHEAD; next++) {
+      const other = list[next]!;
+      if (known(other) === undefined && !parsing.has(other.path)) out.push(other);
+    }
+    return out;
   };
 
   const failed: UsesAnswer = { uses: null, absent: 'reader-failed' };
@@ -798,8 +792,18 @@ export function ruleReads(input: RuleReadsInput, runes: Runes = RUNES): Reads {
         answers.set(path, answer);
       }
     };
+    let places: Map<string, number> | null = null;
     return async (what, file) => {
-      if (what === 'tree') return known(file) ?? inTurn(() => tree(file, asker));
+      if (what === 'tree') {
+        const held = known(file);
+        if (held !== undefined) return held;
+        if (pool === null || pool.ended) return inTurn(() => tree(file, asker));
+        places ??= new Map(bound.map((one, at) => [one.path, at]));
+        const files = ahead(file, bound, places.get(file.path) ?? bound.length);
+        if (!pool.started && files.length < POOL_FROM) return inTurn(() => tree(file, asker));
+        const [own] = files.map((one) => pooled(one, asker));
+        return own!;
+      }
       const reader = readerOf(file.path, file.text, siblings, runes);
       if (!reader.reader) return { uses: null, absent: 'no-reader' };
       if (tooLarge(reader.view)) return { uses: null, absent: 'too-large' };

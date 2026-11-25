@@ -3,7 +3,7 @@ import { LIMITS_VARIABLE, platformSkip, waitUntil } from '../harness/tool.ts';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
-import { append, check, D, D_PATH, findingLines, lawcheck, NO_CONSOLE, ROOT, setRule, startLawcheck, TEST4, withSample, write } from './helpers.ts';
+import { append, check, D, D_PATH, findingLines, inTemp, lawcheck, newRepository, NO_CONSOLE, ROOT, setRule, startLawcheck, TEST4, withSample, write } from './helpers.ts';
 import { assertCrashes, CRASH, hangScenario, withRule, withRules } from './rule-bench.ts';
 import { PAST_USER_SET_MS, RULE_CALL_MS, TEST_RULE_MS, USER_SET_RULE_MS } from '../numbers.ts';
 import { LIMITS } from '../../dist/rules.js';
@@ -265,5 +265,53 @@ test('check-slice §3: the runner takes no flag the tool was started with', asyn
     assert.equal(flags[1], `--allow-fs-read=${realpathSync(s)}`);
     assert.ok(isAbsolute(flags[2].slice('--allow-fs-read='.length)), flags[2]);
     assert.equal(flags[3], '--no-experimental-sqlite');
+  });
+});
+
+function manyRules(dir: string, rules: Record<string, string>): string {
+  const ids = Object.keys(rules);
+  const law = `lawcheck: 0.1.0\n\nrules:\n${ids.map((rule) => `  ${rule}:\n    why: The rule shows how the rules of a check run.\n`).join('')}\ntypes:\n  code:\n    paths: ["src/**"]\n    rules: [${ids.join(', ')}]\n`;
+  return newRepository(dir, { '.lawcheck/law.yaml': law, 'src/a.ts': 'export const a = 1;\n', 'src/b.ts': 'export const b = 2;\n', ...Object.fromEntries(ids.map((rule) => [`.lawcheck/rules/${rule}.mjs`, rules[rule]!])) });
+}
+
+test('test 1400: the script rules of a check run in fewer runners than there are rules, and each rule gives the findings it gives when it is the only rule', async () => {
+  await inTemp(async (dir) => {
+    const ids = ['r1', 'r2', 'r3', 'r4', 'r5', 'r6', 'r7', 'r8'];
+    const rule = (id: string) => `let calls = 0;\nexport function check({ files: [file] }) { return [{ message: \`${id} call \${++calls} on \${file.path} in \${process.pid}\` }]; }\n`;
+    const repo = manyRules(dir, Object.fromEntries(ids.map((id) => [id, rule(id)])));
+    const run = await lawcheck(repo, ['check', '--full', '--json']);
+    assert.equal(run.stderr, '');
+    const findings = JSON.parse(run.stdout).findings as { rule: string; file: string; message: string }[];
+    assert.deepEqual(
+      findings.map((finding) => `${finding.rule} ${finding.file} ${finding.message.replace(/ in \d+$/, '')}`).sort(),
+      ids.flatMap((id) => [`${id} src/a.ts ${id} call 1 on src/a.ts`, `${id} src/b.ts ${id} call 2 on src/b.ts`]).sort(),
+    );
+    const runners = new Set(findings.map((finding) => / in (\d+)$/.exec(finding.message)![1]));
+    assert.ok(runners.size < ids.length, `the 8 rules ran in ${runners.size} runners`);
+    for (const id of ids) assert.equal(new Set(findings.filter((finding) => finding.rule === id).map((finding) => / in (\d+)$/.exec(finding.message)![1])).size, 1, `${id} judged both files in one runner`);
+  });
+});
+
+test('test 1400: among the rules of a check, the rule that throws, the one that ends its process and the one that hangs are each named, with the words each gets alone, and no other rule is', async () => {
+  await inTemp(async (dir) => {
+    const fine = "export function check() { return [{ message: 'fine' }]; }\n";
+    const repo = manyRules(dir, {
+      first: fine,
+      throws: "export function check({ files: [file] }) { if (file.path === 'src/b.ts') throw new Error('broke'); return []; }\n",
+      second: fine,
+      exits: 'export function check() { process.exit(0); }\n',
+      hangs: "export function check() { console.error('hanging'); while (true) {} }\n",
+      last: fine,
+    });
+    const run = await startLawcheck(repo, ['check', '--full', '--json'], { limits: { ruleMs: TEST_RULE_MS }, stderr: /^hanging\n$/ }).ended;
+    assert.equal(run.code, 2);
+    assert.deepEqual(
+      (JSON.parse(run.stdout).errors as { code: string; file: string; message: string }[]).map((error) => `${error.code} ${error.file} ${error.message}`).sort(),
+      [
+        'rule-crashed .lawcheck/rules/exits.mjs ends before answering on src/a.ts',
+        `rule-crashed .lawcheck/rules/hangs.mjs passes ${TEST_RULE_MS / 1000} seconds on src/a.ts`,
+        'rule-crashed .lawcheck/rules/throws.mjs throws on src/b.ts: broke',
+      ],
+    );
   });
 });
