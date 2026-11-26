@@ -6,7 +6,7 @@ GOAL: after one silent loop, a developer who writes code with an agent has seen 
 
 OUTPUT: HyperFrames, 1920 x 1080, 30 fps. The loop is also a GIF of 1200 x 675 at 12 fps, with one palette made from `brand/tokens.json`. A chapter is an MP4 with its subtitles in WebVTT and a still of its first screen.
 
-TIME: the loop is 28.9 s, 867 frames, with no sound. A chapter lasts 25 to 60 s. Its only sound is the narration in the voice Lektor: each frame's sentences start 0.4 s after the frame and end at least 0.3 s before the next, with 0.35 s between two sentences.
+TIME: the loop is 29.6 s, 888 frames, with no sound. A chapter lasts 25 to 60 s. Its only sound is the narration in the voice Lektor: each frame's sentences start 0.4 s after the frame and end at least 0.3 s before the next, with 0.35 s between two sentences.
 
 LOOK:
 
