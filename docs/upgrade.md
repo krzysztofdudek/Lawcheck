@@ -35,7 +35,7 @@ From alpha.4, alpha.5 changed these results, and alpha.6 keeps them:
 
 The first row of this table is the one that can fail a law that passed on alpha.4. In a repository where `cs/app/Ledger.cs` and `cs/infra/Ledger.cs` each hold a part of one C# class, and the `may_use` list of a third type allows neither of their types, alpha.5 reports a `forbidden-use` in a file of the third type that names the class. Its message names both files with their types, as `cs/app/Ledger.cs (app)` and `cs/infra/Ledger.cs (infra)`. alpha.4 passes the same file with `1 unresolved use` in its first line. A use with one allowed file among those it could name still passes in alpha.5.
 
-From alpha.1, alpha.2 changed these results, and every later version keeps them:
+From alpha.1, alpha.2 changed these results, and alpha.3 to alpha.6 keep them:
 | In the code | alpha.2 |
 |---|---|
 | a Python package under a folder that `pyproject.toml` or `setup.cfg` names | a use of its files |
@@ -85,7 +85,7 @@ alpha.5 and alpha.6 keep a cache of what Java, Kotlin, C#, Ruby and Rust files d
 - From alpha.4, the workflow of `lawcheck docs ci` runs its second check with `--law-from`. Before you replace the lines of your alpha.4 workflow with the new one, read [A change to the law](ci.md#a-change-to-the-law): a rule of the base that imports a file outside `.lawcheck/rules/` stops that check with `rule-crashed`.
 - From alpha.4, `lawcheck doctor` reads the uses of the files whose `may_use` list is in force, so it takes about as long as `lawcheck check --full`. A CI job that runs `doctor` on every push takes that time on every push ([Run doctor on a machine, not in the job](ci.md#_4-run-doctor-on-a-machine-not-in-the-job)).
 - From alpha.3 or older, a script rule that uses the network gets an error from the call itself, on every version of Node. On Node 24, alpha.3 let the call through. On Node 25 and later, alpha.3 passed Node's refusal to the callback, the `error` event or the promise. A rule that does not catch the error at the call ends as `rule-crashed`. The check then exits with code 2. Keep the data the rule needs in a file of the repository, and let the rule read that file.
-- From alpha.1, a file that alpha.1 passed can hold a use that every later version forbids. Step 4 lists those files as well.
+- From alpha.1, a file that alpha.1 passed can hold a use that alpha.2 to alpha.6 forbid. Step 4 lists those files as well.
 - From alpha.1, the install grows by about 34 MB. The grammars of the languages take that space. A grammar is the file that describes the syntax of one language.
 - CI and the git hooks run the version that the project's lockfile pins. Commit `package.json` and the lockfile with the upgrade. Then the CI job, the hooks and each machine's copy in the project run alpha.6.
 
