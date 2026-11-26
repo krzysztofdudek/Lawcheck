@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { chmodSync, existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { delimiter, join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { parse } from 'yaml';
 import { COMMIT_GROUPS, EMPTY_GROUPS, nightly, NIGHTLY_GROUPS, ROOT, setFiles } from '../harness/sets.ts';
 import { PLATFORM_SKIPS } from '../harness/skips.ts';
@@ -409,4 +410,13 @@ test('test 1433: release.yml takes one green whole Nightly on the tagged commit,
 test('test 1434: the nightly runs the commit set once on each system', () => {
   const runs = read('nightly.yml').jobs.commit!.steps!.map((step) => step.run ?? '').filter((run) => run.startsWith('npm test'));
   assert.deepEqual(runs, ['npm test']);
+});
+
+test('test 1502: test 1430 passes in the process of a whole run, where the runner turns the run-time tie of the reporter on', () => {
+  const env: NodeJS.ProcessEnv = { ...process.env, LAWCHECK_SPEED: 'commit', LAWCHECK_TIE: '1', LAWCHECK_STARTED: '' };
+  delete env.NODE_TEST_CONTEXT;
+  const harness = pathToFileURL(join(ROOT, 'tests', 'harness', 'tool.ts')).href;
+  const run = spawnSync(process.execPath, ['--test', `--import=${harness}`, '--test-reporter=tap', '--test-name-pattern=/^test 1430:/', SELF], { cwd: ROOT, env, encoding: 'utf8' });
+  assert.equal(run.status, 0, run.stdout + run.stderr);
+  assert.match(run.stdout, /^# pass 1$/m);
 });
