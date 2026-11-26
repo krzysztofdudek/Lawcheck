@@ -690,3 +690,16 @@ A dispatch of nightly.yml takes three inputs: `jobs`, `tests` and `os`. With non
 
 Why: this is the owner's decision. A second whole run and repeated rounds of the commit set cost more time than the faults they were meant to show were worth, and proving one fix must not take a whole run. A skipped job does not turn a run red, so GitHub reports a run of chosen jobs as a success like a whole one. The run name is what the list of runs says about the inputs of a run, so the release workflow can tell the two apart with the one request it already makes. A name it asks for exactly leaves out every run whose workflow file did not set it.
 
+## 234. A test that fails only its time budget runs once more alone
+
+A test fails when it takes longer than its budget (harness-6). In the first run of a round of `tests/run.ts`, a test whose only failure is that budget passes with a mark the harness gives it, so node still judges the rest of its file: another test, a describe, an error or a rejection after a test ended, an exit code, a process killed after its tests. Once a test of a file has failed, node folds those into one failure of the file and reports nothing more of them.
+
+When node and the reporter end that first run green, the runner runs each marked test once more, alone: one process, that one test, and nothing else of the run still going. When every one of them passes there, the run counts each once, as passed, lists it under "slow under load" with both times, and stays green. When one of them is red there, the run is red. When anything else of the first run failed, the run is red and no marked test runs again. A test red on an assertion, or on any other check of the harness, never runs again, even when it also took longer than its budget. A deadline that a test asserts, such as the hook deadlines of R-86, is an assertion, so it never runs again either.
+
+With a recording (`LAWCHECK_RECORD`), each marked test's outcome joins the events of the shard as one event of its own. `tests/harness/merge.ts` judges the merged events with the reporter, which counts a marked test as passed only when its green second run is recorded, and as red otherwise.
+
+`LAWCHECK_TEST_BUDGET_MS` lowers the budget of every test of a run to that many milliseconds and never raises one. The tests of the second run use it for a made-up test that misses its budget in a moment.
+
+Why: this is the owner's decision (the owner's ruling drugi-przebieg-rozstrzyga), and his row of the threshold kind in tests/weakenings.md approves this change of what a budget means. On the macOS runner of the Nightly, test 1410 took 21.0, 21.2 and 23.4 seconds against its budget of 20 seconds, and every assertion of it passed. A budget missed under load turned the release gate red with no fault in the product. A test that really got slower misses its budget again when it runs alone, so the second run tells the two apart.
+
+Not taken: a budget for test 1410 set from its measured macOS times. It fixes one test, and the next test that misses its budget under load turns the gate red again. Not taken either: judging a late test from its failure. Node then hides the other failures of its file, and a green second run turned them green.

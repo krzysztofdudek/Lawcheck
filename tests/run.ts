@@ -1,7 +1,7 @@
 import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { availableParallelism } from 'node:os';
-import { join, resolve } from 'node:path';
+import { join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { COMMIT_TARGET_MS, LOOP_TARGET_MS, SEED, SLOW_TESTS, TEST_BUDGET_MS, testBudget } from './numbers.ts';
 import type { Speed } from './numbers.ts';
@@ -9,6 +9,7 @@ import { chosenTests, everyTestFile, holding, ID, idPattern } from './harness/ch
 import { COMMIT_GROUPS, EMPTY_GROUPS, groupDirs, NIGHTLY_GROUPS, perPushFiles, perPushTests, ROOT, SERIAL_DIRS, setFiles, TESTS } from './harness/sets.ts';
 import type { System } from './harness/sets.ts';
 import { readPlan } from './harness/shards.ts';
+import { runRound } from './harness/alone.ts';
 
 const REPORTER = pathToFileURL(join(TESTS, 'harness', 'reporter.ts')).href;
 const HARNESS = pathToFileURL(join(TESTS, 'harness', 'tool.ts')).href;
@@ -218,12 +219,10 @@ function main(): void {
   // The large limits share one container of 1 GB, so their files run one at a time; Node takes this flag only on its command line, never from NODE_OPTIONS.
   const serial = files.some((file) => SERIAL_DIRS.some((dir) => file.startsWith(`tests/${dir}/`)) && file.endsWith('.nightly.test.ts'));
   const slowest = Math.max(testBudget(''), ...Object.keys(SLOW_TESTS).map((key) => testBudget(key)));
+  const base = ['--test', `--import=${HARNESS}`, `--test-timeout=${slowest + TEST_BUDGET_MS}`];
+  const reporter = (verdict: string): string => `${REPORTER}?${narrowed === null ? '' : `chosen=${encodeURIComponent(narrowed.wanted.join(','))}&`}verdict=${encodeURIComponent(verdict)}`;
   const args = [
-    '--test',
-    `--import=${HARNESS}`,
-    `--test-reporter=${narrowed === null ? REPORTER : `${REPORTER}?chosen=${encodeURIComponent(narrowed.wanted.join(','))}`}`,
     '--test-reporter-destination=stdout',
-    `--test-timeout=${slowest + TEST_BUDGET_MS}`,
     ...(serial ? ['--test-concurrency=1'] : []),
     ...patterns.map((p) => `--test-name-pattern=${p}`),
     ...parsed.skips.map((id) => `--test-skip-pattern=${idPattern(id)}`),
@@ -243,10 +242,12 @@ function main(): void {
   // A test that starts this runner itself must run all it names, whatever the run around it chose.
   delete env.LAWCHECK_ONLY;
   let failed = false;
+  const events = recording === null ? null : join(recording, `events-${tag}.jsonl`);
+  const where = (file: string): string => relative(ROOT, file).split('\\').join('/');
   for (let round = 1; round <= parsed.repeat; round++) {
     if (parsed.repeat > 1) process.stdout.write(`round ${round} of ${parsed.repeat}\n`);
-    const result = spawnSync(process.execPath, args, { cwd: ROOT, env: { ...env, LAWCHECK_STARTED: String(round === 1 ? began : Date.now()) }, stdio: 'inherit' });
-    if (result.status !== 0) failed = true;
+    const roundEnv = { ...env, LAWCHECK_STARTED: String(round === 1 ? began : Date.now()) };
+    if (runRound((verdict) => [...base, `--test-reporter=${reporter(verdict)}`, ...args], base, roundEnv, events, (text) => process.stdout.write(text), where, ROOT)) failed = true;
   }
   if (recording !== null) {
     const meta = { system: process.platform, node: process.version, root: ROOT, slots, shard: parsed.shard?.index ?? 1, of: parsed.shard?.count ?? 1, files, started: began, ended: Date.now(), status: failed ? 1 : 0 };
