@@ -37,6 +37,16 @@ export function patchText(path: unknown): string {
   return `*** Begin Patch\n*** Update File: ${shown}\n*** End Patch\n`;
 }
 
+// The hook parses its whole standard input, so an input is a JSON object only when JSON.parse makes one of it: {" starts like an object and is no JSON.
+export function jsonObject(input: string): boolean {
+  try {
+    const value: unknown = JSON.parse(input);
+    return value !== null && typeof value === 'object' && !Array.isArray(value);
+  } catch {
+    return false;
+  }
+}
+
 export function hookInputs(s: string): { arbitrary: fc.Arbitrary<[string, string, string, string | undefined]>; claim: Claim<[string, string, string, string | undefined]> } {
   const id = fc.oneof({ weight: 2, arbitrary: fc.constant('x'.repeat(5000)) }, { weight: 3, arbitrary: fc.constantFrom('s1', '../x', '', 'a b', 'ż', 'y'.repeat(129)) }, { weight: 1, arbitrary: fc.string({ maxLength: 10 }) }, { weight: 1, arbitrary: fc.integer() });
   const field = fc.oneof(fc.constantFrom(s, '/', join(s, 'src'), join(s, D_PATH), join(s, 'src/core/new\nline.ts'), 'relative/path.ts', ''), fc.anything());
@@ -49,7 +59,7 @@ export function hookInputs(s: string): { arbitrary: fc.Arbitrary<[string, string
     { weight: 2, arbitrary: fc.oneof(fc.string({ maxLength: 40 }), fc.json(), fc.constantFrom('', '{', 'null', '[]', '"x"', '\ufeff{"session_id":"s1","cwd":"/"}')) },
   );
   const arbitrary = fc.tuple(fc.constantFrom(...EVENTS), input, fc.constantFrom('', 'runner: global\n', '\ufeffrunner: global\n', 'runner: bogus\n', '\ufeffrunner: bogus\n', '\ufeffrunner: global  # pinned\r\n'), fc.constantFrom(undefined, 'codex', 'copilot'));
-  const claim: Claim<[string, string, string, string | undefined]> = { classes: { 'a config with a byte-order mark': ([, , config]) => config.startsWith('\ufeff'), 'an object': ([, i]) => i.startsWith('{"'), 'no JSON object': ([, i]) => !i.startsWith('{"'), 'a byte-order mark at the start of the input': ([, i]) => i.startsWith('\ufeff'), 'a session id of 5,000 characters to a hook that keeps state': ([event, i]) => event !== 'session-start' && i.includes('x'.repeat(5000)) } };
+  const claim: Claim<[string, string, string, string | undefined]> = { examples: [['session-start', '{"', '', undefined]], classes: { 'a config with a byte-order mark': ([, , config]) => config.startsWith('\ufeff'), 'an object': ([, i]) => jsonObject(i), 'no JSON object': ([, i]) => !jsonObject(i), 'a byte-order mark at the start of the input': ([, i]) => i.startsWith('\ufeff'), 'a session id of 5,000 characters to a hook that keeps state': ([event, i]) => event !== 'session-start' && i.includes('x'.repeat(5000)) } };
   return { arbitrary, claim };
 }
 
@@ -120,7 +130,7 @@ export function argumentsProperties(speed: Speed): Record<string, () => unknown>
           assert.doesNotMatch(run.stderr, /\n\s+at /, `a stack trace: ${run.stderr}`);
           if (run.code === 1) {
             assert.match(run.stderr, /^Lawcheck plugin: [^\n]+\n$/, run.stderr);
-            assert.ok(!i.startsWith('{"'), `a JSON object is input the hook takes, so it exits 0: ${run.stderr}`);
+            assert.ok(!jsonObject(i), `a JSON object is input the hook takes, so it exits 0: ${run.stderr}`);
             assert.equal(run.stdout, '');
             return;
           }
