@@ -1,26 +1,65 @@
 name: Nightly
 
+# release.yml counts only the runs of this title, so every run a dispatch narrowed must take another one.
+run-name: ${{ (inputs.jobs || inputs.tests || (inputs.os && inputs.os != 'all')) && format('Nightly of chosen parts (jobs={0} tests={1} os={2})', inputs.jobs || 'all', inputs.tests || 'all', inputs.os || 'all') || 'Nightly, whole' }}
+
+# With no inputs a dispatch runs every job whole. To prove one fix, name the jobs and, if wanted, the tests: gh workflow run nightly.yml --ref <branch> -f jobs=limits -f tests="test 251"
 on:
   workflow_call:
   workflow_dispatch:
+    inputs:
+      jobs:
+        description: 'Jobs to run, comma separated with no spaces: commit, shuffle, properties, limits, environments, deadlines, sabotage. Empty runs every job.'
+        type: string
+        default: ''
+      tests:
+        description: 'Test ids to run, comma separated, such as test 251. Name the jobs that hold them too. Empty runs every test of the jobs.'
+        type: string
+        default: ''
+      os:
+        description: 'The system of the jobs that run on several: commit and deadlines.'
+        type: choice
+        options: [all, ubuntu-latest, windows-latest, macos-latest]
+        default: all
 
 permissions:
   contents: read
 
-# The network is open in environments, which starts official images and fetches packages, and in repeat and deadlines, which do not close it.
+# tests/run.ts narrows each of its runs to these tests. The inputs reach the steps only through the environment, never as text of a script.
+env:
+  LAWCHECK_ONLY: ${{ inputs.tests }}
+
+# The network is open in environments, which starts official images and fetches packages, and in commit and deadlines, which do not close it.
 # A group that tests/harness/sets.ts declares empty has no job here; it gets one when it gets its first test.
 # Every other job closes the network: a namespace with only a loopback device, as the runner's user with no supplementary group, and limits in a container run with --network none.
 jobs:
-  # Three runs of the commit set on one commit, on each system: a test with mixed results is a flake, and a flake stops the release until it is fixed.
-  repeat:
-    name: nightly commit set three times (${{ matrix.os }})
+  # A wrong job name or test id would otherwise skip or empty the jobs without a red.
+  chosen:
+    name: nightly chosen inputs
+    if: ${{ inputs.jobs || inputs.tests || (inputs.os && inputs.os != 'all') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: The chosen jobs, tests and system exist and match
+        env:
+          LAWCHECK_JOBS: ${{ inputs.jobs }}
+          LAWCHECK_OS: ${{ inputs.os }}
+        run: node tests/harness/chosen.ts
+
+  # The commit set once, on each system.
+  commit:
+    name: nightly commit set (${{ matrix.os }})
+    if: ${{ !inputs.jobs || contains(format(',{0},', inputs.jobs), ',commit,') }}
     runs-on: ${{ matrix.os }}
-    # Three times the slowest green run of this job on each system in the last 16 green Nightlies, rounded up to 5 minutes.
-    timeout-minutes: ${{ matrix.os == 'windows-latest' && 240 || matrix.os == 'macos-latest' && 160 || 95 }}
+    # Three times one run of the set with the steps before it, rounded up to 5 minutes. The slowest run on each system in the green Nightlies of 2026-11-25: 37 minutes on Windows, 25 on macOS, 16 on Linux.
+    timeout-minutes: ${{ matrix.os == 'windows-latest' && 115 || matrix.os == 'macos-latest' && 80 || 50 }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: ${{ fromJSON((inputs.os && inputs.os != 'all') && format('["{0}"]', inputs.os) || '["ubuntu-latest","windows-latest","macos-latest"]') }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -29,12 +68,13 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
-      - name: The commit set, three times
-        run: npm test -- --repeat 3
+      - name: The commit set
+        run: npm test
 
   # The commit set in an order shuffled by a new seed, so a test that leans on another's leftovers fails. The runner takes the seed as LAWCHECK_ORDER_SEED and prints 'order seed <n>'; until tests/run.ts reads it, this job says declared empty.
   shuffle:
     name: nightly commit set in shuffled order
+    if: ${{ !inputs.jobs || contains(format(',{0},', inputs.jobs), ',shuffle,') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -61,7 +101,7 @@ jobs:
             exit 0
           fi
           sudo unshare --net -- sh -c 'ip link set lo up && u=$1 g=$2 && shift 2 && exec setpriv --reuid="$u" --regid="$g" --clear-groups env -i "$@"' \
-              sh "$(id -u)" "$(id -g)" PATH="$PATH" HOME="$HOME" USER="$(id -un)" LOGNAME="$(id -un)" LAWCHECK_ORDER_SEED="$LAWCHECK_ORDER_SEED" \
+              sh "$(id -u)" "$(id -g)" PATH="$PATH" HOME="$HOME" USER="$(id -un)" LOGNAME="$(id -un)" LAWCHECK_ORDER_SEED="$LAWCHECK_ORDER_SEED" LAWCHECK_ONLY="$LAWCHECK_ONLY" \
               npm test | tee "$RUNNER_TEMP/shuffle.log"
           if ! grep -qx "order seed $LAWCHECK_ORDER_SEED" "$RUNNER_TEMP/shuffle.log"; then
             echo "::error::tests/run.ts reads LAWCHECK_ORDER_SEED but did not print 'order seed $LAWCHECK_ORDER_SEED'"
@@ -70,6 +110,7 @@ jobs:
 
   properties:
     name: nightly properties
+    if: ${{ !inputs.jobs || contains(format(',{0},', inputs.jobs), ',properties,') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -90,12 +131,13 @@ jobs:
           LAWCHECK_SEED: ${{ steps.seed.outputs.seed }}
         run: |
           sudo unshare --net -- sh -c 'ip link set lo up && u=$1 g=$2 && shift 2 && exec setpriv --reuid="$u" --regid="$g" --clear-groups env -i "$@"' \
-            sh "$(id -u)" "$(id -g)" PATH="$PATH" HOME="$HOME" USER="$(id -un)" LOGNAME="$(id -un)" LAWCHECK_SEED="$LAWCHECK_SEED" \
+            sh "$(id -u)" "$(id -g)" PATH="$PATH" HOME="$HOME" USER="$(id -un)" LOGNAME="$(id -un)" LAWCHECK_SEED="$LAWCHECK_SEED" LAWCHECK_ONLY="$LAWCHECK_ONLY" \
             node tests/run.ts nightly --group properties
 
   # The large limits under 1 GB of memory and no swap, tests 248 and 251 under 2 GB, two processors, a full disk of 8 MB at /full and no network. The install and the build run before, on the runner, because the container has no network.
   limits:
     name: nightly limits
+    if: ${{ !inputs.jobs || contains(format(',{0},', inputs.jobs), ',limits,') }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -122,7 +164,7 @@ jobs:
       - name: The limits in a container of 1 GB, all but tests 248 and 251
         timeout-minutes: 45
         run: |
-          docker run --rm --network none -m 1g --memory-swap 1g --cpus 2 \
+          docker run --rm -e LAWCHECK_ONLY --network none -m 1g --memory-swap 1g --cpus 2 \
             --tmpfs /full:size=8m,mode=1777 -e LAWCHECK_FULL_DISK=/full \
             --user "$(id -u):$(id -g)" -e HOME=/tmp \
             -v "$PWD:/w" -w /w node:24 node tests/run.ts nightly --group limits --skip 'test 248' --skip 'test 251'
@@ -132,7 +174,7 @@ jobs:
         if: ${{ !cancelled() }}
         timeout-minutes: 35
         run: |
-          docker run --rm --network none -m 2g --memory-swap 2g --cpus 2 \
+          docker run --rm -e LAWCHECK_ONLY --network none -m 2g --memory-swap 2g --cpus 2 \
             --tmpfs /full:size=8m,mode=1777 -e LAWCHECK_FULL_DISK=/full \
             --user "$(id -u):$(id -g)" -e HOME=/tmp \
             -v "$PWD:/w" -w /w node:24 node tests/run.ts nightly --group limits 'test 248' 'test 251'
@@ -140,6 +182,7 @@ jobs:
   # The install, git and ownership matrices start official images with Docker, and fetch packages, so this job has the network.
   environments:
     name: nightly environments
+    if: ${{ !inputs.jobs || contains(format(',{0},', inputs.jobs), ',environments,') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -154,13 +197,14 @@ jobs:
   # The hook deadlines and the rule limit that the plugin and the tool ship, which per push run shorter, on each system: they end processes, which each system does its own way.
   deadlines:
     name: nightly shipped deadlines (${{ matrix.os }})
+    if: ${{ !inputs.jobs || contains(format(',{0},', inputs.jobs), ',deadlines,') }}
     runs-on: ${{ matrix.os }}
     # Three times the slowest green run of this job on any system in the last 16 green Nightlies, rounded up to 5 minutes.
     timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: ${{ fromJSON((inputs.os && inputs.os != 'all') && format('["{0}"]', inputs.os) || '["ubuntu-latest","windows-latest","macos-latest"]') }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -173,6 +217,7 @@ jobs:
 
   sabotage:
     name: nightly sabotage list
+    if: ${{ !inputs.jobs || contains(format(',{0},', inputs.jobs), ',sabotage,') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -185,4 +230,4 @@ jobs:
       - name: The sabotage list, with the network closed
         run: |
           sudo unshare --net -- sh -c 'ip link set lo up && u=$1 g=$2 && shift 2 && exec setpriv --reuid="$u" --regid="$g" --clear-groups env -i "$@"' \
-            sh "$(id -u)" "$(id -g)" PATH="$PATH" HOME="$HOME" USER="$(id -un)" LOGNAME="$(id -un)" node tests/run.ts nightly --group sabotage
+            sh "$(id -u)" "$(id -g)" PATH="$PATH" HOME="$HOME" USER="$(id -un)" LOGNAME="$(id -un)" LAWCHECK_ONLY="$LAWCHECK_ONLY" node tests/run.ts nightly --group sabotage

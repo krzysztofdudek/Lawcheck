@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { SLOWEST_SHOWN, slowBudget, TEST_BUDGET_MS } from '../numbers.ts';
 import { INVARIANTS } from './invariants.ts';
 import { promiseOf, testIds } from './promises.ts';
+import { chosenTests, idPattern } from './chosen.ts';
 import { loadInputs } from '../contract/spec-map.ts';
 import { tieProblems } from '../contract/tie.ts';
 import { COMMIT_GROUPS, NIGHTLY_GROUPS, setFiles } from './sets.ts';
@@ -110,6 +111,8 @@ export interface RunOptions {
   system: System;
   started: number | null;
   target: number;
+  // The ids a narrowed run chose, each of which must be among the names that ran.
+  chosen?: string[];
   // Only a live run reads its own cgroup, once its events have ended; a merge of recorded shards runs elsewhere.
   oomKills?: () => number | null;
 }
@@ -129,6 +132,7 @@ export async function judgeRun(source: AsyncIterable<{ type: string; data: any }
   const unlistedSkips: string[] = [];
   const here = (platform: Parameters<typeof applies>[0]): boolean => (platform === 'root' ? applies(platform) : platform === options.system);
   const passed: { file: string; name: string }[] = [];
+  const unseen = new Set((options.chosen ?? []).map((id) => ({ id, name: new RegExp(idPattern(id).slice(1, -1)) })));
   const counts = { passed: 0, failed: 0, skipped: 0, todo: 0 };
   for await (const event of source) {
     const data = event.data ?? {};
@@ -140,6 +144,7 @@ export async function judgeRun(source: AsyncIterable<{ type: string; data: any }
       continue;
     }
     if (event.type !== 'test:pass' && event.type !== 'test:fail') continue;
+    if (data.todo === undefined) for (const one of unseen) if (one.name.test(String(data.name))) unseen.delete(one);
     if (data.details?.type === 'suite') {
       if (event.type === 'test:fail' && data.details?.error?.failureType !== 'subtestsFailed') {
         failed.push({ name: data.name, file: data.file, error: data.details.error });
@@ -191,6 +196,11 @@ export async function judgeRun(source: AsyncIterable<{ type: string; data: any }
     red = true;
     lines.push('', 'RED      a test was skipped or marked todo with no whole-test entry in PLATFORM_SKIPS for this system', 'promise  design/decisions.md, decision 79: a skip is a platform reason in the list of tests/harness/skips.ts', ...unlistedSkips.map((u) => `got      ${u}`));
   }
+  // A file counts as holding a test when it quotes the id, so only the names that ran show that a chosen test was among them.
+  if (unseen.size > 0) {
+    red = true;
+    lines.push('', 'RED      a chosen test did not run, so this run does not show it', ...[...unseen].map((one) => `got      no test named ${one.id} ran`));
+  }
   if (process.env.LAWCHECK_TIE === '1') {
     const speed = process.env.LAWCHECK_SPEED === 'nightly' ? 'nightly' : 'commit';
     const dirs = [...new Set(Object.values(speed === 'nightly' ? NIGHTLY_GROUPS : COMMIT_GROUPS).flat())];
@@ -205,9 +215,11 @@ export async function judgeRun(source: AsyncIterable<{ type: string; data: any }
   return { text: lines.join('\n') + '\n', red: counts.failed > 0 || red };
 }
 
+// tests/run.ts names the chosen tests in the query of this module's address: node loads a reporter in the runner's process alone, while every test file gets a copy of the environment, and a test that judges a run of its own would read the list there.
 export default async function* reporter(source: AsyncIterable<{ type: string; data: any }>): AsyncGenerator<string> {
+  const chosen = chosenTests(new URL(import.meta.url).searchParams.get('chosen') ?? '');
   const started = Number(process.env.LAWCHECK_STARTED);
-  const verdict = await judgeRun(source, { system: process.platform as System, started: Number.isFinite(started) && started > 0 ? started : null, target: Number(process.env.LAWCHECK_TARGET_MS), oomKills: killsSince(oomKills) });
+  const verdict = await judgeRun(source, { system: process.platform as System, started: Number.isFinite(started) && started > 0 ? started : null, target: Number(process.env.LAWCHECK_TARGET_MS), chosen, oomKills: killsSince(oomKills) });
   if (verdict.red) process.exitCode = 1;
   yield verdict.text;
 }
