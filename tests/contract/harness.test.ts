@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import plainAssert from 'node:assert';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync as existsSyncOf } from 'node:fs';
-import { cpSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { closeSync, cpSync, mkdirSync, openSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { outputProblem } from '../harness/invariants.ts';
@@ -11,10 +11,12 @@ import { skipReason } from '../harness/skips.ts';
 import * as childProcess from 'node:child_process';
 import { rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { CLI, CouldNotRun, withoutTypeStrippingWarning, expectBroken, fakeWrites, HOOK, PLATFORM_SKIPS, platformSkip, ROOT, startHook, startProgram, startShell, startTool, testFolder, unpackTarball } from '../harness/tool.ts';
+import { CLI, CouldNotRun, withoutTypeStrippingWarning, expectBroken, fakeWrites, HOOK, LOWER_BUDGET_VARIABLE, PLATFORM_SKIPS, platformSkip, ROOT, startHook, startProgram, startShell, startTool, testFolder, unpackTarball } from '../harness/tool.ts';
 import { promiseOf } from '../harness/promises.ts';
 import { gitChanges, gitState } from '../harness/state.ts';
 import { judgeRun, killsSince, oomKills } from '../harness/reporter.ts';
+import { ALONE, runRound, timeOnly } from '../harness/alone.ts';
+import { failedTests } from '../harness/merge.ts';
 import { count, findTest, readEntries, sabotage } from '../sabotage/run.ts';
 import type { Entry, Tools } from '../sabotage/run.ts';
 import { GIT_ENV } from '../acceptance/helpers.ts';
@@ -225,6 +227,121 @@ test('harness-6: a process the run leaves alive fails it, however quickly it lef
     assert.match(setsid.message, /alive .* after the run ended: \d+ \(sleep 25\)/);
     const late = await expectBroken('harness-6', () => tool(dir, "const c = spawn(process.execPath, ['-e', 'setTimeout(() => {}, 60000)'], { stdio: 'ignore', detached: true }); c.unref(); setTimeout(() => process.exit(0), 300);"));
     assert.match(late.message, /alive .* after the run ended/);
+  });
+});
+
+// A made-up test file and a round of the runner over it, as tests/run.ts runs one, with the budget of every test of the round lowered to BUDGET.
+const BUDGET = 1_000;
+const OVER = 1_500;
+
+function madeUp(dir: string, tests: { name: string; slow: 'first' | 'always'; red?: boolean }[]): string {
+  const lines = ["import { test } from 'node:test';", "import assert from 'node:assert/strict';", "import { appendFileSync, readFileSync } from 'node:fs';", "import { join } from 'node:path';"];
+  tests.forEach((one, i) => {
+    lines.push(
+      `test(${JSON.stringify(one.name)}, () => {`,
+      `  const log = join(${JSON.stringify(dir)}, 'runs-${i}.log');`,
+      "  appendFileSync(log, 'run\\n');",
+      "  const runs = readFileSync(log, 'utf8').split('\\n').filter(Boolean).length;",
+      `  if (${one.slow === 'always' ? 'true' : 'runs === 1'}) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ${OVER});`,
+      one.red ? '  assert.equal(runs, 0);' : '  assert.ok(runs > 0);',
+      '});',
+    );
+  });
+  const file = join(dir, 'made-up.test.mjs');
+  writeFileSync(file, `${lines.join('\n')}\n`);
+  return file;
+}
+
+const runsOf = (dir: string, i: number): number => (existsSyncOf(join(dir, `runs-${i}.log`)) ? readFileSync(join(dir, `runs-${i}.log`), 'utf8').split('\n').filter(Boolean).length : 0);
+
+function round(dir: string, file: string): { red: boolean; out: string; events: string } {
+  const harness = pathToFileURL(join(ROOT, 'tests', 'harness', 'tool.ts')).href;
+  const reporter = pathToFileURL(join(ROOT, 'tests', 'harness', 'reporter.ts')).href;
+  const recorder = pathToFileURL(join(ROOT, 'tests', 'harness', 'record.ts')).href;
+  const env: NodeJS.ProcessEnv = { ...process.env, [LOWER_BUDGET_VARIABLE]: String(BUDGET), LAWCHECK_TIE: '', LAWCHECK_TARGET_MS: '', LAWCHECK_STARTED: '', LAWCHECK_SHUFFLE: '' };
+  delete env.NODE_TEST_CONTEXT;
+  const events = join(dir, 'events.jsonl');
+  const shown = join(dir, 'out.txt');
+  const base = ['--test', `--import=${harness}`, '--test-timeout=60000'];
+  const fd = openSync(shown, 'w');
+  let written = '';
+  let red: boolean;
+  try {
+    red = runRound((verdict) => [...base, `--test-reporter=${reporter}?verdict=${encodeURIComponent(verdict)}`, `--test-reporter-destination=stdout`, `--test-reporter=${recorder}`, `--test-reporter-destination=${events}`, file], base, env, events, (text) => (written += text), (path) => path, ROOT, fd);
+  } finally {
+    closeSync(fd);
+  }
+  return { red, out: readFileSync(shown, 'utf8') + written, events };
+}
+
+const recorded = (events: string): { type: string; data: any }[] => readFileSync(events, 'utf8').split('\n').filter(Boolean).map((line) => JSON.parse(line));
+
+async function* replayed(events: { type: string; data: any }[]) {
+  for (const e of events) yield e;
+}
+
+// In a whole run the runner sets this variable for every test file, and judgeRun would hold the made-up run to the run-time tie, which no such run can meet.
+async function judgedAlone(events: { type: string; data: any }[]) {
+  const tie = process.env.LAWCHECK_TIE;
+  delete process.env.LAWCHECK_TIE;
+  try {
+    return await judgeRun(replayed(events), { system: 'linux', started: null, target: 0 });
+  } finally {
+    if (tie !== undefined) process.env.LAWCHECK_TIE = tie;
+  }
+}
+
+test('test 1503: a test that fails only its time budget runs once more alone, and a green second run lists it as slow under load, counts it once and leaves the run green, in the output and in the record', async () => {
+  await inTemp(async (dir) => {
+    const file = madeUp(dir, [{ name: 'test 1: past its budget in the run, quick alone', slow: 'first' }]);
+    const { red, out, events } = round(dir, file);
+    assert.equal(red, false, out);
+    assert.equal(runsOf(dir, 0), 2);
+    assert.match(out, /ran 1 test files, 1 tests: 0 passed, 0 failed, 1 past its budget, to run once more alone/);
+    assert.match(out, /LATE     test 1  .*made-up\.test\.mjs\ngot      harness-6: the test took \d+ ms, past its budget of 1000 ms \(tests\/numbers\.ts\)\n/);
+    assert.match(out, /\nslow under load  test 1: past its budget in the run, quick alone  .*made-up\.test\.mjs: \d+ ms in the run, past its budget of 1000 ms; \d+ ms alone, so it counts once, as passed\nthe run is green/);
+    assert.doesNotMatch(out, /RED /);
+    const all = recorded(events);
+    const second = all.filter((e) => e.type === ALONE);
+    assert.equal(second.length, 1);
+    assert.equal(second[0]!.data.passed, true);
+    assert.equal(failedTests(all), 0);
+    const merged = await judgedAlone(all);
+    assert.equal(merged.red, false, merged.text);
+    assert.match(merged.text, /ran 1 test files, 1 tests: 1 passed, 0 failed\n/);
+    assert.match(merged.text, /slow under load: past the budget in the run, green once more alone\nslow under load  test 1: /);
+    const unsettled = all.filter((e) => e.type !== ALONE);
+    assert.equal(failedTests(unsettled), 1);
+    const red2 = await judgedAlone(unsettled);
+    assert.equal(red2.red, true);
+    assert.match(red2.text, /RED      test 1 .*\n(.*\n)*alone    no second run alone is recorded/);
+  });
+});
+
+test('test 1504: a test red on an assertion is never run again, even past its budget, and a time-only red whose second run alone is red keeps the run red', async () => {
+  await inTemp(async (dir) => {
+    const file = madeUp(dir, [{ name: 'test 2: past its budget in the run and alone', slow: 'always' }, { name: 'test 3: red on an assertion and past its budget', slow: 'always', red: true }]);
+    const { red, out, events } = round(dir, file);
+    assert.equal(red, true, out);
+    assert.equal(runsOf(dir, 0), 2);
+    assert.equal(runsOf(dir, 1), 1);
+    assert.match(out, /LATE     test 2  /);
+    assert.doesNotMatch(out, /LATE     test 3/);
+    assert.match(out, /RED      test 3  .*made-up\.test\.mjs\n(.*\n)*got      Expected values to be strictly equal/);
+    assert.match(out, /\nRED      test 2: past its budget in the run and alone  .*: \d+ ms in the run, past its budget of 1000 ms; the second run alone is red too: harness-6: the test took \d+ ms, past its budget of 1000 ms/);
+    assert.match(out, /the run is red\n$/);
+    const all = recorded(events);
+    assert.deepEqual(all.filter((e) => e.type === ALONE).map((e) => [e.data.name, e.data.passed]), [['test 2: past its budget in the run and alone', false]]);
+    assert.equal(failedTests(all), 2);
+    const merged = await judgedAlone(all);
+    assert.equal(merged.red, true);
+    assert.match(merged.text, /RED      test 2 .*\n(.*\n)*alone    red too: harness-6: the test took/);
+    const broken = (detail: string) => Object.assign(new Error(`harness-6: ${detail}`), { invariant: 'harness-6' });
+    const wrapped = (cause: Error) => Object.assign(new Error('test failed'), { code: 'ERR_TEST_FAILURE', cause });
+    assert.deepEqual(timeOnly(wrapped(broken('the test took 21156 ms, past its budget of 20000 ms (tests/numbers.ts)'))), { took: 21156, budget: 20000 });
+    assert.equal(timeOnly(wrapped(broken('the test took 21156 ms, past its budget of 20000 ms (tests/numbers.ts)\nthe test changed the Lawcheck checkout: a'))), null);
+    assert.equal(timeOnly(wrapped(broken('the run did not end within its budget of 20000 ms'))), null);
+    assert.equal(timeOnly(wrapped(Object.assign(new Error('harness-count: the test took 21156 ms, past its budget of 20000 ms (tests/numbers.ts)'), { invariant: 'harness-count' }))), null);
   });
 });
 

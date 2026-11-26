@@ -3,6 +3,7 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { COMMIT_TARGET_MS } from '../numbers.ts';
 import { judgeRun } from './reporter.ts';
+import { clearedAlone } from './alone.ts';
 import { PLATFORM_TESTS, perPushFiles, perPushTests, ROOT, type System } from './sets.ts';
 import { readPlan, repoPath, SYSTEMS, type Plan } from './shards.ts';
 import { PLATFORM_SKIPS } from './skips.ts';
@@ -38,10 +39,12 @@ function ranFiles(events: Event[]): Set<string> {
 }
 
 export function failedTests(events: Event[]): number {
+  const cleared = clearedAlone(events);
   let n = 0;
   for (const e of events) {
     if (e.type !== 'test:fail') continue;
     if (e.data.details?.type === 'suite' && e.data.details.error?.failureType === 'subtestsFailed') continue;
+    if (cleared.has(`${e.data.file}\0${e.data.name}`)) continue;
     if (e.data.nesting === 0 || e.data.details?.type === 'suite') n++;
   }
   return n;

@@ -35,6 +35,11 @@ interface TestState {
 
 let current: TestState | null = null;
 
+// A test of the runner gives the tests of a run it starts a smaller budget, so a made-up test can pass it in a moment; the variable lowers a budget and never raises one.
+export const LOWER_BUDGET_VARIABLE = 'LAWCHECK_TEST_BUDGET_MS';
+const lowered = Number(process.env[LOWER_BUDGET_VARIABLE]);
+const budgetOf = (key: string): number => (Number.isInteger(lowered) && lowered > 0 ? Math.min(lowered, testBudget(key)) : testBudget(key));
+
 const fileOf = (path: string | undefined) => (path === undefined ? '' : relative(ROOT_DIR, path.startsWith('file:') ? fileURLToPath(path) : path).split(sep).join('/'));
 
 const slash = (text: string) => text.split('\\').join('/');
@@ -147,7 +152,7 @@ if (!registry[REGISTERED]) {
       file,
       name: t.name,
       started: Date.now(),
-      budget: testBudget(`${file} > ${t.name}`),
+      budget: budgetOf(`${file} > ${t.name}`),
       runs: 0,
       compared: 0,
       asserted: { n: 0 },

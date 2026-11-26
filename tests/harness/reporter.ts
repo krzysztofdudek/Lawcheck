@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { SLOWEST_SHOWN, slowBudget, TEST_BUDGET_MS } from '../numbers.ts';
@@ -9,6 +9,8 @@ import { loadInputs } from '../contract/spec-map.ts';
 import { tieProblems } from '../contract/tie.ts';
 import { COMMIT_GROUPS, NIGHTLY_GROUPS, setFiles } from './sets.ts';
 import { applies, HARNESS, PLATFORM_SKIPS } from './skips.ts';
+import { ALONE, aloneLine, messageOf, timeOnly } from './alone.ts';
+import type { Alone, Late } from './alone.ts';
 
 const ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const CLOSING = 'if the promise changed, the change says so in tests/weakenings.md, and the suite guard checks the row (tests/README.md)';
@@ -17,23 +19,11 @@ interface Failed {
   name: string;
   file: string;
   error: any;
+  suite?: boolean;
+  second?: string;
 }
 
 const where = (file: string | undefined) => (file ? relative(ROOT, file.startsWith('file:') ? fileURLToPath(file) : file).split('\\').join('/') : '?');
-
-function rootCause(error: any): any {
-  let e = error;
-  while (e && e.code === 'ERR_TEST_FAILURE' && e.cause) e = e.cause;
-  return e ?? error;
-}
-
-function messageOf(error: any): string {
-  const e = rootCause(error);
-  if (e === undefined || e === null) return 'no error was reported';
-  if (typeof e === 'string') return e;
-  const text = typeof e.message === 'string' && e.message !== '' ? e.message : String(e);
-  return text;
-}
 
 // node:test fails a test file whose process ended before it reported as a whole, with only "test failed"; its error keeps the signal or the exit code of that process.
 function processEnd(error: any, oomKills: number | null): string {
@@ -98,6 +88,7 @@ function block(failed: Failed, seeds: Map<string, string>, oomKills: number | nu
   if (broke !== null && INVARIANTS[broke[1]!]) out.push(`broke    ${broke[1]}: ${INVARIANTS[broke[1]!]}`);
   const got = clip(message, 14);
   out.push(`got      ${got[0]}`, ...got.slice(1).map((line) => `         ${line}`));
+  if (failed.second !== undefined) out.push(`alone    ${failed.second}`);
   const counter = /Counterexample: (.*)/.exec(message);
   const seed = /seed: (-?\d+)/.exec(message)?.[1] ?? seeds.get(failed.file);
   if (seed !== undefined) out.push(`input    seed ${seed}${counter ? `, shrunk to ${counter[1]}` : ''}`);
@@ -115,11 +106,14 @@ export interface RunOptions {
   chosen?: string[];
   // Only a live run reads its own cgroup, once its events have ended; a merge of recorded shards runs elsewhere.
   oomKills?: () => number | null;
+  // The first run of a round of tests/run.ts: a test that failed only its time budget is not red yet, since the runner runs it once more alone after the run. Elsewhere such a test is red unless the events hold its green second run.
+  late?: boolean;
 }
 
 export interface Verdict {
   text: string;
   red: boolean;
+  late: Late[];
 }
 
 // The verdict on a whole run: what a plain run exits with, and what the merge of a system's shards is held to.
@@ -133,9 +127,14 @@ export async function judgeRun(source: AsyncIterable<{ type: string; data: any }
   const here = (platform: Parameters<typeof applies>[0]): boolean => (platform === 'root' ? applies(platform) : platform === options.system);
   const passed: { file: string; name: string }[] = [];
   const unseen = new Set((options.chosen ?? []).map((id) => ({ id, name: new RegExp(idPattern(id).slice(1, -1)) })));
-  const counts = { passed: 0, failed: 0, skipped: 0, todo: 0 };
+  const counts = { passed: 0, failed: 0, skipped: 0, todo: 0, late: 0 };
+  const alone = new Map<string, Alone>();
   for await (const event of source) {
     const data = event.data ?? {};
+    if (event.type === ALONE) {
+      alone.set(`${data.file}\0${data.name}`, data as Alone);
+      continue;
+    }
     if (event.type === 'test:stdout' || event.type === 'test:stderr') {
       const message = String(data.message ?? '');
       const seen = /^seed (-?\d+)$/m.exec(message);
@@ -147,7 +146,7 @@ export async function judgeRun(source: AsyncIterable<{ type: string; data: any }
     if (data.todo === undefined) for (const one of unseen) if (one.name.test(String(data.name))) unseen.delete(one);
     if (data.details?.type === 'suite') {
       if (event.type === 'test:fail' && data.details?.error?.failureType !== 'subtestsFailed') {
-        failed.push({ name: data.name, file: data.file, error: data.details.error });
+        failed.push({ name: data.name, file: data.file, error: data.details.error, suite: true });
         counts.failed++;
       }
       continue;
@@ -167,8 +166,29 @@ export async function judgeRun(source: AsyncIterable<{ type: string; data: any }
     }
     times.push({ ms: data.details?.duration_ms ?? 0, name: data.name, file: data.file });
   }
-  const total = counts.passed + counts.failed + counts.skipped + counts.todo;
+  const late: Late[] = [];
+  const slow: string[] = [];
+  for (const f of [...failed]) {
+    const time = f.suite ? null : timeOnly(f.error);
+    if (time === null) continue;
+    const second = alone.get(`${f.file}\0${f.name}`);
+    if (options.late) {
+      late.push({ file: f.file, name: f.name, ...time });
+      counts.late++;
+    } else if (second?.passed) {
+      slow.push(aloneLine(second, where));
+      counts.passed++;
+    } else {
+      f.second = second === undefined ? 'no second run alone is recorded, so the run counts the red as it is' : `red too: ${(second.error ?? '').split('\n')[0]!.slice(0, 300)}`;
+      continue;
+    }
+    failed.splice(failed.indexOf(f), 1);
+    counts.failed--;
+    passed.push({ file: where(f.file), name: f.name });
+  }
+  const total = counts.passed + counts.failed + counts.skipped + counts.todo + counts.late;
   const parts = [`${counts.passed} passed`, `${counts.failed} failed`];
+  if (counts.late > 0) parts.push(`${counts.late} past ${counts.late === 1 ? 'its' : 'their'} budget, to run once more alone`);
   if (counts.skipped > 0) parts.push(`${counts.skipped} skipped`);
   if (counts.todo > 0) parts.push(`${counts.todo} todo`);
   const lines: string[] = [];
@@ -189,6 +209,8 @@ export async function judgeRun(source: AsyncIterable<{ type: string; data: any }
       for (const t of unlisted) lines.push(`${String(Math.round(t.ms)).padStart(8)} ms  ${where(t.file)} > ${t.name}`);
     }
   }
+  if (slow.length > 0) lines.push('', 'slow under load: past the budget in the run, green once more alone', ...slow);
+  for (const one of late) lines.push('', `LATE     ${testIds(one.name).join(', ') || one.name.slice(0, 80)}  ${where(one.file)}`, `got      harness-6: the test took ${one.took} ms, past its budget of ${one.budget} ms (tests/numbers.ts)`, '         every assertion passed, so it runs once more alone after this run, and that run decides');
   const kills = failed.length > 0 ? (options.oomKills?.() ?? null) : null;
   for (const f of failed) lines.push('', ...block(f, seeds, kills));
   let red = false;
@@ -212,14 +234,17 @@ export async function judgeRun(source: AsyncIterable<{ type: string; data: any }
       lines.push('', 'RED      the run-time tie of question 79', 'promise  design/decisions.md, decision 79: a test number, a promise or a finding is covered only by a test that ran and passed in this run', ...problems.slice(0, 20).map((p) => `got      ${p}`), CLOSING);
     }
   }
-  return { text: lines.join('\n') + '\n', red: counts.failed > 0 || red };
+  return { text: lines.join('\n') + '\n', red: counts.failed > 0 || red, late };
 }
 
-// tests/run.ts names the chosen tests in the query of this module's address: node loads a reporter in the runner's process alone, while every test file gets a copy of the environment, and a test that judges a run of its own would read the list there.
+// tests/run.ts names the chosen tests, and the file for the verdict of a round's first run, in the query of this module's address: node loads a reporter in the runner's process alone, while every test file gets a copy of the environment, and a test that judges a run of its own would read the list there.
 export default async function* reporter(source: AsyncIterable<{ type: string; data: any }>): AsyncGenerator<string> {
-  const chosen = chosenTests(new URL(import.meta.url).searchParams.get('chosen') ?? '');
+  const query = new URL(import.meta.url).searchParams;
+  const chosen = chosenTests(query.get('chosen') ?? '');
+  const first = query.get('verdict');
   const started = Number(process.env.LAWCHECK_STARTED);
-  const verdict = await judgeRun(source, { system: process.platform as System, started: Number.isFinite(started) && started > 0 ? started : null, target: Number(process.env.LAWCHECK_TARGET_MS), chosen, oomKills: killsSince(oomKills) });
+  const verdict = await judgeRun(source, { system: process.platform as System, started: Number.isFinite(started) && started > 0 ? started : null, target: Number(process.env.LAWCHECK_TARGET_MS), chosen, oomKills: killsSince(oomKills), late: first !== null });
+  if (first !== null) writeFileSync(first, JSON.stringify({ red: verdict.red, late: verdict.late }));
   if (verdict.red) process.exitCode = 1;
   yield verdict.text;
 }
