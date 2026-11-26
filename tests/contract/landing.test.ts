@@ -73,13 +73,13 @@ const cardTags = (): string => cardHead().map(([, attributes]) => `<meta ${Objec
 
 const GOOD: Record<string, string | Buffer> = {
   'index.html': [
-    '<title>Lawcheck: architecture checks for coding agents</title>',
+    '<title>Lawcheck: architecture and rule checks for coding agents</title>',
     '<meta name="description" content="Lawcheck checks your code against the architecture and rules you write down, and tells your coding agent which line breaks which rule.">',
     '<link rel="canonical" href="https://lawcheck.dev/">',
     '<meta property="og:type" content="website"><meta property="og:site_name" content="Lawcheck"><meta property="og:title" content="Lawcheck"><meta property="og:description" content="x"><meta property="og:url" content="https://lawcheck.dev/">',
     cardTags(),
     '<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"WebSite"},{"@type":"SoftwareApplication","softwareVersion":"1.2.3"}]}</script>',
-    '<h1>Architecture checks for coding agents</h1><a href="/changelog">1.2.3</a>',
+    '<h1>Architecture and rule checks for coding agents</h1><a href="/changelog">1.2.3</a>',
     '<figure id="film" class="film hero-film"><div class="film-frame"><pre><code><span class="line">src/core/discount.ts:1  error[forbidden-use]  core may not use api</span></code></pre></div></figure>',
   ].join('\n'),
   'og.png': png(1200, 630),
@@ -304,4 +304,31 @@ test('test 1140: the redirect file of the landing sends /docs, /docs/ and /docs/
     const listed = /\(([a-z0-9|-]+)\)/.exec(redirect.source)?.[1];
     if (listed) assert.deepEqual(listed.split('|'), [...pages].filter((id) => id !== 'index'), redirect.source);
   }
+});
+
+test('test 1426: the first contact gives the architecture and the rules equal place: README.md and docs/index.md open with the category line of the card and the landing page and the promise of the manifests, and README.md, docs/index.md and the landing page each show a law with may_use and a script rule, the rule file, and a finding of each', () => {
+  const promise = `${CATEGORY}. You write down which layer may use which and script the rules your code must keep, and Lawcheck names the file and line that break them, in the hooks of Claude Code, Codex and Copilot CLI and in CI.`;
+  assert.equal(copyOf(read('site/landing/index.md')).copy.h1, CATEGORY);
+  assert.ok((JSON.parse(read('package.json')) as { description: string }).description.startsWith(promise), 'package.json opens with the promise');
+  const fragments = new Fragments(ROOT);
+  const shown = [
+    { page: 'README.md', law: ['Lawcheck', 'lawcheck: 0.1.0'], rule: ['Lawcheck', 'export function check'], finding: ['Lawcheck', '$ lawcheck check'] },
+    { page: 'docs/index.md', law: ['A rule and a finding', 'lawcheck: 0.1.0'], rule: ['A rule and a finding', 'export function check'], finding: ['A rule and a finding', 'lawcheck: FAIL'] },
+  ];
+  for (const { page, law, rule, finding } of shown) {
+    assert.ok(read(page).includes(`\n${promise}`), `${page} opens with the promise`);
+    const written = parse(fragments.code(page, law[0]!, law[1]!).code) as { rules: Record<string, unknown>; types: Record<string, { may_use?: string[]; rules?: string[] }> };
+    const ruled = Object.values(written.types).find((type) => type.may_use !== undefined && type.rules !== undefined);
+    assert.ok(ruled, `${page}: one type of the law has may_use and rules`);
+    const id = ruled.rules![0]!;
+    assert.ok(id in written.rules, `${page}: the law names ${id}`);
+    assert.match(fragments.code(page, rule[0]!, rule[1]!).code, /^export function check\(/);
+    const output = fragments.code(page, finding[0]!, finding[1]!).code;
+    assert.match(output, /  error\[forbidden-use\]  /, `${page}: a finding of may_use`);
+    assert.ok(output.includes(`  error[${id}]  `), `${page}: a finding of ${id}`);
+  }
+  const landing = read('site/landing/Landing.vue');
+  for (const shownThere of ['data.law.law', 'data.law.rule', 'data.law.finding']) assert.ok(landing.includes(`v-html="${shownThere}"`), `the landing page shows ${shownThere}`);
+  const facts = read('site/landing/facts.ts');
+  assert.ok(facts.includes("code('README.md', 'Lawcheck', 'export function check')"), 'the landing page takes the rule file of README.md');
 });

@@ -58,6 +58,8 @@ const ahead = c.footer.ahead.replace('{version}', data.head.version);
             <div class="code" v-html="data.law.law" />
           </div>
           <div>
+            <p v-html="data.law.ruleIntro" />
+            <div class="code" v-html="data.law.rule" />
             <p v-html="data.law.findingIntro" />
             <div class="code terminal" v-html="data.law.finding" />
           </div>

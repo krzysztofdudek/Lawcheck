@@ -57,7 +57,7 @@ export function problems(dir, version, chapters = [], loop = null) {
 
   if (count(index, /<h1[\s>]/g) !== 1) out.push(`index.html has ${count(index, /<h1[\s>]/g)} h1 elements, not one`);
   const title = decode(/<title>([^<]*)<\/title>/.exec(index)?.[1] ?? '');
-  if (!/^Lawcheck\b/.test(title) || !/architecture checks for coding agents/i.test(title) || title.length > 60) out.push(`the title "${title}" does not start with Lawcheck, lacks the category or is over 60 characters`);
+  if (!/^Lawcheck\b/.test(title) || !/architecture and rule checks for coding agents/i.test(title) || title.length > 60) out.push(`the title "${title}" does not start with Lawcheck, lacks the category or is over 60 characters`);
   const description = decode(metaOf(index, 'name', 'description')[0] ?? '');
   if (description.length < 70 || description.length > 160) out.push(`the description has ${description.length} characters, outside 70 to 160`);
   const canonical = [...index.matchAll(/<link rel="canonical" href="([^"]*)"/g)].map((match) => match[1]);

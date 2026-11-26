@@ -311,6 +311,10 @@ section {
   gap: 32px;
 }
 
+.pair .code + p {
+  margin-top: 24px;
+}
+
 .code pre {
   margin: 0;
   padding: 16px 20px;
@@ -610,6 +614,11 @@ th.group {
   .command pre,
   .code pre {
     font-size: 13px;
+  }
+
+  .code pre {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
   }
 
   .bar-inner {

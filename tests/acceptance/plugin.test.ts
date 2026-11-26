@@ -1377,7 +1377,7 @@ const editsHeader = (paths: string[], cmd = 'lawcheck') => `Lawcheck: after this
 
 test('test 1352: package.json, the marketplace, its plugin entry and the three plugin manifests open with the same promise, and every plugin manifest names https://lawcheck.dev as its homepage', () => {
   const read = (path: string) => JSON.parse(readFileSync(join(ROOT, path), 'utf8'));
-  const promise = 'Architecture checks for coding agents. You write down which layer may import which';
+  const promise = 'Architecture and rule checks for coding agents. You write down which layer may use which and script the rules your code must keep';
   const marketplace = read('.claude-plugin/marketplace.json');
   const manifests = ['plugin/.claude-plugin/plugin.json', 'plugin/.codex-plugin/plugin.json', 'plugin/.plugin/plugin.json'].map(read);
   for (const description of [read('package.json').description, marketplace.description, marketplace.plugins[0].description, ...manifests.map((manifest) => manifest.description)]) assert.ok(description.startsWith(promise), description);
