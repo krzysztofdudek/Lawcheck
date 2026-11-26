@@ -44,7 +44,7 @@ It runs `npm test`, the suite guard of the base, and prints the pack a reviewer 
 
 ## Before a release
 
-The Nightly does not run by itself. Before a release it runs twice by hand on the tagged commit (`gh workflow run nightly.yml --ref <branch at that commit>`), and both runs must be green; the release workflow checks that both are. CI runs `npm run real` and `claude plugin validate` on every push to `main` and every pull request. These steps run by hand before the tag ([decision 58](design/decisions.md#58-acceptance-tests-that-run-outside-npm-test)):
+The Nightly does not run by itself. Before a release it runs by hand, whole, on the tagged commit (`gh workflow run nightly.yml --ref <branch at that commit>`), and that run must be green; the release workflow checks that it is. To prove one fix on a branch, run only the jobs and tests that show it ([tests/README.md](tests/README.md#the-nightly-by-hand)); the release workflow does not count such a run. CI runs `npm run real` and `claude plugin validate` on every push to `main` and every pull request. These steps run by hand before the tag ([decision 58](design/decisions.md#58-acceptance-tests-that-run-outside-npm-test)):
 
 - a person reads the README and the plugin's files for their wording and for names of other tools;
 - when `node film/check.mjs` failed on a change since the last release, the loop is rendered again with `node film/render.mjs` ([film/README.md](film/README.md)).

@@ -55,6 +55,7 @@ The notes of 0.1.0-alpha.5 are wrong in eleven places. Two are under Fixed below
 - `lawcheck docs agent-setup` and `lawcheck docs plugin` now say that the setup skill is early and what it can get wrong. Read each type, list and rule it writes before you commit `.lawcheck/`.
 - The scripts that show findings on a pull request have a page of their own, `lawcheck docs ci-findings`: annotations on GitHub, a code quality report on GitLab, and GitHub code scanning. In alpha.5 they were a section of `lawcheck docs ci`, which now links the new page.
 - `lawcheck check` no longer starts a Node process for each script rule. It starts one, which takes one whole rule after another, and it starts more only while rules still wait, never more than the machine has processors. `lawcheck docs script-rules` describes this under "The runner".
+- On Linux and Windows a second process for script rules also needs 896 MiB that the system can give as the check starts, so a machine with little free memory runs its rules one at a time.
 - A script rule in a shared process still loads its own copies of the modules it imports. A rule that leaves a timer, a changed global, a printed line or another trace is the last rule of its process, and the next rule gets a fresh one.
 - A rule that crashes after another rule of its process runs once more alone, so `rule-crashed` names it in the same words as before.
 - In one run Lawcheck now parses a file once, and every script rule that calls `tree()` on it gets that tree. In alpha.5 each rule's call parsed the file again.

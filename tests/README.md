@@ -25,6 +25,27 @@ Two checks stand around a release ([design/decisions.md](../design/decisions.md)
 
 The Weekly workflow installs the plugin from the marketplace in the newest Claude Code, Codex CLI and Copilot CLI with `harness/agent-install.ts`, and compares what each agent holds with `main`. It needs the network, those programs on `PATH`, and no sign-in ([design/decisions.md](../design/decisions.md), "The weekly run installs the plugin in the newest agents").
 
+## The Nightly by hand
+
+The Nightly starts only by hand. With no inputs it runs every job whole, the commit set once on each system:
+
+    gh workflow run nightly.yml --ref <branch>
+
+To prove one fix, choose what runs:
+
+    gh workflow run nightly.yml --ref <branch> -f jobs=limits -f tests="test 251"
+    gh workflow run nightly.yml --ref <branch> -f jobs=commit -f os=windows-latest
+
+| Input | What it chooses |
+|---|---|
+| `jobs` | the jobs to run, comma separated with no spaces: `commit` (the commit set), `shuffle`, `properties`, `limits`, `environments`, `deadlines`, `sabotage`; empty runs every job |
+| `tests` | test ids, comma separated, such as `test 251` or `R-73`; each chosen job then runs only these, and `jobs` must name the jobs that hold them |
+| `os` | the one system of `commit` and `deadlines`: `ubuntu-latest`, `windows-latest` or `macos-latest`; `all` runs each of their systems |
+
+The job `nightly chosen inputs` turns the run red for a job or a test that does not exist, for a chosen job that holds none of the tests, and for a test that no chosen job holds. The tests reach `tests/run.ts` in `LAWCHECK_ONLY`, which narrows a step to those of them it runs, so you can set it on your machine too. A step that runs none of them says so and runs nothing. A step in which one of its chosen tests does not run is red and names that test.
+
+A run with any of these inputs is named `Nightly of chosen parts`, and a run with none `Nightly, whole`. The release workflow counts only the second: before a tag, one whole run on the tagged commit must be green ([CONTRIBUTING.md](../CONTRIBUTING.md#before-a-release)).
+
 ## The layers
 
 | Folder | What its tests hold |

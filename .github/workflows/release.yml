@@ -23,15 +23,15 @@ jobs:
       actions: read
     uses: ./.github/workflows/ci.yml
 
-  # The nightly set is not run again here: its tests draw new seeds and orders, so a run here would judge other cases than the runs that were seen green. The Nightly does not run by itself: it runs twice by hand on the tagged commit before a release, and both runs must be green. The tagged commit must already have two green dispatched runs of nightly.yml, and the tag is laid only after them.
+  # The nightly set is not run again here: its tests draw new seeds and orders, so a run here would judge other cases than the runs that were seen green. The Nightly does not run by itself: it runs by hand on the tagged commit before a release, and the tagged commit must already have one green whole run of nightly.yml. The tag is laid only after it. A dispatch that chose jobs, tests or a system takes another run name (run-name of nightly.yml), so it is not counted.
   nightly:
-    name: two green Nightlies on the tagged commit
+    name: a green whole Nightly on the tagged commit
     runs-on: ubuntu-latest
     permissions:
       contents: read
       actions: read
     steps:
-      - name: Two green dispatched runs of nightly.yml on the tagged commit
+      - name: A green whole dispatched run of nightly.yml on the tagged commit
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
@@ -46,17 +46,17 @@ jobs:
             exit 1
           fi
           RUNS=$(gh api "repos/${REPO}/actions/workflows/nightly.yml/runs?head_sha=${COMMIT}&per_page=100" \
-            --jq '.workflow_runs[] | select(.event == "workflow_dispatch") | "\(.id) \(.event) \(.status) \(.conclusion // "none") \(.html_url)"')
+            --jq '.workflow_runs[] | select(.event == "workflow_dispatch" and .display_title == "Nightly, whole") | "\(.id) \(.event) \(.status) \(.conclusion // "none") \(.html_url)"')
           GREEN=$(awk '$3 == "completed" && $4 == "success" && !seen[$1]++ { print }' <<< "${RUNS}")
-          if [ "$(grep -c . <<< "${GREEN}")" -lt 2 ]; then
-            echo "::error::Tag ${TAG} names commit ${COMMIT}, which has fewer than two green Nightlies: fewer than two dispatched runs of nightly.yml on that commit ended in success. Dispatch it by hand twice (gh workflow run nightly.yml --ref <a branch whose head is ${COMMIT}>), wait until both are green, then re-run this release run."
+          if [ -z "${GREEN}" ]; then
+            echo "::error::Tag ${TAG} names commit ${COMMIT}, which has no green whole Nightly: no whole dispatched run of nightly.yml on that commit ended in success, and a run of chosen jobs, tests or a system does not count. Dispatch it by hand with no inputs (gh workflow run nightly.yml --ref <a branch whose head is ${COMMIT}>), wait until it is green, then re-run this release run."
             if [ -n "${RUNS}" ]; then
-              echo "The runs of nightly.yml on ${COMMIT} (id, event, status, conclusion, address):"
+              echo "The whole runs of nightly.yml on ${COMMIT} (id, event, status, conclusion, address):"
               printf '%s\n' "${RUNS}"
             fi
             exit 1
           fi
-          echo "Tag ${TAG} names commit ${COMMIT}; green Nightlies:"
+          echo "Tag ${TAG} names commit ${COMMIT}; green whole Nightlies:"
           printf '%s\n' "${GREEN}"
 
   # Everything that runs code of the repository or of its dependencies happens here, with a read-only token and no id-token, so no install script can mint the publishing token.

@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { paint, render, scriptLength, segments, spans, unreachedLines } from '../coverage/list.ts';
+import { join, posix, win32 } from 'node:path';
+import { paint, render, scriptLength, segments, sourceOf, spans, unreachedLines } from '../coverage/list.ts';
 import { ROOT } from '../harness/sets.ts';
 
 test('test 1360: the coverage list, the innermost range that holds a character says whether it ran, and what one process ran stays run', () => {
@@ -68,6 +68,19 @@ test('test 1360: the coverage list, the file names its lines as spans with the f
     'src/c.ts',
     '',
   ].join('\n'));
+});
+
+test('test 1360: the coverage list, the source a map names is the file of src/ wherever the build with maps lies, on another drive of Windows too, and a source outside src/ is none', () => {
+  const linux = '/home/runner/work/Lawcheck/Lawcheck/';
+  assert.equal(sourceOf('/tmp/lawcheck-coverage-x/maps/providers/index.js', '../../../../home/runner/work/Lawcheck/Lawcheck/src/providers/index.ts', linux, posix), 'src/providers/index.ts');
+  assert.equal(sourceOf('/tmp/lawcheck-coverage-x/maps/glob.js', '../../../home/runner/work/Lawcheck/Lawcheck/tests/glob.ts', linux, posix), null);
+  const windows = 'D:\\a\\Lawcheck\\Lawcheck\\';
+  assert.equal(sourceOf('D:\\a\\_temp\\lawcheck-coverage-x\\maps\\glob.js', '../../../Lawcheck/Lawcheck/src/glob.ts', windows, win32), 'src/glob.ts');
+  // The temporary folder of a Windows runner is on C: and the checkout on D:, and with no relative path between drives the compiler names the source by a file URL.
+  const temp = 'C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\lawcheck-coverage-x\\maps\\providers\\index.js';
+  assert.equal(sourceOf(temp, 'file:///D:/a/Lawcheck/Lawcheck/src/providers/index.ts', windows, win32), 'src/providers/index.ts');
+  assert.equal(sourceOf(temp, 'file:///d:/a/Lawcheck/Lawcheck/src/providers/index.ts', windows, win32), 'src/providers/index.ts');
+  assert.equal(sourceOf(temp, 'file:///D:/a/Lawcheck/Lawcheck/tests/glob.ts', windows, win32), null);
 });
 
 test('test 1360: the coverage list, a run of a few tests reaches the lines they run, in the build and in the copies of it that tests run, and names the files no process loaded', () => {
