@@ -51,7 +51,7 @@ jobs:
 
   # The commit set on one commit, on each system: three times on Linux and macOS, where a test with mixed results is a flake and stops the release until it is fixed, and once on Windows.
   repeat:
-    name: nightly commit set ${{ matrix.os == 'windows-latest' && 'once' || 'three times' }} (${{ matrix.os }})
+    name: nightly commit set (${{ matrix.os }})
     if: ${{ !inputs.jobs || contains(format(',{0},', inputs.jobs), ',repeat,') }}
     runs-on: ${{ matrix.os }}
     # Three times the slowest green run of this job on each system in the last 16 green Nightlies, rounded up to 5 minutes.
