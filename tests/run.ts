@@ -5,6 +5,7 @@ import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { COMMIT_TARGET_MS, LOOP_TARGET_MS, SEED, SLOW_TESTS, TEST_BUDGET_MS, testBudget } from './numbers.ts';
 import type { Speed } from './numbers.ts';
+import { chosenTests, everyTestFile, holding, ID, idPattern } from './harness/chosen.ts';
 import { COMMIT_GROUPS, EMPTY_GROUPS, groupDirs, NIGHTLY_GROUPS, perPushFiles, perPushTests, ROOT, SERIAL_DIRS, setFiles, TESTS } from './harness/sets.ts';
 import type { System } from './harness/sets.ts';
 import { readPlan } from './harness/shards.ts';
@@ -93,18 +94,6 @@ function readMap(): Record<string, string[]> {
   return JSON.parse(readFileSync(join(TESTS, 'map.json'), 'utf8')) as Record<string, string[]>;
 }
 
-const ID = /^(tests? \d+|I-[a-z][a-z0-9]*-\d+|S\d+-\d+|U-\d+|R-\d+|T[1-8])$/;
-
-function escape(text: string): string {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-function idPattern(id: string): string {
-  const row = /^tests? (\d+)$/.exec(id);
-  if (row !== null) return `/^tests? (\\d+(, | and ))*${row[1]}(?!\\d)/`;
-  return `/(^|[^\\w-])${escape(id)}([^\\w-]|$)/`;
-}
-
 interface Plan {
   files: string[];
   patterns: string[];
@@ -139,10 +128,9 @@ function plan(parsed: Parsed): Plan {
   for (const target of targets) {
     if (ID.test(target)) {
       const id = target.replace(/^tests /, 'test ');
-      const needle = new RegExp(idPattern(id).slice(1, -1).replace('^', "(^|['`])"));
-      const holding = sets.filter((file) => needle.test(readFileSync(join(ROOT, file), 'utf8')));
-      if (holding.length === 0) fail(`no test file holds a test named ${id}`);
-      for (const file of holding) files.add(file);
+      const held = holding(sets, id);
+      if (held.length === 0) fail(`no test file holds a test named ${id}`);
+      for (const file of held) files.add(file);
       patterns.push(idPattern(id));
       continue;
     }
@@ -160,6 +148,19 @@ function plan(parsed: Parsed): Plan {
     else notes.push(`no tests are mapped to ${path}`);
   }
   return { files: [...files].sort(), patterns, notes };
+}
+
+// The intersection of what a step runs and the tests LAWCHECK_ONLY names: node ORs its name patterns, so the step's own ids cannot stay beside the chosen ones.
+function narrow(planned: Plan, only: string[], skips: string[]): Plan & { wanted: string[] } {
+  const every = everyTestFile();
+  for (const id of only) {
+    if (!ID.test(id)) fail(`LAWCHECK_ONLY names '${id}', which is not a test id`);
+    if (holding(every, id).length === 0) fail(`no test file holds a test named ${id}, which LAWCHECK_ONLY names`);
+  }
+  const inStep = only.filter((id) => (planned.patterns.length === 0 || planned.patterns.includes(idPattern(id))) && !skips.includes(id));
+  const files = planned.files.filter((file) => inStep.some((id) => holding([file], id).length > 0));
+  const wanted = inStep.filter((id) => holding(files, id).length > 0);
+  return { files, patterns: wanted.map(idPattern), notes: planned.notes, wanted };
 }
 
 function newerThanBuild(): boolean {
@@ -190,9 +191,18 @@ function main(): void {
   const began = Date.now();
   const parsed = parse(process.argv.slice(2));
   if (parsed.speed === 'loop') build();
-  const { files, patterns, notes } = plan(parsed);
+  const only = chosenTests(process.env.LAWCHECK_ONLY ?? '');
+  if (only.length > 0 && parsed.shard !== null) fail('LAWCHECK_ONLY does not narrow a shard');
+  const planned = plan(parsed);
+  const narrowed = only.length > 0 ? narrow(planned, only, parsed.skips) : null;
+  const { files, patterns, notes } = narrowed ?? planned;
   for (const note of notes) process.stdout.write(`${note}\n`);
+  if (narrowed !== null) process.stdout.write(`LAWCHECK_ONLY narrows this run to ${only.join(', ')}\n`);
   const what = parsed.shard !== null ? `shard ${parsed.shard.index} of ${parsed.shard.count} of the commit set on ${process.platform}` : parsed.group === null ? `the ${parsed.speed} set` : `group ${parsed.group} of the ${parsed.speed} set`;
+  if (narrowed !== null && files.length === 0) {
+    process.stdout.write(`${what}: none of the chosen tests is in this part of the run, 0 tests\n`);
+    return;
+  }
   if (files.length === 0) {
     const declared = parsed.speed !== 'loop' && parsed.targets.length === 0 && (parsed.group === null ? groupDirs(parsed.speed, null)!.length > 0 && Object.keys(parsed.speed === 'nightly' ? NIGHTLY_GROUPS : COMMIT_GROUPS).every((g) => EMPTY_GROUPS[parsed.speed as 'commit' | 'nightly'].includes(g)) : EMPTY_GROUPS[parsed.speed as 'commit' | 'nightly'].includes(parsed.group));
     if (parsed.speed !== 'loop' && parsed.targets.length === 0 && !declared) {
@@ -227,9 +237,11 @@ function main(): void {
     args.push(`--test-reporter=${RECORDER}`, `--test-reporter-destination=${join(recording, `events-${tag}.jsonl`)}`);
   }
   args.push(...files);
-  const target = parsed.speed === 'loop' ? LOOP_TARGET_MS : parsed.speed === 'commit' && parsed.targets.length === 0 && parsed.group === null && parsed.shard === null ? COMMIT_TARGET_MS : null;
+  const target = narrowed !== null ? null : parsed.speed === 'loop' ? LOOP_TARGET_MS : parsed.speed === 'commit' && parsed.targets.length === 0 && parsed.group === null && parsed.shard === null ? COMMIT_TARGET_MS : null;
   const whole = parsed.speed !== 'loop' && parsed.targets.length === 0 && parsed.group === null && parsed.shard === null && patterns.length === 0;
-  const env: NodeJS.ProcessEnv = { ...process.env, LAWCHECK_SPEED: parsed.speed, LAWCHECK_SEED: seed, LAWCHECK_TARGET_MS: target === null ? '' : String(target), LAWCHECK_TIE: whole ? '1' : '', LAWCHECK_SHUFFLE: parsed.shuffle ?? '' };
+  const env: NodeJS.ProcessEnv = { ...process.env, LAWCHECK_SPEED: parsed.speed, LAWCHECK_SEED: seed, LAWCHECK_TARGET_MS: target === null ? '' : String(target), LAWCHECK_TIE: whole ? '1' : '', LAWCHECK_SHUFFLE: parsed.shuffle ?? '', LAWCHECK_CHOSEN: narrowed?.wanted.join(',') ?? '' };
+  // A test that starts this runner itself must run all it names, whatever the run around it chose.
+  delete env.LAWCHECK_ONLY;
   let failed = false;
   for (let round = 1; round <= parsed.repeat; round++) {
     if (parsed.repeat > 1) process.stdout.write(`round ${round} of ${parsed.repeat}\n`);

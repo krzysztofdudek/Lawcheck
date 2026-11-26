@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { SLOWEST_SHOWN, slowBudget, TEST_BUDGET_MS } from '../numbers.ts';
 import { INVARIANTS } from './invariants.ts';
 import { promiseOf, testIds } from './promises.ts';
+import { idPattern } from './chosen.ts';
 import { loadInputs } from '../contract/spec-map.ts';
 import { tieProblems } from '../contract/tie.ts';
 import { COMMIT_GROUPS, NIGHTLY_GROUPS, setFiles } from './sets.ts';
@@ -129,6 +130,8 @@ export async function judgeRun(source: AsyncIterable<{ type: string; data: any }
   const unlistedSkips: string[] = [];
   const here = (platform: Parameters<typeof applies>[0]): boolean => (platform === 'root' ? applies(platform) : platform === options.system);
   const passed: { file: string; name: string }[] = [];
+  const chosen = (process.env.LAWCHECK_CHOSEN ?? '').split(',').filter((id) => id !== '').map((id) => ({ id, name: new RegExp(idPattern(id).slice(1, -1)) }));
+  const unseen = new Set(chosen);
   const counts = { passed: 0, failed: 0, skipped: 0, todo: 0 };
   for await (const event of source) {
     const data = event.data ?? {};
@@ -140,6 +143,7 @@ export async function judgeRun(source: AsyncIterable<{ type: string; data: any }
       continue;
     }
     if (event.type !== 'test:pass' && event.type !== 'test:fail') continue;
+    if (data.todo === undefined) for (const one of unseen) if (one.name.test(String(data.name))) unseen.delete(one);
     if (data.details?.type === 'suite') {
       if (event.type === 'test:fail' && data.details?.error?.failureType !== 'subtestsFailed') {
         failed.push({ name: data.name, file: data.file, error: data.details.error });
@@ -190,6 +194,11 @@ export async function judgeRun(source: AsyncIterable<{ type: string; data: any }
   if (unlistedSkips.length > 0) {
     red = true;
     lines.push('', 'RED      a test was skipped or marked todo with no whole-test entry in PLATFORM_SKIPS for this system', 'promise  design/decisions.md, decision 79: a skip is a platform reason in the list of tests/harness/skips.ts', ...unlistedSkips.map((u) => `got      ${u}`));
+  }
+  // A file counts as holding a test when it quotes the id, so only the names that ran show that a chosen test was among them.
+  if (unseen.size > 0) {
+    red = true;
+    lines.push('', 'RED      a chosen test did not run, so this run does not show it', ...[...unseen].map((one) => `got      no test named ${one.id} ran`));
   }
   if (process.env.LAWCHECK_TIE === '1') {
     const speed = process.env.LAWCHECK_SPEED === 'nightly' ? 'nightly' : 'commit';
