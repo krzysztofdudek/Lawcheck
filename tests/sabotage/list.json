@@ -603,8 +603,8 @@
     "id": "runner-capture",
     "promise": "test 1402",
     "file": "src/runner-trace.ts",
-    "find": "if (process.hasUncaughtExceptionCaptureCallback()) return false;",
-    "replace": "if (before === null) return false;",
+    "find": "if (process.hasUncaughtExceptionCaptureCallback() || hooks",
+    "replace": "if (before === null || hooks",
     "killedBy": "test 1402: a rule that replaces a method of console or the write of an output stream, or sets a callback for uncaught exceptions, is the last rule of its runner, and the next rule meets none of it"
   },
   {
