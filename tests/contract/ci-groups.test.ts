@@ -1,13 +1,17 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { chmodSync, existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { delimiter, join } from 'node:path';
 import { parse } from 'yaml';
 import { COMMIT_GROUPS, EMPTY_GROUPS, nightly, NIGHTLY_GROUPS, ROOT, setFiles } from '../harness/sets.ts';
 import { PLATFORM_SKIPS } from '../harness/skips.ts';
 import { continueOnErrorProblems } from '../harness/workflows.ts';
+import { chosenTests, inputProblems, NIGHTLY_JOBS, SEVERAL_SYSTEMS } from '../harness/chosen.ts';
+import { judgeRun } from '../harness/reporter.ts';
+import { platformSkip, testFolder } from '../harness/tool.ts';
 
-type Job = { 'continue-on-error'?: unknown; strategy?: { matrix?: { group?: string[]; os?: string[]; include?: Record<string, unknown>[] } }; steps?: { name?: string; uses?: string; run?: string; if?: string; 'continue-on-error'?: unknown }[]; needs?: string | string[]; name?: string; if?: string; 'runs-on'?: string };
+type Job = { 'continue-on-error'?: unknown; strategy?: { matrix?: { group?: string[]; os?: string[] | string; include?: Record<string, unknown>[] } }; steps?: { name?: string; uses?: string; run?: string; if?: string; 'continue-on-error'?: unknown }[]; needs?: string | string[]; name?: string; if?: string; 'runs-on'?: string };
 type Workflow = { jobs: Record<string, Job> };
 
 const WORKFLOWS = join(ROOT, '.github', 'workflows');
@@ -70,14 +74,24 @@ test('question 95: a group added to tests/harness/sets.ts and to no workflow is 
   assert.deepEqual(commitProblems(named, ['inputs']), ['ci.yml: no job runs commit group inputs', 'ci.yml: group core is not a commit group of tests/harness/sets.ts']);
 });
 
-const WHOLE_COMMIT_SET = /^(npm test( -- --repeat [1-9]\d*)?|node tests\/run\.ts commit( --repeat [1-9]\d*)?)$/;
+const WHOLE_COMMIT_SET = /^(npm test( -- --repeat ([1-9]\d*|\$\{\{ matrix\.os == 'windows-latest' && [1-9]\d* \|\| [1-9]\d* \}\}))?|node tests\/run\.ts commit( --repeat [1-9]\d*)?)$/;
 const SYSTEM_OF: [RegExp, string][] = [[/^ubuntu-/, 'linux'], [/^windows-/, 'win32'], [/^macos-/, 'darwin']];
+
+// The one condition a job of the nightly may carry: it holds on every run that names no jobs.
+const choiceOf = (key: string): string => `\${{ !inputs.jobs || contains(format(',{0},', inputs.jobs), ',${key},') }}`;
+
+// The systems of a matrix on a run that names no system: the list itself, or the default of the one expression that narrows it.
+function matrixSystems(os: string[] | string | undefined): string[] {
+  if (typeof os !== 'string') return os ?? [];
+  const whole = /^\$\{\{ fromJSON\(\(inputs\.os && inputs\.os != 'all'\) && format\('\["\{0\}"\]', inputs\.os\) \|\| '(\[[^']*\])'\) \}\}$/.exec(os);
+  return whole === null ? [] : (JSON.parse(whole[1]!) as string[]);
+}
 
 // The systems on which a job runs the whole commit set, every test of every group, with no condition on the job or the step.
 function wholeSetSystems(workflow: Workflow): string[] {
   const out = new Set<string>();
-  for (const job of Object.values(workflow.jobs)) {
-    if (job.if !== undefined || !(job.steps ?? []).some((step) => step.if === undefined && WHOLE_COMMIT_SET.test((step.run ?? '').trim()))) continue;
+  for (const [key, job] of Object.entries(workflow.jobs)) {
+    if ((job.if !== undefined && job.if !== choiceOf(key)) || !(job.steps ?? []).some((step) => step.if === undefined && WHOLE_COMMIT_SET.test((step.run ?? '').trim()))) continue;
     for (const system of jobSystems(job)) out.add(system);
   }
   return [...out].sort();
@@ -95,17 +109,23 @@ test('question 95: a nightly that runs the whole commit set on Linux alone, behi
   gated.jobs.repeat!.if = "github.event_name == 'schedule'";
   assert.deepEqual(wholeSetSystems(gated), []);
   const grouped = read('nightly.yml');
-  for (const step of grouped.jobs.repeat!.steps!) if (step.run !== undefined) step.run = step.run.replace('npm test -- --repeat 3', 'npm test -- --group core --repeat 3');
+  for (const step of grouped.jobs.repeat!.steps!) if (step.run !== undefined) step.run = step.run.replace('npm test -- --repeat ', 'npm test -- --group core --repeat ');
   assert.deepEqual(wholeSetSystems(grouped), []);
   const gone = read('nightly.yml');
   delete gone.jobs.repeat;
   assert.deepEqual(wholeSetSystems(gone), []);
+  const another = read('nightly.yml');
+  another.jobs.repeat!.if = choiceOf('limits');
+  assert.deepEqual(wholeSetSystems(another), []);
+  const chosenByDefault = read('nightly.yml');
+  chosenByDefault.jobs.repeat!.strategy!.matrix!.os = String(chosenByDefault.jobs.repeat!.strategy!.matrix!.os).replace(',"windows-latest","macos-latest"', '');
+  assert.deepEqual(wholeSetSystems(chosenByDefault), ['linux']);
 });
 
 // The systems a job runs on: its runner, or each runner of its matrix.
 function jobSystems(job: Job): string[] {
   const on = job['runs-on'] ?? '';
-  const oses = on === '${{ matrix.os }}' ? [...(job.strategy?.matrix?.os ?? []), ...(job.strategy?.matrix?.include ?? []).map((e) => String(e.os))] : [on];
+  const oses = on === '${{ matrix.os }}' ? [...matrixSystems(job.strategy?.matrix?.os), ...(job.strategy?.matrix?.include ?? []).map((e) => String(e.os))] : [on];
   return SYSTEM_OF.filter(([pattern]) => oses.some((os) => pattern.test(os))).map(([, system]) => system);
 }
 
@@ -194,5 +214,187 @@ test('question 95: continue-on-error on any job or step of any workflow file is 
         assert.deepEqual(on((w) => { w.jobs[name]!.steps![i]!['continue-on-error'] = '${{ matrix.node != \'24\' }}'; }), [reds(file, what)], `${file} ${what} with an expression`);
       });
     }
+  }
+});
+
+type Step = { name?: string; run?: string; env?: Record<string, string> };
+type ChosenJob = { if?: string; strategy?: { matrix?: { os?: unknown } }; steps?: Step[] };
+type Chosen = { 'run-name'?: string; env?: Record<string, string>; on: { workflow_dispatch: { inputs: Record<string, { default?: string; options?: string[] }> } }; jobs: Record<string, ChosenJob> };
+
+const readChosen = (name: string): Chosen => read(name) as unknown as Chosen;
+
+const NARROWED = "inputs.jobs || inputs.tests || (inputs.os && inputs.os != 'all')";
+const WHOLE = 'Nightly, whole';
+
+// How a run of the runner in a step of nightly.yml gets the chosen tests: a container and a cleared environment each need it passed.
+function unnarrowed(workflow: Chosen): string[] {
+  const out: string[] = [];
+  for (const [key, job] of Object.entries(workflow.jobs)) {
+    if (key === 'chosen') continue;
+    for (const step of job.steps ?? []) {
+      const run = step.run ?? '';
+      if (/\$\{\{[^}]*inputs\./.test(run)) out.push(`${key}: an input is written into a script`);
+      if (!/tests\/run\.ts (commit|nightly)|npm test\b/.test(run)) continue;
+      if (/\bdocker run\b/.test(run) && !/\bdocker run [^\n]*-e LAWCHECK_ONLY /.test(run)) out.push(`${key}: ${step.name ?? run} starts a container without LAWCHECK_ONLY`);
+      if (/\benv -i\b/.test(run) && !run.includes('LAWCHECK_ONLY="$LAWCHECK_ONLY"')) out.push(`${key}: ${step.name ?? run} clears the environment and drops LAWCHECK_ONLY`);
+    }
+  }
+  return out;
+}
+
+function choiceProblems(workflow: Chosen): string[] {
+  const out: string[] = [];
+  const jobs = Object.keys(workflow.jobs).filter((key) => key !== 'chosen');
+  if (jobs.join() !== Object.keys(NIGHTLY_JOBS).join()) out.push(`the jobs ${jobs.join()} are not the jobs of NIGHTLY_JOBS`);
+  for (const key of jobs) {
+    const job = workflow.jobs[key]!;
+    if (job.if !== `\${{ !inputs.jobs || contains(format(',{0},', inputs.jobs), ',${key},') }}`) out.push(`${key}: not chosen by its own name`);
+    const runs = (job.steps ?? []).map((step) => step.run ?? '').join('\n');
+    const set = NIGHTLY_JOBS[key];
+    if (set !== undefined && !(set.group === null ? /npm test\b/.test(runs) : runs.includes(`tests/run.ts nightly --group ${set.group}`))) out.push(`${key}: its steps do not run the set NIGHTLY_JOBS names`);
+    if ((job.strategy?.matrix?.os !== undefined) !== SEVERAL_SYSTEMS.includes(key)) out.push(`${key}: SEVERAL_SYSTEMS and the matrix disagree`);
+  }
+  if (workflow.env?.LAWCHECK_ONLY !== '${{ inputs.tests }}') out.push('the tests input does not reach LAWCHECK_ONLY');
+  return [...out, ...unnarrowed(workflow)];
+}
+
+test('test 1427: every job of nightly.yml is chosen by its own name, runs the set the input check holds it to, and passes the chosen tests to the runner', () => {
+  assert.deepEqual(choiceProblems(readChosen('nightly.yml')), []);
+  assert.deepEqual(Object.keys(readChosen('nightly.yml').on.workflow_dispatch.inputs), ['jobs', 'tests', 'os']);
+  const planted = readChosen('nightly.yml');
+  planted.jobs.limits!.if = planted.jobs.sabotage!.if!;
+  for (const step of planted.jobs.limits!.steps!) if (step.run !== undefined) step.run = step.run.replace('-e LAWCHECK_ONLY ', '');
+  for (const step of planted.jobs.sabotage!.steps!) if (step.run !== undefined) step.run = step.run.replace('LAWCHECK_ONLY="$LAWCHECK_ONLY" ', '');
+  planted.jobs.properties!.steps!.push({ run: 'node tests/run.ts nightly ${{ inputs.tests }}' });
+  const problems = choiceProblems(planted);
+  for (const part of ['limits: not chosen by its own name', 'limits: The limits in a container', 'limits: Test', 'sabotage: The sabotage list, with the network closed clears', 'properties: an input is written into a script']) assert.ok(problems.some((p) => p.startsWith(part)), `${part} in ${problems.join('; ')}`);
+});
+
+test('test 1428: the input check refuses a job or a test that would be left out without a red, and takes the inputs that match', () => {
+  assert.deepEqual(inputProblems('', '', 'all'), []);
+  assert.deepEqual(inputProblems('limits', 'test 251', 'all'), []);
+  assert.deepEqual(inputProblems('limits,deadlines', 'test 251, test 163', ''), []);
+  assert.deepEqual(inputProblems('repeat', '', 'windows-latest'), []);
+  assert.deepEqual(inputProblems('', '', 'macos-latest'), []);
+  const only = (jobs: string, tests: string, os: string, expected: RegExp[]) => {
+    const problems = inputProblems(jobs, tests, os);
+    assert.equal(problems.length, expected.length, problems.join('; '));
+    expected.forEach((pattern, i) => assert.match(problems[i]!, pattern));
+  };
+  only('limit', '', 'all', [/there is no job 'limit'/]);
+  only('limits, environments', '', 'all', [/there is no job ' environments'/]);
+  only('', 'test 251', 'all', [/name the jobs that hold the tests too/]);
+  only('limits,deadlines', 'test 251', 'all', [/the job deadlines holds none of test 251/]);
+  only('limits', 'test 251,test 163', 'all', [/no chosen job holds a test named test 163/]);
+  only('limits', 'test 251,251', 'all', [/'251' is not a test id/]);
+  only('limits', ' , ', 'all', [/names no test id/]);
+  only('limits', '', 'windows-latest', [/only the jobs repeat and deadlines run on several systems/]);
+  assert.deepEqual(chosenTests(' tests 248 ,test 251,'), ['test 248', 'test 251']);
+  const cli = (env: Record<string, string>) => spawnSync(process.execPath, [join(ROOT, 'tests', 'harness', 'chosen.ts')], { cwd: ROOT, encoding: 'utf8', env: { ...process.env, LAWCHECK_JOBS: '', LAWCHECK_ONLY: '', LAWCHECK_OS: '', ...env } });
+  const good = cli({ LAWCHECK_JOBS: 'limits', LAWCHECK_ONLY: 'test 251', LAWCHECK_OS: 'all' });
+  assert.equal(good.status, 0, good.stdout + good.stderr);
+  assert.equal(good.stdout, 'chosen: jobs limits, tests test 251, os all\n');
+  const bad = cli({ LAWCHECK_JOBS: 'limit' });
+  assert.equal(bad.status, 1, bad.stdout + bad.stderr);
+  assert.match(bad.stdout, /^::error::jobs: there is no job 'limit'/);
+});
+
+function runner(only: string, ...args: string[]) {
+  const env: NodeJS.ProcessEnv = { ...process.env, LAWCHECK_ONLY: only, LAWCHECK_RECORD: '', LAWCHECK_ORDER_SEED: '' };
+  // Under node --test this process carries NODE_TEST_CONTEXT, which makes a nested node --test report to its parent instead of printing.
+  delete env.NODE_TEST_CONTEXT;
+  return spawnSync(process.execPath, [join(ROOT, 'tests', 'run.ts'), 'commit', ...args], { cwd: ROOT, encoding: 'utf8', env });
+}
+
+const SELF = 'tests/contract/ci-groups.test.ts';
+
+test('test 1429: LAWCHECK_ONLY narrows a run to the chosen tests among those the step runs, and refuses a test that no file holds', () => {
+  const one = runner('test 1431', SELF);
+  assert.equal(one.status, 0, one.stdout + one.stderr);
+  assert.match(one.stdout, /LAWCHECK_ONLY narrows this run to test 1431/);
+  assert.match(one.stdout, /ran 1 test files, 1 tests: 1 passed, 0 failed/);
+  const own = runner('test 1431,test 1428', SELF, 'test 1431');
+  assert.equal(own.status, 0, own.stdout + own.stderr);
+  assert.match(own.stdout, /ran 1 test files, 1 tests: 1 passed, 0 failed/);
+  for (const args of [['tests/contract/starts.test.ts'], [SELF, '--skip', 'test 1431'], [SELF, 'test 1428']]) {
+    const none = runner('test 1431', ...args);
+    assert.equal(none.status, 0, `${args.join(' ')}: ${none.stdout}${none.stderr}`);
+    assert.match(none.stdout, /none of the chosen tests is in this part of the run, 0 tests\n$/, args.join(' '));
+  }
+  // Built here, because a file counts as holding any id it quotes.
+  const absent = ['test', '99999'].join(' ');
+  for (const [only, message] of [[absent, /no test file holds a test named/], ['test 1431,limits', /'limits', which is not a test id/]] as const) {
+    const refused = runner(only, SELF);
+    assert.equal(refused.status, 2, refused.stdout + refused.stderr);
+    assert.match(refused.stderr, message);
+  }
+});
+
+test('test 1430: a part of a run in which one of its chosen tests did not run is red and names it', async () => {
+  const ran = async function* () {
+    yield { type: 'test:pass', data: { name: 'tests 1431 and 1500: two numbers in one name', nesting: 0, file: join(ROOT, SELF) } };
+  };
+  const judged = () => judgeRun(ran(), { system: 'linux', started: null, target: 0 });
+  const before = process.env.LAWCHECK_CHOSEN;
+  try {
+    process.env.LAWCHECK_CHOSEN = 'test 1431,test 1500';
+    assert.equal((await judged()).red, false);
+    process.env.LAWCHECK_CHOSEN = 'test 1431,test 1428';
+    const missing = await judged();
+    assert.equal(missing.red, true);
+    assert.match(missing.text, /a chosen test did not run[^\n]*\ngot      no test named test 1428 ran/);
+    process.env.LAWCHECK_CHOSEN = '';
+    assert.equal((await judged()).red, false);
+  } finally {
+    if (before === undefined) delete process.env.LAWCHECK_CHOSEN;
+    else process.env.LAWCHECK_CHOSEN = before;
+  }
+});
+
+test('test 1431: the tests a narrowed run starts do not get LAWCHECK_ONLY, so a runner they start runs all it names', () => {
+  assert.equal(process.env.LAWCHECK_ONLY, undefined);
+});
+
+// The script of release.yml's job nightly, run with a gh that answers from a list of runs and applies the script's own --jq with jq.
+function releaseVerdict(runs: { id: number; event: string; status: string; conclusion: string | null; display_title: string }[]) {
+  const step = readChosen('release.yml').jobs.nightly!.steps![0]!;
+  const folder = testFolder('lawcheck-release-nightly-');
+  const dir = folder.dir;
+  try {
+    writeFileSync(join(dir, 'runs.json'), JSON.stringify({ workflow_runs: runs.map((run) => ({ ...run, html_url: `https://example.invalid/${run.id}` })) }));
+    writeFileSync(join(dir, 'gh'), '#!/bin/sh\ncase "$2" in\n  */commits/*) echo abc123 ;;\n  */runs\\?*) jq -r "$4" "$FAKE_RUNS" ;;\n  *) exit 3 ;;\nesac\n');
+    chmodSync(join(dir, 'gh'), 0o755);
+    const run = spawnSync('bash', ['-c', step.run!], { encoding: 'utf8', env: { ...process.env, PATH: `${dir}${delimiter}${process.env.PATH}`, FAKE_RUNS: join(dir, 'runs.json'), REPO: 'o/r', TAG: 'v9.9.9', COMMIT: 'abc123' } });
+    return { status: run.status, out: run.stdout + run.stderr };
+  } finally {
+    folder.remove();
+  }
+}
+
+test('test 1432: only a run with no inputs takes the name release.yml counts', () => {
+  const nightly = readChosen('nightly.yml');
+  assert.equal(nightly['run-name'], `\${{ (${NARROWED}) && format('Nightly of chosen parts (jobs={0} tests={1} os={2})', inputs.jobs || 'all', inputs.tests || 'all', inputs.os || 'all') || '${WHOLE}' }}`);
+  assert.equal(nightly.jobs.chosen!.if, `\${{ ${NARROWED} }}`);
+  assert.ok(readChosen('release.yml').jobs.nightly!.steps![0]!.run!.includes(`.display_title == "${WHOLE}"`));
+});
+
+test('test 1433: release.yml takes one green whole Nightly on the tagged commit, and refuses a run of chosen parts, a red or unfinished run, a called one and none', (t) => {
+  const skip = platformSkip('the whole test');
+  if (skip !== null) return t.skip(skip);
+  const whole = { id: 1, event: 'workflow_dispatch', status: 'completed', conclusion: 'success', display_title: WHOLE };
+  const taken = releaseVerdict([whole]);
+  assert.equal(taken.status, 0, taken.out);
+  assert.match(taken.out, /green whole Nightlies:\n1 workflow_dispatch completed success/);
+  const refused = [
+    [{ ...whole, display_title: 'Nightly of chosen parts (jobs=limits tests=test 251 os=all)' }],
+    [{ ...whole, conclusion: 'failure' }, { ...whole, id: 2, conclusion: 'cancelled' }],
+    [{ ...whole, status: 'in_progress', conclusion: null }],
+    [{ ...whole, event: 'push' }],
+    [],
+  ];
+  for (const runs of refused) {
+    const verdict = releaseVerdict(runs);
+    assert.equal(verdict.status, 1, `${JSON.stringify(runs)}: ${verdict.out}`);
+    assert.match(verdict.out, /has no green whole Nightly/);
   }
 });
