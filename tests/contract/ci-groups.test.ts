@@ -398,3 +398,8 @@ test('test 1433: release.yml takes one green whole Nightly on the tagged commit,
     assert.match(verdict.out, /has no green whole Nightly/);
   }
 });
+
+test('test 1434: the nightly runs the commit set once on Windows and three times on Linux and macOS', () => {
+  const runs = read('nightly.yml').jobs.repeat!.steps!.map((step) => step.run ?? '').filter((run) => run.startsWith('npm test'));
+  assert.deepEqual(runs, ["npm test -- --repeat ${{ matrix.os == 'windows-latest' && 1 || 3 }}"]);
+});
