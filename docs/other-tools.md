@@ -92,7 +92,7 @@ A script rule is code of your own repository. When Lawcheck runs one, the rule c
 
 Lawcheck needs no account. Its licence is MIT.
 
-Lawcheck writes no annotation into the pull request by itself. A review bot comments on the lines of the pull request. So does an architecture tool that prints annotations: `deptrac` prints them by default in GitHub Actions ([deptrac's page on formatters](https://deptrac.github.io/deptrac/formatters/), read on 2026-11-24). For Lawcheck, `lawcheck docs ci` has a script that turns `--json` into GitHub annotations, and a step that uploads the file of `check --sarif` to GitHub code scanning. A CI job shows its findings in the log. When the pull request edits the law that judges it, the log holds a note that says so. `--json` prints the findings as one document for a script of your own.
+Lawcheck writes no annotation into the pull request by itself. A review bot comments on the lines of the pull request. So does an architecture tool that prints annotations: `deptrac` prints them by default in GitHub Actions ([deptrac's page on formatters](https://deptrac.github.io/deptrac/formatters/), read on 2026-11-24). For Lawcheck, `lawcheck docs ci-findings` has a script that turns `--json` into GitHub annotations, and a step that uploads the file of `check --sarif` to GitHub code scanning. A CI job shows its findings in the log. When the pull request edits the law that judges it, the log holds a note that says so. `--json` prints the findings as one document for a script of your own.
 
 | Your case | Use |
 |---|---|
@@ -101,7 +101,7 @@ Lawcheck writes no annotation into the pull request by itself. A review bot comm
 | Your code may not go to a hosted model | Lawcheck with uses and script rules, which send nothing, and reviewer rules through `ollama` on a machine you run |
 | You want both of the above | both: the bot reviews the pull request, and Lawcheck holds the law at each edit and in CI |
 | Your architecture tool already prints annotations on the lines of the pull request, as `deptrac` does in GitHub Actions ([deptrac's page on formatters](https://deptrac.github.io/deptrac/formatters/), read on 2026-11-24) | that tool |
-| You want annotations on the lines of the pull request, and no tool of yours prints them | a review bot, or Lawcheck with the annotation script of `lawcheck docs ci` or with `check --sarif` and GitHub code scanning |
+| You want annotations on the lines of the pull request, and no tool of yours prints them | a review bot, or Lawcheck with the annotation script of `lawcheck docs ci-findings` or with `check --sarif` and GitHub code scanning |
 
 ## A hook you wrote in Claude Code
 
