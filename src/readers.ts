@@ -4,8 +4,6 @@ import { dirname, extname, join, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { version as lawcheckVersion } from './args.js';
 import { LOCAL } from './verdicts.js';
-import * as TreeSitter from 'web-tree-sitter';
-import { createParserHost, fileSha256 } from '@chrisdudek/runes/ast';
 import { getLanguageForExtension, primaryExtensionForLanguage, relationLanguageForPath } from '@chrisdudek/runes/grammars';
 import {
   assembleCsharpCandidates,
@@ -25,8 +23,13 @@ import { comparePaths } from './files.js';
 import { firstLine } from './law.js';
 import type { ErrorItem } from './output.js';
 import { decode, isBinary } from './types.js';
-import { step } from './progress.js';
-import { readError, USES_FILE_BYTES } from './limits.js';
+import { alive, holding, step } from './progress.js';
+import { isMainThread, parentPort, Worker, workerData } from 'node:worker_threads';
+import * as TreeSitter from 'web-tree-sitter';
+import { createParserHost, fileSha256 } from '@chrisdudek/runes/ast';
+import { cores, memoryTotal, PARSE_THREAD_BYTES, readError, spare, treeMemoryBound, USES_FILE_BYTES } from './limits.js';
+import { setFlagsFromString } from 'node:v8';
+import { runInNewContext } from 'node:vm';
 import type { TypedFile } from './types.js';
 
 export type Reason = 'unfollowed' | 'unowned';
@@ -72,12 +75,7 @@ export interface Runes {
 export const GRAMMARS = join(dirname(fileURLToPath(new URL('../package.json', import.meta.url))), 'dist', 'grammars');
 
 export const RUNES: Runes = {
-  createHost: (grammarDir) =>
-    createParserHost({
-      runtime: TreeSitter,
-      runtimeIdentity: () => fileSha256(fileURLToPath(import.meta.resolve('web-tree-sitter/web-tree-sitter.wasm'))),
-      grammarDirs: [grammarDir],
-    }),
+  createHost: parserHost,
   extractorForLanguage,
   extractCsharpRefs,
   assembleCsharpCandidates,
@@ -607,13 +605,15 @@ export interface FlatTree {
   nodes: Int32Array;
 }
 
-export type TreeAnswer = { language: string; tree: FlatTree; absent: null } | { language: string | null; tree: null; absent: Absent };
-
-export type RuleUse = { line: number; type?: string | null } & Answer;
-
-export type UsesAnswer = { uses: RuleUse[]; absent: null } | { uses: null; absent: Absent };
-
 type Tree = ParsedFile['tree'];
+
+function parserHost(grammarDir: string) {
+  return createParserHost({
+    runtime: TreeSitter,
+    runtimeIdentity: () => fileSha256(fileURLToPath(import.meta.resolve('web-tree-sitter/web-tree-sitter.wasm'))),
+    grammarDirs: [grammarDir],
+  });
+}
 
 function flatten(tree: Tree): FlatTree {
   const types = new Map<string, number>();
@@ -655,6 +655,130 @@ function flatten(tree: Tree): FlatTree {
   }
 }
 
+// What a parse of the pool gives when the pool has ended: the caller then parses the file itself, in its turn and under the step that names the file.
+const ALONE = Symbol('alone');
+
+// How long one file may take in the pool. A parse past it ends the pool, and the file is parsed again under its own step, where the limit of a step names it.
+const PARSE_MS = 5_000;
+
+interface Job {
+  id: number;
+  path: string;
+  content: string;
+  language?: string;
+  settle: (tree: FlatTree | null | typeof ALONE) => void;
+  timer?: NodeJS.Timeout;
+}
+
+// The threads that parse the trees of a run, at most as many as the machine gives cores. The memory guard of the tool reads the memory of the whole process, so it cannot tell which of several files parsed at once takes too much, and the threads hold memory while they wait too: while the pool has threads the guard asks the reader to end it instead (src/progress.ts), and so does a parse that takes too long or a thread that fails. Every file then goes through the tool's own parse, one at a time, where a file that takes too much memory or time is named as before.
+class ParsePool {
+  ended = false;
+  private readonly idle: Worker[] = [];
+  private readonly loaded = new Map<Worker, Set<string>>();
+  private readonly all = new Set<Worker>();
+  private readonly waiting: Job[] = [];
+  private readonly running = new Map<Worker, Job>();
+  private next = 0;
+
+  constructor(
+    private readonly grammarDir: string,
+    private readonly size: number,
+    private readonly onStart: () => void,
+  ) {}
+
+  parse(path: string, content: string, language: string | undefined): Promise<FlatTree | null | typeof ALONE> {
+    if (this.ended) return Promise.resolve(ALONE);
+    return new Promise((settle) => {
+      this.waiting.push({ id: this.next++, path, content, ...(language === undefined ? {} : { language }), settle });
+      this.onStart();
+      this.pump();
+    });
+  }
+
+  // Whether a thread has parsed a file with this ending: a file of a language the pool has not met goes to the pool only with enough others to parse.
+  knows(path: string): boolean {
+    const key = extname(path);
+    for (const keys of this.loaded.values()) if (keys.has(key)) return true;
+    return false;
+  }
+
+  // Each thread loads the grammar of a language when it first parses one, and a grammar takes memory in every thread that holds it. So a file goes to an idle thread that has parsed its language, else to a new thread, else to any idle thread, and a repository of many languages loads each grammar in few threads.
+  private pump(): void {
+    while (this.waiting.length > 0) {
+      const job = this.waiting[0]!;
+      const key = extname(job.path);
+      const knows = this.idle.findIndex((one) => this.loaded.get(one)!.has(key));
+      const worker = knows >= 0 ? this.idle.splice(knows, 1)[0]! : this.all.size < this.size ? this.start() : (this.idle.pop() ?? null);
+      if (worker === null) return;
+      this.loaded.get(worker)!.add(key);
+      this.waiting.shift();
+      this.running.set(worker, job);
+      job.timer = setTimeout(() => void this.end(), PARSE_MS);
+      worker.postMessage({ id: job.id, path: job.path, content: job.content, language: job.language });
+    }
+  }
+
+  private start(): Worker {
+    const worker = new Worker(new URL(import.meta.url), { workerData: { parseTrees: this.grammarDir }, stdout: false, stderr: false });
+    this.all.add(worker);
+    this.loaded.set(worker, new Set());
+    worker.on('message', (message: { id: number; tree: FlatTree | null }) => {
+      const job = this.running.get(worker);
+      if (job === undefined || job.id !== message.id) return;
+      clearTimeout(job.timer);
+      this.running.delete(worker);
+      this.idle.push(worker);
+      alive();
+      job.settle(message.tree);
+      this.pump();
+    });
+    worker.on('error', () => void this.end());
+    worker.on('exit', () => {
+      if (!this.ended) void this.end();
+    });
+    // After the listeners, since a listener for messages holds the process again: an idle pool must not keep a finished command from ending.
+    worker.unref();
+    return worker;
+  }
+
+  // Ends every thread and gives each file still in the pool back to its caller.
+  async end(): Promise<void> {
+    if (this.ended) return;
+    this.ended = true;
+    const left = [...this.running.values(), ...this.waiting];
+    for (const job of left) clearTimeout(job.timer);
+    this.running.clear();
+    this.waiting.length = 0;
+    await Promise.all([...this.all].map((worker) => worker.terminate().catch(() => undefined)));
+    this.all.clear();
+    for (const job of left) job.settle(ALONE);
+  }
+}
+
+
+export type TreeAnswer = { language: string; tree: FlatTree; absent: null } | { language: string | null; tree: null; absent: Absent };
+
+export type RuleUse = { line: number; type?: string | null } & Answer;
+
+export type UsesAnswer = { uses: RuleUse[]; absent: null } | { uses: null; absent: Absent };
+
+
+// The trees a run gives back are garbage until V8 collects them, and it would collect them only when it next needs room, while the thread that watches reads the memory of the process now. So the run collects at once. Node gives a program no call for that unless it starts with --expose-gc; set while it runs, the flag gives the call to a new context.
+function collect(): void {
+  try {
+    setFlagsFromString('--expose-gc');
+    (runInNewContext('gc') as () => void)();
+  } catch {
+    // Without the call the memory comes back when V8 next collects.
+  }
+}
+
+// How many files are parsed ahead of the one a rule asked for, and how many must be left to parse before the pool starts.
+const AHEAD = 32;
+const POOL_FROM = 8;
+// The most threads the pool has, on any machine: each holds a JavaScript realm and the grammars it loaded, which count toward the memory the run may hold.
+const POOL_THREADS = 4;
+
 export interface Owners {
   bytes: (path: string) => Uint8Array;
   ownerOf: (path: string) => string | undefined;
@@ -684,6 +808,8 @@ export interface RuleReadsInput extends Owners {
   root: string;
   files: string[];
   grammarDir?: string;
+  treeBytes?: number;
+  threads?: number;
 }
 
 export interface RuleFileText {
@@ -700,19 +826,90 @@ export function ruleReads(input: RuleReadsInput, runes: Runes = RUNES): Reads {
   const siblings = siblingsOf(input.files);
   let host: Host | null = null;
 
-  const tree = async (file: RuleFileText, asker: string | undefined): Promise<TreeAnswer> => {
+  // A tree depends on the path and the text of its file and on nothing of the rule that asks, so every rule of the run takes the tree of the first parse. A tree is found only under its own path and for the same text, and it is kept only while the kept trees stay within their bound; a failed parse is never kept.
+  const trees = new Map<string, { text: string; answer: TreeAnswer }>();
+  const room = spare();
+  const bound = input.treeBytes ?? Math.min(treeMemoryBound(memoryTotal()), Math.floor(room / 4));
+  let kept = 0;
+  const known = (file: RuleFileText): TreeAnswer | undefined => {
+    const held = trees.get(file.path);
+    return held !== undefined && held.text === file.text ? held.answer : undefined;
+  };
+
+  // When the run comes near the memory it may hold, the thread that watches asks for what the reader can give back: the kept trees and the threads of the pool. From then on the run keeps no tree and parses each file for the rule that asks, one at a time, as it did before trees were kept.
+  let keeping = bound;
+  const release = async (): Promise<void> => {
+    keeping = 0;
+    full = true;
+    kept = 0;
+    trees.clear();
+    await pool?.end();
+    collect();
+  };
+  const keep = (file: RuleFileText, language: string, flat: FlatTree): TreeAnswer => {
+    const answer: TreeAnswer = { language, tree: flat, absent: null };
+    if (trees.has(file.path)) return answer;
+    if (kept + flat.nodes.byteLength > keeping) full = true;
+    else {
+      if (trees.size === 0) holding(release);
+      trees.set(file.path, { text: file.text, answer });
+      kept += flat.nodes.byteLength;
+    }
+    return answer;
+  };
+
+  // What a file's tree is without a parse, or the text to parse.
+  const parsable = (file: RuleFileText): TreeAnswer | ScriptView => {
     const reader = readerOf(file.path, file.text, siblings, runes);
     if (!reader.reader || reader.view === null) return { language: null, tree: null, absent: 'no-reader' };
-    const { language, parsePath, content } = reader.view;
-    if (Buffer.byteLength(content, 'utf8') > USES_FILE_BYTES) return { language, tree: null, absent: 'too-large' };
+    if (Buffer.byteLength(reader.view.content, 'utf8') > USES_FILE_BYTES) return { language: reader.view.language, tree: null, absent: 'too-large' };
+    return reader.view;
+  };
+  const override = (view: ScriptView) => (getLanguageForExtension(extname(view.parsePath)) === view.language ? undefined : view.language);
+
+  const tree = async (file: RuleFileText, asker: string | undefined): Promise<TreeAnswer> => {
+    const held = known(file);
+    if (held !== undefined) return held;
+    const view = parsable(file);
+    if ('absent' in view) return view;
     host ??= runes.createHost(input.grammarDir ?? GRAMMARS);
     step(`reading the tree of ${file.path}${asker === undefined ? '' : ` for ${asker}`}`, file.path);
     try {
-      const override = getLanguageForExtension(extname(parsePath)) === language ? undefined : language;
-      return { language, tree: await host.withParsedFile(parsePath, content, flatten, override), absent: null };
+      return keep(file, view.language, await host.withParsedFile(view.parsePath, view.content, flatten, override(view)));
     } catch {
-      return { language, tree: null, absent: 'reader-failed' };
+      return { language: view.language, tree: null, absent: 'reader-failed' };
     }
+  };
+
+  // A rule that asks for the tree of one of its files will most likely ask for the next ones, so a pool of threads parses those ahead, several at once, and every rule of the run takes them from there. The pool starts only when POOL_FROM files or more are left to parse, so the check of a few files starts no thread, and it parses nothing ahead once the kept trees have reached their bound. Only the readers of this package cross to a thread, so a run with other readers parses in its turn, and so does a run that has one processor.
+  const threads = input.threads ?? Math.min(cores(), Math.floor(room / 4 / PARSE_THREAD_BYTES));
+  const pool = runes === RUNES && threads > 1 ? new ParsePool(input.grammarDir ?? GRAMMARS, Math.min(threads, POOL_THREADS), () => holding(release)) : null;
+  const parsing = new Map<string, { text: string; answer: Promise<TreeAnswer> }>();
+  let full = false;
+  const pooled = (file: RuleFileText, asker: string | undefined): Promise<TreeAnswer> => {
+    const going = parsing.get(file.path);
+    if (going !== undefined && going.text === file.text) return going.answer;
+    const view = parsable(file);
+    if ('absent' in view) return Promise.resolve(view);
+    const answer = pool!.parse(view.parsePath, view.content, override(view)).then((flat): TreeAnswer | Promise<TreeAnswer> => {
+      if (parsing.get(file.path)?.answer === answer) parsing.delete(file.path);
+      if (flat === ALONE) return inTurn(() => tree(file, asker));
+      return flat === null ? { language: view.language, tree: null, absent: 'reader-failed' } : keep(file, view.language, flat);
+    });
+    answer.catch(() => undefined);
+    if (going === undefined) parsing.set(file.path, { text: file.text, answer });
+    return answer;
+  };
+  // Only files with the ending of the file asked for are parsed ahead, so the pool starts for a language that has many files to parse and a thread loads no grammar for a few files of another one.
+  const ahead = (file: RuleFileText, list: RuleFileText[], at: number): RuleFileText[] => {
+    const out = [file];
+    if (full) return out;
+    const ending = extname(file.path);
+    for (let next = at + 1; next < list.length && out.length < AHEAD; next++) {
+      const other = list[next]!;
+      if (extname(other.path) === ending && known(other) === undefined && !parsing.has(other.path)) out.push(other);
+    }
+    return out;
   };
 
   const failed: UsesAnswer = { uses: null, absent: 'reader-failed' };
@@ -779,8 +976,18 @@ export function ruleReads(input: RuleReadsInput, runes: Runes = RUNES): Reads {
         answers.set(path, answer);
       }
     };
+    let places: Map<string, number> | null = null;
     return async (what, file) => {
-      if (what === 'tree') return inTurn(() => tree(file, asker));
+      if (what === 'tree') {
+        const held = known(file);
+        if (held !== undefined) return held;
+        if (pool === null || pool.ended) return inTurn(() => tree(file, asker));
+        places ??= new Map(bound.map((one, at) => [one.path, at]));
+        const files = ahead(file, bound, places.get(file.path) ?? bound.length);
+        if (files.length < POOL_FROM && !pool.knows(file.path) && !parsing.has(file.path)) return inTurn(() => tree(file, asker));
+        const [own] = files.map((one) => pooled(one, asker));
+        return own!;
+      }
       const reader = readerOf(file.path, file.text, siblings, runes);
       if (!reader.reader) return { uses: null, absent: 'no-reader' };
       if (tooLarge(reader.view)) return { uses: null, absent: 'too-large' };
@@ -791,4 +998,16 @@ export function ruleReads(input: RuleReadsInput, runes: Runes = RUNES): Reads {
       return (await answers.get(file.path)) ?? failed;
     };
   };
+}
+
+// This module is also the program of each thread of the pool: started with the folder of the grammars, it parses one file at a time, as the tool itself does, and gives the tree back without a copy.
+const parseTrees = isMainThread ? undefined : (workerData as { parseTrees?: string } | null)?.parseTrees;
+if (parseTrees !== undefined) {
+  const host = parserHost(parseTrees);
+  parentPort!.on('message', (job: { id: number; path: string; content: string; language?: string }) => {
+    host.withParsedFile(job.path, job.content, flatten, job.language).then(
+      (tree) => parentPort!.postMessage({ id: job.id, tree }, [tree.nodes.buffer as ArrayBuffer]),
+      () => parentPort!.postMessage({ id: job.id, tree: null }),
+    );
+  });
 }

@@ -39,7 +39,7 @@ interface Limits {
 }
 
 type Incoming =
-  | { kind: 'load'; file: string; filesOf: Map<string, string[]>; entry?: Entry; limits: Limits }
+  | { kind: 'load'; file: string; rule: string; filesOf: Map<string, string[]>; entry?: Entry; limits: Limits }
   | { kind: 'call'; file: CallFile }
   | { kind: 'answer'; id: number; value: unknown }
   | { kind: 'finish' };
@@ -144,12 +144,97 @@ countAsyncWaits();
 
 // Node's error for a module it cannot find names the file it looked for, not the import that led there, so the runner keeps the import and the module that wrote it.
 const missing = new WeakMap<object, { specifier: string; parent: string | null }>();
+// What a later rule of the same runner could see of an earlier one, beyond its modules: the own properties of an object, each by its value or its getter and setter, and one level below for the functions, their prototypes and the plain objects it holds.
+type Shape = Map<object, Map<string | symbol, unknown[]>>;
+const builtin = process.getBuiltinModule.bind(process);
+
+function props(target: object): Map<string | symbol, unknown[]> {
+  const out = new Map<string | symbol, unknown[]>();
+  for (const key of Reflect.ownKeys(target)) {
+    const found = Reflect.getOwnPropertyDescriptor(target, key);
+    if (found !== undefined) out.set(key, [found.value, found.get, found.set]);
+  }
+  return out;
+}
+
+function shapeOf(root: object, below: boolean): Shape {
+  const shape: Shape = new Map([[root, props(root)]]);
+  if (!below) return shape;
+  for (const [value] of shape.get(root)!.values()) {
+    if ((typeof value !== 'object' && typeof value !== 'function') || value === null || shape.has(value)) continue;
+    // Below the root only functions and plain objects are read: an instance of a class, such as the runner's channel or a stream, changes as the runner itself works.
+    if (typeof value === 'object' && ![Object.prototype, null].includes(Reflect.getPrototypeOf(value) as never)) continue;
+    shape.set(value, props(value));
+    let prototype: unknown;
+    try {
+      prototype = typeof value === 'function' ? Reflect.getOwnPropertyDescriptor(value, 'prototype')?.value : undefined;
+    } catch {
+      prototype = undefined;
+    }
+    if (typeof prototype === 'object' && prototype !== null && !shape.has(prototype)) shape.set(prototype, props(prototype));
+  }
+  return shape;
+}
+
+function sameShape(shape: Shape): boolean {
+  for (const [target, before] of shape) {
+    const now = props(target);
+    if (now.size !== before.size) return false;
+    for (const [key, was] of before) {
+      const is = now.get(key);
+      if (is === undefined || !Object.is(is[0], was[0]) || is[1] !== was[1] || is[2] !== was[2]) return false;
+    }
+  }
+  return true;
+}
+
+// A runner can take several rules, one after another, and each rule gets its own copies of the modules it imports: the URL of a rule's module ends with ?rule=<id>, and so does every file it imports, so a helper two rules import keeps its state apart for each. A CommonJS module has one copy for each file whatever its URL, which the runner sees in the count of loaded ones (stateOf).
+const TAG = /[?&]rule=[^&#]*$/;
+// The ending goes after a query the import already has and before its fragment, so an import such as ./helper.mjs?v=2 has a copy for each rule too.
+function tagged(url: string, parent: string | undefined): string {
+  if (!url.startsWith('file:') || parent === undefined) return url;
+  const tag = TAG.exec(parent.split('#')[0]!);
+  if (tag === null) return url;
+  const hash = url.indexOf('#');
+  const [address, fragment] = hash < 0 ? [url, ''] : [url.slice(0, hash), url.slice(hash)];
+  if (TAG.test(address)) return url;
+  return `${address}${address.includes('?') ? '&' : '?'}${tag[0].slice(1)}${fragment}`;
+}
+
+function untagged(url: string | null): string | null {
+  if (url === null) return null;
+  const hash = url.indexOf('#');
+  return hash < 0 ? url.replace(TAG, '') : url.slice(0, hash).replace(TAG, '') + url.slice(hash);
+}
+
+// The built-in modules a rule reached: a rule can change what one exports, and the next rule of the same runner would import the change.
+const reached = new Map<string, Shape>();
+function reach(id: string): void {
+  const name = id.startsWith('node:') ? id : `node:${id}`;
+  if (reached.has(name)) return;
+  const module = builtin(name);
+  if (module !== undefined) reached.set(name, shapeOf(module as object, true));
+}
+
+Object.defineProperty(process, 'getBuiltinModule', {
+  value: function getBuiltinModule(id: string) {
+    if (typeof id === 'string') reach(id);
+    return builtin(id);
+  },
+  writable: true,
+  configurable: true,
+  enumerable: true,
+});
+
 registerHooks({
   resolve(specifier, context, next) {
     try {
-      return next(specifier, context);
+      const found = next(specifier, context);
+      if (found.url.startsWith('node:')) reach(found.url);
+      const url = tagged(found.url, context.parentURL);
+      return url === found.url ? found : { ...found, url };
     } catch (error) {
-      if (typeof error === 'object' && error !== null && (error as { code?: unknown }).code === 'ERR_MODULE_NOT_FOUND' && !missing.has(error)) missing.set(error, { specifier, parent: context.parentURL ?? null });
+      if (typeof error === 'object' && error !== null && (error as { code?: unknown }).code === 'ERR_MODULE_NOT_FOUND' && !missing.has(error)) missing.set(error, { specifier, parent: untagged(context.parentURL ?? null) });
       throw error;
     }
   },
@@ -160,7 +245,7 @@ function missingOf(error: unknown): { specifier: string; url: string | null; par
   const kept = missing.get(error);
   if (kept === undefined) return undefined;
   const url = (error as { url?: unknown }).url;
-  return { ...kept, url: typeof url === 'string' ? url : null };
+  return { ...kept, url: typeof url === 'string' ? untagged(url) : null };
 }
 
 let check: Check | null = null;
@@ -229,7 +314,63 @@ async function finish(): Promise<void> {
   const until = Date.now() + SETTLE_MS;
   await turn();
   while (!reported && Date.now() < until && leftBehind()) await new Promise((resolve) => setTimeout(resolve, 5));
-  if (!reported) send({ kind: 'finished' });
+  if (!reported) send({ kind: 'finished', clean: !leftBehind() && clean() });
+}
+
+// A runner takes the next rule only when this one left nothing a later rule could meet: no work still running, no change to a global, to a built-in module it reached, to console, to process or to the functions of its two output streams, no callback that takes uncaught exceptions, no other working directory, no listener on process, no CommonJS module loaded, and nothing printed, since a line it left unfinished would join the next rule's.
+interface Trace {
+  shapes: Shape[];
+  streams: Map<string | symbol, unknown>[];
+  cwd: string;
+  env: number;
+  listeners: string;
+  modules: number;
+  printed: number;
+}
+let before: Trace | null = null;
+
+// A stream changes its own numbers and flags as it works, so of a stream only its own properties by name and its own functions are compared: a rule that replaces write on standard output or standard error sets one.
+function methodsOf(stream: object): Map<string | symbol, unknown> {
+  const out = new Map<string | symbol, unknown>();
+  for (const key of Reflect.ownKeys(stream)) {
+    const value = Reflect.getOwnPropertyDescriptor(stream, key)?.value;
+    out.set(key, typeof value === 'function' ? value : null);
+  }
+  return out;
+}
+
+function sameMethods(was: Map<string | symbol, unknown>, now: Map<string | symbol, unknown>): boolean {
+  if (was.size !== now.size) return false;
+  for (const [key, value] of was) if (!now.has(key) || now.get(key) !== value) return false;
+  return true;
+}
+
+function listeners(): string {
+  return process.eventNames().map((name) => `${String(name)} ${process.listenerCount(name)}`).join(',');
+}
+
+function modules(): number {
+  return Object.keys((builtin('node:module') as unknown as { _cache: object })._cache).length;
+}
+
+function printed(): number {
+  return process.stdout.bytesWritten + process.stderr.bytesWritten;
+}
+
+function trace(): Trace {
+  return { shapes: [shapeOf(globalThis, true), shapeOf(process, true), shapeOf(console, false)], streams: [methodsOf(process.stdout), methodsOf(process.stderr)], cwd: process.cwd(), env: Object.keys(process.env).length, listeners: listeners(), modules: modules(), printed: printed() };
+}
+
+function clean(): boolean {
+  try {
+    if (before === null || process.cwd() !== before.cwd || Object.keys(process.env).length !== before.env || listeners() !== before.listeners || modules() !== before.modules || printed() !== before.printed) return false;
+    if (process.hasUncaughtExceptionCaptureCallback()) return false;
+    for (const shape of [...before.shapes, ...reached.values()]) if (!sameShape(shape)) return false;
+    for (const [at, stream] of [process.stdout, process.stderr].entries()) if (!sameMethods(before.streams[at]!, methodsOf(stream))) return false;
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 // Node's refusal names a flag of the runner's own command line, which the user cannot pass; the permission and the path it carries say what the rule did.
@@ -316,7 +457,13 @@ function send(message: unknown): void {
   }
 }
 
-async function load(file: string, filesOf: Map<string, string[]>, entry: Entry, given: Limits): Promise<void> {
+async function load(file: string, rule: string, filesOf: Map<string, string[]>, entry: Entry, given: Limits): Promise<void> {
+  check = null;
+  companion = null;
+  loaded = false;
+  reported = false;
+  answers.clear();
+  before ??= trace();
   limits = given;
   repo = {
     filesOf(typeId: string): string[] {
@@ -327,7 +474,7 @@ async function load(file: string, filesOf: Map<string, string[]>, entry: Entry, 
   };
   let module: { check?: unknown; companion?: unknown };
   try {
-    module = await import(pathToFileURL(file).href);
+    module = await import(`${pathToFileURL(file).href}?rule=${rule}`);
   } catch (error) {
     const lost = missingOf(error);
     send({ kind: 'load-failed', message: text(error), ...(lost === undefined ? {} : { missing: lost }) });
@@ -438,7 +585,7 @@ async function call(file: CallFile): Promise<void> {
 
 process.on('message', (message: Incoming) => {
   own ??= handles();
-  if (message.kind === 'load') void load(message.file, message.filesOf, message.entry === 'companion' ? 'companion' : 'check', message.limits);
+  if (message.kind === 'load') void load(message.file, message.rule, message.filesOf, message.entry === 'companion' ? 'companion' : 'check', message.limits);
   else if (message.kind === 'finish') void finish();
   else if (message.kind === 'answer') {
     answers.get(message.id)?.(message.value);

@@ -6,8 +6,8 @@ import { join } from 'node:path';
 import { fork, spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { memoryError } from '../../dist/cli.js';
-import { attach, lastStep, progressBuffer } from '../../dist/progress.js';
-import { RUNNER, runRule } from '../../dist/rules.js';
+import { askPoolToEnd, attach, lastStep, progressBuffer } from '../../dist/progress.js';
+import { RUNNER, runRule, runRules } from '../../dist/rules.js';
 
 function file(path: string, lines: string[]) {
   return { path, type: { id: 'source' }, rules: [], text: lines.join('\n') + '\n', lines } as never;
@@ -411,4 +411,199 @@ test('R-42: a message holds at most 4,096 code points, a pair of surrogates coun
     const over = await message(build, limit + 2);
     assert.equal(over.crash, 'returns a message of 4,098 characters for a.ts, and a message holds at most 4,096', what);
   }
+});
+
+async function withRules(sources: Record<string, string>, body: (root: string, task: (rule: string, run?: { timeoutMs?: number; files?: string[] }) => { run: never }) => Promise<void>): Promise<void> {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'lawcheck-runners-')));
+  try {
+    for (const [path, source] of Object.entries(sources)) {
+      mkdirSync(join(root, '.lawcheck/rules', path, '..'), { recursive: true });
+      writeFileSync(join(root, '.lawcheck/rules', path), source);
+    }
+    await body(root, (rule, run = {}) => ({ run: { root, rule, ruleFile: join(root, `.lawcheck/rules/${rule}.mjs`), files: (run.files ?? ['a.ts']).map((path) => file(path, ['x'])), filesOf, ...(run.timeoutMs === undefined ? {} : { timeoutMs: run.timeoutMs }) } as never }));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
+const SAYS_PID = "export function check() { return [{ message: String(process.pid) }]; }\n";
+
+function messages(outcome: unknown): string[] {
+  return ((outcome as { findings?: { message: string }[] }).findings ?? []).map((finding) => finding.message);
+}
+
+test('test 1397: the rules of a run that leave nothing behind share one runner, each rule sees all its files in order, and the outcomes come in the order of the rules', async () => {
+  const counting = "let calls = 0;\nexport function check({ files: [file] }) { return [{ message: `${process.pid} ${++calls} ${file.path}` }]; }\n";
+  await withRules({ 'one.mjs': counting, 'two.mjs': counting, 'three.mjs': counting }, async (_root, task) => {
+    const outcomes = await runRules(['one', 'two', 'three'].map((rule) => task(rule, { files: ['a.ts', 'b.ts'] })), 1);
+    const said = outcomes.map((outcome) => messages(outcome));
+    const pid = said[0]![0]!.split(' ')[0];
+    assert.deepEqual(said, [1, 2, 3].map(() => [`${pid} 1 a.ts`, `${pid} 2 b.ts`]));
+    assert.deepEqual(outcomes.map((outcome) => (outcome as any).findings.map((finding: any) => finding.rule)), [['one', 'one'], ['two', 'two'], ['three', 'three']]);
+  });
+});
+
+test('test 1397: two rules that import the same helper each get their own copy of it, and the module of a rule has a URL that ends with its id and still names its file', async () => {
+  const rule = "import { fileURLToPath } from 'node:url';\nimport { next } from './lib/count.mjs';\nexport function check() { return [{ message: `${process.pid} ${next()} ${import.meta.url.split('?')[1]} ${fileURLToPath(import.meta.url).endsWith(import.meta.url.split('?')[1].slice(5) + '.mjs')}` }]; }\n";
+  await withRules({ 'one.mjs': rule, 'two.mjs': rule, 'lib/count.mjs': 'let count = 0;\nexport function next() { return ++count; }\n' }, async (_root, task) => {
+    const outcomes = await runRules([task('one', { files: ['a.ts', 'b.ts'] }), task('two', { files: ['a.ts', 'b.ts'] })], 1);
+    const said = outcomes.map((outcome) => messages(outcome));
+    const pid = said[0]![0]!.split(' ')[0];
+    assert.deepEqual(said, [
+      [`${pid} 1 rule=one true`, `${pid} 2 rule=one true`],
+      [`${pid} 1 rule=two true`, `${pid} 2 rule=two true`],
+    ]);
+  });
+});
+
+test('test 1397: after a rule that leaves something a later rule could meet, the next rule gets a fresh runner and meets none of it', async () => {
+  const sees = "export function check() { return [{ message: [process.pid, typeof globalThis.left, [].left, process.env.LEFT, process.cwd().endsWith('rules'), JSON.left, process.listenerCount('exit')].join(' ') }]; }\n";
+  const leaves: [string, string][] = [
+    ['a global', 'globalThis.left = 1;'],
+    ['a property of a built-in prototype', 'Array.prototype.left = 1;'],
+    ['a variable of the environment', "process.env.LEFT = '1';"],
+    ['another working directory', "process.chdir('.lawcheck/rules');"],
+    ['a property of a built-in object', 'JSON.left = 1;'],
+    ['a listener on process', "process.on('exit', () => {});"],
+    ['a timer', 'setInterval(() => {}, 1000);'],
+    ['a line it printed', "console.error('left');"],
+    ['a changed export of a built-in module', "import fs from 'node:fs';\nfs.left = 1;"],
+    ['a CommonJS module', "import { createRequire } from 'node:module';\ncreateRequire(import.meta.url)('./lib/state.cjs');"],
+  ];
+  for (const [what, code] of leaves) {
+    await withRules({ 'before.mjs': SAYS_PID, 'leaves.mjs': `${code}\n${SAYS_PID}`, 'after.mjs': sees, 'lib/state.cjs': 'module.exports = {};\n' }, async (_root, task) => {
+      const [before, leaving, after] = (await runRules([task('before'), task('leaves'), task('after')], 1)).map((outcome) => messages(outcome));
+      assert.deepEqual(leaving, before, `${what}: the rule runs in the runner of the rule before it`);
+      const [pid, ...seen] = after![0]!.split(' ');
+      assert.notEqual(pid, before![0], `${what}: the next rule has a fresh runner`);
+      assert.deepEqual(seen, ['undefined', '', '', 'false', '', '0'], what);
+    });
+  }
+});
+
+test('test 1398: a rule that hangs, ends its process, has its process killed as a system short of memory kills one, throws, returns no list or fails in the background is named alone, and the other rules of the run give their findings', async () => {
+  const fine = "export function check({ files: [file] }) { return [{ message: 'fine ' + file.path }]; }\n";
+  await withRules(
+    {
+      'first.mjs': fine,
+      'hangs.mjs': 'export function check() { while (true) {} }\n',
+      'second.mjs': fine,
+      'exits.mjs': 'export function check() { process.exit(3); }\n',
+      'killed.mjs': "export function check() { process.kill(process.pid, 'SIGKILL'); return new Promise(() => {}); }\n",
+      'throws.mjs': "export function check() { throw new Error('broke'); }\n",
+      'third.mjs': fine,
+      'returns.mjs': 'export function check() { return 7; }\n',
+      'rejects.mjs': "export function check() { Promise.reject(new Error('late')); return []; }\n",
+      'last.mjs': fine,
+    },
+    async (_root, task) => {
+      for (const limit of [1, 3]) {
+        const outcomes = await runRules(['first', 'hangs', 'second', 'exits', 'killed', 'throws', 'third', 'returns', 'rejects', 'last'].map((rule) => task(rule, rule === 'hangs' ? { timeoutMs: 1000 } : {})), limit);
+        const found = (rule: string) => ({ findings: [{ rule, file: 'a.ts', message: 'fine a.ts' }] });
+        assert.deepEqual(outcomes, [
+          found('first'),
+          { crash: 'passes 1 seconds on a.ts' },
+          found('second'),
+          { crash: 'ends before answering on a.ts' },
+          { crash: 'ends before answering on a.ts' },
+          { crash: 'throws on a.ts: broke' },
+          found('third'),
+          { crash: 'returns no list for a.ts' },
+          { crash: 'fails in the background: late' },
+          found('last'),
+        ]);
+      }
+    },
+  );
+});
+
+test('test 1398: the findings of a rule count toward the run once, whether it ran in a shared runner or again alone', async () => {
+  const two = "export function check() { return [{ message: 'one' }, { message: 'two' }]; }\n";
+  await withRules({ 'fine.mjs': two, 'throws.mjs': "let calls = 0;\nexport function check() { if (++calls === 2) throw new Error('broke'); return [{ message: 'before the throw' }]; }\n" }, async (root, task) => {
+    const { FindingBudget } = await import('../../dist/rules.js');
+    const budget = new FindingBudget();
+    const tasks = [task('fine'), task('throws', { files: ['a.ts', 'b.ts'] })].map(({ run }) => ({ run: { ...(run as object), budget } as never }));
+    const outcomes = await runRules(tasks, 1);
+    assert.deepEqual(outcomes[1], { crash: 'throws on b.ts: broke' });
+    assert.deepEqual([budget.total, budget.chars, [...budget.byRule]], [3, 22, [['fine', { count: 2, chars: 6 }], ['throws', { count: 1, chars: 16 }]]]);
+    void root;
+  });
+});
+
+test('test 1402: a rule that replaces a method of console or the write of an output stream, or sets a callback for uncaught exceptions, is the last rule of its runner, and the next rule meets none of it', async () => {
+  const sees = "export function check() { return [{ message: [process.pid, console.log.name, console.error.name, process.stdout.write.name, process.stderr.write.name, process.hasUncaughtExceptionCaptureCallback()].join(' ') }]; }\n";
+  const leaves: [string, string][] = [
+    ['a replaced console.log', 'console.log = function left() {};'],
+    ['a replaced console.error', 'console.error = function left() {};'],
+    ['a replaced write of standard output', 'process.stdout.write = function left() { return true; };'],
+    ['a replaced write of standard error', 'process.stderr.write = function left() { return true; };'],
+    ['a callback for uncaught exceptions', 'process.setUncaughtExceptionCaptureCallback(() => {});'],
+  ];
+  for (const [what, code] of leaves) {
+    await withRules({ 'before.mjs': SAYS_PID, 'leaves.mjs': `export function check() { ${code} return [{ message: String(process.pid) }]; }\n`, 'after.mjs': sees }, async (_root, task) => {
+      const [before, leaving, after] = (await runRules([task('before'), task('leaves'), task('after')], 1)).map((outcome) => messages(outcome));
+      assert.deepEqual(leaving, before, `${what}: the rule runs in the runner of the rule before it`);
+      const [pid, ...seen] = after![0]!.split(' ');
+      assert.notEqual(pid, before![0], `${what}: the next rule has a fresh runner`);
+      assert.deepEqual(seen, ['log', 'error', '', '', 'false'], what);
+    });
+  }
+});
+
+test('test 1402: two rules that import the same helper by a URL with a query or a fragment each get their own copy of it', async () => {
+  const rule = (specifier: string) => `import { next } from '${specifier}';\nexport function check() { return [{ message: \`\${process.pid} \${next()}\` }]; }\n`;
+  for (const specifier of ['./lib/count.mjs?v=2', './lib/count.mjs#part', './lib/count.mjs?v=2#part']) {
+    await withRules({ 'one.mjs': rule(specifier), 'two.mjs': rule(specifier), 'lib/count.mjs': "let count = 0;\nexport function next() { return `${++count} ${import.meta.url.slice(import.meta.url.indexOf('count.mjs') + 9)}`; }\n" }, async (_root, task) => {
+      const outcomes = await runRules([task('one', { files: ['a.ts', 'b.ts'] }), task('two', { files: ['a.ts', 'b.ts'] })], 1);
+      const said = outcomes.map((outcome) => messages(outcome));
+      const pid = said[0]![0]!.split(' ')[0];
+      const [query, fragment = ''] = specifier.slice('./lib/count.mjs'.length).split('#');
+      const ending = (id: string) => `${query === '' ? '?' : `${query}&`}rule=${id}${fragment === '' ? '' : `#${fragment}`}`;
+      assert.deepEqual(said, [[`${pid} 1 ${ending('one')}`, `${pid} 2 ${ending('one')}`], [`${pid} 1 ${ending('two')}`, `${pid} 2 ${ending('two')}`]], specifier);
+    });
+  }
+});
+
+test('test 1403: a rule that crashes as the first rule of a fresh runner runs once, and a rule that crashes after another rule of its runner runs again alone', async () => {
+  const crashes = "console.error('loaded in ' + process.pid);\nexport function check() { throw new Error('broke in ' + process.pid); }\n";
+  const fine = "export function check() { return []; }\n";
+  const write = process.stderr.write;
+  const printed: string[] = [];
+  process.stderr.write = ((chunk: string | Uint8Array) => {
+    printed.push(String(chunk));
+    return true;
+  }) as typeof process.stderr.write;
+  try {
+    await withRules({ 'crashes.mjs': crashes, 'fine.mjs': fine }, async (_root, task) => {
+      const [first] = (await runRules([task('crashes')], 1)) as { crash: string }[];
+      const loaded = /^loaded in (\d+)\n$/.exec(printed.join(''))?.[1];
+      assert.equal(first!.crash, `throws on a.ts: broke in ${loaded}`);
+      printed.length = 0;
+      const [, second] = (await runRules([task('fine'), task('crashes')], 1)) as { crash: string }[];
+      const shared = /^loaded in (\d+)\n$/.exec(printed.join(''))?.[1];
+      const alone = /^throws on a\.ts: broke in (\d+)$/.exec(second!.crash)?.[1];
+      assert.ok(shared !== undefined && alone !== undefined && shared !== alone, `printed ${printed.join('')}, crashed ${second!.crash}`);
+    });
+  } finally {
+    process.stderr.write = write;
+  }
+});
+
+test('test 1404: asked for memory by the thread that watches, the rules of a run go on one at a time, each in a runner that ends with it, and every rule still gives its findings once', async () => {
+  const buffer = progressBuffer();
+  attach(buffer);
+  const slow = "let calls = 0;\nexport async function check({ files: [file] }) { await new Promise((done) => setTimeout(done, 150)); return [{ message: `${process.pid} ${++calls} ${file.path}` }]; }\n";
+  const ids = ['r1', 'r2', 'r3', 'r4', 'r5', 'r6'];
+  await withRules(Object.fromEntries(ids.map((id) => [`${id}.mjs`, slow])), async (_root, task) => {
+    const running = runRules(ids.map((id) => task(id, { files: ['a.ts', 'b.ts'] })), 3);
+    await new Promise((done) => setTimeout(done, 400));
+    assert.equal(askPoolToEnd(buffer), 'asked');
+    const outcomes = await running;
+    const said = outcomes.map((outcome) => messages(outcome));
+    assert.deepEqual(said.map((own) => own.map((message) => message.split(' ').slice(1).join(' '))), ids.map(() => ['1 a.ts', '2 b.ts']));
+    assert.deepEqual(outcomes.map((outcome) => (outcome as any).findings.map((finding: any) => finding.rule)), ids.map((id) => [id, id]));
+    const runners = said.map((own) => own[0]!.split(' ')[0]);
+    assert.ok(new Set(runners.slice(3)).size === 3, `the rules that started after the ask ran in ${runners.slice(3).join(', ')}`);
+    assert.equal(askPoolToEnd(buffer), 'none');
+  });
 });

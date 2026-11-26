@@ -1,4 +1,5 @@
 import { fork, spawnSync } from 'node:child_process';
+import type { ChildProcess } from 'node:child_process';
 import { availableParallelism } from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, isAbsolute, join, relative, sep } from 'node:path';
@@ -8,14 +9,14 @@ import { releaseProcess, watchProcess } from './programs.js';
 import { safeText } from './output.js';
 import { hide } from './keys.js';
 import type { Readable } from 'node:stream';
-import { count, MESSAGE_CHARS, points, readError, RULES_RUN_MS, RUN_FINDINGS, RUN_MESSAGE_CHARS } from './limits.js';
+import { count, MESSAGE_CHARS, points, runnerLimit, readError, RULES_RUN_MS, RUN_FINDINGS, RUN_MESSAGE_CHARS } from './limits.js';
 import type { Reads, Serve } from './readers.js';
 import type { ErrorItem } from './output.js';
 import { RULES_DIR, RULES_LIB } from './setup.js';
 import type { Read, ReviewerRule } from './setup.js';
 import { trackedLinks, workTreeTop } from './files.js';
 import { decode, isBinary } from './types.js';
-import { step } from './progress.js';
+import { holding, step } from './progress.js';
 
 export interface RuleFile {
   path: string;
@@ -66,20 +67,24 @@ export function linksOut(root: string, top: string, links: { name: string; bytes
   return out;
 }
 
-function relay(stream: Readable | null): void {
+// A rule that ended a shared runner with anything but findings runs once more alone, and what it prints there is dropped: the user has read it from the first run, as it came.
+function relay(stream: Readable | null, quiet: boolean): void {
   if (stream === null) return;
   let pending = '';
+  const write = (text: string) => {
+    if (!quiet) process.stderr.write(text);
+  };
   stream.setEncoding('utf8');
   stream.on('data', (chunk: string) => {
     pending += chunk;
     const end = pending.lastIndexOf('\n');
     if (end < 0) return;
     // A line ends at LF or CRLF, as Windows ends the lines Node and many programs print; a lone CR inside a line stays text, and is escaped.
-    process.stderr.write(safeText(hide(pending.slice(0, end).split(/\r?\n/).join('\n').replace(/\r$/, ''))) + '\n');
+    write(safeText(hide(pending.slice(0, end).split(/\r?\n/).join('\n').replace(/\r$/, ''))) + '\n');
     pending = pending.slice(end + 1);
   });
   stream.on('end', () => {
-    if (pending !== '') process.stderr.write(safeText(hide(pending.replace(/\r$/, ''))) + '\n');
+    if (pending !== '') write(safeText(hide(pending.replace(/\r$/, ''))) + '\n');
   });
 }
 
@@ -211,6 +216,9 @@ export interface RuleRun {
   signal?: AbortSignal;
   serve?: Serve;
   entry?: 'check' | 'companion';
+  shared?: boolean;
+  quiet?: boolean;
+  giveUp?: AbortSignal;
 }
 
 function pathsOf(value: unknown): string[] | { problem: string } {
@@ -261,26 +269,71 @@ async function reading<T>(work: () => Promise<T>): Promise<T> {
   }
 }
 
+function startRunner(run: { root: string }, quiet = false): ChildProcess {
+  const child = fork(RUNNER, [], {
+    execArgv: runnerArgs(run.root),
+    env: {},
+    cwd: run.root,
+    serialization: 'advanced',
+    stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
+  });
+  relay(child.stdout, quiet);
+  relay(child.stderr, quiet);
+  watchProcess(child);
+  child.once('close', () => gone.add(child));
+  // Between two rules of a runner no rule listens to it, and an error event nobody listens to would end the tool; the next rule finds the runner ended.
+  child.on('error', () => undefined);
+  return child;
+}
+
+const gone = new WeakSet<ChildProcess>();
+
+// Ends a runner that no rule is using and waits as the end of a rule does: for the runner to close, or DRAIN_MS after it has ended.
+function closeRunner(child: ChildProcess): Promise<void> {
+  return new Promise((settle) => {
+    releaseProcess(child);
+    if (child.pid === undefined || gone.has(child)) return settle();
+    let drain: NodeJS.Timeout | undefined;
+    child.once('close', () => {
+      clearTimeout(drain);
+      settle();
+    });
+    const bounded = () => {
+      drain = setTimeout(settle, DRAIN_MS);
+    };
+    if (child.exitCode !== null || child.signalCode !== null) bounded();
+    else child.once('exit', bounded);
+  });
+}
+
 export function runRule(run: RuleRun): Promise<RuleOutcome> {
+  return drive(run, null).then(({ outcome }) => outcome);
+}
+
+// A rule runs in a runner of its own (held is null), or as the next rule of a runner that other rules of the run used before it. A runner is kept for the next rule only after findings and only when the runner says the rule left nothing behind; any other end kills it, as the end of a rule's own runner does.
+interface Driven {
+  outcome: RuleOutcome;
+  runner: ChildProcess | null;
+  timed?: boolean;
+  gaveUp?: boolean;
+}
+
+function drive(run: RuleRun, held: ChildProcess | null): Promise<Driven> {
   const timeoutMs = run.timeoutMs ?? LIMITS.ruleMs;
   const budget = run.budget ?? new FindingBudget();
+  const shared = run.shared === true;
   return new Promise((resolve, reject) => {
-    const child = fork(RUNNER, [], {
-      execArgv: runnerArgs(run.root),
-      env: {},
-      cwd: run.root,
-      serialization: 'advanced',
-      stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
-    });
-    relay(child.stdout);
-    relay(child.stderr);
-    watchProcess(child);
-    let closed = false;
-    child.once('close', () => {
+    const child = held ?? startRunner(run, run.quiet === true);
+    let closed = gone.has(child);
+    const onClose = () => {
       closed = true;
-    });
+    };
+    child.once('close', onClose);
     let settled = false;
-    let started = false;
+    let started = held !== null;
+    let clean = false;
+    let timed = false;
+    let gaveUp = false;
     let timer: NodeJS.Timeout | undefined;
     let left = timeoutMs;
     let since = 0;
@@ -298,8 +351,17 @@ export function runRule(run: RuleRun): Promise<RuleOutcome> {
       settled = true;
       clearTimeout(timer);
       run.signal?.removeEventListener('abort', stop);
+      run.giveUp?.removeEventListener('abort', yielded);
+      if (shared && clean && !(outcome instanceof Error) && 'findings' in outcome && !closed && child.connected) {
+        child.off('close', onClose);
+        child.off('error', onError);
+        child.off('exit', onExit);
+        child.off('internalMessage', onInternal);
+        child.off('message', onMessage);
+        return resolve({ outcome, runner: child });
+      }
       releaseProcess(child);
-      const settle = () => (outcome instanceof Error ? reject(outcome) : resolve(outcome));
+      const settle = () => (outcome instanceof Error ? reject(outcome) : resolve({ outcome, runner: null, timed, gaveUp }));
       // Windows refuses to remove the root while the killed runner, which works in it, is still ending; and a runner that has ended can still hold what it printed in its pipes, which the tool relays before the run goes on. A pipe can outlive the runner, so the wait ends DRAIN_MS after the runner has ended.
       if (child.pid === undefined || closed) return settle();
       let drain: NodeJS.Timeout | undefined;
@@ -319,7 +381,10 @@ export function runRule(run: RuleRun): Promise<RuleOutcome> {
       readAt = readTime();
       timer = setTimeout(() => {
         const used = spent();
-        if (used >= left) return end({ crash: `passes ${timeoutMs / 1000} seconds ${where()}` });
+        if (used >= left) {
+          timed = true;
+          return end({ crash: `passes ${timeoutMs / 1000} seconds ${where()}` });
+        }
         left -= used;
         arm();
       }, Math.max(left, 0));
@@ -343,7 +408,10 @@ export function runRule(run: RuleRun): Promise<RuleOutcome> {
       if (file === undefined) {
         stage = 'after its last call';
         ask({ kind: 'finish' }, (message) => {
-          if (message.kind === 'finished') return end(run.entry === 'companion' ? { findings, paths } : { findings });
+          if (message.kind === 'finished') {
+            clean = (message as { clean?: unknown }).clean === true;
+            return end(run.entry === 'companion' ? { findings, paths } : { findings });
+          }
           return end({ crash: `writes to the runner's channel ${stage}` });
         });
         return;
@@ -403,7 +471,7 @@ export function runRule(run: RuleRun): Promise<RuleOutcome> {
     };
 
     const load = () =>
-      ask({ kind: 'load', file: run.ruleFile, filesOf: run.filesOf, entry: run.entry ?? 'check', limits: { messageChars: MESSAGE_CHARS, findings: RUN_FINDINGS, chars: RUN_MESSAGE_CHARS } }, (message) => {
+      ask({ kind: 'load', file: run.ruleFile, rule: run.rule, filesOf: run.filesOf, entry: run.entry ?? 'check', limits: { messageChars: MESSAGE_CHARS, findings: RUN_FINDINGS, chars: RUN_MESSAGE_CHARS } }, (message) => {
         if (message.kind === 'load-failed') {
           const missing = missingImport(message.missing);
           return end({ crash: `fails to load: ${message.message}`, ...(missing === undefined ? {} : { missing }) });
@@ -414,17 +482,23 @@ export function runRule(run: RuleRun): Promise<RuleOutcome> {
       });
 
     const stop = () => end({ slow: slowMessage(`not finished ${stage}`) });
+    const yielded = () => {
+      gaveUp = true;
+      end({ slow: slowMessage(`not finished ${stage}`) });
+    };
     run.signal?.addEventListener('abort', stop, { once: true });
     if (run.signal?.aborted) stop();
-    child.on('error', (error) => end(started ? error : { broken: `the runner of script rules did not start: ${error.message}` }));
-    child.on('exit', (code, signal) => {
+    run.giveUp?.addEventListener('abort', yielded, { once: true });
+    if (run.giveUp?.aborted) yielded();
+    const onError = (error: Error) => end(started ? error : { broken: `the runner of script rules did not start: ${error.message}` });
+    const onExit = (code: number | null, signal: NodeJS.Signals | null) => {
       if (settled) return;
       if (started) return end({ crash: `ends before answering ${where()}` });
       end({ broken: whyNotStarted(run.root, `it ended with ${code ?? signal} before it started`) });
-    });
+    };
     // A rule can send a handle through the channel, its own standard error among them, with a message or with one of Node's internal messages, and the tool's copy would keep that pipe open.
-    child.on('internalMessage', (_message: unknown, handle: unknown) => closeHandle(handle));
-    child.on('message', (message: unknown, handle: unknown) => {
+    const onInternal = (_message: unknown, handle: unknown) => closeHandle(handle);
+    const onMessage = (message: unknown, handle: unknown) => {
       closeHandle(handle);
       const known = typeof message === 'object' && message !== null && typeof (message as Message).kind === 'string';
       if (!started && known && (message as Message).kind === 'ready') {
@@ -436,9 +510,110 @@ export function runRule(run: RuleRun): Promise<RuleOutcome> {
       if (known && (message as Message).kind === 'ask') return serve(message as Message);
       if (waiting === null || !known) return end({ crash: `writes to the runner's channel ${stage}` });
       waiting(message as Message);
-    });
-    arm();
+    };
+    child.on('error', onError);
+    child.on('exit', onExit);
+    child.on('internalMessage', onInternal);
+    child.on('message', onMessage);
+    if (settled) return;
+    if (held === null) return arm();
+    if (child.exitCode !== null || child.signalCode !== null || !child.connected) return end({ crash: `ends before answering ${where()}` });
+    load();
   });
+}
+
+// How long the rules of a run share the runners they have before more start: a runner takes about half of this to start, so the rules of a small check stay in one, and slow rules have twice the runners after each step, up to the limit.
+const RUNNER_STEP_MS = 75;
+
+export interface RuleTask {
+  run: RuleRun;
+  notStarted?: () => RuleOutcome | null;
+}
+
+// The rules of a run go through few runners, each taking one whole rule after another, so a run of many rules starts far fewer processes than it has rules. Findings are taken from a runner that rules share, and so is a rule that passed its time limit there, since no other rule runs in that runner while it does and a second run would make the user wait twice. After any other end the rule runs once more in a runner of its own, and that result stands, so a crash or a wrong return names its rule exactly as it does alone. The findings of a rule count toward the run only once the rule has ended.
+export async function runRules(tasks: RuleTask[], limit = runnerLimit()): Promise<RuleOutcome[]> {
+  const results: RuleOutcome[] = new Array(tasks.length);
+  const again: number[] = [];
+  let next = 0;
+  let lanes = 0;
+  let done = false;
+  let more: NodeJS.Timeout | undefined;
+  const all: Promise<void>[] = [];
+  let failure: unknown = null;
+  // When the run comes near the memory it may hold, the thread that watches asks for what can be given back (src/progress.ts). The runners hold most of it: each busy one keeps a heap of its own. From then on one rule runs at a time, each in a runner that ends with it, which is less than a run held before rules shared runners. The rules the other runners were judging start again later.
+  let frugal = false;
+  const working = new Map<number, AbortController>();
+  const drop = holding(async () => {
+    frugal = true;
+    clearTimeout(more);
+    const [, ...others] = [...working.keys()].sort((a, b) => a - b);
+    for (const id of others) working.get(id)!.abort();
+  });
+  const take = (): number | undefined => again.shift() ?? (next < tasks.length ? next++ : undefined);
+  const lane = async (id: number) => {
+    let runner: ChildProcess | null = null;
+    const stop = new AbortController();
+    working.set(id, stop);
+    try {
+      for (let index = take(); index !== undefined; index = take()) {
+        const { run, notStarted } = tasks[index]!;
+        const early = notStarted?.() ?? null;
+        if (early !== null) {
+          results[index] = early;
+          continue;
+        }
+        const own = new FindingBudget();
+        const fresh = runner === null;
+        const tried: Driven = await drive({ ...run, budget: own, shared: true, giveUp: stop.signal }, runner);
+        runner = tried.runner;
+        if (tried.gaveUp === true) {
+          again.unshift(index);
+          return;
+        }
+        if (frugal && runner !== null) {
+          await closeRunner(runner);
+          runner = null;
+        }
+        if ('findings' in tried.outcome) {
+          const kept = tried.outcome.findings;
+          let chars = 0;
+          for (const finding of kept) chars += points(finding.message);
+          const into: RawFinding[] = [];
+          const budget = run.budget ?? new FindingBudget();
+          budget.take(run.rule, into, kept);
+          if (own.total > kept.length || own.chars > chars) budget.take(run.rule, into, { count: own.total - kept.length, chars: own.chars - chars });
+          results[index] = { ...tried.outcome, findings: into };
+        } else if ('crash' in tried.outcome && !fresh && tried.timed !== true && !run.signal?.aborted) results[index] = await runRule({ ...run, quiet: true });
+        else results[index] = tried.outcome;
+      }
+    } finally {
+      working.delete(id);
+      if (runner !== null) await closeRunner(runner);
+    }
+  };
+  const open = () => {
+    for (let add = Math.max(lanes, 1); add > 0; add--) {
+      if (done || frugal || next >= tasks.length || lanes >= Math.min(limit, tasks.length)) return;
+      all.push(
+        lane(lanes++).catch((error: unknown) => {
+          failure ??= error ?? new Error('a runner of script rules failed');
+        }),
+      );
+    }
+    more = setTimeout(open, RUNNER_STEP_MS);
+  };
+  open();
+  try {
+    for (let at = 0; at < all.length; at++) await all[at];
+    // A rule given up by a runner that ended for memory after the last runner had no rule left to take.
+    while (again.length > 0 && failure === null) await lane(lanes++);
+  } finally {
+    done = true;
+    clearTimeout(more);
+    drop();
+  }
+  if (failure !== null) throw failure;
+  return results;
 }
 
 // A rule whose load read a package in a node_modules outside the root needs that package installed below the root, not a change of its file.
@@ -577,12 +752,13 @@ export async function resolveCompanions(run: CompanionRun, reviewers: Map<string
   if (wanted.length === 0) return { companions: new Map() };
   const own = run.signal === undefined ? rulesDeadline() : null;
   const signal = run.signal ?? own!.signal;
-  const outcomes = await runAll(
-    wanted.map(({ rule, files }) => async () => {
-      const module = reviewers.get(rule)!.companion!.path;
-      return { rule, files, outcome: signal.aborted ? { slow: slowMessage('not started') } : await runRule({ root: run.root, rule, ruleFile: join(run.modules ?? run.root, module), files, filesOf: run.filesOf, signal, serve: run.serve(files, `the companion of the reviewer rule ${rule}`), entry: 'companion' }) };
-    }),
+  const ran = await runRules(
+    wanted.map(({ rule, files }) => ({
+      run: { root: run.root, rule, ruleFile: join(run.modules ?? run.root, reviewers.get(rule)!.companion!.path), files, filesOf: run.filesOf, signal, serve: run.serve(files, `the companion of the reviewer rule ${rule}`), entry: 'companion' as const },
+      notStarted: () => (signal.aborted ? { slow: slowMessage('not started') } : null),
+    })),
   );
+  const outcomes = wanted.map(({ rule, files }, at) => ({ rule, files, outcome: ran[at]! }));
   own?.clear();
   const listed = new Set(run.files);
   const companions: Companions = new Map();

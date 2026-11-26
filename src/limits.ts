@@ -1,5 +1,5 @@
 import { closeSync, constants, fstatSync, openSync, readFileSync, readSync } from 'node:fs';
-import { freemem } from 'node:os';
+import { availableParallelism, freemem, totalmem } from 'node:os';
 import { join } from 'node:path';
 import type { ErrorItem } from './output.js';
 
@@ -29,6 +29,52 @@ export const MEMORY_CHECK_MS = 5;
 // The most memory a run may hold: MEMORY_BYTES, or less on a smaller machine.
 export function runBound(total: number): number {
   return Math.min(MEMORY_BYTES, Math.floor((total * MEMORY_SHARE) / MiB) * MiB);
+}
+
+// The processors this run may use at once: what Node counts, or fewer where a cgroup gives the process a smaller share of processor time, as a container started with a limit of processors does. Node's own count leaves that share out.
+export function cores(counted: number = availableParallelism(), share: string | null = cpuShare()): number {
+  const [quota, period] = (share ?? '').trim().split(/\s+/).map(Number);
+  if (quota === undefined || period === undefined || !(quota > 0) || !(period > 0)) return Math.max(1, counted);
+  return Math.max(1, Math.min(counted, Math.ceil(quota / period)));
+}
+
+function cpuShare(): string | null {
+  if (process.platform !== 'linux') return null;
+  try {
+    const own = /^0::(\/.*)$/m.exec(readFileSync('/proc/self/cgroup', 'utf8'));
+    if (own !== null) return readFileSync(join('/sys/fs/cgroup', own[1]!, 'cpu.max'), 'utf8');
+  } catch {
+    // A cgroup of the first version, or none: its two files below.
+  }
+  try {
+    return `${readFileSync('/sys/fs/cgroup/cpu/cpu.cfs_quota_us', 'utf8').trim()} ${readFileSync('/sys/fs/cgroup/cpu/cpu.cfs_period_us', 'utf8').trim()}`;
+  } catch {
+    return null;
+  }
+}
+
+// The memory this process may use: the machine's, or the limit of its cgroup where that is less, as in a container started with a limit of memory. Node's count of the machine's memory leaves that limit out.
+export function memoryTotal(machine: number = totalmem(), limit: number = process.constrainedMemory()): number {
+  return limit > 0 && limit < machine ? limit : machine;
+}
+
+// The memory a run may spend on going faster: what the system can give now, less twice the reserve the memory guard keeps. Where the system gives no number, nothing holds the run back. A run in a small container so starts few runners, no parsing threads and keeps few trees, instead of filling its memory and giving them back.
+export function spare(available: number | null = availableNow()): number {
+  return available === null ? Infinity : Math.max(0, available - 2 * MEMORY_RESERVE_BYTES);
+}
+
+// What one busy runner of script rules holds, and one thread that parses, as measured on a repository of 4,133 files: the count of each is cut to fit a share of the spare memory.
+export const RUNNER_BYTES = 160 * MiB;
+export const PARSE_THREAD_BYTES = 96 * MiB;
+
+// The runners a run may have at once: half of its spare memory in runners, never more than its processors and never fewer than one.
+export function runnerLimit(processors: number = cores(), room: number = spare()): number {
+  return Math.max(1, Math.min(processors, Math.floor(room / 2 / RUNNER_BYTES)));
+}
+
+// The most memory the syntax trees kept for the rules of one run may take: a third of what the run may hold. A tree past it is parsed again for each rule that asks.
+export function treeMemoryBound(total: number): number {
+  return Math.floor(runBound(total) / 3);
 }
 
 // The memory the system can still give: on Linux the kernel's estimate, or a container's limit less what its processes use; on Windows the physical memory that is free or on standby. macOS counts only the pages free this moment, which it keeps few, so there it gives no number.

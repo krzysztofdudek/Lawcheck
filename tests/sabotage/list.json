@@ -542,5 +542,85 @@
     "find": "'--disable-builtin-mcps',",
     "replace": "'--enable-builtin-mcps',",
     "killedBy": "test 408: the arguments: silent, no questions, no instructions, no MCP server, no tool, no temporary folder"
+  },
+  {
+    "id": "tree-own-text",
+    "promise": "test 1395",
+    "file": "src/readers.ts",
+    "find": "held !== undefined && held.text === file.text ? held.answer",
+    "replace": "held !== undefined ? held.answer",
+    "killedBy": "test 1395: a tree is given only for its own path and its own text, so the same path with another text is parsed again and gets the tree of that text"
+  },
+  {
+    "id": "tree-kept",
+    "promise": "test 1395",
+    "file": "src/readers.ts",
+    "find": "trees.set(file.path, { text: file.text, answer });",
+    "replace": "void answer;",
+    "killedBy": "test 1395: every rule of a run that asks for the tree of a file gets the tree a fresh parse gives, and the file is parsed once in the run"
+  },
+  {
+    "id": "runner-clean",
+    "promise": "test 1397",
+    "file": "src/runner.ts",
+    "find": "clean: !leftBehind() && clean() }",
+    "replace": "clean: true }",
+    "killedBy": "test 1397: after a rule that leaves something a later rule could meet, the next rule gets a fresh runner and meets none of it"
+  },
+  {
+    "id": "runner-own-modules",
+    "promise": "test 1397",
+    "file": "src/runner.ts",
+    "find": "if (tag === null) return url;",
+    "replace": "if (tag === null || url !== '') return url;",
+    "killedBy": "test 1397: two rules that import the same helper each get their own copy of it, and the module of a rule has a URL that ends with its id and still names its file"
+  },
+  {
+    "id": "rules-again-alone",
+    "promise": "test 1398",
+    "file": "src/rules.ts",
+    "find": "!fresh && tried.timed !== true",
+    "replace": "!fresh && tried.timed === true",
+    "killedBy": "test 1398: the findings of a rule count toward the run once, whether it ran in a shared runner or again alone"
+  },
+  {
+    "id": "runner-console",
+    "promise": "test 1402",
+    "file": "src/runner.ts",
+    "find": "shapeOf(process, true), shapeOf(console, false)]",
+    "replace": "shapeOf(process, true)]",
+    "killedBy": "test 1402: a rule that replaces a method of console or the write of an output stream, or sets a callback for uncaught exceptions, is the last rule of its runner, and the next rule meets none of it"
+  },
+  {
+    "id": "runner-streams",
+    "promise": "test 1402",
+    "file": "src/runner.ts",
+    "find": "if (!sameMethods(before.streams[at]!, methodsOf(stream))) return false;",
+    "replace": "if (stream === undefined) return false;",
+    "killedBy": "test 1402: a rule that replaces a method of console or the write of an output stream, or sets a callback for uncaught exceptions, is the last rule of its runner, and the next rule meets none of it"
+  },
+  {
+    "id": "runner-capture",
+    "promise": "test 1402",
+    "file": "src/runner.ts",
+    "find": "if (process.hasUncaughtExceptionCaptureCallback()) return false;",
+    "replace": "if (before === null) return false;",
+    "killedBy": "test 1402: a rule that replaces a method of console or the write of an output stream, or sets a callback for uncaught exceptions, is the last rule of its runner, and the next rule meets none of it"
+  },
+  {
+    "id": "runner-query-tag",
+    "promise": "test 1402",
+    "file": "src/runner.ts",
+    "find": "if (TAG.test(address)) return url;",
+    "replace": "if (TAG.test(address) || address.includes('?') || fragment !== '') return url;",
+    "killedBy": "test 1402: two rules that import the same helper by a URL with a query or a fragment each get their own copy of it"
+  },
+  {
+    "id": "rules-fresh-once",
+    "promise": "test 1403",
+    "file": "src/rules.ts",
+    "find": "'crash' in tried.outcome && !fresh && tried.timed",
+    "replace": "'crash' in tried.outcome && tried.timed",
+    "killedBy": "test 1403: a rule that crashes as the first rule of a fresh runner runs once, and a rule that crashes after another rule of its runner runs again alone"
   }
 ]

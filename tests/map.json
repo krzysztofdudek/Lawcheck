@@ -265,7 +265,8 @@
   ],
   "src/progress.ts": [
     "tests/limits/signals.test.ts",
-    "tests/limits/sizes.test.ts"
+    "tests/limits/sizes.test.ts",
+    "tests/unit/readers.test.ts"
   ],
   "src/prompt.ts": [
     "tests/acceptance/reviewer.test.ts",

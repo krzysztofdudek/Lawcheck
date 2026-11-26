@@ -32,7 +32,7 @@ Example: the rule `no-console`, with `why: Only the command layer writes to the 
 
 ## Script rule
 
-A script rule is a JavaScript module, `.lawcheck/rules/<id>.mjs`. Its function `check` receives the files and returns their findings. It needs no model and no key. Lawcheck runs it in a Node process of its own. That process is the rule runner. The rule runner may read files in two places: below the root of the law, and in Lawcheck's own folder. Lawcheck's own folder is the folder where the `lawcheck` package is installed. The rule runner may read no other file.
+A script rule is a JavaScript module, `.lawcheck/rules/<id>.mjs`. Its function `check` receives the files and returns their findings. It needs no model and no key. Lawcheck runs it in a Node process, the rule runner. The rule runner may read files in two places: below the root of the law, and in Lawcheck's own folder. Lawcheck's own folder is the folder where the `lawcheck` package is installed. The rule runner may read no other file.
 
 Example: `.lawcheck/rules/no-console.mjs` returns `{ line: 1, message: 'writes to the terminal with console.log' }` for a file whose first line calls `console.log`.
 

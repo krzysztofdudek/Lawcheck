@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { cpSync, existsSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { append, check, findingLines, git, inTemp, LANGUAGES_SAMPLE, lawcheck, lawcheckAt, makeR, makeSample, makeU, ROOT, startLawcheck, withCopy, write } from './helpers.ts';
+import { append, check, findingLines, git, inTemp, LANGUAGES_SAMPLE, lawcheck, lawcheckAt, makeR, makeSample, makeU, newRepository, ROOT, startLawcheck, withCopy, write } from './helpers.ts';
 import type { Run } from './helpers.ts';
 
 const FINDINGS = example('dependency-l-findings').split('\n');
@@ -473,4 +473,68 @@ test('test 773: docs/script-rules.md names the version of Runes and the grammar 
   });
   const at = page.indexOf('| `language` | Version of the grammar |');
   assert.deepEqual(page.slice(at, page.indexOf('\n\n', at)).split('\n').slice(2), expected);
+});
+
+const SHARED_TREE_RULE = `export async function check({ files: [file] }) {
+  const { root } = await file.tree();
+  let nodes = 0;
+  const stack = [root];
+  while (stack.length > 0) {
+    const node = stack.pop();
+    nodes++;
+    for (const child of node.children) stack.push(child);
+  }
+  const first = root.children.find((child) => child.named);
+  return [{ message: \`\${nodes} nodes to \${root.end}, first \${first.type} \${JSON.stringify(file.text.slice(first.start, first.end))}\` }];
+}
+`;
+
+test('test 1396: three rules that ask for the tree of the same files each get the tree of each file, and after a file changes the next run gives every rule its new tree', async () => {
+  await inTemp(async (dir) => {
+    const rules = ['one', 'two', 'three'];
+    const law = `lawcheck: 0.1.0\n\nrules:\n${rules.map((rule) => `  ${rule}:\n    why: The rule reads the tree of the file.\n`).join('')}\ntypes:\n  code:\n    paths: ["src/**"]\n    rules: [${rules.join(', ')}]\n`;
+    const a = 'export const a = 1;\n';
+    const b = 'import { a } from "./a.ts";\nexport function b() {\n  return a + 1;\n}\n';
+    const repo = newRepository(dir, { '.lawcheck/law.yaml': law, 'src/a.ts': a, 'src/b.ts': b, ...Object.fromEntries(rules.map((rule) => [`.lawcheck/rules/${rule}.mjs`, SHARED_TREE_RULE])) });
+    const said = async () => {
+      const run = await lawcheck(repo, ['check', '--full', '--json']);
+      assert.equal(run.stderr, '');
+      return JSON.parse(run.stdout).findings.map((f: any) => `${f.rule}  ${f.file}  ${f.message}`).sort();
+    };
+    const alone = async (file: string) => JSON.parse((await lawcheck(repo, ['try', 'one', file, '--json'])).stdout).runs[0].findings.map((f: any) => f.message);
+    const expected = (ofA: string, ofB: string) => rules.flatMap((rule) => [`${rule}  src/a.ts  ${ofA}`, `${rule}  src/b.ts  ${ofB}`]).sort();
+
+    const [ofA] = await alone('src/a.ts');
+    const [ofB] = await alone('src/b.ts');
+    assert.match(ofA, new RegExp(`^\\d+ nodes to ${a.length}, first export_statement "export const a = 1;"$`));
+    assert.match(ofB, new RegExp(`^\\d+ nodes to ${b.length}, first import_statement `));
+    assert.deepEqual(await said(), expected(ofA, ofB));
+
+    const changed = 'export const a = 1;\nexport const more = [a, a];\n';
+    write(repo, 'src/a.ts', changed);
+    const [ofChanged] = await alone('src/a.ts');
+    assert.match(ofChanged, new RegExp(`^\\d+ nodes to ${changed.length}, first export_statement "export const a = 1;"$`));
+    assert.notEqual(ofChanged, ofA);
+    assert.deepEqual(await said(), expected(ofChanged, ofB));
+  });
+});
+
+test('test 1401: on a check of many files, three rules that read the tree each get for every file the tree the rule gets when it is tried on that file alone', async () => {
+  await inTemp(async (dir) => {
+    const rules = ['one', 'two', 'three'];
+    const law = `lawcheck: 0.1.0\n\nrules:\n${rules.map((rule) => `  ${rule}:\n    why: The rule reads the tree of the file.\n`).join('')}\ntypes:\n  code:\n    paths: ["src/**"]\n    rules: [${rules.join(', ')}]\n`;
+    const sources = Object.fromEntries(Array.from({ length: 12 }, (_, at) => [`src/f${String(at).padStart(2, '0')}.ts`, `export function f${at}(x: number) {\n  return [x, ${at}];\n}\n`.repeat(1 + (at % 4))]));
+    const repo = newRepository(dir, { '.lawcheck/law.yaml': law, ...sources, ...Object.fromEntries(rules.map((rule) => [`.lawcheck/rules/${rule}.mjs`, SHARED_TREE_RULE])) });
+    const run = await lawcheck(repo, ['check', '--full', '--json']);
+    assert.equal(run.stderr, '');
+    const said = JSON.parse(run.stdout).findings.map((f: any) => `${f.rule}  ${f.file}  ${f.message}`).sort();
+    const expected: string[] = [];
+    for (const path of Object.keys(sources)) {
+      const [alone] = JSON.parse((await lawcheck(repo, ['try', 'one', path, '--json'])).stdout).runs[0].findings.map((f: any) => f.message);
+      assert.match(alone, new RegExp(`^\\d+ nodes to ${sources[path]!.length}, first export_statement `));
+      for (const rule of rules) expected.push(`${rule}  ${path}  ${alone}`);
+    }
+    assert.deepEqual(said, expected.sort());
+    assert.equal(new Set(expected.map((line) => line.split('  ')[2])).size, 12);
+  });
 });

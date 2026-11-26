@@ -3,9 +3,11 @@ const TEXT_UNITS = 33_000;
 const TEXT_BYTES = TEXT_UNITS * 3;
 const WHAT = 16;
 const FILE = WHAT + TEXT_BYTES;
-const SIZE = FILE + TEXT_BYTES;
+const POOL = FILE + TEXT_BYTES;
+const SIZE = POOL + 8;
 
 let beat: Float64Array | null = null;
+let pool: Int32Array | null = null;
 let buffer: SharedArrayBuffer | null = null;
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
@@ -35,6 +37,60 @@ export function attach(shared: SharedArrayBuffer): void {
   buffer = shared;
   beat = new Float64Array(shared, 0, 1);
   beat[0] = Date.now();
+  pool = new Int32Array(shared, POOL, 1);
+  watching = false;
+  releases.clear();
+}
+
+// The run says here whether it holds memory it can give back: the trees the reader keeps for the rules of the run and the threads that parse (src/readers.ts), and the runners of script rules past the first (src/rules.ts). The cell is 0 when it holds none, 1 while it does, and 2 once the thread that watches the run has asked for it. That thread reads the memory of the whole process and cannot tell which of several files parsed at once grows it, so while the reader holds such memory it asks for it and ends the run only after the reader has given it back, or has not in time.
+let watching = false;
+const releases = new Set<() => Promise<void>>();
+
+function giveBack(cell: Int32Array): void {
+  const all = [...releases];
+  releases.clear();
+  void Promise.all(all.map((release) => release().catch(() => undefined))).then(() => Atomics.store(cell, 0, 0));
+}
+
+// Returns the call that takes the release back, for a holder that has ended.
+export function holding(release: () => Promise<void>): () => void {
+  if (pool === null) return () => undefined;
+  const cell = pool;
+  const drop = () => {
+    if (releases.delete(release) && releases.size === 0 && Atomics.compareExchange(cell, 0, 1, 0) === 1) Atomics.notify(cell, 0);
+  };
+  releases.add(release);
+  if (Atomics.compareExchange(cell, 0, 0, 1) === 2) {
+    giveBack(cell);
+    return drop;
+  }
+  if (watching) return drop;
+  watching = true;
+  const watch = (): void => {
+    const waited = Atomics.waitAsync(cell, 0, 1);
+    const then = () => {
+      if (cell !== pool) return;
+      const now = Atomics.load(cell, 0);
+      if (now === 1) return watch();
+      watching = false;
+      if (now === 2) giveBack(cell);
+    };
+    if (waited.async) void waited.value.then(then);
+    else then();
+  };
+  watch();
+  return drop;
+}
+
+// For the thread that watches: 'asked' when this call asked the reader for its memory, 'ending' while an earlier ask stands, 'none' when the reader holds none.
+export function askPoolToEnd(shared: SharedArrayBuffer): 'asked' | 'ending' | 'none' {
+  const cell = new Int32Array(shared, POOL, 1);
+  const was = Atomics.compareExchange(cell, 0, 1, 2);
+  if (was === 1) {
+    Atomics.notify(cell, 0);
+    return 'asked';
+  }
+  return was === 2 ? 'ending' : 'none';
 }
 
 // The command marks each step that may take long without yielding, and the file it is about, so the thread that watches it can name the step that never ended or that took too much memory.
