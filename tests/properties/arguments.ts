@@ -49,7 +49,7 @@ export function hookInputs(s: string): { arbitrary: fc.Arbitrary<[string, string
     { weight: 2, arbitrary: fc.oneof(fc.string({ maxLength: 40 }), fc.json(), fc.constantFrom('', '{', 'null', '[]', '"x"', '\ufeff{"session_id":"s1","cwd":"/"}')) },
   );
   const arbitrary = fc.tuple(fc.constantFrom(...EVENTS), input, fc.constantFrom('', 'runner: global\n', '\ufeffrunner: global\n', 'runner: bogus\n', '\ufeffrunner: bogus\n', '\ufeffrunner: global  # pinned\r\n'), fc.constantFrom(undefined, 'codex', 'copilot'));
-  const claim: Claim<[string, string, string, string | undefined]> = { classes: { 'a config with a byte-order mark': ([, , config]) => config.startsWith('\ufeff'), 'an object': ([, i]) => i.startsWith('{"'), 'no JSON object': ([, i]) => !i.startsWith('{"'), 'a byte-order mark at the start of the input': ([, i]) => i.startsWith('\ufeff'), 'a session id of 5,000 characters to a hook that keeps state': ([event, i]) => event !== 'session-start' && i.includes('x'.repeat(5000)) } };
+  const claim: Claim<[string, string, string, string | undefined]> = { examples: [['session-start', '{"', '', undefined]], classes: { 'a config with a byte-order mark': ([, , config]) => config.startsWith('\ufeff'), 'an object': ([, i]) => i.startsWith('{"'), 'no JSON object': ([, i]) => !i.startsWith('{"'), 'a byte-order mark at the start of the input': ([, i]) => i.startsWith('\ufeff'), 'a session id of 5,000 characters to a hook that keeps state': ([event, i]) => event !== 'session-start' && i.includes('x'.repeat(5000)) } };
   return { arbitrary, claim };
 }
 
