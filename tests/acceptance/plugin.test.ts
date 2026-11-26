@@ -1381,6 +1381,7 @@ test('test 1352: package.json, the marketplace, its plugin entry and the three p
   const marketplace = read('.claude-plugin/marketplace.json');
   const manifests = ['plugin/.claude-plugin/plugin.json', 'plugin/.codex-plugin/plugin.json', 'plugin/.plugin/plugin.json'].map(read);
   for (const description of [read('package.json').description, marketplace.description, marketplace.plugins[0].description, ...manifests.map((manifest) => manifest.description)]) assert.ok(description.startsWith(promise), description);
+  assert.ok(read('package.json').description.length <= 255, `npm cuts a description after 255 characters, and package.json has ${read('package.json').description.length}`);
   assert.equal(read('package.json').homepage, 'https://lawcheck.dev');
   for (const manifest of manifests) assert.equal(manifest.homepage, 'https://lawcheck.dev');
 });
