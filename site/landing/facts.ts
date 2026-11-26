@@ -116,7 +116,7 @@ export async function facts() {
     links: { github: GITHUB, npm: NPM, security: `${GITHUB}/blob/main/SECURITY.md`, author: 'https://chrisdudek.com', changelog: pageUrl('changelog') },
     head: head(),
     hero: {
-      promise: readme(promise()),
+      promise: [promise(), fragments.sentence('README.md', 'Lawcheck', 'A model you pick judges')].map(readme).join(' '),
       agents: readme(agents()),
       who: readme(fragments.sentence('README.md', 'Lawcheck', 'It is for you if you build')),
       install,

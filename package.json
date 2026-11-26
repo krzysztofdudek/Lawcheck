@@ -1,7 +1,7 @@
 {
   "name": "lawcheck",
   "version": "0.1.0-alpha.5",
-  "description": "Architecture and rule checks for coding agents. You write down which layer may use which and the rules your code must keep, and Lawcheck names the file and line that break them, in the hooks of Claude Code, Codex and Copilot CLI and in CI. It reads imports in 12 languages and runs script rules with no model; a model judges only a rule written in prose.",
+  "description": "Architecture and rule checks for coding agents. You write down which layer may use which and script the rules your code must keep, and Lawcheck names the file and line that break them, in the hooks of Claude Code, Codex and Copilot CLI and in CI. It reads imports in 12 languages and runs script rules with no model. A model judges a rule written in prose when you run lawcheck check --review.",
   "license": "MIT",
   "author": "Krzysztof Dudek",
   "repository": {

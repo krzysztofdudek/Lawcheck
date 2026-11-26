@@ -307,7 +307,7 @@ test('test 1140: the redirect file of the landing sends /docs, /docs/ and /docs/
 });
 
 test('test 1426: the first contact gives the architecture and the rules equal place: README.md and docs/index.md open with the category line of the card and the landing page and the promise of the manifests, and README.md, docs/index.md and the landing page each show a law with may_use and a script rule, the rule file, and a finding of each', () => {
-  const promise = `${CATEGORY}. You write down which layer may use which and the rules your code must keep, and Lawcheck names the file and line that break them, in the hooks of Claude Code, Codex and Copilot CLI and in CI.`;
+  const promise = `${CATEGORY}. You write down which layer may use which and script the rules your code must keep, and Lawcheck names the file and line that break them, in the hooks of Claude Code, Codex and Copilot CLI and in CI.`;
   assert.equal(copyOf(read('site/landing/index.md')).copy.h1, CATEGORY);
   assert.ok((JSON.parse(read('package.json')) as { description: string }).description.startsWith(promise), 'package.json opens with the promise');
   const fragments = new Fragments(ROOT);

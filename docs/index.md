@@ -1,6 +1,6 @@
 # Lawcheck
 
-Architecture and rule checks for coding agents. You write down which layer may use which and the rules your code must keep, and Lawcheck names the file and line that break them, in the hooks of Claude Code, Codex and Copilot CLI and in CI. The check of imports reads them in 12 languages with no model. A [script rule](concepts.md#script-rule) is a JavaScript file of your repository, and it runs with no model too. A model judges only a [reviewer rule](concepts.md#reviewer-rule), written in prose.
+Architecture and rule checks for coding agents. You write down which layer may use which and script the rules your code must keep, and Lawcheck names the file and line that break them, in the hooks of Claude Code, Codex and Copilot CLI and in CI. A model you pick judges a [reviewer rule](concepts.md#reviewer-rule), written in prose, when you run `lawcheck check --review`, on your machine or in a CI job set up to review. The check of imports reads them in 12 languages with no model. A [script rule](concepts.md#script-rule) is a JavaScript file of your repository, and it runs with no model too.
 
 ## A law and a finding
 
@@ -85,7 +85,7 @@ src/core/receipt.ts:4  error[no-clock]  reads the clock
 next: fix src/core/receipt.ts:1
 ```
 
-A [reviewer rule](reviewer-rules.md) is written in prose, such as "each error a caller sees says what to do next". A model you pick judges it, one file at a time.
+A [reviewer rule](reviewer-rules.md) is written in prose, such as "each error a caller sees says what to do next". A model you pick judges it, one file at a time, when you run `lawcheck check --review`. The plugin's hooks never ask the model. A check without `--review` reads the verdicts already recorded, and reports a file with none as `not-reviewed`.
 
 <div id="where-it-checks"></div>
 
