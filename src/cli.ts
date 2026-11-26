@@ -20,6 +20,8 @@ import { absolutePath, NO_CURRENT_FOLDER, serveGuard } from './programs.js';
 // How long the reader of trees has to give back its kept trees and its threads once the memory guard asked, and the process to let that memory go, before the run ends as it would without them.
 const GIVE_BACK_MS = 3_000;
 const GIVE_BACK_GROWTH = 64 * 1024 * 1024;
+// How long a run that has written its result waits for the command's worker to end before it exits without it.
+const WORKER_END_MS = 1_000;
 
 // Each case names a step the user can take: a file whose uses are read leaves the types with may_use, or the types of the rule that read them; a file read only for what it declares leaves the files git lists; a run or a machine short of memory gets more of it.
 export function memoryError(found: Exclude<MemoryCase, null>, what: string, file: string | null, command: string): ErrorItem {
@@ -68,9 +70,14 @@ export function start(): void {
   let writing = false;
   const gits = new Set<ChildProcess>();
   const gitFlag = new Int32Array(new SharedArrayBuffer(4));
+  // process.exit joins the command's worker from inside native code, and a worker with a large heap takes that long to end; a compile of V8 in the background that waits meanwhile for the main thread to collect its heap then waits forever, and the process never exits (seen on Node 24.22 after a result of 8 MB). So the worker ends first, while the main thread still answers V8, and process.exit has nothing left to join.
+  let leaving = false;
   const exit = (code: number) => {
+    if (leaving) return;
+    leaving = true;
     for (const child of gits) child.kill('SIGKILL');
-    process.exit(code);
+    setTimeout(() => process.exit(code), WORKER_END_MS);
+    void worker.terminate().then(() => process.exit(code));
   };
   // Outside Windows Node writes to a pipe without waiting for its reader, and what that reader has not taken is lost when the process exits. So a run exits only once its standard error has taken every line passed on to it. A run that fail() ends does not wait: its worker still runs, and would write a second result with another code.
   let unwritten = 0;
@@ -197,6 +204,7 @@ export function start(): void {
   }, MEMORY_CHECK_MS);
   memory.unref();
   worker.on('message', (message: FromWork) => {
+    if (leaving) return;
     if (message.kind === 'warn') passOn(safeText(message.line) + '\n');
     else if (message.kind === 'stderr') passOn(message.text);
     else writeOut(message.stdout, message.code);
