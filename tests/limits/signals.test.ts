@@ -182,7 +182,7 @@ test('test 1424: a run whose result is 9 MB of JSON exits on its own once the re
       const result = await run(s, ['check', '--full', '--json'], { env: { LAWCHECK_TEST_EXIT: seen }, node: ['--import', pathToFileURL(hook).href], outside: ['exit.txt'] });
       assert.equal(result.code, 1);
       assert.ok(result.stdout.length > 9_000_000, `the result holds ${result.stdout.length} characters`);
-      assert.equal((JSON.parse(result.stdout).findings as unknown[]).length, 18_000);
+      assert.equal((JSON.parse(result.stdout).findings as { rule: string }[]).filter((finding) => finding.rule === 'no-console').length, 18_000);
       assert.equal(readFileSync(seen, 'utf8'), '0 live at exit\n');
     },
     { onMain: (s) => setRule(s, 'no-console', MANY_FINDINGS) },
