@@ -2,20 +2,24 @@
 
 [![Claude Code imports the HTTP handlers into the business logic, and the tests pass. Lawcheck names the line. With the same prompt, the law and the plugin, the agent keeps the layers apart.](https://github.com/krzysztofdudek/Lawcheck/releases/download/v0.1.0-alpha.5/loop.gif)](https://lawcheck.dev)
 
-Architecture checks for coding agents. You write down which layer may import which, and Lawcheck names the file and line that break the rule, in the hooks of Claude Code, Codex and Copilot CLI and in CI.
+Architecture and rule checks for coding agents. You write down which layer may use which and the rules your code must keep, and Lawcheck names the file and line that break them, in the hooks of Claude Code, Codex and Copilot CLI and in CI.
 
-The check of imports is deterministic. It reads them in 12 languages with no model, and the same code gives the same result. Lawcheck sends code to a model only for a rule you write in prose.
+The check of imports is deterministic. It reads them in 12 languages with no model, and the same code gives the same result. A rule is a script or a few sentences of prose. A script rule is a JavaScript file of your repository, and Lawcheck runs it on each file with no model. A model you pick judges a rule written in prose, one file at a time. Lawcheck sends code to a model only for such a rule.
 
-It is for you if you build with coding agents and want the layers you drew to hold, such as a page component that must not call the database.
+It is for you if you build with coding agents and want the layers you drew and the rules you wrote to hold, such as a page component that must not call the database, or an HTTP handler that must check who calls it.
 
-On 2026-11-23 I gave Claude Code the same prompt in 80 sessions of a small shop repository. With no law and no plugin, the agent made the business logic import from the HTTP handlers in 8 of 20 sessions, and in each of the 8 all 10 tests passed ([one of the changes](film/takes/a09/change.diff)). With the law and the plugin, it did that in 0 of 60. That was one prompt, one repository and one model, and [film/pilot.json](film/pilot.json) lists every session.
+On 2026-11-23 I gave Claude Code the same prompt in 80 sessions of a small shop repository. With no law and no plugin, the agent made the business logic import from the HTTP handlers in 8 of 20 sessions, and in each of the 8 all 10 tests passed ([one of the changes](film/takes/a09/change.diff)). With the law and the plugin, it did that in 0 of 60. That was one prompt, one repository and one model, and [film/pilot.json](film/pilot.json) lists every session. The pilot measured that one breach of the layers. I have not measured the rules this way.
 
 I build software with coding agents, and I read their code only where a mistake costs a lot or I cannot undo it. In the code I do not read, a coding agent can skip a rule in `CLAUDE.md` or `AGENTS.md`. I have enforced rules of this kind on every change in real client work for many months, with [Yggdrasil](https://github.com/krzysztofdudek/Yggdrasil), an older tool of mine. On 2026-11-24, the issues page of Claude Code showed 204 issues for [the query "ignores CLAUDE.md" is:issue created:<=2026-11-24](https://github.com/anthropics/claude-code/issues?q=%22ignores+CLAUDE.md%22+is%3Aissue+created%3A%3C%3D2026-11-24). The same query from June 2026 on shows [47 of them](https://github.com/anthropics/claude-code/issues?q=%22ignores+CLAUDE.md%22+is%3Aissue+created%3A2026-06-01..2026-11-24).
 
-The law is a file in the repository. It names the kinds of files and which kind may use which:
+The law is a file in the repository. It names the kinds of files, which kind may use which, and the rules each kind keeps:
 
 ```yaml
 lawcheck: 0.1.0
+
+rules:
+  no-clock:
+    why: The core takes the time as an argument.
 
 types:
   api:
@@ -25,16 +29,33 @@ types:
     about: The business logic.
     paths: ["src/core/**"]
     may_use: [core]
+    rules: [no-clock]
 ```
 
-An import of a handler into the business logic fails the check:
+A script rule is a JavaScript file in `.lawcheck/rules/`. This one, `no-clock.mjs`, returns a finding for each line that reads the clock:
+
+```js
+export function check({ files: [file] }) {
+  const findings = [];
+  file.lines.forEach((text, i) => {
+    if (/\bDate\.now\(|\bnew Date\(\)/.test(text)) {
+      findings.push({ line: i + 1, message: 'reads the clock' });
+    }
+  });
+  return findings;
+}
+```
+
+An import of a handler into the business logic fails the check, and so does a read of the clock:
 
 ```text
 $ lawcheck check src/core/discount.ts
-lawcheck: FAIL  1 error in 1 named file
+lawcheck: FAIL  2 errors in 1 named file
 
 src/core/discount.ts:1  error[forbidden-use]  core may not use api (src/api/orders.ts); its may_use is [core]
   why:  a type's may_use names every type its files may use
+src/core/discount.ts:4  error[no-clock]  reads the clock
+  why:  The core takes the time as an argument.
 
 next: fix src/core/discount.ts:1
 ```

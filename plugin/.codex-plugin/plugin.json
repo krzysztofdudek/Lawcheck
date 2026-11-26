@@ -1,7 +1,7 @@
 {
   "name": "lawcheck",
   "version": "0.1.0-alpha.5",
-  "description": "Architecture checks for coding agents. You write down which layer may import which, and the plugin sends your agent back, up to three times, while the files of its turn break the rule. It gives the agent the law of the repository at the start of every session, checks the file of each edit it makes with apply_patch, and checks every file of the turn before the agent finishes. The hooks run Lawcheck and the repository's rule scripts, so use it where you would run the repository's tests. Its skill, $lawcheck:setup, writes the first law of a repository from its code and asks you before it forbids a use that the code already makes.",
+  "description": "Architecture and rule checks for coding agents. You write down which layer may use which and the rules your code must keep, and the plugin sends your agent back, up to three times, while the files of its turn break them. It gives the agent the law of the repository at the start of every session, checks the file of each edit it makes with apply_patch, and checks every file of the turn before the agent finishes. The hooks run Lawcheck and the repository's rule scripts, so use it where you would run the repository's tests. Its skill, $lawcheck:setup, writes the first law of a repository from its code and asks you before it forbids a use that the code already makes.",
   "author": { "name": "Krzysztof Dudek", "url": "https://github.com/krzysztofdudek" },
   "homepage": "https://lawcheck.dev",
   "repository": "https://github.com/krzysztofdudek/Lawcheck.git",

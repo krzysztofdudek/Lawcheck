@@ -1,6 +1,6 @@
 # Lawcheck
 
-Architecture checks for coding agents. You write down which layer may import which, and Lawcheck names the file and line that break the rule, in the hooks of Claude Code, Codex and Copilot CLI and in CI. The check of imports is deterministic: it reads them in 12 languages with no model.
+Architecture and rule checks for coding agents. You write down which layer may use which and the rules your code must keep, and Lawcheck names the file and line that break them, in the hooks of Claude Code, Codex and Copilot CLI and in CI. The check of imports reads them in 12 languages with no model. A [script rule](concepts.md#script-rule) is a JavaScript file of your repository, and it runs with no model too. A model judges only a [reviewer rule](concepts.md#reviewer-rule), written in prose.
 
 ## A law and a finding
 
@@ -35,6 +35,57 @@ next: fix src/core/receipt.ts:1
 ```
 
 The run exits 1. The [finding](concepts.md#finding) gives the file, the line, the code `forbidden-use` and the `may_use` list of `core`.
+
+## A rule and a finding
+
+A rule holds what an import cannot say, such as a core that never reads the clock. This script rule is `.lawcheck/rules/no-clock.mjs`. It returns a finding for each line that reads the clock:
+
+```js
+export function check({ files: [file] }) {
+  const findings = [];
+  file.lines.forEach((text, i) => {
+    if (/\bDate\.now\(|\bnew Date\(\)/.test(text)) {
+      findings.push({ line: i + 1, message: 'reads the clock' });
+    }
+  });
+  return findings;
+}
+```
+
+The law names the rule and gives it to `core`:
+
+```yaml
+lawcheck: 0.1.0
+
+rules:
+  no-clock:
+    why: Prices and orders take the time as an argument.
+
+types:
+  core:
+    about: Prices and orders, with no input or output.
+    paths: ["src/core/**"]
+    may_use: [core]
+    rules: [no-clock]
+  cli:
+    about: The commands, which read input and print.
+    paths: ["src/cli/**"]
+```
+
+Now the new `src/core/receipt.ts` also prints the time it reads with `new Date()`, on line 4. The same check names both lines:
+
+```output
+lawcheck: FAIL  2 errors in 1 changed file (against main)
+
+src/core/receipt.ts:1  error[forbidden-use]  core may not use cli (src/cli/print.ts); its may_use is [core]
+  why:  a type's may_use names every type its files may use
+src/core/receipt.ts:4  error[no-clock]  reads the clock
+  why:  Prices and orders take the time as an argument.
+
+next: fix src/core/receipt.ts:1
+```
+
+A [reviewer rule](reviewer-rules.md) is written in prose, such as "each error a caller sees says what to do next". A model you pick judges it, one file at a time.
 
 <div id="where-it-checks"></div>
 

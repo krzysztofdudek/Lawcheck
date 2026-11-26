@@ -73,13 +73,13 @@ const cardTags = (): string => cardHead().map(([, attributes]) => `<meta ${Objec
 
 const GOOD: Record<string, string | Buffer> = {
   'index.html': [
-    '<title>Lawcheck: architecture checks for coding agents</title>',
+    '<title>Lawcheck: architecture and rule checks for coding agents</title>',
     '<meta name="description" content="Lawcheck checks your code against the architecture and rules you write down, and tells your coding agent which line breaks which rule.">',
     '<link rel="canonical" href="https://lawcheck.dev/">',
     '<meta property="og:type" content="website"><meta property="og:site_name" content="Lawcheck"><meta property="og:title" content="Lawcheck"><meta property="og:description" content="x"><meta property="og:url" content="https://lawcheck.dev/">',
     cardTags(),
     '<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"WebSite"},{"@type":"SoftwareApplication","softwareVersion":"1.2.3"}]}</script>',
-    '<h1>Architecture checks for coding agents</h1><a href="/changelog">1.2.3</a>',
+    '<h1>Architecture and rule checks for coding agents</h1><a href="/changelog">1.2.3</a>',
     '<figure id="film" class="film hero-film"><div class="film-frame"><pre><code><span class="line">src/core/discount.ts:1  error[forbidden-use]  core may not use api</span></code></pre></div></figure>',
   ].join('\n'),
   'og.png': png(1200, 630),

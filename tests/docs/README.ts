@@ -9,6 +9,7 @@ import type { Claims, Page } from '../contract/docs-blocks.ts';
 export const claims: Claims = {
   'block 1 under "Lawcheck"': SCENARIO,
   'block 2 under "Lawcheck"': SCENARIO,
+  'block 3 under "Lawcheck"': SCENARIO,
   'block 1 under "Try it"': SCENARIO,
   'block 1 under "Your coding agent"': SCENARIO,
   'block 2 under "Your coding agent"': SCENARIO,
@@ -20,6 +21,8 @@ const blockOf = (path: string, key: string): string => {
   assert.ok(block, `${path} has ${key}`);
   return block.text;
 };
+
+const DISCOUNT = "import { orderTotal } from '../api/orders.js';\n\nexport function discount(order: { total: number }): number {\n  const friday = new Date().getDay() === 5;\n  return friday ? orderTotal(order) * 0.1 : 0;\n}\n";
 
 type Types = Record<string, { types?: Types }>;
 const count = (types: Types = {}): number => Object.values(types).reduce((n, type) => n + 1 + count(type.types), 0);
@@ -42,10 +45,11 @@ export async function scenario(page: Page): Promise<void> {
   await inTemp(async (dir) => {
     const repo = newRepository(dir, {
       '.lawcheck/law.yaml': page.text('block 1 under "Lawcheck"') + '\n',
-      'src/api/orders.ts': 'export const order = 1;\n',
-      'src/core/discount.ts': blockOf('docs/forbid-a-use.md', 'block 1 under "3. Write a file that breaks the list"') + '\n',
+      '.lawcheck/rules/no-clock.mjs': page.text('block 2 under "Lawcheck"') + '\n',
+      'src/api/orders.ts': 'export function orderTotal(order: { total: number }): number {\n  return order.total;\n}\n',
+      'src/core/discount.ts': DISCOUNT,
     });
-    const [command, ...output] = page.text('block 2 under "Lawcheck"').split('\n');
+    const [command, ...output] = page.text('block 3 under "Lawcheck"').split('\n');
     assert.equal(command, '$ lawcheck check src/core/discount.ts');
     const check = await lawcheck(repo, command!.slice('$ lawcheck '.length).split(' '));
     assert.equal(check.code, 1, check.stdout);

@@ -76,10 +76,11 @@ export function head() {
 }
 
 export async function facts() {
-  const highlighter = await createHighlighter({ themes: [codeThemeOfBrand], langs: ['yaml'] });
+  const highlighter = await createHighlighter({ themes: [codeThemeOfBrand], langs: ['yaml', 'javascript'] });
   const code = (file: string, heading: string, start: string) => {
     const block = fragments.code(file, heading, start);
-    return { text: block.code, html: highlighter.codeToHtml(block.code, { lang: block.lang === 'yaml' ? 'yaml' : 'text', theme: 'lawcheck' }) };
+    const lang = block.lang === 'yaml' ? 'yaml' : block.lang === 'js' ? 'javascript' : 'text';
+    return { text: block.code, html: highlighter.codeToHtml(block.code, { lang, theme: 'lawcheck' }) };
   };
   const md = (file: string) => (text: string) => inline(text, file, LINK.docs, GITHUB);
   const readme = md('README.md');
@@ -90,6 +91,7 @@ export async function facts() {
   const link = (target: Link) => ({ text: target.text, href: pageUrl(target.page) });
 
   const law = code('README.md', 'Lawcheck', 'lawcheck: ');
+  const rule = code('README.md', 'Lawcheck', 'export function check');
   const refusal = code('README.md', 'Lawcheck', '$ lawcheck check');
   const install = fragments.code('docs/install.md', 'Install globally', '$ npm install').code.replace(/^\$ /, '');
   const groups = ['`CLAUDE.md` and `AGENTS.md`', 'An architecture tool for one language', 'A review bot at the pull request', 'A hook you wrote in Claude Code'];
@@ -130,6 +132,8 @@ export async function facts() {
       heading: fragments.heading('docs/index.md', 'A law and a finding'),
       intro: readme(fragments.paragraph('README.md', 'Lawcheck', 'The law is a file')),
       law: law.html,
+      ruleIntro: readme(fragments.paragraph('README.md', 'Lawcheck', 'A script rule is a JavaScript file')),
+      rule: rule.html,
       findingIntro: readme(fragments.paragraph('README.md', 'Lawcheck', 'An import of a handler')),
       finding: refusal.html,
     },
