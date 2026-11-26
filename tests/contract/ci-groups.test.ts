@@ -331,7 +331,13 @@ test('test 1429: LAWCHECK_ONLY narrows a run to the chosen tests among those the
   }
 });
 
-test('test 1430: a part of a run in which one of its chosen tests did not run is red and names it', async () => {
+test('test 1430: a part of a run in which one of its chosen tests did not run is red and names it', async (t) => {
+  // In a whole run this variable is set for every test file, and judgeRun then holds the made-up run below to the run-time tie, which no such run can meet.
+  const tie = process.env.LAWCHECK_TIE;
+  delete process.env.LAWCHECK_TIE;
+  t.after(() => {
+    if (tie !== undefined) process.env.LAWCHECK_TIE = tie;
+  });
   const ran = async function* () {
     yield { type: 'test:pass', data: { name: 'tests 1431 and 1500: two numbers in one name', nesting: 0, file: join(ROOT, SELF) } };
   };
