@@ -1,3 +1,7 @@
+import path from 'node:path';
+import type { PlatformPath } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 export type Range = { startOffset: number; endOffset: number; count: number };
 export type Script = { url: string; functions: { ranges: Range[] }[] };
 export type Segment = { offset: number; source: number; line: number };
@@ -15,6 +19,14 @@ export function scriptLength(script: Script): number {
   let length = 0;
   for (const f of script.functions) for (const range of f.ranges) if (range.endOffset > length) length = range.endOffset;
   return length;
+}
+
+// Where no relative path leads from the folder of the built file to the source, as from a temporary folder on C: to a checkout on D:, the compiler names the source by a file URL.
+export function sourceOf(built: string, source: string, root: string, system: PlatformPath = path): string | null {
+  const file = source.startsWith('file:') ? fileURLToPath(source, { windows: system === path.win32 }) : system.resolve(system.dirname(built), source);
+  const inside = system.relative(system.resolve(root, 'src'), file);
+  if (inside === '' || inside === '..' || inside.startsWith(`..${system.sep}`) || system.isAbsolute(inside)) return null;
+  return `src/${inside.split(system.sep).join('/')}`;
 }
 
 const DIGITS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
