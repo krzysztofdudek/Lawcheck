@@ -59,7 +59,7 @@ export function memoryTotal(machine: number = totalmem(), limit: number = proces
 }
 
 // The memory a run may spend on going faster: what the system can give now, less twice the reserve the memory guard keeps. Where the system gives no number, nothing holds the run back. A run in a small container so starts few runners, no parsing threads and keeps few trees, instead of filling its memory and giving them back.
-export function spare(available: number | null = availableNow()): number {
+export function spare(available: number | null = availableToSize()): number {
   return available === null ? Infinity : Math.max(0, available - 2 * MEMORY_RESERVE_BYTES);
 }
 
@@ -83,6 +83,12 @@ export function availableNow(platform: NodeJS.Platform = process.platform): numb
   const left = process.availableMemory();
   if (platform !== 'linux' || left >= MEMORY_RESERVE_BYTES) return left;
   return withCache(left, cgroupStat(), freemem());
+}
+
+// What a run sizes its runners, threads and kept trees by, once at its start: availableNow with a cgroup's page cache and reclaimable slab always counted as left. Right after a checkout or an install they fill most of a container's limit, and availableNow, which the guard reads every few milliseconds, counts them only near the reserve.
+export function availableToSize(platform: NodeJS.Platform = process.platform, left: number = process.availableMemory(), stat: string | null = platform === 'linux' ? cgroupStat() : null, free: number = freemem()): number | null {
+  if (platform === 'darwin') return null;
+  return platform === 'linux' ? withCache(left, stat, free) : left;
 }
 
 // A cgroup v2 counts its page cache as used, so right after a large write its limit less its use reads near nothing; where the kernel charges its own memory to the cgroup (most kernels; not one booted with cgroup.memory=nokmem), the dentries and inodes of every file the cgroup touched count as used too. The kernel takes both back before it kills a process of the cgroup, so they count as left, as the kernel's own estimate of available memory counts the page cache and the reclaimable slab, and never as more than that estimate. Shared memory and tmpfs are not on these lists.
