@@ -643,24 +643,24 @@
     "id": "runner-buffer",
     "promise": "test 1425",
     "file": "src/runner-trace.ts",
-    "find": "shapeOf(Buffer, true), ",
-    "replace": "",
+    "find": "shapeOf(Buffer, true), shapeOf(process, true)",
+    "replace": "shapeOf(process, true)",
     "killedBy": "test 1425: a rule that sets a property of Buffer, adds a hook for the loading of modules or turns source maps on is the last rule of its runner, and the next rule meets none of it"
   },
   {
     "id": "runner-module-hooks",
     "promise": "test 1425",
     "file": "src/runner-trace.ts",
-    "find": " || hooks !== before.hooks",
-    "replace": "",
+    "find": "|| hooks !== before.hooks ||",
+    "replace": "||",
     "killedBy": "test 1425: a rule that sets a property of Buffer, adds a hook for the loading of modules or turns source maps on is the last rule of its runner, and the next rule meets none of it"
   },
   {
     "id": "runner-source-maps",
     "promise": "test 1425",
     "file": "src/runner-trace.ts",
-    "find": " || sourceMaps() !== before.maps",
-    "replace": "",
+    "find": " || sourceMaps() !== before.maps) return false;",
+    "replace": ") return false;",
     "killedBy": "test 1425: a rule that sets a property of Buffer, adds a hook for the loading of modules or turns source maps on is the last rule of its runner, and the next rule meets none of it"
   }
 ]
