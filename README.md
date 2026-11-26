@@ -1,6 +1,6 @@
 # Lawcheck
 
-[![Claude Code imports the HTTP handlers into the business logic, and the tests pass. Lawcheck names the line. With the same prompt, the law and the plugin, the agent keeps the layers apart.](https://github.com/krzysztofdudek/Lawcheck/releases/download/v0.1.0-alpha.5/loop.gif)](https://lawcheck.dev)
+[![Claude Code imports the HTTP handlers into the business logic, and the tests pass. Lawcheck names the line. With the same prompt, the law and the plugin, the agent keeps the layers apart.](https://github.com/krzysztofdudek/Lawcheck/releases/download/v0.1.0-alpha.6/loop.gif)](https://lawcheck.dev)
 
 Architecture and rule checks for coding agents. You write down which layer may use which and script the rules your code must keep, and Lawcheck names the file and line that break them, in the hooks of Claude Code, Codex and Copilot CLI and in CI. A model you pick judges a rule written in prose when you run `lawcheck check --review`, on your machine or in a CI job set up to review.
 

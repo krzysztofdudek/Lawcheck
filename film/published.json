@@ -3,7 +3,7 @@
     {
       "page": "quick-start",
       "number": 1,
-      "seconds": 59.6,
+      "seconds": 43.5,
       "transcript": [
         "Lawcheck installs with one npm command.",
         "It adds four packages.",
@@ -25,12 +25,12 @@
       "files": {
         "mp4": {
           "name": "quick-start.mp4",
-          "sha256": "a88dae110063998b4527f67499d357ae286d82f471eccc4448364af121f4cfc8",
-          "bytes": 1708926
+          "sha256": "844d665907451745a516971584d23ac9f7b328bcf7c8778a0873b1e73904535f",
+          "bytes": 1387888
         },
         "vtt": {
           "name": "quick-start.vtt",
-          "sha256": "ffa3a8cfd0632217477c90cfee3384e1e5ab4271f986ed60bf6b56908a1e2ea1",
+          "sha256": "1d3b0c7c35e9ebd2136a5856ac2d96aabea1028150219804a1e64fe6ebba0947",
           "bytes": 1124
         },
         "jpg": {
@@ -39,12 +39,12 @@
           "bytes": 52364
         }
       },
-      "release": "v0.1.0-alpha.5"
+      "release": "v0.1.0-alpha.6"
     },
     {
       "page": "forbid-a-use",
       "number": 2,
-      "seconds": 55.5,
+      "seconds": 42,
       "transcript": [
         "Forbid one layer to use another.",
         "Claude Code gets a prompt for a loyalty discount in core.",
@@ -65,26 +65,26 @@
       "files": {
         "mp4": {
           "name": "forbid-a-use.mp4",
-          "sha256": "6d4008eda11b0c2710771d50036987f7645942be4147c9013a71e6ed812a703b",
-          "bytes": 1718730
+          "sha256": "5fd31eba945308a924f73f41d04b4d0d871a00b738098ab313e9468dcd4bff20",
+          "bytes": 1459054
         },
         "vtt": {
           "name": "forbid-a-use.vtt",
-          "sha256": "bc8df846f58b5cda24c9fed733ae67ea1ab67769f07803c0b7ba3ed5e42971bf",
+          "sha256": "b19e84d2b5b60207a9d13501e3c3bade4b3cd99cf252ca53b34edd3beed30f34",
           "bytes": 1101
         },
         "jpg": {
           "name": "forbid-a-use.jpg",
-          "sha256": "ec910a52bce8c1ba4bc31f404c9be7517f10371e9defa1f8c470bbf24ccbd022",
-          "bytes": 119314
+          "sha256": "e4f4a76b8a6daa91100f010fcd51b88e1ed4a407dace211fa019f47d9ea3bd86",
+          "bytes": 119312
         }
       },
-      "release": "v0.1.0-alpha.5"
+      "release": "v0.1.0-alpha.6"
     },
     {
       "page": "write-a-script-rule",
       "number": 3,
-      "seconds": 58.1,
+      "seconds": 34.3,
       "transcript": [
         "Write a script rule.",
         "In this cart file, line three calls fetch.",
@@ -104,26 +104,26 @@
       "files": {
         "mp4": {
           "name": "write-a-script-rule.mp4",
-          "sha256": "cad7c97c0b7ae67c6c634f48f8dcb4f5dffcdf9be94318b5c0f620e8af149c5f",
-          "bytes": 1467046
+          "sha256": "14cc98fda8939c9f5bc5266a912c2d0d9876cd52416c36eb86ebe6f640685017",
+          "bytes": 1130678
         },
         "vtt": {
           "name": "write-a-script-rule.vtt",
-          "sha256": "b71205540888fc807d7a46c95d298153ec7cdeeac3342406b4a4d4e5703721d6",
+          "sha256": "bc6fbd220e0001527508b46b2c3a18f3fdd5139c7b279c80811ed479e2f103cf",
           "bytes": 933
         },
         "jpg": {
           "name": "write-a-script-rule.jpg",
-          "sha256": "4aa5c6e57e0461617064fc76700417e55984d567629779c094757ec629f59442",
+          "sha256": "8d237133b871a4ea0961b85cca3152eb5cafb1392884516e178f75bfea0d4a55",
           "bytes": 95974
         }
       },
-      "release": "v0.1.0-alpha.5"
+      "release": "v0.1.0-alpha.6"
     },
     {
       "page": "write-a-reviewer-rule",
       "number": 4,
-      "seconds": 59.8,
+      "seconds": 45,
       "transcript": [
         "Write a reviewer rule.",
         "In this refund file, the error says only failed.",
@@ -145,26 +145,26 @@
       "files": {
         "mp4": {
           "name": "write-a-reviewer-rule.mp4",
-          "sha256": "d3c845ea19ac7b7baf6136308a5716e91683898f335f8bedea19b05cf13b1e5e",
-          "bytes": 1794262
+          "sha256": "dba315ddc6157b89392dc9b3e7794897c9b91f832f3cb8c808dc67d76938255e",
+          "bytes": 1676098
         },
         "vtt": {
           "name": "write-a-reviewer-rule.vtt",
-          "sha256": "e4c173de333400e18bb98c43ea88c911c25f7c5579fc888de31796d96fefdac2",
+          "sha256": "3b6e7bbf3482ace5c1803d440334e986174c426f610dec8ec549c9e4efc32f44",
           "bytes": 1189
         },
         "jpg": {
           "name": "write-a-reviewer-rule.jpg",
-          "sha256": "f374b1cd77ef2b9cc7a2eb056271130c077e28851dba96b9b536d2e54bdb78cb",
-          "bytes": 94035
+          "sha256": "9f63d7fb5fbc8f2b7a7f4d614590edb2d07ef83587deb3ad9bf35d5cefaff1a5",
+          "bytes": 94009
         }
       },
-      "release": "v0.1.0-alpha.5"
+      "release": "v0.1.0-alpha.6"
     },
     {
       "page": "ci",
       "number": 5,
-      "seconds": 57.6,
+      "seconds": 38.9,
       "transcript": [
         "A CI job can run lawcheck check on each pull request.",
         "A git hook can run it on each commit or push.",
@@ -183,12 +183,12 @@
       "files": {
         "mp4": {
           "name": "ci.mp4",
-          "sha256": "55c9e07d3e173ae2b517e6872407ffb8ef10a9b3f647a763aa00d20bbd2a071b",
-          "bytes": 1552968
+          "sha256": "974bf8efe848761829b3882aa150b140d7455134ec584e81ec5e8fb85a9c6d26",
+          "bytes": 1301123
         },
         "vtt": {
           "name": "ci.vtt",
-          "sha256": "4a86c9733125c85d502e3ffe1a73af68baa905f0670f2b54bf4917d5f4ea3289",
+          "sha256": "229a12ae4d7976511496419682652807bd1bb242a2dc25688f1111ceba0a0135",
           "bytes": 993
         },
         "jpg": {
@@ -197,28 +197,28 @@
           "bytes": 53635
         }
       },
-      "release": "v0.1.0-alpha.5"
+      "release": "v0.1.0-alpha.6"
     }
   ],
   "loop": {
-    "seconds": 28.9,
+    "seconds": 29.6,
     "files": {
       "mp4": {
         "name": "loop.mp4",
-        "sha256": "a5d2b2efea676252bd152961cc729eef27b8b995154bfb57c04ad31e5e2bf162",
-        "bytes": 336695
+        "sha256": "08bba694c2d4eca4a1ccd21b9c15686202530b3276a0c640bfed116a38f78ed0",
+        "bytes": 341978
       },
       "webm": {
         "name": "loop.webm",
-        "sha256": "b03bc9e81a28aaef014668ce6abc84d58aae85629cfa67bdcf82d0b114adc6f5",
-        "bytes": 692239
+        "sha256": "58dc4753c032df7db67af471becd3cfe802797332611123d2ab2962f784e34f7",
+        "bytes": 697221
       },
       "gif": {
         "name": "loop.gif",
-        "sha256": "0a84caefdb8f33e7f38e8acb1ef9f90dffe7a30a1da3f76d888554a44987929f",
-        "bytes": 210805
+        "sha256": "2755633b6dd171bb0ff2861662eb75cd6a4e3a29c64807c3ec91a423e1d3949d",
+        "bytes": 216266
       }
     },
-    "release": "v0.1.0-alpha.5"
+    "release": "v0.1.0-alpha.6"
   }
 }
