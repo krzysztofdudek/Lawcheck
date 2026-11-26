@@ -355,7 +355,7 @@ test('test 140: the usage of the program and of each command', async () => {
     assert.equal(document.errors[0].code, 'usage');
     assert.equal(json.code, 2);
     const version = await lawcheck(dir, ['--version']);
-    assert.equal(version.stdout, '0.1.0-alpha.5\n');
+    assert.equal(version.stdout, '0.1.0-alpha.6\n');
     assert.equal(version.code, 0);
   });
 });

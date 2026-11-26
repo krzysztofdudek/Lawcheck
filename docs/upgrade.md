@@ -89,7 +89,7 @@ A machine can hold two copies of Lawcheck: the global one and the one in the pro
 `lawcheck --version` prints the version that runs:
 
 ```output
-0.1.0-alpha.5
+0.1.0-alpha.6
 ```
 
 In a project, start Lawcheck through the package manager, as in `pnpm exec lawcheck --version`.
