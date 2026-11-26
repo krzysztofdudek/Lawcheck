@@ -305,3 +305,30 @@ test('test 1140: the redirect file of the landing sends /docs, /docs/ and /docs/
     if (listed) assert.deepEqual(listed.split('|'), [...pages].filter((id) => id !== 'index'), redirect.source);
   }
 });
+
+test('test 1425: the first contact gives the architecture and the rules equal place: README.md and docs/index.md open with the category line of the card and the landing page and the promise of the manifests, and README.md, docs/index.md and the landing page each show a law with may_use and a script rule, the rule file, and a finding of each', () => {
+  const promise = `${CATEGORY}. You write down which layer may use which and the rules your code must keep, and Lawcheck names the file and line that break them, in the hooks of Claude Code, Codex and Copilot CLI and in CI.`;
+  assert.equal(copyOf(read('site/landing/index.md')).copy.h1, CATEGORY);
+  assert.ok((JSON.parse(read('package.json')) as { description: string }).description.startsWith(promise), 'package.json opens with the promise');
+  const fragments = new Fragments(ROOT);
+  const shown = [
+    { page: 'README.md', law: ['Lawcheck', 'lawcheck: 0.1.0'], rule: ['Lawcheck', 'export function check'], finding: ['Lawcheck', '$ lawcheck check'] },
+    { page: 'docs/index.md', law: ['A rule and a finding', 'lawcheck: 0.1.0'], rule: ['A rule and a finding', 'export function check'], finding: ['A rule and a finding', 'lawcheck: FAIL'] },
+  ];
+  for (const { page, law, rule, finding } of shown) {
+    assert.ok(read(page).includes(`\n${promise}`), `${page} opens with the promise`);
+    const written = parse(fragments.code(page, law[0]!, law[1]!).code) as { rules: Record<string, unknown>; types: Record<string, { may_use?: string[]; rules?: string[] }> };
+    const ruled = Object.values(written.types).find((type) => type.may_use !== undefined && type.rules !== undefined);
+    assert.ok(ruled, `${page}: one type of the law has may_use and rules`);
+    const id = ruled.rules![0]!;
+    assert.ok(id in written.rules, `${page}: the law names ${id}`);
+    assert.match(fragments.code(page, rule[0]!, rule[1]!).code, /^export function check\(/);
+    const output = fragments.code(page, finding[0]!, finding[1]!).code;
+    assert.match(output, /  error\[forbidden-use\]  /, `${page}: a finding of may_use`);
+    assert.ok(output.includes(`  error[${id}]  `), `${page}: a finding of ${id}`);
+  }
+  const landing = read('site/landing/Landing.vue');
+  for (const shownThere of ['data.law.law', 'data.law.rule', 'data.law.finding']) assert.ok(landing.includes(`v-html="${shownThere}"`), `the landing page shows ${shownThere}`);
+  const facts = read('site/landing/facts.ts');
+  assert.ok(facts.includes("code('README.md', 'Lawcheck', 'export function check')"), 'the landing page takes the rule file of README.md');
+});
