@@ -781,7 +781,7 @@ next: make the rules return fewer findings, or narrow the types that list them, 
 
 The script rules of one run, with the companions of its reviewer rules, took more than 600 seconds together. Lawcheck stops them. The error names each rule or companion that had not finished, with the file it was on.
 
-Lawcheck runs as many rules at once as the machine has processors. On a machine with fewer processors than rules, the error says "had not started" for the later rules. The Example comes from a machine of three processors or more.
+Lawcheck runs as many rules at once as the machine has processors. On Linux and Windows it also needs free memory for each one: a second rule runs at once only when the system can give at least 896 MiB as the check starts, and each further rule needs 320 MiB more. The rules that wait for their turn say "had not started" when the 600 seconds run out. The Example comes from a machine of three processors or more, with at least 1,216 MiB free.
 
 **Typical cause**
 

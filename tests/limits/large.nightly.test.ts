@@ -11,7 +11,7 @@ import { testFolder } from '../harness/tool.ts';
 import { errorLines, MiB, run } from './support.ts';
 import { codesPage, exampleOf, shownRun } from '../contract/codes-page.ts';
 
-// These run nightly, on Linux, in a container of 1 GB of memory and 2 CPUs, test 248 in one of 2 GB; the table of limits in docs/config.md holds the numbers.
+// These run nightly, on Linux, in a container of 1 GB of memory and 2 CPUs, tests 248 and 251 in one of 2 GB; the table of limits in docs/config.md holds the numbers.
 
 function random(seed: number): () => number {
   let state = seed >>> 0;
@@ -101,6 +101,7 @@ test('test 251: S2-5, 30 rules that hang end as rule-crashed, each after its 30 
       const result = await run(s, ['check', '--base', 'main'], { budget: 'LIMITS_RULES_RUN_MS' });
       assert.deepEqual(errorLines(result.stdout), ids.map((id) => `.lawcheck/rules/${id}.mjs  error[rule-crashed]  passes 30 seconds on src/core/discount.ts`));
       assert.equal(result.code, 2);
+      assert.ok(result.ms < bound, `${result.ms} ms for ${ids.length} rules of 30 seconds, ${availableParallelism()} at once, where ${bound} ms is the most`);
     },
     {
       onMain: (s) => {
