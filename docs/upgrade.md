@@ -36,6 +36,7 @@ From alpha.4, alpha.5 changed these results, and alpha.6 keeps them:
 The first row of this table is the one that can fail a law that passed on alpha.4. In a repository where `cs/app/Ledger.cs` and `cs/infra/Ledger.cs` each hold a part of one C# class, and the `may_use` list of a third type allows neither of their types, alpha.5 reports a `forbidden-use` in a file of the third type that names the class. Its message names both files with their types, as `cs/app/Ledger.cs (app)` and `cs/infra/Ledger.cs (infra)`. alpha.4 passes the same file with `1 unresolved use` in its first line. A use with one allowed file among those it could name still passes in alpha.5.
 
 From alpha.1, alpha.2 changed these results, and alpha.3 to alpha.6 keep them:
+
 | In the code | alpha.2 |
 |---|---|
 | a Python package under a folder that `pyproject.toml` or `setup.cfg` names | a use of its files |

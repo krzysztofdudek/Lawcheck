@@ -12,6 +12,7 @@ Lawcheck follows [Semantic Versioning](https://semver.org/).
 - The note of `lawcheck check` and `scope.law_changes` name a type whose waivers count again `reads waivers in the type library`. alpha.5 wrote `changes the waivers of the type library`. A script that finds this change by the old words also looks for `reads waivers`.
 - `lawcheck check` stops with `config-invalid` on a `.lawcheck/config.local.yaml` that git tracks. Take it out of git with `git rm --cached .lawcheck/config.local.yaml`, or move its settings into `.lawcheck/config.yaml`.
 - An untracked `.lawcheck/config.local.yaml` now sets the reviewer of its machine. In alpha.5 no command read that file. A key outside its `reviewer` section is `config-invalid`.
+- Each key of the `reviewer` section now has a variable, such as `LAWCHECK_REVIEWER_PROVIDER` and `LAWCHECK_REVIEWER_MODEL`, which alpha.5 did not read. A wrong value in one stops `lawcheck check` with `config-invalid`, where alpha.5 passed the same setting. Look for these variables on each machine and in each CI job, and fix or unset each one that holds a wrong value.
 - In a script rule, `import.meta.url` now ends with `?rule=<id>`, and so does the URL of each file the rule imports. That is how each rule keeps its own copies of the modules it shares with other rules. A rule that compares `import.meta.url` with a fixed text, or cuts a path out of it by hand, no longer finds what it looks for: use `fileURLToPath(import.meta.url)`, `import.meta.dirname`, `import.meta.filename` or `new URL('./x', import.meta.url)`, which give the same paths as before.
 
 ### Notes of 0.1.0-alpha.5, corrected
@@ -31,7 +32,6 @@ The notes of 0.1.0-alpha.5 are wrong in eleven places. Two are under Fixed below
 
 - One machine can use its own reviewer without a commit. Each key of the `reviewer` section has a variable, such as `LAWCHECK_REVIEWER_PROVIDER` and `LAWCHECK_REVIEWER_MODEL`, and `.lawcheck/config.local.yaml`, which git ignores, takes the same keys. A variable wins over `.lawcheck/config.local.yaml`, which wins over `.lawcheck/config.yaml`. `lawcheck docs config` describes both places under "On one machine".
 - `lawcheck doctor` and `lawcheck explain --rule` name the reviewer in force and the place of each of its values. With `--json`, the rule document of `lawcheck explain` has the new field `reviewer`.
-- A pass in `.lawcheck/verdicts` names no provider and no model, so a pass that the reviewer of one machine records counts on every machine and in CI.
 - The law that judges a change in CI is now your team's choice in `lawcheck docs ci`: the change's own law, the law of the base with `--law-from`, or both, which the workflow runs as written. The page gives the lines for each choice and says what a choice of one law misses. With the law of the base alone, for example, a change that breaks the law file passes, and once merged it stops every later check by that law, the check of its fix too.
 - A coding agent that sets up the CI job is told to ask you first which law judges a change, in `lawcheck docs ci` and `lawcheck docs agent-setup`. A setup writes the job only if you ask.
 
@@ -74,7 +74,9 @@ The notes of 0.1.0-alpha.5 are wrong in eleven places. Two are under Fixed below
 
 ### Security
 
-- The notes of 0.1.0-alpha.5 said that, with the second check of `lawcheck docs ci`, a pull request that adds a signer of its own or takes `signers` out fails. That check reads the signers of the base. A pass that the pull request signed with its own key, or left unsigned, is therefore `not-reviewed`, and the check fails on the file of that pass.
+alpha.6 judges signed passes as alpha.5 does. These lines correct what the notes of 0.1.0-alpha.5 said about them:
+
+- The notes said that, with the second check of `lawcheck docs ci`, a pull request that adds a signer of its own or takes `signers` out fails. That check reads the signers of the base. A pass that the pull request signed with its own key, or left unsigned, is therefore `not-reviewed`, and the check fails on the file of that pass.
 - A pull request that changes only `signers` passes both checks, and its note names the change, such as `adds the signer mallory`. Once it is merged, the passes of that signer count.
 - After the merge of a pull request that takes `signers` out, every pass in `.lawcheck/verdicts` counts, signed or not. Ask for a code owner's review of `.lawcheck/`, as `lawcheck docs ci` says under "A change to the law".
 
