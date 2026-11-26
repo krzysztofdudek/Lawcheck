@@ -638,5 +638,29 @@
     "find": "  const bare = address.replace(TAG, '');",
     "replace": "  if (TAG.test(address)) return url;\n  const bare = address;",
     "killedBy": "test 1423: a rule that imports another rule's module by that rule's ending gets a copy of its own, not the other rule's live module"
+  },
+  {
+    "id": "runner-buffer",
+    "promise": "test 1425",
+    "file": "src/runner-trace.ts",
+    "find": "shapeOf(Buffer, true), ",
+    "replace": "",
+    "killedBy": "test 1425: a rule that sets a property of Buffer, adds a hook for the loading of modules or turns source maps on is the last rule of its runner, and the next rule meets none of it"
+  },
+  {
+    "id": "runner-module-hooks",
+    "promise": "test 1425",
+    "file": "src/runner-trace.ts",
+    "find": " || hooks !== before.hooks",
+    "replace": "",
+    "killedBy": "test 1425: a rule that sets a property of Buffer, adds a hook for the loading of modules or turns source maps on is the last rule of its runner, and the next rule meets none of it"
+  },
+  {
+    "id": "runner-source-maps",
+    "promise": "test 1425",
+    "file": "src/runner-trace.ts",
+    "find": " || sourceMaps() !== before.maps",
+    "replace": "",
+    "killedBy": "test 1425: a rule that sets a property of Buffer, adds a hook for the loading of modules or turns source maps on is the last rule of its runner, and the next rule meets none of it"
   }
 ]

@@ -591,6 +591,25 @@ test("test 1423: a rule that imports another rule's module by that rule's ending
   });
 });
 
+test('test 1425: a rule that sets a property of Buffer, adds a hook for the loading of modules or turns source maps on is the last rule of its runner, and the next rule meets none of it', async () => {
+  const sees = "export async function check() { const { value } = await import('./lib/probe.mjs'); return [{ message: [process.pid, Buffer.poolSize === 1, value, process.sourceMapsEnabled].join(' ') }]; }\n";
+  const leaves: [string, string][] = [
+    ['a property of Buffer', 'Buffer.poolSize = 1;'],
+    ['a hook added by registerHooks', "const { registerHooks } = await import('node:module'); registerHooks({ load(url, context, next) { return url.includes('probe.mjs') ? { format: 'module', source: \"export const value = 'hooked';\", shortCircuit: true } : next(url, context); } });"],
+    ['a hook added through the module object of process.getBuiltinModule', "process.getBuiltinModule('node:module').registerHooks({ load(url, context, next) { return url.includes('probe.mjs') ? { format: 'module', source: \"export const value = 'hooked';\", shortCircuit: true } : next(url, context); } });"],
+    ['source maps turned on', 'process.setSourceMapsEnabled(true);'],
+  ];
+  for (const [what, code] of leaves) {
+    await withRules({ 'before.mjs': SAYS_PID, 'leaves.mjs': `export async function check() { ${code} return [{ message: String(process.pid) }]; }\n`, 'after.mjs': sees, 'lib/probe.mjs': "export const value = 'plain';\n" }, async (_root, task) => {
+      const [before, leaving, after] = (await runRules([task('before'), task('leaves'), task('after')], 1)).map((outcome) => messages(outcome));
+      assert.deepEqual(leaving, before, `${what}: the rule runs in the runner of the rule before it`);
+      const [pid, ...seen] = after![0]!.split(' ');
+      assert.notEqual(pid, before![0], `${what}: the next rule has a fresh runner`);
+      assert.deepEqual(seen, ['false', 'plain', 'false'], what);
+    });
+  }
+});
+
 test('test 1403: a rule that crashes as the first rule of a fresh runner runs once, and a rule that crashes after another rule of its runner runs again alone', async () => {
   const crashes = "console.error('loaded in ' + process.pid);\nexport function check() { throw new Error('broke in ' + process.pid); }\n";
   const fine = "export function check() { return []; }\n";

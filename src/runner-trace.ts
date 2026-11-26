@@ -1,5 +1,7 @@
 // The record of what a rule of a runner leaves for the next rule of that runner, and the ending of module URLs that gives each rule its own copies of its modules. The runner imports this file and nothing else of Lawcheck.
 
+import { syncBuiltinESMExports } from 'node:module';
+
 // A rule can replace a property's value or only its getter or setter, and a later rule of the runner meets either, so a shape keeps all three.
 type Shape = Map<object, Map<string | symbol, unknown[]>>;
 const builtin = process.getBuiltinModule.bind(process);
@@ -74,6 +76,7 @@ export function reach(id: string): void {
 
 // Installed once the runner has closed the network and patched its timers, so the shapes it records are of the modules as every rule finds them.
 export function watchBuiltins(): void {
+  countHooks();
   Object.defineProperty(process, 'getBuiltinModule', {
     value: function getBuiltinModule(id: string) {
       if (typeof id === 'string') reach(id);
@@ -85,6 +88,32 @@ export function watchBuiltins(): void {
   });
 }
 
+// A hook for the loading of modules changes what every later import of the runner gets, and Node keeps no list of the hooks to compare, so the runner counts the calls that add one.
+let hooks = 0;
+function countHooks(): void {
+  const module = builtin('node:module') as unknown as Record<string, unknown>;
+  for (const name of ['register', 'registerHooks']) {
+    const original = module[name];
+    if (typeof original !== 'function') continue;
+    Object.defineProperty(module, name, {
+      value: function (this: unknown, ...args: unknown[]) {
+        hooks++;
+        return (original as (...given: unknown[]) => unknown).apply(this, args);
+      },
+      writable: true,
+      configurable: true,
+      enumerable: true,
+    });
+  }
+  syncBuiltinESMExports();
+}
+
+// Whether a stack names the lines of a source map is the process's, whichever of the two calls of Node turned it on.
+function sourceMaps(): string {
+  const support = (builtin('node:module') as unknown as { getSourceMapsSupport?: () => unknown }).getSourceMapsSupport?.();
+  return `${JSON.stringify(support ?? null)} ${String(process.sourceMapsEnabled)}`;
+}
+
 // A runner takes the next rule only when this one left nothing a later rule could meet: no work still running, no change to a global, to a built-in module it reached, to console, to process or to the functions of its two output streams and the prototypes they inherit from, no callback that takes uncaught exceptions, no other working directory, no listener on process, no CommonJS module loaded, and nothing printed, since a line it left unfinished would join the next rule's.
 interface Trace {
   shapes: Shape[];
@@ -94,6 +123,8 @@ interface Trace {
   listeners: string;
   modules: number;
   printed: number;
+  hooks: number;
+  maps: string;
 }
 let before: Trace | null = null;
 
@@ -138,13 +169,13 @@ function inherited(stream: object): Shape {
 }
 
 function trace(): Trace {
-  return { shapes: [shapeOf(globalThis, true), shapeOf(process, true), shapeOf(console, false), inherited(process.stdout), inherited(process.stderr)], streams: [methodsOf(process.stdout), methodsOf(process.stderr)], cwd: process.cwd(), env: Object.keys(process.env).length, listeners: listeners(), modules: modules(), printed: printed() };
+  return { shapes: [shapeOf(globalThis, true), shapeOf(Buffer, true), shapeOf(process, true), shapeOf(console, false), inherited(process.stdout), inherited(process.stderr)], streams: [methodsOf(process.stdout), methodsOf(process.stderr)], cwd: process.cwd(), env: Object.keys(process.env).length, listeners: listeners(), modules: modules(), printed: printed(), hooks, maps: sourceMaps() };
 }
 
 export function clean(): boolean {
   try {
     if (before === null || process.cwd() !== before.cwd || Object.keys(process.env).length !== before.env || listeners() !== before.listeners || modules() !== before.modules || printed() !== before.printed) return false;
-    if (process.hasUncaughtExceptionCaptureCallback()) return false;
+    if (process.hasUncaughtExceptionCaptureCallback() || hooks !== before.hooks || sourceMaps() !== before.maps) return false;
     for (const shape of [...before.shapes, ...reached.values()]) if (!sameShape(shape)) return false;
     for (const [at, stream] of [process.stdout, process.stderr].entries()) if (!sameMethods(before.streams[at]!, methodsOf(stream))) return false;
     return true;
