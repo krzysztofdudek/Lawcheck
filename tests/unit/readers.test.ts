@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { GRAMMARS, ownLine, readerOf, readUses, ruleReads, RUNES, siblingsOf, Unreadable } from '../../dist/readers.js';
 import { askPoolToEnd, attach, lastStep, progressBuffer } from '../../dist/progress.js';
-import { cores, memoryTotal, runnerLimit, spare } from '../../dist/limits.js';
+import { availableToSize, cores, memoryTotal, runnerLimit, spare } from '../../dist/limits.js';
 
 type Hint = { kind: 'path'; specifier: string } | { kind: 'symbol'; symbolKey: string };
 type Kind =
@@ -1078,4 +1078,21 @@ test('test 1399: a run counts as its memory the limit of its cgroup where that i
   assert.deepEqual([memoryTotal(32768 * MiB, 0), memoryTotal(32768 * MiB, 800 * MiB), memoryTotal(4096 * MiB, 2 ** 62)], [32768 * MiB, 800 * MiB, 4096 * MiB]);
   assert.deepEqual([spare(null), spare(1000 * MiB), spare(256 * MiB), spare(100 * MiB)], [Infinity, 744 * MiB, 0, 0]);
   assert.deepEqual([runnerLimit(8, Infinity), runnerLimit(8, 744 * MiB), runnerLimit(8, 0), runnerLimit(2, 4096 * MiB), runnerLimit(8, 1600 * MiB)], [8, 2, 1, 2, 5]);
+});
+
+test('test 1421: a run in a container whose page cache fills most of its limit, as after a checkout and an install, sizes its runners, threads and kept trees as it would with the cache empty', () => {
+  const MiB = 1024 * 1024;
+  const GiB = 1024 * MiB;
+  const warm = ['anon 11534336', 'file 1020264448', 'shmem 0', 'inactive_file 1004535808', 'active_file 15728640', 'slab_reclaimable 0', ''].join('\n');
+  const cold = ['anon 11534336', 'file 92274688', 'shmem 0', 'inactive_file 92274688', 'active_file 0', 'slab_reclaimable 0', ''].join('\n');
+  const sized = (left: number, stat: string) => {
+    const room = spare(availableToSize('linux', left, stat, 28 * GiB));
+    return [runnerLimit(4, room), Math.min(4, Math.floor(room / 4 / (96 * MiB))), Math.floor(room / 4 / MiB)];
+  };
+  assert.deepEqual(sized(416 * MiB, warm), sized(1301 * MiB, cold));
+  assert.deepEqual(sized(416 * MiB, warm), [3, 2, 283]);
+  assert.equal(availableToSize('linux', 416 * MiB, warm, 600 * MiB), 600 * MiB);
+  assert.equal(availableToSize('linux', 416 * MiB, null, 28 * GiB), 416 * MiB);
+  assert.equal(availableToSize('win32', 416 * MiB, warm, 28 * GiB), 416 * MiB);
+  assert.equal(availableToSize('darwin', 416 * MiB, warm, 28 * GiB), null);
 });

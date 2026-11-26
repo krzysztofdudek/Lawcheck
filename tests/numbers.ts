@@ -603,7 +603,7 @@ export function slowBudget(key: string, system: System = process.platform as Sys
 
 
 // The tests whose names cite only a section label or a decision (design/decisions.md, decision 79), less the tests of the suite's machinery and of the repository's own law that cite only decision 95 or 160 (decision 96). The rail checks the count against this number, above and below, so that a lower count is written down here. That the number may only fall is the suite guard's, read from the base through `stronger`; the rail alone stays green when the number is raised.
-export const SECTION_ONLY_TESTS = 177;
+export const SECTION_ONLY_TESTS = 176;
 
 export const SLOWEST_SHOWN = 10;
 

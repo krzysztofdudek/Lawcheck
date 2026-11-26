@@ -153,6 +153,43 @@ test('test 258: a signal while git runs ends the run as stopped within two secon
   }
 });
 
+// The hook keeps the worker that runs the command alive after its result, as a worker still busy with a large heap is, and counts on the main thread the workers that have not ended when process.exit is called: Node ends a worker that still lives from inside process.exit, and there a process with a large result could hang.
+const WORKERS_AT_EXIT = [
+  "import workers from 'node:worker_threads';",
+  "import { syncBuiltinESMExports } from 'node:module';",
+  "import { appendFileSync } from 'node:fs';",
+  'if (!workers.isMainThread && workers.workerData?.argv !== undefined) setInterval(() => {}, 60_000);',
+  'if (workers.isMainThread) {',
+  '  let live = 0;',
+  '  const Base = workers.Worker;',
+  "  workers.Worker = class extends Base { constructor(...args) { super(...args); live++; this.once('exit', () => { live--; }); } };",
+  '  syncBuiltinESMExports();',
+  '  const exit = process.exit;',
+  "  process.exit = function (code) { appendFileSync(process.env.LAWCHECK_TEST_EXIT, `${live} live at exit\\n`); return exit.call(process, code); };",
+  '}',
+  '',
+].join('\n');
+
+// 9,000 findings of 400 characters on each of the two files of the library: about 9 MB of JSON, as large as the result of check --full on vscode under 18 rules.
+const MANY_FINDINGS = "export function check({ files: [file] }) { const out = []; for (let i = 0; i < 9000; i++) out.push({ line: 1, message: `${file.path} ${String(i).padStart(4, '0')} ${'x'.repeat(375)}` }); return out; }\n";
+
+test('test 1424: a run whose result is 9 MB of JSON exits on its own once the result is written, and the worker that ran the command has ended before the process exits, even a worker that would not end by itself', async () => {
+  await withSample(
+    async (s, dir) => {
+      const hook = join(dir, 'workers.mjs');
+      const seen = join(dir, 'exit.txt');
+      writeFileSync(hook, WORKERS_AT_EXIT);
+      writeFileSync(seen, '');
+      const result = await run(s, ['check', '--full', '--json'], { env: { LAWCHECK_TEST_EXIT: seen }, node: ['--import', pathToFileURL(hook).href], outside: ['exit.txt'] });
+      assert.equal(result.code, 1);
+      assert.ok(result.stdout.length > 9_000_000, `the result holds ${result.stdout.length} characters`);
+      assert.equal((JSON.parse(result.stdout).findings as { rule: string }[]).filter((finding) => finding.rule === 'no-console').length, 18_000);
+      assert.equal(readFileSync(seen, 'utf8'), '0 live at exit\n');
+    },
+    { onMain: (s) => setRule(s, 'no-console', MANY_FINDINGS) },
+  );
+});
+
 // The hook holds the worker two seconds before its first module, as a starved processor does; the step watch must count from the start of the command, not from the worker's first beat.
 const SLOW_WORKER = [
   "import { registerHooks } from 'node:module';",
