@@ -8,6 +8,7 @@ import assertModule from 'node:assert';
 import { afterEach, beforeEach } from 'node:test';
 import { budgetNamed, testBudget } from '../numbers.ts';
 import { Broken } from './invariants.ts';
+import { FIRST_RUN_VARIABLE, lateMark } from './alone.ts';
 import { skipReason } from './skips.ts';
 import { CLI, gate, HOOK, HOOK_WITH_DEADLINES, observe, ROOT_DIR, TOOL_WITH_LIMITS } from './start.ts';
 import { real, tree, treeChanges } from './state.ts';
@@ -39,6 +40,10 @@ let current: TestState | null = null;
 export const LOWER_BUDGET_VARIABLE = 'LAWCHECK_TEST_BUDGET_MS';
 const lowered = Number(process.env[LOWER_BUDGET_VARIABLE]);
 const budgetOf = (key: string): number => (Number.isInteger(lowered) && lowered > 0 ? Math.min(lowered, testBudget(key)) : testBudget(key));
+
+// Read once and taken out of the environment, so a run a test starts itself is never a first run.
+const firstRun = process.env[FIRST_RUN_VARIABLE] === '1';
+delete process.env[FIRST_RUN_VARIABLE];
 
 const fileOf = (path: string | undefined) => (path === undefined ? '' : relative(ROOT_DIR, path.startsWith('file:') ? fileURLToPath(path) : path).split(sep).join('/'));
 
@@ -164,7 +169,7 @@ if (!registry[REGISTERED]) {
       root: tree(ROOT_DIR),
     };
   });
-  afterEach(async () => {
+  afterEach(async (t) => {
     const state = current;
     current = null;
     if (state === null) return;
@@ -178,6 +183,10 @@ if (!registry[REGISTERED]) {
     if (changed.length > 0) problems.push(`harness-8: the test changed the Lawcheck checkout: ${changed.slice(0, 10).join(', ')}`);
     const took = Date.now() - state.started;
     if (took > state.budget) problems.push(`harness-6: the test took ${took} ms, past its budget of ${state.budget} ms (tests/numbers.ts)`);
+    if (firstRun && problems.length === 1 && took > state.budget && t.fullName === t.name) {
+      t.diagnostic(lateMark(state.name, took, state.budget));
+      return;
+    }
     if (problems.length > 0) throw new Broken(problems[0]!.slice(0, problems[0]!.indexOf(':')), problems.map((p) => p.slice(p.indexOf(':') + 2)).join('\n'));
   });
 }

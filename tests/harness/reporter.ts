@@ -9,7 +9,7 @@ import { loadInputs } from '../contract/spec-map.ts';
 import { tieProblems } from '../contract/tie.ts';
 import { COMMIT_GROUPS, NIGHTLY_GROUPS, setFiles } from './sets.ts';
 import { applies, HARNESS, PLATFORM_SKIPS } from './skips.ts';
-import { ALONE, aloneLine, messageOf, timeOnly } from './alone.ts';
+import { ALONE, aloneLine, lateMessage, messageOf, readMark } from './alone.ts';
 import type { Alone, Late } from './alone.ts';
 
 const ROOT = fileURLToPath(new URL('../..', import.meta.url));
@@ -19,7 +19,6 @@ interface Failed {
   name: string;
   file: string;
   error: any;
-  suite?: boolean;
   second?: string;
 }
 
@@ -106,7 +105,7 @@ export interface RunOptions {
   chosen?: string[];
   // Only a live run reads its own cgroup, once its events have ended; a merge of recorded shards runs elsewhere.
   oomKills?: () => number | null;
-  // The first run of a round of tests/run.ts: a test that failed only its time budget is not red yet, since the runner runs it once more alone after the run. Elsewhere such a test is red unless the events hold its green second run.
+  // The first run of a round of tests/run.ts: a test the harness let pass with the late mark is not counted yet, since the runner runs it once more alone after the run. Elsewhere such a test is red unless the events hold its green second run.
   late?: boolean;
 }
 
@@ -129,10 +128,17 @@ export async function judgeRun(source: AsyncIterable<{ type: string; data: any }
   const unseen = new Set((options.chosen ?? []).map((id) => ({ id, name: new RegExp(idPattern(id).slice(1, -1)) })));
   const counts = { passed: 0, failed: 0, skipped: 0, todo: 0, late: 0 };
   const alone = new Map<string, Alone>();
+  const marks = new Map<string, { name: string; took: number; budget: number }>();
+  const tops = new Set<string>();
   for await (const event of source) {
     const data = event.data ?? {};
     if (event.type === ALONE) {
       alone.set(`${data.file}\0${data.name}`, data as Alone);
+      continue;
+    }
+    if (event.type === 'test:diagnostic') {
+      const mark = data.file ? readMark(data.message) : null;
+      if (mark !== null) marks.set(`${data.file}\0${mark.name}`, mark);
       continue;
     }
     if (event.type === 'test:stdout' || event.type === 'test:stderr') {
@@ -146,7 +152,7 @@ export async function judgeRun(source: AsyncIterable<{ type: string; data: any }
     if (data.todo === undefined) for (const one of unseen) if (one.name.test(String(data.name))) unseen.delete(one);
     if (data.details?.type === 'suite') {
       if (event.type === 'test:fail' && data.details?.error?.failureType !== 'subtestsFailed') {
-        failed.push({ name: data.name, file: data.file, error: data.details.error, suite: true });
+        failed.push({ name: data.name, file: data.file, error: data.details.error });
         counts.failed++;
       }
       continue;
@@ -159,8 +165,10 @@ export async function judgeRun(source: AsyncIterable<{ type: string; data: any }
     if (fileItself && event.type === 'test:pass') continue;
     if (data.skip !== undefined) counts.skipped++;
     else if (data.todo !== undefined) counts.todo++;
-    else if (event.type === 'test:pass') counts.passed++;
-    else {
+    else if (event.type === 'test:pass') {
+      counts.passed++;
+      if (data.file) tops.add(`${data.file}\0${data.name}`);
+    } else {
       counts.failed++;
       failed.push({ name: data.name, file: data.file, error: data.details?.error });
     }
@@ -168,23 +176,22 @@ export async function judgeRun(source: AsyncIterable<{ type: string; data: any }
   }
   const late: Late[] = [];
   const slow: string[] = [];
-  for (const f of [...failed]) {
-    const time = f.suite ? null : timeOnly(f.error);
-    if (time === null) continue;
-    const second = alone.get(`${f.file}\0${f.name}`);
+  for (const [key, mark] of marks) {
+    if (!tops.has(key)) continue;
+    const file = key.slice(0, key.indexOf('\0'));
+    const second = alone.get(key);
     if (options.late) {
-      late.push({ file: f.file, name: f.name, ...time });
+      late.push({ file, name: mark.name, took: mark.took, budget: mark.budget });
+      counts.passed--;
       counts.late++;
-    } else if (second?.passed) {
-      slow.push(aloneLine(second, where));
-      counts.passed++;
-    } else {
-      f.second = second === undefined ? 'no second run alone is recorded, so the run counts the red as it is' : `red too: ${(second.error ?? '').split('\n')[0]!.slice(0, 300)}`;
-      continue;
+    } else if (second?.passed) slow.push(aloneLine(second, where));
+    else {
+      counts.passed--;
+      counts.failed++;
+      failed.push({ name: mark.name, file, error: { message: lateMessage(mark) }, second: second === undefined ? 'no second run alone is recorded, so the time past its budget stays red' : (second.error ?? '').split('\n')[0]!.slice(0, 300) });
+      const at = passed.findIndex((p) => p.file === where(file) && p.name === mark.name);
+      if (at >= 0) passed.splice(at, 1);
     }
-    failed.splice(failed.indexOf(f), 1);
-    counts.failed--;
-    passed.push({ file: where(f.file), name: f.name });
   }
   const total = counts.passed + counts.failed + counts.skipped + counts.todo + counts.late;
   const parts = [`${counts.passed} passed`, `${counts.failed} failed`];
@@ -210,7 +217,7 @@ export async function judgeRun(source: AsyncIterable<{ type: string; data: any }
     }
   }
   if (slow.length > 0) lines.push('', 'slow under load: past the budget in the run, green once more alone', ...slow);
-  for (const one of late) lines.push('', `LATE     ${testIds(one.name).join(', ') || one.name.slice(0, 80)}  ${where(one.file)}`, `got      harness-6: the test took ${one.took} ms, past its budget of ${one.budget} ms (tests/numbers.ts)`, '         every assertion passed, so it runs once more alone after this run, and that run decides');
+  for (const one of late) lines.push('', `LATE     ${testIds(one.name).join(', ') || one.name.slice(0, 80)}  ${where(one.file)}`, `got      ${lateMessage(one)}`, '         it failed nothing else, so it runs once more alone after this run if the run is otherwise green, and that run decides');
   const kills = failed.length > 0 ? (options.oomKills?.() ?? null) : null;
   for (const f of failed) lines.push('', ...block(f, seeds, kills));
   let red = false;

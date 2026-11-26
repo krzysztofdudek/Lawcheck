@@ -15,7 +15,7 @@ import { CLI, CouldNotRun, withoutTypeStrippingWarning, expectBroken, fakeWrites
 import { promiseOf } from '../harness/promises.ts';
 import { gitChanges, gitState } from '../harness/state.ts';
 import { judgeRun, killsSince, oomKills } from '../harness/reporter.ts';
-import { ALONE, runRound, timeOnly } from '../harness/alone.ts';
+import { ALONE, runRound } from '../harness/alone.ts';
 import { failedTests } from '../harness/merge.ts';
 import { count, findTest, readEntries, sabotage } from '../sabotage/run.ts';
 import type { Entry, Tools } from '../sabotage/run.ts';
@@ -230,44 +230,47 @@ test('harness-6: a process the run leaves alive fails it, however quickly it lef
   });
 });
 
-// A made-up test file and a round of the runner over it, as tests/run.ts runs one, with the budget of every test of the round lowered to BUDGET.
+// Made-up test files and a round of the runner over them, as tests/run.ts runs one, with the budget of every test of the round lowered to BUDGET. Each timed test writes a line to its own log every time it runs.
 const BUDGET = 1_000;
 const OVER = 1_500;
 
-function madeUp(dir: string, tests: { name: string; slow: 'first' | 'always'; red?: boolean }[]): string {
-  const lines = ["import { test } from 'node:test';", "import assert from 'node:assert/strict';", "import { appendFileSync, readFileSync } from 'node:fs';", "import { join } from 'node:path';"];
-  tests.forEach((one, i) => {
-    lines.push(
-      `test(${JSON.stringify(one.name)}, () => {`,
-      `  const log = join(${JSON.stringify(dir)}, 'runs-${i}.log');`,
-      "  appendFileSync(log, 'run\\n');",
-      "  const runs = readFileSync(log, 'utf8').split('\\n').filter(Boolean).length;",
-      `  if (${one.slow === 'always' ? 'true' : 'runs === 1'}) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ${OVER});`,
-      one.red ? '  assert.equal(runs, 0);' : '  assert.ok(runs > 0);',
-      '});',
-    );
-  });
-  const file = join(dir, 'made-up.test.mjs');
+function timed(dir: string, i: number, name: string, slow: 'first' | 'always' | 'never', body: string[] = []): string[] {
+  return [
+    `test(${JSON.stringify(name)}, () => {`,
+    `  const log = join(${JSON.stringify(dir)}, 'runs-${i}.log');`,
+    "  appendFileSync(log, 'run\\n');",
+    "  const runs = readFileSync(log, 'utf8').split('\\n').filter(Boolean).length;",
+    `  if (${slow === 'always' ? 'true' : slow === 'first' ? 'runs === 1' : 'false'}) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ${OVER});`,
+    ...body.map((line) => `  ${line}`),
+    '  assert.ok(runs > 0);',
+    '});',
+  ];
+}
+
+function madeUp(dir: string, name: string, parts: string[][]): string {
+  const lines = ["import { after, describe, test } from 'node:test';", "import assert from 'node:assert/strict';", "import { appendFileSync, readFileSync } from 'node:fs';", "import { join } from 'node:path';", ...parts.flat()];
+  const file = join(dir, `${name}.test.mjs`);
   writeFileSync(file, `${lines.join('\n')}\n`);
   return file;
 }
 
 const runsOf = (dir: string, i: number): number => (existsSyncOf(join(dir, `runs-${i}.log`)) ? readFileSync(join(dir, `runs-${i}.log`), 'utf8').split('\n').filter(Boolean).length : 0);
 
-function round(dir: string, file: string): { red: boolean; out: string; events: string } {
+function round(dir: string, files: string[]): { red: boolean; out: string; events: string } {
   const harness = pathToFileURL(join(ROOT, 'tests', 'harness', 'tool.ts')).href;
   const reporter = pathToFileURL(join(ROOT, 'tests', 'harness', 'reporter.ts')).href;
   const recorder = pathToFileURL(join(ROOT, 'tests', 'harness', 'record.ts')).href;
   const env: NodeJS.ProcessEnv = { ...process.env, [LOWER_BUDGET_VARIABLE]: String(BUDGET), LAWCHECK_TIE: '', LAWCHECK_TARGET_MS: '', LAWCHECK_STARTED: '', LAWCHECK_SHUFFLE: '' };
   delete env.NODE_TEST_CONTEXT;
   const events = join(dir, 'events.jsonl');
+  rmSync(events, { force: true });
   const shown = join(dir, 'out.txt');
   const base = ['--test', `--import=${harness}`, '--test-timeout=60000'];
   const fd = openSync(shown, 'w');
   let written = '';
   let red: boolean;
   try {
-    red = runRound((verdict) => [...base, `--test-reporter=${reporter}?verdict=${encodeURIComponent(verdict)}`, `--test-reporter-destination=stdout`, `--test-reporter=${recorder}`, `--test-reporter-destination=${events}`, file], base, env, events, (text) => (written += text), (path) => path, ROOT, fd);
+    red = runRound((verdict) => [...base, `--test-reporter=${reporter}?verdict=${encodeURIComponent(verdict)}`, `--test-reporter-destination=stdout`, `--test-reporter=${recorder}`, `--test-reporter-destination=${events}`, ...files], base, env, events, (text) => (written += text), (path) => path, ROOT, fd);
   } finally {
     closeSync(fd);
   }
@@ -291,15 +294,27 @@ async function judgedAlone(events: { type: string; data: any }[]) {
   }
 }
 
+const LATE_FIRST = 'test 1: past its budget in the run, quick alone';
+
+// A round over a file whose late test would pass alone and whose file fails in another way: red, the late test never runs alone, and the recording is red as a merge reads it. A process killed before its events reached the runner leaves no late mark to name.
+async function redForMore(dir: string, files: string[], marked = true): Promise<void> {
+  const { red, out, events } = round(dir, files);
+  assert.equal(red, true, out);
+  assert.equal(runsOf(dir, 0), 1, out);
+  if (marked) assert.match(out, /\nnot run alone: the run is red for more than time\nRED      test 1: past its budget in the run, quick alone  .*: \d+ ms in the run, past its budget of 1000 ms; alone: the run is red for more than time, so the test did not run alone\nthe run is red\n$/);
+  else assert.doesNotMatch(out, /once more alone, after the run/);
+  assert.equal((await judgedAlone(recorded(events))).red, true);
+}
+
 test('test 1503: a test that fails only its time budget runs once more alone, and a green second run lists it as slow under load, counts it once and leaves the run green, in the output and in the record', async () => {
   await inTemp(async (dir) => {
-    const file = madeUp(dir, [{ name: 'test 1: past its budget in the run, quick alone', slow: 'first' }]);
-    const { red, out, events } = round(dir, file);
+    const file = madeUp(dir, 'made-up', [timed(dir, 0, LATE_FIRST, 'first')]);
+    const { red, out, events } = round(dir, [file]);
     assert.equal(red, false, out);
     assert.equal(runsOf(dir, 0), 2);
     assert.match(out, /ran 1 test files, 1 tests: 0 passed, 0 failed, 1 past its budget, to run once more alone/);
     assert.match(out, /LATE     test 1  .*made-up\.test\.mjs\ngot      harness-6: the test took \d+ ms, past its budget of 1000 ms \(tests\/numbers\.ts\)\n/);
-    assert.match(out, /\nslow under load  test 1: past its budget in the run, quick alone  .*made-up\.test\.mjs: \d+ ms in the run, past its budget of 1000 ms; \d+ ms alone, so it counts once, as passed\nthe run is green/);
+    assert.match(out, /\nonce more alone, after the run\nslow under load  test 1: past its budget in the run, quick alone  .*made-up\.test\.mjs: \d+ ms in the run, past its budget of 1000 ms; \d+ ms alone, so it counts once, as passed\nthe run is green/);
     assert.doesNotMatch(out, /RED /);
     const all = recorded(events);
     const second = all.filter((e) => e.type === ALONE);
@@ -310,38 +325,59 @@ test('test 1503: a test that fails only its time budget runs once more alone, an
     assert.equal(merged.red, false, merged.text);
     assert.match(merged.text, /ran 1 test files, 1 tests: 1 passed, 0 failed\n/);
     assert.match(merged.text, /slow under load: past the budget in the run, green once more alone\nslow under load  test 1: /);
-    const unsettled = all.filter((e) => e.type !== ALONE);
-    assert.equal(failedTests(unsettled), 1);
-    const red2 = await judgedAlone(unsettled);
-    assert.equal(red2.red, true);
-    assert.match(red2.text, /RED      test 1 .*\n(.*\n)*alone    no second run alone is recorded/);
+    const unsettled = await judgedAlone(all.filter((e) => e.type !== ALONE));
+    assert.equal(unsettled.red, true);
+    assert.match(unsettled.text, /ran 1 test files, 1 tests: 0 passed, 1 failed\n/);
+    assert.match(unsettled.text, /RED      test 1 .*\n(.*\n)*got      harness-6: the test took \d+ ms, past its budget of 1000 ms \(tests\/numbers\.ts\)\nalone    no second run alone is recorded/);
   });
 });
 
 test('test 1504: a test red on an assertion is never run again, even past its budget, and a time-only red whose second run alone is red keeps the run red', async () => {
   await inTemp(async (dir) => {
-    const file = madeUp(dir, [{ name: 'test 2: past its budget in the run and alone', slow: 'always' }, { name: 'test 3: red on an assertion and past its budget', slow: 'always', red: true }]);
-    const { red, out, events } = round(dir, file);
-    assert.equal(red, true, out);
-    assert.equal(runsOf(dir, 0), 2);
-    assert.equal(runsOf(dir, 1), 1);
-    assert.match(out, /LATE     test 2  /);
-    assert.doesNotMatch(out, /LATE     test 3/);
-    assert.match(out, /RED      test 3  .*made-up\.test\.mjs\n(.*\n)*got      Expected values to be strictly equal/);
-    assert.match(out, /\nRED      test 2: past its budget in the run and alone  .*: \d+ ms in the run, past its budget of 1000 ms; the second run alone is red too: harness-6: the test took \d+ ms, past its budget of 1000 ms/);
-    assert.match(out, /the run is red\n$/);
-    const all = recorded(events);
+    const slow = round(dir, [madeUp(dir, 'slow', [timed(dir, 2, 'test 2: past its budget in the run and alone', 'always')])]);
+    assert.equal(slow.red, true, slow.out);
+    assert.equal(runsOf(dir, 2), 2);
+    assert.match(slow.out, /LATE     test 2  /);
+    assert.match(slow.out, /\nRED      test 2: past its budget in the run and alone  .*: \d+ ms in the run, past its budget of 1000 ms; alone: harness-6: the test took \d+ ms, past its budget of 1000 ms/);
+    assert.match(slow.out, /the run is red\n$/);
+    const all = recorded(slow.events);
     assert.deepEqual(all.filter((e) => e.type === ALONE).map((e) => [e.data.name, e.data.passed]), [['test 2: past its budget in the run and alone', false]]);
-    assert.equal(failedTests(all), 2);
     const merged = await judgedAlone(all);
     assert.equal(merged.red, true);
-    assert.match(merged.text, /RED      test 2 .*\n(.*\n)*alone    red too: harness-6: the test took/);
-    const broken = (detail: string) => Object.assign(new Error(`harness-6: ${detail}`), { invariant: 'harness-6' });
-    const wrapped = (cause: Error) => Object.assign(new Error('test failed'), { code: 'ERR_TEST_FAILURE', cause });
-    assert.deepEqual(timeOnly(wrapped(broken('the test took 21156 ms, past its budget of 20000 ms (tests/numbers.ts)'))), { took: 21156, budget: 20000 });
-    assert.equal(timeOnly(wrapped(broken('the test took 21156 ms, past its budget of 20000 ms (tests/numbers.ts)\nthe test changed the Lawcheck checkout: a'))), null);
-    assert.equal(timeOnly(wrapped(broken('the run did not end within its budget of 20000 ms'))), null);
-    assert.equal(timeOnly(wrapped(Object.assign(new Error('harness-count: the test took 21156 ms, past its budget of 20000 ms (tests/numbers.ts)'), { invariant: 'harness-count' }))), null);
+    assert.match(merged.text, /RED      test 2 .*\n(.*\n)*alone    harness-6: the test took/);
+    const asserted = round(dir, [madeUp(dir, 'asserted', [timed(dir, 3, 'test 3: red on an assertion and past its budget', 'always', ['assert.equal(runs, 0);'])])]);
+    assert.equal(asserted.red, true, asserted.out);
+    assert.equal(runsOf(dir, 3), 1);
+    assert.match(asserted.out, /RED      test 3  .*asserted\.test\.mjs\n(.*\n)*got      Expected values to be strictly equal/);
+    assert.doesNotMatch(asserted.out, /LATE |once more alone|not run alone/);
+    assert.equal((await judgedAlone(recorded(asserted.events))).red, true);
+  });
+});
+
+test('test 1505: a late test does not run alone, and the run stays red, when a test of its file throws or rejects after it ended', async () => {
+  await inTemp(async (dir) => {
+    await redForMore(dir, [madeUp(dir, 'thrown', [timed(dir, 0, LATE_FIRST, 'first'), timed(dir, 4, 'test 4: throws after it ended', 'never', ["setTimeout(() => { throw new Error('thrown after the test ended'); }, 20);"])])]);
+    rmSync(join(dir, 'runs-0.log'));
+    await redForMore(dir, [madeUp(dir, 'rejected', [timed(dir, 0, LATE_FIRST, 'first'), timed(dir, 5, 'test 5: rejects after it ended', 'never', ["setTimeout(() => { Promise.reject(new Error('rejected after the test ended')); }, 20);"])])]);
+  });
+});
+
+test('test 1506: a late test does not run alone, and the run stays red, when a test of its file sets the exit code of its process', async () => {
+  await inTemp(async (dir) => {
+    await redForMore(dir, [madeUp(dir, 'exit-code', [timed(dir, 0, LATE_FIRST, 'first'), timed(dir, 6, 'test 6: sets the exit code', 'never', ['process.exitCode = 1;'])])]);
+  });
+});
+
+test('test 1507: a late test does not run alone, and the run stays red, when the process of its file is killed after its tests', async () => {
+  await inTemp(async (dir) => {
+    await redForMore(dir, [madeUp(dir, 'killed', [timed(dir, 0, LATE_FIRST, 'first'), ["after(() => { process.on('exit', () => process.kill(process.pid, 'SIGKILL')); });"]])]);
+  });
+});
+
+test('test 1508: a late test does not run alone, and the run stays red, when a test inside a describe of another file is red', async () => {
+  await inTemp(async (dir) => {
+    const inside = madeUp(dir, 'inside', [["describe('test 8: a describe', () => {", ...timed(dir, 8, 'test 8: red inside it', 'never', ['assert.equal(runs, 0);']).map((line) => `  ${line}`), '});']]);
+    await redForMore(dir, [madeUp(dir, 'late', [timed(dir, 0, LATE_FIRST, 'first')]), inside]);
   });
 });
 
