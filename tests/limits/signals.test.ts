@@ -153,11 +153,12 @@ test('test 258: a signal while git runs ends the run as stopped within two secon
   }
 });
 
-// The hook counts, on the main thread, the worker threads it started that have not ended, and writes that count when process.exit is called: Node ends a worker that still lives from inside process.exit, where a large heap makes the process hang.
+// The hook keeps the worker that runs the command alive after its result, as a worker still busy with a large heap is, and counts on the main thread the workers that have not ended when process.exit is called: Node ends a worker that still lives from inside process.exit, and there a process with a large result could hang.
 const WORKERS_AT_EXIT = [
   "import workers from 'node:worker_threads';",
   "import { syncBuiltinESMExports } from 'node:module';",
   "import { appendFileSync } from 'node:fs';",
+  'if (!workers.isMainThread && workers.workerData?.argv !== undefined) setInterval(() => {}, 60_000);',
   'if (workers.isMainThread) {',
   '  let live = 0;',
   '  const Base = workers.Worker;',
@@ -172,7 +173,7 @@ const WORKERS_AT_EXIT = [
 // 9,000 findings of 400 characters on each of the two files of the library: about 9 MB of JSON, as large as the result of check --full on vscode under 18 rules.
 const MANY_FINDINGS = "export function check({ files: [file] }) { const out = []; for (let i = 0; i < 9000; i++) out.push({ line: 1, message: `${file.path} ${String(i).padStart(4, '0')} ${'x'.repeat(375)}` }); return out; }\n";
 
-test('test 1424: a run whose result is 9 MB of JSON exits on its own once the result is written, and the worker that ran the command has ended before the process exits', async () => {
+test('test 1424: a run whose result is 9 MB of JSON exits on its own once the result is written, and the worker that ran the command has ended before the process exits, even a worker that would not end by itself', async () => {
   await withSample(
     async (s, dir) => {
       const hook = join(dir, 'workers.mjs');
