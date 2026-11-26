@@ -1375,7 +1375,7 @@ test('test 908: the measurement of a proposal prints the table and the total of 
 const blocked = (text: string) => ({ decision: 'block', reason: text });
 const editsHeader = (paths: string[], cmd = 'lawcheck') => `Lawcheck: after this edit, the files it wrote break the law of this repository. ${cmd} check ${paths.map((path) => `./${path}`).join(' ')} printed:`;
 
-test('test 1352: package.json, the marketplace, its plugin entry and the three plugin manifests open with the promise of README.md and docs/index.md, and every plugin manifest names https://lawcheck.dev as its homepage', () => {
+test('test 1352: package.json, the marketplace, its plugin entry and the three plugin manifests open with the same promise, and every plugin manifest names https://lawcheck.dev as its homepage', () => {
   const read = (path: string) => JSON.parse(readFileSync(join(ROOT, path), 'utf8'));
   const promise = 'Architecture and rule checks for coding agents. You write down which layer may use which and the rules your code must keep';
   for (const page of ['README.md', 'docs/index.md']) assert.ok(readFileSync(join(ROOT, page), 'utf8').includes(`\n${promise}, and Lawcheck names the file and line that break them,`), page);
