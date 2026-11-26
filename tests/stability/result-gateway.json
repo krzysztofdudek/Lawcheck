@@ -1,7 +1,7 @@
 {
   "schema": "lawcheck-stability/1",
-  "date": "2026-11-25",
-  "lawcheck": "0.1.0-alpha.5",
+  "date": "2026-11-26",
+  "lawcheck": "0.1.0-alpha.6",
   "verdict_format": "lawcheck-verdict/2",
   "provider": "openai-compatible",
   "model": "claude-sonnet-5-5",
@@ -26,15 +26,15 @@
     }
   },
   "pairwise_agreement": {
-    "all": 0.982,
+    "all": 0.993,
     "clear": 1,
-    "borderline": 0.933
+    "borderline": 0.975
   },
   "label_match": {
     "all": {
       "verdicts": 300,
-      "matching": 286,
-      "share": 0.953
+      "matching": 289,
+      "share": 0.963
     },
     "clear": {
       "verdicts": 220,
@@ -43,8 +43,8 @@
     },
     "borderline": {
       "verdicts": 80,
-      "matching": 66,
-      "share": 0.825
+      "matching": 69,
+      "share": 0.863
     }
   },
   "baseline": {
@@ -225,34 +225,34 @@
       ],
       "messages": [
         [
+          "The handler loops over the order's lines to compute the total, which is domain logic that belongs in a service."
+        ],
+        [
+          "The handler loops over the order's lines to compute the total, which is domain logic that belongs in a service."
+        ],
+        [
+          "The handler loops over the order's lines to compute the total, which is domain logic that belongs in a service."
+        ],
+        [
+          "The handler loops over the order's lines to compute the total, which is domain logic that belongs in a service."
+        ],
+        [
+          "The handler loops over the order's lines to compute the total, which is domain logic that belongs in a service."
+        ],
+        [
+          "The handler loops over the order's lines to compute the total, which is domain logic that belongs in a service."
+        ],
+        [
+          "The handler loops over the order's lines to compute the total, which is domain logic that belongs in a service."
+        ],
+        [
+          "The handler loops over order lines to compute the total, which is domain logic that belongs in a service function."
+        ],
+        [
           "The handler loops over the order's lines to compute the total, which is domain logic that belongs in a service function."
         ],
         [
-          "The handler loops over the order's lines to compute the total, which is domain logic that belongs in a service."
-        ],
-        [
-          "The handler loops over the order's lines to compute the total, which is domain logic that belongs in a service."
-        ],
-        [
-          "The handler loops over the order's lines to compute the total, which is domain logic that belongs in a service."
-        ],
-        [
-          "The handler loops over the order's lines to compute the total, which is domain logic that belongs in a service."
-        ],
-        [
-          "The handler loops over the order's lines to compute the total, which is domain logic that belongs in a service."
-        ],
-        [
-          "The handler loops over the order's lines to compute the total, which is domain logic that belongs in a service."
-        ],
-        [
-          "The handler loops over the order's lines to compute the total, which is domain logic that belongs in a service."
-        ],
-        [
           "The handler loops over the order's lines to compute the total, which is domain logic that belongs in a service function."
-        ],
-        [
-          "The handler loops over the order's lines to compute the total, which is domain logic that belongs in a service."
         ]
       ],
       "baseline": "fail"
@@ -276,6 +276,24 @@
       ],
       "messages": [
         [
+          "Handler talks to the database directly with db.query instead of calling a service function."
+        ],
+        [
+          "The handler talks to the database directly with db.query instead of calling a service function."
+        ],
+        [
+          "The handler queries the database directly instead of calling a service function."
+        ],
+        [
+          "Handler talks to the database directly with db.query instead of calling a service function."
+        ],
+        [
+          "The handler queries the database directly instead of calling a service function."
+        ],
+        [
+          "The handler talks to the database directly with db.query instead of calling a service function."
+        ],
+        [
           "The handler queries the database directly instead of calling a service function."
         ],
         [
@@ -285,25 +303,7 @@
           "The handler talks to the database directly with db.query instead of calling a service function."
         ],
         [
-          "The handler talks to the database directly with db.query instead of calling one service function."
-        ],
-        [
-          "The handler talks to the database directly with db.query instead of calling a service function."
-        ],
-        [
-          "The handler queries the database directly instead of calling a service function."
-        ],
-        [
           "Handler talks to the database directly with db.query instead of calling a service function."
-        ],
-        [
-          "Handler talks to the database directly with db.query instead of calling a service function."
-        ],
-        [
-          "The handler queries the database directly instead of calling a service function."
-        ],
-        [
-          "Handler talks to the database directly with db.query instead of calling one service function."
         ]
       ],
       "baseline": "fail"
@@ -358,34 +358,34 @@
       ],
       "messages": [
         [
-          "The handler calls more than one service function (carts.get here and orders.create on line 6) instead of a single service call, so the orchestration belongs in a service."
+          "The handler calls a second service function (orders.create after carts.get) instead of a single service call; the cart-to-order orchestration belongs in a service."
         ],
         [
-          "The handler calls more than one service function (carts.get on line 5, then orders.create on line 6) instead of a single service function."
+          "The handler calls a second service function (orders.create) after carts.get on line 5, so it calls more than one service function instead of a single one."
         ],
         [
-          "The handler calls more than one service function (carts.get on this line, then orders.create on line 6) instead of a single service call."
+          "The handler calls a second service function (orders.create after carts.get) instead of calling exactly one service function."
         ],
         [
-          "The handler calls more than one service function (carts.get here and orders.create on line 6) instead of a single service call."
+          "The handler calls a second service function (orders.create after carts.get), so it is not calling just one service."
         ],
         [
-          "The handler calls more than one service function (carts.get on line 5 and orders.create on line 6) instead of a single service call that holds the checkout logic."
+          "The handler calls a second service function (orders.create after carts.get) instead of a single service call, so the orchestration logic belongs in a service."
         ],
         [
-          "The handler calls more than one service function (carts.get and orders.create) instead of a single service call; the first service call is on this line and the second on line 6."
+          "The handler calls a second service function (orders.create after carts.get) instead of a single service function that holds the checkout logic."
         ],
         [
-          "The handler calls more than one service function (carts.get here and orders.create on line 6) instead of a single service call."
+          "The handler calls a second service function (orders.create after carts.get) instead of calling one service that does the whole checkout."
         ],
         [
-          "Handler calls more than one service function (carts.get and orders.create); the first call is on this line and orchestration should live in a single service function."
+          "The handler calls a second service function (orders.create after carts.get) instead of a single service function, so it orchestrates multiple services."
         ],
         [
-          "The handler calls more than one service function (carts.get on line 5 and orders.create on line 6) instead of a single service call."
+          "Handler calls a second service function (orders.create) after carts.get on line 5, so it calls more than one service function."
         ],
         [
-          "The handler calls more than one service function (carts.get and orders.create) instead of a single service call; the first such call is carts.get here."
+          "The handler calls a second service function (orders.create) after carts.get on line 5, so it calls more than one service function instead of a single one."
         ]
       ],
       "baseline": "pass"
@@ -440,31 +440,31 @@
       ],
       "messages": [
         [
-          "The handler decides a business condition (whether the order is cancelled) instead of leaving that logic to the service."
-        ],
-        [
           "The handler decides a business condition by checking whether the order was cancelled and choosing a 410 response, which belongs in the service."
-        ],
-        [
-          "The handler decides a business condition by checking whether the order was cancelled, instead of leaving that decision to the service."
-        ],
-        [
-          "The handler decides a business condition (whether the order is cancelled) instead of leaving that decision to the service."
-        ],
-        [
-          "The handler decides a business condition by checking whether the order was cancelled and returning 410, which belongs in the service."
-        ],
-        [
-          "The handler decides a business condition (whether the order is cancelled) instead of leaving that decision to the service."
-        ],
-        [
-          "The handler decides a business condition by checking whether the order is cancelled and returning 410, a decision that belongs in the service."
         ],
         [
           "The handler decides a business condition by checking whether the order's status is 'cancelled' and returning 410, which belongs in the service."
         ],
         [
-          "The handler decides a business condition by checking whether the order is cancelled and returning 410, which is logic that belongs in the service."
+          "The handler decides a business condition by checking whether the order was cancelled and returning 410, which belongs in the service."
+        ],
+        [
+          "The handler decides a business condition (whether the order was cancelled) instead of leaving that logic to the service."
+        ],
+        [
+          "The handler decides a business condition by checking whether the order's status is 'cancelled' and returning 410, which belongs in the service."
+        ],
+        [
+          "The handler decides a business condition by checking whether the order is cancelled and returning 410, which belongs in the service."
+        ],
+        [
+          "The handler decides a business condition (whether the order is cancelled) instead of leaving that decision to the service."
+        ],
+        [
+          "The handler decides a business condition by checking whether the order is cancelled and returning 410, instead of leaving that logic to the service."
+        ],
+        [
+          "The handler decides a business condition (whether the order is cancelled) instead of leaving that logic to the service."
         ],
         [
           "The handler decides a business condition (whether the order is cancelled) instead of leaving that decision to the service."
@@ -556,16 +556,22 @@
           "The thrown error 'failed' does not say what failed (the order could not be saved) and gives the caller no next step such as retrying or checking the order."
         ],
         [
-          "The thrown error 'failed' does not say what failed (the order could not be saved) and gives the caller no next step such as retrying or contacting support."
-        ],
-        [
-          "The thrown error 'failed' does not say what failed (the order could not be saved) and gives the caller no next step, such as retrying or checking the order data."
-        ],
-        [
-          "The thrown error 'failed' does not say what failed (the order could not be saved) and gives the caller no next step, such as retrying or checking the order data."
+          "The thrown error 'failed' does not say what failed (the order could not be saved) and gives the caller no next step such as retrying or checking the order."
         ],
         [
           "The thrown error 'failed' does not say what failed (the order could not be saved) and gives the caller no next step such as retrying or checking the order."
+        ],
+        [
+          "The thrown error 'failed' does not say what failed (the order could not be saved) and gives the caller no next step, such as retrying or checking the order data."
+        ],
+        [
+          "The thrown error 'failed' does not say what happened (the order could not be saved) and gives the caller no next step such as retrying or checking the order."
+        ],
+        [
+          "The thrown error 'failed' does not say what failed (the order could not be saved) and gives the caller no next step, such as retrying or checking the order."
+        ],
+        [
+          "The thrown error 'failed' does not say what failed (the order could not be saved) and gives the caller no next step, such as retrying or checking the order."
         ],
         [
           "The thrown error 'failed' does not say what failed (the order could not be saved) and gives the caller no next step such as retrying or checking the order."
@@ -575,12 +581,6 @@
         ],
         [
           "The thrown error 'failed' does not say what failed (the order could not be saved) and gives the caller no next step such as retrying or checking the order."
-        ],
-        [
-          "The thrown error 'failed' does not say what failed (the order could not be saved) and gives the caller no next step such as retrying or checking the order."
-        ],
-        [
-          "The thrown error 'failed' does not say what failed (the order was not saved) and gives the caller no next step such as retrying or checking the order."
         ]
       ],
       "baseline": "fail"
@@ -604,34 +604,34 @@
       ],
       "messages": [
         [
-          "The returned error 'Invalid input' does not say what was wrong (the email lacks an '@') and gives the caller no next step, such as supplying a valid email address."
-        ],
-        [
           "The returned error 'Invalid input' does not say what was wrong (the email lacks '@') and gives the caller no next step, such as providing a valid email address."
-        ],
-        [
-          "The returned error 'Invalid input' does not say what was wrong (the email lacks an '@') and gives the caller no next step, such as supplying a valid email address."
-        ],
-        [
-          "The returned error 'Invalid input' does not say what was wrong (the email lacks an '@') and gives no guidance on what the caller should do, such as providing a valid email address."
         ],
         [
           "The returned error 'Invalid input' does not say what was wrong (the email lacks an '@') and gives the caller no next step, such as providing a valid email address."
         ],
         [
-          "The returned error 'Invalid input' does not say what was wrong (the email lacks '@') and gives the caller no next step, such as providing a valid email address."
-        ],
-        [
-          "The returned error 'Invalid input' does not say what was wrong (the email lacks an '@') and gives the caller no next step, such as entering a valid email address."
+          "The returned error 'Invalid input' does not say what was wrong (the email lacks '@') and gives the caller no next step, such as supplying a valid email address."
         ],
         [
           "The returned error 'Invalid input' does not say what was wrong (the email lacks an '@') and gives the caller no next step, such as supplying a valid email address."
         ],
         [
-          "The returned error 'Invalid input' does not say what was wrong (the email lacks an '@') and gives no next step, such as providing a valid email address."
+          "The returned error 'Invalid input' does not say what was wrong (the email lacks '@') and gives the caller no next step, such as providing a valid email address."
         ],
         [
-          "The returned error 'Invalid input' does not say what was wrong (the email lacks '@') and gives the caller no next step, such as providing a valid email address."
+          "The returned error 'Invalid input' does not say what was wrong (the email lacks an '@') and gives the caller no next step, such as providing a valid email address."
+        ],
+        [
+          "The returned error 'Invalid input' does not say what was wrong (the email lacks an '@') and gives the caller no next step, such as providing a valid email address."
+        ],
+        [
+          "The returned error 'Invalid input' does not say what was wrong (the email lacks an '@') and gives no guidance on how to fix it, such as providing a valid email address."
+        ],
+        [
+          "The returned error 'Invalid input' does not say what was wrong (the email lacks an '@') or tell the caller to supply a valid email address."
+        ],
+        [
+          "The returned error 'Invalid input' does not say what was wrong (the email lacks an '@') and gives the caller no next step, such as providing a valid email address."
         ]
       ],
       "baseline": "fail"
@@ -717,34 +717,34 @@
       ],
       "messages": [
         [
-          "The error says the report exceeds 10 MB but does not tell the caller what to do next, such as reducing the report size or splitting the export."
+          "The error says what happened (report larger than 10 MB) but gives the caller no next step, such as reducing the report size or splitting the export."
         ],
         [
-          "The error says the report exceeds 10 MB but does not tell the caller what to do next, such as shrinking or splitting the report."
-        ],
-        [
-          "Error says the report exceeds 10 MB but gives the caller no next step, such as shrinking or splitting the report."
-        ],
-        [
-          "The error says the report is larger than 10 MB but does not tell the caller what to do next, such as shrinking or splitting the report."
-        ],
-        [
-          "The error says the report is larger than 10 MB but does not tell the caller what to do next, such as shrinking or splitting the report."
-        ],
-        [
-          "The error message says the report is larger than 10 MB but does not tell the caller what to do next, such as shrinking or splitting the report."
-        ],
-        [
-          "The error says the report is larger than 10 MB but does not tell the caller what to do next, such as reducing or splitting the report."
-        ],
-        [
-          "The error says the report exceeds 10 MB but does not tell the caller what to do next (e.g., reduce or split the report)."
+          "The error says the report exceeds 10 MB but gives the caller no next step, such as shrinking or splitting the report."
         ],
         [
           "The thrown error says the report exceeds 10 MB but does not tell the caller what to do next, such as reducing the report size or splitting the export."
         ],
         [
+          "The error says the report is larger than 10 MB but does not tell the caller what to do next, such as shrinking or splitting the report."
+        ],
+        [
+          "The error says the report is larger than 10 MB but does not tell the caller what to do next, such as shrinking or splitting the report."
+        ],
+        [
+          "Error says the report exceeds 10 MB but does not tell the caller what to do next (e.g., reduce or split the report)."
+        ],
+        [
+          "Error says the report is larger than 10 MB but does not tell the caller what to do next (e.g., reduce or split the report)."
+        ],
+        [
+          "The error message says the report is over 10 MB but does not tell the caller what to do next, such as shrinking or splitting the report."
+        ],
+        [
           "The error says the report exceeds 10 MB but does not tell the caller what to do next, such as shrinking or splitting the report."
+        ],
+        [
+          "The error says the export failed because the report exceeds 10 MB but does not tell the caller what to do next, such as reducing the report size or splitting it."
         ]
       ],
       "baseline": "fail"
@@ -830,34 +830,34 @@
       ],
       "messages": [
         [
-          "`new Date()` reads the current clock inside domain code instead of receiving the date as an argument."
-        ],
-        [
-          "`new Date()` reads the current time from the clock instead of receiving it as an argument, so dueDate() is not deterministic."
-        ],
-        [
-          "`new Date()` reads the current clock inside domain code instead of receiving the date as an argument."
-        ],
-        [
-          "`new Date()` reads the current time from the clock instead of receiving it as an argument, so `dueDate` is not deterministic."
-        ],
-        [
-          "`new Date()` reads the current time from the clock instead of receiving it as an argument, so the result is not determined by the arguments."
-        ],
-        [
-          "`new Date()` reads the current time from the clock instead of receiving it as an argument, so dueDate() is not deterministic."
+          "`new Date()` reads the current clock inside domain code instead of receiving the current time as an argument."
         ],
         [
           "`new Date()` reads the current time from the clock instead of receiving it as an argument, so the result varies for the same input."
         ],
         [
-          "`new Date()` reads the current time from the clock instead of receiving it as an argument, so the result changes between calls."
+          "`new Date()` reads the current clock inside domain code instead of receiving the date as an argument."
         ],
         [
-          "`new Date()` with no arguments reads the current time from the clock instead of receiving it as an argument."
+          "`new Date()` reads the current time from the clock instead of receiving it as an argument, so the result differs between calls with the same input."
+        ],
+        [
+          "`new Date()` reads the current time from the clock instead of receiving it as an argument, so the result changes between calls with the same input."
         ],
         [
           "`new Date()` reads the current clock inside domain code instead of receiving the date as an argument."
+        ],
+        [
+          "`new Date()` reads the current time from the clock instead of receiving it as an argument, so the result differs between calls with the same input."
+        ],
+        [
+          "`new Date()` with no arguments reads the current clock inside domain code; the current time should be passed in as an argument."
+        ],
+        [
+          "`new Date()` reads the current clock inside domain code instead of receiving the date as an argument."
+        ],
+        [
+          "`new Date()` reads the current clock inside domain code; the current time should be passed in as an argument."
         ]
       ],
       "baseline": "fail"
@@ -884,31 +884,31 @@
           "Calls Math.random() to read a random number inside domain code, so the same input gives different outputs; the random value should be passed in as an argument."
         ],
         [
-          "Calls Math.random() to read a random number inside domain code instead of taking it as an argument, so the same input gives different outputs."
+          "Calls Math.random() to read a random number inside domain code, so the same input gives different output; the random value should arrive as an argument."
         ],
         [
-          "Calls Math.random() inside domain code, so the result is not determined by the arguments alone."
+          "Calls Math.random(), reading random numbers inside domain code, so the same input gives different outputs; the random value should be passed in as an argument."
         ],
         [
-          "Calls Math.random() to read random numbers instead of receiving the random value as an argument, so the result is not deterministic."
+          "Calls Math.random() to read a random number inside domain code, so the same input does not give the same output; pass the random value in as an argument instead."
         ],
         [
-          "Calls Math.random() to read a random number inside domain code, so the same prefix gives different results instead of computing from its arguments alone."
+          "Calls Math.random() to read a random number inside domain code, so the same input yields different output; pass the random value in as an argument."
         ],
         [
-          "token() calls Math.random(), reading random numbers inside domain code, so the same input does not give the same output."
+          "Calls Math.random(), reading a random number inside domain code instead of receiving it as an argument, so the same input gives different outputs."
+        ],
+        [
+          "Calls Math.random() to read a random number inside domain code instead of receiving it as an argument, so the same input gives different results."
         ],
         [
           "Calls Math.random() to read a random number inside domain code instead of receiving it as an argument, so the same input gives different outputs."
         ],
         [
-          "Calls Math.random() to read random numbers, so the same input does not always give the same output."
+          "Calls Math.random() to read a random number inside domain code, so the same input gives different output instead of being computed from arguments alone."
         ],
         [
-          "Calls Math.random() to read a random number inside domain code, so the same input does not give the same output."
-        ],
-        [
-          "Calls Math.random() inside domain code, so the same input gives different output; random values should be passed in as an argument."
+          "Calls Math.random() to read random numbers inside domain code, so the same input does not give the same output."
         ]
       ],
       "baseline": "fail"
@@ -932,31 +932,31 @@
       ],
       "messages": [
         [
+          "Reads the environment (process.env.VAT_RATE) inside domain code instead of receiving the rate as an argument."
+        ],
+        [
+          "Reads the environment (process.env.VAT_RATE) inside domain code instead of receiving the rate as an argument."
+        ],
+        [
+          "Reads the environment (process.env.VAT_RATE) inside domain code instead of receiving the rate as an argument."
+        ],
+        [
+          "Reads the environment (process.env.VAT_RATE) inside domain code instead of receiving the rate as an argument."
+        ],
+        [
+          "Reads the environment (process.env.VAT_RATE) inside domain code instead of receiving the VAT rate as an argument."
+        ],
+        [
+          "Reads the environment (process.env.VAT_RATE) inside domain code instead of receiving the rate as an argument."
+        ],
+        [
+          "Reads the environment (process.env.VAT_RATE) inside domain code instead of receiving the rate as an argument."
+        ],
+        [
+          "Reads the environment (process.env.VAT_RATE) inside domain code instead of receiving the rate as an argument."
+        ],
+        [
           "Reads the environment (process.env.VAT_RATE) instead of receiving the VAT rate as an argument, so the result is not determined by the arguments alone."
-        ],
-        [
-          "Reads the environment (process.env.VAT_RATE) inside domain code instead of receiving the VAT rate as an argument."
-        ],
-        [
-          "Reads the environment (process.env.VAT_RATE) instead of receiving the VAT rate as an argument, so the result depends on external state."
-        ],
-        [
-          "Reads the environment (process.env.VAT_RATE) inside domain code instead of receiving the VAT rate as an argument."
-        ],
-        [
-          "Reads the environment (process.env.VAT_RATE) instead of receiving the VAT rate as an argument."
-        ],
-        [
-          "Reads the environment (process.env.VAT_RATE) inside domain code instead of receiving the VAT rate as an argument."
-        ],
-        [
-          "Reads the environment (process.env.VAT_RATE) inside domain code instead of receiving the VAT rate as an argument."
-        ],
-        [
-          "Reads the environment (process.env.VAT_RATE) inside domain code instead of receiving the VAT rate as an argument."
-        ],
-        [
-          "Reads the environment (process.env.VAT_RATE) inside domain code instead of receiving the VAT rate as an argument."
         ],
         [
           "Reads the environment (process.env.VAT_RATE) inside domain code instead of receiving the rate as an argument."
@@ -974,32 +974,26 @@
         "pass",
         "fail",
         "pass",
-        "fail",
-        "fail",
         "pass",
         "pass",
         "pass",
-        "fail"
+        "pass",
+        "pass",
+        "pass"
       ],
       "messages": [
         [],
         [],
         [
-          "ledger.push mutates the caller's array argument, so the function writes outside itself instead of returning a new array."
-        ],
-        [],
-        [
-          "`ledger.push(entry)` writes into the caller's array, so the function mutates its argument instead of computing and returning a new value."
-        ],
-        [
-          "ledger.push(entry) mutates the caller's ledger argument in place, which is a write outside the function instead of a computed return value."
+          "`ledger.push(entry)` mutates the caller's array in place, which is a write outside the function's own result, so calling `post` twice with the same ledger gives different answers."
         ],
         [],
         [],
         [],
-        [
-          "`ledger.push(entry)` mutates the caller's array in place, so the function writes to state outside its own return value instead of returning a new ledger."
-        ]
+        [],
+        [],
+        [],
+        []
       ],
       "baseline": "pass"
     },
@@ -1023,38 +1017,41 @@
       "messages": [
         [
           "Reads the host environment's time zone via Intl.DateTimeFormat().resolvedOptions().timeZone instead of receiving it as an argument.",
-          "Uses the module-level `zone`, which comes from the environment, so isOpen gives different answers for the same input on different machines."
-        ],
-        [
-          "Reads the host's ambient time zone from the runtime environment via Intl.DateTimeFormat().resolvedOptions() instead of receiving it as an argument.",
-          "Formats the hour using the module-level `zone` taken from the environment, so isOpen gives different answers for the same input on different machines."
-        ],
-        [
-          "Reads the host environment's time zone via Intl.DateTimeFormat().resolvedOptions().timeZone instead of receiving it as an argument, so results vary by machine."
-        ],
-        [
-          "Reads the host environment's time zone via Intl.DateTimeFormat().resolvedOptions().timeZone, so the module's behavior depends on the machine it runs on rather than on its arguments.",
-          "Formats the hour using the module-level `zone` read from the environment, so the result for the same `at` varies with the host time zone."
-        ],
-        [
-          "Reads the host environment's time zone via Intl.DateTimeFormat().resolvedOptions().timeZone, so isOpen's result depends on the environment rather than its arguments alone."
-        ],
-        [
-          "Reads the host environment's time zone via Intl.DateTimeFormat().resolvedOptions().timeZone instead of receiving it as an argument, so results depend on where the code runs."
+          "Uses the module-level `zone`, which comes from the environment, so the result depends on the host time zone rather than only on the arguments."
         ],
         [
           "Reads the host environment's time zone via Intl.DateTimeFormat().resolvedOptions().timeZone instead of receiving it as an argument.",
-          "Uses the module-level zone, derived from the environment, so isOpen gives different answers for the same input on different machines."
+          "Uses the module-level `zone` value, which comes from the environment, so isOpen gives different answers for the same input on different hosts."
         ],
         [
-          "Reads the host environment's time zone via Intl.DateTimeFormat().resolvedOptions().timeZone, so isOpen's result depends on where it runs rather than on its arguments."
+          "Reads the host environment's time zone via Intl.DateTimeFormat().resolvedOptions().timeZone instead of receiving it as an argument, making results depend on where the code runs."
         ],
         [
-          "Reads the host environment's time zone through Intl.DateTimeFormat().resolvedOptions().timeZone instead of receiving it as an argument.",
+          "Reads the host environment's time zone via Intl.DateTimeFormat().resolvedOptions().timeZone at module load, so the result depends on the machine rather than on arguments.",
+          "Formats the hour using the environment-derived module-level `zone`, so isOpen gives different answers for the same input on different hosts."
+        ],
+        [
+          "Reads the host environment's time zone via Intl.DateTimeFormat().resolvedOptions().timeZone instead of receiving it as an argument.",
           "Uses the module-level `zone`, which comes from the environment, so isOpen gives different answers for the same input on different machines."
         ],
         [
-          "Reads the host environment's time zone via Intl.DateTimeFormat().resolvedOptions().timeZone, so results depend on the machine rather than on the arguments."
+          "Reads the host environment's time zone through Intl.DateTimeFormat().resolvedOptions().timeZone instead of receiving it as an argument.",
+          "Uses the module-level `zone`, which comes from the environment, so isOpen gives different answers for the same `at` on different hosts."
+        ],
+        [
+          "Reads the host environment's time zone via Intl.DateTimeFormat().resolvedOptions().timeZone instead of receiving it as an argument.",
+          "Uses the module-level `zone`, which was read from the environment, so isOpen gives different answers for the same input on different hosts."
+        ],
+        [
+          "Reads the host environment's time zone via Intl.DateTimeFormat().resolvedOptions().timeZone instead of receiving it as an argument.",
+          "Uses the module-level `zone`, which comes from the environment, so isOpen's result depends on the machine's time zone and not on its arguments alone."
+        ],
+        [
+          "Reads the host environment's time zone via Intl.DateTimeFormat().resolvedOptions().timeZone instead of receiving it as an argument, so isOpen gives different answers on different machines."
+        ],
+        [
+          "Reads the host environment's time zone via Intl.DateTimeFormat().resolvedOptions().timeZone instead of receiving it as an argument.",
+          "Uses the module-level `zone`, which comes from the environment, so isOpen gives different answers for the same input on different machines."
         ]
       ],
       "baseline": "pass"
@@ -1140,34 +1137,34 @@
       ],
       "messages": [
         [
-          "The comment 'add a and b' only restates what the return statement below it does and gives no reason, constraint, or trap."
+          "The comment 'add a and b' only restates what the return statement below it does and gives no reason, constraint or origin."
         ],
         [
           "The comment 'add a and b' only restates what the return statement below it does and gives no reason, constraint, or trap."
         ],
         [
-          "The comment 'add a and b' only restates what the return statement below it does and gives no reason, constraint, or origin."
-        ],
-        [
-          "The comment \"add a and b\" only restates what the return statement below it does and gives no reason or constraint."
-        ],
-        [
-          "The comment \"add a and b\" only restates what the return statement below it does and gives no reason."
-        ],
-        [
-          "The comment \"add a and b\" only restates what the return statement below it does and gives no reason, constraint, or trap."
+          "The comment 'add a and b' only restates what the return statement below it does and gives no reason, constraint or origin."
         ],
         [
           "The comment 'add a and b' only restates what the return statement below it does and gives no reason, constraint, or origin."
         ],
         [
-          "The comment 'add a and b' only restates what the return statement below it already does and gives no reason or constraint."
+          "The comment 'add a and b' only restates what the return statement below it does and gives no reason, constraint, or origin."
+        ],
+        [
+          "The comment 'add a and b' only restates what the return statement below it does and gives no reason, constraint, or origin."
+        ],
+        [
+          "The comment \"add a and b\" only restates what the return statement below it does and gives no reason, constraint or trap."
         ],
         [
           "The comment 'add a and b' only restates what the return statement below it does and gives no reason, constraint, or origin."
         ],
         [
           "The comment \"add a and b\" only restates what the return statement below it does and gives no reason, constraint, or origin."
+        ],
+        [
+          "The comment \"add a and b\" only restates what the return statement below it does and gives no reason or constraint."
         ]
       ],
       "baseline": "fail"
@@ -1191,44 +1188,44 @@
       ],
       "messages": [
         [
+          "Comment 'split the text into lines' only restates what the split call on the next line does.",
+          "Comment 'drop the empty ones' only restates the filter on the following line, giving no reason or constraint."
+        ],
+        [
           "Comment 'split the text into lines' only restates the split('\\n') call below it.",
           "Comment 'drop the empty ones' only restates the filter on trimmed lines below it."
         ],
         [
           "Comment 'split the text into lines' only restates what the split call on the next line does.",
-          "Comment 'drop the empty ones' only restates what the filter on the next line does."
-        ],
-        [
-          "Comment 'split the text into lines' only restates what the split call on the next line does.",
-          "Comment 'drop the empty ones' only restates the filter that removes blank lines below it."
-        ],
-        [
-          "Comment 'split the text into lines' only restates what the split call on the next line does.",
-          "Comment 'drop the empty ones' only restates the filter on the following line without giving a reason."
-        ],
-        [
-          "Comment 'split the text into lines' only restates what the split call on the next line does.",
-          "Comment 'drop the empty ones' only restates the filter on the following line, giving no reason or constraint."
-        ],
-        [
-          "Comment 'split the text into lines' only restates what the split('\\n') call below does.",
           "Comment 'drop the empty ones' only restates the filter on the next line and gives no reason."
         ],
         [
-          "Comment only restates that the next line splits the text into lines, giving no reason.",
-          "Comment only restates that the filter drops empty lines, adding no why."
+          "Comment 'split the text into lines' only restates what the split call below it does.",
+          "Comment 'drop the empty ones' only restates the filter on the following line."
         ],
         [
           "Comment 'split the text into lines' only restates what the split('\\n') call below it does.",
-          "Comment 'drop the empty ones' only restates the filter on the next line and gives no reason or constraint."
+          "Comment 'drop the empty ones' only restates the filter on the next line and gives no reason."
         ],
         [
-          "Comment 'split the text into lines' only restates what the split('\\n') call below does.",
-          "Comment 'drop the empty ones' only restates the filter on the line below and gives no reason or constraint."
+          "Comment 'split the text into lines' only restates what the split call below it does.",
+          "Comment 'drop the empty ones' only restates the filter on the following line without giving any reason."
         ],
         [
           "Comment 'split the text into lines' only restates what the split('\\n') call below it does.",
-          "Comment 'drop the empty ones' only restates the filter on the line below it and gives no reason."
+          "Comment 'drop the empty ones' only restates the filter on the line below, giving no reason or constraint."
+        ],
+        [
+          "Comment only restates that the next line splits the text into lines.",
+          "Comment only restates that the filter drops empty lines."
+        ],
+        [
+          "Comment 'split the text into lines' only restates the split('\\n') call below it.",
+          "Comment 'drop the empty ones' only restates the filter on trimmed lines below it."
+        ],
+        [
+          "Comment only restates that the next line splits the text into lines.",
+          "Comment only restates that the filter drops empty lines."
         ]
       ],
       "baseline": "fail"
@@ -1283,13 +1280,16 @@
       ],
       "messages": [
         [
-          "The comment \"Add one to the count.\" only restates what `return count + 1` does and gives no reason, constraint, or origin."
-        ],
-        [
-          "The comment \"Add one to the count.\" only restates what `return count + 1` does and gives no reason, constraint, or trap."
+          "The comment \"Add one to the count.\" only restates what `return count + 1;` already does and gives no reason, constraint, or origin."
         ],
         [
           "The comment \"Add one to the count.\" only restates what `return count + 1` does and gives no reason, constraint, or origin."
+        ],
+        [
+          "The comment \"Add one to the count.\" only restates what the `return count + 1;` line below it does and gives no reason."
+        ],
+        [
+          "The comment \"Add one to the count.\" only restates what the `return count + 1` line below it does and gives no reason."
         ],
         [
           "The comment \"Add one to the count.\" only restates what `return count + 1` does and gives no reason, constraint, or origin."
@@ -1301,10 +1301,7 @@
           "The comment \"Add one to the count.\" only restates what `return count + 1` does and gives no reason, constraint, or origin."
         ],
         [
-          "The comment \"Add one to the count.\" only restates what `return count + 1` does and gives no reason, constraint, or origin."
-        ],
-        [
-          "The comment \"Add one to the count.\" only restates what `return count + 1;` does and gives no reason, constraint, or trap."
+          "The comment \"Add one to the count.\" only restates what the `return count + 1` line below it does and gives no reason."
         ],
         [
           "The comment \"Add one to the count.\" only restates what `return count + 1` does and gives no reason, constraint, or origin."
@@ -1334,34 +1331,34 @@
       ],
       "messages": [
         [
-          "Comment merely restates the regex on line 2 (allowed characters and length) without explaining why the handle format is constrained."
+          "Comment merely restates the regex on the next line (allowed characters and length) without giving any reason or origin for the constraint."
         ],
         [
-          "Comment merely restates the regex on the next line (allowed characters and length) without explaining why the constraint exists."
+          "Comment merely restates the regex on the next line (allowed characters and length) without saying why the handle format is as it is."
         ],
         [
-          "Comment only restates what the regex below matches (lowercase letters, digits, dashes, 3-30 chars) without saying why."
+          "Comment merely restates the regex below (allowed characters and length) without explaining why the handle format is this way."
         ],
         [
-          "Comment merely restates the regex on the next line (allowed characters and length) without explaining why these constraints exist."
+          "Comment merely restates what the HANDLE regex below it matches (charset and length) without giving any reason or external constraint."
         ],
         [
-          "Comment only restates the regex below (allowed characters and length) without saying why those constraints exist."
+          "Comment merely restates what the regex below matches (allowed characters and length) without giving any reason or origin for the constraint."
         ],
         [
-          "Comment merely restates what the HANDLE regex below matches, without giving any reason or external constraint."
+          "Comment merely restates what the regex below matches (character set and length) without explaining why the rule exists or where it comes from."
         ],
         [
-          "Comment merely restates what the regex on the next line matches, without giving any reason or origin for the constraint."
+          "Comment merely restates the regex on the next line (allowed characters and length) without giving any reason or origin for the constraint."
         ],
         [
-          "Comment only restates what the regex on the next line matches (character set and length) without giving any reason or origin."
+          "Comment only restates the regex below (allowed characters and length) without saying why the handle format is what it is."
         ],
         [
-          "Comment merely restates the regex on line 2 (allowed characters and length) without explaining why these constraints exist."
+          "Comment merely restates the regex on the next line (allowed characters and length) without explaining why the handle format is what it is."
         ],
         [
-          "Comment only restates what the regex on the next line matches (charset and length) without saying why the handle format is constrained."
+          "Comment merely restates what the HANDLE regex matches (character set and length) without saying why."
         ]
       ],
       "baseline": "fail"
@@ -1388,28 +1385,28 @@
           "The doc comment only restates what the clamp function does (limits value to min..max) and gives no reason, constraint, or trap."
         ],
         [
+          "The doc comment only restates what the clamp function does (limits value to min..max) and gives no constraint, trap, or origin."
+        ],
+        [
+          "The doc comment only restates what the clamp function does (limits value to min..max) and gives no constraint, trap, or origin."
+        ],
+        [
+          "The doc comment only restates what the clamp function does (limits value to min..max) and gives no constraint, trap, or origin."
+        ],
+        [
+          "The doc comment only restates what the clamp function does (limits value to min..max), giving no constraint, trap, or origin."
+        ],
+        [
+          "The doc comment only restates what the clamp function does (limits value to min..max) without giving any reason, constraint, or trap."
+        ],
+        [
+          "The doc comment only restates what the clamp function does (limits value to min..max), giving no constraint, trap, or origin."
+        ],
+        [
+          "The doc comment only restates what the clamp function does (limits value to the range min to max) and gives no reason, constraint, or trap."
+        ],
+        [
           "The doc comment only restates what the clamp function does (limits value to min..max) and gives no reason, constraint, or trap."
-        ],
-        [
-          "The doc comment only restates what the clamp function does (limits value to min..max) and gives no constraint, trap or origin."
-        ],
-        [
-          "The doc comment only restates what the clamp function does (limits value to min..max) and gives no reason, constraint, or trap."
-        ],
-        [
-          "The doc comment only restates what the clamp function does (limits value to min..max) and gives no reason, constraint, or trap."
-        ],
-        [
-          "The doc comment only restates what the clamp function does (limit value to min..max), giving no constraint, trap, or origin."
-        ],
-        [
-          "The doc comment only restates what the clamp function does (limit value to min..max) and gives no constraint, trap, or origin."
-        ],
-        [
-          "The doc comment only restates what clamp does (limits value to min..max), which the name and code already show, and gives no why, constraint, or trap."
-        ],
-        [
-          "The doc comment only restates what the clamp function does (limit value to min..max), giving no reason, constraint, or trap."
         ],
         [
           "The doc comment only restates what the clamp function does (limits value to min..max) and gives no reason, constraint, or trap."

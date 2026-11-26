@@ -74,7 +74,7 @@ Without the line, the `runner` setting is `global`. Write the line on its own, a
 
 ## Check the install
 
-`lawcheck --version` prints the version you installed. This page describes `0.1.0-alpha.5`. In a project, start Lawcheck through the package manager, as in `pnpm exec lawcheck --version`.
+`lawcheck --version` prints the version you installed. This page describes `0.1.0-alpha.6`. In a project, start Lawcheck through the package manager, as in `pnpm exec lawcheck --version`.
 
 `lawcheck doctor` checks the setup. It writes nothing. In a git repository with no law yet, it prints:
 

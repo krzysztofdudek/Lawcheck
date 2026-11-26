@@ -539,7 +539,7 @@ Each check ends as `ok`, `note`, `fail` or `skip`. A check shows `skip`, with `n
 `lawcheck --version` prints the version of the installed package and exits 0. It works only when it is the one argument:
 
 ```output
-0.1.0-alpha.5
+0.1.0-alpha.6
 ```
 
 ## --help

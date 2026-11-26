@@ -1,6 +1,6 @@
 {
   "name": "lawcheck",
-  "version": "0.1.0-alpha.5",
+  "version": "0.1.0-alpha.6",
   "description": "Architecture and rule checks for coding agents. You write down which layer may use which and script the rules your code must keep, and Lawcheck names the file and line that break them, in the hooks of Claude Code, Codex and Copilot CLI and in CI.",
   "license": "MIT",
   "author": "Krzysztof Dudek",

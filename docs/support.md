@@ -1,6 +1,6 @@
 # Supported environments
 
-Lawcheck 0.1.0-alpha.5 runs on Node 24 or later with git 2.34 or later, on Linux, macOS and Windows. With an older Node or an older git, Lawcheck stops before it reads the law. Its message names the program to update.
+Lawcheck 0.1.0-alpha.6 runs on Node 24 or later with git 2.34 or later, on Linux, macOS and Windows. With an older Node or an older git, Lawcheck stops before it reads the law. Its message names the program to update.
 
 ## Node, git and the systems
 
