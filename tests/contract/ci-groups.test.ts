@@ -351,13 +351,24 @@ test('test 1431: the tests a narrowed run starts do not see the list it chose, s
 });
 
 // The script of release.yml's job nightly, run with a gh that answers from a list of runs and applies the script's own --jq with jq.
-function releaseVerdict(runs: { id: number; event: string; status: string; conclusion: string | null; display_title: string }[]) {
+function releaseVerdict(runs: { id: number; head_sha: string; event: string; status: string; conclusion: string | null; display_title: string }[]) {
   const step = readChosen('release.yml').jobs.nightly!.steps![0]!;
   const folder = testFolder('lawcheck-release-nightly-');
   const dir = folder.dir;
   try {
     writeFileSync(join(dir, 'runs.json'), JSON.stringify({ workflow_runs: runs.map((run) => ({ ...run, html_url: `https://example.invalid/${run.id}` })) }));
-    writeFileSync(join(dir, 'gh'), '#!/bin/sh\ncase "$2" in\n  */commits/*) echo abc123 ;;\n  */runs\\?*) jq -r "$4" "$FAKE_RUNS" ;;\n  *) exit 3 ;;\nesac\n');
+    // As GitHub does, it lists the runs of the commit the query names, and the runs of every commit when it names none.
+    const standIn = [
+      '#!/bin/sh',
+      'case "$2" in',
+      '  repos/o/r/commits/refs/tags/v9.9.9) echo abc123 ;;',
+      '  repos/o/r/actions/workflows/nightly.yml/runs\\?*)',
+      '    sha=$(printf %s "${2#*\\?}" | tr "&" "\\n" | sed -n "s/^head_sha=//p")',
+      `    jq --arg sha "$sha" '.workflow_runs |= map(select($sha == "" or .head_sha == $sha))' "$FAKE_RUNS" | jq -r "$4" ;;`,
+      '  *) exit 3 ;;',
+      'esac',
+    ];
+    writeFileSync(join(dir, 'gh'), `${standIn.join('\n')}\n`);
     chmodSync(join(dir, 'gh'), 0o755);
     const run = spawnSync('bash', ['-c', step.run!], { encoding: 'utf8', env: { ...process.env, PATH: `${dir}${delimiter}${process.env.PATH}`, FAKE_RUNS: join(dir, 'runs.json'), REPO: 'o/r', TAG: 'v9.9.9', COMMIT: 'abc123' } });
     return { status: run.status, out: run.stdout + run.stderr };
@@ -376,7 +387,7 @@ test('test 1432: only a run with no inputs takes the name release.yml counts', (
 test('test 1433: release.yml takes one green whole Nightly on the tagged commit, and refuses a run of chosen parts, a red or unfinished run, a called one and none', (t) => {
   const skip = platformSkip('the whole test');
   if (skip !== null) return t.skip(skip);
-  const whole = { id: 1, event: 'workflow_dispatch', status: 'completed', conclusion: 'success', display_title: WHOLE };
+  const whole = { id: 1, head_sha: 'abc123', event: 'workflow_dispatch', status: 'completed', conclusion: 'success', display_title: WHOLE };
   const taken = releaseVerdict([whole]);
   assert.equal(taken.status, 0, taken.out);
   assert.match(taken.out, /green whole Nightlies:\n1 workflow_dispatch completed success/);
@@ -385,6 +396,7 @@ test('test 1433: release.yml takes one green whole Nightly on the tagged commit,
     [{ ...whole, conclusion: 'failure' }, { ...whole, id: 2, conclusion: 'cancelled' }],
     [{ ...whole, status: 'in_progress', conclusion: null }],
     [{ ...whole, event: 'push' }],
+    [{ ...whole, head_sha: 'def456' }],
     [],
   ];
   for (const runs of refused) {
