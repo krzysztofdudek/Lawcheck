@@ -116,7 +116,7 @@ In a repository with no law, tell the agent this line:
 Run `lawcheck docs agent-setup` and follow it.
 ```
 
-The agent describes the folders as types, writes down which type uses which today, and asks you before it forbids a use that the code already makes. It changes only `.lawcheck/` ([Let a coding agent write the first law](agent-setup.md)).
+The agent describes the folders as types, writes down which type uses which today, and asks you before it forbids a use that the code already makes. It changes nothing outside `.lawcheck/`, except a CI job you ask for. It commits nothing unless you ask ([Let a coding agent write the first law](agent-setup.md)).
 
 ## If it goes wrong
 

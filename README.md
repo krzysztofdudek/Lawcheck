@@ -6,7 +6,7 @@ Architecture and rule checks for coding agents. You write down which layer may u
 
 The check of imports is deterministic. It reads them in 12 languages with no model, and the same code gives the same result. A script rule is a JavaScript file of your repository, and Lawcheck runs it on each file with no model. The hooks never ask a model about a rule in prose. Without `--review`, a check reads the verdicts already recorded and reports a file with none as `not-reviewed`. Lawcheck sends code to a model only for a rule in prose.
 
-It is for you if you build with coding agents and want the layers you drew and the rules you wrote to hold, such as a page component that must not call the database, or an HTTP handler that must check who calls it.
+It is for you if you build with coding agents and want the layers you drew and the rules you wrote to hold, such as a page component that must not call the database, or business logic that must not read the clock.
 
 On 2026-11-23 I gave Claude Code the same prompt in 80 sessions of a small shop repository. With no law and no plugin, the agent made the business logic import from the HTTP handlers in 8 of 20 sessions, and in each of the 8 all 10 tests passed ([one of the changes](film/takes/a09/change.diff)). With the law and the plugin, it did that in 0 of 60. That was one prompt, one repository and one model, and [film/pilot.json](film/pilot.json) lists every session. The pilot measured that one breach of the layers. I have not measured the rules this way.
 
@@ -73,7 +73,7 @@ npm install --global lawcheck@alpha
 lawcheck docs quick-start
 ```
 
-In your own repository, your agent can write the first law. Install the Lawcheck plugin and type `/lawcheck:setup` (`$lawcheck:setup` in Codex). It starts from the rules you already wrote in `CLAUDE.md`, `AGENTS.md` and your linter's config, and turns those of the "never import" and "never call" kinds into checks, such as no `console.log` in the core. The agent describes your folders as types, writes down which type uses which today, and asks you before it forbids a use the code already makes. It changes only `.lawcheck/` and commits nothing.
+In your own repository, your agent can write the first law. Install the Lawcheck plugin and type `/lawcheck:setup` (`$lawcheck:setup` in Codex). It starts from the rules you already wrote in `CLAUDE.md`, `AGENTS.md` and your linter's config, and turns those of the "never import" and "never call" kinds into checks, such as no `console.log` in the core. The agent describes your folders as types, writes down which type uses which today, and asks you before it forbids a use the code already makes. It changes nothing outside `.lawcheck/`, except a CI job you ask for. It commits nothing unless you ask.
 
 ## Your coding agent
 
