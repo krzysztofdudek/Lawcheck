@@ -161,12 +161,15 @@ export function phoneProblems(dir) {
   const out = [];
   for (const width of PHONE_WIDTHS) {
     const columns = new Map();
+    let bar;
     for (const rule of rules) {
       if (width > rule.max || width < rule.min) continue;
+      if (rule.selectors.includes('.chapter-bar')) bar = /(?:^|;)\s*flex-direction\s*:\s*([^;]+)/.exec(rule.body)?.[1].trim() ?? bar ?? 'row';
       const value = /(?:^|;)\s*grid-template-columns\s*:\s*([^;]+)/.exec(rule.body)?.[1];
       if (value !== undefined) for (const selector of rule.selectors) columns.set(selector, value.trim());
     }
     for (const [selector, value] of columns) if (trackCount(value) > 1) out.push(`at ${width} px ${selector} keeps ${trackCount(value)} columns (${value}), so its blocks stand side by side on a phone`);
+    if (bar !== undefined && bar !== 'column') out.push(`at ${width} px .chapter-bar is a ${bar}, so the length of a title decides where its chapter card puts Play and Read the page`);
   }
   return out;
 }
@@ -182,5 +185,5 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
     for (const problem of found) console.log(`  ${problem}`);
     process.exit(1);
   }
-  console.log(`landing: PASS  ${dir} has one h1, its title, description, canonical address, Open Graph and its card, JSON-LD for ${version}, a 404 page, robots.txt, sitemap.xml and vercel.json, ${chapters.length === 0 ? 'no tutorial section, since no chapter is listed' : `the section #tutorial with its ${chapters.length} chapters`}, ${loop === null ? 'the refusal in the hero, since no loop is listed' : 'the loop in the hero'}, and no grid of more than one column at ${PHONE_WIDTHS.join(', ')} px`);
+  console.log(`landing: PASS  ${dir} has one h1, its title, description, canonical address, Open Graph and its card, JSON-LD for ${version}, a 404 page, robots.txt, sitemap.xml and vercel.json, ${chapters.length === 0 ? 'no tutorial section, since no chapter is listed' : `the section #tutorial with its ${chapters.length} chapters`}, ${loop === null ? 'the refusal in the hero, since no loop is listed' : 'the loop in the hero'}, and, at ${PHONE_WIDTHS.join(', ')} px, no grid of more than one column and no chapter card that puts its buttons beside the title`);
 }
