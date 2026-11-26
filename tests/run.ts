@@ -221,7 +221,7 @@ function main(): void {
   const args = [
     '--test',
     `--import=${HARNESS}`,
-    `--test-reporter=${REPORTER}`,
+    `--test-reporter=${narrowed === null ? REPORTER : `${REPORTER}?chosen=${encodeURIComponent(narrowed.wanted.join(','))}`}`,
     '--test-reporter-destination=stdout',
     `--test-timeout=${slowest + TEST_BUDGET_MS}`,
     ...(serial ? ['--test-concurrency=1'] : []),
@@ -239,7 +239,7 @@ function main(): void {
   args.push(...files);
   const target = narrowed !== null ? null : parsed.speed === 'loop' ? LOOP_TARGET_MS : parsed.speed === 'commit' && parsed.targets.length === 0 && parsed.group === null && parsed.shard === null ? COMMIT_TARGET_MS : null;
   const whole = parsed.speed !== 'loop' && parsed.targets.length === 0 && parsed.group === null && parsed.shard === null && patterns.length === 0;
-  const env: NodeJS.ProcessEnv = { ...process.env, LAWCHECK_SPEED: parsed.speed, LAWCHECK_SEED: seed, LAWCHECK_TARGET_MS: target === null ? '' : String(target), LAWCHECK_TIE: whole ? '1' : '', LAWCHECK_SHUFFLE: parsed.shuffle ?? '', LAWCHECK_CHOSEN: narrowed?.wanted.join(',') ?? '' };
+  const env: NodeJS.ProcessEnv = { ...process.env, LAWCHECK_SPEED: parsed.speed, LAWCHECK_SEED: seed, LAWCHECK_TARGET_MS: target === null ? '' : String(target), LAWCHECK_TIE: whole ? '1' : '', LAWCHECK_SHUFFLE: parsed.shuffle ?? '' };
   // A test that starts this runner itself must run all it names, whatever the run around it chose.
   delete env.LAWCHECK_ONLY;
   let failed = false;

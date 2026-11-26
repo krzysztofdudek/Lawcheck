@@ -334,25 +334,20 @@ test('test 1430: a part of a run in which one of its chosen tests did not run is
   const ran = async function* () {
     yield { type: 'test:pass', data: { name: 'tests 1431 and 1500: two numbers in one name', nesting: 0, file: join(ROOT, SELF) } };
   };
-  const judged = () => judgeRun(ran(), { system: 'linux', started: null, target: 0 });
-  const before = process.env.LAWCHECK_CHOSEN;
-  try {
-    process.env.LAWCHECK_CHOSEN = 'test 1431,test 1500';
-    assert.equal((await judged()).red, false);
-    process.env.LAWCHECK_CHOSEN = 'test 1431,test 1428';
-    const missing = await judged();
-    assert.equal(missing.red, true);
-    assert.match(missing.text, /a chosen test did not run[^\n]*\ngot      no test named test 1428 ran/);
-    process.env.LAWCHECK_CHOSEN = '';
-    assert.equal((await judged()).red, false);
-  } finally {
-    if (before === undefined) delete process.env.LAWCHECK_CHOSEN;
-    else process.env.LAWCHECK_CHOSEN = before;
-  }
+  const judged = (chosen?: string[]) => judgeRun(ran(), { system: 'linux', started: null, target: 0, chosen });
+  assert.equal((await judged(['test 1431', 'test 1500'])).red, false);
+  const missing = await judged(['test 1431', 'test 1428']);
+  assert.equal(missing.red, true);
+  assert.match(missing.text, /a chosen test did not run[^\n]*\ngot      no test named test 1428 ran/);
+  assert.equal((await judged()).red, false);
+  // This call quotes an id that no test of this file is named by, so the file counts as holding it, and only the reporter of the run can tell.
+  const quoted = runner('test 163', SELF);
+  assert.equal(quoted.status, 1, quoted.stdout + quoted.stderr);
+  assert.match(quoted.stdout, /got      no test named test 163 ran/);
 });
 
-test('test 1431: the tests a narrowed run starts do not get LAWCHECK_ONLY, so a runner they start runs all it names', () => {
-  assert.equal(process.env.LAWCHECK_ONLY, undefined);
+test('test 1431: the tests a narrowed run starts do not see the list it chose, so what they run or judge themselves is not held to it', () => {
+  assert.deepEqual(Object.keys(process.env).filter((name) => name === 'LAWCHECK_ONLY' || /\btests? 1431\b/.test(process.env[name]!)), []);
 });
 
 // The script of release.yml's job nightly, run with a gh that answers from a list of runs and applies the script's own --jq with jq.
