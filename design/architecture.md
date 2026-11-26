@@ -41,7 +41,8 @@ Lawcheck is TypeScript on Node 24, compiled from `src/` to `dist/`. Its runtime 
 | `src/names.ts` | file names as bytes, and their escaped form in the output |
 | `src/limits.ts` | the limits of a run, and the reading of a file within them |
 | `src/rules.ts` | starts the runners, keeps the time of each call, validates what a rule returns |
-| `src/runner.ts` | the runner process: loads one rule and answers the tool's calls |
+| `src/runner.ts` | the runner process: loads one rule after another and answers the tool's calls |
+| `src/runner-trace.ts` | the runner's record of what a rule leaves for the next rule of that runner, and the ending of module URLs that keeps each rule's modules apart |
 | `src/readers.ts`, `src/uses.ts` | the uses of each file, the reader cache, and the findings and unresolved uses they give |
 | `src/waivers.ts` | the waiver comments, and the findings they cover |
 | `src/verdicts.ts` | the review key, `.lawcheck/verdicts`, `.lawcheck/.gitattributes`, the failure cache |

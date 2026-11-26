@@ -362,6 +362,16 @@
     "tests/unit/rules.test.ts",
     "tests/unit/runner.test.ts"
   ],
+  "src/runner-trace.ts": [
+    "tests/acceptance/rule-results.test.ts",
+    "tests/acceptance/rules.test.ts",
+    "tests/environments/refusal.test.ts",
+    "tests/environments/shapes.test.ts",
+    "tests/limits/findings.test.ts",
+    "tests/properties/rules.test.ts",
+    "tests/security/runner.test.ts",
+    "tests/unit/runner.test.ts"
+  ],
   "src/runner.ts": [
     "tests/acceptance/rule-results.test.ts",
     "tests/acceptance/rules.test.ts",

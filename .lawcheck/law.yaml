@@ -38,9 +38,9 @@ types:
         paths: ["src/cli.ts"]
         may_use: [commands, steps, output, core]
       rule-runner:
-        about: The program that loads one script rule and answers the tool's calls. It runs under Node's permission model and imports nothing of Lawcheck.
-        paths: ["src/runner.ts"]
-        may_use: []
+        about: The program that loads script rules one after another and answers the tool's calls, and its record of what a rule leaves for the next rule. It runs under Node's permission model and imports nothing of Lawcheck outside this type.
+        paths: ["src/runner.ts", "src/runner-trace.ts"]
+        may_use: [rule-runner]
       guard:
         about: The program that ends the runners, process groups and folders that outlive the tool.
         paths: ["src/guard.ts"]

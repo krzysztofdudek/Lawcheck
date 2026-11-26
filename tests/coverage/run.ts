@@ -11,6 +11,7 @@ const USAGE = 'usage: node tests/coverage/run.ts [--out <file>] [<arguments of t
 // Lawcheck starts a rule runner with an empty environment and no right to write, so the runner cannot say what it ran; only the tests that load its file themselves are counted.
 const UNMEASURED: Record<string, string> = {
   'src/runner.ts': 'This file runs in the rule runner, which Lawcheck starts with an empty environment and no right to write a file, so what it ran there is not counted: a line below may be reached.',
+  'src/runner-trace.ts': 'This file runs in the rule runner, which Lawcheck starts with an empty environment and no right to write a file, so what it ran there is not counted: a line below may be reached.',
 };
 
 class CouldNotRun extends Error {}
