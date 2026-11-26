@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       jobs:
-        description: 'Jobs to run, comma separated with no spaces: repeat, shuffle, properties, limits, environments, deadlines, sabotage. Empty runs every job.'
+        description: 'Jobs to run, comma separated with no spaces: commit, shuffle, properties, limits, environments, deadlines, sabotage. Empty runs every job.'
         type: string
         default: ''
       tests:
@@ -17,7 +17,7 @@ on:
         type: string
         default: ''
       os:
-        description: 'The system of the jobs that run on several: repeat and deadlines.'
+        description: 'The system of the jobs that run on several: commit and deadlines.'
         type: choice
         options: [all, ubuntu-latest, windows-latest, macos-latest]
         default: all
@@ -29,7 +29,7 @@ permissions:
 env:
   LAWCHECK_ONLY: ${{ inputs.tests }}
 
-# The network is open in environments, which starts official images and fetches packages, and in repeat and deadlines, which do not close it.
+# The network is open in environments, which starts official images and fetches packages, and in commit and deadlines, which do not close it.
 # A group that tests/harness/sets.ts declares empty has no job here; it gets one when it gets its first test.
 # Every other job closes the network: a namespace with only a loopback device, as the runner's user with no supplementary group, and limits in a container run with --network none.
 jobs:
@@ -49,14 +49,13 @@ jobs:
           LAWCHECK_OS: ${{ inputs.os }}
         run: node tests/harness/chosen.ts
 
-  # The commit set on one commit, on each system: three times on Linux and macOS, where a test with mixed results is a flake and stops the release until it is fixed, and once on Windows.
-  repeat:
+  # The commit set once, on each system.
+  commit:
     name: nightly commit set (${{ matrix.os }})
-    if: ${{ !inputs.jobs || contains(format(',{0},', inputs.jobs), ',repeat,') }}
+    if: ${{ !inputs.jobs || contains(format(',{0},', inputs.jobs), ',commit,') }}
     runs-on: ${{ matrix.os }}
-    # Three times the slowest green run of this job on each system in the last 16 green Nightlies, rounded up to 5 minutes.
-    # Windows runs the set once: three times its slowest round in the green Nightlies of 2026-11-25, about 36 minutes.
-    timeout-minutes: ${{ matrix.os == 'windows-latest' && 110 || matrix.os == 'macos-latest' && 160 || 95 }}
+    # Three times one run of the set with the steps before it, rounded up to 5 minutes. The slowest run on each system in the green Nightlies of 2026-11-25: 37 minutes on Windows, 25 on macOS, 16 on Linux.
+    timeout-minutes: ${{ matrix.os == 'windows-latest' && 115 || matrix.os == 'macos-latest' && 80 || 50 }}
     strategy:
       fail-fast: false
       matrix:
@@ -70,7 +69,7 @@ jobs:
       - run: npm ci
       - run: npm run build
       - name: The commit set
-        run: npm test -- --repeat ${{ matrix.os == 'windows-latest' && 1 || 3 }}
+        run: npm test
 
   # The commit set in an order shuffled by a new seed, so a test that leans on another's leftovers fails. The runner takes the seed as LAWCHECK_ORDER_SEED and prints 'order seed <n>'; until tests/run.ts reads it, this job says declared empty.
   shuffle:

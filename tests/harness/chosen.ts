@@ -31,7 +31,7 @@ export function everyTestFile(): string[] {
 
 // What each job of nightly.yml runs: a set, and its group, or null for the whole set. tests/contract/nightly-chosen.test.ts holds this to the workflow.
 export const NIGHTLY_JOBS: Record<string, { speed: Exclude<Speed, 'loop'>; group: string | null }> = {
-  repeat: { speed: 'commit', group: null },
+  commit: { speed: 'commit', group: null },
   shuffle: { speed: 'commit', group: null },
   properties: { speed: 'nightly', group: 'properties' },
   limits: { speed: 'nightly', group: 'limits' },
@@ -40,7 +40,7 @@ export const NIGHTLY_JOBS: Record<string, { speed: Exclude<Speed, 'loop'>; group
   sabotage: { speed: 'nightly', group: 'sabotage' },
 };
 
-export const SEVERAL_SYSTEMS = ['repeat', 'deadlines'];
+export const SEVERAL_SYSTEMS = ['commit', 'deadlines'];
 
 // A job left out is skipped and a step without a chosen test runs nothing, and GitHub shows both without a red, so a name that matches nothing has to be refused here.
 export function inputProblems(jobs: string, tests: string, os: string): string[] {

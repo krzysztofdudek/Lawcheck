@@ -74,7 +74,7 @@ test('question 95: a group added to tests/harness/sets.ts and to no workflow is 
   assert.deepEqual(commitProblems(named, ['inputs']), ['ci.yml: no job runs commit group inputs', 'ci.yml: group core is not a commit group of tests/harness/sets.ts']);
 });
 
-const WHOLE_COMMIT_SET = /^(npm test( -- --repeat ([1-9]\d*|\$\{\{ matrix\.os == 'windows-latest' && [1-9]\d* \|\| [1-9]\d* \}\}))?|node tests\/run\.ts commit( --repeat [1-9]\d*)?)$/;
+const WHOLE_COMMIT_SET = /^(npm test( -- --repeat [1-9]\d*)?|node tests\/run\.ts commit( --repeat [1-9]\d*)?)$/;
 const SYSTEM_OF: [RegExp, string][] = [[/^ubuntu-/, 'linux'], [/^windows-/, 'win32'], [/^macos-/, 'darwin']];
 
 // The one condition a job of the nightly may carry: it holds on every run that names no jobs.
@@ -103,22 +103,22 @@ test('question 95: the nightly runs the whole commit set on Linux, Windows and m
 
 test('question 95: a nightly that runs the whole commit set on Linux alone, behind a condition, or nowhere is refused (control)', () => {
   const narrowed = read('nightly.yml');
-  narrowed.jobs.repeat!.strategy!.matrix!.os = ['ubuntu-latest'];
+  narrowed.jobs.commit!.strategy!.matrix!.os = ['ubuntu-latest'];
   assert.deepEqual(wholeSetSystems(narrowed), ['linux']);
   const gated = read('nightly.yml');
-  gated.jobs.repeat!.if = "github.event_name == 'schedule'";
+  gated.jobs.commit!.if = "github.event_name == 'schedule'";
   assert.deepEqual(wholeSetSystems(gated), []);
   const grouped = read('nightly.yml');
-  for (const step of grouped.jobs.repeat!.steps!) if (step.run !== undefined) step.run = step.run.replace('npm test -- --repeat ', 'npm test -- --group core --repeat ');
+  for (const step of grouped.jobs.commit!.steps!) if (step.run !== undefined) step.run = step.run.replace('npm test', 'npm test -- --group core');
   assert.deepEqual(wholeSetSystems(grouped), []);
   const gone = read('nightly.yml');
-  delete gone.jobs.repeat;
+  delete gone.jobs.commit;
   assert.deepEqual(wholeSetSystems(gone), []);
   const another = read('nightly.yml');
-  another.jobs.repeat!.if = choiceOf('limits');
+  another.jobs.commit!.if = choiceOf('limits');
   assert.deepEqual(wholeSetSystems(another), []);
   const chosenByDefault = read('nightly.yml');
-  chosenByDefault.jobs.repeat!.strategy!.matrix!.os = String(chosenByDefault.jobs.repeat!.strategy!.matrix!.os).replace(',"windows-latest","macos-latest"', '');
+  chosenByDefault.jobs.commit!.strategy!.matrix!.os = String(chosenByDefault.jobs.commit!.strategy!.matrix!.os).replace(',"windows-latest","macos-latest"', '');
   assert.deepEqual(wholeSetSystems(chosenByDefault), ['linux']);
 });
 
@@ -274,7 +274,7 @@ test('test 1428: the input check refuses a job or a test that would be left out 
   assert.deepEqual(inputProblems('', '', 'all'), []);
   assert.deepEqual(inputProblems('limits', 'test 251', 'all'), []);
   assert.deepEqual(inputProblems('limits,deadlines', 'test 251, test 163', ''), []);
-  assert.deepEqual(inputProblems('repeat', '', 'windows-latest'), []);
+  assert.deepEqual(inputProblems('commit', '', 'windows-latest'), []);
   assert.deepEqual(inputProblems('', '', 'macos-latest'), []);
   const only = (jobs: string, tests: string, os: string, expected: RegExp[]) => {
     const problems = inputProblems(jobs, tests, os);
@@ -288,7 +288,7 @@ test('test 1428: the input check refuses a job or a test that would be left out 
   only('limits', 'test 251,test 163', 'all', [/no chosen job holds a test named test 163/]);
   only('limits', 'test 251,251', 'all', [/'251' is not a test id/]);
   only('limits', ' , ', 'all', [/names no test id/]);
-  only('limits', '', 'windows-latest', [/only the jobs repeat and deadlines run on several systems/]);
+  only('limits', '', 'windows-latest', [/only the jobs commit and deadlines run on several systems/]);
   assert.deepEqual(chosenTests(' tests 248 ,test 251,'), ['test 248', 'test 251']);
   const cli = (env: Record<string, string>) => spawnSync(process.execPath, [join(ROOT, 'tests', 'harness', 'chosen.ts')], { cwd: ROOT, encoding: 'utf8', env: { ...process.env, LAWCHECK_JOBS: '', LAWCHECK_ONLY: '', LAWCHECK_OS: '', ...env } });
   const good = cli({ LAWCHECK_JOBS: 'limits', LAWCHECK_ONLY: 'test 251', LAWCHECK_OS: 'all' });
@@ -399,7 +399,7 @@ test('test 1433: release.yml takes one green whole Nightly on the tagged commit,
   }
 });
 
-test('test 1434: the nightly runs the commit set once on Windows and three times on Linux and macOS', () => {
-  const runs = read('nightly.yml').jobs.repeat!.steps!.map((step) => step.run ?? '').filter((run) => run.startsWith('npm test'));
-  assert.deepEqual(runs, ["npm test -- --repeat ${{ matrix.os == 'windows-latest' && 1 || 3 }}"]);
+test('test 1434: the nightly runs the commit set once on each system', () => {
+  const runs = read('nightly.yml').jobs.commit!.steps!.map((step) => step.run ?? '').filter((run) => run.startsWith('npm test'));
+  assert.deepEqual(runs, ['npm test']);
 });
