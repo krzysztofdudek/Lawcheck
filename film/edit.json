@@ -151,8 +151,8 @@
     {
       "id": "l2",
       "start": 7.4,
-      "end": 12.4,
-      "caption": "Lawcheck. Architecture checks for coding agents.",
+      "end": 13.1,
+      "caption": "Lawcheck. Architecture and rule checks for coding agents.",
       "screens": [
         {
           "at": 0,
@@ -200,8 +200,8 @@
     },
     {
       "id": "l3",
-      "start": 12.4,
-      "end": 19.8,
+      "start": 13.1,
+      "end": 20.5,
       "caption": "Lawcheck names the line and the rule",
       "screens": [
         {
@@ -238,8 +238,8 @@
     },
     {
       "id": "l4",
-      "start": 19.8,
-      "end": 26.2,
+      "start": 20.5,
+      "end": 26.9,
       "caption": "Same prompt, law and plugin",
       "screens": [
         {
@@ -264,8 +264,8 @@
     },
     {
       "id": "l5",
-      "start": 26.2,
-      "end": 28.9,
+      "start": 26.9,
+      "end": 29.6,
       "screens": [
         {
           "at": 0,
