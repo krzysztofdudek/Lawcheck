@@ -54,6 +54,12 @@ export class Bench {
     if (WINDOWS) writeFileSync(`${path}.cmd`, `@"${process.execPath}" "${path}" %*\r\n`);
   }
 
+  shell(name: string, body: string[]): void {
+    const path = join(this.bin, name);
+    writeFileSync(path, ['#!/bin/sh', ...body, ''].join('\n'));
+    chmodSync(path, 0o755);
+  }
+
   remove(name: string): void {
     rmSync(join(this.bin, name), { force: true });
     rmSync(join(this.bin, `${name}.cmd`), { force: true });
@@ -332,6 +338,11 @@ export type Deadlines = Record<'session-start' | 'prompt' | 'edit' | 'stop', num
 
 // A stand-in lawcheck that starts a child, writes both process ids to a file and never answers; with trap, both stay alive on SIGTERM, so only the SIGKILL 2 seconds later ends them.
 function hangingLawcheck(bench: Bench, pids: string, trap: boolean): void {
+  // A shell wherever one can stand in: the process ids must be written before the hook's deadline, and a new node on a loaded macOS runner took longer than 5 seconds to write them.
+  if (!WINDOWS) {
+    bench.shell('lawcheck', [...(trap ? ["trap '' TERM"] : []), '/bin/sleep 300 </dev/null >/dev/null 2>&1 &', `echo "$$ $!" > '${pids}'`, 'wait']);
+    return;
+  }
   const ignore = trap ? "process.on('SIGTERM', () => {}); " : '';
   bench.script('lawcheck', [
     `const c = spawn(process.execPath, ['-e', ${JSON.stringify(`${ignore}setTimeout(() => {}, 300000)`)}], { stdio: 'ignore' });`,

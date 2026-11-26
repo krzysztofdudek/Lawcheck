@@ -31,9 +31,19 @@ export interface FakeGit {
   record?: { file: string; variable: string };
 }
 
-// A git on the PATH that a hook starts in place of the real one. The hooks start git only as git.exe on Windows, so a script cannot stand in for it: the stand-in is a copy of node named git, and NODE_OPTIONS makes every node load a preload that acts only in that copy, before node looks for a script, and then runs the real git with the same words. Node reads a first word that starts with - as its own option, so the stand-in serves only calls that start with a git command, as the hooks' snapshot does, and not the tool, which asks git --version. Returns the variables that the run's environment needs.
+// A git on the PATH that a hook starts in place of the real one. Outside Windows, one that hangs is a shell script, which records its call before the hook's deadline on a loaded runner, where a new node may not. The hooks start git only as git.exe on Windows, so a script cannot stand in for it there, nor does one for a git that goes on to run the real one: that stand-in is a copy of node named git, and NODE_OPTIONS makes every node load a preload that acts only in that copy, before node looks for a script, and then runs the real git with the same words. Node reads a first word that starts with - as its own option, so the stand-in serves only calls that start with a git command, as the hooks' snapshot does, and not the tool, which asks git --version. Returns the variables that the run's environment needs.
 export function fakeGit(bin: string, realGit: string, act: FakeGit): NodeJS.ProcessEnv {
   const program = join(bin, process.platform === 'win32' ? 'git.exe' : 'git');
+  if (act.hang === true && process.platform !== 'win32') {
+    const record = act.record === undefined ? [] : [
+      'words=',
+      'for word in "$@"; do words="$words${words:+,}\\"$word\\""; done',
+      `printf '{"words":[%s],"value":"%s"}\\n' "$words" "$${act.record.variable}" >> '${act.record.file}'`,
+    ];
+    writeFileSync(program, ['#!/bin/sh', ...record, 'exec /bin/sleep 300', ''].join('\n'));
+    chmodSync(program, 0o755);
+    return {};
+  }
   copyFileSync(process.execPath, program);
   chmodSync(program, 0o755);
   const preload = join(bin, 'fake-git.cjs');
