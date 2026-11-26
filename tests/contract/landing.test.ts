@@ -263,6 +263,16 @@ test('test 892: the check of the built landing page passes a stylesheet that sta
   assert.deepEqual(sheetProblems(null), ['assets has no stylesheet']);
 });
 
+test('test 1501: the check of the built landing page passes the stylesheet of the landing page, whose chapter cards put Play and Read the page under the title on a phone, and names a chapter card that stays a row there, where the length of a title decides where the buttons go (control)', () => {
+  const css = read('site/landing/.vitepress/theme/landing.css');
+  assert.deepEqual(sheetProblems(css), []);
+  const row = '.chapter-bar{display:flex;flex-wrap:wrap}';
+  const named = [320, 360, 390].map((width) => `at ${width} px .chapter-bar is a row, so the length of a title decides where its chapter card puts Play and Read the page`);
+  assert.deepEqual(sheetProblems(row), named);
+  assert.deepEqual(sheetProblems(`${row}@media(max-width:860px){.chapter-bar{flex-direction:column}}`), []);
+  assert.deepEqual(sheetProblems(`${row}@media(max-width:300px){.chapter-bar{flex-direction:column}}`), named);
+});
+
 test('test 1009: the finding on the card and in its alt text is the whole line that README.md shows, and the alt text says it is the first line of a finding (issue 244)', () => {
   const line = `${FINDING.place}  ${FINDING.code}  ${FINDING.text}`;
   assert.ok(read('README.md').split('\n').includes(line), 'a whole line of README.md');
