@@ -1,6 +1,6 @@
 // The record of what a rule of a runner leaves for the next rule of that runner, and the ending of module URLs that gives each rule its own copies of its modules. The runner imports this file and nothing else of Lawcheck.
 
-// What a later rule of the same runner could see of an earlier one, beyond its modules: the own properties of an object, each by its value or its getter and setter, and one level below for the functions, their prototypes and the plain objects it holds.
+// A rule can replace a property's value or only its getter or setter, and a later rule of the runner meets either, so a shape keeps all three.
 type Shape = Map<object, Map<string | symbol, unknown[]>>;
 const builtin = process.getBuiltinModule.bind(process);
 
@@ -97,7 +97,7 @@ interface Trace {
 }
 let before: Trace | null = null;
 
-// What the runner records before its first rule, to compare after each rule with clean().
+// Taken once, when the first rule loads: by then the runner has closed the network, patched its timers and opened its channel, so what it changed itself is not counted against a rule.
 export function record(): void {
   before ??= trace();
 }
